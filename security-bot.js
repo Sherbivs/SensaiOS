@@ -120,7 +120,16 @@ const BACKFILL_INTERVAL_MIN = Math.max(0, Number(process.env.BACKFILL_INTERVAL_M
 const ROLE_REMEDIATION_INTERVAL_MIN = Math.max(0, Number(process.env.ROLE_REMEDIATION_INTERVAL_MIN || 0)); // 0 = disabled
 const CACHE_TTL_HOURS = Math.max(1, Number(process.env.CACHE_TTL_HOURS || 24));
 const OPS_REPORT_INTERVAL_MIN = Math.max(0, Number(process.env.OPS_REPORT_INTERVAL_MIN || 0)); // 0 = disabled
-const ROLE_REMEDIATION_INTERVAL_MIN = Math.max(0, Number(process.env.ROLE_REMEDIATION_INTERVAL_MIN || 0)); // 0 = disabled
+// Standard-policy enforcement controls
+const STANDARD_ENFORCE_ALL = process.env.STANDARD_ENFORCE_ALL === '1' || process.env.STANDARD_ENFORCE_ALL === 'true';
+const UNLISTED_PERMISSIONS = (process.env.UNLISTED_PERMISSIONS || 'ViewChannel,SendMessages,ReadMessageHistory,AddReactions,UseExternalEmojis,EmbedLinks,AttachFiles')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+const STANDARD_EXEMPT_ROLES = new Set((process.env.STANDARD_EXEMPT_ROLES || '')
+  .split(',').map(s => s.trim()).filter(Boolean));
+const STANDARD_ALL_PERMS_ROLES = new Set((process.env.STANDARD_ALL_PERMS_ROLES || '')
+  .split(',').map(s => s.trim()).filter(Boolean));
 
 const describeRole = (role) => `${role.name} (#${role.id})`;
 const describeMember = (member) => `${member.user.tag} (#${member.id})`;
@@ -231,12 +240,22 @@ function desiredPermissionsForRole(role, currentPerms) {
       setSnapshot(role, seed);
       return { policy: 'snapshot', expected: seed, seeded: true };
     }
-    // Fallback to standard if present; otherwise unmanaged
+    // Fallbacks when snapshot is absent and auto-seed is disabled
     if (standard) return { policy: 'standard', expected: standard };
+    if (STANDARD_ENFORCE_ALL && !STANDARD_EXEMPT_ROLES.has(role.name)) {
+      if (STANDARD_ALL_PERMS_ROLES.has(role.name)) return { policy: 'all', expected: 'ALL' };
+      return { policy: 'standard', expected: UNLISTED_PERMISSIONS };
+    }
     return { policy: 'unmanaged', expected: null };
   }
 
-  if (!standard) return { policy: 'unmanaged', expected: null };
+  if (!standard) {
+    if (STANDARD_ENFORCE_ALL && !STANDARD_EXEMPT_ROLES.has(role.name)) {
+      if (STANDARD_ALL_PERMS_ROLES.has(role.name)) return { policy: 'all', expected: 'ALL' };
+      return { policy: 'standard', expected: UNLISTED_PERMISSIONS };
+    }
+    return { policy: 'unmanaged', expected: null };
+  }
   if (standard === 'ALL') return { policy: 'all', expected: 'ALL' };
   return { policy: 'standard', expected: standard };
 }
@@ -749,7 +768,9 @@ client.once(Events.ClientReady, async () => {
     roleAudit: ROLE_PERMISSIONS_AUDIT ? 'enabled' : 'disabled',
     roleRemediation: ROLE_PERMISSIONS_REMEDIATE ? 'enabled' : 'disabled',
     rolePermissionPolicy: ROLE_PERMISSION_POLICY,
-    snapshotAutoSeed: ROLE_PERMISSION_SNAPSHOT_UPDATE ? 'enabled' : 'disabled'
+    snapshotAutoSeed: ROLE_PERMISSION_SNAPSHOT_UPDATE ? 'enabled' : 'disabled',
+    enforceAllRoles: STANDARD_ENFORCE_ALL ? 'enabled' : 'disabled',
+    unlistedBaselineCount: UNLISTED_PERMISSIONS.length
   });
 
   // One-time detailed operational report
@@ -844,6 +865,47 @@ client.on('roleUpdate', async (_oldRole, newRole) => {
 });
 
 // ----- Alerting -----
+function extractUserIdLike(input) {
+  if (!input) return null;
+  const trimmed = String(input).trim();
+  // <@123> or <@!123>
+  const mention = trimmed.match(/<@!?([0-9]{5,})>/);
+  if (mention) return mention[1];
+  // pure numeric
+  if (/^[0-9]{5,}$/.test(trimmed)) return trimmed;
+  return null; // not an ID-like string
+}
+
+async function resolveAlertUser(spec) {
+  // Try direct ID first (including mention format)
+  const idFromSpec = extractUserIdLike(spec);
+  if (idFromSpec) {
+    try { return await client.users.fetch(idFromSpec); } catch {}
+  }
+
+  const needle = String(spec).trim().toLowerCase();
+  // Try exact tag match (username#discriminator)
+  for (const [, user] of client.users.cache) {
+    if ((user.tag && user.tag.toLowerCase() === needle) || user.username.toLowerCase() === needle) {
+      return user;
+    }
+  }
+
+  // Search guild members if not found in user cache
+  for (const [, guild] of client.guilds.cache) {
+    try {
+      const members = await guild.members.fetch();
+      for (const [, member] of members) {
+        const u = member.user;
+        if ((u.tag && u.tag.toLowerCase() === needle) || u.username.toLowerCase() === needle || member.displayName.toLowerCase() === needle) {
+          return u;
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
 async function sendSecurityAlert(title, meta = {}) {
   try {
     const text = `🔒 ${title}`;
@@ -894,7 +956,7 @@ async function sendSecurityAlert(title, meta = {}) {
     // 3) Direct message to a user
     if (ALERT_USER_ID) {
       try {
-        const user = await client.users.fetch(ALERT_USER_ID);
+        const user = await resolveAlertUser(ALERT_USER_ID);
         if (user && typeof user.send === 'function') {
           await user.send(`${text}\n${'```'}json\n${JSON.stringify(body, null, 2)}\n${'```'}`);
         }

@@ -34,9 +34,13 @@ BOT_TOKEN=your_discord_bot_token_here
 # ROLE_REMEDIATION_INTERVAL_MIN=0  # set >0 to periodically re-validate and fix managed roles
 # ROLE_PERMISSION_POLICY=standard   # 'standard' (default) or 'snapshot'
 # ROLE_PERMISSION_SNAPSHOT_UPDATE=true  # auto-seed snapshot from current if missing
+# STANDARD_ENFORCE_ALL=false        # enforce a baseline on unlisted roles
+# UNLISTED_PERMISSIONS=ViewChannel,SendMessages,ReadMessageHistory,AddReactions,UseExternalEmojis,EmbedLinks,AttachFiles
+# STANDARD_EXEMPT_ROLES=RoleA,RoleB # roles to skip when enforcing-all
+# STANDARD_ALL_PERMS_ROLES=Drip     # roles allowed to keep ALL perms when enforcing-all
 # ALERT_WEBHOOK_URL=https://example.com/webhook
 # ALERT_CHANNEL_ID=123456789012345678
-# ALERT_USER_ID=123456789012345678
+# ALERT_USER_ID=123456789012345678   # also accepts <@123...>, username#1234, or username (resolved in mutual guilds)
 ```
 
 2) Install dependencies and run:
@@ -51,6 +55,7 @@ Notes:
 - Privileged Gateway Intent “Server Members Intent” must be enabled in the Developer Portal.
  - With remediation enabled and a remediation interval set, role permission drift will be corrected automatically.
  - Snapshot policy: When set to 'snapshot', the bot heals roles to your last-known-good snapshots (auto-seeded from current if enabled). It falls back to the STANDARD map when no snapshot exists and auto-seed is off.
+ - Enforce-all mode: When enabled, unlisted roles are given the UNLISTED_PERMISSIONS baseline (unless exempted), or 'ALL' if listed under STANDARD_ALL_PERMS_ROLES.
 
 ## setup: Pokémon bot
 
