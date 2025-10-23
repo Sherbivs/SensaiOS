@@ -43,10 +43,7 @@ async function cloneOrOpen() {
     const authedUrl = authUrl(REPO_URL);
     try {
       await git.clone(authedUrl, CLONE_DIR, ['--depth', '1', '--branch', BRANCH]);
-    } catch (error) {
-      console.warn(
-        `[cache] failed to clone branch ${BRANCH} directly: ${error.message}. Falling back to default branch.`,
-      );
+    } catch {
       await git.clone(authedUrl, CLONE_DIR, ['--depth', '1']);
     }
 
@@ -59,26 +56,11 @@ async function cloneOrOpen() {
     }
   } else {
     git = simpleGit({ baseDir: CLONE_DIR });
-    try {
-      await git.fetch('origin');
-    } catch (error) {
-      console.warn(`[cache] fetch origin failed: ${error.message}`);
-    }
-
-    try {
-      await git.checkout(BRANCH);
-    } catch (error) {
-      if (error) {
-        console.warn(`[cache] checkout branch ${BRANCH} failed, creating local branch: ${error.message}`);
-      }
+    await git.fetch('origin').catch(() => {});
+    await git.checkout(BRANCH).catch(async () => {
       await git.checkoutLocalBranch(BRANCH);
-    }
-
-    try {
-      await git.pull('origin', BRANCH, { '--rebase': 'true' });
-    } catch (error) {
-      console.warn(`[cache] pull origin/${BRANCH} failed: ${error.message}`);
-    }
+    });
+    await git.pull('origin', BRANCH, { '--rebase': 'true' }).catch(() => {});
   }
 
   const name = process.env.GIT_USER_NAME || 'cache-bot';
@@ -115,10 +97,6 @@ async function commitAndPush(message) {
 
   await git.add('.');
   await git.commit(message);
-
-  if (!REPO_URL) {
-    throw new Error('REPO_URL env var is required for pushing changes');
-  }
 
   await git.remote(['set-url', 'origin', authUrl(REPO_URL)]);
   await git.push('origin', BRANCH, { '--set-upstream': null });
