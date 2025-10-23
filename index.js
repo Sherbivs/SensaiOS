@@ -143,13 +143,14 @@ function formatBytes(n) {
 }
 
 function reportOperationalStats(where = 'startup') {
-  const budget = cache.getCacheBudget();
-  const cacheSize = cache.getCacheSize();
+  const hasBudget = cache && typeof cache.getCacheBudget === 'function';
+  const budget = hasBudget ? cache.getCacheBudget() : { approxBytes: 0, maxAllowedBytes: 0, percent: cache && cache.MAX_CACHE_PERCENT ? cache.MAX_CACHE_PERCENT : 0.25 };
+  const cacheSize = (cache && typeof cache.getCacheSize === 'function') ? cache.getCacheSize() : 0;
   const mem = process.memoryUsage();
 
   log('info', '=== Cache & Resource Report ===', {
     at: where,
-    cacheDir: cache.CACHE_DIR,
+    cacheDir: cache && cache.CACHE_DIR ? cache.CACHE_DIR : 'unknown',
     cacheSize: formatBytes(cacheSize),
     cacheBudgetMax: formatBytes(budget.maxAllowedBytes),
     cacheBudgetPercent: `${Math.round(budget.percent * 100)}% of approx free`,
