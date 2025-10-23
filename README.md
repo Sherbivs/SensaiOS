@@ -101,3 +101,12 @@ You can also use the optional `render.yaml` provided in this folder to set up th
 - `ROLE_PERMISSIONS_REMEDIATE` (default: `false`): Attempt to update roles to a standard policy (use with caution).
 - `ROLE_PERMISSION_SNAPSHOT_UPDATE` (default: `true`): Maintain on-disk permission snapshots for the security report.
  - `ROLE_PERMISSION_POLICY` (default: `snapshot`): Policy for healing target role permissions (`snapshot` or `standard`).
+ - `STANDARD_ENFORCE_ALL` (default: `false`): When `true` and policy is `standard`, enforce the standard on ALL roles, not just the target.
+ - `UNLISTED_PERMISSIONS` (default: empty): Comma-separated permissions to apply as the default standard for roles not explicitly listed (used only when `STANDARD_ENFORCE_ALL=true` and policy=`standard`). Example: `UNLISTED_PERMISSIONS=SendMessages,ReadMessageHistory`.
+
+## Integration checklist
+1) Copy `.env.example` to `.env` and set BOT_TOKEN
+2) Ensure the `Store/discord-cache` directory is writable by the process (created automatically on first write)
+3) Run `npm install`
+4) Start with `npm start`
+5) Optional maintenance: the cache auto-prunes to ~25% of approx free space and cleans files older than 7 days

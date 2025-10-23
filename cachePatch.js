@@ -95,6 +95,15 @@ function getDiskFreeSpace() {
 }
 
 /**
+ * Budget helper for operational reporting
+ */
+function getCacheBudget() {
+  const approxBytes = getDiskFreeSpace();
+  const maxAllowedBytes = approxBytes * MAX_CACHE_PERCENT;
+  return { approxBytes, maxAllowedBytes, percent: MAX_CACHE_PERCENT };
+}
+
+/**
  * Prune oldest cache files to stay within MAX_CACHE_PERCENT of disk
  */
 function pruneCache() {
@@ -158,4 +167,6 @@ module.exports = {
   pruneCache,
   cleanOldCache,
   getCacheSize,
+  MAX_CACHE_PERCENT,
+  getCacheBudget,
 };

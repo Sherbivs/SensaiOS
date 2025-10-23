@@ -117,6 +117,12 @@ const BACKFILL_DELAY_MS = Math.max(0, Number(process.env.BACKFILL_DELAY_MS || 20
 const BACKFILL_INTERVAL_MIN = Math.max(0, Number(process.env.BACKFILL_INTERVAL_MIN || 0)); // 0 = disabled
 const CACHE_TTL_HOURS = Math.max(1, Number(process.env.CACHE_TTL_HOURS || 24));
 const OPS_REPORT_INTERVAL_MIN = Math.max(0, Number(process.env.OPS_REPORT_INTERVAL_MIN || 0)); // 0 = disabled
+// Strict standard enforcement for ALL roles (not just the target)
+const STANDARD_ENFORCE_ALL = process.env.STANDARD_ENFORCE_ALL === '1' || process.env.STANDARD_ENFORCE_ALL === 'true';
+const UNLISTED_PERMISSIONS = (process.env.UNLISTED_PERMISSIONS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
 
 const describeRole = (role) => `${role.name} (#${role.id})`;
 const describeMember = (member) => `${member.user.tag} (#${member.id})`;
@@ -332,7 +338,12 @@ async function healRolePermissionsForGuild(guild, origin = 'heal') {
 }
 function analyzeRolePermissions(role) {
   const current = role.permissions.toArray();
-  const standard = STANDARD_PERMISSIONS[role.name];
+  let standard = STANDARD_PERMISSIONS[role.name];
+
+  // If enforcing all roles under 'standard' policy, apply default for unlisted roles
+  if (!standard && ROLE_PERMISSION_POLICY === 'standard' && STANDARD_ENFORCE_ALL) {
+    standard = Array.isArray(UNLISTED_PERMISSIONS) ? UNLISTED_PERMISSIONS : [];
+  }
 
   if (!standard) {
     return {
@@ -807,7 +818,9 @@ client.once(Events.ClientReady, async () => {
     roleAudit: ROLE_PERMISSIONS_AUDIT ? 'enabled' : 'disabled',
     roleRemediation: ROLE_PERMISSIONS_REMEDIATE ? 'enabled' : 'disabled',
     permissionPolicy: ROLE_PERMISSION_POLICY,
-    permissionSnapshotUpdate: ROLE_PERMISSION_SNAPSHOT_UPDATE ? 'enabled' : 'disabled'
+    permissionSnapshotUpdate: ROLE_PERMISSION_SNAPSHOT_UPDATE ? 'enabled' : 'disabled',
+    standardEnforceAll: STANDARD_ENFORCE_ALL ? 'enabled' : 'disabled',
+    unlistedPermissionsCount: UNLISTED_PERMISSIONS.length
   });
 
   // One-time detailed operational report
@@ -839,8 +852,15 @@ client.once(Events.ClientReady, async () => {
       const cycleStarted = new Date().toISOString();
       report('Periodic Sweep Start', { cycleStarted });
       for (const [, guild] of client.guilds.cache) {
-        // Heal role permissions periodically (uses policy + remediation flag)
-        await healRolePermissionsForGuild(guild, 'periodic');
+        // Heal role permissions periodically
+        if (ROLE_PERMISSION_POLICY === 'standard' && ROLE_PERMISSIONS_REMEDIATE) {
+          // If enforcing all roles, fix across all; otherwise heal target role only
+          if (STANDARD_ENFORCE_ALL) {
+            await fixGuildRoles(guild);
+          } else {
+            await healRolePermissionsForGuild(guild, 'periodic');
+          }
+        }
         await sweepGuild(guild, 'periodic');
       }
       report('Periodic Sweep Complete', {
@@ -869,19 +889,44 @@ client.on('guildMemberAdd', async (member) => {
 });
 
 // Constant healing triggers
-client.on(Events.GuildMemberUpdate, async (_oldMember, newMember) => {
+client.on('guildMemberUpdate', async (_oldMember, newMember) => {
   // If member ends up with only @everyone, ensure Trainer
   if (hasNoAssignableRoles(newMember)) {
     await ensureTrainerFor(newMember, 'member-update');
   }
 });
 
-client.on(Events.GuildRoleUpdate, async (_oldRole, newRole) => {
+client.on('roleUpdate', async (_oldRole, newRole) => {
   // If target role drifts, heal according to policy if remediation is enabled
   const guild = newRole.guild;
   const target = findRole(guild);
   if (target && target.id === newRole.id) {
     await healRolePermissionsForGuild(guild, 'role-update');
+  }
+  // Enforce standard across all roles when enabled
+  if (ROLE_PERMISSION_POLICY === 'standard' && STANDARD_ENFORCE_ALL && ROLE_PERMISSIONS_REMEDIATE) {
+    const analysis = analyzeRolePermissions(newRole);
+    if (analysis.policy === 'standard') {
+      const currentSig = permissionSignatureFromArray(analysis.current);
+      const desiredSig = permissionSignatureFromArray(analysis.expected);
+      if (currentSig !== desiredSig) {
+        try {
+          await newRole.setPermissions(analysis.expected);
+          report('Permission Healed (All Roles)', {
+            origin: 'role-update',
+            guild: describeGuild(guild),
+            role: describeRole(newRole)
+          }, 'success');
+        } catch (error) {
+          report('Permission Heal Error (All Roles)', {
+            origin: 'role-update',
+            guild: describeGuild(guild),
+            role: describeRole(newRole),
+            error: error.message
+          }, 'error');
+        }
+      }
+    }
   }
 });
 
