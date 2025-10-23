@@ -398,10 +398,12 @@ async function validateGuildRoles(guild) {
     }
 
     if (analysis.policy === 'all') {
-      log('detail', 'Role configured for full permissions coverage', {
+      report('Role Permissions Match', {
         guild: guildSummary,
-        role: describeRole(role)
-      });
+        role: describeRole(role),
+        policy: 'all',
+        note: 'Role configured for full permissions coverage'
+      }, 'success');
       continue;
     }
 
@@ -446,7 +448,7 @@ async function fixGuildRoles(guild) {
     }
 
     if (analysis.policy === 'all') {
-      log('detail', 'Role is set to full bot permissions', {
+      log('success', 'Role is set to full bot permissions', {
         guild: guildSummary,
         role: describeRole(role)
       });
