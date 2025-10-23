@@ -7,7 +7,7 @@ const PRIMARY_CACHE_DIR = '/Store/discord-cache';
 const FALLBACK_CACHE_DIR = path.join(process.cwd(), 'Store', 'discord-cache');
 const MAX_CACHE_PERCENT = 0.25;
 const MAX_CACHE_FILE_AGE_MS = 1000 * 60 * 60 * 24 * 7;
-␍␊
+
 function ensureDir(dir) {
   try {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -20,7 +20,7 @@ function ensureDir(dir) {
   }
 }
 const CACHE_DIR = ensureDir(PRIMARY_CACHE_DIR) ? PRIMARY_CACHE_DIR : (ensureDir(FALLBACK_CACHE_DIR), FALLBACK_CACHE_DIR);
-␍␊
+
 function getCachePath(key) {
   const safe = key.replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
   return path.join(CACHE_DIR, `${safe}.json`);
@@ -80,7 +80,7 @@ function pruneCache() {
       console.log(`[CACHE PRUNE] ${path.basename(e.filePath)} removed`);
     } catch (err) {
       console.error('[CACHE PRUNE ERROR]', err.message);
-    }␍␊
+    }
   }
 }
 function cleanOldCache() {
