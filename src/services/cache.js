@@ -1,5 +1,4 @@
-// cache.js (root)
-// Persistent caching for role-healing bot
+// Persistent caching utilities for the security role-healing bot
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');

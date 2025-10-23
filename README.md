@@ -4,8 +4,9 @@ This repo contains two Discord bots:
 
 - Security role-healing bot (root app)
    - Continuously assigns a default role to new members and can audit/remediate role permissions.
-   - Entry file: `security-bot.js`
-   - Cache module: `cache.js`
+   - Primary entry: `src/index.js` (with compatibility forwarders in `index.js` and `security-bot.js`).
+   - Cache module: `src/services/cache.js`
+   - Shared utilities: `src/utils/logger.js`, `src/config/env.js`
 
 - Pokémon battle bot (`discord-pokemon-bot/`)
    - Starts simple battles when a message contains the 👀 emoji and mentions a user.
@@ -88,9 +89,18 @@ For the Pokémon bot, create a separate service using the app’s subfolder with
 ## repo layout
 
 ```
-security-bot.js         # Root security bot entry
-cache.js                # Root cache module
-index.js                # Forwarder to security-bot.js
+security-bot.js         # Backwards-compatible entry (for legacy deploy scripts)
+index.js                # Forwarder to src/index.js
+src/
+  index.js              # Primary boot script
+  bot/
+    main.js             # Security bot implementation
+  config/
+    env.js              # Environment parsing & feature flags
+  services/
+    cache.js            # Persistent cache utilities
+  utils/
+    logger.js           # Structured logging helpers
 discord-pokemon-bot/
    pokemon-bot.js        # Pokémon bot entry
    cache.js              # Pokémon bot cache module
