@@ -1,0 +1,13 @@
+{
+  "name": "discord-pokemon-bot",
+  "version": "0.1.0",
+  "description": "Pokémon battle Discord bot (emoji-triggered) with disk-backed caching.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.2",
+    "dotenv": "^16.4.5"
+  }
+}

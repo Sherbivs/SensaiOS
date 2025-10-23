@@ -9,7 +9,7 @@ Handles:
 
 const { Client, GatewayIntentBits } = require('discord.js');
 const dotenv = require('dotenv');
-const { readCache, writeCache } = require('./cachePatch');
+const { readCache, writeCache } = require('../shared/cachePatch');
 const { initiateBattle } = require('./battles/battleManager');
 const fs = require('fs');
 

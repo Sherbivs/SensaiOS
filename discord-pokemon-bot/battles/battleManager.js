@@ -7,7 +7,7 @@ Features:
 - Updates cache to persist Pokémon level-ups
 */
 
-const { writeCache } = require('../cachePatch');
+const { writeCache } = require('../../shared/cachePatch');
 const { levelUp } = require('../utils/helpers');
 
 // Simple damage calculation formula
