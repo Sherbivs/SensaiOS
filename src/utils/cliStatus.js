@@ -15,8 +15,9 @@ let latestStats = activityTracker.getStats();
 let unsubscribe = null;
 let currentPhase = 'Starting';
 let guildCount = 0;
-let lastRenderLine = '';
+let lastRenderBlock = '';
 let lastNonTtyPrint = 0;
+const sections = new Map(); // id -> { title, status, metrics: [] }
 
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
@@ -80,25 +81,61 @@ function formatStatsLine() {
   return `${spinner} ${currentPhase} | guilds ${guildCount} | uptime ${uptime} | last change ${lastChange} | summary ${lastSummary} | pending ${pending} | assigned ${assignments} | healed ${heals} | alerts ${alerts} | cache ${formatBytes(cacheSize)} / ${formatBytes(limitBytes)} (${percentUsed}%) | disk free ${freeDisk}`;
 }
 
+function formatSectionLine(section) {
+  if (!section) return '';
+  const parts = [];
+  if (section.title) {
+    parts.push(section.title);
+  }
+  if (section.status) {
+    parts.push(section.status);
+  }
+  if (Array.isArray(section.metrics)) {
+    for (const metric of section.metrics) {
+      if (!metric) continue;
+      if (Array.isArray(metric) && metric.length >= 2) {
+        parts.push(`${metric[0]} ${metric[1]}`);
+      } else if (typeof metric === 'string') {
+        parts.push(metric);
+      }
+    }
+  }
+  return parts.join(' | ');
+}
+
+function collectLines() {
+  const lines = [formatStatsLine()];
+  for (const [, section] of sections) {
+    const line = formatSectionLine(section);
+    if (line) {
+      lines.push(line);
+    }
+  }
+  return lines;
+}
+
 function render(force = false) {
-  const line = formatStatsLine();
+  const block = collectLines().join('\n');
   if (!process.stdout.isTTY) {
     const now = Date.now();
     if (force || now - lastNonTtyPrint >= NON_TTY_INTERVAL_MS) {
-      // eslint-disable-next-line no-console
-      console.log(`[STATUS] ${line}`);
+      const lines = block.split('\n');
+      for (const line of lines) {
+        if (!line) continue;
+        // eslint-disable-next-line no-console
+        console.log(`[STATUS] ${line}`);
+      }
       lastNonTtyPrint = now;
     }
     return;
   }
 
-  if (!force && line === lastRenderLine) {
+  if (!force && block === lastRenderBlock) {
     return;
   }
-  readline.clearLine(process.stdout, 0);
-  readline.cursorTo(process.stdout, 0);
-  process.stdout.write(`${line}`);
-  lastRenderLine = line;
+  console.clear();
+  process.stdout.write(block);
+  lastRenderBlock = block;
 }
 
 function tick() {
@@ -130,10 +167,10 @@ function stopStatusDisplay() {
     unsubscribe = null;
   }
   if (process.stdout.isTTY) {
-    readline.clearLine(process.stdout, 0);
-    readline.cursorTo(process.stdout, 0);
+    readline.clearScreenDown(process.stdout);
+    readline.cursorTo(process.stdout, 0, 0);
   }
-  lastRenderLine = '';
+  lastRenderBlock = '';
 }
 
 function setPhase(phase) {
@@ -154,19 +191,28 @@ function interruptConsoleOutput(writeFn) {
     writeFn();
     return;
   }
-  const hadLine = Boolean(lastRenderLine);
-  if (hadLine) {
-    readline.clearLine(process.stdout, 0);
-    readline.cursorTo(process.stdout, 0);
+  const hadBlock = Boolean(lastRenderBlock);
+  if (hadBlock) {
+    console.clear();
   }
   try {
     writeFn();
   } finally {
-    if (hadLine) {
-      lastRenderLine = '';
+    if (hadBlock) {
+      lastRenderBlock = '';
       render(true);
     }
   }
+}
+
+function setSection(id, data) {
+  if (!id) return;
+  if (!data) {
+    sections.delete(id);
+  } else {
+    sections.set(id, data);
+  }
+  render(true);
 }
 
 module.exports = {
@@ -174,5 +220,6 @@ module.exports = {
   stopStatusDisplay,
   setPhase,
   setGuildCount,
+  setSection,
   interruptConsoleOutput,
 };

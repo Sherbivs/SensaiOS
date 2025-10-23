@@ -21,12 +21,19 @@ This repo contains two Discord bots:
    - Security bot requires Guild Members intent
    - Pokémon bot requires Message Content intent
 
-## setup: security role-healing bot (root)
+## setup: combined worker (root)
 
 1) Configure env in the repo root:
 
 ```env
-BOT_TOKEN=your_discord_bot_token_here
+# Either provide dedicated tokens or fall back to BOT_TOKEN for security.
+SECURITY_BOT_TOKEN=security_bot_token_here
+POKEMON_BOT_TOKEN=pokemon_bot_token_here
+ENABLE_POKEMON_BOT=true
+
+# Backwards-compatible fallback for the security bot
+# BOT_TOKEN=your_discord_bot_token_here
+
 # Optional overrides
 # ROLE_NAME=Trainer
 # ROLE_ID=123456789012345678
@@ -57,13 +64,16 @@ npm start
 Notes:
 - Ensure the bot’s role is above the target role in your server and has “Manage Roles”.
 - Privileged Gateway Intent “Server Members Intent” must be enabled in the Developer Portal.
- - With remediation enabled and a remediation interval set, role permission drift will be corrected automatically.
- - Snapshot policy: When set to 'snapshot', the bot heals roles to your last-known-good snapshots (auto-seeded from current if enabled). It falls back to the STANDARD map when no snapshot exists and auto-seed is off.
- - Enforce-all mode: When enabled, unlisted roles are given the UNLISTED_PERMISSIONS baseline (unless exempted), or 'ALL' if listed under STANDARD_ALL_PERMS_ROLES.
+- When both tokens are supplied the single process hosts **both** bots and keeps a unified CLI dashboard (first line = security bot, second line = Pokémon bot).
+- With remediation enabled and a remediation interval set, role permission drift will be corrected automatically.
+- Snapshot policy: When set to 'snapshot', the bot heals roles to your last-known-good snapshots (auto-seeded from current if enabled). It falls back to the STANDARD map when no snapshot exists and auto-seed is off.
+- Enforce-all mode: When enabled, unlisted roles are given the UNLISTED_PERMISSIONS baseline (unless exempted), or 'ALL' if listed under STANDARD_ALL_PERMS_ROLES.
 
 ## setup: Pokémon bot
 
-1) Configure env in `discord-pokemon-bot/.env`:
+The Pokémon bot can still run standalone from its subfolder if desired.
+
+1) Configure env in `discord-pokemon-bot/.env` (or export `POKEMON_BOT_TOKEN`):
 
 ```env
 BOT_TOKEN=your_discord_bot_token_here
@@ -84,10 +94,8 @@ Notes:
 ## deploy on Render (security bot)
 
 - Start Command: `npm start` (already set in root package.json)
-- Environment variable: `BOT_TOKEN`
-- See `render.yaml` for a worker service example.
-
-For the Pokémon bot, create a separate service using the app’s subfolder with its own `BOT_TOKEN`.
+- Environment variables: `SECURITY_BOT_TOKEN`, `POKEMON_BOT_TOKEN`, optional `ENABLE_POKEMON_BOT`
+- See `render.yaml` for the single worker service definition.
 
 ## repo layout
 
