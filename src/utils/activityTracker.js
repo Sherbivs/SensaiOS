@@ -23,7 +23,11 @@ function notify() {
       handler(snapshot);
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error('[activity-tracker notify]', err.message);
+      console.error('[activity-tracker notify]', err instanceof Error ? err.message : err);
+      if (err instanceof Error && err.stack) {
+        // eslint-disable-next-line no-console
+        console.error(err.stack);
+      }
     }
   }
 }
@@ -94,7 +98,11 @@ function subscribe(handler) {
     handler(getStats());
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error('[activity-tracker subscribe]', err.message);
+    console.error('[activity-tracker subscribe]', err instanceof Error ? err.message : err);
+    if (err instanceof Error && err.stack) {
+      // eslint-disable-next-line no-console
+      console.error(err.stack);
+    }
   }
   return () => {
     subscribers.delete(handler);

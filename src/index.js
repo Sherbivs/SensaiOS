@@ -23,7 +23,7 @@ async function startAllBots() {
       try {
         launches.push(startPokemonBot({ token: POKEMON_BOT_TOKEN }));
       } catch (error) {
-        log('error', 'Pokémon bot failed to launch', { error: error.message });
+        log('error', 'Pokémon bot failed to launch', error instanceof Error ? { error } : { error: String(error) });
         cliStatus.setSection('pokemon', {
           title: 'Pokémon Bot',
           status: 'failed to launch',
@@ -54,7 +54,7 @@ const startup = startAllBots();
 
 startup.catch((error) => {
   cliStatus.setPhase('Startup failed');
-  log('error', 'Startup failed', { error: error && error.message ? error.message : error });
+  log('error', 'Startup failed', error instanceof Error ? { error } : { error: String(error) });
   process.exit(1);
 });
 

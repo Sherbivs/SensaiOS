@@ -60,6 +60,45 @@ const describeUser = (user) => {
   return `${tag} (#${user.id})`;
 };
 
+function mergeLogError(base, error) {
+  if (error instanceof Error) {
+    return {
+      ...base,
+      error,
+    };
+  }
+  if (error === undefined || error === null) {
+    return { ...base, error: String(error) };
+  }
+  return {
+    ...base,
+    error: String(error),
+  };
+}
+
+function mergeReportError(base, error) {
+  if (error instanceof Error) {
+    const details = {
+      ...base,
+      errorMessage: error.message,
+    };
+    if (error.code !== undefined) {
+      details.errorCode = error.code;
+    }
+    if (error.stack) {
+      details.errorStack = error.stack;
+    }
+    return details;
+  }
+  if (error === undefined || error === null) {
+    return { ...base, error: String(error) };
+  }
+  return {
+    ...base,
+    error: String(error),
+  };
+}
+
 function canAssignRole(guild, role) {
   const me = guild.members.me;
   if (!me) return true; // assume true; discord.js will error if not
@@ -184,10 +223,9 @@ async function sendDailySummaryReport() {
     activityTracker.drainActivities();
     activityTracker.markSummarySent(generatedAt);
   } catch (error) {
-    log('error', 'Daily summary delivery failed', {
+    log('error', 'Daily summary delivery failed', mergeLogError({
       recipient: SUMMARY_REPORT_RECIPIENT,
-      error: error.message,
-    });
+    }, error));
   }
 }
 
@@ -222,10 +260,9 @@ async function notifyServiceRestart() {
     await user.send(message);
     log('info', 'Restart notification delivered', { target: describeUser(user) });
   } catch (error) {
-    log('error', 'Restart notification failed', {
+    log('error', 'Restart notification failed', mergeLogError({
       recipient: RESTART_DM_RECIPIENT,
-      error: error.message,
-    });
+    }, error));
   }
 }
 
@@ -365,10 +402,9 @@ async function reportGuildRoles(guild) {
       }, 'detail');
     });
   } catch (error) {
-    report('Role Enumeration Error', {
+    report('Role Enumeration Error', mergeReportError({
       guild: guildSummary,
-      error: error.message
-    }, 'error');
+    }, error), 'error');
   }
 }
 
@@ -380,10 +416,9 @@ async function validateGuildRoles(guild) {
   try {
     roles = await guild.roles.fetch();
   } catch (error) {
-    log('error', 'Unable to fetch guild roles for validation', {
+    log('error', 'Unable to fetch guild roles for validation', mergeLogError({
       guild: guildSummary,
-      error: error.message
-    });
+    }, error));
     return;
   }
 
@@ -430,10 +465,9 @@ async function fixGuildRoles(guild) {
   try {
     roles = await guild.roles.fetch();
   } catch (error) {
-    log('error', 'Unable to fetch guild roles for remediation', {
+    log('error', 'Unable to fetch guild roles for remediation', mergeLogError({
       guild: guildSummary,
-      error: error.message
-    });
+    }, error));
     return;
   }
 
@@ -486,11 +520,10 @@ async function fixGuildRoles(guild) {
         extra: analysis.extra
       });
     } catch (error) {
-      report('Role Permissions Update Error', {
+      report('Role Permissions Update Error', mergeReportError({
         guild: guildSummary,
         role: describeRole(role),
-        error: error.message
-      }, 'error');
+      }, error), 'error');
     }
   }
 }
@@ -536,11 +569,10 @@ async function enforceRolePermissions(role) {
       extra: analysis.extra
     });
   } catch (error) {
-    report('Role Permission Heal Error', {
+    report('Role Permission Heal Error', mergeReportError({
       guild: guildSummary,
       role: describeRole(role),
-      error: error.message
-    }, 'error');
+    }, error), 'error');
   }
 }
 async function ensureTrainerFor(member, origin = 'unspecified') {
@@ -607,14 +639,13 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
     const hint = (error && (String(error.message).includes('Missing Permissions') || error.code === 50013))
       ? 'Check role hierarchy: bot role must be above target role and have Manage Roles.'
       : undefined;
-    report('Assignment Failure', {
+    report('Assignment Failure', mergeReportError({
       origin,
       guild: guildSummary,
       member: memberSummary,
       role: describeRole(role),
-      error: error.message,
-      hint
-    }, 'error');
+      hint,
+    }, error), 'error');
   }
 }
 
@@ -631,11 +662,10 @@ async function sweepGuild(guild, origin) {
         cachedMembers: guild.members.cache.size
       });
     } catch (error) {
-      report('Members Fetch Error', {
+      report('Members Fetch Error', mergeReportError({
         origin,
         guild: guildSummary,
-        error: error.message
-      }, 'error');
+      }, error), 'error');
       return;
     }
 
@@ -707,13 +737,12 @@ async function sweepGuild(guild, origin) {
           cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
         } catch (error) {
           failed += 1;
-          report('Assignment Failure', {
+          report('Assignment Failure', mergeReportError({
             origin,
             guild: guildSummary,
             member: describeMember(member),
             role: describeRole(role),
-            error: error.message
-          }, 'error');
+          }, error), 'error');
         }
       }));
 
@@ -730,11 +759,10 @@ async function sweepGuild(guild, origin) {
       candidatesProcessed: members.length
     });
   } catch (error) {
-    report('Sweep Error', {
+    report('Sweep Error', mergeReportError({
       origin,
       guild: guildSummary,
-      error: error.message
-    }, 'error');
+    }, error), 'error');
   } finally {
     updateMonitoringPhase();
   }
@@ -752,20 +780,18 @@ async function runCliDebugDump() {
     try {
       await guild.roles.fetch();
     } catch (error) {
-      report('CLI Debug Roles Fetch Error', {
+      report('CLI Debug Roles Fetch Error', mergeReportError({
         guild: guildSummary,
-        error: error.message
-      }, 'error');
+      }, error), 'error');
       continue;
     }
 
     try {
       await guild.members.fetch();
     } catch (error) {
-      report('CLI Debug Members Fetch Error', {
+      report('CLI Debug Members Fetch Error', mergeReportError({
         guild: guildSummary,
-        error: error.message
-      }, 'error');
+      }, error), 'error');
       continue;
     }
 
@@ -946,11 +972,10 @@ client.on('guildMemberUpdate', async (_oldMember, newMember) => {
       await ensureTrainerFor(newMember, 'member-update');
     }
   } catch (err) {
-    report('Member Update Heal Error', {
+    report('Member Update Heal Error', mergeReportError({
       guild: describeGuild(newMember.guild),
       member: describeMember(newMember),
-      error: err.message
-    }, 'error');
+    }, err), 'error');
   }
 });
 
@@ -959,11 +984,10 @@ client.on('roleUpdate', async (_oldRole, newRole) => {
   try {
     await enforceRolePermissions(newRole);
   } catch (err) {
-    report('Role Update Heal Error', {
+    report('Role Update Heal Error', mergeReportError({
       guild: describeGuild(newRole.guild),
       role: describeRole(newRole),
-      error: err.message
-    }, 'error');
+    }, err), 'error');
   }
 });
 
@@ -983,7 +1007,14 @@ async function resolveAlertUser(spec) {
   // Try direct ID first (including mention format)
   const idFromSpec = extractUserIdLike(spec);
   if (idFromSpec) {
-    try { return await client.users.fetch(idFromSpec); } catch {}
+    try {
+      return await client.users.fetch(idFromSpec);
+    } catch (error) {
+      log('warn', 'Alert user fetch failed by ID', mergeLogError({
+        spec,
+        attemptedId: idFromSpec,
+      }, error));
+    }
   }
 
   const needle = String(spec).trim().toLowerCase();
@@ -1004,7 +1035,12 @@ async function resolveAlertUser(spec) {
           return u;
         }
       }
-    } catch {}
+    } catch (error) {
+      log('warn', 'Alert user resolution failed during guild scan', mergeLogError({
+        spec,
+        guild: describeGuild(guild),
+      }, error));
+    }
   }
   return null;
 }
@@ -1053,7 +1089,10 @@ async function sendSecurityAlert(title, meta = {}) {
           req.end();
         });
       } catch (e) {
-        console.error('[ALERT WEBHOOK ERROR]', e.message);
+        log('error', 'Security alert webhook delivery failed', mergeLogError({
+          destination: 'webhook',
+          url: ALERT_WEBHOOK_URL,
+        }, e));
       }
     }
 
@@ -1065,7 +1104,10 @@ async function sendSecurityAlert(title, meta = {}) {
           await ch.send(`${text}\n${'```'}json\n${JSON.stringify(body, null, 2)}\n${'```'}`);
         }
       } catch (e) {
-        console.error('[ALERT CHANNEL ERROR]', e.message);
+        log('error', 'Security alert channel delivery failed', mergeLogError({
+          destination: 'channel',
+          channelId: ALERT_CHANNEL_ID,
+        }, e));
       }
     }
 
@@ -1077,10 +1119,18 @@ async function sendSecurityAlert(title, meta = {}) {
           await user.send(`${text}\n${'```'}json\n${JSON.stringify(body, null, 2)}\n${'```'}`);
         }
       } catch (e) {
-        console.error('[ALERT DM ERROR]', e.message);
+        log('error', 'Security alert DM delivery failed', mergeLogError({
+          destination: 'dm',
+          recipient: ALERT_USER_ID,
+        }, e));
       }
     }
-  } catch {}
+  } catch (error) {
+    log('error', 'Security alert dispatch failed', mergeLogError({
+      title,
+      meta,
+    }, error));
+  }
 }
 
 // Normalize and validate token early for clearer errors (especially on Render)
@@ -1125,8 +1175,7 @@ function startSecurityBot({ token: tokenOverride } = {}) {
 
 if (require.main === module) {
   startSecurityBot().catch((error) => {
-    // eslint-disable-next-line no-console
-    console.error('[Security Bot] Startup failed:', error);
+    log('error', 'Security bot startup failed', mergeLogError({}, error));
     process.exit(1);
   });
 }
