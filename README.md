@@ -31,6 +31,12 @@ BOT_TOKEN=your_discord_bot_token_here
 # ROLE_ID=123456789012345678
 # ROLE_PERMISSIONS_AUDIT=true
 # ROLE_PERMISSIONS_REMEDIATE=false
+# ROLE_REMEDIATION_INTERVAL_MIN=0  # set >0 to periodically re-validate and fix managed roles
+# ROLE_PERMISSION_POLICY=standard   # 'standard' (default) or 'snapshot'
+# ROLE_PERMISSION_SNAPSHOT_UPDATE=true  # auto-seed snapshot from current if missing
+# ALERT_WEBHOOK_URL=https://example.com/webhook
+# ALERT_CHANNEL_ID=123456789012345678
+# ALERT_USER_ID=123456789012345678
 ```
 
 2) Install dependencies and run:
@@ -43,6 +49,8 @@ npm start
 Notes:
 - Ensure the bot’s role is above the target role in your server and has “Manage Roles”.
 - Privileged Gateway Intent “Server Members Intent” must be enabled in the Developer Portal.
+ - With remediation enabled and a remediation interval set, role permission drift will be corrected automatically.
+ - Snapshot policy: When set to 'snapshot', the bot heals roles to your last-known-good snapshots (auto-seeded from current if enabled). It falls back to the STANDARD map when no snapshot exists and auto-seed is off.
 
 ## setup: Pokémon bot
 
@@ -96,3 +104,4 @@ discord-pokemon-bot/
 
 - If the bot exits immediately, verify `BOT_TOKEN` in `.env` and that it has the required intents enabled.
 - Check role hierarchy if role assignment fails: the bot’s highest role must be above the target role.
+ - To tighten security, keep `Trainer` permissions minimal; the default mapping is least-privilege (view/send/read/add reactions).

@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const cache = require('./cache');
+const https = require('node:https');
 
 
 dotenv.config();
@@ -24,6 +25,13 @@ const CLI_DEBUG_MODE = process.env.CLI_DEBUG_MODE === '1'
 // Feature flags (off by default for safety)
 const ROLE_PERMISSIONS_AUDIT = process.env.ROLE_PERMISSIONS_AUDIT === '1' || process.env.ROLE_PERMISSIONS_AUDIT === 'true';
 const ROLE_PERMISSIONS_REMEDIATE = process.env.ROLE_PERMISSIONS_REMEDIATE === '1' || process.env.ROLE_PERMISSIONS_REMEDIATE === 'true';
+const ROLE_PERMISSION_POLICY = (process.env.ROLE_PERMISSION_POLICY || 'standard').toLowerCase(); // 'snapshot' | 'standard'
+const ROLE_PERMISSION_SNAPSHOT_UPDATE = process.env.ROLE_PERMISSION_SNAPSHOT_UPDATE === '1' || process.env.ROLE_PERMISSION_SNAPSHOT_UPDATE === 'true' || process.env.ROLE_PERMISSION_SNAPSHOT_UPDATE === undefined; // default true
+
+// Alerting configuration (any of these may be used)
+const ALERT_WEBHOOK_URL = (process.env.ALERT_WEBHOOK_URL || '').trim();
+const ALERT_CHANNEL_ID = (process.env.ALERT_CHANNEL_ID || '').trim();
+const ALERT_USER_ID = (process.env.ALERT_USER_ID || '').trim();
 
 cache.cleanOldCache();
 
@@ -109,8 +117,10 @@ const ROLE_ID = (process.env.ROLE_ID || '').trim();
 const BACKFILL_CONCURRENCY = Math.max(1, Number(process.env.BACKFILL_CONCURRENCY || 8)); // higher = faster, mind rate limits
 const BACKFILL_DELAY_MS = Math.max(0, Number(process.env.BACKFILL_DELAY_MS || 20)); // delay between batches
 const BACKFILL_INTERVAL_MIN = Math.max(0, Number(process.env.BACKFILL_INTERVAL_MIN || 0)); // 0 = disabled
+const ROLE_REMEDIATION_INTERVAL_MIN = Math.max(0, Number(process.env.ROLE_REMEDIATION_INTERVAL_MIN || 0)); // 0 = disabled
 const CACHE_TTL_HOURS = Math.max(1, Number(process.env.CACHE_TTL_HOURS || 24));
 const OPS_REPORT_INTERVAL_MIN = Math.max(0, Number(process.env.OPS_REPORT_INTERVAL_MIN || 0)); // 0 = disabled
+const ROLE_REMEDIATION_INTERVAL_MIN = Math.max(0, Number(process.env.ROLE_REMEDIATION_INTERVAL_MIN || 0)); // 0 = disabled
 
 const describeRole = (role) => `${role.name} (#${role.id})`;
 const describeMember = (member) => `${member.user.tag} (#${member.id})`;
@@ -180,15 +190,12 @@ const STANDARD_PERMISSIONS = {
     'EmbedLinks','AttachFiles','ReadMessageHistory','MentionEveryone','UseExternalEmojis','Connect','Speak','UseVAD',
     'SendPolls','UseEmbeddedActivities'
   ],
+  // Least-privilege baseline for general members
   'Trainer': [
-    'ManageMessages','ModerateMembers','ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages',
-    'EmbedLinks','AttachFiles','ReadMessageHistory','MentionEveryone','UseExternalEmojis','Connect','Speak','UseVAD',
-    'SendPolls','UseEmbeddedActivities'
+    'ViewChannel','SendMessages','ReadMessageHistory','AddReactions','UseExternalEmojis','EmbedLinks','AttachFiles'
   ],
   'Trainers': [
-    'ManageMessages','ModerateMembers','ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages',
-    'EmbedLinks','AttachFiles','ReadMessageHistory','MentionEveryone','UseExternalEmojis','Connect','Speak','UseVAD',
-    'SendPolls','UseEmbeddedActivities'
+    'ViewChannel','SendMessages','ReadMessageHistory','AddReactions','UseExternalEmojis','EmbedLinks','AttachFiles'
   ],
   'Zapier': ['SendMessages','EmbedLinks','AttachFiles','ManageWebhooks','ViewChannel'],
   'FreshTok': ['SendMessages','EmbedLinks','AttachFiles','ManageWebhooks','ViewChannel'],
@@ -197,40 +204,58 @@ const STANDARD_PERMISSIONS = {
   'D&D Candidate': [],
   
 };
-function analyzeRolePermissions(role) {
-  const current = role.permissions.toArray();
+// ----- Snapshot helpers -----
+function snapshotKey(guildId, roleId) {
+  return `role-perm-snapshot:${guildId}:${roleId}`;
+}
+
+function getSnapshot(role) {
+  const key = snapshotKey(role.guild.id, role.id);
+  return cache.readCache(key);
+}
+
+function setSnapshot(role, permissionsArrayOrAll) {
+  const key = snapshotKey(role.guild.id, role.id);
+  cache.writeCache(key, permissionsArrayOrAll);
+}
+
+function desiredPermissionsForRole(role, currentPerms) {
   const standard = STANDARD_PERMISSIONS[role.name];
 
-  if (!standard) {
-    return {
-      policy: 'unmanaged',
-      expected: null,
-      current,
-      missing: [],
-      extra: []
-    };
+  if (ROLE_PERMISSION_POLICY === 'snapshot') {
+    const snap = getSnapshot(role);
+    if (snap) return { policy: 'snapshot', expected: snap };
+    if (ROLE_PERMISSION_SNAPSHOT_UPDATE) {
+      // Seed snapshot from current on first sight
+      const seed = Array.isArray(currentPerms) ? currentPerms : role.permissions.toArray();
+      setSnapshot(role, seed);
+      return { policy: 'snapshot', expected: seed, seeded: true };
+    }
+    // Fallback to standard if present; otherwise unmanaged
+    if (standard) return { policy: 'standard', expected: standard };
+    return { policy: 'unmanaged', expected: null };
   }
 
-  if (standard === 'ALL') {
-    return {
-      policy: 'all',
-      expected: 'ALL',
-      current,
-      missing: [],
-      extra: []
-    };
+  if (!standard) return { policy: 'unmanaged', expected: null };
+  if (standard === 'ALL') return { policy: 'all', expected: 'ALL' };
+  return { policy: 'standard', expected: standard };
+}
+
+function analyzeRolePermissions(role) {
+  const current = role.permissions.toArray();
+  const desired = desiredPermissionsForRole(role, current);
+
+  if (!desired.expected) {
+    return { policy: 'unmanaged', expected: null, current, missing: [], extra: [] };
+  }
+  if (desired.expected === 'ALL') {
+    return { policy: 'all', expected: 'ALL', current, missing: [], extra: [] };
   }
 
-  const missing = standard.filter(permission => !current.includes(permission));
-  const extra = current.filter(permission => !standard.includes(permission));
-
-  return {
-    policy: 'standard',
-    expected: standard,
-    current,
-    missing,
-    extra
-  };
+  const expected = desired.expected;
+  const missing = expected.filter(p => !current.includes(p));
+  const extra = current.filter(p => !expected.includes(p));
+  return { policy: desired.policy, expected, current, missing, extra, seeded: desired.seeded === true };
 }
 function hasNoAssignableRoles(member) {
   // members always have @everyone; size === 1 means no additional roles
@@ -376,6 +401,13 @@ async function fixGuildRoles(guild) {
         missingPermissions: analysis.missing.length ? analysis.missing.join(', ') : 'none',
         extraPermissions: analysis.extra.length ? analysis.extra.join(', ') : 'none'
       }, 'success');
+      await sendSecurityAlert('Role permissions healed (periodic/startup)', {
+        guild: guildSummary,
+        role: describeRole(role),
+        policy: analysis.policy,
+        missing: analysis.missing,
+        extra: analysis.extra
+      });
     } catch (error) {
       report('Role Permissions Update Error', {
         guild: guildSummary,
@@ -383,6 +415,49 @@ async function fixGuildRoles(guild) {
         error: error.message
       }, 'error');
     }
+  }
+}
+// Enforce a single role's permissions if it's managed and remediation is enabled
+async function enforceRolePermissions(role) {
+  const guildSummary = describeGuild(role.guild);
+  const analysis = analyzeRolePermissions(role);
+  if (analysis.policy === 'unmanaged' || analysis.policy === 'all') return;
+  if (analysis.missing.length === 0 && analysis.extra.length === 0) return;
+  if (!ROLE_PERMISSIONS_REMEDIATE) {
+    report('Role Drift Detected (Remediation Disabled)', {
+      guild: guildSummary,
+      role: describeRole(role),
+      missing: analysis.missing.join(', ') || 'none',
+      extra: analysis.extra.join(', ') || 'none'
+    }, 'warn');
+    await sendSecurityAlert('Role drift detected (remediation disabled)', {
+      guild: guildSummary,
+      role: describeRole(role),
+      policy: analysis.policy,
+      missing: analysis.missing,
+      extra: analysis.extra
+    });
+    return;
+  }
+  try {
+    await role.setPermissions(analysis.expected);
+    report('Role Permissions Healed', {
+      guild: guildSummary,
+      role: describeRole(role)
+    }, 'success');
+    await sendSecurityAlert('Role permissions healed (event-based)', {
+      guild: guildSummary,
+      role: describeRole(role),
+      policy: analysis.policy,
+      missing: analysis.missing,
+      extra: analysis.extra
+    });
+  } catch (error) {
+    report('Role Permission Heal Error', {
+      guild: guildSummary,
+      role: describeRole(role),
+      error: error.message
+    }, 'error');
   }
 }
 async function ensureTrainerFor(member, origin = 'unspecified') {
@@ -672,7 +747,9 @@ client.once(Events.ClientReady, async () => {
     delayMsBetweenBatches: BACKFILL_DELAY_MS,
     guildsObserved: client.guilds.cache.size,
     roleAudit: ROLE_PERMISSIONS_AUDIT ? 'enabled' : 'disabled',
-    roleRemediation: ROLE_PERMISSIONS_REMEDIATE ? 'enabled' : 'disabled'
+    roleRemediation: ROLE_PERMISSIONS_REMEDIATE ? 'enabled' : 'disabled',
+    rolePermissionPolicy: ROLE_PERMISSION_POLICY,
+    snapshotAutoSeed: ROLE_PERMISSION_SNAPSHOT_UPDATE ? 'enabled' : 'disabled'
   });
 
   // One-time detailed operational report
@@ -715,6 +792,17 @@ client.once(Events.ClientReady, async () => {
   report('Operational Report Scheduled', { everyMinutes: OPS_REPORT_INTERVAL_MIN });
     setInterval(() => reportOperationalStats('periodic'), opsMs);
   }
+
+  // Optional recurring role permission remediation
+  if (ROLE_REMEDIATION_INTERVAL_MIN > 0) {
+    const remMs = ROLE_REMEDIATION_INTERVAL_MIN * 60 * 1000;
+    report('Periodic Role Remediation Enabled', { everyMinutes: ROLE_REMEDIATION_INTERVAL_MIN });
+    setInterval(async () => {
+      for (const [, guild] of client.guilds.cache) {
+        await fixGuildRoles(guild);
+      }
+    }, remMs);
+  }
 });
 client.on('guildMemberAdd', async (member) => {
   const guildSummary = describeGuild(member.guild);
@@ -726,6 +814,96 @@ client.on('guildMemberAdd', async (member) => {
 
   await ensureTrainerFor(member, 'member-join');
 });
+
+// Heal members who lose all assignable roles (drop to @everyone only)
+client.on('guildMemberUpdate', async (_oldMember, newMember) => {
+  try {
+    if (hasNoAssignableRoles(newMember)) {
+      await ensureTrainerFor(newMember, 'member-update');
+    }
+  } catch (err) {
+    report('Member Update Heal Error', {
+      guild: describeGuild(newMember.guild),
+      member: describeMember(newMember),
+      error: err.message
+    }, 'error');
+  }
+});
+
+// Heal role permissions when roles change
+client.on('roleUpdate', async (_oldRole, newRole) => {
+  try {
+    await enforceRolePermissions(newRole);
+  } catch (err) {
+    report('Role Update Heal Error', {
+      guild: describeGuild(newRole.guild),
+      role: describeRole(newRole),
+      error: err.message
+    }, 'error');
+  }
+});
+
+// ----- Alerting -----
+async function sendSecurityAlert(title, meta = {}) {
+  try {
+    const text = `🔒 ${title}`;
+    const body = {
+      title: text,
+      ...meta,
+      at: new Date().toISOString()
+    };
+
+    // 1) Webhook
+    if (ALERT_WEBHOOK_URL) {
+      try {
+        const url = new URL(ALERT_WEBHOOK_URL);
+        const data = JSON.stringify(body);
+        const opts = {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(data)
+          }
+        };
+        await new Promise((resolve, reject) => {
+          const req = https.request(url, opts, (res) => {
+            res.on('data', () => {});
+            res.on('end', resolve);
+          });
+          req.on('error', reject);
+          req.write(data);
+          req.end();
+        });
+      } catch (e) {
+        console.error('[ALERT WEBHOOK ERROR]', e.message);
+      }
+    }
+
+    // 2) Channel message
+    if (ALERT_CHANNEL_ID) {
+      try {
+        const ch = await client.channels.fetch(ALERT_CHANNEL_ID);
+        if (ch && typeof ch.send === 'function') {
+          await ch.send(`${text}\n${'```'}json\n${JSON.stringify(body, null, 2)}\n${'```'}`);
+        }
+      } catch (e) {
+        console.error('[ALERT CHANNEL ERROR]', e.message);
+      }
+    }
+
+    // 3) Direct message to a user
+    if (ALERT_USER_ID) {
+      try {
+        const user = await client.users.fetch(ALERT_USER_ID);
+        if (user && typeof user.send === 'function') {
+          await user.send(`${text}\n${'```'}json\n${JSON.stringify(body, null, 2)}\n${'```'}`);
+        }
+      } catch (e) {
+        console.error('[ALERT DM ERROR]', e.message);
+      }
+    }
+  } catch {}
+}
 
 // Normalize and validate token early for clearer errors (especially on Render)
 const envPath = path.resolve(process.cwd(), '.env');
