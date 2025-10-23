@@ -1,40 +1,44 @@
+const { Client, GatewayIntentBits, Partials } = require('discord.js');
 require('dotenv').config();
-const { Client, GatewayIntentBits, Events } = require('discord.js');
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers, // needed for GuildMemberAdd
+    GatewayIntentBits.GuildMembers
   ],
+  partials: [Partials.User]
 });
 
-client.once(Events.ClientReady, () => {
-  console.log(`Logged in as ${client.user.tag}`);
+client.once('ready', () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-client.on(Events.GuildMemberAdd, async (member) => {
-  const roleName = 'Trainers';
+client.on('guildMemberAdd', async (member) => {
+  const roleName = "Trainers";
+  const role = member.guild.roles.cache.find(r => r.name === roleName);
+
+  if (!role) {
+    console.error(`⚠️ Role "${roleName}" not found in ${member.guild.name}`);
+    return;
+  }
 
   try {
-    // Ensure we have the latest roles
-    await member.guild.roles.fetch();
-    const role = member.guild.roles.cache.find((r) => r.name === roleName);
-
-    if (!role) {
-      console.warn(`Role "${roleName}" not found in guild "${member.guild.name}"`);
-      return;
-    }
-
     await member.roles.add(role);
-    console.log(`Assigned "${roleName}" to ${member.user.tag}`);
-  } catch (err) {
-    console.error('Failed to assign role:', err);
+    console.log(`🎉 Added ${member.user.tag} to ${roleName}`);
+  } catch (error) {
+    console.error(`❌ Failed to assign role:`, error);
   }
 });
 
-const token = process.env.DISCORD_TOKEN;
+// Normalize and validate token early for clearer errors (especially on Render)
+const rawToken = (process.env.BOT_TOKEN || '').trim();
+// Some guides mistakenly include the "Bot " prefix; discord.js expects the raw token only.
+const token = rawToken.startsWith('Bot ') ? rawToken.slice(4).trim() : rawToken;
+
 if (!token) {
-  console.error('Missing DISCORD_TOKEN environment variable.');
+  console.error('❌ BOT_TOKEN is missing. Set it in your environment or .env (without quotes or the "Bot " prefix).');
   process.exit(1);
 }
+
+console.log('🚀 Starting Discord bot...');
 client.login(token);
