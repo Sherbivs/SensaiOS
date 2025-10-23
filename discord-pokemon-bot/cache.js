@@ -1,13 +1,12 @@
-// caching.js (root)
-// Persistent caching for role-healing bot
+// cache.js (pokemon bot)
+// Simple JSON file-backed cache for Pokémon data
 
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 
-const PRIMARY_CACHE_DIR = '/Store/discord-cache';
-const FALLBACK_CACHE_DIR = path.join(process.cwd(), 'Store', 'discord-cache');
-
+const PRIMARY_CACHE_DIR = '/Store/pokemon-cache';
+const FALLBACK_CACHE_DIR = path.join(process.cwd(), 'Store', 'pokemon-cache');
 const MAX_CACHE_PERCENT = 0.25;
 const MAX_CACHE_FILE_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 
@@ -51,22 +50,16 @@ function writeCache(key, data) {
   }
 }
 
+function approxFreeBytes() {
+  return Math.max(os.freemem(), 512 * 1024 * 1024);
+}
+
 function getCacheSize() {
   try {
     return fs.readdirSync(CACHE_DIR).reduce((sum, f) => sum + (fs.statSync(path.join(CACHE_DIR, f)).size || 0), 0);
   } catch {
     return 0;
   }
-}
-
-function approxFreeBytes() {
-  return Math.max(os.freemem(), 512 * 1024 * 1024);
-}
-
-function getCacheBudget() {
-  const approxBytes = approxFreeBytes();
-  const maxAllowedBytes = Math.floor(approxBytes * MAX_CACHE_PERCENT);
-  return { approxBytes, maxAllowedBytes, percent: MAX_CACHE_PERCENT };
 }
 
 function pruneCache() {
@@ -81,9 +74,9 @@ function pruneCache() {
     return;
   }
   let total = getCacheSize();
-  const budget = getCacheBudget();
+  const budget = Math.floor(approxFreeBytes() * MAX_CACHE_PERCENT);
   for (const e of entries) {
-    if (total <= budget.maxAllowedBytes) break;
+    if (total <= budget) break;
     try {
       fs.unlinkSync(e.filePath);
       total -= e.size;
@@ -119,7 +112,4 @@ module.exports = {
   writeCache,
   pruneCache,
   cleanOldCache,
-  getCacheSize,
-  MAX_CACHE_PERCENT,
-  getCacheBudget,
 };

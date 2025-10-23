@@ -1,5 +1,5 @@
-// caching.js (pokemon bot)
-// Persistent caching focused on Pokémon data and battle state
+// cache.js (root)
+// Persistent caching for role-healing bot
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -63,6 +63,12 @@ function approxFreeBytes() {
   return Math.max(os.freemem(), 512 * 1024 * 1024);
 }
 
+function getCacheBudget() {
+  const approxBytes = approxFreeBytes();
+  const maxAllowedBytes = Math.floor(approxBytes * MAX_CACHE_PERCENT);
+  return { approxBytes, maxAllowedBytes, percent: MAX_CACHE_PERCENT };
+}
+
 function pruneCache() {
   let entries = [];
   try {
@@ -71,27 +77,39 @@ function pruneCache() {
       const st = fs.statSync(fp);
       return { filePath: fp, mtime: st.mtimeMs, size: st.size || 0 };
     }).sort((a, b) => a.mtime - b.mtime);
-  } catch { return; }
+  } catch {
+    return;
+  }
   let total = getCacheSize();
-  const maxAllowed = Math.floor(approxFreeBytes() * MAX_CACHE_PERCENT);
+  const budget = getCacheBudget();
   for (const e of entries) {
-    if (total <= maxAllowed) break;
+    if (total <= budget.maxAllowedBytes) break;
     try {
       fs.unlinkSync(e.filePath);
       total -= e.size;
-    } catch {}
+      console.log(`[CACHE PRUNE] ${path.basename(e.filePath)} removed`);
+    } catch (err) {
+      console.error('[CACHE PRUNE ERROR]', err.message);
+    }
   }
 }
 
 function cleanOldCache() {
   const now = Date.now();
   let files = [];
-  try { files = fs.readdirSync(CACHE_DIR).map(f => path.join(CACHE_DIR, f)); } catch { return; }
+  try {
+    files = fs.readdirSync(CACHE_DIR).map(f => path.join(CACHE_DIR, f));
+  } catch { return; }
   for (const fp of files) {
     try {
       const st = fs.statSync(fp);
-      if (now - st.mtimeMs > MAX_CACHE_FILE_AGE_MS) fs.unlinkSync(fp);
-    } catch {}
+      if (now - st.mtimeMs > MAX_CACHE_FILE_AGE_MS) {
+        fs.unlinkSync(fp);
+        console.log(`[CACHE CLEANUP] ${path.basename(fp)} removed`);
+      }
+    } catch (err) {
+      console.error('[CACHE CLEANUP ERROR]', err.message);
+    }
   }
 }
 
@@ -103,4 +121,5 @@ module.exports = {
   cleanOldCache,
   getCacheSize,
   MAX_CACHE_PERCENT,
+  getCacheBudget,
 };

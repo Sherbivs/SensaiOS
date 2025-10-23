@@ -3,7 +3,7 @@ const dotenv = require('dotenv');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const cache = require('./caching');
+const cache = require('./cache');
 
 
 dotenv.config();

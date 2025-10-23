@@ -1,14 +1,17 @@
 {
   "name": "discord-role-bot",
   "version": "1.0.0",
-  "description": "Discord bot that auto-assigns the Trainer role to new members, with permission persistence reporting.",
-  "main": "index.js",
+  "description": "Discord bot that auto-assigns the Trainers role to new members.",
+  "main": "security-bot.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node security-bot.js"
   },
   "dependencies": {
     "discord.js": "^14.15.2",
     "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18"
   }
 
 }
