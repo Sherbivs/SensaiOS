@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Partials } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Events } = require('discord.js');
 const dotenv = require('dotenv');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -651,7 +651,7 @@ async function runCliDebugDump() {
   process.exit(0);
 }
 
-client.once('ready', async () => {
+client.once(Events.ClientReady, async () => {
   if (CLI_DEBUG_MODE) {
     log('info', 'CLI debug mode active', {
       userTag: client.user.tag,
