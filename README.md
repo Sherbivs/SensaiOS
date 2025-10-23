@@ -28,6 +28,7 @@ This repo contains two Discord bots:
 ```env
 BOT_TOKEN=your_discord_bot_token_here
 # Optional overrides
+# BACKFILL_INTERVAL_SECONDS=30      # periodic sweep cadence (min 5 seconds)
 # ROLE_NAME=Trainer
 # ROLE_ID=123456789012345678
 # ROLE_PERMISSIONS_AUDIT=true
@@ -53,6 +54,7 @@ npm start
 
 Notes:
 - Ensure the bot’s role is above the target role in your server and has “Manage Roles”.
+- Periodic sweeps run every 30 seconds by default. Tune `BACKFILL_INTERVAL_SECONDS` (or legacy `BACKFILL_INTERVAL_MIN`) to adjust cadence.
 - Privileged Gateway Intent “Server Members Intent” must be enabled in the Developer Portal.
  - With remediation enabled and a remediation interval set, role permission drift will be corrected automatically.
  - Snapshot policy: When set to 'snapshot', the bot heals roles to your last-known-good snapshots (auto-seeded from current if enabled). It falls back to the STANDARD map when no snapshot exists and auto-seed is off.

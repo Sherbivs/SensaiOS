@@ -48,7 +48,29 @@ const ROLE_ID = (process.env.ROLE_ID || '').trim();
 // Backfill/automation tuning
 const BACKFILL_CONCURRENCY = Math.max(1, toNumber(process.env.BACKFILL_CONCURRENCY, 8));
 const BACKFILL_DELAY_MS = Math.max(0, toNumber(process.env.BACKFILL_DELAY_MS, 20));
-const BACKFILL_INTERVAL_MIN = Math.max(1, toNumber(process.env.BACKFILL_INTERVAL_MIN, 5));
+
+const MIN_BACKFILL_INTERVAL_SECONDS = 5;
+const DEFAULT_BACKFILL_INTERVAL_SECONDS = 30;
+
+const resolveBackfillIntervalSeconds = () => {
+  if (process.env.BACKFILL_INTERVAL_SECONDS !== undefined) {
+    const seconds = toNumber(process.env.BACKFILL_INTERVAL_SECONDS, DEFAULT_BACKFILL_INTERVAL_SECONDS);
+    return Math.max(MIN_BACKFILL_INTERVAL_SECONDS, Math.round(seconds * 1000) / 1000);
+  }
+
+  if (process.env.BACKFILL_INTERVAL_MIN !== undefined) {
+    const minutes = Math.max(
+      MIN_BACKFILL_INTERVAL_SECONDS / 60,
+      toNumber(process.env.BACKFILL_INTERVAL_MIN, DEFAULT_BACKFILL_INTERVAL_SECONDS / 60)
+    );
+    return Math.max(MIN_BACKFILL_INTERVAL_SECONDS, Math.round(minutes * 60 * 1000) / 1000);
+  }
+
+  return DEFAULT_BACKFILL_INTERVAL_SECONDS;
+};
+
+const BACKFILL_INTERVAL_SECONDS = resolveBackfillIntervalSeconds();
+const BACKFILL_INTERVAL_MIN = BACKFILL_INTERVAL_SECONDS / 60;
 const ROLE_REMEDIATION_INTERVAL_MIN = Math.max(5, toNumber(process.env.ROLE_REMEDIATION_INTERVAL_MIN, 15));
 const CACHE_TTL_HOURS = Math.max(1, toNumber(process.env.CACHE_TTL_HOURS, 24));
 const OPS_REPORT_INTERVAL_MIN = Math.max(0, toNumber(process.env.OPS_REPORT_INTERVAL_MIN, 0));
@@ -82,6 +104,7 @@ module.exports = {
   ROLE_ID,
   BACKFILL_CONCURRENCY,
   BACKFILL_DELAY_MS,
+  BACKFILL_INTERVAL_SECONDS,
   BACKFILL_INTERVAL_MIN,
   ROLE_REMEDIATION_INTERVAL_MIN,
   CACHE_TTL_HOURS,

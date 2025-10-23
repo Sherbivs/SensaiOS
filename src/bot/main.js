@@ -20,6 +20,7 @@ const {
   ROLE_ID,
   BACKFILL_CONCURRENCY,
   BACKFILL_DELAY_MS,
+  BACKFILL_INTERVAL_SECONDS,
   BACKFILL_INTERVAL_MIN,
   ROLE_REMEDIATION_INTERVAL_MIN,
   CACHE_TTL_HOURS,
@@ -57,6 +58,15 @@ const describeUser = (user) => {
   if (!user) return 'unknown user';
   const tag = user.tag || user.username || 'unknown';
   return `${tag} (#${user.id})`;
+};
+
+const describeInterval = (totalSeconds) => {
+  if (totalSeconds >= 60) {
+    const minutes = totalSeconds / 60;
+    const roundedMinutes = Number.isInteger(minutes) ? minutes : Number(minutes.toFixed(2));
+    return `${roundedMinutes} minute(s) (${totalSeconds} second(s))`;
+  }
+  return `${totalSeconds} second(s)`;
 };
 
 function canAssignRole(guild, role) {
@@ -846,7 +856,8 @@ client.once(Events.ClientReady, async () => {
     roleId: ROLE_ID || 'resolved at runtime',
     roleDiscovery: ROLE_ID ? 'ROLE_ID exact match' : 'ROLE_NAME case-insensitive search',
     startupBackfill: 'enabled',
-    periodicSweep: `every ${BACKFILL_INTERVAL_MIN} minute(s)`,
+    periodicSweep: `every ${describeInterval(BACKFILL_INTERVAL_SECONDS)}`,
+    periodicSweepSeconds: BACKFILL_INTERVAL_SECONDS,
     concurrency: BACKFILL_CONCURRENCY,
     delayMsBetweenBatches: BACKFILL_DELAY_MS,
     guildsObserved: client.guilds.cache.size,
@@ -879,8 +890,11 @@ client.once(Events.ClientReady, async () => {
     updateMonitoringPhase();
   }
 
-  const intervalMs = BACKFILL_INTERVAL_MIN * 60 * 1000;
-  report('Periodic Sweep Enabled', { intervalMinutes: BACKFILL_INTERVAL_MIN });
+  const intervalMs = BACKFILL_INTERVAL_SECONDS * 1000;
+  report('Periodic Sweep Enabled', {
+    intervalSeconds: BACKFILL_INTERVAL_SECONDS,
+    intervalMinutes: Number(BACKFILL_INTERVAL_MIN.toFixed(4))
+  });
   setInterval(async () => {
     const cycleStarted = new Date().toISOString();
     report('Periodic Sweep Start', { cycleStarted });
