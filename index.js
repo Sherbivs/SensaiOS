@@ -1,5 +1,8 @@
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
-require('dotenv').config();
+const dotenv = require('dotenv');
+const fs = require('node:fs');
+const path = require('node:path');
+dotenv.config();
 
 const client = new Client({
   intents: [
@@ -31,12 +34,19 @@ client.on('guildMemberAdd', async (member) => {
 });
 
 // Normalize and validate token early for clearer errors (especially on Render)
+const envPath = path.resolve(process.cwd(), '.env');
 const rawToken = (process.env.BOT_TOKEN || '').trim();
 // Some guides mistakenly include the "Bot " prefix; discord.js expects the raw token only.
 const token = rawToken.startsWith('Bot ') ? rawToken.slice(4).trim() : rawToken;
 
 if (!token) {
+  const hasDotEnv = fs.existsSync(envPath);
   console.error('❌ BOT_TOKEN is missing. Set it in your environment or .env (without quotes or the "Bot " prefix).');
+  console.error(`   Working directory: ${process.cwd()}`);
+  console.error(`   .env present here: ${hasDotEnv ? 'yes' : 'no'} (${envPath})`);
+  console.error('   PowerShell quick test (temporary for this session):');
+  console.error('     $env:BOT_TOKEN = "your_token_here"');
+  console.error('     npm start');
   process.exit(1);
 }
 
