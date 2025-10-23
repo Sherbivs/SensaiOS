@@ -2,12 +2,13 @@
   "name": "discord-role-bot",
   "version": "1.0.0",
   "description": "Discord bot that auto-assigns the Trainers role to new members.",
-  "main": "src/index.js",
+  "main": "Infinity-Gauntlet/index.js",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node Infinity-Gauntlet/index.js"
   },
   "dependencies": {
     "discord.js": "^14.15.2",
     "dotenv": "^16.4.5"
   }
+
 }
