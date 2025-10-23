@@ -20,10 +20,10 @@ const {
   ROLE_ID,
   BACKFILL_CONCURRENCY,
   BACKFILL_DELAY_MS,
-  BACKFILL_INTERVAL_MIN,
-  ROLE_REMEDIATION_INTERVAL_MIN,
+  BACKFILL_INTERVAL_SECONDS,
+  ROLE_REMEDIATION_INTERVAL_SECONDS,
   CACHE_TTL_HOURS,
-  OPS_REPORT_INTERVAL_MIN,
+  OPS_REPORT_INTERVAL_SECONDS,
   STANDARD_ENFORCE_ALL,
   UNLISTED_PERMISSIONS,
   STANDARD_EXEMPT_ROLES,
@@ -846,12 +846,15 @@ client.once(Events.ClientReady, async () => {
     roleId: ROLE_ID || 'resolved at runtime',
     roleDiscovery: ROLE_ID ? 'ROLE_ID exact match' : 'ROLE_NAME case-insensitive search',
     startupBackfill: 'enabled',
-    periodicSweep: `every ${BACKFILL_INTERVAL_MIN} minute(s)`,
+    periodicSweep: `every ${BACKFILL_INTERVAL_SECONDS}s`,
     concurrency: BACKFILL_CONCURRENCY,
     delayMsBetweenBatches: BACKFILL_DELAY_MS,
     guildsObserved: client.guilds.cache.size,
     roleAudit: ROLE_PERMISSIONS_AUDIT ? 'enforced-on' : 'disabled',
-    roleRemediation: ROLE_PERMISSIONS_REMEDIATE ? 'enforced-on' : 'disabled',
+    roleRemediation: ROLE_PERMISSIONS_REMEDIATE
+      ? `enforced-on (${ROLE_REMEDIATION_INTERVAL_SECONDS}s cadence)`
+      : 'disabled',
+    opsReport: OPS_REPORT_INTERVAL_SECONDS > 0 ? `${OPS_REPORT_INTERVAL_SECONDS}s cadence` : 'disabled',
     rolePermissionPolicy: ROLE_PERMISSION_POLICY,
     snapshotAutoSeed: ROLE_PERMISSION_SNAPSHOT_UPDATE ? 'enabled' : 'disabled',
     enforceAllRoles: STANDARD_ENFORCE_ALL ? 'enabled' : 'disabled',
@@ -879,8 +882,8 @@ client.once(Events.ClientReady, async () => {
     updateMonitoringPhase();
   }
 
-  const intervalMs = BACKFILL_INTERVAL_MIN * 60 * 1000;
-  report('Periodic Sweep Enabled', { intervalMinutes: BACKFILL_INTERVAL_MIN });
+  const intervalMs = BACKFILL_INTERVAL_SECONDS * 1000;
+  report('Periodic Sweep Enabled', { intervalSeconds: BACKFILL_INTERVAL_SECONDS });
   setInterval(async () => {
     const cycleStarted = new Date().toISOString();
     report('Periodic Sweep Start', { cycleStarted });
@@ -896,16 +899,16 @@ client.once(Events.ClientReady, async () => {
   }, intervalMs);
 
   // Optional recurring operational report
-  if (OPS_REPORT_INTERVAL_MIN > 0) {
-    const opsMs = OPS_REPORT_INTERVAL_MIN * 60 * 1000;
-  report('Operational Report Scheduled', { everyMinutes: OPS_REPORT_INTERVAL_MIN });
+  if (OPS_REPORT_INTERVAL_SECONDS > 0) {
+    const opsMs = OPS_REPORT_INTERVAL_SECONDS * 1000;
+    report('Operational Report Scheduled', { everySeconds: OPS_REPORT_INTERVAL_SECONDS });
     setInterval(() => reportOperationalStats('periodic'), opsMs);
   }
 
   // Optional recurring role permission remediation
-  if (ROLE_REMEDIATION_INTERVAL_MIN > 0) {
-    const remMs = ROLE_REMEDIATION_INTERVAL_MIN * 60 * 1000;
-    report('Periodic Role Remediation Enabled', { everyMinutes: ROLE_REMEDIATION_INTERVAL_MIN });
+  if (ROLE_REMEDIATION_INTERVAL_SECONDS > 0) {
+    const remMs = ROLE_REMEDIATION_INTERVAL_SECONDS * 1000;
+    report('Periodic Role Remediation Enabled', { everySeconds: ROLE_REMEDIATION_INTERVAL_SECONDS });
     setInterval(async () => {
       for (const [, guild] of client.guilds.cache) {
         await fixGuildRoles(guild);
