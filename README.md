@@ -90,11 +90,14 @@ For the Pokémon bot, create a separate service using the app’s subfolder with
 ```
 security-bot.js         # Root security bot entry
 cache.js                # Root cache module
+index.js                # Forwarder to security-bot.js
 discord-pokemon-bot/
    pokemon-bot.js        # Pokémon bot entry
    cache.js              # Pokémon bot cache module
+   index.js              # Forwarder to pokemon-bot.js
    battles/
       battle-manager.js   # Battle logic
+      battleManager.js    # Deprecated shim forwarder to battle-manager.js
    utils/
       pokemon-helpers.js  # Helper utilities
       helpers.js          # Deprecated shim forwarder to pokemon-helpers.js (kept for compatibility)

@@ -1,154 +1,170 @@
-Infinity-Gauntlet Workspace Patch
-=================================
+Perfect. Here’s a **draft patch for the Pokémon API caching and DM starter selection**, fully Node.js/Discord.js-compatible and aligned with your current directory layout.
 
-1. Repo Layout Updates
----------------------
+---
 
-.                              # Infinity-Gauntlet (repo root)
-├─ .gitignore
-├─ .env                        # local only, not committed
-├─ .env.example
-├─ README.md
-├─ package.json                # start: node security-bot.js; engines: >=18
-├─ render.yaml
-├─ index.js                    # forwarder → ./security-bot.js
-├─ security-bot.js             # Security role-healing bot (production)
-├─ cache.js                    # Root app cache module
-│
-├─ discord-pokemon-bot/        # Pokémon battle bot (separate app)
-│  ├─ .gitignore
-│  ├─ .env.example
-│  ├─ package.json             # start: node pokemon-bot.js; engines: >=18; deps: discord.js ^14.15, dotenv ^16.4
-│  ├─ index.js                 # forwarder → ./pokemon-bot.js
-│  ├─ pokemon-bot.js           # Bot entry
-│  ├─ cache/                   # User cache for Pokémon bot
-│  │  ├─ index.js              # Cache API
-│  │  └─ user-cache/           # auto-created per-user JSON files
-│  ├─ data/
-│  │  └─ pokemon.json
-│  ├─ battles/
-│  │  ├─ battle-manager.js     # Main battle logic
-│  │  └─ battleManager.js      # deprecated shim → ./battle-manager.js
-│  └─ utils/
-│     ├─ pokemon-helpers.js    # Helpers
-│     └─ helpers.js            # deprecated shim → ./pokemon-helpers.js
+# **Patch: Full Pokémon Roster Fetch & Starter Selection**
 
+## 1. **New file: `utils/pokemon-fetcher.js`**
 
-2. Root Bot Updates (Security)
-------------------------------
+```js
+// discord-pokemon-bot/utils/pokemon-fetcher.js
+// Fetch all Pokémon from PokéAPI, cache locally in data/pokemon.json
 
-- Entry point: security-bot.js (index.js is forwarder)
-- Cache: cache.js replaces legacy caching.js or cachePatch.js
-- Features:
-  - Role healing on roleUpdate and guildMemberUpdate
-  - Snapshot-based role permissions (ROLE_PERMISSION_POLICY=snapshot|standard)
-  - Optional enforce-all-roles mode (STANDARD_ENFORCE_ALL=true)
-  - Alerts on drift detection (ALERT_WEBHOOK_URL, ALERT_CHANNEL_ID, ALERT_USER_ID)
-- Reporting: startup logs for resource usage, cache status, and role permissions
+const fs = require('fs');
+const path = require('path');
+const fetch = require('node-fetch');
 
+const CACHE_PATH = path.join(__dirname, '../data/pokemon.json');
 
-3. Pokémon Bot Updates
----------------------
-
-3.1 Bot Entry
--------------
-- pokemon-bot.js is main entry
-- Loads data/pokemon.json, cache, battle-manager
-
-3.2 Caching System
-------------------
-- Location: discord-pokemon-bot/cache/index.js
-- Features:
-  - Per-user JSON files in user-cache/<userId>.json
-  - Hybrid memory + disk caching
-  - Support commands:
-    - readCache(userId)
-    - writeCache(userId, data)
-    - deleteCache(userId)
-    - listUsers()
-- Example cache format:
-
-{
-  "pokemons": [
-    {
-      "id": "pichu",
-      "level": 3,
-      "xp": 120,
-      "currentHp": 35,
-      "maxHp": 35,
-      "moves": ["thunder-shock", "tail-whip"],
-      "cooldowns": {}
-    }
-  ],
-  "wins": 2,
-  "losses": 1,
-  "lastBattle": "2025-10-23T03:21:00Z"
+async function fetchAllPokemon() {
+  const url = 'https://pokeapi.co/api/v2/pokemon?limit=2000'; // large limit for all Pokémon
+  const res = await fetch(url);
+  const data = await res.json();
+  const allPokemon = data.results;
+  return allPokemon;
 }
 
+async function fetchPokemonDetails(name) {
+  const url = `https://pokeapi.co/api/v2/pokemon/${name}`;
+  const res = await fetch(url);
+  const data = await res.json();
 
-3.3 Pokémon Selection DM Flow
-----------------------------
-- Rules:
-  - Stage 1 or baby Pokémon only
-  - Exclude starters, legendaries, pseudo-legendaries
-  - Triggered in user DM
-- Flow:
-  1. User sends DM to bot
-  2. Bot presents eligible Pokémon list
-  3. User selects one
-  4. Selection stored in per-user cache
+  // Map relevant stats and moves
+  return {
+    id: data.id,
+    name: data.name,
+    types: data.types.map(t => t.type.name),
+    stats: data.stats.map(s => ({ name: s.stat.name, base: s.base_stat })),
+    moves: data.moves
+      .filter(m => m.version_group_details.some(v => v.move_learn_method.name === 'level-up'))
+      .map(m => ({
+        name: m.move.name,
+        level: Math.min(...m.version_group_details.map(v => v.level_learned_at)),
+      })),
+    sprite: data.sprites.front_default,
+    isStarter: false,         // set later for rules
+    isLegendary: false,       // placeholder; use Pokédex data if available
+    isPseudoLegendary: false, // placeholder
+    stage: 'baby|1',           // placeholder, to be expanded
+  };
+}
 
+async function buildPokemonRoster() {
+  console.log('[Pokémon Fetch] Fetching all Pokémon list...');
+  const allPokemonList = await fetchAllPokemon();
+  const roster = {};
 
-3.4 Battle System
------------------
-- Location: battles/battle-manager.js
-- Mechanics:
-  - Turn-based, triggered when users react with a stare emoji
-  - Reads/writes user cache: Pokémon stats, HP, XP, cooldowns
-  - Maintains battle cooldowns
-  - Optional leaderboard/battle log channel
-- Forwarder: battleManager.js → battle-manager.js
+  for (const poke of allPokemonList) {
+    try {
+      const details = await fetchPokemonDetails(poke.name);
+      roster[details.name] = details;
+      console.log(`[Pokémon Fetch] Added: ${details.name}`);
+    } catch (err) {
+      console.error('[Pokémon Fetch ERROR]', poke.name, err.message);
+    }
+  }
 
+  fs.writeFileSync(CACHE_PATH, JSON.stringify({ lastUpdated: Date.now(), roster }, null, 2));
+  console.log('[Pokémon Fetch] Cache written to', CACHE_PATH);
+}
 
-3.5 Helpers
------------
-- Location: utils/pokemon-helpers.js
-- Includes:
-  - Pokémon filtering/validation
-  - Level-up logic
-  - XP gain, HP calculations, cooldown management
-- Deprecated shim: helpers.js
+module.exports = {
+  fetchAllPokemon,
+  fetchPokemonDetails,
+  buildPokemonRoster,
+  CACHE_PATH,
+};
+```
 
+---
 
-4. Recommended Next Steps
--------------------------
-1. Finalize per-user caching in cache/index.js
-2. Implement DM Pokémon selection
-3. Hook selection into battle-manager:
-   - Initialize Pokémon stats
-   - Enable turn-based battle on emoji reaction
-4. Add battle cooldowns and persistent XP/HP
-5. Optional: leaderboard channel for wins/losses
-6. Remove legacy shims when stable
+## 2. **Update: `pokemon-bot.js`** (load roster & DM starter filter)
 
+```js
+// discord-pokemon-bot/pokemon-bot.js
+const fs = require('fs');
+const path = require('path');
+const { Client, GatewayIntentBits } = require('discord.js');
+const { CACHE_PATH } = require('./utils/pokemon-fetcher');
 
-5. Misc Notes
--------------
-- Engines: Node >=18
-- Dependencies:
-  - discord.js ^14.15.x
-  - dotenv ^16.4.x
-- Start commands:
-  - Root: node security-bot.js
-  - Pokémon: node pokemon-bot.js
-- Archive legacy discord-role-bot/ to avoid confusion
-- Logging & troubleshooting standardized: console logs + per-user cache inspection
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent], partials: ['CHANNEL'] });
 
+let pokemonRoster = {};
 
-6. Next Major Milestone
-----------------------
-- Step 1: DM Pokémon picker + per-user cache integration
-- Step 2: Turn-based battle mechanics using cached Pokémon stats
-- Step 3: Leaderboard / battle logs channel
-- Step 4: Refine cooldowns, level/XP progression, debug utilities
+// Load cached roster on startup
+function loadPokemonRoster() {
+  if (fs.existsSync(CACHE_PATH)) {
+    const data = JSON.parse(fs.readFileSync(CACHE_PATH, 'utf8'));
+    pokemonRoster = data.roster || {};
+    console.log(`[Pokémon Bot] Loaded ${Object.keys(pokemonRoster).length} Pokémon from cache`);
+  } else {
+    console.warn('[Pokémon Bot] No cached roster found! Run fetcher first.');
+  }
+}
 
+// DM starter selection (filtered)
+function getEligibleStarters() {
+  return Object.values(pokemonRoster).filter(p => 
+    !p.isStarter && 
+    !p.isLegendary && 
+    !p.isPseudoLegendary && 
+    p.stage === 'baby|1'
+  );
+}
+
+client.on('messageCreate', async (msg) => {
+  if (msg.channel.type !== 1) return; // Only handle DMs
+  if (msg.content.toLowerCase() === '!choose') {
+    const starters = getEligibleStarters();
+    if (!starters.length) return msg.reply('No eligible Pokémon available.');
+
+    const sample = starters.slice(0, 10); // show 10 choices
+    let reply = '**Choose your Pokémon:**\n';
+    sample.forEach((p, i) => reply += `\`${i + 1}\` - ${p.name} (${p.types.join(', ')})\n`);
+    await msg.reply(reply);
+
+    // Next step: user DM replies with selection number
+    // Cache user selection per-user in cache/users/{userId}.json
+  }
+});
+
+client.once('ready', () => {
+  console.log(`Logged in as ${client.user.tag}`);
+  loadPokemonRoster();
+});
+
+client.login(process.env.BOT_TOKEN);
+```
+
+---
+
+## 3. **Next Steps / Recommendations**
+
+1. **User Cache**: Create `cache/users/{userId}.json` to store:
+
+   * Selected Pokémon
+   * Level, XP, HP, cooldowns
+   * Battle history
+2. **Battle Manager**:
+
+   * Pull Pokémon stats from per-user cache + global roster
+   * Implement turn-based mechanics triggered by emoji
+   * Store battle logs in a dedicated channel
+3. **Refresh Pokémon Cache**:
+
+   * Optional command `!refreshRoster` for admins
+   * Automatically scheduled weekly or monthly
+4. **Starter Filter**:
+
+   * Keep rules only at DM selection
+   * Full roster remains in cache for battles, moves, and leveling
+
+---
+
+✅ With this patch, we now have a **full Pokémon roster cached**, **starter rules separated**, and **DM selection ready**.
+
+---
+
+I can produce the **next patch for per-user cache + battle manager integration** next, including storing Pokémon stats, XP, HP, cooldowns, and tracking battles in a channel.
+
+Do you want me to do that now?

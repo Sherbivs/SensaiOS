@@ -1,6 +1,6 @@
 services:
   - type: worker
-    name: discord-role-bot
+    name: security-bot
     env: node
     buildCommand: npm install
     startCommand: npm start
@@ -9,3 +9,16 @@ services:
     envVars:
       - key: BOT_TOKEN
         sync: false
+
+  - type: worker
+    name: pokemon-bot
+    env: node
+    buildCommand: cd discord-pokemon-bot && npm install
+    startCommand: cd discord-pokemon-bot && npm start
+    autoDeploy: true
+    plan: free
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: BATTLE_CHANNEL_NAME
+        value: pokemon-battles

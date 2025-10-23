@@ -1,5 +1,5 @@
 // cache.js (pokemon bot)
-// Simple JSON file-backed cache for Pokémon data
+// JSON file-backed cache for Pokémon data and per-user profiles
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -23,11 +23,17 @@ function ensureDir(dir) {
 }
 
 const CACHE_DIR = ensureDir(PRIMARY_CACHE_DIR) ? PRIMARY_CACHE_DIR : (ensureDir(FALLBACK_CACHE_DIR), FALLBACK_CACHE_DIR);
+const USERS_DIR = path.join(CACHE_DIR, 'users');
+ensureDir(USERS_DIR);
 
 function getCachePath(key) {
   const safe = key.replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
   return path.join(CACHE_DIR, `${safe}.json`);
 }
+
+// -----------------------------
+// Key/value cache (existing API)
+// -----------------------------
 
 function readCache(key) {
   try {
@@ -139,6 +145,7 @@ function cleanOldCache() {
 
 module.exports = {
   CACHE_DIR,
+  USERS_DIR,
   readCache,
   writeCache,
   pruneCache,
