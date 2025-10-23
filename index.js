@@ -53,7 +53,7 @@ const client = new Client({
   partials: [Partials.User]
 });
 
-const DEFAULT_ROLE_NAME = 'Trainer';
+const DEFAULT_ROLE_NAME = 'Trainers';
 const ROLE_NAME = (process.env.ROLE_NAME || DEFAULT_ROLE_NAME).trim();
 const ROLE_ID = (process.env.ROLE_ID || '').trim();
 const BACKFILL_CONCURRENCY = Math.max(1, Number(process.env.BACKFILL_CONCURRENCY || 8)); // higher = faster, mind rate limits
@@ -75,6 +75,39 @@ function findRole(guild) {
   }
   const target = ROLE_NAME.toLowerCase();
   return guild.roles.cache.find(r => r.name.toLowerCase() === target) || null;
+}
+
+async function reportGuildRoles(guild) {
+  const guildSummary = describeGuild(guild);
+
+  try {
+    const roles = await guild.roles.fetch();
+    if (!roles || roles.size === 0) {
+      log('info', 'No roles discovered for guild', { guild: guildSummary });
+      return;
+    }
+
+    const sortedRoles = roles.sort((a, b) => b.position - a.position);
+    log('info', 'Role inventory snapshot', {
+      guild: guildSummary,
+      totalRoles: sortedRoles.size
+    });
+
+    sortedRoles.forEach(role => {
+      const permissions = role.permissions.toArray();
+      log('detail', 'Role permissions', {
+        guild: guildSummary,
+        role: describeRole(role),
+        permissionsCount: permissions.length,
+        permissions: permissions.length ? permissions.join(', ') : 'none'
+      });
+    });
+  } catch (error) {
+    log('error', 'Unable to enumerate guild roles', {
+      guild: guildSummary,
+      error: error.message
+    });
+  }
 }
 
 async function ensureTrainerFor(member, origin = 'unspecified') {
@@ -233,6 +266,7 @@ client.once('ready', () => {
 
   (async () => {
     for (const [, guild] of client.guilds.cache) {
+      await reportGuildRoles(guild);
       await sweepGuild(guild, 'startup');
     }
   })();
