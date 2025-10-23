@@ -47,6 +47,17 @@ If everything is configured, you'll see a log like:
    - `ROLE_PERMISSION_SNAPSHOT_UPDATE=true` (default): create/update snapshot if missing or different.
    - Set to `false` to make the report read-only (no writes).
 
+### Constant Healing (security enforcement)
+- To continuously enforce security:
+   - Set `ROLE_PERMISSIONS_REMEDIATE=true` to allow the bot to correct role permission drift.
+   - Choose policy via `ROLE_PERMISSION_POLICY`:
+      - `snapshot` (default): heal the target role back to the last persisted snapshot.
+      - `standard`: heal the target role to a built-in standard for that role name.
+   - For member role healing (auto-assign `Trainer` to users with no other roles), enable periodic sweeps with `BACKFILL_INTERVAL_MIN` (e.g., `5`).
+   - The bot also listens for `GuildMemberUpdate` and `GuildRoleUpdate` and will reactively heal:
+      - If a member ends up with only `@everyone`, it assigns `Trainer`.
+      - If the target role’s permissions change, it heals according to policy when remediation is enabled.
+
 Example report lines:
 
 ```
@@ -74,6 +85,7 @@ You can also use the optional `render.yaml` provided in this folder to set up th
 - Uses discord.js v14 with the required `GuildMembers` intent.
 - Startup backfill of existing members is disabled by default to stay lightweight. Enable only if needed with `STARTUP_BACKFILL=true`.
 - Periodic sweeps remain disabled by default; configure with `BACKFILL_INTERVAL_MIN`.
+ - For constant permission healing, enable remediation and set the policy (see above).
 
 ## Configuration (env)
 - `BOT_TOKEN` (required): Discord bot token (raw token, without the `Bot ` prefix).
@@ -88,3 +100,4 @@ You can also use the optional `render.yaml` provided in this folder to set up th
 - `ROLE_PERMISSIONS_AUDIT` (default: `false`): Emit detailed role inventory and diff checks.
 - `ROLE_PERMISSIONS_REMEDIATE` (default: `false`): Attempt to update roles to a standard policy (use with caution).
 - `ROLE_PERMISSION_SNAPSHOT_UPDATE` (default: `true`): Maintain on-disk permission snapshots for the security report.
+ - `ROLE_PERMISSION_POLICY` (default: `snapshot`): Policy for healing target role permissions (`snapshot` or `standard`).

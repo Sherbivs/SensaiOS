@@ -24,6 +24,12 @@ const CLI_DEBUG_MODE = process.env.CLI_DEBUG_MODE === '1'
 // Feature flags (off by default for safety)
 const ROLE_PERMISSIONS_AUDIT = process.env.ROLE_PERMISSIONS_AUDIT === '1' || process.env.ROLE_PERMISSIONS_AUDIT === 'true';
 const ROLE_PERMISSIONS_REMEDIATE = process.env.ROLE_PERMISSIONS_REMEDIATE === '1' || process.env.ROLE_PERMISSIONS_REMEDIATE === 'true';
+const STARTUP_BACKFILL = process.env.STARTUP_BACKFILL === '1' || process.env.STARTUP_BACKFILL === 'true';
+const ROLE_PERMISSION_SNAPSHOT_UPDATE =
+  process.env.ROLE_PERMISSION_SNAPSHOT_UPDATE === '0' || process.env.ROLE_PERMISSION_SNAPSHOT_UPDATE === 'false'
+    ? false
+    : true; // default on: maintain a tiny JSON snapshot
+const ROLE_PERMISSION_POLICY = (process.env.ROLE_PERMISSION_POLICY || 'snapshot').toLowerCase(); // 'snapshot' | 'standard'
 
 cache.cleanOldCache();
 
@@ -197,6 +203,133 @@ const STANDARD_PERMISSIONS = {
   'D&D Candidate': [],
   
 };
+
+// ---- Permission persistence + healing helpers ----
+function permissionSignatureFromArray(permsArray) {
+  return Array.isArray(permsArray) && permsArray.length
+    ? permsArray.slice().sort().join('|')
+    : 'none';
+}
+
+function desiredPermissionsForRole(role, guild) {
+  // Determine desired permissions based on policy
+  if (ROLE_PERMISSION_POLICY === 'standard') {
+    const standard = STANDARD_PERMISSIONS[role.name];
+    if (!standard || standard === 'ALL') return null;
+    return standard.slice().sort();
+  }
+  // snapshot policy
+  const cacheKey = `policy:${guild.id}:${role.id}`;
+  const persisted = cache.readCache(cacheKey);
+  if (persisted && Array.isArray(persisted.permissions)) return persisted.permissions.slice().sort();
+  return null;
+}
+
+function snapshotPermissions(role, guild) {
+  if (!ROLE_PERMISSION_SNAPSHOT_UPDATE) return;
+  const cacheKey = `policy:${guild.id}:${role.id}`;
+  const current = role.permissions.toArray().slice().sort();
+  cache.writeCache(cacheKey, {
+    guildId: guild.id,
+    roleId: role.id,
+    roleName: role.name,
+    permissions: current,
+    timestamp: Date.now()
+  });
+}
+
+async function reportPermissionPersistenceForGuild(guild) {
+  const guildSummary = describeGuild(guild);
+  try {
+    await guild.roles.fetch();
+  } catch (error) {
+    report('Permission Persistence Error', { guild: guildSummary, error: error.message }, 'error');
+    return;
+  }
+
+  const role = findRole(guild);
+  if (!role) {
+    report('Permission Persistence', {
+      guild: guildSummary,
+      roleName: ROLE_NAME,
+      roleId: ROLE_ID || 'resolved at runtime',
+      status: 'NO_TARGET_ROLE'
+    }, 'warn');
+    return;
+  }
+
+  const currentArr = role.permissions.toArray();
+  const currentSig = permissionSignatureFromArray(currentArr);
+  const cacheKey = `policy:${guild.id}:${role.id}`;
+  const persisted = cache.readCache(cacheKey);
+  const persistedSig = persisted && Array.isArray(persisted.permissions)
+    ? permissionSignatureFromArray(persisted.permissions)
+    : 'none';
+
+  let status = 'NONE';
+  if (persisted && persistedSig === currentSig) status = 'MATCH';
+  else if (persisted) status = 'DIFF';
+
+  report('Role Permission Persistence', {
+    guild: guildSummary,
+    role: describeRole(role),
+    status,
+    policy: ROLE_PERMISSION_POLICY,
+    currentPermissionsCount: currentArr.length,
+    currentSignature: currentSig,
+    persistedSignature: persisted ? persistedSig : 'none',
+    lastUpdatedAt: persisted && persisted.timestamp ? new Date(persisted.timestamp).toISOString() : 'n/a'
+  }, status === 'MATCH' ? 'success' : (status === 'DIFF' ? 'warn' : 'info'));
+
+  if (ROLE_PERMISSION_SNAPSHOT_UPDATE && (!persisted || persistedSig !== currentSig)) {
+    snapshotPermissions(role, guild);
+    report('Permission Snapshot Updated', {
+      guild: guildSummary,
+      role: describeRole(role),
+      action: persisted ? 'updated' : 'created'
+    }, 'detail');
+  }
+}
+
+async function healRolePermissionsForGuild(guild, origin = 'heal') {
+  const role = findRole(guild);
+  if (!role) return;
+  const guildSummary = describeGuild(guild);
+  const current = role.permissions.toArray().slice().sort();
+  const desired = desiredPermissionsForRole(role, guild);
+  if (!desired || permissionSignatureFromArray(desired) === permissionSignatureFromArray(current)) {
+    return; // nothing to do
+  }
+
+  if (!ROLE_PERMISSIONS_REMEDIATE) {
+    report('Permission Drift Detected (No Remediation)', {
+      origin,
+      guild: guildSummary,
+      role: describeRole(role)
+    }, 'warn');
+    return;
+  }
+  // Try to heal by setting desired permissions
+  try {
+    await role.setPermissions(desired);
+    report('Permission Healed', {
+      origin,
+      guild: guildSummary,
+      role: describeRole(role),
+      policy: ROLE_PERMISSION_POLICY
+    }, 'success');
+    if (ROLE_PERMISSION_POLICY === 'snapshot') {
+      snapshotPermissions(role, guild); // update timestamp
+    }
+  } catch (error) {
+    report('Permission Heal Error', {
+      origin,
+      guild: guildSummary,
+      role: describeRole(role),
+      error: error.message
+    }, 'error');
+  }
+}
 function analyzeRolePermissions(role) {
   const current = role.permissions.toArray();
   const standard = STANDARD_PERMISSIONS[role.name];
@@ -666,13 +799,15 @@ client.once(Events.ClientReady, async () => {
     roleName: ROLE_NAME,
     roleId: ROLE_ID || 'resolved at runtime',
     roleDiscovery: ROLE_ID ? 'ROLE_ID exact match' : 'ROLE_NAME case-insensitive search',
-    startupBackfill: 'enabled',
+    startupBackfill: STARTUP_BACKFILL ? 'enabled' : 'disabled',
     periodicSweep: BACKFILL_INTERVAL_MIN > 0 ? `every ${BACKFILL_INTERVAL_MIN} minute(s)` : 'disabled',
     concurrency: BACKFILL_CONCURRENCY,
     delayMsBetweenBatches: BACKFILL_DELAY_MS,
     guildsObserved: client.guilds.cache.size,
     roleAudit: ROLE_PERMISSIONS_AUDIT ? 'enabled' : 'disabled',
-    roleRemediation: ROLE_PERMISSIONS_REMEDIATE ? 'enabled' : 'disabled'
+    roleRemediation: ROLE_PERMISSIONS_REMEDIATE ? 'enabled' : 'disabled',
+    permissionPolicy: ROLE_PERMISSION_POLICY,
+    permissionSnapshotUpdate: ROLE_PERMISSION_SNAPSHOT_UPDATE ? 'enabled' : 'disabled'
   });
 
   // One-time detailed operational report
@@ -683,6 +818,8 @@ client.once(Events.ClientReady, async () => {
   }
 
   for (const [, guild] of client.guilds.cache) {
+    // Security visibility: always report persistence status
+    await reportPermissionPersistenceForGuild(guild);
     if (ROLE_PERMISSIONS_AUDIT) {
       await reportGuildRoles(guild);
       await validateGuildRoles(guild);
@@ -690,7 +827,9 @@ client.once(Events.ClientReady, async () => {
     if (ROLE_PERMISSIONS_REMEDIATE) {
       await fixGuildRoles(guild);
     }
-    await sweepGuild(guild, 'startup');
+    if (STARTUP_BACKFILL) {
+      await sweepGuild(guild, 'startup');
+    }
   }
 
   if (BACKFILL_INTERVAL_MIN > 0) {
@@ -700,6 +839,8 @@ client.once(Events.ClientReady, async () => {
       const cycleStarted = new Date().toISOString();
       report('Periodic Sweep Start', { cycleStarted });
       for (const [, guild] of client.guilds.cache) {
+        // Heal role permissions periodically (uses policy + remediation flag)
+        await healRolePermissionsForGuild(guild, 'periodic');
         await sweepGuild(guild, 'periodic');
       }
       report('Periodic Sweep Complete', {
@@ -725,6 +866,23 @@ client.on('guildMemberAdd', async (member) => {
   });
 
   await ensureTrainerFor(member, 'member-join');
+});
+
+// Constant healing triggers
+client.on(Events.GuildMemberUpdate, async (_oldMember, newMember) => {
+  // If member ends up with only @everyone, ensure Trainer
+  if (hasNoAssignableRoles(newMember)) {
+    await ensureTrainerFor(newMember, 'member-update');
+  }
+});
+
+client.on(Events.GuildRoleUpdate, async (_oldRole, newRole) => {
+  // If target role drifts, heal according to policy if remediation is enabled
+  const guild = newRole.guild;
+  const target = findRole(guild);
+  if (target && target.id === newRole.id) {
+    await healRolePermissionsForGuild(guild, 'role-update');
+  }
 });
 
 // Normalize and validate token early for clearer errors (especially on Render)
