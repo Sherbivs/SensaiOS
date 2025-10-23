@@ -24,9 +24,11 @@ const toList = (value, { fallback = [], map = (item) => item.trim(), filter = Bo
 
 const CLI_DEBUG_MODE = toBool(process.env.CLI_DEBUG_MODE) || argv.includes('--debug-cli') || argv.includes('--cli-debug');
 
-// Feature flags and role governance
-const ROLE_PERMISSIONS_AUDIT = toBool(process.env.ROLE_PERMISSIONS_AUDIT);
-const ROLE_PERMISSIONS_REMEDIATE = toBool(process.env.ROLE_PERMISSIONS_REMEDIATE);
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+// Feature flags and role governance (forced on for continuous monitoring)
+const ROLE_PERMISSIONS_AUDIT = true;
+const ROLE_PERMISSIONS_REMEDIATE = true;
 const ROLE_PERMISSION_POLICY = (process.env.ROLE_PERMISSION_POLICY || 'standard').toLowerCase();
 const ROLE_PERMISSION_SNAPSHOT_UPDATE = process.env.ROLE_PERMISSION_SNAPSHOT_UPDATE === undefined
   ? true
@@ -46,8 +48,8 @@ const ROLE_ID = (process.env.ROLE_ID || '').trim();
 // Backfill/automation tuning
 const BACKFILL_CONCURRENCY = Math.max(1, toNumber(process.env.BACKFILL_CONCURRENCY, 8));
 const BACKFILL_DELAY_MS = Math.max(0, toNumber(process.env.BACKFILL_DELAY_MS, 20));
-const BACKFILL_INTERVAL_MIN = Math.max(0, toNumber(process.env.BACKFILL_INTERVAL_MIN, 0));
-const ROLE_REMEDIATION_INTERVAL_MIN = Math.max(0, toNumber(process.env.ROLE_REMEDIATION_INTERVAL_MIN, 0));
+const BACKFILL_INTERVAL_MIN = Math.max(1, toNumber(process.env.BACKFILL_INTERVAL_MIN, 5));
+const ROLE_REMEDIATION_INTERVAL_MIN = Math.max(5, toNumber(process.env.ROLE_REMEDIATION_INTERVAL_MIN, 15));
 const CACHE_TTL_HOURS = Math.max(1, toNumber(process.env.CACHE_TTL_HOURS, 24));
 const OPS_REPORT_INTERVAL_MIN = Math.max(0, toNumber(process.env.OPS_REPORT_INTERVAL_MIN, 0));
 
@@ -58,6 +60,12 @@ const UNLISTED_PERMISSIONS = toList(process.env.UNLISTED_PERMISSIONS, {
 });
 const STANDARD_EXEMPT_ROLES = new Set(toList(process.env.STANDARD_EXEMPT_ROLES));
 const STANDARD_ALL_PERMS_ROLES = new Set(toList(process.env.STANDARD_ALL_PERMS_ROLES));
+
+// Reporting recipients and cadence
+const RESTART_DM_RECIPIENT = (process.env.RESTART_DM_RECIPIENT || 'DripTVDD').trim();
+const SUMMARY_REPORT_RECIPIENT = (process.env.SUMMARY_REPORT_RECIPIENT || RESTART_DM_RECIPIENT).trim();
+const SUMMARY_REPORT_HOUR = clamp(toNumber(process.env.SUMMARY_REPORT_HOUR, 3), 0, 23);
+const SUMMARY_REPORT_MINUTE = clamp(toNumber(process.env.SUMMARY_REPORT_MINUTE, 0), 0, 59);
 
 module.exports = {
   CLI_DEBUG_MODE,
@@ -82,4 +90,8 @@ module.exports = {
   UNLISTED_PERMISSIONS,
   STANDARD_EXEMPT_ROLES,
   STANDARD_ALL_PERMS_ROLES,
+  RESTART_DM_RECIPIENT,
+  SUMMARY_REPORT_RECIPIENT,
+  SUMMARY_REPORT_HOUR,
+  SUMMARY_REPORT_MINUTE,
 };
