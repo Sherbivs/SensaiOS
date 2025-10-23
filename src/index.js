@@ -1,5 +1,6 @@
 const { startSecurityBot } = require('./bot/main');
 const { startPokemonBot } = require('../discord-pokemon-bot/pokemon-bot');
+const { initializePokemonCache } = require('./services/pokemonService');
 const {
   SECURITY_BOT_TOKEN,
   POKEMON_BOT_TOKEN,
@@ -13,6 +14,21 @@ const log = (level, message, context) => baseLog(level, message, context, { debu
 
 async function startAllBots() {
   cliStatus.startStatusDisplay();
+
+  try {
+    await initializePokemonCache();
+  } catch (error) {
+    log('error', 'Pokémon cache initialization failed', error instanceof Error ? { error } : { error: String(error) });
+    if (ENABLE_POKEMON_BOT) {
+      const message = error instanceof Error ? error.message : String(error);
+      cliStatus.setSection('pokemon', {
+        title: 'Pokémon Bot',
+        status: 'cache init failed',
+        metrics: [['error', message]],
+      });
+      throw error;
+    }
+  }
 
   const launches = [];
 
