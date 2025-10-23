@@ -836,7 +836,10 @@ client.once(Events.ClientReady, async () => {
     return;
   }
 
-  log('success', `Connected as ${client.user.tag}`, { userId: client.user.id });
+  log('success', 'Your service is live💦', {
+    connectedAs: client.user.tag,
+    userId: client.user.id,
+  });
   updateMonitoringPhase();
   await notifyServiceRestart();
   scheduleDailySummaryReports();
