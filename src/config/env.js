@@ -110,6 +110,10 @@ const RESTART_DM_RECIPIENT = (process.env.RESTART_DM_RECIPIENT || 'DripTVDD').tr
 const SUMMARY_REPORT_RECIPIENT = (process.env.SUMMARY_REPORT_RECIPIENT || RESTART_DM_RECIPIENT).trim();
 const SUMMARY_REPORT_HOUR = clamp(toNumber(process.env.SUMMARY_REPORT_HOUR, 3), 0, 23);
 const SUMMARY_REPORT_MINUTE = clamp(toNumber(process.env.SUMMARY_REPORT_MINUTE, 0), 0, 59);
+const DRIP_ALERT_RECIPIENT = (process.env.DRIP_ALERT_RECIPIENT || 'DripTVDD').trim();
+const DRIP_ALERT_HOUR = clamp(toNumber(process.env.DRIP_ALERT_HOUR, 2), 0, 23);
+const DRIP_ALERT_MINUTE = clamp(toNumber(process.env.DRIP_ALERT_MINUTE, 0), 0, 59);
+const DRIP_ALERT_TIMEZONE = (process.env.DRIP_ALERT_TIMEZONE || 'America/New_York').trim();
 
 module.exports = {
   CLI_DEBUG_MODE,
@@ -145,4 +149,8 @@ module.exports = {
   SUMMARY_REPORT_RECIPIENT,
   SUMMARY_REPORT_HOUR,
   SUMMARY_REPORT_MINUTE,
+  DRIP_ALERT_RECIPIENT,
+  DRIP_ALERT_HOUR,
+  DRIP_ALERT_MINUTE,
+  DRIP_ALERT_TIMEZONE,
 };

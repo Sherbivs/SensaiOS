@@ -1,160 +1,27 @@
-const readline = require('node:readline');
-const os = require('node:os');
-
-const cache = require('../services/cache');
 const activityTracker = require('./activityTracker');
 
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 const UPDATE_INTERVAL_MS = 1000;
-const NON_TTY_INTERVAL_MS = 15 * 1000;
 
-let frameIndex = 0;
-let startTime = Date.now();
 let intervalHandle = null;
-let latestStats = activityTracker.getStats();
 let unsubscribe = null;
-let currentPhase = 'Starting';
-let guildCount = 0;
-let lastRenderBlock = '';
-let lastNonTtyPrint = 0;
-const sections = new Map(); // id -> { title, status, metrics: [] }
+let lastOutputWasDot = false;
 
-function formatBytes(bytes) {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value.toFixed(unit === 0 ? 0 : value >= 100 ? 0 : 1)} ${units[unit]}`;
-}
-
-function formatDuration(ms) {
-  const totalSeconds = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) {
-    return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
-  }
-  return `${seconds}s`;
-}
-
-function formatRelativeTime(timestamp) {
-  if (!timestamp) {
-    return 'never';
-  }
-  const diffMs = Date.now() - timestamp.getTime();
-  if (diffMs < 0) return 'now';
-  const totalSeconds = Math.floor(diffMs / 1000);
-  if (totalSeconds < 5) return 'just now';
-  if (totalSeconds < 60) return `${totalSeconds}s ago`;
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  if (totalMinutes < 60) return `${totalMinutes}m ago`;
-  const totalHours = Math.floor(totalMinutes / 60);
-  if (totalHours < 48) return `${totalHours}h ago`;
-  const totalDays = Math.floor(totalHours / 24);
-  return `${totalDays}d ago`;
-}
-
-function formatStatsLine() {
-  const stats = latestStats;
-  const spinner = SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length];
-  const uptime = formatDuration(Date.now() - startTime);
-  const lastChange = formatRelativeTime(stats.lastActivityAt);
-  const lastSummary = formatRelativeTime(stats.lastSummaryAt);
-  const assignments = stats.lifetimeCounts['role-assignment'] || 0;
-  const heals = stats.lifetimeCounts['role-permissions-healed'] || 0;
-  const alerts = stats.lifetimeCounts['security-alert'] || 0;
-  const cacheSize = cache.getCacheSize();
-  const budget = cache.getCacheBudget();
-  const limitBytes = budget.maxAllowedBytes || 1;
-  const percentUsed = Math.min(999, Math.round((cacheSize / limitBytes) * 100));
-  const freeDisk = budget.diskFreeBytes ? formatBytes(budget.diskFreeBytes) : formatBytes(os.freemem());
-  const pending = stats.pendingEvents;
-
-  return `${spinner} ${currentPhase} | guilds ${guildCount} | uptime ${uptime} | last change ${lastChange} | summary ${lastSummary} | pending ${pending} | assigned ${assignments} | healed ${heals} | alerts ${alerts} | cache ${formatBytes(cacheSize)} / ${formatBytes(limitBytes)} (${percentUsed}%) | disk free ${freeDisk}`;
-}
-
-function formatSectionLine(section) {
-  if (!section) return '';
-  const parts = [];
-  if (section.title) {
-    parts.push(section.title);
-  }
-  if (section.status) {
-    parts.push(section.status);
-  }
-  if (Array.isArray(section.metrics)) {
-    for (const metric of section.metrics) {
-      if (!metric) continue;
-      if (Array.isArray(metric) && metric.length >= 2) {
-        parts.push(`${metric[0]} ${metric[1]}`);
-      } else if (typeof metric === 'string') {
-        parts.push(metric);
-      }
-    }
-  }
-  return parts.join(' | ');
-}
-
-function collectLines() {
-  const lines = [formatStatsLine()];
-  for (const [, section] of sections) {
-    const line = formatSectionLine(section);
-    if (line) {
-      lines.push(line);
-    }
-  }
-  return lines;
-}
-
-function render(force = false) {
-  const block = collectLines().join('\n');
-  if (!process.stdout.isTTY) {
-    const now = Date.now();
-    if (force || now - lastNonTtyPrint >= NON_TTY_INTERVAL_MS) {
-      const lines = block.split('\n');
-      for (const line of lines) {
-        if (!line) continue;
-        // eslint-disable-next-line no-console
-        console.log(`[STATUS] ${line}`);
-      }
-      lastNonTtyPrint = now;
-    }
-    return;
-  }
-
-  if (!force && block === lastRenderBlock) {
-    return;
-  }
-  console.clear();
-  process.stdout.write(block);
-  lastRenderBlock = block;
-}
-
-function tick() {
-  frameIndex = (frameIndex + 1) % SPINNER_FRAMES.length;
-  render();
+function render() {
+  process.stdout.write('.\n');
+  lastOutputWasDot = false;
 }
 
 function startStatusDisplay() {
   if (intervalHandle) {
     return;
   }
-  startTime = Date.now();
-  latestStats = activityTracker.getStats();
-  unsubscribe = activityTracker.subscribe((stats) => {
-    latestStats = stats;
-    render(true);
-  });
-  render(true);
-  intervalHandle = setInterval(tick, UPDATE_INTERVAL_MS);
+
+  if (typeof activityTracker.subscribe === 'function') {
+    unsubscribe = activityTracker.subscribe(() => {});
+  }
+
+  render();
+  intervalHandle = setInterval(render, UPDATE_INTERVAL_MS);
 }
 
 function stopStatusDisplay() {
@@ -162,57 +29,35 @@ function stopStatusDisplay() {
     clearInterval(intervalHandle);
     intervalHandle = null;
   }
+
   if (unsubscribe) {
     unsubscribe();
     unsubscribe = null;
   }
-  if (process.stdout.isTTY) {
-    readline.clearScreenDown(process.stdout);
-    readline.cursorTo(process.stdout, 0, 0);
+
+  if (lastOutputWasDot) {
+    process.stdout.write('\n');
+    lastOutputWasDot = false;
   }
-  lastRenderBlock = '';
 }
 
-function setPhase(phase) {
-  currentPhase = phase;
-  render(true);
-}
+function setPhase() {}
 
-function setGuildCount(count) {
-  guildCount = Math.max(0, Number(count) || 0);
-  render(true);
-}
+function setGuildCount() {}
+
+function setSection() {}
 
 function interruptConsoleOutput(writeFn) {
   if (typeof writeFn !== 'function') {
     return;
   }
-  if (!process.stdout.isTTY) {
-    writeFn();
-    return;
-  }
-  const hadBlock = Boolean(lastRenderBlock);
-  if (hadBlock) {
-    console.clear();
-  }
-  try {
-    writeFn();
-  } finally {
-    if (hadBlock) {
-      lastRenderBlock = '';
-      render(true);
-    }
-  }
-}
 
-function setSection(id, data) {
-  if (!id) return;
-  if (!data) {
-    sections.delete(id);
-  } else {
-    sections.set(id, data);
+  if (lastOutputWasDot) {
+    process.stdout.write('\n');
+    lastOutputWasDot = false;
   }
-  render(true);
+
+  writeFn();
 }
 
 module.exports = {
