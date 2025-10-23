@@ -9,6 +9,7 @@ const PRIMARY_CACHE_DIR = '/Store/pokemon-cache';
 const FALLBACK_CACHE_DIR = path.join(process.cwd(), 'Store', 'pokemon-cache');
 const MAX_CACHE_PERCENT = 0.25;
 const MAX_CACHE_FILE_AGE_MS = 1000 * 60 * 60 * 24 * 7;
+const MAX_WORKSPACE_BYTES = 1024 * 1024 * 1024; // 1 GB workspace budget reminder
 
 function ensureDir(dir) {
   try {
@@ -25,6 +26,17 @@ function ensureDir(dir) {
 const CACHE_DIR = ensureDir(PRIMARY_CACHE_DIR) ? PRIMARY_CACHE_DIR : (ensureDir(FALLBACK_CACHE_DIR), FALLBACK_CACHE_DIR);
 const USERS_DIR = path.join(CACHE_DIR, 'users');
 ensureDir(USERS_DIR);
+
+function getDiskStats(dir) {
+  try {
+    const stats = fs.statfsSync(dir);
+    const free = Number(stats.bavail) * Number(stats.bsize);
+    const total = Number(stats.blocks) * Number(stats.bsize);
+    return { free, total };
+  } catch {
+    return { free: 0, total: 0 };
+  }
+}
 
 function getCachePath(key) {
   const safe = key.replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
@@ -88,7 +100,15 @@ function cachePokemonList(data) {
 }
 
 function approxFreeBytes() {
-  return Math.max(os.freemem(), 512 * 1024 * 1024);
+  const { free } = getDiskStats(CACHE_DIR);
+  if (free > 0) {
+    return Math.min(free, MAX_WORKSPACE_BYTES);
+  }
+  const fallback = os.freemem();
+  if (fallback > 0) {
+    return Math.min(fallback, MAX_WORKSPACE_BYTES);
+  }
+  return MAX_WORKSPACE_BYTES;
 }
 
 function getCacheSize() {
@@ -97,6 +117,23 @@ function getCacheSize() {
   } catch {
     return 0;
   }
+}
+
+function getCacheBudget() {
+  const disk = getDiskStats(CACHE_DIR);
+  const approxBytes = approxFreeBytes();
+  const maxAllowedBytes = Math.min(
+    Math.floor(approxBytes * MAX_CACHE_PERCENT),
+    Math.floor(MAX_WORKSPACE_BYTES * MAX_CACHE_PERCENT)
+  );
+  return {
+    approxBytes,
+    maxAllowedBytes,
+    percent: MAX_CACHE_PERCENT,
+    diskFreeBytes: disk.free,
+    diskTotalBytes: disk.total,
+    workspaceLimitBytes: MAX_WORKSPACE_BYTES,
+  };
 }
 
 function pruneCache() {
@@ -111,9 +148,9 @@ function pruneCache() {
     return;
   }
   let total = getCacheSize();
-  const budget = Math.floor(approxFreeBytes() * MAX_CACHE_PERCENT);
+  const budget = getCacheBudget();
   for (const e of entries) {
-    if (total <= budget) break;
+    if (total <= budget.maxAllowedBytes) break;
     try {
       fs.unlinkSync(e.filePath);
       total -= e.size;
@@ -151,4 +188,5 @@ module.exports = {
   pruneCache,
   cleanOldCache,
   cachePokemonList,
+  getCacheBudget,
 };
