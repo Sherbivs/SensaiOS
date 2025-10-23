@@ -7,8 +7,8 @@ let unsubscribe = null;
 let lastOutputWasDot = false;
 
 function render() {
-  process.stdout.write('.\n');
-  lastOutputWasDot = false;
+  process.stdout.write('.');
+  lastOutputWasDot = true;
 }
 
 function startStatusDisplay() {
