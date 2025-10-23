@@ -64,6 +64,60 @@ const describeRole = (role) => `${role.name} (#${role.id})`;
 const describeMember = (member) => `${member.user.tag} (#${member.id})`;
 const describeGuild = (guild) => `${guild.name} (#${guild.id})`;
 
+const STANDARD_PERMISSIONS = {
+  'Server admin': [
+    'KickMembers','BanMembers','ManageChannels','ManageRoles','ManageGuild','ManageMessages','ModerateMembers',
+    'ManageNicknames','ManageWebhooks','ManageEmojisAndStickers','ViewAuditLog','CreateEvents','UseApplicationCommands',
+    'ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages','EmbedLinks','AttachFiles','ReadMessageHistory',
+    'MentionEveryone','UseExternalEmojis','Connect','Speak','DeafenMembers','MoveMembers','UseVAD','PrioritySpeaker',
+    'Stream','UseEmbeddedActivities','UseSoundboard','CreateGuildExpressions','UseExternalSounds','SendPolls','UseExternalApps'
+  ],
+  'Super Admin': [
+    'KickMembers','BanMembers','ManageMessages','ModerateMembers','ManageNicknames','ViewAuditLog','CreateEvents',
+    'UseApplicationCommands','ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages','EmbedLinks',
+    'AttachFiles','ReadMessageHistory','MentionEveryone','UseExternalEmojis','Connect','Speak','DeafenMembers','MoveMembers',
+    'UseVAD','PrioritySpeaker','Stream','UseEmbeddedActivities','UseSoundboard','CreateGuildExpressions','UseExternalSounds',
+    'SendPolls','UseExternalApps'
+  ],
+  'Admin': [
+    'KickMembers','BanMembers','ManageMessages','ModerateMembers','ManageNicknames','ViewAuditLog','CreateEvents',
+    'UseApplicationCommands','ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages','EmbedLinks',
+    'AttachFiles','ReadMessageHistory','MentionEveryone','UseExternalEmojis','Connect','Speak','DeafenMembers','MoveMembers',
+    'UseVAD','PrioritySpeaker','Stream','UseEmbeddedActivities','UseSoundboard','CreateGuildExpressions','UseExternalSounds','SendPolls'
+  ],
+  'Gym Leader': [
+    'ManageMessages','ModerateMembers','ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages',
+    'EmbedLinks','AttachFiles','ReadMessageHistory','MentionEveryone','UseExternalEmojis','Connect','Speak','UseVAD',
+    'SendPolls','UseEmbeddedActivities'
+  ],
+  'Trainer': [
+    'ManageMessages','ModerateMembers','ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages',
+    'EmbedLinks','AttachFiles','ReadMessageHistory','MentionEveryone','UseExternalEmojis','Connect','Speak','UseVAD',
+    'SendPolls','UseEmbeddedActivities'
+  ],
+  'Trainers': [
+    'ManageMessages','ModerateMembers','ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages',
+    'EmbedLinks','AttachFiles','ReadMessageHistory','MentionEveryone','UseExternalEmojis','Connect','Speak','UseVAD',
+    'SendPolls','UseEmbeddedActivities'
+  ],
+  'Zapier': ['SendMessages','EmbedLinks','AttachFiles','ManageWebhooks','ViewChannel'],
+  'FreshTok': ['SendMessages','EmbedLinks','AttachFiles','ManageWebhooks','ViewChannel'],
+  'Server Booster': [
+    'SendMessages','EmbedLinks','AttachFiles','Connect','Speak','UseVAD','CreatePublicThreads','CreatePrivateThreads',
+    'UseSoundboard','UseExternalSounds'
+  ],
+  'Drip': 'ALL',
+  'Pokétwo': ['SendMessages','ManageMessages','AddReactions','EmbedLinks','AttachFiles','ReadMessageHistory','UseExternalEmojis'],
+  'Cards Against Discord': [
+    'SendMessages','ManageMessages','AddReactions','EmbedLinks','AttachFiles','ReadMessageHistory','UseExternalEmojis','ManageThreads',
+    'CreatePublicThreads','CreatePrivateThreads','UseExternalStickers','SendMessagesInThreads'
+  ],
+  'D&D Candidate': [],
+  '@everyone': [
+    'SendMessages','EmbedLinks','AttachFiles','ReadMessageHistory','Connect','Speak','CreatePublicThreads','CreatePrivateThreads',
+    'UseApplicationCommands','AddReactions','UseExternalEmojis'
+  ]
+};
 function hasNoAssignableRoles(member) {
   // members always have @everyone; size === 1 means no additional roles
   return member.roles.cache.size <= 1;
@@ -110,6 +164,129 @@ async function reportGuildRoles(guild) {
   }
 }
 
+async function validateGuildRoles(guild) {
+  const guildSummary = describeGuild(guild);
+  log('info', 'Validating guild role permissions', { guild: guildSummary });
+
+  let roles;
+  try {
+    roles = await guild.roles.fetch();
+  } catch (error) {
+    log('error', 'Unable to fetch guild roles for validation', {
+      guild: guildSummary,
+      error: error.message
+    });
+    return;
+  }
+
+  for (const [, role] of roles) {
+    const standard = STANDARD_PERMISSIONS[role.name];
+    if (!standard) {
+      log('detail', 'No standard permissions defined for role; skipping', {
+        guild: guildSummary,
+        role: describeRole(role)
+      });
+      continue;
+    }
+
+    const current = role.permissions.toArray();
+
+    if (standard === 'ALL') {
+      log('detail', 'Role configured for full permissions coverage', {
+        guild: guildSummary,
+        role: describeRole(role)
+      });
+      continue;
+    }
+
+    const missing = standard.filter(p => !current.includes(p));
+    const extra = current.filter(p => !standard.includes(p));
+
+    if (missing.length === 0 && extra.length === 0) {
+      log('success', 'Role permissions match standard', {
+        guild: guildSummary,
+        role: describeRole(role)
+      });
+    } else {
+      log('warn', 'Role permissions differ from standard', {
+        guild: guildSummary,
+        role: describeRole(role),
+        missingPermissions: missing.length ? missing.join(', ') : 'none',
+        extraPermissions: extra.length ? extra.join(', ') : 'none'
+      });
+    }
+  }
+}
+
+async function fixGuildRoles(guild) {
+  const guildSummary = describeGuild(guild);
+
+  let roles;
+  try {
+    roles = await guild.roles.fetch();
+  } catch (error) {
+    log('error', 'Unable to fetch guild roles for remediation', {
+      guild: guildSummary,
+      error: error.message
+    });
+    return;
+  }
+
+  for (const [, role] of roles) {
+    if (role.name === 'Admin') {
+      log('info', 'Skipping Admin role; cannot modify', {
+        guild: guildSummary,
+        role: describeRole(role)
+      });
+      continue;
+    }
+
+    const standard = STANDARD_PERMISSIONS[role.name];
+    if (!standard) {
+      log('info', 'No standard permissions defined for role; skipping', {
+        guild: guildSummary,
+        role: describeRole(role)
+      });
+      continue;
+    }
+
+    if (standard === 'ALL') {
+      log('detail', 'Role is set to full bot permissions', {
+        guild: guildSummary,
+        role: describeRole(role)
+      });
+      continue;
+    }
+
+    const current = role.permissions.toArray();
+    const missing = standard.filter(p => !current.includes(p));
+    const extra = current.filter(p => !standard.includes(p));
+
+    if (missing.length === 0 && extra.length === 0) {
+      log('success', 'Role permissions match standard', {
+        guild: guildSummary,
+        role: describeRole(role)
+      });
+      continue;
+    }
+
+    try {
+      await role.setPermissions(standard);
+      log('success', 'Updated role permissions to standard', {
+        guild: guildSummary,
+        role: describeRole(role),
+        missingPermissions: missing.length ? missing.join(', ') : 'none',
+        extraPermissions: extra.length ? extra.join(', ') : 'none'
+      });
+    } catch (error) {
+      log('error', 'Failed to update role permissions', {
+        guild: guildSummary,
+        role: describeRole(role),
+        error: error.message
+      });
+    }
+  }
+}
 async function ensureTrainerFor(member, origin = 'unspecified') {
   const guildSummary = describeGuild(member.guild);
   const memberSummary = describeMember(member);
@@ -267,6 +444,8 @@ client.once('ready', () => {
   (async () => {
     for (const [, guild] of client.guilds.cache) {
       await reportGuildRoles(guild);
+      await validateGuildRoles(guild);
+      await fixGuildRoles(guild);
       await sweepGuild(guild, 'startup');
     }
   })();
