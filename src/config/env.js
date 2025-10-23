@@ -38,7 +38,12 @@ const ROLE_PERMISSION_SNAPSHOT_UPDATE = process.env.ROLE_PERMISSION_SNAPSHOT_UPD
 const ALERT_WEBHOOK_URL = (process.env.ALERT_WEBHOOK_URL || '').trim();
 const ALERT_CHANNEL_ID = (process.env.ALERT_CHANNEL_ID || '').trim();
 const ALERT_USER_ID = (process.env.ALERT_USER_ID || '').trim();
-const BOT_TOKEN = (process.env.BOT_TOKEN || '').trim();
+const SECURITY_BOT_TOKEN = (process.env.SECURITY_BOT_TOKEN || process.env.BOT_TOKEN || '').trim();
+const POKEMON_BOT_TOKEN = (process.env.POKEMON_BOT_TOKEN || process.env.POKEMON_TOKEN || '').trim();
+const ENABLE_POKEMON_BOT = process.env.ENABLE_POKEMON_BOT === undefined
+  ? true
+  : toBool(process.env.ENABLE_POKEMON_BOT);
+const BOT_TOKEN = SECURITY_BOT_TOKEN;
 
 // Role assignment defaults
 const DEFAULT_ROLE_NAME = 'Trainer';
@@ -114,6 +119,9 @@ module.exports = {
   ALERT_CHANNEL_ID,
   ALERT_USER_ID,
   BOT_TOKEN,
+  SECURITY_BOT_TOKEN,
+  POKEMON_BOT_TOKEN,
+  ENABLE_POKEMON_BOT,
   DEFAULT_ROLE_NAME,
   ROLE_NAME,
   ROLE_ID,

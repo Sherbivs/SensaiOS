@@ -49,6 +49,7 @@ const client = new Client({
   ],
   partials: [Partials.User]
 });
+let loginPromise = null;
 
 const describeRole = (role) => `${role.name} (#${role.id})`;
 const describeMember = (member) => `${member.user.tag} (#${member.id})`;
@@ -1083,23 +1084,54 @@ async function sendSecurityAlert(title, meta = {}) {
 }
 
 // Normalize and validate token early for clearer errors (especially on Render)
-const envPath = path.resolve(process.cwd(), '.env');
-const rawToken = BOT_TOKEN;
-// Some guides mistakenly include the "Bot " prefix; discord.js expects the raw token only.
-const token = rawToken.startsWith('Bot ') ? rawToken.slice(4).trim() : rawToken;
-
-if (!token) {
-  const hasDotEnv = fs.existsSync(envPath);
-  report('Configuration Error', {
-    message: 'BOT_TOKEN is missing. Set it in your environment or .env (without quotes or the "Bot " prefix).',
-    workingDirectory: process.cwd(),
-    envFilePresent: hasDotEnv ? 'yes' : 'no',
-    envFilePath: envPath,
-    quickTest: '$env:BOT_TOKEN = "your_token_here"'
-  }, 'error');
-  process.exit(1);
+function normalizeToken(rawToken) {
+  if (!rawToken) return '';
+  const value = String(rawToken).trim();
+  if (!value) return '';
+  return value.startsWith('Bot ') ? value.slice(4).trim() : value;
 }
 
-report('Login Start', {});
-cliStatus.setPhase('Connecting to Discord');
-client.login(token);
+function startSecurityBot({ token: tokenOverride } = {}) {
+  const envPath = path.resolve(process.cwd(), '.env');
+  const rawToken = tokenOverride !== undefined ? tokenOverride : BOT_TOKEN;
+  const token = normalizeToken(rawToken);
+
+  if (!token) {
+    const hasDotEnv = fs.existsSync(envPath);
+    const error = new Error('Security bot token missing. Set SECURITY_BOT_TOKEN or BOT_TOKEN.');
+    report('Configuration Error', {
+      message: 'BOT_TOKEN is missing. Set it in your environment or .env (without quotes or the "Bot " prefix).',
+      workingDirectory: process.cwd(),
+      envFilePresent: hasDotEnv ? 'yes' : 'no',
+      envFilePath: envPath,
+      quickTest: '$env:BOT_TOKEN = "your_token_here"'
+    }, 'error');
+    error.code = 'MISSING_SECURITY_TOKEN';
+    throw error;
+  }
+
+  if (loginPromise) {
+    return loginPromise;
+  }
+
+  report('Login Start', {});
+  cliStatus.setPhase('Connecting to Discord');
+  loginPromise = client.login(token);
+  loginPromise.catch(() => {
+    loginPromise = null;
+  });
+  return loginPromise;
+}
+
+if (require.main === module) {
+  startSecurityBot().catch((error) => {
+    // eslint-disable-next-line no-console
+    console.error('[Security Bot] Startup failed:', error);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  startSecurityBot,
+  client,
+};
