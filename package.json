@@ -1,7 +1,7 @@
 {
   "name": "discord-role-bot",
   "version": "1.0.0",
-  "description": "Discord bot that auto-assigns the Trainers role to new members.",
+  "description": "Discord bot that auto-assigns the Trainer role to new members, with permission persistence reporting.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
