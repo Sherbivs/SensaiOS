@@ -1,4 +1,4 @@
 node_modules
 .env
 Store/
-data/pokemon.json
+# keep data tracked – do NOT ignore /data
