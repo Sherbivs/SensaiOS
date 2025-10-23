@@ -1,2 +1,2 @@
-// Proxy to shared cache module to avoid duplication and drift
-module.exports = require('./shared/cachePatch');
+// Deprecated shim: point to the app-local caching.js
+module.exports = require('./caching');
