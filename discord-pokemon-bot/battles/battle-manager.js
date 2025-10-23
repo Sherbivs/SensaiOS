@@ -7,7 +7,7 @@ Features:
 - Updates cache to persist Pokémon level-ups
 */
 
-const { writeCache } = require('../cache');
+const { writeCache, cachePokemonList } = require('../cache');
 const { levelUp } = require('../utils/pokemon-helpers');
 
 // Simple damage calculation formula
@@ -56,6 +56,7 @@ async function initiateBattle(challengerId, opponentId, pokemonData) {
   }
 
   writeCache('pokemonData', pokemonData);
+  cachePokemonList(pokemonData);
 
   return {
     winner: winnerId,

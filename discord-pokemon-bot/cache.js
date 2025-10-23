@@ -50,6 +50,37 @@ function writeCache(key, data) {
   }
 }
 
+function cachePokemonList(data) {
+  if (!Array.isArray(data)) {
+    return;
+  }
+
+  const names = Array.from(new Set(
+    data
+      .map((pokemon) => {
+        if (!pokemon) return null;
+        if (pokemon.name && typeof pokemon.name === 'string') {
+          return pokemon.name;
+        }
+        if (pokemon.id !== undefined) {
+          return String(pokemon.id);
+        }
+        return null;
+      })
+      .filter(Boolean)
+  ));
+
+  if (names.length === 0) {
+    return;
+  }
+
+  writeCache('pokemonList', {
+    cachedAt: new Date().toISOString(),
+    total: names.length,
+    names,
+  });
+}
+
 function approxFreeBytes() {
   return Math.max(os.freemem(), 512 * 1024 * 1024);
 }
@@ -112,4 +143,5 @@ module.exports = {
   writeCache,
   pruneCache,
   cleanOldCache,
+  cachePokemonList,
 };

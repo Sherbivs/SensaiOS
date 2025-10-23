@@ -9,7 +9,7 @@ Handles:
 
 const { Client, GatewayIntentBits } = require('discord.js');
 const dotenv = require('dotenv');
-const { readCache, writeCache } = require('./cache');
+const { readCache, writeCache, cachePokemonList } = require('./cache');
 const { initiateBattle } = require('./battles/battle-manager');
 const fs = require('fs');
 
@@ -29,6 +29,8 @@ if (!pokemonData) {
   pokemonData = JSON.parse(fs.readFileSync('./data/pokemon.json', 'utf8'));
   writeCache('pokemonData', pokemonData);
 }
+
+cachePokemonList(pokemonData);
 
 // In-memory active battles
 const activeBattles = {};
