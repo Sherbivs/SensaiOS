@@ -2,6 +2,8 @@ const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const dotenv = require('dotenv');
 const fs = require('node:fs');
 const path = require('node:path');
+const cache = require('./cachePatch');
+
 
 dotenv.config();
 
@@ -13,6 +15,34 @@ const LOG_LABEL = Object.freeze({
   error: 'ERROR'
 });
 
+const CLI_DEBUG_MODE = process.env.CLI_DEBUG_MODE === '1'
+  || process.env.CLI_DEBUG_MODE === 'true'
+  || process.argv.includes('--debug-cli')
+  || process.argv.includes('--cli-debug');
+
+cache.cleanOldCache();
+
+const CACHE_KEYS = Object.freeze({
+  memberAttempt: (guildId, memberId) => `member-attempt:${guildId}:${memberId}`,
+  sweep: (guildId, origin) => `sweep:${origin}:${guildId}`,
+  audit: (guildId) => `audit:${guildId}`,
+});
+
+const MEMBER_ASSIGNMENT_RETRY_DELAY_MS = Number(process.env.MEMBER_ASSIGNMENT_RETRY_DELAY_MS || 60_000);
+const SWEEP_COOLDOWN_MS = Number(process.env.SWEEP_COOLDOWN_MS || 5 * 60_000);
+const AUDIT_CACHE_LIMIT = Number(process.env.AUDIT_CACHE_LIMIT || 25);
+
+
+function normalizeContext(context) {
+  if (context instanceof Map) {
+    return Object.fromEntries(context.entries());
+  }
+  if (context instanceof Set) {
+    return Array.from(context.values());
+  }
+  return context;
+}
+
 function log(level, message, context) {
   const timestamp = new Date().toISOString();
   const label = LOG_LABEL[level] || LOG_LABEL.info;
@@ -23,28 +53,38 @@ function log(level, message, context) {
     return;
   }
 
-  if (Array.isArray(context)) {
-    context.forEach(item => writer(`    ${item}`));
+  const normalized = normalizeContext(context);
+
+  if (CLI_DEBUG_MODE) {
+    if (typeof normalized === 'string') {
+      writer(`    ${normalized}`);
+      return;
+    }
+
+    try {
+      const serialized = JSON.stringify(normalized, null, 2);
+      serialized.split('\n').forEach(line => writer(`    ${line}`));
+      return;
+    } catch {
+      writer(`    ${String(normalized)}`);
+      return;
+    }
+  }
+
+  if (Array.isArray(normalized)) {
+    normalized.forEach(item => writer(`    ${item}`));
     return;
   }
 
-  if (context instanceof Map) {
-    for (const [key, value] of context.entries()) {
+  if (normalized && typeof normalized === 'object') {
+    for (const [key, value] of Object.entries(normalized)) {
       writer(`    ${key}: ${value}`);
     }
     return;
   }
 
-  if (typeof context === 'object') {
-    for (const [key, value] of Object.entries(context)) {
-      writer(`    ${key}: ${value}`);
-    }
-    return;
-  }
-
-  writer(`    ${context}`);
+  writer(`    ${normalized}`);
 }
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -53,16 +93,35 @@ const client = new Client({
   partials: [Partials.User]
 });
 
-const DEFAULT_ROLE_NAME = 'Trainers';
+const DEFAULT_ROLE_NAME = 'Trainer';
 const ROLE_NAME = (process.env.ROLE_NAME || DEFAULT_ROLE_NAME).trim();
 const ROLE_ID = (process.env.ROLE_ID || '').trim();
 const BACKFILL_CONCURRENCY = Math.max(1, Number(process.env.BACKFILL_CONCURRENCY || 8)); // higher = faster, mind rate limits
 const BACKFILL_DELAY_MS = Math.max(0, Number(process.env.BACKFILL_DELAY_MS || 20)); // delay between batches
 const BACKFILL_INTERVAL_MIN = Math.max(0, Number(process.env.BACKFILL_INTERVAL_MIN || 0)); // 0 = disabled
+const CACHE_TTL_HOURS = Math.max(1, Number(process.env.CACHE_TTL_HOURS || 24));
 
 const describeRole = (role) => `${role.name} (#${role.id})`;
 const describeMember = (member) => `${member.user.tag} (#${member.id})`;
 const describeGuild = (guild) => `${guild.name} (#${guild.id})`;
+
+function canAssignRole(guild, role) {
+  const me = guild.members.me;
+  if (!me) return true; // assume true; discord.js will error if not
+  const hasManage = me.permissions.has('ManageRoles');
+  const above = me.roles.highest.position > role.position;
+  if (!hasManage || !above) {
+    log('warn', 'Bot may lack permission or hierarchy to assign role', {
+      guild: describeGuild(guild),
+      botHighestRole: me.roles.highest ? describeRole(me.roles.highest) : 'unknown',
+      targetRole: describeRole(role),
+      hasManageRoles: hasManage,
+      botAboveTarget: above,
+      hint: 'Ensure bot role is above target and has Manage Roles.'
+    });
+  }
+  return hasManage && above;
+}
 
 const STANDARD_PERMISSIONS = {
   'Server admin': [
@@ -118,6 +177,41 @@ const STANDARD_PERMISSIONS = {
     'UseApplicationCommands','AddReactions','UseExternalEmojis'
   ]
 };
+function analyzeRolePermissions(role) {
+  const current = role.permissions.toArray();
+  const standard = STANDARD_PERMISSIONS[role.name];
+
+  if (!standard) {
+    return {
+      policy: 'unmanaged',
+      expected: null,
+      current,
+      missing: [],
+      extra: []
+    };
+  }
+
+  if (standard === 'ALL') {
+    return {
+      policy: 'all',
+      expected: 'ALL',
+      current,
+      missing: [],
+      extra: []
+    };
+  }
+
+  const missing = standard.filter(permission => !current.includes(permission));
+  const extra = current.filter(permission => !standard.includes(permission));
+
+  return {
+    policy: 'standard',
+    expected: standard,
+    current,
+    missing,
+    extra
+  };
+}
 function hasNoAssignableRoles(member) {
   // members always have @everyone; size === 1 means no additional roles
   return member.roles.cache.size <= 1;
@@ -180,8 +274,9 @@ async function validateGuildRoles(guild) {
   }
 
   for (const [, role] of roles) {
-    const standard = STANDARD_PERMISSIONS[role.name];
-    if (!standard) {
+    const analysis = analyzeRolePermissions(role);
+
+    if (analysis.policy === 'unmanaged') {
       log('detail', 'No standard permissions defined for role; skipping', {
         guild: guildSummary,
         role: describeRole(role)
@@ -189,9 +284,7 @@ async function validateGuildRoles(guild) {
       continue;
     }
 
-    const current = role.permissions.toArray();
-
-    if (standard === 'ALL') {
+    if (analysis.policy === 'all') {
       log('detail', 'Role configured for full permissions coverage', {
         guild: guildSummary,
         role: describeRole(role)
@@ -199,10 +292,7 @@ async function validateGuildRoles(guild) {
       continue;
     }
 
-    const missing = standard.filter(p => !current.includes(p));
-    const extra = current.filter(p => !standard.includes(p));
-
-    if (missing.length === 0 && extra.length === 0) {
+    if (analysis.missing.length === 0 && analysis.extra.length === 0) {
       log('success', 'Role permissions match standard', {
         guild: guildSummary,
         role: describeRole(role)
@@ -211,13 +301,12 @@ async function validateGuildRoles(guild) {
       log('warn', 'Role permissions differ from standard', {
         guild: guildSummary,
         role: describeRole(role),
-        missingPermissions: missing.length ? missing.join(', ') : 'none',
-        extraPermissions: extra.length ? extra.join(', ') : 'none'
+        missingPermissions: analysis.missing.length ? analysis.missing.join(', ') : 'none',
+        extraPermissions: analysis.extra.length ? analysis.extra.join(', ') : 'none'
       });
     }
   }
 }
-
 async function fixGuildRoles(guild) {
   const guildSummary = describeGuild(guild);
 
@@ -241,8 +330,9 @@ async function fixGuildRoles(guild) {
       continue;
     }
 
-    const standard = STANDARD_PERMISSIONS[role.name];
-    if (!standard) {
+    const analysis = analyzeRolePermissions(role);
+
+    if (analysis.policy === 'unmanaged') {
       log('info', 'No standard permissions defined for role; skipping', {
         guild: guildSummary,
         role: describeRole(role)
@@ -250,7 +340,7 @@ async function fixGuildRoles(guild) {
       continue;
     }
 
-    if (standard === 'ALL') {
+    if (analysis.policy === 'all') {
       log('detail', 'Role is set to full bot permissions', {
         guild: guildSummary,
         role: describeRole(role)
@@ -258,11 +348,7 @@ async function fixGuildRoles(guild) {
       continue;
     }
 
-    const current = role.permissions.toArray();
-    const missing = standard.filter(p => !current.includes(p));
-    const extra = current.filter(p => !standard.includes(p));
-
-    if (missing.length === 0 && extra.length === 0) {
+    if (analysis.missing.length === 0 && analysis.extra.length === 0) {
       log('success', 'Role permissions match standard', {
         guild: guildSummary,
         role: describeRole(role)
@@ -271,12 +357,12 @@ async function fixGuildRoles(guild) {
     }
 
     try {
-      await role.setPermissions(standard);
+      await role.setPermissions(analysis.expected);
       log('success', 'Updated role permissions to standard', {
         guild: guildSummary,
         role: describeRole(role),
-        missingPermissions: missing.length ? missing.join(', ') : 'none',
-        extraPermissions: extra.length ? extra.join(', ') : 'none'
+        missingPermissions: analysis.missing.length ? analysis.missing.join(', ') : 'none',
+        extraPermissions: analysis.extra.length ? analysis.extra.join(', ') : 'none'
       });
     } catch (error) {
       log('error', 'Failed to update role permissions', {
@@ -315,6 +401,24 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
     return;
   }
 
+  // Pre-check hierarchy/permissions
+  canAssignRole(member.guild, role);
+
+  // Cache: skip if we recently assigned this member
+  const cacheKey = `assign:${member.guild.id}:${member.id}:${role.id}`;
+  const cached = cache.readCache(cacheKey);
+  if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
+    log('detail', 'Skipping assignment due to cached recent success', {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      role: describeRole(role),
+      cachedAt: new Date(cached.timestamp).toISOString(),
+      ttlHours: CACHE_TTL_HOURS
+    });
+    return;
+  }
+
   try {
     await member.roles.add(role);
     log('success', 'Assigned target role to member', {
@@ -323,13 +427,18 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
       member: memberSummary,
       role: describeRole(role)
     });
+    cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
   } catch (error) {
+    const hint = (error && (String(error.message).includes('Missing Permissions') || error.code === 50013))
+      ? 'Check role hierarchy: bot role must be above target role and have Manage Roles.'
+      : undefined;
     log('error', 'Failed to assign target role to member', {
       origin,
       guild: guildSummary,
       member: memberSummary,
       role: describeRole(role),
-      error: error.message
+      error: error.message,
+      hint
     });
   }
 }
@@ -373,6 +482,9 @@ async function sweepGuild(guild, origin) {
     return;
   }
 
+  // Pre-check hierarchy/permissions
+  canAssignRole(guild, role);
+
   log('info', 'Assigning target role to members', {
     origin,
     guild: guildSummary,
@@ -390,6 +502,19 @@ async function sweepGuild(guild, origin) {
     const batch = members.slice(i, i + BACKFILL_CONCURRENCY);
     await Promise.all(batch.map(async (member) => {
       try {
+        // Skip if cache indicates recent success
+        const cacheKey = `assign:${guild.id}:${member.id}:${role.id}`;
+        const cached = cache.readCache(cacheKey);
+        if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
+          log('detail', 'Sweep skip due to cached success', {
+            origin,
+            guild: guildSummary,
+            member: describeMember(member),
+            role: describeRole(role)
+          });
+          return;
+        }
+
         await member.roles.add(role);
         success += 1;
         log('detail', 'Role assigned during sweep', {
@@ -398,6 +523,7 @@ async function sweepGuild(guild, origin) {
           member: describeMember(member),
           role: describeRole(role)
         });
+        cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
       } catch (error) {
         failed += 1;
         log('error', 'Failed to assign role during sweep', {
@@ -424,7 +550,105 @@ async function sweepGuild(guild, origin) {
   });
 }
 
-client.once('ready', () => {
+async function runCliDebugDump() {
+  log('info', 'CLI debug mode engaged; collecting guild diagnostics', {
+    guildsObserved: client.guilds.cache.size,
+    roleResolution: ROLE_ID ? `ROLE_ID:${ROLE_ID}` : `ROLE_NAME:${ROLE_NAME}`
+  });
+
+  for (const [, guild] of client.guilds.cache) {
+    const guildSummary = describeGuild(guild);
+
+    try {
+      await guild.roles.fetch();
+    } catch (error) {
+      log('error', 'Failed to fetch roles for CLI debug mode', {
+        guild: guildSummary,
+        error: error.message
+      });
+      continue;
+    }
+
+    try {
+      await guild.members.fetch();
+    } catch (error) {
+      log('error', 'Failed to fetch members for CLI debug mode', {
+        guild: guildSummary,
+        error: error.message
+      });
+      continue;
+    }
+
+    const orderedRoles = Array.from(guild.roles.cache.values()).sort((a, b) => b.position - a.position);
+    const roleSummaries = [];
+    const mismatchDetails = [];
+
+    for (const role of orderedRoles) {
+      const analysis = analyzeRolePermissions(role);
+      const summary = {
+        role: describeRole(role),
+        permissionCount: analysis.current.length,
+        status: analysis.policy,
+        missing: analysis.missing,
+        extra: analysis.extra
+      };
+      roleSummaries.push(summary);
+
+      if (analysis.missing.length || analysis.extra.length) {
+        mismatchDetails.push({
+          role: describeRole(role),
+          missing: analysis.missing,
+          extra: analysis.extra,
+          currentPermissions: analysis.current,
+          expected: analysis.policy === 'standard' ? analysis.expected : analysis.policy
+        });
+      }
+    }
+
+    const memberSummaries = Array.from(guild.members.cache.values())
+      .sort((a, b) => a.user.tag.localeCompare(b.user.tag))
+      .map(member => ({
+        member: describeMember(member),
+        roles: member.roles.cache
+          .filter(role => role.id !== guild.roles.everyone.id)
+          .sort((a, b) => b.position - a.position)
+          .map(role => role.name)
+      }));
+
+    const payload = {
+      guild: guildSummary,
+      totals: {
+        roles: roleSummaries.length,
+        members: memberSummaries.length,
+        mismatchedRoles: mismatchDetails.length
+      },
+      targetRole: ROLE_ID
+        ? { mode: 'ROLE_ID', value: ROLE_ID }
+        : { mode: 'ROLE_NAME', value: ROLE_NAME },
+      roles: roleSummaries,
+      permissionDiffs: mismatchDetails,
+      members: memberSummaries
+    };
+
+    console.log(JSON.stringify(payload, null, 2));
+    console.log('');
+  }
+
+  console.log('[cli-debug] Completed diagnostic dump.');
+  await client.destroy();
+  process.exit(0);
+}
+
+client.once('ready', async () => {
+  if (CLI_DEBUG_MODE) {
+    log('info', 'CLI debug mode active', {
+      userTag: client.user.tag,
+      userId: client.user.id
+    });
+    await runCliDebugDump();
+    return;
+  }
+
   log('success', `Connected as ${client.user.tag}`, { userId: client.user.id });
   log('info', 'Runtime configuration', {
     roleName: ROLE_NAME,
@@ -441,14 +665,12 @@ client.once('ready', () => {
     log('warn', 'Bot is not yet a member of any guilds. Invite the bot to begin assigning roles.');
   }
 
-  (async () => {
-    for (const [, guild] of client.guilds.cache) {
-      await reportGuildRoles(guild);
-      await validateGuildRoles(guild);
-      await fixGuildRoles(guild);
-      await sweepGuild(guild, 'startup');
-    }
-  })();
+  for (const [, guild] of client.guilds.cache) {
+    await reportGuildRoles(guild);
+    await validateGuildRoles(guild);
+    await fixGuildRoles(guild);
+    await sweepGuild(guild, 'startup');
+  }
 
   if (BACKFILL_INTERVAL_MIN > 0) {
     const intervalMs = BACKFILL_INTERVAL_MIN * 60 * 1000;
@@ -466,7 +688,6 @@ client.once('ready', () => {
     }, intervalMs);
   }
 });
-
 client.on('guildMemberAdd', async (member) => {
   const guildSummary = describeGuild(member.guild);
   const memberSummary = describeMember(member);
