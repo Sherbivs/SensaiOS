@@ -9,13 +9,24 @@ Handles:
 
 const { Client, GatewayIntentBits, Partials, ChannelType } = require('discord.js');
 const dotenv = require('dotenv');
-const { readCache, writeCache, cachePokemonList } = require('./cache');
+const {
+  readCache,
+  writeCache,
+  cachePokemonList,
+  cleanOldCache,
+  getCacheBudget,
+  getCacheSize,
+  LAST_RUN_META_KEY,
+  CACHE_DIR,
+} = require('./cache');
 const { initiateBattle } = require('./battles/battle-manager');
 const { handleReaction, BATTLE_CHANNEL_NAME } = require('./battles/battle-channel');
 const { promptUserSelection } = require('./utils/pokemon-picker');
 const fs = require('fs');
 
 dotenv.config();
+
+cleanOldCache();
 
 const client = new Client({
   intents: [
@@ -82,6 +93,56 @@ if (!pokemonData) {
 }
 
 cachePokemonList(pokemonData);
+
+function formatBytes(bytes) {
+  if (typeof bytes !== 'number' || Number.isNaN(bytes) || bytes < 0) {
+    return 'unknown';
+  }
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const value = bytes / Math.pow(1024, index);
+  return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function logCacheMonitorStatus(where = 'startup') {
+  try {
+    const meta = readCache(LAST_RUN_META_KEY) || {};
+    const budget = getCacheBudget();
+    const size = getCacheSize();
+    const maxBytes = budget?.maxAllowedBytes || 0;
+    const percent = maxBytes > 0 ? Math.min(999, Math.round((size / maxBytes) * 100)) : 0;
+    const describe = (iso) => {
+      if (!iso) return 'never';
+      try {
+        return new Date(iso).toLocaleString();
+      } catch {
+        return iso;
+      }
+    };
+    const totalEntries = typeof meta.total === 'number' ? meta.total : (Array.isArray(pokemonData) ? pokemonData.length : 0);
+    const previousEntries = typeof meta.previousTotal === 'number' ? meta.previousTotal : null;
+    console.log('[Pokémon Cache Monitor]', {
+      at: where,
+      cacheDir: CACHE_DIR,
+      cacheSize: formatBytes(size),
+      budgetMax: formatBytes(maxBytes),
+      percentUsed: `${percent}%`,
+      approxFree: formatBytes(budget?.approxBytes),
+      lastRunAt: describe(meta.lastRunAt),
+      previousRunAt: describe(meta.previousRunAt),
+      entries: totalEntries,
+      previousEntries,
+    });
+  } catch (err) {
+    console.warn('[Pokémon Cache Monitor] Failed to report status:', err.message);
+  }
+}
+
+logCacheMonitorStatus('startup');
+
+const CACHE_MONITOR_INTERVAL_MS = 1000 * 60 * 30; // 30 minutes
+setInterval(() => logCacheMonitorStatus('interval'), CACHE_MONITOR_INTERVAL_MS).unref?.();
 
 // In-memory active battles
 const activeBattles = {};

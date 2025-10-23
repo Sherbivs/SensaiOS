@@ -227,5 +227,6 @@ module.exports = {
   cleanOldCache,
   cachePokemonList,
   getCacheBudget,
+  getCacheSize,
   LAST_RUN_META_KEY,
 };
