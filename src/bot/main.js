@@ -4,6 +4,8 @@ const path = require('node:path');
 const https = require('node:https');
 
 const cache = require('../services/cache');
+const activityTracker = require('../utils/activityTracker');
+const cliStatus = require('../utils/cliStatus');
 const {
   CLI_DEBUG_MODE,
   ROLE_PERMISSIONS_AUDIT,
@@ -26,10 +28,18 @@ const {
   UNLISTED_PERMISSIONS,
   STANDARD_EXEMPT_ROLES,
   STANDARD_ALL_PERMS_ROLES,
+  RESTART_DM_RECIPIENT,
+  SUMMARY_REPORT_RECIPIENT,
+  SUMMARY_REPORT_HOUR,
+  SUMMARY_REPORT_MINUTE,
 } = require('../config/env');
 const { log: baseLog, report } = require('../utils/logger');
 
 cache.cleanOldCache();
+
+cliStatus.startStatusDisplay();
+cliStatus.setPhase('Booting');
+cliStatus.setGuildCount(0);
 
 const log = (level, message, context) => baseLog(level, message, context, { debugMode: CLI_DEBUG_MODE });
 const client = new Client({
@@ -43,6 +53,11 @@ const client = new Client({
 const describeRole = (role) => `${role.name} (#${role.id})`;
 const describeMember = (member) => `${member.user.tag} (#${member.id})`;
 const describeGuild = (guild) => `${guild.name} (#${guild.id})`;
+const describeUser = (user) => {
+  if (!user) return 'unknown user';
+  const tag = user.tag || user.username || 'unknown';
+  return `${tag} (#${user.id})`;
+};
 
 function canAssignRole(guild, role) {
   const me = guild.members.me;
@@ -96,6 +111,128 @@ function reportOperationalStats(where = 'startup') {
     backfillDelayMs: BACKFILL_DELAY_MS,
     cacheTtlHours: CACHE_TTL_HOURS,
   });
+}
+
+const ACTIVITY_LABELS = Object.freeze({
+  'role-assignment': 'Role assignments',
+  'role-permissions-healed': 'Permission heals',
+  'security-alert': 'Security alerts',
+});
+
+let summaryTimer = null;
+
+function msUntilNextReport(hour, minute) {
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(hour, minute, 0, 0);
+  if (target <= now) {
+    target.setDate(target.getDate() + 1);
+  }
+  return target.getTime() - now.getTime();
+}
+
+function formatSummaryReport(entries, generatedAt) {
+  const headerDate = generatedAt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const headerTime = generatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const header = `🛡️ Daily Security Summary — ${headerDate} @ ${headerTime}`;
+  if (!entries || entries.length === 0) {
+    return `${header}\n\nNo role assignments or permission changes were recorded since the previous summary.\nMonitoring remains active.`;
+  }
+
+  const counts = entries.reduce((acc, entry) => {
+    acc[entry.type] = (acc[entry.type] || 0) + 1;
+    return acc;
+  }, {});
+
+  const totals = Object.entries(counts)
+    .map(([type, count]) => `• ${ACTIVITY_LABELS[type] || type}: ${count}`)
+    .join('\n');
+
+  const details = entries
+    .map((entry) => {
+      const when = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return `• ${when} — ${entry.summary}`;
+    })
+    .join('\n');
+
+  return `${header}\n\nTotals:\n${totals}\n\nDetails:\n${details}`;
+}
+
+async function sendDailySummaryReport() {
+  const pending = activityTracker.getPendingActivities();
+  const generatedAt = new Date();
+  const message = formatSummaryReport(pending, generatedAt);
+
+  if (!SUMMARY_REPORT_RECIPIENT) {
+    log('warn', 'Summary recipient missing; skipping scheduled report', {});
+    return;
+  }
+
+  const recipient = await resolveAlertUser(SUMMARY_REPORT_RECIPIENT);
+  if (!recipient) {
+    log('warn', 'Unable to resolve summary recipient', { recipient: SUMMARY_REPORT_RECIPIENT });
+    return;
+  }
+
+  try {
+    await recipient.send(message);
+    log('success', 'Daily summary delivered', {
+      target: describeUser(recipient),
+      eventsIncluded: pending.length,
+    });
+    activityTracker.drainActivities();
+    activityTracker.markSummarySent(generatedAt);
+  } catch (error) {
+    log('error', 'Daily summary delivery failed', {
+      recipient: SUMMARY_REPORT_RECIPIENT,
+      error: error.message,
+    });
+  }
+}
+
+function scheduleDailySummaryReports() {
+  if (summaryTimer) {
+    clearTimeout(summaryTimer);
+  }
+  const delay = msUntilNextReport(SUMMARY_REPORT_HOUR, SUMMARY_REPORT_MINUTE);
+  const nextRun = new Date(Date.now() + delay);
+  log('info', 'Daily summary scheduled', {
+    recipient: SUMMARY_REPORT_RECIPIENT || 'unset',
+    nextRunIso: nextRun.toISOString(),
+    nextRunLocal: nextRun.toLocaleString(),
+  });
+  summaryTimer = setTimeout(async () => {
+    await sendDailySummaryReport();
+    scheduleDailySummaryReports();
+  }, delay);
+}
+
+async function notifyServiceRestart() {
+  if (!RESTART_DM_RECIPIENT) {
+    return;
+  }
+  try {
+    const user = await resolveAlertUser(RESTART_DM_RECIPIENT);
+    if (!user) {
+      log('warn', 'Restart DM recipient not found', { recipient: RESTART_DM_RECIPIENT });
+      return;
+    }
+    const message = `🛡️ Security monitor restarted at ${new Date().toLocaleString()}.\nContinuous monitoring is active across ${client.guilds.cache.size} guild(s).`;
+    await user.send(message);
+    log('info', 'Restart notification delivered', { target: describeUser(user) });
+  } catch (error) {
+    log('error', 'Restart notification failed', {
+      recipient: RESTART_DM_RECIPIENT,
+      error: error.message,
+    });
+  }
+}
+
+function updateMonitoringPhase() {
+  const count = client.guilds.cache.size;
+  const label = `Monitoring ${count} guild${count === 1 ? '' : 's'}`;
+  cliStatus.setPhase(label);
+  cliStatus.setGuildCount(count);
 }
 
 const STANDARD_PERMISSIONS = {
@@ -332,6 +469,12 @@ async function fixGuildRoles(guild) {
         missingPermissions: analysis.missing.length ? analysis.missing.join(', ') : 'none',
         extraPermissions: analysis.extra.length ? analysis.extra.join(', ') : 'none'
       }, 'success');
+      activityTracker.recordActivity('role-permissions-healed', `Healed ${describeRole(role)} in ${guildSummary}`, {
+        guild: guildSummary,
+        role: describeRole(role),
+        policy: analysis.policy,
+        origin: 'periodic/startup',
+      });
       await sendSecurityAlert('Role permissions healed (periodic/startup)', {
         guild: guildSummary,
         role: describeRole(role),
@@ -376,6 +519,12 @@ async function enforceRolePermissions(role) {
       guild: guildSummary,
       role: describeRole(role)
     }, 'success');
+    activityTracker.recordActivity('role-permissions-healed', `Healed ${describeRole(role)} in ${guildSummary}`, {
+      guild: guildSummary,
+      role: describeRole(role),
+      policy: analysis.policy,
+      origin: 'event',
+    });
     await sendSecurityAlert('Role permissions healed (event-based)', {
       guild: guildSummary,
       role: describeRole(role),
@@ -445,6 +594,11 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
       member: memberSummary,
       role: describeRole(role)
     }, 'success');
+    activityTracker.recordActivity('role-assignment', `Assigned ${describeRole(role)} to ${memberSummary}`, {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+    });
     cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
   } catch (error) {
     const hint = (error && (String(error.message).includes('Missing Permissions') || error.code === 50013))
@@ -463,109 +617,124 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
 
 async function sweepGuild(guild, origin) {
   const guildSummary = describeGuild(guild);
+  cliStatus.setPhase(`Sweeping ${guild.name} (${origin})`);
   report('Sweep Start', { origin, guild: guildSummary });
 
   try {
-    await guild.members.fetch();
-    report('Members Fetched', {
+    try {
+      await guild.members.fetch();
+      report('Members Fetched', {
+        guild: guildSummary,
+        cachedMembers: guild.members.cache.size
+      });
+    } catch (error) {
+      report('Members Fetch Error', {
+        origin,
+        guild: guildSummary,
+        error: error.message
+      }, 'error');
+      return;
+    }
+
+    const toAssign = guild.members.cache.filter(member => hasNoAssignableRoles(member));
+    if (toAssign.size === 0) {
+      report('Sweep No-Op', {
+        origin,
+        guild: guildSummary
+      });
+      return;
+    }
+
+    const role = findRole(guild);
+    if (!role) {
+      report('Role Missing', {
+        origin,
+        guild: guildSummary,
+        roleName: ROLE_NAME,
+        roleId: ROLE_ID || 'resolved at runtime'
+      }, 'warn');
+      return;
+    }
+
+    // Pre-check hierarchy/permissions
+    canAssignRole(guild, role);
+
+    report('Assignment Plan', {
+      origin,
       guild: guildSummary,
-      cachedMembers: guild.members.cache.size
+      totalCandidates: toAssign.size,
+      role: describeRole(role),
+      concurrency: BACKFILL_CONCURRENCY,
+      delayMsBetweenBatches: BACKFILL_DELAY_MS
     });
-  } catch (error) {
-    report('Members Fetch Error', {
-      origin,
-      guild: guildSummary,
-      error: error.message
-    }, 'error');
-    return;
-  }
 
-  const toAssign = guild.members.cache.filter(member => hasNoAssignableRoles(member));
-  if (toAssign.size === 0) {
-    report('Sweep No-Op', {
-      origin,
-      guild: guildSummary
-    });
-    return;
-  }
+    const members = Array.from(toAssign.values());
+    let success = 0;
+    let failed = 0;
 
-  const role = findRole(guild);
-  if (!role) {
-    report('Role Missing', {
-      origin,
-      guild: guildSummary,
-      roleName: ROLE_NAME,
-      roleId: ROLE_ID || 'resolved at runtime'
-    }, 'warn');
-    return;
-  }
+    for (let i = 0; i < members.length; i += BACKFILL_CONCURRENCY) {
+      const batch = members.slice(i, i + BACKFILL_CONCURRENCY);
+      await Promise.all(batch.map(async (member) => {
+        try {
+          const cacheKey = `assign:${guild.id}:${member.id}:${role.id}`;
+          const cached = cache.readCache(cacheKey);
+          if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
+            report('Assignment Skipped (Cache)', {
+              origin,
+              guild: guildSummary,
+              member: describeMember(member),
+              role: describeRole(role)
+            }, 'detail');
+            return;
+          }
 
-  // Pre-check hierarchy/permissions
-  canAssignRole(guild, role);
-
-  report('Assignment Plan', {
-    origin,
-    guild: guildSummary,
-    totalCandidates: toAssign.size,
-    role: describeRole(role),
-    concurrency: BACKFILL_CONCURRENCY,
-    delayMsBetweenBatches: BACKFILL_DELAY_MS
-  });
-
-  const members = Array.from(toAssign.values());
-  let success = 0;
-  let failed = 0;
-
-  for (let i = 0; i < members.length; i += BACKFILL_CONCURRENCY) {
-    const batch = members.slice(i, i + BACKFILL_CONCURRENCY);
-    await Promise.all(batch.map(async (member) => {
-      try {
-        // Skip if cache indicates recent success
-        const cacheKey = `assign:${guild.id}:${member.id}:${role.id}`;
-        const cached = cache.readCache(cacheKey);
-        if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
-          report('Assignment Skipped (Cache)', {
+          await member.roles.add(role);
+          success += 1;
+          report('Assignment Success', {
             origin,
             guild: guildSummary,
             member: describeMember(member),
             role: describeRole(role)
           }, 'detail');
-          return;
+          activityTracker.recordActivity('role-assignment', `Assigned ${describeRole(role)} to ${describeMember(member)}`, {
+            origin,
+            guild: guildSummary,
+            member: describeMember(member),
+          });
+          cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
+        } catch (error) {
+          failed += 1;
+          report('Assignment Failure', {
+            origin,
+            guild: guildSummary,
+            member: describeMember(member),
+            role: describeRole(role),
+            error: error.message
+          }, 'error');
         }
+      }));
 
-        await member.roles.add(role);
-        success += 1;
-        report('Assignment Success', {
-          origin,
-          guild: guildSummary,
-          member: describeMember(member),
-          role: describeRole(role)
-        }, 'detail');
-        cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
-      } catch (error) {
-        failed += 1;
-        report('Assignment Failure', {
-          origin,
-          guild: guildSummary,
-          member: describeMember(member),
-          role: describeRole(role),
-          error: error.message
-        }, 'error');
+      if (BACKFILL_DELAY_MS > 0 && i + BACKFILL_CONCURRENCY < members.length) {
+        await new Promise(resolve => setTimeout(resolve, BACKFILL_DELAY_MS));
       }
-    }));
-
-    if (BACKFILL_DELAY_MS > 0 && i + BACKFILL_CONCURRENCY < members.length) {
-      await new Promise(resolve => setTimeout(resolve, BACKFILL_DELAY_MS));
     }
-  }
 
-  report('Sweep Summary', {
-    origin,
-    guild: guildSummary,
-    assigned: success,
-    failed,
-    candidatesProcessed: members.length
-  });
+    report('Sweep Summary', {
+      origin,
+      guild: guildSummary,
+      assigned: success,
+      failed,
+      candidatesProcessed: members.length
+    });
+  } catch (error) {
+    report('Sweep Error', {
+      origin,
+      guild: guildSummary,
+      error: error.message
+    }, 'error');
+  } finally {
+    updateMonitoringPhase();
+  }
 }
 
 async function runCliDebugDump() {
@@ -668,17 +837,21 @@ client.once(Events.ClientReady, async () => {
   }
 
   log('success', `Connected as ${client.user.tag}`, { userId: client.user.id });
+  updateMonitoringPhase();
+  await notifyServiceRestart();
+  scheduleDailySummaryReports();
+
   report('Runtime Configuration', {
     roleName: ROLE_NAME,
     roleId: ROLE_ID || 'resolved at runtime',
     roleDiscovery: ROLE_ID ? 'ROLE_ID exact match' : 'ROLE_NAME case-insensitive search',
     startupBackfill: 'enabled',
-    periodicSweep: BACKFILL_INTERVAL_MIN > 0 ? `every ${BACKFILL_INTERVAL_MIN} minute(s)` : 'disabled',
+    periodicSweep: `every ${BACKFILL_INTERVAL_MIN} minute(s)`,
     concurrency: BACKFILL_CONCURRENCY,
     delayMsBetweenBatches: BACKFILL_DELAY_MS,
     guildsObserved: client.guilds.cache.size,
-    roleAudit: ROLE_PERMISSIONS_AUDIT ? 'enabled' : 'disabled',
-    roleRemediation: ROLE_PERMISSIONS_REMEDIATE ? 'enabled' : 'disabled',
+    roleAudit: ROLE_PERMISSIONS_AUDIT ? 'enforced-on' : 'disabled',
+    roleRemediation: ROLE_PERMISSIONS_REMEDIATE ? 'enforced-on' : 'disabled',
     rolePermissionPolicy: ROLE_PERMISSION_POLICY,
     snapshotAutoSeed: ROLE_PERMISSION_SNAPSHOT_UPDATE ? 'enabled' : 'disabled',
     enforceAllRoles: STANDARD_ENFORCE_ALL ? 'enabled' : 'disabled',
@@ -690,34 +863,37 @@ client.once(Events.ClientReady, async () => {
 
   if (client.guilds.cache.size === 0) {
     report('No Guilds Joined', { action: 'Invite the bot to your server to begin assigning roles.' }, 'warn');
-  }
-
-  for (const [, guild] of client.guilds.cache) {
-    if (ROLE_PERMISSIONS_AUDIT) {
-      await reportGuildRoles(guild);
-      await validateGuildRoles(guild);
-    }
-    if (ROLE_PERMISSIONS_REMEDIATE) {
-      await fixGuildRoles(guild);
-    }
-    await sweepGuild(guild, 'startup');
-  }
-
-  if (BACKFILL_INTERVAL_MIN > 0) {
-    const intervalMs = BACKFILL_INTERVAL_MIN * 60 * 1000;
-    report('Periodic Sweep Enabled', { intervalMinutes: BACKFILL_INTERVAL_MIN });
-    setInterval(async () => {
-      const cycleStarted = new Date().toISOString();
-      report('Periodic Sweep Start', { cycleStarted });
-      for (const [, guild] of client.guilds.cache) {
-        await sweepGuild(guild, 'periodic');
+    updateMonitoringPhase();
+  } else {
+    cliStatus.setPhase('Startup sweep');
+    for (const [, guild] of client.guilds.cache) {
+      if (ROLE_PERMISSIONS_AUDIT) {
+        await reportGuildRoles(guild);
+        await validateGuildRoles(guild);
       }
-      report('Periodic Sweep Complete', {
-        cycleStarted,
-        cycleCompleted: new Date().toISOString()
-      });
-    }, intervalMs);
+      if (ROLE_PERMISSIONS_REMEDIATE) {
+        await fixGuildRoles(guild);
+      }
+      await sweepGuild(guild, 'startup');
+    }
+    updateMonitoringPhase();
   }
+
+  const intervalMs = BACKFILL_INTERVAL_MIN * 60 * 1000;
+  report('Periodic Sweep Enabled', { intervalMinutes: BACKFILL_INTERVAL_MIN });
+  setInterval(async () => {
+    const cycleStarted = new Date().toISOString();
+    report('Periodic Sweep Start', { cycleStarted });
+    cliStatus.setPhase('Periodic sweep cycle');
+    for (const [, guild] of client.guilds.cache) {
+      await sweepGuild(guild, 'periodic');
+    }
+    report('Periodic Sweep Complete', {
+      cycleStarted,
+      cycleCompleted: new Date().toISOString()
+    });
+    updateMonitoringPhase();
+  }, intervalMs);
 
   // Optional recurring operational report
   if (OPS_REPORT_INTERVAL_MIN > 0) {
@@ -736,6 +912,12 @@ client.once(Events.ClientReady, async () => {
       }
     }, remMs);
   }
+});
+client.on(Events.GuildCreate, () => {
+  updateMonitoringPhase();
+});
+client.on(Events.GuildDelete, () => {
+  updateMonitoringPhase();
 });
 client.on('guildMemberAdd', async (member) => {
   const guildSummary = describeGuild(member.guild);
@@ -827,6 +1009,19 @@ async function sendSecurityAlert(title, meta = {}) {
       at: new Date().toISOString()
     };
 
+    const summaryDetails = [];
+    if (meta.guild) summaryDetails.push(meta.guild);
+    if (meta.role) summaryDetails.push(meta.role);
+    const summarySuffix = summaryDetails.length ? ` — ${summaryDetails.join(' • ')}` : '';
+    activityTracker.recordActivity('security-alert', `${title}${summarySuffix}`, {
+      destinations: {
+        webhook: Boolean(ALERT_WEBHOOK_URL),
+        channel: ALERT_CHANNEL_ID || 'unset',
+        user: ALERT_USER_ID || 'unset',
+      },
+      meta,
+    });
+
     // 1) Webhook
     if (ALERT_WEBHOOK_URL) {
       try {
@@ -898,4 +1093,5 @@ if (!token) {
 }
 
 report('Login Start', {});
+cliStatus.setPhase('Connecting to Discord');
 client.login(token);

@@ -1,3 +1,5 @@
+const { interruptConsoleOutput } = require('./cliStatus');
+
 const LOG_LABEL = Object.freeze({
   success: 'SUCCESS',
   info: 'INFO',
@@ -5,6 +7,16 @@ const LOG_LABEL = Object.freeze({
   detail: 'DETAIL',
   error: 'ERROR'
 });
+
+function withCliSafeWrite(_stream, fn) {
+  if (typeof interruptConsoleOutput === 'function') {
+    interruptConsoleOutput(() => {
+      fn();
+    });
+    return;
+  }
+  fn();
+}
 
 function normalizeContext(context) {
   if (context instanceof Map) {
@@ -20,8 +32,8 @@ function log(level, message, context, { debugMode = false } = {}) {
   const timestamp = new Date().toISOString();
   const label = LOG_LABEL[level] || LOG_LABEL.info;
   const writer = level === 'error' ? console.error : console.log;
-
-  writer(`[${timestamp}] [${label}] ${message}`);
+  const stream = level === 'error' ? process.stderr : process.stdout;
+  withCliSafeWrite(stream, () => writer(`[${timestamp}] [${label}] ${message}`));
   if (!context) {
     return;
   }
@@ -30,33 +42,33 @@ function log(level, message, context, { debugMode = false } = {}) {
 
   if (debugMode) {
     if (typeof normalized === 'string') {
-      writer(`    ${normalized}`);
+      withCliSafeWrite(stream, () => writer(`    ${normalized}`));
       return;
     }
 
     try {
       const serialized = JSON.stringify(normalized, null, 2);
-      serialized.split('\n').forEach(line => writer(`    ${line}`));
+      serialized.split('\n').forEach(line => withCliSafeWrite(stream, () => writer(`    ${line}`)));
       return;
     } catch {
-      writer(`    ${String(normalized)}`);
+      withCliSafeWrite(stream, () => writer(`    ${String(normalized)}`));
       return;
     }
   }
 
   if (Array.isArray(normalized)) {
-    normalized.forEach(item => writer(`    ${item}`));
+    normalized.forEach(item => withCliSafeWrite(stream, () => writer(`    ${item}`)));
     return;
   }
 
   if (normalized && typeof normalized === 'object') {
     for (const [key, value] of Object.entries(normalized)) {
-      writer(`    ${key}: ${value}`);
+      withCliSafeWrite(stream, () => writer(`    ${key}: ${value}`));
     }
     return;
   }
 
-  writer(`    ${normalized}`);
+  withCliSafeWrite(stream, () => writer(`    ${normalized}`));
 }
 
 function report(title, meta = {}, level = 'info') {
@@ -64,11 +76,12 @@ function report(title, meta = {}, level = 'info') {
   const timestamp = new Date().toISOString();
   const label = level.toUpperCase();
   const writer = level === 'error' ? console.error : console.log;
-  writer(`[${timestamp}] [${label}] ${heading}`);
+  const stream = level === 'error' ? process.stderr : process.stdout;
+  withCliSafeWrite(stream, () => writer(`[${timestamp}] [${label}] ${heading}`));
   if (meta && typeof meta === 'object') {
     try {
       for (const [key, value] of Object.entries(meta)) {
-        writer(`    ${key}: ${value}`);
+        withCliSafeWrite(stream, () => writer(`    ${key}: ${value}`));
       }
     } catch {}
   }
