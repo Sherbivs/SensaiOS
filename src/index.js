@@ -1,6 +1,11 @@
 const { startSecurityBot } = require('./bot/main');
 const { startPokemonBot } = require('../discord-pokemon-bot/pokemon-bot');
-const { SECURITY_BOT_TOKEN, POKEMON_BOT_TOKEN, ENABLE_POKEMON_BOT } = require('./config/env');
+const {
+  SECURITY_BOT_TOKEN,
+  POKEMON_BOT_TOKEN,
+  ENABLE_POKEMON_BOT,
+  POKEMON_BOT_AUTO_DISABLED,
+} = require('./config/env');
 const cliStatus = require('./utils/cliStatus');
 const { log: baseLog } = require('./utils/logger');
 
@@ -42,9 +47,12 @@ async function startAllBots() {
   } else {
     cliStatus.setSection('pokemon', {
       title: 'Pokémon Bot',
-      status: 'disabled (ENABLE_POKEMON_BOT=false)',
+      status: POKEMON_BOT_AUTO_DISABLED ? 'disabled (missing token)' : 'disabled (ENABLE_POKEMON_BOT=false)',
       metrics: [],
     });
+    if (!POKEMON_BOT_AUTO_DISABLED) {
+      log('info', 'Pokémon bot disabled via ENABLE_POKEMON_BOT=false.', {});
+    }
   }
 
   return Promise.all(launches);

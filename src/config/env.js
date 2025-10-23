@@ -40,9 +40,11 @@ const ALERT_CHANNEL_ID = (process.env.ALERT_CHANNEL_ID || '').trim();
 const ALERT_USER_ID = (process.env.ALERT_USER_ID || '').trim();
 const SECURITY_BOT_TOKEN = (process.env.SECURITY_BOT_TOKEN || process.env.BOT_TOKEN || '').trim();
 const POKEMON_BOT_TOKEN = (process.env.POKEMON_BOT_TOKEN || process.env.POKEMON_TOKEN || '').trim();
-const ENABLE_POKEMON_BOT = process.env.ENABLE_POKEMON_BOT === undefined
-  ? true
-  : toBool(process.env.ENABLE_POKEMON_BOT);
+const rawEnablePokemonBot = process.env.ENABLE_POKEMON_BOT;
+const ENABLE_POKEMON_BOT = rawEnablePokemonBot === undefined
+  ? Boolean(POKEMON_BOT_TOKEN)
+  : toBool(rawEnablePokemonBot);
+const POKEMON_BOT_AUTO_DISABLED = rawEnablePokemonBot === undefined && !ENABLE_POKEMON_BOT;
 const BOT_TOKEN = SECURITY_BOT_TOKEN;
 
 // Role assignment defaults
@@ -122,6 +124,7 @@ module.exports = {
   SECURITY_BOT_TOKEN,
   POKEMON_BOT_TOKEN,
   ENABLE_POKEMON_BOT,
+  POKEMON_BOT_AUTO_DISABLED,
   DEFAULT_ROLE_NAME,
   ROLE_NAME,
   ROLE_ID,
