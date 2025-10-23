@@ -97,6 +97,27 @@ Notes:
 - Environment variables: `SECURITY_BOT_TOKEN`, `POKEMON_BOT_TOKEN`, optional `ENABLE_POKEMON_BOT`
 - See `render.yaml` for the single worker service definition.
 
+## PokéAPI cache publisher
+
+The cache worker clones a writable repository (or branch), refreshes PokéAPI payloads,
+and commits any diffs. This lets Render (or any scheduler) publish updated data without
+impacting the main bot process.
+
+1. Provision a separate repository or branch for cached data and create a token with
+   `contents:write` permission.
+2. Configure the following environment variables wherever the job runs:
+   - `REPO_URL` – HTTPS URL to the target repository.
+   - `GITHUB_TOKEN` – token with push access to the repository.
+   - `CACHE_BRANCH` – branch for cached artifacts (defaults to `data-cache`).
+   - `GIT_USER_NAME` / `GIT_USER_EMAIL` – identity used for commits.
+   - `CACHE_REPO_DIR` – optional override for the on-disk clone path.
+   - `POKE_LIMIT` – optional limit for local/testing runs.
+3. Execute the publisher with `npm run cache`. The script prints a JSON summary of each
+   run and only pushes when new data is generated.
+
+Render tip: run the cache workflow as a cron job or secondary worker so it does not
+interfere with the real-time Discord bots.
+
 ## repo layout
 
 ```
