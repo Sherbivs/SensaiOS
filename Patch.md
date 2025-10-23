@@ -1,170 +1,168 @@
-Perfect. Here’s a **draft patch for the Pokémon API caching and DM starter selection**, fully Node.js/Discord.js-compatible and aligned with your current directory layout.
+PATCH: POKEAPI DATA STRUCTURE (v2)
+SOURCE: https://github.com/PokeAPI/pokeapi
+FORMAT: AI-readable schema summary for Pokémon-based games
+PURPOSE: Provide structured understanding of the dataset for caching, parsing, and game logic
 
----
-
-# **Patch: Full Pokémon Roster Fetch & Starter Selection**
-
-## 1. **New file: `utils/pokemon-fetcher.js`**
-
-```js
-// discord-pokemon-bot/utils/pokemon-fetcher.js
-// Fetch all Pokémon from PokéAPI, cache locally in data/pokemon.json
-
-const fs = require('fs');
-const path = require('path');
-const fetch = require('node-fetch');
-
-const CACHE_PATH = path.join(__dirname, '../data/pokemon.json');
-
-async function fetchAllPokemon() {
-  const url = 'https://pokeapi.co/api/v2/pokemon?limit=2000'; // large limit for all Pokémon
-  const res = await fetch(url);
-  const data = await res.json();
-  const allPokemon = data.results;
-  return allPokemon;
+──────────────────────────────
+1. POKÉMON DATA (data/v2/pokemon)
+──────────────────────────────
+Each Pokémon entry (e.g., /pokemon/charizard.json) contains:
+{
+  "id": 6,
+  "name": "charizard",
+  "base_experience": 240,
+  "height": 17,
+  "weight": 905,
+  "stats": [
+    {"name": "hp", "base_stat": 78},
+    {"name": "attack", "base_stat": 84},
+    {"name": "defense", "base_stat": 78},
+    {"name": "special-attack", "base_stat": 109},
+    {"name": "special-defense", "base_stat": 85},
+    {"name": "speed", "base_stat": 100}
+  ],
+  "types": ["fire", "flying"],
+  "abilities": [
+    {"name": "blaze", "is_hidden": false},
+    {"name": "solar-power", "is_hidden": true}
+  ],
+  "moves": [
+    {"name": "flamethrower", "learn_method": "level-up", "level_learned_at": 54},
+    {"name": "fly", "learn_method": "machine"},
+    {"name": "dragon-claw", "learn_method": "machine"}
+  ],
+  "species": "charizard"
 }
 
-async function fetchPokemonDetails(name) {
-  const url = `https://pokeapi.co/api/v2/pokemon/${name}`;
-  const res = await fetch(url);
-  const data = await res.json();
-
-  // Map relevant stats and moves
-  return {
-    id: data.id,
-    name: data.name,
-    types: data.types.map(t => t.type.name),
-    stats: data.stats.map(s => ({ name: s.stat.name, base: s.base_stat })),
-    moves: data.moves
-      .filter(m => m.version_group_details.some(v => v.move_learn_method.name === 'level-up'))
-      .map(m => ({
-        name: m.move.name,
-        level: Math.min(...m.version_group_details.map(v => v.level_learned_at)),
-      })),
-    sprite: data.sprites.front_default,
-    isStarter: false,         // set later for rules
-    isLegendary: false,       // placeholder; use Pokédex data if available
-    isPseudoLegendary: false, // placeholder
-    stage: 'baby|1',           // placeholder, to be expanded
-  };
+──────────────────────────────
+2. MOVES DATA (data/v2/move)
+──────────────────────────────
+Example: /move/flamethrower.json
+{
+  "id": 53,
+  "name": "flamethrower",
+  "accuracy": 100,
+  "power": 90,
+  "pp": 15,
+  "priority": 0,
+  "damage_class": "special",
+  "type": "fire",
+  "effect_chance": 10,
+  "effect_entries": [
+    {"short_effect": "May burn the target."}
+  ],
+  "target": "selected-pokemon"
 }
 
-async function buildPokemonRoster() {
-  console.log('[Pokémon Fetch] Fetching all Pokémon list...');
-  const allPokemonList = await fetchAllPokemon();
-  const roster = {};
+──────────────────────────────
+3. SPECIES & EVOLUTION (data/v2/pokemon-species)
+──────────────────────────────
+{
+  "id": 6,
+  "name": "charizard",
+  "evolves_from_species": "charmeleon",
+  "evolution_chain": "/api/v2/evolution-chain/2/",
+  "color": "red",
+  "habitat": "mountain",
+  "growth_rate": "medium-slow",
+  "flavor_text_entries": [
+    {"language": "en", "version": "sword", "text": "It spits fire that is hot enough to melt boulders."}
+  ]
+}
 
-  for (const poke of allPokemonList) {
-    try {
-      const details = await fetchPokemonDetails(poke.name);
-      roster[details.name] = details;
-      console.log(`[Pokémon Fetch] Added: ${details.name}`);
-    } catch (err) {
-      console.error('[Pokémon Fetch ERROR]', poke.name, err.message);
-    }
+──────────────────────────────
+4. ABILITIES (data/v2/ability)
+──────────────────────────────
+{
+  "id": 66,
+  "name": "blaze",
+  "effect_entries": [
+    {"effect": "Powers up Fire-type moves when HP is low."}
+  ],
+  "pokemon": [
+    {"name": "charmander"}, {"name": "charmeleon"}, {"name": "charizard"}
+  ]
+}
+
+──────────────────────────────
+5. ITEMS (data/v2/item)
+──────────────────────────────
+{
+  "id": 1,
+  "name": "master-ball",
+  "cost": 0,
+  "effect_entries": [
+    {"effect": "Catches any wild Pokémon without fail."}
+  ],
+  "attributes": ["consumable"],
+  "category": "pokeballs"
+}
+
+──────────────────────────────
+6. TYPE RELATIONS (data/v2/type)
+──────────────────────────────
+{
+  "id": 10,
+  "name": "fire",
+  "damage_relations": {
+    "double_damage_to": ["grass", "ice", "bug", "steel"],
+    "half_damage_to": ["fire", "water", "rock", "dragon"],
+    "no_damage_to": [],
+    "double_damage_from": ["water", "ground", "rock"],
+    "half_damage_from": ["fire", "grass", "ice", "bug", "steel", "fairy"],
+    "no_damage_from": []
   }
-
-  fs.writeFileSync(CACHE_PATH, JSON.stringify({ lastUpdated: Date.now(), roster }, null, 2));
-  console.log('[Pokémon Fetch] Cache written to', CACHE_PATH);
 }
 
-module.exports = {
-  fetchAllPokemon,
-  fetchPokemonDetails,
-  buildPokemonRoster,
-  CACHE_PATH,
-};
-```
-
----
-
-## 2. **Update: `pokemon-bot.js`** (load roster & DM starter filter)
-
-```js
-// discord-pokemon-bot/pokemon-bot.js
-const fs = require('fs');
-const path = require('path');
-const { Client, GatewayIntentBits } = require('discord.js');
-const { CACHE_PATH } = require('./utils/pokemon-fetcher');
-
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent], partials: ['CHANNEL'] });
-
-let pokemonRoster = {};
-
-// Load cached roster on startup
-function loadPokemonRoster() {
-  if (fs.existsSync(CACHE_PATH)) {
-    const data = JSON.parse(fs.readFileSync(CACHE_PATH, 'utf8'));
-    pokemonRoster = data.roster || {};
-    console.log(`[Pokémon Bot] Loaded ${Object.keys(pokemonRoster).length} Pokémon from cache`);
-  } else {
-    console.warn('[Pokémon Bot] No cached roster found! Run fetcher first.');
-  }
+──────────────────────────────
+7. BERRIES (data/v2/berry)
+──────────────────────────────
+{
+  "id": 1,
+  "name": "cheri-berry",
+  "natural_gift_power": 60,
+  "natural_gift_type": "fire",
+  "size": 20,
+  "firmness": "soft",
+  "flavors": [{"flavor": "spicy", "potency": 10}]
 }
 
-// DM starter selection (filtered)
-function getEligibleStarters() {
-  return Object.values(pokemonRoster).filter(p => 
-    !p.isStarter && 
-    !p.isLegendary && 
-    !p.isPseudoLegendary && 
-    p.stage === 'baby|1'
-  );
-}
+──────────────────────────────
+8. TRAINERS, LOCATIONS, AND MACHINES
+──────────────────────────────
+Directories such as /machine, /location, and /encounter hold:
+- Machine lists for moves (e.g., TMs and HMs)
+- Wild encounter rates
+- Region and location metadata for Pokémon availability
 
-client.on('messageCreate', async (msg) => {
-  if (msg.channel.type !== 1) return; // Only handle DMs
-  if (msg.content.toLowerCase() === '!choose') {
-    const starters = getEligibleStarters();
-    if (!starters.length) return msg.reply('No eligible Pokémon available.');
+──────────────────────────────
+9. SCHEMA INTERDEPENDENCE
+──────────────────────────────
+- Pokémon → species_id links to Pokémon-species.json
+- Moves → type_id + effect_id cross-link with type and effect datasets
+- Abilities and items can both alter move or stat outcomes
+- Each dataset follows a REST structure (`/api/v2/<type>/<id or name>`)
 
-    const sample = starters.slice(0, 10); // show 10 choices
-    let reply = '**Choose your Pokémon:**\n';
-    sample.forEach((p, i) => reply += `\`${i + 1}\` - ${p.name} (${p.types.join(', ')})\n`);
-    await msg.reply(reply);
+──────────────────────────────
+PATCH SUMMARY
+──────────────────────────────
+Total Pokémon: ~1025
+Total Moves: ~900
+Total Abilities: ~300
+Total Items: ~1100
+Latest Game Data: Gen IX (Scarlet/Violet)
+Schema Compatibility: JSON REST; AI-parsable; supports caching and offline loading
 
-    // Next step: user DM replies with selection number
-    // Cache user selection per-user in cache/users/{userId}.json
-  }
-});
+──────────────────────────────
+INSTRUCTIONS FOR LOCAL CACHING
+──────────────────────────────
+1. Clone main repo → `git clone https://github.com/PokeAPI/pokeapi.git`
+2. Sync periodically:
+   `git fetch origin master && git reset --hard origin/master`
+3. Cache JSON directories locally for high-speed game reads.
+4. Access via indexed loader:
+   `pokemon_data = json.load(open('/data/pokeapi/data/v2/pokemon/<name>.json'))`
 
-client.once('ready', () => {
-  console.log(`Logged in as ${client.user.tag}`);
-  loadPokemonRoster();
-});
-
-client.login(process.env.BOT_TOKEN);
-```
-
----
-
-## 3. **Next Steps / Recommendations**
-
-1. **User Cache**: Create `cache/users/{userId}.json` to store:
-
-   * Selected Pokémon
-   * Level, XP, HP, cooldowns
-   * Battle history
-2. **Battle Manager**:
-
-   * Pull Pokémon stats from per-user cache + global roster
-   * Implement turn-based mechanics triggered by emoji
-   * Store battle logs in a dedicated channel
-3. **Refresh Pokémon Cache**:
-
-   * Optional command `!refreshRoster` for admins
-   * Automatically scheduled weekly or monthly
-4. **Starter Filter**:
-
-   * Keep rules only at DM selection
-   * Full roster remains in cache for battles, moves, and leveling
-
----
-
-✅ With this patch, we now have a **full Pokémon roster cached**, **starter rules separated**, and **DM selection ready**.
-
----
-
-I can produce the **next patch for per-user cache + battle manager integration** next, including storing Pokémon stats, XP, HP, cooldowns, and tracking battles in a channel.
-
-Do you want me to do that now?
+──────────────────────────────
+END OF PATCH
+──────────────────────────────

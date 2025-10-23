@@ -1,16 +1,13 @@
 // cache.js (root)
 // Persistent caching for role-healing bot
-
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-
 const PRIMARY_CACHE_DIR = '/Store/discord-cache';
 const FALLBACK_CACHE_DIR = path.join(process.cwd(), 'Store', 'discord-cache');
-
 const MAX_CACHE_PERCENT = 0.25;
 const MAX_CACHE_FILE_AGE_MS = 1000 * 60 * 60 * 24 * 7;
-
+␍␊
 function ensureDir(dir) {
   try {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -22,14 +19,12 @@ function ensureDir(dir) {
     return false;
   }
 }
-
 const CACHE_DIR = ensureDir(PRIMARY_CACHE_DIR) ? PRIMARY_CACHE_DIR : (ensureDir(FALLBACK_CACHE_DIR), FALLBACK_CACHE_DIR);
-
+␍␊
 function getCachePath(key) {
   const safe = key.replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
   return path.join(CACHE_DIR, `${safe}.json`);
 }
-
 function readCache(key) {
   try {
     const p = getCachePath(key);
@@ -40,7 +35,6 @@ function readCache(key) {
     return null;
   }
 }
-
 function writeCache(key, data) {
   try {
     const p = getCachePath(key);
@@ -50,7 +44,6 @@ function writeCache(key, data) {
     console.error('[CACHE WRITE ERROR]', key, err.message);
   }
 }
-
 function getCacheSize() {
   try {
     return fs.readdirSync(CACHE_DIR).reduce((sum, f) => sum + (fs.statSync(path.join(CACHE_DIR, f)).size || 0), 0);
@@ -58,17 +51,14 @@ function getCacheSize() {
     return 0;
   }
 }
-
 function approxFreeBytes() {
   return Math.max(os.freemem(), 512 * 1024 * 1024);
 }
-
 function getCacheBudget() {
   const approxBytes = approxFreeBytes();
   const maxAllowedBytes = Math.floor(approxBytes * MAX_CACHE_PERCENT);
   return { approxBytes, maxAllowedBytes, percent: MAX_CACHE_PERCENT };
 }
-
 function pruneCache() {
   let entries = [];
   try {
@@ -90,10 +80,9 @@ function pruneCache() {
       console.log(`[CACHE PRUNE] ${path.basename(e.filePath)} removed`);
     } catch (err) {
       console.error('[CACHE PRUNE ERROR]', err.message);
-    }
+    }␍␊
   }
 }
-
 function cleanOldCache() {
   const now = Date.now();
   let files = [];
@@ -112,7 +101,6 @@ function cleanOldCache() {
     }
   }
 }
-
 module.exports = {
   CACHE_DIR,
   readCache,
