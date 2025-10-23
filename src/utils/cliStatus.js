@@ -6,7 +6,7 @@ const activityTracker = require('./activityTracker');
 
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 const UPDATE_INTERVAL_MS = 1000;
-const NON_TTY_INTERVAL_MS = 60 * 1000;
+const NON_TTY_INTERVAL_MS = 15 * 1000;
 
 let frameIndex = 0;
 let startTime = Date.now();
