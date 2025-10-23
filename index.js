@@ -53,7 +53,7 @@ const client = new Client({
   partials: [Partials.User]
 });
 
-const DEFAULT_ROLE_NAME = 'Trainers';
+const DEFAULT_ROLE_NAME = 'Trainer';
 const ROLE_NAME = (process.env.ROLE_NAME || DEFAULT_ROLE_NAME).trim();
 const ROLE_ID = (process.env.ROLE_ID || '').trim();
 const BACKFILL_CONCURRENCY = Math.max(1, Number(process.env.BACKFILL_CONCURRENCY || 8)); // higher = faster, mind rate limits
