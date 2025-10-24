@@ -41,8 +41,17 @@ const EFFECT_RULES = {
   // 'double-edge': { recoil: { percent: 33 } },
 };
 
+function normaliseRuleKey(name) {
+  const key = String(name || '').toLowerCase();
+  const dashed = key.replace(/\s+/g, '-');
+  return { key, dashed };
+}
+
 function registerEffectRule(name, rule) {
-  EFFECT_RULES[String(name).toLowerCase()] = rule || {};
+  const { key, dashed } = normaliseRuleKey(name);
+  const value = rule || {};
+  EFFECT_RULES[key] = value;
+  EFFECT_RULES[dashed] = value;
 }
 
 function rand(ctx) {
@@ -80,8 +89,10 @@ const AILMENT_TO_STATUS = {
 
 function pickEffectSource(move, ctx) {
   const pref = ctx?.effectSource || 'auto';
+  const key = String(move?.name || '').toLowerCase();
+  const normalized = key.replace(/\s+/g, '-');
   const hasMeta = !!move?.meta;
-  const hasLocal = !!LOCAL_EFFECTS?.[String(move.name || '').toLowerCase()];
+  const hasLocal = !!(LOCAL_EFFECTS?.[key] || LOCAL_EFFECTS?.[normalized]);
   if (pref === 'pokeapi') return hasMeta ? 'pokeapi' : null;
   if (pref === 'local')   return hasLocal ? 'local'   : null;
   // auto:
@@ -112,7 +123,9 @@ function applySecondaryEffects(attacker, defender, move, ctx = {}) {
   }
 
   if (src === 'local') {
-    const rule = LOCAL_EFFECTS[String(move.name || '').toLowerCase()];
+    const key = String(move.name || '').toLowerCase();
+    const normalized = key.replace(/\s+/g, '-');
+    const rule = LOCAL_EFFECTS[key] || LOCAL_EFFECTS[normalized];
     if (!rule) return;
     // rule example: { "status": "par", "chance": 100 } or array of {status, chance}
     const rules = Array.isArray(rule) ? rule : [rule];
@@ -139,8 +152,8 @@ function applySecondaryEffects(attacker, defender, move, ctx = {}) {
  * Returns { total, hits, perHit } where perHit is the array of dealt values for transparency.
  */
 function computeTotalDamage(attacker, defender, move, perHitDamage, ctx = {}) {
-  const name = String(move.name || '').toLowerCase();
-  const rule = EFFECT_RULES[name] || {};
+  const { key, dashed } = normaliseRuleKey(move?.name);
+  const rule = EFFECT_RULES[key] || EFFECT_RULES[dashed] || {};
   const meta = move.meta || {};
 
   // 1) Fixed damage overrides
@@ -199,8 +212,8 @@ function computeTotalDamage(attacker, defender, move, perHitDamage, ctx = {}) {
  *  - Flinch: set defender.volatile.flinched based on chance (meta.flinch_chance or EFFECT_RULES)
  */
 function applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx = {}) {
-  const name = String(move.name || '').toLowerCase();
-  const rule = EFFECT_RULES[name] || {};
+  const { key, dashed } = normaliseRuleKey(move?.name);
+  const rule = EFFECT_RULES[key] || EFFECT_RULES[dashed] || {};
   const meta = move.meta || {};
   const log = ctx.log || [];
 

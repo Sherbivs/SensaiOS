@@ -111,36 +111,40 @@ function critMultiplier(ctx, attacker) {
 }
 
 function baseDamage(attacker, defender, move, ctx = {}) {
-  if (!move || !move.power || move.power <= 0) return 0;
+  if (!move) return 0;
 
   // Ability-based immunities (some also trigger side effects like Flash Fire boost or Water Absorb heal)
   if (abilityImmunity(defender, move.type, ctx)) return 0;
 
-  const atkKey = pickOffensiveStat(attacker, move);
-  const defKey = pickDefensiveStat(defender, move);
-  const Astat = effectiveStat(attacker, atkKey, { forMoveClass: move.class });
-  const Dstat = effectiveStat(defender, defKey, { forMoveClass: move.class });
+  let perHit = 0;
 
-  const L = attacker.level;
-  const P = move.power;
+  if (move.power && move.power > 0) {
+    const atkKey = pickOffensiveStat(attacker, move);
+    const defKey = pickDefensiveStat(defender, move);
+    const Astat = effectiveStat(attacker, atkKey, { forMoveClass: move.class });
+    const Dstat = effectiveStat(defender, defKey, { forMoveClass: move.class });
 
-  // ((2L/5 + 2) * P * A / D) / 50 + 2
-  const term = Math.floor((Math.floor((2 * L) / 5) + 2) * P * Astat / Math.max(1, Dstat));
-  const raw = Math.floor(Math.floor(term / 50) + 2);
+    const L = attacker.level;
+    const P = move.power;
 
-  const eff = typeEffectiveness(defender, move);
-  if (eff === 0) return 0;
+    // ((2L/5 + 2) * P * A / D) / 50 + 2
+    const term = Math.floor((Math.floor((2 * L) / 5) + 2) * P * Astat / Math.max(1, Dstat));
+    const raw = Math.floor(Math.floor(term / 50) + 2);
 
-  const mod =
-    stab(attacker, move) *
-    weatherPowerMod(ctx.weather, move.type) *
-    attackerAbilityDamageMod(attacker, move.type) *
-    itemDamageMod(attacker) *
-    eff *
-    critMultiplier(ctx, attacker);
+    const eff = typeEffectiveness(defender, move);
+    if (eff === 0) return 0;
 
-  // Per-hit damage before multi-hit/fixed aggregation
-  const perHit = Math.max(1, Math.floor(raw * mod));
+    const mod =
+      stab(attacker, move) *
+      weatherPowerMod(ctx.weather, move.type) *
+      attackerAbilityDamageMod(attacker, move.type) *
+      itemDamageMod(attacker) *
+      eff *
+      critMultiplier(ctx, attacker);
+
+    perHit = Math.max(1, Math.floor(raw * mod));
+  }
+
   const totals = computeTotalDamage(attacker, defender, move, perHit, ctx);
   return Math.max(0, totals.total);
 }
