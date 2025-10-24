@@ -98,6 +98,9 @@ function emitInspected(value, { debugMode }) {
 }
 
 function log(level, message, context, { debugMode = false } = {}) {
+  if (level !== 'error') {
+    return;
+  }
   const timestamp = new Date().toISOString();
   const label = LOG_LABEL[level] || LOG_LABEL.info;
   const writer = level === 'error' ? console.error : console.log;
@@ -143,6 +146,9 @@ function log(level, message, context, { debugMode = false } = {}) {
 }
 
 function report(title, meta = {}, level = 'info') {
+  if (level !== 'error') {
+    return;
+  }
   const heading = `=== ${title} ===`;
   const timestamp = new Date().toISOString();
   const label = level.toUpperCase();
