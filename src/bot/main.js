@@ -32,8 +32,13 @@ const {
   SUMMARY_REPORT_RECIPIENT,
   SUMMARY_REPORT_HOUR,
   SUMMARY_REPORT_MINUTE,
+  DRIP_ALERT_RECIPIENT,
+  DRIP_ALERT_HOUR,
+  DRIP_ALERT_MINUTE,
+  DRIP_ALERT_TIMEZONE,
 } = require('../config/env');
 const { log: baseLog, report } = require('../utils/logger');
+const { createDripAlertManager, DRIP_ALERT_SEVERITY } = require('./dripAlerts');
 
 cache.cleanOldCache();
 
@@ -50,6 +55,7 @@ const client = new Client({
   partials: [Partials.User]
 });
 let loginPromise = null;
+let dripAlertManager = null;
 
 const describeRole = (role) => `${role.name} (#${role.id})`;
 const describeMember = (member) => `${member.user.tag} (#${member.id})`;
@@ -157,6 +163,9 @@ const ACTIVITY_LABELS = Object.freeze({
   'role-assignment': 'Role assignments',
   'role-permissions-healed': 'Permission heals',
   'security-alert': 'Security alerts',
+  'drip-alert-critical': 'Critical DM alerts',
+  'drip-alert-warning': 'Queued DM alerts',
+  'drip-alert-digest': 'Alert digests',
 });
 
 let summaryTimer = null;
@@ -205,12 +214,22 @@ async function sendDailySummaryReport() {
 
   if (!SUMMARY_REPORT_RECIPIENT) {
     log('warn', 'Summary recipient missing; skipping scheduled report', {});
+    if (dripAlertManager) {
+      await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.notice, 'Daily summary recipient missing', {
+        hint: 'Set SUMMARY_REPORT_RECIPIENT to enable reports.',
+      });
+    }
     return;
   }
 
   const recipient = await resolveAlertUser(SUMMARY_REPORT_RECIPIENT);
   if (!recipient) {
     log('warn', 'Unable to resolve summary recipient', { recipient: SUMMARY_REPORT_RECIPIENT });
+    if (dripAlertManager) {
+      await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.warning, 'Daily summary recipient could not be resolved', {
+        recipient: SUMMARY_REPORT_RECIPIENT,
+      });
+    }
     return;
   }
 
@@ -226,6 +245,12 @@ async function sendDailySummaryReport() {
     log('error', 'Daily summary delivery failed', mergeLogError({
       recipient: SUMMARY_REPORT_RECIPIENT,
     }, error));
+    if (dripAlertManager) {
+      await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.warning, 'Daily summary delivery failed', {
+        recipient: SUMMARY_REPORT_RECIPIENT,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }
 
@@ -254,6 +279,11 @@ async function notifyServiceRestart() {
     const user = await resolveAlertUser(RESTART_DM_RECIPIENT);
     if (!user) {
       log('warn', 'Restart DM recipient not found', { recipient: RESTART_DM_RECIPIENT });
+      if (dripAlertManager) {
+        await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.notice, 'Restart notification recipient missing', {
+          recipient: RESTART_DM_RECIPIENT,
+        });
+      }
       return;
     }
     const message = `🛡️ Security monitor restarted at ${new Date().toLocaleString()}.\nContinuous monitoring is active across ${client.guilds.cache.size} guild(s).`;
@@ -263,6 +293,12 @@ async function notifyServiceRestart() {
     log('error', 'Restart notification failed', mergeLogError({
       recipient: RESTART_DM_RECIPIENT,
     }, error));
+    if (dripAlertManager) {
+      await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.warning, 'Restart notification delivery failed', {
+        recipient: RESTART_DM_RECIPIENT,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }
 
@@ -872,6 +908,9 @@ client.once(Events.ClientReady, async () => {
   updateMonitoringPhase();
   await notifyServiceRestart();
   scheduleDailySummaryReports();
+  if (dripAlertManager) {
+    dripAlertManager.start();
+  }
 
   report('Runtime Configuration', {
     roleName: ROLE_NAME,
@@ -1045,6 +1084,17 @@ async function resolveAlertUser(spec) {
   return null;
 }
 
+dripAlertManager = createDripAlertManager({
+  recipient: DRIP_ALERT_RECIPIENT,
+  resolveAlertUser,
+  describeUser,
+  log,
+  recordActivity: (type, summary, meta) => activityTracker.recordActivity(type, summary, meta),
+  timeZone: DRIP_ALERT_TIMEZONE,
+  digestHour: DRIP_ALERT_HOUR,
+  digestMinute: DRIP_ALERT_MINUTE,
+});
+
 async function sendSecurityAlert(title, meta = {}) {
   try {
     const text = `🔒 ${title}`;
@@ -1124,6 +1174,10 @@ async function sendSecurityAlert(title, meta = {}) {
           recipient: ALERT_USER_ID,
         }, e));
       }
+    }
+
+    if (dripAlertManager) {
+      await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.security, title, body);
     }
   } catch (error) {
     log('error', 'Security alert dispatch failed', mergeLogError({
