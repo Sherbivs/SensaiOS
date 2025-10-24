@@ -1,11 +1,15 @@
 services:
+  # Discord bot worker
   - type: worker
     name: infinity-gauntlet-bots
-    env: node
-    buildCommand: npm install
-    startCommand: npm start
+    runtime: node
+    plan: starter
+    region: oregon
+    repo: https://github.com/sherbivs/infinity-gauntlet
+    branch: main
+    buildCommand: "npm ci"
+    startCommand: "npm start"
     autoDeploy: true
-    plan: free
     envVars:
       - key: SECURITY_BOT_TOKEN
         sync: false
@@ -15,3 +19,58 @@ services:
         value: "true"
       - key: BATTLE_CHANNEL_NAME
         value: pokemon-battles
+
+  # Canonical Pokédex cache worker (persistent disk + scheduler)
+  - type: worker
+    name: pokedex-cache-worker
+    runtime: node
+    plan: starter
+    region: oregon
+    repo: https://github.com/sherbivs/infinity-gauntlet
+    branch: main
+    buildCommand: "npm ci"
+    startCommand: "node scripts/worker.mjs"
+    autoDeploy: true
+    disks:
+      - name: pokedata
+        mountPath: /store
+        sizeGB: 1
+    envVars:
+      - key: GITHUB_REPO
+        value: https://github.com/sherbivs/infinity-gauntlet.git
+      - key: GITHUB_BRANCH
+        value: data-cache
+      - key: GITHUB_BASE_BRANCH
+        value: main
+      - key: GITHUB_RAW_URL
+        value: https://raw.githubusercontent.com/sherbivs/infinity-gauntlet/data-cache/data/cache
+      - key: CACHE_DIR
+        value: /store/cache
+      - key: POKE_CONCURRENCY
+        value: "10"
+      - key: POKE_TIMEOUT_MS
+        value: "15000"
+      - key: GITHUB_TOKEN
+        sync: false
+
+  # Optional failsafe cron job: refresh GitHub fallback only
+  - type: cron
+    name: pokedex-cache-failsafe
+    runtime: node
+    plan: starter
+    repo: https://github.com/sherbivs/infinity-gauntlet
+    branch: main
+    buildCommand: "npm ci"
+    startCommand: "node scripts/refresh_cache_gh_only.mjs"
+    schedule: "0 0 * * 4"
+    envVars:
+      - key: GITHUB_REPO
+        value: https://github.com/sherbivs/infinity-gauntlet.git
+      - key: GITHUB_BRANCH
+        value: data-cache
+      - key: GITHUB_BASE_BRANCH
+        value: main
+      - key: CACHE_DIR
+        value: /tmp/cache
+      - key: GITHUB_TOKEN
+        sync: false
