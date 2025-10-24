@@ -4,6 +4,28 @@ const { getPokemon, getMove, disabled } = require('../lib/dex-api');
 const { makeRNG } = require('../engine/rng');
 const { makeRuntimeFromDexEntry, newBattleState, newAction, resolveTurn } = require('../engine');
 
+const TYPE_EMOJIS = {
+  normal: '⚪', fire: '🔥', water: '💧', electric: '⚡', grass: '🌿', ice: '❄️',
+  fighting: '🥊', poison: '☠️', ground: '🌎', flying: '🪽', psychic: '🔮', bug: '🐛',
+  rock: '🪨', ghost: '👻', dragon: '🐉', dark: '🌑', steel: '⚙️', fairy: '✨'
+};
+
+const STATUS_LABELS = {
+  brn: 'BRN', par: 'PAR', psn: 'PSN', tox: 'TOX', slp: 'SLP', frz: 'FRZ'
+};
+
+function formatSummaryLine(mon) {
+  if (!mon) return '';
+  const hpText = `${Math.max(0, mon.hp)}/${mon.maxHp}`;
+  const typeIcons = Array.isArray(mon.types)
+    ? mon.types.map((t) => TYPE_EMOJIS[String(t).toLowerCase()] || null).filter(Boolean)
+    : [];
+  const typePart = typeIcons.length ? ` ${typeIcons.join(' ')}` : '';
+  const statusKey = mon.status ? String(mon.status).toLowerCase() : '';
+  const statusPart = `[${STATUS_LABELS[statusKey] || 'OK'}]`;
+  return `${mon.name} ${hpText} HP${typePart} ${statusPart}`;
+}
+
 // In-memory battle sessions keyed by user id
 const SESSIONS = new Map();
 
@@ -68,10 +90,22 @@ module.exports = {
     // Build a concise title showing HP/status
     const title = `${state.a.name} ${state.a.hp}/${state.a.maxHp} vs ${state.b.name} ${state.b.hp}/${state.b.maxHp}`;
 
-    // Public battle log broadcasting
-    const description = ctx.publicLog && ctx.publicLog.length > 0
-      ? ctx.publicLog.join('\n')
-      : result.log.join('\n');
+    // Public battle log broadcasting with HP/status summaries appended
+    const battleLog = ctx.publicLog && ctx.publicLog.length > 0
+      ? ctx.publicLog.slice()
+      : result.log.slice();
+
+    const summaryLines = [state.a, state.b]
+      .filter(Boolean)
+      .map(formatSummaryLine)
+      .filter(Boolean);
+
+    if (summaryLines.length) {
+      if (battleLog.length) battleLog.push('');
+      battleLog.push(...summaryLines);
+    }
+
+    const description = battleLog.join('\n');
 
     const embed = {
       title: 'Battle Log',
