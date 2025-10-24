@@ -118,6 +118,32 @@ impacting the main bot process.
 Render tip: run the cache workflow as a cron job or secondary worker so it does not
 interfere with the real-time Discord bots.
 
+The managed worker defined in `render.yaml` now **dispatches Render one-off jobs**
+instead of running the refresh pipeline inline. On boot it queues a job that runs
+`node scripts/refresh_cache.mjs` on the same worker (reusing the persistent disk), and
+it schedules additional jobs using the `POKE_REFRESH_CRON` expression in the
+`POKE_REFRESH_TZ` time zone (defaults to `0 0 * * 4` in `America/New_York`, i.e. every
+Thursday at 12:00 a.m. Eastern). Adjust those environment variables if you need a
+different cadence, or set `POKE_RUN_JOB_ON_BOOT=false` if you only want the scheduled
+runs.
+
+### Render Jobs configuration
+
+Jobs are dispatched via the Render Jobs API. Provide a scoped API key and (optionally)
+override the defaults with the following environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `RENDER_API_KEY` or `POKE_RENDER_API_KEY` | Required. Bearer token used to call the Jobs API. Give it the minimal `jobs` scope. |
+| `POKE_RENDER_SERVICE_ID` | Optional. Service ID to target when dispatching jobs. Defaults to `RENDER_SERVICE_ID`, which Render injects automatically when running inside the worker. |
+| `POKE_REFRESH_JOB_COMMAND` | Optional. Command executed by the one-off job. Defaults to `node scripts/refresh_cache.mjs`. |
+| `RENDER_JOB_ALLOW_OVERRIDE` | Optional. Set to `true` to let callers provide a one-off `startCommand` override when triggering jobs. |
+| `POKE_RUN_JOB_ON_BOOT` | Optional. Controls whether the worker queues a job immediately after boot. Defaults to `true`. |
+
+If you want to trigger refreshes manually, execute `node scripts/worker_trigger_job.mjs`
+from any environment that has the same variables configured (or call
+`triggerRenderJob` from `scripts/render_job_client.mjs` in your own automation).
+
 ## repo layout
 
 ```

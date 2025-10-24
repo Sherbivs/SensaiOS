@@ -67,6 +67,16 @@ services:
         value: "10"
       - key: POKE_TIMEOUT_MS
         value: "15000"
+      - key: POKE_REFRESH_CRON
+        value: "0 0 * * 4"
+      - key: POKE_REFRESH_TZ
+        value: America/New_York
+      - key: POKE_RUN_JOB_ON_BOOT
+        value: "true"
+      - key: POKE_REFRESH_JOB_COMMAND
+        value: node scripts/refresh_cache.mjs
+      - key: RENDER_API_KEY
+        sync: false
       - key: GITHUB_TOKEN
         sync: false
 
