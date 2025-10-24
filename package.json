@@ -5,6 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "register:commands": "node scripts/register-commands.js",
     "cache": "node src/cache/index.js",
     "cache:fetch": "node ./scripts/fetch_pokemon.mjs",
     "cache:refresh": "node ./scripts/refresh_cache.mjs",

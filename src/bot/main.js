@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Partials, Events } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Events, Collection } = require('discord.js');
 const fs = require('node:fs');
 const path = require('node:path');
 const https = require('node:https');
@@ -40,6 +40,7 @@ const {
 } = require('../config/env');
 const { log: baseLog, report } = require('../utils/logger');
 const { createDripAlertManager, DRIP_ALERT_SEVERITY } = require('./dripAlerts');
+const { loadCommands } = require('../command-loader');
 
 cache.cleanOldCache();
 
@@ -55,6 +56,17 @@ const client = new Client({
   ],
   partials: [Partials.User]
 });
+// Load slash commands (optional; safe if none present)
+let commands = null;
+try {
+  commands = loadCommands();
+  if (commands && commands.size > 0) {
+    // Attach to client for convenience
+    client.commands = new Collection([...commands.entries()]);
+  }
+} catch (err) {
+  console.warn('[commands] loader failed:', err?.message || err);
+}
 let loginPromise = null;
 let dripAlertManager = null;
 
@@ -1239,6 +1251,9 @@ client.once(Events.ClientReady, async () => {
     connectedAs: client.user.tag,
     userId: client.user.id,
   });
+  if (commands && commands.size) {
+    log('info', 'Slash commands loaded', { count: commands.size });
+  }
   updateSecurityCliSection({ status: `Ready as ${client.user.tag}` });
   updateMonitoringPhase();
   await notifyServiceRestart();
@@ -1325,6 +1340,28 @@ client.once(Events.ClientReady, async () => {
         await fixGuildRoles(guild);
       }
     }, remMs);
+  }
+});
+
+// Slash commands and autocomplete
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    if (!commands || commands.size === 0) return;
+    if (interaction.isAutocomplete()) {
+      const cmd = commands.get(interaction.commandName);
+      if (cmd?.autocomplete) return cmd.autocomplete(interaction);
+      return;
+    }
+    if (!interaction.isChatInputCommand()) return;
+    const cmd = commands.get(interaction.commandName);
+    if (!cmd) return interaction.reply({ content: 'Unknown command.', ephemeral: true });
+    await cmd.execute(interaction);
+  } catch (err) {
+    console.error('[commands] handler error:', err);
+    if (interaction.deferred || interaction.replied) {
+      return interaction.editReply({ content: 'Something went wrong.' });
+    }
+    return interaction.reply({ content: 'Something went wrong.', ephemeral: true });
   }
 });
 client.on(Events.GuildCreate, () => {
