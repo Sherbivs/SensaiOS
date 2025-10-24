@@ -26,11 +26,14 @@ function newPokemonRuntime(p, level = 50) {
 }
 
 function newBattleState(a, b) {
-  return {
-    a, b,
+  const state = {
+    a,
+    b,
     turn: 1,
-    weather: null // later: 'rain'|'sun'|'sand'|'hail' etc.
+    weather: null, // later: 'rain'|'sun'|'sand'|'hail' etc.
   };
+  state.state = state;
+  return state;
 }
 
 function newAction(which, moveName) {
