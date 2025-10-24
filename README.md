@@ -103,6 +103,7 @@ Slash commands like `/dex`, `/move`, and `/weak` use an offline snapshot built i
 
 - To build these locally: run `npm run build:data` (optionally followed by `npm run build:assets`).
 - On Render, add a build step that runs `npm run build:data` or set `DISABLE_SNAPSHOT_PRECHECK=true` to let the service start without the snapshot (commands will gracefully respond that data is unavailable until the snapshot is present).
+- Alternative quickstart: `npm run fetch:snapshot` will attempt to download a prebuilt snapshot (if `SNAPSHOT_URL_BASE` is provided) or synthesize a minimal dex from a cached `pokemon.json` (if `GITHUB_RAW_URL` points to your data-cache). This enables `/dex` and `/weak` with neutral matchups; `/move` will be limited unless a real `moves.min.json` is available.
 
 You can also generate and host the snapshot in a separate job or repository and copy it into `dist/data` during your build.
 
