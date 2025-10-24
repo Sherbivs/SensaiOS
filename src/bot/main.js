@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Partials, Events } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Events, Collection } = require('discord.js');
 const fs = require('node:fs');
 const path = require('node:path');
 const https = require('node:https');
@@ -6,6 +6,7 @@ const https = require('node:https');
 const cache = require('../services/cache');
 const activityTracker = require('../utils/activityTracker');
 const cliStatus = require('../utils/cliStatus');
+const opsNotifier = require('../utils/opsNotifier');
 const {
   CLI_DEBUG_MODE,
   ROLE_PERMISSIONS_AUDIT,
@@ -21,10 +22,9 @@ const {
   BACKFILL_CONCURRENCY,
   BACKFILL_DELAY_MS,
   BACKFILL_INTERVAL_SECONDS,
-  BACKFILL_INTERVAL_MIN,
-  ROLE_REMEDIATION_INTERVAL_MIN,
+  ROLE_REMEDIATION_INTERVAL_SECONDS,
   CACHE_TTL_HOURS,
-  OPS_REPORT_INTERVAL_MIN,
+  OPS_REPORT_INTERVAL_SECONDS,
   STANDARD_ENFORCE_ALL,
   UNLISTED_PERMISSIONS,
   STANDARD_EXEMPT_ROLES,
@@ -33,8 +33,15 @@ const {
   SUMMARY_REPORT_RECIPIENT,
   SUMMARY_REPORT_HOUR,
   SUMMARY_REPORT_MINUTE,
+  DRIP_ALERT_RECIPIENT,
+  DRIP_ALERT_HOUR,
+  DRIP_ALERT_MINUTE,
+  DRIP_ALERT_TIMEZONE,
 } = require('../config/env');
 const { log: baseLog, report } = require('../utils/logger');
+const { createDripAlertManager, DRIP_ALERT_SEVERITY } = require('./dripAlerts');
+const { loadCommands } = require('../command-loader');
+const { checkAndSet } = require('../lib/cooldown');
 
 cache.cleanOldCache();
 
@@ -50,6 +57,19 @@ const client = new Client({
   ],
   partials: [Partials.User]
 });
+// Load slash commands (optional; safe if none present)
+let commands = null;
+try {
+  commands = loadCommands();
+  if (commands && commands.size > 0) {
+    // Attach to client for convenience
+    client.commands = new Collection([...commands.entries()]);
+  }
+} catch (err) {
+  console.warn('[commands] loader failed:', err?.message || err);
+}
+let loginPromise = null;
+let dripAlertManager = null;
 
 const describeRole = (role) => `${role.name} (#${role.id})`;
 const describeMember = (member) => `${member.user.tag} (#${member.id})`;
@@ -60,14 +80,360 @@ const describeUser = (user) => {
   return `${tag} (#${user.id})`;
 };
 
-const describeInterval = (totalSeconds) => {
-  if (totalSeconds >= 60) {
-    const minutes = totalSeconds / 60;
-    const roundedMinutes = Number.isInteger(minutes) ? minutes : Number(minutes.toFixed(2));
-    return `${roundedMinutes} minute(s) (${totalSeconds} second(s))`;
-  }
-  return `${totalSeconds} second(s)`;
+const securityCliState = {
+  status: 'Booting',
+  lastSweepStartedAt: null,
+  lastSweepCompletedAt: null,
+  lastSweepDurationMs: null,
+  lastSweepOrigin: null,
+  lastSweepGuild: null,
+  lastSweepCandidates: 0,
+  lastSweepAssigned: 0,
+  lastSweepFailed: 0,
+  lastSweepResult: null,
+  totalSweeps: 0,
+  totalAssignments: 0,
+  totalFailures: 0,
+  lastAlertSentAt: null,
+  lastAlertMessage: null,
 };
+
+const pendingOpsErrorQueue = [];
+const deliveredOpsErrorIds = new Set();
+let deliveringOpsErrors = false;
+let opsErrorRetryTimer = null;
+
+function isClientReady() {
+  if (typeof client.isReady === 'function') {
+    return client.isReady();
+  }
+  return Boolean(client.readyAt);
+}
+
+function formatDurationShort(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return '0s';
+  }
+  const totalSeconds = Math.floor(ms / 1000);
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m ${seconds.toString().padStart(2, '0')}s`;
+  }
+  const totalHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (totalHours < 48) {
+    return `${totalHours}h ${minutes.toString().padStart(2, '0')}m`;
+  }
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  return `${days}d ${hours}h`;
+}
+
+function describeMomentForCli(value) {
+  if (!value) {
+    return 'never';
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'unknown';
+  }
+  const diff = Date.now() - date.getTime();
+  const abs = Math.abs(diff);
+  let relative;
+  if (abs < 1000) {
+    relative = 'just now';
+  } else if (abs < 60_000) {
+    relative = `${Math.floor(abs / 1000)}s ${diff >= 0 ? 'ago' : 'from now'}`;
+  } else if (abs < 3_600_000) {
+    relative = `${Math.floor(abs / 60_000)}m ${diff >= 0 ? 'ago' : 'from now'}`;
+  } else if (abs < 86_400_000) {
+    relative = `${Math.floor(abs / 3_600_000)}h ${diff >= 0 ? 'ago' : 'from now'}`;
+  } else {
+    relative = `${Math.floor(abs / 86_400_000)}d ${diff >= 0 ? 'ago' : 'from now'}`;
+  }
+  return `${date.toLocaleString()} (${relative})`;
+}
+
+function updateSecurityCliSection(overrides = {}) {
+  Object.assign(securityCliState, overrides);
+  const metrics = [];
+  if (client?.user?.tag) {
+    metrics.push(['identity', client.user.tag]);
+  }
+  const guildCount = client?.guilds?.cache?.size ?? 0;
+  metrics.push(['guilds', guildCount]);
+
+  if (securityCliState.lastSweepCompletedAt) {
+    const target = securityCliState.lastSweepGuild || 'unknown guild';
+    const origin = securityCliState.lastSweepOrigin || 'unspecified';
+    metrics.push(['last sweep', `${target} via ${origin}`]);
+    metrics.push(['sweep finished', describeMomentForCli(securityCliState.lastSweepCompletedAt)]);
+    if (Number.isFinite(securityCliState.lastSweepDurationMs)) {
+      metrics.push(['sweep duration', formatDurationShort(securityCliState.lastSweepDurationMs)]);
+    }
+    const parts = [];
+    if (securityCliState.lastSweepCandidates) {
+      parts.push(`${securityCliState.lastSweepAssigned}/${securityCliState.lastSweepCandidates} assigned`);
+    } else {
+      parts.push(`${securityCliState.lastSweepAssigned} assigned`);
+    }
+    if (securityCliState.lastSweepFailed) {
+      parts.push(`${securityCliState.lastSweepFailed} failed`);
+    }
+    if (securityCliState.lastSweepResult) {
+      parts.push(securityCliState.lastSweepResult);
+    }
+    metrics.push(['sweep result', parts.filter(Boolean).join(' • ') || 'no changes']);
+  } else if (securityCliState.lastSweepStartedAt) {
+    metrics.push(['sweep started', describeMomentForCli(securityCliState.lastSweepStartedAt)]);
+    if (securityCliState.lastSweepOrigin) {
+      metrics.push(['sweep origin', securityCliState.lastSweepOrigin]);
+    }
+  }
+
+  metrics.push(['sweeps', securityCliState.totalSweeps]);
+  metrics.push(['assigned total', securityCliState.totalAssignments]);
+  if (securityCliState.totalFailures > 0) {
+    metrics.push(['failed total', securityCliState.totalFailures]);
+  }
+
+  if (securityCliState.lastAlertSentAt) {
+    metrics.push(['last alert', describeMomentForCli(securityCliState.lastAlertSentAt)]);
+    if (securityCliState.lastAlertMessage) {
+      metrics.push(['alert message', securityCliState.lastAlertMessage]);
+    }
+  }
+
+  cliStatus.setSection('security', {
+    title: 'Security Bot',
+    status: securityCliState.status,
+    metrics,
+  });
+}
+
+function beginSecuritySweep(guild, origin) {
+  const startedAt = new Date();
+  updateSecurityCliSection({
+    status: `Sweeping ${guild.name}`,
+    lastSweepStartedAt: startedAt,
+    lastSweepOrigin: origin,
+    lastSweepGuild: describeGuild(guild),
+    lastSweepCandidates: 0,
+    lastSweepAssigned: 0,
+    lastSweepFailed: 0,
+    lastSweepResult: 'in progress',
+  });
+  return startedAt;
+}
+
+function completeSecuritySweep({ startedAt, assigned = 0, failed = 0, candidates = 0, reason = 'completed' }) {
+  const completedAt = new Date();
+  const durationMs = startedAt instanceof Date ? completedAt - startedAt : null;
+  updateSecurityCliSection({
+    lastSweepCompletedAt: completedAt,
+    lastSweepDurationMs: durationMs,
+    lastSweepAssigned: assigned,
+    lastSweepFailed: failed,
+    lastSweepCandidates: candidates,
+    lastSweepResult: reason,
+    totalSweeps: securityCliState.totalSweeps + 1,
+    totalAssignments: securityCliState.totalAssignments + Math.max(0, assigned),
+    totalFailures: securityCliState.totalFailures + Math.max(0, failed),
+  });
+}
+
+function safeSerialize(value, limit = 1800) {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  try {
+    const serialized = JSON.stringify(value, (key, val) => {
+      if (typeof val === 'bigint') {
+        return val.toString();
+      }
+      if (val instanceof Map) {
+        return Object.fromEntries(val.entries());
+      }
+      if (val instanceof Set) {
+        return Array.from(val.values());
+      }
+      return val;
+    }, 2);
+    if (!serialized) {
+      return undefined;
+    }
+    if (serialized.length <= limit) {
+      return serialized;
+    }
+    return `${serialized.slice(0, limit - 3)}...`;
+  } catch (error) {
+    return undefined;
+  }
+}
+
+function buildOpsErrorMeta(event) {
+  const meta = {
+    id: event.id,
+    occurredAt: event.timestamp instanceof Date ? event.timestamp.toISOString() : new Date().toISOString(),
+  };
+  if (event.detail) {
+    meta.detail = event.detail;
+  }
+  if (event.source) {
+    meta.source = event.source;
+  }
+  if (event.context && Object.keys(event.context).length) {
+    const serialized = safeSerialize(event.context);
+    if (serialized) {
+      meta.context = serialized;
+    }
+  }
+  return meta;
+}
+
+function scheduleOpsErrorRetry() {
+  if (opsErrorRetryTimer) {
+    return;
+  }
+  opsErrorRetryTimer = setTimeout(() => {
+    opsErrorRetryTimer = null;
+    if (isClientReady()) {
+      void deliverOpsErrors();
+    }
+  }, 10_000);
+  opsErrorRetryTimer.unref?.();
+}
+
+function queueOpsError(event) {
+  if (!event || event.skipAlert || event.source === 'drip-alerts') {
+    return;
+  }
+  if (deliveredOpsErrorIds.has(event.id)) {
+    return;
+  }
+  if (pendingOpsErrorQueue.some((item) => item.id === event.id)) {
+    return;
+  }
+  pendingOpsErrorQueue.push({ ...event, attempts: event.attempts || 0 });
+  updateSecurityCliSection({
+    lastAlertMessage: `queued: ${event.message}`,
+  });
+  if (isClientReady()) {
+    void deliverOpsErrors();
+  }
+}
+
+async function deliverOpsErrors() {
+  if (deliveringOpsErrors) {
+    return;
+  }
+  deliveringOpsErrors = true;
+  try {
+    while (pendingOpsErrorQueue.length > 0) {
+      if (!isClientReady() || !dripAlertManager) {
+        break;
+      }
+      const event = pendingOpsErrorQueue.shift();
+      if (!event) {
+        continue;
+      }
+      if (deliveredOpsErrorIds.has(event.id) || event.skipAlert || event.source === 'drip-alerts') {
+        deliveredOpsErrorIds.add(event.id);
+        continue;
+      }
+      try {
+        const meta = buildOpsErrorMeta(event);
+        const title = `Ops Error: ${event.message}`;
+        const success = await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.critical, title, meta);
+        if (success === false) {
+          event.attempts = (event.attempts || 0) + 1;
+          if (event.attempts < 3) {
+            pendingOpsErrorQueue.push(event);
+            updateSecurityCliSection({
+              lastAlertMessage: `retry pending: ${event.message}`,
+            });
+            scheduleOpsErrorRetry();
+          } else {
+            deliveredOpsErrorIds.add(event.id);
+          }
+          break;
+        }
+        deliveredOpsErrorIds.add(event.id);
+        updateSecurityCliSection({
+          lastAlertSentAt: new Date(),
+          lastAlertMessage: event.message,
+        });
+      } catch (error) {
+        event.attempts = (event.attempts || 0) + 1;
+        if (event.attempts < 3) {
+          pendingOpsErrorQueue.push(event);
+          updateSecurityCliSection({
+            lastAlertMessage: `retry pending: ${event.message}`,
+          });
+          scheduleOpsErrorRetry();
+        } else {
+          deliveredOpsErrorIds.add(event.id);
+        }
+        log('error', 'Ops error alert dispatch failed', mergeLogError({ originalMessage: event.message }, error));
+        break;
+      }
+    }
+  } finally {
+    deliveringOpsErrors = false;
+  }
+}
+
+if (opsNotifier && typeof opsNotifier.subscribe === 'function') {
+  opsNotifier.subscribe(queueOpsError);
+  if (typeof opsNotifier.getRecentErrors === 'function') {
+    opsNotifier.getRecentErrors().forEach(queueOpsError);
+  }
+}
+
+updateSecurityCliSection();
+
+function mergeLogError(base, error) {
+  if (error instanceof Error) {
+    return {
+      ...base,
+      error,
+    };
+  }
+  if (error === undefined || error === null) {
+    return { ...base, error: String(error) };
+  }
+  return {
+    ...base,
+    error: String(error),
+  };
+}
+
+function mergeReportError(base, error) {
+  if (error instanceof Error) {
+    const details = {
+      ...base,
+      errorMessage: error.message,
+    };
+    if (error.code !== undefined) {
+      details.errorCode = error.code;
+    }
+    if (error.stack) {
+      details.errorStack = error.stack;
+    }
+    return details;
+  }
+  if (error === undefined || error === null) {
+    return { ...base, error: String(error) };
+  }
+  return {
+    ...base,
+    error: String(error),
+  };
+}
 
 function canAssignRole(guild, role) {
   const me = guild.members.me;
@@ -127,6 +493,9 @@ const ACTIVITY_LABELS = Object.freeze({
   'role-assignment': 'Role assignments',
   'role-permissions-healed': 'Permission heals',
   'security-alert': 'Security alerts',
+  'drip-alert-critical': 'Critical DM alerts',
+  'drip-alert-warning': 'Queued DM alerts',
+  'drip-alert-digest': 'Alert digests',
 });
 
 let summaryTimer = null;
@@ -175,12 +544,22 @@ async function sendDailySummaryReport() {
 
   if (!SUMMARY_REPORT_RECIPIENT) {
     log('warn', 'Summary recipient missing; skipping scheduled report', {});
+    if (dripAlertManager) {
+      await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.notice, 'Daily summary recipient missing', {
+        hint: 'Set SUMMARY_REPORT_RECIPIENT to enable reports.',
+      });
+    }
     return;
   }
 
   const recipient = await resolveAlertUser(SUMMARY_REPORT_RECIPIENT);
   if (!recipient) {
     log('warn', 'Unable to resolve summary recipient', { recipient: SUMMARY_REPORT_RECIPIENT });
+    if (dripAlertManager) {
+      await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.warning, 'Daily summary recipient could not be resolved', {
+        recipient: SUMMARY_REPORT_RECIPIENT,
+      });
+    }
     return;
   }
 
@@ -193,10 +572,15 @@ async function sendDailySummaryReport() {
     activityTracker.drainActivities();
     activityTracker.markSummarySent(generatedAt);
   } catch (error) {
-    log('error', 'Daily summary delivery failed', {
+    log('error', 'Daily summary delivery failed', mergeLogError({
       recipient: SUMMARY_REPORT_RECIPIENT,
-      error: error.message,
-    });
+    }, error));
+    if (dripAlertManager) {
+      await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.warning, 'Daily summary delivery failed', {
+        recipient: SUMMARY_REPORT_RECIPIENT,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }
 
@@ -205,7 +589,8 @@ function scheduleDailySummaryReports() {
     clearTimeout(summaryTimer);
   }
   const delay = msUntilNextReport(SUMMARY_REPORT_HOUR, SUMMARY_REPORT_MINUTE);
-  const nextRun = new Date(Date.now() + delay);
+  const safeDelay = Number.isFinite(delay) ? Math.max(0, delay) : 0;
+  const nextRun = new Date(Date.now() + safeDelay);
   log('info', 'Daily summary scheduled', {
     recipient: SUMMARY_REPORT_RECIPIENT || 'unset',
     nextRunIso: nextRun.toISOString(),
@@ -214,7 +599,7 @@ function scheduleDailySummaryReports() {
   summaryTimer = setTimeout(async () => {
     await sendDailySummaryReport();
     scheduleDailySummaryReports();
-  }, delay);
+  }, safeDelay);
 }
 
 async function notifyServiceRestart() {
@@ -225,16 +610,26 @@ async function notifyServiceRestart() {
     const user = await resolveAlertUser(RESTART_DM_RECIPIENT);
     if (!user) {
       log('warn', 'Restart DM recipient not found', { recipient: RESTART_DM_RECIPIENT });
+      if (dripAlertManager) {
+        await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.notice, 'Restart notification recipient missing', {
+          recipient: RESTART_DM_RECIPIENT,
+        });
+      }
       return;
     }
     const message = `🛡️ Security monitor restarted at ${new Date().toLocaleString()}.\nContinuous monitoring is active across ${client.guilds.cache.size} guild(s).`;
     await user.send(message);
     log('info', 'Restart notification delivered', { target: describeUser(user) });
   } catch (error) {
-    log('error', 'Restart notification failed', {
+    log('error', 'Restart notification failed', mergeLogError({
       recipient: RESTART_DM_RECIPIENT,
-      error: error.message,
-    });
+    }, error));
+    if (dripAlertManager) {
+      await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.warning, 'Restart notification delivery failed', {
+        recipient: RESTART_DM_RECIPIENT,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }
 
@@ -243,6 +638,7 @@ function updateMonitoringPhase() {
   const label = `Monitoring ${count} guild${count === 1 ? '' : 's'}`;
   cliStatus.setPhase(label);
   cliStatus.setGuildCount(count);
+  updateSecurityCliSection({ status: label });
 }
 
 const STANDARD_PERMISSIONS = {
@@ -374,10 +770,9 @@ async function reportGuildRoles(guild) {
       }, 'detail');
     });
   } catch (error) {
-    report('Role Enumeration Error', {
+    report('Role Enumeration Error', mergeReportError({
       guild: guildSummary,
-      error: error.message
-    }, 'error');
+    }, error), 'error');
   }
 }
 
@@ -389,10 +784,9 @@ async function validateGuildRoles(guild) {
   try {
     roles = await guild.roles.fetch();
   } catch (error) {
-    log('error', 'Unable to fetch guild roles for validation', {
+    log('error', 'Unable to fetch guild roles for validation', mergeLogError({
       guild: guildSummary,
-      error: error.message
-    });
+    }, error));
     return;
   }
 
@@ -408,10 +802,12 @@ async function validateGuildRoles(guild) {
     }
 
     if (analysis.policy === 'all') {
-      log('detail', 'Role configured for full permissions coverage', {
+      report('Role Permissions Match', {
         guild: guildSummary,
-        role: describeRole(role)
-      });
+        role: describeRole(role),
+        policy: 'all',
+        note: 'Role configured for full permissions coverage'
+      }, 'success');
       continue;
     }
 
@@ -437,10 +833,9 @@ async function fixGuildRoles(guild) {
   try {
     roles = await guild.roles.fetch();
   } catch (error) {
-    log('error', 'Unable to fetch guild roles for remediation', {
+    log('error', 'Unable to fetch guild roles for remediation', mergeLogError({
       guild: guildSummary,
-      error: error.message
-    });
+    }, error));
     return;
   }
 
@@ -456,7 +851,7 @@ async function fixGuildRoles(guild) {
     }
 
     if (analysis.policy === 'all') {
-      log('detail', 'Role is set to full bot permissions', {
+      log('success', 'Role is set to full bot permissions', {
         guild: guildSummary,
         role: describeRole(role)
       });
@@ -493,11 +888,10 @@ async function fixGuildRoles(guild) {
         extra: analysis.extra
       });
     } catch (error) {
-      report('Role Permissions Update Error', {
+      report('Role Permissions Update Error', mergeReportError({
         guild: guildSummary,
         role: describeRole(role),
-        error: error.message
-      }, 'error');
+      }, error), 'error');
     }
   }
 }
@@ -543,11 +937,10 @@ async function enforceRolePermissions(role) {
       extra: analysis.extra
     });
   } catch (error) {
-    report('Role Permission Heal Error', {
+    report('Role Permission Heal Error', mergeReportError({
       guild: guildSummary,
       role: describeRole(role),
-      error: error.message
-    }, 'error');
+    }, error), 'error');
   }
 }
 async function ensureTrainerFor(member, origin = 'unspecified') {
@@ -614,20 +1007,24 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
     const hint = (error && (String(error.message).includes('Missing Permissions') || error.code === 50013))
       ? 'Check role hierarchy: bot role must be above target role and have Manage Roles.'
       : undefined;
-    report('Assignment Failure', {
+    report('Assignment Failure', mergeReportError({
       origin,
       guild: guildSummary,
       member: memberSummary,
       role: describeRole(role),
-      error: error.message,
-      hint
-    }, 'error');
+      hint,
+    }, error), 'error');
   }
 }
 
 async function sweepGuild(guild, origin) {
   const guildSummary = describeGuild(guild);
   cliStatus.setPhase(`Sweeping ${guild.name} (${origin})`);
+  const sweepStartedAt = beginSecuritySweep(guild, origin);
+  let success = 0;
+  let failed = 0;
+  let candidates = 0;
+  let sweepOutcome = 'completed';
   report('Sweep Start', { origin, guild: guildSummary });
 
   try {
@@ -638,20 +1035,22 @@ async function sweepGuild(guild, origin) {
         cachedMembers: guild.members.cache.size
       });
     } catch (error) {
-      report('Members Fetch Error', {
+      report('Members Fetch Error', mergeReportError({
         origin,
         guild: guildSummary,
-        error: error.message
-      }, 'error');
+      }, error), 'error');
+      sweepOutcome = 'members fetch failed';
       return;
     }
 
     const toAssign = guild.members.cache.filter(member => hasNoAssignableRoles(member));
+    candidates = toAssign.size;
     if (toAssign.size === 0) {
       report('Sweep No-Op', {
         origin,
         guild: guildSummary
       });
+      sweepOutcome = 'no candidates';
       return;
     }
 
@@ -663,6 +1062,7 @@ async function sweepGuild(guild, origin) {
         roleName: ROLE_NAME,
         roleId: ROLE_ID || 'resolved at runtime'
       }, 'warn');
+      sweepOutcome = 'role missing';
       return;
     }
 
@@ -679,8 +1079,6 @@ async function sweepGuild(guild, origin) {
     });
 
     const members = Array.from(toAssign.values());
-    let success = 0;
-    let failed = 0;
 
     for (let i = 0; i < members.length; i += BACKFILL_CONCURRENCY) {
       const batch = members.slice(i, i + BACKFILL_CONCURRENCY);
@@ -714,13 +1112,12 @@ async function sweepGuild(guild, origin) {
           cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
         } catch (error) {
           failed += 1;
-          report('Assignment Failure', {
+          report('Assignment Failure', mergeReportError({
             origin,
             guild: guildSummary,
             member: describeMember(member),
             role: describeRole(role),
-            error: error.message
-          }, 'error');
+          }, error), 'error');
         }
       }));
 
@@ -737,12 +1134,19 @@ async function sweepGuild(guild, origin) {
       candidatesProcessed: members.length
     });
   } catch (error) {
-    report('Sweep Error', {
+    report('Sweep Error', mergeReportError({
       origin,
       guild: guildSummary,
-      error: error.message
-    }, 'error');
+    }, error), 'error');
+    sweepOutcome = 'error';
   } finally {
+    completeSecuritySweep({
+      startedAt: sweepStartedAt,
+      assigned: success,
+      failed,
+      candidates,
+      reason: sweepOutcome,
+    });
     updateMonitoringPhase();
   }
 }
@@ -759,20 +1163,18 @@ async function runCliDebugDump() {
     try {
       await guild.roles.fetch();
     } catch (error) {
-      report('CLI Debug Roles Fetch Error', {
+      report('CLI Debug Roles Fetch Error', mergeReportError({
         guild: guildSummary,
-        error: error.message
-      }, 'error');
+      }, error), 'error');
       continue;
     }
 
     try {
       await guild.members.fetch();
     } catch (error) {
-      report('CLI Debug Members Fetch Error', {
+      report('CLI Debug Members Fetch Error', mergeReportError({
         guild: guildSummary,
-        error: error.message
-      }, 'error');
+      }, error), 'error');
       continue;
     }
 
@@ -846,23 +1248,38 @@ client.once(Events.ClientReady, async () => {
     return;
   }
 
-  log('success', `Connected as ${client.user.tag}`, { userId: client.user.id });
+  log('success', 'Your service is live💦', {
+    connectedAs: client.user.tag,
+    userId: client.user.id,
+  });
+  if (commands && commands.size) {
+    log('info', 'Slash commands loaded', { count: commands.size });
+  }
+  updateSecurityCliSection({ status: `Ready as ${client.user.tag}` });
   updateMonitoringPhase();
   await notifyServiceRestart();
   scheduleDailySummaryReports();
+  if (dripAlertManager) {
+    dripAlertManager.start();
+  }
+  if (isClientReady()) {
+    void deliverOpsErrors();
+  }
 
   report('Runtime Configuration', {
     roleName: ROLE_NAME,
     roleId: ROLE_ID || 'resolved at runtime',
     roleDiscovery: ROLE_ID ? 'ROLE_ID exact match' : 'ROLE_NAME case-insensitive search',
     startupBackfill: 'enabled',
-    periodicSweep: `every ${describeInterval(BACKFILL_INTERVAL_SECONDS)}`,
-    periodicSweepSeconds: BACKFILL_INTERVAL_SECONDS,
+    periodicSweep: `every ${BACKFILL_INTERVAL_SECONDS}s`,
     concurrency: BACKFILL_CONCURRENCY,
     delayMsBetweenBatches: BACKFILL_DELAY_MS,
     guildsObserved: client.guilds.cache.size,
     roleAudit: ROLE_PERMISSIONS_AUDIT ? 'enforced-on' : 'disabled',
-    roleRemediation: ROLE_PERMISSIONS_REMEDIATE ? 'enforced-on' : 'disabled',
+    roleRemediation: ROLE_PERMISSIONS_REMEDIATE
+      ? `enforced-on (${ROLE_REMEDIATION_INTERVAL_SECONDS}s cadence)`
+      : 'disabled',
+    opsReport: OPS_REPORT_INTERVAL_SECONDS > 0 ? `${OPS_REPORT_INTERVAL_SECONDS}s cadence` : 'disabled',
     rolePermissionPolicy: ROLE_PERMISSION_POLICY,
     snapshotAutoSeed: ROLE_PERMISSION_SNAPSHOT_UPDATE ? 'enabled' : 'disabled',
     enforceAllRoles: STANDARD_ENFORCE_ALL ? 'enabled' : 'disabled',
@@ -877,6 +1294,7 @@ client.once(Events.ClientReady, async () => {
     updateMonitoringPhase();
   } else {
     cliStatus.setPhase('Startup sweep');
+    updateSecurityCliSection({ status: 'Startup sweep' });
     for (const [, guild] of client.guilds.cache) {
       if (ROLE_PERMISSIONS_AUDIT) {
         await reportGuildRoles(guild);
@@ -891,14 +1309,12 @@ client.once(Events.ClientReady, async () => {
   }
 
   const intervalMs = BACKFILL_INTERVAL_SECONDS * 1000;
-  report('Periodic Sweep Enabled', {
-    intervalSeconds: BACKFILL_INTERVAL_SECONDS,
-    intervalMinutes: Number(BACKFILL_INTERVAL_MIN.toFixed(4))
-  });
+  report('Periodic Sweep Enabled', { intervalSeconds: BACKFILL_INTERVAL_SECONDS });
   setInterval(async () => {
     const cycleStarted = new Date().toISOString();
     report('Periodic Sweep Start', { cycleStarted });
     cliStatus.setPhase('Periodic sweep cycle');
+    updateSecurityCliSection({ status: 'Periodic sweep cycle' });
     for (const [, guild] of client.guilds.cache) {
       await sweepGuild(guild, 'periodic');
     }
@@ -910,21 +1326,50 @@ client.once(Events.ClientReady, async () => {
   }, intervalMs);
 
   // Optional recurring operational report
-  if (OPS_REPORT_INTERVAL_MIN > 0) {
-    const opsMs = OPS_REPORT_INTERVAL_MIN * 60 * 1000;
-  report('Operational Report Scheduled', { everyMinutes: OPS_REPORT_INTERVAL_MIN });
+  if (OPS_REPORT_INTERVAL_SECONDS > 0) {
+    const opsMs = OPS_REPORT_INTERVAL_SECONDS * 1000;
+    report('Operational Report Scheduled', { everySeconds: OPS_REPORT_INTERVAL_SECONDS });
     setInterval(() => reportOperationalStats('periodic'), opsMs);
   }
 
   // Optional recurring role permission remediation
-  if (ROLE_REMEDIATION_INTERVAL_MIN > 0) {
-    const remMs = ROLE_REMEDIATION_INTERVAL_MIN * 60 * 1000;
-    report('Periodic Role Remediation Enabled', { everyMinutes: ROLE_REMEDIATION_INTERVAL_MIN });
+  if (ROLE_REMEDIATION_INTERVAL_SECONDS > 0) {
+    const remMs = ROLE_REMEDIATION_INTERVAL_SECONDS * 1000;
+    report('Periodic Role Remediation Enabled', { everySeconds: ROLE_REMEDIATION_INTERVAL_SECONDS });
     setInterval(async () => {
       for (const [, guild] of client.guilds.cache) {
         await fixGuildRoles(guild);
       }
     }, remMs);
+  }
+});
+
+// Slash commands and autocomplete
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    if (!commands || commands.size === 0) return;
+    if (interaction.isAutocomplete()) {
+      const cmd = commands.get(interaction.commandName);
+      if (cmd?.autocomplete) return cmd.autocomplete(interaction);
+      return;
+    }
+    if (!interaction.isChatInputCommand()) return;
+    const cmd = commands.get(interaction.commandName);
+    if (!cmd) return interaction.reply({ content: 'Unknown command.', ephemeral: true });
+    // Per-user per-command cooldown (default 2000ms unless overridden)
+    const cdMs = typeof cmd.cooldownMs === 'number' ? cmd.cooldownMs : 2000;
+    const gate = checkAndSet(interaction.user.id, interaction.commandName, cdMs);
+    if (!gate.ok) {
+      const secs = Math.ceil(gate.waitMs / 1000);
+      return interaction.reply({ content: `Slow down — ${secs}s cooldown`, ephemeral: true });
+    }
+    await cmd.execute(interaction);
+  } catch (err) {
+    console.error('[commands] handler error:', err);
+    if (interaction.deferred || interaction.replied) {
+      return interaction.editReply({ content: 'Something went wrong.' });
+    }
+    return interaction.reply({ content: 'Something went wrong.', ephemeral: true });
   }
 });
 client.on(Events.GuildCreate, () => {
@@ -951,11 +1396,10 @@ client.on('guildMemberUpdate', async (_oldMember, newMember) => {
       await ensureTrainerFor(newMember, 'member-update');
     }
   } catch (err) {
-    report('Member Update Heal Error', {
+    report('Member Update Heal Error', mergeReportError({
       guild: describeGuild(newMember.guild),
       member: describeMember(newMember),
-      error: err.message
-    }, 'error');
+    }, err), 'error');
   }
 });
 
@@ -964,11 +1408,10 @@ client.on('roleUpdate', async (_oldRole, newRole) => {
   try {
     await enforceRolePermissions(newRole);
   } catch (err) {
-    report('Role Update Heal Error', {
+    report('Role Update Heal Error', mergeReportError({
       guild: describeGuild(newRole.guild),
       role: describeRole(newRole),
-      error: err.message
-    }, 'error');
+    }, err), 'error');
   }
 });
 
@@ -988,7 +1431,14 @@ async function resolveAlertUser(spec) {
   // Try direct ID first (including mention format)
   const idFromSpec = extractUserIdLike(spec);
   if (idFromSpec) {
-    try { return await client.users.fetch(idFromSpec); } catch {}
+    try {
+      return await client.users.fetch(idFromSpec);
+    } catch (error) {
+      log('warn', 'Alert user fetch failed by ID', mergeLogError({
+        spec,
+        attemptedId: idFromSpec,
+      }, error));
+    }
   }
 
   const needle = String(spec).trim().toLowerCase();
@@ -1009,10 +1459,26 @@ async function resolveAlertUser(spec) {
           return u;
         }
       }
-    } catch {}
+    } catch (error) {
+      log('warn', 'Alert user resolution failed during guild scan', mergeLogError({
+        spec,
+        guild: describeGuild(guild),
+      }, error));
+    }
   }
   return null;
 }
+
+dripAlertManager = createDripAlertManager({
+  recipient: DRIP_ALERT_RECIPIENT,
+  resolveAlertUser,
+  describeUser,
+  log,
+  recordActivity: (type, summary, meta) => activityTracker.recordActivity(type, summary, meta),
+  timeZone: DRIP_ALERT_TIMEZONE,
+  digestHour: DRIP_ALERT_HOUR,
+  digestMinute: DRIP_ALERT_MINUTE,
+});
 
 async function sendSecurityAlert(title, meta = {}) {
   try {
@@ -1058,7 +1524,10 @@ async function sendSecurityAlert(title, meta = {}) {
           req.end();
         });
       } catch (e) {
-        console.error('[ALERT WEBHOOK ERROR]', e.message);
+        log('error', 'Security alert webhook delivery failed', mergeLogError({
+          destination: 'webhook',
+          url: ALERT_WEBHOOK_URL,
+        }, e));
       }
     }
 
@@ -1070,7 +1539,10 @@ async function sendSecurityAlert(title, meta = {}) {
           await ch.send(`${text}\n${'```'}json\n${JSON.stringify(body, null, 2)}\n${'```'}`);
         }
       } catch (e) {
-        console.error('[ALERT CHANNEL ERROR]', e.message);
+        log('error', 'Security alert channel delivery failed', mergeLogError({
+          destination: 'channel',
+          channelId: ALERT_CHANNEL_ID,
+        }, e));
       }
     }
 
@@ -1082,30 +1554,73 @@ async function sendSecurityAlert(title, meta = {}) {
           await user.send(`${text}\n${'```'}json\n${JSON.stringify(body, null, 2)}\n${'```'}`);
         }
       } catch (e) {
-        console.error('[ALERT DM ERROR]', e.message);
+        log('error', 'Security alert DM delivery failed', mergeLogError({
+          destination: 'dm',
+          recipient: ALERT_USER_ID,
+        }, e));
       }
     }
-  } catch {}
+
+    if (dripAlertManager) {
+      await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.security, title, body);
+    }
+  } catch (error) {
+    log('error', 'Security alert dispatch failed', mergeLogError({
+      title,
+      meta,
+    }, error));
+  }
 }
 
 // Normalize and validate token early for clearer errors (especially on Render)
-const envPath = path.resolve(process.cwd(), '.env');
-const rawToken = BOT_TOKEN;
-// Some guides mistakenly include the "Bot " prefix; discord.js expects the raw token only.
-const token = rawToken.startsWith('Bot ') ? rawToken.slice(4).trim() : rawToken;
-
-if (!token) {
-  const hasDotEnv = fs.existsSync(envPath);
-  report('Configuration Error', {
-    message: 'BOT_TOKEN is missing. Set it in your environment or .env (without quotes or the "Bot " prefix).',
-    workingDirectory: process.cwd(),
-    envFilePresent: hasDotEnv ? 'yes' : 'no',
-    envFilePath: envPath,
-    quickTest: '$env:BOT_TOKEN = "your_token_here"'
-  }, 'error');
-  process.exit(1);
+function normalizeToken(rawToken) {
+  if (!rawToken) return '';
+  const value = String(rawToken).trim();
+  if (!value) return '';
+  return value.startsWith('Bot ') ? value.slice(4).trim() : value;
 }
 
-report('Login Start', {});
-cliStatus.setPhase('Connecting to Discord');
-client.login(token);
+function startSecurityBot({ token: tokenOverride } = {}) {
+  const envPath = path.resolve(process.cwd(), '.env');
+  const rawToken = tokenOverride !== undefined ? tokenOverride : BOT_TOKEN;
+  const token = normalizeToken(rawToken);
+
+  if (!token) {
+    const hasDotEnv = fs.existsSync(envPath);
+    const error = new Error('Security bot token missing. Set SECURITY_BOT_TOKEN or BOT_TOKEN.');
+    report('Configuration Error', {
+      message: 'BOT_TOKEN is missing. Set it in your environment or .env (without quotes or the "Bot " prefix).',
+      workingDirectory: process.cwd(),
+      envFilePresent: hasDotEnv ? 'yes' : 'no',
+      envFilePath: envPath,
+      quickTest: '$env:BOT_TOKEN = "your_token_here"'
+    }, 'error');
+    error.code = 'MISSING_SECURITY_TOKEN';
+    throw error;
+  }
+
+  if (loginPromise) {
+    return loginPromise;
+  }
+
+  report('Login Start', {});
+  cliStatus.setPhase('Connecting to Discord');
+  updateSecurityCliSection({ status: 'Connecting to Discord' });
+  loginPromise = client.login(token);
+  loginPromise.catch(() => {
+    loginPromise = null;
+  });
+  return loginPromise;
+}
+
+if (require.main === module) {
+  startSecurityBot().catch((error) => {
+    log('error', 'Security bot startup failed', mergeLogError({}, error));
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  startSecurityBot,
+  client,
+};

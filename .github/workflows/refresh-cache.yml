@@ -1,0 +1,27 @@
+name: Refresh Pokémon Cache
+
+on:
+  schedule:
+    - cron: '0 0 * * 4'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ vars.GITHUB_BRANCH || 'main' }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci || true
+      - run: node ./scripts/refresh_cache.mjs
+        env:
+          GITHUB_REPO: ${{ github.server_url }}/${{ github.repository }}.git
+          GITHUB_BRANCH: ${{ github.ref_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RAW_URL: ${{ github.server_url }}/${{ github.repository }}/raw/${{ github.ref_name }}/data/cache

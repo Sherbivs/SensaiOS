@@ -1,24 +1,107 @@
 services:
   - type: worker
-    name: security-bot
+    name: infinity-gauntlet
     env: node
     buildCommand: npm install
     startCommand: npm start
     autoDeploy: true
-    plan: free
+    plan: starter
     envVars:
-      - key: BOT_TOKEN
+      - key: SECURITY_BOT_TOKEN
         sync: false
-
+      - key: POKEMON_BOT_TOKEN
+        sync: false
+      - key: ENABLE_POKEMON_BOT
+        value: "true"
+      - key: NODE_ENV
+        value: production
+      - key: DISABLE_SNAPSHOT_PRECHECK
+        value: "true"
+services:
+  # Discord bot worker
   - type: worker
-    name: pokemon-bot
-    env: node
-    buildCommand: cd discord-pokemon-bot && npm install
-    startCommand: cd discord-pokemon-bot && npm start
+    name: infinity-gauntlet-bots
+    runtime: node
+    plan: starter
+    region: oregon
+    repo: https://github.com/sherbivs/infinity-gauntlet
+    branch: main
+    buildCommand: "npm ci"
+    startCommand: "npm start"
     autoDeploy: true
-    plan: free
     envVars:
-      - key: BOT_TOKEN
+      - key: SECURITY_BOT_TOKEN
         sync: false
+      - key: POKEMON_BOT_TOKEN
+        sync: false
+      - key: ENABLE_POKEMON_BOT
+        value: "true"
       - key: BATTLE_CHANNEL_NAME
         value: pokemon-battles
+      - key: DISABLE_SNAPSHOT_PRECHECK
+        value: "true"
+
+  # Canonical Pokédex cache worker (persistent disk + scheduler)
+  - type: worker
+    name: pokedex-cache-worker
+    runtime: node
+    plan: starter
+    region: oregon
+    repo: https://github.com/sherbivs/infinity-gauntlet
+    branch: main
+    buildCommand: "npm ci"
+    startCommand: "node scripts/worker.mjs"
+    autoDeploy: true
+    disks:
+      - name: pokedata
+        mountPath: /store
+        sizeGB: 1
+    envVars:
+      - key: GITHUB_REPO
+        value: https://github.com/sherbivs/infinity-gauntlet.git
+      - key: GITHUB_BRANCH
+        value: data-cache
+      - key: GITHUB_BASE_BRANCH
+        value: main
+      - key: GITHUB_RAW_URL
+        value: https://raw.githubusercontent.com/sherbivs/infinity-gauntlet/data-cache/data/cache
+      - key: CACHE_DIR
+        value: /store/cache
+      - key: POKE_CONCURRENCY
+        value: "10"
+      - key: POKE_TIMEOUT_MS
+        value: "15000"
+      - key: POKE_REFRESH_CRON
+        value: "0 0 * * 4"
+      - key: POKE_REFRESH_TZ
+        value: America/New_York
+      - key: POKE_RUN_JOB_ON_BOOT
+        value: "true"
+      - key: POKE_REFRESH_JOB_COMMAND
+        value: node scripts/refresh_cache.mjs
+      - key: RENDER_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+
+  # Optional failsafe cron job: refresh GitHub fallback only
+  - type: cron
+    name: pokedex-cache-failsafe
+    runtime: node
+    plan: starter
+    repo: https://github.com/sherbivs/infinity-gauntlet
+    branch: main
+    buildCommand: "npm ci"
+    startCommand: "node scripts/refresh_cache_gh_only.mjs"
+    schedule: "0 0 * * 4"
+    envVars:
+      - key: GITHUB_REPO
+        value: https://github.com/sherbivs/infinity-gauntlet.git
+      - key: GITHUB_BRANCH
+        value: data-cache
+      - key: GITHUB_BASE_BRANCH
+        value: main
+      - key: CACHE_DIR
+        value: /tmp/cache
+      - key: GITHUB_TOKEN
+        sync: false

@@ -4,15 +4,31 @@
   "description": "Discord bot that auto-assigns the Trainers role to new members.",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js"
+    "prestart": "node scripts/ensure-data.js",
+    "start": "node src/index.js",
+    "register:commands": "node scripts/register-commands.js",
+    "build:assets": "node scripts/build-assets-manifest.js",
+    "fetch:snapshot": "node scripts/pull-snapshot.mjs",
+    "cache": "node src/cache/index.js",
+    "cache:fetch": "node ./scripts/fetch_pokemon.mjs",
+    "cache:refresh": "node ./scripts/refresh_cache.mjs",
+    "cache:replicate": "node ./scripts/replicate_to_repo_api.mjs",
+    "build:data": "node scripts/build-data.js",
+    "test:battle": "node scripts/test-battle-core.js",
+    "test:effects": "node scripts/test-effects.js",
+    "test:effects:advanced": "node scripts/test-effects-advanced.js",
+    "worker:index": "node sync-layer/worker/indexer.js",
+    "worker:serve": "node sync-layer/worker/api-server.js"
   },
   "dependencies": {
+    "axios": "^1.7.7",
     "discord.js": "^14.15.2",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "fs-extra": "^11.1.1",
+    "node-cron": "^3.0.3",
+    "octokit": "^4.0.2"
   },
   "engines": {
     "node": ">=18"
   }
-
 }
-

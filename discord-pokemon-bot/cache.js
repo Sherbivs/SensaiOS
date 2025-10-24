@@ -27,6 +27,8 @@ const CACHE_DIR = ensureDir(PRIMARY_CACHE_DIR) ? PRIMARY_CACHE_DIR : (ensureDir(
 const USERS_DIR = path.join(CACHE_DIR, 'users');
 ensureDir(USERS_DIR);
 
+const LAST_RUN_META_KEY = 'pokemonList:lastRunMeta';
+
 function getDiskStats(dir) {
   try {
     const stats = fs.statfsSync(dir);
@@ -68,6 +70,17 @@ function writeCache(key, data) {
   }
 }
 
+function formatIsoForLog(isoString) {
+  if (!isoString) {
+    return null;
+  }
+  try {
+    return new Date(isoString).toLocaleString();
+  } catch {
+    return isoString;
+  }
+}
+
 function cachePokemonList(data) {
   if (!Array.isArray(data)) {
     return;
@@ -92,11 +105,36 @@ function cachePokemonList(data) {
     return;
   }
 
-  writeCache('pokemonList', {
-    cachedAt: new Date().toISOString(),
+  const previousRun = readCache('pokemonList');
+  const previousCachedAt = previousRun?.cachedAt || null;
+  const previousTotal = typeof previousRun?.total === 'number'
+    ? previousRun.total
+    : (Array.isArray(previousRun?.names) ? previousRun.names.length : null);
+
+  const cachedAtIso = new Date().toISOString();
+  const payload = {
+    cachedAt: cachedAtIso,
     total: names.length,
     names,
+  };
+
+  writeCache('pokemonList', payload);
+
+  writeCache(LAST_RUN_META_KEY, {
+    lastRunAt: cachedAtIso,
+    total: names.length,
+    previousRunAt: previousCachedAt,
+    previousTotal,
   });
+
+  const formattedCurrent = formatIsoForLog(cachedAtIso);
+  const formattedPrevious = formatIsoForLog(previousCachedAt);
+  const previousDescription = formattedPrevious
+    ? `${formattedPrevious}${previousTotal != null ? ` with ${previousTotal} entries` : ''}`
+    : 'never';
+  console.log(
+    `[Pokémon Cache] 💦 Cached ${names.length} Pokémon entries at ${formattedCurrent || cachedAtIso}. Last run: ${previousDescription}.`
+  );
 }
 
 function approxFreeBytes() {
@@ -189,4 +227,6 @@ module.exports = {
   cleanOldCache,
   cachePokemonList,
   getCacheBudget,
+  getCacheSize,
+  LAST_RUN_META_KEY,
 };

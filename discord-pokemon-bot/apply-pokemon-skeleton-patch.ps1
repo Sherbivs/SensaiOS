@@ -6,7 +6,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Ensure-Dir([string]$Path) {
+function Initialize-Directory([string]$Path) {
   if (-not (Test-Path -LiteralPath $Path)) {
     New-Item -ItemType Directory -Path $Path -Force | Out-Null
   }
@@ -24,9 +24,9 @@ $botDir = Join-Path $root 'discord-pokemon-bot'
 $utilsDir = Join-Path $botDir 'utils'
 $battlesDir = Join-Path $botDir 'battles'
 
-Ensure-Dir $botDir
-Ensure-Dir $utilsDir
-Ensure-Dir $battlesDir
+Initialize-Directory $botDir
+Initialize-Directory $utilsDir
+Initialize-Directory $battlesDir
 
 # 1) Root forwarder
 $rootIndex = Join-Path $root 'index.js'

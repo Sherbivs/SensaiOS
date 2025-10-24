@@ -38,7 +38,14 @@ const ROLE_PERMISSION_SNAPSHOT_UPDATE = process.env.ROLE_PERMISSION_SNAPSHOT_UPD
 const ALERT_WEBHOOK_URL = (process.env.ALERT_WEBHOOK_URL || '').trim();
 const ALERT_CHANNEL_ID = (process.env.ALERT_CHANNEL_ID || '').trim();
 const ALERT_USER_ID = (process.env.ALERT_USER_ID || '').trim();
-const BOT_TOKEN = (process.env.BOT_TOKEN || '').trim();
+const SECURITY_BOT_TOKEN = (process.env.SECURITY_BOT_TOKEN || process.env.BOT_TOKEN || '').trim();
+const POKEMON_BOT_TOKEN = (process.env.POKEMON_BOT_TOKEN || process.env.POKEMON_TOKEN || '').trim();
+const rawEnablePokemonBot = process.env.ENABLE_POKEMON_BOT;
+const ENABLE_POKEMON_BOT = rawEnablePokemonBot === undefined
+  ? Boolean(POKEMON_BOT_TOKEN)
+  : toBool(rawEnablePokemonBot);
+const POKEMON_BOT_AUTO_DISABLED = rawEnablePokemonBot === undefined && !ENABLE_POKEMON_BOT;
+const BOT_TOKEN = SECURITY_BOT_TOKEN;
 
 // Role assignment defaults
 const DEFAULT_ROLE_NAME = 'Trainer';
@@ -46,34 +53,49 @@ const ROLE_NAME = (process.env.ROLE_NAME || DEFAULT_ROLE_NAME).trim();
 const ROLE_ID = (process.env.ROLE_ID || '').trim();
 
 // Backfill/automation tuning
-const BACKFILL_CONCURRENCY = Math.max(1, toNumber(process.env.BACKFILL_CONCURRENCY, 8));
-const BACKFILL_DELAY_MS = Math.max(0, toNumber(process.env.BACKFILL_DELAY_MS, 20));
+const resolveIntervalSeconds = (secondsEnv, minutesEnv, { fallbackSeconds, minSeconds, allowZero = false }) => {
+  const normalize = (value, minValue) => {
+    if (allowZero && Number(value) === 0) {
+      return 0;
+    }
+    return Math.max(minValue, Number(value));
+  };
 
-const MIN_BACKFILL_INTERVAL_SECONDS = 5;
-const DEFAULT_BACKFILL_INTERVAL_SECONDS = 30;
-
-const resolveBackfillIntervalSeconds = () => {
-  if (process.env.BACKFILL_INTERVAL_SECONDS !== undefined) {
-    const seconds = toNumber(process.env.BACKFILL_INTERVAL_SECONDS, DEFAULT_BACKFILL_INTERVAL_SECONDS);
-    return Math.max(MIN_BACKFILL_INTERVAL_SECONDS, Math.round(seconds * 1000) / 1000);
+  if (secondsEnv !== undefined) {
+    const seconds = toNumber(secondsEnv, fallbackSeconds);
+    return normalize(seconds, minSeconds);
   }
-
-  if (process.env.BACKFILL_INTERVAL_MIN !== undefined) {
-    const minutes = Math.max(
-      MIN_BACKFILL_INTERVAL_SECONDS / 60,
-      toNumber(process.env.BACKFILL_INTERVAL_MIN, DEFAULT_BACKFILL_INTERVAL_SECONDS / 60)
-    );
-    return Math.max(MIN_BACKFILL_INTERVAL_SECONDS, Math.round(minutes * 60 * 1000) / 1000);
+  if (minutesEnv !== undefined) {
+    const fallbackMinutes = fallbackSeconds / 60;
+    const minMinutes = minSeconds / 60;
+    const minutes = toNumber(minutesEnv, fallbackMinutes);
+    return normalize(minutes, minMinutes) * 60;
   }
-
-  return DEFAULT_BACKFILL_INTERVAL_SECONDS;
+  return fallbackSeconds;
 };
 
-const BACKFILL_INTERVAL_SECONDS = resolveBackfillIntervalSeconds();
-const BACKFILL_INTERVAL_MIN = BACKFILL_INTERVAL_SECONDS / 60;
-const ROLE_REMEDIATION_INTERVAL_MIN = Math.max(5, toNumber(process.env.ROLE_REMEDIATION_INTERVAL_MIN, 15));
+const BACKFILL_CONCURRENCY = Math.max(1, toNumber(process.env.BACKFILL_CONCURRENCY, 8));
+const BACKFILL_DELAY_MS = Math.max(0, toNumber(process.env.BACKFILL_DELAY_MS, 20));
+const BACKFILL_INTERVAL_SECONDS = resolveIntervalSeconds(
+  process.env.BACKFILL_INTERVAL_SECONDS,
+  process.env.BACKFILL_INTERVAL_MIN,
+  { fallbackSeconds: 45, minSeconds: 10 }
+);
+const ROLE_REMEDIATION_INTERVAL_SECONDS = resolveIntervalSeconds(
+  process.env.ROLE_REMEDIATION_INTERVAL_SECONDS,
+  process.env.ROLE_REMEDIATION_INTERVAL_MIN,
+  { fallbackSeconds: 50, minSeconds: 15 }
+);
 const CACHE_TTL_HOURS = Math.max(1, toNumber(process.env.CACHE_TTL_HOURS, 24));
-const OPS_REPORT_INTERVAL_MIN = Math.max(0, toNumber(process.env.OPS_REPORT_INTERVAL_MIN, 0));
+const OPS_REPORT_INTERVAL_SECONDS = resolveIntervalSeconds(
+  process.env.OPS_REPORT_INTERVAL_SECONDS,
+  process.env.OPS_REPORT_INTERVAL_MIN,
+  { fallbackSeconds: 55, minSeconds: 20, allowZero: true }
+);
+
+const BACKFILL_INTERVAL_MIN = BACKFILL_INTERVAL_SECONDS / 60;
+const ROLE_REMEDIATION_INTERVAL_MIN = ROLE_REMEDIATION_INTERVAL_SECONDS / 60;
+const OPS_REPORT_INTERVAL_MIN = OPS_REPORT_INTERVAL_SECONDS / 60;
 
 // Standards enforcement
 const STANDARD_ENFORCE_ALL = toBool(process.env.STANDARD_ENFORCE_ALL);
@@ -88,6 +110,10 @@ const RESTART_DM_RECIPIENT = (process.env.RESTART_DM_RECIPIENT || 'DripTVDD').tr
 const SUMMARY_REPORT_RECIPIENT = (process.env.SUMMARY_REPORT_RECIPIENT || RESTART_DM_RECIPIENT).trim();
 const SUMMARY_REPORT_HOUR = clamp(toNumber(process.env.SUMMARY_REPORT_HOUR, 3), 0, 23);
 const SUMMARY_REPORT_MINUTE = clamp(toNumber(process.env.SUMMARY_REPORT_MINUTE, 0), 0, 59);
+const DRIP_ALERT_RECIPIENT = (process.env.DRIP_ALERT_RECIPIENT || 'DripTVDD').trim();
+const DRIP_ALERT_HOUR = clamp(toNumber(process.env.DRIP_ALERT_HOUR, 2), 0, 23);
+const DRIP_ALERT_MINUTE = clamp(toNumber(process.env.DRIP_ALERT_MINUTE, 0), 0, 59);
+const DRIP_ALERT_TIMEZONE = (process.env.DRIP_ALERT_TIMEZONE || 'America/New_York').trim();
 
 module.exports = {
   CLI_DEBUG_MODE,
@@ -99,6 +125,10 @@ module.exports = {
   ALERT_CHANNEL_ID,
   ALERT_USER_ID,
   BOT_TOKEN,
+  SECURITY_BOT_TOKEN,
+  POKEMON_BOT_TOKEN,
+  ENABLE_POKEMON_BOT,
+  POKEMON_BOT_AUTO_DISABLED,
   DEFAULT_ROLE_NAME,
   ROLE_NAME,
   ROLE_ID,
@@ -106,8 +136,10 @@ module.exports = {
   BACKFILL_DELAY_MS,
   BACKFILL_INTERVAL_SECONDS,
   BACKFILL_INTERVAL_MIN,
+  ROLE_REMEDIATION_INTERVAL_SECONDS,
   ROLE_REMEDIATION_INTERVAL_MIN,
   CACHE_TTL_HOURS,
+  OPS_REPORT_INTERVAL_SECONDS,
   OPS_REPORT_INTERVAL_MIN,
   STANDARD_ENFORCE_ALL,
   UNLISTED_PERMISSIONS,
@@ -117,4 +149,8 @@ module.exports = {
   SUMMARY_REPORT_RECIPIENT,
   SUMMARY_REPORT_HOUR,
   SUMMARY_REPORT_MINUTE,
+  DRIP_ALERT_RECIPIENT,
+  DRIP_ALERT_HOUR,
+  DRIP_ALERT_MINUTE,
+  DRIP_ALERT_TIMEZONE,
 };

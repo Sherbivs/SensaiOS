@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Sync Layer Index",
+  "type": "object",
+  "properties": {
+    "pokemon": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "types": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "stats": {
+            "type": "object",
+            "additionalProperties": { "type": "integer" }
+          }
+        },
+        "required": ["id", "name"],
+        "additionalProperties": false
+      }
+    },
+    "players": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "party": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": { "type": "string" },
+                "payload": { "type": "object" },
+                "ts": { "type": "number" }
+              },
+              "required": ["action", "ts"]
+            }
+          }
+        },
+        "required": ["party", "history"]
+      }
+    }
+  },
+  "required": ["pokemon"],
+  "additionalProperties": true
+}

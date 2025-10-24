@@ -1,0 +1,25 @@
+name: Data Health (Nightly)
+on:
+  schedule:
+    - cron: "24 3 * * *"   # 03:24 UTC nightly
+  workflow_dispatch:
+
+jobs:
+  data-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build snapshot
+        run: npm run build:data
+
+      - name: Run invariants
+        run: npm run test:data

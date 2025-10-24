@@ -8,6 +8,19 @@ const MAX_CACHE_PERCENT = 0.25;
 const MAX_CACHE_FILE_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 const MAX_WORKSPACE_BYTES = 1024 * 1024 * 1024; // 1 GB workspace budget reminder
 
+function logCacheIssue(level, tag, err, meta = {}) {
+  const writer = level === 'warn' ? console.warn : console.error;
+  const contextParts = Object.entries(meta)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${key}=${value}`);
+  const message = err instanceof Error ? err.message : String(err);
+  const prefix = contextParts.length ? `${contextParts.join(' ')} ` : '';
+  writer(`[CACHE ${tag}] ${prefix}${message}`);
+  if (err instanceof Error && err.stack) {
+    writer(err.stack);
+  }
+}
+
 function ensureDir(dir) {
   try {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -15,7 +28,8 @@ function ensureDir(dir) {
     fs.writeFileSync(test, String(Date.now()));
     fs.unlinkSync(test);
     return true;
-  } catch {
+  } catch (err) {
+    logCacheIssue('error', 'DIR', err, { dir });
     return false;
   }
 }
@@ -27,7 +41,8 @@ function getDiskStats(dir) {
     const free = Number(stats.bavail) * Number(stats.bsize);
     const total = Number(stats.blocks) * Number(stats.bsize);
     return { free, total };
-  } catch {
+  } catch (err) {
+    logCacheIssue('warn', 'DISK-STATS', err, { dir });
     return { free: 0, total: 0 };
   }
 }
@@ -42,7 +57,7 @@ function readCache(key) {
     if (!fs.existsSync(p)) return null;
     return JSON.parse(fs.readFileSync(p, 'utf8'));
   } catch (err) {
-    console.error('[CACHE READ ERROR]', key, err.message);
+    logCacheIssue('error', 'READ', err, { key });
     return null;
   }
 }
@@ -52,13 +67,14 @@ function writeCache(key, data) {
     fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf8');
     pruneCache();
   } catch (err) {
-    console.error('[CACHE WRITE ERROR]', key, err.message);
+    logCacheIssue('error', 'WRITE', err, { key });
   }
 }
 function getCacheSize() {
   try {
     return fs.readdirSync(CACHE_DIR).reduce((sum, f) => sum + (fs.statSync(path.join(CACHE_DIR, f)).size || 0), 0);
-  } catch {
+  } catch (err) {
+    logCacheIssue('warn', 'SIZE', err, { cacheDir: CACHE_DIR });
     return 0;
   }
 }
@@ -97,7 +113,8 @@ function pruneCache() {
       const st = fs.statSync(fp);
       return { filePath: fp, mtime: st.mtimeMs, size: st.size || 0 };
     }).sort((a, b) => a.mtime - b.mtime);
-  } catch {
+  } catch (err) {
+    logCacheIssue('warn', 'PRUNE-LIST', err, { cacheDir: CACHE_DIR });
     return;
   }
   let total = getCacheSize();
@@ -109,7 +126,7 @@ function pruneCache() {
       total -= e.size;
       console.log(`[CACHE PRUNE] ${path.basename(e.filePath)} removed`);
     } catch (err) {
-      console.error('[CACHE PRUNE ERROR]', err.message);
+      logCacheIssue('warn', 'PRUNE', err, { file: path.basename(e.filePath) });
     }
   }
 }
@@ -118,7 +135,10 @@ function cleanOldCache() {
   let files = [];
   try {
     files = fs.readdirSync(CACHE_DIR).map(f => path.join(CACHE_DIR, f));
-  } catch { return; }
+  } catch (err) {
+    logCacheIssue('warn', 'CLEAN-LIST', err, { cacheDir: CACHE_DIR });
+    return;
+  }
   for (const fp of files) {
     try {
       const st = fs.statSync(fp);
@@ -127,7 +147,7 @@ function cleanOldCache() {
         console.log(`[CACHE CLEANUP] ${path.basename(fp)} removed`);
       }
     } catch (err) {
-      console.error('[CACHE CLEANUP ERROR]', err.message);
+      logCacheIssue('warn', 'CLEAN', err, { file: path.basename(fp) });
     }
   }
 }
