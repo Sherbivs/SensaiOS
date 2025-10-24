@@ -16,7 +16,9 @@
     "build:data": "node scripts/build-data.js",
     "test:battle": "node scripts/test-battle-core.js",
     "test:effects": "node scripts/test-effects.js",
-    "test:effects:advanced": "node scripts/test-effects-advanced.js"
+    "test:effects:advanced": "node scripts/test-effects-advanced.js",
+    "worker:index": "node sync-layer/worker/indexer.js",
+    "worker:serve": "node sync-layer/worker/api-server.js"
   },
   "dependencies": {
     "axios": "^1.7.7",
