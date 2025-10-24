@@ -3,8 +3,40 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execSync } = require('node:child_process');
 
-const has = (rel) => fs.existsSync(path.join(process.cwd(), rel));
+const ROOT = process.cwd();
+const has = (rel) => fs.existsSync(path.join(ROOT, rel));
 const run = (cmd) => execSync(cmd, { stdio: 'inherit', env: process.env });
+
+function copyBootstrap() {
+  const bootstrapDir = path.join(ROOT, 'data', 'bootstrap');
+  const distData = path.join(ROOT, 'dist', 'data');
+  const distMeta = path.join(ROOT, 'dist', 'meta');
+  const files = ['dex.min.json', 'moves.min.json'];
+
+  if (!fs.existsSync(bootstrapDir)) return false;
+  let copied = false;
+
+  fs.mkdirSync(distData, { recursive: true });
+  fs.mkdirSync(distMeta, { recursive: true });
+
+  for (const file of files) {
+    const src = path.join(bootstrapDir, file);
+    const dest = path.join(distData, file);
+    if (!fs.existsSync(src)) return false;
+    fs.copyFileSync(src, dest);
+    copied = true;
+  }
+
+  const versionSrc = path.join(bootstrapDir, 'version.json');
+  if (fs.existsSync(versionSrc)) {
+    fs.copyFileSync(versionSrc, path.join(distMeta, 'version.json'));
+  }
+
+  if (copied) {
+    console.warn('ensure-data: using bundled bootstrap snapshot.');
+  }
+  return copied;
+}
 
 (function main() {
   const needDex = !has('dist/data/dex.min.json');
@@ -27,6 +59,10 @@ const run = (cmd) => execSync(cmd, { stdio: 'inherit', env: process.env });
       } catch (e) {
         console.warn('ensure-data: build-data failed (likely no PokeAPI dataset available).');
       }
+    }
+
+    if (!has('dist/data/dex.min.json') || !has('dist/data/moves.min.json')) {
+      copyBootstrap();
     }
 
     try { run('node scripts/build-assets-manifest.js'); } catch {}

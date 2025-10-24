@@ -5,7 +5,15 @@ const { newPokemonRuntime, newBattleState, newAction } = require('./types');
 const { derivedStats } = require('./stats');
 const { resolveTurn } = require('./turn');
 
-function loadJSON(rel) { return JSON.parse(fs.readFileSync(path.join(process.cwd(), rel), 'utf8')); }
+function loadJSONIfExists(rel) {
+  const abs = path.join(process.cwd(), rel);
+  if (!fs.existsSync(abs)) return null;
+  return JSON.parse(fs.readFileSync(abs, 'utf8'));
+}
+
+function loadPrimaryOrBootstrap(primary, fallback) {
+  return loadJSONIfExists(primary) || loadJSONIfExists(fallback);
+}
 
 function makeRuntimeFromDexEntry(dexMon, level = 50, moves = [], opts = {}) {
   const p = newPokemonRuntime(dexMon, level);
@@ -25,8 +33,11 @@ function makeRuntimeFromDexEntry(dexMon, level = 50, moves = [], opts = {}) {
 }
 
 function loadIndexes() {
-  const dex = loadJSON('dist/data/dex.min.json');
-  const movesIndex = loadJSON('dist/data/moves.min.json');
+  const dex = loadPrimaryOrBootstrap('dist/data/dex.min.json', 'data/bootstrap/dex.min.json');
+  const movesIndex = loadPrimaryOrBootstrap('dist/data/moves.min.json', 'data/bootstrap/moves.min.json');
+  if (!dex || !movesIndex) {
+    throw new Error('Dex data unavailable; run scripts/ensure-data.js or provide bootstrap files.');
+  }
   const byName = new Map(dex.map((p) => [String(p.name).toLowerCase(), p]));
   const byId = new Map(dex.map((p) => [Number(p.id), p]));
   function dexLookup(q) {
