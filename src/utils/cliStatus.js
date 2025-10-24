@@ -4,26 +4,11 @@ const UPDATE_INTERVAL_MS = 1000;
 
 let intervalHandle = null;
 let unsubscribe = null;
-let lastHeartbeatAt = 0;
-let lastNonHeartbeatOutputAt = Date.now();
+let lastOutputWasDot = false;
 
-function markNonHeartbeatOutput() {
-  lastNonHeartbeatOutputAt = Date.now();
-}
-
-function renderHeartbeat() {
-  const now = Date.now();
-
-  if (now - lastNonHeartbeatOutputAt < UPDATE_INTERVAL_MS) {
-    return;
-  }
-
-  if (now - lastHeartbeatAt < UPDATE_INTERVAL_MS) {
-    return;
-  }
-
-  console.log('.');
-  lastHeartbeatAt = now;
+function render() {
+  process.stdout.write('.');
+  lastOutputWasDot = true;
 }
 
 function startStatusDisplay() {
@@ -32,15 +17,11 @@ function startStatusDisplay() {
   }
 
   if (typeof activityTracker.subscribe === 'function') {
-    unsubscribe = activityTracker.subscribe(() => {
-      markNonHeartbeatOutput();
-    });
+    unsubscribe = activityTracker.subscribe(() => {});
   }
 
-  lastNonHeartbeatOutputAt = Date.now();
-  lastHeartbeatAt = 0;
-
-  intervalHandle = setInterval(renderHeartbeat, UPDATE_INTERVAL_MS);
+  render();
+  intervalHandle = setInterval(render, UPDATE_INTERVAL_MS);
 }
 
 function stopStatusDisplay() {
@@ -54,26 +35,28 @@ function stopStatusDisplay() {
     unsubscribe = null;
   }
 
+  if (lastOutputWasDot) {
+    process.stdout.write('\n');
+    lastOutputWasDot = false;
+  }
 }
 
-function setPhase() {
-  markNonHeartbeatOutput();
-}
+function setPhase() {}
 
-function setGuildCount() {
-  markNonHeartbeatOutput();
-}
+function setGuildCount() {}
 
-function setSection() {
-  markNonHeartbeatOutput();
-}
+function setSection() {}
 
 function interruptConsoleOutput(writeFn) {
   if (typeof writeFn !== 'function') {
     return;
   }
 
-  markNonHeartbeatOutput();
+  if (lastOutputWasDot) {
+    process.stdout.write('\n');
+    lastOutputWasDot = false;
+  }
+
   writeFn();
 }
 
