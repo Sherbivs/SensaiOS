@@ -1,6 +1,6 @@
 'use strict';
 const { SlashCommandBuilder } = require('discord.js');
-const { getPokemon, suggestPokemon, meta } = require('../lib/dex-api');
+const { getPokemon, suggestPokemon, meta, disabled } = require('../lib/dex-api');
 const TYPE_COLORS = require('../lib/type-colors');
 const { getSpriteUrl } = require('../lib/assets');
 
@@ -11,6 +11,7 @@ module.exports = {
     .addStringOption((o) => o.setName('name').setDescription('Name or ID').setRequired(true))
     .setDMPermission(false),
   async autocomplete(interaction) {
+    if (disabled) return interaction.respond([]);
     const focused = interaction.options.getFocused();
     const list = suggestPokemon(focused)
       .map((n) => ({ name: n, value: n }))
@@ -18,6 +19,12 @@ module.exports = {
     await interaction.respond(list);
   },
   async execute(interaction) {
+    if (disabled) {
+      return interaction.reply({
+        content: 'Dex data is not available on this deployment. Try again later or ask an admin to run `npm run build:data`.',
+        ephemeral: true,
+      });
+    }
     const q = interaction.options.getString('name');
     const mon = /^\d+$/.test(q) ? getPokemon(Number(q)) : getPokemon(q);
 

@@ -1,6 +1,6 @@
 'use strict';
 const { SlashCommandBuilder } = require('discord.js');
-const { getPokemon, meta } = require('../lib/dex-api');
+const { getPokemon, meta, disabled } = require('../lib/dex-api');
 const TYPE_COLORS = require('../lib/type-colors');
 
 module.exports = {
@@ -10,6 +10,9 @@ module.exports = {
     .addStringOption((o) => o.setName('name').setDescription('Name or ID').setRequired(true))
     .setDMPermission(false),
   async execute(interaction) {
+    if (disabled) {
+      return interaction.reply({ content: 'Dex data is not available on this deployment.', ephemeral: true });
+    }
     const q = interaction.options.getString('name');
     const mon = /^\d+$/.test(q) ? getPokemon(Number(q)) : getPokemon(q);
     if (!mon) return interaction.reply({ content: 'Pokémon not found.', ephemeral: true });

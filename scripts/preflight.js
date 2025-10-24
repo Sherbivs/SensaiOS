@@ -25,7 +25,21 @@ function fail(msg) {
 
   const missingFiles = REQUIRED_FILES.filter((rel) => !fs.existsSync(path.join(process.cwd(), rel)));
   if (missingFiles.length) {
-    fail(`Missing build artifacts: ${missingFiles.join(', ')}. Run \`npm run build:data\` (and optionally \`npm run build:assets\`).`);
+    const allowMissing = String(process.env.DISABLE_SNAPSHOT_PRECHECK || process.env.SNAPSHOT_OPTIONAL || '')
+      .trim()
+      .toLowerCase();
+    if (allowMissing === '1' || allowMissing === 'true' || allowMissing === 'yes') {
+      console.warn(
+        '⚠️  Preflight warning: Missing build artifacts but proceeding due to DISABLE_SNAPSHOT_PRECHECK/ SNAPSHOT_OPTIONAL.'
+      );
+      console.warn('   Missing:', missingFiles.join(', '));
+    } else {
+      fail(
+        `Missing build artifacts: ${missingFiles.join(
+          ', '
+        )}. Run \`npm run build:data\` (and optionally \`npm run build:assets\`).`
+      );
+    }
   }
 
   console.log('✅ Preflight OK');

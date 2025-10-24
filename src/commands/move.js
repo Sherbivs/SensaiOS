@@ -1,6 +1,6 @@
 'use strict';
 const { SlashCommandBuilder } = require('discord.js');
-const { getMove, moves } = require('../lib/dex-api');
+const { getMove, moves, disabled } = require('../lib/dex-api');
 const TYPE_COLORS = require('../lib/type-colors');
 
 const MOVE_LIST = Object.keys(moves || {}).sort();
@@ -12,6 +12,7 @@ module.exports = {
     .addStringOption((o) => o.setName('name').setDescription('Move name').setRequired(true))
     .setDMPermission(false),
   async autocomplete(interaction) {
+    if (disabled) return interaction.respond([]);
     const focused = String(interaction.options.getFocused() || '').toLowerCase();
     const picks = MOVE_LIST.filter((n) => n.toLowerCase().startsWith(focused) || n.toLowerCase().includes(focused))
       .slice(0, 25)
@@ -19,6 +20,9 @@ module.exports = {
     await interaction.respond(picks);
   },
   async execute(interaction) {
+    if (disabled) {
+      return interaction.reply({ content: 'Move data is not available on this deployment.', ephemeral: true });
+    }
     const q = interaction.options.getString('name');
     const m = getMove(q);
     if (!m) return interaction.reply({ content: 'Move not found.', ephemeral: true });

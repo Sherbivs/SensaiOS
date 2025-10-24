@@ -12,19 +12,32 @@ const DEX_PATH = path.join(ROOT, 'dist', 'data', 'dex.min.json');
 const MOVES_PATH = path.join(ROOT, 'dist', 'data', 'moves.min.json');
 const META_PATH = path.join(ROOT, 'dist', 'meta', 'version.json');
 
-if (!fs.existsSync(DEX_PATH) || !fs.existsSync(MOVES_PATH)) {
-  throw new Error('Missing dist data. Run `npm run build:data` first.');
+const hasDex = fs.existsSync(DEX_PATH);
+const hasMoves = fs.existsSync(MOVES_PATH);
+
+let dexArr = [];
+let movesObj = {};
+let meta = { version_group: 'latest' };
+let disabled = false;
+
+if (hasDex && hasMoves) {
+  try {
+    dexArr = loadJSON(DEX_PATH);
+    movesObj = loadJSON(MOVES_PATH);
+    meta = fs.existsSync(META_PATH) ? loadJSON(META_PATH) : meta;
+  } catch (err) {
+    console.warn('⚠️  dex-api: Failed to load snapshot data:', err?.message || err);
+    disabled = true;
+  }
+} else {
+  disabled = true;
 }
 
-const dexArr = loadJSON(DEX_PATH);
-const movesObj = loadJSON(MOVES_PATH);
-const meta = fs.existsSync(META_PATH) ? loadJSON(META_PATH) : { version_group: 'latest' };
-
-// Indexes
-const byName = new Map(dexArr.map((p) => [String(p.name).toLowerCase(), p]));
-const byId = new Map(dexArr.map((p) => [Number(p.id), p]));
+// Indexes (empty when disabled)
+const byName = new Map(disabled ? [] : dexArr.map((p) => [String(p.name).toLowerCase(), p]));
+const byId = new Map(disabled ? [] : dexArr.map((p) => [Number(p.id), p]));
 const moveByName = new Map(
-  Object.entries(movesObj).map(([k, v]) => [String(k).toLowerCase(), v])
+  disabled ? [] : Object.entries(movesObj).map(([k, v]) => [String(k).toLowerCase(), v])
 );
 
 // Simple normalization + a few useful aliases
@@ -62,18 +75,20 @@ function resolveName(q) {
 }
 
 function getPokemon(q) {
+  if (disabled) return null;
   if (typeof q === 'number') return byId.get(q) || null;
   const name = resolveName(q);
   return name ? byName.get(name) || null : null;
 }
 
 function getMove(name) {
-  if (!name) return null;
+  if (disabled || !name) return null;
   const n = normalize(name);
   return moveByName.get(n) || moveByName.get(n.replace(/\s+/g, '-')) || null;
 }
 
 function suggestPokemon(prefix, limit = 25) {
+  if (disabled) return [];
   const n = normalize(prefix);
   if (!n) return [];
   const seen = new Set();
@@ -90,4 +105,4 @@ function suggestPokemon(prefix, limit = 25) {
   return out.slice(0, limit);
 }
 
-module.exports = { getPokemon, getMove, suggestPokemon, meta, dex: dexArr, moves: movesObj };
+module.exports = { getPokemon, getMove, suggestPokemon, meta, dex: dexArr, moves: movesObj, disabled };

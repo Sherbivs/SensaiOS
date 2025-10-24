@@ -97,6 +97,15 @@ Notes:
 - Environment variables: `SECURITY_BOT_TOKEN`, `POKEMON_BOT_TOKEN`, optional `ENABLE_POKEMON_BOT`
 - See `render.yaml` for the single worker service definition.
 
+### Dex snapshot requirements for slash commands
+
+Slash commands like `/dex`, `/move`, and `/weak` use an offline snapshot built into `dist/data/dex.min.json` and `dist/data/moves.min.json`.
+
+- To build these locally: run `npm run build:data` (optionally followed by `npm run build:assets`).
+- On Render, add a build step that runs `npm run build:data` or set `DISABLE_SNAPSHOT_PRECHECK=true` to let the service start without the snapshot (commands will gracefully respond that data is unavailable until the snapshot is present).
+
+You can also generate and host the snapshot in a separate job or repository and copy it into `dist/data` during your build.
+
 ## PokéAPI cache publisher
 
 The cache worker clones a writable repository (or branch), refreshes PokéAPI payloads,
