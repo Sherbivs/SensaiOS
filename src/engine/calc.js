@@ -1,55 +1,62 @@
 'use strict';
 const { stageMultiplier } = require('./stats');
+const { ABILITIES, ITEMS } = require('./tables');
+const { computeTotalDamage, applyAdvancedAfterDamage } = require('./effects');
 
-/**
- * Damage calculation (simplified, deterministic):
- *  - Classic base formula with no random roll and no crit
- *  - STAB 1.5 if move type in attacker's types
- *  - Type effectiveness pulled from defender.matchups[type] (precomputed in your dex)
- *  - Uses physical/special split from moves.min.json
- */
+/** Helpers to read ability/item config */
+const A = (p) => (p?.ability ? ABILITIES[p.ability] : null);
+const I = (p) => (p?.item ? ITEMS[p.item] : null);
+
 function pickOffensiveStat(attacker, move) {
-  const cls = move.class; // 'physical' | 'special' | null
-  return cls === 'special' ? 'special-attack' : 'attack';
+  return move.class === 'special' ? 'special-attack' : 'attack';
 }
-
 function pickDefensiveStat(defender, move) {
-  const cls = move.class;
-  return cls === 'special' ? 'special-defense' : 'defense';
+  return move.class === 'special' ? 'special-defense' : 'defense';
 }
 
-/** Effective stat with stage, status, and items (Choice Specs) */
-function effectiveStat(p, statKey, opts = {}) {
-  const base = p.derived?.[statKey] ?? 1;
-  let val = Math.max(1, Math.floor(base * stageMultiplier(p.stages?.[statKey] || 0)));
+/** Is the mon currently statused with any major status? */
+function hasAnyStatus(p) {
+  return !!p.status;
+}
 
-  // Status: burn halves PHYSICAL attack (unless Guts added later)
-  if (p.status === 'brn' && statKey === 'attack' && opts.forMoveClass === 'physical') {
+/** Effective stat with stages, status, ability & item modifiers. */
+function effectiveStat(p, statKey, opts = {}) {
+  const forMoveClass = opts.forMoveClass || null;
+  let val = Math.max(1, Math.floor(p.derived[statKey] * stageMultiplier(p.stages[statKey] || 0)));
+
+  // Status: Burn halves PHYSICAL Attack (unless Guts ignores it)
+  const abl = A(p);
+  const ignoreBurn = !!abl?.ignoreBurnHalving;
+  if (p.status === 'brn' && statKey === 'attack' && forMoveClass === 'physical' && !ignoreBurn) {
     val = Math.floor(val * 0.5);
   }
-  // Status: paralysis halves Speed (simplified modern behavior)
+  // Status: Paralysis halves Speed
   if (p.status === 'par' && statKey === 'speed') {
     val = Math.max(1, Math.floor(val * 0.5));
   }
-  // Item: Choice Specs boosts special attack by 1.5×
-  if (String(p.item || '').toLowerCase() === 'choice-specs' && statKey === 'special-attack') {
-    val = Math.floor(val * 1.5);
+
+  // Ability-based offensive stat boost (e.g., Guts)
+  if (abl?.offensiveStatBoost?.stat === statKey) {
+    const needStatus = !!abl.offensiveStatBoost.requiresStatus;
+    if (!needStatus || hasAnyStatus(p)) val = Math.floor(val * abl.offensiveStatBoost.multiplier);
   }
-  return val;
+
+  // Item-based offensive stat boost (Choice items)
+  const itm = I(p);
+  if (itm?.offensiveStatBoost?.stat === statKey) {
+    val = Math.floor(val * itm.offensiveStatBoost.multiplier);
+  }
+
+  return Math.max(1, val);
 }
 
 function stab(attacker, move) {
-  const t = String(move.type || '').toLowerCase();
-  return Array.isArray(attacker.types) && attacker.types.map(String).map((s) => s.toLowerCase()).includes(t)
-    ? 1.5
-    : 1.0;
+  return attacker.types.includes(move.type) ? 1.5 : 1.0;
 }
 
 function typeEffectiveness(defender, move) {
-  // Your dex precomputes "damage taken" multipliers as defender.matchups[type]
-  const t = String(move.type || '').toLowerCase();
-  const m = defender.matchups?.[t];
-  return (m === 0 || m === 0.25 || m === 0.5 || m === 1 || m === 2 || m === 4) ? m : 1;
+  const m = defender.matchups?.[move.type];
+  return m === 0 || m === 0.25 || m === 0.5 || m === 1 || m === 2 || m === 4 ? m : 1;
 }
 
 function weatherPowerMod(weather, moveType) {
@@ -57,34 +64,48 @@ function weatherPowerMod(weather, moveType) {
   if (weather === 'rain') {
     if (moveType === 'water') return 1.5;
     if (moveType === 'fire') return 0.5;
-    return 1;
-  }
-  if (weather === 'sun') {
+  } else if (weather === 'sun') {
     if (moveType === 'fire') return 1.5;
     if (moveType === 'water') return 0.5;
-    return 1;
   }
   return 1;
 }
 
-function abilityGrantsImmunity(defender, moveType) {
-  const ab = String(defender.ability || '').toLowerCase();
-  if (ab === 'levitate' && moveType === 'ground') return true;
-  if (ab === 'flash-fire' && moveType === 'fire') return true;
+/** Ability immunities (Levitate, Flash Fire, Water Absorb). */
+function abilityImmunity(defender, moveType, ctx) {
+  const abl = A(defender);
+  const immuneList = abl?.immunity?.types || [];
+  if (immuneList.includes(moveType)) {
+    if (typeof abl.immunity.onImmune === 'function') {
+      abl.immunity.onImmune(defender, ctx);
+    }
+    return true;
+  }
   return false;
 }
 
-function flashFireMaybeBoost(p, moveType) {
-  const ab = String(p.ability || '').toLowerCase();
-  if (ab === 'flash-fire' && p.volatile && p.volatile.flashFireBoost && moveType === 'fire') {
-    return 1.5;
+/** Attacking ability multipliers (e.g., Flash Fire boost when flagged). */
+function attackerAbilityDamageMod(attacker, moveType) {
+  const abl = A(attacker);
+  const rule = abl?.attackerTypeBoostIfFlag;
+  if (rule && rule.type === moveType) {
+    const flag = rule.flag;
+    if (flag && attacker.volatile && attacker.volatile[flag]) return rule.multiplier || 1;
   }
   return 1;
 }
 
+/** Item multipliers that apply directly to damage (e.g., Life Orb). */
+function itemDamageMod(attacker) {
+  const itm = I(attacker);
+  return itm?.damageMultiplier || 1;
+}
+
+/** Modern crit: 1.5×, seeded RNG if provided in ctx. */
 function critMultiplier(ctx, attacker) {
   const CRIT_MOD = 1.5;
-  const chance = ctx?.critOverride ? (ctx.critOverride(attacker) ? 1 : 0) : (ctx?.critChance ?? 1 / 24);
+  if (ctx?.critOverride) return ctx.critOverride(attacker) ? CRIT_MOD : 1;
+  const chance = ctx?.critChance ?? 1 / 24;
   const roll = ctx?.rng?.next ? ctx.rng.next() : Math.random();
   return roll < chance ? CRIT_MOD : 1;
 }
@@ -92,38 +113,44 @@ function critMultiplier(ctx, attacker) {
 function baseDamage(attacker, defender, move, ctx = {}) {
   if (!move || !move.power || move.power <= 0) return 0;
 
+  // Ability-based immunities (some also trigger side effects like Flash Fire boost or Water Absorb heal)
+  if (abilityImmunity(defender, move.type, ctx)) return 0;
+
   const atkKey = pickOffensiveStat(attacker, move);
   const defKey = pickDefensiveStat(defender, move);
-  const A = effectiveStat(attacker, atkKey, { forMoveClass: move.class });
-  const D = effectiveStat(defender, defKey, { forMoveClass: move.class });
-  const L = attacker.level || 50;
+  const Astat = effectiveStat(attacker, atkKey, { forMoveClass: move.class });
+  const Dstat = effectiveStat(defender, defKey, { forMoveClass: move.class });
+
+  const L = attacker.level;
   const P = move.power;
 
   // ((2L/5 + 2) * P * A / D) / 50 + 2
-  const term = Math.floor((Math.floor((2 * L) / 5) + 2) * P * A / Math.max(1, D));
+  const term = Math.floor((Math.floor((2 * L) / 5) + 2) * P * Astat / Math.max(1, Dstat));
   const raw = Math.floor(Math.floor(term / 50) + 2);
-
-  const moveType = String(move.type || '').toLowerCase();
-  // Ability immunities (and Flash Fire activation)
-  if (abilityGrantsImmunity(defender, moveType)) {
-    if (String(defender.ability || '').toLowerCase() === 'flash-fire' && moveType === 'fire') {
-      defender.volatile = defender.volatile || {};
-      defender.volatile.flashFireBoost = true;
-    }
-    return 0;
-  }
 
   const eff = typeEffectiveness(defender, move);
   if (eff === 0) return 0;
 
   const mod =
     stab(attacker, move) *
-    flashFireMaybeBoost(attacker, moveType) *
-    weatherPowerMod(ctx.weather, moveType) *
+    weatherPowerMod(ctx.weather, move.type) *
+    attackerAbilityDamageMod(attacker, move.type) *
+    itemDamageMod(attacker) *
     eff *
     critMultiplier(ctx, attacker);
 
-  return Math.max(1, Math.floor(raw * mod));
+  // Per-hit damage before multi-hit/fixed aggregation
+  const perHit = Math.max(1, Math.floor(raw * mod));
+  const totals = computeTotalDamage(attacker, defender, move, perHit, ctx);
+  return Math.max(0, totals.total);
 }
 
-module.exports = { baseDamage, stab, typeEffectiveness, effectiveStat };
+/** After-damage hooks (e.g., Life Orb recoil). */
+function afterDealtDamage(attacker, defender, move, dealt, ctx = {}) {
+  const itm = I(attacker);
+  if (itm?.afterDealDamage) itm.afterDealDamage(attacker, dealt, ctx);
+  // Advanced post-hit layer: drain, recoil (meta/registry), flinch
+  applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx);
+}
+
+module.exports = { baseDamage, effectiveStat, stab, typeEffectiveness, afterDealtDamage };

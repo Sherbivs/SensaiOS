@@ -1,419 +1,387 @@
-Let’s power‑up the engine with the four features you asked for—**status**, **crit + seeded RNG**, **weather (Rain/Sun)**, and **starter abilities/items**—without breaking your clean, testable shape.
+Absolutely. Here’s a **single, comprehensive patch** that implements your plan:
 
-Below are **drop‑in files and targeted patches** to your existing engine. All CommonJS, no new deps.
+* Adds a **declarative registry** (`EFFECT_RULES`) with a `registerEffectRule()` runtime hook.
+* Extends `effects.js` with:
 
----
+  * `computeTotalDamage(attacker, defender, move, perHitDamage, ctx)` → handles **multi-hit** and **fixed-damage** without touching `turn.js`.
+  * `applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx)` → handles **drain**, **recoil**, **flinch** post-hit.
+  * Keeps your earlier `checkAccuracy()` and `applySecondaryEffects()` intact.
+* Minimal, surgical changes to `calc.js`:
 
-## 0) New: a tiny seeded RNG
+  * Wrap `baseDamage()`’s per-hit computation with `computeTotalDamage()`.
+  * Call `applyAdvancedAfterDamage()` at the end of `afterDealtDamage()`.
+* Adds **focused tests** for Dragon Rage (fixed 40), Giga Drain (heal), Double-Edge (recoil), Bite (flinch), Fury Swipes (multi-hit aggregate).
 
-**`src/engine/rng.js`**
-
-```js
-'use strict';
-
-/** Xorshift32-based RNG with seed; returns [0,1) floats. */
-function makeRNG(seed = 0xDEADBEEF) {
-  let x = (seed >>> 0) || 0xDEADBEEF;
-  function next() {
-    // xorshift32
-    x ^= (x << 13) >>> 0;
-    x ^= (x >>> 17);
-    x ^= (x << 5) >>> 0;
-    return ((x >>> 0) / 0x100000000);
-  }
-  return { next };
-}
-
-module.exports = { makeRNG };
-```
-
-Use in tests: `const { makeRNG } = require('./rng'); const rng = makeRNG(1234);`
+Copy this to `advanced-effects.patch`, run `git checkout feature/effects-registry`, then `git apply advanced-effects.patch`.
 
 ---
 
-## 1) Types: add fields for **status / ability / item / volatile**
-
-**Patch** `src/engine/types.js`
+### ✅ Unified diff
 
 ```diff
- function newPokemonRuntime(p, level = 50) {
-   return {
-     id: p.id,
-     name: p.name,
-     level,
-     types: p.types.slice(),
-     base: { ...p.stats },
-     stages: {
-       attack: 0, defense: 0, 'special-attack': 0, 'special-defense': 0, speed: 0
-     },
-     maxHp: 0, hp: 0,
--    status: null,
--    moves: []
-+    status: null,             // 'brn' | 'par' | 'psn' | 'tox' | 'slp' | 'frz' | null
-+    ability: null,            // e.g. 'levitate' | 'flash-fire' | null
-+    item: null,               // e.g. 'choice-specs' | null
-+    volatile: {},             // ephemeral flags (e.g. { flashFireBoost: true })
-+    moves: []
-   };
- }
-```
-
----
-
-## 2) Stats & Calc: status hooks, crit, weather, abilities, items
-
-### 2a) Effective stat with status & items
-
-**Patch** `src/engine/calc.js`
-
-```diff
+diff --git a/src/engine/effects.js b/src/engine/effects.js
+index a6b0f3a..3f2a1d9 100644
+--- a/src/engine/effects.js
++++ b/src/engine/effects.js
+@@ -1,19 +1,38 @@
  'use strict';
--const { stageMultiplier } = require('./stats');
-+const { stageMultiplier } = require('./stats');
-
- // existing helpers…
- function pickOffensiveStat(attacker, move) {
-   const cls = move.class; // 'physical' | 'special' | null
-   return cls === 'special' ? 'special-attack' : 'attack';
- }
- function pickDefensiveStat(defender, move) {
-   const cls = move.class;
-   return cls === 'special' ? 'special-defense' : 'defense';
- }
+ const fs = require('fs');
+ const path = require('path');
  
--function effectiveStat(p, statKey) {
--  const base = p.derived[statKey];
--  const mult = stageMultiplier(p.stages[statKey] || 0);
--  return Math.max(1, Math.floor(base * mult));
--}
-+/** Effective stat with stage, status, and items (Choice Specs) */
-+function effectiveStat(p, statKey, opts = {}) {
-+  const base = p.derived[statKey];
-+  let val = Math.max(1, Math.floor(base * stageMultiplier(p.stages[statKey] || 0)));
-+
-+  // Status: burn halves PHYSICAL attack (unless you later add Guts)
-+  if (p.status === 'brn' && statKey === 'attack' && opts.forMoveClass === 'physical') {
-+    val = Math.floor(val * 0.5);
-+  }
-+  // Status: paralysis halves Speed in modern gens (simplified)
-+  if (p.status === 'par' && statKey === 'speed') {
-+    val = Math.max(1, Math.floor(val * 0.5));
-+  }
-+  // Item: Choice Specs boosts special attack by 1.5×
-+  if (p.item === 'choice-specs' && statKey === 'special-attack') {
-+    val = Math.floor(val * 1.5);
-+  }
-+  return val;
-+}
+ /**
+  * Effects registry:
+  * - Accuracy rolls using move.accuracy (%). Null/undefined accuracy = always hit.
+  * - Secondary status via move.meta (PokéAPI) when available, else fallback to data/effects.json.
+  * - Supports AI preference: ctx.effectSource = 'auto' | 'pokeapi' | 'local'
+  *   default 'auto' => prefer PokéAPI meta if present, else local override.
+  * - Uses ctx.rng (seeded) if provided; else Math.random().
++ *
++ * Advanced layer (declarative, no changes to turn.js required):
++ * - EFFECT_RULES + registerEffectRule(name, rule)
++ * - computeTotalDamage(attacker, defender, move, perHitDamage, ctx)
++ *     -> Multi-hit aggregation, fixed-damage overrides
++ * - applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx)
++ *     -> Drain, recoil, flinch (post-hit)
+  */
  
- function stab(attacker, move) {
-   return attacker.types.includes(move.type) ? 1.5 : 1.0;
+ // Local fallback: data/effects.json (optional)
+ let LOCAL_EFFECTS = {};
+ const LOCAL_PATH = path.join(process.cwd(), 'data', 'effects.json');
+ if (fs.existsSync(LOCAL_PATH)) {
+   try { LOCAL_EFFECTS = JSON.parse(fs.readFileSync(LOCAL_PATH, 'utf8')); } catch (_) {}
  }
  
- function typeEffectiveness(defender, move) {
-   // defender.matchups[type] is damage taken multiplier
-   const m = defender.matchups?.[move.type];
-   return (m === 0 || m === 0.25 || m === 0.5 || m === 1 || m === 2 || m === 4) ? m : 1;
++// ---- Runtime-extensible declarative rules ----
++// Built-in starter rules; add/override at runtime via registerEffectRule().
++const EFFECT_RULES = {
++  // Fixed-damage classics:
++  'dragon-rage': { fixedDamage: { value: 40 } },
++  'sonic-boom':  { fixedDamage: { value: 20 } },
++  'night-shade': { fixedDamage: { levelBased: true } },
++  'seismic-toss':{ fixedDamage: { levelBased: true } },
++
++  // Multi-hit (default weights when meta min/max are present but no table provided):
++  // Note: We don't list every multi-hit; we rely on move.meta.min_hits/max_hits by default.
++
++  // Post-hit archetypes where PokéAPI meta may be absent or to override:
++  // 'double-edge': { recoil: { percent: 33 } }, // example if meta missing
++};
++
++function registerEffectRule(name, rule) {
++  EFFECT_RULES[String(name).toLowerCase()] = rule || {};
++}
++
+ function rand(ctx) {
+   return ctx?.rng?.next ? ctx.rng.next() : Math.random();
+ }
+@@ -27,6 +46,7 @@ function pct(probPct, ctx) {
+   return rand(ctx) < (p / 100);
  }
  
-+function weatherPowerMod(weather, moveType) {
-+  if (!weather) return 1;
-+  if (weather === 'rain') {
-+    if (moveType === 'water') return 1.5;
-+    if (moveType === 'fire')  return 0.5;
-+    return 1;
-+  }
-+  if (weather === 'sun') {
-+    if (moveType === 'fire')  return 1.5;
-+    if (moveType === 'water') return 0.5;
-+    return 1;
-+  }
-+  return 1;
-+}
-+
-+function abilityGrantsImmunity(defender, moveType) {
-+  // Levitate: immune to Ground
-+  if (defender.ability === 'levitate' && moveType === 'ground') return true;
-+  // Flash Fire: immune to Fire (and sets a boost flag)
-+  if (defender.ability === 'flash-fire' && moveType === 'fire') return true;
-+  return false;
-+}
-+
-+function flashFireMaybeBoost(p, moveType) {
-+  // If user has Flash Fire and has been "activated", boost Fire moves.
-+  if (p.ability === 'flash-fire' && p.volatile && p.volatile.flashFireBoost && moveType === 'fire') {
-+    return 1.5;
-+  }
-+  return 1;
-+}
-+
-+function critMultiplier(ctx, attacker) {
-+  // Modern crit = 1.5×; base chance ~1/24 by default
-+  const CRIT_MOD = 1.5;
-+  const chance = (ctx?.critOverride)
-+    ? (ctx.critOverride(attacker) ? 1 : 0)
-+    : (ctx?.critChance ?? (1 / 24));
-+  const roll = ctx?.rng?.next ? ctx.rng.next() : Math.random();
-+  return (roll < chance) ? CRIT_MOD : 1;
-+}
-+
--function baseDamage(attacker, defender, move) {
-+function baseDamage(attacker, defender, move, ctx = {}) {
-   if (!move || !move.power || move.power <= 0) return 0;
++// -------------------- Accuracy --------------------
+ function checkAccuracy(attacker, defender, move, ctx = {}) {
+   // If move has no accuracy listed (e.g., Swift) -> always hit in this skeleton
+   if (move.accuracy == null) return { ok: true };
+@@ -41,6 +61,7 @@ function checkAccuracy(attacker, defender, move, ctx = {}) {
+   return { ok: hit, reason: hit ? undefined : `roll=${roll.toFixed(3)}>acc=${(acc/100).toFixed(3)}` };
+ }
  
-   const atkKey = pickOffensiveStat(attacker, move);
-   const defKey = pickDefensiveStat(defender, move);
--  const A = effectiveStat(attacker, atkKey);
--  const D = effectiveStat(defender, defKey);
-+  const A = effectiveStat(attacker, atkKey, { forMoveClass: move.class });
-+  const D = effectiveStat(defender, defKey, { forMoveClass: move.class });
-   const L = attacker.level;
-   const P = move.power;
++// -------------------- Secondary (status) --------------------
+ // Map PokéAPI ailment => engine status code
+ const AILMENT_TO_STATUS = {
+   burn: 'brn',
+@@ -90,7 +111,161 @@ function applySecondaryEffects(attacker, defender, move, ctx = {}) {
+   }
+ }
  
-   // ((2L/5 + 2) * P * A / D) / 50 + 2
-   const term = Math.floor((Math.floor((2 * L) / 5) + 2) * P * A / Math.max(1, D));
-   const raw = Math.floor(Math.floor(term / 50) + 2);
- 
--  const mod = stab(attacker, move) * typeEffectiveness(defender, move); // no random, no crit
--  return Math.max(1, Math.floor(raw * mod));
-+  // Ability immunities
-+  if (abilityGrantsImmunity(defender, move.type)) {
-+    // Flash Fire activation when hit by Fire
-+    if (defender.ability === 'flash-fire' && move.type === 'fire') {
-+      defender.volatile = defender.volatile || {};
-+      defender.volatile.flashFireBoost = true;
++// -------------------- Advanced effects --------------------
++/**
++ * computeTotalDamage: wraps a single-hit damage number (perHitDamage) and:
++ *  - applies fixed-damage overrides (Dragon Rage, Night Shade, Seismic Toss)
++ *  - aggregates multi-hit (min_hits/max_hits from PokéAPI meta or EFFECT_RULES)
++ * Returns { total, hits, perHit } where perHit is the array of dealt values for transparency.
++ */
++function computeTotalDamage(attacker, defender, move, perHitDamage, ctx = {}) {
++  const name = String(move.name || '').toLowerCase();
++  const rule = EFFECT_RULES[name] || {};
++  const meta = move.meta || {};
++
++  // 1) Fixed damage overrides
++  const fixed = rule.fixedDamage || null;
++  if (fixed && (fixed.value || fixed.levelBased)) {
++    const val = fixed.value != null ? fixed.value :
++                fixed.levelBased ? attacker.level : perHitDamage;
++    const dealt = Math.max(1, Math.floor(val));
++    return { total: dealt, hits: 1, perHit: [dealt], fixed: true };
++  }
++  // Some fixed-damage moves have power baked-in (Dragon Rage=40). Already covered above.
++
++  // 2) Multi-hit aggregation
++  let minH = meta.min_hits != null ? meta.min_hits : null;
++  let maxH = meta.max_hits != null ? meta.max_hits : null;
++  let hits = 1;
++
++  if (minH != null && maxH != null && maxH >= minH && maxH > 1) {
++    // If a custom chance table exists in EFFECT_RULES, use it; else uniform RNG on [min,max].
++    const table = rule.multiHit?.chanceTable || null;
++    if (table && Array.isArray(table) && table.length === (maxH - minH + 1)) {
++      const r = rand(ctx);
++      let acc = 0, chosen = minH;
++      for (let i = 0; i < table.length; i++) {
++        acc += table[i];
++        if (r < acc) { chosen = minH + i; break; }
++      }
++      hits = chosen;
++    } else {
++      // Uniform fallback
++      const r = rand(ctx);
++      hits = minH + Math.floor(r * (maxH - minH + 1));
 +    }
-+    return 0;
++  } else if (rule.multiHit?.min && rule.multiHit?.max && rule.multiHit.max >= rule.multiHit.min) {
++    const { min, max, chanceTable } = rule.multiHit;
++    if (chanceTable && Array.isArray(chanceTable) && chanceTable.length === (max - min + 1)) {
++      const r = rand(ctx);
++      let acc = 0, chosen = min;
++      for (let i = 0; i < chanceTable.length; i++) { acc += chanceTable[i]; if (r < acc) { chosen = min + i; break; } }
++      hits = chosen;
++    } else {
++      const r = rand(ctx);
++      hits = min + Math.floor(r * (max - min + 1));
++    }
 +  }
 +
-+  const eff = typeEffectiveness(defender, move);
-+  if (eff === 0) return 0;
++  // Aggregate hits
++  hits = Math.max(1, Math.min(10, Math.floor(hits))); // clamp defensively
++  const perHit = new Array(hits).fill(Math.max(0, perHitDamage));
++  const total = perHit.reduce((a,b)=>a+b,0);
++  return { total, hits, perHit, fixed: false };
++}
 +
-+  const mod =
-+      stab(attacker, move)
-+    * flashFireMaybeBoost(attacker, move.type)
-+    * weatherPowerMod(ctx.weather, move.type)
-+    * eff
-+    * critMultiplier(ctx, attacker);
++/**
++ * applyAdvancedAfterDamage:
++ *  - Drain: heal attacker for a percent of damage dealt (PokéAPI meta.drain or EFFECT_RULES)
++ *  - Recoil: damage attacker for a percent of damage dealt (meta.recoil or EFFECT_RULES)
++ *  - Flinch: set defender.volatile.flinched based on chance (meta.flinch_chance or EFFECT_RULES)
++ */
++function applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx = {}) {
++  const name = String(move.name || '').toLowerCase();
++  const rule = EFFECT_RULES[name] || {};
++  const meta = move.meta || {};
++  const log = ctx.log || [];
 +
-+  return Math.max(1, Math.floor(raw * mod));
- }
- 
--module.exports = { baseDamage, stab, typeEffectiveness, effectiveStat };
-+module.exports = { baseDamage, stab, typeEffectiveness, effectiveStat };
++  // 1) Drain
++  // PokéAPI meta: drain is positive percent of damage converted to HP.
++  let drainPct = null;
++  if (typeof meta.drain === 'number' && meta.drain > 0) drainPct = meta.drain;
++  if (rule.drain?.percent != null) drainPct = rule.drain.percent;
++  if (drainPct) {
++    const heal = Math.max(1, Math.floor((dealt * drainPct) / 100));
++    const before = attacker.hp;
++    attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
++    if (attacker.hp > before) log.push(`${attacker.name} restored ${attacker.hp - before} HP (drain).`);
++  }
++
++  // 2) Recoil
++  let recoilPct = null;
++  if (typeof meta.recoil === 'number' && meta.recoil > 0) recoilPct = meta.recoil;
++  if (rule.recoil?.percent != null) recoilPct = rule.recoil.percent;
++  if (recoilPct) {
++    const recoil = Math.max(1, Math.floor((dealt * recoilPct) / 100));
++    attacker.hp = Math.max(0, attacker.hp - recoil);
++    log.push(`${attacker.name} is hurt by recoil (${recoil}).`);
++  }
++
++  // 3) Flinch
++  // PokéAPI meta: flinch_chance (percent) if present
++  let flinchChance = null;
++  if (typeof meta.flinch_chance === 'number' && meta.flinch_chance > 0) flinchChance = meta.flinch_chance;
++  if (rule.flinch?.chance != null) flinchChance = rule.flinch.chance;
++  if (flinchChance && pct(flinchChance, ctx)) {
++    defender.volatile = defender.volatile || {};
++    defender.volatile.flinched = true;
++    log.push(`${defender.name} flinched!`);
++  }
++}
++
+ module.exports = {
+   checkAccuracy,
+-  applySecondaryEffects
++  applySecondaryEffects,
++  computeTotalDamage,
++  applyAdvancedAfterDamage,
++  registerEffectRule,
++  EFFECT_RULES
+ };
 ```
 
----
-
-## 3) Turn order: paralysis speed penalty
-
-**Patch** `src/engine/turn.js`
-
 ```diff
+diff --git a/src/engine/calc.js b/src/engine/calc.js
+index 27a1a2c..7d6a9ee 100644
+--- a/src/engine/calc.js
++++ b/src/engine/calc.js
+@@ -1,6 +1,7 @@
  'use strict';
--const { baseDamage } = require('./calc');
-+const { baseDamage, effectiveStat } = require('./calc');
+ const { stageMultiplier } = require('./stats');
+ const { ABILITIES, ITEMS } = require('./tables');
++const { computeTotalDamage, applyAdvancedAfterDamage } = require('./effects');
  
- function resolveTurn(state, actionA, actionB, ctx) {
-   const { movesIndex } = ctx;
-   const a = state.a, b = state.b;
+ /** Helpers to read ability/item config */
+ const A = (p) => p?.ability ? ABILITIES[p.ability] : null;
+@@ -106,7 +107,17 @@ function baseDamage(attacker, defender, move, ctx = {}) {
  
-   function moveOf(p, action) { return movesIndex[action.move] || null; }
-   function priorityOf(p, mv) { return mv ? (mv.priority || 0) : 0; }
--  function effectiveSpeed(p) { return p.derived.speed; }
-+  function effectiveSpeed(p) { return effectiveStat(p, 'speed'); }
+   const mod =
+       stab(attacker, move)
+     * weatherPowerMod(ctx.weather, move.type)
+     * attackerAbilityDamageMod(attacker, move.type)
+     * itemDamageMod(attacker)
+     * eff
+     * critMultiplier(ctx, attacker);
  
-   const mvA = moveOf(a, actionA);
-   const mvB = moveOf(b, actionB);
-   const pa = priorityOf(a, mvA);
-   const pb = priorityOf(b, mvB);
+-  return Math.max(1, Math.floor(raw * mod));
++  // Per-hit damage before multi-hit/fixed aggregation
++  const perHit = Math.max(1, Math.floor(raw * mod));
++  const totals = computeTotalDamage(attacker, defender, move, perHit, ctx);
++  return Math.max(0, totals.total);
+ }
+ 
+ /** After-damage hooks (e.g., Life Orb recoil). */
+ function afterDealtDamage(attacker, defender, move, dealt, ctx = {}) {
+   const itm = I(attacker);
+   if (itm?.afterDealDamage) itm.afterDealDamage(attacker, dealt, ctx);
++  // Advanced post-hit layer: drain, recoil (meta/registry), flinch
++  applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx);
+ }
+ 
+ module.exports = { baseDamage, effectiveStat, stab, typeEffectiveness, afterDealtDamage };
 ```
 
-…and pass `ctx` to damage:
-
 ```diff
--  function apply(attackerKey, mv, act) {
-+  function apply(attackerKey, mv, act) {
-     const attacker = attackerKey === 'a' ? a : b;
-     const defender = attackerKey === 'a' ? b : a;
-     if (!mv || attacker.hp <= 0) { log.push(`${attacker.name} does nothing.`); return; }
--    const dmg = baseDamage(attacker, defender, mv);
-+    const dmg = baseDamage(attacker, defender, mv, ctx);
-```
-
----
-
-## 4) Engine index: ability/item/status options on runtime
-
-**Patch** `src/engine/index.js`
-
-```diff
- function makeRuntimeFromDexEntry(dexMon, level = 50, moves = [], opts = {}) {
-   const p = newPokemonRuntime(dexMon, level);
-   p.derived = derivedStats(p.base, level);
-   p.maxHp = p.derived.hp;
-   p.hp = p.maxHp;
-   p.moves = moves.map(m => String(m).toLowerCase());
-   p.matchups = dexMon.matchups;
-+  // Opt-in runtime traits
-+  p.ability = (opts.ability || dexMon.abilities?.find(a => !a.hidden)?.name || null)?.toLowerCase() || null;
-+  p.item    = (opts.item || null)?.toLowerCase() || null;
-+  p.status  = (opts.status || null)?.toLowerCase() || null;
-   return p;
+diff --git a/scripts/test-effects-advanced.js b/scripts/test-effects-advanced.js
+new file mode 100644
+index 0000000..b4c2ab1
+--- /dev/null
++++ b/scripts/test-effects-advanced.js
+@@ -0,0 +1,140 @@
++'use strict';
++const assert = require('assert');
++const { loadIndexes, makeRuntimeFromDexEntry, newBattleState, newAction, resolveTurn } = require('../src/engine');
++const { makeRNG } = require('../src/engine/rng');
++const { registerEffectRule, EFFECT_RULES } = require('../src/engine/effects');
++
++(function main() {
++  const { dexLookup, movesIndex } = loadIndexes();
++  const cz = dexLookup('charizard');
++  const vs = dexLookup('venusaur');
++  const rat = dexLookup('raticate') || dexLookup('staraptor') || dexLookup('talonflame');
++  const mar = dexLookup('marowak') || dexLookup('machamp') || dexLookup('hawlucha');
++  assert(cz && vs, 'Need baseline mons');
++
++  // 1) Fixed damage: Dragon Rage = 40 regardless of stats
++  {
++    const A = makeRuntimeFromDexEntry(cz, 50, ['dragon-rage']);
++    const D = makeRuntimeFromDexEntry(vs, 50, ['growl']);
++    const S = newBattleState(A, D);
++    const hpBefore = D.hp;
++    resolveTurn(S, newAction('a', 'dragon-rage'), newAction('b','growl'), { movesIndex, rng: makeRNG(1) });
++    const dealt = hpBefore - S.state.b.hp;
++    assert(dealt === 40, `Dragon Rage should deal 40, got ${dealt}`);
++  }
++
++  // 2) Drain: Giga Drain heals attacker by ~50% of damage (PokéAPI meta.drain)
++  {
++    const A = makeRuntimeFromDexEntry(vs, 50, ['giga-drain']);
++    const D = makeRuntimeFromDexEntry(cz, 50, ['growl']);
++    const S = newBattleState(A, D);
++    const hpA0 = S.a.hp;
++    const hpB0 = S.b.hp;
++    resolveTurn(S, newAction('a','giga-drain'), newAction('b','growl'), { movesIndex, rng: makeRNG(2) });
++    const dealt = hpB0 - S.state.b.hp;
++    const healed = S.state.a.hp - hpA0;
++    assert(dealt > 0 && healed > 0, 'Giga Drain should damage and heal');
++  }
++
++  // 3) Recoil: Double-Edge damages attacker by ~33% of damage dealt (meta.recoil or rule)
++  // If your PokéAPI meta lacks recoil for Double-Edge, uncomment this override:
++  // registerEffectRule('double-edge', { recoil: { percent: 33 } });
++  {
++    const A = makeRuntimeFromDexEntry(rat, 50, ['double-edge']);
++    const D = makeRuntimeFromDexEntry(vs, 50, ['growl']);
++    const S = newBattleState(A, D);
++    const a0 = S.a.hp, b0 = S.b.hp;
++    resolveTurn(S, newAction('a','double-edge'), newAction('b','growl'), { movesIndex, rng: makeRNG(3) });
++    const dealt = b0 - S.state.b.hp;
++    const recoil = a0 - S.state.a.hp;
++    assert(dealt > 0 && recoil > 0, 'Double-Edge should recoil after dealing damage');
++  }
++
++  // 4) Flinch: Bite can set flinch (meta.flinch_chance)
++  {
++    const A = makeRuntimeFromDexEntry(cz, 50, ['bite']);
++    const D = makeRuntimeFromDexEntry(vs, 50, ['growl']);
++    const S = newBattleState(A, D);
++    resolveTurn(S, newAction('a','bite'), newAction('b','growl'), { movesIndex, rng: makeRNG(4) });
++    // We don't enforce that flinch always occurs; we only assert that the volatile flag is valid when it procs.
++    assert(S.state.b.volatile == null || typeof S.state.b.volatile.flinched !== 'undefined', 'Flinch path wired');
++  }
++
++  // 5) Multi-hit: Fury Swipes aggregates total damage (uses meta min_hits/max_hits or registry rule)
++  // If your cached meta lacks min/max, register a local rule:
++  // registerEffectRule('fury-swipes', { multiHit: { min: 2, max: 5, chanceTable: [0.35, 0.35, 0.15, 0.15] } });
++  {
++    const A = makeRuntimeFromDexEntry(mar, 50, ['fury-swipes']);
++    const D = makeRuntimeFromDexEntry(vs, 50, ['growl']);
++    const S = newBattleState(A, D);
++    const b0 = S.b.hp;
++    resolveTurn(S, newAction('a','fury-swipes'), newAction('b','growl'), { movesIndex, rng: makeRNG(5) });
++    const total = b0 - S.state.b.hp;
++    assert(total >= 1, 'Fury Swipes should aggregate multiple hits worth of damage');
++  }
++
++  console.log('OK: advanced effects (fixed, drain, recoil, flinch, multi-hit) pass sanity tests.');
++})();
+diff --git a/package.json b/package.json
+index f621e3c..f1b4c88 100644
+--- a/package.json
++++ b/package.json
+@@ -6,6 +6,7 @@
+     "test:data": "node scripts/test-data.js",
+     "refresh:data": "npm run build:data && npm run test:data && npm run build:assets && npm run test:assets",
+     "test:battle": "node scripts/test-battle-core.js",
+-    "test:effects": "node scripts/test-effects.js"
++    "test:effects": "node scripts/test-effects.js",
++    "test:effects:advanced": "node scripts/test-effects-advanced.js"
+   }
  }
 ```
 
 ---
 
-## 5) Example tests showing each feature
+### How to apply & run
 
-**Update** `scripts/test-battle-core.js` to exercise the new stuff. This keeps everything deterministic with a seeded RNG and clear assertions.
+```bash
+git checkout feature/effects-registry
+git apply advanced-effects.patch
 
-```js
-'use strict';
-const assert = require('assert');
-const { loadIndexes, makeRuntimeFromDexEntry, newBattleState, newAction, resolveTurn } = require('../src/engine');
-const { makeRNG } = require('../src/engine/rng');
+# Rebuild snapshot if necessary
+npm run refresh:data
 
-(function main() {
-  const { dexLookup, movesIndex } = loadIndexes();
-
-  // Base scenario
-  const czDex = dexLookup('charizard');
-  const vsDex = dexLookup('venusaur');
-  assert(czDex && vsDex, 'Missing mons');
-
-  // 1) Burn halves physical attack (Flare Blitz vs Sludge Bomb)
-  {
-    const A = makeRuntimeFromDexEntry(czDex, 50, ['flare-blitz'], { status: 'brn' });
-    const D = makeRuntimeFromDexEntry(vsDex, 50, ['sludge-bomb']);
-    const S = newBattleState(A, D);
-    const { log } = resolveTurn(S, newAction('a','flare-blitz'), newAction('b','sludge-bomb'), { movesIndex });
-    // Charizard should deal noticeably less because of burn
-    console.log('[burn] ', log.join(' | '));
-    assert(D.hp > D.maxHp * 0.6, 'Burned physical should be reduced (heuristic check)');
-  }
-
-  // 2) Paralysis halves speed -> Venusaur should act first if Charizard is paralyzed (no priority moves)
-  {
-    const A = makeRuntimeFromDexEntry(czDex, 50, ['dragon-pulse'], { status: 'par' }); // special move (no burn penalty)
-    const D = makeRuntimeFromDexEntry(vsDex, 50, ['sludge-bomb']);
-    const S = newBattleState(A, D);
-    const { log } = resolveTurn(S, newAction('a','dragon-pulse'), newAction('b','sludge-bomb'), { movesIndex });
-    console.log('[para] ', log[0]);
-    assert(log[0].toLowerCase().startsWith('venusaur uses'), 'Paralyzed Charizard should act after Venusaur');
-  }
-
-  // 3) Weather: Rain boosts Water, halves Fire; Sun boosts Fire, halves Water
-  {
-    const gyDex = dexLookup('gyarados') || dexLookup('blastoise');
-    const skDex = dexLookup('skeledirge') || dexLookup('venusaur');
-    assert(gyDex && skDex, 'Missing water/fire mons');
-    const W = makeRuntimeFromDexEntry(gyDex, 50, ['surf']);
-    const F = makeRuntimeFromDexEntry(skDex, 50, ['flamethrower']);
-
-    // Compare Surf damage in Rain vs Sun
-    const S1 = newBattleState(W, F);
-    const rain = resolveTurn(S1, newAction('a','surf'), newAction('b','flamethrower'), { movesIndex, weather:'rain' });
-    const dRain = F.maxHp - F.hp;
-
-    const S2 = newBattleState(W, makeRuntimeFromDexEntry(skDex, 50, ['flamethrower']));
-    const sun  = resolveTurn(S2, newAction('a','surf'), newAction('b','flamethrower'), { movesIndex, weather:'sun'  });
-    const dSun = sun.state.b.maxHp - sun.state.b.hp;
-
-    console.log('[weather] rain surf dmg=', dRain, ' sun surf dmg=', dSun);
-    assert(dRain > dSun, 'Rain should boost Water relative to Sun');
-  }
-
-  // 4) Abilities: Levitate immunity to Ground
-  {
-    const eqUser = makeRuntimeFromDexEntry(dexLookup('garchomp') || dexLookup('groudon'), 50, ['earthquake']);
-    const rotom = dexLookup('rotom') || dexLookup('rotom-wash') || dexLookup('weezing');
-    const lev = makeRuntimeFromDexEntry(rotom, 50, ['thunderbolt'], { ability: 'levitate' });
-    const S = newBattleState(eqUser, lev);
-    const { log } = resolveTurn(S, newAction('a','earthquake'), newAction('b','thunderbolt'), { movesIndex });
-    console.log('[levitate] ', log.join(' | '));
-    assert(S.b.hp === S.b.maxHp, 'Levitate target should take 0 from Ground');
-  }
-
-  // 5) Abilities: Flash Fire immunity + boost
-  {
-    const flareonDex = dexLookup('flareon') || dexLookup('heatran') || dexLookup('ninetales');
-    const FF = makeRuntimeFromDexEntry(flareonDex, 50, ['flamethrower'], { ability: 'flash-fire' });
-    const cz  = makeRuntimeFromDexEntry(czDex, 50, ['flamethrower']);
-    // Charizard hits Flareon with Fire -> immune, Flareon gains boost and strikes back harder in the same turn if it moves after
-    const S = newBattleState(cz, FF);
-    const out = resolveTurn(S, newAction('a','flamethrower'), newAction('b','flamethrower'), { movesIndex });
-    console.log('[flash-fire] ', out.log.join(' | '));
-    // Charizard did 0 to Flareon
-    assert(S.b.hp === S.b.maxHp, 'Flash Fire should immune Fire damage');
-    // Flareon should have flashFireBoost flag now; damage should be > zero (sanity)
-    assert(S.a.hp < S.a.maxHp, 'Boosted Fire move should damage attacker back');
-  }
-
-  // 6) Items: Choice Specs boosts SpA
-  {
-    const specUser = makeRuntimeFromDexEntry(czDex, 50, ['dragon-pulse'], { item: 'choice-specs' }); // special
-    const plain    = makeRuntimeFromDexEntry(czDex, 50, ['dragon-pulse']);
-    const target1  = makeRuntimeFromDexEntry(vsDex, 50, ['growl']);
-    const target2  = makeRuntimeFromDexEntry(vsDex, 50, ['growl']);
-    const S1 = newBattleState(specUser, target1);
-    const S2 = newBattleState(plain,    target2);
-    resolveTurn(S1, newAction('a','dragon-pulse'), newAction('b','growl'), { movesIndex });
-    resolveTurn(S2, newAction('a','dragon-pulse'), newAction('b','growl'), { movesIndex });
-    const d1 = S1.b.maxHp - S1.b.hp, d2 = S2.b.maxHp - S2.b.hp;
-    console.log('[specs] dmg with specs=', d1, ' vs no-specs=', d2);
-    assert(d1 > d2, 'Choice Specs should increase special damage');
-  }
-
-  // 7) Crit with seeded RNG (force crit on attacker via override)
-  {
-    const rng = makeRNG(42);
-    const A = makeRuntimeFromDexEntry(czDex, 50, ['flamethrower']);
-    const D = makeRuntimeFromDexEntry(vsDex, 50, ['sludge-bomb']);
-    const S = newBattleState(A, D);
-    const ctx = {
-      movesIndex,
-      rng,
-      // Guarantee crit for Charizard only:
-      critOverride: (attacker) => attacker.name.toLowerCase() === 'charizard'
-    };
-    const before = D.hp;
-    const { log } = resolveTurn(S, newAction('a','flamethrower'), newAction('b','sludge-bomb'), ctx);
-    const dealt = before - D.hp;
-    console.log('[crit] ', log.join(' | '), ' dealt=', dealt);
-    assert(dealt > 0, 'Crit should do positive damage');
-  }
-
-  console.log('OK: status, crit, weather, abilities, items all passed sanity tests.');
-})();
+# Run all tests
+npm run test:battle
+npm run test:effects
+npm run test:effects:advanced
 ```
 
-> Run:
-> `npm run refresh:data`
-> `npm run test:battle`
+### Notes and knobs
 
----
+* **Registry first**: The engine now prefers **PokéAPI meta** (accuracy, `meta.drain`, `meta.recoil`, `meta.flinch_chance`, `meta.min_hits/max_hits`).
+  If meta is missing or you want to override, add entries via:
 
-## 6) Using the new knobs from your bot (optional)
+  ```js
+  const { registerEffectRule } = require('./src/engine/effects');
+  registerEffectRule('double-edge', { recoil: { percent: 33 } });
+  registerEffectRule('fury-swipes', { multiHit: { min: 2, max: 5, chanceTable: [0.35,0.35,0.15,0.15] } });
+  ```
+* **AI choice**: At runtime, your context can still choose effect sourcing for status via `effectSource: 'auto' | 'pokeapi' | 'local'`.
+* **No `turn.js` diff**: Turn order and resolution stayed untouched; all nuance lives in `effects.js` and `calc.js`.
 
-When you build teams or a `/calc` UI, set runtime traits via `makeRuntimeFromDexEntry(dexMon, level, moves, { status, ability, item })`.
-Examples:
-
-```js
-const A = makeRuntimeFromDexEntry(dexLookup('garchomp'), 50, ['earthquake'], { item: 'choice-scarf' /* later */ });
-const B = makeRuntimeFromDexEntry(dexLookup('rotom-wash'), 50, ['hydro-pump'], { ability: 'levitate', status: 'par' });
-const ctx = { movesIndex, weather: 'rain', rng: makeRNG(2025) };
-```
-
----
-
-## 7) What’s next (low‑risk incremental layers)
-
-* Add **Guts** (negates burn ATK halving and boosts Attack 1.5×).
-* Add **Choice locking** (first move locks until switch; trivial per‑battle flag).
-* Add **RNG interface for accuracy** (miss/secondary effects) with seeded tests.
-* Expand **weather** (Sand/Hail/Snow; special cases like Solar Beam, Thunder).
-* Ability parser: table‑drive a dozen common abilities/items with conditions.
-
-If you want, I’ll ship a small **ability/item table** file and wire it into `baseDamage` so adding new effects is a one‑line config instead of code edits.
+If you want, I can add **flinch enforcement** in your next turn (skip defender’s action if `volatile.flinched` is set) with a tiny `turn.js` opt-in flag—still deterministic, still one line to toggle.

@@ -1,5 +1,6 @@
 'use strict';
-const { baseDamage, effectiveStat } = require('./calc');
+const { baseDamage, effectiveStat, afterDealtDamage } = require('./calc');
+const { checkAccuracy, applySecondaryEffects } = require('./effects');
 
 /**
  * Resolves one simultaneous turn with two chosen actions.
@@ -50,6 +51,8 @@ function resolveTurn(state, actionA, actionB, ctx) {
   }
 
   const log = [];
+  ctx = ctx || {};
+  ctx.log = ctx.log || log;
   function apply(attackerKey, mv) {
     const attacker = attackerKey === 'a' ? a : b;
     const defender = attackerKey === 'a' ? b : a;
@@ -58,11 +61,21 @@ function resolveTurn(state, actionA, actionB, ctx) {
       log.push(`${attacker.name} does nothing.`);
       return;
     }
+    // Accuracy gate
+    const hit = checkAccuracy(attacker, defender, mv, ctx);
+    if (!hit.ok) {
+      log.push(`${attacker.name}'s ${mv.name} missed${hit.reason ? ' (' + hit.reason + ')' : ''}.`);
+      return;
+    }
+
     const dmg = baseDamage(attacker, defender, mv, ctx);
     const before = defender.hp;
     defender.hp = Math.max(0, defender.hp - dmg);
 
     log.push(`${attacker.name} uses ${mv.name} -> ${defender.name} takes ${dmg} (${before}→${defender.hp})`);
+    afterDealtDamage(attacker, defender, mv, dmg, ctx);
+    // Apply secondary effects after a successful hit
+    applySecondaryEffects(attacker, defender, mv, ctx);
   }
 
   for (const [who, mv] of order) {
