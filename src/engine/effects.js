@@ -81,7 +81,9 @@ const AILMENT_TO_STATUS = {
 function pickEffectSource(move, ctx) {
   const pref = ctx?.effectSource || 'auto';
   const hasMeta = !!move?.meta;
-  const hasLocal = !!LOCAL_EFFECTS?.[String(move.name || '').toLowerCase()];
+  const rawName = String(move?.name || '').toLowerCase();
+  const normName = rawName.replace(/\s+/g, '-');
+  const hasLocal = !!(LOCAL_EFFECTS?.[rawName] || LOCAL_EFFECTS?.[normName]);
   if (pref === 'pokeapi') return hasMeta ? 'pokeapi' : null;
   if (pref === 'local')   return hasLocal ? 'local'   : null;
   // auto:
@@ -112,7 +114,9 @@ function applySecondaryEffects(attacker, defender, move, ctx = {}) {
   }
 
   if (src === 'local') {
-    const rule = LOCAL_EFFECTS[String(move.name || '').toLowerCase()];
+    const rawName = String(move.name || '').toLowerCase();
+    const normalized = rawName.replace(/\s+/g, '-');
+    const rule = LOCAL_EFFECTS[rawName] || LOCAL_EFFECTS[normalized];
     if (!rule) return;
     // rule example: { "status": "par", "chance": 100 } or array of {status, chance}
     const rules = Array.isArray(rule) ? rule : [rule];
@@ -139,8 +143,9 @@ function applySecondaryEffects(attacker, defender, move, ctx = {}) {
  * Returns { total, hits, perHit } where perHit is the array of dealt values for transparency.
  */
 function computeTotalDamage(attacker, defender, move, perHitDamage, ctx = {}) {
-  const name = String(move.name || '').toLowerCase();
-  const rule = EFFECT_RULES[name] || {};
+  const rawName = String(move.name || '').toLowerCase();
+  const normName = rawName.replace(/\s+/g, '-');
+  const rule = EFFECT_RULES[rawName] || EFFECT_RULES[normName] || {};
   const meta = move.meta || {};
 
   // 1) Fixed damage overrides
@@ -199,8 +204,9 @@ function computeTotalDamage(attacker, defender, move, perHitDamage, ctx = {}) {
  *  - Flinch: set defender.volatile.flinched based on chance (meta.flinch_chance or EFFECT_RULES)
  */
 function applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx = {}) {
-  const name = String(move.name || '').toLowerCase();
-  const rule = EFFECT_RULES[name] || {};
+  const rawName = String(move.name || '').toLowerCase();
+  const normName = rawName.replace(/\s+/g, '-');
+  const rule = EFFECT_RULES[rawName] || EFFECT_RULES[normName] || {};
   const meta = move.meta || {};
   const log = ctx.log || [];
 
@@ -212,7 +218,7 @@ function applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx = {}) {
   if (drainPct) {
     const heal = Math.max(1, Math.floor((dealt * drainPct) / 100));
     const before = attacker.hp;
-    attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
+    attacker.hp = Math.min(attacker.maxHp + heal, attacker.hp + heal);
     if (attacker.hp > before) log.push(`${attacker.name} restored ${attacker.hp - before} HP (drain).`);
   }
 

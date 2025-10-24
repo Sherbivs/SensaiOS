@@ -108,6 +108,11 @@ function resolveTurn(state, actionA, actionB, ctx) {
   // Advance turn counter
   state.turn += 1;
 
+  // Expose the mutated state on the battle container for legacy helpers/tests that
+  // expect a `.state` reference after resolution. This keeps backwards compatibility
+  // with earlier call sites that don't use the return value.
+  state.state = state;
+
   return { state, log };
 }
 
