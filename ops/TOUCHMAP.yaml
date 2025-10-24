@@ -1,0 +1,95 @@
+# TOUCH MAP — Maps task IDs (or glob prefixes) to the primary files/paths they modify.
+# This gives the AI a fast way to jump to relevant files for each task.
+
+# Exact task IDs
+T0.1:
+  - "package.json"
+  - "tsconfig.json"
+  - ".eslintrc.cjs"
+  - ".prettierrc"
+  - "src/index.ts"
+  - "tests/sample.spec.ts"
+
+T0.2:
+  - "src/bot/**"
+  - "src/core/battle/**"
+  - "src/core/encounter/**"
+  - "src/shared/**"
+  - "src/data_pipeline/**"
+  - "tests/**"
+  - "RULESET.md"
+  - "DATA-SCHEMA.md"
+  - "OPERATIONS.md"
+
+T1.1:
+  - "src/shared/config.ts"
+  - "prisma/schema.prisma"
+  - "src/models/**"
+  - "migrations/**"
+
+T1.2:
+  - "src/shared/config.ts"
+  - "src/shared/log.ts"
+
+T2.1:
+  - "src/data_pipeline/schema/**"
+  - "tests/data_schema.spec.ts"
+
+T2.2:
+  - "src/data_pipeline/index.ts"
+  - "data/**"
+  - "tests/data_pipeline.spec.ts"
+
+T3.1:
+  - "src/bot/bootstrap.ts"
+  - "src/bot/commands/register.ts"
+
+T3.2:
+  - "src/bot/dm/home.tsx"
+  - "src/bot/dm/components/**"
+  - "src/shared/assets/**"
+  - "tests/dm_home.spec.ts"
+
+T3.3:
+  - "src/bot/dm/starters.ts"
+  - "src/bot/dm/heal.ts"
+  - "tests/starters_heal.spec.ts"
+
+T4.1:
+  - "src/core/encounter/spawn.ts"
+  - "src/bot/wilds/walk.ts"
+  - "tests/encounter_walk.spec.ts"
+
+T4.2:
+  - "src/core/encounter/catch.ts"
+  - "src/bot/wilds/controls.ts"
+  - "tests/catch.spec.ts"
+
+T5.1:
+  - "src/bot/battle/challenge.ts"
+  - "src/bot/arena/thread.ts"
+  - "tests/battle_flow.spec.ts"
+
+T5.2:
+  - "src/core/battle/engine.ts"
+  - "src/core/battle/damage.ts"
+  - "src/core/battle/status.ts"
+  - "tests/battle_engine.spec.ts"
+
+T5.3:
+  - "src/bot/battle/actions.ts"
+  - "src/bot/arena/summary.ts"
+  - "tests/battle_ui.spec.ts"
+
+T6.1:
+  - "src/bot/middleware/limits.ts"
+  - "tests/limits.spec.ts"
+
+T6.2:
+  - "src/bot/ops/admin.ts"
+  - "tests/ops.spec.ts"
+
+# Glob prefixes to catch future tasks in the same family
+"Phase 0*":
+  - "/ops/**"
+  - "/**/*.md"

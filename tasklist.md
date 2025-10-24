@@ -14,6 +14,17 @@ Each task has:
 
 ## Phase 0 — Repo & Tooling
 
+- id: T0.FP
+  title: Add Critical Files Fast-Path system
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - Create ops/CRITICAL.md documenting fast-path boot order and hot paths
+    - Create ops/NEXT.yaml with the next_task_id and files_hint
+    - Create ops/TOUCHMAP.yaml mapping task IDs to primary files
+    - Update Patch.md to reference and enforce the fast-path rules
+  notes: Outcome — Fast-path created and initialized (next_task_id: T0.2).
+
 - id: T0.1
   title: Initialize TypeScript project & tooling
   status: DONE
@@ -27,12 +38,12 @@ Each task has:
 
 - id: T0.2
   title: Create repo structure and docs
-  status: READY
+  status: DONE
   depends_on: [T0.1]
   acceptance_criteria:
     - Folders: /src/bot, /src/core/{battle,encounter}, /src/shared, /src/data_pipeline, /tests
     - Docs: RULESET.md, DATA-SCHEMA.md, OPERATIONS.md created with stubs
-  notes: Empty index files are fine as placeholders.
+  notes: Created /src/core/{battle,encounter}, /src/shared, /src/data_pipeline; added RULESET.md, DATA-SCHEMA.md, OPERATIONS.md stubs.
 
 ## Phase 1 — Render & DB
 
