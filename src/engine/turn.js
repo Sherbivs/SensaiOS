@@ -28,6 +28,31 @@ function resolveTurn(state, actionA, actionB, ctx) {
     return effectiveStat(p, 'speed');
   }
 
+  // Prepare logs
+  const log = [];
+  ctx = ctx || {};
+  ctx.log = ctx.log || log;
+  const publicLog = ctx.publicLog || [];
+
+  // --- Flinch enforcement (public + internal logging) ---
+  // If a combatant was flinched, skip their move this round.
+  // Controlled by ctx.allowFlinchSkip (default true).
+  function handleFlinch(combatant, key) {
+    if (ctx.allowFlinchSkip !== false && combatant?.volatile?.flinched) {
+      const msg = `⚡ ${combatant.name} flinched and couldn’t move!`;
+      log.push(msg);
+      try { publicLog.push(msg); } catch (_) {}
+      combatant.volatile.flinched = false;
+      // Instead of nulling the whole action (which our helpers expect to be an object),
+      // set it to a no-op to keep resolution safe.
+      if (key === 'a') actionA = { move: '' };
+      else if (key === 'b') actionB = { move: '' };
+    }
+  }
+
+  handleFlinch(a, 'a');
+  handleFlinch(b, 'b');
+
   // Decide order
   const mvA = moveOf(actionA);
   const mvB = moveOf(actionB);
@@ -50,9 +75,6 @@ function resolveTurn(state, actionA, actionB, ctx) {
     }
   }
 
-  const log = [];
-  ctx = ctx || {};
-  ctx.log = ctx.log || log;
   function apply(attackerKey, mv) {
     const attacker = attackerKey === 'a' ? a : b;
     const defender = attackerKey === 'a' ? b : a;
