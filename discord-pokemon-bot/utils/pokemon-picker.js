@@ -2,13 +2,7 @@
 // DM-based Pokémon picker with simple collector
 
 const { setUserData } = require('../cache');
-const path = require('node:path');
-const fs = require('node:fs');
-
-function loadPokemonDataset() {
-  const dataPath = path.join(__dirname, '..', 'data', 'pokemon.json');
-  return JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-}
+const { loadPokemonDataset } = require('./pokemon-data');
 
 function getSelectablePokemon(list) {
   // With current dataset, no stage/starter flags; allow all for now

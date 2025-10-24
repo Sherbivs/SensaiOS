@@ -7,7 +7,7 @@ Handles:
 - Active battle tracking
 */
 
-const { Client, GatewayIntentBits, Partials, ChannelType } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, ChannelType, Events } = require('discord.js');
 const dotenv = require('dotenv');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -32,6 +32,7 @@ const {
   activeBattles: channelActiveBattles,
 } = require('./battles/battle-channel');
 const { promptUserSelection } = require('./utils/pokemon-picker');
+const { loadPokemonDataset } = require('./utils/pokemon-data');
 
 dotenv.config();
 
@@ -57,59 +58,35 @@ cliStatus.setSection(STATUS_SECTION_ID, {
   metrics: [],
 });
 
-// Load Pokémon data from cache or JSON; support both array and roster-object formats
-function transformRosterToArray(rosterFile) {
-  try {
-    if (!rosterFile || typeof rosterFile !== 'object') return null;
-    const roster = Array.isArray(rosterFile) ? null : rosterFile.roster;
-    if (!roster) return Array.isArray(rosterFile) ? rosterFile : null;
-    const arr = Object.values(roster).map(p => {
-      const statsArr = Array.isArray(p.stats) ? p.stats : [];
-      const get = (n) => statsArr.find(s => s.name === n)?.base || 0;
-      return {
-        id: p.id,
-        name: p.name,
-        type: Array.isArray(p.types) ? p.types : [],
-        level: 5,
-        stats: {
-          hp: get('hp'),
-          attack: get('attack'),
-          defense: get('defense'),
-          specialAttack: get('special-attack'),
-          specialDefense: get('special-defense'),
-          speed: get('speed'),
-        },
-        rarity: p.isLegendary
-          ? 'Legendary'
-          : (p.isPseudoLegendary
-            ? 'Pseudo-Legendary'
-            : (p.isStarter ? 'Starter' : 'Common')),
-        caughtBy: [],
-      };
-    });
-    return arr;
-  } catch {
-    return null;
-  }
-}
-
 let pokemonData = readCache('pokemonData');
-if (!pokemonData) {
-  const dataPath = path.join(__dirname, 'data', 'pokemon.json');
+if (!Array.isArray(pokemonData) || pokemonData.length === 0) {
+  let dataset = [];
   try {
-    const raw = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-    const asArray = transformRosterToArray(raw) || (Array.isArray(raw) ? raw : null);
-    if (asArray) {
-      pokemonData = asArray;
-      writeCache('pokemonData', pokemonData);
-      console.log(`[Pokémon Bot] Loaded ${pokemonData.length} Pokémon from data/pokemon.json`);
-    } else {
-      console.warn('[Pokémon Bot] data/pokemon.json format unrecognized. Starting with empty dataset.');
+    dataset = loadPokemonDataset();
+  } catch (error) {
+    console.warn('[Pokémon Bot] Failed to load shared Pokémon dataset:', error?.message || error);
+  }
+
+  if (dataset.length) {
+    pokemonData = dataset;
+    writeCache('pokemonData', pokemonData);
+    console.log(`[Pokémon Bot] Loaded ${pokemonData.length} Pokémon from shared dataset`);
+  } else {
+    const legacyPath = path.join(__dirname, 'data', 'pokemon.json');
+    try {
+      const raw = JSON.parse(fs.readFileSync(legacyPath, 'utf8'));
+      if (Array.isArray(raw) && raw.length) {
+        pokemonData = raw;
+        writeCache('pokemonData', pokemonData);
+        console.log(`[Pokémon Bot] Loaded ${pokemonData.length} Pokémon from legacy data/pokemon.json`);
+      } else {
+        console.warn('[Pokémon Bot] data/pokemon.json format unrecognized. Starting with empty dataset.');
+        pokemonData = [];
+      }
+    } catch (e) {
+      console.warn('[Pokémon Bot] Failed to read data/pokemon.json:', e.message);
       pokemonData = [];
     }
-  } catch (e) {
-    console.warn('[Pokémon Bot] Failed to read data/pokemon.json:', e.message);
-    pokemonData = [];
   }
 }
 
@@ -339,7 +316,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
   updateCliStatus();
 });
 
-client.once('ready', () => {
+client.once(Events.ClientReady, () => {
   readyAt = new Date();
   updateCliStatus({ status: `Ready as ${client.user.tag}` });
   console.log(`✅ Pokémon Discord Bot is running as ${client.user.tag}!`);

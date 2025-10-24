@@ -259,7 +259,8 @@ function scheduleDailySummaryReports() {
     clearTimeout(summaryTimer);
   }
   const delay = msUntilNextReport(SUMMARY_REPORT_HOUR, SUMMARY_REPORT_MINUTE);
-  const nextRun = new Date(Date.now() + delay);
+  const safeDelay = Number.isFinite(delay) ? Math.max(0, delay) : 0;
+  const nextRun = new Date(Date.now() + safeDelay);
   log('info', 'Daily summary scheduled', {
     recipient: SUMMARY_REPORT_RECIPIENT || 'unset',
     nextRunIso: nextRun.toISOString(),
@@ -268,7 +269,7 @@ function scheduleDailySummaryReports() {
   summaryTimer = setTimeout(async () => {
     await sendDailySummaryReport();
     scheduleDailySummaryReports();
-  }, delay);
+  }, safeDelay);
 }
 
 async function notifyServiceRestart() {

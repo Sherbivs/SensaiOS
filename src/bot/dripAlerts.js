@@ -96,7 +96,8 @@ function createDripAlertManager({
       clearTimeout(digestTimer);
     }
     const delay = msUntilNextZonedTime(digestHour, digestMinute, timeZone);
-    const nextRun = new Date(Date.now() + delay);
+    const safeDelay = Number.isFinite(delay) ? Math.max(0, delay) : 0;
+    const nextRun = new Date(Date.now() + safeDelay);
     logContext('info', 'Drip alert digest scheduled', {
       recipient: recipient || 'unset',
       nextRunIso: nextRun.toISOString(),
@@ -112,7 +113,7 @@ function createDripAlertManager({
       } finally {
         scheduleDigest();
       }
-    }, delay);
+    }, safeDelay);
   }
 
   function stop() {
