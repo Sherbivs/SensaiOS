@@ -1,290 +1,278 @@
-Let’s lay the runway for your art rockets, now—so when the graphics land later, everything just plugs in and flies. We’ll add a **future‑proof asset manifest**, a tiny **asset resolver**, and wire your **slash commands** to show thumbnails (falling back to PokéAPI dev art until your own CDN is ready).
-
-Below are drop‑in files and minimal changes—no new dependencies.
+Alright — graphics are parked. Let’s keep momentum by hardening what ships every day: **stability, speed, and safety**. Here’s a focused next sprint with drop‑in files so you can commit and deploy immediately.
 
 ---
 
-## 1) Build an **asset manifest** (future CDN‑ready, dev fallback for now)
+## 1) Preflight checks (fail fast, never mystery‑crash)
 
-**File:** `scripts/build-assets-manifest.js`
+Add a tiny script that verifies env + data snapshot exist **before** the bot boots.
 
-```js
-'use strict';
-
-/**
- * Generates dist/assets/manifest.json:
- * - Maps each Pokémon id -> { name, cdnSprite, cdnArt, devSprite, devArt, preferred }
- * - Uses your CDN base if ASSET_CDN_BASE is set, otherwise prefers PokéAPI dev art.
- *
- * Later, when you produce your own art, just upload to:
- *   ${ASSET_CDN_BASE}/pokemon/{id}.png           (sprite)
- *   ${ASSET_CDN_BASE}/pokemon/artwork/{id}.png   (artwork)
- * and re-run this script — no code changes needed.
- */
-
-const fs = require('fs');
-const path = require('path');
-
-const ROOT = process.cwd();
-const DIST_DIR = path.join(ROOT, 'dist');
-const DEX_PATH = path.join(DIST_DIR, 'data', 'dex.min.json');
-const META_PATH = path.join(DIST_DIR, 'meta', 'version.json');
-
-function loadJSON(p) { return JSON.parse(fs.readFileSync(p, 'utf8')); }
-function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
-
-function main() {
-  if (!fs.existsSync(DEX_PATH)) {
-    throw new Error('dist/data/dex.min.json not found. Run `npm run build:data` first.');
-  }
-  const dex = loadJSON(DEX_PATH);
-  const meta = fs.existsSync(META_PATH) ? loadJSON(META_PATH) : {};
-
-  const cdnBase = (process.env.ASSET_CDN_BASE || '').replace(/\/+$/,''); // e.g., https://cdn.example.com/assets
-  const hasCDN = !!cdnBase;
-
-  // PokéAPI dev fallbacks
-  const DEV_SPRITE = id =>
-    `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
-  const DEV_ART = id =>
-    `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
-
-  const manifest = {
-    version_group: meta.version_group || 'latest',
-    built_at: new Date().toISOString(),
-    sprites: {} // byId
-  };
-
-  for (const p of dex) {
-    const id = p.id;
-    const name = p.name;
-    const cdnSprite = hasCDN ? `${cdnBase}/pokemon/${id}.png` : null;
-    const cdnArt    = hasCDN ? `${cdnBase}/pokemon/artwork/${id}.png` : null;
-
-    const devSprite = DEV_SPRITE(id);
-    const devArt    = DEV_ART(id);
-
-    manifest.sprites[id] = {
-      id, name,
-      cdnSprite, cdnArt,
-      devSprite, devArt,
-      // preferred default: your CDN artwork if available; otherwise PokéAPI official artwork
-      preferred: (cdnArt || devArt)
-    };
-  }
-
-  const outDir = path.join(DIST_DIR, 'assets');
-  ensureDir(outDir);
-  fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest), 'utf8');
-  console.log(`Assets manifest wrote ${Object.keys(manifest.sprites).length} entries -> dist/assets/manifest.json`);
-}
-
-if (require.main === module) main();
-```
-
-**Add npm script (merge into `package.json`):**
-
-```json
-{
-  "scripts": {
-    "build:assets": "node scripts/build-assets-manifest.js",
-    "refresh:data": "npm run build:data && npm run test:data && npm run build:assets"
-  }
-}
-```
-
-* Set `ASSET_CDN_BASE` later (e.g., `https://cdn.example.com/assets`) to switch from dev fallbacks to your own images with zero code changes.
-
----
-
-## 2) Runtime **asset resolver** (one tiny helper)
-
-**File:** `src/lib/assets.js`
+**`scripts/preflight.js`**
 
 ```js
 'use strict';
 const fs = require('fs');
 const path = require('path');
 
-const MANIFEST_PATH = path.join(process.cwd(), 'dist', 'assets', 'manifest.json');
-let manifest = { sprites: {}, version_group: 'latest' };
-if (fs.existsSync(MANIFEST_PATH)) {
-  manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
-}
+const REQUIRED_ENV = ['DISCORD_TOKEN', 'DISCORD_CLIENT_ID']; // DISCORD_GUILD_ID optional
+const REQUIRED_FILES = [
+  'dist/data/dex.min.json',
+  'dist/data/moves.min.json'
+];
 
-/**
- * Returns a URL for a Pokémon image.
- * style: 'artwork' | 'sprite'
- * - artwork: larger, nicer official art
- * - sprite: small game-style sprite
- * If CDN entries exist, uses them; else falls back to PokéAPI dev URLs.
- */
-function getSpriteUrl(idOrName, style = 'artwork') {
-  const byId = manifest.sprites || {};
-  // fast find by id first, else linear scan by name
-  const entry = byId[idOrName] ||
-    Object.values(byId).find(x => String(x.name).toLowerCase() === String(idOrName).toLowerCase());
-  if (!entry) return null;
-
-  if (style === 'sprite') {
-    return entry.cdnSprite || entry.devSprite || entry.preferred || null;
-  }
-  // default artwork
-  return entry.cdnArt || entry.devArt || entry.preferred || null;
-}
-
-module.exports = { getSpriteUrl, manifest };
-```
-
----
-
-## 3) Wire graphics into your existing `/dex` command (thumbnail)
-
-Open **`src/commands/dex.js`** and add a thumbnail using the resolver:
-
-```diff
- const TYPE_COLORS = require('../lib/type-colors');
-+const { getSpriteUrl } = require('../lib/assets');
-
- ...
-   return interaction.reply({
-     embeds: [{
-       title: `#${mon.id} — ${mon.name}`,
-       color,
-       fields,
-+      thumbnail: { url: getSpriteUrl(mon.id, 'artwork') || getSpriteUrl(mon.id, 'sprite') || undefined },
-       footer: { text: `Ruleset: ${meta.version_group || 'latest'}` }
-     }]
-   });
-```
-
-If you want an image banner instead:
-
-```js
-image: { url: getSpriteUrl(mon.id, 'artwork') }
-```
-
-No changes are needed for `/move` and `/weak`, but feel free to add sprites later (e.g., show the user’s target mon image in `/weak`).
-
----
-
-## 4) Prepare future file layout (when you produce art)
-
-When you’re ready to publish your own images, use this simple structure on your CDN or static host:
-
-```
-/assets/
-  /pokemon/
-    1.png
-    2.png
-    ...
-  /pokemon/artwork/
-    1.png
-    2.png
-    ...
-  /types/
-    bug.svg
-    dark.svg
-    ...
-  /moves/              (optional, if you design move icons)
-    flamethrower.svg
-    ...
-```
-
-Then set:
-
-```
-ASSET_CDN_BASE=https://cdn.example.com/assets
-```
-
-Re-run:
-
-```
-npm run build:assets
-```
-
-All embeds will start using your CDN automatically.
-
----
-
-## 5) Optional: design tokens & type icons (pave the road)
-
-Add **`dist/meta/theme.json`** later with display tokens used across UI:
-
-```json
-{
-  "embed": {
-    "bg_dark": "#2F3136",
-    "bg_light": "#FFFFFF",
-    "accent": "#FFD166"
-  },
-  "typeColors": {
-    "fire": "#EE8130",
-    "water": "#6390F0",
-    "grass": "#7AC74C"
-  }
-}
-```
-
-When you create type icons, drop them under `/assets/types/{type}.svg` and extend `assets.js` with a `getTypeIconUrl(type)` similar to `getSpriteUrl`.
-
----
-
-## 6) Sanity checks for assets (add later, but here’s the skeleton)
-
-**File:** `scripts/test-assets.js`
-
-```js
-'use strict';
-const fs = require('fs');
-const path = require('path');
-
-const dex = JSON.parse(fs.readFileSync(path.join('dist','data','dex.min.json'),'utf8'));
-const manifest = JSON.parse(fs.readFileSync(path.join('dist','assets','manifest.json'),'utf8'));
-
-function assert(cond, msg) { if (!cond) throw new Error(msg); }
+function fail(msg) { console.error('❌ Preflight:', msg); process.exit(1); }
 
 (function main() {
-  assert(manifest && manifest.sprites, 'Missing sprites manifest');
-  for (const p of dex) {
-    const m = manifest.sprites[p.id];
-    assert(m, `No manifest entry for #${p.id} ${p.name}`);
-    assert(m.devArt || m.cdnArt, `No artwork URL for #${p.id} ${p.name}`);
+  const missingEnv = REQUIRED_ENV.filter(k => !process.env[k]);
+  if (missingEnv.length) fail(`Missing env vars: ${missingEnv.join(', ')}`);
+
+  const missingFiles = REQUIRED_FILES.filter(rel => !fs.existsSync(path.join(process.cwd(), rel)));
+  if (missingFiles.length) {
+    fail(`Missing build artifacts: ${missingFiles.join(', ')}. Run \`npm run refresh:data\`.`);
   }
-  console.log('OK: asset manifest sanity.');
+
+  console.log('✅ Preflight OK');
 })();
 ```
 
-Add to package.json:
+**Wire it to start-up** (add/merge in `package.json`):
 
 ```json
 {
   "scripts": {
-    "test:assets": "node scripts/test-assets.js",
-    "refresh:data": "npm run build:data && npm run test:data && npm run build:assets && npm run test:assets"
+    "prestart": "node scripts/normalize-eol.js && node scripts/preflight.js",
+    "start": "node security-bot.js"
   }
 }
 ```
 
----
-
-## 7) How this scales later (no refactors)
-
-* When you produce custom graphics, upload to your CDN path and set `ASSET_CDN_BASE`.
-* If you add **multiple sizes** later, evolve the manifest to include `cdnArt2x`, `cdnArtLg`, etc. The `getSpriteUrl()` can pick based on a `size` param, but your current commands won’t change.
-* If you want **animated sprites** or **regional forms** art, you can extend the manifest entries with a `{ formKey: url }` map keyed by `mon.name` variants. The lookup in `assets.js` already supports names as well as ids.
+Now if data or a token is missing, you’ll see a clear error and a non‑zero exit instead of a stack trace salad.
 
 ---
 
-### Ship checklist
+## 2) Cooldowns & safety net (so you don’t rate‑limit yourself)
 
-1. Add the two new files (`scripts/build-assets-manifest.js`, `src/lib/assets.js`).
-2. Update `package.json` scripts and re-run:
+Implement per‑user, per‑command cooldowns with one tiny module and a few lines in your event handler.
 
+**`src/lib/cooldown.js`**
+
+```js
+'use strict';
+// In-memory cooldowns; good enough for a single bot instance.
+const store = new Map(); // key -> timestamp (ms)
+
+function keyFor(userId, commandName) {
+  return `${userId}:${commandName}`;
+}
+
+/**
+ * Returns { ok: boolean, waitMs: number }
+ * If on cooldown, ok=false and waitMs=remaining.
+ */
+function checkAndSet(userId, commandName, cooldownMs = 2000) {
+  const now = Date.now();
+  const key = keyFor(userId, commandName);
+  const until = store.get(key) || 0;
+  if (now < until) return { ok: false, waitMs: until - now };
+  store.set(key, now + cooldownMs);
+  return { ok: true, waitMs: 0 };
+}
+
+module.exports = { checkAndSet };
+```
+
+**Patch your `security-bot.js` interaction handler**:
+
+```diff
+ const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
+ const { loadCommands } = require('./src/command-loader');
++const { checkAndSet } = require('./src/lib/cooldown');
+
+ ...
+ client.on(Events.InteractionCreate, async (interaction) => {
+   try {
+     if (interaction.isAutocomplete()) {
+       const cmd = commands.get(interaction.commandName);
+       if (cmd?.autocomplete) return cmd.autocomplete(interaction);
+     }
+     if (!interaction.isChatInputCommand()) return;
+     const cmd = commands.get(interaction.commandName);
+     if (!cmd) return interaction.reply({ content: 'Unknown command.', ephemeral: true });
++
++    // Cooldown: default 2s unless command sets cmd.cooldownMs
++    const cdMs = typeof cmd.cooldownMs === 'number' ? cmd.cooldownMs : 2000;
++    const gate = checkAndSet(interaction.user.id, interaction.commandName, cdMs);
++    if (!gate.ok) {
++      const secs = Math.ceil(gate.waitMs / 1000);
++      return interaction.reply({ content: `Slow down—${secs}s cooldown`, ephemeral: true });
++    }
+
+     await cmd.execute(interaction);
+   } catch (err) {
+     console.error('Command error:', err);
+     if (interaction.deferred || interaction.replied) return interaction.editReply({ content: 'Something went wrong.' });
+     return interaction.reply({ content: 'Something went wrong.', ephemeral: true });
+   }
+ });
+```
+
+Optional: set per‑command cooldowns, e.g. in `src/commands/weak.js`:
+
+```js
+module.exports.cooldownMs = 1500;
+```
+
+---
+
+## 3) A tiny `/version` command (ops visibility at a glance)
+
+Let ops (and users) see exactly which ruleset is live, plus counts for quick sanity.
+
+**`src/commands/version.js`**
+
+```js
+'use strict';
+const { SlashCommandBuilder } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+
+function loadJSON(rel) {
+  const p = path.join(process.cwd(), rel);
+  return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : null;
+}
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('version')
+    .setDescription('Show live ruleset, data counts, and uptime'),
+  cooldownMs: 1000,
+  async execute(interaction) {
+    const meta  = loadJSON('dist/meta/version.json') || {};
+    const dex   = loadJSON('dist/data/dex.min.json') || [];
+    const moves = loadJSON('dist/data/moves.min.json') || {};
+    const mem = process.memoryUsage();
+    const fmtMb = n => (n / (1024*1024)).toFixed(1) + ' MB';
+
+    const fields = [
+      { name: 'Ruleset', value: meta.version_group || 'latest', inline: true },
+      { name: 'Pokémon', value: String(dex.length), inline: true },
+      { name: 'Moves', value: String(Object.keys(moves).length), inline: true },
+      { name: 'Uptime', value: `${Math.floor(process.uptime())}s`, inline: true },
+      { name: 'Memory', value: `RSS ${fmtMb(mem.rss)}  Heap ${fmtMb(mem.heapUsed)}`, inline: true },
+      { name: 'Built At', value: meta.built_at || '—', inline: false }
+    ];
+
+    return interaction.reply({ embeds: [{ title: 'Infinity-Gauntlet — Live Version', fields }] });
+  }
+};
+```
+
+Register it with your existing `register-commands` script and you’ll have a single‑source‑of‑truth for “what’s live”.
+
+---
+
+## 4) Nightly data health CI (no artifacts, just tests)
+
+Even if your host does the caching, it’s smart to run a nightly “canary” in GitHub Actions so surprises are caught *before* prod updates.
+
+**`.github/workflows/data-health.yml`**
+
+```yaml
+name: Data Health (Nightly)
+on:
+  schedule:
+    - cron: "24 3 * * *"   # 03:24 UTC nightly
+  workflow_dispatch:
+
+jobs:
+  data-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Cache PokéAPI dataset
+        run: |
+          git clone --depth=1 https://github.com/PokeAPI/pokeapi.git data/pokeapi
+
+      - name: Build snapshot
+        run: npm run build:data
+
+      - name: Run invariants
+        run: npm run test:data
+```
+
+You already have `build-data.js` and `test-data.js`; this just executes them on a schedule.
+
+---
+
+## 5) Two small quality-of-life commands (free wins)
+
+* **`/ping`** for latency and a basic liveness check.
+* **`/help`** that enumerates your registered commands dynamically.
+
+**`src/commands/ping.js`**
+
+```js
+'use strict';
+const { SlashCommandBuilder } = require('discord.js');
+
+module.exports = {
+  data: new SlashCommandBuilder().setName('ping').setDescription('Latency & liveness check'),
+  cooldownMs: 1000,
+  async execute(interaction) {
+    const sent = Date.now();
+    const msg = await interaction.reply({ content: 'Pinging...', fetchReply: true });
+    const latency = Date.now() - sent;
+    const api = Math.round(interaction.client.ws.ping);
+    return interaction.editReply(`Pong! Client ${latency}ms • API ${api}ms`);
+  }
+};
+```
+
+**`src/commands/help.js`**
+
+```js
+'use strict';
+const { SlashCommandBuilder } = require('discord.js');
+
+module.exports = {
+  data: new SlashCommandBuilder().setName('help').setDescription('List available commands'),
+  cooldownMs: 1500,
+  async execute(interaction) {
+    const names = [...interaction.client.commands.keys()].sort();
+    return interaction.reply({ content: `**Commands:** ${names.map(n => '`/'+n+'`').join(' ')}`, ephemeral: true });
+  }
+};
+```
+
+---
+
+## Ship checklist (do this now)
+
+1. Add `scripts/preflight.js` and wire it in `prestart`.
+2. Add `src/lib/cooldown.js` and patch `security-bot.js` as shown.
+3. Add `src/commands/version.js` (and optionally `/ping`, `/help`).
+4. Run:
+
+   ```bash
+   npm run register:commands
+   npm start
    ```
-   npm run refresh:data
-   ```
-3. Patch `/dex` to include the thumbnail line shown above.
-4. Redeploy. You’ll see PokéAPI official art in embeds now; it will auto‑switch to your CDN when you publish your own images.
+5. (Optional) Add the GitHub Action for nightly data health.
 
-This groundwork keeps your code stable while your artists go wild later. Next, we can add **type icons in embeds** and a minimal **sprite‑sheet generator** (when you’re ready to ingest your art with `sharp` into webp/avif + 1x/2x).
+---
+
+## What this unlocks
+
+* You’ll *know* the live ruleset and snapshot quality every deploy.
+* Rate-limits and spam won’t take your bot down.
+* CI will warn you when upstream data changes in surprising ways.
+* Adding new commands is now safe, predictable, and fast.
+

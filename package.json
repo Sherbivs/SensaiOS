@@ -4,6 +4,7 @@
   "description": "Discord bot that auto-assigns the Trainers role to new members.",
   "main": "src/index.js",
   "scripts": {
+    "prestart": "node scripts/preflight.js",
     "start": "node src/index.js",
     "register:commands": "node scripts/register-commands.js",
     "build:assets": "node scripts/build-assets-manifest.js",

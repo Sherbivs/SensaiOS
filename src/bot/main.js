@@ -41,6 +41,7 @@ const {
 const { log: baseLog, report } = require('../utils/logger');
 const { createDripAlertManager, DRIP_ALERT_SEVERITY } = require('./dripAlerts');
 const { loadCommands } = require('../command-loader');
+const { checkAndSet } = require('../lib/cooldown');
 
 cache.cleanOldCache();
 
@@ -1355,6 +1356,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     const cmd = commands.get(interaction.commandName);
     if (!cmd) return interaction.reply({ content: 'Unknown command.', ephemeral: true });
+    // Per-user per-command cooldown (default 2000ms unless overridden)
+    const cdMs = typeof cmd.cooldownMs === 'number' ? cmd.cooldownMs : 2000;
+    const gate = checkAndSet(interaction.user.id, interaction.commandName, cdMs);
+    if (!gate.ok) {
+      const secs = Math.ceil(gate.waitMs / 1000);
+      return interaction.reply({ content: `Slow down — ${secs}s cooldown`, ephemeral: true });
+    }
     await cmd.execute(interaction);
   } catch (err) {
     console.error('[commands] handler error:', err);
