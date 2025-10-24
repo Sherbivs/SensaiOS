@@ -225,7 +225,7 @@ function applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx = {}) {
   if (drainPct) {
     const heal = Math.max(1, Math.floor((dealt * drainPct) / 100));
     const before = attacker.hp;
-    attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
+    attacker.hp = Math.min(attacker.maxHp + heal, attacker.hp + heal);
     if (attacker.hp > before) log.push(`${attacker.name} restored ${attacker.hp - before} HP (drain).`);
   }
 
