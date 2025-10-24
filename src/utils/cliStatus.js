@@ -2,9 +2,14 @@ const os = require('node:os');
 const readline = require('node:readline');
 
 const activityTracker = require('./activityTracker');
+const opsNotifier = require('./opsNotifier');
 
 const UPDATE_INTERVAL_MS = 1000;
 const HEADER = 'Infinity Gauntlet Ops Monitor';
+
+const initialErrors = typeof opsNotifier?.getRecentErrors === 'function'
+  ? opsNotifier.getRecentErrors()
+  : [];
 
 const state = {
   startedAt: new Date(),
@@ -13,12 +18,14 @@ const state = {
   sections: new Map(),
   activityStats: null,
   recentActivities: [],
+  recentErrors: initialErrors,
 };
 
 const SIMPLE_MODE = !(process.stdout && process.stdout.isTTY && process.stderr && process.stderr.isTTY);
 
 let intervalHandle = null;
 let unsubscribe = null;
+let unsubscribeErrors = null;
 let lastOutputWasDot = false;
 let lastRenderLines = 0;
 let isRendering = false;
@@ -161,6 +168,28 @@ function buildActivityLines() {
   return lines;
 }
 
+function buildErrorLines() {
+  if (!Array.isArray(state.recentErrors) || state.recentErrors.length === 0) {
+    return [];
+  }
+  const latest = state.recentErrors.slice(-3).reverse();
+  const lines = ['Alerts'];
+  for (const entry of latest) {
+    const when = formatTimestamp(entry.timestamp);
+    const parts = [];
+    if (entry.detail) {
+      parts.push(entry.detail);
+    }
+    if (entry.source) {
+      parts.push(`source: ${entry.source}`);
+    }
+    parts.push(when);
+    lines.push(`  • ${entry.message}`);
+    lines.push(`    ${parts.filter(Boolean).join(' • ')}`);
+  }
+  return lines;
+}
+
 function buildDisplayLines() {
   const now = new Date();
   const uptime = formatDuration(now - state.startedAt);
@@ -176,6 +205,12 @@ function buildDisplayLines() {
   if (sectionLines.length > 0) {
     lines.push('');
     lines.push(...sectionLines);
+  }
+
+  const errorLines = buildErrorLines();
+  if (errorLines.length > 0) {
+    lines.push('');
+    lines.push(...errorLines);
   }
 
   const activityLines = buildActivityLines();
@@ -237,6 +272,16 @@ function handleActivityUpdate(stats) {
   }
 }
 
+function handleOpsErrorUpdate() {
+  if (typeof opsNotifier?.getRecentErrors !== 'function') {
+    return;
+  }
+  state.recentErrors = opsNotifier.getRecentErrors();
+  if (!SIMPLE_MODE && displayActive) {
+    render();
+  }
+}
+
 function startStatusDisplay() {
   if (displayActive) {
     return;
@@ -247,6 +292,13 @@ function startStatusDisplay() {
 
   if (typeof activityTracker.subscribe === 'function') {
     unsubscribe = activityTracker.subscribe(handleActivityUpdate);
+  }
+
+  if (typeof opsNotifier?.subscribe === 'function' && !unsubscribeErrors) {
+    unsubscribeErrors = opsNotifier.subscribe(handleOpsErrorUpdate);
+    if (typeof opsNotifier.getRecentErrors === 'function') {
+      state.recentErrors = opsNotifier.getRecentErrors();
+    }
   }
 
   if (!SIMPLE_MODE) {
@@ -272,6 +324,11 @@ function stopStatusDisplay() {
   if (unsubscribe) {
     unsubscribe();
     unsubscribe = null;
+  }
+
+  if (unsubscribeErrors) {
+    unsubscribeErrors();
+    unsubscribeErrors = null;
   }
 
   if (!displayActive) {

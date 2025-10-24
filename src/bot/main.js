@@ -6,6 +6,7 @@ const https = require('node:https');
 const cache = require('../services/cache');
 const activityTracker = require('../utils/activityTracker');
 const cliStatus = require('../utils/cliStatus');
+const opsNotifier = require('../utils/opsNotifier');
 const {
   CLI_DEBUG_MODE,
   ROLE_PERMISSIONS_AUDIT,
@@ -65,6 +66,322 @@ const describeUser = (user) => {
   const tag = user.tag || user.username || 'unknown';
   return `${tag} (#${user.id})`;
 };
+
+const securityCliState = {
+  status: 'Booting',
+  lastSweepStartedAt: null,
+  lastSweepCompletedAt: null,
+  lastSweepDurationMs: null,
+  lastSweepOrigin: null,
+  lastSweepGuild: null,
+  lastSweepCandidates: 0,
+  lastSweepAssigned: 0,
+  lastSweepFailed: 0,
+  lastSweepResult: null,
+  totalSweeps: 0,
+  totalAssignments: 0,
+  totalFailures: 0,
+  lastAlertSentAt: null,
+  lastAlertMessage: null,
+};
+
+const pendingOpsErrorQueue = [];
+const deliveredOpsErrorIds = new Set();
+let deliveringOpsErrors = false;
+let opsErrorRetryTimer = null;
+
+function isClientReady() {
+  if (typeof client.isReady === 'function') {
+    return client.isReady();
+  }
+  return Boolean(client.readyAt);
+}
+
+function formatDurationShort(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return '0s';
+  }
+  const totalSeconds = Math.floor(ms / 1000);
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m ${seconds.toString().padStart(2, '0')}s`;
+  }
+  const totalHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (totalHours < 48) {
+    return `${totalHours}h ${minutes.toString().padStart(2, '0')}m`;
+  }
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  return `${days}d ${hours}h`;
+}
+
+function describeMomentForCli(value) {
+  if (!value) {
+    return 'never';
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'unknown';
+  }
+  const diff = Date.now() - date.getTime();
+  const abs = Math.abs(diff);
+  let relative;
+  if (abs < 1000) {
+    relative = 'just now';
+  } else if (abs < 60_000) {
+    relative = `${Math.floor(abs / 1000)}s ${diff >= 0 ? 'ago' : 'from now'}`;
+  } else if (abs < 3_600_000) {
+    relative = `${Math.floor(abs / 60_000)}m ${diff >= 0 ? 'ago' : 'from now'}`;
+  } else if (abs < 86_400_000) {
+    relative = `${Math.floor(abs / 3_600_000)}h ${diff >= 0 ? 'ago' : 'from now'}`;
+  } else {
+    relative = `${Math.floor(abs / 86_400_000)}d ${diff >= 0 ? 'ago' : 'from now'}`;
+  }
+  return `${date.toLocaleString()} (${relative})`;
+}
+
+function updateSecurityCliSection(overrides = {}) {
+  Object.assign(securityCliState, overrides);
+  const metrics = [];
+  if (client?.user?.tag) {
+    metrics.push(['identity', client.user.tag]);
+  }
+  const guildCount = client?.guilds?.cache?.size ?? 0;
+  metrics.push(['guilds', guildCount]);
+
+  if (securityCliState.lastSweepCompletedAt) {
+    const target = securityCliState.lastSweepGuild || 'unknown guild';
+    const origin = securityCliState.lastSweepOrigin || 'unspecified';
+    metrics.push(['last sweep', `${target} via ${origin}`]);
+    metrics.push(['sweep finished', describeMomentForCli(securityCliState.lastSweepCompletedAt)]);
+    if (Number.isFinite(securityCliState.lastSweepDurationMs)) {
+      metrics.push(['sweep duration', formatDurationShort(securityCliState.lastSweepDurationMs)]);
+    }
+    const parts = [];
+    if (securityCliState.lastSweepCandidates) {
+      parts.push(`${securityCliState.lastSweepAssigned}/${securityCliState.lastSweepCandidates} assigned`);
+    } else {
+      parts.push(`${securityCliState.lastSweepAssigned} assigned`);
+    }
+    if (securityCliState.lastSweepFailed) {
+      parts.push(`${securityCliState.lastSweepFailed} failed`);
+    }
+    if (securityCliState.lastSweepResult) {
+      parts.push(securityCliState.lastSweepResult);
+    }
+    metrics.push(['sweep result', parts.filter(Boolean).join(' • ') || 'no changes']);
+  } else if (securityCliState.lastSweepStartedAt) {
+    metrics.push(['sweep started', describeMomentForCli(securityCliState.lastSweepStartedAt)]);
+    if (securityCliState.lastSweepOrigin) {
+      metrics.push(['sweep origin', securityCliState.lastSweepOrigin]);
+    }
+  }
+
+  metrics.push(['sweeps', securityCliState.totalSweeps]);
+  metrics.push(['assigned total', securityCliState.totalAssignments]);
+  if (securityCliState.totalFailures > 0) {
+    metrics.push(['failed total', securityCliState.totalFailures]);
+  }
+
+  if (securityCliState.lastAlertSentAt) {
+    metrics.push(['last alert', describeMomentForCli(securityCliState.lastAlertSentAt)]);
+    if (securityCliState.lastAlertMessage) {
+      metrics.push(['alert message', securityCliState.lastAlertMessage]);
+    }
+  }
+
+  cliStatus.setSection('security', {
+    title: 'Security Bot',
+    status: securityCliState.status,
+    metrics,
+  });
+}
+
+function beginSecuritySweep(guild, origin) {
+  const startedAt = new Date();
+  updateSecurityCliSection({
+    status: `Sweeping ${guild.name}`,
+    lastSweepStartedAt: startedAt,
+    lastSweepOrigin: origin,
+    lastSweepGuild: describeGuild(guild),
+    lastSweepCandidates: 0,
+    lastSweepAssigned: 0,
+    lastSweepFailed: 0,
+    lastSweepResult: 'in progress',
+  });
+  return startedAt;
+}
+
+function completeSecuritySweep({ startedAt, assigned = 0, failed = 0, candidates = 0, reason = 'completed' }) {
+  const completedAt = new Date();
+  const durationMs = startedAt instanceof Date ? completedAt - startedAt : null;
+  updateSecurityCliSection({
+    lastSweepCompletedAt: completedAt,
+    lastSweepDurationMs: durationMs,
+    lastSweepAssigned: assigned,
+    lastSweepFailed: failed,
+    lastSweepCandidates: candidates,
+    lastSweepResult: reason,
+    totalSweeps: securityCliState.totalSweeps + 1,
+    totalAssignments: securityCliState.totalAssignments + Math.max(0, assigned),
+    totalFailures: securityCliState.totalFailures + Math.max(0, failed),
+  });
+}
+
+function safeSerialize(value, limit = 1800) {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  try {
+    const serialized = JSON.stringify(value, (key, val) => {
+      if (typeof val === 'bigint') {
+        return val.toString();
+      }
+      if (val instanceof Map) {
+        return Object.fromEntries(val.entries());
+      }
+      if (val instanceof Set) {
+        return Array.from(val.values());
+      }
+      return val;
+    }, 2);
+    if (!serialized) {
+      return undefined;
+    }
+    if (serialized.length <= limit) {
+      return serialized;
+    }
+    return `${serialized.slice(0, limit - 3)}...`;
+  } catch (error) {
+    return undefined;
+  }
+}
+
+function buildOpsErrorMeta(event) {
+  const meta = {
+    id: event.id,
+    occurredAt: event.timestamp instanceof Date ? event.timestamp.toISOString() : new Date().toISOString(),
+  };
+  if (event.detail) {
+    meta.detail = event.detail;
+  }
+  if (event.source) {
+    meta.source = event.source;
+  }
+  if (event.context && Object.keys(event.context).length) {
+    const serialized = safeSerialize(event.context);
+    if (serialized) {
+      meta.context = serialized;
+    }
+  }
+  return meta;
+}
+
+function scheduleOpsErrorRetry() {
+  if (opsErrorRetryTimer) {
+    return;
+  }
+  opsErrorRetryTimer = setTimeout(() => {
+    opsErrorRetryTimer = null;
+    if (isClientReady()) {
+      void deliverOpsErrors();
+    }
+  }, 10_000);
+  opsErrorRetryTimer.unref?.();
+}
+
+function queueOpsError(event) {
+  if (!event || event.skipAlert || event.source === 'drip-alerts') {
+    return;
+  }
+  if (deliveredOpsErrorIds.has(event.id)) {
+    return;
+  }
+  if (pendingOpsErrorQueue.some((item) => item.id === event.id)) {
+    return;
+  }
+  pendingOpsErrorQueue.push({ ...event, attempts: event.attempts || 0 });
+  updateSecurityCliSection({
+    lastAlertMessage: `queued: ${event.message}`,
+  });
+  if (isClientReady()) {
+    void deliverOpsErrors();
+  }
+}
+
+async function deliverOpsErrors() {
+  if (deliveringOpsErrors) {
+    return;
+  }
+  deliveringOpsErrors = true;
+  try {
+    while (pendingOpsErrorQueue.length > 0) {
+      if (!isClientReady() || !dripAlertManager) {
+        break;
+      }
+      const event = pendingOpsErrorQueue.shift();
+      if (!event) {
+        continue;
+      }
+      if (deliveredOpsErrorIds.has(event.id) || event.skipAlert || event.source === 'drip-alerts') {
+        deliveredOpsErrorIds.add(event.id);
+        continue;
+      }
+      try {
+        const meta = buildOpsErrorMeta(event);
+        const title = `Ops Error: ${event.message}`;
+        const success = await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.critical, title, meta);
+        if (success === false) {
+          event.attempts = (event.attempts || 0) + 1;
+          if (event.attempts < 3) {
+            pendingOpsErrorQueue.push(event);
+            updateSecurityCliSection({
+              lastAlertMessage: `retry pending: ${event.message}`,
+            });
+            scheduleOpsErrorRetry();
+          } else {
+            deliveredOpsErrorIds.add(event.id);
+          }
+          break;
+        }
+        deliveredOpsErrorIds.add(event.id);
+        updateSecurityCliSection({
+          lastAlertSentAt: new Date(),
+          lastAlertMessage: event.message,
+        });
+      } catch (error) {
+        event.attempts = (event.attempts || 0) + 1;
+        if (event.attempts < 3) {
+          pendingOpsErrorQueue.push(event);
+          updateSecurityCliSection({
+            lastAlertMessage: `retry pending: ${event.message}`,
+          });
+          scheduleOpsErrorRetry();
+        } else {
+          deliveredOpsErrorIds.add(event.id);
+        }
+        log('error', 'Ops error alert dispatch failed', mergeLogError({ originalMessage: event.message }, error));
+        break;
+      }
+    }
+  } finally {
+    deliveringOpsErrors = false;
+  }
+}
+
+if (opsNotifier && typeof opsNotifier.subscribe === 'function') {
+  opsNotifier.subscribe(queueOpsError);
+  if (typeof opsNotifier.getRecentErrors === 'function') {
+    opsNotifier.getRecentErrors().forEach(queueOpsError);
+  }
+}
+
+updateSecurityCliSection();
 
 function mergeLogError(base, error) {
   if (error instanceof Error) {
@@ -308,6 +625,7 @@ function updateMonitoringPhase() {
   const label = `Monitoring ${count} guild${count === 1 ? '' : 's'}`;
   cliStatus.setPhase(label);
   cliStatus.setGuildCount(count);
+  updateSecurityCliSection({ status: label });
 }
 
 const STANDARD_PERMISSIONS = {
@@ -689,6 +1007,11 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
 async function sweepGuild(guild, origin) {
   const guildSummary = describeGuild(guild);
   cliStatus.setPhase(`Sweeping ${guild.name} (${origin})`);
+  const sweepStartedAt = beginSecuritySweep(guild, origin);
+  let success = 0;
+  let failed = 0;
+  let candidates = 0;
+  let sweepOutcome = 'completed';
   report('Sweep Start', { origin, guild: guildSummary });
 
   try {
@@ -703,15 +1026,18 @@ async function sweepGuild(guild, origin) {
         origin,
         guild: guildSummary,
       }, error), 'error');
+      sweepOutcome = 'members fetch failed';
       return;
     }
 
     const toAssign = guild.members.cache.filter(member => hasNoAssignableRoles(member));
+    candidates = toAssign.size;
     if (toAssign.size === 0) {
       report('Sweep No-Op', {
         origin,
         guild: guildSummary
       });
+      sweepOutcome = 'no candidates';
       return;
     }
 
@@ -723,6 +1049,7 @@ async function sweepGuild(guild, origin) {
         roleName: ROLE_NAME,
         roleId: ROLE_ID || 'resolved at runtime'
       }, 'warn');
+      sweepOutcome = 'role missing';
       return;
     }
 
@@ -739,8 +1066,6 @@ async function sweepGuild(guild, origin) {
     });
 
     const members = Array.from(toAssign.values());
-    let success = 0;
-    let failed = 0;
 
     for (let i = 0; i < members.length; i += BACKFILL_CONCURRENCY) {
       const batch = members.slice(i, i + BACKFILL_CONCURRENCY);
@@ -800,7 +1125,15 @@ async function sweepGuild(guild, origin) {
       origin,
       guild: guildSummary,
     }, error), 'error');
+    sweepOutcome = 'error';
   } finally {
+    completeSecuritySweep({
+      startedAt: sweepStartedAt,
+      assigned: success,
+      failed,
+      candidates,
+      reason: sweepOutcome,
+    });
     updateMonitoringPhase();
   }
 }
@@ -906,11 +1239,15 @@ client.once(Events.ClientReady, async () => {
     connectedAs: client.user.tag,
     userId: client.user.id,
   });
+  updateSecurityCliSection({ status: `Ready as ${client.user.tag}` });
   updateMonitoringPhase();
   await notifyServiceRestart();
   scheduleDailySummaryReports();
   if (dripAlertManager) {
     dripAlertManager.start();
+  }
+  if (isClientReady()) {
+    void deliverOpsErrors();
   }
 
   report('Runtime Configuration', {
@@ -941,6 +1278,7 @@ client.once(Events.ClientReady, async () => {
     updateMonitoringPhase();
   } else {
     cliStatus.setPhase('Startup sweep');
+    updateSecurityCliSection({ status: 'Startup sweep' });
     for (const [, guild] of client.guilds.cache) {
       if (ROLE_PERMISSIONS_AUDIT) {
         await reportGuildRoles(guild);
@@ -960,6 +1298,7 @@ client.once(Events.ClientReady, async () => {
     const cycleStarted = new Date().toISOString();
     report('Periodic Sweep Start', { cycleStarted });
     cliStatus.setPhase('Periodic sweep cycle');
+    updateSecurityCliSection({ status: 'Periodic sweep cycle' });
     for (const [, guild] of client.guilds.cache) {
       await sweepGuild(guild, 'periodic');
     }
@@ -1221,6 +1560,7 @@ function startSecurityBot({ token: tokenOverride } = {}) {
 
   report('Login Start', {});
   cliStatus.setPhase('Connecting to Discord');
+  updateSecurityCliSection({ status: 'Connecting to Discord' });
   loginPromise = client.login(token);
   loginPromise.catch(() => {
     loginPromise = null;

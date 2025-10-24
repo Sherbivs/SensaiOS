@@ -47,7 +47,15 @@ function createDripAlertManager({
 
   function logContext(level, message, context = {}) {
     if (typeof log === 'function') {
-      log(level, message, context);
+      const payload = level === 'error'
+        ? {
+            ...context,
+            opsNotificationSource: context && context.opsNotificationSource
+              ? context.opsNotificationSource
+              : 'drip-alerts',
+          }
+        : context;
+      log(level, message, payload);
     }
   }
 
