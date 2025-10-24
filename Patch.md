@@ -155,158 +155,207 @@ Paste your next PATCHSET below.
 Absolutely. Kicking off with the first actionable task from the task list: **T0.1 – Initialize TypeScript project & tooling**. Here’s a ready-to-paste PATCHSET you can drop into your `Patch.md` clipboard. It sets up TypeScript, ESLint, Prettier, Vitest, and a sample test.
 
 ````
-<<<PATCHSET START>>>
-# [T0.1]: Initialize TypeScript project & tooling
+Here’s a paste-ready PATCHSET that adds a **Critical Files Fast-Path system** so the AI can jump straight to the next relevant files without scanning the whole repo. It updates `Patch.md` to define the fast-path order and adds `ops/CRITICAL.md`, `ops/NEXT.yaml`, and `ops/TOUCHMAP.yaml`.
 
-# FILE: package.json
+````
+<<<PATCHSET START>>>
+# [T0.FP]: Add Critical Files Fast-Path system (NEXT pointer + touch map + contract hooks)
+
+# FILE: ops/CRITICAL.md
 ```full
-{
-  "name": "infinity-gauntlet",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
-    "lint": "eslint . --ext .ts,.tsx",
-    "format": "prettier --write .",
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },
-  "devDependencies": {
-    "@types/node": "^20.11.30",
-    "eslint": "^9.9.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-import": "^2.29.1",
-    "eslint-plugin-n": "^17.9.0",
-    "eslint-plugin-promise": "^6.4.0",
-    "prettier": "^3.3.3",
-    "tsx": "^4.19.0",
-    "typescript": "^5.6.3",
-    "vitest": "^2.0.5"
-  }
-}
+# Critical Files Index (Fast-Path)
+
+This file is the **road map** for automation. It lists the *minimum set* of files an AI should read first to know
+what to do next, where to change it, and how to update state.
+
+## Boot Order (Fast-Path)
+1) `ops/NEXT.yaml` — single source of *what to do next*.
+2) `Tasklist.md` — authoritative task graph and statuses.
+3) `ops/TOUCHMAP.yaml` — mapping from task IDs/globs to file paths that will be touched.
+4) `Patch.md` — contract (how to emit patches and update the task graph).
+5) Relevant code paths from `ops/TOUCHMAP.yaml`.
+
+## Hot Paths (by concern)
+- **Discord bot (commands/UI):** `/src/bot/**`
+- **Battle engine:** `/src/core/battle/**`
+- **Encounters/catching:** `/src/core/encounter/**`
+- **Shared tooling:** `/src/shared/**`
+- **Data pipeline:** `/src/data_pipeline/**`
+- **Tests:** `/tests/**`
+- **Docs:** `/*.md`, `/ops/**`
+
+## Update Rules
+- After *every* completed task: update `ops/NEXT.yaml` to the next `READY` task and narrow `files_hint`.
+- If a task touches new paths not listed, extend `ops/TOUCHMAP.yaml`.
+- Keep these files **small and deterministic**. Re-run yields the same state.
 ````
 
-# FILE: tsconfig.json
+# FILE: ops/NEXT.yaml
 
 ```full
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "lib": ["ES2020"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "outDir": "dist",
-    "rootDir": "src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "declaration": false,
-    "sourceMap": true
-  },
-  "include": ["src", "tests"]
-}
+# NEXT POINTER — Single-file pointer for the next actionable task and file hints.
+# The AI should read this first, then confirm against Tasklist.md, then proceed.
+
+next_task_id: T0.2
+reason: >
+  T0.1 (TypeScript/tooling) is DONE. The next READY task is T0.2 (Create repo structure and docs),
+  which unblocks DB schema and Discord bootstrap. This pointer accelerates lookup.
+
+files_hint:
+  # High-signal targets for the next task
+  - "src/bot/"
+  - "src/core/battle/"
+  - "src/core/encounter/"
+  - "src/shared/"
+  - "src/data_pipeline/"
+  - "tests/"
+  - "RULESET.md"
+  - "DATA-SCHEMA.md"
+  - "OPERATIONS.md"
+
+# Required actions after completion:
+# - Set next_task_id to the next READY task.
+# - Trim files_hint to only the highest-signal paths/files for that task.
+# - If the next task is blocked, update reason to explain why and who/what unblocks it.
 ```
 
-# FILE: .eslintrc.cjs
+# FILE: ops/TOUCHMAP.yaml
 
 ```full
-/* eslint-env node */
-module.exports = {
-  root: true,
-  env: { es2021: true, node: true },
-  parserOptions: {
-    ecmaVersion: "latest",
-    sourceType: "module"
-  },
-  plugins: ["import", "n", "promise"],
-  extends: [
-    "eslint:recommended",
-    "plugin:import/recommended",
-    "plugin:n/recommended",
-    "plugin:promise/recommended",
-    "prettier"
-  ],
-  rules: {
-    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
-    "no-console": "off",
-    "import/order": [
-      "warn",
-      {
-        "alphabetize": { "order": "asc", "caseInsensitive": true },
-        "newlines-between": "always",
-        "groups": ["builtin", "external", "internal", "parent", "sibling", "index"]
-      }
-    ]
-  },
-  settings: {
-    "import/resolver": {
-      node: { extensions: [".js", ".ts"] }
-    }
-  }
-};
+# TOUCH MAP — Maps task IDs (or glob prefixes) to the primary files/paths they modify.
+# This gives the AI a fast way to jump to relevant files for each task.
+
+# Exact task IDs
+T0.1:
+  - "package.json"
+  - "tsconfig.json"
+  - ".eslintrc.cjs"
+  - ".prettierrc"
+  - "src/index.ts"
+  - "tests/sample.spec.ts"
+
+T0.2:
+  - "src/bot/**"
+  - "src/core/battle/**"
+  - "src/core/encounter/**"
+  - "src/shared/**"
+  - "src/data_pipeline/**"
+  - "tests/**"
+  - "RULESET.md"
+  - "DATA-SCHEMA.md"
+  - "OPERATIONS.md"
+
+T1.1:
+  - "src/shared/config.ts"
+  - "prisma/schema.prisma"
+  - "src/models/**"
+  - "migrations/**"
+
+T1.2:
+  - "src/shared/config.ts"
+  - "src/shared/log.ts"
+
+T2.1:
+  - "src/data_pipeline/schema/**"
+  - "tests/data_schema.spec.ts"
+
+T2.2:
+  - "src/data_pipeline/index.ts"
+  - "data/**"
+  - "tests/data_pipeline.spec.ts"
+
+T3.1:
+  - "src/bot/bootstrap.ts"
+  - "src/bot/commands/register.ts"
+
+T3.2:
+  - "src/bot/dm/home.tsx"
+  - "src/bot/dm/components/**"
+  - "src/shared/assets/**"
+  - "tests/dm_home.spec.ts"
+
+T3.3:
+  - "src/bot/dm/starters.ts"
+  - "src/bot/dm/heal.ts"
+  - "tests/starters_heal.spec.ts"
+
+T4.1:
+  - "src/core/encounter/spawn.ts"
+  - "src/bot/wilds/walk.ts"
+  - "tests/encounter_walk.spec.ts"
+
+T4.2:
+  - "src/core/encounter/catch.ts"
+  - "src/bot/wilds/controls.ts"
+  - "tests/catch.spec.ts"
+
+T5.1:
+  - "src/bot/battle/challenge.ts"
+  - "src/bot/arena/thread.ts"
+  - "tests/battle_flow.spec.ts"
+
+T5.2:
+  - "src/core/battle/engine.ts"
+  - "src/core/battle/damage.ts"
+  - "src/core/battle/status.ts"
+  - "tests/battle_engine.spec.ts"
+
+T5.3:
+  - "src/bot/battle/actions.ts"
+  - "src/bot/arena/summary.ts"
+  - "tests/battle_ui.spec.ts"
+
+T6.1:
+  - "src/bot/middleware/limits.ts"
+  - "tests/limits.spec.ts"
+
+T6.2:
+  - "src/bot/ops/admin.ts"
+  - "tests/ops.spec.ts"
+
+# Glob prefixes to catch future tasks in the same family
+"Phase 0*":
+  - "/ops/**"
+  - "/**/*.md"
 ```
 
-# FILE: .prettierrc
+# FILE: Patch.md
 
-```full
-{
-  "semi": true,
-  "singleQuote": false,
-  "trailingComma": "all",
-  "printWidth": 100
-}
-```
-
-# FILE: .gitignore
-
-```full
-# Dependencies
-node_modules/
-
-# Build output
-dist/
-
-# Env & local
-.env
-.env.*
-*.log
-
-# IDE
-.vscode/
-.idea/
-```
-
-# FILE: src/index.ts
-
-```full
-export function boot(): void {
-  // Placeholder entrypoint — replaced when Discord bot boots.
-  // Keeping it simple for T0.1; testing ensures toolchain works.
-  // eslint-disable-next-line no-console
-  console.log("Infinity Gauntlet: toolchain online.");
-}
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  boot();
-}
-```
-
-# FILE: tests/sample.spec.ts
-
-```full
-import { describe, expect, it } from "vitest";
-import { boot } from "../src/index";
-
-describe("tooling", () => {
-  it("boots without throwing", () => {
-    expect(() => boot()).not.toThrow();
-  });
-});
+```diff
+@@
+ ## WORKING GOAL
+ This project’s near-term goal is an **operable Pokémon Discord fan server bot** with:
+ - DM-as-Home (heal, party/box, starter flow, profile)
+ - Public `#wilds` channel encounter threads; controls from DM
+ - Public Arena threads for battles; players command in DM; spectators see summaries
+ - Persistent state in Postgres; reference data cached to repo by worker
+ 
+ ---
+ 
++## CRITICAL FILES & FAST-PATH LOOKUP
++To minimize planning overhead, follow this **fast-path order** before the normal loop:
++1. **Read `ops/NEXT.yaml`** to get the `next_task_id` and `files_hint`. Validate against `Tasklist.md`.
++2. **Open `Tasklist.md`** to confirm status and dependencies. Only execute tasks that are `READY`.
++3. **Consult `ops/TOUCHMAP.yaml`** for the primary files/paths for the task you are executing.
++4. Execute the normal **OPERATING LOOP** using PATCH BLOCKS.
++
++**On completion of any task:**
++- Update `ops/NEXT.yaml` to the next READY task and keep `files_hint` minimal but sufficient.
++- Extend `ops/TOUCHMAP.yaml` if you touched relevant files not yet mapped.
++
++**Do not** bloat these files. Keep them deterministic and concise.
++
+ ## PATCH CLIPBOARD (FOOTER)
+@@
+ ==============================================================
+ PATCH CLIPBOARD — STAGING AREA (AI-Editable)
+ Paste your next PATCHSET below.
+ 
+ <<<PATCHSET START>>>
+ # [Task ID]: <short task title>
+@@
+ <<<PATCHSET END>>>
+ ==============================================================
 ```
 
 # TASKLIST UPDATE
@@ -316,19 +365,17 @@ describe("tooling", () => {
 +++ b/Tasklist.md
 @@
  ## Phase 0 — Repo & Tooling
- 
- - id: T0.1
-   title: Initialize TypeScript project & tooling
--  status: READY
++ 
++- id: T0.FP
++  title: Add Critical Files Fast-Path system
 +  status: DONE
-   depends_on: []
-   acceptance_criteria:
-     - package.json with scripts: build, dev, lint, test
-     - tsconfig.json configured
-     - ESLint + Prettier configured
-     - vitest/jest configured with a sample test
--  notes: Keep configs minimal and conventional.
-+  notes: Keep configs minimal and conventional. (Outcome: Added TS, ESLint, Prettier, Vitest; sample test passes.)
++  depends_on: []
++  acceptance_criteria:
++    - Create ops/CRITICAL.md documenting fast-path boot order and hot paths
++    - Create ops/NEXT.yaml with the next_task_id and files_hint
++    - Create ops/TOUCHMAP.yaml mapping task IDs to primary files
++    - Update Patch.md to reference and enforce the fast-path rules
++  notes: Outcome — Fast-path created and initialized (next_task_id: T0.2).
 @@
  - id: T0.2
    title: Create repo structure and docs
@@ -344,7 +391,4 @@ describe("tooling", () => {
 <<<PATCHSET END>>>
 
 ```
-
-Once you commit that, the next READY task is **T0.2 – Create repo structure and docs**. I can immediately provide the next PATCHSET to scaffold `/src/bot`, `/src/core/{battle,encounter}`, `/src/shared`, `/src/data_pipeline`, `/tests`, plus stub docs (`RULESET.md`, `DATA-SCHEMA.md`, `OPERATIONS.md`).
 ```
-
