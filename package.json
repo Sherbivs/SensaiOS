@@ -8,7 +8,7 @@
     "cache": "node src/cache/index.js",
     "cache:fetch": "node ./scripts/fetch_pokemon.mjs",
     "cache:refresh": "node ./scripts/refresh_cache.mjs",
-    "cache:replicate": "node ./scripts/replicate_to_repo.mjs"
+    "cache:replicate": "node ./scripts/replicate_to_repo_api.mjs"
   },
   "dependencies": {
     "axios": "^1.7.7",
@@ -16,7 +16,7 @@
     "dotenv": "^16.4.5",
     "fs-extra": "^11.1.1",
     "node-cron": "^3.0.3",
-    "simple-git": "^3.22.0"
+    "octokit": "^4.0.2"
   },
   "engines": {
     "node": ">=18"
