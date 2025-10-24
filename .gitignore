@@ -1,13 +1,21 @@
+# Dependencies
 node_modules/
+
+# Build output
+dist/
+
+# Env & local
 .env
-.DS_Store
-Store/
-data/pokemon.json
-data/pokemon.min.json
+.env.*
+*.log
 logs/
 coverage/
-*.log
-node_modules
-.env
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+.DS_Store
 Store/
 # keep data tracked – do NOT ignore /data
