@@ -45,6 +45,16 @@ Each task has:
     - Docs: RULESET.md, DATA-SCHEMA.md, OPERATIONS.md created with stubs
   notes: Created /src/core/{battle,encounter}, /src/shared, /src/data_pipeline; added RULESET.md, DATA-SCHEMA.md, OPERATIONS.md stubs.
 
+- id: T0.3
+  title: Add Prompt.md environment scaffold
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - Create root-level Prompt.md capturing purpose, objectives, deliverables, constraints, and discovery questionnaire
+    - Include output structure, feedback loop, example prompts, and acceptance criteria
+    - Optional project hints tailored to this repo (Node.js + TS, Postgres, Render, Discord bot)
+  notes: Prompt.md added and referenced in ops/CRITICAL.md as a contextual doc.
+
 ## Phase 1 — Render & DB
 
 - id: T1.1

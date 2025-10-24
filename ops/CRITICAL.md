@@ -10,6 +10,9 @@ what to do next, where to change it, and how to update state.
 4) `Patch.md` — contract (how to emit patches and update the task graph).
 5) Relevant code paths from `ops/TOUCHMAP.yaml`.
 
+Reference:
+- `Prompt.md` — Environment overview scaffold and discovery questionnaire for system-level documentation.
+
 ## Hot Paths (by concern)
 - **Discord bot (commands/UI):** `/src/bot/**`
 - **Battle engine:** `/src/core/battle/**`
