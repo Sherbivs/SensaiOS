@@ -16,14 +16,14 @@ Each task has:
 
 - id: T0.1
   title: Initialize TypeScript project & tooling
-  status: READY
+  status: DONE
   depends_on: []
   acceptance_criteria:
     - package.json with scripts: build, dev, lint, test
     - tsconfig.json configured
     - ESLint + Prettier configured
     - vitest/jest configured with a sample test
-  notes: Keep configs minimal and conventional.
+  notes: Keep configs minimal and conventional. (Outcome: Added TS toolchain, linting, Prettier, Vitest sample test.)
 
 - id: T0.2
   title: Create repo structure and docs
