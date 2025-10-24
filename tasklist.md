@@ -45,6 +45,38 @@ Each task has:
     - Docs: RULESET.md, DATA-SCHEMA.md, OPERATIONS.md created with stubs
   notes: Created /src/core/{battle,encounter}, /src/shared, /src/data_pipeline; added RULESET.md, DATA-SCHEMA.md, OPERATIONS.md stubs.
 
+- id: T0.DOCPROMPT
+  title: Add Prompt.md and integrate it into fast-path docs
+  status: DONE
+  depends_on: [T0.FP]
+  acceptance_criteria:
+    - Prompt.md created at repo root with purpose, objectives, deliverables, constraints, questionnaire, and output structure
+    - ops/CRITICAL.md updated to include Prompt.md in boot order
+    - Patch.md updated to reference Prompt.md in the fast-path and completion rules
+    - ops/TOUCHMAP.yaml includes Prompt.md under relevant tasks
+  notes: Outcome — Prompt.md added and wired into fast-path; AI can use it to understand and document system state.
+
+- id: T0.DOCPROMPT.V2
+  title: Evolve Prompt.md to AI brain grade and add ops/KNOWLEDGE.yaml
+  status: DONE
+  depends_on: [T0.DOCPROMPT]
+  acceptance_criteria:
+    - Prompt.md includes Evidence Matrix, Assumptions/TBD Register, Validation Checklist, Diagram Conventions
+    - ops/KNOWLEDGE.yaml added mapping domains to truth sources and paths
+    - ops/CRITICAL.md and Patch.md reference the knowledge map and update rules
+    - TOUCHMAP includes the new file
+  notes: Outcome — Prompt.md upgraded; knowledge map added; fast-path enriched for maximal AI leverage.
+
+- id: T0.PATCHPOLICY
+  title: Add explicit policy for updating Patch.md and Tasklist.md
+  status: DONE
+  depends_on: [T0.DOCPROMPT.V2]
+  acceptance_criteria:
+    - Patch.md includes a "Modification Policy" section covering when/how to edit Patch.md and Tasklist.md
+    - ops/CRITICAL.md documents the contract & task graph update policy
+    - ops/TOUCHMAP.yaml maps T0.PATCHPOLICY to Patch.md, Tasklist.md, and ops/CRITICAL.md
+  notes: Outcome — Clear, enforceable instructions exist for meta updates; future AIs can evolve the contract and task graph safely.
+
 - id: T0.3
   title: Add Prompt.md environment scaffold
   status: DONE

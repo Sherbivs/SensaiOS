@@ -8,10 +8,9 @@ what to do next, where to change it, and how to update state.
 2) `Tasklist.md` — authoritative task graph and statuses.
 3) `ops/TOUCHMAP.yaml` — mapping from task IDs/globs to file paths that will be touched.
 4) `Patch.md` — contract (how to emit patches and update the task graph).
-5) Relevant code paths from `ops/TOUCHMAP.yaml`.
-
-Reference:
-- `Prompt.md` — Environment overview scaffold and discovery questionnaire for system-level documentation.
+5) `Prompt.md` — environment understanding prompt (systems overview & feedback loop).
+6) `ops/KNOWLEDGE.yaml` — knowledge map linking domains to truth sources.
+7) Relevant code paths from `ops/TOUCHMAP.yaml`.
 
 ## Hot Paths (by concern)
 - **Discord bot (commands/UI):** `/src/bot/**`
@@ -21,8 +20,17 @@ Reference:
 - **Data pipeline:** `/src/data_pipeline/**`
 - **Tests:** `/tests/**`
 - **Docs:** `/*.md`, `/ops/**`
+	- Prioritize: `Prompt.md`, `Patch.md`, `Tasklist.md`, `ops/**`
 
 ## Update Rules
 - After *every* completed task: update `ops/NEXT.yaml` to the next `READY` task and narrow `files_hint`.
 - If a task touches new paths not listed, extend `ops/TOUCHMAP.yaml`.
+- If the task changed system behavior/architecture, update `Prompt.md` (Revision History + affected sections) and ensure `ops/KNOWLEDGE.yaml` still points to the right sources.
 - Keep these files **small and deterministic**. Re-run yields the same state.
+
+### Contract & Task Graph Updates (Policy)
+- Contract edits (`Patch.md`) should be done under a dedicated **META** task using surgical diffs.
+- Task graph edits (`Tasklist.md`) happen in the **# TASKLIST UPDATE** section of a PATCHSET and must include:
+	- Status transitions with a brief outcome note.
+	- New subtasks (with acceptance criteria) or `BLOCKED` markers with a `FIX:` task.
+	- Any newly unblocked tasks flipped to `READY`.

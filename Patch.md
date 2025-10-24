@@ -135,6 +135,63 @@ This project’s near-term goal is an **operable Pokémon Discord fan server bot
 
 ---
 
+## CRITICAL FILES & FAST-PATH LOOKUP
+To minimize planning overhead, follow this fast-path order before the normal loop:
+1. Read `ops/NEXT.yaml` to get the `next_task_id` and `files_hint`. Validate against `Tasklist.md`.
+2. Open `Tasklist.md` to confirm status and dependencies. Only execute tasks that are `READY`.
+3. Consult `ops/TOUCHMAP.yaml` for the primary files/paths for the task you are executing.
+4. Skim `Prompt.md` for the environment overview and feedback loop; incorporate deltas if it informs the task.
+5. Optionally consult `ops/KNOWLEDGE.yaml` for domain truth sources and paths.
+6. Execute the normal OPERATING LOOP using PATCH BLOCKS.
+
+On completion of any task:
+- Update `ops/NEXT.yaml` to the next READY task and keep `files_hint` minimal but sufficient.
+- Extend `ops/TOUCHMAP.yaml` if you touched relevant files not yet mapped.
+- If the task changes system behavior or architecture, update `Prompt.md` (Revision History + impacted sections) and verify `ops/KNOWLEDGE.yaml` remains accurate.
+
+Do not bloat these files. Keep them deterministic and concise.
+
+---
+
+## MODIFICATION POLICY: Patch.md & Tasklist.md
+
+These files are the contract and the task graph. Update them deliberately and traceably.
+
+When it’s OK to update `Patch.md`
+- Contract evolution that improves automation (e.g., new PATCHSET rules, safety rails, or fast-path steps).
+- Fixing ambiguous or conflicting instructions that block work.
+- Adding/removing sections that improve clarity or determinism (e.g., new meta policies).
+- Clipboard maintenance (the PATCH CLIPBOARD footer is the only place for live PATCHSET staging).
+
+How to update `Patch.md`
+1. Prefer doing it under a dedicated META task (id prefix `META:` or `T0.*`) with clear acceptance criteria.
+2. Use a surgical diff in the PATCHSET; avoid rewriting the entire file unless necessary.
+3. Include a `# TASKLIST UPDATE` that:
+   - Marks the META task DONE.
+   - Adds any follow-up tasks (e.g., updating `ops/CRITICAL.md`, `ops/NEXT.yaml`, or `ops/TOUCHMAP.yaml`).
+4. Never store secrets; never remove the PATCH CLIPBOARD footer.
+
+When it’s OK to update `Tasklist.md`
+- Normal lifecycle transitions: READY → IN_PROGRESS → DONE, adding brief outcome notes.
+- Unblocking newly-eligible tasks by flipping to READY.
+- Adding discovered subtasks:
+  - Use concise `id` (e.g., `T4.1a`) and clear `acceptance_criteria`.
+  - Set initial `status: PROPOSED` or `READY` if immediately actionable.
+- Marking tasks BLOCKED with a short reason and creating a `FIX:` task.
+
+How to update `Tasklist.md`
+1. Always via the `# TASKLIST UPDATE` unified diff within the current PATCHSET.
+2. Keep the history lightweight: outcome notes belong on each task; deeper context goes to `Prompt.md` (Revision History) if architectural.
+3. Avoid mass reformatting; preserve existing order and phases unless a META task explicitly reorganizes them.
+
+Meta-Update Workflow (quick checklist)
+1. Create/choose a META task (or the current task if its acceptance criteria require contract changes).
+2. Edit `Patch.md`/`Tasklist.md` with minimal diffs; reflect any crossfile implications (`ops/NEXT.yaml`, `ops/CRITICAL.md`, `ops/TOUCHMAP.yaml`).
+3. Update `Tasklist.md` (status changes, new tasks).
+4. Commit with a message that states why the meta-change was necessary.
+
+---
+
 ## PATCH CLIPBOARD (FOOTER)
 
 This is a **staging area** where the AI can paste the next PATCHSET before applying it.  

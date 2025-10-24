@@ -20,6 +20,8 @@ T0.2:
   - "RULESET.md"
   - "DATA-SCHEMA.md"
   - "OPERATIONS.md"
+  - "Prompt.md"
+  - "ops/KNOWLEDGE.yaml"
 
 T1.1:
   - "src/shared/config.ts"
@@ -93,3 +95,9 @@ T6.2:
 "Phase 0*":
   - "/ops/**"
   - "/**/*.md"
+
+# Meta/contract maintenance
+T0.PATCHPOLICY:
+  - "Patch.md"
+  - "Tasklist.md"
+  - "ops/CRITICAL.md"
