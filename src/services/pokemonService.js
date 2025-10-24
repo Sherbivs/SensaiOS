@@ -4,6 +4,8 @@ const path = require('node:path');
 const axios = require('axios');
 const cron = require('node-cron');
 
+const activityTracker = require('../utils/activityTracker');
+const cliStatus = require('../utils/cliStatus');
 const { log } = require('../utils/logger');
 
 const POKE_API_URL = 'https://pokeapi.co/api/v2/pokemon';
@@ -43,6 +45,132 @@ let lastFetchAttemptAt = null;
 let initializationPromise = null;
 let refreshPromise = null;
 let cronTask = null;
+
+const CACHE_STATUS_SECTION_ID = 'pokemon-cache';
+
+const cacheStatusState = {
+  status: 'Idle',
+  inProgress: false,
+  lastReason: null,
+  lastStartedAt: null,
+  lastCompletedAt: null,
+  lastDurationMs: null,
+  lastChange: null,
+  lastError: null,
+};
+
+function formatDurationShort(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return '0s';
+  }
+  const totalSeconds = Math.floor(ms / 1000);
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m ${seconds.toString().padStart(2, '0')}s`;
+  }
+  const totalHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (totalHours < 48) {
+    return `${totalHours}h ${minutes.toString().padStart(2, '0')}m`;
+  }
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  return `${days}d ${hours}h`;
+}
+
+function describeMomentForCli(value) {
+  if (!value) {
+    return 'never';
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'unknown';
+  }
+  const diff = Date.now() - date.getTime();
+  const abs = Math.abs(diff);
+  let relative;
+  if (abs < 1000) {
+    relative = 'just now';
+  } else if (abs < 60_000) {
+    relative = `${Math.floor(abs / 1000)}s ${diff >= 0 ? 'ago' : 'from now'}`;
+  } else if (abs < 3_600_000) {
+    relative = `${Math.floor(abs / 60_000)}m ${diff >= 0 ? 'ago' : 'from now'}`;
+  } else if (abs < 86_400_000) {
+    relative = `${Math.floor(abs / 3_600_000)}h ${diff >= 0 ? 'ago' : 'from now'}`;
+  } else {
+    relative = `${Math.floor(abs / 86_400_000)}d ${diff >= 0 ? 'ago' : 'from now'}`;
+  }
+  return `${date.toLocaleString()} (${relative})`;
+}
+
+function formatChange(value) {
+  if (value === null || value === undefined) {
+    return '0';
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric === 0) {
+    return '0';
+  }
+  return numeric > 0 ? `+${numeric}` : String(numeric);
+}
+
+function updateCacheCliSection(extraMetrics = []) {
+  const metrics = [];
+  metrics.push(['entries', pokemonList.length || 0]);
+  if (lastFetchedAt) {
+    metrics.push(['last fetch', describeMomentForCli(lastFetchedAt)]);
+  }
+  if (lastFetchAttemptAt) {
+    metrics.push(['last attempt', describeMomentForCli(lastFetchAttemptAt)]);
+  }
+
+  if (cacheStatusState.inProgress) {
+    if (cacheStatusState.lastReason) {
+      metrics.push(['reason', cacheStatusState.lastReason]);
+    }
+    if (cacheStatusState.lastStartedAt) {
+      metrics.push(['started', describeMomentForCli(cacheStatusState.lastStartedAt)]);
+    }
+  } else {
+    if (cacheStatusState.lastReason) {
+      metrics.push(['last reason', cacheStatusState.lastReason]);
+    }
+    if (cacheStatusState.lastCompletedAt) {
+      metrics.push(['completed', describeMomentForCli(cacheStatusState.lastCompletedAt)]);
+    }
+    if (Number.isFinite(cacheStatusState.lastDurationMs)) {
+      metrics.push(['duration', formatDurationShort(cacheStatusState.lastDurationMs)]);
+    }
+    if (cacheStatusState.lastChange !== null && cacheStatusState.lastChange !== undefined) {
+      metrics.push(['change', formatChange(cacheStatusState.lastChange)]);
+    }
+  }
+
+  if (cacheStatusState.lastError) {
+    metrics.push(['last error', cacheStatusState.lastError]);
+  }
+
+  if (Array.isArray(extraMetrics) && extraMetrics.length > 0) {
+    metrics.push(...extraMetrics);
+  }
+
+  cliStatus.setSection(CACHE_STATUS_SECTION_ID, {
+    title: 'Pokémon Cache',
+    status: cacheStatusState.status,
+    metrics,
+  });
+}
+
+function setCacheStatus(overrides = {}, extraMetrics = []) {
+  Object.assign(cacheStatusState, overrides);
+  updateCacheCliSection(extraMetrics);
+}
+
+setCacheStatus();
 
 function cloneValue(value) {
   if (typeof structuredClone === 'function') {
@@ -393,22 +521,78 @@ async function refreshPokemonCache(options = {}) {
       reason,
       startedAt: startedAt.toISOString(),
     });
-
-    const roster = await fetchPokemonRoster();
-    setPokemonCache(roster, startedAt);
-    await writeCacheToDisk(roster, startedAt);
-
-    log('info', 'Pokémon cache refresh complete', {
-      reason,
-      total: pokemonList.length,
-      durationMs: Date.now() - startedAt.getTime(),
-      cacheFile: CACHE_FILE_PATH,
+    setCacheStatus({
+      status: `Refreshing (${reason})`,
+      inProgress: true,
+      lastReason: reason,
+      lastStartedAt: startedAt,
+      lastError: null,
     });
+    activityTracker.recordActivity('pokemon-cache', `Refresh started (${reason})`, { reason });
 
-    return {
-      total: pokemonList.length,
-      lastFetchedAt,
-    };
+    const previousCount = pokemonList.length;
+
+    try {
+      const roster = await fetchPokemonRoster();
+      setPokemonCache(roster, startedAt);
+      await writeCacheToDisk(roster, startedAt);
+
+      const completedAt = new Date();
+      const durationMs = completedAt.getTime() - startedAt.getTime();
+      const change = pokemonList.length - previousCount;
+
+      log('info', 'Pokémon cache refresh complete', {
+        reason,
+        total: pokemonList.length,
+        durationMs,
+        cacheFile: CACHE_FILE_PATH,
+      });
+
+      setCacheStatus({
+        status: 'Ready',
+        inProgress: false,
+        lastReason: reason,
+        lastStartedAt: startedAt,
+        lastCompletedAt: completedAt,
+        lastDurationMs: durationMs,
+        lastChange: change,
+        lastError: null,
+      });
+
+      activityTracker.recordActivity('pokemon-cache', `Refresh complete (${pokemonList.length} entries)`, {
+        reason,
+        durationMs,
+        change,
+        total: pokemonList.length,
+      });
+
+      return {
+        total: pokemonList.length,
+        lastFetchedAt,
+      };
+    } catch (error) {
+      const failedAt = new Date();
+      const durationMs = failedAt.getTime() - startedAt.getTime();
+      const message = error instanceof Error ? error.message : String(error);
+
+      setCacheStatus({
+        status: 'Refresh failed',
+        inProgress: false,
+        lastReason: reason,
+        lastStartedAt: startedAt,
+        lastCompletedAt: failedAt,
+        lastDurationMs: durationMs,
+        lastChange: null,
+        lastError: message,
+      });
+
+      activityTracker.recordActivity('pokemon-cache', 'Refresh failed', {
+        reason,
+        error: message,
+      });
+
+      throw error;
+    }
   })();
 
   try {
@@ -445,6 +629,15 @@ async function initializePokemonCache() {
   }
 
   initializationPromise = (async () => {
+    const initStartedAt = new Date();
+    setCacheStatus({
+      status: 'Initializing cache',
+      inProgress: true,
+      lastReason: 'startup',
+      lastStartedAt: initStartedAt,
+      lastError: null,
+    });
+    activityTracker.recordActivity('pokemon-cache', 'Cache initialization started', { reason: 'startup' });
     await ensureCacheDirectory();
 
     const disk = await loadCacheFromDisk();
@@ -454,6 +647,17 @@ async function initializePokemonCache() {
         cacheFile: CACHE_FILE_PATH,
         total: pokemonList.length,
         lastFetchedAt: lastFetchedAt ? lastFetchedAt.toISOString() : null,
+      });
+      activityTracker.recordActivity('pokemon-cache', 'Loaded cached Pokémon dataset', {
+        entries: pokemonList.length,
+        source: 'disk',
+      });
+      setCacheStatus({
+        status: 'Loaded disk cache',
+        inProgress: false,
+        lastReason: 'disk cache',
+        lastCompletedAt: new Date(),
+        lastChange: 0,
       });
     }
 
@@ -465,6 +669,15 @@ async function initializePokemonCache() {
         throw error;
       }
       log('warn', 'Pokémon cache refresh failed during startup; continuing with cached data', { error });
+      setCacheStatus({
+        status: 'Ready (cached data)',
+        inProgress: false,
+        lastReason: 'startup fallback',
+      });
+      const message = error instanceof Error ? error.message : String(error);
+      activityTracker.recordActivity('pokemon-cache', 'Startup refresh failed, using cached cache', {
+        error: message,
+      });
     }
 
     scheduleWeeklyRefresh();

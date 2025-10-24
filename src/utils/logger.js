@@ -1,6 +1,7 @@
 const util = require('node:util');
 
 const { interruptConsoleOutput } = require('./cliStatus');
+const opsNotifier = require('./opsNotifier');
 
 const LOG_LABEL = Object.freeze({
   success: 'SUCCESS',
@@ -106,11 +107,25 @@ function log(level, message, context, { debugMode = false } = {}) {
   const writer = level === 'error' ? console.error : console.log;
   const stream = level === 'error' ? process.stderr : process.stdout;
   withCliSafeWrite(stream, () => writer(`[${timestamp}] [${label}] ${message}`));
+  const normalized = normalizeContext(context);
+
+  if (opsNotifier && typeof opsNotifier.recordError === 'function') {
+    try {
+      opsNotifier.recordError({
+        message,
+        context: normalized,
+        timestamp: new Date(timestamp),
+        level,
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[logger opsNotifier]', error instanceof Error ? error.message : error);
+    }
+  }
+
   if (!context) {
     return;
   }
-
-  const normalized = normalizeContext(context);
 
   if (Array.isArray(normalized)) {
     for (const item of normalized) {
