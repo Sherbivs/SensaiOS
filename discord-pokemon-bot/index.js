@@ -1,3 +1,5 @@
+// Forwarder for standalone runs of the Pokémon bot
+module.exports = require('./pokemon-bot.js');
 // Forwarder for compatibility
 const { startPokemonBot } = require('./pokemon-bot.js');
 

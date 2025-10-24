@@ -1,4 +1,21 @@
 services:
+  - type: worker
+    name: infinity-gauntlet
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    plan: starter
+    envVars:
+      - key: SECURITY_BOT_TOKEN
+        sync: false
+      - key: POKEMON_BOT_TOKEN
+        sync: false
+      - key: ENABLE_POKEMON_BOT
+        value: "true"
+      - key: NODE_ENV
+        value: production
+services:
   # Discord bot worker
   - type: worker
     name: infinity-gauntlet-bots
