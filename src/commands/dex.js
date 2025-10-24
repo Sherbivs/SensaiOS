@@ -2,6 +2,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { getPokemon, suggestPokemon, meta } = require('../lib/dex-api');
 const TYPE_COLORS = require('../lib/type-colors');
+const { getSpriteUrl } = require('../lib/assets');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -49,6 +50,7 @@ module.exports = {
           title: `#${mon.id} — ${mon.name}`,
           color,
           fields,
+          thumbnail: { url: getSpriteUrl(mon.id, 'artwork') || getSpriteUrl(mon.id, 'sprite') || undefined },
           footer: { text: `Ruleset: ${meta.version_group || 'latest'}` },
         },
       ],
