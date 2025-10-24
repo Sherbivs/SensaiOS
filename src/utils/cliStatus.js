@@ -30,6 +30,7 @@ let lastOutputWasDot = false;
 let lastRenderLines = 0;
 let isRendering = false;
 let displayActive = false;
+let lastSimpleRender = '';
 
 function formatDuration(ms) {
   if (!Number.isFinite(ms) || ms < 0) {
@@ -236,15 +237,19 @@ function render() {
     return;
   }
 
-  if (SIMPLE_MODE) {
-    process.stdout.write('.');
-    lastOutputWasDot = true;
-    return;
-  }
-
   isRendering = true;
   try {
     const lines = buildDisplayLines();
+    if (SIMPLE_MODE) {
+      const output = `${lines.join(os.EOL)}${os.EOL}`;
+      if (output !== lastSimpleRender) {
+        process.stdout.write(output);
+        lastSimpleRender = output;
+      }
+      lastOutputWasDot = false;
+      return;
+    }
+
     if (lastRenderLines > 0) {
       readline.moveCursor(process.stdout, 0, -lastRenderLines);
       readline.clearScreenDown(process.stdout);
@@ -289,6 +294,7 @@ function startStatusDisplay() {
 
   displayActive = true;
   state.startedAt = new Date();
+  lastSimpleRender = '';
 
   if (typeof activityTracker.subscribe === 'function') {
     unsubscribe = activityTracker.subscribe(handleActivityUpdate);
@@ -336,11 +342,8 @@ function stopStatusDisplay() {
   }
 
   if (SIMPLE_MODE) {
-    if (lastOutputWasDot) {
-      process.stdout.write('\n');
-      lastOutputWasDot = false;
-    }
     displayActive = false;
+    lastSimpleRender = '';
     return;
   }
 
@@ -414,10 +417,6 @@ function interruptConsoleOutput(writeFn) {
   }
 
   if (SIMPLE_MODE) {
-    if (lastOutputWasDot) {
-      process.stdout.write('\n');
-      lastOutputWasDot = false;
-    }
     writeFn();
     return;
   }
