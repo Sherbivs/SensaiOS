@@ -128,6 +128,18 @@ META.TASK.HOUSEKEEP:
   - "scripts/archive_task_history.mjs"
   - "ops/ARCHIVE/**"
 
+META.REFRESH_VISION.REMOTE:
+  - "scripts/refresh_vision.sh"
+  - "ops/RECOVERY.yaml"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
+  - "tasklist.md"
+
+META.PROMPT.FALLBACK:
+  - "Prompt.md"
+  - "tasklist.md"
+  - "ops/NEXT.yaml"
+
 META.README.REFRESH:
   - "README.md"
   - "Prompt.md"

@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T09:05:00Z
-Revision: 1.29
+Last Updated (UTC): 2025-10-25T09:45:00Z
+Revision: 1.31
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -65,6 +65,25 @@ Each task has:
     - Setup instructions cover prerequisites, environment variables, scripts, and deployment basics.
     - Legacy JavaScript bots are clearly marked as historical context.
   notes: Outcome — README now describes the current Infinity Gauntlet stack, scripts, and operational workflow; legacy security bot text removed.
+
+- id: META.REFRESH_VISION.REMOTE
+  title: Add remote reachability & recovery stamps to Refresh Vision
+  status: DONE
+  depends_on: [META.RECOVERY.REPLAY]
+  acceptance_criteria:
+    - scripts/refresh_vision.sh verifies GitHub remote visibility (sherbivs/Infinity-Gauntlet) and captures remote HEAD (best effort).
+    - ops/RECOVERY.yaml records last_refresh_utc, remote/local HEAD data, remote URL, and preserves last_attempted task metadata.
+    - Prompt.md Activation Internals mention the remote check and the fallback message when shell execution is unavailable.
+  notes: Outcome — Refresh Vision now validates the GitHub remote, stamps recovery metadata, and documents the VFS fallback guidance.
+
+- id: META.PROMPT.FALLBACK
+  title: Clarify Refresh Vision fallback without embedding conversation
+  status: DONE
+  depends_on: [META.REFRESH_VISION.REMOTE]
+  acceptance_criteria:
+    - Prompt.md Activation Internals describes the restricted-environment fallback in directive form without embedding chat transcript formatting.
+    - Prompt.md Last Repo Changes note the adjustment.
+  notes: Outcome — Activation guidance now instructs workers how to report Refresh Vision limitations without reproducing conversational markup.
 
 - id: T0.REFRESH.VISION
   title: Add Refresh Vision phase and recovery ledger

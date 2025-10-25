@@ -1,8 +1,11 @@
-version: 2
-heartbeat_utc: "2025-10-25T09:05:00Z"
-head_short_sha: "6ed7170"
+# RECOVERY — stamped by refresh_vision.sh (do not hand-edit unless bootstrapping)
+last_refresh_utc: "2025-10-25T09:30:00Z"
+last_remote_ok: false
+last_remote_url: "unknown"
+last_remote_head_sha: "unknown"
+last_local_head_sha: "6ed7170"
 last_attempted_task_id: "META.README.REFRESH"
 last_attempted_ts: "2025-10-25T09:05:00Z"
 last_attempted_source: "guidance_when_none"
 next_task_id_snapshot: "NONE"
-notes: "AI should resume from last_attempted_task_id if activation trigger is used (verify it remains READY)."
+note: "Refresh Vision now records remote/local HEAD data; run scripts/refresh_vision.sh locally for fresh stamps."

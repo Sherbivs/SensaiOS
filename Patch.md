@@ -268,166 +268,220 @@ Paste your next PATCHSET below.
 
 ````
 ````
-````md
-````
 ````
 <<<PATCHSET START>>>
-# [META.REFRESH.REMOTE]: Teach Refresh Vision to verify remote GitHub access and record status
+# [META.REFRESH_VISION.REMOTE]: Add remote GitHub visibility check + recovery stamps; wire into activation docs
 
 # FILE: scripts/refresh_vision.sh
-```diff
-@@
- #!/usr/bin/env bash
- set -euo pipefail
- 
- # DEV-ONLY helper the Activation Trigger runs first.
- # Responsibilities:
- # 1) Stamp ops/RECOVERY.yaml heartbeat_utc to "now"
- # 2) Regenerate ops/ROUTER_INDEX.yaml if router docs exist
- # 3) (Optional) Update Prompt.md LEDGER section if a generator script exists
-+# 4) (New) Verify remote GitHub visibility for the canonical repo and record status
- 
- root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
- cd "$root_dir"
- 
- now_iso="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
- 
-@@
- if [[ -x scripts/update_change_ledger.sh ]]; then
-   scripts/update_change_ledger.sh
- fi
- 
- echo "[refresh_vision] Heartbeat stamped: ${now_iso}"
-+
-+# 4) Remote GitHub visibility check (advisory; non-fatal)
-+# You can override the remote via env var GIT_REMOTE_URL.
-+GIT_REMOTE_URL="${GIT_REMOTE_URL:-https://github.com/Sherbivs/Infinity-Gauntlet.git}"
-+mkdir -p ops
-+remote_yaml="ops/REMOTE_VISION.yaml"
-+
-+remote_status="unknown"
-+remote_error=""
-+
-+if command -v git >/dev/null 2>&1; then
-+  # Try a very light-weight reachability check
-+  if git ls-remote --heads "${GIT_REMOTE_URL}" >/dev/null 2>&1; then
-+    remote_status="reachable"
-+  else
-+    remote_status="unreachable"
-+    remote_error="git ls-remote failed (network/auth?). If running in a restricted VFS/CI, run this script locally."
-+  fi
-+else
-+  remote_status="unavailable"
-+  remote_error="git not found in PATH; cannot probe remote. Install git or run locally."
-+fi
-+
-+cat > "${remote_yaml}" <<YML
-+# REMOTE VISION — advisory record of remote GitHub visibility
-+timestamp_utc: ${now_iso}
-+remote_url: ${GIT_REMOTE_URL}
-+status: ${remote_status}   # reachable | unreachable | unavailable | unknown
-+last_error: ${remote_error}
-+note: "Refresh Vision: I couldn’t run network probes in this environment—please execute locally if needed."
-+YML
-+
-+echo "[refresh_vision] Remote vision: ${remote_status} (${GIT_REMOTE_URL})"
+```full
+#!/usr/bin/env bash
+set -euo pipefail
+
+# refresh_vision.sh
+# Purpose:
+#  - Verify repo visibility & HEAD against remote (GitHub: sherbivs/Infinity-Gauntlet)
+#  - Regenerate router index and (optionally) the Prompt ledger
+#  - Stamp ops/RECOVERY.yaml with last refresh metadata to support resume
+#
+# Notes:
+#  - Safe to run on CI and locally; if git is unavailable or no network, we still stamp RECOVERY
+#  - Idempotent: re-running yields same state (except fresh timestamps)
+#
+# Requirements (optional but preferred if present):
+#  - scripts/update_router_index.sh
+#  - scripts/update_change_ledger.sh
+#  - yq (for pretty YAML editing) — gracefully falls back to inline sed if missing
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+RECOVERY="ops/RECOVERY.yaml"
+ROUTER_INDEX="ops/ROUTER_INDEX.yaml"
+EXPECTED_REMOTE_SSH="git@github.com:Sherbivs/Infinity-Gauntlet.git"
+EXPECTED_REMOTE_HTTPS="https://github.com/Sherbivs/Infinity-Gauntlet.git"
+
+timestamp_utc() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+git_safe() {
+  if command -v git >/dev/null 2>&1; then
+    git "$@"
+  else
+    return 127
+  fi
+}
+
+NOW="$(timestamp_utc)"
+HEAD_SHA="unknown"
+REMOTE_OK="false"
+REMOTE_URL="unknown"
+REMOTE_HEAD_SHA="unknown"
+REMOTE_REACHABLE="false"
+
+# 1) Git / remote visibility checks (best-effort)
+if git_safe rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  HEAD_SHA="$(git_safe rev-parse --verify HEAD 2>/dev/null || echo unknown)"
+  # Prefer 'origin'; fallback to first remote
+  if git_safe remote get-url origin >/dev/null 2>&1; then
+    REMOTE_URL="$(git_safe remote get-url origin 2>/dev/null || echo unknown)"
+  else
+    # list remotes, take first
+    REMOTE_URL="$(git_safe remote -v | awk 'NR==1{print $2}' || true)"
+    [ -z "$REMOTE_URL" ] && REMOTE_URL="unknown"
+  fi
+
+  # Check remote reachability and resolve remote HEAD
+  if [ "$REMOTE_URL" != "unknown" ]; then
+    if git_safe ls-remote "$REMOTE_URL" >/dev/null 2>&1; then
+      REMOTE_REACHABLE="true"
+      # Try to get the remote HEAD SHA
+      REMOTE_HEAD_SHA="$(git_safe ls-remote "$REMOTE_URL" HEAD 2>/dev/null | awk '{print $1}' || true)"
+      [ -z "$REMOTE_HEAD_SHA" ] && REMOTE_HEAD_SHA="unknown"
+    fi
+  fi
+
+  # Validate URL matches the expected GitHub repo
+  if [ "$REMOTE_URL" = "$EXPECTED_REMOTE_SSH" ] || [ "$REMOTE_URL" = "$EXPECTED_REMOTE_HTTPS" ]; then
+    if [ "$REMOTE_REACHABLE" = "true" ]; then
+      REMOTE_OK="true"
+    fi
+  fi
+fi
+
+# 2) Regenerate router-of-routers index (best-effort)
+if [ -x "scripts/update_router_index.sh" ]; then
+  scripts/update_router_index.sh || true
+fi
+# Ensure file exists for downstream tooling
+mkdir -p ops
+[ -f "$ROUTER_INDEX" ] || echo "# Generated router index (placeholder)" > "$ROUTER_INDEX"
+
+# 3) Update Prompt ledger (best-effort)
+if [ -x "scripts/update_change_ledger.sh" ]; then
+  scripts/update_change_ledger.sh || true
+fi
+
+# 4) Stamp ops/RECOVERY.yaml with refresh metadata (portable, no yq required)
+mkdir -p ops
+# Preserve prior fields if file exists
+LAST_TASK="unknown"
+if [ -f "$RECOVERY" ]; then
+  # naive parse: read last_attempted_task_id if present
+  LAST_TASK="$(grep -E '^last_attempted_task_id:' "$RECOVERY" | awk '{print $2}' || true)"
+  [ -z "$LAST_TASK" ] && LAST_TASK="unknown"
+fi
+
+cat > "$RECOVERY" <<YAML
+# RECOVERY — used by activation trigger to resume safely
+last_refresh_utc: "$NOW"
+last_remote_ok: $REMOTE_OK
+last_remote_url: "$REMOTE_URL"
+last_remote_head_sha: "$REMOTE_HEAD_SHA"
+last_local_head_sha: "$HEAD_SHA"
+last_attempted_task_id: ${LAST_TASK}
+note: "Refresh Vision completed. If running in a restricted VFS with no git/network, remote checks may be partial."
+YAML
+
+echo "[refresh_vision] stamped $RECOVERY (remote_ok=$REMOTE_OK, remote=$REMOTE_URL, head_local=$HEAD_SHA, head_remote=$REMOTE_HEAD_SHA)"
 ````
 
-# FILE: ops/REMOTE_VISION.yaml
-
-```full
-# REMOTE VISION — advisory record of remote GitHub visibility
-# This file is populated by scripts/refresh_vision.sh. Safe to commit for operator awareness.
-timestamp_utc: 2025-10-25T08:45:00Z
-remote_url: https://github.com/Sherbivs/Infinity-Gauntlet.git
-status: unknown
-last_error: ""
-note: "Refresh Vision: I couldn’t run refresh_vision.sh in this VFS environment—please execute it locally when possible."
-```
-
-# FILE: Patch.md
+# FILE: package.json
 
 ```diff
 @@
- 0. **Refresh Vision (MANDATORY)**
-   - Run `scripts/refresh_vision.sh` to regenerate `ops/ROUTER_INDEX.yaml`, update the Recent Change Ledger, and stamp `ops/RECOVERY.yaml`.
-   - If `ops/RECOVERY.yaml:last_attempted_task_id` is set and compatible with `ops/NEXT.yaml`, prefer resuming that task.
-+  - (New) The script also writes `ops/REMOTE_VISION.yaml` after probing the canonical GitHub remote
-+    (default `https://github.com/Sherbivs/Infinity-Gauntlet.git` or `$GIT_REMOTE_URL`). This is advisory and never blocks work.
-```
-
-# FILE: Tasklist.md
-
-```diff
+   "scripts": {
++    "refresh:vision": "bash scripts/refresh_vision.sh",
+     "prebuild": "prisma generate",
+     "build": "tsc -p tsconfig.json",
+     "build:ci": "node ./node_modules/prisma/build/index.js generate && node ./node_modules/typescript/bin/tsc -p tsconfig.json",
+     "postinstall": "npm run build:ci",
+     "dev": "tsx watch src/index.ts",
 @@
--Revision: 1.26
-+Revision: 1.27
-@@
- ## Phase 0 — Repo & Tooling
-@@
-  - id: META.TASK.HOUSEKEEP
-    title: Trim historical DONE tasks to last 100 (archive elsewhere)
-    status: READY
-    depends_on: [META.RECOVERY.REPLAY]
-    acceptance_criteria:
-      - Tasklist.md retains only the most recent 100 DONE entries; older entries moved to `ops/ARCHIVE/tasks-YYYYMMDD.md` by a script.
-      - Patch.md notes this policy; CI allows presence/absence of archive file.
-    notes: Outcome — Tasklist remains a live reference; deep history moves to archive files.
-+
-+- id: META.REFRESH.REMOTE
-+  title: Add remote GitHub visibility probe to Refresh Vision
-+  status: DONE
-+  depends_on: [T0.REFRESH.VISION]
-+  acceptance_criteria:
-+    - `scripts/refresh_vision.sh` attempts `git ls-remote` against the canonical repo (overridable via `$GIT_REMOTE_URL`).
-+    - Result recorded into `ops/REMOTE_VISION.yaml` with timestamp, URL, status, and last_error.
-+    - Patch.md documents the advisory remote check.
-+  notes: Outcome — Operators can quickly tell if the AI worker environment can see the GitHub remote; failure is non-fatal but visible.
-```
-
-# FILE: ops/NEXT.yaml
-
-```diff
-@@
--next_task_id: META.TASK.HOUSEKEEP
-+next_task_id: META.TASK.HOUSEKEEP
-@@
- note: "META.RECOVERY.REPLAY complete — engine can resume safely after interruptions."
-+guidance_when_none: |
-+  If next_task_id is NONE:
-+    1) Look for the first READY task in Tasklist.md and suggest it.
-+    2) If ops/RECOVERY.yaml has last_attempted_task_id, prefer that if it is READY/IN_PROGRESS.
-+    3) Emit an advisory notice via guard_meta.sh (do not auto-commit).
-+    4) (Optional) Run scripts/refresh_vision.sh locally to update ops/REMOTE_VISION.yaml and confirm remote reachability.
+     "test": "vitest run",
+     "test:watch": "vitest"
+   },
 ```
 
 # FILE: Prompt.md
 
 ```diff
 @@
--Timestamp (UTC): 2025-10-25T08:35:00Z
--Revision: 0.40
-+Timestamp (UTC): 2025-10-25T08:45:00Z
-+Revision: 0.41
+ ## Activation Trigger for AI Workers
+ Paste this to initialize from Router + INBOX and run the Patch loop:
 @@
- > - `ops/NEXT.yaml` — Added `guidance_when_none`, advanced NEXT to `META.RECOVERY.REPLAY`, and tightened file hints.
- > - `scripts/guard_meta.sh` — Emits the first READY task suggestion when NEXT is NONE and references the `auto_requeue_if_none` flag.
- > - `Patch.md`, `Tasklist.md`, `Prompt.md` — Closed META.NEXT.BOOTSTRAP, stamped meta headers, and documented the bootstrap guidance for future workers.
- > - `ops/RECOVERY.yaml` — New resumable recovery state with heartbeat; used by Activation Trigger to resume safely.
- > - `scripts/refresh_vision.sh` — Stamps recovery heartbeat and refreshes router index / ledger if scripts exist.
- > - `Patch.md` — Activation + Refresh Vision sections now prefer recovery resume when compatible.
- > - `ops/NEXT.yaml` — Now points to `META.TASK.HOUSEKEEP` to trim DONE tasks and archive older entries.
-+> - `ops/REMOTE_VISION.yaml` — New advisory status file showing whether the worker can see the GitHub remote.
-+> - `scripts/refresh_vision.sh` — Now probes `git ls-remote` for `Sherbivs/Infinity-Gauntlet` (override with `$GIT_REMOTE_URL`) and records status.
+ ACTIVATE: PATCH ENGINE
+```
+
+### Activation Internals (what happens on trigger)
+
+-1) Refresh Vision (`scripts/refresh_vision.sh`) → updates `ops/ROUTER_INDEX.yaml`, `Prompt.md` ledger (if script exists), and `ops/RECOVERY.yaml`.
++1) Refresh Vision (`scripts/refresh_vision.sh`) → verifies remote GitHub visibility for `Sherbivs/Infinity-Gauntlet`, updates `ops/ROUTER_INDEX.yaml`, updates the Prompt ledger (if script exists), and stamps `ops/RECOVERY.yaml` with remote/HEAD metadata.
+
+* * If running in a restricted VFS/IDE where shell cannot execute, the worker must surface:
+* ```
+  **"Refresh Vision: I couldn’t run refresh_vision.sh in this environment—please execute it locally when possible."**
+  ```
+
+2. Read `ops/RECOVERY.yaml`; if `last_attempted_task_id` is present, prefer resuming that task unless superseded in `ops/NEXT.yaml`.
+3. Proceed with the operating loop and emit exactly one PATCHSET + Commit Message.
+
+````
+
+# FILE: ops/RECOVERY.yaml
+```diff
 @@
- <!-- PATCHSET:ECHO BEGIN -->
--NO-ECHO-REASON: Concise echo (meta-only).
-+NO-ECHO-REASON: Concise echo (meta-only). Refresh Vision remote probe added.
- TasklistDiff: true
- - Added RECOVERY.yaml and refresh_vision.sh; wired resume rules into Patch.md.
- - NEXT → META.TASK.HOUSEKEEP; META.NEXT.BOOTSTRAP and META.RECOVERY.REPLAY marked DONE.
-+- refresh_vision now writes ops/REMOTE_VISION.yaml; Prompt.md notes advisory remote check.
- <!-- PATCHSET:ECHO END -->
+-# (file will be stamped by refresh_vision.sh)
++# RECOVERY — stamped by refresh_vision.sh (do not hand-edit unless bootstrapping)
++# Fields will be populated on first run. Hand edits should be minimal and temporary.
+````
+
+# FILE: ops/NEXT.yaml
+
+```diff
+@@
+-next_task_id: NONE
+-reason: >
+-  META.ROUTER_FMT completed to normalize router docs and regenerate the router index.
+-  No additional READY tasks are defined—coordinate with humans for the next milestone.
+-
+-files_hint: []
+-timestamp_utc: 2025-10-25T07:25:00Z
++next_task_id: META.REFRESH_VISION.REMOTE
++reason: >
++  Bootstrap the activation path with a robust Refresh Vision: verify remote GitHub access,
++  regenerate router index, and stamp recovery metadata so future runs can safely resume.
++
++files_hint:
++  - "scripts/refresh_vision.sh"
++  - "ops/RECOVERY.yaml"
++  - "Prompt.md"
++timestamp_utc: 2025-10-25T09:10:00Z
+ router_version: 1
+ last_notes_read_utc: 2025-10-25T03:30:00Z
+-note: "T6.2 DONE — /ops cooldown reset and /ops stats available for admins."
++note: "NEXT->META.REFRESH_VISION.REMOTE — implement remote check + recovery stamps; then resume normal loop."
+```
+
+# FILE: Tasklist.md
+
+```diff
+@@
+ Last Updated (UTC): 2025-10-25T07:25:00Z
+-Revision: 1.23
++Revision: 1.24
+@@
+ ## Phase 0 — Repo & Tooling
++- id: META.REFRESH_VISION.REMOTE
++  title: Refresh Vision remote check + recovery stamps
++  status: READY
++  depends_on: []
++  acceptance_criteria:
++    - scripts/refresh_vision.sh verifies visibility of GitHub remote (sherbivs/Infinity-Gauntlet) and captures remote HEAD (best effort).
++    - ops/RECOVERY.yaml stamped with last_refresh_utc, last_remote_ok, last_remote_url, last_local_head_sha, last_remote_head_sha, last_attempted_task_id (preserved if present).
++    - Prompt.md Activation Internals mention the VFS fallback message when shell is unavailable.
++    - npm script "refresh:vision" exists.
++  notes: Outcome — Activation trigger can confidently re-sync state and resume work, even after timeouts or IDE limitations.
 ```
 
 <<<PATCHSET END>>>
@@ -437,22 +491,30 @@ note: "Refresh Vision: I couldn’t run refresh_vision.sh in this VFS environmen
 **Commit Message**
 ```
 
-[META.REFRESH.REMOTE] Refresh Vision now verifies GitHub remote access and records status
+[META.REFRESH_VISION.REMOTE] Remote GitHub visibility check + recovery stamps; wire into activation docs
 
 Why:
-We want the AI worker to “see” the canonical GitHub repo and surface any visibility issues early. This helps diagnose network- or environment-related vision problems (e.g., VFS/CI without outbound access).
+Workers need a deterministic “refresh vision” step that confirms remote repo access, regenerates router index, and stamps recovery metadata so activations can safely resume and not stall when NEXT is mis-pointed or the IDE lacks shell access.
 
 Changes:
 
-* refresh_vision.sh: added non-fatal `git ls-remote` probe (override via $GIT_REMOTE_URL).
-* New ops/REMOTE_VISION.yaml: records timestamp, remote URL, status, and last_error.
-* Patch.md: documented the advisory remote check in the Refresh Vision step.
-* Tasklist.md: added META.REFRESH.REMOTE (DONE) with clear acceptance criteria.
-* Prompt.md: bumped timestamp/revision and listed the new remote-vision artifacts.
-* NEXT.yaml: guidance_when_none now mentions running refresh_vision locally to populate remote status.
+* scripts/refresh_vision.sh: new script verifies GitHub remote (sherbivs/Infinity-Gauntlet) via `git ls-remote`, regenerates router index, optionally updates Prompt ledger, and stamps ops/RECOVERY.yaml with remote/local HEAD + URL + timestamp.
+* package.json: added `refresh:vision` script for convenience.
+* Prompt.md: Activation Internals now include remote check + explicit VFS fallback message.
+* ops/NEXT.yaml: pointed to META.REFRESH_VISION.REMOTE with targeted file hints.
+* Tasklist.md: added META.REFRESH_VISION.REMOTE as READY with acceptance criteria; minor header bump.
+* ops/RECOVERY.yaml: clarified header; content now stamped by the script.
 
 Acceptance:
-Running `scripts/refresh_vision.sh` locally stamps RECOVERY heartbeat and writes ops/REMOTE_VISION.yaml with “reachable” when the remote is visible, or a clear reason when not. This does not block patches but improves speed, reliability, and consistency.
+
+* Running `npm run refresh:vision` produces/upgrades ops/RECOVERY.yaml with remote/local HEAD info and regenerates `ops/ROUTER_INDEX.yaml`.
+* Activation docs reflect remote check and provide the fallback message when the shell cannot run in VFS.
+* NEXT/Tasklist now guide the worker to execute this task first, unblocking the loop.
+
+Context:
+
+* Router docs and index are the control-plane for where to read/write next .
+* The README already positions `refresh_vision.sh` as part of the operational playbook and adds a script entry point for devs .
 
 ```
 ```
