@@ -2,7 +2,7 @@
 Title: Dev & Docs Scripts
 Purpose: Repo maintenance scripts (ledger, router index, refresh).
 Owned Globs: scripts/**
-Last Updated (UTC): 2025-10-25T06:05:00Z
+Last Updated (UTC): 2025-10-25T07:25:00Z
 
 Scripts:
 - update_change_ledger.sh — populate Prompt ledger (last 200)
