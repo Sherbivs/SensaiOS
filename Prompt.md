@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T05:15:00Z
-Revision: 0.30
+Timestamp (UTC): 2025-10-25T05:25:00Z
+Revision: 0.31
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,29 +10,9 @@ Revision: 0.30
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/bot/battle/challenge.ts` — Added `/battle challenge` handlers with DM prompts, Accept/Decline buttons, and Arena thread wiring.
-> - `src/bot/arena/thread.ts` — Helper to create Arena threads with intro messages tagging both trainers.
-> - `tests/battle_flow.spec.ts` — Vitest coverage for challenge command, accept/decline buttons, and arena creation.
-> - `tasklist.md` — Marked T5.1 DONE with outcome notes.
-> - `ops/NEXT.yaml` — Advanced pointer to T5.2 with battle engine hints.
-> - `Prompt.md` — Bumped revision, refreshed summary, and recorded PATCHSET echo.
+> - `Prompt.md` — Relocated embedded patchset content into the PATCHSET:ECHO block, removed stray section under Activation Trigger, and bumped timestamp/revision (no functional code changes).
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: PATCHSET stored in git history for brevity; see summary below.
-- Battle challenge DM helpers + Arena thread creator implemented (T5.1).
-- Added tests validating DM handshake and arena thread creation.
-- Advanced task metadata (Tasklist/NEXT) and updated Prompt revision.
-- Commit: [Task T5.1] Battle challenge DM + Arena thread flow.
-<!-- PATCHSET:ECHO END -->
-
-## Activation Trigger for AI Workers
-Paste this to initialize from Router + INBOX and run the Patch loop:
-
-```
-ACTIVATE: PATCH ENGINE
-```
-```
-##Embedded PATCHSET Echo##
 You’re right — Render is still running `npm install` as the build step (not your `render.yaml`), so `dist/index.js` never gets produced. We’ll fix this in a belt-and-suspenders way:
 
 1. Add a `postinstall` script that compiles TypeScript during the build step even if Render only runs `npm install`.
@@ -169,4 +149,12 @@ Deploy pipeline that only runs `npm install` now emits `dist/index.js`. Start co
 ```
 
 If you later switch the service to a Render “Blueprint” using `render.yaml`, you can drop the `postinstall` hook, but this keeps you resilient right now.
+<!-- PATCHSET:ECHO END -->
+
+## Activation Trigger for AI Workers
+Paste this to initialize from Router + INBOX and run the Patch loop:
+
+```
+ACTIVATE: PATCH ENGINE
+```
 ```
