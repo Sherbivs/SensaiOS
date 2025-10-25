@@ -123,12 +123,13 @@ Each task has:
 
 - id: T1.1
   title: Add DB schema with Prisma/Drizzle
-  status: READY
+  status: DONE
   depends_on: [T0.2]
   acceptance_criteria:
     - Models: users, pokemon_instances, parties, party_slots, encounters, battles, cooldowns
     - Migration file generated
     - Basic repo methods scaffolded (create/read)
+  notes: Prisma chosen for ORM; schema added; Prisma client singleton + config provided. Migrations to run outside CI/CD initially.
 
 - id: T1.2
   title: Config loader and structured logger

@@ -1,0 +1,104 @@
+// Prisma schema for Infinity Gauntlet — MVP entities
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  discordId    String   @unique
+  createdAt    DateTime @default(now())
+  coins        Int      @default(0)
+  settingsJson Json?
+  parties      Party[]
+  pokemon      PokemonInstance[]
+  encounters   Encounter[]
+  battlesP1    Battle[] @relation("BattlesAsP1")
+  battlesP2    Battle[] @relation("BattlesAsP2")
+  cooldowns    Cooldown[]
+}
+
+model PokemonInstance {
+  id         String   @id @default(cuid())
+  owner      User     @relation(fields: [ownerId], references: [id])
+  ownerId    String
+  speciesId  Int
+  form       String?  // e.g., "alolan", "galarian"
+  level      Int      @default(1)
+  exp        Int      @default(0)
+  nature     String?
+  ivsJson    Json     // {hp, atk, def, spa, spd, spe}
+  evsJson    Json     // same shape
+  movesJson  Json     // array of {id, pp, maxPP}
+  status     String?  // major status (burn, para, etc.)
+  hp         Int
+  maxHp      Int
+  isShiny    Boolean  @default(false)
+  nickname   String?
+  boxSlot    Int?
+  createdAt  DateTime @default(now())
+}
+
+model Party {
+  id        String       @id @default(cuid())
+  owner     User         @relation(fields: [ownerId], references: [id])
+  ownerId   String
+  slots     PartySlot[]
+  createdAt DateTime     @default(now())
+}
+
+model PartySlot {
+  id          String          @id @default(cuid())
+  party       Party           @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  partyId     String
+  slot        Int
+  pokemon     PokemonInstance @relation(fields: [pokemonId], references: [id], onDelete: Cascade)
+  pokemonId   String
+
+  @@unique([partyId, slot])
+}
+
+model Encounter {
+  id               String   @id @default(cuid())
+  owner            User     @relation(fields: [ownerId], references: [id])
+  ownerId          String
+  speciesId        Int
+  level            Int
+  state            String   // Idle|Spawned|Caught|Fled|Fainted|Expired
+  threadChannelId  String?
+  startedAt        DateTime @default(now())
+  expiresAt        DateTime?
+  dataJson         Json?
+}
+
+model Battle {
+  id            String   @id @default(cuid())
+  p1            User     @relation("BattlesAsP1", fields: [p1Id], references: [id])
+  p1Id          String
+  p2            User     @relation("BattlesAsP2", fields: [p2Id], references: [id])
+  p2Id          String
+  arenaThreadId String?
+  state         String   // Pending|Active|Finished|Aborted
+  rngSeed       String
+  ruleset       String
+  logCompact    Json?
+  logFull       Json?
+  startedAt     DateTime @default(now())
+  endedAt       DateTime?
+}
+
+model Cooldown {
+  id        String   @id @default(cuid())
+  owner     User     @relation(fields: [ownerId], references: [id])
+  ownerId   String
+  kind      String   // e.g., "walk", "battle", etc.
+  readyAt   DateTime
+  metaJson  Json?
+  createdAt DateTime @default(now())
+
+  @@index([ownerId, kind])
+}

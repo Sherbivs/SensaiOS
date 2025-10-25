@@ -1,19 +1,16 @@
 # NEXT POINTER — Single-file pointer for the next actionable task and file hints.
 # The AI should read this first, then confirm against Tasklist.md, then proceed.
 
-next_task_id: T1.1
+next_task_id: T1.2
 reason: >
-  T0.2 completed (repo structure + docs stubs). Proceed to T1.1 (Add DB schema with Prisma/Drizzle)
-  to unlock persistent state and bootstrap minimal models.
+  T1.1 (DB schema + Prisma client + config) added. Proceed to T1.2 (Config loader and structured logger).
 
 files_hint:
-  # High-signal targets for the next task
+  # High-signal targets for T1.2
   - "src/shared/config.ts"
-  - "prisma/schema.prisma"
-  - "src/models/"
-  - "migrations/"
-  - "render.yaml"
-  # Note: render.yaml added to lock build/start behavior for Render deploys.
+  - "src/shared/log.ts"
+timestamp_utc: 2025-10-25T00:55:00Z
+note: "T1.1 completed with Prisma schema and client; moving to logging."
 timestamp_utc: 2025-10-25T00:50:00Z
 note: "Live timestamps applied to docs; NEXT unchanged (T1.1)."
 
