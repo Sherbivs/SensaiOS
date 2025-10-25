@@ -41,6 +41,7 @@ model PokemonInstance {
   nickname   String?
   boxSlot    Int?
   createdAt  DateTime @default(now())
+  partySlots PartySlot[]
 }
 
 model Party {
