@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T01:40:00Z
-Revision: 0.10
+Timestamp (UTC): 2025-10-25T01:50:00Z
+Revision: 0.12
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -14,6 +14,7 @@ Revision: 0.10
 > - `scripts/guard_doc_names.sh` — script used by CI to enforce exact-case names.
 > - `Patch.md` / `ops/CRITICAL.md` — documented “Canonical Filenames (DO NOT RENAME)” policy.
 > - `ops/PATCH_POLICY_BACKUP.md` — added canonical backup sentinel for CI guard.
+> - `.github/workflows/guard-meta.yml` / `scripts/guard_meta.sh` — enforce Prompt/Tasklist/Patch coupling and header bumps on each PATCHSET.
 
 You’re right — Render is still running `npm install` as the build step (not your `render.yaml`), so `dist/index.js` never gets produced. We’ll fix this in a belt-and-suspenders way:
 

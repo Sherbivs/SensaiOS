@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T01:40:00Z
-Revision: 1.1
+Last Updated (UTC): 2025-10-25T01:50:00Z
+Revision: 1.3
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -118,6 +118,16 @@ Each task has:
     - CI workflow `.github/workflows/guard-docs.yml` exists and runs `scripts/guard_doc_names.sh`
     - Script fails the build if any canonical file is missing or if lowercase/variant files exist
   notes: Outcome — Render Build Filters remain valid; AI is explicitly instructed and CI enforces compliance.
+
+- id: T0.META.ENFORCE
+  title: Enforce Prompt/Tasklist/Patch updates on every PATCHSET
+  status: DONE
+  depends_on: [T0.GUARD_FILENAMES]
+  acceptance_criteria:
+    - Patch.md documents mandatory Prompt.md update and coupled Patch/Tasklist header bumps
+    - CI guard fails when non-doc changes omit Prompt.md or when Patch/Tasklist are edited alone
+    - CI guard verifies header lines were bumped
+  notes: Outcome — The “update meta or fail” rule is encoded in docs and enforced in CI.
 
 - id: T0.TIMESTAMPS.APPLY
   title: Apply live timestamps/revisions and populate Prompt.md change log

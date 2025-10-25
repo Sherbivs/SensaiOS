@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-25T01:40:00Z
-Revision: 1.1
+Last Updated (UTC): 2025-10-25T01:50:00Z
+Revision: 1.2
 
 This repository uses **Patch.md** as the single source of truth for automated, AI-driven development flow.
 The AI reading this file must follow the loop and rules exactly.
@@ -37,6 +37,13 @@ After completing a task, update `Tasklist.md` *convulsively* (immediately) to re
 
 5. **Repeat**
    - Return to step 1 until no `READY` tasks remain.
+
+---
+
+## META UPDATE REQUIREMENT (MANDATORY)
+- Every PATCHSET must, at minimum, update `Prompt.md` (Timestamp + Revision + “Last Repo Changes”).
+- If `Tasklist.md` or `Patch.md` are edited, both must have their header timestamps/revisions bumped in the same PATCHSET.
+- If unsure what to change: update `Prompt.md` with a brief note under “Last Repo Changes” and bump its header; then stop or add a tiny precursor task.
 
 ## PATCH BLOCKS (MANDATORY FORMAT)
 Use the following structure for every change. Provide full-file content for creates/overwrites; use unified diffs for surgical edits when safer.
@@ -220,39 +227,45 @@ Paste your next PATCHSET below.
 ````
 ````
 <<<PATCHSET START>>>
-# [T0.GUARD_FILENAMES]: Guard canonical doc filenames & teach AI not to rename them
+# [T0.META.ENFORCE]: Enforce Prompt/Tasklist/Patch updates on every PATCHSET (with CI guard)
 
 # FILE: Patch.md
 ```diff
 @@
- # AI PROJECT MANAGER CONTRACT
--Last Updated (UTC): 2025-10-25T01:25:00Z
--Revision: 1.0
-+Last Updated (UTC): 2025-10-25T01:40:00Z
-+Revision: 1.1
+-Last Updated (UTC): 2025-10-25T01:40:00Z
+-Revision: 1.1
++Last Updated (UTC): 2025-10-25T01:50:00Z
++Revision: 1.2
 @@
- ## MODIFICATION POLICY: Patch.md & Tasklist.md
+ ## OPERATING LOOP
 @@
- ### When it’s OK to update `Patch.md`
-@@
- **How to update `Patch.md`**
-@@
- 4. Never store secrets; never remove the PATCH CLIPBOARD footer.
+ 4) **Commit**
+    - Generate a commit message using the template below.
+    - Prefer multiple small commits over one giant diff.
+ 
+ 5) **Repeat**
+    - Return to step 1 until no `READY` tasks remain.
 +
-+### Canonical Filenames (DO NOT RENAME)
-+These filenames are **contractual** and referenced by Render Build Filters. **Never change their spelling or case.**
-+- `Patch.md`
-+- `Tasklist.md`
-+- `Prompt.md`
-+- `ops/PATCH_POLICY_BACKUP.md`
++---
 +
-+If any of these are renamed, CI will fail (see `.github/workflows/guard-docs.yml`), and the AI must restore their exact names before proceeding.
++## META UPDATE REQUIREMENT (MANDATORY)
++- **Every PATCHSET must, at minimum, update `Prompt.md`** (Timestamp + Revision + “Last Repo Changes”).  
++- **If `Tasklist.md` or `Patch.md` are edited, both must have their header timestamps/revisions bumped** in the same PATCHSET.
++- **If unsure what to change:** update **Prompt.md** with a brief note under “Last Repo Changes” and bump its header; then stop or add a tiny precursor task.
 ````
 
-# FILE: .github/workflows/guard-docs.yml
+# FILE: ops/CRITICAL.md
+
+```diff
+@@
+  - **Timestamps/Revisions:** Update top-of-file timestamps and revisions in `Patch.md`, `Tasklist.md`, and `Prompt.md`. For `Prompt.md`, also update the “Last Repo Changes” block summarizing this PATCHSET.
++ - **META Update Requirement:** On *every* PATCHSET, `Prompt.md` must be updated (timestamp, revision, change bullets). If either `Patch.md` or `Tasklist.md` is edited, **both** must have header bumps in the same commit.
+```
+
+# FILE: .github/workflows/guard-meta.yml
 
 ```full
-name: Guard canonical doc filenames
+name: Guard meta updates (Prompt/Tasklist/Patch)
 
 on:
   push:
@@ -264,152 +277,130 @@ jobs:
   guard:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout (need prior commit)
         uses: actions/checkout@v4
-      - name: Verify canonical doc filenames
-        run: bash scripts/guard_doc_names.sh
+        with:
+          fetch-depth: 2
+      - name: Run meta guard
+        run: bash scripts/guard_meta.sh
 ```
 
-# FILE: scripts/guard_doc_names.sh
+# FILE: scripts/guard_meta.sh
 
 ```full
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "🔎 Guarding canonical doc filenames…"
+echo "🔎 Guarding meta update policy…"
 
-# Required files with exact case
-required=(
-  "Patch.md"
-  "Tasklist.md"
-  "Prompt.md"
-  "ops/PATCH_POLICY_BACKUP.md"
-)
-
-status=0
-
-for f in "${required[@]}"; do
-  if [[ ! -f "$f" ]]; then
-    echo "ERROR: Missing required file with exact case: $f"
-    status=1
-  fi
-done
-
-# Forbidden lower-case variants at repo root
-forbidden=(
-  "patch.md"
-  "tasklist.md"
-  "prompt.md"
-)
-
-for f in "${forbidden[@]}"; do
-  if [[ -f "$f" ]]; then
-    echo "ERROR: Forbidden filename present: $f (must use capitalized canonical name)"
-    status=1
-  fi
-done
-
-# For ops backup, reject any case variant that isn't the canonical one
-# Find any file in ops/ named PATCH_POLICY_BACKUP.md ignoring case
-found="$(find ops -maxdepth 1 -type f -iname 'patch_policy_backup.md' 2>/dev/null || true)"
-if [[ -n "$found" ]]; then
-  while IFS= read -r path; do
-    [[ "$path" == "ops/PATCH_POLICY_BACKUP.md" ]] || {
-      echo "ERROR: Forbidden backup filename variant: $path (must be ops/PATCH_POLICY_BACKUP.md)"
-      status=1
-    }
-  done <<< "$found"
+# Get changed files against previous commit
+BASE="$(git rev-parse HEAD~1 2>/dev/null || echo '')"
+if [[ -z "$BASE" ]]; then
+  echo "First commit or shallow history; skipping guard."
+  exit 0
 fi
 
-if [[ $status -eq 0 ]]; then
-  echo "✅ Canonical filenames intact."
-else
-  echo "❌ Canonical filename guard failed."
+CHANGED=$(git diff --name-only "$BASE"...HEAD | tr -d '\r')
+echo "Changed files:"
+echo "$CHANGED" | sed 's/^/ - /'
+
+# Normalize match helpers
+has_changed() { echo "$CHANGED" | grep -qE "^$1$"; }
+any_changed()  { echo "$CHANGED" | grep -qE "$1"; }
+
+# Which files changed?
+PROMPT_CHANGED=false
+PATCH_CHANGED=false
+TASKLIST_CHANGED=false
+
+has_changed "Prompt.md" && PROMPT_CHANGED=true
+has_changed "Patch.md" && PATCH_CHANGED=true
+has_changed "Tasklist.md" && TASKLIST_CHANGED=true
+
+# Non-doc changes? (anything outside markdown at root/ops or these three)
+NON_DOC_CHANGED=false
+if echo "$CHANGED" | grep -vqE '^(Prompt\.md|Patch\.md|Tasklist\.md|ops/[^/]+\.md)$'; then
+  NON_DOC_CHANGED=true
 fi
 
-exit "$status"
-```
+fail() { echo "❌ $*"; exit 1; }
 
-# FILE: ops/CRITICAL.md
+# Rule 1: If non-doc files changed, Prompt.md must be in the commit.
+if $NON_DOC_CHANGED && ! $PROMPT_CHANGED; then
+  fail "Non-doc files changed but Prompt.md was not updated (Timestamp/Revision + Last Repo Changes required)."
+fi
 
-```diff
-@@
- ### Contract & Task Graph Updates (Policy)
-@@
-  - Any newly unblocked tasks flipped to `READY`.
-  - **Timestamps/Revisions:** Update top-of-file timestamps and revisions in `Patch.md`, `Tasklist.md`, and `Prompt.md`. For `Prompt.md`, also update the “Last Repo Changes” block summarizing this PATCHSET.
-+  - **Canonical Filenames:** Do not rename `Patch.md`, `Tasklist.md`, `Prompt.md`, or `ops/PATCH_POLICY_BACKUP.md`. Render Build Filters depend on exact case; CI enforces via `guard-docs` workflow.
-```
+# Rule 2: If Patch.md changed, Tasklist.md must change too (and vice versa).
+if $PATCH_CHANGED && ! $TASKLIST_CHANGED; then
+  fail "Patch.md changed but Tasklist.md did not. Both must be updated together (headers bumped)."
+fi
+if $TASKLIST_CHANGED && ! $PATCH_CHANGED; then
+  fail "Tasklist.md changed but Patch.md did not. Both must be updated together (headers bumped)."
+fi
 
-# FILE: ops/TOUCHMAP.yaml
+# Rule 3: If a meta file changed, its header lines must be modified in the diff.
+check_header_bumped () {
+  local file="$1"
+  if git diff "$BASE"...HEAD -- "$file" | grep -qE '^\+.*(Timestamp \(UTC\)|Last Updated \(UTC\)|Revision:)'; then
+    return 0
+  else
+    fail "$file changed but header Timestamp/Revision not updated."
+  fi
+}
 
-```diff
---- a/ops/TOUCHMAP.yaml
-+++ b/ops/TOUCHMAP.yaml
-@@
- META.PATCH.REBUILD:
-   - "Patch.md"
-   - "ops/PATCH_POLICY_BACKUP.md"
-+
-+T0.GUARD_FILENAMES:
-+  - "Patch.md"
-+  - ".github/workflows/guard-docs.yml"
-+  - "scripts/guard_doc_names.sh"
-+  - "ops/CRITICAL.md"
+$PROMPT_CHANGED && check_header_bumped "Prompt.md"
+$PATCH_CHANGED && check_header_bumped "Patch.md"
+$TASKLIST_CHANGED && check_header_bumped "Tasklist.md"
+
+echo "✅ Meta update policy satisfied."
 ```
 
 # FILE: Prompt.md
 
 ```diff
 @@
--Timestamp (UTC): 2025-10-25T01:30:00Z
--Revision: 0.8
-+Timestamp (UTC): 2025-10-25T01:40:00Z
-+Revision: 0.10
+-Timestamp (UTC): 2025-10-25T01:45:00Z
+-Revision: 0.11
++Timestamp (UTC): 2025-10-25T01:50:00Z
++Revision: 0.12
 @@
- > - `.github/workflows/render-deploy.yml` — deploy to Render **only** when code paths change; requires Auto-Deploy OFF in Render and two repo secrets (`RENDER_SERVICE_ID`, `RENDER_API_KEY`).
- > - `package.json` — dev watcher ignores Patch.md/Tasklist.md/Prompt.md and all markdown files to avoid local restarts.
-+> - `.github/workflows/guard-docs.yml` — CI job that fails if canonical doc filenames are renamed or lowercased.
-+> - `scripts/guard_doc_names.sh` — script used by CI to enforce exact-case names.
-+> - `Patch.md` / `ops/CRITICAL.md` — documented “Canonical Filenames (DO NOT RENAME)” policy.
-@@
--| 2025-10-25 | 0.9 | Fixed Prisma relation P1012; aligned Prisma versions | AI | Build unblocks on Render
-+| 2025-10-25 | 0.9 | Fixed Prisma relation P1012; aligned Prisma versions | AI | Build unblocks on Render
-+| 2025-10-25 | 0.10 | Added filename guards (CI + docs) to prevent renames that break Render filters | AI | Hard fails if names change
+ > - `.github/workflows/guard-docs.yml` — CI job that fails if canonical doc filenames are renamed or lowercased.
+ > - `scripts/guard_doc_names.sh` — script used by CI to enforce exact-case names.
+ > - `Patch.md` / `ops/CRITICAL.md` — documented “Canonical Filenames (DO NOT RENAME)” policy.
+ > - `ops/PATCH_POLICY_BACKUP.md` — added canonical backup sentinel for CI guard.
++> - `.github/workflows/guard-meta.yml` / `scripts/guard_meta.sh` — enforce that Prompt.md is updated on every real change, and Patch/Tasklist are updated together with header bumps.
 ```
 
 # FILE: Tasklist.md
 
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T01:33:00Z
--Revision: 1.0
-+Last Updated (UTC): 2025-10-25T01:40:00Z
-+Revision: 1.1
+-Last Updated (UTC): 2025-10-25T01:45:00Z
+-Revision: 1.2
++Last Updated (UTC): 2025-10-25T01:50:00Z
++Revision: 1.3
 @@
  ## Phase 0 — Repo & Tooling
 @@
-+- id: T0.GUARD_FILENAMES
-+  title: Guard canonical doc filenames and instruct AI never to rename them
++- id: T0.META.ENFORCE
++  title: Enforce Prompt/Tasklist/Patch updates on every PATCHSET
 +  status: DONE
-+  depends_on: []
++  depends_on: [T0.GUARD_FILENAMES]
 +  acceptance_criteria:
-+    - Patch.md/CRITICAL.md document canonical filenames and the “do not rename” rule
-+    - CI workflow `.github/workflows/guard-docs.yml` exists and runs `scripts/guard_doc_names.sh`
-+    - Script fails the build if any canonical file is missing or if lowercase/variant files exist
-+  notes: Outcome — Render Build Filters remain valid; AI is explicitly instructed and CI enforces compliance.
++    - Patch.md documents mandatory Prompt.md update and coupled Patch/Tasklist header bumps
++    - CI guard fails when non-doc changes omit Prompt.md or when Patch/Tasklist are edited alone
++    - CI guard verifies header lines were bumped
++  notes: Outcome — The “update meta or fail” rule is encoded in docs and enforced in CI.
 ```
 
 # FILE: ops/NEXT.yaml
 
 ```diff
---- a/ops/NEXT.yaml
-+++ b/ops/NEXT.yaml
 @@
--timestamp_utc: 2025-10-25T01:33:00Z
--note: "Resolved Prisma P1012 with back-reference & version align. Next remains T2.2."
-+timestamp_utc: 2025-10-25T01:40:00Z
-+note: "Filename guards added (policy + CI). Proceed with T2.2 (pipeline output with manifest)."
+-timestamp_utc: 2025-10-25T01:40:00Z
+-note: "Filename guards added (policy + CI). Proceed with T2.2 (pipeline output with manifest)."
++timestamp_utc: 2025-10-25T01:50:00Z
++note: "Meta update guard added (policy + CI). Proceed with T2.2 (pipeline output with manifest)."
 ```
 
 <<<PATCHSET END>>>
@@ -419,22 +410,21 @@ exit "$status"
 **Commit Message**
 ```
 
-[Task T0.GUARD_FILENAMES] Add CI guard and policy to prevent renaming Patch/Tasklist/Prompt/Backup files
+[Task T0.META.ENFORCE] Require Prompt/Tasklist/Patch updates per PATCHSET and enforce via CI
 
 Why:
-Render Build Filters are case-sensitive. Renaming or lowercasing these files would silently break deploy filters, so the AI must never change them—and CI should enforce that.
+We want zero ambiguity: every meaningful change must at least bump Prompt.md, and Patch/Tasklist must be updated together with header bumps.
 
 Changes:
 
-* Patch.md: added “Canonical Filenames (DO NOT RENAME)” section; bumped timestamp/revision.
-* Added .github/workflows/guard-docs.yml and scripts/guard_doc_names.sh to fail CI on incorrect names.
-* ops/CRITICAL.md: reiterated the policy.
-* ops/TOUCHMAP.yaml: mapped new task.
-* Prompt.md/Tasklist.md: stamped revisions and logged changes.
-* ops/NEXT.yaml: updated note/timestamp.
+* Patch.md / ops/CRITICAL.md: documented the mandatory meta-update rule.
+* CI: added guard-meta.yml + scripts/guard_meta.sh to fail when rule is violated; checks header bumps too.
+* Stamped Prompt.md/Tasklist.md; updated NEXT note.
 
 Acceptance:
-CI fails if canonical filenames are missing or a case-variant exists; docs instruct AI not to rename; filters stay reliable.
+CI blocks merges/pushes that skip Prompt.md on real changes or split Patch/Tasklist updates; headers must change each time.
 
 ```
+
+Once merged, the worker AI will always keep Prompt/Tasklist/Patch in sync—and if it wobbles, CI will bonk it on the nose.
 ```

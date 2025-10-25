@@ -35,3 +35,4 @@ what to do next, where to change it, and how to update state.
 	- New subtasks (with acceptance criteria) or `BLOCKED` markers with a `FIX:` task.
 	- Any newly unblocked tasks flipped to `READY`.
 	- **Canonical Filenames:** Do not rename `Patch.md`, `Tasklist.md`, `Prompt.md`, or `ops/PATCH_POLICY_BACKUP.md`. Render Build Filters depend on exact case; CI enforces via `guard-docs` workflow.
+	- **META Update Requirement:** On every PATCHSET, update `Prompt.md` (timestamp, revision, change bullets). If either `Patch.md` or `Tasklist.md` is edited, both must have header bumps in the same commit.
