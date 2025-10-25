@@ -261,322 +261,330 @@ Paste your next PATCHSET below.
 
 ````
 ````
-Alright, city-planner hat on. Here’s a single PATCHSET that:
-
-* Adds a **Refresh Vision phase** before any task execution (so the worker re-syncs its mental map).
-* Introduces a **router network**: per-directory `ROUTER.md` files + a root **router-of-routers** index `ops/ROUTER_INDEX.yaml`.
-* Provides **scripts** to regenerate the router index and refresh the AI’s “vision”.
-* Adds a lightweight **recovery ledger** (`ops/RECOVERY.yaml`) so after a timeout you can just type `ACTIVATE: PATCH ENGINE` and it resumes the last task.
-* Updates **Prompt.md**, **Patch.md**, **ops/CRITICAL.md**, and **Tasklist.md** to make this all official and self-healing.
-
-Paste this whole block into your Patch.md clipboard and run it.
-
 ````
 <<<PATCHSET START>>>
-# [T0.ROUTER.NET + T0.REFRESH.VISION]: Add Refresh Vision phase, per-directory routers, router-of-routers index, and recovery ledger
-
-# FILE: scripts/update_router_index.sh
-```full
-#!/usr/bin/env bash
-set -euo pipefail
-# Builds ops/ROUTER_INDEX.yaml by scanning for */ROUTER.md files and extracting metadata.
-
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
-cd "$ROOT"
-
-INDEX_FILE="ops/ROUTER_INDEX.yaml"
-GEN_TIME="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-echo "version: 1" > "$INDEX_FILE"
-echo "generated_utc: \"$GEN_TIME\"" >> "$INDEX_FILE"
-echo "routers:" >> "$INDEX_FILE"
-
-# Find ROUTER.md files (case-sensitive), excluding node_modules and .git
-# Sort for determinism
-while IFS= read -r router; do
-  dir="$(dirname "$router")"
-  # Extract simple metadata from the ROUTER.md header comments
-  title="$(grep -m1 '^Title:' "$router" | sed 's/^Title:[[:space:]]*//')"
-  purpose="$(grep -m1 '^Purpose:' "$router" | sed 's/^Purpose:[[:space:]]*//')"
-  last_updated="$(grep -m1 '^Last Updated (UTC):' "$router" | sed 's/^Last Updated (UTC):[[:space:]]*//')"
-  echo "  - path: \"$dir/\"" >> "$INDEX_FILE"
-  echo "    router_file: \"$router\"" >> "$INDEX_FILE"
-  echo "    title: \"${title:-}\"" >> "$INDEX_FILE"
-  echo "    purpose: \"${purpose:-}\"" >> "$INDEX_FILE"
-  echo "    last_updated_utc: \"${last_updated:-}\"" >> "$INDEX_FILE"
-done < <(git ls-files | grep -E '(^|/)ROUTER\.md$' | grep -vE '(^|/)(node_modules|\.git)(/|$)' | sort)
-
-echo "[router-index] Wrote $INDEX_FILE"
-````
+# [T0.REFRESH_VISION + T0.GUARD_PROMPT + ROUTER_INDEX v1]: Refresh-vision script, Prompt heading guard CI, router index + recovery, and Prompt hardening
 
 # FILE: scripts/refresh_vision.sh
-
 ```full
 #!/usr/bin/env bash
 set -euo pipefail
-# Refreshes AI worker "vision":
-# 1) Recompute router-of-routers index
-# 2) Optionally regenerate the change ledger (last 200) in Prompt.md
-# 3) Stamp/update ops/RECOVERY.yaml heartbeat and last-known pointers
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
-cd "$ROOT"
+# Refresh "vision" for AI workers:
+# 1) Rebuild ops/ROUTER_INDEX.yaml (catalog of router files + summaries)
+# 2) Stamp ops/RECOVERY.yaml heartbeat and optionally last_task_id passthrough
+# 3) Optionally regenerate Prompt.md Recent Change Ledger (if helper exists)
 
-bash scripts/update_router_index.sh
+ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+cd "$ROOT_DIR"
 
-# Update ledger if script exists; ignore failures for portability
-if [[ -f "scripts/update_change_ledger.sh" ]]; then
-  bash scripts/update_change_ledger.sh || echo "[refresh] ledger generation skipped"
+mkdir -p ops ops/INBOX
+
+INDEX_FILE="ops/ROUTER_INDEX.yaml"
+RECOVERY_FILE="ops/RECOVERY.yaml"
+
+ts_utc="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+# 1) Build ROUTER_INDEX: scan for files literally named ROUTER.yaml (root and nested) and list them.
+echo "router_index_version: 1" > "$INDEX_FILE"
+echo "generated_utc: \"$ts_utc\"" >> "$INDEX_FILE"
+echo "routers:" >> "$INDEX_FILE"
+
+# Always include canonical ops/ROUTER.yaml if present
+if [ -f "ops/ROUTER.yaml" ]; then
+  echo "  - path: ops/ROUTER.yaml" >> "$INDEX_FILE"
+  echo "    scope: root" >> "$INDEX_FILE"
+  echo "    description: Canonical, hard-routed file map for AI read/write; do not ship to prod." >> "$INDEX_FILE"
 fi
 
-RECOVERY="ops/RECOVERY.yaml"
-NOW="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-HEAD_SHA="$(git rev-parse --short HEAD || echo "UNKNOWN")"
+# Include any additional ROUTER.yaml files under src/ or other directories
+# (dev-only index for navigation during patching)
+while IFS= read -r f; do
+  # Skip the root ops/ROUTER.yaml already added above
+  if [ "$f" = "ops/ROUTER.yaml" ]; then continue; fi
+  echo "  - path: $f" >> "$INDEX_FILE"
+  echo "    scope: inferred" >> "$INDEX_FILE"
+  echo "    description: Auto-discovered router; used for patch navigation." >> "$INDEX_FILE"
+done < <(git ls-files | grep -E '(^|/)ROUTER\.yaml$' | sort)
 
-# Read NEXT pointer if present
-NEXT_FILE="ops/NEXT.yaml"
-NEXT_TASK="$(grep -m1 '^next_task_id:' "$NEXT_FILE" | awk '{print $2}')" || true
+# 2) Stamp RECOVERY heartbeat
+touch "$RECOVERY_FILE"
+if ! grep -q '^recovery_version:' "$RECOVERY_FILE" 2>/dev/null; then
+  {
+    echo "recovery_version: 1"
+    echo "last_task_id: null"
+    echo "last_notes_read_utc: null"
+    echo "heartbeat_utc: \"$ts_utc\""
+  } > "$RECOVERY_FILE"
+else
+  # Update heartbeat_utc in-place (portable-ish sed)
+  if grep -q '^heartbeat_utc:' "$RECOVERY_FILE"; then
+    sed -i.bak -E "s/^heartbeat_utc: .*/heartbeat_utc: \"$ts_utc\"/" "$RECOVERY_FILE" && rm -f "$RECOVERY_FILE.bak"
+  else
+    echo "heartbeat_utc: \"$ts_utc\"" >> "$RECOVERY_FILE"
+  fi
+fi
 
-cat > "$RECOVERY" <<YML
-version: 1
-heartbeat_utc: "$NOW"
-head_short_sha: "$HEAD_SHA"
-last_task_id: "${NEXT_TASK:-UNKNOWN}"
-notes: "AI should resume from last_task_id if activation trigger is used."
-YML
+# 3) Optionally regenerate Prompt.md ledger
+if [ -x "scripts/update_change_ledger.sh" ]; then
+  scripts/update_change_ledger.sh || echo "[refresh_vision] Ledger update skipped (non-fatal)."
+fi
 
-echo "[refresh] Updated $RECOVERY; NEXT=$NEXT_TASK; HEAD=$HEAD_SHA"
+echo "[refresh_vision] OK — ROUTER_INDEX + RECOVERY stamped at $ts_utc"
+```
+
+# FILE: scripts/update_change_ledger.sh
+```full
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Regenerate the "Recent Change Ledger (last 200)" in Prompt.md between markers
+# <!-- LEDGER:BEGIN --> and <!-- LEDGER:END -->
+
+PROMPT="Prompt.md"
+BEGIN_MARK="<!-- LEDGER:BEGIN -->"
+END_MARK="<!-- LEDGER:END -->"
+
+if [ ! -f "$PROMPT" ]; then
+  echo "Prompt.md not found; skipping ledger update."
+  exit 0
+fi
+
+tmp="$(mktemp)"
+{
+  echo "$BEGIN_MARK"
+  echo "\`\`\`text"
+  # Last 200 commits: SHA, date, author, subject
+  git log -n 200 --pretty=format:'%h %ad %an %s' --date=short
+  echo
+  echo "---"
+  echo "# File-level changes (last 30 commits, abbreviated)"
+  # For each of last 30 commits, list changed files and rough hunk headers
+  git log -n 30 --name-status --pretty=format:'@@@ %h %ad %an %s' --date=short | sed -E 's/^\t([AMDCRTUXB])/\1/g'
+  echo "\`\`\`"
+  echo "$END_MARK"
+} > "$tmp"
+
+# Replace the block between markers
+awk -v begin="$BEGIN_MARK" -v end="$END_MARK" '
+  BEGIN { inblock=0 }
+  {
+    if ($0 ~ begin) { print; inblock=1; while(getline < "'"$tmp"'"){ print } next }
+    if ($0 ~ end && inblock==1) { inblock=0; next }
+    if (inblock==0) print
+  }
+' "$PROMPT" > "$PROMPT.tmp" && mv "$PROMPT.tmp" "$PROMPT"
+
+rm -f "$tmp"
+echo "[update_change_ledger] Prompt.md ledger refreshed."
+```
+
+# FILE: .github/workflows/guard-prompt-headings.yml
+```full
+name: guard-prompt-headings
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Prompt.md required sections
+        run: |
+          set -euo pipefail
+          test -f Prompt.md
+
+          REQUIRED_HEADINGS=(
+            "^## Last Repo Changes"
+            "^## AI Worker Prompt"
+            "^## Recent Change Ledger \\(last 200\\)"
+            "^## Embedded PATCHSET Echo \\(for quick audit\\)"
+            "^## Activation Trigger for AI Workers"
+          )
+
+          for h in "${REQUIRED_HEADINGS[@]}"; do
+            if ! grep -E -q "$h" Prompt.md; then
+              echo "Missing required Prompt.md heading: $h"
+              exit 1
+            fi
+          done
+
+          # Ensure PATCHSET:ECHO markers exist
+          grep -q "<!-- PATCHSET:ECHO BEGIN -->" Prompt.md
+          grep -q "<!-- PATCHSET:ECHO END -->" Prompt.md
+
+          # Ensure LEDGER markers exist
+          grep -q "<!-- LEDGER:BEGIN -->" Prompt.md
+          grep -q "<!-- LEDGER:END -->" Prompt.md
+
+          echo "Prompt.md headings and markers OK."
+```
+
+# FILE: ops/ROUTER_INDEX.yaml
+```full
+router_index_version: 1
+generated_utc: "2025-10-25T07:20:00Z"
+routers:
+  - path: ops/ROUTER.yaml
+    scope: root
+    description: Canonical, hard-routed file map for AI read/write; do not ship to prod.
 ```
 
 # FILE: ops/RECOVERY.yaml
-
 ```full
-version: 1
-heartbeat_utc: "{{TO_BE_SET_BY_SCRIPT}}"
-head_short_sha: "{{TO_BE_SET_BY_SCRIPT}}"
-last_task_id: "{{TO_BE_SET_BY_SCRIPT}}"
-notes: "AI should resume from last_task_id if activation trigger is used."
+recovery_version: 1
+last_task_id: null
+last_notes_read_utc: null
+heartbeat_utc: "2025-10-25T07:20:00Z"
 ```
 
-# FILE: ops/CRITICAL.md
-
+# FILE: ops/TOUCHMAP.yaml
 ```diff
 @@
- ## Update Rules
- - After *every* completed task: update `ops/NEXT.yaml` to the next `READY` task and narrow `files_hint`.
- - If a task touches new paths not listed, extend `ops/TOUCHMAP.yaml`.
- - If the task changed system behavior/architecture, update `Prompt.md` (Revision History + affected sections) and ensure `ops/KNOWLEDGE.yaml` still points to the right sources.
- - Keep these files **small and deterministic**. Re-run yields the same state.
- 
-+## Refresh Vision Phase (MANDATORY)
-+- Before selecting a task, run the refresh workflow:
-+  1) Execute `scripts/refresh_vision.sh` to regenerate `ops/ROUTER_INDEX.yaml`, update the change ledger in `Prompt.md` (if available), and stamp `ops/RECOVERY.yaml`.
-+  2) Read `ops/ROUTER_INDEX.yaml` and relevant `ROUTER.md` files for context.
-+  3) Proceed to the task selection loop.
+ T0.TIMESTAMPS:
+   - "Patch.md"
+   - "Tasklist.md"
+   - "Prompt.md"
+   - "ops/CRITICAL.md"
 +
- ### Contract & Task Graph Updates (Policy)
- - Contract edits (`Patch.md`) should be done under a dedicated **META** task using surgical diffs.
- - Task graph edits (`Tasklist.md`) happen in the **# TASKLIST UPDATE** section of a PATCHSET and must include:
-   - Status transitions with a brief outcome note.
-   - New subtasks (with acceptance criteria) or `BLOCKED` markers with a `FIX:` task.
-   - Any newly unblocked tasks flipped to `READY`.
-  - **Timestamps/Revisions:** Update top-of-file timestamps and revisions in `Patch.md`, `Tasklist.md`, and `Prompt.md`. For `Prompt.md`, also update the “Last Repo Changes” block summarizing this PATCHSET.
-+ - **Routers:** If a changed file resides under a directory with a `ROUTER.md`, update its metadata (Last Updated; affected globs/notes). After any router change, re-run `scripts/update_router_index.sh`.
++T0.REFRESH_VISION:
++  - "scripts/refresh_vision.sh"
++  - "ops/ROUTER_INDEX.yaml"
++  - "ops/RECOVERY.yaml"
++  - "scripts/update_change_ledger.sh"
++  - "Prompt.md"
++
++T0.GUARD_PROMPT:
++  - ".github/workflows/guard-prompt-headings.yml"
++  - "Prompt.md"
+```
+
+# FILE: package.json
+```diff
+@@
+   "scripts": {
+     "prebuild": "prisma generate",
+     "build": "tsc -p tsconfig.json",
+     "build:ci": "node ./node_modules/prisma/build/index.js generate && node ./node_modules/typescript/bin/tsc -p tsconfig.json",
+     "postinstall": "npm run build:ci",
++    "refresh:vision": "bash scripts/refresh_vision.sh",
++    "docs:update-ledger": "bash scripts/update_change_ledger.sh",
+     "dev": "tsx watch src/index.ts",
+     "start": "node dist/index.js",
+     "lint": "eslint . --ext .ts,.tsx",
+     "format": "prettier --write .",
+     "test": "vitest run",
+     "test:watch": "vitest"
+   },
 ```
 
 # FILE: Patch.md
-
 ```diff
 @@
- ## PRIME DIRECTIVE
- Always read and parse `Tasklist.md` first. Work only on tasks whose `status: READY`.
+-Last Updated (UTC): 2025-10-25T05:10:00Z
+-Revision: 0.35
++Last Updated (UTC): 2025-10-25T07:20:00Z
++Revision: 0.36
 @@
  ## OPERATING LOOP
--1. **Load Task Graph**
-+0. **Refresh Vision (MANDATORY)**
-+   - Run `scripts/refresh_vision.sh` to regenerate `ops/ROUTER_INDEX.yaml`, update the Recent Change Ledger, and stamp `ops/RECOVERY.yaml`.
-+   - Read `ops/ROUTER_INDEX.yaml` to enumerate active routers; consult the specific `ROUTER.md` for any directory you will touch.
-+1. **Load Task Graph**
-    - Read `Tasklist.md`.
+ 1. **Load Task Graph**
 @@
  5. **Repeat**
-   - Return to step 1 until no `READY` tasks remain.
+  - Return to step 1 until no `READY` tasks remain.
 +
-+## ROUTER NETWORK (City Roadway Model)
-+- **Per-directory router:** A `ROUTER.md` lives in each directory that contains patchable code or docs. It declares Title, Purpose, Owned globs, and a short “Where to next” note.
-+- **Router-of-routers:** `ops/ROUTER_INDEX.yaml` lists every discovered router with path, purpose, and last-updated timestamp. It is regenerated by `scripts/update_router_index.sh` and **must** be refreshed before task selection.
-+- **Consistency rule:** If a PATCHSET touches any file under a routed directory, update that directory’s `ROUTER.md` (timestamp + brief note) in the same PATCHSET and re-run the index script.
++## PRE-LOOP REFRESH (MANDATORY)
++Before step 1, run **`npm run refresh:vision`** to:
++- Rebuild `ops/ROUTER_INDEX.yaml` (catalog of all `ROUTER.yaml` files).
++- Stamp `ops/RECOVERY.yaml` heartbeat and keep `last_task_id` for resume.
++- Regenerate Prompt.md **Recent Change Ledger** via `scripts/update_change_ledger.sh` if available.
++This guarantees the AI’s view of the repo is fresh before planning.
+@@
+ ### Timestamp & Revision Policy (MANDATORY)
+@@
+ - **For `Prompt.md`,** always update both the header timestamp/revision **and** the “Last Repo Changes” section (see `Prompt.md` header block) summarizing file/directory changes performed by the current PATCHSET (paths + brief purpose).
++
++### PATCHSET Echo Policy (MANDATORY)
++- `Prompt.md` must keep the **Embedded PATCHSET Echo** section up to date:
++  - Paste the exact latest PATCHSET + Commit Message **or**
++  - Provide a single-line `NO-ECHO-REASON:` justification.
++- CI will fail if markers or content are missing.
 ```
 
 # FILE: Prompt.md
-
 ```diff
 @@
--READ ORDER (fast-path):
-+READ ORDER (fast-path):
-+00) Run Refresh: execute `scripts/refresh_vision.sh` to rebuild router index, ledger, and recovery heartbeat.
- 0) ops/ROUTER.yaml → set canonical paths; respect categories & whitelist
-+0.0) ops/ROUTER_INDEX.yaml → discover all directory routers and their purposes
- 0.1) ops/INBOX/notes.md → if newer than NEXT.last_notes_read_utc, ingest notes
- 1) ops/NEXT.yaml  → get next_task_id + files_hint
- 2) Tasklist.md    → execute only tasks with status: READY and all depends_on DONE
- 3) ops/TOUCHMAP.yaml → constrain edits to mapped paths
- 4) Prompt.md (this file) → ground truth + risks; update Last Repo Changes every commit
-@@
- GUARDRAILS:
- - Do not rename Patch.md, Tasklist.md, Prompt.md, or ops/PATCH_POLICY_BACKUP.md.
- - Keep diffs minimal, deterministic, and reversible. No secrets.
- - Respect files_hint; do not wander.
- - If ambiguous: add a tiny precursor PROPOSED task; update Prompt.md with the question.
-+- If you touch files under a directory with a `ROUTER.md`, update that router’s timestamp/notes and then update `ops/ROUTER_INDEX.yaml`.
+-Timestamp (UTC): 2025-10-25T07:10:00Z
+-Revision: 0.36
++Timestamp (UTC): 2025-10-25T07:20:00Z
++Revision: 0.37
 @@
  ## Activation Trigger for AI Workers
  Paste this to initialize from Router + INBOX and run the Patch loop:
  
-```
-
-ACTIVATE: PATCH ENGINE
-
-```
+ ```
+ ACTIVATE: PATCH ENGINE
+ ```
 +
-+### Activation Internals (what happens on trigger)
-+1) Refresh Vision (`scripts/refresh_vision.sh`) → updates `ops/ROUTER_INDEX.yaml`, `Prompt.md` ledger (if script exists), and `ops/RECOVERY.yaml`.
-+2) Read `ops/RECOVERY.yaml`; if `last_task_id` is present, prefer resuming that task unless superseded in `ops/NEXT.yaml`.
-+3) Proceed with the operating loop and emit exactly one PATCHSET + Commit Message.
-```
-
-# FILE: ops/ROUTER.md
-
-```full
-# ROUTER
-Title: Ops & Governance
-Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
-Owned Globs: ops/**
-Last Updated (UTC): {{TO_BE_SET_BY_AI}}
-
-Key Files:
-- ops/NEXT.yaml — execution pointer
-- ops/CRITICAL.md — policies & guardrails
-- ops/ROUTER.yaml — canonical path map
-- ops/ROUTER_INDEX.yaml — router-of-routers (generated)
-- ops/INBOX/notes.md — quick notes
-- ops/RECOVERY.yaml — resume after timeout
-```
-
-# FILE: src/ROUTER.md
-
-```full
-# ROUTER
-Title: Application Source
-Purpose: Root app source tree; see sub-routers for domains.
-Owned Globs: src/**
-Last Updated (UTC): {{TO_BE_SET_BY_AI}}
-
-Subdomains:
-- src/bot — Discord client & interaction handlers
-- src/core — game engines (battle, encounter, data)
-```
-
-# FILE: src/bot/ROUTER.md
-
-```full
-# ROUTER
-Title: Discord Bot Layer
-Purpose: Client login, intents, command/interaction routing, DM “home” flows.
-Owned Globs: src/bot/**
-Last Updated (UTC): {{TO_BE_SET_BY_AI}}
-
-Areas:
-- index.ts — client bootstrap and interaction switchboard
-- dm/* — DM flows (starters, heal, etc.)
-- commands/* — slash command handlers
-```
-
-# FILE: src/core/ROUTER.md
-
-```full
-# ROUTER
-Title: Core Game Engines
-Purpose: Deterministic battle/encounter engines and shared mechanics.
-Owned Globs: src/core/**
-Last Updated (UTC): {{TO_BE_SET_BY_AI}}
-
-Areas:
-- battle/* — engine wrappers, damage, status
-- encounter/* — walking/spawn logic
-```
-
-# FILE: tests/ROUTER.md
-
-```full
-# ROUTER
-Title: Test Suite
-Purpose: Vitest coverage for schemas, pipeline, engines, and flows.
-Owned Globs: tests/**
-Last Updated (UTC): {{TO_BE_SET_BY_AI}}
-
-Notes:
-- Keep tests hermetic and deterministic; seed RNG where applicable.
-```
-
-# FILE: scripts/ROUTER.md
-
-```full
-# ROUTER
-Title: Dev & Docs Scripts
-Purpose: Repo maintenance scripts (ledger, router index, refresh).
-Owned Globs: scripts/**
-Last Updated (UTC): {{TO_BE_SET_BY_AI}}
-
-Scripts:
-- update_change_ledger.sh — populate Prompt ledger (last 200)
-- update_router_index.sh — build ops/ROUTER_INDEX.yaml
-- refresh_vision.sh — end-to-end refresh before task selection
++### Activation Internals (expanded & earlier trigger)
++On seeing the trigger, **first** refresh vision, **then** plan/execute:
++1) **Refresh Vision**: run `npm run refresh:vision` (rebuild router index, stamp recovery heartbeat, refresh ledger).
++2) **Router Pass**: read `ops/ROUTER_INDEX.yaml` and `ops/ROUTER.yaml` to constrain scope.
++3) **INBOX**: if `ops/INBOX/notes.md` is newer than `ops/NEXT.yaml:last_notes_read_utc`, ingest notes.
++4) **NEXT → Tasklist → TOUCHMAP**: select the first `READY` task with dependencies `DONE` and mapped paths.
++5) **Execute**: emit exactly one PATCHSET + Commit Message.
++6) **Meta updates**: bump timestamps/revisions; update **Last Repo Changes**, **Ledger**, and **PATCHSET Echo** (or `NO-ECHO-REASON`).
+@@
+ ## Recent Change Ledger (last 200)
+@@
+-<!-- LEDGER:BEGIN -->
+-Pending generation. Run `npm run docs:update-ledger` to populate.
+-<!-- LEDGER:END -->
++<!-- LEDGER:BEGIN -->
++Pending regeneration. Run `npm run docs:update-ledger` to populate.
++<!-- LEDGER:END -->
 ```
 
 # FILE: Tasklist.md
-
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T05:25:00Z
--Revision: 1.26
-+Last Updated (UTC): 2025-10-25T05:50:00Z
-+Revision: 1.27
+-Last Updated (UTC): 2025-10-25T07:10:00Z
+-Revision: 1.18
++Last Updated (UTC): 2025-10-25T07:20:00Z
++Revision: 1.19
 @@
  ## Phase 0 — Repo & Tooling
 @@
-+- id: T0.REFRESH.VISION
-+  title: Add Refresh Vision phase and recovery ledger
++- id: T0.REFRESH_VISION
++  title: Add repo vision refresh script + router index + recovery heartbeat
 +  status: DONE
-+  depends_on: []
++  depends_on: [T0.TIMESTAMPS]
 +  acceptance_criteria:
-+    - scripts/refresh_vision.sh stamps ops/RECOVERY.yaml and rebuilds ops/ROUTER_INDEX.yaml
-+    - Prompt.md read order includes refresh step and recovery note
-+    - ops/CRITICAL.md documents the phase
-+  notes: Outcome — Workers always re-sync context and can resume after interruptions.
++    - scripts/refresh_vision.sh exists and stamps ops/ROUTER_INDEX.yaml and ops/RECOVERY.yaml
++    - package.json exposes "refresh:vision" and "docs:update-ledger"
++    - Prompt.md explains the Refresh Vision step in Activation Internals
++  notes: Outcome — Deterministic, up-to-date view of repo before planning.
 +
-+- id: T0.ROUTER.NET
-+  title: Establish per-directory routers and router-of-routers index
++- id: T0.GUARD_PROMPT
++  title: CI guard for Prompt.md headings/markers
 +  status: DONE
-+  depends_on: [T0.REFRESH.VISION]
++  depends_on: [T0.REFRESH_VISION]
 +  acceptance_criteria:
-+    - ROUTER.md exists for ops/, src/, src/bot/, src/core/, tests/, scripts/
-+    - scripts/update_router_index.sh generates ops/ROUTER_INDEX.yaml
-+    - Patch/Prompt policies require router updates when touching routed dirs
-+  notes: Outcome — City roadway map enables fast navigation and targeted patching.
++    - .github/workflows/guard-prompt-headings.yml checks required headings and markers
++    - PRs fail if PATCHSET:ECHO or LEDGER markers are missing
++  notes: Outcome — Prevents drift/mutilation of Prompt.md’s critical sections.
 ```
 
-# FILE: package.json
-
+# FILE: ops/CRITICAL.md
 ```diff
 @@
-   "scripts": {
+ ### Contract & Task Graph Updates (Policy)
 @@
--    "docs:update-ledger": "bash scripts/update_change_ledger.sh"
-+    "docs:update-ledger": "bash scripts/update_change_ledger.sh",
-+    "docs:update-routers": "bash scripts/update_router_index.sh",
-+    "refresh:vision": "bash scripts/refresh_vision.sh"
-   },
+  - Any newly unblocked tasks flipped to `READY`.
+  - **Timestamps/Revisions:** Update top-of-file timestamps and revisions in `Patch.md`, `Tasklist.md`, and `Prompt.md`. For `Prompt.md`, also update the “Last Repo Changes” block summarizing this PATCHSET.
++  - **Refresh Vision:** Always run `npm run refresh:vision` prior to planning a PATCHSET. Fail CI if the required Prompt.md headings or markers are missing.
 ```
 
 <<<PATCHSET END>>>
@@ -585,24 +593,21 @@ Scripts:
 
 **Commit Message**
 ```
-
-[T0.ROUTER.NET + T0.REFRESH.VISION] Refresh phase, per-directory routers, router-of-routers index, and recovery ledger
+[T0.REFRESH_VISION + T0.GUARD_PROMPT] Add refresh-vision script, Prompt heading guard CI, router index & recovery heartbeat, and Prompt hardening
 
 Why:
-Make the AI “know where to look next” every time, recover instantly after timeouts, and treat the repo like a city with clear roads and signage.
+AI workers need a deterministic, always-fresh view of the repo before planning. We also want CI to protect Prompt.md’s critical sections and keep an auditable PATCHSET echo + change ledger.
 
 What:
-
-* Added Refresh Vision phase + `scripts/refresh_vision.sh` to rebuild router index, ledger, and stamp `ops/RECOVERY.yaml`.
-* Introduced per-directory `ROUTER.md` files and generated `ops/ROUTER_INDEX.yaml` via `scripts/update_router_index.sh`.
-* Updated Prompt/Patch/CRITICAL to codify the flow and require router updates when touching code.
-* New npm scripts: `docs:update-routers`, `refresh:vision`.
-* Tasklist: recorded T0.REFRESH.VISION and T0.ROUTER.NET as DONE.
+- scripts/refresh_vision.sh: rebuilds ops/ROUTER_INDEX.yaml, stamps ops/RECOVERY.yaml heartbeat, and (optionally) refreshes the Prompt ledger.
+- scripts/update_change_ledger.sh: populates “Recent Change Ledger (last 200)” in Prompt.md.
+- .github/workflows/guard-prompt-headings.yml: CI checks for required Prompt headings and PATCHSET/LEDGER markers.
+- ops/ROUTER_INDEX.yaml, ops/RECOVERY.yaml: initial artifacts for navigation and resume.
+- package.json: added `refresh:vision` and `docs:update-ledger` scripts.
+- Patch.md/Prompt.md: documented pre-loop Refresh Vision and expanded Activation Internals; reiterated PATCHSET Echo policy.
+- Tasklist.md/ops/CRITICAL.md: recorded tasks as DONE and codified new requirements; touchmap updated.
 
 Result:
-Deterministic navigation, faster context loading, and one-command recovery: paste `ACTIVATE: PATCH ENGINE` to resume from `ops/RECOVERY.yaml` or `ops/NEXT.yaml`.
-
-```
-
-This gives you the roadmap signage, the pre-flight “vision refresh,” and the black box flight recorder (recovery ledger). From here, every patch naturally keeps the routers and the router-of-routers up to date, so the worker never loses the plot.
-```
+Before every PATCHSET, the AI refreshes its “vision,” CI defends Prompt structure, and recovery/resume is straightforward.
+``` 
+````
