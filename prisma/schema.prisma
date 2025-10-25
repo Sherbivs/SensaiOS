@@ -87,6 +87,7 @@ model Battle {
   ruleset       String
   logCompact    Json?
   logFull       Json?
+  resultJson    Json?
   startedAt     DateTime @default(now())
   endedAt       DateTime?
 }

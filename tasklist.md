@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T11:10:00Z
-Revision: 1.34
+Last Updated (UTC): 2025-10-25T11:25:00Z
+Revision: 1.35
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -156,6 +156,17 @@ Each task has:
     - Router metadata timestamps updated to reflect the cleanup
     - ops/ROUTER_INDEX.yaml regenerated from cleaned router docs
   notes: Outcome — Router docs render cleanly and the generated index has canonical quoting.
+
+- id: META.ROUTER.NAME_GUARD
+  title: Enforce exact-name/case across routers & references
+  status: DONE
+  depends_on: [META.HARD_ROUTE, T0.GUARD_FILENAMES]
+  acceptance_criteria:
+    - ops/CANONICAL_NAMES.yaml lists canonical spellings/case.
+    - scripts/verify_router_links.sh fails when ROUTER_INDEX.yaml or canonical names point to missing/mis-cased paths and hints the nearest match.
+    - .github/workflows/guard-router.yml runs the guard on push/PR.
+    - Patch.md documents the mandatory Name/Case rule.
+  notes: Outcome — Canonical manifest + CI guard keep router/index references case-accurate; Prompt/Tasklist capture the change.
 
 - id: T0.FP
   title: Add Critical Files Fast-Path system

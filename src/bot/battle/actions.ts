@@ -7,7 +7,8 @@ import {
   User as DiscordUser,
 } from "discord.js";
 import type { Battle, PrismaClient, User as PrismaUser } from "@prisma/client";
-import { prisma as prismaClient } from "../../models/index.js";
+import { prisma as prismaClient, BattleRepo } from "../../models/index.js";
+import { buildBattleResultDMMessages, buildBattleResultThreadMessage } from "../arena/summary.js";
 
 export const MOVE_PREFIX = "BATTLE_MOVE_";
 export const SWITCH_PREFIX = "BATTLE_SWITCH_";
@@ -60,11 +61,11 @@ function parse(customId: string) {
   return null;
 }
 
-export async function handleBattleActionButton(interaction: ButtonInteraction) {
+export async function handleBattleActionButton(interaction: ButtonInteraction, opts: { prisma?: PrismaLike } = {}) {
   const parsed = parse(interaction.customId);
   if (!parsed) return;
 
-  const prisma = prismaClient;
+  const prisma = opts.prisma ?? prismaClient;
   const battle = await loadBattle(prisma, parsed.battleId);
   if (!battle) {
     await interaction.reply({ content: "This battle no longer exists.", ephemeral: true });
@@ -83,25 +84,37 @@ export async function handleBattleActionButton(interaction: ButtonInteraction) {
     await interaction.reply({ content: "Switch UI coming soon.", ephemeral: true });
     return;
   }
+
   if (parsed.kind === "forfeit") {
-    await prisma.battle.update({ where: { id: battle.id }, data: { state: "Aborted", endedAt: new Date() } });
-    await interaction.update({ content: "You forfeited the battle.", components: [] });
+    const winnerKey = interaction.user.id === battle.p1.discordId ? "p2" : "p1";
+    const result = await BattleRepo.concludeBattle({
+      prisma,
+      battle,
+      winner: winnerKey,
+      turnCount: 0,
+      reason: "forfeit",
+    });
+
+    const messages = buildBattleResultDMMessages(result);
+    await interaction.update({ content: messages.loser, components: [] });
+
     // Best-effort notify opponent via DM
     try {
-      const opponentId = interaction.user.id === battle.p1.discordId ? battle.p2.discordId : battle.p1.discordId;
+      const opponentId = result.winner.discordId;
       const u = await interaction.client.users.fetch(opponentId);
       const dm = await u.createDM();
-      await dm.send(`Your opponent forfeited battle ${battle.id}.`);
+      await dm.send(messages.winner);
     } catch {}
     // Best-effort: post to arena thread if we have it
     if (battle.arenaThreadId) {
       try {
         const ch = await interaction.client.channels.fetch(battle.arenaThreadId);
-        if (ch && ch?.isTextBased?.()) {
-          await (ch as any).send(`Battle ${battle.id}: <@${interaction.user.id}> forfeited. The battle is over.`);
+        if (ch && typeof (ch as any).send === "function") {
+          await (ch as any).send(buildBattleResultThreadMessage(result));
         }
       } catch {}
     }
+    return;
   }
 }
 

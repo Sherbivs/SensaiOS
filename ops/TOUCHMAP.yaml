@@ -164,6 +164,14 @@ META.README.REFRESH:
   - "ops/NEXT.yaml"
   - "ops/RECOVERY.yaml"
 
+META.ROUTER.NAME_GUARD:
+  - "ops/CANONICAL_NAMES.yaml"
+  - "scripts/verify_router_links.sh"
+  - ".github/workflows/guard-router.yml"
+  - "Patch.md"
+  - "Prompt.md"
+  - "tasklist.md"
+
 # Canonical categories for router-driven tasks
 META.HARD_ROUTE:
   - "ops/ROUTER.yaml"

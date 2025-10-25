@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T11:10:00Z
-Revision: 0.48
+Timestamp (UTC): 2025-10-25T11:25:00Z
+Revision: 0.49
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,16 +10,16 @@ Revision: 0.48
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/core/encounter/catch.ts` — Stores the persisted Pokémon ID in encounter metadata when a capture succeeds.
-> - `src/bot/wilds/controls.ts` — DM and thread success messages now include the stored Pokémon ID.
-> - `src/models/index.ts` — `UserRepo.upsertByDiscordId` accepts an injected Prisma client for testability.
-> - `tests/catch.spec.ts` — Added a Prisma stub test ensuring captures persist Pokémon, fill party slots, and update encounter data.
-> - `src/ROUTER.md`, `src/core/ROUTER.md`, `src/bot/ROUTER.md`, `tests/ROUTER.md`, `ops/ROUTER_INDEX.yaml` — Router timestamps refreshed after catch persistence updates.
+> - `ops/CANONICAL_NAMES.yaml` — Canonical filename manifest enumerating required spellings/case.
+> - `scripts/verify_router_links.sh` — CI guard ensuring router/index paths and canonical docs match exact spelling/case.
+> - `.github/workflows/guard-router.yml` — Runs the router-name guard on push/PR.
+> - `Patch.md` — Documented mandatory router name/case rule.
+> - `Prompt.md`, `tasklist.md` — Logged META.ROUTER.NAME_GUARD completion and bumped metadata.
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: Manual patchset execution; summarizing scope for audit.
+NO-ECHO-REASON: Router guard meta change; summary noted.
 TasklistDiff: true
-- Catch persistence writes Pokémon IDs to encounters, updates DM/thread messaging, and lands Prisma-backed tests. NEXT remains NONE pending T7.3 promotion.
+- Added canonical-name manifest, router case guard script, and CI workflow; contract docs updated accordingly.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -40,6 +40,7 @@ ACTIVATE: PATCH ENGINE
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-25 | META.ROUTER.NAME_GUARD added canonical-name guard & CI. | Canonical manifest and router-case guard script prevent spelling drift; CI blocks mismatched router/index paths. |
 | 2025-10-25 | T7.2 persisted wild encounter captures and surfaced stored IDs. | Encounter success now creates Pokémon via Prisma, stamps encounter metadata, echoes IDs in DM/thread messaging, and adds tests covering the flow. |
 | 2025-10-25 | T7.1 wired DM Home to Prisma persistence and added tests. | `/home` surfaces real trainer coins/party data, bootstraps missing records, and ships unit coverage for persisted Pokémon embeds. |
 | 2025-10-25 | META.NEXT.SEED staged Phase 7 persistence backlog and set NEXT to T7.1. | Persistence tasks queued (DM Home wiring READY; capture/battle follow-ups PROPOSED) so work can resume with clear priorities. |

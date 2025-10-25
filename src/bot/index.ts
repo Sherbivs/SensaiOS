@@ -11,6 +11,7 @@ import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./bat
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleOpsCommand } from "./ops/admin.js";
+import { prisma } from "../models/index.js";
 
 export type BotStartOptions = {
 	token?: string;
@@ -99,7 +100,7 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 						return;
 					}
 					if (id.startsWith(MOVE_PREFIX) || id.startsWith(SWITCH_PREFIX) || id.startsWith(FORFEIT_PREFIX)) {
-						await handleBattleActionButton(interaction);
+						await handleBattleActionButton(interaction, { prisma });
 						return;
 					}
 					switch (id) {
