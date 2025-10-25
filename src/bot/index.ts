@@ -7,6 +7,7 @@ const { loadCommands } = require("../command-loader.js");
 import { openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./dm/starters.js";
 import { handleHeal } from "./dm/heal.js";
 import { handleWalk } from "./wilds/walk.js";
+import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 
 export type BotStartOptions = {
@@ -72,12 +73,25 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 						await handleWalk(interaction);
 						return;
 					}
+					if (interaction.commandName === "battle") {
+						const sub = interaction.options?.getSubcommand?.(false);
+						if (sub === "challenge") {
+							await handleBattleChallengeCommand(interaction);
+						} else {
+							await interaction.reply({ content: "Unknown battle subcommand. Try `/battle challenge @trainer`.", ephemeral: true });
+						}
+						return;
+					}
 					await cmd.execute(interaction);
 					return;
 				}
 
 				if (interaction.isButton()) {
 					const id = interaction.customId;
+					if (id.startsWith("BATTLE_ACCEPT_") || id.startsWith("BATTLE_DECLINE_")) {
+						await handleBattleChallengeButton(interaction);
+						return;
+					}
 					switch (id) {
 						case "HOME_HEAL":
 							await handleHeal(interaction);
