@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T04:28:00Z
-Revision: 1.15
+Last Updated (UTC): 2025-10-25T04:45:00Z
+Revision: 1.16
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -276,12 +276,13 @@ Each task has:
 
 - id: T4.2
   title: Catch mechanics + DM controls
-  status: READY
+  status: DONE
   depends_on: [T4.1]
   acceptance_criteria:
     - DM buttons: Throw Ball, Swap Lead, Run
     - Catch formula v1 implemented
     - Results mirrored to the thread
+  notes: Outcome — Implemented v1 catch logic and DM controls (Throw Ball, Swap Lead stub, Run). Encounter thread receives result updates. Added tests for catch chance.
 
 ## Phase 5 — Battles (Public Broadcast)
 
