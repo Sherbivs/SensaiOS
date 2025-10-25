@@ -4,6 +4,8 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { loadCommands } = require("../command-loader.js");
+import { openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./dm/starters.js";
+import { handleHeal } from "./dm/heal.js";
 
 export type BotStartOptions = {
 	token?: string;
@@ -54,6 +56,16 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 						});
 						return;
 					}
+					// Small wiring for known commands to DM flows
+					if (interaction.commandName === "starter") {
+						await openStartersDM(interaction.user);
+						await interaction.reply({ content: "I opened your Starters in DMs.", ephemeral: true });
+						return;
+					}
+					if (interaction.commandName === "heal") {
+						await handleHeal(interaction);
+						return;
+					}
 					await cmd.execute(interaction);
 					return;
 				}
@@ -62,7 +74,7 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 					const id = interaction.customId;
 					switch (id) {
 						case "HOME_HEAL":
-							await interaction.reply({ content: "Heal will fully restore your party (coming soon).", ephemeral: true });
+							await handleHeal(interaction);
 							break;
 						case "HOME_PARTY":
 							await interaction.reply({ content: "Party view is coming soon.", ephemeral: true });
@@ -74,10 +86,17 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 							await interaction.reply({ content: "Profile view is coming soon.", ephemeral: true });
 							break;
 						case "HOME_STARTERS":
-							await interaction.reply({ content: "Starter selection is coming soon.", ephemeral: true });
+							await openStartersDM(interaction.user);
+							await interaction.reply({ content: "I opened your Starters in DMs.", ephemeral: true });
 							break;
 						default:
-							// Ignore unknown buttons for now
+							// Starter pick buttons: STARTER_PICK_<speciesId>
+							if (id.startsWith("STARTER_PICK_")) {
+								const sid = Number(id.substring("STARTER_PICK_".length));
+								const valid = STARTER_OPTIONS.some((s) => s.speciesId === sid);
+								if (!valid) return;
+								await handleStarterPick(interaction, sid);
+							}
 							break;
 					}
 					return;

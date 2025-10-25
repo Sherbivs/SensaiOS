@@ -16,3 +16,24 @@ jobs:
           fetch-depth: 2
       - name: Run meta guard
         run: bash scripts/guard_meta.sh
+      - name: Ensure Recent Change Ledger includes HEAD
+        run: |
+          cp Prompt.md Prompt.md.bak
+          bash scripts/update_change_ledger.sh
+          head_sha="$(git rev-parse --short HEAD)"
+          if ! grep -q "**${head_sha}**" Prompt.md; then
+            echo "::error::Recent Change Ledger in Prompt.md does not include HEAD commit ${head_sha}. Run 'npm run docs:update-ledger'."
+            exit 1
+          fi
+          mv Prompt.md.bak Prompt.md
+      - name: Ensure Embedded PATCHSET Echo present for HEAD or justified
+        run: |
+          head_sha="$(git rev-parse --short HEAD)"
+          awk '/<!-- PATCHSET:ECHO BEGIN -->/{flag=1;next}/<!-- PATCHSET:ECHO END -->/{flag=0}flag' Prompt.md > /tmp/echo.txt
+          if ! grep -q "$head_sha" /tmp/echo.txt; then
+            if ! grep -q '^NO-ECHO-REASON:' /tmp/echo.txt; then
+              echo "::error::Embedded PATCHSET Echo missing HEAD ${head_sha} and no NO-ECHO-REASON provided."
+              echo "Update Prompt.md echo block between markers or add a NO-ECHO-REASON line."
+              exit 1
+            fi
+          fi

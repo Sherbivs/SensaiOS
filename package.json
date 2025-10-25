@@ -12,6 +12,7 @@
     "start": "node dist/index.js",
   "data:build": "node dist/data_pipeline/index.js",
   "register:commands": "node scripts/register-commands.js",
+  "docs:update-ledger": "bash scripts/update_change_ledger.sh",
     "lint": "eslint \"{src,tests}/**/*.ts\"",
     "test": "vitest"
   },

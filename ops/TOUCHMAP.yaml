@@ -108,6 +108,17 @@ T0.GUARD_FILENAMES:
   - "scripts/guard_doc_names.sh"
   - "ops/CRITICAL.md"
 
+META.LEDGER200:
+  - "Prompt.md"
+  - "scripts/update_change_ledger.sh"
+  - ".github/workflows/guard-meta.yml"
+  - "package.json"
+
+META.PATCHSET_ECHO:
+  - "Prompt.md"
+  - ".github/workflows/guard-meta.yml"
+  - "scripts/guard_meta.sh"
+
 # Canonical categories for router-driven tasks
 META.HARD_ROUTE:
   - "ops/ROUTER.yaml"

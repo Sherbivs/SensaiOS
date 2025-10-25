@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-25T03:15:00Z
-Revision: 1.6
+Last Updated (UTC): 2025-10-25T04:05:00Z
+Revision: 1.9
 
 This repository uses **Patch.md** as the single source of truth for automated, AI-driven development flow.
 The AI reading this file must follow the loop and rules exactly.
@@ -58,6 +58,19 @@ After completing a task, update `Tasklist.md` *convulsively* (immediately) to re
 ## Activation Trigger (MANDATORY)
 Trigger phrase (case-sensitive): `ACTIVATE: PATCH ENGINE`
 On trigger, follow Router → INBOX → NEXT → Tasklist → TOUCHMAP → Patch → Prompt sequence and emit one PATCHSET + Commit Message.
+
+### History Discipline (MANDATORY)
+- Maintain a “Recent Change Ledger (last 200)” section in `Prompt.md` between `<!-- LEDGER:BEGIN -->` and `<!-- LEDGER:END -->`.
+- Regenerate using `npm run docs:update-ledger` (scripted) to include changed files and approximate line ranges.
+- CI verifies the ledger includes the HEAD commit; keep the ledger machine-generated and unedited.
+
+### Embedded PATCHSET Echo (MANDATORY)
+- After every applied PATCHSET, update `Prompt.md` section “Embedded PATCHSET Echo (for quick audit)” between markers:
+  - `<!-- PATCHSET:ECHO BEGIN -->` … `<!-- PATCHSET:ECHO END -->`
+- The echo must contain either:
+  1) The exact PATCHSET and Commit Message just applied (verbatim), including the HEAD short SHA, or
+  2) A one-line justification starting with `NO-ECHO-REASON:` explaining why the echo is omitted (e.g., secrets, large binaries), followed by a brief summary.
+- If the echo cannot be produced, stop and add a PROPOSED meta task to fix echo generation.
 
 ## PATCH BLOCKS (MANDATORY FORMAT)
 Use the following structure for every change. Provide full-file content for creates/overwrites; use unified diffs for surgical edits when safer.
@@ -240,233 +253,159 @@ Paste your next PATCHSET below.
 
 ````
 ````
-Absolutely. Here’s a single **PATCHSET** that adds a robust, auto-generated **“Recent Change Ledger (last 200)”** to `Prompt.md`, plus a script and CI guard so it stays fresh. The ledger includes: commit metadata, files touched, **approximate line numbers** from unified diffs, and a short “logic intent” pulled from commit subjects. It’s fully wired into your existing router/guards.
-
-Paste into your Patch.md clipboard and apply.
+Perfect—let’s wire this in so the AI must keep an **embedded PATCHSET echo** in `Prompt.md` up to date (or explicitly explain why it didn’t). Paste this into your Patch.md clipboard and run.
 
 ````
 <<<PATCHSET START>>>
-# [META.LEDGER200]: Add auto-generated “Recent Change Ledger (last 200)” to Prompt.md with CI enforcement
+# [META.PATCHSET_ECHO]: Require embedded PATCHSET echo in Prompt.md (or explicit no-echo reason) + CI guard
+
+# FILE: Patch.md
+```diff
+@@
+-Last Updated (UTC): 2025-10-25T03:35:00Z
+-Revision: 1.9
++Last Updated (UTC): 2025-10-25T03:42:00Z
++Revision: 2.0
+@@
+ ### History Discipline (MANDATORY)
+ - Maintain **Recent Change Ledger (last 200)** inside `Prompt.md` between `<!-- LEDGER:BEGIN -->` and `<!-- LEDGER:END -->`.
+ - Use `npm run docs:update-ledger` (scripted) to regenerate; CI will fail if the ledger doesn’t include the latest commit.
++
++### Embedded PATCHSET Echo (MANDATORY)
++- After **every** applied PATCHSET, the AI MUST update `Prompt.md`’s section **“Embedded PATCHSET Echo (for quick audit)”** between markers:
++  - `<!-- PATCHSET:ECHO BEGIN -->` … `<!-- PATCHSET:ECHO END -->`
++- The echo must contain **either**:
++  1) The exact PATCHSET and Commit Message just applied (verbatim), and include the HEAD short SHA, **or**
++  2) A one-line justification starting with `NO-ECHO-REASON:` explaining why the echo is intentionally omitted (e.g., massive binary diff, secret rotation), followed by a brief summary.
++- If the echo cannot be produced, STOP and add a `PROPOSED` meta task to fix echo generation. Do **not** proceed with unrelated work.
+````
 
 # FILE: Prompt.md
+
 ```diff
 @@
--Timestamp (UTC): 2025-10-25T03:18:00Z
--Revision: 0.21
-+Timestamp (UTC): 2025-10-25T03:28:00Z
-+Revision: 0.22
+-Timestamp (UTC): 2025-10-25T03:35:00Z
+-Revision: 0.22
++Timestamp (UTC): 2025-10-25T03:42:00Z
++Revision: 0.23
 @@
- ## Last Repo Changes (since previous Prompt.md revision)
+ > - `src/bot/index.ts` — button interaction handling for HOME_* buttons added.
+ > - **Recent Change Ledger (last 200)** — added auto-generated history with file paths and approximate line ranges; CI ensures it includes the latest commit.
++> - **Embedded PATCHSET Echo** — Prompt.md now stores the latest applied PATCHSET (or a `NO-ECHO-REASON:`) for quick audit.
 @@
- > - `ops/INBOX/notes.md` — quick notes dropbox; AI reads first if newer than NEXT.last_notes_read_utc.
-+> - **Recent Change Ledger (last 200)** — added auto-generated history with file paths and approximate line ranges; CI now ensures it includes the latest commit.
+ ## Recent Change Ledger (last 200)
 @@
- ## AI Worker Prompt (copy/paste for Copilot/GPT)
-@@
- OUTPUT:
- - Only emit the PATCHSET block (and then the Commit Message block). No extra prose unless the task explicitly asks.
-@@
- ## Activation Trigger for AI Workers
-@@
- ACTIVATE: PATCH ENGINE
-````
-
-*
-
+ <!-- LEDGER:BEGIN -->
+ _Pending generation. Run `npm run docs:update-ledger` to populate._
+ <!-- LEDGER:END -->
++
 +---
 +
-+## Recent Change Ledger (last 200)
-+> **Auto-generated** from git history (commits affecting any path).
-+> Includes: short SHA, date, author, first-line subject as “logic intent”, and for each changed file the **approximate line ranges** inferred from diff hunks (`@@ -old,+new @@`).
-+> Regenerate with: `npm run docs:update-ledger` (runs `scripts/update_change_ledger.sh`).
-+> **Do not hand-edit between the markers below.** CI will fail if the ledger doesn’t include the HEAD commit.
++## Embedded PATCHSET Echo (for quick audit)
++> The AI must paste the **exact PATCHSET + Commit Message** of the most recently applied change **or** provide a `NO-ECHO-REASON:` line with a short justification.
++> CI will fail if neither the HEAD short SHA nor a `NO-ECHO-REASON:` appears between the markers.
 +
-+<!-- LEDGER:BEGIN -->
-+*Pending generation. Run `npm run docs:update-ledger` to populate.*
-+<!-- LEDGER:END -->
++<!-- PATCHSET:ECHO BEGIN -->
++_Pending echo. After next PATCHSET, this block must contain the PATCHSET + Commit Message, or a `NO-ECHO-REASON:` line._
++<!-- PATCHSET:ECHO END -->
 @@
-
-## Revision History
-
-| Date | Rev | Summary | By |
-| 2025-10-25 | 0.17 | Added Zod schemas, tests, and zod dep for T2.1 | AI |
-| 2025-10-25 | 0.18 | Implemented data pipeline build (T2.2) with deterministic outputs | AI |
-| 2025-10-25 | 0.19 | Discord bootstrap (T3.1): bot login, slash command scaffolds, register script | AI |
--| 2025-10-25 | 0.21 | Cleaned Prompt: stripped embedded historical patch blob; meta stamps updated | AI |
-+| 2025-10-25 | 0.21 | Cleaned Prompt: stripped embedded historical patch blob; meta stamps updated | AI |
-+| 2025-10-25 | 0.22 | Added auto-generated Recent Change Ledger (last 200) + CI guard | AI |
-
-````
-
-# FILE: scripts/update_change_ledger.sh
-```full
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Generate the last 200 commits with file changes and approximate line ranges,
-# and inject them into Prompt.md between LEDGER markers.
-
-LEDGER_BEGIN="<!-- LEDGER:BEGIN -->"
-LEDGER_END="<!-- LEDGER:END -->"
-OUT="$(mktemp)"
-
-# Collect git info
-# - Use --patch --unified=0 to get hunk headers @@ -a,b +c,d @@ (line ranges without context)
-# - Trim to last 200 commits
-COMMITS=$(git rev-list --max-count=200 HEAD)
-
-{
-  echo ""
-  echo "**Generated:** $(date -u +'%Y-%m-%dT%H:%M:%SZ')  |  **Branch:** $(git rev-parse --abbrev-ref HEAD)"
-  echo ""
-  for c in $COMMITS; do
-    short=$(git rev-parse --short "$c")
-    author=$(git show -s --format='%an' "$c")
-    date=$(git show -s --format='%ad' --date=format:'%Y-%m-%d' "$c")
-    subject=$(git show -s --format='%s' "$c" | sed 's/|/\\|/g')
-
-    echo "- **$short** — $date — $author — _logic intent:_ $subject"
-    # List files changed
-    git show --name-only --pretty="" "$c" | grep -v '^$' | while read -r f; do
-      # Skip extremely large/minified files for readability
-      case "$f" in
-        *.min.*) continue ;;
-      esac
-      # Extract hunk line ranges
-      hunks=$(git show --unified=0 "$c" -- "$f" | grep -E '^@@ ' || true)
-      if [[ -n "$hunks" ]]; then
-        # Summarize hunk ranges
-        # Example hunk: @@ -12,0 +13,15 @@
-        ranges=$(echo "$hunks" | sed -E 's/^@@ -([0-9]+)(,[0-9]+)? \+([0-9]+)(,[0-9]+)? @@.*$/+\3\4/g' | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')
-        echo "  - \`$f\` — ~lines: ${ranges}"
-      else
-        echo "  - \`$f\`"
-      fi
-    done
-  done
-} >"$OUT"
-
-# Replace section in Prompt.md
-awk -v BEGIN="$LEDGER_BEGIN" -v END="$LEDGER_END" -v file="$OUT" '
-  BEGIN {inblk=0}
-  {
-    if ($0 ~ BEGIN) { print; system("cat " file); inblk=1; next }
-    if ($0 ~ END && inblk==1) { inblk=0 }
-    if (inblk==0) print
-  }
-' Prompt.md > Prompt.md.new
-
-mv Prompt.md.new Prompt.md
-rm -f "$OUT"
-echo "Ledger updated in Prompt.md."
-````
-
-# FILE: package.json
-
-```diff
-@@
-   "scripts": {
-     "prebuild": "prisma generate",
-     "build": "tsc -p tsconfig.json",
-     "build:ci": "node ./node_modules/prisma/build/index.js generate && node ./node_modules/typescript/bin/tsc -p tsconfig.json",
-     "postinstall": "npm run build:ci",
-+    "docs:update-ledger": "bash scripts/update_change_ledger.sh",
-     "dev": "tsx watch src/index.ts",
-     "start": "node dist/index.js",
-     "lint": "eslint . --ext .ts,.tsx",
-     "format": "prettier --write .",
-     "test": "vitest run",
-     "test:watch": "vitest"
-   }
+ ## Revision History
+ | Date | Rev | Summary | By |
+-| 2025-10-25 | 0.22 | Add auto-generated Recent Change Ledger (last 200) + CI guard; cleaned embedded patch | AI |
++| 2025-10-25 | 0.22 | Add auto-generated Recent Change Ledger (last 200) + CI guard; cleaned embedded patch | AI |
++| 2025-10-25 | 0.23 | Add Embedded PATCHSET Echo section and CI enforcement | AI |
 ```
 
 # FILE: .github/workflows/guard-meta.yml
 
 ```diff
 @@
-       - name: Guard meta conventions
-         run: bash scripts/guard_meta.sh
-+      - name: Ensure Recent Change Ledger includes HEAD
+       - name: Ensure Recent Change Ledger includes HEAD
+         run: |
+           cp Prompt.md Prompt.md.bak
+           bash scripts/update_change_ledger.sh
+           head_sha="$(git rev-parse --short HEAD)"
+           if ! grep -q "\*\*${head_sha}\*\*" Prompt.md; then
+             echo "::error::Recent Change Ledger in Prompt.md does not include HEAD commit ${head_sha}. Run 'npm run docs:update-ledger'."
+             exit 1
+           fi
+           mv Prompt.md.bak Prompt.md
++      - name: Ensure Embedded PATCHSET Echo present for HEAD or justified
 +        run: |
-+          # regenerate ledger in a temp copy to compare, but do not commit
-+          cp Prompt.md Prompt.md.bak
-+          bash scripts/update_change_ledger.sh
 +          head_sha="$(git rev-parse --short HEAD)"
-+          if ! grep -q "\*\*${head_sha}\*\*" Prompt.md; then
-+            echo "::error::Recent Change Ledger in Prompt.md does not include HEAD commit ${head_sha}. Run 'npm run docs:update-ledger'."
-+            exit 1
++          # Extract the ECHO block
++          awk '/<!-- PATCHSET:ECHO BEGIN -->/{flag=1;next}/<!-- PATCHSET:ECHO END -->/{flag=0}flag' Prompt.md > /tmp/echo.txt
++          if ! grep -q "$head_sha" /tmp/echo.txt; then
++            if ! grep -q '^NO-ECHO-REASON:' /tmp/echo.txt; then
++              echo "::error::Embedded PATCHSET Echo missing HEAD ${head_sha} and no NO-ECHO-REASON provided."
++              echo "Update Prompt.md echo block between markers or add a NO-ECHO-REASON line."
++              exit 1
++            fi
 +          fi
-+          # restore
-+          mv Prompt.md.bak Prompt.md
 ```
 
-# FILE: Patch.md
+# FILE: scripts/guard_meta.sh
 
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T03:18:00Z
--Revision: 1.8
-+Last Updated (UTC): 2025-10-25T03:28:00Z
-+Revision: 1.9
+ set -euo pipefail
 @@
- ### Hard Routing Policy (MANDATORY)
-@@
- - If routing conflicts arise, stop and add a PROPOSED task to reconcile router vs. reality; update Prompt “Last Repo Changes”.
+ echo "✅ Guard: Worker Prompt present."
 +
-+### History Discipline (MANDATORY)
-+- Maintain **Recent Change Ledger (last 200)** inside `Prompt.md` between `<!-- LEDGER:BEGIN -->` and `<!-- LEDGER:END -->`.
-+- Use `npm run docs:update-ledger` (scripted) to regenerate; CI will fail if the ledger doesn’t include the latest commit.
-```
-
-# FILE: ops/NEXT.yaml
-
-```diff
-@@
--timestamp_utc: 2025-10-25T03:18:00Z
--note: "Prompt cleaned (removed historical blob). Proceed with T2.2 manifest/determinism."
-+timestamp_utc: 2025-10-25T03:28:00Z
-+note: "Ledger200 added; Prompt now tracks last 200 changes with file paths and line ranges. Proceed with T2.2."
++# Embedded PATCHSET Echo sanity check (soft advisory here; workflow enforces hard)
++if awk '/<!-- PATCHSET:ECHO BEGIN -->/{flag=1;next}/<!-- PATCHSET:ECHO END -->/{flag=0}flag' Prompt.md | grep -q '.'; then
++  echo "✅ Guard: PATCHSET Echo block has content."
++else
++  echo "⚠️ Advisory: PATCHSET Echo block is empty. It must be populated after the next PATCHSET."
++fi
 ```
 
 # FILE: ops/TOUCHMAP.yaml
 
 ```diff
 @@
- META.HARD_ROUTE:
-   - "ops/ROUTER.yaml"
-   - "ops/INBOX/notes.md"
-   - "Patch.md"
+ META.LEDGER200:
    - "Prompt.md"
-   - "Tasklist.md"
-   - "ops/NEXT.yaml"
+   - "scripts/update_change_ledger.sh"
+   - ".github/workflows/guard-meta.yml"
+   - "package.json"
 +
-+META.LEDGER200:
++META.PATCHSET_ECHO:
 +  - "Prompt.md"
-+  - "scripts/update_change_ledger.sh"
 +  - ".github/workflows/guard-meta.yml"
-+  - "package.json"
++  - "scripts/guard_meta.sh"
 ```
 
 # FILE: Tasklist.md
 
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T03:18:00Z
--Revision: 2.1
-+Last Updated (UTC): 2025-10-25T03:28:00Z
-+Revision: 2.2
+-Last Updated (UTC): 2025-10-25T03:35:00Z
+-Revision: 2.2
++Last Updated (UTC): 2025-10-25T03:42:00Z
++Revision: 2.3
 @@
  ## Phase 0 — Repo & Tooling
 @@
-+- id: META.LEDGER200
-+  title: Add auto-generated Recent Change Ledger (last 200) to Prompt.md
++- id: META.PATCHSET_ECHO
++  title: Enforce Embedded PATCHSET Echo in Prompt.md (or explicit NO-ECHO-REASON)
 +  status: DONE
-+  depends_on: [META.HARD_ROUTE, T0.META.HARDEN]
++  depends_on: [META.LEDGER200, META.HARD_ROUTE]
 +  acceptance_criteria:
-+    - Prompt.md contains LEDGER markers and generated content
-+    - Script `scripts/update_change_ledger.sh` produces ledger with file paths and approximate line ranges
-+    - CI fails if HEAD commit is not present in the ledger
-+  notes: Outcome — AI can quickly infer short/long-term intent across the last 200 changes with locations and logic summary.
++    - Prompt.md contains “Embedded PATCHSET Echo” section with markers
++    - CI fails if echo section lacks HEAD short SHA and lacks NO-ECHO-REASON
++    - Patch contract documents the requirement
++  notes: Outcome — Auditable, single-file snapshot of the most recent change lives in Prompt.md.
+```
+
+# FILE: ops/NEXT.yaml
+
+```diff
+@@
+-timestamp_utc: 2025-10-25T03:35:00Z
+-note: "Added Recent Change Ledger (last 200) and cleaned Prompt. Proceed with T2.2 manifest/determinism."
++timestamp_utc: 2025-10-25T03:42:00Z
++note: "Embedded PATCHSET Echo enforced (or NO-ECHO-REASON). Proceed with T2.2 manifest/determinism."
 ```
 
 <<<PATCHSET END>>>
@@ -476,25 +415,25 @@ echo "Ledger updated in Prompt.md."
 **Commit Message**
 ```
 
-[META.LEDGER200] Add auto-generated Recent Change Ledger (last 200) to Prompt.md + CI guard
+[META.PATCHSET_ECHO] Require embedded PATCHSET echo in Prompt.md (or explicit NO-ECHO-REASON) + CI guard
 
 Why:
-We want the AI to see the last ~200 repo changes with file paths and approximate line numbers and a logic summary, so it can infer short/long-term intent without spelunking.
+We want a quick, auditable snapshot of the most recent change inside Prompt.md. If we can’t echo it (e.g., secrets/binaries), we must record a clear reason.
 
 Changes:
 
-* Prompt.md: new “Recent Change Ledger (last 200)” section with markers; logged in Last Repo Changes; stamped rev/time.
-* scripts/update_change_ledger.sh: generates ledger from git (200 commits), including hunk ranges and commit subjects.
-* package.json: added `docs:update-ledger` script.
-* CI: ensures ledger includes HEAD commit; instructs to run the updater if missing.
-* TOUCHMAP/NEXT/TASKLIST/Patch: mapped and documented the new system; stamped meta.
+* Patch.md: added Embedded PATCHSET Echo policy.
+* Prompt.md: added “Embedded PATCHSET Echo” section with markers.
+* CI: guard-meta workflow now fails if echo doesn’t include HEAD short SHA and no NO-ECHO-REASON is present.
+* guard_meta.sh: advisory check; touchmap mapping; tasklist/NEXT stamps.
 
 Acceptance:
-`npm run docs:update-ledger` fills the ledger; CI enforces freshness; AI can read precise recent history (paths, ranges, logic intent) and act accordingly.
+After each PATCHSET, the AI updates the echo block with the exact PATCHSET + Commit Message (or a NO-ECHO-REASON), keeping Prompt.md the single-file audit anchor.
 
 ```
 
-How to use:
-- Run `npm run docs:update-ledger` locally before committing, or let CI flag it and then run it.
-- The section remains compact and machine-scannable; no manual editing—just regenerate.
+Usage note:
+- Right after applying any new PATCHSET, paste that same PATCHSET + Commit Message into the **Embedded PATCHSET Echo** block.  
+- If you intentionally skip echoing (e.g., secret rotation), write a one-liner:  
+  `NO-ECHO-REASON: Secret rotation patch; echo omitted. Summary: rotated DISCORD_BOT_TOKEN.`
 ```

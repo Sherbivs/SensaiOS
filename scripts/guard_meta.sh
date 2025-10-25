@@ -78,3 +78,10 @@ if ! grep -q "^## AI Worker Prompt (copy/paste for Copilot/GPT)" Prompt.md; then
 fi
 
 echo "✅ Meta update policy satisfied."
+
+# Advisory: PATCHSET Echo block should contain content
+if awk '/<!-- PATCHSET:ECHO BEGIN -->/{flag=1;next}/<!-- PATCHSET:ECHO END -->/{flag=0}flag' Prompt.md | grep -q '.'; then
+  echo "✅ Advisory: PATCHSET Echo block has content."
+else
+  echo "⚠️ Advisory: PATCHSET Echo block is empty. It must be populated after the next PATCHSET (or include NO-ECHO-REASON)."
+fi

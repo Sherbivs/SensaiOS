@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T03:30:00Z
-Revision: 1.11
+Last Updated (UTC): 2025-10-25T04:05:00Z
+Revision: 1.14
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -15,6 +15,25 @@ Each task has:
 ---
 
 ## Phase 0 — Repo & Tooling
+- id: META.LEDGER200
+  title: Add auto-generated Recent Change Ledger (last 200) to Prompt.md
+  status: DONE
+  depends_on: [META.HARD_ROUTE]
+  acceptance_criteria:
+    - Prompt.md contains LEDGER markers and generated content section
+    - Script scripts/update_change_ledger.sh produces ledger with file paths and approximate line ranges
+    - CI fails if HEAD commit is not present in the ledger
+  notes: Outcome — AI can quickly infer recent intent across last 200 changes with locations and logic summary.
+
+- id: META.PATCHSET_ECHO
+  title: Enforce Embedded PATCHSET Echo in Prompt.md (or explicit NO-ECHO-REASON)
+  status: DONE
+  depends_on: [META.LEDGER200, META.HARD_ROUTE]
+  acceptance_criteria:
+    - Prompt.md contains “Embedded PATCHSET Echo” section with markers
+    - CI fails if echo section lacks HEAD short SHA and lacks NO-ECHO-REASON
+    - Patch contract documents the requirement
+  notes: Outcome — Single-file audit snapshot of the most recent change now lives in Prompt.md.
 - id: META.HARD_ROUTE
   title: Add router + inbox notes and enforce router-driven AI routing
   status: DONE
@@ -236,11 +255,12 @@ Each task has:
 
 - id: T3.3
   title: Starter choose + Heal
-  status: READY
+  status: DONE
   depends_on: [T3.2]
   acceptance_criteria:
     - One-time starter flow persists a level 5 mon
     - `/heal` fully restores party and clears status
+  notes: Outcome — Implemented starter DM flow with one-time pick (level 5) and heal action to restore party HP/status. Buttons wired from DM Home; slash commands route to flows.
 
 ## Phase 4 — Catching Loop
 
