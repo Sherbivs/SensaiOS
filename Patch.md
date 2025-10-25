@@ -207,63 +207,144 @@ PATCH CLIPBOARD — STAGING AREA (AI-Editable)
 Paste your next PATCHSET below.
 
 ````
+````
 <<<PATCHSET START>>>
-# [T1.1.FIX.REL]: Add missing Prisma back-reference (PokemonInstance.partySlots) and align Prisma versions
+# [T0.GUARD_FILENAMES]: Guard canonical doc filenames & teach AI not to rename them
 
-# FILE: prisma/schema.prisma
+# FILE: Patch.md
 ```diff
 @@
- model PokemonInstance {
-   id         String   @id @default(cuid())
-   owner      User     @relation(fields: [ownerId], references: [id])
-   ownerId    String
-   speciesId  Int
-   form       String?  // e.g., "alolan", "galarian"
-   level      Int      @default(1)
-   exp        Int      @default(0)
-   nature     String?
-   ivsJson    Json     // {hp, atk, def, spa, spd, spe}
-   evsJson    Json     // same shape
-   movesJson  Json     // array of {id, pp, maxPP}
-   status     String?  // major status (burn, para, etc.)
-   hp         Int
-   maxHp      Int
-   isShiny    Boolean  @default(false)
-   nickname   String?
-   boxSlot    Int?
-   createdAt  DateTime @default(now())
-+  // Back-reference required for PartySlot.pokemon relation
-+  partySlots PartySlot[]
- }
+ # AI PROJECT MANAGER CONTRACT
+-Last Updated (UTC): 2025-10-25T01:25:00Z
+-Revision: 1.0
++Last Updated (UTC): 2025-10-25T01:40:00Z
++Revision: 1.1
 @@
- model PartySlot {
-   id          String          @id @default(cuid())
-   party       Party           @relation(fields: [partyId], references: [id], onDelete: Cascade)
-   partyId     String
-   slot        Int
-   pokemon     PokemonInstance @relation(fields: [pokemonId], references: [id], onDelete: Cascade)
-   pokemonId   String
- 
-   @@unique([partyId, slot])
- }
+ ## MODIFICATION POLICY: Patch.md & Tasklist.md
+@@
+ ### When it’s OK to update `Patch.md`
+@@
+ **How to update `Patch.md`**
+@@
+ 4. Never store secrets; never remove the PATCH CLIPBOARD footer.
++
++### Canonical Filenames (DO NOT RENAME)
++These filenames are **contractual** and referenced by Render Build Filters. **Never change their spelling or case.**
++- `Patch.md`
++- `Tasklist.md`
++- `Prompt.md`
++- `ops/PATCH_POLICY_BACKUP.md`
++
++If any of these are renamed, CI will fail (see `.github/workflows/guard-docs.yml`), and the AI must restore their exact names before proceeding.
 ````
 
-# FILE: package.json
+# FILE: .github/workflows/guard-docs.yml
+
+```full
+name: Guard canonical doc filenames
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify canonical doc filenames
+        run: bash scripts/guard_doc_names.sh
+```
+
+# FILE: scripts/guard_doc_names.sh
+
+```full
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "🔎 Guarding canonical doc filenames…"
+
+# Required files with exact case
+required=(
+  "Patch.md"
+  "Tasklist.md"
+  "Prompt.md"
+  "ops/PATCH_POLICY_BACKUP.md"
+)
+
+status=0
+
+for f in "${required[@]}"; do
+  if [[ ! -f "$f" ]]; then
+    echo "ERROR: Missing required file with exact case: $f"
+    status=1
+  fi
+done
+
+# Forbidden lower-case variants at repo root
+forbidden=(
+  "patch.md"
+  "tasklist.md"
+  "prompt.md"
+)
+
+for f in "${forbidden[@]}"; do
+  if [[ -f "$f" ]]; then
+    echo "ERROR: Forbidden filename present: $f (must use capitalized canonical name)"
+    status=1
+  fi
+done
+
+# For ops backup, reject any case variant that isn't the canonical one
+# Find any file in ops/ named PATCH_POLICY_BACKUP.md ignoring case
+found="$(find ops -maxdepth 1 -type f -iname 'patch_policy_backup.md' 2>/dev/null || true)"
+if [[ -n "$found" ]]; then
+  while IFS= read -r path; do
+    [[ "$path" == "ops/PATCH_POLICY_BACKUP.md" ]] || {
+      echo "ERROR: Forbidden backup filename variant: $path (must be ops/PATCH_POLICY_BACKUP.md)"
+      status=1
+    }
+  done <<< "$found"
+fi
+
+if [[ $status -eq 0 ]]; then
+  echo "✅ Canonical filenames intact."
+else
+  echo "❌ Canonical filename guard failed."
+fi
+
+exit "$status"
+```
+
+# FILE: ops/CRITICAL.md
 
 ```diff
 @@
-   "devDependencies": {
+ ### Contract & Task Graph Updates (Policy)
 @@
--    "prisma": "^5.19.2"
-+    "prisma": "^5.22.0"
-   },
-   "dependencies": {
--    "@prisma/client": "^5.19.2",
-+    "@prisma/client": "^5.22.0",
-     "typescript": "^5.6.3",
-     "zod": "^3.23.8"
-   }
- }
+  - Any newly unblocked tasks flipped to `READY`.
+  - **Timestamps/Revisions:** Update top-of-file timestamps and revisions in `Patch.md`, `Tasklist.md`, and `Prompt.md`. For `Prompt.md`, also update the “Last Repo Changes” block summarizing this PATCHSET.
++  - **Canonical Filenames:** Do not rename `Patch.md`, `Tasklist.md`, `Prompt.md`, or `ops/PATCH_POLICY_BACKUP.md`. Render Build Filters depend on exact case; CI enforces via `guard-docs` workflow.
+```
+
+# FILE: ops/TOUCHMAP.yaml
+
+```diff
+--- a/ops/TOUCHMAP.yaml
++++ b/ops/TOUCHMAP.yaml
+@@
+ META.PATCH.REBUILD:
+   - "Patch.md"
+   - "ops/PATCH_POLICY_BACKUP.md"
++
++T0.GUARD_FILENAMES:
++  - "Patch.md"
++  - ".github/workflows/guard-docs.yml"
++  - "scripts/guard_doc_names.sh"
++  - "ops/CRITICAL.md"
 ```
 
 # FILE: Prompt.md
@@ -272,48 +353,52 @@ Paste your next PATCHSET below.
 @@
 -Timestamp (UTC): 2025-10-25T01:30:00Z
 -Revision: 0.8
-+Timestamp (UTC): 2025-10-25T01:33:00Z
-+Revision: 0.9
++Timestamp (UTC): 2025-10-25T01:40:00Z
++Revision: 0.10
 @@
  > - `.github/workflows/render-deploy.yml` — deploy to Render **only** when code paths change; requires Auto-Deploy OFF in Render and two repo secrets (`RENDER_SERVICE_ID`, `RENDER_API_KEY`).
  > - `package.json` — dev watcher ignores Patch.md/Tasklist.md/Prompt.md and all markdown files to avoid local restarts.
-+> - `prisma/schema.prisma` — added `partySlots: PartySlot[]` back-reference to satisfy `PartySlot.pokemon` (fixes Prisma P1012).
-+> - `package.json` — bumped `prisma` & `@prisma/client` to `^5.22.0` to match Render CLI.
++> - `.github/workflows/guard-docs.yml` — CI job that fails if canonical doc filenames are renamed or lowercased.
++> - `scripts/guard_doc_names.sh` — script used by CI to enforce exact-case names.
++> - `Patch.md` / `ops/CRITICAL.md` — documented “Canonical Filenames (DO NOT RENAME)” policy.
 @@
--| 2025-10-25 | 0.8 | Added code-only Render deploy workflow; ignored docs in dev watch | AI | Prevents restarts on doc commits
-+| 2025-10-25 | 0.8 | Added code-only Render deploy workflow; ignored docs in dev watch | AI | Prevents restarts on doc commits
+-| 2025-10-25 | 0.9 | Fixed Prisma relation P1012; aligned Prisma versions | AI | Build unblocks on Render
 +| 2025-10-25 | 0.9 | Fixed Prisma relation P1012; aligned Prisma versions | AI | Build unblocks on Render
++| 2025-10-25 | 0.10 | Added filename guards (CI + docs) to prevent renames that break Render filters | AI | Hard fails if names change
 ```
 
 # FILE: Tasklist.md
 
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T01:30:00Z
--Revision: 0.9
-+Last Updated (UTC): 2025-10-25T01:33:00Z
-+Revision: 1.0
+-Last Updated (UTC): 2025-10-25T01:33:00Z
+-Revision: 1.0
++Last Updated (UTC): 2025-10-25T01:40:00Z
++Revision: 1.1
 @@
- ## Phase 1 — Render & DB
-+ - id: T1.1.FIX.REL
-+   title: Fix Prisma back-reference and versions to resolve P1012
-+   status: DONE
-+   depends_on: [T1.1]
-+   acceptance_criteria:
-+     - `PokemonInstance` declares `partySlots: PartySlot[]`
-+     - Build no longer fails with Prisma P1012 on Render
-+     - `prisma` and `@prisma/client` use `^5.22.0`
-+   notes: Outcome — Prisma generate succeeds on Render; relation graph is consistent.
+ ## Phase 0 — Repo & Tooling
+@@
++- id: T0.GUARD_FILENAMES
++  title: Guard canonical doc filenames and instruct AI never to rename them
++  status: DONE
++  depends_on: []
++  acceptance_criteria:
++    - Patch.md/CRITICAL.md document canonical filenames and the “do not rename” rule
++    - CI workflow `.github/workflows/guard-docs.yml` exists and runs `scripts/guard_doc_names.sh`
++    - Script fails the build if any canonical file is missing or if lowercase/variant files exist
++  notes: Outcome — Render Build Filters remain valid; AI is explicitly instructed and CI enforces compliance.
 ```
 
 # FILE: ops/NEXT.yaml
 
 ```diff
+--- a/ops/NEXT.yaml
++++ b/ops/NEXT.yaml
 @@
--timestamp_utc: 2025-10-25T01:30:00Z
--note: "Deploy workflow now code-only; dev watch ignores docs. Next remains T2.2 (pipeline output with deterministic manifest)."
-+timestamp_utc: 2025-10-25T01:33:00Z
-+note: "Resolved Prisma P1012 with back-reference & version align. Next remains T2.2."
+-timestamp_utc: 2025-10-25T01:33:00Z
+-note: "Resolved Prisma P1012 with back-reference & version align. Next remains T2.2."
++timestamp_utc: 2025-10-25T01:40:00Z
++note: "Filename guards added (policy + CI). Proceed with T2.2 (pipeline output with manifest)."
 ```
 
 <<<PATCHSET END>>>
@@ -323,21 +408,22 @@ Paste your next PATCHSET below.
 **Commit Message**
 ```
 
-[Task T1.1.FIX.REL] Resolve Prisma P1012 by adding PokemonInstance.partySlots[] and aligning Prisma versions
+[Task T0.GUARD_FILENAMES] Add CI guard and policy to prevent renaming Patch/Tasklist/Prompt/Backup files
 
 Why:
-Render build failed at prisma generate because PartySlot.pokemon lacked an opposite field. Render’s CLI is 5.22.0, so local packages should match.
+Render Build Filters are case-sensitive. Renaming or lowercasing these files would silently break deploy filters, so the AI must never change them—and CI should enforce that.
 
 Changes:
 
-* prisma/schema.prisma: added PokemonInstance.partySlots[] back-reference.
-* package.json: bumped prisma/@prisma-client to ^5.22.0.
-* Stamped Prompt.md/Tasklist.md; updated NEXT note.
+* Patch.md: added “Canonical Filenames (DO NOT RENAME)” section; bumped timestamp/revision.
+* Added .github/workflows/guard-docs.yml and scripts/guard_doc_names.sh to fail CI on incorrect names.
+* ops/CRITICAL.md: reiterated the policy.
+* ops/TOUCHMAP.yaml: mapped new task.
+* Prompt.md/Tasklist.md: stamped revisions and logged changes.
+* ops/NEXT.yaml: updated note/timestamp.
 
 Acceptance:
-`npm install` → `postinstall` → `prisma generate` succeeds; no P1012; Render build continues.
+CI fails if canonical filenames are missing or a case-variant exists; docs instruct AI not to rename; filters stay reliable.
 
 ```
-
-After applying, push to main; Render should pass the build stage. If anything else barks, the logs will tell us which goblin to whack next.
 ```
