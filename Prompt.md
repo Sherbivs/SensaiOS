@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T05:25:00Z
-Revision: 0.31
+Timestamp (UTC): 2025-10-25T05:50:00Z
+Revision: 0.32
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,145 +10,19 @@ Revision: 0.31
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `Prompt.md` — Relocated embedded patchset content into the PATCHSET:ECHO block, removed stray section under Activation Trigger, and bumped timestamp/revision (no functional code changes).
+> - `src/core/battle/engine.ts` — TypeScript wrapper over JS engine with deterministic SeededRNG and helpers to create battles and resolve turns.
+> - `src/core/battle/damage.ts` — Thin wrapper exposing damage/effectiveness helpers for TS code.
+> - `src/core/battle/status.ts` — Minimal status helpers for major statuses.
+> - `tests/battle_engine.spec.ts` — Vitest covering turn order, STAB/type effectiveness, ability immunity, and crit override.
+> - `tasklist.md` — Marked T5.2 DONE with acceptance notes.
+> - `ops/NEXT.yaml` — Advanced to T5.3 (DM action menus + Arena summaries).
 
 <!-- PATCHSET:ECHO BEGIN -->
-You’re right — Render is still running `npm install` as the build step (not your `render.yaml`), so `dist/index.js` never gets produced. We’ll fix this in a belt-and-suspenders way:
-
-1. Add a `postinstall` script that compiles TypeScript during the build step even if Render only runs `npm install`.
-2. Ensure the compiler and Prisma codegen are available at build time by invoking them directly (no global tsc assumptions).
-3. Log the change in Prompt.md and bump timestamps/revisions.
-
-Paste this PATCHSET into your Patch.md clipboard and run it.
-
-````
-<<<PATCHSET START>>>
-# [T0.FIX.BUILD_DIST]: Ensure dist/index.js exists on Render when build step only runs `npm install`
-
-# FILE: package.json
-```diff
-@@
-   "scripts": {
--    "prebuild": "prisma generate",
--    "build": "tsc -p tsconfig.json",
-+    "prebuild": "prisma generate",
-+    "build": "tsc -p tsconfig.json",
-+    "build:ci": "node ./node_modules/prisma/build/index.js generate && node ./node_modules/typescript/bin/tsc -p tsconfig.json",
-+    "postinstall": "npm run build:ci",
-     "dev": "tsx watch src/index.ts",
-     "start": "node dist/index.js",
-     "lint": "eslint . --ext .ts,.tsx",
-     "format": "prettier --write .",
-     "test": "vitest run",
-     "test:watch": "vitest"
-   },
--  "devDependencies": {
-+  "devDependencies": {
-@@
--    "vitest": "^2.0.5",
--    "prisma": "^5.19.2"
-+    "vitest": "^2.0.5",
-+    "prisma": "^5.19.2"
-   },
-   "dependencies": {
--    "@prisma/client": "^5.19.2"
-+    "@prisma/client": "^5.19.2",
-+    "typescript": "^5.6.3"
-   }
- }
-````
-
-# FILE: Prompt.md
-
-```diff
-@@
--Timestamp (UTC): 2025-10-25T01:00:00Z
--Revision: 0.3
-+Timestamp (UTC): 2025-10-25T01:07:00Z
-+Revision: 0.4
-@@
--> Changes in this revision:
-+> Changes in this revision:
- > - `render.yaml` — added explicit `buildCommand` (npm ci && npm run build) and `startCommand` (node dist/index.js) to fix Render “Missing script: start”.
- > - `src/bot/`, `src/core/battle/`, `src/core/encounter/`, `src/shared/`, `src/data_pipeline/`, `tests/` — created scaffold entries to establish project layout.
- > - `RULESET.md`, `DATA-SCHEMA.md`, `OPERATIONS.md` — added stub docs with UTC placeholders.
- > - `ops/NEXT.yaml` — advanced `next_task_id` to `T1.1` (DB schema) and updated `files_hint`.
- > - `Tasklist.md` — marked `T0.2` DONE; added fix task for Render start.
-+> - `package.json` — added `postinstall` hook that runs `build:ci` so `dist/index.js` is created even when Render only runs `npm install`; ensured local bin invocations for Prisma + TypeScript.
-+> - **Impact:** Start command `node dist/index.js` now succeeds consistently on Render.
-@@
- | 2025-10-25 | 0.3 | Added structured logger; updated boot logs; NEXT -> T2.1 | AI | Prep for data schema work |
-+| 2025-10-25 | 0.4 | Build fix for Render: postinstall compiles TS to dist; stable start | AI | Avoids MODULE_NOT_FOUND for dist/index.js |
-```
-
-# FILE: Patch.md
-
-```diff
-@@
--Last Updated (UTC): 2025-10-25T01:00:00Z
--Revision: 0.4
-+Last Updated (UTC): 2025-10-25T01:07:00Z
-+Revision: 0.5
-```
-
-# FILE: Tasklist.md
-
-```diff
-@@
--Last Updated (UTC): 2025-10-25T01:00:00Z
--Revision: 0.4
-+Last Updated (UTC): 2025-10-25T01:07:00Z
-+Revision: 0.5
-@@
- ## Phase 0 — Repo & Tooling
-@@
-+- id: T0.FIX.BUILD_DIST
-+  title: Ensure dist is built during Render "npm install" build step
-+  status: DONE
-+  depends_on: [T1.1, T1.2]
-+  acceptance_criteria:
-+    - `package.json` contains a `postinstall` that compiles TypeScript to `dist/`
-+    - Build does not rely on global `tsc`; uses local binaries
-+    - Render start (`node dist/index.js`) works without needing render.yaml
-+  notes: Outcome — `dist/index.js` created during `npm install`; eliminates MODULE_NOT_FOUND at runtime.
-```
-
-# FILE: ops/NEXT.yaml
-
-```diff
---- a/ops/NEXT.yaml
-+++ b/ops/NEXT.yaml
-@@
- timestamp_utc: 2025-10-25T01:00:00Z
--note: "Logging in place; next define reference data schemas and tests."
-+note: "Logging in place; added postinstall build to produce dist under Render; next define reference data schemas and tests."
-```
-
-<<<PATCHSET END>>>
-
-```
-
-**Commit Message**
-```
-
-[Task T0.FIX.BUILD_DIST] Build dist during Render’s `npm install` to avoid MODULE_NOT_FOUND
-
-Why:
-Render’s current service is ignoring render.yaml and only running `npm install`, so `dist/index.js` wasn’t generated and the app crashed at start.
-
-Changes:
-
-* package.json: added `postinstall` that runs `build:ci`; `build:ci` invokes local Prisma and TypeScript binaries to compile into `dist/`.
-* Prompt.md: logged the change and bumped timestamp/revision.
-* Patch.md/Tasklist.md: stamped timestamps/revisions; recorded fix task as DONE.
-* ops/NEXT.yaml: noted the fix in the pointer note.
-
-Acceptance:
-Deploy pipeline that only runs `npm install` now emits `dist/index.js`. Start command `node dist/index.js` succeeds on Render.
-
-```
-
-If you later switch the service to a Render “Blueprint” using `render.yaml`, you can drop the `postinstall` hook, but this keeps you resilient right now.
+NO-ECHO-REASON: Concise echo; see git history for full diff.
+- Implemented battle core v1 (TypeScript wrappers over JS engine) and tests.
+- Added deterministic RNG and helpers to initialize battles and resolve turns.
+- Marked T5.2 DONE; advanced NEXT to T5.3.
+- Commit: [Task T5.2] Battle core v1 (engine wrappers + tests).
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers

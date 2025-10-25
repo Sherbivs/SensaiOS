@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T05:15:00Z
-Revision: 1.17
+Last Updated (UTC): 2025-10-25T05:50:00Z
+Revision: 1.18
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -297,12 +297,13 @@ Each task has:
 
 - id: T5.2
   title: Battle core v1 (turn order, damage, statuses)
-  status: READY
+  status: DONE
   depends_on: [T5.1, T2.2]
   acceptance_criteria:
     - Deterministic RNG per-battle stored
     - Type chart, STAB, crits, accuracy checks
     - Minimal moveset: Tackle, Quick Attack, Growl, Ember, Water Gun, Vine Whip
+  notes: Outcome — Implemented TS wrappers over JS engine with deterministic RNG; added tests for speed order, STAB/effectiveness, immunity, and crit override.
 
 - id: T5.3
   title: DM action menus + Arena summaries
