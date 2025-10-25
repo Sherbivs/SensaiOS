@@ -231,227 +231,114 @@ Paste your next PATCHSET below.
 ````
 ````
 <<<PATCHSET START>>>
-# [T0.CLEAN.PROMPT.B]: Remove stale PATCHSET blob from Prompt.md and bump meta stamps
+# [T0.PROMPT.KEY]: Add `prompt` trigger key for workers and enforce via CI
 
-# FILE: Prompt.md
+# FILE: ops/NEXT.yaml
 ```diff
 @@
--Timestamp (UTC): 2025-10-25T02:18:00Z
--Revision: 0.16
-+Timestamp (UTC): 2025-10-25T02:20:00Z
-+Revision: 0.17
-@@
- OUTPUT:
- - Only emit the PATCHSET block (and then the Commit Message block). No extra prose unless the task explicitly asks.
-````
-
-*
-
-## -You’re right — Render is still running `npm install` as the build step (not your `render.yaml`), so `dist/index.js` never gets produced. We’ll fix this in a belt-and-suspenders way:
-
--1. Add a `postinstall` script that compiles TypeScript during the build step even if Render only runs `npm install`.
--2. Ensure the compiler and Prisma codegen are available at build time by invoking them directly (no global tsc assumptions).
--3. Log the change in Prompt.md and bump timestamps/revisions.
---------------------------------------------------------------
-
-## -Paste this PATCHSET into your Patch.md clipboard and run it.
-
--````
--<<<PATCHSET START>>>
--# [T0.FIX.BUILD_DIST]: Ensure dist/index.js exists on Render when build step only runs `npm install`
------------------------------------------------------------------------------------------------------
-
--# FILE: package.json
--```diff
--@@
-
-* "scripts": {
-  --    "prebuild": "prisma generate",
-  --    "build": "tsc -p tsconfig.json",
-  -+    "prebuild": "prisma generate",
-  -+    "build": "tsc -p tsconfig.json",
-  -+    "build:ci": "node ./node_modules/prisma/build/index.js generate && node ./node_modules/typescript/bin/tsc -p tsconfig.json",
-  -+    "postinstall": "npm run build:ci",
-* ```
-  "dev": "tsx watch src/index.ts",
-  ```
-* ```
-  "start": "node dist/index.js",
-  ```
-* ```
-  "lint": "eslint . --ext .ts,.tsx",
-  ```
-* ```
-  "format": "prettier --write .",
-  ```
-* ```
-  "test": "vitest run",
-  ```
-* ```
-  "test:watch": "vitest"
-  ```
-* },
-  --  "devDependencies": {
-  -+  "devDependencies": {
-  -@@
-  --    "vitest": "^2.0.5",
-  --    "prisma": "^5.19.2"
-  -+    "vitest": "^2.0.5",
-  -+    "prisma": "^5.19.2"
-* },
-* "dependencies": {
-  --    "@prisma/client": "^5.19.2"
-  -+    "@prisma/client": "^5.19.2",
-  -+    "typescript": "^5.6.3"
-* }
-* }
-  -````
-*
-
-## -# FILE: Prompt.md
-
--```diff
--@@
---Timestamp (UTC): 2025-10-25T01:00:00Z
---Revision: 0.3
--+Timestamp (UTC): 2025-10-25T01:07:00Z
--+Revision: 0.4
--@@
---> Changes in this revision:
--+> Changes in this revision:
-
-* > * `render.yaml` — added explicit `buildCommand` (npm ci && npm run build) and `startCommand` (node dist/index.js) to fix Render “Missing script: start”.
-* > * `src/bot/`, `src/core/battle/`, `src/core/encounter/`, `src/shared/`, `src/data_pipeline/`, `tests/` — created scaffold entries to establish project layout.
-* > * `RULESET.md`, `DATA-SCHEMA.md`, `OPERATIONS.md` — added stub docs with UTC placeholders.
-* > * `ops/NEXT.yaml` — advanced `next_task_id` to `T1.1` (DB schema) and updated `files_hint`.
-* > * `Tasklist.md` — marked `T0.2` DONE; added fix task for Render start.
-  >   -+> - `package.json` — added `postinstall` hook that runs `build:ci` so `dist/index.js` is created even when Render only runs `npm install`; ensured local bin invocations for Prisma + TypeScript.
-  >   -+> - **Impact:** Start command `node dist/index.js` now succeeds consistently on Render.
-  >   -@@
-* | 2025-10-25 | 0.3 | Added structured logger; updated boot logs; NEXT -> T2.1 | AI | Prep for data schema work |
-  -+| 2025-10-25 | 0.4 | Build fix for Render: postinstall compiles TS to dist; stable start | AI | Avoids MODULE_NOT_FOUND for dist/index.js |
-  -```
-*
-
-## -# FILE: Patch.md
-
--`diff
--@@ --Last Updated (UTC): 2025-10-25T01:00:00Z --Revision: 0.4
--+Last Updated (UTC): 2025-10-25T01:07:00Z
--+Revision: 0.5
--`
---
-
-## -# FILE: Tasklist.md
-
--```diff
--@@
---Last Updated (UTC): 2025-10-25T01:00:00Z
---Revision: 0.4
--+Last Updated (UTC): 2025-10-25T01:07:00Z
--+Revision: 0.5
--@@
-
-* ## Phase 0 — Repo & Tooling
-
--@@
---+ id: T0.FIX.BUILD_DIST
--+  title: Ensure dist is built during Render "npm install" build step
--+  status: DONE
--+  depends_on: [T1.1, T1.2]
--+  acceptance_criteria:
--+    - `package.json` contains a `postinstall` that compiles TypeScript to `dist/`
--+    - Build does not rely on global `tsc`; uses local binaries
--+    - Render start (`node dist/index.js`) works without needing render.yaml
--+  notes: Outcome — `dist/index.js` created during `npm install`; eliminates MODULE_NOT_FOUND at runtime.
--```
-----
-
-## -# FILE: ops/NEXT.yaml
-
--```diff
----- a/ops/NEXT.yaml
--+++ b/ops/NEXT.yaml
--@@
-
-* timestamp_utc: 2025-10-25T01:00:00Z
-* -note: "Logging in place; next define reference data schemas and tests."
-* +note: "Logging in place; added postinstall build to produce dist under Render; next define reference data schemas and tests."
-  -```
-*
-
-## -<<<PATCHSET END>>>
-
-## -```
-
--**Commit Message**
--```
-----
-
-## -[Task T0.FIX.BUILD_DIST] Build dist during Render’s `npm install` to avoid MODULE_NOT_FOUND
-
--Why:
--Render’s current service is ignoring render.yaml and only running `npm install`, so `dist/index.js` wasn’t generated and the app crashed at start.
----------------------------------------------------------------------------------------------------------------------------------------------------
-
-## -Changes:
-
--* package.json: added `postinstall` that runs `build:ci`; `build:ci` invokes local Prisma and TypeScript binaries to compile into `dist/`.
--* Prompt.md: logged the change and bumped timestamp/revision.
--* Patch.md/Tasklist.md: stamped timestamps/revisions; recorded fix task as DONE.
--* ops/NEXT.yaml: noted the fix in the pointer note.
-----------------------------------------------------
-
--Acceptance:
--Deploy pipeline that only runs `npm install` now emits `dist/index.js`. Start command `node dist/index.js` succeeds on Render.
--------------------------------------------------------------------------------------------------------------------------------
-
-## -```
-
--If you later switch the service to a Render “Blueprint” using `render.yaml`, you can drop the `postinstall` hook, but this keeps you resilient right now.
--```
-+> Note: Removed an embedded historical PATCHSET/commit blob to keep this file deterministic and single-sourced.
-
+-timestamp_utc: 2025-10-25T02:20:00Z
+-note: "Prompt cleaned (removed historical blob). Proceed with T2.2."
++timestamp_utc: 2025-10-25T02:24:00Z
++note: "Added NEXT.yaml prompt key for worker boot; proceed with T2.2."
++prompt: |
++  ROLE: Repo Worker AI for Infinity-Gauntlet (Discord Pokémon buddy system).
++  FOLLOW: Patch.md contract exactly. Use the AI Worker Prompt in Prompt.md for details.
++  READ ORDER: ops/NEXT.yaml → Tasklist.md → ops/TOUCHMAP.yaml → Prompt.md.
++  LOOP: Execute the first READY task with deps DONE → emit ONE PATCHSET (contract format) → update Tasklist.md statuses/subtasks → bump timestamps/revisions (Prompt.md always; Patch/Tasklist together when either changes) → Commit Message → repeat.
++  OUTPUT: Only the PATCHSET block and then the Commit Message block (no extra prose).
++  SAFETY: Do not rename Patch.md, Tasklist.md, Prompt.md, ops/PATCH_POLICY_BACKUP.md; keep diffs minimal and reversible; no secrets; constrain to files_hint.
 ````
 
 # FILE: Patch.md
+
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T02:18:00Z
--Revision: 1.4
-+Last Updated (UTC): 2025-10-25T02:20:00Z
-+Revision: 1.5
-````
+-Last Updated (UTC): 2025-10-25T02:20:00Z
+-Revision: 1.5
++Last Updated (UTC): 2025-10-25T02:24:00Z
++Revision: 1.6
+@@
+ ### Worker Prompt Requirement
+ - `Prompt.md` MUST contain the section titled exactly **“AI Worker Prompt (copy/paste for Copilot/GPT)”**.
+ - When material workflows change (NEXT/TOUCHMAP/policies), refresh that section accordingly
++
++### Trigger Prompt Key (NEXT.yaml)
++- `ops/NEXT.yaml` MUST include a top-level **`prompt:`** key with a concise, copy/pasteable instruction block telling workers to follow the Patch.md contract and the AI Worker Prompt in Prompt.md.
++- The `prompt:` content can be reused verbatim in chat inputs; workers must treat it as authoritative boot instructions and start the OPERATING LOOP immediately.
+```
+
+# FILE: ops/CRITICAL.md
+
+```diff
+@@
+  - **META Update Requirement:** On *every* PATCHSET, `Prompt.md` must be updated (timestamp, revision, change bullets). If either `Patch.md` or `Tasklist.md` is edited, **both** must have header bumps in the same commit.
++ - **NEXT Prompt Key:** `ops/NEXT.yaml` must always include a top-level `prompt:` block to enable quick worker boot from repo state or pasted text.
+```
+
+# FILE: ops/TOUCHMAP.yaml
+
+```diff
+@@
+ T0.GUARD_FILENAMES:
+   - "Patch.md"
+   - ".github/workflows/guard-docs.yml"
+   - "scripts/guard_doc_names.sh"
+   - "ops/CRITICAL.md"
++
++T0.PROMPT.KEY:
++  - "ops/NEXT.yaml"
++  - "Patch.md"
++  - "ops/CRITICAL.md"
+```
+
+# FILE: scripts/guard_meta.sh
+
+```diff
+@@
+ echo "✅ Meta update policy satisfied."
++
++# Additional invariant: NEXT.yaml must carry a top-level 'prompt:' key for worker boot.
++if ! grep -qE '^prompt:\s*\|' ops/NEXT.yaml; then
++  echo "❌ ops/NEXT.yaml is missing required 'prompt:' key (multiline block)."
++  exit 1
++fi
++echo "✅ NEXT prompt key present."
+```
+
+# FILE: Prompt.md
+
+```diff
+@@
+-Timestamp (UTC): 2025-10-25T02:20:00Z
+-Revision: 0.17
++Timestamp (UTC): 2025-10-25T02:24:00Z
++Revision: 0.18
+@@
+ > - `.github/workflows/guard-meta.yml` / `scripts/guard_meta.sh` — added checks for Worker Prompt presence and deeper evidence/revision requirements when code changes.
+ > - `Prompt.md` — added “AI Worker Prompt (copy/paste for Copilot/GPT)” section for fast bootstrapping.
++> - `ops/NEXT.yaml` — added top-level `prompt:` key so workers can start immediately from repo state or pasted text.
+```
 
 # FILE: Tasklist.md
 
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T02:18:00Z
--Revision: 1.6
-+Last Updated (UTC): 2025-10-25T02:20:00Z
-+Revision: 1.7
+-Last Updated (UTC): 2025-10-25T02:20:00Z
+-Revision: 1.7
++Last Updated (UTC): 2025-10-25T02:24:00Z
++Revision: 1.8
 @@
  ## Phase 0 — Repo & Tooling
 @@
-+- id: T0.CLEAN.PROMPT.B
-+  title: Remove stale PATCHSET blob from Prompt.md
++- id: T0.PROMPT.KEY
++  title: Add NEXT.yaml prompt trigger and enforce via CI
 +  status: DONE
-+  depends_on: []
++  depends_on: [T0.META.ENFORCE, T0.META.HARDEN]
 +  acceptance_criteria:
-+    - Prompt.md contains only curated sections and the AI Worker Prompt
-+    - No embedded PATCHSET/commit message blobs remain
-+  notes: Outcome — Keeps Prompt.md deterministic; avoids reapplying old fixes.
-```
-
-# FILE: ops/NEXT.yaml
-
-```diff
-@@
--timestamp_utc: 2025-10-25T02:18:00Z
--note: "dist/index.js guaranteed via tsconfig+entry; AI Worker Prompt added. Proceed with T2.2 (pipeline output with manifest)."
-+timestamp_utc: 2025-10-25T02:20:00Z
-+note: "Prompt cleaned (removed historical blob). Proceed with T2.2."
++    - ops/NEXT.yaml contains a top-level `prompt:` block with concise worker instructions
++    - Patch.md and CRITICAL.md document the requirement
++    - CI fails if `prompt:` is missing in ops/NEXT.yaml
++  notes: Outcome — Copy/pasteable trigger exists; workers always obey the Patch contract.
 ```
 
 <<<PATCHSET END>>>
@@ -461,19 +348,22 @@ Paste your next PATCHSET below.
 **Commit Message**
 ```
 
-[Task T0.CLEAN.PROMPT.B] Remove stale PATCHSET blob from Prompt.md; bump meta timestamps
+[Task T0.PROMPT.KEY] Add NEXT.yaml `prompt` trigger and enforce it; document in Patch/CRITICAL; stamp Prompt/Tasklist
 
 Why:
-A historical PATCHSET/commit block got pasted into Prompt.md, which can mislead the worker AI.
+You want a copy/pasteable key that forces workers to follow the Patch contract every time—no ambiguity.
 
 Changes:
 
-* Prompt.md: removed embedded PATCHSET+commit blob; bumped Timestamp/Revision and added note.
-* Patch.md/Tasklist.md: stamped headers; recorded meta task.
-* NEXT: updated pointer note/timestamp.
+* ops/NEXT.yaml: added top-level `prompt:` block with concise boot instructions.
+* Patch.md / ops/CRITICAL.md: documented trigger prompt requirement.
+* guard_meta.sh: now asserts NEXT has a `prompt:` block.
+* Prompt.md / Tasklist.md: stamped and logged; TOUCHMAP updated.
 
 Acceptance:
-Prompt.md is clean and deterministic; CI meta guards pass; worker sees only the current canon.
+Repo contains a canonical, enforced worker trigger (`prompt:`) that AIs can paste or read to start executing the Patch loop immediately.
 
 ```
+
+After applying this, you can paste the **`prompt:`** block anywhere (or just point workers at `ops/NEXT.yaml`) and they’ll snap to the contract: read order, operating loop, output format, and guardrails—no guessing.
 ```
