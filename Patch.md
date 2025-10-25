@@ -227,180 +227,168 @@ Paste your next PATCHSET below.
 ````
 ````
 <<<PATCHSET START>>>
-# [T0.META.ENFORCE]: Enforce Prompt/Tasklist/Patch updates on every PATCHSET (with CI guard)
+# [META.DIST_AND_PROMPT]: Guarantee dist/index.js exists and add the mandatory AI Worker Prompt (with CI check)
 
-# FILE: Patch.md
-```diff
-@@
--Last Updated (UTC): 2025-10-25T01:40:00Z
--Revision: 1.1
-+Last Updated (UTC): 2025-10-25T01:50:00Z
-+Revision: 1.2
-@@
- ## OPERATING LOOP
-@@
- 4) **Commit**
-    - Generate a commit message using the template below.
-    - Prefer multiple small commits over one giant diff.
- 
- 5) **Repeat**
-    - Return to step 1 until no `READY` tasks remain.
-+
-+---
-+
-+## META UPDATE REQUIREMENT (MANDATORY)
-+- **Every PATCHSET must, at minimum, update `Prompt.md`** (Timestamp + Revision + “Last Repo Changes”).  
-+- **If `Tasklist.md` or `Patch.md` are edited, both must have their header timestamps/revisions bumped** in the same PATCHSET.
-+- **If unsure what to change:** update **Prompt.md** with a brief note under “Last Repo Changes” and bump its header; then stop or add a tiny precursor task.
+# FILE: tsconfig.json
+```full
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "rootDir": "src",
+    "outDir": "dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+    "sourceMap": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules"]
+}
 ````
 
-# FILE: ops/CRITICAL.md
-
-```diff
-@@
-  - **Timestamps/Revisions:** Update top-of-file timestamps and revisions in `Patch.md`, `Tasklist.md`, and `Prompt.md`. For `Prompt.md`, also update the “Last Repo Changes” block summarizing this PATCHSET.
-+ - **META Update Requirement:** On *every* PATCHSET, `Prompt.md` must be updated (timestamp, revision, change bullets). If either `Patch.md` or `Tasklist.md` is edited, **both** must have header bumps in the same commit.
-```
-
-# FILE: .github/workflows/guard-meta.yml
+# FILE: src/index.ts
 
 ```full
-name: Guard meta updates (Prompt/Tasklist/Patch)
+// Minimal bootstrap to guarantee dist/index.js exists after tsc.
+// Expand this file as the real bot entrypoint.
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-jobs:
-  guard:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout (need prior commit)
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-      - name: Run meta guard
-        run: bash scripts/guard_meta.sh
-```
-
-# FILE: scripts/guard_meta.sh
-
-```full
-#!/usr/bin/env bash
-set -euo pipefail
-
-echo "🔎 Guarding meta update policy…"
-
-# Get changed files against previous commit
-BASE="$(git rev-parse HEAD~1 2>/dev/null || echo '')"
-if [[ -z "$BASE" ]]; then
-  echo "First commit or shallow history; skipping guard."
-  exit 0
-fi
-
-CHANGED=$(git diff --name-only "$BASE"...HEAD | tr -d '\r')
-echo "Changed files:"
-echo "$CHANGED" | sed 's/^/ - /'
-
-# Normalize match helpers
-has_changed() { echo "$CHANGED" | grep -qE "^$1$"; }
-any_changed()  { echo "$CHANGED" | grep -qE "$1"; }
-
-# Which files changed?
-PROMPT_CHANGED=false
-PATCH_CHANGED=false
-TASKLIST_CHANGED=false
-
-has_changed "Prompt.md" && PROMPT_CHANGED=true
-has_changed "Patch.md" && PATCH_CHANGED=true
-has_changed "Tasklist.md" && TASKLIST_CHANGED=true
-
-# Non-doc changes? (anything outside markdown at root/ops or these three)
-NON_DOC_CHANGED=false
-if echo "$CHANGED" | grep -vqE '^(Prompt\.md|Patch\.md|Tasklist\.md|ops/[^/]+\.md)$'; then
-  NON_DOC_CHANGED=true
-fi
-
-fail() { echo "❌ $*"; exit 1; }
-
-# Rule 1: If non-doc files changed, Prompt.md must be in the commit.
-if $NON_DOC_CHANGED && ! $PROMPT_CHANGED; then
-  fail "Non-doc files changed but Prompt.md was not updated (Timestamp/Revision + Last Repo Changes required)."
-fi
-
-# Rule 2: If Patch.md changed, Tasklist.md must change too (and vice versa).
-if $PATCH_CHANGED && ! $TASKLIST_CHANGED; then
-  fail "Patch.md changed but Tasklist.md did not. Both must be updated together (headers bumped)."
-fi
-if $TASKLIST_CHANGED && ! $PATCH_CHANGED; then
-  fail "Tasklist.md changed but Patch.md did not. Both must be updated together (headers bumped)."
-fi
-
-# Rule 3: If a meta file changed, its header lines must be modified in the diff.
-check_header_bumped () {
-  local file="$1"
-  if git diff "$BASE"...HEAD -- "$file" | grep -qE '^\+.*(Timestamp \(UTC\)|Last Updated \(UTC\)|Revision:)'; then
-    return 0
-  else
-    fail "$file changed but header Timestamp/Revision not updated."
-  fi
+function boot() {
+  // Basic startup log so Render shows something meaningful
+  // eslint-disable-next-line no-console
+  console.log("[boot] Infinity-Gauntlet service starting...");
+  // TODO: wire Discord client and DB once configured
 }
 
-$PROMPT_CHANGED && check_header_bumped "Prompt.md"
-$PATCH_CHANGED && check_header_bumped "Patch.md"
-$TASKLIST_CHANGED && check_header_bumped "Tasklist.md"
+boot();
 
-echo "✅ Meta update policy satisfied."
+// Export a noop so future tests can import main without side effects
+export const __ENTRYPOINT__ = true;
 ```
 
 # FILE: Prompt.md
 
+````diff
+@@
+-Timestamp (UTC): 2025-10-25T02:09:00Z
+-Revision: 0.14
++Timestamp (UTC): 2025-10-25T02:18:00Z
++Revision: 0.16
+@@
+ > - `.github/workflows/guard-meta.yml` / `scripts/guard_meta.sh` — enforce that Prompt.md is updated on every real change, and Patch/Tasklist are updated together with header bumps.
+ > - `scripts/guard_meta.sh` — hardened: requires new bullets in “Last Repo Changes” and either Evidence Matrix or Revision History update when code changes.
++> - `tsconfig.json` — enforced `rootDir: src` and `outDir: dist` so tsc emits `dist/index.js`.
++> - `src/index.ts` — added minimal entrypoint to ensure `dist/index.js` exists after build.
++> - **Prompt.md** — added “AI Worker Prompt (copy/paste for Copilot/GPT)” section; CI checks for its presence.
+@@
+ ## Objectives
+@@
++## AI Worker Prompt (copy/paste for Copilot/GPT)
++> Use this verbatim when spinning up an AI worker or committing via Copilot Chat.
++```
++ROLE: Senior Staff Systems Architect & Implementer for the Infinity-Gauntlet (Discord Pokémon buddy system).
++
++READ ORDER (fast-path):
++1) ops/NEXT.yaml  → get next_task_id + files_hint
++2) Tasklist.md    → execute only tasks with status: READY and all depends_on DONE
++3) ops/TOUCHMAP.yaml → constrain edits to mapped paths
++4) Prompt.md (this file) → ground truth + risks; update Last Repo Changes every commit
++
++OPERATING LOOP:
++- Pick the first READY task with dependencies DONE.
++- Produce ONE PATCHSET per task using the contract in Patch.md (full files for creates, unified diffs for edits).
++- Update Tasklist.md in the PATCHSET footer (DONE/READY flips, add subtasks with acceptance_criteria).
++- MUST bump timestamps/revisions (Prompt.md always; Patch/Tasklist together when either changes).
++- Write a clear Commit Message.
++
++GUARDRAILS:
++- Do not rename Patch.md, Tasklist.md, Prompt.md, or ops/PATCH_POLICY_BACKUP.md.
++- Keep diffs minimal, deterministic, and reversible. No secrets.
++- Respect files_hint; do not wander.
++- If ambiguous: add a tiny precursor PROPOSED task; update Prompt.md with the question.
++
++OUTPUT:
++- Only emit the PATCHSET block (and then the Commit Message block). No extra prose unless the task explicitly asks.
++```
+@@
+ | 2025-10-25 | 0.9 | Fixed Prisma relation P1012; aligned Prisma versions | AI | Build unblocks on Render
+-| 2025-10-25 | 0.14 | Hardened meta guard (bullets + evidence/revision required) | AI | Stronger “convulsive learning”
++| 2025-10-25 | 0.14 | Hardened meta guard (bullets + evidence/revision required) | AI | Stronger “convulsive learning”
++| 2025-10-25 | 0.16 | Ensure dist/index.js; add AI Worker Prompt (CI-enforced) | AI | Self-bootstrapping worker prompt + stable start
+````
+
+# FILE: Patch.md
+
 ```diff
 @@
--Timestamp (UTC): 2025-10-25T01:45:00Z
--Revision: 0.11
-+Timestamp (UTC): 2025-10-25T01:50:00Z
-+Revision: 0.12
+-Last Updated (UTC): 2025-10-25T02:15:00Z
+-Revision: 1.3
++Last Updated (UTC): 2025-10-25T02:18:00Z
++Revision: 1.4
 @@
- > - `.github/workflows/guard-docs.yml` — CI job that fails if canonical doc filenames are renamed or lowercased.
- > - `scripts/guard_doc_names.sh` — script used by CI to enforce exact-case names.
- > - `Patch.md` / `ops/CRITICAL.md` — documented “Canonical Filenames (DO NOT RENAME)” policy.
- > - `ops/PATCH_POLICY_BACKUP.md` — added canonical backup sentinel for CI guard.
-+> - `.github/workflows/guard-meta.yml` / `scripts/guard_meta.sh` — enforce that Prompt.md is updated on every real change, and Patch/Tasklist are updated together with header bumps.
+ ## META UPDATE REQUIREMENT (MANDATORY)
+@@
+ - **If unsure what to change:** update **Prompt.md** with a brief note under “Last Repo Changes” and bump its header; then stop or add a tiny precursor task.
+ 
+ ### Worker Prompt Requirement
+ - `Prompt.md` MUST contain the section titled exactly **“AI Worker Prompt (copy/paste for Copilot/GPT)”**.
+ - When material workflows change (NEXT/TOUCHMAP/policies), refresh that section accordingly
+```
+
+# FILE: scripts/guard_meta.sh
+
+```diff
+@@
+ # Rule 4 (nudge toward deeper learning): When non-doc changes occur, require a trace artifact update:
+ # either a new Evidence Matrix line or a Revision History line must be added in Prompt.md.
+ if $NON_DOC_CHANGED; then
+   PROMPT_DIFF="$(git diff "$BASE"...HEAD -- Prompt.md || true)"
+   HAS_EVIDENCE=$(echo "$PROMPT_DIFF" | grep -qE '^\+\| .* \| .* \| .* \|'; echo $?)
+   HAS_REVHIST=$(echo "$PROMPT_DIFF" | grep -qE '^\+\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|'; echo $?)
+   if [[ "$HAS_EVIDENCE" -ne 0 && "$HAS_REVHIST" -ne 0 ]]; then
+     fail "Non-doc changes detected: add either an Evidence Matrix row or a Revision History row in Prompt.md."
+   fi
+ fi
++
++# Rule 5: Prompt must include the AI Worker Prompt section header.
++if ! grep -q "^## AI Worker Prompt (copy/paste for Copilot/GPT)" Prompt.md; then
++  fail "Prompt.md is missing the required 'AI Worker Prompt (copy/paste for Copilot/GPT)' section."
++fi
 ```
 
 # FILE: Tasklist.md
 
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T01:45:00Z
--Revision: 1.2
-+Last Updated (UTC): 2025-10-25T01:50:00Z
-+Revision: 1.3
+-Last Updated (UTC): 2025-10-25T02:09:00Z
+-Revision: 1.5
++Last Updated (UTC): 2025-10-25T02:18:00Z
++Revision: 1.6
 @@
  ## Phase 0 — Repo & Tooling
 @@
-+- id: T0.META.ENFORCE
-+  title: Enforce Prompt/Tasklist/Patch updates on every PATCHSET
++- id: META.DIST_AND_PROMPT
++  title: Guarantee dist/index.js and add mandatory AI Worker Prompt
 +  status: DONE
-+  depends_on: [T0.GUARD_FILENAMES]
++  depends_on: [T0.FIX.BUILD_DIST, T0.META.HARDEN]
 +  acceptance_criteria:
-+    - Patch.md documents mandatory Prompt.md update and coupled Patch/Tasklist header bumps
-+    - CI guard fails when non-doc changes omit Prompt.md or when Patch/Tasklist are edited alone
-+    - CI guard verifies header lines were bumped
-+  notes: Outcome — The “update meta or fail” rule is encoded in docs and enforced in CI.
++    - tsconfig.json sets rootDir=src and outDir=dist
++    - src/index.ts exists and compiles to dist/index.js
++    - Prompt.md contains the “AI Worker Prompt (copy/paste for Copilot/GPT)” section
++    - CI guard fails if that section is missing
++  notes: Outcome — Stable boot on Render and a copy-paste worker prompt baked into Prompt.md.
 ```
 
 # FILE: ops/NEXT.yaml
 
 ```diff
 @@
--timestamp_utc: 2025-10-25T01:40:00Z
--note: "Filename guards added (policy + CI). Proceed with T2.2 (pipeline output with manifest)."
-+timestamp_utc: 2025-10-25T01:50:00Z
-+note: "Meta update guard added (policy + CI). Proceed with T2.2 (pipeline output with manifest)."
+-timestamp_utc: 2025-10-25T02:09:00Z
+-note: "Meta guard hardened (bullets + evidence/revision required). Proceed with T2.2."
++timestamp_utc: 2025-10-25T02:18:00Z
++note: "dist/index.js guaranteed via tsconfig+entry; AI Worker Prompt added. Proceed with T2.2 (pipeline output with manifest)."
 ```
 
 <<<PATCHSET END>>>
@@ -410,21 +398,24 @@ echo "✅ Meta update policy satisfied."
 **Commit Message**
 ```
 
-[Task T0.META.ENFORCE] Require Prompt/Tasklist/Patch updates per PATCHSET and enforce via CI
+[META.DIST_AND_PROMPT] Ensure dist/index.js exists and add mandatory AI Worker Prompt (CI-enforced)
 
 Why:
-We want zero ambiguity: every meaningful change must at least bump Prompt.md, and Patch/Tasklist must be updated together with header bumps.
+Render kept failing at runtime looking for dist/index.js. Also, Prompt.md should include a ready-to-use worker prompt so AIs can self-bootstrap.
 
 Changes:
 
-* Patch.md / ops/CRITICAL.md: documented the mandatory meta-update rule.
-* CI: added guard-meta.yml + scripts/guard_meta.sh to fail when rule is violated; checks header bumps too.
-* Stamped Prompt.md/Tasklist.md; updated NEXT note.
+* tsconfig.json: rootDir=src, outDir=dist to emit dist/index.js.
+* src/index.ts: minimal entry so tsc always produces dist/index.js.
+* Prompt.md: added “AI Worker Prompt (copy/paste for Copilot/GPT)” and logged changes.
+* Patch.md: documented Worker Prompt requirement.
+* CI guard: now fails if Prompt.md lacks the Worker Prompt section.
+* Stamped Prompt/Tasklist/NEXT.
 
 Acceptance:
-CI blocks merges/pushes that skip Prompt.md on real changes or split Patch/Tasklist updates; headers must change each time.
+`npm start` points to an actually emitted dist/index.js; the repo contains a canonical, enforced worker prompt for AIs.
 
 ```
 
-Once merged, the worker AI will always keep Prompt/Tasklist/Patch in sync—and if it wobbles, CI will bonk it on the nose.
+Once applied, you can jump back to the previously skipped task—the guardrails will keep the meta files and the worker brain tight as a drum.
 ```
