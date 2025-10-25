@@ -12,6 +12,8 @@ files_hint:
   - "prisma/schema.prisma"
   - "src/models/"
   - "migrations/"
+  - "render.yaml"
+  # Note: render.yaml added to lock build/start behavior for Render deploys.
 
 # Required actions after completion:
 # - Set next_task_id to the next READY task.

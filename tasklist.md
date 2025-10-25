@@ -87,6 +87,16 @@ Each task has:
     - Optional project hints tailored to this repo (Node.js + TS, Postgres, Render, Discord bot)
   notes: Prompt.md added and referenced in ops/CRITICAL.md as a contextual doc.
 
+- id: T0.FIX.RENDER_START
+  title: Add render.yaml with explicit build/start commands for Render
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - render.yaml exists at repo root with buildCommand "npm ci && npm run build"
+    - startCommand runs compiled app via "node dist/index.js"
+    - NEXT pointer includes render.yaml in files_hint notes
+  notes: Outcome — Render no longer relies on missing npm start; service boots compiled JS.
+
 ## Phase 1 — Render & DB
 
 - id: T1.1

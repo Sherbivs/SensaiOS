@@ -1,4 +1,13 @@
 services:
+  # New web service for the compiled bot (fixes missing npm start by running dist output)
+  - type: web
+    name: infinity-gauntlet-bot
+    env: node
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/index.js
+    autoDeploy: true
+
+  # Existing worker (left intact)
   - type: worker
     name: infinity-gauntlet
     env: node
@@ -17,7 +26,7 @@ services:
         value: production
       - key: DISABLE_SNAPSHOT_PRECHECK
         value: "true"
-services:
+
   # Discord bot worker
   - type: worker
     name: infinity-gauntlet-bots
