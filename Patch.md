@@ -264,273 +264,166 @@ Paste your next PATCHSET below.
 
 ````
 ````
-````
-````
 ````md
-Got it—here’s a single **PATCHSET** that (1) enforces “Tasklist must be updated on every PATCH touching code,” (2) jumpstarts the engine by pointing NEXT at the coupling fix, and (3) bumps meta docs. It includes the CI workflow + guard script, updates to `Patch.md`/`Prompt.md`, and drops in the `Tasklist.md` and `ops/NEXT.yaml` you asked for.
-
----
-
+````
 ````
 <<<PATCHSET START>>>
-# [META.TASKLIST.COUPLING_FIX]: Enforce Tasklist updates from every PATCH touching code and jumpstart NEXT
+# [META.REFRESH.REMOTE]: Teach Refresh Vision to verify remote GitHub access and record status
 
-# FILE: .github/workflows/guard-meta.yml
-```full
-name: Guard Meta Coupling
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  meta-guard:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout (full history)
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Determine BASE_SHA
-        id: base
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "base_sha=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
-          else
-            # For push: 'before' is the previous commit on the branch
-            echo "base_sha=${{ github.event.before }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Make guard script executable
-        run: chmod +x scripts/guard_meta.sh
-
-      - name: Run guard
-        env:
-          BASE_SHA: ${{ steps.base.outputs.base_sha }}
-          HEAD_SHA: ${{ github.sha }}
-        run: |
-          ./scripts/guard_meta.sh "${BASE_SHA}" "${HEAD_SHA}"
+# FILE: scripts/refresh_vision.sh
+```diff
+@@
+ #!/usr/bin/env bash
+ set -euo pipefail
+ 
+ # DEV-ONLY helper the Activation Trigger runs first.
+ # Responsibilities:
+ # 1) Stamp ops/RECOVERY.yaml heartbeat_utc to "now"
+ # 2) Regenerate ops/ROUTER_INDEX.yaml if router docs exist
+ # 3) (Optional) Update Prompt.md LEDGER section if a generator script exists
++# 4) (New) Verify remote GitHub visibility for the canonical repo and record status
+ 
+ root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ cd "$root_dir"
+ 
+ now_iso="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+ 
+@@
+ if [[ -x scripts/update_change_ledger.sh ]]; then
+   scripts/update_change_ledger.sh
+ fi
+ 
+ echo "[refresh_vision] Heartbeat stamped: ${now_iso}"
++
++# 4) Remote GitHub visibility check (advisory; non-fatal)
++# You can override the remote via env var GIT_REMOTE_URL.
++GIT_REMOTE_URL="${GIT_REMOTE_URL:-https://github.com/Sherbivs/Infinity-Gauntlet.git}"
++mkdir -p ops
++remote_yaml="ops/REMOTE_VISION.yaml"
++
++remote_status="unknown"
++remote_error=""
++
++if command -v git >/dev/null 2>&1; then
++  # Try a very light-weight reachability check
++  if git ls-remote --heads "${GIT_REMOTE_URL}" >/dev/null 2>&1; then
++    remote_status="reachable"
++  else
++    remote_status="unreachable"
++    remote_error="git ls-remote failed (network/auth?). If running in a restricted VFS/CI, run this script locally."
++  fi
++else
++  remote_status="unavailable"
++  remote_error="git not found in PATH; cannot probe remote. Install git or run locally."
++fi
++
++cat > "${remote_yaml}" <<YML
++# REMOTE VISION — advisory record of remote GitHub visibility
++timestamp_utc: ${now_iso}
++remote_url: ${GIT_REMOTE_URL}
++status: ${remote_status}   # reachable | unreachable | unavailable | unknown
++last_error: ${remote_error}
++note: "Refresh Vision: I couldn’t run network probes in this environment—please execute locally if needed."
++YML
++
++echo "[refresh_vision] Remote vision: ${remote_status} (${GIT_REMOTE_URL})"
 ````
 
-# FILE: scripts/guard_meta.sh
+# FILE: ops/REMOTE_VISION.yaml
 
 ```full
-#!/usr/bin/env bash
-set -euo pipefail
-
-BASE_SHA="${1:-}"
-HEAD_SHA="${2:-}"
-
-if [[ -z "${BASE_SHA}" || -z "${HEAD_SHA}" ]]; then
-  echo "::warning::Missing BASE_SHA/HEAD_SHA; defaulting to HEAD~1..HEAD for diff."
-  BASE_SHA="$(git rev-parse HEAD~1)"
-  HEAD_SHA="$(git rev-parse HEAD)"
-fi
-
-echo "Comparing range: ${BASE_SHA}..${HEAD_SHA}"
-
-changed_files="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")"
-echo "Changed files:"
-echo "${changed_files}"
-
-# Define what counts as "code touch"
-code_globs_regex='^(src/|tests/|scripts/(?!guard_).+|package\.json|tsconfig\.json)'
-
-# If any code paths changed, Tasklist.md must be in the diff
-if echo "${changed_files}" | grep -E "${code_globs_regex}" >/dev/null 2>&1; then
-  echo "Detected code changes."
-  if ! echo "${changed_files}" | grep -Fxq "Tasklist.md"; then
-    echo "::error::Code changed but Tasklist.md was not updated in this diff."
-    echo "         Every PATCH touching code must include a Tasklist update."
-    exit 1
-  fi
-  # Optional: ensure Tasklist header lines bumped (cheap heuristic)
-  if ! git diff "${BASE_SHA}" "${HEAD_SHA}" -- Tasklist.md | grep -E '^\+Last Updated \(UTC\):|^\+Revision:' >/dev/null 2>&1; then
-    echo "::warning::Tasklist.md changed but header stamp not detected. Consider bumping Last Updated/Revision."
-  fi
-else
-  echo "No code changes detected in guarded paths; meta coupling check skipped."
-fi
-
-# Advisory: if NEXT is NONE but a READY task exists, suggest fix (do not fail)
-next_is_none="false"
-if [ -f ops/NEXT.yaml ]; then
-  if grep -E '^next_task_id:\s*NONE\b' ops/NEXT.yaml >/dev/null 2>&1; then
-    next_is_none="true"
-  fi
-fi
-
-ready_count="$(grep -E '^\s*status:\s*READY\b' Tasklist.md | wc -l | tr -d ' ')"
-if [ "${next_is_none}" = "true" ] && [ "${ready_count}" -gt 0 ]; then
-  echo "::notice::NEXT.yaml points to NONE but ${ready_count} READY tasks exist. Consider setting next_task_id to the first READY task."
-fi
-
-echo "Meta guard passed."
+# REMOTE VISION — advisory record of remote GitHub visibility
+# This file is populated by scripts/refresh_vision.sh. Safe to commit for operator awareness.
+timestamp_utc: 2025-10-25T08:45:00Z
+remote_url: https://github.com/Sherbivs/Infinity-Gauntlet.git
+status: unknown
+last_error: ""
+note: "Refresh Vision: I couldn’t run refresh_vision.sh in this VFS environment—please execute it locally when possible."
 ```
 
 # FILE: Patch.md
 
 ```diff
 @@
- ## OPERATING LOOP
  0. **Refresh Vision (MANDATORY)**
    - Run `scripts/refresh_vision.sh` to regenerate `ops/ROUTER_INDEX.yaml`, update the Recent Change Ledger, and stamp `ops/RECOVERY.yaml`.
-   - Read `ops/ROUTER_INDEX.yaml` to enumerate active routers; consult the specific `ROUTER.md` for any directory you will touch.
- 1. **Load Task Graph**
+   - If `ops/RECOVERY.yaml:last_attempted_task_id` is set and compatible with `ops/NEXT.yaml`, prefer resuming that task.
++  - (New) The script also writes `ops/REMOTE_VISION.yaml` after probing the canonical GitHub remote
++    (default `https://github.com/Sherbivs/Infinity-Gauntlet.git` or `$GIT_REMOTE_URL`). This is advisory and never blocks work.
+```
+
+# FILE: Tasklist.md
+
+```diff
 @@
- 2. **Execute**
-    - For the first READY task in dependency order:
-      - Apply code changes using **PATCH BLOCKS** format (below).
-      - Keep changes minimal, reversible, and scoped to the task.
-      - Run/adjust tests if present.
- 
- 3. **Update Tasklist**
--   - Mark the executed task `DONE`.
-+   - Mark the executed task `DONE`.
-    - For any tasks now unblocked, change `status` to `READY`.
-    - If you discover missing steps, create new tasks with unique `id` and clear `acceptance_criteria`.
-+   - **Coupling Guard (CI-enforced):** Any PATCH that touches `src/**`, `tests/**`, or build-critical files **must** include a `Tasklist.md` change in the same diff. CI (`guard-meta.yml`) will fail otherwise.
+-Revision: 1.26
++Revision: 1.27
 @@
- ### Embedded PATCHSET Echo (MANDATORY)
- - After every applied PATCHSET, update `Prompt.md` section “Embedded PATCHSET Echo (for quick audit)” between markers:
-   - `<!-- PATCHSET:ECHO BEGIN -->` … `<!-- PATCHSET:ECHO END -->`
- - The echo must contain either:
-   1) The exact PATCHSET and Commit Message just applied (verbatim), including the HEAD short SHA, or
-   2) A one-line justification starting with `NO-ECHO-REASON:` explaining why the echo is omitted (e.g., secrets, large binaries), followed by a brief summary.
- - If the echo cannot be produced, stop and add a PROPOSED meta task to fix echo generation.
-+ - **Note:** When code paths are modified, include a short line in the Echo block like `TasklistDiff: true|false` to help humans audit coupling at a glance (advisory).
+ ## Phase 0 — Repo & Tooling
+@@
+  - id: META.TASK.HOUSEKEEP
+    title: Trim historical DONE tasks to last 100 (archive elsewhere)
+    status: READY
+    depends_on: [META.RECOVERY.REPLAY]
+    acceptance_criteria:
+      - Tasklist.md retains only the most recent 100 DONE entries; older entries moved to `ops/ARCHIVE/tasks-YYYYMMDD.md` by a script.
+      - Patch.md notes this policy; CI allows presence/absence of archive file.
+    notes: Outcome — Tasklist remains a live reference; deep history moves to archive files.
++
++- id: META.REFRESH.REMOTE
++  title: Add remote GitHub visibility probe to Refresh Vision
++  status: DONE
++  depends_on: [T0.REFRESH.VISION]
++  acceptance_criteria:
++    - `scripts/refresh_vision.sh` attempts `git ls-remote` against the canonical repo (overridable via `$GIT_REMOTE_URL`).
++    - Result recorded into `ops/REMOTE_VISION.yaml` with timestamp, URL, status, and last_error.
++    - Patch.md documents the advisory remote check.
++  notes: Outcome — Operators can quickly tell if the AI worker environment can see the GitHub remote; failure is non-fatal but visible.
+```
+
+# FILE: ops/NEXT.yaml
+
+```diff
+@@
+-next_task_id: META.TASK.HOUSEKEEP
++next_task_id: META.TASK.HOUSEKEEP
+@@
+ note: "META.RECOVERY.REPLAY complete — engine can resume safely after interruptions."
++guidance_when_none: |
++  If next_task_id is NONE:
++    1) Look for the first READY task in Tasklist.md and suggest it.
++    2) If ops/RECOVERY.yaml has last_attempted_task_id, prefer that if it is READY/IN_PROGRESS.
++    3) Emit an advisory notice via guard_meta.sh (do not auto-commit).
++    4) (Optional) Run scripts/refresh_vision.sh locally to update ops/REMOTE_VISION.yaml and confirm remote reachability.
 ```
 
 # FILE: Prompt.md
 
 ```diff
 @@
--Timestamp (UTC): 2025-10-25T07:25:00Z
--Revision: 0.37
-+Timestamp (UTC): 2025-10-25T07:50:00Z
-+Revision: 0.38
+-Timestamp (UTC): 2025-10-25T08:35:00Z
+-Revision: 0.40
++Timestamp (UTC): 2025-10-25T08:45:00Z
++Revision: 0.41
 @@
--> Changes in this revision:
-+> Changes in this revision:
- > - `ops/ROUTER.md`, `scripts/ROUTER.md`, `src/ROUTER.md`, `src/bot/ROUTER.md`, `src/core/ROUTER.md`, `tests/ROUTER.md` — Normalized encoding, refreshed timestamps, and clarified bullet formatting.
- > - `ops/ROUTER_INDEX.yaml` — Regenerated from cleaned router docs to remove stray carriage returns and mojibake.
- > - `tasklist.md`, `ops/NEXT.yaml`, `ops/RECOVERY.yaml`, `Prompt.md` — Recorded META.ROUTER_FMT completion, refreshed recovery heartbeat, and noted that the next milestone is pending human direction.
-+> - `.github/workflows/guard-meta.yml` — New CI guard that fails when code changes are made without a Tasklist update in the same diff.
-+> - `scripts/guard_meta.sh` — Script implementing the meta coupling checks and advisory NEXT bootstrap notice.
-+> - `Patch.md` — Documented CI coupling rule under the OPERATING LOOP and Echo advisory note.
-+> - `Tasklist.md` / `ops/NEXT.yaml` — Jumpstarted engine: added coupling tasks and set NEXT to `META.TASKLIST.COUPLING_FIX`.
-```
-
-# FILE: Tasklist.md
-
-```full
-# Tasklist
-Last Updated (UTC): 2025-10-25T07:50:00Z
-Revision: 1.25
-
-Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
-
-Each task has:
-- `id`: unique string
-- `title`: terse description
-- `status`: current state
-- `depends_on`: array of task ids
-- `acceptance_criteria`: bullet list
-- `notes`: optional context
-
----
-
-## Phase 0 — Repo & Tooling
-
-- id: META.TASKLIST.COUPLING_FIX
-  title: Enforce Tasklist updates from every PATCHSET and rewire guards
-  status: READY
-  depends_on: [T0.META.ENFORCE]
-  acceptance_criteria:
-    - Patch.md OPERATING LOOP step "Update Tasklist" is explicitly referenced by guard checks.
-    - CI workflow `.github/workflows/guard-meta.yml` verifies that any non-doc change includes a `# TASKLIST UPDATE` diff.
-    - `scripts/guard_meta.sh` exits nonzero when a PATCHSET lacks a Tasklist diff while touching `src/**` or `tests/**`.
-    - Prompt.md Embedded PATCHSET Echo includes a boolean note indicating whether a Tasklist diff was present.
-  notes: Outcome — PATCHSETs can’t “forget” Tasklist; engine won’t stall due to NONE/NO-READY mismatch.
-
-- id: META.NEXT.BOOTSTRAP
-  title: Auto-bootstrap NEXT when NONE by queueing first READY meta task
-  status: PROPOSED
-  depends_on: [META.TASKLIST.COUPLING_FIX]
-  acceptance_criteria:
-    - `ops/NEXT.yaml` gains guidance/comments for bootstrapping when `next_task_id: NONE`.
-    - Optional key `auto_requeue_if_none: true` supported by guard scripts (advisory).
-    - If NONE and at least one READY task exists, guard suggests (but does not auto-commit) setting `next_task_id` to the first READY task.
-  notes: Outcome — Humans get a one-line fix suggestion; engine becomes self-healing with minimal friction.
-
-- id: META.RECOVERY.REPLAY
-  title: Recovery résumé: remember last attempted task and resume safely
-  status: PROPOSED
-  depends_on: [META.TASKLIST.COUPLING_FIX]
-  acceptance_criteria:
-    - `ops/RECOVERY.yaml` stores `last_attempted_task_id` and `last_attempted_ts` on trigger.
-    - On trigger, engine prefers RECOVERY task if compatible with NEXT pointer.
-    - Documented in Patch.md “Refresh Vision”/Activation section.
-  notes: Outcome — You can restart with the trigger phrase and continue where you left off.
-
-- id: META.TASK.HOUSEKEEP
-  title: Trim historical DONE tasks to last 100 (archive elsewhere)
-  status: PROPOSED
-  depends_on: [META.TASKLIST.COUPLING_FIX]
-  acceptance_criteria:
-    - Tasklist.md retains only the most recent 100 DONE entries; older entries moved to `ops/ARCHIVE/tasks-YYYYMMDD.md` by a script.
-    - Patch.md notes this policy; CI allows presence/absence of archive file.
-  notes: Outcome — Tasklist stays lean as a live reference point; deep history is archived.
-
-# (Existing phases/tasks retained below; omitted here for brevity in this file snapshot)
-```
-
-# FILE: ops/NEXT.yaml
-
-```full
-# NEXT POINTER — Single-file pointer for the next actionable task and file hints.
-# The AI should read this first, then confirm against Tasklist.md, then proceed.
-
-next_task_id: META.TASKLIST.COUPLING_FIX
-reason: >
-  Engine jumpstart: all tasks were DONE and NEXT was NONE. Begin by enforcing
-  Tasklist updates in every PATCHSET to prevent future stalls.
-
-files_hint:
-  - "Patch.md"
-  - "Tasklist.md"
-  - ".github/workflows/guard-meta.yml"
-  - "scripts/guard_meta.sh"
-  - "Prompt.md"
-
-timestamp_utc: 2025-10-25T07:50:00Z
-router_version: 1
-last_notes_read_utc: 2025-10-25T03:30:00Z
-note: "Jumpstarting engine with META.TASKLIST.COUPLING_FIX; enforce Tasklist diffs on every PATCHSET."
-auto_requeue_if_none: true
-```
-
-# TASKLIST UPDATE
-
-```diff
+ > - `ops/NEXT.yaml` — Added `guidance_when_none`, advanced NEXT to `META.RECOVERY.REPLAY`, and tightened file hints.
+ > - `scripts/guard_meta.sh` — Emits the first READY task suggestion when NEXT is NONE and references the `auto_requeue_if_none` flag.
+ > - `Patch.md`, `Tasklist.md`, `Prompt.md` — Closed META.NEXT.BOOTSTRAP, stamped meta headers, and documented the bootstrap guidance for future workers.
+ > - `ops/RECOVERY.yaml` — New resumable recovery state with heartbeat; used by Activation Trigger to resume safely.
+ > - `scripts/refresh_vision.sh` — Stamps recovery heartbeat and refreshes router index / ledger if scripts exist.
+ > - `Patch.md` — Activation + Refresh Vision sections now prefer recovery resume when compatible.
+ > - `ops/NEXT.yaml` — Now points to `META.TASK.HOUSEKEEP` to trim DONE tasks and archive older entries.
++> - `ops/REMOTE_VISION.yaml` — New advisory status file showing whether the worker can see the GitHub remote.
++> - `scripts/refresh_vision.sh` — Now probes `git ls-remote` for `Sherbivs/Infinity-Gauntlet` (override with `$GIT_REMOTE_URL`) and records status.
 @@
--- id: META.TASKLIST.COUPLING_FIX
--  title: Enforce Tasklist updates from every PATCHSET and rewire guards
--  status: READY
-+- id: META.TASKLIST.COUPLING_FIX
-+  title: Enforce Tasklist updates from every PATCHSET and rewire guards
-+  status: DONE
-   depends_on: [T0.META.ENFORCE]
-   acceptance_criteria:
-     - Patch.md OPERATING LOOP step "Update Tasklist" is explicitly referenced by guard checks.
-     - CI workflow `.github/workflows/guard-meta.yml` verifies that any non-doc change includes a `# TASKLIST UPDATE` diff.
-     - `scripts/guard_meta.sh` exits nonzero when a PATCHSET lacks a Tasklist diff while touching `src/**` or `tests/**`.
-     - Prompt.md Embedded PATCHSET Echo includes a boolean note indicating whether a Tasklist diff was present.
--  notes: Outcome — PATCHSETs can’t “forget” Tasklist; engine won’t stall due to NONE/NO-READY mismatch.
-+  notes: Outcome — CI guard + docs wired; PATCH touching code now fails without a Tasklist update. NEXT jumpstarted.
+ <!-- PATCHSET:ECHO BEGIN -->
+-NO-ECHO-REASON: Concise echo (meta-only).
++NO-ECHO-REASON: Concise echo (meta-only). Refresh Vision remote probe added.
+ TasklistDiff: true
+ - Added RECOVERY.yaml and refresh_vision.sh; wired resume rules into Patch.md.
+ - NEXT → META.TASK.HOUSEKEEP; META.NEXT.BOOTSTRAP and META.RECOVERY.REPLAY marked DONE.
++- refresh_vision now writes ops/REMOTE_VISION.yaml; Prompt.md notes advisory remote check.
+ <!-- PATCHSET:ECHO END -->
 ```
 
 <<<PATCHSET END>>>
@@ -540,25 +433,22 @@ auto_requeue_if_none: true
 **Commit Message**
 ```
 
-[META.TASKLIST.COUPLING_FIX] Enforce Tasklist updates on every code patch and jumpstart NEXT
+[META.REFRESH.REMOTE] Refresh Vision now verifies GitHub remote access and records status
 
 Why:
-The engine stalled because all tasks were DONE and NEXT was NONE. We need a hard guard that prevents future PATCHes from touching code without updating Tasklist, and we need to point NEXT at a concrete READY task.
+We want the AI worker to “see” the canonical GitHub repo and surface any visibility issues early. This helps diagnose network- or environment-related vision problems (e.g., VFS/CI without outbound access).
 
 Changes:
 
-* Added CI workflow `.github/workflows/guard-meta.yml` and guard script `scripts/guard_meta.sh` to fail when code changes are made without a Tasklist change in the same diff.
-* Updated `Patch.md` to document the coupling rule and a small Echo advisory line.
-* Bumped `Prompt.md` “Last Repo Changes”.
-* Set `ops/NEXT.yaml` → `META.TASKLIST.COUPLING_FIX` with focused `files_hint`.
-* Refreshed `Tasklist.md` with meta tasks and marked COUPLING_FIX as DONE via the PATCHSET’s Tasklist Update.
+* refresh_vision.sh: added non-fatal `git ls-remote` probe (override via $GIT_REMOTE_URL).
+* New ops/REMOTE_VISION.yaml: records timestamp, remote URL, status, and last_error.
+* Patch.md: documented the advisory remote check in the Refresh Vision step.
+* Tasklist.md: added META.REFRESH.REMOTE (DONE) with clear acceptance criteria.
+* Prompt.md: bumped timestamp/revision and listed the new remote-vision artifacts.
+* NEXT.yaml: guidance_when_none now mentions running refresh_vision locally to populate remote status.
 
 Acceptance:
-CI fails if `src/**` or `tests/**` change without a Tasklist update; NEXT points to an actionable task; the loop is self-bootstrapping again.
+Running `scripts/refresh_vision.sh` locally stamps RECOVERY heartbeat and writes ops/REMOTE_VISION.yaml with “reachable” when the remote is visible, or a clear reason when not. This does not block patches but improves speed, reliability, and consistency.
 
 ```
-
-—
-
-Apply that as-is; after it lands, Copilot/GPT should immediately recognize a READY/DONE transition and keep rolling without getting stuck on “NONE”.
 ```
