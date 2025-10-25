@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T02:18:00Z
-Revision: 1.6
+Last Updated (UTC): 2025-10-25T02:32:00Z
+Revision: 1.7
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -184,11 +184,12 @@ Each task has:
 
 - id: T2.1
   title: Define JSON schemas for species/moves/abilities/typechart/manifest
-  status: READY
+  status: DONE
   depends_on: [T0.2]
   acceptance_criteria:
     - Zod or JSON Schema files present under `src/data_pipeline/schema`
     - Unit tests validate at least 3 sample entries
+  notes: Zod schemas implemented with tests; added zod dependency. Ready to implement pipeline output in T2.2.
 
 - id: T2.2
   title: Implement data fetch/normalize/shard to /data

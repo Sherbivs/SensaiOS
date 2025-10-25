@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T02:18:00Z
-Revision: 0.16
+Timestamp (UTC): 2025-10-25T02:32:00Z
+Revision: 0.17
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -16,6 +16,13 @@ Revision: 0.16
 > - `ops/PATCH_POLICY_BACKUP.md` — added canonical backup sentinel for CI guard.
 > - `.github/workflows/guard-meta.yml` / `scripts/guard_meta.sh` — added checks for Worker Prompt presence and deeper evidence/revision requirements when code changes.
 > - `Prompt.md` — added “AI Worker Prompt (copy/paste for Copilot/GPT)” section for fast bootstrapping.
+> - `src/data_pipeline/schema/` — added Zod schemas: species, moves, abilities, typechart, manifest; plus barrel index.
+> - `tests/data_schema.spec.ts` — unit tests validating three samples for species, moves, abilities; includes minimal typechart and manifest test.
+> - `package.json` — added `zod` dependency.
+
+## Revision History
+| Date | Rev | Summary | By |
+| 2025-10-25 | 0.17 | Added Zod schemas, tests, and zod dep for T2.1 | AI |
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)
 > Use this verbatim when spinning up an AI worker or committing via Copilot Chat.
