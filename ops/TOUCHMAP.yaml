@@ -101,3 +101,9 @@ T0.PATCHPOLICY:
   - "Patch.md"
   - "Tasklist.md"
   - "ops/CRITICAL.md"
+
+T0.GUARD_FILENAMES:
+  - "Patch.md"
+  - ".github/workflows/guard-docs.yml"
+  - "scripts/guard_doc_names.sh"
+  - "ops/CRITICAL.md"

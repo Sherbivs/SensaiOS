@@ -1,4 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
+Last Updated (UTC): 2025-10-25T01:40:00Z
+Revision: 1.1
 
 This repository uses **Patch.md** as the single source of truth for automated, AI-driven development flow.
 The AI reading this file must follow the loop and rules exactly.
@@ -167,6 +169,15 @@ How to update `Patch.md`
    - Marks the META task DONE.
    - Adds any follow-up tasks (e.g., updating `ops/CRITICAL.md`, `ops/NEXT.yaml`, or `ops/TOUCHMAP.yaml`).
 4. Never store secrets; never remove the PATCH CLIPBOARD footer.
+
+### Canonical Filenames (DO NOT RENAME)
+These filenames are contractual and referenced by Render Build Filters. Never change their spelling or case.
+- `Patch.md`
+- `Tasklist.md`
+- `Prompt.md`
+- `ops/PATCH_POLICY_BACKUP.md`
+
+If any of these are renamed, CI will fail (see `.github/workflows/guard-docs.yml`), and the AI must restore their exact names before proceeding.
 
 When it’s OK to update `Tasklist.md`
 - Normal lifecycle transitions: READY → IN_PROGRESS → DONE, adding brief outcome notes.

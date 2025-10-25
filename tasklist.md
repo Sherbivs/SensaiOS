@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T01:12:00Z
-Revision: 0.6
+Last Updated (UTC): 2025-10-25T01:40:00Z
+Revision: 1.1
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -108,6 +108,16 @@ Each task has:
     - startCommand runs compiled app via "node dist/index.js"
     - NEXT pointer includes render.yaml in files_hint notes
   notes: Outcome — Render no longer relies on missing npm start; service boots compiled JS.
+
+- id: T0.GUARD_FILENAMES
+  title: Guard canonical doc filenames and instruct AI never to rename them
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - Patch.md/CRITICAL.md document canonical filenames and the “do not rename” rule
+    - CI workflow `.github/workflows/guard-docs.yml` exists and runs `scripts/guard_doc_names.sh`
+    - Script fails the build if any canonical file is missing or if lowercase/variant files exist
+  notes: Outcome — Render Build Filters remain valid; AI is explicitly instructed and CI enforces compliance.
 
 - id: T0.TIMESTAMPS.APPLY
   title: Apply live timestamps/revisions and populate Prompt.md change log

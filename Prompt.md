@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T01:12:00Z
-Revision: 0.6
+Timestamp (UTC): 2025-10-25T01:40:00Z
+Revision: 0.10
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,10 +10,10 @@ Revision: 0.6
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/shared/log.ts` — added minimal structured logger (JSON lines, env-based levels).
-> - `src/index.ts` — replaced console calls with `log.*` and preserved DB connectivity check.
-> - `tasklist.md` — marked `T1.2` DONE with notes; bumped revision.
-> - `ops/NEXT.yaml` — advanced to `T2.1` (data schemas) and cleaned duplicate timestamp/note.
+> - `.github/workflows/guard-docs.yml` — CI job that fails if canonical doc filenames are renamed or lowercased.
+> - `scripts/guard_doc_names.sh` — script used by CI to enforce exact-case names.
+> - `Patch.md` / `ops/CRITICAL.md` — documented “Canonical Filenames (DO NOT RENAME)” policy.
+> - `ops/PATCH_POLICY_BACKUP.md` — added canonical backup sentinel for CI guard.
 
 You’re right — Render is still running `npm install` as the build step (not your `render.yaml`), so `dist/index.js` never gets produced. We’ll fix this in a belt-and-suspenders way:
 

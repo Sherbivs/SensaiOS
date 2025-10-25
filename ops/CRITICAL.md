@@ -34,3 +34,4 @@ what to do next, where to change it, and how to update state.
 	- Status transitions with a brief outcome note.
 	- New subtasks (with acceptance criteria) or `BLOCKED` markers with a `FIX:` task.
 	- Any newly unblocked tasks flipped to `READY`.
+	- **Canonical Filenames:** Do not rename `Patch.md`, `Tasklist.md`, `Prompt.md`, or `ops/PATCH_POLICY_BACKUP.md`. Render Build Filters depend on exact case; CI enforces via `guard-docs` workflow.
