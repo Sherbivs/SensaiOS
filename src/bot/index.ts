@@ -45,16 +45,43 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 
 	client.on("interactionCreate", async (interaction: Interaction) => {
 		try {
-			if (!interaction.isChatInputCommand()) return;
-			const cmd = commands.get(interaction.commandName);
-			if (!cmd) {
-				await interaction.reply({
-					content: `Unknown command: ${interaction.commandName}`,
-					ephemeral: true,
-				});
-				return;
-			}
-			await cmd.execute(interaction);
+				if (interaction.isChatInputCommand()) {
+					const cmd = commands.get(interaction.commandName);
+					if (!cmd) {
+						await interaction.reply({
+							content: `Unknown command: ${interaction.commandName}`,
+							ephemeral: true,
+						});
+						return;
+					}
+					await cmd.execute(interaction);
+					return;
+				}
+
+				if (interaction.isButton()) {
+					const id = interaction.customId;
+					switch (id) {
+						case "HOME_HEAL":
+							await interaction.reply({ content: "Heal will fully restore your party (coming soon).", ephemeral: true });
+							break;
+						case "HOME_PARTY":
+							await interaction.reply({ content: "Party view is coming soon.", ephemeral: true });
+							break;
+						case "HOME_BOX":
+							await interaction.reply({ content: "Box view is coming soon.", ephemeral: true });
+							break;
+						case "HOME_PROFILE":
+							await interaction.reply({ content: "Profile view is coming soon.", ephemeral: true });
+							break;
+						case "HOME_STARTERS":
+							await interaction.reply({ content: "Starter selection is coming soon.", ephemeral: true });
+							break;
+						default:
+							// Ignore unknown buttons for now
+							break;
+					}
+					return;
+				}
 		} catch (err: any) {
 			log.error("Interaction handler error", { err: err?.message || String(err) });
 			if (interaction.isRepliable()) {

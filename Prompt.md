@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T03:15:00Z
-Revision: 0.20
+Timestamp (UTC): 2025-10-25T03:30:00Z
+Revision: 0.21
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -27,12 +27,15 @@ Revision: 0.20
 > - `package.json` — added discord.js dep and `register:commands` script; wired bot startup in `src/index.ts`.
 > - `ops/ROUTER.yaml` — canonical, hard-routed file map for AI read/write.
 > - `ops/INBOX/notes.md` — quick notes dropbox; AI reads first if newer than NEXT.last_notes_read_utc.
+> - `src/commands/home.js` — DM Home embed with buttons (Heal, Party, Box, Profile, Starters); sends DM and acknowledges in guild.
+> - `src/bot/index.ts` — button interaction handling for HOME_* buttons added.
 
 ## Revision History
 | Date | Rev | Summary | By |
 | 2025-10-25 | 0.17 | Added Zod schemas, tests, and zod dep for T2.1 | AI |
 | 2025-10-25 | 0.18 | Implemented data pipeline build (T2.2) with deterministic outputs | AI |
 | 2025-10-25 | 0.19 | Discord bootstrap (T3.1): bot login, slash command scaffolds, register script | AI |
+| 2025-10-25 | 0.21 | DM Home (T3.2) embed + buttons; button handlers wired | AI |
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)
 > Use this verbatim when spinning up an AI worker or committing via Copilot Chat.

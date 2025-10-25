@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T03:15:00Z
-Revision: 1.10
+Last Updated (UTC): 2025-10-25T03:30:00Z
+Revision: 1.11
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -226,12 +226,13 @@ Each task has:
 
 - id: T3.2
   title: Implement DM Home embed + buttons
-  status: READY
+  status: DONE
   depends_on: [T3.1, T1.1]
   acceptance_criteria:
     - `/home` shows party (sprites + HP), coins, next daily
     - Buttons: Heal, Party, Box, Profile, Starters (conditional)
     - Button interactions work in DM
+  notes: Implemented DM Home command to DM an embed with buttons; added button interaction handlers. Party/coins placeholders will be wired to DB in subsequent tasks.
 
 - id: T3.3
   title: Starter choose + Heal

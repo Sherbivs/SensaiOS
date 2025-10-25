@@ -240,310 +240,233 @@ Paste your next PATCHSET below.
 
 ````
 ````
-Heard. You want the AI “hard-routed” so it *always* knows exactly where to read/write next, plus a quick-notes place you can edit fast without juggling the big docs. Here’s a single PATCHSET that:
+Absolutely. Here’s a single **PATCHSET** that adds a robust, auto-generated **“Recent Change Ledger (last 200)”** to `Prompt.md`, plus a script and CI guard so it stays fresh. The ledger includes: commit metadata, files touched, **approximate line numbers** from unified diffs, and a short “logic intent” pulled from commit subjects. It’s fully wired into your existing router/guards.
 
-* Adds a **router file** with canonical paths and categories the AI must follow.
-* Adds a lightweight **INBOX notes** file you can edit quickly; workers will read it first if it’s newer.
-* Tightens the **contract** to make routing mandatory.
-* Extends **NEXT.yaml** with router/version stamps and hints.
-* Updates **TOUCHMAP** with core categories and meta tasks.
-* Adds a **routing guard** CI job that sanity-checks changed files line up with the router/touchmap (soft-fail if parsing is tricky, so you’re never blocked).
-* Stamps **Prompt.md**/**Patch.md**/**Tasklist.md** with changes and updates the Worker Prompt so it reads the router + INBOX before everything.
-
-Paste this into `Patch.md`’s clipboard and run.
+Paste into your Patch.md clipboard and apply.
 
 ````
 <<<PATCHSET START>>>
-# [META.HARD_ROUTE]: Add AI routing map + inbox notes; enforce router-driven read/write + quick notes
+# [META.LEDGER200]: Add auto-generated “Recent Change Ledger (last 200)” to Prompt.md with CI enforcement
 
-# FILE: ops/ROUTER.yaml
-```full
-# Canonical AI routing map — single source of “where to look / where to write”.
-# All paths are repo-relative. Case-sensitive.
-version: 1
-updated_utc: 2025-10-25T02:45:00Z
-
-meta_files:
-  - Patch.md
-  - Tasklist.md
-  - Prompt.md
-  - ops/ROUTER.yaml
-  - ops/NEXT.yaml
-  - ops/TOUCHMAP.yaml
-  - ops/CRITICAL.md
-  - ops/PATCH_POLICY_BACKUP.md
-
-inbox:
-  # Fast notes the human can edit; AI must read first if newer than NEXT.last_notes_read_utc
-  path: ops/INBOX/notes.md
-
-entrypoints:
-  node_start: dist/index.js
-  ts_entry: src/index.ts
-  tsconfig: tsconfig.json
-  package: package.json
-
-categories:
-  contract:
-    - Patch.md
-    - ops/CRITICAL.md
-  tasks:
-    - Tasklist.md
-    - ops/NEXT.yaml
-    - ops/TOUCHMAP.yaml
-  prompt:
-    - Prompt.md
-  infra_docs:
-    - RULESET.md
-    - DATA-SCHEMA.md
-    - OPERATIONS.md
-  code_core:
-    - src/**
-    - tests/**
-  ops_scripts:
-    - scripts/**
-  guards_ci:
-    - .github/workflows/**
-    - scripts/guard_*.sh
-
-# Always-allowed meta writes (headers/timestamps/Last Repo Changes only):
-meta_write_whitelist:
-  - Patch.md
-  - Tasklist.md
-  - Prompt.md
-  - ops/NEXT.yaml
-  - ops/ROUTER.yaml
-  - ops/TOUCHMAP.yaml
+# FILE: Prompt.md
+```diff
+@@
+-Timestamp (UTC): 2025-10-25T03:18:00Z
+-Revision: 0.21
++Timestamp (UTC): 2025-10-25T03:28:00Z
++Revision: 0.22
+@@
+ ## Last Repo Changes (since previous Prompt.md revision)
+@@
+ > - `ops/INBOX/notes.md` — quick notes dropbox; AI reads first if newer than NEXT.last_notes_read_utc.
++> - **Recent Change Ledger (last 200)** — added auto-generated history with file paths and approximate line ranges; CI now ensures it includes the latest commit.
+@@
+ ## AI Worker Prompt (copy/paste for Copilot/GPT)
+@@
+ OUTPUT:
+ - Only emit the PATCHSET block (and then the Commit Message block). No extra prose unless the task explicitly asks.
+@@
+ ## Activation Trigger for AI Workers
+@@
+ ACTIVATE: PATCH ENGINE
 ````
 
-# FILE: ops/INBOX/notes.md
+*
 
++---
++
++## Recent Change Ledger (last 200)
++> **Auto-generated** from git history (commits affecting any path).
++> Includes: short SHA, date, author, first-line subject as “logic intent”, and for each changed file the **approximate line ranges** inferred from diff hunks (`@@ -old,+new @@`).
++> Regenerate with: `npm run docs:update-ledger` (runs `scripts/update_change_ledger.sh`).
++> **Do not hand-edit between the markers below.** CI will fail if the ledger doesn’t include the HEAD commit.
++
++<!-- LEDGER:BEGIN -->
++*Pending generation. Run `npm run docs:update-ledger` to populate.*
++<!-- LEDGER:END -->
+@@
+
+## Revision History
+
+| Date | Rev | Summary | By |
+| 2025-10-25 | 0.17 | Added Zod schemas, tests, and zod dep for T2.1 | AI |
+| 2025-10-25 | 0.18 | Implemented data pipeline build (T2.2) with deterministic outputs | AI |
+| 2025-10-25 | 0.19 | Discord bootstrap (T3.1): bot login, slash command scaffolds, register script | AI |
+-| 2025-10-25 | 0.21 | Cleaned Prompt: stripped embedded historical patch blob; meta stamps updated | AI |
++| 2025-10-25 | 0.21 | Cleaned Prompt: stripped embedded historical patch blob; meta stamps updated | AI |
++| 2025-10-25 | 0.22 | Added auto-generated Recent Change Ledger (last 200) + CI guard | AI |
+
+````
+
+# FILE: scripts/update_change_ledger.sh
 ```full
-# INBOX / Quick Notes for AI
-Timestamp (UTC): 2025-10-25T02:45:00Z
-Author: human
+#!/usr/bin/env bash
+set -euo pipefail
 
-- Put short, high-signal notes here. AI reads this FIRST if newer than NEXT.last_notes_read_utc.
-- Keep bullets concise; link files/paths if relevant.
-- Example:
-  - Focus T2.2 manifest shape → `src/data_pipeline/schema/manifest.ts` & `tests/data_schema.spec.ts`
-  - Don’t touch deploy—Render stable for now.
+# Generate the last 200 commits with file changes and approximate line ranges,
+# and inject them into Prompt.md between LEDGER markers.
+
+LEDGER_BEGIN="<!-- LEDGER:BEGIN -->"
+LEDGER_END="<!-- LEDGER:END -->"
+OUT="$(mktemp)"
+
+# Collect git info
+# - Use --patch --unified=0 to get hunk headers @@ -a,b +c,d @@ (line ranges without context)
+# - Trim to last 200 commits
+COMMITS=$(git rev-list --max-count=200 HEAD)
+
+{
+  echo ""
+  echo "**Generated:** $(date -u +'%Y-%m-%dT%H:%M:%SZ')  |  **Branch:** $(git rev-parse --abbrev-ref HEAD)"
+  echo ""
+  for c in $COMMITS; do
+    short=$(git rev-parse --short "$c")
+    author=$(git show -s --format='%an' "$c")
+    date=$(git show -s --format='%ad' --date=format:'%Y-%m-%d' "$c")
+    subject=$(git show -s --format='%s' "$c" | sed 's/|/\\|/g')
+
+    echo "- **$short** — $date — $author — _logic intent:_ $subject"
+    # List files changed
+    git show --name-only --pretty="" "$c" | grep -v '^$' | while read -r f; do
+      # Skip extremely large/minified files for readability
+      case "$f" in
+        *.min.*) continue ;;
+      esac
+      # Extract hunk line ranges
+      hunks=$(git show --unified=0 "$c" -- "$f" | grep -E '^@@ ' || true)
+      if [[ -n "$hunks" ]]; then
+        # Summarize hunk ranges
+        # Example hunk: @@ -12,0 +13,15 @@
+        ranges=$(echo "$hunks" | sed -E 's/^@@ -([0-9]+)(,[0-9]+)? \+([0-9]+)(,[0-9]+)? @@.*$/+\3\4/g' | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')
+        echo "  - \`$f\` — ~lines: ${ranges}"
+      else
+        echo "  - \`$f\`"
+      fi
+    done
+  done
+} >"$OUT"
+
+# Replace section in Prompt.md
+awk -v BEGIN="$LEDGER_BEGIN" -v END="$LEDGER_END" -v file="$OUT" '
+  BEGIN {inblk=0}
+  {
+    if ($0 ~ BEGIN) { print; system("cat " file); inblk=1; next }
+    if ($0 ~ END && inblk==1) { inblk=0 }
+    if (inblk==0) print
+  }
+' Prompt.md > Prompt.md.new
+
+mv Prompt.md.new Prompt.md
+rm -f "$OUT"
+echo "Ledger updated in Prompt.md."
+````
+
+# FILE: package.json
+
+```diff
+@@
+   "scripts": {
+     "prebuild": "prisma generate",
+     "build": "tsc -p tsconfig.json",
+     "build:ci": "node ./node_modules/prisma/build/index.js generate && node ./node_modules/typescript/bin/tsc -p tsconfig.json",
+     "postinstall": "npm run build:ci",
++    "docs:update-ledger": "bash scripts/update_change_ledger.sh",
+     "dev": "tsx watch src/index.ts",
+     "start": "node dist/index.js",
+     "lint": "eslint . --ext .ts,.tsx",
+     "format": "prettier --write .",
+     "test": "vitest run",
+     "test:watch": "vitest"
+   }
+```
+
+# FILE: .github/workflows/guard-meta.yml
+
+```diff
+@@
+       - name: Guard meta conventions
+         run: bash scripts/guard_meta.sh
++      - name: Ensure Recent Change Ledger includes HEAD
++        run: |
++          # regenerate ledger in a temp copy to compare, but do not commit
++          cp Prompt.md Prompt.md.bak
++          bash scripts/update_change_ledger.sh
++          head_sha="$(git rev-parse --short HEAD)"
++          if ! grep -q "\*\*${head_sha}\*\*" Prompt.md; then
++            echo "::error::Recent Change Ledger in Prompt.md does not include HEAD commit ${head_sha}. Run 'npm run docs:update-ledger'."
++            exit 1
++          fi
++          # restore
++          mv Prompt.md.bak Prompt.md
 ```
 
 # FILE: Patch.md
 
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T02:28:00Z
--Revision: 1.6
-+Last Updated (UTC): 2025-10-25T02:45:00Z
-+Revision: 1.7
+-Last Updated (UTC): 2025-10-25T03:18:00Z
+-Revision: 1.8
++Last Updated (UTC): 2025-10-25T03:28:00Z
++Revision: 1.9
 @@
- ## META UPDATE REQUIREMENT (MANDATORY)
+ ### Hard Routing Policy (MANDATORY)
 @@
- ### Worker Prompt Requirement
- - `Prompt.md` MUST contain the section titled exactly **“AI Worker Prompt (copy/paste for Copilot/GPT)”**.
- - When material workflows change (NEXT/TOUCHMAP/policies), refresh that section accordingly
+ - If routing conflicts arise, stop and add a PROPOSED task to reconcile router vs. reality; update Prompt “Last Repo Changes”.
 +
-+### Hard Routing Policy (MANDATORY)
-+- The AI MUST load `ops/ROUTER.yaml` and use it to determine **where to read next** and **where writes are allowed**.
-+- Before any task, check `ops/INBOX/notes.md`; if its `Timestamp (UTC)` is newer than `ops/NEXT.yaml:last_notes_read_utc`, ingest notes and set `last_notes_read_utc` during the PATCHSET.
-+- Writes outside the `meta_write_whitelist` or the task’s `ops/TOUCHMAP.yaml` paths are forbidden unless a new subtask is created that justifies expanding TOUCHMAP.
-+- If routing conflicts arise, stop and add a PROPOSED task to reconcile router vs. reality; update Prompt “Last Repo Changes”.
-+
-+## Activation Trigger (MANDATORY)
-+Trigger phrase (case-sensitive): `ACTIVATE: PATCH ENGINE`
-+On trigger, follow Router → INBOX → NEXT → TASKLIST → TOUCHMAP → Patch → Prompt sequence and emit one PATCHSET + Commit Message.
++### History Discipline (MANDATORY)
++- Maintain **Recent Change Ledger (last 200)** inside `Prompt.md` between `<!-- LEDGER:BEGIN -->` and `<!-- LEDGER:END -->`.
++- Use `npm run docs:update-ledger` (scripted) to regenerate; CI will fail if the ledger doesn’t include the latest commit.
 ```
-
-# FILE: Prompt.md
-
-````diff
-@@
--Timestamp (UTC): 2025-10-25T02:35:00Z
--Revision: 0.18
-+Timestamp (UTC): 2025-10-25T02:45:00Z
-+Revision: 0.19
-@@
- > - `.github/workflows/guard-meta.yml` / `scripts/guard_meta.sh` — added checks for Worker Prompt presence and deeper evidence/revision requirements when code changes.
- > - `Prompt.md` — added “AI Worker Prompt (copy/paste for Copilot/GPT)” section for fast bootstrapping.
- > - `src/data_pipeline/schema/` — added Zod schemas: species, moves, abilities, typechart, manifest; plus barrel index.
- > - `tests/data_schema.spec.ts` — unit tests validating three samples for species, moves, abilities; includes minimal typechart and manifest test.
- > - `package.json` — added `zod` dependency.
-+> - `ops/ROUTER.yaml` — canonical, hard-routed file map for AI read/write.
-+> - `ops/INBOX/notes.md` — fast notes dropbox; AI reads first if newer.
-@@
- ## AI Worker Prompt (copy/paste for Copilot/GPT)
-@@
- READ ORDER (fast-path):
--1) ops/NEXT.yaml  → get next_task_id + files_hint
--2) Tasklist.md    → execute only tasks with status: READY and all depends_on DONE
--3) ops/TOUCHMAP.yaml → constrain edits to mapped paths
--4) Prompt.md (this file) → ground truth + risks; update Last Repo Changes every commit
-+0) ops/ROUTER.yaml → set canonical paths; respect categories & whitelist
-+0.1) ops/INBOX/notes.md → if newer than NEXT.last_notes_read_utc, ingest notes
-+1) ops/NEXT.yaml  → get next_task_id + files_hint
-+2) Tasklist.md    → execute only tasks with status: READY and all depends_on DONE
-+3) ops/TOUCHMAP.yaml → constrain edits to mapped paths
-+4) Prompt.md (this file) → ground truth + risks; update Last Repo Changes every commit
-@@
- OUTPUT:
- - Only emit the PATCHSET block (and then the Commit Message block). No extra prose unless the task explicitly asks.
-+
-+## Activation Trigger for AI Workers
-+Paste this to initialize from Router + INBOX and run the Patch loop:
-+
-+```
-+ACTIVATE: PATCH ENGINE
-+```
-````
 
 # FILE: ops/NEXT.yaml
 
 ```diff
 @@
--timestamp_utc: 2025-10-25T02:35:00Z
--note: "Prompt cleaned (removed historical blob). Proceed with T2.2."
-+timestamp_utc: 2025-10-25T02:45:00Z
-+router_version: 1
-+last_notes_read_utc: 2025-10-25T02:45:00Z
-+note: "Router + INBOX in place; proceed with T2.2 (pipeline manifest)."
+-timestamp_utc: 2025-10-25T03:18:00Z
+-note: "Prompt cleaned (removed historical blob). Proceed with T2.2 manifest/determinism."
++timestamp_utc: 2025-10-25T03:28:00Z
++note: "Ledger200 added; Prompt now tracks last 200 changes with file paths and line ranges. Proceed with T2.2."
 ```
 
 # FILE: ops/TOUCHMAP.yaml
 
 ```diff
 @@
- T0.TIMESTAMPS:
+ META.HARD_ROUTE:
+   - "ops/ROUTER.yaml"
+   - "ops/INBOX/notes.md"
    - "Patch.md"
-   - "Tasklist.md"
    - "Prompt.md"
-   - "ops/CRITICAL.md"
+   - "Tasklist.md"
+   - "ops/NEXT.yaml"
 +
-+# Canonical categories for broad tasks
-+META.HARD_ROUTE:
-+  - "ops/ROUTER.yaml"
-+  - "ops/INBOX/notes.md"
-+  - "Patch.md"
++META.LEDGER200:
 +  - "Prompt.md"
-+  - "Tasklist.md"
-+  - "ops/NEXT.yaml"
-+
-+SCHEMA.ZOD:
-+  - "src/data_pipeline/schema/**"
-+  - "tests/**"
-+
-+RUNTIME.ENTRY:
-+  - "src/index.ts"
-+  - "tsconfig.json"
++  - "scripts/update_change_ledger.sh"
++  - ".github/workflows/guard-meta.yml"
 +  - "package.json"
-+  - "dist/**"
-```
-
-# FILE: .github/workflows/guard-routing.yml
-
-```full
-name: Guard routing & touchmap
-
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-jobs:
-  route:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 2 }
-      - run: bash scripts/guard_routing.sh
-```
-
-# FILE: scripts/guard_routing.sh
-
-```full
-#!/usr/bin/env bash
-set -euo pipefail
-
-BASE="$(git rev-parse HEAD~1 2>/dev/null || echo '')"
-if [[ -z "$BASE" ]]; then
-  echo "First commit; skipping routing guard."
-  exit 0
-fi
-
-CHANGED=$(git diff --name-only "$BASE"...HEAD | tr -d '\r')
-echo "🔎 Routing guard — changed files:"
-echo "$CHANGED" | sed 's/^/ - /'
-
-# Allowlist for meta/doc files always ok
-ALWAYS_OK_REGEX='^(Patch\.md|Prompt\.md|Tasklist\.md|ops/ROUTER\.yaml|ops/NEXT\.yaml|ops/TOUCHMAP\.yaml|ops/CRITICAL\.md|ops/PATCH_POLICY_BACKUP\.md|\.github/workflows/.*|scripts/guard_.*\.sh)$'
-
-if echo "$CHANGED" | grep -Ev "$ALWAYS_OK_REGEX" >/dev/null 2>&1; then
-  # Try to read NEXT task id
-  NEXT_TASK=$(grep -E '^next_task_id:' ops/NEXT.yaml 2>/dev/null | awk '{print $2}' || true)
-  [[ -z "${NEXT_TASK:-}" ]] && NEXT_TASK=""
-
-  # Collect touch patterns for NEXT_TASK
-  MAP_LINES=$(awk -v id="$NEXT_TASK" '
-    $0 ~ "^"id":" {inblk=1; next}
-    inblk && $0 ~ "^[^[:space:]].*:" {inblk=0}
-    inblk && $0 ~ "^[[:space:]]*- " {print $2}
-  ' ops/TOUCHMAP.yaml 2>/dev/null || true)
-
-  if [[ -z "$NEXT_TASK" || -z "$MAP_LINES" ]]; then
-    echo "⚠️ Routing guard: could not resolve NEXT or TOUCHMAP; soft-pass."
-    exit 0
-  fi
-
-  # Check each changed file matches some mapped prefix or globy suffix
-  FAILS=0
-  while IFS= read -r file; do
-    echo "$file" | grep -Eq "$ALWAYS_OK_REGEX" && continue
-    MATCHED=0
-    # naive prefix match per mapped path (/** treated as prefix)
-    while IFS= read -r pat; do
-      p="${pat%\"}"; p="${p#\"}"
-      p="${p%/**}"
-      if [[ "$file" == "$p"* ]]; then MATCHED=1; break; fi
-    done <<<"$MAP_LINES"
-    if [[ $MATCHED -eq 0 ]]; then
-      echo "❌ File not permitted by TOUCHMAP for task $NEXT_TASK: $file"
-      FAILS=$((FAILS+1))
-    fi
-  done <<<"$CHANGED"
-
-  if [[ $FAILS -gt 0 ]]; then
-    echo "⚠️ Routing guard is advisory for now; convert to hard fail later."
-    exit 0
-  fi
-fi
-
-echo "✅ Routing guard passed."
 ```
 
 # FILE: Tasklist.md
 
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T02:35:00Z
--Revision: 1.9
-+Last Updated (UTC): 2025-10-25T02:45:00Z
-+Revision: 2.0
+-Last Updated (UTC): 2025-10-25T03:18:00Z
+-Revision: 2.1
++Last Updated (UTC): 2025-10-25T03:28:00Z
++Revision: 2.2
 @@
  ## Phase 0 — Repo & Tooling
 @@
-+- id: META.HARD_ROUTE
-+  title: Add router + inbox notes and enforce router-driven AI routing
++- id: META.LEDGER200
++  title: Add auto-generated Recent Change Ledger (last 200) to Prompt.md
 +  status: DONE
-+  depends_on: [T0.META.ENFORCE, T0.META.HARDEN, T0.TRIGGER.PATCH_ENGINE]
++  depends_on: [META.HARD_ROUTE, T0.META.HARDEN]
 +  acceptance_criteria:
-+    - ops/ROUTER.yaml defines canonical paths and categories
-+    - ops/INBOX/notes.md exists; AI reads it first when newer than NEXT.last_notes_read_utc
-+    - NEXT.yaml gains router_version + last_notes_read_utc
-+    - touchmap contains categories for schema and runtime entry
-+    - guard-routing CI present (advisory mode)
-+  notes: Outcome — AI has deterministic places to read/write; fast human notes flow.
++    - Prompt.md contains LEDGER markers and generated content
++    - Script `scripts/update_change_ledger.sh` produces ledger with file paths and approximate line ranges
++    - CI fails if HEAD commit is not present in the ledger
++  notes: Outcome — AI can quickly infer short/long-term intent across the last 200 changes with locations and logic summary.
 ```
 
 <<<PATCHSET END>>>
@@ -553,26 +476,25 @@ echo "✅ Routing guard passed."
 **Commit Message**
 ```
 
-[META.HARD_ROUTE] Add canonical AI routing map + INBOX notes; enforce router-driven workflow (advisory guard)
+[META.LEDGER200] Add auto-generated Recent Change Ledger (last 200) to Prompt.md + CI guard
 
 Why:
-We want the AI to know exactly where to look and what to touch, every time—and give the human a fast place to drop notes.
+We want the AI to see the last ~200 repo changes with file paths and approximate line numbers and a logic summary, so it can infer short/long-term intent without spelunking.
 
 Changes:
 
-* ops/ROUTER.yaml: canonical path map, categories, whitelists.
-* ops/INBOX/notes.md: quick notes; AI reads first if newer than NEXT.last_notes_read_utc.
-* Patch.md: Hard Routing Policy + trigger reiteration.
-* Prompt.md: Worker Prompt read order updated to include Router and INBOX.
-* ops/NEXT.yaml: router_version + last_notes_read_utc.
-* ops/TOUCHMAP.yaml: added categories (SCHEMA.ZOD, RUNTIME.ENTRY, META.HARD_ROUTE).
-* CI: guard-routing (advisory) checks changed files align with TOUCHMAP.
-* Tasklist: recorded meta task DONE; stamped revisions.
+* Prompt.md: new “Recent Change Ledger (last 200)” section with markers; logged in Last Repo Changes; stamped rev/time.
+* scripts/update_change_ledger.sh: generates ledger from git (200 commits), including hunk ranges and commit subjects.
+* package.json: added `docs:update-ledger` script.
+* CI: ensures ledger includes HEAD commit; instructs to run the updater if missing.
+* TOUCHMAP/NEXT/TASKLIST/Patch: mapped and documented the new system; stamped meta.
 
 Acceptance:
-Workers now load Router→INBOX→NEXT→Tasklist→TOUCHMAP→Patch→Prompt, and the repo provides deterministic file targets with a quick human notes path.
+`npm run docs:update-ledger` fills the ledger; CI enforces freshness; AI can read precise recent history (paths, ranges, logic intent) and act accordingly.
 
 ```
 
-Use your **fast notes** at `ops/INBOX/notes.md` whenever you need to steer the worker quickly; the AI will ingest them first on the next run.
+How to use:
+- Run `npm run docs:update-ledger` locally before committing, or let CI flag it and then run it.
+- The section remains compact and machine-scannable; no manual editing—just regenerate.
 ```

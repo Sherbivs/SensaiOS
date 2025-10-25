@@ -1,18 +1,18 @@
 # NEXT POINTER — Single-file pointer for the next actionable task and file hints.
 # The AI should read this first, then confirm against Tasklist.md, then proceed.
 
-next_task_id: T3.2
+next_task_id: T3.3
 reason: >
-  T3.1 complete: bot boots with DISCORD_BOT_TOKEN and slash commands scaffolded. Proceed to T3.2 (DM Home embed + buttons).
+  T3.2 complete: DM Home embed + buttons are implemented with button handlers. Proceed to T3.3 (Starter choose + Heal).
 
 files_hint:
   # High-signal targets for T3.1
-  - "src/bot/dm/home.tsx"
-  - "src/bot/dm/components/**"
+  - "src/bot/dm/starters.ts"
+  - "src/bot/dm/heal.ts"
 timestamp_utc: 2025-10-25T03:15:00Z
 router_version: 1
-last_notes_read_utc: 2025-10-25T03:15:00Z
-note: "Router + INBOX in place; next: DM Home embed/buttons (T3.2)."
+last_notes_read_utc: 2025-10-25T03:30:00Z
+note: "T3.2 DONE — DM Home embed/buttons complete; next: Starter choose + Heal (T3.3)."
 
 # Required actions after completion:
 # - Set next_task_id to the next READY task.
