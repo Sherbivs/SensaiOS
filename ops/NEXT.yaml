@@ -14,6 +14,8 @@ files_hint:
   - "migrations/"
   - "render.yaml"
   # Note: render.yaml added to lock build/start behavior for Render deploys.
+timestamp_utc: 2025-10-25T00:50:00Z
+note: "Live timestamps applied to docs; NEXT unchanged (T1.1)."
 
 # Required actions after completion:
 # - Set next_task_id to the next READY task.

@@ -1,4 +1,20 @@
 # Prompt.md
+Timestamp (UTC): 2025-10-25T00:50:00Z
+Revision: 0.2
+
+## Last Repo Changes (since previous Prompt.md revision)
+> **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
+> Summarize the *effective* repository changes applied in the current commit in human-readable bullets:
+> - Files/dirs added/modified/removed (paths relative to repo root)
+> - Purpose of each change (one line)
+> - Any schema/contract impacts to consumers (brief)
+>
+> Changes in this revision:
+> - `render.yaml` — added explicit `buildCommand` (npm ci && npm run build) and `startCommand` (node dist/index.js) to fix Render “Missing script: start”.
+> - `src/bot/`, `src/core/battle/`, `src/core/encounter/`, `src/shared/`, `src/data_pipeline/`, `tests/` — created scaffold entries to establish project layout.
+> - `RULESET.md`, `DATA-SCHEMA.md`, `OPERATIONS.md` — added stub docs with UTC placeholders.
+> - `ops/NEXT.yaml` — advanced `next_task_id` to `T1.1` (DB schema) and updated `files_hint`.
+> - `Tasklist.md` — marked `T0.2` DONE; added fix task for Render start.
 
 ## Purpose
 Create an always-up-to-date, single source of truth the AI can use to **understand, explain, and reason about our entire environment** (systems, workflows, data, dependencies, risks). The AI should be able to (1) paint an accurate picture from what’s provided, (2) identify gaps, and (3) request or incorporate missing details via a structured feedback loop.
@@ -123,6 +139,7 @@ Use these in order unless a section specifies otherwise:
 ### 11) Revision History
 | Date | Version | Changes | Author | Notes |
 | ---- | ------- | ------- | ------ | ----- |
+| 2025-10-25 | 0.2 | Stamped docs; added render.yaml; scaffolded dirs; advanced NEXT to T1.1; updated Tasklist | AI | Aligns with Render deploy logs (start script fix) |
 
 ---
 
