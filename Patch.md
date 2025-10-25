@@ -262,352 +262,347 @@ Paste your next PATCHSET below.
 ````
 ````
 ````
+````
+Absolutely—let’s lock this in. Here’s a single, self-contained PATCHSET that:
+
+* Caps **DONE** entries at **100** and auto-archives older ones to `archives/TaskArchive.md`.
+* Makes **Tasklist.md** learn from and write back to the **router** files, and vice-versa.
+* Ensures every directory has a **router** (`ROUTER.md`) and the root has a **router-router** (`ops/ROUTER_INDEX.yaml`) that lists *all* routers.
+* Enforces that the **root router’s first entries** are the patch docs (`Patch.md`, `Tasklist.md`, `Prompt.md`).
+* Adds CI guards + maint scripts for caps and router sync.
+* Updates **Patch.md**, **Prompt.md**, **ops/TOUCHMAP.yaml**, and **ops/RECOVERY.yaml** per your meta-discipline.
+
+Paste/apply this:
+
+````markdown
 <<<PATCHSET START>>>
-# [T0.REFRESH_VISION + T0.GUARD_PROMPT + ROUTER_INDEX v1]: Refresh-vision script, Prompt heading guard CI, router index + recovery, and Prompt hardening
+# [T0.TASKLIST_GOV2] Cap DONE=100, auto-archive, router-learning & write-back, root router ordering, CI guards
 
-# FILE: scripts/refresh_vision.sh
-```full
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Refresh "vision" for AI workers:
-# 1) Rebuild ops/ROUTER_INDEX.yaml (catalog of router files + summaries)
-# 2) Stamp ops/RECOVERY.yaml heartbeat and optionally last_task_id passthrough
-# 3) Optionally regenerate Prompt.md Recent Change Ledger (if helper exists)
-
-ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
-cd "$ROOT_DIR"
-
-mkdir -p ops ops/INBOX
-
-INDEX_FILE="ops/ROUTER_INDEX.yaml"
-RECOVERY_FILE="ops/RECOVERY.yaml"
-
-ts_utc="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-# 1) Build ROUTER_INDEX: scan for files literally named ROUTER.yaml (root and nested) and list them.
-echo "router_index_version: 1" > "$INDEX_FILE"
-echo "generated_utc: \"$ts_utc\"" >> "$INDEX_FILE"
-echo "routers:" >> "$INDEX_FILE"
-
-# Always include canonical ops/ROUTER.yaml if present
-if [ -f "ops/ROUTER.yaml" ]; then
-  echo "  - path: ops/ROUTER.yaml" >> "$INDEX_FILE"
-  echo "    scope: root" >> "$INDEX_FILE"
-  echo "    description: Canonical, hard-routed file map for AI read/write; do not ship to prod." >> "$INDEX_FILE"
-fi
-
-# Include any additional ROUTER.yaml files under src/ or other directories
-# (dev-only index for navigation during patching)
-while IFS= read -r f; do
-  # Skip the root ops/ROUTER.yaml already added above
-  if [ "$f" = "ops/ROUTER.yaml" ]; then continue; fi
-  echo "  - path: $f" >> "$INDEX_FILE"
-  echo "    scope: inferred" >> "$INDEX_FILE"
-  echo "    description: Auto-discovered router; used for patch navigation." >> "$INDEX_FILE"
-done < <(git ls-files | grep -E '(^|/)ROUTER\.yaml$' | sort)
-
-# 2) Stamp RECOVERY heartbeat
-touch "$RECOVERY_FILE"
-if ! grep -q '^recovery_version:' "$RECOVERY_FILE" 2>/dev/null; then
-  {
-    echo "recovery_version: 1"
-    echo "last_task_id: null"
-    echo "last_notes_read_utc: null"
-    echo "heartbeat_utc: \"$ts_utc\""
-  } > "$RECOVERY_FILE"
-else
-  # Update heartbeat_utc in-place (portable-ish sed)
-  if grep -q '^heartbeat_utc:' "$RECOVERY_FILE"; then
-    sed -i.bak -E "s/^heartbeat_utc: .*/heartbeat_utc: \"$ts_utc\"/" "$RECOVERY_FILE" && rm -f "$RECOVERY_FILE.bak"
-  else
-    echo "heartbeat_utc: \"$ts_utc\"" >> "$RECOVERY_FILE"
-  fi
-fi
-
-# 3) Optionally regenerate Prompt.md ledger
-if [ -x "scripts/update_change_ledger.sh" ]; then
-  scripts/update_change_ledger.sh || echo "[refresh_vision] Ledger update skipped (non-fatal)."
-fi
-
-echo "[refresh_vision] OK — ROUTER_INDEX + RECOVERY stamped at $ts_utc"
-```
-
-# FILE: scripts/update_change_ledger.sh
-```full
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Regenerate the "Recent Change Ledger (last 200)" in Prompt.md between markers
-# <!-- LEDGER:BEGIN --> and <!-- LEDGER:END -->
-
-PROMPT="Prompt.md"
-BEGIN_MARK="<!-- LEDGER:BEGIN -->"
-END_MARK="<!-- LEDGER:END -->"
-
-if [ ! -f "$PROMPT" ]; then
-  echo "Prompt.md not found; skipping ledger update."
-  exit 0
-fi
-
-tmp="$(mktemp)"
-{
-  echo "$BEGIN_MARK"
-  echo "\`\`\`text"
-  # Last 200 commits: SHA, date, author, subject
-  git log -n 200 --pretty=format:'%h %ad %an %s' --date=short
-  echo
-  echo "---"
-  echo "# File-level changes (last 30 commits, abbreviated)"
-  # For each of last 30 commits, list changed files and rough hunk headers
-  git log -n 30 --name-status --pretty=format:'@@@ %h %ad %an %s' --date=short | sed -E 's/^\t([AMDCRTUXB])/\1/g'
-  echo "\`\`\`"
-  echo "$END_MARK"
-} > "$tmp"
-
-# Replace the block between markers
-awk -v begin="$BEGIN_MARK" -v end="$END_MARK" '
-  BEGIN { inblock=0 }
-  {
-    if ($0 ~ begin) { print; inblock=1; while(getline < "'"$tmp"'"){ print } next }
-    if ($0 ~ end && inblock==1) { inblock=0; next }
-    if (inblock==0) print
-  }
-' "$PROMPT" > "$PROMPT.tmp" && mv "$PROMPT.tmp" "$PROMPT"
-
-rm -f "$tmp"
-echo "[update_change_ledger] Prompt.md ledger refreshed."
-```
-
-# FILE: .github/workflows/guard-prompt-headings.yml
-```full
-name: guard-prompt-headings
-on:
-  pull_request:
-  push:
-    branches: [ main ]
-
-jobs:
-  guard:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check Prompt.md required sections
-        run: |
-          set -euo pipefail
-          test -f Prompt.md
-
-          REQUIRED_HEADINGS=(
-            "^## Last Repo Changes"
-            "^## AI Worker Prompt"
-            "^## Recent Change Ledger \\(last 200\\)"
-            "^## Embedded PATCHSET Echo \\(for quick audit\\)"
-            "^## Activation Trigger for AI Workers"
-          )
-
-          for h in "${REQUIRED_HEADINGS[@]}"; do
-            if ! grep -E -q "$h" Prompt.md; then
-              echo "Missing required Prompt.md heading: $h"
-              exit 1
-            fi
-          done
-
-          # Ensure PATCHSET:ECHO markers exist
-          grep -q "<!-- PATCHSET:ECHO BEGIN -->" Prompt.md
-          grep -q "<!-- PATCHSET:ECHO END -->" Prompt.md
-
-          # Ensure LEDGER markers exist
-          grep -q "<!-- LEDGER:BEGIN -->" Prompt.md
-          grep -q "<!-- LEDGER:END -->" Prompt.md
-
-          echo "Prompt.md headings and markers OK."
-```
-
-# FILE: ops/ROUTER_INDEX.yaml
-```full
-router_index_version: 1
-generated_utc: "2025-10-25T07:20:00Z"
-routers:
-  - path: ops/ROUTER.yaml
-    scope: root
-    description: Canonical, hard-routed file map for AI read/write; do not ship to prod.
-```
-
-# FILE: ops/RECOVERY.yaml
-```full
-recovery_version: 1
-last_task_id: null
-last_notes_read_utc: null
-heartbeat_utc: "2025-10-25T07:20:00Z"
-```
-
-# FILE: ops/TOUCHMAP.yaml
+# FILE: Tasklist.md
 ```diff
 @@
- T0.TIMESTAMPS:
-   - "Patch.md"
-   - "Tasklist.md"
-   - "Prompt.md"
-   - "ops/CRITICAL.md"
+-# Tasklist
+-Last Updated (UTC): 2025-10-25T07:45:00Z
+-Revision: 1.22
++# Tasklist
++Last Updated (UTC): 2025-10-25T07:55:00Z
++Revision: 1.23
+@@
+ Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
+ 
+ ## Lanes & WIP Limits
+@@
+ - **DONE**: auto-archive weekly (keep last 30 for context).
++  - **DONE cap**: Keep **at most 100** most recent DONE tasks in this file.
++  - Older DONE tasks are moved to `archives/TaskArchive.md` by `npm run tasklist:archive`.
+ 
+ ## Task Template (copy-paste)
+@@
+   evidence:
+     - <file:line or link to Prompt.md section or test name>
+   notes: <optional>
 +
-+T0.REFRESH_VISION:
-+  - "scripts/refresh_vision.sh"
-+  - "ops/ROUTER_INDEX.yaml"
-+  - "ops/RECOVERY.yaml"
-+  - "scripts/update_change_ledger.sh"
-+  - "Prompt.md"
-+
-+T0.GUARD_PROMPT:
-+  - ".github/workflows/guard-prompt-headings.yml"
-+  - "Prompt.md"
++## Router Learning & Write-Back (NEW)
++- When a task **adds/edits files**, the AI **must**:
++  1) Update the **closest directory router** (`ROUTER.md`) with a one-line description for each touched file.
++  2) Ensure the **root router-router** (`ops/ROUTER_INDEX.yaml`) lists that router with a short purpose.
++  3) If a router file was updated, **echo** a short “router delta” under the task’s `notes`.
++  4) Respect meta-discipline: timestamps/revisions on Patch/Tasklist/Prompt; `Prompt.md` Last Repo Changes.
+```
+
+# FILE: archives/TaskArchive.md
+```full
+# Task Archive
+Last Updated (UTC): 2025-10-25T07:55:00Z
+Notes: This file stores DONE tasks older than the most recent 100 kept in Tasklist.md.
+Format: Copy the exact task stanzas as they leave Tasklist.md for provenance.
+```
+
+# FILE: scripts/archive_done.sh
+```full
+#!/usr/bin/env bash
+set -euo pipefail
+TASKLIST="Tasklist.md"
+ARCHIVE="archives/TaskArchive.md"
+TMP="$(mktemp)"
+
+# Ensure archive exists
+mkdir -p archives
+test -f "$ARCHIVE" || {
+  echo "# Task Archive" > "$ARCHIVE"
+  echo "Last Updated (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$ARCHIVE"
+  echo "Notes: This file stores DONE tasks older than the most recent 100 kept in Tasklist.md." >> "$ARCHIVE"
+  echo "Format: Copy the exact task stanzas as they leave Tasklist.md for provenance." >> "$ARCHIVE"
+}
+
+# Extract all DONE tasks as blocks starting at "- id:" through the first blank line after next "- id:" or EOF
+# Count most recent 100 and move the older ones to archive.
+# Heuristic: rely on file order (newest appended later). If you maintain chronological order, newest are near the end.
+awk '
+  BEGIN { RS=""; FS="\n" }
+  /^- id: / && $0 ~ /status: DONE/ { done_count++; blocks[done_count]=$0; next }
+  { other=other $0 "\n\n" }
+  END {
+    keep=100
+    if (done_count<=keep) {
+      print other > "'$TMP'"
+      for(i=1;i<=done_count;i++) print blocks[i] "\n" >> "'$TMP'"
+      exit 0
+    }
+    # Older = first ones (1..done_count-keep), Newer = last keep (done_count-keep+1..done_count)
+    for(i=1;i<=done_count-keep;i++) print blocks[i] "\n" >> "'$ARCHIVE'"
+    print other > "'$TMP'"
+    for(i=done_count-keep+1;i<=done_count;i++) print blocks[i] "\n" >> "'$TMP'"
+  }
+' "$TASKLIST"
+
+mv "$TMP" "$TASKLIST"
+# Stamp archive header timestamp
+sed -i '' -e "1,/^Notes:/ s|^Last Updated (UTC):.*|Last Updated (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)|" "$ARCHIVE" 2>/dev/null || \
+perl -0777 -pe 's/(Last Updated \(UTC\):).*/\1 '"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'/' -i "$ARCHIVE"
+echo "[archive_done] DONE cap enforced; older DONE tasks moved to $ARCHIVE"
 ```
 
 # FILE: package.json
 ```diff
 @@
    "scripts": {
++    "tasklist:archive": "bash scripts/archive_done.sh",
++    "router:sync": "bash scripts/router_sync.sh",
++    "router:check": "bash scripts/router_check.sh",
      "prebuild": "prisma generate",
      "build": "tsc -p tsconfig.json",
      "build:ci": "node ./node_modules/prisma/build/index.js generate && node ./node_modules/typescript/bin/tsc -p tsconfig.json",
-     "postinstall": "npm run build:ci",
-+    "refresh:vision": "bash scripts/refresh_vision.sh",
-+    "docs:update-ledger": "bash scripts/update_change_ledger.sh",
-     "dev": "tsx watch src/index.ts",
-     "start": "node dist/index.js",
-     "lint": "eslint . --ext .ts,.tsx",
-     "format": "prettier --write .",
-     "test": "vitest run",
+@@
      "test:watch": "vitest"
-   },
+   }
+```
+
+# FILE: scripts/router_sync.sh
+```full
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Discover routers (ROUTER.md files) and update ops/ROUTER_INDEX.yaml with their titles and purposes.
+INDEX="ops/ROUTER_INDEX.yaml"
+TMP="$(mktemp)"
+
+echo "router_version: 2" > "$TMP"
+echo "generated_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$TMP"
+echo "routers:" >> "$TMP"
+
+# Collect ROUTER.md files
+mapfile -t ROUTERS < <(git ls-files '**/ROUTER.md' ':!:node_modules/**' 2>/dev/null || true)
+
+# Sort to put root-level ROUTER.md first if exists
+# Also ensure that ops root lists Patch/Tasklist/Prompt first.
+for R in "${ROUTERS[@]}"; do
+  DIR="$(dirname "$R")"
+  TITLE="$(grep -m1 '^# ' "$R" | sed 's/^# //;s/ *$//')"
+  PURPOSE="$(grep -m1 '^> Purpose:' "$R" | sed 's/^> Purpose: *//;s/ *$//')"
+  echo "  - path: \"$R\"" >> "$TMP"
+  echo "    dir: \"$DIR\"" >> "$TMP"
+  echo "    title: \"${TITLE:-$R}\"" >> "$TMP"
+  echo "    purpose: \"${PURPOSE:-Router for $DIR}\"" >> "$TMP"
+done
+
+mv "$TMP" "$INDEX"
+echo "[router_sync] Regenerated $INDEX with $((${#ROUTERS[@]})) routers."
+
+# Root router ordering hint enforcement (soft check)
+ROOT_ROUTER="ops/ROUTER.md"
+if [[ -f "$ROOT_ROUTER" ]]; then
+  # Ensure Patch/Tasklist/Prompt are first three bullets
+  head -n 50 "$ROOT_ROUTER" | grep -q "Patch.md" || echo "[router_sync] WARN: Root router does not list Patch.md early."
+  head -n 50 "$ROOT_ROUTER" | grep -q "Tasklist.md" || echo "[router_sync] WARN: Root router does not list Tasklist.md early."
+  head -n 50 "$ROOT_ROUTER" | grep -q "Prompt.md" || echo "[router_sync] WARN: Root router does not list Prompt.md early."
+fi
+```
+
+# FILE: scripts/router_check.sh
+```full
+#!/usr/bin/env bash
+set -euo pipefail
+# CI guard: changed files must be reflected in a router.
+CHANGED="$(git diff --name-only --diff-filter=AM HEAD~1..HEAD || true)"
+[ -z "$CHANGED" ] && { echo "[router_check] No changed files."; exit 0; }
+
+fail=0
+for F in $CHANGED; do
+  # Skip non-runtime / excluded ops files
+  case "$F" in
+    node_modules/*|*.lock|*.png|*.jpg|*.svg|*.gif|*.ico|dist/*) continue ;;
+  esac
+  # Find nearest ROUTER.md upward
+  DIR="$(dirname "$F")"
+  FOUND=0
+  while :; do
+    test -f "$DIR/ROUTER.md" && { FOUND=1; break; }
+    [ "$DIR" = "." ] && break
+    DIR="$(dirname "$DIR")"
+    [ "$DIR" = "/" ] && break
+  done
+  if [ "$FOUND" -ne 1 ]; then
+    echo "[router_check] ERROR: $F has no parent ROUTER.md; please add one and describe this file."
+    fail=1
+    continue
+  fi
+  # Check that file is mentioned in router
+  grep -q "^\- \`$F\`" "$DIR/ROUTER.md" || {
+    echo "[router_check] ERROR: $F not listed in $DIR/ROUTER.md"
+    fail=1
+  }
+done
+
+# Root router first entries check
+if [ -f ops/ROUTER.md ]; then
+  HEADBLOCK="$(head -n 40 ops/ROUTER.md)"
+  echo "$HEADBLOCK" | grep -q "\- \`Patch.md\`" || { echo "[router_check] ERROR: Root router must list Patch.md near the top."; fail=1; }
+  echo "$HEADBLOCK" | grep -q "\- \`Tasklist.md\`" || { echo "[router_check] ERROR: Root router must list Tasklist.md near the top."; fail=1; }
+  echo "$HEADBLOCK" | grep -q "\- \`Prompt.md\`" || { echo "[router_check] ERROR: Root router must list Prompt.md near the top."; fail=1; }
+fi
+
+exit $fail
+```
+
+# FILE: .github/workflows/guard-tasklist-done-cap.yml
+```full
+name: guard-tasklist-done-cap
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+jobs:
+  cap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce DONE cap and router checks
+        run: |
+          set -euo pipefail
+          bash scripts/archive_done.sh
+          git diff --exit-code || {
+            echo "::warning::Tasklist had >100 DONE tasks; older ones moved to archives/TaskArchive.md"
+          }
+          bash scripts/router_check.sh
+```
+
+# FILE: ops/ROUTER.md
+```diff
+@@
+-# OPS Router
++# OPS Router
+ > Purpose: Index the operational meta-docs and patch system entry points.
+ 
++## Canonical patch entry (must appear first)
++- `Patch.md` — Contract & patch rules (timestamps+revision required)
++- `Tasklist.md` — Intent & governance (DONE cap=100, archive → archives/TaskArchive.md)
++- `Prompt.md` — Ground truth, AI worker prompt, LEDGER, PATCHSET:ECHO
++
+ ## Files
+ - `ops/CRITICAL.md` — Critical policies
+ - `ops/NEXT.yaml` — Next task pointer
+ - `ops/RECOVERY.yaml` — Resume/heartbeat
+ - `ops/ROUTER_INDEX.yaml` — Router-of-routers (auto-generated)
+```
+
+# FILE: ops/RECOVERY.yaml
+```diff
+@@
+-last_task_id: null
++last_task_id: null
+ last_heartbeat_utc: "2025-10-25T07:55:00Z"
++note: "Tasklist governance upgraded: DONE cap=100, router learning+writeback enforced; CI guards added."
+```
+
+# FILE: ops/ROUTER_INDEX.yaml
+```diff
+@@
+-router_version: 1
++router_version: 2
+ generated_utc: "2025-10-25T07:55:00Z"
+ # entries generated by scripts/router_sync.sh
+```
+
+# FILE: ops/TOUCHMAP.yaml
+```diff
+@@
+ T0.TASKLIST_INTENT:
+   - "Tasklist.md"
+   - ".github/workflows/guard-tasklist.yml"
+   - "scripts/validate_tasklist.sh"
++
++T0.TASKLIST_GOV2:
++  - "Tasklist.md"
++  - "archives/TaskArchive.md"
++  - "scripts/archive_done.sh"
++  - ".github/workflows/guard-tasklist-done-cap.yml"
++  - "scripts/router_sync.sh"
++  - "scripts/router_check.sh"
++  - "ops/ROUTER.md"
++  - "ops/ROUTER_INDEX.yaml"
++  - "ops/RECOVERY.yaml"
 ```
 
 # FILE: Patch.md
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T05:10:00Z
--Revision: 0.35
-+Last Updated (UTC): 2025-10-25T07:20:00Z
-+Revision: 0.36
+-Last Updated (UTC): 2025-10-25T07:45:00Z
+-Revision: 0.38
++Last Updated (UTC): 2025-10-25T07:55:00Z
++Revision: 0.39
 @@
- ## OPERATING LOOP
- 1. **Load Task Graph**
-@@
- 5. **Repeat**
-  - Return to step 1 until no `READY` tasks remain.
+ ### Tasklist Intent Policy (NEW)
+ - Any task in `READY` or `IN_PROGRESS` MUST include: `owner`, `priority`, `risk`, `intent`, `why_now`, `definition_of_done`, `files_hint`, and `evidence`.
+ - CI will fail the PR/commit if these fields are missing (see `.github/workflows/guard-tasklist.yml`).
 +
-+## PRE-LOOP REFRESH (MANDATORY)
-+Before step 1, run **`npm run refresh:vision`** to:
-+- Rebuild `ops/ROUTER_INDEX.yaml` (catalog of all `ROUTER.yaml` files).
-+- Stamp `ops/RECOVERY.yaml` heartbeat and keep `last_task_id` for resume.
-+- Regenerate Prompt.md **Recent Change Ledger** via `scripts/update_change_ledger.sh` if available.
-+This guarantees the AI’s view of the repo is fresh before planning.
-@@
- ### Timestamp & Revision Policy (MANDATORY)
-@@
- - **For `Prompt.md`,** always update both the header timestamp/revision **and** the “Last Repo Changes” section (see `Prompt.md` header block) summarizing file/directory changes performed by the current PATCHSET (paths + brief purpose).
++### Tasklist DONE Cap & Archival (NEW)
++- Keep at most **100** `DONE` tasks in `Tasklist.md`. Older DONE tasks must be moved to `archives/TaskArchive.md`.
++- `npm run tasklist:archive` enforces this; CI will also run on pushes/PRs.
 +
-+### PATCHSET Echo Policy (MANDATORY)
-+- `Prompt.md` must keep the **Embedded PATCHSET Echo** section up to date:
-+  - Paste the exact latest PATCHSET + Commit Message **or**
-+  - Provide a single-line `NO-ECHO-REASON:` justification.
-+- CI will fail if markers or content are missing.
++### Router Discipline (NEW)
++- Every directory should include a `ROUTER.md` listing files with one-line purposes.
++- Root `ops/ROUTER.md` must list, **first**, the canonical patch docs: `Patch.md`, `Tasklist.md`, `Prompt.md`.
++- Changes to files must be reflected in the nearest `ROUTER.md`, and aggregated by `ops/ROUTER_INDEX.yaml` via `npm run router:sync`.
 ```
 
 # FILE: Prompt.md
 ```diff
 @@
--Timestamp (UTC): 2025-10-25T07:10:00Z
--Revision: 0.36
-+Timestamp (UTC): 2025-10-25T07:20:00Z
-+Revision: 0.37
+-Timestamp (UTC): 2025-10-25T07:45:00Z
+-Revision: 0.39
++Timestamp (UTC): 2025-10-25T07:55:00Z
++Revision: 0.40
 @@
- ## Activation Trigger for AI Workers
- Paste this to initialize from Router + INBOX and run the Patch loop:
- 
- ```
- ACTIVATE: PATCH ENGINE
- ```
-+
-+### Activation Internals (expanded & earlier trigger)
-+On seeing the trigger, **first** refresh vision, **then** plan/execute:
-+1) **Refresh Vision**: run `npm run refresh:vision` (rebuild router index, stamp recovery heartbeat, refresh ledger).
-+2) **Router Pass**: read `ops/ROUTER_INDEX.yaml` and `ops/ROUTER.yaml` to constrain scope.
-+3) **INBOX**: if `ops/INBOX/notes.md` is newer than `ops/NEXT.yaml:last_notes_read_utc`, ingest notes.
-+4) **NEXT → Tasklist → TOUCHMAP**: select the first `READY` task with dependencies `DONE` and mapped paths.
-+5) **Execute**: emit exactly one PATCHSET + Commit Message.
-+6) **Meta updates**: bump timestamps/revisions; update **Last Repo Changes**, **Ledger**, and **PATCHSET Echo** (or `NO-ECHO-REASON`).
-@@
- ## Recent Change Ledger (last 200)
-@@
--<!-- LEDGER:BEGIN -->
--Pending generation. Run `npm run docs:update-ledger` to populate.
--<!-- LEDGER:END -->
-+<!-- LEDGER:BEGIN -->
-+Pending regeneration. Run `npm run docs:update-ledger` to populate.
-+<!-- LEDGER:END -->
+ > Changes in this revision:
++> - `Tasklist.md` — Added DONE cap=100 with auto-archive; router learning/write-back rules; reference to root router order.
++> - `archives/TaskArchive.md` / `scripts/archive_done.sh` — New archive + script to move older DONE tasks.
++> - `.github/workflows/guard-tasklist-done-cap.yml` — CI guard to enforce cap and router checks.
++> - `scripts/router_sync.sh` / `scripts/router_check.sh` — Sync/guard for directory routers and router-index.
++> - `ops/ROUTER.md` (root) — Puts Patch/Tasklist/Prompt at the top; clarifies purposes.
++> - `ops/ROUTER_INDEX.yaml` — Bumped to router_version: 2.
++> - `ops/RECOVERY.yaml` — Heartbeat stamped; note about governance upgrade.
 ```
-
-# FILE: Tasklist.md
-```diff
-@@
--Last Updated (UTC): 2025-10-25T07:10:00Z
--Revision: 1.18
-+Last Updated (UTC): 2025-10-25T07:20:00Z
-+Revision: 1.19
-@@
- ## Phase 0 — Repo & Tooling
-@@
-+- id: T0.REFRESH_VISION
-+  title: Add repo vision refresh script + router index + recovery heartbeat
-+  status: DONE
-+  depends_on: [T0.TIMESTAMPS]
-+  acceptance_criteria:
-+    - scripts/refresh_vision.sh exists and stamps ops/ROUTER_INDEX.yaml and ops/RECOVERY.yaml
-+    - package.json exposes "refresh:vision" and "docs:update-ledger"
-+    - Prompt.md explains the Refresh Vision step in Activation Internals
-+  notes: Outcome — Deterministic, up-to-date view of repo before planning.
-+
-+- id: T0.GUARD_PROMPT
-+  title: CI guard for Prompt.md headings/markers
-+  status: DONE
-+  depends_on: [T0.REFRESH_VISION]
-+  acceptance_criteria:
-+    - .github/workflows/guard-prompt-headings.yml checks required headings and markers
-+    - PRs fail if PATCHSET:ECHO or LEDGER markers are missing
-+  notes: Outcome — Prevents drift/mutilation of Prompt.md’s critical sections.
-```
-
-# FILE: ops/CRITICAL.md
-```diff
-@@
- ### Contract & Task Graph Updates (Policy)
-@@
-  - Any newly unblocked tasks flipped to `READY`.
-  - **Timestamps/Revisions:** Update top-of-file timestamps and revisions in `Patch.md`, `Tasklist.md`, and `Prompt.md`. For `Prompt.md`, also update the “Last Repo Changes” block summarizing this PATCHSET.
-+  - **Refresh Vision:** Always run `npm run refresh:vision` prior to planning a PATCHSET. Fail CI if the required Prompt.md headings or markers are missing.
-```
-
 <<<PATCHSET END>>>
 
 ```
-
 **Commit Message**
 ```
-[T0.REFRESH_VISION + T0.GUARD_PROMPT] Add refresh-vision script, Prompt heading guard CI, router index & recovery heartbeat, and Prompt hardening
+[T0.TASKLIST_GOV2] Cap DONE=100 with auto-archive; router learning & write-back; root router first-class; CI guards
 
 Why:
-AI workers need a deterministic, always-fresh view of the repo before planning. We also want CI to protect Prompt.md’s critical sections and keep an auditable PATCHSET echo + change ledger.
+We don’t want infinite DONE bloat, and we want the AI to learn from routers, write descriptions back, and keep the root router authoritative—without touching production runtime.
 
-What:
-- scripts/refresh_vision.sh: rebuilds ops/ROUTER_INDEX.yaml, stamps ops/RECOVERY.yaml heartbeat, and (optionally) refreshes the Prompt ledger.
-- scripts/update_change_ledger.sh: populates “Recent Change Ledger (last 200)” in Prompt.md.
-- .github/workflows/guard-prompt-headings.yml: CI checks for required Prompt headings and PATCHSET/LEDGER markers.
-- ops/ROUTER_INDEX.yaml, ops/RECOVERY.yaml: initial artifacts for navigation and resume.
-- package.json: added `refresh:vision` and `docs:update-ledger` scripts.
-- Patch.md/Prompt.md: documented pre-loop Refresh Vision and expanded Activation Internals; reiterated PATCHSET Echo policy.
-- Tasklist.md/ops/CRITICAL.md: recorded tasks as DONE and codified new requirements; touchmap updated.
+Changes:
+- Tasklist.md: DONE cap=100; archive policy and router learning/write-back rules.
+- Archives & Scripts: archives/TaskArchive.md + scripts/archive_done.sh; router_sync/check scripts.
+- CI: guard-tasklist-done-cap workflow enforces cap and router presence/coverage; root router ordering checks.
+- Router discipline: ops/ROUTER.md front-loads Patch/Tasklist/Prompt; router-index bumped.
+- Meta: Patch.md/Prompt.md/TOUCHMAP.yaml/RECOVERY.yaml updated.
 
 Result:
-Before every PATCHSET, the AI refreshes its “vision,” CI defends Prompt structure, and recovery/resume is straightforward.
-``` 
+Tasklist stays lean; routers stay truthful; the AI has a consistent roadway to read, touch, and describe files; and the root router remains the canonical map.
+```
 ````
+
+This keeps Tasklist as a sharp reference (100 DONE cap), formalizes two-way learning with routers, and locks the behavior with CI so it stays tidy rather than sprawling into an archaeological dig. Next natural step would be wiring `npm run router:sync` into your existing refresh-vision step so the roadway is always freshly paved before the AI drives.
