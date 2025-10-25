@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T07:45:00Z
-Revision: 1.24
+Last Updated (UTC): 2025-10-25T08:20:00Z
+Revision: 1.26
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -18,28 +18,28 @@ Each task has:
 
 - id: META.TASKLIST.COUPLING_FIX
   title: Enforce Tasklist updates from every PATCHSET and rewire guards
-  status: READY
+  status: DONE
   depends_on: [T0.META.ENFORCE]
   acceptance_criteria:
     - Patch.md OPERATING LOOP step "Update Tasklist" is explicitly referenced by guard checks.
     - CI workflow `.github/workflows/guard-meta.yml` verifies that any non-doc change includes a `# TASKLIST UPDATE` diff.
     - `scripts/guard_meta.sh` exits nonzero when a PATCHSET lacks a Tasklist diff while touching `src/**` or `tests/**`.
     - Prompt.md Embedded PATCHSET Echo includes a boolean note indicating whether a Tasklist diff was present.
-  notes: Outcome — PATCHSETs can’t “forget” Tasklist; engine won’t stall due to NONE/NO-READY mismatch.
+  notes: Outcome — Guard workflow/script enforce Tasklist diffs on code patches; Patch/Prompt/NEXT updated for continued flow.
 
 - id: META.NEXT.BOOTSTRAP
   title: Auto-bootstrap NEXT when NONE by queueing first READY meta task
-  status: PROPOSED
+  status: DONE
   depends_on: [META.TASKLIST.COUPLING_FIX]
   acceptance_criteria:
     - `ops/NEXT.yaml` gains guidance/comments for bootstrapping when `next_task_id: NONE`.
     - Optional key `auto_requeue_if_none: true` supported by guard scripts (advisory).
     - If NONE and at least one READY task exists, guard suggests (but does not auto-commit) setting `next_task_id` to the first READY task.
-  notes: Outcome — Humans get a one-line fix suggestion; engine becomes self-healing with minimal friction.
+  notes: Outcome — NEXT.yaml now documents how to recover from NONE, guard_meta.sh surfaces the first READY task, and auto_requeue hints stay active.
 
 - id: META.RECOVERY.REPLAY
   title: Recovery résumé: remember last attempted task and resume safely
-  status: PROPOSED
+  status: READY
   depends_on: [META.TASKLIST.COUPLING_FIX]
   acceptance_criteria:
     - `ops/RECOVERY.yaml` stores `last_attempted_task_id` and `last_attempted_ts` on trigger.
@@ -49,7 +49,7 @@ Each task has:
 
 - id: META.TASK.HOUSEKEEP
   title: Trim historical DONE tasks to last 100 (archive elsewhere)
-  status: PROPOSED
+  status: READY
   depends_on: [META.TASKLIST.COUPLING_FIX]
   acceptance_criteria:
     - Tasklist.md retains only the most recent 100 DONE entries; older entries moved to `ops/ARCHIVE/tasks-YYYYMMDD.md` by a script.

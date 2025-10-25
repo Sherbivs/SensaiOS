@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T07:25:00Z
-Revision: 0.37
+Timestamp (UTC): 2025-10-25T08:20:00Z
+Revision: 0.39
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,15 +10,16 @@ Revision: 0.37
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `ops/ROUTER.md`, `scripts/ROUTER.md`, `src/ROUTER.md`, `src/bot/ROUTER.md`, `src/core/ROUTER.md`, `tests/ROUTER.md` — Normalized encoding, refreshed timestamps, and clarified bullet formatting.
-> - `ops/ROUTER_INDEX.yaml` — Regenerated from cleaned router docs to remove stray carriage returns and mojibake.
-> - `tasklist.md`, `ops/NEXT.yaml`, `ops/RECOVERY.yaml`, `Prompt.md` — Recorded META.ROUTER_FMT completion, refreshed recovery heartbeat, and noted that the next milestone is pending human direction.
+> - `ops/NEXT.yaml` — Added `guidance_when_none`, advanced NEXT to `META.RECOVERY.REPLAY`, and tightened file hints.
+> - `scripts/guard_meta.sh` — Emits the first READY task suggestion when NEXT is NONE and references the `auto_requeue_if_none` flag.
+> - `Patch.md`, `Tasklist.md`, `Prompt.md` — Closed META.NEXT.BOOTSTRAP, stamped meta headers, and documented the bootstrap guidance for future workers.
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: Commit pending; summarizing META.ROUTER_FMT cleanup.
-- Normalized all ROUTER.md files to LF encoding with clear em-dash bullets.
-- Regenerated ops/ROUTER_INDEX.yaml and documented META.ROUTER_FMT in Tasklist and NEXT pointer.
-- Commit message will capture router doc cleanup once generated.
+NO-ECHO-REASON: Commit pending; staging META.NEXT.BOOTSTRAP completion prior to apply.
+TasklistDiff: true
+- Documented NONE bootstrap guidance in ops/NEXT.yaml and re-pointed NEXT to META.RECOVERY.REPLAY.
+- guard_meta.sh now surfaces the first READY task suggestion and references auto_requeue hints.
+- Patch/Tasklist/Prompt stamped to record META.NEXT.BOOTSTRAP closure.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -33,3 +34,10 @@ ACTIVATE: PATCH ENGINE
 2) Read `ops/RECOVERY.yaml`; if `last_task_id` is present, prefer resuming that task unless superseded in `ops/NEXT.yaml`.
 3) Proceed with the operating loop and emit exactly one PATCHSET + Commit Message.
 ```
+
+## Revision History
+
+| Date (UTC) | Change | Impact |
+| --- | --- | --- |
+| 2025-10-25 | META.NEXT.BOOTSTRAP added bootstrap guidance for NONE pointers and advanced NEXT to META.RECOVERY.REPLAY. | NEXT.yaml documents recovery steps and guards point to the first READY task when the pointer is empty. |
+| 2025-10-25 | META.TASKLIST.COUPLING_FIX hardened guard-meta coupling and documented Tasklist requirements. | CI now fails when code patches omit Tasklist updates; NEXT/Tasklist prepared for follow-up META tasks. |

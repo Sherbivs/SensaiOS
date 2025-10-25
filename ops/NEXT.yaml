@@ -1,22 +1,29 @@
 # NEXT POINTER — Single-file pointer for the next actionable task and file hints.
 # The AI should read this first, then confirm against Tasklist.md, then proceed.
+# GUIDANCE: If `next_task_id` is `NONE`, follow `guidance_when_none` below to pick the
+# first READY task, update this file, and document why.
 
-next_task_id: META.TASKLIST.COUPLING_FIX
+guidance_when_none: |
+  - Open Tasklist.md and select the first READY task whose dependencies are DONE.
+  - Update `next_task_id`, trim `files_hint` to only the files you expect to touch, and bump `timestamp_utc`.
+  - Record the rationale in `note` so the next worker knows why the pointer moved.
+
+next_task_id: META.RECOVERY.REPLAY
 reason: >
-  Engine jumpstart: all tasks were DONE and NEXT was NONE. Begin by enforcing
-  Tasklist updates in every PATCHSET to prevent future stalls.
+  With coupling guards in place, wire recovery guidance so resumptions prefer the last
+  attempted task and avoid NEXT drifting to NONE without direction.
 
 files_hint:
-  - "Patch.md"
+  - "ops/RECOVERY.yaml"
   - "Tasklist.md"
-  - ".github/workflows/guard-meta.yml"
-  - "scripts/guard_meta.sh"
+  - "Patch.md"
   - "Prompt.md"
+  - "ops/NEXT.yaml"
 
-timestamp_utc: 2025-10-25T07:45:00Z
+timestamp_utc: 2025-10-25T08:20:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-25T03:30:00Z
-note: "Jumpstarting engine with META.TASKLIST.COUPLING_FIX; enforce Tasklist diffs on every PATCHSET."
+note: "META.NEXT.BOOTSTRAP done; execute META.RECOVERY.REPLAY to teach the engine how to resume after interruptions."
 
 # Advisory flag read by guard scripts; safe to ignore if unsupported
 auto_requeue_if_none: true

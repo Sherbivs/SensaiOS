@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-25T07:10:00Z
-Revision: 1.11
+Last Updated (UTC): 2025-10-25T08:20:00Z
+Revision: 1.13
 
 This repository uses **Patch.md** as the single source of truth for automated, AI-driven development flow.
 The AI reading this file must follow the loop and rules exactly.
@@ -33,6 +33,7 @@ After completing a task, update `Tasklist.md` *convulsively* (immediately) to re
    - Mark the executed task `DONE`.
    - For any tasks now unblocked, change `status` to `READY`.
    - If you discover missing steps, create new tasks with unique `id` and clear `acceptance_criteria`.
+  - **Coupling Guard (CI-enforced):** Any PATCH touching `src/**`, `tests/**`, or other build-critical paths must include a `# TASKLIST UPDATE` diff. CI (`guard-meta.yml`) will fail otherwise.
 
 4. **Commit**
    - Generate a commit message using the template below.
@@ -79,6 +80,7 @@ On trigger, follow Router → INBOX → NEXT → Tasklist → TOUCHMAP → Patch
   1) The exact PATCHSET and Commit Message just applied (verbatim), including the HEAD short SHA, or
   2) A one-line justification starting with `NO-ECHO-REASON:` explaining why the echo is omitted (e.g., secrets, large binaries), followed by a brief summary.
 - If the echo cannot be produced, stop and add a PROPOSED meta task to fix echo generation.
+  - When code paths are modified, add a single line in this block with `TasklistDiff: true|false` so humans can quickly audit coupling coverage.
 
 ## PATCH BLOCKS (MANDATORY FORMAT)
 Use the following structure for every change. Provide full-file content for creates/overwrites; use unified diffs for surgical edits when safer.
@@ -179,6 +181,7 @@ This project’s near-term goal is an **operable Pokémon Discord fan server bot
 ## CRITICAL FILES & FAST-PATH LOOKUP
 To minimize planning overhead, follow this fast-path order before the normal loop:
 1. Read `ops/NEXT.yaml` to get the `next_task_id` and `files_hint`. Validate against `Tasklist.md`.
+  - If `next_task_id` is `NONE`, follow `guidance_when_none` in `ops/NEXT.yaml` to select the first READY task, update the pointer, and document the decision before proceeding.
 2. Open `Tasklist.md` to confirm status and dependencies. Only execute tasks that are `READY`.
 3. Consult `ops/TOUCHMAP.yaml` for the primary files/paths for the task you are executing.
 4. Skim `Prompt.md` for the environment overview and feedback loop; incorporate deltas if it informs the task.

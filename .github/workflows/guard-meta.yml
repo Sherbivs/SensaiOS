@@ -10,12 +10,25 @@ jobs:
   guard:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (need prior commit)
+      - name: Checkout (full history)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
+      - name: Determine BASE_SHA
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "base_sha=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
+          else
+            echo "base_sha=${{ github.event.before }}" >> $GITHUB_OUTPUT
+          fi
       - name: Run meta guard
-        run: bash scripts/guard_meta.sh
+        env:
+          BASE_SHA: ${{ steps.base.outputs.base_sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          chmod +x scripts/guard_meta.sh
+          bash scripts/guard_meta.sh "${BASE_SHA}" "${HEAD_SHA}"
       - name: Ensure Recent Change Ledger includes HEAD
         run: |
           cp Prompt.md Prompt.md.bak
