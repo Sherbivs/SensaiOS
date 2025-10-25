@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T01:07:00Z
-Revision: 0.5
+Last Updated (UTC): 2025-10-25T01:12:00Z
+Revision: 0.6
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -143,11 +143,12 @@ Each task has:
 
 - id: T1.2
   title: Config loader and structured logger
-  status: READY
+  status: DONE
   depends_on: [T0.2]
   acceptance_criteria:
     - `src/shared/config.ts` reads env vars with safe defaults
     - `src/shared/log.ts` provides pino-like logger
+  notes: Added minimal JSON logger with env-based levels and integrated into src/index.ts.
 
 ## Phase 2 — Reference Data Pipeline
 

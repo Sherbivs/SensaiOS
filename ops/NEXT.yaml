@@ -1,18 +1,16 @@
 # NEXT POINTER — Single-file pointer for the next actionable task and file hints.
 # The AI should read this first, then confirm against Tasklist.md, then proceed.
 
-next_task_id: T1.2
+next_task_id: T2.1
 reason: >
-  T1.1 (DB schema + Prisma client + config) added. Proceed to T1.2 (Config loader and structured logger).
+  T1.2 completed (structured logger added and integrated). Proceed to T2.1 (Define JSON schemas for species/moves/abilities/typechart/manifest).
 
 files_hint:
-  # High-signal targets for T1.2
-  - "src/shared/config.ts"
-  - "src/shared/log.ts"
-timestamp_utc: 2025-10-25T01:07:00Z
-note: "Added postinstall build to ensure dist on Render; T1.1 complete; next: structured logger (T1.2)."
-timestamp_utc: 2025-10-25T00:50:00Z
-note: "Live timestamps applied to docs; NEXT unchanged (T1.1)."
+  # High-signal targets for T2.1
+  - "src/data_pipeline/schema/" 
+  - "src/data_pipeline/index.ts"
+timestamp_utc: 2025-10-25T01:12:00Z
+note: "T1.2 DONE — logger added at src/shared/log.ts and wired into src/index.ts. Next: data schemas (T2.1)."
 
 # Required actions after completion:
 # - Set next_task_id to the next READY task.

@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T01:07:00Z
-Revision: 0.4
+Timestamp (UTC): 2025-10-25T01:12:00Z
+Revision: 0.6
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,9 +10,10 @@ Revision: 0.4
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `package.json` — added `build:ci` and `postinstall` to ensure Prisma generate + TypeScript compile during Render’s `npm install` build step.
-> - `ops/NEXT.yaml` — updated timestamp and note; NEXT remains T1.2 (structured logger).
-> - `Tasklist.md` — recorded T0.FIX.BUILD_DIST as DONE.
+> - `src/shared/log.ts` — added minimal structured logger (JSON lines, env-based levels).
+> - `src/index.ts` — replaced console calls with `log.*` and preserved DB connectivity check.
+> - `tasklist.md` — marked `T1.2` DONE with notes; bumped revision.
+> - `ops/NEXT.yaml` — advanced to `T2.1` (data schemas) and cleaned duplicate timestamp/note.
 
 You’re right — Render is still running `npm install` as the build step (not your `render.yaml`), so `dist/index.js` never gets produced. We’ll fix this in a belt-and-suspenders way:
 
