@@ -111,6 +111,11 @@ and also honors `POKE_REFRESH_CRON` / `POKE_REFRESH_TZ`.
     ```
 2. Required env vars in production:
     - `DATABASE_URL`
+      - When deploying on Render, the provided `render.yaml` now provisions a managed Postgres
+        instance (`infinity-gauntlet-db`) and wires both `DATABASE_URL` and
+        `DATABASE_INTERNAL_URL` from the database resource via `fromDatabase`
+        mappings. This matches Render's background worker guidance so every service
+        (web, workers, cron) sees the connection string without manual secrets.
     - `DISCORD_BOT_TOKEN` (or `POKEMON_BOT_TOKEN` fallback)
     - Render-specific variables if using the job dispatcher (`POKE_RENDER_SERVICE_ID`,
        `POKE_REFRESH_CRON`, etc.)
