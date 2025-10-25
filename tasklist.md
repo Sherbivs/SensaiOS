@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T11:25:00Z
-Revision: 1.35
+Last Updated (UTC): 2025-10-25T15:45:00Z
+Revision: 1.36
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -482,10 +482,10 @@ Each task has:
 
 - id: T7.3
   title: Store battle outcomes and rewards
-  status: PROPOSED
+  status: READY
   depends_on: [T5.3, T1.1]
   acceptance_criteria:
     - Battle conclusion writes winner/loser, turn count, and rewards to Prisma tables.
     - DM summaries reference stored results; arena thread posts include reward overview.
     - Tests validate at least one stored battle record and reward distribution.
-  notes: Seeded follow-up — captures battle telemetry for stats and achievements.
+  notes: Dependencies cleared; queued to begin Prisma battle persistence work next.

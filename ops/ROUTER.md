@@ -2,7 +2,10 @@
 Title: Ops & Governance
 Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-10-25T11:25:00Z
+Last Updated (UTC): 2025-10-25T15:45:00Z
+
+Notes:
+- 2025-10-25: Promoted T7.3 to READY and pointed NEXT at battle persistence follow-up.
 
 Key Files:
 - ops/NEXT.yaml — execution pointer

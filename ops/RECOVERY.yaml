@@ -1,11 +1,11 @@
-# RECOVERY — stamped by refresh_vision.sh (do not hand-edit unless bootstrapping)
-last_refresh_utc: "2025-10-25T09:30:00Z"
+# RECOVERY — used by activation trigger to resume safely
+last_refresh_utc: "2025-10-25T15:21:50Z"
 last_remote_ok: false
 last_remote_url: "unknown"
 last_remote_head_sha: "unknown"
-last_local_head_sha: "6ed7170"
-last_attempted_task_id: "META.README.REFRESH"
-last_attempted_ts: "2025-10-25T09:05:00Z"
-last_attempted_source: "guidance_when_none"
+last_local_head_sha: "ec3103b"
+last_attempted_task_id: ""META.README.REFRESH""
+last_attempted_ts: "2025-10-25T15:21:50Z"
+last_attempted_source: "ops/RECOVERY.yaml"
 next_task_id_snapshot: "NONE"
-note: "Refresh Vision now records remote/local HEAD data; run scripts/refresh_vision.sh locally for fresh stamps."
+note: "Refresh Vision completed. If running in a restricted IDE with no git/network, remote checks may be partial."
