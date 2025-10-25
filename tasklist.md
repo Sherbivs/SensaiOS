@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T04:45:00Z
-Revision: 1.16
+Last Updated (UTC): 2025-10-25T05:15:00Z
+Revision: 1.17
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -288,11 +288,12 @@ Each task has:
 
 - id: T5.1
   title: `/battle challenge` DM flow with Arena thread
-  status: READY
+  status: DONE
   depends_on: [T3.3]
   acceptance_criteria:
     - DM challenge → opponent DM accept/decline
     - On accept, create Arena thread with both players listed
+  notes: Outcome — Added battle challenge command helpers, DM prompt with Accept/Decline, and Arena thread creator that mentions both trainers once the challenge is accepted.
 
 - id: T5.2
   title: Battle core v1 (turn order, damage, statuses)
