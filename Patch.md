@@ -267,346 +267,90 @@ This section may be overwritten frequently.
 PATCH CLIPBOARD — STAGING AREA (AI-Editable)
 Paste your next PATCHSET below.
 
-<<<PATCHSET START>>>
-# [META.ROUTER.NAME_GUARD]: Guard canonical names & router paths (exact spelling/case) via manifest + CI
+You’re booting a TypeScript app but trying to run `node dist/index.js` without ever producing `dist/`. Render dutifully runs `npm start`, can’t find `dist/index.js`, and faceplants. Classic “no build artifacts” error.
 
-# FILE: ops/CANONICAL_NAMES.yaml
-```full
-# Canonical filenames and router paths — enforce exact spelling & case.
-# The guard script reads this file and fails CI on drift.
-Timestamp (UTC): 2025-10-25T11:25:00Z
-Revision: 1
+Here’s the quick, surgical fix.
 
-canonical_docs:
-  - Patch.md
-  - Prompt.md
-  - Tasklist.md
-  - ops/PATCH_POLICY_BACKUP.md
-  - ROUTER.md
+# What’s happening
 
-# Expected routers that must exist with exact case.
-routers:
-  - ROUTER.md
-  - ops/ROUTER.md
-  - scripts/ROUTER.md
-  - src/ROUTER.md
-  - src/bot/ROUTER.md
-  - src/core/ROUTER.md
-  - src/data_pipeline/ROUTER.md
-  - tests/ROUTER.md
+* Your **start** script is `node dist/index.js`.
+* There’s **no build step** running on Render to transpile `src/**/*.ts` → `dist/**/*.js`.
+* Bonus risk: you’re on **Node 22.16**. This project targets Node 20 in docs; some toolchains (e.g., Prisma) can act weird on newer majors. Pinning Node 20 eliminates a whole class of mystery goblins. 
 
-# Temporary compatibility aliases. If an alias exists but the canonical is
-# missing, CI will WARN (not fail) and suggest normalizing in a follow-up PR.
-aliases:
-  Tasklist.md:
-    - tasklist.md
-````
+# Fix it in Render (no code changes required)
 
-# FILE: scripts/verify_router_links.mjs
+1. In your Render service, set the **Build Command** to:
 
-```full
-#!/usr/bin/env node
-/**
- * verify_router_links.mjs
- * CI guard: ensures canonical docs & router paths exist with exact spelling/case.
- * - Reads ops/CANONICAL_NAMES.yaml and ops/ROUTER_INDEX.yaml
- * - Uses `git ls-files` to compare paths exactly
- * - Fails on mismatches; warns on allowed aliases
- */
-import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+   ```bash
+   npm ci && npm run build && npm run data:build
+   ```
 
-function gitFiles() {
-  const out = execSync("git ls-files", { encoding: "utf8" });
-  const arr = out.split("\n").filter(Boolean);
-  const set = new Set(arr);
-  return { list: arr, set };
+   That compiles TS to `dist/` and builds your cached Pokémon data before each deploy. 
+
+2. Keep the **Start Command** as:
+
+   ```bash
+   npm start
+   ```
+
+   which runs `node dist/index.js` after the build exists. 
+
+3. Ensure required env vars are present (otherwise the app may crash after starting):
+
+   * `DATABASE_URL`
+   * `DISCORD_BOT_TOKEN` (or `POKEMON_BOT_TOKEN`) 
+
+# If you can touch the repo, make it bulletproof
+
+Add these snippets so local dev and Render behave the same way:
+
+**package.json (scripts)**
+
+```json
+{
+  "scripts": {
+    "prebuild": "prisma generate",
+    "build": "tsc -p tsconfig.json",
+    "data:build": "node scripts/build-data.js",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts"
+  }
 }
-
-function parseYamlLoose(yamlText) {
-  // Tiny, structure-aware parser for our simple YAML shapes.
-  const lines = yamlText.split(/\r?\n/);
-  const data = { canonical_docs: [], routers: [], aliases: {} };
-  let section = null;
-  let currentAlias = null;
-
-  for (const raw of lines) {
-    const line = raw.replace(/\t/g, "    "); // normalize
-    if (/^\s*#/.test(line) || /^\s*$/.test(line)) continue;
-    if (/^\s*canonical_docs\s*:\s*$/.test(line)) {
-      section = "canonical_docs";
-      continue;
-    }
-    if (/^\s*routers\s*:\s*$/.test(line)) {
-      section = "routers";
-      continue;
-    }
-    if (/^\s*aliases\s*:\s*$/.test(line)) {
-      section = "aliases";
-      currentAlias = null;
-      continue;
-    }
-    if (section === "canonical_docs") {
-      const m = line.match(/^\s*-\s*("?)([^"#]+)\1\s*$/);
-      if (m) data.canonical_docs.push(m[2].trim());
-      continue;
-    }
-    if (section === "routers") {
-      const m = line.match(/^\s*-\s*("?)([^"#]+)\1\s*$/);
-      if (m) data.routers.push(m[2].trim());
-      continue;
-    }
-    if (section === "aliases") {
-      const hdr = line.match(/^\s*([A-Za-z0-9._/ -]+)\s*:\s*$/);
-      if (hdr) {
-        currentAlias = hdr[1].trim();
-        if (!data.aliases[currentAlias]) data.aliases[currentAlias] = [];
-        continue;
-      }
-      const ent = line.match(/^\s*-\s*("?)([^"#]+)\1\s*$/);
-      if (ent && currentAlias) {
-        data.aliases[currentAlias].push(ent[2].trim());
-      }
-      continue;
-    }
-  }
-  return data;
-}
-
-function parseRouterIndexLoose(text) {
-  const lines = text.split(/\r?\n/);
-  const paths = [];
-  for (const line of lines) {
-    const m = line.match(/^\s*-\s*path:\s*"?([^"]+)"?\s*$/);
-    if (m) paths.push(m[1].trim());
-  }
-  return paths;
-}
-
-function ciFail(msg) {
-  console.error(`::error::${msg}`);
-}
-
-function ciWarn(msg) {
-  console.warn(`::warning::${msg}`);
-}
-
-function main() {
-  const { list: trackedList, set: tracked } = gitFiles();
-
-  const canonicalYaml = readFileSync("ops/CANONICAL_NAMES.yaml", "utf8");
-  const cfg = parseYamlLoose(canonicalYaml);
-
-  const routerIndexText = readFileSync("ops/ROUTER_INDEX.yaml", "utf8");
-  const indexedRouters = new Set(parseRouterIndexLoose(routerIndexText));
-
-  let errors = 0;
-
-  function existsExact(p) {
-    return tracked.has(p);
-  }
-  function caseInsensitiveMatches(p) {
-    const target = p.toLowerCase();
-    return trackedList.filter((x) => x.toLowerCase() === target && x !== p);
-  }
-
-  // Check canonical docs (with alias tolerance)
-  for (const doc of cfg.canonical_docs) {
-    if (existsExact(doc)) continue;
-
-    const aliasList = cfg.aliases[doc] || [];
-    const foundAlias = aliasList.find((a) => existsExact(a));
-    if (foundAlias) {
-      ciWarn(
-        `Canonical doc "${doc}" not found, but alias "${foundAlias}" exists. ` +
-          `Consider normalizing to "${doc}" in a follow-up.`
-      );
-      continue;
-    }
-
-    const near = caseInsensitiveMatches(doc);
-    if (near.length) {
-      errors++;
-      ciFail(
-        `Case mismatch for "${doc}". Found: ${near
-          .map((n) => `"${n}"`)
-          .join(", ")}. Please rename to exact-case "${doc}".`
-      );
-    } else {
-      errors++;
-      ciFail(`Missing canonical doc "${doc}".`);
-    }
-  }
-
-  // Check required routers exist exactly
-  for (const rp of cfg.routers) {
-    if (!existsExact(rp)) {
-      const near = caseInsensitiveMatches(rp);
-      const hint = near.length
-        ? ` Found similar: ${near.map((n) => `"${n}"`).join(", ")}`
-        : "";
-      errors++;
-      ciFail(`Missing router "${rp}".${hint}`);
-    }
-  }
-
-  // Check that all routers are indexed and index paths exist exactly.
-  for (const rp of cfg.routers) {
-    if (!indexedRouters.has(rp)) {
-      errors++;
-      ciFail(`Router "${rp}" is not listed in ops/ROUTER_INDEX.yaml (path entries).`);
-    }
-  }
-  for (const ip of indexedRouters) {
-    if (!existsExact(ip)) {
-      const near = caseInsensitiveMatches(ip);
-      const hint = near.length
-        ? ` Found similar: ${near.map((n) => `"${n}"`).join(", ")}`
-        : "";
-      errors++;
-      ciFail(`Indexed router path "${ip}" does not exist exactly.${hint}`);
-    }
-  }
-
-  // Also ensure we didn't forget to index a router present in repo
-  const discovered = trackedList.filter((p) => /(^|\/)ROUTER\.md$/.test(p));
-  for (const p of discovered) {
-    if (!indexedRouters.has(p)) {
-      errors++;
-      ciFail(`Discovered router "${p}" is not present in ops/ROUTER_INDEX.yaml.`);
-    }
-  }
-
-  if (errors > 0) {
-    console.error(`\n❌ Router/canonical guard: ${errors} issue(s) found.`);
-    process.exit(1);
-  }
-  console.log("✅ Router/canonical guard passed.");
-}
-
-main();
 ```
 
-# FILE: scripts/verify_router_links.sh
+* `prebuild` guarantees the Prisma client exists before TypeScript compiles.
+* `build` produces `dist/**`. The start step then finds `dist/index.js`. 
 
-```full
-#!/usr/bin/env bash
-set -euo pipefail
-# Wrapper to run the Node guard (keeps action steps simple).
-node scripts/verify_router_links.mjs
-```
-
-# FILE: .github/workflows/guard-router.yml
-
-```full
-name: Guard Router & Canonical Names
-
-on:
-  pull_request:
-  push:
-
-jobs:
-  guard:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Use Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.x"
-
-      - name: Verify router links & canonical names
-        run: |
-          chmod +x scripts/verify_router_links.sh || true
-          ./scripts/verify_router_links.sh
-```
-
-# FILE: Patch.md
-
-```diff
-@@
-- - **Name/Case rule (MANDATORY):** Router entries and references must match filesystem **exactly** (spelling and case). CI runs `scripts/verify_router_links.sh` to fail on mismatch and suggest the closest case-correct path.
-+ - **Name/Case rule (MANDATORY):** Router entries and references must match filesystem **exactly** (spelling and case). CI runs `scripts/verify_router_links.sh` (backed by `scripts/verify_router_links.mjs`) to fail on mismatch and suggest the closest case-correct path. The guard reads `ops/CANONICAL_NAMES.yaml` for:
-+   - `canonical_docs` — required exact files (e.g., Patch.md / Prompt.md / Tasklist.md / ops/PATCH_POLICY_BACKUP.md / ROUTER.md)
-+   - `routers` — required `ROUTER.md` locations that must exist and be indexed in `ops/ROUTER_INDEX.yaml`
-+   - `aliases` — temporary compatibility names; if present, CI warns but does not fail (use for migrating `tasklist.md` → `Tasklist.md`)
-```
-
-# FILE: Prompt.md
-
-```diff
-@@
--Timestamp (UTC): 2025-10-25T11:25:00Z
--Revision: 0.49
-+Timestamp (UTC): 2025-10-25T11:25:00Z
-+Revision: 0.49
-@@
- > Changes in this revision:
--> - `ops/CANONICAL_NAMES.yaml` — Canonical filename manifest enumerating required spellings/case.
--> - `scripts/verify_router_links.sh` — CI guard ensuring router/index paths and canonical docs match exact spelling/case.
--> - `.github/workflows/guard-router.yml` — Runs the router-name guard on push/PR.
--> - `Patch.md` — Documented mandatory router name/case rule.
--> - `Prompt.md`, `tasklist.md` — Logged META.ROUTER.NAME_GUARD completion and bumped metadata.
-+> - `ops/CANONICAL_NAMES.yaml` — Canonical filename manifest enumerating required spellings/case.
-+> - `scripts/verify_router_links.mjs` + `scripts/verify_router_links.sh` — CI guard ensuring router/index paths and canonical docs match exact spelling/case.
-+> - `.github/workflows/guard-router.yml` — Runs the router-name guard on push/PR.
-+> - `Patch.md` — Documented mandatory router name/case rule.
-+> - `Prompt.md`, `tasklist.md` — Logged META.ROUTER.NAME_GUARD completion and bumped metadata.
-@@
- <!-- PATCHSET:ECHO BEGIN -->
--NO-ECHO-REASON: Router guard meta change; summary noted.
-+NO-ECHO-REASON: Router guard meta change; summary noted.
- TasklistDiff: true
- - Added canonical-name manifest, router case guard script, and CI workflow; contract docs updated accordingly.
- <!-- PATCHSET:ECHO END -->
-```
-
-# FILE: tasklist.md
-
-```diff
-@@
--Last Updated (UTC): 2025-10-25T07:25:00Z
--Revision: 1.23
-+Last Updated (UTC): 2025-10-25T11:25:00Z
-+Revision: 1.24
-@@
- ## Phase 0 — Repo & Tooling
-+- id: META.ROUTER.NAME_GUARD
-+  title: Guard canonical names & router paths via manifest + CI
-+  status: DONE
-+  depends_on: [T0.GUARD_FILENAMES, META.ROUTER.ROOT]
-+  acceptance_criteria:
-+    - ops/CANONICAL_NAMES.yaml lists canonical_docs, routers, and optional aliases
-+    - scripts/verify_router_links.(mjs|sh) verifies exact-case existence and index coverage
-+    - .github/workflows/guard-router.yml runs the guard on push/PR
-+    - Patch.md documents the rule and alias migration policy
-+  notes: Outcome — Case/spelling drift now blocked; routers must exist and be indexed. Aliases allow temporary migration (e.g., tasklist.md → Tasklist.md).
-```
-
-<<<PATCHSET END>>>
+**.nvmrc** (or use `engines` in `package.json`)
 
 ```
-
-**Commit Message**
+v20
 ```
 
-[META.ROUTER.NAME_GUARD] Enforce canonical names & router paths via manifest + CI
+This pins Node 20 on Render to match the documented runtime. Fewer surprises. 
 
-Why:
-Assistant tools were drifting on filename case/spelling. We need a single source of truth and a hard guard to keep routers and core docs consistent.
+**render.yaml (optional—but tidy)**
 
-Changes:
-
-* ops/CANONICAL_NAMES.yaml: Manifest of canonical docs/routers with optional aliases for migration.
-* scripts/verify_router_links.mjs (+.sh wrapper): Node-based guard that checks exact-case files, validates ops/ROUTER_INDEX.yaml coverage, and flags mismatches.
-* .github/workflows/guard-router.yml: Runs the guard on push/PR.
-* Patch.md: Documented the name/case rule, manifest, and alias policy.
-* Prompt.md/tasklist.md: Logged completion and bumped metadata.
-
-Acceptance:
-CI fails on any case/spelling drift, missing routers, or unindexed router files; warns on allowed aliases to permit orderly normalization.
-
+```yaml
+services:
+  - type: web
+    name: infinity-gauntlet
+    env: node
+    region: oregon
+    buildCommand: npm ci && npm run build && npm run data:build
+    startCommand: npm start
+    runtime: node
+    nodeVersion: 20
 ```
-```
+
+This codifies the “build, then start” contract in the repo itself. 
+
+# Sanity checklist (takes 60 seconds)
+
+* `src/index.ts` exists (that’s the documented entrypoint). ✔️ 
+* `tsconfig.json` has `"outDir": "dist"` (or equivalent).
+* The build logs on Render show TypeScript emitting files into `dist/`.
+* Prisma client gets generated before `tsc` runs.
+* After deploy, logs show your bot bootstrapping Discord + DB, not crashing on missing envs. 
+
+Once those are in place, the “Cannot find module '/opt/render/project/src/dist/index.js'” error should disappear, and the service should actually execute your compiled code. Next frontier: wire a health check and a tiny “/status” route so Render can autosense liveness during deploys, which makes rollouts smoother in the long run.
