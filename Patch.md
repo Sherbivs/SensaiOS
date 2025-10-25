@@ -45,6 +45,10 @@ After completing a task, update `Tasklist.md` *convulsively* (immediately) to re
 - If `Tasklist.md` or `Patch.md` are edited, both must have their header timestamps/revisions bumped in the same PATCHSET.
 - If unsure what to change: update `Prompt.md` with a brief note under “Last Repo Changes” and bump its header; then stop or add a tiny precursor task.
 
+### Worker Prompt Requirement
+- `Prompt.md` MUST contain the section titled exactly “AI Worker Prompt (copy/paste for Copilot/GPT)”.
+- When material workflows change (NEXT/TOUCHMAP/policies), refresh that section accordingly.
+
 ## PATCH BLOCKS (MANDATORY FORMAT)
 Use the following structure for every change. Provide full-file content for creates/overwrites; use unified diffs for surgical edits when safer.
 

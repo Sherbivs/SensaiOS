@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T01:50:00Z
-Revision: 0.12
+Timestamp (UTC): 2025-10-25T02:18:00Z
+Revision: 0.16
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -14,7 +14,36 @@ Revision: 0.12
 > - `scripts/guard_doc_names.sh` — script used by CI to enforce exact-case names.
 > - `Patch.md` / `ops/CRITICAL.md` — documented “Canonical Filenames (DO NOT RENAME)” policy.
 > - `ops/PATCH_POLICY_BACKUP.md` — added canonical backup sentinel for CI guard.
-> - `.github/workflows/guard-meta.yml` / `scripts/guard_meta.sh` — enforce Prompt/Tasklist/Patch coupling and header bumps on each PATCHSET.
+> - `.github/workflows/guard-meta.yml` / `scripts/guard_meta.sh` — added checks for Worker Prompt presence and deeper evidence/revision requirements when code changes.
+> - `Prompt.md` — added “AI Worker Prompt (copy/paste for Copilot/GPT)” section for fast bootstrapping.
+
+## AI Worker Prompt (copy/paste for Copilot/GPT)
+> Use this verbatim when spinning up an AI worker or committing via Copilot Chat.
+```
+ROLE: Senior Staff Systems Architect & Implementer for the Infinity-Gauntlet (Discord Pokémon buddy system).
+
+READ ORDER (fast-path):
+1) ops/NEXT.yaml  → get next_task_id + files_hint
+2) Tasklist.md    → execute only tasks with status: READY and all depends_on DONE
+3) ops/TOUCHMAP.yaml → constrain edits to mapped paths
+4) Prompt.md (this file) → ground truth + risks; update Last Repo Changes every commit
+
+OPERATING LOOP:
+- Pick the first READY task with dependencies DONE.
+- Produce ONE PATCHSET per task using the contract in Patch.md (full files for creates, unified diffs for edits).
+- Update Tasklist.md in the PATCHSET footer (DONE/READY flips, add subtasks with acceptance_criteria).
+- MUST bump timestamps/revisions (Prompt.md always; Patch/Tasklist together when either changes).
+- Write a clear Commit Message.
+
+GUARDRAILS:
+- Do not rename Patch.md, Tasklist.md, Prompt.md, or ops/PATCH_POLICY_BACKUP.md.
+- Keep diffs minimal, deterministic, and reversible. No secrets.
+- Respect files_hint; do not wander.
+- If ambiguous: add a tiny precursor PROPOSED task; update Prompt.md with the question.
+
+OUTPUT:
+- Only emit the PATCHSET block (and then the Commit Message block). No extra prose unless the task explicitly asks.
+```
 
 You’re right — Render is still running `npm install` as the build step (not your `render.yaml`), so `dist/index.js` never gets produced. We’ll fix this in a belt-and-suspenders way:
 

@@ -62,4 +62,19 @@ $PROMPT_CHANGED && check_header_bumped "Prompt.md"
 $PATCH_CHANGED && check_header_bumped "Patch.md"
 $TASKLIST_CHANGED && check_header_bumped "Tasklist.md"
 
+# Rule 4: When non-doc changes occur, require either an Evidence Matrix row or a Revision History row in Prompt.md.
+if $NON_DOC_CHANGED; then
+  PROMPT_DIFF="$(git diff "$BASE"...HEAD -- Prompt.md || true)"
+  HAS_EVIDENCE=$(echo "$PROMPT_DIFF" | grep -qE '^\+\| .* \| .* \| .* \|'; echo $?)
+  HAS_REVHIST=$(echo "$PROMPT_DIFF" | grep -qE '^\+\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|'; echo $?)
+  if [[ "$HAS_EVIDENCE" -ne 0 && "$HAS_REVHIST" -ne 0 ]]; then
+    fail "Non-doc changes detected: add either an Evidence Matrix row or a Revision History row in Prompt.md."
+  fi
+fi
+
+# Rule 5: Prompt.md must include the AI Worker Prompt section header.
+if ! grep -q "^## AI Worker Prompt (copy/paste for Copilot/GPT)" Prompt.md; then
+  fail "Prompt.md is missing the required 'AI Worker Prompt (copy/paste for Copilot/GPT)' section."
+fi
+
 echo "✅ Meta update policy satisfied."

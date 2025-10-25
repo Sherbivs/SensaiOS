@@ -9,8 +9,8 @@ files_hint:
   # High-signal targets for T2.1
   - "src/data_pipeline/schema/" 
   - "src/data_pipeline/index.ts"
-timestamp_utc: 2025-10-25T01:50:00Z
-note: "Meta update guard added (policy + CI). Next remains T2.1 (data schemas)."
+timestamp_utc: 2025-10-25T02:18:00Z
+note: "AI Worker Prompt added and enforced via CI. Next remains T2.1 (data schemas)."
 
 # Required actions after completion:
 # - Set next_task_id to the next READY task.

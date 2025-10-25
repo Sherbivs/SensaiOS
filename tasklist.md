@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T01:50:00Z
-Revision: 1.3
+Last Updated (UTC): 2025-10-25T02:18:00Z
+Revision: 1.6
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -128,6 +128,16 @@ Each task has:
     - CI guard fails when non-doc changes omit Prompt.md or when Patch/Tasklist are edited alone
     - CI guard verifies header lines were bumped
   notes: Outcome — The “update meta or fail” rule is encoded in docs and enforced in CI.
+
+- id: META.DIST_AND_PROMPT
+  title: Guarantee dist/index.js and add mandatory AI Worker Prompt
+  status: DONE
+  depends_on: [T0.FIX.BUILD_DIST, T0.META.ENFORCE]
+  acceptance_criteria:
+    - Prompt.md contains the “AI Worker Prompt (copy/paste for Copilot/GPT)” section
+    - CI guard fails if that section is missing
+    - Build continues to emit dist/ via existing pipeline (no regression)
+  notes: Outcome — Repo contains a canonical worker prompt; CI enforces its presence.
 
 - id: T0.TIMESTAMPS.APPLY
   title: Apply live timestamps/revisions and populate Prompt.md change log
