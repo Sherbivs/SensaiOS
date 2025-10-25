@@ -1,0 +1,143 @@
+import { prisma as prismaClient, UserRepo } from "../../models/index.js";
+
+export type BallType = "poke" | "great" | "ultra";
+
+function clamp(n: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function ballBonus(ball: BallType): number {
+  switch (ball) {
+    case "great":
+      return 0.1;
+    case "ultra":
+      return 0.2;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Very simple v1 catch chance based on level and ball type.
+ * Lower level -> easier. Returns probability in [0.05, 0.95].
+ */
+export function catchChance(level: number, ball: BallType = "poke"): number {
+  const base = 0.5 - level * 0.02; // Lv2=0.46, Lv6=0.38
+  const chance = base + ballBonus(ball);
+  return clamp(chance, 0.05, 0.95);
+}
+
+function computeInitialStats(level: number) {
+  const maxHp = 20 + level * 3; // simple placeholder formula (same shape as starters)
+  return { hp: maxHp, maxHp };
+}
+
+export type AttemptCatchOpts = {
+  discordId: string;
+  encounterId: string;
+  ball?: BallType;
+  prisma?: typeof prismaClient;
+};
+
+export async function attemptCatch(opts: AttemptCatchOpts) {
+  const prisma = opts.prisma ?? prismaClient;
+  const ball = opts.ball ?? "poke";
+
+  const user = await UserRepo.upsertByDiscordId(opts.discordId);
+
+  const enc = await prisma.encounter.findUnique({ where: { id: opts.encounterId } });
+  if (!enc || enc.ownerId !== user.id) {
+    return { ok: false, reason: "not_found_or_not_owner" as const };
+  }
+  if (enc.state !== "Spawned") {
+    return { ok: false, reason: "not_spawned" as const };
+  }
+  if (enc.expiresAt && enc.expiresAt.getTime() <= Date.now()) {
+    await prisma.encounter.update({ where: { id: enc.id }, data: { state: "Expired" } });
+    return { ok: false, reason: "expired" as const };
+  }
+
+  // Roll
+  const p = catchChance(enc.level, ball);
+  const roll = Math.random();
+  const success = roll < p;
+
+  // Track attempts in dataJson
+  const prev = (enc.dataJson as any) || {};
+  const attempts = (prev.attempts ?? 0) + 1;
+
+  if (!success) {
+    await prisma.encounter.update({
+      where: { id: enc.id },
+      data: { dataJson: { ...prev, attempts, lastBall: ball, lastRoll: roll, lastChance: p } as any },
+    });
+    return { ok: true, caught: false as const, attempts, chance: p, roll };
+  }
+
+  // Success: mark Caught, create a PokemonInstance for the user
+  const { hp, maxHp } = computeInitialStats(enc.level);
+  const ivs = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 };
+  const evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  const moves = [
+    { id: 33, name: "Tackle", pp: 35, maxPP: 35 },
+  ];
+
+  const created = await prisma.pokemonInstance.create({
+    data: {
+      ownerId: user.id,
+      speciesId: enc.speciesId,
+      level: enc.level,
+      exp: 0,
+      nature: null,
+      ivsJson: ivs as any,
+      evsJson: evs as any,
+      movesJson: moves as any,
+      status: null,
+      hp,
+      maxHp,
+      isShiny: false,
+      nickname: null,
+      boxSlot: null,
+    },
+  });
+
+  // Try to assign to party if slot is available
+  let party = await prisma.party.findFirst({ where: { ownerId: user.id } });
+  if (!party) {
+    party = await prisma.party.create({ data: { ownerId: user.id } });
+  }
+  const slots = await prisma.partySlot.findMany({ where: { partyId: party.id }, orderBy: { slot: "asc" } });
+  const used = new Set(slots.map((s) => s.slot));
+  let nextSlot = 1;
+  for (; nextSlot <= 6; nextSlot++) if (!used.has(nextSlot)) break;
+  if (nextSlot <= 6) {
+    await prisma.partySlot.create({ data: { partyId: party.id, pokemonId: created.id, slot: nextSlot } });
+  }
+
+  await prisma.encounter.update({
+    where: { id: enc.id },
+    data: { state: "Caught", dataJson: { ...prev, attempts, caughtAt: new Date().toISOString(), ball } as any },
+  });
+
+  return { ok: true, caught: true as const, attempts, pokemonId: created.id };
+}
+
+export type RunFromEncounterOpts = {
+  discordId: string;
+  encounterId: string;
+  prisma?: typeof prismaClient;
+};
+
+export async function runFromEncounter(opts: RunFromEncounterOpts) {
+  const prisma = opts.prisma ?? prismaClient;
+  const user = await UserRepo.upsertByDiscordId(opts.discordId);
+  const enc = await prisma.encounter.findUnique({ where: { id: opts.encounterId } });
+  if (!enc || enc.ownerId !== user.id) {
+    return { ok: false, reason: "not_found_or_not_owner" as const };
+  }
+  if (enc.state !== "Spawned") {
+    return { ok: false, reason: "not_spawned" as const };
+  }
+  await prisma.encounter.update({ where: { id: enc.id }, data: { state: "Fled" } });
+  return { ok: true } as const;
+}

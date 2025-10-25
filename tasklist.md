@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T04:05:00Z
-Revision: 1.14
+Last Updated (UTC): 2025-10-25T04:28:00Z
+Revision: 1.15
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -266,12 +266,13 @@ Each task has:
 
 - id: T4.1
   title: `/walk` encounter flow with thread spawn
-  status: READY
+  status: DONE
   depends_on: [T3.3, T2.2]
   acceptance_criteria:
     - Running `/walk` in #wilds spawns a thread and DMs controls
     - Cooldowns enforced per user
     - Encounter TTL auto-closes stale threads
+  notes: Outcome — Added spawn core, /walk handler (enforces #wilds, cooldowns), thread creation (60m auto-archive), and DM stub. Registered /walk command and tests for spawn helpers.
 
 - id: T4.2
   title: Catch mechanics + DM controls

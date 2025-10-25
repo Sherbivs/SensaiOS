@@ -1,19 +1,19 @@
 # NEXT POINTER — Single-file pointer for the next actionable task and file hints.
 # The AI should read this first, then confirm against Tasklist.md, then proceed.
 
-next_task_id: T4.1
+next_task_id: T4.2
 reason: >
-  T3.3 complete: Starter pick (one-time) and Heal implemented and wired from DM Home and slash commands. Proceed to T4.1 (/walk encounter flow).
+  T4.1 complete: /walk spawns a thread in #wilds, DMs controls, enforces cooldowns, and sets TTL. Proceed to T4.2 (Catch mechanics + DM controls).
 
 files_hint:
-  # High-signal targets for T4.1
-  - "src/core/encounter/spawn.ts"
-  - "src/bot/wilds/walk.ts"
-  - "tests/encounter_walk.spec.ts"
-timestamp_utc: 2025-10-25T04:05:00Z
+  # High-signal targets for T4.2
+  - "src/core/encounter/catch.ts"
+  - "src/bot/wilds/controls.ts"
+  - "tests/catch.spec.ts"
+timestamp_utc: 2025-10-25T04:28:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-25T03:30:00Z
-note: "T3.3 DONE — Starter pick + Heal. Next: T4.1 encounter walk flow."
+note: "T4.1 DONE — Walk encounter flow. Next: T4.2 catch mechanics + DM controls."
 
 # Required actions after completion:
 # - Set next_task_id to the next READY task.

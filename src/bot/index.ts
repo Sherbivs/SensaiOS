@@ -6,6 +6,8 @@ const require = createRequire(import.meta.url);
 const { loadCommands } = require("../command-loader.js");
 import { openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./dm/starters.js";
 import { handleHeal } from "./dm/heal.js";
+import { handleWalk } from "./wilds/walk.js";
+import { handleEncounterButton } from "./wilds/controls.js";
 
 export type BotStartOptions = {
 	token?: string;
@@ -66,6 +68,10 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 						await handleHeal(interaction);
 						return;
 					}
+					if (interaction.commandName === "walk") {
+						await handleWalk(interaction);
+						return;
+					}
 					await cmd.execute(interaction);
 					return;
 				}
@@ -97,6 +103,10 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 								if (!valid) return;
 								await handleStarterPick(interaction, sid);
 							}
+                            // Encounter controls: ENCOUNTER_THROW_<id>, ENCOUNTER_RUN_<id>, ENCOUNTER_SWAP_<id>
+                            if (id.startsWith("ENCOUNTER_")) {
+                              await handleEncounterButton(interaction);
+                            }
 							break;
 					}
 					return;

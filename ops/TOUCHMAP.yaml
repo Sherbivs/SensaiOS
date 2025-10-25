@@ -61,6 +61,7 @@ T4.1:
   - "src/core/encounter/spawn.ts"
   - "src/bot/wilds/walk.ts"
   - "tests/encounter_walk.spec.ts"
+  - "src/commands/walk.js"
 
 T4.2:
   - "src/core/encounter/catch.ts"
