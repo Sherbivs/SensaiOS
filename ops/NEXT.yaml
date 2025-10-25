@@ -9,21 +9,17 @@ guidance_when_none: |
   - Update `next_task_id`, trim `files_hint` to only the files you expect to touch, and bump `timestamp_utc`.
   - Record the rationale in `note` so the next worker knows why the pointer moved.
 
-next_task_id: T7.1
+next_task_id: NONE
 reason: >
-  Seeded Phase 7 persistence backlog; first READY item wires DM Home to Prisma so players see
-  real data. Tackle this next to unblock subsequent persistence work.
+  T7.1 finished — DM Home now consumes Prisma data. No other tasks are READY; follow
+  guidance_when_none to stage T7.2 or other backlog items before the next activation.
 
-files_hint:
-  - "src/bot/dm/home.tsx"
-  - "src/models/**"
-  - "prisma/schema.prisma"
-  - "tests/dm_home.spec.ts"
+files_hint: []
 
-timestamp_utc: 2025-10-25T09:55:00Z
+timestamp_utc: 2025-10-25T10:40:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-25T03:30:00Z
-note: "NEXT->T7.1 — Implement DM Home persistence so future tasks can extend captures and battles."
+note: "T7.1 DONE. Decide whether to promote T7.2 (encounter persistence) before resuming."
 
 # Advisory flag read by guard scripts; safe to ignore if unsupported
 auto_requeue_if_none: true

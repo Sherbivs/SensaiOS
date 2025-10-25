@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T09:55:00Z
-Revision: 0.46
+Timestamp (UTC): 2025-10-25T10:40:00Z
+Revision: 0.47
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,17 +10,18 @@ Revision: 0.46
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `Tasklist.md` — Added Phase 7 persistence backlog, marked META.NEXT.SEED done, and queued T7.1 as READY.
-> - `ops/NEXT.yaml` — Pointed to T7.1 with focused file hints and rationale for persistence work.
-> - `ops/TOUCHMAP.yaml` — Mapped new T7.x tasks to DM Home, encounters, and battle persistence files.
-> - `Prompt.md` — Metadata bumped; Last Repo Changes and Revision History now capture the backlog seeding.
+> - `src/commands/home.js` — `/home` now loads trainers from Prisma, bootstraps missing users/parties, and logs guidance when no Pokémon are stored.
+> - `tests/dm_home.spec.ts` — Added coverage to ensure persisted Pokémon render correctly in the DM Home embed.
+> - `Tasklist.md` — Marked T7.1 DONE with persistence outcome notes.
+> - `ops/NEXT.yaml` — Reset to NONE after completing T7.1; note nudges towards promoting T7.2.
+> - `ops/TOUCHMAP.yaml` — Updated T7.1 mapping to the actual command/test files.
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: Commit pending; Persistence backlog seeding staged for apply.
+NO-ECHO-REASON: Commit pending; T7.1 DM Home persistence completed.
 TasklistDiff: true
-- Tasklist Phase 7 introduces persistence tasks, META.NEXT.SEED marked DONE, and T7.1 set READY.
-- NEXT now targets T7.1 with DM Home/Prisma hints; TOUCHMAP lists T7.1–T7.3 paths.
-- Prompt metadata updated to log the new backlog and guidance for the next worker.
+- `/home` now queries Prisma, seeds missing trainers/parties, and warns operators when no Pokémon exist.
+- Added dm_home.spec.ts to verify persisted parties render correctly; NEXT reset to NONE post-completion.
+- Prompt metadata & history updated to capture T7.1 completion and new guidance.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -41,6 +42,7 @@ ACTIVATE: PATCH ENGINE
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-25 | T7.1 wired DM Home to Prisma persistence and added tests. | `/home` surfaces real trainer coins/party data, bootstraps missing records, and ships unit coverage for persisted Pokémon embeds. |
 | 2025-10-25 | META.NEXT.SEED staged Phase 7 persistence backlog and set NEXT to T7.1. | Persistence tasks queued (DM Home wiring READY; capture/battle follow-ups PROPOSED) so work can resume with clear priorities. |
 | 2025-10-25 | META.README.REFRESH modernized the README to match the Infinity Gauntlet architecture. | README now reflects DM/Wilds/Arena flows, scripts, and deployment guidance. |
 | 2025-10-25 | META.TASK.HOUSEKEEP introduced Tasklist archival script/policy and cleared READY queue. | `npm run tasks:archive` keeps only the latest 100 DONE tasks; NEXT now NONE until new work is staged. |

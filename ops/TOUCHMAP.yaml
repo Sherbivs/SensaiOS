@@ -94,10 +94,8 @@ T6.2:
   - "src/commands/ops.js"
 
 T7.1:
-  - "src/bot/dm/home.tsx"
-  - "src/bot/dm/components/**"
-  - "src/models/**"
-  - "prisma/schema.prisma"
+  - "src/commands/home.js"
+  - "src/models/index.ts"
   - "tests/dm_home.spec.ts"
 
 T7.2:

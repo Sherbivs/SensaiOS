@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T09:55:00Z
-Revision: 1.32
+Last Updated (UTC): 2025-10-25T10:40:00Z
+Revision: 1.33
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -451,13 +451,13 @@ Each task has:
 
 - id: T7.1
   title: Wire DM Home to Prisma persistence
-  status: READY
+  status: DONE
   depends_on: [T3.2, T3.3, T1.1]
   acceptance_criteria:
     - DM `/home` resolves trainer profile, coins, and party slots from Prisma rather than placeholder stubs.
     - Empty-trainer bootstrap path creates a starter-friendly baseline (coins, party slots) without crashing; log guidance for operators when data is missing.
     - Unit tests or integration tests cover at least one trainer with stored Pokémon to ensure embeds render correctly with DB data.
-  notes: Outcome — DM Home reflects real persistence so players see accurate party data when the bot awakens again.
+  notes: Outcome — `/home` now loads trainers from Prisma, bootstraps missing rows with starter coins + empty parties, logs guidance when no Pokémon exist, and ships tests exercising persisted party rendering.
 
 - id: T7.2
   title: Persist wild encounter capture results
