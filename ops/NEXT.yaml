@@ -9,8 +9,8 @@ files_hint:
   # High-signal targets for T1.2
   - "src/shared/config.ts"
   - "src/shared/log.ts"
-timestamp_utc: 2025-10-25T00:55:00Z
-note: "T1.1 completed with Prisma schema and client; moving to logging."
+timestamp_utc: 2025-10-25T01:07:00Z
+note: "Added postinstall build to ensure dist on Render; T1.1 complete; next: structured logger (T1.2)."
 timestamp_utc: 2025-10-25T00:50:00Z
 note: "Live timestamps applied to docs; NEXT unchanged (T1.1)."
 

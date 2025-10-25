@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T00:50:00Z
-Revision: 0.3
+Last Updated (UTC): 2025-10-25T01:07:00Z
+Revision: 0.5
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -88,6 +88,16 @@ Each task has:
     - Include output structure, feedback loop, example prompts, and acceptance criteria
     - Optional project hints tailored to this repo (Node.js + TS, Postgres, Render, Discord bot)
   notes: Prompt.md added and referenced in ops/CRITICAL.md as a contextual doc.
+
+- id: T0.FIX.BUILD_DIST
+  title: Ensure dist is built during Render "npm install" build step
+  status: DONE
+  depends_on: [T1.1, T1.2]
+  acceptance_criteria:
+    - `package.json` contains a `postinstall` that compiles TypeScript to `dist/`
+    - Build does not rely on global `tsc`; uses local binaries
+    - Render start (`node dist/index.js`) works without needing render.yaml
+  notes: Outcome — `dist/index.js` created during `npm install`; eliminates MODULE_NOT_FOUND at runtime.
 
 - id: T0.FIX.RENDER_START
   title: Add render.yaml with explicit build/start commands for Render

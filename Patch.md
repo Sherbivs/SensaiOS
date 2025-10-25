@@ -1,3 +1,6 @@
+Last Updated (UTC): 2025-10-25T01:07:00Z
+Revision: 0.5
+
 Here’s the next PATCHSET to implement **T1.1 — DB schema with Prisma**, plus config and a Prisma client. It also advances the NEXT pointer.
 
 ````
