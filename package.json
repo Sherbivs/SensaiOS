@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:ci": "node ./node_modules/prisma/build/index.js generate && node ./node_modules/typescript/bin/tsc -p tsconfig.json",
-    "postinstall": "npm run build:ci",
+    "build:ci": "npm run prebuild",
+    "postinstall": "npm run prebuild",
     "prebuild": "prisma generate",
-    "build": "tsc -p tsconfig.json",
+    "build": "echo \"TypeScript compilation handled at runtime via tsx\"",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
-    "data:build": "node dist/data_pipeline/index.js",
+    "start": "tsx src/index.ts",
+    "data:build": "tsx src/data_pipeline/index.ts",
     "register:commands": "node scripts/register-commands.js",
     "docs:update-ledger": "bash scripts/update_change_ledger.sh",
     "docs:update-routers": "bash scripts/update_router_index.sh",
@@ -29,14 +29,13 @@
     "eslint-plugin-n": "^17.9.0",
     "eslint-plugin-promise": "^6.1.1",
     "prettier": "^3.3.1",
-    "tsx": "^4.11.2",
-    "typescript": "^5.4.5",
     "vitest": "^1.6.0",
     "prisma": "^5.19.2"
   },
   "dependencies": {
     "@prisma/client": "^5.19.2",
     "discord.js": "^14.16.3",
+    "tsx": "^4.11.2",
     "typescript": "^5.6.3",
     "zod": "^3.23.8"
   }

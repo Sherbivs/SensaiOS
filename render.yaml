@@ -3,15 +3,15 @@ services:
   - type: web
     name: infinity-gauntlet-bot
     env: node
-    buildCommand: npm ci && npm run build
-    startCommand: node dist/index.js
+    buildCommand: npm install --include=dev && npm run prebuild
+    startCommand: npm start
     autoDeploy: true
 
   # Existing worker (left intact)
   - type: worker
     name: infinity-gauntlet
     env: node
-    buildCommand: npm install
+    buildCommand: npm install --include=dev && npm run prebuild
     startCommand: npm start
     autoDeploy: true
     plan: starter
@@ -35,7 +35,7 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    buildCommand: "npm ci"
+    buildCommand: "npm install --include=dev && npm run prebuild"
     startCommand: "npm start"
     autoDeploy: true
     envVars:
@@ -58,7 +58,7 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    buildCommand: "npm ci"
+    buildCommand: "npm install --include=dev && npm run prebuild"
     startCommand: "node scripts/worker.mjs"
     autoDeploy: true
     disks:
@@ -100,7 +100,7 @@ services:
     plan: starter
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    buildCommand: "npm ci"
+    buildCommand: "npm install --include=dev && npm run prebuild"
     startCommand: "node scripts/refresh_cache_gh_only.mjs"
     schedule: "0 0 * * 4"
     envVars:
