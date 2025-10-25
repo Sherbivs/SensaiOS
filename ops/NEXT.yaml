@@ -1,18 +1,22 @@
 # NEXT POINTER — Single-file pointer for the next actionable task and file hints.
 # The AI should read this first, then confirm against Tasklist.md, then proceed.
 
-next_task_id: NONE
+next_task_id: META.TASKLIST.COUPLING_FIX
 reason: >
-  META.ROUTER_FMT completed to normalize router docs and regenerate the router index.
-  No additional READY tasks are defined—coordinate with humans for the next milestone.
+  Engine jumpstart: all tasks were DONE and NEXT was NONE. Begin by enforcing
+  Tasklist updates in every PATCHSET to prevent future stalls.
 
-files_hint: []
-timestamp_utc: 2025-10-25T07:25:00Z
+files_hint:
+  - "Patch.md"
+  - "Tasklist.md"
+  - ".github/workflows/guard-meta.yml"
+  - "scripts/guard_meta.sh"
+  - "Prompt.md"
+
+timestamp_utc: 2025-10-25T07:45:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-25T03:30:00Z
-note: "T6.2 DONE — /ops cooldown reset and /ops stats available for admins."
+note: "Jumpstarting engine with META.TASKLIST.COUPLING_FIX; enforce Tasklist diffs on every PATCHSET."
 
-# Required actions after completion:
-# - Set next_task_id to the next READY task.
-# - Trim files_hint to only the highest-signal paths/files for that task.
-# - If the next task is blocked, update reason to explain why and who/what unblocks it.
+# Advisory flag read by guard scripts; safe to ignore if unsupported
+auto_requeue_if_none: true

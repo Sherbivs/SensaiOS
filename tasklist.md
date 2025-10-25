@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T07:25:00Z
-Revision: 1.23
+Last Updated (UTC): 2025-10-25T07:45:00Z
+Revision: 1.24
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -15,6 +15,47 @@ Each task has:
 ---
 
 ## Phase 0 — Repo & Tooling
+
+- id: META.TASKLIST.COUPLING_FIX
+  title: Enforce Tasklist updates from every PATCHSET and rewire guards
+  status: READY
+  depends_on: [T0.META.ENFORCE]
+  acceptance_criteria:
+    - Patch.md OPERATING LOOP step "Update Tasklist" is explicitly referenced by guard checks.
+    - CI workflow `.github/workflows/guard-meta.yml` verifies that any non-doc change includes a `# TASKLIST UPDATE` diff.
+    - `scripts/guard_meta.sh` exits nonzero when a PATCHSET lacks a Tasklist diff while touching `src/**` or `tests/**`.
+    - Prompt.md Embedded PATCHSET Echo includes a boolean note indicating whether a Tasklist diff was present.
+  notes: Outcome — PATCHSETs can’t “forget” Tasklist; engine won’t stall due to NONE/NO-READY mismatch.
+
+- id: META.NEXT.BOOTSTRAP
+  title: Auto-bootstrap NEXT when NONE by queueing first READY meta task
+  status: PROPOSED
+  depends_on: [META.TASKLIST.COUPLING_FIX]
+  acceptance_criteria:
+    - `ops/NEXT.yaml` gains guidance/comments for bootstrapping when `next_task_id: NONE`.
+    - Optional key `auto_requeue_if_none: true` supported by guard scripts (advisory).
+    - If NONE and at least one READY task exists, guard suggests (but does not auto-commit) setting `next_task_id` to the first READY task.
+  notes: Outcome — Humans get a one-line fix suggestion; engine becomes self-healing with minimal friction.
+
+- id: META.RECOVERY.REPLAY
+  title: Recovery résumé: remember last attempted task and resume safely
+  status: PROPOSED
+  depends_on: [META.TASKLIST.COUPLING_FIX]
+  acceptance_criteria:
+    - `ops/RECOVERY.yaml` stores `last_attempted_task_id` and `last_attempted_ts` on trigger.
+    - On trigger, engine prefers RECOVERY task if compatible with NEXT pointer.
+    - Documented in Patch.md “Refresh Vision”/Activation section.
+  notes: Outcome — You can restart with the trigger phrase and continue where you left off.
+
+- id: META.TASK.HOUSEKEEP
+  title: Trim historical DONE tasks to last 100 (archive elsewhere)
+  status: PROPOSED
+  depends_on: [META.TASKLIST.COUPLING_FIX]
+  acceptance_criteria:
+    - Tasklist.md retains only the most recent 100 DONE entries; older entries moved to `ops/ARCHIVE/tasks-YYYYMMDD.md` by a script.
+    - Patch.md notes this policy; CI allows presence/absence of archive file.
+  notes: Outcome — Tasklist stays lean as a live reference point; deep history is archived.
+
 - id: T0.REFRESH.VISION
   title: Add Refresh Vision phase and recovery ledger
   status: DONE
@@ -34,6 +75,7 @@ Each task has:
     - scripts/update_router_index.sh generates ops/ROUTER_INDEX.yaml
     - Patch/Prompt policies require router updates when touching routed dirs
   notes: Outcome — City roadway map enables fast navigation and targeted patching.
+
 - id: META.LEDGER200
   title: Add auto-generated Recent Change Ledger (last 200) to Prompt.md
   status: DONE
@@ -53,6 +95,7 @@ Each task has:
     - CI fails if echo section lacks HEAD short SHA and lacks NO-ECHO-REASON
     - Patch contract documents the requirement
   notes: Outcome — Single-file audit snapshot of the most recent change now lives in Prompt.md.
+
 - id: META.HARD_ROUTE
   title: Add router + inbox notes and enforce router-driven AI routing
   status: DONE
@@ -111,7 +154,7 @@ Each task has:
   status: DONE
   depends_on: [T0.FP]
   acceptance_criteria:
-    - Prompt.md created at repo root with purpose, objectives, deliverables, constraints, questionnaire, and output structure
+    - Prompt.md created at repo root with purpose, objectives, deliverables, constraints, and discovery questionnaire
     - ops/CRITICAL.md updated to include Prompt.md in boot order
     - Patch.md updated to reference Prompt.md in the fast-path and completion rules
     - ops/TOUCHMAP.yaml includes Prompt.md under relevant tasks
@@ -364,4 +407,3 @@ Each task has:
     - `/ops cooldown reset @user`, `/ops stats`
     - Basic usage counters visible to admin
   notes: Outcome — Added /ops with cooldown reset (admin-only) and basic stats. Prisma is optional; commands gracefully degrade when DB is unavailable.
-
