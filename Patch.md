@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-25T03:05:00Z
-Revision: 1.5
+Last Updated (UTC): 2025-10-25T03:15:00Z
+Revision: 1.6
 
 This repository uses **Patch.md** as the single source of truth for automated, AI-driven development flow.
 The AI reading this file must follow the loop and rules exactly.
@@ -48,6 +48,16 @@ After completing a task, update `Tasklist.md` *convulsively* (immediately) to re
 ### Worker Prompt Requirement
 - `Prompt.md` MUST contain the section titled exactly “AI Worker Prompt (copy/paste for Copilot/GPT)”.
 - When material workflows change (NEXT/TOUCHMAP/policies), refresh that section accordingly.
+
+### Hard Routing Policy (MANDATORY)
+- The AI MUST load `ops/ROUTER.yaml` and use it to determine where to read next and where writes are allowed.
+- Before any task, check `ops/INBOX/notes.md`; if its `Timestamp (UTC)` is newer than `ops/NEXT.yaml:last_notes_read_utc`, ingest those notes and set `last_notes_read_utc` during the PATCHSET.
+- Writes outside the `meta_write_whitelist` or the task’s `ops/TOUCHMAP.yaml` paths are forbidden unless a new subtask is created that justifies expanding TOUCHMAP.
+- If routing conflicts arise, stop and add a PROPOSED task to reconcile router vs. reality; update Prompt “Last Repo Changes”.
+
+## Activation Trigger (MANDATORY)
+Trigger phrase (case-sensitive): `ACTIVATE: PATCH ENGINE`
+On trigger, follow Router → INBOX → NEXT → Tasklist → TOUCHMAP → Patch → Prompt sequence and emit one PATCHSET + Commit Message.
 
 ## PATCH BLOCKS (MANDATORY FORMAT)
 Use the following structure for every change. Provide full-file content for creates/overwrites; use unified diffs for surgical edits when safer.
@@ -230,238 +240,310 @@ Paste your next PATCHSET below.
 
 ````
 ````
-You’ve got that old **T0.FIX.BUILD_DIST** PATCHSET embedded inside `Prompt.md` again (right after the AI Worker Prompt). That’ll confuse your worker and can trip the CI guards. Here’s a single, tidy PATCHSET that:
+Heard. You want the AI “hard-routed” so it *always* knows exactly where to read/write next, plus a quick-notes place you can edit fast without juggling the big docs. Here’s a single PATCHSET that:
 
-* removes the stale embedded PATCHSET/commit blob from `Prompt.md`
-* bumps timestamps/revisions in all meta files (per policy)
-* logs the cleanup as a DONE meta task in `Tasklist.md`
-* updates `ops/NEXT.yaml` pointer note
+* Adds a **router file** with canonical paths and categories the AI must follow.
+* Adds a lightweight **INBOX notes** file you can edit quickly; workers will read it first if it’s newer.
+* Tightens the **contract** to make routing mandatory.
+* Extends **NEXT.yaml** with router/version stamps and hints.
+* Updates **TOUCHMAP** with core categories and meta tasks.
+* Adds a **routing guard** CI job that sanity-checks changed files line up with the router/touchmap (soft-fail if parsing is tricky, so you’re never blocked).
+* Stamps **Prompt.md**/**Patch.md**/**Tasklist.md** with changes and updates the Worker Prompt so it reads the router + INBOX before everything.
 
-Paste this in your Patch.md clipboard and run it.
+Paste this into `Patch.md`’s clipboard and run.
 
 ````
 <<<PATCHSET START>>>
-# [T0.CLEAN.PROMPT.C]: Remove stale embedded PATCHSET from Prompt.md; bump meta stamps
+# [META.HARD_ROUTE]: Add AI routing map + inbox notes; enforce router-driven read/write + quick notes
 
-# FILE: Prompt.md
-```diff
-@@
--Timestamp (UTC): 2025-10-25T02:32:00Z
--Revision: 0.17
-+Timestamp (UTC): 2025-10-25T02:35:00Z
-+Revision: 0.18
-@@
- OUTPUT:
- - Only emit the PATCHSET block (and then the Commit Message block). No extra prose unless the task explicitly asks.
+# FILE: ops/ROUTER.yaml
+```full
+# Canonical AI routing map — single source of “where to look / where to write”.
+# All paths are repo-relative. Case-sensitive.
+version: 1
+updated_utc: 2025-10-25T02:45:00Z
+
+meta_files:
+  - Patch.md
+  - Tasklist.md
+  - Prompt.md
+  - ops/ROUTER.yaml
+  - ops/NEXT.yaml
+  - ops/TOUCHMAP.yaml
+  - ops/CRITICAL.md
+  - ops/PATCH_POLICY_BACKUP.md
+
+inbox:
+  # Fast notes the human can edit; AI must read first if newer than NEXT.last_notes_read_utc
+  path: ops/INBOX/notes.md
+
+entrypoints:
+  node_start: dist/index.js
+  ts_entry: src/index.ts
+  tsconfig: tsconfig.json
+  package: package.json
+
+categories:
+  contract:
+    - Patch.md
+    - ops/CRITICAL.md
+  tasks:
+    - Tasklist.md
+    - ops/NEXT.yaml
+    - ops/TOUCHMAP.yaml
+  prompt:
+    - Prompt.md
+  infra_docs:
+    - RULESET.md
+    - DATA-SCHEMA.md
+    - OPERATIONS.md
+  code_core:
+    - src/**
+    - tests/**
+  ops_scripts:
+    - scripts/**
+  guards_ci:
+    - .github/workflows/**
+    - scripts/guard_*.sh
+
+# Always-allowed meta writes (headers/timestamps/Last Repo Changes only):
+meta_write_whitelist:
+  - Patch.md
+  - Tasklist.md
+  - Prompt.md
+  - ops/NEXT.yaml
+  - ops/ROUTER.yaml
+  - ops/TOUCHMAP.yaml
 ````
 
-*
+# FILE: ops/INBOX/notes.md
 
-## -You’re right — Render is still running `npm install` as the build step (not your `render.yaml`), so `dist/index.js` never gets produced. We’ll fix this in a belt-and-suspenders way:
+```full
+# INBOX / Quick Notes for AI
+Timestamp (UTC): 2025-10-25T02:45:00Z
+Author: human
 
--1. Add a `postinstall` script that compiles TypeScript during the build step even if Render only runs `npm install`.
--2. Ensure the compiler and Prisma codegen are available at build time by invoking them directly (no global tsc assumptions).
--3. Log the change in Prompt.md and bump timestamps/revisions.
---------------------------------------------------------------
-
-## -Paste this PATCHSET into your Patch.md clipboard and run it.
-
--````
--<<<PATCHSET START>>>
--# [T0.FIX.BUILD_DIST]: Ensure dist/index.js exists on Render when build step only runs `npm install`
------------------------------------------------------------------------------------------------------
-
--# FILE: package.json
--```diff
--@@
-
-* "scripts": {
-  --    "prebuild": "prisma generate",
-  --    "build": "tsc -p tsconfig.json",
-  -+    "prebuild": "prisma generate",
-  -+    "build": "tsc -p tsconfig.json",
-  -+    "build:ci": "node ./node_modules/prisma/build/index.js generate && node ./node_modules/typescript/bin/tsc -p tsconfig.json",
-  -+    "postinstall": "npm run build:ci",
-* ```
-  "dev": "tsx watch src/index.ts",
-  ```
-* ```
-  "start": "node dist/index.js",
-  ```
-* ```
-  "lint": "eslint . --ext .ts,.tsx",
-  ```
-* ```
-  "format": "prettier --write .",
-  ```
-* ```
-  "test": "vitest run",
-  ```
-* ```
-  "test:watch": "vitest"
-  ```
-* },
-  --  "devDependencies": {
-  -+  "devDependencies": {
-  -@@
-  --    "vitest": "^2.0.5",
-  --    "prisma": "^5.19.2"
-  -+    "vitest": "^2.0.5",
-  -+    "prisma": "^5.19.2"
-* },
-* "dependencies": {
-  --    "@prisma/client": "^5.19.2"
-  -+    "@prisma/client": "^5.19.2",
-  -+    "typescript": "^5.6.3"
-* }
-* }
-  -````
-*
-
-## -# FILE: Prompt.md
-
--```diff
--@@
---Timestamp (UTC): 2025-10-25T01:00:00Z
---Revision: 0.3
--+Timestamp (UTC): 2025-10-25T01:07:00Z
--+Revision: 0.4
--@@
---> Changes in this revision:
--+> Changes in this revision:
-
-* > * `render.yaml` — added explicit `buildCommand` (npm ci && npm run build) and `startCommand` (node dist/index.js) to fix Render “Missing script: start”.
-* > * `src/bot/`, `src/core/battle/`, `src/core/encounter/`, `src/shared/`, `src/data_pipeline/`, `tests/` — created scaffold entries to establish project layout.
-* > * `RULESET.md`, `DATA-SCHEMA.md`, `OPERATIONS.md` — added stub docs with UTC placeholders.
-* > * `ops/NEXT.yaml` — advanced `next_task_id` to `T1.1` (DB schema) and updated `files_hint`.
-* > * `Tasklist.md` — marked `T0.2` DONE; added fix task for Render start.
-  >   -+> - `package.json` — added `postinstall` hook that runs `build:ci` so `dist/index.js` is created even when Render only runs `npm install`; ensured local bin invocations for Prisma + TypeScript.
-  >   -+> - **Impact:** Start command `node dist/index.js` now succeeds consistently on Render.
-  >   -@@
-* | 2025-10-25 | 0.3 | Added structured logger; updated boot logs; NEXT -> T2.1 | AI | Prep for data schema work |
-  -+| 2025-10-25 | 0.4 | Build fix for Render: postinstall compiles TS to dist; stable start | AI | Avoids MODULE_NOT_FOUND for dist/index.js |
-  -```
-*
-
-## -# FILE: Patch.md
-
--`diff
--@@ --Last Updated (UTC): 2025-10-25T01:00:00Z --Revision: 0.4
--+Last Updated (UTC): 2025-10-25T01:07:00Z
--+Revision: 0.5
--`
---
-
-## -# FILE: Tasklist.md
-
--```diff
--@@
---Last Updated (UTC): 2025-10-25T01:00:00Z
---Revision: 0.4
--+Last Updated (UTC): 2025-10-25T01:07:00Z
--+Revision: 0.5
--@@
-
-* ## Phase 0 — Repo & Tooling
-
--@@
---+ id: T0.FIX.BUILD_DIST
--+  title: Ensure dist is built during Render "npm install" build step
--+  status: DONE
--+  depends_on: [T1.1, T1.2]
--+  acceptance_criteria:
--+    - `package.json` contains a `postinstall` that compiles TypeScript to `dist/`
--+    - Build does not rely on global `tsc`; uses local binaries
--+    - Render start (`node dist/index.js`) works without needing render.yaml
--+  notes: Outcome — `dist/index.js` created during `npm install`; eliminates MODULE_NOT_FOUND at runtime.
--```
-----
-
-## -# FILE: ops/NEXT.yaml
-
--```diff
----- a/ops/NEXT.yaml
--+++ b/ops/NEXT.yaml
--@@
-
-* timestamp_utc: 2025-10-25T01:00:00Z
-* -note: "Logging in place; next define reference data schemas and tests."
-* +note: "Logging in place; added postinstall build to produce dist under Render; next define reference data schemas and tests."
-  -```
-*
-
-## -<<<PATCHSET END>>>
-
-## -```
-
--**Commit Message**
--```
-----
-
-## -[Task T0.FIX.BUILD_DIST] Build dist during Render’s `npm install` to avoid MODULE_NOT_FOUND
-
--Why:
--Render’s current service is ignoring render.yaml and only running `npm install`, so `dist/index.js` wasn’t generated and the app crashed at start.
----------------------------------------------------------------------------------------------------------------------------------------------------
-
-## -Changes:
-
--* package.json: added `postinstall` that runs `build:ci`; `build:ci` invokes local Prisma and TypeScript binaries to compile into `dist/`.
--* Prompt.md: logged the change and bumped timestamp/revision.
--* Patch.md/Tasklist.md: stamped timestamps/revisions; recorded fix task as DONE.
--* ops/NEXT.yaml: noted the fix in the pointer note.
-----------------------------------------------------
-
--Acceptance:
--Deploy pipeline that only runs `npm install` now emits `dist/index.js`. Start command `node dist/index.js` succeeds on Render.
--------------------------------------------------------------------------------------------------------------------------------
-
-## -```
-
--If you later switch the service to a Render “Blueprint” using `render.yaml`, you can drop the `postinstall` hook, but this keeps you resilient right now.
--```
-+> Note: Removed an embedded historical PATCHSET/commit blob to keep this file deterministic and single-sourced.
-
-````
+- Put short, high-signal notes here. AI reads this FIRST if newer than NEXT.last_notes_read_utc.
+- Keep bullets concise; link files/paths if relevant.
+- Example:
+  - Focus T2.2 manifest shape → `src/data_pipeline/schema/manifest.ts` & `tests/data_schema.spec.ts`
+  - Don’t touch deploy—Render stable for now.
+```
 
 # FILE: Patch.md
+
 ```diff
 @@
 -Last Updated (UTC): 2025-10-25T02:28:00Z
 -Revision: 1.6
-+Last Updated (UTC): 2025-10-25T02:35:00Z
++Last Updated (UTC): 2025-10-25T02:45:00Z
 +Revision: 1.7
-````
-
-# FILE: Tasklist.md
-
-```diff
 @@
--Last Updated (UTC): 2025-10-25T02:28:00Z
--Revision: 1.8
-+Last Updated (UTC): 2025-10-25T02:35:00Z
-+Revision: 1.9
+ ## META UPDATE REQUIREMENT (MANDATORY)
 @@
- ## Phase 0 — Repo & Tooling
-@@
-+- id: T0.CLEAN.PROMPT.C
-+  title: Remove stale embedded PATCHSET from Prompt.md
-+  status: DONE
-+  depends_on: []
-+  acceptance_criteria:
-+    - Prompt.md contains only curated sections and the AI Worker Prompt
-+    - No embedded PATCHSET/commit blobs remain
-+  notes: Outcome — Keeps Prompt.md deterministic; avoids reapplying old fixes.
+ ### Worker Prompt Requirement
+ - `Prompt.md` MUST contain the section titled exactly **“AI Worker Prompt (copy/paste for Copilot/GPT)”**.
+ - When material workflows change (NEXT/TOUCHMAP/policies), refresh that section accordingly
++
++### Hard Routing Policy (MANDATORY)
++- The AI MUST load `ops/ROUTER.yaml` and use it to determine **where to read next** and **where writes are allowed**.
++- Before any task, check `ops/INBOX/notes.md`; if its `Timestamp (UTC)` is newer than `ops/NEXT.yaml:last_notes_read_utc`, ingest notes and set `last_notes_read_utc` during the PATCHSET.
++- Writes outside the `meta_write_whitelist` or the task’s `ops/TOUCHMAP.yaml` paths are forbidden unless a new subtask is created that justifies expanding TOUCHMAP.
++- If routing conflicts arise, stop and add a PROPOSED task to reconcile router vs. reality; update Prompt “Last Repo Changes”.
++
++## Activation Trigger (MANDATORY)
++Trigger phrase (case-sensitive): `ACTIVATE: PATCH ENGINE`
++On trigger, follow Router → INBOX → NEXT → TASKLIST → TOUCHMAP → Patch → Prompt sequence and emit one PATCHSET + Commit Message.
 ```
+
+# FILE: Prompt.md
+
+````diff
+@@
+-Timestamp (UTC): 2025-10-25T02:35:00Z
+-Revision: 0.18
++Timestamp (UTC): 2025-10-25T02:45:00Z
++Revision: 0.19
+@@
+ > - `.github/workflows/guard-meta.yml` / `scripts/guard_meta.sh` — added checks for Worker Prompt presence and deeper evidence/revision requirements when code changes.
+ > - `Prompt.md` — added “AI Worker Prompt (copy/paste for Copilot/GPT)” section for fast bootstrapping.
+ > - `src/data_pipeline/schema/` — added Zod schemas: species, moves, abilities, typechart, manifest; plus barrel index.
+ > - `tests/data_schema.spec.ts` — unit tests validating three samples for species, moves, abilities; includes minimal typechart and manifest test.
+ > - `package.json` — added `zod` dependency.
++> - `ops/ROUTER.yaml` — canonical, hard-routed file map for AI read/write.
++> - `ops/INBOX/notes.md` — fast notes dropbox; AI reads first if newer.
+@@
+ ## AI Worker Prompt (copy/paste for Copilot/GPT)
+@@
+ READ ORDER (fast-path):
+-1) ops/NEXT.yaml  → get next_task_id + files_hint
+-2) Tasklist.md    → execute only tasks with status: READY and all depends_on DONE
+-3) ops/TOUCHMAP.yaml → constrain edits to mapped paths
+-4) Prompt.md (this file) → ground truth + risks; update Last Repo Changes every commit
++0) ops/ROUTER.yaml → set canonical paths; respect categories & whitelist
++0.1) ops/INBOX/notes.md → if newer than NEXT.last_notes_read_utc, ingest notes
++1) ops/NEXT.yaml  → get next_task_id + files_hint
++2) Tasklist.md    → execute only tasks with status: READY and all depends_on DONE
++3) ops/TOUCHMAP.yaml → constrain edits to mapped paths
++4) Prompt.md (this file) → ground truth + risks; update Last Repo Changes every commit
+@@
+ OUTPUT:
+ - Only emit the PATCHSET block (and then the Commit Message block). No extra prose unless the task explicitly asks.
++
++## Activation Trigger for AI Workers
++Paste this to initialize from Router + INBOX and run the Patch loop:
++
++```
++ACTIVATE: PATCH ENGINE
++```
+````
 
 # FILE: ops/NEXT.yaml
 
 ```diff
 @@
--timestamp_utc: 2025-10-25T02:28:00Z
--note: "Activation trigger added and enforced; proceed with T2.2 (pipeline manifest)."
-+timestamp_utc: 2025-10-25T02:35:00Z
-+note: "Prompt cleaned (removed historical blob). Proceed with T2.2."
+-timestamp_utc: 2025-10-25T02:35:00Z
+-note: "Prompt cleaned (removed historical blob). Proceed with T2.2."
++timestamp_utc: 2025-10-25T02:45:00Z
++router_version: 1
++last_notes_read_utc: 2025-10-25T02:45:00Z
++note: "Router + INBOX in place; proceed with T2.2 (pipeline manifest)."
+```
+
+# FILE: ops/TOUCHMAP.yaml
+
+```diff
+@@
+ T0.TIMESTAMPS:
+   - "Patch.md"
+   - "Tasklist.md"
+   - "Prompt.md"
+   - "ops/CRITICAL.md"
++
++# Canonical categories for broad tasks
++META.HARD_ROUTE:
++  - "ops/ROUTER.yaml"
++  - "ops/INBOX/notes.md"
++  - "Patch.md"
++  - "Prompt.md"
++  - "Tasklist.md"
++  - "ops/NEXT.yaml"
++
++SCHEMA.ZOD:
++  - "src/data_pipeline/schema/**"
++  - "tests/**"
++
++RUNTIME.ENTRY:
++  - "src/index.ts"
++  - "tsconfig.json"
++  - "package.json"
++  - "dist/**"
+```
+
+# FILE: .github/workflows/guard-routing.yml
+
+```full
+name: Guard routing & touchmap
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 2 }
+      - run: bash scripts/guard_routing.sh
+```
+
+# FILE: scripts/guard_routing.sh
+
+```full
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE="$(git rev-parse HEAD~1 2>/dev/null || echo '')"
+if [[ -z "$BASE" ]]; then
+  echo "First commit; skipping routing guard."
+  exit 0
+fi
+
+CHANGED=$(git diff --name-only "$BASE"...HEAD | tr -d '\r')
+echo "🔎 Routing guard — changed files:"
+echo "$CHANGED" | sed 's/^/ - /'
+
+# Allowlist for meta/doc files always ok
+ALWAYS_OK_REGEX='^(Patch\.md|Prompt\.md|Tasklist\.md|ops/ROUTER\.yaml|ops/NEXT\.yaml|ops/TOUCHMAP\.yaml|ops/CRITICAL\.md|ops/PATCH_POLICY_BACKUP\.md|\.github/workflows/.*|scripts/guard_.*\.sh)$'
+
+if echo "$CHANGED" | grep -Ev "$ALWAYS_OK_REGEX" >/dev/null 2>&1; then
+  # Try to read NEXT task id
+  NEXT_TASK=$(grep -E '^next_task_id:' ops/NEXT.yaml 2>/dev/null | awk '{print $2}' || true)
+  [[ -z "${NEXT_TASK:-}" ]] && NEXT_TASK=""
+
+  # Collect touch patterns for NEXT_TASK
+  MAP_LINES=$(awk -v id="$NEXT_TASK" '
+    $0 ~ "^"id":" {inblk=1; next}
+    inblk && $0 ~ "^[^[:space:]].*:" {inblk=0}
+    inblk && $0 ~ "^[[:space:]]*- " {print $2}
+  ' ops/TOUCHMAP.yaml 2>/dev/null || true)
+
+  if [[ -z "$NEXT_TASK" || -z "$MAP_LINES" ]]; then
+    echo "⚠️ Routing guard: could not resolve NEXT or TOUCHMAP; soft-pass."
+    exit 0
+  fi
+
+  # Check each changed file matches some mapped prefix or globy suffix
+  FAILS=0
+  while IFS= read -r file; do
+    echo "$file" | grep -Eq "$ALWAYS_OK_REGEX" && continue
+    MATCHED=0
+    # naive prefix match per mapped path (/** treated as prefix)
+    while IFS= read -r pat; do
+      p="${pat%\"}"; p="${p#\"}"
+      p="${p%/**}"
+      if [[ "$file" == "$p"* ]]; then MATCHED=1; break; fi
+    done <<<"$MAP_LINES"
+    if [[ $MATCHED -eq 0 ]]; then
+      echo "❌ File not permitted by TOUCHMAP for task $NEXT_TASK: $file"
+      FAILS=$((FAILS+1))
+    fi
+  done <<<"$CHANGED"
+
+  if [[ $FAILS -gt 0 ]]; then
+    echo "⚠️ Routing guard is advisory for now; convert to hard fail later."
+    exit 0
+  fi
+fi
+
+echo "✅ Routing guard passed."
+```
+
+# FILE: Tasklist.md
+
+```diff
+@@
+-Last Updated (UTC): 2025-10-25T02:35:00Z
+-Revision: 1.9
++Last Updated (UTC): 2025-10-25T02:45:00Z
++Revision: 2.0
+@@
+ ## Phase 0 — Repo & Tooling
+@@
++- id: META.HARD_ROUTE
++  title: Add router + inbox notes and enforce router-driven AI routing
++  status: DONE
++  depends_on: [T0.META.ENFORCE, T0.META.HARDEN, T0.TRIGGER.PATCH_ENGINE]
++  acceptance_criteria:
++    - ops/ROUTER.yaml defines canonical paths and categories
++    - ops/INBOX/notes.md exists; AI reads it first when newer than NEXT.last_notes_read_utc
++    - NEXT.yaml gains router_version + last_notes_read_utc
++    - touchmap contains categories for schema and runtime entry
++    - guard-routing CI present (advisory mode)
++  notes: Outcome — AI has deterministic places to read/write; fast human notes flow.
 ```
 
 <<<PATCHSET END>>>
@@ -471,29 +553,26 @@ Paste this in your Patch.md clipboard and run it.
 **Commit Message**
 ```
 
-[Task T0.CLEAN.PROMPT.C] Remove stale embedded PATCHSET from Prompt.md; bump meta stamps
+[META.HARD_ROUTE] Add canonical AI routing map + INBOX notes; enforce router-driven workflow (advisory guard)
 
 Why:
-An old PATCHSET/commit message was pasted into Prompt.md under the AI Worker Prompt, which would mislead the worker and break determinism.
+We want the AI to know exactly where to look and what to touch, every time—and give the human a fast place to drop notes.
 
 Changes:
 
-* Prompt.md: deleted the embedded PATCHSET and added a note; bumped Timestamp/Revision.
-* Patch.md / Tasklist.md: header stamps bumped; logged a DONE meta task.
-* NEXT: updated note/timestamp.
+* ops/ROUTER.yaml: canonical path map, categories, whitelists.
+* ops/INBOX/notes.md: quick notes; AI reads first if newer than NEXT.last_notes_read_utc.
+* Patch.md: Hard Routing Policy + trigger reiteration.
+* Prompt.md: Worker Prompt read order updated to include Router and INBOX.
+* ops/NEXT.yaml: router_version + last_notes_read_utc.
+* ops/TOUCHMAP.yaml: added categories (SCHEMA.ZOD, RUNTIME.ENTRY, META.HARD_ROUTE).
+* CI: guard-routing (advisory) checks changed files align with TOUCHMAP.
+* Tasklist: recorded meta task DONE; stamped revisions.
 
 Acceptance:
-Prompt.md is once again a clean, single source of truth; CI meta guards pass; the worker won’t attempt to reapply historical patches.
+Workers now load Router→INBOX→NEXT→Tasklist→TOUCHMAP→Patch→Prompt, and the repo provides deterministic file targets with a quick human notes path.
 
 ```
 
-When you’re ready to kick off an AI run, you can paste the trigger anywhere:
-
-```
-
-ACTIVATE: PATCH ENGINE
-
-```
-
-That snaps any worker into the repo’s Patch protocol instantly.
+Use your **fast notes** at `ops/INBOX/notes.md` whenever you need to steer the worker quickly; the AI will ingest them first on the next run.
 ```

@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T03:05:00Z
-Revision: 0.19
+Timestamp (UTC): 2025-10-25T03:15:00Z
+Revision: 0.20
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -25,6 +25,8 @@ Revision: 0.19
 > - `src/commands/{home,heal,starter,party,box,profile}.js` — added placeholder slash commands required for DM Home flows.
 > - `scripts/register-commands.js` — now reads DISCORD_BOT_TOKEN/POKEMON_BOT_TOKEN for auth.
 > - `package.json` — added discord.js dep and `register:commands` script; wired bot startup in `src/index.ts`.
+> - `ops/ROUTER.yaml` — canonical, hard-routed file map for AI read/write.
+> - `ops/INBOX/notes.md` — quick notes dropbox; AI reads first if newer than NEXT.last_notes_read_utc.
 
 ## Revision History
 | Date | Rev | Summary | By |
@@ -38,6 +40,8 @@ Revision: 0.19
 ROLE: Senior Staff Systems Architect & Implementer for the Infinity-Gauntlet (Discord Pokémon buddy system).
 
 READ ORDER (fast-path):
+0) ops/ROUTER.yaml → set canonical paths; respect categories & whitelist
+0.1) ops/INBOX/notes.md → if newer than NEXT.last_notes_read_utc, ingest notes
 1) ops/NEXT.yaml  → get next_task_id + files_hint
 2) Tasklist.md    → execute only tasks with status: READY and all depends_on DONE
 3) ops/TOUCHMAP.yaml → constrain edits to mapped paths
@@ -58,6 +62,13 @@ GUARDRAILS:
 
 OUTPUT:
 - Only emit the PATCHSET block (and then the Commit Message block). No extra prose unless the task explicitly asks.
+
+## Activation Trigger for AI Workers
+Paste this to initialize from Router + INBOX and run the Patch loop:
+
+```
+ACTIVATE: PATCH ENGINE
+```
 ```
 
 You’re right — Render is still running `npm install` as the build step (not your `render.yaml`), so `dist/index.js` never gets produced. We’ll fix this in a belt-and-suspenders way:

@@ -1,0 +1,17 @@
+name: Guard routing & touchmap
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Routing guard (advisory)
+        run: bash scripts/guard_routing.sh

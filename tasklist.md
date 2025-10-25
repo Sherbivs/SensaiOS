@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T03:05:00Z
-Revision: 1.9
+Last Updated (UTC): 2025-10-25T03:15:00Z
+Revision: 1.10
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -15,6 +15,17 @@ Each task has:
 ---
 
 ## Phase 0 — Repo & Tooling
+- id: META.HARD_ROUTE
+  title: Add router + inbox notes and enforce router-driven AI routing
+  status: DONE
+  depends_on: [T0.META.ENFORCE]
+  acceptance_criteria:
+    - ops/ROUTER.yaml defines canonical paths and categories
+    - ops/INBOX/notes.md exists; AI reads it first when newer than NEXT.last_notes_read_utc
+    - ops/NEXT.yaml gains router_version + last_notes_read_utc
+    - ops/TOUCHMAP.yaml contains categories for schema and runtime entry
+    - guard-routing CI present (advisory mode)
+  notes: Outcome — AI has deterministic places to read/write; fast human notes flow.
 
 - id: T0.FP
   title: Add Critical Files Fast-Path system

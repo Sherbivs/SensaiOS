@@ -107,3 +107,22 @@ T0.GUARD_FILENAMES:
   - ".github/workflows/guard-docs.yml"
   - "scripts/guard_doc_names.sh"
   - "ops/CRITICAL.md"
+
+# Canonical categories for router-driven tasks
+META.HARD_ROUTE:
+  - "ops/ROUTER.yaml"
+  - "ops/INBOX/notes.md"
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+
+SCHEMA.ZOD:
+  - "src/data_pipeline/schema/**"
+  - "tests/**"
+
+RUNTIME.ENTRY:
+  - "src/index.ts"
+  - "tsconfig.json"
+  - "package.json"
+  - "dist/**"
