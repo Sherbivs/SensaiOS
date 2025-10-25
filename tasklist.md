@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T08:20:00Z
-Revision: 1.26
+Last Updated (UTC): 2025-10-25T08:55:00Z
+Revision: 1.28
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -39,22 +39,22 @@ Each task has:
 
 - id: META.RECOVERY.REPLAY
   title: Recovery résumé: remember last attempted task and resume safely
-  status: READY
+  status: DONE
   depends_on: [META.TASKLIST.COUPLING_FIX]
   acceptance_criteria:
     - `ops/RECOVERY.yaml` stores `last_attempted_task_id` and `last_attempted_ts` on trigger.
     - On trigger, engine prefers RECOVERY task if compatible with NEXT pointer.
-    - Documented in Patch.md “Refresh Vision”/Activation section.
-  notes: Outcome — You can restart with the trigger phrase and continue where you left off.
+    - Documented in Patch.md “Refresh Vision”/Activation section with guidance for using recovery hints.
+  notes: Outcome — Refresh Vision now writes last_attempted metadata and the contract directs workers to resume via ops/RECOVERY.yaml before selecting new tasks.
 
 - id: META.TASK.HOUSEKEEP
   title: Trim historical DONE tasks to last 100 (archive elsewhere)
-  status: READY
-  depends_on: [META.TASKLIST.COUPLING_FIX]
+  status: DONE
+  depends_on: [META.RECOVERY.REPLAY, META.TASKLIST.COUPLING_FIX]
   acceptance_criteria:
     - Tasklist.md retains only the most recent 100 DONE entries; older entries moved to `ops/ARCHIVE/tasks-YYYYMMDD.md` by a script.
     - Patch.md notes this policy; CI allows presence/absence of archive file.
-  notes: Outcome — Tasklist stays lean as a live reference point; deep history is archived.
+  notes: Outcome — Added `scripts/archive_task_history.mjs`, documented the 100-DONE limit, and wired `npm run tasks:archive`. No entries exceeded the threshold yet, so Tasklist currently retains all DONE tasks.
 
 - id: T0.REFRESH.VISION
   title: Add Refresh Vision phase and recovery ledger

@@ -1,5 +1,8 @@
-version: 1
-heartbeat_utc: "2025-10-25T07:25:00Z"
+version: 2
+heartbeat_utc: "2025-10-25T08:55:00Z"
 head_short_sha: "6ed7170"
-last_task_id: "NONE"
-notes: "AI should resume from last_task_id if activation trigger is used."
+last_attempted_task_id: "META.TASK.HOUSEKEEP"
+last_attempted_ts: "2025-10-25T08:55:00Z"
+last_attempted_source: "manual-update"
+next_task_id_snapshot: "NONE"
+notes: "AI should resume from last_attempted_task_id if activation trigger is used (verify it remains READY)."

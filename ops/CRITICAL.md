@@ -26,6 +26,7 @@ what to do next, where to change it, and how to update state.
 - After *every* completed task: update `ops/NEXT.yaml` to the next `READY` task and narrow `files_hint`.
 - If a task touches new paths not listed, extend `ops/TOUCHMAP.yaml`.
 - If the task changed system behavior/architecture, update `Prompt.md` (Revision History + affected sections) and ensure `ops/KNOWLEDGE.yaml` still points to the right sources.
+- When DONE history exceeds 100 entries, run `npm run tasks:archive` to move older completions into `ops/ARCHIVE/`.
 - Keep these files **small and deterministic**. Re-run yields the same state.
 
 ## Refresh Vision Phase (MANDATORY)

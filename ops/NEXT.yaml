@@ -4,26 +4,22 @@
 # first READY task, update this file, and document why.
 
 guidance_when_none: |
-  - Open Tasklist.md and select the first READY task whose dependencies are DONE.
+  - Inspect ops/RECOVERY.yaml; if `last_attempted_task_id` is still READY, restore it here and explain the resume.
+  - Otherwise open Tasklist.md and select the first READY task whose dependencies are DONE.
   - Update `next_task_id`, trim `files_hint` to only the files you expect to touch, and bump `timestamp_utc`.
   - Record the rationale in `note` so the next worker knows why the pointer moved.
 
-next_task_id: META.RECOVERY.REPLAY
+next_task_id: NONE
 reason: >
-  With coupling guards in place, wire recovery guidance so resumptions prefer the last
-  attempted task and avoid NEXT drifting to NONE without direction.
+  All READY work is complete. Await guidance_when_none to pick the next task once new
+  READY items exist or propose follow-up meta work as needed.
 
-files_hint:
-  - "ops/RECOVERY.yaml"
-  - "Tasklist.md"
-  - "Patch.md"
-  - "Prompt.md"
-  - "ops/NEXT.yaml"
+files_hint: []
 
-timestamp_utc: 2025-10-25T08:20:00Z
+timestamp_utc: 2025-10-25T08:55:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-25T03:30:00Z
-note: "META.NEXT.BOOTSTRAP done; execute META.RECOVERY.REPLAY to teach the engine how to resume after interruptions."
+note: "META.TASK.HOUSEKEEP shipped; there are currently no READY tasks. Follow guidance_when_none to propose or select the next actionable item."
 
 # Advisory flag read by guard scripts; safe to ignore if unsupported
 auto_requeue_if_none: true

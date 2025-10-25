@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-25T08:20:00Z
-Revision: 1.13
+Last Updated (UTC): 2025-10-25T08:55:00Z
+Revision: 1.15
 
 This repository uses **Patch.md** as the single source of truth for automated, AI-driven development flow.
 The AI reading this file must follow the loop and rules exactly.
@@ -15,6 +15,7 @@ After completing a task, update `Tasklist.md` *convulsively* (immediately) to re
 ## OPERATING LOOP
 0. **Refresh Vision (MANDATORY)**
   - Run `scripts/refresh_vision.sh` to regenerate `ops/ROUTER_INDEX.yaml`, update the Recent Change Ledger, and stamp `ops/RECOVERY.yaml`.
+  - Review `ops/RECOVERY.yaml` for `last_attempted_task_id` / `last_attempted_ts`. If the recorded task is still READY, resume there before selecting new work.
   - Read `ops/ROUTER_INDEX.yaml` to enumerate active routers; consult the specific `ROUTER.md` for any directory you will touch.
 1. **Load Task Graph**
    - Read `Tasklist.md`.
@@ -33,6 +34,7 @@ After completing a task, update `Tasklist.md` *convulsively* (immediately) to re
    - Mark the executed task `DONE`.
    - For any tasks now unblocked, change `status` to `READY`.
    - If you discover missing steps, create new tasks with unique `id` and clear `acceptance_criteria`.
+  - Use `npm run tasks:archive` to keep only the 100 most recent `status: DONE` entries in `Tasklist.md`; the script writes older entries to `ops/ARCHIVE/tasks-YYYYMMDD.md` (skipping IDs still referenced by active tasks).
   - **Coupling Guard (CI-enforced):** Any PATCH touching `src/**`, `tests/**`, or other build-critical paths must include a `# TASKLIST UPDATE` diff. CI (`guard-meta.yml`) will fail otherwise.
 
 4. **Commit**
@@ -182,6 +184,7 @@ This project’s near-term goal is an **operable Pokémon Discord fan server bot
 To minimize planning overhead, follow this fast-path order before the normal loop:
 1. Read `ops/NEXT.yaml` to get the `next_task_id` and `files_hint`. Validate against `Tasklist.md`.
   - If `next_task_id` is `NONE`, follow `guidance_when_none` in `ops/NEXT.yaml` to select the first READY task, update the pointer, and document the decision before proceeding.
+  - Cross-check `ops/RECOVERY.yaml:last_attempted_task_id`; if it remains READY, prefer resuming it (and update `ops/NEXT.yaml` accordingly).
 2. Open `Tasklist.md` to confirm status and dependencies. Only execute tasks that are `READY`.
 3. Consult `ops/TOUCHMAP.yaml` for the primary files/paths for the task you are executing.
 4. Skim `Prompt.md` for the environment overview and feedback loop; incorporate deltas if it informs the task.
@@ -236,6 +239,7 @@ How to update `Tasklist.md`
 1. Always via the `# TASKLIST UPDATE` unified diff within the current PATCHSET.
 2. Keep the history lightweight: outcome notes belong on each task; deeper context goes to `Prompt.md` (Revision History) if architectural.
 3. Avoid mass reformatting; preserve existing order and phases unless a META task explicitly reorganizes them.
+4. When DONE history grows beyond 100 entries, run `npm run tasks:archive` to archive the oldest completed tasks into `ops/ARCHIVE/`.
 
 Meta-Update Workflow (quick checklist)
 1. Create/choose a META task (or the current task if its acceptance criteria require contract changes).

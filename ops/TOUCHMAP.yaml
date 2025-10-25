@@ -121,6 +121,13 @@ META.PATCHSET_ECHO:
   - ".github/workflows/guard-meta.yml"
   - "scripts/guard_meta.sh"
 
+META.TASK.HOUSEKEEP:
+  - "Tasklist.md"
+  - "Patch.md"
+  - "Prompt.md"
+  - "scripts/archive_task_history.mjs"
+  - "ops/ARCHIVE/**"
+
 # Canonical categories for router-driven tasks
 META.HARD_ROUTE:
   - "ops/ROUTER.yaml"
