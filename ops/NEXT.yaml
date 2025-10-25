@@ -1,20 +1,19 @@
 # NEXT POINTER — Single-file pointer for the next actionable task and file hints.
 # The AI should read this first, then confirm against Tasklist.md, then proceed.
 
-next_task_id: T5.2
+next_task_id: T5.1
 reason: >
-  T5.1 delivered the `/battle challenge` flow with DM prompts and Arena thread creation. Next focus: T5.2 battle core (turn order, damage, statuses).
+  T4.2 complete: Catch mechanics and DM controls implemented. Proceed to T5.1 (/battle challenge DM flow with Arena thread).
 
 files_hint:
-  # High-signal targets for T5.2
-  - "src/core/battle/engine.ts"
-  - "src/core/battle/damage.ts"
-  - "src/core/battle/status.ts"
-  - "tests/battle_engine.spec.ts"
-timestamp_utc: 2025-10-25T05:15:00Z
+  # High-signal targets for T5.1
+  - "src/bot/battle/challenge.ts"
+  - "src/bot/arena/thread.ts"
+  - "tests/battle_flow.spec.ts"
+timestamp_utc: 2025-10-25T04:45:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-25T03:30:00Z
-note: "T5.1 DONE — Battle challenge DM + Arena thread. Next: T5.2 battle core systems."
+note: "T4.2 DONE — Catch mechanics + DM controls. Next: T5.1 battle challenge DM flow."
 
 # Required actions after completion:
 # - Set next_task_id to the next READY task.
