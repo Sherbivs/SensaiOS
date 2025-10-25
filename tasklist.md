@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T08:55:00Z
-Revision: 1.28
+Last Updated (UTC): 2025-10-25T09:05:00Z
+Revision: 1.29
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -55,6 +55,16 @@ Each task has:
     - Tasklist.md retains only the most recent 100 DONE entries; older entries moved to `ops/ARCHIVE/tasks-YYYYMMDD.md` by a script.
     - Patch.md notes this policy; CI allows presence/absence of archive file.
   notes: Outcome — Added `scripts/archive_task_history.mjs`, documented the 100-DONE limit, and wired `npm run tasks:archive`. No entries exceeded the threshold yet, so Tasklist currently retains all DONE tasks.
+
+- id: META.README.REFRESH
+  title: Refresh README to match the Infinity Gauntlet architecture
+  status: DONE
+  depends_on: [META.TASKLIST.COUPLING_FIX]
+  acceptance_criteria:
+    - README.md explains the TypeScript Pokémon suite (DM home, Wilds, Arena, workers, data pipeline).
+    - Setup instructions cover prerequisites, environment variables, scripts, and deployment basics.
+    - Legacy JavaScript bots are clearly marked as historical context.
+  notes: Outcome — README now describes the current Infinity Gauntlet stack, scripts, and operational workflow; legacy security bot text removed.
 
 - id: T0.REFRESH.VISION
   title: Add Refresh Vision phase and recovery ledger

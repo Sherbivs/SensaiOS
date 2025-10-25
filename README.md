@@ -1,188 +1,137 @@
-# Infinity Gauntlet bots
+# Infinity Gauntlet Pokémon Suite
 
-This repo contains two Discord bots:
+Infinity Gauntlet is a Discord-first Pokémon adventure for Dripcord. Players live in
+DMs, explore the Wilds together, battle in public arenas, and progress through a
+live-service economy powered by workers and data pipelines.
 
-- Security role-healing bot (root app)
-   - Continuously assigns a default role to new members and can audit/remediate role permissions.
-   - Primary entry: `src/index.js` (with compatibility forwarders in `index.js` and `security-bot.js`).
-   - Cache module: `src/services/cache.js`
-   - Shared utilities: `src/utils/logger.js`, `src/config/env.js`
+## Key Capabilities
 
-- Pokémon battle bot (`discord-pokemon-bot/`)
-   - Starts simple battles when a message contains the 👀 emoji and mentions a user.
-   - Entry file: `discord-pokemon-bot/pokemon-bot.js`
-   - Cache module: `discord-pokemon-bot/cache.js`
-   - Internal modules: `battles/battle-manager.js`, `utils/pokemon-helpers.js`
+- **DM-as-Home:** `/home`, heal, starter selection, party + box management, player
+   profile, and drip alerts are coordinated by `src/bot/dm/**`.
+- **Wild Encounters:** `/walk` creates public threads in `#wilds`, while DM controls let
+   trainers throw balls, swap leads, or run. Logic lives in `src/bot/wilds/**` and
+   `src/core/encounter/**`.
+- **Arena Battles:** `/battle challenge` spins up public arena threads and private DM
+   action menus. Engine code is in `src/core/battle/**` and front-of-house interactions in
+   `src/bot/battle/**`.
+- **Persistent Data:** Prisma models (`prisma/schema.prisma`) back a Postgres database;
+   cached reference data ships from the worker via `scripts/fetch_pokemon.mjs` and
+   `scripts/build-data.js`.
+- **Operational Automation:** Render workers run the cache refresh pipeline
+   (`scripts/worker.mjs` + Render Jobs client) and guard scripts keep the repo’s task
+   graph + contract in sync.
 
-## prerequisites
-
-- Node.js 18+ (enforced via engines)
-- Discord bot token(s)
-   - Security bot requires Guild Members intent
-   - Pokémon bot requires Message Content intent
-
-## setup: combined worker (root)
-
-1) Configure env in the repo root:
-
-```env
-# Either provide dedicated tokens or fall back to BOT_TOKEN for security.
-SECURITY_BOT_TOKEN=security_bot_token_here
-POKEMON_BOT_TOKEN=pokemon_bot_token_here
-ENABLE_POKEMON_BOT=true
-
-# Backwards-compatible fallback for the security bot
-# BOT_TOKEN=your_discord_bot_token_here
-
-# Optional overrides
-# ROLE_NAME=Trainer
-# ROLE_ID=123456789012345678
-# ROLE_PERMISSIONS_AUDIT=true
-# ROLE_PERMISSIONS_REMEDIATE=false
-# BACKFILL_INTERVAL_SECONDS=45      # cadence for ongoing sweeps (defaults to <60s)
-# ROLE_REMEDIATION_INTERVAL_SECONDS=50  # keep managed roles healed (defaults to <60s)
-# ROLE_REMEDIATION_INTERVAL_MIN=0   # legacy minutes-based override (still supported)
-# OPS_REPORT_INTERVAL_SECONDS=0     # set >0 for periodic operational summaries (defaults to <60s)
-# ROLE_PERMISSION_POLICY=standard   # 'standard' (default) or 'snapshot'
-# ROLE_PERMISSION_SNAPSHOT_UPDATE=true  # auto-seed snapshot from current if missing
-# STANDARD_ENFORCE_ALL=false        # enforce a baseline on unlisted roles
-# UNLISTED_PERMISSIONS=ViewChannel,SendMessages,ReadMessageHistory,AddReactions,UseExternalEmojis,EmbedLinks,AttachFiles
-# STANDARD_EXEMPT_ROLES=RoleA,RoleB # roles to skip when enforcing-all
-# STANDARD_ALL_PERMS_ROLES=Drip     # roles allowed to keep ALL perms when enforcing-all
-# ALERT_WEBHOOK_URL=https://example.com/webhook
-# ALERT_CHANNEL_ID=123456789012345678
-# ALERT_USER_ID=123456789012345678   # also accepts <@123...>, username#1234, or username (resolved in mutual guilds)
-```
-
-2) Install dependencies and run:
-
-```powershell
-npm install
-npm start
-```
-
-Notes:
-- Ensure the bot’s role is above the target role in your server and has “Manage Roles”.
-- Privileged Gateway Intent “Server Members Intent” must be enabled in the Developer Portal.
-- When both tokens are supplied the single process hosts **both** bots and keeps a unified CLI dashboard (first line = security bot, second line = Pokémon bot).
-- With remediation enabled and a remediation interval set, role permission drift will be corrected automatically.
-- Snapshot policy: When set to 'snapshot', the bot heals roles to your last-known-good snapshots (auto-seeded from current if enabled). It falls back to the STANDARD map when no snapshot exists and auto-seed is off.
-- Enforce-all mode: When enabled, unlisted roles are given the UNLISTED_PERMISSIONS baseline (unless exempted), or 'ALL' if listed under STANDARD_ALL_PERMS_ROLES.
-
-## setup: Pokémon bot
-
-The Pokémon bot can still run standalone from its subfolder if desired.
-
-1) Configure env in `discord-pokemon-bot/.env` (or export `POKEMON_BOT_TOKEN`):
-
-```env
-BOT_TOKEN=your_discord_bot_token_here
-```
-
-2) Install and run from the subfolder:
-
-```powershell
-cd .\discord-pokemon-bot
-npm install
-npm start
-```
-
-Notes:
-- Requires “Message Content Intent” in the Developer Portal.
-- Triggers when a message contains 👀 and mentions a user.
-
-## deploy on Render (security bot)
-
-- Start Command: `npm start` (already set in root package.json)
-- Environment variables: `SECURITY_BOT_TOKEN`, `POKEMON_BOT_TOKEN`, optional `ENABLE_POKEMON_BOT`
-- See `render.yaml` for the single worker service definition.
-
-### Dex snapshot requirements for slash commands
-
-Slash commands like `/dex`, `/move`, and `/weak` use an offline snapshot built into `dist/data/dex.min.json` and `dist/data/moves.min.json`.
-
-- To build these locally: run `npm run build:data` (optionally followed by `npm run build:assets`).
-- On Render, add a build step that runs `npm run build:data` or set `DISABLE_SNAPSHOT_PRECHECK=true` to let the service start without the snapshot (commands will gracefully respond that data is unavailable until the snapshot is present).
-- Alternative quickstart: `npm run fetch:snapshot` will attempt to download a prebuilt snapshot (if `SNAPSHOT_URL_BASE` is provided) or synthesize a minimal dex from a cached `pokemon.json` (if `GITHUB_RAW_URL` points to your data-cache). This enables `/dex` and `/weak` with neutral matchups; `/move` will be limited unless a real `moves.min.json` is available.
-
-You can also generate and host the snapshot in a separate job or repository and copy it into `dist/data` during your build.
-
-## PokéAPI cache publisher
-
-The cache worker clones a writable repository (or branch), refreshes PokéAPI payloads,
-and commits any diffs. This lets Render (or any scheduler) publish updated data without
-impacting the main bot process.
-
-1. Provision a separate repository or branch for cached data and create a token with
-   `contents:write` permission.
-2. Configure the following environment variables wherever the job runs:
-   - `REPO_URL` – HTTPS URL to the target repository.
-   - `GITHUB_TOKEN` – token with push access to the repository.
-   - `CACHE_BRANCH` – branch for cached artifacts (defaults to `data-cache`).
-   - `GIT_USER_NAME` / `GIT_USER_EMAIL` – identity used for commits.
-   - `CACHE_REPO_DIR` – optional override for the on-disk clone path.
-   - `POKE_LIMIT` – optional limit for local/testing runs.
-3. Execute the publisher with `npm run cache`. The script prints a JSON summary of each
-   run and only pushes when new data is generated.
-
-Render tip: run the cache workflow as a cron job or secondary worker so it does not
-interfere with the real-time Discord bots.
-
-The managed worker defined in `render.yaml` now **dispatches Render one-off jobs**
-instead of running the refresh pipeline inline. On boot it queues a job that runs
-`node scripts/refresh_cache.mjs` on the same worker (reusing the persistent disk), and
-it schedules additional jobs using the `POKE_REFRESH_CRON` expression in the
-`POKE_REFRESH_TZ` time zone (defaults to `0 0 * * 4` in `America/New_York`, i.e. every
-Thursday at 12:00 a.m. Eastern). Adjust those environment variables if you need a
-different cadence, or set `POKE_RUN_JOB_ON_BOOT=false` if you only want the scheduled
-runs.
-
-### Render Jobs configuration
-
-Jobs are dispatched via the Render Jobs API. Provide a scoped API key and (optionally)
-override the defaults with the following environment variables:
-
-| Variable | Purpose |
-| --- | --- |
-| `RENDER_API_KEY` or `POKE_RENDER_API_KEY` | Required. Bearer token used to call the Jobs API. Give it the minimal `jobs` scope. |
-| `POKE_RENDER_SERVICE_ID` | Optional. Service ID to target when dispatching jobs. Defaults to `RENDER_SERVICE_ID`, which Render injects automatically when running inside the worker. |
-| `POKE_REFRESH_JOB_COMMAND` | Optional. Command executed by the one-off job. Defaults to `node scripts/refresh_cache.mjs`. |
-| `RENDER_JOB_ALLOW_OVERRIDE` | Optional. Set to `true` to let callers provide a one-off `startCommand` override when triggering jobs. |
-| `POKE_RUN_JOB_ON_BOOT` | Optional. Controls whether the worker queues a job immediately after boot. Defaults to `true`. |
-
-If you want to trigger refreshes manually, execute `node scripts/worker_trigger_job.mjs`
-from any environment that has the same variables configured (or call
-`triggerRenderJob` from `scripts/render_job_client.mjs` in your own automation).
-
-## repo layout
+## Repository Layout
 
 ```
-security-bot.js         # Backwards-compatible entry (for legacy deploy scripts)
-index.js                # Forwarder to src/index.js
-src/
-  index.js              # Primary boot script
-  bot/
-    main.js             # Security bot implementation
-  config/
-    env.js              # Environment parsing & feature flags
-  services/
-    cache.js            # Persistent cache utilities
-  utils/
-    logger.js           # Structured logging helpers
-discord-pokemon-bot/
-   pokemon-bot.js        # Pokémon bot entry
-   cache.js              # Pokémon bot cache module
-   index.js              # Forwarder to pokemon-bot.js
-   battles/
-      battle-manager.js   # Battle logic
-      battleManager.js    # Deprecated shim forwarder to battle-manager.js
-   utils/
-      pokemon-helpers.js  # Helper utilities
-      helpers.js          # Deprecated shim forwarder to pokemon-helpers.js (kept for compatibility)
+├─ src/                    # TypeScript source (bot, core engine, data pipeline)
+│  ├─ bot/                 # Discord interactions (DM, wilds, arena, ops)
+│  ├─ core/                # Battle + encounter logic
+│  ├─ data_pipeline/       # Fetch + normalize PokéAPI payloads
+│  ├─ shared/              # Config, logging, utilities, Prisma client
+│  └─ index.ts             # Main boot entry (ensures DB + Discord bootstrap)
+├─ scripts/                # Operational tooling (refresh vision, cache jobs, guards)
+├─ tests/                  # Vitest suites for battle engine, encounters, ops, etc.
+├─ prisma/schema.prisma    # Database schema for persistent state
+├─ ops/                    # Meta governance (NEXT pointer, Tasklist, routers)
+├─ data/                   # Cached reference data shards checked into the repo
+├─ discord-pokemon-bot/    # Legacy standalone bot (kept for reference)
+└─ README.md               # You are here — high-level project overview
 ```
 
-## troubleshooting
+Legacy JavaScript code paths (`src/bot/main.js`, `security-bot.js`, the
+`discord-pokemon-bot/` folder) remain for backward compatibility but are considered
+historical. New work should target the TypeScript app in `src/`.
 
-- If the bot exits immediately, verify `BOT_TOKEN` in `.env` and that it has the required intents enabled.
-- Check role hierarchy if role assignment fails: the bot’s highest role must be above the target role.
- - To tighten security, keep `Trainer` permissions minimal; the default mapping is least-privilege (view/send/read/add reactions).
+## Requirements
+
+- Node.js 20+
+- npm 9+ (or pnpm/yarn if you wire equivalent scripts)
+- Postgres 14+ reachable via `DATABASE_URL`
+- Discord bot token with **applications.commands** and **guilds** intents
+
+Optional services:
+
+- Render Jobs API token (for automated data refresh)
+- GitHub token with `contents:write` if you mirror data snapshots to another repo
+
+## Quick Start (Development)
+
+1. Install dependencies:
+    ```powershell
+    npm install
+    ```
+2. Copy `.env.example` (if available) or set env vars in your shell. Minimum:
+    ```powershell
+    $env:DATABASE_URL="postgresql://user:pass@localhost:5432/gauntlet"
+    $env:DISCORD_BOT_TOKEN="your_discord_token"
+    ```
+3. Apply Prisma migrations / generate client:
+    ```powershell
+    npx prisma migrate deploy
+    npm run build:ci  # or npm run build
+    ```
+4. Launch the bot in watch mode:
+    ```powershell
+    npm run dev
+    ```
+
+The TypeScript entry point (`src/index.ts`) checks database connectivity, then boots the
+Discord bot. Interactions are slash-first; Message Content intent is not required.
+
+### Testing & Tooling
+
+- Run unit/integration tests: `npm test`
+- Lint the project: `npm run lint`
+- Build for production: `npm run build`
+- Generate cached Pokémon data: `npm run data:build`
+- Refresh routers + meta state before selecting tasks: `npm run refresh:vision`
+- Trim historical Tasklist entries (keeps latest 100 DONE): `npm run tasks:archive`
+
+## Data Pipeline & Workers
+
+Reference data is mirrored into `/data` by the worker scripts:
+
+- `scripts/fetch_pokemon.mjs` pulls fresh PokéAPI payloads.
+- `scripts/build-data.js` normalizes and shards JSON for the bot.
+- `scripts/worker.mjs` orchestrates refresh jobs when running inside Render.
+- `scripts/render_job_client.mjs` + `worker_trigger_job.mjs` dispatch and monitor Render
+   Jobs invocations.
+
+Configure Render with `render.yaml`. By default the worker queues a refresh job on boot
+and also honors `POKE_REFRESH_CRON` / `POKE_REFRESH_TZ`.
+
+## Deployment Notes
+
+1. Ensure build steps include:
+    ```bash
+    npm ci
+    npm run build
+    npm run data:build
+    ```
+2. Required env vars in production:
+    - `DATABASE_URL`
+    - `DISCORD_BOT_TOKEN` (or `POKEMON_BOT_TOKEN` fallback)
+    - Render-specific variables if using the job dispatcher (`POKE_RENDER_SERVICE_ID`,
+       `POKE_REFRESH_CRON`, etc.)
+3. Optional governance flags (see `src/config/env.js`) let you tune rate limits, alerts,
+    and remediation behaviors.
+
+## Operational Playbook
+
+- `scripts/refresh_vision.sh` — regenerate router index, stamp recovery metadata, and
+   keep Prompt.md’s ledger fresh.
+- `scripts/guard_meta.sh` — CI hook enforcing Tasklist + Prompt coupling.
+- `scripts/archive_task_history.mjs` — archive old Tasklist DONE entries to
+   `ops/ARCHIVE/`.
+- `ops/RECOVERY.yaml` — tracks the last attempted task so the activation trigger can
+   resume safely.
+
+## Legacy Bots (Reference Only)
+
+- `security-bot.js` / `src/bot/main.js` retain the original security role-healing logic.
+- `discord-pokemon-bot/` holds the message-based prototype that triggered battles off 👀
+   reactions.
+
+They are not part of the TypeScript production path but remain for historical context
+and potential future migrations.

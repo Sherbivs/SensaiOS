@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T08:58:00Z
-Revision: 0.42
+Timestamp (UTC): 2025-10-25T09:05:00Z
+Revision: 0.43
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,16 +10,16 @@ Revision: 0.42
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `scripts/archive_task_history.mjs` + `package.json` — Added `npm run tasks:archive` so operators can cap Tasklist to 100 DONE entries and archive older ones safely.
-> - `Patch.md`, `Tasklist.md`, `ops/NEXT.yaml`, `ops/RECOVERY.yaml`, `ops/CRITICAL.md`, `ops/TOUCHMAP.yaml` — Documented the archival policy, marked META.TASK.HOUSEKEEP DONE, updated recovery snapshot, and mapped the new workflow.
-> - `ops/ARCHIVE/README.md`, `ops/ROUTER.md`, `scripts/ROUTER.md`, `ops/ROUTER_INDEX.yaml` — Recorded the archive directory and refreshed router metadata for discovery.
+> - `README.md` — Rewritten around the Infinity Gauntlet Pokémon suite (DM home, Wilds, Arena, workers) with updated setup, scripts, and deployment notes.
+> - `Tasklist.md`, `ops/NEXT.yaml`, `ops/RECOVERY.yaml`, `ops/TOUCHMAP.yaml` — Added META.README.REFRESH, logged its completion, and refreshed recovery metadata (NEXT remains NONE).
+> - `Prompt.md` — Timestamp + revision bumped; Last Repo Changes now reference the README refresh instead of the archival patch.
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: Commit pending; Tasklist housekeeping staged for apply.
+NO-ECHO-REASON: Commit pending; README refresh staged for apply.
 TasklistDiff: true
-- Added archive_task_history script + npm hook (`npm run tasks:archive`) to enforce the 100 DONE policy.
-- Patch/Tasklist/NEXT/RECOVERY/CRITICAL/TOUCHMAP updated for META.TASK.HOUSEKEEP completion; NEXT now NONE awaiting new work.
-- ops/ARCHIVE README + router metadata refreshed so the archive workflow is discoverable.
+- README now documents the Infinity Gauntlet architecture, scripts, and legacy context.
+- Tasklist/NEXT/RECOVERY/TOUCHMAP updated for META.README.REFRESH; NEXT remains NONE awaiting new work.
+- Prompt metadata retargeted to the README update.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -39,6 +39,7 @@ ACTIVATE: PATCH ENGINE
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-25 | META.README.REFRESH modernized the README to match the Infinity Gauntlet architecture. | README now reflects DM/Wilds/Arena flows, scripts, and deployment guidance. |
 | 2025-10-25 | META.TASK.HOUSEKEEP introduced Tasklist archival script/policy and cleared READY queue. | `npm run tasks:archive` keeps only the latest 100 DONE tasks; NEXT now NONE until new work is staged. |
 | 2025-10-25 | META.RECOVERY.REPLAY captured resume metadata and advanced NEXT to META.TASK.HOUSEKEEP. | Refresh Vision now persists last_attempted tasks so workers resume safely before selecting new work. |
 | 2025-10-25 | META.NEXT.BOOTSTRAP added bootstrap guidance for NONE pointers and advanced NEXT to META.RECOVERY.REPLAY. | NEXT.yaml documents recovery steps and guards point to the first READY task when the pointer is empty. |
