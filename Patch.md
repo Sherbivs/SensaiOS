@@ -231,168 +231,227 @@ Paste your next PATCHSET below.
 ````
 ````
 <<<PATCHSET START>>>
-# [META.DIST_AND_PROMPT]: Guarantee dist/index.js exists and add the mandatory AI Worker Prompt (with CI check)
-
-# FILE: tsconfig.json
-```full
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",
-    "rootDir": "src",
-    "outDir": "dist",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "moduleResolution": "Node",
-    "resolveJsonModule": true,
-    "sourceMap": false
-  },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules"]
-}
-````
-
-# FILE: src/index.ts
-
-```full
-// Minimal bootstrap to guarantee dist/index.js exists after tsc.
-// Expand this file as the real bot entrypoint.
-
-function boot() {
-  // Basic startup log so Render shows something meaningful
-  // eslint-disable-next-line no-console
-  console.log("[boot] Infinity-Gauntlet service starting...");
-  // TODO: wire Discord client and DB once configured
-}
-
-boot();
-
-// Export a noop so future tests can import main without side effects
-export const __ENTRYPOINT__ = true;
-```
+# [T0.CLEAN.PROMPT.B]: Remove stale PATCHSET blob from Prompt.md and bump meta stamps
 
 # FILE: Prompt.md
+```diff
+@@
+-Timestamp (UTC): 2025-10-25T02:18:00Z
+-Revision: 0.16
++Timestamp (UTC): 2025-10-25T02:20:00Z
++Revision: 0.17
+@@
+ OUTPUT:
+ - Only emit the PATCHSET block (and then the Commit Message block). No extra prose unless the task explicitly asks.
+````
 
-````diff
-@@
--Timestamp (UTC): 2025-10-25T02:09:00Z
--Revision: 0.14
-+Timestamp (UTC): 2025-10-25T02:18:00Z
-+Revision: 0.16
-@@
- > - `.github/workflows/guard-meta.yml` / `scripts/guard_meta.sh` — enforce that Prompt.md is updated on every real change, and Patch/Tasklist are updated together with header bumps.
- > - `scripts/guard_meta.sh` — hardened: requires new bullets in “Last Repo Changes” and either Evidence Matrix or Revision History update when code changes.
-+> - `tsconfig.json` — enforced `rootDir: src` and `outDir: dist` so tsc emits `dist/index.js`.
-+> - `src/index.ts` — added minimal entrypoint to ensure `dist/index.js` exists after build.
-+> - **Prompt.md** — added “AI Worker Prompt (copy/paste for Copilot/GPT)” section; CI checks for its presence.
-@@
- ## Objectives
-@@
-+## AI Worker Prompt (copy/paste for Copilot/GPT)
-+> Use this verbatim when spinning up an AI worker or committing via Copilot Chat.
-+```
-+ROLE: Senior Staff Systems Architect & Implementer for the Infinity-Gauntlet (Discord Pokémon buddy system).
-+
-+READ ORDER (fast-path):
-+1) ops/NEXT.yaml  → get next_task_id + files_hint
-+2) Tasklist.md    → execute only tasks with status: READY and all depends_on DONE
-+3) ops/TOUCHMAP.yaml → constrain edits to mapped paths
-+4) Prompt.md (this file) → ground truth + risks; update Last Repo Changes every commit
-+
-+OPERATING LOOP:
-+- Pick the first READY task with dependencies DONE.
-+- Produce ONE PATCHSET per task using the contract in Patch.md (full files for creates, unified diffs for edits).
-+- Update Tasklist.md in the PATCHSET footer (DONE/READY flips, add subtasks with acceptance_criteria).
-+- MUST bump timestamps/revisions (Prompt.md always; Patch/Tasklist together when either changes).
-+- Write a clear Commit Message.
-+
-+GUARDRAILS:
-+- Do not rename Patch.md, Tasklist.md, Prompt.md, or ops/PATCH_POLICY_BACKUP.md.
-+- Keep diffs minimal, deterministic, and reversible. No secrets.
-+- Respect files_hint; do not wander.
-+- If ambiguous: add a tiny precursor PROPOSED task; update Prompt.md with the question.
-+
-+OUTPUT:
-+- Only emit the PATCHSET block (and then the Commit Message block). No extra prose unless the task explicitly asks.
-+```
-@@
- | 2025-10-25 | 0.9 | Fixed Prisma relation P1012; aligned Prisma versions | AI | Build unblocks on Render
--| 2025-10-25 | 0.14 | Hardened meta guard (bullets + evidence/revision required) | AI | Stronger “convulsive learning”
-+| 2025-10-25 | 0.14 | Hardened meta guard (bullets + evidence/revision required) | AI | Stronger “convulsive learning”
-+| 2025-10-25 | 0.16 | Ensure dist/index.js; add AI Worker Prompt (CI-enforced) | AI | Self-bootstrapping worker prompt + stable start
+*
+
+## -You’re right — Render is still running `npm install` as the build step (not your `render.yaml`), so `dist/index.js` never gets produced. We’ll fix this in a belt-and-suspenders way:
+
+-1. Add a `postinstall` script that compiles TypeScript during the build step even if Render only runs `npm install`.
+-2. Ensure the compiler and Prisma codegen are available at build time by invoking them directly (no global tsc assumptions).
+-3. Log the change in Prompt.md and bump timestamps/revisions.
+--------------------------------------------------------------
+
+## -Paste this PATCHSET into your Patch.md clipboard and run it.
+
+-````
+-<<<PATCHSET START>>>
+-# [T0.FIX.BUILD_DIST]: Ensure dist/index.js exists on Render when build step only runs `npm install`
+-----------------------------------------------------------------------------------------------------
+
+-# FILE: package.json
+-```diff
+-@@
+
+* "scripts": {
+  --    "prebuild": "prisma generate",
+  --    "build": "tsc -p tsconfig.json",
+  -+    "prebuild": "prisma generate",
+  -+    "build": "tsc -p tsconfig.json",
+  -+    "build:ci": "node ./node_modules/prisma/build/index.js generate && node ./node_modules/typescript/bin/tsc -p tsconfig.json",
+  -+    "postinstall": "npm run build:ci",
+* ```
+  "dev": "tsx watch src/index.ts",
+  ```
+* ```
+  "start": "node dist/index.js",
+  ```
+* ```
+  "lint": "eslint . --ext .ts,.tsx",
+  ```
+* ```
+  "format": "prettier --write .",
+  ```
+* ```
+  "test": "vitest run",
+  ```
+* ```
+  "test:watch": "vitest"
+  ```
+* },
+  --  "devDependencies": {
+  -+  "devDependencies": {
+  -@@
+  --    "vitest": "^2.0.5",
+  --    "prisma": "^5.19.2"
+  -+    "vitest": "^2.0.5",
+  -+    "prisma": "^5.19.2"
+* },
+* "dependencies": {
+  --    "@prisma/client": "^5.19.2"
+  -+    "@prisma/client": "^5.19.2",
+  -+    "typescript": "^5.6.3"
+* }
+* }
+  -````
+*
+
+## -# FILE: Prompt.md
+
+-```diff
+-@@
+--Timestamp (UTC): 2025-10-25T01:00:00Z
+--Revision: 0.3
+-+Timestamp (UTC): 2025-10-25T01:07:00Z
+-+Revision: 0.4
+-@@
+--> Changes in this revision:
+-+> Changes in this revision:
+
+* > * `render.yaml` — added explicit `buildCommand` (npm ci && npm run build) and `startCommand` (node dist/index.js) to fix Render “Missing script: start”.
+* > * `src/bot/`, `src/core/battle/`, `src/core/encounter/`, `src/shared/`, `src/data_pipeline/`, `tests/` — created scaffold entries to establish project layout.
+* > * `RULESET.md`, `DATA-SCHEMA.md`, `OPERATIONS.md` — added stub docs with UTC placeholders.
+* > * `ops/NEXT.yaml` — advanced `next_task_id` to `T1.1` (DB schema) and updated `files_hint`.
+* > * `Tasklist.md` — marked `T0.2` DONE; added fix task for Render start.
+  >   -+> - `package.json` — added `postinstall` hook that runs `build:ci` so `dist/index.js` is created even when Render only runs `npm install`; ensured local bin invocations for Prisma + TypeScript.
+  >   -+> - **Impact:** Start command `node dist/index.js` now succeeds consistently on Render.
+  >   -@@
+* | 2025-10-25 | 0.3 | Added structured logger; updated boot logs; NEXT -> T2.1 | AI | Prep for data schema work |
+  -+| 2025-10-25 | 0.4 | Build fix for Render: postinstall compiles TS to dist; stable start | AI | Avoids MODULE_NOT_FOUND for dist/index.js |
+  -```
+*
+
+## -# FILE: Patch.md
+
+-`diff
+-@@ --Last Updated (UTC): 2025-10-25T01:00:00Z --Revision: 0.4
+-+Last Updated (UTC): 2025-10-25T01:07:00Z
+-+Revision: 0.5
+-`
+--
+
+## -# FILE: Tasklist.md
+
+-```diff
+-@@
+--Last Updated (UTC): 2025-10-25T01:00:00Z
+--Revision: 0.4
+-+Last Updated (UTC): 2025-10-25T01:07:00Z
+-+Revision: 0.5
+-@@
+
+* ## Phase 0 — Repo & Tooling
+
+-@@
+--+ id: T0.FIX.BUILD_DIST
+-+  title: Ensure dist is built during Render "npm install" build step
+-+  status: DONE
+-+  depends_on: [T1.1, T1.2]
+-+  acceptance_criteria:
+-+    - `package.json` contains a `postinstall` that compiles TypeScript to `dist/`
+-+    - Build does not rely on global `tsc`; uses local binaries
+-+    - Render start (`node dist/index.js`) works without needing render.yaml
+-+  notes: Outcome — `dist/index.js` created during `npm install`; eliminates MODULE_NOT_FOUND at runtime.
+-```
+----
+
+## -# FILE: ops/NEXT.yaml
+
+-```diff
+---- a/ops/NEXT.yaml
+-+++ b/ops/NEXT.yaml
+-@@
+
+* timestamp_utc: 2025-10-25T01:00:00Z
+* -note: "Logging in place; next define reference data schemas and tests."
+* +note: "Logging in place; added postinstall build to produce dist under Render; next define reference data schemas and tests."
+  -```
+*
+
+## -<<<PATCHSET END>>>
+
+## -```
+
+-**Commit Message**
+-```
+----
+
+## -[Task T0.FIX.BUILD_DIST] Build dist during Render’s `npm install` to avoid MODULE_NOT_FOUND
+
+-Why:
+-Render’s current service is ignoring render.yaml and only running `npm install`, so `dist/index.js` wasn’t generated and the app crashed at start.
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+## -Changes:
+
+-* package.json: added `postinstall` that runs `build:ci`; `build:ci` invokes local Prisma and TypeScript binaries to compile into `dist/`.
+-* Prompt.md: logged the change and bumped timestamp/revision.
+-* Patch.md/Tasklist.md: stamped timestamps/revisions; recorded fix task as DONE.
+-* ops/NEXT.yaml: noted the fix in the pointer note.
+----------------------------------------------------
+
+-Acceptance:
+-Deploy pipeline that only runs `npm install` now emits `dist/index.js`. Start command `node dist/index.js` succeeds on Render.
+-------------------------------------------------------------------------------------------------------------------------------
+
+## -```
+
+-If you later switch the service to a Render “Blueprint” using `render.yaml`, you can drop the `postinstall` hook, but this keeps you resilient right now.
+-```
++> Note: Removed an embedded historical PATCHSET/commit blob to keep this file deterministic and single-sourced.
+
 ````
 
 # FILE: Patch.md
-
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T02:15:00Z
--Revision: 1.3
-+Last Updated (UTC): 2025-10-25T02:18:00Z
-+Revision: 1.4
-@@
- ## META UPDATE REQUIREMENT (MANDATORY)
-@@
- - **If unsure what to change:** update **Prompt.md** with a brief note under “Last Repo Changes” and bump its header; then stop or add a tiny precursor task.
- 
- ### Worker Prompt Requirement
- - `Prompt.md` MUST contain the section titled exactly **“AI Worker Prompt (copy/paste for Copilot/GPT)”**.
- - When material workflows change (NEXT/TOUCHMAP/policies), refresh that section accordingly
-```
-
-# FILE: scripts/guard_meta.sh
-
-```diff
-@@
- # Rule 4 (nudge toward deeper learning): When non-doc changes occur, require a trace artifact update:
- # either a new Evidence Matrix line or a Revision History line must be added in Prompt.md.
- if $NON_DOC_CHANGED; then
-   PROMPT_DIFF="$(git diff "$BASE"...HEAD -- Prompt.md || true)"
-   HAS_EVIDENCE=$(echo "$PROMPT_DIFF" | grep -qE '^\+\| .* \| .* \| .* \|'; echo $?)
-   HAS_REVHIST=$(echo "$PROMPT_DIFF" | grep -qE '^\+\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|'; echo $?)
-   if [[ "$HAS_EVIDENCE" -ne 0 && "$HAS_REVHIST" -ne 0 ]]; then
-     fail "Non-doc changes detected: add either an Evidence Matrix row or a Revision History row in Prompt.md."
-   fi
- fi
-+
-+# Rule 5: Prompt must include the AI Worker Prompt section header.
-+if ! grep -q "^## AI Worker Prompt (copy/paste for Copilot/GPT)" Prompt.md; then
-+  fail "Prompt.md is missing the required 'AI Worker Prompt (copy/paste for Copilot/GPT)' section."
-+fi
-```
+-Last Updated (UTC): 2025-10-25T02:18:00Z
+-Revision: 1.4
++Last Updated (UTC): 2025-10-25T02:20:00Z
++Revision: 1.5
+````
 
 # FILE: Tasklist.md
 
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T02:09:00Z
--Revision: 1.5
-+Last Updated (UTC): 2025-10-25T02:18:00Z
-+Revision: 1.6
+-Last Updated (UTC): 2025-10-25T02:18:00Z
+-Revision: 1.6
++Last Updated (UTC): 2025-10-25T02:20:00Z
++Revision: 1.7
 @@
  ## Phase 0 — Repo & Tooling
 @@
-+- id: META.DIST_AND_PROMPT
-+  title: Guarantee dist/index.js and add mandatory AI Worker Prompt
++- id: T0.CLEAN.PROMPT.B
++  title: Remove stale PATCHSET blob from Prompt.md
 +  status: DONE
-+  depends_on: [T0.FIX.BUILD_DIST, T0.META.HARDEN]
++  depends_on: []
 +  acceptance_criteria:
-+    - tsconfig.json sets rootDir=src and outDir=dist
-+    - src/index.ts exists and compiles to dist/index.js
-+    - Prompt.md contains the “AI Worker Prompt (copy/paste for Copilot/GPT)” section
-+    - CI guard fails if that section is missing
-+  notes: Outcome — Stable boot on Render and a copy-paste worker prompt baked into Prompt.md.
++    - Prompt.md contains only curated sections and the AI Worker Prompt
++    - No embedded PATCHSET/commit message blobs remain
++  notes: Outcome — Keeps Prompt.md deterministic; avoids reapplying old fixes.
 ```
 
 # FILE: ops/NEXT.yaml
 
 ```diff
 @@
--timestamp_utc: 2025-10-25T02:09:00Z
--note: "Meta guard hardened (bullets + evidence/revision required). Proceed with T2.2."
-+timestamp_utc: 2025-10-25T02:18:00Z
-+note: "dist/index.js guaranteed via tsconfig+entry; AI Worker Prompt added. Proceed with T2.2 (pipeline output with manifest)."
+-timestamp_utc: 2025-10-25T02:18:00Z
+-note: "dist/index.js guaranteed via tsconfig+entry; AI Worker Prompt added. Proceed with T2.2 (pipeline output with manifest)."
++timestamp_utc: 2025-10-25T02:20:00Z
++note: "Prompt cleaned (removed historical blob). Proceed with T2.2."
 ```
 
 <<<PATCHSET END>>>
@@ -402,24 +461,19 @@ export const __ENTRYPOINT__ = true;
 **Commit Message**
 ```
 
-[META.DIST_AND_PROMPT] Ensure dist/index.js exists and add mandatory AI Worker Prompt (CI-enforced)
+[Task T0.CLEAN.PROMPT.B] Remove stale PATCHSET blob from Prompt.md; bump meta timestamps
 
 Why:
-Render kept failing at runtime looking for dist/index.js. Also, Prompt.md should include a ready-to-use worker prompt so AIs can self-bootstrap.
+A historical PATCHSET/commit block got pasted into Prompt.md, which can mislead the worker AI.
 
 Changes:
 
-* tsconfig.json: rootDir=src, outDir=dist to emit dist/index.js.
-* src/index.ts: minimal entry so tsc always produces dist/index.js.
-* Prompt.md: added “AI Worker Prompt (copy/paste for Copilot/GPT)” and logged changes.
-* Patch.md: documented Worker Prompt requirement.
-* CI guard: now fails if Prompt.md lacks the Worker Prompt section.
-* Stamped Prompt/Tasklist/NEXT.
+* Prompt.md: removed embedded PATCHSET+commit blob; bumped Timestamp/Revision and added note.
+* Patch.md/Tasklist.md: stamped headers; recorded meta task.
+* NEXT: updated pointer note/timestamp.
 
 Acceptance:
-`npm start` points to an actually emitted dist/index.js; the repo contains a canonical, enforced worker prompt for AIs.
+Prompt.md is clean and deterministic; CI meta guards pass; worker sees only the current canon.
 
 ```
-
-Once applied, you can jump back to the previously skipped task—the guardrails will keep the meta files and the worker brain tight as a drum.
 ```
