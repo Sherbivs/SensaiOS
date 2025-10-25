@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T07:10:00Z
-Revision: 1.22
+Last Updated (UTC): 2025-10-25T07:25:00Z
+Revision: 1.23
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -64,6 +64,16 @@ Each task has:
     - ops/TOUCHMAP.yaml contains categories for schema and runtime entry
     - guard-routing CI present (advisory mode)
   notes: Outcome — AI has deterministic places to read/write; fast human notes flow.
+
+- id: META.ROUTER_FMT
+  title: Normalize router docs encoding and regenerate router index
+  status: DONE
+  depends_on: [META.HARD_ROUTE]
+  acceptance_criteria:
+    - All ROUTER.md files use LF endings without mojibake characters
+    - Router metadata timestamps updated to reflect the cleanup
+    - ops/ROUTER_INDEX.yaml regenerated from cleaned router docs
+  notes: Outcome — Router docs render cleanly and the generated index has canonical quoting.
 
 - id: T0.FP
   title: Add Critical Files Fast-Path system

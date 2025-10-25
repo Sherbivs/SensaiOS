@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T07:10:00Z
-Revision: 0.36
+Timestamp (UTC): 2025-10-25T07:25:00Z
+Revision: 0.37
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,18 +10,15 @@ Revision: 0.36
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/commands/ops.js` — Registered /ops with cooldown reset and stats (admin-only).
-> - `src/bot/ops/admin.ts` — Implemented admin handler with permission checks; cooldown reset and basic stats with graceful DB fallback.
-> - `src/bot/index.ts` — Routed /ops interactions to the admin handler.
-> - `tests/ops.spec.ts` — Tests for admin gating logic.
-> - Meta: `ops/ROUTER_INDEX.yaml` created; `ops/NEXT.yaml` advanced; `ops/RECOVERY.yaml` heartbeat stamped; `ops/TOUCHMAP.yaml` updated.
+> - `ops/ROUTER.md`, `scripts/ROUTER.md`, `src/ROUTER.md`, `src/bot/ROUTER.md`, `src/core/ROUTER.md`, `tests/ROUTER.md` — Normalized encoding, refreshed timestamps, and clarified bullet formatting.
+> - `ops/ROUTER_INDEX.yaml` — Regenerated from cleaned router docs to remove stray carriage returns and mojibake.
+> - `tasklist.md`, `ops/NEXT.yaml`, `ops/RECOVERY.yaml`, `Prompt.md` — Recorded META.ROUTER_FMT completion, refreshed recovery heartbeat, and noted that the next milestone is pending human direction.
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: Concise echo.
-- Added /ops admin command (cooldown reset, stats) and routed to TS handler; admin gating via guild perm or ADMIN_USER_IDS.
-- Implemented graceful Prisma fallback (no-DB mode) for cooldown reset and stats.
-- Created ops test for admin gating; updated router index and recovery heartbeat; advanced NEXT pointer.
-- Commit: [Task T6.2] Admin ops and basic stats.
+NO-ECHO-REASON: Commit pending; summarizing META.ROUTER_FMT cleanup.
+- Normalized all ROUTER.md files to LF encoding with clear em-dash bullets.
+- Regenerated ops/ROUTER_INDEX.yaml and documented META.ROUTER_FMT in Tasklist and NEXT pointer.
+- Commit message will capture router doc cleanup once generated.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
