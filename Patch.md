@@ -979,3 +979,201 @@ domains:
 
 ```
 ```
+Here’s the next unified PATCHSET to move you forward: **T0.2 — Create repo structure and docs**. It scaffolds the directories, adds stub docs, and advances the pointer.
+
+````
+<<<PATCHSET START>>>
+# [T0.2]: Create repo structure and docs
+
+# FILE: src/bot/index.ts
+```full
+// Entry for Discord bot layer (commands, DM flows, arena/wilds lifecycles)
+// Filled in by later tasks (T3.*).
+export const placeholder = true;
+````
+
+# FILE: src/core/battle/index.ts
+
+```full
+// Battle engine namespace entry; damage, statuses, turn engine modules land here (T5.*)
+export const placeholder = true;
+```
+
+# FILE: src/core/encounter/index.ts
+
+```full
+// Encounter/catching namespace entry; spawn tables, catch formula, state machine (T4.*)
+export const placeholder = true;
+```
+
+# FILE: src/shared/index.ts
+
+```full
+// Shared utilities (config, logging, rng, errors) to be implemented in T1.* and later
+export const placeholder = true;
+```
+
+# FILE: src/data_pipeline/index.ts
+
+```full
+// Reference data fetch/normalize/shard pipeline entry (T2.*)
+// Intentionally minimal for now.
+export const placeholder = true;
+```
+
+# FILE: tests/.keep
+
+```full
+# Keeps the tests directory under version control until real tests are added by later tasks.
+```
+
+# FILE: RULESET.md
+
+```full
+# RULESET
+
+_Last initialized: {{TO_BE_SET_BY_AI}} (UTC) — Rev: 0.1_
+
+This document defines the game rules and mechanics versioning for the Discord Pokémon fan server bot.
+
+## Scope (MVP)
+- Classic core: types, STAB, crits, accuracy, stat stages, major statuses.
+- No Z/Max/Tera initially.
+- Minimal moveset for early tests (T5.2 acceptance criteria).
+
+## Versioning
+- Ruleset versions are tied to code releases.
+- Breaking changes must include migration notes and test updates.
+
+## Open Items
+- [ ] Confirm status turn-order behaviors (paralysis, sleep, flinch) for MVP.
+- [ ] Decide on item availability in early battles.
+```
+
+# FILE: DATA-SCHEMA.md
+
+```full
+# DATA SCHEMA
+
+_Last initialized: {{TO_BE_SET_BY_AI}} (UTC) — Rev: 0.1_
+
+High-level reference for persistent and reference data.
+
+## Entities (persistent)
+- Users, PokemonInstances, Parties, Encounters, Battles, Cooldowns
+
+## Reference (read-only)
+- Species, Moves, Abilities, TypeChart, Manifest
+
+## Notes
+- Formal JSON Schemas (T2.1) will live under `src/data_pipeline/schema/*`.
+- Pipeline output layout (T2.2): `/data/{pokemon,moves,abilities}/...`, `manifest.json`.
+```
+
+# FILE: OPERATIONS.md
+
+```full
+# OPERATIONS
+
+_Last initialized: {{TO_BE_SET_BY_AI}} (UTC) — Rev: 0.1_
+
+## Services (planned)
+- Web Service (Bot Runner)
+- Background Worker (Data Pipeline)
+- Render Postgres
+
+## Runbooks (stubs)
+- Deploy: TODO
+- Config/Secrets: via environment (no secrets in repo)
+- Backups: Render Postgres snapshot (nightly, TBD)
+
+## Observability (stubs)
+- Structured logs (pino-style), metrics hooks (future), basic health checks.
+
+## Admin Commands (planned)
+- `/ops stats`, `/ops cooldown reset @user`, `/arena purge`
+```
+
+# FILE: ops/NEXT.yaml
+
+```diff
+--- a/ops/NEXT.yaml
++++ b/ops/NEXT.yaml
+@@
+-next_task_id: T0.2
+-reason: >
+-  T0.1 (TypeScript/tooling) is DONE. The next READY task is T0.2 (Create repo structure and docs),
+-  which unblocks DB schema and Discord bootstrap. This pointer accelerates lookup.
++next_task_id: T1.1
++reason: >
++  T0.2 (repo structure and docs) completed. Proceed to T1.1 (Add DB schema with Prisma/Drizzle)
++  to establish persistence models and migrations.
+@@
+ files_hint:
+-  # High-signal targets for the next task
+-  - "src/bot/"
+-  - "src/core/battle/"
+-  - "src/core/encounter/"
+-  - "src/shared/"
+-  - "src/data_pipeline/"
+-  - "tests/"
+-  - "RULESET.md"
+-  - "DATA-SCHEMA.md"
+-  - "OPERATIONS.md"
++  # High-signal targets for T1.1
++  - "prisma/"
++  - "src/models/"
++  - "migrations/"
++  - "src/shared/config.ts"
+```
+
+# FILE: Tasklist.md
+
+```diff
+--- a/Tasklist.md
++++ b/Tasklist.md
+@@
+-# Tasklist
+-Last Updated (UTC): {{TO_BE_SET_BY_AI}}
+-Revision: {{TASKLIST_REV}}
++# Tasklist
++Last Updated (UTC): {{TO_BE_SET_BY_AI}}
++Revision: {{TASKLIST_REV}}
+@@
+ ## Phase 0 — Repo & Tooling
+@@
+ - id: T0.2
+   title: Create repo structure and docs
+-  status: READY
++  status: DONE
+   depends_on: [T0.1]
+   acceptance_criteria:
+     - Folders: /src/bot, /src/core/{battle,encounter}, /src/shared, /src/data_pipeline, /tests
+     - Docs: RULESET.md, DATA-SCHEMA.md, OPERATIONS.md created with stubs
+-  notes: Empty index files are fine as placeholders.
++  notes: Outcome — Directories scaffolded; stub docs created.
+```
+
+<<<PATCHSET END>>>
+
+```
+
+**Commit Message**
+```
+
+[Task T0.2] Scaffold repo structure and stub docs
+
+Why:
+Establishes the basic project layout and documentation required to unblock DB schema, bot bootstrap, and pipelines.
+
+Changes:
+
+* Created directories and placeholder entries under src/{bot,core/battle,core/encounter,shared,data_pipeline} and tests.
+* Added RULESET.md, DATA-SCHEMA.md, and OPERATIONS.md stubs with UTC timestamp placeholders.
+* Advanced ops/NEXT.yaml next_task_id → T1.1 (DB schema).
+
+Acceptance:
+T0.2 marked DONE in Tasklist; required folders/files exist; NEXT pointer updated to T1.1.
+
+```
+```

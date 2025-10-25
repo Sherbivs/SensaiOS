@@ -1,13 +1,15 @@
-# Data Schemas (Stub)
+# DATA SCHEMA
 
-Target datasets and schema outlines:
+_Last initialized: {{TO_BE_SET_BY_AI}} (UTC) — Rev: 0.1_
 
-- Species: id, name, types, base_stats, abilities, moves, sprites
-- Moves: id, name, type, category, power, accuracy, pp, effects
-- Abilities: id, name, effect
-- Type Chart: matrix of effectiveness multipliers
-- Manifest: content hash, version, files
+High-level reference for persistent and reference data.
 
-Validation approach:
-- JSON Schema (Ajv) or Zod
-- Minimal unit tests in `tests/` to validate samples
+## Entities (persistent)
+- Users, PokemonInstances, Parties, Encounters, Battles, Cooldowns
+
+## Reference (read-only)
+- Species, Moves, Abilities, TypeChart, Manifest
+
+## Notes
+- Formal JSON Schemas (T2.1) will live under `src/data_pipeline/schema/*`.
+- Pipeline output layout (T2.2): `/data/{pokemon,moves,abilities}/...`, `manifest.json`.
