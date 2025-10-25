@@ -268,213 +268,307 @@ Paste your next PATCHSET below.
 
 ````
 
-You got it — here’s a focused patch that (a) formalizes the **Refresh Vision** remote-repo acknowledgement, (b) adds **NONE-pointer guidance** to `ops/NEXT.yaml`, (c) records **META.PROMPT.FALLBACK** in `Tasklist.md`, and (d) wires CI helpers to nudge the next READY task when the pointer is empty. This aligns with your current Prompt/Patch contract and README framing.  
+Copy-paste this unified **PATCHSET**. It extends the previous promotion patch by (a) adding a non-redundant root router (“router-router”), (b) promoting T7.2 as READY, and (c) introducing a lightweight **file metadata policy + guard** so files carry `timestamp`, `revision`, `last_task_id`, and `purpose/structure` without creating clutter or loops.
 
 ````
 <<<PATCHSET START>>>
-# [META.PROMPT.FALLBACK]: Make Refresh Vision fallback explicit; guide NONE-pointer boot
-
-# FILE: Prompt.md
-```diff
-@@
--Timestamp (UTC): 2025-10-25T09:05:00Z
--Revision: 0.43
-+Timestamp (UTC): 2025-10-25T09:45:00Z
-+Revision: 0.45
-@@
--### Activation Internals (what happens on trigger)
--1) Refresh Vision (`scripts/refresh_vision.sh`) → updates `ops/ROUTER_INDEX.yaml`, `Prompt.md` ledger (if script exists), and `ops/RECOVERY.yaml`.
--2) Read `ops/RECOVERY.yaml`; if `last_attempted_task_id` is present, prefer resuming that task unless superseded in `ops/NEXT.yaml`.
--3) Proceed with the operating loop and emit exactly one PATCHSET + Commit Message.
-+### Activation Internals (what happens on trigger)
-+1) Refresh Vision (`scripts/refresh_vision.sh`) → verifies remote GitHub access for `Sherbivs/Infinity-Gauntlet`, regenerates `ops/ROUTER_INDEX.yaml`, optionally updates the Prompt ledger, and stamps `ops/RECOVERY.yaml` with remote/local metadata.
-+   - If running in a restricted IDE/VFS without shell access, inform the human by saying: `Refresh Vision: I couldn't run refresh_vision.sh in this environment—please execute it locally when possible.`
-+2) Read `ops/RECOVERY.yaml`; if `last_attempted_task_id` is present, prefer resuming that task unless superseded in `ops/NEXT.yaml`.
-+3) Proceed with the operating loop and emit exactly one PATCHSET + Commit Message.
-````
+# [META.ROUTER.METADATA + T7.2]: Root router (non-redundant), promote T7.2 READY, and add file-metadata guard
 
 # FILE: ops/NEXT.yaml
-
 ```diff
 @@
 -next_task_id: NONE
 -reason: >
--  META.README.REFRESH modernized the README to match the Infinity Gauntlet architecture.
--  README now reflects DM/Wilds/Arena flows, scripts, and deployment guidance.
+-  T7.1 wired DM Home to Prisma persistence and added tests. NEXT reset to NONE to
+-  let the operator pick the next persistence task (e.g., capture or battle follow-ups).
 -files_hint: []
--timestamp_utc: 2025-10-25T09:05:00Z
--router_version: 1
--last_notes_read_utc: 2025-10-25T03:30:00Z
--note: "Tasklist trimmed; NEXT is NONE until new READY work is staged."
-+next_task_id: NONE
+-timestamp_utc: 2025-10-25T10:40:00Z
++next_task_id: T7.2
 +reason: >
-+  Prompt fallback formatting fix landed. No READY work is currently pointed at NEXT.
-+  Workers should follow guidance_when_none to select the first READY task, set NEXT,
-+  and proceed.
-+files_hint: []
-+timestamp_utc: 2025-10-25T09:45:00Z
-+router_version: 1
-+last_notes_read_utc: 2025-10-25T03:30:00Z
-+note: "NEXT is NONE. See guidance_when_none to auto-choose first READY."
-+
-+# When NEXT is NONE, workers (and CI hints) should follow this guidance.
-+guidance_when_none:
-+  - "Scan Tasklist.md for the first task with status: READY and all depends_on DONE."
-+  - "Set next_task_id to that task in this file and keep files_hint minimal but sufficient."
-+  - "Record the choice in Prompt.md → Last Repo Changes and proceed with one PATCHSET."
-+  - "If no READY tasks exist, create META.NEXT.SEED with a tiny precursor and mark it READY."
-+
-+# Optional hint for CI helpers; if true, CI prints the first READY suggestion.
-+auto_requeue_if_none: true
-```
++  Continue Phase 7 persistence: write encounter capture results to the database and
++  surface newly-caught Pokémon in DM Home. This unblocks end-to-end “walk → catch → see it in Home.”
++files_hint:
++  - "src/bot/wilds/catch.ts"
++  - "src/core/encounter/catch.ts"
++  - "src/commands/home.js"
++  - "tests/catch_persist.spec.ts"
++timestamp_utc: 2025-10-25T10:55:00Z
+ router_version: 1
+ last_notes_read_utc: 2025-10-25T03:30:00Z
+-note: "T6.2 DONE — /ops cooldown reset and /ops stats available for admins."
++note: "Promoted READY task T7.2 (persist /catch → DB; DM Home reflects new catches)."
+ guidance_when_none:
+   - "Scan Tasklist.md for the first task with status: READY and all depends_on DONE."
+   - "Set next_task_id to that task in this file and keep files_hint minimal but sufficient."
+   - "Record the choice in Prompt.md → Last Repo Changes and proceed with one PATCHSET."
+   - "If no READY tasks exist, create META.NEXT.SEED with a tiny precursor and mark it READY."
+ auto_requeue_if_none: true
+````
 
 # FILE: Tasklist.md
 
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T09:05:00Z
--Revision: 1.24
-+Last Updated (UTC): 2025-10-25T09:45:00Z
+-Last Updated (UTC): 2025-10-25T07:25:00Z
+-Revision: 1.23
++Last Updated (UTC): 2025-10-25T10:55:00Z
 +Revision: 1.25
 @@
  ## Phase 0 — Repo & Tooling
-+- id: META.PROMPT.FALLBACK
-+  title: Add explicit Refresh Vision fallback + NONE-pointer guidance
++- id: META.ROUTER.ROOT
++  title: Add root router (ROUTER.md) and index it (non-redundant)
 +  status: DONE
-+  depends_on: []
++  depends_on: [META.HARD_ROUTE]
 +  acceptance_criteria:
-+    - Prompt.md Activation Internals includes remote GitHub verification and VFS fallback line
-+    - ops/NEXT.yaml contains guidance_when_none and auto_requeue_if_none
-+    - guard_meta.sh hints the first READY task when NEXT is NONE
-+  notes: Outcome — Workers are explicitly instructed how to proceed when NEXT is NONE; humans get a clear message when shell access is unavailable.
-```
-
-# FILE: scripts/guard_meta.sh
-
-```full
-#!/usr/bin/env bash
-set -euo pipefail
-
-# CI helper: if NEXT is NONE, suggest the first READY task from Tasklist.md.
-# Also verify Prompt/Tasklist coupling when code changes are present.
-
-ROOT_DIR="$(git rev-parse --show-toplevel)"
-cd "$ROOT_DIR"
-
-NEXT_FILE="ops/NEXT.yaml"
-TASK_FILE="Tasklist.md"
-
-if [[ ! -f "$NEXT_FILE" || ! -f "$TASK_FILE" ]]; then
-  echo "::warning::guard_meta.sh: missing $NEXT_FILE or $TASK_FILE"
-  exit 0
-fi
-
-NEXT_IS_NONE="$(yq -r '.next_task_id' "$NEXT_FILE" 2>/dev/null || echo NONE)"
-AUTO_RQ="$(yq -r '.auto_requeue_if_none // "false"' "$NEXT_FILE" 2>/dev/null || echo false)"
-
-if [[ "$NEXT_IS_NONE" == "NONE" && "$AUTO_RQ" == "true" ]]; then
-  # naive parse: first READY task id
-  READY_ID="$(awk '/^- id: /{id=$3}/status: READY/{if(id){print id; exit}}' "$TASK_FILE")"
-  if [[ -n "$READY_ID" ]]; then
-    echo "::notice::NEXT is NONE — suggested first READY task: $READY_ID"
-    echo "::notice::Set ops/NEXT.yaml: next_task_id: $READY_ID and proceed."
-  else
-    echo "::notice::NEXT is NONE and no READY tasks found."
-    echo "::notice::Create a tiny precursor task (e.g., META.NEXT.SEED) and mark it READY."
-  fi
-fi
-
-# Coupling check (advisory): if src/** or tests/** changed, ensure Tasklist changed too.
-if git diff --name-only --cached | grep -E '^(src/|tests/)' >/dev/null 2>&1; then
-  if ! git diff --name-only --cached | grep -q '^Tasklist\.md$'; then
-    echo "::warning::Code changes detected without Tasklist.md update. Consider including a # TASKLIST UPDATE."
-  fi
-fi
-```
-
-# FILE: scripts/refresh_vision.sh
-
-```full
-#!/usr/bin/env bash
-set -euo pipefail
-
-ROOT_DIR="$(git rev-parse --show-toplevel)"
-cd "$ROOT_DIR"
-
-# 1) Verify remote GitHub access (best-effort).
-REMOTE_URL="${1:-https://github.com/Sherbivs/Infinity-Gauntlet.git}"
-if command -v git >/dev/null 2>&1; then
-  if git ls-remote "$REMOTE_URL" >/dev/null 2>&1; then
-    REMOTE_OK="true"
-  else
-    REMOTE_OK="false"
-  fi
-else
-  REMOTE_OK="unknown"
-fi
-
-# 2) Regenerate router index if script exists.
-if [[ -x "scripts/update_router_index.sh" ]]; then
-  scripts/update_router_index.sh || true
-fi
-
-# 3) Optionally update Prompt ledger if script exists.
-if [[ -x "scripts/update_change_ledger.sh" ]]; then
-  scripts/update_change_ledger.sh || true
-fi
-
-# 4) Stamp recovery metadata.
-REC="ops/RECOVERY.yaml"
-mkdir -p ops
-{
-  echo "last_refresh_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "remote_repo_url: $REMOTE_URL"
-  echo "remote_access_ok: $REMOTE_OK"
-} > "$REC"
-
-echo "Refresh Vision complete. remote_access_ok=$REMOTE_OK"
++    - Root-level ROUTER.md exists and lists patch meta docs first (Patch.md, Tasklist.md, Prompt.md)
++    - ops/ROUTER_INDEX.yaml contains an entry pointing to the root router with updated timestamp
++    - Router.md is non-redundant: it references, not repeats, downstream router content
++  notes: Outcome — Created “router-router” at repo root; index updated so workers find meta docs instantly without duplication.
++
++- id: META.ROUTER.METADATA
++  title: Enforce minimal file metadata headers (no clutter)
++  status: DONE
++  depends_on: [META.ROUTER.ROOT, META.META.GUARDS?]
++  acceptance_criteria:
++    - Add guard script `scripts/ensure_file_meta.sh` that checks .md at root/ops and router files for:
++      - timestamp (UTC), revision (semver-ish or counter), last_task_id, purpose/structure, and a concise “recent change” line
++    - Add CI step to run the guard on PRs; warn (not fail) if last_task_id’s numeric portion > 100 (sanity check)
++    - Document the policy in Patch.md “File metadata headers” section
++  notes: Outcome — Files stay informative without redundancy or infinite loops; metadata is short and dev-only.
+@@
+ ## Phase 7 — Persistence wiring & polish
++- id: T7.2
++  title: Persist /catch results to DB and reflect in DM Home
++  status: READY
++  depends_on: [T4.2, T7.1]
++  acceptance_criteria:
++    - Capturing a Pokémon writes a persistent PokemonInstance linked to the trainer.
++    - If party has fewer than 6, captured mon is assigned to the next free PartySlot; else boxed.
++    - `/home` reflects the new Pokémon immediately (HP/level placeholders acceptable).
++    - Unit tests cover: (a) capture creates instance, (b) party-slot assignment behavior, (c) DM Home shows the new mon.
++  notes: Focus on persistence + rendering only; detailed balance/movesets are out of scope for this task.
 ```
 
 # FILE: ops/TOUCHMAP.yaml
 
 ```diff
 @@
- meta_write_whitelist:
-   - "Patch.md"
-   - "Tasklist.md"
-   - "Prompt.md"
-   - "ops/**"
-   - "scripts/**"
-@@
  tasks:
-+  META.PROMPT.FALLBACK:
-+    - "Prompt.md"
-+    - "ops/NEXT.yaml"
-+    - "scripts/guard_meta.sh"
-+    - "scripts/refresh_vision.sh"
+   META.PROMPT.FALLBACK:
+     - "Prompt.md"
+     - "ops/NEXT.yaml"
+     - "scripts/guard_meta.sh"
+     - "scripts/refresh_vision.sh"
++  META.ROUTER.ROOT:
++    - "ROUTER.md"
++    - "ops/ROUTER_INDEX.yaml"
++  META.ROUTER.METADATA:
++    - "scripts/ensure_file_meta.sh"
++    - ".github/workflows/guard-meta.yml"
++    - "Patch.md"
++  T7.2:
++    - "src/bot/wilds/catch.ts"
++    - "src/core/encounter/catch.ts"
++    - "src/commands/home.js"
++    - "tests/catch_persist.spec.ts"
+```
+
+# FILE: ROUTER.md
+
+```full
+# Router — Root (“router-router”)
+Updated: 2025-10-25T10:55:00Z
+Revision: 1
+
+Purpose / Structure (non-redundant)
+- This file is a pointer map, not a mirror. It lists the first place to read in each area; details live in the downstream routers and docs they reference.
+- Avoid duplication to prevent loops and confusion; update timestamps here only when contents (this map) change.
+
+Recent change
+- Added root router to surface meta docs first and align with ROUTER_INDEX; introduced file metadata policy (see Patch.md).
+
+Last associated task
+- META.ROUTER.ROOT
+
+T0 — Patch Meta (read-first)
+1. Patch.md — AI contract and PATCHSET format.
+2. Tasklist.md — Task graph and statuses.
+3. Prompt.md — Ground-truth context and PATCHSET Echo.
+
+T1 — Orchestration & Pointers
+- ops/NEXT.yaml — Next task pointer + file hints.
+- ops/TOUCHMAP.yaml — Per-task write whitelist.
+- ops/RECOVERY.yaml — Resume metadata for workers.
+
+T2 — Code Areas (entry routers live in these dirs)
+- src/bot/ — Discord commands & DM flows (see src/ROUTER.md).
+- src/core/ — Battle/encounter logic (see src/core/ROUTER.md).
+- src/data_pipeline/ — Schemas & data build (see src/data_pipeline/ROUTER.md).
+- tests/ — Unit/behavior coverage (see tests/ROUTER.md).
+
+Update policy
+- Keep this router terse. Do not copy content from child routers.
+- When a PATCHSET adds/renames top-level areas, add/remove a pointer here and bump Updated/Revision.
+- Regenerate ops/ROUTER_INDEX.yaml after editing routers.
+```
+
+# FILE: ops/ROUTER_INDEX.yaml
+
+```diff
+@@
++# Root router appended by META.ROUTER.ROOT (non-redundant) on 2025-10-25T10:55:00Z.
++- path: "ROUTER.md"
++  dir: "/"
++  title: "Router — Root (router-router)"
++  purpose: "Top-level pointer map; lists meta docs first and delegates details to child routers."
++  updated_utc: 2025-10-25T10:55:00Z
+```
+
+# FILE: scripts/ensure_file_meta.sh
+
+```full
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Minimal, non-cluttering metadata guard for docs/routers.
+# Scope: root/*.md, ops/*.md, */ROUTER.md (do not scan src code deeply to avoid noise).
+# Required fields (case-insensitive search):
+# - Timestamp or Updated
+# - Revision
+# - Purpose or Structure
+# - Recent change (or concise change line)
+# - Last associated task (task id)
+#
+# Sanity: if last_task_id numeric portion > 100, emit a warning (not failure).
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+shopt -s nullglob
+files=()
+# Root and ops markdown
+for f in "$ROOT"/*.md "$ROOT"/ops/*.md "$ROOT"/*/ROUTER.md "$ROOT"/ops/*/ROUTER.md; do
+  [[ -f "$f" ]] && files+=("$f")
+done
+
+fail=0
+warn=0
+
+need_fields=("timestamp|updated" "revision" "purpose|structure" "recent change|recent changes" "last associated task|last_task_id")
+
+for f in "${files[@]}"; do
+  lc="$(tr '[:upper:]' '[:lower:]' < "$f")"
+  missing=()
+  for pat in "${need_fields[@]}"; do
+    if ! grep -Eq "$pat" <<<"$lc"; then
+      missing+=("$pat")
+    fi
+  done
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "::error file=$f::Missing metadata field(s): ${missing[*]}"
+    fail=1
+  fi
+
+  # Sanity check on last_task_id numeric portion
+  if grep -Eiq "last associated task|last_task_id" <<<"$lc"; then
+    num="$(grep -Eio "t[0-9]+(\.[0-9a-z]+)?" <<<"$lc" | grep -Eo "[0-9]+" | head -n1 || true)"
+    if [[ -n "${num:-}" ]]; then
+      if (( num > 100 )); then
+        echo "::warning file=$f::Sanity: last_task_id numeric portion ($num) > 100 — check intent."
+        warn=1
+      fi
+    fi
+  fi
+done
+
+if (( fail > 0 )); then
+  echo "Metadata guard: FAIL ($fail file(s) missing required fields)."
+  exit 1
+fi
+
+if (( warn > 0 )); then
+  echo "Metadata guard: PASS with warnings."
+else
+  echo "Metadata guard: PASS."
+fi
+```
+
+# FILE: .github/workflows/guard-meta.yml
+
+```diff
+@@
+ name: guard-meta
+ on:
+   pull_request:
+   push:
+     branches: [ main ]
+ jobs:
+   guard:
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v4
+       - name: Set up Node
+         uses: actions/setup-node@v4
+         with:
+           node-version: '22'
+       - name: Run existing meta guards
+         run: |
+           echo "Running existing meta guards (if present)..."
+           [[ -f scripts/guard_meta.sh ]] && bash scripts/guard_meta.sh || true
++      - name: Ensure file metadata headers (non-redundant)
++        run: |
++          chmod +x scripts/ensure_file_meta.sh
++          scripts/ensure_file_meta.sh
+```
+
+# FILE: Patch.md
+
+```diff
+@@
+ ## FILE PRIORITIES
+@@
+ Code: `/src/**`
+@@
+ Docs: root markdown files (`*.md`)
++
++## File metadata headers (non-redundant policy)
++To keep navigation crisp and avoid infinite loops, files in **root** and **ops** (and all `ROUTER.md`s) must include a short metadata header:
++- **Timestamp/Updated (UTC)** and **Revision**
++- **Purpose/Structure** (what the file is for and how it’s organized)
++- **Recent change** (one concise line)
++- **Last associated task** (e.g., `T7.2`); if the numeric portion exceeds 100, a sanity warning is issued by CI
++
++Enforcement:
++- CI runs `scripts/ensure_file_meta.sh` on PRs/pushes. It **fails** on missing required fields and **warns** when `last_task_id`’s numeric portion > 100.
++- Keep this header **brief** and **dev-only**. Don’t mirror downstream content; link/point instead to avoid redundancy.
+```
+
+# FILE: Prompt.md
+
+```diff
+@@
+-Timestamp (UTC): 2025-10-25T10:40:00Z
+-Revision: 0.47
++Timestamp (UTC): 2025-10-25T10:55:00Z
++Revision: 0.50
+@@
+ > Changes in this revision:
+-> - `src/commands/home.js` — `/home` now loads trainers from Prisma, bootstraps missing users/parties, and logs guidance when no Pokémon are stored.
+-> - `tests/dm_home.spec.ts` — Added coverage to ensure persisted Pokémon render correctly in the DM Home embed.
+-> - `Tasklist.md` — Marked T7.1 DONE with persistence outcome notes.
+-> - `ops/NEXT.yaml` — Reset to NONE after completing T7.1; note nudges towards promoting T7.2.
+-> - `ops/TOUCHMAP.yaml` — Updated T7.1 mapping to the actual command/test files.
++> - `ops/NEXT.yaml` — Promoted next_task_id to **T7.2** with precise files_hint for catch persistence → DM Home.
++> - `Tasklist.md` — Added **T7.2 (READY)** and recorded **META.ROUTER.ROOT**/**META.ROUTER.METADATA** as DONE.
++> - `ops/TOUCHMAP.yaml` — Whitelisted T7.2, root router, and metadata guard files.
++> - `ROUTER.md` (root) — Introduced **router-router** that points (doesn’t mirror) to child routers; `ops/ROUTER_INDEX.yaml` updated.
++> - `.github/workflows/guard-meta.yml` / `scripts/ensure_file_meta.sh` — New non-redundant file-metadata guard (fail on missing minimal fields; warn if last_task_id numeric > 100).
 ```
 
 # TASKLIST UPDATE
 
 ```diff
---- a/Tasklist.md
-+++ b/Tasklist.md
-@@
--Last Updated (UTC): 2025-10-25T09:05:00Z
--Revision: 1.24
-+Last Updated (UTC): 2025-10-25T09:45:00Z
-+Revision: 1.25
-@@
- ## Phase 0 — Repo & Tooling
-+- id: META.PROMPT.FALLBACK
-+  title: Add explicit Refresh Vision fallback + NONE-pointer guidance
-+  status: DONE
-+  depends_on: []
-+  acceptance_criteria:
-+    - Prompt.md Activation Internals includes remote GitHub verification and VFS fallback line
-+    - ops/NEXT.yaml contains guidance_when_none and auto_requeue_if_none
-+    - guard_meta.sh hints the first READY task when NEXT is NONE
-+  notes: Outcome — Workers are explicitly instructed how to proceed when NEXT is NONE; humans get a clear message when shell access is unavailable.
+*** End of Tasklist.md updates are included above in this PATCHSET. ***
 ```
 
 <<<PATCHSET END>>>
@@ -484,23 +578,34 @@ echo "Refresh Vision complete. remote_access_ok=$REMOTE_OK"
 **Commit Message**
 ```
 
-[META.PROMPT.FALLBACK] Clarify Refresh Vision fallback and NONE-pointer guidance
+[META.ROUTER.METADATA + T7.2] Add non-redundant root router, promote T7.2 READY, and guard minimal file metadata
 
 Why:
-Workers were stalling when NEXT was NONE and some environments couldn’t run shell scripts. We need an explicit fallback and CI nudges to keep the loop moving.
+The loop stalled at NONE and router discovery lacked a canonical root. We also need concise per-file metadata without clutter or duplication (to avoid loops).
 
 Changes:
 
-* Prompt.md: Activation Internals now spells out the VFS fallback line and remote GitHub verification step.
-* ops/NEXT.yaml: Added guidance_when_none and auto_requeue_if_none; kept NEXT at NONE but explained how to pick a READY task.
-* Tasklist.md: Recorded META.PROMPT.FALLBACK as DONE.
-* scripts/guard_meta.sh: When NEXT is NONE, emit the first READY task suggestion; advisory coupling hint for Tasklist edits.
-* scripts/refresh_vision.sh: Best-effort remote GitHub check, router/ledger refresh, and recovery stamp.
+* NEXT.yaml: Set next_task_id=T7.2 with tight files_hint for capture persistence.
+* Tasklist.md: Recorded META.ROUTER.ROOT + META.ROUTER.METADATA as DONE; added T7.2 (READY).
+* TOUCHMAP.yaml: Whitelisted T7.2 and meta updates.
+* ROUTER.md (root): New “router-router” map that points to meta and child routers without duplication.
+* ops/ROUTER_INDEX.yaml: Indexed the root router.
+* scripts/ensure_file_meta.sh + guard-meta.yml: CI check for minimal per-file metadata; warns if last_task_id numeric > 100.
+* Patch.md: Documented metadata policy to keep things informative but lean.
+* Prompt.md: Logged all changes and bumped metadata.
 
 Acceptance:
-Copilot/CI no longer dead-end on NONE; humans see clear fallback text in Prompt.md; guard script surfaces the next READY candidate and Refresh Vision stamps recovery metadata.
+Copilot/CI now sees a READY task (T7.2), a canonical root router that avoids redundancy, and a guard that keeps docs informative and loop-free.
 
 ```
 
-If you want this to immediately resume work without manual edits, set `ops/NEXT.yaml: next_task_id` to the first READY task the guard suggests and re-run your activation trigger.
+After you apply this, trigger the worker with:
+
+```
+
+ACTIVATE: PATCH ENGINE
+
+```
+
+That will pick up **T7.2** immediately.
 ```
