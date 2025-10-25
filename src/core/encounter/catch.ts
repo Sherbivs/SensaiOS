@@ -43,7 +43,7 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
   const prisma = opts.prisma ?? prismaClient;
   const ball = opts.ball ?? "poke";
 
-  const user = await UserRepo.upsertByDiscordId(opts.discordId);
+  const user = await UserRepo.upsertByDiscordId(opts.discordId, prisma);
 
   const enc = await prisma.encounter.findUnique({ where: { id: opts.encounterId } });
   if (!enc || enc.ownerId !== user.id) {
@@ -116,7 +116,10 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
 
   await prisma.encounter.update({
     where: { id: enc.id },
-    data: { state: "Caught", dataJson: { ...prev, attempts, caughtAt: new Date().toISOString(), ball } as any },
+    data: {
+      state: "Caught",
+      dataJson: { ...prev, attempts, caughtAt: new Date().toISOString(), ball, pokemonId: created.id } as any,
+    },
   });
 
   return { ok: true, caught: true as const, attempts, pokemonId: created.id };
@@ -130,7 +133,7 @@ export type RunFromEncounterOpts = {
 
 export async function runFromEncounter(opts: RunFromEncounterOpts) {
   const prisma = opts.prisma ?? prismaClient;
-  const user = await UserRepo.upsertByDiscordId(opts.discordId);
+  const user = await UserRepo.upsertByDiscordId(opts.discordId, prisma);
   const enc = await prisma.encounter.findUnique({ where: { id: opts.encounterId } });
   if (!enc || enc.ownerId !== user.id) {
     return { ok: false, reason: "not_found_or_not_owner" as const };

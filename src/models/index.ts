@@ -16,8 +16,8 @@ if (process.env.NODE_ENV !== "production") {
 
 // Example: lightweight repo helpers (expand later)
 export const UserRepo = {
-  upsertByDiscordId: async (discordId: string) =>
-    prisma.user.upsert({
+  upsertByDiscordId: async (discordId: string, client: PrismaClient = prisma) =>
+    client.user.upsert({
       where: { discordId },
       update: {},
       create: { discordId, coins: 0 },

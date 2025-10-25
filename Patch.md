@@ -268,279 +268,185 @@ Paste your next PATCHSET below.
 
 ````
 
-Copy-paste this unified **PATCHSET**. It extends the previous promotion patch by (a) adding a non-redundant root router (“router-router”), (b) promoting T7.2 as READY, and (c) introducing a lightweight **file metadata policy + guard** so files carry `timestamp`, `revision`, `last_task_id`, and `purpose/structure` without creating clutter or loops.
+Got it—before anything else, here’s a surgical **router naming/case integrity patch**. It adds a canonical names manifest, a router-link verifier, and a CI workflow that fails the build if any router/index entry points to a non-existent path or mismatched case. It also clarifies the policy in Patch.md and records the change in Prompt.md. Apply this first; it doesn’t change runtime code.
 
 ````
 <<<PATCHSET START>>>
-# [META.ROUTER.METADATA + T7.2]: Root router (non-redundant), promote T7.2 READY, and add file-metadata guard
+# [META.ROUTER.NAME_GUARD]: Enforce exact-name/case across routers & references
 
-# FILE: ops/NEXT.yaml
-```diff
-@@
--next_task_id: NONE
--reason: >
--  T7.1 wired DM Home to Prisma persistence and added tests. NEXT reset to NONE to
--  let the operator pick the next persistence task (e.g., capture or battle follow-ups).
--files_hint: []
--timestamp_utc: 2025-10-25T10:40:00Z
-+next_task_id: T7.2
-+reason: >
-+  Continue Phase 7 persistence: write encounter capture results to the database and
-+  surface newly-caught Pokémon in DM Home. This unblocks end-to-end “walk → catch → see it in Home.”
-+files_hint:
-+  - "src/bot/wilds/catch.ts"
-+  - "src/core/encounter/catch.ts"
-+  - "src/commands/home.js"
-+  - "tests/catch_persist.spec.ts"
-+timestamp_utc: 2025-10-25T10:55:00Z
- router_version: 1
- last_notes_read_utc: 2025-10-25T03:30:00Z
--note: "T6.2 DONE — /ops cooldown reset and /ops stats available for admins."
-+note: "Promoted READY task T7.2 (persist /catch → DB; DM Home reflects new catches)."
- guidance_when_none:
-   - "Scan Tasklist.md for the first task with status: READY and all depends_on DONE."
-   - "Set next_task_id to that task in this file and keep files_hint minimal but sufficient."
-   - "Record the choice in Prompt.md → Last Repo Changes and proceed with one PATCHSET."
-   - "If no READY tasks exist, create META.NEXT.SEED with a tiny precursor and mark it READY."
- auto_requeue_if_none: true
+# FILE: ops/CANONICAL_NAMES.yaml
+```full
+# Canonical filenames & routers — used to validate exact spelling/case.
+# Extend this list as new meta docs/routers are introduced.
+updated_utc: 2025-10-25T10:55:00Z
+revision: 1
+purpose: "Reference list of canonical spellings for critical docs and router files."
+recent_change: "Initial creation for router/name guard."
+last_task_id: META.ROUTER.NAME_GUARD
+
+files:
+  # Core meta docs (must match case exactly)
+  - Patch.md
+  - Tasklist.md
+  - Prompt.md
+  - README.md
+  # Ops-critical docs
+  - ops/PATCH_POLICY_BACKUP.md
+  - ops/NEXT.yaml
+  - ops/TOUCHMAP.yaml
+  - ops/RECOVERY.yaml
+  - ops/ROUTER_INDEX.yaml
+  - ops/CRITICAL.md
+  # Root router
+  - ROUTER.md
+  # Directory routers (add more as they exist)
+  - ops/ROUTER.md
+  - scripts/ROUTER.md
+  - src/ROUTER.md
+  - src/bot/ROUTER.md
+  - src/core/ROUTER.md
+  - src/data_pipeline/ROUTER.md
+  - tests/ROUTER.md
 ````
 
-# FILE: Tasklist.md
-
-```diff
-@@
--Last Updated (UTC): 2025-10-25T07:25:00Z
--Revision: 1.23
-+Last Updated (UTC): 2025-10-25T10:55:00Z
-+Revision: 1.25
-@@
- ## Phase 0 — Repo & Tooling
-+- id: META.ROUTER.ROOT
-+  title: Add root router (ROUTER.md) and index it (non-redundant)
-+  status: DONE
-+  depends_on: [META.HARD_ROUTE]
-+  acceptance_criteria:
-+    - Root-level ROUTER.md exists and lists patch meta docs first (Patch.md, Tasklist.md, Prompt.md)
-+    - ops/ROUTER_INDEX.yaml contains an entry pointing to the root router with updated timestamp
-+    - Router.md is non-redundant: it references, not repeats, downstream router content
-+  notes: Outcome — Created “router-router” at repo root; index updated so workers find meta docs instantly without duplication.
-+
-+- id: META.ROUTER.METADATA
-+  title: Enforce minimal file metadata headers (no clutter)
-+  status: DONE
-+  depends_on: [META.ROUTER.ROOT, META.META.GUARDS?]
-+  acceptance_criteria:
-+    - Add guard script `scripts/ensure_file_meta.sh` that checks .md at root/ops and router files for:
-+      - timestamp (UTC), revision (semver-ish or counter), last_task_id, purpose/structure, and a concise “recent change” line
-+    - Add CI step to run the guard on PRs; warn (not fail) if last_task_id’s numeric portion > 100 (sanity check)
-+    - Document the policy in Patch.md “File metadata headers” section
-+  notes: Outcome — Files stay informative without redundancy or infinite loops; metadata is short and dev-only.
-@@
- ## Phase 7 — Persistence wiring & polish
-+- id: T7.2
-+  title: Persist /catch results to DB and reflect in DM Home
-+  status: READY
-+  depends_on: [T4.2, T7.1]
-+  acceptance_criteria:
-+    - Capturing a Pokémon writes a persistent PokemonInstance linked to the trainer.
-+    - If party has fewer than 6, captured mon is assigned to the next free PartySlot; else boxed.
-+    - `/home` reflects the new Pokémon immediately (HP/level placeholders acceptable).
-+    - Unit tests cover: (a) capture creates instance, (b) party-slot assignment behavior, (c) DM Home shows the new mon.
-+  notes: Focus on persistence + rendering only; detailed balance/movesets are out of scope for this task.
-```
-
-# FILE: ops/TOUCHMAP.yaml
-
-```diff
-@@
- tasks:
-   META.PROMPT.FALLBACK:
-     - "Prompt.md"
-     - "ops/NEXT.yaml"
-     - "scripts/guard_meta.sh"
-     - "scripts/refresh_vision.sh"
-+  META.ROUTER.ROOT:
-+    - "ROUTER.md"
-+    - "ops/ROUTER_INDEX.yaml"
-+  META.ROUTER.METADATA:
-+    - "scripts/ensure_file_meta.sh"
-+    - ".github/workflows/guard-meta.yml"
-+    - "Patch.md"
-+  T7.2:
-+    - "src/bot/wilds/catch.ts"
-+    - "src/core/encounter/catch.ts"
-+    - "src/commands/home.js"
-+    - "tests/catch_persist.spec.ts"
-```
-
-# FILE: ROUTER.md
-
-```full
-# Router — Root (“router-router”)
-Updated: 2025-10-25T10:55:00Z
-Revision: 1
-
-Purpose / Structure (non-redundant)
-- This file is a pointer map, not a mirror. It lists the first place to read in each area; details live in the downstream routers and docs they reference.
-- Avoid duplication to prevent loops and confusion; update timestamps here only when contents (this map) change.
-
-Recent change
-- Added root router to surface meta docs first and align with ROUTER_INDEX; introduced file metadata policy (see Patch.md).
-
-Last associated task
-- META.ROUTER.ROOT
-
-T0 — Patch Meta (read-first)
-1. Patch.md — AI contract and PATCHSET format.
-2. Tasklist.md — Task graph and statuses.
-3. Prompt.md — Ground-truth context and PATCHSET Echo.
-
-T1 — Orchestration & Pointers
-- ops/NEXT.yaml — Next task pointer + file hints.
-- ops/TOUCHMAP.yaml — Per-task write whitelist.
-- ops/RECOVERY.yaml — Resume metadata for workers.
-
-T2 — Code Areas (entry routers live in these dirs)
-- src/bot/ — Discord commands & DM flows (see src/ROUTER.md).
-- src/core/ — Battle/encounter logic (see src/core/ROUTER.md).
-- src/data_pipeline/ — Schemas & data build (see src/data_pipeline/ROUTER.md).
-- tests/ — Unit/behavior coverage (see tests/ROUTER.md).
-
-Update policy
-- Keep this router terse. Do not copy content from child routers.
-- When a PATCHSET adds/renames top-level areas, add/remove a pointer here and bump Updated/Revision.
-- Regenerate ops/ROUTER_INDEX.yaml after editing routers.
-```
-
-# FILE: ops/ROUTER_INDEX.yaml
-
-```diff
-@@
-+# Root router appended by META.ROUTER.ROOT (non-redundant) on 2025-10-25T10:55:00Z.
-+- path: "ROUTER.md"
-+  dir: "/"
-+  title: "Router — Root (router-router)"
-+  purpose: "Top-level pointer map; lists meta docs first and delegates details to child routers."
-+  updated_utc: 2025-10-25T10:55:00Z
-```
-
-# FILE: scripts/ensure_file_meta.sh
+# FILE: scripts/verify_router_links.sh
 
 ```full
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Minimal, non-cluttering metadata guard for docs/routers.
-# Scope: root/*.md, ops/*.md, */ROUTER.md (do not scan src code deeply to avoid noise).
-# Required fields (case-insensitive search):
-# - Timestamp or Updated
-# - Revision
-# - Purpose or Structure
-# - Recent change (or concise change line)
-# - Last associated task (task id)
+# verify_router_links.sh
+# Fails if:
+# 1) ops/ROUTER_INDEX.yaml contains a path that does not exist EXACTLY as spelled.
+# 2) Any canonical file from ops/CANONICAL_NAMES.yaml is missing or only present under a different case.
+# 3) Duplicate case-variants exist for a canonical name (e.g., patch.md alongside Patch.md).
 #
-# Sanity: if last_task_id numeric portion > 100, emit a warning (not failure).
+# This script is case-sensitive and must run on a case-sensitive FS (GitHub Actions ubuntu-latest is fine).
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+INDEX="$ROOT/ops/ROUTER_INDEX.yaml"
+CANON="$ROOT/ops/CANONICAL_NAMES.yaml"
 
-shopt -s nullglob
-files=()
-# Root and ops markdown
-for f in "$ROOT"/*.md "$ROOT"/ops/*.md "$ROOT"/*/ROUTER.md "$ROOT"/ops/*/ROUTER.md; do
-  [[ -f "$f" ]] && files+=("$f")
-done
+err=0
 
-fail=0
-warn=0
+note() { echo "::notice ::$*"; }
+warn() { echo "::warning ::$*"; }
+fail() { echo "::error ::$*"; err=1; }
 
-need_fields=("timestamp|updated" "revision" "purpose|structure" "recent change|recent changes" "last associated task|last_task_id")
+# --- helper: exact path exists
+exact_exists() {
+  local p="$1"
+  [[ -f "$ROOT/$p" || -d "$ROOT/$p" ]]
+}
 
-for f in "${files[@]}"; do
-  lc="$(tr '[:upper:]' '[:lower:]' < "$f")"
-  missing=()
-  for pat in "${need_fields[@]}"; do
-    if ! grep -Eq "$pat" <<<"$lc"; then
-      missing+=("$pat")
+# --- helper: find case-insensitive variants (excluding the exact path)
+variant_exists() {
+  local p="$1"
+  local dir="${p%/*}"
+  local base="${p##*/}"
+  local search_dir="$ROOT"
+  [[ "$dir" != "$p" ]] && search_dir="$ROOT/$dir"
+  [[ -d "$search_dir" ]] || return 1
+  shopt -s nullglob
+  local hits=()
+  while IFS= read -r -d '' hit; do
+    hits+=("$hit")
+  done < <(find "$search_dir" -maxdepth 1 -iname "$base" -print0)
+  shopt -u nullglob
+
+  local exact="$ROOT/$p"
+  local variants=0
+  for h in "${hits[@]:-}"; do
+    if [[ "$h" != "$exact" ]]; then
+      variants=$((variants+1))
+      fail "Case-variant exists for '$p': found '$h' — ensure only the canonical spelling remains."
     fi
   done
+  [[ $variants -gt 0 ]]
+}
 
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "::error file=$f::Missing metadata field(s): ${missing[*]}"
-    fail=1
-  fi
-
-  # Sanity check on last_task_id numeric portion
-  if grep -Eiq "last associated task|last_task_id" <<<"$lc"; then
-    num="$(grep -Eio "t[0-9]+(\.[0-9a-z]+)?" <<<"$lc" | grep -Eo "[0-9]+" | head -n1 || true)"
-    if [[ -n "${num:-}" ]]; then
-      if (( num > 100 )); then
-        echo "::warning file=$f::Sanity: last_task_id numeric portion ($num) > 100 — check intent."
-        warn=1
+# --- check ROUTER_INDEX.yaml paths
+if [[ -f "$INDEX" ]]; then
+  note "Checking ops/ROUTER_INDEX.yaml entries…"
+  # Extract naive YAML 'path:' values (simple parser: lines starting with 'path:')
+  while IFS= read -r line; do
+    p="$(sed -E 's/^[[:space:]-]*path:[[:space:]]*"?([^"#]+)"?.*/\1/' <<<"$line")"
+    [[ -z "$p" ]] && continue
+    p="$(echo "$p" | sed 's/[[:space:]]*$//')"
+    if ! exact_exists "$p"; then
+      # Try to find a case-insensitive match to help the dev
+      ci_hit="$(find "$ROOT" -path "$ROOT/$p" -o -iname "$(basename "$p")" -printf '%P\n' 2>/dev/null | head -n1 || true)"
+      if [[ -n "$ci_hit" && "$ci_hit" != "$p" ]]; then
+        fail "Router index path not found exactly: '$p'. Did you mean '$ci_hit'? Fix the case/spelling."
+      else
+        fail "Router index path not found: '$p'. Ensure the file/dir exists and matches exactly."
       fi
+    else
+      variant_exists "$p" || true
     fi
-  fi
-done
+  done < <(grep -E '^[[:space:]-]*path:' "$INDEX" || true)
+else
+  warn "ops/ROUTER_INDEX.yaml not found; skipping index check."
+fi
 
-if (( fail > 0 )); then
-  echo "Metadata guard: FAIL ($fail file(s) missing required fields)."
+# --- check canonical names
+if [[ -f "$CANON" ]]; then
+  note "Checking ops/CANONICAL_NAMES.yaml canonical files…"
+  mapfile -t items < <(grep -E '^[[:space:]-]+[A-Za-z0-9_./-]+\.(md|MD|ya?ml|ts|js)$' "$CANON" | sed -E 's/^[[:space:]-]+//')
+  for p in "${items[@]}"; do
+    if ! exact_exists "$p"; then
+      # search case-insensitive alternative anywhere in repo
+      alt="$(git ls-files | awk 'BEGIN{IGNORECASE=1} $0==p{print $0}' p="$p")"
+      if [[ -n "$alt" && "$alt" != "$p" ]]; then
+        fail "Canonical file missing exactly as spelled: '$p'. Found different case: '$alt'."
+      else
+        fail "Canonical file missing: '$p'."
+      fi
+    else
+      variant_exists "$p" || true
+    fi
+  done
+else
+  warn "ops/CANONICAL_NAMES.yaml not found; skipping canonical name check."
+fi
+
+if [[ $err -ne 0 ]]; then
+  echo "verify_router_links: FAIL"
   exit 1
 fi
 
-if (( warn > 0 )); then
-  echo "Metadata guard: PASS with warnings."
-else
-  echo "Metadata guard: PASS."
-fi
+echo "verify_router_links: PASS"
 ```
 
-# FILE: .github/workflows/guard-meta.yml
+# FILE: .github/workflows/guard-router.yml
 
-```diff
-@@
- name: guard-meta
- on:
-   pull_request:
-   push:
-     branches: [ main ]
- jobs:
-   guard:
-     runs-on: ubuntu-latest
-     steps:
-       - uses: actions/checkout@v4
-       - name: Set up Node
-         uses: actions/setup-node@v4
-         with:
-           node-version: '22'
-       - name: Run existing meta guards
-         run: |
-           echo "Running existing meta guards (if present)..."
-           [[ -f scripts/guard_meta.sh ]] && bash scripts/guard_meta.sh || true
-+      - name: Ensure file metadata headers (non-redundant)
-+        run: |
-+          chmod +x scripts/ensure_file_meta.sh
-+          scripts/ensure_file_meta.sh
+```full
+name: guard-router
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  guard-router-names:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify router/index exact-name/case
+        run: |
+          chmod +x scripts/verify_router_links.sh
+          scripts/verify_router_links.sh
 ```
 
 # FILE: Patch.md
 
 ```diff
 @@
- ## FILE PRIORITIES
+ ## ROUTER NETWORK (City Roadway Model)
 @@
- Code: `/src/**`
-@@
- Docs: root markdown files (`*.md`)
-+
-+## File metadata headers (non-redundant policy)
-+To keep navigation crisp and avoid infinite loops, files in **root** and **ops** (and all `ROUTER.md`s) must include a short metadata header:
-+- **Timestamp/Updated (UTC)** and **Revision**
-+- **Purpose/Structure** (what the file is for and how it’s organized)
-+- **Recent change** (one concise line)
-+- **Last associated task** (e.g., `T7.2`); if the numeric portion exceeds 100, a sanity warning is issued by CI
-+
-+Enforcement:
-+- CI runs `scripts/ensure_file_meta.sh` on PRs/pushes. It **fails** on missing required fields and **warns** when `last_task_id`’s numeric portion > 100.
-+- Keep this header **brief** and **dev-only**. Don’t mirror downstream content; link/point instead to avoid redundancy.
+ - **Router-of-routers:** `ops/ROUTER_INDEX.yaml` lists every discovered router with path, purpose, and last-updated timestamp. It is regenerated by `scripts/update_router_index.sh` and must be refreshed before task selection.
+ - **Consistency rule:** If a PATCHSET touches any file under a routed directory, update that directory’s `ROUTER.md` (timestamp + brief note) in the same PATCHSET and re-run the index script.
++ - **Name/Case rule (MANDATORY):** Router entries and references must match filesystem **exactly** (spelling and case). CI runs `scripts/verify_router_links.sh` to fail on mismatch and suggest the closest case-correct path.
 ```
 
 # FILE: Prompt.md
@@ -550,7 +456,7 @@ fi
 -Timestamp (UTC): 2025-10-25T10:40:00Z
 -Revision: 0.47
 +Timestamp (UTC): 2025-10-25T10:55:00Z
-+Revision: 0.50
++Revision: 0.48
 @@
  > Changes in this revision:
 -> - `src/commands/home.js` — `/home` now loads trainers from Prisma, bootstraps missing users/parties, and logs guidance when no Pokémon are stored.
@@ -558,17 +464,42 @@ fi
 -> - `Tasklist.md` — Marked T7.1 DONE with persistence outcome notes.
 -> - `ops/NEXT.yaml` — Reset to NONE after completing T7.1; note nudges towards promoting T7.2.
 -> - `ops/TOUCHMAP.yaml` — Updated T7.1 mapping to the actual command/test files.
-+> - `ops/NEXT.yaml` — Promoted next_task_id to **T7.2** with precise files_hint for catch persistence → DM Home.
-+> - `Tasklist.md` — Added **T7.2 (READY)** and recorded **META.ROUTER.ROOT**/**META.ROUTER.METADATA** as DONE.
-+> - `ops/TOUCHMAP.yaml` — Whitelisted T7.2, root router, and metadata guard files.
-+> - `ROUTER.md` (root) — Introduced **router-router** that points (doesn’t mirror) to child routers; `ops/ROUTER_INDEX.yaml` updated.
-+> - `.github/workflows/guard-meta.yml` / `scripts/ensure_file_meta.sh` — New non-redundant file-metadata guard (fail on missing minimal fields; warn if last_task_id numeric > 100).
++> - `ops/CANONICAL_NAMES.yaml` — new manifest of canonical spellings/case for meta docs & router files.
++> - `scripts/verify_router_links.sh` — CI guard that fails on any router/index path with wrong spelling/case; suggests nearest match.
++> - `.github/workflows/guard-router.yml` — runs the router-name guard on PRs/pushes.
++> - `Patch.md` — documented the Name/Case rule under Router Network.
+@@
+ <!-- PATCHSET:ECHO BEGIN -->
+-NO-ECHO-REASON: Commit pending; T7.1 DM Home persistence completed.
+-TasklistDiff: true
+-- `/home` now queries Prisma, seeds missing trainers/parties, and warns operators when no Pokémon exist.
+-- Added dm_home.spec.ts to verify persisted parties render correctly; NEXT reset to NONE post-completion.
+-- Prompt metadata & history updated to capture T7.1 completion and new guidance.
++NO-ECHO-REASON: CI/guard change only; echoing summary for brevity.
++- Added canonical-names manifest and router-name verifier; CI now blocks case-mismatch in router/index references.
+ <!-- PATCHSET:ECHO END -->
 ```
 
-# TASKLIST UPDATE
+# FILE: Tasklist.md
 
 ```diff
-*** End of Tasklist.md updates are included above in this PATCHSET. ***
+@@
+-Last Updated (UTC): 2025-10-25T07:25:00Z
+-Revision: 1.23
++Last Updated (UTC): 2025-10-25T10:55:00Z
++Revision: 1.26
+@@
+ ## Phase 0 — Repo & Tooling
++- id: META.ROUTER.NAME_GUARD
++  title: Enforce exact-name/case across routers & references
++  status: DONE
++  depends_on: [META.HARD_ROUTE, T0.GUARD_FILENAMES]
++  acceptance_criteria:
++    - ops/CANONICAL_NAMES.yaml lists canonical spellings/case.
++    - scripts/verify_router_links.sh fails when ROUTER_INDEX.yaml or canonical names point to missing/mis-cased paths, and suggests the nearest correct path.
++    - .github/workflows/guard-router.yml runs on PR/push.
++    - Patch.md documents the mandatory Name/Case rule.
++  notes: Outcome — Router system is now case-accurate; CI blocks drift and prevents assistants from chasing mis-cased paths.
 ```
 
 <<<PATCHSET END>>>
@@ -578,34 +509,23 @@ fi
 **Commit Message**
 ```
 
-[META.ROUTER.METADATA + T7.2] Add non-redundant root router, promote T7.2 READY, and guard minimal file metadata
+[META.ROUTER.NAME_GUARD] Enforce exact-name/case across routers & references
 
 Why:
-The loop stalled at NONE and router discovery lacked a canonical root. We also need concise per-file metadata without clutter or duplication (to avoid loops).
+Assistants and CI must agree on exact filenames/case. Any mismatch in routers or the index sends the worker to the wrong place.
 
 Changes:
 
-* NEXT.yaml: Set next_task_id=T7.2 with tight files_hint for capture persistence.
-* Tasklist.md: Recorded META.ROUTER.ROOT + META.ROUTER.METADATA as DONE; added T7.2 (READY).
-* TOUCHMAP.yaml: Whitelisted T7.2 and meta updates.
-* ROUTER.md (root): New “router-router” map that points to meta and child routers without duplication.
-* ops/ROUTER_INDEX.yaml: Indexed the root router.
-* scripts/ensure_file_meta.sh + guard-meta.yml: CI check for minimal per-file metadata; warns if last_task_id numeric > 100.
-* Patch.md: Documented metadata policy to keep things informative but lean.
-* Prompt.md: Logged all changes and bumped metadata.
+* ops/CANONICAL_NAMES.yaml: Canonical spellings for critical meta docs and routers.
+* scripts/verify_router_links.sh: Validates ROUTER_INDEX.yaml paths and canonical names; fails on missing/mis-cased paths; hints nearest match.
+* .github/workflows/guard-router.yml: Runs the guard on PRs/pushes.
+* Patch.md: Documented mandatory Name/Case rule.
+* Prompt.md/Tasklist.md: Logged the change and bumped metadata.
 
 Acceptance:
-Copilot/CI now sees a READY task (T7.2), a canonical root router that avoids redundancy, and a guard that keeps docs informative and loop-free.
+CI passes only when router/index entries and canonical names exist with exact spelling and case. Mis-cased references fail fast with actionable hints.
 
 ```
 
-After you apply this, trigger the worker with:
-
-```
-
-ACTIVATE: PATCH ENGINE
-
-```
-
-That will pick up **T7.2** immediately.
+Once this lands, we can proceed with the other patch knowing the router names are bulletproof and consistent across the repo.
 ```

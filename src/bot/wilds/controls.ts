@@ -3,6 +3,14 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "disc
 import { prisma } from "../../models/index.js";
 import { attemptCatch, runFromEncounter, BallType } from "../../core/encounter/catch.js";
 
+export function composeCatchSuccessMessages(discordId: string, pokemonId?: string) {
+  const idSuffix = pokemonId ? ` (ID ${pokemonId})` : "";
+  return {
+    dm: `Gotcha! Pokémon caught${idSuffix} and added to your collection.`,
+    thread: `🎉 <@${discordId}> caught the wild Pokémon${idSuffix}!`,
+  };
+}
+
 export function buildEncounterEmbed(enc: { speciesId: number; level: number }) {
   const embed = new EmbedBuilder()
     .setTitle(`A wild Pokémon appeared!`)
@@ -62,8 +70,9 @@ export async function handleEncounterButton(interaction: RepliableInteraction) {
   if (action === "THROW") {
     const res = await attemptCatch({ discordId: interaction.user.id, encounterId });
     if (res.ok && res.caught) {
-      await interaction.reply({ content: `Gotcha! Pokémon caught and added to your collection.`, ephemeral: true });
-      await notifyThread(`🎉 <@${interaction.user.id}> caught the wild Pokémon!`);
+      const messages = composeCatchSuccessMessages(interaction.user.id, res.pokemonId);
+      await interaction.reply({ content: messages.dm, ephemeral: true });
+      await notifyThread(messages.thread);
     } else if (res.ok) {
       await interaction.reply({ content: `Oh no! It broke free. Try again.`, ephemeral: true });
       await notifyThread(`Poké Ball shook… and broke! <@${interaction.user.id}> can try again.`);
