@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T02:32:00Z
-Revision: 1.7
+Last Updated (UTC): 2025-10-25T03:05:00Z
+Revision: 1.9
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -193,23 +193,25 @@ Each task has:
 
 - id: T2.2
   title: Implement data fetch/normalize/shard to /data
-  status: READY
+  status: DONE
   depends_on: [T2.1]
   acceptance_criteria:
     - `src/data_pipeline/index.ts` outputs /data/{pokemon,moves,abilities}/... and manifest.json
     - Deterministic output with content hash
     - Dry-run mode flag
+  notes: Implemented deterministic buildData with hashing, dry-run, and manifest; added tests and data:build script.
 
 ## Phase 3 — Discord Foundations & DM Home
 
 - id: T3.1
   title: Discord bot bootstrap and slash registration
-  status: READY
+  status: DONE
   depends_on: [T0.1]
   acceptance_criteria:
     - Bot logs in with DISCORD_BOT_TOKEN
     - Registers `/home`, `/heal`, `/starter`, `/party`, `/box`, `/profile`
     - Works without Message Content intent (interactions only)
+  notes: Implemented bot login, interaction handler, and placeholder slash commands; added register script.
 
 - id: T3.2
   title: Implement DM Home embed + buttons

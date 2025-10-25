@@ -10,6 +10,8 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
+  "data:build": "node dist/data_pipeline/index.js",
+  "register:commands": "node scripts/register-commands.js",
     "lint": "eslint \"{src,tests}/**/*.ts\"",
     "test": "vitest"
   },
@@ -30,6 +32,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.19.2",
+    "discord.js": "^14.16.3",
     "typescript": "^5.6.3",
     "zod": "^3.23.8"
   }

@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T02:32:00Z
-Revision: 0.17
+Timestamp (UTC): 2025-10-25T03:05:00Z
+Revision: 0.19
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -17,12 +17,20 @@ Revision: 0.17
 > - `.github/workflows/guard-meta.yml` / `scripts/guard_meta.sh` — added checks for Worker Prompt presence and deeper evidence/revision requirements when code changes.
 > - `Prompt.md` — added “AI Worker Prompt (copy/paste for Copilot/GPT)” section for fast bootstrapping.
 > - `src/data_pipeline/schema/` — added Zod schemas: species, moves, abilities, typechart, manifest; plus barrel index.
-> - `tests/data_schema.spec.ts` — unit tests validating three samples for species, moves, abilities; includes minimal typechart and manifest test.
-> - `package.json` — added `zod` dependency.
+> - `src/data_pipeline/index.ts` — pipeline build with deterministic sharding, hashing, manifest, and --dry-run.
+> - `tests/data_schema.spec.ts` — schema tests for samples; typechart + manifest check.
+> - `tests/data_pipeline.spec.ts` — pipeline determinism test using dry-run.
+> - `package.json` — added `zod` and a `data:build` script.
+> - `src/bot/index.ts` — implemented Discord bot bootstrap (slash-only, no Message Content intent).
+> - `src/commands/{home,heal,starter,party,box,profile}.js` — added placeholder slash commands required for DM Home flows.
+> - `scripts/register-commands.js` — now reads DISCORD_BOT_TOKEN/POKEMON_BOT_TOKEN for auth.
+> - `package.json` — added discord.js dep and `register:commands` script; wired bot startup in `src/index.ts`.
 
 ## Revision History
 | Date | Rev | Summary | By |
 | 2025-10-25 | 0.17 | Added Zod schemas, tests, and zod dep for T2.1 | AI |
+| 2025-10-25 | 0.18 | Implemented data pipeline build (T2.2) with deterministic outputs | AI |
+| 2025-10-25 | 0.19 | Discord bootstrap (T3.1): bot login, slash command scaffolds, register script | AI |
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)
 > Use this verbatim when spinning up an AI worker or committing via Copilot Chat.

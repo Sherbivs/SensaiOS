@@ -1,6 +1,7 @@
 import { config } from "./shared/config.js";
 import { log } from "./shared/log.js";
 import { prisma } from "./models/index.js";
+import { bootDiscord } from "./bot/index.js";
 
 export async function boot(): Promise<void> {
   // Placeholder entrypoint — ensures DB connectivity at startup in MVP.
@@ -8,6 +9,8 @@ export async function boot(): Promise<void> {
   // Quick sanity check to validate DATABASE_URL and client init.
   await prisma.$queryRawUnsafe("SELECT 1;");
   log.info("Database connectivity OK");
+  // Start Discord bot (no Message Content intent; slash-only)
+  await bootDiscord();
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

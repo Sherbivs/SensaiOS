@@ -4,7 +4,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { REST, Routes } = require('discord.js');
 
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN || process.env.SECURITY_BOT_TOKEN || process.env.BOT_TOKEN;
+const DISCORD_TOKEN =
+  process.env.DISCORD_BOT_TOKEN ||
+  process.env.POKEMON_BOT_TOKEN ||
+  process.env.DISCORD_TOKEN ||
+  process.env.SECURITY_BOT_TOKEN ||
+  process.env.BOT_TOKEN;
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
 

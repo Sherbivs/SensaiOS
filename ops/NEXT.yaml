@@ -1,17 +1,16 @@
 # NEXT POINTER — Single-file pointer for the next actionable task and file hints.
 # The AI should read this first, then confirm against Tasklist.md, then proceed.
 
-next_task_id: T2.2
+next_task_id: T3.2
 reason: >
-  T2.1 complete: schemas defined and tests added. Proceed to T2.2 (Implement data fetch/normalize/shard to /data with manifest and deterministic outputs).
+  T3.1 complete: bot boots with DISCORD_BOT_TOKEN and slash commands scaffolded. Proceed to T3.2 (DM Home embed + buttons).
 
 files_hint:
-  # High-signal targets for T2.2
-  - "src/data_pipeline/index.ts"
-  - "data/"
-  - "tests/data_pipeline.spec.ts"
-timestamp_utc: 2025-10-25T02:32:00Z
-note: "T2.1 DONE — Zod schemas + tests. Next: implement pipeline output with content hashes (T2.2)."
+  # High-signal targets for T3.1
+  - "src/bot/dm/home.tsx"
+  - "src/bot/dm/components/**"
+timestamp_utc: 2025-10-25T02:45:00Z
+note: "T3.1 DONE — bot bootstrap and slash commands ready; next: DM Home embed/buttons (T3.2)."
 
 # Required actions after completion:
 # - Set next_task_id to the next READY task.
