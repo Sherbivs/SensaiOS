@@ -93,6 +93,25 @@ T6.2:
   - "tests/ops.spec.ts"
   - "src/commands/ops.js"
 
+T7.1:
+  - "src/bot/dm/home.tsx"
+  - "src/bot/dm/components/**"
+  - "src/models/**"
+  - "prisma/schema.prisma"
+  - "tests/dm_home.spec.ts"
+
+T7.2:
+  - "src/core/encounter/catch.ts"
+  - "src/bot/wilds/controls.ts"
+  - "src/models/**"
+  - "tests/catch.spec.ts"
+
+T7.3:
+  - "src/bot/arena/summary.ts"
+  - "src/core/battle/**"
+  - "src/models/**"
+  - "tests/battle_flow.spec.ts"
+
 # Glob prefixes to catch future tasks in the same family
 "Phase 0*":
   - "/ops/**"

@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T09:45:00Z
-Revision: 0.45
+Timestamp (UTC): 2025-10-25T09:55:00Z
+Revision: 0.46
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,15 +10,17 @@ Revision: 0.45
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `Prompt.md` — Reformatted the Refresh Vision fallback instruction to be directive without embedding conversational markup; metadata bumped.
-> - `tasklist.md`, `ops/TOUCHMAP.yaml`, `ops/NEXT.yaml` — Documented META.PROMPT.FALLBACK completion while keeping NEXT at NONE.
+> - `Tasklist.md` — Added Phase 7 persistence backlog, marked META.NEXT.SEED done, and queued T7.1 as READY.
+> - `ops/NEXT.yaml` — Pointed to T7.1 with focused file hints and rationale for persistence work.
+> - `ops/TOUCHMAP.yaml` — Mapped new T7.x tasks to DM Home, encounters, and battle persistence files.
+> - `Prompt.md` — Metadata bumped; Last Repo Changes and Revision History now capture the backlog seeding.
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: Commit pending; Prompt fallback formatting fix staged for apply.
+NO-ECHO-REASON: Commit pending; Persistence backlog seeding staged for apply.
 TasklistDiff: true
-- Prompt Activation Internals now state the Refresh Vision fallback instruction directly without embedding conversation-style markup.
-- Tasklist/TOUCHMAP record META.PROMPT.FALLBACK as DONE; NEXT pointer still NONE.
-- Prompt metadata bumped to capture the adjustment.
+- Tasklist Phase 7 introduces persistence tasks, META.NEXT.SEED marked DONE, and T7.1 set READY.
+- NEXT now targets T7.1 with DM Home/Prisma hints; TOUCHMAP lists T7.1–T7.3 paths.
+- Prompt metadata updated to log the new backlog and guidance for the next worker.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -39,6 +41,7 @@ ACTIVATE: PATCH ENGINE
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-25 | META.NEXT.SEED staged Phase 7 persistence backlog and set NEXT to T7.1. | Persistence tasks queued (DM Home wiring READY; capture/battle follow-ups PROPOSED) so work can resume with clear priorities. |
 | 2025-10-25 | META.README.REFRESH modernized the README to match the Infinity Gauntlet architecture. | README now reflects DM/Wilds/Arena flows, scripts, and deployment guidance. |
 | 2025-10-25 | META.TASK.HOUSEKEEP introduced Tasklist archival script/policy and cleared READY queue. | `npm run tasks:archive` keeps only the latest 100 DONE tasks; NEXT now NONE until new work is staged. |
 | 2025-10-25 | META.RECOVERY.REPLAY captured resume metadata and advanced NEXT to META.TASK.HOUSEKEEP. | Refresh Vision now persists last_attempted tasks so workers resume safely before selecting new work. |

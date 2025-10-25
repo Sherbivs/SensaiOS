@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T09:45:00Z
-Revision: 1.31
+Last Updated (UTC): 2025-10-25T09:55:00Z
+Revision: 1.32
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -84,6 +84,16 @@ Each task has:
     - Prompt.md Activation Internals describes the restricted-environment fallback in directive form without embedding chat transcript formatting.
     - Prompt.md Last Repo Changes note the adjustment.
   notes: Outcome — Activation guidance now instructs workers how to report Refresh Vision limitations without reproducing conversational markup.
+
+- id: META.NEXT.SEED
+  title: Seed persistence-integration backlog and repoint NEXT
+  status: DONE
+  depends_on: [META.PROMPT.FALLBACK]
+  acceptance_criteria:
+    - Tasklist.md adds Phase 7 persistence tasks with at least one READY item and supporting PROPOSED follow-ups.
+    - ops/NEXT.yaml points to the new READY task with trimmed files_hint and rationale.
+    - Prompt.md documents the backlog seeding under Last Repo Changes and Revision History.
+  notes: Outcome — Persistence-focused tasks are staged with NEXT targeting the first READY item so the loop can resume without manual triage.
 
 - id: T0.REFRESH.VISION
   title: Add Refresh Vision phase and recovery ledger
@@ -436,3 +446,35 @@ Each task has:
     - `/ops cooldown reset @user`, `/ops stats`
     - Basic usage counters visible to admin
   notes: Outcome — Added /ops with cooldown reset (admin-only) and basic stats. Prisma is optional; commands gracefully degrade when DB is unavailable.
+
+## Phase 7 — Persistence Integration
+
+- id: T7.1
+  title: Wire DM Home to Prisma persistence
+  status: READY
+  depends_on: [T3.2, T3.3, T1.1]
+  acceptance_criteria:
+    - DM `/home` resolves trainer profile, coins, and party slots from Prisma rather than placeholder stubs.
+    - Empty-trainer bootstrap path creates a starter-friendly baseline (coins, party slots) without crashing; log guidance for operators when data is missing.
+    - Unit tests or integration tests cover at least one trainer with stored Pokémon to ensure embeds render correctly with DB data.
+  notes: Outcome — DM Home reflects real persistence so players see accurate party data when the bot awakens again.
+
+- id: T7.2
+  title: Persist wild encounter capture results
+  status: PROPOSED
+  depends_on: [T4.2, T1.1]
+  acceptance_criteria:
+    - Choosing "Throw Ball" during an encounter writes the new Pokémon instance to Prisma with ownership metadata.
+    - Encounter threads and DM summaries reflect the captured Pokémon ID from storage.
+    - Tests confirm captured Pokémon persist and survive subsequent Refresh Vision cycles.
+  notes: Seeded follow-up — ensures the catching loop affects long-term state.
+
+- id: T7.3
+  title: Store battle outcomes and rewards
+  status: PROPOSED
+  depends_on: [T5.3, T1.1]
+  acceptance_criteria:
+    - Battle conclusion writes winner/loser, turn count, and rewards to Prisma tables.
+    - DM summaries reference stored results; arena thread posts include reward overview.
+    - Tests validate at least one stored battle record and reward distribution.
+  notes: Seeded follow-up — captures battle telemetry for stats and achievements.
