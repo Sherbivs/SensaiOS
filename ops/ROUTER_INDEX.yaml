@@ -1,11 +1,11 @@
 version: 1
-generated_utc: "2025-10-25T15:23:32Z"
+generated_utc: "2025-10-25T16:05:00Z"
 routers:
   - path: "ops/"
     router_file: "ops/ROUTER.md"
     title: "Ops & Governance"
     purpose: "Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox)."
-    last_updated_utc: "2025-10-25T15:45:00Z"
+    last_updated_utc: "2025-10-25T16:05:00Z"
   - path: "scripts/"
     router_file: "scripts/ROUTER.md"
     title: "Dev & Docs Scripts"
@@ -15,7 +15,7 @@ routers:
     router_file: "src/ROUTER.md"
     title: "Application Source"
     purpose: "Root app source tree; see sub-routers for domains."
-    last_updated_utc: "2025-10-25T11:10:00Z"
+    last_updated_utc: "2025-10-25T16:05:00Z"
   - path: "src/bot/"
     router_file: "src/bot/ROUTER.md"
     title: "Discord Bot Layer"

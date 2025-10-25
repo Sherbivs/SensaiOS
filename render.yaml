@@ -1,3 +1,9 @@
+databases:
+  - name: infinity-gauntlet-db
+    plan: starter
+    databaseName: infinity_gauntlet
+    user: gauntlet
+
 services:
   # New web service for the compiled bot (fixes missing npm start by running dist output)
   - type: web
@@ -6,6 +12,15 @@ services:
     buildCommand: npm install --include=dev && npm run prebuild
     startCommand: npm start
     autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
+      - key: DATABASE_INTERNAL_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: internalConnectionString
 
   # Existing worker (left intact)
   - type: worker
@@ -16,6 +31,14 @@ services:
     autoDeploy: true
     plan: starter
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
+      - key: DATABASE_INTERNAL_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: internalConnectionString
       - key: SECURITY_BOT_TOKEN
         sync: false
       - key: POKEMON_BOT_TOKEN
@@ -39,6 +62,14 @@ services:
     startCommand: "npm start"
     autoDeploy: true
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
+      - key: DATABASE_INTERNAL_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: internalConnectionString
       - key: SECURITY_BOT_TOKEN
         sync: false
       - key: POKEMON_BOT_TOKEN
@@ -66,6 +97,14 @@ services:
         mountPath: /store
         sizeGB: 1
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
+      - key: DATABASE_INTERNAL_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: internalConnectionString
       - key: GITHUB_REPO
         value: https://github.com/sherbivs/infinity-gauntlet.git
       - key: GITHUB_BRANCH
@@ -104,6 +143,14 @@ services:
     startCommand: "node scripts/refresh_cache_gh_only.mjs"
     schedule: "0 0 * * 4"
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
+      - key: DATABASE_INTERNAL_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: internalConnectionString
       - key: GITHUB_REPO
         value: https://github.com/sherbivs/infinity-gauntlet.git
       - key: GITHUB_BRANCH

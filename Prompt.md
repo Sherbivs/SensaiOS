@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T15:45:00Z
-Revision: 0.50
+Timestamp (UTC): 2025-10-25T16:05:00Z
+Revision: 0.51
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,15 +10,15 @@ Revision: 0.50
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `tasklist.md` — Promoted T7.3 battle persistence follow-up to READY and refreshed metadata.
-> - `ops/NEXT.yaml` — Pointed NEXT at T7.3 with focused file hints for battle result storage.
-> - `ops/ROUTER.md`, `ops/ROUTER_INDEX.yaml` — Timestamped ops router after backlog grooming.
-> - `ops/RECOVERY.yaml` — Refresh Vision stamp captured latest activation metadata.
+> - `render.yaml` — Provisioned managed Postgres via `databases:` and wired DATABASE_URL/INTERNAL env for every service per Render docs.
+> - `src/shared/config.ts` — Accepted Render-provided database env fallbacks while still requiring a connection string.
+> - `README.md` — Documented the new Render database wiring under deployment requirements.
+> - `src/ROUTER.md` — Timestamped router with note about the config fallback update.
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: Backlog grooming meta change; summary noted.
-TasklistDiff: true
-- Promoted T7.3 to READY and retargeted NEXT/routers toward battle persistence work.
+NO-ECHO-REASON: Render deployment wiring change captured in summary.
+TasklistDiff: false
+- Provisioned managed Postgres in render.yaml and updated config/docs for DATABASE_URL fallbacks.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -40,6 +40,7 @@ ACTIVATE: PATCH ENGINE
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
 | 2025-10-25 | META.BACKLOG.T7.3 promoted battle persistence follow-up. | Tasklist + NEXT point at T7.3 (battle results persistence) with router timestamps updated for ops guidance. |
+| 2025-10-25 | Deployment wiring: Render database provisioning + env fallbacks. | render.yaml provisions managed Postgres, config reads Render env aliases, README documents the setup. |
 | 2025-10-25 | META.ROUTER.NAME_GUARD added canonical-name guard & CI. | Canonical manifest and router-case guard script prevent spelling drift; CI blocks mismatched router/index paths. |
 | 2025-10-25 | T7.2 persisted wild encounter captures and surfaced stored IDs. | Encounter success now creates Pokémon via Prisma, stamps encounter metadata, echoes IDs in DM/thread messaging, and adds tests covering the flow. |
 | 2025-10-25 | T7.1 wired DM Home to Prisma persistence and added tests. | `/home` surfaces real trainer coins/party data, bootstraps missing records, and ships unit coverage for persisted Pokémon embeds. |
