@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-25T10:40:00Z
-Revision: 0.47
+Timestamp (UTC): 2025-10-25T11:10:00Z
+Revision: 0.48
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,18 +10,16 @@ Revision: 0.47
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/commands/home.js` — `/home` now loads trainers from Prisma, bootstraps missing users/parties, and logs guidance when no Pokémon are stored.
-> - `tests/dm_home.spec.ts` — Added coverage to ensure persisted Pokémon render correctly in the DM Home embed.
-> - `Tasklist.md` — Marked T7.1 DONE with persistence outcome notes.
-> - `ops/NEXT.yaml` — Reset to NONE after completing T7.1; note nudges towards promoting T7.2.
-> - `ops/TOUCHMAP.yaml` — Updated T7.1 mapping to the actual command/test files.
+> - `src/core/encounter/catch.ts` — Stores the persisted Pokémon ID in encounter metadata when a capture succeeds.
+> - `src/bot/wilds/controls.ts` — DM and thread success messages now include the stored Pokémon ID.
+> - `src/models/index.ts` — `UserRepo.upsertByDiscordId` accepts an injected Prisma client for testability.
+> - `tests/catch.spec.ts` — Added a Prisma stub test ensuring captures persist Pokémon, fill party slots, and update encounter data.
+> - `src/ROUTER.md`, `src/core/ROUTER.md`, `src/bot/ROUTER.md`, `tests/ROUTER.md`, `ops/ROUTER_INDEX.yaml` — Router timestamps refreshed after catch persistence updates.
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: Commit pending; T7.1 DM Home persistence completed.
+NO-ECHO-REASON: Manual patchset execution; summarizing scope for audit.
 TasklistDiff: true
-- `/home` now queries Prisma, seeds missing trainers/parties, and warns operators when no Pokémon exist.
-- Added dm_home.spec.ts to verify persisted parties render correctly; NEXT reset to NONE post-completion.
-- Prompt metadata & history updated to capture T7.1 completion and new guidance.
+- Catch persistence writes Pokémon IDs to encounters, updates DM/thread messaging, and lands Prisma-backed tests. NEXT remains NONE pending T7.3 promotion.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -42,6 +40,7 @@ ACTIVATE: PATCH ENGINE
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-25 | T7.2 persisted wild encounter captures and surfaced stored IDs. | Encounter success now creates Pokémon via Prisma, stamps encounter metadata, echoes IDs in DM/thread messaging, and adds tests covering the flow. |
 | 2025-10-25 | T7.1 wired DM Home to Prisma persistence and added tests. | `/home` surfaces real trainer coins/party data, bootstraps missing records, and ships unit coverage for persisted Pokémon embeds. |
 | 2025-10-25 | META.NEXT.SEED staged Phase 7 persistence backlog and set NEXT to T7.1. | Persistence tasks queued (DM Home wiring READY; capture/battle follow-ups PROPOSED) so work can resume with clear priorities. |
 | 2025-10-25 | META.README.REFRESH modernized the README to match the Infinity Gauntlet architecture. | README now reflects DM/Wilds/Arena flows, scripts, and deployment guidance. |

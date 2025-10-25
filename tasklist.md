@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T10:40:00Z
-Revision: 1.33
+Last Updated (UTC): 2025-10-25T11:10:00Z
+Revision: 1.34
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -461,13 +461,13 @@ Each task has:
 
 - id: T7.2
   title: Persist wild encounter capture results
-  status: PROPOSED
+  status: DONE
   depends_on: [T4.2, T1.1]
   acceptance_criteria:
     - Choosing "Throw Ball" during an encounter writes the new Pokémon instance to Prisma with ownership metadata.
     - Encounter threads and DM summaries reflect the captured Pokémon ID from storage.
     - Tests confirm captured Pokémon persist and survive subsequent Refresh Vision cycles.
-  notes: Seeded follow-up — ensures the catching loop affects long-term state.
+  notes: Outcome — Persistence now stores caught Pokémon IDs on the encounter, DM/thread messages show the stored ID, and a Vitest stub validates Prisma writes + encounter metadata updates.
 
 - id: T7.3
   title: Store battle outcomes and rewards

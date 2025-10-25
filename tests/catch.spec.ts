@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { catchChance, attemptCatch } from '../src/core/encounter/catch';
-import { UserRepo } from '../src/models/index';
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { catchChance, attemptCatch } from "../src/core/encounter/catch.js";
+import { UserRepo } from "../src/models/index.js";
 
 function inRange(x: number, lo: number, hi: number) {
   return x >= lo && x <= hi;
