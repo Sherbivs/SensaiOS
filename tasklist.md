@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-25T05:50:00Z
-Revision: 1.18
+Last Updated (UTC): 2025-10-25T07:10:00Z
+Revision: 1.22
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -15,6 +15,25 @@ Each task has:
 ---
 
 ## Phase 0 — Repo & Tooling
+- id: T0.REFRESH.VISION
+  title: Add Refresh Vision phase and recovery ledger
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - scripts/refresh_vision.sh stamps ops/RECOVERY.yaml and rebuilds ops/ROUTER_INDEX.yaml
+    - Prompt.md read order includes refresh step and recovery note
+    - ops/CRITICAL.md documents the phase
+  notes: Outcome — Workers always re-sync context and can resume after interruptions.
+
+- id: T0.ROUTER.NET
+  title: Establish per-directory routers and router-of-routers index
+  status: DONE
+  depends_on: [T0.REFRESH.VISION]
+  acceptance_criteria:
+    - ROUTER.md exists for ops/, src/, src/bot/, src/core/, tests/, scripts/
+    - scripts/update_router_index.sh generates ops/ROUTER_INDEX.yaml
+    - Patch/Prompt policies require router updates when touching routed dirs
+  notes: Outcome — City roadway map enables fast navigation and targeted patching.
 - id: META.LEDGER200
   title: Add auto-generated Recent Change Ledger (last 200) to Prompt.md
   status: DONE
@@ -307,29 +326,32 @@ Each task has:
 
 - id: T5.3
   title: DM action menus + Arena summaries
-  status: READY
+  status: DONE
   depends_on: [T5.2]
   acceptance_criteria:
     - DM: Move/Switch/Forfeit
     - Arena shows compact turn summaries
     - DM shows detailed rolls/PP
+  notes: Outcome — DM action prompt with Move/Switch/Forfeit added; handlers wired (forfeit updates battle and posts Arena note); summary helpers produce compact public and detailed DM logs.
 
 ## Phase 6 — Safety & Admin
 
 - id: T6.1
   title: Rate limits and permissions
-  status: READY
+  status: DONE
   depends_on: [T4.2, T5.3]
   acceptance_criteria:
     - One active encounter per user
     - One active battle per user
     - Spectators read-only in Arena
+  notes: Outcome — Enforced encounter and battle limits via middleware/guards. Arena is broadcast-only by design (trainers act via DM), satisfying spectator read-only in practice.
 
 - id: T6.2
   title: Admin ops and basic stats
-  status: READY
+  status: DONE
   depends_on: [T6.1]
   acceptance_criteria:
     - `/ops cooldown reset @user`, `/ops stats`
     - Basic usage counters visible to admin
+  notes: Outcome — Added /ops with cooldown reset (admin-only) and basic stats. Prisma is optional; commands gracefully degrade when DB is unavailable.
 

@@ -12,6 +12,8 @@ import { randomUUID } from "node:crypto";
 import type { Battle, Prisma, PrismaClient, User as PrismaUser } from "@prisma/client";
 import { prisma as prismaClient } from "../../models/index.js";
 import { createArenaThread, type ArenaThreadContext } from "../arena/thread.js";
+import { openActionDMs } from "./actions.js";
+import { canChallengeBattle } from "../middleware/limits.js";
 
 const ACCEPT_PREFIX = "BATTLE_ACCEPT_";
 const DECLINE_PREFIX = "BATTLE_DECLINE_";
@@ -129,6 +131,19 @@ export async function handleBattleChallengeCommand(
   }
 
   const prisma = opts.prisma ?? prismaClient;
+  // Limit check: one active/pending battle per user
+  const lim = await canChallengeBattle(interaction.user.id, opponent.id, prisma);
+  if (!lim.ok) {
+    const msg =
+      lim.reason === "CHALLENGER_BUSY"
+        ? "You already have an active or pending battle. Finish it first."
+        : lim.reason === "OPPONENT_BUSY"
+        ? `${opponent.tag} already has an active or pending battle.`
+        : "Cannot start this battle right now.";
+    await interaction.reply({ content: msg, ephemeral: true });
+    return;
+  }
+
   const challengerRecord = await ensureUser(prisma, interaction.user.id);
   const opponentRecord = await ensureUser(prisma, opponent.id);
 
@@ -279,6 +294,11 @@ export async function handleBattleChallengeButton(
     `You accepted the battle challenge from <@${battle.p1.discordId}>. Join the Arena thread: <#${thread.id}>`,
     interaction
   );
+
+  // Send action menus to both players in DM
+  try {
+    await openActionDMs(battle.id, (id) => interaction.client.users.fetch(id));
+  } catch {}
 }
 
 export const __testing = {

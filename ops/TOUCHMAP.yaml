@@ -91,6 +91,7 @@ T6.1:
 T6.2:
   - "src/bot/ops/admin.ts"
   - "tests/ops.spec.ts"
+  - "src/commands/ops.js"
 
 # Glob prefixes to catch future tasks in the same family
 "Phase 0*":

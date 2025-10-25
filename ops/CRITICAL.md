@@ -28,6 +28,12 @@ what to do next, where to change it, and how to update state.
 - If the task changed system behavior/architecture, update `Prompt.md` (Revision History + affected sections) and ensure `ops/KNOWLEDGE.yaml` still points to the right sources.
 - Keep these files **small and deterministic**. Re-run yields the same state.
 
+## Refresh Vision Phase (MANDATORY)
+- Before selecting a task, run the refresh workflow:
+	1) Execute `scripts/refresh_vision.sh` to regenerate `ops/ROUTER_INDEX.yaml`, update the change ledger in `Prompt.md` (if available), and stamp `ops/RECOVERY.yaml`.
+	2) Read `ops/ROUTER_INDEX.yaml` and relevant `ROUTER.md` files for context.
+	3) Proceed to the task selection loop.
+
 ### Contract & Task Graph Updates (Policy)
 - Contract edits (`Patch.md`) should be done under a dedicated **META** task using surgical diffs.
 - Task graph edits (`Tasklist.md`) happen in the **# TASKLIST UPDATE** section of a PATCHSET and must include:
@@ -36,3 +42,4 @@ what to do next, where to change it, and how to update state.
 	- Any newly unblocked tasks flipped to `READY`.
 	- **Canonical Filenames:** Do not rename `Patch.md`, `Tasklist.md`, `Prompt.md`, or `ops/PATCH_POLICY_BACKUP.md`. Render Build Filters depend on exact case; CI enforces via `guard-docs` workflow.
 	- **META Update Requirement:** On every PATCHSET, update `Prompt.md` (timestamp, revision, change bullets). If either `Patch.md` or `Tasklist.md` is edited, both must have header bumps in the same commit.
+	- **Routers:** If a changed file resides under a directory with a `ROUTER.md`, update its metadata (Last Updated; affected globs/notes). After any router change, re-run `scripts/update_router_index.sh`.

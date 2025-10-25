@@ -1,0 +1,5 @@
+version: 1
+heartbeat_utc: "2025-10-25T07:10:00Z"
+head_short_sha: "UNKNOWN"
+last_task_id: "T6.2"
+notes: "AI should resume from last_task_id if activation trigger is used."

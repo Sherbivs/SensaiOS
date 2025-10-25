@@ -2,6 +2,7 @@ import type { ChatInputCommandInteraction, GuildTextBasedChannel } from "discord
 import { spawnEncounterForUser } from "../../core/encounter/spawn.js";
 import { openEncounterDM } from "./controls.js";
 import { prisma } from "../../models/index.js";
+import { canStartWalk } from "../middleware/limits.js";
 
 async function getCooldownReadyAt(discordId: string, kind: string) {
   const cd = await prisma.cooldown.findFirst({ where: { owner: { discordId }, kind } });
@@ -47,6 +48,13 @@ export async function handleWalk(interaction: ChatInputCommandInteraction) {
   if (readyAt && readyAt.getTime() > now) {
     const secs = Math.ceil((readyAt.getTime() - now) / 1000);
     await interaction.reply({ content: `You can /walk again in ${secs}s.`, ephemeral: true });
+    return;
+  }
+
+  // Limit: one active encounter per user
+  const allowed = await canStartWalk(interaction.user.id, prisma);
+  if (!allowed.ok) {
+    await interaction.reply({ content: "You already have an active encounter. Finish it first.", ephemeral: true });
     return;
   }
 

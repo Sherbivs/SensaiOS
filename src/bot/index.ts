@@ -8,7 +8,9 @@ import { openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./dm/starter
 import { handleHeal } from "./dm/heal.js";
 import { handleWalk } from "./wilds/walk.js";
 import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
+import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleEncounterButton } from "./wilds/controls.js";
+import { handleOpsCommand } from "./ops/admin.js";
 
 export type BotStartOptions = {
 	token?: string;
@@ -82,6 +84,10 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 						}
 						return;
 					}
+					if (interaction.commandName === "ops") {
+						await handleOpsCommand(interaction);
+						return;
+					}
 					await cmd.execute(interaction);
 					return;
 				}
@@ -90,6 +96,10 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 					const id = interaction.customId;
 					if (id.startsWith("BATTLE_ACCEPT_") || id.startsWith("BATTLE_DECLINE_")) {
 						await handleBattleChallengeButton(interaction);
+						return;
+					}
+					if (id.startsWith(MOVE_PREFIX) || id.startsWith(SWITCH_PREFIX) || id.startsWith(FORFEIT_PREFIX)) {
+						await handleBattleActionButton(interaction);
 						return;
 					}
 					switch (id) {
