@@ -713,13 +713,3 @@ Each task has:
     - DM `/home` embed exposes streak status and outlines how to regain the streak when it resets.
     - Tests cover streak increment, reset, and DM Home display updates.
   notes: Outcome — Prisma schema and model helpers manage streak increments/resets; DM Home now surfaces streak messaging with new tests covering active, reset, and display states.
-
-- id: T8.3
-  title: Add daily quest claim flow and rewards
-  status: READY
-  depends_on: [T8.2]
-  acceptance_criteria:
-    - Provide a DM control or slash command that claims the daily quest, increments the streak via `recordDailyQuestCompletion`, and awards configured coins.
-    - Claiming enforces the daily cooldown, reusing the existing cooldown table and messaging the next availability.
-    - Tests cover successful claim, cooldown-blocked attempts, and streak increment wiring.
-  notes: Extends the progression loop by letting trainers claim their daily quest reward while leveraging the new streak infrastructure.

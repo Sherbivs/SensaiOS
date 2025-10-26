@@ -9,19 +9,14 @@ guidance_when_none: |
   - Update `next_task_id`, trim `files_hint` to only the files you expect to touch, and bump `timestamp_utc`.
   - Record the rationale in `note` so the next worker knows why the pointer moved.
 
-next_task_id: T8.3
-reason: >
-  Implement the daily quest claim flow so trainers can advance their streak, receive
-  rewards, and see the next availability directly from DM Home.
+next_task_id:
+reason:
+
 
 files_hint:
-  - "src/commands/home.js"
-  - "src/commands/**"
-  - "src/models/**"
-  - "tests/dm_home.spec.ts"
-  - "tests/log.spec.ts"
 
-timestamp_utc: 2025-10-26T11:30:00Z
-router_version: 1
-last_notes_read_utc: 2025-10-26T10:25:00Z
-note: "Daily quest streaks now ship in DM Home; NEXT targets the claim flow so streaks advance with rewards and cooldown messaging."
+
+timestamp_utc: 
+router_version: 
+last_notes_read_utc:
+note:
