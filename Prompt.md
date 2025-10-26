@@ -10,10 +10,10 @@ Revision: 0.52
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/models/index.ts` — Exported battle player type and scaled default rewards when persisting results.
-> - `src/bot/battle/conclude.ts`, `src/bot/battle/actions.ts` — Centralized battle result announcements and routed forfeits through the persistence helper.
-> - `tests/battle_results.spec.ts`, `tests/battle_flow.spec.ts` — Added coverage for BattleRepo rewards and forfeit announcement wiring.
-> - `ops/NEXT.yaml`, router docs/index — Reset NEXT pointer after T7.3 and timestamped routers for battle persistence work.
+> - `[T7.3]` `src/models/index.ts` — Exported battle player type and scaled default rewards when persisting results.
+> - `[T7.3]` `src/bot/battle/conclude.ts`, `src/bot/battle/actions.ts` — Centralized battle result announcements and routed forfeits through the persistence helper.
+> - `[T7.3]` `tests/battle_results.spec.ts`, `tests/battle_flow.spec.ts` — Added coverage for BattleRepo rewards and forfeit announcement wiring.
+> - `[T7.3]` `ops/NEXT.yaml`, router docs/index — Reset NEXT pointer after T7.3 and timestamped routers for battle persistence work.
 
 <!-- PATCHSET:ECHO BEGIN -->
 NO-ECHO-REASON: Pending human commit; see summary for changed files.
