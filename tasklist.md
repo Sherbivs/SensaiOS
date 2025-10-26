@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T11:30:00Z
-Revision: 1.58
+Last Updated (UTC): 2025-10-26T12:20:00Z
+Revision: 1.59
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -229,16 +229,25 @@ Each task has:
     - Patch.md documents the mandatory Name/Case rule.
   notes: Outcome — Canonical manifest + CI guard keep router/index references case-accurate; Prompt/Tasklist capture the change.
 
-- id: T0.FP
-  title: Add Critical Files Fast-Path system
+- id: T8.3
+  title: Add daily quest claim flow and rewards
   status: DONE
-  depends_on: []
+  depends_on: [T8.2]
   acceptance_criteria:
-    - Create ops/CRITICAL.md documenting fast-path boot order and hot paths
-    - Create ops/NEXT.yaml with the next_task_id and files_hint
-    - Create ops/TOUCHMAP.yaml mapping task IDs to primary files
-    - Update Patch.md to reference and enforce the fast-path rules
-  notes: Outcome — Fast-path created and initialized (next_task_id: T0.2).
+    - Provide a DM control or slash command that claims the daily quest, increments the streak via `recordDailyQuestCompletion`, and awards configured coins.
+    - Claiming enforces the daily cooldown, reusing the existing cooldown table and messaging the next availability.
+    - Tests cover successful claim, cooldown-blocked attempts, and streak increment wiring.
+  notes: Outcome — `/daily claim` registers via slash, routes to `handleDailyClaim`, grants coins, bumps streaks, and enforces a 24h cooldown with coverage for success + cooldown blocks.
+
+- id: T8.4
+  title: Add DM Home button to claim daily quest
+  status: READY
+  depends_on: [T8.3]
+  acceptance_criteria:
+    - DM Home embed includes a “Claim Daily” button that calls the new handler without leaving DMs.
+    - Button reflects cooldown state (disabled or messaging) after pressing, surfacing streak/cooldown feedback inline.
+    - Tests cover button wiring, cooldown-block messaging, and streak display updates.
+  notes: Extends the progression loop so trainers can claim the daily reward from Home without slash commands, piggybacking on the new handler.
 
 - id: T0.1
   title: Initialize TypeScript project & tooling

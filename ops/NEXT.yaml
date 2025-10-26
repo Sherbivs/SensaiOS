@@ -10,13 +10,13 @@ guidance_when_none: |
   - Record the rationale in `note` so the next worker knows why the pointer moved.
 
 next_task_id:
-reason:
+reason: >
 
 
 files_hint:
-
+  
 
 timestamp_utc: 
 router_version: 
-last_notes_read_utc:
-note:
+last_notes_read_utc: 
+note: 

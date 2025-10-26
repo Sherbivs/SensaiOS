@@ -148,12 +148,19 @@ T8.2:
   - "tests/log.spec.ts"
 
 T8.3:
+  - "src/commands/daily.js"
+  - "src/bot/daily/claim.ts"
+  - "src/bot/index.ts"
   - "src/commands/home.js"
-  - "src/commands/**"
   - "src/models/**"
-  - "prisma/schema.prisma"
+  - "tests/daily.spec.ts"
+
+T8.4:
+  - "src/commands/home.js"
+  - "src/bot/dm/home.tsx"
+  - "src/bot/index.ts"
+  - "src/bot/daily/claim.ts"
   - "tests/dm_home.spec.ts"
-  - "tests/log.spec.ts"
 
 # Glob prefixes to catch future tasks in the same family
 "Phase 0*":

@@ -72,6 +72,16 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 						await handleHeal(interaction);
 						return;
 					}
+					if (interaction.commandName === "daily") {
+						const sub = interaction.options?.getSubcommand?.(false);
+						if (sub === "claim") {
+							const { handleDailyClaim } = await import("./daily/claim.js");
+							await handleDailyClaim(interaction, { prisma });
+						} else {
+							await interaction.reply({ content: "Unknown daily subcommand. Try `/daily claim`.", ephemeral: true });
+						}
+						return;
+					}
 					if (interaction.commandName === "walk") {
 						await handleWalk(interaction);
 						return;
