@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T08:30:00Z
-Revision: 1.52
+Last Updated (UTC): 2025-10-26T09:20:00Z
+Revision: 1.54
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -28,14 +28,34 @@ Each task has:
 
 - id: META.NO_READY.SAFETY_NET
   title: Add CI/guard to prevent "no READY tasks" states
-  status: READY
+  status: DONE
   depends_on: [META.UNBLOCK.READY_SEED]
   acceptance_criteria:
     - .github/workflows/guard-meta.yml fails when Tasklist.md has 0 READY tasks (excluding META.UNBLOCK.READY_SEED).
     - scripts/guard_meta.sh suggests the oldest eligible PROPOSED task to flip to READY.
     - ops/NEXT.yaml is suggested (in logs) to point at that READY task.
     - Patch.md documents this invariant and quick remediation steps.
-  notes: Follow-up guard task now READY to wire CI enforcement and scripted suggestions that keep at least one READY item alive.
+  notes: Outcome — guard_meta now fails when only the seed task remains READY, surfaces the oldest eligible PROPOSED task, and nudges NEXT to track the promoted work.
+
+- id: META.READY_QUEUE.NEXT_TASK
+  title: Promote substantive work to READY after safety-net guard
+  status: DONE
+  depends_on: [META.NO_READY.SAFETY_NET]
+  acceptance_criteria:
+    - Identify a non-meta PROPOSED task with satisfied dependencies and mark it READY.
+    - ops/NEXT.yaml points to the newly READY task with refreshed timestamp and focused files_hint.
+    - Prompt.md “Last Repo Changes” records the promotion decision and rationale.
+  notes: Outcome — Promoted T8.1 (DM Home battle history) to READY, pointed NEXT/Touchmap at it, and documented the decision in Prompt metadata.
+
+- id: META.READY_QUEUE.PLAYBOOK
+  title: Document empty-ready recovery playbook
+  status: PROPOSED
+  depends_on: [META.NO_READY.SAFETY_NET]
+  acceptance_criteria:
+    - Patch.md adds a short playbook subsection with step-by-step remediation when the guard blocks due to no READY tasks.
+    - Prompt.md Revision History logs the playbook addition and guidance.
+    - Tasklist.md gains an example note workers can reuse when promoting PROPOSED tasks to READY.
+  notes: Captures the remediation steps humans should follow when the guard halts merges.
 
 - id: META.TASKLIST.COUPLING_FIX
   title: Enforce Tasklist updates from every PATCHSET and rewire guards
@@ -661,3 +681,25 @@ Each task has:
     - Report header clarifies the participant scope and handles no-match messaging.
     - Tests cover filtering when the specified trainer wins, loses, or has no results.
   notes: Outcome — `/ops stats` now validates participant mentions/IDs, scopes headers + empty messaging, updates command registration, and Vitest covers mention filtering, invalid input, and no-result cases.
+
+## Phase 8 — Player Progression
+
+- id: T8.1
+  title: Surface recent battle history on DM Home using persisted data
+  status: READY
+  depends_on: [T7.5, T7.7]
+  acceptance_criteria:
+    - DM `/home` embed includes a battle history section listing the last three finished battles for the trainer with win/loss outcome and rewards.
+    - If a trainer has no finished battles, the embed displays a friendly placeholder message instead of the history section.
+    - Tests cover DM Home rendering with populated battle history and the empty-state branch using persisted results.
+  notes: Promoted from backlog via META.READY_QUEUE.NEXT_TASK so delivery work stays queued after guard maintenance.
+
+- id: T8.2
+  title: Track trainer daily quest streaks and show them in DM Home
+  status: PROPOSED
+  depends_on: [T7.1]
+  acceptance_criteria:
+    - Data model stores quest streak metadata for trainers with increment/reset logic.
+    - DM `/home` embed exposes streak status and outlines how to regain the streak when it resets.
+    - Tests cover streak increment, reset, and DM Home display updates.
+  notes: Follow-up to expand progression systems once battle history is visible.

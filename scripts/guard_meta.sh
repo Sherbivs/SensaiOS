@@ -164,8 +164,97 @@ fi
 
 # Emit explicit guidance when the READY queue is empty so humans seed a task before merge.
 if [[ -f Tasklist.md ]]; then
-  total_ready=$(grep -Ec '^\s*status:\s*READY\b' Tasklist.md || echo 0)
-  if [[ "${total_ready}" -eq 0 ]]; then
-    echo "::error::Tasklist.md lists zero READY tasks. Promote a PROPOSED item or add META.UNBLOCK.READY_SEED to restore the READY queue before merging."
+  mapfile -t _task_rows < <(awk '
+    /^- id:/ {
+      if (id != "") {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", deps)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", status)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", id)
+        print status "|" id "|" deps
+      }
+      id=$0
+      sub(/^- id: /, "", id)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", id)
+      status="UNKNOWN"
+      deps=""
+    }
+    /^\s*status:/ {
+      status=$0
+      sub(/^\s*status: /, "", status)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", status)
+    }
+    /^\s*depends_on:/ {
+      deps=$0
+      sub(/^\s*depends_on: /, "", deps)
+      gsub(/[\[\],]/, " ", deps)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", deps)
+    }
+    END {
+      if (id != "") {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", deps)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", status)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", id)
+        print status "|" id "|" deps
+      }
+    }
+  ' Tasklist.md)
+
+  declare -A TASK_STATUS TASK_DEPS
+  ready_without_seed_count=0
+  ready_seed_present="false"
+
+  for row in "${_task_rows[@]}"; do
+    IFS='|' read -r status id deps <<< "$row"
+    TASK_STATUS["$id"]="$status"
+    TASK_DEPS["$id"]="$deps"
+    if [[ "$status" == "READY" ]]; then
+      if [[ "$id" == "META.UNBLOCK.READY_SEED" ]]; then
+        ready_seed_present="true"
+      else
+        ready_without_seed_count=$((ready_without_seed_count + 1))
+      fi
+    fi
+  done
+
+  eligible_proposed=""
+  for row in "${_task_rows[@]}"; do
+    IFS='|' read -r status id deps <<< "$row"
+    if [[ "$status" == "PROPOSED" ]]; then
+      eligible="true"
+      for dep in $deps; do
+        [[ -z "$dep" ]] && continue
+        if [[ "${TASK_STATUS[$dep]:-}" != "DONE" ]]; then
+          eligible="false"
+          break
+        fi
+      done
+      if [[ "$eligible" == "true" ]]; then
+        eligible_proposed="$id"
+        break
+      fi
+    fi
+  done
+
+  if [[ -n "$eligible_proposed" ]]; then
+    echo "::notice::Oldest eligible PROPOSED task awaiting promotion: ${eligible_proposed}."
+    if [[ -f ops/NEXT.yaml ]]; then
+      current_next=$(awk 'match($0, /^next_task_id:\s*(.*)$/, arr) {print arr[1]; exit}' ops/NEXT.yaml | tr -d '"')
+      current_next=${current_next:-NONE}
+      if [[ "$current_next" != "$eligible_proposed" ]]; then
+        echo "::notice::When promoting ${eligible_proposed} to READY, update ops/NEXT.yaml next_task_id (currently ${current_next})."
+      fi
+    fi
+  fi
+
+  if [[ "${ready_without_seed_count}" -eq 0 ]]; then
+    if [[ "$ready_seed_present" == "true" ]]; then
+      echo "::error::Tasklist.md only lists META.UNBLOCK.READY_SEED as READY. Promote another task before merging."
+    else
+      echo "::error::Tasklist.md lists zero READY tasks. Promote a PROPOSED task or add META.UNBLOCK.READY_SEED before merging."
+    fi
+    if [[ -n "$eligible_proposed" ]]; then
+      echo "::error::Suggested promotion candidate: ${eligible_proposed} (all dependencies DONE)."
+    fi
+    fail "READY queue empty (excluding META.UNBLOCK.READY_SEED)."
   fi
 fi

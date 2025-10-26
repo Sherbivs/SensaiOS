@@ -134,6 +134,20 @@ T7.7:
   - "tests/ops.spec.ts"
   - "src/commands/ops.js"
 
+T8.1:
+  - "src/bot/dm/home.tsx"
+  - "src/bot/dm/components/**"
+  - "src/models/**"
+  - "tests/dm_home.spec.ts"
+  - "tests/battle_results.spec.ts"
+
+T8.2:
+  - "prisma/schema.prisma"
+  - "src/models/**"
+  - "src/bot/dm/home.tsx"
+  - "tests/dm_home.spec.ts"
+  - "tests/log.spec.ts"
+
 # Glob prefixes to catch future tasks in the same family
 "Phase 0*":
   - "/ops/**"
@@ -208,6 +222,24 @@ META.HOTFIX.SYSTEM:
   - "ops/TOUCHMAP.yaml"
   - "ops/NEXT.yaml"
   - "ops/RECOVERY.yaml"
+
+META.NO_READY.SAFETY_NET:
+  - "scripts/guard_meta.sh"
+  - ".github/workflows/guard-meta.yml"
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+
+META.READY_QUEUE.NEXT_TASK:
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "Prompt.md"
+
+META.READY_QUEUE.PLAYBOOK:
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
 
 HF.BROKEN.TASKFLOW:
   - "Tasklist.md"

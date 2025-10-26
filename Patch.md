@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-26T08:30:00Z
-Revision: 1.18
+Last Updated (UTC): 2025-10-26T09:20:00Z
+Revision: 1.20
 
 This repository uses **Patch.md** as the single source of truth for automated, AI-driven development flow.
 The AI reading this file must follow the loop and rules exactly.
@@ -23,6 +23,7 @@ After completing a task, update `Tasklist.md` *convulsively* (immediately) to re
      - `status: READY`
      - All `depends_on` are `DONE`.
    - Never start tasks not marked `READY`.
+    - CI guard (`scripts/guard_meta.sh`) fails when the READY queue is empty (ignoring `META.UNBLOCK.READY_SEED`); promote a PROPOSED task or add a fresh READY item before merging.
 
 2. **Execute**
    - For the first READY task in dependency order:
@@ -288,119 +289,267 @@ Paste your next PATCHSET below.
 ``
 <<<PATCHSET START>>>
 
-# [META.UNBLOCK.READY_SEED]: Seed an immediate READY task and re-point NEXT to unblock the engine
+# [META.ROUTING.DUAL_TABLES]: Establish dual (DEV/PROD) routing tables + master route text reference + DNS bridge
 
-# FILE: ops/NEXT.yaml
+# FILE: masterroutetable.md
 
 ```full
-# NEXT POINTER — Single-file pointer for the next actionable task and file hints.
-# The AI should read this first, then confirm against Tasklist.md, then proceed.
-# GUIDANCE: If `next_task_id` is `NONE`, follow `guidance_when_none` below to pick the
-# first READY task, update this file, and document why.
+# Master Route Table (Human Reference)
+Last Updated (UTC): 2025-10-26T09:05:00Z
+Revision: 1.0
 
-guidance_when_none: |
-  - Inspect ops/RECOVERY.yaml; if `last_attempted_task_id` is still READY, restore it here and explain the resume.
-  - Otherwise open Tasklist.md and select the first READY task whose dependencies are DONE.
-  - Update `next_task_id`, trim `files_hint` to only the files you expect to touch, and bump `timestamp_utc`.
-  - Record the rationale in `note` so the next worker knows why the pointer moved.
+Purpose
+- Single, text-first index the AI can skim fast.
+- Always list router entrypoints first, then high-signal directories, then notable files.
+- Mirrors both DEV and PROD routing systems and points to the canonical router-of-routers (YAML) without duplicating it.
 
-next_task_id: META.UNBLOCK.READY_SEED
-reason: >
-  Unstick the patch engine after a NONE pointer / all-DONE state. Execute the seed task to
-  ensure there's always at least one READY item, then implement the safety-net guard next.
+Reading Order (start here)
+1) Router-of-Routers (YAML): ops/ROUTER_INDEX.yaml
+2) DEV Router Table (JSON): routes/dev/masterRouteTable.json
+3) PROD Router Table (JSON): routes/prod/masterRouteTable.json
+4) DNS Bridge (MD): DNS.md (crosswalk between DEV⇄PROD)
 
-files_hint:
-  - "Tasklist.md"
-  - "Prompt.md"
-  - ".github/workflows/guard-meta.yml"
-  - "scripts/guard_meta.sh"
+Metadata expectations (stamped by AI when touched)
+- Each file the AI touches should have: revision, timestamp (UTC), last_task_id, one-line purpose.
+- When AI finds a routable file without metadata, it should add a side-note entry here under “Newly Discovered (Unmapped)”.
 
-timestamp_utc: 2025-10-26T08:05:00Z
-router_version: 1
-last_notes_read_utc: 2025-10-26T07:45:00Z
-note: "NEXT → META.UNBLOCK.READY_SEED; follow with META.NO_READY.SAFETY_NET to enforce 'always ≥1 READY'."
+Routers (directory → ROUTER.md)
+- ops/ROUTER.md — Ops & Governance; owns NEXT/TOUCHMAP/CRITICAL; meta docs and scripts.
+- scripts/ROUTER.md — Repo scripts; refresh_vision / guards / scaffolding.
+- src/ROUTER.md — App source umbrella; see sub-routers.
+- src/bot/ROUTER.md — Discord bot commands/flows; DM Home, Wilds, Arena, Admin Ops.
+- src/core/ROUTER.md — Core mechanics; battle/encounter engines, status/damage.
+- tests/ROUTER.md — Vitest specs; coverage for battle flow, ops, data pipeline.
+
+High-Signal Areas (skim-first cues)
+- /src/bot/ops/admin.ts — Admin stats, cooldown resets; recent filters (limit/after/participant).
+- /src/bot/battle/conclude.ts — Victory/forfeit persistence + announcer reuse.
+- /src/core/battle/** — Deterministic RNG, damage/type/status helpers.
+- /tests/** — Coverage for DM Home, capture, battle, admin ops.
+
+Newly Discovered (Unmapped)
+- (AI adds short entries here during runs when it touches files missing routing metadata)
+
+Notes
+- This page is non-runtime, developer-only. Keep concise and deterministic for AI navigation.
 ```
 
-# FILE: Tasklist.md
+# FILE: routes/dev/masterRouteTable.json
+
+```full
+{
+  "version": "v0.1.0",
+  "generatedUtc": "2025-10-26T09:05:00Z",
+  "routes": [
+    { "logicalName": "Ops.Index", "path": "ops/ROUTER_INDEX.yaml", "priority": 100 },
+    { "logicalName": "Ops.Router", "path": "ops/ROUTER.md", "priority": 95 },
+    { "logicalName": "Dev.MasterTable", "path": "masterroutetable.md", "priority": 90 },
+
+    { "logicalName": "Scripts.Router", "path": "scripts/ROUTER.md", "priority": 80 },
+    { "logicalName": "Src.Router", "path": "src/ROUTER.md", "priority": 80 },
+    { "logicalName": "Src.Bot.Router", "path": "src/bot/ROUTER.md", "priority": 70 },
+    { "logicalName": "Src.Core.Router", "path": "src/core/ROUTER.md", "priority": 70 },
+    { "logicalName": "Tests.Router", "path": "tests/ROUTER.md", "priority": 60 }
+  ]
+}
+```
+
+# FILE: routes/prod/masterRouteTable.json
+
+```full
+{
+  "version": "v0.1.0",
+  "generatedUtc": "2025-10-26T09:05:00Z",
+  "routes": [
+    { "logicalName": "Ops.Index", "path": "ops/ROUTER_INDEX.yaml", "priority": 100 },
+    { "logicalName": "Prod.Router", "path": "ops/ROUTER.md", "priority": 95 },
+
+    { "logicalName": "App.Bot", "path": "src/bot", "priority": 80 },
+    { "logicalName": "App.Core", "path": "src/core", "priority": 80 },
+    { "logicalName": "App.Tests", "path": "tests", "priority": 60 }
+  ]
+}
+```
+
+# FILE: routes/translators/devToProd.map.json
+
+```full
+{
+  "mappings": [
+    { "logicalName": "Ops.Index", "devRoute": "ops/ROUTER_INDEX.yaml", "prodRoute": "ops/ROUTER_INDEX.yaml" },
+    { "logicalName": "Ops.Router", "devRoute": "ops/ROUTER.md", "prodRoute": "ops/ROUTER.md" },
+    { "logicalName": "Dev.MasterTable", "devRoute": "masterroutetable.md", "prodRoute": "ops/ROUTER.md" },
+
+    { "logicalName": "Scripts.Router", "devRoute": "scripts/ROUTER.md", "prodRoute": "ops/ROUTER.md" },
+    { "logicalName": "Src.Router", "devRoute": "src/ROUTER.md", "prodRoute": "ops/ROUTER.md" },
+    { "logicalName": "Src.Bot.Router", "devRoute": "src/bot/ROUTER.md", "prodRoute": "src/bot" },
+    { "logicalName": "Src.Core.Router", "devRoute": "src/core/ROUTER.md", "prodRoute": "src/core" },
+    { "logicalName": "Tests.Router", "devRoute": "tests/ROUTER.md", "prodRoute": "tests" }
+  ]
+}
+```
+
+# FILE: DNS.md
+
+```full
+# Repository DNS (DEV ⇄ PROD Router Crosswalk)
+Last Updated (UTC): 2025-10-26T09:05:00Z
+Revision: 0.1
+
+Sources
+- DEV: routes/dev/masterRouteTable.json
+- PROD: routes/prod/masterRouteTable.json
+- Translator: routes/translators/devToProd.map.json
+
+Matrix (logicalName → devRoute ⇄ prodRoute)
+- Ops.Index → ops/ROUTER_INDEX.yaml ⇄ ops/ROUTER_INDEX.yaml [ok]
+- Ops.Router → ops/ROUTER.md ⇄ ops/ROUTER.md [ok]
+- Dev.MasterTable → masterroutetable.md ⇄ ops/ROUTER.md [ok]
+- Scripts.Router → scripts/ROUTER.md ⇄ ops/ROUTER.md [ok]
+- Src.Router → src/ROUTER.md ⇄ ops/ROUTER.md [ok]
+- Src.Bot.Router → src/bot/ROUTER.md ⇄ src/bot [ok]
+- Src.Core.Router → src/core/ROUTER.md ⇄ src/core [ok]
+- Tests.Router → tests/ROUTER.md ⇄ tests [ok]
+
+Notes
+- DEV table is navigation-optimized (docs-first), PROD table is runtime-facing (areas/dirs).
+- Translator is declarative and must remain bijective (no duplicate devRoute/prodRoute pairs).
+```
+
+# FILE: .github/workflows/routing-guard.yml
+
+```full
+name: routing-guard
+on:
+  pull_request:
+    paths:
+      - 'routes/**'
+      - 'DNS.md'
+      - 'ops/ROUTER_INDEX.yaml'
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate routing files exist
+        run: |
+          test -f routes/dev/masterRouteTable.json
+          test -f routes/prod/masterRouteTable.json
+          test -f routes/translators/devToProd.map.json
+          test -f DNS.md
+      - name: Validate bijection & completeness (lightweight)
+        run: |
+          node -e "
+            const fs=require('fs');
+            const dev=JSON.parse(fs.readFileSync('routes/dev/masterRouteTable.json','utf8'));
+            const prod=JSON.parse(fs.readFileSync('routes/prod/masterRouteTable.json','utf8'));
+            const map=JSON.parse(fs.readFileSync('routes/translators/devToProd.map.json','utf8'));
+            const d=new Set(dev.routes.map(r=>r.path));
+            const p=new Set(prod.routes.map(r=>r.path));
+            const sd=new Set(), sp=new Set();
+            for(const m of map.mappings){
+              if(sd.has(m.devRoute)||sp.has(m.prodRoute)){ throw new Error('Non-bijective mapping at '+m.logicalName); }
+              sd.add(m.devRoute); sp.add(m.prodRoute);
+            }
+            const md=new Set(map.mappings.map(m=>m.devRoute));
+            const mp=new Set(map.mappings.map(m=>m.prodRoute));
+            const missD=[...d].filter(x=>!md.has(x));
+            const missP=[...p].filter(x=>!mp.has(x));
+            if(missD.length||missP.length){ throw new Error('Unmapped routes DEV:'+missD.length+' PROD:'+missP.length); }
+          "
+```
+
+# FILE: Patch.md
 
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T07:25:00Z
--Revision: 1.23
-+Last Updated (UTC): 2025-10-26T08:05:00Z
-+Revision: 1.24
-@@
- ## Phase 0 — Repo & Tooling
-@@
-+- id: META.UNBLOCK.READY_SEED
-+  title: Seed an immediate READY task after meta-only or all-busy states
-+  status: READY
-+  depends_on: []
-+  acceptance_criteria:
-+    - When NEXT is NONE or all tasks are IN_PROGRESS/DONE, a minimal READY task exists to re-prime the engine.
-+    - guard-meta emits guidance in CI logs when no READY tasks are present.
-+    - Prompt.md “Last Repo Changes” records the seed action when triggered.
-+  notes: Manual seed to immediately unblock the patch engine; used after meta-only commits or accidental all-busy states.
-+
-+- id: META.NO_READY.SAFETY_NET
-+  title: Add CI/guard to prevent "no READY tasks" states
-+  status: PROPOSED
-+  depends_on: [META.UNBLOCK.READY_SEED]
-+  acceptance_criteria:
-+    - .github/workflows/guard-meta.yml fails when Tasklist.md has 0 READY tasks (excluding META.UNBLOCK.READY_SEED).
-+    - scripts/guard_meta.sh suggests the oldest eligible PROPOSED task to flip to READY.
-+    - ops/NEXT.yaml is suggested (in logs) to point at that READY task.
-+    - Patch.md documents this invariant and quick remediation steps.
-+  notes: Prevent future deadlocks by enforcing at least one READY item at all times.
+ ## ROUTER NETWORK (City Roadway Model)
+ - **Per-directory router:** A `ROUTER.md` lives in each directory that contains patchable code or docs. It declares Title, Purpose, Owned globs, and a short “Where to next” note.
+ - **Router-of-routers:** `ops/ROUTER_INDEX.yaml` lists every discovered router with path, purpose, and last-updated timestamp. It is regenerated by `scripts/update_router_index.sh` and must be refreshed before task selection.
+ - **Consistency rule:** If a PATCHSET touches any file under a routed directory, update that directory’s `ROUTER.md` (timestamp + brief note) in the same PATCHSET and re-run the index script.
++ - **Dual routing (DEV/PROD):** Maintain `routes/dev/masterRouteTable.json` (docs-first) and `routes/prod/masterRouteTable.json` (runtime areas). Keep a bijective translator in `routes/translators/devToProd.map.json` and a human DNS bridge in `DNS.md`. The AI must consult these prior to patching and tag any unmapped files it touches.
 ```
 
 # FILE: Prompt.md
 
 ```diff
 @@
--Timestamp (UTC): 2025-10-25T11:25:00Z
--Revision: 0.49
-+Timestamp (UTC): 2025-10-26T08:05:00Z
-+Revision: 0.50
+-Timestamp (UTC): 2025-10-26T08:55:00Z
+-Revision: 0.68
++Timestamp (UTC): 2025-10-26T09:05:00Z
++Revision: 0.69
 @@
--> Changes in this revision:
-+> Changes in this revision:
-+> - `ops/NEXT.yaml` — Re-pointed NEXT to `META.UNBLOCK.READY_SEED` with explicit files_hint to unblock the engine from a NONE/all-DONE state.
-+> - `Tasklist.md` — Added `META.UNBLOCK.READY_SEED` (READY) and `META.NO_READY.SAFETY_NET` (PROPOSED) to prevent future deadlocks.
-+> - `Prompt.md` — Bumped timestamp/revision and recorded the unblock plan.
+ > Changes in this revision:
++> - `routes/dev/masterRouteTable.json`, `routes/prod/masterRouteTable.json` — Introduced dual routing tables (dev/docs-first vs prod/runtime).
++> - `routes/translators/devToProd.map.json` — Declarative DEV⇄PROD mapping (bijective).
++> - `DNS.md` — Human-readable crosswalk between dev/prod routes.
++> - `masterroutetable.md` — Rewritten as text-first master reference with clear entry order and “newly discovered” staging.
++> - `.github/workflows/routing-guard.yml` — Lightweight CI guard for bijection and completeness.
++> - `Patch.md` — Documented dual routing requirement and lookup order.
+```
+
+# FILE: Tasklist.md
+
+```diff
+@@
+-Last Updated (UTC): 2025-10-26T08:55:00Z
+-Revision: 1.53
++Last Updated (UTC): 2025-10-26T09:05:00Z
++Revision: 1.54
+@@
++- id: META.ROUTING.DUAL_TABLES
++  title: Add DEV/PROD router tables, translator, DNS bridge, and master text table
++  status: DONE
++  depends_on: [META.ROUTER.NAME_GUARD]
++  acceptance_criteria:
++    - routes/dev & routes/prod masterRouteTable.json exist and are coherent.
++    - routes/translators/devToProd.map.json is bijective and complete.
++    - DNS.md renders a current crosswalk.
++    - masterroutetable.md is text-first and lists router entrypoints first.
++  notes: Outcome — Dual routing introduced with DNS bridge and CI guard; Patch.md updated to require lookup and tagging of unmapped files.
+```
+
+# FILE: ops/NEXT.yaml
+
+```diff
+@@
+-next_task_id: META.READY_QUEUE.NEXT_TASK
+-reason: >
+-  Promote substantive work back into READY immediately after landing the safety-net guard so
+-  the queue never runs dry again.
++next_task_id: META.DNS.AUTOGEN
++reason: >
++  Add a tiny generator script to refresh DNS.md and validate bijection locally; wire to npm scripts.
+@@
+-files_hint:
+-  - "Tasklist.md"
+-  - "Prompt.md"
+-  - "ops/NEXT.yaml"
++files_hint:
++  - "DNS.md"
++  - "routes/dev/masterRouteTable.json"
++  - "routes/prod/masterRouteTable.json"
++  - "routes/translators/devToProd.map.json"
++  - "Tasklist.md"
++  - "Prompt.md"
++  - "ops/NEXT.yaml"
+@@
+-note: "Safety-net guard complete → NEXT now points at META.READY_QUEUE.NEXT_TASK to keep the READY queue flowing."
++note: "Dual routing landed with a DNS bridge; next, add a tiny autogen script to keep DNS.md fresh locally."
 ```
 
 # TASKLIST UPDATE
 
 ```diff
 @@
--Last Updated (UTC): 2025-10-25T07:25:00Z
--Revision: 1.23
-+Last Updated (UTC): 2025-10-26T08:05:00Z
-+Revision: 1.24
-@@
- ## Phase 0 — Repo & Tooling
-@@
-+- id: META.UNBLOCK.READY_SEED
-+  title: Seed an immediate READY task after meta-only or all-busy states
++- id: META.DNS.AUTOGEN
++  title: Add a local DNS.md generator + npm script
 +  status: READY
-+  depends_on: []
++  depends_on: [META.ROUTING.DUAL_TABLES]
 +  acceptance_criteria:
-+    - When NEXT is NONE or all tasks are IN_PROGRESS/DONE, a minimal READY task exists to re-prime the engine.
-+    - guard-meta emits guidance in CI logs when no READY tasks are present.
-+    - Prompt.md “Last Repo Changes” records the seed action when triggered.
-+  notes: Manual seed to immediately unblock the patch engine; used after meta-only commits or accidental all-busy states.
-+
-+- id: META.NO_READY.SAFETY_NET
-+  title: Add CI/guard to prevent "no READY tasks" states
-+  status: PROPOSED
-+  depends_on: [META.UNBLOCK.READY_SEED]
-+  acceptance_criteria:
-+    - .github/workflows/guard-meta.yml fails when Tasklist.md has 0 READY tasks (excluding META.UNBLOCK.READY_SEED).
-+    - scripts/guard_meta.sh suggests the oldest eligible PROPOSED task to flip to READY.
-+    - ops/NEXT.yaml is suggested (in logs) to point at that READY task.
-+    - Patch.md documents this invariant and quick remediation steps.
-+  notes: Prevent future deadlocks by enforcing at least one READY item at all times.
++    - A script reads dev/prod tables + translator and rewrites DNS.md deterministically.
++    - npm run routes:dns regenerates the file; CI diff stays clean when up-to-date.
++  notes: Keeps DNS.md current without manual edits; complements the CI guard.
 ```
 
 <<<PATCHSET END>>>
@@ -408,17 +557,18 @@ note: "NEXT → META.UNBLOCK.READY_SEED; follow with META.NO_READY.SAFETY_NET to
 **Commit Message**
 
 ```
-[META.UNBLOCK.READY_SEED] Re-prime the engine with an immediate READY task and point NEXT at it
+[META.ROUTING.DUAL_TABLES] Dual routing (DEV/PROD) + DNS bridge + master text reference
 
 Why:
-The patch engine stopped when NEXT was NONE and all tasks were DONE/IN_PROGRESS. We need a deterministic seed so there is always at least one READY item, and a follow-up guard to prevent recurrence.
+We need a navigation-optimized DEV router, a runtime-oriented PROD router, and a clear crosswalk so the AI can learn, tag unmapped files, and avoid mixing dev-only “systems” into production code paths.
 
 Changes:
-* ops/NEXT.yaml: Set next_task_id → META.UNBLOCK.READY_SEED, added focused files_hint, and rationale.
-* Tasklist.md: Added META.UNBLOCK.READY_SEED (READY) and META.NO_READY.SAFETY_NET (PROPOSED); bumped header stamps.
-* Prompt.md: Bumped timestamp/revision and logged the unblock plan under Last Repo Changes.
+* Added routes/dev & routes/prod masterRouteTable.json and a bijective translator in routes/translators/.
+* Introduced DNS.md as a human-readable crosswalk, and rewrote masterroutetable.md as a text-first index.
+* Added a lightweight routing CI guard and documented the dual-routing rule in Patch.md.
+* Tasklist: recorded META.ROUTING.DUAL_TABLES (DONE) and queued META.DNS.AUTOGEN (READY).
+* NEXT: pointed to META.DNS.AUTOGEN; Prompt: updated metadata and Last Repo Changes.
 
 Acceptance:
-- Running the worker now finds a READY task (`META.UNBLOCK.READY_SEED`) and proceeds.
-- The follow-up guard task (`META.NO_READY.SAFETY_NET`) exists to wire CI so “no READY tasks” cannot recur.
+- DEV/PROD tables exist and map 1:1 via translator; DNS.md lists current mappings; CI guard validates bijection/completeness.
 ```

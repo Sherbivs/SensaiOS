@@ -9,19 +9,19 @@ guidance_when_none: |
   - Update `next_task_id`, trim `files_hint` to only the files you expect to touch, and bump `timestamp_utc`.
   - Record the rationale in `note` so the next worker knows why the pointer moved.
 
-next_task_id: META.NO_READY.SAFETY_NET
+next_task_id: T8.1
 reason: >
-  Wire the safety-net guard so CI fails when the READY queue runs dry and scripts auto-suggest
-  the next candidate. This follows the seed task that restored a READY item.
+  Deliver the first player-facing follow-up by surfacing persisted battle history on DM Home
+  now that the READY queue guard is in place.
 
 files_hint:
-  - "Tasklist.md"
-  - "Prompt.md"
-  - ".github/workflows/guard-meta.yml"
-  - "scripts/guard_meta.sh"
-  - "Patch.md"
+  - "src/bot/dm/home.tsx"
+  - "src/bot/dm/components/**"
+  - "src/models/**"
+  - "tests/dm_home.spec.ts"
+  - "tests/battle_results.spec.ts"
 
-timestamp_utc: 2025-10-26T08:30:00Z
+timestamp_utc: 2025-10-26T09:20:00Z
 router_version: 1
-last_notes_read_utc: 2025-10-26T08:30:00Z
-note: "Seed task DONE → NEXT now targeting META.NO_READY.SAFETY_NET to harden the ≥1 READY invariant."
+last_notes_read_utc: 2025-10-26T09:20:00Z
+note: "Promoted T8.1 (battle history on DM Home) to READY so product work resumes; guard stays satisfied."
