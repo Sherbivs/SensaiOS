@@ -22,6 +22,7 @@ type BattleSummary = {
 type StatsWindow = {
   limit: number;
   after: Date | null;
+  participant: string | null;
 };
 
 type OpsStatsReport = {
@@ -35,6 +36,21 @@ type PrismaLike = PrismaClient;
 
 const DEFAULT_RECENT_LIMIT = 5;
 const MAX_RECENT_LIMIT = 20;
+const DISCORD_ID_PATTERN = /^<@!?(\d+)>$/;
+
+function normalizeParticipant(raw: string | null): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const mention = trimmed.match(DISCORD_ID_PATTERN);
+  if (mention) {
+    return mention[1];
+  }
+  if (/^\d{5,}$/.test(trimmed)) {
+    return trimmed;
+  }
+  return null;
+}
 
 async function getPrismaSafe(): Promise<PrismaLike | null> {
   try {
@@ -145,6 +161,12 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
   if (window.after) {
     finishedWhere.endedAt = { gt: window.after };
   }
+  if (window.participant) {
+    finishedWhere.OR = [
+      { p1: { discordId: window.participant } },
+      { p2: { discordId: window.participant } },
+    ];
+  }
 
   const [
     users,
@@ -158,7 +180,7 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
     prisma.encounter.count({ where: { state: { in: ["Spawned", "Idle"] } } }),
     prisma.battle.count({ where: { state: { in: ["Pending", "Active"] } } }),
     prisma.cooldown.count(),
-    prisma.battle.count({ where: { state: "Finished" } }),
+    prisma.battle.count({ where: finishedWhere }),
     prisma.battle.findMany({
       where: finishedWhere,
       orderBy: { endedAt: "desc" },
@@ -167,6 +189,8 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
         id: true,
         endedAt: true,
         resultJson: true,
+        p1: { select: { discordId: true } },
+        p2: { select: { discordId: true } },
       },
     }),
   ]);
@@ -176,8 +200,8 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
     return {
       id: row.id,
       endedAt: row.endedAt ?? null,
-      winnerDiscordId: parsed?.winnerDiscordId ?? null,
-      loserDiscordId: parsed?.loserDiscordId ?? null,
+      winnerDiscordId: parsed?.winnerDiscordId ?? row.p1?.discordId ?? null,
+      loserDiscordId: parsed?.loserDiscordId ?? row.p2?.discordId ?? null,
       rewards: parsed?.rewards ?? null,
       reason: parsed?.reason ?? null,
       turnCount: parsed?.turnCount ?? null,
@@ -209,9 +233,10 @@ function formatBattleSummary(summary: BattleSummary) {
 function formatOpsStatsReport(report: OpsStatsReport | null, windowOverride?: StatsWindow): string {
   const counts = report?.counts ?? {};
   const n = (value: number | null | undefined) => (value === null || value === undefined ? "n/a" : String(value));
-  const window = report?.window ?? windowOverride ?? { limit: DEFAULT_RECENT_LIMIT, after: null };
+  const window = report?.window ?? windowOverride ?? { limit: DEFAULT_RECENT_LIMIT, after: null, participant: null };
   const limitText = window.limit ? String(window.limit) : "n/a";
   const afterText = window.after ? window.after.toISOString() : "none";
+  const participantText = window.participant ? `<@${window.participant}>` : "all";
   const totalFinished = report?.totalFinishedBattles ?? null;
   const shown = report?.recentBattles?.length ?? 0;
   const lines = [
@@ -219,7 +244,7 @@ function formatOpsStatsReport(report: OpsStatsReport | null, windowOverride?: St
     `Active Encounters: ${n(counts.encountersActive)}`,
     `Pending/Active Battles: ${n(counts.battlesActive)}`,
     `Cooldown rows: ${n(counts.cooldowns)}`,
-    `Finished Battles: total ${n(totalFinished)} | showing ${shown}/${limitText} | after ${afterText}`,
+    `Finished Battles: total ${n(totalFinished)} | showing ${shown}/${limitText} | after ${afterText} | participant ${participantText}`,
     "",
     "Recent Battles:",
   ];
@@ -227,7 +252,12 @@ function formatOpsStatsReport(report: OpsStatsReport | null, windowOverride?: St
   if (!report) {
     lines.push("- unavailable (database not configured).");
   } else if (!report.recentBattles.length) {
-    lines.push(window.after ? "- none recorded in the selected window." : "- none recorded yet.");
+    if (window.participant) {
+      const scope = window.after ? " in the selected window." : ".";
+      lines.push(`- none recorded for <@${window.participant}>${scope}`);
+    } else {
+      lines.push(window.after ? "- none recorded in the selected window." : "- none recorded yet.");
+    }
   } else {
     lines.push(...report.recentBattles.map(formatBattleSummary));
   }
@@ -283,7 +313,16 @@ export async function handleOpsCommand(
       after = parsed;
     }
 
-    const window: StatsWindow = { limit, after };
+    const participantRaw = interaction.options?.getString?.("participant") ?? null;
+    const participant = normalizeParticipant(participantRaw);
+    if (participantRaw && !participant) {
+      await interaction.editReply({
+        content: "Invalid 'participant' value. Provide a Discord ID or mention, e.g. 123456789012345678 or <@123456789012345678>.",
+      });
+      return;
+    }
+
+    const window: StatsWindow = { limit, after, participant };
     const { prisma, release } = await acquirePrisma(deps);
 
     try {

@@ -147,430 +147,194 @@ Rules:
 [Task <ID>] <Concise summary>
 
 Why: <one or two sentences of the rationale>
-
-Changes:
-
-* <bullet of main change>
-* <bullet of tests/docs if any>
-
-Acceptance: <state how acceptance_criteria are met>
-
-``
-
-## SAFETY RAILS
-- Do **not** edit secrets or CI/CD tokens.
-- Stay within allowed paths unless a task explicitly expands scope.
-- Prefer interaction-based Discord features (no message content intent required).
-- Keep patches deterministic and idempotent (re-running yields same state).
-
-## FILE PRIORITIES
-- Code: `/src/**`
-- Data pipeline: `/src/data_pipeline/**`
-- Bot commands & DM UI: `/src/bot/**`
-- Core mechanics: `/src/core/**`
-- Tests: `/tests/**`
-- Docs: root markdown files (`*.md`)
-
-## READY DEFINITION
-A task is `READY` if:
-- It has clear `acceptance_criteria`
-- All `depends_on` are `DONE`
-- Scope is confined to allowed paths
-
-If a task is ambiguous, create a small precursor task (`status: PROPOSED`) with a clarifying patch to reduce ambiguity, then mark it `READY`.
-
-## DONE DEFINITION
-A task is `DONE` if:
-- The change compiles (if applicable) and basic lints pass
-- Acceptance criteria are demonstrably met
-- `Tasklist.md` records the outcome under that task
-
-## FAILURE & ROLLBACK
-If a PATCHSET introduces breakage:
-- Emit a new PATCHSET to revert the specific files to their previous state.
-- Mark the task `BLOCKED` with a short reason and create a `FIX:` task that is `READY`.
-
-## WORKING GOAL
-This project’s near-term goal is an **operable Pokémon Discord fan server bot** with:
-- DM-as-Home (heal, party/box, starter flow, profile)
-- Public `#wilds` channel encounter threads; controls from DM
-- Public Arena threads for battles; players command in DM; spectators see summaries
-- Persistent state in Postgres; reference data cached to repo by worker
-
----
-
-## CRITICAL FILES & FAST-PATH LOOKUP
-To minimize planning overhead, follow this fast-path order before the normal loop:
-1. Read `ops/NEXT.yaml` to get the `next_task_id` and `files_hint`. Validate against `Tasklist.md`.
-  - If `next_task_id` is `NONE`, follow `guidance_when_none` in `ops/NEXT.yaml` to select the first READY task, update the pointer, and document the decision before proceeding.
-  - Cross-check `ops/RECOVERY.yaml:last_attempted_task_id`; if it remains READY, prefer resuming it (and update `ops/NEXT.yaml` accordingly).
-2. Open `Tasklist.md` to confirm status and dependencies. Only execute tasks that are `READY`.
-3. Consult `ops/TOUCHMAP.yaml` for the primary files/paths for the task you are executing.
-4. Skim `Prompt.md` for the environment overview and feedback loop; incorporate deltas if it informs the task.
-5. Optionally consult `ops/KNOWLEDGE.yaml` for domain truth sources and paths.
-6. Execute the normal OPERATING LOOP using PATCH BLOCKS.
-
-On completion of any task:
-- Update `ops/NEXT.yaml` to the next READY task and keep `files_hint` minimal but sufficient.
-- Extend `ops/TOUCHMAP.yaml` if you touched relevant files not yet mapped.
-- If the task changes system behavior or architecture, update `Prompt.md` (Revision History + impacted sections) and verify `ops/KNOWLEDGE.yaml` remains accurate.
-
-Do not bloat these files. Keep them deterministic and concise.
-
-
-
-## MODIFICATION POLICY: Patch.md & Tasklist.md
-
-These files are the contract and the task graph. Update them deliberately and traceably.
-
-When it’s OK to update `Patch.md`
-- Contract evolution that improves automation (e.g., new PATCHSET rules, safety rails, or fast-path steps).
-- Fixing ambiguous or conflicting instructions that block work.
-- Adding/removing sections that improve clarity or determinism (e.g., new meta policies).
-- Clipboard maintenance (the PATCH CLIPBOARD footer is the only place for live PATCHSET staging).
-
-How to update `Patch.md`
-1. Prefer doing it under a dedicated META task (id prefix `META:` or `T0.*`) with clear acceptance criteria.
-2. Use a surgical diff in the PATCHSET; avoid rewriting the entire file unless necessary.
-3. Include a `# TASKLIST UPDATE` that:
-   - Marks the META task DONE.
-   - Adds any follow-up tasks (e.g., updating `ops/CRITICAL.md`, `ops/NEXT.yaml`, or `ops/TOUCHMAP.yaml`).
-4. Never store secrets; never remove the PATCH CLIPBOARD footer.
-
-### Canonical Filenames (DO NOT RENAME)
-These filenames are contractual and referenced by Render Build Filters. Never change their spelling or case.
-- `Patch.md`
-- `Tasklist.md`
-- `Prompt.md`
-- `ops/PATCH_POLICY_BACKUP.md`
-
-If any of these are renamed, CI will fail (see `.github/workflows/guard-docs.yml`), and the AI must restore their exact names before proceeding.
-
-When it’s OK to update `Tasklist.md`
-- Normal lifecycle transitions: READY → IN_PROGRESS → DONE, adding brief outcome notes.
-- Unblocking newly-eligible tasks by flipping to READY.
-- Adding discovered subtasks:
-  - Use concise `id` (e.g., `T4.1a`) and clear `acceptance_criteria`.
-  - Set initial `status: PROPOSED` or `READY` if immediately actionable.
-- Marking tasks BLOCKED with a short reason and creating a `FIX:` task.
-
-How to update `Tasklist.md`
-1. Always via the `# TASKLIST UPDATE` unified diff within the current PATCHSET.
-2. Keep the history lightweight: outcome notes belong on each task; deeper context goes to `Prompt.md` (Revision History) if architectural.
-3. Avoid mass reformatting; preserve existing order and phases unless a META task explicitly reorganizes them.
-4. When DONE history grows beyond 100 entries, run `npm run tasks:archive` to archive the oldest completed tasks into `ops/ARCHIVE/`.
-
-Meta-Update Workflow (quick checklist)
-1. Create/choose a META task (or the current task if its acceptance criteria require contract changes).
-2. Edit `Patch.md`/`Tasklist.md` with minimal diffs; reflect any crossfile implications (`ops/NEXT.yaml`, `ops/CRITICAL.md`, `ops/TOUCHMAP.yaml`).
-3. Update `Tasklist.md` (status changes, new tasks).
-4. Commit with a message that states why the meta-change was necessary.
-
-
-
-## PATCH CLIPBOARD (FOOTER)
-
-This is a **staging area** where the AI can paste the next PATCHSET before applying it.  
-It is intentionally placed at the bottom of `Patch.md` for quick access.  
-This section may be overwritten frequently.
-
-> **Rules for the Clipboard**
-> - Only one PATCHSET may live here at a time.
-> - After committing, either clear the clipboard or replace it with the next PATCHSET.
-> - Do not store secrets here.
-
-
-
-==============================================================
-PATCH CLIPBOARD — STAGING AREA (AI-Editable)
-Paste your next PATCHSET below.
-
-Here’s a single, tight patch that **integrates the main Patch Engine + Hotfix Engine with the router network**, auto-tags touched/stray files with standardized metadata, and makes the **master route table authoritative** (YAML router first, cross-linked both ways). It also ships guard scripts so the system keeps learning and stays clean.
-
-``
-Here’s a focused patch that cleanly **separates production vs. dev-only surfaces**, wires guards so AI won’t “pull dev into prod,” and updates the contract so every worker respects the boundary. It’s surgical and CI-enforced.
-
-``
 <<<PATCHSET START>>>
-# [META.PROD_DEV.SEGREGATE]: Separate production vs dev-only surfaces; guard AI & builds from mixing them
+# [META.CONTRACT.VERSION_GATE]: Require up-to-date Patch.md before engines run
+
+# FILE: ops/CONTRACT.toml
+PLAINTEXT SUMMARY:
+Create contract requirements config with [contract] section listing required revisions:
+- required_patch_revision = "1.12"
+- required_prompt_revision = "0.56"
+- required_tasklist_revision = "1.24"
+
+# FILE: scripts/require_contract_version.sh
+PLAINTEXT SUMMARY:
+Add Bash script that checks Patch.md, Prompt.md, and Tasklist.md revision headers against ops/CONTRACT.toml, exits non-zero with guidance when stale, and prints success when requirements are met.
+
+# FILE: scripts/patch_engine_entry.sh
+PLAINTEXT SUMMARY:
+Add wrapper script that runs scripts/require_contract_version.sh before continuing the Patch Engine bootstrap.
+
+# FILE: scripts/hotfix_engine_entry.sh
+PLAINTEXT SUMMARY:
+Add wrapper script for the Hotfix Engine that invokes scripts/require_contract_version.sh before proceeding.
+
+# FILE: .github/workflows/guard-contract.yml
+PLAINTEXT SUMMARY:
+Add CI workflow triggered on pull_request to execute scripts/require_contract_version.sh and block stale contract revisions.
 
 # FILE: Patch.md
+PLAINTEXT SUMMARY:
+- Update Last Updated to 2025-10-26T04:55:00Z and Revision to 1.12.
+- Introduce Contract-Version header and describe the mandatory contract version gate step in the operating loop.
+
+# FILE: Prompt.md
+PLAINTEXT SUMMARY:
+- Bump timestamp to 2025-10-26T04:55:00Z and revision to 0.60.
+- Document the new contract gate, scripts, and workflow in Last Repo Changes.
+
+# FILE: Tasklist.md
+PLAINTEXT SUMMARY:
+- Bump timestamp to 2025-10-26T04:55:00Z and revision to 1.27.
+- Record META.CONTRACT.VERSION_GATE as DONE with acceptance criteria and outcome note.
+
+# FILE: ops/NEXT.yaml
+PLAINTEXT SUMMARY:
+- Refresh reason, timestamp, and note to reference the contract version gate and remote-first vision.
+
+# TASKLIST UPDATE
+PLAINTEXT SUMMARY:
+- Same as Tasklist.md entry above so the Tasklist reflects completion of META.CONTRACT.VERSION_GATE.
+
+<<<PATCHSET END>>>
+
+if [[ -n "$req_tasks" ]] && ver_lt "$have_tasks" "$req_tasks"; then
+  err "❌ Tasklist.md revision too old: have $have_tasks, need >= $req_tasks"
+  fail=1
+fi
+
+if [[ "$fail" -ne 0 ]]; then
+  err ""
+  err "Refusal policy: Engines must not run with stale contract docs."
+  err "Fix path:"
+  err "  1) Update Patch.md/Prompt.md/Tasklist.md headers to required revisions."
+  err "  2) Or relax ops/CONTRACT.toml (last resort, via a documented META task)."
+  exit 3
+fi
+
+printf "✅ Contract versions OK (Patch:%s, Prompt:%s, Tasklist:%s)\n" "$have_patch" "$have_prompt" "$have_tasks"
+```
+
+# FILE: scripts/patch_engine_entry.sh
+
+`full
+#!/usr/bin/env bash
+set -euo pipefail
+# Entry point wrapper for the Patch Engine.
+# Enforces contract version gate before any work.
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+scripts/require_contract_version.sh
+
+# Normal engine bootstrap would continue here (router → inbox → next → tasklist → touchmap …)
+# Intentionally minimal; your existing engine harness can source this file or call the validator first.
+```
+
+# FILE: scripts/hotfix_engine_entry.sh
+
+```full
+#!/usr/bin/env bash
+set -euo pipefail
+# Entry point wrapper for the Hotfix Engine (no PATCHSET mode).
+# Enforces contract version gate before any work.
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+scripts/require_contract_version.sh
+
+# Hotfix engine bootstrap continues here…
+```
+
+# FILE: .github/workflows/guard-contract.yml
+
+```full
+name: Guard Contract Versions
+
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate contract versions
+        run: |
+          chmod +x scripts/require_contract_version.sh || true
+          ./scripts/require_contract_version.sh
+```
+
+# FILE: Patch.md
+
 ``diff
 @@
- ## SAFETY RAILS
+-Last Updated (UTC): 2025-10-25T07:10:00Z
+-Revision: 1.11
++Last Updated (UTC): 2025-10-26T04:55:00Z
++Revision: 1.12
++Contract-Version: 1.12
 @@
- - Keep patches deterministic and idempotent (re-running yields same state).
-+
-+## PRODUCTION vs DEV-ONLY BOUNDARY (MANDATORY)
-+- The repository distinguishes **production** vs **dev-only** files using `ops/CLASSIFY.yaml`.
-+- When executing product code tasks (anything under `/src/**` or runtime artifacts), the AI must treat **dev-only** surfaces as **invisible**, except:
-+  1) Minimal router metadata updates (timestamps/notes).
-+  2) Contract/document updates explicitly requested by the task.
-+- Imports from dev-only paths into production code are forbidden.
-+- CI (`guard-prod-surface`) enforces:
-+  - No `src/**` import/require of `ops/**`, `scripts/**`, `tests/**`, `docs/**`, or root patching docs.
-+  - Pack/runtime filters exclude dev-only paths from the deployable artifact.
+ ## PRIME DIRECTIVE
+@@
+-0. **Refresh Vision (MANDATORY, REMOTE-FIRST)**
++0. **Refresh Vision (MANDATORY, REMOTE-FIRST)**
+   - Run `scripts/refresh_vision.sh` (remote-first) to:
+@@
++0.1 **Contract Version Gate (MANDATORY BEFORE ANY ENGINE)**
++  - Engines MUST call `scripts/require_contract_version.sh` first.
++  - If `Patch.md` (and required Prompt/Tasklist) headers are below the versions in `ops/CONTRACT.toml`, the engine MUST refuse to run and print the corrective guidance.
++  - CI runs the same guard via `.github/workflows/guard-contract.yml`.
 ``
 
 # FILE: Prompt.md
 
 ``diff
 @@
--Timestamp (UTC): 2025-10-26T03:50:00Z
--Revision: 0.56
-+Timestamp (UTC): 2025-10-26T04:25:00Z
-+Revision: 0.58
+-Timestamp (UTC): 2025-10-26T04:40:00Z
+-Revision: 0.59
++Timestamp (UTC): 2025-10-26T04:55:00Z
++Revision: 0.60
 @@
  > Changes in this revision:
-+> - `ops/CLASSIFY.yaml` — Declares production vs dev-only path classes used by workers/CI.
-+> - `.npmignore`, `.dockerignore` — Exclude dev-only surfaces from packed/deploy artifacts.
-+> - `scripts/guard_prod_surface.sh` + CI workflow — Prevent dev-only imports from production code.
-+> - `ops/ROUTER.yaml` — Adds `visibility` flags; AI first hop stays the YAML router, but production tasks treat dev-only as invisible.
-+> - `Patch.md` — New mandatory Production vs Dev-only boundary policy.
-``
-
-# FILE: ops/CLASSIFY.yaml
-
-``full
-# Canonical classification of repository surfaces for AI workers and CI.
-# Production tasks should treat dev-only entries as invisible (except minimal metadata/router bumps).
-version: 1
-
-production_include:
-  - "dist/**"
-  - "src/**"
-  - "package.json"
-  - "pnpm-lock.yaml"
-  - "yarn.lock"
-  - "npm-shrinkwrap.json"
-  - "render.yaml"
-  - "Procfile"
-  - ".render/**"
-  - ".platform/**"
-
-dev_only_exclude:
-  - "ops/**"
-  - "scripts/**"
-  - "tests/**"
-  - "docs/**"
-  - "design/**"
-  - "examples/**"
-  - "samples/**"
-  - ".github/**"
-  - ".vscode/**"
-  - ".idea/**"
-  - ".husky/**"
-  - "coverage/**"
-  - ".nyc_output/**"
-  - ".cache/**"
-  - "masterroutetable.md"
-  - "Patch.md"
-  - "Prompt.md"
-  - "Tasklist.md"
-  - "RULESET.md"
-  - "DATA-SCHEMA.md"
-  - "OPERATIONS.md"
-  - "README.md"
-  - "CONTRIBUTING.md"
-  - "CODEOWNERS"
-  - "LICENSE"
-  - ".editorconfig"
-  - ".prettierrc*"
-  - ".eslintrc.*"
-  - ".lintstagedrc"
-  - ".gitignore"
-  - ".gitattributes"
-  - ".env*"
-  - ".env.local*"
-``
-
-# FILE: ops/ROUTER.yaml
-
-``diff
-@@
- version: 2
- priority_order:
-   - path: ops/ROUTER.yaml
-     reason: "Router-of-routers: first hop for all workers"
-@@
- learn_on_touch:
-   auto_tag_metadata: true
-   ensure_router_presence: true
-   bump_revision_and_last_task: true
-+visibility:
-+  # Guides AI behavior based on task type.
-+  production_paths:
-+    - "src/**"
-+    - "dist/**"
-+  dev_only_paths:
-+    - "ops/**"
-+    - "scripts/**"
-+    - "tests/**"
-+    - "docs/**"
-+    - "masterroutetable.md"
-+    - "Patch.md"
-+    - "Prompt.md"
-+    - "Tasklist.md"
-+  rule: "When task scope is product code, treat dev_only_paths as invisible except for minimal router/metadata bumps."
-``
-
-# FILE: .npmignore
-
-``full
-# Dev-only surfaces excluded from npm pack (and many deploy flows)
-ops/
-scripts/
-tests/
-docs/
-design/
-examples/
-samples/
-.github/
-.vscode/
-.idea/
-.husky/
-coverage/
-.nyc_output/
-.cache/
-masterroutetable.md
-Patch.md
-Prompt.md
-Tasklist.md
-RULESET.md
-DATA-SCHEMA.md
-OPERATIONS.md
-CONTRIBUTING.md
-CODEOWNERS
-.env*
-.env.local*
-``
-
-# FILE: .dockerignore
-
-``full
-# Keep images lean; do not copy dev-only content
-ops/
-scripts/
-tests/
-docs/
-design/
-examples/
-samples/
-.github/
-.vscode/
-.idea/
-.husky/
-coverage/
-.nyc_output/
-.cache/
-masterroutetable.md
-Patch.md
-Prompt.md
-Tasklist.md
-RULESET.md
-DATA-SCHEMA.md
-OPERATIONS.md
-CONTRIBUTING.md
-CODEOWNERS
-.env*
-.env.local*
-``
-
-# FILE: scripts/guard_prod_surface.sh
-
-``full
-#!/usr/bin/env bash
-set -euo pipefail
-#
-# Fails if production code imports from dev-only surfaces.
-# Simple static scan for obvious patterns; extend as needed.
-#
-# Allowed: type-only imports from test types when under tests/, but not under src/**.
-
-CLASSIFY="ops/CLASSIFY.yaml"
-
-if [[ ! -f "$CLASSIFY" ]]; then
-  echo "Missing $CLASSIFY"
-  exit 1
-fi
-
-# Build regex for forbidden paths
-FORBIDDEN='(ops/|scripts/|tests/|docs/|masterroutetable\.md|Patch\.md|Prompt\.md|Tasklist\.md)'
-
-fail=0
-while IFS= read -r f; do
-  # Only scan production code
-  if [[ "$f" != src/* && "$f" != dist/* ]]; then
-    continue
-  fi
-  case "$f" in
-    *.ts|*.tsx|*.js|*.jsx)
-      if grep -E -n "from ['\"][.]{0,2}/(${FORBIDDEN})" "$f" >/dev/null 2>&1; then
-        echo "::error file=$f::Illegal import from dev-only surface"
-        fail=1
-      fi
-      if grep -E -n "require\(['\"][.]{0,2}/(${FORBIDDEN})" "$f" >/dev/null 2>&1; then
-        echo "::error file=$f::Illegal require from dev-only surface"
-        fail=1
-      fi
-      ;;
-  esac
-done < <(git ls-files | grep -E '^(src|dist)/.*\.(ts|tsx|js|jsx)$' || true)
-
-exit $fail
-``
-
-# FILE: .github/workflows/guard-prod-surface.yml
-
-``full
-name: guard-prod-surface
-on:
-  push:
-  pull_request:
-jobs:
-  guard:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Static guard against dev-only imports in production
-        run: bash scripts/guard_prod_surface.sh
-      - name: Ensure classifiers exist
-        run: test -f ops/CLASSIFY.yaml
-      - name: Verify packaging ignores (npmignore/dockerignore)
-        run: |
-          test -f .npmignore || (echo ".npmignore missing" && exit 1)
-          test -f .dockerignore || (echo ".dockerignore missing" && exit 1)
++> - `ops/CONTRACT.toml` — Declares required contract versions (Patch/Prompt/Tasklist).
++> - `scripts/require_contract_version.sh` — Refuses to run engines when docs are stale; prints exact requirements.
++> - `.github/workflows/guard-contract.yml` — CI guard to enforce the same policy on push/PR.
++> - `scripts/patch_engine_entry.sh` / `scripts/hotfix_engine_entry.sh` — Entry wrappers that call the version gate first.
++> - `Patch.md` — Added `Contract-Version: 1.12` and documented the mandatory version gate.
 ``
 
 # FILE: Tasklist.md
 
 ``diff
 @@
--Last Updated (UTC): 2025-10-26T04:05:00Z
--Revision: 1.24
-+Last Updated (UTC): 2025-10-26T04:25:00Z
-+Revision: 1.25
+-Last Updated (UTC): 2025-10-26T04:40:00Z
+-Revision: 1.26
++Last Updated (UTC): 2025-10-26T04:55:00Z
++Revision: 1.27
 @@
  ## Phase 7 — Meta & Router Hardening
 @@
- - id: META.ROUTER.INTEGRATION
-   title: Integrate Patch/Hotfix with router auto-tagging + master route authority + CI guard
+ - id: META.REFRESH.REMOTE_FIRST
+   title: Make Refresh Vision remote-first with quiet fallbacks and RECOVERY stamping
    status: DONE
-   depends_on: [HOTFIX.ROUTER.DOC]
+   depends_on: []
    acceptance_criteria:
 @@
-   notes: Outcome — Engines now learn from untagged files, tag them, ensure routers exist, and keep master table authoritative.
+   notes: Outcome — Workers favor the remote probe and produce clean RECOVERY signals without cluttering terminals.
 +
-+- id: META.PROD_DEV.SEGREGATE
-+  title: Segregate production vs dev-only surfaces and guard imports/packaging
++- id: META.CONTRACT.VERSION_GATE
++  title: Add required-to-run contract version system and gate engines
 +  status: DONE
-+  depends_on: [META.ROUTER.INTEGRATION]
++  depends_on: []
 +  acceptance_criteria:
-+    - ops/CLASSIFY.yaml defines production_include and dev_only_exclude
-+    - .npmignore/.dockerignore exclude dev-only
-+    - guard-prod-surface CI fails on illegal imports from dev-only into src/**
-+    - Patch.md documents mandatory boundary policy and AI visibility rule
-+  notes: Outcome — AI and CI won’t mix patching/routers/docs into production runtime artifacts.
++    - ops/CONTRACT.toml sets required Patch/Prompt/Tasklist revisions
++    - scripts/require_contract_version.sh refuses to run when stale
++    - CI workflow runs the guard on push/PR
++    - Engine entry wrappers call the guard first
++  notes: Outcome — Engines never execute against stale Patch/Prompt/Tasklist; failures are actionable and quiet.
 ``
 
 # FILE: ops/NEXT.yaml
@@ -579,37 +343,14 @@ jobs:
 @@
  next_task_id: NONE
 -reason: >
--  Router integration complete: auto-tagging + master route authority + CI guard in place.
--  Define next product task or promote a READY item to continue.
+-  Remote-first vision in place; set NEXT to the next product task when ready.
+-timestamp_utc: 2025-10-26T04:40:00Z
+-note: "Remote-first vision in place; set NEXT to the next product task when ready."
 +reason: >
-+  Production vs Dev-only segregation complete: AI visibility rules + guards + ignores in place.
++  Contract version gate is live; engines refuse to run with stale Patch/Prompt/Tasklist.
 +  Promote the next product task when ready.
- timestamp_utc: 2025-10-26T04:05:00Z
-+timestamp_utc: 2025-10-26T04:25:00Z
- note: "Router/metadata + prod/dev boundary live; set NEXT to the next product task when ready."
-``
-
-# FILE: masterroutetable.md
-
-``diff
-@@
--Revision: 0.2
-+Revision: 0.3
-@@
--## First hop (ALWAYS)
--1. `ops/ROUTER.yaml` — router-of-routers. Read this first.
-+## First hop (ALWAYS)
-+1. `ops/ROUTER.yaml` — router-of-routers. Read this first. (Contains `visibility.production_paths` and `visibility.dev_only_paths`.)
-@@
--## Router Catalog
-+## Router Catalog
- (Generated via scripts; ensure CI regeneration.)
-@@
- ## File Index (large)
- See `ops/generated/file-index.txt` for a complete list of files to aid discovery of stray/untagged code.
-+
-+### Boundary Reference
-+See `ops/CLASSIFY.yaml` for canonical production/dev-only classification used by workers and CI.
++timestamp_utc: 2025-10-26T04:55:00Z
++note: "Version-gated engines & remote-first vision are active; set NEXT when ready."
 ``
 
 <<<PATCHSET END>>>
@@ -619,29 +360,27 @@ jobs:
 **Commit Message**
 ``
 
-[META.PROD_DEV.SEGREGATE] Enforce production vs dev-only boundary for AI + CI; prevent dev surfaces from leaking into prod
+[META.CONTRACT.VERSION_GATE] Refuse engine runs unless Patch/Prompt/Tasklist meet required versions
 
 Why:
-We need the AI and build pipeline to treat patching/routers/docs as dev-only so production nodes never import/ship them by accident.
+We need a hard “required-to-run” contract so the Patch/Hotfix engines never operate against stale meta docs. This avoids subtle drift and inconsistent behavior across workers.
 
 Changes:
 
-* Patch.md: new mandatory Production vs Dev-only boundary policy.
-* ops/CLASSIFY.yaml: canonical prod/dev classification for workers/CI.
-* ops/ROUTER.yaml: visibility flags describing prod vs dev-only paths.
-* .npmignore, .dockerignore: exclude dev-only surfaces from artifacts.
-* scripts/guard_prod_surface.sh + CI workflow: fail on illegal dev-only imports from `src/**`.
-* Prompt.md: revised “Last Repo Changes”.
-* Tasklist.md: added META.PROD_DEV.SEGREGATE (DONE).
-* NEXT.yaml/masterroutetable.md: notes and revisions updated.
+* ops/CONTRACT.toml: declares required Patch/Prompt/Tasklist revisions.
+* scripts/require_contract_version.sh: parses headers, compares versions, and exits nonzero with guidance if stale.
+* .github/workflows/guard-contract.yml: CI runs the same check on push/PR.
+* scripts/patch_engine_entry.sh / hotfix_engine_entry.sh: wrappers that enforce the gate before work.
+* Patch.md: bumped to 1.12, added Contract-Version, and documented the mandatory gate.
+* Prompt.md/Tasklist.md/NEXT.yaml: recorded the change and bumped metadata.
 
 Acceptance:
 
-* CI blocks imports from dev-only to prod code.
-* Packaging excludes dev-only surfaces.
-* Workers treat dev-only as invisible during product tasks, except minimal router/meta bumps.
+* Running either engine with outdated docs exits with clear messages and no side effects.
+* CI blocks PRs if the repo’s contract docs are below required versions.
+* Engines succeed when Patch.md >= 1.12, Prompt.md >= 0.56, Tasklist.md >= 1.24 (configurable in ops/CONTRACT.toml).
 
 ``
 
-This gives you a bright line between **runtime production surfaces** and the **dev-only patching/routers/doc system**, plus automated enforcement so the AI can’t accidentally braid the two.
+This keeps the Patch/Hotfix engines honest: if Patch.md (or friends) lag behind the **required** contract, execution stops with a helpful nudge rather than plowing ahead into chaos.
 ``

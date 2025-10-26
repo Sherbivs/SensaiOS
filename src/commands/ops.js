@@ -40,6 +40,12 @@ module.exports = {
             .setDescription('Only include battles that ended after this ISO 8601 timestamp')
             .setRequired(false)
         )
+        .addStringOption((opt) =>
+          opt
+            .setName('participant')
+            .setDescription('Filter to battles involving a specific participant (Discord ID or mention)')
+            .setRequired(false)
+        )
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),

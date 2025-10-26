@@ -44,7 +44,7 @@ describe('/ops stats reporting', () => {
         getSubcommandGroup: vi.fn().mockReturnValue(null),
         getUser: vi.fn(),
         getInteger: vi.fn().mockReturnValue(null),
-        getString: vi.fn().mockReturnValue(null),
+        getString: vi.fn((name: string) => null),
       } as any,
       deferReply: deferReply as any,
       editReply: editReply as any,
@@ -96,7 +96,7 @@ describe('/ops stats reporting', () => {
     expect(prisma.battle.findMany).toHaveBeenCalled();
     const content: string = editReply.mock.calls[0][0].content;
     expect(content).toContain('Users: 3');
-    expect(content).toContain('Finished Battles: total 7 | showing 1/5 | after none');
+    expect(content).toContain('Finished Battles: total 7 | showing 1/5 | after none | participant all');
     expect(content).toContain('Recent Battles:');
     expect(content).toContain('battle-1');
     expect(content).toContain('<@winner> over <@loser>');
@@ -108,7 +108,7 @@ describe('/ops stats reporting', () => {
     const getIntegerMock = interaction.options.getInteger as unknown as Mock;
     const getStringMock = interaction.options.getString as unknown as Mock;
     getIntegerMock.mockReturnValue(2);
-    getStringMock.mockReturnValue('2025-10-26T00:30:00Z');
+    getStringMock.mockImplementation((name: string) => (name === 'after' ? '2025-10-26T00:30:00Z' : null));
 
     const battleCount = vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(10);
     const prisma = {
@@ -144,7 +144,7 @@ describe('/ops stats reporting', () => {
     expect((call.where.endedAt.gt as Date).toISOString()).toBe('2025-10-26T00:30:00.000Z');
 
     const content: string = editReply.mock.calls[0][0].content;
-    expect(content).toContain('Finished Battles: total 10 | showing 2/2 | after 2025-10-26T00:30:00.000Z');
+    expect(content).toContain('Finished Battles: total 10 | showing 2/2 | after 2025-10-26T00:30:00.000Z | participant all');
     expect(content).toContain('battle-2');
     expect(content).toContain('battle-3');
   });
@@ -152,7 +152,7 @@ describe('/ops stats reporting', () => {
   it('reports when no battles exist in the selected window', async () => {
     const { interaction, editReply } = baseInteraction();
     const getStringMock = interaction.options.getString as unknown as Mock;
-    getStringMock.mockReturnValue('2025-10-26T02:00:00Z');
+    getStringMock.mockImplementation((name: string) => (name === 'after' ? '2025-10-26T02:00:00Z' : null));
 
     const battleCount = vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(9);
     const prisma = {
@@ -170,7 +170,7 @@ describe('/ops stats reporting', () => {
     });
 
     const content: string = editReply.mock.calls[0][0].content;
-    expect(content).toContain('Finished Battles: total 9 | showing 0/5 | after 2025-10-26T02:00:00.000Z');
+    expect(content).toContain('Finished Battles: total 9 | showing 0/5 | after 2025-10-26T02:00:00.000Z | participant all');
     expect(content).toContain('none recorded in the selected window');
   });
 
@@ -182,7 +182,91 @@ describe('/ops stats reporting', () => {
     });
 
     const content: string = editReply.mock.calls[0][0].content;
-    expect(content).toContain('Finished Battles: total n/a | showing 0/5 | after none');
+    expect(content).toContain('Finished Battles: total n/a | showing 0/5 | after none | participant all');
     expect(content).toContain('unavailable (database not configured)');
+  });
+
+  it('filters battles by participant mention when provided', async () => {
+    const { interaction, editReply } = baseInteraction();
+    const getStringMock = interaction.options.getString as unknown as Mock;
+    getStringMock.mockImplementation((name: string) => {
+      if (name === 'participant') {
+        return '<@123456789012345678>';
+      }
+      return null;
+    });
+
+    const battleCount = vi
+      .fn()
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(4);
+    const prisma = {
+      user: { count: vi.fn().mockResolvedValue(2) },
+      encounter: { count: vi.fn().mockResolvedValue(0) },
+      battle: {
+        count: battleCount,
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'battle-filtered',
+            endedAt: new Date('2025-10-26T03:00:00Z'),
+            resultJson: { winner: { discordId: '123456789012345678' }, loser: { discordId: 'opponent' }, rewards: null, reason: 'victory', turnCount: 5 },
+          },
+        ]),
+      },
+      cooldown: { count: vi.fn().mockResolvedValue(0) },
+    } as any;
+
+    await handleOpsCommand(interaction, {
+      prismaFactory: async () => prisma,
+    });
+
+    const finishedCall = prisma.battle.count.mock.calls[1][0];
+    expect(finishedCall.where.OR).toEqual([
+      { p1: { discordId: '123456789012345678' } },
+      { p2: { discordId: '123456789012345678' } },
+    ]);
+
+    const content: string = editReply.mock.calls[0][0].content;
+    expect(content).toContain('participant <@123456789012345678>');
+    expect(content).toContain('<@123456789012345678> over <@opponent>');
+  });
+
+  it('rejects invalid participant values', async () => {
+    const { interaction, editReply } = baseInteraction();
+    const getStringMock = interaction.options.getString as unknown as Mock;
+    getStringMock.mockImplementation((name: string) => (name === 'participant' ? 'bad value' : null));
+
+    await handleOpsCommand(interaction, {
+      prismaFactory: async () => null,
+    });
+
+    expect(editReply).toHaveBeenCalledWith({
+      content: "Invalid 'participant' value. Provide a Discord ID or mention, e.g. 123456789012345678 or <@123456789012345678>.",
+    });
+  });
+
+  it('scopes empty results messaging when participant filter is used', async () => {
+    const { interaction, editReply } = baseInteraction();
+    const getStringMock = interaction.options.getString as unknown as Mock;
+    getStringMock.mockImplementation((name: string) => (name === 'participant' ? '<@876543210987654321>' : null));
+
+    const battleCount = vi.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+    const prisma = {
+      user: { count: vi.fn().mockResolvedValue(1) },
+      encounter: { count: vi.fn().mockResolvedValue(0) },
+      battle: {
+        count: battleCount,
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      cooldown: { count: vi.fn().mockResolvedValue(0) },
+    } as any;
+
+    await handleOpsCommand(interaction, {
+      prismaFactory: async () => prisma,
+    });
+
+    const content: string = editReply.mock.calls[0][0].content;
+    expect(content).toContain('Finished Battles: total 0 | showing 0/5 | after none | participant <@876543210987654321>');
+    expect(content).toContain('none recorded for <@876543210987654321>');
   });
 });

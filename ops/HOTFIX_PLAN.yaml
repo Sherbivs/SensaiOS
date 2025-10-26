@@ -2,11 +2,11 @@
 # The Hotfix Engine reads this instead of relying on Patch.md/PATCHSET blocks.
 hotfix_task_id: NONE
 reason: >
-  No active hotfix. Use the bootstrap_template below to seed an emergency task
-  when production requires immediate attention.
+  HF.20251026.ECHO_DIALOG_PLAIN completed; echo narration now reads as
+  descriptive plain text. Hotfix queue is clear.
 files_hint: []
-timestamp_utc: 2025-10-26T06:25:00Z
-note: "Completed HF.20251026.PLAIN_ECHO_TEXT (plain-text PATCHSET echo guidance). Queue idle."
+timestamp_utc: 2025-10-26T07:05:00Z
+note: "HF.20251026.ECHO_DIALOG_PLAIN finished; follow standard loop for future requests."
 bootstrap_template:
   id: "HF.<YYYYMMDD>.<short_slug>"
   title: "Emergency fix: <summary>"

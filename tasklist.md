@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T06:25:00Z
-Revision: 1.47
+Last Updated (UTC): 2025-10-26T07:05:00Z
+Revision: 1.49
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -510,6 +510,16 @@ Each task has:
     - Hotfix metadata files record completion of this change.
   notes: Outcome — Echo guidance now prevents markdown embedding issues by requiring simple sentences without bullet markers.
 
+- id: HF.20251026.ECHO_DIALOG_PLAIN
+  title: Expand PATCHSET echo narration while keeping plain-text format
+  status: DONE
+  depends_on: [HF.20251026.PLAIN_ECHO_TEXT]
+  acceptance_criteria:
+    - Prompt.md echo block uses sentence-form change summaries that mirror patchset structure without embedding file objects.
+    - Tasklist.md and ops/RECOVERY.yaml capture the hotfix completion details.
+    - Hotfix plan pointer references the new hotfix and touched files only.
+  notes: Outcome — Prompt echo now reads as a multi-sentence patchset recap without embedding file objects; Tasklist, Hotfix plan, and Recovery ledger log the update.
+
 - id: HOTFIX:SETUP.ROUTER_TABLE
   title: Scaffold master router table stub for hotfix readiness
   status: DONE
@@ -603,10 +613,10 @@ Each task has:
 
 - id: T7.7
   title: Add participant filter to admin battle summaries
-  status: PROPOSED
+  status: DONE
   depends_on: [T7.6]
   acceptance_criteria:
     - `/ops stats` accepts an optional participant (Discord ID or mention) to show only battles involving that trainer.
     - Report header clarifies the participant scope and handles no-match messaging.
     - Tests cover filtering when the specified trainer wins, loses, or has no results.
-  notes: Extends the admin audit tooling so staff can focus on specific trainers without querying the database directly.
+  notes: Outcome — `/ops stats` now validates participant mentions/IDs, scopes headers + empty messaging, updates command registration, and Vitest covers mention filtering, invalid input, and no-result cases.

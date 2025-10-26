@@ -11,15 +11,15 @@ guidance_when_none: |
 
 next_task_id: NONE
 reason: >
-  Hotfix bootstrap guidance landed. No READY tasks remain; promote the next
-  feature/meta item (e.g., T7.7) before resuming the loop.
+  Participant filtering for `/ops stats` shipped under T7.7. No READY tasks
+  remain; promote the next persistence follow-up before resuming the loop.
 
 files_hint: []
 
-timestamp_utc: 2025-10-26T05:15:00Z
+timestamp_utc: 2025-10-26T06:45:00Z
 router_version: 1
-last_notes_read_utc: 2025-10-26T05:15:00Z
-note: "Hotfix engine now documents how to seed HF.* tasks when the queue is empty. Promote the next priority task and update this pointer accordingly."
+last_notes_read_utc: 2025-10-26T06:45:00Z
+note: "T7.7 delivered participant filtering. Stage the next persistence backlog item (e.g., T7.8) and update this pointer once READY."
 
 # Advisory flag read by guard scripts; safe to ignore if unsupported
 auto_requeue_if_none: true

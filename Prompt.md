@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T06:25:00Z
-Revision: 0.62
+Timestamp (UTC): 2025-10-26T07:05:00Z
+Revision: 0.64
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,17 +10,19 @@ Revision: 0.62
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `Patch.md` — PATCHSET echo guidance now specifies plain text sentences (no Markdown bullets) to prevent embedding issues.
-> - `Prompt.md` — Echo block converted to plain text and metadata bumped.
-> - `tasklist.md`, `ops/HOTFIX_PLAN.yaml`, `ops/RECOVERY.yaml` — Logged hotfix HF.20251026.PLAIN_ECHO_TEXT completion and refreshed timestamps.
-> - `ops/ROUTER.md`, `ops/ROUTER_INDEX.yaml` — Updated ops router notes after the meta tweak.
+> - `Prompt.md` — Rewrote the PATCHSET echo section into multi-sentence narration that keeps the dialog readable without embedding file objects.
+> - `tasklist.md` — Logged HF.20251026.ECHO_DIALOG_PLAIN, updated metadata, and marked the hotfix as complete.
+> - `ops/HOTFIX_PLAN.yaml` — Reset the hotfix pointer after completing HF.20251026.ECHO_DIALOG_PLAIN.
+> - `ops/RECOVERY.yaml` — Captured the latest hotfix attempt and completion details.
 > - Tests: Not run (npm unavailable in this environment).
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: Unable to capture git diff/commit text in this VFS environment; summarizing instead.
-TasklistDiff: true
-HF.20251026.PLAIN_ECHO_TEXT updated Patch.md to prefer plain text in the echo and adjusted Prompt/Tasklist/Recovery metadata accordingly.
-NEXT pointer remains NONE; promote the next READY feature/meta task before resuming.
+PATCHSET SUMMARY START
+Prompt document now carries a full-sentence echo recap so the section reads like a patchset dialogue without embedding file objects.
+Hotfix tracker lists HF.20251026.ECHO_DIALOG_PLAIN with Tasklist, Prompt, and Recovery as the only touched areas for this adjustment.
+Tasklist metadata is incremented to capture the in-progress hotfix alongside the earlier plain-text echo requirement.
+NEXT pointer remains NONE while this hotfix focuses solely on tightening the echo narrative.
+PATCHSET SUMMARY END
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -48,6 +50,8 @@ Workflow mirrors the Patch Engine but restricts edits to `ops/HOTFIX_PLAN.yaml` 
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-26 | HF.20251026.ECHO_DIALOG_PLAIN expanded the PATCHSET echo narration. | Prompt echo now delivers detailed plain-text sentences while avoiding embedded file objects; Tasklist and hotfix metadata track the update. |
+| 2025-10-26 | T7.7 added participant filtering to admin battle summaries. | `/ops stats` now accepts optional participant mentions/IDs, updates report headers, and tests cover mention filtering + no-result messaging. |
 | 2025-10-26 | HF.20251026.PLAIN_ECHO_TEXT required plain text formatting in PATCHSET echo. | Patch.md now directs workers to avoid Markdown bullets in the echo; Prompt/Tasklist/Recovery updated via hotfix. |
 | 2025-10-26 | HF.20251026.AUTO_HOTFIX_DEFAULT defaulted triggerless requests to Hotfix Engine. | Contract instructs workers to run hotfix loop when humans omit activation phrases; meta files updated accordingly. |
 | 2025-10-26 | HF.20251026.PATCH_ECHO_MD enforced Markdown formatting in PATCHSET echo. | Patch.md now requires list markers and Prompt.md implements the guidance for quick audits. |
