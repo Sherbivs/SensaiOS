@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T05:45:00Z
-Revision: 0.60
+Timestamp (UTC): 2025-10-26T06:25:00Z
+Revision: 0.62
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,17 +10,17 @@ Revision: 0.60
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `Patch.md` — Embedded PATCHSET Echo instructions now require Markdown list formatting for audit readability.
-> - `Prompt.md` — Echo block switched to Markdown bullets; metadata updated.
-> - `tasklist.md`, `ops/HOTFIX_PLAN.yaml`, `ops/RECOVERY.yaml` — Logged hotfix HF.20251026.PATCH_ECHO_MD completion and refreshed hotfix bookkeeping.
-> - `ops/ROUTER.md`, `ops/ROUTER_INDEX.yaml` — Timestamped ops router after the hotfix meta updates.
+> - `Patch.md` — PATCHSET echo guidance now specifies plain text sentences (no Markdown bullets) to prevent embedding issues.
+> - `Prompt.md` — Echo block converted to plain text and metadata bumped.
+> - `tasklist.md`, `ops/HOTFIX_PLAN.yaml`, `ops/RECOVERY.yaml` — Logged hotfix HF.20251026.PLAIN_ECHO_TEXT completion and refreshed timestamps.
+> - `ops/ROUTER.md`, `ops/ROUTER_INDEX.yaml` — Updated ops router notes after the meta tweak.
 > - Tests: Not run (npm unavailable in this environment).
 
 <!-- PATCHSET:ECHO BEGIN -->
 NO-ECHO-REASON: Unable to capture git diff/commit text in this VFS environment; summarizing instead.
 TasklistDiff: true
-- HF.20251026.PATCH_ECHO_MD — Patch.md now mandates Markdown lists in the echo; Prompt.md block follows the rule.
-- NEXT pointer — Remains NONE; promote the next READY feature/meta task before resuming.
+HF.20251026.PLAIN_ECHO_TEXT updated Patch.md to prefer plain text in the echo and adjusted Prompt/Tasklist/Recovery metadata accordingly.
+NEXT pointer remains NONE; promote the next READY feature/meta task before resuming.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -48,6 +48,8 @@ Workflow mirrors the Patch Engine but restricts edits to `ops/HOTFIX_PLAN.yaml` 
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-26 | HF.20251026.PLAIN_ECHO_TEXT required plain text formatting in PATCHSET echo. | Patch.md now directs workers to avoid Markdown bullets in the echo; Prompt/Tasklist/Recovery updated via hotfix. |
+| 2025-10-26 | HF.20251026.AUTO_HOTFIX_DEFAULT defaulted triggerless requests to Hotfix Engine. | Contract instructs workers to run hotfix loop when humans omit activation phrases; meta files updated accordingly. |
 | 2025-10-26 | HF.20251026.PATCH_ECHO_MD enforced Markdown formatting in PATCHSET echo. | Patch.md now requires list markers and Prompt.md implements the guidance for quick audits. |
 | 2025-10-26 | HF.BROKEN.TASKFLOW documented hotfix bootstrap template. | Hotfix engine can seed READY tasks via ops/HOTFIX_PLAN.yaml; NEXT/RECOVERY reflect the new guidance. |
 | 2025-10-26 | T7.6 added filters to admin battle summaries. | `/ops stats` now supports limit/after filters, reports total finished battles, and validates inputs with expanded Vitest coverage. |

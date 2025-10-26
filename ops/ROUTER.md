@@ -2,9 +2,11 @@
 Title: Ops & Governance
 Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-10-26T05:45:00Z
+Last Updated (UTC): 2025-10-26T06:25:00Z
 
 Notes:
+- 2025-10-26: Hotfix set PATCHSET echo to plain text sentences and refreshed meta bookkeeping.
+- 2025-10-26: Hotfix contract now defaults triggerless requests to the Hotfix Engine; meta timestamps refreshed.
 - 2025-10-26: Hotfix enforced Markdown formatting for PATCHSET echo metadata and refreshed recovery notes.
 - 2025-10-26: Documented hotfix bootstrap template, cleared NEXT to NONE, and refreshed recovery metadata.
 - 2025-10-26: Documented Hotfix Engine contract + pointer and updated meta routing notes.

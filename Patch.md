@@ -63,6 +63,7 @@ After completing a task, update `Tasklist.md` *convulsively* (immediately) to re
   - Update `Tasklist.md` (ensure a hotfix task exists, mark it DONE with outcome).
   - Update any touched directory `ROUTER.md` (timestamp + short note) and keep routing metadata consistent.
 - Hotfixes may edit `Patch.md` only when the contract itself requires updates for the urgent fix.
+- When a human request lacks an explicit activation trigger, treat it as `ACTIVATE: HOTFIX ENGINE` and follow the hotfix loop without prompting for clarification.
 
 ### Worker Prompt Requirement
 - `Prompt.md` MUST contain the section titled exactly “AI Worker Prompt (copy/paste for Copilot/GPT)”.
@@ -98,7 +99,7 @@ Hotfix commits still **must** bump Prompt.md and update Tasklist.md.
 - The echo must contain either:
   1) The exact PATCHSET and Commit Message just applied (verbatim), including the HEAD short SHA, or
   2) A one-line justification starting with `NO-ECHO-REASON:` explaining why the echo is omitted (e.g., secrets, large binaries), followed by a brief summary.
-- Format the echo contents using Markdown list markers (e.g., `-` or numbered lists) so humans can scan changes quickly.
+- Format the echo contents as plain text sentences (avoid Markdown list markers) so downstream renderers do not reflow the audit.
 - If the echo cannot be produced, stop and add a PROPOSED meta task to fix echo generation.
   - When code paths are modified, add a single line in this block with `TasklistDiff: true|false` so humans can quickly audit coupling coverage.
 

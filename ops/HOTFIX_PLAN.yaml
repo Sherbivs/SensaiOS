@@ -5,8 +5,8 @@ reason: >
   No active hotfix. Use the bootstrap_template below to seed an emergency task
   when production requires immediate attention.
 files_hint: []
-timestamp_utc: 2025-10-26T05:45:00Z
-note: "Completed HF.20251026.PATCH_ECHO_MD (Markdown echo guidance); hotfix queue idle."
+timestamp_utc: 2025-10-26T06:25:00Z
+note: "Completed HF.20251026.PLAIN_ECHO_TEXT (plain-text PATCHSET echo guidance). Queue idle."
 bootstrap_template:
   id: "HF.<YYYYMMDD>.<short_slug>"
   title: "Emergency fix: <summary>"

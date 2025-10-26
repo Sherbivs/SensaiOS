@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T05:45:00Z
-Revision: 1.45
+Last Updated (UTC): 2025-10-26T06:25:00Z
+Revision: 1.47
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -489,6 +489,26 @@ Each task has:
     - Patch.md explicitly states the Embedded PATCHSET Echo must use Markdown list markers.
     - Prompt.md echo block for the latest change uses Markdown bullet formatting.
   notes: Outcome — Hotfix updated Patch.md guidance and Prompt.md implementation so audit echoes stay consistently formatted.
+
+- id: HF.20251026.AUTO_HOTFIX_DEFAULT
+  title: Default to Hotfix Engine when no trigger specified
+  status: DONE
+  depends_on: [META.HOTFIX.SYSTEM]
+  acceptance_criteria:
+    - Patch.md states that absent an explicit activation trigger, requests are treated as hotfix operations.
+    - Prompt.md revision documents the contract change.
+    - Hotfix metadata (ops/HOTFIX_PLAN.yaml, ops/RECOVERY.yaml) logs completion.
+  notes: Outcome — Contract now instructs future AIs to assume Hotfix Engine for triggerless human requests, ensuring minimal-scope edits by default.
+
+- id: HF.20251026.PLAIN_ECHO_TEXT
+  title: Require plain text formatting inside PATCHSET echo
+  status: DONE
+  depends_on: [META.HOTFIX.SYSTEM]
+  acceptance_criteria:
+    - Patch.md specifies that the echo should avoid Markdown list markers and remain plain text.
+    - Prompt.md echo block reflects the plain text format.
+    - Hotfix metadata files record completion of this change.
+  notes: Outcome — Echo guidance now prevents markdown embedding issues by requiring simple sentences without bullet markers.
 
 - id: HOTFIX:SETUP.ROUTER_TABLE
   title: Scaffold master router table stub for hotfix readiness
