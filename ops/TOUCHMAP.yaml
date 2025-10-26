@@ -200,6 +200,18 @@ META.CONTRACTS.SWITCH:
   - "masterroutetable.md"
   - "ops/ROUTER.md"
 
+META.CONTRACTS.CLIPBOARD_BOTTOM:
+  - "Patch.md"
+  - "Prompt.md"
+  - "tasklist.md"
+
+META.HOTFIX.TRIGGER_SUFFIX:
+  - "Patch.md"
+  - "Prompt.md"
+  - "ops/HOTFIX.md"
+  - "ops/NEXT.yaml"
+  - "tasklist.md"
+
 META.PATCHSET_ECHO:
   - "Prompt.md"
   - ".github/workflows/guard-meta.yml"

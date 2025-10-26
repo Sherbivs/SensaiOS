@@ -1,16 +1,9 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-26T14:20:00Z
-Revision: 1.31
+Last Updated (UTC): 2025-10-26T16:05:00Z
+Revision: 1.33
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally.
-
-## Patch Clipboard
-- Paste the exact patchset (matching `Patch-Template.md`) below this heading before you begin editing so humans can audit the plan.
-- After the run, clear or archive the clipboard if humans do not need the scratchpad.
-- Marker detection reads this section; keep `<<<PATCHSET START>>>` intact when Contract Mode is required.
-
-_Patch Clipboard Scratch Area (leave empty when not in use)_
 
 ## Marker Switch
 - The marker string `<<<PATCHSET START>>>` toggles **Contract Mode**. When present, every contract rule and CI guard applies.
@@ -87,9 +80,16 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 - Even for meta-only changes, state why the work matters.
 
 ## Hotfix Loop (no PATCHSET)
-- Trigger with `ACTIVATE: HOTFIX ENGINE`.
+- Trigger with `ACTIVATE: HOTFIX ENGINE`, optionally appending `: <short note>` for human routing; the prefix before the second colon must match exactly.
 - Hotfix ignores the marker switch unless the human also omits the marker; overrides stack only when explicitly invoked.
 - Restrict edits to `ops/HOTFIX_PLAN.yaml`, `ops/NEXT.yaml`, `Tasklist.md`, and files listed in the hotfix request.
 - Restore `ops/NEXT.yaml` to a READY task before exiting; leave a note documenting the state.
 
 Stay disciplined. The repository must always exit a run with a READY pointer, a clean PATCHSET echo, and accurate history.
+
+## Patch Clipboard
+- Paste the exact patchset (matching `Patch-Template.md`) below this heading before you begin editing so humans can audit the plan.
+- After the run, clear or archive the clipboard if humans do not need the scratchpad.
+- Marker detection reads this section; keep `<<<PATCHSET START>>>` intact when Contract Mode is required.
+
+_Patch Clipboard Scratch Area (leave empty when not in use)_

@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T14:20:00Z
-Revision: 0.76
+Timestamp (UTC): 2025-10-26T16:05:00Z
+Revision: 0.78
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,68 +10,46 @@ Revision: 0.76
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `Patch.md`, `Patch-Template.md` — Added the Patch Clipboard marker switch, Absolutes, and plain-text PATCHSET guidance.
-> - `ops/CRITICAL.md`, `ops/HOTFIX.md`, `ops/NEXT.yaml`, `ops/TOUCHMAP.yaml`, `masterroutetable.md`, `ops/ROUTER.md` — Documented Markerless Mode expectations and refreshed routing metadata.
-> - `scripts/guard_meta.sh`, `scripts/ROUTER.md`, `ops/RECOVERY.yaml` — Guard now detects the marker, relaxes contract checks in Markerless Mode, and enforces Absolutes while recovery logs contract state.
-> - `Prompt.md`, `Tasklist.md` — Recorded META.CONTRACTS.SWITCH completion, updated PATCHSET Echo requirements, and noted the new contract flow.
+> - `Patch.md`, `ops/HOTFIX.md` — Documented that the hotfix trigger may include an optional trailing note while keeping the exact prefix intact.
+> - `tasklist.md`, `ops/NEXT.yaml` — Recorded META.HOTFIX.TRIGGER_SUFFIX as DONE and refreshed the NEXT pointer timestamp/note.
+> - `ops/TOUCHMAP.yaml`, `Prompt.md` — Routed the new meta task and captured the trigger guidance in the worker prompt.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Completed META.CONTRACTS.SWITCH to add the marker-aware contract, guard updates, and refreshed meta routing notes.
+Summary: Landed META.HOTFIX.TRIGGER_SUFFIX to allow optional hotfix trigger notes and synced supporting meta docs.
 TasklistDiff: true
-Tests: Not run (tooling unavailable for guard scripts in this environment).
+Tests: Not run (meta-only change; guard tooling unavailable here).
 Contracts: ON (marker present; Contract Mode enforced).
-NEXT: META.READY_QUEUE.NEXT_TASK remains queued to promote the next READY candidate per readiness policy.
+NEXT: META.READY_QUEUE.NEXT_TASK stays queued as the next promotion target to keep the flow hot.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task META.CONTRACTS.SWITCH] Marker switch contract and guard updates
+[Task META.HOTFIX.TRIGGER_SUFFIX] Allow optional notes after the hotfix trigger
 
 FILE: Patch.md
-Change: Added the Patch Clipboard scratch area, marker switch toggle, Absolutes, updated pre/postflight guidance, and plain-text PATCHSET rules.
-
-FILE: Patch-Template.md
-Change: Converted the template to plain text, aligned section order, and documented the marker reminder.
-
-FILE: ops/CRITICAL.md
-Change: Documented marker switch behaviour and Absolutes in the fast-path guidance.
+Change: Bumped metadata and clarified that `ACTIVATE: HOTFIX ENGINE` may include a trailing `: <note>` while keeping the prefix exact.
 
 FILE: ops/HOTFIX.md
-Change: Clarified how the marker switch interacts with explicit Hotfix activation.
+Change: Updated trigger documentation, marker guidance, and metadata to describe the optional suffix.
 
-FILE: Prompt.md
-Change: Refreshed metadata, Last Repo Changes, PATCHSET Echo requirements, and worker guidance for Markerless Mode.
-
-FILE: Tasklist.md
-Change: Recorded META.CONTRACTS.SWITCH as DONE with acceptance criteria and updated headers.
+FILE: tasklist.md
+Change: Logged META.HOTFIX.TRIGGER_SUFFIX as DONE with acceptance criteria and notes, including header bumps.
 
 FILE: ops/NEXT.yaml
-Change: Added Markerless Mode reminder, refreshed timestamp, and updated note.
+Change: Refreshed the timestamp/note to capture the hotfix trigger documentation update.
 
 FILE: ops/TOUCHMAP.yaml
-Change: Mapped META.CONTRACTS.SWITCH to the touched meta files.
+Change: Added the new meta task routing to the relevant meta files for future editors.
 
-FILE: masterroutetable.md
-Change: Prioritized ops/ROUTER.yaml and noted markerless expectations.
-
-FILE: ops/ROUTER.md
-Change: Logged the marker switch contract update and refreshed the timestamp.
-
-FILE: scripts/ROUTER.md
-Change: Documented guard_meta marker detection behaviour and refreshed the timestamp.
-
-FILE: scripts/guard_meta.sh
-Change: Detected the clipboard marker, relaxed contract checks in Markerless Mode, and enforced Absolutes (canonical files, routers, NEXT pointer).
-
-FILE: ops/RECOVERY.yaml
-Change: Logged last_run_contracts and last_run_reason guidance for reconciliation.
+FILE: Prompt.md
+Change: Updated metadata, Last Repo Changes, PATCHSET Echo, and patch summary to reflect the trigger guidance change.
 
 # TASKLIST UPDATE
-Change: Added META.CONTRACTS.SWITCH outcome notes while keeping META.READY_QUEUE.NEXT_TASK READY.
+Change: Recorded META.HOTFIX.TRIGGER_SUFFIX as DONE while keeping META.READY_QUEUE.NEXT_TASK ready for promotion.
 
 <<<PATCHSET END>>>
 
-Tests: Not run (meta-only change; no automated guard execution available here).
+Tests: Not run (meta-only change; guard tooling unavailable here).
 
 Next steps:
 1. Run `npm run guard:meta` (or CI equivalent) when tooling is available to confirm marker enforcement.

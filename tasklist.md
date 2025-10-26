@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T14:20:00Z
-Revision: 1.62
+Last Updated (UTC): 2025-10-26T16:05:00Z
+Revision: 1.64
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -56,6 +56,24 @@ Each task has:
     - CRITICAL/HOTFIX/Prompt document the override; guard_meta respects the marker while enforcing Absolutes.
     - NEXT, TOUCHMAP, masterroutetable, and RECOVERY capture Markerless Mode expectations.
   notes: Outcome — Marker switch landed with guard updates; Prompt, NEXT, and recovery metadata now record Contracts ON/OFF while guard_meta enforces Absolutes even in Markerless runs.
+- id: META.CONTRACTS.CLIPBOARD_BOTTOM
+  title: Move Patch Clipboard guidance to contract footer
+  status: DONE
+  depends_on: [META.CONTRACTS.SWITCH]
+  acceptance_criteria:
+    - Patch.md relocates the Patch Clipboard section to the final section without losing marker guidance.
+    - Prompt.md Last Repo Changes and PATCHSET Echo record the relocation for auditors.
+    - ops/TOUCHMAP.yaml maps the task to Patch.md so future editors know where to touch.
+  notes: Outcome — Clipboard instructions now live at the bottom of Patch.md; meta docs updated and NEXT retargeted to queue maintenance.
+- id: META.HOTFIX.TRIGGER_SUFFIX
+  title: Support hotfix trigger notes after the colon
+  status: DONE
+  depends_on: [META.CONTRACTS.CLIPBOARD_BOTTOM]
+  acceptance_criteria:
+    - Patch.md and ops/HOTFIX.md document that `ACTIVATE: HOTFIX ENGINE` may carry a trailing `: <note>` while preserving the exact prefix.
+    - Prompt.md and ops/TOUCHMAP.yaml record the update so future workers follow the revised trigger guidance.
+    - ops/NEXT.yaml timestamp/note refreshed to capture the documentation change.
+  notes: Outcome — Hotfix trigger now accepts an optional human-context note without breaking the deterministic prefix; meta routing docs updated accordingly.
 - id: META.REPO.RESTORE_STRUCTURE
   title: Clean stale meta docs and restore guard workflows
   status: DONE
