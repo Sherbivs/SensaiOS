@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T00:45:00Z
-Revision: 0.52
+Timestamp (UTC): 2025-10-26T01:20:00Z
+Revision: 0.53
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,15 +10,14 @@ Revision: 0.52
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `[T7.3]` `src/models/index.ts` — Exported battle player type and scaled default rewards when persisting results.
-> - `[T7.3]` `src/bot/battle/conclude.ts`, `src/bot/battle/actions.ts` — Centralized battle result announcements and routed forfeits through the persistence helper.
-> - `[T7.3]` `tests/battle_results.spec.ts`, `tests/battle_flow.spec.ts` — Added coverage for BattleRepo rewards and forfeit announcement wiring.
-> - `[T7.3]` `ops/NEXT.yaml`, router docs/index — Reset NEXT pointer after T7.3 and timestamped routers for battle persistence work.
+> - `[META.BACKLOG.T7.NEXT]` `Tasklist.md` — Added T7.4 (READY) for victory persistence and T7.5 (PROPOSED) for admin reporting, logging the meta outcome.
+> - `[META.BACKLOG.T7.NEXT]` `ops/NEXT.yaml`, `ops/RECOVERY.yaml` — Pointed execution to T7.4 with fresh snapshot metadata.
+> - `[META.BACKLOG.T7.NEXT]` `ops/TOUCHMAP.yaml`, `ops/ROUTER.md`, `ops/ROUTER_INDEX.yaml` — Mapped new tasks and timestamped ops router documentation.
 
 <!-- PATCHSET:ECHO BEGIN -->
 NO-ECHO-REASON: Pending human commit; see summary for changed files.
 TasklistDiff: true
-- Persisted battle results (BattleRepo + announcer) with new Vitest coverage and reset NEXT pointer.
+- Planned post-T7.3 backlog (T7.4 READY, T7.5 PROPOSED) and updated NEXT/TOUCHMAP/Recovery pointers.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -39,6 +38,7 @@ ACTIVATE: PATCH ENGINE
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-26 | META.BACKLOG.T7.NEXT queued victory persistence + reporting follow-ups. | Tasklist now includes T7.4 (READY) and T7.5 (PROPOSED); NEXT/Touchmap/NEXT pointer aimed at victory persistence. |
 | 2025-10-26 | T7.3 persisted battle outcomes with shared announcer + tests. | BattleRepo writes rewards, DM/thread summaries reuse stored results, and Vitest covers persistence/forfeit flow. |
 | 2025-10-25 | META.BACKLOG.T7.3 promoted battle persistence follow-up. | Tasklist + NEXT point at T7.3 (battle results persistence) with router timestamps updated for ops guidance. |
 | 2025-10-25 | Deployment wiring: Render database provisioning + env fallbacks. | render.yaml provisions managed Postgres, config reads Render env aliases, README documents the setup. |

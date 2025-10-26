@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T00:45:00Z
-Revision: 1.37
+Last Updated (UTC): 2025-10-26T01:20:00Z
+Revision: 1.38
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -489,3 +489,33 @@ Each task has:
     - DM summaries reference stored results; arena thread posts include reward overview.
     - Tests validate at least one stored battle record and reward distribution.
   notes: Outcome — BattleRepo now persists results + coin rewards, shared announcer DM/thread updates run off stored data, and Vitest covers reward increments + forfeit handler wiring.
+
+- id: META.BACKLOG.T7.NEXT
+  title: Plan post-T7.3 persistence backlog and repoint NEXT
+  status: DONE
+  depends_on: [T7.3]
+  acceptance_criteria:
+    - Document follow-up battle persistence tasks (victory flow, reporting) in Tasklist.
+    - At least one newly-added task is set to READY with clear files and dependencies.
+    - ops/NEXT.yaml updated to target the READY task with rationale and files_hint.
+  notes: Outcome — Added T7.4 (victory persistence) and T7.5 (results reporting); NEXT now points at T7.4.
+
+- id: T7.4
+  title: Persist standard battle victories via BattleRepo
+  status: READY
+  depends_on: [T7.3]
+  acceptance_criteria:
+    - Non-forfeit battle conclusions call BattleRepo.concludeBattle with real turn counts and full logs.
+    - Arena thread and DM announcements reuse the stored result payload for victory cases.
+    - Tests cover a scripted victory path persisting rewards and messaging.
+  notes: Focus on wiring the existing battle engine output into persistence so both trainers receive stored summaries.
+
+- id: T7.5
+  title: Surface recent battle results to admins
+  status: PROPOSED
+  depends_on: [T7.4]
+  acceptance_criteria:
+    - `/ops stats` (or a sibling subcommand) lists at least the five most recent finished battles with winner/loser + rewards.
+    - Query handles empty history gracefully and reuses stored resultJson.
+    - Tests exercise admin reporting with mocked Prisma data.
+  notes: Builds on persisted battles to give admins quick visibility into arena outcomes.

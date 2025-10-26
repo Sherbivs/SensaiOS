@@ -110,6 +110,19 @@ T7.3:
   - "src/models/**"
   - "tests/battle_flow.spec.ts"
 
+T7.4:
+  - "src/bot/battle/**"
+  - "src/core/battle/**"
+  - "src/models/**"
+  - "tests/battle_flow.spec.ts"
+  - "tests/battle_results.spec.ts"
+
+T7.5:
+  - "src/bot/ops/admin.ts"
+  - "src/models/**"
+  - "tests/ops.spec.ts"
+  - "tests/battle_results.spec.ts"
+
 # Glob prefixes to catch future tasks in the same family
 "Phase 0*":
   - "/ops/**"
