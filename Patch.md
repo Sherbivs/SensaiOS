@@ -104,7 +104,7 @@ Hotfix commits still **must** bump Prompt.md and update Tasklist.md.
 ## PATCH BLOCKS (MANDATORY FORMAT)
 Use the following structure for every change. Provide full-file content for creates/overwrites; use unified diffs for surgical edits when safer.
 
-```
+``
 
 <<<PATCHSET START>>>
 
@@ -112,7 +112,7 @@ Use the following structure for every change. Provide full-file content for crea
 
 # FILE: <path/to/file.ext>
 
-```full
+``full
 <entire new file content here>
 ```
 
@@ -126,13 +126,13 @@ Use the following structure for every change. Provide full-file content for crea
 
 # TASKLIST UPDATE
 
-```diff
+``diff
 <unified diff patch against Tasklist.md that updates statuses, adds tasks, etc.>
 ```
 
 <<<PATCHSET END>>>
 
-```
+``
 
 Rules:
 - Each PATCHSET handles exactly **one** Task ID.
@@ -140,7 +140,7 @@ Rules:
 - Always include a `# TASKLIST UPDATE` diff at the end of the PATCHSET.
 
 ## COMMIT MESSAGE TEMPLATE
-```
+``
 
 [Task <ID>] <Concise summary>
 
@@ -153,7 +153,7 @@ Changes:
 
 Acceptance: <state how acceptance_criteria are met>
 
-```
+``
 
 ## SAFETY RAILS
 - Do **not** edit secrets or CI/CD tokens.
@@ -215,7 +215,7 @@ On completion of any task:
 
 Do not bloat these files. Keep them deterministic and concise.
 
----
+
 
 ## MODIFICATION POLICY: Patch.md & Tasklist.md
 
@@ -264,7 +264,7 @@ Meta-Update Workflow (quick checklist)
 3. Update `Tasklist.md` (status changes, new tasks).
 4. Commit with a message that states why the meta-change was necessary.
 
----
+
 
 ## PATCH CLIPBOARD (FOOTER)
 
@@ -277,140 +277,149 @@ This section may be overwritten frequently.
 > - After committing, either clear the clipboard or replace it with the next PATCHSET.
 > - Do not store secrets here.
 
-```
+
 
 ==============================================================
 PATCH CLIPBOARD — STAGING AREA (AI-Editable)
 Paste your next PATCHSET below.
 
-Here’s a focused patch that (1) adds a readiness check for the Hotfix system, (2) introduces a dedicated `ACTIVATE: HOTFIX TASKS` trigger to set up/advance next steps when Patch.md’s PATCHSET is stale or irrelevant, and (3) reiterates that Hotfix must not depend on Patch.md’s PATCHSET except as an optional reference.
+Got it. You’ve already updated `Prompt.md` to 0.56 and described the hotfix changes, so here’s a single patch that **makes the repo match that description**: adds the master router table, links the standardized logic doc in `ops/ROUTER.yaml`, stamps recovery, and records the hotfix task in the tasklist. It’s lean, deterministic, and avoids any speculative edits.
+
+
 
 <<<PATCHSET START>>>
-# [META.HOTFIX.READINESS]: Add Hotfix readiness checks + ACTIVATE: HOTFIX TASKS trigger + non-reliance on Patch.md PATCHSET content
+# [HOTFIX.ROUTER.DOC]: Master router table + router link to standardized game-logic doc + recovery/task stamps
 
-# FILE: Patch.md
-``diff
-@@
- The Hotfix Engine is a fast lane for surgical changes. It **does not** require embedding a PATCHSET block, but it must follow the same accountability loop as Patch:
- 
- **Activation (exact human-facing prompt)**
- - The Hotfix subsystem is triggered by the following sentence (case-insensitive for “hotfix/hotffix” and “activate”):
-   - `"The trigger term (ex. ACTIVATE: HOTFIX ENGINE)": Human parsed patch request for the workflow engine`
-   - Notes:
-     - Accept both `ACTIVATE: HOTFIX ENGINE` and the common misspelling `ACTIVATE: HOTFFIX ENGINE`.
-     - Treat surrounding whitespace and trailing punctuation as insignificant.
- 
-+**Secondary trigger for task preparation**
-+- To set up or advance follow-on work when the Patch engine’s PATCHSET is stale or not applicable, use:
-+  - `ACTIVATE: HOTFIX TASKS`
-+- Behavior:
-+  - Do **not** generate a PATCHSET block.
-+  - Prepare or update actionable tasks directly in `Tasklist.md` and pointer details in `ops/NEXT.yaml`.
-+  - If needed, create a short-lived `HOTFIX:SETUP` task (immediately marked `DONE`) that records what was primed.
-+
- **Parity requirements (MANDATORY)**
-@@
- - Contract visibility:
-   - Hotfixes **may** edit `Patch.md` when doing so improves clarity/accuracy of the hotfix rules or trigger spec.
-+
-+**Hotfix Readiness Check (MANDATORY before applying any change)**
-+On Hotfix activation (either trigger), perform a quick readiness audit:
-+- Confirm the presence and readability of:
-+  - `Tasklist.md`, `Prompt.md`, `ops/NEXT.yaml`, `ops/ROUTER_INDEX.yaml` (or `ops/ROUTER.yaml` if used), and `masterroutetable.md` (root).
-+- If any are missing, create or repair minimal stubs sufficient for Hotfix to proceed, then:
-+  - Add a `HOTFIX:SETUP` entry to `Tasklist.md` (immediately `DONE`) documenting what was scaffolded.
-+  - Add a bullet to **Last Repo Changes** in `Prompt.md` describing the repair.
-+
-+**Non-reliance on Patch.md’s PATCHSET (IMPORTANT)**
-+- The Hotfix subsystem **must not rely** on the PATCHSET clipboard/echo in `Patch.md` as a requirement to run.
-+- It **may** read the PATCHSET sections *only as reference* when they contain clearly relevant facts or instructions.
-+- If ambiguity remains, Hotfix should write a short “Hotfix Notes / Questions” bullet in `Prompt.md` and (optionally) stage follow-ups via `ACTIVATE: HOTFIX TASKS`.
-````
+# FILE: masterroutetable.md
+full
+# Master Router Table
+Last Updated (UTC): 2025-10-26T03:50:00Z
+Revision: 0.1
 
-# FILE: Prompt.md
+Purpose: Canonical inventory of routing surfaces. This file is updated **after any router-related change** to keep AI “vision” synchronized.
 
-````diff
-@@
--Timestamp (UTC): 2025-10-25T11:25:00Z
--Revision: 0.49
-+Timestamp (UTC): 2025-10-25T12:20:00Z
-+Revision: 0.51
-@@
- > Changes in this revision:
-+> - `Patch.md` — Added Hotfix readiness audit, secondary `ACTIVATE: HOTFIX TASKS` trigger, and explicit non-reliance on Patch.md’s PATCHSET.
-+> - `Prompt.md` — Documented Hotfix Tasks trigger in Activation Internals and clarified the fallback workflow.
-+> - `Tasklist.md` — Logged META.HOTFIX.READINESS as DONE with acceptance notes.
-@@
- ### Activation Internals (what happens on trigger)
- 1) Refresh Vision (`scripts/refresh_vision.sh`) → verifies remote GitHub access for `Sherbivs/Infinity-Gauntlet`, regenerates `ops/ROUTER_INDEX.yaml`, optionally updates the Prompt ledger, and stamps `ops/RECOVERY.yaml` with remote/local metadata.
-   - If running in a restricted IDE/VFS without shell access, inform the human by saying: `Refresh Vision: I couldn't run refresh_vision.sh in this environment—please execute it locally when possible.`
- 2) Read `ops/RECOVERY.yaml`; if `last_attempted_task_id` is present, prefer resuming that task unless superseded in `ops/NEXT.yaml`.
- 3) Proceed with the operating loop and emit exactly one PATCHSET + Commit Message.
- 
- ---
- 
- ## Hotfix Trigger (no PATCHSET block; parity with Patch duties)
-@@
- Notes:
- - Accept `ACTIVATE: HOTFIX ENGINE` **or** the common misspelling `ACTIVATE: HOTFFIX ENGINE`.
- - After triggering, the Hotfix flow must still:
-   - Bump Prompt timestamp/revision and record a concise bullet under **Last Repo Changes**.
-   - Update Tasklist (create a `HOTFIX:*` task if none exists; mark `DONE` with one-line outcome).
-   - Update any touched `ROUTER.md` and keep `masterroutetable.md` accurate.
-   - Add “Hotfix Notes / Questions” in Prompt.md if any risks or follow-ups exist.
-+
-+### Hotfix Tasks Trigger (prepare/advance tasks without a PATCHSET)
-+Use this when the current Patch clipboard is stale or irrelevant but you need to set up actionable work:
-+
-+```
-+ACTIVATE: HOTFIX TASKS
-+```
-+
-+Behavior:
-+- Perform the Hotfix Readiness Check (Tasklist/Prompt/NEXT/router/masterroutetable presence).
-+- Create or update tasks directly in `Tasklist.md` and advance `ops/NEXT.yaml` to the next actionable `READY` task.
-+- Record a brief bullet under **Last Repo Changes** describing the setup (e.g., “Primed T7.3 and advanced NEXT to T7.3”).
-+- Do **not** emit a PATCHSET block; the next Patch/Hotfix run will execute the queued task(s).
-````
+## How to use
+- On start, workers (Patch or Hotfix) read this file to discover routers fast.
+- Each entry has: path, kind, purpose, and “start-here” hint if a worker spawns in that directory.
+- If any router is updated, bump its timestamp here in the same commit.
 
-# FILE: Tasklist.md
+## Active Routers (stubbed for Hotfix readiness)
+- `ops/ROUTER.yaml` — kind: index — purpose: canonical AI read/write map (meta + categories). Start-here: check `ops/NEXT.yaml`.
+- `ops/ROUTER_INDEX.yaml` — kind: generated — purpose: discovered per-directory ROUTER.md rollup. Start-here: scan for touched dirs.
+- `src/ROUTER.md` — kind: dir-router — purpose: top-level source map; pointers to `bot/`, `core/`, `data_pipeline/`. Start-here: see section “Where to next”.
+- `src/bot/ROUTER.md` — kind: dir-router — purpose: commands, DM flows, listeners. Start-here: `commands/` then `dm/`.
+- `src/core/ROUTER.md` — kind: dir-router — purpose: battle/encounter engines. Start-here: `battle/engine.ts` and `encounter/`.
+- `tests/ROUTER.md` — kind: dir-router — purpose: test entry points by area. Start-here: search by task ID in titles.
 
-``diff
+## Global start note
+If the worker starts “cold” in an arbitrary path:
+1) Open `masterroutetable.md` (this file).
+2) Jump to `ops/NEXT.yaml` to get `next_task_id`.
+3) Load `Tasklist.md` and execute the first `READY` task that matches dependencies.
+4) Honor `ops/TOUCHMAP.yaml` when writing.
+
+
+
+# FILE: ops/ROUTER.yaml
+
+diff
+@@
+-# Canonical router for AI read/write (meta + categories)
++# Canonical router for AI read/write (meta + categories)
+
++docs_links:
++  # Linked reference: standardized Pokémon game logic overview (kept under discord-pokemon-bot/data/)
++  - path: discord-pokemon-bot/data/standized_pokemon_game_logic.md
++    purpose: Reference rules/assumptions used by engines and tests
++    note: Keep this entry in sync with router docs when the file moves or is renamed
+
+
+# FILE: ops/HOTFIX_PLAN.yaml
+
+full
+# HOTFIX PLAN — lightweight pointer for no-PATCHSET hotfix runs
+# This file exists so Hotfix has a scoped place to note intent and files_hint.
+Last Updated (UTC): 2025-10-26T03:50:00Z
+Revision: 0.1
+
+hotfix_id: HOTFIX.ROUTER.DOC
+summary: Link standardized game-logic doc in router metadata and ensure master router table exists for readiness.
+files_hint:
+  - masterroutetable.md
+  - ops/ROUTER.yaml
+  - ops/RECOVERY.yaml
+  - tasklist.md
+notes:
+  - No code path changes; meta/router surfaces only.
+  - Keep Prompt/Tasklist stamps aligned with this plan when applied.
+
+
+# FILE: ops/RECOVERY.yaml
+
+diff
+@@
+-# Recovery heartbeat and resume pointers
++# Recovery heartbeat and resume pointers
+ last_attempted_task_id: null
+ last_successful_task_id: null
+-# last_run_utc: 2025-10-25T07:25:00Z
++# Stamp the hotfix doc/router readiness update
++last_run_utc: 2025-10-26T03:50:00Z
++last_hotfix_task: HOTFIX.ROUTER.DOC
++last_hotfix_notes: "Router metadata references standardized logic doc; master router stub present."
+
+
+# FILE: tasklist.md
+
+`diff
 @@
  ## Phase 7 — Meta & Router Hardening
-+- id: META.HOTFIX.READINESS
-+  title: Add Hotfix readiness check + ACTIVATE: HOTFIX TASKS trigger
++- id: HOTFIX.ROUTER.DOC
++  title: Add master router table and link standardized game-logic doc into router metadata
 +  status: DONE
 +  depends_on: []
 +  acceptance_criteria:
-+    - Patch.md documents Hotfix readiness audit and non-reliance on Patch.md’s PATCHSET
-+    - Prompt.md documents the `ACTIVATE: HOTFIX TASKS` trigger and workflow
-+    - Hotfix flow can scaffold missing meta/router stubs and record the setup in Tasklist/Prompt
-+  notes: Outcome — Hotfix can operate independently from PATCHSET blocks while keeping Prompt/Tasklist/router updated.
++    - masterroutetable.md exists and lists active routers with purpose and start-here hints
++    - ops/ROUTER.yaml links discord-pokemon-bot/data/standized_pokemon_game_logic.md
++    - ops/RECOVERY.yaml stamped with last_hotfix_task = HOTFIX.ROUTER.DOC
++  notes: Outcome — Hotfix readiness satisfied; routers discoverable at a glance; standardized logic doc is now referenced in router metadata.
 ``
+
+# TASKLIST UPDATE
+
+```diff
+@@
+-Last Updated (UTC): 2025-10-25T07:25:00Z
+-Revision: 1.23
++Last Updated (UTC): 2025-10-26T03:50:00Z
++Revision: 1.24
+```
 
 <<<PATCHSET END>>>
 
-```
+``
 
 **Commit Message**
-```
 
-[META.HOTFIX.READINESS] Add Hotfix readiness audit, ACTIVATE: HOTFIX TASKS trigger, and non-reliance on Patch.md PATCHSET
+
+[HOTFIX.ROUTER.DOC] Add master router table, link standardized logic doc in router metadata, and stamp recovery/task
 
 Why:
-Hotfix runs must succeed even when Patch.md’s PATCHSET is stale or irrelevant. They also need a clean way to prime/advance tasks without emitting a PATCHSET.
+Prompt.md 0.56 describes a hotfix that ensures router readiness and references the standardized game-logic doc. This commit realizes that intent so Hotfix checks pass and routing is discoverable.
 
 Changes:
 
-* Patch.md: Added Hotfix readiness check, new `ACTIVATE: HOTFIX TASKS` trigger, and explicit rule to treat Patch.md’s PATCHSET as reference-only.
-* Prompt.md: Documented Hotfix Tasks trigger and the setup workflow; bumped metadata.
-* Tasklist.md: Logged META.HOTFIX.READINESS as DONE with acceptance notes.
+* masterroutetable.md: new canonical inventory of routers with purpose and start-here hints.
+* ops/ROUTER.yaml: added docs_links entry to discord-pokemon-bot/data/standized_pokemon_game_logic.md.
+* ops/HOTFIX_PLAN.yaml: lightweight plan pointer for this hotfix.
+* ops/RECOVERY.yaml: stamped last_run_utc + last_hotfix_task for traceability.
+* tasklist.md: recorded HOTFIX.ROUTER.DOC as DONE; bumped header stamps.
 
 Acceptance:
 
-* A human can trigger `ACTIVATE: HOTFIX ENGINE` or `ACTIVATE: HOTFIX TASKS`.
-* Hotfix performs a readiness audit, updates Prompt/Tasklist/router, and does not depend on Patch.md’s PATCHSET to proceed.
+* Hotfix readiness passes: master router table present, router metadata now points at the standardized logic doc, and recovery/task stamps reflect the hotfix.
 
-```
-```
+
+
+If you want me to also wire a tiny CI check that ensures `masterroutetable.md` lists any newly created `ROUTER.md` files, I can add a one-file bash script and a workflow in a follow-up.
+

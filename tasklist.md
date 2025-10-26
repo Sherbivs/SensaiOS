@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T03:50:00Z
-Revision: 1.41
+Last Updated (UTC): 2025-10-26T04:10:00Z
+Revision: 1.42
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -554,10 +554,20 @@ Each task has:
 
 - id: T7.5
   title: Surface recent battle results to admins
-  status: READY
+  status: DONE
   depends_on: [T7.4]
   acceptance_criteria:
     - `/ops stats` (or a sibling subcommand) lists at least the five most recent finished battles with winner/loser + rewards.
     - Query handles empty history gracefully and reuses stored resultJson.
     - Tests exercise admin reporting with mocked Prisma data.
-  notes: Builds on persisted battles to give admins quick visibility into arena outcomes.
+  notes: Outcome — `/ops stats` now surfaces recent battles (winner/loser, rewards, turn count) using persisted results with Prisma-backed helpers; Vitest mocks Prisma for coverage.
+
+- id: T7.6
+  title: Add filtering controls to admin battle summaries
+  status: READY
+  depends_on: [T7.5]
+  acceptance_criteria:
+    - `/ops stats` accepts an optional limit (1-20) and after-date filter to refine history.
+    - Report header includes total finished battle count and selected window.
+    - Tests cover filtered results and empty-window cases with mocked Prisma data.
+  notes: Extends the admin audit tooling so staff can inspect older battles without database access.

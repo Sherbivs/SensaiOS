@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-26T03:50:00Z
+Last Updated (UTC): 2025-10-26T04:10:00Z
 Purpose: Minimal hotfix stub to enumerate known router docs until scripts can regenerate a richer table.
 
 ## Active Routers
