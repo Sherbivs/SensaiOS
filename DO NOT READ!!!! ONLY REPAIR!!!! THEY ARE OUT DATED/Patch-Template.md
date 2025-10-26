@@ -94,6 +94,7 @@ Hotfix commits still **must** bump Prompt.md and update Tasklist.md.
 - CI verifies the ledger includes the HEAD commit; keep the ledger machine-generated and unedited.
 
 ### Embedded PATCHSET Echo (MANDATORY)
+- Embedded PATCHSET Echo must be plain text (no Markdown bullets, no code fences). Include HEAD, a one-paragraph summary, `TasklistDiff` true|false, and a tests note. Keep it copy/paste-ready for chats.
 - After every applied PATCHSET, update `Prompt.md` section “Embedded PATCHSET Echo (for quick audit)” between markers:
   - `<!-- PATCHSET:ECHO BEGIN -->` … `<!-- PATCHSET:ECHO END -->`
 - The echo must contain either:

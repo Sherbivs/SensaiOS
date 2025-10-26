@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T12:20:00Z
-Revision: 1.59
+Last Updated (UTC): 2025-10-26T12:45:00Z
+Revision: 1.60
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -37,6 +37,16 @@ Each task has:
     - Patch.md documents this invariant and quick remediation steps.
   notes: Outcome — guard_meta now fails when only the seed task remains READY, surfaces the oldest eligible PROPOSED task, and nudges NEXT to track the promoted work.
 
+- id: META.READY.ABSOLUTE
+  title: Harden readiness with preflight/postflight and auto-promotion
+  status: DONE
+  depends_on: [META.NO_READY.SAFETY_NET]
+  acceptance_criteria:
+    - Preflight promotes an eligible PROPOSED or injects a seed when READY is empty.
+    - Postflight refuses to exit with NEXT at NONE; guard fails the run.
+    - Prompt.md echo documents the readiness policy change in plain text.
+  notes: Outcome — “no READY task” states are self-healing at runtime and impossible to merge in CI.
+
 - id: META.REFRESH.RETIRE
   title: Retire Refresh Vision requirement and reinforce meta doc visibility check
   status: DONE
@@ -58,14 +68,14 @@ Each task has:
   notes: Outcome — Contract now mandates copying the plain-text template verbatim when drafting or echoing PATCHSETs inside Prompt.
 
 - id: META.READY_QUEUE.NEXT_TASK
-  title: Promote substantive work to READY after safety-net guard
-  status: DONE
-  depends_on: [META.NO_READY.SAFETY_NET]
+  title: Promote a substantive work item and retarget NEXT
+  status: READY
+  depends_on: []
   acceptance_criteria:
-    - Identify a non-meta PROPOSED task with satisfied dependencies and mark it READY.
-    - ops/NEXT.yaml points to the newly READY task with refreshed timestamp and focused files_hint.
-    - Prompt.md “Last Repo Changes” records the promotion decision and rationale.
-  notes: Outcome — Promoted T8.1 (DM Home battle history) to READY, pointed NEXT/Touchmap at it, and documented the decision in Prompt metadata.
+    - Select the first eligible PROPOSED task whose dependencies are DONE and flip it to READY.
+    - Update `ops/NEXT.yaml` `next_task_id` to the selected task and keep `files_hint` minimal.
+    - Update `Prompt.md` echo with a one-paragraph summary of the promotion rationale.
+  notes: Keeps the queue healthy so the Patch Engine starts immediately on activation.
 
 - id: META.TASKLIST.COUPLING_FIX
   title: Enforce Tasklist updates from every PATCHSET and rewire guards

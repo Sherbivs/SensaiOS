@@ -13,6 +13,7 @@ Scope
   - The minimal meta set: `Prompt.md`, `Tasklist.md`, `ops/RECOVERY.yaml`, `ops/HOTFIX_PLAN.yaml`
   - Any directory-local `ROUTER.md` corresponding to changed files (timestamp + short note)
 - Hotfixes MUST NOT edit `Patch.md` unless it is explicitly the subject of the fix or cited as a relevant source of instructions.
+- When a human request lacks an explicit activation trigger, treat it as `ACTIVATE: HOTFIX ENGINE` and follow the hotfix loop without prompting for clarification. When the request intends normal delivery work, set `ops/NEXT.yaml:next_task_id` back to a READY task before finishing the hotfix to keep the Patch Engine primed.
 
 Operating Loop (Hotfix)
 0) **Refresh Vision**

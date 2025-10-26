@@ -1,0 +1,20 @@
+name: guard-meta
+
+on:
+  pull_request:
+    paths:
+      - 'Patch.md'
+      - 'Prompt.md'
+      - 'Tasklist.md'
+      - 'ops/'
+      - 'scripts/'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce READY invariants (preflight)
+        run: bash scripts/guard_meta.sh
+      - name: Enforce READY invariants (postflight)
+        run: POSTFLIGHT=1 bash scripts/guard_meta.sh

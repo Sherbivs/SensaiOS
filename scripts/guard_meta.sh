@@ -1,6 +1,37 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Helper: fail with message
+fail() { echo "::error::${1}"; exit 1; }
+
+# Parse Tasklist for ids, statuses, deps
+parse_tasks() {
+  awk '
+BEGIN{ id=""; status=""; deps="" }
+/^- id: /{ if(id!=""){ print id "|" status "|" deps } id=$0; sub(/^- id: /,"",id); status="UNKNOWN"; deps="" }
+/^\\sstatus: /{ status=$0; sub(/^\\sstatus: /,"",status) }
+/^\\s*depends_on:/{
+ deps=$0; sub(/^\\s*depends_on: /,"",deps); gsub(/[\\[\\],]/," ",deps)
+}
+END{ if(id!=""){ print id "|" status "|" deps } }
+' Tasklist.md
+}
+
+# Determine oldest eligible PROPOSED (all deps DONE)
+oldest_eligible_proposed() {
+  mapfile -t rows < <(parse_tasks)
+  declare -A ST
+  for r in "${rows[@]}"; do IFS="|" read -r id status deps <<< "$r"; ST["$id"]="$status"; done
+  for r in "${rows[@]}"; do
+    IFS="|" read -r id status deps <<< "$r"
+    [[ "$status" != "PROPOSED" ]] && continue
+    ok="true"
+    for d in $deps; do [[ -z "$d" ]] && continue; [[ "${ST[$d]:-}" == "DONE" ]] || ok="false"; done
+    [[ "$ok" == "true" ]] && { echo "$id"; return; }
+  done
+  echo ""
+}
+
 BASE_SHA="${1:-}"
 HEAD_SHA="${2:-}"
 
@@ -59,8 +90,6 @@ NON_DOC_CHANGED=false
 if echo "${changed_files}" | grep -vqE '^(Prompt\.md|Patch\.md|Tasklist\.md|ops/[^/]+\.md|ops/[^/]+\.yaml|ops/INBOX/notes\.md)$'; then
   NON_DOC_CHANGED=true
 fi
-
-fail() { echo "❌ $*"; exit 1; }
 
 # Enforce Tasklist coupling when code paths change.
 if ${CODE_CHANGED} && ! ${TASKLIST_CHANGED}; then
@@ -131,6 +160,39 @@ if [[ "${IS_HOTFIX}" == "0" ]]; then
 else
   echo "✅ Hotfix mode detected: PATCHSET Echo advisory skipped."
 fi
+
+# Preflight: enforce READY invariants before any work
+if [[ -f Tasklist.md ]]; then
+  total_ready=$(grep -Ec '^\sstatus:\sREADY\b' Tasklist.md || true)
+  seed_ready=$(grep -Ec '^- id:\sMETA.UNBLOCK.READY_SEED\b(.|\n)*?\n\sstatus:\sREADY\b' Tasklist.md || true)
+  effective_ready=$(( total_ready - (seed_ready>0?1:0) ))
+  if [[ "${effective_ready}" -le 0 ]]; then
+    candidate="$(oldest_eligible_proposed)"
+    if [[ -z "$candidate" ]]; then
+      echo '::notice::No eligible PROPOSED; injecting META.UNBLOCK.READY_SEED.'
+      printf '\n- id: META.UNBLOCK.READY_SEED\n  title: Seed immediate READY task\n  status: READY\n  depends_on: []\n  acceptance_criteria:\n    - Ensure READY queue is non-empty.\n  notes: Auto-injected by guard_meta preflight.\n' >> Tasklist.md
+      candidate="META.UNBLOCK.READY_SEED"
+    else
+      echo "::notice::Promoting PROPOSED to READY: ${candidate}"
+      perl -0777 -pe "s/(- id:\s*${candidate}\b[\s\S]*?\n\s*status:\s*)PROPOSED/\1READY/m" -i Tasklist.md
+    fi
+    # Retarget NEXT
+    if [[ -f ops/NEXT.yaml ]]; then
+      perl -0777 -pe "s/(^next_task_id:\s*).*/\1${candidate}/m" -i ops/NEXT.yaml
+    fi
+  fi
+fi
+
+# Postflight reminder (non-fatal here; CI job can call with POSTFLIGHT=1 to enforce)
+if [[ "${POSTFLIGHT:-0}" == "1" ]]; then
+  total_ready=$(grep -Ec '^\sstatus:\sREADY\b' Tasklist.md || true)
+  seed_ready=$(grep -Ec '^- id:\sMETA.UNBLOCK.READY_SEED\b(.|\n)*?\n\sstatus:\sREADY\b' Tasklist.md || true)
+  effective_ready=$(( total_ready - (seed_ready>0?1:0) ))
+  [[ "${effective_ready}" -le 0 ]] && fail 'Postflight found no READY tasks (excluding seed).'
+  next=$(awk 'match($0,/^next_task_id:\s*(.*)$/,a){print a[1]; exit}' ops/NEXT.yaml | tr -d '"')
+  [[ -z "$next" || "$next" == "NONE" ]] && fail 'Postflight: NEXT pointer is NONE or empty.'
+fi
+
 
 # Advisory: highlight when NEXT pointer is NONE but READY tasks exist
 if [[ -f ops/NEXT.yaml ]]; then

@@ -4,7 +4,7 @@ This file is the **road map** for automation. It lists the *minimum set* of file
 what to do next, where to change it, and how to update state.
 
 ## Boot Order (Fast-Path)
-1) `ops/NEXT.yaml` — single source of *what to do next*.
+1) `ops/NEXT.yaml` — single source of *what to do next* (must point to a READY task, not `NONE`).
 2) `Tasklist.md` — authoritative task graph and statuses.
 3) `ops/TOUCHMAP.yaml` — mapping from task IDs/globs to file paths that will be touched.
 4) `Patch.md` — contract (how to emit patches and update the task graph).
@@ -23,7 +23,7 @@ what to do next, where to change it, and how to update state.
 	- Prioritize: `Prompt.md`, `Patch.md`, `Tasklist.md`, `ops/**`
 
 ## Update Rules
-- After *every* completed task: update `ops/NEXT.yaml` to the next `READY` task and narrow `files_hint`.
+- After *every* completed task: update `ops/NEXT.yaml` to the next `READY` task (never leave `NONE`) and narrow `files_hint`.
 - If a task touches new paths not listed, extend `ops/TOUCHMAP.yaml`.
 - If the task changed system behavior/architecture, update `Prompt.md` (Revision History + affected sections) and ensure `ops/KNOWLEDGE.yaml` still points to the right sources.
 - When DONE history exceeds 100 entries, run `npm run tasks:archive` to move older completions into `ops/ARCHIVE/`.
