@@ -267,68 +267,118 @@ This section may be overwritten frequently.
 PATCH CLIPBOARD — STAGING AREA (AI-Editable)
 Paste your next PATCHSET below.
 
-Got it. Here’s a single, consolidated patch that (1) lands the **master route table** generator, (2) enforces the **singleton** `masterroutetable.md` rule, (3) adds **cleanup & freshness guards** so routes stay clear and purposeful, and (4) updates the meta docs/pointers so future AI workers keep learning from the router network automatically.
+Here’s a single patch that designs and integrates a **no-patchset** hotfix flow, triggered by the phrase **`ACTIVATE: HOTFIX ENGINE`**. It follows the same Router → INBOX → NEXT/PLAN → Tasklist → TOUCHMAP → Prompt loop as your regular Patch Engine, but it **does not rely on Patch.md or PATCHSET blocks** except when Patch.md is explicitly relevant as information or you direct it to be edited.
 
-Paste this in and apply.
+Paste this and apply.
 
 ``
 <<<PATCHSET START>>>
-# [META.MASTERROUTE.COMBINED]: Generate + enforce single master route table, cleanup duplicates, and guard freshness
+# [META.HOTFIX.SYSTEM]: Introduce no-patchset Hotfix Engine and guards
 
-# FILE: scripts/update_master_route_table.sh
+# FILE: ops/HOTFIX.md
+``full
+# Hotfix Engine (No-PATCHSET Mode)
+Last Updated (UTC): 2025-10-25T11:58:00Z
+Revision: 1.0
+
+Purpose
+- A rapid, targeted “surgical” edit system that follows the same discipline as the Patch Engine but **does not** use PATCHSET blocks.
+- Trigger phrase (case-sensitive): `ACTIVATE: HOTFIX ENGINE`
+
+Scope
+- For urgent, well-scoped changes that must land quickly (prod or dev), where PATCHSET ceremony would slow resolution.
+- Hotfixes may touch only:
+  - Files listed in `ops/HOTFIX_PLAN.yaml: files_hint`
+  - The minimal meta set: `Prompt.md`, `Tasklist.md`, `ops/RECOVERY.yaml`, `ops/HOTFIX_PLAN.yaml`
+  - Any directory-local `ROUTER.md` corresponding to changed files (timestamp + short note)
+- Hotfixes MUST NOT edit `Patch.md` unless it is explicitly the subject of the fix or cited as a relevant source of instructions.
+
+Operating Loop (Hotfix)
+0) **Refresh Vision**
+   - Try to run `scripts/refresh_vision.sh`. If the runtime cannot shell out, the AI notes:
+     `Refresh Vision: I couldn't run refresh_vision.sh in this environment—please execute it locally when possible.`
+   - Confirm access to the remote repo (Sherbivs/Infinity-Gauntlet) when possible; otherwise record inability in `ops/RECOVERY.yaml`.
+1) **Read Order**
+   - `ops/ROUTER_INDEX.yaml` → discover routed areas
+   - `ops/INBOX/notes.md` → if newer than `ops/RECOVERY.yaml:last_notes_read_utc`, ingest & stamp
+   - `ops/HOTFIX_PLAN.yaml` → get `hotfix_task_id`, `reason`, `files_hint`
+   - `Tasklist.md` → validate the task exists; auto-create if missing (prefixed `HF.`) with status `READY`
+   - `ops/TOUCHMAP.yaml` → ensure edits stay within allowed globs (hotfix may temporarily extend)
+2) **Execute**
+   - Apply **direct, minimal edits** to the files in `files_hint` (no PATCHSET block).
+   - Update affected directory `ROUTER.md` entries (timestamp + one-line note).
+   - Keep changes reversible & deterministic.
+3) **Meta Updates**
+   - `Tasklist.md` → mark the hotfix task `DONE` with a concise outcome.
+   - `Prompt.md` → bump timestamp/revision and update “Last Repo Changes”.
+   - `ops/RECOVERY.yaml` → stamp `last_hotfix_id`, `last_hotfix_timestamp_utc`, and environment notes.
+   - `masterroutetable.md` freshness: if possible, run `npm run router:update`. If not, add a note to Prompt.
+4) **Commit**
+   - Commit message MUST start with `[Hotfix <ID>]`.
+   - Include Why / Changes / Acceptance, similar to standard commit template.
+5) **Exit**
+   - If further work is needed, add a normal task to `Tasklist.md` and set `ops/NEXT.yaml` accordingly.
+
+Guards & Coupling
+- Hotfix commits **must** update `Prompt.md` and `Tasklist.md`. Omission fails CI (`guard-meta`).
+- `Patch.md` is optional in Hotfix and **must not** be modified unless explicitly directed.
+- `scripts/guard_meta.sh` recognizes Hotfix mode and relaxes PATCHSET echo requirements.
+
+Audit
+- The change is still tracked in git history.
+- `Prompt.md` captures the summary in “Last Repo Changes” and in the Revision History table.
+
+
+# FILE: ops/HOTFIX_PLAN.yaml
+
+```full
+# HOTFIX POINTER — Single-file pointer for the current urgent fix.
+# The Hotfix Engine reads this instead of relying on Patch.md/PATCHSET blocks.
+hotfix_task_id: HF.BROKEN.TASKFLOW
+reason: >
+  Copilot/worker reports "No tasks READY" while meta requires adding/marking
+  a task as READY. Introduce bootstrap & guards to ensure Tasklist/NEXT/HOTFIX
+  pointers are never simultaneously empty again.
+files_hint:
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "Prompt.md"
+  - "ops/RECOVERY.yaml"
+  - "ops/TOUCHMAP.yaml"
+timestamp_utc: 2025-10-25T11:58:00Z
+note: "Run ACTIVATE: HOTFIX ENGINE to apply direct, minimal edits. Do not emit a PATCHSET."
+```
+
+# FILE: scripts/hotfix_entry.sh
+
 ```full
 #!/usr/bin/env bash
 set -euo pipefail
-
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
-OUT="masterroutetable.md"
-NOW_UTC="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+echo "🔧 Hotfix Engine Entry"
+echo "Reading ops/HOTFIX_PLAN.yaml ..."
 
-# Collect all ROUTER.md files (top-level and nested)
-mapfile -t ROUTERS < <(git ls-files | grep -E '^(.*/)?ROUTER\.md$' | sort)
-
-cat >"$OUT" <<EOF
-# masterroutetable.md
-Timestamp (UTC): $NOW_UTC
-Revision: auto
-
-> Canonical index of all per-directory routers. Generated by \`scripts/update_master_route_table.sh\`.
-> Rules:
-> - This file is the single master router table at repo root (singleton).
-> - After ANY router metadata change, regenerate this file.
-> - CI enforces that only this file exists at root (no duplicates/variants).
-
-## How to Use
-- Tools/AI should read this file first to discover routed areas and their purposes.
-- Each entry points to a \`ROUTER.md\` with deeper rules, ownership, and file globs.
-- After patching a routed area, update that directory’s \`ROUTER.md\` and re-run this script.
-
-## Master Route Entries
-EOF
-
-if [[ ${#ROUTERS[@]} -eq 0 ]]; then
-  echo "- No routers discovered." >>"$OUT"
-else
-  for r in "${ROUTERS[@]}"; do
-    DIR="$(dirname "$r")"
-    # Extract Title/Purpose from the first lines of each ROUTER.md if present
-    TITLE="$(grep -m1 -E '^# ' "$r" | sed 's/^# \s*//')"
-    PURPOSE="$(grep -m1 -E '^(Purpose|Description)\s*:' "$r" || true)"
-    echo "" >>"$OUT"
-    echo "### $DIR" >>"$OUT"
-    echo "- Router: \`$r\`" >>"$OUT"
-    [[ -n "$TITLE" ]] && echo "- Title: ${TITLE#\# }" >>"$OUT"
-    [[ -n "$PURPOSE" ]] && echo "- $PURPOSE" >>"$OUT"
-  done
+if [[ ! -f ops/HOTFIX_PLAN.yaml ]]; then
+  echo "❌ Missing ops/HOTFIX_PLAN.yaml. Aborting."
+  exit 1
 fi
 
-echo "" >>"$OUT"
-echo "_Generator: scripts/update_master_route_table.sh_" >>"$OUT"
-````
+echo "Recommended hotfix targets (files_hint):"
+grep -A999 '^files_hint:' ops/HOTFIX_PLAN.yaml | sed '1d' | sed 's/^- /  • /'
 
-# FILE: scripts/verify_router_links.sh
+echo
+echo "Rules:"
+echo " • Edit only files listed above, plus Prompt.md, Tasklist.md, ops/RECOVERY.yaml, and ROUTER.md in touched dirs."
+echo " • Do not edit Patch.md unless explicitly directed."
+echo " • After edits, bump Prompt.md timestamp/revision and add a concise Last Repo Changes entry."
+echo " • Commit message must start with: [Hotfix <ID>] ..."
+
+exit 0
+```
+
+# FILE: scripts/guard_meta.sh
 
 ```diff
 @@
@@ -336,171 +386,50 @@ echo "_Generator: scripts/update_master_route_table.sh_" >>"$OUT"
  ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
  cd "$ROOT"
  
-+# --- Master Route Table singleton check ---------------------------------------
-+# Canonical file (exact case):
-+CANON_MRT="masterroutetable.md"
-+# Common legacy/duplicate variants we must forbid:
-+mapfile -t MRT_CANDIDATES < <(ls -1 2>/dev/null | grep -E '^(master[_-]?router(table)?|router[_-]?root|root[_-]?router|MASTERROUTETABLE|MASTER[_-]?ROUTER|MasterRoute(Table)?|Router[_-]?Root)\.md$' || true)
-+
-+# Ensure canonical exists
-+if [[ ! -f "$CANON_MRT" ]]; then
-+  echo "❌ Missing canonical master route table: $CANON_MRT"
-+  exit 1
++# Detect Hotfix flow: either HOTFIX_PLAN present or commit title provided by CI
++IS_HOTFIX="0"
++if [[ -f "ops/HOTFIX_PLAN.yaml" ]]; then
++  IS_HOTFIX="1"
++fi
++if git log -1 --pretty=%s | grep -qE '^\[Hotfix [^]]+\]'; then
++  IS_HOTFIX="1"
 +fi
 +
-+# Count duplicates (anything matching the pattern but not the canonical file)
-+dup_count=0
-+for f in "${MRT_CANDIDATES[@]}"; do
-+  [[ "$f" == "$CANON_MRT" ]] && continue
-+  dup_count=$((dup_count+1))
-+  echo "❌ Duplicate/legacy master router file found at repo root: $f (must remove)"
-+done
-+if [[ $dup_count -gt 0 ]]; then
-+  echo "✋ Singleton rule: only $CANON_MRT is allowed. Remove duplicates and re-run."
-+  exit 1
+ # Ensure Prompt.md is updated on any code change
+ # (existing logic preserved below)
+@@
+-# PATCHSET Echo is mandatory (regular Patch Engine)
+-if ! grep -q "<!-- PATCHSET:ECHO BEGIN -->" Prompt.md; then
+-  echo "❌ Prompt.md must contain PATCHSET:ECHO markers."
+-  exit 1
+-fi
++# PATCHSET Echo requirements:
++# - Regular Patch Engine: Echo required.
++# - Hotfix Engine: Echo optional, but Prompt 'Last Repo Changes' is mandatory.
++if [[ "$IS_HOTFIX" == "0" ]]; then
++  if ! grep -q "<!-- PATCHSET:ECHO BEGIN -->" Prompt.md; then
++    echo "❌ Prompt.md must contain PATCHSET:ECHO markers for regular patches."
++    exit 1
++  fi
 +fi
-+
-+# --- Freshness guard: master table must reflect current routers ---------------
-+calc_sig() {
-+  (git ls-files | grep -E '^(.*/)?ROUTER\.md$' | sort | xargs -r cat; echo '---'; git ls-files | grep -E '^(.*/)?ROUTER\.md$' | sort) | shasum | awk '{print $1}'
-+}
-+GEN_SIG="$(calc_sig)"
-+CUR_SIG="$(grep -m1 '^<!-- ROUTER-SIGNATURE:' "$CANON_MRT" | sed 's/^<!-- ROUTER-SIGNATURE:\s*//; s/\s*-->$//')"
-+if [[ -z "${CUR_SIG:-}" ]]; then
-+  echo "ℹ️  No ROUTER-SIGNATURE found in $CANON_MRT; will add on next generation."
-+  exit 0
-+fi
-+if [[ "$GEN_SIG" != "$CUR_SIG" ]]; then
-+  echo "❌ $CANON_MRT is stale (signature mismatch). Re-run scripts/update_master_route_table.sh"
-+  echo "Expected: $GEN_SIG"
-+  echo "Found:    $CUR_SIG"
-+  exit 1
-+fi
-+
- # existing checks continue below...
-```
-
-# FILE: scripts/cleanup_legacy_master_router.sh
-
-```full
-#!/usr/bin/env bash
-set -euo pipefail
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-cd "$ROOT"
-
-CANON="masterroutetable.md"
-LEGACY_REGEX='^(master[_-]?router(table)?|router[_-]?root|root[_-]?router|MASTERROUTETABLE|MASTER[_-]?ROUTER|MasterRoute(Table)?|Router[_-]?Root)\.md$'
-
-DRYRUN="${DRYRUN:-1}"
-
-echo "Scanning for legacy/duplicate master router files..."
-found=0
-while IFS= read -r f; do
-  [[ "$f" == "$CANON" ]] && continue
-  found=1
-  if [[ "${DRYRUN}" == "1" ]]; then
-    echo "Would remove: $f"
-  else
-    echo "Removing: $f"
-    git rm -f -- "$f" || rm -f -- "$f"
-  fi
-done < <(ls -1 2>/dev/null | grep -E "$LEGACY_REGEX" || true)
-
-if [[ $found -eq 0 ]]; then
-  echo "✅ No legacy/duplicate master router files found."
-else
-  if [[ "${DRYRUN}" == "1" ]]; then
-    echo "🟡 Dry-run only. Re-run with DRYRUN=0 to perform removals."
-  else
-    echo "✅ Cleanup complete."
-  fi
-fi
-
-echo "Reminder: keep only $CANON at repo root. CI enforces this."
-```
-
-# FILE: .github/workflows/guard-router.yml
-
-```diff
-@@
- jobs:
-   guard-router:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout
-         uses: actions/checkout@v4
-         with:
-           fetch-depth: 0
--      - name: Verify router/index names and links
--        run: bash scripts/verify_router_links.sh
-+      - name: Verify router/index names, singleton master route, and freshness
-+        run: bash scripts/verify_router_links.sh
-```
-
-# FILE: ops/CANONICAL_NAMES.yaml
-
-```diff
-@@
- required:
-   # Patch engine contract & task graph
-   - Patch.md
-   - Tasklist.md
-   - Prompt.md
-   - ops/PATCH_POLICY_BACKUP.md
--  - masterroutetable.md
-+  - masterroutetable.md
- forbidden_root_variants:
-@@
-   - root-router.md
-+notes: >
-+  The exact-case, singleton master route file is masterroutetable.md.
-+  CI blocks any alternative spellings/case to prevent drift.
-```
-
-# FILE: masterroutetable.md
-
-```full
-# masterroutetable.md
-Timestamp (UTC): 2025-10-25T11:55:00Z
-Revision: 1
-<!-- ROUTER-SIGNATURE: PLACEHOLDER-WILL-BE-FILLED-BY-CI -->
-
-> Canonical index of all per-directory routers. Generated by `scripts/update_master_route_table.sh`.
-> Rules:
-> - This file is the single master router table at repo root (singleton).
-> - After ANY router metadata change, regenerate this file (`npm run router:update` or run the script).
-> - CI enforces freshness and forbids duplicates.
-
-## How to Use
-- Read this file first to discover routed areas and purposes.
-- Follow each “Router” link/path to see ownership, allowed globs, and notes.
-
-## Master Route Entries
-- Pending generation. Run: `scripts/update_master_route_table.sh`
-
-_Generator: scripts/update_master_route_table.sh_
-```
-
-# FILE: package.json
-
-```diff
-@@
-   "scripts": {
-+    "router:update": "bash scripts/update_master_route_table.sh && node -e \"console.log('Master route table regenerated.')\"",
-+    "router:cleanup": "bash scripts/cleanup_legacy_master_router.sh",
-     "dev": "tsx watch src/index.ts",
-     "start": "node dist/index.js"
-   }
 ```
 
 # FILE: Patch.md
 
 ```diff
 @@
- ## ROUTER NETWORK (City Roadway Model)
-- - **Master Route Table (root):** `masterroutetable.md` is the generated, standardized inventory of all routers & routed areas. After any router metadata change, regenerate it via `scripts/update_master_route_table.sh`. CI (`guard-masterroute.yml`) enforces freshness.
-+ - **Master Route Table (root):** `masterroutetable.md` is the generated, standardized inventory of all routers & routed areas. After any router metadata change, regenerate it via `scripts/update_master_route_table.sh` or `npm run router:update`. CI enforces freshness.
-+ - **Singleton rule (MANDATORY):** Only one master route table is allowed at repo root and its **exact** filename must be `masterroutetable.md`. Any legacy/duplicate file that looks like a “master router” will fail CI. Use `scripts/cleanup_legacy_master_router.sh` (or `npm run router:cleanup`) to remove stray files (dry-run by default).
+ ## Activation Trigger (MANDATORY)
+ Trigger phrase (case-sensitive): `ACTIVATE: PATCH ENGINE`
+ On trigger, follow Router → INBOX → NEXT → Tasklist → TOUCHMAP → Patch → Prompt sequence and emit one PATCHSET + Commit Message.
+ 
++## Hotfix Trigger (No-PATCHSET Mode)
++Trigger phrase (case-sensitive): `ACTIVATE: HOTFIX ENGINE`
++Use the Hotfix Engine for urgent, tightly-scoped changes. It follows the same sequence as the Patch Engine but **does not** emit a PATCHSET block. Only edit:
++- The files listed in `ops/HOTFIX_PLAN.yaml: files_hint`
++- Minimal meta (Prompt.md, Tasklist.md, ops/RECOVERY.yaml, ops/HOTFIX_PLAN.yaml)
++- Directory-local ROUTER.md for any touched area (timestamp + one-line note)
++**Do not** edit Patch.md unless explicitly directed or strictly necessary for the fix.
++Hotfix commits still **must** bump Prompt.md and update Tasklist.md.
 ```
 
 # FILE: Prompt.md
@@ -509,7 +438,7 @@ _Generator: scripts/update_master_route_table.sh_
 @@
 -Timestamp (UTC): 2025-10-25T11:25:00Z
 -Revision: 0.49
-+Timestamp (UTC): 2025-10-25T11:55:00Z
++Timestamp (UTC): 2025-10-25T11:58:00Z
 +Revision: 0.50
 @@
  > Changes in this revision:
@@ -518,41 +447,77 @@ _Generator: scripts/update_master_route_table.sh_
 -> - `.github/workflows/guard-router.yml` — Runs the router-name guard on push/PR.
 -> - `Patch.md` — Documented mandatory router name/case rule.
 -> - `Prompt.md`, `tasklist.md` — Logged META.ROUTER.NAME_GUARD completion and bumped metadata.
-+> - `scripts/update_master_route_table.sh` — Generator for root master router table (`masterroutetable.md`).
-+> - `masterroutetable.md` — Canonical singleton root router; generated index of all ROUTER.md files.
-+> - `scripts/verify_router_links.sh` — Now enforces master router singleton **and** freshness via signature.
-+> - `scripts/cleanup_legacy_master_router.sh` — Dry-run cleanup tool for legacy master router filenames.
-+> - `.github/workflows/guard-router.yml` — Extended to guard singleton/freshness.
-+> - `ops/CANONICAL_NAMES.yaml` — Updated with forbidden root variants note.
-+> - `Patch.md` — Documented singleton + usage.
-+> - `package.json` — Added `router:update` and `router:cleanup` scripts.
++> - `ops/HOTFIX.md` — Introduced Hotfix Engine (no-PATCHSET mode) with operating loop and guardrails.
++> - `ops/HOTFIX_PLAN.yaml` — Pointer file for in-progress hotfix (task id, reason, files_hint).
++> - `scripts/hotfix_entry.sh` — CLI entry to display targets/rules for hotfix sessions.
++> - `scripts/guard_meta.sh` — Recognizes Hotfix mode (PATCHSET Echo optional; Prompt/Tasklist still required).
++> - `Patch.md` — Added Hotfix trigger & scope rules.
+@@
+ ## Activation Trigger for AI Workers
+ Paste this to initialize from Router + INBOX and run the Patch loop:
+ 
+```
+
+ACTIVATE: PATCH ENGINE
+
+````
+
++### Hotfix Trigger for AI Workers (No-PATCHSET Mode)
++Paste this to run a hotfix without PATCHSET blocks:
++```
++ACTIVATE: HOTFIX ENGINE
++```
++Workflow is identical to Patch Engine except: no PATCHSET emission; only direct edits to `files_hint` + minimal meta; Patch.md is left unchanged unless explicitly relevant.
++
+### Activation Internals (what happens on trigger)
+1) Refresh Vision (`scripts/refresh_vision.sh`) → verifies remote GitHub access for `Sherbivs/Infinity-Gauntlet`, regenerates `ops/ROUTER_INDEX.yaml`, optionally updates the Prompt ledger, and stamps `ops/RECOVERY.yaml` with remote/local metadata.
+  - If running in a restricted IDE/VFS without shell access, inform the human by saying: `Refresh Vision: I couldn't run refresh_vision.sh in this environment—please execute it locally when possible.`
+2) Read `ops/RECOVERY.yaml`; if `last_attempted_task_id` is present, prefer resuming that task unless superseded in `ops/NEXT.yaml`.
+3) Proceed with the operating loop and emit exactly one PATCHSET + Commit Message.
+````
+
+# FILE: ops/RECOVERY.yaml
+
+```diff
+@@
+ router_version: 1
+ last_notes_read_utc: 2025-10-25T03:30:00Z
+ note: "T6.2 DONE — /ops cooldown reset and /ops stats available for admins."
++last_hotfix_id: null
++last_hotfix_timestamp_utc: null
++last_hotfix_env_note: null
+```
+
+# FILE: package.json
+
+```diff
+@@
+   "scripts": {
+     "router:update": "bash scripts/update_master_route_table.sh && node -e \"console.log('Master route table regenerated.')\"",
+     "router:cleanup": "bash scripts/cleanup_legacy_master_router.sh",
++    "hotfix": "bash scripts/hotfix_entry.sh"
+   }
+```
+
+# FILE: ops/TOUCHMAP.yaml
+
+```diff
+@@
+ meta_write_whitelist:
+   - "Patch.md"
+   - "Tasklist.md"
+   - "Prompt.md"
+   - "ops/NEXT.yaml"
+   - "ops/RECOVERY.yaml"
++  - "ops/HOTFIX.md"
++  - "ops/HOTFIX_PLAN.yaml"
 ```
 
 # FILE: ops/NEXT.yaml
 
 ```diff
 @@
--next_task_id: META.MASTERROUTE.SINGLETON
--reason: >
--  Enforce singleton master route table. Add CI guard and cleanup script so
--  duplicates can never creep back in. Then proceed to adapters.
-+next_task_id: META.MASTERROUTE.ADAPTERS
-+reason: >
-+  Master route generator + singleton guard landed. Next: add adapters/formatters
-+  (JSON export for IDE/worker ingestion; CSV for quick grep) and insert a
-+  ROUTER-SIGNATURE line during generation.
- files_hint:
--  - scripts/verify_router_links.sh
--  - scripts/cleanup_legacy_master_router.sh
--  - ops/CANONICAL_NAMES.yaml
--  - Patch.md
--timestamp_utc: 2025-10-25T11:55:00Z
-+  - scripts/update_master_route_table.sh
-+  - scripts/verify_router_links.sh
-+  - .github/workflows/guard-router.yml
-+  - masterroutetable.md
-+timestamp_utc: 2025-10-25T11:55:00Z
- note: "META.MASTERROUTE.COMBINED DONE — generator, singleton, cleanup & freshness guard. NEXT -> META.MASTERROUTE.ADAPTERS."
+ note: "META.ROUTER.NAME_GUARD added; Hotfix system introduced in parallel. For emergencies use HOTFIX_PLAN.yaml."
 ```
 
 # TASKLIST UPDATE
@@ -560,26 +525,26 @@ _Generator: scripts/update_master_route_table.sh_
 ```diff
 @@
  ## Phase 7 — Meta & Router Hardening
-+- id: META.MASTERROUTE.COMBINED
-+  title: Generate + enforce singleton master route table with cleanup and freshness guards
++- id: META.HOTFIX.SYSTEM
++  title: Introduce no-PATCHSET Hotfix Engine and guards
 +  status: DONE
 +  depends_on: [META.ROUTER.NAME_GUARD]
 +  acceptance_criteria:
-+    - scripts/update_master_route_table.sh generates root masterroutetable.md
-+    - CI fails if any duplicate/variant master router file exists
-+    - Freshness guard compares ROUTER set/signature and fails if stale
-+    - Cleanup script removes legacy files (dry-run default)
-+  notes: Outcome — Clean, single source of routing truth; CI prevents drift.
++    - ops/HOTFIX.md documents trigger, loop, and guardrails
++    - ops/HOTFIX_PLAN.yaml exists with hotfix_task_id and files_hint
++    - guard_meta recognizes Hotfix mode (PATCHSET Echo optional)
++    - Prompt/Tasklist updates are still mandatory in Hotfix commits
++  notes: Outcome — Fast, disciplined hotfix path without PATCHSET ceremony.
 +
-+- id: META.MASTERROUTE.ADAPTERS
-+  title: JSON/CSV adapters for master route table + signature embed
++- id: HF.BROKEN.TASKFLOW
++  title: Fix “no READY tasks” bootstrap by ensuring a hotfix pointer can create/ready tasks
 +  status: READY
-+  depends_on: [META.MASTERROUTE.COMBINED]
++  depends_on: [META.HOTFIX.SYSTEM]
 +  acceptance_criteria:
-+    - update_master_route_table.sh can emit JSON and CSV alongside markdown
-+    - masterroutetable.md includes a ROUTER-SIGNATURE line matching guard calc
-+    - guard verifies adapters exist when routers are present
-+  notes: Outcome — Tools/IDEs can ingest the same routing truth programmatically.
++    - Hotfix flow can add a minimal READY task when Tasklist is empty/all DONE
++    - Prompt “Last Repo Changes” reflects the hotfix outcome
++    - RECOVERY stamped with last_hotfix_id & timestamp
++  notes: Use ACTIVATE: HOTFIX ENGINE; targets: Tasklist.md, ops/NEXT.yaml, Prompt.md, ops/RECOVERY.yaml.
 ```
 
 <<<PATCHSET END>>>
@@ -589,26 +554,29 @@ _Generator: scripts/update_master_route_table.sh_
 **Commit Message**
 ```
 
-[META.MASTERROUTE.COMBINED] Master route generator + singleton enforcement + cleanup + freshness guard
+[Meta.HOTFIX.SYSTEM] Add no-PATCHSET Hotfix Engine + guards
 
 Why:
-We need one canonical, always-fresh routing index and zero duplicates. This keeps routes clear, prevents infinite loops/confusion, and gives AI workers a reliable map that improves over time.
+We need an urgent-change path that follows our disciplined workflow without the PATCHSET ceremony, while still updating Prompt/Tasklist and keeping routing/metadata consistent.
 
 Changes:
 
-* Added generator: scripts/update_master_route_table.sh → creates masterroutetable.md.
-* Enforced singleton + freshness in scripts/verify_router_links.sh and CI workflow.
-* Added cleanup tool: scripts/cleanup_legacy_master_router.sh (dry-run by default).
-* Documented rules in Patch.md; wired npm scripts; bumped Prompt metadata.
-* NEXT → META.MASTERROUTE.ADAPTERS and Tasklist updated (COMBINED DONE, adapters READY).
+* ops/HOTFIX.md: Contract describing the Hotfix Engine, scope, and loop.
+* ops/HOTFIX_PLAN.yaml: Pointer for current hotfix (task id, reason, files_hint).
+* scripts/hotfix_entry.sh: Guides hotfix sessions; lists targets and rules.
+* scripts/guard_meta.sh: Detects Hotfix mode; makes PATCHSET Echo optional but keeps Prompt/Tasklist mandatory.
+* Patch.md / Prompt.md: Added Hotfix trigger + guidance.
+* ops/RECOVERY.yaml: Fields to record last hotfix metadata.
+* TOUCHMAP whitelist extended for hotfix files.
+* Tasklist: META.HOTFIX.SYSTEM DONE; HF.BROKEN.TASKFLOW READY.
 
 Acceptance:
 
-* CI fails if any root-level master router duplicates exist or if masterroutetable.md is stale.
-* `npm run router:update` regenerates; `npm run router:cleanup` shows/removes legacy variants.
-* masterroutetable.md exists and is recognized as the canonical, single source of route truth.
+* `ACTIVATE: HOTFIX ENGINE` produces a disciplined, no-PATCHSET workflow restricted to files_hint + meta.
+* Hotfix commits still bump Prompt.md and update Tasklist.md; CI respects Hotfix mode.
+* Recovery captures last hotfix; NEXT continues to govern normal patch work.
 
 ```
 
-If you want me to immediately follow with the **adapters** patch (JSON/CSV output + embedded signature in the generated markdown), I can roll that next to complete the ingestion story for IDEs and external workers.
+This gives you a clean, fast lane for emergencies while preserving your audit trail and keeping the AI’s “city roadways” map coherent. When you’re ready to actually run the first hotfix, flip `HF.BROKEN.TASKFLOW` to `IN_PROGRESS` (or just invoke the Hotfix Engine and let it mark it DONE as part of the edit), then commit with a message starting `[Hotfix HF.BROKEN.TASKFLOW] ...`.
 ```
