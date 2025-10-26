@@ -4,6 +4,13 @@ Infinity Gauntlet is a Discord-first Pokémon adventure for Dripcord. Players li
 DMs, explore the Wilds together, battle in public arenas, and progress through a
 live-service economy powered by workers and data pipelines.
 
+## Current Status & Goals
+
+- **Where we are:** The TypeScript bot stack (DM Home, Wilds, Arena, admin ops) runs end-to-end on Prisma-backed Postgres with automated data refresh and guardrails documented in Patch.md/Tasklist.md.
+- **Recent wins:** Admin `/ops stats` now supports scoped filtering (limit, after, participant) with Vitest coverage; hotfix loop enforces plain-text echo narration so automation logs stay readable.
+- **Immediate focus:** Promote the next persistence backlog item (Phase 7) and expand battle reporting while keeping router metadata and meta docs synchronized.
+- **Near horizon:** Harden deployment/worker automation, finalize dual-mode routing (prod vs dev), and prep for broader playtesting in Discord guilds.
+
 ## Key Capabilities
 
 - **DM-as-Home:** `/home`, heal, starter selection, party + box management, player
