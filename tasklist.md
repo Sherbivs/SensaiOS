@@ -16,6 +16,27 @@ Each task has:
 
 ## Phase 0 — Repo & Tooling
 
+- id: META.UNBLOCK.READY_SEED
+  title: Seed an immediate READY task after meta-only or all-busy states
+  status: READY
+  depends_on: []
+  acceptance_criteria:
+    - When NEXT is NONE or all tasks are IN_PROGRESS/DONE, a minimal READY task exists to re-prime the engine.
+    - guard-meta emits guidance in CI logs when no READY tasks are present.
+    - Prompt.md “Last Repo Changes” records the seed action when triggered.
+  notes: Manual seed to immediately unblock the patch engine; used after meta-only commits or accidental all-busy states.
+
+- id: META.NO_READY.SAFETY_NET
+  title: Add CI/guard to prevent "no READY tasks" states
+  status: PROPOSED
+  depends_on: [META.UNBLOCK.READY_SEED]
+  acceptance_criteria:
+    - .github/workflows/guard-meta.yml fails when Tasklist.md has 0 READY tasks (excluding META.UNBLOCK.READY_SEED).
+    - scripts/guard_meta.sh suggests the oldest eligible PROPOSED task to flip to READY.
+    - ops/NEXT.yaml is suggested (in logs) to point at that READY task.
+    - Patch.md documents this invariant and quick remediation steps.
+  notes: Prevent future deadlocks by enforcing at least one READY item at all times.
+
 - id: META.TASKLIST.COUPLING_FIX
   title: Enforce Tasklist updates from every PATCHSET and rewire guards
   status: DONE

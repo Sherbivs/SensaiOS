@@ -9,17 +9,18 @@ guidance_when_none: |
   - Update `next_task_id`, trim `files_hint` to only the files you expect to touch, and bump `timestamp_utc`.
   - Record the rationale in `note` so the next worker knows why the pointer moved.
 
-next_task_id: NONE
+next_task_id: META.UNBLOCK.READY_SEED
 reason: >
-  Master Router Table hotfix landed; queue still empty. Promote the next
-  persistence or routing follow-up before resuming the loop.
+  Unstick the patch engine after a NONE pointer / all-DONE state. Execute the seed task to
+  ensure there's always at least one READY item, then implement the safety-net guard next.
 
-files_hint: []
+files_hint:
+  - "Tasklist.md"
+  - "Prompt.md"
+  - ".github/workflows/guard-meta.yml"
+  - "scripts/guard_meta.sh"
 
-timestamp_utc: 2025-10-26T07:45:00Z
+timestamp_utc: 2025-10-26T08:05:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-26T07:45:00Z
-note: "Master router reference updated for hotfix guidance. Queue remains idle until a new task is staged."
-
-# Advisory flag read by guard scripts; safe to ignore if unsupported
-auto_requeue_if_none: true
+note: "NEXT → META.UNBLOCK.READY_SEED; follow with META.NO_READY.SAFETY_NET to enforce 'always ≥1 READY'."
