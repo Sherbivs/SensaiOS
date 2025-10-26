@@ -9,19 +9,19 @@ guidance_when_none: |
   - Update `next_task_id`, trim `files_hint` to only the files you expect to touch, and bump `timestamp_utc`.
   - Record the rationale in `note` so the next worker knows why the pointer moved.
 
-next_task_id: T8.1
+next_task_id: T8.2
 reason: >
-  Deliver the first player-facing follow-up by surfacing persisted battle history on DM Home
-  now that the READY queue guard is in place.
+  Extend DM Home progression by tracking trainer daily quest streaks and displaying
+  the streak status now that battle history is live.
 
 files_hint:
-  - "src/bot/dm/home.tsx"
-  - "src/bot/dm/components/**"
+  - "prisma/schema.prisma"
   - "src/models/**"
+  - "src/commands/home.js"
   - "tests/dm_home.spec.ts"
-  - "tests/battle_results.spec.ts"
+  - "tests/log.spec.ts"
 
-timestamp_utc: 2025-10-26T09:20:00Z
+timestamp_utc: 2025-10-26T10:25:00Z
 router_version: 1
-last_notes_read_utc: 2025-10-26T09:20:00Z
-note: "Promoted T8.1 (battle history on DM Home) to READY so product work resumes; guard stays satisfied."
+last_notes_read_utc: 2025-10-26T10:25:00Z
+note: "T8.1 shipped (DM Home battle history). NEXT now targets T8.2 to wire daily quest streaks into DM Home while the queue stays healthy."

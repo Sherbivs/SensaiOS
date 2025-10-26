@@ -135,8 +135,7 @@ T7.7:
   - "src/commands/ops.js"
 
 T8.1:
-  - "src/bot/dm/home.tsx"
-  - "src/bot/dm/components/**"
+  - "src/commands/home.js"
   - "src/models/**"
   - "tests/dm_home.spec.ts"
   - "tests/battle_results.spec.ts"
@@ -144,7 +143,7 @@ T8.1:
 T8.2:
   - "prisma/schema.prisma"
   - "src/models/**"
-  - "src/bot/dm/home.tsx"
+  - "src/commands/home.js"
   - "tests/dm_home.spec.ts"
   - "tests/log.spec.ts"
 

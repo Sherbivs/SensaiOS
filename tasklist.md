@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T09:20:00Z
-Revision: 1.54
+Last Updated (UTC): 2025-10-26T10:25:00Z
+Revision: 1.57
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -36,6 +36,26 @@ Each task has:
     - ops/NEXT.yaml is suggested (in logs) to point at that READY task.
     - Patch.md documents this invariant and quick remediation steps.
   notes: Outcome — guard_meta now fails when only the seed task remains READY, surfaces the oldest eligible PROPOSED task, and nudges NEXT to track the promoted work.
+
+- id: META.REFRESH.RETIRE
+  title: Retire Refresh Vision requirement and reinforce meta doc visibility check
+  status: DONE
+  depends_on: [META.NO_READY.SAFETY_NET]
+  acceptance_criteria:
+    - Patch.md no longer mandates running scripts/refresh_vision.sh and instead requires verifying access to Patch.md, Tasklist.md, and Prompt.md before planning.
+    - Prompt.md Activation Internals and Last Repo Changes mirror the new workflow and fallback guidance.
+    - ops/CRITICAL.md replaces the Refresh Vision phase with the meta visibility reminder.
+  notes: Outcome — Contract now focuses on ensuring key meta docs are readable instead of running Refresh Vision; Prompt/CRITICAL updated accordingly.
+
+- id: META.PROMPT.PATCHSET_TEMPLATE
+  title: Enforce plain-text PATCHSET template in Prompt echo
+  status: DONE
+  depends_on: [META.REFRESH.RETIRE]
+  acceptance_criteria:
+    - Patch.md documents the exact plain-text PATCHSET template the AI must copy into Prompt.md.
+    - Guidance explicitly forbids embedding objects/JSON and requires spacing/headings to stay fixed.
+    - Prompt.md Revision History captures the policy change.
+  notes: Outcome — Contract now mandates copying the plain-text template verbatim when drafting or echoing PATCHSETs inside Prompt.
 
 - id: META.READY_QUEUE.NEXT_TASK
   title: Promote substantive work to READY after safety-net guard
@@ -686,20 +706,20 @@ Each task has:
 
 - id: T8.1
   title: Surface recent battle history on DM Home using persisted data
-  status: READY
+  status: DONE
   depends_on: [T7.5, T7.7]
   acceptance_criteria:
     - DM `/home` embed includes a battle history section listing the last three finished battles for the trainer with win/loss outcome and rewards.
     - If a trainer has no finished battles, the embed displays a friendly placeholder message instead of the history section.
     - Tests cover DM Home rendering with populated battle history and the empty-state branch using persisted results.
-  notes: Promoted from backlog via META.READY_QUEUE.NEXT_TASK so delivery work stays queued after guard maintenance.
+  notes: Outcome — DM Home now renders the last three finished battles with win/loss badges, coin rewards, and turn counts; placeholder messaging covers trainers without history and Vitest asserts both branches.
 
 - id: T8.2
   title: Track trainer daily quest streaks and show them in DM Home
-  status: PROPOSED
+  status: READY
   depends_on: [T7.1]
   acceptance_criteria:
     - Data model stores quest streak metadata for trainers with increment/reset logic.
     - DM `/home` embed exposes streak status and outlines how to regain the streak when it resets.
     - Tests cover streak increment, reset, and DM Home display updates.
-  notes: Follow-up to expand progression systems once battle history is visible.
+  notes: Follow-up to expand progression systems now that battle history is visible; queued to keep READY work alive.

@@ -10,15 +10,24 @@ type HomePartyMember = {
 	isShiny: boolean;
 };
 
+type HomeBattleHistoryEntry = {
+	battleId: string;
+	outcome: "WIN" | "LOSS";
+	opponentDiscordId: string | null;
+	reward: number | null;
+	turnCount: number | null;
+};
+
 type HomeView = {
 	coins: number;
 	nextDaily: string;
 	party: HomePartyMember[];
 	showStarters: boolean;
+	battleHistory: HomeBattleHistoryEntry[];
 };
 
 type HomeInternals = {
-	mapTrainerToView: (trainer: any, now?: Date) => HomeView;
+	mapTrainerToView: (trainer: any, now?: Date, options?: { battleHistory?: HomeBattleHistoryEntry[] }) => HomeView;
 	buildHomeEmbed: (view: HomeView) => any;
 	asDiscordTimestamp: (date?: Date | string | null, now?: Date) => string;
 };
@@ -35,6 +44,7 @@ describe("DM Home view model", () => {
 		expect(view.party).toHaveLength(0);
 		expect(view.showStarters).toBe(true);
 		expect(view.nextDaily).toBe("Ready now");
+		expect(view.battleHistory).toEqual([]);
 	});
 
 	test("renders embed with persisted Pokémon details", () => {
@@ -74,17 +84,54 @@ describe("DM Home view model", () => {
 			],
 		};
 
-		const view = mapTrainerToView(trainer, now);
+		const history = [
+			{ battleId: "battle-a", outcome: "WIN" as const, opponentDiscordId: "rival", reward: 60, turnCount: 4 },
+		];
+		const view = mapTrainerToView(trainer, now, { battleHistory: history });
 		expect(view.coins).toBe(1250);
 		expect(view.showStarters).toBe(false);
 		expect(view.party).toHaveLength(2);
 		expect(view.party[0].name).toBe("Sparky");
 		expect(view.party[0].isShiny).toBe(true);
+		expect(view.battleHistory).toHaveLength(1);
 
 		const embed = buildHomeEmbed(view);
 		const json = embed.toJSON();
 		expect(json.fields?.[0]?.value).toContain("#1 Sparky ✨");
 		expect(json.fields?.[0]?.value).toContain("HP 35 / 35");
 		expect(asDiscordTimestamp(trainer.cooldowns[0].readyAt, now)).toMatch(/<t:\d+:R>/);
+	});
+
+	test("renders battle history summary when entries exist", () => {
+		const view: HomeView = {
+			coins: 100,
+			nextDaily: "Ready now",
+			party: [],
+			showStarters: false,
+			battleHistory: [
+				{ battleId: "battle-1", outcome: "WIN", opponentDiscordId: "winner", reward: 65, turnCount: 5 },
+				{ battleId: "battle-2", outcome: "LOSS", opponentDiscordId: "loser", reward: 12, turnCount: null },
+			],
+		};
+
+		const embed = buildHomeEmbed(view);
+		const historyField = embed.toJSON().fields?.find((field) => field.name === "Battle History");
+		expect(historyField?.value).toContain("✅ Win vs <@winner>");
+		expect(historyField?.value).toContain("+65 coins");
+		expect(historyField?.value).toContain("❌ Loss vs <@loser>");
+	});
+
+	test("shows placeholder message when no battle history entries", () => {
+		const view: HomeView = {
+			coins: 0,
+			nextDaily: "Ready now",
+			party: [],
+			showStarters: true,
+			battleHistory: [],
+		};
+
+		const embed = buildHomeEmbed(view);
+		const historyField = embed.toJSON().fields?.find((field) => field.name === "Battle History");
+		expect(historyField?.value).toContain("No finished battles yet");
 	});
 });

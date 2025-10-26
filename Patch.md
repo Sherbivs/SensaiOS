@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-26T09:20:00Z
-Revision: 1.20
+Last Updated (UTC): 2025-10-26T10:05:00Z
+Revision: 1.22
 
 This repository uses **Patch.md** as the single source of truth for automated, AI-driven development flow.
 The AI reading this file must follow the loop and rules exactly.
@@ -13,10 +13,9 @@ After completing a task, update `Tasklist.md` *convulsively* (immediately) to re
 - Any newly-discovered subtasks appended (with unique IDs) and appropriate status
 
 ## OPERATING LOOP
-0. **Refresh Vision (MANDATORY)**
-  - Run `scripts/refresh_vision.sh` to regenerate `ops/ROUTER_INDEX.yaml`, update the Recent Change Ledger, and stamp `ops/RECOVERY.yaml`.
-  - Review `ops/RECOVERY.yaml` for `last_attempted_task_id` / `last_attempted_ts`. If the recorded task is still READY, resume there before selecting new work.
-  - Read `ops/ROUTER_INDEX.yaml` to enumerate active routers; consult the specific `ROUTER.md` for any directory you will touch.
+0. **Meta Visibility Check (MANDATORY)**
+  - Confirm you can open `Patch.md`, `Tasklist.md`, and `Prompt.md` locally.
+  - If any are inaccessible, stop and ask a human to refresh or provide updated copies before proceeding.
 1. **Load Task Graph**
    - Read `Tasklist.md`.
    - Build an ordered plan from tasks where:
@@ -141,6 +140,34 @@ Rules:
 - Each PATCHSET handles exactly **one** Task ID.
 - If a task requires multiple files, include multiple `# FILE:` sections in the same PATCHSET.
 - Always include a `# TASKLIST UPDATE` diff at the end of the PATCHSET.
+
+### Prompt Patchset Template Discipline (MANDATORY)
+- When drafting or echoing a PATCHSET inside `Prompt.md`, copy the plain-text template below **verbatim** (no embedded objects, JSON, or extra markers). It must remain raw text so downstream tooling does not misinterpret it.
+- You may replace `<Task ID>` / file names / diffs with the current change details, but keep the headings, fence hints, and spacing identical.
+
+````
+<<<PATCHSET START>>>
+
+# [TASK.ID]: <short task title>
+
+# FILE: <path/to/file.ext>
+
+```diff
+@@
+- old line
++ new line
+```
+
+# TASKLIST UPDATE
+
+```diff
+@@
+- status: READY
++ status: DONE
+```
+
+<<<PATCHSET END>>>
+````
 
 ## COMMIT MESSAGE TEMPLATE
 ``
@@ -286,289 +313,429 @@ This section may be overwritten frequently.
 PATCH CLIPBOARD — STAGING AREA (AI-Editable)
 Paste your next PATCHSET below.
 
-``
 <<<PATCHSET START>>>
 
-# [META.ROUTING.DUAL_TABLES]: Establish dual (DEV/PROD) routing tables + master route text reference + DNS bridge
+# [META.DEV.TIGHTEN]: Enforce last_task_id stamping, dev-only cleanup, and end-of-loop readiness
 
-# FILE: masterroutetable.md
+# FILE: ops/DEV_POLICY.md
 
-```full
-# Master Route Table (Human Reference)
-Last Updated (UTC): 2025-10-26T09:05:00Z
+``full
+# DEV System Policy (AI Navigation & Hygiene)
+Last Updated (UTC): 2025-10-26T09:30:00Z
 Revision: 1.0
+Last Task ID: META.DEV.TIGHTEN
 
-Purpose
-- Single, text-first index the AI can skim fast.
-- Always list router entrypoints first, then high-signal directories, then notable files.
-- Mirrors both DEV and PROD routing systems and points to the canonical router-of-routers (YAML) without duplicating it.
+## Purpose
+Keep the repository clean for production while optimizing AI navigation in development:
+1) Every DEV “system” file carries the **Last Task ID** that last edited it.
+2) Any **non-vital** files not explicitly tagged as DEV are **pruned on DEV finalize**.
+3) The patch loop must **exit ready** with at least one READY task + a sane NEXT pointer.
 
-Reading Order (start here)
-1) Router-of-Routers (YAML): ops/ROUTER_INDEX.yaml
-2) DEV Router Table (JSON): routes/dev/masterRouteTable.json
-3) PROD Router Table (JSON): routes/prod/masterRouteTable.json
-4) DNS Bridge (MD): DNS.md (crosswalk between DEV⇄PROD)
+## Required metadata tags
+- Place a tag near the top of the file (first 30 lines). Use the format that matches the file type.
 
-Metadata expectations (stamped by AI when touched)
-- Each file the AI touches should have: revision, timestamp (UTC), last_task_id, one-line purpose.
-- When AI finds a routable file without metadata, it should add a side-note entry here under “Newly Discovered (Unmapped)”.
+Markdown / YAML / JSON:
+``
 
-Routers (directory → ROUTER.md)
-- ops/ROUTER.md — Ops & Governance; owns NEXT/TOUCHMAP/CRITICAL; meta docs and scripts.
-- scripts/ROUTER.md — Repo scripts; refresh_vision / guards / scaffolding.
-- src/ROUTER.md — App source umbrella; see sub-routers.
-- src/bot/ROUTER.md — Discord bot commands/flows; DM Home, Wilds, Arena, Admin Ops.
-- src/core/ROUTER.md — Core mechanics; battle/encounter engines, status/damage.
-- tests/ROUTER.md — Vitest specs; coverage for battle flow, ops, data pipeline.
+<!-- @last_task_id: <TASK_ID> @timestamp_utc: <ISO> -->
 
-High-Signal Areas (skim-first cues)
-- /src/bot/ops/admin.ts — Admin stats, cooldown resets; recent filters (limit/after/participant).
-- /src/bot/battle/conclude.ts — Victory/forfeit persistence + announcer reuse.
-- /src/core/battle/** — Deterministic RNG, damage/type/status helpers.
-- /tests/** — Coverage for DM Home, capture, battle, admin ops.
+``
 
-Newly Discovered (Unmapped)
-- (AI adds short entries here during runs when it touches files missing routing metadata)
+TypeScript / JavaScript / Shell:
+``js
+// @last_task_id: <TASK_ID> @timestamp_utc: <ISO>
+``
 
-Notes
-- This page is non-runtime, developer-only. Keep concise and deterministic for AI navigation.
-```
+## DEV tagging (explicit)
 
-# FILE: routes/dev/masterRouteTable.json
+* Mark dev-only files with **one** of the following in the header (first 30 lines):
 
-```full
-{
-  "version": "v0.1.0",
-  "generatedUtc": "2025-10-26T09:05:00Z",
-  "routes": [
-    { "logicalName": "Ops.Index", "path": "ops/ROUTER_INDEX.yaml", "priority": 100 },
-    { "logicalName": "Ops.Router", "path": "ops/ROUTER.md", "priority": 95 },
-    { "logicalName": "Dev.MasterTable", "path": "masterroutetable.md", "priority": 90 },
+  * Markdown/YAML/JSON: `<!-- @dev-only -->`
+  * Code files: `// @dev-only`
 
-    { "logicalName": "Scripts.Router", "path": "scripts/ROUTER.md", "priority": 80 },
-    { "logicalName": "Src.Router", "path": "src/ROUTER.md", "priority": 80 },
-    { "logicalName": "Src.Bot.Router", "path": "src/bot/ROUTER.md", "priority": 70 },
-    { "logicalName": "Src.Core.Router", "path": "src/core/ROUTER.md", "priority": 70 },
-    { "logicalName": "Tests.Router", "path": "tests/ROUTER.md", "priority": 60 }
-  ]
+**Examples:** Patch.md, Tasklist.md, Prompt.md, ops/**, scripts/**, routes/dev/**, DNS.md, masterroutetable.md.
+
+## Non-vital production surfaces (default-protected)
+
+Anything under:
+
+* `src/**`, `data/**` (runtime artifacts), `render.yaml`, `package.json`, `tsconfig.json`, `prisma/**`, `routes/prod/**`
+  …is considered *vital* and **must not** be pruned.
+
+## DEV finalize (pruning)
+
+* At the end of a DEV run, `scripts/dev_sanitize.sh` will truncate any **non-vital and untagged** files recorded in `ops/DEV_PRUNE_LIST.txt` and mark them with a “DEV-PRUNED” banner.
+* To skip pruning for a file, add the header tag `@dev-only` **or** add the file to `ops/DEV_KEEP.yaml`.
+
+## End-of-loop readiness
+
+* The loop must finish with:
+
+  * ≥1 READY task in Tasklist.md
+  * `ops/NEXT.yaml` pointing to a READY task (not NONE)
+* `scripts/ensure_ready_next.sh` enforces this and suggests a candidate when needed.
+
+``
+
+# FILE: ops/DEV_KEEP.yaml
+``full
+# Files here are exempt from DEV pruning even if they lack @dev-only tags.
+# One path per line, relative to repo root.
+# Examples:
+# masterroutetable.md
+# DNS.md
+``
+
+# FILE: scripts/dev_tag_guard.sh
+
+``full
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Guard: Ensure DEV/system files carry @last_task_id and collect untagged non-vital files for pruning.
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$ROOT"
+
+PRUNE_LIST="ops/DEV_PRUNE_LIST.txt"
+KEEP_FILE="ops/DEV_KEEP.yaml"
+: > "${PRUNE_LIST}"
+
+# Patterns
+VITAL_WHITELIST='^(src/|data/|render\.yaml$|package\.json$|tsconfig\.json$|prisma/|routes/prod/)'
+DEV_ZONES='^(ops/|scripts/|routes/dev/|masterroutetable\.md$|DNS\.md$|Patch\.md$|Tasklist\.md$|Prompt\.md$)'
+
+# Collect keep overrides
+declare -A KEEP
+if [[ -f "${KEEP_FILE}" ]]; then
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" =~ ^# ]] && continue
+    KEEP["$line"]=1
+  done < "${KEEP_FILE}"
+fi
+
+has_last_task_id () {
+  head -n 30 "$1" | grep -Eq '@last_task_id:\s*[A-Z0-9\.\-]+' || return 1
 }
-```
 
-# FILE: routes/prod/masterRouteTable.json
-
-```full
-{
-  "version": "v0.1.0",
-  "generatedUtc": "2025-10-26T09:05:00Z",
-  "routes": [
-    { "logicalName": "Ops.Index", "path": "ops/ROUTER_INDEX.yaml", "priority": 100 },
-    { "logicalName": "Prod.Router", "path": "ops/ROUTER.md", "priority": 95 },
-
-    { "logicalName": "App.Bot", "path": "src/bot", "priority": 80 },
-    { "logicalName": "App.Core", "path": "src/core", "priority": 80 },
-    { "logicalName": "App.Tests", "path": "tests", "priority": 60 }
-  ]
+has_dev_tag () {
+  head -n 30 "$1" | grep -Eq '@dev-only' || return 1
 }
-```
 
-# FILE: routes/translators/devToProd.map.json
-
-```full
-{
-  "mappings": [
-    { "logicalName": "Ops.Index", "devRoute": "ops/ROUTER_INDEX.yaml", "prodRoute": "ops/ROUTER_INDEX.yaml" },
-    { "logicalName": "Ops.Router", "devRoute": "ops/ROUTER.md", "prodRoute": "ops/ROUTER.md" },
-    { "logicalName": "Dev.MasterTable", "devRoute": "masterroutetable.md", "prodRoute": "ops/ROUTER.md" },
-
-    { "logicalName": "Scripts.Router", "devRoute": "scripts/ROUTER.md", "prodRoute": "ops/ROUTER.md" },
-    { "logicalName": "Src.Router", "devRoute": "src/ROUTER.md", "prodRoute": "ops/ROUTER.md" },
-    { "logicalName": "Src.Bot.Router", "devRoute": "src/bot/ROUTER.md", "prodRoute": "src/bot" },
-    { "logicalName": "Src.Core.Router", "devRoute": "src/core/ROUTER.md", "prodRoute": "src/core" },
-    { "logicalName": "Tests.Router", "devRoute": "tests/ROUTER.md", "prodRoute": "tests" }
-  ]
+is_text () {
+  # Treat binary as non-text (skip)
+  file -b --mime "$1" | grep -q 'text/' || return 1
 }
+
+fail=0
+while IFS= read -r f; do
+  # Skip directories and deleted
+  [[ -d "$f" ]] && continue
+  [[ ! -f "$f" ]] && continue
+  # Skip binary files
+  is_text "$f" || continue
+
+  # vital paths: never prune
+  if [[ "$f" =~ $VITAL_WHITELIST ]]; then
+    # metadata optional here (not enforced)
+    continue
+  fi
+
+  # dev zones: must have @last_task_id
+  if [[ "$f" =~ $DEV_ZONES ]]; then
+    if ! has_last_task_id "$f"; then
+      echo "::error file=$f::Missing @last_task_id header in DEV/system file." >&2
+      fail=1
+    fi
+    continue
+  fi
+
+  # non-vital, not in dev zones
+  # if explicitly kept, skip
+  if [[ -n "${KEEP[$f]:-}" ]]; then
+    continue
+  fi
+
+  # if not explicitly tagged DEV, schedule for pruning
+  if ! has_dev_tag "$f"; then
+    echo "$f" >> "${PRUNE_LIST}"
+  fi
+done < <(git ls-files)
+
+if [[ $fail -ne 0 ]]; then
+  echo "::group::DEV tag guard summary"
+  echo "Missing @last_task_id found. See errors above."
+  echo "::endgroup::"
+  exit 1
+fi
+
+if [[ -s "${PRUNE_LIST}" ]]; then
+  echo "::notice::DEV prune candidates listed in ${PRUNE_LIST}"
+else
+  rm -f "${PRUNE_LIST}"
+fi
+``
+
+# FILE: scripts/dev_sanitize.sh
+
+``full
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$ROOT"
+
+PRUNE_LIST="ops/DEV_PRUNE_LIST.txt"
+if [[ ! -f "${PRUNE_LIST}" ]]; then
+  echo "No prune list present; nothing to sanitize."
+  exit 0
+fi
+
+while IFS= read -r f; do
+  [[ -z "$f" ]] && continue
+  if [[ -f "$f" ]]; then
+    printf '%s\n' "<!-- DEV-PRUNED: This file was pruned during DEV finalize. Safe to delete. -->" > "$f" || true
+    # Fallback for code files (if markdown header not desired)
+    if [[ "$f" =~ \.(ts|js|sh)$ ]]; then
+      printf '%s\n' "// DEV-PRUNED: This file was pruned during DEV finalize. Safe to delete." > "$f" || true
+    fi
+    echo "::notice file=$f::pruned"
+  fi
+done < "${PRUNE_LIST}"
+
+rm -f "${PRUNE_LIST}"
+``
+
+# FILE: scripts/ensure_ready_next.sh
+
+``full
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Ensure there is ≥1 READY task and NEXT.yaml points to a READY task.
+# Suggest a candidate if needed but do not auto-edit files (human/AI will).
+
+has_ready=$(grep -Ec '^\s*status:\s*READY\b' Tasklist.md || true)
+if [[ "${has_ready}" -eq 0 ]]; then
+  echo "::error::Tasklist.md has zero READY tasks. Promote an eligible PROPOSED item or add a READY seed."
+  # Suggest the first eligible PROPOSED whose deps are DONE
+  awk '
+    BEGIN{RS=""; FS="\n"}
+    /- id:/ {
+      id=""; st=""; deps=""
+      for(i=1;i<=NF;i++){
+        if($i ~ /^- id:[[:space:]]*/){ id=$i; sub(/^- id:[[:space:]]*/,"",id) }
+        if($i ~ /^[[:space:]]*status:/){ st=$i; sub(/^[[:space:]]*status:[[:space:]]*/,"",st) }
+        if($i ~ /^[[:space:]]*depends_on:/){ deps=$i; sub(/^[[:space:]]*depends_on:[[:space:]]*/,"",deps); gsub(/[\[\],]/," ",deps) }
+      }
+      if(st=="PROPOSED"){ print id "|" deps }
+    }
+  ' Tasklist.md | while IFS='|' read -r id deps; do
+      ok=1
+      for d in $deps; do
+        [[ -z "$d" ]] && continue
+        if ! grep -qE "^- id: ${d}$([[:space:]]|\n).*^[[:space:]]*status:[[:space:]]*DONE\b" -n Tasklist.md; then
+          ok=0; break
+        fi
+      done
+      if [[ $ok -eq 1 ]]; then
+        echo "::notice::Eligible PROPOSED for promotion: ${id}"
+        break
+      fi
+    done
+  exit 1
+fi
+
+current_next=$(awk 'match($0, /^next_task_id:\s*(.*)$/, a){print a[1];exit}' ops/NEXT.yaml | tr -d '"')
+current_next=${current_next:-NONE}
+if [[ "$current_next" == "NONE" ]]; then
+  # Suggest the first READY id
+  ready=$(awk '
+    BEGIN{RS=""; FS="\n"}
+    /- id:/ {
+      id=""; st=""
+      for(i=1;i<=NF;i++){
+        if($i ~ /^- id:[[:space:]]*/){ id=$i; sub(/^- id:[[:space:]]*/,"",id) }
+        if($i ~ /^[[:space:]]*status:/){ st=$i; sub(/^[[:space:]]*status:[[:space:]]*/,"",st) }
+      }
+      if(st=="READY"){ print id; exit }
+    }
+  ' Tasklist.md)
+  if [[ -n "$ready" ]]; then
+    echo "::notice::NEXT.yaml is NONE. Suggested next_task_id: ${ready}"
+    exit 0
+  fi
+fi
+
+echo "READY queue and NEXT pointer look sane."
 ```
 
-# FILE: DNS.md
+# FILE: .github/workflows/dev-guard.yml
 
 ```full
-# Repository DNS (DEV ⇄ PROD Router Crosswalk)
-Last Updated (UTC): 2025-10-26T09:05:00Z
-Revision: 0.1
-
-Sources
-- DEV: routes/dev/masterRouteTable.json
-- PROD: routes/prod/masterRouteTable.json
-- Translator: routes/translators/devToProd.map.json
-
-Matrix (logicalName → devRoute ⇄ prodRoute)
-- Ops.Index → ops/ROUTER_INDEX.yaml ⇄ ops/ROUTER_INDEX.yaml [ok]
-- Ops.Router → ops/ROUTER.md ⇄ ops/ROUTER.md [ok]
-- Dev.MasterTable → masterroutetable.md ⇄ ops/ROUTER.md [ok]
-- Scripts.Router → scripts/ROUTER.md ⇄ ops/ROUTER.md [ok]
-- Src.Router → src/ROUTER.md ⇄ ops/ROUTER.md [ok]
-- Src.Bot.Router → src/bot/ROUTER.md ⇄ src/bot [ok]
-- Src.Core.Router → src/core/ROUTER.md ⇄ src/core [ok]
-- Tests.Router → tests/ROUTER.md ⇄ tests [ok]
-
-Notes
-- DEV table is navigation-optimized (docs-first), PROD table is runtime-facing (areas/dirs).
-- Translator is declarative and must remain bijective (no duplicate devRoute/prodRoute pairs).
-```
-
-# FILE: .github/workflows/routing-guard.yml
-
-```full
-name: routing-guard
+name: dev-guard
 on:
   pull_request:
     paths:
+      - 'ops/**'
+      - 'scripts/**'
       - 'routes/**'
+      - 'Patch.md'
+      - 'Prompt.md'
+      - 'Tasklist.md'
       - 'DNS.md'
-      - 'ops/ROUTER_INDEX.yaml'
+      - 'masterroutetable.md'
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate routing files exist
-        run: |
-          test -f routes/dev/masterRouteTable.json
-          test -f routes/prod/masterRouteTable.json
-          test -f routes/translators/devToProd.map.json
-          test -f DNS.md
-      - name: Validate bijection & completeness (lightweight)
-        run: |
-          node -e "
-            const fs=require('fs');
-            const dev=JSON.parse(fs.readFileSync('routes/dev/masterRouteTable.json','utf8'));
-            const prod=JSON.parse(fs.readFileSync('routes/prod/masterRouteTable.json','utf8'));
-            const map=JSON.parse(fs.readFileSync('routes/translators/devToProd.map.json','utf8'));
-            const d=new Set(dev.routes.map(r=>r.path));
-            const p=new Set(prod.routes.map(r=>r.path));
-            const sd=new Set(), sp=new Set();
-            for(const m of map.mappings){
-              if(sd.has(m.devRoute)||sp.has(m.prodRoute)){ throw new Error('Non-bijective mapping at '+m.logicalName); }
-              sd.add(m.devRoute); sp.add(m.prodRoute);
-            }
-            const md=new Set(map.mappings.map(m=>m.devRoute));
-            const mp=new Set(map.mappings.map(m=>m.prodRoute));
-            const missD=[...d].filter(x=>!md.has(x));
-            const missP=[...p].filter(x=>!mp.has(x));
-            if(missD.length||missP.length){ throw new Error('Unmapped routes DEV:'+missD.length+' PROD:'+missP.length); }
-          "
+      - name: DEV tag guard
+        run: bash scripts/dev_tag_guard.sh
+      - name: Ensure READY/NEXT sane
+        run: bash scripts/ensure_ready_next.sh
 ```
 
 # FILE: Patch.md
 
 ```diff
 @@
- ## ROUTER NETWORK (City Roadway Model)
- - **Per-directory router:** A `ROUTER.md` lives in each directory that contains patchable code or docs. It declares Title, Purpose, Owned globs, and a short “Where to next” note.
- - **Router-of-routers:** `ops/ROUTER_INDEX.yaml` lists every discovered router with path, purpose, and last-updated timestamp. It is regenerated by `scripts/update_router_index.sh` and must be refreshed before task selection.
- - **Consistency rule:** If a PATCHSET touches any file under a routed directory, update that directory’s `ROUTER.md` (timestamp + brief note) in the same PATCHSET and re-run the index script.
-+ - **Dual routing (DEV/PROD):** Maintain `routes/dev/masterRouteTable.json` (docs-first) and `routes/prod/masterRouteTable.json` (runtime areas). Keep a bijective translator in `routes/translators/devToProd.map.json` and a human DNS bridge in `DNS.md`. The AI must consult these prior to patching and tag any unmapped files it touches.
+ ## OPERATING LOOP
+@@
+ 3) **Update Tasklist**
+@@
+ 4) **Commit**
+@@
+ 5) **Repeat**
++
++## DEV System Tightening (mandatory in DEV runs)
++- **Last Task ID stamping:** Any DEV/system file you touch must carry a header tag with the last task id and timestamp (see ops/DEV_POLICY.md).
++- **DEV finalize pruning:** Before ending a DEV run, generate a prune list (`scripts/dev_tag_guard.sh`), then sanitize (`scripts/dev_sanitize.sh`). Vital runtime paths (`src/**`, `routes/prod/**`, etc.) are never pruned. Add `@dev-only` to keep a dev file.
++- **End-of-loop readiness:** Ensure ≥1 READY task remains and `ops/NEXT.yaml` points to a READY item. Use `scripts/ensure_ready_next.sh` to verify and choose a candidate if needed.
 ```
 
 # FILE: Prompt.md
 
-```diff
+``diff
 @@
--Timestamp (UTC): 2025-10-26T08:55:00Z
--Revision: 0.68
-+Timestamp (UTC): 2025-10-26T09:05:00Z
-+Revision: 0.69
+-Timestamp (UTC): 2025-10-26T09:05:00Z
+-Revision: 0.69
++Timestamp (UTC): 2025-10-26T09:30:00Z
++Revision: 0.70
 @@
  > Changes in this revision:
-+> - `routes/dev/masterRouteTable.json`, `routes/prod/masterRouteTable.json` — Introduced dual routing tables (dev/docs-first vs prod/runtime).
-+> - `routes/translators/devToProd.map.json` — Declarative DEV⇄PROD mapping (bijective).
-+> - `DNS.md` — Human-readable crosswalk between dev/prod routes.
-+> - `masterroutetable.md` — Rewritten as text-first master reference with clear entry order and “newly discovered” staging.
-+> - `.github/workflows/routing-guard.yml` — Lightweight CI guard for bijection and completeness.
-+> - `Patch.md` — Documented dual routing requirement and lookup order.
-```
++> - `ops/DEV_POLICY.md`, `ops/DEV_KEEP.yaml` — Defined DEV system metadata, pruning rules, and keep overrides.
++> - `scripts/dev_tag_guard.sh`, `scripts/dev_sanitize.sh`, `scripts/ensure_ready_next.sh` — Added guards for last_task_id stamping, DEV pruning, and end-of-loop readiness.
++> - `.github/workflows/dev-guard.yml` — CI: run DEV guard + readiness checks on PRs touching dev system files.
++> - `Patch.md` — Documented DEV tightening rules (stamp, prune, ensure READY/NEXT).
+``
 
 # FILE: Tasklist.md
 
-```diff
+``diff
 @@
--Last Updated (UTC): 2025-10-26T08:55:00Z
--Revision: 1.53
-+Last Updated (UTC): 2025-10-26T09:05:00Z
-+Revision: 1.54
+-Last Updated (UTC): 2025-10-26T09:05:00Z
+-Revision: 1.54
++Last Updated (UTC): 2025-10-26T09:30:00Z
++Revision: 1.55
 @@
-+- id: META.ROUTING.DUAL_TABLES
-+  title: Add DEV/PROD router tables, translator, DNS bridge, and master text table
++- id: META.DEV.TIGHTEN
++  title: Enforce last_task_id tags, DEV prune, and end-of-loop readiness
 +  status: DONE
-+  depends_on: [META.ROUTER.NAME_GUARD]
++  depends_on: [META.NO_READY.SAFETY_NET, META.ROUTING.DUAL_TABLES]
 +  acceptance_criteria:
-+    - routes/dev & routes/prod masterRouteTable.json exist and are coherent.
-+    - routes/translators/devToProd.map.json is bijective and complete.
-+    - DNS.md renders a current crosswalk.
-+    - masterroutetable.md is text-first and lists router entrypoints first.
-+  notes: Outcome — Dual routing introduced with DNS bridge and CI guard; Patch.md updated to require lookup and tagging of unmapped files.
-```
++    - DEV/system files touched by AI require @last_task_id header.
++    - dev_tag_guard.sh builds ops/DEV_PRUNE_LIST.txt for non-vital, untagged files.
++    - dev_sanitize.sh truncates listed files and adds a DEV-PRUNED banner.
++    - ensure_ready_next.sh verifies ≥1 READY and suggests NEXT when NONE.
++  notes: Outcome — CI/dev guards added; policy codified; loop exits with at least one READY item and a valid NEXT pointer.
+``
 
 # FILE: ops/NEXT.yaml
 
-```diff
+``diff
 @@
--next_task_id: META.READY_QUEUE.NEXT_TASK
--reason: >
--  Promote substantive work back into READY immediately after landing the safety-net guard so
--  the queue never runs dry again.
-+next_task_id: META.DNS.AUTOGEN
-+reason: >
-+  Add a tiny generator script to refresh DNS.md and validate bijection locally; wire to npm scripts.
+ next_task_id: META.DNS.AUTOGEN
+ reason: >
+   Add a tiny generator script to refresh DNS.md and validate bijection locally; wire to npm scripts.
 @@
--files_hint:
--  - "Tasklist.md"
--  - "Prompt.md"
--  - "ops/NEXT.yaml"
-+files_hint:
-+  - "DNS.md"
-+  - "routes/dev/masterRouteTable.json"
-+  - "routes/prod/masterRouteTable.json"
-+  - "routes/translators/devToProd.map.json"
-+  - "Tasklist.md"
-+  - "Prompt.md"
-+  - "ops/NEXT.yaml"
+ note: "Dual routing landed with a DNS bridge; next, add a tiny autogen script to keep DNS.md fresh locally."
+``
+
+# FILE: masterroutetable.md
+
+``diff
 @@
--note: "Safety-net guard complete → NEXT now points at META.READY_QUEUE.NEXT_TASK to keep the READY queue flowing."
-+note: "Dual routing landed with a DNS bridge; next, add a tiny autogen script to keep DNS.md fresh locally."
+-Last Updated (UTC): 2025-10-26T09:05:00Z
+-Revision: 1.0
+-Last Task ID: META.ROUTING.DUAL_TABLES
++Last Updated (UTC): 2025-10-26T09:30:00Z
++Revision: 1.1
++Last Task ID: META.DEV.TIGHTEN
+@@
+ New Newly Discovered (Unmapped)
+ - (AI adds short entries here during runs when it touches files missing routing metadata)
++Pruning
++- DEV guard writes candidates to ops/DEV_PRUNE_LIST.txt; DEV finalize sanitizes those files unless kept by @dev-only or ops/DEV_KEEP.yaml.
+``
+
+# FILE: routes/dev/masterRouteTable.json
+
+``diff
+@@
+-  "version": "v0.1.0",
+-  "generatedUtc": "2025-10-26T09:05:00Z",
++  "version": "v0.1.1",
++  "generatedUtc": "2025-10-26T09:30:00Z",
+```
+
+# FILE: routes/prod/masterRouteTable.json
+
+``diff
+@@
+-  "version": "v0.1.0",
+-  "generatedUtc": "2025-10-26T09:05:00Z",
++  "version": "v0.1.1",
++  "generatedUtc": "2025-10-26T09:30:00Z",
+``
+
+# FILE: DNS.md
+
+``diff
+@@
+-Last Updated (UTC): 2025-10-26T09:05:00Z
+-Revision: 0.1
++Last Updated (UTC): 2025-10-26T09:30:00Z
++Revision: 0.2
 ```
 
 # TASKLIST UPDATE
 
-```diff
+``diff
 @@
-+- id: META.DNS.AUTOGEN
-+  title: Add a local DNS.md generator + npm script
-+  status: READY
-+  depends_on: [META.ROUTING.DUAL_TABLES]
-+  acceptance_criteria:
-+    - A script reads dev/prod tables + translator and rewrites DNS.md deterministically.
-+    - npm run routes:dns regenerates the file; CI diff stays clean when up-to-date.
-+  notes: Keeps DNS.md current without manual edits; complements the CI guard.
-```
++  notes: Outcome — CI/dev guards added; policy codified; loop exits with at least one READY item and a valid NEXT pointer.
+``
 
 <<<PATCHSET END>>>
 
 **Commit Message**
 
-```
-[META.ROUTING.DUAL_TABLES] Dual routing (DEV/PROD) + DNS bridge + master text reference
+``
+[META.DEV.TIGHTEN] Stamp last_task_id on DEV files, prune non-vital untagged artifacts, and enforce end-of-loop readiness
 
 Why:
-We need a navigation-optimized DEV router, a runtime-oriented PROD router, and a clear crosswalk so the AI can learn, tag unmapped files, and avoid mixing dev-only “systems” into production code paths.
+Our DEV “system” needs strong hygiene so AI navigation stays crisp and production stays uncluttered. We also want the loop to exit with a READY task and valid NEXT to avoid stalls.
 
 Changes:
-* Added routes/dev & routes/prod masterRouteTable.json and a bijective translator in routes/translators/.
-* Introduced DNS.md as a human-readable crosswalk, and rewrote masterroutetable.md as a text-first index.
-* Added a lightweight routing CI guard and documented the dual-routing rule in Patch.md.
-* Tasklist: recorded META.ROUTING.DUAL_TABLES (DONE) and queued META.DNS.AUTOGEN (READY).
-* NEXT: pointed to META.DNS.AUTOGEN; Prompt: updated metadata and Last Repo Changes.
+* Policy: ops/DEV_POLICY.md + ops/DEV_KEEP.yaml define metadata tags, dev-only markers, and prune exemptions.
+* Guarding: scripts/dev_tag_guard.sh enforces @last_task_id and builds ops/DEV_PRUNE_LIST.txt; scripts/dev_sanitize.sh prunes candidates; scripts/ensure_ready_next.sh verifies READY/NEXT.
+* CI: .github/workflows/dev-guard.yml runs the guard + readiness checks on PRs touching dev system files.
+* Docs: Patch.md spells out DEV tightening; Prompt.md/Tasklist.md record the change; masterroutetable.md now references pruning.
+* Routing metadata bumped (dev/prod versions + DNS revision).
 
 Acceptance:
-- DEV/PROD tables exist and map 1:1 via translator; DNS.md lists current mappings; CI guard validates bijection/completeness.
-```
+- Missing @last_task_id in DEV/system files triggers CI error.
+- Non-vital, untagged files are queued for prune on DEV finalize.
+- End-of-loop check ensures ≥1 READY and suggests NEXT when NONE.
+``
+

@@ -29,11 +29,12 @@ what to do next, where to change it, and how to update state.
 - When DONE history exceeds 100 entries, run `npm run tasks:archive` to move older completions into `ops/ARCHIVE/`.
 - Keep these files **small and deterministic**. Re-run yields the same state.
 
-## Refresh Vision Phase (MANDATORY)
-- Before selecting a task, run the refresh workflow:
-	1) Execute `scripts/refresh_vision.sh` to regenerate `ops/ROUTER_INDEX.yaml`, update the change ledger in `Prompt.md` (if available), and stamp `ops/RECOVERY.yaml`.
-	2) Read `ops/ROUTER_INDEX.yaml` and relevant `ROUTER.md` files for context.
+## Meta Visibility Phase (MANDATORY)
+- Before selecting a task, confirm meta docs are readable:
+  1) Open `Patch.md`, `Tasklist.md`, and `Prompt.md`. If any fail to load, stop and alert a human for refreshed copies.
+  2) Once confirmed, read `ops/ROUTER_INDEX.yaml` and relevant `ROUTER.md` files for context.
 	3) Proceed to the task selection loop.
+	Note: When shell access exists, a human may still run `scripts/refresh_vision.sh` to regenerate routing artifacts, but it is no longer required prior to activation.
 
 ### Contract & Task Graph Updates (Policy)
 - Contract edits (`Patch.md`) should be done under a dedicated **META** task using surgical diffs.
