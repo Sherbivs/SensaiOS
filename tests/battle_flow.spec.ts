@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChatInputCommandInteraction, ButtonInteraction } from "discord.js";
 import { __testing, handleBattleChallengeButton, handleBattleChallengeCommand } from "../src/bot/battle/challenge.js";
+import { handleBattleActionButton } from "../src/bot/battle/actions.js";
+import { BattleRepo } from "../src/models/index.js";
+import * as concludeModule from "../src/bot/battle/conclude.js";
 import type { ArenaThreadContext } from "../src/bot/arena/thread.js";
 
 describe("battle challenge prompt", () => {
@@ -175,5 +178,67 @@ describe("handleBattleChallengeButton", () => {
     expect(usersFetch).toHaveBeenCalledWith("challenger");
     expect(usersFetch).toHaveBeenCalledWith("opponent");
     expect(userDmSend).toHaveBeenCalled();
+  });
+});
+
+describe("handleBattleActionButton - forfeit", () => {
+  it("persists the result and updates the loser prompt", async () => {
+    const interaction: ButtonInteraction = {
+      customId: "BATTLE_FORFEIT_battle-9",
+      user: { id: "p1", discordId: "loser" } as any,
+      reply: vi.fn() as any,
+      update: vi.fn() as any,
+      client: { users: { fetch: vi.fn() }, channels: { fetch: vi.fn() } } as any,
+    } as ButtonInteraction;
+
+    const battle = {
+      id: "battle-9",
+      state: "Active",
+      arenaThreadId: "thread-9",
+      p1: { id: "p1", discordId: "loser" },
+      p2: { id: "p2", discordId: "winner" },
+    } as any;
+
+    const prisma = {
+      battle: {
+        findUnique: vi.fn().mockResolvedValue(battle),
+      },
+    } as any;
+
+    const persistedResult = {
+      battleId: "battle-9",
+      reason: "forfeit",
+      turnCount: 0,
+      rewards: { winner: 50, loser: 10 },
+      winner: { userId: "p2", discordId: "winner" },
+      loser: { userId: "p1", discordId: "loser" },
+    };
+
+    const concludeSpy = vi.spyOn(BattleRepo, "concludeBattle").mockResolvedValue(persistedResult);
+
+    const announceSpy = vi.spyOn(concludeModule, "announceBattleResult").mockImplementation(async (opts) => {
+      await opts.updateLoserInteraction?.("Forfeit recorded");
+    });
+
+    await handleBattleActionButton(interaction, { prisma });
+
+    expect(prisma.battle.findUnique).toHaveBeenCalledWith({ where: { id: "battle-9" }, include: { p1: true, p2: true } });
+    expect(concludeSpy).toHaveBeenCalledWith({
+      prisma,
+      battle,
+      winner: "p2",
+      turnCount: 0,
+      reason: "forfeit",
+    });
+    expect(announceSpy).toHaveBeenCalledWith({
+      client: interaction.client,
+      battle,
+  result: persistedResult,
+      updateLoserInteraction: expect.any(Function),
+    });
+    expect(interaction.update).toHaveBeenCalledWith({ content: "Forfeit recorded", components: [] });
+
+    concludeSpy.mockRestore();
+    announceSpy.mockRestore();
   });
 });

@@ -6,16 +6,16 @@ import {
   EmbedBuilder,
   User as DiscordUser,
 } from "discord.js";
-import type { Battle, PrismaClient, User as PrismaUser } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { prisma as prismaClient, BattleRepo } from "../../models/index.js";
-import { buildBattleResultDMMessages, buildBattleResultThreadMessage } from "../arena/summary.js";
+import type { BattleWithPlayers } from "../../models/index.js";
+import { announceBattleResult } from "./conclude.js";
 
 export const MOVE_PREFIX = "BATTLE_MOVE_";
 export const SWITCH_PREFIX = "BATTLE_SWITCH_";
 export const FORFEIT_PREFIX = "BATTLE_FORFEIT_";
 
 type PrismaLike = PrismaClient;
-type BattleWithPlayers = Battle & { p1: PrismaUser; p2: PrismaUser };
 
 export function buildBattleActionPrompt(battleId: string) {
   const embed = new EmbedBuilder()
@@ -95,25 +95,14 @@ export async function handleBattleActionButton(interaction: ButtonInteraction, o
       reason: "forfeit",
     });
 
-    const messages = buildBattleResultDMMessages(result);
-    await interaction.update({ content: messages.loser, components: [] });
-
-    // Best-effort notify opponent via DM
-    try {
-      const opponentId = result.winner.discordId;
-      const u = await interaction.client.users.fetch(opponentId);
-      const dm = await u.createDM();
-      await dm.send(messages.winner);
-    } catch {}
-    // Best-effort: post to arena thread if we have it
-    if (battle.arenaThreadId) {
-      try {
-        const ch = await interaction.client.channels.fetch(battle.arenaThreadId);
-        if (ch && typeof (ch as any).send === "function") {
-          await (ch as any).send(buildBattleResultThreadMessage(result));
-        }
-      } catch {}
-    }
+    await announceBattleResult({
+      client: interaction.client as any,
+      battle,
+      result,
+      updateLoserInteraction: async (message) => {
+        await interaction.update({ content: message, components: [] });
+      },
+    });
     return;
   }
 }

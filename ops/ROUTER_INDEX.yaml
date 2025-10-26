@@ -1,5 +1,5 @@
 version: 1
-generated_utc: "2025-10-25T16:05:00Z"
+generated_utc: "2025-10-26T00:45:00Z"
 routers:
   - path: "ops/"
     router_file: "ops/ROUTER.md"
@@ -15,12 +15,12 @@ routers:
     router_file: "src/ROUTER.md"
     title: "Application Source"
     purpose: "Root app source tree; see sub-routers for domains."
-    last_updated_utc: "2025-10-25T16:05:00Z"
+    last_updated_utc: "2025-10-26T00:45:00Z"
   - path: "src/bot/"
     router_file: "src/bot/ROUTER.md"
     title: "Discord Bot Layer"
     purpose: "Client login, intents, command/interaction routing, DM “home” flows."
-    last_updated_utc: "2025-10-25T11:10:00Z"
+    last_updated_utc: "2025-10-26T00:45:00Z"
   - path: "src/core/"
     router_file: "src/core/ROUTER.md"
     title: "Core Game Engines"
@@ -30,4 +30,4 @@ routers:
     router_file: "tests/ROUTER.md"
     title: "Test Suite"
     purpose: "Vitest coverage for schemas, pipeline, engines, and flows."
-    last_updated_utc: "2025-10-25T11:10:00Z"
+    last_updated_utc: "2025-10-26T00:45:00Z"

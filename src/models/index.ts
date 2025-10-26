@@ -26,7 +26,7 @@ export const UserRepo = {
 };
 
 type PrismaLike = PrismaClient;
-type BattleWithPlayers = Battle & { p1: PrismaUser; p2: PrismaUser };
+export type BattleWithPlayers = Battle & { p1: PrismaUser; p2: PrismaUser };
 export type BattleResultReason = "forfeit" | "victory";
 
 export type BattleResultRecord = {
@@ -39,6 +39,11 @@ export type BattleResultRecord = {
 };
 
 const DEFAULT_REWARDS = Object.freeze({ winner: 50, loser: 10 });
+
+function clampTurns(turnCount: number) {
+  if (!Number.isFinite(turnCount)) return 0;
+  return Math.max(0, Math.min(Math.floor(turnCount), 40));
+}
 
 function describeResultSummary(reason: BattleResultReason) {
   return reason === "forfeit" ? "by forfeit" : "with a decisive victory";
@@ -61,7 +66,13 @@ function normalizeLogCompact(existing: unknown, summary: BattleResultRecord) {
 
 export const BattleRepo = {
   defaultRewards(turnCount: number) {
-    return { ...DEFAULT_REWARDS };
+    const turns = clampTurns(turnCount);
+    const winnerBonus = turns * 3;
+    const loserBonus = Math.floor(turns / 2) * 2;
+    return {
+      winner: DEFAULT_REWARDS.winner + winnerBonus,
+      loser: DEFAULT_REWARDS.loser + loserBonus,
+    };
   },
 
   async concludeBattle(opts: {
