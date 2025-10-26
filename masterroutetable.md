@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-26T07:45:00Z
+Last Updated (UTC): 2025-10-26T13:45:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 
 ## Router-of-Routers
@@ -17,7 +17,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 ### Ops & Governance (`ops/ROUTER.md`)
 - Purpose: Canonical operational control-plane (NEXT pointer, CRITICAL, TOUCHMAP, router maps, inbox).
 - Owned Globs: `ops/**`
-- Last Updated: 2025-10-26T06:25:00Z
+- Last Updated: 2025-10-26T13:45:00Z
 - Key References:
 	- `ops/NEXT.yaml` — next task pointer
 	- `ops/CRITICAL.md` — fast-path guardrails

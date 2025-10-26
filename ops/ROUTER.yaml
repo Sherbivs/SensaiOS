@@ -1,0 +1,59 @@
+# Canonical AI routing map — single source of “where to look / where to write”.
+# All paths are repo-relative. Case-sensitive.
+version: 1
+updated_utc: 2025-10-25T03:15:00Z
+
+meta_files:
+  - Patch.md
+  - Tasklist.md
+  - Prompt.md
+  - ops/ROUTER.yaml
+  - ops/NEXT.yaml
+  - ops/TOUCHMAP.yaml
+  - ops/CRITICAL.md
+  - ops/PATCH_POLICY_BACKUP.md
+
+inbox:
+  # Fast notes the human can edit; AI must read first if newer than NEXT.last_notes_read_utc
+  path: ops/INBOX/notes.md
+
+entrypoints:
+  node_start: dist/index.js
+  ts_entry: src/index.ts
+  tsconfig: tsconfig.json
+  package: package.json
+
+categories:
+  contract:
+    - Patch.md
+    - ops/CRITICAL.md
+  tasks:
+    - Tasklist.md
+    - ops/NEXT.yaml
+    - ops/TOUCHMAP.yaml
+  prompt:
+    - Prompt.md
+  infra_docs:
+    - RULESET.md
+    - DATA-SCHEMA.md
+    - OPERATIONS.md
+    - discord-pokemon-bot/data/standized_pokemon_game_logic.md
+  code_core:
+    - src/**
+    - tests/**
+  ops_scripts:
+    - scripts/**
+  guards_ci:
+    - .github/workflows/**
+    - scripts/guard_*.sh
+
+# Always-allowed meta writes (headers/timestamps/Last Repo Changes only):
+meta_write_whitelist:
+  - Patch.md
+  - Tasklist.md
+  - Prompt.md
+  - ops/NEXT.yaml
+  - ops/ROUTER.yaml
+  - ops/TOUCHMAP.yaml
+  - ops/HOTFIX.md
+  - ops/HOTFIX_PLAN.yaml
