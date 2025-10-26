@@ -161,3 +161,11 @@ if [[ -f ops/NEXT.yaml ]]; then
     fi
   fi
 fi
+
+# Emit explicit guidance when the READY queue is empty so humans seed a task before merge.
+if [[ -f Tasklist.md ]]; then
+  total_ready=$(grep -Ec '^\s*status:\s*READY\b' Tasklist.md || echo 0)
+  if [[ "${total_ready}" -eq 0 ]]; then
+    echo "::error::Tasklist.md lists zero READY tasks. Promote a PROPOSED item or add META.UNBLOCK.READY_SEED to restore the READY queue before merging."
+  fi
+fi

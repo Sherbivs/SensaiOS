@@ -9,18 +9,19 @@ guidance_when_none: |
   - Update `next_task_id`, trim `files_hint` to only the files you expect to touch, and bump `timestamp_utc`.
   - Record the rationale in `note` so the next worker knows why the pointer moved.
 
-next_task_id: META.UNBLOCK.READY_SEED
+next_task_id: META.NO_READY.SAFETY_NET
 reason: >
-  Unstick the patch engine after a NONE pointer / all-DONE state. Execute the seed task to
-  ensure there's always at least one READY item, then implement the safety-net guard next.
+  Wire the safety-net guard so CI fails when the READY queue runs dry and scripts auto-suggest
+  the next candidate. This follows the seed task that restored a READY item.
 
 files_hint:
   - "Tasklist.md"
   - "Prompt.md"
   - ".github/workflows/guard-meta.yml"
   - "scripts/guard_meta.sh"
+  - "Patch.md"
 
-timestamp_utc: 2025-10-26T08:05:00Z
+timestamp_utc: 2025-10-26T08:30:00Z
 router_version: 1
-last_notes_read_utc: 2025-10-26T07:45:00Z
-note: "NEXT → META.UNBLOCK.READY_SEED; follow with META.NO_READY.SAFETY_NET to enforce 'always ≥1 READY'."
+last_notes_read_utc: 2025-10-26T08:30:00Z
+note: "Seed task DONE → NEXT now targeting META.NO_READY.SAFETY_NET to harden the ≥1 READY invariant."

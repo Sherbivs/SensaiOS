@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T07:45:00Z
-Revision: 1.51
+Last Updated (UTC): 2025-10-26T08:30:00Z
+Revision: 1.52
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -18,24 +18,24 @@ Each task has:
 
 - id: META.UNBLOCK.READY_SEED
   title: Seed an immediate READY task after meta-only or all-busy states
-  status: READY
+  status: DONE
   depends_on: []
   acceptance_criteria:
     - When NEXT is NONE or all tasks are IN_PROGRESS/DONE, a minimal READY task exists to re-prime the engine.
     - guard-meta emits guidance in CI logs when no READY tasks are present.
     - Prompt.md “Last Repo Changes” records the seed action when triggered.
-  notes: Manual seed to immediately unblock the patch engine; used after meta-only commits or accidental all-busy states.
+  notes: Outcome — Guard script now surfaces an error when no READY tasks are present; NEXT retargeted so the safety-net follow-up is ready.
 
 - id: META.NO_READY.SAFETY_NET
   title: Add CI/guard to prevent "no READY tasks" states
-  status: PROPOSED
+  status: READY
   depends_on: [META.UNBLOCK.READY_SEED]
   acceptance_criteria:
     - .github/workflows/guard-meta.yml fails when Tasklist.md has 0 READY tasks (excluding META.UNBLOCK.READY_SEED).
     - scripts/guard_meta.sh suggests the oldest eligible PROPOSED task to flip to READY.
     - ops/NEXT.yaml is suggested (in logs) to point at that READY task.
     - Patch.md documents this invariant and quick remediation steps.
-  notes: Prevent future deadlocks by enforcing at least one READY item at all times.
+  notes: Follow-up guard task now READY to wire CI enforcement and scripted suggestions that keep at least one READY item alive.
 
 - id: META.TASKLIST.COUPLING_FIX
   title: Enforce Tasklist updates from every PATCHSET and rewire guards

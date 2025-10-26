@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T07:45:00Z
-Revision: 0.66
+Timestamp (UTC): 2025-10-26T08:30:00Z
+Revision: 0.67
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,17 +10,17 @@ Revision: 0.66
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `masterroutetable.md` — Expanded to catalog router-of-routers mappings plus router-owned files/areas for hotfix navigation.
-> - `tasklist.md` — Logged HF.20251026.MASTER_ROUTE_TABLE as DONE with refreshed metadata.
-> - `ops/HOTFIX_PLAN.yaml` — Pointed to HF.20251026.MASTER_ROUTE_TABLE during execution, now reset post-hotfix.
-> - `ops/RECOVERY.yaml` — Stamped the latest hotfix task metadata for resume safety.
+> - `scripts/guard_meta.sh` — Emits an explicit ::error message when Tasklist.md has zero READY tasks so humans reseed the queue.
+> - `tasklist.md` — Marked META.UNBLOCK.READY_SEED DONE, promoted META.NO_READY.SAFETY_NET to READY, and recorded the outcome note.
+> - `ops/NEXT.yaml` — Redirected NEXT to the safety-net follow-up with refreshed timestamps and notes.
+> - `Patch.md` — Header timestamps/revision bumped to stay in lockstep with Tasklist changes.
 > - Tests: Not run (npm unavailable in this environment).
 
 <!-- PATCHSET:ECHO BEGIN -->
 PATCHSET SUMMARY START
-Master Router Table now enumerates the router index hierarchy and the key files/areas each router manages so hotfix workflows have a single text reference.
-Tasklist logs HF.20251026.MASTER_ROUTE_TABLE as DONE; Hotfix plan and Recovery were updated during execution and then reset.
-Prompt metadata bumped to record the hotfix documentation update; NEXT pointer remains NONE.
+Finished META.UNBLOCK.READY_SEED, moved the guard follow-up to READY, and pointed NEXT at it.
+guard_meta.sh now raises an explicit ::error when Tasklist.md lacks READY tasks so humans can reseed before merge.
+TasklistDiff: true
 PATCHSET SUMMARY END
 <!-- PATCHSET:ECHO END -->
 
@@ -49,6 +49,7 @@ Workflow mirrors the Patch Engine but restricts edits to `ops/HOTFIX_PLAN.yaml` 
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-26 | META.UNBLOCK.READY_SEED seeded a READY task and added guard guidance for empty queues. | guard_meta.sh now flags zero READY tasks, Tasklist logs the completion, and NEXT targets the safety-net follow-up. |
 | 2025-10-26 | HF.20251026.MASTER_ROUTE_TABLE expanded the master router reference. | masterroutetable.md now maps router-of-routers and router-owned files so hotfix navigation works without automation. |
 | 2025-10-26 | META.README.REFRESH2 refreshed README status, workflow, and roadmap. | README now reflects current status/goals, architecture snapshot, updated dev/deploy guidance, and roadmap priorities. |
 | 2025-10-26 | HF.20251026.ECHO_DIALOG_PLAIN expanded the PATCHSET echo narration. | Prompt echo now delivers detailed plain-text sentences while avoiding embedded file objects; Tasklist and hotfix metadata track the update. |
