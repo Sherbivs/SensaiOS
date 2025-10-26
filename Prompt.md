@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T07:30:00Z
-Revision: 0.65
+Timestamp (UTC): 2025-10-26T07:45:00Z
+Revision: 0.66
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,17 +10,17 @@ Revision: 0.65
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `README.md` — General refresh covering current status/goals, architecture snapshot, dev workflow, operations, and roadmap.
-> - `tasklist.md` — Added META.README.REFRESH2 (DONE) with updated metadata.
-> - `ops/NEXT.yaml` — Timestamp and note refreshed after the README work while the pointer remains NONE.
-> - `ops/RECOVERY.yaml` — Logged META.README.REFRESH2 as the last attempted task with context.
+> - `masterroutetable.md` — Expanded to catalog router-of-routers mappings plus router-owned files/areas for hotfix navigation.
+> - `tasklist.md` — Logged HF.20251026.MASTER_ROUTE_TABLE as DONE with refreshed metadata.
+> - `ops/HOTFIX_PLAN.yaml` — Pointed to HF.20251026.MASTER_ROUTE_TABLE during execution, now reset post-hotfix.
+> - `ops/RECOVERY.yaml` — Stamped the latest hotfix task metadata for resume safety.
 > - Tests: Not run (npm unavailable in this environment).
 
 <!-- PATCHSET:ECHO BEGIN -->
 PATCHSET SUMMARY START
-README now highlights live status, architecture layers, dev workflow, guardrails, and roadmap milestones to guide contributors.
-Tasklist records META.README.REFRESH2 as DONE while NEXT stays NONE until the next backlog promotion; Recovery notes the same.
-Prompt metadata bumped to capture the README refresh and supporting meta updates.
+Master Router Table now enumerates the router index hierarchy and the key files/areas each router manages so hotfix workflows have a single text reference.
+Tasklist logs HF.20251026.MASTER_ROUTE_TABLE as DONE; Hotfix plan and Recovery were updated during execution and then reset.
+Prompt metadata bumped to record the hotfix documentation update; NEXT pointer remains NONE.
 PATCHSET SUMMARY END
 <!-- PATCHSET:ECHO END -->
 
@@ -49,6 +49,7 @@ Workflow mirrors the Patch Engine but restricts edits to `ops/HOTFIX_PLAN.yaml` 
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-26 | HF.20251026.MASTER_ROUTE_TABLE expanded the master router reference. | masterroutetable.md now maps router-of-routers and router-owned files so hotfix navigation works without automation. |
 | 2025-10-26 | META.README.REFRESH2 refreshed README status, workflow, and roadmap. | README now reflects current status/goals, architecture snapshot, updated dev/deploy guidance, and roadmap priorities. |
 | 2025-10-26 | HF.20251026.ECHO_DIALOG_PLAIN expanded the PATCHSET echo narration. | Prompt echo now delivers detailed plain-text sentences while avoiding embedded file objects; Tasklist and hotfix metadata track the update. |
 | 2025-10-26 | T7.7 added participant filtering to admin battle summaries. | `/ops stats` now accepts optional participant mentions/IDs, updates report headers, and tests cover mention filtering + no-result messaging. |

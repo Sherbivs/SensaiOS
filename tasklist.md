@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T07:30:00Z
-Revision: 1.50
+Last Updated (UTC): 2025-10-26T07:45:00Z
+Revision: 1.51
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -529,6 +529,16 @@ Each task has:
     - Tasklist.md and ops/RECOVERY.yaml capture the hotfix completion details.
     - Hotfix plan pointer references the new hotfix and touched files only.
   notes: Outcome — Prompt echo now reads as a multi-sentence patchset recap without embedding file objects; Tasklist, Hotfix plan, and Recovery ledger log the update.
+
+- id: HF.20251026.MASTER_ROUTE_TABLE
+  title: Expand master route reference with full replication hierarchy
+  status: DONE
+  depends_on: [HF.20251026.ECHO_DIALOG_PLAIN]
+  acceptance_criteria:
+    - masterroutetable.md lists every router-of-routers entry and its downstream routers.
+    - Each router entry includes referenced ROUTER.md files and primary paths covered.
+    - Tasklist.md and Prompt.md metadata reflect the hotfix completion.
+  notes: Outcome — Master Router Table now details router-of-routers mappings plus router-owned files/areas so hotfix navigation works without automation.
 
 - id: HOTFIX:SETUP.ROUTER_TABLE
   title: Scaffold master router table stub for hotfix readiness

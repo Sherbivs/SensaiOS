@@ -11,15 +11,15 @@ guidance_when_none: |
 
 next_task_id: NONE
 reason: >
-  README refresh completed; no READY tasks remain. Promote the next persistence or
-  routing follow-up before resuming the loop.
+  Master Router Table hotfix landed; queue still empty. Promote the next
+  persistence or routing follow-up before resuming the loop.
 
 files_hint: []
 
-timestamp_utc: 2025-10-26T07:30:00Z
+timestamp_utc: 2025-10-26T07:45:00Z
 router_version: 1
-last_notes_read_utc: 2025-10-26T07:30:00Z
-note: "README now reflects project status/roadmap. Queue remains idle until a new task is staged."
+last_notes_read_utc: 2025-10-26T07:45:00Z
+note: "Master router reference updated for hotfix guidance. Queue remains idle until a new task is staged."
 
 # Advisory flag read by guard scripts; safe to ignore if unsupported
 auto_requeue_if_none: true

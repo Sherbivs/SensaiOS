@@ -2,11 +2,11 @@
 # The Hotfix Engine reads this instead of relying on Patch.md/PATCHSET blocks.
 hotfix_task_id: NONE
 reason: >
-  HF.20251026.ECHO_DIALOG_PLAIN completed; echo narration now reads as
-  descriptive plain text. Hotfix queue is clear.
+  HF.20251026.MASTER_ROUTE_TABLE completed; masterroutetable.md now documents
+  router hierarchy. Queue is clear.
 files_hint: []
-timestamp_utc: 2025-10-26T07:05:00Z
-note: "HF.20251026.ECHO_DIALOG_PLAIN finished; follow standard loop for future requests."
+timestamp_utc: 2025-10-26T07:45:00Z
+note: "HF.20251026.MASTER_ROUTE_TABLE finished; resume normal loop when ready."
 bootstrap_template:
   id: "HF.<YYYYMMDD>.<short_slug>"
   title: "Emergency fix: <summary>"
