@@ -1,6 +1,6 @@
 # Critical Files Index (Fast-Path)
-Last Updated (UTC): 2025-10-26T13:45:00Z
-Revision: 1.12
+Last Updated (UTC): 2025-10-26T14:20:00Z
+Revision: 1.13
 
 This file is the **road map** for automation. It lists the *minimum set* of files an AI should read first to know
 what to do next, where to change it, and how to update state.
@@ -37,6 +37,11 @@ what to do next, where to change it, and how to update state.
   2) Once confirmed, read `ops/ROUTER_INDEX.yaml` and relevant `ROUTER.md` files for context.
 	3) Proceed to the task selection loop.
 	Note: When shell access exists, a human may still run `scripts/refresh_vision.sh` to regenerate routing artifacts, but it is no longer required prior to activation.
+
+## Marker Switch & Absolutes
+- `Patch.md` now contains a Patch Clipboard. When the clipboard includes `<<<PATCHSET START>>>`, Contract Mode is active and all guards run.
+- If the marker is missing, the run is in Markerless Mode: contracts are suspended, but Absolutes still apply (canonical meta files must exist, routers cannot be removed, `ops/NEXT.yaml` must end READY, commit message must include Why/Changes/Testing).
+- Markerless Mode is a one-run override. The next marked run must reconcile Prompt/Tasklist/NEXT, regenerate routing metadata if needed, and restore Contract Mode.
 
 ### Contract & Task Graph Updates (Policy)
 - Contract edits (`Patch.md`) should be done under a dedicated **META** task using surgical diffs.

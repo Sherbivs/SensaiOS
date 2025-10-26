@@ -1,8 +1,9 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-26T13:45:00Z
+Last Updated (UTC): 2025-10-26T14:20:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 
 ## Router-of-Routers
+- `ops/ROUTER.yaml` — Canonical route map. Start here to locate routers before consulting generated indexes. Markerless Mode is documented in `ops/CRITICAL.md`; even when contracts are OFF, do not remove routers.
 - `ops/ROUTER_INDEX.yaml` — Generated index of active routers.
 	- Routes:
 		- `ops/ROUTER.md` — Ops & Governance

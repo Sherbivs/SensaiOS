@@ -60,6 +60,16 @@ fi
 echo "Changed files:"
 echo "${changed_files}" | sed 's/^/ - /'
 
+diff_status="$(git diff --name-status "${BASE_SHA}" "${HEAD_SHA}" | tr -d '\r')"
+
+MARKER_PRESENT="0"
+if grep -q '<<<PATCHSET START>>>' Patch.md 2>/dev/null; then
+  MARKER_PRESENT="1"
+  echo "Marker detected: Contract Mode enforcement active."
+else
+  echo "::notice::Markerless Mode: contracts bypassed at human request; Absolutes enforced."
+fi
+
 IS_HOTFIX="0"
 if [[ -f ops/HOTFIX_PLAN.yaml ]]; then
   IS_HOTFIX="1"
@@ -92,21 +102,42 @@ if echo "${changed_files}" | grep -vqE '^(Prompt\.md|Patch\.md|Tasklist\.md|ops/
 fi
 
 # Enforce Tasklist coupling when code paths change.
-if ${CODE_CHANGED} && ! ${TASKLIST_CHANGED}; then
-  fail "Code paths changed (src/tests/build-critical paths) but Tasklist.md was not updated. Include a # TASKLIST UPDATE diff."
+if [[ "${MARKER_PRESENT}" == "1" ]]; then
+  if ${CODE_CHANGED} && ! ${TASKLIST_CHANGED}; then
+    fail "Code paths changed (src/tests/build-critical paths) but Tasklist.md was not updated. Include a # TASKLIST UPDATE diff."
+  fi
+else
+  if ${CODE_CHANGED} && ! ${TASKLIST_CHANGED}; then
+    echo "::notice::Code paths changed without Tasklist.md diff (Markerless Mode)."
+  fi
 fi
 
 # Rule 1: If non-doc files changed, Prompt.md must be updated.
-if ${NON_DOC_CHANGED} && ! ${PROMPT_CHANGED}; then
-  fail "Non-doc files changed but Prompt.md was not updated (Timestamp/Revision + Last Repo Changes required)."
+if [[ "${MARKER_PRESENT}" == "1" ]]; then
+  if ${NON_DOC_CHANGED} && ! ${PROMPT_CHANGED}; then
+    fail "Non-doc files changed but Prompt.md was not updated (Timestamp/Revision + Last Repo Changes required)."
+  fi
+else
+  if ${NON_DOC_CHANGED} && ! ${PROMPT_CHANGED}; then
+    echo "::notice::Prompt.md unchanged while non-doc files changed (Markerless Mode)."
+  fi
 fi
 
 # Rule 2: Patch.md and Tasklist.md must continue to move in lockstep when either changes.
-if ${PATCH_CHANGED} && ! ${TASKLIST_CHANGED}; then
-  fail "Patch.md changed but Tasklist.md did not. Update both headers together."
-fi
-if ${TASKLIST_CHANGED} && ! ${PATCH_CHANGED}; then
-  fail "Tasklist.md changed but Patch.md did not. Patch.md headers must be bumped alongside Tasklist."
+if [[ "${MARKER_PRESENT}" == "1" ]]; then
+  if ${PATCH_CHANGED} && ! ${TASKLIST_CHANGED}; then
+    fail "Patch.md changed but Tasklist.md did not. Update both headers together."
+  fi
+  if ${TASKLIST_CHANGED} && ! ${PATCH_CHANGED}; then
+    fail "Tasklist.md changed but Patch.md did not. Patch.md headers must be bumped alongside Tasklist."
+  fi
+else
+  if ${PATCH_CHANGED} && ! ${TASKLIST_CHANGED}; then
+    echo "::notice::Patch.md changed without Tasklist.md diff (Markerless Mode)."
+  fi
+  if ${TASKLIST_CHANGED} && ! ${PATCH_CHANGED}; then
+    echo "::notice::Tasklist.md changed without Patch.md diff (Markerless Mode)."
+  fi
 fi
 
 # Rule 3: Header stamps must bump when meta files change.
@@ -118,32 +149,76 @@ check_header_bumped() {
   fail "$file changed but header Timestamp/Revision was not updated."
 }
 
-${PROMPT_CHANGED} && check_header_bumped "Prompt.md"
-${PATCH_CHANGED} && check_header_bumped "Patch.md"
-${TASKLIST_CHANGED} && check_header_bumped "Tasklist.md"
+if [[ "${MARKER_PRESENT}" == "1" ]]; then
+  ${PROMPT_CHANGED} && check_header_bumped "Prompt.md"
+  ${PATCH_CHANGED} && check_header_bumped "Patch.md"
+  ${TASKLIST_CHANGED} && check_header_bumped "Tasklist.md"
+fi
 
 # Rule 4: When non-doc changes occur, Prompt.md must capture Evidence/Revision history.
-if ${NON_DOC_CHANGED}; then
-  PROMPT_DIFF="$(git diff "${BASE_SHA}" "${HEAD_SHA}" -- Prompt.md || true)"
-  HAS_EVIDENCE=$(echo "${PROMPT_DIFF}" | grep -qE '^\+\| .* \| .* \| .* \|' && echo "yes" || echo "no")
-  HAS_REVHIST=$(echo "${PROMPT_DIFF}" | grep -qE '^\+\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|' && echo "yes" || echo "no")
-  if [[ "${HAS_EVIDENCE}" == "no" && "${HAS_REVHIST}" == "no" ]]; then
-    fail "Non-doc changes detected: add either an Evidence Matrix row or a Revision History row in Prompt.md."
+if [[ "${MARKER_PRESENT}" == "1" ]]; then
+  if ${NON_DOC_CHANGED}; then
+    PROMPT_DIFF="$(git diff "${BASE_SHA}" "${HEAD_SHA}" -- Prompt.md || true)"
+    HAS_EVIDENCE=$(echo "${PROMPT_DIFF}" | grep -qE '^\+\| .* \| .* \| .* \|' && echo "yes" || echo "no")
+    HAS_REVHIST=$(echo "${PROMPT_DIFF}" | grep -qE '^\+\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|' && echo "yes" || echo "no")
+    if [[ "${HAS_EVIDENCE}" == "no" && "${HAS_REVHIST}" == "no" ]]; then
+      fail "Non-doc changes detected: add either an Evidence Matrix row or a Revision History row in Prompt.md."
+    fi
+  fi
+
+  if ! grep -q "^## AI Worker Prompt (copy/paste for Copilot/GPT)" Prompt.md; then
+    fail "Prompt.md is missing the required 'AI Worker Prompt (copy/paste for Copilot/GPT)' section."
+  fi
+
+  if [[ "${IS_HOTFIX}" == "0" ]]; then
+    if ! grep -q "<!-- PATCHSET:ECHO BEGIN -->" Prompt.md; then
+      fail "Prompt.md must contain PATCHSET:ECHO markers for regular patches."
+    fi
+  fi
+
+  echo "✅ Meta update policy satisfied."
+else
+  if ${NON_DOC_CHANGED}; then
+    PROMPT_DIFF="$(git diff "${BASE_SHA}" "${HEAD_SHA}" -- Prompt.md || true)"
+    HAS_EVIDENCE=$(echo "${PROMPT_DIFF}" | grep -qE '^\+\| .* \| .* \| .* \|' && echo "yes" || echo "no")
+    HAS_REVHIST=$(echo "${PROMPT_DIFF}" | grep -qE '^\+\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|' && echo "yes" || echo "no")
+    if [[ "${HAS_EVIDENCE}" == "no" && "${HAS_REVHIST}" == "no" ]]; then
+      echo "::notice::Prompt.md lacks Evidence/Revision rows for non-doc changes (Markerless Mode)."
+    fi
+  fi
+
+  if ! grep -q "^## AI Worker Prompt (copy/paste for Copilot/GPT)" Prompt.md; then
+    echo "::notice::AI Worker Prompt section missing while contracts are OFF."
+  fi
+
+  if [[ "${IS_HOTFIX}" == "0" ]]; then
+    if ! grep -q "<!-- PATCHSET:ECHO BEGIN -->" Prompt.md; then
+      echo "::notice::PATCHSET Echo markers absent (Markerless Mode)."
+    fi
+  fi
+
+  echo "ℹ️ Markerless Mode: Contract guards skipped; Absolutes still enforced."
+fi
+
+# Absolutes: canonical meta/routing files must exist even in Markerless Mode.
+canonical_files=("Patch.md" "Tasklist.md" "Prompt.md" "ops/PATCH_POLICY_BACKUP.md" "ops/ROUTER.yaml" "ops/ROUTER_INDEX.yaml" "masterroutetable.md")
+for cf in "${canonical_files[@]}"; do
+  if [[ ! -f "${cf}" ]]; then
+    fail "Absolutes violation: missing canonical file ${cf}."
+  fi
+done
+
+deleted_router_list=$(echo "${diff_status}" | awk -F'\t' '/^D\t.*ROUTER\.(md|yaml)$/{print $2}' | paste -sd', ' -)
+if [[ -n "${deleted_router_list}" ]]; then
+  fail "Absolutes violation: router manifest(s) removed (${deleted_router_list})."
+fi
+
+if [[ -f ops/NEXT.yaml ]]; then
+  current_next=$(awk 'match($0,/^next_task_id:\s*(.*)$/,a){print a[1]; exit}' ops/NEXT.yaml | tr -d '"')
+  if [[ -z "${current_next}" || "${current_next}" == "NONE" ]]; then
+    fail 'Absolutes violation: ops/NEXT.yaml must point to a READY task (value is NONE/empty).'
   fi
 fi
-
-# Rule 5: Prompt.md must include the AI Worker Prompt section header.
-if ! grep -q "^## AI Worker Prompt (copy/paste for Copilot/GPT)" Prompt.md; then
-  fail "Prompt.md is missing the required 'AI Worker Prompt (copy/paste for Copilot/GPT)' section."
-fi
-
-if [[ "${IS_HOTFIX}" == "0" ]]; then
-  if ! grep -q "<!-- PATCHSET:ECHO BEGIN -->" Prompt.md; then
-    fail "Prompt.md must contain PATCHSET:ECHO markers for regular patches."
-  fi
-fi
-
-echo "✅ Meta update policy satisfied."
 
 # Advisory: Encourage Tasklist header bumps when detected by heuristic (non-fatal)
 if ${CODE_CHANGED} && git diff "${BASE_SHA}" "${HEAD_SHA}" -- Tasklist.md | grep -vq 'Last Updated (UTC)'; then

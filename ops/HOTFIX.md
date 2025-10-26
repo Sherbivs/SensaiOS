@@ -1,6 +1,6 @@
 # Hotfix Engine (No-PATCHSET Mode)
-Last Updated (UTC): 2025-10-26T13:45:00Z
-Revision: 1.1
+Last Updated (UTC): 2025-10-26T14:20:00Z
+Revision: 1.2
 
 Purpose
 - A rapid, targeted "surgical" edit system that follows the same discipline as the Patch Engine but **does not** use PATCHSET blocks.
@@ -13,6 +13,7 @@ Scope
   - The minimal meta set: `Prompt.md`, `Tasklist.md`, `ops/RECOVERY.yaml`, `ops/HOTFIX_PLAN.yaml`
   - Any directory-local `ROUTER.md` corresponding to changed files (timestamp + short note)
 - Hotfixes MUST NOT edit `Patch.md` unless it is explicitly the subject of the fix or cited as a relevant source of instructions.
+- The Marker Switch is orthogonal to Hotfix mode. Omitting the marker triggers Markerless Mode (contracts OFF) unless the human explicitly activates the Hotfix trigger. When `ACTIVATE: HOTFIX ENGINE` is present, Hotfix scope and exit rules apply regardless of the marker state.
 - When a human request lacks an explicit activation trigger, treat it as `ACTIVATE: HOTFIX ENGINE` and follow the hotfix loop without prompting for clarification. When the request intends normal delivery work, ensure preflight/postflight have run and `ops/NEXT.yaml:next_task_id` points to a READY task (never NONE) before exiting so the Patch Engine resumes immediately.
 
 Operating Loop (Hotfix)

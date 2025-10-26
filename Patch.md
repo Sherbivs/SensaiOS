@@ -1,42 +1,70 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-26T13:45:00Z
-Revision: 1.30
+Last Updated (UTC): 2025-10-26T14:20:00Z
+Revision: 1.31
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally.
 
+## Patch Clipboard
+- Paste the exact patchset (matching `Patch-Template.md`) below this heading before you begin editing so humans can audit the plan.
+- After the run, clear or archive the clipboard if humans do not need the scratchpad.
+- Marker detection reads this section; keep `<<<PATCHSET START>>>` intact when Contract Mode is required.
+
+_Patch Clipboard Scratch Area (leave empty when not in use)_
+
+## Marker Switch
+- The marker string `<<<PATCHSET START>>>` toggles **Contract Mode**. When present, every contract rule and CI guard applies.
+- When the marker is absent, the run enters **Markerless Mode**. Contracts are suspended for that single run, but the Absolutes remain enforced.
+- Markerless Mode is a deliberate human override. The next marked run must reconcile any drift and restore Contract Mode.
+
+## Absolutes (apply in every mode)
+- Never rename or delete canonical meta/routing files (`Patch.md`, `Tasklist.md`, `Prompt.md`, `ops/PATCH_POLICY_BACKUP.md`, `ops/ROUTER.yaml`, `ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, and any `ROUTER.md`).
+- Never delete or rename router manifests (`ROUTER.md`, `ROUTER.yaml`).
+- Always exit with `ops/NEXT.yaml:next_task_id` pointing to a READY task.
+- Always emit a commit message that includes Why / Changes / Testing.
+
 ## Prime Directive
-1. Read `ops/NEXT.yaml` to learn the queued task and files_hint.
+1. Read `ops/NEXT.yaml` (respect Marker Switch guidance) to learn the queued task and `files_hint`.
 2. Read `Tasklist.md` and execute **only** tasks marked `status: READY` with dependencies satisfied.
 3. Read `ops/TOUCHMAP.yaml` to scope edits to the listed paths.
 4. Keep every change reversible and minimal.
 
-## Operating Loop (with mandatory readiness checks)
-1. **Preflight**
-   - If Tasklist.md has no READY tasks (ignoring `META.UNBLOCK.READY_SEED`), promote the oldest eligible PROPOSED whose dependencies are DONE. If none exist, add `META.UNBLOCK.READY_SEED` as READY.
-   - Ensure `ops/NEXT.yaml:next_task_id` points to a READY task and `files_hint` only lists files you expect to touch.
-   - Confirm `Patch.md`, `Prompt.md`, and `Tasklist.md` are readable. If any are missing or corrupt, stop and request refreshed copies.
-2. **Plan & Execute**
+## Preflight
+- If Tasklist.md has no READY tasks (ignoring `META.UNBLOCK.READY_SEED`), promote the oldest eligible PROPOSED whose dependencies are DONE. If none exist, add `META.UNBLOCK.READY_SEED` as READY.
+- Ensure `ops/NEXT.yaml:next_task_id` points to a READY task and `files_hint` only lists files you expect to touch.
+- Confirm `Patch.md`, `Prompt.md`, and `Tasklist.md` are readable. If any are missing or corrupt, stop and request refreshed copies.
+
+## Operating Loop (Contract Mode)
+1. **Plan & Execute**
    - Select the first READY task (respect dependency order) and plan tightly scoped edits. Honor `ops/TOUCHMAP.yaml`.
-   - Implement the change using a single PATCHSET (see “Patchset Format”).
+   - Implement the change using a single PATCHSET from the clipboard (see “Legacy Layout Bridge”).
    - Run targeted tests whenever tooling is available; if not, state why in the echo and commit message.
-3. **Update State**
+2. **Update State**
    - Mark the task `DONE` in `Tasklist.md` with a concise outcome note. Promote newly unblocked tasks to `READY`.
    - Update `ops/NEXT.yaml` to point to the next READY task with an updated timestamp, rationale, and trimmed `files_hint`.
    - Extend `ops/TOUCHMAP.yaml` if you touched new paths.
    - Refresh `Prompt.md` (Timestamp, Revision, “Last Repo Changes”, PATCHSET Echo, and any relevant tables).
-4. **Postflight**
-   - Verify Tasklist.md lists at least one READY task besides the seed.
-   - Confirm `ops/NEXT.yaml` targets a READY task with minimal `files_hint`.
-   - Document the READY pointer and rationale inside the PATCHSET Echo before exiting.
-5. **Repeat**
 
-## Patchset Format
-Every submission must contain exactly one fenced PATCHSET block followed by one fenced Commit Message block.
-- **New files**: include full file contents.
-- **Modified files**: use unified diffs (` ```diff`).
-- **Binary/large assets**: avoid committing unless explicitly required.
-- Keep diffs small, deterministic, and free from stray whitespace.
+## Postflight
+- Refuse to exit if Tasklist.md lists no READY tasks besides the seed; auto-promote as needed.
+- Refuse to exit if `ops/NEXT.yaml:next_task_id` is `NONE` or not READY; retarget before finishing.
+- Record the final READY pointer and contract state (Contracts ON/OFF) inside the PATCHSET Echo.
+
+## Prompt Echo Template
+- Keep the PATCHSET Echo between the markers in `Prompt.md`.
+- Include: HEAD (or `pending-local`), a concise summary sentence, `TasklistDiff true|false`, test results, `Contracts: ON|OFF (reason)`, and the READY pointer rationale.
+- Use plain sentences only (no code fences, tables, or embedded objects).
+
+## Legacy Layout Bridge
+- Follow the section order used by `Patch-Template.md`: header, FILE entries, TASKLIST UPDATE, Commit Message.
+- Describe file edits with inline `-`/`+` markers or prose; do not embed fenced code or attach file objects.
+- Keep the clipboard and emitted PATCHSET synchronized.
+
+## Patchset Format (final reply)
+- Emit exactly one PATCHSET block and one Commit Message block per run.
+- New files must appear in full inside the PATCHSET description (plain text).
+- Modified files must be summarized with inline context (no fenced diffs) and kept deterministic.
+- Avoid binary/large assets unless explicitly required.
 
 ## Tasklist Discipline
 - Update headers (`Last Updated`, `Revision`) whenever Tasklist.md changes.
@@ -46,7 +74,7 @@ Every submission must contain exactly one fenced PATCHSET block followed by one 
 ## Prompt.md Requirements
 - Bump Timestamp and Revision on every change.
 - “Last Repo Changes” must summarize the effective modifications in plain text bullets.
-- Maintain a populated PATCHSET Echo between the markers. Use sentences only (no code fences, JSON, or embedded files). Mention the HEAD (or pending-local) revision, summarize the work, state `TasklistDiff true|false`, describe tests, and identify which READY task `ops/NEXT.yaml` targets and why.
+- Maintain a populated PATCHSET Echo between the markers following the template above.
 - Preserve the section titled **“AI Worker Prompt (copy/paste for Copilot/GPT)”** exactly.
 
 ## Tests & Evidence
@@ -60,6 +88,7 @@ Every submission must contain exactly one fenced PATCHSET block followed by one 
 
 ## Hotfix Loop (no PATCHSET)
 - Trigger with `ACTIVATE: HOTFIX ENGINE`.
+- Hotfix ignores the marker switch unless the human also omits the marker; overrides stack only when explicitly invoked.
 - Restrict edits to `ops/HOTFIX_PLAN.yaml`, `ops/NEXT.yaml`, `Tasklist.md`, and files listed in the hotfix request.
 - Restore `ops/NEXT.yaml` to a READY task before exiting; leave a note documenting the state.
 

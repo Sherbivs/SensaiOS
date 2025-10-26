@@ -185,6 +185,21 @@ META.LEDGER200:
   - ".github/workflows/guard-meta.yml"
   - "package.json"
 
+META.CONTRACTS.SWITCH:
+  - "Patch.md"
+  - "Patch-Template.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "ops/TOUCHMAP.yaml"
+  - "ops/CRITICAL.md"
+  - "ops/HOTFIX.md"
+  - "ops/RECOVERY.yaml"
+  - "scripts/guard_meta.sh"
+  - "scripts/ROUTER.md"
+  - "masterroutetable.md"
+  - "ops/ROUTER.md"
+
 META.PATCHSET_ECHO:
   - "Prompt.md"
   - ".github/workflows/guard-meta.yml"

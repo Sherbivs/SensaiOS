@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T13:45:00Z
-Revision: 1.61
+Last Updated (UTC): 2025-10-26T14:20:00Z
+Revision: 1.62
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -46,6 +46,16 @@ Each task has:
     - Postflight refuses to exit with NEXT at NONE; guard fails the run.
     - Prompt.md echo documents the readiness policy change in plain text.
   notes: Outcome — “no READY task” states are self-healing at runtime and impossible to merge in CI.
+- id: META.CONTRACTS.SWITCH
+  title: Add human override switch and legacy layout bridge
+  status: DONE
+  depends_on: [META.READY.ABSOLUTE]
+  acceptance_criteria:
+    - Patch.md defines the Patch Clipboard, Marker Switch, Absolutes, and updated pre/postflight guardrails.
+    - Patch-Template.md mirrors the legacy layout with plain-text instructions and a marker reminder.
+    - CRITICAL/HOTFIX/Prompt document the override; guard_meta respects the marker while enforcing Absolutes.
+    - NEXT, TOUCHMAP, masterroutetable, and RECOVERY capture Markerless Mode expectations.
+  notes: Outcome — Marker switch landed with guard updates; Prompt, NEXT, and recovery metadata now record Contracts ON/OFF while guard_meta enforces Absolutes even in Markerless runs.
 - id: META.REPO.RESTORE_STRUCTURE
   title: Clean stale meta docs and restore guard workflows
   status: DONE

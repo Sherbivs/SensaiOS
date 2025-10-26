@@ -1,36 +1,26 @@
 # Patch Template
-Last Updated (UTC): 2025-10-26T13:45:00Z
-Revision: 0.25
+Last Updated (UTC): 2025-10-26T14:20:00Z
+Revision: 0.26
 
-Use this template for every submission. Replace placeholders with real content.
+NEW ENGINE RULES — This template mirrors the legacy layout, obeys the Marker Switch, and forbids fenced code blocks or embedded file objects. Describe changes with plain text sentences.
 
-````
 <<<PATCHSET START>>>
-# [Task <ID>] <Concise description>
+[Task <ID>] <Concise description>
 
-# FILE: <path/to/file>
-```diff
-@@
--<old>
-+<new>
-```
+FILE: <path/to/file>
+Change: <succinct summary>
+Insert/Replace/Remove: <key lines or payload described in prose>
 
-# FILE: <new/file.ts>
-```ts
-// full contents when adding new files
-```
+FILE: <new/file.ts>
+Change: <why file is added>
+Contents: <outline of the full file contents when new>
 
 # TASKLIST UPDATE
-```diff
-@@
--  status: READY
-+  status: DONE
-```
+Change: <status transitions, new tasks, outcome notes>
 
 <<<PATCHSET END>>>
 
 Commit Message
-
 [Task <ID>] <Concise summary>
 
 Why:
@@ -41,9 +31,5 @@ Changes:
 
 Testing:
 - <command> (pass/fail + notes)
-````
 
-**Rules**
-- Emit exactly one PATCHSET block and one Commit Message block.
-- Use plain-text sentences in the PATCHSET Echo (inside Prompt.md).
-- Keep diffs minimal. Include new files in full.
+Markerless Mode reminder: If the clipboard omits `<<<PATCHSET START>>>`, the run proceeds with contracts OFF, but the Absolutes (canonical files, routers, NEXT pointer) still apply and CI enforces them.

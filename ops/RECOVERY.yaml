@@ -12,3 +12,6 @@ note: "HF.20251026.MASTER_ROUTE_TABLE expanded masterroutetable.md with router h
 last_hotfix_id: "HF.20251026.MASTER_ROUTE_TABLE"
 last_hotfix_timestamp_utc: "2025-10-26T07:45:00Z"
 last_hotfix_env_note: "Master router reference updated; production code untouched while docs guide hotfix navigation."
+last_run_contracts: "ON"
+last_run_reason: "normal"
+guidance: "If Contracts were OFF, reconcile Prompt/Tasklist/NEXT and regenerate router index before resuming Contract Mode."
