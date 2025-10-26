@@ -286,61 +286,28 @@ Paste your next PATCHSET below.
 Here’s a single, tight patch that **integrates the main Patch Engine + Hotfix Engine with the router network**, auto-tags touched/stray files with standardized metadata, and makes the **master route table authoritative** (YAML router first, cross-linked both ways). It also ships guard scripts so the system keeps learning and stays clean.
 
 ``
+Here’s a focused patch that cleanly **separates production vs. dev-only surfaces**, wires guards so AI won’t “pull dev into prod,” and updates the contract so every worker respects the boundary. It’s surgical and CI-enforced.
+
+``
 <<<PATCHSET START>>>
-# [META.ROUTER.INTEGRATION]: Unify Patch/Hotfix engines with Router Network + auto-metadata tagging + master route authority
+# [META.PROD_DEV.SEGREGATE]: Separate production vs dev-only surfaces; guard AI & builds from mixing them
 
 # FILE: Patch.md
 ``diff
 @@
- ## META UPDATE REQUIREMENT (MANDATORY)
-@@
- ### Hard Routing Policy (MANDATORY)
--- The AI MUST load `ops/ROUTER.yaml` and use it to determine where to read next and where writes are allowed.
-+- The AI MUST load `ops/ROUTER.yaml` FIRST (router-of-routers) and use it to determine where to read next and where writes are allowed. If a worker starts anywhere else, it must jump to `ops/ROUTER.yaml` immediately.
-@@
- ### Embedded PATCHSET Echo (MANDATORY)
-@@
- ## PATCH BLOCKS (MANDATORY FORMAT)
-@@
  ## SAFETY RAILS
 @@
-+## ROUTER-INTEGRATED AUTO-METADATA (NEW, MANDATORY)
-+When the Patch Engine or Hotfix Engine touches files, it must:
-+1) **Tag metadata** on touched files (and any “stray” files encountered without router/metadata):
-+   - Insert/refresh a standard header for `.md`, `.ts`, `.js`, `.tsx`:
-+     ```
-+     <!-- META:
-+       revision: <int>
-+       last_task: <Task ID>
-+       last_updated_utc: <ISO>
-+       purpose: <short one-liner>
-+     -->
-+     ```
-+     or for code files:
-+     ```
-+     /* META:
-+      * revision: <int>
-+      * last_task: <Task ID>
-+      * last_updated_utc: <ISO>
-+      * purpose: <short one-liner>
-+      */
-+     ```
-+   - Non-commentable/binary files are recorded in `ops/META_REGISTRY.json`.
-+2) **Bump revision** in the header (or registry) and set `last_task` + `last_updated_utc`.
-+3) **Ensure routing**: every directory with touched files must have a `ROUTER.md` (create if missing with Title/Purpose/Owned-globs/Start-here) and then re-generate indices.
-+4) **Synchronize master route table**: update `masterroutetable.md` so `ops/ROUTER.yaml` is the first visible entry; ensure it lists all known routers and references the file index.
+ - Keep patches deterministic and idempotent (re-running yields same state).
 +
-+These steps are implemented by:
-+- `scripts/tag_unrouted_files.ts`
-+- `scripts/generate_master_table.ts`
-+- `scripts/update_router_index.sh`
-+and are invoked by CI and optionally by developers locally.
-+
-+## HOTFIX ENGINE (NO-PATCHSET MODE) — INTEGRATED
-+- Trigger: `ACTIVATE: HOTFIX ENGINE`
-+- Behavior mirrors the Patch Engine but does **not** emit PATCHSET blocks unless explicitly directed.
-+- Still **must**: update `Tasklist.md` and `Prompt.md`, apply auto-metadata + router sync, and log in `ops/HOTFIX_PLAN.yaml`.
-+- Additional trigger: `ACTIVATE: HOTFIX TASKS` — lets Hotfix create follow-up tasks and seed NEXT pointer without editing Patch.md unless explicitly asked.
++## PRODUCTION vs DEV-ONLY BOUNDARY (MANDATORY)
++- The repository distinguishes **production** vs **dev-only** files using `ops/CLASSIFY.yaml`.
++- When executing product code tasks (anything under `/src/**` or runtime artifacts), the AI must treat **dev-only** surfaces as **invisible**, except:
++  1) Minimal router metadata updates (timestamps/notes).
++  2) Contract/document updates explicitly requested by the task.
++- Imports from dev-only paths into production code are forbidden.
++- CI (`guard-prod-surface`) enforces:
++  - No `src/**` import/require of `ops/**`, `scripts/**`, `tests/**`, `docs/**`, or root patching docs.
++  - Pack/runtime filters exclude dev-only paths from the deployable artifact.
 ``
 
 # FILE: Prompt.md
@@ -349,296 +316,212 @@ Here’s a single, tight patch that **integrates the main Patch Engine + Hotfix 
 @@
 -Timestamp (UTC): 2025-10-26T03:50:00Z
 -Revision: 0.56
-+Timestamp (UTC): 2025-10-26T04:05:00Z
-+Revision: 0.57
++Timestamp (UTC): 2025-10-26T04:25:00Z
++Revision: 0.58
 @@
  > Changes in this revision:
-+> - `Patch.md` — Added Router-Integrated Auto-Metadata rules; Hotfix Engine integration made first-class with router sync.
-+> - `ops/ROUTER.yaml` — Elevated to explicit router-of-routers; added priority order and cross-links; YAML router listed as first hop.
-+> - `scripts/tag_unrouted_files.ts` — Auto-tags files with META headers/registry entries; bumps revision/last_task; ensures ROUTER.md presence.
-+> - `scripts/generate_master_table.ts` — Rebuilds `masterroutetable.md` with YAML router first; includes full router catalog and links the file index.
-+> - `scripts/update_router_index.sh` — Refreshes `ops/ROUTER_INDEX.yaml`; invoked by CI/local.
-+> - `.github/workflows/guard-routing.yml` — Gate that fails if routers/metadata/master table fall out of sync.
-+> - `ops/META_REGISTRY.json` — Registry for non-commentable file metadata.
-+> - `masterroutetable.md` — Promoted to authoritative master route table; YAML router pinned as first entry and cross-linked to router index and file index.
-`
++> - `ops/CLASSIFY.yaml` — Declares production vs dev-only path classes used by workers/CI.
++> - `.npmignore`, `.dockerignore` — Exclude dev-only surfaces from packed/deploy artifacts.
++> - `scripts/guard_prod_surface.sh` + CI workflow — Prevent dev-only imports from production code.
++> - `ops/ROUTER.yaml` — Adds `visibility` flags; AI first hop stays the YAML router, but production tasks treat dev-only as invisible.
++> - `Patch.md` — New mandatory Production vs Dev-only boundary policy.
+``
+
+# FILE: ops/CLASSIFY.yaml
+
+``full
+# Canonical classification of repository surfaces for AI workers and CI.
+# Production tasks should treat dev-only entries as invisible (except minimal metadata/router bumps).
+version: 1
+
+production_include:
+  - "dist/**"
+  - "src/**"
+  - "package.json"
+  - "pnpm-lock.yaml"
+  - "yarn.lock"
+  - "npm-shrinkwrap.json"
+  - "render.yaml"
+  - "Procfile"
+  - ".render/**"
+  - ".platform/**"
+
+dev_only_exclude:
+  - "ops/**"
+  - "scripts/**"
+  - "tests/**"
+  - "docs/**"
+  - "design/**"
+  - "examples/**"
+  - "samples/**"
+  - ".github/**"
+  - ".vscode/**"
+  - ".idea/**"
+  - ".husky/**"
+  - "coverage/**"
+  - ".nyc_output/**"
+  - ".cache/**"
+  - "masterroutetable.md"
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "RULESET.md"
+  - "DATA-SCHEMA.md"
+  - "OPERATIONS.md"
+  - "README.md"
+  - "CONTRIBUTING.md"
+  - "CODEOWNERS"
+  - "LICENSE"
+  - ".editorconfig"
+  - ".prettierrc*"
+  - ".eslintrc.*"
+  - ".lintstagedrc"
+  - ".gitignore"
+  - ".gitattributes"
+  - ".env*"
+  - ".env.local*"
+``
 
 # FILE: ops/ROUTER.yaml
 
-`diff
+``diff
 @@
--# Canonical router for AI read/write (meta + categories)
-+# Canonical router-of-routers (AI FIRST HOP). Read this first.
-+version: 2
-+priority_order:
-+  - path: ops/ROUTER.yaml
-+    reason: "Router-of-routers: first hop for all workers"
-+  - path: masterroutetable.md
-+    reason: "Authoritative list of routers; references file index; second hop"
-+  - path: ops/ROUTER_INDEX.yaml
-+    reason: "Generated rollup of per-directory ROUTER.md"
-+  - path: ops/NEXT.yaml
-+    reason: "Pointer to the next actionable task"
-+  - path: Tasklist.md
-+    reason: "Task graph and acceptance criteria"
-+  - path: Prompt.md
-+    reason: "Ground truth + change ledger + triggers"
+ version: 2
+ priority_order:
+   - path: ops/ROUTER.yaml
+     reason: "Router-of-routers: first hop for all workers"
 @@
- docs_links:
-   # Linked reference: standardized Pokémon game logic overview (kept under discord-pokemon-bot/data/)
-   - path: discord-pokemon-bot/data/standized_pokemon_game_logic.md
-     purpose: Reference rules/assumptions used by engines and tests
-     note: Keep this entry in sync with router docs when the file moves or is renamed
-+
-+cross_refs:
-+  master_route_table: masterroutetable.md
-+  router_index: ops/ROUTER_INDEX.yaml
-+  file_index: ops/generated/file-index.txt
-+
-+learn_on_touch:
-+  auto_tag_metadata: true
-+  ensure_router_presence: true
-+  bump_revision_and_last_task: true
+ learn_on_touch:
+   auto_tag_metadata: true
+   ensure_router_presence: true
+   bump_revision_and_last_task: true
++visibility:
++  # Guides AI behavior based on task type.
++  production_paths:
++    - "src/**"
++    - "dist/**"
++  dev_only_paths:
++    - "ops/**"
++    - "scripts/**"
++    - "tests/**"
++    - "docs/**"
++    - "masterroutetable.md"
++    - "Patch.md"
++    - "Prompt.md"
++    - "Tasklist.md"
++  rule: "When task scope is product code, treat dev_only_paths as invisible except for minimal router/metadata bumps."
 ``
 
-# FILE: scripts/tag_unrouted_files.ts
+# FILE: .npmignore
 
-```full
-#!/usr/bin/env node
-/**
- * Auto-tag touched/stray files with standardized META headers, bump revision/last_task,
- * ensure ROUTER.md presence in directories, and update META_REGISTRY for non-commentable files.
- *
- * Usage:
- *   node scripts/tag_unrouted_files.ts --task <TASK_ID> --utc <ISO_STRING> [--paths "file1,file2,..."]
- *   If --paths not provided, uses `git diff --name-only HEAD~1..HEAD` as a heuristic.
- */
-import fs from "node:fs";
-import path from "node:path";
-import child_process from "node:child_process";
+``full
+# Dev-only surfaces excluded from npm pack (and many deploy flows)
+ops/
+scripts/
+tests/
+docs/
+design/
+examples/
+samples/
+.github/
+.vscode/
+.idea/
+.husky/
+coverage/
+.nyc_output/
+.cache/
+masterroutetable.md
+Patch.md
+Prompt.md
+Tasklist.md
+RULESET.md
+DATA-SCHEMA.md
+OPERATIONS.md
+CONTRIBUTING.md
+CODEOWNERS
+.env*
+.env.local*
+``
 
-const argv = process.argv.join(" ");
-const taskId = /--task\s+([^\s]+)/.exec(argv)?.[1] ?? "META.ROUTER.INTEGRATION";
-const utc = /--utc\s+([^\s]+)/.exec(argv)?.[1] ?? new Date().toISOString();
-const pathsArg = /--paths\s+([^\s]+)/.exec(argv)?.[1];
+# FILE: .dockerignore
 
-function sh(cmd: string): string {
-  return child_process.execSync(cmd, { encoding: "utf8" }).trim();
-}
+``full
+# Keep images lean; do not copy dev-only content
+ops/
+scripts/
+tests/
+docs/
+design/
+examples/
+samples/
+.github/
+.vscode/
+.idea/
+.husky/
+coverage/
+.nyc_output/
+.cache/
+masterroutetable.md
+Patch.md
+Prompt.md
+Tasklist.md
+RULESET.md
+DATA-SCHEMA.md
+OPERATIONS.md
+CONTRIBUTING.md
+CODEOWNERS
+.env*
+.env.local*
+``
 
-function listChanged(): string[] {
-  try {
-    const out = sh("git diff --name-only HEAD~1..HEAD");
-    return out.split("\n").filter(Boolean);
-  } catch {
-    return [];
-  }
-}
+# FILE: scripts/guard_prod_surface.sh
 
-const candidatePaths = pathsArg ? pathsArg.split(",") : listChanged();
-const metaRegistryPath = "ops/META_REGISTRY.json";
-
-type MetaReg = Record<string, { revision: number; last_task: string; last_updated_utc: string; purpose?: string }>;
-
-function readMetaRegistry(): MetaReg {
-  if (!fs.existsSync(metaRegistryPath)) return {};
-  return JSON.parse(fs.readFileSync(metaRegistryPath, "utf8"));
-}
-
-function writeMetaRegistry(reg: MetaReg) {
-  fs.mkdirSync(path.dirname(metaRegistryPath), { recursive: true });
-  fs.writeFileSync(metaRegistryPath, JSON.stringify(reg, null, 2) + "\n", "utf8");
-}
-
-function ensureDirRouter(dir: string) {
-  const routerMd = path.join(dir, "ROUTER.md");
-  if (fs.existsSync(routerMd)) return;
-  const title = path.basename(dir) || "/";
-  const content = `# ROUTER — ${title}
-Last Updated (UTC): ${utc}
-Revision: 1
-
-Purpose: Describe files owned by this directory, high-signal entry points, and where to go next.
-
-Owned:
-- \`${dir}/**\`
-
-Start-here:
-- If you need task context, open \`ops/ROUTER.yaml\` (router-of-routers) then \`ops/NEXT.yaml\`.
-
-Notes:
-- This router was auto-created by tag_unrouted_files.ts.\n`;
-  fs.writeFileSync(routerMd, content, "utf8");
-}
-
-function bumpHeader(file: string, purposeHint?: string) {
-  const ext = path.extname(file).toLowerCase();
-  const textTypes = [".md", ".ts", ".tsx", ".js", ".jsx"];
-  if (!textTypes.includes(ext)) return false;
-
-  const exists = fs.existsSync(file);
-  if (!exists) return false;
-
-  const src = fs.readFileSync(file, "utf8");
-  const isMd = ext === ".md";
-  const open = isMd ? "<!-- META:" : "/* META:";
-  const close = isMd ? "-->" : "*/";
-
-  const metaBlockRe = isMd
-    ? /<!-- META:[\s\S]*?-->\n?/
-    : /\/\* META:[\s\S]*?\*\/\n?/;
-
-  let nextRevision = 1;
-  const found = src.match(metaBlockRe);
-  if (found) {
-    // Try to bump revision if present
-    const revMatch = /revision:\s*(\d+)/.exec(found[0]);
-    nextRevision = revMatch ? Number(revMatch[1]) + 1 : 1;
-  }
-
-  const purpose = purposeHint ?? (isMd ? `Document: ${path.basename(file)}` : `Source: ${path.basename(file)}`);
-
-  const block =
-`${open}
-  revision: ${nextRevision}
-  last_task: ${taskId}
-  last_updated_utc: ${utc}
-  purpose: ${purpose}
-${close}
-`;
-
-  let out: string;
-  if (found) {
-    out = src.replace(metaBlockRe, block);
-  } else {
-    out = block + src;
-  }
-  fs.writeFileSync(file, out, "utf8");
-  return true;
-}
-
-function tagOrRegistry(file: string) {
-  const ext = path.extname(file).toLowerCase();
-  const commentable = [".md", ".ts", ".tsx", ".js", ".jsx"].includes(ext);
-  if (commentable) return bumpHeader(file);
-  const reg = readMetaRegistry();
-  const entry = reg[file] ?? { revision: 0, last_task: taskId, last_updated_utc: utc };
-  entry.revision = (entry.revision ?? 0) + 1;
-  entry.last_task = taskId;
-  entry.last_updated_utc = utc;
-  reg[file] = entry;
-  writeMetaRegistry(reg);
-  return true;
-}
-
-// Walk up to ensure a router exists for directories we touch
-function ensureRoutersForTouched(paths: string[]) {
-  const dirs = new Set(paths.map(p => path.dirname(p)));
-  for (const d of dirs) {
-    if (!d || d === ".") continue;
-    ensureDirRouter(d);
-  }
-}
-
-if (candidatePaths.length) {
-  ensureRoutersForTouched(candidatePaths);
-  candidatePaths.forEach(p => {
-    try { tagOrRegistry(p); } catch { /* noop */ }
-  });
-} else {
-  // Best-effort: tag masterroutetable + ops/ROUTER.yaml to force sync
-  ["masterroutetable.md", "ops/ROUTER.yaml"].forEach(p => fs.existsSync(p) && bumpHeader(p));
-}
-
-console.log(`Tagged metadata for ${candidatePaths.length} file(s); ensured routers where missing.`);
-```
-
-# FILE: scripts/generate_master_table.ts
-
-```full
-#!/usr/bin/env node
-/**
- * Generates/refreshes masterroutetable.md with YAML router first,
- * complete router catalog from ops/ROUTER_INDEX.yaml,
- * and a link to the file index ops/generated/file-index.txt.
- */
-import fs from "node:fs";
-import path from "node:path";
-
-const now = new Date().toISOString();
-const routerIndex = "ops/ROUTER_INDEX.yaml";
-const fileIndex = "ops/generated/file-index.txt";
-const outPath = "masterroutetable.md";
-const routerYaml = "ops/ROUTER.yaml";
-
-function safeRead(p: string) { try { return fs.readFileSync(p, "utf8"); } catch { return ""; } }
-
-const ri = safeRead(routerIndex);
-const routers = (ri.match(/- path:\s*(.+)\n\s*purpose:\s*(.+)/g) || []).map(line => {
-  const m1 = /- path:\s*(.+)/.exec(line)?.[1]?.trim();
-  const m2 = /purpose:\s*(.+)/.exec(line)?.[1]?.trim();
-  return { path: m1 ?? "", purpose: m2 ?? "" };
-}).filter(r => r.path);
-
-const header =
-`# Master Router Table
-Last Updated (UTC): ${now}
-Revision: 0.2
-
-Purpose: Authoritative registry of routing surfaces. YAML router is always **first** to minimize thrash.
-This table is refreshed after any router or metadata update.
-
-## First hop (ALWAYS)
-1. \`${routerYaml}\` — router-of-routers. Read this first.
-
-## Router Catalog
-(Generated from \`${routerIndex}\`.)
-`;
-
-const catalog = routers.map(r => `- \`${r.path}\` — ${r.purpose || "router entry"}`).join("\n");
-
-const filesRef =
-`
-## File Index (large)
-For a complete file listing, see \`${fileIndex}\`. Keep this index current in CI to help workers discover stray files.
-
-`;
-
-const content = `${header}\n${catalog}\n${filesRef}`;
-fs.mkdirSync(path.dirname(outPath) || ".", { recursive: true });
-fs.writeFileSync(outPath, content, "utf8");
-console.log(`Wrote ${outPath}`);
-```
-
-# FILE: scripts/update_router_index.sh
-
-```full
+``full
 #!/usr/bin/env bash
 set -euo pipefail
-# Rebuild ops/ROUTER_INDEX.yaml by discovering per-directory ROUTER.md files.
-# Simple implementation: list all ROUTER.md files and write a YAML rollup.
+#
+# Fails if production code imports from dev-only surfaces.
+# Simple static scan for obvious patterns; extend as needed.
+#
+# Allowed: type-only imports from test types when under tests/, but not under src/**.
 
-OUT="ops/ROUTER_INDEX.yaml"
-echo "# Generated router rollup" > "$OUT"
-echo "generated_utc: $(date -u +%FT%TZ)" >> "$OUT"
-echo "routers:" >> "$OUT"
+CLASSIFY="ops/CLASSIFY.yaml"
 
-# Find all router docs
+if [[ ! -f "$CLASSIFY" ]]; then
+  echo "Missing $CLASSIFY"
+  exit 1
+fi
+
+# Build regex for forbidden paths
+FORBIDDEN='(ops/|scripts/|tests/|docs/|masterroutetable\.md|Patch\.md|Prompt\.md|Tasklist\.md)'
+
+fail=0
 while IFS= read -r f; do
-  DIR="$(dirname "$f")"
-  PURPOSE="$(grep -m1 '^Purpose:' "$f" || true)"
-  PURPOSE="${PURPOSE#Purpose: }"
-  echo "  - path: $f" >> "$OUT"
-  echo "    purpose: ${PURPOSE:-directory router}" >> "$OUT"
-done < <(git ls-files | grep -E '/ROUTER\.md$' || true)
+  # Only scan production code
+  if [[ "$f" != src/* && "$f" != dist/* ]]; then
+    continue
+  fi
+  case "$f" in
+    *.ts|*.tsx|*.js|*.jsx)
+      if grep -E -n "from ['\"][.]{0,2}/(${FORBIDDEN})" "$f" >/dev/null 2>&1; then
+        echo "::error file=$f::Illegal import from dev-only surface"
+        fail=1
+      fi
+      if grep -E -n "require\(['\"][.]{0,2}/(${FORBIDDEN})" "$f" >/dev/null 2>&1; then
+        echo "::error file=$f::Illegal require from dev-only surface"
+        fail=1
+      fi
+      ;;
+  esac
+done < <(git ls-files | grep -E '^(src|dist)/.*\.(ts|tsx|js|jsx)$' || true)
 
-echo "Wrote $OUT"
-```
+exit $fail
+``
 
-# FILE: .github/workflows/guard-routing.yml
+# FILE: .github/workflows/guard-prod-surface.yml
 
-```full
-name: guard-routing
+``full
+name: guard-prod-surface
 on:
   push:
   pull_request:
@@ -647,176 +530,116 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Install minimal deps (none required)
-        run: echo "ok"
-      - name: Regenerate router index
-        run: bash scripts/update_router_index.sh
-      - name: Generate master route table
-        run: node scripts/generate_master_table.ts || true
-      - name: Verify YAML router is first in master table
+      - name: Static guard against dev-only imports in production
+        run: bash scripts/guard_prod_surface.sh
+      - name: Ensure classifiers exist
+        run: test -f ops/CLASSIFY.yaml
+      - name: Verify packaging ignores (npmignore/dockerignore)
         run: |
-          head -n 10 masterroutetable.md | grep -q 'ops/ROUTER.yaml' || (echo "YAML router must be the first hop" && exit 1)
-      - name: Tag unrouted files (dry)
-        run: node scripts/tag_unrouted_files.ts --task CI.GUARD --utc "$(date -u +%FT%TZ)" || true
-      - name: Ensure META registry exists
-        run: test -f ops/META_REGISTRY.json || echo "{}" > ops/META_REGISTRY.json
-```
-
-# FILE: ops/META_REGISTRY.json
-
-```full
-{}
-```
-
-# FILE: masterroutetable.md
-
-``diff
-@@
--# Master Router Table
--Last Updated (UTC): 2025-10-26T03:50:00Z
--Revision: 0.1
--
--Purpose: Canonical inventory of routing surfaces. This file is updated **after any router-related change** to keep AI “vision” synchronized.
--
--## How to use
--- On start, workers (Patch or Hotfix) read this file to discover routers fast.
--- Each entry has: path, kind, purpose, and “start-here” hint if a worker spawns in that directory.
--- If any router is updated, bump its timestamp here in the same commit.
--
--## Active Routers (stubbed for Hotfix readiness)
--- `ops/ROUTER.yaml` — kind: index — purpose: canonical AI read/write map (meta + categories). Start-here: check `ops/NEXT.yaml`.
--- `ops/ROUTER_INDEX.yaml` — kind: generated — purpose: discovered per-directory ROUTER.md rollup. Start-here: scan for touched dirs.
--- `src/ROUTER.md` — kind: dir-router — purpose: top-level source map; pointers to `bot/`, `core/`, `data_pipeline/`. Start-here: see section “Where to next”.
--- `src/bot/ROUTER.md` — kind: dir-router — purpose: commands, DM flows, listeners. Start-here: `commands/` then `dm/`.
--- `src/core/ROUTER.md` — kind: dir-router — purpose: battle/encounter engines. Start-here: `battle/engine.ts` and `encounter/`.
--- `tests/ROUTER.md` — kind: dir-router — purpose: test entry points by area. Start-here: search by task ID in titles.
--
--## Global start note
--If the worker starts “cold” in an arbitrary path:
--1) Open `masterroutetable.md` (this file).
--2) Jump to `ops/NEXT.yaml` to get `next_task_id`.
--3) Load `Tasklist.md` and execute the first `READY` task that matches dependencies.
--4) Honor `ops/TOUCHMAP.yaml` when writing.
-+<!-- META:
-+  revision: 2
-+  last_task: META.ROUTER.INTEGRATION
-+  last_updated_utc: 2025-10-26T04:05:00Z
-+  purpose: Authoritative router registry (YAML router first) + link to file index
-+-->
-+# Master Router Table
-+Last Updated (UTC): 2025-10-26T04:05:00Z
-+Revision: 0.2
-+
-+Purpose: Authoritative registry of routing surfaces. YAML router is always **first**. This table is refreshed after any router or metadata update.
-+
-+## First hop (ALWAYS)
-+1. `ops/ROUTER.yaml` — router-of-routers. Read this first.
-+
-+## Router Catalog
-+(Generated via scripts; ensure CI regeneration.)
-+<!-- The body is generated by scripts/generate_master_table.ts which pulls from ops/ROUTER_INDEX.yaml -->
-+
-+## File Index (large)
-+See `ops/generated/file-index.txt` for a complete list of files to aid discovery of stray/untagged code.
-``
-
-# FILE: ops/generated/.gitkeep
-
-``full
-# placeholder for generated file index artifacts
+          test -f .npmignore || (echo ".npmignore missing" && exit 1)
+          test -f .dockerignore || (echo ".dockerignore missing" && exit 1)
 ``
 
 # FILE: Tasklist.md
 
 ``diff
 @@
--Last Updated (UTC): 2025-10-25T07:25:00Z
--Revision: 1.23
-+Last Updated (UTC): 2025-10-26T04:05:00Z
-+Revision: 1.24
+-Last Updated (UTC): 2025-10-26T04:05:00Z
+-Revision: 1.24
++Last Updated (UTC): 2025-10-26T04:25:00Z
++Revision: 1.25
 @@
  ## Phase 7 — Meta & Router Hardening
- - id: HOTFIX.ROUTER.DOC
-   title: Add master router table and link standardized game-logic doc into router metadata
-   status: DONE
-   depends_on: []
 @@
-+- id: META.ROUTER.INTEGRATION
-+  title: Integrate Patch/Hotfix with router auto-tagging + master route authority + CI guard
+ - id: META.ROUTER.INTEGRATION
+   title: Integrate Patch/Hotfix with router auto-tagging + master route authority + CI guard
+   status: DONE
+   depends_on: [HOTFIX.ROUTER.DOC]
+   acceptance_criteria:
+@@
+   notes: Outcome — Engines now learn from untagged files, tag them, ensure routers exist, and keep master table authoritative.
++
++- id: META.PROD_DEV.SEGREGATE
++  title: Segregate production vs dev-only surfaces and guard imports/packaging
 +  status: DONE
-+  depends_on: [HOTFIX.ROUTER.DOC]
++  depends_on: [META.ROUTER.INTEGRATION]
 +  acceptance_criteria:
-+    - Patch.md documents auto-metadata + router sync rules
-+    - ops/ROUTER.yaml prioritized as first hop; cross-refs added
-+    - scripts: tag_unrouted_files.ts, generate_master_table.ts, update_router_index.sh present
-+    - guard-routing workflow enforces sync; masterroutetable lists YAML router first
-+    - META_REGISTRY.json created for non-commentable files
-+  notes: Outcome — Engines now learn from untagged files, tag them, ensure routers exist, and keep master table authoritative.
++    - ops/CLASSIFY.yaml defines production_include and dev_only_exclude
++    - .npmignore/.dockerignore exclude dev-only
++    - guard-prod-surface CI fails on illegal imports from dev-only into src/**
++    - Patch.md documents mandatory boundary policy and AI visibility rule
++  notes: Outcome — AI and CI won’t mix patching/routers/docs into production runtime artifacts.
 ``
 
 # FILE: ops/NEXT.yaml
 
 ``diff
 @@
--next_task_id: NONE
+ next_task_id: NONE
 -reason: >
--  META.ROUTER_FMT completed to normalize router docs and regenerate the router index.
--  No additional READY tasks are defined—coordinate with humans for the next milestone.
-+next_task_id: NONE
+-  Router integration complete: auto-tagging + master route authority + CI guard in place.
+-  Define next product task or promote a READY item to continue.
 +reason: >
-+  Router integration complete: auto-tagging + master route authority + CI guard in place.
-+  Define next product task or promote a READY item to continue.
- files_hint: []
--timestamp_utc: 2025-10-25T07:25:00Z
-+timestamp_utc: 2025-10-26T04:05:00Z
- router_version: 1
- last_notes_read_utc: 2025-10-25T03:30:00Z
--note: "T6.2 DONE — /ops cooldown reset and /ops stats available for admins."
-+note: "Router/metadata integration live; set NEXT to the next product task when ready."
++  Production vs Dev-only segregation complete: AI visibility rules + guards + ignores in place.
++  Promote the next product task when ready.
+ timestamp_utc: 2025-10-26T04:05:00Z
++timestamp_utc: 2025-10-26T04:25:00Z
+ note: "Router/metadata + prod/dev boundary live; set NEXT to the next product task when ready."
 ``
 
-# TASKLIST UPDATE
+# FILE: masterroutetable.md
 
-```diff
+``diff
 @@
--## Phase 7 — Meta & Router Hardening
-+## Phase 7 — Meta & Router Hardening
+-Revision: 0.2
++Revision: 0.3
 @@
- (section includes HOTFIX.ROUTER.DOC and META.ROUTER.INTEGRATION as shown above)
+-## First hop (ALWAYS)
+-1. `ops/ROUTER.yaml` — router-of-routers. Read this first.
++## First hop (ALWAYS)
++1. `ops/ROUTER.yaml` — router-of-routers. Read this first. (Contains `visibility.production_paths` and `visibility.dev_only_paths`.)
+@@
+-## Router Catalog
++## Router Catalog
+ (Generated via scripts; ensure CI regeneration.)
+@@
+ ## File Index (large)
+ See `ops/generated/file-index.txt` for a complete list of files to aid discovery of stray/untagged code.
++
++### Boundary Reference
++See `ops/CLASSIFY.yaml` for canonical production/dev-only classification used by workers and CI.
 ``
 
 <<<PATCHSET END>>>
+
 ``
 
 **Commit Message**
 ``
 
-[META.ROUTER.INTEGRATION] Unify Patch/Hotfix with router network; auto-tag metadata; make master route table authoritative
+[META.PROD_DEV.SEGREGATE] Enforce production vs dev-only boundary for AI + CI; prevent dev surfaces from leaking into prod
 
 Why:
-We want the Patch Engine and Hotfix Engine to “learn” the repo: tag untagged files, ensure routers exist, bump per-file metadata, and keep a single master route table with the YAML router as the first hop.
+We need the AI and build pipeline to treat patching/routers/docs as dev-only so production nodes never import/ship them by accident.
 
 Changes:
 
-* Patch.md: new Router-Integrated Auto-Metadata rules + Hotfix integration details.
-* ops/ROUTER.yaml: promoted to router-of-routers; priority order + cross-refs to master table and indexes.
-* scripts: tag_unrouted_files.ts (auto-tag & ensure routers), generate_master_table.ts (authoritative master list), update_router_index.sh (rollup).
-* CI: guard-routing workflow verifies YAML router is first + basic sync.
-* ops/META_REGISTRY.json: metadata for non-commentable files.
-* masterroutetable.md: upgraded to authoritative table (YAML router first) with links to router and file indexes.
-* Tasklist/NEXT: recorded completion and updated reason/timestamps.
+* Patch.md: new mandatory Production vs Dev-only boundary policy.
+* ops/CLASSIFY.yaml: canonical prod/dev classification for workers/CI.
+* ops/ROUTER.yaml: visibility flags describing prod vs dev-only paths.
+* .npmignore, .dockerignore: exclude dev-only surfaces from artifacts.
+* scripts/guard_prod_surface.sh + CI workflow: fail on illegal dev-only imports from `src/**`.
+* Prompt.md: revised “Last Repo Changes”.
+* Tasklist.md: added META.PROD_DEV.SEGREGATE (DONE).
+* NEXT.yaml/masterroutetable.md: notes and revisions updated.
 
 Acceptance:
 
-* Workers read ops/ROUTER.yaml first, then masterroutetable.md, then router index.
-* Touching files auto-injects META headers or updates META_REGISTRY and ensures a ROUTER.md exists per directory.
-* Master route table regenerates with YAML router first; CI guard passes.
+* CI blocks imports from dev-only to prod code.
+* Packaging excludes dev-only surfaces.
+* Workers treat dev-only as invisible during product tasks, except minimal router/meta bumps.
 
 ``
 
-This gives you the integrated behavior you described: the engines tag what they touch, routers are created/updated on demand, revisions + last task are bumped, and the master route table and YAML router “talk” to each other with priority ordering so workers don’t wander.
+This gives you a bright line between **runtime production surfaces** and the **dev-only patching/routers/doc system**, plus automated enforcement so the AI can’t accidentally braid the two.
 ``
