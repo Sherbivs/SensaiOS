@@ -37,6 +37,7 @@ categories:
     - RULESET.md
     - DATA-SCHEMA.md
     - OPERATIONS.md
+    - discord-pokemon-bot/data/standized_pokemon_game_logic.md
   code_core:
     - src/**
     - tests/**

@@ -205,6 +205,17 @@ HF.BROKEN.TASKFLOW:
   - "ops/RECOVERY.yaml"
   - "ops/HOTFIX_PLAN.yaml"
 
+HOTFIX:SETUP.ROUTER_TABLE:
+  - "masterroutetable.md"
+
+HOTFIX.ROUTER.DOC:
+  - "ops/ROUTER.yaml"
+  - "masterroutetable.md"
+  - "tasklist.md"
+  - "Prompt.md"
+  - "ops/RECOVERY.yaml"
+  - "ops/HOTFIX_PLAN.yaml"
+
 # Canonical categories for router-driven tasks
 META.HARD_ROUTE:
   - "ops/ROUTER.yaml"

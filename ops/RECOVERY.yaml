@@ -9,6 +9,6 @@ last_attempted_ts: "2025-10-26T01:20:00Z"
 last_attempted_source: "Prompt.md"
 next_task_id_snapshot: "T7.4"
 note: "Refresh Vision completed previously. Current pointer aimed at T7.4 (victory persistence) after backlog refresh."
-last_hotfix_id: null
-last_hotfix_timestamp_utc: null
-last_hotfix_env_note: null
+last_hotfix_id: "HOTFIX.ROUTER.DOC"
+last_hotfix_timestamp_utc: "2025-10-26T03:50:00Z"
+last_hotfix_env_note: "Mapped Standardized game-logic doc into ops/ROUTER.yaml; masterroutetable stub added for readiness."

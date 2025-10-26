@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T03:30:00Z
-Revision: 0.55
+Timestamp (UTC): 2025-10-26T03:50:00Z
+Revision: 0.56
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,15 +10,15 @@ Revision: 0.55
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/bot/battle/conclude.ts` — Added `concludeBattleWithVictory` to persist standard victories via BattleRepo while reusing the shared announcer pipeline.
-> - `tests/battle_flow.spec.ts` — Covered the new victory flow (persistence + announcer) and guarded against re-running finished battles.
-> - `tasklist.md`, `ops/NEXT.yaml`, `src/bot/ROUTER.md`, `tests/ROUTER.md` — Marked T7.4 DONE, promoted T7.5, and refreshed router metadata for the next admin-reporting task.
-> - Tests: Not run (npm unavailable in this environment).
+> - `masterroutetable.md` — Added a hotfix stub listing active routers to satisfy readiness checks.
+> - `ops/ROUTER.yaml` — Linked discord-pokemon-bot/data/standized_pokemon_game_logic.md under infra docs.
+> - `tasklist.md`, `ops/HOTFIX_PLAN.yaml`, `ops/RECOVERY.yaml` — Logged hotfix tasks, updated plan metadata, and stamped recovery with HOTFIX.ROUTER.DOC.
+> - Tests: Not run (hotfix; npm unavailable in this environment).
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: git tooling unavailable in this VFS to emit an exact diff; see Last Repo Changes and final summary.
+NO-ECHO-REASON: Hotfix run (no PATCHSET emitted); see Last Repo Changes for affected files.
 TasklistDiff: true
-- Completed T7.4 (victory persistence via concludeBattleWithVictory; promoted T7.5 in Tasklist/NEXT).
+- HOTFIX.ROUTER.DOC — Router metadata now references the Standardized game-logic doc; master router table stubbed for readiness.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -46,6 +46,7 @@ Workflow mirrors the Patch Engine but restricts edits to `ops/HOTFIX_PLAN.yaml` 
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-26 | HOTFIX.ROUTER.DOC referenced the Standardized game-logic doc in router metadata. | Hotfix added router stub + master router table for readiness; meta files stamped for traceability. |
 | 2025-10-26 | T7.4 persisted standard battle victories via BattleRepo. | Added concludeBattleWithVictory, new Vitest coverage, and advanced NEXT to the admin reporting follow-up. |
 | 2025-10-26 | META.HOTFIX.SYSTEM introduced the no-PATCHSET Hotfix Engine and guard updates. | Hotfix contract documented (`ops/HOTFIX.md`), pointer staged, guard/meta/scripts updated, and Tasklist recorded follow-up hotfix bootstrap task. |
 | 2025-10-26 | META.BACKLOG.T7.NEXT queued victory persistence + reporting follow-ups. | Tasklist now includes T7.4 (READY) and T7.5 (PROPOSED); NEXT/Touchmap/NEXT pointer aimed at victory persistence. |

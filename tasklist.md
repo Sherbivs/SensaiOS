@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T03:30:00Z
-Revision: 1.40
+Last Updated (UTC): 2025-10-26T03:50:00Z
+Revision: 1.41
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -480,6 +480,25 @@ Each task has:
     - Prompt “Last Repo Changes” reflects the hotfix outcome
     - RECOVERY stamped with last_hotfix_id & timestamp
   notes: Use ACTIVATE: HOTFIX ENGINE; targets: Tasklist.md, ops/NEXT.yaml, Prompt.md, ops/RECOVERY.yaml.
+
+- id: HOTFIX:SETUP.ROUTER_TABLE
+  title: Scaffold master router table stub for hotfix readiness
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - masterroutetable.md exists with a minimal list of active router files.
+    - Tasklist captures the stub so future workers know it was created during a hotfix.
+  notes: Outcome — Created masterroutetable.md with current router list and guidance to regenerate via docs:update-routers.
+
+- id: HOTFIX.ROUTER.DOC
+  title: Map Standardized Pokemon Game Logic doc into router metadata
+  status: DONE
+  depends_on: [HOTFIX:SETUP.ROUTER_TABLE]
+  acceptance_criteria:
+    - ops/ROUTER.yaml references discord-pokemon-bot/data/standized_pokemon_game_logic.md under infra docs.
+    - Prompt Last Repo Changes log the hotfix and router update.
+    - RECOVERY hotfix fields stamped for traceability.
+  notes: Outcome — Router now tracks the Standardized game-logic reference doc; Prompt/Recovery updated during the hotfix.
 
 ## Phase 7 — Persistence Integration
 
