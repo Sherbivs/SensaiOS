@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T12:45:00Z
-Revision: 1.60
+Last Updated (UTC): 2025-10-26T13:45:00Z
+Revision: 1.61
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -46,6 +46,16 @@ Each task has:
     - Postflight refuses to exit with NEXT at NONE; guard fails the run.
     - Prompt.md echo documents the readiness policy change in plain text.
   notes: Outcome — “no READY task” states are self-healing at runtime and impossible to merge in CI.
+- id: META.REPO.RESTORE_STRUCTURE
+  title: Clean stale meta docs and restore guard workflows
+  status: DONE
+  depends_on: [META.READY.ABSOLUTE]
+  acceptance_criteria:
+    - Remove outdated duplicate meta files and move canonical docs back under ops/.
+    - Reinstate documentation/data/router guard workflows under .github/workflows/.
+    - Refresh Patch.md, Patch-Template.md, and Prompt.md so the operating loop and PATCHSET template are readable.
+  notes: Outcome — Repository meta surface is orderly again; workers follow the restored contract and CI guards protect critical docs.
+
 
 - id: META.REFRESH.RETIRE
   title: Retire Refresh Vision requirement and reinforce meta doc visibility check

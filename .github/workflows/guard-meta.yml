@@ -1,20 +1,32 @@
 name: guard-meta
 
 on:
+  push:
+    branches: ["main"]
   pull_request:
-    paths:
-      - 'Patch.md'
-      - 'Prompt.md'
-      - 'Tasklist.md'
-      - 'ops/'
-      - 'scripts/'
+    branches: ["main"]
 
 jobs:
-  check:
+  guard:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Enforce READY invariants (preflight)
-        run: bash scripts/guard_meta.sh
-      - name: Enforce READY invariants (postflight)
-        run: POSTFLIGHT=1 bash scripts/guard_meta.sh
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Determine diff range
+        id: range
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
+          else
+            echo "base=${{ github.event.before }}" >> $GITHUB_OUTPUT
+          fi
+          echo "head=${{ github.sha }}" >> $GITHUB_OUTPUT
+      - name: Run meta guard
+        env:
+          BASE_SHA: ${{ steps.range.outputs.base }}
+          HEAD_SHA: ${{ steps.range.outputs.head }}
+        run: |
+          chmod +x scripts/guard_meta.sh
+          bash scripts/guard_meta.sh "$BASE_SHA" "$HEAD_SHA"

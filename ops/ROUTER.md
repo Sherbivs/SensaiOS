@@ -2,10 +2,11 @@
 Title: Ops & Governance
 Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-10-26T12:45:00Z
+Last Updated (UTC): 2025-10-26T13:45:00Z
 
 Notes:
 - 2025-10-26: guard_meta preflight/postflight make READY absence impossible at merge time; NEXT auto-promotion enabled. See scripts/guard_meta.sh and ops/NEXT.yaml.
+- 2025-10-26: Canonical meta docs (CRITICAL.md, HOTFIX.md) live under ops/ after cleanup; outdated duplicates were removed.
 - 2025-10-26: Hotfix set PATCHSET echo to plain text sentences and refreshed meta bookkeeping.
 - 2025-10-26: Hotfix contract now defaults triggerless requests to the Hotfix Engine; meta timestamps refreshed.
 - 2025-10-26: Hotfix enforced Markdown formatting for PATCHSET echo metadata and refreshed recovery notes.
@@ -23,3 +24,4 @@ Key Files:
 - ops/RECOVERY.yaml — resume after timeout
 - ops/ARCHIVE/README.md — guidance for Tasklist history offload
 - ops/CANONICAL_NAMES.yaml — canonical doc/router spellings for CI guard
+

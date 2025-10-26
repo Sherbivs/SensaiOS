@@ -1,11 +1,11 @@
 version: 1
-generated_utc: "2025-10-26T12:45:00Z"
+generated_utc: "2025-10-26T13:45:00Z"
 routers:
   - path: "ops/"
     router_file: "ops/ROUTER.md"
     title: "Ops & Governance"
     purpose: "Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox)."
-    last_updated_utc: "2025-10-26T12:45:00Z"
+    last_updated_utc: "2025-10-26T13:45:00Z"
   - path: "scripts/"
     router_file: "scripts/ROUTER.md"
     title: "Dev & Docs Scripts"

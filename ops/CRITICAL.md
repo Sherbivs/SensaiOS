@@ -1,6 +1,6 @@
 # Critical Files Index (Fast-Path)
-Last Updated (UTC): 2025-10-26T12:50:00Z
-Revision: 1.11
+Last Updated (UTC): 2025-10-26T13:45:00Z
+Revision: 1.12
 
 This file is the **road map** for automation. It lists the *minimum set* of files an AI should read first to know
 what to do next, where to change it, and how to update state.
