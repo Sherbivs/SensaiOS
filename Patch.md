@@ -267,90 +267,219 @@ This section may be overwritten frequently.
 PATCH CLIPBOARD — STAGING AREA (AI-Editable)
 Paste your next PATCHSET below.
 
-You’re booting a TypeScript app but trying to run `node dist/index.js` without ever producing `dist/`. Render dutifully runs `npm start`, can’t find `dist/index.js`, and faceplants. Classic “no build artifacts” error.
+<<<PATCHSET START>>>
 
-Here’s the quick, surgical fix.
+# [TASK-DB-001]: Normalize `DATABASE_URL` for Prisma on Render & harden Background Worker boot
 
-# What’s happening
+This patch permanently stops Prisma from falling back to `localhost:5432` on Render Background Workers by:
 
-* Your **start** script is `node dist/index.js`.
-* There’s **no build step** running on Render to transpile `src/**/*.ts` → `dist/**/*.js`.
-* Bonus risk: you’re on **Node 22.16**. This project targets Node 20 in docs; some toolchains (e.g., Prisma) can act weird on newer majors. Pinning Node 20 eliminates a whole class of mystery goblins. 
+* Resolving `DATABASE_URL` from multiple Render-style vars (prioritizing the **Internal Database URL**),
+* Appending `sslmode=require` for managed Postgres when missing,
+* Ensuring `process.env.DATABASE_URL` is set **before Prisma is imported**,
+* Adding a cheap boot-time connectivity check with clear, masked logs,
+* Documenting Render service wiring and one-shot migration options.
 
-# Fix it in Render (no code changes required)
+---
 
-1. In your Render service, set the **Build Command** to:
+# FILE: src/config/dbEnv.ts
 
-   ```bash
-   npm ci && npm run build && npm run data:build
-   ```
+```full
+import assert from "node:assert";
 
-   That compiles TS to `dist/` and builds your cached Pokémon data before each deploy. 
+/**
+ * Normalize DATABASE_URL from common Render envs and enforce sane defaults.
+ * Must run BEFORE importing @prisma/client anywhere.
+ */
+export function ensureDatabaseUrl(): string {
+  const direct = process.env.DATABASE_URL?.trim();
+  const internal = process.env.DATABASE_INTERNAL_URL?.trim() || process.env.DATABASE_URL_INTERNAL?.trim();
+  const external = process.env.EXTERNAL_DATABASE_URL?.trim() || process.env.DATABASE_URL_EXTERNAL?.trim();
 
-2. Keep the **Start Command** as:
+  let resolved = direct || internal || external || "";
 
-   ```bash
-   npm start
-   ```
-
-   which runs `node dist/index.js` after the build exists. 
-
-3. Ensure required env vars are present (otherwise the app may crash after starting):
-
-   * `DATABASE_URL`
-   * `DISCORD_BOT_TOKEN` (or `POKEMON_BOT_TOKEN`) 
-
-# If you can touch the repo, make it bulletproof
-
-Add these snippets so local dev and Render behave the same way:
-
-**package.json (scripts)**
-
-```json
-{
-  "scripts": {
-    "prebuild": "prisma generate",
-    "build": "tsc -p tsconfig.json",
-    "data:build": "node scripts/build-data.js",
-    "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts"
+  if (!resolved) {
+    throw new Error(
+      [
+        "DATABASE_URL is not set.",
+        "Set it to Render Postgres **Internal Database URL** for in-cluster services (web/worker).",
+        "If connecting from outside Render, use the External Database URL instead.",
+      ].join(" ")
+    );
   }
+
+  // Enforce SSL for managed Postgres unless explicitly provided
+  if (/^postgres(?:ql)?:\/\//.test(resolved) && !/sslmode=/.test(resolved)) {
+    resolved += (resolved.includes("?") ? "&" : "?") + "sslmode=require";
+  }
+
+  // Write back so Prisma schema env("DATABASE_URL") always resolves
+  process.env.DATABASE_URL = resolved;
+  return resolved;
 }
 ```
 
-* `prebuild` guarantees the Prisma client exists before TypeScript compiles.
-* `build` produces `dist/**`. The start step then finds `dist/index.js`. 
+---
 
-**.nvmrc** (or use `engines` in `package.json`)
+# FILE: src/index.ts
 
+```diff
+@@
++// Ensure DB URL is normalized BEFORE importing Prisma
++import { ensureDatabaseUrl } from "./config/dbEnv";
++ensureDatabaseUrl();
++
+ import { PrismaClient } from "@prisma/client";
+ const prisma = new PrismaClient();
+ 
+ async function boot() {
+   try {
+-    // existing startup
++    // Cheap connectivity probe prevents "mystery localhost" failures
++    await prisma.$queryRawUnsafe("SELECT 1");
++    // existing startup continues...
+   } catch (err: any) {
++    const url = (process.env.DATABASE_URL || "<undefined>").replace(/:(?:[^@/]+)@/, ":***@");
++    console.error("Fatal during boot — Prisma could not connect.", { databaseUrl: url });
+     console.error(err);
+     process.exit(1);
+   }
+ }
+ 
+ boot();
 ```
-v20
+
+---
+
+# FILE: prisma/schema.prisma
+
+```diff
+@@
+ datasource db {
+   provider = "postgresql"
+   url      = env("DATABASE_URL")
+ }
++
++// NOTE:
++// - Do NOT hardcode credentials here.
++// - `DATABASE_URL` is normalized at runtime by src/config/dbEnv.ts
++// - For CLI-only needs (migrate/introspect outside app), consider `directUrl`.
 ```
 
-This pins Node 20 on Render to match the documented runtime. Fewer surprises. 
+---
 
-**render.yaml (optional—but tidy)**
+# FILE: package.json
 
-```yaml
+```diff
+@@
+   "scripts": {
++    "postinstall": "prisma generate",
++    "db:migrate": "prisma migrate deploy",
++    "db:push": "prisma db push --accept-data-loss",
+     "build": "tsc -p tsconfig.json",
+     "start": "node dist/index.js"
+   }
+```
+
+---
+
+# FILE: render.yaml (or Render Dashboard service settings)
+
+```full
 services:
-  - type: web
-    name: infinity-gauntlet
+  - type: worker
+    name: background-worker
     env: node
-    region: oregon
-    buildCommand: npm ci && npm run build && npm run data:build
+    buildCommand: npm ci && npm run build
     startCommand: npm start
-    runtime: node
-    nodeVersion: 20
+    envVars:
+      # ✅ Best practice (Blueprints): automatically inject the DB Internal URL from your Render Postgres
+      - key: DATABASE_URL
+        fromDatabase:
+          name: app-postgres        # <-- EXACT name of your Render Postgres resource
+          property: connectionString # <-- Internal/private connection string
+      
+      # (Optional) If you're not using Blueprints, paste it directly in the Dashboard OR here as a placeholder:
+      # - key: DATABASE_URL
+      #   value: "postgresql://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require"
+
+      # Optional: choose your migration strategy
+      - key: RUN_MIGRATIONS
+        value: "false"
 ```
 
-This codifies the “build, then start” contract in the repo itself. 
+> Notes
+>
+> * `fromDatabase.property: connectionString` resolves to the **internal/private** URL. Use External URL only for off‑platform clients.
+> * Internal URL requires your service and database be in the **same account/team and region**.
 
-# Sanity checklist (takes 60 seconds)
+# FILE: .env.example
 
-* `src/index.ts` exists (that’s the documented entrypoint). ✔️ 
-* `tsconfig.json` has `"outDir": "dist"` (or equivalent).
-* The build logs on Render show TypeScript emitting files into `dist/`.
-* Prisma client gets generated before `tsc` runs.
-* After deploy, logs show your bot bootstrapping Discord + DB, not crashing on missing envs. 
+```full
+# Local development only
+DATABASE_URL=postgresql://user:pass@localhost:5432/app?sslmode=disable
+```
 
-Once those are in place, the “Cannot find module '/opt/render/project/src/dist/index.js'” error should disappear, and the service should actually execute your compiled code. Next frontier: wire a health check and a tiny “/status” route so Render can autosense liveness during deploys, which makes rollouts smoother in the long run.
+---
+
+# FILE: README.md (Deploy excerpt)
+
+```diff
+@@
+ ## Deploying to Render
+ 1. Provision **Render Postgres**.
+ 2. Copy its **Internal Database URL** from the database's **Connect** page.
+ 3. In each Render service (Web/Background Worker) set env var:
+    - `DATABASE_URL=<Internal Database URL>`
+ 4. Deploy. Build runs `prisma generate` (via postinstall). Optionally:
+    - Run migrations: `npm run db:migrate` (CI/Deploy hook or prestart of one service)
+    - Non-prod schema push: set a hook to `npm run db:push`
+ 5. Verify worker logs show the `SELECT 1` health check and start consuming work.
+```
+
+---
+
+# Acceptance Criteria
+
+* No more `localhost:5432` connection attempts on Render.
+* Prisma connects on boot when Internal DB URL is present.
+* Clear, masked error logs on failure; process exits non-zero (so deploys don't flap).
+
+# Ops Notes
+
+* Prefer Internal DB URL for in-cluster traffic; use External only off-platform.
+* Never import Prisma before calling `ensureDatabaseUrl()`.
+* If using migrations, run them once per deploy (usually in web service or CI) via `prisma migrate deploy`.
+
+# References (for maintainers)
+
+* Render Background Workers
+* Render Postgres (Create & Connect; Internal vs External URLs)
+* Render guide: Deploy a Node.js app with Prisma ORM and PostgreSQL
+* Prisma connection URL reference; Database connections; Migrate deploy
+* Node.js docs: `process.env`
+
+```
+```
+I updated Patch.md to include the exact render.yaml snippet that auto-injects your database URL using Blueprints:
+
+envVars -> fromDatabase -> property: connectionString (this is Render’s internal/private URL—the one you want for services running on Render). I left a commented fallback with a literal Postgres URI shape in case you set it by hand. This guarantees Prisma always gets a real DATABASE_URL, not localhost. 
+Render
++1
+
+I also added footnotes explaining that internal URLs require the same account/team and region (so you don’t accidentally point at External), and kept the sslmode=require guard in the normalizer to keep cloud Postgres happy. 
+Render
++1
+
+For your sanity check:
+
+Background Worker deploy model and expectations. 
+Render
+
+Blueprint YAML + env var patterns. 
+Render
++1
+
+Node’s process.env is our config backbone. 
+Node.js
+
+Next move: commit the patch, set the Postgres resource name in that fromDatabase.name field to your actual DB’s name, and redeploy. The worker should log the SELECT 1 health check and hum along.
