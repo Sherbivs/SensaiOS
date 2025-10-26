@@ -20,6 +20,9 @@ model User {
   battlesP1    Battle[] @relation("BattlesAsP1")
   battlesP2    Battle[] @relation("BattlesAsP2")
   cooldowns    Cooldown[]
+  dailyQuestStreak        Int      @default(0)
+  dailyQuestLastCompleted DateTime?
+  dailyQuestLastReset     DateTime?
 }
 
 model PokemonInstance {

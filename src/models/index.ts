@@ -1,7 +1,7 @@
 // Prisma client singleton and simple repository helpers
 
 import { PrismaClient } from "@prisma/client";
-import type { Battle, User as PrismaUser } from "@prisma/client";
+import type { Battle, Prisma, User as PrismaUser } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
@@ -137,3 +137,266 @@ export const BattleRepo = {
     return result;
   },
 };
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function toDate(value: unknown): Date | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.valueOf()) ? null : value;
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.valueOf()) ? null : parsed;
+  }
+  return null;
+}
+
+function startOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function diffInUtcDays(a: Date, b: Date): number {
+  const startA = startOfUtcDay(a).getTime();
+  const startB = startOfUtcDay(b).getTime();
+  return Math.floor((startA - startB) / MS_PER_DAY);
+}
+
+export type DailyQuestStreakStatus = {
+  streak: number;
+  status: "fresh" | "locked" | "due" | "reset";
+  atRisk: boolean;
+  lost: boolean;
+  lastCompleted: Date | null;
+  lastReset: Date | null;
+  nextDue: Date | null;
+  daysSinceCompletion: number | null;
+  message: string;
+};
+
+export type DailyQuestStateInput = {
+  streak?: number | null;
+  lastCompleted?: Date | string | null;
+  lastReset?: Date | string | null;
+  now?: Date;
+};
+
+export function evaluateDailyQuestStreak(input: DailyQuestStateInput): DailyQuestStreakStatus {
+  const streak = Number.isFinite(input?.streak) ? Math.max(0, Math.floor(input?.streak ?? 0)) : 0;
+  const lastCompleted = toDate(input?.lastCompleted ?? null);
+  const lastReset = toDate(input?.lastReset ?? null);
+  const now = input?.now instanceof Date ? input.now : new Date();
+
+  if (!lastCompleted || streak === 0) {
+    const message = lastReset
+      ? "Your streak reset. Complete today's quest to start a new run."
+      : "Complete today's quest to begin your streak.";
+    return {
+      streak: 0,
+      status: lastReset ? "reset" : "fresh",
+      atRisk: false,
+      lost: Boolean(lastReset),
+      lastCompleted: null,
+      lastReset,
+      nextDue: null,
+      daysSinceCompletion: null,
+      message,
+    };
+  }
+
+  const gap = diffInUtcDays(now, lastCompleted);
+
+  if (gap <= 0) {
+    const nextDue = new Date(lastCompleted.getTime() + MS_PER_DAY);
+    return {
+      streak,
+      status: "locked",
+      atRisk: false,
+      lost: false,
+      lastCompleted,
+      lastReset,
+      nextDue,
+      daysSinceCompletion: 0,
+      message: `On a ${streak}-day streak! Next quest unlocks ${nextDue.toISOString()}.`,
+    };
+  }
+
+  if (gap === 1) {
+    return {
+      streak,
+      status: "due",
+      atRisk: true,
+      lost: false,
+      lastCompleted,
+      lastReset,
+      nextDue: null,
+      daysSinceCompletion: 1,
+      message: `Maintain your ${streak}-day streak by completing today's quest.`,
+    };
+  }
+
+  return {
+    streak: 0,
+    status: "reset",
+    atRisk: false,
+    lost: true,
+    lastCompleted,
+    lastReset: now,
+    nextDue: null,
+    daysSinceCompletion: gap,
+    message: "Your streak reset after missing a day. Complete today's quest to start over.",
+  };
+}
+
+export type DailyQuestProjectionInput = {
+  previousStreak?: number | null;
+  lastCompleted?: Date | string | null;
+  completedAt: Date;
+};
+
+export type DailyQuestCompletionProjection = {
+  newStreak: number;
+  reset: boolean;
+  repeated: boolean;
+  gap: number | null;
+};
+
+export function projectDailyQuestCompletion(input: DailyQuestProjectionInput): DailyQuestCompletionProjection {
+  const previous = Number.isFinite(input.previousStreak) ? Math.max(0, Math.floor(input.previousStreak ?? 0)) : 0;
+  const lastCompleted = toDate(input.lastCompleted ?? null);
+  const completedAt = input.completedAt instanceof Date ? input.completedAt : new Date(input.completedAt);
+  const safeCompletedAt = Number.isNaN(completedAt.valueOf()) ? new Date() : completedAt;
+
+  if (!lastCompleted || previous === 0) {
+    return { newStreak: 1, reset: previous > 0, repeated: false, gap: lastCompleted ? diffInUtcDays(safeCompletedAt, lastCompleted) : null };
+  }
+
+  const gap = diffInUtcDays(safeCompletedAt, lastCompleted);
+  if (gap <= 0) {
+    return { newStreak: previous, reset: false, repeated: true, gap };
+  }
+  if (gap === 1) {
+    return { newStreak: previous + 1, reset: false, repeated: false, gap };
+  }
+  return { newStreak: 1, reset: true, repeated: false, gap };
+}
+
+export type EnsureDailyQuestOptions = {
+  trainer: {
+    id: string;
+    dailyQuestStreak?: number | null;
+    dailyQuestLastCompleted?: Date | string | null;
+    dailyQuestLastReset?: Date | string | null;
+  };
+  prisma?: PrismaClient;
+  now?: Date;
+};
+
+export async function ensureDailyQuestStreakFreshness(options: EnsureDailyQuestOptions) {
+  const client = options.prisma ?? prisma;
+  const now = options.now instanceof Date ? options.now : new Date();
+  const state = evaluateDailyQuestStreak({
+    streak: options.trainer.dailyQuestStreak ?? 0,
+    lastCompleted: options.trainer.dailyQuestLastCompleted ?? null,
+    lastReset: options.trainer.dailyQuestLastReset ?? null,
+    now,
+  });
+
+  if (!state.lost || (options.trainer.dailyQuestStreak ?? 0) === 0) {
+    return { trainer: options.trainer, state, updated: false };
+  }
+
+  const updated = await client.user.update({
+    where: { id: options.trainer.id },
+    data: {
+      dailyQuestStreak: 0,
+      dailyQuestLastReset: now,
+    },
+    select: {
+      id: true,
+      dailyQuestStreak: true,
+      dailyQuestLastCompleted: true,
+      dailyQuestLastReset: true,
+    },
+  });
+
+  const merged = {
+    ...options.trainer,
+    dailyQuestStreak: updated.dailyQuestStreak,
+    dailyQuestLastCompleted: updated.dailyQuestLastCompleted,
+    dailyQuestLastReset: updated.dailyQuestLastReset,
+  };
+
+  const refreshed = evaluateDailyQuestStreak({
+    streak: merged.dailyQuestStreak ?? 0,
+    lastCompleted: merged.dailyQuestLastCompleted ?? null,
+    lastReset: merged.dailyQuestLastReset ?? null,
+    now,
+  });
+
+  return { trainer: merged, state: refreshed, updated: true };
+}
+
+export type RecordDailyQuestOptions = {
+  userId?: string;
+  discordId?: string;
+  completedAt?: Date;
+  prisma?: PrismaClient;
+};
+
+export async function recordDailyQuestCompletion(options: RecordDailyQuestOptions): Promise<DailyQuestStreakStatus> {
+  const client = options.prisma ?? prisma;
+  if (!options.userId && !options.discordId) {
+    throw new Error("recordDailyQuestCompletion requires userId or discordId");
+  }
+
+  const where: Prisma.UserWhereUniqueInput = options.userId ? { id: options.userId } : { discordId: options.discordId! };
+
+  const existing = await client.user.findUnique({
+    where,
+    select: {
+      id: true,
+      dailyQuestStreak: true,
+      dailyQuestLastCompleted: true,
+      dailyQuestLastReset: true,
+    },
+  });
+
+  if (!existing) {
+    throw new Error("Trainer not found for daily quest completion");
+  }
+
+  const completedAt = options.completedAt instanceof Date ? options.completedAt : new Date(options.completedAt ?? Date.now());
+  const safeCompletedAt = Number.isNaN(completedAt.valueOf()) ? new Date() : completedAt;
+
+  const projection = projectDailyQuestCompletion({
+    previousStreak: existing.dailyQuestStreak ?? 0,
+    lastCompleted: existing.dailyQuestLastCompleted ?? null,
+    completedAt: safeCompletedAt,
+  });
+
+  const updateData: Prisma.UserUpdateInput = {
+    dailyQuestStreak: projection.newStreak,
+    dailyQuestLastCompleted: safeCompletedAt,
+  };
+
+  if (projection.reset) {
+    updateData.dailyQuestLastReset = safeCompletedAt;
+  }
+
+  const updated = await client.user.update({
+    where: { id: existing.id },
+    data: updateData,
+    select: {
+      dailyQuestStreak: true,
+      dailyQuestLastCompleted: true,
+      dailyQuestLastReset: true,
+    },
+  });
+
+  return evaluateDailyQuestStreak({
+    streak: updated.dailyQuestStreak ?? 0,
+    lastCompleted: updated.dailyQuestLastCompleted ?? null,
+    lastReset: updated.dailyQuestLastReset ?? null,
+    now: safeCompletedAt,
+  });
+}

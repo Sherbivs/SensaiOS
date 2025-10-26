@@ -9,19 +9,19 @@ guidance_when_none: |
   - Update `next_task_id`, trim `files_hint` to only the files you expect to touch, and bump `timestamp_utc`.
   - Record the rationale in `note` so the next worker knows why the pointer moved.
 
-next_task_id: T8.2
+next_task_id: T8.3
 reason: >
-  Extend DM Home progression by tracking trainer daily quest streaks and displaying
-  the streak status now that battle history is live.
+  Implement the daily quest claim flow so trainers can advance their streak, receive
+  rewards, and see the next availability directly from DM Home.
 
 files_hint:
-  - "prisma/schema.prisma"
-  - "src/models/**"
   - "src/commands/home.js"
+  - "src/commands/**"
+  - "src/models/**"
   - "tests/dm_home.spec.ts"
   - "tests/log.spec.ts"
 
-timestamp_utc: 2025-10-26T10:25:00Z
+timestamp_utc: 2025-10-26T11:30:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-26T10:25:00Z
-note: "T8.1 shipped (DM Home battle history). NEXT now targets T8.2 to wire daily quest streaks into DM Home while the queue stays healthy."
+note: "Daily quest streaks now ship in DM Home; NEXT targets the claim flow so streaks advance with rewards and cooldown messaging."

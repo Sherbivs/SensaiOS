@@ -315,427 +315,322 @@ Paste your next PATCHSET below.
 
 <<<PATCHSET START>>>
 
-# [META.DEV.TIGHTEN]: Enforce last_task_id stamping, dev-only cleanup, and end-of-loop readiness
-
-# FILE: ops/DEV_POLICY.md
-
-``full
-# DEV System Policy (AI Navigation & Hygiene)
-Last Updated (UTC): 2025-10-26T09:30:00Z
-Revision: 1.0
-Last Task ID: META.DEV.TIGHTEN
-
-## Purpose
-Keep the repository clean for production while optimizing AI navigation in development:
-1) Every DEV “system” file carries the **Last Task ID** that last edited it.
-2) Any **non-vital** files not explicitly tagged as DEV are **pruned on DEV finalize**.
-3) The patch loop must **exit ready** with at least one READY task + a sane NEXT pointer.
-
-## Required metadata tags
-- Place a tag near the top of the file (first 30 lines). Use the format that matches the file type.
-
-Markdown / YAML / JSON:
-``
-
-<!-- @last_task_id: <TASK_ID> @timestamp_utc: <ISO> -->
-
-``
-
-TypeScript / JavaScript / Shell:
-``js
-// @last_task_id: <TASK_ID> @timestamp_utc: <ISO>
-``
-
-## DEV tagging (explicit)
-
-* Mark dev-only files with **one** of the following in the header (first 30 lines):
-
-  * Markdown/YAML/JSON: `<!-- @dev-only -->`
-  * Code files: `// @dev-only`
-
-**Examples:** Patch.md, Tasklist.md, Prompt.md, ops/**, scripts/**, routes/dev/**, DNS.md, masterroutetable.md.
-
-## Non-vital production surfaces (default-protected)
-
-Anything under:
-
-* `src/**`, `data/**` (runtime artifacts), `render.yaml`, `package.json`, `tsconfig.json`, `prisma/**`, `routes/prod/**`
-  …is considered *vital* and **must not** be pruned.
-
-## DEV finalize (pruning)
-
-* At the end of a DEV run, `scripts/dev_sanitize.sh` will truncate any **non-vital and untagged** files recorded in `ops/DEV_PRUNE_LIST.txt` and mark them with a “DEV-PRUNED” banner.
-* To skip pruning for a file, add the header tag `@dev-only` **or** add the file to `ops/DEV_KEEP.yaml`.
-
-## End-of-loop readiness
-
-* The loop must finish with:
-
-  * ≥1 READY task in Tasklist.md
-  * `ops/NEXT.yaml` pointing to a READY task (not NONE)
-* `scripts/ensure_ready_next.sh` enforces this and suggests a candidate when needed.
-
-``
-
-# FILE: ops/DEV_KEEP.yaml
-``full
-# Files here are exempt from DEV pruning even if they lack @dev-only tags.
-# One path per line, relative to repo root.
-# Examples:
-# masterroutetable.md
-# DNS.md
-``
-
-# FILE: scripts/dev_tag_guard.sh
-
-``full
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Guard: Ensure DEV/system files carry @last_task_id and collect untagged non-vital files for pruning.
-
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
-cd "$ROOT"
-
-PRUNE_LIST="ops/DEV_PRUNE_LIST.txt"
-KEEP_FILE="ops/DEV_KEEP.yaml"
-: > "${PRUNE_LIST}"
-
-# Patterns
-VITAL_WHITELIST='^(src/|data/|render\.yaml$|package\.json$|tsconfig\.json$|prisma/|routes/prod/)'
-DEV_ZONES='^(ops/|scripts/|routes/dev/|masterroutetable\.md$|DNS\.md$|Patch\.md$|Tasklist\.md$|Prompt\.md$)'
-
-# Collect keep overrides
-declare -A KEEP
-if [[ -f "${KEEP_FILE}" ]]; then
-  while IFS= read -r line; do
-    [[ -z "$line" || "$line" =~ ^# ]] && continue
-    KEEP["$line"]=1
-  done < "${KEEP_FILE}"
-fi
-
-has_last_task_id () {
-  head -n 30 "$1" | grep -Eq '@last_task_id:\s*[A-Z0-9\.\-]+' || return 1
-}
-
-has_dev_tag () {
-  head -n 30 "$1" | grep -Eq '@dev-only' || return 1
-}
-
-is_text () {
-  # Treat binary as non-text (skip)
-  file -b --mime "$1" | grep -q 'text/' || return 1
-}
-
-fail=0
-while IFS= read -r f; do
-  # Skip directories and deleted
-  [[ -d "$f" ]] && continue
-  [[ ! -f "$f" ]] && continue
-  # Skip binary files
-  is_text "$f" || continue
-
-  # vital paths: never prune
-  if [[ "$f" =~ $VITAL_WHITELIST ]]; then
-    # metadata optional here (not enforced)
-    continue
-  fi
-
-  # dev zones: must have @last_task_id
-  if [[ "$f" =~ $DEV_ZONES ]]; then
-    if ! has_last_task_id "$f"; then
-      echo "::error file=$f::Missing @last_task_id header in DEV/system file." >&2
-      fail=1
-    fi
-    continue
-  fi
-
-  # non-vital, not in dev zones
-  # if explicitly kept, skip
-  if [[ -n "${KEEP[$f]:-}" ]]; then
-    continue
-  fi
-
-  # if not explicitly tagged DEV, schedule for pruning
-  if ! has_dev_tag "$f"; then
-    echo "$f" >> "${PRUNE_LIST}"
-  fi
-done < <(git ls-files)
-
-if [[ $fail -ne 0 ]]; then
-  echo "::group::DEV tag guard summary"
-  echo "Missing @last_task_id found. See errors above."
-  echo "::endgroup::"
-  exit 1
-fi
-
-if [[ -s "${PRUNE_LIST}" ]]; then
-  echo "::notice::DEV prune candidates listed in ${PRUNE_LIST}"
-else
-  rm -f "${PRUNE_LIST}"
-fi
-``
-
-# FILE: scripts/dev_sanitize.sh
-
-``full
-#!/usr/bin/env bash
-set -euo pipefail
-
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
-cd "$ROOT"
-
-PRUNE_LIST="ops/DEV_PRUNE_LIST.txt"
-if [[ ! -f "${PRUNE_LIST}" ]]; then
-  echo "No prune list present; nothing to sanitize."
-  exit 0
-fi
-
-while IFS= read -r f; do
-  [[ -z "$f" ]] && continue
-  if [[ -f "$f" ]]; then
-    printf '%s\n' "<!-- DEV-PRUNED: This file was pruned during DEV finalize. Safe to delete. -->" > "$f" || true
-    # Fallback for code files (if markdown header not desired)
-    if [[ "$f" =~ \.(ts|js|sh)$ ]]; then
-      printf '%s\n' "// DEV-PRUNED: This file was pruned during DEV finalize. Safe to delete." > "$f" || true
-    fi
-    echo "::notice file=$f::pruned"
-  fi
-done < "${PRUNE_LIST}"
-
-rm -f "${PRUNE_LIST}"
-``
-
-# FILE: scripts/ensure_ready_next.sh
-
-``full
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Ensure there is ≥1 READY task and NEXT.yaml points to a READY task.
-# Suggest a candidate if needed but do not auto-edit files (human/AI will).
-
-has_ready=$(grep -Ec '^\s*status:\s*READY\b' Tasklist.md || true)
-if [[ "${has_ready}" -eq 0 ]]; then
-  echo "::error::Tasklist.md has zero READY tasks. Promote an eligible PROPOSED item or add a READY seed."
-  # Suggest the first eligible PROPOSED whose deps are DONE
-  awk '
-    BEGIN{RS=""; FS="\n"}
-    /- id:/ {
-      id=""; st=""; deps=""
-      for(i=1;i<=NF;i++){
-        if($i ~ /^- id:[[:space:]]*/){ id=$i; sub(/^- id:[[:space:]]*/,"",id) }
-        if($i ~ /^[[:space:]]*status:/){ st=$i; sub(/^[[:space:]]*status:[[:space:]]*/,"",st) }
-        if($i ~ /^[[:space:]]*depends_on:/){ deps=$i; sub(/^[[:space:]]*depends_on:[[:space:]]*/,"",deps); gsub(/[\[\],]/," ",deps) }
-      }
-      if(st=="PROPOSED"){ print id "|" deps }
-    }
-  ' Tasklist.md | while IFS='|' read -r id deps; do
-      ok=1
-      for d in $deps; do
-        [[ -z "$d" ]] && continue
-        if ! grep -qE "^- id: ${d}$([[:space:]]|\n).*^[[:space:]]*status:[[:space:]]*DONE\b" -n Tasklist.md; then
-          ok=0; break
-        fi
-      done
-      if [[ $ok -eq 1 ]]; then
-        echo "::notice::Eligible PROPOSED for promotion: ${id}"
-        break
-      fi
-    done
-  exit 1
-fi
-
-current_next=$(awk 'match($0, /^next_task_id:\s*(.*)$/, a){print a[1];exit}' ops/NEXT.yaml | tr -d '"')
-current_next=${current_next:-NONE}
-if [[ "$current_next" == "NONE" ]]; then
-  # Suggest the first READY id
-  ready=$(awk '
-    BEGIN{RS=""; FS="\n"}
-    /- id:/ {
-      id=""; st=""
-      for(i=1;i<=NF;i++){
-        if($i ~ /^- id:[[:space:]]*/){ id=$i; sub(/^- id:[[:space:]]*/,"",id) }
-        if($i ~ /^[[:space:]]*status:/){ st=$i; sub(/^[[:space:]]*status:[[:space:]]*/,"",st) }
-      }
-      if(st=="READY"){ print id; exit }
-    }
-  ' Tasklist.md)
-  if [[ -n "$ready" ]]; then
-    echo "::notice::NEXT.yaml is NONE. Suggested next_task_id: ${ready}"
-    exit 0
-  fi
-fi
-
-echo "READY queue and NEXT pointer look sane."
-```
-
-# FILE: .github/workflows/dev-guard.yml
-
-```full
-name: dev-guard
-on:
-  pull_request:
-    paths:
-      - 'ops/**'
-      - 'scripts/**'
-      - 'routes/**'
-      - 'Patch.md'
-      - 'Prompt.md'
-      - 'Tasklist.md'
-      - 'DNS.md'
-      - 'masterroutetable.md'
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: DEV tag guard
-        run: bash scripts/dev_tag_guard.sh
-      - name: Ensure READY/NEXT sane
-        run: bash scripts/ensure_ready_next.sh
-```
+# [META.PATCHSET.ECHO_PLAINTEXT]: Plain-text PATCHSET Echo + generator to prep copy-pasteable results
 
 # FILE: Patch.md
 
-```diff
+DIFF (unified):
 @@
- ## OPERATING LOOP
-@@
- 3) **Update Tasklist**
-@@
- 4) **Commit**
-@@
- 5) **Repeat**
+
+## EMBEDDED PATCHSET ECHO (MANDATORY)
+
+-After every applied PATCHSET, update **Prompt.md** section “Embedded PATCHSET Echo (for quick audit)” between markers. You may paste the exact PATCHSET or, if it’s too large, add a brief NO-ECHO reason.
++After every applied PATCHSET, update **Prompt.md** section “Embedded PATCHSET Echo (for quick audit)” between markers.
 +
-+## DEV System Tightening (mandatory in DEV runs)
-+- **Last Task ID stamping:** Any DEV/system file you touch must carry a header tag with the last task id and timestamp (see ops/DEV_POLICY.md).
-+- **DEV finalize pruning:** Before ending a DEV run, generate a prune list (`scripts/dev_tag_guard.sh`), then sanitize (`scripts/dev_sanitize.sh`). Vital runtime paths (`src/**`, `routes/prod/**`, etc.) are never pruned. Add `@dev-only` to keep a dev file.
-+- **End-of-loop readiness:** Ensure ≥1 READY task remains and `ops/NEXT.yaml` points to a READY item. Use `scripts/ensure_ready_next.sh` to verify and choose a candidate if needed.
-```
++**Echo formatting rule (DEV environment):**
++- Use **plain text only** in the echo. **Do not** include code fences, `full, `diff, or any embedded objects.
++- Represent file edits with **DIFF blocks** using this simple structure:
+
+* * `DIFF START: <relative/path>`
+* * `<contextual summary of changes, bullets allowed>`
+* * `DIFF END: <relative/path>`
+    +- Keep the canonical **Why / Changes / Acceptance** footer in the echo.
+*
+
++**Generator (recommended):**
++- Run `scripts/generate_prompt_echo.sh` to transform the current PATCHSET into the required plain-text echo and stage it into Prompt.md.
+@@
+5) **Repeat**
+
+* Return to step 1 until no `READY` tasks remain.
+
+- - As you near exit, run `scripts/generate_prompt_echo.sh` so **Prompt.md** contains a ready-to-copy echo of the **current** PATCHSET results.
+
+# FILE: scripts/generate_prompt_echo.sh
+
+FULL FILE (text):
+#!/usr/bin/env bash
+set -euo pipefail
+
+# @last_task_id: META.PATCHSET.ECHO_PLAINTEXT @timestamp_utc: 2025-10-26T10:05:00Z
+
+#
+
+# Purpose: Convert the current PATCHSET (from Patch.md clipboard or a temp file)
+
+# into a plain-text echo for Prompt.md between the PATCHSET:ECHO markers.
+
+#
+
+# Behavior:
+
+# - Strips any code fences and `diff/`full blocks.
+
+# - Rewrites file sections as DIFF blocks: "DIFF START: <path>" … "DIFF END: <path>".
+
+# - Preserves the Why / Changes / Acceptance footer.
+
+#
+
+# Inputs:
+
+# - PATCH_SOURCE: optional path to a file containing the PATCHSET text. If unset,
+
+# the script will scan Patch.md and extract the latest <<<PATCHSET START>>> … <<<PATCHSET END>>> block.
+
+#
+
+# Output:
+
+# - Updates Prompt.md in place.
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$ROOT"
+
+PATCH_SRC="${PATCH_SOURCE:-}"
+PROMPT="Prompt.md"
+
+extract_patch () {
+if [[ -n "$PATCH_SRC" && -f "$PATCH_SRC" ]]; then
+cat "$PATCH_SRC"
+return
+fi
+awk '
+/<<<PATCHSET START>>>/ {in=1}
+in {print}
+/<<<PATCHSET END>>>/ {exit}
+' Patch.md
+}
+
+to_plain_echo () {
+
+# 1) Drop backticks fences entirely.
+
+# 2) Convert "# FILE: <path>" to DIFF START/END pairs around subsequent content until next "# FILE:" or "# TASKLIST UPDATE".
+
+# 3) Keep the Commit Message footer and Why/Changes/Acceptance.
+
+awk '
+BEGIN {
+in=0; infile=0; path=""
+}
+/<<<PATCHSET START>>>/ { in=1; next }
+/<<<PATCHSET END>>>/ { in=0; if(infile){ print "DIFF END: " path; infile=0 } next }
+in==0 { next }
+
+````
+# Strip code fence lines
+/^```/ { next }
+
+# Start of a file section
+/^# FILE:[[:space:]]/ {
+  if (infile==1) { print "DIFF END: " path; infile=0 }
+  path=$0
+  sub(/^# FILE:[[:space:]]*/,"",path)
+  print "DIFF START: " path
+  infile=1
+  next
+}
+
+# TASKLIST UPDATE treated as a pseudo-file for readability
+/^# TASKLIST UPDATE/ {
+  if (infile==1) { print "DIFF END: " path; infile=0 }
+  path="Tasklist.md (update)"
+  print "DIFF START: " path
+  infile=1
+  next
+}
+
+# Commit Message or non-file headers — just print; close any open diff first
+/^# \[Task / || /^Commit Message$/ {
+  if (infile==1) { print "DIFF END: " path; infile=0 }
+  print
+  next
+}
+
+# Normal line inside file
+{
+  # For diff hunks, keep the @@ and +/- lines as plain text
+  print
+}
+````
+
+' 
+| sed -E 's/^[[:space:]]+$//' 
+| awk '
+# Collapse consecutive blank lines to at most one.
+NF==0 { if (blank==1) next; blank=1; print ""; next }
+{ blank=0; print }
+'
+}
+
+update_prompt () {
+tmp_echo="$(mktemp)"
+to_plain_echo > "$tmp_echo"
+
+awk -v ECHO="$(sed -e 's/[&/]/\&/g' "$tmp_echo")" '
+BEGIN{printed=0}
+/<!-- PATCHSET:ECHO BEGIN -->/ {
+print
+print "PATCHSET SUMMARY START"
+print ECHO
+print "PATCHSET SUMMARY END"
+skip=1; next
+}
+/<!-- PATCHSET:ECHO END -->/ {
+print
+printed=1; skip=0; next
+}
+skip==1 { next }
+{ print }
+END { if(printed==0){ exit 1 } }
+' "$PROMPT" > "$PROMPT.tmp" && mv "$PROMPT.tmp" "$PROMPT"
+rm -f "$tmp_echo"
+}
+
+extract_patch | update_prompt
+
+echo "::notice::Prompt.md echo updated in plain text (no code fences)."
 
 # FILE: Prompt.md
 
-``diff
+DIFF START: Prompt.md
 @@
--Timestamp (UTC): 2025-10-26T09:05:00Z
--Revision: 0.69
-+Timestamp (UTC): 2025-10-26T09:30:00Z
-+Revision: 0.70
+-Timestamp (UTC): 2025-10-26T09:30:00Z
+-Revision: 0.70
++Timestamp (UTC): 2025-10-26T10:05:00Z
++Revision: 0.71
 @@
- > Changes in this revision:
-+> - `ops/DEV_POLICY.md`, `ops/DEV_KEEP.yaml` — Defined DEV system metadata, pruning rules, and keep overrides.
-+> - `scripts/dev_tag_guard.sh`, `scripts/dev_sanitize.sh`, `scripts/ensure_ready_next.sh` — Added guards for last_task_id stamping, DEV pruning, and end-of-loop readiness.
-+> - `.github/workflows/dev-guard.yml` — CI: run DEV guard + readiness checks on PRs touching dev system files.
-+> - `Patch.md` — Documented DEV tightening rules (stamp, prune, ensure READY/NEXT).
-``
+-> Changes in this revision:
+-> - `ops/DEV_POLICY.md`, `ops/DEV_KEEP.yaml` — Defined DEV system metadata, pruning rules, and keep overrides.
+-> - `scripts/dev_tag_guard.sh`, `scripts/dev_sanitize.sh`, `scripts/ensure_ready_next.sh` — Added guards for last_task_id stamping, DEV pruning, and end-of-loop readiness.
+-> - `.github/workflows/dev-guard.yml` — CI: run DEV guard + readiness checks on PRs touching dev system files.
+-> - `Patch.md` — Documented DEV tightening rules (stamp, prune, ensure READY/NEXT).
++> Changes in this revision:
++> - `Patch.md` — Enforced plain-text PATCHSET Echo format and added end-of-loop requirement to generate a copy-pasteable echo.
++> - `scripts/generate_prompt_echo.sh` — New helper to convert the current PATCHSET into a plain-text Echo in Prompt.md (no code fences).
++> - `Prompt.md` — Echo section now shows plain-text DIFF blocks with the canonical Why/Changes/Acceptance footer.
+@@
+
+ <!-- PATCHSET:ECHO BEGIN -->
+
+-PATCHSET SUMMARY START
+-… (previous content) …
+-PATCHSET SUMMARY END
++PATCHSET SUMMARY START
++[META.PATCHSET.ECHO_PLAINTEXT]: Plain-text PATCHSET Echo + generator
++
++DIFF START: Patch.md
++- Added “Echo formatting rule (DEV environment)” requiring plain-text DIFF blocks (no code fences) and retention of Why/Changes/Acceptance.
++- Added guidance to run scripts/generate_prompt_echo.sh near loop exit so Prompt.md always carries a ready-to-copy echo.
++DIFF END: Patch.md
++
++DIFF START: scripts/generate_prompt_echo.sh
++- New script that parses the active PATCHSET, strips code fences, converts file sections into DIFF START/END blocks, and injects the result between Prompt.md echo markers.
++DIFF END: scripts/generate_prompt_echo.sh
++
++DIFF START: Prompt.md
++- Bumped Timestamp/Revision.
++- “Last Repo Changes” references new echo policy + generator.
++- Echo below is now plain text (DIFF blocks), with the canonical Why/Changes/Acceptance footer preserved.
++DIFF END: Prompt.md
++
++Why:
++- The chat environment can re-render code fences or treat them like objects. We need a durable, copy-pasteable echo that remains readable, portable, and unambiguous for AI operators.
++
++Changes:
++- Contract update in Patch.md requiring plain-text DIFF blocks in the echo (no `full/`diff fences).
++- Helper script to regenerate the echo deterministically from the current PATCHSET.
++- Prompt.md updated to demonstrate and enforce the new format.
++
++Acceptance:
++- Running scripts/generate_prompt_echo.sh produces a plain-text echo in Prompt.md with DIFF blocks and a Why/Changes/Acceptance footer.
++- No code fences appear inside the echo block.
++- Future PATCH loops exit with Prompt.md containing a ready-to-copy echo of the just-applied PATCHSET.
++PATCHSET SUMMARY END
+
+ <!-- PATCHSET:ECHO END -->
+
+DIFF END: Prompt.md
 
 # FILE: Tasklist.md
 
-``diff
+DIFF START: Tasklist.md
 @@
--Last Updated (UTC): 2025-10-26T09:05:00Z
--Revision: 1.54
-+Last Updated (UTC): 2025-10-26T09:30:00Z
-+Revision: 1.55
+-Last Updated (UTC): 2025-10-26T09:30:00Z
+-Revision: 1.55
++Last Updated (UTC): 2025-10-26T10:05:00Z
++Revision: 1.56
 @@
-+- id: META.DEV.TIGHTEN
-+  title: Enforce last_task_id tags, DEV prune, and end-of-loop readiness
-+  status: DONE
-+  depends_on: [META.NO_READY.SAFETY_NET, META.ROUTING.DUAL_TABLES]
-+  acceptance_criteria:
-+    - DEV/system files touched by AI require @last_task_id header.
-+    - dev_tag_guard.sh builds ops/DEV_PRUNE_LIST.txt for non-vital, untagged files.
-+    - dev_sanitize.sh truncates listed files and adds a DEV-PRUNED banner.
-+    - ensure_ready_next.sh verifies ≥1 READY and suggests NEXT when NONE.
-+  notes: Outcome — CI/dev guards added; policy codified; loop exits with at least one READY item and a valid NEXT pointer.
-``
++- id: META.PATCHSET.ECHO_PLAINTEXT
 
-# FILE: ops/NEXT.yaml
+* title: Enforce plain-text PATCHSET Echo and add generator that preps copy-pasteable results
+* status: DONE
+* depends_on: [META.DEV.TIGHTEN]
+* acceptance_criteria:
+* * Patch.md documents that the echo must be plain text (no code fences) using DIFF START/END blocks.
+* * scripts/generate_prompt_echo.sh converts the current PATCHSET to the required echo and updates Prompt.md.
+* * Prompt.md echo shows DIFF blocks and retains Why / Changes / Acceptance.
+* notes: Outcome — Echo is now stable, portable, and easy to paste into AI chats without object embedding.
+  DIFF END: Tasklist.md
 
-``diff
+# FILE: ops/TOUCHMAP.yaml
+
+DIFF START: ops/TOUCHMAP.yaml
 @@
- next_task_id: META.DNS.AUTOGEN
- reason: >
-   Add a tiny generator script to refresh DNS.md and validate bijection locally; wire to npm scripts.
-@@
- note: "Dual routing landed with a DNS bridge; next, add a tiny autogen script to keep DNS.md fresh locally."
-``
+META.DEV.TIGHTEN:
 
-# FILE: masterroutetable.md
+* "ops/DEV_POLICY.md"
+* "ops/DEV_KEEP.yaml"
+* "scripts/dev_tag_guard.sh"
+* "scripts/dev_sanitize.sh"
+* "scripts/ensure_ready_next.sh"
+  +META.PATCHSET.ECHO_PLAINTEXT:
 
-``diff
-@@
--Last Updated (UTC): 2025-10-26T09:05:00Z
--Revision: 1.0
--Last Task ID: META.ROUTING.DUAL_TABLES
-+Last Updated (UTC): 2025-10-26T09:30:00Z
-+Revision: 1.1
-+Last Task ID: META.DEV.TIGHTEN
-@@
- New Newly Discovered (Unmapped)
- - (AI adds short entries here during runs when it touches files missing routing metadata)
-+Pruning
-+- DEV guard writes candidates to ops/DEV_PRUNE_LIST.txt; DEV finalize sanitizes those files unless kept by @dev-only or ops/DEV_KEEP.yaml.
-``
-
-# FILE: routes/dev/masterRouteTable.json
-
-``diff
-@@
--  "version": "v0.1.0",
--  "generatedUtc": "2025-10-26T09:05:00Z",
-+  "version": "v0.1.1",
-+  "generatedUtc": "2025-10-26T09:30:00Z",
-```
-
-# FILE: routes/prod/masterRouteTable.json
-
-``diff
-@@
--  "version": "v0.1.0",
--  "generatedUtc": "2025-10-26T09:05:00Z",
-+  "version": "v0.1.1",
-+  "generatedUtc": "2025-10-26T09:30:00Z",
-``
-
-# FILE: DNS.md
-
-``diff
-@@
--Last Updated (UTC): 2025-10-26T09:05:00Z
--Revision: 0.1
-+Last Updated (UTC): 2025-10-26T09:30:00Z
-+Revision: 0.2
-```
+- - "Patch.md"
+- * "scripts/generate_prompt_echo.sh"
+- * "Prompt.md"
+- * "Tasklist.md"
+    DIFF END: ops/TOUCHMAP.yaml
 
 # TASKLIST UPDATE
 
-``diff
+DIFF START: Tasklist.md
 @@
-+  notes: Outcome — CI/dev guards added; policy codified; loop exits with at least one READY item and a valid NEXT pointer.
-``
 
-<<<PATCHSET END>>>
+* notes: Outcome — CI/dev guards added; policy codified; loop exits with at least one READY item and a valid NEXT pointer.
 
-**Commit Message**
+- notes: Outcome — CI/dev guards added; policy codified; loop exits with at least one READY item and a valid NEXT pointer.
+-
 
-``
-[META.DEV.TIGHTEN] Stamp last_task_id on DEV files, prune non-vital untagged artifacts, and enforce end-of-loop readiness
++- id: META.PATCHSET.ECHO_PLAINTEXT
+
+* title: Enforce plain-text PATCHSET Echo and add generator that preps copy-pasteable results
+* status: DONE
+* depends_on: [META.DEV.TIGHTEN]
+* acceptance_criteria:
+* * Patch.md documents that the echo must be plain text (no code fences) using DIFF START/END blocks.
+* * scripts/generate_prompt_echo.sh converts the current PATCHSET to the required echo and updates Prompt.md.
+* * Prompt.md echo shows DIFF blocks and retains Why / Changes / Acceptance.
+* notes: Outcome — Echo is now stable, portable, and easy to paste into AI chats without object embedding.
+  DIFF END: Tasklist.md
+  <<<PATCHSET END>>>
+
+Commit Message
+[Task META.PATCHSET.ECHO_PLAINTEXT] Plain-text PATCHSET Echo + generator for copy-pasteable results
 
 Why:
-Our DEV “system” needs strong hygiene so AI navigation stays crisp and production stays uncluttered. We also want the loop to exit with a READY task and valid NEXT to avoid stalls.
+Chat renderers mangle code fences and embedded objects, which makes the audit echo brittle and hard to paste into new runs. We want a deterministic, text-only echo that’s always ready at the end of the loop.
 
 Changes:
-* Policy: ops/DEV_POLICY.md + ops/DEV_KEEP.yaml define metadata tags, dev-only markers, and prune exemptions.
-* Guarding: scripts/dev_tag_guard.sh enforces @last_task_id and builds ops/DEV_PRUNE_LIST.txt; scripts/dev_sanitize.sh prunes candidates; scripts/ensure_ready_next.sh verifies READY/NEXT.
-* CI: .github/workflows/dev-guard.yml runs the guard + readiness checks on PRs touching dev system files.
-* Docs: Patch.md spells out DEV tightening; Prompt.md/Tasklist.md record the change; masterroutetable.md now references pruning.
-* Routing metadata bumped (dev/prod versions + DNS revision).
+
+* Patch.md: mandates plain-text DIFF blocks in the echo (no `full/`diff fences) and adds an exit-step to generate the echo.
+* scripts/generate_prompt_echo.sh: converts the current PATCHSET into a DIFF-style plain-text echo and injects it into Prompt.md.
+* Prompt.md: demonstrates the new echo format and bumps metadata.
+* Tasklist + TOUCHMAP: record the meta change and map the new script.
 
 Acceptance:
-- Missing @last_task_id in DEV/system files triggers CI error.
-- Non-vital, untagged files are queued for prune on DEV finalize.
-- End-of-loop check ensures ≥1 READY and suggests NEXT when NONE.
-``
 
+* Running the generator yields a Prompt.md echo that is pure plain text, with DIFF START/END per file and the Why/Changes/Acceptance footer intact.
+* No code fences appear inside the echo.
+* End-of-loop guidance ensures an echo is always present and paste-ready.

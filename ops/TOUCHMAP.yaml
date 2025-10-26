@@ -147,6 +147,14 @@ T8.2:
   - "tests/dm_home.spec.ts"
   - "tests/log.spec.ts"
 
+T8.3:
+  - "src/commands/home.js"
+  - "src/commands/**"
+  - "src/models/**"
+  - "prisma/schema.prisma"
+  - "tests/dm_home.spec.ts"
+  - "tests/log.spec.ts"
+
 # Glob prefixes to catch future tasks in the same family
 "Phase 0*":
   - "/ops/**"

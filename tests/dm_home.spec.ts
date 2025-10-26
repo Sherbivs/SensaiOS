@@ -18,12 +18,24 @@ type HomeBattleHistoryEntry = {
 	turnCount: number | null;
 };
 
+type HomeDailyQuest = {
+	status: "fresh" | "locked" | "due" | "reset";
+	streak: number;
+	fieldValue: string;
+	atRisk: boolean;
+	lost: boolean;
+	lastCompleted: Date | null;
+	lastReset: Date | null;
+	nextDue: Date | null;
+};
+
 type HomeView = {
 	coins: number;
 	nextDaily: string;
 	party: HomePartyMember[];
 	showStarters: boolean;
 	battleHistory: HomeBattleHistoryEntry[];
+ 	dailyQuest: HomeDailyQuest;
 };
 
 type HomeInternals = {
@@ -45,6 +57,7 @@ describe("DM Home view model", () => {
 		expect(view.showStarters).toBe(true);
 		expect(view.nextDaily).toBe("Ready now");
 		expect(view.battleHistory).toEqual([]);
+		expect(view.dailyQuest.fieldValue).toContain("Complete today's quest");
 	});
 
 	test("renders embed with persisted Pokémon details", () => {
@@ -97,8 +110,11 @@ describe("DM Home view model", () => {
 
 		const embed = buildHomeEmbed(view);
 		const json = embed.toJSON();
-		expect(json.fields?.[0]?.value).toContain("#1 Sparky ✨");
-		expect(json.fields?.[0]?.value).toContain("HP 35 / 35");
+		const partyField = json.fields?.find((field) => field.name === "Party");
+		const questField = json.fields?.find((field) => field.name === "Daily Quest");
+		expect(partyField?.value).toContain("#1 Sparky ✨");
+		expect(partyField?.value).toContain("HP 35 / 35");
+		expect(questField?.value).toMatch(/streak|Complete today's quest/);
 		expect(asDiscordTimestamp(trainer.cooldowns[0].readyAt, now)).toMatch(/<t:\d+:R>/);
 	});
 
@@ -134,4 +150,36 @@ describe("DM Home view model", () => {
 		const historyField = embed.toJSON().fields?.find((field) => field.name === "Battle History");
 		expect(historyField?.value).toContain("No finished battles yet");
 	});
+
+		test("daily quest streak field shows active streak details", () => {
+			const now = new Date("2025-10-26T12:00:00Z");
+			const trainer: any = {
+				coins: 0,
+				cooldowns: [],
+				parties: [{ slots: [] }],
+				dailyQuestStreak: 3,
+				dailyQuestLastCompleted: new Date("2025-10-26T08:00:00Z"),
+			};
+			const view = mapTrainerToView(trainer, now, { battleHistory: [] });
+			expect(view.dailyQuest.status).toBe("locked");
+			expect(view.dailyQuest.fieldValue).toContain("3-day streak");
+			const embed = buildHomeEmbed(view).toJSON();
+			const questField = embed.fields?.find((field: any) => field.name === "Daily Quest");
+			expect(questField?.value).toContain("3-day streak");
+		});
+
+		test("daily quest streak field guides recovery after reset", () => {
+			const now = new Date("2025-10-30T09:00:00Z");
+			const trainer: any = {
+				coins: 0,
+				cooldowns: [],
+				parties: [{ slots: [] }],
+				dailyQuestStreak: 0,
+				dailyQuestLastCompleted: new Date("2025-10-27T07:00:00Z"),
+				dailyQuestLastReset: new Date("2025-10-29T09:00:00Z"),
+			};
+			const view = mapTrainerToView(trainer, now, { battleHistory: [] });
+			expect(view.dailyQuest.status).toBe("reset");
+			expect(view.dailyQuest.fieldValue).toContain("streak reset");
+		});
 });

@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T10:25:00Z
-Revision: 0.72
+Timestamp (UTC): 2025-10-26T11:30:00Z
+Revision: 0.73
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,25 +10,305 @@ Revision: 0.72
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/commands/home.js` — Added battle history loading/formatting for DM Home and surfaced recent battles in the embed with placeholders when empty.
-> - `tests/dm_home.spec.ts` — Covered battle history rendering and the empty-state branch for DM Home embeds.
-> - `Tasklist.md`, `ops/NEXT.yaml`, `ops/TOUCHMAP.yaml` — Marked T8.1 DONE, promoted T8.2 to READY, and aligned touch hints with `src/commands/home.js`.
-> - Tests: Not run (Vitest unavailable in this environment).
+> - `prisma/schema.prisma` — Added daily quest streak fields on `User`.
+> - `src/models/index.ts` — Implemented quest streak evaluation, freshness guard, and completion projection helpers.
+> - `src/commands/home.js` — Surfaced daily quest streak messaging in DM Home, refreshing streak state and embed output.
+> - `tests/dm_home.spec.ts`, `tests/log.spec.ts` — Added coverage for streak display plus increment/reset projection logic.
+> - `tasklist.md`, `ops/NEXT.yaml`, `ops/TOUCHMAP.yaml` — Marked T8.2 DONE, queued T8.3 (daily quest claim flow), and updated routing hints.
 
 <!-- PATCHSET:ECHO BEGIN -->
-PATCHSET SUMMARY START
-Completed T8.1 by wiring DM Home to show recent battle history, updated tests and routing metadata, and advanced NEXT to the streak follow-up.
-TasklistDiff: true
-PATCHSET SUMMARY END
-<!-- PATCHSET:ECHO END -->
+HEAD: pending-local
+PATCHSET:
+
+*** End Patch
++
++  return evaluateDailyQuestStreak({
++    streak: updated.dailyQuestStreak ?? 0,
++    lastCompleted: updated.dailyQuestLastCompleted ?? null,
++    lastReset: updated.dailyQuestLastReset ?? null,
++    now: safeCompletedAt,
++  });
++}
+```
+
+# FILE: src/commands/home.js
+
+```diff
+@@
+ const { createRequire } = require('node:module');
+ const { getSpriteUrl } = require('../lib/assets.js');
+
+ const requireESM = createRequire(__filename);
+ const DEFAULT_STARTER_COINS = 500;
+ const BATTLE_HISTORY_LIMIT = 3;
+
++const HISTORY_SYMBOL = { WIN: "✅", LOSS: "❌" };
++
++let questModuleCache = null;
++
++function loadQuestModule() {
++  if (questModuleCache) return questModuleCache;
++  try {
++    const mod = requireESM('../models/index.js');
++    questModuleCache = mod || {};
++  } catch {
++    questModuleCache = {};
++  }
++  return questModuleCache;
++}
++
++function toDate(value) {
++  if (value instanceof Date) {
++    return Number.isNaN(value.valueOf()) ? null : value;
++  }
++  if (typeof value === "string" || typeof value === "number") {
++    const parsed = new Date(value);
++    return Number.isNaN(parsed.valueOf()) ? null : parsed;
++  }
++  return null;
++}
++
++function startOfUtcDay(date) {
++  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
++}
++
++function diffInUtcDays(a, b) {
++  const startA = startOfUtcDay(a).getTime();
++  const startB = startOfUtcDay(b).getTime();
++  return Math.floor((startA - startB) / (24 * 60 * 60 * 1000));
++}
++
++function formatRelativeTimestamp(value, now = new Date()) {
++  const date = toDate(value);
++  if (!date) return null;
++  const unix = Math.floor(date.getTime() / 1000);
++  if (!Number.isFinite(unix)) return null;
++  return `<t:${unix}:R>`;
++}
++
++function fallbackEvaluateDailyQuestStreak(input = {}, now = new Date()) {
++  const streak = Number.isFinite(input.streak) ? Math.max(0, Math.floor(input.streak)) : 0;
++  const lastCompleted = toDate(input.lastCompleted ?? null);
++  const lastReset = toDate(input.lastReset ?? null);
++
++  if (!lastCompleted || streak === 0) {
++    return {
++      streak: 0,
++      status: lastReset ? 'reset' : 'fresh',
++      atRisk: false,
++      lost: Boolean(lastReset),
++      lastCompleted: null,
++      lastReset,
++      nextDue: null,
++      daysSinceCompletion: null,
++      message: lastReset
++        ? "Your streak reset. Complete today's quest to start a new run."
++        : "Complete today's quest to begin your streak.",
++    };
++  }
++
++  const gap = diffInUtcDays(now, lastCompleted);
++
++  if (gap <= 0) {
++    const nextDue = new Date(lastCompleted.getTime() + 24 * 60 * 60 * 1000);
++    return {
++      streak,
++      status: 'locked',
++      atRisk: false,
++      lost: false,
++      lastCompleted,
++      lastReset,
++      nextDue,
++      daysSinceCompletion: 0,
++      message: `On a ${streak}-day streak! Next quest unlocks ${formatRelativeTimestamp(nextDue, now) ?? 'soon'}.`,
++    };
++  }
++
++  if (gap === 1) {
++    return {
++      streak,
++      status: 'due',
++      atRisk: true,
++      lost: false,
++      lastCompleted,
++      lastReset,
++      nextDue: null,
++      daysSinceCompletion: 1,
++      message: `Maintain your ${streak}-day streak by completing today's quest.`,
++    };
++  }
++
++  return {
++    streak: 0,
++    status: 'reset',
++    atRisk: false,
++    lost: true,
++    lastCompleted,
++    lastReset: now,
++    nextDue: null,
++    daysSinceCompletion: gap,
++    message: "Your streak reset after missing a day. Complete today's quest to start over.",
++  };
++}
++
++function evaluateDailyQuestStreakForView(input = {}, now = new Date()) {
++  const mod = loadQuestModule();
++  if (mod && typeof mod.evaluateDailyQuestStreak === 'function') {
++    try {
++      return mod.evaluateDailyQuestStreak({ ...input, now });
++    } catch {}
++  }
++  return fallbackEvaluateDailyQuestStreak(input, now);
++}
++
++function buildDailyQuestFieldValue(state, now = new Date()) {
++  if (!state || typeof state !== 'object') {
++    return "Complete today's quest to begin your streak.";
++  }
++
++  const lines = [];
++  if (state.status === 'locked') {
++    lines.push(`On a ${state.streak}-day streak!`);
++    if (state.nextDue) {
++      lines.push(`Next quest unlocks ${formatRelativeTimestamp(state.nextDue, now) ?? 'soon'}.`);
++    }
++    if (state.lastCompleted) {
++      lines.push(`Last completed ${formatRelativeTimestamp(state.lastCompleted, now) ?? 'recently'}.`);
++    }
++  } else if (state.status === 'due') {
++    lines.push(`Maintain your ${state.streak}-day streak by completing today's quest.`);
++    if (state.lastCompleted) {
++      lines.push(`Last completion ${formatRelativeTimestamp(state.lastCompleted, now) ?? 'recently'}.`);
++    }
++  } else if (state.status === 'reset') {
++    lines.push("Your streak reset. Complete today's quest to start a new run.");
++    if (state.lastCompleted) {
++      lines.push(`Last streak ended ${formatRelativeTimestamp(state.lastCompleted, now) ?? 'recently'}.`);
++    }
++  } else {
++    lines.push("Complete today's quest to begin your streak.");
++  }
++
++  return lines.join('\n');
++}
++
++function computeDailyQuestState(trainer, now = new Date(), providedState) {
++  const baseState = providedState && typeof providedState === 'object' && providedState.status
++    ? providedState
++    : evaluateDailyQuestStreakForView(
++        {
++          streak: trainer?.dailyQuestStreak ?? 0,
++          lastCompleted: trainer?.dailyQuestLastCompleted ?? null,
++          lastReset: trainer?.dailyQuestLastReset ?? null,
++        },
++        now,
++      );
++
++  return {
++    ...baseState,
++    fieldValue: buildDailyQuestFieldValue(baseState, now),
++  };
++}
+
+@@
+ function mapTrainerToView(trainer, now = new Date(), options = {}) {
+	 const battleHistory = normalizeBattleHistory(options?.battleHistory ?? []);
++  const dailyQuest = computeDailyQuestState(trainer, now, options?.questState);
+	 if (!trainer) {
+		 return {
+			 coins: 0,
+			 nextDaily: 'Ready now',
+			 party: [],
+			 showStarters: true,
+			 battleHistory,
++      dailyQuest,
+		 };
+	 }
+	return {
+	  coins: typeof trainer.coins === 'number' ? trainer.coins : 0,
+	  nextDaily,
+	  party,
+	  showStarters,
+	  battleHistory,
++    dailyQuest,
+	};
+ }
+
+@@
+-function buildHomeEmbed({ coins = 0, nextDaily = 'Ready now', party = [], battleHistory = [] }) {
++function buildHomeEmbed({ coins = 0, nextDaily = 'Ready now', party = [], battleHistory = [], dailyQuest = null }) {
+	const embed = new EmbedBuilder()
+	 const questValue = dailyQuest?.fieldValue && dailyQuest.fieldValue.trim().length > 0
+		 ? dailyQuest.fieldValue
+		 : "Complete today's quest to begin your streak.";
+	 embed.addFields({ name: 'Daily Quest', value: questValue });
+
+	 const historyEntries = normalizeBattleHistory(battleHistory);
+		 let view = {
+			 coins: 0,
+			 nextDaily: 'Ready now',
+			 party: [],
+			 showStarters: true,
+			 battleHistory: [],
++      dailyQuest: computeDailyQuestState(null),
+		 };
+				 let questState = null;
+				 let trainerForView = trainer;
+				 const mod = loadQuestModule();
+				 if (mod && typeof mod.ensureDailyQuestStreakFreshness === 'function') {
+					 try {
+						 const freshness = await mod.ensureDailyQuestStreakFreshness({ trainer, prisma, now });
+						 trainerForView = freshness?.trainer ?? trainer;
+						 questState = freshness?.state ?? null;
+					 } catch (err) {
+						 console.warn('[home] Failed to refresh quest streak state:', err?.message || err);
+					 }
+				 }
+
+				 view = mapTrainerToView(trainerForView, now, { battleHistory, questState });
+		 computeDailyQuestState,
+		 buildDailyQuestFieldValue,
+		 formatRelativeTimestamp,
+	 },
+ };
+```
+
+
++  test("daily quest streak field shows active streak details", () => {
++    const now = new Date("2025-10-26T12:00:00Z");
++    const trainer = {
++      coins: 0,
++      cooldowns: [],
++      parties: [{ slots: [] }],
++      dailyQuestStreak: 3,
++      dailyQuestLastCompleted: new Date("2025-10-26T08:00:00Z"),
++    };
++    const view = mapTrainerToView(trainer, now, { battleHistory: [] });
++    expect(view.dailyQuest.status).toBe("locked");
++    expect(view.dailyQuest.fieldValue).toContain("3-day streak");
++    const embed = buildHomeEmbed(view).toJSON();
++    const questField = embed.fields?.find((field) => field.name === "Daily Quest");
++    expect(questField?.value).toContain("3-day streak");
++  });
++
++  test("daily quest streak field guides recovery after reset", () => {
++    const now = new Date("2025-10-30T09:00:00Z");
++    const trainer = {
++      coins: 0,
++      cooldowns: [],
++      parties: [{ slots: [] }],
++      dailyQuestStreak: 0,
++      dailyQuestLastCompleted: new Date("2025-10-27T07:00:00Z"),
++      dailyQuestLastReset: new Date("2025-10-29T09:00:00Z"),
++    };
++    const view = mapTrainerToView(trainer, now, { battleHistory: [] });
++    expect(view.dailyQuest.status).toBe("reset");
++    expect(view.dailyQuest.fieldValue).toContain("streak reset");
++  });
+```
 
 ## Revision History
 
-| Date (UTC) | Change | Impact |
-| --- | --- | --- |
-| 2025-10-26 | T8.1 surfaced battle history on DM Home. | DM `/home` embed now lists the last three finished battles with win/loss framing, coin rewards, and a friendly placeholder when no history exists; tests cover both paths. |
-| 2025-10-26 | META.PROMPT.PATCHSET_TEMPLATE enforced the plain-text PATCHSET echo template. | Patch.md now carries the verbatim template, Tasklist logs the policy, and Prompt highlights the no-objects rule for PATCHSET echoes. |
-| 2025-10-26 | META.REFRESH.RETIRE replaced the Refresh Vision requirement with a meta visibility check. | Patch/Prompt/CRITICAL now prioritize verifying Patch/Tasklist/Prompt readability before planning while leaving Refresh Vision as an optional human-run script. |
 | 2025-10-26 | META.READY_QUEUE.NEXT_TASK promoted battle history work to READY. | T8.1 now READY with NEXT/Touchmap hints, T8.2 remains PROPOSED to extend progression, and guard guidance keeps the queue healthy. |
 | 2025-10-26 | META.NO_READY.SAFETY_NET hardened the ≥1 READY invariant. | guard_meta.sh fails when only the seed is READY, suggests the oldest eligible PROPOSED, Tasklist adds READY/PROPOSED follow-ups, and NEXT targets the promotion task. |
 | 2025-10-26 | META.UNBLOCK.READY_SEED seeded a READY task and added guard guidance for empty queues. | guard_meta.sh now flags zero READY tasks, Tasklist logs the completion, and NEXT targets the safety-net follow-up. |

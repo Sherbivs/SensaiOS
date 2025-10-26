@@ -14,6 +14,172 @@ const DEFAULT_STARTER_COINS = 500;
 const BATTLE_HISTORY_LIMIT = 3;
 const HISTORY_SYMBOL = { WIN: "✅", LOSS: "❌" };
 
+let questModuleCache = null;
+
+function loadQuestModule() {
+  if (questModuleCache) return questModuleCache;
+  try {
+    const mod = requireESM('../models/index.js');
+    questModuleCache = mod || {};
+  } catch {
+    questModuleCache = {};
+  }
+  return questModuleCache;
+}
+
+function toDate(value) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.valueOf()) ? null : value;
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.valueOf()) ? null : parsed;
+  }
+  return null;
+}
+
+function startOfUtcDay(date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function diffInUtcDays(a, b) {
+  const startA = startOfUtcDay(a).getTime();
+  const startB = startOfUtcDay(b).getTime();
+  return Math.floor((startA - startB) / (24 * 60 * 60 * 1000));
+}
+
+function formatRelativeTimestamp(value, now = new Date()) {
+  const date = toDate(value);
+  if (!date) return null;
+  const unix = Math.floor(date.getTime() / 1000);
+  if (!Number.isFinite(unix)) return null;
+  return `<t:${unix}:R>`;
+}
+
+function fallbackEvaluateDailyQuestStreak(input = {}, now = new Date()) {
+  const streak = Number.isFinite(input.streak) ? Math.max(0, Math.floor(input.streak)) : 0;
+  const lastCompleted = toDate(input.lastCompleted ?? null);
+  const lastReset = toDate(input.lastReset ?? null);
+
+  if (!lastCompleted || streak === 0) {
+    return {
+      streak: 0,
+      status: lastReset ? 'reset' : 'fresh',
+      atRisk: false,
+      lost: Boolean(lastReset),
+      lastCompleted: null,
+      lastReset,
+      nextDue: null,
+      daysSinceCompletion: null,
+      message: lastReset
+        ? "Your streak reset. Complete today's quest to start a new run."
+        : "Complete today's quest to begin your streak.",
+    };
+  }
+
+  const gap = diffInUtcDays(now, lastCompleted);
+
+  if (gap <= 0) {
+    const nextDue = new Date(lastCompleted.getTime() + 24 * 60 * 60 * 1000);
+    return {
+      streak,
+      status: 'locked',
+      atRisk: false,
+      lost: false,
+      lastCompleted,
+      lastReset,
+      nextDue,
+      daysSinceCompletion: 0,
+      message: `On a ${streak}-day streak! Next quest unlocks ${formatRelativeTimestamp(nextDue, now) ?? 'soon'}.`,
+    };
+  }
+
+  if (gap === 1) {
+    return {
+      streak,
+      status: 'due',
+      atRisk: true,
+      lost: false,
+      lastCompleted,
+      lastReset,
+      nextDue: null,
+      daysSinceCompletion: 1,
+      message: `Maintain your ${streak}-day streak by completing today's quest.`,
+    };
+  }
+
+  return {
+    streak: 0,
+    status: 'reset',
+    atRisk: false,
+    lost: true,
+    lastCompleted,
+    lastReset: now,
+    nextDue: null,
+    daysSinceCompletion: gap,
+    message: "Your streak reset after missing a day. Complete today's quest to start over.",
+  };
+}
+
+function evaluateDailyQuestStreakForView(input = {}, now = new Date()) {
+  const mod = loadQuestModule();
+  if (mod && typeof mod.evaluateDailyQuestStreak === 'function') {
+    try {
+      return mod.evaluateDailyQuestStreak({ ...input, now });
+    } catch {}
+  }
+  return fallbackEvaluateDailyQuestStreak(input, now);
+}
+
+function buildDailyQuestFieldValue(state, now = new Date()) {
+  if (!state || typeof state !== 'object') {
+    return "Complete today's quest to begin your streak.";
+  }
+
+  const lines = [];
+  if (state.status === 'locked') {
+    lines.push(`On a ${state.streak}-day streak!`);
+    if (state.nextDue) {
+      lines.push(`Next quest unlocks ${formatRelativeTimestamp(state.nextDue, now) ?? 'soon'}.`);
+    }
+    if (state.lastCompleted) {
+      lines.push(`Last completed ${formatRelativeTimestamp(state.lastCompleted, now) ?? 'recently'}.`);
+    }
+  } else if (state.status === 'due') {
+    lines.push(`Maintain your ${state.streak}-day streak by completing today's quest.`);
+    if (state.lastCompleted) {
+      lines.push(`Last completion ${formatRelativeTimestamp(state.lastCompleted, now) ?? 'recently'}.`);
+    }
+  } else if (state.status === 'reset') {
+    lines.push("Your streak reset. Complete today's quest to start a new run.");
+    if (state.lastCompleted) {
+      lines.push(`Last streak ended ${formatRelativeTimestamp(state.lastCompleted, now) ?? 'recently'}.`);
+    }
+  } else {
+    lines.push("Complete today's quest to begin your streak.");
+  }
+
+  return lines.join('\n');
+}
+
+function computeDailyQuestState(trainer, now = new Date(), providedState) {
+  const baseState = providedState && typeof providedState === 'object' && providedState.status
+    ? providedState
+    : evaluateDailyQuestStreakForView(
+      {
+        streak: trainer?.dailyQuestStreak ?? 0,
+        lastCompleted: trainer?.dailyQuestLastCompleted ?? null,
+        lastReset: trainer?.dailyQuestLastReset ?? null,
+      },
+      now,
+    );
+
+  return {
+    ...baseState,
+    fieldValue: buildDailyQuestFieldValue(baseState, now),
+  };
+}
+
 function sanitizeDiscordId(value) {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
@@ -93,6 +259,7 @@ function asDiscordTimestamp(date, nowRef = new Date()) {
 
 function mapTrainerToView(trainer, now = new Date(), options = {}) {
   const battleHistory = normalizeBattleHistory(options?.battleHistory ?? []);
+  const dailyQuest = computeDailyQuestState(trainer, now, options?.questState);
   if (!trainer) {
     return {
       coins: 0,
@@ -100,6 +267,7 @@ function mapTrainerToView(trainer, now = new Date(), options = {}) {
       party: [],
       showStarters: true,
       battleHistory,
+      dailyQuest,
     };
   }
 
@@ -129,6 +297,7 @@ function mapTrainerToView(trainer, now = new Date(), options = {}) {
     party,
     showStarters,
     battleHistory,
+    dailyQuest,
   };
 }
 
@@ -171,6 +340,7 @@ async function loadTrainerWithBootstrap(prisma, discordId) {
       data: {
         discordId,
         coins: DEFAULT_STARTER_COINS,
+        dailyQuestStreak: 0,
         parties: { create: [{}] },
       },
       include: HOME_INCLUDE,
@@ -190,7 +360,7 @@ async function loadTrainerWithBootstrap(prisma, discordId) {
   return { trainer, createdUser, createdParty };
 }
 
-function buildHomeEmbed({ coins = 0, nextDaily = 'Ready now', party = [], battleHistory = [] }) {
+function buildHomeEmbed({ coins = 0, nextDaily = 'Ready now', party = [], battleHistory = [], dailyQuest = null }) {
   const embed = new EmbedBuilder()
     .setTitle('Your Pokémon Home')
     .setDescription(`Coins: ${coins} • Next Daily: ${nextDaily}`)
@@ -213,16 +383,21 @@ function buildHomeEmbed({ coins = 0, nextDaily = 'Ready now', party = [], battle
   }
 
 
-    const historyEntries = normalizeBattleHistory(battleHistory);
-    if (historyEntries.length > 0) {
-      const historyLines = historyEntries.map((entry) => formatBattleHistoryEntry(entry)).filter(Boolean);
-      embed.addFields({ name: 'Battle History', value: historyLines.join('\n') });
-    } else {
-      embed.addFields({
-        name: 'Battle History',
-        value: 'No finished battles yet. Try the Arena to start your record!',
-      });
-    }
+  const questValue = dailyQuest?.fieldValue && dailyQuest.fieldValue.trim().length > 0
+    ? dailyQuest.fieldValue
+    : "Complete today's quest to begin your streak.";
+  embed.addFields({ name: 'Daily Quest', value: questValue });
+
+  const historyEntries = normalizeBattleHistory(battleHistory);
+  if (historyEntries.length > 0) {
+    const historyLines = historyEntries.map((entry) => formatBattleHistoryEntry(entry)).filter(Boolean);
+    embed.addFields({ name: 'Battle History', value: historyLines.join('\n') });
+  } else {
+    embed.addFields({
+      name: 'Battle History',
+      value: 'No finished battles yet. Try the Arena to start your record!',
+    });
+  }
   embed.addFields({ name: 'Party', value: lines.join('\n') });
   return embed;
 }
@@ -327,7 +502,14 @@ module.exports = {
   data: new SlashCommandBuilder().setName('home').setDescription('Open your Pokémon home in DMs'),
   cooldownMs: 1000,
   async execute(interaction) {
-    let view = { coins: 0, nextDaily: 'Ready now', party: [], showStarters: true, battleHistory: [] };
+    let view = {
+      coins: 0,
+      nextDaily: 'Ready now',
+      party: [],
+      showStarters: true,
+      battleHistory: [],
+      dailyQuest: computeDailyQuestState(null),
+    };
     try {
       const prisma = await getPrisma();
       if (!prisma) {
@@ -336,7 +518,20 @@ module.exports = {
         const { trainer, createdUser, createdParty } = await loadTrainerWithBootstrap(prisma, interaction.user.id);
         const battleHistory = await loadRecentBattleHistory(prisma, trainer);
         const now = new Date();
-        view = mapTrainerToView(trainer, now, { battleHistory });
+        let questState = null;
+        let trainerForView = trainer;
+        const mod = loadQuestModule();
+        if (mod && typeof mod.ensureDailyQuestStreakFreshness === 'function') {
+          try {
+            const freshness = await mod.ensureDailyQuestStreakFreshness({ trainer, prisma, now });
+            trainerForView = freshness?.trainer ?? trainer;
+            questState = freshness?.state ?? null;
+          } catch (err) {
+            console.warn('[home] Failed to refresh quest streak state:', err?.message || err);
+          }
+        }
+
+        view = mapTrainerToView(trainerForView, now, { battleHistory, questState });
         if (createdUser) {
           console.info(`[home] Created trainer baseline for ${interaction.user.id} (coins=${DEFAULT_STARTER_COINS}).`);
         }
@@ -379,5 +574,8 @@ module.exports = {
     loadTrainerWithBootstrap,
     loadRecentBattleHistory,
     formatBattleHistoryEntry,
+    computeDailyQuestState,
+    buildDailyQuestFieldValue,
+    formatRelativeTimestamp,
   },
 };

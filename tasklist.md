@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T10:25:00Z
-Revision: 1.57
+Last Updated (UTC): 2025-10-26T11:30:00Z
+Revision: 1.58
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -66,16 +66,6 @@ Each task has:
     - ops/NEXT.yaml points to the newly READY task with refreshed timestamp and focused files_hint.
     - Prompt.md “Last Repo Changes” records the promotion decision and rationale.
   notes: Outcome — Promoted T8.1 (DM Home battle history) to READY, pointed NEXT/Touchmap at it, and documented the decision in Prompt metadata.
-
-- id: META.READY_QUEUE.PLAYBOOK
-  title: Document empty-ready recovery playbook
-  status: PROPOSED
-  depends_on: [META.NO_READY.SAFETY_NET]
-  acceptance_criteria:
-    - Patch.md adds a short playbook subsection with step-by-step remediation when the guard blocks due to no READY tasks.
-    - Prompt.md Revision History logs the playbook addition and guidance.
-    - Tasklist.md gains an example note workers can reuse when promoting PROPOSED tasks to READY.
-  notes: Captures the remediation steps humans should follow when the guard halts merges.
 
 - id: META.TASKLIST.COUPLING_FIX
   title: Enforce Tasklist updates from every PATCHSET and rewire guards
@@ -716,10 +706,20 @@ Each task has:
 
 - id: T8.2
   title: Track trainer daily quest streaks and show them in DM Home
-  status: READY
+  status: DONE
   depends_on: [T7.1]
   acceptance_criteria:
     - Data model stores quest streak metadata for trainers with increment/reset logic.
     - DM `/home` embed exposes streak status and outlines how to regain the streak when it resets.
     - Tests cover streak increment, reset, and DM Home display updates.
-  notes: Follow-up to expand progression systems now that battle history is visible; queued to keep READY work alive.
+  notes: Outcome — Prisma schema and model helpers manage streak increments/resets; DM Home now surfaces streak messaging with new tests covering active, reset, and display states.
+
+- id: T8.3
+  title: Add daily quest claim flow and rewards
+  status: READY
+  depends_on: [T8.2]
+  acceptance_criteria:
+    - Provide a DM control or slash command that claims the daily quest, increments the streak via `recordDailyQuestCompletion`, and awards configured coins.
+    - Claiming enforces the daily cooldown, reusing the existing cooldown table and messaging the next availability.
+    - Tests cover successful claim, cooldown-blocked attempts, and streak increment wiring.
+  notes: Extends the progression loop by letting trainers claim their daily quest reward while leveraging the new streak infrastructure.
