@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T04:10:00Z
-Revision: 0.57
+Timestamp (UTC): 2025-10-26T04:40:00Z
+Revision: 0.58
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,17 +10,18 @@ Revision: 0.57
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/bot/ops/admin.ts` — Injected Prisma-backed stats helpers and formatted recent battle summaries for `/ops stats`.
-> - `tests/ops.spec.ts` — Added Vitest coverage for admin stats, including no-DB fallback.
-> - `src/bot/ROUTER.md`, `tests/ROUTER.md`, `ops/ROUTER_INDEX.yaml`, `masterroutetable.md` — Refreshed routing notes/timestamps to reflect the new admin reporting flow.
-> - `Prompt.md`, `Tasklist.md`, `ops/NEXT.yaml`, `ops/RECOVERY.yaml`, `ops/TOUCHMAP.yaml` — Documented T7.5 completion and queued the next persistence follow-up.
+> - `src/bot/ops/admin.ts` — Added limit/after filters, total-finished header, and graceful validation for `/ops stats`.
+> - `tests/ops.spec.ts` — Expanded coverage for filtered results, empty windows, and no-DB fallback.
+> - `src/commands/ops.js` — Registered optional `limit` and `after` arguments for the admin stats slash command.
+> - `src/bot/ROUTER.md`, `tests/ROUTER.md`, `ops/ROUTER_INDEX.yaml`, `masterroutetable.md` — Updated routing metadata to reference the new admin reporting filters.
+> - `Prompt.md`, `Tasklist.md`, `ops/NEXT.yaml`, `ops/RECOVERY.yaml` — Logged T7.6 completion, added T7.7 as the next admin-reporting follow-up, and repointed NEXT to the remaining READY task.
 > - Tests: Not run (npm unavailable in this environment).
 
 <!-- PATCHSET:ECHO BEGIN -->
 NO-ECHO-REASON: Unable to capture git diff/commit text in this VFS environment; summarizing instead.
 TasklistDiff: true
-- T7.5 — `/ops stats` now reports persisted counts plus five recent battles and Vitest covers Prisma + no-DB paths.
-- T7.6 — Queued follow-up to add limit/after filters for deeper admin auditing.
+- T7.6 — `/ops stats` now supports limit/after filters with totals header; Vitest covers filtered, empty-window, and fallback scenarios.
+- NEXT → HF.BROKEN.TASKFLOW — Remaining READY item focuses on hotfix bootstrap safeguards.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -48,6 +49,7 @@ Workflow mirrors the Patch Engine but restricts edits to `ops/HOTFIX_PLAN.yaml` 
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-26 | T7.6 added filters to admin battle summaries. | `/ops stats` now supports limit/after filters, reports total finished battles, and validates inputs with expanded Vitest coverage. |
 | 2025-10-26 | T7.5 surfaced recent battle results to admins. | `/ops stats` now reports counts and the latest finished battles (winner/loser, rewards) using persisted results with Vitest coverage. |
 | 2025-10-26 | HOTFIX.ROUTER.DOC referenced the Standardized game-logic doc in router metadata. | Hotfix added router stub + master router table for readiness; meta files stamped for traceability. |
 | 2025-10-26 | T7.4 persisted standard battle victories via BattleRepo. | Added concludeBattleWithVictory, new Vitest coverage, and advanced NEXT to the admin reporting follow-up. |

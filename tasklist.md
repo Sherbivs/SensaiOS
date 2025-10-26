@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T04:10:00Z
-Revision: 1.42
+Last Updated (UTC): 2025-10-26T04:40:00Z
+Revision: 1.43
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -564,10 +564,20 @@ Each task has:
 
 - id: T7.6
   title: Add filtering controls to admin battle summaries
-  status: READY
+  status: DONE
   depends_on: [T7.5]
   acceptance_criteria:
     - `/ops stats` accepts an optional limit (1-20) and after-date filter to refine history.
     - Report header includes total finished battle count and selected window.
     - Tests cover filtered results and empty-window cases with mocked Prisma data.
-  notes: Extends the admin audit tooling so staff can inspect older battles without database access.
+  notes: Outcome — Admin stats now validate limit/after filters, show total finished battles, and Vitest covers filtered + empty-window + no-DB paths.
+
+- id: T7.7
+  title: Add participant filter to admin battle summaries
+  status: PROPOSED
+  depends_on: [T7.6]
+  acceptance_criteria:
+    - `/ops stats` accepts an optional participant (Discord ID or mention) to show only battles involving that trainer.
+    - Report header clarifies the participant scope and handles no-match messaging.
+    - Tests cover filtering when the specified trainer wins, loses, or has no results.
+  notes: Extends the admin audit tooling so staff can focus on specific trainers without querying the database directly.

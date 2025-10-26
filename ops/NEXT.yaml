@@ -9,20 +9,22 @@ guidance_when_none: |
   - Update `next_task_id`, trim `files_hint` to only the files you expect to touch, and bump `timestamp_utc`.
   - Record the rationale in `note` so the next worker knows why the pointer moved.
 
-next_task_id: T7.6
+next_task_id: HF.BROKEN.TASKFLOW
 reason: >
-  Extend `/ops stats` with filters so admins can page through deeper battle
-  history without manual database access.
+  Ensure the hotfix engine can bootstrap READY tasks when queues are empty so
+  emergency fixes remain actionable without manual intervention.
 
 files_hint:
-  - src/bot/ops/admin.ts
-  - src/models/**
-  - tests/ops.spec.ts
+  - Tasklist.md
+  - ops/NEXT.yaml
+  - Prompt.md
+  - ops/RECOVERY.yaml
+  - ops/HOTFIX_PLAN.yaml
 
-timestamp_utc: 2025-10-26T04:10:00Z
+timestamp_utc: 2025-10-26T04:40:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-25T11:10:00Z
-note: "T7.5 shipped recent battle summaries for admins. Next: T7.6 adds limit/after filters so staff can audit older matches. Hotfix lane available via ops/HOTFIX_PLAN.yaml if emergencies arise."
+note: "T7.6 shipped limit/after filters for admin stats. Next: HF.BROKEN.TASKFLOW hardens the hotfix bootstrap path so READY items can be created during emergencies."
 
 # Advisory flag read by guard scripts; safe to ignore if unsupported
 auto_requeue_if_none: true

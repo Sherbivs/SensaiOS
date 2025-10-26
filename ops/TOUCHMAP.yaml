@@ -128,6 +128,11 @@ T7.6:
   - "src/models/**"
   - "tests/ops.spec.ts"
 
+T7.7:
+  - "src/bot/ops/admin.ts"
+  - "src/models/**"
+  - "tests/ops.spec.ts"
+
 # Glob prefixes to catch future tasks in the same family
 "Phase 0*":
   - "/ops/**"

@@ -23,7 +23,23 @@ module.exports = {
         )
     )
     .addSubcommand((sub) =>
-      sub.setName('stats').setDescription('Show basic usage stats')
+      sub
+        .setName('stats')
+        .setDescription('Show basic usage stats')
+        .addIntegerOption((opt) =>
+          opt
+            .setName('limit')
+            .setDescription('Maximum rows to show (1-20)')
+            .setMinValue(1)
+            .setMaxValue(20)
+            .setRequired(false)
+        )
+        .addStringOption((opt) =>
+          opt
+            .setName('after')
+            .setDescription('Only include battles that ended after this ISO 8601 timestamp')
+            .setRequired(false)
+        )
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),

@@ -19,14 +19,22 @@ type BattleSummary = {
   turnCount: number | null;
 };
 
+type StatsWindow = {
+  limit: number;
+  after: Date | null;
+};
+
 type OpsStatsReport = {
   counts: BasicStats;
+  totalFinishedBattles: number;
   recentBattles: BattleSummary[];
+  window: StatsWindow;
 };
 
 type PrismaLike = PrismaClient;
 
-const MAX_RECENT_BATTLES = 5;
+const DEFAULT_RECENT_LIMIT = 5;
+const MAX_RECENT_LIMIT = 20;
 
 async function getPrismaSafe(): Promise<PrismaLike | null> {
   try {
@@ -132,16 +140,29 @@ function parseBattleResult(raw: unknown) {
   return { winnerDiscordId, loserDiscordId, rewards, reason, turnCount };
 }
 
-async function collectOpsStatsFromPrisma(prisma: PrismaLike): Promise<OpsStatsReport> {
-  const [users, encountersActive, battlesActive, cooldowns, recent] = await Promise.all([
+async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow): Promise<OpsStatsReport> {
+  const finishedWhere: Record<string, unknown> = { state: "Finished" };
+  if (window.after) {
+    finishedWhere.endedAt = { gt: window.after };
+  }
+
+  const [
+    users,
+    encountersActive,
+    battlesActive,
+    cooldowns,
+    totalFinishedBattles,
+    recent,
+  ] = await Promise.all([
     prisma.user.count(),
     prisma.encounter.count({ where: { state: { in: ["Spawned", "Idle"] } } }),
     prisma.battle.count({ where: { state: { in: ["Pending", "Active"] } } }),
     prisma.cooldown.count(),
+    prisma.battle.count({ where: { state: "Finished" } }),
     prisma.battle.findMany({
-      where: { state: "Finished" },
+      where: finishedWhere,
       orderBy: { endedAt: "desc" },
-      take: MAX_RECENT_BATTLES,
+      take: window.limit,
       select: {
         id: true,
         endedAt: true,
@@ -165,7 +186,9 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike): Promise<OpsStatsRe
 
   return {
     counts: { users, encountersActive, battlesActive, cooldowns },
+    totalFinishedBattles,
     recentBattles,
+    window,
   };
 }
 
@@ -183,14 +206,20 @@ function formatBattleSummary(summary: BattleSummary) {
   return `- ${timestamp} • ${summary.id} • ${winner} over ${loser} (${reason}, ${turnText}) • rewards ${rewardText}`;
 }
 
-function formatOpsStatsReport(report: OpsStatsReport | null): string {
+function formatOpsStatsReport(report: OpsStatsReport | null, windowOverride?: StatsWindow): string {
   const counts = report?.counts ?? {};
   const n = (value: number | null | undefined) => (value === null || value === undefined ? "n/a" : String(value));
+  const window = report?.window ?? windowOverride ?? { limit: DEFAULT_RECENT_LIMIT, after: null };
+  const limitText = window.limit ? String(window.limit) : "n/a";
+  const afterText = window.after ? window.after.toISOString() : "none";
+  const totalFinished = report?.totalFinishedBattles ?? null;
+  const shown = report?.recentBattles?.length ?? 0;
   const lines = [
     `Users: ${n(counts.users)}`,
     `Active Encounters: ${n(counts.encountersActive)}`,
     `Pending/Active Battles: ${n(counts.battlesActive)}`,
     `Cooldown rows: ${n(counts.cooldowns)}`,
+    `Finished Battles: total ${n(totalFinished)} | showing ${shown}/${limitText} | after ${afterText}`,
     "",
     "Recent Battles:",
   ];
@@ -198,7 +227,7 @@ function formatOpsStatsReport(report: OpsStatsReport | null): string {
   if (!report) {
     lines.push("- unavailable (database not configured).");
   } else if (!report.recentBattles.length) {
-    lines.push("- none recorded yet.");
+    lines.push(window.after ? "- none recorded in the selected window." : "- none recorded yet.");
   } else {
     lines.push(...report.recentBattles.map(formatBattleSummary));
   }
@@ -236,15 +265,35 @@ export async function handleOpsCommand(
 
   if (sub === "stats") {
     await interaction.deferReply({ ephemeral: true });
-    const { prisma, release } = await acquirePrisma(deps);
-    if (!prisma) {
-      const message = formatOpsStatsReport(null);
-      await interaction.editReply({ content: message });
+    const rawLimit = interaction.options?.getInteger?.("limit") ?? null;
+    if (rawLimit !== null && (rawLimit < 1 || rawLimit > MAX_RECENT_LIMIT)) {
+      await interaction.editReply({ content: `Limit must be between 1 and ${MAX_RECENT_LIMIT}.` });
       return;
     }
 
+    const limit = rawLimit ?? DEFAULT_RECENT_LIMIT;
+    const afterRaw = interaction.options?.getString?.("after") ?? null;
+    let after: Date | null = null;
+    if (afterRaw) {
+      const parsed = new Date(afterRaw);
+      if (Number.isNaN(parsed.getTime())) {
+        await interaction.editReply({ content: "Invalid 'after' timestamp. Use ISO 8601, e.g. 2025-10-26T00:00:00Z." });
+        return;
+      }
+      after = parsed;
+    }
+
+    const window: StatsWindow = { limit, after };
+    const { prisma, release } = await acquirePrisma(deps);
+
     try {
-      const report = await collectOpsStatsFromPrisma(prisma);
+      if (!prisma) {
+        const message = formatOpsStatsReport(null, window);
+        await interaction.editReply({ content: message });
+        return;
+      }
+
+      const report = await collectOpsStatsFromPrisma(prisma, window);
       const message = formatOpsStatsReport(report);
       await interaction.editReply({ content: message });
     } catch (err) {
