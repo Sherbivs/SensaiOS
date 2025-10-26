@@ -1,0 +1,15 @@
+# HOTFIX POINTER — Single-file pointer for the current urgent fix.
+# The Hotfix Engine reads this instead of relying on Patch.md/PATCHSET blocks.
+hotfix_task_id: HF.BROKEN.TASKFLOW
+reason: >
+  Copilot/worker reports "No tasks READY" while meta requires adding/marking
+  a task as READY. Introduce bootstrap & guards to ensure Tasklist/NEXT/HOTFIX
+  pointers are never simultaneously empty again.
+files_hint:
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "Prompt.md"
+  - "ops/RECOVERY.yaml"
+  - "ops/TOUCHMAP.yaml"
+timestamp_utc: 2025-10-26T02:05:00Z
+note: "Run ACTIVATE: HOTFIX ENGINE to apply direct, minimal edits. Do not emit a PATCHSET."

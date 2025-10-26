@@ -2,9 +2,10 @@
 Title: Ops & Governance
 Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-10-26T01:20:00Z
+Last Updated (UTC): 2025-10-26T02:05:00Z
 
 Notes:
+- 2025-10-26: Documented Hotfix Engine contract + pointer and updated meta routing notes.
 - 2025-10-26: Added T7.4/T7.5 persistence backlog items and repointed NEXT at T7.4.
 - 2025-10-25: Router index timestamp refreshed after Render deployment wiring update.
 

@@ -24,7 +24,7 @@ files_hint:
 timestamp_utc: 2025-10-26T01:20:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-25T11:10:00Z
-note: "Queued T7.4 (standard victory persistence) with supporting T7.5 reporting follow-up."
+note: "Queued T7.4 (standard victory persistence) with supporting T7.5 reporting follow-up. Hotfix lane available via ops/HOTFIX_PLAN.yaml if emergencies arise."
 
 # Advisory flag read by guard scripts; safe to ignore if unsupported
 auto_requeue_if_none: true

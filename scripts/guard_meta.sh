@@ -29,6 +29,14 @@ fi
 echo "Changed files:"
 echo "${changed_files}" | sed 's/^/ - /'
 
+IS_HOTFIX="0"
+if [[ -f ops/HOTFIX_PLAN.yaml ]]; then
+  IS_HOTFIX="1"
+fi
+if git log -1 --pretty=%s 2>/dev/null | grep -qE '^\[Hotfix [^]]+\]'; then
+  IS_HOTFIX="1"
+fi
+
 has_changed() { echo "${changed_files}" | grep -Fxq "$1"; }
 any_changed()  { echo "${changed_files}" | grep -Eq "$1"; }
 
@@ -100,6 +108,12 @@ if ! grep -q "^## AI Worker Prompt (copy/paste for Copilot/GPT)" Prompt.md; then
   fail "Prompt.md is missing the required 'AI Worker Prompt (copy/paste for Copilot/GPT)' section."
 fi
 
+if [[ "${IS_HOTFIX}" == "0" ]]; then
+  if ! grep -q "<!-- PATCHSET:ECHO BEGIN -->" Prompt.md; then
+    fail "Prompt.md must contain PATCHSET:ECHO markers for regular patches."
+  fi
+fi
+
 echo "✅ Meta update policy satisfied."
 
 # Advisory: Encourage Tasklist header bumps when detected by heuristic (non-fatal)
@@ -108,10 +122,14 @@ if ${CODE_CHANGED} && git diff "${BASE_SHA}" "${HEAD_SHA}" -- Tasklist.md | grep
 fi
 
 # Advisory: PATCHSET Echo block should contain content
-if awk '/<!-- PATCHSET:ECHO BEGIN -->/{flag=1;next}/<!-- PATCHSET:ECHO END -->/{flag=0}flag' Prompt.md | grep -q '.'; then
-  echo "✅ Advisory: PATCHSET Echo block has content."
+if [[ "${IS_HOTFIX}" == "0" ]]; then
+  if awk '/<!-- PATCHSET:ECHO BEGIN -->/{flag=1;next}/<!-- PATCHSET:ECHO END -->/{flag=0}flag' Prompt.md | grep -q '.'; then
+    echo "✅ Advisory: PATCHSET Echo block has content."
+  else
+    echo "⚠️ Advisory: PATCHSET Echo block is empty. It must be populated after the next PATCHSET (or include NO-ECHO-REASON)."
+  fi
 else
-  echo "⚠️ Advisory: PATCHSET Echo block is empty. It must be populated after the next PATCHSET (or include NO-ECHO-REASON)."
+  echo "✅ Hotfix mode detected: PATCHSET Echo advisory skipped."
 fi
 
 # Advisory: highlight when NEXT pointer is NONE but READY tasks exist

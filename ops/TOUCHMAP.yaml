@@ -185,6 +185,26 @@ META.ROUTER.NAME_GUARD:
   - "Prompt.md"
   - "tasklist.md"
 
+META.HOTFIX.SYSTEM:
+  - "ops/HOTFIX.md"
+  - "ops/HOTFIX_PLAN.yaml"
+  - "scripts/hotfix_entry.sh"
+  - "scripts/guard_meta.sh"
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "package.json"
+  - "ops/TOUCHMAP.yaml"
+  - "ops/NEXT.yaml"
+  - "ops/RECOVERY.yaml"
+
+HF.BROKEN.TASKFLOW:
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "Prompt.md"
+  - "ops/RECOVERY.yaml"
+  - "ops/HOTFIX_PLAN.yaml"
+
 # Canonical categories for router-driven tasks
 META.HARD_ROUTE:
   - "ops/ROUTER.yaml"

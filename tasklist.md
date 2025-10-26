@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T01:20:00Z
-Revision: 1.38
+Last Updated (UTC): 2025-10-26T02:05:00Z
+Revision: 1.39
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -457,6 +457,29 @@ Each task has:
     - `/ops cooldown reset @user`, `/ops stats`
     - Basic usage counters visible to admin
   notes: Outcome — Added /ops with cooldown reset (admin-only) and basic stats. Prisma is optional; commands gracefully degrade when DB is unavailable.
+
+## Phase 7 — Meta & Router Hardening
+
+- id: META.HOTFIX.SYSTEM
+  title: Introduce no-PATCHSET Hotfix Engine and guards
+  status: DONE
+  depends_on: [META.ROUTER.NAME_GUARD]
+  acceptance_criteria:
+    - ops/HOTFIX.md documents trigger, loop, and guardrails
+    - ops/HOTFIX_PLAN.yaml exists with hotfix_task_id and files_hint
+    - guard_meta recognizes Hotfix mode (PATCHSET Echo optional)
+    - Prompt/Tasklist updates are still mandatory in Hotfix commits
+  notes: Outcome — Fast, disciplined hotfix path without PATCHSET ceremony.
+
+- id: HF.BROKEN.TASKFLOW
+  title: Fix “no READY tasks” bootstrap by ensuring a hotfix pointer can create/ready tasks
+  status: READY
+  depends_on: [META.HOTFIX.SYSTEM]
+  acceptance_criteria:
+    - Hotfix flow can add a minimal READY task when Tasklist is empty/all DONE
+    - Prompt “Last Repo Changes” reflects the hotfix outcome
+    - RECOVERY stamped with last_hotfix_id & timestamp
+  notes: Use ACTIVATE: HOTFIX ENGINE; targets: Tasklist.md, ops/NEXT.yaml, Prompt.md, ops/RECOVERY.yaml.
 
 ## Phase 7 — Persistence Integration
 

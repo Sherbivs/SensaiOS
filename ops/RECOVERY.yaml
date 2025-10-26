@@ -9,3 +9,6 @@ last_attempted_ts: "2025-10-26T01:20:00Z"
 last_attempted_source: "Prompt.md"
 next_task_id_snapshot: "T7.4"
 note: "Refresh Vision completed previously. Current pointer aimed at T7.4 (victory persistence) after backlog refresh."
+last_hotfix_id: null
+last_hotfix_timestamp_utc: null
+last_hotfix_env_note: null

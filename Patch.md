@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-25T11:25:00Z
-Revision: 1.16
+Last Updated (UTC): 2025-10-26T02:05:00Z
+Revision: 1.17
 
 This repository uses **Patch.md** as the single source of truth for automated, AI-driven development flow.
 The AI reading this file must follow the loop and rules exactly.
@@ -57,6 +57,13 @@ After completing a task, update `Tasklist.md` *convulsively* (immediately) to re
 - If `Tasklist.md` or `Patch.md` are edited, both must have their header timestamps/revisions bumped in the same PATCHSET.
 - If unsure what to change: update `Prompt.md` with a brief note under “Last Repo Changes” and bump its header; then stop or add a tiny precursor task.
 
+### Hotfix Compatibility
+- The Hotfix Engine (trigger `ACTIVATE: HOTFIX ENGINE`) performs **no PATCHSET blocks** but **must** still:
+  - Bump `Prompt.md` (Timestamp, Revision, Last Repo Changes).
+  - Update `Tasklist.md` (ensure a hotfix task exists, mark it DONE with outcome).
+  - Update any touched directory `ROUTER.md` (timestamp + short note) and keep routing metadata consistent.
+- Hotfixes may edit `Patch.md` only when the contract itself requires updates for the urgent fix.
+
 ### Worker Prompt Requirement
 - `Prompt.md` MUST contain the section titled exactly “AI Worker Prompt (copy/paste for Copilot/GPT)”.
 - When material workflows change (NEXT/TOUCHMAP/policies), refresh that section accordingly.
@@ -70,6 +77,15 @@ After completing a task, update `Tasklist.md` *convulsively* (immediately) to re
 ## Activation Trigger (MANDATORY)
 Trigger phrase (case-sensitive): `ACTIVATE: PATCH ENGINE`
 On trigger, follow Router → INBOX → NEXT → Tasklist → TOUCHMAP → Patch → Prompt sequence and emit one PATCHSET + Commit Message.
+
+## Hotfix Trigger (No-PATCHSET Mode)
+Trigger phrase (case-sensitive): `ACTIVATE: HOTFIX ENGINE`
+Use the Hotfix Engine for urgent, tightly-scoped changes. It follows the same sequence as the Patch Engine but **does not** emit a PATCHSET block. Only edit:
+- The files listed in `ops/HOTFIX_PLAN.yaml: files_hint`
+- Minimal meta (Prompt.md, Tasklist.md, ops/RECOVERY.yaml, ops/HOTFIX_PLAN.yaml)
+- Directory-local ROUTER.md for any touched area (timestamp + one-line note)
+**Do not** edit Patch.md unless explicitly directed or strictly necessary for the fix.
+Hotfix commits still **must** bump Prompt.md and update Tasklist.md.
 
 ### History Discipline (MANDATORY)
 - Maintain a “Recent Change Ledger (last 200)” section in `Prompt.md` between `<!-- LEDGER:BEGIN -->` and `<!-- LEDGER:END -->`.
@@ -267,169 +283,75 @@ This section may be overwritten frequently.
 PATCH CLIPBOARD — STAGING AREA (AI-Editable)
 Paste your next PATCHSET below.
 
-Here’s a single patch that designs and integrates a **no-patchset** hotfix flow, triggered by the phrase **`ACTIVATE: HOTFIX ENGINE`**. It follows the same Router → INBOX → NEXT/PLAN → Tasklist → TOUCHMAP → Prompt loop as your regular Patch Engine, but it **does not rely on Patch.md or PATCHSET blocks** except when Patch.md is explicitly relevant as information or you direct it to be edited.
-
-Paste this and apply.
+Yes—small but important tweaks. Here’s a focused patch that refreshes the **Patch.md template** to (1) bake in Refresh-Vision preflight, (2) require router/banner + master router updates, and (3) clarify Hotfix compatibility. It also bumps Prompt.md and records a tiny META task in Tasklist.md so future workers see it.
 
 ``
 <<<PATCHSET START>>>
-# [META.HOTFIX.SYSTEM]: Introduce no-patchset Hotfix Engine and guards
-
-# FILE: ops/HOTFIX.md
-``full
-# Hotfix Engine (No-PATCHSET Mode)
-Last Updated (UTC): 2025-10-25T11:58:00Z
-Revision: 1.0
-
-Purpose
-- A rapid, targeted “surgical” edit system that follows the same discipline as the Patch Engine but **does not** use PATCHSET blocks.
-- Trigger phrase (case-sensitive): `ACTIVATE: HOTFIX ENGINE`
-
-Scope
-- For urgent, well-scoped changes that must land quickly (prod or dev), where PATCHSET ceremony would slow resolution.
-- Hotfixes may touch only:
-  - Files listed in `ops/HOTFIX_PLAN.yaml: files_hint`
-  - The minimal meta set: `Prompt.md`, `Tasklist.md`, `ops/RECOVERY.yaml`, `ops/HOTFIX_PLAN.yaml`
-  - Any directory-local `ROUTER.md` corresponding to changed files (timestamp + short note)
-- Hotfixes MUST NOT edit `Patch.md` unless it is explicitly the subject of the fix or cited as a relevant source of instructions.
-
-Operating Loop (Hotfix)
-0) **Refresh Vision**
-   - Try to run `scripts/refresh_vision.sh`. If the runtime cannot shell out, the AI notes:
-     `Refresh Vision: I couldn't run refresh_vision.sh in this environment—please execute it locally when possible.`
-   - Confirm access to the remote repo (Sherbivs/Infinity-Gauntlet) when possible; otherwise record inability in `ops/RECOVERY.yaml`.
-1) **Read Order**
-   - `ops/ROUTER_INDEX.yaml` → discover routed areas
-   - `ops/INBOX/notes.md` → if newer than `ops/RECOVERY.yaml:last_notes_read_utc`, ingest & stamp
-   - `ops/HOTFIX_PLAN.yaml` → get `hotfix_task_id`, `reason`, `files_hint`
-   - `Tasklist.md` → validate the task exists; auto-create if missing (prefixed `HF.`) with status `READY`
-   - `ops/TOUCHMAP.yaml` → ensure edits stay within allowed globs (hotfix may temporarily extend)
-2) **Execute**
-   - Apply **direct, minimal edits** to the files in `files_hint` (no PATCHSET block).
-   - Update affected directory `ROUTER.md` entries (timestamp + one-line note).
-   - Keep changes reversible & deterministic.
-3) **Meta Updates**
-   - `Tasklist.md` → mark the hotfix task `DONE` with a concise outcome.
-   - `Prompt.md` → bump timestamp/revision and update “Last Repo Changes”.
-   - `ops/RECOVERY.yaml` → stamp `last_hotfix_id`, `last_hotfix_timestamp_utc`, and environment notes.
-   - `masterroutetable.md` freshness: if possible, run `npm run router:update`. If not, add a note to Prompt.
-4) **Commit**
-   - Commit message MUST start with `[Hotfix <ID>]`.
-   - Include Why / Changes / Acceptance, similar to standard commit template.
-5) **Exit**
-   - If further work is needed, add a normal task to `Tasklist.md` and set `ops/NEXT.yaml` accordingly.
-
-Guards & Coupling
-- Hotfix commits **must** update `Prompt.md` and `Tasklist.md`. Omission fails CI (`guard-meta`).
-- `Patch.md` is optional in Hotfix and **must not** be modified unless explicitly directed.
-- `scripts/guard_meta.sh` recognizes Hotfix mode and relaxes PATCHSET echo requirements.
-
-Audit
-- The change is still tracked in git history.
-- `Prompt.md` captures the summary in “Last Repo Changes” and in the Revision History table.
-
-
-# FILE: ops/HOTFIX_PLAN.yaml
-
-```full
-# HOTFIX POINTER — Single-file pointer for the current urgent fix.
-# The Hotfix Engine reads this instead of relying on Patch.md/PATCHSET blocks.
-hotfix_task_id: HF.BROKEN.TASKFLOW
-reason: >
-  Copilot/worker reports "No tasks READY" while meta requires adding/marking
-  a task as READY. Introduce bootstrap & guards to ensure Tasklist/NEXT/HOTFIX
-  pointers are never simultaneously empty again.
-files_hint:
-  - "Tasklist.md"
-  - "ops/NEXT.yaml"
-  - "Prompt.md"
-  - "ops/RECOVERY.yaml"
-  - "ops/TOUCHMAP.yaml"
-timestamp_utc: 2025-10-25T11:58:00Z
-note: "Run ACTIVATE: HOTFIX ENGINE to apply direct, minimal edits. Do not emit a PATCHSET."
-```
-
-# FILE: scripts/hotfix_entry.sh
-
-```full
-#!/usr/bin/env bash
-set -euo pipefail
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-cd "$ROOT"
-
-echo "🔧 Hotfix Engine Entry"
-echo "Reading ops/HOTFIX_PLAN.yaml ..."
-
-if [[ ! -f ops/HOTFIX_PLAN.yaml ]]; then
-  echo "❌ Missing ops/HOTFIX_PLAN.yaml. Aborting."
-  exit 1
-fi
-
-echo "Recommended hotfix targets (files_hint):"
-grep -A999 '^files_hint:' ops/HOTFIX_PLAN.yaml | sed '1d' | sed 's/^- /  • /'
-
-echo
-echo "Rules:"
-echo " • Edit only files listed above, plus Prompt.md, Tasklist.md, ops/RECOVERY.yaml, and ROUTER.md in touched dirs."
-echo " • Do not edit Patch.md unless explicitly directed."
-echo " • After edits, bump Prompt.md timestamp/revision and add a concise Last Repo Changes entry."
-echo " • Commit message must start with: [Hotfix <ID>] ..."
-
-exit 0
-```
-
-# FILE: scripts/guard_meta.sh
-
-```diff
-@@
- set -euo pipefail
- ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
- cd "$ROOT"
- 
-+# Detect Hotfix flow: either HOTFIX_PLAN present or commit title provided by CI
-+IS_HOTFIX="0"
-+if [[ -f "ops/HOTFIX_PLAN.yaml" ]]; then
-+  IS_HOTFIX="1"
-+fi
-+if git log -1 --pretty=%s | grep -qE '^\[Hotfix [^]]+\]'; then
-+  IS_HOTFIX="1"
-+fi
-+
- # Ensure Prompt.md is updated on any code change
- # (existing logic preserved below)
-@@
--# PATCHSET Echo is mandatory (regular Patch Engine)
--if ! grep -q "<!-- PATCHSET:ECHO BEGIN -->" Prompt.md; then
--  echo "❌ Prompt.md must contain PATCHSET:ECHO markers."
--  exit 1
--fi
-+# PATCHSET Echo requirements:
-+# - Regular Patch Engine: Echo required.
-+# - Hotfix Engine: Echo optional, but Prompt 'Last Repo Changes' is mandatory.
-+if [[ "$IS_HOTFIX" == "0" ]]; then
-+  if ! grep -q "<!-- PATCHSET:ECHO BEGIN -->" Prompt.md; then
-+    echo "❌ Prompt.md must contain PATCHSET:ECHO markers for regular patches."
-+    exit 1
-+  fi
-+fi
-```
+# [META.PATCHTEMPLATE.REFRESH]: Update Patch.md template for Refresh-Vision, Router sync, and Hotfix compatibility
 
 # FILE: Patch.md
-
 ```diff
 @@
- ## Activation Trigger (MANDATORY)
- Trigger phrase (case-sensitive): `ACTIVATE: PATCH ENGINE`
- On trigger, follow Router → INBOX → NEXT → Tasklist → TOUCHMAP → Patch → Prompt sequence and emit one PATCHSET + Commit Message.
+ ## PRIME DIRECTIVE
+ Always read and parse `Tasklist.md` first. Work only on tasks whose `status: READY`.
+ After completing a task, update `Tasklist.md` *convulsively* (immediately) to reflect:
+@@
  
-+## Hotfix Trigger (No-PATCHSET Mode)
-+Trigger phrase (case-sensitive): `ACTIVATE: HOTFIX ENGINE`
-+Use the Hotfix Engine for urgent, tightly-scoped changes. It follows the same sequence as the Patch Engine but **does not** emit a PATCHSET block. Only edit:
-+- The files listed in `ops/HOTFIX_PLAN.yaml: files_hint`
-+- Minimal meta (Prompt.md, Tasklist.md, ops/RECOVERY.yaml, ops/HOTFIX_PLAN.yaml)
-+- Directory-local ROUTER.md for any touched area (timestamp + one-line note)
-+**Do not** edit Patch.md unless explicitly directed or strictly necessary for the fix.
-+Hotfix commits still **must** bump Prompt.md and update Tasklist.md.
+ ## OPERATING LOOP
+-0. **Refresh Vision (MANDATORY)**
+-  - Run `scripts/refresh_vision.sh` to regenerate `ops/ROUTER_INDEX.yaml`, update the Recent Change Ledger, and stamp `ops/RECOVERY.yaml`.
+-  - Read `ops/ROUTER_INDEX.yaml` to enumerate active routers; consult the specific `ROUTER.md` for any directory you will touch.
++0. **Refresh Vision (MANDATORY)**
++  - Run `scripts/refresh_vision.sh`. If shell is unavailable, state:  
++    `Refresh Vision: I couldn't run refresh_vision.sh in this environment—please execute it locally when possible.`
++  - Verify remote access to `Sherbivs/Infinity-Gauntlet` (where supported); stamp `ops/RECOVERY.yaml`.
++  - Regenerate `ops/ROUTER_INDEX.yaml`; skim `masterroutetable.md`; consult each touched directory’s `ROUTER.md`.
+@@
+ 2. **Execute**
+    - For the first READY task in dependency order:
+      - Apply code changes using **PATCH BLOCKS** format (below).
+      - Keep changes minimal, reversible, and scoped to the task.
+      - Run/adjust tests if present.
++   - **Router Sync (MANDATORY when touching routed dirs)**
++      - Prepend/refresh the standard Router Quickstart banner (from `ops/ROUTER_BANNER.md`) in each touched `ROUTER.md`.  
++      - Update the one-line “what changed” note + timestamp in those `ROUTER.md` files.
++      - Ensure `masterroutetable.md` remains accurate (run router update script if available, or add a short note in `Prompt.md`).
+@@
+ ## META UPDATE REQUIREMENT (MANDATORY)
+ - Every PATCHSET must, at minimum, update `Prompt.md` (Timestamp + Revision + “Last Repo Changes”).
+ - If `Tasklist.md` or `Patch.md` are edited, both must have their header timestamps/revisions bumped in the same PATCHSET.
+ - If unsure what to change: update `Prompt.md` with a brief note under “Last Repo Changes” and bump its header; then stop or add a tiny precursor task.
++
++### Hotfix Compatibility
++- The Hotfix Engine (trigger `ACTIVATE: HOTFIX ENGINE`) performs **no PATCHSET blocks** but **must** still:
++  - Bump `Prompt.md` and summarize the change.
++  - Update `Tasklist.md` (create a hotfix task if needed, then mark `DONE` with a one-line outcome).
++  - Update `ROUTER.md` for touched directories (banner + timestamp + one-line note) and keep `masterroutetable.md` accurate.
++- Hotfixes **may** minimally edit `Patch.md` when doing so increases contract visibility/accuracy of hotfix rules.
+@@
+ ## PATCH BLOCKS (MANDATORY FORMAT)
+ Use the following structure for every change. Provide full-file content for creates/overwrites; use unified diffs for surgical edits when safer.
+ 
+````
+
+<<<PATCHSET START>>>
+@@
+
+# TASKLIST UPDATE
+
+```diff
+<unified diff patch against Tasklist.md that updates statuses, adds tasks, etc.>
+```
+
+<<<PATCHSET END>>>
+
+```
+
+Rules:
+- Each PATCHSET handles exactly **one** Task ID.
+- If a task requires multiple files, include multiple `# FILE:` sections in the same PATCHSET.
+- Always include a `# TASKLIST UPDATE` diff at the end of the PATCHSET.
++ - When the PATCHSET touches routed paths, also include diffs for the corresponding `ROUTER.md` files (banner refresh + timestamp/note) and any necessary `masterroutetable.md` adjustments.
 ```
 
 # FILE: Prompt.md
@@ -438,113 +360,27 @@ exit 0
 @@
 -Timestamp (UTC): 2025-10-25T11:25:00Z
 -Revision: 0.49
-+Timestamp (UTC): 2025-10-25T11:58:00Z
++Timestamp (UTC): 2025-10-25T11:55:00Z
 +Revision: 0.50
 @@
  > Changes in this revision:
--> - `ops/CANONICAL_NAMES.yaml` — Canonical filename manifest enumerating required spellings/case.
--> - `scripts/verify_router_links.sh` — CI guard ensuring router/index paths and canonical docs match exact spelling/case.
--> - `.github/workflows/guard-router.yml` — Runs the router-name guard on push/PR.
--> - `Patch.md` — Documented mandatory router name/case rule.
--> - `Prompt.md`, `tasklist.md` — Logged META.ROUTER.NAME_GUARD completion and bumped metadata.
-+> - `ops/HOTFIX.md` — Introduced Hotfix Engine (no-PATCHSET mode) with operating loop and guardrails.
-+> - `ops/HOTFIX_PLAN.yaml` — Pointer file for in-progress hotfix (task id, reason, files_hint).
-+> - `scripts/hotfix_entry.sh` — CLI entry to display targets/rules for hotfix sessions.
-+> - `scripts/guard_meta.sh` — Recognizes Hotfix mode (PATCHSET Echo optional; Prompt/Tasklist still required).
-+> - `Patch.md` — Added Hotfix trigger & scope rules.
-@@
- ## Activation Trigger for AI Workers
- Paste this to initialize from Router + INBOX and run the Patch loop:
- 
++> - `Patch.md` — Template updated: explicit Refresh-Vision fallback text, mandatory Router banner/sync step, and Hotfix compatibility notes.
++> - `Prompt.md` — Timestamp/revision bump to record the template refresh.
 ```
 
-ACTIVATE: PATCH ENGINE
-
-````
-
-+### Hotfix Trigger for AI Workers (No-PATCHSET Mode)
-+Paste this to run a hotfix without PATCHSET blocks:
-+```
-+ACTIVATE: HOTFIX ENGINE
-+```
-+Workflow is identical to Patch Engine except: no PATCHSET emission; only direct edits to `files_hint` + minimal meta; Patch.md is left unchanged unless explicitly relevant.
-+
-### Activation Internals (what happens on trigger)
-1) Refresh Vision (`scripts/refresh_vision.sh`) → verifies remote GitHub access for `Sherbivs/Infinity-Gauntlet`, regenerates `ops/ROUTER_INDEX.yaml`, optionally updates the Prompt ledger, and stamps `ops/RECOVERY.yaml` with remote/local metadata.
-  - If running in a restricted IDE/VFS without shell access, inform the human by saying: `Refresh Vision: I couldn't run refresh_vision.sh in this environment—please execute it locally when possible.`
-2) Read `ops/RECOVERY.yaml`; if `last_attempted_task_id` is present, prefer resuming that task unless superseded in `ops/NEXT.yaml`.
-3) Proceed with the operating loop and emit exactly one PATCHSET + Commit Message.
-````
-
-# FILE: ops/RECOVERY.yaml
-
-```diff
-@@
- router_version: 1
- last_notes_read_utc: 2025-10-25T03:30:00Z
- note: "T6.2 DONE — /ops cooldown reset and /ops stats available for admins."
-+last_hotfix_id: null
-+last_hotfix_timestamp_utc: null
-+last_hotfix_env_note: null
-```
-
-# FILE: package.json
-
-```diff
-@@
-   "scripts": {
-     "router:update": "bash scripts/update_master_route_table.sh && node -e \"console.log('Master route table regenerated.')\"",
-     "router:cleanup": "bash scripts/cleanup_legacy_master_router.sh",
-+    "hotfix": "bash scripts/hotfix_entry.sh"
-   }
-```
-
-# FILE: ops/TOUCHMAP.yaml
-
-```diff
-@@
- meta_write_whitelist:
-   - "Patch.md"
-   - "Tasklist.md"
-   - "Prompt.md"
-   - "ops/NEXT.yaml"
-   - "ops/RECOVERY.yaml"
-+  - "ops/HOTFIX.md"
-+  - "ops/HOTFIX_PLAN.yaml"
-```
-
-# FILE: ops/NEXT.yaml
-
-```diff
-@@
- note: "META.ROUTER.NAME_GUARD added; Hotfix system introduced in parallel. For emergencies use HOTFIX_PLAN.yaml."
-```
-
-# TASKLIST UPDATE
+# FILE: Tasklist.md
 
 ```diff
 @@
  ## Phase 7 — Meta & Router Hardening
-+- id: META.HOTFIX.SYSTEM
-+  title: Introduce no-PATCHSET Hotfix Engine and guards
++- id: META.PATCHTEMPLATE.REFRESH
++  title: Refresh Patch.md template with Refresh-Vision, Router sync, Hotfix notes
 +  status: DONE
-+  depends_on: [META.ROUTER.NAME_GUARD]
++  depends_on: []
 +  acceptance_criteria:
-+    - ops/HOTFIX.md documents trigger, loop, and guardrails
-+    - ops/HOTFIX_PLAN.yaml exists with hotfix_task_id and files_hint
-+    - guard_meta recognizes Hotfix mode (PATCHSET Echo optional)
-+    - Prompt/Tasklist updates are still mandatory in Hotfix commits
-+  notes: Outcome — Fast, disciplined hotfix path without PATCHSET ceremony.
-+
-+- id: HF.BROKEN.TASKFLOW
-+  title: Fix “no READY tasks” bootstrap by ensuring a hotfix pointer can create/ready tasks
-+  status: READY
-+  depends_on: [META.HOTFIX.SYSTEM]
-+  acceptance_criteria:
-+    - Hotfix flow can add a minimal READY task when Tasklist is empty/all DONE
-+    - Prompt “Last Repo Changes” reflects the hotfix outcome
-+    - RECOVERY stamped with last_hotfix_id & timestamp
-+  notes: Use ACTIVATE: HOTFIX ENGINE; targets: Tasklist.md, ops/NEXT.yaml, Prompt.md, ops/RECOVERY.yaml.
++    - Patch.md includes Refresh-Vision fallback, Router banner/sync requirements, and Hotfix compatibility rules
++    - Prompt.md records the change under “Last Repo Changes”
++  notes: Outcome — Patch template now aligns with Hotfix Engine and router network discipline.
 ```
 
 <<<PATCHSET END>>>
@@ -554,29 +390,22 @@ ACTIVATE: PATCH ENGINE
 **Commit Message**
 ```
 
-[Meta.HOTFIX.SYSTEM] Add no-PATCHSET Hotfix Engine + guards
+[META.PATCHTEMPLATE.REFRESH] Patch template: Refresh-Vision preflight, Router sync, Hotfix compatibility
 
 Why:
-We need an urgent-change path that follows our disciplined workflow without the PATCHSET ceremony, while still updating Prompt/Tasklist and keeping routing/metadata consistent.
+To keep agents consistent across Patch and Hotfix flows, the Patch.md template must require router/banner updates, allow hotfix visibility, and spell out Refresh-Vision behavior (including restricted environments).
 
 Changes:
 
-* ops/HOTFIX.md: Contract describing the Hotfix Engine, scope, and loop.
-* ops/HOTFIX_PLAN.yaml: Pointer for current hotfix (task id, reason, files_hint).
-* scripts/hotfix_entry.sh: Guides hotfix sessions; lists targets and rules.
-* scripts/guard_meta.sh: Detects Hotfix mode; makes PATCHSET Echo optional but keeps Prompt/Tasklist mandatory.
-* Patch.md / Prompt.md: Added Hotfix trigger + guidance.
-* ops/RECOVERY.yaml: Fields to record last hotfix metadata.
-* TOUCHMAP whitelist extended for hotfix files.
-* Tasklist: META.HOTFIX.SYSTEM DONE; HF.BROKEN.TASKFLOW READY.
+* Patch.md: added Refresh-Vision fallback, Router banner/sync step, and Hotfix compatibility rules.
+* Prompt.md: bumped metadata and logged the template refresh.
+* Tasklist.md: recorded META task as DONE.
 
 Acceptance:
 
-* `ACTIVATE: HOTFIX ENGINE` produces a disciplined, no-PATCHSET workflow restricted to files_hint + meta.
-* Hotfix commits still bump Prompt.md and update Tasklist.md; CI respects Hotfix mode.
-* Recovery captures last hotfix; NEXT continues to govern normal patch work.
+* Future PATCHSETs will always refresh vision, sync routers/master router, and remain compatible with Hotfix mode.
 
 ```
 
-This gives you a clean, fast lane for emergencies while preserving your audit trail and keeping the AI’s “city roadways” map coherent. When you’re ready to actually run the first hotfix, flip `HF.BROKEN.TASKFLOW` to `IN_PROGRESS` (or just invoke the Hotfix Engine and let it mark it DONE as part of the edit), then commit with a message starting `[Hotfix HF.BROKEN.TASKFLOW] ...`.
+If you also want me to fold the Router banner application script call into the template (e.g., “run `scripts/apply_router_banner.sh` whenever a ROUTER.md is touched”), I can tack that on too.
 ```

@@ -54,3 +54,5 @@ meta_write_whitelist:
   - ops/NEXT.yaml
   - ops/ROUTER.yaml
   - ops/TOUCHMAP.yaml
+  - ops/HOTFIX.md
+  - ops/HOTFIX_PLAN.yaml

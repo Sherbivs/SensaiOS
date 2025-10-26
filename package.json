@@ -15,6 +15,7 @@
     "docs:update-ledger": "bash scripts/update_change_ledger.sh",
     "docs:update-routers": "bash scripts/update_router_index.sh",
     "refresh:vision": "bash scripts/refresh_vision.sh",
+  "hotfix": "bash scripts/hotfix_entry.sh",
     "tasks:archive": "node scripts/archive_task_history.mjs",
     "lint": "eslint \"{src,tests}/**/*.ts\"",
     "test": "vitest"

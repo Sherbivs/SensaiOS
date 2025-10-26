@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T01:20:00Z
-Revision: 0.53
+Timestamp (UTC): 2025-10-26T02:05:00Z
+Revision: 0.54
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,14 +10,14 @@ Revision: 0.53
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `[META.BACKLOG.T7.NEXT]` `Tasklist.md` — Added T7.4 (READY) for victory persistence and T7.5 (PROPOSED) for admin reporting, logging the meta outcome.
-> - `[META.BACKLOG.T7.NEXT]` `ops/NEXT.yaml`, `ops/RECOVERY.yaml` — Pointed execution to T7.4 with fresh snapshot metadata.
-> - `[META.BACKLOG.T7.NEXT]` `ops/TOUCHMAP.yaml`, `ops/ROUTER.md`, `ops/ROUTER_INDEX.yaml` — Mapped new tasks and timestamped ops router documentation.
+> - `ops/HOTFIX.md`, `ops/HOTFIX_PLAN.yaml` — Documented the no-PATCHSET Hotfix Engine and staged a pointer for active hotfix tasks.
+> - `scripts/hotfix_entry.sh`, `scripts/guard_meta.sh` — Added CLI entry guidance and taught the guard to detect Hotfix commits.
+> - `Patch.md`, `Prompt.md`, `Tasklist.md`, `package.json`, `ops/TOUCHMAP.yaml`, `ops/NEXT.yaml`, `ops/RECOVERY.yaml` — Bumped metadata, noted Hotfix trigger, added script hook, and recorded META.HOTFIX.SYSTEM completion with new hotfix-ready task.
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: Pending human commit; see summary for changed files.
+NO-ECHO-REASON: Patchset too large to embed; see Last Repo Changes and final summary.
 TasklistDiff: true
-- Planned post-T7.3 backlog (T7.4 READY, T7.5 PROPOSED) and updated NEXT/TOUCHMAP/Recovery pointers.
+- Introduced META.HOTFIX.SYSTEM hotfix workflow (ops/HOTFIX.md, guard_meta, npm hotfix script, Tasklist update).
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -26,6 +26,13 @@ Paste this to initialize from Router + INBOX and run the Patch loop:
 ```
 ACTIVATE: PATCH ENGINE
 ```
+
+### Hotfix Trigger for AI Workers (No-PATCHSET Mode)
+Paste this to run a hotfix without PATCHSET blocks:
+```
+ACTIVATE: HOTFIX ENGINE
+```
+Workflow mirrors the Patch Engine but restricts edits to `ops/HOTFIX_PLAN.yaml` `files_hint`, required meta files, and routed notes. Patch.md stays untouched unless explicitly part of the fix.
 
 ### Activation Internals (what happens on trigger)
 1) Refresh Vision (`scripts/refresh_vision.sh`) → verifies remote GitHub access for `Sherbivs/Infinity-Gauntlet`, regenerates `ops/ROUTER_INDEX.yaml`, optionally updates the Prompt ledger, and stamps `ops/RECOVERY.yaml` with remote/local metadata.
@@ -38,6 +45,7 @@ ACTIVATE: PATCH ENGINE
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-26 | META.HOTFIX.SYSTEM introduced the no-PATCHSET Hotfix Engine and guard updates. | Hotfix contract documented (`ops/HOTFIX.md`), pointer staged, guard/meta/scripts updated, and Tasklist recorded follow-up hotfix bootstrap task. |
 | 2025-10-26 | META.BACKLOG.T7.NEXT queued victory persistence + reporting follow-ups. | Tasklist now includes T7.4 (READY) and T7.5 (PROPOSED); NEXT/Touchmap/NEXT pointer aimed at victory persistence. |
 | 2025-10-26 | T7.3 persisted battle outcomes with shared announcer + tests. | BattleRepo writes rewards, DM/thread summaries reuse stored results, and Vitest covers persistence/forfeit flow. |
 | 2025-10-25 | META.BACKLOG.T7.3 promoted battle persistence follow-up. | Tasklist + NEXT point at T7.3 (battle results persistence) with router timestamps updated for ops guidance. |
