@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T02:05:00Z
-Revision: 0.54
+Timestamp (UTC): 2025-10-26T03:30:00Z
+Revision: 0.55
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,14 +10,15 @@ Revision: 0.54
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `ops/HOTFIX.md`, `ops/HOTFIX_PLAN.yaml` — Documented the no-PATCHSET Hotfix Engine and staged a pointer for active hotfix tasks.
-> - `scripts/hotfix_entry.sh`, `scripts/guard_meta.sh` — Added CLI entry guidance and taught the guard to detect Hotfix commits.
-> - `Patch.md`, `Prompt.md`, `Tasklist.md`, `package.json`, `ops/TOUCHMAP.yaml`, `ops/NEXT.yaml`, `ops/RECOVERY.yaml` — Bumped metadata, noted Hotfix trigger, added script hook, and recorded META.HOTFIX.SYSTEM completion with new hotfix-ready task.
+> - `src/bot/battle/conclude.ts` — Added `concludeBattleWithVictory` to persist standard victories via BattleRepo while reusing the shared announcer pipeline.
+> - `tests/battle_flow.spec.ts` — Covered the new victory flow (persistence + announcer) and guarded against re-running finished battles.
+> - `tasklist.md`, `ops/NEXT.yaml`, `src/bot/ROUTER.md`, `tests/ROUTER.md` — Marked T7.4 DONE, promoted T7.5, and refreshed router metadata for the next admin-reporting task.
+> - Tests: Not run (npm unavailable in this environment).
 
 <!-- PATCHSET:ECHO BEGIN -->
-NO-ECHO-REASON: Patchset too large to embed; see Last Repo Changes and final summary.
+NO-ECHO-REASON: git tooling unavailable in this VFS to emit an exact diff; see Last Repo Changes and final summary.
 TasklistDiff: true
-- Introduced META.HOTFIX.SYSTEM hotfix workflow (ops/HOTFIX.md, guard_meta, npm hotfix script, Tasklist update).
+- Completed T7.4 (victory persistence via concludeBattleWithVictory; promoted T7.5 in Tasklist/NEXT).
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -45,6 +46,7 @@ Workflow mirrors the Patch Engine but restricts edits to `ops/HOTFIX_PLAN.yaml` 
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-26 | T7.4 persisted standard battle victories via BattleRepo. | Added concludeBattleWithVictory, new Vitest coverage, and advanced NEXT to the admin reporting follow-up. |
 | 2025-10-26 | META.HOTFIX.SYSTEM introduced the no-PATCHSET Hotfix Engine and guard updates. | Hotfix contract documented (`ops/HOTFIX.md`), pointer staged, guard/meta/scripts updated, and Tasklist recorded follow-up hotfix bootstrap task. |
 | 2025-10-26 | META.BACKLOG.T7.NEXT queued victory persistence + reporting follow-ups. | Tasklist now includes T7.4 (READY) and T7.5 (PROPOSED); NEXT/Touchmap/NEXT pointer aimed at victory persistence. |
 | 2025-10-26 | T7.3 persisted battle outcomes with shared announcer + tests. | BattleRepo writes rewards, DM/thread summaries reuse stored results, and Vitest covers persistence/forfeit flow. |

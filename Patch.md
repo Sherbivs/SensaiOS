@@ -283,105 +283,111 @@ This section may be overwritten frequently.
 PATCH CLIPBOARD — STAGING AREA (AI-Editable)
 Paste your next PATCHSET below.
 
-Yes—small but important tweaks. Here’s a focused patch that refreshes the **Patch.md template** to (1) bake in Refresh-Vision preflight, (2) require router/banner + master router updates, and (3) clarify Hotfix compatibility. It also bumps Prompt.md and records a tiny META task in Tasklist.md so future workers see it.
+Here’s a focused patch that (1) adds a readiness check for the Hotfix system, (2) introduces a dedicated `ACTIVATE: HOTFIX TASKS` trigger to set up/advance next steps when Patch.md’s PATCHSET is stale or irrelevant, and (3) reiterates that Hotfix must not depend on Patch.md’s PATCHSET except as an optional reference.
 
-``
 <<<PATCHSET START>>>
-# [META.PATCHTEMPLATE.REFRESH]: Update Patch.md template for Refresh-Vision, Router sync, and Hotfix compatibility
+# [META.HOTFIX.READINESS]: Add Hotfix readiness checks + ACTIVATE: HOTFIX TASKS trigger + non-reliance on Patch.md PATCHSET content
 
 # FILE: Patch.md
-```diff
+``diff
 @@
- ## PRIME DIRECTIVE
- Always read and parse `Tasklist.md` first. Work only on tasks whose `status: READY`.
- After completing a task, update `Tasklist.md` *convulsively* (immediately) to reflect:
-@@
+ The Hotfix Engine is a fast lane for surgical changes. It **does not** require embedding a PATCHSET block, but it must follow the same accountability loop as Patch:
  
- ## OPERATING LOOP
--0. **Refresh Vision (MANDATORY)**
--  - Run `scripts/refresh_vision.sh` to regenerate `ops/ROUTER_INDEX.yaml`, update the Recent Change Ledger, and stamp `ops/RECOVERY.yaml`.
--  - Read `ops/ROUTER_INDEX.yaml` to enumerate active routers; consult the specific `ROUTER.md` for any directory you will touch.
-+0. **Refresh Vision (MANDATORY)**
-+  - Run `scripts/refresh_vision.sh`. If shell is unavailable, state:  
-+    `Refresh Vision: I couldn't run refresh_vision.sh in this environment—please execute it locally when possible.`
-+  - Verify remote access to `Sherbivs/Infinity-Gauntlet` (where supported); stamp `ops/RECOVERY.yaml`.
-+  - Regenerate `ops/ROUTER_INDEX.yaml`; skim `masterroutetable.md`; consult each touched directory’s `ROUTER.md`.
-@@
- 2. **Execute**
-    - For the first READY task in dependency order:
-      - Apply code changes using **PATCH BLOCKS** format (below).
-      - Keep changes minimal, reversible, and scoped to the task.
-      - Run/adjust tests if present.
-+   - **Router Sync (MANDATORY when touching routed dirs)**
-+      - Prepend/refresh the standard Router Quickstart banner (from `ops/ROUTER_BANNER.md`) in each touched `ROUTER.md`.  
-+      - Update the one-line “what changed” note + timestamp in those `ROUTER.md` files.
-+      - Ensure `masterroutetable.md` remains accurate (run router update script if available, or add a short note in `Prompt.md`).
-@@
- ## META UPDATE REQUIREMENT (MANDATORY)
- - Every PATCHSET must, at minimum, update `Prompt.md` (Timestamp + Revision + “Last Repo Changes”).
- - If `Tasklist.md` or `Patch.md` are edited, both must have their header timestamps/revisions bumped in the same PATCHSET.
- - If unsure what to change: update `Prompt.md` with a brief note under “Last Repo Changes” and bump its header; then stop or add a tiny precursor task.
+ **Activation (exact human-facing prompt)**
+ - The Hotfix subsystem is triggered by the following sentence (case-insensitive for “hotfix/hotffix” and “activate”):
+   - `"The trigger term (ex. ACTIVATE: HOTFIX ENGINE)": Human parsed patch request for the workflow engine`
+   - Notes:
+     - Accept both `ACTIVATE: HOTFIX ENGINE` and the common misspelling `ACTIVATE: HOTFFIX ENGINE`.
+     - Treat surrounding whitespace and trailing punctuation as insignificant.
+ 
++**Secondary trigger for task preparation**
++- To set up or advance follow-on work when the Patch engine’s PATCHSET is stale or not applicable, use:
++  - `ACTIVATE: HOTFIX TASKS`
++- Behavior:
++  - Do **not** generate a PATCHSET block.
++  - Prepare or update actionable tasks directly in `Tasklist.md` and pointer details in `ops/NEXT.yaml`.
++  - If needed, create a short-lived `HOTFIX:SETUP` task (immediately marked `DONE`) that records what was primed.
 +
-+### Hotfix Compatibility
-+- The Hotfix Engine (trigger `ACTIVATE: HOTFIX ENGINE`) performs **no PATCHSET blocks** but **must** still:
-+  - Bump `Prompt.md` and summarize the change.
-+  - Update `Tasklist.md` (create a hotfix task if needed, then mark `DONE` with a one-line outcome).
-+  - Update `ROUTER.md` for touched directories (banner + timestamp + one-line note) and keep `masterroutetable.md` accurate.
-+- Hotfixes **may** minimally edit `Patch.md` when doing so increases contract visibility/accuracy of hotfix rules.
+ **Parity requirements (MANDATORY)**
 @@
- ## PATCH BLOCKS (MANDATORY FORMAT)
- Use the following structure for every change. Provide full-file content for creates/overwrites; use unified diffs for surgical edits when safer.
- 
+ - Contract visibility:
+   - Hotfixes **may** edit `Patch.md` when doing so improves clarity/accuracy of the hotfix rules or trigger spec.
++
++**Hotfix Readiness Check (MANDATORY before applying any change)**
++On Hotfix activation (either trigger), perform a quick readiness audit:
++- Confirm the presence and readability of:
++  - `Tasklist.md`, `Prompt.md`, `ops/NEXT.yaml`, `ops/ROUTER_INDEX.yaml` (or `ops/ROUTER.yaml` if used), and `masterroutetable.md` (root).
++- If any are missing, create or repair minimal stubs sufficient for Hotfix to proceed, then:
++  - Add a `HOTFIX:SETUP` entry to `Tasklist.md` (immediately `DONE`) documenting what was scaffolded.
++  - Add a bullet to **Last Repo Changes** in `Prompt.md` describing the repair.
++
++**Non-reliance on Patch.md’s PATCHSET (IMPORTANT)**
++- The Hotfix subsystem **must not rely** on the PATCHSET clipboard/echo in `Patch.md` as a requirement to run.
++- It **may** read the PATCHSET sections *only as reference* when they contain clearly relevant facts or instructions.
++- If ambiguity remains, Hotfix should write a short “Hotfix Notes / Questions” bullet in `Prompt.md` and (optionally) stage follow-ups via `ACTIVATE: HOTFIX TASKS`.
 ````
-
-<<<PATCHSET START>>>
-@@
-
-# TASKLIST UPDATE
-
-```diff
-<unified diff patch against Tasklist.md that updates statuses, adds tasks, etc.>
-```
-
-<<<PATCHSET END>>>
-
-```
-
-Rules:
-- Each PATCHSET handles exactly **one** Task ID.
-- If a task requires multiple files, include multiple `# FILE:` sections in the same PATCHSET.
-- Always include a `# TASKLIST UPDATE` diff at the end of the PATCHSET.
-+ - When the PATCHSET touches routed paths, also include diffs for the corresponding `ROUTER.md` files (banner refresh + timestamp/note) and any necessary `masterroutetable.md` adjustments.
-```
 
 # FILE: Prompt.md
 
-```diff
+````diff
 @@
 -Timestamp (UTC): 2025-10-25T11:25:00Z
 -Revision: 0.49
-+Timestamp (UTC): 2025-10-25T11:55:00Z
-+Revision: 0.50
++Timestamp (UTC): 2025-10-25T12:20:00Z
++Revision: 0.51
 @@
  > Changes in this revision:
-+> - `Patch.md` — Template updated: explicit Refresh-Vision fallback text, mandatory Router banner/sync step, and Hotfix compatibility notes.
-+> - `Prompt.md` — Timestamp/revision bump to record the template refresh.
-```
++> - `Patch.md` — Added Hotfix readiness audit, secondary `ACTIVATE: HOTFIX TASKS` trigger, and explicit non-reliance on Patch.md’s PATCHSET.
++> - `Prompt.md` — Documented Hotfix Tasks trigger in Activation Internals and clarified the fallback workflow.
++> - `Tasklist.md` — Logged META.HOTFIX.READINESS as DONE with acceptance notes.
+@@
+ ### Activation Internals (what happens on trigger)
+ 1) Refresh Vision (`scripts/refresh_vision.sh`) → verifies remote GitHub access for `Sherbivs/Infinity-Gauntlet`, regenerates `ops/ROUTER_INDEX.yaml`, optionally updates the Prompt ledger, and stamps `ops/RECOVERY.yaml` with remote/local metadata.
+   - If running in a restricted IDE/VFS without shell access, inform the human by saying: `Refresh Vision: I couldn't run refresh_vision.sh in this environment—please execute it locally when possible.`
+ 2) Read `ops/RECOVERY.yaml`; if `last_attempted_task_id` is present, prefer resuming that task unless superseded in `ops/NEXT.yaml`.
+ 3) Proceed with the operating loop and emit exactly one PATCHSET + Commit Message.
+ 
+ ---
+ 
+ ## Hotfix Trigger (no PATCHSET block; parity with Patch duties)
+@@
+ Notes:
+ - Accept `ACTIVATE: HOTFIX ENGINE` **or** the common misspelling `ACTIVATE: HOTFFIX ENGINE`.
+ - After triggering, the Hotfix flow must still:
+   - Bump Prompt timestamp/revision and record a concise bullet under **Last Repo Changes**.
+   - Update Tasklist (create a `HOTFIX:*` task if none exists; mark `DONE` with one-line outcome).
+   - Update any touched `ROUTER.md` and keep `masterroutetable.md` accurate.
+   - Add “Hotfix Notes / Questions” in Prompt.md if any risks or follow-ups exist.
++
++### Hotfix Tasks Trigger (prepare/advance tasks without a PATCHSET)
++Use this when the current Patch clipboard is stale or irrelevant but you need to set up actionable work:
++
++```
++ACTIVATE: HOTFIX TASKS
++```
++
++Behavior:
++- Perform the Hotfix Readiness Check (Tasklist/Prompt/NEXT/router/masterroutetable presence).
++- Create or update tasks directly in `Tasklist.md` and advance `ops/NEXT.yaml` to the next actionable `READY` task.
++- Record a brief bullet under **Last Repo Changes** describing the setup (e.g., “Primed T7.3 and advanced NEXT to T7.3”).
++- Do **not** emit a PATCHSET block; the next Patch/Hotfix run will execute the queued task(s).
+````
 
 # FILE: Tasklist.md
 
-```diff
+``diff
 @@
  ## Phase 7 — Meta & Router Hardening
-+- id: META.PATCHTEMPLATE.REFRESH
-+  title: Refresh Patch.md template with Refresh-Vision, Router sync, Hotfix notes
++- id: META.HOTFIX.READINESS
++  title: Add Hotfix readiness check + ACTIVATE: HOTFIX TASKS trigger
 +  status: DONE
 +  depends_on: []
 +  acceptance_criteria:
-+    - Patch.md includes Refresh-Vision fallback, Router banner/sync requirements, and Hotfix compatibility rules
-+    - Prompt.md records the change under “Last Repo Changes”
-+  notes: Outcome — Patch template now aligns with Hotfix Engine and router network discipline.
-```
++    - Patch.md documents Hotfix readiness audit and non-reliance on Patch.md’s PATCHSET
++    - Prompt.md documents the `ACTIVATE: HOTFIX TASKS` trigger and workflow
++    - Hotfix flow can scaffold missing meta/router stubs and record the setup in Tasklist/Prompt
++  notes: Outcome — Hotfix can operate independently from PATCHSET blocks while keeping Prompt/Tasklist/router updated.
+``
 
 <<<PATCHSET END>>>
 
@@ -390,22 +396,21 @@ Rules:
 **Commit Message**
 ```
 
-[META.PATCHTEMPLATE.REFRESH] Patch template: Refresh-Vision preflight, Router sync, Hotfix compatibility
+[META.HOTFIX.READINESS] Add Hotfix readiness audit, ACTIVATE: HOTFIX TASKS trigger, and non-reliance on Patch.md PATCHSET
 
 Why:
-To keep agents consistent across Patch and Hotfix flows, the Patch.md template must require router/banner updates, allow hotfix visibility, and spell out Refresh-Vision behavior (including restricted environments).
+Hotfix runs must succeed even when Patch.md’s PATCHSET is stale or irrelevant. They also need a clean way to prime/advance tasks without emitting a PATCHSET.
 
 Changes:
 
-* Patch.md: added Refresh-Vision fallback, Router banner/sync step, and Hotfix compatibility rules.
-* Prompt.md: bumped metadata and logged the template refresh.
-* Tasklist.md: recorded META task as DONE.
+* Patch.md: Added Hotfix readiness check, new `ACTIVATE: HOTFIX TASKS` trigger, and explicit rule to treat Patch.md’s PATCHSET as reference-only.
+* Prompt.md: Documented Hotfix Tasks trigger and the setup workflow; bumped metadata.
+* Tasklist.md: Logged META.HOTFIX.READINESS as DONE with acceptance notes.
 
 Acceptance:
 
-* Future PATCHSETs will always refresh vision, sync routers/master router, and remain compatible with Hotfix mode.
+* A human can trigger `ACTIVATE: HOTFIX ENGINE` or `ACTIVATE: HOTFIX TASKS`.
+* Hotfix performs a readiness audit, updates Prompt/Tasklist/router, and does not depend on Patch.md’s PATCHSET to proceed.
 
 ```
-
-If you also want me to fold the Router banner application script call into the template (e.g., “run `scripts/apply_router_banner.sh` whenever a ROUTER.md is touched”), I can tack that on too.
 ```

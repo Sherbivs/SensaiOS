@@ -233,12 +233,101 @@ describe("handleBattleActionButton - forfeit", () => {
     expect(announceSpy).toHaveBeenCalledWith({
       client: interaction.client,
       battle,
-  result: persistedResult,
+      result: persistedResult,
       updateLoserInteraction: expect.any(Function),
     });
     expect(interaction.update).toHaveBeenCalledWith({ content: "Forfeit recorded", components: [] });
 
     concludeSpy.mockRestore();
     announceSpy.mockRestore();
+  });
+});
+
+describe("concludeBattleWithVictory", () => {
+  it("persists an active battle and announces using stored result", async () => {
+    const battle = {
+      id: "battle-42",
+      state: "Active",
+      arenaThreadId: "thread-42",
+      p1: { id: "p1", discordId: "winner" },
+      p2: { id: "p2", discordId: "loser" },
+      logFull: null,
+    } as any;
+
+    const prisma = {
+      battle: {
+        findUnique: vi.fn().mockResolvedValue(battle),
+      },
+    } as any;
+
+    const client = { users: { fetch: vi.fn() }, channels: { fetch: vi.fn() } } as any;
+
+    const persisted = {
+      battleId: battle.id,
+      reason: "victory" as const,
+      turnCount: 3,
+      rewards: { winner: 59, loser: 12 },
+      winner: { userId: "p1", discordId: "winner" },
+      loser: { userId: "p2", discordId: "loser" },
+    };
+
+    const concludeSpy = vi
+      .spyOn(BattleRepo, "concludeBattle")
+      .mockResolvedValue(persisted);
+    const announceSpy = vi
+      .spyOn(concludeModule, "announceBattleResult")
+      .mockResolvedValue(undefined as any);
+
+    const result = await concludeModule.concludeBattleWithVictory({
+      client,
+      battleId: battle.id,
+      winner: "p1",
+      turnCount: 3,
+      fullLog: ["Turn 1", "Turn 2", "Turn 3"],
+      prisma,
+    });
+
+    expect(prisma.battle.findUnique).toHaveBeenCalledWith({
+      where: { id: "battle-42" },
+      include: { p1: true, p2: true },
+    });
+    expect(concludeSpy).toHaveBeenCalledWith({
+      prisma,
+      battle,
+      winner: "p1",
+      turnCount: 3,
+      reason: "victory",
+      logFull: ["Turn 1", "Turn 2", "Turn 3"],
+    });
+    expect(announceSpy).toHaveBeenCalledWith({
+      client,
+      battle,
+      result: persisted,
+      updateLoserInteraction: undefined,
+    });
+    expect(result).toBe(persisted);
+
+    concludeSpy.mockRestore();
+    announceSpy.mockRestore();
+  });
+
+  it("returns null when battle is missing or finished", async () => {
+    const prisma = {
+      battle: {
+        findUnique: vi.fn().mockResolvedValue({ id: "battle-x", state: "Finished" }),
+      },
+    } as any;
+
+    const result = await concludeModule.concludeBattleWithVictory({
+      client: { users: { fetch: vi.fn() }, channels: { fetch: vi.fn() } } as any,
+      battleId: "battle-x",
+      winner: "p2",
+      turnCount: 2,
+      fullLog: [],
+      prisma,
+    });
+
+    expect(prisma.battle.findUnique).toHaveBeenCalled();
+    expect(result).toBeNull();
   });
 });

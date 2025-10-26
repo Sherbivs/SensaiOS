@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T02:05:00Z
-Revision: 1.39
+Last Updated (UTC): 2025-10-26T03:30:00Z
+Revision: 1.40
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -525,17 +525,17 @@ Each task has:
 
 - id: T7.4
   title: Persist standard battle victories via BattleRepo
-  status: READY
+  status: DONE
   depends_on: [T7.3]
   acceptance_criteria:
     - Non-forfeit battle conclusions call BattleRepo.concludeBattle with real turn counts and full logs.
     - Arena thread and DM announcements reuse the stored result payload for victory cases.
     - Tests cover a scripted victory path persisting rewards and messaging.
-  notes: Focus on wiring the existing battle engine output into persistence so both trainers receive stored summaries.
+  notes: Outcome — `concludeBattleWithVictory` loads active battles, persists via BattleRepo with turn logs, and reuses the stored result for DM/Arena announcements; Vitest covers the flow.
 
 - id: T7.5
   title: Surface recent battle results to admins
-  status: PROPOSED
+  status: READY
   depends_on: [T7.4]
   acceptance_criteria:
     - `/ops stats` (or a sibling subcommand) lists at least the five most recent finished battles with winner/loser + rewards.

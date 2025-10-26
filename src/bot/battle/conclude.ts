@@ -1,9 +1,13 @@
 import type { Client } from "discord.js";
+import type { PrismaClient } from "@prisma/client";
 import type { BattleResultRecord, BattleWithPlayers } from "../../models/index.js";
+import { BattleRepo, prisma as prismaClient } from "../../models/index.js";
 import { buildBattleResultDMMessages, buildBattleResultThreadMessage } from "../arena/summary.js";
 
 type DiscordClientLike = Pick<Client, "users" | "channels">;
 type UpdateLoserInteraction = (content: string) => Promise<void>;
+
+type PrismaLike = PrismaClient;
 
 async function dmParticipant(client: DiscordClientLike, discordId: string, message: string) {
 	try {
@@ -50,4 +54,61 @@ export async function announceBattleResult(opts: {
 		const threadMessage = buildBattleResultThreadMessage(result);
 		await postToArenaThread(client, battle.arenaThreadId, threadMessage);
 	}
+}
+
+function sanitizeTurnCount(turnCount: number, fallbackTurns: number) {
+	if (!Number.isFinite(turnCount)) {
+		return fallbackTurns > 0 ? Math.max(1, Math.floor(fallbackTurns)) : 1;
+	}
+	const normalized = Math.max(0, Math.floor(turnCount));
+	if (normalized <= 0) {
+		return fallbackTurns > 0 ? Math.max(1, Math.floor(fallbackTurns)) : 1;
+	}
+	return normalized;
+}
+
+async function loadBattle(prisma: PrismaLike, battleId: string): Promise<BattleWithPlayers | null> {
+	return prisma.battle.findUnique({ where: { id: battleId }, include: { p1: true, p2: true } }) as any;
+}
+
+function normalizeFullLog(log: unknown): string[] {
+	if (!Array.isArray(log)) return [];
+	return log.map((entry) => String(entry));
+}
+
+export async function concludeBattleWithVictory(opts: {
+	client: DiscordClientLike;
+	battleId: string;
+	winner: "p1" | "p2";
+	turnCount: number;
+	fullLog: unknown;
+	prisma?: PrismaLike;
+	updateLoserInteraction?: UpdateLoserInteraction;
+}): Promise<BattleResultRecord | null> {
+	const prisma = opts.prisma ?? prismaClient;
+	const battle = await loadBattle(prisma, opts.battleId);
+	if (!battle || battle.state !== "Active") {
+		return null;
+	}
+
+	const logFull = normalizeFullLog(opts.fullLog);
+	const turnCount = sanitizeTurnCount(opts.turnCount, logFull.length);
+
+	const result = await BattleRepo.concludeBattle({
+		prisma,
+		battle,
+		winner: opts.winner,
+		turnCount,
+		reason: "victory",
+		logFull,
+	});
+
+	await announceBattleResult({
+		client: opts.client,
+		battle,
+		result,
+		updateLoserInteraction: opts.updateLoserInteraction,
+	});
+
+	return result;
 }
