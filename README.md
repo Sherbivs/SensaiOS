@@ -6,44 +6,43 @@ live-service economy powered by workers and data pipelines.
 
 ## Current Status & Goals
 
-- **Where we are:** The TypeScript bot stack (DM Home, Wilds, Arena, admin ops) runs end-to-end on Prisma-backed Postgres with automated data refresh and guardrails documented in Patch.md/Tasklist.md.
-- **Recent wins:** Admin `/ops stats` now supports scoped filtering (limit, after, participant) with Vitest coverage; hotfix loop enforces plain-text echo narration so automation logs stay readable.
-- **Immediate focus:** Promote the next persistence backlog item (Phase 7) and expand battle reporting while keeping router metadata and meta docs synchronized.
-- **Near horizon:** Harden deployment/worker automation, finalize dual-mode routing (prod vs dev), and prep for broader playtesting in Discord guilds.
+- **Current build:** The TypeScript bot stack (DM Home, Wilds, Arena, admin ops) runs on Prisma-backed Postgres with Render-ready workers and guarded automation.
+- **Recent wins:** Admin `/ops stats` now filters by limit/after/participant; hotfix policies require plain-text echoes so audit trails remain readable; meta docs are fully synchronized.
+- **Short-term focus:** Promote the next persistence backlog item (Phase 7) to deepen battle reporting while maintaining router metadata parity.
+- **Near horizon:** Split production vs. development routing tables, tighten deployment automation, and prepare structured guild playtests.
+
+## Architecture Snapshot
+
+- **Discord Bot Layer:** `src/bot/**` manages slash commands, DM experiences, arena threads, ops tooling, and router-driven routing metadata.
+- **Core Engine:** `src/core/**` executes deterministic battle and encounter logic, keeping shared math and status systems separate from the Discord layer.
+- **Data & Persistence:** Prisma schema (`prisma/schema.prisma`) persists trainers, parties, encounters, and battles; worker scripts refresh cached reference data under `/data`.
+- **Automation & Guardrails:** `Patch.md`, `Tasklist.md`, and `Prompt.md` define the contract; scripts in `/ops` and `/scripts` enforce Refresh Vision, router indexes, and contract version gates.
 
 ## Key Capabilities
 
-- **DM-as-Home:** `/home`, heal, starter selection, party + box management, player
-   profile, and drip alerts are coordinated by `src/bot/dm/**`.
-- **Wild Encounters:** `/walk` creates public threads in `#wilds`, while DM controls let
-   trainers throw balls, swap leads, or run. Logic lives in `src/bot/wilds/**` and
-   `src/core/encounter/**`.
-- **Arena Battles:** `/battle challenge` spins up public arena threads and private DM
-   action menus. Engine code is in `src/core/battle/**` and front-of-house interactions in
-   `src/bot/battle/**`.
-- **Persistent Data:** Prisma models (`prisma/schema.prisma`) back a Postgres database;
-   cached reference data ships from the worker via `scripts/fetch_pokemon.mjs` and
-   `scripts/build-data.js`.
-- **Operational Automation:** Render workers run the cache refresh pipeline
-   (`scripts/worker.mjs` + Render Jobs client) and guard scripts keep the repo’s task
-   graph + contract in sync.
+- **DM-as-Home:** `/home`, heal, starter selection, party/box management, player profile, and drip alerts all originate in `src/bot/dm/**` with shared UI helpers.
+- **Wild Encounters:** `/walk` spawns public `#wilds` threads while DM controls handle throws, swaps, and escapes via `src/bot/wilds/**` plus `src/core/encounter/**` mechanics.
+- **Arena Battles:** `/battle challenge` coordinates arena threads, DM menus, and announcer summaries; Discord orchestration lives in `src/bot/battle/**`, while resolution flows through `src/core/battle/**`.
+- **Admin Operations:** `/ops` exposes cooldown reset tools and stats auditing (with limit/after/participant filters) so staff validate battle throughput without direct DB access.
+- **Persistence & Data:** Prisma schema (`prisma/schema.prisma`) keeps trainer state; cached PokéAPI reference data is refreshed through `scripts/fetch_pokemon.mjs` and `scripts/build-data.js`.
+- **Automation:** Render workers and guard scripts enforce Refresh Vision, router hygiene, contract version gates, and Tasklist coupling to keep the repo deterministic.
 
 ## Repository Layout
 
 ```
-├─ src/                    # TypeScript source (bot, core engine, data pipeline)
-│  ├─ bot/                 # Discord interactions (DM, wilds, arena, ops)
-│  ├─ core/                # Battle + encounter logic
+├─ src/                    # TypeScript source (bot, core engines, data pipeline)
+│  ├─ bot/                 # Discord interactions (DM, wilds, arena, ops, alerts)
+│  ├─ core/                # Deterministic battle + encounter logic
 │  ├─ data_pipeline/       # Fetch + normalize PokéAPI payloads
-│  ├─ shared/              # Config, logging, utilities, Prisma client
-│  └─ index.ts             # Main boot entry (ensures DB + Discord bootstrap)
-├─ scripts/                # Operational tooling (refresh vision, cache jobs, guards)
-├─ tests/                  # Vitest suites for battle engine, encounters, ops, etc.
+│  ├─ shared/              # Config, logging, Prisma helpers, shared utils
+│  └─ index.ts             # Boot entry (Discord + Prisma wiring)
+├─ scripts/                # Automation (refresh vision, data jobs, guards, workers)
+├─ tests/                  # Vitest suites for core engines, pipeline, ops, UI
 ├─ prisma/schema.prisma    # Database schema for persistent state
-├─ ops/                    # Meta governance (NEXT pointer, Tasklist, routers)
-├─ data/                   # Cached reference data shards checked into the repo
-├─ discord-pokemon-bot/    # Legacy standalone bot (kept for reference)
-└─ README.md               # You are here — high-level project overview
+├─ ops/                    # Meta governance: Tasklist, routers, NEXT, hotfix plan
+├─ data/                   # Cached reference data shards checked in by workers
+├─ discord-pokemon-bot/    # Legacy JavaScript bot (historical reference only)
+└─ README.md               # This guide
 ```
 
 Legacy JavaScript code paths (`src/bot/main.js`, `security-bot.js`, the
@@ -62,82 +61,72 @@ Optional services:
 - Render Jobs API token (for automated data refresh)
 - GitHub token with `contents:write` if you mirror data snapshots to another repo
 
-## Quick Start (Development)
+## Getting Started (Development)
 
 1. Install dependencies:
-    ```powershell
-    npm install
-    ```
-2. Copy `.env.example` (if available) or set env vars in your shell. Minimum:
-    ```powershell
-    $env:DATABASE_URL="postgresql://user:pass@localhost:5432/gauntlet"
-    $env:DISCORD_BOT_TOKEN="your_discord_token"
-    ```
-3. Apply Prisma migrations / generate client:
-    ```powershell
-    npx prisma migrate deploy
-    npm run build:ci  # or npm run build
-    ```
-4. Launch the bot in watch mode:
-    ```powershell
-    npm run dev
-    ```
+   ```powershell
+   npm install
+   ```
+2. Configure environment variables (or copy an `.env` template):
+   ```powershell
+   $env:DATABASE_URL="postgresql://user:pass@localhost:5432/gauntlet"
+   $env:DISCORD_BOT_TOKEN="your_discord_token"
+   ```
+   Optional: supply `POKE_RENDER_SERVICE_ID`, `POKE_REFRESH_CRON`, or other automation flags as needed.
+3. Apply Prisma migrations and generate the client:
+   ```powershell
+   npx prisma migrate deploy
+   npm run build:ci  # or npm run build
+   ```
+4. Run the bot in watch mode:
+   ```powershell
+   npm run dev
+   ```
 
-The TypeScript entry point (`src/index.ts`) checks database connectivity, then boots the
-Discord bot. Interactions are slash-first; Message Content intent is not required.
+`src/index.ts` verifies database connectivity before logging in to Discord. All
+interactions are slash-based, so the Message Content intent is not required.
 
-### Testing & Tooling
+### Common Dev Commands
 
-- Run unit/integration tests: `npm test`
-- Lint the project: `npm run lint`
-- Build for production: `npm run build`
-- Generate cached Pokémon data: `npm run data:build`
-- Refresh routers + meta state before selecting tasks: `npm run refresh:vision`
-- Trim historical Tasklist entries (keeps latest 100 DONE): `npm run tasks:archive`
+- Test suites: `npm test`
+- Linting: `npm run lint`
+- Production build: `npm run build`
+- Refresh cached Pokémon data: `npm run data:build`
+- Refresh Vision (routers + recovery metadata): `npm run refresh:vision`
+- Archive older Tasklist DONE entries: `npm run tasks:archive`
 
 ## Data Pipeline & Workers
 
-Reference data is mirrored into `/data` by the worker scripts:
+Reference data is mirrored into `/data` via scripted jobs:
 
 - `scripts/fetch_pokemon.mjs` pulls fresh PokéAPI payloads.
-- `scripts/build-data.js` normalizes and shards JSON for the bot.
-- `scripts/worker.mjs` orchestrates refresh jobs when running inside Render.
-- `scripts/render_job_client.mjs` + `worker_trigger_job.mjs` dispatch and monitor Render
-   Jobs invocations.
+- `scripts/build-data.js` normalizes and shards JSON for the bot runtime.
+- `scripts/worker.mjs` coordinates refresh jobs when running inside Render.
+- `scripts/render_job_client.mjs` and `worker_trigger_job.mjs` dispatch/monitor Render Job executions.
 
-Configure Render with `render.yaml`. By default the worker queues a refresh job on boot
-and also honors `POKE_REFRESH_CRON` / `POKE_REFRESH_TZ`.
+`render.yaml` wires build and run commands for Render services. On boot the worker queues a refresh job and respects `POKE_REFRESH_CRON` / `POKE_REFRESH_TZ` for scheduled updates.
 
 ## Deployment Notes
 
-1. Ensure build steps include:
-    ```bash
-    npm ci
-    npm run build
-    npm run data:build
-    ```
-2. Required env vars in production:
-    - `DATABASE_URL`
-      - When deploying on Render, the provided `render.yaml` now provisions a managed Postgres
-        instance (`infinity-gauntlet-db`) and wires both `DATABASE_URL` and
-        `DATABASE_INTERNAL_URL` from the database resource via `fromDatabase`
-        mappings. This matches Render's background worker guidance so every service
-        (web, workers, cron) sees the connection string without manual secrets.
-    - `DISCORD_BOT_TOKEN` (or `POKEMON_BOT_TOKEN` fallback)
-    - Render-specific variables if using the job dispatcher (`POKE_RENDER_SERVICE_ID`,
-       `POKE_REFRESH_CRON`, etc.)
-3. Optional governance flags (see `src/config/env.js`) let you tune rate limits, alerts,
-    and remediation behaviors.
+1. Build commands:
+   ```bash
+   npm ci
+   npm run build
+   npm run data:build
+   ```
+2. Required environment variables:
+   - `DATABASE_URL` (Render’s `render.yaml` provisions a managed Postgres instance and surfaces both `DATABASE_URL` and `DATABASE_INTERNAL_URL` via `fromDatabase` mappings.)
+   - `DISCORD_BOT_TOKEN` (or legacy `POKEMON_BOT_TOKEN` fallback)
+   - Optional Render job variables (`POKE_RENDER_SERVICE_ID`, `POKE_REFRESH_CRON`, etc.)
+3. Additional feature flags in `src/config/env.js` tune rate limits, alerts, and remediation behaviors.
 
-## Operational Playbook
+## Operational Guardrails & Meta Workflow
 
-- `scripts/refresh_vision.sh` — regenerate router index, stamp recovery metadata, and
-   keep Prompt.md’s ledger fresh.
-- `scripts/guard_meta.sh` — CI hook enforcing Tasklist + Prompt coupling.
-- `scripts/archive_task_history.mjs` — archive old Tasklist DONE entries to
-   `ops/ARCHIVE/`.
-- `ops/RECOVERY.yaml` — tracks the last attempted task so the activation trigger can
-   resume safely.
+- `scripts/refresh_vision.sh` regenerates router indexes, stamps recovery metadata, and refreshes Prompt.md’s change ledger.
+- `scripts/guard_meta.sh` enforces Prompt/Tasklist coupling and checks router hygiene during CI.
+- `scripts/archive_task_history.mjs` trims Tasklist history to the latest 100 DONE entries by archiving to `ops/ARCHIVE/`.
+- `ops/RECOVERY.yaml` and `ops/NEXT.yaml` coordinate the next actionable task, ensuring deterministic resumes across workers.
+- `ops/HOTFIX_PLAN.yaml` defines the hotfix queue and bootstrap template for emergency work outside the PATCH loop.
 
 ## Legacy Bots (Reference Only)
 
@@ -147,3 +136,10 @@ and also honors `POKE_REFRESH_CRON` / `POKE_REFRESH_TZ`.
 
 They are not part of the TypeScript production path but remain for historical context
 and potential future migrations.
+
+## Roadmap Highlights
+
+- **Phase 7 Persistence:** Continue shipping battle-result analytics and participant audits with expanded Vitest coverage.
+- **Dual Routing Layers:** Introduce separate prod vs. dev router networks with a shared `DNS.md` index for two-way navigation.
+- **Operational Hardening:** Automate Render deployment guardrails and broaden Refresh Vision telemetry.
+- **Community Playtests:** Stage structured Discord guild sessions once arena persistence and reporting meet admin requirements.

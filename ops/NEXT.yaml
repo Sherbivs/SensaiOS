@@ -11,15 +11,15 @@ guidance_when_none: |
 
 next_task_id: NONE
 reason: >
-  Participant filtering for `/ops stats` shipped under T7.7. No READY tasks
-  remain; promote the next persistence follow-up before resuming the loop.
+  README refresh completed; no READY tasks remain. Promote the next persistence or
+  routing follow-up before resuming the loop.
 
 files_hint: []
 
-timestamp_utc: 2025-10-26T06:45:00Z
+timestamp_utc: 2025-10-26T07:30:00Z
 router_version: 1
-last_notes_read_utc: 2025-10-26T06:45:00Z
-note: "T7.7 delivered participant filtering. Stage the next persistence backlog item (e.g., T7.8) and update this pointer once READY."
+last_notes_read_utc: 2025-10-26T07:30:00Z
+note: "README now reflects project status/roadmap. Queue remains idle until a new task is staged."
 
 # Advisory flag read by guard scripts; safe to ignore if unsupported
 auto_requeue_if_none: true

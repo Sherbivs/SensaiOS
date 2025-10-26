@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T07:05:00Z
-Revision: 1.49
+Last Updated (UTC): 2025-10-26T07:30:00Z
+Revision: 1.50
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -65,6 +65,16 @@ Each task has:
     - Setup instructions cover prerequisites, environment variables, scripts, and deployment basics.
     - Legacy JavaScript bots are clearly marked as historical context.
   notes: Outcome — README now describes the current Infinity Gauntlet stack, scripts, and operational workflow; legacy security bot text removed.
+
+- id: META.README.REFRESH2
+  title: Refresh README with current status and roadmap
+  status: DONE
+  depends_on: [META.README.REFRESH]
+  acceptance_criteria:
+    - README documents the live project status, architecture snapshot, and roadmap milestones.
+    - Development, deployment, and operational guardrail guidance is up to date.
+    - Tasklist.md and Prompt.md metadata reflect the refresh.
+  notes: Outcome — README now captures status/goals, architecture snapshot, dev workflow, ops guardrails, and roadmap highlights.
 
 - id: META.REFRESH_VISION.REMOTE
   title: Add remote reachability & recovery stamps to Refresh Vision
