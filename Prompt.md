@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T04:40:00Z
-Revision: 0.58
+Timestamp (UTC): 2025-10-26T05:45:00Z
+Revision: 0.60
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,18 +10,17 @@ Revision: 0.58
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/bot/ops/admin.ts` — Added limit/after filters, total-finished header, and graceful validation for `/ops stats`.
-> - `tests/ops.spec.ts` — Expanded coverage for filtered results, empty windows, and no-DB fallback.
-> - `src/commands/ops.js` — Registered optional `limit` and `after` arguments for the admin stats slash command.
-> - `src/bot/ROUTER.md`, `tests/ROUTER.md`, `ops/ROUTER_INDEX.yaml`, `masterroutetable.md` — Updated routing metadata to reference the new admin reporting filters.
-> - `Prompt.md`, `Tasklist.md`, `ops/NEXT.yaml`, `ops/RECOVERY.yaml` — Logged T7.6 completion, added T7.7 as the next admin-reporting follow-up, and repointed NEXT to the remaining READY task.
+> - `Patch.md` — Embedded PATCHSET Echo instructions now require Markdown list formatting for audit readability.
+> - `Prompt.md` — Echo block switched to Markdown bullets; metadata updated.
+> - `tasklist.md`, `ops/HOTFIX_PLAN.yaml`, `ops/RECOVERY.yaml` — Logged hotfix HF.20251026.PATCH_ECHO_MD completion and refreshed hotfix bookkeeping.
+> - `ops/ROUTER.md`, `ops/ROUTER_INDEX.yaml` — Timestamped ops router after the hotfix meta updates.
 > - Tests: Not run (npm unavailable in this environment).
 
 <!-- PATCHSET:ECHO BEGIN -->
 NO-ECHO-REASON: Unable to capture git diff/commit text in this VFS environment; summarizing instead.
 TasklistDiff: true
-- T7.6 — `/ops stats` now supports limit/after filters with totals header; Vitest covers filtered, empty-window, and fallback scenarios.
-- NEXT → HF.BROKEN.TASKFLOW — Remaining READY item focuses on hotfix bootstrap safeguards.
+- HF.20251026.PATCH_ECHO_MD — Patch.md now mandates Markdown lists in the echo; Prompt.md block follows the rule.
+- NEXT pointer — Remains NONE; promote the next READY feature/meta task before resuming.
 <!-- PATCHSET:ECHO END -->
 
 ## Activation Trigger for AI Workers
@@ -49,6 +48,8 @@ Workflow mirrors the Patch Engine but restricts edits to `ops/HOTFIX_PLAN.yaml` 
 
 | Date (UTC) | Change | Impact |
 | --- | --- | --- |
+| 2025-10-26 | HF.20251026.PATCH_ECHO_MD enforced Markdown formatting in PATCHSET echo. | Patch.md now requires list markers and Prompt.md implements the guidance for quick audits. |
+| 2025-10-26 | HF.BROKEN.TASKFLOW documented hotfix bootstrap template. | Hotfix engine can seed READY tasks via ops/HOTFIX_PLAN.yaml; NEXT/RECOVERY reflect the new guidance. |
 | 2025-10-26 | T7.6 added filters to admin battle summaries. | `/ops stats` now supports limit/after filters, reports total finished battles, and validates inputs with expanded Vitest coverage. |
 | 2025-10-26 | T7.5 surfaced recent battle results to admins. | `/ops stats` now reports counts and the latest finished battles (winner/loser, rewards) using persisted results with Vitest coverage. |
 | 2025-10-26 | HOTFIX.ROUTER.DOC referenced the Standardized game-logic doc in router metadata. | Hotfix added router stub + master router table for readiness; meta files stamped for traceability. |

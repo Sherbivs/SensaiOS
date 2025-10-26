@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T04:40:00Z
-Revision: 1.43
+Last Updated (UTC): 2025-10-26T05:45:00Z
+Revision: 1.45
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -473,13 +473,22 @@ Each task has:
 
 - id: HF.BROKEN.TASKFLOW
   title: Fix “no READY tasks” bootstrap by ensuring a hotfix pointer can create/ready tasks
-  status: READY
+  status: DONE
   depends_on: [META.HOTFIX.SYSTEM]
   acceptance_criteria:
     - Hotfix flow can add a minimal READY task when Tasklist is empty/all DONE
     - Prompt “Last Repo Changes” reflects the hotfix outcome
     - RECOVERY stamped with last_hotfix_id & timestamp
-  notes: Use ACTIVATE: HOTFIX ENGINE; targets: Tasklist.md, ops/NEXT.yaml, Prompt.md, ops/RECOVERY.yaml.
+  notes: Outcome — ops/HOTFIX.md and ops/HOTFIX_PLAN.yaml now document a bootstrap template so the hotfix engine can seed a READY HF.* task when the graph was empty; NEXT/RECOVERY reset accordingly.
+
+- id: HF.20251026.PATCH_ECHO_MD
+  title: Clarify PATCHSET Echo markdown formatting
+  status: DONE
+  depends_on: [META.HOTFIX.SYSTEM]
+  acceptance_criteria:
+    - Patch.md explicitly states the Embedded PATCHSET Echo must use Markdown list markers.
+    - Prompt.md echo block for the latest change uses Markdown bullet formatting.
+  notes: Outcome — Hotfix updated Patch.md guidance and Prompt.md implementation so audit echoes stay consistently formatted.
 
 - id: HOTFIX:SETUP.ROUTER_TABLE
   title: Scaffold master router table stub for hotfix readiness

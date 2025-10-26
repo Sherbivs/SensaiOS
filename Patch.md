@@ -98,6 +98,7 @@ Hotfix commits still **must** bump Prompt.md and update Tasklist.md.
 - The echo must contain either:
   1) The exact PATCHSET and Commit Message just applied (verbatim), including the HEAD short SHA, or
   2) A one-line justification starting with `NO-ECHO-REASON:` explaining why the echo is omitted (e.g., secrets, large binaries), followed by a brief summary.
+- Format the echo contents using Markdown list markers (e.g., `-` or numbered lists) so humans can scan changes quickly.
 - If the echo cannot be produced, stop and add a PROPOSED meta task to fix echo generation.
   - When code paths are modified, add a single line in this block with `TasklistDiff: true|false` so humans can quickly audit coupling coverage.
 

@@ -1,15 +1,18 @@
 # HOTFIX POINTER — Single-file pointer for the current urgent fix.
 # The Hotfix Engine reads this instead of relying on Patch.md/PATCHSET blocks.
-hotfix_task_id: HOTFIX.ROUTER.DOC
+hotfix_task_id: NONE
 reason: >
-  Router metadata lacked a reference to the Standardized Pokemon Game Logic
-  document. Hotfix adds the doc to ops/ROUTER.yaml and records the change in
-  meta files for traceability.
-files_hint:
-  - "ops/ROUTER.yaml"
-  - "tasklist.md"
-  - "Prompt.md"
-  - "ops/RECOVERY.yaml"
-  - "masterroutetable.md"
-timestamp_utc: 2025-10-26T03:50:00Z
-note: "Completed via ACTIVATE: HOTFIX ENGINE — router now tracks the Standardized game-logic reference doc. Update plan again if new urgent issues arise."
+  No active hotfix. Use the bootstrap_template below to seed an emergency task
+  when production requires immediate attention.
+files_hint: []
+timestamp_utc: 2025-10-26T05:45:00Z
+note: "Completed HF.20251026.PATCH_ECHO_MD (Markdown echo guidance); hotfix queue idle."
+bootstrap_template:
+  id: "HF.<YYYYMMDD>.<short_slug>"
+  title: "Emergency fix: <summary>"
+  status: "READY"
+  depends_on: []
+  acceptance_criteria:
+    - "Describe the minimal observable fix required for production stability."
+    - "List the files or subsystems involved (keep tight)."
+  notes: "Record the triggering incident and any follow-up TODOs once the system is stable."

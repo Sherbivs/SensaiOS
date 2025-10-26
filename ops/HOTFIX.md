@@ -23,7 +23,7 @@ Operating Loop (Hotfix)
    - `ops/ROUTER_INDEX.yaml` -> discover routed areas
    - `ops/INBOX/notes.md` -> if newer than `ops/RECOVERY.yaml:last_notes_read_utc`, ingest & stamp
    - `ops/HOTFIX_PLAN.yaml` -> get `hotfix_task_id`, `reason`, `files_hint`
-   - `Tasklist.md` -> validate the task exists; auto-create if missing (prefixed `HF.`) with status `READY`
+   - `Tasklist.md` -> validate the task exists; auto-create if missing (prefixed `HF.`) with status `READY`. When the graph has **no READY entries at all**, seed a fresh hotfix task using the bootstrap template in `ops/HOTFIX_PLAN.yaml` before touching runtime files.
    - `ops/TOUCHMAP.yaml` -> ensure edits stay within allowed globs (hotfix may temporarily extend)
 2) **Execute**
    - Apply **direct, minimal edits** to the files in `files_hint` (no PATCHSET block).
@@ -39,6 +39,15 @@ Operating Loop (Hotfix)
    - Include Why / Changes / Acceptance, similar to standard commit template.
 5) **Exit**
    - If further work is needed, add a normal task to `Tasklist.md` and set `ops/NEXT.yaml` accordingly.
+
+## Hotfix Bootstrap Template
+- Copy `bootstrap_template` from `ops/HOTFIX_PLAN.yaml` whenever `Tasklist.md` lacks a READY hotfix entry.
+- Replace `<short_slug>` with a terse summary (e.g., `db-lock`, `discord-rate-limit`).
+- Stamp the new task directly under the relevant phase with:
+  1. `status: READY`
+  2. Minimal acceptance criteria describing the urgent fix
+  3. A short note referencing the triggering incident
+- Update `ops/NEXT.yaml` so the hotfix task becomes the active pointer and proceed with the Hotfix Loop above.
 
 Guards & Coupling
 - Hotfix commits **must** update `Prompt.md` and `Tasklist.md`. Omission fails CI (`guard-meta`).
