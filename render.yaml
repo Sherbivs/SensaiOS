@@ -8,10 +8,11 @@ services:
   # New web service for the compiled bot (fixes missing npm start by running dist output)
   - type: web
     name: infinity-gauntlet-bot
-    env: node
+    runtime: node
     buildCommand: npm install --include=dev && npm run prebuild
     startCommand: npm start
     autoDeploy: true
+    plan: starter
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -23,7 +24,7 @@ services:
   # Existing worker (left intact)
   - type: worker
     name: infinity-gauntlet
-    env: node
+    runtime: node
     buildCommand: npm install --include=dev && npm run prebuild
     startCommand: npm start
     autoDeploy: true
