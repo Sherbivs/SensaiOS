@@ -48,6 +48,7 @@ import { checkAndSet } from '../lib/cooldown.js';
 // Escalate CLI warnings if sweeps lag and keep idle background cadence predictable.
 const CLI_SWEEP_WARNING_THRESHOLD_SECONDS = 5 * 60;
 const CONTINUOUS_SWEEP_IDLE_DELAY_MS = 15_000;
+const MEMBER_STATS_REFRESH_INTERVAL_MS = 60_000;
 
 // Warm the disk cache on boot so CLI telemetry reflects current assignments.
 cache.cleanOldCache();
@@ -105,6 +106,7 @@ const securityCliState = {
   totalFailures: 0,
   lastAlertSentAt: null,
   lastAlertMessage: null,
+  memberStats: null,
 };
 
 const continuousSweepState = {
@@ -117,6 +119,8 @@ const pendingOpsErrorQueue = [];
 const deliveredOpsErrorIds = new Set();
 let deliveringOpsErrors = false;
 let opsErrorRetryTimer = null;
+let memberStatsInterval = null;
+let memberStatsRefreshing = false;
 
 function isClientReady() {
   if (typeof client.isReady === 'function') {
@@ -173,6 +177,123 @@ function describeMomentForCli(value) {
   return `${date.toLocaleString()} (${relative})`;
 }
 
+async function refreshMemberStats(reason = 'unspecified') {
+  if (memberStatsRefreshing || !isClientReady()) {
+    return;
+  }
+
+  memberStatsRefreshing = true;
+  try {
+    const snapshot = {
+      totalMembers: 0,
+      totalWithRole: 0,
+      guilds: [],
+      updatedAt: new Date(),
+      partial: false,
+      reason,
+    };
+
+    for (const [, guild] of client.guilds.cache) {
+      const guildSummary = describeGuild(guild);
+      const memberCount = Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size;
+      let roleCount = 0;
+      let complete = false;
+      const role = findRole(guild);
+
+      if (role) {
+        if (role.members && role.members.size > 0) {
+          roleCount = role.members.size;
+          complete = guild.members.cache.size === memberCount || memberCount === 0;
+        } else if (guild.members.cache.size > 0 && (memberCount === 0 || guild.members.cache.size === memberCount)) {
+          roleCount = guild.members.cache.filter((member) => member.roles.cache.has(role.id)).size;
+          complete = true;
+        } else if (typeof role.memberCount === 'number') {
+          roleCount = role.memberCount;
+          complete = true;
+        } else if (memberCount > 0 && memberCount <= 1000) {
+          try {
+            await guild.members.fetch();
+            roleCount = guild.members.cache.filter((member) => member.roles.cache.has(role.id)).size;
+            complete = true;
+          } catch (err) {
+            log('warn', 'Member fetch failed while refreshing role coverage', mergeLogError({
+              guild: guildSummary,
+              reason,
+            }, err));
+          }
+        }
+      }
+
+      if (!complete && role) {
+        snapshot.partial = true;
+      }
+
+      snapshot.totalMembers += memberCount;
+      snapshot.totalWithRole += roleCount;
+      snapshot.guilds.push({
+        guildId: guild.id,
+        guild: guildSummary,
+        memberCount,
+        roleCount,
+        complete,
+      });
+    }
+
+    securityCliState.memberStats = snapshot;
+    updateSecurityCliSection({});
+  } catch (error) {
+    log('warn', 'Failed to refresh member statistics', mergeLogError({ reason }, error));
+  } finally {
+    memberStatsRefreshing = false;
+  }
+}
+
+function bumpRoleMemberCount(guild, delta = 1) {
+  if (!guild || !Number.isFinite(delta) || delta === 0) {
+    return;
+  }
+  const stats = securityCliState.memberStats;
+  const updatedAt = new Date();
+  if (!stats) {
+    securityCliState.memberStats = {
+      totalMembers: Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size,
+      totalWithRole: Math.max(0, delta),
+      guilds: [{
+        guildId: guild.id,
+        guild: describeGuild(guild),
+        memberCount: Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size,
+        roleCount: Math.max(0, delta),
+        complete: false,
+      }],
+      updatedAt,
+      partial: true,
+      reason: 'incremental-update',
+    };
+    updateSecurityCliSection({});
+    return;
+  }
+
+  stats.totalWithRole = Math.max(0, stats.totalWithRole + delta);
+  stats.updatedAt = updatedAt;
+  stats.partial = true;
+  let entry = stats.guilds.find((item) => item.guildId === guild.id);
+  if (!entry) {
+    entry = {
+      guildId: guild.id,
+      guild: describeGuild(guild),
+      memberCount: Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size,
+      roleCount: 0,
+      complete: false,
+    };
+    stats.guilds.push(entry);
+  }
+  entry.guild = describeGuild(guild);
+  entry.memberCount = Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size;
+  entry.roleCount = Math.max(0, entry.roleCount + delta);
+  entry.complete = false;
+  updateSecurityCliSection({});
+}
+
 function updateSecurityCliSection(overrides = {}) {
   Object.assign(securityCliState, overrides);
   const metrics = [];
@@ -214,6 +335,24 @@ function updateSecurityCliSection(overrides = {}) {
   metrics.push(['assigned total', securityCliState.totalAssignments]);
   if (securityCliState.totalFailures > 0) {
     metrics.push(['failed total', securityCliState.totalFailures]);
+  }
+
+  if (securityCliState.memberStats) {
+    const stats = securityCliState.memberStats;
+    const coverageRatio = stats.totalMembers > 0 ? stats.totalWithRole / stats.totalMembers : 0;
+    metrics.push(['role coverage', `${stats.totalWithRole}/${stats.totalMembers || 0}`]);
+    metrics.push(['coverage %', `${(coverageRatio * 100).toFixed(coverageRatio >= 0.1 ? 1 : 2)}%${stats.partial ? ' (est)' : ''}`]);
+    const guildSummaryParts = stats.guilds
+      .slice(0, 3)
+      .map((entry) => {
+        const suffix = entry.complete ? '' : ' (est)';
+        const memberTotal = entry.memberCount || 0;
+        return `${entry.roleCount}/${memberTotal} ${entry.guild}${suffix}`;
+      });
+    if (guildSummaryParts.length > 0) {
+      metrics.push(['top guilds', guildSummaryParts.join(' | ')]);
+    }
+    metrics.push(['members updated', describeMomentForCli(stats.updatedAt)]);
   }
 
   if (securityCliState.lastAlertSentAt) {
@@ -277,6 +416,7 @@ function completeSecuritySweep({ startedAt, assigned = 0, failed = 0, candidates
     totalAssignments: securityCliState.totalAssignments + Math.max(0, assigned),
     totalFailures: securityCliState.totalFailures + Math.max(0, failed),
   });
+  void refreshMemberStats('sweep complete');
 }
 
 function safeSerialize(value, limit = 1800) {
@@ -1098,6 +1238,7 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
       guild: guildSummary,
       member: memberSummary,
     });
+    bumpRoleMemberCount(member.guild, 1);
     cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
   } catch (error) {
     const hint = (error && (String(error.message).includes('Missing Permissions') || error.code === 50013))
@@ -1205,6 +1346,7 @@ async function sweepGuild(guild, origin) {
             guild: guildSummary,
             member: describeMember(member),
           });
+          bumpRoleMemberCount(member.guild, 1);
           cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
         } catch (error) {
           failed += 1;
@@ -1432,6 +1574,7 @@ client.once(Events.ClientReady, async () => {
   }
   updateSecurityCliSection({ status: `Ready as ${client.user.tag}` });
   updateMonitoringPhase();
+  await refreshMemberStats('ready');
   await notifyServiceRestart();
   scheduleDailySummaryReports();
   if (dripAlertManager) {
@@ -1507,6 +1650,15 @@ client.once(Events.ClientReady, async () => {
         await fixGuildRoles(guild);
       }
     }, remMs);
+  }
+
+  if (!memberStatsInterval) {
+    memberStatsInterval = setInterval(() => {
+      if (isClientReady()) {
+        void refreshMemberStats('periodic');
+      }
+    }, MEMBER_STATS_REFRESH_INTERVAL_MS);
+    memberStatsInterval.unref?.();
   }
 });
 

@@ -4,6 +4,12 @@ import cliStatus from "./utils/cliStatus.js";
 import { Events, type Client } from "discord.js";
 import { Prisma } from "@prisma/client";
 import { initPrisma, prisma } from "./models/index.js";
+import {
+  onPrismaHeartbeat,
+  startPrismaHeartbeat,
+  type PrismaHeartbeatEvent,
+} from "./shared/prisma.js";
+import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
 import { bootDiscord } from "./bot/index.js";
 
 const CLI_MONITOR_DISABLED =
@@ -11,11 +17,27 @@ const CLI_MONITOR_DISABLED =
 
 type ShutdownTrigger = NodeJS.Signals | "uncaughtException";
 
+type CacheSnapshot = {
+  timestamp: number;
+  sizeBytes: number;
+  entryCount: number;
+  oldestEntryMs: number | null;
+  newestEntryMs: number | null;
+};
+
+const MONITOR_REFRESH_INTERVAL_MS = 5_000;
+
 let monitorActive = false;
 let shuttingDown = false;
 let signalsInstalled = false;
 let activeClient: Client | null = null;
 let securityClient: Client | null = null;
+let stopPrismaHeartbeatTask: (() => void) | null = null;
+let detachPrismaHeartbeatListener: (() => void) | null = null;
+let monitorRefreshTimer: NodeJS.Timeout | null = null;
+let lastCacheSnapshot: CacheSnapshot | null = null;
+let lastPrismaSample: { timestamp: number; latencyMs: number | null } | null = null;
+let prismaConnectDurationMs: number | null = null;
 
 function withMonitor(callback: (monitor: typeof cliStatus) => void): void {
   if (!monitorActive) {
@@ -39,9 +61,13 @@ function startMonitor(): void {
     cliStatus.startStatusDisplay();
     monitorActive = true;
     setPhase("Booting");
-  setSection("database", { title: "Database", status: "checking", metrics: [] });
-  setSection("discord", { title: "Discord Bot", status: "initializing", metrics: [] });
-  setSection("security", { title: "Security Bot", status: "initializing", metrics: [] });
+    setSection("database", { title: "Database", status: "checking", metrics: [] });
+    setSection("discord", { title: "Discord Bot", status: "initializing", metrics: [] });
+    setSection("security", { title: "Security Bot", status: "initializing", metrics: [] });
+    setSection("cache", { title: "Cache", status: "checking", metrics: [] });
+    refreshMonitorMetrics();
+    monitorRefreshTimer = setInterval(refreshMonitorMetrics, MONITOR_REFRESH_INTERVAL_MS);
+    monitorRefreshTimer.unref?.();
   } catch (error) {
     monitorActive = false;
     log.warn("CLI monitor unavailable; continuing without interactive dashboard", {
@@ -57,6 +83,10 @@ function stopMonitor(): void {
   try {
     cliStatus.stopStatusDisplay();
   } catch {}
+  if (monitorRefreshTimer) {
+    clearInterval(monitorRefreshTimer);
+    monitorRefreshTimer = null;
+  }
   monitorActive = false;
 }
 
@@ -78,6 +108,251 @@ function setSection(sectionId: string, payload: SectionPayload): void {
   withMonitor((monitor) => {
     monitor.setSection(sectionId, payload);
   });
+}
+
+function normalizeCacheSnapshot(raw: unknown): CacheSnapshot {
+  const fallback: CacheSnapshot = {
+    timestamp: Date.now(),
+    sizeBytes: 0,
+    entryCount: 0,
+    oldestEntryMs: null,
+    newestEntryMs: null,
+  };
+  if (!raw || typeof raw !== "object") {
+    return fallback;
+  }
+  const candidate = raw as Partial<CacheSnapshot>;
+  return {
+    timestamp: typeof candidate.timestamp === "number" ? candidate.timestamp : fallback.timestamp,
+    sizeBytes: typeof candidate.sizeBytes === "number" ? candidate.sizeBytes : 0,
+    entryCount: typeof candidate.entryCount === "number" ? candidate.entryCount : 0,
+    oldestEntryMs: typeof candidate.oldestEntryMs === "number" ? candidate.oldestEntryMs : null,
+    newestEntryMs: typeof candidate.newestEntryMs === "number" ? candidate.newestEntryMs : null,
+  };
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes)) {
+    return "0 B";
+  }
+  const absolute = Math.abs(bytes);
+  if (absolute < 1024) {
+    return `${bytes >= 0 ? Math.round(absolute) : -Math.round(absolute)} B`;
+  }
+  const units = ["KB", "MB", "GB", "TB"] as const;
+  let value = absolute / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const rounded = value >= 10 ? value.toFixed(0) : value.toFixed(1);
+  const prefix = bytes < 0 ? "-" : "";
+  return `${prefix}${rounded} ${units[unitIndex]}`;
+}
+
+function formatSignedBytes(delta: number): string {
+  if (!Number.isFinite(delta) || delta === 0) {
+    return "0 B";
+  }
+  const prefix = delta > 0 ? "+" : "-";
+  return `${prefix}${formatBytes(Math.abs(delta))}`;
+}
+
+function formatLatency(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "n/a";
+  }
+  const absolute = Math.abs(value);
+  if (absolute < 1000) {
+    return `${Math.round(absolute)}ms`;
+  }
+  if (absolute < 60_000) {
+    const seconds = absolute / 1000;
+    return `${seconds >= 10 ? seconds.toFixed(0) : seconds.toFixed(1)}s`;
+  }
+  const minutes = absolute / 60_000;
+  return `${minutes >= 10 ? minutes.toFixed(0) : minutes.toFixed(1)}m`;
+}
+
+function formatSignedLatency(delta: number): string {
+  if (!Number.isFinite(delta) || delta === 0) {
+    return "0ms";
+  }
+  const prefix = delta > 0 ? "+" : "-";
+  return `${prefix}${formatLatency(Math.abs(delta))}`;
+}
+
+function formatDurationMs(durationMs: number): string {
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    return "0s";
+  }
+  const totalSeconds = Math.floor(durationMs / 1000);
+  if (totalSeconds < 1) {
+    return "<1s";
+  }
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const minutes = totalMinutes % 60;
+  const hours = Math.floor(totalMinutes / 60) % 24;
+  const days = Math.floor(totalMinutes / 60 / 24);
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0 || days > 0) parts.push(`${hours}h`);
+  if (minutes > 0 || hours > 0 || days > 0) parts.push(`${minutes}m`);
+  parts.push(`${seconds}s`);
+  return parts.join(" ");
+}
+
+function formatRelativeTime(timestampMs: number | null): string {
+  if (!Number.isFinite(timestampMs)) {
+    return "unknown";
+  }
+  const diff = Date.now() - (timestampMs as number);
+  const absolute = Math.abs(diff);
+  if (absolute < 1000) {
+    return diff >= 0 ? "just now" : "soon";
+  }
+  if (absolute < 60_000) {
+    return `${Math.round(absolute / 1000)}s ${diff >= 0 ? "ago" : "from now"}`;
+  }
+  if (absolute < 3_600_000) {
+    return `${Math.round(absolute / 60_000)}m ${diff >= 0 ? "ago" : "from now"}`;
+  }
+  if (absolute < 86_400_000) {
+    return `${Math.round(absolute / 3_600_000)}h ${diff >= 0 ? "ago" : "from now"}`;
+  }
+  return `${Math.round(absolute / 86_400_000)}d ${diff >= 0 ? "ago" : "from now"}`;
+}
+
+function refreshCacheSection(): void {
+  if (!monitorActive) {
+    return;
+  }
+  try {
+    const rawSnapshot = getCacheSnapshot();
+    const snapshot = normalizeCacheSnapshot(rawSnapshot);
+    const budget = getCacheBudget();
+    const metrics: SectionPayload["metrics"] = [];
+    metrics.push(["size", formatBytes(snapshot.sizeBytes)]);
+    metrics.push(["files", snapshot.entryCount]);
+
+    const usageRatio =
+      budget && typeof budget.maxAllowedBytes === "number" && budget.maxAllowedBytes > 0
+        ? snapshot.sizeBytes / budget.maxAllowedBytes
+        : null;
+    if (usageRatio !== null && Number.isFinite(usageRatio)) {
+      const usagePercent = Math.min(usageRatio * 100, 999);
+      metrics.push([
+        "budget used",
+        `${usagePercent.toFixed(usagePercent >= 10 ? 0 : 1)}% of ${formatBytes(budget.maxAllowedBytes)}`,
+      ]);
+    }
+
+    if (lastCacheSnapshot) {
+      const sizeDelta = snapshot.sizeBytes - lastCacheSnapshot.sizeBytes;
+      const fileDelta = snapshot.entryCount - lastCacheSnapshot.entryCount;
+      const elapsed = snapshot.timestamp - lastCacheSnapshot.timestamp;
+      metrics.push(["Δ size", `${formatSignedBytes(sizeDelta)} in ${formatDurationMs(elapsed)}`]);
+      if (fileDelta !== 0) {
+        metrics.push(["Δ files", fileDelta > 0 ? `+${fileDelta}` : String(fileDelta)]);
+      }
+    }
+
+    if (snapshot.newestEntryMs) {
+      metrics.push(["last write", formatRelativeTime(snapshot.newestEntryMs)]);
+    }
+    if (snapshot.oldestEntryMs) {
+      metrics.push(["oldest entry", formatRelativeTime(snapshot.oldestEntryMs)]);
+    }
+
+    const status = (() => {
+      if (usageRatio !== null && Number.isFinite(usageRatio)) {
+        if (usageRatio >= 1) {
+          return "error";
+        }
+        if (usageRatio >= 0.9) {
+          return "degraded";
+        }
+      }
+      return "online";
+    })();
+
+    setSection("cache", { title: "Cache", status, metrics });
+    lastCacheSnapshot = snapshot;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log.error("Cache telemetry update failed", error);
+    setSection("cache", {
+      title: "Cache",
+      status: "error",
+      metrics: [["error", message]],
+    });
+  }
+}
+
+function refreshMonitorMetrics(): void {
+  if (!monitorActive) {
+    return;
+  }
+  refreshCacheSection();
+}
+
+function renderPrismaHeartbeat(event: PrismaHeartbeatEvent): void {
+  if (!monitorActive) {
+    return;
+  }
+
+  const metrics: SectionPayload["metrics"] = [];
+  const latency = typeof event.latencyMs === "number" && Number.isFinite(event.latencyMs)
+    ? event.latencyMs
+    : null;
+  if (latency !== null) {
+    metrics.push(["latency", formatLatency(latency)]);
+    if (lastPrismaSample?.latencyMs !== null && lastPrismaSample?.latencyMs !== undefined) {
+      const delta = latency - (lastPrismaSample.latencyMs ?? 0);
+      if (Number.isFinite(delta) && delta !== 0) {
+        metrics.push(["Δ latency", formatSignedLatency(delta)]);
+      }
+    }
+  }
+
+  if (lastPrismaSample && event.timestamp instanceof Date) {
+    const elapsed = event.timestamp.getTime() - lastPrismaSample.timestamp;
+    if (Number.isFinite(elapsed)) {
+      metrics.push(["since last", formatDurationMs(Math.max(elapsed, 0))]);
+    }
+  }
+
+  if (prismaConnectDurationMs !== null) {
+    metrics.push(["connect", formatLatency(prismaConnectDurationMs)]);
+  }
+  if (event.source) {
+    metrics.push(["sample", event.source]);
+  }
+  if (event.slow) {
+    metrics.push(["status", "slow"]);
+  }
+  if (event.consecutiveFailures > 0) {
+    metrics.push(["failures", event.consecutiveFailures]);
+  }
+  if (!event.ok && event.error) {
+    metrics.push(["error", event.error.message]);
+  }
+
+  const status = event.ok ? (event.slow ? "degraded" : "online") : "error";
+  setSection("database", { title: "Database", status, metrics });
+  if (event.timestamp instanceof Date) {
+    lastPrismaSample = {
+      timestamp: event.timestamp.getTime(),
+      latencyMs: latency,
+    };
+  } else {
+    lastPrismaSample = {
+      timestamp: Date.now(),
+      latencyMs: latency,
+    };
+  }
 }
 
 function isClientReady(client: Client): boolean {
@@ -182,6 +457,10 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   log.warn("Shutdown requested", { signal });
 
   try {
+    detachPrismaHeartbeatListener?.();
+    detachPrismaHeartbeatListener = null;
+    stopPrismaHeartbeatTask?.();
+    stopPrismaHeartbeatTask = null;
     await prisma.$disconnect();
   } catch (error) {
     log.error("Error during Prisma disconnect", error);
@@ -249,12 +528,18 @@ export async function boot(): Promise<void> {
     await initPrisma();
     await prisma.$queryRaw(Prisma.sql`SELECT 1`);
     const dbDurationMs = Number(process.hrtime.bigint() - dbStart) / 1_000_000;
-    setSection("database", {
-      title: "Database",
-      status: "online",
-      metrics: [["latency", `${dbDurationMs.toFixed(0)}ms`]],
+    prismaConnectDurationMs = dbDurationMs;
+    renderPrismaHeartbeat({
+      ok: true,
+      timestamp: new Date(),
+      latencyMs: dbDurationMs,
+      slow: false,
+      consecutiveFailures: 0,
+      source: "startup",
     });
     log.info("Database connectivity OK");
+    detachPrismaHeartbeatListener = onPrismaHeartbeat(renderPrismaHeartbeat);
+    stopPrismaHeartbeatTask = startPrismaHeartbeat();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     setSection("database", {
