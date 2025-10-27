@@ -1,123 +1,64 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T08:20:00Z
-Revision: 0.86
+Timestamp (UTC): 2025-10-27T08:45:00Z
+Revision: 0.87
 
 ## Last Repo Changes (since previous Prompt.md revision)
-> **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
+> **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**
 > Summarize the *effective* repository changes applied in the current commit in human-readable bullets:
 > - Files/dirs added/modified/removed (paths relative to repo root)
 > - Purpose of each change (one line)
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `agent.md` — Expanded into a full agent handbook covering contracts, routers, operations, Render services, and test tooling.
-> - `Prompt.md` — Logged the handbook expansion and refreshed metadata.
+> - `src/shared/config.ts`, `src/shared/prisma.ts`, `src/shared/cache/memory.ts`, `src/shared/outbox.ts` — unified runtime loader, Prisma singleton, TTL cache, and outbox helpers for shared services.
+> - `src/worker/backup.ts`, `render.yaml`, `scripts/guard_runtime.sh`, `.github/workflows/runtime.yml` — added Render app worker draining the Prisma outbox with CI/runtime guards.
+> - `src/bot/ops/admin.ts`, `README.md`, `tests/runtime_config.spec.ts`, `tests/outbox.spec.ts`, `tests/ops_stats.spec.ts` — extended `/ops stats` diagnostics, documented the runtime blueprint, and added coverage.
+> - `prisma/schema.prisma`, `ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, `tasklist.md`, `ops/NEXT.yaml`, `ops/TOUCHMAP.yaml`, `Prompt.md` — added `OutboxMessage` schema and synchronized routers/meta/tasklist for META.RUNTIME.BLUEPRINT_APPLY.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Expanded `agent.md` into a full handbook so incoming agents have contract, router, and ops guidance in one place.
-TasklistDiff: false
-Tests: Not run (documentation-only change).
+Summary: Unified runtime config + Prisma bootstrap, wired a Render backup worker + outbox, extended `/ops stats`, and added runtime guards/tests.
+TasklistDiff: true
+Tests: Pending (vitest runtime suites to run before commit).
 Contracts: ON (marker present; Contract Mode enforced).
-NEXT: T8.4 remains queued as the next READY feature after documentation updates.
+NEXT: T8.4 remains queued after runtime hardening.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task NONE] Expand agent.md reference hub
+[Task META.RUNTIME.BLUEPRINT_APPLY] Runtime blueprint and outbox worker
 
-FILE: agent.md
-Change: Replaced the short pointer list with a multi-section handbook describing contracts, router navigation, operational playbooks, Render deployment notes, tooling, and exit checklist.
-Insert/Replace/Remove: Added detailed sections for control documents, workflow, production services, testing, and directory overview.
+FILE: src/shared/config.ts
+Change: Replaced the config singleton with `loadConfig()` that promotes Render internal URLs, forbids localhost in production, and surfaces cache/runtime metadata.
+
+FILE: src/shared/prisma.ts & prisma/schema.prisma
+Change: Centralized Prisma client initialization (early `$connect`, URL validation) and added the `OutboxMessage` model.
+
+FILE: src/shared/cache/memory.ts, src/shared/outbox.ts
+Change: Added TTL memory cache and durable outbox helpers shared by the bot and worker.
+
+FILE: src/worker/backup.ts, render.yaml
+Change: Introduced a Render app worker that drains the Prisma outbox and logs health diagnostics; blueprint adds the new service.
+
+FILE: src/bot/ops/admin.ts
+Change: `/ops stats` now reports runtime, database, cache, and outbox information alongside battle summaries.
+
+FILE: tests/runtime_config.spec.ts, tests/outbox.spec.ts, tests/ops_stats.spec.ts
+Change: Added Vitest coverage for config fallback/guards, outbox helpers, and the enhanced ops stats command.
+
+FILE: scripts/guard_runtime.sh, .github/workflows/runtime.yml
+Change: CI guard ensures Render worker wiring and blocks localhost DATABASE_URL; workflow runs the guard and new tests.
+
+FILE: README.md, ops/ROUTER_INDEX.yaml, masterroutetable.md, ops/TOUCHMAP.yaml, ops/NEXT.yaml, tasklist.md, Prompt.md
+Change: Documented the runtime blueprint, synced routers/touchmap/NEXT, and logged Tasklist status + follow-up sink task.
 
 TASKLIST UPDATE
-Change: None.
+Change: Closed META.RUNTIME.BLUEPRINT_APPLY, queued META.RUNTIME.BACKUP_SINK, refreshed NEXT note.
 <<<PATCHSET END>>>
-```
 
-
-Read [](vscode-vfs://github/Sherbivs/Infinity-Gauntlet/src/bot/daily/claim.ts)
-
-Read [](vscode-vfs://github/Sherbivs/Infinity-Gauntlet/tests/daily.spec.ts)
-
-Read [](vscode-vfs://github/Sherbivs/Infinity-Gauntlet/tasklist.md#340-340), lines 340 to 460
-
-Read [](vscode-vfs://github/Sherbivs/Infinity-Gauntlet/tasklist.md#640-640), lines 640 to 680
-
-Searched text for `T8.3` (`**/tasklist.md`), 4 results
-
-Read [](vscode-vfs://github/Sherbivs/Infinity-Gauntlet/tasklist.md#220-220), lines 220 to 280
-
-Searched text for `id: T0.FP` (`**/tasklist.md`), no results
-
-Searched text for `Fast-path created` (`**/tasklist.md`), 2 results
-
-Read [](vscode-vfs://github/Sherbivs/Infinity-Gauntlet/tasklist.md#280-280), lines 280 to 320
-
-Using "Apply Patch"
-
-
-```
-
-```
-- `/daily claim` now ships as a registered slash command with a new handler that creates trainers when needed, bumps streaks via `recordDailyQuestCompletion`, enforces a 24 h cooldown, and returns streak/balance messaging (src/commands/daily.js, src/bot/daily/claim.ts, src/bot/index.ts).
-- Added Vitest coverage for the claim success path and cooldown blocking while updating routers, touchmap, NEXT pointer, and Prompt metadata so T8.4 (DM Home button) is queued next (tests/daily.spec.ts, ops/ROUTER_INDEX.yaml, ops/TOUCHMAP.yaml, ops/NEXT.yaml, Prompt.md).
-
-<<<PATCHSET START>>>
-
-# [T8.3]: Add daily quest claim flow and rewards
-
-# FILE: daily.js
-
-```full
-'use strict';
-const { SlashCommandBuilder } = require('discord.js');
-
-module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('daily')
-    .setDescription('Daily quest utilities')
-    .addSubcommand((sub) => sub.setName('claim').setDescription('Claim your daily quest reward')),
-  cooldownMs: 1000,
-  async execute(interaction) {
-    await interaction.reply({ content: 'Use `/daily claim` to claim your daily reward.', ephemeral: true });
-  },
-};
-```
-
-# FILE: claim.ts
-
-```full
-import { ChatInputCommandInteraction, TimestampStyles, time } from "discord.js";
-import { prisma as prismaClient, recordDailyQuestCompletion } from "../../models/index.js";
-
-type PrismaLike = typeof prismaClient;
-
-const DAILY_REWARD_COINS = 100;
-const DAILY_COOLDOWN_KIND = "daily-quest";
-const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_STARTER_COINS = 500;
-
-type HandleDailyClaimOptions = {
-  prisma?: PrismaLike;
-  rewardCoins?: number;
-  now?: Date;
-  recordCompletion?: typeof recordDailyQuestCompletion;
-};
-
-async function ensureTrainer(prisma: PrismaLike, discordId: string) {
-  const existing = await prisma.user.findUnique({ where: { discordId }, select: { id: true, coins: true } });
-  if (existing) {
-    return existing;
-  }
-
-  return prisma.user.create({
-    data: { discordId, coins: DEFAULT_STARTER_COINS },
-    select: { id: true, coins: true },
-  });
-}
-
-function formatRetryMessage(readyAt: Date) {
-  const stamp = time(readyAt, TimestampStyles.RelativeTime);
+Logs & References:
+- Read `src/shared/config.ts`, `src/shared/prisma.ts`, and `prisma/schema.prisma` to verify runtime and schema updates.
+- Reviewed `src/bot/ops/admin.ts` and `/tests/ops_stats.spec.ts` to ensure diagnostics align with the new sections.
+- Inspected `render.yaml`, `scripts/guard_runtime.sh`, and `.github/workflows/runtime.yml` for Render/CI guard alignment.
   return `Daily quest already claimed. Try again ${stamp}.`;
 }
 
