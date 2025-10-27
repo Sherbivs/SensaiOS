@@ -1,6 +1,5 @@
-'use strict';
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 /**
  * Effects registry:
@@ -251,11 +250,13 @@ function applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx = {}) {
   }
 }
 
-module.exports = {
+export { checkAccuracy, applySecondaryEffects, computeTotalDamage, applyAdvancedAfterDamage, registerEffectRule, EFFECT_RULES };
+
+export default {
   checkAccuracy,
   applySecondaryEffects,
   computeTotalDamage,
   applyAdvancedAfterDamage,
   registerEffectRule,
-  EFFECT_RULES
+  EFFECT_RULES,
 };

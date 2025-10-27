@@ -1,6 +1,5 @@
-'use strict';
-const { baseDamage, effectiveStat, afterDealtDamage } = require('./calc');
-const { checkAccuracy, applySecondaryEffects } = require('./effects');
+import { baseDamage, effectiveStat, afterDealtDamage } from './calc.js';
+import { checkAccuracy, applySecondaryEffects } from './effects.js';
 
 /**
  * Resolves one simultaneous turn with two chosen actions.
@@ -116,4 +115,6 @@ function resolveTurn(state, actionA, actionB, ctx) {
   return { state, log };
 }
 
-module.exports = { resolveTurn };
+export { resolveTurn };
+
+export default { resolveTurn };

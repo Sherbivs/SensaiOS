@@ -1,7 +1,7 @@
-const util = require('node:util');
+import util from 'node:util';
 
-const { interruptConsoleOutput } = require('./cliStatus');
-const opsNotifier = require('./opsNotifier');
+import { interruptConsoleOutput } from './cliStatus.js';
+import opsNotifier from './opsNotifier.js';
 
 const LOG_LABEL = Object.freeze({
   success: 'SUCCESS',
@@ -179,8 +179,6 @@ function report(title, meta = {}, level = 'info') {
   }
 }
 
-module.exports = {
-  LOG_LABEL,
-  log,
-  report,
-};
+export { LOG_LABEL, log, report };
+
+export default { LOG_LABEL, log, report };
