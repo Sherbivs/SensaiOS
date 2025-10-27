@@ -1,10 +1,8 @@
-'use strict';
-
 /**
  * Table-driven starter set for abilities & items.
  * Keep effects simple and deterministic; add hooks as needed.
  */
-const ABILITIES = {
+export const ABILITIES = {
   // Immune to Ground; no extra hooks needed
   'levitate': {
     immunity: { types: ['ground'] }
@@ -45,7 +43,7 @@ const ABILITIES = {
   }
 };
 
-const ITEMS = {
+export const ITEMS = {
   // +50% Special Attack (applied in effectiveStat)
   'choice-specs': {
     offensiveStatBoost: { stat: 'special-attack', multiplier: 1.5 }
@@ -68,4 +66,4 @@ const ITEMS = {
   }
 };
 
-module.exports = { ABILITIES, ITEMS };
+export default { ABILITIES, ITEMS };

@@ -4,11 +4,13 @@ import { prisma as prismaClient } from "../../models/index.js";
 type PrismaLike = PrismaClient;
 
 export async function hasActiveEncounter(discordId: string, prisma: PrismaLike = prismaClient) {
+  if (typeof prisma?.encounter?.findFirst !== "function") return false;
   const enc = await prisma.encounter.findFirst({ where: { owner: { discordId }, state: "Spawned" } });
   return !!enc;
 }
 
 export async function hasActiveOrPendingBattle(discordId: string, prisma: PrismaLike = prismaClient) {
+  if (typeof prisma?.battle?.findFirst !== "function") return false;
   const battle = await prisma.battle.findFirst({
     where: {
       OR: [{ p1: { discordId } }, { p2: { discordId } }],
