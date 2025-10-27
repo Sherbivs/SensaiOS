@@ -2,11 +2,11 @@
 # The Hotfix Engine reads this instead of relying on Patch.md/PATCHSET blocks.
 hotfix_task_id: NONE
 reason: >
-  HF.20251026.MASTER_ROUTE_TABLE completed; masterroutetable.md now documents
-  router hierarchy. Queue is clear.
+  HF.20251026.DB_URL_HOST_OVERRIDE completed; Render services now override
+  localhost DATABASE_URL values with the managed connection string.
 files_hint: []
-timestamp_utc: 2025-10-26T07:45:00Z
-note: "HF.20251026.MASTER_ROUTE_TABLE finished; resume normal loop when ready."
+timestamp_utc: 2025-10-26T17:05:00Z
+note: "Hotfix hardened ensure-db-url.ts to skip localhost fallbacks; confirm production logs report the managed connection string."
 bootstrap_template:
   id: "HF.<YYYYMMDD>.<short_slug>"
   title: "Emergency fix: <summary>"

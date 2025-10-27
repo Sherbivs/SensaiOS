@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T16:40:00Z
-Revision: 1.65
+Last Updated (UTC): 2025-10-26T17:05:00Z
+Revision: 1.66
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -648,6 +648,16 @@ Each task has:
     - No use of $queryRawUnsafe for liveness checks.
     - CI guard fails when DATABASE_URL mapping is missing or when Prisma is imported before env/ensure-db-url.
   notes: Outcome — Added env preloader, Prisma init guard, Render YAML mapping, README guidance, and CI scripts/workflows so Render deployments keep DATABASE_URL aligned with the internal connection string.
+
+- id: HF.20251026.DB_URL_HOST_OVERRIDE
+  title: Override localhost DATABASE_URL with managed connection string
+  status: DONE
+  depends_on: [META.RENDER.DB_URL_FIX]
+  acceptance_criteria:
+    - env preloader detects localhost candidates and prefers non-local fallbacks (internal connection string) even when DATABASE_URL is already set.
+    - Structured logging reports overrides and warns when production services still resolve to localhost.
+    - Render production logs confirm DATABASE_URL source resolves to the managed connection string instead of localhost.
+  notes: Outcome — Hotfix teaches ensure-db-url.ts to replace localhost values with Render’s connection string and emit guidance when production services still fall back to localhost.
 
 - id: HF.20251026.MASTER_ROUTE_TABLE
   title: Expand master route reference with full replication hierarchy

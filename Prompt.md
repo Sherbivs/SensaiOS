@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T16:40:00Z
-Revision: 0.79
+Timestamp (UTC): 2025-10-26T17:05:00Z
+Revision: 0.80
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,72 +10,44 @@ Revision: 0.79
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/env/ensure-db-url.ts`, `src/models/index.ts`, `src/index.ts` — Preloaded DATABASE_URL from Render fallbacks, added `initPrisma()` with structured failure logging, and replaced the unsafe boot probe with a parameterized connectivity check.
-> - `render.yaml`, `scripts/guard_render.mjs`, `.github/workflows/guard-render.yml`, `scripts/guards/require-ensure-db-preload.mjs` — Required every web/worker service to map `DATABASE_URL` via `connectionString` and added guard tooling (with a lightweight parser) to enforce YAML wiring and Prisma import order.
-> - `README.md` — Documented Render deployment steps for Background Worker services and how to confirm the DATABASE_URL source from logs.
-> - `ops/TOUCHMAP.yaml`, `tasklist.md`, `ops/NEXT.yaml`, `ops/RECOVERY.yaml`, `Prompt.md` — Recorded META.RENDER.DB_URL_FIX completion with refreshed routing, queue, recovery, and prompt metadata.
+> - `src/env/ensure-db-url.ts` — Hotfix now skips localhost DATABASE_URL values and overrides them with the managed Render connection string, logging overrides for auditors.
+> - `tasklist.md`, `ops/HOTFIX_PLAN.yaml`, `ops/RECOVERY.yaml` — Recorded HF.20251026.DB_URL_HOST_OVERRIDE completion and refreshed hotfix metadata.
+> - `Prompt.md` — Captured the hotfix outcome and readiness notes for post-deploy verification.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Hardened Render DATABASE_URL boot flow with env preload, Prisma init guards, and CI enforcement.
+Summary: Hotfix HF.20251026.DB_URL_HOST_OVERRIDE forces Render services to drop localhost DATABASE_URL fallbacks in favor of the managed connection string.
 TasklistDiff: true
-Tests: npm test (fails: requires Postgres + legacy CommonJS modules unavailable in this environment).
+Tests: Not run (Prisma connectivity cannot be validated from this environment).
 Contracts: ON (marker present; Contract Mode enforced).
-NEXT: T8.4 stays targeted so the DM Home daily button ships after the database hardening.
+NEXT: T8.4 stays queued to ship the DM Home daily button once the hotfix is verified in production.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task META.RENDER.DB_URL_FIX] Make Prisma use Render’s internal DB URL and harden worker boot
+[Hotfix HF.20251026.DB_URL_HOST_OVERRIDE] Replace localhost DATABASE_URL fallbacks with Render connection string
 
-FILE: src/env/ensure-db-url.ts (NEW)
-Change: Added an early env preloader that sets `DATABASE_URL` from Render-internal fallbacks and logs the selected source once.
-
-FILE: src/models/index.ts
-Change: Imported the preloader first, exported `initPrisma()` to call `$connect()` with structured failure logging, and preserved the Prisma singleton caching.
-
-FILE: src/index.ts
-Change: Called `initPrisma()`, replaced the unsafe `$queryRawUnsafe` probe with a parameterized `SELECT 1`, and emitted Render remediation guidance on failure.
-
-FILE: render.yaml
-Change: Ensured every web/worker service maps `DATABASE_URL` via `fromDatabase.connectionString` and removed redundant `DATABASE_INTERNAL_URL` overrides.
-
-FILE: scripts/guard_render.mjs (NEW)
-Change: Added a guard that validates Render services supply `DATABASE_URL` via `connectionString`, emitting actionable hints when misconfigured.
-
-FILE: scripts/guards/require-ensure-db-preload.mjs (NEW)
-Change: Added static analysis ensuring `env/ensure-db-url` imports precede `@prisma/client`, with a special check for the Prisma singleton.
-
-FILE: .github/workflows/guard-render.yml (NEW)
-Change: Added a CI workflow that runs the Render guard and Prisma preload order check under Node 20.
-
-FILE: README.md
-Change: Documented Render deployment steps for Background Worker services and how to confirm the `DATABASE_URL` source from logs.
-
-FILE: ops/TOUCHMAP.yaml
-Change: Routed META.RENDER.DB_URL_FIX to the Render, Prisma, guard, and README files.
+FILE: src/env/ensure-db-url.ts
+Change: Prefer non-local candidates, override existing localhost DATABASE_URL values (even when already set), and emit structured warnings when production services still resolve to localhost.
 
 FILE: tasklist.md
-Change: Marked META.READY_QUEUE.NEXT_TASK as DONE and recorded META.RENDER.DB_URL_FIX completion with acceptance criteria.
+Change: Logged HF.20251026.DB_URL_HOST_OVERRIDE with acceptance criteria, marked it DONE, and bumped metadata headers.
 
-FILE: ops/NEXT.yaml
-Change: Retargeted NEXT to T8.4 with updated rationale and file hints after landing the Render hardening work.
+FILE: ops/HOTFIX_PLAN.yaml
+Change: Recorded the hotfix completion with a refreshed timestamp and guidance note.
 
 FILE: ops/RECOVERY.yaml
-Change: Stamped META.RENDER.DB_URL_FIX as the last attempted task with refreshed timestamps and source metadata.
+Change: Stamped the latest hotfix identifiers and captured the NEXT snapshot for resuming feature work.
 
 FILE: Prompt.md
-Change: Updated metadata, Last Repo Changes, and the PATCHSET echo to reflect the Render database hardening changes.
-
-# TASKLIST UPDATE
-Change: Marked META.READY_QUEUE.NEXT_TASK as DONE and logged META.RENDER.DB_URL_FIX with its acceptance criteria and outcome.
+Change: Updated metadata, Last Repo Changes, and the hotfix echo summary so operators know the override shipped.
 
 <<<PATCHSET END>>>
 
-Tests: npm test (fails: Postgres is unavailable and Vitest still relies on CommonJS modules.)
+Tests: Not run (Prisma connectivity cannot be validated from this environment).
 
 Next steps:
-1. Watch Render boot logs to confirm the single `db.url.source` line when deploying the hardened build.
-2. Deliver T8.4 to surface the DM Home daily-claim button now that Prisma boot is reliable.
+1. Verify Render logs now show the managed connection string host instead of localhost after redeploying the services.
+2. When tooling is available, run `npm run guard:meta` (or CI equivalent) to confirm no guard regressions.
 
 Made changes.
 Using "Apply Patch"

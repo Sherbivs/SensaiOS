@@ -22,7 +22,7 @@ files_hint:
   - src/bot/dm/home.tsx
   - tests/dm_home.spec.ts
 
-timestamp_utc: 2025-10-26T16:40:00Z
+timestamp_utc: 2025-10-26T17:05:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-26T13:45:00Z
-note: "Promoted META.RENDER.DB_URL_FIX and retargeted to T8.4 so the DM Home daily button can proceed."
+note: "HF.20251026.DB_URL_HOST_OVERRIDE finished; keep T8.4 queued and verify Render logs before resuming feature work."
