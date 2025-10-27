@@ -157,6 +157,6 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 		}
 	});
 
-	await client.login(token);
-	return client;
+        await Promise.all([client.login(token), readyPromise]);
+        return client;
 }
