@@ -1,8 +1,11 @@
 const subscribers = new Set();
 const pendingActivities = [];
 const lifetimeCounts = new Map();
+const recentHistory = [];
+const HISTORY_LIMIT = 50;
 let totalEvents = 0;
 let lastActivityAt = null;
+let lastActivitySummary = null;
 let lastSummaryAt = null;
 let sequence = 0;
 
@@ -46,6 +49,11 @@ function recordActivity(type, summary, meta = {}) {
   totalEvents += 1;
   lifetimeCounts.set(type, (lifetimeCounts.get(type) || 0) + 1);
   lastActivityAt = timestamp;
+  lastActivitySummary = summary;
+  recentHistory.push(entry);
+  if (recentHistory.length > HISTORY_LIMIT) {
+    recentHistory.shift();
+  }
   notify();
   return entry;
 }
@@ -79,12 +87,21 @@ function getPendingActivities() {
   }));
 }
 
+function getRecentHistory(limit = 10) {
+  const sliceStart = limit >= recentHistory.length ? 0 : recentHistory.length - limit;
+  return recentHistory.slice(sliceStart).map((activity) => ({
+    ...activity,
+    timestamp: cloneDate(activity.timestamp),
+  }));
+}
+
 function getStats() {
   return {
     totalEvents,
     pendingEvents: pendingActivities.length,
     lifetimeCounts: Object.fromEntries(lifetimeCounts.entries()),
     lastActivityAt: cloneDate(lastActivityAt),
+    lastActivitySummary,
     lastSummaryAt: cloneDate(lastSummaryAt),
   };
 }
@@ -119,6 +136,7 @@ export {
   drainActivities,
   requeueActivities,
   getPendingActivities,
+  getRecentHistory,
   getStats,
   subscribe,
   markSummarySent,
@@ -129,6 +147,7 @@ export default {
   drainActivities,
   requeueActivities,
   getPendingActivities,
+  getRecentHistory,
   getStats,
   subscribe,
   markSummarySent,
