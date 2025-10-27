@@ -18,6 +18,10 @@ live-service economy powered by workers and data pipelines.
 - **Data & Persistence:** Prisma schema (`prisma/schema.prisma`) persists trainers, parties, encounters, and battles; worker scripts refresh cached reference data under `/data`.
 - **Automation & Guardrails:** `Patch.md`, `Tasklist.md`, and `Prompt.md` define the contract; scripts in `/ops` and `/scripts` enforce Refresh Vision, router indexes, and contract version gates.
 
+## PBSL (Pokémon Buddy System Logics)
+
+The project now ships a PBSL scaffold under `src/core/pbsl/**` that implements seeded RNG helpers, audit trails, battle phase ordering, and deterministic encounter generators. The official manifesto, provenance policy, and compliance checklist live in [`docs/PBSL.md`](docs/PBSL.md). PBSL modules are re-exported via `src/core/pbsl/index.ts` and covered by focused tests in `tests/pbsl/**`, with a dedicated GitHub Action (`.github/workflows/pbsl-oracle.yml`) running lint and `npm run test:pbsl` on every change.
+
 ## Key Capabilities
 
 - **DM-as-Home:** `/home`, heal, starter selection, party/box management, player profile, and drip alerts all originate in `src/bot/dm/**` with shared UI helpers.

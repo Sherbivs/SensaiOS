@@ -162,6 +162,18 @@ T8.4:
   - "src/bot/daily/claim.ts"
   - "tests/dm_home.spec.ts"
 
+PBSL.SKELETON:
+  - "docs/PBSL.md"
+  - "src/core/pbsl/**"
+  - "tests/pbsl/**"
+  - "README.md"
+  - ".github/workflows/pbsl-oracle.yml"
+
+PBSL.ORACLE_DIFF:
+  - "src/core/pbsl/**"
+  - "tests/pbsl/**"
+  - ".github/workflows/pbsl-oracle.yml"
+
 # Glob prefixes to catch future tasks in the same family
 "Phase 0*":
   - "/ops/**"

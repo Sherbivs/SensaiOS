@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-27T08:45:00Z
-Revision: 1.67
+Last Updated (UTC): 2025-10-27T10:05:00Z
+Revision: 1.68
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -318,6 +318,29 @@ Each task has:
     - Button reflects cooldown state (disabled or messaging) after pressing, surfacing streak/cooldown feedback inline.
     - Tests cover button wiring, cooldown-block messaging, and streak display updates.
   notes: Extends the progression loop so trainers can claim the daily reward from Home without slash commands, piggybacking on the new handler.
+
+## Phase 9 — PBSL Alignment
+
+- id: PBSL.SKELETON
+  title: Scaffold PBSL RNG, audit, battle, and encounter primitives
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - Introduce `src/core/pbsl/**` with seeded RNG, audit trail, battle phase ordering, and encounter generator exports.
+    - Add `docs/PBSL.md` documenting the official statement, truth hierarchy, and compliance checklist.
+    - Provide Vitest coverage under `tests/pbsl/**` and run them via a dedicated `npm run test:pbsl` script.
+    - Wire a PBSL GitHub Action that runs linting and the focused test suite.
+  notes: Outcome — PBSL scaffolding now lives under `src/core/pbsl/**` with deterministic RNG, audit events, encounter helpers, provenance metadata, and CI coverage.
+
+- id: PBSL.ORACLE_DIFF
+  title: Add oracle comparison tests for PBSL core loops
+  status: PROPOSED
+  depends_on: [PBSL.SKELETON]
+  acceptance_criteria:
+    - Fetch curated battle fixtures from upstream (e.g., `pkmn/engine`) and store them under `tests/pbsl/fixtures/` with provenance metadata.
+    - Run comparison tests that diff PBSL outcomes against upstream engines in CI.
+    - Update `docs/PBSL.md` checklist and `Prompt.md` Last Repo Changes to reflect oracle coverage.
+  notes: Proposed — follow-up work to validate PBSL scaffolding against authoritative engines before wiring adapters into production flows.
 
 - id: T0.1
   title: Initialize TypeScript project & tooling

@@ -10,6 +10,7 @@ Notes:
 - Daily quest claim flow adds handler, cooldown wiring, and tests under src/bot and src/commands.
 - Shared runtime config (`src/shared/config.ts`) now validates Render DATABASE_URL wiring and exports cache/runtime hints.
 - Background worker (`src/worker/backup.ts`) drains the Prisma outbox and emits health diagnostics for `/ops stats`.
+- PBSL scaffold (`src/core/pbsl/**`) houses deterministic RNG, audit trails, and encounter generators with provenance metadata recorded in docs/PBSL.md.
 
 Subdomains:
 - src/bot — Discord client & interaction handlers

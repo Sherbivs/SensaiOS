@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T09:55:00Z
-Revision: 0.90
+Timestamp (UTC): 2025-10-27T10:05:00Z
+Revision: 0.91
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**
@@ -10,32 +10,65 @@ Revision: 0.90
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/bot/main.js` — Replaced interval-driven sweeps with a continuous loop, cache refresh, and CLI warning guard.
-> - `src/index.ts` — Updated the ready listener to the v15 `Events.ClientReady` API to silence deprecation warnings.
-> - `Prompt.md` — Recorded the sweep loop redesign and listener update while refreshing metadata.
+> - `docs/PBSL.md`, `.github/workflows/pbsl-oracle.yml`, `package.json` — Added the PBSL manifesto, dedicated CI workflow, and focused test script.
+> - `src/core/pbsl/**`, `tests/pbsl/**` — Introduced deterministic RNG, audit trail, battle/encounter scaffolds, and Vitest coverage.
+> - `README.md`, `src/ROUTER.md`, `src/core/ROUTER.md`, `tests/ROUTER.md`, `ops/TOUCHMAP.yaml` — Wired the PBSL surface into docs, routers, and touch maps.
+> - `tasklist.md`, `Prompt.md` — Logged the PBSL scaffolding task and refreshed metadata.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Converted the security bot sweeps to a continuous loop and moved ready handlers to `Events.ClientReady`.
-TasklistDiff: false
-Tests: Not run (listener/sweep refactor only).
+Summary: Scaffolded PBSL deterministic core modules, coverage, and CI wiring.
+TasklistDiff: true
+Tests: Not run (PBSL scaffold only; shell lacks direct workspace path).
 Contracts: ON (marker present; Contract Mode enforced).
 NEXT: T8.4 remains queued after the continuous sweep rollout.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task NONE] Harden security bot continuous sweeps
+[Task PBSL.SKELETON] Scaffold PBSL deterministic core and governance
 
-FILE: src/bot/main.js
-Change: Swapped the periodic interval for a continuous sweep loop with CLI warnings, cache refresh, and pacing helpers.
-Insert/Replace/Remove: Replaced interval scheduling with `startContinuousSweepLoop`, added helpers/constants, and refreshed logging.
+FILE: docs/PBSL.md
+Change: Added the PBSL manifesto, compliance checklist, and governance workflow.
+Insert/Replace/Remove: New documentation describing truth hierarchy, provenance expectations, and next steps.
 
-FILE: src/index.ts
-Change: Migrated the security client ready listener to `Events.ClientReady` and imported the enum from discord.js v15 APIs.
-Insert/Replace/Remove: Replaced the string event name ready handler and folded in the new enum import.
+FILE: src/core/pbsl/**
+Change: Introduced seeded RNG, audit trails, battle phase orchestrator, encounter generator, provenance helpers, and barrel exports.
+Insert/Replace/Remove: Added new PBSL module tree with deterministic primitives and re-export index.
+
+FILE: tests/pbsl/**
+Change: Created Vitest suites for RNG determinism, battle snapshots, and provenance normalization.
+Insert/Replace/Remove: New specs verifying seeded behavior and audit outputs.
+
+FILE: package.json
+Change: Added a dedicated `test:pbsl` script for oracle/determinism runs.
+Insert/Replace/Remove: Appended the script to npm scripts.
+
+FILE: .github/workflows/pbsl-oracle.yml
+Change: Added CI workflow to lint and run PBSL-focused tests.
+Insert/Replace/Remove: New GitHub Action triggering on PBSL surface changes.
+
+FILE: README.md
+Change: Documented the PBSL scaffold and linked to the manifesto.
+Insert/Replace/Remove: Added a PBSL section highlighting new modules and workflow.
+
+FILE: src/ROUTER.md, src/core/ROUTER.md, tests/ROUTER.md
+Change: Updated routers to reference the PBSL namespace and tests.
+Insert/Replace/Remove: Added notes/areas pointing to the new modules.
+
+FILE: ops/TOUCHMAP.yaml
+Change: Mapped PBSL tasks to the new modules, docs, and workflow files.
+Insert/Replace/Remove: Added entries for PBSL.SKELETON and PBSL.ORACLE_DIFF.
+
+FILE: tasklist.md
+Change: Logged PBSL scaffolding outcome and staged oracle follow-up work.
+Insert/Replace/Remove: Added DONE/PROPOSED PBSL tasks with acceptance criteria.
+
+FILE: Prompt.md
+Change: Refreshed metadata, summaries, and PATCHSET echo for the PBSL work.
+Insert/Replace/Remove: Updated Last Repo Changes, echo, and patchset block.
 
 TASKLIST UPDATE
-Change: None.
+Change: Added PBSL.SKELETON (DONE) and PBSL.ORACLE_DIFF (PROPOSED) under Phase 9.
 <<<PATCHSET END>>>
 
 Logs & References:

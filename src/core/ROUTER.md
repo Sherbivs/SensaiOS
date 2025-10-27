@@ -6,7 +6,9 @@ Last Updated (UTC): 2025-10-25T11:10:00Z
 
 Notes:
 - Catch engine now stamps pokemonId in encounter metadata for persistence.
+- PBSL scaffold introduces deterministic RNG/audit utilities and encounter helpers consumed by future adapters.
 
 Areas:
 - battle/* — engine wrappers, damage, status
 - encounter/* — walking/spawn logic
+- pbsl/* — PBSL seedable RNG, audit trails, deterministic battle/encounter scaffolding
