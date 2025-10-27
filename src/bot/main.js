@@ -45,6 +45,11 @@ import { createDripAlertManager, DRIP_ALERT_SEVERITY } from './dripAlerts.js';
 import { loadCommands } from '../command-loader.js';
 import { checkAndSet } from '../lib/cooldown.js';
 
+// Escalate CLI warnings if sweeps lag and keep idle background cadence predictable.
+const CLI_SWEEP_WARNING_THRESHOLD_SECONDS = 5 * 60;
+const CONTINUOUS_SWEEP_IDLE_DELAY_MS = 15_000;
+
+// Warm the disk cache on boot so CLI telemetry reflects current assignments.
 cache.cleanOldCache();
 
 cliStatus.startStatusDisplay();
@@ -100,6 +105,12 @@ const securityCliState = {
   totalFailures: 0,
   lastAlertSentAt: null,
   lastAlertMessage: null,
+};
+
+const continuousSweepState = {
+  running: false,
+  abortController: null,
+  loopPromise: null,
 };
 
 const pendingOpsErrorQueue = [];
@@ -212,9 +223,27 @@ function updateSecurityCliSection(overrides = {}) {
     }
   }
 
+  const now = Date.now();
+  const lastCompletedAtMs = securityCliState.lastSweepCompletedAt instanceof Date
+    ? securityCliState.lastSweepCompletedAt.getTime()
+    : null;
+  const lastStartedAtMs = securityCliState.lastSweepStartedAt instanceof Date
+    ? securityCliState.lastSweepStartedAt.getTime()
+    : null;
+  const sweepInProgress = Boolean(
+    lastStartedAtMs && (!lastCompletedAtMs || lastCompletedAtMs < lastStartedAtMs)
+  );
+  let displayStatus = securityCliState.status || 'Monitoring';
+  if (!sweepInProgress && lastCompletedAtMs) {
+    const elapsed = now - lastCompletedAtMs;
+    if (elapsed >= CLI_SWEEP_WARNING_THRESHOLD_SECONDS * 1000) {
+      displayStatus = `Warning: sweeps stale (${formatDurationShort(elapsed)})`;
+    }
+  }
+
   cliStatus.setSection('security', {
     title: 'Security Bot',
-    status: securityCliState.status,
+    status: displayStatus,
     metrics,
   });
 }
@@ -437,6 +466,69 @@ function mergeReportError(base, error) {
     ...base,
     error: String(error),
   };
+}
+
+async function wait(ms, signal) {
+  const delay = Number(ms);
+  if (!Number.isFinite(delay) || delay <= 0) {
+    return;
+  }
+  await new Promise((resolve) => {
+    let timeout;
+    const onAbort = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      if (signal) {
+        signal.removeEventListener('abort', onAbort);
+      }
+      resolve();
+    };
+    timeout = setTimeout(() => {
+      if (signal) {
+        signal.removeEventListener('abort', onAbort);
+      }
+      resolve();
+    }, delay);
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
+}
+
+function getContinuousSweepGuilds(signal, transformer) {
+  if (signal?.aborted) {
+    return [];
+  }
+  const base = Array.from(client.guilds.cache.values());
+  if (typeof transformer !== 'function') {
+    return base;
+  }
+  try {
+    const transformed = transformer(base, signal);
+    if (!transformed) {
+      return base;
+    }
+    if (Array.isArray(transformed)) {
+      return transformed.filter(Boolean);
+    }
+    if (transformed instanceof Collection) {
+      return Array.from(transformed.values()).filter(Boolean);
+    }
+    if (typeof transformed[Symbol.iterator] === 'function') {
+      return Array.from(transformed).filter(Boolean);
+    }
+    return base;
+  } catch (error) {
+    log('warn', 'Continuous sweep transformer failed', mergeLogError({
+      guildCount: base.length,
+    }, error));
+    return base;
+  }
 }
 
 function canAssignRole(guild, role) {
@@ -1126,7 +1218,7 @@ async function sweepGuild(guild, origin) {
       }));
 
       if (BACKFILL_DELAY_MS > 0 && i + BACKFILL_CONCURRENCY < members.length) {
-        await new Promise(resolve => setTimeout(resolve, BACKFILL_DELAY_MS));
+        await wait(BACKFILL_DELAY_MS);
       }
     }
 
@@ -1242,6 +1334,85 @@ async function runCliDebugDump() {
   process.exit(0);
 }
 
+function startContinuousSweepLoop(transformer) {
+  if (continuousSweepState.running) {
+    return continuousSweepState.loopPromise;
+  }
+
+  const abortController = new AbortController();
+  continuousSweepState.running = true;
+  continuousSweepState.abortController = abortController;
+  const idleDelayMs = Math.max(BACKFILL_INTERVAL_SECONDS * 1000, CONTINUOUS_SWEEP_IDLE_DELAY_MS);
+
+  const loop = async () => {
+    updateSecurityCliSection({ status: 'Continuous sweep initializing' });
+    cliStatus.setGuildCount(client.guilds.cache.size);
+    cliStatus.setPhase('Continuous sweep initializing');
+
+    while (!abortController.signal.aborted) {
+      const cycleStarted = new Date();
+      const guilds = getContinuousSweepGuilds(abortController.signal, transformer);
+      report('Continuous Sweep Cycle Start', {
+        cycleStarted: cycleStarted.toISOString(),
+        guildsPlanned: guilds.length,
+        idleDelayMs,
+      });
+
+      cliStatus.setPhase('Continuous sweep cycle');
+      updateSecurityCliSection({ status: 'Continuous sweep cycle' });
+
+      for (const guild of guilds) {
+        if (abortController.signal.aborted) {
+          break;
+        }
+        await sweepGuild(guild, 'continuous');
+        if (abortController.signal.aborted) {
+          break;
+        }
+        cliStatus.setPhase('Continuous sweep cycle');
+        updateSecurityCliSection({ status: 'Continuous sweep cycle' });
+        if (abortController.signal.aborted) {
+          break;
+        }
+        if (BACKFILL_DELAY_MS > 0) {
+          await wait(BACKFILL_DELAY_MS, abortController.signal);
+        }
+      }
+
+      cache.cleanOldCache();
+      const cycleCompleted = new Date();
+      report('Continuous Sweep Cycle Complete', {
+        cycleStarted: cycleStarted.toISOString(),
+        cycleCompleted: cycleCompleted.toISOString(),
+        durationMs: cycleCompleted - cycleStarted,
+        guildsVisited: guilds.length,
+        cacheRefreshed: true,
+        idleDelayMs,
+      });
+
+      if (abortController.signal.aborted) {
+        break;
+      }
+
+      cliStatus.setGuildCount(client.guilds.cache.size);
+      cliStatus.setPhase('Continuous sweep idle');
+      updateSecurityCliSection({ status: 'Continuous sweep idle' });
+
+      await wait(idleDelayMs, abortController.signal);
+    }
+  };
+
+  continuousSweepState.loopPromise = loop().catch((error) => {
+    log('error', 'Continuous sweep loop encountered an error', mergeLogError({}, error));
+  }).finally(() => {
+    continuousSweepState.running = false;
+    continuousSweepState.abortController = null;
+    continuousSweepState.loopPromise = null;
+  });
+
+  return continuousSweepState.loopPromise;
+}
+
 client.once(Events.ClientReady, async () => {
   if (CLI_DEBUG_MODE) {
     log('info', 'CLI debug mode active', {
@@ -1275,7 +1446,7 @@ client.once(Events.ClientReady, async () => {
     roleId: ROLE_ID || 'resolved at runtime',
     roleDiscovery: ROLE_ID ? 'ROLE_ID exact match' : 'ROLE_NAME case-insensitive search',
     startupBackfill: 'enabled',
-    periodicSweep: `every ${BACKFILL_INTERVAL_SECONDS}s`,
+    continuousSweep: `continuous (idle target ${BACKFILL_INTERVAL_SECONDS}s)`,
     concurrency: BACKFILL_CONCURRENCY,
     delayMsBetweenBatches: BACKFILL_DELAY_MS,
     guildsObserved: client.guilds.cache.size,
@@ -1312,22 +1483,13 @@ client.once(Events.ClientReady, async () => {
     updateMonitoringPhase();
   }
 
-  const intervalMs = BACKFILL_INTERVAL_SECONDS * 1000;
-  report('Periodic Sweep Enabled', { intervalSeconds: BACKFILL_INTERVAL_SECONDS });
-  setInterval(async () => {
-    const cycleStarted = new Date().toISOString();
-    report('Periodic Sweep Start', { cycleStarted });
-    cliStatus.setPhase('Periodic sweep cycle');
-    updateSecurityCliSection({ status: 'Periodic sweep cycle' });
-    for (const [, guild] of client.guilds.cache) {
-      await sweepGuild(guild, 'periodic');
-    }
-    report('Periodic Sweep Complete', {
-      cycleStarted,
-      cycleCompleted: new Date().toISOString()
-    });
-    updateMonitoringPhase();
-  }, intervalMs);
+  const idleDelayMs = Math.max(BACKFILL_INTERVAL_SECONDS * 1000, CONTINUOUS_SWEEP_IDLE_DELAY_MS);
+  report('Continuous Sweep Loop Enabled', {
+    idleDelayMs,
+    targetIntervalSeconds: BACKFILL_INTERVAL_SECONDS,
+    backfillDelayMs: BACKFILL_DELAY_MS,
+  });
+  void startContinuousSweepLoop();
 
   // Optional recurring operational report
   if (OPS_REPORT_INTERVAL_SECONDS > 0) {

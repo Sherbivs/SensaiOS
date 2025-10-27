@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T08:32:00Z
-Revision: 0.88
+Timestamp (UTC): 2025-10-27T09:45:00Z
+Revision: 0.89
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**
@@ -10,24 +10,24 @@ Revision: 0.88
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/models/index.ts` — Re-exported the shared Prisma singleton so existing imports in DM/battle flows resolve.
-> - `Prompt.md` — Logged the Prisma export fix and refreshed metadata.
+> - `src/bot/main.js` — Replaced interval-driven sweeps with a continuous loop, cache refresh, and CLI warning guard.
+> - `Prompt.md` — Recorded the sweep loop redesign and refreshed patch metadata.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Restored the `prisma` export from the models barrel so DM/home flows stop crashing during startup.
+Summary: Converted the security bot sweeps into a guarded continuous loop with cache refresh each cycle.
 TasklistDiff: false
-Tests: Not run (hotfix unblock for Render startup).
+Tests: Not run (continuous sweep refactor only).
 Contracts: ON (marker present; Contract Mode enforced).
-NEXT: T8.4 remains queued after the prisma export fix.
+NEXT: T8.4 remains queued after the continuous sweep rollout.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task NONE] Restore prisma export for DM flows
+[Task NONE] Harden security bot continuous sweeps
 
-FILE: src/models/index.ts
-Change: Re-exported the Prisma singleton from the models barrel so existing bot imports resolve without touching callers.
-Insert/Replace/Remove: Added an explicit `export { prisma };` after `initPrisma`.
+FILE: src/bot/main.js
+Change: Swapped the periodic interval for a continuous sweep loop with CLI warnings, cache refresh, and pacing helpers.
+Insert/Replace/Remove: Replaced interval scheduling with `startContinuousSweepLoop`, added helpers/constants, and refreshed logging.
 
 TASKLIST UPDATE
 Change: None.

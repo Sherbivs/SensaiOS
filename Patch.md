@@ -95,6 +95,7 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
+Clipboard cleared after CONTINUOUS_SWEEP_LOOP.
 <<<PATCHSET END>>>
 Clipboard cleared after PRISMA_EXPORT_RESTORE.
 <<<PATCHSET END>>>
