@@ -32,6 +32,12 @@ type Candidate = {
   isLocal: boolean;
 };
 
+const isTestEnv = process.env.NODE_ENV === "test";
+
+if (!process.env.DATABASE_URL && isTestEnv) {
+  process.env.DATABASE_URL = "postgres://placeholder.invalid/test-db";
+}
+
 const candidates: Candidate[] = fallbackOrder
   .map((key) => {
     const raw = process.env[key];

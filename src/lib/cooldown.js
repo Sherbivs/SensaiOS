@@ -1,4 +1,3 @@
-'use strict';
 // In-memory cooldowns; suitable for a single running instance
 const store = new Map(); // key -> timestamp (ms)
 
@@ -19,4 +18,6 @@ function checkAndSet(userId, commandName, cooldownMs = 2000) {
   return { ok: true, waitMs: 0 };
 }
 
-module.exports = { checkAndSet };
+export { checkAndSet };
+
+export default { checkAndSet };
