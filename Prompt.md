@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T07:10:00Z
-Revision: 0.82
+Timestamp (UTC): 2025-10-27T07:50:00Z
+Revision: 0.84
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,26 +10,34 @@ Revision: 0.82
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `README.md` — Added a Router & Meta Index section detailing masterroutetable, ops/ROUTER docs, Touchmap, and contract files for external automation.
-> - `masterroutetable.md` — Refreshed router timestamps and notes to mirror the latest sub-router documentation.
-> - `Patch.md` — Cleared the Patch Clipboard scratch note after landing the README documentation.
-> - `Prompt.md` — Recorded the documentation update and refreshed metadata/echo for the router reference.
+> - `src/index.ts` — Started the legacy security bot from the TypeScript entry so DripTVDD alerts and ops DMs resume on deploy.
+> - `src/bot/ROUTER.md` — Noted the new startup flow and refreshed the timestamp.
+> - `masterroutetable.md` — Documented that `src/index.ts` now boots both bots and updated Discord layer metadata.
+> - `Prompt.md` — Recorded the security bot startup fix and refreshed metadata.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Refreshed the master router table so manual navigation mirrors the latest router metadata and timestamps.
+Summary: Re-enabled the security bot inside the TypeScript entry so DripTVDD DM alerts flow again.
 TasklistDiff: false
-Tests: Not run (documentation-only change).
+Tests: Not run (startup change validated via code review path).
 Contracts: ON (marker present; Contract Mode enforced).
 NEXT: T8.4 remains queued as the next READY feature after documentation updates.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task NONE] Refresh master router table
+[Task NONE] Reinstate security bot startup
+
+FILE: src/index.ts
+Change: Launch the legacy security bot alongside the TypeScript Discord client and integrate it with the CLI monitor/shutdown path.
+Insert/Replace/Remove: Added security boot helper, lifecycle wiring, and graceful shutdown cleanup.
+
+FILE: src/bot/ROUTER.md
+Change: Note that the TypeScript entry now boots the legacy security worker and refresh the timestamp.
+Insert/Replace/Remove: Updated notes/timestamp to reflect the new integration.
 
 FILE: masterroutetable.md
-Change: Sync the master router summary with current downstream router docs and timestamps.
-Insert/Replace/Remove: Updated section headers, purpose notes, and last-updated values for each router along with recent daily quest and persistence notes.
+Change: Document that `src/index.ts` now starts both bots and refreshed Discord layer metadata.
+Insert/Replace/Remove: Updated timestamps, supporting-file summary, and recent notes.
 
 TASKLIST UPDATE
 Change: None.

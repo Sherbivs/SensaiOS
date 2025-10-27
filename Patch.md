@@ -95,6 +95,6 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-Clipboard cleared after MASTER_ROUTER_TABLE_REFRESH.
+Clipboard cleared after SECURITY_BOT_RESTART.
 <<<PATCHSET END>>>
 

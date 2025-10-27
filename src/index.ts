@@ -15,6 +15,7 @@ let monitorActive = false;
 let shuttingDown = false;
 let signalsInstalled = false;
 let activeClient: Client | null = null;
+let securityClient: Client | null = null;
 
 function withMonitor(callback: (monitor: typeof cliStatus) => void): void {
   if (!monitorActive) {
@@ -38,8 +39,9 @@ function startMonitor(): void {
     cliStatus.startStatusDisplay();
     monitorActive = true;
     setPhase("Booting");
-    setSection("database", { title: "Database", status: "checking", metrics: [] });
-    setSection("discord", { title: "Discord Bot", status: "initializing", metrics: [] });
+  setSection("database", { title: "Database", status: "checking", metrics: [] });
+  setSection("discord", { title: "Discord Bot", status: "initializing", metrics: [] });
+  setSection("security", { title: "Security Bot", status: "initializing", metrics: [] });
   } catch (error) {
     monitorActive = false;
     log.warn("CLI monitor unavailable; continuing without interactive dashboard", {
@@ -110,6 +112,67 @@ function bindDiscordLifecycle(client: Client): void {
   client.on("shardResume", updateOnline);
 }
 
+function updateSecuritySection(client: Client | null, status: string): void {
+  if (!monitorActive) {
+    return;
+  }
+  const metrics: SectionPayload["metrics"] = [];
+  if (client) {
+    const guildCount = client.guilds?.cache?.size ?? 0;
+    metrics.push(["identity", client.user?.tag ?? "unknown"]);
+    metrics.push(["guilds", guildCount]);
+  }
+  setSection("security", { title: "Security Bot", status, metrics });
+}
+
+function bindSecurityLifecycle(client: Client): void {
+  const updateOnline = () => updateSecuritySection(client, "online");
+  client.on("guildCreate", updateOnline);
+  client.on("guildDelete", updateOnline);
+  client.on("shardDisconnect", () => updateSecuritySection(client, "reconnecting"));
+  client.on("shardResume", updateOnline);
+}
+
+type SecurityBotModule = {
+  startSecurityBot?: (options?: { token?: string }) => Promise<unknown>;
+  client?: Client;
+};
+
+async function bootSecurityBot(): Promise<Client | null> {
+  updateSecuritySection(null, "connecting");
+  try {
+    const securityModule = (await import("./bot/main.js")) as SecurityBotModule;
+    const startSecurityBot = securityModule.startSecurityBot;
+    if (typeof startSecurityBot !== "function") {
+      throw new Error("startSecurityBot export missing in ./bot/main.js");
+    }
+
+    const candidateClient = securityModule.client ?? null;
+    if (candidateClient) {
+      candidateClient.once("ready", () => {
+        updateSecuritySection(candidateClient, "online");
+      });
+      bindSecurityLifecycle(candidateClient);
+    }
+
+    await startSecurityBot();
+
+    securityClient = candidateClient;
+    updateSecuritySection(candidateClient, "online");
+
+    return candidateClient;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    setSection("security", {
+      title: "Security Bot",
+      status: "error",
+      metrics: [["error", message]],
+    });
+    log.error("Security bot startup failed", error);
+    throw error;
+  }
+}
+
 async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   if (shuttingDown) {
     return;
@@ -131,6 +194,15 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
       log.error("Error during Discord client destroy", error);
     }
     activeClient = null;
+  }
+
+  if (securityClient) {
+    try {
+      await securityClient.destroy();
+    } catch (error) {
+      log.error("Error during security client destroy", error);
+    }
+    securityClient = null;
   }
 
   stopMonitor();
@@ -197,6 +269,14 @@ export async function boot(): Promise<void> {
         "For workers, confirm service type is 'Background Worker' and it references the same DB.",
       ],
     });
+    throw error;
+  }
+
+  setPhase("Starting security bot");
+  try {
+    await bootSecurityBot();
+  } catch (error) {
+    setPhase("Startup failed");
     throw error;
   }
 

@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-27T07:05:00Z
+Last Updated (UTC): 2025-10-27T07:45:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 
 ## Router-of-Routers
@@ -45,22 +45,23 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 ### Application Source (`src/ROUTER.md`)
 - Purpose: Root TypeScript source tree; delegates to domain routers.
 - Owned Globs: `src/**`
-- Last Updated: 2025-10-26T12:20:00Z
+- Last Updated: 2025-10-27T07:45:00Z
 - Downstream Routers:
 	- `src/bot/ROUTER.md` — Discord bot interactions
 	- `src/core/ROUTER.md` — core battle/encounter engines
 - Supporting Files:
-	- `src/index.ts` — application entry (Discord + Prisma bootstrap)
+	- `src/index.ts` — application entry (Prisma init + boots Discord bot and legacy security worker)
 	- `src/shared/**` — shared config, logging, utilities
 - Recent Notes:
 	- Battle result persistence centralized; announcer flow shared for victories/forfeits.
 	- Daily quest claim flow landed with cooldown wiring.
 	- Render DATABASE_URL overrides prefer managed connection strings.
+	- Entry now launches the security bot before the Discord client so DripTVDD alerts stay online.
 
 ### Discord Bot Layer (`src/bot/ROUTER.md`)
 - Purpose: Discord client bootstrap, slash commands, DM flows, arena threads, admin ops.
 - Owned Globs: `src/bot/**`
-- Last Updated: 2025-10-26T12:20:00Z
+- Last Updated: 2025-10-27T07:45:00Z
 - Areas & Key Files:
 	- `src/bot/index.ts` — Discord client bootstrap & routing with ready guards
 	- `src/bot/dm/**` — DM home, starter selection, healing, drip alerts, daily quests
@@ -68,6 +69,8 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 	- `src/bot/wilds/**` — encounter controls
 	- `src/bot/battle/**` — arena threads, announcer summaries, persistence hooks
 	- `src/bot/ops/admin.ts` — `/ops` admin stats with filters (limit, after, participant)
+	- `src/bot/main.js` — legacy security bot (role sweeps, DripTVDD alert digest)
+	- `src/bot/dripAlerts.js` — DM alert scheduler/dispatcher backing security alerts
 
 ### Core Game Engines (`src/core/ROUTER.md`)
 - Purpose: Deterministic battle and encounter mechanics.
