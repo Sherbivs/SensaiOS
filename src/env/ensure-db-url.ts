@@ -38,7 +38,7 @@ const candidates: Candidate[] = fallbackOrder
     if (!raw) return undefined;
     const value = raw.trim();
     if (!value) return undefined;
-    return { key, value, isLocal: isLikelyLocal(value) } satisfies Candidate;
+    return { key, value, isLocal: isLikelyLocal(value) } as Candidate;
   })
   .filter((entry): entry is Candidate => entry !== undefined);
 
