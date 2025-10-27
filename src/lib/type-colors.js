@@ -1,21 +1,24 @@
-'use strict';
-module.exports = {
-  normal: 0xA8A77A,
-  fire: 0xEE8130,
-  water: 0x6390F0,
-  electric: 0xF7D02C,
-  grass: 0x7AC74C,
-  ice: 0x96D9D6,
-  fighting: 0xC22E28,
-  poison: 0xA33EA1,
-  ground: 0xE2BF65,
-  flying: 0xA98FF3,
-  psychic: 0xF95587,
-  bug: 0xA6B91A,
-  rock: 0xB6A136,
+const TYPE_COLORS = {
+  normal: 0xa8a77a,
+  fire: 0xee8130,
+  water: 0x6390f0,
+  electric: 0xf7d02c,
+  grass: 0x7ac74c,
+  ice: 0x96d9d6,
+  fighting: 0xc22e28,
+  poison: 0xa33ea1,
+  ground: 0xe2bf65,
+  flying: 0xa98ff3,
+  psychic: 0xf95587,
+  bug: 0xa6b91a,
+  rock: 0xb6a136,
   ghost: 0x735797,
-  dragon: 0x6F35FC,
+  dragon: 0x6f35fc,
   dark: 0x705746,
-  steel: 0xB7B7CE,
-  fairy: 0xD685AD,
+  steel: 0xb7b7ce,
+  fairy: 0xd685ad,
 };
+
+export { TYPE_COLORS };
+
+export default TYPE_COLORS;

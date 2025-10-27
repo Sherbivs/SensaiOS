@@ -1,8 +1,8 @@
-const os = require('node:os');
-const readline = require('node:readline');
+import os from 'node:os';
+import readline from 'node:readline';
 
-const activityTracker = require('./activityTracker');
-const opsNotifier = require('./opsNotifier');
+import activityTracker from './activityTracker.js';
+import opsNotifier from './opsNotifier.js';
 
 const UPDATE_INTERVAL_MS = 1000;
 const HEADER = 'Infinity Gauntlet Ops Monitor';
@@ -431,7 +431,16 @@ function interruptConsoleOutput(writeFn) {
   render();
 }
 
-module.exports = {
+export {
+  startStatusDisplay,
+  stopStatusDisplay,
+  setPhase,
+  setGuildCount,
+  setSection,
+  interruptConsoleOutput,
+};
+
+export default {
   startStatusDisplay,
   stopStatusDisplay,
   setPhase,

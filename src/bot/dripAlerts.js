@@ -1,4 +1,4 @@
-const { msUntilNextZonedTime, formatInTimeZone } = require('../utils/timezone');
+import { msUntilNextZonedTime, formatInTimeZone } from '../utils/timezone.js';
 
 const DEFAULT_TIME_ZONE = 'America/New_York';
 const SEVERITY = Object.freeze({
@@ -291,7 +291,9 @@ function createDripAlertManager({
   };
 }
 
-module.exports = {
+export { createDripAlertManager, SEVERITY as DRIP_ALERT_SEVERITY };
+
+export default {
   createDripAlertManager,
   DRIP_ALERT_SEVERITY: SEVERITY,
 };

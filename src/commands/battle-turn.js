@@ -1,8 +1,10 @@
-'use strict';
-const { SlashCommandBuilder } = require('discord.js');
-const { getPokemon, getMove, disabled } = require('../lib/dex-api');
-const { makeRNG } = require('../engine/rng');
-const { makeRuntimeFromDexEntry, newBattleState, newAction, resolveTurn } = require('../engine');
+import { SlashCommandBuilder } from 'discord.js';
+import dexApi from '../lib/dex-api.js';
+import { makeRNG } from '../engine/rng.js';
+import engine from '../engine/index.js';
+
+const { getPokemon, getMove, disabled, moves: dexMoves } = dexApi;
+const { makeRuntimeFromDexEntry, newBattleState, newAction, resolveTurn } = engine;
 
 const TYPE_EMOJIS = {
   normal: '⚪', fire: '🔥', water: '💧', electric: '⚡', grass: '🌿', ice: '❄️',
@@ -54,7 +56,7 @@ function parseActions(options) {
   return { a: newAction('a', aMove), b: newAction('b', bMove) };
 }
 
-module.exports = {
+const command = {
   data: new SlashCommandBuilder()
     .setName('battle-turn')
     .setDescription('Resolve one battle turn for your session (A vs B).')
@@ -82,7 +84,7 @@ module.exports = {
       log: [],
       publicLog: [],
       allowFlinchSkip: true,
-      movesIndex: require('../lib/dex-api').moves, // object map: name -> move
+      movesIndex: dexMoves,
     };
 
     const result = resolveTurn(state, actions.a, actions.b, ctx);
@@ -138,5 +140,7 @@ module.exports = {
         await interaction.reply({ content: text });
       }
     }
-  }
+  },
 };
+
+export default command;
