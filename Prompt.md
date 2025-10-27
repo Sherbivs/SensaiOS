@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T07:50:00Z
-Revision: 0.84
+Timestamp (UTC): 2025-10-27T08:20:00Z
+Revision: 0.86
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,34 +10,24 @@ Revision: 0.84
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/index.ts` — Started the legacy security bot from the TypeScript entry so DripTVDD alerts and ops DMs resume on deploy.
-> - `src/bot/ROUTER.md` — Noted the new startup flow and refreshed the timestamp.
-> - `masterroutetable.md` — Documented that `src/index.ts` now boots both bots and updated Discord layer metadata.
-> - `Prompt.md` — Recorded the security bot startup fix and refreshed metadata.
+> - `agent.md` — Expanded into a full agent handbook covering contracts, routers, operations, Render services, and test tooling.
+> - `Prompt.md` — Logged the handbook expansion and refreshed metadata.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Re-enabled the security bot inside the TypeScript entry so DripTVDD DM alerts flow again.
+Summary: Expanded `agent.md` into a full handbook so incoming agents have contract, router, and ops guidance in one place.
 TasklistDiff: false
-Tests: Not run (startup change validated via code review path).
+Tests: Not run (documentation-only change).
 Contracts: ON (marker present; Contract Mode enforced).
 NEXT: T8.4 remains queued as the next READY feature after documentation updates.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task NONE] Reinstate security bot startup
+[Task NONE] Expand agent.md reference hub
 
-FILE: src/index.ts
-Change: Launch the legacy security bot alongside the TypeScript Discord client and integrate it with the CLI monitor/shutdown path.
-Insert/Replace/Remove: Added security boot helper, lifecycle wiring, and graceful shutdown cleanup.
-
-FILE: src/bot/ROUTER.md
-Change: Note that the TypeScript entry now boots the legacy security worker and refresh the timestamp.
-Insert/Replace/Remove: Updated notes/timestamp to reflect the new integration.
-
-FILE: masterroutetable.md
-Change: Document that `src/index.ts` now starts both bots and refreshed Discord layer metadata.
-Insert/Replace/Remove: Updated timestamps, supporting-file summary, and recent notes.
+FILE: agent.md
+Change: Replaced the short pointer list with a multi-section handbook describing contracts, router navigation, operational playbooks, Render deployment notes, tooling, and exit checklist.
+Insert/Replace/Remove: Added detailed sections for control documents, workflow, production services, testing, and directory overview.
 
 TASKLIST UPDATE
 Change: None.
