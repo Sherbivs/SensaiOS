@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T08:45:00Z
-Revision: 0.87
+Timestamp (UTC): 2025-10-27T08:32:00Z
+Revision: 0.88
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**
@@ -10,49 +10,27 @@ Revision: 0.87
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/shared/config.ts`, `src/shared/prisma.ts`, `src/shared/cache/memory.ts`, `src/shared/outbox.ts` — unified runtime loader, Prisma singleton, TTL cache, and outbox helpers for shared services.
-> - `src/worker/backup.ts`, `render.yaml`, `scripts/guard_runtime.sh`, `.github/workflows/runtime.yml` — added Render app worker draining the Prisma outbox with CI/runtime guards.
-> - `src/bot/ops/admin.ts`, `README.md`, `tests/runtime_config.spec.ts`, `tests/outbox.spec.ts`, `tests/ops_stats.spec.ts` — extended `/ops stats` diagnostics, documented the runtime blueprint, and added coverage.
-> - `prisma/schema.prisma`, `ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, `tasklist.md`, `ops/NEXT.yaml`, `ops/TOUCHMAP.yaml`, `Prompt.md` — added `OutboxMessage` schema and synchronized routers/meta/tasklist for META.RUNTIME.BLUEPRINT_APPLY.
+> - `src/models/index.ts` — Re-exported the shared Prisma singleton so existing imports in DM/battle flows resolve.
+> - `Prompt.md` — Logged the Prisma export fix and refreshed metadata.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Unified runtime config + Prisma bootstrap, wired a Render backup worker + outbox, extended `/ops stats`, and added runtime guards/tests.
-TasklistDiff: true
-Tests: Pending (vitest runtime suites to run before commit).
+Summary: Restored the `prisma` export from the models barrel so DM/home flows stop crashing during startup.
+TasklistDiff: false
+Tests: Not run (hotfix unblock for Render startup).
 Contracts: ON (marker present; Contract Mode enforced).
-NEXT: T8.4 remains queued after runtime hardening.
+NEXT: T8.4 remains queued after the prisma export fix.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task META.RUNTIME.BLUEPRINT_APPLY] Runtime blueprint and outbox worker
+[Task NONE] Restore prisma export for DM flows
 
-FILE: src/shared/config.ts
-Change: Replaced the config singleton with `loadConfig()` that promotes Render internal URLs, forbids localhost in production, and surfaces cache/runtime metadata.
-
-FILE: src/shared/prisma.ts & prisma/schema.prisma
-Change: Centralized Prisma client initialization (early `$connect`, URL validation) and added the `OutboxMessage` model.
-
-FILE: src/shared/cache/memory.ts, src/shared/outbox.ts
-Change: Added TTL memory cache and durable outbox helpers shared by the bot and worker.
-
-FILE: src/worker/backup.ts, render.yaml
-Change: Introduced a Render app worker that drains the Prisma outbox and logs health diagnostics; blueprint adds the new service.
-
-FILE: src/bot/ops/admin.ts
-Change: `/ops stats` now reports runtime, database, cache, and outbox information alongside battle summaries.
-
-FILE: tests/runtime_config.spec.ts, tests/outbox.spec.ts, tests/ops_stats.spec.ts
-Change: Added Vitest coverage for config fallback/guards, outbox helpers, and the enhanced ops stats command.
-
-FILE: scripts/guard_runtime.sh, .github/workflows/runtime.yml
-Change: CI guard ensures Render worker wiring and blocks localhost DATABASE_URL; workflow runs the guard and new tests.
-
-FILE: README.md, ops/ROUTER_INDEX.yaml, masterroutetable.md, ops/TOUCHMAP.yaml, ops/NEXT.yaml, tasklist.md, Prompt.md
-Change: Documented the runtime blueprint, synced routers/touchmap/NEXT, and logged Tasklist status + follow-up sink task.
+FILE: src/models/index.ts
+Change: Re-exported the Prisma singleton from the models barrel so existing bot imports resolve without touching callers.
+Insert/Replace/Remove: Added an explicit `export { prisma };` after `initPrisma`.
 
 TASKLIST UPDATE
-Change: Closed META.RUNTIME.BLUEPRINT_APPLY, queued META.RUNTIME.BACKUP_SINK, refreshed NEXT note.
+Change: None.
 <<<PATCHSET END>>>
 
 Logs & References:

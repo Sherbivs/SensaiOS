@@ -8,6 +8,8 @@ export async function initPrisma(): Promise<void> {
   await ensurePrisma();
 }
 
+export { prisma };
+
 // Example: lightweight repo helpers (expand later)
 export const UserRepo = {
   upsertByDiscordId: async (discordId: string, client: PrismaClient = prisma) =>

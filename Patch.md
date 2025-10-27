@@ -96,6 +96,8 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
 <<<PATCHSET END>>>
+Clipboard cleared after PRISMA_EXPORT_RESTORE.
+<<<PATCHSET END>>>
 Clipboard cleared after AGENT_HANDBOOK_EXPANSION.
 <<<PATCHSET END>>>
 
