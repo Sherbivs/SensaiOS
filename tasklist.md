@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T17:05:00Z
-Revision: 1.66
+Last Updated (UTC): 2025-10-27T08:45:00Z
+Revision: 1.67
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -203,6 +203,28 @@ Each task has:
     - ops/NEXT.yaml points to the new READY task with trimmed files_hint and rationale.
     - Prompt.md documents the backlog seeding under Last Repo Changes and Revision History.
   notes: Outcome — Persistence-focused tasks are staged with NEXT targeting the first READY item so the loop can resume without manual triage.
+
+- id: META.RUNTIME.BLUEPRINT_APPLY
+  title: Apply unified runtime/config + cache + Render DB wiring
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - `src/shared/config.ts` promotes Render’s internal database URL, forbids localhost hosts in production, and exposes cache/runtime fields.
+    - Prisma client is centralized (`src/shared/prisma.ts`) with early `$connect()` and shared logging; legacy model helpers reuse it.
+    - Render worker (`src/worker/backup.ts`) drains `OutboxMessage` rows with jittered polling, structured health logs, and a TTL cache fallback.
+    - `/ops stats` surfaces runtime, database, cache, and outbox diagnostics; Vitest covers config, outbox helpers, and the command output.
+    - CI guard + workflow block localhost DATABASE_URL usage in production and assert the Render worker sources its connection string from the managed Postgres.
+  notes: Outcome — Runtime blueprint landed with shared config, Prisma bootstrap, Render worker, and guard/test coverage; docs and routers updated accordingly.
+
+- id: META.RUNTIME.BACKUP_SINK
+  title: Replace console backup sink with persistent storage
+  status: PROPOSED
+  depends_on: [META.RUNTIME.BLUEPRINT_APPLY]
+  acceptance_criteria:
+    - Outbox worker writes processed payloads to durable storage (e.g., S3, Cloudflare R2) instead of logging placeholders.
+    - Secrets/configuration for the chosen storage provider are documented and guarded in Render.
+    - `/ops stats` and worker health logs surface the new sink status and last successful upload timestamp.
+  notes: Proposed — follow-up to swap the placeholder console sink with real backup storage once the runtime blueprint stabilizes.
 
 - id: T0.REFRESH.VISION
   title: Add Refresh Vision phase and recovery ledger

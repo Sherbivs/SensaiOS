@@ -1,38 +1,81 @@
-// Centralized configuration loader with safe defaults.
-// Never log secrets. Only read from process.env.
+import os from "node:os";
 
-export type AppConfig = {
-  env: "development" | "test" | "production";
+export type RuntimeConfig = {
+  nodeEnv: string;
+  serviceName: string;
   databaseUrl: string;
-  nodeEnvRaw: string | undefined;
+  redisUrl: string | null;
+  cacheTtlMs: number;
 };
 
-function required(name: string, value: string | undefined): string {
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
+let cachedConfig: RuntimeConfig | null = null;
+
+function coerceNumber(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function resolveDatabaseUrl(): string {
+  const direct = process.env.DATABASE_URL?.trim();
+  if (direct) {
+    return direct;
   }
-  return value;
+
+  const internal = process.env.DATABASE_INTERNAL_URL?.trim();
+  if (internal) {
+    process.env.DATABASE_URL = internal;
+    return internal;
+  }
+
+  return "";
 }
 
-const isTestEnv = process.env.NODE_ENV === "test";
+function assertDatabaseUrl(nodeEnv: string, url: string): void {
+  if (!url) {
+    if (nodeEnv === "production") {
+      throw new Error("DATABASE_URL is required in production.");
+    }
+    return;
+  }
 
-if (!process.env.DATABASE_URL && isTestEnv) {
-  process.env.DATABASE_URL = "postgres://placeholder.invalid/test-db";
+  if (nodeEnv === "production") {
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+        throw new Error("DATABASE_URL cannot point to localhost in production.");
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error("DATABASE_URL must be a valid URL in production.");
+    }
+  }
 }
 
-const databaseUrlCandidate =
-  process.env.DATABASE_URL ??
-  process.env.DATABASE_INTERNAL_URL ??
-  process.env.DATABASE_CONNECTION_STRING ??
-  process.env.DATABASE_URL_INTERNAL;
+export function loadConfig(): RuntimeConfig {
+  if (cachedConfig) {
+    return cachedConfig;
+  }
 
-export const config: AppConfig = {
-  env:
-    (process.env.NODE_ENV as AppConfig["env"]) ||
-    (process.env.RENDER === "true" ? "production" : "development"),
-  databaseUrl: required(
-    "DATABASE_URL",
-    databaseUrlCandidate
-  ),
-  nodeEnvRaw: process.env.NODE_ENV,
-};
+  const nodeEnv = process.env.NODE_ENV?.trim() || "development";
+  const databaseUrl = resolveDatabaseUrl();
+  assertDatabaseUrl(nodeEnv, databaseUrl);
+
+  const serviceName = process.env.SERVICE_NAME?.trim() || os.hostname();
+  const redisUrl = process.env.REDIS_URL?.trim() || null;
+  const cacheTtlMs = coerceNumber(process.env.CACHE_TTL_MS, 60_000);
+
+  cachedConfig = {
+    nodeEnv,
+    serviceName,
+    databaseUrl,
+    redisUrl,
+    cacheTtlMs,
+  };
+
+  return cachedConfig;
+}
+
+export const config = loadConfig();

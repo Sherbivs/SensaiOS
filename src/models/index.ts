@@ -1,37 +1,13 @@
 // Prisma client singleton and simple repository helpers
 
-import { databaseUrlSource } from "../env/ensure-db-url.js";
-import { PrismaClient } from "@prisma/client";
-import type { Battle, Prisma, User as PrismaUser } from "@prisma/client";
-import { log } from "../shared/log.js";
+import { Prisma } from "@prisma/client";
+import type { Battle, PrismaClient, User as PrismaUser } from "@prisma/client";
+import { ensurePrisma, prisma } from "../shared/prisma.js";
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-
-export const prisma: PrismaClient =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
-
-let connectPromise: Promise<void> | null = null;
+export { prisma, ensurePrisma } from "../shared/prisma.js";
 
 export async function initPrisma(): Promise<void> {
-  if (!connectPromise) {
-    connectPromise = prisma.$connect().catch((err) => {
-      const source = databaseUrlSource ?? "unknown";
-      log.error("Prisma $connect failed", err, {
-        "db.url.source": source,
-      });
-      connectPromise = null;
-      throw err;
-    });
-  }
-
-  await connectPromise;
+  await ensurePrisma();
 }
 
 // Example: lightweight repo helpers (expand later)

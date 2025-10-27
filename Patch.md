@@ -1,14 +1,14 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-26T16:05:00Z
-Revision: 1.33
+Last Updated (UTC): 2025-10-27T08:45:00Z
+Revision: 1.34
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
-Read this file completely before beginning any task. Follow it literally.
+Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
 
 ## Marker Switch
-- The marker string `<<<PATCHSET START>>>` toggles **Contract Mode**. When present, every contract rule and CI guard applies.
-- When the marker is absent, the run enters **Markerless Mode**. Contracts are suspended for that single run, but the Absolutes remain enforced.
-- Markerless Mode is a deliberate human override. The next marked run must reconcile any drift and restore Contract Mode.
+- The marker string `<<<PATCHSET START>>>` toggles **Contract Mode**. When the marker is present, every contract rule and CI guard applies without exception.
+- When the marker is absent, the Patch Engine still executes but treats all repo contracts as VOID for that single run (Absolutes still apply). This is a deliberate human override.
+- The next marked run must reconcile any drift and restore Contract Mode.
 
 ## Absolutes (apply in every mode)
 - Never rename or delete canonical meta/routing files (`Patch.md`, `Tasklist.md`, `Prompt.md`, `ops/PATCH_POLICY_BACKUP.md`, `ops/ROUTER.yaml`, `ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, and any `ROUTER.md`).

@@ -1,6 +1,9 @@
 import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
 import type { PrismaClient } from "@prisma/client";
 import { log } from "../../shared/log.js";
+import { config } from "../../shared/config.js";
+import { cache } from "../../shared/cache/memory.js";
+import { ensurePrisma, prisma } from "../../shared/prisma.js";
 
 type BasicStats = {
   users?: number | null;
@@ -30,6 +33,21 @@ type OpsStatsReport = {
   totalFinishedBattles: number;
   recentBattles: BattleSummary[];
   window: StatsWindow;
+  outboxPending: number;
+  outboxLastProcessedAt: Date | null;
+  prismaStatus: "connected";
+};
+
+type OpsDiagnostics = {
+  nodeVersion: string;
+  serviceName: string;
+  environment: string;
+  databaseHost: string | null;
+  cacheSize: number;
+  cacheTtlMs: number;
+  prismaStatus: "connected" | "unavailable";
+  outboxPending: number | null;
+  outboxLastProcessedIso: string | null;
 };
 
 type PrismaLike = PrismaClient;
@@ -52,14 +70,22 @@ function normalizeParticipant(raw: string | null): string | null {
   return null;
 }
 
+function getDatabaseHost(): string | null {
+  if (!config.databaseUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(config.databaseUrl).host;
+  } catch {
+    return null;
+  }
+}
+
 async function getPrismaSafe(): Promise<PrismaLike | null> {
   try {
-    // Dynamic import to avoid hard dependency if prisma/client isn't installed/configured
-    const mod = await import("@prisma/client");
-    const PrismaClient = (mod as any).PrismaClient;
-    if (!PrismaClient) return null;
-    const prisma = new PrismaClient();
-    return prisma as PrismaLike;
+    await ensurePrisma();
+    return prisma;
   } catch (err) {
     log.debug("Prisma unavailable, running in no-DB mode", { err });
     return null;
@@ -73,7 +99,7 @@ export type OpsCommandDeps = {
 async function acquirePrisma(deps: OpsCommandDeps) {
   const factory = deps.prismaFactory ?? getPrismaSafe;
   const prisma = await factory();
-  const shouldRelease = !deps.prismaFactory;
+  const shouldRelease = Boolean(deps.prismaFactory);
   const release = async () => {
     if (shouldRelease && prisma) {
       try {
@@ -175,6 +201,8 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
     cooldowns,
     totalFinishedBattles,
     recent,
+    outboxPending,
+    lastProcessed,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.encounter.count({ where: { state: { in: ["Spawned", "Idle"] } } }),
@@ -192,6 +220,12 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
         p1: { select: { discordId: true } },
         p2: { select: { discordId: true } },
       },
+    }),
+    prisma.outboxMessage.count({ where: { status: "pending" } }),
+    prisma.outboxMessage.findFirst({
+      where: { status: { in: ["done", "error"] }, processedAt: { not: null } },
+      orderBy: { processedAt: "desc" },
+      select: { processedAt: true },
     }),
   ]);
 
@@ -213,6 +247,9 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
     totalFinishedBattles,
     recentBattles,
     window,
+    outboxPending,
+    outboxLastProcessedAt: lastProcessed?.processedAt ?? null,
+    prismaStatus: "connected",
   };
 }
 
@@ -230,7 +267,11 @@ function formatBattleSummary(summary: BattleSummary) {
   return `- ${timestamp} • ${summary.id} • ${winner} over ${loser} (${reason}, ${turnText}) • rewards ${rewardText}`;
 }
 
-function formatOpsStatsReport(report: OpsStatsReport | null, windowOverride?: StatsWindow): string {
+function formatOpsStatsReport(
+  report: OpsStatsReport | null,
+  diagnostics: OpsDiagnostics,
+  windowOverride?: StatsWindow,
+): string {
   const counts = report?.counts ?? {};
   const n = (value: number | null | undefined) => (value === null || value === undefined ? "n/a" : String(value));
   const window = report?.window ?? windowOverride ?? { limit: DEFAULT_RECENT_LIMIT, after: null, participant: null };
@@ -239,7 +280,30 @@ function formatOpsStatsReport(report: OpsStatsReport | null, windowOverride?: St
   const participantText = window.participant ? `<@${window.participant}>` : "all";
   const totalFinished = report?.totalFinishedBattles ?? null;
   const shown = report?.recentBattles?.length ?? 0;
+  const outboxPending = report?.outboxPending ?? diagnostics.outboxPending;
+  const outboxLastProcessedIso =
+    report?.outboxLastProcessedAt?.toISOString() ?? diagnostics.outboxLastProcessedIso;
+
   const lines = [
+    "Runtime:",
+    `- Service: ${diagnostics.serviceName}`,
+    `- Environment: ${diagnostics.environment}`,
+    `- Node: ${diagnostics.nodeVersion}`,
+    "",
+    "Database:",
+    `- Host: ${diagnostics.databaseHost ?? "unknown"}`,
+    `- Prisma: ${report ? report.prismaStatus : diagnostics.prismaStatus}`,
+    "",
+    "Cache:",
+    "- Backend: memory",
+    `- Default TTL: ${diagnostics.cacheTtlMs}ms`,
+    `- Entries: ${diagnostics.cacheSize}`,
+    "",
+    "Outbox:",
+    `- Pending: ${n(outboxPending)}`,
+    `- Last processed: ${outboxLastProcessedIso ?? "never"}`,
+    "",
+    "Game Stats:",
     `Users: ${n(counts.users)}`,
     `Active Encounters: ${n(counts.encountersActive)}`,
     `Pending/Active Battles: ${n(counts.battlesActive)}`,
@@ -323,17 +387,32 @@ export async function handleOpsCommand(
     }
 
     const window: StatsWindow = { limit, after, participant };
+    const diagnostics: OpsDiagnostics = {
+      nodeVersion: process.version,
+      serviceName: config.serviceName,
+      environment: config.nodeEnv,
+      databaseHost: getDatabaseHost(),
+      cacheSize: cache.size,
+      cacheTtlMs: config.cacheTtlMs,
+      prismaStatus: "unavailable",
+      outboxPending: null,
+      outboxLastProcessedIso: cache.get<string>("outbox:last-processed") ?? null,
+    };
     const { prisma, release } = await acquirePrisma(deps);
 
     try {
       if (!prisma) {
-        const message = formatOpsStatsReport(null, window);
+        const message = formatOpsStatsReport(null, diagnostics, window);
         await interaction.editReply({ content: message });
         return;
       }
 
       const report = await collectOpsStatsFromPrisma(prisma, window);
-      const message = formatOpsStatsReport(report);
+      diagnostics.prismaStatus = report.prismaStatus;
+      diagnostics.outboxPending = report.outboxPending;
+      diagnostics.outboxLastProcessedIso =
+        report.outboxLastProcessedAt?.toISOString() ?? diagnostics.outboxLastProcessedIso;
+      const message = formatOpsStatsReport(report, diagnostics);
       await interaction.editReply({ content: message });
     } catch (err) {
       log.warn("Stats query failed", { err });
