@@ -1,12 +1,11 @@
-'use strict';
-const fs = require('node:fs');
-const path = require('node:path');
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 
 const MANIFEST_PATH = path.join(process.cwd(), 'dist', 'assets', 'manifest.json');
 let manifest = { sprites: {}, version_group: 'latest' };
 try {
-  if (fs.existsSync(MANIFEST_PATH)) {
-    manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
+  if (existsSync(MANIFEST_PATH)) {
+    manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
   }
 } catch (err) {
   // Keep a safe default; commands should handle undefined URLs gracefully
@@ -34,4 +33,6 @@ function getSpriteUrl(idOrName, style = 'artwork') {
   return entry.cdnArt || entry.devArt || entry.preferred || null;
 }
 
-module.exports = { getSpriteUrl, manifest };
+export { getSpriteUrl, manifest };
+
+export default { getSpriteUrl, manifest };

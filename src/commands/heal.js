@@ -1,10 +1,13 @@
-'use strict';
-const { SlashCommandBuilder } = require('discord.js');
+import { SlashCommandBuilder } from 'discord.js';
 
-module.exports = {
-  data: new SlashCommandBuilder().setName('heal').setDescription('Heal your party (in DM Home)'),
-  cooldownMs: 1000,
-  async execute(interaction) {
-    await interaction.reply({ content: 'Heal placeholder: will fully restore your party in DM Home.', ephemeral: true });
-  },
-};
+const data = new SlashCommandBuilder().setName('heal').setDescription('Heal your party (in DM Home)');
+
+const cooldownMs = 1000;
+
+async function execute(interaction) {
+  await interaction.reply({ content: 'Heal placeholder: will fully restore your party in DM Home.', ephemeral: true });
+}
+
+export { data, cooldownMs, execute };
+
+export default { data, cooldownMs, execute };

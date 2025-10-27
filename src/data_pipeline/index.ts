@@ -86,10 +86,21 @@ export async function buildData(opts: BuildOptions = {}): Promise<{
 
   const dexEntries: DexEntry[] = Array.isArray(dex) ? dex : Object.values(dex);
   for (const d of dexEntries) {
-    const id = d.num ?? Number.NaN;
+    const idRaw = d.num ?? (typeof d.id === "string" ? Number.parseInt(d.id, 10) : d.id);
+    const id = Number.isFinite(Number(idRaw)) ? Number(idRaw) : Number.NaN;
     const name = d.name ?? d.id ?? String(d.num ?? "");
     const types = (d.types ?? []).slice(0, 2);
-    const baseStats = d.baseStats ?? { hp: 1, atk: 1, def: 1, spa: 1, spd: 1, spe: 1 };
+    const statsSource: any = d.baseStats ?? d.stats ?? null;
+    const baseStats = statsSource
+      ? {
+          hp: Number(statsSource.hp ?? statsSource.HP ?? 1),
+          atk: Number(statsSource.atk ?? statsSource.attack ?? 1),
+          def: Number(statsSource.def ?? statsSource.defense ?? 1),
+          spa: Number(statsSource.spa ?? statsSource['special-attack'] ?? 1),
+          spd: Number(statsSource.spd ?? statsSource['special-defense'] ?? 1),
+          spe: Number(statsSource.spe ?? statsSource.speed ?? 1),
+        }
+      : { hp: 1, atk: 1, def: 1, spa: 1, spd: 1, spe: 1 };
     const abilList = Array.isArray(d.abilities)
       ? (d.abilities as string[])
       : Object.values(d.abilities ?? {});
@@ -103,11 +114,12 @@ export async function buildData(opts: BuildOptions = {}): Promise<{
   const movesArr: Array<{ id: number; name: string; type: string; category: string; power: number | null; accuracy: number | null; pp: number }>
     = [];
   for (const m of movesArrRaw) {
-    const id = m.num ?? Number.NaN;
+    const idRaw = m.num ?? (typeof m.id === "string" ? Number.parseInt(m.id, 10) : m.id);
+    const id = Number.isFinite(Number(idRaw)) ? Number(idRaw) : Number.NaN;
     const name = m.name ?? m.id ?? String(m.num ?? "");
     const type = m.type ?? "Normal";
-    const category = m.category ?? "Status";
-    const power = m.basePower ?? null;
+    const category = m.category ?? (m as any).class ?? "Status";
+    const power = m.basePower ?? (m as any).power ?? null;
     let acc: number | null = null;
     if (typeof m.accuracy === "number") acc = m.accuracy;
     else if (m.accuracy === true) acc = 100;
@@ -117,8 +129,21 @@ export async function buildData(opts: BuildOptions = {}): Promise<{
   }
   movesArr.sort((a, b) => a.id - b.id);
 
-  const abilitiesArr = Array.from(abilitiesSet).filter(Boolean).map((name, idx) => ({ id: idx + 1, name }));
-  abilitiesArr.sort((a, b) => a.name.localeCompare(b.name));
+  const abilityNames = Array.from(abilitiesSet)
+    .map((value) => {
+      if (typeof value === "string") return value.trim();
+      if (value && typeof value === "object" && "name" in value) {
+        const maybe = (value as { name?: unknown }).name;
+        return typeof maybe === "string" ? maybe.trim() : "";
+      }
+      return "";
+    })
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+
+  abilityNames.sort((a, b) => a.localeCompare(b));
+
+  const abilitiesArr = abilityNames.map((name, idx) => ({ id: idx + 1, name }));
 
   // Build outputs (deterministic)
   const outputs: OutputFile[] = [];
@@ -139,9 +164,11 @@ export async function buildData(opts: BuildOptions = {}): Promise<{
     outputs.push({ path: rel, content, hash: sha256(content) });
   }
 
+  const timestamp = opts.dryRun ? new Date(0).toISOString() : new Date().toISOString();
+
   const manifest = {
     version,
-    updatedAt: new Date().toISOString(),
+    updatedAt: timestamp,
     counts: { species: speciesArr.length, moves: movesArr.length, abilities: abilitiesArr.length },
     files: outputs.map((o) => ({ path: o.path, hash: o.hash })),
   };

@@ -1,5 +1,3 @@
-'use strict';
-
 /** Standard stage multipliers for non-accuracy/evasion stats */
 function stageMultiplier(n) {
   // n in [-6..+6]
@@ -23,4 +21,6 @@ function derivedStats(base, level) {
   };
 }
 
-module.exports = { stageMultiplier, derivedStats };
+export { stageMultiplier, derivedStats };
+
+export default { stageMultiplier, derivedStats };
