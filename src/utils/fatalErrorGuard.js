@@ -1,6 +1,4 @@
-'use strict';
-
-const util = require('node:util');
+import util from 'node:util';
 
 let handlersInstalled = false;
 let exitScheduled = false;
@@ -84,6 +82,6 @@ function installFatalErrorHandlers({
   });
 }
 
-module.exports = {
-  installFatalErrorHandlers,
-};
+export { installFatalErrorHandlers };
+
+export default { installFatalErrorHandlers };
