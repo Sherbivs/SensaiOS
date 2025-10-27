@@ -8,8 +8,23 @@ const LOG_LABEL = Object.freeze({
   info: 'INFO',
   warn: 'WARN',
   detail: 'DETAIL',
-  error: 'ERROR'
+  error: 'ERROR',
 });
+
+const LEVEL_CONFIG = Object.freeze({
+  success: { label: LOG_LABEL.success, writer: console.log, stream: process.stdout },
+  info: { label: LOG_LABEL.info, writer: console.log, stream: process.stdout },
+  detail: { label: LOG_LABEL.detail, writer: console.log, stream: process.stdout },
+  warn: { label: LOG_LABEL.warn, writer: console.warn, stream: process.stderr },
+  error: { label: LOG_LABEL.error, writer: console.error, stream: process.stderr },
+});
+
+function getLevelConfig(level = 'info') {
+  if (level && LEVEL_CONFIG[level]) {
+    return LEVEL_CONFIG[level];
+  }
+  return LEVEL_CONFIG.info;
+}
 
 function withCliSafeWrite(_stream, fn) {
   if (typeof interruptConsoleOutput === 'function') {
@@ -99,23 +114,19 @@ function emitInspected(value, { debugMode }) {
 }
 
 function log(level, message, context, { debugMode = false } = {}) {
-  if (level !== 'error') {
-    return;
-  }
+  const normalizedLevel = level && LOG_LABEL[level] ? level : 'info';
+  const { label, writer, stream } = getLevelConfig(normalizedLevel);
   const timestamp = new Date().toISOString();
-  const label = LOG_LABEL[level] || LOG_LABEL.info;
-  const writer = level === 'error' ? console.error : console.log;
-  const stream = level === 'error' ? process.stderr : process.stdout;
   withCliSafeWrite(stream, () => writer(`[${timestamp}] [${label}] ${message}`));
   const normalized = normalizeContext(context);
 
-  if (opsNotifier && typeof opsNotifier.recordError === 'function') {
+  if (normalizedLevel === 'error' && opsNotifier && typeof opsNotifier.recordError === 'function') {
     try {
       opsNotifier.recordError({
         message,
         context: normalized,
         timestamp: new Date(timestamp),
-        level,
+        level: normalizedLevel,
       });
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -161,14 +172,10 @@ function log(level, message, context, { debugMode = false } = {}) {
 }
 
 function report(title, meta = {}, level = 'info') {
-  if (level !== 'error') {
-    return;
-  }
+  const normalizedLevel = level && LOG_LABEL[level] ? level : 'info';
+  const { label, writer, stream } = getLevelConfig(normalizedLevel);
   const heading = `=== ${title} ===`;
   const timestamp = new Date().toISOString();
-  const label = level.toUpperCase();
-  const writer = level === 'error' ? console.error : console.log;
-  const stream = level === 'error' ? process.stderr : process.stdout;
   withCliSafeWrite(stream, () => writer(`[${timestamp}] [${label}] ${heading}`));
   if (meta && typeof meta === 'object') {
     try {
@@ -176,6 +183,20 @@ function report(title, meta = {}, level = 'info') {
         withCliSafeWrite(stream, () => writer(`    ${key}: ${value}`));
       }
     } catch {}
+  }
+
+  if (normalizedLevel === 'error' && opsNotifier && typeof opsNotifier.recordError === 'function') {
+    try {
+      opsNotifier.recordError({
+        message: heading,
+        context: normalizeContext(meta),
+        timestamp: new Date(timestamp),
+        level: normalizedLevel,
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[logger opsNotifier]', error instanceof Error ? error.message : error);
+    }
   }
 }
 
