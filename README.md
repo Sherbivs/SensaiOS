@@ -135,6 +135,16 @@ Reference data is mirrored into `/data` via scripted jobs:
 - `ops/RECOVERY.yaml` and `ops/NEXT.yaml` coordinate the next actionable task, ensuring deterministic resumes across workers.
 - `ops/HOTFIX_PLAN.yaml` defines the hotfix queue and bootstrap template for emergency work outside the PATCH loop.
 
+### Router & Meta Index
+
+The contract-driven routing system keeps every meta document discoverable:
+
+- `masterroutetable.md` acts as the router-of-routers index, listing each `ROUTER.md` and the domains it maps.
+- `ops/ROUTER.yaml` and `ops/ROUTER_INDEX.yaml` mirror those routes in machine-readable form; run `scripts/update_router_index.sh` after touching router files.
+- `ops/TOUCHMAP.yaml` links Tasklist IDs to the paths they are allowed to modify so the patch engine scopes edits correctly.
+- `Patch.md`, `Prompt.md`, and `Tasklist.md` stay in lockstep; guard scripts verify PATCHSET echoes, header bumps, and READY queue pointers on every change.
+- Hotfix metadata (`ops/HOTFIX_PLAN.yaml`, `ops/RECOVERY.yaml`) records the last emergency edit so humans can resume safely even when contracts are bypassed.
+
 ## Legacy Bots (Reference Only)
 
 - `security-bot.js` / `src/bot/main.js` retain the original security role-healing logic.
