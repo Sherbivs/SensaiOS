@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Partials, Interaction } from "discord.js";
+import { Client, GatewayIntentBits, Partials, Interaction, Events } from "discord.js";
 import { log } from "../shared/log.js";
 const { loadCommands } = await import("../command-loader.js");
 import { openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./dm/starters.js";
@@ -41,12 +41,12 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 
         const commands = await loadCommands();
 
-	client.once("ready", () => {
-		log.info("Discord bot is ready", {
-			user: client.user?.tag,
-			commands: commands.size,
-		});
-	});
+        client.once(Events.ClientReady, () => {
+                log.info("Discord bot is ready", {
+                        user: client.user?.tag,
+                        commands: commands.size,
+                });
+        });
 
 	client.on("interactionCreate", async (interaction: Interaction) => {
 		try {
