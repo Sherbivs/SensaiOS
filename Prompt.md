@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-26T17:05:00Z
-Revision: 0.80
+Timestamp (UTC): 2025-10-27T00:10:00Z
+Revision: 0.81
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -10,44 +10,35 @@ Revision: 0.80
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/env/ensure-db-url.ts` — Hotfix now skips localhost DATABASE_URL values and overrides them with the managed Render connection string, logging overrides for auditors.
-> - `tasklist.md`, `ops/HOTFIX_PLAN.yaml`, `ops/RECOVERY.yaml` — Recorded HF.20251026.DB_URL_HOST_OVERRIDE completion and refreshed hotfix metadata.
-> - `Prompt.md` — Captured the hotfix outcome and readiness notes for post-deploy verification.
+> - `README.md` — Added a Router & Meta Index section detailing masterroutetable, ops/ROUTER docs, Touchmap, and contract files for external automation.
+> - `Patch.md` — Cleared the Patch Clipboard scratch note after landing the README documentation.
+> - `Prompt.md` — Recorded the documentation update and refreshed metadata/echo for the router reference.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Hotfix HF.20251026.DB_URL_HOST_OVERRIDE forces Render services to drop localhost DATABASE_URL fallbacks in favor of the managed connection string.
-TasklistDiff: true
-Tests: Not run (Prisma connectivity cannot be validated from this environment).
+Summary: Documented the router/meta index in README so automation can discover Patch.md, routers, and Touchmap easily.
+TasklistDiff: false
+Tests: Not run (documentation-only change).
 Contracts: ON (marker present; Contract Mode enforced).
-NEXT: T8.4 stays queued to ship the DM Home daily button once the hotfix is verified in production.
+NEXT: T8.4 remains queued as the next READY feature after documentation updates.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Hotfix HF.20251026.DB_URL_HOST_OVERRIDE] Replace localhost DATABASE_URL fallbacks with Render connection string
+[Task META.README.ROUTER_DOC] Document router system in README for external auditors
 
-FILE: src/env/ensure-db-url.ts
-Change: Prefer non-local candidates, override existing localhost DATABASE_URL values (even when already set), and emit structured warnings when production services still resolve to localhost.
-
-FILE: tasklist.md
-Change: Logged HF.20251026.DB_URL_HOST_OVERRIDE with acceptance criteria, marked it DONE, and bumped metadata headers.
-
-FILE: ops/HOTFIX_PLAN.yaml
-Change: Recorded the hotfix completion with a refreshed timestamp and guidance note.
-
-FILE: ops/RECOVERY.yaml
-Change: Stamped the latest hotfix identifiers and captured the NEXT snapshot for resuming feature work.
+FILE: README.md
+Change: Added a Router & Meta Index section that explains masterroutetable.md, ops/ROUTER docs, Touchmap, and contract files so automation recognizes the standardized layout.
 
 FILE: Prompt.md
-Change: Updated metadata, Last Repo Changes, and the hotfix echo summary so operators know the override shipped.
+Change: Updated metadata, Last Repo Changes, and PATCHSET echo to capture the new router documentation.
 
 <<<PATCHSET END>>>
 
-Tests: Not run (Prisma connectivity cannot be validated from this environment).
+Tests: Not run (documentation-only change).
 
 Next steps:
-1. Verify Render logs now show the managed connection string host instead of localhost after redeploying the services.
-2. When tooling is available, run `npm run guard:meta` (or CI equivalent) to confirm no guard regressions.
+1. When possible, run `npm run guard:meta` to verify meta guards remain green after the README addition.
+2. Resume T8.4 once documentation is reviewed (DM Home daily button implementation).
 
 Made changes.
 Using "Apply Patch"

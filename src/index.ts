@@ -15,7 +15,6 @@ let monitorActive = false;
 let shuttingDown = false;
 let signalsInstalled = false;
 let activeClient: Client | null = null;
-let warningsInstalled = false;
 
 function withMonitor(callback: (monitor: typeof cliStatus) => void): void {
   if (!monitorActive) {
@@ -166,30 +165,7 @@ function installSignalHandlers(): void {
   });
 }
 
-function installWarningHandler(): void {
-  if (warningsInstalled) {
-    return;
-  }
-  warningsInstalled = true;
-
-  // Node.js warning events cover deprecations and runtime issues. When at least one
-  // listener is registered, the default stderr output is suppressed (per official
-  // docs: https://nodejs.org/api/process.html#event-warning). We re-emit them
-  // through the shared logger so Render background workers surface them inside the
-  // CLI monitor instead of raw stack dumps that interrupt the dashboard layout.
-  process.on("warning", (warning) => {
-    log.warn(warning.message, {
-      source: "process.warning",
-      code: warning.code,
-      detail: warning.detail,
-      name: warning.name,
-      stack: warning.stack,
-    });
-  });
-}
-
 export async function boot(): Promise<void> {
-  installWarningHandler();
   installSignalHandlers();
   startMonitor();
 
