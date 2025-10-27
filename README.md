@@ -127,6 +127,13 @@ Reference data is mirrored into `/data` via scripted jobs:
 - Re-deploy after updating environment variables; no extra code changes are required because `src/env/ensure-db-url.ts` preloads Prisma with the internal connection string at boot.
 - Troubleshooting: look for the single structured log line containing `"db.url.source"` during boot to confirm which environment variable supplied `DATABASE_URL`.
 
+## Render Runtime & Database Blueprint
+
+1. Copy the `render.yaml` worker named `infinity-gauntlet-app-worker` into your Render account. It builds with `pnpm install --frozen-lockfile && pnpm prisma generate && pnpm build` and starts the compiled worker via `node dist/worker/backup.js`.
+2. Ensure each service (web + workers) declares `envVars.DATABASE_URL` using `fromDatabase.connectionString`; the runtime config loader promotes `DATABASE_INTERNAL_URL` to `DATABASE_URL` automatically for internal connections.
+3. Optional cache tuning: set `CACHE_TTL_MS` or `REDIS_URL` in Render to change the shared cache backend; the default TTL is 60s and currently backed by the in-process memory cache in `src/shared/cache/memory.ts`.
+4. `/ops stats` now prints runtime, database, cache, and outbox diagnostics so you can confirm the worker is draining messages and that Prisma is connected to Render’s Postgres before promoting changes.
+
 ## Operational Guardrails & Meta Workflow
 
 - `scripts/refresh_vision.sh` regenerates router indexes, stamps recovery metadata, and refreshes Prompt.md’s change ledger.

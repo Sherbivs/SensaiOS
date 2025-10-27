@@ -2,7 +2,9 @@
 // Outputs JSON lines with timestamp, level, message, and optional context.
 
 import { config } from "./config.js";
-import type { CliLogLevel, CliLogOptions } from "../utils/logger.js";
+
+type CliLogLevel = "success" | "info" | "detail" | "warn" | "error";
+type CliLogOptions = { debugMode?: boolean };
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -37,7 +39,7 @@ function envLevel(): LogLevel {
     return raw;
   }
   // Default more verbose in development/test, quieter in production.
-  return config.env === "production" ? "info" : "debug";
+  return config.nodeEnv === "production" ? "info" : "debug";
 }
 
 let currentLevel: LogLevel = envLevel();
@@ -78,7 +80,7 @@ function buildCliContext(record: Record<string, unknown>, level: LogLevel): Reco
 }
 
 function formatRecord(level: LogLevel, msg: string, err?: unknown, meta?: AnyObj): Record<string, unknown> {
-  const base: Record<string, unknown> = { t: nowIso(), level, msg, env: config.env };
+  const base: Record<string, unknown> = { t: nowIso(), level, msg, env: config.nodeEnv };
   if (meta && typeof meta === "object") {
     Object.assign(base, meta);
   }
@@ -94,14 +96,16 @@ const isTty = Boolean(process.stdout?.isTTY && process.stderr?.isTTY);
 let cliLogImpl: CliLogFn | null = null;
 let interruptConsoleOutput: InterruptFn | null = null;
 try {
-  const loggerModule = await import("../utils/logger.js");
+  // @ts-ignore - runtime import for CLI logger (no typed module in build output)
+  const loggerModule: any = await import("../utils/logger.js");
   cliLogImpl = loggerModule.log ?? loggerModule.default?.log ?? null;
 } catch {
   cliLogImpl = null;
 }
 
 try {
-  const cliStatusModule = await import("../utils/cliStatus.js");
+  // @ts-ignore - runtime import for CLI status helper (dynamic only)
+  const cliStatusModule: any = await import("../utils/cliStatus.js");
   interruptConsoleOutput =
     cliStatusModule.interruptConsoleOutput ?? cliStatusModule.default?.interruptConsoleOutput ?? null;
 } catch {
@@ -114,7 +118,7 @@ const jsonEnabled =
   logFormat === "both" ||
   (logFormat === "auto" && (!cliEnabled || !cliLogImpl));
 
-const cliDebugMode = config.env !== "production";
+const cliDebugMode = config.nodeEnv !== "production";
 
 function emit(level: LogLevel, msg: string, err?: unknown, meta?: AnyObj): void {
   if (!enabled(level)) return;
