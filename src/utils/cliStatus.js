@@ -4,7 +4,7 @@ import readline from 'node:readline';
 import activityTracker from './activityTracker.js';
 import opsNotifier from './opsNotifier.js';
 
-const UPDATE_INTERVAL_MS = 1000;
+const UPDATE_INTERVAL_MS = 5000;
 const HEADER = 'Infinity Gauntlet Ops Monitor';
 
 const initialErrors = typeof opsNotifier?.getRecentErrors === 'function'
@@ -128,11 +128,35 @@ function formatLifetimeCounts(counts = {}) {
   return topEntries.map(([type, count]) => `  • ${type}: ${count}`);
 }
 
+function formatActivityMeta(activity) {
+  if (!activity || typeof activity !== 'object') {
+    return '';
+  }
+  const meta = activity.meta && typeof activity.meta === 'object' ? activity.meta : {};
+  const details = [];
+  if (meta.guild) {
+    details.push(String(meta.guild));
+  }
+  if (meta.member) {
+    details.push(String(meta.member));
+  }
+  if (meta.role) {
+    details.push(String(meta.role));
+  }
+  if (meta.origin) {
+    details.push(`origin=${meta.origin}`);
+  }
+  if (meta.actor) {
+    details.push(String(meta.actor));
+  }
+  return details.join(' • ');
+}
+
 function formatRecentActivities() {
   if (!Array.isArray(state.recentActivities) || state.recentActivities.length === 0) {
     return [];
   }
-  const entries = state.recentActivities.slice(-5);
+  const entries = state.recentActivities.slice(-10).reverse();
   return entries.map((activity) => {
     const summary = activity && activity.summary ? activity.summary : activity?.type || 'activity';
     let timestampValue = activity ? activity.timestamp : null;
@@ -142,7 +166,9 @@ function formatRecentActivities() {
     }
     const timestamp = timestampValue ? formatTimestamp(timestampValue) : 'unknown';
     const type = activity && activity.type ? ` [${activity.type}]` : '';
-    return `  • ${summary}${type} (${timestamp})`;
+    const meta = formatActivityMeta(activity);
+    const suffix = meta ? ` — ${meta}` : '';
+    return `  • ${summary}${type} (${timestamp})${suffix}`;
   });
 }
 

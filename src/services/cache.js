@@ -78,6 +78,42 @@ function getCacheSize() {
     return 0;
   }
 }
+
+function getCacheSnapshot() {
+  const now = Date.now();
+  const snapshot = {
+    timestamp: now,
+    sizeBytes: 0,
+    entryCount: 0,
+    oldestEntryMs: null,
+    newestEntryMs: null,
+  };
+
+  try {
+    const entries = fs.readdirSync(CACHE_DIR);
+    snapshot.entryCount = entries.length;
+    let newest = Number.NEGATIVE_INFINITY;
+    let oldest = Number.POSITIVE_INFINITY;
+
+    for (const name of entries) {
+      const filePath = path.join(CACHE_DIR, name);
+      const stats = fs.statSync(filePath);
+      const size = stats?.size || 0;
+      snapshot.sizeBytes += size;
+      if (typeof stats?.mtimeMs === 'number' && Number.isFinite(stats.mtimeMs)) {
+        newest = Math.max(newest, stats.mtimeMs);
+        oldest = Math.min(oldest, stats.mtimeMs);
+      }
+    }
+
+    snapshot.newestEntryMs = Number.isFinite(newest) && newest !== Number.NEGATIVE_INFINITY ? newest : null;
+    snapshot.oldestEntryMs = Number.isFinite(oldest) && oldest !== Number.POSITIVE_INFINITY ? oldest : null;
+  } catch (err) {
+    logCacheIssue('warn', 'SNAPSHOT', err, { cacheDir: CACHE_DIR });
+  }
+
+  return snapshot;
+}
 function approxFreeBytes() {
   const { free } = getDiskStats(CACHE_DIR);
   if (free > 0) {
@@ -158,6 +194,7 @@ export {
   pruneCache,
   cleanOldCache,
   getCacheSize,
+  getCacheSnapshot,
   MAX_CACHE_PERCENT,
   getCacheBudget,
 };
@@ -169,6 +206,7 @@ export default {
   pruneCache,
   cleanOldCache,
   getCacheSize,
+  getCacheSnapshot,
   MAX_CACHE_PERCENT,
   getCacheBudget,
 };
