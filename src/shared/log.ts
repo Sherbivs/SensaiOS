@@ -88,32 +88,7 @@ function formatRecord(level: LogLevel, msg: string, err?: unknown, meta?: AnyObj
   return base;
 }
 
-type LogFormat = "auto" | "cli" | "json" | "both";
-
-function detectDefaultFormat(): LogFormat {
-  const renderHints = process.env.RENDER || process.env.RENDER_SERVICE_TYPE;
-  if (renderHints) {
-    return "cli";
-  }
-  return "both";
-}
-
-function normalizeFormat(value: string | undefined): LogFormat {
-  if (!value) {
-    return detectDefaultFormat();
-  }
-  switch (value.toLowerCase()) {
-    case "cli":
-    case "json":
-    case "both":
-    case "auto":
-      return value.toLowerCase() as LogFormat;
-    default:
-      return detectDefaultFormat();
-  }
-}
-
-const logFormat = normalizeFormat(process.env.LOG_FORMAT);
+const logFormat = (process.env.LOG_FORMAT || "both").toLowerCase();
 const isTty = Boolean(process.stdout?.isTTY && process.stderr?.isTTY);
 
 let cliLogImpl: CliLogFn | null = null;
@@ -137,7 +112,6 @@ const cliEnabled = Boolean(cliLogImpl) && (logFormat === "cli" || logFormat === 
 const jsonEnabled =
   logFormat === "json" ||
   logFormat === "both" ||
-  (logFormat === "cli" && !cliEnabled) ||
   (logFormat === "auto" && (!cliEnabled || !cliLogImpl));
 
 const cliDebugMode = config.env !== "production";

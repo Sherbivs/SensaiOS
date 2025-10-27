@@ -41,9 +41,12 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 
         const commands = await loadCommands();
 
-        const readyState = waitForClientReady(client, commands.size);
-        const readyPromise = readyState.promise;
-        const cleanupReadyListeners = readyState.cleanup;
+        client.once(Events.ClientReady, () => {
+                log.info("Discord bot is ready", {
+                        user: client.user?.tag,
+                        commands: commands.size,
+                });
+        });
 
 	client.on("interactionCreate", async (interaction: Interaction) => {
 		try {
@@ -154,57 +157,6 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 		}
 	});
 
-        try {
-                await Promise.all([client.login(token), readyPromise]);
-        } catch (error) {
-                cleanupReadyListeners();
-                throw error;
-        }
+        await Promise.all([client.login(token), readyPromise]);
         return client;
-}
-
-function waitForClientReady(client: Client, commandCount: number): {
-        promise: Promise<void>;
-        cleanup: () => void;
-} {
-        let cleanup = () => {};
-
-        const promise = new Promise<void>((resolve, reject) => {
-                let settled = false;
-
-                const finish = (action: () => void) => {
-                        if (settled) {
-                                return;
-                        }
-                        settled = true;
-                        cleanup();
-                        action();
-                };
-
-                const onReady = () =>
-                        finish(() => {
-                                log.info("Discord bot is ready", {
-                                        user: client.user?.tag,
-                                        commands: commandCount,
-                                });
-                                resolve();
-                        });
-
-                const onError = (error: unknown) =>
-                        finish(() => {
-                                reject(error instanceof Error ? error : new Error(String(error)));
-                        });
-
-                cleanup = () => {
-                        client.off(Events.ClientReady, onReady);
-                        client.off(Events.Error, onError);
-                        client.off(Events.ShardError, onError);
-                };
-
-                client.once(Events.ClientReady, onReady);
-                client.once(Events.Error, onError);
-                client.once(Events.ShardError, onError);
-        });
-
-        return { promise, cleanup };
 }
