@@ -39,6 +39,7 @@ const {
   DRIP_ALERT_TIMEZONE,
 } = require('../config/env');
 const { log: baseLog, report } = require('../utils/logger');
+const { installFatalErrorHandlers } = require('../utils/fatalErrorGuard');
 const { createDripAlertManager, DRIP_ALERT_SEVERITY } = require('./dripAlerts');
 const { loadCommands } = require('../command-loader');
 const { checkAndSet } = require('../lib/cooldown');
@@ -50,6 +51,8 @@ cliStatus.setPhase('Booting');
 cliStatus.setGuildCount(0);
 
 const log = (level, message, context) => baseLog(level, message, context, { debugMode: CLI_DEBUG_MODE });
+
+installFatalErrorHandlers({ log, report });
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
