@@ -5,6 +5,8 @@ import { pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
 
+let esmWarningLogged = false;
+
 async function importCommand(filePath) {
   try {
     const moduleUrl = pathToFileURL(filePath).href;
@@ -44,8 +46,11 @@ async function loadCommands() {
         (err && typeof err === 'object' && err.code === 'ERR_REQUIRE_ESM') ||
         (typeof message === 'string' && message.includes('require is not defined in ES module scope'))
       ) {
-        console.warn(`[command-loader] ${f} must be ESM-compatible:`, message || err);
-        continue;
+        if (!esmWarningLogged) {
+          console.warn('[command-loader] Legacy CommonJS commands detected; skipping slash-command bootstrap.');
+          esmWarningLogged = true;
+        }
+        break;
       }
       console.warn(`[command-loader] Failed to load ${f}:`, message || err);
     }
