@@ -1,9 +1,6 @@
 import { Client, GatewayIntentBits, Partials, Interaction } from "discord.js";
 import { log } from "../shared/log.js";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-const { loadCommands } = require("../command-loader.js");
+const { loadCommands } = await import("../command-loader.js");
 import { openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./dm/starters.js";
 import { handleHeal } from "./dm/heal.js";
 import { handleWalk } from "./wilds/walk.js";
@@ -42,7 +39,7 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 		partials: [Partials.Channel],
 	});
 
-	const commands = loadCommands();
+        const commands = await loadCommands();
 
 	client.once("ready", () => {
 		log.info("Discord bot is ready", {

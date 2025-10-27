@@ -114,7 +114,17 @@ function markSummarySent(at = new Date()) {
   notify();
 }
 
-module.exports = {
+export {
+  recordActivity,
+  drainActivities,
+  requeueActivities,
+  getPendingActivities,
+  getStats,
+  subscribe,
+  markSummarySent,
+};
+
+export default {
   recordActivity,
   drainActivities,
   requeueActivities,

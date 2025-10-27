@@ -62,7 +62,6 @@ function formatInTimeZone(date, timeZone, options = {}) {
   return formatter.format(date);
 }
 
-module.exports = {
-  msUntilNextZonedTime,
-  formatInTimeZone,
-};
+export { msUntilNextZonedTime, formatInTimeZone };
+
+export default { msUntilNextZonedTime, formatInTimeZone };
