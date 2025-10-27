@@ -6,7 +6,8 @@ import {
   User as DiscordUser,
   RepliableInteraction,
 } from "discord.js";
-import { prisma, UserRepo } from "../../models/index.js";
+import { UserRepo } from "../../models/index.js";
+import { prisma } from "../../shared/prisma.js";
 
 // Kanto starters (species IDs per National Dex)
 export const STARTER_OPTIONS = [
