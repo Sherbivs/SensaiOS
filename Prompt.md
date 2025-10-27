@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T09:45:00Z
-Revision: 0.89
+Timestamp (UTC): 2025-10-27T09:55:00Z
+Revision: 0.90
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**
@@ -11,13 +11,14 @@ Revision: 0.89
 >
 > Changes in this revision:
 > - `src/bot/main.js` — Replaced interval-driven sweeps with a continuous loop, cache refresh, and CLI warning guard.
-> - `Prompt.md` — Recorded the sweep loop redesign and refreshed patch metadata.
+> - `src/index.ts` — Updated the ready listener to the v15 `Events.ClientReady` API to silence deprecation warnings.
+> - `Prompt.md` — Recorded the sweep loop redesign and listener update while refreshing metadata.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Converted the security bot sweeps into a guarded continuous loop with cache refresh each cycle.
+Summary: Converted the security bot sweeps to a continuous loop and moved ready handlers to `Events.ClientReady`.
 TasklistDiff: false
-Tests: Not run (continuous sweep refactor only).
+Tests: Not run (listener/sweep refactor only).
 Contracts: ON (marker present; Contract Mode enforced).
 NEXT: T8.4 remains queued after the continuous sweep rollout.
 <!-- PATCHSET:ECHO END -->
@@ -28,6 +29,10 @@ NEXT: T8.4 remains queued after the continuous sweep rollout.
 FILE: src/bot/main.js
 Change: Swapped the periodic interval for a continuous sweep loop with CLI warnings, cache refresh, and pacing helpers.
 Insert/Replace/Remove: Replaced interval scheduling with `startContinuousSweepLoop`, added helpers/constants, and refreshed logging.
+
+FILE: src/index.ts
+Change: Migrated the security client ready listener to `Events.ClientReady` and imported the enum from discord.js v15 APIs.
+Insert/Replace/Remove: Replaced the string event name ready handler and folded in the new enum import.
 
 TASKLIST UPDATE
 Change: None.

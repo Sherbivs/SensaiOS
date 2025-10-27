@@ -1,7 +1,7 @@
 import { config } from "./shared/config.js";
 import { log } from "./shared/log.js";
 import cliStatus from "./utils/cliStatus.js";
-import type { Client } from "discord.js";
+import { Events, type Client } from "discord.js";
 import { Prisma } from "@prisma/client";
 import { initPrisma, prisma } from "./models/index.js";
 import { bootDiscord } from "./bot/index.js";
@@ -149,7 +149,7 @@ async function bootSecurityBot(): Promise<Client | null> {
 
     const candidateClient = securityModule.client ?? null;
     if (candidateClient) {
-      candidateClient.once("ready", () => {
+      candidateClient.once(Events.ClientReady, () => {
         updateSecuritySection(candidateClient, "online");
       });
       bindSecurityLifecycle(candidateClient);
