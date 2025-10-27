@@ -1,9 +1,8 @@
-'use strict';
-const path = require('node:path');
-const fs = require('node:fs');
-const { newPokemonRuntime, newBattleState, newAction } = require('./types');
-const { derivedStats } = require('./stats');
-const { resolveTurn } = require('./turn');
+import path from 'node:path';
+import fs from 'node:fs';
+import { newPokemonRuntime, newBattleState, newAction } from './types.js';
+import { derivedStats } from './stats.js';
+import { resolveTurn } from './turn.js';
 
 const TYPE_DEFENSE_CHART = Object.freeze({
   normal: {
@@ -213,10 +212,6 @@ function loadIndexes() {
   return { dexLookup, movesIndex };
 }
 
-module.exports = {
-  loadIndexes,
-  makeRuntimeFromDexEntry,
-  newBattleState,
-  newAction,
-  resolveTurn,
-};
+export { loadIndexes, makeRuntimeFromDexEntry, newBattleState, newAction, resolveTurn };
+
+export default { loadIndexes, makeRuntimeFromDexEntry, newBattleState, newAction, resolveTurn };

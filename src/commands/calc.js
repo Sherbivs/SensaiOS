@@ -1,10 +1,11 @@
-'use strict';
-const { SlashCommandBuilder } = require('discord.js');
-const { baseDamage } = require('../engine/calc');
-const { derivedStats } = require('../engine/stats');
-const { getPokemon, getMove, disabled } = require('../lib/dex-api');
+import { SlashCommandBuilder } from 'discord.js';
+import { baseDamage } from '../engine/calc.js';
+import { derivedStats } from '../engine/stats.js';
+import dexApi from '../lib/dex-api.js';
 
-module.exports = {
+const { getPokemon, getMove, disabled } = dexApi;
+
+const command = {
   data: new SlashCommandBuilder()
     .setName('calc')
     .setDescription('Preview damage: attacker uses move on defender (level 50)')
@@ -14,7 +15,9 @@ module.exports = {
     .setDMPermission(false),
   cooldownMs: 1500,
   async execute(interaction) {
-    if (disabled) return interaction.reply({ content: 'Dex data is not available on this deployment.', ephemeral: true });
+    if (disabled) {
+      return interaction.reply({ content: 'Dex data is not available on this deployment.', ephemeral: true });
+    }
 
     const attackerName = interaction.options.getString('attacker');
     const defenderName = interaction.options.getString('defender');
@@ -36,5 +39,7 @@ module.exports = {
     const pct = ((dmg / hp) * 100).toFixed(1);
 
     return interaction.reply(`${A.name} uses ${mv.name} on ${D.name} → ${dmg} dmg (~${pct}% of HP)`);
-  }
+  },
 };
+
+export default command;

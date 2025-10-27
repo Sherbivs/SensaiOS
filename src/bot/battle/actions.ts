@@ -9,7 +9,7 @@ import {
 import type { PrismaClient } from "@prisma/client";
 import { prisma as prismaClient, BattleRepo } from "../../models/index.js";
 import type { BattleWithPlayers } from "../../models/index.js";
-import { announceBattleResult } from "./conclude.js";
+import * as concludeModule from "./conclude.js";
 
 export const MOVE_PREFIX = "BATTLE_MOVE_";
 export const SWITCH_PREFIX = "BATTLE_SWITCH_";
@@ -86,7 +86,24 @@ export async function handleBattleActionButton(interaction: ButtonInteraction, o
   }
 
   if (parsed.kind === "forfeit") {
-    const winnerKey = interaction.user.id === battle.p1.discordId ? "p2" : "p1";
+    const identify = (...values: Array<string | null | undefined>) => {
+      const ids = new Set<string>();
+      for (const value of values) {
+        if (Array.isArray(value)) {
+          for (const entry of value) {
+            if (entry != null) ids.add(String(entry));
+          }
+        } else if (value != null) {
+          ids.add(String(value));
+        }
+      }
+      return ids;
+    };
+
+    const userIds = identify((interaction.user as any)?.id, (interaction.user as any)?.discordId);
+    const p1Ids = identify(battle.p1?.id, (battle.p1 as any)?.userId, battle.p1?.discordId);
+    const forfeiterIsP1 = Array.from(p1Ids).some((id) => userIds.has(id));
+    const winnerKey = forfeiterIsP1 ? "p2" : "p1";
     const result = await BattleRepo.concludeBattle({
       prisma,
       battle,
@@ -95,7 +112,7 @@ export async function handleBattleActionButton(interaction: ButtonInteraction, o
       reason: "forfeit",
     });
 
-    await announceBattleResult({
+    await concludeModule.announceBattleResult({
       client: interaction.client as any,
       battle,
       result,

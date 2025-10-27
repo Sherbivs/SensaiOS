@@ -1,15 +1,14 @@
-'use strict';
-const {
+import {
   SlashCommandBuilder,
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-} = require('discord.js');
-const { createRequire } = require('node:module');
-const { getSpriteUrl } = require('../lib/assets.js');
+} from 'discord.js';
+import { createRequire } from 'node:module';
+import { getSpriteUrl } from '../lib/assets.js';
 
-const requireESM = createRequire(__filename);
+const requireESM = createRequire(import.meta.url);
 const DEFAULT_STARTER_COINS = 500;
 const BATTLE_HISTORY_LIMIT = 3;
 const HISTORY_SYMBOL = { WIN: "✅", LOSS: "❌" };
@@ -315,7 +314,7 @@ async function getPrisma() {
   } catch {}
 
   try {
-    const { PrismaClient } = require('@prisma/client');
+    const { PrismaClient } = requireESM('@prisma/client');
     prismaSingleton = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
     });
@@ -498,7 +497,19 @@ async function loadRecentBattleHistory(prisma, trainer) {
   }
 }
 
-module.exports = {
+const internals = {
+  mapTrainerToView,
+  buildHomeEmbed,
+  asDiscordTimestamp,
+  loadTrainerWithBootstrap,
+  loadRecentBattleHistory,
+  formatBattleHistoryEntry,
+  computeDailyQuestState,
+  buildDailyQuestFieldValue,
+  formatRelativeTimestamp,
+};
+
+const command = {
   data: new SlashCommandBuilder().setName('home').setDescription('Open your Pokémon home in DMs'),
   cooldownMs: 1000,
   async execute(interaction) {
@@ -567,15 +578,11 @@ module.exports = {
       } catch {}
     }
   },
-  _internals: {
-    mapTrainerToView,
-    buildHomeEmbed,
-    asDiscordTimestamp,
-    loadTrainerWithBootstrap,
-    loadRecentBattleHistory,
-    formatBattleHistoryEntry,
-    computeDailyQuestState,
-    buildDailyQuestFieldValue,
-    formatRelativeTimestamp,
-  },
+  _internals: internals,
 };
+
+const { data, cooldownMs, execute, _internals } = command;
+
+export { data, cooldownMs, execute, _internals };
+
+export default command;
