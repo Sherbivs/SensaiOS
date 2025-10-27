@@ -226,7 +226,13 @@ function subscribe(handler) {
   };
 }
 
-module.exports = {
+export {
+  recordError,
+  getRecentErrors,
+  subscribe,
+};
+
+export default {
   recordError,
   getRecentErrors,
   subscribe,

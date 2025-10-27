@@ -27,14 +27,14 @@ async function postToArenaThread(client: DiscordClientLike, threadId: string, me
 	} catch {}
 }
 
-export async function announceBattleResult(opts: {
-	client: DiscordClientLike;
-	battle: BattleWithPlayers;
-	result: BattleResultRecord;
-	updateLoserInteraction?: UpdateLoserInteraction;
-}) {
-	const { client, battle, result, updateLoserInteraction } = opts;
-	const messages = buildBattleResultDMMessages(result);
+export const announceBattleResult = async (opts: {
+        client: DiscordClientLike;
+        battle: BattleWithPlayers;
+        result: BattleResultRecord;
+        updateLoserInteraction?: UpdateLoserInteraction;
+}) => {
+        const { client, battle, result, updateLoserInteraction } = opts;
+        const messages = buildBattleResultDMMessages(result);
 
 	let loserNotified = false;
 	if (updateLoserInteraction) {
@@ -54,7 +54,7 @@ export async function announceBattleResult(opts: {
 		const threadMessage = buildBattleResultThreadMessage(result);
 		await postToArenaThread(client, battle.arenaThreadId, threadMessage);
 	}
-}
+};
 
 function sanitizeTurnCount(turnCount: number, fallbackTurns: number) {
 	if (!Number.isFinite(turnCount)) {
@@ -103,12 +103,14 @@ export async function concludeBattleWithVictory(opts: {
 		logFull,
 	});
 
-	await announceBattleResult({
-		client: opts.client,
-		battle,
-		result,
-		updateLoserInteraction: opts.updateLoserInteraction,
-	});
+        const { announceBattleResult: announce } = await import("./conclude.js");
+
+        await announce({
+                client: opts.client,
+                battle,
+                result,
+                updateLoserInteraction: opts.updateLoserInteraction,
+        });
 
 	return result;
 }

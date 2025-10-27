@@ -1,7 +1,7 @@
 // Persistent caching utilities for the security role-healing bot
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 const PRIMARY_CACHE_DIR = '/Store/discord-cache';
 const FALLBACK_CACHE_DIR = path.join(process.cwd(), 'Store', 'discord-cache');
 const MAX_CACHE_PERCENT = 0.25;
@@ -151,7 +151,18 @@ function cleanOldCache() {
     }
   }
 }
-module.exports = {
+export {
+  CACHE_DIR,
+  readCache,
+  writeCache,
+  pruneCache,
+  cleanOldCache,
+  getCacheSize,
+  MAX_CACHE_PERCENT,
+  getCacheBudget,
+};
+
+export default {
   CACHE_DIR,
   readCache,
   writeCache,
