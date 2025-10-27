@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T00:10:00Z
-Revision: 0.81
+Timestamp (UTC): 2025-10-27T07:10:00Z
+Revision: 0.82
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**  
@@ -11,12 +11,13 @@ Revision: 0.81
 >
 > Changes in this revision:
 > - `README.md` — Added a Router & Meta Index section detailing masterroutetable, ops/ROUTER docs, Touchmap, and contract files for external automation.
+> - `masterroutetable.md` — Refreshed router timestamps and notes to mirror the latest sub-router documentation.
 > - `Patch.md` — Cleared the Patch Clipboard scratch note after landing the README documentation.
 > - `Prompt.md` — Recorded the documentation update and refreshed metadata/echo for the router reference.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Documented the router/meta index in README so automation can discover Patch.md, routers, and Touchmap easily.
+Summary: Refreshed the master router table so manual navigation mirrors the latest router metadata and timestamps.
 TasklistDiff: false
 Tests: Not run (documentation-only change).
 Contracts: ON (marker present; Contract Mode enforced).
@@ -24,28 +25,15 @@ NEXT: T8.4 remains queued as the next READY feature after documentation updates.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task META.README.ROUTER_DOC] Document router system in README for external auditors
+[Task NONE] Refresh master router table
 
-FILE: README.md
-Change: Added a Router & Meta Index section that explains masterroutetable.md, ops/ROUTER docs, Touchmap, and contract files so automation recognizes the standardized layout.
+FILE: masterroutetable.md
+Change: Sync the master router summary with current downstream router docs and timestamps.
+Insert/Replace/Remove: Updated section headers, purpose notes, and last-updated values for each router along with recent daily quest and persistence notes.
 
-FILE: Prompt.md
-Change: Updated metadata, Last Repo Changes, and PATCHSET echo to capture the new router documentation.
-
+TASKLIST UPDATE
+Change: None.
 <<<PATCHSET END>>>
-
-Tests: Not run (documentation-only change).
-
-Next steps:
-1. When possible, run `npm run guard:meta` to verify meta guards remain green after the README addition.
-2. Resume T8.4 once documentation is reviewed (DM Home daily button implementation).
-
-Made changes.
-Using "Apply Patch"
-
-
-```
-
 ```
 
 

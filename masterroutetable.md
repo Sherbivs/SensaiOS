@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-26T14:20:00Z
+Last Updated (UTC): 2025-10-27T07:05:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 
 ## Router-of-Routers
@@ -18,10 +18,10 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 ### Ops & Governance (`ops/ROUTER.md`)
 - Purpose: Canonical operational control-plane (NEXT pointer, CRITICAL, TOUCHMAP, router maps, inbox).
 - Owned Globs: `ops/**`
-- Last Updated: 2025-10-26T13:45:00Z
+- Last Updated: 2025-10-26T14:20:00Z
 - Key References:
-	- `ops/NEXT.yaml` — next task pointer
-	- `ops/CRITICAL.md` — fast-path guardrails
+	- `ops/NEXT.yaml` — next task pointer (READY pointer must exist on exit)
+	- `ops/CRITICAL.md` — fast-path guardrails + Markerless guidance
 	- `ops/ROUTER.yaml` — canonical path map
 	- `ops/ROUTER_INDEX.yaml` — router-of-routers manifest
 	- `ops/INBOX/notes.md` — operator notes
@@ -32,7 +32,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).
 - Owned Globs: `scripts/**`
-- Last Updated: 2025-10-26T02:05:00Z
+- Last Updated: 2025-10-26T14:20:00Z
 - Key Scripts:
 	- `scripts/update_change_ledger.sh` — regenerate Prompt change ledger
 	- `scripts/update_router_index.sh` — rebuild `ops/ROUTER_INDEX.yaml`
@@ -40,29 +40,34 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 	- `scripts/archive_task_history.mjs` — archive Tasklist history to `ops/ARCHIVE/`
 	- `scripts/verify_router_links.sh` — canonical path guard (CI)
 	- `scripts/hotfix_entry.sh` — hotfix checklist helper
+	- `scripts/guard_meta.sh` — enforces READY invariants pre/post flight
 
 ### Application Source (`src/ROUTER.md`)
 - Purpose: Root TypeScript source tree; delegates to domain routers.
 - Owned Globs: `src/**`
-- Last Updated: 2025-10-26T00:45:00Z
+- Last Updated: 2025-10-26T12:20:00Z
 - Downstream Routers:
 	- `src/bot/ROUTER.md` — Discord bot interactions
 	- `src/core/ROUTER.md` — core battle/encounter engines
 - Supporting Files:
 	- `src/index.ts` — application entry (Discord + Prisma bootstrap)
 	- `src/shared/**` — shared config, logging, utilities
+- Recent Notes:
+	- Battle result persistence centralized; announcer flow shared for victories/forfeits.
+	- Daily quest claim flow landed with cooldown wiring.
+	- Render DATABASE_URL overrides prefer managed connection strings.
 
 ### Discord Bot Layer (`src/bot/ROUTER.md`)
 - Purpose: Discord client bootstrap, slash commands, DM flows, arena threads, admin ops.
 - Owned Globs: `src/bot/**`
-- Last Updated: 2025-10-26T06:45:00Z
+- Last Updated: 2025-10-26T12:20:00Z
 - Areas & Key Files:
-	- `src/bot/index.ts` — Discord client bootstrap & routing
-	- `src/bot/dm/**` — DM home, starter selection, healing, drip alerts
-	- `src/bot/commands/**` — Slash command registration (e.g., `src/commands/ops.js`)
+	- `src/bot/index.ts` — Discord client bootstrap & routing with ready guards
+	- `src/bot/dm/**` — DM home, starter selection, healing, drip alerts, daily quests
+	- `src/bot/commands/**` — Slash command registration (e.g., `/ops`, `/battle`)
 	- `src/bot/wilds/**` — encounter controls
-	- `src/bot/battle/**` — arena threads, announcer summaries
-	- `src/bot/ops/admin.ts` — `/ops` admin command handlers (stats, cooldown reset)
+	- `src/bot/battle/**` — arena threads, announcer summaries, persistence hooks
+	- `src/bot/ops/admin.ts` — `/ops` admin stats with filters (limit, after, participant)
 
 ### Core Game Engines (`src/core/ROUTER.md`)
 - Purpose: Deterministic battle and encounter mechanics.
@@ -76,10 +81,11 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 ### Test Suite (`tests/ROUTER.md`)
 - Purpose: Vitest suites covering schemas, data pipeline, battle engines, DM flows, ops tooling.
 - Owned Globs: `tests/**`
-- Last Updated: 2025-10-26T06:45:00Z
+- Last Updated: 2025-10-26T12:20:00Z
 - Representative Specs:
 	- `tests/battle_engine.spec.ts` — deterministic battle engine coverage
 	- `tests/battle_flow.spec.ts` — arena flow integration tests
+	- `tests/daily.spec.ts` — daily quest claim success and cooldown guard rails
 	- `tests/ops.spec.ts` — `/ops` admin command scenarios (limit/after/participant)
 	- `tests/data_pipeline.spec.ts` — reference data validation
 	- `tests/encounter_walk.spec.ts` — wild encounter flow
