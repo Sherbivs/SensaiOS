@@ -212,6 +212,16 @@ META.HOTFIX.TRIGGER_SUFFIX:
   - "ops/NEXT.yaml"
   - "tasklist.md"
 
+META.RENDER.DB_URL_FIX:
+  - "render.yaml"
+  - "src/env/ensure-db-url.ts"
+  - "src/models/index.ts"
+  - "src/index.ts"
+  - "scripts/guard_render.mjs"
+  - ".github/workflows/guard-render.yml"
+  - "scripts/guards/require-ensure-db-preload.mjs"
+  - "README.md"
+
 META.PATCHSET_ECHO:
   - "Prompt.md"
   - ".github/workflows/guard-meta.yml"

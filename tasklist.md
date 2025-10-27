@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-26T16:05:00Z
-Revision: 1.64
+Last Updated (UTC): 2025-10-26T16:40:00Z
+Revision: 1.65
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -107,13 +107,13 @@ Each task has:
 
 - id: META.READY_QUEUE.NEXT_TASK
   title: Promote a substantive work item and retarget NEXT
-  status: READY
+  status: DONE
   depends_on: []
   acceptance_criteria:
     - Select the first eligible PROPOSED task whose dependencies are DONE and flip it to READY.
     - Update `ops/NEXT.yaml` `next_task_id` to the selected task and keep `files_hint` minimal.
     - Update `Prompt.md` echo with a one-paragraph summary of the promotion rationale.
-  notes: Keeps the queue healthy so the Patch Engine starts immediately on activation.
+  notes: Outcome — Promoted META.RENDER.DB_URL_FIX into the queue and retargeted NEXT to T8.4 once the database hardening work landed.
 
 - id: META.TASKLIST.COUPLING_FIX
   title: Enforce Tasklist updates from every PATCHSET and rewire guards
@@ -637,6 +637,17 @@ Each task has:
     - Tasklist.md and ops/RECOVERY.yaml capture the hotfix completion details.
     - Hotfix plan pointer references the new hotfix and touched files only.
   notes: Outcome — Prompt echo now reads as a multi-sentence patchset recap without embedding file objects; Tasklist, Hotfix plan, and Recovery ledger log the update.
+
+- id: META.RENDER.DB_URL_FIX
+  title: Make Prisma use Render’s internal DB URL and harden worker boot
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - render.yaml sets DATABASE_URL fromDatabase.connectionString for all services (web + worker).
+    - Prisma always receives a nonempty DATABASE_URL at boot; $connect() succeeds when the DB is reachable.
+    - No use of $queryRawUnsafe for liveness checks.
+    - CI guard fails when DATABASE_URL mapping is missing or when Prisma is imported before env/ensure-db-url.
+  notes: Outcome — Added env preloader, Prisma init guard, Render YAML mapping, README guidance, and CI scripts/workflows so Render deployments keep DATABASE_URL aligned with the internal connection string.
 
 - id: HF.20251026.MASTER_ROUTE_TABLE
   title: Expand master route reference with full replication hierarchy
