@@ -41,13 +41,10 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 
         const commands = await loadCommands();
 
-        const readyPromise = new Promise<void>((resolve) => {
-                client.once(Events.ClientReady, () => {
-                        log.info("Discord bot is ready", {
-                                user: client.user?.tag,
-                                commands: commands.size,
-                        });
-                        resolve();
+        client.once(Events.ClientReady, () => {
+                log.info("Discord bot is ready", {
+                        user: client.user?.tag,
+                        commands: commands.size,
                 });
         });
 
