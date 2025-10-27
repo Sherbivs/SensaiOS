@@ -4,8 +4,6 @@ import { Prisma } from "@prisma/client";
 import type { Battle, PrismaClient, User as PrismaUser } from "@prisma/client";
 import { ensurePrisma, prisma } from "../shared/prisma.js";
 
-export { prisma, ensurePrisma } from "../shared/prisma.js";
-
 export async function initPrisma(): Promise<void> {
   await ensurePrisma();
 }
