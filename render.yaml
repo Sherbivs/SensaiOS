@@ -17,10 +17,6 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
-      - key: DATABASE_INTERNAL_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: internalConnectionString
 
   # Existing worker (left intact)
   - type: worker
@@ -35,10 +31,6 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
-      - key: DATABASE_INTERNAL_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: internalConnectionString
       - key: SECURITY_BOT_TOKEN
         sync: false
       - key: POKEMON_BOT_TOKEN
@@ -66,10 +58,6 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
-      - key: DATABASE_INTERNAL_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: internalConnectionString
       - key: SECURITY_BOT_TOKEN
         sync: false
       - key: POKEMON_BOT_TOKEN
@@ -101,10 +89,6 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
-      - key: DATABASE_INTERNAL_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: internalConnectionString
       - key: GITHUB_REPO
         value: https://github.com/sherbivs/infinity-gauntlet.git
       - key: GITHUB_BRANCH

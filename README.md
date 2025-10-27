@@ -115,10 +115,17 @@ Reference data is mirrored into `/data` via scripted jobs:
    npm run data:build
    ```
 2. Required environment variables:
-   - `DATABASE_URL` (Render’s `render.yaml` provisions a managed Postgres instance and surfaces both `DATABASE_URL` and `DATABASE_INTERNAL_URL` via `fromDatabase` mappings.)
+   - `DATABASE_URL` (Render’s `render.yaml` provisions a managed Postgres instance and maps `DATABASE_URL` via `fromDatabase.connectionString`.)
    - `DISCORD_BOT_TOKEN` (or legacy `POKEMON_BOT_TOKEN` fallback)
    - Optional Render job variables (`POKE_RENDER_SERVICE_ID`, `POKE_REFRESH_CRON`, etc.)
 3. Additional feature flags in `src/config/env.js` tune rate limits, alerts, and remediation behaviors.
+
+## Deploying on Render (Web + Background Worker)
+
+- Provision the bot runner as a **Background Worker** service so Prisma connects over Render’s private network without HTTP timeouts.
+- In `render.yaml` (or the Render dashboard), attach your managed Postgres and map `envVars.DATABASE_URL` via `fromDatabase.connectionString` for every web and worker service.
+- Re-deploy after updating environment variables; no extra code changes are required because `src/env/ensure-db-url.ts` preloads Prisma with the internal connection string at boot.
+- Troubleshooting: look for the single structured log line containing `"db.url.source"` during boot to confirm which environment variable supplied `DATABASE_URL`.
 
 ## Operational Guardrails & Meta Workflow
 
