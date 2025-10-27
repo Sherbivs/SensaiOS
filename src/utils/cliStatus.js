@@ -4,7 +4,7 @@ import readline from 'node:readline';
 import activityTracker from './activityTracker.js';
 import opsNotifier from './opsNotifier.js';
 
-const UPDATE_INTERVAL_MS = 1000;
+const UPDATE_INTERVAL_MS = 5000;
 const HEADER = 'Infinity Gauntlet Ops Monitor';
 
 const initialErrors = typeof opsNotifier?.getRecentErrors === 'function'
@@ -31,6 +31,7 @@ let lastRenderLines = 0;
 let isRendering = false;
 let displayActive = false;
 let lastSimpleRender = '';
+let needsRender = false;
 
 function formatDuration(ms) {
   if (!Number.isFinite(ms) || ms < 0) {
@@ -132,7 +133,7 @@ function formatRecentActivities() {
   if (!Array.isArray(state.recentActivities) || state.recentActivities.length === 0) {
     return [];
   }
-  const entries = state.recentActivities.slice(-5);
+  const entries = state.recentActivities.slice(-10).reverse();
   return entries.map((activity) => {
     const summary = activity && activity.summary ? activity.summary : activity?.type || 'activity';
     let timestampValue = activity ? activity.timestamp : null;
@@ -142,7 +143,22 @@ function formatRecentActivities() {
     }
     const timestamp = timestampValue ? formatTimestamp(timestampValue) : 'unknown';
     const type = activity && activity.type ? ` [${activity.type}]` : '';
-    return `  • ${summary}${type} (${timestamp})`;
+    const detailParts = [];
+    const meta = activity && activity.meta ? activity.meta : null;
+    if (meta && typeof meta === 'object') {
+      const actor = meta.actor || meta.member || meta.user || null;
+      if (actor) {
+        detailParts.push(actor);
+      }
+      if (meta.guild) {
+        detailParts.push(meta.guild);
+      }
+      if (meta.role) {
+        detailParts.push(meta.role);
+      }
+    }
+    const detail = detailParts.length > 0 ? ` — ${detailParts.join(' • ')}` : '';
+    return `  • ${summary}${type}${detail} (${timestamp})`;
   });
 }
 
@@ -150,11 +166,14 @@ function buildActivityLines() {
   if (!state.activityStats) {
     return [];
   }
-  const { totalEvents, pendingEvents, lastActivityAt, lastSummaryAt, lifetimeCounts } = state.activityStats;
+  const { totalEvents, pendingEvents, lastActivityAt, lastActivitySummary, lastSummaryAt, lifetimeCounts } = state.activityStats;
   const lines = ['Activity'];
   lines.push(`  Total events: ${totalEvents ?? 0}`);
   lines.push(`  Pending queue: ${pendingEvents ?? 0}`);
-  lines.push(`  Last activity: ${formatTimestamp(lastActivityAt)}`);
+  const lastActivityLabel = lastActivitySummary
+    ? `${lastActivitySummary} (${formatTimestamp(lastActivityAt)})`
+    : formatTimestamp(lastActivityAt);
+  lines.push(`  Last activity: ${lastActivityLabel}`);
   lines.push(`  Last summary: ${formatTimestamp(lastSummaryAt)}`);
   const lifetimeLines = formatLifetimeCounts(lifetimeCounts);
   if (lifetimeLines.length > 0) {
@@ -232,8 +251,12 @@ function clearDisplay() {
   lastRenderLines = 0;
 }
 
-function render() {
+function render(force = false) {
   if (!displayActive || isRendering) {
+    return;
+  }
+
+  if (!force && !needsRender) {
     return;
   }
 
@@ -242,11 +265,12 @@ function render() {
     const lines = buildDisplayLines();
     if (SIMPLE_MODE) {
       const output = `${lines.join(os.EOL)}${os.EOL}`;
-      if (output !== lastSimpleRender) {
+      if (force || output !== lastSimpleRender) {
         process.stdout.write(output);
         lastSimpleRender = output;
       }
       lastOutputWasDot = false;
+      needsRender = false;
       return;
     }
 
@@ -258,23 +282,38 @@ function render() {
     process.stdout.write(output);
     lastRenderLines = lines.length;
     lastOutputWasDot = false;
+    needsRender = false;
   } finally {
     isRendering = false;
   }
+}
+
+function requestRender(force = false) {
+  if (!displayActive) {
+    return;
+  }
+  if (force) {
+    needsRender = true;
+    render(true);
+    return;
+  }
+  needsRender = true;
 }
 
 function handleActivityUpdate(stats) {
   state.activityStats = stats;
   if (typeof activityTracker.getPendingActivities === 'function') {
     try {
-      state.recentActivities = activityTracker.getPendingActivities();
+      if (typeof activityTracker.getRecentHistory === 'function') {
+        state.recentActivities = activityTracker.getRecentHistory(10);
+      } else {
+        state.recentActivities = activityTracker.getPendingActivities();
+      }
     } catch {
       state.recentActivities = [];
     }
   }
-  if (!SIMPLE_MODE && displayActive) {
-    render();
-  }
+  requestRender();
 }
 
 function handleOpsErrorUpdate() {
@@ -282,9 +321,7 @@ function handleOpsErrorUpdate() {
     return;
   }
   state.recentErrors = opsNotifier.getRecentErrors();
-  if (!SIMPLE_MODE && displayActive) {
-    render();
-  }
+  requestRender();
 }
 
 function startStatusDisplay() {
@@ -295,6 +332,7 @@ function startStatusDisplay() {
   displayActive = true;
   state.startedAt = new Date();
   lastSimpleRender = '';
+  needsRender = true;
 
   if (typeof activityTracker.subscribe === 'function') {
     unsubscribe = activityTracker.subscribe(handleActivityUpdate);
@@ -312,13 +350,15 @@ function startStatusDisplay() {
   }
 
   if (SIMPLE_MODE) {
-    render();
+    render(true);
     intervalHandle = setInterval(render, UPDATE_INTERVAL_MS);
+    intervalHandle.unref?.();
     return;
   }
 
-  render();
+  render(true);
   intervalHandle = setInterval(render, UPDATE_INTERVAL_MS);
+  intervalHandle.unref?.();
 }
 
 function stopStatusDisplay() {
@@ -344,6 +384,7 @@ function stopStatusDisplay() {
   if (SIMPLE_MODE) {
     displayActive = false;
     lastSimpleRender = '';
+    needsRender = false;
     return;
   }
 
@@ -352,22 +393,19 @@ function stopStatusDisplay() {
   process.stdout.write('\n');
   displayActive = false;
   lastRenderLines = 0;
+  needsRender = false;
 }
 
 function setPhase(value) {
   state.phase = value || state.phase;
-  if (!SIMPLE_MODE && displayActive) {
-    render();
-  }
+  requestRender();
 }
 
 function setGuildCount(value) {
   if (typeof value === 'number' && Number.isFinite(value)) {
     state.guildCount = Math.max(0, Math.round(value));
   }
-  if (!SIMPLE_MODE && displayActive) {
-    render();
-  }
+  requestRender();
 }
 
 function normalizeSection(sectionId, data) {
@@ -401,9 +439,7 @@ function setSection(sectionId, data) {
       state.sections.set(sectionId, normalized);
     }
   }
-  if (!SIMPLE_MODE && displayActive) {
-    render();
-  }
+  requestRender();
 }
 
 function interruptConsoleOutput(writeFn) {
@@ -428,7 +464,7 @@ function interruptConsoleOutput(writeFn) {
 
   clearDisplay();
   writeFn();
-  render();
+  requestRender(true);
 }
 
 export {
