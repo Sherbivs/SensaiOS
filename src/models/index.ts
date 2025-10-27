@@ -117,9 +117,17 @@ export const BattleRepo = {
       loser: { userId: loserUser.id, discordId: loserUser.discordId },
     };
 
+    const recordedAt = new Date().toISOString();
     const resultJson = {
-      ...result,
-      recordedAt: new Date().toISOString(),
+      battleId: result.battleId,
+      reason: result.reason,
+      turnCount: result.turnCount,
+      rewards: result.rewards,
+      winner: result.winner,
+      loser: result.loser,
+      recordedAt,
+      winnerDiscordId: result.winner.discordId,
+      loserDiscordId: result.loser.discordId,
     } as any;
 
     const logFull = opts.logFull ?? (opts.battle.logFull as unknown as string[] | undefined);

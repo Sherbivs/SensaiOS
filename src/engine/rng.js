@@ -1,5 +1,3 @@
-'use strict';
-
 /** Xorshift32-based RNG with seed; returns [0,1) floats. */
 function makeRNG(seed = 0xDEADBEEF) {
   let x = (seed >>> 0) || 0xDEADBEEF;
@@ -13,4 +11,6 @@ function makeRNG(seed = 0xDEADBEEF) {
   return { next };
 }
 
-module.exports = { makeRNG };
+export { makeRNG };
+
+export default { makeRNG };

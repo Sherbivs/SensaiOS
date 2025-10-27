@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Minimal shapes for a deterministic battle engine.
  * Real games add items, abilities, weather, status, field effects, etc.
@@ -40,4 +38,6 @@ function newAction(which, moveName) {
   return { who: which, move: String(moveName).toLowerCase() }; // which = 'a'|'b'
 }
 
-module.exports = { newPokemonRuntime, newBattleState, newAction };
+export { newPokemonRuntime, newBattleState, newAction };
+
+export default { newPokemonRuntime, newBattleState, newAction };

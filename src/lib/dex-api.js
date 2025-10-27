@@ -1,10 +1,8 @@
-'use strict';
-
-const fs = require('node:fs');
-const path = require('node:path');
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 
 function loadJSON(p) {
-  return JSON.parse(fs.readFileSync(p, 'utf8'));
+  return JSON.parse(readFileSync(p, 'utf8'));
 }
 
 const ROOT = process.cwd();
@@ -12,8 +10,8 @@ const DEX_PATH = path.join(ROOT, 'dist', 'data', 'dex.min.json');
 const MOVES_PATH = path.join(ROOT, 'dist', 'data', 'moves.min.json');
 const META_PATH = path.join(ROOT, 'dist', 'meta', 'version.json');
 
-const hasDex = fs.existsSync(DEX_PATH);
-const hasMoves = fs.existsSync(MOVES_PATH);
+const hasDex = existsSync(DEX_PATH);
+const hasMoves = existsSync(MOVES_PATH);
 
 let dexArr = [];
 let movesObj = {};
@@ -24,7 +22,7 @@ if (hasDex && hasMoves) {
   try {
     dexArr = loadJSON(DEX_PATH);
     movesObj = loadJSON(MOVES_PATH);
-    meta = fs.existsSync(META_PATH) ? loadJSON(META_PATH) : meta;
+    meta = existsSync(META_PATH) ? loadJSON(META_PATH) : meta;
   } catch (err) {
     console.warn('⚠️  dex-api: Failed to load snapshot data:', err?.message || err);
     disabled = true;
@@ -105,4 +103,11 @@ function suggestPokemon(prefix, limit = 25) {
   return out.slice(0, limit);
 }
 
-module.exports = { getPokemon, getMove, suggestPokemon, meta, dex: dexArr, moves: movesObj, disabled };
+const dex = dexArr;
+const moves = movesObj;
+
+export { getPokemon, getMove, suggestPokemon, meta, dex, moves, disabled };
+
+const api = { getPokemon, getMove, suggestPokemon, meta, dex, moves, disabled };
+
+export default api;

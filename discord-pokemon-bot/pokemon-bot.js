@@ -12,7 +12,79 @@ const dotenv = require('dotenv');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const cliStatus = require('../src/utils/cliStatus');
+const { createRequire } = require('node:module');
+const { pathToFileURL } = require('node:url');
+
+const pendingCliStatusCalls = [];
+let cliStatusModule = null;
+let cliStatusLoadPromise = null;
+
+function queueCliStatusCall(method, args) {
+  if (cliStatusModule && typeof cliStatusModule[method] === 'function') {
+    return cliStatusModule[method](...args);
+  }
+  pendingCliStatusCalls.push([method, args]);
+  return undefined;
+}
+
+const cliStatus = new Proxy({}, {
+  get(_target, prop) {
+    if (typeof prop === 'symbol') {
+      return cliStatusModule ? cliStatusModule[prop] : undefined;
+    }
+
+    if (cliStatusModule) {
+      const value = cliStatusModule[prop];
+      return typeof value === 'function' ? value.bind(cliStatusModule) : value;
+    }
+
+    return (...args) => queueCliStatusCall(prop, args);
+  },
+});
+
+async function loadCliStatusModule() {
+  if (cliStatusModule) {
+    return cliStatusModule;
+  }
+
+  if (!cliStatusLoadPromise) {
+    cliStatusLoadPromise = (async () => {
+      try {
+        const resolver = createRequire(__filename);
+        const resolvedPath = resolver.resolve('../src/utils/cliStatus.js');
+        const moduleUrl = pathToFileURL(resolvedPath);
+        const imported = await import(moduleUrl.href);
+        const candidate = imported?.default ?? imported;
+
+        if (!candidate || typeof candidate.setSection !== 'function') {
+          throw new Error('cliStatus module missing expected exports');
+        }
+
+        cliStatusModule = candidate;
+
+        while (pendingCliStatusCalls.length > 0) {
+          const [method, args] = pendingCliStatusCalls.shift();
+          const fn = typeof method === 'symbol' ? undefined : cliStatusModule[method];
+          if (typeof fn === 'function') {
+            try {
+              fn.apply(cliStatusModule, args);
+            } catch (error) {
+              console.warn(`[Pokémon Bot] CLI status call ${method} failed:`, error?.message || error);
+            }
+          }
+        }
+
+        return cliStatusModule;
+      } catch (error) {
+        console.warn('[Pokémon Bot] Failed to load CLI status monitor:', error?.message || error);
+        cliStatusLoadPromise = null;
+        throw error;
+      }
+    })();
+  }
+
+  return cliStatusLoadPromise;
+}
 
 const {
   readCache,
@@ -56,6 +128,10 @@ cliStatus.setSection(STATUS_SECTION_ID, {
   title: 'Pokémon Bot',
   status: 'Booting',
   metrics: [],
+});
+
+loadCliStatusModule().catch(() => {
+  // The CLI monitor is optional; continue running with no-op behaviour if it fails to load.
 });
 
 let pokemonData = readCache('pokemonData');

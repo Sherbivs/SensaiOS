@@ -1,10 +1,23 @@
-const fs = require('node:fs/promises');
-const path = require('node:path');
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
-const axios = require('axios');
-const cron = require('node-cron');
+import { log } from '../utils/logger.js';
 
-const { log } = require('../utils/logger');
+let axios = null;
+try {
+  const axiosModule = await import('axios');
+  axios = axiosModule?.default ?? axiosModule;
+} catch {
+  axios = null;
+}
+
+let cron = null;
+try {
+  const cronModule = await import('node-cron');
+  cron = cronModule?.default ?? cronModule;
+} catch {
+  cron = null;
+}
 
 const POKE_API_URL = 'https://pokeapi.co/api/v2/pokemon';
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -34,6 +47,20 @@ const DEFAULT_SPRITES = Object.freeze({
   official_artwork: null,
   home: null,
 });
+
+function ensureAxios() {
+  if (!axios) {
+    throw new Error('axios dependency missing. Install axios to enable Pokémon cache refresh.');
+  }
+  return axios;
+}
+
+function ensureCron() {
+  if (!cron) {
+    throw new Error('node-cron dependency missing. Install node-cron to schedule Pokémon cache refresh jobs.');
+  }
+  return cron;
+}
 
 let pokemonList = [];
 let pokemonById = new Map();
@@ -300,7 +327,8 @@ async function writeCacheToDisk(list, fetchedAt) {
 }
 
 async function getJson(url) {
-  const response = await axios.get(url, {
+  const http = ensureAxios();
+  const response = await http.get(url, {
     timeout: REQUEST_TIMEOUT_MS,
     headers: HTTP_HEADERS,
   });
@@ -423,7 +451,8 @@ function scheduleWeeklyRefresh() {
     return;
   }
 
-  cronTask = cron.schedule(
+  const cronApi = ensureCron();
+  cronTask = cronApi.schedule(
     CRON_SCHEDULE,
     () => {
       refreshPokemonCache({ reason: 'scheduled' }).catch((error) => {
@@ -535,7 +564,15 @@ function getCacheMetadata() {
   };
 }
 
-module.exports = {
+export {
+  initializePokemonCache,
+  refreshPokemonCache,
+  getPokemon,
+  getAllPokemon,
+  getCacheMetadata,
+};
+
+export default {
   initializePokemonCache,
   refreshPokemonCache,
   getPokemon,
