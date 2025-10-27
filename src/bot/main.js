@@ -1,13 +1,14 @@
-const { Client, GatewayIntentBits, Partials, Events, Collection } = require('discord.js');
-const fs = require('node:fs');
-const path = require('node:path');
-const https = require('node:https');
+import { Client, GatewayIntentBits, Partials, Events, Collection } from 'discord.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import https from 'node:https';
+import { pathToFileURL } from 'node:url';
 
-const cache = require('../services/cache');
-const activityTracker = require('../utils/activityTracker');
-const cliStatus = require('../utils/cliStatus');
-const opsNotifier = require('../utils/opsNotifier');
-const {
+import cache from '../services/cache.js';
+import activityTracker from '../utils/activityTracker.js';
+import cliStatus from '../utils/cliStatus.js';
+import opsNotifier from '../utils/opsNotifier.js';
+import {
   CLI_DEBUG_MODE,
   ROLE_PERMISSIONS_AUDIT,
   ROLE_PERMISSIONS_REMEDIATE,
@@ -37,12 +38,12 @@ const {
   DRIP_ALERT_HOUR,
   DRIP_ALERT_MINUTE,
   DRIP_ALERT_TIMEZONE,
-} = require('../config/env');
-const { log: baseLog, report } = require('../utils/logger');
-const { installFatalErrorHandlers } = require('../utils/fatalErrorGuard');
-const { createDripAlertManager, DRIP_ALERT_SEVERITY } = require('./dripAlerts');
-const { loadCommands } = require('../command-loader');
-const { checkAndSet } = require('../lib/cooldown');
+} from '../config/env.js';
+import { log as baseLog, report } from '../utils/logger.js';
+import { installFatalErrorHandlers } from '../utils/fatalErrorGuard.js';
+import { createDripAlertManager, DRIP_ALERT_SEVERITY } from './dripAlerts.js';
+import { loadCommands } from '../command-loader.js';
+import { checkAndSet } from '../lib/cooldown.js';
 
 cache.cleanOldCache();
 
@@ -63,7 +64,7 @@ const client = new Client({
 // Load slash commands (optional; safe if none present)
 let commands = null;
 try {
-  commands = loadCommands();
+  commands = await loadCommands();
   if (commands && commands.size > 0) {
     // Attach to client for convenience
     client.commands = new Collection([...commands.entries()]);
@@ -1616,14 +1617,14 @@ function startSecurityBot({ token: tokenOverride } = {}) {
   return loginPromise;
 }
 
-if (require.main === module) {
+const entryHref = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : null;
+if (entryHref && import.meta.url === entryHref) {
   startSecurityBot().catch((error) => {
     log('error', 'Security bot startup failed', mergeLogError({}, error));
     process.exit(1);
   });
 }
 
-module.exports = {
-  startSecurityBot,
-  client,
-};
+export { startSecurityBot, client };
+
+export default { startSecurityBot, client };

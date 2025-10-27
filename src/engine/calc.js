@@ -1,7 +1,6 @@
-'use strict';
-const { stageMultiplier } = require('./stats');
-const { ABILITIES, ITEMS } = require('./tables');
-const { computeTotalDamage, applyAdvancedAfterDamage } = require('./effects');
+import { stageMultiplier } from './stats.js';
+import { ABILITIES, ITEMS } from './tables.js';
+import { computeTotalDamage, applyAdvancedAfterDamage } from './effects.js';
 
 /** Helpers to read ability/item config */
 const A = (p) => (p?.ability ? ABILITIES[p.ability] : null);
@@ -157,4 +156,6 @@ function afterDealtDamage(attacker, defender, move, dealt, ctx = {}) {
   applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx);
 }
 
-module.exports = { baseDamage, effectiveStat, stab, typeEffectiveness, afterDealtDamage };
+export { baseDamage, effectiveStat, stab, typeEffectiveness, afterDealtDamage };
+
+export default { baseDamage, effectiveStat, stab, typeEffectiveness, afterDealtDamage };

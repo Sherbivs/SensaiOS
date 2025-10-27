@@ -11,6 +11,7 @@ Notes:
 - Admin `/ops stats` accepts optional limit + after filters so staff can audit deeper history without direct DB access.
 - Admin `/ops stats` adds a participant filter (Discord ID or mention) to isolate specific competitor history.
 - Daily quest claim handler awards coins, bumps streaks, and enforces cooldowns via `handleDailyClaim`.
+- Discord bootstrap waits for `clientReady` with error guards so the CLI monitor reflects the bot's online status reliably.
 
 Areas:
 - index.ts — client bootstrap and interaction switchboard
