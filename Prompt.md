@@ -61,7 +61,7 @@ Revision: 1.14
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Linked OPERATIONS.md into ops router metadata and refreshed the router index/master table for the worker split runbook.
+Change: Linked masterroutetable.md into ops router metadata and regenerated the router index to match.
 TasklistDiff: false
 Tests: not run (docs-only change)
 Contracts: ON
