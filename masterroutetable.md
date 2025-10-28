@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-28T20:30:00Z
+Last Updated (UTC): 2025-10-28T22:55:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 
 ## Router-of-Routers
@@ -36,6 +36,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
   - 2025-10-27: Router maps now track PBSL oracle fixtures and DRIP role assignment alerts; audit recorded in ops/ROUTER.md.
   - 2025-10-28: Added DB bootstrap runbook and helper script to router inventory.
   - 2025-10-28: Trimmed Prompt ledger to 10 entries and moved the full log to ops/change-ledger.md for readability.
+  - 2025-10-28: OPERATIONS.md documents the worker matrix, rollout checklist, and recovery toggles for ENABLE_CONTINUOUS_SWEEP + interval envs.
 
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).
@@ -72,7 +73,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
         - Render DATABASE_URL overrides prefer managed connection strings.
         - Entry now launches the security bot before the Discord client so DripTVDD alerts stay online.
         - Runtime config loader now forbids localhost URLs in production and exposes cache settings.
-        - Background worker drains the Prisma outbox and publishes health diagnostics.
+  - Background workers now run via dedicated Render services; ENABLE_CONTINUOUS_SWEEP defers security sweeps to the security worker.
 
 ### Shared Runtime & Utilities (`src/shared/ROUTER.md`)
 - Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, and shared outbox helpers.
