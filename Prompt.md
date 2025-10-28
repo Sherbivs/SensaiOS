@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-28T21:20:00Z
-Revision: 1.11
-
+Timestamp (UTC): 2025-10-28T20:55:00Z
+Revision: 1.10
 ## Last Repo Changes (since previous Prompt.md revision)
-- Removed duplicate Prompt.md sections and conflict artifacts so the contract template is clean and guard-compliant again.
-- Preserved the curated 10-entry ledger summary while pointing to ops/change-ledger.md for the full history until the script is rerun.
-- Flagged the duplicated timestamp fields in ops/NEXT.yaml for follow-up during the next ledger refresh.
+Rebuilt Prompt.md to restore the canonical contract structure after the ledger refactor and revalidated guard expectations.
+Confirmed the 10-entry ledger summary now points to `ops/change-ledger.md` for the full 200-commit history; `npm run docs:update-ledger` remains the source of truth.
+Captured the worker-split parking lot in the Mission Snapshot and refreshed evidence links to match the current staging state.
+- Captured the worker-split parking lot in the Mission Snapshot and refreshed evidence links to match the current staging state.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -19,16 +19,15 @@ Revision: 1.11
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Active Mission Snapshot
-- **NEXT Pointer:** T10.SCALE.WORKERS — split sweep/cache workers so pooled Prisma connections stay responsive under load.
-- **READY / In-flight:** Worker split remains primary; META.RUNTIME.BACKUP_SINK is queued next; T8.4 daily claim button stays PROPOSED pending DM UI adjustments.
-- **Recent Finish:** T10.SCALE.DB_BOOTSTRAP delivered pooled vs direct DB strategy, retryable Prisma connects, and aligned docs/tests.
+**NEXT Pointer:** `T10.SCALE.WORKERS` — separate background workers so pooled DB connections remain fast under load.
+**READY / IN-FLIGHT:** `T10.SCALE.WORKERS` is executing; `META.RUNTIME.BACKUP_SINK` stays queued behind it and `T8.4` (daily button) remains PROPOSED pending DM UI wiring.
+**Recent Finish:** `T10.SCALE.DB_BOOTSTRAP` is DONE; pooled vs. direct URL strategy, retryable Prisma connect, and documentation now aligned.
 
 ## System Highlights
-- **Database:** Runtime prefers DATABASE_POOL_URL with DATABASE_DIRECT_URL fallback; Prisma migrate retains directUrl; tests set PRISMA_SKIP_INITIAL_CONNECT.
-- **Workers & Scaling:** Shared worker runtime plus outbox/cache/pipeline entry points exist; upcoming work must update render.yaml, worker entrypoints, and router tables to isolate services.
-- **Observability:** Structured logs and CLI monitor are online; additional metrics/alerts tracked under T10.SCALE.OBS (PROPOSED).
-- **Ledger:** Prompt now carries a curated 10-commit summary; run npm run docs:update-ledger to refresh both this summary and ops/change-ledger.md.
-- **Testing Posture:** Vitest suites (ops, dm_home, daily, battle) and Prisma smoke tests cover current bootstrap guarantees—rerun targeted suites when touching those areas.
+**Database:** Runtime prefers `DATABASE_POOL_URL` with fallback to `DATABASE_DIRECT_URL`; Prisma directUrl is reserved for migrations; tests set `PRISMA_SKIP_INITIAL_CONNECT`.
+**Workers & Scaling:** Current deployment still runs a unified worker; separation work must update `render.yaml`, `src/worker/**`, and relevant routers.
+**Observability:** Structured logs exist; advanced metrics/alerts remain a future task (T10.SCALE.OBS PROPOSED).
+**Testing Posture:** Vitest suites for ops, DM Home, and daily flows cover DB bootstrap behaviour; rerun targeted suites when touching related code.
 
 ## Evidence Matrix
 | Domain | Primary Sources | Notes |
@@ -44,20 +43,10 @@ Revision: 1.11
 | ledger | Prompt.md (summary), ops/change-ledger.md (full 200) | Generated via docs:update-ledger |
 
 ## Assumptions / TBD Register
-- Render environment supports dedicated worker services with independent scaling and shared env configuration.
-- Worker separation will reuse current Prisma client patterns; no alternate ORM intended.
-- Observability expansion (metrics/alerts) is deferred until the worker split stabilizes; ensure no regression to structured logging baseline.
-- Duplicate timestamp fields in ops/NEXT.yaml should be deduplicated the next time ledger/meta automation runs.
 
 ## Validation Checklist
-- Touching a directory requires updating its ROUTER.md entry and running scripts/update_router_index.sh; commit the regenerated ops/ROUTER_INDEX.yaml.
-- Bump Prompt/Tasklist/Patch timestamps and revisions whenever readiness or scope changes.
-- Run npx prisma migrate deploy before production deploys; ensure DATABASE_DIRECT_URL is present.
-- Execute relevant Vitest suites (ops, dm_home, daily, affected modules) or document skips in the PATCHSET echo.
 
 ## Diagram Conventions
-- Use ASCII: systems in [brackets], arrows as -->, label data stores explicitly (e.g., [Render Postgres]).
-- Keep diagrams <= 80 characters wide and include a legend when introducing new notation.
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
