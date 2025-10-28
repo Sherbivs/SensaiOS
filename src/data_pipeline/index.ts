@@ -51,6 +51,7 @@ export async function buildData(opts: BuildOptions = {}): Promise<{
     name?: string;
     types?: string[];
     baseStats?: { hp: number; atk: number; def: number; spa: number; spd: number; spe: number };
+    stats?: { hp?: number; atk?: number; def?: number; spa?: number; spd?: number; spe?: number; HP?: number; attack?: number; defense?: number; speed?: number; [key: string]: unknown };
     abilities?: Record<string, string> | string[];
   };
   type DexFile = Record<string, DexEntry> | DexEntry[];
