@@ -13,7 +13,7 @@ param(
     [switch]$WhatIf
 )
 
-function Load-EnvFile {
+function Import-EnvFile {
     $envPath = Join-Path (Get-Location) '.env'
     if (-not (Test-Path $envPath)) { return }
     Get-Content $envPath | ForEach-Object {
@@ -27,7 +27,7 @@ function Load-EnvFile {
 }
 
 Write-Host "[bootstrap] Loading .env (if present)" -ForegroundColor Cyan
-Load-EnvFile
+Import-EnvFile
 
 $db = $env:DATABASE_URL
 if (-not $db) {
@@ -35,15 +35,25 @@ if (-not $db) {
     exit 2
 }
 
+$directUrl = $env:DATABASE_DIRECT_URL
+if (-not $directUrl) {
+    Write-Warning "DATABASE_DIRECT_URL is not set. Prisma migrations will fall back to the pooled URL; add the direct connection string for best results."
+} elseif ($directUrl -eq $db) {
+    Write-Warning "DATABASE_DIRECT_URL matches DATABASE_URL. Confirm the direct connection string so migrations bypass pools."
+}
+
 # Mask creds for display
-function Mask-DbUrl($u) {
+function ConvertTo-MaskedDbUrl($u) {
     try {
         if ($u -match '^(.*://)(.*?@)(.*)$') { return $u -replace '\\S+@','***@' }
     } catch { }
     return 'DATABASE_URL (hidden)'
 }
 
-Write-Host "[bootstrap] Detected DATABASE_URL: $(Mask-DbUrl $db)" -ForegroundColor Yellow
+Write-Host "[bootstrap] Detected DATABASE_URL: $(ConvertTo-MaskedDbUrl $db)" -ForegroundColor Yellow
+if ($directUrl) {
+    Write-Host "[bootstrap] Detected DATABASE_DIRECT_URL: $(ConvertTo-MaskedDbUrl $directUrl)" -ForegroundColor Yellow
+}
 
 if ($WhatIf) {
     Write-Host "WhatIf: would run 'npx prisma migrate deploy' against the target DB." -ForegroundColor Green

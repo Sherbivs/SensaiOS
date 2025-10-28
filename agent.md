@@ -9,6 +9,7 @@ Welcome! This workspace expects autonomous agents to follow a contract-first wor
 - `masterroutetable.md` — Human-readable router index. Pairs with `ops/ROUTER.yaml` for canonical routing metadata.
 - `README.md` (Router & Meta Index section) — Cross-links routers, contract files, and meta tooling for external automation.
 - `ops/DB_BOOTSTRAP.md` — Staging Postgres bootstrap runbook covering migrate deploy vs. db push safety.
+	- Expect both pooled (`DATABASE_POOL_URL`) and direct (`DATABASE_DIRECT_URL`) connection strings to be configured. Runtime services prefer the pooled URL; migrations use the direct URL.
 
 ## Contract Workflow Quickstart
 1. Open `Patch.md` and populate the clipboard (between `<<<PATCHSET START>>>` markers) with the planned file operations.
@@ -25,11 +26,11 @@ Welcome! This workspace expects autonomous agents to follow a contract-first wor
 	- `scripts/ROUTER.md` — Guard scripts, router refresh tooling, change ledger automation.
 	- `tests/ROUTER.md` — Vitest coverage map for major systems.
 - When in doubt, consult `ops/TOUCHMAP.yaml` for file ownership and escalation paths.
-- Pair the runbook (`ops/DB_BOOTSTRAP.md`) with `scripts/bootstrap_staging_db.ps1` before touching staging migrations; the script loads `.env`, runs `prisma migrate deploy`, and points back to the runbook if baseline tables are missing.
+- Pair the runbook (`ops/DB_BOOTSTRAP.md`) with `scripts/bootstrap_staging_db.ps1` before touching staging migrations; the script loads `.env`, runs `prisma migrate deploy`, and points back to the runbook if baseline tables or connection strings (pooled vs. direct) are missing.
 
 ## Operational Playbook
 - **Guard Scripts**: `scripts/guard_meta.sh`, `scripts/guard_doc_names.sh`, and `scripts/guard_routing.sh` enforce invariants (READY pointer, canonical spellings, router consistency).
-- **Bootstrap Helper**: `scripts/bootstrap_staging_db.ps1` attempts `npx prisma migrate deploy` against staging after loading `.env` and prints fallback guidance from the runbook when relations are missing.
+- **Bootstrap Helper**: `scripts/bootstrap_staging_db.ps1` attempts `npx prisma migrate deploy` against staging after loading `.env`, warns when pooled/direct URLs are absent, and prints fallback guidance from the runbook when relations are missing.
 - **Hotfix Loop**: Trigger naming, suffix rules, and recovery steps live in `ops/HOTFIX.md` and `ops/RECOVERY.yaml`. Update both when issuing or closing hotfixes.
 - **Clipboard Discipline**: Contract Mode ON requires markers, clipboard, and Prompt updates. Markerless Mode (no markers) relaxes the flow but still enforces Absolutes (routers intact, NEXT READY, canonical docs preserved).
 - **Logging**: `Prompt.md` PATCHSET echo should contain a concise summary, tasklist diff flag, test statement, contract mode, and NEXT pointer status.
@@ -49,6 +50,8 @@ Welcome! This workspace expects autonomous agents to follow a contract-first wor
 - `npm run docs:update-ledger` — Refresh Prompt change ledger.
 - `npm run refresh:vision` — Runs the full metadata refresh pipeline (routers, recovery, NEXT validation).
 - `scripts/bootstrap_staging_db.ps1` — PowerShell entry that wraps `prisma migrate deploy` with interactive confirmation.
+	- Honors `DATABASE_POOL_URL`/`DATABASE_DIRECT_URL` and surfaces guidance when they’re missing or identical.
+	- Works best with the connection retry envs (`PRISMA_CONNECT_MAX_RETRIES`, `PRISMA_CONNECT_RETRY_DELAY_MS`, `PRISMA_CONNECT_MAX_DELAY_MS`) tuned in `.env`.
 
 ## Data & Cache Pipelines
 - Pokémon data bootstrap lives under `scripts/build-data.js`, `scripts/fetch_pokemon.mjs`, and `data/bootstrap/*`.
@@ -61,7 +64,7 @@ Welcome! This workspace expects autonomous agents to follow a contract-first wor
 - `src/data_pipeline/` — Data ingestion/validation logic.
 - `src/shared/` — Logging, config, and utilities used across services.
 - `scripts/` — Automation entrypoints (guards, refreshers, build tools).
-- `ops/DB_BOOTSTRAP.md` & `scripts/bootstrap_staging_db.ps1` — Paired references for staging schema bootstrap; read the runbook before executing the script.
+- `ops/DB_BOOTSTRAP.md` & `scripts/bootstrap_staging_db.ps1` — Paired references for staging schema bootstrap; read the runbook before executing the script and confirm both pooled (`DATABASE_POOL_URL`) and direct (`DATABASE_DIRECT_URL`) URLs are set.
 - `ops/` — Operational metadata, hotfix plans, NEXT pointers, recovery docs.
 - `tests/` — Vitest specs across engines, data pipeline, DM flow, and ops surfaces.
 
