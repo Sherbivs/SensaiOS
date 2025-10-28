@@ -38,61 +38,58 @@ const normalizePath = (filePath) => {
   return filePath;
 };
 
-const getLedgerLines = () => {
-  const commitList = exec("git rev-list --max-count=200 HEAD")
+const collectCommitDetails = (limit) => {
+  const commitList = exec(`git rev-list --max-count=${limit} HEAD`)
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const timestamp = new Date().toISOString().replace(/\..+Z$/, "Z");
-  const branch = exec("git rev-parse --abbrev-ref HEAD");
-
-  const lines = [""];
-  lines.push(`**Generated:** ${timestamp}  |  **Branch:** ${branch}`);
-  lines.push("");
-
-  for (const commit of commitList) {
+  return commitList.map((commit) => {
     const shortSha = exec(`git rev-parse --short ${commit}`);
     const author = exec(`git show -s --format=%an ${commit}`);
     const date = exec(`git show -s --format=%ad --date=format:%Y-%m-%d ${commit}`);
-    const subject = exec(`git show -s --format=%s ${commit}`).replace(/\|/g, "\\|");
-
-    lines.push(`- **${shortSha}** — ${date} — ${author} — _logic intent:_ ${subject}`);
+    const rawSubject = exec(`git show -s --format=%s ${commit}`).replace(/\|/g, "\\|");
+    const subjectLimit = 160;
+    const subject = rawSubject.length > subjectLimit ? `${rawSubject.slice(0, subjectLimit - 1)}…` : rawSubject;
 
     const filesRaw = safeExec(`git show --name-only --pretty="" ${commit}`);
-    if (!filesRaw) continue;
-
     const files = filesRaw
-      .split("\n")
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-      .map(normalizePath);
+      ? filesRaw
+          .split("\n")
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+          .map(normalizePath)
+          .filter((file) => !/\.min\./.test(file))
+      : [];
 
-    for (const file of files) {
-      if (/\.min\./.test(file)) continue;
+    const maxFiles = 5;
+    const displayed = files.slice(0, maxFiles).map((file) => `\`${file}\``);
+    const extraCount = files.length > maxFiles ? files.length - maxFiles : 0;
+    const filesSummary = files.length
+      ? `${displayed.join(", ")}${extraCount ? `, +${extraCount} more` : ""}`
+      : "(no file changes detected)";
 
-      const hunksRaw = safeExec(`git show --unified=0 ${commit} -- "${file}"`);
-      if (!hunksRaw) {
-        lines.push(`  - \`${file}\``);
-        continue;
-      }
+    return {
+      shortSha,
+      author,
+      date,
+      subject,
+      filesSummary,
+    };
+  });
+};
 
-      const ranges = hunksRaw
-        .split("\n")
-        .filter((line) => line.startsWith("@@ "))
-        .map((line) => {
-          const match = line.match(/\+([0-9]+)(,[0-9]+)?/);
-          return match ? `+${match[1]}${match[2] ?? ""}` : "";
-        })
-        .filter(Boolean)
-        .join(" ");
+const renderLedger = (entries, { timestamp, branch, note } = {}) => {
+  const lines = [""];
+  lines.push(`**Generated:** ${timestamp}  |  **Branch:** ${branch}`);
+  if (note) {
+    lines.push(`**Note:** ${note}`);
+  }
+  lines.push("");
 
-      if (ranges) {
-        lines.push(`  - \`${file}\` — ~lines: ${ranges}`);
-      } else {
-        lines.push(`  - \`${file}\``);
-      }
-    }
+  for (const entry of entries) {
+    lines.push(`- **${entry.shortSha}** — ${entry.date} — ${entry.author} — _logic intent:_ ${entry.subject}`);
+    lines.push(`  Files: ${entry.filesSummary}`);
   }
 
   lines.push("");
@@ -114,7 +111,26 @@ const updatePromptLedger = (ledgerSection) => {
   writeFileSync(promptPath, updatedPrompt);
 };
 
-const ledgerBlock = getLedgerLines();
-updatePromptLedger(ledgerBlock);
+const MAX_COMMITS = 200;
+const SUMMARY_COMMITS = 10;
+const commitDetails = collectCommitDetails(MAX_COMMITS);
 
-console.log("Ledger updated in Prompt.md.");
+const timestamp = new Date().toISOString().replace(/\..+Z$/, "Z");
+const branch = exec("git rev-parse --abbrev-ref HEAD");
+
+const fullLedger = renderLedger(commitDetails, { timestamp, branch });
+const summaryLedger = renderLedger(commitDetails.slice(0, SUMMARY_COMMITS), {
+  timestamp,
+  branch,
+  note: "Full 200-entry ledger lives in ops/change-ledger.md",
+});
+
+const shouldPrintOnly = process.argv.includes("--print") || process.env.LEDGER_PRINT === "1";
+
+if (shouldPrintOnly) {
+  console.log(fullLedger);
+} else {
+  updatePromptLedger(summaryLedger);
+  writeFileSync("ops/change-ledger.md", `# Recent Change Ledger (200 commits)\n\n${fullLedger}`);
+  console.log("Ledger updated in Prompt.md and ops/change-ledger.md.");
+}

@@ -1,7 +1,7 @@
 # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-10-28T06:40:00Z
+updated_utc: 2025-10-28T20:30:00Z
 
 meta_files:
   - Patch.md
@@ -12,6 +12,7 @@ meta_files:
   - ops/TOUCHMAP.yaml
   - ops/CRITICAL.md
   - ops/PATCH_POLICY_BACKUP.md
+  - ops/change-ledger.md
 
 inbox:
   # Fast notes the human can edit; AI must read first if newer than NEXT.last_notes_read_utc
@@ -33,6 +34,8 @@ categories:
     - ops/TOUCHMAP.yaml
   prompt:
     - Prompt.md
+  ledger:
+    - ops/change-ledger.md
   infra_docs:
     - RULESET.md
     - DATA-SCHEMA.md

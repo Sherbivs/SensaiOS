@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-28T19:45:00Z
-Revision: 1.08
+Timestamp (UTC): 2025-10-28T20:30:00Z
+Revision: 1.09
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Cache refresh and data pipeline workers now import typed cadence settings from `src/config/env.js` so TypeScript sees the shared toggles.
-- Tasklist marks T10.SCALE.WORKERS as IN_PROGRESS with notes on the new worker scripts and remaining integration work.
-- NEXT pointer unchanged; continue executing the worker split while render/docs updates remain outstanding.
+- Trimmed the Prompt ledger to a 10-entry summary and linked the full 200-commit log to `ops/change-ledger.md` for readability.
+- Refactored `scripts/update_change_ledger.mjs` to truncate subjects, inline file summaries, and emit both the summary and full ledger outputs.
+- Added `ops/change-ledger.md` as the canonical ledger target; run `npm run docs:update-ledger` to regenerate both views when the history changes.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts in sync.
@@ -26,6 +26,7 @@ Revision: 1.08
 - **Database:** Runtime prefers DATABASE_POOL_URL with fallback to DATABASE_DIRECT_URL; Prisma directUrl is reserved for migrations; tests set PRISMA_SKIP_INITIAL_CONNECT.
 - **Workers & Scaling:** Shared worker runtime plus outbox/cache/pipeline entry points exist; pending steps include render.yaml split, router updates, and sweeping the in-process loop flag.
 - **Observability:** Structured logs exist; advanced metrics/alerts remain a future task (T10.SCALE.OBS PROPOSED).
+- **Ledger:** Prompt now carries a 10-commit summary; `ops/change-ledger.md` holds the 200-entry history produced by `npm run docs:update-ledger`.
 - **Testing Posture:** Vitest suites for ops, DM Home, and daily flows cover DB bootstrap behaviour; rerun targeted suites when touching related code.
 
 ## Evidence Matrix
@@ -37,6 +38,7 @@ Revision: 1.08
 - persistence — prisma/schema.prisma, src/models/**, migrations/**.
 - security — Prompt.md, RULESET.md, src/shared/**.
 - observability — Prompt.md, OPERATIONS.md, src/shared/log.ts.
+- ledger — Prompt.md (10-entry summary), ops/change-ledger.md (full 200-entry history).
 
 ## Assumptions / TBD Register
 - Worker separation will reuse existing Prisma client logic; no new ORM package expected.
@@ -57,78 +59,42 @@ Revision: 1.08
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Taught cache/data pipeline workers to source cadence from the shared env module and noted T10.SCALE.WORKERS as in progress in Tasklist.
-TasklistDiff: true
-Tests: not run (config typings only)
+Change: Slimmed the Prompt ledger to a 10-entry summary, rewrote the ledger script to emit concise summaries, and archived the full 200-commit log under ops/change-ledger.md.
+TasklistDiff: false
+Tests: not run (documentation/script refactor)
 Contracts: ON (clipboard marker retained in Patch.md)
 NEXT: T10.SCALE.WORKERS — continue the worker split with render/config/doc updates next.
 <!-- PATCHSET:ECHO END -->
 
+
 ## Recent Change Ledger (last 200 commits)
 <!-- LEDGER:BEGIN -->
 
-**Generated:** 2025-10-28T17:22:20Z  |  **Branch:** main
+**Generated:** 2025-10-28T20:30:00Z  |  **Branch:** main
+**Note:** Full 200-entry ledger lives in ops/change-ledger.md
 
-- **a069bbe** — 2025-10-28 — Sherbivs — _logic intent:_ C:\Users\sherb\OneDrive\Documents\GitHub\Infinity-Gauntlet; $promptContent = @" # Prompt.md Timestamp (UTC): 2025-10-28T16:19:10Z Revision: 1.06  ## Last Repo Changes (since previous Prompt.md revision) - Added a Node-based ledger updater and pointed the shell/npm wrappers at it for cross-platform runs. - Cleaned Prompt.md conflict remnants and refreshed the contract metadata ahead of a scripted ledger update.  ## Purpose & Scope - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts in sync. - Complements Patch.md (process contract) and Tasklist.md (work graph); never diverge from those authorities.  ## Activation Checklist & Fallback - Confirm readability of Patch.md, Tasklist.md, Prompt.md, ops/NEXT.yaml before planning; halt if any are unavailable. - Review ops/NEXT.yaml and Tasklist.md to ensure the READY queue matches the stated next task; auto-promote if policy requires. - Optional shell access: run scripts/refresh_vision.sh to regenerate routing indices; when unavailable, note the limitation in the PATCHSET echo. - If remote context (GitHub origin) cannot be validated, record the failure reason and request human assistance.  ## Active Mission Snapshot - **NEXT Pointer:** T10.SCALE.WORKERS — separate background workers so pooled DB connections remain fast under load. - **READY Queue Highlights:** T10.SCALE.WORKERS (primary), META.RUNTIME.BACKUP_SINK (follow-up once worker split is stable), T8.4 (daily claim button) remains PROPOSED pending DM UI wiring. - **Recent Finish:** T10.SCALE.DB_BOOTSTRAP is DONE; pooled vs. direct URL strategy, retryable Prisma connect, and documentation now aligned.  ## System Highlights - **Database:** Runtime prefers DATABASE_POOL_URL with fallback to DATABASE_DIRECT_URL; Prisma directUrl is reserved for migrations; tests set PRISMA_SKIP_INITIAL_CONNECT. - **Workers & Scaling:** Current deployment still runs a unified worker; separation work must update render.yaml, src/worker/**, and relevant routers. - **Observability:** Structured logs exist; advanced metrics/alerts remain a future task (T10.SCALE.OBS PROPOSED). - **Testing Posture:** Vitest suites for ops, DM Home, and daily flows cover DB bootstrap behaviour; rerun targeted suites when touching related code.  ## Evidence Matrix - infra — ops/NEXT.yaml, ops/CRITICAL.md, render.yaml, src/shared/config.ts. - discord_bot — Tasklist.md, ops/TOUCHMAP.yaml, src/bot/**. - battle_engine — src/core/battle/**, RULESET.md. - encounters — src/core/encounter/**, DATA-SCHEMA.md. - data_pipeline — src/data_pipeline/**, data/**, scripts/build-data.js. - persistence — prisma/schema.prisma, src/models/**, migrations/**. - security — Prompt.md, RULESET.md, src/shared/**. - observability — Prompt.md, OPERATIONS.md, src/shared/log.ts.  ## Assumptions / TBD Register - Worker separation will reuse existing Prisma client logic; no new ORM package expected. - Render environment allows defining dedicated services for workers with independent scaling controls. - Observability improvements remain deferred until after workers split; ensure no regression to current logging guarantees.  ## Validation Checklist - Touched directories must update their ROUTER.md entries and regenerate ops/ROUTER_INDEX.yaml via scripts/update_router_index.sh. - Any change impacting readiness requires Prompt.md timestamp/revision bump plus Tasklist/NEXT synchronization. - Run npx prisma migrate deploy before production deploys; ensure DATABASE_DIRECT_URL present in env when running migrations. - Execute relevant Vitest suites (ops, dm_home, daily, affected modules) or document why tests were skipped.  ## Diagram Conventions - Use ASCII block diagrams with [] for systems and --> for directional relationships. - Label data stores explicitly (e.g., [Render Postgres]) to avoid ambiguity. - Include legend when introducing new notation; keep diagrams under 80 characters wide for readability.  ## Embedded PATCHSET Echo <!-- PATCHSET:ECHO BEGIN --> HEAD: pending-local Change: Wired the Prompt ledger refresh through the Node helper and cleared stale conflict artifacts; ledger now auto-generates from git history. TasklistDiff: false Tests: not run (automation update only) Contracts: ON (clipboard marker retained in Patch.md) NEXT: T10.SCALE.WORKERS — split sweep/cache workers so pooled connections stay responsive. <!-- PATCHSET:ECHO END -->  ## Recent Change Ledger (last 200 commits) <!-- LEDGER:BEGIN --> Ledger pending refresh via scripts/update_change_ledger.mjs. <!-- LEDGER:END -->  ## AI Worker Prompt (copy/paste for Copilot/GPT) You are GitHub Copilot operating under the Infinity Gauntlet contract.  1. Read ops/NEXT.yaml, Tasklist.md, ops/TOUCHMAP.yaml, Patch.md, then this Prompt.md before editing. 2. Work only on READY tasks whose dependencies are DONE; do not self-assign PROPOSED items. 3. Keep edits minimal and reversible; update Tasklist.md, ops/NEXT.yaml, Prompt.md, and relevant routers in the same PATCHSET. 4. Run targeted tests (Vitest suites, Prisma migrate deploy) when touching runtime code; record results in the PATCHSET echo and commit message. 5. Ensure the Embedded PATCHSET Echo, Last Repo Changes, and ledger markers remain populated; restore clipboard markers in Patch.md if removed by accident. 6. Finish every run with a READY pointer in ops/NEXT.yaml and clear rationale in the PATCHSET echo. "@; Set-Content -Path Prompt.md -Value $promptContent -Encoding UTF8
-  - `Prompt.md` — ~lines: +2,2 +6,2 +35 +59 +61 +68 +79,4 +85,2 +88,3 +92,5 +98,4 +103,5 +109,9 +119,4 +124,5 +130,4 +135 +138,5 +145,4 +150,2 +153,6
-  - `scripts/update_change_ledger.mjs` — ~lines: +1,120
-- **de2c729** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  - `scripts/update_change_ledger_unix.sh` — ~lines: +1,47
-- **94d527e** — 2025-10-28 — Sherbivs — _logic intent:_ T10.SCALE.WORKERS
-  - `Prompt.md` — ~lines: +2,79
-  - `src/bot/ops/admin.ts` — ~lines: +196,0 +207,23
-  - `tests/ops.spec.ts` — ~lines: +88,0 +132,0 +165,0 +216,0 +261,0
-- **546ce2e** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  - `README.md` — ~lines: +10,2 +61 +123,2 +127,3 +144 +153
-  - `agent.md` — ~lines: +12 +29 +33 +53,2 +67
-  - `ops/DB_BOOTSTRAP.md` — ~lines: +14 +19 +33 +49 +69,4
-  - `scripts/bootstrap_staging_db.ps1` — ~lines: +16 +30 +38,7 +46 +53,4
-- **4a2eb06** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  - `ops/NEXT.yaml` — ~lines: +16 +19 +22,3 +26,3 +31 +34,3 +44
-  - `tasklist.md` — ~lines: +2,4 +12 +901 +907 +917,3 +921
-- **5a9fab8** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
-- **07826c7** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  - `Patch.md` — ~lines: +104,44
-  - `prisma/schema.prisma` — ~lines: +9
-  - `src/env/ensure-db-url.ts` — ~lines: +2 +92,26
-  - `src/shared/config.ts` — ~lines: +20,6
-  - `src/shared/prisma.ts` — ~lines: +218,6 +225 +233,75 +311,12
-  - `tests/setup-env.ts` — ~lines: +8,4
-- **e22e2c5** — 2025-10-28 — Sherbivs — _logic intent:_ ,
-  - `Prompt.md` — ~lines: +2 +4,3 +14 +55,30
-  - `ops/NEXT.yaml` — ~lines: +26 +31,6
-  - `tasklist.md` — ~lines: +2 +4,3 +906 +912
-- **0d5d2c3** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
-- **f71f6f4** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  - `Patch.md` — ~lines: +103,0
-  - `Prompt.md` — ~lines: +2,2 +9,0 +11 +13,2 +16,2 +19,2 +22,2 +25,2 +28,2 +31 +33,2 +36,2 +39,2 +42,2 +45,2 +48,3
-  - `README.md` — ~lines: +10,2 +126 +141 +150
-  - `ops/NEXT.yaml` — ~lines: +16 +19 +22,3 +26 +29
-- **61c3245** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  - `Patch.md` — ~lines: +104,44
-  - `agent.md` — ~lines: +11 +28 +32 +51 +64
-  - `masterroutetable.md` — ~lines: +2 +8,9 +23 +25,9 +35,2 +41 +43,8 +52,2
-  - `ops/ROUTER.md` — ~lines: +5 +19
-  - `ops/ROUTER.yaml` — ~lines: +4 +48
-  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +12,2
-  - `ops/TOUCHMAP.yaml` — ~lines: +183,6 +208,14
-  - `scripts/ROUTER.md` — ~lines: +5 +12
-  - `tasklist.md` — ~lines: +2,2 +868,10 +918,23
-- **76b73b3** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
-- **d7be4ce** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  - `ops/DB_BOOTSTRAP.md` — ~lines: +1,68
-  - `ops/ROUTER.yaml` — ~lines: +40
-  - `scripts/bootstrap_staging_db.ps1` — ~lines: +1,72
-  - `tasklist.md` — ~lines: +890,10
-- **2e2f4e4** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  - `package-lock.json` — ~lines: +1,6784
-  - `package.json` — ~lines: +18 +34,2 +38
-  - `pbsl-oracle-report.json` — ~lines: +1,204
-- **14c4cc5** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
-  - `prisma/migrations/migration_lock.toml`
-- **d065fac** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  - `src/bot/ops/admin.ts` — ~lines: +1,6 +31,21 +59,35 +99,8 +197,59 +270,10 +295,61 +406,36
-  - `tests/ops.spec.ts` — ~lines: +89,4 +137,4 +174,4 +229,4 +278,4
+- **a069bbe** — 2025-10-28 — Sherbivs — _logic intent:_ Prompt ledger refresh via PowerShell export cleanup.
+  Files: `Prompt.md`, `scripts/update_change_ledger.mjs`, +others
+- **de2c729** — 2025-10-28 — Sherbivs — _logic intent:_ Refresh Unix wrapper for ledger update.
+  Files: `scripts/update_change_ledger_unix.sh`
+- **94d527e** — 2025-10-28 — Sherbivs — _logic intent:_ T10.SCALE.WORKERS admin updates and tests.
+  Files: `Prompt.md`, `src/bot/ops/admin.ts`, `tests/ops.spec.ts`
+- **546ce2e** — 2025-10-28 — Sherbivs — _logic intent:_ README/agent/DB bootstrap documentation refresh.
+  Files: `README.md`, `agent.md`, `ops/DB_BOOTSTRAP.md`, `scripts/bootstrap_staging_db.ps1`
+- **4a2eb06** — 2025-10-28 — Sherbivs — _logic intent:_ NEXT pointer and Tasklist alignment.
+  Files: `ops/NEXT.yaml`, `tasklist.md`
+- **5a9fab8** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main'.
+  Files: (merge commit)
+- **07826c7** — 2025-10-28 — Sherbivs — _logic intent:_ Database URL hardening across env/prisma helpers.
+  Files: `Patch.md`, `prisma/schema.prisma`, `src/env/ensure-db-url.ts`, `src/shared/config.ts`, `src/shared/prisma.ts`
+- **e22e2c5** — 2025-10-28 — Sherbivs — _logic intent:_ Prompt/NEXT/Tasklist cleanup.
+  Files: `Prompt.md`, `ops/NEXT.yaml`, `tasklist.md`
+- **0d5d2c3** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main'.
+  Files: (merge commit)
+- **f71f6f4** — 2025-10-28 — Sherbivs — _logic intent:_ Prompt/README/NEXT refresh with contract updates.
+  Files: `Patch.md`, `Prompt.md`, `README.md`, `ops/NEXT.yaml`
+
+<!-- LEDGER:END -->
 - **e706ad2** — 2025-10-28 — Sherbivs — _logic intent:_ Update migration_lock.toml
   - `prisma/migrations/migration_lock.toml` — ~lines: +1
 - **90b389e** — 2025-10-28 — Sherbivs — _logic intent:_ .

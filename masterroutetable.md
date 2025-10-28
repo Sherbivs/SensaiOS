@@ -1,12 +1,12 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-28T06:45:00Z
+Last Updated (UTC): 2025-10-28T20:30:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 
 ## Router-of-Routers
 - `ops/ROUTER_INDEX.yaml` — Generated index of active routers. Start here to locate downstream routers quickly.
 - `ops/ROUTER.yaml` — Canonical route map. Markerless Mode is documented in `ops/CRITICAL.md`; even when contracts are OFF, do not remove routers.
   - Routes:
-    - `ops/ROUTER.md` — Ops & Governance
+  - `ops/ROUTER.md` — Ops & Governance
     - `scripts/ROUTER.md` — Dev & Docs Scripts (includes bootstrap_staging_db.ps1 helper)
     - `src/ROUTER.md` — Application Source
     - `src/shared/ROUTER.md` — Shared Runtime & Utilities
@@ -20,7 +20,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 ### Ops & Governance (`ops/ROUTER.md`)
 - Purpose: Canonical operational control-plane (NEXT pointer, CRITICAL, TOUCHMAP, router maps, inbox).
 - Owned Globs: `ops/**`
-- Last Updated: 2025-10-28T06:40:00Z
+- Last Updated: 2025-10-28T20:30:00Z
 - Key References:
   - `ops/NEXT.yaml` — next task pointer (READY pointer must exist on exit)
   - `ops/CRITICAL.md` — fast-path guardrails + Markerless guidance
@@ -31,9 +31,11 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
   - `ops/CANONICAL_NAMES.yaml` — router/document casing guard
   - `ops/ARCHIVE/README.md` — Tasklist archival guidance
   - `ops/DB_BOOTSTRAP.md` — staging schema bootstrap runbook
+  - `ops/change-ledger.md` — generated 200-entry commit ledger (Prompt holds 10-entry summary)
 - Notes:
   - 2025-10-27: Router maps now track PBSL oracle fixtures and DRIP role assignment alerts; audit recorded in ops/ROUTER.md.
   - 2025-10-28: Added DB bootstrap runbook and helper script to router inventory.
+  - 2025-10-28: Trimmed Prompt ledger to 10 entries and moved the full log to ops/change-ledger.md for readability.
 
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).
