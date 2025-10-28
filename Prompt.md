@@ -71,20 +71,31 @@ NEXT: T10.SCALE.WORKERS — continue the worker split by updating render config,
 
 ## Recent Change Ledger (last 10 commits)
 <!-- LEDGER:BEGIN -->
-**Generated:** 2025-10-28T20:55:00Z  |  **Branch:** main
 
-- **40f83ce** — 2025-10-28 — Hardened runtime DB configuration and completed the T10.SCALE.DB_BOOTSTRAP sweep (worker runtime, scripts, docs, tests).
-- **a069bbe** — 2025-10-28 — Scripted Prompt ledger refresh via Node helper and cleared stale conflict remnants ahead of automation.
-- **de2c729** — 2025-10-28 — Added Unix wrapper for the updated ledger script to keep cross-platform CI aligned.
-- **94d527e** — 2025-10-28 — Advanced T10.SCALE.WORKERS with admin routing tweaks and ops test updates.
-- **546ce2e** — 2025-10-28 — Synced meta docs (README, agent brief, DB bootstrap guide, staging bootstrap script).
-- **4a2eb06** — 2025-10-28 — Updated NEXT pointer, router manifest, and tasklist to reflect worker split sequencing.
-- **5a9fab8** — 2025-10-28 — Merged main to capture upstream changes before continuing scale work.
-- **07826c7** — 2025-10-28 — Refined database URL handling and worker runtime bindings across env/config modules.
-- **e22e2c5** — 2025-10-28 — Coordinated Prompt/NEXT/tasklist alignment for the current scaling effort.
-- **0d5d2c3** — 2025-10-28 — Merged main after alignment updates to keep history linear.
+**Generated:** 2025-10-28T19:09:49Z  |  **Branch:** main
+**Note:** Full 200-entry ledger lives in ops/change-ledger.md
 
-Full 200-entry history: ops/change-ledger.md
+- **8f1c003** — 2025-10-28 — Sherbivs — _logic intent:_ Create Prompt.md
+  Files: `Prompt.md`
+- **8106e8c** — 2025-10-28 — Sherbivs — _logic intent:_ Delete Prompt.md
+  Files: `Prompt.md`
+- **ab8367b** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+  Files: `Prompt.md`
+- **404b530** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  Files: `Prompt.md`
+- **4e6076a** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  Files: `Prompt.md`
+- **48fced9** — 2025-10-28 — Sherbivs — _logic intent:_ ,
+  Files: `Prompt.md`
+- **59e1b44** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  Files: `Prompt.md`
+- **3e5d18c** — 2025-10-28 — Sherbivs — _logic intent:_ Update Prompt.md
+  Files: `Prompt.md`
+- **f4dbe76** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  Files: `Prompt.md`, `masterroutetable.md`, `ops/NEXT.yaml`, `ops/ROUTER.md`, `ops/ROUTER.yaml`, +4 more
+- **40f83ce** — 2025-10-28 — Sherbivs — _logic intent:_ [Task T10.SCALE.DB_BOOTSTRAP] Harden runtime DB configuration and close bootstrap loop
+  Files: `Patch.md`, `Prompt.md`, `ops/NEXT.yaml`, `ops/ROUTER.md`, `ops/TOUCHMAP.yaml`, +13 more
+
 <!-- LEDGER:END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)
