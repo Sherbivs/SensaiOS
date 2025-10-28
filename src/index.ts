@@ -11,6 +11,7 @@ import {
 } from "./shared/prisma.js";
 import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
 import { bootDiscord } from "./bot/index.js";
+import { ENABLE_SECURITY_BOT } from "./config/env.js";
 
 const CLI_MONITOR_DISABLED =
   process.env.DISABLE_CLI_MONITOR === "true" || process.env.NODE_ENV === "test";
@@ -63,7 +64,10 @@ function startMonitor(): void {
     setPhase("Booting");
     setSection("database", { title: "Database", status: "checking", metrics: [] });
     setSection("discord", { title: "Discord Bot", status: "initializing", metrics: [] });
-    setSection("security", { title: "Security Bot", status: "initializing", metrics: [] });
+    const securitySection = ENABLE_SECURITY_BOT
+      ? { title: "Security Bot", status: "initializing", metrics: [] }
+      : { title: "Security Bot", status: "disabled", metrics: [["note", "disabled via ENABLE_SECURITY_BOT"]] };
+    setSection("security", securitySection);
     setSection("cache", { title: "Cache", status: "checking", metrics: [] });
     refreshMonitorMetrics();
     monitorRefreshTimer = setInterval(refreshMonitorMetrics, MONITOR_REFRESH_INTERVAL_MS);
@@ -557,12 +561,20 @@ export async function boot(): Promise<void> {
     throw error;
   }
 
-  setPhase("Starting security bot");
-  try {
-    await bootSecurityBot();
-  } catch (error) {
-    setPhase("Startup failed");
-    throw error;
+  if (ENABLE_SECURITY_BOT) {
+    setPhase("Starting security bot");
+    try {
+      await bootSecurityBot();
+    } catch (error) {
+      setPhase("Startup failed");
+      throw error;
+    }
+  } else {
+    setSection("security", {
+      title: "Security Bot",
+      status: "disabled",
+      metrics: [["note", "Security bot disabled via ENABLE_SECURITY_BOT=false"]],
+    });
   }
 
   setPhase("Connecting to Discord");

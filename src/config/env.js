@@ -46,6 +46,10 @@ const ALERT_WEBHOOK_URL = (process.env.ALERT_WEBHOOK_URL || '').trim();
 const ALERT_CHANNEL_ID = (process.env.ALERT_CHANNEL_ID || '').trim();
 const ALERT_USER_ID = (process.env.ALERT_USER_ID || '').trim();
 const SECURITY_BOT_TOKEN = (process.env.SECURITY_BOT_TOKEN || process.env.BOT_TOKEN || '').trim();
+const rawEnableSecurityBot = process.env.ENABLE_SECURITY_BOT;
+const ENABLE_SECURITY_BOT = rawEnableSecurityBot === undefined
+  ? Boolean(SECURITY_BOT_TOKEN)
+  : toBool(rawEnableSecurityBot);
 const POKEMON_BOT_TOKEN = (process.env.POKEMON_BOT_TOKEN || process.env.POKEMON_TOKEN || '').trim();
 const rawEnablePokemonBot = process.env.ENABLE_POKEMON_BOT;
 const ENABLE_POKEMON_BOT = rawEnablePokemonBot === undefined
@@ -145,6 +149,7 @@ export {
   ALERT_USER_ID,
   BOT_TOKEN,
   SECURITY_BOT_TOKEN,
+  ENABLE_SECURITY_BOT,
   POKEMON_BOT_TOKEN,
   ENABLE_POKEMON_BOT,
   POKEMON_BOT_AUTO_DISABLED,
@@ -191,6 +196,7 @@ export default {
   ALERT_USER_ID,
   BOT_TOKEN,
   SECURITY_BOT_TOKEN,
+  ENABLE_SECURITY_BOT,
   POKEMON_BOT_TOKEN,
   ENABLE_POKEMON_BOT,
   POKEMON_BOT_AUTO_DISABLED,

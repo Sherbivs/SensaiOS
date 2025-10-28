@@ -95,8 +95,44 @@ services:
         sync: false
       - key: ENABLE_POKEMON_BOT
         value: "true"
+      - key: ENABLE_SECURITY_BOT
+        value: "false"
       - key: BATTLE_CHANNEL_NAME
         value: pokemon-battles
+      - key: DISABLE_SNAPSHOT_PRECHECK
+        value: "true"
+
+  - type: worker
+    name: infinity-gauntlet-security
+    runtime: node
+    plan: starter
+    region: oregon
+    repo: https://github.com/sherbivs/infinity-gauntlet
+    branch: main
+    buildCommand: "npm install --include=dev && npm run prebuild"
+    startCommand: "node security-bot.js"
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SERVICE_NAME
+        value: security-bot
+      - key: LOG_FORMAT
+        value: json
+      - key: SECURITY_BOT_TOKEN
+        sync: false
+      - key: ENABLE_SECURITY_BOT
+        value: "true"
+      - key: ENABLE_CONTINUOUS_SWEEP
+        value: "true"
+      - key: ALERT_WEBHOOK_URL
+        sync: false
+      - key: ALERT_CHANNEL_ID
+        sync: false
+      - key: ALERT_USER_ID
+        sync: false
+      - key: ROLE_NAME
+        value: Trainer
       - key: DISABLE_SNAPSHOT_PRECHECK
         value: "true"
 

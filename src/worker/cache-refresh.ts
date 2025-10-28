@@ -5,6 +5,7 @@ import { CACHE_WORKER_INTERVAL_MS, CACHE_WORKER_INTERVAL_JITTER_MS } from "../co
 
 const REFRESH_INTERVAL_MS = CACHE_WORKER_INTERVAL_MS;
 const REFRESH_JITTER_MS = CACHE_WORKER_INTERVAL_JITTER_MS;
+const HEALTH_INTERVAL_MS = Math.max(REFRESH_INTERVAL_MS || 300_000, 300_000);
 
 async function runManualRefresh(reason: string): Promise<void> {
   try {
@@ -40,8 +41,28 @@ await runWorker("cache-refresh", async (ctx) => {
     throw error;
   }
 
+  const healthHandle = ctx.runRepeating(
+    async () => {
+      const meta = getCacheMetadata();
+      log.info("worker.cache.health", {
+        total: meta.total,
+        lastFetchedAt: meta.lastFetchedAt?.toISOString?.() ?? null,
+        lastFetchAttemptAt: meta.lastFetchAttemptAt?.toISOString?.() ?? null,
+        cron: meta.cron,
+        timezone: meta.timezone,
+        intervalMs: REFRESH_INTERVAL_MS,
+      });
+    },
+    {
+      intervalMs: HEALTH_INTERVAL_MS,
+      runImmediately: true,
+      label: "cache-health",
+    },
+  );
+  ctx.onShutdown(() => healthHandle.stop());
+
   if (REFRESH_INTERVAL_MS > 0) {
-    const handle = ctx.runRepeating(
+    const refreshHandle = ctx.runRepeating(
       async () => {
         await runManualRefresh("interval");
       },
@@ -52,7 +73,7 @@ await runWorker("cache-refresh", async (ctx) => {
         label: "cache-interval-refresh",
       },
     );
-    ctx.onShutdown(() => handle.stop());
+    ctx.onShutdown(() => refreshHandle.stop());
   }
 
   await ctx.waitForShutdown();

@@ -23,7 +23,8 @@
     "test:pbsl": "vitest run tests/pbsl",
     "worker:outbox": "tsx src/worker/outbox.ts",
     "worker:cache": "tsx src/worker/cache-refresh.ts",
-    "worker:data-pipeline": "tsx src/worker/data-pipeline.ts"
+    "worker:data-pipeline": "tsx src/worker/data-pipeline.ts",
+    "worker:security": "node security-bot.js"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
