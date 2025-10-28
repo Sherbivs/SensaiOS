@@ -17,6 +17,12 @@ function coerceNumber(value: string | undefined, fallback: number): number {
 }
 
 function resolveDatabaseUrl(): string {
+  const pool = process.env.DATABASE_POOL_URL?.trim();
+  if (pool) {
+    process.env.DATABASE_URL = pool;
+    return pool;
+  }
+
   const direct = process.env.DATABASE_URL?.trim();
   if (direct) {
     return direct;

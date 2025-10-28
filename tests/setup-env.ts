@@ -5,3 +5,7 @@ if (!process.env.NODE_ENV) {
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = 'postgres://placeholder.invalid/test-db';
 }
+
+if (!process.env.PRISMA_SKIP_INITIAL_CONNECT) {
+  process.env.PRISMA_SKIP_INITIAL_CONNECT = 'true';
+}
