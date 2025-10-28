@@ -176,9 +176,12 @@ T10.SCALE.WORKERS:
   - "render.yaml"
   - "src/worker/**"
   - "src/bot/main.js"
+  - "src/shared/worker-runtime.ts"
   - "scripts/worker_trigger_job.mjs"
   - "ops/ROUTER.md"
   - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "OPERATIONS.md"
 
 T10.SCALE.DB_BOOTSTRAP:
   - "ops/DB_BOOTSTRAP.md"
