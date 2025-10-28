@@ -194,6 +194,46 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
     ];
   }
 
+  const userCountPromise = prisma.user?.count ? prisma.user.count() : Promise.resolve(0);
+  const encounterCountPromise = prisma.encounter?.count
+    ? prisma.encounter.count({ where: { state: { in: ["Spawned", "Idle"] } } })
+    : Promise.resolve(0);
+  const battleModel = prisma.battle as typeof prisma.battle | undefined;
+  const cooldownModel = prisma.cooldown as typeof prisma.cooldown | undefined;
+  const outboxModel = prisma.outboxMessage as typeof prisma.outboxMessage | undefined; // allow mocked prisma without outbox support
+
+  const battlesActivePromise = battleModel?.count
+    ? battleModel.count({ where: { state: { in: ["Pending", "Active"] } } })
+    : Promise.resolve(0);
+  const totalFinishedPromise = battleModel?.count
+    ? battleModel.count({ where: finishedWhere })
+    : Promise.resolve(0);
+  const recentBattlesPromise = battleModel?.findMany
+    ? battleModel.findMany({
+        where: finishedWhere,
+        orderBy: { endedAt: "desc" },
+        take: window.limit,
+        select: {
+          id: true,
+          endedAt: true,
+          resultJson: true,
+          p1: { select: { discordId: true } },
+          p2: { select: { discordId: true } },
+        },
+      })
+    : Promise.resolve([] as Awaited<ReturnType<PrismaLike["battle"]["findMany"]>>);
+  const cooldownCountPromise = cooldownModel?.count ? cooldownModel.count() : Promise.resolve(0);
+  const outboxPendingPromise = outboxModel?.count
+    ? outboxModel.count({ where: { status: "pending" } })
+    : Promise.resolve(0);
+  const outboxLastProcessedPromise = outboxModel?.findFirst
+    ? outboxModel.findFirst({
+        where: { status: { in: ["done", "error"] }, processedAt: { not: null } },
+        orderBy: { processedAt: "desc" },
+        select: { processedAt: true },
+      })
+    : Promise.resolve(null);
+
   const [
     users,
     encountersActive,
@@ -204,29 +244,14 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
     outboxPending,
     lastProcessed,
   ] = await Promise.all([
-    prisma.user.count(),
-    prisma.encounter.count({ where: { state: { in: ["Spawned", "Idle"] } } }),
-    prisma.battle.count({ where: { state: { in: ["Pending", "Active"] } } }),
-    prisma.cooldown.count(),
-    prisma.battle.count({ where: finishedWhere }),
-    prisma.battle.findMany({
-      where: finishedWhere,
-      orderBy: { endedAt: "desc" },
-      take: window.limit,
-      select: {
-        id: true,
-        endedAt: true,
-        resultJson: true,
-        p1: { select: { discordId: true } },
-        p2: { select: { discordId: true } },
-      },
-    }),
-    prisma.outboxMessage.count({ where: { status: "pending" } }),
-    prisma.outboxMessage.findFirst({
-      where: { status: { in: ["done", "error"] }, processedAt: { not: null } },
-      orderBy: { processedAt: "desc" },
-      select: { processedAt: true },
-    }),
+    userCountPromise,
+    encounterCountPromise,
+    battlesActivePromise,
+    cooldownCountPromise,
+    totalFinishedPromise,
+    recentBattlesPromise,
+    outboxPendingPromise,
+    outboxLastProcessedPromise,
   ]);
 
   const recentBattles: BattleSummary[] = recent.map((row) => {
