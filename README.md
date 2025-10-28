@@ -7,8 +7,8 @@ live-service economy powered by workers and data pipelines.
 ## Current Status & Goals
 
 - **Current build:** The TypeScript bot stack (DM Home, Wilds, Arena, admin ops) runs on Prisma-backed Postgres with Render-ready workers and guarded automation.
-- **Recent wins:** Admin `/ops stats` now filters by limit/after/participant; hotfix policies require plain-text echoes so audit trails remain readable; meta docs are fully synchronized.
-- **Short-term focus:** Promote the next persistence backlog item (Phase 7) to deepen battle reporting while maintaining router metadata parity.
+- **Recent wins:** Admin `/ops stats` now filters by limit/after/participant; hotfix policies require plain-text echoes; staging bootstrap runbook/script now ship with refreshed meta routers.
+- **Short-term focus:** Align staging with the Prisma baseline via `ops/DB_BOOTSTRAP.md` + `scripts/bootstrap_staging_db.ps1`, then advance the remaining Phase 10 scaling tasks.
 - **Near horizon:** Split production vs. development routing tables, tighten deployment automation, and prepare structured guild playtests.
 
 ## Architecture Snapshot
@@ -123,6 +123,7 @@ Reference data is mirrored into `/data` via scripted jobs:
    - `DISCORD_BOT_TOKEN` (or legacy `POKEMON_BOT_TOKEN` fallback)
    - Optional Render job variables (`POKE_RENDER_SERVICE_ID`, `POKE_REFRESH_CRON`, etc.)
 3. Additional feature flags in `src/config/env.js` tune rate limits, alerts, and remediation behaviors.
+4. If staging is missing baseline tables, follow `ops/DB_BOOTSTRAP.md` and run `scripts/bootstrap_staging_db.ps1` (PowerShell) before forward-only migrations.
 
 ## Deploying on Render (Web + Background Worker)
 
@@ -137,6 +138,7 @@ Reference data is mirrored into `/data` via scripted jobs:
 2. Ensure each service (web + workers) declares `envVars.DATABASE_URL` using `fromDatabase.connectionString`; the runtime config loader promotes `DATABASE_INTERNAL_URL` to `DATABASE_URL` automatically for internal connections.
 3. Optional cache tuning: set `CACHE_TTL_MS` or `REDIS_URL` in Render to change the shared cache backend; the default TTL is 60s and currently backed by the in-process memory cache in `src/shared/cache/memory.ts`.
 4. `/ops stats` now prints runtime, database, cache, and outbox diagnostics so you can confirm the worker is draining messages and that Prisma is connected to Render’s Postgres before promoting changes.
+5. When schema drift appears in staging, run `scripts/bootstrap_staging_db.ps1` (after loading `.env`) for an interactive `prisma migrate deploy`; the script points back to `ops/DB_BOOTSTRAP.md` if relations are missing.
 
 ## Operational Guardrails & Meta Workflow
 
@@ -145,6 +147,7 @@ Reference data is mirrored into `/data` via scripted jobs:
 - `scripts/archive_task_history.mjs` trims Tasklist history to the latest 100 DONE entries by archiving to `ops/ARCHIVE/`.
 - `ops/RECOVERY.yaml` and `ops/NEXT.yaml` coordinate the next actionable task, ensuring deterministic resumes across workers.
 - `ops/HOTFIX_PLAN.yaml` defines the hotfix queue and bootstrap template for emergency work outside the PATCH loop.
+- `ops/DB_BOOTSTRAP.md` pairs with `scripts/bootstrap_staging_db.ps1` to describe safe staging bootstrap flows ahead of index migrations.
 
 ### Router & Meta Index
 

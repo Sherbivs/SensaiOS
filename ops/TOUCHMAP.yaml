@@ -180,6 +180,12 @@ T10.SCALE.WORKERS:
   - "ops/ROUTER.md"
   - "ops/ROUTER_INDEX.yaml"
 
+T10.SCALE.DB_BOOTSTRAP:
+  - "ops/DB_BOOTSTRAP.md"
+  - "scripts/bootstrap_staging_db.ps1"
+  - "tasklist.md"
+  - "ops/NEXT.yaml"
+
 T10.SCALE.OBS:
   - "src/utils/logger.js"
   - "src/shared/**"
@@ -198,6 +204,20 @@ PBSL.ORACLE_DIFF:
   - "src/core/pbsl/**"
   - "tests/pbsl/**"
   - ".github/workflows/pbsl-oracle.yml"
+
+META.ROUTER.20251028:
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "ops/ROUTER.md"
+  - "scripts/ROUTER.md"
+  - "ops/TOUCHMAP.yaml"
+
+META.AI_DOC_ENABLE:
+  - "agent.md"
+  - "README.md"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
 
 # Glob prefixes to catch future tasks in the same family
 "Phase 0*":
