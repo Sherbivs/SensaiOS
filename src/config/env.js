@@ -86,7 +86,7 @@ const BACKFILL_DELAY_MS = Math.max(0, toNumber(process.env.BACKFILL_DELAY_MS, 20
 const BACKFILL_INTERVAL_SECONDS = resolveIntervalSeconds(
   process.env.BACKFILL_INTERVAL_SECONDS,
   process.env.BACKFILL_INTERVAL_MIN,
-  { fallbackSeconds: 45, minSeconds: 10 }
+  { fallbackSeconds: 62, minSeconds: 10 }
 );
 const ROLE_REMEDIATION_INTERVAL_SECONDS = resolveIntervalSeconds(
   process.env.ROLE_REMEDIATION_INTERVAL_SECONDS,

@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-27T12:30:00Z
-Revision: 1.72
+Last Updated (UTC): 2025-10-28T05:05:00Z
+Revision: 1.75
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -864,3 +864,35 @@ Each task has:
     - DM `/home` embed exposes streak status and outlines how to regain the streak when it resets.
     - Tests cover streak increment, reset, and DM Home display updates.
   notes: Outcome — Prisma schema and model helpers manage streak increments/resets; DM Home now surfaces streak messaging with new tests covering active, reset, and display states.
+
+## Phase 10 — Scalability Foundations
+
+- id: T10.SCALE.DATA_INDEX
+  title: Harden data model indexing for growth
+  status: DONE
+  depends_on: [T7.7, T8.2]
+  acceptance_criteria:
+    - Audit Prisma models and migrations for heavy-read/write tables, adding composite or partial indexes where query plans need them (trainers, battles, cooldowns, encounter logs).
+    - Generate a forward-only migration that introduces the new indexes without dropping existing ones or blocking hot paths.
+    - Document the index coverage and maintenance plan in `DATA-SCHEMA.md` (or sibling ops doc) with notes on expected row growth and vacuum strategy.
+  notes: Outcome — Added Prisma indexes for encounters, battles, parties, Pokémon ownership, and promoted cooldowns to a compound unique key; shipped migration `202510280500_scaling_indexes` and documented maintenance guidance in DATA-SCHEMA.md.
+
+- id: T10.SCALE.WORKERS
+  title: Separate background workers for horizontal scaling
+  status: PROPOSED
+  depends_on: [T10.SCALE.DATA_INDEX]
+  acceptance_criteria:
+    - Split continuous sweeps, cache refreshes, and data pipeline jobs into dedicated worker entry points with independent concurrency/env tuning.
+    - Render (or equivalent) deployment config reflects the separation with per-worker scaling knobs and health telemetry.
+    - Update ROUTER docs and ops playbooks to clarify which queues/tasks each worker owns and how to roll them independently.
+  notes: Proposed — Ensures future load can be spread across specialized worker pools without impacting Discord latency.
+
+- id: T10.SCALE.OBS
+  title: Expand observability and guardrails for scaling
+  status: PROPOSED
+  depends_on: [T10.SCALE.WORKERS]
+  acceptance_criteria:
+    - Extend structured logging/metrics to include storage, sweep cadence, and queue depth per worker, forwarding critical alerts to the security/ops channels.
+    - Add automated health checks or dashboards (Grafana, Render metrics, etc.) with documented thresholds and escalation paths in `OPERATIONS.md`.
+    - Update Prompt.md PATCHSET echo template or ops guides to require observability notes whenever scaling-affecting changes land.
+  notes: Proposed — Keeps telemetry and runbooks ahead of the expected traffic spike once marketing beats begin.

@@ -166,6 +166,27 @@ T8.4:
   - "src/bot/daily/claim.ts"
   - "tests/dm_home.spec.ts"
 
+T10.SCALE.DATA_INDEX:
+  - "prisma/schema.prisma"
+  - "prisma/migrations/**"
+  - "DATA-SCHEMA.md"
+  - "scripts/guard_meta.sh"
+
+T10.SCALE.WORKERS:
+  - "render.yaml"
+  - "src/worker/**"
+  - "src/bot/main.js"
+  - "scripts/worker_trigger_job.mjs"
+  - "ops/ROUTER.md"
+  - "ops/ROUTER_INDEX.yaml"
+
+T10.SCALE.OBS:
+  - "src/utils/logger.js"
+  - "src/shared/**"
+  - "OPERATIONS.md"
+  - "Prompt.md"
+  - "scripts/guard_meta.sh"
+
 PBSL.SKELETON:
   - "docs/PBSL.md"
   - "src/core/pbsl/**"

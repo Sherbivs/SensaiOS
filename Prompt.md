@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T13:35:00Z
-Revision: 0.99
+Timestamp (UTC): 2025-10-28T05:07:00Z
+Revision: 1.03
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**
@@ -10,31 +10,40 @@ Revision: 0.99
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/bot/dripAlerts.js` — Added minimum/fallback delays and rolled tiny windows forward so digest scheduling cannot tight-loop when timezone math underflows.
-> - `docs/PBSL.md` — Replaced the PBSL overview with the launch-ready checklist covering onboarding, battles, observability, and schema notes.
+> - `prisma/schema.prisma`, `prisma/migrations/202510280500_scaling_indexes/migration.sql` — Added growth-focused indexes for encounters, battles, parties, Pokémon ownership, and enforced unique cooldown keys.
+> - `DATA-SCHEMA.md` — Logged the new index coverage and maintenance plan (vacuum cadence, REINDEX triggers).
+> - `tasklist.md` — Marked `T10.SCALE.DATA_INDEX` DONE with outcome notes.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Hardened drip alert digest scheduling by rolling tiny windows forward and keeping PBSL launch checklist in sync.
-TasklistDiff: false
-Tests: Not run (security bot scheduling fix touched only logging/timers).
+Summary: Landed Phase 10 indexing work—new Prisma indexes + migration + docs—and recorded the task completion.
+TasklistDiff: true
+Tests: Not run (Prisma/index migration only).
 Contracts: ON (marker present; Contract Mode enforced).
-NEXT: T8.4 remains READY; DM home daily button still queued after scheduler fix.
+NEXT: T8.4 remains READY; scaling backlog proceeds to worker separation next.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task NONE] Refresh PBSL launch checklist
+[Task T10.SCALE.DATA_INDEX] Harden data indexing for growth
 
-FILE: docs/PBSL.md
-Change: Replaced the PBSL overview with the launch-ready checklist covering user onboarding, battles, observability, and schemas.
-Insert/Replace/Remove: Updated the entire document with the new guidance.
+FILE: prisma/schema.prisma
+Change: Added indexes for Pokémon ownership, party owners, encounter state timelines, battle state history, and promoted cooldown owner/kind to a compound unique key for safe upserts.
+Insert/Replace/Remove: Inserted new @@index/@@unique declarations on the relevant models.
 
-FILE: Prompt.md
-Change: Synced metadata and PATCHSET echo after the PBSL documentation refresh.
-Insert/Replace/Remove: Bumped timestamp/revision, updated Last Repo Changes, and refreshed the echo.
+FILE: prisma/migrations/202510280500_scaling_indexes/migration.sql
+Change: Created forward-only SQL to apply the new indexes (and replace the cooldown index with a unique key) in production.
+Insert/Replace/Remove: Added migration statements creating the indexes and dropping the redundant non-unique index.
+
+FILE: DATA-SCHEMA.md
+Change: Updated metadata and documented the scaling index plan with operational maintenance notes (vacuum/REINDEX guidance).
+Insert/Replace/Remove: Bumped revision stamp and added a Performance Indexes section referencing the new migration.
+
+FILE: tasklist.md
+Change: Marked T10.SCALE.DATA_INDEX as DONE with outcome notes and refreshed headers.
+Insert/Replace/Remove: Updated header timestamps/revision and noted the completed indexing work.
 
 TASKLIST UPDATE
-Change: None (documentation-only update).
+Change: Marked T10.SCALE.DATA_INDEX DONE.
 <<<PATCHSET END>>>
 
 Logs & References:

@@ -45,6 +45,8 @@ model PokemonInstance {
   boxSlot    Int?
   createdAt  DateTime @default(now())
   partySlots PartySlot[]
+
+  @@index([ownerId])
 }
 
 model Party {
@@ -53,6 +55,8 @@ model Party {
   ownerId   String
   slots     PartySlot[]
   createdAt DateTime     @default(now())
+
+  @@index([ownerId])
 }
 
 model PartySlot {
@@ -77,6 +81,9 @@ model Encounter {
   startedAt        DateTime @default(now())
   expiresAt        DateTime?
   dataJson         Json?
+
+  @@index([ownerId, state])
+  @@index([state, startedAt])
 }
 
 model Battle {
@@ -94,6 +101,10 @@ model Battle {
   resultJson    Json?
   startedAt     DateTime @default(now())
   endedAt       DateTime?
+
+  @@index([state, endedAt])
+  @@index([p1Id, state, endedAt])
+  @@index([p2Id, state, endedAt])
 }
 
 model Cooldown {
@@ -105,7 +116,7 @@ model Cooldown {
   metaJson  Json?
   createdAt DateTime @default(now())
 
-  @@index([ownerId, kind])
+  @@unique([ownerId, kind])
 }
 
 model OutboxMessage {
