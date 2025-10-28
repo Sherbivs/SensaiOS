@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-28T23:20:00Z
-Revision: 1.81
+Last Updated (UTC): 2025-10-28T23:45:00Z
+Revision: 1.82
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -910,24 +910,23 @@ Each task has:
 
 - id: T10.SCALE.OBS
   title: Expand observability and guardrails for scaling
-  status: READY
+  status: DONE
   depends_on: [T10.SCALE.WORKERS]
   acceptance_criteria:
     - Extend structured logging/metrics to include storage, sweep cadence, and queue depth per worker, forwarding critical alerts to the security/ops channels.
     - Add automated health checks or dashboards (Grafana, Render metrics, etc.) with documented thresholds and escalation paths in `OPERATIONS.md`.
     - Update Prompt.md PATCHSET echo template or ops guides to require observability notes whenever scaling-affecting changes land.
-  notes: |
-    Priority focus — instrument `runWorker` and each dedicated worker entry to emit queue depth, sweep cadence, and failure counters, then wire alerts into security/ops channels. Document the thresholds in OPERATIONS.md and require Prompt echoes to flag observability work before traffic ramps.
+  notes: Outcome — runWorker now emits structured telemetry snapshots, workers track queue depth/staleness/failure counters with thresholds, and OPERATIONS.md documents alert levels plus the scheduled validation dry run.
 
 - id: T10.SCALE.LOAD_TEST
   title: Schedule post-split load test / game-night dry run
-  status: PROPOSED
+  status: READY
   depends_on: [T10.SCALE.OBS]
   acceptance_criteria:
     - Coordinate a load test or “game-night” dry run after observability instrumentation lands, capturing responsible owners and timing in OPERATIONS.md.
     - Define success thresholds (queue depth, sweep cadence, response latency) aligned with the new telemetry and document rollback steps if metrics regress.
     - Record outcomes and follow-up actions in Prompt.md Last Repo Changes and Tasklist notes after execution.
-  notes: Proposed follow-up to validate worker split efficiency once telemetry and alerting are live; align scheduling with ops coverage and Render availability.
+  notes: READY — Telemetry is live; dry run is booked for 2025-10-30 01:00Z (Sherbivs + Ops) with thresholds logged in OPERATIONS.md. Execute and capture outcomes once the run completes.
 
 ## Phase 11 — Meta & AI Enablement
 

@@ -1,10 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-28T23:20:00Z
-Revision: 1.16
+Timestamp (UTC): 2025-10-28T23:45:00Z
+Revision: 1.17
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Prioritized T10.SCALE.OBS with an explicit instrumentation plan in Tasklist/NEXT, calling for queue depth and sweep cadence telemetry plus alert thresholds.
-- Added T10.SCALE.LOAD_TEST follow-up and expanded OPERATIONS.md with observability-in-progress guidance and dry run scheduling notes.
+- Completed T10.SCALE.OBS by wiring worker metrics (queue depth, stale seconds, failure counters) and enabling `worker.alert.*` thresholds in runWorker + dedicated entries.
+- Updated OPERATIONS.md with live observability guidance, documented alert thresholds, and scheduled the 2025-10-30 01:00Z load test/game-night dry run with owners.
+- Promoted T10.SCALE.LOAD_TEST to READY, refreshed NEXT pointer, and synchronized Tasklist/Prompt notes for the upcoming validation run.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -18,14 +19,14 @@ Revision: 1.16
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Active Mission Snapshot
-- **NEXT Pointer:** T10.SCALE.OBS — layer worker telemetry (queue depth, sweep cadence) and document alert thresholds now that the split is live.
-- **READY / In-flight:** Observability follow-up stays READY but flagged as priority; META.RUNTIME.BACKUP_SINK remains proposed; new T10.SCALE.LOAD_TEST holds the post-telemetry dry run plan; T8.4 daily claim button is still PROPOSED pending DM UI polish.
+- **NEXT Pointer:** T10.SCALE.LOAD_TEST — execute the scheduled 2025-10-30 load test/game-night dry run and capture telemetry outcomes.
+- **READY / In-flight:** Load test follow-up is READY; META.RUNTIME.BACKUP_SINK remains proposed; T8.4 daily claim button stays PROPOSED pending DM UI polish.
 - **Recent Finish:** T10.SCALE.WORKERS finalized the worker runtime, Render services, ops runbook, and router metadata for the split deployment.
 
 ## System Highlights
 - **Database:** Runtime prefers DATABASE_POOL_URL with DATABASE_DIRECT_URL fallback; Prisma migrate retains directUrl; tests set PRISMA_SKIP_INITIAL_CONNECT.
 - **Workers & Scaling:** Dedicated outbox/cache/data-pipeline/security workers run under pooled env wiring; ENABLE_SECURITY_BOT + ENABLE_CONTINUOUS_SWEEP gate sweeps so only the security worker loops in production.
-- **Observability:** Structured logs and health telemetry are live; T10.SCALE.OBS now leads with queue depth/sweep cadence instrumentation plus alert thresholds, with T10.SCALE.LOAD_TEST queued to validate the split once metrics land.
+- **Observability:** Worker telemetry now auto-logs via `worker.metrics.snapshot`; queue depth warns ≥50, cache stale alerts >30m, pipeline stale alerts >8h, and `worker.alert.*` escalations flag repeated failures ahead of the scheduled load test.
 - **Ledger:** Prompt now carries a curated 10-commit summary; run npm run docs:update-ledger to refresh both this summary and ops/change-ledger.md.
 - **Testing Posture:** Vitest suites (ops, dm_home, daily, battle) and Prisma smoke tests cover current bootstrap guarantees—rerun targeted suites when touching those areas.
 
@@ -61,11 +62,11 @@ Revision: 1.16
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Prioritized T10.SCALE.OBS with telemetry/alert notes, queued the post-split load test follow-up, and expanded OPERATIONS.md guidance.
+Change: Landed worker telemetry counters/thresholds, documented the 2025-10-30 load test plan, and retargeted NEXT to the READY dry run task.
 TasklistDiff: true
 Tests: not run (docs-only change)
 Contracts: ON
-NEXT: T10.SCALE.OBS — wire queue depth, cadence, and failure counters with documented alert thresholds before scheduling the dry run.
+NEXT: T10.SCALE.LOAD_TEST — execute the scheduled validation run and capture outcomes against the new telemetry thresholds.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

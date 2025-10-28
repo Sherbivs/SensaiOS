@@ -2,6 +2,234 @@ import { setTimeout as sleep } from "node:timers/promises";
 import process from "node:process";
 import { log } from "./log.js";
 
+const DEFAULT_SNAPSHOT_INTERVAL_MS = Math.max(30_000, Number(process.env.WORKER_TELEMETRY_INTERVAL_MS ?? 60_000));
+const DEFAULT_THRESHOLD_COOLDOWN_MS = Math.max(30_000, Number(process.env.WORKER_THRESHOLD_COOLDOWN_MS ?? 300_000));
+
+type Comparator = "gte" | "lte";
+
+export type MetricThreshold = {
+  warn?: number;
+  alert?: number;
+  comparator?: Comparator;
+  cooldownMs?: number;
+};
+
+type GaugeState = {
+  value: number;
+  thresholds?: MetricThreshold;
+  lastWarnTs?: number;
+  lastAlertTs?: number;
+};
+
+type TaskState = {
+  runs: number;
+  successes: number;
+  failures: number;
+  consecutiveFailures: number;
+  totalDurationMs: number;
+  lastSuccessAt?: string;
+  lastFailure?: { at: string; message: string };
+};
+
+export type WorkerMetricsSnapshot = {
+  gauges: Record<string, { value: number; thresholds?: MetricThreshold; lastWarnAt?: string | null; lastAlertAt?: string | null }>;
+  counters: Record<string, number>;
+  tasks: Record<string, {
+    runs: number;
+    successes: number;
+    failures: number;
+    consecutiveFailures: number;
+    avgDurationMs: number | null;
+    lastSuccessAt?: string;
+    lastFailure?: { at: string; message: string };
+  }>;
+  updatedAt: string;
+};
+
+export interface WorkerMetrics {
+  setGauge(name: string, value: number, thresholds?: MetricThreshold): void;
+  incrementCounter(name: string, delta?: number): void;
+  recordSuccess(label: string, meta?: { durationMs?: number; [key: string]: unknown }): void;
+  recordFailure(label: string, error: unknown, meta?: { durationMs?: number; [key: string]: unknown }): void;
+  snapshot(): WorkerMetricsSnapshot;
+  emitSnapshot(): void;
+}
+
+function isoNow(): string {
+  return new Date().toISOString();
+}
+
+function toDuration(meta?: { durationMs?: number }): number {
+  if (!meta || typeof meta.durationMs !== "number" || !Number.isFinite(meta.durationMs)) {
+    return 0;
+  }
+  return Math.max(0, meta.durationMs);
+}
+
+class WorkerMetricsImpl implements WorkerMetrics {
+  private readonly gauges = new Map<string, GaugeState>();
+  private readonly counters = new Map<string, number>();
+  private readonly tasks = new Map<string, TaskState>();
+
+  constructor(private readonly workerName: string) {}
+
+  setGauge(name: string, value: number, thresholds?: MetricThreshold): void {
+    const state = this.gauges.get(name) ?? { value: 0 };
+    state.value = value;
+    if (thresholds) {
+      state.thresholds = thresholds;
+    }
+    this.gauges.set(name, state);
+    if (state.thresholds) {
+      this.checkGaugeThreshold(name, state);
+    }
+  }
+
+  incrementCounter(name: string, delta = 1): void {
+    const current = this.counters.get(name) ?? 0;
+    this.counters.set(name, current + delta);
+  }
+
+  recordSuccess(label: string, meta?: { durationMs?: number; [key: string]: unknown }): void {
+    const state = this.ensureTaskState(label);
+    state.runs += 1;
+    state.successes += 1;
+    state.consecutiveFailures = 0;
+    state.lastSuccessAt = isoNow();
+    const duration = toDuration(meta);
+    if (duration > 0) {
+      state.totalDurationMs += duration;
+    }
+  }
+
+  recordFailure(label: string, error: unknown, meta?: { durationMs?: number; [key: string]: unknown }): void {
+    const state = this.ensureTaskState(label);
+    state.runs += 1;
+    state.failures += 1;
+    state.consecutiveFailures += 1;
+    const duration = toDuration(meta);
+    if (duration > 0) {
+      state.totalDurationMs += duration;
+    }
+    const message = error instanceof Error ? error.message : typeof error === "string" ? error : JSON.stringify(error);
+    state.lastFailure = { at: isoNow(), message };
+
+    if (state.consecutiveFailures === 3) {
+      log.warn("worker.alert.failure_warn", { worker: this.workerName, label, consecutiveFailures: state.consecutiveFailures, error: message });
+    }
+    if (state.consecutiveFailures >= 5) {
+      log.error("worker.alert.failure_critical", error, { worker: this.workerName, label, consecutiveFailures: state.consecutiveFailures });
+    }
+  }
+
+  snapshot(): WorkerMetricsSnapshot {
+    const gauges: WorkerMetricsSnapshot["gauges"] = {};
+    for (const [name, state] of this.gauges.entries()) {
+      gauges[name] = {
+        value: state.value,
+        thresholds: state.thresholds,
+        lastWarnAt: state.lastWarnTs ? new Date(state.lastWarnTs).toISOString() : null,
+        lastAlertAt: state.lastAlertTs ? new Date(state.lastAlertTs).toISOString() : null,
+      };
+    }
+
+    const counters: WorkerMetricsSnapshot["counters"] = {};
+    for (const [name, value] of this.counters.entries()) {
+      counters[name] = value;
+    }
+
+    const tasks: WorkerMetricsSnapshot["tasks"] = {};
+    for (const [label, state] of this.tasks.entries()) {
+      const avgDuration = state.runs > 0 && state.totalDurationMs > 0 ? Math.round(state.totalDurationMs / state.runs) : null;
+      tasks[label] = {
+        runs: state.runs,
+        successes: state.successes,
+        failures: state.failures,
+        consecutiveFailures: state.consecutiveFailures,
+        avgDurationMs: avgDuration,
+        lastSuccessAt: state.lastSuccessAt,
+        lastFailure: state.lastFailure,
+      };
+    }
+
+    return {
+      gauges,
+      counters,
+      tasks,
+      updatedAt: isoNow(),
+    };
+  }
+
+  emitSnapshot(): void {
+    log.info("worker.metrics.snapshot", { worker: this.workerName, metrics: this.snapshot() });
+  }
+
+  private ensureTaskState(label: string): TaskState {
+    const existing = this.tasks.get(label);
+    if (existing) {
+      return existing;
+    }
+    const created: TaskState = {
+      runs: 0,
+      successes: 0,
+      failures: 0,
+      consecutiveFailures: 0,
+      totalDurationMs: 0,
+    };
+    this.tasks.set(label, created);
+    return created;
+  }
+
+  private compare(value: number, threshold: number, comparator: Comparator): boolean {
+    if (comparator === "lte") {
+      return value <= threshold;
+    }
+    return value >= threshold;
+  }
+
+  private cooldownElapsed(lastTs: number | undefined, override?: number): boolean {
+    if (!lastTs) {
+      return true;
+    }
+    const cooldown = override ?? DEFAULT_THRESHOLD_COOLDOWN_MS;
+    return Date.now() - lastTs >= cooldown;
+  }
+
+  private checkGaugeThreshold(name: string, state: GaugeState): void {
+    if (!state.thresholds) {
+      return;
+    }
+    const comparator: Comparator = state.thresholds.comparator ?? "gte";
+    const cooldownMs = state.thresholds.cooldownMs ?? DEFAULT_THRESHOLD_COOLDOWN_MS;
+
+    if (state.thresholds.warn !== undefined && this.compare(state.value, state.thresholds.warn, comparator)) {
+      if (this.cooldownElapsed(state.lastWarnTs, cooldownMs)) {
+        state.lastWarnTs = Date.now();
+        log.warn("worker.alert.gauge_warn", {
+          worker: this.workerName,
+          gauge: name,
+          value: state.value,
+          threshold: state.thresholds.warn,
+          comparator,
+        });
+      }
+    }
+
+    if (state.thresholds.alert !== undefined && this.compare(state.value, state.thresholds.alert, comparator)) {
+      if (this.cooldownElapsed(state.lastAlertTs, cooldownMs)) {
+        state.lastAlertTs = Date.now();
+        log.error("worker.alert.gauge_alert", undefined, {
+          worker: this.workerName,
+          gauge: name,
+          value: state.value,
+          threshold: state.thresholds.alert,
+          comparator,
+        });
+      }
+    }
+  }
+}
+
 export type WorkerShutdownHandler = () => Promise<void> | void;
 
 export type RepeatOptions = {
@@ -26,6 +254,7 @@ export type WorkerContext = {
   runRepeating(task: () => Promise<void>, options: RepeatOptions): RepeatHandle;
   /** Await shutdown completion (used in entrypoints that prefer explicit awaiting). */
   waitForShutdown(): Promise<void>;
+  readonly metrics: WorkerMetrics;
 };
 
 function computeDelay(base: number, jitterMs?: number): number {
@@ -45,6 +274,8 @@ export async function runWorker(name: string, start: (ctx: WorkerContext) => Pro
   const waitForShutdownPromise = new Promise<void>((resolve) => {
     resolveShutdown = resolve;
   });
+
+  const metrics = new WorkerMetricsImpl(name);
 
   const context: WorkerContext = {
     name,
@@ -83,10 +314,13 @@ export async function runWorker(name: string, start: (ctx: WorkerContext) => Pro
           return;
         }
         running = true;
+        const startedAt = Date.now();
         try {
           await task();
+          metrics.recordSuccess(label, { durationMs: Date.now() - startedAt });
         } catch (error) {
           log.error("worker.repeat.error", error, { worker: name, label });
+          metrics.recordFailure(label, error, { durationMs: Date.now() - startedAt });
         } finally {
           running = false;
         }
@@ -113,10 +347,20 @@ export async function runWorker(name: string, start: (ctx: WorkerContext) => Pro
         },
       };
     },
+    metrics,
     waitForShutdown(): Promise<void> {
       return waitForShutdownPromise;
     },
   };
+
+  const telemetryInterval = setInterval(() => {
+    metrics.emitSnapshot();
+  }, DEFAULT_SNAPSHOT_INTERVAL_MS);
+  telemetryInterval.unref?.();
+
+  context.onShutdown(() => {
+    clearInterval(telemetryInterval);
+  });
 
   const handleSignal = async (signal: NodeJS.Signals) => {
     if (shuttingDown) {
@@ -154,6 +398,7 @@ export async function runWorker(name: string, start: (ctx: WorkerContext) => Pro
   }
 
   await waitForShutdownPromise;
+  metrics.emitSnapshot();
   log.info("worker.stop", { worker: name });
 }
 

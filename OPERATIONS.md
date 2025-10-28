@@ -1,6 +1,6 @@
 # OPERATIONS
 
-_Last updated: 2025-10-28T23:20:00Z (UTC) — Rev: 1.1_
+_Last updated: 2025-10-28T23:45:00Z (UTC) — Rev: 1.2_
 
 ## Service Matrix
 | Render Service | Purpose | Entry Command | Key Env Flags | Health Signals |
@@ -26,10 +26,20 @@ _Last updated: 2025-10-28T23:20:00Z (UTC) — Rev: 1.1_
 - Cache/data workers can be paused by setting the interval env vars to `0`; resumes require redeploy with the previous cadence.
 - When migrations add new worker files, run `npm run docs:update-routers` so ops/ROUTER_INDEX.yaml and masterroutetable.md stay authoritative.
 
-## Observability Expansion (In Progress)
-- Instrument `src/worker/runWorker` and each worker entry to emit queue depth, sweep cadence, failure counts, and last-success timestamps; surface them via structured logs (`worker.*`) and `/ops stats`.
-- Define alert thresholds (queue backlog > 50, sweep silence > 10 minutes, repeated failure counts) and document notification paths (Render alerts + DRIP security channel) here as they solidify.
-- Once telemetry is live, coordinate a load test or “game-night” dry run with ops coverage; record timing, owners, and pass/fail criteria, then summarize outcomes here and in Prompt.md.
+## Observability (Live)
+- `worker.metrics.snapshot` logs now emit every 60s with gauges/counters; `worker.alert.*` entries fire on threshold breaches and consecutive failures (warn at 3, error at 5).
+- **Outbox worker:** `queue.depth` gauge warns ≥50, alerts ≥200 pending messages. Investigate Render DB health and backlog before 100; alert requires paging ops + Sherbivs, consider scaling the worker or pausing enqueueing flows (`/ops stats` → queue section).
+- **Cache refresh:** `cache.stale_seconds` warns when data is >10 minutes old, alerts past 30 minutes. Check network/API health, rerun `npm run worker:cache` locally, and confirm cache targets in `/ops stats`.
+- **Data pipeline:** `pipeline.stale_seconds` warns after 4 hours with no success, alerts after 8 hours. Review `runWorker` logs, ensure buildData completes, and redeploy if failures persist.
+- Telemetry counters (`refresh.failed`, `pipeline.failed`, `messages.failed`) surface in metrics payloads; triage repeated failures alongside the alert logs and record outcomes in Tasklist/Prompt when they trigger.
+
+## Load Test / Game-Night Dry Run
+| Date (UTC) | Window | Owners | Focus | Pass Criteria |
+| --- | --- | --- | --- | --- |
+| 2025-10-30 | 01:00–02:00 | Sherbivs, Ops duty (Alex) | Simulated game-night load across DM home, battles, outbox drain | Queue depth < 50, cache staleness < 600s, no `worker.alert.gauge_alert` or consecutive failure errors |
+| Follow-up | +15 min debrief | Sherbivs | Capture outcomes in Prompt Last Repo Changes & Tasklist notes | Document regressions, rollback steps if thresholds breached |
+
+Respond to threshold alerts by tailing Render logs (`worker.alert.*`) and, if needed, firing a DRIP critical alert via `/ops` so the security worker notifies the channel. Update this schedule when new dry runs are booked.
 
 ## Secret Handling
 - Discord tokens (`POKEMON_BOT_TOKEN`, `SECURITY_BOT_TOKEN`) live in Render secrets; never commit `.env` snapshots.

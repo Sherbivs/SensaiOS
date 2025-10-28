@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-28T23:20:00Z
-Revision: 1.40
+Last Updated (UTC): 2025-10-28T23:45:00Z
+Revision: 1.41
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
@@ -102,25 +102,34 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 
 <<<PATCHSET START>>>
-[Task T10.SCALE.OBS] Kick off observability instrumentation and stage load-test follow-up
+[Task T10.SCALE.OBS] Ship worker telemetry counters and schedule validation dry run
+
+FILE: src/shared/worker-runtime.ts
+Change: Introduce WorkerMetrics (gauges, counters, thresholds) with periodic snapshots and failure alerting baked into runWorker.
+
+FILE: src/worker/outbox.ts
+Change: Record queue depth, dispatch success/failure counters, and apply thresholded gauges for backlog monitoring.
+
+FILE: src/worker/cache-refresh.ts
+Change: Emit cache staleness gauges, refresh counters, and integrate metrics helpers for initialization and interval sweeps.
+
+FILE: src/worker/data-pipeline.ts
+Change: Track pipeline success/failure metrics, stale time gauges, and rely on new WorkerMetrics for repeats.
 
 FILE: Tasklist.md
-Change: Highlight T10.SCALE.OBS as the immediate priority and add the T10.SCALE.LOAD_TEST follow-up while bumping headers.
+Change: Mark T10.SCALE.OBS DONE, promote T10.SCALE.LOAD_TEST to READY with scheduled window, and bump headers.
 
 FILE: ops/NEXT.yaml
-Change: Refresh timestamp, rationale, and operator note to emphasize the telemetry and alert work.
-
-FILE: Prompt.md
-Change: Update timestamp/revision, Last Repo Changes, mission snapshot, and PATCHSET echo for the observability plan.
+Change: Retarget NEXT to T10.SCALE.LOAD_TEST with the 2025-10-30 run details and refreshed files hint.
 
 FILE: OPERATIONS.md
-Change: Bump revision and add an Observability Expansion section with telemetry guidance and dry run scheduling notes.
+Change: Document live observability thresholds and publish the load test schedule/owners.
 
-FILE: ops/TOUCHMAP.yaml
-Change: Map the new T10.SCALE.LOAD_TEST task to the relevant meta and ops files.
+FILE: Prompt.md
+Change: Sync timestamp, Last Repo Changes, mission snapshot, and PATCHSET echo with telemetry completion and the scheduled dry run.
 
 FILE: Patch.md
-Change: Refresh the contract header and clipboard so future runs track the observability kickoff plan.
+Change: Bump contract header and clipboard to reflect the shipped observability work.
 <<<PATCHSET END>>>
 
 
