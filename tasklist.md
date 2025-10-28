@@ -1,5 +1,9 @@
 # Tasklist
+<<<<<<< Updated upstream
 Last Updated (UTC): 2025-10-28T06:45:00Z
+=======
+Last Updated (UTC): 2025-10-28T09:24:00Z
+>>>>>>> Stashed changes
 Revision: 1.76
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -899,13 +903,13 @@ Each task has:
 
 - id: T10.SCALE.DB_BOOTSTRAP
   title: Bring staging DB to baseline before applying forward-only index migrations
-  status: READY
+  status: DONE
   depends_on: [T10.SCALE.DATA_INDEX]
   acceptance_criteria:
     - Staging database has baseline tables and `_prisma_migrations` entries so `npx prisma migrate deploy` can apply forward-only index migrations.
     - A safe runbook is available at `ops/DB_BOOTSTRAP.md` and a helper script `scripts/bootstrap_staging_db.ps1` exists for operators.
     - After applying the baseline, `npx prisma migrate deploy` succeeds and the index migration `202510280500_scaling_indexes` is applied.
-  notes: Preparing the staging DB now prevents repeated migration failures and allows smoke tests (ops stats, DM Home, cooldowns) to proceed.
+  notes: Outcome - Ran `npx prisma migrate deploy` against staging, confirmed the `202510280500_scaling_indexes` migration is present, and exercised `/ops stats`, DM Home battle history, and daily cooldown flows so the query plans hit the new indexes.
 
 - id: T10.SCALE.OBS
   title: Expand observability and guardrails for scaling

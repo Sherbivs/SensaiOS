@@ -23,7 +23,14 @@ files_hint:
   - scripts/bootstrap_staging_db.ps1
   - prisma/migrations/202510280500_scaling_indexes/migration.sql
 
+<<<<<<< Updated upstream
 timestamp_utc: 2025-10-28T06:50:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-27T08:30:00Z
 note: "Meta routing docs refreshed; next step is executing the staging bootstrap instructions so the index migration can succeed."
+=======
+timestamp_utc: 2025-10-28T09:25:00Z
+router_version: 1
+last_notes_read_utc: 2025-10-27T08:30:00Z
+note: "Staging index migration verified; T8.4 stays READY for DM home daily button wiring."
+>>>>>>> Stashed changes

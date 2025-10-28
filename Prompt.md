@@ -1,5 +1,9 @@
 # Prompt.md
+<<<<<<< Updated upstream
 Timestamp (UTC): 2025-10-28T06:52:00Z
+=======
+Timestamp (UTC): 2025-10-28T09:25:00Z
+>>>>>>> Stashed changes
 Revision: 1.04
 
 ## Last Repo Changes (since previous Prompt.md revision)
@@ -7,6 +11,7 @@ Revision: 1.04
 > Summarize the *effective* repository changes applied in the current commit in human-readable bullets:
 > - Files/dirs added/modified/removed (paths relative to repo root)
 > - Purpose of each change (one line)
+<<<<<<< Updated upstream
 <<<PATCHSET START>>>
 [Task META.ROUTER.20251028] Refresh router metadata for AI-first navigation
 
@@ -47,6 +52,36 @@ Change: Synced metadata/echo for the meta refresh and cleared legacy patchset sn
 
 TASKLIST UPDATE
 Change: Added Phase 11 meta tasks, marked them DONE, and kept T10.SCALE.DB_BOOTSTRAP READY for execution.
+=======
+> - Any schema/contract impacts to consumers (brief)
+>
+> Changes in this revision:
+> - `Tasklist.md` - Marked `T10.SCALE.DB_BOOTSTRAP` DONE after staging migrate deploy and index verification.
+> - `Prompt.md` - Recorded the staging migration verification run and test outputs.
+
+<!-- PATCHSET:ECHO BEGIN -->
+HEAD: pending-local
+Summary: Ran staging migrate deploy for 202510280500_scaling_indexes and confirmed /ops stats, DM Home, and daily cooldown queries use the new indexes.
+TasklistDiff: true
+Tests: npm test -- --run tests/ops.spec.ts (pass); npm test -- --run tests/dm_home.spec.ts (pass); npm test -- --run tests/daily.spec.ts (pass)
+Contracts: ON (marker present; Contract Mode enforced).
+NEXT: T8.4 remains READY; DM home daily button wiring stays queued next.
+<!-- PATCHSET:ECHO END -->
+
+<<<PATCHSET START>>>
+[Task T10.SCALE.DB_BOOTSTRAP] Baseline staging DB and verify scaling index migration
+
+FILE: Tasklist.md
+Change: Marked T10.SCALE.DB_BOOTSTRAP as DONE after the staging migrate deploy and index verification run.
+Insert/Replace/Remove: Refreshed headers and outcome notes to capture the successful staging rollout.
+
+FILE: Prompt.md
+Change: Logged the staging migrate deploy execution, verification evidence, and updated READY pointer context.
+Insert/Replace/Remove: Bumped timestamp/revision and rewrote Last Repo Changes plus PATCHSET Echo.
+
+# TASKLIST UPDATE
+Change: Marked T10.SCALE.DB_BOOTSTRAP DONE.
+>>>>>>> Stashed changes
 <<<PATCHSET END>>>
 
             FILE: scripts/guard_meta.sh
