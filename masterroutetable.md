@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-28T22:55:00Z
+Last Updated (UTC): 2025-10-28T23:05:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 
 ## Router-of-Routers
@@ -39,6 +39,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
   - 2025-10-28: Added DB bootstrap runbook and helper script to router inventory.
   - 2025-10-28: Trimmed Prompt ledger to 10 entries and moved the full log to ops/change-ledger.md for readability.
   - 2025-10-28: OPERATIONS.md documents the worker matrix, rollout checklist, and recovery toggles for ENABLE_CONTINUOUS_SWEEP + interval envs.
+  - 2025-10-28: Added router_docs category under ops/ROUTER.yaml to track masterroutetable alongside the generated router manifests.
 
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).
