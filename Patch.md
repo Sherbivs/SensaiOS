@@ -6,17 +6,10 @@ This repository uses **Patch.md** as the working agreement between humans and au
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
 
 ## Marker Switch
-- The marker string `<<<PATCHSET START>>>` toggles **Contract Mode**. When the marker is present, every contract rule and CI guard applies without exception.
-- When the marker is absent, the Patch Engine still executes but treats all repo contracts as VOID for that single run (Absolutes still apply). This is a deliberate human override.
-- The next marked run must reconcile any drift and restore Contract Mode.
 
 ## Absolutes (apply in every mode)
 - Never rename or delete canonical meta/routing files (`Patch.md`, `Tasklist.md`, `Prompt.md`, `ops/PATCH_POLICY_BACKUP.md`, `ops/ROUTER.yaml`, `ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, and any `ROUTER.md`).
 - Never delete or rename router manifests (`ROUTER.md`, `ROUTER.yaml`).
-- Always exit with `ops/NEXT.yaml:next_task_id` pointing to a READY task.
-- Always emit a commit message that includes Why / Changes / Testing.
-
-## Prime Directive
 1. Read `ops/NEXT.yaml` (respect Marker Switch guidance) to learn the queued task and `files_hint`.
 2. Read `Tasklist.md` and execute **only** tasks marked `status: READY` with dependencies satisfied.
 3. Read `ops/TOUCHMAP.yaml` to scope edits to the listed paths.

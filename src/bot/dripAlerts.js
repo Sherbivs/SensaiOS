@@ -17,6 +17,7 @@ const SEVERITY_ICON = Object.freeze({
 
 const MIN_DIGEST_DELAY_MS = 60_000; // guard against tight loops when clocks mismatch
 const FALLBACK_DIGEST_DELAY_MS = 60 * 60 * 1000; // 1 hour safety delay
+const MILLIS_IN_DAY = 24 * 60 * 60 * 1000;
 
 function normalizeMeta(meta) {
   if (meta === null || meta === undefined) {
@@ -108,20 +109,20 @@ function createDripAlertManager({
     }
     const delay = msUntilNextZonedTime(digestHour, digestMinute, timeZone);
     let safeDelay = Number.isFinite(delay) ? Math.max(0, delay) : NaN;
-    if (!Number.isFinite(safeDelay) || safeDelay === 0) {
+    if (!Number.isFinite(safeDelay) || safeDelay <= 0) {
       safeDelay = FALLBACK_DIGEST_DELAY_MS;
-      logContext('warn', 'Drip alert digest delay fallback applied', {
+      logContext('info', 'Drip alert digest delay fallback applied', {
         recipient: recipient || 'unset',
         computedDelay: delay,
         fallbackDelayMs: safeDelay,
       });
     } else if (safeDelay < MIN_DIGEST_DELAY_MS) {
-      logContext('info', 'Drip alert digest minimum delay applied', {
+      safeDelay = Math.max(MIN_DIGEST_DELAY_MS, safeDelay + MILLIS_IN_DAY);
+      logContext('info', 'Drip alert digest delay rolled forward to next window', {
         recipient: recipient || 'unset',
         computedDelay: delay,
-        appliedDelayMs: MIN_DIGEST_DELAY_MS,
+        appliedDelayMs: safeDelay,
       });
-      safeDelay = MIN_DIGEST_DELAY_MS;
     }
     const nextRun = new Date(Date.now() + safeDelay);
     logContext('info', 'Drip alert digest scheduled', {
