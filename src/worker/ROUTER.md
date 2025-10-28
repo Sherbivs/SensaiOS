@@ -2,7 +2,7 @@
 Title: Background Workers
 Purpose: Render background services that drain the outbox and perform offline tasks.
 Owned Globs: src/worker/**
-Last Updated (UTC): 2025-10-28T22:05:00Z
+Last Updated (UTC): 2025-10-28T22:55:00Z
 
 Notes:
 - Render now runs dedicated background workers:
@@ -10,6 +10,7 @@ Notes:
 	- `infinity-gauntlet-cache` → `dist/worker/cache-refresh.js`
 	- `infinity-gauntlet-data-pipeline` → `dist/worker/data-pipeline.js`
 - Each worker sets `SERVICE_NAME` and pooled/direct DB URLs so telemetry and Prisma connections stay isolated per service.
+- Shared helper `src/shared/worker-runtime.ts` powers signal handling, repeating tasks, and shutdown hooks for every worker entry.
 - Placeholder sink still logs processed messages; follow-up task swaps in persistent storage (S3/R2).
 - Cache/data workers emit periodic `worker.*.health` logs for ops dashboards; security sweeps now live in the dedicated Render worker (`security-bot.js`).
 
