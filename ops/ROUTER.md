@@ -2,7 +2,7 @@
 Title: Ops & Governance
 Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-10-28T22:55:00Z
+Last Updated (UTC): 2025-10-28T23:05:00Z
 
 Notes:
 - 2025-10-26: guard_meta preflight/postflight make READY absence impossible at merge time; NEXT auto-promotion enabled. See scripts/guard_meta.sh and ops/NEXT.yaml.
