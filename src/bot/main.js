@@ -1678,6 +1678,15 @@ function startContinuousSweepLoop(transformer) {
         idleDelayMs,
       });
 
+      log('info', 'security.sweep.health', {
+        guildsVisited: guilds.length,
+        idleDelayMs,
+        cycleStarted: cycleStarted.toISOString(),
+        cycleCompleted: cycleCompleted.toISOString(),
+        totalSweeps: securityCliState.totalSweeps,
+        totalAssignments: securityCliState.totalAssignments,
+      });
+
       if (abortController.signal.aborted) {
         break;
       }
