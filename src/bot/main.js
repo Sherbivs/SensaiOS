@@ -25,6 +25,7 @@ import {
   BACKFILL_INTERVAL_SECONDS,
   ROLE_REMEDIATION_INTERVAL_SECONDS,
   CACHE_TTL_HOURS,
+  ENABLE_CONTINUOUS_SWEEP,
   OPS_REPORT_INTERVAL_SECONDS,
   STANDARD_ENFORCE_ALL,
   UNLISTED_PERMISSIONS,
@@ -1744,7 +1745,9 @@ client.once(Events.ClientReady, async () => {
     roleId: ROLE_ID || 'resolved at runtime',
     roleDiscovery: ROLE_ID ? 'ROLE_ID exact match' : 'ROLE_NAME case-insensitive search',
     startupBackfill: 'enabled',
-    continuousSweep: `continuous (idle target ${BACKFILL_INTERVAL_SECONDS}s)`,
+    continuousSweep: ENABLE_CONTINUOUS_SWEEP
+      ? `continuous (idle target ${BACKFILL_INTERVAL_SECONDS}s)`
+      : 'disabled (ENABLE_CONTINUOUS_SWEEP=false)',
     concurrency: BACKFILL_CONCURRENCY,
     delayMsBetweenBatches: BACKFILL_DELAY_MS,
     guildsObserved: client.guilds.cache.size,
@@ -1762,32 +1765,45 @@ client.once(Events.ClientReady, async () => {
   // One-time detailed operational report
   reportOperationalStats('ready');
 
-  if (client.guilds.cache.size === 0) {
-    report('No Guilds Joined', { action: 'Invite the bot to your server to begin assigning roles.' }, 'warn');
-    updateMonitoringPhase();
-  } else {
-    cliStatus.setPhase('Startup sweep');
-    updateSecurityCliSection({ status: 'Startup sweep' });
-    for (const [, guild] of client.guilds.cache) {
-      if (ROLE_PERMISSIONS_AUDIT) {
-        await reportGuildRoles(guild);
-        await validateGuildRoles(guild);
+  if (ENABLE_CONTINUOUS_SWEEP) {
+    if (client.guilds.cache.size === 0) {
+      report('No Guilds Joined', { action: 'Invite the bot to your server to begin assigning roles.' }, 'warn');
+      updateMonitoringPhase();
+    } else {
+      cliStatus.setPhase('Startup sweep');
+      updateSecurityCliSection({ status: 'Startup sweep' });
+      for (const [, guild] of client.guilds.cache) {
+        if (ROLE_PERMISSIONS_AUDIT) {
+          await reportGuildRoles(guild);
+          await validateGuildRoles(guild);
+        }
+        if (ROLE_PERMISSIONS_REMEDIATE) {
+          await fixGuildRoles(guild);
+        }
+        await sweepGuild(guild, 'startup');
       }
-      if (ROLE_PERMISSIONS_REMEDIATE) {
-        await fixGuildRoles(guild);
-      }
-      await sweepGuild(guild, 'startup');
+      updateMonitoringPhase();
     }
+
+    const idleDelayMs = Math.max(BACKFILL_INTERVAL_SECONDS * 1000, CONTINUOUS_SWEEP_IDLE_DELAY_MS);
+    report('Continuous Sweep Loop Enabled', {
+      idleDelayMs,
+      targetIntervalSeconds: BACKFILL_INTERVAL_SECONDS,
+      backfillDelayMs: BACKFILL_DELAY_MS,
+    });
+    void startContinuousSweepLoop();
+  } else {
+    report('Continuous Sweep Loop Disabled', {
+      reason: 'ENABLE_CONTINUOUS_SWEEP=false',
+      guildsObserved: client.guilds.cache.size,
+    }, 'info');
+    cliStatus.setPhase('Security sweeps disabled');
+    updateSecurityCliSection({
+      status: 'Continuous sweep disabled',
+      lastSweepResult: 'disabled via ENABLE_CONTINUOUS_SWEEP',
+    });
     updateMonitoringPhase();
   }
-
-  const idleDelayMs = Math.max(BACKFILL_INTERVAL_SECONDS * 1000, CONTINUOUS_SWEEP_IDLE_DELAY_MS);
-  report('Continuous Sweep Loop Enabled', {
-    idleDelayMs,
-    targetIntervalSeconds: BACKFILL_INTERVAL_SECONDS,
-    backfillDelayMs: BACKFILL_DELAY_MS,
-  });
-  void startContinuousSweepLoop();
 
   // Optional recurring operational report
   if (OPS_REPORT_INTERVAL_SECONDS > 0) {

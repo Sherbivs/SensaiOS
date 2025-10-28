@@ -102,49 +102,31 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 
 <<<PATCHSET START>>>
-[Task T10.SCALE.WORKERS] Split background workloads into independent worker services
-
-FILE: src/worker/outbox.ts
-Change: Rename/refresh the outbox drain loop with shared shutdown helpers so it can run as a standalone worker entry point.
-
-FILE: src/worker/cache-refresh.ts
-Change: New worker that initializes the Pokédex cache, schedules refreshes, and exposes health logging knobs.
-
-FILE: src/worker/data-pipeline.ts
-Change: Add a data pipeline worker that runs buildData on an interval and reports success/failure telemetry.
-
-FILE: src/shared/worker-runtime.ts (new)
-Change: Provide common signal handling, logger wiring, and interval utilities reused by worker entry points.
-
-FILE: src/config/env.js
-Change: Introduce worker-specific env toggles (enable continuous sweeps, cache refresh cadence, pipeline interval) consumed by both bots and workers.
+[Task T10.SCALE.WORKERS] Finalize worker split, gate security sweeps, and refresh meta routers
 
 FILE: src/bot/main.js
-Change: Gate in-process continuous sweeps behind the new env flag so the security bot can defer to the dedicated worker.
-
-FILE: render.yaml
-Change: Add discrete Render worker services (outbox, security sweeps, cache refresh, data pipeline) with individualized env vars and start commands.
-
-FILE: package.json
-Change: Add local npm scripts to run each worker entry point via tsx for parity with production start commands.
+Change: Gate the continuous sweep loop behind ENABLE_CONTINUOUS_SWEEP, add health logging when disabled, and surface manual sweep helpers so the dedicated worker owns production sweeps.
 
 FILE: OPERATIONS.md
-Change: Document the worker matrix, rollout playbook, and scaling knobs for operators.
+Change: Replace the stub with an operator-facing worker matrix covering deployment knobs, rollout checks, and fallback guidance for the split services.
 
-FILE: ops/ROUTER.md / scripts/ROUTER.md / masterroutetable.md / ops/ROUTER_INDEX.yaml
-Change: Capture the new worker files and update router metadata via the automation script.
+FILE: ops/ROUTER.md / src/ROUTER.md / src/shared/ROUTER.md / src/bot/ROUTER.md / src/worker/ROUTER.md
+Change: Update router notes/timestamps to document the worker runtime, security gating, and new shared helpers.
+
+FILE: masterroutetable.md / ops/ROUTER_INDEX.yaml
+Change: Regenerate the meta router references so the textual + machine indexes match the refreshed worker docs.
 
 FILE: ops/TOUCHMAP.yaml
-Change: Extend the T10.SCALE.WORKERS mapping to include the new helper/runtime files.
+Change: Extend the T10.SCALE.WORKERS path list to include worker-runtime helpers and ops docs touched during the split.
 
-FILE: tasklist.md
-Change: Mark T10.SCALE.WORKERS DONE with outcome notes, promote the next ready task, bump headers.
+FILE: Tasklist.md
+Change: Mark T10.SCALE.WORKERS DONE with outcome notes, promote T10.SCALE.OBS to READY, and bump headers.
 
 FILE: ops/NEXT.yaml
-Change: Retarget NEXT at T10.SCALE.OBS with refreshed hints and timestamp after closing out the worker split.
+Change: Retarget NEXT to T10.SCALE.OBS with updated rationale, timestamp, and files hint.
 
 FILE: Prompt.md
-Change: Bump timestamp/revision, summarize the worker separation, and update PATCHSET echo/tests ledger.
+Change: Bump timestamp/revision, summarize the worker split completion, update the PATCHSET echo, and reflect the new READY pointer.
 <<<PATCHSET END>>>
 
 
