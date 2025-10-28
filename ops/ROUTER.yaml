@@ -37,6 +37,7 @@ categories:
     - RULESET.md
     - DATA-SCHEMA.md
     - OPERATIONS.md
+    - ops/DB_BOOTSTRAP.md
     - discord-pokemon-bot/data/standized_pokemon_game_logic.md
     - docs/PBSL.md
   code_core:
