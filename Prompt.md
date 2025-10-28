@@ -61,7 +61,7 @@ Revision: 1.14
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Linked masterroutetable.md into ops router metadata and regenerated the router index to match.
+Change: Added a router_docs category mapping the meta router manifests and refreshed the router index timestamp.
 TasklistDiff: false
 Tests: not run (docs-only change)
 Contracts: ON
