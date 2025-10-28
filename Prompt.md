@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-28T22:15:00Z
-Revision: 1.13
+Timestamp (UTC): 2025-10-28T22:55:00Z
+Revision: 1.14
 
 ## Last Repo Changes (since previous Prompt.md revision)
 - Added ENABLE_SECURITY_BOT flag, exported it through env config, and stood up a dedicated Render security worker while disabling the shared runtime path.
