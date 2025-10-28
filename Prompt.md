@@ -9,14 +9,19 @@ Revision: 1.09
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts in sync.
-- Complements Patch.md (process contract) and Tasklist.md (work graph); never diverge from those authorities.
+<!-- LEDGER:END -->
 
-## Activation Checklist & Fallback
-- Confirm readability of Patch.md, Tasklist.md, Prompt.md, ops/NEXT.yaml before planning; halt if any are unavailable.
-- Review ops/NEXT.yaml and Tasklist.md to ensure the READY queue matches the stated next task; auto-promote if policy requires.
-- Optional shell access: run scripts/refresh_vision.sh to regenerate routing indices; when unavailable, note the limitation in the PATCHSET echo.
-- If remote context (GitHub origin) cannot be validated, record the failure reason and request human assistance.
+## AI Worker Prompt (copy/paste for Copilot/GPT)
+You are GitHub Copilot operating under the Infinity Gauntlet contract.
 
+<<<<<<< HEAD
+1. Read ops/NEXT.yaml, Tasklist.md, ops/TOUCHMAP.yaml, Patch.md, then this Prompt.md before editing.
+2. Work only on READY tasks whose dependencies are DONE; do not self-assign PROPOSED items.
+3. Keep edits minimal and reversible; update Tasklist.md, ops/NEXT.yaml, Prompt.md, and relevant routers in the same PATCHSET.
+4. Run targeted tests (Vitest suites, Prisma migrate deploy) when touching runtime code; record results in the PATCHSET echo and commit message.
+5. Ensure the Embedded PATCHSET Echo, Last Repo Changes, and ledger markers remain populated; restore clipboard markers in Patch.md if removed by accident.
+6. Finish every run with a READY pointer in ops/NEXT.yaml and clear rationale in the PATCHSET echo.
+=======
 ## Active Mission Snapshot
 - **NEXT Pointer:** T10.SCALE.WORKERS — separate background workers so pooled DB connections remain fast under load.
 - **READY / IN-FLIGHT:** T10.SCALE.WORKERS is executing; META.RUNTIME.BACKUP_SINK stays queued behind it and T8.4 (daily button) remains PROPOSED pending DM UI wiring.
@@ -2066,6 +2071,7 @@ NEXT: T10.SCALE.WORKERS — continue the worker split with render/config/doc upd
   - `src/utils/timezone.js` — ~lines: +65,3
   - `tests/setup-env.ts` — ~lines: +1,7
   - `vitest.config.ts` — ~lines: +1,7
+>>>>>>> 3e5d18cac43ee89e0816d27b3e6c61b36295438c
 - **583a28e** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #55 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-kqrd59
 - **e615a66** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-kqrd59
 - **57b6166** — 2025-10-27 — Sherbivs — _logic intent:_ Convert legacy commands to ESM
