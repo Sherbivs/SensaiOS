@@ -1,7 +1,7 @@
  # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-10-28T22:55:00Z
+updated_utc: 2025-10-28T23:05:00Z
 
 meta_files:
   - Patch.md
@@ -52,6 +52,10 @@ categories:
     - scripts/bootstrap_staging_db.ps1
   guards_ci:
     - .github/workflows/**
+  router_docs:
+    - ops/ROUTER.md
+    - ops/ROUTER_INDEX.yaml
+    - masterroutetable.md
     - scripts/guard_*.sh
 
 # Always-allowed meta writes (headers/timestamps/Last Repo Changes only):
