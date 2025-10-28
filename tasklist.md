@@ -1,10 +1,15 @@
 # Tasklist
+<<<<<<< HEAD
+Last Updated (UTC): 2025-10-28T07:25:00Z
+Revision: 1.77
+=======
 <<<<<<< Updated upstream
 Last Updated (UTC): 2025-10-28T06:45:00Z
 =======
 Last Updated (UTC): 2025-10-28T09:24:00Z
 >>>>>>> Stashed changes
 Revision: 1.76
+>>>>>>> 5a9fab80d51fd791e85f7d7940ea1ffef546bc5c
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -893,13 +898,13 @@ Each task has:
 
 - id: T10.SCALE.WORKERS
   title: Separate background workers for horizontal scaling
-  status: PROPOSED
+  status: READY
   depends_on: [T10.SCALE.DATA_INDEX]
   acceptance_criteria:
     - Split continuous sweeps, cache refreshes, and data pipeline jobs into dedicated worker entry points with independent concurrency/env tuning.
     - Render (or equivalent) deployment config reflects the separation with per-worker scaling knobs and health telemetry.
     - Update ROUTER docs and ops playbooks to clarify which queues/tasks each worker owns and how to roll them independently.
-  notes: Proposed — Ensures future load can be spread across specialized worker pools without impacting Discord latency.
+  notes: Ready — With database bootstrap complete, we can now split sweep/cache workers without risking pooled connection starvation.
 
 - id: T10.SCALE.DB_BOOTSTRAP
   title: Bring staging DB to baseline before applying forward-only index migrations
@@ -909,7 +914,11 @@ Each task has:
     - Staging database has baseline tables and `_prisma_migrations` entries so `npx prisma migrate deploy` can apply forward-only index migrations.
     - A safe runbook is available at `ops/DB_BOOTSTRAP.md` and a helper script `scripts/bootstrap_staging_db.ps1` exists for operators.
     - After applying the baseline, `npx prisma migrate deploy` succeeds and the index migration `202510280500_scaling_indexes` is applied.
+<<<<<<< HEAD
+  notes: Outcome — runtime now prefers pooled URLs with direct fallbacks, Prisma connect retries are tunable, tests skip network connects, and README/agent/runbook document the bootstrap flow; staging verified via migrate deploy + smoke tests.
+=======
   notes: Outcome - Ran `npx prisma migrate deploy` against staging, confirmed the `202510280500_scaling_indexes` migration is present, and exercised `/ops stats`, DM Home battle history, and daily cooldown flows so the query plans hit the new indexes.
+>>>>>>> 5a9fab80d51fd791e85f7d7940ea1ffef546bc5c
 
 - id: T10.SCALE.OBS
   title: Expand observability and guardrails for scaling
