@@ -38,5 +38,19 @@ jobs:
       - name: Lint sources
         run: npm run lint
 
-      - name: Run PBSL tests
-        run: npm run test:pbsl
+      - name: Run PBSL tests with oracle report
+        id: pbsl-tests
+        run: npm run test:pbsl -- --reporter=json --outputFile pbsl-oracle-report.json
+        continue-on-error: true
+
+      - name: Upload oracle diff report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pbsl-oracle-report
+          path: pbsl-oracle-report.json
+          if-no-files-found: ignore
+
+      - name: Fail if PBSL oracle regressions detected
+        if: steps.pbsl-tests.outcome == 'failure'
+        run: exit 1

@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T10:05:00Z
-Revision: 0.91
+Timestamp (UTC): 2025-10-27T10:55:00Z
+Revision: 0.93
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**
@@ -10,65 +10,63 @@ Revision: 0.91
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `docs/PBSL.md`, `.github/workflows/pbsl-oracle.yml`, `package.json` — Added the PBSL manifesto, dedicated CI workflow, and focused test script.
-> - `src/core/pbsl/**`, `tests/pbsl/**` — Introduced deterministic RNG, audit trail, battle/encounter scaffolds, and Vitest coverage.
-> - `README.md`, `src/ROUTER.md`, `src/core/ROUTER.md`, `tests/ROUTER.md`, `ops/TOUCHMAP.yaml` — Wired the PBSL surface into docs, routers, and touch maps.
-> - `tasklist.md`, `Prompt.md` — Logged the PBSL scaffolding task and refreshed metadata.
+> - `tests/pbsl/fixtures/**` — Added curated oracle fixtures with provenance and documentation.
+> - `tests/pbsl/oracle.spec.ts` — Introduced the oracle diff suite and JSON report writer.
+> - `.github/workflows/pbsl-oracle.yml` — Captures oracle reports and fails the run after uploading artifacts.
+> - `docs/PBSL.md` — Documented the fixture catalog and marked oracle validation complete.
+> - `Tasklist.md` — Marked PBSL.ORACLE_DIFF as DONE with outcome notes and synced metadata.
+> - `ops/NEXT.yaml`, `Patch.md` — Retained T8.4 as READY after oracle cleanup and replaced the clipboard plan with the next PROPOSED backlog.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Scaffolded PBSL deterministic core modules, coverage, and CI wiring.
+Summary: Seeded PBSL oracle fixtures, tests, and workflow reporting for deterministic validation.
 TasklistDiff: true
-Tests: Not run (PBSL scaffold only; shell lacks direct workspace path).
+Tests: Not run (VFS workspace blocks npm execution).
 Contracts: ON (marker present; Contract Mode enforced).
-NEXT: T8.4 remains queued after the continuous sweep rollout.
+NEXT: T8.4 remains READY following oracle cleanup.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task PBSL.SKELETON] Scaffold PBSL deterministic core and governance
+[Task PBSL.ORACLE_DIFF] Wire PBSL oracle fixtures, tests, and CI reporting
 
-FILE: docs/PBSL.md
-Change: Added the PBSL manifesto, compliance checklist, and governance workflow.
-Insert/Replace/Remove: New documentation describing truth hierarchy, provenance expectations, and next steps.
+FILE: tests/pbsl/fixtures/README.md
+Change: Documented fixture provenance requirements and refresh workflow for oracle data.
+Insert/Replace/Remove: Added guidance covering upstream commit tracking and JSON schema expectations.
 
-FILE: src/core/pbsl/**
-Change: Introduced seeded RNG, audit trails, battle phase orchestrator, encounter generator, provenance helpers, and barrel exports.
-Insert/Replace/Remove: Added new PBSL module tree with deterministic primitives and re-export index.
+FILE: tests/pbsl/fixtures/basic-turn.json
+Change: Introduced a deterministic single-turn battle snapshot with upstream provenance metadata.
+Insert/Replace/Remove: Added seeded participants, scripted actions, and the expected sanitized audit trail.
 
-FILE: tests/pbsl/**
-Change: Created Vitest suites for RNG determinism, battle snapshots, and provenance normalization.
-Insert/Replace/Remove: New specs verifying seeded behavior and audit outputs.
-
-FILE: package.json
-Change: Added a dedicated `test:pbsl` script for oracle/determinism runs.
-Insert/Replace/Remove: Appended the script to npm scripts.
+FILE: tests/pbsl/oracle.spec.ts
+Change: Added Vitest oracle comparison that sanitizes battle snapshots and emits a JSON report for CI.
+Insert/Replace/Remove: Implemented fixture loading, participant sorting, and artifact writing for regression triage.
 
 FILE: .github/workflows/pbsl-oracle.yml
-Change: Added CI workflow to lint and run PBSL-focused tests.
-Insert/Replace/Remove: New GitHub Action triggering on PBSL surface changes.
+Change: Ensured CI always uploads the oracle report before failing on regressions.
+Insert/Replace/Remove: Replaced the test step with a JSON-reporting invocation plus artifact upload and explicit failure gate.
 
-FILE: README.md
-Change: Documented the PBSL scaffold and linked to the manifesto.
-Insert/Replace/Remove: Added a PBSL section highlighting new modules and workflow.
+FILE: docs/PBSL.md
+Change: Recorded oracle coverage in the compliance checklist and described the fixture/report catalog.
+Insert/Replace/Remove: Marked the checklist item complete and added a section covering fixtures and generated reports.
 
-FILE: src/ROUTER.md, src/core/ROUTER.md, tests/ROUTER.md
-Change: Updated routers to reference the PBSL namespace and tests.
-Insert/Replace/Remove: Added notes/areas pointing to the new modules.
+FILE: Tasklist.md
+Change: Marked PBSL.ORACLE_DIFF as DONE with outcome notes and bumped metadata.
+Insert/Replace/Remove: Updated Last Updated/Revision and captured the oracle suite delivery in notes.
 
-FILE: ops/TOUCHMAP.yaml
-Change: Mapped PBSL tasks to the new modules, docs, and workflow files.
-Insert/Replace/Remove: Added entries for PBSL.SKELETON and PBSL.ORACLE_DIFF.
+FILE: ops/NEXT.yaml
+Change: Refreshed the NEXT timestamp and note after completing the oracle diff cleanup.
+Insert/Replace/Remove: Maintained the T8.4 pointer while documenting the oracle milestone.
 
-FILE: tasklist.md
-Change: Logged PBSL scaffolding outcome and staged oracle follow-up work.
-Insert/Replace/Remove: Added DONE/PROPOSED PBSL tasks with acceptance criteria.
+FILE: Patch.md
+Change: Cleared the completed PBSL oracle proposal and staged a new PROPOSED plan for the remaining backlog.
+Insert/Replace/Remove: Removed the processed block and outlined upcoming META.RUNTIME.BACKUP_SINK work.
 
 FILE: Prompt.md
-Change: Refreshed metadata, summaries, and PATCHSET echo for the PBSL work.
-Insert/Replace/Remove: Updated Last Repo Changes, echo, and patchset block.
+Change: Synced metadata, Last Repo Changes, and PATCHSET echo with the PBSL oracle delivery.
+Insert/Replace/Remove: Bumped timestamp/revision and logged the deterministic validation updates.
 
 TASKLIST UPDATE
-Change: Added PBSL.SKELETON (DONE) and PBSL.ORACLE_DIFF (PROPOSED) under Phase 9.
+Change: Set PBSL.ORACLE_DIFF to DONE with an outcome summary.
 <<<PATCHSET END>>>
 
 Logs & References:

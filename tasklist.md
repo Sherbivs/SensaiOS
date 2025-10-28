@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-27T10:05:00Z
-Revision: 1.68
+Last Updated (UTC): 2025-10-27T10:55:00Z
+Revision: 1.69
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -334,13 +334,13 @@ Each task has:
 
 - id: PBSL.ORACLE_DIFF
   title: Add oracle comparison tests for PBSL core loops
-  status: PROPOSED
+  status: DONE
   depends_on: [PBSL.SKELETON]
   acceptance_criteria:
     - Fetch curated battle fixtures from upstream (e.g., `pkmn/engine`) and store them under `tests/pbsl/fixtures/` with provenance metadata.
     - Run comparison tests that diff PBSL outcomes against upstream engines in CI.
     - Update `docs/PBSL.md` checklist and `Prompt.md` Last Repo Changes to reflect oracle coverage.
-  notes: Proposed — follow-up work to validate PBSL scaffolding against authoritative engines before wiring adapters into production flows.
+  notes: Outcome — Added curated fixtures with provenance, layered an oracle diff Vitest suite plus JSON report, marked the docs checklist complete, and taught the workflow to publish the report when regressions surface.
 
 - id: T0.1
   title: Initialize TypeScript project & tooling

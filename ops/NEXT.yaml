@@ -22,7 +22,7 @@ files_hint:
   - src/bot/dm/home.tsx
   - tests/dm_home.spec.ts
 
-timestamp_utc: 2025-10-27T08:45:00Z
+timestamp_utc: 2025-10-27T10:55:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-27T08:30:00Z
-note: "META.RUNTIME.BLUEPRINT_APPLY shipped (runtime config + outbox worker). Keep T8.4 queued and verify the new Render worker health logs before resuming feature work."
+note: "PBSL oracle diff finished; retain T8.4 as the primary READY feature and pick it up after verifying daily-claim UX once oracle CI clears."

@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-27T08:45:00Z
-Revision: 1.34
+Last Updated (UTC): 2025-10-27T10:55:00Z
+Revision: 1.37
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
@@ -85,19 +85,49 @@ Read this file completely before beginning any task. Follow it literally. Before
 - Restrict edits to `ops/HOTFIX_PLAN.yaml`, `ops/NEXT.yaml`, `Tasklist.md`, and files listed in the hotfix request.
 - Restore `ops/NEXT.yaml` to a READY task before exiting; leave a note documenting the state.
 
+## CLEAR TASKS Trigger (cleanup mode)
+- Trigger with the exact phrase `CLEAR TASKS` when humans want all pending patch plans reconciled.
+- Upon trigger, process every `<<<PATCHSET START>>>` and `<<<PROPOSED PATCHSET START>>>` block:
+   1. Execute or supersede the planned changes so that corresponding Tasklist items transition to `DONE` with outcome notes.
+   2. Remove the processed patchset block(s) from Patch.md once Tasklist and Prompt.md reflect the completion.
+   3. Sweep for orphaned tasks or clipboard entries; if a task has no remaining work, mark it `DONE` and clear its patchset plan.
+- After cleanup, ensure `Tasklist.md` retains at least one READY task, `ops/NEXT.yaml` points at it, and Prompt.md records the reconciliation.
+- If no outstanding patchsets exist, respond with a confirmation and leave the clipboard empty except for the idle marker.
+
 Stay disciplined. The repository must always exit a run with a READY pointer, a clean PATCHSET echo, and accurate history.
 
 ## Patch Clipboard
 - Paste the exact patchset (matching `Patch-Template.md`) below this heading before you begin editing so humans can audit the plan.
 - After the run, clear or archive the clipboard if humans do not need the scratchpad.
 - Marker detection reads this section; keep `<<<PATCHSET START>>>` intact when Contract Mode is required.
+- When Tasklist.md contains one or more `PROPOSED` tasks, keep a `<<<PROPOSED PATCHSET START>>>` block that outlines the ready-to-run plan for those tasks; remove the block when no PROPOSED work remains.
 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-Clipboard cleared after PBSL_SKELETON.
+Clipboard idle.
 <<<PATCHSET END>>>
-Clipboard cleared after CONTINUOUS_SWEEP_LOOP.
-Clipboard cleared after PRISMA_EXPORT_RESTORE.
-Clipboard cleared after AGENT_HANDBOOK_EXPANSION.
+
+<<<PROPOSED PATCHSET START>>>
+[Task META.RUNTIME.BACKUP_SINK] Replace console backup sink with durable storage
+
+FILE: src/worker/backup.ts
+Change: Persist processed payloads to managed object storage (S3/R2) with retry/backoff and health telemetry.
+Insert/Replace/Remove: Introduce storage client wiring, success/failure metrics, and structured audit events.
+
+FILE: src/shared/config.ts
+Change: Surface storage credentials/bucket configuration with production-safe validation.
+Insert/Replace/Remove: Add typed config entries, runtime guards, and development fallbacks hidden behind feature flags.
+
+FILE: docs/OPERATIONS.md
+Change: Document backup sink credentials rotation and failure recovery procedures.
+Insert/Replace/Remove: Add playbook entries covering storage provider access, alert escalation, and TTL policies.
+
+FILE: tests/runtime_backup.spec.ts
+Change: Ensure the worker writes payloads, records timestamps, and retries on transient provider failures.
+Insert/Replace/Remove: Create a mocked storage client suite validating retry/backoff, logging, and success summaries.
+
+TASKLIST UPDATE
+Change: Promote META.RUNTIME.BACKUP_SINK to READY once configuration scaffolding and storage adapter stubs are in place.
+<<<PROPOSED PATCHSET END>>>
 
