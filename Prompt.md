@@ -3,9 +3,8 @@ Timestamp (UTC): 2025-10-28T22:55:00Z
 Revision: 1.14
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Gated security sweeps behind ENABLE_CONTINUOUS_SWEEP so only the dedicated Render worker runs continuous loops; CLI now logs when sweeps are disabled.
-- Replaced OPERATIONS.md stub with a worker matrix, rollout checklist, recovery toggles, and quick commands for operators.
-- Refreshed ops/router metadata (ops/ROUTER.md, src/**/ROUTER.md, masterroutetable.md, ops/ROUTER_INDEX.yaml) to document the worker runtime helper and updated ownership map.
+- Linked OPERATIONS.md into the ops router key files and bumped ops/ROUTER.yaml timestamps for the worker split runbook.
+- Regenerated ops/ROUTER_INDEX.yaml and masterroutetable.md so the machine + human indexes surface the operations runbook alongside worker metadata.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -62,9 +61,9 @@ Revision: 1.14
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Gated security sweeps with ENABLE_CONTINUOUS_SWEEP, replaced the OPERATIONS runbook with a worker matrix, and refreshed router metadata for the split deployment.
-TasklistDiff: true
-Tests: not run (security bot changes lack automated coverage; verify in staging after deploy)
+Change: Linked OPERATIONS.md into ops router metadata and refreshed the router index/master table for the worker split runbook.
+TasklistDiff: false
+Tests: not run (docs-only change)
 Contracts: ON
 NEXT: T10.SCALE.OBS — add worker telemetry and alert thresholds now that the split is live.
 <!-- PATCHSET:ECHO END -->

@@ -110,11 +110,11 @@ Change: Gate the continuous sweep loop behind ENABLE_CONTINUOUS_SWEEP, add healt
 FILE: OPERATIONS.md
 Change: Replace the stub with an operator-facing worker matrix covering deployment knobs, rollout checks, and fallback guidance for the split services.
 
-FILE: ops/ROUTER.md / src/ROUTER.md / src/shared/ROUTER.md / src/bot/ROUTER.md / src/worker/ROUTER.md
-Change: Update router notes/timestamps to document the worker runtime, security gating, and new shared helpers.
+FILE: ops/ROUTER.md / ops/ROUTER.yaml / masterroutetable.md / ops/ROUTER_INDEX.yaml
+Change: Refresh the meta router system to include the OPERATIONS runbook, updated timestamps, and regenerated index entries for the worker split.
 
-FILE: masterroutetable.md / ops/ROUTER_INDEX.yaml
-Change: Regenerate the meta router references so the textual + machine indexes match the refreshed worker docs.
+FILE: Prompt.md
+Change: Align Last Repo Changes and PATCHSET echo with the router metadata refresh and confirm the NEXT pointer narrative.
 
 FILE: ops/TOUCHMAP.yaml
 Change: Extend the T10.SCALE.WORKERS path list to include worker-runtime helpers and ops docs touched during the split.
