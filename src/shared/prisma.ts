@@ -215,8 +215,14 @@ function createClient(): PrismaClient {
     throw new Error("DATABASE_URL is not a valid URL.");
   }
 
+  const directUrl = process.env.DATABASE_DIRECT_URL?.trim();
+  const datasource: { url: string; directUrl?: string } = { url: config.databaseUrl };
+  if (directUrl) {
+    datasource.directUrl = directUrl;
+  }
+
   const client = new PrismaClient({
-    datasources: { db: { url: config.databaseUrl } },
+    datasources: { db: datasource },
     log: config.nodeEnv === "development" ? ["warn", "error"] : ["error"],
   });
 
@@ -224,13 +230,96 @@ function createClient(): PrismaClient {
   return client;
 }
 
+function coerceRetryValue(raw: string | undefined, fallback: number, minimum: number): number {
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.max(parsed, minimum);
+}
+
+function delayWithJitter(baseMs: number): Promise<void> {
+  const jitter = baseMs * 0.25 * Math.random();
+  const total = baseMs + jitter;
+  return new Promise((resolve) => {
+    setTimeout(resolve, total);
+  });
+}
+
+async function connectWithRetry(client: PrismaClient): Promise<void> {
+  const maxRetries = Math.max(Math.trunc(coerceRetryValue(process.env.PRISMA_CONNECT_MAX_RETRIES, 5, 0)), 0);
+  const baseDelayMs = coerceRetryValue(process.env.PRISMA_CONNECT_RETRY_DELAY_MS, 2_000, 100);
+  const maxDelayMs = coerceRetryValue(process.env.PRISMA_CONNECT_MAX_DELAY_MS, 10_000, baseDelayMs);
+  const warnThreshold = HEARTBEAT_DEFAULTS.warnThresholdMs;
+
+  let attempt = 0;
+  // attempt === 0 is the first try, retries increment afterwards
+  // keep previous failure count to include in heartbeat emission
+  while (true) {
+    const start = process.hrtime.bigint();
+    try {
+      await client.$connect();
+      const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+      const slow = latencyMs >= warnThreshold;
+      const meta = {
+        attempt,
+        latencyMs: Number(latencyMs.toFixed(2)),
+        directUrlConfigured: Boolean(process.env.DATABASE_DIRECT_URL?.trim()),
+      };
+      if (attempt > 0) {
+        log.info("Prisma connected after retry", meta);
+      } else {
+        log.info("Prisma connected", meta);
+      }
+
+      emitHeartbeat({
+        ok: true,
+        timestamp: new Date(),
+        latencyMs,
+        slow,
+        consecutiveFailures: attempt,
+        source: "startup",
+      });
+      return;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      attempt += 1;
+      if (attempt > maxRetries) {
+        log.error("Prisma connect failed; retries exhausted", error, {
+          attempt,
+          maxRetries,
+        });
+        throw error;
+      }
+
+      const backoff = Math.min(baseDelayMs * 2 ** (attempt - 1), maxDelayMs);
+      log.warn("Prisma connect failed; retrying", {
+        attempt,
+        maxRetries,
+        backoffMs: Math.round(backoff),
+        error: error.message,
+      });
+      await delayWithJitter(backoff);
+    }
+  }
+}
+
 const prismaClient = createClient();
 
 if (!globalPrisma.prismaConnectPromise) {
-  globalPrisma.prismaConnectPromise = prismaClient.$connect().catch((error) => {
-    globalPrisma.prisma = undefined;
-    throw error;
-  });
+  const skipInitialConnect = process.env.PRISMA_SKIP_INITIAL_CONNECT === "true";
+  if (skipInitialConnect) {
+    log.info("Skipping Prisma initial connection", {
+      reason: "PRISMA_SKIP_INITIAL_CONNECT",
+    });
+    globalPrisma.prismaConnectPromise = Promise.resolve();
+  } else {
+    globalPrisma.prismaConnectPromise = connectWithRetry(prismaClient).catch((error) => {
+      globalPrisma.prisma = undefined;
+      throw error;
+    });
+  }
 }
 
 export const prisma = prismaClient;

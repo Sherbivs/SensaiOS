@@ -1,4 +1,5 @@
 const fallbackOrder = [
+  "DATABASE_POOL_URL",
   "DATABASE_URL",
   "DATABASE_INTERNAL_URL",
   "DATABASE_URL_INTERNAL",
@@ -86,6 +87,32 @@ if (preferred) {
     guidance:
       "Expected Render envVars to map DATABASE_URL from the managed Postgres connectionString before Prisma loads.",
   });
+}
+
+const hasDirectUrl = typeof process.env.DATABASE_DIRECT_URL === "string" && process.env.DATABASE_DIRECT_URL.trim().length > 0;
+
+if (hasDirectUrl) {
+  structuredLog("info", "DATABASE_DIRECT_URL provided", {
+    "db.direct.preview": redact(process.env.DATABASE_DIRECT_URL?.trim()),
+  });
+} else {
+  const directFallback = candidates.find((entry) => entry.key === "DATABASE_INTERNAL_URL" || entry.key === "DATABASE_URL_INTERNAL");
+  const safeDirect =
+    directFallback?.value ??
+    (preferred && preferred.key !== "DATABASE_POOL_URL" ? preferred.value : undefined);
+
+  if (safeDirect) {
+    process.env.DATABASE_DIRECT_URL = safeDirect;
+    structuredLog("info", "DATABASE_DIRECT_URL resolved", {
+      "db.direct.source": directFallback?.key ?? preferred?.key ?? "unknown",
+      "db.direct.preview": redact(safeDirect),
+    });
+  } else if (preferred?.key === "DATABASE_POOL_URL") {
+    structuredLog("info", "DATABASE_DIRECT_URL missing", {
+      guidance:
+        "Set DATABASE_DIRECT_URL (Render direct connection string) so Prisma migrations bypass the pooler.",
+    });
+  }
 }
 
 export const databaseUrlSource: FallbackKey | undefined = resolvedSource;

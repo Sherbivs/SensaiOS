@@ -101,6 +101,50 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 
 
+<<<PATCHSET START>>>
+[Task T10.SCALE.DB_BOOTSTRAP] Harden runtime DB configuration and close bootstrap loop
+
+FILE: src/env/ensure-db-url.ts
+Change: Prefer pooled connection URLs, provision DATABASE_DIRECT_URL fallbacks, and log decisions so services default to faster managed connections.
+
+FILE: src/shared/prisma.ts
+Change: Support directUrl wiring, add retryable connect with backoff, honor PRISMA_SKIP_INITIAL_CONNECT for tests, and reuse pooled URLs for runtime connections.
+
+FILE: src/shared/config.ts
+Change: Surface pool/direct URL logic for downstream helpers and validate production hosts.
+
+FILE: tests/setup-env.ts
+Change: Set PRISMA_SKIP_INITIAL_CONNECT in tests and align database env defaults with new logic to avoid placeholder connection attempts.
+
+FILE: prisma/schema.prisma
+Change: Add directUrl env wiring so Prisma CLI uses the non-pooled connection for migrations.
+
+FILE: scripts/bootstrap_staging_db.ps1
+Change: Warn when DATABASE_DIRECT_URL is missing or identical to the pooled URL and point operators to the runbook.
+
+FILE: ops/DB_BOOTSTRAP.md
+Change: Document the pooled vs. direct URL expectations and how to configure Render connection strings.
+
+FILE: README.md
+Change: Update environment guidance with pooled/direct URL setup, connect retry envs, and DB availability notes.
+
+FILE: agent.md
+Change: Mirror the new DB availability workflow for autonomous agents (pool vs. direct, retry envs).
+
+FILE: tasklist.md
+Change: Mark T10.SCALE.DB_BOOTSTRAP DONE with outcome notes, promote next READY item, bump headers.
+
+FILE: ops/NEXT.yaml
+Change: Point NEXT at the newly promoted READY task with updated rationale and hints.
+
+FILE: Prompt.md
+Change: Refresh timestamp/revision, summarize DB availability changes, and update PATCHSET echo.
+<<<PATCHSET END>>>
+
+
+
+
+
 
 
 
