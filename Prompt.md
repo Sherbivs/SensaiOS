@@ -62,11 +62,11 @@ Revision: 1.14
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Introduced dedicated security worker with ENABLE_SECURITY_BOT gating, added worker health telemetry, and refreshed router docs/scripts for the split deployment.
-TasklistDiff: false
-Tests: not run (documentation cleanup)
+Change: Gated security sweeps with ENABLE_CONTINUOUS_SWEEP, replaced the OPERATIONS runbook with a worker matrix, and refreshed router metadata for the split deployment.
+TasklistDiff: true
+Tests: not run (security bot changes lack automated coverage; verify in staging after deploy)
 Contracts: ON
-NEXT: T10.SCALE.WORKERS — validate ENABLE_SECURITY_BOT rollout, document fallback path, and retire legacy sweep code once production telemetry is stable.
+NEXT: T10.SCALE.OBS — add worker telemetry and alert thresholds now that the split is live.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)
