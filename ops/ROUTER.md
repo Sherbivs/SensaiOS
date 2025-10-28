@@ -34,4 +34,5 @@ Key Files:
 - ops/CANONICAL_NAMES.yaml — canonical doc/router spellings for CI guard
 - ops/change-ledger.md — generated 200-entry commit ledger (see Prompt summary)
  - OPERATIONS.md — operational runbook documenting worker matrix and rollouts
+ - masterroutetable.md — text-first router map for hotfix navigation when automation is unavailable
 
