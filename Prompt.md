@@ -3,8 +3,8 @@ Timestamp (UTC): 2025-10-28T22:55:00Z
 Revision: 1.14
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added masterroutetable.md to the ops router key files and infra docs so the master table is treated as a canonical reference.
-- Regenerated ops/ROUTER_INDEX.yaml after the metadata refresh to keep the machine index aligned.
+- Added a router_docs category in ops/ROUTER.yaml bundling ops/ROUTER.md, ops/ROUTER_INDEX.yaml, and masterroutetable.md for fast navigation.
+- Regenerated ops/ROUTER_INDEX.yaml after the categorization so the machine index timestamps stay current.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
