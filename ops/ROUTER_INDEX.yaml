@@ -1,43 +1,43 @@
 version: 1
-generated_utc: "2025-10-28T20:30:00Z"
+generated_utc: "2025-10-28T19:27:24Z"
 routers:
   - path: "ops/"
     router_file: "ops/ROUTER.md"
-    title: "Ops & Governance"
-    purpose: "Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox)."
-  last_updated_utc: "2025-10-28T20:30:00Z"
+    title: "Ops & Governance"
+    purpose: "Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox)."
+    last_updated_utc: "2025-10-28T21:45:00Z"
   - path: "scripts/"
     router_file: "scripts/ROUTER.md"
-    title: "Dev & Docs Scripts"
-    purpose: "Guard scripts, router automation, and staging bootstrap helper."
-    last_updated_utc: "2025-10-28T06:42:00Z"
+    title: "Tooling"
+    purpose: "Guard scripts and automation entrypoints."
+    last_updated_utc: "2025-10-28T06:42:00Z"
   - path: "src/"
     router_file: "src/ROUTER.md"
-    title: "Application Source"
-    purpose: "Root app source tree; see sub-routers for domains."
-    last_updated_utc: "2025-10-27T08:45:00Z"
-  - path: "src/shared/"
-    router_file: "src/shared/ROUTER.md"
-    title: "Shared Runtime & Utilities"
-    purpose: "Runtime config, Prisma client, caching, logging, and outbox helpers."
-    last_updated_utc: "2025-10-27T08:45:00Z"
-  - path: "src/worker/"
-    router_file: "src/worker/ROUTER.md"
-    title: "Background Workers"
-    purpose: "Render-bound workers (outbox drain, backups, offline tasks)."
-    last_updated_utc: "2025-10-27T08:45:00Z"
+    title: "Application Source"
+    purpose: "Root app source tree; see sub-routers for domains."
+    last_updated_utc: "2025-10-27T08:45:00Z"
   - path: "src/bot/"
     router_file: "src/bot/ROUTER.md"
-    title: "Discord Bot Layer"
-    purpose: "Client login, intents, command/interaction routing, DM “home” flows."
-    last_updated_utc: "2025-10-27T11:45:00Z"
+    title: "Discord Bot Layer"
+    purpose: "Client login, intents, command/interaction routing, DM “home” flows."
+    last_updated_utc: "2025-10-27T11:45:00Z"
   - path: "src/core/"
     router_file: "src/core/ROUTER.md"
-    title: "Core Game Engines"
-    purpose: "Deterministic battle/encounter engines and shared mechanics."
-    last_updated_utc: "2025-10-27T12:30:00Z"
+    title: "Core Game Engines"
+    purpose: "Deterministic battle/encounter engines and shared mechanics."
+    last_updated_utc: "2025-10-27T12:30:00Z"
+  - path: "src/shared/"
+    router_file: "src/shared/ROUTER.md"
+    title: "Shared Runtime & Utilities"
+    purpose: "Centralized runtime config, Prisma bootstrap, logging, caching, and shared data access layers."
+    last_updated_utc: "2025-10-27T08:45:00Z"
+  - path: "src/worker/"
+    router_file: "src/worker/ROUTER.md"
+    title: "Background Workers"
+    purpose: "Render background services that drain the outbox and perform offline tasks."
+    last_updated_utc: "2025-10-28T21:45:00Z"
   - path: "tests/"
     router_file: "tests/ROUTER.md"
-    title: "Test Suite"
-    purpose: "Vitest coverage for schemas, pipeline, engines, and flows."
-    last_updated_utc: "2025-10-27T12:30:00Z"
+    title: "Test Suite"
+    purpose: "Vitest coverage for schemas, pipeline, engines, and flows."
+    last_updated_utc: "2025-10-27T12:30:00Z"
