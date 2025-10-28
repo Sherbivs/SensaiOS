@@ -101,4 +101,48 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 
 
+<<<PATCHSET START>>>
+[Task META.ROUTER.20251028] Refresh router metadata and AI navigation docs
+
+FILE: tasklist.md
+Change: Add new meta-routing and AI documentation tasks with acceptance criteria, clean up missing T8.4 entry, mark completed work with outcome notes, and bump headers.
+
+FILE: ops/TOUCHMAP.yaml
+Change: Map the new META tasks plus T10.SCALE.DB_BOOTSTRAP to their files (ops/DB_BOOTSTRAP.md, scripts/bootstrap_staging_db.ps1, meta docs).
+
+FILE: ops/ROUTER.yaml
+Change: Expand infra_docs with bootstrap runbook, note new scripts category entries, and refresh timestamp/notes.
+
+FILE: ops/ROUTER_INDEX.yaml
+Change: Regenerate metadata (timestamp, descriptions) to reflect the refreshed router docs.
+
+FILE: masterroutetable.md
+Change: Update last updated stamp, align router listings/notes with current assets (bootstrap runbook, new script), and tidy formatting for consistent indentation.
+
+FILE: ops/ROUTER.md
+Change: Append notes for the 2025-10-28 router refresh and DB bootstrap guidance.
+
+FILE: scripts/ROUTER.md
+Change: Document the new bootstrap helper and refresh last updated timestamp.
+
+FILE: agent.md
+Change: Fold in the bootstrap runbook, router refresh guidance, and AI enablement tips so operators can rely on updated metadata.
+
+FILE: README.md
+Change: Update status/goals and operational sections to surface the new bootstrap tooling, refreshed router strategy, and AI-facing guidance.
+
+FILE: ops/NEXT.yaml
+Change: Retarget NEXT to T10.SCALE.DB_BOOTSTRAP with updated rationale and files_hint.
+
+FILE: Prompt.md
+Change: Update timestamp/revision, summarize the new meta-routing work, refresh PATCHSET echo, and clear stale clipboard references.
+
+TASKLIST UPDATE
+Change: Record META.ROUTER.20251028 (and related AI doc task) as DONE with outcome notes; ensure READY queue points at scaling bootstrap.
+<<<PATCHSET END>>>
+
+
+
+
+
 

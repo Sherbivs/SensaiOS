@@ -1,52 +1,56 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-27T12:30:00Z
+Last Updated (UTC): 2025-10-28T06:45:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 
 ## Router-of-Routers
 - `ops/ROUTER_INDEX.yaml` — Generated index of active routers. Start here to locate downstream routers quickly.
 - `ops/ROUTER.yaml` — Canonical route map. Markerless Mode is documented in `ops/CRITICAL.md`; even when contracts are OFF, do not remove routers.
-	- Routes:
-                - `ops/ROUTER.md` — Ops & Governance
-                - `scripts/ROUTER.md` — Dev & Docs Scripts
-                - `src/ROUTER.md` — Application Source
-                - `src/shared/ROUTER.md` — Shared Runtime & Utilities
-                - `src/worker/ROUTER.md` — Background Workers
-                - `src/bot/ROUTER.md` — Discord Bot Layer
-                - `src/core/ROUTER.md` — Core Game Engines
-                - `tests/ROUTER.md` — Test Suite
+  - Routes:
+    - `ops/ROUTER.md` — Ops & Governance
+    - `scripts/ROUTER.md` — Dev & Docs Scripts (includes bootstrap_staging_db.ps1 helper)
+    - `src/ROUTER.md` — Application Source
+    - `src/shared/ROUTER.md` — Shared Runtime & Utilities
+    - `src/worker/ROUTER.md` — Background Workers
+    - `src/bot/ROUTER.md` — Discord Bot Layer
+    - `src/core/ROUTER.md` — Core Game Engines
+    - `tests/ROUTER.md` — Test Suite
 
 ## Router Details
 
 ### Ops & Governance (`ops/ROUTER.md`)
 - Purpose: Canonical operational control-plane (NEXT pointer, CRITICAL, TOUCHMAP, router maps, inbox).
 - Owned Globs: `ops/**`
-- Last Updated: 2025-10-27T11:45:00Z
+- Last Updated: 2025-10-28T06:40:00Z
 - Key References:
-	- `ops/NEXT.yaml` — next task pointer (READY pointer must exist on exit)
-	- `ops/CRITICAL.md` — fast-path guardrails + Markerless guidance
-	- `ops/ROUTER.yaml` — canonical path map
-	- `ops/ROUTER_INDEX.yaml` — router-of-routers manifest
-	- `ops/INBOX/notes.md` — operator notes
-	- `ops/RECOVERY.yaml` — resume metadata
-	- `ops/CANONICAL_NAMES.yaml` — router/document casing guard
-	- `ops/ARCHIVE/README.md` — Tasklist archival guidance
+  - `ops/NEXT.yaml` — next task pointer (READY pointer must exist on exit)
+  - `ops/CRITICAL.md` — fast-path guardrails + Markerless guidance
+  - `ops/ROUTER.yaml` — canonical path map
+  - `ops/ROUTER_INDEX.yaml` — router-of-routers manifest
+  - `ops/INBOX/notes.md` — operator notes
+  - `ops/RECOVERY.yaml` — resume metadata
+  - `ops/CANONICAL_NAMES.yaml` — router/document casing guard
+  - `ops/ARCHIVE/README.md` — Tasklist archival guidance
+  - `ops/DB_BOOTSTRAP.md` — staging schema bootstrap runbook
 - Notes:
-	- 2025-10-27: Router maps now track PBSL oracle fixtures and DRIP role assignment alerts; audit recorded in ops/ROUTER.md.
+  - 2025-10-27: Router maps now track PBSL oracle fixtures and DRIP role assignment alerts; audit recorded in ops/ROUTER.md.
+  - 2025-10-28: Added DB bootstrap runbook and helper script to router inventory.
 
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).
 - Owned Globs: `scripts/**`
-- Last Updated: 2025-10-27T12:30:00Z
+- Last Updated: 2025-10-28T06:42:00Z
 - Key Scripts:
-	- `scripts/update_change_ledger.sh` — regenerate Prompt change ledger
-	- `scripts/update_router_index.sh` — rebuild `ops/ROUTER_INDEX.yaml`
-	- `scripts/refresh_vision.sh` — refresh routers + recovery metadata
-	- `scripts/archive_task_history.mjs` — archive Tasklist history to `ops/ARCHIVE/`
-	- `scripts/verify_router_links.sh` — canonical path guard (CI)
-	- `scripts/hotfix_entry.sh` — hotfix checklist helper
-	- `scripts/guard_meta.sh` — enforces READY invariants pre/post flight
+  - `scripts/update_change_ledger.sh` — regenerate Prompt change ledger
+  - `scripts/update_router_index.sh` — rebuild `ops/ROUTER_INDEX.yaml`
+  - `scripts/refresh_vision.sh` — refresh routers + recovery metadata
+  - `scripts/archive_task_history.mjs` — archive Tasklist history to `ops/ARCHIVE/`
+  - `scripts/verify_router_links.sh` — canonical path guard (CI)
+  - `scripts/hotfix_entry.sh` — hotfix checklist helper
+  - `scripts/guard_meta.sh` — enforces READY invariants pre/post flight
+  - `scripts/bootstrap_staging_db.ps1` — interactive helper to run `prisma migrate deploy` on staging safely
 - Notes:
-	- 2025-10-27: Router scripts audited; verify_router_links and update_router_index keep meta routers synchronized during PBSL work.
+  - 2025-10-27: Router scripts audited; verify_router_links and update_router_index keep meta routers synchronized during PBSL work.
+  - 2025-10-28: Added staging bootstrap helper to tooling catalog.
 
 ### Application Source (`src/ROUTER.md`)
 - Purpose: Root TypeScript source tree; delegates to domain routers.

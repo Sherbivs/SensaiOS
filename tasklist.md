@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-28T05:05:00Z
-Revision: 1.75
+Last Updated (UTC): 2025-10-28T06:45:00Z
+Revision: 1.76
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -865,6 +865,16 @@ Each task has:
     - Tests cover streak increment, reset, and DM Home display updates.
   notes: Outcome — Prisma schema and model helpers manage streak increments/resets; DM Home now surfaces streak messaging with new tests covering active, reset, and display states.
 
+- id: T8.4
+  title: Add DM Home daily claim button tied to streak cooldowns
+  status: PROPOSED
+  depends_on: [T8.2]
+  acceptance_criteria:
+    - DM `/home` embed includes a button leading to the daily quest claim interaction when cooldown permits.
+    - Button state reflects cooldown readiness and disables when the streak reset requires manual action.
+    - Tests cover enabled/disabled button states and the link to the daily claim handler.
+  notes: Proposed — Ready to wire once daily streak data stabilizes in production; meta pointer previously referenced this task.
+
 ## Phase 10 — Scalability Foundations
 
 - id: T10.SCALE.DATA_INDEX
@@ -906,3 +916,25 @@ Each task has:
     - Add automated health checks or dashboards (Grafana, Render metrics, etc.) with documented thresholds and escalation paths in `OPERATIONS.md`.
     - Update Prompt.md PATCHSET echo template or ops guides to require observability notes whenever scaling-affecting changes land.
   notes: Proposed — Keeps telemetry and runbooks ahead of the expected traffic spike once marketing beats begin.
+
+## Phase 11 — Meta & AI Enablement
+
+- id: META.ROUTER.20251028
+  title: Refresh router metadata for AI-first navigation
+  status: DONE
+  depends_on: [META.CONTRACTS.SWITCH]
+  acceptance_criteria:
+    - ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, and masterroutetable.md record new docs (ops/DB_BOOTSTRAP.md) and scripts (scripts/bootstrap_staging_db.ps1) with updated timestamps.
+    - ops/ROUTER.md and scripts/ROUTER.md capture the refresh in their notes with the 2025-10-28 context.
+    - ops/TOUCHMAP.yaml maps T10.SCALE.DB_BOOTSTRAP and the new META task to their owned paths.
+  notes: Outcome — Router docs now reference the staging bootstrap runbook/script, updated timestamps, and clarified AI navigation expectations across master and machine-readable maps.
+
+- id: META.AI_DOC_ENABLE
+  title: Sync agent handbook and README for AI onboarding
+  status: DONE
+  depends_on: [META.ROUTER.20251028]
+  acceptance_criteria:
+    - agent.md mentions the staging bootstrap runbook/script and reiterates contract essentials for autonomous agents.
+    - README.md highlights the new bootstrap workflow, refreshed meta-router strategy, and AI enablement guidance in Current Status & Operational Guardrails sections.
+    - Prompt.md and ops/NEXT.yaml reflect the updated meta-task completion and READY pointer state.
+  notes: Outcome — Agent handbook and README now highlight meta-routing assets, bootstrap flow, and AI guardrails so future agents can reference the repository with minimal rediscovery.
