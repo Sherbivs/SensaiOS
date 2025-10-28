@@ -9,8 +9,9 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
   - `ops/ROUTER.md` — Ops & Governance
     - `scripts/ROUTER.md` — Dev & Docs Scripts (includes bootstrap_staging_db.ps1 helper)
     - `src/ROUTER.md` — Application Source
-    - `src/shared/ROUTER.md` — Shared Runtime & Utilities
-    - `src/worker/ROUTER.md` — Background Workers
+    - `outbox.ts` provides enqueue/dequeue helpers for durable background jobs drained by the outbox worker.
+    - `worker-runtime.ts` centralizes worker lifecycle helpers (shutdown hooks, repeating tasks) for outbox/cache/data pipeline entries.
+    - `log.ts` remains the structured logger, consuming the shared runtime config.
     - `src/bot/ROUTER.md` — Discord Bot Layer
     - `src/core/ROUTER.md` — Core Game Engines
     - `tests/ROUTER.md` — Test Suite
@@ -90,10 +91,13 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 ### Background Workers (`src/worker/ROUTER.md`)
 - Purpose: Render-bound loops that drain the outbox and run offline jobs.
 - Owned Globs: `src/worker/**`
-- Last Updated: 2025-10-27T08:45:00Z
+- Last Updated: 2025-10-28T22:55:00Z
 - Key Files:
-        - `backup.ts` — Render worker that polls the outbox, logs health, and prepares backup sinks.
-- Last Task ID: META.RUNTIME.BLUEPRINT_APPLY
+  - `outbox.ts` — Drains durable queue entries and publishes `worker.outbox.*` telemetry via `runWorker`.
+  - `cache-refresh.ts` — Refreshes Pokédex cache on an interval with jittered scheduling helpers.
+  - `data-pipeline.ts` — Rebuilds reference data manifests and records last-success/last-error markers.
+  - `backup.ts` — Legacy entry retained for compatibility (delegates to the outbox worker).
+- Last Task ID: T10.SCALE.WORKERS
 
 ### Discord Bot Layer (`src/bot/ROUTER.md`)
 - Purpose: Discord client bootstrap, slash commands, DM flows, arena threads, admin ops.
