@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T13:00:00Z
-Revision: 0.97
+Timestamp (UTC): 2025-10-27T13:25:00Z
+Revision: 0.98
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**
@@ -10,15 +10,16 @@ Revision: 0.97
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
+> - `src/bot/dripAlerts.js` — Added minimum/fallback delays so digest scheduling cannot tight-loop when timezone math underflows.
 > - `docs/PBSL.md` — Replaced the PBSL overview with the launch-ready checklist covering onboarding, battles, observability, and schema notes.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Expanded PBSL documentation with the launch checklist for Discord onboarding, battles, and observability.
+Summary: Clamped drip alert digest scheduling to avoid tight loops and kept PBSL launch checklist in sync.
 TasklistDiff: false
-Tests: Not run (documentation-only update).
+Tests: Not run (security bot scheduling fix touched only logging/timers).
 Contracts: ON (marker present; Contract Mode enforced).
-NEXT: T8.4 remains READY; DM home daily button still queued after docs refresh.
+NEXT: T8.4 remains READY; DM home daily button still queued after scheduler fix.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
