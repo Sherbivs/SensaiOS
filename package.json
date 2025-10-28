@@ -15,7 +15,7 @@
     "docs:update-ledger": "bash scripts/update_change_ledger.sh",
     "docs:update-routers": "bash scripts/update_router_index.sh",
     "refresh:vision": "bash scripts/refresh_vision.sh",
-  "hotfix": "bash scripts/hotfix_entry.sh",
+    "hotfix": "bash scripts/hotfix_entry.sh",
     "tasks:archive": "node scripts/archive_task_history.mjs",
     "lint": "eslint \"{src,tests}/**/*.ts\"",
     "test": "vitest",
@@ -31,11 +31,11 @@
     "eslint-plugin-n": "^17.9.0",
     "eslint-plugin-promise": "^6.1.1",
     "prettier": "^3.3.1",
-    "vitest": "^1.6.0",
-    "prisma": "^5.19.2"
+    "prisma": "^6.18.0",
+    "vitest": "^1.6.0"
   },
   "dependencies": {
-    "@prisma/client": "^5.19.2",
+    "@prisma/client": "^6.18.0",
     "discord.js": "^14.16.3",
     "tsx": "^4.11.2",
     "typescript": "^5.6.3",
