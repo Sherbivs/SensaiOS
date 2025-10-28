@@ -19,9 +19,9 @@ Revision: 1.14
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Active Mission Snapshot
-- **NEXT Pointer:** T10.SCALE.WORKERS — split sweep/cache workers so pooled Prisma connections stay responsive under load.
-- **READY / In-flight:** Worker split remains primary; META.RUNTIME.BACKUP_SINK is queued next; T8.4 daily claim button stays PROPOSED pending DM UI adjustments.
-- **Recent Finish:** T10.SCALE.DB_BOOTSTRAP delivered pooled vs direct DB strategy, retryable Prisma connects, and aligned docs/tests.
+- **NEXT Pointer:** T10.SCALE.OBS — layer worker telemetry (queue depth, sweep cadence) and document alert thresholds now that the split is live.
+- **READY / In-flight:** Observability follow-up is READY; META.RUNTIME.BACKUP_SINK stays proposed; T8.4 daily claim button remains PROPOSED pending DM UI polish.
+- **Recent Finish:** T10.SCALE.WORKERS finalized the worker runtime, Render services, ops runbook, and router metadata for the split deployment.
 
 ## System Highlights
 - **Database:** Runtime prefers DATABASE_POOL_URL with DATABASE_DIRECT_URL fallback; Prisma migrate retains directUrl; tests set PRISMA_SKIP_INITIAL_CONNECT.
