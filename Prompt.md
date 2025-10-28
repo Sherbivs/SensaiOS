@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T11:20:00Z
-Revision: 0.94
+Timestamp (UTC): 2025-10-27T11:25:00Z
+Revision: 0.95
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**
@@ -10,56 +10,35 @@ Revision: 0.94
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `src/bot/main.js` — Emits DRIP security alerts when members gain roles, including audit metadata and CLI updates.
-> - `ops/TOUCHMAP.yaml` — Routed new security alert task ownership to the security bot files.
-> - `Tasklist.md` — Logged T6.3 as DONE with acceptance criteria for the role alert feature.
-> - `ops/NEXT.yaml` — Timestamp and note refreshed after the DRIP alert enhancement.
-> - `Patch.md` — Clipboard now reflects the executed role alert patch.
+> - `Patch.md` — Cleared the completed patch clipboard after the CLEAR TASKS trigger.
+> - `Prompt.md` — Logged the clipboard reset and refreshed metadata.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Added DRIP security alerts for role assignments and routed metadata updates.
-TasklistDiff: true
+Summary: Cleared the patch clipboard in response to CLEAR TASKS and updated metadata.
+TasklistDiff: false
 Tests: Not run (VFS workspace blocks npm execution).
 Contracts: ON (marker present; Contract Mode enforced).
-NEXT: T8.4 remains READY after the security alert update.
+NEXT: T8.4 remains READY; clipboard cleanup does not affect queue.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task T6.3] Emit DRIP alerts for role assignments
-
-FILE: src/bot/main.js
-Change: Added role diff detection, audit log lookup, and DRIP security alert dispatch inside the guildMemberUpdate flow.
-Insert/Replace/Remove: Introduced helpers for assignable role collection, audit permissions, and CLI/activity tracker updates.
-
-FILE: ops/TOUCHMAP.yaml
-Change: Routed T6.3 to the security bot implementation for future editors.
-Insert/Replace/Remove: Added mappings for src/bot/main.js and drip alert utilities.
-
-FILE: Tasklist.md
-Change: Logged the new security alert task with acceptance criteria and DONE status.
-Insert/Replace/Remove: Bumped metadata and documented the alert outcome.
-
-FILE: ops/NEXT.yaml
-Change: Refreshed timestamp and rationale after wiring the security alerts.
-Insert/Replace/Remove: Maintained T8.4 as READY with a note to validate the new alerts.
+[Task NONE] Clear clipboard after CLEAR TASKS trigger
 
 FILE: Patch.md
-Change: Clipboard now reflects the executed DRIP role alert plan.
-Insert/Replace/Remove: Replaced the planning stub with the delivered patch summary.
+Change: Removed the completed patchset entry and restored the idle clipboard state.
+Insert/Replace/Remove: Bumped metadata and replaced the block with the idle marker.
 
 FILE: Prompt.md
-Change: Synced metadata, Last Repo Changes, and PATCHSET echo with the role alert delivery.
-Insert/Replace/Remove: Updated timestamp, revision, and summary fields.
+Change: Recorded the clipboard cleanup and refreshed metadata/echo.
+Insert/Replace/Remove: Updated Last Repo Changes, PATCHSET echo, and revision info.
 
 TASKLIST UPDATE
-Change: Added and completed T6.3 with acceptance criteria.
+Change: None.
 <<<PATCHSET END>>>
 
 Logs & References:
-- Read `src/shared/config.ts`, `src/shared/prisma.ts`, and `prisma/schema.prisma` to verify runtime and schema updates.
-- Reviewed `src/bot/ops/admin.ts` and `/tests/ops_stats.spec.ts` to ensure diagnostics align with the new sections.
-- Inspected `render.yaml`, `scripts/guard_runtime.sh`, and `.github/workflows/runtime.yml` for Render/CI guard alignment.
+- Cleared Patch.md clipboard entries and verified no pending patchsets remain.
   return `Daily quest already claimed. Try again ${stamp}.`;
 }
 
