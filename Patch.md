@@ -105,29 +105,54 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-Clipboard idle.
+[Task META.ROUTER.REFRESH_20251027] Refresh router docs after PBSL and security updates
+
+FILE: ops/ROUTER.yaml
+Change: Update generated timestamp, add PBSL docs, and ensure categories reflect current sources.
+Insert/Replace/Remove: Bump updated_utc and include docs/PBSL.md under infra docs.
+
+FILE: ops/ROUTER_INDEX.yaml
+Change: Regenerate router index metadata after refreshing downstream router timestamps.
+Insert/Replace/Remove: Update generated timestamp and per-router last_updated markers.
+
+FILE: masterroutetable.md
+Change: Refresh summary table to match new router metadata.
+Insert/Replace/Remove: Bump Last Updated and note PBSL oracle + security alert routing.
+
+FILE: ops/ROUTER.md
+Change: Capture latest contract/alert updates and refresh timestamp.
+Insert/Replace/Remove: Add notes covering DRIP role alerts and PBSL oracle scaffolding.
+
+FILE: src/bot/ROUTER.md
+Change: Document role assignment DRIP alerts in security bot layer.
+Insert/Replace/Remove: Update last updated timestamp and notes.
+
+FILE: src/core/ROUTER.md
+Change: Note PBSL oracle fixtures and bump timestamp.
+Insert/Replace/Remove: Refresh notes for PBSL battle/audit exports.
+
+FILE: tests/ROUTER.md
+Change: Reflect PBSL oracle suite addition.
+Insert/Replace/Remove: Update notes and timestamp.
+
+FILE: Tasklist.md
+Change: Record META.ROUTER.REFRESH_20251027 as DONE with acceptance criteria.
+Insert/Replace/Remove: Bump metadata and add outcome note.
+
+FILE: ops/NEXT.yaml
+Change: Refresh timestamp/note post-router update while keeping T8.4 READY.
+Insert/Replace/Remove: Document that routing docs are current and T8.4 remains next.
+
+FILE: Prompt.md
+Change: Sync metadata, Last Repo Changes, and PATCHSET echo with router refresh.
+Insert/Replace/Remove: Update revision and summary to cover routing updates.
+
+FILE: PATCH.md
+Change: Bump metadata post-update and ensure clipboard clears after completion.
+Insert/Replace/Remove: Update Last Updated/Revision once work lands.
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>
-[Task META.RUNTIME.BACKUP_SINK] Replace console backup sink with durable storage
 
-FILE: src/worker/backup.ts
-Change: Persist processed payloads to managed object storage (S3/R2) with retry/backoff and health telemetry.
-Insert/Replace/Remove: Introduce storage client wiring, success/failure metrics, and structured audit events.
-
-FILE: src/shared/config.ts
-Change: Surface storage credentials/bucket configuration with production-safe validation.
-Insert/Replace/Remove: Add typed config entries, runtime guards, and development fallbacks hidden behind feature flags.
-
-FILE: docs/OPERATIONS.md
-Change: Document backup sink credentials rotation and failure recovery procedures.
-Insert/Replace/Remove: Add playbook entries covering storage provider access, alert escalation, and TTL policies.
-
-FILE: tests/runtime_backup.spec.ts
-Change: Ensure the worker writes payloads, records timestamps, and retries on transient provider failures.
-Insert/Replace/Remove: Create a mocked storage client suite validating retry/backoff, logging, and success summaries.
-
-TASKLIST UPDATE
-Change: Promote META.RUNTIME.BACKUP_SINK to READY once configuration scaffolding and storage adapter stubs are in place.
 <<<PROPOSED PATCHSET END>>>
 

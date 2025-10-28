@@ -1,7 +1,7 @@
 # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-10-25T03:15:00Z
+updated_utc: 2025-10-27T11:45:00Z
 
 meta_files:
   - Patch.md
@@ -38,6 +38,7 @@ categories:
     - DATA-SCHEMA.md
     - OPERATIONS.md
     - discord-pokemon-bot/data/standized_pokemon_game_logic.md
+    - docs/PBSL.md
   code_core:
     - src/**
     - tests/**

@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-27T11:20:00Z
-Revision: 1.70
+Last Updated (UTC): 2025-10-27T11:45:00Z
+Revision: 1.71
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -298,6 +298,16 @@ Each task has:
     - .github/workflows/guard-router.yml runs the guard on push/PR.
     - Patch.md documents the mandatory Name/Case rule.
   notes: Outcome — Canonical manifest + CI guard keep router/index references case-accurate; Prompt/Tasklist capture the change.
+
+- id: META.ROUTER.REFRESH_20251027
+  title: Refresh router docs after PBSL oracle and DRIP alerts
+  status: DONE
+  depends_on: [META.ROUTER.NAME_GUARD]
+  acceptance_criteria:
+    - ops/ROUTER.yaml updated_utc and categories capture newly added PBSL documentation.
+    - ops/ROUTER_INDEX.yaml and masterroutetable.md reflect the refreshed timestamps and router summaries.
+    - Router markdowns (ops, src/bot, src/core, tests) mention PBSL oracle fixtures and DRIP role alerts.
+  notes: Outcome — Router map, index, and master table now note PBSL oracle fixtures plus DRIP role assignment alerts with synchronized timestamps across metadata.
 
 - id: T8.3
   title: Add daily quest claim flow and rewards

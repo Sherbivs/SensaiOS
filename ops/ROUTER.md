@@ -2,7 +2,7 @@
 Title: Ops & Governance
 Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-10-26T14:20:00Z
+Last Updated (UTC): 2025-10-27T11:45:00Z
 
 Notes:
 - 2025-10-26: guard_meta preflight/postflight make READY absence impossible at merge time; NEXT auto-promotion enabled. See scripts/guard_meta.sh and ops/NEXT.yaml.
@@ -15,6 +15,7 @@ Notes:
 - 2025-10-26: Documented Hotfix Engine contract + pointer and updated meta routing notes.
 - 2025-10-26: Added T7.4/T7.5 persistence backlog items and repointed NEXT at T7.4.
 - 2025-10-25: Router index timestamp refreshed after Render deployment wiring update.
+- 2025-10-27: Router maps refreshed to note PBSL oracle fixtures and DRIP role assignment alerts; ops/NEXT.yaml timestamp updated alongside master router table.
 
 Key Files:
 - ops/NEXT.yaml — execution pointer
