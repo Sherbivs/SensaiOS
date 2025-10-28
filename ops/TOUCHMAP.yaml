@@ -239,6 +239,7 @@ T0.GUARD_FILENAMES:
 META.LEDGER200:
   - "Prompt.md"
   - "scripts/update_change_ledger.sh"
+  - "scripts/update_change_ledger.mjs"
   - ".github/workflows/guard-meta.yml"
   - "package.json"
 

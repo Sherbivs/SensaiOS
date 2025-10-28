@@ -17,6 +17,7 @@ Notes:
 - 2025-10-25: Router index timestamp refreshed after Render deployment wiring update.
 - 2025-10-27: Router maps refreshed to note PBSL oracle fixtures and DRIP role assignment alerts; ops/NEXT.yaml timestamp updated alongside master router table.
 - 2025-10-28: Added ops/DB_BOOTSTRAP.md runbook to router index, refreshed timestamps, and mapped staging bootstrap helper for AI operators.
+- 2025-10-28: Ledger automation now runs through scripts/update_change_ledger.mjs with cross-shell wrappers delegating via NODE_BIN.
 
 Key Files:
 - ops/NEXT.yaml — execution pointer

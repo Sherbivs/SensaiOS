@@ -12,7 +12,7 @@
     "start": "tsx src/index.ts",
     "data:build": "tsx src/data_pipeline/index.ts",
     "register:commands": "node scripts/register-commands.js",
-    "docs:update-ledger": "bash scripts/update_change_ledger.sh",
+  "docs:update-ledger": "node scripts/update_change_ledger.mjs",
     "docs:update-routers": "bash scripts/update_router_index.sh",
     "refresh:vision": "bash scripts/refresh_vision.sh",
     "hotfix": "bash scripts/hotfix_entry.sh",

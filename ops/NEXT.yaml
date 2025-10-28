@@ -23,22 +23,10 @@ files_hint:
   - render.yaml
   - ops/ROUTER.md
 
-<<<<<<< HEAD
-timestamp_utc: 2025-10-28T07:26:00Z
-=======
-<<<<<<< Updated upstream
-timestamp_utc: 2025-10-28T06:50:00Z
->>>>>>> 5a9fab80d51fd791e85f7d7940ea1ffef546bc5c
+timestamp_utc: 2025-10-28T17:15:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-27T08:30:00Z
-<<<<<<< HEAD
-note: "Bootstrap task closed with pooled/direct URLs in place; proceed to worker separation for scalability." 
-=======
-note: "Meta routing docs refreshed; next step is executing the staging bootstrap instructions so the index migration can succeed."
-=======
-timestamp_utc: 2025-10-28T09:25:00Z
+timestamp_utc: 2025-10-28T19:45:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-27T08:30:00Z
-note: "Staging index migration verified; T8.4 stays READY for DM home daily button wiring."
->>>>>>> Stashed changes
->>>>>>> 5a9fab80d51fd791e85f7d7940ea1ffef546bc5c
+note: "Cache/pipeline workers now read cadences from env helpers; continue with render split, router updates, and sweep loop gate."

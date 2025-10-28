@@ -1,10 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-28T16:19:10Z
-Revision: 1.06
+Timestamp (UTC): 2025-10-28T19:45:00Z
+Revision: 1.08
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added a Node-based ledger updater and pointed the shell/npm wrappers at it for cross-platform runs.
-- Cleaned Prompt.md conflict remnants and refreshed the contract metadata ahead of a scripted ledger update.
+- Cache refresh and data pipeline workers now import typed cadence settings from `src/config/env.js` so TypeScript sees the shared toggles.
+- Tasklist marks T10.SCALE.WORKERS as IN_PROGRESS with notes on the new worker scripts and remaining integration work.
+- NEXT pointer unchanged; continue executing the worker split while render/docs updates remain outstanding.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts in sync.
@@ -18,12 +19,12 @@ Revision: 1.06
 
 ## Active Mission Snapshot
 - **NEXT Pointer:** T10.SCALE.WORKERS — separate background workers so pooled DB connections remain fast under load.
-- **READY Queue Highlights:** T10.SCALE.WORKERS (primary), META.RUNTIME.BACKUP_SINK (follow-up once worker split is stable), T8.4 (daily claim button) remains PROPOSED pending DM UI wiring.
+- **READY / IN-FLIGHT:** T10.SCALE.WORKERS is executing; META.RUNTIME.BACKUP_SINK stays queued behind it and T8.4 (daily button) remains PROPOSED pending DM UI wiring.
 - **Recent Finish:** T10.SCALE.DB_BOOTSTRAP is DONE; pooled vs. direct URL strategy, retryable Prisma connect, and documentation now aligned.
 
 ## System Highlights
 - **Database:** Runtime prefers DATABASE_POOL_URL with fallback to DATABASE_DIRECT_URL; Prisma directUrl is reserved for migrations; tests set PRISMA_SKIP_INITIAL_CONNECT.
-- **Workers & Scaling:** Current deployment still runs a unified worker; separation work must update render.yaml, src/worker/**, and relevant routers.
+- **Workers & Scaling:** Shared worker runtime plus outbox/cache/pipeline entry points exist; pending steps include render.yaml split, router updates, and sweeping the in-process loop flag.
 - **Observability:** Structured logs exist; advanced metrics/alerts remain a future task (T10.SCALE.OBS PROPOSED).
 - **Testing Posture:** Vitest suites for ops, DM Home, and daily flows cover DB bootstrap behaviour; rerun targeted suites when touching related code.
 
@@ -56,95 +57,4611 @@ Revision: 1.06
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Wired the Prompt ledger refresh through the Node helper and cleared stale conflict artifacts; ledger now auto-generates from git history.
-TasklistDiff: false
-Tests: not run (automation update only)
+Change: Taught cache/data pipeline workers to source cadence from the shared env module and noted T10.SCALE.WORKERS as in progress in Tasklist.
+TasklistDiff: true
+Tests: not run (config typings only)
 Contracts: ON (clipboard marker retained in Patch.md)
-NEXT: T10.SCALE.WORKERS — split sweep/cache workers so pooled connections stay responsive.
+NEXT: T10.SCALE.WORKERS — continue the worker split with render/config/doc updates next.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 200 commits)
 <!-- LEDGER:BEGIN -->
-Ledger pending refresh via scripts/update_change_ledger.mjs.
-<!-- LEDGER:END -->
 
-## AI Worker Prompt (copy/paste for Copilot/GPT)
-You are GitHub Copilot operating under the Infinity Gauntlet contract.
+**Generated:** 2025-10-28T17:22:20Z  |  **Branch:** main
 
-1. Read ops/NEXT.yaml, Tasklist.md, ops/TOUCHMAP.yaml, Patch.md, then this Prompt.md before editing.
-2. Work only on READY tasks whose dependencies are DONE; do not self-assign PROPOSED items.
-3. Keep edits minimal and reversible; update Tasklist.md, ops/NEXT.yaml, Prompt.md, and relevant routers in the same PATCHSET.
-4. Run targeted tests (Vitest suites, Prisma migrate deploy) when touching runtime code; record results in the PATCHSET echo and commit message.
-5. Ensure the Embedded PATCHSET Echo, Last Repo Changes, and ledger markers remain populated; restore clipboard markers in Patch.md if removed by accident.
-6. Finish every run with a READY pointer in ops/NEXT.yaml and clear rationale in the PATCHSET echo.
-# Prompt.md
-Timestamp (UTC): 2025-10-28T16:19:10Z
-Revision: 1.06
+- **a069bbe** — 2025-10-28 — Sherbivs — _logic intent:_ C:\Users\sherb\OneDrive\Documents\GitHub\Infinity-Gauntlet; $promptContent = @" # Prompt.md Timestamp (UTC): 2025-10-28T16:19:10Z Revision: 1.06  ## Last Repo Changes (since previous Prompt.md revision) - Added a Node-based ledger updater and pointed the shell/npm wrappers at it for cross-platform runs. - Cleaned Prompt.md conflict remnants and refreshed the contract metadata ahead of a scripted ledger update.  ## Purpose & Scope - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts in sync. - Complements Patch.md (process contract) and Tasklist.md (work graph); never diverge from those authorities.  ## Activation Checklist & Fallback - Confirm readability of Patch.md, Tasklist.md, Prompt.md, ops/NEXT.yaml before planning; halt if any are unavailable. - Review ops/NEXT.yaml and Tasklist.md to ensure the READY queue matches the stated next task; auto-promote if policy requires. - Optional shell access: run scripts/refresh_vision.sh to regenerate routing indices; when unavailable, note the limitation in the PATCHSET echo. - If remote context (GitHub origin) cannot be validated, record the failure reason and request human assistance.  ## Active Mission Snapshot - **NEXT Pointer:** T10.SCALE.WORKERS — separate background workers so pooled DB connections remain fast under load. - **READY Queue Highlights:** T10.SCALE.WORKERS (primary), META.RUNTIME.BACKUP_SINK (follow-up once worker split is stable), T8.4 (daily claim button) remains PROPOSED pending DM UI wiring. - **Recent Finish:** T10.SCALE.DB_BOOTSTRAP is DONE; pooled vs. direct URL strategy, retryable Prisma connect, and documentation now aligned.  ## System Highlights - **Database:** Runtime prefers DATABASE_POOL_URL with fallback to DATABASE_DIRECT_URL; Prisma directUrl is reserved for migrations; tests set PRISMA_SKIP_INITIAL_CONNECT. - **Workers & Scaling:** Current deployment still runs a unified worker; separation work must update render.yaml, src/worker/**, and relevant routers. - **Observability:** Structured logs exist; advanced metrics/alerts remain a future task (T10.SCALE.OBS PROPOSED). - **Testing Posture:** Vitest suites for ops, DM Home, and daily flows cover DB bootstrap behaviour; rerun targeted suites when touching related code.  ## Evidence Matrix - infra — ops/NEXT.yaml, ops/CRITICAL.md, render.yaml, src/shared/config.ts. - discord_bot — Tasklist.md, ops/TOUCHMAP.yaml, src/bot/**. - battle_engine — src/core/battle/**, RULESET.md. - encounters — src/core/encounter/**, DATA-SCHEMA.md. - data_pipeline — src/data_pipeline/**, data/**, scripts/build-data.js. - persistence — prisma/schema.prisma, src/models/**, migrations/**. - security — Prompt.md, RULESET.md, src/shared/**. - observability — Prompt.md, OPERATIONS.md, src/shared/log.ts.  ## Assumptions / TBD Register - Worker separation will reuse existing Prisma client logic; no new ORM package expected. - Render environment allows defining dedicated services for workers with independent scaling controls. - Observability improvements remain deferred until after workers split; ensure no regression to current logging guarantees.  ## Validation Checklist - Touched directories must update their ROUTER.md entries and regenerate ops/ROUTER_INDEX.yaml via scripts/update_router_index.sh. - Any change impacting readiness requires Prompt.md timestamp/revision bump plus Tasklist/NEXT synchronization. - Run npx prisma migrate deploy before production deploys; ensure DATABASE_DIRECT_URL present in env when running migrations. - Execute relevant Vitest suites (ops, dm_home, daily, affected modules) or document why tests were skipped.  ## Diagram Conventions - Use ASCII block diagrams with [] for systems and --> for directional relationships. - Label data stores explicitly (e.g., [Render Postgres]) to avoid ambiguity. - Include legend when introducing new notation; keep diagrams under 80 characters wide for readability.  ## Embedded PATCHSET Echo <!-- PATCHSET:ECHO BEGIN --> HEAD: pending-local Change: Wired the Prompt ledger refresh through the Node helper and cleared stale conflict artifacts; ledger now auto-generates from git history. TasklistDiff: false Tests: not run (automation update only) Contracts: ON (clipboard marker retained in Patch.md) NEXT: T10.SCALE.WORKERS — split sweep/cache workers so pooled connections stay responsive. <!-- PATCHSET:ECHO END -->  ## Recent Change Ledger (last 200 commits) <!-- LEDGER:BEGIN --> Ledger pending refresh via scripts/update_change_ledger.mjs. <!-- LEDGER:END -->  ## AI Worker Prompt (copy/paste for Copilot/GPT) You are GitHub Copilot operating under the Infinity Gauntlet contract.  1. Read ops/NEXT.yaml, Tasklist.md, ops/TOUCHMAP.yaml, Patch.md, then this Prompt.md before editing. 2. Work only on READY tasks whose dependencies are DONE; do not self-assign PROPOSED items. 3. Keep edits minimal and reversible; update Tasklist.md, ops/NEXT.yaml, Prompt.md, and relevant routers in the same PATCHSET. 4. Run targeted tests (Vitest suites, Prisma migrate deploy) when touching runtime code; record results in the PATCHSET echo and commit message. 5. Ensure the Embedded PATCHSET Echo, Last Repo Changes, and ledger markers remain populated; restore clipboard markers in Patch.md if removed by accident. 6. Finish every run with a READY pointer in ops/NEXT.yaml and clear rationale in the PATCHSET echo. "@; Set-Content -Path Prompt.md -Value $promptContent -Encoding UTF8
+  - `Prompt.md` — ~lines: +2,2 +6,2 +35 +59 +61 +68 +79,4 +85,2 +88,3 +92,5 +98,4 +103,5 +109,9 +119,4 +124,5 +130,4 +135 +138,5 +145,4 +150,2 +153,6
+  - `scripts/update_change_ledger.mjs` — ~lines: +1,120
+- **de2c729** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `scripts/update_change_ledger_unix.sh` — ~lines: +1,47
+- **94d527e** — 2025-10-28 — Sherbivs — _logic intent:_ T10.SCALE.WORKERS
+  - `Prompt.md` — ~lines: +2,79
+  - `src/bot/ops/admin.ts` — ~lines: +196,0 +207,23
+  - `tests/ops.spec.ts` — ~lines: +88,0 +132,0 +165,0 +216,0 +261,0
+- **546ce2e** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `README.md` — ~lines: +10,2 +61 +123,2 +127,3 +144 +153
+  - `agent.md` — ~lines: +12 +29 +33 +53,2 +67
+  - `ops/DB_BOOTSTRAP.md` — ~lines: +14 +19 +33 +49 +69,4
+  - `scripts/bootstrap_staging_db.ps1` — ~lines: +16 +30 +38,7 +46 +53,4
+- **4a2eb06** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `ops/NEXT.yaml` — ~lines: +16 +19 +22,3 +26,3 +31 +34,3 +44
+  - `tasklist.md` — ~lines: +2,4 +12 +901 +907 +917,3 +921
+- **5a9fab8** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+- **07826c7** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +104,44
+  - `prisma/schema.prisma` — ~lines: +9
+  - `src/env/ensure-db-url.ts` — ~lines: +2 +92,26
+  - `src/shared/config.ts` — ~lines: +20,6
+  - `src/shared/prisma.ts` — ~lines: +218,6 +225 +233,75 +311,12
+  - `tests/setup-env.ts` — ~lines: +8,4
+- **e22e2c5** — 2025-10-28 — Sherbivs — _logic intent:_ ,
+  - `Prompt.md` — ~lines: +2 +4,3 +14 +55,30
+  - `ops/NEXT.yaml` — ~lines: +26 +31,6
+  - `tasklist.md` — ~lines: +2 +4,3 +906 +912
+- **0d5d2c3** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+- **f71f6f4** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +103,0
+  - `Prompt.md` — ~lines: +2,2 +9,0 +11 +13,2 +16,2 +19,2 +22,2 +25,2 +28,2 +31 +33,2 +36,2 +39,2 +42,2 +45,2 +48,3
+  - `README.md` — ~lines: +10,2 +126 +141 +150
+  - `ops/NEXT.yaml` — ~lines: +16 +19 +22,3 +26 +29
+- **61c3245** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +104,44
+  - `agent.md` — ~lines: +11 +28 +32 +51 +64
+  - `masterroutetable.md` — ~lines: +2 +8,9 +23 +25,9 +35,2 +41 +43,8 +52,2
+  - `ops/ROUTER.md` — ~lines: +5 +19
+  - `ops/ROUTER.yaml` — ~lines: +4 +48
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +12,2
+  - `ops/TOUCHMAP.yaml` — ~lines: +183,6 +208,14
+  - `scripts/ROUTER.md` — ~lines: +5 +12
+  - `tasklist.md` — ~lines: +2,2 +868,10 +918,23
+- **76b73b3** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+- **d7be4ce** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `ops/DB_BOOTSTRAP.md` — ~lines: +1,68
+  - `ops/ROUTER.yaml` — ~lines: +40
+  - `scripts/bootstrap_staging_db.ps1` — ~lines: +1,72
+  - `tasklist.md` — ~lines: +890,10
+- **2e2f4e4** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `package-lock.json` — ~lines: +1,6784
+  - `package.json` — ~lines: +18 +34,2 +38
+  - `pbsl-oracle-report.json` — ~lines: +1,204
+- **14c4cc5** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+  - `prisma/migrations/migration_lock.toml`
+- **d065fac** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `src/bot/ops/admin.ts` — ~lines: +1,6 +31,21 +59,35 +99,8 +197,59 +270,10 +295,61 +406,36
+  - `tests/ops.spec.ts` — ~lines: +89,4 +137,4 +174,4 +229,4 +278,4
+- **e706ad2** — 2025-10-28 — Sherbivs — _logic intent:_ Update migration_lock.toml
+  - `prisma/migrations/migration_lock.toml` — ~lines: +1
+- **90b389e** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `prisma/migrations/migration_lock.toml` — ~lines: +1
+- **8327ade** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `.env` — ~lines: +1,2
+  - `DATA-SCHEMA.md` — ~lines: +3 +16,6
+  - `Patch.md` — ~lines: +99,0 +100,0 +102,2
+  - `Prompt.md` — ~lines: +2,2 +13,3 +19,3 +23 +27 +29,3 +33,11 +46
+  - `ops/TOUCHMAP.yaml` — ~lines: +169,21
+  - `prisma/migrations/202510280500_scaling_indexes/migration.sql` — ~lines: +1,20
+  - `prisma/migrations/migration_lock.toml`
+  - `prisma/schema.prisma` — ~lines: +48,2 +58,2 +84,3 +104,16 +122,11
+  - `src/config/env.js` — ~lines: +89
+  - `tasklist.md` — ~lines: +2,2 +866,33
+- **ebe4b93** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Refresh PBSL launch checklist
+  - `Patch.md` — ~lines: +8,0 +12,0
+  - `Prompt.md` — ~lines: +2,2 +13 +18
+  - `src/bot/dripAlerts.js` — ~lines: +20 +112 +114 +120,2 +124 +125,0
+- **bfc341d** — 2025-10-27 — Sherbivs — _logic intent:_ Change: None (hotfix scoped to existing task queue).
+  - `Prompt.md` — ~lines: +2,2 +13 +18 +20 +22
+  - `src/bot/dripAlerts.js` — ~lines: +18,3 +110,16
+- **ce15924** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Refresh PBSL launch checklist
+  - `Prompt.md` — ~lines: +2,2 +13 +17,3 +21 +25 +27,3 +32,2 +36
+  - `docs/PBSL.md` — ~lines: +10 +17 +21,6 +34,55 +90,79 +172,8
+- **d237eb3** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Clear clipboard after CLEAR TASKS trigger
+  - `Patch.md` — ~lines: +108
+  - `Prompt.md` — ~lines: +2,2 +13,7 +23,3 +27
+  - `masterroutetable.md` — ~lines: +2 +23 +33,2 +39 +48,2 +94 +104,2 +110 +115,2 +121 +129,2
+  - `ops/NEXT.yaml` — ~lines: +25 +28
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +13 +38 +43
+  - `scripts/ROUTER.md` — ~lines: +5 +11
+  - `src/core/ROUTER.md` — ~lines: +5 +11
+  - `tasklist.md` — ~lines: +2,2 +311,9
+  - `tests/ROUTER.md` — ~lines: +5 +15
+- **2304461** — 2025-10-27 — Sherbivs — _logic intent:_ [Task META.ROUTER.REFRESH_20251027]
+  - `Patch.md` — ~lines: +108 +110,19 +130,3 +134,3 +138,3 +142,14 +156,0
+  - `ops/ROUTER.md` — ~lines: +5 +18
+  - `ops/ROUTER.yaml` — ~lines: +4 +41
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +33 +38 +43
+  - `src/bot/ROUTER.md` — ~lines: +5 +16
+  - `src/core/ROUTER.md` — ~lines: +5 +10
+  - `tasklist.md` — ~lines: +2,2 +302,10
+- **129dff6** — 2025-10-27 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +2,2 +108
+  - `Prompt.md` — ~lines: +2,2 +13,2 +18,2 +22 +26 +29,2 +33,2 +37 +41
+- **46f3628** — 2025-10-27 — Sherbivs — _logic intent:_ [Task T6.3] Emit DRIP alerts for role assignments
+  - `Patch.md` — ~lines: +2,2 +108,28
+  - `Prompt.md` — ~lines: +2,2 +13,5 +21 +25 +29 +31,3 +35,3 +40,2 +44,2 +48,2 +52,2 +56
+  - `ops/NEXT.yaml` — ~lines: +25 +28
+  - `ops/TOUCHMAP.yaml` — ~lines: +96,4
+  - `src/bot/main.js` — ~lines: +1 +975,146 +1857 +1859
+  - `tasklist.md` — ~lines: +2,2 +623,9
+- **05ed26e** — 2025-10-27 — Sherbivs — _logic intent:_ 1
+  - `src/bot/main.js` — ~lines: +49,3 +105,6 +118,6 +155,5 +176,126 +332,31 +408,13 +1236,7 +1344,7 +1568,12 +1638,5 +1645,19
+- **c8b3755** — 2025-10-27 — Sherbivs — _logic intent:_ [Task PBSL.ORACLE_DIFF] Wire PBSL oracle fixtures, tests, and CI reporting
+  - `.github/workflows/pbsl-oracle.yml` — ~lines: +41,16
+  - `Patch.md` — ~lines: +2,2 +88,9 +103 +108 +110,23
+  - `Prompt.md` — ~lines: +2,2 +13,6 +22 +24 +26 +30 +32,3 +36,3 +40,3 +45,2 +48,3 +52,3 +56,3 +60,3 +65,2 +69
+  - `docs/PBSL.md` — ~lines: +30,4 +45 +59,3
+  - `ops/NEXT.yaml` — ~lines: +25 +28
+  - `tasklist.md` — ~lines: +2,2 +337 +343
+  - `tests/pbsl/fixtures/README.md` — ~lines: +1,19
+  - `tests/pbsl/fixtures/basic-turn.json` — ~lines: +1,103
+  - `tests/pbsl/oracle.spec.ts` — ~lines: +1,162
+- **1c0480c** — 2025-10-27 — Sherbivs — _logic intent:_ [Task PBSL.SKELETON] Scaffold PBSL deterministic core and governanc
+  - `.github/workflows/pbsl-oracle.yml` — ~lines: +1,42
+  - `Patch.md` — ~lines: +98 +100 +101,0 +102,0
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20,3 +28 +30,3 +34,35 +71
+  - `README.md` — ~lines: +21,4 +127,15
+  - `docs/PBSL.md` — ~lines: +1,57
+  - `ops/TOUCHMAP.yaml` — ~lines: +165,12 +200,32 +239,16
+  - `package.json` — ~lines: +21,2
+  - `src/ROUTER.md` — ~lines: +13
+  - `src/core/ROUTER.md` — ~lines: +9 +14
+  - `src/core/pbsl/audit.ts` — ~lines: +1,62
+  - `src/core/pbsl/battle/engine.ts` — ~lines: +1,159
+  - `src/core/pbsl/data/provenance.ts` — ~lines: +1,35
+  - `src/core/pbsl/encounter/generator.ts` — ~lines: +1,95
+  - `src/core/pbsl/index.ts` — ~lines: +1,27
+  - `src/core/pbsl/phases.ts` — ~lines: +1,28
+  - `src/core/pbsl/rng.ts` — ~lines: +1,100
+  - `tasklist.md` — ~lines: +2,2 +322,23
+  - `tests/ROUTER.md` — ~lines: +14
+  - `tests/pbsl/engine.spec.ts` — ~lines: +1,41
+  - `tests/pbsl/provenance.spec.ts` — ~lines: +1,24
+  - `tests/pbsl/rng.spec.ts` — ~lines: +1,31
+- **9da9a7d** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #65 from Sherbivs/codex/add-prisma-heartbeat-monitor-task
+- **d03fa15** — 2025-10-27 — Sherbivs — _logic intent:_ Enhance CLI monitoring telemetry
+  - `src/bot/main.js` — ~lines: +49,3 +105,6 +118,6 +155,5 +176,126 +332,31 +408,13 +1236,7 +1344,7 +1568,12 +1638,5 +1645,19
+  - `src/index.ts` — ~lines: +7,6 +20,10 +35,6 +64,7 +86,4 +113,245 +460,4 +531,8 +541,2
+  - `src/services/cache.js` — ~lines: +81,36 +197 +209
+  - `src/shared/prisma.ts` — ~lines: +1 +3,38 +45,2 +49,152
+  - `src/utils/cliStatus.js` — ~lines: +7 +131,24 +159 +169,3
+- **ca08cf7** — 2025-10-27 — Sherbivs — _logic intent:_ Converted the security bot sweeps to a continuous loop and moved ready handlers to `Events.ClientReady`.
+  - `Prompt.md` — ~lines: +2,2 +14,2 +19 +21 +33,4
+  - `src/index.ts` — ~lines: +4 +152
+- **ccdbb01** — 2025-10-27 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +98
+  - `Prompt.md` — ~lines: +2,2 +13,2 +18 +20 +22 +26 +28,3
+  - `src/bot/main.js` — ~lines: +1,15 +41,12 +59,3 +69,11 +110,6 +226,18 +246 +471,63 +1221 +1337,79 +1449 +1486,7 +1749 +1775,18
+- **fb343ed** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Restore prisma export for DM flows
+  - `Patch.md` — ~lines: +99,2
+  - `Prompt.md` — ~lines: +2,2 +13,2 +18,3 +22 +26 +28,3 +33
+  - `src/models/index.ts` — ~lines: +11,2
+- **a699a9b** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #64 from Sherbivs/codex/fix-background-worker-import-error
+- **8038cca** — 2025-10-27 — Sherbivs — _logic intent:_ Fix starters prisma import
+  - `src/bot/dm/starters.ts` — ~lines: +9,2
+- **5498db9** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #63 from Sherbivs/codex/apply-unified-runtime-and-ci-guards-4rdu6j
+- **978e0fc** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/apply-unified-runtime-and-ci-guards-4rdu6j
+  - `src/models/index.ts`
+- **1cf66f7** — 2025-10-27 — Sherbivs — _logic intent:_ Fix prisma export in models index
+  - `.github/workflows/runtime.yml` — ~lines: +1,50
+  - `Patch.md` — ~lines: +2,2 +6 +9,3
+  - `Prompt.md` — ~lines: +2,2 +6 +13,4 +20,3 +24 +28 +30,2 +33,2 +36,2 +39,2 +42,2 +45,2 +48,2 +51,2 +54,3 +58,4
+  - `README.md` — ~lines: +123,15
+  - `masterroutetable.md` — ~lines: +2 +6,2 +9,8 +50 +52,4 +57,2 +60,26
+  - `ops/NEXT.yaml` — ~lines: +25 +27,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18,11
+  - `ops/TOUCHMAP.yaml` — ~lines: +188,32
+  - `package.json` — ~lines: +10
+  - `prisma/schema.prisma` — ~lines: +99,23
+  - `render.yaml` — ~lines: +50,17
+  - `scripts/guard_runtime.sh` — ~lines: +1,38
+  - `src/ROUTER.md` — ~lines: +5 +11,2 +17,2
+  - `src/bot/ops/admin.ts` — ~lines: +1,6 +31,21 +59,35 +99,8 +197,34 +245,10 +270,61 +381,36
+  - `src/models/index.ts` — ~lines: +3,3 +7 +10
+  - `src/shared/ROUTER.md` — ~lines: +1,19
+  - `src/shared/cache/memory.ts` — ~lines: +1,61
+  - `src/shared/config.ts` — ~lines: +1 +3,6 +10,72
+  - `src/shared/log.ts` — ~lines: +5,3 +42 +83 +99,2 +107,2 +121
+  - `src/shared/outbox.ts` — ~lines: +1,57
+  - `src/shared/prisma.ts` — ~lines: +1,49
+  - `src/worker/ROUTER.md` — ~lines: +1,13
+  - `src/worker/backup.ts` — ~lines: +1,122
+  - `tasklist.md` — ~lines: +2,2 +207,22
+  - `tests/ops_stats.spec.ts` — ~lines: +1,108
+  - `tests/outbox.spec.ts` — ~lines: +1,94
+  - `tests/runtime_config.spec.ts` — ~lines: +1,48
+  - `tsconfig.build.json` — ~lines: +1,10
+  - `tsconfig.json` — ~lines: +14
+- **89a00cf** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #62 from Sherbivs/codex/apply-unified-runtime-and-ci-guards
+- **7e96faf** — 2025-10-27 — Sherbivs — _logic intent:_ [Task META.RUNTIME.BLUEPRINT_APPLY] Apply runtime blueprint
+  - `.github/workflows/runtime.yml` — ~lines: +1,50
+  - `Patch.md` — ~lines: +2,2 +6 +9,3
+  - `Prompt.md` — ~lines: +2,2 +6 +13,4 +20,3 +24 +28 +30,2 +33,2 +36,2 +39,2 +42,2 +45,2 +48,2 +51,2 +54,3 +58,4
+  - `README.md` — ~lines: +123,15
+  - `masterroutetable.md` — ~lines: +2 +6,2 +9,8 +50 +52,4 +57,2 +60,26
+  - `ops/NEXT.yaml` — ~lines: +25 +27,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18,11
+  - `ops/TOUCHMAP.yaml` — ~lines: +188,32
+  - `package.json` — ~lines: +10
+  - `prisma/schema.prisma` — ~lines: +99,23
+  - `render.yaml` — ~lines: +50,17
+  - `scripts/guard_runtime.sh` — ~lines: +1,38
+  - `src/ROUTER.md` — ~lines: +5 +11,2 +17,2
+  - `src/bot/ops/admin.ts` — ~lines: +1,6 +31,21 +59,35 +99,8 +197,34 +245,10 +270,61 +381,36
+  - `src/models/index.ts` — ~lines: +3,3 +8
+  - `src/shared/ROUTER.md` — ~lines: +1,19
+  - `src/shared/cache/memory.ts` — ~lines: +1,61
+  - `src/shared/config.ts` — ~lines: +1 +3,6 +10,72
+  - `src/shared/log.ts` — ~lines: +5,3 +42 +83 +99,2 +107,2 +121
+  - `src/shared/outbox.ts` — ~lines: +1,57
+  - `src/shared/prisma.ts` — ~lines: +1,49
+  - `src/worker/ROUTER.md` — ~lines: +1,13
+  - `src/worker/backup.ts` — ~lines: +1,122
+  - `tasklist.md` — ~lines: +2,2 +207,22
+  - `tests/ops_stats.spec.ts` — ~lines: +1,108
+  - `tests/outbox.spec.ts` — ~lines: +1,94
+  - `tests/runtime_config.spec.ts` — ~lines: +1,48
+  - `tsconfig.build.json` — ~lines: +1,10
+  - `tsconfig.json` — ~lines: +14
+- **af91fd1** — 2025-10-27 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +97,3 +100,0
+  - `Prompt.md` — ~lines: +2,2 +13,2 +18 +20 +26 +28,3
+  - `agent.md` — ~lines: +1,70
+- **2804e0b** — 2025-10-27 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +96,0 +99,38
+- **424e8ff** — 2025-10-27 — Sherbivs — _logic intent:_ SECURITY_BOT_RESTART
+  - `Patch.md` — ~lines: +98
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20 +22 +28,9 +39,2
+  - `masterroutetable.md` — ~lines: +2 +48 +53 +59 +64 +72,2
+  - `src/bot/ROUTER.md` — ~lines: +5 +15 +21,2
+  - `src/index.ts` — ~lines: +18 +42,3 +115,61 +199,9 +274,8
+- **2f0d26a** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Refresh master router table
+  - `Patch.md` — ~lines: +98
+  - `Prompt.md` — ~lines: +2,2 +14 +20 +28 +30,3 +34,2 +36,0
+  - `masterroutetable.md` — ~lines: +2 +21 +23,2 +35 +43 +48 +55,4 +63 +65,3 +69,2 +84 +88
+- **86947f9** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #61 from Sherbivs/codex/fix-referenceerror-in-discord-bot-startup
+- **274afd8** — 2025-10-27 — Sherbivs — _logic intent:_ [Task 001] Define Discord ready promise before login
+  - `src/bot/index.ts` — ~lines: +2 +45,2
+- **33e03b4** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #60 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-xsyvjt
+- **664e6a2** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-xsyvjt
+- **5c31acd** — 2025-10-27 — Sherbivs — _logic intent:_ Fix Discord ready promise usage
+  - `discord-pokemon-bot/pokemon-bot.js` — ~lines: +15,73 +133,4
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/ROUTER.md` — ~lines: +14
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,2 +156,53
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,92
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **8997faf** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #59 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-oqb48o
+- **390a18e** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-oqb48o
+- **ce01075** — 2025-10-27 — Sherbivs — _logic intent:_ Fix ready promise binding in Discord boot
+  - `discord-pokemon-bot/pokemon-bot.js` — ~lines: +15,73 +133,4
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/ROUTER.md` — ~lines: +14
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,3 +157,53
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,92
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **8cf654d** — 2025-10-27 — Sherbivs — _logic intent:_ META.README.ROUTER_DOC
+  - `Patch.md` — ~lines: +98,2
+  - `Prompt.md` — ~lines: +2,2 +13,3 +19,3 +23 +27 +29,2 +33 +37 +40,2
+  - `README.md` — ~lines: +109,20 +138,10
+- **56ebbb0** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #58 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-3hzvof
+- **2ddcd0f** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-3hzvof
+- **356f712** — 2025-10-27 — Sherbivs — _logic intent:_ Support ESM cliStatus in Pokémon bot
+  - `discord-pokemon-bot/pokemon-bot.js` — ~lines: +15,73 +133,4
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/ROUTER.md` — ~lines: +14
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,4 +158,53
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,92
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **d4f0765** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #56 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-jvqc7w
+- **954e9b3** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-jvqc7w
+  - `src/bot/index.ts`
+- **ceef074** — 2025-10-27 — Sherbivs — _logic intent:_ Wait for Discord ready before returning client
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,9 +163,2
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,92
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **583a28e** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #55 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-kqrd59
+- **e615a66** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-kqrd59
+- **57b6166** — 2025-10-27 — Sherbivs — _logic intent:_ Convert legacy commands to ESM
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,6
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,58
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **c464c37** — 2025-10-27 — Sherbivs — _logic intent:_ Removed access pset
+  - `Patch.md` — ~lines: +98,0
+- **93d9468** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #53 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-y7mspp
+- **543607b** — 2025-10-27 — Sherbivs — _logic intent:_ [Task PATCH] Restore Render-friendly CLI monitor
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +20,2 +36,2 +65,2 +98,2 +142,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,6
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,63
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,159 +169,3 +173,3 +179,6 +187,7 +202,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,173
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **dbc098d** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #52 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-if6j04
+- **e294c9e** — 2025-10-27 — Sherbivs — _logic intent:_ Bridge shared logger to CLI monitor
+  - `index.js` — ~lines: +1,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +3 +42
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,63
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,173
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **c2391d8** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #51 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-u80qqh
+- **fa0c492** — 2025-10-27 — Sherbivs — _logic intent:_ Restore CLI log output for non-error levels
+  - `index.js` — ~lines: +1,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +3 +42
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,63
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **a797831** — 2025-10-26 — Sherbivs — _logic intent:_ Merge pull request #50 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info
+- **5732cf3** — 2025-10-26 — Sherbivs — _logic intent:_ Fix battle tests and pipeline determinism
+  - `index.js` — ~lines: +1,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +3 +42
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,63
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +182,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **3c02c89** — 2025-10-26 — Sherbivs — _logic intent:_ Merge pull request #49 from Sherbivs/codex/manage-security-bots-for-error-handling
+- **00f8ac4** — 2025-10-26 — Sherbivs — _logic intent:_ Add fatal error guard for security bot
+  - `src/bot/main.js` — ~lines: +41,2 +53,3
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1,89
+- **da2096c** — 2025-10-26 — Sherbivs — _logic intent:_ [Hotfix HF.20251026.DB_URL_HOST_OVERRIDE] Override localhost DB URL fallback
+  - `src/env/ensure-db-url.ts` — ~lines: +41
+- **6ed1397** — 2025-10-26 — Sherbivs — _logic intent:_  Hotfix HF.20251026.DB_URL_HOST_OVERRIDE forces Render services to drop localhost DATABASE_URL fallbacks in favor of the managed connection string.
+  - `Prompt.md` — ~lines: +2,2 +13,3 +19 +21 +23 +27 +29,2 +33 +35,2 +39 +42 +46 +49,2
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +5,2 +8,2
+  - `ops/NEXT.yaml` — ~lines: +25 +28
+  - `ops/RECOVERY.yaml` — ~lines: +7,2 +11,4
+  - `src/env/ensure-db-url.ts` — ~lines: +29,18 +49,13 +62,0 +63,0 +65,14 +86,17
+  - `tasklist.md` — ~lines: +2,2 +652,10
+- **babaa11** — 2025-10-26 — Sherbivs — _logic intent:_ Merge pull request #48 from Sherbivs/codex/activate-patch-engine-1icxoi
+- **4f7bd80** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.RENDER.DB_URL_FIX] Harden Render DATABASE_URL boot
+  - `.github/workflows/guard-render.yml` — ~lines: +1,24
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20 +22 +24 +28 +30,2 +33,23 +58 +61 +63,2 +67 +70 +74 +77,2
+  - `README.md` — ~lines: +109,20
+  - `ops/NEXT.yaml` — ~lines: +16 +19 +22,2 +25 +28
+  - `ops/RECOVERY.yaml` — ~lines: +7,5
+  - `ops/TOUCHMAP.yaml` — ~lines: +208,16
+  - `render.yaml` — ~lines: +19,0 +33,0 +60,0 +91,0
+  - `scripts/guard_render.mjs` — ~lines: +1,126
+  - `scripts/guards/require-ensure-db-preload.mjs` — ~lines: +1,95
+  - `src/env/ensure-db-url.ts` — ~lines: +1,53
+  - `src/index.ts` — ~lines: +3,2 +10,13
+  - `src/models/index.ts` — ~lines: +1,6 +10,26
+  - `tasklist.md` — ~lines: +2,2 +110 +116 +641,11
+- **c918bb0** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +96,189
+- **8a360ef** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.HOTFIX.TRIGGER_SUFFIX] Allow optional notes after the hotfix trigger
+  - `Patch.md` — ~lines: +2,2 +7,0 +83 +89,7
+  - `Prompt.md` — ~lines: +2,2 +13,3 +19 +21 +23 +27 +30 +33 +35,2 +39 +42 +44,2 +48 +52
+  - `ops/HOTFIX.md` — ~lines: +2,2 +7 +16,2
+  - `ops/NEXT.yaml` — ~lines: +26 +29
+  - `ops/TOUCHMAP.yaml` — ~lines: +203,12
+  - `tasklist.md` — ~lines: +2,2 +59,18
+- **056c888** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.CONTRACTS.SWITCH] Marker switch contract and guard updates
+  - `Patch-Template.md` — ~lines: +2,2 +5 +6,0 +8 +10,3 +14,3 +19 +23,0 +33,0 +35
+  - `Patch.md` — ~lines: +2,2 +8,18 +27 +32,7 +40 +42 +47,21 +77 +91
+  - `Prompt.md` — ~lines: +2,2 +6,5 +13,4 +20 +22,3 +26,268
+  - `masterroutetable.md` — ~lines: +2 +6
+  - `ops/CRITICAL.md` — ~lines: +2,2 +41,5
+  - `ops/HOTFIX.md` — ~lines: +2,2 +16
+  - `ops/NEXT.yaml` — ~lines: +5 +26 +29
+  - `ops/RECOVERY.yaml` — ~lines: +15,3
+  - `ops/ROUTER.md` — ~lines: +5 +9
+  - `ops/TOUCHMAP.yaml` — ~lines: +188,15
+  - `scripts/ROUTER.md` — ~lines: +5 +10
+  - `scripts/guard_meta.sh` — ~lines: +63,10 +105,8 +116,8 +127,14 +152,5 +159,29 +188,0 +190,11 +203,5 +209,5 +216,6
+  - `tasklist.md` — ~lines: +2,2 +49,10
+- **02663a2** — 2025-10-26 — Sherbivs — _logic intent:_ Delete DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED directory
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/PATCH_POLICY_BACKUP.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Prompt.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/ROUTER.yaml` — ~lines: +0,0
+- **020765c** — 2025-10-26 — Sherbivs — _logic intent:_ Merge pull request #47 from Sherbivs/codex/remove-outdated-files-from-repository
+- **14df184** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.REPO.RESTORE_STRUCTURE] Restore canonical meta docs and guards
+  - `.github/workflows/data-health.yml` — ~lines: +1,25
+  - `.github/workflows/guard-docs.yml` — ~lines: +1,16
+  - `.github/workflows/guard-meta.yml` — ~lines: +4,2 +7 +10 +13,20
+  - `.github/workflows/guard-router.yml` — ~lines: +1,15
+  - `.github/workflows/guard-routing.yml` — ~lines: +1,17
+  - `.github/workflows/refresh-cache.yml` — ~lines: +1,27
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +0,0
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +0,0
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +0,0
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +0,0
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Prompt.md` — ~lines: +0,0
+  - `Patch-Template.md` — ~lines: +1,3 +5 +7 +9 +11 +14,2 +18,4 +23,5 +32 +36,2 +40 +42,3 +46,4
+  - `Patch.md` — ~lines: +2,65
+  - `Prompt.md` — ~lines: +2,2 +6,2 +10,8 +19,19 +40,3 +44,0 +47,4 +52,6
+  - `masterroutetable.md` — ~lines: +1,84
+  - `ops/CRITICAL.md` — ~lines: +1,49
+  - `ops/HOTFIX.md` — ~lines: +1,60
+  - `ops/NEXT.yaml` — ~lines: +25 +27
+  - `ops/PATCH_POLICY_BACKUP.md` — ~lines: +1,9
+  - `ops/ROUTER.md` — ~lines: +5 +9 +27
+  - `ops/ROUTER.yaml` — ~lines: +1,59
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `tasklist.md` — ~lines: +2,2 +49,10
+- **5811000** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.READY.ABSOLUTE] Eliminate patch engine stalls with auto-promotion, strict postflight, and router cues
+  - `.github/workflows/guard-meta.yml` — ~lines: +1,20
+  - `CRITICAL.md` — ~lines: +1,49
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +7 +26
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +15,2
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +96,3
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +44,16
+  - `HOTFIX.md` — ~lines: +1,60
+  - `Patch-Template.md` — ~lines: +1,287
+  - `Patch.md` — ~lines: +1,756
+  - `Prompt.md` — ~lines: +2,2 +13,5 +22 +24,2
+  - `ops/NEXT.yaml` — ~lines: +7 +9,7 +18 +21,3 +25,4
+  - `ops/ROUTER.md` — ~lines: +5 +8
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +12,2
+  - `scripts/ROUTER.md` — ~lines: +2,2 +5 +7,3
+  - `scripts/guard_meta.sh` — ~lines: +4,31 +93,0 +164,33
+  - `tasklist.md` — ~lines: +1,733
+- **c3b5999** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +1,47
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +1,59
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/PATCH_POLICY_BACKUP.md` — ~lines: +1,9
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +1,286
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +1,741
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Prompt.md` — ~lines: +1,680
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/ROUTER.yaml` — ~lines: +1,59
+- **be0811d** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +1,47
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +1,59
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/PATCH_POLICY_BACKUP.md` — ~lines: +1,9
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +1,286
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +1,741
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Prompt.md` — ~lines: +1,680
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/ROUTER.yaml` — ~lines: +1,59
+- **3b2b467** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch-Template.md` — ~lines: +0,0
+  - `Patch.md` — ~lines: +0,0
+  - `Prompt.md` — ~lines: +2,2 +13,5 +21,5 +27,614 +647
+  - `ops/CRITICAL.md` — ~lines: +0,0
+  - `ops/HOTFIX.md` — ~lines: +0,0
+  - `ops/NEXT.yaml` — ~lines: +13 +17 +21,2
+  - `ops/PATCH_POLICY_BACKUP.md` — ~lines: +0,0
+  - `ops/ROUTER.yaml` — ~lines: +0,0
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18 +23 +33
+  - `ops/TOUCHMAP.yaml` — ~lines: +151,3 +154,0 +156,7 +163,0
+  - `src/ROUTER.md` — ~lines: +5 +10
+  - `src/bot/ROUTER.md` — ~lines: +5 +13
+  - `src/bot/daily/claim.ts` — ~lines: +1,94
+  - `src/bot/dm/home.tsx`
+  - `src/bot/index.ts` — ~lines: +75,10
+  - `src/commands/daily.js` — ~lines: +1,13
+  - `tasklist.md` — ~lines: +2,2 +232,2 +235,11 +247,4
+  - `tests/ROUTER.md` — ~lines: +5 +13
+  - `tests/daily.spec.ts` — ~lines: +1,76
+- **d9752ba** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +316 +318 +320 +322,5 +328,5 +334,2 +337,2 +340 +342 +344,4 +349 +351 +353,2 +356 +358 +360 +362,2 +365 +367,2 +370 +372 +374,3 +378 +380,10 +391,3 +395 +400,15 +416,3 +421,3 +425,4 +430,41 +472,6 +479 +481,3 +485,2 +488,5 +494,14 +509 +511,3 +515,33 +549,20 +570,28 +599,3 +603 +605 +607,3 +611,5 +617 +619,13 +635 +637,4 +642,11 +654 +656,10 +667 +669,14 +684,7 +692 +694,9 +704 +706,5 +712 +714,4 +719 +721 +723,2 +727 +730,5 +737,4 +741,0
+  - `Prompt.md` — ~lines: +12,0 +13,0 +15 +17 +21,4
+  - `ops/NEXT.yaml` — ~lines: +12,3 +16,0 +18,5
+  - `tasklist.md` — ~lines: +715
+- **fe28c8e** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +318 +320 +322,2 +325 +327,17 +345 +347 +349 +351,3 +355 +357 +359 +361 +363 +365 +367 +369 +371 +373 +375 +377 +379 +381 +383 +385 +390,2 +393,10 +405 +407 +409 +411 +413,7 +421,13 +435,8 +444,6 +451,6 +458,8 +467,23 +491 +493 +495 +497 +499,4 +504,9 +513,0 +515 +517,34 +552 +554 +556 +558 +560,4 +565 +567,9 +577 +579 +581 +583,6 +590,5 +596 +598 +599,0 +601 +603,2 +606 +608,10 +619,2 +623 +626,5 +632,0 +634,3
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20,289 +311,0
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,0 +19,2 +24 +27
+  - `ops/TOUCHMAP.yaml` — ~lines: +150,8
+  - `prisma/schema.prisma` — ~lines: +23,3 +28,5 +44,5
+  - `src/commands/home.js` — ~lines: +17,166 +262 +270 +300 +343 +363 +386,15 +505,8 +521,14 +577,3
+  - `src/models/index.ts` — ~lines: +4 +140,263
+  - `tasklist.md` — ~lines: +2,2 +69,0 +709 +715,11
+  - `tests/dm_home.spec.ts` — ~lines: +21,11 +38 +60 +113,5 +153,32
+  - `tests/log.spec.ts` — ~lines: +3 +23,48
+- **e0b91e9** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `.github/workflows/data-health.yml` — ~lines: +0,0
+  - `.github/workflows/guard-docs.yml` — ~lines: +0,0
+  - `.github/workflows/guard-meta.yml` — ~lines: +0,0
+  - `.github/workflows/guard-router.yml` — ~lines: +0,0
+  - `.github/workflows/guard-routing.yml` — ~lines: +0,0
+  - `.github/workflows/refresh-cache.yml` — ~lines: +0,0
+- **573ba95** — 2025-10-26 — Sherbivs — _logic intent:_ Retire Refresh Vision requirement
+  - `Patch.md` — ~lines: +2,2 +16,3 +144,28 +315,0 +318 +320 +322,3 +326 +328,5 +334,2 +337,2 +340 +342,77 +419,0 +421,3 +425,3 +428,0 +430,48 +479,92 +573 +576 +580,2 +583,3 +587 +593,4 +603,12 +619 +621,4 +627,5 +635 +637,4 +642,2 +645 +647,6 +656,12 +669,6 +676,9 +686,4 +692 +694 +696,14 +712,7 +723,2 +727 +730,5 +737,5
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20,2 +23,0 +29,3
+  - `ops/CRITICAL.md` — ~lines: +32,4 +37
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +18 +20 +22 +24 +26,2
+  - `ops/TOUCHMAP.yaml` — ~lines: +138 +146
+  - `src/commands/home.js` — ~lines: +14,50 +94,2 +102 +131 +193 +215,11 +245,81 +330 +337,3 +380,2
+  - `tasklist.md` — ~lines: +2,2 +40,20 +709 +715 +719 +725
+  - `tests/dm_home.spec.ts` — ~lines: +13,8 +26 +30 +47 +87,4 +96 +104,33
+- **15e87b8** — 2025-10-26 — Sherbivs — _logic intent:_ [META.ROUTING.DUAL_TABLES]: Establish dual (DEV/PROD) routing tables + master route text reference + DNS bridge
+  - `Patch.md` — ~lines: +2,2 +26 +292 +294 +297,38 +337,126 +466,10 +477,4 +482,7 +491 +495,4 +500,10 +512 +516,7 +524,20 +545,2 +548 +550,3 +560 +563 +566,5 +573
+  - `Prompt.md` — ~lines: +2,2 +13,4 +21,2494 +2543,2
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +18,5 +24 +26,2
+  - `ops/TOUCHMAP.yaml` — ~lines: +137,14 +226,18
+  - `scripts/guard_meta.sh` — ~lines: +167,92
+  - `tasklist.md` — ~lines: +2,2 +31 +38,21 +684,22
+- **70bb614** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Prompt.md` — ~lines: +2,2 +13,4 +21,3 +52
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +22 +24 +26,2
+  - `scripts/guard_meta.sh` — ~lines: +164,8
+  - `tasklist.md` — ~lines: +2,2 +21 +27 +31 +38
+- **28b2530** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +2,2 +289,0 +291 +293 +295,28 +324 +326 +328,28 +359 +361,4 +368,4 +375 +379 +382 +384,3 +389,16 +407,0 +408,0 +410,2 +414 +417,3 +422,2
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,5 +23 +26
+  - `tasklist.md` — ~lines: +19,21
+- **b6ba43c** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +149,0 +151 +153,2 +156 +158 +160,39 +200 +202,10 +213,4 +218 +219,0 +220,0 +222 +224 +226,5 +232,7 +240,6 +247 +249,7 +257,11 +268,0 +269,0 +271,22 +294,476 +771,22 +795,5 +801 +805,10 +816,27 +844 +848,6 +860,4 +865,10 +877 +880,2 +883,4 +888 +890,4 +897,6 +912 +915 +919,6 +927 +929 +932
+- **65e9de2** — 2025-10-26 — Sherbivs — _logic intent:_ HF.20251026.MASTER_ROUTE_TABLE
+  - `Prompt.md` — ~lines: +2,2 +13,4 +21,3 +52
+  - `masterroutetable.md` — ~lines: +2,83
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +5,2 +8,2
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +21,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,3 +11,4
+  - `tasklist.md` — ~lines: +2,2 +533,10
+- **e2676b1** — 2025-10-26 — Sherbivs — _logic intent:_ META.README.REFRESH2
+  - `Prompt.md` — ~lines: +2,2 +13,4 +21,3 +52
+  - `README.md` — ~lines: +9,11 +23,6 +33,3 +37,4 +42,4 +64 +67,30 +100 +103,3 +107 +111,19 +139,7
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +21,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,3 +11
+  - `tasklist.md` — ~lines: +2,2 +69,10
+- **425a9ce** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `README.md` — ~lines: +7,7 +119,8
+- **491affd** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch-Template.md` — ~lines: +2,2 +51 +60,8 +82,9 +102 +109 +117 +131 +137 +145 +158 +220 +269 +282 +286
+- **aa9bd84** — 2025-10-26 — Sherbivs — _logic intent:_ HF.20251026.PLAIN_ECHO_TEXT
+  - `Patch.md` — ~lines: +150,2 +153,6 +160,3 +164,3 +168,3 +172,3 +176,4 +181,4 +186,4 +191,3 +195,3 +199 +201,4 +206,8 +215,2 +218 +220,7 +228 +230,3 +234 +236,7 +244 +246,2 +249 +251,2 +254,4 +259,10 +271 +274,5 +280 +282,3 +286,4 +292 +296,4 +301,6 +313,4 +320,2 +323 +326 +328,2 +331 +333,5 +346,3 +350 +352,2 +363 +366 +370,6 +379,3 +385
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20,6 +53,2
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +5,2 +8,2
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +21,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,3 +11,4
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +23 +33
+  - `ops/TOUCHMAP.yaml` — ~lines: +135
+  - `src/bot/ROUTER.md` — ~lines: +5 +12
+  - `src/bot/ops/admin.ts` — ~lines: +25 +39,15 +164,6 +183 +192,2 +203,2 +236 +239 +247 +255,6 +316,10
+  - `src/commands/ops.js` — ~lines: +43,6
+  - `tasklist.md` — ~lines: +2,2 +513,10 +616 +622
+  - `tests/ROUTER.md` — ~lines: +5 +11
+  - `tests/ops.spec.ts` — ~lines: +47 +99 +111 +147 +155 +173 +185 +188,84
+- **d6af7c4** — 2025-10-26 — Sherbivs — _logic intent:_ HF.20251026.PLAIN_ECHO_TEXT
+  - `Patch.md` — ~lines: +66 +102
+  - `Prompt.md` — ~lines: +2,2 +13,4 +22,2 +51,2
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +8,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,2 +11,4
+  - `ops/ROUTER.md` — ~lines: +5 +8,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `tasklist.md` — ~lines: +2,2 +493,20
+- **a4c3ecd** — 2025-10-26 — Sherbivs — _logic intent:_ HF.20251026.PATCH_ECHO_MD
+  - `Patch.md` — ~lines: +101
+  - `Prompt.md` — ~lines: +2,2 +13,4 +22,2 +51,2
+  - `ops/HOTFIX.md` — ~lines: +26 +43,9
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +3 +5,14
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17 +19 +21,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,2 +10,5
+  - `ops/ROUTER.md` — ~lines: +5 +8,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `tasklist.md` — ~lines: +2,2 +476 +482,10
+- **e71e047** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +288,3 +293 +296,0 +300 +302,9 +319,2 +323,61 +387 +389,4 +394,19 +415 +417,59 +477 +479 +482,7 +490,4 +495,4 +500,20 +521 +523,2 +533,5 +539,2 +547,4 +553,3 +557,2 +560,4 +565 +567,5 +578 +580,2 +583,5 +590 +592,4 +597,4 +602,9 +614 +620 +623 +627,8 +638,3 +644
+- **ddbd6ff** — 2025-10-26 — Sherbivs — _logic intent:_ .[META.ROUTER.INTEGRATION]: Unify Patch/Hotfix engines with Router Network + auto-metadata tagging + master route authority
+  - `Patch.md` — ~lines: +286 +288 +290 +292,53 +346 +348,17 +368 +371,32 +404,151 +556,56 +613,24 +638,30 +669 +671,3 +675 +677 +679,47 +727 +729,3 +733,8 +743,7 +751 +753,27 +786,5 +792,0 +796 +798 +801 +805,7 +815,3 +819 +821,2
+  - `Prompt.md` — ~lines: +2,2 +13,5 +23,2 +52
+  - `masterroutetable.md` — ~lines: +2
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +18,5 +24 +27
+  - `ops/RECOVERY.yaml` — ~lines: +7,2 +10,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +23 +33
+  - `ops/TOUCHMAP.yaml` — ~lines: +131,5
+  - `src/bot/ROUTER.md` — ~lines: +5 +11
+  - `src/bot/ops/admin.ts` — ~lines: +22,5 +29 +31 +36,2 +143,14 +161 +163 +165 +189 +191 +209 +212,5 +222 +230 +268,3 +274,15 +290,7
+  - `src/commands/ops.js` — ~lines: +26,17
+  - `tasklist.md` — ~lines: +2,2 +567 +573,11
+  - `tests/ROUTER.md` — ~lines: +5 +10
+  - `tests/ops.spec.ts` — ~lines: +2 +46,2 +68 +73 +99 +106,71 +185
+- **fb2c1f2** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +107 +115 +129 +135 +143 +156 +218 +267 +280 +286,3 +291 +293,33 +327,33 +361,9 +371,4 +377,2 +382,4 +388 +390,6 +398,4 +402,0 +404,2 +408 +412,5 +420,5 +425,0
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20 +22,2 +51
+  - `masterroutetable.md` — ~lines: +2
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +20,0 +22 +25
+  - `ops/RECOVERY.yaml` — ~lines: +7,5
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +23 +33
+  - `ops/TOUCHMAP.yaml` — ~lines: +126,5
+  - `src/bot/ROUTER.md` — ~lines: +5 +10
+  - `src/bot/ops/admin.ts` — ~lines: +2 +12,20 +38 +45,18 +79,2 +91 +95,109 +205,2 +209,4 +224 +239,17
+  - `tasklist.md` — ~lines: +2,2 +557 +563,11
+  - `tests/ROUTER.md` — ~lines: +5 +9
+  - `tests/ops.spec.ts` — ~lines: +1 +3 +31,81
+- **63db87e** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19 +21 +49
+  - `masterroutetable.md` — ~lines: +1,13
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +3 +5,3 +9,2 +13,3
+  - `ops/RECOVERY.yaml` — ~lines: +12,3
+  - `ops/ROUTER.yaml` — ~lines: +40
+  - `ops/TOUCHMAP.yaml` — ~lines: +208,11
+  - `tasklist.md` — ~lines: +2,2 +484,19
+- **613183e** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +286 +287,0 +289 +292 +294 +296,14 +311 +313,15 +329,0 +332 +336,2 +340,35 +378 +381,2 +386,5 +399 +402 +406,3 +412,2 +415,0
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19 +21 +49
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +18 +20 +23 +26
+  - `src/bot/ROUTER.md` — ~lines: +5 +8
+  - `src/bot/battle/conclude.ts` — ~lines: +2 +4 +10,2 +58,57
+  - `tasklist.md` — ~lines: +2,2 +528 +534 +538
+  - `tests/ROUTER.md` — ~lines: +5 +8
+  - `tests/battle_flow.spec.ts` — ~lines: +236 +245,89
+- **fe6c966** — 2025-10-26 — Sherbivs — _logic intent:_ Hotfix Trigger
+  - `Patch.md` — ~lines: +2,2 +60,7 +81,9 +286 +290 +292,0 +295,4 +300,9 +310,9 +320,11 +332,2 +334,0 +337,2 +340 +343 +346 +347,0 +350,5 +357 +361,8 +371 +376,2 +379 +381,3 +393 +396 +400,3 +406 +410
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18 +20 +30,7 +48
+  - `ops/HOTFIX.md` — ~lines: +1,50
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +1,15
+  - `ops/NEXT.yaml` — ~lines: +27
+  - `ops/RECOVERY.yaml` — ~lines: +12,3
+  - `ops/ROUTER.md` — ~lines: +5 +8
+  - `ops/ROUTER.yaml` — ~lines: +57,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +13
+  - `ops/TOUCHMAP.yaml` — ~lines: +188,20
+  - `package.json` — ~lines: +18
+  - `scripts/ROUTER.md` — ~lines: +5 +13
+  - `scripts/guard_meta.sh` — ~lines: +32,8 +111,6 +125,6 +132
+  - `scripts/hotfix_entry.sh` — ~lines: +1,24
+  - `tasklist.md` — ~lines: +2,2 +461,23
+- **59d628c** — 2025-10-26 — Sherbivs — _logic intent:_ push
+  - `Prompt.md` — ~lines: +2,2 +13,3 +20 +41
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,6 +24 +27
+  - `ops/RECOVERY.yaml` — ~lines: +7,5
+  - `ops/ROUTER.md` — ~lines: +5 +8
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `ops/TOUCHMAP.yaml` — ~lines: +113,13
+  - `tasklist.md` — ~lines: +2,2 +492,30
+- **3a43d1a** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272 +276,77 +353,0 +356,0 +360,6 +368,9 +378,4 +389,4 +394,2 +398,16 +414,0 +417 +421,12 +435 +439,16 +456,3 +461 +463 +465,13 +479 +481,8 +496,3 +502 +506,8 +520 +528,2 +533,5 +539,2 +542 +544,4 +557 +560 +564,8 +575,3 +581
+- **f05332a** — 2025-10-26 — Sherbivs — _logic intent:_ # Standardized Pokémon Game Logic (Buddy System Edition)
+  - `discord-pokemon-bot/data/standized_pokemon_game_logic.md` — ~lines: +1,406
+- **0806108** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272 +274,3 +278 +280,2 +283,43 +327,3 +331 +333,48 +383 +388,28 +416,0 +419,2 +422,16 +440 +442,19 +463,19 +484 +486,9 +496,9 +506 +508,21 +531,26 +560,0 +562,11 +574,9 +589,23 +613
+- **724a948** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Prompt.md` — ~lines: +13,4
+- **4df4ac4** — 2025-10-26 — Sherbivs — _logic intent:_  2025-10-26 \| T7.3 persisted battle outcomes with shared announcer + tests. \| BattleRepo writes rewards, DM/thread summaries reuse stored results, and Vitest covers persistence/forfeit flow. \|
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19,3 +42
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17 +19 +22
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18 +23 +33
+  - `src/ROUTER.md` — ~lines: +5 +8
+  - `src/bot/ROUTER.md` — ~lines: +5 +8
+  - `src/bot/battle/actions.ts` — ~lines: +9 +11,2 +18,0 +98,8
+  - `src/bot/battle/conclude.ts` — ~lines: +1,53
+  - `src/models/index.ts` — ~lines: +29 +43,5 +69,7
+  - `tasklist.md` — ~lines: +2,2 +483,9
+  - `tests/ROUTER.md` — ~lines: +5 +8
+  - `tests/battle_flow.spec.ts` — ~lines: +4,3 +183,62
+  - `tests/battle_results.spec.ts` — ~lines: +1,134
+- **57bf8de** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272,2 +275 +277,2 +282 +284,32 +319 +321,17 +342 +344,15 +360,4 +365,16 +382,4 +387,15 +403,8 +412,17 +431 +433 +436,36 +476 +478,24 +506 +508,2 +511 +513 +514,0 +516 +518 +520,15 +536 +538 +540,3 +544,3
+- **29831d3** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272 +274 +276,5 +282 +284 +286,23 +310,4 +315,5 +321 +323 +325,25 +351 +353 +355,11 +368 +370 +372,9 +383 +385 +387 +389,2 +392 +394,26 +422,55 +478,3 +482,2 +485
+- **af06d14** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #46 from Sherbivs/codex/fix-missing-database_url-environment-variable
+- **595dcd9** — 2025-10-25 — Sherbivs — _logic intent:_ Provision Render Postgres and harden config env fallbacks
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19,3 +43
+  - `README.md` — ~lines: +112,8
+  - `ops/ROUTER.md` — ~lines: +5 +9
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +18
+  - `render.yaml` — ~lines: +1,6 +15,9 +34,8 +65,8 +100,8 +146,8
+  - `src/ROUTER.md` — ~lines: +5 +9
+  - `src/shared/config.ts` — ~lines: +17,16
+- **f5286cc** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #45 from Sherbivs/codex/fix-module_not_found-errors-in-deployment
+- **7a69c0c** — 2025-10-25 — Sherbivs — _logic intent:_ Fix Render build to run ts entrypoint and regenerate Prisma
+  - `package.json` — ~lines: +7,2 +10 +12,2 +31,0 +38
+  - `prisma/schema.prisma` — ~lines: +25,5 +41,5
+  - `render.yaml` — ~lines: +6,2 +14 +38 +61 +103
+- **2f499a4** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #44 from Sherbivs/codex/read-patch.md-and-activate-patch-engine
+- **9071c6b** — 2025-10-25 — Sherbivs — _logic intent:_ META: Promote T7.3 backlog to READY
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19 +21 +42
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,5 +23 +26
+  - `ops/RECOVERY.yaml` — ~lines: +1,2 +6,4 +11
+  - `ops/ROUTER.md` — ~lines: +5,4
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `tasklist.md` — ~lines: +2,2 +483,9
+- **ec3103b** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272 +274 +276,3 +280 +282 +284,3 +288 +290 +292,3 +296 +298 +300,2 +303 +305 +307 +309,8 +317,0 +318,0 +321,2 +324 +325,0 +327 +330 +332 +334,10 +346 +348 +350,5 +356
+- **6eb5eac** — 2025-10-25 — Sherbivs — _logic intent:_ META.ROUTER.NAME_GUARD added canonical-name guard & CI.
+  - `.github/workflows/guard-router.yml` — ~lines: +1,15
+  - `Patch.md` — ~lines: +2,2 +51 +269,0 +271 +275,6 +281,0 +283 +284,0 +286,4 +297,6 +305 +308,17 +326,49 +376,9 +386,3 +390,2 +394,91 +487,10 +502,2 +506,0 +509 +512,9 +522,2 +530,5 +541,4 +547,10 +559,4 +566 +572,2 +577 +579 +581,5 +595 +598 +602,5 +609 +611,0
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20 +22 +43
+  - `ops/CANONICAL_NAMES.yaml` — ~lines: +1,29
+  - `ops/ROUTER.md` — ~lines: +5 +15
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +13
+  - `ops/TOUCHMAP.yaml` — ~lines: +167,8
+  - `prisma/schema.prisma` — ~lines: +90
+  - `scripts/ROUTER.md` — ~lines: +5 +12
+  - `scripts/verify_router_links.sh` — ~lines: +1,102
+  - `src/bot/arena/summary.ts` — ~lines: +3,2 +20,29
+  - `src/bot/battle/actions.ts` — ~lines: +10,2 +64 +68 +87 +89,12 +103 +106 +112,2 +117
+  - `src/bot/index.ts` — ~lines: +14 +103
+  - `src/models/index.ts` — ~lines: +4 +27,102
+  - `tasklist.md` — ~lines: +2,2 +160,11
+- **e851cfa** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch-Template.md` — ~lines: +269,0
+- **2e5e0ab** — 2025-10-25 — Sherbivs — _logic intent:_ T7.2 Capture
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20 +22 +43
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +21,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18 +23 +28 +33
+  - `src/ROUTER.md` — ~lines: +5,4
+  - `src/bot/ROUTER.md` — ~lines: +5,4
+  - `src/core/ROUTER.md` — ~lines: +5,4
+  - `tasklist.md` — ~lines: +2,2 +464 +470
+  - `tests/ROUTER.md` — ~lines: +5,4
+  - `tests/catch.spec.ts` — ~lines: +1,3
+- **59e653c** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +271 +275 +277 +279,32 +312 +318,5 +324 +327,36 +365,26 +392,12 +405,2 +408,4 +413,2 +418 +421 +423,16 +445 +447,3 +459 +467,14 +483 +486,17 +512 +515 +519,5 +526 +530
+  - `src/bot/wilds/controls.ts` — ~lines: +6,8 +73,3
+  - `src/core/encounter/catch.ts` — ~lines: +46 +119,4 +136
+  - `src/models/index.ts` — ~lines: +19,2
+  - `tests/catch.spec.ts` — ~lines: +1,3 +27,138
+- **18645e1** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +271 +275 +277,0 +282,2 +285,2 +288,19 +312,3 +318,12 +331,13 +345,5 +352 +354,21 +376 +378,36 +415 +417,8 +427 +433,38 +472,9 +482 +484,3 +489,4 +494 +496 +498,24 +524 +528 +530,14 +546 +548,0 +550,4 +555,17 +581 +584 +588,8 +598,9 +610
+- **5f1b94c** — 2025-10-25 — Sherbivs — _logic intent:_ patch-template
+  - `Patch-Template.md` — ~lines: +1,270
+- **1407d2a** — 2025-10-25 — Sherbivs — _logic intent:_ Commit pending; T7.1 DM Home persistence completed.
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20 +22,3 +45
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17 +19 +22
+  - `ops/TOUCHMAP.yaml` — ~lines: +97,2
+  - `src/commands/home.js` — ~lines: +9 +12,129 +146 +148,8 +157 +185 +187,19 +207,3 +210,0 +216,0 +228,6
+  - `tasklist.md` — ~lines: +2,2 +454 +460
+  - `tests/dm_home.spec.ts` — ~lines: +1,90
+- **05d9fa0** — 2025-10-25 — Sherbivs — _logic intent:_ Clarify Refresh Vision fallback without embedding conversation
+  - `Patch.md` — ~lines: +270,3 +275,78 +353,0 +358,4 +364,7 +372,2 +375,6 +382,2 +385 +387,4 +392,4 +397,14 +412,2 +416,2 +419,0 +421,2 +426,2 +429,5 +435 +438 +439,0 +442,6 +449,6 +457 +460,2 +463,4 +469,3 +474,4 +487 +490 +494,5 +501 +504,2
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19 +21,3 +44
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,5 +23 +26
+  - `ops/TOUCHMAP.yaml` — ~lines: +96,19
+  - `tasklist.md` — ~lines: +2,2 +88,10 +449,32
+- **ad5b488** — 2025-10-25 — Sherbivs — _logic intent:_ Date (UTC) \| Change \| Impact \| \| --- \| --- \| --- \| \| 2025-10-25 \| META.README.REFRESH modernized the README to match the Infinity Gauntlet architecture. \| README now reflects DM/Wilds/Arena flows, scripts, and deployment guidance. \|
+  - `Patch.md` — ~lines: +270,0 +273 +276,111 +389 +391,13 +406 +410,4 +416,12 +429,3 +434,4 +443,21 +466 +470,3 +474,11 +494 +497 +501,6 +509,9
+  - `Prompt.md` — ~lines: +2,2 +13,2 +17 +19,3 +32,2 +47,2
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +22
+  - `ops/RECOVERY.yaml` — ~lines: +1,6 +11
+  - `ops/TOUCHMAP.yaml` — ~lines: +131,12
+  - `scripts/refresh_vision.sh` — ~lines: +2,0 +4,9 +14,37 +52,13 +67,6 +74,4 +79 +81 +84,7 +93,2 +96 +99,5 +105,3 +110 +114,10 +125,3 +129
+  - `tasklist.md` — ~lines: +2,2 +69,19
+- **9ea4ba3** — 2025-10-25 — Sherbivs — _logic intent:_ # Combined Router Overview
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18 +20,3 +42
+  - `README.md` — ~lines: +1,24 +25,0 +27,13 +42,96
+  - `ops/NEXT.yaml` — ~lines: +19 +22
+  - `ops/RECOVERY.yaml` — ~lines: +2 +4,3
+  - `ops/TOUCHMAP.yaml` — ~lines: +131,7
+  - `tasklist.md` — ~lines: +2,2 +59,10
+- **9ff8a99** — 2025-10-25 — Sherbivs — _logic intent:_ \| 2025-10-25 \| META.TASK.HOUSEKEEP introduced Tasklist archival script/policy and cleared READY queue. \| `npm run tasks:archive` keeps only the latest 100 DONE tasks; NEXT now NONE until new work is staged. \| \| 2025-10-25 \| META.RECOVERY.REPLAY captured resume metadata and advanced NEXT to META.TASK.HOUSEKEEP. \| Refresh Vision now persists last_attempted tasks so workers resume safely before selecting new work. \|
+  - `Patch.md` — ~lines: +2,2 +18 +37 +187 +242
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18 +20,3 +34 +42,2
+  - `ops/ARCHIVE/README.md` — ~lines: +1,10
+  - `ops/CRITICAL.md` — ~lines: +29
+  - `ops/NEXT.yaml` — ~lines: +7,2 +12 +14,2 +17 +19 +22
+  - `ops/RECOVERY.yaml` — ~lines: +1,2 +4,5
+  - `ops/ROUTER.md` — ~lines: +5 +14
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +13
+  - `ops/TOUCHMAP.yaml` — ~lines: +124,7
+  - `package.json` — ~lines: +13,3 +18
+  - `scripts/ROUTER.md` — ~lines: +5 +11
+  - `scripts/archive_task_history.mjs` — ~lines: +1,190
+  - `scripts/refresh_vision.sh` — ~lines: +6 +11,5 +23,2 +30 +33,12 +46,6 +54,2 +57 +60,5 +67
+  - `tasklist.md` — ~lines: +2,2 +42 +47,2 +52,2 +57
+- **bda2341** — 2025-10-25 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +264,0 +268 +271 +273,57 +332 +335,7 +347,0 +350,3 +355 +359,2 +362,20 +386,12 +400 +404,23 +436 +439 +443,6 +451 +453,0
+- **861a6ed** — 2025-10-25 — Sherbivs — _logic intent:_ guidance_when_none
+  - `.github/workflows/guard-meta.yml` — ~lines: +13 +16,9 +26,6
+  - `Patch.md` — ~lines: +2,2 +36 +83 +184
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18,5 +37,7
+  - `ops/NEXT.yaml` — ~lines: +3,2 +6,6 +13,2 +17 +19 +21 +23 +26
+  - `scripts/guard_meta.sh` — ~lines: +4,2 +7,19 +28,0 +30 +32,2 +34,0 +43,7 +51 +57,7 +67,3 +71,2 +75,2 +78 +79,0 +81 +84,3 +88,6 +105,5 +116,30
+  - `tasklist.md` — ~lines: +2,2 +21 +28 +32 +38 +42 +52
+- **e431840** — 2025-10-25 — Sherbivs — _logic intent:_ patch fix
+  - `Patch.md` — ~lines: +266,2 +269 +271 +273 +275 +277 +279,5 +285,31 +316,0 +321,7 +328,0 +330,20 +351,2 +355,7 +363,6 +371,2 +375,11 +387,6 +394,8 +404,2 +408,14 +424,62 +488,23 +513,2 +517,14 +532 +536 +539,2 +543 +546,10 +556,0 +558,4
+  - `ops/NEXT.yaml` — ~lines: +4 +6,2 +9,8 +19 +21,2
+  - `tasklist.md` — ~lines: +2,2 +18,41 +78 +98,6 +109,11 +157 +409,0
+- **5055e8d** — 2025-10-25 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +265,2 +268,6 +275 +277,3 +281,31 +313,7 +321,37 +359,6 +366,13 +381 +386,33 +420 +422,32 +455,9 +465 +468 +470 +474,0 +476 +480 +483,5 +490 +493,8 +502,5 +509 +512,4 +518 +521,4 +527 +530,4 +535,10 +547 +550,4 +555,7 +563,4 +569 +572,4 +577,8 +585,0 +588,0 +591 +594 +596,6 +604,2 +607,2
+- **2407964** — 2025-10-25 — Sherbivs — _logic intent:_ Patch
+  - `Patch.md` — ~lines: +263,0 +266 +268 +271,0 +273,9 +284 +286,5 +293,6 +300,27 +328,9 +339,0 +341,2 +344,3 +348,3 +353,28 +382,43 +426,8 +436,0 +438,4 +444 +447,5 +453,10 +465,18 +484 +487,4 +493 +496 +498,16 +516,0 +519,4 +527,3 +531,17 +550,0 +553,4 +560,2 +563 +565,4 +570,2 +573 +575,3 +580 +583 +585,3 +596 +599 +602,7 +611,3
+- **7c19339** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #43 from Sherbivs/codex/activate-patch-engine-fast
+- **91af9ae** — 2025-10-25 — Sherbivs — _logic intent:_ [META.ROUTER_FMT] Normalize router docs and router index
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18,4
+  - `ops/NEXT.yaml` — ~lines: +6,2 +10
+  - `ops/RECOVERY.yaml` — ~lines: +1,5
+  - `ops/ROUTER.md` — ~lines: +1,13
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +1,33
+  - `scripts/ROUTER.md` — ~lines: +1,10
+  - `src/ROUTER.md` — ~lines: +1,9
+  - `src/bot/ROUTER.md` — ~lines: +1,10
+  - `src/core/ROUTER.md` — ~lines: +1,9
+  - `tasklist.md` — ~lines: +2,2 +56,5 +66,11
+  - `tests/ROUTER.md` — ~lines: +1,8
+- **6ed7170** — 2025-10-25 — Sherbivs — _logic intent:_ Router SYstem Live
+  - `Patch.md` — ~lines: +2,2 +16,3 +44,5
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20,5 +33,5
+  - `ops/CRITICAL.md` — ~lines: +31,6 +45
+  - `ops/NEXT.yaml` — ~lines: +4 +6,2 +9,2 +13
+  - `ops/RECOVERY.yaml` — ~lines: +1,5
+  - `ops/ROUTER.md` — ~lines: +1,13
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +1,33
+  - `ops/TOUCHMAP.yaml` — ~lines: +94
+  - `package.json` — ~lines: +16,2
+  - `scripts/ROUTER.md` — ~lines: +1,10
+  - `scripts/refresh_vision.sh` — ~lines: +1,38
+  - `scripts/update_router_index.sh` — ~lines: +1,28
+  - `src/ROUTER.md` — ~lines: +1,9
+  - `src/bot/ROUTER.md` — ~lines: +1,10
+  - `src/bot/arena/summary.ts` — ~lines: +1,17
+  - `src/bot/battle/actions.ts` — ~lines: +1,108
+  - `src/bot/battle/challenge.ts` — ~lines: +15,2 +134,13 +297,5
+  - `src/bot/index.ts` — ~lines: +11 +13 +87,4 +101,4
+  - `src/bot/middleware/limits.ts` — ~lines: +1,39
+  - `src/bot/ops/admin.ts` — ~lines: +1,116
+  - `src/bot/wilds/walk.ts` — ~lines: +5 +54,7
+  - `src/commands/ops.js` — ~lines: +1,35
+  - `src/core/ROUTER.md` — ~lines: +1,9
+  - `tasklist.md` — ~lines: +2,2 +18,19 +329 +335 +341 +347 +351 +356
+  - `tests/ROUTER.md` — ~lines: +1,8
+  - `tests/battle_ui.spec.ts` — ~lines: +1,42
+  - `tests/limits.spec.ts` — ~lines: +1,35
+  - `tests/ops.spec.ts` — ~lines: +1,30
+- **ad0355a** — 2025-10-25 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +1,76 +78,43 +122,143 +268,86 +354,0 +357,5 +363,5 +369,9 +383,2 +387,6 +395 +397,4 +403 +407,10 +418,6 +425,3 +430 +432,6 +440 +443,13 +458 +460,10 +472 +474,11 +487 +490,9 +501 +504,9 +514 +516,11 +534,3 +540,2 +545,27 +581 +584 +586 +588,5 +595 +599
+- **b91be01** — 2025-10-25 — Sherbivs — _logic intent:_ [T0.TRIGGER.ENHANCED] Faster & safer Activation Trigger (FAST/DRY modes, preflight checks, lock, Echo/Ledger duties)
+  - `Patch.md` — ~lines: +1 +3,8 +12 +14 +16,80 +97 +99,18 +119 +123,14 +139 +142,23 +167 +169,2 +172 +174 +177,5 +183 +185,2 +188 +190 +193 +195,21 +218 +220,3 +224,2 +227,5 +233,2 +240,17 +266 +269 +273,6 +280,2 +284,2
+  - `Prompt.md` — ~lines: +2,2 +13,6 +21,5
+  - `ops/NEXT.yaml` — ~lines: +1,4 +6 +9,13
+  - `src/core/battle/damage.ts` — ~lines: +1,20
+  - `src/core/battle/engine.ts` — ~lines: +1,109
+  - `src/core/battle/status.ts` — ~lines: +1,14
+  - `tasklist.md` — ~lines: +2,2 +289,8 +300 +306
+  - `tests/battle_engine.spec.ts` — ~lines: +1,71
+- **f02d885** — 2025-10-25 — Sherbivs — _logic intent:_ Prompt.md
+  - `Prompt.md` — ~lines: +2,2 +13 +15,0 +152,8
+- **0c045b1** — 2025-10-25 — Sherbivs — _logic intent:_ # [META.MICRO.ECHO+LEDGER+TASKLIST] Nudge Echo, ensure Ledger markers, assert Tasklist.md case; bump stamps
+  - `Patch.md` — ~lines: +256 +258,3 +262 +263,0 +265,2 +268 +271,4 +276,3 +280,14 +295,7 +307,4 +320 +323 +327,2 +330 +332,2 +335
+- **b5b09e6** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #42 from Sherbivs/codex/activate-patch-engine-usajdd
+- **2f7c264** — 2025-10-25 — Sherbivs — _logic intent:_ Wire battle challenge command routing
+  - `Prompt.md` — ~lines: +1,172
+  - `ops/NEXT.yaml` — ~lines: +4,11 +17
+  - `src/bot/arena/thread.ts` — ~lines: +1,74
+  - `src/bot/battle/challenge.ts` — ~lines: +1,289
+  - `src/bot/index.ts` — ~lines: +1,144
+  - `src/commands/battle.js` — ~lines: +1,27
+  - `tasklist.md` — ~lines: +2,2 +289,8
+  - `tests/battle_flow.spec.ts` — ~lines: +1,179
+- **ca42ecb** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #41 from Sherbivs/codex/activate-patch-engine
+- **d9c5721** — 2025-10-25 — Sherbivs — _logic intent:_ [Task T5.1] Battle challenge DM + Arena thread flow
+  - `Prompt.md` — ~lines: +1,172
+  - `ops/NEXT.yaml` — ~lines: +4,11 +17
+  - `src/bot/arena/thread.ts` — ~lines: +1,74
+  - `src/bot/battle/challenge.ts` — ~lines: +1,289
+  - `tasklist.md` — ~lines: +2,2 +289,8
+  - `tests/battle_flow.spec.ts` — ~lines: +1,179
+- **00f499a** — 2025-10-25 — Sherbivs — _logic intent:_ # [META.PATCHSET_ECHO.GUARD] Enforce PATCHSET Echo markers + HEAD SHA + size cap; wire CI
+  - `Prompt.md` — ~lines: +43 +45,6 +52
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5 +16
+  - `tasklist.md` — ~lines: +2,2 +279 +285
+- **838c001** — 2025-10-25 — Sherbivs — _logic intent:_ # [META.PATCHSET_ECHO.GUARD] Enforce PATCHSET Echo markers + HEAD SHA + size cap; wire CI
+  - `Patch.md` — ~lines: +256,3 +262 +264,51 +317 +321,13 +336 +340,7 +349 +353,4 +358,4 +368 +369,0 +371,3 +380,4 +385,2 +388 +390,3 +399,4 +412 +415 +419,4 +425 +429
+  - `Prompt.md` — ~lines: +2,2
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5 +16
+  - `ops/TOUCHMAP.yaml` — ~lines: +64
+  - `src/bot/index.ts` — ~lines: +9,2 +71,4 +106,4
+  - `src/bot/wilds/controls.ts` — ~lines: +1,92
+  - `src/bot/wilds/walk.ts` — ~lines: +1,81
+  - `src/commands/walk.js` — ~lines: +1,15
+  - `src/core/encounter/catch.ts` — ~lines: +1,143
+  - `src/core/encounter/spawn.ts` — ~lines: +1,44
+  - `tasklist.md` — ~lines: +2,2 +269 +275
+  - `tests/catch.spec.ts` — ~lines: +1,25
+  - `tests/encounter_walk.spec.ts` — ~lines: +1,20
+- **8f3d0b7** — 2025-10-25 — Sherbivs — _logic intent:_ # [META.PATCHSET_ECHO]: Require embedded PATCHSET echo in Prompt.md (or explicit no-echo reason) + CI guard
+  - `.github/workflows/guard-meta.yml` — ~lines: +19,21
+  - `Patch.md` — ~lines: +2,2 +62,13 +256 +260 +262 +265,4 +270,16 +287,4 +292,3 +296 +298,4 +304,3 +308,3 +312,5 +323,11 +334,0 +336,8 +344,0 +347 +351 +353 +355,6 +367 +369,3 +373 +374,0 +376 +383,4 +390,2 +393 +395,14 +418 +421 +425,4 +431 +435,4
+  - `Prompt.md` — ~lines: +2,2 +32,10 +49,6 +85,396 +488
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5 +16
+  - `ops/TOUCHMAP.yaml` — ~lines: +111,11
+  - `package.json` — ~lines: +15
+  - `scripts/guard_meta.sh` — ~lines: +81,7
+  - `scripts/update_change_ledger.sh` — ~lines: +1,45
+  - `src/bot/dm/heal.ts` — ~lines: +1,45
+  - `src/bot/dm/starters.ts` — ~lines: +1,161
+  - `src/bot/index.ts` — ~lines: +7,2 +59,10 +77 +89,2 +93,7
+  - `tasklist.md` — ~lines: +2,2 +18,19 +258 +263
+- **9c04d38** — 2025-10-24 — Sherbivs — _logic intent:_ # [META.LEDGER200]: Add auto-generated “Recent Change Ledger (last 200)” to Prompt.md with CI enforcement
+  - `Patch.md` — ~lines: +243 +245 +249 +251,21 +274 +276,26 +303,2 +306,59 +368,13 +383 +385 +387,19 +407,4 +412 +414 +416,4 +425,4 +435,3 +438,0 +440,2 +443 +445,2 +447,0 +454,4 +461,2 +464 +466,4 +479 +482 +486,5 +493 +497,3
+  - `Prompt.md` — ~lines: +2,2 +30,2 +38
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +10,2 +14,2
+  - `src/bot/index.ts` — ~lines: +48,37
+  - `src/commands/home.js` — ~lines: +2,45 +52,28
+  - `tasklist.md` — ~lines: +2,2 +229 +235
+- **2d12799** — 2025-10-24 — Sherbivs — _logic intent:_ # [META.HARD_ROUTE]: Add AI routing map + inbox notes; enforce router-driven read/write + quick notes
+  - `.github/workflows/guard-routing.yml` — ~lines: +1,17
+  - `Patch.md` — ~lines: +2,2 +52,10 +243 +245,7 +253 +257 +259,58 +319 +321,11 +334 +339 +341,58 +401 +405,11 +417,24 +443,83 +529,18 +556 +559 +563,8 +573 +577
+  - `Prompt.md` — ~lines: +2,2 +28,2 +43,2 +65,7
+  - `ops/INBOX/notes.md` — ~lines: +1,9
+  - `ops/NEXT.yaml` — ~lines: +12,4
+  - `ops/ROUTER.yaml` — ~lines: +1,56
+  - `ops/TOUCHMAP.yaml` — ~lines: +110,19
+  - `scripts/guard_routing.sh` — ~lines: +1,56
+  - `tasklist.md` — ~lines: +2,2 +18,11
+- **f91c9db** — 2025-10-24 — Sherbivs — _logic intent:_ -# [T0.FIX.BUILD_DIST]: Ensure dist/index.js exists on Render when build step only runs `npm install`
+  - `Patch.md` — ~lines: +2,2
+  - `Prompt.md` — ~lines: +2,2 +20,8 +32,2
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5
+  - `package.json` — ~lines: +13,2 +35
+  - `scripts/register-commands.js` — ~lines: +7,6
+  - `src/bot/index.ts` — ~lines: +1,74
+  - `src/commands/box.js` — ~lines: +1,10
+  - `src/commands/heal.js` — ~lines: +1,10
+  - `src/commands/home.js` — ~lines: +1,10
+  - `src/commands/party.js` — ~lines: +1,10
+  - `src/commands/profile.js` — ~lines: +1,10
+  - `src/commands/starter.js` — ~lines: +1,10
+  - `src/data_pipeline/index.ts` — ~lines: +1,178
+  - `src/index.ts` — ~lines: +4 +12,2
+  - `tasklist.md` — ~lines: +2,2 +196 +202 +208 +214
+  - `tests/data_pipeline.spec.ts` — ~lines: +1,30
+- **a888cba** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +233 +235,4 +240 +244 +246,0 +249 +251 +254,3 +258,166 +424,0 +427 +430,5 +440,4 +447,2 +450 +452,3 +461,4 +474 +477 +481,3 +486 +490 +498
+- **572334e** — 2025-10-24 — Sherbivs — _logic intent:_ # [T0.TRIGGER.PATCH_ENGINE]: Add a universal activation trigger and enforce it via CI
+  - `Patch.md` — ~lines: +2,2
+  - `Prompt.md` — ~lines: +2,2 +19,7
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9 +11,4
+  - `package.json` — ~lines: +33,2
+  - `src/data_pipeline/schema/abilities.ts` — ~lines: +1,9
+  - `src/data_pipeline/schema/index.ts` — ~lines: +1,5
+  - `src/data_pipeline/schema/manifest.ts` — ~lines: +1,13
+  - `src/data_pipeline/schema/moves.ts` — ~lines: +1,16
+  - `src/data_pipeline/schema/species.ts` — ~lines: +1,25
+  - `src/data_pipeline/schema/typechart.ts` — ~lines: +1,12
+  - `tasklist.md` — ~lines: +2,2 +187 +192
+  - `tests/data_schema.spec.ts` — ~lines: +1,79
+- **15d2a01** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +233,9 +242,0 +244,2 +247,0 +252 +255,4 +263,13 +277 +281,11 +293,0 +295 +297 +299 +301,12 +314 +318,9 +335 +340,2 +345,13 +367 +370 +374,3 +379,9 +391
+- **cbabae0** — 2025-10-24 — Sherbivs — _logic intent:_ # [T0.PROMPT.KEY]: Add `prompt` trigger key for workers and enforce via CI
+  - `Patch.md` — ~lines: +234 +236 +239,11 +252 +254,17 +271,0 +274,3 +278 +282,15 +298,13 +312,8 +322 +326,16 +351 +354 +358,4 +364 +367,2
+- **9f3a0bf** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +234 +237 +239,4 +244,2 +248,166 +415 +417 +420,5 +430,4 +437,2 +440 +442,3 +451,4 +464 +467 +471,3 +476 +478,0
+- **e224a57** — 2025-10-24 — Sherbivs — _logic intent:_ # [META.DIST_AND_PROMPT]: Guarantee dist/index.js exists and add the mandatory AI Worker Prompt (with CI check)
+  - `Patch.md` — ~lines: +48,4
+  - `Prompt.md` — ~lines: +2,2 +17,30
+  - `ops/NEXT.yaml` — ~lines: +12,2
+  - `scripts/guard_meta.sh` — ~lines: +65,15
+  - `tasklist.md` — ~lines: +2,2 +132,10
+- **1a0cf17** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +230 +232,42 +275,4 +280,5 +286,19 +306,5 +312,8 +322 +326,12 +341,0 +344,15 +365,4 +372,2 +375 +377,5 +388,4 +401 +404 +408,6 +416 +420
+- **61abbf3** — 2025-10-24 — Sherbivs — _logic intent:_ # [T0.META.ENFORCE]: Enforce Prompt/Tasklist/Patch updates on every PATCHSET (with CI guard)
+  - `.github/workflows/guard-meta.yml` — ~lines: +1,18
+  - `Patch.md` — ~lines: +2,2 +41,7 +230 +235,4 +240 +242,6 +249 +251,4 +257,9 +268 +280 +282,4 +288 +294 +296,6 +303,3 +307,12 +320,4 +326 +328,4 +333,7 +341,9 +351,5 +362,4 +367,5 +378,4 +385,2 +388 +390,4 +398,0 +400,4 +413 +416 +420,3 +425 +428,2
+  - `Prompt.md` — ~lines: +2,2 +17
+  - `ops/CRITICAL.md` — ~lines: +38
+  - `ops/NEXT.yaml` — ~lines: +12,2
+  - `scripts/guard_meta.sh` — ~lines: +1,65
+  - `tasklist.md` — ~lines: +2,2 +122,10
+- **decfb22** — 2025-10-24 — Sherbivs — _logic intent:_ # [T0.GUARD_FILENAMES]: Guard canonical doc filenames & teach AI not to rename them
+  - `.github/workflows/guard-docs.yml` — ~lines: +1,16
+  - `Patch.md` — ~lines: +2,2 +173,9
+  - `Prompt.md` — ~lines: +2,2 +13,4
+  - `ops/CRITICAL.md` — ~lines: +37
+  - `ops/NEXT.yaml` — ~lines: +12,2
+  - `ops/PATCH_POLICY_BACKUP.md` — ~lines: +1,9
+  - `ops/TOUCHMAP.yaml` — ~lines: +104,6
+  - `scripts/guard_doc_names.sh` — ~lines: +1,55
+  - `tasklist.md` — ~lines: +2,2 +112,10
+- **531be0a** — 2025-10-24 — Sherbivs — _logic intent:_ Patch
+  - `Patch.md` — ~lines: +209 +212 +214 +217,9 +227,12 +241,82 +326 +328,20 +356,2 +361,3 +365 +367 +374,4 +379,11 +395,2 +398,4 +411 +414 +418,6 +426 +428,0
+- **189716d** — 2025-10-24 — Sherbivs — _logic intent:_ [T1.1.FIX.REL]: Add missing Prisma back-reference (PokemonInstance.partySlots) and align Prisma versions
+  - `Patch.md` — ~lines: +0,0 +1,0 +3,2 +7,2 +11 +14 +21 +27 +29 +32 +34 +36 +38,0 +40 +42 +72,2 +76,0 +92,0 +97,0 +105 +113 +117 +120,0 +123,2 +126,2 +129 +131 +136,10 +147 +149 +153,0 +155 +157,9 +167,2 +171,18 +192 +194,3 +198,4 +209 +211 +213 +216,34 +251 +253,0 +255,12 +271,0 +273,4 +278,4 +283,3 +290,0 +292,4 +297,10 +311,0 +313,4 +326 +329 +333,3 +338 +341,2
+- **10e2fcf** — 2025-10-24 — Sherbivs — _logic intent:_ Push
+  - `Prompt.md` — ~lines: +2,2 +13,4
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5
+  - `src/index.ts` — ~lines: +2 +7 +10 +15
+  - `src/shared/log.ts` — ~lines: +1,81
+  - `tasklist.md` — ~lines: +2,2 +146 +151
+  - `tests/log.spec.ts` — ~lines: +1,21
+- **2a6f83b** — 2025-10-24 — Sherbivs — _logic intent:_ patch test should see this on node
+  - `Patch.md` — ~lines: +1,23 +25,30 +57 +58,0 +60,10 +72,3 +76 +78,2 +82,147 +229,0 +232,9 +243 +246 +250,8 +260,6 +268,28 +297,22 +321 +324,2 +327,21 +349,17 +374,9 +384,18 +411 +414 +418,5 +425
+- **b5741c6** — 2025-10-24 — Sherbivs — _logic intent:_ push
+  - `Patch.md` — ~lines: +1,3
+  - `Prompt.md` — ~lines: +2,2 +13,119 +135 +138 +142,4 +148 +151,2
+  - `ops/NEXT.yaml` — ~lines: +12,2
+  - `package.json` — ~lines: +7,2 +30 +32,2
+  - `tasklist.md` — ~lines: +2,2 +92,10
+- **41b607b** — 2025-10-24 — Sherbivs — _logic intent:_ push
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9 +11,3
+  - `package.json` — ~lines: +7,2 +10 +26,6
+  - `prisma/schema.prisma` — ~lines: +1,104
+  - `src/index.ts` — ~lines: +1,9 +11 +15,5
+  - `src/models/index.ts` — ~lines: +1,25
+  - `src/shared/config.ts` — ~lines: +1,23
+  - `tasklist.md` — ~lines: +126 +132
+  - `tests/db.smoke.spec.ts` — ~lines: +1,7
+- **70a2870** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +1 +5 +7 +10,13 +24,8 +34 +36,105 +143,59 +205,40 +250,10 +262,12 +276 +282,5 +288,16 +313 +316 +320,5 +327 +329,0
+- **3f36f66** — 2025-10-24 — Sherbivs — _logic intent:_ emergency patch
+  - `Patch.md` — ~lines: +1 +3,4 +8 +10 +12 +14 +17,32 +50 +53,6 +61 +63,8 +72,0 +75,0 +83,4 +89 +97,2 +100 +102,4 +115 +118 +122,3 +127 +131
+  - `Prompt.md` — ~lines: +2,16 +142
+  - `ops/NEXT.yaml` — ~lines: +17,2
+  - `tasklist.md` — ~lines: +2,2 +92,20
+- **dcad286** — 2025-10-24 — Sherbivs — _logic intent:_ emergency fix
+  - `ops/NEXT.yaml` — ~lines: +15,2
+  - `render.yaml` — ~lines: +2,9 +29
+  - `tasklist.md` — ~lines: +90,10
+- **23b0fc7** — 2025-10-24 — Sherbivs — _logic intent:_ push
+  - `Patch.md` — ~lines: +213 +217 +219 +221,13 +235,0 +242,4 +248,7 +261,0 +265,2 +268,6 +283 +286 +290,3 +295 +298,2
+- **7efb6c5** — 2025-10-24 — Sherbivs — _logic intent:_ auto patch-emergency install
+  - `DATA-SCHEMA.md` — ~lines: +1 +3 +5 +7,9
+  - `OPERATIONS.md` — ~lines: +1 +3 +5,15
+  - `Patch.md` — ~lines: +982,198
+  - `Prompt.md` — ~lines: +1,188
+  - `RULESET.md` — ~lines: +1 +3 +5,14
+  - `src/bot/index.ts` — ~lines: +1,3
+- **e0da993** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Prompt.md` — ~lines: +1,162
+- **4a24a3c** — 2025-10-24 — Sherbivs — _logic intent:_ CRITICAL FILES & FAST-PATH LOOKUP
+  - `Patch.md` — ~lines: +138,57
+  - `Prompt.md` — ~lines: +3,0 +7,3 +11,0 +16 +18,9 +28 +30 +32,10 +43 +45,5 +51 +53,11 +65 +67 +70 +72,0 +77,17 +96,2 +100,3 +105,2 +109,2 +113,2 +117 +120,2 +123,0 +127 +129,2 +132,3 +136 +138,8 +147,10 +160,5 +166,14 +183,6
+  - `ops/CRITICAL.md` — ~lines: +11,3 +23 +28 +30,7
+  - `ops/KNOWLEDGE.yaml` — ~lines: +1,86
+  - `ops/TOUCHMAP.yaml` — ~lines: +23,2 +98,6
+  - `tasklist.md` — ~lines: +48,32
+- **a79bcee** — 2025-10-24 — Sherbivs — _logic intent:_ Patch
+  - `Patch.md` — ~lines: +154,0 +156,45 +203 +205,192 +399 +411,3 +423 +428 +430,8 +493,2 +568,6 +576 +578,280 +878,32 +913
+- **a4e0d40** — 2025-10-24 — Sherbivs — _logic intent:_ tasks
+  - `Prompt.md` — ~lines: +1,181
+  - `ops/CRITICAL.md` — ~lines: +13,3
+  - `tasklist.md` — ~lines: +48,10
+- **570bd57** — 2025-10-24 — Sherbivs — _logic intent:_  fast-path system
+  - `DATA-SCHEMA.md` — ~lines: +1,13
+  - `OPERATIONS.md` — ~lines: +1,9
+  - `RULESET.md` — ~lines: +1,9
+  - `ops/CRITICAL.md` — ~lines: +1,25
+  - `ops/NEXT.yaml` — ~lines: +1,19
+  - `ops/TOUCHMAP.yaml` — ~lines: +1,95
+  - `src/core/battle/index.ts` — ~lines: +1,2
+  - `src/core/encounter/index.ts` — ~lines: +1,2
+  - `src/data_pipeline/index.ts` — ~lines: +1,5
+  - `src/shared/index.ts` — ~lines: +1,2
+  - `tasklist.md` — ~lines: +17,21 +41 +46
+- **32a1f0f** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #39 from Sherbivs/codex/perform-comprehensive-bug-and-logic-check-mydibk
+- **fdcdd3c** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +158 +159,0 +161,2 +164 +166,26 +193 +196,24 +222 +225,95 +322 +324,35 +368,3 +372,7 +393,0 +394,0
+- **a0dc3af** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #40 from Sherbivs/codex/execute-patch-operation-loop
+- **58d63b2** — 2025-10-24 — Sherbivs — _logic intent:_ [Task T0.1] Initialize TypeScript tooling
+  - `.eslintrc.cjs` — ~lines: +1,38
+  - `.gitignore` — ~lines: +1 +3,5 +9,2 +13,7
+  - `.prettierrc` — ~lines: +1,6
+  - `package.json` — ~lines: +2,4 +7,4 +12,13
+  - `src/index.ts` — ~lines: +1,10
+  - `tasklist.md` — ~lines: +17,10
+  - `tests/sample.spec.ts` — ~lines: +1,8
+  - `tsconfig.json` — ~lines: +1,16
+- **bebf3bb** — 2025-10-24 — Sherbivs — _logic intent:_ Patch System
+  - `Patch.md` — ~lines: +1 +3,2 +6,2 +9,6 +16,7 +24,26 +51,7 +60,3 +65 +67,3 +71 +73 +75,4 +80,21 +102,33 +138,212 +350,0
+  - `tasklist.md` — ~lines: +1,169
+- **210d86e** — 2025-10-24 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/perform-comprehensive-bug-and-logic-check-mydibk
+  - `src/engine/effects.js`
+  - `src/engine/index.js`
+- **d8ee657** — 2025-10-24 — Sherbivs — _logic intent:_ Add offline battle data fallback and normalize engine effects
+  - `src/engine/calc.js` — ~lines: +113,38
+  - `src/engine/effects.js` — ~lines: +30,6 +44,12 +90,8 +125,5 +154,4 +214,4
+  - `src/engine/index.js` — ~lines: +3,164 +168,47
+  - `src/engine/types.js` — ~lines: +28,10
+- **1138c2a** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #38 from Sherbivs/codex/perform-comprehensive-bug-and-logic-check
+- **737a1e5** — 2025-10-24 — Sherbivs — _logic intent:_ Expand bootstrap data and harden battle engine fallbacks
+  - `scripts/ensure-data.js` — ~lines: +6,34 +55,15
+  - `src/engine/effects.js` — ~lines: +81,6 +117,3 +146,3 +207,3 +221
+  - `src/engine/index.js` — ~lines: +8,9 +36,5
+  - `src/engine/tables.js` — ~lines: +36,11
+  - `src/engine/turn.js` — ~lines: +108,10
+- **4a8b4a8** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #8 from Sherbivs/codex/reduce-time-intervals-to-under-one-minute
+- **7ff23ba** — 2025-10-24 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/reduce-time-intervals-to-under-one-minute
+  - `README.md`
+  - `src/bot/main.js`
+- **754e33a** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #37 from Sherbivs/codex/add-commit-deltas.js-for-merging-updates
+- **ab9a85a** — 2025-10-24 — Sherbivs — _logic intent:_ Add sync-layer scaffolding for worker and Discord cache
+  - `package.json` — ~lines: +19,3
+  - `sync-layer/data/index.json` — ~lines: +1,3
+  - `sync-layer/data/meta.json` — ~lines: +1,4
+  - `sync-layer/data/updates.json` — ~lines: +1
+  - `sync-layer/discord/hooks/cache-hooks.js` — ~lines: +1,14
+  - `sync-layer/discord/sync-client.js` — ~lines: +1,28
+  - `sync-layer/shared/io.js` — ~lines: +1,42
+  - `sync-layer/shared/logger.js` — ~lines: +1,12
+  - `sync-layer/worker/api-server.js` — ~lines: +1,38
+  - `sync-layer/worker/commit-deltas.js` — ~lines: +1,82
+  - `sync-layer/worker/indexer.js` — ~lines: +1,51
+  - `sync-layer/worker/schema/index-schema.json` — ~lines: +1,54
+- **39b3804** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #36 from Sherbivs/codex/add-hp-and-status-summaries-to-discord-embeds
+- **749cd57** — 2025-10-24 — Sherbivs — _logic intent:_ Add HP and status summary to battle embeds
+  - `src/commands/battle-turn.js` — ~lines: +5,23 +79 +93,16
+- **cd7b29b** — 2025-10-24 — Sherbivs — _logic intent:_  publicLog into a real command
+  - `Patch.md` — ~lines: +1 +3 +5 +7 +9,2 +14 +17,12 +30,16 +46,0 +47,0 +49,2 +52 +57 +59,3 +63 +65 +67 +69,5 +75 +77
+  - `src/commands/battle-turn.js` — ~lines: +1,108
+- **6a69517** — 2025-10-24 — Sherbivs — _logic intent:_ linch enforcement update
+  - `src/engine/turn.js` — ~lines: +31,25 +77,0
+- **f10d6dd** — 2025-10-24 — Sherbivs — _logic intent:_ Game Logic Flow v5
+  - `Patch.md` — ~lines: +1 +3,2 +6,4 +11,3 +15 +19 +22,5 +28,24 +54,8 +63,9 +73,7 +81,6 +89,6 +97,19 +117 +119,4 +124,27 +151,0 +153,5 +160,22 +184,9 +194,11 +206,9 +216,0 +218,5 +224,3 +228,3 +232,7 +240,16 +257,0 +259,95 +359 +361,3 +365,2 +368,4 +374 +376,2 +379,7 +387
+  - `data/effects.json` — ~lines: +1,3
+  - `package.json` — ~lines: +17,3
+  - `scripts/test-battle-core.js` — ~lines: +9,3 +13 +15,2 +18,3 +23 +25,2 +28,2 +32 +34,7 +42,4 +47 +50 +52,7 +61 +63,3 +67,3 +72 +74,16 +91 +93,30 +125 +128,2 +131,8 +141
+  - `scripts/test-effects-advanced.js` — ~lines: +1,79
+  - `scripts/test-effects.js` — ~lines: +1,63
+  - `src/engine/calc.js` — ~lines: +3,6 +9,0 +11 +12,0 +14 +17,6 +24,2 +27,4 +33 +37,11 +49,2 +54 +58,2 +67 +69,0 +74,10 +87,7 +98,7 +107,2 +116,3 +121,4 +128 +130,0 +136,3 +142,12 +156
+  - `src/engine/effects.js` — ~lines: +1,248
+  - `src/engine/tables.js` — ~lines: +1,69
+  - `src/engine/turn.js` — ~lines: +2,2 +54,2 +64,7 +76,3
 
-## Last Repo Changes (since previous Prompt.md revision)
-- Added a Node-based ledger updater and pointed the shell/npm wrappers at it for cross-platform runs.
-- Cleaned Prompt.md conflict remnants and refreshed the contract metadata ahead of a scripted ledger update.
+<!-- LEDGER:END -->  ## AI Worker Prompt (copy/paste for Copilot/GPT) You are GitHub Copilot operating under the Infinity Gauntlet contract.  1. Read ops/NEXT.yaml, Tasklist.md, ops/TOUCHMAP.yaml, Patch.md, then this Prompt.md before editing. 2. Work only on READY tasks whose dependencies are DONE; do not self-assign PROPOSED items. 3. Keep edits minimal and reversible; update Tasklist.md, ops/NEXT.yaml, Prompt.md, and relevant routers in the same PATCHSET. 4. Run targeted tests (Vitest suites, Prisma migrate deploy) when touching runtime code; record results in the PATCHSET echo and commit message. 5. Ensure the Embedded PATCHSET Echo, Last Repo Changes, and ledger markers remain populated; restore clipboard markers in Patch.md if removed by accident. 6. Finish every run with a READY pointer in ops/NEXT.yaml and clear rationale in the PATCHSET echo. "@; Set-Content -Path Prompt.md -Value $promptContent -Encoding UTF8
+  - `Prompt.md` — ~lines: +2,2 +6,2 +35 +59 +61 +68 +79,4 +85,2 +88,3 +92,5 +98,4 +103,5 +109,9 +119,4 +124,5 +130,4 +135 +138,5 +145,4 +150,2 +153,6
+  - `scripts/update_change_ledger.mjs` — ~lines: +1,120
+- **de2c729** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `scripts/update_change_ledger_unix.sh` — ~lines: +1,47
+- **94d527e** — 2025-10-28 — Sherbivs — _logic intent:_ T10.SCALE.WORKERS
+  - `Prompt.md` — ~lines: +2,79
+  - `src/bot/ops/admin.ts` — ~lines: +196,0 +207,23
+  - `tests/ops.spec.ts` — ~lines: +88,0 +132,0 +165,0 +216,0 +261,0
+- **546ce2e** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `README.md` — ~lines: +10,2 +61 +123,2 +127,3 +144 +153
+  - `agent.md` — ~lines: +12 +29 +33 +53,2 +67
+  - `ops/DB_BOOTSTRAP.md` — ~lines: +14 +19 +33 +49 +69,4
+  - `scripts/bootstrap_staging_db.ps1` — ~lines: +16 +30 +38,7 +46 +53,4
+- **4a2eb06** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `ops/NEXT.yaml` — ~lines: +16 +19 +22,3 +26,3 +31 +34,3 +44
+  - `tasklist.md` — ~lines: +2,4 +12 +901 +907 +917,3 +921
+- **5a9fab8** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+- **07826c7** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +104,44
+  - `prisma/schema.prisma` — ~lines: +9
+  - `src/env/ensure-db-url.ts` — ~lines: +2 +92,26
+  - `src/shared/config.ts` — ~lines: +20,6
+  - `src/shared/prisma.ts` — ~lines: +218,6 +225 +233,75 +311,12
+  - `tests/setup-env.ts` — ~lines: +8,4
+- **e22e2c5** — 2025-10-28 — Sherbivs — _logic intent:_ ,
+  - `Prompt.md` — ~lines: +2 +4,3 +14 +55,30
+  - `ops/NEXT.yaml` — ~lines: +26 +31,6
+  - `tasklist.md` — ~lines: +2 +4,3 +906 +912
+- **0d5d2c3** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+- **f71f6f4** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +103,0
+  - `Prompt.md` — ~lines: +2,2 +9,0 +11 +13,2 +16,2 +19,2 +22,2 +25,2 +28,2 +31 +33,2 +36,2 +39,2 +42,2 +45,2 +48,3
+  - `README.md` — ~lines: +10,2 +126 +141 +150
+  - `ops/NEXT.yaml` — ~lines: +16 +19 +22,3 +26 +29
+- **61c3245** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +104,44
+  - `agent.md` — ~lines: +11 +28 +32 +51 +64
+  - `masterroutetable.md` — ~lines: +2 +8,9 +23 +25,9 +35,2 +41 +43,8 +52,2
+  - `ops/ROUTER.md` — ~lines: +5 +19
+  - `ops/ROUTER.yaml` — ~lines: +4 +48
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +12,2
+  - `ops/TOUCHMAP.yaml` — ~lines: +183,6 +208,14
+  - `scripts/ROUTER.md` — ~lines: +5 +12
+  - `tasklist.md` — ~lines: +2,2 +868,10 +918,23
+- **76b73b3** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+- **d7be4ce** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `ops/DB_BOOTSTRAP.md` — ~lines: +1,68
+  - `ops/ROUTER.yaml` — ~lines: +40
+  - `scripts/bootstrap_staging_db.ps1` — ~lines: +1,72
+  - `tasklist.md` — ~lines: +890,10
+- **2e2f4e4** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `package-lock.json` — ~lines: +1,6784
+  - `package.json` — ~lines: +18 +34,2 +38
+  - `pbsl-oracle-report.json` — ~lines: +1,204
+- **14c4cc5** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+  - `prisma/migrations/migration_lock.toml`
+- **d065fac** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `src/bot/ops/admin.ts` — ~lines: +1,6 +31,21 +59,35 +99,8 +197,59 +270,10 +295,61 +406,36
+  - `tests/ops.spec.ts` — ~lines: +89,4 +137,4 +174,4 +229,4 +278,4
+- **e706ad2** — 2025-10-28 — Sherbivs — _logic intent:_ Update migration_lock.toml
+  - `prisma/migrations/migration_lock.toml` — ~lines: +1
+- **90b389e** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `prisma/migrations/migration_lock.toml` — ~lines: +1
+- **8327ade** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `.env` — ~lines: +1,2
+  - `DATA-SCHEMA.md` — ~lines: +3 +16,6
+  - `Patch.md` — ~lines: +99,0 +100,0 +102,2
+  - `Prompt.md` — ~lines: +2,2 +13,3 +19,3 +23 +27 +29,3 +33,11 +46
+  - `ops/TOUCHMAP.yaml` — ~lines: +169,21
+  - `prisma/migrations/202510280500_scaling_indexes/migration.sql` — ~lines: +1,20
+  - `prisma/migrations/migration_lock.toml`
+  - `prisma/schema.prisma` — ~lines: +48,2 +58,2 +84,3 +104,16 +122,11
+  - `src/config/env.js` — ~lines: +89
+  - `tasklist.md` — ~lines: +2,2 +866,33
+- **ebe4b93** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Refresh PBSL launch checklist
+  - `Patch.md` — ~lines: +8,0 +12,0
+  - `Prompt.md` — ~lines: +2,2 +13 +18
+  - `src/bot/dripAlerts.js` — ~lines: +20 +112 +114 +120,2 +124 +125,0
+- **bfc341d** — 2025-10-27 — Sherbivs — _logic intent:_ Change: None (hotfix scoped to existing task queue).
+  - `Prompt.md` — ~lines: +2,2 +13 +18 +20 +22
+  - `src/bot/dripAlerts.js` — ~lines: +18,3 +110,16
+- **ce15924** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Refresh PBSL launch checklist
+  - `Prompt.md` — ~lines: +2,2 +13 +17,3 +21 +25 +27,3 +32,2 +36
+  - `docs/PBSL.md` — ~lines: +10 +17 +21,6 +34,55 +90,79 +172,8
+- **d237eb3** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Clear clipboard after CLEAR TASKS trigger
+  - `Patch.md` — ~lines: +108
+  - `Prompt.md` — ~lines: +2,2 +13,7 +23,3 +27
+  - `masterroutetable.md` — ~lines: +2 +23 +33,2 +39 +48,2 +94 +104,2 +110 +115,2 +121 +129,2
+  - `ops/NEXT.yaml` — ~lines: +25 +28
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +13 +38 +43
+  - `scripts/ROUTER.md` — ~lines: +5 +11
+  - `src/core/ROUTER.md` — ~lines: +5 +11
+  - `tasklist.md` — ~lines: +2,2 +311,9
+  - `tests/ROUTER.md` — ~lines: +5 +15
+- **2304461** — 2025-10-27 — Sherbivs — _logic intent:_ [Task META.ROUTER.REFRESH_20251027]
+  - `Patch.md` — ~lines: +108 +110,19 +130,3 +134,3 +138,3 +142,14 +156,0
+  - `ops/ROUTER.md` — ~lines: +5 +18
+  - `ops/ROUTER.yaml` — ~lines: +4 +41
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +33 +38 +43
+  - `src/bot/ROUTER.md` — ~lines: +5 +16
+  - `src/core/ROUTER.md` — ~lines: +5 +10
+  - `tasklist.md` — ~lines: +2,2 +302,10
+- **129dff6** — 2025-10-27 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +2,2 +108
+  - `Prompt.md` — ~lines: +2,2 +13,2 +18,2 +22 +26 +29,2 +33,2 +37 +41
+- **46f3628** — 2025-10-27 — Sherbivs — _logic intent:_ [Task T6.3] Emit DRIP alerts for role assignments
+  - `Patch.md` — ~lines: +2,2 +108,28
+  - `Prompt.md` — ~lines: +2,2 +13,5 +21 +25 +29 +31,3 +35,3 +40,2 +44,2 +48,2 +52,2 +56
+  - `ops/NEXT.yaml` — ~lines: +25 +28
+  - `ops/TOUCHMAP.yaml` — ~lines: +96,4
+  - `src/bot/main.js` — ~lines: +1 +975,146 +1857 +1859
+  - `tasklist.md` — ~lines: +2,2 +623,9
+- **05ed26e** — 2025-10-27 — Sherbivs — _logic intent:_ 1
+  - `src/bot/main.js` — ~lines: +49,3 +105,6 +118,6 +155,5 +176,126 +332,31 +408,13 +1236,7 +1344,7 +1568,12 +1638,5 +1645,19
+- **c8b3755** — 2025-10-27 — Sherbivs — _logic intent:_ [Task PBSL.ORACLE_DIFF] Wire PBSL oracle fixtures, tests, and CI reporting
+  - `.github/workflows/pbsl-oracle.yml` — ~lines: +41,16
+  - `Patch.md` — ~lines: +2,2 +88,9 +103 +108 +110,23
+  - `Prompt.md` — ~lines: +2,2 +13,6 +22 +24 +26 +30 +32,3 +36,3 +40,3 +45,2 +48,3 +52,3 +56,3 +60,3 +65,2 +69
+  - `docs/PBSL.md` — ~lines: +30,4 +45 +59,3
+  - `ops/NEXT.yaml` — ~lines: +25 +28
+  - `tasklist.md` — ~lines: +2,2 +337 +343
+  - `tests/pbsl/fixtures/README.md` — ~lines: +1,19
+  - `tests/pbsl/fixtures/basic-turn.json` — ~lines: +1,103
+  - `tests/pbsl/oracle.spec.ts` — ~lines: +1,162
+- **1c0480c** — 2025-10-27 — Sherbivs — _logic intent:_ [Task PBSL.SKELETON] Scaffold PBSL deterministic core and governanc
+  - `.github/workflows/pbsl-oracle.yml` — ~lines: +1,42
+  - `Patch.md` — ~lines: +98 +100 +101,0 +102,0
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20,3 +28 +30,3 +34,35 +71
+  - `README.md` — ~lines: +21,4 +127,15
+  - `docs/PBSL.md` — ~lines: +1,57
+  - `ops/TOUCHMAP.yaml` — ~lines: +165,12 +200,32 +239,16
+  - `package.json` — ~lines: +21,2
+  - `src/ROUTER.md` — ~lines: +13
+  - `src/core/ROUTER.md` — ~lines: +9 +14
+  - `src/core/pbsl/audit.ts` — ~lines: +1,62
+  - `src/core/pbsl/battle/engine.ts` — ~lines: +1,159
+  - `src/core/pbsl/data/provenance.ts` — ~lines: +1,35
+  - `src/core/pbsl/encounter/generator.ts` — ~lines: +1,95
+  - `src/core/pbsl/index.ts` — ~lines: +1,27
+  - `src/core/pbsl/phases.ts` — ~lines: +1,28
+  - `src/core/pbsl/rng.ts` — ~lines: +1,100
+  - `tasklist.md` — ~lines: +2,2 +322,23
+  - `tests/ROUTER.md` — ~lines: +14
+  - `tests/pbsl/engine.spec.ts` — ~lines: +1,41
+  - `tests/pbsl/provenance.spec.ts` — ~lines: +1,24
+  - `tests/pbsl/rng.spec.ts` — ~lines: +1,31
+- **9da9a7d** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #65 from Sherbivs/codex/add-prisma-heartbeat-monitor-task
+- **d03fa15** — 2025-10-27 — Sherbivs — _logic intent:_ Enhance CLI monitoring telemetry
+  - `src/bot/main.js` — ~lines: +49,3 +105,6 +118,6 +155,5 +176,126 +332,31 +408,13 +1236,7 +1344,7 +1568,12 +1638,5 +1645,19
+  - `src/index.ts` — ~lines: +7,6 +20,10 +35,6 +64,7 +86,4 +113,245 +460,4 +531,8 +541,2
+  - `src/services/cache.js` — ~lines: +81,36 +197 +209
+  - `src/shared/prisma.ts` — ~lines: +1 +3,38 +45,2 +49,152
+  - `src/utils/cliStatus.js` — ~lines: +7 +131,24 +159 +169,3
+- **ca08cf7** — 2025-10-27 — Sherbivs — _logic intent:_ Converted the security bot sweeps to a continuous loop and moved ready handlers to `Events.ClientReady`.
+  - `Prompt.md` — ~lines: +2,2 +14,2 +19 +21 +33,4
+  - `src/index.ts` — ~lines: +4 +152
+- **ccdbb01** — 2025-10-27 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +98
+  - `Prompt.md` — ~lines: +2,2 +13,2 +18 +20 +22 +26 +28,3
+  - `src/bot/main.js` — ~lines: +1,15 +41,12 +59,3 +69,11 +110,6 +226,18 +246 +471,63 +1221 +1337,79 +1449 +1486,7 +1749 +1775,18
+- **fb343ed** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Restore prisma export for DM flows
+  - `Patch.md` — ~lines: +99,2
+  - `Prompt.md` — ~lines: +2,2 +13,2 +18,3 +22 +26 +28,3 +33
+  - `src/models/index.ts` — ~lines: +11,2
+- **a699a9b** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #64 from Sherbivs/codex/fix-background-worker-import-error
+- **8038cca** — 2025-10-27 — Sherbivs — _logic intent:_ Fix starters prisma import
+  - `src/bot/dm/starters.ts` — ~lines: +9,2
+- **5498db9** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #63 from Sherbivs/codex/apply-unified-runtime-and-ci-guards-4rdu6j
+- **978e0fc** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/apply-unified-runtime-and-ci-guards-4rdu6j
+  - `src/models/index.ts`
+- **1cf66f7** — 2025-10-27 — Sherbivs — _logic intent:_ Fix prisma export in models index
+  - `.github/workflows/runtime.yml` — ~lines: +1,50
+  - `Patch.md` — ~lines: +2,2 +6 +9,3
+  - `Prompt.md` — ~lines: +2,2 +6 +13,4 +20,3 +24 +28 +30,2 +33,2 +36,2 +39,2 +42,2 +45,2 +48,2 +51,2 +54,3 +58,4
+  - `README.md` — ~lines: +123,15
+  - `masterroutetable.md` — ~lines: +2 +6,2 +9,8 +50 +52,4 +57,2 +60,26
+  - `ops/NEXT.yaml` — ~lines: +25 +27,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18,11
+  - `ops/TOUCHMAP.yaml` — ~lines: +188,32
+  - `package.json` — ~lines: +10
+  - `prisma/schema.prisma` — ~lines: +99,23
+  - `render.yaml` — ~lines: +50,17
+  - `scripts/guard_runtime.sh` — ~lines: +1,38
+  - `src/ROUTER.md` — ~lines: +5 +11,2 +17,2
+  - `src/bot/ops/admin.ts` — ~lines: +1,6 +31,21 +59,35 +99,8 +197,34 +245,10 +270,61 +381,36
+  - `src/models/index.ts` — ~lines: +3,3 +7 +10
+  - `src/shared/ROUTER.md` — ~lines: +1,19
+  - `src/shared/cache/memory.ts` — ~lines: +1,61
+  - `src/shared/config.ts` — ~lines: +1 +3,6 +10,72
+  - `src/shared/log.ts` — ~lines: +5,3 +42 +83 +99,2 +107,2 +121
+  - `src/shared/outbox.ts` — ~lines: +1,57
+  - `src/shared/prisma.ts` — ~lines: +1,49
+  - `src/worker/ROUTER.md` — ~lines: +1,13
+  - `src/worker/backup.ts` — ~lines: +1,122
+  - `tasklist.md` — ~lines: +2,2 +207,22
+  - `tests/ops_stats.spec.ts` — ~lines: +1,108
+  - `tests/outbox.spec.ts` — ~lines: +1,94
+  - `tests/runtime_config.spec.ts` — ~lines: +1,48
+  - `tsconfig.build.json` — ~lines: +1,10
+  - `tsconfig.json` — ~lines: +14
+- **89a00cf** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #62 from Sherbivs/codex/apply-unified-runtime-and-ci-guards
+- **7e96faf** — 2025-10-27 — Sherbivs — _logic intent:_ [Task META.RUNTIME.BLUEPRINT_APPLY] Apply runtime blueprint
+  - `.github/workflows/runtime.yml` — ~lines: +1,50
+  - `Patch.md` — ~lines: +2,2 +6 +9,3
+  - `Prompt.md` — ~lines: +2,2 +6 +13,4 +20,3 +24 +28 +30,2 +33,2 +36,2 +39,2 +42,2 +45,2 +48,2 +51,2 +54,3 +58,4
+  - `README.md` — ~lines: +123,15
+  - `masterroutetable.md` — ~lines: +2 +6,2 +9,8 +50 +52,4 +57,2 +60,26
+  - `ops/NEXT.yaml` — ~lines: +25 +27,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18,11
+  - `ops/TOUCHMAP.yaml` — ~lines: +188,32
+  - `package.json` — ~lines: +10
+  - `prisma/schema.prisma` — ~lines: +99,23
+  - `render.yaml` — ~lines: +50,17
+  - `scripts/guard_runtime.sh` — ~lines: +1,38
+  - `src/ROUTER.md` — ~lines: +5 +11,2 +17,2
+  - `src/bot/ops/admin.ts` — ~lines: +1,6 +31,21 +59,35 +99,8 +197,34 +245,10 +270,61 +381,36
+  - `src/models/index.ts` — ~lines: +3,3 +8
+  - `src/shared/ROUTER.md` — ~lines: +1,19
+  - `src/shared/cache/memory.ts` — ~lines: +1,61
+  - `src/shared/config.ts` — ~lines: +1 +3,6 +10,72
+  - `src/shared/log.ts` — ~lines: +5,3 +42 +83 +99,2 +107,2 +121
+  - `src/shared/outbox.ts` — ~lines: +1,57
+  - `src/shared/prisma.ts` — ~lines: +1,49
+  - `src/worker/ROUTER.md` — ~lines: +1,13
+  - `src/worker/backup.ts` — ~lines: +1,122
+  - `tasklist.md` — ~lines: +2,2 +207,22
+  - `tests/ops_stats.spec.ts` — ~lines: +1,108
+  - `tests/outbox.spec.ts` — ~lines: +1,94
+  - `tests/runtime_config.spec.ts` — ~lines: +1,48
+  - `tsconfig.build.json` — ~lines: +1,10
+  - `tsconfig.json` — ~lines: +14
+- **af91fd1** — 2025-10-27 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +97,3 +100,0
+  - `Prompt.md` — ~lines: +2,2 +13,2 +18 +20 +26 +28,3
+  - `agent.md` — ~lines: +1,70
+- **2804e0b** — 2025-10-27 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +96,0 +99,38
+- **424e8ff** — 2025-10-27 — Sherbivs — _logic intent:_ SECURITY_BOT_RESTART
+  - `Patch.md` — ~lines: +98
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20 +22 +28,9 +39,2
+  - `masterroutetable.md` — ~lines: +2 +48 +53 +59 +64 +72,2
+  - `src/bot/ROUTER.md` — ~lines: +5 +15 +21,2
+  - `src/index.ts` — ~lines: +18 +42,3 +115,61 +199,9 +274,8
+- **2f0d26a** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Refresh master router table
+  - `Patch.md` — ~lines: +98
+  - `Prompt.md` — ~lines: +2,2 +14 +20 +28 +30,3 +34,2 +36,0
+  - `masterroutetable.md` — ~lines: +2 +21 +23,2 +35 +43 +48 +55,4 +63 +65,3 +69,2 +84 +88
+- **86947f9** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #61 from Sherbivs/codex/fix-referenceerror-in-discord-bot-startup
+- **274afd8** — 2025-10-27 — Sherbivs — _logic intent:_ [Task 001] Define Discord ready promise before login
+  - `src/bot/index.ts` — ~lines: +2 +45,2
+- **33e03b4** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #60 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-xsyvjt
+- **664e6a2** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-xsyvjt
+- **5c31acd** — 2025-10-27 — Sherbivs — _logic intent:_ Fix Discord ready promise usage
+  - `discord-pokemon-bot/pokemon-bot.js` — ~lines: +15,73 +133,4
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/ROUTER.md` — ~lines: +14
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,2 +156,53
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,92
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **8997faf** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #59 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-oqb48o
+- **390a18e** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-oqb48o
+- **ce01075** — 2025-10-27 — Sherbivs — _logic intent:_ Fix ready promise binding in Discord boot
+  - `discord-pokemon-bot/pokemon-bot.js` — ~lines: +15,73 +133,4
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/ROUTER.md` — ~lines: +14
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,3 +157,53
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,92
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **8cf654d** — 2025-10-27 — Sherbivs — _logic intent:_ META.README.ROUTER_DOC
+  - `Patch.md` — ~lines: +98,2
+  - `Prompt.md` — ~lines: +2,2 +13,3 +19,3 +23 +27 +29,2 +33 +37 +40,2
+  - `README.md` — ~lines: +109,20 +138,10
+- **56ebbb0** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #58 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-3hzvof
+- **2ddcd0f** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-3hzvof
+- **356f712** — 2025-10-27 — Sherbivs — _logic intent:_ Support ESM cliStatus in Pokémon bot
+  - `discord-pokemon-bot/pokemon-bot.js` — ~lines: +15,73 +133,4
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/ROUTER.md` — ~lines: +14
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,4 +158,53
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,92
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **d4f0765** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #56 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-jvqc7w
+- **954e9b3** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-jvqc7w
+  - `src/bot/index.ts`
+- **ceef074** — 2025-10-27 — Sherbivs — _logic intent:_ Wait for Discord ready before returning client
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,9 +163,2
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,92
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **583a28e** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #55 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-kqrd59
+- **e615a66** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-kqrd59
+- **57b6166** — 2025-10-27 — Sherbivs — _logic intent:_ Convert legacy commands to ESM
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,6
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,58
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **c464c37** — 2025-10-27 — Sherbivs — _logic intent:_ Removed access pset
+  - `Patch.md` — ~lines: +98,0
+- **93d9468** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #53 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-y7mspp
+- **543607b** — 2025-10-27 — Sherbivs — _logic intent:_ [Task PATCH] Restore Render-friendly CLI monitor
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +20,2 +36,2 +65,2 +98,2 +142,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,6
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,63
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,159 +169,3 +173,3 +179,6 +187,7 +202,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,173
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **dbc098d** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #52 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-if6j04
+- **e294c9e** — 2025-10-27 — Sherbivs — _logic intent:_ Bridge shared logger to CLI monitor
+  - `index.js` — ~lines: +1,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +3 +42
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,63
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,173
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **c2391d8** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #51 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-u80qqh
+- **fa0c492** — 2025-10-27 — Sherbivs — _logic intent:_ Restore CLI log output for non-error levels
+  - `index.js` — ~lines: +1,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +3 +42
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,63
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **a797831** — 2025-10-26 — Sherbivs — _logic intent:_ Merge pull request #50 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info
+- **5732cf3** — 2025-10-26 — Sherbivs — _logic intent:_ Fix battle tests and pipeline determinism
+  - `index.js` — ~lines: +1,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +3 +42
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,63
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +182,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **3c02c89** — 2025-10-26 — Sherbivs — _logic intent:_ Merge pull request #49 from Sherbivs/codex/manage-security-bots-for-error-handling
+- **00f8ac4** — 2025-10-26 — Sherbivs — _logic intent:_ Add fatal error guard for security bot
+  - `src/bot/main.js` — ~lines: +41,2 +53,3
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1,89
+- **da2096c** — 2025-10-26 — Sherbivs — _logic intent:_ [Hotfix HF.20251026.DB_URL_HOST_OVERRIDE] Override localhost DB URL fallback
+  - `src/env/ensure-db-url.ts` — ~lines: +41
+- **6ed1397** — 2025-10-26 — Sherbivs — _logic intent:_  Hotfix HF.20251026.DB_URL_HOST_OVERRIDE forces Render services to drop localhost DATABASE_URL fallbacks in favor of the managed connection string.
+  - `Prompt.md` — ~lines: +2,2 +13,3 +19 +21 +23 +27 +29,2 +33 +35,2 +39 +42 +46 +49,2
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +5,2 +8,2
+  - `ops/NEXT.yaml` — ~lines: +25 +28
+  - `ops/RECOVERY.yaml` — ~lines: +7,2 +11,4
+  - `src/env/ensure-db-url.ts` — ~lines: +29,18 +49,13 +62,0 +63,0 +65,14 +86,17
+  - `tasklist.md` — ~lines: +2,2 +652,10
+- **babaa11** — 2025-10-26 — Sherbivs — _logic intent:_ Merge pull request #48 from Sherbivs/codex/activate-patch-engine-1icxoi
+- **4f7bd80** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.RENDER.DB_URL_FIX] Harden Render DATABASE_URL boot
+  - `.github/workflows/guard-render.yml` — ~lines: +1,24
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20 +22 +24 +28 +30,2 +33,23 +58 +61 +63,2 +67 +70 +74 +77,2
+  - `README.md` — ~lines: +109,20
+  - `ops/NEXT.yaml` — ~lines: +16 +19 +22,2 +25 +28
+  - `ops/RECOVERY.yaml` — ~lines: +7,5
+  - `ops/TOUCHMAP.yaml` — ~lines: +208,16
+  - `render.yaml` — ~lines: +19,0 +33,0 +60,0 +91,0
+  - `scripts/guard_render.mjs` — ~lines: +1,126
+  - `scripts/guards/require-ensure-db-preload.mjs` — ~lines: +1,95
+  - `src/env/ensure-db-url.ts` — ~lines: +1,53
+  - `src/index.ts` — ~lines: +3,2 +10,13
+  - `src/models/index.ts` — ~lines: +1,6 +10,26
+  - `tasklist.md` — ~lines: +2,2 +110 +116 +641,11
+- **c918bb0** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +96,189
+- **8a360ef** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.HOTFIX.TRIGGER_SUFFIX] Allow optional notes after the hotfix trigger
+  - `Patch.md` — ~lines: +2,2 +7,0 +83 +89,7
+  - `Prompt.md` — ~lines: +2,2 +13,3 +19 +21 +23 +27 +30 +33 +35,2 +39 +42 +44,2 +48 +52
+  - `ops/HOTFIX.md` — ~lines: +2,2 +7 +16,2
+  - `ops/NEXT.yaml` — ~lines: +26 +29
+  - `ops/TOUCHMAP.yaml` — ~lines: +203,12
+  - `tasklist.md` — ~lines: +2,2 +59,18
+- **056c888** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.CONTRACTS.SWITCH] Marker switch contract and guard updates
+  - `Patch-Template.md` — ~lines: +2,2 +5 +6,0 +8 +10,3 +14,3 +19 +23,0 +33,0 +35
+  - `Patch.md` — ~lines: +2,2 +8,18 +27 +32,7 +40 +42 +47,21 +77 +91
+  - `Prompt.md` — ~lines: +2,2 +6,5 +13,4 +20 +22,3 +26,268
+  - `masterroutetable.md` — ~lines: +2 +6
+  - `ops/CRITICAL.md` — ~lines: +2,2 +41,5
+  - `ops/HOTFIX.md` — ~lines: +2,2 +16
+  - `ops/NEXT.yaml` — ~lines: +5 +26 +29
+  - `ops/RECOVERY.yaml` — ~lines: +15,3
+  - `ops/ROUTER.md` — ~lines: +5 +9
+  - `ops/TOUCHMAP.yaml` — ~lines: +188,15
+  - `scripts/ROUTER.md` — ~lines: +5 +10
+  - `scripts/guard_meta.sh` — ~lines: +63,10 +105,8 +116,8 +127,14 +152,5 +159,29 +188,0 +190,11 +203,5 +209,5 +216,6
+  - `tasklist.md` — ~lines: +2,2 +49,10
+- **02663a2** — 2025-10-26 — Sherbivs — _logic intent:_ Delete DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED directory
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/PATCH_POLICY_BACKUP.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Prompt.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/ROUTER.yaml` — ~lines: +0,0
+- **020765c** — 2025-10-26 — Sherbivs — _logic intent:_ Merge pull request #47 from Sherbivs/codex/remove-outdated-files-from-repository
+- **14df184** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.REPO.RESTORE_STRUCTURE] Restore canonical meta docs and guards
+  - `.github/workflows/data-health.yml` — ~lines: +1,25
+  - `.github/workflows/guard-docs.yml` — ~lines: +1,16
+  - `.github/workflows/guard-meta.yml` — ~lines: +4,2 +7 +10 +13,20
+  - `.github/workflows/guard-router.yml` — ~lines: +1,15
+  - `.github/workflows/guard-routing.yml` — ~lines: +1,17
+  - `.github/workflows/refresh-cache.yml` — ~lines: +1,27
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +0,0
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +0,0
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +0,0
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +0,0
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Prompt.md` — ~lines: +0,0
+  - `Patch-Template.md` — ~lines: +1,3 +5 +7 +9 +11 +14,2 +18,4 +23,5 +32 +36,2 +40 +42,3 +46,4
+  - `Patch.md` — ~lines: +2,65
+  - `Prompt.md` — ~lines: +2,2 +6,2 +10,8 +19,19 +40,3 +44,0 +47,4 +52,6
+  - `masterroutetable.md` — ~lines: +1,84
+  - `ops/CRITICAL.md` — ~lines: +1,49
+  - `ops/HOTFIX.md` — ~lines: +1,60
+  - `ops/NEXT.yaml` — ~lines: +25 +27
+  - `ops/PATCH_POLICY_BACKUP.md` — ~lines: +1,9
+  - `ops/ROUTER.md` — ~lines: +5 +9 +27
+  - `ops/ROUTER.yaml` — ~lines: +1,59
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `tasklist.md` — ~lines: +2,2 +49,10
+- **5811000** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.READY.ABSOLUTE] Eliminate patch engine stalls with auto-promotion, strict postflight, and router cues
+  - `.github/workflows/guard-meta.yml` — ~lines: +1,20
+  - `CRITICAL.md` — ~lines: +1,49
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +7 +26
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +15,2
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +96,3
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +44,16
+  - `HOTFIX.md` — ~lines: +1,60
+  - `Patch-Template.md` — ~lines: +1,287
+  - `Patch.md` — ~lines: +1,756
+  - `Prompt.md` — ~lines: +2,2 +13,5 +22 +24,2
+  - `ops/NEXT.yaml` — ~lines: +7 +9,7 +18 +21,3 +25,4
+  - `ops/ROUTER.md` — ~lines: +5 +8
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +12,2
+  - `scripts/ROUTER.md` — ~lines: +2,2 +5 +7,3
+  - `scripts/guard_meta.sh` — ~lines: +4,31 +93,0 +164,33
+  - `tasklist.md` — ~lines: +1,733
+- **c3b5999** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +1,47
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +1,59
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/PATCH_POLICY_BACKUP.md` — ~lines: +1,9
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +1,286
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +1,741
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Prompt.md` — ~lines: +1,680
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/ROUTER.yaml` — ~lines: +1,59
+- **be0811d** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +1,47
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +1,59
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/PATCH_POLICY_BACKUP.md` — ~lines: +1,9
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +1,286
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +1,741
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Prompt.md` — ~lines: +1,680
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/ROUTER.yaml` — ~lines: +1,59
+- **3b2b467** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch-Template.md` — ~lines: +0,0
+  - `Patch.md` — ~lines: +0,0
+  - `Prompt.md` — ~lines: +2,2 +13,5 +21,5 +27,614 +647
+  - `ops/CRITICAL.md` — ~lines: +0,0
+  - `ops/HOTFIX.md` — ~lines: +0,0
+  - `ops/NEXT.yaml` — ~lines: +13 +17 +21,2
+  - `ops/PATCH_POLICY_BACKUP.md` — ~lines: +0,0
+  - `ops/ROUTER.yaml` — ~lines: +0,0
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18 +23 +33
+  - `ops/TOUCHMAP.yaml` — ~lines: +151,3 +154,0 +156,7 +163,0
+  - `src/ROUTER.md` — ~lines: +5 +10
+  - `src/bot/ROUTER.md` — ~lines: +5 +13
+  - `src/bot/daily/claim.ts` — ~lines: +1,94
+  - `src/bot/dm/home.tsx`
+  - `src/bot/index.ts` — ~lines: +75,10
+  - `src/commands/daily.js` — ~lines: +1,13
+  - `tasklist.md` — ~lines: +2,2 +232,2 +235,11 +247,4
+  - `tests/ROUTER.md` — ~lines: +5 +13
+  - `tests/daily.spec.ts` — ~lines: +1,76
+- **d9752ba** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +316 +318 +320 +322,5 +328,5 +334,2 +337,2 +340 +342 +344,4 +349 +351 +353,2 +356 +358 +360 +362,2 +365 +367,2 +370 +372 +374,3 +378 +380,10 +391,3 +395 +400,15 +416,3 +421,3 +425,4 +430,41 +472,6 +479 +481,3 +485,2 +488,5 +494,14 +509 +511,3 +515,33 +549,20 +570,28 +599,3 +603 +605 +607,3 +611,5 +617 +619,13 +635 +637,4 +642,11 +654 +656,10 +667 +669,14 +684,7 +692 +694,9 +704 +706,5 +712 +714,4 +719 +721 +723,2 +727 +730,5 +737,4 +741,0
+  - `Prompt.md` — ~lines: +12,0 +13,0 +15 +17 +21,4
+  - `ops/NEXT.yaml` — ~lines: +12,3 +16,0 +18,5
+  - `tasklist.md` — ~lines: +715
+- **fe28c8e** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +318 +320 +322,2 +325 +327,17 +345 +347 +349 +351,3 +355 +357 +359 +361 +363 +365 +367 +369 +371 +373 +375 +377 +379 +381 +383 +385 +390,2 +393,10 +405 +407 +409 +411 +413,7 +421,13 +435,8 +444,6 +451,6 +458,8 +467,23 +491 +493 +495 +497 +499,4 +504,9 +513,0 +515 +517,34 +552 +554 +556 +558 +560,4 +565 +567,9 +577 +579 +581 +583,6 +590,5 +596 +598 +599,0 +601 +603,2 +606 +608,10 +619,2 +623 +626,5 +632,0 +634,3
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20,289 +311,0
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,0 +19,2 +24 +27
+  - `ops/TOUCHMAP.yaml` — ~lines: +150,8
+  - `prisma/schema.prisma` — ~lines: +23,3 +28,5 +44,5
+  - `src/commands/home.js` — ~lines: +17,166 +262 +270 +300 +343 +363 +386,15 +505,8 +521,14 +577,3
+  - `src/models/index.ts` — ~lines: +4 +140,263
+  - `tasklist.md` — ~lines: +2,2 +69,0 +709 +715,11
+  - `tests/dm_home.spec.ts` — ~lines: +21,11 +38 +60 +113,5 +153,32
+  - `tests/log.spec.ts` — ~lines: +3 +23,48
+- **e0b91e9** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `.github/workflows/data-health.yml` — ~lines: +0,0
+  - `.github/workflows/guard-docs.yml` — ~lines: +0,0
+  - `.github/workflows/guard-meta.yml` — ~lines: +0,0
+  - `.github/workflows/guard-router.yml` — ~lines: +0,0
+  - `.github/workflows/guard-routing.yml` — ~lines: +0,0
+  - `.github/workflows/refresh-cache.yml` — ~lines: +0,0
+- **573ba95** — 2025-10-26 — Sherbivs — _logic intent:_ Retire Refresh Vision requirement
+  - `Patch.md` — ~lines: +2,2 +16,3 +144,28 +315,0 +318 +320 +322,3 +326 +328,5 +334,2 +337,2 +340 +342,77 +419,0 +421,3 +425,3 +428,0 +430,48 +479,92 +573 +576 +580,2 +583,3 +587 +593,4 +603,12 +619 +621,4 +627,5 +635 +637,4 +642,2 +645 +647,6 +656,12 +669,6 +676,9 +686,4 +692 +694 +696,14 +712,7 +723,2 +727 +730,5 +737,5
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20,2 +23,0 +29,3
+  - `ops/CRITICAL.md` — ~lines: +32,4 +37
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +18 +20 +22 +24 +26,2
+  - `ops/TOUCHMAP.yaml` — ~lines: +138 +146
+  - `src/commands/home.js` — ~lines: +14,50 +94,2 +102 +131 +193 +215,11 +245,81 +330 +337,3 +380,2
+  - `tasklist.md` — ~lines: +2,2 +40,20 +709 +715 +719 +725
+  - `tests/dm_home.spec.ts` — ~lines: +13,8 +26 +30 +47 +87,4 +96 +104,33
+- **15e87b8** — 2025-10-26 — Sherbivs — _logic intent:_ [META.ROUTING.DUAL_TABLES]: Establish dual (DEV/PROD) routing tables + master route text reference + DNS bridge
+  - `Patch.md` — ~lines: +2,2 +26 +292 +294 +297,38 +337,126 +466,10 +477,4 +482,7 +491 +495,4 +500,10 +512 +516,7 +524,20 +545,2 +548 +550,3 +560 +563 +566,5 +573
+  - `Prompt.md` — ~lines: +2,2 +13,4 +21,2494 +2543,2
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +18,5 +24 +26,2
+  - `ops/TOUCHMAP.yaml` — ~lines: +137,14 +226,18
+  - `scripts/guard_meta.sh` — ~lines: +167,92
+  - `tasklist.md` — ~lines: +2,2 +31 +38,21 +684,22
+- **70bb614** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Prompt.md` — ~lines: +2,2 +13,4 +21,3 +52
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +22 +24 +26,2
+  - `scripts/guard_meta.sh` — ~lines: +164,8
+  - `tasklist.md` — ~lines: +2,2 +21 +27 +31 +38
+- **28b2530** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +2,2 +289,0 +291 +293 +295,28 +324 +326 +328,28 +359 +361,4 +368,4 +375 +379 +382 +384,3 +389,16 +407,0 +408,0 +410,2 +414 +417,3 +422,2
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,5 +23 +26
+  - `tasklist.md` — ~lines: +19,21
+- **b6ba43c** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +149,0 +151 +153,2 +156 +158 +160,39 +200 +202,10 +213,4 +218 +219,0 +220,0 +222 +224 +226,5 +232,7 +240,6 +247 +249,7 +257,11 +268,0 +269,0 +271,22 +294,476 +771,22 +795,5 +801 +805,10 +816,27 +844 +848,6 +860,4 +865,10 +877 +880,2 +883,4 +888 +890,4 +897,6 +912 +915 +919,6 +927 +929 +932
+- **65e9de2** — 2025-10-26 — Sherbivs — _logic intent:_ HF.20251026.MASTER_ROUTE_TABLE
+  - `Prompt.md` — ~lines: +2,2 +13,4 +21,3 +52
+  - `masterroutetable.md` — ~lines: +2,83
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +5,2 +8,2
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +21,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,3 +11,4
+  - `tasklist.md` — ~lines: +2,2 +533,10
+- **e2676b1** — 2025-10-26 — Sherbivs — _logic intent:_ META.README.REFRESH2
+  - `Prompt.md` — ~lines: +2,2 +13,4 +21,3 +52
+  - `README.md` — ~lines: +9,11 +23,6 +33,3 +37,4 +42,4 +64 +67,30 +100 +103,3 +107 +111,19 +139,7
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +21,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,3 +11
+  - `tasklist.md` — ~lines: +2,2 +69,10
+- **425a9ce** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `README.md` — ~lines: +7,7 +119,8
+- **491affd** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch-Template.md` — ~lines: +2,2 +51 +60,8 +82,9 +102 +109 +117 +131 +137 +145 +158 +220 +269 +282 +286
+- **aa9bd84** — 2025-10-26 — Sherbivs — _logic intent:_ HF.20251026.PLAIN_ECHO_TEXT
+  - `Patch.md` — ~lines: +150,2 +153,6 +160,3 +164,3 +168,3 +172,3 +176,4 +181,4 +186,4 +191,3 +195,3 +199 +201,4 +206,8 +215,2 +218 +220,7 +228 +230,3 +234 +236,7 +244 +246,2 +249 +251,2 +254,4 +259,10 +271 +274,5 +280 +282,3 +286,4 +292 +296,4 +301,6 +313,4 +320,2 +323 +326 +328,2 +331 +333,5 +346,3 +350 +352,2 +363 +366 +370,6 +379,3 +385
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20,6 +53,2
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +5,2 +8,2
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +21,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,3 +11,4
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +23 +33
+  - `ops/TOUCHMAP.yaml` — ~lines: +135
+  - `src/bot/ROUTER.md` — ~lines: +5 +12
+  - `src/bot/ops/admin.ts` — ~lines: +25 +39,15 +164,6 +183 +192,2 +203,2 +236 +239 +247 +255,6 +316,10
+  - `src/commands/ops.js` — ~lines: +43,6
+  - `tasklist.md` — ~lines: +2,2 +513,10 +616 +622
+  - `tests/ROUTER.md` — ~lines: +5 +11
+  - `tests/ops.spec.ts` — ~lines: +47 +99 +111 +147 +155 +173 +185 +188,84
+- **d6af7c4** — 2025-10-26 — Sherbivs — _logic intent:_ HF.20251026.PLAIN_ECHO_TEXT
+  - `Patch.md` — ~lines: +66 +102
+  - `Prompt.md` — ~lines: +2,2 +13,4 +22,2 +51,2
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +8,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,2 +11,4
+  - `ops/ROUTER.md` — ~lines: +5 +8,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `tasklist.md` — ~lines: +2,2 +493,20
+- **a4c3ecd** — 2025-10-26 — Sherbivs — _logic intent:_ HF.20251026.PATCH_ECHO_MD
+  - `Patch.md` — ~lines: +101
+  - `Prompt.md` — ~lines: +2,2 +13,4 +22,2 +51,2
+  - `ops/HOTFIX.md` — ~lines: +26 +43,9
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +3 +5,14
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17 +19 +21,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,2 +10,5
+  - `ops/ROUTER.md` — ~lines: +5 +8,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `tasklist.md` — ~lines: +2,2 +476 +482,10
+- **e71e047** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +288,3 +293 +296,0 +300 +302,9 +319,2 +323,61 +387 +389,4 +394,19 +415 +417,59 +477 +479 +482,7 +490,4 +495,4 +500,20 +521 +523,2 +533,5 +539,2 +547,4 +553,3 +557,2 +560,4 +565 +567,5 +578 +580,2 +583,5 +590 +592,4 +597,4 +602,9 +614 +620 +623 +627,8 +638,3 +644
+- **ddbd6ff** — 2025-10-26 — Sherbivs — _logic intent:_ .[META.ROUTER.INTEGRATION]: Unify Patch/Hotfix engines with Router Network + auto-metadata tagging + master route authority
+  - `Patch.md` — ~lines: +286 +288 +290 +292,53 +346 +348,17 +368 +371,32 +404,151 +556,56 +613,24 +638,30 +669 +671,3 +675 +677 +679,47 +727 +729,3 +733,8 +743,7 +751 +753,27 +786,5 +792,0 +796 +798 +801 +805,7 +815,3 +819 +821,2
+  - `Prompt.md` — ~lines: +2,2 +13,5 +23,2 +52
+  - `masterroutetable.md` — ~lines: +2
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +18,5 +24 +27
+  - `ops/RECOVERY.yaml` — ~lines: +7,2 +10,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +23 +33
+  - `ops/TOUCHMAP.yaml` — ~lines: +131,5
+  - `src/bot/ROUTER.md` — ~lines: +5 +11
+  - `src/bot/ops/admin.ts` — ~lines: +22,5 +29 +31 +36,2 +143,14 +161 +163 +165 +189 +191 +209 +212,5 +222 +230 +268,3 +274,15 +290,7
+  - `src/commands/ops.js` — ~lines: +26,17
+  - `tasklist.md` — ~lines: +2,2 +567 +573,11
+  - `tests/ROUTER.md` — ~lines: +5 +10
+  - `tests/ops.spec.ts` — ~lines: +2 +46,2 +68 +73 +99 +106,71 +185
+- **fb2c1f2** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +107 +115 +129 +135 +143 +156 +218 +267 +280 +286,3 +291 +293,33 +327,33 +361,9 +371,4 +377,2 +382,4 +388 +390,6 +398,4 +402,0 +404,2 +408 +412,5 +420,5 +425,0
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20 +22,2 +51
+  - `masterroutetable.md` — ~lines: +2
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +20,0 +22 +25
+  - `ops/RECOVERY.yaml` — ~lines: +7,5
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +23 +33
+  - `ops/TOUCHMAP.yaml` — ~lines: +126,5
+  - `src/bot/ROUTER.md` — ~lines: +5 +10
+  - `src/bot/ops/admin.ts` — ~lines: +2 +12,20 +38 +45,18 +79,2 +91 +95,109 +205,2 +209,4 +224 +239,17
+  - `tasklist.md` — ~lines: +2,2 +557 +563,11
+  - `tests/ROUTER.md` — ~lines: +5 +9
+  - `tests/ops.spec.ts` — ~lines: +1 +3 +31,81
+- **63db87e** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19 +21 +49
+  - `masterroutetable.md` — ~lines: +1,13
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +3 +5,3 +9,2 +13,3
+  - `ops/RECOVERY.yaml` — ~lines: +12,3
+  - `ops/ROUTER.yaml` — ~lines: +40
+  - `ops/TOUCHMAP.yaml` — ~lines: +208,11
+  - `tasklist.md` — ~lines: +2,2 +484,19
+- **613183e** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +286 +287,0 +289 +292 +294 +296,14 +311 +313,15 +329,0 +332 +336,2 +340,35 +378 +381,2 +386,5 +399 +402 +406,3 +412,2 +415,0
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19 +21 +49
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +18 +20 +23 +26
+  - `src/bot/ROUTER.md` — ~lines: +5 +8
+  - `src/bot/battle/conclude.ts` — ~lines: +2 +4 +10,2 +58,57
+  - `tasklist.md` — ~lines: +2,2 +528 +534 +538
+  - `tests/ROUTER.md` — ~lines: +5 +8
+  - `tests/battle_flow.spec.ts` — ~lines: +236 +245,89
+- **fe6c966** — 2025-10-26 — Sherbivs — _logic intent:_ Hotfix Trigger
+  - `Patch.md` — ~lines: +2,2 +60,7 +81,9 +286 +290 +292,0 +295,4 +300,9 +310,9 +320,11 +332,2 +334,0 +337,2 +340 +343 +346 +347,0 +350,5 +357 +361,8 +371 +376,2 +379 +381,3 +393 +396 +400,3 +406 +410
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18 +20 +30,7 +48
+  - `ops/HOTFIX.md` — ~lines: +1,50
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +1,15
+  - `ops/NEXT.yaml` — ~lines: +27
+  - `ops/RECOVERY.yaml` — ~lines: +12,3
+  - `ops/ROUTER.md` — ~lines: +5 +8
+  - `ops/ROUTER.yaml` — ~lines: +57,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +13
+  - `ops/TOUCHMAP.yaml` — ~lines: +188,20
+  - `package.json` — ~lines: +18
+  - `scripts/ROUTER.md` — ~lines: +5 +13
+  - `scripts/guard_meta.sh` — ~lines: +32,8 +111,6 +125,6 +132
+  - `scripts/hotfix_entry.sh` — ~lines: +1,24
+  - `tasklist.md` — ~lines: +2,2 +461,23
+- **59d628c** — 2025-10-26 — Sherbivs — _logic intent:_ push
+  - `Prompt.md` — ~lines: +2,2 +13,3 +20 +41
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,6 +24 +27
+  - `ops/RECOVERY.yaml` — ~lines: +7,5
+  - `ops/ROUTER.md` — ~lines: +5 +8
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `ops/TOUCHMAP.yaml` — ~lines: +113,13
+  - `tasklist.md` — ~lines: +2,2 +492,30
+- **3a43d1a** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272 +276,77 +353,0 +356,0 +360,6 +368,9 +378,4 +389,4 +394,2 +398,16 +414,0 +417 +421,12 +435 +439,16 +456,3 +461 +463 +465,13 +479 +481,8 +496,3 +502 +506,8 +520 +528,2 +533,5 +539,2 +542 +544,4 +557 +560 +564,8 +575,3 +581
+- **f05332a** — 2025-10-26 — Sherbivs — _logic intent:_ # Standardized Pokémon Game Logic (Buddy System Edition)
+  - `discord-pokemon-bot/data/standized_pokemon_game_logic.md` — ~lines: +1,406
+- **0806108** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272 +274,3 +278 +280,2 +283,43 +327,3 +331 +333,48 +383 +388,28 +416,0 +419,2 +422,16 +440 +442,19 +463,19 +484 +486,9 +496,9 +506 +508,21 +531,26 +560,0 +562,11 +574,9 +589,23 +613
+- **724a948** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Prompt.md` — ~lines: +13,4
+- **4df4ac4** — 2025-10-26 — Sherbivs — _logic intent:_  2025-10-26 \| T7.3 persisted battle outcomes with shared announcer + tests. \| BattleRepo writes rewards, DM/thread summaries reuse stored results, and Vitest covers persistence/forfeit flow. \|
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19,3 +42
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17 +19 +22
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18 +23 +33
+  - `src/ROUTER.md` — ~lines: +5 +8
+  - `src/bot/ROUTER.md` — ~lines: +5 +8
+  - `src/bot/battle/actions.ts` — ~lines: +9 +11,2 +18,0 +98,8
+  - `src/bot/battle/conclude.ts` — ~lines: +1,53
+  - `src/models/index.ts` — ~lines: +29 +43,5 +69,7
+  - `tasklist.md` — ~lines: +2,2 +483,9
+  - `tests/ROUTER.md` — ~lines: +5 +8
+  - `tests/battle_flow.spec.ts` — ~lines: +4,3 +183,62
+  - `tests/battle_results.spec.ts` — ~lines: +1,134
+- **57bf8de** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272,2 +275 +277,2 +282 +284,32 +319 +321,17 +342 +344,15 +360,4 +365,16 +382,4 +387,15 +403,8 +412,17 +431 +433 +436,36 +476 +478,24 +506 +508,2 +511 +513 +514,0 +516 +518 +520,15 +536 +538 +540,3 +544,3
+- **29831d3** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272 +274 +276,5 +282 +284 +286,23 +310,4 +315,5 +321 +323 +325,25 +351 +353 +355,11 +368 +370 +372,9 +383 +385 +387 +389,2 +392 +394,26 +422,55 +478,3 +482,2 +485
+- **af06d14** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #46 from Sherbivs/codex/fix-missing-database_url-environment-variable
+- **595dcd9** — 2025-10-25 — Sherbivs — _logic intent:_ Provision Render Postgres and harden config env fallbacks
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19,3 +43
+  - `README.md` — ~lines: +112,8
+  - `ops/ROUTER.md` — ~lines: +5 +9
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +18
+  - `render.yaml` — ~lines: +1,6 +15,9 +34,8 +65,8 +100,8 +146,8
+  - `src/ROUTER.md` — ~lines: +5 +9
+  - `src/shared/config.ts` — ~lines: +17,16
+- **f5286cc** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #45 from Sherbivs/codex/fix-module_not_found-errors-in-deployment
+- **7a69c0c** — 2025-10-25 — Sherbivs — _logic intent:_ Fix Render build to run ts entrypoint and regenerate Prisma
+  - `package.json` — ~lines: +7,2 +10 +12,2 +31,0 +38
+  - `prisma/schema.prisma` — ~lines: +25,5 +41,5
+  - `render.yaml` — ~lines: +6,2 +14 +38 +61 +103
+- **2f499a4** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #44 from Sherbivs/codex/read-patch.md-and-activate-patch-engine
+- **9071c6b** — 2025-10-25 — Sherbivs — _logic intent:_ META: Promote T7.3 backlog to READY
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19 +21 +42
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,5 +23 +26
+  - `ops/RECOVERY.yaml` — ~lines: +1,2 +6,4 +11
+  - `ops/ROUTER.md` — ~lines: +5,4
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `tasklist.md` — ~lines: +2,2 +483,9
+- **ec3103b** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272 +274 +276,3 +280 +282 +284,3 +288 +290 +292,3 +296 +298 +300,2 +303 +305 +307 +309,8 +317,0 +318,0 +321,2 +324 +325,0 +327 +330 +332 +334,10 +346 +348 +350,5 +356
+- **6eb5eac** — 2025-10-25 — Sherbivs — _logic intent:_ META.ROUTER.NAME_GUARD added canonical-name guard & CI.
+  - `.github/workflows/guard-router.yml` — ~lines: +1,15
+  - `Patch.md` — ~lines: +2,2 +51 +269,0 +271 +275,6 +281,0 +283 +284,0 +286,4 +297,6 +305 +308,17 +326,49 +376,9 +386,3 +390,2 +394,91 +487,10 +502,2 +506,0 +509 +512,9 +522,2 +530,5 +541,4 +547,10 +559,4 +566 +572,2 +577 +579 +581,5 +595 +598 +602,5 +609 +611,0
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20 +22 +43
+  - `ops/CANONICAL_NAMES.yaml` — ~lines: +1,29
+  - `ops/ROUTER.md` — ~lines: +5 +15
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +13
+  - `ops/TOUCHMAP.yaml` — ~lines: +167,8
+  - `prisma/schema.prisma` — ~lines: +90
+  - `scripts/ROUTER.md` — ~lines: +5 +12
+  - `scripts/verify_router_links.sh` — ~lines: +1,102
+  - `src/bot/arena/summary.ts` — ~lines: +3,2 +20,29
+  - `src/bot/battle/actions.ts` — ~lines: +10,2 +64 +68 +87 +89,12 +103 +106 +112,2 +117
+  - `src/bot/index.ts` — ~lines: +14 +103
+  - `src/models/index.ts` — ~lines: +4 +27,102
+  - `tasklist.md` — ~lines: +2,2 +160,11
+- **e851cfa** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch-Template.md` — ~lines: +269,0
+- **2e5e0ab** — 2025-10-25 — Sherbivs — _logic intent:_ T7.2 Capture
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20 +22 +43
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +21,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18 +23 +28 +33
+  - `src/ROUTER.md` — ~lines: +5,4
+  - `src/bot/ROUTER.md` — ~lines: +5,4
+  - `src/core/ROUTER.md` — ~lines: +5,4
+  - `tasklist.md` — ~lines: +2,2 +464 +470
+  - `tests/ROUTER.md` — ~lines: +5,4
+  - `tests/catch.spec.ts` — ~lines: +1,3
+- **59e653c** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +271 +275 +277 +279,32 +312 +318,5 +324 +327,36 +365,26 +392,12 +405,2 +408,4 +413,2 +418 +421 +423,16 +445 +447,3 +459 +467,14 +483 +486,17 +512 +515 +519,5 +526 +530
+  - `src/bot/wilds/controls.ts` — ~lines: +6,8 +73,3
+  - `src/core/encounter/catch.ts` — ~lines: +46 +119,4 +136
+  - `src/models/index.ts` — ~lines: +19,2
+  - `tests/catch.spec.ts` — ~lines: +1,3 +27,138
+- **18645e1** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +271 +275 +277,0 +282,2 +285,2 +288,19 +312,3 +318,12 +331,13 +345,5 +352 +354,21 +376 +378,36 +415 +417,8 +427 +433,38 +472,9 +482 +484,3 +489,4 +494 +496 +498,24 +524 +528 +530,14 +546 +548,0 +550,4 +555,17 +581 +584 +588,8 +598,9 +610
+- **5f1b94c** — 2025-10-25 — Sherbivs — _logic intent:_ patch-template
+  - `Patch-Template.md` — ~lines: +1,270
+- **1407d2a** — 2025-10-25 — Sherbivs — _logic intent:_ Commit pending; T7.1 DM Home persistence completed.
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20 +22,3 +45
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17 +19 +22
+  - `ops/TOUCHMAP.yaml` — ~lines: +97,2
+  - `src/commands/home.js` — ~lines: +9 +12,129 +146 +148,8 +157 +185 +187,19 +207,3 +210,0 +216,0 +228,6
+  - `tasklist.md` — ~lines: +2,2 +454 +460
+  - `tests/dm_home.spec.ts` — ~lines: +1,90
+- **05d9fa0** — 2025-10-25 — Sherbivs — _logic intent:_ Clarify Refresh Vision fallback without embedding conversation
+  - `Patch.md` — ~lines: +270,3 +275,78 +353,0 +358,4 +364,7 +372,2 +375,6 +382,2 +385 +387,4 +392,4 +397,14 +412,2 +416,2 +419,0 +421,2 +426,2 +429,5 +435 +438 +439,0 +442,6 +449,6 +457 +460,2 +463,4 +469,3 +474,4 +487 +490 +494,5 +501 +504,2
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19 +21,3 +44
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,5 +23 +26
+  - `ops/TOUCHMAP.yaml` — ~lines: +96,19
+  - `tasklist.md` — ~lines: +2,2 +88,10 +449,32
+- **ad5b488** — 2025-10-25 — Sherbivs — _logic intent:_ Date (UTC) \| Change \| Impact \| \| --- \| --- \| --- \| \| 2025-10-25 \| META.README.REFRESH modernized the README to match the Infinity Gauntlet architecture. \| README now reflects DM/Wilds/Arena flows, scripts, and deployment guidance. \|
+  - `Patch.md` — ~lines: +270,0 +273 +276,111 +389 +391,13 +406 +410,4 +416,12 +429,3 +434,4 +443,21 +466 +470,3 +474,11 +494 +497 +501,6 +509,9
+  - `Prompt.md` — ~lines: +2,2 +13,2 +17 +19,3 +32,2 +47,2
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +22
+  - `ops/RECOVERY.yaml` — ~lines: +1,6 +11
+  - `ops/TOUCHMAP.yaml` — ~lines: +131,12
+  - `scripts/refresh_vision.sh` — ~lines: +2,0 +4,9 +14,37 +52,13 +67,6 +74,4 +79 +81 +84,7 +93,2 +96 +99,5 +105,3 +110 +114,10 +125,3 +129
+  - `tasklist.md` — ~lines: +2,2 +69,19
+- **9ea4ba3** — 2025-10-25 — Sherbivs — _logic intent:_ # Combined Router Overview
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18 +20,3 +42
+  - `README.md` — ~lines: +1,24 +25,0 +27,13 +42,96
+  - `ops/NEXT.yaml` — ~lines: +19 +22
+  - `ops/RECOVERY.yaml` — ~lines: +2 +4,3
+  - `ops/TOUCHMAP.yaml` — ~lines: +131,7
+  - `tasklist.md` — ~lines: +2,2 +59,10
+- **9ff8a99** — 2025-10-25 — Sherbivs — _logic intent:_ \| 2025-10-25 \| META.TASK.HOUSEKEEP introduced Tasklist archival script/policy and cleared READY queue. \| `npm run tasks:archive` keeps only the latest 100 DONE tasks; NEXT now NONE until new work is staged. \| \| 2025-10-25 \| META.RECOVERY.REPLAY captured resume metadata and advanced NEXT to META.TASK.HOUSEKEEP. \| Refresh Vision now persists last_attempted tasks so workers resume safely before selecting new work. \|
+  - `Patch.md` — ~lines: +2,2 +18 +37 +187 +242
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18 +20,3 +34 +42,2
+  - `ops/ARCHIVE/README.md` — ~lines: +1,10
+  - `ops/CRITICAL.md` — ~lines: +29
+  - `ops/NEXT.yaml` — ~lines: +7,2 +12 +14,2 +17 +19 +22
+  - `ops/RECOVERY.yaml` — ~lines: +1,2 +4,5
+  - `ops/ROUTER.md` — ~lines: +5 +14
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +13
+  - `ops/TOUCHMAP.yaml` — ~lines: +124,7
+  - `package.json` — ~lines: +13,3 +18
+  - `scripts/ROUTER.md` — ~lines: +5 +11
+  - `scripts/archive_task_history.mjs` — ~lines: +1,190
+  - `scripts/refresh_vision.sh` — ~lines: +6 +11,5 +23,2 +30 +33,12 +46,6 +54,2 +57 +60,5 +67
+  - `tasklist.md` — ~lines: +2,2 +42 +47,2 +52,2 +57
+- **bda2341** — 2025-10-25 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +264,0 +268 +271 +273,57 +332 +335,7 +347,0 +350,3 +355 +359,2 +362,20 +386,12 +400 +404,23 +436 +439 +443,6 +451 +453,0
+- **861a6ed** — 2025-10-25 — Sherbivs — _logic intent:_ guidance_when_none
+  - `.github/workflows/guard-meta.yml` — ~lines: +13 +16,9 +26,6
+  - `Patch.md` — ~lines: +2,2 +36 +83 +184
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18,5 +37,7
+  - `ops/NEXT.yaml` — ~lines: +3,2 +6,6 +13,2 +17 +19 +21 +23 +26
+  - `scripts/guard_meta.sh` — ~lines: +4,2 +7,19 +28,0 +30 +32,2 +34,0 +43,7 +51 +57,7 +67,3 +71,2 +75,2 +78 +79,0 +81 +84,3 +88,6 +105,5 +116,30
+  - `tasklist.md` — ~lines: +2,2 +21 +28 +32 +38 +42 +52
+- **e431840** — 2025-10-25 — Sherbivs — _logic intent:_ patch fix
+  - `Patch.md` — ~lines: +266,2 +269 +271 +273 +275 +277 +279,5 +285,31 +316,0 +321,7 +328,0 +330,20 +351,2 +355,7 +363,6 +371,2 +375,11 +387,6 +394,8 +404,2 +408,14 +424,62 +488,23 +513,2 +517,14 +532 +536 +539,2 +543 +546,10 +556,0 +558,4
+  - `ops/NEXT.yaml` — ~lines: +4 +6,2 +9,8 +19 +21,2
+  - `tasklist.md` — ~lines: +2,2 +18,41 +78 +98,6 +109,11 +157 +409,0
+- **5055e8d** — 2025-10-25 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +265,2 +268,6 +275 +277,3 +281,31 +313,7 +321,37 +359,6 +366,13 +381 +386,33 +420 +422,32 +455,9 +465 +468 +470 +474,0 +476 +480 +483,5 +490 +493,8 +502,5 +509 +512,4 +518 +521,4 +527 +530,4 +535,10 +547 +550,4 +555,7 +563,4 +569 +572,4 +577,8 +585,0 +588,0 +591 +594 +596,6 +604,2 +607,2
+- **2407964** — 2025-10-25 — Sherbivs — _logic intent:_ Patch
+  - `Patch.md` — ~lines: +263,0 +266 +268 +271,0 +273,9 +284 +286,5 +293,6 +300,27 +328,9 +339,0 +341,2 +344,3 +348,3 +353,28 +382,43 +426,8 +436,0 +438,4 +444 +447,5 +453,10 +465,18 +484 +487,4 +493 +496 +498,16 +516,0 +519,4 +527,3 +531,17 +550,0 +553,4 +560,2 +563 +565,4 +570,2 +573 +575,3 +580 +583 +585,3 +596 +599 +602,7 +611,3
+- **7c19339** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #43 from Sherbivs/codex/activate-patch-engine-fast
+- **91af9ae** — 2025-10-25 — Sherbivs — _logic intent:_ [META.ROUTER_FMT] Normalize router docs and router index
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18,4
+  - `ops/NEXT.yaml` — ~lines: +6,2 +10
+  - `ops/RECOVERY.yaml` — ~lines: +1,5
+  - `ops/ROUTER.md` — ~lines: +1,13
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +1,33
+  - `scripts/ROUTER.md` — ~lines: +1,10
+  - `src/ROUTER.md` — ~lines: +1,9
+  - `src/bot/ROUTER.md` — ~lines: +1,10
+  - `src/core/ROUTER.md` — ~lines: +1,9
+  - `tasklist.md` — ~lines: +2,2 +56,5 +66,11
+  - `tests/ROUTER.md` — ~lines: +1,8
+- **6ed7170** — 2025-10-25 — Sherbivs — _logic intent:_ Router SYstem Live
+  - `Patch.md` — ~lines: +2,2 +16,3 +44,5
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20,5 +33,5
+  - `ops/CRITICAL.md` — ~lines: +31,6 +45
+  - `ops/NEXT.yaml` — ~lines: +4 +6,2 +9,2 +13
+  - `ops/RECOVERY.yaml` — ~lines: +1,5
+  - `ops/ROUTER.md` — ~lines: +1,13
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +1,33
+  - `ops/TOUCHMAP.yaml` — ~lines: +94
+  - `package.json` — ~lines: +16,2
+  - `scripts/ROUTER.md` — ~lines: +1,10
+  - `scripts/refresh_vision.sh` — ~lines: +1,38
+  - `scripts/update_router_index.sh` — ~lines: +1,28
+  - `src/ROUTER.md` — ~lines: +1,9
+  - `src/bot/ROUTER.md` — ~lines: +1,10
+  - `src/bot/arena/summary.ts` — ~lines: +1,17
+  - `src/bot/battle/actions.ts` — ~lines: +1,108
+  - `src/bot/battle/challenge.ts` — ~lines: +15,2 +134,13 +297,5
+  - `src/bot/index.ts` — ~lines: +11 +13 +87,4 +101,4
+  - `src/bot/middleware/limits.ts` — ~lines: +1,39
+  - `src/bot/ops/admin.ts` — ~lines: +1,116
+  - `src/bot/wilds/walk.ts` — ~lines: +5 +54,7
+  - `src/commands/ops.js` — ~lines: +1,35
+  - `src/core/ROUTER.md` — ~lines: +1,9
+  - `tasklist.md` — ~lines: +2,2 +18,19 +329 +335 +341 +347 +351 +356
+  - `tests/ROUTER.md` — ~lines: +1,8
+  - `tests/battle_ui.spec.ts` — ~lines: +1,42
+  - `tests/limits.spec.ts` — ~lines: +1,35
+  - `tests/ops.spec.ts` — ~lines: +1,30
+- **ad0355a** — 2025-10-25 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +1,76 +78,43 +122,143 +268,86 +354,0 +357,5 +363,5 +369,9 +383,2 +387,6 +395 +397,4 +403 +407,10 +418,6 +425,3 +430 +432,6 +440 +443,13 +458 +460,10 +472 +474,11 +487 +490,9 +501 +504,9 +514 +516,11 +534,3 +540,2 +545,27 +581 +584 +586 +588,5 +595 +599
+- **b91be01** — 2025-10-25 — Sherbivs — _logic intent:_ [T0.TRIGGER.ENHANCED] Faster & safer Activation Trigger (FAST/DRY modes, preflight checks, lock, Echo/Ledger duties)
+  - `Patch.md` — ~lines: +1 +3,8 +12 +14 +16,80 +97 +99,18 +119 +123,14 +139 +142,23 +167 +169,2 +172 +174 +177,5 +183 +185,2 +188 +190 +193 +195,21 +218 +220,3 +224,2 +227,5 +233,2 +240,17 +266 +269 +273,6 +280,2 +284,2
+  - `Prompt.md` — ~lines: +2,2 +13,6 +21,5
+  - `ops/NEXT.yaml` — ~lines: +1,4 +6 +9,13
+  - `src/core/battle/damage.ts` — ~lines: +1,20
+  - `src/core/battle/engine.ts` — ~lines: +1,109
+  - `src/core/battle/status.ts` — ~lines: +1,14
+  - `tasklist.md` — ~lines: +2,2 +289,8 +300 +306
+  - `tests/battle_engine.spec.ts` — ~lines: +1,71
+- **f02d885** — 2025-10-25 — Sherbivs — _logic intent:_ Prompt.md
+  - `Prompt.md` — ~lines: +2,2 +13 +15,0 +152,8
+- **0c045b1** — 2025-10-25 — Sherbivs — _logic intent:_ # [META.MICRO.ECHO+LEDGER+TASKLIST] Nudge Echo, ensure Ledger markers, assert Tasklist.md case; bump stamps
+  - `Patch.md` — ~lines: +256 +258,3 +262 +263,0 +265,2 +268 +271,4 +276,3 +280,14 +295,7 +307,4 +320 +323 +327,2 +330 +332,2 +335
+- **b5b09e6** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #42 from Sherbivs/codex/activate-patch-engine-usajdd
+- **2f7c264** — 2025-10-25 — Sherbivs — _logic intent:_ Wire battle challenge command routing
+  - `Prompt.md` — ~lines: +1,172
+  - `ops/NEXT.yaml` — ~lines: +4,11 +17
+  - `src/bot/arena/thread.ts` — ~lines: +1,74
+  - `src/bot/battle/challenge.ts` — ~lines: +1,289
+  - `src/bot/index.ts` — ~lines: +1,144
+  - `src/commands/battle.js` — ~lines: +1,27
+  - `tasklist.md` — ~lines: +2,2 +289,8
+  - `tests/battle_flow.spec.ts` — ~lines: +1,179
+- **ca42ecb** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #41 from Sherbivs/codex/activate-patch-engine
+- **d9c5721** — 2025-10-25 — Sherbivs — _logic intent:_ [Task T5.1] Battle challenge DM + Arena thread flow
+  - `Prompt.md` — ~lines: +1,172
+  - `ops/NEXT.yaml` — ~lines: +4,11 +17
+  - `src/bot/arena/thread.ts` — ~lines: +1,74
+  - `src/bot/battle/challenge.ts` — ~lines: +1,289
+  - `tasklist.md` — ~lines: +2,2 +289,8
+  - `tests/battle_flow.spec.ts` — ~lines: +1,179
+- **00f499a** — 2025-10-25 — Sherbivs — _logic intent:_ # [META.PATCHSET_ECHO.GUARD] Enforce PATCHSET Echo markers + HEAD SHA + size cap; wire CI
+  - `Prompt.md` — ~lines: +43 +45,6 +52
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5 +16
+  - `tasklist.md` — ~lines: +2,2 +279 +285
+- **838c001** — 2025-10-25 — Sherbivs — _logic intent:_ # [META.PATCHSET_ECHO.GUARD] Enforce PATCHSET Echo markers + HEAD SHA + size cap; wire CI
+  - `Patch.md` — ~lines: +256,3 +262 +264,51 +317 +321,13 +336 +340,7 +349 +353,4 +358,4 +368 +369,0 +371,3 +380,4 +385,2 +388 +390,3 +399,4 +412 +415 +419,4 +425 +429
+  - `Prompt.md` — ~lines: +2,2
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5 +16
+  - `ops/TOUCHMAP.yaml` — ~lines: +64
+  - `src/bot/index.ts` — ~lines: +9,2 +71,4 +106,4
+  - `src/bot/wilds/controls.ts` — ~lines: +1,92
+  - `src/bot/wilds/walk.ts` — ~lines: +1,81
+  - `src/commands/walk.js` — ~lines: +1,15
+  - `src/core/encounter/catch.ts` — ~lines: +1,143
+  - `src/core/encounter/spawn.ts` — ~lines: +1,44
+  - `tasklist.md` — ~lines: +2,2 +269 +275
+  - `tests/catch.spec.ts` — ~lines: +1,25
+  - `tests/encounter_walk.spec.ts` — ~lines: +1,20
+- **8f3d0b7** — 2025-10-25 — Sherbivs — _logic intent:_ # [META.PATCHSET_ECHO]: Require embedded PATCHSET echo in Prompt.md (or explicit no-echo reason) + CI guard
+  - `.github/workflows/guard-meta.yml` — ~lines: +19,21
+  - `Patch.md` — ~lines: +2,2 +62,13 +256 +260 +262 +265,4 +270,16 +287,4 +292,3 +296 +298,4 +304,3 +308,3 +312,5 +323,11 +334,0 +336,8 +344,0 +347 +351 +353 +355,6 +367 +369,3 +373 +374,0 +376 +383,4 +390,2 +393 +395,14 +418 +421 +425,4 +431 +435,4
+  - `Prompt.md` — ~lines: +2,2 +32,10 +49,6 +85,396 +488
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5 +16
+  - `ops/TOUCHMAP.yaml` — ~lines: +111,11
+  - `package.json` — ~lines: +15
+  - `scripts/guard_meta.sh` — ~lines: +81,7
+  - `scripts/update_change_ledger.sh` — ~lines: +1,45
+  - `src/bot/dm/heal.ts` — ~lines: +1,45
+  - `src/bot/dm/starters.ts` — ~lines: +1,161
+  - `src/bot/index.ts` — ~lines: +7,2 +59,10 +77 +89,2 +93,7
+  - `tasklist.md` — ~lines: +2,2 +18,19 +258 +263
+- **9c04d38** — 2025-10-24 — Sherbivs — _logic intent:_ # [META.LEDGER200]: Add auto-generated “Recent Change Ledger (last 200)” to Prompt.md with CI enforcement
+  - `Patch.md` — ~lines: +243 +245 +249 +251,21 +274 +276,26 +303,2 +306,59 +368,13 +383 +385 +387,19 +407,4 +412 +414 +416,4 +425,4 +435,3 +438,0 +440,2 +443 +445,2 +447,0 +454,4 +461,2 +464 +466,4 +479 +482 +486,5 +493 +497,3
+  - `Prompt.md` — ~lines: +2,2 +30,2 +38
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +10,2 +14,2
+  - `src/bot/index.ts` — ~lines: +48,37
+  - `src/commands/home.js` — ~lines: +2,45 +52,28
+  - `tasklist.md` — ~lines: +2,2 +229 +235
+- **2d12799** — 2025-10-24 — Sherbivs — _logic intent:_ # [META.HARD_ROUTE]: Add AI routing map + inbox notes; enforce router-driven read/write + quick notes
+  - `.github/workflows/guard-routing.yml` — ~lines: +1,17
+  - `Patch.md` — ~lines: +2,2 +52,10 +243 +245,7 +253 +257 +259,58 +319 +321,11 +334 +339 +341,58 +401 +405,11 +417,24 +443,83 +529,18 +556 +559 +563,8 +573 +577
+  - `Prompt.md` — ~lines: +2,2 +28,2 +43,2 +65,7
+  - `ops/INBOX/notes.md` — ~lines: +1,9
+  - `ops/NEXT.yaml` — ~lines: +12,4
+  - `ops/ROUTER.yaml` — ~lines: +1,56
+  - `ops/TOUCHMAP.yaml` — ~lines: +110,19
+  - `scripts/guard_routing.sh` — ~lines: +1,56
+  - `tasklist.md` — ~lines: +2,2 +18,11
+- **f91c9db** — 2025-10-24 — Sherbivs — _logic intent:_ -# [T0.FIX.BUILD_DIST]: Ensure dist/index.js exists on Render when build step only runs `npm install`
+  - `Patch.md` — ~lines: +2,2
+  - `Prompt.md` — ~lines: +2,2 +20,8 +32,2
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5
+  - `package.json` — ~lines: +13,2 +35
+  - `scripts/register-commands.js` — ~lines: +7,6
+  - `src/bot/index.ts` — ~lines: +1,74
+  - `src/commands/box.js` — ~lines: +1,10
+  - `src/commands/heal.js` — ~lines: +1,10
+  - `src/commands/home.js` — ~lines: +1,10
+  - `src/commands/party.js` — ~lines: +1,10
+  - `src/commands/profile.js` — ~lines: +1,10
+  - `src/commands/starter.js` — ~lines: +1,10
+  - `src/data_pipeline/index.ts` — ~lines: +1,178
+  - `src/index.ts` — ~lines: +4 +12,2
+  - `tasklist.md` — ~lines: +2,2 +196 +202 +208 +214
+  - `tests/data_pipeline.spec.ts` — ~lines: +1,30
+- **a888cba** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +233 +235,4 +240 +244 +246,0 +249 +251 +254,3 +258,166 +424,0 +427 +430,5 +440,4 +447,2 +450 +452,3 +461,4 +474 +477 +481,3 +486 +490 +498
+- **572334e** — 2025-10-24 — Sherbivs — _logic intent:_ # [T0.TRIGGER.PATCH_ENGINE]: Add a universal activation trigger and enforce it via CI
+  - `Patch.md` — ~lines: +2,2
+  - `Prompt.md` — ~lines: +2,2 +19,7
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9 +11,4
+  - `package.json` — ~lines: +33,2
+  - `src/data_pipeline/schema/abilities.ts` — ~lines: +1,9
+  - `src/data_pipeline/schema/index.ts` — ~lines: +1,5
+  - `src/data_pipeline/schema/manifest.ts` — ~lines: +1,13
+  - `src/data_pipeline/schema/moves.ts` — ~lines: +1,16
+  - `src/data_pipeline/schema/species.ts` — ~lines: +1,25
+  - `src/data_pipeline/schema/typechart.ts` — ~lines: +1,12
+  - `tasklist.md` — ~lines: +2,2 +187 +192
+  - `tests/data_schema.spec.ts` — ~lines: +1,79
+- **15d2a01** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +233,9 +242,0 +244,2 +247,0 +252 +255,4 +263,13 +277 +281,11 +293,0 +295 +297 +299 +301,12 +314 +318,9 +335 +340,2 +345,13 +367 +370 +374,3 +379,9 +391
+- **cbabae0** — 2025-10-24 — Sherbivs — _logic intent:_ # [T0.PROMPT.KEY]: Add `prompt` trigger key for workers and enforce via CI
+  - `Patch.md` — ~lines: +234 +236 +239,11 +252 +254,17 +271,0 +274,3 +278 +282,15 +298,13 +312,8 +322 +326,16 +351 +354 +358,4 +364 +367,2
+- **9f3a0bf** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +234 +237 +239,4 +244,2 +248,166 +415 +417 +420,5 +430,4 +437,2 +440 +442,3 +451,4 +464 +467 +471,3 +476 +478,0
+- **e224a57** — 2025-10-24 — Sherbivs — _logic intent:_ # [META.DIST_AND_PROMPT]: Guarantee dist/index.js exists and add the mandatory AI Worker Prompt (with CI check)
+  - `Patch.md` — ~lines: +48,4
+  - `Prompt.md` — ~lines: +2,2 +17,30
+  - `ops/NEXT.yaml` — ~lines: +12,2
+  - `scripts/guard_meta.sh` — ~lines: +65,15
+  - `tasklist.md` — ~lines: +2,2 +132,10
+- **1a0cf17** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +230 +232,42 +275,4 +280,5 +286,19 +306,5 +312,8 +322 +326,12 +341,0 +344,15 +365,4 +372,2 +375 +377,5 +388,4 +401 +404 +408,6 +416 +420
+- **61abbf3** — 2025-10-24 — Sherbivs — _logic intent:_ # [T0.META.ENFORCE]: Enforce Prompt/Tasklist/Patch updates on every PATCHSET (with CI guard)
+  - `.github/workflows/guard-meta.yml` — ~lines: +1,18
+  - `Patch.md` — ~lines: +2,2 +41,7 +230 +235,4 +240 +242,6 +249 +251,4 +257,9 +268 +280 +282,4 +288 +294 +296,6 +303,3 +307,12 +320,4 +326 +328,4 +333,7 +341,9 +351,5 +362,4 +367,5 +378,4 +385,2 +388 +390,4 +398,0 +400,4 +413 +416 +420,3 +425 +428,2
+  - `Prompt.md` — ~lines: +2,2 +17
+  - `ops/CRITICAL.md` — ~lines: +38
+  - `ops/NEXT.yaml` — ~lines: +12,2
+  - `scripts/guard_meta.sh` — ~lines: +1,65
+  - `tasklist.md` — ~lines: +2,2 +122,10
+- **decfb22** — 2025-10-24 — Sherbivs — _logic intent:_ # [T0.GUARD_FILENAMES]: Guard canonical doc filenames & teach AI not to rename them
+  - `.github/workflows/guard-docs.yml` — ~lines: +1,16
+  - `Patch.md` — ~lines: +2,2 +173,9
+  - `Prompt.md` — ~lines: +2,2 +13,4
+  - `ops/CRITICAL.md` — ~lines: +37
+  - `ops/NEXT.yaml` — ~lines: +12,2
+  - `ops/PATCH_POLICY_BACKUP.md` — ~lines: +1,9
+  - `ops/TOUCHMAP.yaml` — ~lines: +104,6
+  - `scripts/guard_doc_names.sh` — ~lines: +1,55
+  - `tasklist.md` — ~lines: +2,2 +112,10
+- **531be0a** — 2025-10-24 — Sherbivs — _logic intent:_ Patch
+  - `Patch.md` — ~lines: +209 +212 +214 +217,9 +227,12 +241,82 +326 +328,20 +356,2 +361,3 +365 +367 +374,4 +379,11 +395,2 +398,4 +411 +414 +418,6 +426 +428,0
+- **189716d** — 2025-10-24 — Sherbivs — _logic intent:_ [T1.1.FIX.REL]: Add missing Prisma back-reference (PokemonInstance.partySlots) and align Prisma versions
+  - `Patch.md` — ~lines: +0,0 +1,0 +3,2 +7,2 +11 +14 +21 +27 +29 +32 +34 +36 +38,0 +40 +42 +72,2 +76,0 +92,0 +97,0 +105 +113 +117 +120,0 +123,2 +126,2 +129 +131 +136,10 +147 +149 +153,0 +155 +157,9 +167,2 +171,18 +192 +194,3 +198,4 +209 +211 +213 +216,34 +251 +253,0 +255,12 +271,0 +273,4 +278,4 +283,3 +290,0 +292,4 +297,10 +311,0 +313,4 +326 +329 +333,3 +338 +341,2
+- **10e2fcf** — 2025-10-24 — Sherbivs — _logic intent:_ Push
+  - `Prompt.md` — ~lines: +2,2 +13,4
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5
+  - `src/index.ts` — ~lines: +2 +7 +10 +15
+  - `src/shared/log.ts` — ~lines: +1,81
+  - `tasklist.md` — ~lines: +2,2 +146 +151
+  - `tests/log.spec.ts` — ~lines: +1,21
+- **2a6f83b** — 2025-10-24 — Sherbivs — _logic intent:_ patch test should see this on node
+  - `Patch.md` — ~lines: +1,23 +25,30 +57 +58,0 +60,10 +72,3 +76 +78,2 +82,147 +229,0 +232,9 +243 +246 +250,8 +260,6 +268,28 +297,22 +321 +324,2 +327,21 +349,17 +374,9 +384,18 +411 +414 +418,5 +425
+- **b5741c6** — 2025-10-24 — Sherbivs — _logic intent:_ push
+  - `Patch.md` — ~lines: +1,3
+  - `Prompt.md` — ~lines: +2,2 +13,119 +135 +138 +142,4 +148 +151,2
+  - `ops/NEXT.yaml` — ~lines: +12,2
+  - `package.json` — ~lines: +7,2 +30 +32,2
+  - `tasklist.md` — ~lines: +2,2 +92,10
+- **41b607b** — 2025-10-24 — Sherbivs — _logic intent:_ push
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9 +11,3
+  - `package.json` — ~lines: +7,2 +10 +26,6
+  - `prisma/schema.prisma` — ~lines: +1,104
+  - `src/index.ts` — ~lines: +1,9 +11 +15,5
+  - `src/models/index.ts` — ~lines: +1,25
+  - `src/shared/config.ts` — ~lines: +1,23
+  - `tasklist.md` — ~lines: +126 +132
+  - `tests/db.smoke.spec.ts` — ~lines: +1,7
+- **70a2870** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +1 +5 +7 +10,13 +24,8 +34 +36,105 +143,59 +205,40 +250,10 +262,12 +276 +282,5 +288,16 +313 +316 +320,5 +327 +329,0
+- **3f36f66** — 2025-10-24 — Sherbivs — _logic intent:_ emergency patch
+  - `Patch.md` — ~lines: +1 +3,4 +8 +10 +12 +14 +17,32 +50 +53,6 +61 +63,8 +72,0 +75,0 +83,4 +89 +97,2 +100 +102,4 +115 +118 +122,3 +127 +131
+  - `Prompt.md` — ~lines: +2,16 +142
+  - `ops/NEXT.yaml` — ~lines: +17,2
+  - `tasklist.md` — ~lines: +2,2 +92,20
+- **dcad286** — 2025-10-24 — Sherbivs — _logic intent:_ emergency fix
+  - `ops/NEXT.yaml` — ~lines: +15,2
+  - `render.yaml` — ~lines: +2,9 +29
+  - `tasklist.md` — ~lines: +90,10
+- **23b0fc7** — 2025-10-24 — Sherbivs — _logic intent:_ push
+  - `Patch.md` — ~lines: +213 +217 +219 +221,13 +235,0 +242,4 +248,7 +261,0 +265,2 +268,6 +283 +286 +290,3 +295 +298,2
+- **7efb6c5** — 2025-10-24 — Sherbivs — _logic intent:_ auto patch-emergency install
+  - `DATA-SCHEMA.md` — ~lines: +1 +3 +5 +7,9
+  - `OPERATIONS.md` — ~lines: +1 +3 +5,15
+  - `Patch.md` — ~lines: +982,198
+  - `Prompt.md` — ~lines: +1,188
+  - `RULESET.md` — ~lines: +1 +3 +5,14
+  - `src/bot/index.ts` — ~lines: +1,3
+- **e0da993** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Prompt.md` — ~lines: +1,162
+- **4a24a3c** — 2025-10-24 — Sherbivs — _logic intent:_ CRITICAL FILES & FAST-PATH LOOKUP
+  - `Patch.md` — ~lines: +138,57
+  - `Prompt.md` — ~lines: +3,0 +7,3 +11,0 +16 +18,9 +28 +30 +32,10 +43 +45,5 +51 +53,11 +65 +67 +70 +72,0 +77,17 +96,2 +100,3 +105,2 +109,2 +113,2 +117 +120,2 +123,0 +127 +129,2 +132,3 +136 +138,8 +147,10 +160,5 +166,14 +183,6
+  - `ops/CRITICAL.md` — ~lines: +11,3 +23 +28 +30,7
+  - `ops/KNOWLEDGE.yaml` — ~lines: +1,86
+  - `ops/TOUCHMAP.yaml` — ~lines: +23,2 +98,6
+  - `tasklist.md` — ~lines: +48,32
+- **a79bcee** — 2025-10-24 — Sherbivs — _logic intent:_ Patch
+  - `Patch.md` — ~lines: +154,0 +156,45 +203 +205,192 +399 +411,3 +423 +428 +430,8 +493,2 +568,6 +576 +578,280 +878,32 +913
+- **a4e0d40** — 2025-10-24 — Sherbivs — _logic intent:_ tasks
+  - `Prompt.md` — ~lines: +1,181
+  - `ops/CRITICAL.md` — ~lines: +13,3
+  - `tasklist.md` — ~lines: +48,10
+- **570bd57** — 2025-10-24 — Sherbivs — _logic intent:_  fast-path system
+  - `DATA-SCHEMA.md` — ~lines: +1,13
+  - `OPERATIONS.md` — ~lines: +1,9
+  - `RULESET.md` — ~lines: +1,9
+  - `ops/CRITICAL.md` — ~lines: +1,25
+  - `ops/NEXT.yaml` — ~lines: +1,19
+  - `ops/TOUCHMAP.yaml` — ~lines: +1,95
+  - `src/core/battle/index.ts` — ~lines: +1,2
+  - `src/core/encounter/index.ts` — ~lines: +1,2
+  - `src/data_pipeline/index.ts` — ~lines: +1,5
+  - `src/shared/index.ts` — ~lines: +1,2
+  - `tasklist.md` — ~lines: +17,21 +41 +46
+- **32a1f0f** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #39 from Sherbivs/codex/perform-comprehensive-bug-and-logic-check-mydibk
+- **fdcdd3c** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +158 +159,0 +161,2 +164 +166,26 +193 +196,24 +222 +225,95 +322 +324,35 +368,3 +372,7 +393,0 +394,0
+- **a0dc3af** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #40 from Sherbivs/codex/execute-patch-operation-loop
+- **58d63b2** — 2025-10-24 — Sherbivs — _logic intent:_ [Task T0.1] Initialize TypeScript tooling
+  - `.eslintrc.cjs` — ~lines: +1,38
+  - `.gitignore` — ~lines: +1 +3,5 +9,2 +13,7
+  - `.prettierrc` — ~lines: +1,6
+  - `package.json` — ~lines: +2,4 +7,4 +12,13
+  - `src/index.ts` — ~lines: +1,10
+  - `tasklist.md` — ~lines: +17,10
+  - `tests/sample.spec.ts` — ~lines: +1,8
+  - `tsconfig.json` — ~lines: +1,16
+- **bebf3bb** — 2025-10-24 — Sherbivs — _logic intent:_ Patch System
+  - `Patch.md` — ~lines: +1 +3,2 +6,2 +9,6 +16,7 +24,26 +51,7 +60,3 +65 +67,3 +71 +73 +75,4 +80,21 +102,33 +138,212 +350,0
+  - `tasklist.md` — ~lines: +1,169
+- **210d86e** — 2025-10-24 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/perform-comprehensive-bug-and-logic-check-mydibk
+  - `src/engine/effects.js`
+  - `src/engine/index.js`
+- **d8ee657** — 2025-10-24 — Sherbivs — _logic intent:_ Add offline battle data fallback and normalize engine effects
+  - `src/engine/calc.js` — ~lines: +113,38
+  - `src/engine/effects.js` — ~lines: +30,6 +44,12 +90,8 +125,5 +154,4 +214,4
+  - `src/engine/index.js` — ~lines: +3,164 +168,47
+  - `src/engine/types.js` — ~lines: +28,10
+- **1138c2a** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #38 from Sherbivs/codex/perform-comprehensive-bug-and-logic-check
+- **737a1e5** — 2025-10-24 — Sherbivs — _logic intent:_ Expand bootstrap data and harden battle engine fallbacks
+  - `scripts/ensure-data.js` — ~lines: +6,34 +55,15
+  - `src/engine/effects.js` — ~lines: +81,6 +117,3 +146,3 +207,3 +221
+  - `src/engine/index.js` — ~lines: +8,9 +36,5
+  - `src/engine/tables.js` — ~lines: +36,11
+  - `src/engine/turn.js` — ~lines: +108,10
+- **4a8b4a8** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #8 from Sherbivs/codex/reduce-time-intervals-to-under-one-minute
+- **7ff23ba** — 2025-10-24 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/reduce-time-intervals-to-under-one-minute
+  - `README.md`
+  - `src/bot/main.js`
+- **754e33a** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #37 from Sherbivs/codex/add-commit-deltas.js-for-merging-updates
+- **ab9a85a** — 2025-10-24 — Sherbivs — _logic intent:_ Add sync-layer scaffolding for worker and Discord cache
+  - `package.json` — ~lines: +19,3
+  - `sync-layer/data/index.json` — ~lines: +1,3
+  - `sync-layer/data/meta.json` — ~lines: +1,4
+  - `sync-layer/data/updates.json` — ~lines: +1
+  - `sync-layer/discord/hooks/cache-hooks.js` — ~lines: +1,14
+  - `sync-layer/discord/sync-client.js` — ~lines: +1,28
+  - `sync-layer/shared/io.js` — ~lines: +1,42
+  - `sync-layer/shared/logger.js` — ~lines: +1,12
+  - `sync-layer/worker/api-server.js` — ~lines: +1,38
+  - `sync-layer/worker/commit-deltas.js` — ~lines: +1,82
+  - `sync-layer/worker/indexer.js` — ~lines: +1,51
+  - `sync-layer/worker/schema/index-schema.json` — ~lines: +1,54
+- **39b3804** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #36 from Sherbivs/codex/add-hp-and-status-summaries-to-discord-embeds
+- **749cd57** — 2025-10-24 — Sherbivs — _logic intent:_ Add HP and status summary to battle embeds
+  - `src/commands/battle-turn.js` — ~lines: +5,23 +79 +93,16
+- **cd7b29b** — 2025-10-24 — Sherbivs — _logic intent:_  publicLog into a real command
+  - `Patch.md` — ~lines: +1 +3 +5 +7 +9,2 +14 +17,12 +30,16 +46,0 +47,0 +49,2 +52 +57 +59,3 +63 +65 +67 +69,5 +75 +77
+  - `src/commands/battle-turn.js` — ~lines: +1,108
+- **6a69517** — 2025-10-24 — Sherbivs — _logic intent:_ linch enforcement update
+  - `src/engine/turn.js` — ~lines: +31,25 +77,0
+- **f10d6dd** — 2025-10-24 — Sherbivs — _logic intent:_ Game Logic Flow v5
+  - `Patch.md` — ~lines: +1 +3,2 +6,4 +11,3 +15 +19 +22,5 +28,24 +54,8 +63,9 +73,7 +81,6 +89,6 +97,19 +117 +119,4 +124,27 +151,0 +153,5 +160,22 +184,9 +194,11 +206,9 +216,0 +218,5 +224,3 +228,3 +232,7 +240,16 +257,0 +259,95 +359 +361,3 +365,2 +368,4 +374 +376,2 +379,7 +387
+  - `data/effects.json` — ~lines: +1,3
+  - `package.json` — ~lines: +17,3
+  - `scripts/test-battle-core.js` — ~lines: +9,3 +13 +15,2 +18,3 +23 +25,2 +28,2 +32 +34,7 +42,4 +47 +50 +52,7 +61 +63,3 +67,3 +72 +74,16 +91 +93,30 +125 +128,2 +131,8 +141
+  - `scripts/test-effects-advanced.js` — ~lines: +1,79
+  - `scripts/test-effects.js` — ~lines: +1,63
+  - `src/engine/calc.js` — ~lines: +3,6 +9,0 +11 +12,0 +14 +17,6 +24,2 +27,4 +33 +37,11 +49,2 +54 +58,2 +67 +69,0 +74,10 +87,7 +98,7 +107,2 +116,3 +121,4 +128 +130,0 +136,3 +142,12 +156
+  - `src/engine/effects.js` — ~lines: +1,248
+  - `src/engine/tables.js` — ~lines: +1,69
+  - `src/engine/turn.js` — ~lines: +2,2 +54,2 +64,7 +76,3
 
-## Purpose & Scope
-- Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts in sync.
-- Complements Patch.md (process contract) and Tasklist.md (work graph); never diverge from those authorities.
+<!-- LEDGER:END -->  ## AI Worker Prompt (copy/paste for Copilot/GPT) You are GitHub Copilot operating under the Infinity Gauntlet contract.  1. Read ops/NEXT.yaml, Tasklist.md, ops/TOUCHMAP.yaml, Patch.md, then this Prompt.md before editing. 2. Work only on READY tasks whose dependencies are DONE; do not self-assign PROPOSED items. 3. Keep edits minimal and reversible; update Tasklist.md, ops/NEXT.yaml, Prompt.md, and relevant routers in the same PATCHSET. 4. Run targeted tests (Vitest suites, Prisma migrate deploy) when touching runtime code; record results in the PATCHSET echo and commit message. 5. Ensure the Embedded PATCHSET Echo, Last Repo Changes, and ledger markers remain populated; restore clipboard markers in Patch.md if removed by accident. 6. Finish every run with a READY pointer in ops/NEXT.yaml and clear rationale in the PATCHSET echo. "@; Set-Content -Path Prompt.md -Value $promptContent -Encoding UTF8
+  - `Prompt.md` — ~lines: +2,2 +6,2 +35 +59 +61 +68 +79,4 +85,2 +88,3 +92,5 +98,4 +103,5 +109,9 +119,4 +124,5 +130,4 +135 +138,5 +145,4 +150,2 +153,6
+  - `scripts/update_change_ledger.mjs` — ~lines: +1,120
+- **de2c729** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `scripts/update_change_ledger_unix.sh` — ~lines: +1,47
+- **94d527e** — 2025-10-28 — Sherbivs — _logic intent:_ T10.SCALE.WORKERS
+  - `Prompt.md` — ~lines: +2,79
+  - `src/bot/ops/admin.ts` — ~lines: +196,0 +207,23
+  - `tests/ops.spec.ts` — ~lines: +88,0 +132,0 +165,0 +216,0 +261,0
+- **546ce2e** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `README.md` — ~lines: +10,2 +61 +123,2 +127,3 +144 +153
+  - `agent.md` — ~lines: +12 +29 +33 +53,2 +67
+  - `ops/DB_BOOTSTRAP.md` — ~lines: +14 +19 +33 +49 +69,4
+  - `scripts/bootstrap_staging_db.ps1` — ~lines: +16 +30 +38,7 +46 +53,4
+- **4a2eb06** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `ops/NEXT.yaml` — ~lines: +16 +19 +22,3 +26,3 +31 +34,3 +44
+  - `tasklist.md` — ~lines: +2,4 +12 +901 +907 +917,3 +921
+- **5a9fab8** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+- **07826c7** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +104,44
+  - `prisma/schema.prisma` — ~lines: +9
+  - `src/env/ensure-db-url.ts` — ~lines: +2 +92,26
+  - `src/shared/config.ts` — ~lines: +20,6
+  - `src/shared/prisma.ts` — ~lines: +218,6 +225 +233,75 +311,12
+  - `tests/setup-env.ts` — ~lines: +8,4
+- **e22e2c5** — 2025-10-28 — Sherbivs — _logic intent:_ ,
+  - `Prompt.md` — ~lines: +2 +4,3 +14 +55,30
+  - `ops/NEXT.yaml` — ~lines: +26 +31,6
+  - `tasklist.md` — ~lines: +2 +4,3 +906 +912
+- **0d5d2c3** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+- **f71f6f4** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +103,0
+  - `Prompt.md` — ~lines: +2,2 +9,0 +11 +13,2 +16,2 +19,2 +22,2 +25,2 +28,2 +31 +33,2 +36,2 +39,2 +42,2 +45,2 +48,3
+  - `README.md` — ~lines: +10,2 +126 +141 +150
+  - `ops/NEXT.yaml` — ~lines: +16 +19 +22,3 +26 +29
+- **61c3245** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +104,44
+  - `agent.md` — ~lines: +11 +28 +32 +51 +64
+  - `masterroutetable.md` — ~lines: +2 +8,9 +23 +25,9 +35,2 +41 +43,8 +52,2
+  - `ops/ROUTER.md` — ~lines: +5 +19
+  - `ops/ROUTER.yaml` — ~lines: +4 +48
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +12,2
+  - `ops/TOUCHMAP.yaml` — ~lines: +183,6 +208,14
+  - `scripts/ROUTER.md` — ~lines: +5 +12
+  - `tasklist.md` — ~lines: +2,2 +868,10 +918,23
+- **76b73b3** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+- **d7be4ce** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `ops/DB_BOOTSTRAP.md` — ~lines: +1,68
+  - `ops/ROUTER.yaml` — ~lines: +40
+  - `scripts/bootstrap_staging_db.ps1` — ~lines: +1,72
+  - `tasklist.md` — ~lines: +890,10
+- **2e2f4e4** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `package-lock.json` — ~lines: +1,6784
+  - `package.json` — ~lines: +18 +34,2 +38
+  - `pbsl-oracle-report.json` — ~lines: +1,204
+- **14c4cc5** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
+  - `prisma/migrations/migration_lock.toml`
+- **d065fac** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `src/bot/ops/admin.ts` — ~lines: +1,6 +31,21 +59,35 +99,8 +197,59 +270,10 +295,61 +406,36
+  - `tests/ops.spec.ts` — ~lines: +89,4 +137,4 +174,4 +229,4 +278,4
+- **e706ad2** — 2025-10-28 — Sherbivs — _logic intent:_ Update migration_lock.toml
+  - `prisma/migrations/migration_lock.toml` — ~lines: +1
+- **90b389e** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `prisma/migrations/migration_lock.toml` — ~lines: +1
+- **8327ade** — 2025-10-28 — Sherbivs — _logic intent:_ .
+  - `.env` — ~lines: +1,2
+  - `DATA-SCHEMA.md` — ~lines: +3 +16,6
+  - `Patch.md` — ~lines: +99,0 +100,0 +102,2
+  - `Prompt.md` — ~lines: +2,2 +13,3 +19,3 +23 +27 +29,3 +33,11 +46
+  - `ops/TOUCHMAP.yaml` — ~lines: +169,21
+  - `prisma/migrations/202510280500_scaling_indexes/migration.sql` — ~lines: +1,20
+  - `prisma/migrations/migration_lock.toml`
+  - `prisma/schema.prisma` — ~lines: +48,2 +58,2 +84,3 +104,16 +122,11
+  - `src/config/env.js` — ~lines: +89
+  - `tasklist.md` — ~lines: +2,2 +866,33
+- **ebe4b93** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Refresh PBSL launch checklist
+  - `Patch.md` — ~lines: +8,0 +12,0
+  - `Prompt.md` — ~lines: +2,2 +13 +18
+  - `src/bot/dripAlerts.js` — ~lines: +20 +112 +114 +120,2 +124 +125,0
+- **bfc341d** — 2025-10-27 — Sherbivs — _logic intent:_ Change: None (hotfix scoped to existing task queue).
+  - `Prompt.md` — ~lines: +2,2 +13 +18 +20 +22
+  - `src/bot/dripAlerts.js` — ~lines: +18,3 +110,16
+- **ce15924** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Refresh PBSL launch checklist
+  - `Prompt.md` — ~lines: +2,2 +13 +17,3 +21 +25 +27,3 +32,2 +36
+  - `docs/PBSL.md` — ~lines: +10 +17 +21,6 +34,55 +90,79 +172,8
+- **d237eb3** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Clear clipboard after CLEAR TASKS trigger
+  - `Patch.md` — ~lines: +108
+  - `Prompt.md` — ~lines: +2,2 +13,7 +23,3 +27
+  - `masterroutetable.md` — ~lines: +2 +23 +33,2 +39 +48,2 +94 +104,2 +110 +115,2 +121 +129,2
+  - `ops/NEXT.yaml` — ~lines: +25 +28
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +13 +38 +43
+  - `scripts/ROUTER.md` — ~lines: +5 +11
+  - `src/core/ROUTER.md` — ~lines: +5 +11
+  - `tasklist.md` — ~lines: +2,2 +311,9
+  - `tests/ROUTER.md` — ~lines: +5 +15
+- **2304461** — 2025-10-27 — Sherbivs — _logic intent:_ [Task META.ROUTER.REFRESH_20251027]
+  - `Patch.md` — ~lines: +108 +110,19 +130,3 +134,3 +138,3 +142,14 +156,0
+  - `ops/ROUTER.md` — ~lines: +5 +18
+  - `ops/ROUTER.yaml` — ~lines: +4 +41
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +33 +38 +43
+  - `src/bot/ROUTER.md` — ~lines: +5 +16
+  - `src/core/ROUTER.md` — ~lines: +5 +10
+  - `tasklist.md` — ~lines: +2,2 +302,10
+- **129dff6** — 2025-10-27 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +2,2 +108
+  - `Prompt.md` — ~lines: +2,2 +13,2 +18,2 +22 +26 +29,2 +33,2 +37 +41
+- **46f3628** — 2025-10-27 — Sherbivs — _logic intent:_ [Task T6.3] Emit DRIP alerts for role assignments
+  - `Patch.md` — ~lines: +2,2 +108,28
+  - `Prompt.md` — ~lines: +2,2 +13,5 +21 +25 +29 +31,3 +35,3 +40,2 +44,2 +48,2 +52,2 +56
+  - `ops/NEXT.yaml` — ~lines: +25 +28
+  - `ops/TOUCHMAP.yaml` — ~lines: +96,4
+  - `src/bot/main.js` — ~lines: +1 +975,146 +1857 +1859
+  - `tasklist.md` — ~lines: +2,2 +623,9
+- **05ed26e** — 2025-10-27 — Sherbivs — _logic intent:_ 1
+  - `src/bot/main.js` — ~lines: +49,3 +105,6 +118,6 +155,5 +176,126 +332,31 +408,13 +1236,7 +1344,7 +1568,12 +1638,5 +1645,19
+- **c8b3755** — 2025-10-27 — Sherbivs — _logic intent:_ [Task PBSL.ORACLE_DIFF] Wire PBSL oracle fixtures, tests, and CI reporting
+  - `.github/workflows/pbsl-oracle.yml` — ~lines: +41,16
+  - `Patch.md` — ~lines: +2,2 +88,9 +103 +108 +110,23
+  - `Prompt.md` — ~lines: +2,2 +13,6 +22 +24 +26 +30 +32,3 +36,3 +40,3 +45,2 +48,3 +52,3 +56,3 +60,3 +65,2 +69
+  - `docs/PBSL.md` — ~lines: +30,4 +45 +59,3
+  - `ops/NEXT.yaml` — ~lines: +25 +28
+  - `tasklist.md` — ~lines: +2,2 +337 +343
+  - `tests/pbsl/fixtures/README.md` — ~lines: +1,19
+  - `tests/pbsl/fixtures/basic-turn.json` — ~lines: +1,103
+  - `tests/pbsl/oracle.spec.ts` — ~lines: +1,162
+- **1c0480c** — 2025-10-27 — Sherbivs — _logic intent:_ [Task PBSL.SKELETON] Scaffold PBSL deterministic core and governanc
+  - `.github/workflows/pbsl-oracle.yml` — ~lines: +1,42
+  - `Patch.md` — ~lines: +98 +100 +101,0 +102,0
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20,3 +28 +30,3 +34,35 +71
+  - `README.md` — ~lines: +21,4 +127,15
+  - `docs/PBSL.md` — ~lines: +1,57
+  - `ops/TOUCHMAP.yaml` — ~lines: +165,12 +200,32 +239,16
+  - `package.json` — ~lines: +21,2
+  - `src/ROUTER.md` — ~lines: +13
+  - `src/core/ROUTER.md` — ~lines: +9 +14
+  - `src/core/pbsl/audit.ts` — ~lines: +1,62
+  - `src/core/pbsl/battle/engine.ts` — ~lines: +1,159
+  - `src/core/pbsl/data/provenance.ts` — ~lines: +1,35
+  - `src/core/pbsl/encounter/generator.ts` — ~lines: +1,95
+  - `src/core/pbsl/index.ts` — ~lines: +1,27
+  - `src/core/pbsl/phases.ts` — ~lines: +1,28
+  - `src/core/pbsl/rng.ts` — ~lines: +1,100
+  - `tasklist.md` — ~lines: +2,2 +322,23
+  - `tests/ROUTER.md` — ~lines: +14
+  - `tests/pbsl/engine.spec.ts` — ~lines: +1,41
+  - `tests/pbsl/provenance.spec.ts` — ~lines: +1,24
+  - `tests/pbsl/rng.spec.ts` — ~lines: +1,31
+- **9da9a7d** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #65 from Sherbivs/codex/add-prisma-heartbeat-monitor-task
+- **d03fa15** — 2025-10-27 — Sherbivs — _logic intent:_ Enhance CLI monitoring telemetry
+  - `src/bot/main.js` — ~lines: +49,3 +105,6 +118,6 +155,5 +176,126 +332,31 +408,13 +1236,7 +1344,7 +1568,12 +1638,5 +1645,19
+  - `src/index.ts` — ~lines: +7,6 +20,10 +35,6 +64,7 +86,4 +113,245 +460,4 +531,8 +541,2
+  - `src/services/cache.js` — ~lines: +81,36 +197 +209
+  - `src/shared/prisma.ts` — ~lines: +1 +3,38 +45,2 +49,152
+  - `src/utils/cliStatus.js` — ~lines: +7 +131,24 +159 +169,3
+- **ca08cf7** — 2025-10-27 — Sherbivs — _logic intent:_ Converted the security bot sweeps to a continuous loop and moved ready handlers to `Events.ClientReady`.
+  - `Prompt.md` — ~lines: +2,2 +14,2 +19 +21 +33,4
+  - `src/index.ts` — ~lines: +4 +152
+- **ccdbb01** — 2025-10-27 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +98
+  - `Prompt.md` — ~lines: +2,2 +13,2 +18 +20 +22 +26 +28,3
+  - `src/bot/main.js` — ~lines: +1,15 +41,12 +59,3 +69,11 +110,6 +226,18 +246 +471,63 +1221 +1337,79 +1449 +1486,7 +1749 +1775,18
+- **fb343ed** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Restore prisma export for DM flows
+  - `Patch.md` — ~lines: +99,2
+  - `Prompt.md` — ~lines: +2,2 +13,2 +18,3 +22 +26 +28,3 +33
+  - `src/models/index.ts` — ~lines: +11,2
+- **a699a9b** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #64 from Sherbivs/codex/fix-background-worker-import-error
+- **8038cca** — 2025-10-27 — Sherbivs — _logic intent:_ Fix starters prisma import
+  - `src/bot/dm/starters.ts` — ~lines: +9,2
+- **5498db9** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #63 from Sherbivs/codex/apply-unified-runtime-and-ci-guards-4rdu6j
+- **978e0fc** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/apply-unified-runtime-and-ci-guards-4rdu6j
+  - `src/models/index.ts`
+- **1cf66f7** — 2025-10-27 — Sherbivs — _logic intent:_ Fix prisma export in models index
+  - `.github/workflows/runtime.yml` — ~lines: +1,50
+  - `Patch.md` — ~lines: +2,2 +6 +9,3
+  - `Prompt.md` — ~lines: +2,2 +6 +13,4 +20,3 +24 +28 +30,2 +33,2 +36,2 +39,2 +42,2 +45,2 +48,2 +51,2 +54,3 +58,4
+  - `README.md` — ~lines: +123,15
+  - `masterroutetable.md` — ~lines: +2 +6,2 +9,8 +50 +52,4 +57,2 +60,26
+  - `ops/NEXT.yaml` — ~lines: +25 +27,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18,11
+  - `ops/TOUCHMAP.yaml` — ~lines: +188,32
+  - `package.json` — ~lines: +10
+  - `prisma/schema.prisma` — ~lines: +99,23
+  - `render.yaml` — ~lines: +50,17
+  - `scripts/guard_runtime.sh` — ~lines: +1,38
+  - `src/ROUTER.md` — ~lines: +5 +11,2 +17,2
+  - `src/bot/ops/admin.ts` — ~lines: +1,6 +31,21 +59,35 +99,8 +197,34 +245,10 +270,61 +381,36
+  - `src/models/index.ts` — ~lines: +3,3 +7 +10
+  - `src/shared/ROUTER.md` — ~lines: +1,19
+  - `src/shared/cache/memory.ts` — ~lines: +1,61
+  - `src/shared/config.ts` — ~lines: +1 +3,6 +10,72
+  - `src/shared/log.ts` — ~lines: +5,3 +42 +83 +99,2 +107,2 +121
+  - `src/shared/outbox.ts` — ~lines: +1,57
+  - `src/shared/prisma.ts` — ~lines: +1,49
+  - `src/worker/ROUTER.md` — ~lines: +1,13
+  - `src/worker/backup.ts` — ~lines: +1,122
+  - `tasklist.md` — ~lines: +2,2 +207,22
+  - `tests/ops_stats.spec.ts` — ~lines: +1,108
+  - `tests/outbox.spec.ts` — ~lines: +1,94
+  - `tests/runtime_config.spec.ts` — ~lines: +1,48
+  - `tsconfig.build.json` — ~lines: +1,10
+  - `tsconfig.json` — ~lines: +14
+- **89a00cf** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #62 from Sherbivs/codex/apply-unified-runtime-and-ci-guards
+- **7e96faf** — 2025-10-27 — Sherbivs — _logic intent:_ [Task META.RUNTIME.BLUEPRINT_APPLY] Apply runtime blueprint
+  - `.github/workflows/runtime.yml` — ~lines: +1,50
+  - `Patch.md` — ~lines: +2,2 +6 +9,3
+  - `Prompt.md` — ~lines: +2,2 +6 +13,4 +20,3 +24 +28 +30,2 +33,2 +36,2 +39,2 +42,2 +45,2 +48,2 +51,2 +54,3 +58,4
+  - `README.md` — ~lines: +123,15
+  - `masterroutetable.md` — ~lines: +2 +6,2 +9,8 +50 +52,4 +57,2 +60,26
+  - `ops/NEXT.yaml` — ~lines: +25 +27,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18,11
+  - `ops/TOUCHMAP.yaml` — ~lines: +188,32
+  - `package.json` — ~lines: +10
+  - `prisma/schema.prisma` — ~lines: +99,23
+  - `render.yaml` — ~lines: +50,17
+  - `scripts/guard_runtime.sh` — ~lines: +1,38
+  - `src/ROUTER.md` — ~lines: +5 +11,2 +17,2
+  - `src/bot/ops/admin.ts` — ~lines: +1,6 +31,21 +59,35 +99,8 +197,34 +245,10 +270,61 +381,36
+  - `src/models/index.ts` — ~lines: +3,3 +8
+  - `src/shared/ROUTER.md` — ~lines: +1,19
+  - `src/shared/cache/memory.ts` — ~lines: +1,61
+  - `src/shared/config.ts` — ~lines: +1 +3,6 +10,72
+  - `src/shared/log.ts` — ~lines: +5,3 +42 +83 +99,2 +107,2 +121
+  - `src/shared/outbox.ts` — ~lines: +1,57
+  - `src/shared/prisma.ts` — ~lines: +1,49
+  - `src/worker/ROUTER.md` — ~lines: +1,13
+  - `src/worker/backup.ts` — ~lines: +1,122
+  - `tasklist.md` — ~lines: +2,2 +207,22
+  - `tests/ops_stats.spec.ts` — ~lines: +1,108
+  - `tests/outbox.spec.ts` — ~lines: +1,94
+  - `tests/runtime_config.spec.ts` — ~lines: +1,48
+  - `tsconfig.build.json` — ~lines: +1,10
+  - `tsconfig.json` — ~lines: +14
+- **af91fd1** — 2025-10-27 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +97,3 +100,0
+  - `Prompt.md` — ~lines: +2,2 +13,2 +18 +20 +26 +28,3
+  - `agent.md` — ~lines: +1,70
+- **2804e0b** — 2025-10-27 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +96,0 +99,38
+- **424e8ff** — 2025-10-27 — Sherbivs — _logic intent:_ SECURITY_BOT_RESTART
+  - `Patch.md` — ~lines: +98
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20 +22 +28,9 +39,2
+  - `masterroutetable.md` — ~lines: +2 +48 +53 +59 +64 +72,2
+  - `src/bot/ROUTER.md` — ~lines: +5 +15 +21,2
+  - `src/index.ts` — ~lines: +18 +42,3 +115,61 +199,9 +274,8
+- **2f0d26a** — 2025-10-27 — Sherbivs — _logic intent:_ [Task NONE] Refresh master router table
+  - `Patch.md` — ~lines: +98
+  - `Prompt.md` — ~lines: +2,2 +14 +20 +28 +30,3 +34,2 +36,0
+  - `masterroutetable.md` — ~lines: +2 +21 +23,2 +35 +43 +48 +55,4 +63 +65,3 +69,2 +84 +88
+- **86947f9** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #61 from Sherbivs/codex/fix-referenceerror-in-discord-bot-startup
+- **274afd8** — 2025-10-27 — Sherbivs — _logic intent:_ [Task 001] Define Discord ready promise before login
+  - `src/bot/index.ts` — ~lines: +2 +45,2
+- **33e03b4** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #60 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-xsyvjt
+- **664e6a2** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-xsyvjt
+- **5c31acd** — 2025-10-27 — Sherbivs — _logic intent:_ Fix Discord ready promise usage
+  - `discord-pokemon-bot/pokemon-bot.js` — ~lines: +15,73 +133,4
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/ROUTER.md` — ~lines: +14
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,2 +156,53
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,92
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **8997faf** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #59 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-oqb48o
+- **390a18e** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-oqb48o
+- **ce01075** — 2025-10-27 — Sherbivs — _logic intent:_ Fix ready promise binding in Discord boot
+  - `discord-pokemon-bot/pokemon-bot.js` — ~lines: +15,73 +133,4
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/ROUTER.md` — ~lines: +14
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,3 +157,53
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,92
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **8cf654d** — 2025-10-27 — Sherbivs — _logic intent:_ META.README.ROUTER_DOC
+  - `Patch.md` — ~lines: +98,2
+  - `Prompt.md` — ~lines: +2,2 +13,3 +19,3 +23 +27 +29,2 +33 +37 +40,2
+  - `README.md` — ~lines: +109,20 +138,10
+- **56ebbb0** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #58 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-3hzvof
+- **2ddcd0f** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-3hzvof
+- **356f712** — 2025-10-27 — Sherbivs — _logic intent:_ Support ESM cliStatus in Pokémon bot
+  - `discord-pokemon-bot/pokemon-bot.js` — ~lines: +15,73 +133,4
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/ROUTER.md` — ~lines: +14
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,4 +158,53
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,92
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **d4f0765** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #56 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-jvqc7w
+- **954e9b3** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-jvqc7w
+  - `src/bot/index.ts`
+- **ceef074** — 2025-10-27 — Sherbivs — _logic intent:_ Wait for Discord ready before returning client
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,9 +163,2
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,92
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **583a28e** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #55 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-kqrd59
+- **e615a66** — 2025-10-27 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/ensure-security-bot-outputs-monitoring-info-kqrd59
+- **57b6166** — 2025-10-27 — Sherbivs — _logic intent:_ Convert legacy commands to ESM
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +11 +15 +21,2 +27 +37,2 +66,2 +99,2 +143,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,6
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,58
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/battle.js` — ~lines: +1 +3,28
+  - `src/commands/box.js` — ~lines: +1,13
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/daily.js` — ~lines: +1,16
+  - `src/commands/dex.js` — ~lines: +1,69
+  - `src/commands/heal.js` — ~lines: +1,13
+  - `src/commands/help.js` — ~lines: +1,19
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/commands/move.js` — ~lines: +1,54
+  - `src/commands/ops.js` — ~lines: +1,60
+  - `src/commands/party.js` — ~lines: +1,13
+  - `src/commands/ping.js` — ~lines: +1,17
+  - `src/commands/profile.js` — ~lines: +1,13
+  - `src/commands/starter.js` — ~lines: +1,13
+  - `src/commands/version.js` — ~lines: +1,37
+  - `src/commands/walk.js` — ~lines: +1,18
+  - `src/commands/weak.js` — ~lines: +1,53
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,182 +192,4 +197,3 +203,6 +211,7 +226,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/lib/dex-api.js` — ~lines: +1,113
+  - `src/lib/type-colors.js` — ~lines: +1,24
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,199
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **c464c37** — 2025-10-27 — Sherbivs — _logic intent:_ Removed access pset
+  - `Patch.md` — ~lines: +98,0
+- **93d9468** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #53 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-y7mspp
+- **543607b** — 2025-10-27 — Sherbivs — _logic intent:_ [Task PATCH] Restore Render-friendly CLI monitor
+  - `index.js` — ~lines: +1,2
+  - `render.yaml` — ~lines: +20,2 +36,2 +65,2 +98,2 +142,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +1 +3 +42 +44,6
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,63
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/index.ts` — ~lines: +3,2 +9,159 +169,3 +173,3 +179,6 +187,7 +202,31
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,173
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **dbc098d** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #52 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-if6j04
+- **e294c9e** — 2025-10-27 — Sherbivs — _logic intent:_ Bridge shared logger to CLI monitor
+  - `index.js` — ~lines: +1,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +3 +42
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,63
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/shared/log.ts` — ~lines: +1,173
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.d.ts` — ~lines: +1,23
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.d.ts` — ~lines: +1,20
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **c2391d8** — 2025-10-27 — Sherbivs — _logic intent:_ Merge pull request #51 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info-u80qqh
+- **fa0c492** — 2025-10-27 — Sherbivs — _logic intent:_ Restore CLI log output for non-error levels
+  - `index.js` — ~lines: +1,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +3 +42
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,63
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +11 +14,15 +117,2 +119,0 +123 +129 +175,2 +178,0 +187,14 +203,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **a797831** — 2025-10-26 — Sherbivs — _logic intent:_ Merge pull request #50 from Sherbivs/codex/ensure-security-bot-outputs-monitoring-info
+- **5732cf3** — 2025-10-26 — Sherbivs — _logic intent:_ Fix battle tests and pipeline determinism
+  - `index.js` — ~lines: +1,2
+  - `security-bot.js` — ~lines: +3,17
+  - `src/bot/battle/actions.ts` — ~lines: +12 +88,38
+  - `src/bot/battle/conclude.ts` — ~lines: +30,8 +57 +106,8
+  - `src/bot/dripAlerts.js` — ~lines: +1 +294,3
+  - `src/bot/index.ts` — ~lines: +3 +42
+  - `src/bot/main.js` — ~lines: +1,15 +41,6 +64,11 +1587 +1613,18
+  - `src/bot/middleware/limits.ts` — ~lines: +6,13
+  - `src/command-loader.js` — ~lines: +1,63
+  - `src/commands/battle-turn.js` — ~lines: +1,7 +32 +45,2 +59,2 +67 +82,7 +143,4
+  - `src/commands/calc.js` — ~lines: +1,45
+  - `src/commands/home.js` — ~lines: +1,11 +316,2 +500,16 +580,9
+  - `src/config/env.js` — ~lines: +1,6 +8,3 +125,41
+  - `src/data_pipeline/index.ts` — ~lines: +87,17 +113,10 +132,15 +167,8
+  - `src/engine/calc.js` — ~lines: +1,3 +152 +159,3
+  - `src/engine/effects.js` — ~lines: +1,2 +29 +103 +153 +213 +253,10
+  - `src/engine/index.js` — ~lines: +1,5 +191 +215,3
+  - `src/engine/rng.js` — ~lines: +1,2 +12,5
+  - `src/engine/stats.js` — ~lines: +1,9 +22,5
+  - `src/engine/tables.js` — ~lines: +1,5 +46 +67,3
+  - `src/engine/turn.js` — ~lines: +1,2 +9 +117,4
+  - `src/engine/types.js` — ~lines: +1,8 +36,8
+  - `src/env/ensure-db-url.ts` — ~lines: +35,6
+  - `src/index.js` — ~lines: +1,7 +12,6 +21,10 +36 +43,2 +51,15 +68,2 +71 +74,15 +91,2 +94,11 +105,0 +107 +110 +112,0 +118,44 +163 +165
+  - `src/lib/assets.js` — ~lines: +1,2 +7,2 +36,3
+  - `src/lib/cooldown.js` — ~lines: +1,2 +12,12
+  - `src/models/index.ts` — ~lines: +111,21
+  - `src/services/cache.js` — ~lines: +2,3 +154,12
+  - `src/services/pokemonService.js` — ~lines: +1,2 +4 +6,15 +51,14 +330,2 +454,2 +567,9
+  - `src/shared/config.ts` — ~lines: +17,6
+  - `src/utils/activityTracker.js` — ~lines: +117,11
+  - `src/utils/cliStatus.js` — ~lines: +1,2 +4,2 +434,10
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1 +85,3
+  - `src/utils/logger.js` — ~lines: +1 +3,2 +182,3
+  - `src/utils/opsNotifier.js` — ~lines: +229,7
+  - `src/utils/timezone.js` — ~lines: +65,3
+  - `tests/setup-env.ts` — ~lines: +1,7
+  - `vitest.config.ts` — ~lines: +1,7
+- **3c02c89** — 2025-10-26 — Sherbivs — _logic intent:_ Merge pull request #49 from Sherbivs/codex/manage-security-bots-for-error-handling
+- **00f8ac4** — 2025-10-26 — Sherbivs — _logic intent:_ Add fatal error guard for security bot
+  - `src/bot/main.js` — ~lines: +41,2 +53,3
+  - `src/utils/fatalErrorGuard.js` — ~lines: +1,89
+- **da2096c** — 2025-10-26 — Sherbivs — _logic intent:_ [Hotfix HF.20251026.DB_URL_HOST_OVERRIDE] Override localhost DB URL fallback
+  - `src/env/ensure-db-url.ts` — ~lines: +41
+- **6ed1397** — 2025-10-26 — Sherbivs — _logic intent:_  Hotfix HF.20251026.DB_URL_HOST_OVERRIDE forces Render services to drop localhost DATABASE_URL fallbacks in favor of the managed connection string.
+  - `Prompt.md` — ~lines: +2,2 +13,3 +19 +21 +23 +27 +29,2 +33 +35,2 +39 +42 +46 +49,2
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +5,2 +8,2
+  - `ops/NEXT.yaml` — ~lines: +25 +28
+  - `ops/RECOVERY.yaml` — ~lines: +7,2 +11,4
+  - `src/env/ensure-db-url.ts` — ~lines: +29,18 +49,13 +62,0 +63,0 +65,14 +86,17
+  - `tasklist.md` — ~lines: +2,2 +652,10
+- **babaa11** — 2025-10-26 — Sherbivs — _logic intent:_ Merge pull request #48 from Sherbivs/codex/activate-patch-engine-1icxoi
+- **4f7bd80** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.RENDER.DB_URL_FIX] Harden Render DATABASE_URL boot
+  - `.github/workflows/guard-render.yml` — ~lines: +1,24
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20 +22 +24 +28 +30,2 +33,23 +58 +61 +63,2 +67 +70 +74 +77,2
+  - `README.md` — ~lines: +109,20
+  - `ops/NEXT.yaml` — ~lines: +16 +19 +22,2 +25 +28
+  - `ops/RECOVERY.yaml` — ~lines: +7,5
+  - `ops/TOUCHMAP.yaml` — ~lines: +208,16
+  - `render.yaml` — ~lines: +19,0 +33,0 +60,0 +91,0
+  - `scripts/guard_render.mjs` — ~lines: +1,126
+  - `scripts/guards/require-ensure-db-preload.mjs` — ~lines: +1,95
+  - `src/env/ensure-db-url.ts` — ~lines: +1,53
+  - `src/index.ts` — ~lines: +3,2 +10,13
+  - `src/models/index.ts` — ~lines: +1,6 +10,26
+  - `tasklist.md` — ~lines: +2,2 +110 +116 +641,11
+- **c918bb0** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +96,189
+- **8a360ef** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.HOTFIX.TRIGGER_SUFFIX] Allow optional notes after the hotfix trigger
+  - `Patch.md` — ~lines: +2,2 +7,0 +83 +89,7
+  - `Prompt.md` — ~lines: +2,2 +13,3 +19 +21 +23 +27 +30 +33 +35,2 +39 +42 +44,2 +48 +52
+  - `ops/HOTFIX.md` — ~lines: +2,2 +7 +16,2
+  - `ops/NEXT.yaml` — ~lines: +26 +29
+  - `ops/TOUCHMAP.yaml` — ~lines: +203,12
+  - `tasklist.md` — ~lines: +2,2 +59,18
+- **056c888** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.CONTRACTS.SWITCH] Marker switch contract and guard updates
+  - `Patch-Template.md` — ~lines: +2,2 +5 +6,0 +8 +10,3 +14,3 +19 +23,0 +33,0 +35
+  - `Patch.md` — ~lines: +2,2 +8,18 +27 +32,7 +40 +42 +47,21 +77 +91
+  - `Prompt.md` — ~lines: +2,2 +6,5 +13,4 +20 +22,3 +26,268
+  - `masterroutetable.md` — ~lines: +2 +6
+  - `ops/CRITICAL.md` — ~lines: +2,2 +41,5
+  - `ops/HOTFIX.md` — ~lines: +2,2 +16
+  - `ops/NEXT.yaml` — ~lines: +5 +26 +29
+  - `ops/RECOVERY.yaml` — ~lines: +15,3
+  - `ops/ROUTER.md` — ~lines: +5 +9
+  - `ops/TOUCHMAP.yaml` — ~lines: +188,15
+  - `scripts/ROUTER.md` — ~lines: +5 +10
+  - `scripts/guard_meta.sh` — ~lines: +63,10 +105,8 +116,8 +127,14 +152,5 +159,29 +188,0 +190,11 +203,5 +209,5 +216,6
+  - `tasklist.md` — ~lines: +2,2 +49,10
+- **02663a2** — 2025-10-26 — Sherbivs — _logic intent:_ Delete DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED directory
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/PATCH_POLICY_BACKUP.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Prompt.md` — ~lines: +0,0
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/ROUTER.yaml` — ~lines: +0,0
+- **020765c** — 2025-10-26 — Sherbivs — _logic intent:_ Merge pull request #47 from Sherbivs/codex/remove-outdated-files-from-repository
+- **14df184** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.REPO.RESTORE_STRUCTURE] Restore canonical meta docs and guards
+  - `.github/workflows/data-health.yml` — ~lines: +1,25
+  - `.github/workflows/guard-docs.yml` — ~lines: +1,16
+  - `.github/workflows/guard-meta.yml` — ~lines: +4,2 +7 +10 +13,20
+  - `.github/workflows/guard-router.yml` — ~lines: +1,15
+  - `.github/workflows/guard-routing.yml` — ~lines: +1,17
+  - `.github/workflows/refresh-cache.yml` — ~lines: +1,27
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +0,0
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +0,0
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +0,0
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +0,0
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Prompt.md` — ~lines: +0,0
+  - `Patch-Template.md` — ~lines: +1,3 +5 +7 +9 +11 +14,2 +18,4 +23,5 +32 +36,2 +40 +42,3 +46,4
+  - `Patch.md` — ~lines: +2,65
+  - `Prompt.md` — ~lines: +2,2 +6,2 +10,8 +19,19 +40,3 +44,0 +47,4 +52,6
+  - `masterroutetable.md` — ~lines: +1,84
+  - `ops/CRITICAL.md` — ~lines: +1,49
+  - `ops/HOTFIX.md` — ~lines: +1,60
+  - `ops/NEXT.yaml` — ~lines: +25 +27
+  - `ops/PATCH_POLICY_BACKUP.md` — ~lines: +1,9
+  - `ops/ROUTER.md` — ~lines: +5 +9 +27
+  - `ops/ROUTER.yaml` — ~lines: +1,59
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `tasklist.md` — ~lines: +2,2 +49,10
+- **5811000** — 2025-10-26 — Sherbivs — _logic intent:_ [Task META.READY.ABSOLUTE] Eliminate patch engine stalls with auto-promotion, strict postflight, and router cues
+  - `.github/workflows/guard-meta.yml` — ~lines: +1,20
+  - `CRITICAL.md` — ~lines: +1,49
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +7 +26
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +15,2
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +96,3
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +44,16
+  - `HOTFIX.md` — ~lines: +1,60
+  - `Patch-Template.md` — ~lines: +1,287
+  - `Patch.md` — ~lines: +1,756
+  - `Prompt.md` — ~lines: +2,2 +13,5 +22 +24,2
+  - `ops/NEXT.yaml` — ~lines: +7 +9,7 +18 +21,3 +25,4
+  - `ops/ROUTER.md` — ~lines: +5 +8
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +12,2
+  - `scripts/ROUTER.md` — ~lines: +2,2 +5 +7,3
+  - `scripts/guard_meta.sh` — ~lines: +4,31 +93,0 +164,33
+  - `tasklist.md` — ~lines: +1,733
+- **c3b5999** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +1,47
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +1,59
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/PATCH_POLICY_BACKUP.md` — ~lines: +1,9
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +1,286
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +1,741
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Prompt.md` — ~lines: +1,680
+  - `DO NOT FOLLOW THE INSTRCTIONS IN SIDE THESE FILES!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/ROUTER.yaml` — ~lines: +1,59
+- **be0811d** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/CRITICAL.md` — ~lines: +1,47
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/HOTFIX.md` — ~lines: +1,59
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/PATCH_POLICY_BACKUP.md` — ~lines: +1,9
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch-Template.md` — ~lines: +1,286
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Patch.md` — ~lines: +1,741
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/Prompt.md` — ~lines: +1,680
+  - `DO NOT READ!!!! ONLY REPAIR!!!! THEY ARE OUT DATED/ROUTER.yaml` — ~lines: +1,59
+- **3b2b467** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch-Template.md` — ~lines: +0,0
+  - `Patch.md` — ~lines: +0,0
+  - `Prompt.md` — ~lines: +2,2 +13,5 +21,5 +27,614 +647
+  - `ops/CRITICAL.md` — ~lines: +0,0
+  - `ops/HOTFIX.md` — ~lines: +0,0
+  - `ops/NEXT.yaml` — ~lines: +13 +17 +21,2
+  - `ops/PATCH_POLICY_BACKUP.md` — ~lines: +0,0
+  - `ops/ROUTER.yaml` — ~lines: +0,0
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18 +23 +33
+  - `ops/TOUCHMAP.yaml` — ~lines: +151,3 +154,0 +156,7 +163,0
+  - `src/ROUTER.md` — ~lines: +5 +10
+  - `src/bot/ROUTER.md` — ~lines: +5 +13
+  - `src/bot/daily/claim.ts` — ~lines: +1,94
+  - `src/bot/dm/home.tsx`
+  - `src/bot/index.ts` — ~lines: +75,10
+  - `src/commands/daily.js` — ~lines: +1,13
+  - `tasklist.md` — ~lines: +2,2 +232,2 +235,11 +247,4
+  - `tests/ROUTER.md` — ~lines: +5 +13
+  - `tests/daily.spec.ts` — ~lines: +1,76
+- **d9752ba** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +316 +318 +320 +322,5 +328,5 +334,2 +337,2 +340 +342 +344,4 +349 +351 +353,2 +356 +358 +360 +362,2 +365 +367,2 +370 +372 +374,3 +378 +380,10 +391,3 +395 +400,15 +416,3 +421,3 +425,4 +430,41 +472,6 +479 +481,3 +485,2 +488,5 +494,14 +509 +511,3 +515,33 +549,20 +570,28 +599,3 +603 +605 +607,3 +611,5 +617 +619,13 +635 +637,4 +642,11 +654 +656,10 +667 +669,14 +684,7 +692 +694,9 +704 +706,5 +712 +714,4 +719 +721 +723,2 +727 +730,5 +737,4 +741,0
+  - `Prompt.md` — ~lines: +12,0 +13,0 +15 +17 +21,4
+  - `ops/NEXT.yaml` — ~lines: +12,3 +16,0 +18,5
+  - `tasklist.md` — ~lines: +715
+- **fe28c8e** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +318 +320 +322,2 +325 +327,17 +345 +347 +349 +351,3 +355 +357 +359 +361 +363 +365 +367 +369 +371 +373 +375 +377 +379 +381 +383 +385 +390,2 +393,10 +405 +407 +409 +411 +413,7 +421,13 +435,8 +444,6 +451,6 +458,8 +467,23 +491 +493 +495 +497 +499,4 +504,9 +513,0 +515 +517,34 +552 +554 +556 +558 +560,4 +565 +567,9 +577 +579 +581 +583,6 +590,5 +596 +598 +599,0 +601 +603,2 +606 +608,10 +619,2 +623 +626,5 +632,0 +634,3
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20,289 +311,0
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,0 +19,2 +24 +27
+  - `ops/TOUCHMAP.yaml` — ~lines: +150,8
+  - `prisma/schema.prisma` — ~lines: +23,3 +28,5 +44,5
+  - `src/commands/home.js` — ~lines: +17,166 +262 +270 +300 +343 +363 +386,15 +505,8 +521,14 +577,3
+  - `src/models/index.ts` — ~lines: +4 +140,263
+  - `tasklist.md` — ~lines: +2,2 +69,0 +709 +715,11
+  - `tests/dm_home.spec.ts` — ~lines: +21,11 +38 +60 +113,5 +153,32
+  - `tests/log.spec.ts` — ~lines: +3 +23,48
+- **e0b91e9** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `.github/workflows/data-health.yml` — ~lines: +0,0
+  - `.github/workflows/guard-docs.yml` — ~lines: +0,0
+  - `.github/workflows/guard-meta.yml` — ~lines: +0,0
+  - `.github/workflows/guard-router.yml` — ~lines: +0,0
+  - `.github/workflows/guard-routing.yml` — ~lines: +0,0
+  - `.github/workflows/refresh-cache.yml` — ~lines: +0,0
+- **573ba95** — 2025-10-26 — Sherbivs — _logic intent:_ Retire Refresh Vision requirement
+  - `Patch.md` — ~lines: +2,2 +16,3 +144,28 +315,0 +318 +320 +322,3 +326 +328,5 +334,2 +337,2 +340 +342,77 +419,0 +421,3 +425,3 +428,0 +430,48 +479,92 +573 +576 +580,2 +583,3 +587 +593,4 +603,12 +619 +621,4 +627,5 +635 +637,4 +642,2 +645 +647,6 +656,12 +669,6 +676,9 +686,4 +692 +694 +696,14 +712,7 +723,2 +727 +730,5 +737,5
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20,2 +23,0 +29,3
+  - `ops/CRITICAL.md` — ~lines: +32,4 +37
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +18 +20 +22 +24 +26,2
+  - `ops/TOUCHMAP.yaml` — ~lines: +138 +146
+  - `src/commands/home.js` — ~lines: +14,50 +94,2 +102 +131 +193 +215,11 +245,81 +330 +337,3 +380,2
+  - `tasklist.md` — ~lines: +2,2 +40,20 +709 +715 +719 +725
+  - `tests/dm_home.spec.ts` — ~lines: +13,8 +26 +30 +47 +87,4 +96 +104,33
+- **15e87b8** — 2025-10-26 — Sherbivs — _logic intent:_ [META.ROUTING.DUAL_TABLES]: Establish dual (DEV/PROD) routing tables + master route text reference + DNS bridge
+  - `Patch.md` — ~lines: +2,2 +26 +292 +294 +297,38 +337,126 +466,10 +477,4 +482,7 +491 +495,4 +500,10 +512 +516,7 +524,20 +545,2 +548 +550,3 +560 +563 +566,5 +573
+  - `Prompt.md` — ~lines: +2,2 +13,4 +21,2494 +2543,2
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +18,5 +24 +26,2
+  - `ops/TOUCHMAP.yaml` — ~lines: +137,14 +226,18
+  - `scripts/guard_meta.sh` — ~lines: +167,92
+  - `tasklist.md` — ~lines: +2,2 +31 +38,21 +684,22
+- **70bb614** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Prompt.md` — ~lines: +2,2 +13,4 +21,3 +52
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +22 +24 +26,2
+  - `scripts/guard_meta.sh` — ~lines: +164,8
+  - `tasklist.md` — ~lines: +2,2 +21 +27 +31 +38
+- **28b2530** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +2,2 +289,0 +291 +293 +295,28 +324 +326 +328,28 +359 +361,4 +368,4 +375 +379 +382 +384,3 +389,16 +407,0 +408,0 +410,2 +414 +417,3 +422,2
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,5 +23 +26
+  - `tasklist.md` — ~lines: +19,21
+- **b6ba43c** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +149,0 +151 +153,2 +156 +158 +160,39 +200 +202,10 +213,4 +218 +219,0 +220,0 +222 +224 +226,5 +232,7 +240,6 +247 +249,7 +257,11 +268,0 +269,0 +271,22 +294,476 +771,22 +795,5 +801 +805,10 +816,27 +844 +848,6 +860,4 +865,10 +877 +880,2 +883,4 +888 +890,4 +897,6 +912 +915 +919,6 +927 +929 +932
+- **65e9de2** — 2025-10-26 — Sherbivs — _logic intent:_ HF.20251026.MASTER_ROUTE_TABLE
+  - `Prompt.md` — ~lines: +2,2 +13,4 +21,3 +52
+  - `masterroutetable.md` — ~lines: +2,83
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +5,2 +8,2
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +21,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,3 +11,4
+  - `tasklist.md` — ~lines: +2,2 +533,10
+- **e2676b1** — 2025-10-26 — Sherbivs — _logic intent:_ META.README.REFRESH2
+  - `Prompt.md` — ~lines: +2,2 +13,4 +21,3 +52
+  - `README.md` — ~lines: +9,11 +23,6 +33,3 +37,4 +42,4 +64 +67,30 +100 +103,3 +107 +111,19 +139,7
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +21,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,3 +11
+  - `tasklist.md` — ~lines: +2,2 +69,10
+- **425a9ce** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `README.md` — ~lines: +7,7 +119,8
+- **491affd** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch-Template.md` — ~lines: +2,2 +51 +60,8 +82,9 +102 +109 +117 +131 +137 +145 +158 +220 +269 +282 +286
+- **aa9bd84** — 2025-10-26 — Sherbivs — _logic intent:_ HF.20251026.PLAIN_ECHO_TEXT
+  - `Patch.md` — ~lines: +150,2 +153,6 +160,3 +164,3 +168,3 +172,3 +176,4 +181,4 +186,4 +191,3 +195,3 +199 +201,4 +206,8 +215,2 +218 +220,7 +228 +230,3 +234 +236,7 +244 +246,2 +249 +251,2 +254,4 +259,10 +271 +274,5 +280 +282,3 +286,4 +292 +296,4 +301,6 +313,4 +320,2 +323 +326 +328,2 +331 +333,5 +346,3 +350 +352,2 +363 +366 +370,6 +379,3 +385
+  - `Prompt.md` — ~lines: +2,2 +13,4 +20,6 +53,2
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +5,2 +8,2
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +21,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,3 +11,4
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +23 +33
+  - `ops/TOUCHMAP.yaml` — ~lines: +135
+  - `src/bot/ROUTER.md` — ~lines: +5 +12
+  - `src/bot/ops/admin.ts` — ~lines: +25 +39,15 +164,6 +183 +192,2 +203,2 +236 +239 +247 +255,6 +316,10
+  - `src/commands/ops.js` — ~lines: +43,6
+  - `tasklist.md` — ~lines: +2,2 +513,10 +616 +622
+  - `tests/ROUTER.md` — ~lines: +5 +11
+  - `tests/ops.spec.ts` — ~lines: +47 +99 +111 +147 +155 +173 +185 +188,84
+- **d6af7c4** — 2025-10-26 — Sherbivs — _logic intent:_ HF.20251026.PLAIN_ECHO_TEXT
+  - `Patch.md` — ~lines: +66 +102
+  - `Prompt.md` — ~lines: +2,2 +13,4 +22,2 +51,2
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +8,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,2 +11,4
+  - `ops/ROUTER.md` — ~lines: +5 +8,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `tasklist.md` — ~lines: +2,2 +493,20
+- **a4c3ecd** — 2025-10-26 — Sherbivs — _logic intent:_ HF.20251026.PATCH_ECHO_MD
+  - `Patch.md` — ~lines: +101
+  - `Prompt.md` — ~lines: +2,2 +13,4 +22,2 +51,2
+  - `ops/HOTFIX.md` — ~lines: +26 +43,9
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +3 +5,14
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17 +19 +21,2
+  - `ops/RECOVERY.yaml` — ~lines: +7,2 +10,5
+  - `ops/ROUTER.md` — ~lines: +5 +8,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `tasklist.md` — ~lines: +2,2 +476 +482,10
+- **e71e047** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +288,3 +293 +296,0 +300 +302,9 +319,2 +323,61 +387 +389,4 +394,19 +415 +417,59 +477 +479 +482,7 +490,4 +495,4 +500,20 +521 +523,2 +533,5 +539,2 +547,4 +553,3 +557,2 +560,4 +565 +567,5 +578 +580,2 +583,5 +590 +592,4 +597,4 +602,9 +614 +620 +623 +627,8 +638,3 +644
+- **ddbd6ff** — 2025-10-26 — Sherbivs — _logic intent:_ .[META.ROUTER.INTEGRATION]: Unify Patch/Hotfix engines with Router Network + auto-metadata tagging + master route authority
+  - `Patch.md` — ~lines: +286 +288 +290 +292,53 +346 +348,17 +368 +371,32 +404,151 +556,56 +613,24 +638,30 +669 +671,3 +675 +677 +679,47 +727 +729,3 +733,8 +743,7 +751 +753,27 +786,5 +792,0 +796 +798 +801 +805,7 +815,3 +819 +821,2
+  - `Prompt.md` — ~lines: +2,2 +13,5 +23,2 +52
+  - `masterroutetable.md` — ~lines: +2
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +18,5 +24 +27
+  - `ops/RECOVERY.yaml` — ~lines: +7,2 +10,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +23 +33
+  - `ops/TOUCHMAP.yaml` — ~lines: +131,5
+  - `src/bot/ROUTER.md` — ~lines: +5 +11
+  - `src/bot/ops/admin.ts` — ~lines: +22,5 +29 +31 +36,2 +143,14 +161 +163 +165 +189 +191 +209 +212,5 +222 +230 +268,3 +274,15 +290,7
+  - `src/commands/ops.js` — ~lines: +26,17
+  - `tasklist.md` — ~lines: +2,2 +567 +573,11
+  - `tests/ROUTER.md` — ~lines: +5 +10
+  - `tests/ops.spec.ts` — ~lines: +2 +46,2 +68 +73 +99 +106,71 +185
+- **fb2c1f2** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +107 +115 +129 +135 +143 +156 +218 +267 +280 +286,3 +291 +293,33 +327,33 +361,9 +371,4 +377,2 +382,4 +388 +390,6 +398,4 +402,0 +404,2 +408 +412,5 +420,5 +425,0
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20 +22,2 +51
+  - `masterroutetable.md` — ~lines: +2
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +20,0 +22 +25
+  - `ops/RECOVERY.yaml` — ~lines: +7,5
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +23 +33
+  - `ops/TOUCHMAP.yaml` — ~lines: +126,5
+  - `src/bot/ROUTER.md` — ~lines: +5 +10
+  - `src/bot/ops/admin.ts` — ~lines: +2 +12,20 +38 +45,18 +79,2 +91 +95,109 +205,2 +209,4 +224 +239,17
+  - `tasklist.md` — ~lines: +2,2 +557 +563,11
+  - `tests/ROUTER.md` — ~lines: +5 +9
+  - `tests/ops.spec.ts` — ~lines: +1 +3 +31,81
+- **63db87e** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19 +21 +49
+  - `masterroutetable.md` — ~lines: +1,13
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +3 +5,3 +9,2 +13,3
+  - `ops/RECOVERY.yaml` — ~lines: +12,3
+  - `ops/ROUTER.yaml` — ~lines: +40
+  - `ops/TOUCHMAP.yaml` — ~lines: +208,11
+  - `tasklist.md` — ~lines: +2,2 +484,19
+- **613183e** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +286 +287,0 +289 +292 +294 +296,14 +311 +313,15 +329,0 +332 +336,2 +340,35 +378 +381,2 +386,5 +399 +402 +406,3 +412,2 +415,0
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19 +21 +49
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +18 +20 +23 +26
+  - `src/bot/ROUTER.md` — ~lines: +5 +8
+  - `src/bot/battle/conclude.ts` — ~lines: +2 +4 +10,2 +58,57
+  - `tasklist.md` — ~lines: +2,2 +528 +534 +538
+  - `tests/ROUTER.md` — ~lines: +5 +8
+  - `tests/battle_flow.spec.ts` — ~lines: +236 +245,89
+- **fe6c966** — 2025-10-26 — Sherbivs — _logic intent:_ Hotfix Trigger
+  - `Patch.md` — ~lines: +2,2 +60,7 +81,9 +286 +290 +292,0 +295,4 +300,9 +310,9 +320,11 +332,2 +334,0 +337,2 +340 +343 +346 +347,0 +350,5 +357 +361,8 +371 +376,2 +379 +381,3 +393 +396 +400,3 +406 +410
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18 +20 +30,7 +48
+  - `ops/HOTFIX.md` — ~lines: +1,50
+  - `ops/HOTFIX_PLAN.yaml` — ~lines: +1,15
+  - `ops/NEXT.yaml` — ~lines: +27
+  - `ops/RECOVERY.yaml` — ~lines: +12,3
+  - `ops/ROUTER.md` — ~lines: +5 +8
+  - `ops/ROUTER.yaml` — ~lines: +57,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +13
+  - `ops/TOUCHMAP.yaml` — ~lines: +188,20
+  - `package.json` — ~lines: +18
+  - `scripts/ROUTER.md` — ~lines: +5 +13
+  - `scripts/guard_meta.sh` — ~lines: +32,8 +111,6 +125,6 +132
+  - `scripts/hotfix_entry.sh` — ~lines: +1,24
+  - `tasklist.md` — ~lines: +2,2 +461,23
+- **59d628c** — 2025-10-26 — Sherbivs — _logic intent:_ push
+  - `Prompt.md` — ~lines: +2,2 +13,3 +20 +41
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,6 +24 +27
+  - `ops/RECOVERY.yaml` — ~lines: +7,5
+  - `ops/ROUTER.md` — ~lines: +5 +8
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `ops/TOUCHMAP.yaml` — ~lines: +113,13
+  - `tasklist.md` — ~lines: +2,2 +492,30
+- **3a43d1a** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272 +276,77 +353,0 +356,0 +360,6 +368,9 +378,4 +389,4 +394,2 +398,16 +414,0 +417 +421,12 +435 +439,16 +456,3 +461 +463 +465,13 +479 +481,8 +496,3 +502 +506,8 +520 +528,2 +533,5 +539,2 +542 +544,4 +557 +560 +564,8 +575,3 +581
+- **f05332a** — 2025-10-26 — Sherbivs — _logic intent:_ # Standardized Pokémon Game Logic (Buddy System Edition)
+  - `discord-pokemon-bot/data/standized_pokemon_game_logic.md` — ~lines: +1,406
+- **0806108** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272 +274,3 +278 +280,2 +283,43 +327,3 +331 +333,48 +383 +388,28 +416,0 +419,2 +422,16 +440 +442,19 +463,19 +484 +486,9 +496,9 +506 +508,21 +531,26 +560,0 +562,11 +574,9 +589,23 +613
+- **724a948** — 2025-10-26 — Sherbivs — _logic intent:_ .
+  - `Prompt.md` — ~lines: +13,4
+- **4df4ac4** — 2025-10-26 — Sherbivs — _logic intent:_  2025-10-26 \| T7.3 persisted battle outcomes with shared announcer + tests. \| BattleRepo writes rewards, DM/thread summaries reuse stored results, and Vitest covers persistence/forfeit flow. \|
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19,3 +42
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17 +19 +22
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18 +23 +33
+  - `src/ROUTER.md` — ~lines: +5 +8
+  - `src/bot/ROUTER.md` — ~lines: +5 +8
+  - `src/bot/battle/actions.ts` — ~lines: +9 +11,2 +18,0 +98,8
+  - `src/bot/battle/conclude.ts` — ~lines: +1,53
+  - `src/models/index.ts` — ~lines: +29 +43,5 +69,7
+  - `tasklist.md` — ~lines: +2,2 +483,9
+  - `tests/ROUTER.md` — ~lines: +5 +8
+  - `tests/battle_flow.spec.ts` — ~lines: +4,3 +183,62
+  - `tests/battle_results.spec.ts` — ~lines: +1,134
+- **57bf8de** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272,2 +275 +277,2 +282 +284,32 +319 +321,17 +342 +344,15 +360,4 +365,16 +382,4 +387,15 +403,8 +412,17 +431 +433 +436,36 +476 +478,24 +506 +508,2 +511 +513 +514,0 +516 +518 +520,15 +536 +538 +540,3 +544,3
+- **29831d3** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272 +274 +276,5 +282 +284 +286,23 +310,4 +315,5 +321 +323 +325,25 +351 +353 +355,11 +368 +370 +372,9 +383 +385 +387 +389,2 +392 +394,26 +422,55 +478,3 +482,2 +485
+- **af06d14** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #46 from Sherbivs/codex/fix-missing-database_url-environment-variable
+- **595dcd9** — 2025-10-25 — Sherbivs — _logic intent:_ Provision Render Postgres and harden config env fallbacks
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19,3 +43
+  - `README.md` — ~lines: +112,8
+  - `ops/ROUTER.md` — ~lines: +5 +9
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +18
+  - `render.yaml` — ~lines: +1,6 +15,9 +34,8 +65,8 +100,8 +146,8
+  - `src/ROUTER.md` — ~lines: +5 +9
+  - `src/shared/config.ts` — ~lines: +17,16
+- **f5286cc** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #45 from Sherbivs/codex/fix-module_not_found-errors-in-deployment
+- **7a69c0c** — 2025-10-25 — Sherbivs — _logic intent:_ Fix Render build to run ts entrypoint and regenerate Prisma
+  - `package.json` — ~lines: +7,2 +10 +12,2 +31,0 +38
+  - `prisma/schema.prisma` — ~lines: +25,5 +41,5
+  - `render.yaml` — ~lines: +6,2 +14 +38 +61 +103
+- **2f499a4** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #44 from Sherbivs/codex/read-patch.md-and-activate-patch-engine
+- **9071c6b** — 2025-10-25 — Sherbivs — _logic intent:_ META: Promote T7.3 backlog to READY
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19 +21 +42
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,5 +23 +26
+  - `ops/RECOVERY.yaml` — ~lines: +1,2 +6,4 +11
+  - `ops/ROUTER.md` — ~lines: +5,4
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8
+  - `tasklist.md` — ~lines: +2,2 +483,9
+- **ec3103b** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +270 +272 +274 +276,3 +280 +282 +284,3 +288 +290 +292,3 +296 +298 +300,2 +303 +305 +307 +309,8 +317,0 +318,0 +321,2 +324 +325,0 +327 +330 +332 +334,10 +346 +348 +350,5 +356
+- **6eb5eac** — 2025-10-25 — Sherbivs — _logic intent:_ META.ROUTER.NAME_GUARD added canonical-name guard & CI.
+  - `.github/workflows/guard-router.yml` — ~lines: +1,15
+  - `Patch.md` — ~lines: +2,2 +51 +269,0 +271 +275,6 +281,0 +283 +284,0 +286,4 +297,6 +305 +308,17 +326,49 +376,9 +386,3 +390,2 +394,91 +487,10 +502,2 +506,0 +509 +512,9 +522,2 +530,5 +541,4 +547,10 +559,4 +566 +572,2 +577 +579 +581,5 +595 +598 +602,5 +609 +611,0
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20 +22 +43
+  - `ops/CANONICAL_NAMES.yaml` — ~lines: +1,29
+  - `ops/ROUTER.md` — ~lines: +5 +15
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +13
+  - `ops/TOUCHMAP.yaml` — ~lines: +167,8
+  - `prisma/schema.prisma` — ~lines: +90
+  - `scripts/ROUTER.md` — ~lines: +5 +12
+  - `scripts/verify_router_links.sh` — ~lines: +1,102
+  - `src/bot/arena/summary.ts` — ~lines: +3,2 +20,29
+  - `src/bot/battle/actions.ts` — ~lines: +10,2 +64 +68 +87 +89,12 +103 +106 +112,2 +117
+  - `src/bot/index.ts` — ~lines: +14 +103
+  - `src/models/index.ts` — ~lines: +4 +27,102
+  - `tasklist.md` — ~lines: +2,2 +160,11
+- **e851cfa** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch-Template.md` — ~lines: +269,0
+- **2e5e0ab** — 2025-10-25 — Sherbivs — _logic intent:_ T7.2 Capture
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20 +22 +43
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +21,2
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +18 +23 +28 +33
+  - `src/ROUTER.md` — ~lines: +5,4
+  - `src/bot/ROUTER.md` — ~lines: +5,4
+  - `src/core/ROUTER.md` — ~lines: +5,4
+  - `tasklist.md` — ~lines: +2,2 +464 +470
+  - `tests/ROUTER.md` — ~lines: +5,4
+  - `tests/catch.spec.ts` — ~lines: +1,3
+- **59e653c** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +271 +275 +277 +279,32 +312 +318,5 +324 +327,36 +365,26 +392,12 +405,2 +408,4 +413,2 +418 +421 +423,16 +445 +447,3 +459 +467,14 +483 +486,17 +512 +515 +519,5 +526 +530
+  - `src/bot/wilds/controls.ts` — ~lines: +6,8 +73,3
+  - `src/core/encounter/catch.ts` — ~lines: +46 +119,4 +136
+  - `src/models/index.ts` — ~lines: +19,2
+  - `tests/catch.spec.ts` — ~lines: +1,3 +27,138
+- **18645e1** — 2025-10-25 — Sherbivs — _logic intent:_ .
+  - `Patch.md` — ~lines: +271 +275 +277,0 +282,2 +285,2 +288,19 +312,3 +318,12 +331,13 +345,5 +352 +354,21 +376 +378,36 +415 +417,8 +427 +433,38 +472,9 +482 +484,3 +489,4 +494 +496 +498,24 +524 +528 +530,14 +546 +548,0 +550,4 +555,17 +581 +584 +588,8 +598,9 +610
+- **5f1b94c** — 2025-10-25 — Sherbivs — _logic intent:_ patch-template
+  - `Patch-Template.md` — ~lines: +1,270
+- **1407d2a** — 2025-10-25 — Sherbivs — _logic intent:_ Commit pending; T7.1 DM Home persistence completed.
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20 +22,3 +45
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17 +19 +22
+  - `ops/TOUCHMAP.yaml` — ~lines: +97,2
+  - `src/commands/home.js` — ~lines: +9 +12,129 +146 +148,8 +157 +185 +187,19 +207,3 +210,0 +216,0 +228,6
+  - `tasklist.md` — ~lines: +2,2 +454 +460
+  - `tests/dm_home.spec.ts` — ~lines: +1,90
+- **05d9fa0** — 2025-10-25 — Sherbivs — _logic intent:_ Clarify Refresh Vision fallback without embedding conversation
+  - `Patch.md` — ~lines: +270,3 +275,78 +353,0 +358,4 +364,7 +372,2 +375,6 +382,2 +385 +387,4 +392,4 +397,14 +412,2 +416,2 +419,0 +421,2 +426,2 +429,5 +435 +438 +439,0 +442,6 +449,6 +457 +460,2 +463,4 +469,3 +474,4 +487 +490 +494,5 +501 +504,2
+  - `Prompt.md` — ~lines: +2,2 +13,4 +19 +21,3 +44
+  - `ops/NEXT.yaml` — ~lines: +12 +14,2 +17,5 +23 +26
+  - `ops/TOUCHMAP.yaml` — ~lines: +96,19
+  - `tasklist.md` — ~lines: +2,2 +88,10 +449,32
+- **ad5b488** — 2025-10-25 — Sherbivs — _logic intent:_ Date (UTC) \| Change \| Impact \| \| --- \| --- \| --- \| \| 2025-10-25 \| META.README.REFRESH modernized the README to match the Infinity Gauntlet architecture. \| README now reflects DM/Wilds/Arena flows, scripts, and deployment guidance. \|
+  - `Patch.md` — ~lines: +270,0 +273 +276,111 +389 +391,13 +406 +410,4 +416,12 +429,3 +434,4 +443,21 +466 +470,3 +474,11 +494 +497 +501,6 +509,9
+  - `Prompt.md` — ~lines: +2,2 +13,2 +17 +19,3 +32,2 +47,2
+  - `ops/NEXT.yaml` — ~lines: +14,2 +19 +22
+  - `ops/RECOVERY.yaml` — ~lines: +1,6 +11
+  - `ops/TOUCHMAP.yaml` — ~lines: +131,12
+  - `scripts/refresh_vision.sh` — ~lines: +2,0 +4,9 +14,37 +52,13 +67,6 +74,4 +79 +81 +84,7 +93,2 +96 +99,5 +105,3 +110 +114,10 +125,3 +129
+  - `tasklist.md` — ~lines: +2,2 +69,19
+- **9ea4ba3** — 2025-10-25 — Sherbivs — _logic intent:_ # Combined Router Overview
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18 +20,3 +42
+  - `README.md` — ~lines: +1,24 +25,0 +27,13 +42,96
+  - `ops/NEXT.yaml` — ~lines: +19 +22
+  - `ops/RECOVERY.yaml` — ~lines: +2 +4,3
+  - `ops/TOUCHMAP.yaml` — ~lines: +131,7
+  - `tasklist.md` — ~lines: +2,2 +59,10
+- **9ff8a99** — 2025-10-25 — Sherbivs — _logic intent:_ \| 2025-10-25 \| META.TASK.HOUSEKEEP introduced Tasklist archival script/policy and cleared READY queue. \| `npm run tasks:archive` keeps only the latest 100 DONE tasks; NEXT now NONE until new work is staged. \| \| 2025-10-25 \| META.RECOVERY.REPLAY captured resume metadata and advanced NEXT to META.TASK.HOUSEKEEP. \| Refresh Vision now persists last_attempted tasks so workers resume safely before selecting new work. \|
+  - `Patch.md` — ~lines: +2,2 +18 +37 +187 +242
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18 +20,3 +34 +42,2
+  - `ops/ARCHIVE/README.md` — ~lines: +1,10
+  - `ops/CRITICAL.md` — ~lines: +29
+  - `ops/NEXT.yaml` — ~lines: +7,2 +12 +14,2 +17 +19 +22
+  - `ops/RECOVERY.yaml` — ~lines: +1,2 +4,5
+  - `ops/ROUTER.md` — ~lines: +5 +14
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +2 +8 +13
+  - `ops/TOUCHMAP.yaml` — ~lines: +124,7
+  - `package.json` — ~lines: +13,3 +18
+  - `scripts/ROUTER.md` — ~lines: +5 +11
+  - `scripts/archive_task_history.mjs` — ~lines: +1,190
+  - `scripts/refresh_vision.sh` — ~lines: +6 +11,5 +23,2 +30 +33,12 +46,6 +54,2 +57 +60,5 +67
+  - `tasklist.md` — ~lines: +2,2 +42 +47,2 +52,2 +57
+- **bda2341** — 2025-10-25 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +264,0 +268 +271 +273,57 +332 +335,7 +347,0 +350,3 +355 +359,2 +362,20 +386,12 +400 +404,23 +436 +439 +443,6 +451 +453,0
+- **861a6ed** — 2025-10-25 — Sherbivs — _logic intent:_ guidance_when_none
+  - `.github/workflows/guard-meta.yml` — ~lines: +13 +16,9 +26,6
+  - `Patch.md` — ~lines: +2,2 +36 +83 +184
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18,5 +37,7
+  - `ops/NEXT.yaml` — ~lines: +3,2 +6,6 +13,2 +17 +19 +21 +23 +26
+  - `scripts/guard_meta.sh` — ~lines: +4,2 +7,19 +28,0 +30 +32,2 +34,0 +43,7 +51 +57,7 +67,3 +71,2 +75,2 +78 +79,0 +81 +84,3 +88,6 +105,5 +116,30
+  - `tasklist.md` — ~lines: +2,2 +21 +28 +32 +38 +42 +52
+- **e431840** — 2025-10-25 — Sherbivs — _logic intent:_ patch fix
+  - `Patch.md` — ~lines: +266,2 +269 +271 +273 +275 +277 +279,5 +285,31 +316,0 +321,7 +328,0 +330,20 +351,2 +355,7 +363,6 +371,2 +375,11 +387,6 +394,8 +404,2 +408,14 +424,62 +488,23 +513,2 +517,14 +532 +536 +539,2 +543 +546,10 +556,0 +558,4
+  - `ops/NEXT.yaml` — ~lines: +4 +6,2 +9,8 +19 +21,2
+  - `tasklist.md` — ~lines: +2,2 +18,41 +78 +98,6 +109,11 +157 +409,0
+- **5055e8d** — 2025-10-25 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +265,2 +268,6 +275 +277,3 +281,31 +313,7 +321,37 +359,6 +366,13 +381 +386,33 +420 +422,32 +455,9 +465 +468 +470 +474,0 +476 +480 +483,5 +490 +493,8 +502,5 +509 +512,4 +518 +521,4 +527 +530,4 +535,10 +547 +550,4 +555,7 +563,4 +569 +572,4 +577,8 +585,0 +588,0 +591 +594 +596,6 +604,2 +607,2
+- **2407964** — 2025-10-25 — Sherbivs — _logic intent:_ Patch
+  - `Patch.md` — ~lines: +263,0 +266 +268 +271,0 +273,9 +284 +286,5 +293,6 +300,27 +328,9 +339,0 +341,2 +344,3 +348,3 +353,28 +382,43 +426,8 +436,0 +438,4 +444 +447,5 +453,10 +465,18 +484 +487,4 +493 +496 +498,16 +516,0 +519,4 +527,3 +531,17 +550,0 +553,4 +560,2 +563 +565,4 +570,2 +573 +575,3 +580 +583 +585,3 +596 +599 +602,7 +611,3
+- **7c19339** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #43 from Sherbivs/codex/activate-patch-engine-fast
+- **91af9ae** — 2025-10-25 — Sherbivs — _logic intent:_ [META.ROUTER_FMT] Normalize router docs and router index
+  - `Prompt.md` — ~lines: +2,2 +13,3 +18,4
+  - `ops/NEXT.yaml` — ~lines: +6,2 +10
+  - `ops/RECOVERY.yaml` — ~lines: +1,5
+  - `ops/ROUTER.md` — ~lines: +1,13
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +1,33
+  - `scripts/ROUTER.md` — ~lines: +1,10
+  - `src/ROUTER.md` — ~lines: +1,9
+  - `src/bot/ROUTER.md` — ~lines: +1,10
+  - `src/core/ROUTER.md` — ~lines: +1,9
+  - `tasklist.md` — ~lines: +2,2 +56,5 +66,11
+  - `tests/ROUTER.md` — ~lines: +1,8
+- **6ed7170** — 2025-10-25 — Sherbivs — _logic intent:_ Router SYstem Live
+  - `Patch.md` — ~lines: +2,2 +16,3 +44,5
+  - `Prompt.md` — ~lines: +2,2 +13,5 +20,5 +33,5
+  - `ops/CRITICAL.md` — ~lines: +31,6 +45
+  - `ops/NEXT.yaml` — ~lines: +4 +6,2 +9,2 +13
+  - `ops/RECOVERY.yaml` — ~lines: +1,5
+  - `ops/ROUTER.md` — ~lines: +1,13
+  - `ops/ROUTER_INDEX.yaml` — ~lines: +1,33
+  - `ops/TOUCHMAP.yaml` — ~lines: +94
+  - `package.json` — ~lines: +16,2
+  - `scripts/ROUTER.md` — ~lines: +1,10
+  - `scripts/refresh_vision.sh` — ~lines: +1,38
+  - `scripts/update_router_index.sh` — ~lines: +1,28
+  - `src/ROUTER.md` — ~lines: +1,9
+  - `src/bot/ROUTER.md` — ~lines: +1,10
+  - `src/bot/arena/summary.ts` — ~lines: +1,17
+  - `src/bot/battle/actions.ts` — ~lines: +1,108
+  - `src/bot/battle/challenge.ts` — ~lines: +15,2 +134,13 +297,5
+  - `src/bot/index.ts` — ~lines: +11 +13 +87,4 +101,4
+  - `src/bot/middleware/limits.ts` — ~lines: +1,39
+  - `src/bot/ops/admin.ts` — ~lines: +1,116
+  - `src/bot/wilds/walk.ts` — ~lines: +5 +54,7
+  - `src/commands/ops.js` — ~lines: +1,35
+  - `src/core/ROUTER.md` — ~lines: +1,9
+  - `tasklist.md` — ~lines: +2,2 +18,19 +329 +335 +341 +347 +351 +356
+  - `tests/ROUTER.md` — ~lines: +1,8
+  - `tests/battle_ui.spec.ts` — ~lines: +1,42
+  - `tests/limits.spec.ts` — ~lines: +1,35
+  - `tests/ops.spec.ts` — ~lines: +1,30
+- **ad0355a** — 2025-10-25 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +1,76 +78,43 +122,143 +268,86 +354,0 +357,5 +363,5 +369,9 +383,2 +387,6 +395 +397,4 +403 +407,10 +418,6 +425,3 +430 +432,6 +440 +443,13 +458 +460,10 +472 +474,11 +487 +490,9 +501 +504,9 +514 +516,11 +534,3 +540,2 +545,27 +581 +584 +586 +588,5 +595 +599
+- **b91be01** — 2025-10-25 — Sherbivs — _logic intent:_ [T0.TRIGGER.ENHANCED] Faster & safer Activation Trigger (FAST/DRY modes, preflight checks, lock, Echo/Ledger duties)
+  - `Patch.md` — ~lines: +1 +3,8 +12 +14 +16,80 +97 +99,18 +119 +123,14 +139 +142,23 +167 +169,2 +172 +174 +177,5 +183 +185,2 +188 +190 +193 +195,21 +218 +220,3 +224,2 +227,5 +233,2 +240,17 +266 +269 +273,6 +280,2 +284,2
+  - `Prompt.md` — ~lines: +2,2 +13,6 +21,5
+  - `ops/NEXT.yaml` — ~lines: +1,4 +6 +9,13
+  - `src/core/battle/damage.ts` — ~lines: +1,20
+  - `src/core/battle/engine.ts` — ~lines: +1,109
+  - `src/core/battle/status.ts` — ~lines: +1,14
+  - `tasklist.md` — ~lines: +2,2 +289,8 +300 +306
+  - `tests/battle_engine.spec.ts` — ~lines: +1,71
+- **f02d885** — 2025-10-25 — Sherbivs — _logic intent:_ Prompt.md
+  - `Prompt.md` — ~lines: +2,2 +13 +15,0 +152,8
+- **0c045b1** — 2025-10-25 — Sherbivs — _logic intent:_ # [META.MICRO.ECHO+LEDGER+TASKLIST] Nudge Echo, ensure Ledger markers, assert Tasklist.md case; bump stamps
+  - `Patch.md` — ~lines: +256 +258,3 +262 +263,0 +265,2 +268 +271,4 +276,3 +280,14 +295,7 +307,4 +320 +323 +327,2 +330 +332,2 +335
+- **b5b09e6** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #42 from Sherbivs/codex/activate-patch-engine-usajdd
+- **2f7c264** — 2025-10-25 — Sherbivs — _logic intent:_ Wire battle challenge command routing
+  - `Prompt.md` — ~lines: +1,172
+  - `ops/NEXT.yaml` — ~lines: +4,11 +17
+  - `src/bot/arena/thread.ts` — ~lines: +1,74
+  - `src/bot/battle/challenge.ts` — ~lines: +1,289
+  - `src/bot/index.ts` — ~lines: +1,144
+  - `src/commands/battle.js` — ~lines: +1,27
+  - `tasklist.md` — ~lines: +2,2 +289,8
+  - `tests/battle_flow.spec.ts` — ~lines: +1,179
+- **ca42ecb** — 2025-10-25 — Sherbivs — _logic intent:_ Merge pull request #41 from Sherbivs/codex/activate-patch-engine
+- **d9c5721** — 2025-10-25 — Sherbivs — _logic intent:_ [Task T5.1] Battle challenge DM + Arena thread flow
+  - `Prompt.md` — ~lines: +1,172
+  - `ops/NEXT.yaml` — ~lines: +4,11 +17
+  - `src/bot/arena/thread.ts` — ~lines: +1,74
+  - `src/bot/battle/challenge.ts` — ~lines: +1,289
+  - `tasklist.md` — ~lines: +2,2 +289,8
+  - `tests/battle_flow.spec.ts` — ~lines: +1,179
+- **00f499a** — 2025-10-25 — Sherbivs — _logic intent:_ # [META.PATCHSET_ECHO.GUARD] Enforce PATCHSET Echo markers + HEAD SHA + size cap; wire CI
+  - `Prompt.md` — ~lines: +43 +45,6 +52
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5 +16
+  - `tasklist.md` — ~lines: +2,2 +279 +285
+- **838c001** — 2025-10-25 — Sherbivs — _logic intent:_ # [META.PATCHSET_ECHO.GUARD] Enforce PATCHSET Echo markers + HEAD SHA + size cap; wire CI
+  - `Patch.md` — ~lines: +256,3 +262 +264,51 +317 +321,13 +336 +340,7 +349 +353,4 +358,4 +368 +369,0 +371,3 +380,4 +385,2 +388 +390,3 +399,4 +412 +415 +419,4 +425 +429
+  - `Prompt.md` — ~lines: +2,2
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5 +16
+  - `ops/TOUCHMAP.yaml` — ~lines: +64
+  - `src/bot/index.ts` — ~lines: +9,2 +71,4 +106,4
+  - `src/bot/wilds/controls.ts` — ~lines: +1,92
+  - `src/bot/wilds/walk.ts` — ~lines: +1,81
+  - `src/commands/walk.js` — ~lines: +1,15
+  - `src/core/encounter/catch.ts` — ~lines: +1,143
+  - `src/core/encounter/spawn.ts` — ~lines: +1,44
+  - `tasklist.md` — ~lines: +2,2 +269 +275
+  - `tests/catch.spec.ts` — ~lines: +1,25
+  - `tests/encounter_walk.spec.ts` — ~lines: +1,20
+- **8f3d0b7** — 2025-10-25 — Sherbivs — _logic intent:_ # [META.PATCHSET_ECHO]: Require embedded PATCHSET echo in Prompt.md (or explicit no-echo reason) + CI guard
+  - `.github/workflows/guard-meta.yml` — ~lines: +19,21
+  - `Patch.md` — ~lines: +2,2 +62,13 +256 +260 +262 +265,4 +270,16 +287,4 +292,3 +296 +298,4 +304,3 +308,3 +312,5 +323,11 +334,0 +336,8 +344,0 +347 +351 +353 +355,6 +367 +369,3 +373 +374,0 +376 +383,4 +390,2 +393 +395,14 +418 +421 +425,4 +431 +435,4
+  - `Prompt.md` — ~lines: +2,2 +32,10 +49,6 +85,396 +488
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5 +16
+  - `ops/TOUCHMAP.yaml` — ~lines: +111,11
+  - `package.json` — ~lines: +15
+  - `scripts/guard_meta.sh` — ~lines: +81,7
+  - `scripts/update_change_ledger.sh` — ~lines: +1,45
+  - `src/bot/dm/heal.ts` — ~lines: +1,45
+  - `src/bot/dm/starters.ts` — ~lines: +1,161
+  - `src/bot/index.ts` — ~lines: +7,2 +59,10 +77 +89,2 +93,7
+  - `tasklist.md` — ~lines: +2,2 +18,19 +258 +263
+- **9c04d38** — 2025-10-24 — Sherbivs — _logic intent:_ # [META.LEDGER200]: Add auto-generated “Recent Change Ledger (last 200)” to Prompt.md with CI enforcement
+  - `Patch.md` — ~lines: +243 +245 +249 +251,21 +274 +276,26 +303,2 +306,59 +368,13 +383 +385 +387,19 +407,4 +412 +414 +416,4 +425,4 +435,3 +438,0 +440,2 +443 +445,2 +447,0 +454,4 +461,2 +464 +466,4 +479 +482 +486,5 +493 +497,3
+  - `Prompt.md` — ~lines: +2,2 +30,2 +38
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +10,2 +14,2
+  - `src/bot/index.ts` — ~lines: +48,37
+  - `src/commands/home.js` — ~lines: +2,45 +52,28
+  - `tasklist.md` — ~lines: +2,2 +229 +235
+- **2d12799** — 2025-10-24 — Sherbivs — _logic intent:_ # [META.HARD_ROUTE]: Add AI routing map + inbox notes; enforce router-driven read/write + quick notes
+  - `.github/workflows/guard-routing.yml` — ~lines: +1,17
+  - `Patch.md` — ~lines: +2,2 +52,10 +243 +245,7 +253 +257 +259,58 +319 +321,11 +334 +339 +341,58 +401 +405,11 +417,24 +443,83 +529,18 +556 +559 +563,8 +573 +577
+  - `Prompt.md` — ~lines: +2,2 +28,2 +43,2 +65,7
+  - `ops/INBOX/notes.md` — ~lines: +1,9
+  - `ops/NEXT.yaml` — ~lines: +12,4
+  - `ops/ROUTER.yaml` — ~lines: +1,56
+  - `ops/TOUCHMAP.yaml` — ~lines: +110,19
+  - `scripts/guard_routing.sh` — ~lines: +1,56
+  - `tasklist.md` — ~lines: +2,2 +18,11
+- **f91c9db** — 2025-10-24 — Sherbivs — _logic intent:_ -# [T0.FIX.BUILD_DIST]: Ensure dist/index.js exists on Render when build step only runs `npm install`
+  - `Patch.md` — ~lines: +2,2
+  - `Prompt.md` — ~lines: +2,2 +20,8 +32,2
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5
+  - `package.json` — ~lines: +13,2 +35
+  - `scripts/register-commands.js` — ~lines: +7,6
+  - `src/bot/index.ts` — ~lines: +1,74
+  - `src/commands/box.js` — ~lines: +1,10
+  - `src/commands/heal.js` — ~lines: +1,10
+  - `src/commands/home.js` — ~lines: +1,10
+  - `src/commands/party.js` — ~lines: +1,10
+  - `src/commands/profile.js` — ~lines: +1,10
+  - `src/commands/starter.js` — ~lines: +1,10
+  - `src/data_pipeline/index.ts` — ~lines: +1,178
+  - `src/index.ts` — ~lines: +4 +12,2
+  - `tasklist.md` — ~lines: +2,2 +196 +202 +208 +214
+  - `tests/data_pipeline.spec.ts` — ~lines: +1,30
+- **a888cba** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +233 +235,4 +240 +244 +246,0 +249 +251 +254,3 +258,166 +424,0 +427 +430,5 +440,4 +447,2 +450 +452,3 +461,4 +474 +477 +481,3 +486 +490 +498
+- **572334e** — 2025-10-24 — Sherbivs — _logic intent:_ # [T0.TRIGGER.PATCH_ENGINE]: Add a universal activation trigger and enforce it via CI
+  - `Patch.md` — ~lines: +2,2
+  - `Prompt.md` — ~lines: +2,2 +19,7
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9 +11,4
+  - `package.json` — ~lines: +33,2
+  - `src/data_pipeline/schema/abilities.ts` — ~lines: +1,9
+  - `src/data_pipeline/schema/index.ts` — ~lines: +1,5
+  - `src/data_pipeline/schema/manifest.ts` — ~lines: +1,13
+  - `src/data_pipeline/schema/moves.ts` — ~lines: +1,16
+  - `src/data_pipeline/schema/species.ts` — ~lines: +1,25
+  - `src/data_pipeline/schema/typechart.ts` — ~lines: +1,12
+  - `tasklist.md` — ~lines: +2,2 +187 +192
+  - `tests/data_schema.spec.ts` — ~lines: +1,79
+- **15d2a01** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +233,9 +242,0 +244,2 +247,0 +252 +255,4 +263,13 +277 +281,11 +293,0 +295 +297 +299 +301,12 +314 +318,9 +335 +340,2 +345,13 +367 +370 +374,3 +379,9 +391
+- **cbabae0** — 2025-10-24 — Sherbivs — _logic intent:_ # [T0.PROMPT.KEY]: Add `prompt` trigger key for workers and enforce via CI
+  - `Patch.md` — ~lines: +234 +236 +239,11 +252 +254,17 +271,0 +274,3 +278 +282,15 +298,13 +312,8 +322 +326,16 +351 +354 +358,4 +364 +367,2
+- **9f3a0bf** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +234 +237 +239,4 +244,2 +248,166 +415 +417 +420,5 +430,4 +437,2 +440 +442,3 +451,4 +464 +467 +471,3 +476 +478,0
+- **e224a57** — 2025-10-24 — Sherbivs — _logic intent:_ # [META.DIST_AND_PROMPT]: Guarantee dist/index.js exists and add the mandatory AI Worker Prompt (with CI check)
+  - `Patch.md` — ~lines: +48,4
+  - `Prompt.md` — ~lines: +2,2 +17,30
+  - `ops/NEXT.yaml` — ~lines: +12,2
+  - `scripts/guard_meta.sh` — ~lines: +65,15
+  - `tasklist.md` — ~lines: +2,2 +132,10
+- **1a0cf17** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +230 +232,42 +275,4 +280,5 +286,19 +306,5 +312,8 +322 +326,12 +341,0 +344,15 +365,4 +372,2 +375 +377,5 +388,4 +401 +404 +408,6 +416 +420
+- **61abbf3** — 2025-10-24 — Sherbivs — _logic intent:_ # [T0.META.ENFORCE]: Enforce Prompt/Tasklist/Patch updates on every PATCHSET (with CI guard)
+  - `.github/workflows/guard-meta.yml` — ~lines: +1,18
+  - `Patch.md` — ~lines: +2,2 +41,7 +230 +235,4 +240 +242,6 +249 +251,4 +257,9 +268 +280 +282,4 +288 +294 +296,6 +303,3 +307,12 +320,4 +326 +328,4 +333,7 +341,9 +351,5 +362,4 +367,5 +378,4 +385,2 +388 +390,4 +398,0 +400,4 +413 +416 +420,3 +425 +428,2
+  - `Prompt.md` — ~lines: +2,2 +17
+  - `ops/CRITICAL.md` — ~lines: +38
+  - `ops/NEXT.yaml` — ~lines: +12,2
+  - `scripts/guard_meta.sh` — ~lines: +1,65
+  - `tasklist.md` — ~lines: +2,2 +122,10
+- **decfb22** — 2025-10-24 — Sherbivs — _logic intent:_ # [T0.GUARD_FILENAMES]: Guard canonical doc filenames & teach AI not to rename them
+  - `.github/workflows/guard-docs.yml` — ~lines: +1,16
+  - `Patch.md` — ~lines: +2,2 +173,9
+  - `Prompt.md` — ~lines: +2,2 +13,4
+  - `ops/CRITICAL.md` — ~lines: +37
+  - `ops/NEXT.yaml` — ~lines: +12,2
+  - `ops/PATCH_POLICY_BACKUP.md` — ~lines: +1,9
+  - `ops/TOUCHMAP.yaml` — ~lines: +104,6
+  - `scripts/guard_doc_names.sh` — ~lines: +1,55
+  - `tasklist.md` — ~lines: +2,2 +112,10
+- **531be0a** — 2025-10-24 — Sherbivs — _logic intent:_ Patch
+  - `Patch.md` — ~lines: +209 +212 +214 +217,9 +227,12 +241,82 +326 +328,20 +356,2 +361,3 +365 +367 +374,4 +379,11 +395,2 +398,4 +411 +414 +418,6 +426 +428,0
+- **189716d** — 2025-10-24 — Sherbivs — _logic intent:_ [T1.1.FIX.REL]: Add missing Prisma back-reference (PokemonInstance.partySlots) and align Prisma versions
+  - `Patch.md` — ~lines: +0,0 +1,0 +3,2 +7,2 +11 +14 +21 +27 +29 +32 +34 +36 +38,0 +40 +42 +72,2 +76,0 +92,0 +97,0 +105 +113 +117 +120,0 +123,2 +126,2 +129 +131 +136,10 +147 +149 +153,0 +155 +157,9 +167,2 +171,18 +192 +194,3 +198,4 +209 +211 +213 +216,34 +251 +253,0 +255,12 +271,0 +273,4 +278,4 +283,3 +290,0 +292,4 +297,10 +311,0 +313,4 +326 +329 +333,3 +338 +341,2
+- **10e2fcf** — 2025-10-24 — Sherbivs — _logic intent:_ Push
+  - `Prompt.md` — ~lines: +2,2 +13,4
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9,5
+  - `src/index.ts` — ~lines: +2 +7 +10 +15
+  - `src/shared/log.ts` — ~lines: +1,81
+  - `tasklist.md` — ~lines: +2,2 +146 +151
+  - `tests/log.spec.ts` — ~lines: +1,21
+- **2a6f83b** — 2025-10-24 — Sherbivs — _logic intent:_ patch test should see this on node
+  - `Patch.md` — ~lines: +1,23 +25,30 +57 +58,0 +60,10 +72,3 +76 +78,2 +82,147 +229,0 +232,9 +243 +246 +250,8 +260,6 +268,28 +297,22 +321 +324,2 +327,21 +349,17 +374,9 +384,18 +411 +414 +418,5 +425
+- **b5741c6** — 2025-10-24 — Sherbivs — _logic intent:_ push
+  - `Patch.md` — ~lines: +1,3
+  - `Prompt.md` — ~lines: +2,2 +13,119 +135 +138 +142,4 +148 +151,2
+  - `ops/NEXT.yaml` — ~lines: +12,2
+  - `package.json` — ~lines: +7,2 +30 +32,2
+  - `tasklist.md` — ~lines: +2,2 +92,10
+- **41b607b** — 2025-10-24 — Sherbivs — _logic intent:_ push
+  - `ops/NEXT.yaml` — ~lines: +4 +6 +9 +11,3
+  - `package.json` — ~lines: +7,2 +10 +26,6
+  - `prisma/schema.prisma` — ~lines: +1,104
+  - `src/index.ts` — ~lines: +1,9 +11 +15,5
+  - `src/models/index.ts` — ~lines: +1,25
+  - `src/shared/config.ts` — ~lines: +1,23
+  - `tasklist.md` — ~lines: +126 +132
+  - `tests/db.smoke.spec.ts` — ~lines: +1,7
+- **70a2870** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +1 +5 +7 +10,13 +24,8 +34 +36,105 +143,59 +205,40 +250,10 +262,12 +276 +282,5 +288,16 +313 +316 +320,5 +327 +329,0
+- **3f36f66** — 2025-10-24 — Sherbivs — _logic intent:_ emergency patch
+  - `Patch.md` — ~lines: +1 +3,4 +8 +10 +12 +14 +17,32 +50 +53,6 +61 +63,8 +72,0 +75,0 +83,4 +89 +97,2 +100 +102,4 +115 +118 +122,3 +127 +131
+  - `Prompt.md` — ~lines: +2,16 +142
+  - `ops/NEXT.yaml` — ~lines: +17,2
+  - `tasklist.md` — ~lines: +2,2 +92,20
+- **dcad286** — 2025-10-24 — Sherbivs — _logic intent:_ emergency fix
+  - `ops/NEXT.yaml` — ~lines: +15,2
+  - `render.yaml` — ~lines: +2,9 +29
+  - `tasklist.md` — ~lines: +90,10
+- **23b0fc7** — 2025-10-24 — Sherbivs — _logic intent:_ push
+  - `Patch.md` — ~lines: +213 +217 +219 +221,13 +235,0 +242,4 +248,7 +261,0 +265,2 +268,6 +283 +286 +290,3 +295 +298,2
+- **7efb6c5** — 2025-10-24 — Sherbivs — _logic intent:_ auto patch-emergency install
+  - `DATA-SCHEMA.md` — ~lines: +1 +3 +5 +7,9
+  - `OPERATIONS.md` — ~lines: +1 +3 +5,15
+  - `Patch.md` — ~lines: +982,198
+  - `Prompt.md` — ~lines: +1,188
+  - `RULESET.md` — ~lines: +1 +3 +5,14
+  - `src/bot/index.ts` — ~lines: +1,3
+- **e0da993** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Prompt.md` — ~lines: +1,162
+- **4a24a3c** — 2025-10-24 — Sherbivs — _logic intent:_ CRITICAL FILES & FAST-PATH LOOKUP
+  - `Patch.md` — ~lines: +138,57
+  - `Prompt.md` — ~lines: +3,0 +7,3 +11,0 +16 +18,9 +28 +30 +32,10 +43 +45,5 +51 +53,11 +65 +67 +70 +72,0 +77,17 +96,2 +100,3 +105,2 +109,2 +113,2 +117 +120,2 +123,0 +127 +129,2 +132,3 +136 +138,8 +147,10 +160,5 +166,14 +183,6
+  - `ops/CRITICAL.md` — ~lines: +11,3 +23 +28 +30,7
+  - `ops/KNOWLEDGE.yaml` — ~lines: +1,86
+  - `ops/TOUCHMAP.yaml` — ~lines: +23,2 +98,6
+  - `tasklist.md` — ~lines: +48,32
+- **a79bcee** — 2025-10-24 — Sherbivs — _logic intent:_ Patch
+  - `Patch.md` — ~lines: +154,0 +156,45 +203 +205,192 +399 +411,3 +423 +428 +430,8 +493,2 +568,6 +576 +578,280 +878,32 +913
+- **a4e0d40** — 2025-10-24 — Sherbivs — _logic intent:_ tasks
+  - `Prompt.md` — ~lines: +1,181
+  - `ops/CRITICAL.md` — ~lines: +13,3
+  - `tasklist.md` — ~lines: +48,10
+- **570bd57** — 2025-10-24 — Sherbivs — _logic intent:_  fast-path system
+  - `DATA-SCHEMA.md` — ~lines: +1,13
+  - `OPERATIONS.md` — ~lines: +1,9
+  - `RULESET.md` — ~lines: +1,9
+  - `ops/CRITICAL.md` — ~lines: +1,25
+  - `ops/NEXT.yaml` — ~lines: +1,19
+  - `ops/TOUCHMAP.yaml` — ~lines: +1,95
+  - `src/core/battle/index.ts` — ~lines: +1,2
+  - `src/core/encounter/index.ts` — ~lines: +1,2
+  - `src/data_pipeline/index.ts` — ~lines: +1,5
+  - `src/shared/index.ts` — ~lines: +1,2
+  - `tasklist.md` — ~lines: +17,21 +41 +46
+- **32a1f0f** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #39 from Sherbivs/codex/perform-comprehensive-bug-and-logic-check-mydibk
+- **fdcdd3c** — 2025-10-24 — Sherbivs — _logic intent:_ patch
+  - `Patch.md` — ~lines: +158 +159,0 +161,2 +164 +166,26 +193 +196,24 +222 +225,95 +322 +324,35 +368,3 +372,7 +393,0 +394,0
+- **a0dc3af** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #40 from Sherbivs/codex/execute-patch-operation-loop
+- **58d63b2** — 2025-10-24 — Sherbivs — _logic intent:_ [Task T0.1] Initialize TypeScript tooling
+  - `.eslintrc.cjs` — ~lines: +1,38
+  - `.gitignore` — ~lines: +1 +3,5 +9,2 +13,7
+  - `.prettierrc` — ~lines: +1,6
+  - `package.json` — ~lines: +2,4 +7,4 +12,13
+  - `src/index.ts` — ~lines: +1,10
+  - `tasklist.md` — ~lines: +17,10
+  - `tests/sample.spec.ts` — ~lines: +1,8
+  - `tsconfig.json` — ~lines: +1,16
+- **bebf3bb** — 2025-10-24 — Sherbivs — _logic intent:_ Patch System
+  - `Patch.md` — ~lines: +1 +3,2 +6,2 +9,6 +16,7 +24,26 +51,7 +60,3 +65 +67,3 +71 +73 +75,4 +80,21 +102,33 +138,212 +350,0
+  - `tasklist.md` — ~lines: +1,169
+- **210d86e** — 2025-10-24 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/perform-comprehensive-bug-and-logic-check-mydibk
+  - `src/engine/effects.js`
+  - `src/engine/index.js`
+- **d8ee657** — 2025-10-24 — Sherbivs — _logic intent:_ Add offline battle data fallback and normalize engine effects
+  - `src/engine/calc.js` — ~lines: +113,38
+  - `src/engine/effects.js` — ~lines: +30,6 +44,12 +90,8 +125,5 +154,4 +214,4
+  - `src/engine/index.js` — ~lines: +3,164 +168,47
+  - `src/engine/types.js` — ~lines: +28,10
+- **1138c2a** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #38 from Sherbivs/codex/perform-comprehensive-bug-and-logic-check
+- **737a1e5** — 2025-10-24 — Sherbivs — _logic intent:_ Expand bootstrap data and harden battle engine fallbacks
+  - `scripts/ensure-data.js` — ~lines: +6,34 +55,15
+  - `src/engine/effects.js` — ~lines: +81,6 +117,3 +146,3 +207,3 +221
+  - `src/engine/index.js` — ~lines: +8,9 +36,5
+  - `src/engine/tables.js` — ~lines: +36,11
+  - `src/engine/turn.js` — ~lines: +108,10
+- **4a8b4a8** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #8 from Sherbivs/codex/reduce-time-intervals-to-under-one-minute
+- **7ff23ba** — 2025-10-24 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/reduce-time-intervals-to-under-one-minute
+  - `README.md`
+  - `src/bot/main.js`
+- **754e33a** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #37 from Sherbivs/codex/add-commit-deltas.js-for-merging-updates
+- **ab9a85a** — 2025-10-24 — Sherbivs — _logic intent:_ Add sync-layer scaffolding for worker and Discord cache
+  - `package.json` — ~lines: +19,3
+  - `sync-layer/data/index.json` — ~lines: +1,3
+  - `sync-layer/data/meta.json` — ~lines: +1,4
+  - `sync-layer/data/updates.json` — ~lines: +1
+  - `sync-layer/discord/hooks/cache-hooks.js` — ~lines: +1,14
+  - `sync-layer/discord/sync-client.js` — ~lines: +1,28
+  - `sync-layer/shared/io.js` — ~lines: +1,42
+  - `sync-layer/shared/logger.js` — ~lines: +1,12
+  - `sync-layer/worker/api-server.js` — ~lines: +1,38
+  - `sync-layer/worker/commit-deltas.js` — ~lines: +1,82
+  - `sync-layer/worker/indexer.js` — ~lines: +1,51
+  - `sync-layer/worker/schema/index-schema.json` — ~lines: +1,54
+- **39b3804** — 2025-10-24 — Sherbivs — _logic intent:_ Merge pull request #36 from Sherbivs/codex/add-hp-and-status-summaries-to-discord-embeds
+- **749cd57** — 2025-10-24 — Sherbivs — _logic intent:_ Add HP and status summary to battle embeds
+  - `src/commands/battle-turn.js` — ~lines: +5,23 +79 +93,16
+- **cd7b29b** — 2025-10-24 — Sherbivs — _logic intent:_  publicLog into a real command
+  - `Patch.md` — ~lines: +1 +3 +5 +7 +9,2 +14 +17,12 +30,16 +46,0 +47,0 +49,2 +52 +57 +59,3 +63 +65 +67 +69,5 +75 +77
+  - `src/commands/battle-turn.js` — ~lines: +1,108
+- **6a69517** — 2025-10-24 — Sherbivs — _logic intent:_ linch enforcement update
+  - `src/engine/turn.js` — ~lines: +31,25 +77,0
+- **f10d6dd** — 2025-10-24 — Sherbivs — _logic intent:_ Game Logic Flow v5
+  - `Patch.md` — ~lines: +1 +3,2 +6,4 +11,3 +15 +19 +22,5 +28,24 +54,8 +63,9 +73,7 +81,6 +89,6 +97,19 +117 +119,4 +124,27 +151,0 +153,5 +160,22 +184,9 +194,11 +206,9 +216,0 +218,5 +224,3 +228,3 +232,7 +240,16 +257,0 +259,95 +359 +361,3 +365,2 +368,4 +374 +376,2 +379,7 +387
+  - `data/effects.json` — ~lines: +1,3
+  - `package.json` — ~lines: +17,3
+  - `scripts/test-battle-core.js` — ~lines: +9,3 +13 +15,2 +18,3 +23 +25,2 +28,2 +32 +34,7 +42,4 +47 +50 +52,7 +61 +63,3 +67,3 +72 +74,16 +91 +93,30 +125 +128,2 +131,8 +141
+  - `scripts/test-effects-advanced.js` — ~lines: +1,79
+  - `scripts/test-effects.js` — ~lines: +1,63
+  - `src/engine/calc.js` — ~lines: +3,6 +9,0 +11 +12,0 +14 +17,6 +24,2 +27,4 +33 +37,11 +49,2 +54 +58,2 +67 +69,0 +74,10 +87,7 +98,7 +107,2 +116,3 +121,4 +128 +130,0 +136,3 +142,12 +156
+  - `src/engine/effects.js` — ~lines: +1,248
+  - `src/engine/tables.js` — ~lines: +1,69
+  - `src/engine/turn.js` — ~lines: +2,2 +54,2 +64,7 +76,3
 
-## Activation Checklist & Fallback
-- Confirm readability of Patch.md, Tasklist.md, Prompt.md, ops/NEXT.yaml before planning; halt if any are unavailable.
-- Review ops/NEXT.yaml and Tasklist.md to ensure the READY queue matches the stated next task; auto-promote if policy requires.
-- Optional shell access: run scripts/refresh_vision.sh to regenerate routing indices; when unavailable, note the limitation in the PATCHSET echo.
-- If remote context (GitHub origin) cannot be validated, record the failure reason and request human assistance.
-
-## Active Mission Snapshot
-- **NEXT Pointer:** T10.SCALE.WORKERS — separate background workers so pooled DB connections remain fast under load.
-- **READY Queue Highlights:** T10.SCALE.WORKERS (primary), META.RUNTIME.BACKUP_SINK (follow-up once worker split is stable), T8.4 (daily claim button) remains PROPOSED pending DM UI wiring.
-- **Recent Finish:** T10.SCALE.DB_BOOTSTRAP is DONE; pooled vs. direct URL strategy, retryable Prisma connect, and documentation now aligned.
-
-## System Highlights
-- **Database:** Runtime prefers DATABASE_POOL_URL with fallback to DATABASE_DIRECT_URL; Prisma directUrl is reserved for migrations; tests set PRISMA_SKIP_INITIAL_CONNECT.
-- **Workers & Scaling:** Current deployment still runs a unified worker; separation work must update render.yaml, src/worker/**, and relevant routers.
-- **Observability:** Structured logs exist; advanced metrics/alerts remain a future task (T10.SCALE.OBS PROPOSED).
-- **Testing Posture:** Vitest suites for ops, DM Home, and daily flows cover DB bootstrap behaviour; rerun targeted suites when touching related code.
-
-## Evidence Matrix
-- infra — ops/NEXT.yaml, ops/CRITICAL.md, render.yaml, src/shared/config.ts.
-- discord_bot — Tasklist.md, ops/TOUCHMAP.yaml, src/bot/**.
-- battle_engine — src/core/battle/**, RULESET.md.
-- encounters — src/core/encounter/**, DATA-SCHEMA.md.
-- data_pipeline — src/core/data_pipeline/**, data/**, scripts/build-data.js.
-- persistence — prisma/schema.prisma, src/models/**, migrations/**.
-- security — Prompt.md, RULESET.md, src/shared/**.
-- observability — Prompt.md, OPERATIONS.md, src/shared/log.ts.
-
-## Assumptions / TBD Register
-- Worker separation will reuse existing Prisma client logic; no new ORM package expected.
-- Render environment allows defining dedicated services for workers with independent scaling controls.
-- Observability improvements remain deferred until after workers split; ensure no regression to current logging guarantees.
-
-## Validation Checklist
-- Touched directories must update their ROUTER.md entries and regenerate ops/ROUTER_INDEX.yaml via scripts/update_router_index.sh.
-- Any change impacting readiness requires Prompt.md timestamp/revision bump plus Tasklist/NEXT synchronization.
-- Run npx prisma migrate deploy before production deploys; ensure DATABASE_DIRECT_URL present in env when running migrations.
-- Execute relevant Vitest suites (ops, dm_home, daily, affected modules) or document why tests were skipped.
-
-## Diagram Conventions
-- Use ASCII block diagrams with [] for systems and --> for directional relationships.
-- Label data stores explicitly (e.g., [Render Postgres]) to avoid ambiguity.
-- Include legend when introducing new notation; keep diagrams under 80 characters wide for readability.
-
-## Embedded PATCHSET Echo
-<!-- PATCHSET:ECHO BEGIN -->
-HEAD: pending-local
-Change: Wired the Prompt ledger refresh through the Node helper and cleared stale conflict artifacts; ledger now auto-generates from git history.
-TasklistDiff: false
-Tests: not run (automation update only)
-Contracts: ON (clipboard marker retained in Patch.md)
-NEXT: T10.SCALE.WORKERS — split sweep/cache workers so pooled connections stay responsive.
-<!-- PATCHSET:ECHO END -->
-
-## Recent Change Ledger (last 200 commits)
-<!-- LEDGER:BEGIN -->
-Ledger pending refresh via scripts/update_change_ledger.mjs.
 <!-- LEDGER:END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

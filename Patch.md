@@ -102,43 +102,49 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 
 <<<PATCHSET START>>>
-[Task T10.SCALE.DB_BOOTSTRAP] Harden runtime DB configuration and close bootstrap loop
+[Task T10.SCALE.WORKERS] Split background workloads into independent worker services
 
-FILE: src/env/ensure-db-url.ts
-Change: Prefer pooled connection URLs, provision DATABASE_DIRECT_URL fallbacks, and log decisions so services default to faster managed connections.
+FILE: src/worker/outbox.ts
+Change: Rename/refresh the outbox drain loop with shared shutdown helpers so it can run as a standalone worker entry point.
 
-FILE: src/shared/prisma.ts
-Change: Support directUrl wiring, add retryable connect with backoff, honor PRISMA_SKIP_INITIAL_CONNECT for tests, and reuse pooled URLs for runtime connections.
+FILE: src/worker/cache-refresh.ts
+Change: New worker that initializes the Pokédex cache, schedules refreshes, and exposes health logging knobs.
 
-FILE: src/shared/config.ts
-Change: Surface pool/direct URL logic for downstream helpers and validate production hosts.
+FILE: src/worker/data-pipeline.ts
+Change: Add a data pipeline worker that runs buildData on an interval and reports success/failure telemetry.
 
-FILE: tests/setup-env.ts
-Change: Set PRISMA_SKIP_INITIAL_CONNECT in tests and align database env defaults with new logic to avoid placeholder connection attempts.
+FILE: src/shared/worker-runtime.ts (new)
+Change: Provide common signal handling, logger wiring, and interval utilities reused by worker entry points.
 
-FILE: prisma/schema.prisma
-Change: Add directUrl env wiring so Prisma CLI uses the non-pooled connection for migrations.
+FILE: src/config/env.js
+Change: Introduce worker-specific env toggles (enable continuous sweeps, cache refresh cadence, pipeline interval) consumed by both bots and workers.
 
-FILE: scripts/bootstrap_staging_db.ps1
-Change: Warn when DATABASE_DIRECT_URL is missing or identical to the pooled URL and point operators to the runbook.
+FILE: src/bot/main.js
+Change: Gate in-process continuous sweeps behind the new env flag so the security bot can defer to the dedicated worker.
 
-FILE: ops/DB_BOOTSTRAP.md
-Change: Document the pooled vs. direct URL expectations and how to configure Render connection strings.
+FILE: render.yaml
+Change: Add discrete Render worker services (outbox, security sweeps, cache refresh, data pipeline) with individualized env vars and start commands.
 
-FILE: README.md
-Change: Update environment guidance with pooled/direct URL setup, connect retry envs, and DB availability notes.
+FILE: package.json
+Change: Add local npm scripts to run each worker entry point via tsx for parity with production start commands.
 
-FILE: agent.md
-Change: Mirror the new DB availability workflow for autonomous agents (pool vs. direct, retry envs).
+FILE: OPERATIONS.md
+Change: Document the worker matrix, rollout playbook, and scaling knobs for operators.
+
+FILE: ops/ROUTER.md / scripts/ROUTER.md / masterroutetable.md / ops/ROUTER_INDEX.yaml
+Change: Capture the new worker files and update router metadata via the automation script.
+
+FILE: ops/TOUCHMAP.yaml
+Change: Extend the T10.SCALE.WORKERS mapping to include the new helper/runtime files.
 
 FILE: tasklist.md
-Change: Mark T10.SCALE.DB_BOOTSTRAP DONE with outcome notes, promote next READY item, bump headers.
+Change: Mark T10.SCALE.WORKERS DONE with outcome notes, promote the next ready task, bump headers.
 
 FILE: ops/NEXT.yaml
-Change: Point NEXT at the newly promoted READY task with updated rationale and hints.
+Change: Retarget NEXT at T10.SCALE.OBS with refreshed hints and timestamp after closing out the worker split.
 
 FILE: Prompt.md
-Change: Refresh timestamp/revision, summarize DB availability changes, and update PATCHSET echo.
+Change: Bump timestamp/revision, summarize the worker separation, and update PATCHSET echo/tests ledger.
 <<<PATCHSET END>>>
 
 
