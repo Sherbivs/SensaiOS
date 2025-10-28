@@ -3,9 +3,9 @@ Timestamp (UTC): 2025-10-28T22:55:00Z
 Revision: 1.14
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added ENABLE_SECURITY_BOT flag, exported it through env config, and stood up a dedicated Render security worker while disabling the shared runtime path.
-- Instrumented cache, data-pipeline, and security workers with periodic health logs and updated worker monitor wiring to surface status.
-- Regenerated ops router index with normalized shell script line endings and refreshed router docs to capture new worker endpoints.
+- Gated security sweeps behind ENABLE_CONTINUOUS_SWEEP so only the dedicated Render worker runs continuous loops; CLI now logs when sweeps are disabled.
+- Replaced OPERATIONS.md stub with a worker matrix, rollout checklist, recovery toggles, and quick commands for operators.
+- Refreshed ops/router metadata (ops/ROUTER.md, src/**/ROUTER.md, masterroutetable.md, ops/ROUTER_INDEX.yaml) to document the worker runtime helper and updated ownership map.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
