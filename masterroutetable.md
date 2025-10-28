@@ -26,8 +26,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
   - `ops/NEXT.yaml` — next task pointer (READY pointer must exist on exit)
   - `ops/CRITICAL.md` — fast-path guardrails + Markerless guidance
   - `OPERATIONS.md` — operational runbook and worker matrix
-  - `ops/ROUTER.yaml` — router_docs category now groups ops/ROUTER.md, ops/ROUTER_INDEX.yaml, and masterroutetable.md
-  - `ops/ROUTER.yaml` — canonical path map
+  - `ops/ROUTER.yaml` — canonical path map; router_docs category groups ops/ROUTER.md, ops/ROUTER_INDEX.yaml, and masterroutetable.md
   - `ops/ROUTER_INDEX.yaml` — router-of-routers manifest
   - `ops/INBOX/notes.md` — operator notes
   - `ops/RECOVERY.yaml` — resume metadata
