@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-27T10:55:00Z
-Revision: 1.37
+Last Updated (UTC): 2025-10-27T11:20:00Z
+Revision: 1.38
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
@@ -105,7 +105,34 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-Clipboard idle.
+[Task T6.3] Emit DRIP alerts for role assignments
+
+FILE: src/bot/main.js
+Change: Added role diff detection, audit log lookup, and DRIP security alert dispatch inside the guildMemberUpdate flow.
+Insert/Replace/Remove: Introduced helpers for assignable role tracking, audit permissions, and CLI/activity tracker updates.
+
+FILE: ops/TOUCHMAP.yaml
+Change: Routed T6.3 ownership to the security bot implementation.
+Insert/Replace/Remove: Added mappings for src/bot/main.js and drip alert utilities.
+
+FILE: Tasklist.md
+Change: Documented the role alert task with acceptance criteria and DONE status.
+Insert/Replace/Remove: Bumped metadata and captured the alert outcome.
+
+FILE: ops/NEXT.yaml
+Change: Refreshed timestamp and rationale while keeping T8.4 READY after the alert work.
+Insert/Replace/Remove: Noted the follow-up validation for DRIP notifications.
+
+FILE: Prompt.md
+Change: Updated metadata, Last Repo Changes, and PATCHSET echo to describe the new alerts.
+Insert/Replace/Remove: Bumped timestamp/revision and refreshed summary fields.
+
+FILE: Patch.md
+Change: Clipboard now reflects the executed DRIP role alert patch.
+Insert/Replace/Remove: Swapped the planning stub for the delivered change summary.
+
+# TASKLIST UPDATE
+Change: Logged T6.3 as DONE with outcome notes.
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

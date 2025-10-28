@@ -93,6 +93,10 @@ T6.2:
   - "tests/ops.spec.ts"
   - "src/commands/ops.js"
 
+T6.3:
+  - "src/bot/main.js"
+  - "src/bot/dripAlerts.js"
+
 T7.1:
   - "src/commands/home.js"
   - "src/models/index.ts"

@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T10:55:00Z
-Revision: 0.93
+Timestamp (UTC): 2025-10-27T11:20:00Z
+Revision: 0.94
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**
@@ -10,63 +10,50 @@ Revision: 0.93
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `tests/pbsl/fixtures/**` — Added curated oracle fixtures with provenance and documentation.
-> - `tests/pbsl/oracle.spec.ts` — Introduced the oracle diff suite and JSON report writer.
-> - `.github/workflows/pbsl-oracle.yml` — Captures oracle reports and fails the run after uploading artifacts.
-> - `docs/PBSL.md` — Documented the fixture catalog and marked oracle validation complete.
-> - `Tasklist.md` — Marked PBSL.ORACLE_DIFF as DONE with outcome notes and synced metadata.
-> - `ops/NEXT.yaml`, `Patch.md` — Retained T8.4 as READY after oracle cleanup and replaced the clipboard plan with the next PROPOSED backlog.
+> - `src/bot/main.js` — Emits DRIP security alerts when members gain roles, including audit metadata and CLI updates.
+> - `ops/TOUCHMAP.yaml` — Routed new security alert task ownership to the security bot files.
+> - `Tasklist.md` — Logged T6.3 as DONE with acceptance criteria for the role alert feature.
+> - `ops/NEXT.yaml` — Timestamp and note refreshed after the DRIP alert enhancement.
+> - `Patch.md` — Clipboard now reflects the executed role alert patch.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Seeded PBSL oracle fixtures, tests, and workflow reporting for deterministic validation.
+Summary: Added DRIP security alerts for role assignments and routed metadata updates.
 TasklistDiff: true
 Tests: Not run (VFS workspace blocks npm execution).
 Contracts: ON (marker present; Contract Mode enforced).
-NEXT: T8.4 remains READY following oracle cleanup.
+NEXT: T8.4 remains READY after the security alert update.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
-[Task PBSL.ORACLE_DIFF] Wire PBSL oracle fixtures, tests, and CI reporting
+[Task T6.3] Emit DRIP alerts for role assignments
 
-FILE: tests/pbsl/fixtures/README.md
-Change: Documented fixture provenance requirements and refresh workflow for oracle data.
-Insert/Replace/Remove: Added guidance covering upstream commit tracking and JSON schema expectations.
+FILE: src/bot/main.js
+Change: Added role diff detection, audit log lookup, and DRIP security alert dispatch inside the guildMemberUpdate flow.
+Insert/Replace/Remove: Introduced helpers for assignable role collection, audit permissions, and CLI/activity tracker updates.
 
-FILE: tests/pbsl/fixtures/basic-turn.json
-Change: Introduced a deterministic single-turn battle snapshot with upstream provenance metadata.
-Insert/Replace/Remove: Added seeded participants, scripted actions, and the expected sanitized audit trail.
-
-FILE: tests/pbsl/oracle.spec.ts
-Change: Added Vitest oracle comparison that sanitizes battle snapshots and emits a JSON report for CI.
-Insert/Replace/Remove: Implemented fixture loading, participant sorting, and artifact writing for regression triage.
-
-FILE: .github/workflows/pbsl-oracle.yml
-Change: Ensured CI always uploads the oracle report before failing on regressions.
-Insert/Replace/Remove: Replaced the test step with a JSON-reporting invocation plus artifact upload and explicit failure gate.
-
-FILE: docs/PBSL.md
-Change: Recorded oracle coverage in the compliance checklist and described the fixture/report catalog.
-Insert/Replace/Remove: Marked the checklist item complete and added a section covering fixtures and generated reports.
+FILE: ops/TOUCHMAP.yaml
+Change: Routed T6.3 to the security bot implementation for future editors.
+Insert/Replace/Remove: Added mappings for src/bot/main.js and drip alert utilities.
 
 FILE: Tasklist.md
-Change: Marked PBSL.ORACLE_DIFF as DONE with outcome notes and bumped metadata.
-Insert/Replace/Remove: Updated Last Updated/Revision and captured the oracle suite delivery in notes.
+Change: Logged the new security alert task with acceptance criteria and DONE status.
+Insert/Replace/Remove: Bumped metadata and documented the alert outcome.
 
 FILE: ops/NEXT.yaml
-Change: Refreshed the NEXT timestamp and note after completing the oracle diff cleanup.
-Insert/Replace/Remove: Maintained the T8.4 pointer while documenting the oracle milestone.
+Change: Refreshed timestamp and rationale after wiring the security alerts.
+Insert/Replace/Remove: Maintained T8.4 as READY with a note to validate the new alerts.
 
 FILE: Patch.md
-Change: Cleared the completed PBSL oracle proposal and staged a new PROPOSED plan for the remaining backlog.
-Insert/Replace/Remove: Removed the processed block and outlined upcoming META.RUNTIME.BACKUP_SINK work.
+Change: Clipboard now reflects the executed DRIP role alert plan.
+Insert/Replace/Remove: Replaced the planning stub with the delivered patch summary.
 
 FILE: Prompt.md
-Change: Synced metadata, Last Repo Changes, and PATCHSET echo with the PBSL oracle delivery.
-Insert/Replace/Remove: Bumped timestamp/revision and logged the deterministic validation updates.
+Change: Synced metadata, Last Repo Changes, and PATCHSET echo with the role alert delivery.
+Insert/Replace/Remove: Updated timestamp, revision, and summary fields.
 
 TASKLIST UPDATE
-Change: Set PBSL.ORACLE_DIFF to DONE with an outcome summary.
+Change: Added and completed T6.3 with acceptance criteria.
 <<<PATCHSET END>>>
 
 Logs & References:

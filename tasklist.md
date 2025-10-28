@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-27T10:55:00Z
-Revision: 1.69
+Last Updated (UTC): 2025-10-27T11:20:00Z
+Revision: 1.70
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -620,6 +620,15 @@ Each task has:
     - `/ops cooldown reset @user`, `/ops stats`
     - Basic usage counters visible to admin
   notes: Outcome — Added /ops with cooldown reset (admin-only) and basic stats. Prisma is optional; commands gracefully degrade when DB is unavailable.
+- id: T6.3
+  title: Send DRIP alerts when member roles change
+  status: DONE
+  depends_on: [T6.2]
+  acceptance_criteria:
+    - Security bot emits a DRIP alert whenever a member gains new roles, capturing the role names and member identity.
+    - Alert metadata includes previous roles and the assigning user when audit logs are accessible, falling back gracefully when unavailable.
+    - Activity tracker/CLI telemetry update without breaking the automatic Trainer reassignment flow.
+  notes: Outcome — Security bot now diffs member roles, looks up audit logs for the assigner, and sends immediate DRIP security alerts with structured metadata while keeping Trainer auto-heal behaviour intact.
 
 ## Phase 7 — Meta & Router Hardening
 

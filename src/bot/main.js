@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Partials, Events, Collection } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, Events, Collection, AuditLogEvent, PermissionsBitField } from 'discord.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import https from 'node:https';
@@ -972,6 +972,152 @@ function hasNoAssignableRoles(member) {
   return member.roles.cache.size <= 1;
 }
 
+function collectAssignableRoles(member) {
+  if (!member || !member.roles?.cache || !member.guild?.roles?.everyone) {
+    return null;
+  }
+  const everyoneId = member.guild.roles.everyone.id;
+  return member.roles.cache.filter((role) => role && role.id !== everyoneId);
+}
+
+function listRoleSummaries(collection) {
+  if (!collection) {
+    return [];
+  }
+  return Array.from(collection.values()).map((role) => describeRole(role));
+}
+
+function canViewAuditLogs(guild) {
+  try {
+    return Boolean(guild?.members?.me?.permissions?.has?.(PermissionsBitField.Flags.ViewAuditLog));
+  } catch (error) {
+    log('warn', 'Audit log permission check failed', mergeLogError({ guild: guild ? describeGuild(guild) : 'unknown' }, error));
+    return false;
+  }
+}
+
+async function lookupRoleAuditEntry(guild, memberId, roleIds) {
+  if (!guild || !memberId || !Array.isArray(roleIds) || roleIds.length === 0) {
+    return null;
+  }
+  if (!canViewAuditLogs(guild)) {
+    return null;
+  }
+  try {
+    const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberRoleUpdate, limit: 10 });
+    if (!logs || !logs.entries) {
+      return null;
+    }
+    for (const [, entry] of logs.entries) {
+      if (!entry || !entry.target || entry.target.id !== memberId) {
+        continue;
+      }
+      const addedChange = Array.isArray(entry.changes)
+        ? entry.changes.find((change) => change && change.key === '$add')
+        : null;
+      if (!addedChange || !Array.isArray(addedChange.new)) {
+        continue;
+      }
+      const addedIds = addedChange.new
+        .map((item) => item && item.id)
+        .filter((id) => typeof id === 'string');
+      if (addedIds.some((id) => roleIds.includes(id))) {
+        return entry;
+      }
+    }
+  } catch (error) {
+    log('warn', 'Audit log lookup for role change failed', mergeLogError({
+      guild: describeGuild(guild),
+      memberId,
+      roleIds,
+    }, error));
+  }
+  return null;
+}
+
+async function maybeAlertRoleAssignments(oldMember, newMember) {
+  if (!dripAlertManager || !newMember || !newMember.guild) {
+    return;
+  }
+
+  const guild = newMember.guild;
+  const newRoles = collectAssignableRoles(newMember);
+  if (!newRoles || newRoles.size === 0) {
+    return;
+  }
+
+  const oldRoles = collectAssignableRoles(oldMember);
+  const addedRoles = [];
+
+  newRoles.forEach((role) => {
+    if (!role) {
+      return;
+    }
+    if (!oldRoles || !oldRoles.has(role.id)) {
+      addedRoles.push(role);
+    }
+  });
+
+  if (addedRoles.length === 0) {
+    return;
+  }
+
+  const removedRoles = [];
+  if (oldRoles) {
+    oldRoles.forEach((role) => {
+      if (!role) {
+        return;
+      }
+      if (!newRoles.has(role.id)) {
+        removedRoles.push(role);
+      }
+    });
+  }
+
+  const roleIds = addedRoles.map((role) => role.id);
+  const auditEntry = await lookupRoleAuditEntry(guild, newMember.id, roleIds);
+  const executor = auditEntry?.executor ?? null;
+  const assignedBy = executor ? describeUser(executor) : 'unknown user';
+  const assignedRolesSummary = addedRoles.map((role) => role.name).join(', ');
+  const previousRoles = listRoleSummaries(oldRoles);
+  const removedSummaries = removedRoles.length ? removedRoles.map((role) => describeRole(role)) : [];
+
+  const meta = {
+    guild: describeGuild(guild),
+    member: describeMember(newMember),
+    memberId: newMember.id,
+    addedRoles: addedRoles.map((role) => describeRole(role)),
+    removedRoles: removedSummaries,
+    previousRoles,
+    assignedBy,
+    assignedById: executor?.id ?? null,
+    auditId: auditEntry?.id ?? null,
+    auditLoggedAt: auditEntry?.createdTimestamp ? new Date(auditEntry.createdTimestamp).toISOString() : null,
+    auditReason: auditEntry?.reason ?? null,
+  };
+
+  const summary = `Assigned ${assignedRolesSummary} to ${describeMember(newMember)}`;
+  const title = `Role assignment detected for ${describeMember(newMember)}`;
+
+  const success = await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.security, title, meta);
+  if (success === false) {
+    log('warn', 'Role assignment alert deferred (DRIP delivery pending)', meta);
+    return;
+  }
+
+  activityTracker.recordActivity('security-alert', summary, meta);
+  updateSecurityCliSection({
+    lastAlertSentAt: new Date(),
+    lastAlertMessage: summary,
+  });
+  report('Role Assignment Alert', {
+    guild: meta.guild,
+    member: meta.member,
+    addedRoles: meta.addedRoles.join(', '),
+    assignedBy,
+  }, 'info');
+}
+
 function findRole(guild) {
   if (ROLE_ID) {
     return guild.roles.cache.get(ROLE_ID) || null;
@@ -1708,8 +1854,9 @@ client.on('guildMemberAdd', async (member) => {
 });
 
 // Heal members who lose all assignable roles (drop to @everyone only)
-client.on('guildMemberUpdate', async (_oldMember, newMember) => {
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
   try {
+    await maybeAlertRoleAssignments(oldMember, newMember);
     if (hasNoAssignableRoles(newMember)) {
       await ensureTrainerFor(newMember, 'member-update');
     }
