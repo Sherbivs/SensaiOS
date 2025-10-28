@@ -3,9 +3,9 @@ Timestamp (UTC): 2025-10-28T22:15:00Z
 Revision: 1.13
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Split Render deployment into dedicated outbox/cache/data-pipeline workers with pooled DB env vars and SERVICE_NAME telemetry.
-- Updated worker router metadata plus ops/ROUTER docs to map the new entrypoints and refreshed timestamps.
-- Adjusted package scripts so prebuild compiles worker targets and added local worker runner commands for ops testing.
+- Added ENABLE_SECURITY_BOT flag, exported it through env config, and stood up a dedicated Render security worker while disabling the shared runtime path.
+- Instrumented cache, data-pipeline, and security workers with periodic health logs and updated worker monitor wiring to surface status.
+- Regenerated ops router index with normalized shell script line endings and refreshed router docs to capture new worker endpoints.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -25,8 +25,8 @@ Revision: 1.13
 
 ## System Highlights
 - **Database:** Runtime prefers DATABASE_POOL_URL with DATABASE_DIRECT_URL fallback; Prisma migrate retains directUrl; tests set PRISMA_SKIP_INITIAL_CONNECT.
-- **Workers & Scaling:** Render now deploys dedicated outbox/cache/data-pipeline workers with pooled env wiring; next step is removing legacy sweep loops from the bot runtime and broadening health telemetry.
-- **Observability:** Structured logs and CLI monitor are online; additional metrics/alerts tracked under T10.SCALE.OBS (PROPOSED).
+- **Workers & Scaling:** Render now deploys dedicated outbox/cache/data-pipeline/security workers with pooled env wiring and ENABLE_SECURITY_BOT gating; shared runtime bypasses the sweep when the flag is false.
+- **Observability:** Structured logs, worker health telemetry, and CLI monitor are online; additional metrics/alerts tracked under T10.SCALE.OBS (PROPOSED).
 - **Ledger:** Prompt now carries a curated 10-commit summary; run npm run docs:update-ledger to refresh both this summary and ops/change-ledger.md.
 - **Testing Posture:** Vitest suites (ops, dm_home, daily, battle) and Prisma smoke tests cover current bootstrap guarantees—rerun targeted suites when touching those areas.
 
@@ -47,7 +47,7 @@ Revision: 1.13
 - Render environment supports dedicated worker services with independent scaling and shared env configuration.
 - Worker separation will reuse current Prisma client patterns; no alternate ORM intended.
 - Observability expansion (metrics/alerts) is deferred until the worker split stabilizes; ensure no regression to structured logging baseline.
-- Legacy bot process still hosts sweep loops until ENABLE_CONTINUOUS_SWEEP is retired; remove once worker telemetry covers the gap.
+- Security worker remains gated via ENABLE_SECURITY_BOT; keep fallback sweep path documented until the flag is confidently enabled in all environments.
 
 ## Validation Checklist
 - Touching a directory requires updating its ROUTER.md entry and running scripts/update_router_index.sh; commit the regenerated ops/ROUTER_INDEX.yaml.
@@ -62,11 +62,11 @@ Revision: 1.13
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Split Render worker deployment into outbox/cache/data-pipeline services, refreshed worker routers, and ensured pooled DB env wiring.
+Change: Introduced dedicated security worker with ENABLE_SECURITY_BOT gating, added worker health telemetry, and refreshed router docs/scripts for the split deployment.
 TasklistDiff: false
 Tests: not run (documentation cleanup)
 Contracts: ON
-NEXT: T10.SCALE.WORKERS — remove legacy sweep loops and expand health telemetry for the separated workers.
+NEXT: T10.SCALE.WORKERS — validate ENABLE_SECURITY_BOT rollout, document fallback path, and retire legacy sweep code once production telemetry is stable.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)
