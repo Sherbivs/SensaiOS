@@ -22,6 +22,7 @@ Notes:
 - 2025-10-28: Render config split outbox/cache/data-pipeline workers with dedicated SERVICE_NAME metadata and pooled DB URLs.
 - 2025-10-28: Security bot moved to dedicated Render worker (`infinity-gauntlet-security`) gated by ENABLE_SECURITY_BOT flag; monitor sections mark disabled state in the main runtime.
 - 2025-10-28: OPERATIONS.md now documents the worker matrix, rollout checklist, and recovery toggles (ENABLE_CONTINUOUS_SWEEP, interval envs); master router index regenerated to match.
+- 2025-10-28: Added router_docs category in ops/ROUTER.yaml bundling ops/ROUTER.md, ops/ROUTER_INDEX.yaml, and masterroutetable.md for fast navigation.
 
 Key Files:
 - ops/NEXT.yaml — execution pointer
