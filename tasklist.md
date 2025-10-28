@@ -890,13 +890,13 @@ Each task has:
 
 - id: T10.SCALE.WORKERS
   title: Separate background workers for horizontal scaling
-  status: IN_PROGRESS
+  status: DONE
   depends_on: [T10.SCALE.DATA_INDEX]
   acceptance_criteria:
     - Split continuous sweeps, cache refreshes, and data pipeline jobs into dedicated worker entry points with independent concurrency/env tuning.
     - Render (or equivalent) deployment config reflects the separation with per-worker scaling knobs and health telemetry.
     - Update ROUTER docs and ops playbooks to clarify which queues/tasks each worker owns and how to roll them independently.
-  notes: In flight — worker runtime/utilities landed with outbox, cache refresh, and data pipeline scripts plus env toggles; pending render.yaml/process wiring, router/doc updates, and sweep loop removal in the bot process.
+  notes: Outcome — Worker runtime helpers power outbox/cache/data pipeline entries, render.yaml runs dedicated services, ENABLE_CONTINUOUS_SWEEP now gates security sweeps, and ops/router docs document the split.
 
 - id: T10.SCALE.DB_BOOTSTRAP
   title: Bring staging DB to baseline before applying forward-only index migrations
