@@ -43,6 +43,7 @@ categories:
     - ops/DB_BOOTSTRAP.md
     - discord-pokemon-bot/data/standized_pokemon_game_logic.md
     - docs/PBSL.md
+    - masterroutetable.md
   code_core:
     - src/**
     - tests/**
