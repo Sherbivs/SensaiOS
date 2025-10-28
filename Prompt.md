@@ -25,7 +25,7 @@ Revision: 1.14
 
 ## System Highlights
 - **Database:** Runtime prefers DATABASE_POOL_URL with DATABASE_DIRECT_URL fallback; Prisma migrate retains directUrl; tests set PRISMA_SKIP_INITIAL_CONNECT.
-- **Workers & Scaling:** Render now deploys dedicated outbox/cache/data-pipeline/security workers with pooled env wiring and ENABLE_SECURITY_BOT gating; shared runtime bypasses the sweep when the flag is false.
+- **Workers & Scaling:** Dedicated outbox/cache/data-pipeline/security workers run under pooled env wiring; ENABLE_SECURITY_BOT + ENABLE_CONTINUOUS_SWEEP gate sweeps so only the security worker loops in production.
 - **Observability:** Structured logs, worker health telemetry, and CLI monitor are online; additional metrics/alerts tracked under T10.SCALE.OBS (PROPOSED).
 - **Ledger:** Prompt now carries a curated 10-commit summary; run npm run docs:update-ledger to refresh both this summary and ops/change-ledger.md.
 - **Testing Posture:** Vitest suites (ops, dm_home, daily, battle) and Prisma smoke tests cover current bootstrap guarantees—rerun targeted suites when touching those areas.
