@@ -2,7 +2,7 @@
 Title: Ops & Governance
 Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-10-28T20:30:00Z
+Last Updated (UTC): 2025-10-28T21:45:00Z
 
 Notes:
 - 2025-10-26: guard_meta preflight/postflight make READY absence impossible at merge time; NEXT auto-promotion enabled. See scripts/guard_meta.sh and ops/NEXT.yaml.
@@ -19,6 +19,7 @@ Notes:
 - 2025-10-28: Added ops/DB_BOOTSTRAP.md runbook to router index, refreshed timestamps, and mapped staging bootstrap helper for AI operators.
 - 2025-10-28: Ledger automation now runs through scripts/update_change_ledger.mjs with cross-shell wrappers delegating via NODE_BIN.
 - 2025-10-28: ops/change-ledger.md introduced to house the full 200-entry commit log while Prompt.md carries a 10-entry summary.
+- 2025-10-28: Render config split outbox/cache/data-pipeline workers with dedicated SERVICE_NAME metadata and pooled DB URLs.
 
 Key Files:
 - ops/NEXT.yaml — execution pointer

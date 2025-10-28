@@ -6,20 +6,24 @@
   "scripts": {
     "build:ci": "npm run prebuild",
     "postinstall": "npm run prebuild",
-    "prebuild": "prisma generate",
+    "generate": "prisma generate",
+    "prebuild": "npm run generate && npm run build",
     "build": "tsc --project tsconfig.build.json",
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "data:build": "tsx src/data_pipeline/index.ts",
     "register:commands": "node scripts/register-commands.js",
-  "docs:update-ledger": "node scripts/update_change_ledger.mjs",
+    "docs:update-ledger": "node scripts/update_change_ledger.mjs",
     "docs:update-routers": "bash scripts/update_router_index.sh",
     "refresh:vision": "bash scripts/refresh_vision.sh",
     "hotfix": "bash scripts/hotfix_entry.sh",
     "tasks:archive": "node scripts/archive_task_history.mjs",
     "lint": "eslint \"{src,tests}/**/*.ts\"",
     "test": "vitest",
-    "test:pbsl": "vitest run tests/pbsl"
+    "test:pbsl": "vitest run tests/pbsl",
+    "worker:outbox": "tsx src/worker/outbox.ts",
+    "worker:cache": "tsx src/worker/cache-refresh.ts",
+    "worker:data-pipeline": "tsx src/worker/data-pipeline.ts"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",

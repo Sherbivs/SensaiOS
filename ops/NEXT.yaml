@@ -26,4 +26,4 @@ files_hint:
 timestamp_utc: 2025-10-28T21:45:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-27T08:30:00Z
-note: "docs:update-ledger rerun; duplicate timestamp fields cleared. Continue with render split, router updates, and sweep loop gate."
+note: "Render workers split with pooled env; next step is deleting sweep loops from the bot runtime and expanding worker health telemetry."

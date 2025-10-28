@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-28T21:20:00Z
-Revision: 1.11
+Timestamp (UTC): 2025-10-28T21:55:00Z
+Revision: 1.12
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Removed duplicate Prompt.md sections and conflict artifacts so the contract template is clean and guard-compliant again.
-- Preserved the curated 10-entry ledger summary while pointing to ops/change-ledger.md for the full history until the script is rerun.
-- Flagged the duplicated timestamp fields in ops/NEXT.yaml for follow-up during the next ledger refresh.
+- Split Render deployment into dedicated outbox/cache/data-pipeline workers with pooled DB env vars and SERVICE_NAME telemetry.
+- Updated worker router metadata plus ops/ROUTER docs to map the new entrypoints and refreshed timestamps.
+- Adjusted package scripts so prebuild compiles worker targets and added local worker runner commands for ops testing.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -25,7 +25,7 @@ Revision: 1.11
 
 ## System Highlights
 - **Database:** Runtime prefers DATABASE_POOL_URL with DATABASE_DIRECT_URL fallback; Prisma migrate retains directUrl; tests set PRISMA_SKIP_INITIAL_CONNECT.
-- **Workers & Scaling:** Shared worker runtime plus outbox/cache/pipeline entry points exist; upcoming work must update render.yaml, worker entrypoints, and router tables to isolate services.
+- **Workers & Scaling:** Render now deploys dedicated outbox/cache/data-pipeline workers with pooled env wiring; next step is removing legacy sweep loops from the bot runtime and broadening health telemetry.
 - **Observability:** Structured logs and CLI monitor are online; additional metrics/alerts tracked under T10.SCALE.OBS (PROPOSED).
 - **Ledger:** Prompt now carries a curated 10-commit summary; run npm run docs:update-ledger to refresh both this summary and ops/change-ledger.md.
 - **Testing Posture:** Vitest suites (ops, dm_home, daily, battle) and Prisma smoke tests cover current bootstrap guarantees—rerun targeted suites when touching those areas.
@@ -47,7 +47,7 @@ Revision: 1.11
 - Render environment supports dedicated worker services with independent scaling and shared env configuration.
 - Worker separation will reuse current Prisma client patterns; no alternate ORM intended.
 - Observability expansion (metrics/alerts) is deferred until the worker split stabilizes; ensure no regression to structured logging baseline.
-- Duplicate timestamp fields in ops/NEXT.yaml should be deduplicated the next time ledger/meta automation runs.
+- Legacy bot process still hosts sweep loops until ENABLE_CONTINUOUS_SWEEP is retired; remove once worker telemetry covers the gap.
 
 ## Validation Checklist
 - Touching a directory requires updating its ROUTER.md entry and running scripts/update_router_index.sh; commit the regenerated ops/ROUTER_INDEX.yaml.
@@ -62,11 +62,11 @@ Revision: 1.11
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Cleansed Prompt.md of duplicate sections, restored canonical markers, and refreshed metadata after the regression.
+Change: Split Render worker deployment into outbox/cache/data-pipeline services, refreshed worker routers, and ensured pooled DB env wiring.
 TasklistDiff: false
 Tests: not run (documentation cleanup)
 Contracts: ON
-NEXT: T10.SCALE.WORKERS — continue the worker split by updating render config, worker services, and routers.
+NEXT: T10.SCALE.WORKERS — remove legacy sweep loops and expand health telemetry for the separated workers.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)
