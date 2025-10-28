@@ -86,10 +86,6 @@ describe('/ops stats reporting', () => {
         ]),
       },
       cooldown: { count: vi.fn().mockResolvedValue(6) },
-      outboxMessage: {
-        count: vi.fn().mockResolvedValue(2),
-        findFirst: vi.fn().mockResolvedValue({ processedAt: new Date('2025-10-25T23:00:00Z') }),
-      },
     } as any;
 
     await handleOpsCommand(interaction, {
@@ -134,10 +130,6 @@ describe('/ops stats reporting', () => {
         ]),
       },
       cooldown: { count: vi.fn().mockResolvedValue(4) },
-      outboxMessage: {
-        count: vi.fn().mockResolvedValue(1),
-        findFirst: vi.fn().mockResolvedValue({ processedAt: new Date('2025-10-25T23:30:00Z') }),
-      },
     } as any;
 
     await handleOpsCommand(interaction, {
@@ -171,10 +163,6 @@ describe('/ops stats reporting', () => {
         findMany: vi.fn().mockResolvedValue([]),
       },
       cooldown: { count: vi.fn().mockResolvedValue(4) },
-      outboxMessage: {
-        count: vi.fn().mockResolvedValue(0),
-        findFirst: vi.fn().mockResolvedValue(null),
-      },
     } as any;
 
     await handleOpsCommand(interaction, {
@@ -226,10 +214,6 @@ describe('/ops stats reporting', () => {
         ]),
       },
       cooldown: { count: vi.fn().mockResolvedValue(0) },
-      outboxMessage: {
-        count: vi.fn().mockResolvedValue(0),
-        findFirst: vi.fn().mockResolvedValue({ processedAt: new Date('2025-10-26T02:30:00Z') }),
-      },
     } as any;
 
     await handleOpsCommand(interaction, {
@@ -275,10 +259,6 @@ describe('/ops stats reporting', () => {
         findMany: vi.fn().mockResolvedValue([]),
       },
       cooldown: { count: vi.fn().mockResolvedValue(0) },
-      outboxMessage: {
-        count: vi.fn().mockResolvedValue(0),
-        findFirst: vi.fn().mockResolvedValue(null),
-      },
     } as any;
 
     await handleOpsCommand(interaction, {
