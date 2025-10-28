@@ -3,8 +3,8 @@ Timestamp (UTC): 2025-10-28T22:55:00Z
 Revision: 1.14
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Linked OPERATIONS.md into the ops router key files and bumped ops/ROUTER.yaml timestamps for the worker split runbook.
-- Regenerated ops/ROUTER_INDEX.yaml and masterroutetable.md so the machine + human indexes surface the operations runbook alongside worker metadata.
+- Added masterroutetable.md to the ops router key files and infra docs so the master table is treated as a canonical reference.
+- Regenerated ops/ROUTER_INDEX.yaml after the metadata refresh to keep the machine index aligned.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
