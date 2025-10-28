@@ -26,4 +26,4 @@ files_hint:
 timestamp_utc: 2025-10-28T21:45:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-27T08:30:00Z
-note: "Render workers split with pooled env; next step is deleting sweep loops from the bot runtime and expanding worker health telemetry."
+note: "Security bot now runs in a dedicated worker; verify ops playbooks document rollout and monitor new worker health logs before closing the task."

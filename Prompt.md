@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-28T21:55:00Z
-Revision: 1.12
+Timestamp (UTC): 2025-10-28T22:15:00Z
+Revision: 1.13
 
 ## Last Repo Changes (since previous Prompt.md revision)
 - Split Render deployment into dedicated outbox/cache/data-pipeline workers with pooled DB env vars and SERVICE_NAME telemetry.
