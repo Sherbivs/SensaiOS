@@ -1,5 +1,5 @@
 version: 1
-generated_utc: "2025-10-27T11:45:00Z"
+generated_utc: "2025-10-27T12:30:00Z"
 routers:
   - path: "ops/"
     router_file: "ops/ROUTER.md"
@@ -10,7 +10,7 @@ routers:
     router_file: "scripts/ROUTER.md"
     title: "Dev & Docs Scripts"
     purpose: "Guard scripts and automation entrypoints."
-    last_updated_utc: "2025-10-26T12:45:00Z"
+    last_updated_utc: "2025-10-27T12:30:00Z"
   - path: "src/"
     router_file: "src/ROUTER.md"
     title: "Application Source"
@@ -35,9 +35,9 @@ routers:
     router_file: "src/core/ROUTER.md"
     title: "Core Game Engines"
     purpose: "Deterministic battle/encounter engines and shared mechanics."
-    last_updated_utc: "2025-10-27T11:45:00Z"
+    last_updated_utc: "2025-10-27T12:30:00Z"
   - path: "tests/"
     router_file: "tests/ROUTER.md"
     title: "Test Suite"
     purpose: "Vitest coverage for schemas, pipeline, engines, and flows."
-    last_updated_utc: "2025-10-27T11:45:00Z"
+    last_updated_utc: "2025-10-27T12:30:00Z"

@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-27T11:45:00Z
-Revision: 1.71
+Last Updated (UTC): 2025-10-27T12:30:00Z
+Revision: 1.72
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
@@ -308,6 +308,15 @@ Each task has:
     - ops/ROUTER_INDEX.yaml and masterroutetable.md reflect the refreshed timestamps and router summaries.
     - Router markdowns (ops, src/bot, src/core, tests) mention PBSL oracle fixtures and DRIP role alerts.
   notes: Outcome — Router map, index, and master table now note PBSL oracle fixtures plus DRIP role assignment alerts with synchronized timestamps across metadata.
+- id: META.ROUTER.AUDIT_20251027
+  title: Audit meta routers after PBSL oracle refresh
+  status: DONE
+  depends_on: [META.ROUTER.REFRESH_20251027]
+  acceptance_criteria:
+    - Confirm router indexes and tables regenerate with PBSL oracle fixture and DRIP alert context.
+    - Ensure scripts/ROUTER.md and tests/ROUTER.md document supporting guard scripts and oracle diff coverage.
+    - Record the audit outcome in Prompt.md and keep NEXT targeting T8.4 once complete.
+  notes: Outcome — Router index, master table, and downstream routers now record PBSL oracle fixture coverage plus DRIP role alerts; audit logged in Prompt with NEXT retargeted to T8.4.
 
 - id: T8.3
   title: Add daily quest claim flow and rewards

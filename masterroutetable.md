@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-27T08:45:00Z
+Last Updated (UTC): 2025-10-27T12:30:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 
 ## Router-of-Routers
@@ -20,7 +20,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 ### Ops & Governance (`ops/ROUTER.md`)
 - Purpose: Canonical operational control-plane (NEXT pointer, CRITICAL, TOUCHMAP, router maps, inbox).
 - Owned Globs: `ops/**`
-- Last Updated: 2025-10-26T14:20:00Z
+- Last Updated: 2025-10-27T11:45:00Z
 - Key References:
 	- `ops/NEXT.yaml` — next task pointer (READY pointer must exist on exit)
 	- `ops/CRITICAL.md` — fast-path guardrails + Markerless guidance
@@ -30,11 +30,13 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 	- `ops/RECOVERY.yaml` — resume metadata
 	- `ops/CANONICAL_NAMES.yaml` — router/document casing guard
 	- `ops/ARCHIVE/README.md` — Tasklist archival guidance
+- Notes:
+	- 2025-10-27: Router maps now track PBSL oracle fixtures and DRIP role assignment alerts; audit recorded in ops/ROUTER.md.
 
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).
 - Owned Globs: `scripts/**`
-- Last Updated: 2025-10-26T14:20:00Z
+- Last Updated: 2025-10-27T12:30:00Z
 - Key Scripts:
 	- `scripts/update_change_ledger.sh` — regenerate Prompt change ledger
 	- `scripts/update_router_index.sh` — rebuild `ops/ROUTER_INDEX.yaml`
@@ -43,6 +45,8 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 	- `scripts/verify_router_links.sh` — canonical path guard (CI)
 	- `scripts/hotfix_entry.sh` — hotfix checklist helper
 	- `scripts/guard_meta.sh` — enforces READY invariants pre/post flight
+- Notes:
+	- 2025-10-27: Router scripts audited; verify_router_links and update_router_index keep meta routers synchronized during PBSL work.
 
 ### Application Source (`src/ROUTER.md`)
 - Purpose: Root TypeScript source tree; delegates to domain routers.
@@ -87,7 +91,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 ### Discord Bot Layer (`src/bot/ROUTER.md`)
 - Purpose: Discord client bootstrap, slash commands, DM flows, arena threads, admin ops.
 - Owned Globs: `src/bot/**`
-- Last Updated: 2025-10-27T07:45:00Z
+- Last Updated: 2025-10-27T11:45:00Z
 - Areas & Key Files:
 	- `src/bot/index.ts` — Discord client bootstrap & routing with ready guards
 	- `src/bot/dm/**` — DM home, starter selection, healing, drip alerts, daily quests
@@ -97,20 +101,24 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 	- `src/bot/ops/admin.ts` — `/ops` admin stats with filters (limit, after, participant)
 	- `src/bot/main.js` — legacy security bot (role sweeps, DripTVDD alert digest)
 	- `src/bot/dripAlerts.js` — DM alert scheduler/dispatcher backing security alerts
+- Notes:
+	- 2025-10-27: DRIP security alerts now fire on role assignments with audit-log attribution and CLI telemetry.
 
 ### Core Game Engines (`src/core/ROUTER.md`)
 - Purpose: Deterministic battle and encounter mechanics.
 - Owned Globs: `src/core/**`
-- Last Updated: 2025-10-25T11:10:00Z
+- Last Updated: 2025-10-27T12:30:00Z
 - Areas & Representative Files:
 	- `src/core/battle/**` — engine wrappers, damage calculations, status effects
 	- `src/core/encounter/**` — spawn/walk logic
 	- Shared math/utilities referenced by `src/bot/**` during battles and encounters
+- Notes:
+	- 2025-10-27: PBSL oracle fixtures diff deterministic battle snapshots against upstream engines for compliance.
 
 ### Test Suite (`tests/ROUTER.md`)
 - Purpose: Vitest suites covering schemas, data pipeline, battle engines, DM flows, ops tooling.
 - Owned Globs: `tests/**`
-- Last Updated: 2025-10-26T12:20:00Z
+- Last Updated: 2025-10-27T12:30:00Z
 - Representative Specs:
 	- `tests/battle_engine.spec.ts` — deterministic battle engine coverage
 	- `tests/battle_flow.spec.ts` — arena flow integration tests
@@ -118,3 +126,5 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 	- `tests/ops.spec.ts` — `/ops` admin command scenarios (limit/after/participant)
 	- `tests/data_pipeline.spec.ts` — reference data validation
 	- `tests/encounter_walk.spec.ts` — wild encounter flow
+- Notes:
+	- 2025-10-27: PBSL oracle diff suite compares fixtures under tests/pbsl/** for deterministic regressions.

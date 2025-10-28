@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-27T11:25:00Z
-Revision: 0.95
+Timestamp (UTC): 2025-10-27T12:30:00Z
+Revision: 0.96
 
 ## Last Repo Changes (since previous Prompt.md revision)
 > **AI MUST UPDATE THIS BLOCK ON EVERY PATCHSET**
@@ -10,16 +10,21 @@ Revision: 0.95
 > - Any schema/contract impacts to consumers (brief)
 >
 > Changes in this revision:
-> - `Patch.md` — Cleared the completed patch clipboard after the CLEAR TASKS trigger.
-> - `Prompt.md` — Logged the clipboard reset and refreshed metadata.
+> - `tasklist.md` — Logged META.ROUTER.AUDIT_20251027 with acceptance criteria and outcome.
+> - `ops/NEXT.yaml` — Refreshed timestamp and note after the meta router audit while keeping T8.4 READY.
+> - `ops/ROUTER_INDEX.yaml` — Regenerated timestamps for scripts, core, and tests routers post-audit.
+> - `masterroutetable.md` — Synced router details with PBSL oracle fixtures and DRIP alert coverage.
+> - `scripts/ROUTER.md` — Documented router automation guarding PBSL oracle metadata.
+> - `src/core/ROUTER.md` — Recorded PBSL oracle fixture validation with updated timestamp.
+> - `tests/ROUTER.md` — Added PBSL oracle diff coverage note and refreshed metadata.
 
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Summary: Cleared the patch clipboard in response to CLEAR TASKS and updated metadata.
-TasklistDiff: false
-Tests: Not run (VFS workspace blocks npm execution).
+Summary: Audited meta routers to capture PBSL oracle fixtures and DRIP alert coverage.
+TasklistDiff: true
+Tests: Not run (VFS workspace restricts npm scripts; metadata audit only).
 Contracts: ON (marker present; Contract Mode enforced).
-NEXT: T8.4 remains READY; clipboard cleanup does not affect queue.
+NEXT: T8.4 remains READY after router audit; DM home daily button still queued.
 <!-- PATCHSET:ECHO END -->
 
 <<<PATCHSET START>>>
