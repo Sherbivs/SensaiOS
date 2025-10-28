@@ -910,13 +910,13 @@ Each task has:
 
 - id: T10.SCALE.OBS
   title: Expand observability and guardrails for scaling
-  status: PROPOSED
+  status: READY
   depends_on: [T10.SCALE.WORKERS]
   acceptance_criteria:
     - Extend structured logging/metrics to include storage, sweep cadence, and queue depth per worker, forwarding critical alerts to the security/ops channels.
     - Add automated health checks or dashboards (Grafana, Render metrics, etc.) with documented thresholds and escalation paths in `OPERATIONS.md`.
     - Update Prompt.md PATCHSET echo template or ops guides to require observability notes whenever scaling-affecting changes land.
-  notes: Proposed — Keeps telemetry and runbooks ahead of the expected traffic spike once marketing beats begin.
+  notes: READY — Worker split landed; next step is instrumenting queue depth, sweep cadence, and documenting alert thresholds across workers.
 
 ## Phase 11 — Meta & AI Enablement
 
