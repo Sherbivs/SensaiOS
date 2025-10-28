@@ -1,6 +1,6 @@
 # OPERATIONS
 
-_Last updated: 2025-10-28T22:55:00Z (UTC) — Rev: 1.0_
+_Last updated: 2025-10-28T23:20:00Z (UTC) — Rev: 1.1_
 
 ## Service Matrix
 | Render Service | Purpose | Entry Command | Key Env Flags | Health Signals |
@@ -25,6 +25,11 @@ _Last updated: 2025-10-28T22:55:00Z (UTC) — Rev: 1.0_
 - Outbox worker failures enqueue `worker.crash` messages; `/ops stats` surfaces crash telemetry—investigate before re-enabling drains.
 - Cache/data workers can be paused by setting the interval env vars to `0`; resumes require redeploy with the previous cadence.
 - When migrations add new worker files, run `npm run docs:update-routers` so ops/ROUTER_INDEX.yaml and masterroutetable.md stay authoritative.
+
+## Observability Expansion (In Progress)
+- Instrument `src/worker/runWorker` and each worker entry to emit queue depth, sweep cadence, failure counts, and last-success timestamps; surface them via structured logs (`worker.*`) and `/ops stats`.
+- Define alert thresholds (queue backlog > 50, sweep silence > 10 minutes, repeated failure counts) and document notification paths (Render alerts + DRIP security channel) here as they solidify.
+- Once telemetry is live, coordinate a load test or “game-night” dry run with ops coverage; record timing, owners, and pass/fail criteria, then summarize outcomes here and in Prompt.md.
 
 ## Secret Handling
 - Discord tokens (`POKEMON_BOT_TOKEN`, `SECURITY_BOT_TOKEN`) live in Render secrets; never commit `.env` snapshots.

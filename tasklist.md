@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-28T22:55:00Z
-Revision: 1.80
+Last Updated (UTC): 2025-10-28T23:20:00Z
+Revision: 1.81
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -916,7 +916,18 @@ Each task has:
     - Extend structured logging/metrics to include storage, sweep cadence, and queue depth per worker, forwarding critical alerts to the security/ops channels.
     - Add automated health checks or dashboards (Grafana, Render metrics, etc.) with documented thresholds and escalation paths in `OPERATIONS.md`.
     - Update Prompt.md PATCHSET echo template or ops guides to require observability notes whenever scaling-affecting changes land.
-  notes: READY — Worker split landed; next step is instrumenting queue depth, sweep cadence, and documenting alert thresholds across workers.
+  notes: |
+    Priority focus — instrument `runWorker` and each dedicated worker entry to emit queue depth, sweep cadence, and failure counters, then wire alerts into security/ops channels. Document the thresholds in OPERATIONS.md and require Prompt echoes to flag observability work before traffic ramps.
+
+- id: T10.SCALE.LOAD_TEST
+  title: Schedule post-split load test / game-night dry run
+  status: PROPOSED
+  depends_on: [T10.SCALE.OBS]
+  acceptance_criteria:
+    - Coordinate a load test or “game-night” dry run after observability instrumentation lands, capturing responsible owners and timing in OPERATIONS.md.
+    - Define success thresholds (queue depth, sweep cadence, response latency) aligned with the new telemetry and document rollback steps if metrics regress.
+    - Record outcomes and follow-up actions in Prompt.md Last Repo Changes and Tasklist notes after execution.
+  notes: Proposed follow-up to validate worker split efficiency once telemetry and alerting are live; align scheduling with ops coverage and Render availability.
 
 ## Phase 11 — Meta & AI Enablement
 

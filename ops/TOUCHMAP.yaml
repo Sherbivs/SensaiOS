@@ -196,6 +196,12 @@ T10.SCALE.OBS:
   - "Prompt.md"
   - "scripts/guard_meta.sh"
 
+T10.SCALE.LOAD_TEST:
+  - "OPERATIONS.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "scripts/guard_meta.sh"
+
 PBSL.SKELETON:
   - "docs/PBSL.md"
   - "src/core/pbsl/**"

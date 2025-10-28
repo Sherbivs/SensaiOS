@@ -1,10 +1,10 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-28T23:05:00Z
-Revision: 1.15
+Timestamp (UTC): 2025-10-28T23:20:00Z
+Revision: 1.16
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added a router_docs category in ops/ROUTER.yaml bundling ops/ROUTER.md, ops/ROUTER_INDEX.yaml, and masterroutetable.md for fast navigation.
-- Regenerated ops/ROUTER_INDEX.yaml after the categorization so the machine index timestamps stay current.
+- Prioritized T10.SCALE.OBS with an explicit instrumentation plan in Tasklist/NEXT, calling for queue depth and sweep cadence telemetry plus alert thresholds.
+- Added T10.SCALE.LOAD_TEST follow-up and expanded OPERATIONS.md with observability-in-progress guidance and dry run scheduling notes.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -19,13 +19,13 @@ Revision: 1.15
 
 ## Active Mission Snapshot
 - **NEXT Pointer:** T10.SCALE.OBS — layer worker telemetry (queue depth, sweep cadence) and document alert thresholds now that the split is live.
-- **READY / In-flight:** Observability follow-up is READY; META.RUNTIME.BACKUP_SINK stays proposed; T8.4 daily claim button remains PROPOSED pending DM UI polish.
+- **READY / In-flight:** Observability follow-up stays READY but flagged as priority; META.RUNTIME.BACKUP_SINK remains proposed; new T10.SCALE.LOAD_TEST holds the post-telemetry dry run plan; T8.4 daily claim button is still PROPOSED pending DM UI polish.
 - **Recent Finish:** T10.SCALE.WORKERS finalized the worker runtime, Render services, ops runbook, and router metadata for the split deployment.
 
 ## System Highlights
 - **Database:** Runtime prefers DATABASE_POOL_URL with DATABASE_DIRECT_URL fallback; Prisma migrate retains directUrl; tests set PRISMA_SKIP_INITIAL_CONNECT.
 - **Workers & Scaling:** Dedicated outbox/cache/data-pipeline/security workers run under pooled env wiring; ENABLE_SECURITY_BOT + ENABLE_CONTINUOUS_SWEEP gate sweeps so only the security worker loops in production.
-- **Observability:** Structured logs, worker health telemetry, and CLI monitor are online; additional metrics/alerts tracked under T10.SCALE.OBS (PROPOSED).
+- **Observability:** Structured logs and health telemetry are live; T10.SCALE.OBS now leads with queue depth/sweep cadence instrumentation plus alert thresholds, with T10.SCALE.LOAD_TEST queued to validate the split once metrics land.
 - **Ledger:** Prompt now carries a curated 10-commit summary; run npm run docs:update-ledger to refresh both this summary and ops/change-ledger.md.
 - **Testing Posture:** Vitest suites (ops, dm_home, daily, battle) and Prisma smoke tests cover current bootstrap guarantees—rerun targeted suites when touching those areas.
 
@@ -61,11 +61,11 @@ Revision: 1.15
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Added a router_docs category mapping the meta router manifests and refreshed the router index timestamp.
-TasklistDiff: false
+Change: Prioritized T10.SCALE.OBS with telemetry/alert notes, queued the post-split load test follow-up, and expanded OPERATIONS.md guidance.
+TasklistDiff: true
 Tests: not run (docs-only change)
 Contracts: ON
-NEXT: T10.SCALE.OBS — add worker telemetry and alert thresholds now that the split is live.
+NEXT: T10.SCALE.OBS — wire queue depth, cadence, and failure counters with documented alert thresholds before scheduling the dry run.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

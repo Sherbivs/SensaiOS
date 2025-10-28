@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-27T11:25:00Z
-Revision: 1.39
+Last Updated (UTC): 2025-10-28T23:20:00Z
+Revision: 1.40
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
@@ -102,37 +102,25 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 
 <<<PATCHSET START>>>
-[Task T10.SCALE.WORKERS] Finalize worker split, gate security sweeps, and refresh meta routers
-
-FILE: src/bot/main.js
-Change: Gate the continuous sweep loop behind ENABLE_CONTINUOUS_SWEEP, add health logging when disabled, and surface manual sweep helpers so the dedicated worker owns production sweeps.
-
-FILE: OPERATIONS.md
-Change: Replace the stub with an operator-facing worker matrix covering deployment knobs, rollout checks, and fallback guidance for the split services.
-
-FILE: ops/ROUTER.yaml
-Change: Add a router_docs category that groups ops/ROUTER.md, ops/ROUTER_INDEX.yaml, and masterroutetable.md with an updated timestamp.
-
-FILE: ops/ROUTER.md
-Change: Document the router_docs category and cross-link the master router table in the notes.
-
-FILE: ops/ROUTER_INDEX.yaml
-Change: Refresh the generated timestamp to record the metadata update.
-
-FILE: Prompt.md
-Change: Capture the router_docs category addition in Last Repo Changes and the PATCHSET echo summary.
-
-FILE: ops/TOUCHMAP.yaml
-Change: Extend the T10.SCALE.WORKERS path list to include worker-runtime helpers and ops docs touched during the split.
+[Task T10.SCALE.OBS] Kick off observability instrumentation and stage load-test follow-up
 
 FILE: Tasklist.md
-Change: Mark T10.SCALE.WORKERS DONE with outcome notes, promote T10.SCALE.OBS to READY, and bump headers.
+Change: Highlight T10.SCALE.OBS as the immediate priority and add the T10.SCALE.LOAD_TEST follow-up while bumping headers.
 
 FILE: ops/NEXT.yaml
-Change: Retarget NEXT to T10.SCALE.OBS with updated rationale, timestamp, and files hint.
+Change: Refresh timestamp, rationale, and operator note to emphasize the telemetry and alert work.
 
 FILE: Prompt.md
-Change: Bump timestamp/revision, summarize the worker split completion, update the PATCHSET echo, and reflect the new READY pointer.
+Change: Update timestamp/revision, Last Repo Changes, mission snapshot, and PATCHSET echo for the observability plan.
+
+FILE: OPERATIONS.md
+Change: Bump revision and add an Observability Expansion section with telemetry guidance and dry run scheduling notes.
+
+FILE: ops/TOUCHMAP.yaml
+Change: Map the new T10.SCALE.LOAD_TEST task to the relevant meta and ops files.
+
+FILE: Patch.md
+Change: Refresh the contract header and clipboard so future runs track the observability kickoff plan.
 <<<PATCHSET END>>>
 
 
