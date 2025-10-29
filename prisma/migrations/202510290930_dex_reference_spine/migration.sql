@@ -203,4 +203,3 @@ ALTER TABLE "Encounter"
 
 -- Ensure encounters benefit from direct species joins
 CREATE INDEX IF NOT EXISTS "Encounter_speciesId_idx" ON "Encounter"("speciesId");
-*** End Patch
