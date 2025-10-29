@@ -1,7 +1,7 @@
  # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-10-29T05:20:00Z
+updated_utc: 2025-10-29T12:30:00Z
 
 meta_files:
   - Patch.md
@@ -60,6 +60,13 @@ categories:
     - ops/ROUTER_INDEX.yaml
     - masterroutetable.md
     - scripts/guard_*.sh
+
+router_contract:
+  docs_update_command: "npm run docs:update-routers"
+  generated_outputs_read_only:
+    - ops/ROUTER_INDEX.yaml
+    - masterroutetable.md
+  guard_script: scripts/guard_router_docs.sh
 
 # Always-allowed meta writes (headers/timestamps/Last Repo Changes only):
 meta_write_whitelist:
