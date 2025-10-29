@@ -9,7 +9,11 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "rootDir": "src",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@prisma/extension-optimize": ["src/types/prisma-optimize.d.ts"]
+    }
   },
   "include": [
     "src/**/*.ts",
