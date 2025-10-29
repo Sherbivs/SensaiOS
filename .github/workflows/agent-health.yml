@@ -1,0 +1,34 @@
+name: agent-health
+on:
+  schedule: [{ cron: "*/15 * * * *" }]
+  workflow_dispatch:
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan recent agent events
+        id: scan
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = "logs/agent-events.jsonl";
+            if (!fs.existsSync(path)) { console.log("no logs"); process.exit(0); }
+            const lines = fs.readFileSync(path,"utf8").trim().split("\n").slice(-200);
+            const errors = lines.filter(l => l.includes("\"type\":\"error\""));
+            const dones  = lines.filter(l => l.includes("\"type\":\"done\""));
+            const stuck  = errors.length > 5 && dones.length === 0;
+            fs.mkdirSync("logs", { recursive: true });
+            fs.writeFileSync("logs/health.json", JSON.stringify({ errors: errors.length, dones: dones.length, stuck }, null, 2));
+            if (stuck) process.exit(42);
+          '
+      - name: Open incident (if stuck)
+        if: failure()
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "Agent watchdog: stuck run detected"
+          content-filepath: logs/health.json
+          labels: incident,agent,needs-triage
