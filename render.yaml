@@ -162,9 +162,9 @@ services:
       - key: LOG_FORMAT
         value: json
       - key: CACHE_WORKER_INTERVAL_MS
-        value: "900000"
+        value: "0"
       - key: CACHE_WORKER_INTERVAL_JITTER_MS
-        value: "60000"
+        value: "0"
 
   - type: worker
     name: infinity-gauntlet-data-pipeline

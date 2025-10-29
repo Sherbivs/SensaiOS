@@ -25,7 +25,7 @@ const PAGE_SIZE = 200;
 const CONCURRENCY_LIMIT = 20;
 const CACHE_FILE_PATH = path.join(process.cwd(), 'data', 'pokemon.json');
 const CACHE_FILE_VERSION = 1;
-const CRON_SCHEDULE = '0 4 * * 1'; // 4 AM every Monday
+const CRON_SCHEDULE = '0 0 * * 4'; // 12 AM every Thursday
 const DEFAULT_TIMEZONE = process.env.POKEMON_CACHE_TZ || 'Etc/UTC';
 
 const HTTP_HEADERS = Object.freeze({
@@ -425,6 +425,12 @@ async function refreshPokemonCache(options = {}) {
     const roster = await fetchPokemonRoster();
     setPokemonCache(roster, startedAt);
     await writeCacheToDisk(roster, startedAt);
+
+    log('info', 'pokemon.cache.count', {
+      total: pokemonList.length,
+      reason,
+      fetchedAt: startedAt.toISOString(),
+    });
 
     log('info', 'Pokémon cache refresh complete', {
       reason,
