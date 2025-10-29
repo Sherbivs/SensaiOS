@@ -1,6 +1,6 @@
 # Staging DB Bootstrap Runbook
 
-This runbook describes safe steps to bring a staging PostgreSQL database up to the baseline schema expected by the codebase and Prisma migrations. Use this when `npx prisma migrate deploy` fails due to missing baseline tables or missing migration history on the target DB.
+This runbook describes safe steps to bring a staging PostgreSQL database up to the baseline schema expected by the codebase and Prisma migrations. Use this when `npx prisma migrate deploy` fails due to missing baseline tables or missing migration history on the target DB. For Prisma Postgres (Accelerate) import instructions see `ops/DB_IMPORT_PRISMA_POSTGRES.md`.
 
 Read this file fully before running any commands on staging. Mistakes here can affect staging data.
 

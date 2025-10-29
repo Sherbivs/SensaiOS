@@ -327,6 +327,7 @@ function buildQuietSummary() {
   pickMetric('route', 'route');
   pickMetric('preference', 'preference');
   pickMetric('mode', 'mode');
+  pickMetric('transport', 'transport');
   pickMetric('source', 'source');
   pickMetric('failures', 'failures', (value) => {
     const numeric = Number(value);

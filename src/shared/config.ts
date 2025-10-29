@@ -4,7 +4,7 @@ import path from "node:path";
 
 export type DatabaseConnectionMode = "auto" | "external" | "internal";
 
-export type DatabaseUrlSource = "external" | "pool" | "internal" | "direct" | "env" | "unset";
+export type DatabaseUrlSource = "external" | "pool" | "internal" | "direct" | "env" | "accelerate" | "unset";
 
 export type DatabaseCandidate = {
   url: string;
@@ -56,7 +56,7 @@ function readConnectionPreference(): DatabaseUrlSource | null {
     const payload = fs.readFileSync(preferenceFilePath(), "utf8");
     const parsed = JSON.parse(payload);
     const source = parsed?.lastSource;
-    if (typeof source === "string" && ["external", "pool", "internal", "direct", "env"].includes(source)) {
+  if (typeof source === "string" && ["external", "pool", "internal", "direct", "env", "accelerate"].includes(source)) {
       return source as DatabaseUrlSource;
     }
   } catch (error) {
@@ -95,6 +95,11 @@ function normalizeMode(raw: string | undefined): DatabaseConnectionMode {
 
 function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
   const mode = normalizeMode(process.env.DATABASE_CONNECTION_MODE);
+  const accelerateUrl =
+    process.env.DATABASE_ACCELERATE_URL?.trim() ??
+    process.env.PRISMA_ACCELERATE_URL?.trim() ??
+    process.env.PRISMA_DATA_PROXY_URL?.trim() ??
+    "";
   const poolUrl = process.env.DATABASE_POOL_URL?.trim() ?? "";
   const internalUrl = process.env.DATABASE_INTERNAL_URL?.trim() ?? "";
   const directUrl = process.env.DATABASE_DIRECT_URL?.trim() ?? "";
@@ -107,17 +112,24 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
 
   const preferExternal = mode === "external" || (mode === "auto" && nodeEnv !== "production");
 
+  const isAccelerateUrl = (value: string): boolean => /^prisma\+/i.test(value);
+
   const candidates: Array<{ value: string; source: DatabaseUrlSource }> = [];
 
   const pushCandidate = (value: string, source: DatabaseUrlSource): void => {
     if (!value) {
       return;
     }
+    const normalizedSource: DatabaseUrlSource = isAccelerateUrl(value) ? "accelerate" : source;
     if (candidates.some((candidate) => candidate.value === value)) {
       return;
     }
-    candidates.push({ value, source });
+    candidates.push({ value, source: normalizedSource });
   };
+
+  if (accelerateUrl) {
+    pushCandidate(accelerateUrl, "accelerate");
+  }
 
   const pushInternalCandidates = (): void => {
     pushCandidate(internalUrl, "internal");
@@ -231,6 +243,8 @@ export function recordDatabaseConnectionSuccess(source: DatabaseUrlSource): void
   process.env.DATABASE_CONNECTION_PREFERENCE_SOURCE = source;
   if (source === "internal" || source === "pool" || source === "direct") {
     process.env.DATABASE_CONNECTION_MODE = "internal";
+  } else if (source === "accelerate") {
+    process.env.DATABASE_CONNECTION_MODE = "external";
   }
   if (cachedConfig) {
     const candidates = [...cachedConfig.databaseCandidates];

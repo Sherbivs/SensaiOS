@@ -8,6 +8,7 @@ import {
   onPrismaHeartbeat,
   startPrismaHeartbeat,
   type PrismaHeartbeatEvent,
+  getPrismaTransport,
 } from "./shared/prisma.js";
 import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
 import { bootDiscord } from "./bot/index.js";
@@ -342,6 +343,10 @@ function renderPrismaHeartbeat(event: PrismaHeartbeatEvent): void {
   }
   if (config.databaseConnectionMode) {
     metrics.push(["mode", config.databaseConnectionMode]);
+  }
+  const transport = getPrismaTransport();
+  if (transport) {
+    metrics.push(["transport", transport]);
   }
   if (event.slow) {
     metrics.push(["status", "slow"]);

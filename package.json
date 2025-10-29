@@ -6,7 +6,7 @@
   "scripts": {
     "build:ci": "npm run prebuild",
     "postinstall": "npm run prebuild",
-    "generate": "prisma generate",
+  "generate": "prisma generate --no-engine",
     "prebuild": "npm run generate && npm run build:ts",
     "build:ts": "tsc --project tsconfig.build.json",
     "build": "npm run build:ts",
@@ -38,10 +38,11 @@
     "eslint-plugin-promise": "^6.1.1",
     "prettier": "^3.3.1",
     "prisma": "^6.18.0",
-    "vitest": "^1.6.0"
+    "vitest": "^4.0.4"
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",
+    "@prisma/extension-accelerate": "^2.0.2",
     "discord.js": "^14.16.3",
     "tsx": "^4.11.2",
     "typescript": "^5.6.3",

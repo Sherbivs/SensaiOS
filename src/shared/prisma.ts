@@ -1,4 +1,6 @@
 import { Prisma, PrismaClient } from "@prisma/client";
+import { PrismaClient as EdgePrismaClient } from "@prisma/client/edge";
+import { withAccelerate } from "@prisma/extension-accelerate";
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
 
@@ -51,9 +53,44 @@ const heartbeatListeners: Set<HeartbeatListener> =
 
 globalPrisma.prismaHeartbeatListeners = heartbeatListeners;
 
+const ACCELERATE_SCHEME = /^prisma\+/i;
+
+function isAccelerateUrl(url: string): boolean {
+  return ACCELERATE_SCHEME.test(url);
+}
+
+function resolveAccelerateRuntime(): "node" | "edge" {
+  const hint = (process.env.PRISMA_ACCELERATE_RUNTIME ?? process.env.PRISMA_ACCELERATE_CLIENT ?? "")
+    .trim()
+    .toLowerCase();
+  if (hint === "edge" || hint === "node") {
+    return hint;
+  }
+  if (hint === "auto") {
+    if (
+      process.env.PRISMA_ACCELERATE_EDGE === "true" ||
+      (process.env.RUNTIME ?? "").toLowerCase().includes("edge") ||
+      process.env.VERCEL_EDGE_FUNCTIONS === "1"
+    ) {
+      return "edge";
+    }
+    return "node";
+  }
+  if (process.env.PRISMA_ACCELERATE_EDGE === "true") {
+    return "edge";
+  }
+  return "node";
+}
+
+function describeTransport(usesAccelerate: boolean, runtime: "node" | "edge"): string {
+  return usesAccelerate ? `accelerate-${runtime}` : "direct";
+}
+
 let prismaClient: PrismaClient;
 export let prisma: PrismaClient;
 let activeCandidate: DatabaseCandidate | null = null;
+let lastClientUsesAccelerate = false;
+let lastPrismaTransport = "direct";
 
 function emitHeartbeat(event: PrismaHeartbeatEvent): void {
   for (const listener of heartbeatListeners) {
@@ -220,16 +257,38 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
   process.env.DATABASE_URL = candidate.url;
   process.env.DATABASE_CONNECTION_SOURCE = candidate.source;
 
-  const client = new PrismaClient({
-    log: nodeEnv === "development" ? ["warn", "error"] : ["error"],
-    datasources: {
-      db: {
-        url: candidate.url,
-      },
-    },
-  });
+  const usesAccelerate = isAccelerateUrl(candidate.url);
+  const runtime = usesAccelerate ? resolveAccelerateRuntime() : "node";
+  const PrismaCtor = usesAccelerate && runtime === "edge"
+    ? (EdgePrismaClient as unknown as typeof PrismaClient)
+    : PrismaClient;
+  const logLevels = nodeEnv === "development" ? ["warn", "error"] : ["error"];
+
+  const baseOptions = usesAccelerate
+    ? { log: logLevels, datasourceUrl: candidate.url }
+    : {
+        log: logLevels,
+        datasources: {
+          db: {
+            url: candidate.url,
+          },
+        },
+      };
+
+  const baseClient = new PrismaCtor(baseOptions as Prisma.PrismaClientOptions) as PrismaClient;
+  const client = usesAccelerate
+    ? (baseClient.$extends(withAccelerate()) as unknown as PrismaClient)
+    : baseClient;
+
+  if (usesAccelerate) {
+    process.env.PRISMA_CLIENT_ENGINE_TYPE = "accelerate";
+  } else {
+    delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
+  }
 
   globalPrisma.prisma = client;
+  lastClientUsesAccelerate = usesAccelerate;
+  lastPrismaTransport = describeTransport(usesAccelerate, runtime);
   return client;
 }
 
@@ -253,18 +312,48 @@ function delayWithJitter(baseMs: number): Promise<void> {
 async function attemptCandidateConnection(candidate: DatabaseCandidate, attempt: number): Promise<void> {
   const warnThreshold = HEARTBEAT_DEFAULTS.warnThresholdMs;
   const start = process.hrtime.bigint();
-  await prismaClient.$connect();
+  let latencyMs: number | null = null;
+  let connectError: unknown = null;
 
-  const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+  try {
+    await prismaClient.$connect();
+    latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+  } catch (error) {
+    if (!lastClientUsesAccelerate) {
+      throw error;
+    }
+    connectError = error;
+  }
+
+  if (latencyMs === null) {
+    const probeStart = process.hrtime.bigint();
+    try {
+      await prismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+    } catch (probeError) {
+      if (connectError instanceof Error) {
+        log.warn("Accelerate connect warning", {
+          warning: connectError.message,
+        });
+      }
+      throw probeError;
+    }
+    latencyMs = Number(process.hrtime.bigint() - probeStart) / 1_000_000;
+  }
+
   const slow = latencyMs >= warnThreshold;
   const runtimeConfig = loadConfig();
-  const meta = {
+  const meta: Record<string, unknown> = {
     attempt,
     latencyMs: Number(latencyMs.toFixed(2)),
     directUrlConfigured: Boolean(process.env.DATABASE_DIRECT_URL?.trim()),
     databaseSource: candidate.source,
     connectionMode: runtimeConfig.databaseConnectionMode,
+    transport: lastPrismaTransport,
   };
+
+  if (connectError instanceof Error && lastClientUsesAccelerate) {
+    meta.connectionWarning = connectError.message;
+  }
 
   if (attempt > 0) {
     log.info("Prisma connected after retry", meta);
@@ -405,4 +494,8 @@ if (!globalPrisma.prismaConnectPromise) {
 export async function ensurePrisma(): Promise<PrismaClient> {
   await globalPrisma.prismaConnectPromise;
   return prisma;
+}
+
+export function getPrismaTransport(): string {
+  return lastPrismaTransport;
 }
