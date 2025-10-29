@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-29T18:30:00Z
-Revision: 1.47
+Last Updated (UTC): 2025-10-29T19:10:00Z
+Revision: 1.48
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
@@ -102,55 +102,43 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 
 <<<PATCHSET START>>>
-[Task T10.SCALE.DB_ENV_SWITCH] Persist internal/external database preference for dev + alternate single-try failover
+[Task T10.DEX.MIGRATE_ACCELERATE] Complete dex spine rollout on Accelerate + refresh SpeciesSheet
 
-FILE: src/shared/config.ts
-Change: Added disk-backed connection preference, surfaced ordered database candidates, and exposed helpers to persist the last successful source.
+FILE: secrets/prisma-accelerate.env
+Change: Store the Prisma Accelerate direct connection string locally so migrate deploy can target the primary database.
 
-FILE: src/shared/prisma.ts
-Change: Reworked Prisma bootstrap to alternate single-attempt connects across candidates, swap datasources on failure, and record the winning source so internal connections stick.
+FILE: scripts/ops/run_dex_migrations.ps1
+Change: New helper script to export DATABASE_URL/DATABASE_DIRECT_URL from the secrets file, run `npx prisma migrate deploy`, and refresh `SpeciesSheet` on Accelerate and Render.
 
-FILE: tests/config.database.spec.ts
-Change: New vitest suite covering the persisted preference flow and ensuring internal wins reorder future candidates.
+FILE: ops/DB_IMPORT_PRISMA_POSTGRES.md
+Change: Document the new helper script usage and the requirement to refresh `SpeciesSheet` after migrations.
 
-FILE: Tasklist.md
-Change: Bumped headers and noted that dev fallback now locks to the first successful internal connection.
-
-FILE: OPERATIONS.md
-Change: Documented the persisted preference file and how dev environments reuse an internal endpoint once it succeeds.
+FILE: scripts/check_db_redundancy.ts
+Change: Extend redundancy checks to confirm Species, Type, Move, and SpeciesSheet parity between Accelerate and Render after deploy.
 
 FILE: Prompt.md
-Change: Logged the connection fallback overhaul, noted the alternating retry change, added the new tests, and refreshed the PATCHSET echo metadata.
-
-FILE: scripts/fetch_pokemon.mjs
-Change: Fixed the direct-invocation check on Windows so the PokkAPI cache fetch runs during local rehearsals.
-
-FILE: ops/TOUCHMAP.yaml
-Change: Added the fetch_pokemon script to the DB env switch routing hints so future editors know it lives in the patchset scope.
-
-FILE: ops/NEXT.yaml
-Change: Keeps NEXT on T8.4 with the updated rationale/timestamp after the load-test follow-up wrapped.
-
-FILE: tests/ops.spec.ts
-Change: (from prior follow-up) retains the createPrismaStatsMock helper covering outbox fields for `/ops stats` vitest coverage.
-
-FILE: Patch.md
-Change: Updated contract metadata and clipboard to describe the persistent connection-mode patchset.
+Change: Log the Accelerate deploy/refresh outcome and update the PATCHSET echo once migrations complete.
 
 <<<PROPOSED PATCHSET START>>>
-[Task T10.DEX.ROLLOUT_PLAN] Track outstanding dex spine rollout steps across environments
+[Task T10.DEX.ROLLOUT_PLAN] Execute dex seeding, cache warm, and species backfill rollout
+
+FILE: scripts/dex/seed_reference.ts
+Change: Create a Prisma-based seeding script that upserts dex tables from `data/pokemon.json` and `data/effects.json` using `createMany({ skipDuplicates: true })` with chunking for large payloads.
+
+FILE: scripts/dex/warm_species_cache.ts
+Change: Add a bootstrap helper to refresh the cache or materialized view consumer after seeding (invokes existing cache refresh utilities).
+
+FILE: scripts/dex/backfill_species_id.ts
+Change: New script to populate `PokemonInstance.speciesId` and `Encounter.speciesId` via canonical dex lookups, emitting a dry-run option and summary report.
+
+FILE: src/bot/cache/index.ts
+Change: Export a reusable cache warm function so the bootstrap hook can be invoked from scripts and workers.
+
+FILE: scripts/check_db_redundancy.ts
+Change: Enhance parity checks to ensure seeded dex data and backfilled species IDs match across Accelerate and Render.
 
 FILE: Tasklist.md
-Change: Add Phase 10 PROPOSED tasks to cover Accelerate migrate deploy + SpeciesSheet refresh, dex table seeding with cache warm, and speciesId backfill before FK enforcement.
-
-FILE: ops/TOUCHMAP.yaml
-Change: Map the new dex rollout tasks to prisma migrations, data bootstrap scripts, and cache warming utilities.
-
-FILE: Prompt.md
-Change: Log the newly added dex rollout tasks, bump metadata, and note that tests were not run for this planning update.
-
-FILE: Patch.md
-Change: Record this PROPOSED patchset so future runs execute the dex rollout plan in order.
+Change: Transition T10.DEX.SEED_CACHE_WARM and T10.DEX.SPECIES_BACKFILL to READY once scripts exist; capture outcome notes after execution.
 
 # TASKLIST UPDATE
 Change: Introduce T10.DEX.MIGRATE_ACCELERATE, T10.DEX.SEED_CACHE_WARM, and T10.DEX.SPECIES_BACKFILL as PROPOSED with acceptance criteria mirroring the outstanding rollout steps; keep NEXT on T8.4.

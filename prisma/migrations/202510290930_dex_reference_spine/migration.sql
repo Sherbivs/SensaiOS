@@ -160,17 +160,17 @@ SELECT
     s.name,
     COALESCE(
       (
-        SELECT jsonb_agg(st.typeId ORDER BY st.slot)
-        FROM "SpeciesType" st
-        WHERE st.speciesId = s.id
+  SELECT jsonb_agg(st."typeId" ORDER BY st.slot)
+  FROM "SpeciesType" st
+  WHERE st."speciesId" = s.id
       ),
       '[]'::jsonb
     ) AS type_ids,
     COALESCE(
       (
-        SELECT jsonb_agg(jsonb_build_object('slot', sa.slot, 'abilityId', sa.abilityId) ORDER BY sa.slot)
-        FROM "SpeciesAbility" sa
-        WHERE sa.speciesId = s.id
+  SELECT jsonb_agg(jsonb_build_object('slot', sa.slot, 'abilityId', sa."abilityId") ORDER BY sa.slot)
+  FROM "SpeciesAbility" sa
+  WHERE sa."speciesId" = s.id
       ),
       '[]'::jsonb
     ) AS abilities,

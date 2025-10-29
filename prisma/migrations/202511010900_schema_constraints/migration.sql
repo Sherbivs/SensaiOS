@@ -19,12 +19,22 @@ ALTER TABLE "Party"
     ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW();
 ALTER TABLE "Party" DROP CONSTRAINT IF EXISTS "Party_ownerId_fkey";
 ALTER TABLE "Party" ADD CONSTRAINT "Party_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE;
-ALTER TABLE "Party" ADD CONSTRAINT "Party_ownerId_key" UNIQUE ("ownerId");
+DO $$
+BEGIN
+    ALTER TABLE "Party" ADD CONSTRAINT "Party_ownerId_key" UNIQUE ("ownerId");
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
 CREATE INDEX IF NOT EXISTS "Party_ownerId_idx" ON "Party" ("ownerId");
 
 -- Party slots enforce unique occupancy and indexed lookups
 ALTER TABLE "PartySlot" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW();
-ALTER TABLE "PartySlot" ADD CONSTRAINT IF NOT EXISTS "PartySlot_pokemonId_key" UNIQUE ("pokemonId");
+DO $$
+BEGIN
+    ALTER TABLE "PartySlot" ADD CONSTRAINT "PartySlot_pokemonId_key" UNIQUE ("pokemonId");
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
 CREATE INDEX IF NOT EXISTS "PartySlot_partyId_idx" ON "PartySlot" ("partyId");
 
 -- Pokémon instances cascade with owners and gain updatedAt
@@ -51,6 +61,7 @@ CREATE INDEX IF NOT EXISTS "Battle_arenaThreadId_idx" ON "Battle" ("arenaThreadI
 
 -- Outbox message improvements: timestamps, enum status, and new indexes
 ALTER TABLE "OutboxMessage" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW();
+ALTER TABLE "OutboxMessage" ALTER COLUMN "status" DROP DEFAULT;
 ALTER TABLE "OutboxMessage" ALTER COLUMN "status" TYPE "OutboxStatus" USING "status"::"OutboxStatus";
 ALTER TABLE "OutboxMessage" ALTER COLUMN "status" SET DEFAULT 'pending';
 DROP INDEX IF EXISTS "OutboxMessage_status_createdAt_idx";

@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-29T18:30:00Z
-Revision: 1.24
+Timestamp (UTC): 2025-10-29T19:10:00Z
+Revision: 1.25
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added Phase 10 PROPOSED tasks to track Accelerate migrate deploy, dex table seeding/cache warm, and species backfill prior to FK enforcement.
-- Updated ops/TOUCHMAP.yaml and Patch.md clipboard to route the dex rollout follow-ups while retaining NEXT on T8.4.
-- Logged this planning-only update in Prompt metadata; no tests were run.
+- Added a gitignored `secrets/` directory (plus fallback `prisma-accelerate.env`) so Prisma Accelerate credentials stay local.
+- Updated ops/meta routers and Tasklist notes to point operators at `secrets/prisma-accelerate.env` before running migrate deploy.
+- Refreshed Patch.md clipboard/Prompt metadata to capture the secrets hint; tests were not run for this documentation update.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -20,7 +20,7 @@ Revision: 1.24
 
 ## Active Mission Snapshot
 - **NEXT Pointer:** T8.4 — implement the DM Home daily claim button and associated cooldown feedback tests.
-- **READY / In-flight:** T8.4 remains READY; newly added T10.DEX.* tasks are PROPOSED and capture the outstanding dex rollout steps.
+- **READY / In-flight:** T8.4 remains READY; T10.DEX.* tasks stay PROPOSED with an added note about the gitignored Accelerate secret location.
 - **Recent Finish:** T10.SCALE.LOAD_TEST and T10.SCALE.OPS_STATS_FIX wrapped, confirming connection-mode telemetry and restoring ops stats tests.
 
 ## System Highlights
@@ -62,9 +62,9 @@ Revision: 1.24
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Captured outstanding dex rollout work as new Phase 10 PROPOSED tasks and updated routing metadata.
+Change: Documented the gitignored Prisma Accelerate secret location across .gitignore, meta routers, and Tasklist notes.
 TasklistDiff: true
-Tests: not run (planning update only)
+Tests: not run (documentation-only update)
 Contracts: ON
 NEXT: T8.4 — wire the DM Home daily-claim button and add cooldown feedback coverage.
 <!-- PATCHSET:ECHO END -->

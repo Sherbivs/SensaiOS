@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-29T05:20:00Z
+Last Updated (UTC): 2025-10-29T19:10:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 
 ## Router-of-Routers
@@ -46,6 +46,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
   - 2025-10-28: Added router_docs category under ops/ROUTER.yaml to track masterroutetable alongside the generated router manifests.
   - 2025-10-29: Prisma Accelerate import + restore workflow documented; router metadata refreshed to surface Accelerate-first strategy and smoke test coverage.
   - 2025-10-29: PokeAPI integration runbook added (`ops/POKEMON_CACHE.md`) with axios/node-cron dependencies noted for the cache worker.
+  - 2025-10-29: Prisma Accelerate `DATABASE_URL` lives in `secrets/prisma-accelerate.env` (gitignored); pull the value from Render secrets before running local migrate deploys.
 
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).

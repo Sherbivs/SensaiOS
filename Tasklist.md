@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-29T18:30:00Z
-Revision: 1.90
+Last Updated (UTC): 2025-10-29T19:10:00Z
+Revision: 1.91
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -957,7 +957,7 @@ Each task has:
     - Acquire the direct Prisma Accelerate connection string (via tunnel or stored secret) and run `npx prisma migrate deploy` so `202510290930_dex_reference_spine` and dependent migrations apply without errors.
     - After deploy succeeds, execute `REFRESH MATERIALIZED VIEW CONCURRENTLY "SpeciesSheet"` on both Accelerate and Render so the materialized view reflects the new dex tables.
     - Capture the deploy/refresh evidence (command output or runbook entry) and update the redundancy check to confirm the dex tables are present in both environments.
-  notes: Proposed — Render standby now has the migration resolved; Accelerate deploy and SpeciesSheet refresh remain outstanding.
+  notes: Proposed — Render standby now has the migration resolved; Accelerate deploy and SpeciesSheet refresh remain outstanding. Prisma Accelerate credentials are stored locally at `secrets/prisma-accelerate.env` (gitignored) to satisfy migrate deploy requirements.
 
 - id: T10.DEX.SEED_CACHE_WARM
   title: Seed dex reference tables and warm dependent caches

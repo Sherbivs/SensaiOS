@@ -7,6 +7,9 @@ dist/
 # Env & local
 .env
 .env.*
+# Local secrets (store Prisma Accelerate URL here)
+secrets/
+prisma-accelerate.env
 *.log
 !ops/standby_refresh.log
 logs/
