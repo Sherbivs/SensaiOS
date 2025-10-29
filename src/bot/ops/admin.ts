@@ -33,8 +33,8 @@ type OpsStatsReport = {
   totalFinishedBattles: number;
   recentBattles: BattleSummary[];
   window: StatsWindow;
-  outboxPending: number;
-  outboxLastProcessedAt: Date | null;
+  busPending: number;
+  busLastProcessedAt: Date | null;
   prismaStatus: "connected";
 };
 
@@ -46,8 +46,8 @@ type OpsDiagnostics = {
   cacheSize: number;
   cacheTtlMs: number;
   prismaStatus: "connected" | "unavailable";
-  outboxPending: number | null;
-  outboxLastProcessedIso: string | null;
+  busPending: number | null;
+  busLastProcessedIso: string | null;
 };
 
 type PrismaLike = PrismaClient;
@@ -201,7 +201,7 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
     cooldowns,
     totalFinishedBattles,
     recent,
-    outboxPending,
+    busPending,
     lastProcessed,
   ] = await Promise.all([
     prisma.user.count(),
@@ -221,9 +221,9 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
         p2: { select: { discordId: true } },
       },
     }),
-    prisma.outboxMessage.count({ where: { status: "pending" } }),
-    prisma.outboxMessage.findFirst({
-      where: { status: { in: ["processed", "error"] }, processedAt: { not: null } },
+    prisma.busMessage.count({ where: { status: "pending" } }),
+    prisma.busMessage.findFirst({
+      where: { status: { in: ["done", "error"] }, processedAt: { not: null } },
       orderBy: { processedAt: "desc" },
       select: { processedAt: true },
     }),
@@ -247,8 +247,8 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
     totalFinishedBattles,
     recentBattles,
     window,
-    outboxPending,
-    outboxLastProcessedAt: lastProcessed?.processedAt ?? null,
+    busPending,
+    busLastProcessedAt: lastProcessed?.processedAt ?? null,
     prismaStatus: "connected",
   };
 }
@@ -280,9 +280,9 @@ function formatOpsStatsReport(
   const participantText = window.participant ? `<@${window.participant}>` : "all";
   const totalFinished = report?.totalFinishedBattles ?? null;
   const shown = report?.recentBattles?.length ?? 0;
-  const outboxPending = report?.outboxPending ?? diagnostics.outboxPending;
-  const outboxLastProcessedIso =
-    report?.outboxLastProcessedAt?.toISOString() ?? diagnostics.outboxLastProcessedIso;
+  const busPending = report?.busPending ?? diagnostics.busPending;
+  const busLastProcessedIso =
+    report?.busLastProcessedAt?.toISOString() ?? diagnostics.busLastProcessedIso;
 
   const lines = [
     "Runtime:",
@@ -299,9 +299,9 @@ function formatOpsStatsReport(
     `- Default TTL: ${diagnostics.cacheTtlMs}ms`,
     `- Entries: ${diagnostics.cacheSize}`,
     "",
-    "Outbox:",
-    `- Pending: ${n(outboxPending)}`,
-    `- Last processed: ${outboxLastProcessedIso ?? "never"}`,
+    "Event Bus:",
+    `- Pending: ${n(busPending)}`,
+    `- Last processed: ${busLastProcessedIso ?? "never"}`,
     "",
     "Game Stats:",
     `Users: ${n(counts.users)}`,
@@ -395,8 +395,8 @@ export async function handleOpsCommand(
       cacheSize: cache.size,
       cacheTtlMs: config.cacheTtlMs,
       prismaStatus: "unavailable",
-      outboxPending: null,
-      outboxLastProcessedIso: cache.get<string>("outbox:last-processed") ?? null,
+      busPending: null,
+      busLastProcessedIso: cache.get<string>("outbox:last-processed") ?? null,
     };
     const { prisma, release } = await acquirePrisma(deps);
 
@@ -409,9 +409,9 @@ export async function handleOpsCommand(
 
       const report = await collectOpsStatsFromPrisma(prisma, window);
       diagnostics.prismaStatus = report.prismaStatus;
-      diagnostics.outboxPending = report.outboxPending;
-      diagnostics.outboxLastProcessedIso =
-        report.outboxLastProcessedAt?.toISOString() ?? diagnostics.outboxLastProcessedIso;
+      diagnostics.busPending = report.busPending;
+      diagnostics.busLastProcessedIso =
+        report.busLastProcessedAt?.toISOString() ?? diagnostics.busLastProcessedIso;
       const message = formatOpsStatsReport(report, diagnostics);
       await interaction.editReply({ content: message });
     } catch (err) {

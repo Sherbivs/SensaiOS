@@ -8,7 +8,7 @@ _Last updated: 2025-10-29T23:40:00Z (UTC) — Rev: 1.3_
 | `infinity-gauntlet-bot` (web) | Boots the TypeScript runtime (`tsx src/index.ts`) and Discord DM features. | `npm start` | `DATABASE_POOL_URL`, `DATABASE_DIRECT_URL`, `ENABLE_SECURITY_BOT=false` | CLI dashboard (`discord` + `database` sections), structured logs tagged `runtime.*`. |
 | `infinity-gauntlet-bots` (worker) | Legacy JS fallback for slash command registration/testing. | `npm start` | Mirrors web service; keep `ENABLE_SECURITY_BOT=false`. | Same telemetry as web; used for horizontal scale without extra security sweeps. |
 | `infinity-gauntlet-security` (worker) | Dedicated security bot (role sweeps, DRIP alerts). | `node security-bot.js` | `ENABLE_SECURITY_BOT=true`, `ENABLE_CONTINUOUS_SWEEP=true`, alert tokens. | CLI security section, `worker.outbox.*`, `security.*`, DRIP alert receipts. |
-| `infinity-gauntlet-outbox` (worker) | Drains `OutboxMessage` events and uploads payloads to durable storage. | `node dist/worker/outbox.js` | `OUTBOX_MIN/MAX_DELAY_MS`, `OUTBOX_BATCH_SIZE`, `BACKUP_STORAGE_PROVIDER`, `BACKUP_STORAGE_S3_BUCKET`, `BACKUP_STORAGE_S3_REGION`. | `worker.outbox.health`, cache entries `outbox:last-*`, `backupProvider` field. |
+| `infinity-gauntlet-outbox` (worker) | Drains `BusMessage` events and uploads payloads to durable storage. | `node dist/worker/outbox.js` | `OUTBOX_MIN/MAX_DELAY_MS`, `OUTBOX_BATCH_SIZE`, `BACKUP_STORAGE_PROVIDER`, `BACKUP_STORAGE_S3_BUCKET`, `BACKUP_STORAGE_S3_REGION`. | `worker.outbox.health`, cache entries `outbox:last-*`, `backupProvider` field. |
 | `infinity-gauntlet-cache` (worker) | Refreshes Pokédex cache on a fixed cadence. | `node dist/worker/cache-refresh.js` | `CACHE_WORKER_INTERVAL_MS`, `CACHE_WORKER_INTERVAL_JITTER_MS`. | `worker.cache.health`, cache metadata timestamps. |
 | `infinity-gauntlet-data-pipeline` (worker) | Rebuilds reference data manifests and pushes to `/data`. | `node dist/worker/data-pipeline.js` | `DATA_PIPELINE_INTERVAL_MS`, `DATA_PIPELINE_RUN_ON_BOOT`. | `worker.pipeline.health`, manifest version logs. |
 | `pokedex-cache-worker` (worker + disk) | Git-backed cache refresher with persistent disk. | `node scripts/worker.mjs` | Render disk mounts, Git credentials, schedule vars. | Render cron telemetry, job logs. |
@@ -22,22 +22,22 @@ _Last updated: 2025-10-29T23:40:00Z (UTC) — Rev: 1.3_
 
 ## Incident & Recovery Notes
 - If security sweeps lag, toggle `ENABLE_CONTINUOUS_SWEEP` back on for the web worker as a temporary bridge; redeploy once dedicated worker recovers.
-- Outbox worker failures enqueue `worker.crash` messages; `/ops stats` surfaces crash telemetry—investigate before re-enabling drains.
+- Event bus worker failures enqueue `worker.crash` messages; `/ops stats` surfaces crash telemetry—investigate before re-enabling drains.
 - Cache/data workers can be paused by setting the interval env vars to `0`; resumes require redeploy with the previous cadence.
 - When migrations add new worker files, run `npm run docs:update-routers` so ops/ROUTER_INDEX.yaml and masterroutetable.md stay authoritative.
 
 ## Observability (Live)
 - `worker.metrics.snapshot` logs now emit every 60s with gauges/counters; `worker.alert.*` entries fire on threshold breaches and consecutive failures (warn at 3, error at 5).
-- **Outbox worker:** `queue.depth` gauge warns ≥50, alerts ≥200 pending messages. Investigate Render DB health and backlog before 100; alert requires paging ops + Sherbivs, consider scaling the worker or pausing enqueueing flows (`/ops stats` → queue section).
+- **Event bus worker:** `queue.depth` gauge warns ≥50, alerts ≥200 pending messages. Investigate Render DB health and backlog before 100; alert requires paging ops + Sherbivs, consider scaling the worker or pausing enqueueing flows (`/ops stats` → queue section).
 - **Cache refresh:** `cache.stale_seconds` warns when data is >10 minutes old, alerts past 30 minutes. Check network/API health, rerun `npm run worker:cache` locally, and confirm cache targets in `/ops stats`.
 - **Data pipeline:** `pipeline.stale_seconds` warns after 4 hours with no success, alerts after 8 hours. Review `runWorker` logs, ensure buildData completes, and redeploy if failures persist.
 - Telemetry counters (`refresh.failed`, `pipeline.failed`, `messages.failed`) surface in metrics payloads; triage repeated failures alongside the alert logs and record outcomes in Tasklist/Prompt when they trigger.
 
-### Durable Outbox Sink
+### Durable Event Bus Sink
 - **Providers:** Set `BACKUP_STORAGE_PROVIDER` to `s3` (Render/production) or `local` (developer dry runs). Leaving it unset defaults to `none`, which logs a warning and skips uploads—use only for emergency disablement.
 - **S3/R2:** Provide `BACKUP_STORAGE_S3_BUCKET`, `BACKUP_STORAGE_S3_REGION`, and optional `BACKUP_STORAGE_S3_ENDPOINT` / `BACKUP_STORAGE_S3_FORCE_PATH_STYLE=true` for Cloudflare R2-style APIs. Credentials flow through standard AWS environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, etc.).
 - **Local fallback:** For local validation, set `BACKUP_STORAGE_PROVIDER=local` and optionally `BACKUP_STORAGE_LOCAL_DIR` (defaults to `%TEMP%/infinity-gauntlet/outbox-backups`). Files land under `<prefix>/<topic>/<timestamp>-<id>.json`.
-- **Prefix & auditing:** `BACKUP_STORAGE_PREFIX` (default `outbox`) scopes where objects land. The outbox worker logs `worker.outbox.sink` entries with `provider` and `location` fields on success. Health logs now surface `backupProvider` for quick verification.
+- **Prefix & auditing:** `BACKUP_STORAGE_PREFIX` (default `outbox`) scopes where objects land. The event bus worker logs `worker.outbox.sink` entries with `provider` and `location` fields on success. Health logs now surface `backupProvider` for quick verification.
 - **Verification:** After deploy, tail `worker.outbox.sink` for a `provider=s3` entry and confirm objects appear in the configured bucket. Record the first successful upload timestamp in Tasklist or ops logs during major rollouts.
 
 ## Database Connection Modes
@@ -52,12 +52,12 @@ _Last updated: 2025-10-29T23:40:00Z (UTC) — Rev: 1.3_
 ## Load Test / Game-Night Dry Run
 | Date (UTC) | Window | Owners | Focus | Pass Criteria |
 | --- | --- | --- | --- | --- |
-| 2025-10-30 | 01:00–02:00 | Sherbivs, Ops duty (Alex) | Simulated game-night load across DM home, battles, outbox drain | Queue depth < 50, cache staleness < 600s, no `worker.alert.gauge_alert` or consecutive failure errors |
+| 2025-10-30 | 01:00–02:00 | Sherbivs, Ops duty (Alex) | Simulated game-night load across DM home, battles, event bus drain | Queue depth < 50, cache staleness < 600s, no `worker.alert.gauge_alert` or consecutive failure errors |
 | Follow-up | +15 min debrief | Sherbivs | Capture outcomes in Prompt Last Repo Changes & Tasklist notes | Document regressions, rollback steps if thresholds breached |
 
 Respond to threshold alerts by tailing Render logs (`worker.alert.*`) and, if needed, firing a DRIP critical alert via `/ops` so the security worker notifies the channel. Update this schedule when new dry runs are booked.
 
-**2025-10-28 Dry Run:** Ran the rehearsal early to validate the new connection mode. Prisma logged `databaseSource=external` / `connectionMode=auto` as expected; DM home, battle flow, and outbox vitest suites passed; `/ops stats` scenarios initially failed with missing Prisma mocks but are now green after T10.SCALE.OPS_STATS_FIX (createPrismaStatsMock helper).
+**2025-10-28 Dry Run:** Ran the rehearsal early to validate the new connection mode. Prisma logged `databaseSource=external` / `connectionMode=auto` as expected; DM home, battle flow, and event bus vitest suites passed; `/ops stats` scenarios initially failed with missing Prisma mocks but are now green after T10.SCALE.OPS_STATS_FIX (createPrismaStatsMock helper).
 
 ## Secret Handling
 - Discord tokens (`POKEMON_BOT_TOKEN`, `SECURITY_BOT_TOKEN`) live in Render secrets; never commit `.env` snapshots.

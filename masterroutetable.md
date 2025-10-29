@@ -11,7 +11,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
     - `src/ROUTER.md` — Application Source
     - `ops/DB_IMPORT_PRISMA_POSTGRES.md` — Prisma Postgres import runbook for Accelerate migrations
   - `ops/POKEMON_CACHE.md` — PokeAPI integration & cache operations runbook
-    - `outbox.ts` provides enqueue/dequeue helpers for durable background jobs drained by the outbox worker.
+    - `outbox.ts` now wraps the event bus helpers so legacy drains can enqueue/claim messages while handlers migrate.
     - `worker-runtime.ts` centralizes worker lifecycle helpers (shutdown hooks, repeating tasks) for outbox/cache/data pipeline entries.
     - `log.ts` remains the structured logger, consuming the shared runtime config.
     - `src/bot/ROUTER.md` — Discord Bot Layer
@@ -91,25 +91,25 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
     - Prisma client boot now prioritises Accelerate URLs surfaced by shared config and reports the active transport (direct vs accelerate-node) in CLI telemetry.
 
 ### Shared Runtime & Utilities (`src/shared/ROUTER.md`)
-- Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, and shared outbox helpers.
+- Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, and event bus compatibility helpers.
 - Owned Globs: `src/shared/**`
 - Last Updated: 2025-10-29T01:50:00Z
 - Key Files:
   - `config.ts` — `loadConfig()` promotes Render internal URLs and enforces runtime invariants.
   - `prisma.ts` — singleton Prisma client with early `$connect()` and URL validation.
   - `cache/memory.ts` — default TTL cache backing bots and workers.
-  - `outbox.ts` — enqueue/dequeue helpers for `OutboxMessage` records.
+  - `outbox.ts` — enqueue/dequeue helpers layered on `BusMessage` records for backwards compatibility.
   - `log.ts` — structured logger leveraging shared runtime metadata.
 - Notes:
   - 2025-10-29: `config.ts` and `prisma.ts` surface Accelerate env hints, auto-select edge/node runtimes, and capture transport telemetry for status CLI output.
 - Last Task ID: META.RUNTIME.BLUEPRINT_APPLY
 
 ### Background Workers (`src/worker/ROUTER.md`)
-- Purpose: Render-bound loops that drain the outbox and run offline jobs.
+- Purpose: Render-bound loops that drain the event bus and run offline jobs.
 - Owned Globs: `src/worker/**`
 - Last Updated: 2025-10-28T22:55:00Z
 - Key Files:
-  - `outbox.ts` — Drains durable queue entries and publishes `worker.outbox.*` telemetry via `runWorker`.
+  - `outbox.ts` — Drains event bus entries and publishes `worker.outbox.*` telemetry via `runWorker`.
   - `cache-refresh.ts` — Refreshes Pokédex cache on an interval with jittered scheduling helpers.
   - `data-pipeline.ts` — Rebuilds reference data manifests and records last-success/last-error markers.
   - `backup.ts` — Legacy entry retained for compatibility (delegates to the outbox worker).

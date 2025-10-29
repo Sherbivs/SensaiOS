@@ -53,11 +53,11 @@ describe("/ops stats", () => {
     expect(message).toContain("Runtime:");
     expect(message).toContain("Database:");
     expect(message).toContain("Cache:");
-    expect(message).toContain("Outbox:");
+    expect(message).toContain("Event Bus:");
     expect(message).toContain("Pending: n/a");
   });
 
-  it("includes outbox stats when database is connected", async () => {
+  it("includes event bus stats when database is connected", async () => {
     const { handleOpsCommand } = await loadOpsModule();
     const interaction = createInteraction();
     const processedAt = new Date("2025-10-26T00:00:00Z");
@@ -89,7 +89,7 @@ describe("/ops stats", () => {
         ),
       },
       cooldown: { count: vi.fn(() => Promise.resolve(4)) },
-      outboxMessage: {
+      busMessage: {
         count: vi.fn(() => Promise.resolve(2)),
         findFirst: vi.fn(() => Promise.resolve({ processedAt })),
       },
