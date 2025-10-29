@@ -102,16 +102,19 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 
 <<<PATCHSET START>>>
-[Task T10.DEX.MIGRATE_ACCELERATE] Re-run dex seeding/backfill/cache warm on both databases and log the outcomes
+[Task T10.DEX.MIGRATE_ACCELERATE] Record Accelerate permission attempts and document the owner requirement
+
+FILE: ops/DB_BOOTSTRAP.md
+Change: Add a status note that querying as `prisma_application` confirmed the matview owner is `prisma_migration`, and ALTER attempts still fail with 42501, so an owner-privileged session must apply the grants.
 
 FILE: Tasklist.md
-Change: Note the Accelerate vs Render reruns, including the persisted SpeciesSheet permission failure and any standby refresh status.
+Change: Extend the IN_PROGRESS note to capture the permission attempt outcome and owner requirement before rerunning the refresh scripts.
 
 FILE: Prompt.md
-Change: Update Last Repo Changes and PATCHSET echo with the rerun evidence (commands, successes, blockers).
+Change: Log the permission check commands and failure in Last Repo Changes plus PATCHSET echo.
 
 FILE: Patch.md
-Change: Keep the clipboard aligned with the new execution/reporting plan.
+Change: Keep the clipboard aligned with the documentation/reporting pass.
 
 <<<PATCHSET END>>>
 
