@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient, OutboxMessage } from "@prisma/client";
+import { Prisma, type PrismaClient, type OutboxMessage } from "@prisma/client";
 import { prisma } from "./prisma.js";
 
 export type { OutboxMessage };
@@ -20,26 +20,39 @@ export async function enqueue(
   });
 }
 
-export async function getPending(
+type ClaimedOutboxMessage = Pick<OutboxMessage, "id" | "topic" | "payload" | "createdAt">;
+
+export async function claimPendingBatch(
   limit = 100,
-  executor?: PrismaExecutor,
-): Promise<OutboxMessage[]> {
-  const client = getClient(executor);
-  return client.outboxMessage.findMany({
-    where: { status: "pending" },
-    orderBy: { createdAt: "asc" },
-    take: limit,
-  });
+  executor?: PrismaClient,
+): Promise<ClaimedOutboxMessage[]> {
+  const client = executor ?? prisma;
+  const claimed = await client.$queryRaw<ClaimedOutboxMessage[]>(Prisma.sql`
+    WITH picked AS (
+      SELECT id
+      FROM "OutboxMessage"
+      WHERE status = 'pending'
+      ORDER BY "createdAt"
+      FOR UPDATE SKIP LOCKED
+      LIMIT ${limit}
+    )
+    UPDATE "OutboxMessage" AS o
+    SET status = 'processing', "updatedAt" = NOW()
+    FROM picked
+    WHERE o.id = picked.id
+    RETURNING o.id, o.topic, o.payload, o."createdAt";
+  `);
+  return claimed;
 }
 
-export async function markDone(
+export async function markProcessed(
   id: string,
   executor?: PrismaExecutor,
 ): Promise<OutboxMessage> {
   const client = getClient(executor);
   return client.outboxMessage.update({
     where: { id },
-    data: { status: "done", processedAt: new Date(), error: null },
+    data: { status: "processed", processedAt: new Date(), error: null },
   });
 }
 

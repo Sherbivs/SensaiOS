@@ -13,6 +13,7 @@ model User {
   id           String   @id @default(cuid())
   discordId    String   @unique
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   coins        Int      @default(0)
   settingsJson Json?
   parties      Party[]
@@ -28,7 +29,7 @@ model User {
 
 model PokemonInstance {
   id         String   @id @default(cuid())
-  owner      User     @relation(fields: [ownerId], references: [id])
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId    String
   speciesId  Int
   form       String?  // e.g., "alolan", "galarian"
@@ -45,6 +46,7 @@ model PokemonInstance {
   nickname   String?
   boxSlot    Int?
   createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
   partySlots PartySlot[]
 
   @@index([ownerId])
@@ -52,11 +54,13 @@ model PokemonInstance {
 
 model Party {
   id        String       @id @default(cuid())
-  owner     User         @relation(fields: [ownerId], references: [id])
+  owner     User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId   String
   slots     PartySlot[]
   createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
+  @@unique([ownerId])
   @@index([ownerId])
 }
 
@@ -67,13 +71,16 @@ model PartySlot {
   slot        Int
   pokemon     PokemonInstance @relation(fields: [pokemonId], references: [id], onDelete: Cascade)
   pokemonId   String
+  updatedAt   DateTime        @updatedAt
 
   @@unique([partyId, slot])
+  @@unique([pokemonId])
+  @@index([partyId])
 }
 
 model Encounter {
   id               String   @id @default(cuid())
-  owner            User     @relation(fields: [ownerId], references: [id])
+  owner            User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId          String
   speciesId        Int
   level            Int
@@ -85,6 +92,8 @@ model Encounter {
 
   @@index([ownerId, state])
   @@index([state, startedAt])
+  @@index([threadChannelId])
+  @@index([expiresAt])
 }
 
 model Battle {
@@ -102,32 +111,45 @@ model Battle {
   resultJson    Json?
   startedAt     DateTime @default(now())
   endedAt       DateTime?
+  updatedAt     DateTime @updatedAt
 
   @@index([state, endedAt])
   @@index([p1Id, state, endedAt])
   @@index([p2Id, state, endedAt])
+  @@index([arenaThreadId])
 }
 
 model Cooldown {
   id        String   @id @default(cuid())
-  owner     User     @relation(fields: [ownerId], references: [id])
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId   String
   kind      String   // e.g., "walk", "battle", etc.
   readyAt   DateTime
   metaJson  Json?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([ownerId, kind])
+  @@index([ownerId, readyAt])
+}
+
+enum OutboxStatus {
+  pending
+  processing
+  processed
+  error
 }
 
 model OutboxMessage {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   topic       String
   payload     Json
-  status      String   @default("pending")
-  createdAt   DateTime @default(now())
+  status      OutboxStatus  @default(pending)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
   processedAt DateTime?
   error       String?
 
-  @@index([status, createdAt])
+  @@index([status, processedAt])
+  @@index([topic, status])
 }

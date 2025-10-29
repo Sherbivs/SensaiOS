@@ -3,7 +3,12 @@ import { loadConfig } from "../shared/config.js";
 import { log } from "../shared/log.js";
 import { cache } from "../shared/cache/memory.js";
 import { ensurePrisma, prisma } from "../shared/prisma.js";
-import { enqueue, getPending, markDone, markError, type OutboxMessage } from "../shared/outbox.js";
+import {
+  enqueue,
+  claimPendingBatch,
+  markProcessed,
+  markError,
+} from "../shared/outbox.js";
 import { runWorker, type WorkerContext } from "../shared/worker-runtime.js";
 
 const MIN_DELAY_MS = Math.max(50, Number(process.env.OUTBOX_MIN_DELAY_MS ?? 250));
@@ -22,7 +27,9 @@ function jitterDelay(): number {
   return Math.floor(MIN_DELAY_MS + Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS));
 }
 
-async function processMessage(ctx: WorkerContext, message: OutboxMessage): Promise<void> {
+type PendingOutboxMessage = Awaited<ReturnType<typeof claimPendingBatch>>[number];
+
+async function processMessage(ctx: WorkerContext, message: PendingOutboxMessage): Promise<void> {
   const startedAt = Date.now();
   try {
     log.info("worker.outbox.dispatch", { topic: message.topic, id: message.id });
@@ -33,7 +40,7 @@ async function processMessage(ctx: WorkerContext, message: OutboxMessage): Promi
     cache.set("outbox:last-processed", processedAt);
     log.info("worker.outbox.sink", { topic: message.topic, id: message.id });
 
-    await markDone(message.id);
+    await markProcessed(message.id);
     ctx.metrics.incrementCounter("messages.processed", 1);
     ctx.metrics.recordSuccess("dispatch", { durationMs: Date.now() - startedAt });
   } catch (error) {
@@ -46,7 +53,7 @@ async function processMessage(ctx: WorkerContext, message: OutboxMessage): Promi
 
 async function processBatch(ctx: WorkerContext): Promise<number> {
   const startedAt = Date.now();
-  const messages = await getPending(BATCH_SIZE);
+  const messages = await claimPendingBatch(BATCH_SIZE);
   if (messages.length === 0) {
     ctx.metrics.recordSuccess("batch", { durationMs: Date.now() - startedAt });
     return 0;
