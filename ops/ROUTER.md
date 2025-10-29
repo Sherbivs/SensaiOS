@@ -2,7 +2,7 @@
 Title: Ops & Governance
 Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-10-28T23:05:00Z
+Last Updated (UTC): 2025-10-29T05:20:00Z
 
 Notes:
 - 2025-10-26: guard_meta preflight/postflight make READY absence impossible at merge time; NEXT auto-promotion enabled. See scripts/guard_meta.sh and ops/NEXT.yaml.
@@ -23,6 +23,9 @@ Notes:
 - 2025-10-28: Security bot moved to dedicated Render worker (`infinity-gauntlet-security`) gated by ENABLE_SECURITY_BOT flag; monitor sections mark disabled state in the main runtime.
 - 2025-10-28: OPERATIONS.md now documents the worker matrix, rollout checklist, and recovery toggles (ENABLE_CONTINUOUS_SWEEP, interval envs); master router index regenerated to match.
 - 2025-10-28: Added router_docs category in ops/ROUTER.yaml bundling ops/ROUTER.md, ops/ROUTER_INDEX.yaml, and masterroutetable.md for fast navigation.
+- 2025-10-29: Prisma Accelerate import documented in `ops/DB_IMPORT_PRISMA_POSTGRES.md`; helper script `scripts/restore_prisma_postgres.ps1` automates tunnel + pg_restore workflow.
+- 2025-10-29: Router metadata refreshed to reflect Accelerate-first DB strategy and smoke test script (`scripts/db_smoke.ts`).
+- 2025-10-29: Documented PokeAPI integration and cache operations in `ops/POKEMON_CACHE.md`; runtime now depends on axios + node-cron for scheduled refreshes.
 
 Key Files:
 - ops/NEXT.yaml — execution pointer
@@ -34,6 +37,7 @@ Key Files:
 - ops/ARCHIVE/README.md — guidance for Tasklist history offload
 - ops/CANONICAL_NAMES.yaml — canonical doc/router spellings for CI guard
 - ops/change-ledger.md — generated 200-entry commit ledger (see Prompt summary)
- - OPERATIONS.md — operational runbook documenting worker matrix and rollouts
- - masterroutetable.md — text-first router map for hotfix navigation when automation is unavailable
+- OPERATIONS.md — operational runbook documenting worker matrix and rollouts
+- masterroutetable.md — text-first router map for hotfix navigation when automation is unavailable
+- ops/POKEMON_CACHE.md — PokeAPI integration runbook (cache workflow, incidents, dependencies)
 

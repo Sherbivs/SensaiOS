@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-28T23:05:00Z
+Last Updated (UTC): 2025-10-29T05:20:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 
 ## Router-of-Routers
@@ -9,6 +9,8 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
   - `ops/ROUTER.md` — Ops & Governance
     - `scripts/ROUTER.md` — Dev & Docs Scripts (includes bootstrap_staging_db.ps1 helper)
     - `src/ROUTER.md` — Application Source
+    - `ops/DB_IMPORT_PRISMA_POSTGRES.md` — Prisma Postgres import runbook for Accelerate migrations
+  - `ops/POKEMON_CACHE.md` — PokeAPI integration & cache operations runbook
     - `outbox.ts` provides enqueue/dequeue helpers for durable background jobs drained by the outbox worker.
     - `worker-runtime.ts` centralizes worker lifecycle helpers (shutdown hooks, repeating tasks) for outbox/cache/data pipeline entries.
     - `log.ts` remains the structured logger, consuming the shared runtime config.
@@ -21,11 +23,12 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 ### Ops & Governance (`ops/ROUTER.md`)
 - Purpose: Canonical operational control-plane (NEXT pointer, CRITICAL, TOUCHMAP, router maps, inbox).
 - Owned Globs: `ops/**`
-- Last Updated: 2025-10-28T20:30:00Z
+- Last Updated: 2025-10-29T05:20:00Z
 - Key References:
   - `ops/NEXT.yaml` — next task pointer (READY pointer must exist on exit)
   - `ops/CRITICAL.md` — fast-path guardrails + Markerless guidance
   - `OPERATIONS.md` — operational runbook and worker matrix
+  - `ops/POKEMON_CACHE.md` — PokeAPI cache architecture & incident response
   - `ops/ROUTER.yaml` — canonical path map; router_docs category groups ops/ROUTER.md, ops/ROUTER_INDEX.yaml, and masterroutetable.md
   - `ops/ROUTER_INDEX.yaml` — router-of-routers manifest
   - `ops/INBOX/notes.md` — operator notes
@@ -33,6 +36,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
   - `ops/CANONICAL_NAMES.yaml` — router/document casing guard
   - `ops/ARCHIVE/README.md` — Tasklist archival guidance
   - `ops/DB_BOOTSTRAP.md` — staging schema bootstrap runbook
+  - `ops/DB_IMPORT_PRISMA_POSTGRES.md` — Prisma Accelerate import runbook (Render → Prisma Postgres)
   - `ops/change-ledger.md` — generated 200-entry commit ledger (Prompt holds 10-entry summary)
 - Notes:
   - 2025-10-27: Router maps now track PBSL oracle fixtures and DRIP role assignment alerts; audit recorded in ops/ROUTER.md.
@@ -40,11 +44,13 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
   - 2025-10-28: Trimmed Prompt ledger to 10 entries and moved the full log to ops/change-ledger.md for readability.
   - 2025-10-28: OPERATIONS.md documents the worker matrix, rollout checklist, and recovery toggles for ENABLE_CONTINUOUS_SWEEP + interval envs.
   - 2025-10-28: Added router_docs category under ops/ROUTER.yaml to track masterroutetable alongside the generated router manifests.
+  - 2025-10-29: Prisma Accelerate import + restore workflow documented; router metadata refreshed to surface Accelerate-first strategy and smoke test coverage.
+  - 2025-10-29: PokeAPI integration runbook added (`ops/POKEMON_CACHE.md`) with axios/node-cron dependencies noted for the cache worker.
 
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).
 - Owned Globs: `scripts/**`
-- Last Updated: 2025-10-28T06:42:00Z
+- Last Updated: 2025-10-29T01:50:00Z
 - Key Scripts:
   - `scripts/update_change_ledger.sh` — regenerate Prompt change ledger
   - `scripts/update_router_index.sh` — rebuild `ops/ROUTER_INDEX.yaml`
@@ -54,14 +60,17 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
   - `scripts/hotfix_entry.sh` — hotfix checklist helper
   - `scripts/guard_meta.sh` — enforces READY invariants pre/post flight
   - `scripts/bootstrap_staging_db.ps1` — interactive helper to run `prisma migrate deploy` on staging safely
+  - `scripts/restore_prisma_postgres.ps1` — Prisma Postgres tunnel + restore automation
+  - `scripts/db_smoke.ts` — Accelerate smoke query (`SELECT 1 AS ok`)
 - Notes:
   - 2025-10-27: Router scripts audited; verify_router_links and update_router_index keep meta routers synchronized during PBSL work.
   - 2025-10-28: Added staging bootstrap helper to tooling catalog.
+  - 2025-10-29: Added Accelerate restore + smoke scripts to support Prisma Postgres migrations.
 
 ### Application Source (`src/ROUTER.md`)
 - Purpose: Root TypeScript source tree; delegates to domain routers.
 - Owned Globs: `src/**`
-- Last Updated: 2025-10-27T08:45:00Z
+- Last Updated: 2025-10-29T01:50:00Z
 - Downstream Routers:
         - `src/bot/ROUTER.md` — Discord bot interactions
         - `src/core/ROUTER.md` — core battle/encounter engines
@@ -77,17 +86,20 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
         - Entry now launches the security bot before the Discord client so DripTVDD alerts stay online.
         - Runtime config loader now forbids localhost URLs in production and exposes cache settings.
   - Background workers now run via dedicated Render services; ENABLE_CONTINUOUS_SWEEP defers security sweeps to the security worker.
+    - Prisma client boot now prioritises Accelerate URLs surfaced by shared config and reports the active transport (direct vs accelerate-node) in CLI telemetry.
 
 ### Shared Runtime & Utilities (`src/shared/ROUTER.md`)
 - Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, and shared outbox helpers.
 - Owned Globs: `src/shared/**`
-- Last Updated: 2025-10-27T08:45:00Z
+- Last Updated: 2025-10-29T01:50:00Z
 - Key Files:
-        - `config.ts` — `loadConfig()` promotes Render internal URLs and enforces runtime invariants.
-        - `prisma.ts` — singleton Prisma client with early `$connect()` and URL validation.
-        - `cache/memory.ts` — default TTL cache backing bots and workers.
-        - `outbox.ts` — enqueue/dequeue helpers for `OutboxMessage` records.
-        - `log.ts` — structured logger leveraging shared runtime metadata.
+  - `config.ts` — `loadConfig()` promotes Render internal URLs and enforces runtime invariants.
+  - `prisma.ts` — singleton Prisma client with early `$connect()` and URL validation.
+  - `cache/memory.ts` — default TTL cache backing bots and workers.
+  - `outbox.ts` — enqueue/dequeue helpers for `OutboxMessage` records.
+  - `log.ts` — structured logger leveraging shared runtime metadata.
+- Notes:
+  - 2025-10-29: `config.ts` and `prisma.ts` surface Accelerate env hints, auto-select edge/node runtimes, and capture transport telemetry for status CLI output.
 - Last Task ID: META.RUNTIME.BLUEPRINT_APPLY
 
 ### Background Workers (`src/worker/ROUTER.md`)

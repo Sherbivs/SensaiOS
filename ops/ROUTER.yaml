@@ -1,7 +1,7 @@
  # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-10-28T23:05:00Z
+updated_utc: 2025-10-29T05:20:00Z
 
 meta_files:
   - Patch.md
@@ -40,7 +40,9 @@ categories:
     - RULESET.md
     - DATA-SCHEMA.md
     - OPERATIONS.md
+    - ops/POKEMON_CACHE.md
     - ops/DB_BOOTSTRAP.md
+    - ops/DB_IMPORT_PRISMA_POSTGRES.md
     - discord-pokemon-bot/data/standized_pokemon_game_logic.md
     - docs/PBSL.md
     - masterroutetable.md
@@ -50,6 +52,7 @@ categories:
   ops_scripts:
     - scripts/**
     - scripts/bootstrap_staging_db.ps1
+    - scripts/restore_prisma_postgres.ps1
   guards_ci:
     - .github/workflows/**
   router_docs:

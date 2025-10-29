@@ -4,6 +4,14 @@ import { withAccelerate } from "@prisma/extension-accelerate";
 async function main(): Promise<void> {
   const prisma = new PrismaClient().$extends(withAccelerate());
   try {
+    const command = process.argv[2];
+
+    if (command === "count-pokemon") {
+      const count = await prisma.pokemonInstance.count();
+      console.log(`cachedPokemonCount=${count}`);
+      return;
+    }
+
     const rows = await prisma.$queryRawUnsafe<Array<{ ok: number }>>("SELECT 1 AS ok");
     console.log("Accelerate query result:", rows);
   } finally {

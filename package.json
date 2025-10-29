@@ -6,7 +6,7 @@
   "scripts": {
     "build:ci": "npm run prebuild",
     "postinstall": "npm run prebuild",
-  "generate": "prisma generate --no-engine",
+    "generate": "prisma generate --no-engine",
     "prebuild": "npm run generate && npm run build:ts",
     "build:ts": "tsc --project tsconfig.build.json",
     "build": "npm run build:ts",
@@ -43,7 +43,9 @@
   "dependencies": {
     "@prisma/client": "^6.18.0",
     "@prisma/extension-accelerate": "^2.0.2",
+    "axios": "^1.13.1",
     "discord.js": "^14.16.3",
+    "node-cron": "^4.2.1",
     "tsx": "^4.11.2",
     "typescript": "^5.6.3",
     "zod": "^3.23.8"

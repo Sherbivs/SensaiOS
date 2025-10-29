@@ -1,5 +1,5 @@
 version: 1
-generated_utc: "2025-10-28T23:05:00Z"
+generated_utc: "2025-10-29T05:20:00Z"
 routers:
   - path: "ops/"
     router_file: "ops/ROUTER.md"
@@ -7,7 +7,7 @@ routers:
 "
     purpose: "Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 "
-    last_updated_utc: "2025-10-28T22:55:00Z
+    last_updated_utc: "2025-10-29T05:20:00Z
 "
   - path: "scripts/"
     router_file: "scripts/ROUTER.md"
@@ -15,7 +15,7 @@ routers:
 "
     purpose: "Guard scripts and automation entrypoints.
 "
-    last_updated_utc: "2025-10-28T06:42:00Z
+    last_updated_utc: "2025-10-29T01:50:00Z
 "
   - path: "src/"
     router_file: "src/ROUTER.md"
@@ -23,7 +23,7 @@ routers:
 "
     purpose: "Root app source tree; see sub-routers for domains.
 "
-    last_updated_utc: "2025-10-28T22:55:00Z
+    last_updated_utc: "2025-10-29T01:50:00Z
 "
   - path: "src/bot/"
     router_file: "src/bot/ROUTER.md"
@@ -47,7 +47,7 @@ routers:
 "
     purpose: "Centralized runtime config, Prisma bootstrap, logging, caching, and shared data access layers.
 "
-    last_updated_utc: "2025-10-28T22:55:00Z
+    last_updated_utc: "2025-10-29T01:50:00Z
 "
   - path: "src/worker/"
     router_file: "src/worker/ROUTER.md"
