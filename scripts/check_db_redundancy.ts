@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { withAccelerate } from "@prisma/extension-accelerate";
+import { Client as PgClient } from "pg";
 
 const ACCELERATE_SCHEME = /^prisma\+/i;
 
@@ -18,6 +19,8 @@ type DatabaseSnapshot = {
   digests: Map<string, TableDigest>;
 };
 
+type QueryRunner = (sql: string) => Promise<Array<Record<string, unknown>>>;
+
 function assertEnv(name: string, value: string | undefined): string {
   if (!value || value.trim().length === 0) {
     throw new Error(`Expected environment variable ${name} to be set.`);
@@ -25,49 +28,57 @@ function assertEnv(name: string, value: string | undefined): string {
   return value.trim();
 }
 
-function createPrismaClient(url: string): PrismaClient {
-  if (ACCELERATE_SCHEME.test(url)) {
-    process.env.PRISMA_CLIENT_ENGINE_TYPE = "accelerate";
-    const base = new PrismaClient({ datasourceUrl: url });
-    return base.$extends(withAccelerate()) as unknown as PrismaClient;
-  }
-
-  delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
-  return new PrismaClient({
-    datasources: {
-      db: {
-        url,
-      },
-    },
-  });
+function escapeIdentifier(identifier: string): string {
+  return `"${identifier.replace(/"/g, '""')}"`;
 }
 
-async function gatherSnapshot(label: string, client: PrismaClient): Promise<DatabaseSnapshot> {
-  const tablesResult = await client.$queryRaw<Array<{ tableName: string }>>`
-    SELECT table_name AS "tableName"
-    FROM information_schema.tables
-    WHERE table_schema = 'public'
-      AND table_type = 'BASE TABLE'
-    ORDER BY table_name
-  `;
+function toBigInt(value: unknown): bigint {
+  if (typeof value === "bigint") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return BigInt(value);
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    return BigInt(value.trim());
+  }
+  return BigInt(0);
+}
+
+async function gatherSnapshotWithRunner(label: string, runQuery: QueryRunner): Promise<DatabaseSnapshot> {
+  const tablesResultRaw = await runQuery(
+    `SELECT table_name AS "tableName"
+     FROM information_schema.tables
+     WHERE table_schema = 'public'
+       AND table_type = 'BASE TABLE'
+     ORDER BY table_name`
+  );
+
+  const tablesResult = tablesResultRaw as Array<{ tableName: string }>;
 
   const digests = new Map<string, TableDigest>();
   let totalRows = BigInt(0);
 
   for (const row of tablesResult) {
     const tableName = row.tableName;
-    const [stats] = await client.$queryRawUnsafe<Array<{ row_count: bigint; checksum: string }>>(
-      `SELECT COUNT(*)::bigint AS row_count, COALESCE(SUM(hashtextextended(row_to_json(t)::text, 0))::text, '0') AS checksum FROM "${tableName}" AS t`
+    const safeIdentifier = escapeIdentifier(tableName);
+    const statsRowsRaw = await runQuery(
+      `SELECT COUNT(*)::bigint AS row_count,
+              COALESCE(SUM(hashtextextended(row_to_json(t)::text, 0))::text, '0') AS checksum
+       FROM ${safeIdentifier} AS t`
     );
+    const statsRows = statsRowsRaw as Array<{ row_count: unknown; checksum: string }>;
+    const stats = statsRows[0];
+    const rowCount = toBigInt(stats?.row_count);
+    const checksum = typeof stats?.checksum === "string" && stats.checksum.length > 0 ? stats.checksum : "0";
 
-    const digest: TableDigest = {
+    digests.set(tableName, {
       tableName,
-      rowCount: stats?.row_count ?? BigInt(0),
-      checksum: stats?.checksum ?? "0",
-    };
+      rowCount,
+      checksum,
+    });
 
-    digests.set(tableName, digest);
-    totalRows += digest.rowCount;
+    totalRows += rowCount;
   }
 
   return {
@@ -142,6 +153,41 @@ function compareSnapshots(primary: DatabaseSnapshot, standby: DatabaseSnapshot) 
   process.exitCode = 1;
 }
 
+async function gatherPrimarySnapshot(url: string): Promise<DatabaseSnapshot> {
+  const previousEngineType = process.env.PRISMA_CLIENT_ENGINE_TYPE;
+  process.env.PRISMA_CLIENT_ENGINE_TYPE = "accelerate";
+
+  const baseClient = new PrismaClient({ datasourceUrl: url });
+  const client = baseClient.$extends(withAccelerate()) as unknown as PrismaClient;
+
+  try {
+  const runQuery: QueryRunner = async (sql) => client.$queryRawUnsafe(sql);
+    return await gatherSnapshotWithRunner("primary", runQuery);
+  } finally {
+    await client.$disconnect().catch(() => undefined);
+    if (previousEngineType) {
+      process.env.PRISMA_CLIENT_ENGINE_TYPE = previousEngineType;
+    } else {
+      delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
+    }
+  }
+}
+
+async function gatherDirectSnapshot(label: string, url: string): Promise<DatabaseSnapshot> {
+  const client = new PgClient({ connectionString: url });
+  await client.connect();
+
+  try {
+    const runQuery: QueryRunner = async (sql) => {
+      const result = await client.query(sql);
+      return result.rows as Array<Record<string, unknown>>;
+    };
+    return await gatherSnapshotWithRunner(label, runQuery);
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
 async function main(): Promise<void> {
   const primaryUrl = assertEnv("PRIMARY_DATABASE_URL", process.env.PRIMARY_DATABASE_URL ?? process.env.DATABASE_URL);
   const standbyUrl = assertEnv("STANDBY_DATABASE_URL", process.env.STANDBY_DATABASE_URL ?? process.env.DATABASE_DIRECT_URL);
@@ -150,19 +196,15 @@ async function main(): Promise<void> {
   console.info("Primary: %s", primaryUrl.replace(/:([^:@/]+)@/, ":<redacted>@"));
   console.info("Standby: %s", standbyUrl.replace(/:([^:@/]+)@/, ":<redacted>@"));
 
-  const primaryClient = createPrismaClient(primaryUrl);
-  const standbyClient = createPrismaClient(standbyUrl);
+  const primarySnapshot = ACCELERATE_SCHEME.test(primaryUrl)
+    ? await gatherPrimarySnapshot(primaryUrl)
+    : await gatherDirectSnapshot("primary", primaryUrl);
 
-  try {
-    const [primary, standby] = await Promise.all([
-      gatherSnapshot("primary", primaryClient),
-      gatherSnapshot("standby", standbyClient),
-    ]);
+  const standbySnapshot = ACCELERATE_SCHEME.test(standbyUrl)
+    ? await gatherPrimarySnapshot(standbyUrl)
+    : await gatherDirectSnapshot("standby", standbyUrl);
 
-    compareSnapshots(primary, standby);
-  } finally {
-    await Promise.allSettled([primaryClient.$disconnect(), standbyClient.$disconnect()]);
-  }
+  compareSnapshots(primarySnapshot, standbySnapshot);
 }
 
 main().catch((error) => {
