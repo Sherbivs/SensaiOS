@@ -77,6 +77,72 @@ Connection sanity matrix — 2025-10-29T20:45Z
     - `npx tsx scripts/dex/seed_reference.ts`
     - `npx tsx scripts/db_smoke.ts`
   - Observed blocker: `npx tsx scripts/dex/backfill_species.ts` and `npx tsx scripts/dex/warm_cache.ts` both fail with `permission denied for materialized view SpeciesSheet` (Postgres 42501). The connection works; request elevated role before refreshing the materialized view.
+
+### Clear the `SpeciesSheet` privilege error (Postgres 42501)
+
+The Prisma role in `DATABASE_URL` is missing privileges on the materialized view. Run these steps from a superuser or the object owner (swap names to match your environment):
+
+1. **Confirm identity and ownership**
+
+   ```sql
+   SELECT current_user;
+   SELECT schemaname, matviewname, pg_get_userbyid(c.relowner) AS owner
+   FROM pg_class c
+   JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE c.relkind = 'm' AND n.nspname = 'public' AND c.relname = 'SpeciesSheet';
+   ```
+
+2. **Grant read access on the matview**
+
+   ```sql
+   GRANT CONNECT ON DATABASE mydb TO prisma_user;
+   GRANT USAGE  ON SCHEMA public TO prisma_user;
+   GRANT SELECT ON MATERIALIZED VIEW public."SpeciesSheet" TO prisma_user;
+   ```
+
+3. **Allow refreshes** — pick one option:
+
+   - Change ownership (simpler when the app controls the schema):
+
+     ```sql
+     ALTER MATERIALIZED VIEW public."SpeciesSheet" OWNER TO prisma_user;
+     ```
+
+   - Or create a SECURITY DEFINER wrapper so the app can refresh without changing owners:
+
+     ```sql
+     CREATE OR REPLACE FUNCTION public.refresh_species_sheet() RETURNS void
+     LANGUAGE sql
+     SECURITY DEFINER
+     SET search_path = public
+     AS $$ REFRESH MATERIALIZED VIEW CONCURRENTLY public."SpeciesSheet"; $$;
+
+     GRANT EXECUTE ON FUNCTION public.refresh_species_sheet() TO prisma_user;
+     ```
+
+4. **Future-proof grants** (optional but recommended when new objects are created by the same owner):
+
+   ```sql
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public
+     GRANT SELECT ON TABLES TO prisma_user;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public
+     GRANT USAGE, SELECT ON SEQUENCES TO prisma_user;
+   ```
+
+5. **Verify and test**
+
+   ```sql
+   SELECT has_schema_privilege('prisma_user','public','USAGE') AS schema_ok,
+          has_table_privilege('prisma_user','public."SpeciesSheet"','SELECT') AS matview_ok;
+   ```
+
+   ```ts
+   await prisma.$queryRawUnsafe('SELECT 1 FROM "SpeciesSheet" LIMIT 1');
+   ```
+
+Security hygiene: rotate any exposed `OPTIMIZE_API_KEY` tokens in the Prisma Data Platform, update `.env`, and restart services that load it.
+
+Keep the mixed-case name quoted (`"SpeciesSheet"`) in every statement. Add a unique index before using `REFRESH MATERIALIZED VIEW CONCURRENTLY` if one is missing.
 - Render dev standby
   - Load credentials: `Set-Item Env:DATABASE_URL 'postgresql://infinity_gauntlet_db_user:<render-password>@dpg-d3vd8h7diees73et3i3g-a.oregon-postgres.render.com:5432/infinity_gauntlet_db?sslmode=require'` (same value for `DATABASE_DIRECT_URL`; copy from Render's connectionString/directConnectionString secrets)
   - Validated commands (PASS): `npx prisma migrate status`
