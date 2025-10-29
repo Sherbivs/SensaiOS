@@ -1,6 +1,6 @@
 # POKEMON CACHE & PokeAPI INTEGRATION
 
-_Last updated: 2025-10-29T05:20:00Z (UTC) - Rev: 1.0_
+_Last updated: 2025-10-29T05:45:00Z (UTC) - Rev: 1.1_
 
 ## Overview
 The Infinity Gauntlet runtime keeps an evergreen Pokedex cache that mirrors the public PokeAPI. The cache powers encounter rolls, starter selection, battle lookup, and manifest generation without hammering the third-party service at runtime. This document captures how the integration works end-to-end, how to operate it, and where to look when incidents occur.
@@ -30,13 +30,13 @@ The Infinity Gauntlet runtime keeps an evergreen Pokedex cache that mirrors the 
 5. **Verify database readiness:** `npx tsx scripts/db_smoke.ts count-pokemon` counts stored Pokemon instances (user-owned). In a clean database this is expected to report `0` until encounters create them.
 
 ## Render Configuration
-- `infinity-gauntlet-cache` worker refresh interval is governed by `CACHE_WORKER_INTERVAL_MS` (default 900000 ms) and jitter `CACHE_WORKER_INTERVAL_JITTER_MS` (default 60000 ms).
+- `infinity-gauntlet-cache` worker keeps `CACHE_WORKER_INTERVAL_MS=0`, relying on the service cron (`0 0 * * 4` in `Etc/UTC`) to refresh every Thursday at 00:00 after the startup fetch.
 - `pokedex-cache-worker` dispatch interval is set by `POKE_REFRESH_CRON` (default `0 0 * * 4`) and `POKE_REFRESH_TZ`. Set `POKE_RUN_JOB_ON_BOOT=false` to skip the boot refresh during maintenance.
 - Provide `RENDER_API_KEY` + `GITHUB_TOKEN` secrets so replication jobs can update the data cache branch.
 
 ## Observability & Alerts
 - `worker.cache.health` logs include `total`, `lastFetchedAt`, and `lastFetchAttemptAt`. The worker gauges `cache.stale_seconds` with warn/alert thresholds (defaults: warn at 600 s, alert at 1800 s).
-- `refreshPokemonCache` increments counters `refresh.success` / `refresh.failed`. Repeated failures produce `worker.cache_refresh_failed` errors - triage via Render logs and record outcomes in Tasklist + Prompt.
+- `refreshPokemonCache` increments counters `refresh.success` / `refresh.failed` and emits `pokemon.cache.count` alerts with the cached total. Repeated failures produce `worker.cache_refresh_failed` errors - triage via Render logs and record outcomes in Tasklist + Prompt.
 - GitHub replication logs (`scripts/replicate_to_repo_api.mjs`) surface under Render Job output. Verify `meta.json` timestamps if pipeline consumers report stale data.
 
 ## Incident Playbook
