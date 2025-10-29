@@ -309,23 +309,48 @@ model Cooldown {
   @@index([ownerId, readyAt])
 }
 
-enum OutboxStatus {
+enum BusKind {
+  event
+  command
+}
+
+enum BusStatus {
   pending
   processing
-  processed
+  done
   error
 }
 
-model OutboxMessage {
-  id          String        @id @default(cuid())
-  topic       String
-  payload     Json
-  status      OutboxStatus  @default(pending)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  processedAt DateTime?
-  error       String?
+enum BusPriority {
+  high
+  normal
+  low
+}
 
-  @@index([status, processedAt])
-  @@index([topic, status])
+model BusMessage {
+  id             String      @id @default(cuid())
+  kind           BusKind     @default(event)
+  topic          String
+  priority       BusPriority @default(normal)
+  shardKey       String?
+  idempotencyKey String
+  payload        Json
+  createdAt      DateTime    @default(now())
+  availableAt    DateTime    @default(now())
+  status         BusStatus   @default(pending)
+  attempts       Int         @default(0)
+  error          String?
+  processedAt    DateTime?
+  updatedAt      DateTime    @updatedAt
+
+  @@index([status, availableAt, priority])
+  @@index([topic, status, availableAt])
+  @@index([shardKey, status])
+  @@unique([topic, idempotencyKey])
+}
+
+model BusIdemToken {
+  key       String   @id
+  createdAt DateTime @default(now())
+  ttl       Int      @default(604800)
 }

@@ -7,8 +7,8 @@ import {
 } from "../src/shared/outbox.js";
 
 type MockClient = {
-  outboxMessage: {
-    create: ReturnType<typeof vi.fn>;
+  busMessage: {
+    upsert: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
   $queryRaw: ReturnType<typeof vi.fn>;
@@ -16,8 +16,8 @@ type MockClient = {
 
 function createMockClient(): MockClient {
   return {
-    outboxMessage: {
-      create: vi.fn(),
+    busMessage: {
+      upsert: vi.fn(),
       update: vi.fn(),
     },
     $queryRaw: vi.fn(),
@@ -28,19 +28,34 @@ describe("outbox", () => {
   it("enqueues messages as pending", async () => {
     const client = createMockClient();
     const payload = { hello: "world" } as const;
-    client.outboxMessage.create.mockResolvedValue({
+    client.busMessage.upsert.mockResolvedValue({
       id: "123",
       topic: "backup",
       payload,
       status: "pending",
+      idempotencyKey: "backup:{\"hello\":\"world\"}",
       createdAt: new Date(),
       processedAt: null,
       error: null,
     });
 
     const result = await enqueue("backup", payload, client as any);
-    expect(client.outboxMessage.create).toHaveBeenCalledWith({
-      data: { topic: "backup", payload, status: "pending" },
+    expect(client.busMessage.upsert).toHaveBeenCalledWith({
+      where: {
+        topic_idempotencyKey: {
+          topic: "backup",
+          idempotencyKey: "backup:{\"hello\":\"world\"}",
+        },
+      },
+      update: {},
+      create: {
+        topic: "backup",
+        payload,
+        status: "pending",
+        idempotencyKey: "backup:{\"hello\":\"world\"}",
+        priority: "normal",
+        kind: "event",
+      },
     });
     expect(result.status).toBe("pending");
   });
@@ -59,23 +74,23 @@ describe("outbox", () => {
   it("marks messages processed and error", async () => {
     const client = createMockClient();
     const now = new Date();
-    client.outboxMessage.update.mockResolvedValue({
+    client.busMessage.update.mockResolvedValue({
       id: "1",
       topic: "backup",
       payload: {},
-      status: "processed",
+      status: "done",
       createdAt: now,
       processedAt: now,
       error: null,
     });
 
     await markProcessed("1", client as any);
-    expect(client.outboxMessage.update).toHaveBeenCalledWith({
+    expect(client.busMessage.update).toHaveBeenCalledWith({
       where: { id: "1" },
-      data: { status: "processed", processedAt: expect.any(Date), error: null },
+      data: { status: "done", processedAt: expect.any(Date), error: null },
     });
 
-    client.outboxMessage.update.mockResolvedValue({
+    client.busMessage.update.mockResolvedValue({
       id: "2",
       topic: "backup",
       payload: {},
@@ -86,9 +101,14 @@ describe("outbox", () => {
     });
 
     await markError("2", new Error("boom"), client as any);
-    expect(client.outboxMessage.update).toHaveBeenCalledWith({
+    expect(client.busMessage.update).toHaveBeenCalledWith({
       where: { id: "2" },
-      data: { status: "error", processedAt: expect.any(Date), error: "boom" },
+      data: {
+        status: "error",
+        processedAt: expect.any(Date),
+        error: "boom",
+        availableAt: expect.any(Date),
+      },
     });
   });
 });

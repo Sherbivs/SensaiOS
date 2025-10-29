@@ -19,7 +19,7 @@ function createPrismaStatsMock() {
       findMany: vi.fn().mockResolvedValue([]),
     },
     cooldown: { count: vi.fn().mockResolvedValue(0) },
-    outboxMessage: {
+    busMessage: {
       count: vi.fn().mockResolvedValue(0),
       findFirst: vi.fn().mockResolvedValue(null),
     },
@@ -99,8 +99,8 @@ describe('/ops stats reporting', () => {
       },
     ]);
     (prisma.cooldown.count as Mock).mockResolvedValue(6);
-    (prisma.outboxMessage.count as Mock).mockResolvedValue(2);
-    (prisma.outboxMessage.findFirst as Mock).mockResolvedValue({ processedAt: new Date('2025-10-26T01:05:00Z') });
+    (prisma.busMessage.count as Mock).mockResolvedValue(2);
+    (prisma.busMessage.findFirst as Mock).mockResolvedValue({ processedAt: new Date('2025-10-26T01:05:00Z') });
 
     await handleOpsCommand(interaction, {
       prismaFactory: async () => prisma,
