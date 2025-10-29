@@ -75,8 +75,9 @@ Connection sanity matrix — 2025-10-29T20:45Z
     - `npx prisma migrate status`
     - `npx prisma migrate deploy`
     - `npx tsx scripts/dex/seed_reference.ts`
+    - `SELECT public.refresh_species_sheet()` (via Prisma client)
     - `npx tsx scripts/db_smoke.ts`
-  - Observed blocker: `npx tsx scripts/dex/backfill_species.ts` and `npx tsx scripts/dex/warm_cache.ts` both fail with `permission denied for materialized view SpeciesSheet` (Postgres 42501). The connection works; request elevated role before refreshing the materialized view.
+  - Observed blocker: `npx tsx scripts/dex/backfill_species.ts` and `npx tsx scripts/dex/warm_cache.ts` now retry via `SELECT public.refresh_species_sheet()` when direct `REFRESH` raises 42501. Expect a warning about the fallback in logs; no manual intervention required unless the helper itself fails.
 
 ### Clear the `SpeciesSheet` privilege error (Postgres 42501)
 
@@ -145,8 +146,102 @@ Security hygiene: rotate any exposed `OPTIMIZE_API_KEY` tokens in the Prisma Dat
 Keep the mixed-case name quoted (`"SpeciesSheet"`) in every statement. Add a unique index before using `REFRESH MATERIALIZED VIEW CONCURRENTLY` if one is missing.
 - Render dev standby
   - Load credentials: `Set-Item Env:DATABASE_URL 'postgresql://infinity_gauntlet_db_user:<render-password>@dpg-d3vd8h7diees73et3i3g-a.oregon-postgres.render.com:5432/infinity_gauntlet_db?sslmode=require'` (same value for `DATABASE_DIRECT_URL`; copy from Render's connectionString/directConnectionString secrets)
-  - Validated commands (PASS): `npx prisma migrate status`
-  - Pending follow-up: rerun dex seeding/backfill scripts once SpeciesSheet permissions are granted so the standby matches Accelerate after the refresh.
+  - Validated commands (PASS): `npx prisma migrate status`; `SELECT public.refresh_species_sheet()` (owner context); `SET ROLE prisma_application; SELECT public.refresh_species_sheet()`
+  - Pending follow-up: mirror the same role grants on Prisma Accelerate, then rerun the dex seeding/backfill scripts to confirm both environments refresh `SpeciesSheet` without 42501 errors.
+
+## Prisma permission schema (Render dev baseline — 2025-10-29T22:05Z)
+
+The Render dev database now exposes three group roles that future login roles can inherit:
+
+| Role | Purpose | Current members |
+| --- | --- | --- |
+| `prisma_application` | Default read/write permissions for Prisma services and CLI flows. Grants DML on all tables, USAGE/UPDATE on sequences, and CONNECT to the database. New tables/sequences automatically inherit the same privileges via default ACLs. | `infinity_gauntlet_db_user` |
+| `prisma_worker` | Same table/sequence rights as `prisma_application` plus permission to execute `public.refresh_species_sheet()` (SECURITY DEFINER helper). Use for background jobs that refresh materialized views or run maintenance scripts. | `infinity_gauntlet_db_user` |
+| `prisma_readonly` | SELECT + USAGE on tables/sequences for analytics/read replicas. No members yet. | _(none)_ |
+
+Creation script (idempotent):
+
+```sql
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'prisma_application') THEN CREATE ROLE prisma_application NOLOGIN; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'prisma_worker') THEN CREATE ROLE prisma_worker NOLOGIN; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'prisma_readonly') THEN CREATE ROLE prisma_readonly NOLOGIN; END IF; END $$;
+
+GRANT CONNECT ON DATABASE infinity_gauntlet_db TO prisma_application, prisma_worker, prisma_readonly;
+GRANT USAGE ON SCHEMA public TO prisma_application, prisma_worker, prisma_readonly;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO prisma_application, prisma_worker;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO prisma_readonly;
+
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO prisma_application, prisma_worker;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO prisma_readonly;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO prisma_application, prisma_worker;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT ON TABLES TO prisma_readonly;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO prisma_application, prisma_worker;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO prisma_readonly;
+
+GRANT prisma_application, prisma_worker TO infinity_gauntlet_db_user;
+```
+
+### SpeciesSheet refresh helper
+
+Because Render roles are non-owner by default, refreshing `"SpeciesSheet"` now flows through a SECURITY DEFINER function owned by the database owner:
+
+```sql
+CREATE OR REPLACE FUNCTION public.refresh_species_sheet()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  REFRESH MATERIALIZED VIEW "SpeciesSheet";
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.refresh_species_sheet() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.refresh_species_sheet() TO prisma_application, prisma_worker;
+```
+
+Usage example (inside Prisma script or psql):
+
+```sql
+SET ROLE prisma_application;
+SELECT public.refresh_species_sheet();
+```
+
+- Quick verification: run the statement above immediately after applying the grants; expect the helper to finish without raising `42501`. Reset the role (`RESET ROLE;`) so subsequent migrations run under the default context.
+
+### Rolling the schema to other environments
+
+- Repeat the role creation/grant script on Accelerate once a privileged session is available. Until then, Prisma Accelerate calls to `scripts/dex/backfill_species.ts` will keep failing with `ERROR: permission denied for materialized view SpeciesSheet (42501)`.
+- When introducing new login roles, grant them membership in one or more `prisma_*` groups instead of duplicating privileges. Example: `GRANT prisma_readonly TO analytics_reader;`.
+- If another schema is introduced, mirror the `ALTER DEFAULT PRIVILEGES` statements for that schema or transfer ownership to the same owner role and re-run the grants.
+- Keep credentials (if any) out of source control; Render should manage per-role passwords.
+
+### Prisma Accelerate constraints (primary — 2025-10-29T22:20Z)
+
+- Accelerate exposes `prisma_application` and `prisma_migration` as login roles only. Restricted superuser mode blocks `CREATE ROLE` and `GRANT` statements, so the Render `prisma_worker`/`prisma_readonly` groups cannot be recreated here.
+- The SECURITY DEFINER helper still applies. Create or replace it with:
+
+  ```sql
+  CREATE OR REPLACE FUNCTION public.refresh_species_sheet()
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = public
+  AS $$
+  BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY "SpeciesSheet";
+  END;
+  $$;
+  ```
+
+  The default function ACL allows `prisma_application` to execute it without additional grants. Confirm by running `SELECT public.refresh_species_sheet();` via a Prisma script (for example: `npx tsx --eval 'import { PrismaClient } from "@prisma/client"; const prisma = new PrismaClient(); prisma.$executeRawUnsafe("SELECT public.refresh_species_sheet();").then(() => { console.log("helper ok"); }).finally(async () => { await prisma.$disconnect(); });'`).
+- Dex scripts fall back to the helper automatically when direct refresh raises 42501, but the manual command remains handy for ad-hoc refreshes or when scripting outside the repository tools. Document helper usage in Tasklist/Prompt when run manually.
 
 Rollback and safety
 - If anything goes wrong, do not apply more migrations. Revert to a DB snapshot if you took one and open an ops incident.

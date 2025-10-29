@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-29T21:15:00Z
-Revision: 1.27
+Timestamp (UTC): 2025-10-29T23:27:00Z
+Revision: 1.32
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added a connection sanity matrix to `ops/DB_BOOTSTRAP.md` capturing the verified Accelerate and Render standby credentials plus the commands used to validate each endpoint.
-- Re-ran `npx prisma migrate status` for both Accelerate and the Render standby (pooled/direct URL) and refreshed `npx tsx scripts/db_smoke.ts` to confirm the Prisma Accelerate tunnel still answers queries.
-- Updated Task `T10.DEX.MIGRATE_ACCELERATE` notes with the Render standby check while keeping the SpeciesSheet permission blocker highlighted.
+- Added `docs/perfect-system-roadmap.md` outlining governance, database, runtime, automation, and observability pillars with immediate actions and success signals.
+- Seeded Tasklist Phase 12 with META.ROADMAP.* PROPOSED tasks that track each roadmap pillar’s follow-up work and dependencies.
+- Updated Patch.md clipboard to reflect the roadmap integration scope so subsequent PATCHSETs stay aligned with the plan.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -18,9 +18,8 @@ Revision: 1.27
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-## Active Mission Snapshot
 - **NEXT Pointer:** T8.4 — implement the DM Home daily claim button and associated cooldown feedback tests.
-- **READY / In-flight:** T8.4 remains READY; T10.DEX.MIGRATE_ACCELERATE is IN_PROGRESS pending SpeciesSheet refresh permissions (42501 on refresh scripts), with downstream T10.DEX.* tasks still queued after the refresh clears.
+- **READY / In-flight:** T8.4 remains READY; T10.DEX.MIGRATE_ACCELERATE is IN_PROGRESS pending broader Accelerate parity (role limits still block `prisma_worker`/`prisma_readonly`), and new META.ROADMAP.* tasks sit PROPOSED awaiting prioritization once the groundwork completes.
 - **Recent Finish:** T10.SCALE.LOAD_TEST and T10.SCALE.OPS_STATS_FIX wrapped, confirming connection-mode telemetry and restoring ops stats tests.
 
 ## System Highlights
@@ -62,9 +61,9 @@ Revision: 1.27
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Documented Accelerate vs Render standby connection checks, refreshed the MIGRATE task note, and logged the confirmed commands plus the SpeciesSheet permission blocker.
+Change: Published the perfect-system roadmap document, queued META.ROADMAP.* tasks to track each pillar, and synchronized the patch clipboard with the new planning focus.
 TasklistDiff: true
-Tests: npx prisma migrate status (Accelerate) (pass); npx prisma migrate status (Render standby) (pass); npx tsx scripts/db_smoke.ts (Accelerate) (pass); scripts/dex backfill + warm cache not rerun this pass (still blocked by 42501 permission error)
+Tests: not run (docs/meta-only update)
 Contracts: ON
 NEXT: T8.4 — wire the DM Home daily-claim button and add cooldown feedback coverage.
 <!-- PATCHSET:ECHO END -->

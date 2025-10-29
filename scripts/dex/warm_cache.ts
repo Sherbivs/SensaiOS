@@ -1,14 +1,36 @@
 // Refreshes SpeciesSheet and downstream caches after dex seeding.
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const prisma = new PrismaClient();
 const __filename = fileURLToPath(import.meta.url);
 
+function isPermissionDeniedError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return false;
+  }
+
+  if (error.code !== "P2010") {
+    return false;
+  }
+
+  const meta = error.meta as { code?: string } | undefined;
+  return meta?.code === "42501";
+}
+
 async function refreshSpeciesSheet() {
   console.log("Refreshing SpeciesSheet materialized view…");
-  await prisma.$executeRawUnsafe('REFRESH MATERIALIZED VIEW CONCURRENTLY "SpeciesSheet"');
+  try {
+    await prisma.$executeRawUnsafe('REFRESH MATERIALIZED VIEW CONCURRENTLY "SpeciesSheet"');
+  } catch (error) {
+    if (!isPermissionDeniedError(error)) {
+      throw error;
+    }
+
+    console.warn("REFRESH MATERIALIZED VIEW denied (42501); retrying via public.refresh_species_sheet() helper.");
+    await prisma.$executeRawUnsafe("SELECT public.refresh_species_sheet();");
+  }
 }
 
 async function refreshPokemonCache() {

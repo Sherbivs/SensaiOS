@@ -102,19 +102,19 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 
 <<<PATCHSET START>>>
-[Task T10.DEX.MIGRATE_ACCELERATE] Record Accelerate permission attempts and document the owner requirement
-
-FILE: ops/DB_BOOTSTRAP.md
-Change: Add a status note that querying as `prisma_application` confirmed the matview owner is `prisma_migration`, and ALTER attempts still fail with 42501, so an owner-privileged session must apply the grants.
+[Project Perfection] Finish roadmap integration and spin up tracking tasks
 
 FILE: Tasklist.md
-Change: Extend the IN_PROGRESS note to capture the permission attempt outcome and owner requirement before rerunning the refresh scripts.
+Change: Add PROPOSED tasks aligned with the roadmap pillars (governance, database ops, runtime quality, automation, observability) and note dependencies/acceptance criteria.
 
 FILE: Prompt.md
-Change: Log the permission check commands and failure in Last Repo Changes plus PATCHSET echo.
+Change: Capture the roadmap addition, new tasks, and current testing posture in Last Repo Changes and PATCHSET echo; bump timestamp/revision.
 
 FILE: Patch.md
-Change: Keep the clipboard aligned with the documentation/reporting pass.
+Change: Sync the clipboard with the completed roadmap step and document next routing notes if needed.
+
+FILE: docs/perfect-system-roadmap.md
+Change: Verify headings/wording align with Tasklist entries (touch up phrasing if gaps appear).
 
 <<<PATCHSET END>>>
 

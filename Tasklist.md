@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-29T21:15:00Z
-Revision: 1.93
+Last Updated (UTC): 2025-10-29T23:25:00Z
+Revision: 1.98
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -957,7 +957,7 @@ Each task has:
     - Acquire the direct Prisma Accelerate connection string (via tunnel or stored secret) and run `npx prisma migrate deploy` so `202510290930_dex_reference_spine` and dependent migrations apply without errors.
     - After deploy succeeds, execute `REFRESH MATERIALIZED VIEW CONCURRENTLY "SpeciesSheet"` on both Accelerate and Render so the materialized view reflects the new dex tables.
     - Capture the deploy/refresh evidence (command output or runbook entry) and update the redundancy check to confirm the dex tables are present in both environments.
-  notes: In progress — Updated Prisma Accelerate credentials, applied pending migrations (`npx prisma migrate deploy`), and reran `scripts/dex/seed_reference.ts`. Render standby verified with `npx prisma migrate status` using the pooled/direct URL (`postgresql://infinity_gauntlet_db_user:<render-password>@dpg-d3vd8h7diees73et3i3g-a.oregon-postgres.render.com:5432/infinity_gauntlet_db?sslmode=require`). Refreshing `SpeciesSheet` on Accelerate still fails with `permission denied for materialized view` (42501); awaiting elevated role or alternate refresh path before closing the task.
+  notes: In progress — Updated Prisma Accelerate credentials, applied pending migrations (`npx prisma migrate deploy`), and reran `scripts/dex/seed_reference.ts` against Accelerate. Render standby verified with `npx prisma migrate status` using the pooled/direct URL (`postgresql://infinity_gauntlet_db_user:<render-password>@dpg-d3vd8h7diees73et3i3g-a.oregon-postgres.render.com:5432/infinity_gauntlet_db?sslmode=require`). Established dev-side roles (`prisma_application`, `prisma_worker`, `prisma_readonly`), default ACLs, and the `public.refresh_species_sheet()` helper; documented the rollout in `ops/DB_BOOTSTRAP.md`. Accelerate cannot create new roles or grants (restricted superuser), so the helper was recreated there via tunnel and validated both as owner and as `prisma_application`. `scripts/dex/backfill_species.ts` and `scripts/dex/warm_cache.ts` now catch 42501 from direct `REFRESH` and fall back to `SELECT public.refresh_species_sheet()`; both commands succeed on Accelerate (backfill notes nothing to patch, cache warm skips GitHub replication when octokit/env are absent).
 
 - id: T10.DEX.SEED_CACHE_WARM
   title: Seed dex reference tables and warm dependent caches
@@ -978,6 +978,58 @@ Each task has:
     - Promote the background guard into a migration (or equivalent data fix) that enforces the new foreign keys once data is clean.
     - Document the enforcement verification (redundancy check or report) so production confidently adopts the foreign keys.
   notes: READY — `scripts/dex/backfill_species.ts` audits both tables, seeds missing species via the bootstrap JSON, and refreshes SpeciesSheet. Render DB currently has zero rows to backfill; script confirms clean state.
+
+## Phase 12 — Perfect System Roadmap
+
+- id: META.ROADMAP.GOVERNANCE
+  title: Close governance gaps highlighted in the roadmap
+  status: PROPOSED
+  depends_on: []
+  acceptance_criteria:
+    - Re-run `guard_meta.sh`, `guard_router_docs.sh`, `guard_doc_names.sh`, and `verify_router_links.sh`, capturing outputs in `ops/change-ledger.md` or linked logs.
+    - Audit `ops/ROUTER.yaml`, `masterroutetable.md`, and `ops/TOUCHMAP.yaml` for missing dex-related entries and update as needed.
+    - Update Prompt.md and Tasklist.md notes to document the guard reruns and confirm the governance pillar is green.
+  notes: Seeded from perfect-system-roadmap Governance & Knowledge Flow pillar to keep contract surfaces synchronized.
+
+- id: META.ROADMAP.DB_OPS
+  title: Validate cross-environment dex operations and helper fallbacks
+  status: PROPOSED
+  depends_on: [T10.DEX.MIGRATE_ACCELERATE]
+  acceptance_criteria:
+    - Run `npx prisma migrate deploy` against Render and Accelerate, capturing the output and linking it in ops logs.
+    - Execute `scripts/dex/seed_reference.ts`, `scripts/dex/backfill_species.ts`, and `scripts/dex/warm_cache.ts` in both environments; store transcripts showing helper fallback behavior.
+    - Extend `ops/DB_BOOTSTRAP.md` with a checklist summarizing the verification steps and evidence locations.
+  notes: Roadmap Database Operations & Data Integrity pillar; ensures helper fallback remains validated across environments.
+
+- id: META.ROADMAP.RUNTIME
+  title: Harden runtime flows with tests and helper coverage
+  status: PROPOSED
+  depends_on: []
+  acceptance_criteria:
+    - Run focused Vitest suites (`tests/dm_home`, `tests/ops`, `tests/core`) and address any flakiness or failures.
+    - Add regression coverage that simulates helper fallback when Prisma throws 42501 to ensure scripts and runtime handle permission limits.
+    - Perform dependency audits (`npm outdated`, `pnpm audit`) and track follow-up actions in Tasklist notes.
+  notes: Backlog from roadmap Runtime & Code Quality pillar to keep DM, encounter, and dex flows deterministic.
+
+- id: META.ROADMAP.AUTOMATION
+  title: Expand CI coverage for guards and dex scripts
+  status: PROPOSED
+  depends_on: []
+  acceptance_criteria:
+    - Trigger GitHub Actions guard suite and resolve outstanding warnings, especially router/doc guard noise.
+    - Add CI coverage for dex maintenance scripts (dry-run execution) with clear failure messaging.
+    - Verify `render.yaml` entries match current worker/service layout and document any adjustments in Prompt.md Last Repo Changes.
+  notes: Automation & CI/CD pillar from the roadmap; ensures guard drift and dex scripts are caught before deployment.
+
+- id: META.ROADMAP.OBS
+  title: Reinforce observability, security, and recovery signals
+  status: PROPOSED
+  depends_on: []
+  acceptance_criteria:
+    - Review structured logging to confirm helper usage emits database source/mode metadata after the fallback changes.
+    - Run security bot smoke tests to verify DRIP alerts fire with current metadata, logging evidence in ops docs.
+    - Update `ops/RECOVERY.yaml` and `playbooks/escalate.md` with the helper workflow and fallback commands introduced during the dex rollout.
+  notes: Observability/Security/Recovery pillar from the roadmap to keep telemetry and playbooks aligned.
 
 ## Phase 11 — Meta & AI Enablement
 
