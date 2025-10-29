@@ -26,8 +26,18 @@ async function refreshPokemonCache() {
       moduleError instanceof Error &&
       moduleError.code === "ERR_MODULE_NOT_FOUND" &&
       message.includes("'octokit'");
+    const missingGithubConfig =
+      moduleError instanceof Error &&
+      /GITHUB_(REPO|TOKEN)/.test(message) &&
+      message.includes("not configured");
 
-    if (!missingOctokit) throw error;
+    if (!missingOctokit && !missingGithubConfig) throw error;
+
+    if (missingGithubConfig) {
+      console.warn("GitHub cache replication not configured; skipping replication step.");
+      console.log("Species data refreshed locally; GitHub mirror unchanged.");
+      return;
+    }
 
     console.warn("Octokit not available; running fetch_pokemon.mjs directly.");
     const fallback = await import("../fetch_pokemon.mjs");

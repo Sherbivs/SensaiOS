@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaClient as EdgePrismaClient } from "@prisma/client/edge";
 import { withAccelerate } from "@prisma/extension-accelerate";
+import { withOptimize } from "@prisma/extension-optimize";
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
 
@@ -276,9 +277,14 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
       };
 
   const baseClient = new PrismaCtor(baseOptions as Prisma.PrismaClientOptions) as PrismaClient;
-  const client = usesAccelerate
+  let client = usesAccelerate
     ? (baseClient.$extends(withAccelerate()) as unknown as PrismaClient)
     : baseClient;
+
+  const optimizeKey = process.env.OPTIMIZE_API_KEY?.trim();
+  if (optimizeKey) {
+    client = client.$extends(withOptimize({ apiKey: optimizeKey })) as unknown as PrismaClient;
+  }
 
   if (usesAccelerate) {
     process.env.PRISMA_CLIENT_ENGINE_TYPE = "accelerate";
