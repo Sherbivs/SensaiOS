@@ -7,6 +7,7 @@ meta_files:
   - Patch.md
   - Tasklist.md
   - Prompt.md
+  - Agents.md
   - ops/ROUTER.yaml
   - ops/NEXT.yaml
   - ops/TOUCHMAP.yaml

@@ -253,7 +253,7 @@ META.ROUTER.20251028:
   - "ops/TOUCHMAP.yaml"
 
 META.AI_DOC_ENABLE:
-  - "agent.md"
+  - "Agents.md"
   - "README.md"
   - "Prompt.md"
   - "ops/NEXT.yaml"

@@ -33,6 +33,7 @@ Notes:
 Key Files:
 - ops/NEXT.yaml — execution pointer
 - ops/CRITICAL.md — policies & guardrails
+- Agents.md — contract-first agent handbook
 - ops/ROUTER.yaml — canonical path map
 - ops/ROUTER_INDEX.yaml — router-of-routers (generated)
 - ops/INBOX/notes.md — quick notes

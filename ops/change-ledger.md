@@ -30,7 +30,7 @@
 - **94d527e** — 2025-10-28 — Sherbivs — _logic intent:_ T10.SCALE.WORKERS
   Files: `Prompt.md`, `src/bot/ops/admin.ts`, `tests/ops.spec.ts`
 - **546ce2e** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  Files: `README.md`, `agent.md`, `ops/DB_BOOTSTRAP.md`, `scripts/bootstrap_staging_db.ps1`
+  Files: `README.md`, `Agents.md`, `ops/DB_BOOTSTRAP.md`, `scripts/bootstrap_staging_db.ps1`
 - **4a2eb06** — 2025-10-28 — Sherbivs — _logic intent:_ .
   Files: `ops/NEXT.yaml`, `tasklist.md`
 - **5a9fab8** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
@@ -44,7 +44,7 @@
 - **f71f6f4** — 2025-10-28 — Sherbivs — _logic intent:_ .
   Files: `Patch.md`, `Prompt.md`, `README.md`, `ops/NEXT.yaml`
 - **61c3245** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  Files: `Patch.md`, `agent.md`, `masterroutetable.md`, `ops/ROUTER.md`, `ops/ROUTER.yaml`, +4 more
+  Files: `Patch.md`, `Agents.md`, `masterroutetable.md`, `ops/ROUTER.md`, `ops/ROUTER.yaml`, +4 more
 - **76b73b3** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
   Files: (no file changes detected)
 - **d7be4ce** — 2025-10-28 — Sherbivs — _logic intent:_ .
@@ -106,7 +106,7 @@
 - **7e96faf** — 2025-10-27 — Sherbivs — _logic intent:_ [Task META.RUNTIME.BLUEPRINT_APPLY] Apply runtime blueprint
   Files: `.github/workflows/runtime.yml`, `Patch.md`, `Prompt.md`, `README.md`, `masterroutetable.md`, +24 more
 - **af91fd1** — 2025-10-27 — Sherbivs — _logic intent:_ .
-  Files: `Patch.md`, `Prompt.md`, `agent.md`
+  Files: `Patch.md`, `Prompt.md`, `Agents.md`
 - **2804e0b** — 2025-10-27 — Sherbivs — _logic intent:_ .
   Files: `Patch.md`
 - **424e8ff** — 2025-10-27 — Sherbivs — _logic intent:_ SECURITY_BOT_RESTART

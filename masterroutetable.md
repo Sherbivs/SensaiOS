@@ -27,6 +27,7 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
 - Key References:
   - `ops/NEXT.yaml` — next task pointer (READY pointer must exist on exit)
   - `ops/CRITICAL.md` — fast-path guardrails + Markerless guidance
+  - `Agents.md` — Agent handbook (contract-first quickstart)
   - `OPERATIONS.md` — operational runbook and worker matrix
   - `ops/POKEMON_CACHE.md` — PokeAPI cache architecture & incident response
   - `ops/ROUTER.yaml` — canonical path map; router_docs category groups ops/ROUTER.md, ops/ROUTER_INDEX.yaml, and masterroutetable.md

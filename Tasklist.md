@@ -996,7 +996,7 @@ Each task has:
   status: DONE
   depends_on: [META.ROUTER.20251028]
   acceptance_criteria:
-    - agent.md mentions the staging bootstrap runbook/script and reiterates contract essentials for autonomous agents.
+  - Agents.md mentions the staging bootstrap runbook/script and reiterates contract essentials for autonomous agents.
     - README.md highlights the new bootstrap workflow, refreshed meta-router strategy, and AI enablement guidance in Current Status & Operational Guardrails sections.
     - Prompt.md and ops/NEXT.yaml reflect the updated meta-task completion and READY pointer state.
   notes: Outcome — Agent handbook and README now highlight meta-routing assets, bootstrap flow, and AI guardrails so future agents can reference the repository with minimal rediscovery.
