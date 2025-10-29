@@ -32,6 +32,7 @@ _Last updated: 2025-10-29T23:40:00Z (UTC) — Rev: 1.3_
 - **Cache refresh:** `cache.stale_seconds` warns when data is >10 minutes old, alerts past 30 minutes. Check network/API health, rerun `npm run worker:cache` locally, and confirm cache targets in `/ops stats`.
 - **Data pipeline:** `pipeline.stale_seconds` warns after 4 hours with no success, alerts after 8 hours. Review `runWorker` logs, ensure buildData completes, and redeploy if failures persist.
 - Telemetry counters (`refresh.failed`, `pipeline.failed`, `messages.failed`) surface in metrics payloads; triage repeated failures alongside the alert logs and record outcomes in Tasklist/Prompt when they trigger.
+- For deeper schema, role, and helper context, see `docs/database-systems.md`.
 
 ### Durable Event Bus Sink
 - **Providers:** Set `BACKUP_STORAGE_PROVIDER` to `s3` (Render/production) or `local` (developer dry runs). Leaving it unset defaults to `none`, which logs a warning and skips uploads—use only for emergency disablement.

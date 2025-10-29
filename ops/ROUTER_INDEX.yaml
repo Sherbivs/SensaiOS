@@ -1,11 +1,11 @@
 version: 1
-generated_utc: "2025-10-29T12:00:52Z"
+generated_utc: "2025-10-29T23:17:53Z"
 routers:
   - path: "ops/"
     router_file: "ops/ROUTER.md"
     title: "Ops & Governance"
     purpose: "Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox)."
-    last_updated_utc: "2025-10-29T19:10:00Z"
+    last_updated_utc: "2025-10-29T19:40:00Z"
   - path: "scripts/"
     router_file: "scripts/ROUTER.md"
     title: "Tooling"
@@ -34,7 +34,7 @@ routers:
   - path: "src/worker/"
     router_file: "src/worker/ROUTER.md"
     title: "Background Workers"
-    purpose: "Render background services that drain the outbox and perform offline tasks."
+    purpose: "Render background services that drain the event bus and perform offline tasks."
     last_updated_utc: "2025-10-28T22:55:00Z"
   - path: "tests/"
     router_file: "tests/ROUTER.md"

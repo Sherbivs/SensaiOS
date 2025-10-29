@@ -2,7 +2,7 @@
 
 _Last initialized: 2025-10-29T14:30:00Z (UTC) — Rev: 0.3_
 
-High-level reference for persistent and reference data.
+High-level reference for persistent and reference data. Pair with `docs/database-systems.md` for connection modes, role grants, helper functions, and operational playbooks.
 
 ## Entities (persistent)
 - Users, PokemonInstances, Parties, Encounters, Battles, Cooldowns
@@ -20,8 +20,9 @@ High-level reference for persistent and reference data.
 - `SpeciesSheet` pre-joins types, abilities, and base stats for quick battle UI hydration—refresh via `REFRESH MATERIALIZED VIEW CONCURRENTLY "SpeciesSheet";` after data loads.
 
 ## Notes
-- Formal JSON Schemas (T2.1) will live under `src/data_pipeline/schema/*`.
+- Formal JSON Schemas (T2.1) live under `src/data_pipeline/schema/*`.
 - Pipeline output layout (T2.2): `/data/{pokemon,moves,abilities}/...`, `manifest.json`.
+- Operational guidance (migrations, grants, helper refresh, dex scripts) now resides in `docs/database-systems.md` and `ops/DB_BOOTSTRAP.md`.
 
 ## Performance Indexes (2025-10-28)
 - `Cooldown (ownerId, kind)` is now a unique key so each trainer/kind pair upserts cleanly; vacuum ANALYZE weekly keeps the index statistics current.

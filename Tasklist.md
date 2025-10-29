@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-29T23:42:00Z
-Revision: 1.99
+Last Updated (UTC): 2025-10-29T23:55:00Z
+Revision: 2.00
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1029,6 +1029,16 @@ Each task has:
     - Run security bot smoke tests to verify DRIP alerts fire with current metadata, logging evidence in ops docs.
     - Update `ops/RECOVERY.yaml` and `playbooks/escalate.md` with the helper workflow and fallback commands introduced during the dex rollout.
   notes: Observability/Security/Recovery pillar from the roadmap to keep telemetry and playbooks aligned.
+
+- id: META.DB.DOCS
+  title: Document database architecture and operations
+  status: READY
+  depends_on: []
+  acceptance_criteria:
+    - Publish a durable reference guide describing schema layout, connection modes, roles/permissions, migrations, helper routines, and dex maintenance scripts.
+    - Cross-link the guide from DATA-SCHEMA.md, ops/DB_BOOTSTRAP.md, OPERATIONS.md, and router metadata for discoverability.
+    - Update Prompt.md Last Repo Changes and PATCHSET echo to capture the documentation milestone.
+  notes: READY — Comprehensive documentation requested to support future database workstreams.
 
 ## Phase 11 — Meta & AI Enablement
 

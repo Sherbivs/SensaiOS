@@ -98,7 +98,31 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Idle] Clipboard clear — populate with the next active PATCHSET before editing.
+[Task META.DB.DOCS] Document database architecture and operations for future development
+
+FILE: Tasklist.md
+Change: Add META.DB.DOCS task (READY) capturing the documentation objective; later mark DONE with outcome notes.
+
+FILE: ops/NEXT.yaml
+Change: Point NEXT to META.DB.DOCS while the documentation patch runs.
+
+FILE: docs/database-systems.md
+Change: New comprehensive guide covering schema layout, connection modes, roles/permissions, migrations, helper functions, dex scripts, and operational workflows.
+
+FILE: DATA-SCHEMA.md
+Change: Expand overview section to reference the new guide and highlight key tables/indices.
+
+FILE: ops/DB_BOOTSTRAP.md
+Change: Cross-link to the new guide and clarify where helper and role documentation lives.
+
+FILE: OPERATIONS.md
+Change: Reference the database systems guide under relevant sections for quick navigation.
+
+FILE: masterroutetable.md & docs/ROUTER.md
+Change: Register the new documentation path in routers for discoverability.
+
+FILE: Prompt.md
+Change: Record the documentation work in Last Repo Changes and PATCHSET echo; update metadata.
 
 <<<PATCHSET END>>>
 

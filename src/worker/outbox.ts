@@ -83,7 +83,7 @@ async function processBatch(ctx: WorkerContext): Promise<number> {
 
 async function logHealth(ctx: WorkerContext): Promise<void> {
   try {
-    const pending = await prisma.busMessage.count({ where: { status: "pending" } });
+  const pending = await prisma.outboxMessage.count({ where: { status: "pending" } });
     cache.set("outbox:last-health-check", new Date().toISOString());
     ctx.metrics.setGauge("queue.depth", pending, {
       warn: QUEUE_WARN_THRESHOLD,
