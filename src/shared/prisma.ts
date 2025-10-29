@@ -1,7 +1,6 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaClient as EdgePrismaClient } from "@prisma/client/edge";
 import { withAccelerate } from "@prisma/extension-accelerate";
-import { withOptimize } from "@prisma/extension-optimize";
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
 
@@ -92,6 +91,23 @@ export let prisma: PrismaClient;
 let activeCandidate: DatabaseCandidate | null = null;
 let lastClientUsesAccelerate = false;
 let lastPrismaTransport = "direct";
+
+type OptimizeExtender = (client: PrismaClient) => PrismaClient;
+let optimizeExtender: OptimizeExtender | null = null;
+
+const optimizeApiKey = process.env.OPTIMIZE_API_KEY?.trim();
+
+if (optimizeApiKey) {
+  try {
+    const optimizeModule = await import("@prisma/extension-optimize");
+    optimizeExtender = (client: PrismaClient) =>
+      client.$extends(optimizeModule.withOptimize({ apiKey: optimizeApiKey })) as unknown as PrismaClient;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log.warn("Prisma Optimize disabled; failed to load extension", { error: message });
+    optimizeExtender = null;
+  }
+}
 
 function emitHeartbeat(event: PrismaHeartbeatEvent): void {
   for (const listener of heartbeatListeners) {
@@ -281,9 +297,13 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
     ? (baseClient.$extends(withAccelerate()) as unknown as PrismaClient)
     : baseClient;
 
-  const optimizeKey = process.env.OPTIMIZE_API_KEY?.trim();
-  if (optimizeKey) {
-    client = client.$extends(withOptimize({ apiKey: optimizeKey })) as unknown as PrismaClient;
+  if (optimizeExtender) {
+    try {
+      client = optimizeExtender(client);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.warn("Prisma Optimize extension attach failed", { error: message });
+    }
   }
 
   if (usesAccelerate) {
