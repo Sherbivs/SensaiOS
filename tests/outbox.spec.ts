@@ -1,21 +1,26 @@
 import { describe, it, expect, vi } from "vitest";
-import { enqueue, getPending, markDone, markError } from "../src/shared/outbox.js";
+import {
+  enqueue,
+  claimPendingBatch,
+  markProcessed,
+  markError,
+} from "../src/shared/outbox.js";
 
 type MockClient = {
   outboxMessage: {
     create: ReturnType<typeof vi.fn>;
-    findMany: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
+  $queryRaw: ReturnType<typeof vi.fn>;
 };
 
 function createMockClient(): MockClient {
   return {
     outboxMessage: {
       create: vi.fn(),
-      findMany: vi.fn(),
       update: vi.fn(),
     },
+    $queryRaw: vi.fn(),
   };
 }
 
@@ -40,39 +45,34 @@ describe("outbox", () => {
     expect(result.status).toBe("pending");
   });
 
-  it("returns pending messages ordered by createdAt", async () => {
+  it("claims pending messages with skip locked semantics", async () => {
     const client = createMockClient();
-    const first = { id: "1", createdAt: new Date("2025-01-01T00:00:00Z") } as any;
-    const second = { id: "2", createdAt: new Date("2025-01-02T00:00:00Z") } as any;
-    client.outboxMessage.findMany.mockResolvedValue([first, second]);
+    const first = { id: "1", topic: "backup", payload: {}, createdAt: new Date("2025-01-01T00:00:00Z") } as any;
+    const second = { id: "2", topic: "backup", payload: {}, createdAt: new Date("2025-01-02T00:00:00Z") } as any;
+    client.$queryRaw.mockResolvedValue([first, second]);
 
-    const results = await getPending(50, client as any);
-    expect(client.outboxMessage.findMany).toHaveBeenCalledWith({
-      where: { status: "pending" },
-      orderBy: { createdAt: "asc" },
-      take: 50,
-    });
-    expect(results[0]).toBe(first);
-    expect(results[1]).toBe(second);
+    const results = await claimPendingBatch(25, client as any);
+    expect(client.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(results).toEqual([first, second]);
   });
 
-  it("marks messages done and error", async () => {
+  it("marks messages processed and error", async () => {
     const client = createMockClient();
     const now = new Date();
     client.outboxMessage.update.mockResolvedValue({
       id: "1",
       topic: "backup",
       payload: {},
-      status: "done",
+      status: "processed",
       createdAt: now,
       processedAt: now,
       error: null,
     });
 
-    await markDone("1", client as any);
+    await markProcessed("1", client as any);
     expect(client.outboxMessage.update).toHaveBeenCalledWith({
       where: { id: "1" },
-      data: { status: "done", processedAt: expect.any(Date), error: null },
+      data: { status: "processed", processedAt: expect.any(Date), error: null },
     });
 
     client.outboxMessage.update.mockResolvedValue({

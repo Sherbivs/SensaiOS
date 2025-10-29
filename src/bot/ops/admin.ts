@@ -223,7 +223,7 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
     }),
     prisma.outboxMessage.count({ where: { status: "pending" } }),
     prisma.outboxMessage.findFirst({
-      where: { status: { in: ["done", "error"] }, processedAt: { not: null } },
+      where: { status: { in: ["processed", "error"] }, processedAt: { not: null } },
       orderBy: { processedAt: "desc" },
       select: { processedAt: true },
     }),
