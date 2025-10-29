@@ -961,23 +961,23 @@ Each task has:
 
 - id: T10.DEX.SEED_CACHE_WARM
   title: Seed dex reference tables and warm dependent caches
-  status: PROPOSED
+  status: READY
   depends_on: [T10.DEX.MIGRATE_ACCELERATE]
   acceptance_criteria:
     - Implement idempotent upsert seeding for the new dex tables (e.g., JSON/YAML → `createMany({ skipDuplicates: true })`) and verify reruns succeed without duplicates.
     - Add a bootstrap hook to warm the cache layer that consumes `SpeciesSheet` (e.g., Pokemon cache refresh) once seeding completes.
     - Document the seeding + cache warm routine in the relevant ops runbook and ensure CI or scripts cover the new entry point.
-  notes: Proposed — Outstanding follow-up to hydrate the dex tables and prime caches after migrations land.
+  notes: READY — Added `scripts/dex/seed_reference.ts` (filterable, idempotent), `scripts/dex/warm_cache.ts` (refreshes SpeciesSheet + cache with fallback when octokit is missing), and documented the flow in `ops/DB_BOOTSTRAP.md`. Render DB run completed: seeding, cache warm fallback to fetch_pokemon.
 
 - id: T10.DEX.SPECIES_BACKFILL
   title: Backfill speciesId references and enforce foreign keys
-  status: PROPOSED
+  status: READY
   depends_on: [T10.DEX.SEED_CACHE_WARM]
   acceptance_criteria:
     - Backfill existing `PokemonInstance` and `Encounter` rows with canonical `speciesId` values using the seeded dex data, validating row counts before/after.
     - Promote the background guard into a migration (or equivalent data fix) that enforces the new foreign keys once data is clean.
     - Document the enforcement verification (redundancy check or report) so production confidently adopts the foreign keys.
-  notes: Proposed — Guard currently watches for mismatched species IDs; final rollout needs the backfill and FK enforcement.
+  notes: READY — `scripts/dex/backfill_species.ts` audits both tables, seeds missing species via the bootstrap JSON, and refreshes SpeciesSheet. Render DB currently has zero rows to backfill; script confirms clean state.
 
 ## Phase 11 — Meta & AI Enablement
 

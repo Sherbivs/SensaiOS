@@ -1,7 +1,10 @@
 // Refreshes SpeciesSheet and downstream caches after dex seeding.
 import { PrismaClient } from "@prisma/client";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 const prisma = new PrismaClient();
+const __filename = fileURLToPath(import.meta.url);
 
 async function refreshSpeciesSheet() {
   console.log("Refreshing SpeciesSheet materialized view…");
@@ -10,11 +13,30 @@ async function refreshSpeciesSheet() {
 
 async function refreshPokemonCache() {
   console.log("Refreshing Pokemon cache artifacts…");
-  const cacheModule = await import("../refresh_cache.mjs");
-  if (typeof cacheModule.refresh !== "function") {
-    throw new Error("refresh_cache.mjs did not export a refresh() helper");
+  try {
+    const cacheModule = await import("../refresh_cache.mjs");
+    if (typeof cacheModule.refresh !== "function") {
+      throw new Error("refresh_cache.mjs did not export a refresh() helper");
+    }
+    await cacheModule.refresh();
+  } catch (error) {
+    const moduleError = error as Error & { code?: string };
+    const message = moduleError?.message ?? String(error);
+    const missingOctokit =
+      moduleError instanceof Error &&
+      moduleError.code === "ERR_MODULE_NOT_FOUND" &&
+      message.includes("'octokit'");
+
+    if (!missingOctokit) throw error;
+
+    console.warn("Octokit not available; running fetch_pokemon.mjs directly.");
+    const fallback = await import("../fetch_pokemon.mjs");
+    if (typeof fallback.main !== "function") {
+      throw new Error("fetch_pokemon.mjs did not export main()");
+    }
+    await fallback.main();
+    console.log("Skipped GitHub replication because octokit is unavailable in this environment.");
   }
-  await cacheModule.refresh();
 }
 
 async function main() {
@@ -27,7 +49,9 @@ async function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isDirectExecution = process.argv[1] ? path.resolve(process.argv[1]) === __filename : false;
+
+if (isDirectExecution) {
   main().catch((error) => {
     console.error("Dex cache warm failed:", error);
     process.exitCode = 1;

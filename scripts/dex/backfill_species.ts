@@ -1,8 +1,11 @@
 // Ensures PokemonInstance and Encounter rows reference seeded species entries.
 import { PrismaClient } from "@prisma/client";
 import { seedDex } from "./seed_reference.js";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 const prisma = new PrismaClient();
+const __filename = fileURLToPath(import.meta.url);
 
 type CliOptions = {
   dryRun: boolean;
@@ -91,11 +94,15 @@ async function main() {
   console.log("✅ Species backfill complete. All references now point at seeded species.");
 }
 
-main()
-  .catch((error) => {
-    console.error("Dex species backfill failed:", error);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect().catch(() => undefined);
-  });
+const isDirectExecution = process.argv[1] ? path.resolve(process.argv[1]) === __filename : false;
+
+if (isDirectExecution) {
+  main()
+    .catch((error) => {
+      console.error("Dex species backfill failed:", error);
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await prisma.$disconnect().catch(() => undefined);
+    });
+}

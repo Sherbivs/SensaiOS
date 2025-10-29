@@ -184,6 +184,7 @@ SELECT
     ) AS stats
 FROM "Species" s;
 
+CREATE UNIQUE INDEX IF NOT EXISTS "SpeciesSheet_id_uq" ON "SpeciesSheet"("id");
 CREATE INDEX "SpeciesSheet_id_idx" ON "SpeciesSheet"("id");
 
 -- Hook live data to canonical tables
