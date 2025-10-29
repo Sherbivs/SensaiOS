@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-29T00:55:00Z
-Revision: 1.46
+Last Updated (UTC): 2025-10-29T18:30:00Z
+Revision: 1.47
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
@@ -136,6 +136,26 @@ Change: (from prior follow-up) retains the createPrismaStatsMock helper covering
 
 FILE: Patch.md
 Change: Updated contract metadata and clipboard to describe the persistent connection-mode patchset.
+
+<<<PROPOSED PATCHSET START>>>
+[Task T10.DEX.ROLLOUT_PLAN] Track outstanding dex spine rollout steps across environments
+
+FILE: Tasklist.md
+Change: Add Phase 10 PROPOSED tasks to cover Accelerate migrate deploy + SpeciesSheet refresh, dex table seeding with cache warm, and speciesId backfill before FK enforcement.
+
+FILE: ops/TOUCHMAP.yaml
+Change: Map the new dex rollout tasks to prisma migrations, data bootstrap scripts, and cache warming utilities.
+
+FILE: Prompt.md
+Change: Log the newly added dex rollout tasks, bump metadata, and note that tests were not run for this planning update.
+
+FILE: Patch.md
+Change: Record this PROPOSED patchset so future runs execute the dex rollout plan in order.
+
+# TASKLIST UPDATE
+Change: Introduce T10.DEX.MIGRATE_ACCELERATE, T10.DEX.SEED_CACHE_WARM, and T10.DEX.SPECIES_BACKFILL as PROPOSED with acceptance criteria mirroring the outstanding rollout steps; keep NEXT on T8.4.
+
+<<<PROPOSED PATCHSET END>>>
 <<<PATCHSET END>>>
 
 

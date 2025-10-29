@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-29T00:55:00Z
-Revision: 1.23
+Timestamp (UTC): 2025-10-29T18:30:00Z
+Revision: 1.24
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Extended the connection-mode resolver so dev auto-switches between external/internal URLs, persists the first successful internal source, and alternates single-attempt retries for faster failover.
-- Added `tests/config.database.spec.ts` to cover the new persistence workflow, reran `/ops` vitest checks, validated the alternating logic with local `npm start` runs, and fixed the `fetch_pokemon` direct-invocation check on Windows.
-- Refreshed Tasklist/OPERATIONS to document the durable fallback while keeping NEXT on T8.4 for the DM Home daily-claim work.
+- Added Phase 10 PROPOSED tasks to track Accelerate migrate deploy, dex table seeding/cache warm, and species backfill prior to FK enforcement.
+- Updated ops/TOUCHMAP.yaml and Patch.md clipboard to route the dex rollout follow-ups while retaining NEXT on T8.4.
+- Logged this planning-only update in Prompt metadata; no tests were run.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -20,7 +20,7 @@ Revision: 1.23
 
 ## Active Mission Snapshot
 - **NEXT Pointer:** T8.4 — implement the DM Home daily claim button and associated cooldown feedback tests.
-- **READY / In-flight:** T8.4 remains READY; all `/ops stats` vitest coverage is back to green; remaining tasks stay PROPOSED.
+- **READY / In-flight:** T8.4 remains READY; newly added T10.DEX.* tasks are PROPOSED and capture the outstanding dex rollout steps.
 - **Recent Finish:** T10.SCALE.LOAD_TEST and T10.SCALE.OPS_STATS_FIX wrapped, confirming connection-mode telemetry and restoring ops stats tests.
 
 ## System Highlights
@@ -62,9 +62,9 @@ Revision: 1.23
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Added persistent internal/external database fallback for dev, alternated single-attempt Prisma retries, and backfilled tests/docs.
+Change: Captured outstanding dex rollout work as new Phase 10 PROPOSED tasks and updated routing metadata.
 TasklistDiff: true
-Tests: npx vitest run tests/config.database.spec.ts (pass); npx vitest run tests/ops.spec.ts (pass); node scripts/fetch_pokemon.mjs (pass)
+Tests: not run (planning update only)
 Contracts: ON
 NEXT: T8.4 — wire the DM Home daily-claim button and add cooldown feedback coverage.
 <!-- PATCHSET:ECHO END -->

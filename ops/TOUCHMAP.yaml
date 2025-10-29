@@ -216,6 +216,22 @@ T10.SCALE.OPS_STATS_FIX:
   - "src/bot/ops/admin.ts"
   - "scripts/guard_meta.sh"
 
+T10.DEX.MIGRATE_ACCELERATE:
+  - "prisma/migrations/202510290930_dex_reference_spine/migration.sql"
+  - "scripts/check_db_redundancy.ts"
+  - "ops/DB_BOOTSTRAP.md"
+
+T10.DEX.SEED_CACHE_WARM:
+  - "data/**"
+  - "scripts/build-data.js"
+  - "scripts/refresh_cache.mjs"
+  - "src/data_pipeline/**"
+
+T10.DEX.SPECIES_BACKFILL:
+  - "prisma/schema.prisma"
+  - "scripts/check_db_redundancy.ts"
+  - "scripts/build-data.js"
+
 PBSL.SKELETON:
   - "docs/PBSL.md"
   - "src/core/pbsl/**"

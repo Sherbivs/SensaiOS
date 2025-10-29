@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-29T00:55:00Z
-Revision: 1.89
+Last Updated (UTC): 2025-10-29T18:30:00Z
+Revision: 1.90
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -948,6 +948,36 @@ Each task has:
     - Ensure vitest suite tests/ops.spec.ts passes with realistic stats content and participant filtering checks.
     - Document the fix outcome and refreshed test posture in Prompt.md/OPERATIONS.md.
   notes: Outcome — Added createPrismaStatsMock helper with outboxMessage defaults; all /ops stats tests now pass under vitest run.
+
+- id: T10.DEX.MIGRATE_ACCELERATE
+  title: Deploy dex spine migrations to Accelerate and refresh SpeciesSheet
+  status: PROPOSED
+  depends_on: [T10.SCALE.DB_BOOTSTRAP]
+  acceptance_criteria:
+    - Acquire the direct Prisma Accelerate connection string (via tunnel or stored secret) and run `npx prisma migrate deploy` so `202510290930_dex_reference_spine` and dependent migrations apply without errors.
+    - After deploy succeeds, execute `REFRESH MATERIALIZED VIEW CONCURRENTLY "SpeciesSheet"` on both Accelerate and Render so the materialized view reflects the new dex tables.
+    - Capture the deploy/refresh evidence (command output or runbook entry) and update the redundancy check to confirm the dex tables are present in both environments.
+  notes: Proposed — Render standby now has the migration resolved; Accelerate deploy and SpeciesSheet refresh remain outstanding.
+
+- id: T10.DEX.SEED_CACHE_WARM
+  title: Seed dex reference tables and warm dependent caches
+  status: PROPOSED
+  depends_on: [T10.DEX.MIGRATE_ACCELERATE]
+  acceptance_criteria:
+    - Implement idempotent upsert seeding for the new dex tables (e.g., JSON/YAML → `createMany({ skipDuplicates: true })`) and verify reruns succeed without duplicates.
+    - Add a bootstrap hook to warm the cache layer that consumes `SpeciesSheet` (e.g., Pokemon cache refresh) once seeding completes.
+    - Document the seeding + cache warm routine in the relevant ops runbook and ensure CI or scripts cover the new entry point.
+  notes: Proposed — Outstanding follow-up to hydrate the dex tables and prime caches after migrations land.
+
+- id: T10.DEX.SPECIES_BACKFILL
+  title: Backfill speciesId references and enforce foreign keys
+  status: PROPOSED
+  depends_on: [T10.DEX.SEED_CACHE_WARM]
+  acceptance_criteria:
+    - Backfill existing `PokemonInstance` and `Encounter` rows with canonical `speciesId` values using the seeded dex data, validating row counts before/after.
+    - Promote the background guard into a migration (or equivalent data fix) that enforces the new foreign keys once data is clean.
+    - Document the enforcement verification (redundancy check or report) so production confidently adopts the foreign keys.
+  notes: Proposed — Guard currently watches for mismatched species IDs; final rollout needs the backfill and FK enforcement.
 
 ## Phase 11 — Meta & AI Enablement
 
