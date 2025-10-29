@@ -1,6 +1,14 @@
-# Infinity Gauntlet Agent Handbook
+# Infinity Gauntlet — Agent Operations Guide
 
-Welcome! This workspace expects autonomous agents to follow a contract-first workflow. Use this handbook as the one-stop navigation guide before touching any code or metadata.
+## Mission
+An agentic system that routes tasks to capable sub-agents, never gets stuck, and can self-heal after errors. The system prioritizes safety, observability, and progress over perfection.
+
+## Repo Map
+- `router/` — meta-router + capability registry
+- `agents/` — specialist agents (planner, researcher, implementer, reviewer)
+- `tools/` — tool clients (DB, HTTP, vector, filesystem, eval)
+- `playbooks/` — recovery & escalation recipes
+- `docs/` — architecture, safety, ops, runbooks
 
 ## Core Control Documents
 - `Patch.md` — AI Project Manager Contract. Defines marker modes, clipboard expectations, hotfix loop, and Absolutes. Never edit outside the rules described here.
@@ -9,7 +17,19 @@ Welcome! This workspace expects autonomous agents to follow a contract-first wor
 - `masterroutetable.md` — Human-readable router index. Pairs with `ops/ROUTER.yaml` for canonical routing metadata.
 - `README.md` (Router & Meta Index section) — Cross-links routers, contract files, and meta tooling for external automation.
 - `ops/DB_BOOTSTRAP.md` — Staging Postgres bootstrap runbook covering migrate deploy vs. db push safety.
-	- Expect both pooled (`DATABASE_POOL_URL`) and direct (`DATABASE_DIRECT_URL`) connection strings to be configured. Runtime services prefer the pooled URL; migrations use the direct URL.
+  - Expect both pooled (`DATABASE_POOL_URL`) and direct (`DATABASE_DIRECT_URL`) connection strings to be configured. Runtime services prefer the pooled URL; migrations use the direct URL.
+
+## How to Run Locally
+- **Start dev:** `pnpm dev` (or `npm run dev`)
+- **Test:** `pnpm test`
+- **Lints:** `pnpm lint:all`
+- **Env needed (do not commit secrets):** see `.env.example`. Rotate keys regularly.
+
+## Capabilities & Routing Hints
+- **planner:** break down vague goals; produce measurable milestones and resource budgets.
+- **researcher:** search, synthesize sources; attach citations & uncertainty notes.
+- **implementer:** write/change code and config; run tests.
+- **reviewer:** verify diffs, run safety/eval checklists; approve or request changes.
 
 ## Contract Workflow Quickstart
 1. Open `Patch.md` and populate the clipboard (between `<<<PATCHSET START>>>` markers) with the planned file operations.
@@ -18,15 +38,41 @@ Welcome! This workspace expects autonomous agents to follow a contract-first wor
 4. Clear or archive the clipboard after work. Leave the repository in a consistent state (router docs valid, tests noted, metadata synced).
 5. For hotfixes, follow `ops/HOTFIX.md`, `ops/HOTFIX_PLAN.yaml`, and `HOTFIX.md` instructions. Restrict edits to the approved file list unless the plan expands it.
 
+## Safety Invariants (Must Never Be Violated)
+- Never exfiltrate secrets or raw credentials in outputs.
+- Never run shell/DB/file operations without a dry-run or explicit confirmation step in CI.
+- Always attach sources for claims from the web; flag low-confidence inferences.
+- On error, **self-forgive**: reset working memory, keep the log, try a smaller step.
+
+## Stuckness Detection & Recovery (Self-Healing)
+- A run is **stuck** if any of these fire:
+  - No new artifact or state change in N=3 consecutive steps.
+  - Same error string seen ≥2 times in the last 10 minutes.
+  - Budget exceeded (time > 15m or tokens > threshold) without milestone progress.
+- Recovery steps (in order):
+  1) **Shrink the step** (narrow the scope, reduce toolset).
+  2) **Swap strategy** (change search terms, alternate tool, or prompt template).
+  3) **Reset context** (clear ephemeral memory; keep breadcrumb log).
+  4) **Escalate** using `playbooks/escalate.md` (open an Issue and summarize state).
+
+## Observability
+- Emit events to `logs/agent-events.jsonl` and console: `start|step|error|recovered|done`.
+- Use OpenTelemetry traces for tool calls and router decisions.
+- Persist final state in `runs/<ISO8601>/run.json`.
+
 ## Router Navigation
 - Start with `ops/ROUTER.yaml` (router-of-routers) or `masterroutetable.md` for a textual overview.
 - Key downstream routers:
-	- `src/ROUTER.md` — Application source tree pivoting into domain routers.
-	- `src/bot/ROUTER.md` — Discord bot layer, including security bot entry (`main.js`) and drip alert pipeline.
-	- `scripts/ROUTER.md` — Guard scripts, router refresh tooling, change ledger automation.
-	- `tests/ROUTER.md` — Vitest coverage map for major systems.
+  - `src/ROUTER.md` — Application source tree pivoting into domain routers.
+  - `src/bot/ROUTER.md` — Discord bot layer, including security bot entry (`main.js`) and drip alert pipeline.
+  - `scripts/ROUTER.md` — Guard scripts, router refresh tooling, change ledger automation.
+  - `tests/ROUTER.md` — Vitest coverage map for major systems.
 - When in doubt, consult `ops/TOUCHMAP.yaml` for file ownership and escalation paths.
 - Pair the runbook (`ops/DB_BOOTSTRAP.md`) with `scripts/bootstrap_staging_db.ps1` before touching staging migrations; the script loads `.env`, runs `prisma migrate deploy`, and points back to the runbook if baseline tables or connection strings (pooled vs. direct) are missing.
+
+## Refresh Policy for Materialized Views
+- Only the owner role or a `SECURITY DEFINER` function refreshes DB matviews.
+- After DB errors, run `playbooks/db-recovery.md`.
 
 ## Operational Playbook
 - **Guard Scripts**: `scripts/guard_meta.sh`, `scripts/guard_doc_names.sh`, and `scripts/guard_routing.sh` enforce invariants (READY pointer, canonical spellings, router consistency).
@@ -37,11 +83,16 @@ Welcome! This workspace expects autonomous agents to follow a contract-first wor
 
 ## Production & Render Notes
 - `render.yaml` defines services:
-	- `infinity-gauntlet-bot` (web) and `infinity-gauntlet` (worker) run the TypeScript entry (`npm start` -> `tsx src/index.ts`).
-	- `infinity-gauntlet` worker now launches both the Discord bot (`src/bot/index.ts`) and the legacy security bot (`src/bot/main.js`) so DripTVDD DM alerts stay online.
-	- `pokedex-cache-worker` handles reference data refresh with persistent disks.
+  - `infinity-gauntlet-bot` (web) and `infinity-gauntlet` (worker) run the TypeScript entry (`npm start` -> `tsx src/index.ts`).
+  - `infinity-gauntlet` worker now launches both the Discord bot (`src/bot/index.ts`) and the legacy security bot (`src/bot/main.js`) so DripTVDD DM alerts stay online.
+  - `pokedex-cache-worker` handles reference data refresh with persistent disks.
 - The environment expects managed database URLs. See `src/env/ensure-db-url.ts` and `README.md` for override logic.
 - Security bot alert routing lives in `src/bot/main.js` and `src/bot/dripAlerts.js`. DM alert recipients/timezones resolve via `src/config/env.js`.
+
+## Done Criteria (Per Task)
+- Diff, tests, and reviewer checklist passed.
+- Knowledge updated (`docs/` + this guide if behavior changed).
+- Links to logs, PR, and run artifacts included.
 
 ## Testing & Tooling
 - `npm test` — Vitest suite (battle engine, DM flows, ops commands, etc.).
@@ -50,8 +101,8 @@ Welcome! This workspace expects autonomous agents to follow a contract-first wor
 - `npm run docs:update-ledger` — Refresh Prompt change ledger.
 - `npm run refresh:vision` — Runs the full metadata refresh pipeline (routers, recovery, NEXT validation).
 - `scripts/bootstrap_staging_db.ps1` — PowerShell entry that wraps `prisma migrate deploy` with interactive confirmation.
-	- Honors `DATABASE_POOL_URL`/`DATABASE_DIRECT_URL` and surfaces guidance when they’re missing or identical.
-	- Works best with the connection retry envs (`PRISMA_CONNECT_MAX_RETRIES`, `PRISMA_CONNECT_RETRY_DELAY_MS`, `PRISMA_CONNECT_MAX_DELAY_MS`) tuned in `.env`.
+  - Honors `DATABASE_POOL_URL`/`DATABASE_DIRECT_URL` and surfaces guidance when they’re missing or identical.
+  - Works best with the connection retry envs (`PRISMA_CONNECT_MAX_RETRIES`, `PRISMA_CONNECT_RETRY_DELAY_MS`, `PRISMA_CONNECT_MAX_DELAY_MS`) tuned in `.env`.
 
 ## Data & Cache Pipelines
 - Pokémon data bootstrap lives under `scripts/build-data.js`, `scripts/fetch_pokemon.mjs`, and `data/bootstrap/*`.
@@ -74,5 +125,6 @@ Welcome! This workspace expects autonomous agents to follow a contract-first wor
 - `ops/NEXT.yaml` points at READY task (typically T8.x unless reprioritized).
 - Routers synchronized if structural docs changed.
 - Commit message (when applicable) references task ID and change summary.
+
 
 Following this handbook ensures automation, human operators, and downstream agents see a consistent system snapshot and can continue work without rediscovery.
