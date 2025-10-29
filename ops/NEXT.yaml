@@ -13,18 +13,18 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: META.RUNTIME.BACKUP_SINK
+next_task_id: T8.4
 reason: >
-  Resume Phase 0 hardening by replacing the outbox console sink with durable storage so worker telemetry matches the roadmap pillars.
+  With the outbox sink hardened, return to player progression by wiring the DM Home daily-claim button and cooldown feedback.
 
 files_hint:
-  - src/worker/backup.ts
-  - src/shared/config.ts
-  - OPERATIONS.md
+  - src/bot/dm/home.tsx
+  - src/bot/daily/claim.ts
+  - tests/dm_home.spec.ts
   - Prompt.md
   - Tasklist.md
 
-timestamp_utc: 2025-10-29T23:28:00Z
+timestamp_utc: 2025-10-29T23:43:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-27T08:30:00Z
-note: "Pointer reset after roadmap planning; tackle META.RUNTIME.BACKUP_SINK before the roadmap backlog promotes additional tasks."
+note: "Outbox durable sink shipped; resume T8.4 daily-claim button work next."

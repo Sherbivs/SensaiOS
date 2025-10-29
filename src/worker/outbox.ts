@@ -10,6 +10,7 @@ import {
   markError,
 } from "../shared/outbox.js";
 import { runWorker, type WorkerContext } from "../shared/worker-runtime.js";
+import { storeBackup, getBackupProvider } from "../shared/storage/backup-sink.js";
 
 const MIN_DELAY_MS = Math.max(50, Number(process.env.OUTBOX_MIN_DELAY_MS ?? 250));
 const MAX_DELAY_MS = Math.max(MIN_DELAY_MS, Number(process.env.OUTBOX_MAX_DELAY_MS ?? 2000));
@@ -34,11 +35,24 @@ async function processMessage(ctx: WorkerContext, message: PendingOutboxMessage)
   try {
     log.info("worker.outbox.dispatch", { topic: message.topic, id: message.id });
 
-    // Placeholder durable sink; future task swaps with S3/R2 uploader.
     const processedAt = new Date().toISOString();
-    cache.set(`outbox:last:${message.topic}`, { id: message.id, processedAt });
+    const createdAt = message.createdAt instanceof Date ? message.createdAt : new Date(message.createdAt);
+    const result = await storeBackup({
+      id: message.id,
+      topic: message.topic,
+      payload: message.payload,
+      createdAt,
+      processedAt,
+    });
+
+    cache.set(`outbox:last:${message.topic}`, { id: message.id, processedAt, provider: result.provider });
     cache.set("outbox:last-processed", processedAt);
-    log.info("worker.outbox.sink", { topic: message.topic, id: message.id });
+    log.info("worker.outbox.sink", {
+      topic: message.topic,
+      id: message.id,
+      provider: result.provider,
+      location: result.location,
+    });
 
     await markProcessed(message.id);
     ctx.metrics.incrementCounter("messages.processed", 1);
@@ -84,6 +98,7 @@ async function logHealth(ctx: WorkerContext): Promise<void> {
       pending,
       cacheSize: cache.size,
       dbHost: host,
+      backupProvider: getBackupProvider(),
     });
   } catch (error) {
     log.error("worker.outbox.health_error", error);

@@ -97,59 +97,27 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
-
-
-
-
 <<<PATCHSET START>>>
-[Project Perfection] Finish roadmap integration and spin up tracking tasks
-
-FILE: Tasklist.md
-Change: Add PROPOSED tasks aligned with the roadmap pillars (governance, database ops, runtime quality, automation, observability) and note dependencies/acceptance criteria.
-
-FILE: Prompt.md
-Change: Capture the roadmap addition, new tasks, and current testing posture in Last Repo Changes and PATCHSET echo; bump timestamp/revision.
-
-FILE: Patch.md
-Change: Sync the clipboard with the completed roadmap step and document next routing notes if needed.
-
-FILE: docs/perfect-system-roadmap.md
-Change: Verify headings/wording align with Tasklist entries (touch up phrasing if gaps appear).
+[Idle] Clipboard clear — populate with the next active PATCHSET before editing.
 
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>
-[Task T10.DEX.ROLLOUT_PLAN] Execute dex seeding, cache warm, and species backfill rollout
+[META.ROADMAP.GOVERNANCE] Guard and router alignment sweep
 
-FILE: scripts/dex/seed_reference.ts
-Change: Create a Prisma-based seeding script that upserts dex tables from `data/pokemon.json` and `data/effects.json` using `createMany({ skipDuplicates: true })` with chunking for large payloads.
+FILE: scripts/guard_meta.sh
+Change: Run guard_meta and capture results for Prompt/Tasklist notes.
 
-FILE: scripts/dex/warm_species_cache.ts
-Change: Add a bootstrap helper to refresh the cache or materialized view consumer after seeding (invokes existing cache refresh utilities).
+FILE: scripts/guard_router_docs.sh
+Change: Regenerate router metadata if discrepancies appear during the governance sweep.
 
-FILE: scripts/dex/backfill_species_id.ts
-Change: New script to populate `PokemonInstance.speciesId` and `Encounter.speciesId` via canonical dex lookups, emitting a dry-run option and summary report.
+FILE: masterroutetable.md
+Change: Update entries if guard routing identifies missing dex references.
 
-FILE: src/bot/cache/index.ts
-Change: Export a reusable cache warm function so the bootstrap hook can be invoked from scripts and workers.
-
-FILE: scripts/check_db_redundancy.ts
-Change: Enhance parity checks to ensure seeded dex data and backfilled species IDs match across Accelerate and Render.
-
-FILE: Tasklist.md
-Change: Transition T10.DEX.SEED_CACHE_WARM and T10.DEX.SPECIES_BACKFILL to READY once scripts exist; capture outcome notes after execution.
+FILE: Prompt.md
+Change: Record guard outcomes and governance pillar status once promoted from PROPOSED.
 
 # TASKLIST UPDATE
-Change: Introduce T10.DEX.MIGRATE_ACCELERATE, T10.DEX.SEED_CACHE_WARM, and T10.DEX.SPECIES_BACKFILL as PROPOSED with acceptance criteria mirroring the outstanding rollout steps; keep NEXT on T8.4.
+Change: Promote META.ROADMAP.GOVERNANCE to READY with guard evidence when scheduled.
 
 <<<PROPOSED PATCHSET END>>>
-
-
-
-
-
-
-
-
-
-

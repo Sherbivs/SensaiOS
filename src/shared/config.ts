@@ -11,6 +11,18 @@ export type DatabaseCandidate = {
   source: DatabaseUrlSource;
 };
 
+export type BackupStorageProvider = "none" | "s3" | "local";
+
+export type BackupStorageConfig = {
+  provider: BackupStorageProvider;
+  prefix: string;
+  bucket?: string;
+  region?: string;
+  endpoint?: string;
+  forcePathStyle: boolean;
+  localDir?: string;
+};
+
 export type RuntimeConfig = {
   nodeEnv: string;
   serviceName: string;
@@ -21,6 +33,7 @@ export type RuntimeConfig = {
   databasePreferenceSource: DatabaseUrlSource | null;
   redisUrl: string | null;
   cacheTtlMs: number;
+  backupStorage: BackupStorageConfig;
 };
 
 let cachedConfig: RuntimeConfig | null = null;
@@ -29,6 +42,20 @@ function coerceNumber(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function coerceBoolean(value: string | undefined, fallback: boolean): boolean {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+  return fallback;
 }
 
 type ResolvedDatabaseUrl = {
@@ -220,6 +247,23 @@ export function loadConfig(): RuntimeConfig {
   const redisUrl = process.env.REDIS_URL?.trim() || null;
   const cacheTtlMs = coerceNumber(process.env.CACHE_TTL_MS, 60_000);
 
+  const backupProviderRaw = process.env.BACKUP_STORAGE_PROVIDER?.trim().toLowerCase();
+  const backupProvider: BackupStorageProvider = backupProviderRaw === "s3"
+    ? "s3"
+    : backupProviderRaw === "local"
+      ? "local"
+      : "none";
+  const backupPrefix = (process.env.BACKUP_STORAGE_PREFIX?.trim() || "outbox").replace(/^[\s/]+|[\s/]+$/g, "");
+  const backupStorage: BackupStorageConfig = {
+    provider: backupProvider,
+    prefix: backupPrefix || "outbox",
+    bucket: process.env.BACKUP_STORAGE_S3_BUCKET?.trim() || undefined,
+    region: process.env.BACKUP_STORAGE_S3_REGION?.trim() || undefined,
+    endpoint: process.env.BACKUP_STORAGE_S3_ENDPOINT?.trim() || undefined,
+    forcePathStyle: coerceBoolean(process.env.BACKUP_STORAGE_S3_FORCE_PATH_STYLE, false),
+    localDir: process.env.BACKUP_STORAGE_LOCAL_DIR?.trim() || undefined,
+  };
+
   cachedConfig = {
     nodeEnv,
     serviceName,
@@ -230,6 +274,7 @@ export function loadConfig(): RuntimeConfig {
     databasePreferenceSource,
     redisUrl,
     cacheTtlMs,
+    backupStorage,
   };
 
   return cachedConfig;

@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-29T23:25:00Z
-Revision: 1.98
+Last Updated (UTC): 2025-10-29T23:42:00Z
+Revision: 1.99
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -219,14 +219,13 @@ Each task has:
 
 - id: META.RUNTIME.BACKUP_SINK
   title: Replace console backup sink with persistent storage
-  status: READY
-  notes: READY — Daily handler exists; next step is wiring the DM Home button and test coverage for cooldown + streak feedback.
+  status: DONE
   depends_on: [META.RUNTIME.BLUEPRINT_APPLY]
   acceptance_criteria:
     - Outbox worker writes processed payloads to durable storage (e.g., S3, Cloudflare R2) instead of logging placeholders.
     - Secrets/configuration for the chosen storage provider are documented and guarded in Render.
     - `/ops stats` and worker health logs surface the new sink status and last successful upload timestamp.
-  notes: Proposed — follow-up to swap the placeholder console sink with real backup storage once the runtime blueprint stabilizes.
+  notes: Outcome — Outbox worker now streams processed messages to the configured backup sink (S3 or local), logs provider/location metadata, ships a storage helper with tests, and OPERATIONS.md documents deployment/env guidance.
 
 - id: T0.REFRESH.VISION
   title: Add Refresh Vision phase and recovery ledger

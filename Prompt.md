@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-29T23:27:00Z
-Revision: 1.32
+Timestamp (UTC): 2025-10-29T23:44:00Z
+Revision: 1.34
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added `docs/perfect-system-roadmap.md` outlining governance, database, runtime, automation, and observability pillars with immediate actions and success signals.
-- Seeded Tasklist Phase 12 with META.ROADMAP.* PROPOSED tasks that track each roadmap pillar’s follow-up work and dependencies.
-- Updated Patch.md clipboard to reflect the roadmap integration scope so subsequent PATCHSETs stay aligned with the plan.
+- Replaced the outbox worker’s placeholder sink with a configurable backup storage helper (S3 or local) and wrote unit coverage for the local path.
+- Extended `src/shared/config.ts` and OPERATIONS.md with backup storage settings, plus added the AWS SDK dependency for S3 uploads.
+- Marked META.RUNTIME.BACKUP_SINK as DONE, retargeted NEXT to T8.4, and refreshed the patch clipboard’s roadmap plan.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -19,7 +19,7 @@ Revision: 1.32
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 - **NEXT Pointer:** T8.4 — implement the DM Home daily claim button and associated cooldown feedback tests.
-- **READY / In-flight:** T8.4 remains READY; T10.DEX.MIGRATE_ACCELERATE is IN_PROGRESS pending broader Accelerate parity (role limits still block `prisma_worker`/`prisma_readonly`), and new META.ROADMAP.* tasks sit PROPOSED awaiting prioritization once the groundwork completes.
+- **READY / In-flight:** T8.4 is READY; T10.DEX.MIGRATE_ACCELERATE stays IN_PROGRESS (role limits still block extra Accelerate roles) with downstream T10.DEX.* tasks READY, and META.ROADMAP.* backlog entries remain PROPOSED pending prioritization.
 - **Recent Finish:** T10.SCALE.LOAD_TEST and T10.SCALE.OPS_STATS_FIX wrapped, confirming connection-mode telemetry and restoring ops stats tests.
 
 ## System Highlights
@@ -61,9 +61,9 @@ Revision: 1.32
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Published the perfect-system roadmap document, queued META.ROADMAP.* tasks to track each pillar, and synchronized the patch clipboard with the new planning focus.
+Change: Implemented the durable outbox backup sink (config + worker + docs), added storage tests, marked META.RUNTIME.BACKUP_SINK done, and retargeted NEXT to T8.4.
 TasklistDiff: true
-Tests: not run (docs/meta-only update)
+Tests: not run (requires installing new dependency @aws-sdk/client-s3; package install unavailable this run)
 Contracts: ON
 NEXT: T8.4 — wire the DM Home daily-claim button and add cooldown feedback coverage.
 <!-- PATCHSET:ECHO END -->
