@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client";
-import { loadConfig } from "./config.js";
+import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
 
 export type PrismaHeartbeatEvent = {
@@ -50,6 +50,10 @@ const heartbeatListeners: Set<HeartbeatListener> =
   globalPrisma.prismaHeartbeatListeners ?? new Set<HeartbeatListener>();
 
 globalPrisma.prismaHeartbeatListeners = heartbeatListeners;
+
+let prismaClient: PrismaClient;
+export let prisma: PrismaClient;
+let activeCandidate: DatabaseCandidate | null = null;
 
 function emitHeartbeat(event: PrismaHeartbeatEvent): void {
   for (const listener of heartbeatListeners) {
@@ -198,32 +202,31 @@ export function stopPrismaHeartbeat(): void {
   }
 }
 
-function createClient(): PrismaClient {
-  if (globalPrisma.prisma) {
-    return globalPrisma.prisma;
-  }
-
-  const config = loadConfig();
-  if (!config.databaseUrl) {
+function validateDatabaseUrl(url: string): void {
+  if (!url) {
     throw new Error("DATABASE_URL must be configured before Prisma initializes.");
   }
 
   try {
     // eslint-disable-next-line no-new
-    new URL(config.databaseUrl);
+    new URL(url);
   } catch (error) {
     throw new Error("DATABASE_URL is not a valid URL.");
   }
+}
 
-  const directUrl = process.env.DATABASE_DIRECT_URL?.trim();
-  const datasource: { url: string; directUrl?: string } = { url: config.databaseUrl };
-  if (directUrl) {
-    datasource.directUrl = directUrl;
-  }
+function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClient {
+  validateDatabaseUrl(candidate.url);
+  process.env.DATABASE_URL = candidate.url;
+  process.env.DATABASE_CONNECTION_SOURCE = candidate.source;
 
   const client = new PrismaClient({
-    datasources: { db: datasource },
-    log: config.nodeEnv === "development" ? ["warn", "error"] : ["error"],
+    log: nodeEnv === "development" ? ["warn", "error"] : ["error"],
+    datasources: {
+      db: {
+        url: candidate.url,
+      },
+    },
   });
 
   globalPrisma.prisma = client;
@@ -247,65 +250,142 @@ function delayWithJitter(baseMs: number): Promise<void> {
   });
 }
 
-async function connectWithRetry(client: PrismaClient): Promise<void> {
-  const maxRetries = Math.max(Math.trunc(coerceRetryValue(process.env.PRISMA_CONNECT_MAX_RETRIES, 5, 0)), 0);
-  const baseDelayMs = coerceRetryValue(process.env.PRISMA_CONNECT_RETRY_DELAY_MS, 2_000, 100);
-  const maxDelayMs = coerceRetryValue(process.env.PRISMA_CONNECT_MAX_DELAY_MS, 10_000, baseDelayMs);
+async function attemptCandidateConnection(candidate: DatabaseCandidate, attempt: number): Promise<void> {
   const warnThreshold = HEARTBEAT_DEFAULTS.warnThresholdMs;
+  const start = process.hrtime.bigint();
+  await prismaClient.$connect();
 
-  let attempt = 0;
-  // attempt === 0 is the first try, retries increment afterwards
-  // keep previous failure count to include in heartbeat emission
-  while (true) {
-    const start = process.hrtime.bigint();
+  const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+  const slow = latencyMs >= warnThreshold;
+  const runtimeConfig = loadConfig();
+  const meta = {
+    attempt,
+    latencyMs: Number(latencyMs.toFixed(2)),
+    directUrlConfigured: Boolean(process.env.DATABASE_DIRECT_URL?.trim()),
+    databaseSource: candidate.source,
+    connectionMode: runtimeConfig.databaseConnectionMode,
+  };
+
+  if (attempt > 0) {
+    log.info("Prisma connected after retry", meta);
+  } else {
+    log.info("Prisma connected", meta);
+  }
+
+  emitHeartbeat({
+    ok: true,
+    timestamp: new Date(),
+    latencyMs,
+    slow,
+    consecutiveFailures: attempt,
+    source: "startup",
+  });
+
+  recordDatabaseConnectionSuccess(candidate.source);
+}
+
+async function disconnectPrismaClient(): Promise<void> {
+  if (prismaClient) {
     try {
-      await client.$connect();
-      const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
-      const slow = latencyMs >= warnThreshold;
-      const meta = {
-        attempt,
-        latencyMs: Number(latencyMs.toFixed(2)),
-        directUrlConfigured: Boolean(process.env.DATABASE_DIRECT_URL?.trim()),
-      };
-      if (attempt > 0) {
-        log.info("Prisma connected after retry", meta);
-      } else {
-        log.info("Prisma connected", meta);
-      }
-
-      emitHeartbeat({
-        ok: true,
-        timestamp: new Date(),
-        latencyMs,
-        slow,
-        consecutiveFailures: attempt,
-        source: "startup",
+      await prismaClient.$disconnect();
+    } catch (error) {
+      log.warn("Ignoring Prisma disconnect error during datasource switch", {
+        error: error instanceof Error ? error.message : String(error),
       });
-      return;
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      attempt += 1;
-      if (attempt > maxRetries) {
-        log.error("Prisma connect failed; retries exhausted", error, {
-          attempt,
-          maxRetries,
-        });
-        throw error;
-      }
-
-      const backoff = Math.min(baseDelayMs * 2 ** (attempt - 1), maxDelayMs);
-      log.warn("Prisma connect failed; retrying", {
-        attempt,
-        maxRetries,
-        backoffMs: Math.round(backoff),
-        error: error.message,
-      });
-      await delayWithJitter(backoff);
     }
   }
 }
 
-const prismaClient = createClient();
+async function connectAcrossCandidates(): Promise<void> {
+  const runtimeConfig = loadConfig();
+  const candidates = runtimeConfig.databaseCandidates.length
+    ? runtimeConfig.databaseCandidates
+    : [{ url: runtimeConfig.databaseUrl, source: runtimeConfig.databaseUrlSource }];
+
+  if (!candidates.length) {
+    throw new Error("No database candidates available for Prisma connection.");
+  }
+
+  const baseDelayMs = coerceRetryValue(process.env.PRISMA_CONNECT_RETRY_DELAY_MS, 500, 50);
+  const maxDelayMs = coerceRetryValue(process.env.PRISMA_CONNECT_MAX_DELAY_MS, 5_000, baseDelayMs);
+  const maxAttemptsEnv = coerceRetryValue(
+    process.env.PRISMA_CONNECT_MAX_ATTEMPTS,
+    Math.max(candidates.length * 4, 4),
+    candidates.length
+  );
+  const maxAttempts = Math.max(Math.trunc(maxAttemptsEnv), candidates.length);
+
+  let attempt = 0;
+  let lastError: Error | null = null;
+
+  while (attempt < maxAttempts) {
+    const candidate = candidates[attempt % candidates.length];
+    if (!candidate?.url) {
+      attempt += 1;
+      continue;
+    }
+
+    if (!activeCandidate || activeCandidate.url !== candidate.url) {
+      await disconnectPrismaClient();
+      prismaClient = createClient(candidate, runtimeConfig.nodeEnv);
+      prisma = prismaClient;
+      globalPrisma.prisma = prismaClient;
+      activeCandidate = candidate;
+    }
+
+    runtimeConfig.databaseUrl = candidate.url;
+    runtimeConfig.databaseUrlSource = candidate.source;
+    runtimeConfig.databasePreferenceSource = candidate.source;
+
+    try {
+      await attemptCandidateConnection(candidate, attempt);
+      return;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      lastError = err;
+      const nextCandidate = candidates[(attempt + 1) % candidates.length]?.source ?? "none";
+      log.warn("Prisma connection attempt failed; switching candidate", {
+        attempt,
+        candidateSource: candidate.source,
+        error: err.message,
+        nextCandidate,
+      });
+
+      attempt += 1;
+      if (attempt >= maxAttempts) {
+        break;
+      }
+
+      const roundsCompleted = Math.floor(attempt / candidates.length);
+      const backoffBase = Math.min(baseDelayMs * Math.max(1, roundsCompleted), maxDelayMs);
+      if (backoffBase > 0) {
+        await delayWithJitter(backoffBase);
+      }
+    }
+  }
+
+  log.error("Prisma connection failed after alternating candidates", lastError ?? new Error("No candidates attempted"), {
+    attempts: attempt,
+    candidates: candidates.map((candidate) => candidate.source),
+  });
+
+  if (lastError) {
+    throw lastError;
+  }
+  throw new Error("Prisma connection failed and no error detail was captured.");
+}
+
+const bootstrapConfig = loadConfig();
+const initialCandidate: DatabaseCandidate = bootstrapConfig.databaseCandidates[0] ?? {
+  url: bootstrapConfig.databaseUrl,
+  source: bootstrapConfig.databaseUrlSource,
+};
+
+validateDatabaseUrl(initialCandidate.url);
+
+prismaClient = createClient(initialCandidate, bootstrapConfig.nodeEnv);
+prisma = prismaClient;
+activeCandidate = initialCandidate;
 
 if (!globalPrisma.prismaConnectPromise) {
   const skipInitialConnect = process.env.PRISMA_SKIP_INITIAL_CONNECT === "true";
@@ -315,16 +395,14 @@ if (!globalPrisma.prismaConnectPromise) {
     });
     globalPrisma.prismaConnectPromise = Promise.resolve();
   } else {
-    globalPrisma.prismaConnectPromise = connectWithRetry(prismaClient).catch((error) => {
+    globalPrisma.prismaConnectPromise = connectAcrossCandidates().catch((error) => {
       globalPrisma.prisma = undefined;
       throw error;
     });
   }
 }
 
-export const prisma = prismaClient;
-
 export async function ensurePrisma(): Promise<PrismaClient> {
   await globalPrisma.prismaConnectPromise;
-  return prismaClient;
+  return prisma;
 }

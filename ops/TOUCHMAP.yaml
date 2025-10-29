@@ -196,10 +196,24 @@ T10.SCALE.OBS:
   - "Prompt.md"
   - "scripts/guard_meta.sh"
 
+T10.SCALE.DB_ENV_SWITCH:
+  - "src/shared/config.ts"
+  - "src/shared/prisma.ts"
+  - "OPERATIONS.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "tests/config.database.spec.ts"
+  - "ops/NEXT.yaml"
+  - "scripts/fetch_pokemon.mjs"
+
 T10.SCALE.LOAD_TEST:
   - "OPERATIONS.md"
   - "Prompt.md"
   - "Tasklist.md"
+
+T10.SCALE.OPS_STATS_FIX:
+  - "tests/ops.spec.ts"
+  - "src/bot/ops/admin.ts"
   - "scripts/guard_meta.sh"
 
 PBSL.SKELETON:

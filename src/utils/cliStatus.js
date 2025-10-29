@@ -22,6 +22,9 @@ const state = {
 };
 
 const SIMPLE_MODE = !(process.stdout && process.stdout.isTTY && process.stderr && process.stderr.isTTY);
+const SIMPLE_VERBOSE_MODE = ['1', 'true', 'yes', 'verbose', 'default', 'legacy', 'full']
+  .includes(String(process.env.CLI_STATUS_VERBOSE ?? process.env.CLI_STATUS_SIMPLE ?? '').toLowerCase());
+const QUIET_SIMPLE_MODE = SIMPLE_MODE && !SIMPLE_VERBOSE_MODE;
 
 let intervalHandle = null;
 let unsubscribe = null;
@@ -258,6 +261,100 @@ function clearDisplay() {
   lastRenderLines = 0;
 }
 
+// Compose a condensed single-line snapshot for Render logs when no TTY is present.
+function buildQuietSummary() {
+  const dbSection = state.sections.get('database');
+  if (!dbSection) {
+    return null;
+  }
+
+  const metrics = new Map();
+  const looseNotes = [];
+
+  for (const entry of dbSection.metrics ?? []) {
+    if (!entry) {
+      continue;
+    }
+    if (Array.isArray(entry)) {
+      const [label, value] = entry;
+      if ((label === undefined || label === null) && value !== undefined && value !== null && value !== '') {
+        looseNotes.push(String(value));
+        continue;
+      }
+      if (label !== undefined && label !== null && !metrics.has(label)) {
+        metrics.set(label, value);
+      }
+      continue;
+    }
+    if (typeof entry === 'object') {
+      for (const [label, value] of Object.entries(entry)) {
+        if (!metrics.has(label)) {
+          metrics.set(label, value);
+        }
+      }
+      continue;
+    }
+    looseNotes.push(String(entry));
+  }
+
+  const segments = [];
+  const phase = state.phase || 'unknown';
+  const status = dbSection.status || 'pending';
+  segments.push(`phase=${phase}`);
+  segments.push(`database=${status}`);
+
+  const pickMetric = (key, label, formatter) => {
+    if (!metrics.has(key)) {
+      return;
+    }
+    const raw = metrics.get(key);
+    if (raw === undefined || raw === null || raw === '') {
+      metrics.delete(key);
+      return;
+    }
+    const rendered = formatter ? formatter(raw) : `${label}=${String(raw)}`;
+    if (rendered) {
+      segments.push(rendered);
+    }
+    metrics.delete(key);
+  };
+
+  pickMetric('latency', 'latency');
+  pickMetric('Δ latency', 'delta');
+  pickMetric('since last', 'interval');
+  pickMetric('connect', 'connect');
+  pickMetric('sample', 'sample');
+  pickMetric('route', 'route');
+  pickMetric('preference', 'preference');
+  pickMetric('mode', 'mode');
+  pickMetric('source', 'source');
+  pickMetric('failures', 'failures', (value) => {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric <= 0) {
+      return '';
+    }
+    return `failures=${value}`;
+  });
+  pickMetric('error', 'error', (value) => `error=${value}`);
+
+  if (looseNotes.length > 0) {
+    segments.push(`note=${looseNotes.join(' | ')}`);
+  }
+
+  for (const [label, value] of metrics.entries()) {
+    if (label.toLowerCase() === 'status') {
+      continue;
+    }
+    if (value === undefined || value === null || value === '') {
+      continue;
+    }
+    const normalizedLabel = String(label).trim().replace(/\s+/g, '_');
+    segments.push(`${normalizedLabel}=${String(value)}`);
+  }
+
+  return segments.join(' | ');
+}
+
 function render() {
   if (!displayActive || isRendering) {
     return;
@@ -265,8 +362,18 @@ function render() {
 
   isRendering = true;
   try {
-    const lines = buildDisplayLines();
     if (SIMPLE_MODE) {
+      if (QUIET_SIMPLE_MODE) {
+        const summary = buildQuietSummary();
+        if (summary && summary !== lastSimpleRender) {
+          const line = `${new Date().toISOString()} ${summary}${os.EOL}`;
+          process.stdout.write(line);
+          lastSimpleRender = summary;
+        }
+        lastOutputWasDot = false;
+        return;
+      }
+      const lines = buildDisplayLines();
       const output = `${lines.join(os.EOL)}${os.EOL}`;
       if (output !== lastSimpleRender) {
         process.stdout.write(output);
@@ -276,6 +383,7 @@ function render() {
       return;
     }
 
+    const lines = buildDisplayLines();
     if (lastRenderLines > 0) {
       readline.moveCursor(process.stdout, 0, -lastRenderLines);
       readline.clearScreenDown(process.stdout);
@@ -339,7 +447,9 @@ function startStatusDisplay() {
 
   if (SIMPLE_MODE) {
     render();
-    intervalHandle = setInterval(render, UPDATE_INTERVAL_MS);
+    if (!QUIET_SIMPLE_MODE) {
+      intervalHandle = setInterval(render, UPDATE_INTERVAL_MS);
+    }
     return;
   }
 
@@ -382,7 +492,7 @@ function stopStatusDisplay() {
 
 function setPhase(value) {
   state.phase = value || state.phase;
-  if (!SIMPLE_MODE && displayActive) {
+  if (displayActive) {
     render();
   }
 }
@@ -391,7 +501,7 @@ function setGuildCount(value) {
   if (typeof value === 'number' && Number.isFinite(value)) {
     state.guildCount = Math.max(0, Math.round(value));
   }
-  if (!SIMPLE_MODE && displayActive) {
+  if (displayActive) {
     render();
   }
 }
@@ -427,7 +537,7 @@ function setSection(sectionId, data) {
       state.sections.set(sectionId, normalized);
     }
   }
-  if (!SIMPLE_MODE && displayActive) {
+  if (displayActive) {
     render();
   }
 }

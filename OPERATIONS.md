@@ -33,6 +33,15 @@ _Last updated: 2025-10-28T23:45:00Z (UTC) — Rev: 1.2_
 - **Data pipeline:** `pipeline.stale_seconds` warns after 4 hours with no success, alerts after 8 hours. Review `runWorker` logs, ensure buildData completes, and redeploy if failures persist.
 - Telemetry counters (`refresh.failed`, `pipeline.failed`, `messages.failed`) surface in metrics payloads; triage repeated failures alongside the alert logs and record outcomes in Tasklist/Prompt when they trigger.
 
+## Database Connection Modes
+- `DATABASE_CONNECTION_MODE` controls which Postgres endpoint the runtime chooses. Supported values: `auto` (default), `external`, and `internal`.
+- Production services should stay on `auto`, which prefers pooled/internal URLs from Render and falls back to the configured `DATABASE_URL` only when necessary.
+- For local development, set `DATABASE_EXTERNAL_URL` to the external Render connection string and (optionally) export `DATABASE_CONNECTION_MODE=external` to force that endpoint. In `auto`, development builds already prefer the external URL when it is present.
+- The helper also stamps `DATABASE_CONNECTION_SOURCE` in the process environment and Prisma connect logs include `databaseSource`/`connectionMode` so you can confirm which endpoint was selected at runtime.
+- When dev mode finds an internal URL that successfully connects, that source is persisted to `%USERPROFILE%\.infinity-gauntlet\db-connection.json`; subsequent runs prefer the saved internal endpoint until another source succeeds.
+- Runtime connection attempts alternate one try per source (external/internal) before looping, shortening the fallback path when a preferred endpoint is unavailable.
+- This replaces the manual `DATABASE_URL=` exports during rehearsals—populate `DATABASE_EXTERNAL_URL` once and flip the mode instead of rewriting pooled/internal variables.
+
 ## Load Test / Game-Night Dry Run
 | Date (UTC) | Window | Owners | Focus | Pass Criteria |
 | --- | --- | --- | --- | --- |
@@ -40,6 +49,8 @@ _Last updated: 2025-10-28T23:45:00Z (UTC) — Rev: 1.2_
 | Follow-up | +15 min debrief | Sherbivs | Capture outcomes in Prompt Last Repo Changes & Tasklist notes | Document regressions, rollback steps if thresholds breached |
 
 Respond to threshold alerts by tailing Render logs (`worker.alert.*`) and, if needed, firing a DRIP critical alert via `/ops` so the security worker notifies the channel. Update this schedule when new dry runs are booked.
+
+**2025-10-28 Dry Run:** Ran the rehearsal early to validate the new connection mode. Prisma logged `databaseSource=external` / `connectionMode=auto` as expected; DM home, battle flow, and outbox vitest suites passed; `/ops stats` scenarios initially failed with missing Prisma mocks but are now green after T10.SCALE.OPS_STATS_FIX (createPrismaStatsMock helper).
 
 ## Secret Handling
 - Discord tokens (`POKEMON_BOT_TOKEN`, `SECURITY_BOT_TOKEN`) live in Render secrets; never commit `.env` snapshots.

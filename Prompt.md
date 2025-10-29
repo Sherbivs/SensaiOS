@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-28T23:45:00Z
-Revision: 1.17
+Timestamp (UTC): 2025-10-29T00:55:00Z
+Revision: 1.23
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Completed T10.SCALE.OBS by wiring worker metrics (queue depth, stale seconds, failure counters) and enabling `worker.alert.*` thresholds in runWorker + dedicated entries.
-- Updated OPERATIONS.md with live observability guidance, documented alert thresholds, and scheduled the 2025-10-30 01:00Z load test/game-night dry run with owners.
-- Promoted T10.SCALE.LOAD_TEST to READY, refreshed NEXT pointer, and synchronized Tasklist/Prompt notes for the upcoming validation run.
+- Extended the connection-mode resolver so dev auto-switches between external/internal URLs, persists the first successful internal source, and alternates single-attempt retries for faster failover.
+- Added `tests/config.database.spec.ts` to cover the new persistence workflow, reran `/ops` vitest checks, validated the alternating logic with local `npm start` runs, and fixed the `fetch_pokemon` direct-invocation check on Windows.
+- Refreshed Tasklist/OPERATIONS to document the durable fallback while keeping NEXT on T8.4 for the DM Home daily-claim work.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -19,16 +19,16 @@ Revision: 1.17
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Active Mission Snapshot
-- **NEXT Pointer:** T10.SCALE.LOAD_TEST — execute the scheduled 2025-10-30 load test/game-night dry run and capture telemetry outcomes.
-- **READY / In-flight:** Load test follow-up is READY; META.RUNTIME.BACKUP_SINK remains proposed; T8.4 daily claim button stays PROPOSED pending DM UI polish.
-- **Recent Finish:** T10.SCALE.WORKERS finalized the worker runtime, Render services, ops runbook, and router metadata for the split deployment.
+- **NEXT Pointer:** T8.4 — implement the DM Home daily claim button and associated cooldown feedback tests.
+- **READY / In-flight:** T8.4 remains READY; all `/ops stats` vitest coverage is back to green; remaining tasks stay PROPOSED.
+- **Recent Finish:** T10.SCALE.LOAD_TEST and T10.SCALE.OPS_STATS_FIX wrapped, confirming connection-mode telemetry and restoring ops stats tests.
 
 ## System Highlights
-- **Database:** Runtime prefers DATABASE_POOL_URL with DATABASE_DIRECT_URL fallback; Prisma migrate retains directUrl; tests set PRISMA_SKIP_INITIAL_CONNECT.
+- **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
 - **Workers & Scaling:** Dedicated outbox/cache/data-pipeline/security workers run under pooled env wiring; ENABLE_SECURITY_BOT + ENABLE_CONTINUOUS_SWEEP gate sweeps so only the security worker loops in production.
 - **Observability:** Worker telemetry now auto-logs via `worker.metrics.snapshot`; queue depth warns ≥50, cache stale alerts >30m, pipeline stale alerts >8h, and `worker.alert.*` escalations flag repeated failures ahead of the scheduled load test.
 - **Ledger:** Prompt now carries a curated 10-commit summary; run npm run docs:update-ledger to refresh both this summary and ops/change-ledger.md.
-- **Testing Posture:** Vitest suites (ops, dm_home, daily, battle) and Prisma smoke tests cover current bootstrap guarantees—rerun targeted suites when touching those areas.
+- **Testing Posture:** Vitest suites (ops, dm_home, daily, battle) and Prisma smoke tests cover current bootstrap guarantees—rerun targeted suites when touching those areas (ops stats suite now requires the helper mocks).
 
 ## Evidence Matrix
 | Domain | Primary Sources | Notes |
@@ -62,11 +62,11 @@ Revision: 1.17
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Landed worker telemetry counters/thresholds, documented the 2025-10-30 load test plan, and retargeted NEXT to the READY dry run task.
+Change: Added persistent internal/external database fallback for dev, alternated single-attempt Prisma retries, and backfilled tests/docs.
 TasklistDiff: true
-Tests: not run (docs-only change)
+Tests: npx vitest run tests/config.database.spec.ts (pass); npx vitest run tests/ops.spec.ts (pass); node scripts/fetch_pokemon.mjs (pass)
 Contracts: ON
-NEXT: T10.SCALE.LOAD_TEST — execute the scheduled validation run and capture outcomes against the new telemetry thresholds.
+NEXT: T8.4 — wire the DM Home daily-claim button and add cooldown feedback coverage.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

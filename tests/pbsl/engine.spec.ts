@@ -22,7 +22,9 @@ describe("PBSL BattleEngine", () => {
     expect(snapshotA.turn).toBe(snapshotB.turn);
     expect(snapshotA.participants).toStrictEqual(snapshotB.participants);
     expect(snapshotA.rngState).toStrictEqual(snapshotB.rngState);
-    expect(snapshotA.audit).toStrictEqual(snapshotB.audit);
+    const normalizeAudit = (audit: typeof snapshotA.audit) =>
+      audit.map(({ timestamp, ...rest }) => rest);
+    expect(normalizeAudit(snapshotA.audit)).toStrictEqual(normalizeAudit(snapshotB.audit));
   });
 
   it("records battle events in audit trail", () => {

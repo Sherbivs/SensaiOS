@@ -334,6 +334,15 @@ function renderPrismaHeartbeat(event: PrismaHeartbeatEvent): void {
   if (event.source) {
     metrics.push(["sample", event.source]);
   }
+  if (config.databaseUrlSource) {
+    metrics.push(["route", config.databaseUrlSource]);
+  }
+  if (config.databasePreferenceSource) {
+    metrics.push(["preference", config.databasePreferenceSource]);
+  }
+  if (config.databaseConnectionMode) {
+    metrics.push(["mode", config.databaseConnectionMode]);
+  }
   if (event.slow) {
     metrics.push(["status", "slow"]);
   }

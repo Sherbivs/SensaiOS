@@ -10,6 +10,22 @@ function mockInteraction(userId: string, isAdminPerm = false): ChatInputCommandI
   } as ChatInputCommandInteraction;
 }
 
+function createPrismaStatsMock() {
+  return {
+    user: { count: vi.fn().mockResolvedValue(0) },
+    encounter: { count: vi.fn().mockResolvedValue(0) },
+    battle: {
+      count: vi.fn().mockResolvedValue(0),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    cooldown: { count: vi.fn().mockResolvedValue(0) },
+    outboxMessage: {
+      count: vi.fn().mockResolvedValue(0),
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
+  } as any;
+}
+
 describe('/ops admin gating', () => {
   it('allows administrators via guild permission', () => {
     const ix = mockInteraction('123', true);
@@ -65,28 +81,26 @@ describe('/ops stats reporting', () => {
   it('shows counts and recent battles when Prisma is available', async () => {
     const { interaction, editReply, deferReply } = baseInteraction();
 
-    const battleCount = vi.fn().mockResolvedValueOnce(2).mockResolvedValueOnce(7);
-    const prisma = {
-      user: { count: vi.fn().mockResolvedValue(3) },
-      encounter: { count: vi.fn().mockResolvedValue(1) },
-      battle: {
-        count: battleCount,
-        findMany: vi.fn().mockResolvedValue([
-          {
-            id: 'battle-1',
-            endedAt: new Date('2025-10-26T01:00:00Z'),
-            resultJson: {
-              reason: 'victory',
-              turnCount: 4,
-              winner: { discordId: 'winner' },
-              loser: { discordId: 'loser' },
-              rewards: { winner: 75, loser: 18 },
-            },
-          },
-        ]),
+    const prisma = createPrismaStatsMock();
+    (prisma.user.count as Mock).mockResolvedValue(3);
+    (prisma.encounter.count as Mock).mockResolvedValue(1);
+    (prisma.battle.count as Mock).mockResolvedValueOnce(2).mockResolvedValueOnce(7);
+    (prisma.battle.findMany as Mock).mockResolvedValue([
+      {
+        id: 'battle-1',
+        endedAt: new Date('2025-10-26T01:00:00Z'),
+        resultJson: {
+          reason: 'victory',
+          turnCount: 4,
+          winner: { discordId: 'winner' },
+          loser: { discordId: 'loser' },
+          rewards: { winner: 75, loser: 18 },
+        },
       },
-      cooldown: { count: vi.fn().mockResolvedValue(6) },
-    } as any;
+    ]);
+    (prisma.cooldown.count as Mock).mockResolvedValue(6);
+    (prisma.outboxMessage.count as Mock).mockResolvedValue(2);
+    (prisma.outboxMessage.findFirst as Mock).mockResolvedValue({ processedAt: new Date('2025-10-26T01:05:00Z') });
 
     await handleOpsCommand(interaction, {
       prismaFactory: async () => prisma,
@@ -110,34 +124,30 @@ describe('/ops stats reporting', () => {
     getIntegerMock.mockReturnValue(2);
     getStringMock.mockImplementation((name: string) => (name === 'after' ? '2025-10-26T00:30:00Z' : null));
 
-    const battleCount = vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(10);
-    const prisma = {
-      user: { count: vi.fn().mockResolvedValue(3) },
-      encounter: { count: vi.fn().mockResolvedValue(1) },
-      battle: {
-        count: battleCount,
-        findMany: vi.fn().mockResolvedValue([
-          {
-            id: 'battle-2',
-            endedAt: new Date('2025-10-26T01:10:00Z'),
-            resultJson: { winner: { discordId: 'w1' }, loser: { discordId: 'l1' }, rewards: { winner: 50, loser: 20 }, reason: 'victory', turnCount: 6 },
-          },
-          {
-            id: 'battle-3',
-            endedAt: new Date('2025-10-26T00:45:00Z'),
-            resultJson: { winner: { discordId: 'w2' }, loser: { discordId: 'l2' }, rewards: { winner: 60, loser: 10 }, reason: 'forfeit', turnCount: 2 },
-          },
-        ]),
+    const prisma = createPrismaStatsMock();
+    (prisma.user.count as Mock).mockResolvedValue(3);
+    (prisma.encounter.count as Mock).mockResolvedValue(1);
+    (prisma.battle.count as Mock).mockResolvedValueOnce(1).mockResolvedValueOnce(10);
+    (prisma.battle.findMany as Mock).mockResolvedValue([
+      {
+        id: 'battle-2',
+        endedAt: new Date('2025-10-26T01:10:00Z'),
+        resultJson: { winner: { discordId: 'w1' }, loser: { discordId: 'l1' }, rewards: { winner: 50, loser: 20 }, reason: 'victory', turnCount: 6 },
       },
-      cooldown: { count: vi.fn().mockResolvedValue(4) },
-    } as any;
+      {
+        id: 'battle-3',
+        endedAt: new Date('2025-10-26T00:45:00Z'),
+        resultJson: { winner: { discordId: 'w2' }, loser: { discordId: 'l2' }, rewards: { winner: 60, loser: 10 }, reason: 'forfeit', turnCount: 2 },
+      },
+    ]);
+    (prisma.cooldown.count as Mock).mockResolvedValue(4);
 
     await handleOpsCommand(interaction, {
       prismaFactory: async () => prisma,
     });
 
     expect(deferReply).toHaveBeenCalledWith({ ephemeral: true });
-    const call = prisma.battle.findMany.mock.calls[0][0];
+    const call = (prisma.battle.findMany as Mock).mock.calls[0][0];
     expect(call.take).toBe(2);
     expect(call.where.state).toBe('Finished');
     expect(call.where.endedAt.gt instanceof Date).toBe(true);
@@ -154,16 +164,12 @@ describe('/ops stats reporting', () => {
     const getStringMock = interaction.options.getString as unknown as Mock;
     getStringMock.mockImplementation((name: string) => (name === 'after' ? '2025-10-26T02:00:00Z' : null));
 
-    const battleCount = vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(9);
-    const prisma = {
-      user: { count: vi.fn().mockResolvedValue(3) },
-      encounter: { count: vi.fn().mockResolvedValue(1) },
-      battle: {
-        count: battleCount,
-        findMany: vi.fn().mockResolvedValue([]),
-      },
-      cooldown: { count: vi.fn().mockResolvedValue(4) },
-    } as any;
+    const prisma = createPrismaStatsMock();
+    (prisma.user.count as Mock).mockResolvedValue(3);
+    (prisma.encounter.count as Mock).mockResolvedValue(1);
+    (prisma.battle.count as Mock).mockResolvedValueOnce(1).mockResolvedValueOnce(9);
+    (prisma.battle.findMany as Mock).mockResolvedValue([]);
+    (prisma.cooldown.count as Mock).mockResolvedValue(4);
 
     await handleOpsCommand(interaction, {
       prismaFactory: async () => prisma,
@@ -196,31 +202,24 @@ describe('/ops stats reporting', () => {
       return null;
     });
 
-    const battleCount = vi
-      .fn()
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(4);
-    const prisma = {
-      user: { count: vi.fn().mockResolvedValue(2) },
-      encounter: { count: vi.fn().mockResolvedValue(0) },
-      battle: {
-        count: battleCount,
-        findMany: vi.fn().mockResolvedValue([
-          {
-            id: 'battle-filtered',
-            endedAt: new Date('2025-10-26T03:00:00Z'),
-            resultJson: { winner: { discordId: '123456789012345678' }, loser: { discordId: 'opponent' }, rewards: null, reason: 'victory', turnCount: 5 },
-          },
-        ]),
+    const prisma = createPrismaStatsMock();
+    (prisma.user.count as Mock).mockResolvedValue(2);
+    (prisma.encounter.count as Mock).mockResolvedValue(0);
+    (prisma.battle.count as Mock).mockResolvedValueOnce(1).mockResolvedValueOnce(4);
+    (prisma.battle.findMany as Mock).mockResolvedValue([
+      {
+        id: 'battle-filtered',
+        endedAt: new Date('2025-10-26T03:00:00Z'),
+        resultJson: { winner: { discordId: '123456789012345678' }, loser: { discordId: 'opponent' }, rewards: null, reason: 'victory', turnCount: 5 },
       },
-      cooldown: { count: vi.fn().mockResolvedValue(0) },
-    } as any;
+    ]);
+    (prisma.cooldown.count as Mock).mockResolvedValue(0);
 
     await handleOpsCommand(interaction, {
       prismaFactory: async () => prisma,
     });
 
-    const finishedCall = prisma.battle.count.mock.calls[1][0];
+    const finishedCall = (prisma.battle.count as Mock).mock.calls[1][0];
     expect(finishedCall.where.OR).toEqual([
       { p1: { discordId: '123456789012345678' } },
       { p2: { discordId: '123456789012345678' } },
@@ -250,16 +249,12 @@ describe('/ops stats reporting', () => {
     const getStringMock = interaction.options.getString as unknown as Mock;
     getStringMock.mockImplementation((name: string) => (name === 'participant' ? '<@876543210987654321>' : null));
 
-    const battleCount = vi.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(0);
-    const prisma = {
-      user: { count: vi.fn().mockResolvedValue(1) },
-      encounter: { count: vi.fn().mockResolvedValue(0) },
-      battle: {
-        count: battleCount,
-        findMany: vi.fn().mockResolvedValue([]),
-      },
-      cooldown: { count: vi.fn().mockResolvedValue(0) },
-    } as any;
+    const prisma = createPrismaStatsMock();
+    (prisma.user.count as Mock).mockResolvedValue(1);
+    (prisma.encounter.count as Mock).mockResolvedValue(0);
+    (prisma.battle.count as Mock).mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+    (prisma.battle.findMany as Mock).mockResolvedValue([]);
+    (prisma.cooldown.count as Mock).mockResolvedValue(0);
 
     await handleOpsCommand(interaction, {
       prismaFactory: async () => prisma,

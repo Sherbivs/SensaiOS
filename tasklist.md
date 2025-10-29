@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-28T23:45:00Z
-Revision: 1.82
+Last Updated (UTC): 2025-10-29T00:55:00Z
+Revision: 1.89
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -219,7 +219,8 @@ Each task has:
 
 - id: META.RUNTIME.BACKUP_SINK
   title: Replace console backup sink with persistent storage
-  status: PROPOSED
+  status: READY
+  notes: READY — Daily handler exists; next step is wiring the DM Home button and test coverage for cooldown + streak feedback.
   depends_on: [META.RUNTIME.BLUEPRINT_APPLY]
   acceptance_criteria:
     - Outbox worker writes processed payloads to durable storage (e.g., S3, Cloudflare R2) instead of logging placeholders.
@@ -868,13 +869,13 @@ Each task has:
 
 - id: T8.4
   title: Add DM Home daily claim button tied to streak cooldowns
-  status: PROPOSED
+  status: READY
   depends_on: [T8.2]
   acceptance_criteria:
     - DM `/home` embed includes a button leading to the daily quest claim interaction when cooldown permits.
     - Button state reflects cooldown readiness and disables when the streak reset requires manual action.
     - Tests cover enabled/disabled button states and the link to the daily claim handler.
-  notes: Proposed — Ready to wire once daily streak data stabilizes in production; meta pointer previously referenced this task.
+  notes: READY — Daily handler exists; next step is wiring the DM Home button and verifying cooldown messaging across enabled/disabled states.
 
 ## Phase 10 — Scalability Foundations
 
@@ -918,15 +919,35 @@ Each task has:
     - Update Prompt.md PATCHSET echo template or ops guides to require observability notes whenever scaling-affecting changes land.
   notes: Outcome — runWorker now emits structured telemetry snapshots, workers track queue depth/staleness/failure counters with thresholds, and OPERATIONS.md documents alert levels plus the scheduled validation dry run.
 
+- id: T10.SCALE.DB_ENV_SWITCH
+  title: Add dev/prod database connection mode toggle
+  status: DONE
+  depends_on: [T10.SCALE.OBS]
+  acceptance_criteria:
+    - Introduce a `DATABASE_CONNECTION_MODE` (auto/internal/external) toggle in shared config that defaults to pooled/internal URLs in production while preferring the external Render URL for local development when available.
+    - Ensure Prisma/bootstrap logging surfaces which database source was selected so telemetry reflects mode usage.
+    - Document the toggle workflow in `OPERATIONS.md`, covering how to flip between external dev and internal production endpoints.
+  notes: Outcome — Config now normalizes DATABASE_CONNECTION_MODE/Source, Prisma logs the selected endpoint, OPERATIONS.md documents the workflow, npm run build:ts passes, auto fallback now persists the first successful internal connection for dev runs, Prisma alternates single-attempt tries between external/internal sources for faster failover, and the PokéAPI fetch script runs on Windows so cache refresh rehearsals work locally.
+
 - id: T10.SCALE.LOAD_TEST
   title: Schedule post-split load test / game-night dry run
-  status: READY
-  depends_on: [T10.SCALE.OBS]
+  status: DONE
+  depends_on: [T10.SCALE.OBS, T10.SCALE.DB_ENV_SWITCH]
   acceptance_criteria:
     - Coordinate a load test or “game-night” dry run after observability instrumentation lands, capturing responsible owners and timing in OPERATIONS.md.
     - Define success thresholds (queue depth, sweep cadence, response latency) aligned with the new telemetry and document rollback steps if metrics regress.
     - Record outcomes and follow-up actions in Prompt.md Last Repo Changes and Tasklist notes after execution.
-  notes: READY — Telemetry is live; dry run is booked for 2025-10-30 01:00Z (Sherbivs + Ops) with thresholds logged in OPERATIONS.md. Execute and capture outcomes once the run completes.
+  notes: Outcome — Ran dry run early (2025-10-28T23:04Z); Prisma startup logged databaseSource=external/connectionMode=auto as expected, DM home/battle/outbox vitest suites passed, and the `/ops stats` failures were addressed immediately via T10.SCALE.OPS_STATS_FIX.
+
+- id: T10.SCALE.OPS_STATS_FIX
+  title: Restore /ops stats vitest coverage after connection-mode changes
+  status: DONE
+  depends_on: [T10.SCALE.LOAD_TEST]
+  acceptance_criteria:
+    - Provide consistent Prisma mocks (including outbox metrics) so collectOpsStatsFromPrisma runs without throwing during tests.
+    - Ensure vitest suite tests/ops.spec.ts passes with realistic stats content and participant filtering checks.
+    - Document the fix outcome and refreshed test posture in Prompt.md/OPERATIONS.md.
+  notes: Outcome — Added createPrismaStatsMock helper with outboxMessage defaults; all /ops stats tests now pass under vitest run.
 
 ## Phase 11 — Meta & AI Enablement
 

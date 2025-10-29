@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-28T23:45:00Z
-Revision: 1.41
+Last Updated (UTC): 2025-10-29T00:55:00Z
+Revision: 1.46
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
@@ -102,34 +102,40 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 
 <<<PATCHSET START>>>
-[Task T10.SCALE.OBS] Ship worker telemetry counters and schedule validation dry run
+[Task T10.SCALE.DB_ENV_SWITCH] Persist internal/external database preference for dev + alternate single-try failover
 
-FILE: src/shared/worker-runtime.ts
-Change: Introduce WorkerMetrics (gauges, counters, thresholds) with periodic snapshots and failure alerting baked into runWorker.
+FILE: src/shared/config.ts
+Change: Added disk-backed connection preference, surfaced ordered database candidates, and exposed helpers to persist the last successful source.
 
-FILE: src/worker/outbox.ts
-Change: Record queue depth, dispatch success/failure counters, and apply thresholded gauges for backlog monitoring.
+FILE: src/shared/prisma.ts
+Change: Reworked Prisma bootstrap to alternate single-attempt connects across candidates, swap datasources on failure, and record the winning source so internal connections stick.
 
-FILE: src/worker/cache-refresh.ts
-Change: Emit cache staleness gauges, refresh counters, and integrate metrics helpers for initialization and interval sweeps.
-
-FILE: src/worker/data-pipeline.ts
-Change: Track pipeline success/failure metrics, stale time gauges, and rely on new WorkerMetrics for repeats.
+FILE: tests/config.database.spec.ts
+Change: New vitest suite covering the persisted preference flow and ensuring internal wins reorder future candidates.
 
 FILE: Tasklist.md
-Change: Mark T10.SCALE.OBS DONE, promote T10.SCALE.LOAD_TEST to READY with scheduled window, and bump headers.
-
-FILE: ops/NEXT.yaml
-Change: Retarget NEXT to T10.SCALE.LOAD_TEST with the 2025-10-30 run details and refreshed files hint.
+Change: Bumped headers and noted that dev fallback now locks to the first successful internal connection.
 
 FILE: OPERATIONS.md
-Change: Document live observability thresholds and publish the load test schedule/owners.
+Change: Documented the persisted preference file and how dev environments reuse an internal endpoint once it succeeds.
 
 FILE: Prompt.md
-Change: Sync timestamp, Last Repo Changes, mission snapshot, and PATCHSET echo with telemetry completion and the scheduled dry run.
+Change: Logged the connection fallback overhaul, noted the alternating retry change, added the new tests, and refreshed the PATCHSET echo metadata.
+
+FILE: scripts/fetch_pokemon.mjs
+Change: Fixed the direct-invocation check on Windows so the PokkAPI cache fetch runs during local rehearsals.
+
+FILE: ops/TOUCHMAP.yaml
+Change: Added the fetch_pokemon script to the DB env switch routing hints so future editors know it lives in the patchset scope.
+
+FILE: ops/NEXT.yaml
+Change: Keeps NEXT on T8.4 with the updated rationale/timestamp after the load-test follow-up wrapped.
+
+FILE: tests/ops.spec.ts
+Change: (from prior follow-up) retains the createPrismaStatsMock helper covering outbox fields for `/ops stats` vitest coverage.
 
 FILE: Patch.md
-Change: Bump contract header and clipboard to reflect the shipped observability work.
+Change: Updated contract metadata and clipboard to describe the persistent connection-mode patchset.
 <<<PATCHSET END>>>
 
 

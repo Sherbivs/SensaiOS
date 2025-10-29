@@ -1,9 +1,24 @@
+import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
+
+export type DatabaseConnectionMode = "auto" | "external" | "internal";
+
+export type DatabaseUrlSource = "external" | "pool" | "internal" | "direct" | "env" | "unset";
+
+export type DatabaseCandidate = {
+  url: string;
+  source: DatabaseUrlSource;
+};
 
 export type RuntimeConfig = {
   nodeEnv: string;
   serviceName: string;
   databaseUrl: string;
+  databaseConnectionMode: DatabaseConnectionMode;
+  databaseUrlSource: DatabaseUrlSource;
+  databaseCandidates: DatabaseCandidate[];
+  databasePreferenceSource: DatabaseUrlSource | null;
   redisUrl: string | null;
   cacheTtlMs: number;
 };
@@ -16,25 +31,139 @@ function coerceNumber(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function resolveDatabaseUrl(): string {
-  const pool = process.env.DATABASE_POOL_URL?.trim();
-  if (pool) {
-    process.env.DATABASE_URL = pool;
-    return pool;
+type ResolvedDatabaseUrl = {
+  url: string;
+  source: DatabaseUrlSource;
+  mode: DatabaseConnectionMode;
+  candidates: DatabaseCandidate[];
+  preference: DatabaseUrlSource | null;
+};
+
+function preferenceDirectory(): string {
+  const override = process.env.DATABASE_CONNECTION_STATE_DIR?.trim();
+  if (override) {
+    return override;
+  }
+  return path.join(os.homedir(), ".infinity-gauntlet");
+}
+
+function preferenceFilePath(): string {
+  return path.join(preferenceDirectory(), "db-connection.json");
+}
+
+function readConnectionPreference(): DatabaseUrlSource | null {
+  try {
+    const payload = fs.readFileSync(preferenceFilePath(), "utf8");
+    const parsed = JSON.parse(payload);
+    const source = parsed?.lastSource;
+    if (typeof source === "string" && ["external", "pool", "internal", "direct", "env"].includes(source)) {
+      return source as DatabaseUrlSource;
+    }
+  } catch (error) {
+    // ignore read issues
+  }
+  return null;
+}
+
+function writeConnectionPreference(source: DatabaseUrlSource): void {
+  try {
+    const targetDir = preferenceDirectory();
+    fs.mkdirSync(targetDir, { recursive: true });
+    const data = {
+      lastSource: source,
+      updatedAt: new Date().toISOString(),
+    };
+    fs.writeFileSync(preferenceFilePath(), JSON.stringify(data));
+  } catch (error) {
+    // ignore write issues
+  }
+}
+
+function normalizeMode(raw: string | undefined): DatabaseConnectionMode {
+  const candidate = raw?.trim().toLowerCase();
+  if (!candidate) {
+    return "auto";
+  }
+  if (["external", "public", "dev"].includes(candidate)) {
+    return "external";
+  }
+  if (["internal", "private", "pool", "prod"].includes(candidate)) {
+    return "internal";
+  }
+  return "auto";
+}
+
+function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
+  const mode = normalizeMode(process.env.DATABASE_CONNECTION_MODE);
+  const poolUrl = process.env.DATABASE_POOL_URL?.trim() ?? "";
+  const internalUrl = process.env.DATABASE_INTERNAL_URL?.trim() ?? "";
+  const directUrl = process.env.DATABASE_DIRECT_URL?.trim() ?? "";
+  const envUrl = process.env.DATABASE_URL?.trim() ?? "";
+  const externalUrl =
+    process.env.DATABASE_EXTERNAL_URL?.trim() ??
+    process.env.DATABASE_PUBLIC_URL?.trim() ??
+    process.env.DATABASE_URL_EXTERNAL?.trim() ??
+    "";
+
+  const preferExternal = mode === "external" || (mode === "auto" && nodeEnv !== "production");
+
+  const candidates: Array<{ value: string; source: DatabaseUrlSource }> = [];
+
+  const pushCandidate = (value: string, source: DatabaseUrlSource): void => {
+    if (!value) {
+      return;
+    }
+    if (candidates.some((candidate) => candidate.value === value)) {
+      return;
+    }
+    candidates.push({ value, source });
+  };
+
+  const pushInternalCandidates = (): void => {
+    pushCandidate(internalUrl, "internal");
+    pushCandidate(directUrl, "direct");
+  };
+
+  if (preferExternal) {
+    pushCandidate(externalUrl, "external");
+    pushCandidate(envUrl, "env");
+    pushCandidate(poolUrl, "pool");
+    pushInternalCandidates();
+  } else {
+    pushCandidate(poolUrl, "pool");
+    pushInternalCandidates();
+    pushCandidate(envUrl, "env");
+    pushCandidate(externalUrl, "external");
   }
 
-  const direct = process.env.DATABASE_URL?.trim();
-  if (direct) {
-    return direct;
+  const preference = readConnectionPreference();
+
+  if (preference) {
+    const index = candidates.findIndex((candidate) => candidate.source === preference && candidate.value);
+    if (index > 0) {
+      const [preferred] = candidates.splice(index, 1);
+      candidates.unshift(preferred);
+    }
   }
 
-  const internal = process.env.DATABASE_INTERNAL_URL?.trim();
-  if (internal) {
-    process.env.DATABASE_URL = internal;
-    return internal;
+  const databaseCandidates: DatabaseCandidate[] = candidates
+    .filter((candidate) => Boolean(candidate.value))
+    .map((candidate) => ({ url: candidate.value, source: candidate.source }));
+
+  const resolved = databaseCandidates[0];
+  if (resolved) {
+    process.env.DATABASE_URL = resolved.url;
+    process.env.DATABASE_CONNECTION_MODE = mode;
+    process.env.DATABASE_CONNECTION_SOURCE = resolved.source;
+    if (preference) {
+      process.env.DATABASE_CONNECTION_PREFERENCE_SOURCE = preference;
+    }
+    return { url: resolved.url, source: resolved.source, mode, candidates: databaseCandidates, preference };
   }
 
-  return "";
+  process.env.DATABASE_CONNECTION_MODE = mode;
+  process.env.DATABASE_CONNECTION_SOURCE = "unset";
+  return { url: "", source: "unset", mode, candidates: databaseCandidates, preference };
 }
 
 function assertDatabaseUrl(nodeEnv: string, url: string): void {
@@ -66,7 +195,13 @@ export function loadConfig(): RuntimeConfig {
   }
 
   const nodeEnv = process.env.NODE_ENV?.trim() || "development";
-  const databaseUrl = resolveDatabaseUrl();
+  const {
+    url: databaseUrl,
+    source: databaseUrlSource,
+    mode: databaseConnectionMode,
+    candidates: databaseCandidates,
+    preference: databasePreferenceSource,
+  } = resolveDatabaseUrl(nodeEnv);
   assertDatabaseUrl(nodeEnv, databaseUrl);
 
   const serviceName = process.env.SERVICE_NAME?.trim() || os.hostname();
@@ -77,6 +212,10 @@ export function loadConfig(): RuntimeConfig {
     nodeEnv,
     serviceName,
     databaseUrl,
+    databaseConnectionMode,
+    databaseUrlSource,
+    databaseCandidates,
+    databasePreferenceSource,
     redisUrl,
     cacheTtlMs,
   };
@@ -85,3 +224,30 @@ export function loadConfig(): RuntimeConfig {
 }
 
 export const config = loadConfig();
+
+export function recordDatabaseConnectionSuccess(source: DatabaseUrlSource): void {
+  writeConnectionPreference(source);
+  process.env.DATABASE_CONNECTION_LAST_SOURCE = source;
+  process.env.DATABASE_CONNECTION_PREFERENCE_SOURCE = source;
+  if (source === "internal" || source === "pool" || source === "direct") {
+    process.env.DATABASE_CONNECTION_MODE = "internal";
+  }
+  if (cachedConfig) {
+    const candidates = [...cachedConfig.databaseCandidates];
+    const index = candidates.findIndex((candidate) => candidate.source === source);
+    if (index > 0) {
+      const [preferred] = candidates.splice(index, 1);
+      candidates.unshift(preferred);
+    }
+    cachedConfig = {
+      ...cachedConfig,
+      databaseUrlSource: source,
+      databasePreferenceSource: source,
+      databaseCandidates: candidates,
+    };
+  }
+}
+
+export function resetConfigCacheForTests(): void {
+  cachedConfig = null;
+}

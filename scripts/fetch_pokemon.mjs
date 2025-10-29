@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { createReadStream, createWriteStream } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const CACHE_DIR = process.env.CACHE_DIR || './data/cache';
 const LIST_URL = 'https://pokeapi.co/api/v2/pokemon?limit=20000&offset=0';
@@ -126,7 +127,17 @@ export async function main() {
   console.log(`🧾  Meta: ${path.join(CACHE_DIR, 'meta.json')}`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const invokedDirectly = (() => {
+  const arg = process.argv[1];
+  if (!arg) return false;
+  try {
+    return import.meta.url === pathToFileURL(arg).href;
+  } catch {
+    return false;
+  }
+})();
+
+if (invokedDirectly) {
   main().catch((error) => {
     console.error('fetch_pokemon failed:', error);
     process.exit(1);
