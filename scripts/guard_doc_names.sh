@@ -3,6 +3,10 @@ set -euo pipefail
 
 echo "🔎 Guarding canonical doc filenames…"
 
+# Grab tracked/untracked paths once so we can reason about case-sensitive names even on Windows.
+tracked_paths="$(git ls-files)"
+untracked_paths="$(git ls-files --others --exclude-standard)"
+
 # Required files with exact case
 required=(
   "Patch.md"
@@ -14,7 +18,7 @@ required=(
 status=0
 
 for f in "${required[@]}"; do
-  if [[ ! -f "$f" ]]; then
+  if ! printf '%s\n' "$tracked_paths" "$untracked_paths" | grep -Fx "$f" >/dev/null; then
     echo "ERROR: Missing required file with exact case: $f"
     status=1
   fi
@@ -28,22 +32,20 @@ forbidden=(
 )
 
 for f in "${forbidden[@]}"; do
-  if [[ -f "$f" ]]; then
+  if printf '%s\n' "$tracked_paths" "$untracked_paths" | grep -Fx "$f" >/dev/null; then
     echo "ERROR: Forbidden filename present: $f (must use capitalized canonical name)"
     status=1
   fi
 done
 
 # For ops backup, reject any case variant that isn't the canonical one
-# Find any file in ops/ named PATCH_POLICY_BACKUP.md ignoring case
-found="$(find ops -maxdepth 1 -type f -iname 'patch_policy_backup.md' 2>/dev/null || true)"
-if [[ -n "$found" ]]; then
-  while IFS= read -r path; do
-    [[ "$path" == "ops/PATCH_POLICY_BACKUP.md" ]] || {
+if printf '%s\n' "$tracked_paths" "$untracked_paths" | grep -Fi 'ops/patch_policy_backup.md' >/dev/null; then
+  printf '%s\n' "$tracked_paths" "$untracked_paths" | grep -Fi 'ops/patch_policy_backup.md' | while IFS= read -r path; do
+    if [[ "$path" != "ops/PATCH_POLICY_BACKUP.md" ]]; then
       echo "ERROR: Forbidden backup filename variant: $path (must be ops/PATCH_POLICY_BACKUP.md)"
       status=1
-    }
-  done <<< "$found"
+    fi
+  done
 fi
 
 if [[ $status -eq 0 ]]; then
