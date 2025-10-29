@@ -102,22 +102,18 @@ _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 
 <<<PATCHSET START>>>
-[Task T10.DEX.MIGRATE_ACCELERATE] Complete dex spine rollout on Accelerate + refresh SpeciesSheet
+[Task T10.DEX.MIGRATE_ACCELERATE] Re-run dex seeding/backfill/cache warm on both databases and log the outcomes
 
-FILE: secrets/prisma-accelerate.env
-Change: Store the Prisma Accelerate direct connection string locally so migrate deploy can target the primary database.
-
-FILE: scripts/ops/run_dex_migrations.ps1
-Change: New helper script to export DATABASE_URL/DATABASE_DIRECT_URL from the secrets file, run `npx prisma migrate deploy`, and refresh `SpeciesSheet` on Accelerate and Render.
-
-FILE: ops/DB_IMPORT_PRISMA_POSTGRES.md
-Change: Document the new helper script usage and the requirement to refresh `SpeciesSheet` after migrations.
-
-FILE: scripts/check_db_redundancy.ts
-Change: Extend redundancy checks to confirm Species, Type, Move, and SpeciesSheet parity between Accelerate and Render after deploy.
+FILE: Tasklist.md
+Change: Note the Accelerate vs Render reruns, including the persisted SpeciesSheet permission failure and any standby refresh status.
 
 FILE: Prompt.md
-Change: Log the Accelerate deploy/refresh outcome and update the PATCHSET echo once migrations complete.
+Change: Update Last Repo Changes and PATCHSET echo with the rerun evidence (commands, successes, blockers).
+
+FILE: Patch.md
+Change: Keep the clipboard aligned with the new execution/reporting plan.
+
+<<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>
 [Task T10.DEX.ROLLOUT_PLAN] Execute dex seeding, cache warm, and species backfill rollout
@@ -144,7 +140,6 @@ Change: Transition T10.DEX.SEED_CACHE_WARM and T10.DEX.SPECIES_BACKFILL to READY
 Change: Introduce T10.DEX.MIGRATE_ACCELERATE, T10.DEX.SEED_CACHE_WARM, and T10.DEX.SPECIES_BACKFILL as PROPOSED with acceptance criteria mirroring the outstanding rollout steps; keep NEXT on T8.4.
 
 <<<PROPOSED PATCHSET END>>>
-<<<PATCHSET END>>>
 
 
 

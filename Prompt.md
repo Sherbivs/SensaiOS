@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-29T19:10:00Z
-Revision: 1.25
+Timestamp (UTC): 2025-10-29T21:15:00Z
+Revision: 1.27
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added a gitignored `secrets/` directory (plus fallback `prisma-accelerate.env`) so Prisma Accelerate credentials stay local.
-- Updated ops/meta routers and Tasklist notes to point operators at `secrets/prisma-accelerate.env` before running migrate deploy.
-- Refreshed Patch.md clipboard/Prompt metadata to capture the secrets hint; tests were not run for this documentation update.
+- Added a connection sanity matrix to `ops/DB_BOOTSTRAP.md` capturing the verified Accelerate and Render standby credentials plus the commands used to validate each endpoint.
+- Re-ran `npx prisma migrate status` for both Accelerate and the Render standby (pooled/direct URL) and refreshed `npx tsx scripts/db_smoke.ts` to confirm the Prisma Accelerate tunnel still answers queries.
+- Updated Task `T10.DEX.MIGRATE_ACCELERATE` notes with the Render standby check while keeping the SpeciesSheet permission blocker highlighted.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -20,7 +20,7 @@ Revision: 1.25
 
 ## Active Mission Snapshot
 - **NEXT Pointer:** T8.4 — implement the DM Home daily claim button and associated cooldown feedback tests.
-- **READY / In-flight:** T8.4 remains READY; T10.DEX.* tasks stay PROPOSED with an added note about the gitignored Accelerate secret location.
+- **READY / In-flight:** T8.4 remains READY; T10.DEX.MIGRATE_ACCELERATE is IN_PROGRESS pending SpeciesSheet refresh permissions (42501 on refresh scripts), with downstream T10.DEX.* tasks still queued after the refresh clears.
 - **Recent Finish:** T10.SCALE.LOAD_TEST and T10.SCALE.OPS_STATS_FIX wrapped, confirming connection-mode telemetry and restoring ops stats tests.
 
 ## System Highlights
@@ -62,9 +62,9 @@ Revision: 1.25
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Documented the gitignored Prisma Accelerate secret location across .gitignore, meta routers, and Tasklist notes.
+Change: Documented Accelerate vs Render standby connection checks, refreshed the MIGRATE task note, and logged the confirmed commands plus the SpeciesSheet permission blocker.
 TasklistDiff: true
-Tests: not run (documentation-only update)
+Tests: npx prisma migrate status (Accelerate) (pass); npx prisma migrate status (Render standby) (pass); npx tsx scripts/db_smoke.ts (Accelerate) (pass); scripts/dex backfill + warm cache not rerun this pass (still blocked by 42501 permission error)
 Contracts: ON
 NEXT: T8.4 — wire the DM Home daily-claim button and add cooldown feedback coverage.
 <!-- PATCHSET:ECHO END -->

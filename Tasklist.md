@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-29T19:10:00Z
-Revision: 1.91
+Last Updated (UTC): 2025-10-29T21:15:00Z
+Revision: 1.93
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -951,13 +951,13 @@ Each task has:
 
 - id: T10.DEX.MIGRATE_ACCELERATE
   title: Deploy dex spine migrations to Accelerate and refresh SpeciesSheet
-  status: PROPOSED
+  status: IN_PROGRESS
   depends_on: [T10.SCALE.DB_BOOTSTRAP]
   acceptance_criteria:
     - Acquire the direct Prisma Accelerate connection string (via tunnel or stored secret) and run `npx prisma migrate deploy` so `202510290930_dex_reference_spine` and dependent migrations apply without errors.
     - After deploy succeeds, execute `REFRESH MATERIALIZED VIEW CONCURRENTLY "SpeciesSheet"` on both Accelerate and Render so the materialized view reflects the new dex tables.
     - Capture the deploy/refresh evidence (command output or runbook entry) and update the redundancy check to confirm the dex tables are present in both environments.
-  notes: Proposed — Render standby now has the migration resolved; Accelerate deploy and SpeciesSheet refresh remain outstanding. Prisma Accelerate credentials are stored locally at `secrets/prisma-accelerate.env` (gitignored) to satisfy migrate deploy requirements.
+  notes: In progress — Updated Prisma Accelerate credentials, applied pending migrations (`npx prisma migrate deploy`), and reran `scripts/dex/seed_reference.ts`. Render standby verified with `npx prisma migrate status` using the pooled/direct URL (`postgresql://infinity_gauntlet_db_user:<render-password>@dpg-d3vd8h7diees73et3i3g-a.oregon-postgres.render.com:5432/infinity_gauntlet_db?sslmode=require`). Refreshing `SpeciesSheet` on Accelerate still fails with `permission denied for materialized view` (42501); awaiting elevated role or alternate refresh path before closing the task.
 
 - id: T10.DEX.SEED_CACHE_WARM
   title: Seed dex reference tables and warm dependent caches

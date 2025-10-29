@@ -68,6 +68,20 @@ Dex reference rollout follow-up
 
   Capture the output of these commands in the deployment log so the T10.DEX tasks can be advanced to READY/DONE with confidence.
 
+Connection sanity matrix — 2025-10-29T20:45Z
+- Accelerate (primary)
+  - Load credentials: `Get-Content secrets/prisma-accelerate.env | ForEach-Object { ... }`
+  - Validated commands (PASS):
+    - `npx prisma migrate status`
+    - `npx prisma migrate deploy`
+    - `npx tsx scripts/dex/seed_reference.ts`
+    - `npx tsx scripts/db_smoke.ts`
+  - Observed blocker: `npx tsx scripts/dex/backfill_species.ts` and `npx tsx scripts/dex/warm_cache.ts` both fail with `permission denied for materialized view SpeciesSheet` (Postgres 42501). The connection works; request elevated role before refreshing the materialized view.
+- Render dev standby
+  - Load credentials: `Set-Item Env:DATABASE_URL 'postgresql://infinity_gauntlet_db_user:<render-password>@dpg-d3vd8h7diees73et3i3g-a.oregon-postgres.render.com:5432/infinity_gauntlet_db?sslmode=require'` (same value for `DATABASE_DIRECT_URL`; copy from Render's connectionString/directConnectionString secrets)
+  - Validated commands (PASS): `npx prisma migrate status`
+  - Pending follow-up: rerun dex seeding/backfill scripts once SpeciesSheet permissions are granted so the standby matches Accelerate after the refresh.
+
 Rollback and safety
 - If anything goes wrong, do not apply more migrations. Revert to a DB snapshot if you took one and open an ops incident.
 
