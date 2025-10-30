@@ -12,7 +12,8 @@ import {
 } from "./shared/prisma.js";
 import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
 import { bootDiscord } from "./bot/index.js";
-import { ENABLE_SECURITY_BOT } from "./config/env.js";
+import { ENABLE_DB_AUTO_SYNC, ENABLE_SECURITY_BOT } from "./config/env.js";
+import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
 
 const CLI_MONITOR_DISABLED =
   process.env.DISABLE_CLI_MONITOR === "true" || process.env.NODE_ENV === "test";
@@ -40,6 +41,7 @@ let monitorRefreshTimer: NodeJS.Timeout | null = null;
 let lastCacheSnapshot: CacheSnapshot | null = null;
 let lastPrismaSample: { timestamp: number; latencyMs: number | null } | null = null;
 let prismaConnectDurationMs: number | null = null;
+let stopAutoSyncSupervisor: (() => void) | null = null;
 
 function withMonitor(callback: (monitor: typeof cliStatus) => void): void {
   if (!monitorActive) {
@@ -479,6 +481,8 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     detachPrismaHeartbeatListener = null;
     stopPrismaHeartbeatTask?.();
     stopPrismaHeartbeatTask = null;
+    stopAutoSyncSupervisor?.();
+    stopAutoSyncSupervisor = null;
     await prisma.$disconnect();
   } catch (error) {
     log.error("Error during Prisma disconnect", error);
@@ -538,7 +542,7 @@ export async function boot(): Promise<void> {
   installSignalHandlers();
   startMonitor();
 
-  log.info("Infinity Gauntlet: toolchain online", { env: config.env });
+  log.info("Infinity Gauntlet: toolchain online", { env: config.nodeEnv });
 
   const dbStart = process.hrtime.bigint();
   setSection("database", { title: "Database", status: "connecting", metrics: [] });
@@ -558,6 +562,9 @@ export async function boot(): Promise<void> {
     log.info("Database connectivity OK");
     detachPrismaHeartbeatListener = onPrismaHeartbeat(renderPrismaHeartbeat);
     stopPrismaHeartbeatTask = startPrismaHeartbeat();
+    if (ENABLE_DB_AUTO_SYNC && !stopAutoSyncSupervisor) {
+      stopAutoSyncSupervisor = startAutoSyncSupervisor();
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     setSection("database", {

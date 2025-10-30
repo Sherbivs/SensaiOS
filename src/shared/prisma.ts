@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaClient as EdgePrismaClient } from "@prisma/client/edge";
 import { withAccelerate } from "@prisma/extension-accelerate";
@@ -97,13 +98,59 @@ let optimizeExtender: OptimizeExtender | null = null;
 
 const optimizeApiKey = process.env.OPTIMIZE_API_KEY?.trim();
 
+type OptimizeModule = typeof import("@prisma/extension-optimize");
+
 if (optimizeApiKey) {
-  try {
-    const optimizeModule = await import("@prisma/extension-optimize");
+  const apiKey = optimizeApiKey;
+
+  const attachOptimizeModule = (module: Partial<OptimizeModule> | null | undefined): boolean => {
+    if (!module) {
+      return false;
+    }
+    const withOptimize = module.withOptimize;
+    if (typeof withOptimize !== "function") {
+      return false;
+    }
     optimizeExtender = (client: PrismaClient) =>
-      client.$extends(optimizeModule.withOptimize({ apiKey: optimizeApiKey })) as unknown as PrismaClient;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+      client.$extends(withOptimize({ apiKey })) as unknown as PrismaClient;
+    return true;
+  };
+
+  let loadError: unknown = null;
+
+  const tryDynamicImport = async (): Promise<boolean> => {
+    try {
+      const module = await import("@prisma/extension-optimize");
+      if (attachOptimizeModule(module)) {
+        loadError = null;
+        return true;
+      }
+      loadError = new Error("withOptimize export is unavailable");
+    } catch (error) {
+      loadError = error;
+    }
+    return false;
+  };
+
+  const tryRequire = (): boolean => {
+    try {
+      const require = createRequire(import.meta.url);
+      const module = require("@prisma/extension-optimize") as OptimizeModule;
+      if (attachOptimizeModule(module)) {
+        loadError = null;
+        return true;
+      }
+      loadError = new Error("withOptimize export is unavailable");
+    } catch (error) {
+      loadError = error;
+    }
+    return false;
+  };
+
+  const loaded = (await tryDynamicImport()) || tryRequire();
+
+  if (!loaded && loadError) {
+    const message = loadError instanceof Error ? loadError.message : String(loadError);
     log.warn("Prisma Optimize disabled; failed to load extension", { error: message });
     optimizeExtender = null;
   }

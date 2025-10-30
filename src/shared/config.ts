@@ -142,6 +142,9 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
 
   const isAccelerateUrl = (value: string): boolean => /^prisma\+/i.test(value);
 
+  const envIsAccelerate = isAccelerateUrl(envUrl);
+  const accelerateActive = Boolean(accelerateUrl) || envIsAccelerate;
+
   const candidates: Array<{ value: string; source: DatabaseUrlSource }> = [];
 
   const pushCandidate = (value: string, source: DatabaseUrlSource): void => {
@@ -159,21 +162,32 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     pushCandidate(accelerateUrl, "accelerate");
   }
 
+  if (!accelerateUrl && envIsAccelerate) {
+    pushCandidate(envUrl, "env");
+  }
+
+  const pushNonAccelerateCandidate = (value: string, source: DatabaseUrlSource): void => {
+    if (accelerateActive) {
+      return;
+    }
+    pushCandidate(value, source);
+  };
+
   const pushInternalCandidates = (): void => {
-    pushCandidate(internalUrl, "internal");
-    pushCandidate(directUrl, "direct");
+    pushNonAccelerateCandidate(internalUrl, "internal");
+    pushNonAccelerateCandidate(directUrl, "direct");
   };
 
   if (preferExternal) {
-    pushCandidate(externalUrl, "external");
-    pushCandidate(envUrl, "env");
-    pushCandidate(poolUrl, "pool");
+    pushNonAccelerateCandidate(externalUrl, "external");
+    pushNonAccelerateCandidate(envUrl, "env");
+    pushNonAccelerateCandidate(poolUrl, "pool");
     pushInternalCandidates();
   } else {
-    pushCandidate(poolUrl, "pool");
+    pushNonAccelerateCandidate(poolUrl, "pool");
     pushInternalCandidates();
-    pushCandidate(envUrl, "env");
-    pushCandidate(externalUrl, "external");
+    pushNonAccelerateCandidate(envUrl, "env");
+    pushNonAccelerateCandidate(externalUrl, "external");
   }
 
   const preference = readConnectionPreference();

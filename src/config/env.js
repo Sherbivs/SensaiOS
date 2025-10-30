@@ -116,6 +116,10 @@ const BOT_TOKEN = SECURITY_BOT_TOKEN;
 const ENABLE_CONTINUOUS_SWEEP = process.env.ENABLE_CONTINUOUS_SWEEP === undefined
   ? true
   : toBool(process.env.ENABLE_CONTINUOUS_SWEEP);
+const rawEnableDbAutoSync = process.env.ENABLE_DB_AUTO_SYNC;
+const ENABLE_DB_AUTO_SYNC = rawEnableDbAutoSync === undefined
+  ? false
+  : toBool(rawEnableDbAutoSync);
 
 // Role assignment defaults
 const DEFAULT_ROLE_NAME = 'Trainer';
@@ -210,6 +214,7 @@ export {
   ENABLE_POKEMON_BOT,
   POKEMON_BOT_AUTO_DISABLED,
   ENABLE_CONTINUOUS_SWEEP,
+  ENABLE_DB_AUTO_SYNC,
   DEFAULT_ROLE_NAME,
   ROLE_NAME,
   ROLE_ID,
@@ -257,6 +262,7 @@ export default {
   ENABLE_POKEMON_BOT,
   POKEMON_BOT_AUTO_DISABLED,
   ENABLE_CONTINUOUS_SWEEP,
+  ENABLE_DB_AUTO_SYNC,
   DEFAULT_ROLE_NAME,
   ROLE_NAME,
   ROLE_ID,
