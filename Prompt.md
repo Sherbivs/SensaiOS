@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-30T17:30:00Z
-Revision: 1.52
+Timestamp (UTC): 2025-10-30T17:46:00Z
+Revision: 1.53
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added `scripts/guard_db_docs.mjs` and `.github/workflows/guard-db-docs.yml` to block merges when DB connection docs drift from the Key/Dev vs Key/Prod layout or drop the Prisma regenerate reminder.
-- Updated `masterroutetable.md`, `scripts/ROUTER.md`, and `ops/ROUTER.md` with explicit `npx prisma generate` context and guard coverage so future editors keep the instructions aligned.
-- Closed META.DB.CONNECTION_GUARD, queued META.DB.CONNECTION_GUARD_POSTCHECK, and refreshed Tasklist/NEXT metadata for the guard follow-up.
+- Logged the guard baseline in Tasklist.md after running `node scripts/guard_db_docs.mjs` (✅ output recorded) and documented remediation steps for doc drift.
+- Added META.DB.CONNECTION_GUARD_CI_TRACK plus NEXT/Touchmap updates so the first passing guard-db-docs CI run gets captured with a run id and Prompt echo.
+- Reaffirmed the `npx prisma generate` reminder across remediation guidance to prevent Accelerate driver residue when switching back to Dev.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -18,9 +18,9 @@ Revision: 1.52
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** META.DB.CONNECTION_GUARD_POSTCHECK — capture guard baseline output and remediation notes for the new DB doc workflow.
-- **READY / In-flight:** META.DB.CONNECTION_GUARD_POSTCHECK READY; guard coverage landed and follow-up will document baseline results + fixes.
-- **Recent Finish:** META.DB.CONNECTION_GUARD shipped guard_db_docs.mjs + CI workflow, refreshed routers, and anchored `npx prisma generate` in masterroutetable.
+- **NEXT Pointer:** META.DB.CONNECTION_GUARD_CI_TRACK — record the first passing guard-db-docs CI run and mirror it into meta docs.
+- **READY / In-flight:** META.DB.CONNECTION_GUARD_CI_TRACK READY; baseline captured locally while we wait for the initial GitHub Actions run.
+- **Recent Finish:** META.DB.CONNECTION_GUARD_POSTCHECK logged the guard output, linked the workflow dashboard, and codified drift remediation steps (including the Prisma regenerate reminder).
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -61,11 +61,11 @@ Revision: 1.52
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Added guard_db_docs.mjs + guard-db-docs CI to enforce Key/Dev/Key/Prod guidance, refreshed routers/masterroutetable with explicit `npx prisma generate`, and queued the postcheck task.
+Change: Recorded guard_db_docs baseline output, documented remediation guidance (with `npx prisma generate` reminder), and queued CI tracking for the first guard-db-docs workflow run.
 TasklistDiff: true
 Tests: not run (docs/scripts update)
 Contracts: ON
-NEXT: META.DB.CONNECTION_GUARD_POSTCHECK - capture guard baseline output and remediation guidance.
+NEXT: META.DB.CONNECTION_GUARD_CI_TRACK - log the first passing guard-db-docs CI run and echo it in meta docs.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

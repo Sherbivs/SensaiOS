@@ -260,6 +260,13 @@ META.DB.CONNECTION_GUARD:
   - "ops/ROUTER.md"
   - "masterroutetable.md"
 
+META.DB.CONNECTION_GUARD_CI_TRACK:
+  - "scripts/guard_db_docs.mjs"
+  - ".github/workflows/guard-db-docs.yml"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
+
 # Glob prefixes to catch future tasks in the same family
 "Phase 0*":
   - "/ops/**"

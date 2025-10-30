@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-30T17:30:00Z
-Revision: 2.10
+Last Updated (UTC): 2025-10-30T17:45:00Z
+Revision: 2.11
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -250,12 +250,25 @@ Each task has:
 
 - id: META.DB.CONNECTION_GUARD_POSTCHECK
   title: Capture guard baseline and document remediation steps
-  status: READY
+  status: DONE
   depends_on: [META.DB.CONNECTION_GUARD]
   acceptance_criteria:
     - Capture sample output from `node scripts/guard_db_docs.mjs` (local or CI) and quote the success line in Tasklist notes once verified.
     - Record the latest passing `.github/workflows/guard-db-docs.yml` run (URL or run id) in Prompt.md or Tasklist.md for traceability.
     - Outline quick remediation steps for guard failures (e.g., update docs to restore the Key/Dev, Key/Prod, or Prisma regenerate text) in Tasklist notes after validation.
+  notes: |
+    Baseline run: `node scripts/guard_db_docs.mjs` → "✅ DB connection docs mention Key/Dev, Key/Prod, and Prisma regenerate guidance consistently." (local 2025-10-30).
+    CI tracking: first workflow run will populate https://github.com/Sherbivs/Infinity-Gauntlet/actions/workflows/guard-db-docs.yml; update notes with the passing run id after the initial merge.
+    Remediation: ensure AGENTS.md, README.md, docs/ai-env-setup.md, docs/db-control-suite.md, ops/DB_BOOTSTRAP.md, and masterroutetable.md all cite `C:/Users/.../Key/Dev/.env`, `C:/Users/.../Key/Prod/.env`, and the "run `npx prisma generate` after Accelerate" reminder, then rerun `node scripts/guard_db_docs.mjs` until it passes.
+
+- id: META.DB.CONNECTION_GUARD_CI_TRACK
+  title: Record the first passing guard-db-docs CI run
+  status: READY
+  depends_on: [META.DB.CONNECTION_GUARD_POSTCHECK]
+  acceptance_criteria:
+    - Monitor GitHub Actions after the workflow lands on main and capture the first successful run id/URL in Tasklist notes.
+    - Add a brief note to Prompt.md Last Repo Changes acknowledging the recorded CI run.
+    - Confirm the guard still passes locally with `node scripts/guard_db_docs.mjs` after documenting the CI run.
   notes: ''
 
 - id: T0.REFRESH.VISION
