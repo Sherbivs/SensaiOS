@@ -1,6 +1,7 @@
 # Master Router Table
 Last Updated (UTC): 2025-10-29T19:10:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
+Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
 ## Router-of-Routers
 - `ops/ROUTER_INDEX.yaml` — Generated index of active routers. Start here to locate downstream routers quickly.
@@ -57,12 +58,12 @@ Purpose: Text-only reference of every router, its downstream routers, and the pr
   - `scripts/update_change_ledger.sh` — regenerate Prompt change ledger
   - `scripts/update_router_index.sh` — rebuild `ops/ROUTER_INDEX.yaml`
   - `scripts/refresh_vision.sh` — refresh routers + recovery metadata
-  - `scripts/archive_task_history.mjs` — archive Tasklist history to `ops/ARCHIVE/`
-  - `scripts/verify_router_links.sh` — canonical path guard (CI)
-  - `scripts/hotfix_entry.sh` — hotfix checklist helper
-  - `scripts/guard_meta.sh` — enforces READY invariants pre/post flight
-  - `scripts/bootstrap_staging_db.ps1` — interactive helper to run `prisma migrate deploy` on staging safely
-  - `scripts/restore_prisma_postgres.ps1` — Prisma Postgres tunnel + restore automation
+  - `scripts/archive_task_history.mjs` — Muted (local archival helper); archive Tasklist history to `ops/ARCHIVE/`
+  - `scripts/verify_router_links.sh` — Muted (CI-only guard); canonical path guard (CI)
+  - `scripts/hotfix_entry.sh` — Muted (operator checklist); hotfix checklist helper
+  - `scripts/guard_meta.sh` — Muted (preflight-only); enforces READY invariants pre/post flight
+  - `scripts/bootstrap_staging_db.ps1` — Muted (staging-only); interactive helper to run `prisma migrate deploy` on staging safely
+  - `scripts/restore_prisma_postgres.ps1` — Muted (local restore); Prisma Postgres tunnel + restore automation
   - `scripts/db_smoke.ts` — Accelerate smoke query (`SELECT 1 AS ok`)
 - Notes:
   - 2025-10-27: Router scripts audited; verify_router_links and update_router_index keep meta routers synchronized during PBSL work.
