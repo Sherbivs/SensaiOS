@@ -23,7 +23,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - **Start dev:** `pnpm dev` (or `npm run dev`)
 - **Test:** `pnpm test`
 - **Lints:** `pnpm lint:all`
-- **Env needed (do not commit secrets):** see `.env.example`. Rotate keys regularly. Point the runtime at external secret stores with `IG_ENV_FILE` (falls back to repo `.env`).
+- **Env needed (do not commit secrets):** start from `.env.example` and `secrets/*.env.example`. Rotate keys regularly. Point the runtime at external secret stores with `IG_ENV_FILE` (falls back to repo `.env`, skipped in production unless `IG_ALLOW_REPO_ENV=1`).
 
 ## Capabilities & Routing Hints
 - **planner:** break down vague goals; produce measurable milestones and resource budgets.

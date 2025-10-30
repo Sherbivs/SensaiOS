@@ -19,6 +19,7 @@
     "refresh:vision": "bash scripts/refresh_vision.sh",
     "hotfix": "bash scripts/hotfix_entry.sh",
     "tasks:archive": "node scripts/archive_task_history.mjs",
+  "db:cli": "tsx scripts/db_admin.ts",
     "lint": "eslint \"{src,tests}/**/*.ts\"",
     "test": "vitest",
     "test:pbsl": "vitest run tests/pbsl",

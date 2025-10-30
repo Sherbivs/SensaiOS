@@ -91,6 +91,7 @@ Materialized view refresh flows through the helper; direct `REFRESH MATERIALIZED
 - **Outbox sink:** `src/worker/outbox.ts` now writes each processed message to the configured backup sink (`BACKUP_STORAGE_PROVIDER = s3|local|none`). Success logs include provider & location; health metrics report `backupProvider`.
 - **Telemetry:** `worker.metrics.snapshot` feeds queue depth, cache size, and failure counters. Alert thresholds documented in `OPERATIONS.md`.
 - **Guards:** `scripts/guard_meta.sh`, `scripts/check_db_redundancy.ts`, and `scripts/db_smoke.ts` verify data parity and schema readiness.
+- **Control Suite:** `scripts/db_admin.ts` (run via `npm run db:cli`) consolidates counts, status checks, and raw queries while respecting secure env loading.
 
 ## 8. Testing & Local Verification
 

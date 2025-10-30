@@ -1,3 +1,9 @@
+const envTruthy = (value) => {
+  if (value === undefined || value === null) return false;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+};
+
 let dotenv = null;
 try {
   ({ default: dotenv } = await import('dotenv'));
@@ -10,6 +16,10 @@ if (dotenv?.config) {
     .map((value) => (typeof value === 'string' ? value.trim() : ''))
     .filter(Boolean);
 
+  const runtimeEnv = (process.env.NODE_ENV ?? '').toLowerCase();
+  const isProdRuntime = runtimeEnv === 'production' || runtimeEnv === 'prod';
+  const allowRepoFallback = envTruthy(process.env.IG_ALLOW_REPO_ENV ?? process.env.ALLOW_REPO_ENV);
+
   let loaded = false;
   for (const candidate of overrideCandidates) {
     const result = dotenv.config({ path: candidate });
@@ -20,7 +30,14 @@ if (dotenv?.config) {
   }
 
   if (!loaded) {
-    dotenv.config();
+    if (!isProdRuntime || allowRepoFallback) {
+      const result = dotenv.config();
+      if (!result?.error) {
+        loaded = true;
+      }
+    } else {
+      console.info('[env] Skipping repository .env fallback because NODE_ENV=production. Set IG_ALLOW_REPO_ENV=1 to override.');
+    }
   }
 }
 

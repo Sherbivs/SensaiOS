@@ -20,7 +20,9 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `tests/ROUTER.md` — Test Suite
 
 ## Muted Local Files
-- `.env` — Muted (local dev secrets); configure tokens and keys for personal environments only. Prefer setting `IG_ENV_FILE` to an external path (e.g., `C:/Users/<you>/OneDrive/Documents/Key/.env`).
+- `.env` — Muted (local dev secrets); configure tokens and keys for personal environments only. Prefer setting `IG_ENV_FILE` to an external path (e.g., `C:/Users/<you>/OneDrive/Documents/Key/.env`). Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`.
+- `secrets/prisma-accelerate.env` — Muted (Accelerate credentials); copy from `secrets/prisma-accelerate.env.example` and store outside the repo.
+- `secrets/prisma-dev.env` — Muted (local/staging DB credentials); copy from `secrets/prisma-dev.env.example` and store outside the repo.
 
 ## Router Details
 
@@ -67,6 +69,8 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - `scripts/guard_meta.sh` — Muted (preflight-only); enforces READY invariants pre/post flight
   - `scripts/bootstrap_staging_db.ps1` — Muted (staging-only); interactive helper to run `prisma migrate deploy` on staging safely
   - `scripts/restore_prisma_postgres.ps1` — Muted (local restore); Prisma Postgres tunnel + restore automation
+  - `scripts/db_admin.ts` — Muted (local CLI); run via `npm run db:cli` for status, counts, and ad-hoc queries
+  - `scripts/setup_ai_env.ps1` — Muted (agent env helper); registers `IG_ENV_FILE` so secrets load from external storage
   - `scripts/db_smoke.ts` — Accelerate smoke query (`SELECT 1 AS ok`)
 - Notes:
   - 2025-10-27: Router scripts audited; verify_router_links and update_router_index keep meta routers synchronized during PBSL work.
