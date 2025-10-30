@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-30T19:55:00Z
-Revision: 2.14
+Last Updated (UTC): 2025-10-30T18:05:00Z
+Revision: 2.12
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1019,6 +1019,17 @@ Each task has:
     - Automation supports dry-run/once/skip-startup flags for rehearsals and surfaces drift via `integrity.trigger` / `sync.consolidate.*` events capturing count deltas.
     - ops/TOUCHMAP.yaml and scripts/ROUTER.md map the automation task and script for future ownership.
   notes: Outcome — 2025-10-30T20:05Z: Added dev_prod_auto_sync.ts with startup trigger + five-minute drift checks, registered the npm script, documented usage across operator guides/roadmap, and recorded Touchmap/router ownership so the loop can run continuously.
+
+- id: T13.DEX.AUTO_SYNC_HARDEN
+  title: Ensure auto-sync uses env-scoped credentials and tolerance guards
+  status: DONE
+  depends_on: [T13.DEX.AUTO_SYNC]
+  acceptance_criteria:
+    - Child processes inherit DATABASE_URL/DATABASE_DIRECT_URL from the target env file instead of relying on the shell environment (IG_ENV_FILE alone is not sufficient).
+    - Prisma migrate runs against direct connections (never Data Proxy) and logs a warning when the env file lacks a direct URL entry.
+    - Auto-sync terminates hung migrate/seed commands with a timeout and replays the cadence without wedging the integrity loop.
+    - Optimize/SpeciesSheet preflight surfaces missing grants with actionable remediation guidance before the consolidation loop starts.
+  notes: Outcome — Injected env file variables per phase, forced direct URLs for migrate, added command timeouts, and logged SpeciesSheet preflight + Data Proxy warnings so the sync loop recovers cleanly and surfaces permission drift.
 
 ## Phase 11 — Meta & AI Enablement
 

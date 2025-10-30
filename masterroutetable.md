@@ -42,7 +42,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - `scripts/db_admin.ts` — Muted (local CLI); run via `npm run db:cli` for status, counts, and ad-hoc queries
   - `scripts/setup_ai_env.ps1` — Muted (agent env helper); registers `IG_ENV_FILE` so secrets load from external storage
   - `scripts/db_smoke.ts` — Accelerate smoke query (`SELECT 1 AS ok`)
-  - `scripts/dev_prod_auto_sync.ts` — Muted (automation loop); continuously runs the Dev → Prod → Dev migrate/seed cadence with integrity checks (`npm run db:auto-sync`)
+  - `scripts/dev_prod_auto_sync.ts` — Muted (automation loop); ensures migrate/seed inherit env-specific credentials, forces direct migrations, times out hung commands, preflights Optimize SpeciesSheet access, and continuously runs the Dev → Prod → Dev cadence with integrity checks (`npm run db:auto-sync`)
 - Notes:
   - 2025-10-27: Router scripts audited; verify_router_links and update_router_index keep meta routers synchronized during PBSL work.
   - 2025-10-28: Added staging bootstrap helper to tooling catalog.

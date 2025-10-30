@@ -78,6 +78,16 @@ function parseArgs(): SyncConfig {
   return config;
 }
 
+function stripQuotes(value: string): string {
+  if (!value) return value;
+  const trimmed = value.trim();
+  const first = trimmed.at(0);
+  if ((first === '"' || first === "'") && trimmed.endsWith(first)) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
 async function readEnvFile(filePath: string): Promise<EnvVars> {
   const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
   const exists = await fs
@@ -94,21 +104,54 @@ async function readEnvFile(filePath: string): Promise<EnvVars> {
   for (const rawLine of contents.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line || line.startsWith("#")) continue;
-    const [key, ...rest] = line.split("=");
+    const idx = line.indexOf("=");
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
     if (!key) continue;
-    vars[key.trim()] = rest.join("=").trim();
+    const rawVal = line.slice(idx + 1).trim();
+    vars[key] = stripQuotes(rawVal);
   }
 
   return vars;
 }
 
+function buildChildEnv(
+  envPath: string,
+  fileVars: EnvVars,
+  overrides: Record<string, string | undefined> = {},
+): NodeJS.ProcessEnv {
+  const base: Record<string, string> = {};
+  for (const [key, value] of Object.entries(fileVars)) {
+    if (value !== undefined) {
+      base[key] = value;
+    }
+  }
+
+  base.IG_ENV_FILE = envPath;
+
+  const flatOverrides: Record<string, string> = {};
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value !== undefined) {
+      flatOverrides[key] = value;
+    }
+  }
+
+  return {
+    ...process.env,
+    ...base,
+    ...flatOverrides,
+  };
+}
+
+const COMMAND_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
 function spawnCommand(
   label: string,
-  envPath: string,
   command: string,
   args: string[],
   dryRun: boolean,
-  extraEnv: Record<string, string | undefined> = {},
+  env: NodeJS.ProcessEnv,
+  timeoutMs: number = COMMAND_TIMEOUT_MS,
 ): Promise<void> {
   if (dryRun) {
     log("dry-run: skipping command", { label, command, args });
@@ -120,19 +163,43 @@ function spawnCommand(
     const child = spawn(command, args, {
       stdio: "inherit",
       shell: process.platform === "win32",
-      env: {
-        ...process.env,
-        IG_ENV_FILE: envPath,
-        ...extraEnv,
-      },
+      env,
     });
 
+    const timer = setTimeout(() => {
+      log("command.timeout", { label, command, args, timeoutMs });
+      try {
+        child.kill("SIGTERM");
+      } catch (error) {
+        log("command.timeout.error", {
+          label,
+          command,
+          args,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch (error) {
+          log("command.timeout.kill_error", {
+            label,
+            command,
+            args,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }, 2_000);
+    }, timeoutMs);
+
     child.on("error", (error) => {
+      clearTimeout(timer);
       log("command.error", { label, error: error.message });
       reject(error);
     });
 
     child.on("exit", (code) => {
+      clearTimeout(timer);
       if (code === 0) {
         log("command.success", { label, command, args });
         resolve();
@@ -145,22 +212,71 @@ function spawnCommand(
   });
 }
 
+function cliEnvForMigrate(fileVars: EnvVars): Record<string, string | undefined> {
+  const direct =
+    fileVars.DATABASE_DIRECT_URL || fileVars.DIRECT_URL || fileVars.DATABASE_URL || undefined;
+  if (!direct) {
+    log("migrate.env.missing_direct", {
+      message: "DATABASE_DIRECT_URL (or DIRECT_URL/DATABASE_URL) missing; migrate may fail",
+    });
+  } else if (direct.startsWith("prisma+")) {
+    log("migrate.env.dataproxy_warning", {
+      message:
+        "DATABASE_DIRECT_URL resolves to a Prisma Data Proxy URL; migrations require a direct Postgres connection.",
+    });
+  }
+  return {
+    DATABASE_URL: direct,
+    PRISMA_CLIENT_ENGINE_TYPE: "",
+  };
+}
+
+function cliEnvForSeed(fileVars: EnvVars): Record<string, string | undefined> {
+  const runtimeUrl = fileVars.DATABASE_URL || "";
+  const isDataProxy = runtimeUrl.startsWith("prisma+");
+  return {
+    PRISMA_CLIENT_ENGINE_TYPE: isDataProxy ? "dataproxy" : "",
+  };
+}
+
 async function runPhase(
   name: "dev" | "prod",
   envPath: string,
+  envVars: EnvVars,
   dryRun: boolean,
 ): Promise<void> {
-  const extraEnv =
-    name === "prod"
-      ? {
-          PRISMA_CLIENT_ENGINE_TYPE: "dataproxy",
-        }
-      : {
-          PRISMA_CLIENT_ENGINE_TYPE: "",
-        };
+  const migrateEnv = buildChildEnv(envPath, envVars, cliEnvForMigrate(envVars));
+  const seedEnv = buildChildEnv(envPath, envVars, cliEnvForSeed(envVars));
 
-  await spawnCommand(`${name}:migrate`, envPath, "npx", ["prisma", "migrate", "deploy"], dryRun, extraEnv);
-  await spawnCommand(`${name}:seed`, envPath, "npm", ["run", "db:seed:dex"], dryRun, extraEnv);
+  await spawnCommand(`${name}:migrate`, "npx", ["prisma", "migrate", "deploy"], dryRun, migrateEnv);
+  await spawnCommand(`${name}:seed`, "npm", ["run", "db:seed:dex"], dryRun, seedEnv);
+}
+
+async function preflightOptimize(envVars: EnvVars): Promise<void> {
+  const url = envVars.OPTIMIZE_DATABASE_URL || envVars.OPTIMIZE_DIRECT_URL;
+  if (!url) return;
+
+  const targetVars: EnvVars = {
+    DATABASE_URL: url,
+    DATABASE_DIRECT_URL: url,
+  };
+
+  await withPrismaClient("prod", targetVars, async (client) => {
+    try {
+      await client.$queryRawUnsafe('SELECT 1 FROM "SpeciesSheet" LIMIT 1');
+      log("preflight.optimize.ok", { message: "Optimize DB SpeciesSheet readable." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log("preflight.optimize.fail", {
+        message: "Optimize DB SpeciesSheet access failed.",
+        error: message,
+        remediation: [
+          'GRANT USAGE ON SCHEMA public TO <app_user>;',
+          'GRANT SELECT ON MATERIALIZED VIEW public."SpeciesSheet" TO <app_user>;',
+        ],
+      });
+    }
+  });
 }
 
 async function withPrismaClient<T>(
@@ -234,8 +350,8 @@ async function runConsolidation(
 ): Promise<{ devCounts: CountSnapshot; prodCounts: CountSnapshot }> {
   log("sync.consolidate.start", { dryRun: config.dryRun, reason });
 
-  await runPhase("dev", config.devEnvPath, config.dryRun);
-  await runPhase("prod", config.prodEnvPath, config.dryRun);
+  await runPhase("dev", config.devEnvPath, devVars, config.dryRun);
+  await runPhase("prod", config.prodEnvPath, prodVars, config.dryRun);
 
   const [devCounts, prodCounts] = await Promise.all([
     captureCounts("dev", devVars),
@@ -271,6 +387,14 @@ async function main(): Promise<void> {
     dryRun: config.dryRun,
     skipStartup: config.skipStartup,
   });
+
+  try {
+    await preflightOptimize(prodVars);
+  } catch (error) {
+    log("preflight.optimize.error", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   const history: { dev: CountSnapshot | null; prod: CountSnapshot | null } = {
     dev: null,

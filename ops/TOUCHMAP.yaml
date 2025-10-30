@@ -218,10 +218,29 @@ T13.DEX.DB_SEED:
   - "ops/NEXT.yaml"
   - "Prompt.md"
   - "ops/TOUCHMAP.yaml"
-  - "scripts/dev_prod_auto_sync.ts"
   - "ops/DB_BOOTSTRAP.md"
   - "docs/perfect-system-roadmap.md"
   - "AGENTS.md"
+  - "scripts/ROUTER.md"
+
+T13.DEX.AUTO_SYNC:
+  - "scripts/dev_prod_auto_sync.ts"
+  - "package.json"
+  - "docs/database-systems.md"
+  - "docs/db-control-suite.md"
+  - "ops/DB_BOOTSTRAP.md"
+  - "AGENTS.md"
+  - "docs/perfect-system-roadmap.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "ops/TOUCHMAP.yaml"
+  - "scripts/ROUTER.md"
+
+T13.DEX.AUTO_SYNC_HARDEN:
+  - "scripts/dev_prod_auto_sync.ts"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "masterroutetable.md"
   - "scripts/ROUTER.md"
 
 PBSL.SKELETON:
