@@ -1,47 +1,70 @@
-# Perfect System Roadmap
+# Infinity Gauntlet Roadmap
 
-This roadmap captures the focus areas required to evolve Infinity Gauntlet toward a resilient, self-healing, and observable platform. Each pillar lists the desired steady state, the immediate actions to reach it, and the signals that confirm success. Use this document as the canonical reference when planning future PATCHSETs.
+This roadmap is the canonical planning artifact for Infinity Gauntlet. It aligns the team on mission, sequencing, and success measures across the next three quarters. Update this document whenever milestones shift or new risks surface.
 
-## 1. Governance & Knowledge Flow
-- **Objective:** Keep Patch/Prompt/Tasklist/NEXT in automatic alignment, with every guard passing and no stale router metadata.
-- **Immediate Actions:**
-  - Re-run all meta guard scripts (`guard_meta`, `guard_router_docs`, `guard_doc_names`, `verify_router_links`).
-  - Audit `ops/ROUTER.yaml`, `masterroutetable.md`, and `ops/TOUCHMAP.yaml` for missing entries tied to recent dex work.
-  - Stamp Prompt/Tasklist revisions only when changes occur; document conclusions in the change ledger.
-- **Signals:** Guard workflows green, no drift between router manifests, and current mission context present in Prompt.md.
+## Vision & Principles
+- Deliver a resilient, self-healing Discord experience backed by reproducible data pipelines and guarded operational metadata.
+- Favor observable, automatable workflows over ad-hoc manual fixes.
+- Keep governance artifacts (`Patch`, `Prompt`, `Tasklist`, `NEXT`, routers) in lockstep with the actual system state.
 
-## 2. Database Operations & Data Integrity
-- **Objective:** Prisma Accelerate and Render stay in lockstep with reproducible migrations, helper-aware refresh scripts, and documented default privileges.
-- **Immediate Actions:**
-  - Run `npx prisma migrate deploy` against both environments, capture output, and append to ops logs.
-  - Execute the dex maintenance scripts (`seed_reference`, `backfill_species`, `warm_cache`) on both environments and store their transcripts.
-  - Expand `ops/DB_BOOTSTRAP.md` with a quick checklist for verifying helper fallbacks per environment.
-- **Signals:** Matching `_prisma_migrations` history, SpeciesSheet refresh logs clean on both sides, and Tasklist notes referencing the latest verification timestamp.
+## Timeline & Milestones
+| Window | Milestone | Key Deliverables | Exit Criteria |
+| --- | --- | --- | --- |
+| **Immediate (Oct–Nov 2025)** | Stabilize Secrets & Schema | Restore DEV/Accelerate env files, re-run migrations, bring dex cache up-to-date | `prisma-dev.env` + `prisma-accelerate.env` validated, `npx prisma migrate deploy` green, `npm run db:cli -- counts` logged |
+| **Near-Term (Dec 2025)** | Harden Runtime & Guards | Close ROUTER drift, refresh guard scripts, green Vitest/ESLint baselines | Guard suite green, Tasklist shows regression tests landed |
+| **Mid-Term (Jan–Mar 2026)** | Automate Recovery & Telemetry | CI coverage for dex scripts, structured logging dashboards, revised recovery playbooks | CI catches dex regressions, Ops dashboards track cache refresh mode, recovery dry-run documented |
+| **Long-Term (Apr–Jun 2026)** | Scale & Integrate | Shard cache pipeline, introduce analytics read models, formalize release cadence | Render services auto-scale, analytics dashboards online, release checklist institutionalized |
 
-## 3. Runtime & Code Quality
-- **Objective:** All core flows (DM home, encounters, battles, dex) have deterministic tests, lint-clean sources, and shared helper usage.
-- **Immediate Actions:**
-  - Run focused Vitest suites (`npm run test -- --runInBand tests/dm_home`, `tests/ops`, `tests/core`) and address flakiness.
-  - Add regression tests that assert the helper fallback is invoked when direct refresh is denied (mock Prisma error).
-  - Perform a dependency audit (`npm outdated`, `pnpm audit`) and log follow-up actions.
-- **Signals:** Vitest and ESLint green locally and in CI, helper fallback covered by tests, and dependency risk items tracked in Tasklist.
+## Workstreams
 
-## 4. Automation & CI/CD
-- **Objective:** Every guard and workflow runs deterministically with captured artifacts, and Render deployments reflect the latest blueprint.
-- **Immediate Actions:**
-  - Trigger GitHub Actions guard suite; investigate and resolve any warnings (especially router/doc guards).
-  - Add CI coverage for the dex scripts (dry-run mode) to catch regressions before deploy.
-  - Verify Render `render.yaml` matches current worker/service layout and environment expectations.
-- **Signals:** CI dashboards free of flaky jobs, dex script regressions caught in pull requests, Render deploy logs referencing the documented connection matrix.
+### 1. Governance & Knowledge Flow
+- **Goal:** Zero drift across contract artifacts and router inventory.
+- **Scope 2025 Q4:**
+  - Re-run guard scripts (`guard_meta`, `guard_router_docs`, `guard_doc_names`, `verify_router_links`).
+  - Close Tasklist `META.ROADMAP.*` backlog items for router audits.
+  - Keep `Prompt.md` / change ledger updates paired with real diffs.
+- **Measures:** Guards green three runs in a row; NEXT pointer matches active task; router docs reference new env workflow.
 
-## 5. Observability, Security & Recovery
-- **Objective:** Unified telemetry, actionable alerts, and well-rehearsed recovery paths across bot, workers, and scripts.
-- **Immediate Actions:**
-  - Confirm structured logging still includes database source/mode after helper enhancements.
-  - Run security bot smoke tests and ensure DRIP alerts fire with current metadata.
-  - Review `ops/RECOVERY.yaml` and `playbooks/escalate.md` to incorporate the latest helper workflows and fallback commands.
-- **Signals:** Telemetry dashboards show helper usage, security alerts arrive in the expected channels, and recovery playbooks reference up-to-date commands.
+### 2. Database Operations & Data Integrity
+- **Goal:** Reproducible migrations and cache hydration across DEV, Render, and Accelerate.
+- **Scope 2025 Q4:**
+  - Load `prisma-dev.env` / `prisma-accelerate.env` via `scripts/setup_ai_env.ps1` before every DB change.
+  - Execute `seed_reference`, `backfill_species`, and `warm_cache` with transcripts archived in Tasklist.
+  - Extend `ops/DB_BOOTSTRAP.md` with dual-environment validation steps when helpers change.
+- **Measures:** `_prisma_migrations` parity confirmed monthly; `SpeciesSheet` refresh logged in both environments; cache warm timestamp recorded after each deploy.
 
----
+### 3. Runtime Quality & Testing
+- **Goal:** Core flows covered by deterministic tests and linting, with helper fallbacks validated.
+- **Scope 2025 Q4–Q1:**
+  - Add Vitest specs for `refresh_species_sheet` fallback and dex cache warmers.
+  - Integrate dependency audits into release cadence (`npm outdated`, `pnpm audit`).
+  - Track flaky tests in Tasklist and resolve within the same iteration.
+- **Measures:** CI pipeline green 5 consecutive runs; helper fallback test suite passes; dependency risks logged with owners.
 
-**Next Steps:** Tasklist Phase 12 now carries `META.ROADMAP.*` backlog items for each pillar (governance audit, cross-environment DB checks, runtime QA, CI hardening, observability/security). Link future PATCHSETs back to this roadmap and update the document whenever a pillar reaches steady state or new gaps surface.
+### 4. Automation & Delivery
+- **Goal:** Guards, CI, and Render deploys reflect the living blueprint.
+- **Scope 2025 Q4–Q2:**
+  - Add CI dry-run coverage for dex scripts and router guard outputs.
+  - Ensure `render.yaml` matches the latest service matrix after every architectural change.
+  - Capture Render deploy logs and link in Tasklist for traceability.
+- **Measures:** CI jobs publish artifacts; Render deploy checklists stored under `ops/`; automation reruns succeed without manual patches.
+
+### 5. Observability, Security & Recovery
+- **Goal:** Actionable telemetry and rehearsed recovery steps spanning bot, workers, and scripts.
+- **Scope 2025 Q4–Q2:**
+  - Emit OTEL spans for cache refresh attempts (direct vs helper fallback).
+  - Smoke-test security bot alerts quarterly; document results in Tasklist.
+  - Update `ops/RECOVERY.yaml` and `playbooks/escalate.md` after each incident or tooling change.
+- **Measures:** Telemetry dashboards show refresh mode distribution; DRIP alerts validated; recovery playbooks reference current scripts.
+
+## Dependencies & Risks
+- **Secrets Hygiene:** Loss of `prisma-dev.env` or `prisma-accelerate.env` blocks migrations. Mitigation: mirror files to secure backup and document refresh cadence.
+- **GitHub Automation:** Dex replication requires `GITHUB_REPO` and `GITHUB_TOKEN`. Track token rotations in Tasklist.
+- **Guard Drift:** Router or contract file drift forces manual recovery. Run guard suite after each structural change.
+
+## Reporting & Cadence
+- Review progress in weekly ops sync; capture decisions in `Tasklist.md` under `META.ROADMAP` items.
+- At the end of each milestone window, update this document with status (On Track / At Risk / Blocked) and roll forward incomplete work.
+- When a milestone completes, link the verifying logs or PRs in `docs/` or `ops/` and archive related tasks.
+
+Maintain this roadmap as the single source of truth for planning. Any major change to scope, risk, or timeline should be reflected here before being communicated elsewhere.

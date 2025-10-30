@@ -1,14 +1,13 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-30T04:18:00Z
-Revision: 1.42
+Timestamp (UTC): 2025-10-30T04:46:00Z
+Revision: 1.46
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Published `docs/database-systems.md`, capturing schema layout, connection modes, helper routines, and dex maintenance flows in one reference.
-- Cross-linked the guide from `DATA-SCHEMA.md`, `ops/DB_BOOTSTRAP.md`, `OPERATIONS.md`, and router metadata so agents land on it from any meta surface.
-- Marked META.DB.DOCS as DONE, pointed NEXT at T10.DEX.SEED_CACHE_WARM, and refreshed Tasklist/Patchset echo to reflect the docs milestone.
-- Documented how IG_ENV_FILE should toggle between `C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env` and `.../prisma-accelerate.env` across muted docs so agents load the right secrets safely.
-- Expanded the DB control suite doc with migration prerequisites and hydration steps (refresh cache/data pipelines) so thin dev datasets get seeded properly.
-- Taught agents exactly how to reach the external env files (`prisma-dev.env`, `prisma-accelerate.env`) via `AGENTS.md`, `docs/ai-env-setup.md`, and the muted router guides, including verification commands that read the target file and echo `IG_ENV_FILE`.
+- Overhauled `docs/perfect-system-roadmap.md` into the official roadmap with timeline, workstreams, and risk tracking.
+- Cleared the Patch.md clipboard so no stale patch plans remain between the markers.
+- Kept OPS.SECURITY.ROTATE_KEYS as the primary pointer but added a queue in ops/NEXT.yaml for OPS.CACHE.REPLICATION_CONFIG and OPS.DB.BASELINE_SCHEMA.
+- Refreshed the NEXT note/timestamps to reflect the rotation-first sequence followed by cache replication and schema alignment.
+- Updated Patch.md Preflight guidance so every new task run overwrites the clipboard/NEXT context instead of lingering on previous plans.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -21,8 +20,8 @@ Revision: 1.42
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** T10.DEX.SEED_CACHE_WARM — exercise the dex seeding + cache warm helpers after the Accelerate migrations stabilize.
-- **READY / In-flight:** T10.DEX.SEED_CACHE_WARM and T10.DEX.SPECIES_BACKFILL are READY; T10.DEX.MIGRATE_ACCELERATE stays IN_PROGRESS (role limits still block extra Accelerate roles), and META.ROADMAP.* backlog entries remain PROPOSED pending prioritization.
+- **NEXT Pointer:** OPS.SECURITY.ROTATE_KEYS - rotate the leaked Render + Accelerate credentials before proceeding (queue lists OPS.CACHE.REPLICATION_CONFIG, OPS.DB.BASELINE_SCHEMA next).
+- **READY / In-flight:** OPS.SECURITY.ROTATE_KEYS is READY and blocks further DB work; T10.DEX.SEED_CACHE_WARM and T10.DEX.SPECIES_BACKFILL remain READY pending the rotation, OPS.CACHE.REPLICATION_CONFIG / OPS.DB.BASELINE_SCHEMA sit queued in NEXT, and T10.DEX.MIGRATE_ACCELERATE stays IN_PROGRESS.
 - **Recent Finish:** META.DB.DOCS shipped the comprehensive database reference and synced routing metadata.
 
 ## System Highlights
@@ -64,11 +63,11 @@ Revision: 1.42
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Documented the database architecture and operations surface (`docs/database-systems.md` + cross-links), closed META.DB.DOCS, retargeted NEXT to T10.DEX.SEED_CACHE_WARM, surfaced the active IG_ENV_FILE location in muted docs, clarified the migration/data hydration flow for the DB control suite, and refreshed env-loading docs to point at `prisma-dev.env` / `prisma-accelerate.env` instead of a merged `.env`.
+Change: Rebuilt the roadmap into a formal timeline/workstream plan and kept contract docs aligned (clipboard reset, NEXT queue refreshed).
 TasklistDiff: true
-Tests: not run (docs/meta updates only)
+Tests: not run (documentation update)
 Contracts: ON
-NEXT: T10.DEX.SEED_CACHE_WARM — validate dex seeding + cache warm helpers once migrations settle.
+NEXT: OPS.SECURITY.ROTATE_KEYS - rotate leaked Render/Accelerate secrets before further DB work.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

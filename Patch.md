@@ -19,6 +19,7 @@ Read this file completely before beginning any task. Follow it literally. Before
 - If Tasklist.md has no READY tasks (ignoring `META.UNBLOCK.READY_SEED`), promote the oldest eligible PROPOSED whose dependencies are DONE. If none exist, add `META.UNBLOCK.READY_SEED` as READY.
 - Ensure `ops/NEXT.yaml:next_task_id` points to a READY task and `files_hint` only lists files you expect to touch.
 - Confirm `Patch.md`, `Prompt.md`, and `Tasklist.md` are readable. If any are missing or corrupt, stop and request refreshed copies.
+- Clear or overwrite any prior clipboard or NEXT context when beginning a new task; every run starts with a fresh plan so stale patchsets or pointers cannot stall progress.
 
 ## Operating Loop (Contract Mode)
 1. **Plan & Execute**
@@ -98,50 +99,9 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Task META.DB.DOCS] Document database architecture and operations for future development
-
-FILE: Tasklist.md
-Change: Add META.DB.DOCS task (READY) capturing the documentation objective; later mark DONE with outcome notes.
-
-FILE: ops/NEXT.yaml
-Change: Point NEXT to META.DB.DOCS while the documentation patch runs.
-
-FILE: docs/database-systems.md
-Change: New comprehensive guide covering schema layout, connection modes, roles/permissions, migrations, helper functions, dex scripts, and operational workflows.
-
-FILE: DATA-SCHEMA.md
-Change: Expand overview section to reference the new guide and highlight key tables/indices.
-
-FILE: ops/DB_BOOTSTRAP.md
-Change: Cross-link to the new guide and clarify where helper and role documentation lives.
-
-FILE: OPERATIONS.md
-Change: Reference the database systems guide under relevant sections for quick navigation.
-
-FILE: masterroutetable.md & docs/ROUTER.md
-Change: Register the new documentation path in routers for discoverability.
-
-FILE: Prompt.md
-Change: Record the documentation work in Last Repo Changes and PATCHSET echo; update metadata.
 
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>
-[META.ROADMAP.GOVERNANCE] Guard and router alignment sweep
-
-FILE: scripts/guard_meta.sh
-Change: Run guard_meta and capture results for Prompt/Tasklist notes.
-
-FILE: scripts/guard_router_docs.sh
-Change: Regenerate router metadata if discrepancies appear during the governance sweep.
-
-FILE: masterroutetable.md
-Change: Update entries if guard routing identifies missing dex references.
-
-FILE: Prompt.md
-Change: Record guard outcomes and governance pillar status once promoted from PROPOSED.
-
-# TASKLIST UPDATE
-Change: Promote META.ROADMAP.GOVERNANCE to READY with guard evidence when scheduled.
 
 <<<PROPOSED PATCHSET END>>>

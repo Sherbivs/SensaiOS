@@ -13,17 +13,31 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: T10.DEX.SEED_CACHE_WARM
+next_task_id: OPS.SECURITY.ROTATE_KEYS
 reason: >
-  Advance the dex rollout by validating the seed + cache warm helpers once Accelerate migrations settle.
+  Secrets leaked in the latest transcript; rotating credentials must happen before any further DB or cache automation.
 
 files_hint:
-  - scripts/dex/seed_reference.ts
-  - scripts/dex/warm_cache.ts
-  - ops/DB_BOOTSTRAP.md
-  - docs/database-systems.md
+  - C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env
+  - C:/Users/sherb/OneDrive/Documents/Key/prisma-accelerate.env
 
-timestamp_utc: 2025-10-30T03:35:00Z
+queue:
+  - task_id: OPS.CACHE.REPLICATION_CONFIG
+    reason: >
+      Restore cache replication credentials so refresh_cache.mjs can run end-to-end after the rotation.
+    files_hint:
+      - scripts/refresh_cache.mjs
+      - ops/POKEMON_CACHE.md
+      - ops/DB_BOOTSTRAP.md
+  - task_id: OPS.DB.BASELINE_SCHEMA
+    reason: >
+      Align the DEV schema (BusMessage et al.) once fresh credentials land.
+    files_hint:
+      - prisma/schema.prisma
+      - scripts/db_admin.ts
+      - ops/DB_BOOTSTRAP.md
+
+timestamp_utc: 2025-10-30T04:32:00Z
 router_version: 1
-last_notes_read_utc: 2025-10-27T08:30:00Z
-note: "Database docs shipped; next up is exercising the dex seeding + cache warm helpers (T10.DEX.SEED_CACHE_WARM)."
+last_notes_read_utc: 2025-10-30T04:25:00Z
+note: "Rotate the leaked Render + Accelerate credentials before resuming work; queued follow-ups capture cache replication and schema alignment once rotation completes."

@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-30T03:35:00Z
-Revision: 2.02
+Last Updated (UTC): 2025-10-30T04:20:00Z
+Revision: 2.04
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -74,7 +74,34 @@ Each task has:
     - Patch.md and ops/HOTFIX.md document that `ACTIVATE: HOTFIX ENGINE` may carry a trailing `: <note>` while preserving the exact prefix.
     - Prompt.md and ops/TOUCHMAP.yaml record the update so future workers follow the revised trigger guidance.
     - ops/NEXT.yaml timestamp/note refreshed to capture the documentation change.
-  notes: Outcome — Hotfix trigger now accepts an optional human-context note without breaking the deterministic prefix; meta routing docs updated accordingly.
+  notes: Outcome - Hotfix trigger now accepts an optional human-context note without breaking the deterministic prefix; meta routing docs updated accordingly.
+- id: OPS.SECURITY.ROTATE_KEYS
+  title: Rotate leaked Render and Prisma Accelerate credentials
+  status: READY
+  depends_on: []
+  acceptance_criteria:
+    - Revoke the exposed Render Postgres password and Prisma Accelerate API key surfaced in the 2025-10-30 run log.
+    - Update `prisma-dev.env` and `prisma-accelerate.env` (or successors) with the new secrets and confirm future transcripts remain redacted.
+    - Document the rotation outcome in Tasklist notes and the Prompt PATCHSET echo.
+  notes: READY - Secrets appeared in the AI transcript during the 2025-10-30 support session; rotate immediately before continuing DB work.
+- id: OPS.CACHE.REPLICATION_CONFIG
+  title: Restore cache replication configuration for refresh jobs
+  status: PROPOSED
+  depends_on: []
+  acceptance_criteria:
+    - Provide sanctioned `GITHUB_REPO` and `GITHUB_TOKEN` values (or alternate automation) so `scripts/refresh_cache.mjs` completes without throwing.
+    - Document skip vs. replicate guidance in `ops/POKEMON_CACHE.md` or related runbooks.
+    - Run `node scripts/refresh_cache.mjs` (with replication enabled or explicitly skipped) and record the successful outcome in Prompt/Tasklist notes.
+  notes: Proposed to address the current refresh failure path when replication credentials are absent.
+- id: OPS.DB.BASELINE_SCHEMA
+  title: Align DEV schema with runtime expectations
+  status: PROPOSED
+  depends_on: [OPS.SECURITY.ROTATE_KEYS]
+  acceptance_criteria:
+    - Apply the missing baseline migration or `prisma db push` so tables like `BusMessage` exist alongside their indices.
+    - Re-run `npm run db:cli -- counts` and confirm it no longer errors on missing tables, capturing the output for ops logs.
+    - Update `ops/DB_BOOTSTRAP.md` (or related docs) with a note about the DEV baseline alignment.
+  notes: Guard suite currently fails because `public.BusMessage` is absent; execute after secrets rotate to avoid using revoked credentials.
 - id: META.REPO.RESTORE_STRUCTURE
   title: Clean stale meta docs and restore guard workflows
   status: DONE
