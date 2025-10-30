@@ -77,6 +77,11 @@ Optional services:
    $env:DATABASE_URL="postgresql://user:pass@localhost:5432/gauntlet"
    $env:DISCORD_BOT_TOKEN="your_discord_token"
    ```
+   To keep secrets outside the repo, point the loader at an external file:
+   ```powershell
+   $env:IG_ENV_FILE="C:/Users/<you>/OneDrive/Documents/Key/.env"
+   ```
+   The runtime checks `IG_ENV_FILE` (and `DOTENV_CONFIG_PATH`) before falling back to `.env` in the repository root.
    Optional: supply `POKE_RENDER_SERVICE_ID`, `POKE_REFRESH_CRON`, or other automation flags as needed.
 3. Apply Prisma migrations and generate the client:
    ```powershell

@@ -19,6 +19,9 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `src/core/ROUTER.md` — Core Game Engines
     - `tests/ROUTER.md` — Test Suite
 
+## Muted Local Files
+- `.env` — Muted (local dev secrets); configure tokens and keys for personal environments only. Prefer setting `IG_ENV_FILE` to an external path (e.g., `C:/Users/<you>/OneDrive/Documents/Key/.env`).
+
 ## Router Details
 
 ### Ops & Governance (`ops/ROUTER.md`)

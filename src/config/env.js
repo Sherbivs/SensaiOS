@@ -6,7 +6,22 @@ try {
 }
 
 if (dotenv?.config) {
-  dotenv.config();
+  const overrideCandidates = [process.env.IG_ENV_FILE, process.env.DOTENV_CONFIG_PATH]
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .filter(Boolean);
+
+  let loaded = false;
+  for (const candidate of overrideCandidates) {
+    const result = dotenv.config({ path: candidate });
+    if (!result?.error) {
+      loaded = true;
+      break;
+    }
+  }
+
+  if (!loaded) {
+    dotenv.config();
+  }
 }
 
 const argv = Array.isArray(process.argv) ? process.argv : [];
