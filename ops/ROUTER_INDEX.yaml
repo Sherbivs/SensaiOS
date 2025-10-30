@@ -1,143 +1,67 @@
 version: 1
-generated_utc: "2025-10-30T02:30:50Z"
+generated_utc: "2025-10-30T00:26:01Z"
 routers:
-  - path: ".db-state/"
-    router_file: ".db-state/ROUTER.md"
-    title: "Local Database State Cache"
-    purpose: "Persists developer-facing DB connection hints between runs."
-    last_updated_utc: "2025-10-30T00:46:00Z"
-  - path: ".github/"
-    router_file: ".github/ROUTER.md"
-    title: "CI & Automation Workflows"
-    purpose: "GitHub Actions guards, health checks, and deployment support."
-    last_updated_utc: "2025-10-30T00:46:00Z"
-  - path: "data/"
-    router_file: "data/ROUTER.md"
-    title: "Pokemon Reference Data"
-    purpose: "Cached datasets and bootstrap payloads consumed by the bot, workers, and tests."
-    last_updated_utc: "2025-10-30T00:46:00Z"
-  - path: "docs/"
-    router_file: "docs/ROUTER.md"
-    title: "Documentation Library"
-    purpose: "Architecture, safety, and operational guides referenced across the meta-router."
-    last_updated_utc: "2025-10-30T00:46:00Z"
   - path: "ops/"
     router_file: "ops/ROUTER.md"
-    title: "Ops & Governance"
-    purpose: "Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox)."
-    last_updated_utc: "2025-10-29T20:30:00Z"
-  - path: "playbooks/"
-    router_file: "playbooks/ROUTER.md"
-    title: "Operational Playbooks"
-    purpose: "Escalation and recovery guides for when automation gets stuck."
-    last_updated_utc: "2025-10-30T00:46:00Z"
-  - path: "prisma/"
-    router_file: "prisma/ROUTER.md"
-    title: "Prisma Schema & Migrations"
-    purpose: "Database schema definition and migration history."
-    last_updated_utc: "2025-10-30T00:46:00Z"
-  - path: "router/"
-    router_file: "router/ROUTER.md"
-    title: "Meta Router Implementation"
-    purpose: "TypeScript routing engine that delegates tasks to specialist agents."
-    last_updated_utc: "2025-10-30T00:46:00Z"
+    title: "Ops & Governance
+"
+    purpose: "Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
+"
+    last_updated_utc: "2025-10-29T19:40:00Z
+"
   - path: "scripts/"
     router_file: "scripts/ROUTER.md"
-    title: "Tooling"
-    purpose: "Guard scripts and automation entrypoints."
-    last_updated_utc: "2025-10-29T12:30:00Z"
+    title: "Tooling
+"
+    purpose: "Guard scripts and automation entrypoints.
+"
+    last_updated_utc: "2025-10-29T12:30:00Z
+"
   - path: "src/"
     router_file: "src/ROUTER.md"
-    title: "Application Source"
-    purpose: "Root app source tree; see sub-routers for domains."
-    last_updated_utc: "2025-10-30T00:47:00Z"
+    title: "Application Source
+"
+    purpose: "Root app source tree; see sub-routers for domains.
+"
+    last_updated_utc: "2025-10-29T01:50:00Z
+"
   - path: "src/bot/"
     router_file: "src/bot/ROUTER.md"
-    title: "Discord Bot Layer"
-    purpose: "Client login, intents, command/interaction routing, DM “home” flows."
-    last_updated_utc: "2025-10-28T22:55:00Z"
-  - path: "src/cache/"
-    router_file: "src/cache/ROUTER.md"
-    title: "Legacy Cache Builders"
-    purpose: "Scripts that build and publish cached Pokemon data via git mirrors."
-    last_updated_utc: "2025-10-30T00:47:00Z"
-  - path: "src/commands/"
-    router_file: "src/commands/ROUTER.md"
-    title: "Legacy Slash Command Handlers"
-    purpose: "Command implementations consumed by the Discord bot prior to the TypeScript port."
-    last_updated_utc: "2025-10-30T00:47:00Z"
-  - path: "src/config/"
-    router_file: "src/config/ROUTER.md"
-    title: "Legacy Environment Config"
-    purpose: "Historical env loader used before the shared TypeScript config module."
-    last_updated_utc: "2025-10-30T00:47:00Z"
+    title: "Discord Bot Layer
+"
+    purpose: "Client login, intents, command/interaction routing, DM “home” flows.
+"
+    last_updated_utc: "2025-10-28T22:55:00Z
+"
   - path: "src/core/"
     router_file: "src/core/ROUTER.md"
-    title: "Core Game Engines"
-    purpose: "Deterministic battle/encounter engines and shared mechanics."
-    last_updated_utc: "2025-10-27T12:30:00Z"
-  - path: "src/data_pipeline/"
-    router_file: "src/data_pipeline/ROUTER.md"
-    title: "Data Pipeline"
-    purpose: "Builds and validates Pokemon reference datasets."
-    last_updated_utc: "2025-10-30T00:47:00Z"
-  - path: "src/engine/"
-    router_file: "src/engine/ROUTER.md"
-    title: "Event Bus & Battle Engine Primitives"
-    purpose: "Shared mechanics for battle calculations and worker orchestration."
-    last_updated_utc: "2025-10-30T00:47:00Z"
-  - path: "src/env/"
-    router_file: "src/env/ROUTER.md"
-    title: "Environment Utilities"
-    purpose: "Helpers that validate runtime configuration."
-    last_updated_utc: "2025-10-30T00:47:00Z"
-  - path: "src/lib/"
-    router_file: "src/lib/ROUTER.md"
-    title: "Shared Library Helpers"
-    purpose: "Utility modules used by legacy command surfaces and cache builders."
-    last_updated_utc: "2025-10-30T00:47:00Z"
-  - path: "src/models/"
-    router_file: "src/models/ROUTER.md"
-    title: "Prisma Data Models"
-    purpose: "TypeScript wrappers around Prisma client entities."
-    last_updated_utc: "2025-10-30T00:47:00Z"
-  - path: "src/services/"
-    router_file: "src/services/ROUTER.md"
-    title: "Service Layer Helpers"
-    purpose: "Legacy abstractions that supply data to command handlers and DM flows."
-    last_updated_utc: "2025-10-30T00:47:00Z"
+    title: "Core Game Engines
+"
+    purpose: "Deterministic battle/encounter engines and shared mechanics.
+"
+    last_updated_utc: "2025-10-27T12:30:00Z
+"
   - path: "src/shared/"
     router_file: "src/shared/ROUTER.md"
-    title: "Shared Runtime & Utilities"
-    purpose: "Centralized runtime config, Prisma bootstrap, logging, caching, and shared data access layers."
-    last_updated_utc: "2025-10-29T01:50:00Z"
-  - path: "src/types/"
-    router_file: "src/types/ROUTER.md"
-    title: "Ambient Type Declarations"
-    purpose: "Type definitions that augment external modules used by the runtime."
-    last_updated_utc: "2025-10-30T00:47:00Z"
-  - path: "src/utils/"
-    router_file: "src/utils/ROUTER.md"
-    title: "Utility Helpers"
-    purpose: "Cross-cutting utilities for logging, CLI status output, and operational helpers."
-    last_updated_utc: "2025-10-30T00:47:00Z"
+    title: "Shared Runtime & Utilities
+"
+    purpose: "Centralized runtime config, Prisma bootstrap, logging, caching, and shared data access layers.
+"
+    last_updated_utc: "2025-10-29T01:50:00Z
+"
   - path: "src/worker/"
     router_file: "src/worker/ROUTER.md"
-    title: "Background Workers"
-    purpose: "Render background services that drain the event bus and perform offline tasks."
-    last_updated_utc: "2025-10-28T22:55:00Z"
-  - path: "sync-layer/"
-    router_file: "sync-layer/ROUTER.md"
-    title: "Sync Layer Prototype"
-    purpose: "Worker and Discord sync utilities for legacy data synchronization."
-    last_updated_utc: "2025-10-30T00:46:00Z"
+    title: "Background Workers
+"
+    purpose: "Render background services that drain the event bus and perform offline tasks.
+"
+    last_updated_utc: "2025-10-28T22:55:00Z
+"
   - path: "tests/"
     router_file: "tests/ROUTER.md"
-    title: "Test Suite"
-    purpose: "Vitest coverage for schemas, pipeline, engines, and flows."
-    last_updated_utc: "2025-10-27T12:30:00Z"
-  - path: "tools/"
-    router_file: "tools/ROUTER.md"
-    title: "Tooling Binaries & Helpers"
-    purpose: "Vendored third-party tools required for local operations."
-    last_updated_utc: "2025-10-30T00:46:00Z"
+    title: "Test Suite
+"
+    purpose: "Vitest coverage for schemas, pipeline, engines, and flows.
+"
+    last_updated_utc: "2025-10-27T12:30:00Z
+"

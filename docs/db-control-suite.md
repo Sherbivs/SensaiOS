@@ -1,7 +1,7 @@
-# Database Control Suite
+# Database Control Suite *(Muted — Local Only)*
 Last Updated (UTC): 2025-10-29T22:15:00Z
 
-Purpose: provide a single entry point for routine database inspections, counts, and ad-hoc queries while honoring secure environment loading (`IG_ENV_FILE`).
+Purpose: provide a single entry point for routine database inspections, counts, and ad-hoc queries while honoring secure environment loading (`IG_ENV_FILE`). Intended for local operators only; do not run in CI or production.
 
 ## Entry Point
 

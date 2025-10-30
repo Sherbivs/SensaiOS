@@ -25,6 +25,20 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - **Lints:** `pnpm lint:all`
 - **Env needed (do not commit secrets):** start from `.env.example` and `secrets/*.env.example`. Rotate keys regularly. Point the runtime at external secret stores with `IG_ENV_FILE` (falls back to repo `.env`, skipped in production unless `IG_ALLOW_REPO_ENV=1`).
 
+## Local Database Access (Muted / Dev Only)
+1. **Create a secure env file:** copy `.env.example` plus `secrets/prisma-accelerate.env.example` (and dev equivalents) into `C:/Users/sherb/OneDrive/Documents/Key/` (only). Populate secrets there only.
+2. **Register the path:** run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/.env" -Persist`. This sets `IG_ENV_FILE` for future shells. Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`, so this override is mandatory for DB work.
+3. **Inspect databases:** use the muted control suite documented in `docs/db-control-suite.md`.
+  ```powershell
+  npm run db:cli -- status         # connection info + sample counts
+  npm run db:cli -- counts         # common table counts (Species, BusMessage, ...)
+  npm run db:cli -- count Species  # single-table helpers
+  npm run db:cli -- query "SELECT COUNT(*) FROM \"Species\";"
+  ```
+4. **Document actions:** log purpose, command, and outcome in `Tasklist.md` under the active task when running anything outside status/counts.
+
+Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describe the secure loading order and available commands. These tools run locally only; do not expose the secure env path in CI or production.
+
 ## Capabilities & Routing Hints
 - **planner:** break down vague goals; produce measurable milestones and resource budgets.
 - **researcher:** search, synthesize sources; attach citations & uncertainty notes.
@@ -80,6 +94,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - **Hotfix Loop**: Trigger naming, suffix rules, and recovery steps live in `ops/HOTFIX.md` and `ops/RECOVERY.yaml`. Update both when issuing or closing hotfixes.
 - **Clipboard Discipline**: Contract Mode ON requires markers, clipboard, and Prompt updates. Markerless Mode (no markers) relaxes the flow but still enforces Absolutes (routers intact, NEXT READY, canonical docs preserved).
 - **Logging**: `Prompt.md` PATCHSET echo should contain a concise summary, tasklist diff flag, test statement, contract mode, and NEXT pointer status.
+- **DB Control Suite (Muted)**: All DB operations funnel through `npm run db:cli` (see `docs/db-control-suite.md`). Load `IG_ENV_FILE` first; production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`.
 
 ## Production & Render Notes
 - `render.yaml` defines services:
