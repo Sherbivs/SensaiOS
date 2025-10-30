@@ -1,5 +1,5 @@
 // Backwards-compatible entry for the security role-healing bot
-// Prefer starting via src/index.js which manages both bots.
+// Prefer starting via src/index.ts which manages both bots.
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 

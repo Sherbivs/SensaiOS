@@ -45,13 +45,13 @@ The project now ships a PBSL scaffold under `src/core/pbsl/**` that implements s
 ├─ prisma/schema.prisma    # Database schema for persistent state
 ├─ ops/                    # Meta governance: Tasklist, routers, NEXT, hotfix plan
 ├─ data/                   # Cached reference data shards checked in by workers
-├─ discord-pokemon-bot/    # Legacy JavaScript bot (historical reference only)
 └─ README.md               # This guide
 ```
 
-Legacy JavaScript code paths (`src/bot/main.js`, `security-bot.js`, the
-`discord-pokemon-bot/` folder) remain for backward compatibility but are considered
-historical. New work should target the TypeScript app in `src/`.
+Legacy JavaScript code paths (`src/bot/main.js`, `security-bot.js`) remain for
+backward compatibility but are considered historical. The former
+`discord-pokemon-bot/` prototype has been retired; new work should target the
+TypeScript app in `src/`.
 
 ## Requirements
 
@@ -166,7 +166,8 @@ The contract-driven routing system keeps every meta document discoverable:
 ## Legacy Bots (Reference Only)
 
 - `security-bot.js` / `src/bot/main.js` retain the original security role-healing logic.
-- `discord-pokemon-bot/` holds the message-based prototype that triggered battles off 👀
+- Legacy message-based prototype was migrated to TypeScript and the original
+   `discord-pokemon-bot/` folder has been removed.
    reactions.
 
 They are not part of the TypeScript production path but remain for historical context

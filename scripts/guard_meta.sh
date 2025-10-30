@@ -90,7 +90,7 @@ has_changed "Patch.md" && PATCH_CHANGED=true
 has_changed "Tasklist.md" && TASKLIST_CHANGED=true
 
 # Non-doc (code) change detection
-CODE_REGEX='^(src/|tests/|scripts/.+|discord-pokemon-bot/|prisma/|data/|package\.json|tsconfig\.json|render\.yaml|index\.js|security-bot\.js)'
+CODE_REGEX='^(src/|tests/|scripts/.+|prisma/|data/|package\.json|tsconfig\.json|render\.yaml|security-bot\.js)'
 CODE_CHANGED=false
 if any_changed "${CODE_REGEX}"; then
   CODE_CHANGED=true

@@ -757,7 +757,7 @@ Each task has:
   status: DONE
   depends_on: [HOTFIX:SETUP.ROUTER_TABLE]
   acceptance_criteria:
-    - ops/ROUTER.yaml references discord-pokemon-bot/data/standized_pokemon_game_logic.md under infra docs.
+  - ops/ROUTER.yaml previously referenced the retired discord-pokemon-bot prototype; ensure infra docs stay accurate after cleanup.
     - Prompt Last Repo Changes log the hotfix and router update.
     - RECOVERY hotfix fields stamped for traceability.
   notes: Outcome — Router now tracks the Standardized game-logic reference doc; Prompt/Recovery updated during the hotfix.
