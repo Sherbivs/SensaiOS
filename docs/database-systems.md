@@ -89,7 +89,7 @@ Dex upkeep now routes through the consolidated seeding + control suite:
 
 Run every dex maintenance action in the Dev → Prod → Dev rhythm: execute the command against DEV first, switch `IG_ENV_FILE` to the Accelerate/Prod secrets and repeat (or invoke `scripts/ops/run_dex_migrations.ps1` when migrations need the same sequence), then point back to `Key/Dev/.env` and run `npx prisma generate` so local tooling reconnects to the direct driver.
 
-`scripts/dev_prod_auto_sync.ts` powers the automation loop (`npm run db:auto-sync`). On deployment it runs the consolidation once, then performs integrity checks every five minutes. If counts drift (or either database changes between checks), the service replays the migrate + seed cadence and records the result via `sync.consolidate.*` + `integrity.*` events.
+`scripts/dev_prod_auto_sync.ts` powers the automation loop (`npm run db:auto-sync`). On deployment it runs the consolidation once, then performs integrity checks every five minutes. If counts drift (or either database changes between checks), the service replays the migrate + seed cadence and records the result via `sync.consolidate.*` + `integrity.*` events. The loop also watches `data/cache/dex-sync-trigger.json` (written by `scripts/fetch_pokemon.mjs`) and logs `dex_trigger` consolidations whenever a new checksum/timestamp lands.
 
 Materialized view refresh flows through the helper; direct `REFRESH MATERIALIZED VIEW` still requires ownership. The seeding script falls back to the helper when permissions restrict direct refresh.
 

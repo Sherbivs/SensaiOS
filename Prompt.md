@@ -1,8 +1,9 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-30T20:45:00Z
-Revision: 1.58
+Timestamp (UTC): 2025-10-30T21:20:00Z
+Revision: 1.59
 
 ## Last Repo Changes (since previous Prompt.md revision)
+- Linked PokéAPI cache refreshes to the dex auto-sync loop: fetcher now emits `dex-sync-trigger.json` and the automation watches for checksum/timestamp bumps before running `dex_trigger` consolidations.
 - Hardened `scripts/dev_prod_auto_sync.ts` so migrate/seed inherit env-specific credentials, migrations force direct URLs, hung commands time out, and Optimize SpeciesSheet preflight logs missing grants.
 - Logged the guard_db_docs baseline in Tasklist.md (✅ `node scripts/guard_db_docs.mjs`) and documented remediation steps while queueing META.DB.CONNECTION_GUARD_CI_TRACK for the first CI run.
 - Maintained the `npx prisma generate` reminder across remediation guidance to keep the guard instructions accurate after any Accelerate work.
@@ -20,7 +21,7 @@ Revision: 1.58
 
 - **NEXT Pointer:** META.DB.CONNECTION_GUARD_CI_TRACK — record the first passing guard-db-docs CI run and mirror it into meta docs.
 - **READY / In-flight:** META.DB.CONNECTION_GUARD_CI_TRACK READY; baseline captured locally while we wait for the initial GitHub Actions run.
-- **Recent Finish:** T13.DEX.AUTO_SYNC_HARDEN injected env-aware child processes, enforced direct migrations, added timeouts, and logged Optimize SpeciesSheet preflight results so consolidation stays resilient.
+- **Recent Finish:** T13.DEX.AUTO_SYNC_TRIGGER wired the PokéAPI fetch trigger into the automation loop so dex consolidations fire when fresh cache data lands and log the trigger metadata for audits.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -61,9 +62,9 @@ Revision: 1.58
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Hardened dev_prod_auto_sync env handling + timeouts, recorded guard_db_docs baseline/remediation guidance, and queued CI tracking for the first guard-db-docs workflow run.
+Change: Added dex-sync trigger emission + watcher so PokéAPI cache refreshes kick off auto-sync consolidations, and captured the new Tasklist milestone.
 TasklistDiff: true
-Tests: npm run build:ts (pass)
+Tests: npm run lint -- scripts/dev_prod_auto_sync.ts (fails: repository-wide unresolved imports predating this change)
 Contracts: ON
 NEXT: META.DB.CONNECTION_GUARD_CI_TRACK - log the first passing guard-db-docs CI run and echo it in meta docs.
 <!-- PATCHSET:ECHO END -->

@@ -7,6 +7,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const CACHE_DIR = process.env.CACHE_DIR || './data/cache';
+const TRIGGER_FILE = process.env.DEX_SYNC_TRIGGER_PATH || path.join(CACHE_DIR, 'dex-sync-trigger.json');
 const LIST_URL = 'https://pokeapi.co/api/v2/pokemon?limit=20000&offset=0';
 const CONCURRENCY = Number(process.env.POKE_CONCURRENCY || 10);
 const REQ_TIMEOUT_MS = Number(process.env.POKE_TIMEOUT_MS || 15000);
@@ -115,6 +116,14 @@ async function writeCache(pokemon) {
     schema: 1,
   };
   await writeFile(metaPath, JSON.stringify(meta, null, 2));
+  const trigger = {
+    kind: 'dex-sync-trigger',
+    version: 1,
+    updatedAt: meta.updatedAt,
+    checksum: meta.checksum.value,
+    count: meta.count,
+  };
+  await writeFile(TRIGGER_FILE, JSON.stringify(trigger, null, 2));
   return { dataPath, gzPath, metaPath };
 }
 

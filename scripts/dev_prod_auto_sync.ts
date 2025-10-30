@@ -10,6 +10,7 @@ type EnvVars = Record<string, string>;
 type SyncConfig = {
   devEnvPath: string;
   prodEnvPath: string;
+  triggerPath: string;
   intervalMs: number;
   once: boolean;
   dryRun: boolean;
@@ -26,7 +27,16 @@ type CountSnapshot = {
 
 const DEFAULT_DEV_ENV = "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env";
 const DEFAULT_PROD_ENV = "C:/Users/sherb/OneDrive/Documents/Key/Prod/.env";
+const DEFAULT_TRIGGER_PATH = path.join("data", "cache", "dex-sync-trigger.json");
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+type DexTrigger = {
+  kind: string;
+  version: number;
+  updatedAt: string;
+  checksum: string;
+  count?: number;
+};
 
 function log(message: string, context: Record<string, unknown> = {}): void {
   const payload = {
@@ -43,6 +53,7 @@ function parseArgs(): SyncConfig {
   const config: SyncConfig = {
     devEnvPath: DEFAULT_DEV_ENV,
     prodEnvPath: DEFAULT_PROD_ENV,
+    triggerPath: DEFAULT_TRIGGER_PATH,
     intervalMs: DEFAULT_INTERVAL_MS,
     once: false,
     dryRun: false,
@@ -57,6 +68,9 @@ function parseArgs(): SyncConfig {
         break;
       case "--prod-env":
         config.prodEnvPath = args[++i] ?? config.prodEnvPath;
+        break;
+      case "--trigger-path":
+        config.triggerPath = args[++i] ?? config.triggerPath;
         break;
       case "--interval":
         config.intervalMs = Number.parseInt(args[++i] ?? "", 10) || config.intervalMs;
@@ -78,6 +92,10 @@ function parseArgs(): SyncConfig {
   return config;
 }
 
+function resolvePath(targetPath: string): string {
+  return path.isAbsolute(targetPath) ? targetPath : path.join(process.cwd(), targetPath);
+}
+
 function stripQuotes(value: string): string {
   if (!value) return value;
   const trimmed = value.trim();
@@ -89,7 +107,7 @@ function stripQuotes(value: string): string {
 }
 
 async function readEnvFile(filePath: string): Promise<EnvVars> {
-  const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
+  const absolutePath = resolvePath(filePath);
   const exists = await fs
     .access(absolutePath)
     .then(() => true)
@@ -342,6 +360,34 @@ function diffCounts(devCounts: CountSnapshot, prodCounts: CountSnapshot): Record
   };
 }
 
+function fingerprintTrigger(trigger: DexTrigger): string {
+  return `${trigger.updatedAt}:${trigger.checksum}`;
+}
+
+async function readDexTrigger(
+  triggerPath: string,
+): Promise<{ payload: DexTrigger; fingerprint: string } | null> {
+  const absolutePath = resolvePath(triggerPath);
+  try {
+    const raw = await fs.readFile(absolutePath, "utf8");
+    const payload = JSON.parse(raw) as DexTrigger;
+    if (!payload.updatedAt || !payload.checksum) {
+      throw new Error("Trigger file missing updatedAt/checksum fields");
+    }
+
+    return {
+      payload,
+      fingerprint: fingerprintTrigger(payload),
+    };
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return null;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read trigger file at ${absolutePath}: ${message}`);
+  }
+}
+
 async function runConsolidation(
   config: SyncConfig,
   reason: string,
@@ -378,10 +424,12 @@ async function main(): Promise<void> {
   const config = parseArgs();
   const devVars = await readEnvFile(config.devEnvPath);
   const prodVars = await readEnvFile(config.prodEnvPath);
+  const resolvedTriggerPath = resolvePath(config.triggerPath);
 
   log("sync.config", {
     devEnv: config.devEnvPath,
     prodEnv: config.prodEnvPath,
+    triggerPath: resolvedTriggerPath,
     intervalMs: config.intervalMs,
     once: config.once,
     dryRun: config.dryRun,
@@ -401,6 +449,26 @@ async function main(): Promise<void> {
     prod: null,
   };
   let baselineCaptured = false;
+  let lastTriggerFingerprint: string | null = null;
+  let triggerMissingLogged = false;
+
+  try {
+    const initialTrigger = await readDexTrigger(config.triggerPath);
+    if (initialTrigger) {
+      lastTriggerFingerprint = initialTrigger.fingerprint;
+      log("trigger.bootstrap", {
+        updatedAt: initialTrigger.payload.updatedAt,
+        checksum: initialTrigger.payload.checksum,
+        path: resolvedTriggerPath,
+      });
+    } else {
+      log("trigger.bootstrap.missing", { path: resolvedTriggerPath });
+      triggerMissingLogged = true;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log("trigger.bootstrap.error", { message, path: resolvedTriggerPath });
+  }
 
   if (!config.skipStartup) {
     try {
@@ -416,66 +484,111 @@ async function main(): Promise<void> {
 
   while (true) {
     const cycleStartedAt = Date.now();
+    let exitAfterCycle = false;
     try {
-      const [devCounts, prodCounts] = await Promise.all([
-        captureCounts("dev", devVars),
-        captureCounts("prod", prodVars),
-      ]);
-
-      log("integrity.check", { devCounts, prodCounts });
-
-      const delta = diffCounts(devCounts, prodCounts);
-      const driftDetected =
-        delta.species !== 0 || delta.moves !== 0 || delta.abilities !== 0 || delta.learnsets !== 0;
-
-      if (!baselineCaptured) {
-        if (driftDetected) {
-          const consolidated = await runConsolidation(config, "drift_detected", devVars, prodVars);
-          history.dev = consolidated.devCounts;
-          history.prod = consolidated.prodCounts;
+      let triggerRan = false;
+      try {
+        const trigger = await readDexTrigger(config.triggerPath);
+        if (!trigger) {
+          if (!triggerMissingLogged) {
+            log("trigger.missing", { path: resolvedTriggerPath });
+            triggerMissingLogged = true;
+          }
         } else {
-          history.dev = devCounts;
-          history.prod = prodCounts;
-          log("integrity.baseline", { message: "Baseline captured; monitoring for drift." });
+          triggerMissingLogged = false;
+          if (trigger.fingerprint !== lastTriggerFingerprint) {
+            log("trigger.detected", {
+              updatedAt: trigger.payload.updatedAt,
+              checksum: trigger.payload.checksum,
+              count: trigger.payload.count,
+            });
+            const consolidated = await runConsolidation(
+              config,
+              "dex_trigger",
+              devVars,
+              prodVars,
+            );
+            history.dev = consolidated.devCounts;
+            history.prod = consolidated.prodCounts;
+            lastTriggerFingerprint = trigger.fingerprint;
+            baselineCaptured = true;
+            triggerRan = true;
+          }
         }
-        baselineCaptured = true;
+      } catch (triggerError) {
+        const message = triggerError instanceof Error ? triggerError.message : String(triggerError);
+        log("trigger.error", { message, path: resolvedTriggerPath });
+      }
+
+      if (triggerRan) {
+        if (config.once) {
+          exitAfterCycle = true;
+        }
+        log("trigger.post_run", { message: "Trigger handled; skipping integrity sweep this cycle." });
       } else {
-        const devChanged =
-          history.dev !== null && history.dev.hash !== devCounts.hash;
-        const prodChanged =
-          history.prod !== null && history.prod.hash !== prodCounts.hash;
+        const [devCounts, prodCounts] = await Promise.all([
+          captureCounts("dev", devVars),
+          captureCounts("prod", prodVars),
+        ]);
 
-        let latestDevCounts = devCounts;
-        let latestProdCounts = prodCounts;
+        log("integrity.check", { devCounts, prodCounts });
 
-        if (driftDetected || devChanged || prodChanged) {
-          log("integrity.trigger", {
-            reason: driftDetected ? "drift_detected" : "state_changed",
-            delta,
-            devChanged,
-            prodChanged,
-          });
-          const consolidated = await runConsolidation(
-            config,
-            driftDetected ? "drift_detected" : "state_changed",
-            devVars,
-            prodVars,
-          );
-          latestDevCounts = consolidated.devCounts;
-          latestProdCounts = consolidated.prodCounts;
+        const delta = diffCounts(devCounts, prodCounts);
+        const driftDetected =
+          delta.species !== 0 || delta.moves !== 0 || delta.abilities !== 0 || delta.learnsets !== 0;
+
+        if (!baselineCaptured) {
+          if (driftDetected) {
+            const consolidated = await runConsolidation(
+              config,
+              "drift_detected",
+              devVars,
+              prodVars,
+            );
+            history.dev = consolidated.devCounts;
+            history.prod = consolidated.prodCounts;
+          } else {
+            history.dev = devCounts;
+            history.prod = prodCounts;
+            log("integrity.baseline", { message: "Baseline captured; monitoring for drift." });
+          }
+          baselineCaptured = true;
         } else {
-          log("integrity.ok", { message: "No action required; counts aligned." });
-        }
+          const devChanged = history.dev !== null && history.dev.hash !== devCounts.hash;
+          const prodChanged = history.prod !== null && history.prod.hash !== prodCounts.hash;
 
-        history.dev = latestDevCounts;
-        history.prod = latestProdCounts;
+          let latestDevCounts = devCounts;
+          let latestProdCounts = prodCounts;
+
+          if (driftDetected || devChanged || prodChanged) {
+            log("integrity.trigger", {
+              reason: driftDetected ? "drift_detected" : "state_changed",
+              delta,
+              devChanged,
+              prodChanged,
+            });
+            const consolidated = await runConsolidation(
+              config,
+              driftDetected ? "drift_detected" : "state_changed",
+              devVars,
+              prodVars,
+            );
+            latestDevCounts = consolidated.devCounts;
+            latestProdCounts = consolidated.prodCounts;
+          } else {
+            log("integrity.ok", { message: "No action required; counts aligned." });
+          }
+
+          history.dev = latestDevCounts;
+          history.prod = latestProdCounts;
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       log("integrity.error", { message });
     }
 
-    if (config.once) {
+    if (exitAfterCycle || config.once) {
       break;
     }
 

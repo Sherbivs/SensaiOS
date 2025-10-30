@@ -1031,6 +1031,17 @@ Each task has:
     - Optimize/SpeciesSheet preflight surfaces missing grants with actionable remediation guidance before the consolidation loop starts.
   notes: Outcome — Injected env file variables per phase, forced direct URLs for migrate, added command timeouts, and logged SpeciesSheet preflight + Data Proxy warnings so the sync loop recovers cleanly and surfaces permission drift.
 
+- id: T13.DEX.AUTO_SYNC_TRIGGER
+  title: Fire the auto-sync loop when PokéAPI cache refresh completes
+  status: DONE
+  depends_on: [T13.DEX.AUTO_SYNC_HARDEN]
+  acceptance_criteria:
+    - `scripts/fetch_pokemon.mjs` emits a trigger artifact (timestamp + checksum) after writing the cache so downstream automation can detect fresh data.
+    - `scripts/dev_prod_auto_sync.ts` monitors the trigger file, logs `trigger.detected`, and replays the consolidation loop when the artifact changes.
+    - Trigger-driven runs respect `--once`/interval settings and skip duplicate integrity sweeps when the consolidation already executed for the change.
+    - Logging captures trigger metadata and post-run behaviour so operators can audit why a consolidation executed.
+  notes: Outcome — Added `dex-sync-trigger.json` generation to the fetcher and taught the auto-sync loop to track its checksum/timestamp, fire `dex_trigger` consolidations on change, and record skip/sleep logic when handled.
+
 ## Phase 11 — Meta & AI Enablement
 
 - id: META.ROUTER.20251028
