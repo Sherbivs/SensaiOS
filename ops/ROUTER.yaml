@@ -64,7 +64,7 @@ categories:
   secrets_templates:
     - secrets/**
     - .db-state/**
-    - secrets/prisma-accelerate.env (gitignored local Accelerate URL)
+    - secrets/prisma-accelerate.env.example (template; real Accelerate secrets now live at C:/Users/sherb/OneDrive/Documents/Key/Prod/.env)
   sync_layer:
     - sync-layer/**
   tooling_bins:

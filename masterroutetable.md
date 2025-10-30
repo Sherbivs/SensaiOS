@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-30T04:17:00Z
+Last Updated (UTC): 2025-10-30T17:25:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -20,8 +20,8 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `tests/ROUTER.md` — Test Suite
 
 ## Muted Local Files
-- `C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env` — Muted (DEV Postgres secrets); set `IG_ENV_FILE` here for Render/staging work. Repo `.env` stays empty.
-- `C:/Users/sherb/OneDrive/Documents/Key/prisma-accelerate.env` — Muted (Accelerate credentials); repoint `IG_ENV_FILE` here only when working against Prisma Accelerate.
+- `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` — Muted (DEV Postgres secrets); set `IG_ENV_FILE` here for local and staging work. Keep the repo `.env` empty.
+- `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` — Muted (Accelerate/production credentials); repoint `IG_ENV_FILE` here only when working against Prisma Accelerate and run `npx prisma generate` before returning to Dev so the client drops the Accelerate proxy.
 - `docs/db-control-suite.md` — Muted (local operator guide); documents `npm run db:cli` usage for dev DB checks.
 - `docs/ai-env-setup.md` — Muted (local env instructions); covers `IG_ENV_FILE` setup for agents.
 

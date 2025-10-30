@@ -2,7 +2,7 @@
 Title: Ops & Governance
 Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-10-29T20:30:00Z
+Last Updated (UTC): 2025-10-30T17:25:00Z
 
 Notes:
 - 2025-10-26: guard_meta preflight/postflight make READY absence impossible at merge time; NEXT auto-promotion enabled. See scripts/guard_meta.sh and ops/NEXT.yaml.
@@ -28,9 +28,10 @@ Notes:
 - 2025-10-29: Documented PokeAPI integration and cache operations in `ops/POKEMON_CACHE.md`; runtime now depends on axios + node-cron for scheduled refreshes.
 - 2025-10-29: Dual-database workflow spelled out in `ops/DB_IMPORT_PRISMA_POSTGRES.md` (primary Accelerate, standby Render, failover playbook) to keep router metadata aligned with new DR posture.
 - 2025-10-29: Router contract now requires `npm run docs:update-routers` after metadata edits; generated outputs (`ops/ROUTER_INDEX.yaml`, `masterroutetable.md`) are read-only and guarded by `scripts/guard_router_docs.sh`.
-- 2025-10-29: Store the Prisma Accelerate `DATABASE_URL` in `secrets/prisma-accelerate.env` (gitignored) for local migrate deploys; update `.gitignore` to keep the credential out of version control.
+- 2025-10-29: Store the Prisma Accelerate `DATABASE_URL` in `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` (gitignored path outside the repo) for local migrate deploys; update `.gitignore` to keep any legacy filenames out of version control.
 - 2025-10-29: Retired the legacy `discord-pokemon-bot/` prototype; router metadata now points exclusively at the TypeScript surfaces.
 - 2025-10-29: Added `docs/database-systems.md` as the canonical database topology and maintenance guide; cross-links from DATA-SCHEMA, OPERATIONS, and DB bootstrap runbooks point here for shared context.
+- 2025-10-30: Documented the DB doc drift guard (`scripts/guard_db_docs.mjs` + guard-db-docs workflow) so ops runbooks stay aligned on Key/Dev, Key/Prod, and Prisma regenerate instructions.
 
 Key Files:
 - ops/NEXT.yaml — execution pointer

@@ -13,14 +13,20 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: NONE
-reason: ''
+next_task_id: META.DB.CONNECTION_GUARD_POSTCHECK
+reason: "Capture guard baseline output and document remediation guidance"
 
-files_hint: []
+files_hint:
+  - scripts/guard_db_docs.mjs
+  - .github/workflows/guard-db-docs.yml
+  - Tasklist.md
+  - Prompt.md
 
-queue: []
+queue:
+  - id: META.DB.CONNECTION_GUARD_POSTCHECK
+    note: "Record guard-db-docs workflow output and troubleshooting steps"
 
-timestamp_utc: 2025-10-30T05:00:00Z
+timestamp_utc: 2025-10-30T17:30:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Governance audit complete; roadmap backlog deferred, so NEXT remains NONE until Preflight promotes a new task."
+note: "Guard shipping complete; capture baseline output and remediation notes for the new DB doc guard." 

@@ -2,7 +2,7 @@
 Title: Tooling
 Purpose: Guard scripts and automation entrypoints.
 Owned Globs: scripts/**
-Last Updated (UTC): 2025-10-29T12:30:00Z
+Last Updated (UTC): 2025-10-30T17:25:00Z
 
 Notes:
 - guard_meta.sh enforces READY invariants. Called in CI preflight/postflight.
@@ -15,3 +15,4 @@ Notes:
 - 2025-10-29: `sync_accelerate_to_render.ps1` ships the Accelerate→Render refresh workflow and `guard_router_docs.sh` enforces generated router docs stay command-generated.
 - 2025-10-29: Introduced `setup_ai_env.ps1` to register `IG_ENV_FILE` for agent/automation runs while keeping secrets outside the repo.
 - 2025-10-29: Added `db_admin.ts` (run via `npm run db:cli`) as the master database control suite for status inspections and ad-hoc queries.
+- 2025-10-30: Added `guard_db_docs.mjs` + CI workflow to fail when DB connection docs drift on Key/Dev, Key/Prod, or Prisma regenerate guidance.

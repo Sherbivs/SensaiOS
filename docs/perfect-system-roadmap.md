@@ -10,7 +10,7 @@ This roadmap is the canonical planning artifact for Infinity Gauntlet. It aligns
 ## Timeline & Milestones
 | Window | Milestone | Key Deliverables | Exit Criteria |
 | --- | --- | --- | --- |
-| **Immediate (Oct–Nov 2025)** | Stabilize Secrets & Schema | Restore DEV/Accelerate env files, re-run migrations, bring dex cache up-to-date | `prisma-dev.env` + `prisma-accelerate.env` validated, `npx prisma migrate deploy` green, `npm run db:cli -- counts` logged |
+| **Immediate (Oct–Nov 2025)** | Stabilize Secrets & Schema | Restore DEV/Prod secret folders, re-run migrations, bring dex cache up-to-date | `Key/Dev/.env` + `Key/Prod/.env` validated (including Prisma regenerate safeguard), `npx prisma migrate deploy` green, `npm run db:cli -- counts` logged |
 | **Near-Term (Dec 2025)** | Harden Runtime & Guards | Close ROUTER drift, refresh guard scripts, green Vitest/ESLint baselines | Guard suite green, Tasklist shows regression tests landed |
 | **Mid-Term (Jan–Mar 2026)** | Automate Recovery & Telemetry | CI coverage for dex scripts, structured logging dashboards, revised recovery playbooks | CI catches dex regressions, Ops dashboards track cache refresh mode, recovery dry-run documented |
 | **Long-Term (Apr–Jun 2026)** | Scale & Integrate | Shard cache pipeline, introduce analytics read models, formalize release cadence | Render services auto-scale, analytics dashboards online, release checklist institutionalized |
@@ -28,7 +28,7 @@ This roadmap is the canonical planning artifact for Infinity Gauntlet. It aligns
 ### 2. Database Operations & Data Integrity
 - **Goal:** Reproducible migrations and cache hydration across DEV, Render, and Accelerate.
 - **Scope 2025 Q4:**
-  - Load `prisma-dev.env` / `prisma-accelerate.env` via `scripts/setup_ai_env.ps1` before every DB change.
+  - Load `Key/Dev/.env` / `Key/Prod/.env` via `scripts/setup_ai_env.ps1` before every DB change, and regenerate the Prisma client when switching back from Prod.
   - Execute `seed_reference`, `backfill_species`, and `warm_cache` with transcripts archived in Tasklist.
   - Extend `ops/DB_BOOTSTRAP.md` with dual-environment validation steps when helpers change.
 - **Measures:** `_prisma_migrations` parity confirmed monthly; `SpeciesSheet` refresh logged in both environments; cache warm timestamp recorded after each deploy.
@@ -62,7 +62,7 @@ This roadmap is the canonical planning artifact for Infinity Gauntlet. It aligns
 - **Status 2025-10-30:** Deferred—observability/security backlog items removed from Tasklist until renewed monitoring effort begins.
 
 ## Dependencies & Risks
-- **Secrets Hygiene:** Loss of `prisma-dev.env` or `prisma-accelerate.env` blocks migrations. Mitigation: mirror files to secure backup and document refresh cadence.
+- **Secrets Hygiene:** Loss of `Key/Dev/.env` or `Key/Prod/.env` blocks migrations. Mitigation: mirror files to secure backup, document the regenerate cadence, and verify both folders weekly.
 - **GitHub Automation:** Dex replication requires `GITHUB_REPO` and `GITHUB_TOKEN`. Track token rotations in Tasklist.
 - **Guard Drift:** Router or contract file drift forces manual recovery. Run guard suite after each structural change.
 

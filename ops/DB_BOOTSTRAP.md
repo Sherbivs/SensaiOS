@@ -16,7 +16,8 @@ Checklist and decisions
 
 Procedure A — Apply historical migrations (recommended)
 1. Ensure the repo contains the full migrations history under `prisma/migrations`.
-2. From the repo root (the working copy used for ops), confirm `IG_ENV_FILE` is pointing at `C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env` (or the staging-specific override) and that file defines `DATABASE_POOL_URL`/`DATABASE_URL` (pooled) *and* `DATABASE_DIRECT_URL` (direct). On Windows PowerShell you can verify with `echo $Env:IG_ENV_FILE` and `Get-Content $Env:IG_ENV_FILE | Select-String DATABASE_` or rely on `scripts/setup_ai_env.ps1` to register the path.
+2. From the repo root (the working copy used for ops), confirm `IG_ENV_FILE` is pointing at `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (or the staging-specific override) and that file defines `DATABASE_POOL_URL`/`DATABASE_URL` (pooled) *and* `DATABASE_DIRECT_URL` (direct). On Windows PowerShell you can verify with `echo $Env:IG_ENV_FILE` and `Get-Content $Env:IG_ENV_FILE | Select-String DATABASE_` or rely on `scripts/setup_ai_env.ps1` to register the path.
+  - If you previously ran Accelerate workflows with `Key/Prod/.env`, regenerate the Prisma client (`npx prisma generate`) before connecting so the CLI uses the direct Node engine again.
 3. Run:
 
    npx prisma migrate deploy
@@ -70,7 +71,7 @@ Dex reference rollout follow-up
 
 Connection sanity matrix — 2025-10-29T20:45Z
 - Accelerate (primary)
-  - Load credentials: `Get-Content secrets/prisma-accelerate.env | ForEach-Object { ... }`
+  - Load credentials: `Get-Content C:/Users/sherb/OneDrive/Documents/Key/Prod/.env | ForEach-Object { ... }`
   - Validated commands (PASS):
     - `npx prisma migrate status`
     - `npx prisma migrate deploy`
@@ -141,7 +142,7 @@ The Prisma role in `DATABASE_URL` is missing privileges on the materialized view
    await prisma.$queryRawUnsafe('SELECT 1 FROM "SpeciesSheet" LIMIT 1');
    ```
 
-Security hygiene: rotate any exposed `OPTIMIZE_API_KEY` tokens in the Prisma Data Platform, update the active `IG_ENV_FILE` secrets file (e.g., `prisma-dev.env`), and restart services that load it.
+Security hygiene: rotate any exposed `OPTIMIZE_API_KEY` tokens in the Prisma Data Platform, update the active `IG_ENV_FILE` secrets file (e.g., `Key/Dev/.env`), and restart services that load it.
 
 Keep the mixed-case name quoted (`"SpeciesSheet"`) in every statement. Add a unique index before using `REFRESH MATERIALIZED VIEW CONCURRENTLY` if one is missing.
 - Render dev standby

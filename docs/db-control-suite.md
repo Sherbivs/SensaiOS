@@ -1,12 +1,12 @@
 # Database Control Suite *(Muted — Local Only)*
-Last Updated (UTC): 2025-10-30T03:50:00Z
+Last Updated (UTC): 2025-10-30T16:48:00Z
 
 Purpose: provide a single entry point for routine database inspections, counts, and ad-hoc queries while honoring secure environment loading (`IG_ENV_FILE`). Intended for local operators only; do not run in CI or production.
 
 ## Prerequisites
-- Ensure secrets live outside the repo. This workstation keeps `prisma-dev.env` (Render/DEV direct URLs) and `prisma-accelerate.env` (Accelerate proxy) under `C:/Users/sherb/OneDrive/Documents/Key/`.
-- Point `IG_ENV_FILE` at the file you need (usually `prisma-dev.env` for dev DB access) via `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env" -Persist` before running any commands.
-- Swap to Accelerate when required by re-running the helper with `prisma-accelerate.env`. Keep only one target active at a time.
+- Ensure secrets live outside the repo. This workstation keeps the direct credentials in `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` and the Accelerate proxy credentials in `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env`.
+- Point `IG_ENV_FILE` at the file you need (usually `Key/Dev/.env` for dev DB access) via `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env" -Persist` before running any commands.
+- Swap to Accelerate when required by re-running the helper with `Key/Prod/.env`. Keep only one target active at a time, and after returning from Prod run `npx prisma generate` once so Prisma stops expecting the Accelerate data proxy.
 - Verify the override with `echo $Env:IG_ENV_FILE`; the suite refuses to fall back to the repo `.env` in production contexts.
 - Apply schema migrations before querying: `npx prisma migrate deploy` (or `npm run prisma:migrate` if you keep a script) against your dev database so tables such as `BusMessage`, `PokemonInstance`, and `Species` exist. The suite assumes the full Prisma schema is present.
 

@@ -1,15 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-30T05:04:00Z
-Revision: 1.50
+Timestamp (UTC): 2025-10-30T17:30:00Z
+Revision: 1.52
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Overhauled `docs/perfect-system-roadmap.md` into the official roadmap with timeline, workstreams, and risk tracking.
-- Cleared the Patch.md clipboard so no stale patch plans remain between the markers.
-- Cleared the NEXT pointer at operator request; Preflight now needs to promote a READY task before further work.
-- Purged legacy dex/cache tasks (`T10.DEX.*`, `OPS.CACHE.REPLICATION_CONFIG`, `OPS.DB.BASELINE_SCHEMA`) from Tasklist/Touchmap and reset recovery metadata.
-- Logged the META.ROADMAP.GOVERNANCE guard audit (pass) in Tasklist and ops/change-ledger; routers/Touchmap confirmed clean.
-- Deferred the remaining roadmap backlog (DB ops, runtime, automation, observability) by updating the roadmap doc and pruning the associated Tasklist entries.
-- Updated Patch.md Preflight guidance so every new task run overwrites the clipboard/NEXT context instead of lingering on previous plans.
+- Added `scripts/guard_db_docs.mjs` and `.github/workflows/guard-db-docs.yml` to block merges when DB connection docs drift from the Key/Dev vs Key/Prod layout or drop the Prisma regenerate reminder.
+- Updated `masterroutetable.md`, `scripts/ROUTER.md`, and `ops/ROUTER.md` with explicit `npx prisma generate` context and guard coverage so future editors keep the instructions aligned.
+- Closed META.DB.CONNECTION_GUARD, queued META.DB.CONNECTION_GUARD_POSTCHECK, and refreshed Tasklist/NEXT metadata for the guard follow-up.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -22,9 +18,9 @@ Revision: 1.50
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** NONE - promote the next READY task via Preflight before starting a new run.
-- **READY / In-flight:** No tasks currently READY; META.ROADMAP.* backlog remains PROPOSED while NEXT sits at NONE.
-- **Recent Finish:** META.DB.DOCS shipped the comprehensive database reference and synced routing metadata.
+- **NEXT Pointer:** META.DB.CONNECTION_GUARD_POSTCHECK — capture guard baseline output and remediation notes for the new DB doc workflow.
+- **READY / In-flight:** META.DB.CONNECTION_GUARD_POSTCHECK READY; guard coverage landed and follow-up will document baseline results + fixes.
+- **Recent Finish:** META.DB.CONNECTION_GUARD shipped guard_db_docs.mjs + CI workflow, refreshed routers, and anchored `npx prisma generate` in masterroutetable.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -65,11 +61,11 @@ Revision: 1.50
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Rebuilt the roadmap, cleared NEXT at operator request, purged legacy dex/cache tasks, logged the governance guard audit, and deferred the remaining roadmap backlog so the loop can promote a new READY task.
+Change: Added guard_db_docs.mjs + guard-db-docs CI to enforce Key/Dev/Key/Prod guidance, refreshed routers/masterroutetable with explicit `npx prisma generate`, and queued the postcheck task.
 TasklistDiff: true
-Tests: not run (documentation update)
+Tests: not run (docs/scripts update)
 Contracts: ON
-NEXT: NONE - run Preflight to promote a READY task before editing.
+NEXT: META.DB.CONNECTION_GUARD_POSTCHECK - capture guard baseline output and remediation guidance.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

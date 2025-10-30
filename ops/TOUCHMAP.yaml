@@ -235,6 +235,31 @@ META.AI_DOC_ENABLE:
   - "Prompt.md"
   - "ops/NEXT.yaml"
 
+META.DB.CONNECTION_GUIDE:
+  - "AGENTS.md"
+  - "README.md"
+  - "docs/ai-env-setup.md"
+  - "docs/db-control-suite.md"
+  - "docs/perfect-system-roadmap.md"
+  - "docs/database-systems.md"
+  - "ops/DB_BOOTSTRAP.md"
+  - "masterroutetable.md"
+  - "ops/ROUTER.yaml"
+  - "scripts/setup_ai_env.ps1"
+  - "scripts/ops/run_dex_migrations.ps1"
+  - "Prompt.md"
+  - "Tasklist.md"
+
+META.DB.CONNECTION_GUARD:
+  - "scripts/guard_db_docs.mjs"
+  - ".github/workflows/guard-db-docs.yml"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "scripts/ROUTER.md"
+  - "ops/ROUTER.md"
+  - "masterroutetable.md"
+
 # Glob prefixes to catch future tasks in the same family
 "Phase 0*":
   - "/ops/**"

@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-30T05:03:00Z
-Revision: 2.07
+Last Updated (UTC): 2025-10-30T17:30:00Z
+Revision: 2.10
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -226,6 +226,37 @@ Each task has:
     - Secrets/configuration for the chosen storage provider are documented and guarded in Render.
     - `/ops stats` and worker health logs surface the new sink status and last successful upload timestamp.
   notes: Outcome — Outbox worker now streams processed messages to the configured backup sink (S3 or local), logs provider/location metadata, ships a storage helper with tests, and OPERATIONS.md documents deployment/env guidance.
+
+- id: META.DB.CONNECTION_GUIDE
+  title: Align DB connection docs with Key/Dev and Key/Prod secret folders
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - AGENTS.md, README.md, docs/ai-env-setup.md, docs/db-control-suite.md, ops/DB_BOOTSTRAP.md, and masterroutetable.md describe the Dev/Prod folder layout, IG_ENV_FILE workflow, and Prisma regenerate requirement without referencing legacy filenames.
+    - scripts/setup_ai_env.ps1 default path and scripts/ops/run_dex_migrations.ps1 default accelerate path target the new directory structure.
+    - Documentation includes step-by-step verification from env selection through `npm run db:cli -- status`, including the regenerate safeguard when switching from Accelerate to Dev.
+    - Prompt.md and Tasklist.md capture the change with outcome notes.
+  notes: Outcome — Updated AGENTS/README/core docs plus setup scripts to reference Key/Dev/.env and Key/Prod/.env, documented the Prisma regenerate step, and re-pointed routing metadata and runbooks.
+
+- id: META.DB.CONNECTION_GUARD
+  title: Add guardrails ensuring DB instructions stay synced across docs
+  status: DONE
+  depends_on: [META.DB.CONNECTION_GUIDE]
+  acceptance_criteria:
+    - A guard script or CI check fails when core docs diverge on the Key/Dev vs Key/Prod secret paths or omit the regenerate step.
+    - Router metadata and Prompt.md mention the guard coverage so future edits keep the instructions aligned.
+    - Prompt.md and Tasklist.md metadata reflect the guard activation.
+  notes: Outcome — Added `scripts/guard_db_docs.mjs` with a guard-db-docs CI workflow, refreshed router metadata, and updated masterroutetable so every doc lists `npx prisma generate` alongside the Key/Dev and Key/Prod secret paths.
+
+- id: META.DB.CONNECTION_GUARD_POSTCHECK
+  title: Capture guard baseline and document remediation steps
+  status: READY
+  depends_on: [META.DB.CONNECTION_GUARD]
+  acceptance_criteria:
+    - Capture sample output from `node scripts/guard_db_docs.mjs` (local or CI) and quote the success line in Tasklist notes once verified.
+    - Record the latest passing `.github/workflows/guard-db-docs.yml` run (URL or run id) in Prompt.md or Tasklist.md for traceability.
+    - Outline quick remediation steps for guard failures (e.g., update docs to restore the Key/Dev, Key/Prod, or Prisma regenerate text) in Tasklist notes after validation.
+  notes: ''
 
 - id: T0.REFRESH.VISION
   title: Add Refresh Vision phase and recovery ledger

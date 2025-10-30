@@ -23,12 +23,13 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - **Start dev:** `pnpm dev` (or `npm run dev`)
 - **Test:** `pnpm test`
 - **Lints:** `pnpm lint:all`
-- **Env needed (do not commit secrets):** use `.env.example` and `secrets/*.env.example` as reference, but copy real values into `C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env` (DEV direct URL) and `C:/Users/sherb/OneDrive/Documents/Key/prisma-accelerate.env` (Accelerate proxy). Load them with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file.
+- **Env needed (do not commit secrets):** use `.env.example` and `secrets/*.env.example` as reference, but copy real values into `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (DEV direct URL) and `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` (Accelerate/production proxy). Load them with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file.
 
 ## Local Database Access (Muted / Dev Only)
-1. **Copy secrets outside the repo:** place `secrets/prisma-dev.env.example` → `C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env` and `secrets/prisma-accelerate.env.example` → `C:/Users/sherb/OneDrive/Documents/Key/prisma-accelerate.env`. Populate each with the real credentials (DEV direct URL vs. Accelerate proxy). Do **not** retain a combined `.env` in the repo.
-2. **Select the target before DB work:** run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env" -Persist` when you need the DEV Postgres connection. Swap to Accelerate by re-running with the `prisma-accelerate.env` path. Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`, so one of these overrides must be active.
-  - **Verify access:** `echo $Env:IG_ENV_FILE` should print the chosen file; use `Get-Content C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env | Select-Object -First 5` to confirm it is reachable before running tooling.
+1. **Copy secrets outside the repo:** place `secrets/prisma-dev.env.example` → `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` and `secrets/prisma-accelerate.env.example` → `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env`. Populate each with the real credentials (DEV direct URL vs. Accelerate proxy). Do **not** retain a combined `.env` in the repo.
+2. **Select the target before DB work:** run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env" -Persist` when you need the DEV Postgres connection. Swap to Accelerate by re-running with the `Key/Prod/.env` path. Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`, so one of these overrides must be active.
+  - **Verify access:** `echo $Env:IG_ENV_FILE` should print the chosen file; use `Get-Content C:/Users/sherb/OneDrive/Documents/Key/Dev/.env | Select-Object -First 5` to confirm it is reachable before running tooling.
+  - **Reset Prisma after Accelerate:** whenever you come back from `Key/Prod/.env`, run `npx prisma generate` once so the local client switches from the Accelerate data proxy back to the direct engine before connecting to DEV.
 3. **Inspect databases:** use the muted control suite documented in `docs/db-control-suite.md`.
   ```powershell
   npm run db:cli -- status         # connection info + sample counts
@@ -83,7 +84,7 @@ Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describ
   - `scripts/ROUTER.md` — Guard scripts, router refresh tooling, change ledger automation.
   - `tests/ROUTER.md` — Vitest coverage map for major systems.
 - When in doubt, consult `ops/TOUCHMAP.yaml` for file ownership and escalation paths.
-- Pair the runbook (`ops/DB_BOOTSTRAP.md`) with `scripts/bootstrap_staging_db.ps1` before touching staging migrations; the script reads the active `IG_ENV_FILE` (defaulting to `prisma-dev.env`), runs `prisma migrate deploy`, and points back to the runbook if baseline tables or connection strings (pooled vs. direct) are missing.
+- Pair the runbook (`ops/DB_BOOTSTRAP.md`) with `scripts/bootstrap_staging_db.ps1` before touching staging migrations; the script reads the active `IG_ENV_FILE` (defaulting to `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env`), runs `prisma migrate deploy`, and points back to the runbook if baseline tables or connection strings (pooled vs. direct) are missing.
 
 ## Refresh Policy for Materialized Views
 - Only the owner role or a `SECURITY DEFINER` function refreshes DB matviews.
@@ -91,7 +92,7 @@ Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describ
 
 ## Operational Playbook
 - **Guard Scripts**: `scripts/guard_meta.sh`, `scripts/guard_doc_names.sh`, and `scripts/guard_routing.sh` enforce invariants (READY pointer, canonical spellings, router consistency).
-- **Bootstrap Helper**: `scripts/bootstrap_staging_db.ps1` attempts `npx prisma migrate deploy` against staging after loading the `IG_ENV_FILE` secrets (default `prisma-dev.env`), warns when pooled/direct URLs are absent, and prints fallback guidance from the runbook when relations are missing.
+- **Bootstrap Helper**: `scripts/bootstrap_staging_db.ps1` attempts `npx prisma migrate deploy` against staging after loading the `IG_ENV_FILE` secrets (default `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env`), warns when pooled/direct URLs are absent, and prints fallback guidance from the runbook when relations are missing.
 - **Hotfix Loop**: Trigger naming, suffix rules, and recovery steps live in `ops/HOTFIX.md` and `ops/RECOVERY.yaml`. Update both when issuing or closing hotfixes.
 - **Clipboard Discipline**: Contract Mode ON requires markers, clipboard, and Prompt updates. Markerless Mode (no markers) relaxes the flow but still enforces Absolutes (routers intact, NEXT READY, canonical docs preserved).
 - **Logging**: `Prompt.md` PATCHSET echo should contain a concise summary, tasklist diff flag, test statement, contract mode, and NEXT pointer status.
@@ -118,7 +119,7 @@ Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describ
 - `npm run refresh:vision` — Runs the full metadata refresh pipeline (routers, recovery, NEXT validation).
 - `scripts/bootstrap_staging_db.ps1` — PowerShell entry that wraps `prisma migrate deploy` with interactive confirmation.
   - Honors `DATABASE_POOL_URL`/`DATABASE_DIRECT_URL` and surfaces guidance when they’re missing or identical.
-  - Works best with the connection retry envs (`PRISMA_CONNECT_MAX_RETRIES`, `PRISMA_CONNECT_RETRY_DELAY_MS`, `PRISMA_CONNECT_MAX_DELAY_MS`) tuned in the external `prisma-dev.env` secrets file.
+  - Works best with the connection retry envs (`PRISMA_CONNECT_MAX_RETRIES`, `PRISMA_CONNECT_RETRY_DELAY_MS`, `PRISMA_CONNECT_MAX_DELAY_MS`) tuned in the external `Key/Dev/.env` secrets file.
 
 ## Data & Cache Pipelines
 - Pokémon data bootstrap lives under `scripts/build-data.js`, `scripts/fetch_pokemon.mjs`, and `data/bootstrap/*`.
