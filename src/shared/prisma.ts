@@ -94,19 +94,37 @@ let lastPrismaTransport = "direct";
 
 type OptimizeExtender = (client: PrismaClient) => PrismaClient;
 let optimizeExtender: OptimizeExtender | null = null;
+type PrismaExtension = Parameters<PrismaClient["$extends"]>[0];
 
-const optimizeApiKey = process.env.OPTIMIZE_API_KEY?.trim();
+const optimizeEnvKeys = [process.env.PRISMA_OPTIMIZE_API_KEY, process.env.OPTIMIZE_API_KEY]
+  .map((value) => value?.trim())
+  .filter((value): value is string => Boolean(value));
 
-if (optimizeApiKey) {
+const optimizeApiKey = optimizeEnvKeys.at(0) ?? null;
+const optimizeExplicitlyDisabled =
+  (process.env.PRISMA_OPTIMIZE_ENABLED ?? process.env.ENABLE_PRISMA_OPTIMIZE ?? "")
+    .trim()
+    .toLowerCase() === "false";
+
+if (!optimizeExplicitlyDisabled && optimizeApiKey) {
   try {
-    const optimizeModule = await import("@prisma/extension-optimize");
+    const { withOptimize } = (await import("@prisma/extension-optimize")) as {
+      withOptimize: (options: { apiKey: string }) => unknown;
+    };
+    const extension = withOptimize({ apiKey: optimizeApiKey }) as PrismaExtension;
     optimizeExtender = (client: PrismaClient) =>
-      client.$extends(optimizeModule.withOptimize({ apiKey: optimizeApiKey })) as unknown as PrismaClient;
+      client.$extends(extension) as unknown as PrismaClient;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log.warn("Prisma Optimize disabled; failed to load extension", { error: message });
+    const hint = message.includes("does not provide an export named")
+      ? "Upgrade to Prisma 6.1+ or run on Node 20 to avoid the ESM/CJS mismatch."
+      : undefined;
+    const meta = hint ? { error: message, hint } : { error: message };
+    log.warn("Prisma Optimize disabled; failed to load extension", meta);
     optimizeExtender = null;
   }
+} else {
+  optimizeExtender = null;
 }
 
 function emitHeartbeat(event: PrismaHeartbeatEvent): void {
