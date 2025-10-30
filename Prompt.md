@@ -1,12 +1,14 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-30T04:46:00Z
-Revision: 1.46
+Timestamp (UTC): 2025-10-30T05:04:00Z
+Revision: 1.50
 
 ## Last Repo Changes (since previous Prompt.md revision)
 - Overhauled `docs/perfect-system-roadmap.md` into the official roadmap with timeline, workstreams, and risk tracking.
 - Cleared the Patch.md clipboard so no stale patch plans remain between the markers.
-- Kept OPS.SECURITY.ROTATE_KEYS as the primary pointer but added a queue in ops/NEXT.yaml for OPS.CACHE.REPLICATION_CONFIG and OPS.DB.BASELINE_SCHEMA.
-- Refreshed the NEXT note/timestamps to reflect the rotation-first sequence followed by cache replication and schema alignment.
+- Cleared the NEXT pointer at operator request; Preflight now needs to promote a READY task before further work.
+- Purged legacy dex/cache tasks (`T10.DEX.*`, `OPS.CACHE.REPLICATION_CONFIG`, `OPS.DB.BASELINE_SCHEMA`) from Tasklist/Touchmap and reset recovery metadata.
+- Logged the META.ROADMAP.GOVERNANCE guard audit (pass) in Tasklist and ops/change-ledger; routers/Touchmap confirmed clean.
+- Deferred the remaining roadmap backlog (DB ops, runtime, automation, observability) by updating the roadmap doc and pruning the associated Tasklist entries.
 - Updated Patch.md Preflight guidance so every new task run overwrites the clipboard/NEXT context instead of lingering on previous plans.
 
 ## Purpose & Scope
@@ -20,8 +22,8 @@ Revision: 1.46
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** OPS.SECURITY.ROTATE_KEYS - rotate the leaked Render + Accelerate credentials before proceeding (queue lists OPS.CACHE.REPLICATION_CONFIG, OPS.DB.BASELINE_SCHEMA next).
-- **READY / In-flight:** OPS.SECURITY.ROTATE_KEYS is READY and blocks further DB work; T10.DEX.SEED_CACHE_WARM and T10.DEX.SPECIES_BACKFILL remain READY pending the rotation, OPS.CACHE.REPLICATION_CONFIG / OPS.DB.BASELINE_SCHEMA sit queued in NEXT, and T10.DEX.MIGRATE_ACCELERATE stays IN_PROGRESS.
+- **NEXT Pointer:** NONE - promote the next READY task via Preflight before starting a new run.
+- **READY / In-flight:** No tasks currently READY; META.ROADMAP.* backlog remains PROPOSED while NEXT sits at NONE.
 - **Recent Finish:** META.DB.DOCS shipped the comprehensive database reference and synced routing metadata.
 
 ## System Highlights
@@ -63,11 +65,11 @@ Revision: 1.46
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Rebuilt the roadmap into a formal timeline/workstream plan and kept contract docs aligned (clipboard reset, NEXT queue refreshed).
+Change: Rebuilt the roadmap, cleared NEXT at operator request, purged legacy dex/cache tasks, logged the governance guard audit, and deferred the remaining roadmap backlog so the loop can promote a new READY task.
 TasklistDiff: true
 Tests: not run (documentation update)
 Contracts: ON
-NEXT: OPS.SECURITY.ROTATE_KEYS - rotate leaked Render/Accelerate secrets before further DB work.
+NEXT: NONE - run Preflight to promote a READY task before editing.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

@@ -66,7 +66,7 @@ Dex reference rollout follow-up
   - `backfill_species.ts` exits early when no rows need remediation and refreshes the `SpeciesSheet` view for good measure. Use `--dry-run` to inspect missing IDs without writing changes, or `--seed-missing` (shown above) to import any referenced species that the bootstrap JSON already knows about. The workflow is documented end-to-end in `docs/database-systems.md` §6.
   - `warm_cache.ts` refreshes the materialized view and then primes the Pokémon cache. If the GitHub replication helper is unavailable (missing `octokit`), the script falls back to regenerating `data/cache/pokemon.json` locally and logs the skip.
 
-  Capture the output of these commands in the deployment log so the T10.DEX tasks can be advanced to READY/DONE with confidence.
+  Capture the output of these commands in the deployment log so any follow-up database tasks can move to READY/DONE with confidence.
 
 Connection sanity matrix — 2025-10-29T20:45Z
 - Accelerate (primary)

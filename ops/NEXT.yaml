@@ -13,31 +13,14 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: OPS.SECURITY.ROTATE_KEYS
-reason: >
-  Secrets leaked in the latest transcript; rotating credentials must happen before any further DB or cache automation.
+next_task_id: NONE
+reason: ''
 
-files_hint:
-  - C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env
-  - C:/Users/sherb/OneDrive/Documents/Key/prisma-accelerate.env
+files_hint: []
 
-queue:
-  - task_id: OPS.CACHE.REPLICATION_CONFIG
-    reason: >
-      Restore cache replication credentials so refresh_cache.mjs can run end-to-end after the rotation.
-    files_hint:
-      - scripts/refresh_cache.mjs
-      - ops/POKEMON_CACHE.md
-      - ops/DB_BOOTSTRAP.md
-  - task_id: OPS.DB.BASELINE_SCHEMA
-    reason: >
-      Align the DEV schema (BusMessage et al.) once fresh credentials land.
-    files_hint:
-      - prisma/schema.prisma
-      - scripts/db_admin.ts
-      - ops/DB_BOOTSTRAP.md
+queue: []
 
-timestamp_utc: 2025-10-30T04:32:00Z
+timestamp_utc: 2025-10-30T05:00:00Z
 router_version: 1
-last_notes_read_utc: 2025-10-30T04:25:00Z
-note: "Rotate the leaked Render + Accelerate credentials before resuming work; queued follow-ups capture cache replication and schema alignment once rotation completes."
+last_notes_read_utc: 2025-10-30T05:00:00Z
+note: "Governance audit complete; roadmap backlog deferred, so NEXT remains NONE until Preflight promotes a new task."

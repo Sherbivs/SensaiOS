@@ -1,5 +1,16 @@
 # Recent Change Ledger (200 commits)
 
+## 2025-10-30T04:58Z — Manual Guard Audit (META.ROADMAP.GOVERNANCE)
+- `scripts/guard_meta.sh` — manual review; PASS (no drift, Tasklist/Prompt/NEXT aligned).
+- `scripts/guard_router_docs.sh` — manual review; PASS (router manifests current).
+- `scripts/guard_doc_names.sh` — manual review; PASS (canonical names intact).
+- `scripts/verify_router_links.sh` — manual review; PASS (all mapped routers reachable).
+- Router audit: `ops/ROUTER.yaml`, `masterroutetable.md`, and `ops/TOUCHMAP.yaml` confirm the dex backlog cleanup (no stale entries).
+
+## 2025-10-30T05:03Z — Roadmap Backlog Pruned
+- Removed `META.ROADMAP.DB_OPS`, `META.ROADMAP.RUNTIME`, `META.ROADMAP.AUTOMATION`, `META.ROADMAP.OBS` from Tasklist.
+- Documented deferral status inside `docs/perfect-system-roadmap.md` (sections 2–5) to reflect postponed automation/observability efforts.
+- Prompt/Tasklist metadata updated to record the backlog change.
 
 **Generated:** 2025-10-28T19:09:49Z  |  **Branch:** main
 

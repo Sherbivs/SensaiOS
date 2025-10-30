@@ -32,6 +32,7 @@ This roadmap is the canonical planning artifact for Infinity Gauntlet. It aligns
   - Execute `seed_reference`, `backfill_species`, and `warm_cache` with transcripts archived in Tasklist.
   - Extend `ops/DB_BOOTSTRAP.md` with dual-environment validation steps when helpers change.
 - **Measures:** `_prisma_migrations` parity confirmed monthly; `SpeciesSheet` refresh logged in both environments; cache warm timestamp recorded after each deploy.
+- **Status 2025-10-30:** Deferred—dex cache/migration backlog cleared from Tasklist; future verification will be reintroduced when credentials and environments are restored.
 
 ### 3. Runtime Quality & Testing
 - **Goal:** Core flows covered by deterministic tests and linting, with helper fallbacks validated.
@@ -40,6 +41,7 @@ This roadmap is the canonical planning artifact for Infinity Gauntlet. It aligns
   - Integrate dependency audits into release cadence (`npm outdated`, `pnpm audit`).
   - Track flaky tests in Tasklist and resolve within the same iteration.
 - **Measures:** CI pipeline green 5 consecutive runs; helper fallback test suite passes; dependency risks logged with owners.
+- **Status 2025-10-30:** Deferred—runtime hardening tasks removed from active backlog pending renewed automation focus.
 
 ### 4. Automation & Delivery
 - **Goal:** Guards, CI, and Render deploys reflect the living blueprint.
@@ -48,6 +50,7 @@ This roadmap is the canonical planning artifact for Infinity Gauntlet. It aligns
   - Ensure `render.yaml` matches the latest service matrix after every architectural change.
   - Capture Render deploy logs and link in Tasklist for traceability.
 - **Measures:** CI jobs publish artifacts; Render deploy checklists stored under `ops/`; automation reruns succeed without manual patches.
+- **Status 2025-10-30:** Deferred—guard/dex automation tasks cleared from Tasklist; revisit after roadmap reassessment.
 
 ### 5. Observability, Security & Recovery
 - **Goal:** Actionable telemetry and rehearsed recovery steps spanning bot, workers, and scripts.
@@ -56,6 +59,7 @@ This roadmap is the canonical planning artifact for Infinity Gauntlet. It aligns
   - Smoke-test security bot alerts quarterly; document results in Tasklist.
   - Update `ops/RECOVERY.yaml` and `playbooks/escalate.md` after each incident or tooling change.
 - **Measures:** Telemetry dashboards show refresh mode distribution; DRIP alerts validated; recovery playbooks reference current scripts.
+- **Status 2025-10-30:** Deferred—observability/security backlog items removed from Tasklist until renewed monitoring effort begins.
 
 ## Dependencies & Risks
 - **Secrets Hygiene:** Loss of `prisma-dev.env` or `prisma-accelerate.env` blocks migrations. Mitigation: mirror files to secure backup and document refresh cadence.
