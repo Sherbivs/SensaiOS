@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-30T17:25:00Z
+Last Updated (UTC): 2025-10-30T20:15:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -28,7 +28,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).
 - Owned Globs: `scripts/**`
-- Last Updated: 2025-10-29T01:50:00Z
+- Last Updated: 2025-10-30T19:55:00Z
 - Key Scripts:
   - `scripts/update_change_ledger.sh` — regenerate Prompt change ledger
   - `scripts/update_router_index.sh` — rebuild `ops/ROUTER_INDEX.yaml`
@@ -42,10 +42,12 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - `scripts/db_admin.ts` — Muted (local CLI); run via `npm run db:cli` for status, counts, and ad-hoc queries
   - `scripts/setup_ai_env.ps1` — Muted (agent env helper); registers `IG_ENV_FILE` so secrets load from external storage
   - `scripts/db_smoke.ts` — Accelerate smoke query (`SELECT 1 AS ok`)
+  - `scripts/dev_prod_auto_sync.ts` — Muted (automation loop); continuously runs the Dev → Prod → Dev migrate/seed cadence with integrity checks (`npm run db:auto-sync`)
 - Notes:
   - 2025-10-27: Router scripts audited; verify_router_links and update_router_index keep meta routers synchronized during PBSL work.
   - 2025-10-28: Added staging bootstrap helper to tooling catalog.
   - 2025-10-29: Added Accelerate restore + smoke scripts to support Prisma Postgres migrations.
+  - 2025-10-30: Added Dev ↔ Prod auto-sync loop to kick on deployment, poll every five minutes, and surface drift via JSON logs.
 
 ### Application Source (`src/ROUTER.md`)
 - Purpose: Root TypeScript source tree; delegates to domain routers.

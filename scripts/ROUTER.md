@@ -2,7 +2,7 @@
 Title: Tooling
 Purpose: Guard scripts and automation entrypoints.
 Owned Globs: scripts/**
-You or the time beig dod Last Updated (UTC): 2025-10-30T19:10:00Z
+Last Updated (UTC): 2025-10-30T20:15:00Z
 
 Notes:
 - guard_meta.sh enforces READY invariants. Called in CI preflight/postflight.
@@ -16,4 +16,5 @@ Notes:
 - 2025-10-29: Introduced `setup_ai_env.ps1` to register `IG_ENV_FILE` for agent/automation runs while keeping secrets outside the repo.
 - 2025-10-29: Added `db_admin.ts` (run via `npm run db:cli`) as the master database control suite for status inspections and ad-hoc queries.
 - 2025-10-30: Added `guard_db_docs.mjs` + CI workflow to fail when DB connection docs drift on Key/Dev, Key/Prod, or Prisma regenerate guidance.
+- 2025-10-30: Added `dev_prod_auto_sync.ts` (`npm run db:auto-sync`) to consolidate on deployment and poll every five minutes for drift before replaying the Dev → Prod → Dev migration/seed cadence.
 - 2025-10-30: Added `seed_dex.ts` (`npm run db:seed:dex`) to populate Pokédex reference tables and refresh `SpeciesSheet`.

@@ -218,6 +218,10 @@ T13.DEX.DB_SEED:
   - "ops/NEXT.yaml"
   - "Prompt.md"
   - "ops/TOUCHMAP.yaml"
+  - "scripts/dev_prod_auto_sync.ts"
+  - "ops/DB_BOOTSTRAP.md"
+  - "docs/perfect-system-roadmap.md"
+  - "AGENTS.md"
   - "scripts/ROUTER.md"
 
 PBSL.SKELETON:

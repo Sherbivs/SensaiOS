@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-30T19:45:00Z
-Revision: 2.13
+Last Updated (UTC): 2025-10-30T19:55:00Z
+Revision: 2.14
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1008,6 +1008,17 @@ Each task has:
     - `docs/database-systems.md` and `docs/db-control-suite.md` document the seeding command, required env setup, and verification checks.
     - Task notes or Prompt echo capture a `npm run db:cli -- status` snapshot after seeding to confirm counts and connection metadata.
   notes: Outcome — 2025-10-30T19:38Z: Ran `npm run db:seed:dex` (1025 species, 919 moves, 101,969 learnset rows), refreshed `SpeciesSheet`, updated docs/db suite guidance, and logged `npm run db:cli -- status` output showing the populated tables.
+
+- id: T13.DEX.AUTO_SYNC
+  title: Automate Dev ↔ Prod dex sync loop
+  status: DONE
+  depends_on: [T13.DEX.DB_SEED]
+  acceptance_criteria:
+    - `scripts/dev_prod_auto_sync.ts` orchestrates the Dev → Prod → Dev migrate/seed cadence with JSON logging, five-minute integrity polling, and configurable interval/startup behaviour.
+    - `npm run db:auto-sync` is available in package.json, documented across AGENTS.md, docs/database-systems.md, docs/db-control-suite.md, ops/DB_BOOTSTRAP.md, and the roadmap.
+    - Automation supports dry-run/once/skip-startup flags for rehearsals and surfaces drift via `integrity.trigger` / `sync.consolidate.*` events capturing count deltas.
+    - ops/TOUCHMAP.yaml and scripts/ROUTER.md map the automation task and script for future ownership.
+  notes: Outcome — 2025-10-30T20:05Z: Added dev_prod_auto_sync.ts with startup trigger + five-minute drift checks, registered the npm script, documented usage across operator guides/roadmap, and recorded Touchmap/router ownership so the loop can run continuously.
 
 ## Phase 11 — Meta & AI Enablement
 

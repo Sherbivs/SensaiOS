@@ -99,41 +99,46 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Task T13.DEX.DB_SEED] Seed full Pokédex reference data into the primary Postgres instance
+[Task T13.DEX.AUTO_SYNC] Automate continuous Dev ↔ Prod dex syncing and update operator docs
 
 FILE: Tasklist.md
-Change: introduce Phase 13 Dex seeding task with READY status and detailed acceptance criteria for data population and documentation.
-
-FILE: ops/NEXT.yaml
-Change: retarget NEXT pointer to T13.DEX.DB_SEED with refreshed timestamp, rationale, and focused files_hint.
-
-FILE: ops/TOUCHMAP.yaml
-Change: map the new dex seeding task to scripts, docs, and meta files it will touch.
-
-FILE: scripts/seed_dex.ts
-Change: add a TypeScript seeding script that fetches PokeAPI data, normalizes species/moves/abilities/learnsets, and writes them to Postgres with a matview refresh.
-Contents: concurrency-bound fetch helpers, env loader, Prisma writes, and progress logging.
+Change: add T13.DEX.AUTO_SYNC with DONE status capturing the new automation loop, acceptance criteria, and outcome notes.
 
 FILE: package.json
-Change: register `db:seed:dex` npm script invoking the new seeding entrypoint.
+Change: register `db:auto-sync` npm script invoking the automation loop alongside prior dex helpers.
 
 FILE: scripts/ROUTER.md
-Change: document the new seeding script in router notes and bump Last Updated timestamp.
+Change: document the new automation script in router notes and bump Last Updated timestamp.
+
+FILE: scripts/dev_prod_auto_sync.ts
+Change: add continuous sync service that consolidates on deployment, polls every five minutes for drift, and supports dry-run/interval/skip-startup flags with detailed integrity logging.
 
 FILE: docs/database-systems.md
-Change: describe the dex seeding workflow, prerequisites, and verification commands.
+Change: expand Dex maintenance section with the automation command, service description, and existing manual cadence.
 
 FILE: docs/db-control-suite.md
-Change: add instructions for running `npm run db:seed:dex` alongside existing db-cli guidance.
+Change: mention the new `npm run db:auto-sync` helper within the Hydrating Reference Data checklist.
 
-FILE: data/cache/meta.json
-Change: refresh cached PokéAPI metadata after fetching the latest index for seeding.
+FILE: ops/DB_BOOTSTRAP.md
+Change: add `npm run db:auto-sync` to the post-migration checklist and reinforce the loop guidance.
+
+FILE: docs/perfect-system-roadmap.md
+Change: call out the automation loop in the Database Operations scope so roadmap owners track it.
+
+FILE: AGENTS.md
+Change: highlight the automation service alongside the manual Dev → Prod → Dev workflow guidance.
+
+FILE: masterroutetable.md
+Change: record the new automation script in the Dev & Docs Scripts catalog and refresh the timestamp/notes.
+
+FILE: ops/TOUCHMAP.yaml
+Change: map T13.DEX.DB_SEED ownership to include the automation script and related docs.
 
 FILE: Prompt.md
-Change: update timestamp, revision, Last Repo Changes, and PATCHSET echo to capture the seeding work and test posture.
+Change: update timestamp, revision, Last Repo Changes, and PATCHSET echo to capture the automation work and tests.
 
 # TASKLIST UPDATE
-Change: add T13.DEX.DB_SEED as READY with acceptance criteria covering data completeness, matview refresh, and documentation notes.
+Change: add T13.DEX.AUTO_SYNC as DONE with acceptance criteria covering automation cadence, docs, and integrity checks.
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

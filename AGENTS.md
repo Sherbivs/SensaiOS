@@ -30,6 +30,8 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 2. **Select the target before DB work:** run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env" -Persist` when you need the DEV Postgres connection. Swap to Accelerate by re-running with the `Key/Prod/.env` path. Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`, so one of these overrides must be active.
   - **Verify access:** `echo $Env:IG_ENV_FILE` should print the chosen file; use `Get-Content C:/Users/sherb/OneDrive/Documents/Key/Dev/.env | Select-Object -First 5` to confirm it is reachable before running tooling.
   - **Reset Prisma after Accelerate:** whenever you come back from `Key/Prod/.env`, run `npx prisma generate` once so the local client switches from the Accelerate data proxy back to the direct engine before connecting to DEV.
+  - **Dev → Prod → Dev loop:** run migrations or seeding against DEV first, switch to `Key/Prod/.env` and repeat the command (or use `scripts/ops/run_dex_migrations.ps1`), then return to `Key/Dev/.env` and regenerate Prisma so local work continues against DEV with the direct driver.
+  - **Automation service:** `npm run db:auto-sync` runs the consolidation on deployment and then checks for drift every five minutes. Use `--dry-run`, `--once`, or `--skip-startup` when rehearsing new flows.
 3. **Inspect databases:** use the muted control suite documented in `docs/db-control-suite.md`.
   ```powershell
   npm run db:cli -- status         # connection info + sample counts

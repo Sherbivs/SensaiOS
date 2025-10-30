@@ -1,11 +1,12 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-30T19:45:00Z
-Revision: 1.54
+Timestamp (UTC): 2025-10-30T20:15:00Z
+Revision: 1.57
 
 ## Last Repo Changes (since previous Prompt.md revision)
 - Added `scripts/seed_dex.ts` (`npm run db:seed:dex`) to hydrate Species/Move/Ability/Learnset tables from PokeAPI, ran the seed (1025 species, 101,969 learnset rows), and refreshed `SpeciesSheet`.
-- Updated `docs/database-systems.md`, `docs/db-control-suite.md`, `ops/DB_BOOTSTRAP.md`, and the roadmap to document the new seeding workflow and control-suite guidance; refreshed the cached PokéAPI metadata.
-- Tasklist/NEXT now close T13.DEX.DB_SEED and retarget META.DB.CONNECTION_GUARD_CI_TRACK to capture the first passing guard-db-docs workflow run.
+- Introduced `scripts/dev_prod_auto_sync.ts` with `npm run db:auto-sync` to consolidate on deployment, poll every five minutes for drift, and replay the Dev → Prod → Dev cadence when changes are detected (dry-run/interval/skip-startup flags supported).
+- Updated operator docs (AGENTS.md, docs/database-systems.md, docs/db-control-suite.md, ops/DB_BOOTSTRAP.md, docs/perfect-system-roadmap.md, masterroutetable.md, scripts/ROUTER.md) plus Touchmap metadata to document the automation and ownership.
+- Tasklist now tracks T13.DEX.AUTO_SYNC (DONE) alongside the earlier seeding work; NEXT remains on META.DB.CONNECTION_GUARD_CI_TRACK while we wait for the first guard-db-docs CI run.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -20,7 +21,7 @@ Revision: 1.54
 
 - **NEXT Pointer:** META.DB.CONNECTION_GUARD_CI_TRACK — record the first passing guard-db-docs CI run and mirror it into meta docs.
 - **READY / In-flight:** META.DB.CONNECTION_GUARD_CI_TRACK READY; baseline captured locally while we wait for the initial GitHub Actions run.
-- **Recent Finish:** T13.DEX.DB_SEED seeded the Pokédex reference tables (1025 species, 919 moves, 367 abilities, 101,969 learnset rows), refreshed `SpeciesSheet`, and documented the workflow in the control-suite/deck docs.
+- **Recent Finish:** T13.DEX.AUTO_SYNC landed the continuous Dev ↔ Prod dex sync loop (`npm run db:auto-sync`) with JSON logging and doc updates; T13.DEX.DB_SEED remains the prerequisite seeding milestone.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -61,9 +62,9 @@ Revision: 1.54
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Added seed_dex.ts plus npm script, ran the Pokédex seeding (refreshing SpeciesSheet), and updated docs/runbooks for the new workflow while retargeting NEXT to the guard-db-docs CI follow-up.
+Change: Added the Dev ↔ Prod auto-sync service (`npm run db:auto-sync`) with dry-run support, refreshed operator docs/routers/Touchmap, and recorded the automation in Tasklist while keeping the guard-db-docs follow-up queued.
 TasklistDiff: true
-Tests: npm run db:seed:dex (pass); npm run db:cli -- status (pass); npm run db:cli -- counts (fail – BusMessage table absent in dev baseline)
+Tests: npm run db:auto-sync -- --once --dry-run (pass; logs expected drift because Prod stub); npx prisma generate (pass)
 Contracts: ON
 NEXT: META.DB.CONNECTION_GUARD_CI_TRACK - log the first passing guard-db-docs CI run and echo it in meta docs.
 <!-- PATCHSET:ECHO END -->

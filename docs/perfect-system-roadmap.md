@@ -31,6 +31,7 @@ This roadmap is the canonical planning artifact for Infinity Gauntlet. It aligns
   - Load `Key/Dev/.env` / `Key/Prod/.env` via `scripts/setup_ai_env.ps1` before every DB change, and regenerate the Prisma client when switching back from Prod.
   - Execute `npm run db:seed:dex` (capture `npm run db:cli -- status` output) with transcripts archived in Tasklist.
   - Extend `ops/DB_BOOTSTRAP.md` with dual-environment validation steps when helpers change.
+  - Stand up the continuous sync loop (`npm run db:auto-sync`) so deployment kicks off a consolidation and 5-minute drift checks keep Prod/Dev aligned; monitor JSON logs for warnings.
 - **Measures:** `_prisma_migrations` parity confirmed monthly; `SpeciesSheet` refresh logged in both environments; cache warm timestamp recorded after each deploy.
 - **Status 2025-10-30:** Deferred—dex cache/migration backlog cleared from Tasklist; future verification will be reintroduced when credentials and environments are restored.
 

@@ -64,6 +64,8 @@ Dex reference rollout follow-up
   ```
 
   - Pass `--dry-run` to preview counts without writing. Capture the status output in Tasklist notes so the audit trail shows >1,000 species after seeding. The workflow is documented end-to-end in `docs/database-systems.md` §6.
+  - Keep the Dev → Prod → Dev cadence: execute these commands on DEV first, switch `IG_ENV_FILE` to the Accelerate/Prod secrets and rerun them (or rely on `scripts/ops/run_dex_migrations.ps1` for a bundled migrate+refresh), then restore `IG_ENV_FILE` to `Key/Dev/.env` and run `npx prisma generate` before resuming local development.
+  - For continuous coverage, run `npm run db:auto-sync` so migrations + seeding loop on deployment and every five minutes when drift is detected. Use `--dry-run`, `--once`, or `--skip-startup` during rehearsals and monitor the JSON logs (`sync.consolidate.*`, `integrity.*`) for drift alerts.
   - `warm_cache.ts` refreshes the materialized view and then primes the Pokémon cache. If the GitHub replication helper is unavailable (missing `octokit`), the script falls back to regenerating `data/cache/pokemon.json` locally and logs the skip.
 
   Capture the output of these commands in the deployment log so any follow-up database tasks can move to READY/DONE with confidence.

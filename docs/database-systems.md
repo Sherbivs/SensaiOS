@@ -1,6 +1,6 @@
 # Database Systems Guide
 
-_Last updated: 2025-10-30T19:10:00Z (UTC) — Rev: 1.1_
+_Last updated: 2025-10-30T20:15:00Z (UTC) — Rev: 1.2_
 
 This guide captures everything engineers need to understand, operate, and extend Infinity Gauntlet’s PostgreSQL footprint across Render, Prisma Accelerate, and local development. Pair it with `DATA-SCHEMA.md` for entity specifics and `ops/DB_BOOTSTRAP.md` for runbook-grade procedures.
 
@@ -81,10 +81,15 @@ Dex upkeep now routes through the consolidated seeding + control suite:
 | Command | Purpose | Notes |
 | --- | --- | --- |
 | `npm run db:seed:dex` | Fetches live PokeAPI data and repopulates `Species`, `SpeciesType`, `SpeciesAbility`, `SpeciesLearnset`, `Move`, `Ability`, and `TypeChart`. Automatically refreshes `SpeciesSheet`. | Respects `IG_ENV_FILE`; throttle via `POKEAPI_SEED_CONCURRENCY` (default 4). Pass `--dry-run` to inspect counts without writing. |
+| `npm run db:auto-sync` | Runs the Dev → Prod → Dev migrate/seed cadence on startup, then polls every 5 minutes to reconcile if drift is detected. | Options: `--once`, `--dry-run`, `--interval <ms>`, `--dev-env`, `--prod-env`, `--skip-startup`. Emits JSON logs (`sync.consolidate.*`, `integrity.*`) and skips writes when `--dry-run` is present. |
 | `npm run db:cli -- status` | Verifies active connection metadata and prints sample counts (`Species`, `User`) after a seed. | Captured in Tasklist/Prompt echoes for auditing. |
 | `npm run db:cli -- counts` | Spot-checks common table volumes (species, encounters, bus messages). | Extend `scripts/db_admin.ts` as new tables come online. |
 
 `scripts/seed_dex.ts` loads environment overrides the same way as the control suite (`IG_ENV_FILE` → `DOTENV_CONFIG_PATH` → repo `.env` when allowed). Results print per-table row counts so we can confirm >1,000 species before shipping.
+
+Run every dex maintenance action in the Dev → Prod → Dev rhythm: execute the command against DEV first, switch `IG_ENV_FILE` to the Accelerate/Prod secrets and repeat (or invoke `scripts/ops/run_dex_migrations.ps1` when migrations need the same sequence), then point back to `Key/Dev/.env` and run `npx prisma generate` so local tooling reconnects to the direct driver.
+
+`scripts/dev_prod_auto_sync.ts` powers the automation loop (`npm run db:auto-sync`). On deployment it runs the consolidation once, then performs integrity checks every five minutes. If counts drift (or either database changes between checks), the service replays the migrate + seed cadence and records the result via `sync.consolidate.*` + `integrity.*` events.
 
 Materialized view refresh flows through the helper; direct `REFRESH MATERIALIZED VIEW` still requires ownership. The seeding script falls back to the helper when permissions restrict direct refresh.
 
