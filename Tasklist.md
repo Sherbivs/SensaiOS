@@ -1038,7 +1038,7 @@ Each task has:
     - Publish a durable reference guide describing schema layout, connection modes, roles/permissions, migrations, helper routines, and dex maintenance scripts.
     - Cross-link the guide from DATA-SCHEMA.md, ops/DB_BOOTSTRAP.md, OPERATIONS.md, and router metadata for discoverability.
     - Update Prompt.md Last Repo Changes and PATCHSET echo to capture the documentation milestone.
-  notes: READY — Comprehensive documentation requested to support future database workstreams.
+  notes: READY — Comprehensive documentation requested to support future database workstreams; 2025-10-29: Vendored Postgres 17 client binaries under tools/pgsql17/pgsql/bin and reconciled Render standby _prisma_migrations checksums with redundancy script hashing stable columns only.
 
 ## Phase 11 — Meta & AI Enablement
 

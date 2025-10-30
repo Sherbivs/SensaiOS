@@ -62,11 +62,25 @@ async function gatherSnapshotWithRunner(label: string, runQuery: QueryRunner): P
   for (const row of tablesResult) {
     const tableName = row.tableName;
     const safeIdentifier = escapeIdentifier(tableName);
-    const statsRowsRaw = await runQuery(
-      `SELECT COUNT(*)::bigint AS row_count,
-              COALESCE(SUM(hashtextextended(row_to_json(t)::text, 0))::text, '0') AS checksum
-       FROM ${safeIdentifier} AS t`
-    );
+    let statsRowsRaw: Array<Record<string, unknown>>;
+
+    if (tableName === "_prisma_migrations") {
+      statsRowsRaw = await runQuery(`
+        SELECT COUNT(*)::bigint AS row_count,
+               COALESCE(SUM(hashtextextended(row_to_json(t)::text, 0))::text, '0') AS checksum
+        FROM (
+          SELECT migration_name, checksum, applied_steps_count
+          FROM ${safeIdentifier}
+          ORDER BY migration_name
+        ) AS t
+      `);
+    } else {
+      statsRowsRaw = await runQuery(
+        `SELECT COUNT(*)::bigint AS row_count,
+                COALESCE(SUM(hashtextextended(row_to_json(t)::text, 0))::text, '0') AS checksum
+         FROM ${safeIdentifier} AS t`
+      );
+    }
     const statsRows = statsRowsRaw as Array<{ row_count: unknown; checksum: string }>;
     const stats = statsRows[0];
     const rowCount = toBigInt(stats?.row_count);
@@ -93,6 +107,12 @@ async function gatherSnapshotWithRunner(label: string, runQuery: QueryRunner): P
 
 function formatBigInt(value: bigint): string {
   return value.toLocaleString("en-US");
+}
+
+function redactConnectionString(value: string): string {
+  let redacted = value.replace(/:([^:@/]+)@/, ":<redacted>@");
+  redacted = redacted.replace(/(api_key=)[^&]+/gi, "$1<redacted>");
+  return redacted;
 }
 
 function compareSnapshots(primary: DatabaseSnapshot, standby: DatabaseSnapshot) {
@@ -193,8 +213,8 @@ async function main(): Promise<void> {
   const standbyUrl = assertEnv("STANDBY_DATABASE_URL", process.env.STANDBY_DATABASE_URL ?? process.env.DATABASE_DIRECT_URL);
 
   console.info("Running redundancy check...");
-  console.info("Primary: %s", primaryUrl.replace(/:([^:@/]+)@/, ":<redacted>@"));
-  console.info("Standby: %s", standbyUrl.replace(/:([^:@/]+)@/, ":<redacted>@"));
+  console.info("Primary: %s", redactConnectionString(primaryUrl));
+  console.info("Standby: %s", redactConnectionString(standbyUrl));
 
   const primarySnapshot = ACCELERATE_SCHEME.test(primaryUrl)
     ? await gatherPrimarySnapshot(primaryUrl)
