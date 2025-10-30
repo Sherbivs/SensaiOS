@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-29T19:10:00Z
+Last Updated (UTC): 2025-10-30T04:17:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -20,42 +20,10 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `tests/ROUTER.md` — Test Suite
 
 ## Muted Local Files
-- `.env` — Muted (local dev secrets); configure tokens and keys for personal environments only. Prefer setting `IG_ENV_FILE` to an external path (e.g., `C:/Users/<you>/OneDrive/Documents/Key/.env`). Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`.
-- `secrets/prisma-accelerate.env` — Muted (Accelerate credentials); copy from `secrets/prisma-accelerate.env.example` and store outside the repo.
-- `secrets/prisma-dev.env` — Muted (local/staging DB credentials); copy from `secrets/prisma-dev.env.example` and store outside the repo.
+- `C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env` — Muted (DEV Postgres secrets); set `IG_ENV_FILE` here for Render/staging work. Repo `.env` stays empty.
+- `C:/Users/sherb/OneDrive/Documents/Key/prisma-accelerate.env` — Muted (Accelerate credentials); repoint `IG_ENV_FILE` here only when working against Prisma Accelerate.
 - `docs/db-control-suite.md` — Muted (local operator guide); documents `npm run db:cli` usage for dev DB checks.
 - `docs/ai-env-setup.md` — Muted (local env instructions); covers `IG_ENV_FILE` setup for agents.
-
-## Router Details
-
-### Ops & Governance (`ops/ROUTER.md`)
-- Purpose: Canonical operational control-plane (NEXT pointer, CRITICAL, TOUCHMAP, router maps, inbox).
-- Owned Globs: `ops/**`
-- Last Updated: 2025-10-29T05:20:00Z
-- Key References:
-  - `ops/NEXT.yaml` — next task pointer (READY pointer must exist on exit)
-  - `ops/CRITICAL.md` — fast-path guardrails + Markerless guidance
-  - `Agents.md` — Agent handbook (contract-first quickstart)
-  - `OPERATIONS.md` — operational runbook and worker matrix
-  - `ops/POKEMON_CACHE.md` — PokeAPI cache architecture & incident response
-  - `ops/ROUTER.yaml` — canonical path map; router_docs category groups ops/ROUTER.md, ops/ROUTER_INDEX.yaml, and masterroutetable.md
-  - `ops/ROUTER_INDEX.yaml` — router-of-routers manifest
-  - `ops/INBOX/notes.md` — operator notes
-  - `ops/RECOVERY.yaml` — resume metadata
-  - `ops/CANONICAL_NAMES.yaml` — router/document casing guard
-  - `ops/ARCHIVE/README.md` — Tasklist archival guidance
-  - `ops/DB_BOOTSTRAP.md` — staging schema bootstrap runbook
-  - `ops/DB_IMPORT_PRISMA_POSTGRES.md` — Prisma Accelerate import runbook (Render → Prisma Postgres)
-  - `ops/change-ledger.md` — generated 200-entry commit ledger (Prompt holds 10-entry summary)
-- Notes:
-  - 2025-10-27: Router maps now track PBSL oracle fixtures and DRIP role assignment alerts; audit recorded in ops/ROUTER.md.
-  - 2025-10-28: Added DB bootstrap runbook and helper script to router inventory.
-  - 2025-10-28: Trimmed Prompt ledger to 10 entries and moved the full log to ops/change-ledger.md for readability.
-  - 2025-10-28: OPERATIONS.md documents the worker matrix, rollout checklist, and recovery toggles for ENABLE_CONTINUOUS_SWEEP + interval envs.
-  - 2025-10-28: Added router_docs category under ops/ROUTER.yaml to track masterroutetable alongside the generated router manifests.
-  - 2025-10-29: Prisma Accelerate import + restore workflow documented; router metadata refreshed to surface Accelerate-first strategy and smoke test coverage.
-  - 2025-10-29: PokeAPI integration runbook added (`ops/POKEMON_CACHE.md`) with axios/node-cron dependencies noted for the cache worker.
-  - 2025-10-29: Prisma Accelerate `DATABASE_URL` lives in `secrets/prisma-accelerate.env` (gitignored); pull the value from Render secrets before running local migrate deploys.
 
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).

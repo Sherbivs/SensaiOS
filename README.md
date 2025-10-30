@@ -79,11 +79,11 @@ Optional services:
    ```
    To keep secrets outside the repo, point the loader at an external file:
    ```powershell
-   $env:IG_ENV_FILE="C:/Users/<you>/OneDrive/Documents/Key/.env"
+   $env:IG_ENV_FILE="C:/Users/<you>/OneDrive/Documents/Key/prisma-dev.env"
    ```
-   Start from `.env.example` (and `secrets/*.env.example`) when creating a new secret file.
-   Run `pwsh -File scripts/setup_ai_env.ps1 -Persist` to register the value for future shells (see `docs/ai-env-setup.md` and `docs/db-control-suite.md`).
-   The runtime checks `IG_ENV_FILE` (and `DOTENV_CONFIG_PATH`) before falling back to `.env` in the repository root.
+   Start from `.env.example` (and `secrets/*.env.example`) when creating a new secret file. Copy the resulting values into `prisma-dev.env` (DEV direct URL) and `prisma-accelerate.env` (Accelerate proxy) under `C:/Users/<you>/OneDrive/Documents/Key/`.
+   Run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/<you>/OneDrive/Documents/Key/prisma-dev.env" -Persist` to register the value for future shells (see `docs/ai-env-setup.md` and `docs/db-control-suite.md`).
+   The runtime checks `IG_ENV_FILE` (and `DOTENV_CONFIG_PATH`) before falling back to `.env` in the repository root; keep the repo copy empty so local secrets always come from the external file.
    On production (`NODE_ENV=production`), the fallback is disabled unless `IG_ALLOW_REPO_ENV=1` is set.
    Optional: supply `POKE_RENDER_SERVICE_ID`, `POKE_REFRESH_CRON`, or other automation flags as needed.
 3. Apply Prisma migrations and generate the client:

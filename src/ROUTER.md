@@ -13,6 +13,7 @@ Notes:
 - `src/engine/**` introduces the durable event bus helpers and category-aware worker loop powering asynchronous tasks.
 - PBSL scaffold (`src/core/pbsl/**`) houses deterministic RNG, audit trails, and encounter generators with provenance metadata recorded in docs/PBSL.md.
 - Prisma client boot now prioritises Accelerate URLs surfaced from runtime config; CLI telemetry reports the active transport (direct vs accelerate-node).
+
 Subdomains:
 - src/bot - Discord client & interaction handlers
 - src/cache - Legacy cache publishers for PokeAPI mirrors

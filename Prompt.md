@@ -1,11 +1,14 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-30T02:31:00Z
-Revision: 1.35
+Timestamp (UTC): 2025-10-30T04:18:00Z
+Revision: 1.42
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added ROUTER.md coverage for `.github`, `.db-state`, data/docs/playbooks/prisma/router, sync-layer/tools, and each major `src/**` subdomain.
-- Expanded ops/ROUTER.yaml categories, regenerated ops/ROUTER_INDEX.yaml, and refreshed masterroutetable.md with the new router entries.
-- Updated docs/meta-router.md guidance, marked META.ROUTER.COVERAGE DONE, and retargeted NEXT to META.DB.DOCS.
+- Published `docs/database-systems.md`, capturing schema layout, connection modes, helper routines, and dex maintenance flows in one reference.
+- Cross-linked the guide from `DATA-SCHEMA.md`, `ops/DB_BOOTSTRAP.md`, `OPERATIONS.md`, and router metadata so agents land on it from any meta surface.
+- Marked META.DB.DOCS as DONE, pointed NEXT at T10.DEX.SEED_CACHE_WARM, and refreshed Tasklist/Patchset echo to reflect the docs milestone.
+- Documented how IG_ENV_FILE should toggle between `C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env` and `.../prisma-accelerate.env` across muted docs so agents load the right secrets safely.
+- Expanded the DB control suite doc with migration prerequisites and hydration steps (refresh cache/data pipelines) so thin dev datasets get seeded properly.
+- Taught agents exactly how to reach the external env files (`prisma-dev.env`, `prisma-accelerate.env`) via `AGENTS.md`, `docs/ai-env-setup.md`, and the muted router guides, including verification commands that read the target file and echo `IG_ENV_FILE`.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -18,9 +21,9 @@ Revision: 1.35
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** META.DB.DOCS - document the database architecture and operations reference now that router coverage is synchronized.
-- **READY / In-flight:** META.DB.DOCS is READY; T10.DEX.MIGRATE_ACCELERATE remains IN_PROGRESS with downstream T10.DEX.* tasks READY; META.ROADMAP.* backlog entries stay PROPOSED pending prioritization.
-- **Recent Finish:** META.ROUTER.COVERAGE completed with new ROUTER docs, ops/ROUTER.yaml categories, and regenerated router indices.
+- **NEXT Pointer:** T10.DEX.SEED_CACHE_WARM — exercise the dex seeding + cache warm helpers after the Accelerate migrations stabilize.
+- **READY / In-flight:** T10.DEX.SEED_CACHE_WARM and T10.DEX.SPECIES_BACKFILL are READY; T10.DEX.MIGRATE_ACCELERATE stays IN_PROGRESS (role limits still block extra Accelerate roles), and META.ROADMAP.* backlog entries remain PROPOSED pending prioritization.
+- **Recent Finish:** META.DB.DOCS shipped the comprehensive database reference and synced routing metadata.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -61,11 +64,11 @@ Revision: 1.35
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Documented the entire meta-router surface (new ROUTER.md files, ops/ROUTER.yaml categories, router indices, and masterroutetable) and marked META.ROUTER.COVERAGE done.
+Change: Documented the database architecture and operations surface (`docs/database-systems.md` + cross-links), closed META.DB.DOCS, retargeted NEXT to T10.DEX.SEED_CACHE_WARM, surfaced the active IG_ENV_FILE location in muted docs, clarified the migration/data hydration flow for the DB control suite, and refreshed env-loading docs to point at `prisma-dev.env` / `prisma-accelerate.env` instead of a merged `.env`.
 TasklistDiff: true
-Tests: not run (docs and metadata updates only)
+Tests: not run (docs/meta updates only)
 Contracts: ON
-NEXT: META.DB.DOCS - publish the database systems reference and link it from dependent docs.
+NEXT: T10.DEX.SEED_CACHE_WARM — validate dex seeding + cache warm helpers once migrations settle.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

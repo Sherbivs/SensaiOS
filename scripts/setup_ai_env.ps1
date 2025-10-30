@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(HelpMessage = "Path to the environment file that should be loaded by the agent runtime")]
-    [string]$EnvFile = "C:/Users/sherb/OneDrive/Documents/Key/.env",
+    [string]$EnvFile = "C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env",
 
     [Parameter(HelpMessage = "Persist IG_ENV_FILE for future shells using setx")]
     [switch]$Persist,
