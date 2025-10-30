@@ -99,7 +99,41 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
+[Task T13.DEX.DB_SEED] Seed full Pokédex reference data into the primary Postgres instance
 
+FILE: Tasklist.md
+Change: introduce Phase 13 Dex seeding task with READY status and detailed acceptance criteria for data population and documentation.
+
+FILE: ops/NEXT.yaml
+Change: retarget NEXT pointer to T13.DEX.DB_SEED with refreshed timestamp, rationale, and focused files_hint.
+
+FILE: ops/TOUCHMAP.yaml
+Change: map the new dex seeding task to scripts, docs, and meta files it will touch.
+
+FILE: scripts/seed_dex.ts
+Change: add a TypeScript seeding script that fetches PokeAPI data, normalizes species/moves/abilities/learnsets, and writes them to Postgres with a matview refresh.
+Contents: concurrency-bound fetch helpers, env loader, Prisma writes, and progress logging.
+
+FILE: package.json
+Change: register `db:seed:dex` npm script invoking the new seeding entrypoint.
+
+FILE: scripts/ROUTER.md
+Change: document the new seeding script in router notes and bump Last Updated timestamp.
+
+FILE: docs/database-systems.md
+Change: describe the dex seeding workflow, prerequisites, and verification commands.
+
+FILE: docs/db-control-suite.md
+Change: add instructions for running `npm run db:seed:dex` alongside existing db-cli guidance.
+
+FILE: data/cache/meta.json
+Change: refresh cached PokéAPI metadata after fetching the latest index for seeding.
+
+FILE: Prompt.md
+Change: update timestamp, revision, Last Repo Changes, and PATCHSET echo to capture the seeding work and test posture.
+
+# TASKLIST UPDATE
+Change: add T13.DEX.DB_SEED as READY with acceptance criteria covering data completeness, matview refresh, and documentation notes.
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

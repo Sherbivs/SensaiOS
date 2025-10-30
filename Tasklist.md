@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-30T17:45:00Z
-Revision: 2.11
+Last Updated (UTC): 2025-10-30T19:45:00Z
+Revision: 2.13
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -995,6 +995,19 @@ Each task has:
     - Cross-link the guide from DATA-SCHEMA.md, ops/DB_BOOTSTRAP.md, OPERATIONS.md, and router metadata for discoverability.
     - Update Prompt.md Last Repo Changes and PATCHSET echo to capture the documentation milestone.
   notes: Outcome — Published `docs/database-systems.md`, wired cross-links into DATA-SCHEMA.md, ops/DB_BOOTSTRAP.md, OPERATIONS.md, and routing surfaces, and retargeted NEXT to the dex backlog after syncing Prompt/Tasklist metadata.
+
+## Phase 13 — Dex Data Backbone
+
+- id: T13.DEX.DB_SEED
+  title: Seed Pokédex reference data into Postgres
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - `npm run db:seed:dex` fetches PokeAPI data and populates `Species`, `SpeciesType`, `SpeciesAbility`, `SpeciesLearnset`, `Move`, `Ability`, and `TypeChart` with up-to-date records.
+    - A `REFRESH MATERIALIZED VIEW "SpeciesSheet"` completes during the run and the final `Species` row count exceeds 1000 entries.
+    - `docs/database-systems.md` and `docs/db-control-suite.md` document the seeding command, required env setup, and verification checks.
+    - Task notes or Prompt echo capture a `npm run db:cli -- status` snapshot after seeding to confirm counts and connection metadata.
+  notes: Outcome — 2025-10-30T19:38Z: Ran `npm run db:seed:dex` (1025 species, 919 moves, 101,969 learnset rows), refreshed `SpeciesSheet`, updated docs/db suite guidance, and logged `npm run db:cli -- status` output showing the populated tables.
 
 ## Phase 11 — Meta & AI Enablement
 

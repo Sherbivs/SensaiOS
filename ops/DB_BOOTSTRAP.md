@@ -56,15 +56,14 @@ Smoke tests after schema alignment
   - Cooldown upsert/unique flows (ownerId + kind unique)
 
 Dex reference rollout follow-up
-- After the migrations land, seed the canonical dex tables and warm caches:
+- After the migrations land, repopulate the canonical dex tables and verify counts:
 
   ```powershell
-  npx tsx scripts/dex/seed_reference.ts
-  npx tsx scripts/dex/backfill_species.ts --seed-missing
-  npx tsx scripts/dex/warm_cache.ts
+  npm run db:seed:dex
+  npm run db:cli -- status
   ```
 
-  - `backfill_species.ts` exits early when no rows need remediation and refreshes the `SpeciesSheet` view for good measure. Use `--dry-run` to inspect missing IDs without writing changes, or `--seed-missing` (shown above) to import any referenced species that the bootstrap JSON already knows about. The workflow is documented end-to-end in `docs/database-systems.md` §6.
+  - Pass `--dry-run` to preview counts without writing. Capture the status output in Tasklist notes so the audit trail shows >1,000 species after seeding. The workflow is documented end-to-end in `docs/database-systems.md` §6.
   - `warm_cache.ts` refreshes the materialized view and then primes the Pokémon cache. If the GitHub replication helper is unavailable (missing `octokit`), the script falls back to regenerating `data/cache/pokemon.json` locally and logs the skip.
 
   Capture the output of these commands in the deployment log so any follow-up database tasks can move to READY/DONE with confidence.
@@ -75,10 +74,10 @@ Connection sanity matrix — 2025-10-29T20:45Z
   - Validated commands (PASS):
     - `npx prisma migrate status`
     - `npx prisma migrate deploy`
-    - `npx tsx scripts/dex/seed_reference.ts`
+    - `npm run db:seed:dex`
     - `SELECT public.refresh_species_sheet()` (via Prisma client)
     - `npx tsx scripts/db_smoke.ts`
-  - Observed blocker: `npx tsx scripts/dex/backfill_species.ts` and `npx tsx scripts/dex/warm_cache.ts` now retry via `SELECT public.refresh_species_sheet()` when direct `REFRESH` raises 42501. Expect a warning about the fallback in logs; no manual intervention required unless the helper itself fails.
+- Observed blocker: the consolidated seeder warns when `REFRESH MATERIALIZED VIEW` lacks permission and automatically retries via `SELECT public.refresh_species_sheet()`. Investigate only if both attempts fail or the helper raises an error.
 
 ### Clear the `SpeciesSheet` privilege error (Postgres 42501)
 
@@ -218,7 +217,7 @@ SELECT public.refresh_species_sheet();
 
 ### Rolling the schema to other environments
 
-- Repeat the role creation/grant script on Accelerate once a privileged session is available. Until then, Prisma Accelerate calls to `scripts/dex/backfill_species.ts` will keep failing with `ERROR: permission denied for materialized view SpeciesSheet (42501)`.
+- Repeat the role creation/grant script on Accelerate once a privileged session is available. Until then, Prisma Accelerate calls to `npm run db:seed:dex` will warn about helper fallback until the role can refresh `SpeciesSheet` directly.
 - When introducing new login roles, grant them membership in one or more `prisma_*` groups instead of duplicating privileges. Example: `GRANT prisma_readonly TO analytics_reader;`.
 - If another schema is introduced, mirror the `ALTER DEFAULT PRIVILEGES` statements for that schema or transfer ownership to the same owner role and re-run the grants.
 - Keep credentials (if any) out of source control; Render should manage per-role passwords.

@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-30T17:46:00Z
-Revision: 1.53
+Timestamp (UTC): 2025-10-30T19:45:00Z
+Revision: 1.54
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Logged the guard baseline in Tasklist.md after running `node scripts/guard_db_docs.mjs` (✅ output recorded) and documented remediation steps for doc drift.
-- Added META.DB.CONNECTION_GUARD_CI_TRACK plus NEXT/Touchmap updates so the first passing guard-db-docs CI run gets captured with a run id and Prompt echo.
-- Reaffirmed the `npx prisma generate` reminder across remediation guidance to prevent Accelerate driver residue when switching back to Dev.
+- Added `scripts/seed_dex.ts` (`npm run db:seed:dex`) to hydrate Species/Move/Ability/Learnset tables from PokeAPI, ran the seed (1025 species, 101,969 learnset rows), and refreshed `SpeciesSheet`.
+- Updated `docs/database-systems.md`, `docs/db-control-suite.md`, `ops/DB_BOOTSTRAP.md`, and the roadmap to document the new seeding workflow and control-suite guidance; refreshed the cached PokéAPI metadata.
+- Tasklist/NEXT now close T13.DEX.DB_SEED and retarget META.DB.CONNECTION_GUARD_CI_TRACK to capture the first passing guard-db-docs workflow run.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -20,7 +20,7 @@ Revision: 1.53
 
 - **NEXT Pointer:** META.DB.CONNECTION_GUARD_CI_TRACK — record the first passing guard-db-docs CI run and mirror it into meta docs.
 - **READY / In-flight:** META.DB.CONNECTION_GUARD_CI_TRACK READY; baseline captured locally while we wait for the initial GitHub Actions run.
-- **Recent Finish:** META.DB.CONNECTION_GUARD_POSTCHECK logged the guard output, linked the workflow dashboard, and codified drift remediation steps (including the Prisma regenerate reminder).
+- **Recent Finish:** T13.DEX.DB_SEED seeded the Pokédex reference tables (1025 species, 919 moves, 367 abilities, 101,969 learnset rows), refreshed `SpeciesSheet`, and documented the workflow in the control-suite/deck docs.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -61,9 +61,9 @@ Revision: 1.53
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Recorded guard_db_docs baseline output, documented remediation guidance (with `npx prisma generate` reminder), and queued CI tracking for the first guard-db-docs workflow run.
+Change: Added seed_dex.ts plus npm script, ran the Pokédex seeding (refreshing SpeciesSheet), and updated docs/runbooks for the new workflow while retargeting NEXT to the guard-db-docs CI follow-up.
 TasklistDiff: true
-Tests: not run (docs/scripts update)
+Tests: npm run db:seed:dex (pass); npm run db:cli -- status (pass); npm run db:cli -- counts (fail – BusMessage table absent in dev baseline)
 Contracts: ON
 NEXT: META.DB.CONNECTION_GUARD_CI_TRACK - log the first passing guard-db-docs CI run and echo it in meta docs.
 <!-- PATCHSET:ECHO END -->

@@ -1,5 +1,5 @@
 # Database Control Suite *(Muted — Local Only)*
-Last Updated (UTC): 2025-10-30T16:48:00Z
+Last Updated (UTC): 2025-10-30T19:10:00Z
 
 Purpose: provide a single entry point for routine database inspections, counts, and ad-hoc queries while honoring secure environment loading (`IG_ENV_FILE`). Intended for local operators only; do not run in CI or production.
 
@@ -49,10 +49,10 @@ The runner loads environment variables in the following order:
 - If `counts` or `status` complain about missing tables (e.g., `BusMessage`), run `npx prisma migrate deploy` and then rerun the data loaders below to hydrate reference data.
 
 ## Hydrating Reference Data
-- `node scripts/refresh_cache.mjs` (or `npm run data:build`) rebuilds cached dex manifests locally.
-- `node scripts/fetch_pokemon.mjs` pulls the upstream Pokédex JSON used by the loaders.
-- `npm run db:cli -- status` after running the loaders should show hundreds of species, moves, and abilities instead of the 21-row stub that ships in blank databases.
-- For a one-shot bootstrap, follow the `ops/DB_BOOTSTRAP.md` runbook: migrations → `scripts/dex/seed_reference.ts` → `scripts/dex/backfill_species.ts` → `scripts/dex/warm_cache.ts`.
+- `npm run db:seed:dex` is the canonical bootstrap. It fetches live PokeAPI data, repopulates species/moves/abilities/learnsets, rebuilds the type chart, and refreshes `SpeciesSheet`. Use `POKEAPI_SEED_CONCURRENCY` to throttle (default 4). Add `--dry-run` to preview counts without writing.
+- `node scripts/fetch_pokemon.mjs` still refreshes the local JSON cache if you need offline data snapshots; the seeder can read cached responses automatically on subsequent runs.
+- `npm run db:cli -- status` after a seed should show >1,000 species with non-empty learnsets; capture the output in Tasklist or Prompt notes for auditing.
+- When bootstrapping from scratch follow `ops/DB_BOOTSTRAP.md`: migrations → set `IG_ENV_FILE` → `npm run db:seed:dex` → `npm run db:cli -- status`.
 
 ## Examples
 

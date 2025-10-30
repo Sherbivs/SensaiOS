@@ -209,6 +209,17 @@ T10.SCALE.OPS_STATS_FIX:
   - "src/bot/ops/admin.ts"
   - "scripts/guard_meta.sh"
 
+T13.DEX.DB_SEED:
+  - "scripts/seed_dex.ts"
+  - "package.json"
+  - "docs/database-systems.md"
+  - "docs/db-control-suite.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "Prompt.md"
+  - "ops/TOUCHMAP.yaml"
+  - "scripts/ROUTER.md"
+
 PBSL.SKELETON:
   - "docs/PBSL.md"
   - "src/core/pbsl/**"
