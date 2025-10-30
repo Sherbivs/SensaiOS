@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-29T19:10:00Z
+Last Updated (UTC): 2025-10-30T00:47:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -155,11 +155,235 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - Owned Globs: `tests/**`
 - Last Updated: 2025-10-27T12:30:00Z
 - Representative Specs:
-	- `tests/battle_engine.spec.ts` — deterministic battle engine coverage
-	- `tests/battle_flow.spec.ts` — arena flow integration tests
-	- `tests/daily.spec.ts` — daily quest claim success and cooldown guard rails
-	- `tests/ops.spec.ts` — `/ops` admin command scenarios (limit/after/participant)
-	- `tests/data_pipeline.spec.ts` — reference data validation
-	- `tests/encounter_walk.spec.ts` — wild encounter flow
+	- `tests/battle_engine.spec.ts` - deterministic battle engine coverage
+	- `tests/battle_flow.spec.ts` - arena flow integration tests
+	- `tests/daily.spec.ts` - daily quest claim success and cooldown guard rails
+	- `tests/ops.spec.ts` - `/ops` admin command scenarios (limit/after/participant)
+	- `tests/data_pipeline.spec.ts` - reference data validation
+	- `tests/encounter_walk.spec.ts` - wild encounter flow
 - Notes:
 	- 2025-10-27: PBSL oracle diff suite compares fixtures under tests/pbsl/** for deterministic regressions.
+
+### CI & Automation Workflows (`.github/ROUTER.md`)
+- Purpose: GitHub Actions guards, health checks, and runtime automation.
+- Owned Globs: `.github/**`
+- Last Updated: 2025-10-30T00:46:00Z
+- Key Workflows:
+  - `.github/workflows/guard-meta.yml` / `guard-docs.yml` / `guard-router.yml` / `guard-routing.yml` / `guard-render.yml` - Contract, docs, router, and Render guards.
+  - `.github/workflows/agent-health.yml` / `runtime.yml` - Agent readiness probes and runtime lint/test gates.
+  - `.github/workflows/data-health.yml` / `refresh-cache.yml` - Nightly data pipeline smoke tests and cache refreshers.
+  - `.github/workflows/pbsl-oracle.yml` - Deterministic PBSL fixture regression suite.
+- Notes:
+  - Guard pipelines should be re-run after router/document updates to keep CI aligned with the meta contract.
+
+### Local Database State Cache (`.db-state/ROUTER.md`)
+- Purpose: Track the most recent database source used by local tooling.
+- Owned Globs: `.db-state/**`
+- Last Updated: 2025-10-30T00:46:00Z
+- Key Files:
+  - `.db-state/db-connection.json` - Records the last connection source (Accelerate vs direct) and timestamp for operator context.
+- Notes:
+  - Generated locally; keep credentials out of this folder.
+
+### Pokemon Reference Data (`data/ROUTER.md`)
+- Purpose: Cached datasets and bootstrap payloads for dex helpers and tests.
+- Owned Globs: `data/**`
+- Last Updated: 2025-10-30T00:46:00Z
+- Key Files:
+  - `data/pokemon.json` / `data/effects.json` - Runtime cache payloads hydrated by workers.
+  - `data/bootstrap/dex.min.json`, `moves.min.json`, `version.json` - Bootstrap bundles for dex seeding/backfill scripts.
+  - `data/README.md` - Documents cache-worker expectations.
+- Notes:
+  - Cache workers regenerate these files; keep structure intact for automation.
+
+### Documentation Library (`docs/ROUTER.md`)
+- Purpose: Central hub for architecture, safety, and operational guidance.
+- Owned Globs: `docs/**`
+- Last Updated: 2025-10-30T00:46:00Z
+- Key Documents:
+  - `docs/architecture.md` / `docs/operations.md` - System overview and day-to-day ops.
+  - `docs/database-systems.md` / `docs/db-control-suite.md` - Database topology and tooling.
+  - `docs/perfect-system-roadmap.md` - Long-range governance/automation plan feeding Phase 12 tasks.
+  - `docs/meta-router.md` - Routing philosophy, coverage expectations, and guard workflow links.
+- Notes:
+  - Cross-link new guides from Prompt and this table to keep navigation consistent.
+
+### Operational Playbooks (`playbooks/ROUTER.md`)
+- Purpose: Escalation and recovery procedures when automation stalls.
+- Owned Globs: `playbooks/**`
+- Last Updated: 2025-10-30T00:46:00Z
+- Key Documents:
+  - `playbooks/escalate.md` - Escalation checklist once self-healing exhausts options.
+- Notes:
+  - Pair with `ops/RECOVERY.yaml` to capture state before escalation.
+
+### Prisma Schema & Migrations (`prisma/ROUTER.md`)
+- Purpose: Prisma data model and migration history.
+- Owned Globs: `prisma/**`
+- Last Updated: 2025-10-30T00:46:00Z
+- Key Files:
+  - `prisma/schema.prisma` - Canonical data model for runtime and tooling.
+  - `prisma/migrations/*/migration.sql` - Deterministic migration bundles applied via `prisma migrate deploy`.
+  - `prisma/migrations/migration_lock.toml` - Prisma migration lock state.
+- Notes:
+  - Follow `ops/DB_BOOTSTRAP.md` before applying migrations to staging/production.
+
+### Meta Router Implementation (`router/ROUTER.md`)
+- Purpose: TypeScript router that assigns tasks to specialist agents.
+- Owned Globs: `router/**`
+- Last Updated: 2025-10-30T00:46:00Z
+- Key Files:
+  - `router/metaRouter.ts` - Event-driven router with recovery heuristics (shrink step → swap strategy → reset).
+- Notes:
+  - Extend registry wiring when introducing new agent roles; emits JSONL telemetry for observability.
+
+### Secret Template Store (`secrets/ROUTER.md`)
+- Purpose: Environment template files for local development.
+- Owned Globs: `secrets/**`
+- Last Updated: 2025-10-30T00:46:00Z
+- Key Files:
+  - `secrets/prisma-accelerate.env.example` / `secrets/prisma-dev.env.example` - Credential templates for Accelerate and local Prisma URLs.
+  - `secrets/README.md` - Instructions for copying templates to a secure location and configuring `IG_ENV_FILE`.
+- Notes:
+  - Never commit filled-in secret files; copy templates outside the repo.
+
+### Sync Layer Prototype (`sync-layer/ROUTER.md`)
+- Purpose: Experimental sync services for mirroring Discord/game data.
+- Owned Globs: `sync-layer/**`
+- Last Updated: 2025-10-30T00:46:00Z
+- Subdirectories:
+  - `sync-layer/discord/` - Sync client and hooks that watch Discord events.
+  - `sync-layer/worker/` - Worker entries (`api-server`, `commit-deltas`, `indexer`) plus JSON schemas.
+  - `sync-layer/data/` - Manifest files describing synced objects.
+  - `sync-layer/shared/` - Shared helpers (IO, logging) for the sync workers.
+- Notes:
+  - Isolated from production runtime; treat as evolving prototype.
+
+### Tooling Binaries & Helpers (`tools/ROUTER.md`)
+- Purpose: Vendored Postgres binaries required for local recovery scripts.
+- Owned Globs: `tools/**`
+- Last Updated: 2025-10-30T00:46:00Z
+- Key Assets:
+  - `tools/pgsql17/pgsql/bin/*` - Postgres command-line utilities (psql, pg_dump, pg_restore, pg_upgrade, etc.) plus supporting DLLs.
+- Notes:
+  - Keep binaries untouched unless updating per the DB bootstrap runbook; document checksum changes in ops docs.
+
+### Legacy Cache Builders (`src/cache/ROUTER.md`)
+- Purpose: CommonJS cache builders that publish PokeAPI mirrors.
+- Owned Globs: `src/cache/**`
+- Last Updated: 2025-10-30T00:47:00Z
+- Key Files:
+  - `src/cache/index.js` - Orchestrates cloning the cache repo and publishing refreshed JSON.
+  - `src/cache/pokemonCache.js` - Builds minimal Pokemon payloads for cache distribution.
+  - `src/cache/gitStore.js` - Git helpers for clone/commit/push.
+- Notes:
+  - Retained for compatibility while the TypeScript data pipeline matures.
+### Legacy Slash Command Handlers (`src/commands/ROUTER.md`)
+- Purpose: CommonJS command implementations predating the TypeScript port.
+- Owned Globs: `src/commands/**`
+- Last Updated: 2025-10-30T00:47:00Z
+- Representative Commands:
+  - `battle.js` / `battle-turn.js` - Battle challenge flow and per-turn execution.
+  - `home.js` / `starter.js` / `daily.js` / `heal.js` - Player onboarding and daily maintenance.
+  - `dex.js` / `move.js` / `weak.js` / `calc.js` - Pokedex lookups and matchup utilities.
+  - `ops.js` - Administrative `/ops` command logic.
+- Notes:
+  - Keep stable until all flows migrate to `src/bot/commands/**`.
+### Legacy Environment Config (`src/config/ROUTER.md`)
+- Purpose: CommonJS environment loader used by legacy modules.
+- Owned Globs: `src/config/**`
+- Last Updated: 2025-10-30T00:47:00Z
+- Key Files:
+  - `src/config/env.js` - Legacy env bootstrap referenced by non-TypeScript modules.
+  - `src/config/env.d.ts` - Ambient types ensuring compatibility with TypeScript callers.
+- Notes:
+  - Mirror updates from `src/shared/config.ts` to avoid divergence.
+
+### Data Pipeline (`src/data_pipeline/ROUTER.md`)
+- Purpose: Ingest and validate Pokemon reference datasets.
+- Owned Globs: `src/data_pipeline/**`
+- Last Updated: 2025-10-30T00:47:00Z
+- Key Files:
+  - `src/data_pipeline/index.ts` - Entry point invoked by `npm run data:build`.
+  - `src/data_pipeline/schema/*.ts` - Zod schemas for abilities, moves, species, type chart, and manifest metadata.
+- Notes:
+  - Regenerate caches after schema changes to keep data and tests aligned.
+
+### Event Bus & Battle Engine Primitives (`src/engine/ROUTER.md`)
+- Purpose: Shared mechanics for battle calculations and worker orchestration.
+- Owned Globs: `src/engine/**`
+- Last Updated: 2025-10-30T00:47:00Z
+- Key Files:
+  - `src/engine/bus.ts` / `worker.ts` - Event bus and worker bootstrap helpers.
+  - `src/engine/calc.js`, `effects.js`, `stats.js`, `tables.js`, `types.js`, `turn.js`, `rng.js` - Legacy battle math modules.
+- Notes:
+  - PBSL oracle tests depend on these calculations; avoid silent drift.
+
+### Environment Utilities (`src/env/ROUTER.md`)
+- Purpose: Validate database configuration at startup.
+- Owned Globs: `src/env/**`
+- Last Updated: 2025-10-30T00:47:00Z
+- Key Files:
+  - `src/env/ensure-db-url.ts` - Guards against missing or unsafe DATABASE_POOL_URL / DATABASE_DIRECT_URL settings.
+- Notes:
+  - Imported by runtime entrypoints before Prisma connects.
+
+### Shared Library Helpers (`src/lib/ROUTER.md`)
+- Purpose: Legacy utilities consumed by command handlers and cache builders.
+- Owned Globs: `src/lib/**`
+- Last Updated: 2025-10-30T00:47:00Z
+- Key Files:
+  - `src/lib/assets.js` - Resolves asset paths for embeds.
+  - `src/lib/cooldown.js` - Cooldown tracking helpers.
+  - `src/lib/dex-api.js` - Fetch helpers for external PokeAPI calls.
+  - `src/lib/type-colors.js` - Maps Pokemon types to embed colors.
+- Notes:
+  - Prefer new utilities in `src/shared/**` when porting features.
+### Prisma Data Models (`src/models/ROUTER.md`)
+- Purpose: Typed Prisma access and re-exports.
+- Owned Globs: `src/models/**`
+- Last Updated: 2025-10-30T00:47:00Z
+- Key Files:
+  - `src/models/index.ts` - Prisma client singleton and helper exports.
+- Notes:
+  - Update alongside schema changes and runtime access patterns.
+
+### Service Layer Helpers (`src/services/ROUTER.md`)
+- Purpose: Bridge cached data and presentation flows.
+- Owned Globs: `src/services/**`
+- Last Updated: 2025-10-30T00:47:00Z
+- Key Files:
+  - `src/services/pokemonService.js` / `.d.ts` - Pokemon lookup service for commands and DM flows.
+  - `src/services/cache.js` - Cache hydration wrapper.
+  - `src/services/home-bundle.ts` - Bundles DM home state for renderers.
+- Notes:
+  - Maintain declaration files until services are fully ported to TypeScript.
+
+### Ambient Type Declarations (`src/types/ROUTER.md`)
+- Purpose: Provide typings for external modules lacking TypeScript support.
+- Owned Globs: `src/types/**`
+- Last Updated: 2025-10-30T00:47:00Z
+- Key Files:
+  - `src/types/prisma-accelerate.d.ts` - Declares Prisma Accelerate extension types.
+- Notes:
+  - Refresh when upgrading Prisma Accelerate APIs.
+
+### Utility Helpers (`src/utils/ROUTER.md`)
+- Purpose: Cross-cutting utilities for logging, CLI status, and ops helpers.
+- Owned Globs: `src/utils/**`
+- Last Updated: 2025-10-30T00:47:00Z
+- Key Files:
+  - `src/utils/cliStatus.js` / `.d.ts` - CLI dashboard used by runtime monitors.
+  - `src/utils/fatalErrorGuard.js` - Process-level error guard for bot/worker entries.
+  - `src/utils/logger.js` / `.d.ts` - Logging abstraction for legacy modules.
+  - `src/utils/opsNotifier.js` / `timezone.js` - Ops alert helpers and timezone utilities.
+  - `src/utils/activityTracker.js` - Rate limiting/activity tracking helper.
+- Notes:
+  - New implementations should prefer `src/shared/log.ts` and related helpers when possible.
+
+
+
+
+
+
+

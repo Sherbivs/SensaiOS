@@ -1,7 +1,7 @@
  # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-10-29T20:30:00Z
+updated_utc: 2025-10-30T00:47:00Z
 
 meta_files:
   - Patch.md
@@ -44,10 +44,33 @@ categories:
     - ops/POKEMON_CACHE.md
     - ops/DB_BOOTSTRAP.md
     - ops/DB_IMPORT_PRISMA_POSTGRES.md
+    - docs/architecture.md
+    - docs/operations.md
     - docs/database-systems.md
-  - secrets/prisma-accelerate.env (gitignored local Accelerate URL)
-    - docs/PBSL.md
-    - masterroutetable.md
+    - docs/db-control-suite.md
+    - docs/perfect-system-roadmap.md
+    - docs/safety.md
+    - docs/meta-router.md
+  data_assets:
+    - data/**
+  documentation_library:
+    - docs/**
+  playbooks:
+    - playbooks/**
+  prisma_schema:
+    - prisma/**
+  router_runtime:
+    - router/**
+  secrets_templates:
+    - secrets/**
+    - .db-state/**
+    - secrets/prisma-accelerate.env (gitignored local Accelerate URL)
+  sync_layer:
+    - sync-layer/**
+  tooling_bins:
+    - tools/**
+  ci_workflows:
+    - .github/**
   code_core:
     - src/**
     - tests/**
@@ -55,12 +78,38 @@ categories:
     - scripts/**
     - scripts/bootstrap_staging_db.ps1
     - scripts/restore_prisma_postgres.ps1
-  guards_ci:
-    - .github/workflows/**
   router_docs:
     - ops/ROUTER.md
     - ops/ROUTER_INDEX.yaml
     - masterroutetable.md
+    - .github/ROUTER.md
+    - .db-state/ROUTER.md
+    - data/ROUTER.md
+    - docs/ROUTER.md
+    - playbooks/ROUTER.md
+    - prisma/ROUTER.md
+    - router/ROUTER.md
+    - secrets/ROUTER.md
+    - sync-layer/ROUTER.md
+    - tools/ROUTER.md
+    - scripts/ROUTER.md
+    - src/ROUTER.md
+    - src/bot/ROUTER.md
+    - src/cache/ROUTER.md
+    - src/commands/ROUTER.md
+    - src/config/ROUTER.md
+    - src/core/ROUTER.md
+    - src/data_pipeline/ROUTER.md
+    - src/engine/ROUTER.md
+    - src/env/ROUTER.md
+    - src/lib/ROUTER.md
+    - src/models/ROUTER.md
+    - src/services/ROUTER.md
+    - src/shared/ROUTER.md
+    - src/types/ROUTER.md
+    - src/utils/ROUTER.md
+    - src/worker/ROUTER.md
+    - tests/ROUTER.md
     - scripts/guard_*.sh
 
 router_contract:

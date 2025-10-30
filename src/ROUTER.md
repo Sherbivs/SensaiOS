@@ -2,7 +2,7 @@
 Title: Application Source
 Purpose: Root app source tree; see sub-routers for domains.
 Owned Globs: src/**
-Last Updated (UTC): 2025-10-29T01:50:00Z
+Last Updated (UTC): 2025-10-30T00:47:00Z
 
 Notes:
 - Battle persistence now centralizes result storage + arena/winner messaging.
@@ -13,10 +13,19 @@ Notes:
 - `src/engine/**` introduces the durable event bus helpers and category-aware worker loop powering asynchronous tasks.
 - PBSL scaffold (`src/core/pbsl/**`) houses deterministic RNG, audit trails, and encounter generators with provenance metadata recorded in docs/PBSL.md.
 - Prisma client boot now prioritises Accelerate URLs surfaced from runtime config; CLI telemetry reports the active transport (direct vs accelerate-node).
-
 Subdomains:
-- src/bot — Discord client & interaction handlers
-- src/core — game engines (battle, encounter, data)
-- src/shared — runtime config, Prisma client, logging, cache, event bus compatibility helpers
-- src/engine — event bus primitives and worker registry
-- src/worker — background worker loops
+- src/bot - Discord client & interaction handlers
+- src/cache - Legacy cache publishers for PokeAPI mirrors
+- src/commands - CommonJS command handlers retained for backwards compatibility
+- src/config - Legacy environment shim (CommonJS callers)
+- src/core - game engines (battle, encounter, data)
+- src/data_pipeline - reference data ingestion and schema validation
+- src/engine - event bus + battle primitives (legacy math helpers)
+- src/env - runtime environment validation utilities
+- src/lib - shared CommonJS helpers (assets, dex API, cooldowns)
+- src/models - Prisma access layer and typed helpers
+- src/services - service abstractions feeding DM/command flows
+- src/shared - runtime config, Prisma client, logging, cache, event bus compatibility helpers
+- src/types - ambient declaration files bridging external packages
+- src/utils - logging, CLI status, and operational helper utilities
+- src/worker - background worker loops

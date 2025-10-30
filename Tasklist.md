@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-29T23:55:00Z
-Revision: 2.00
+Last Updated (UTC): 2025-10-30T02:31:00Z
+Revision: 2.02
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1038,9 +1038,19 @@ Each task has:
     - Publish a durable reference guide describing schema layout, connection modes, roles/permissions, migrations, helper routines, and dex maintenance scripts.
     - Cross-link the guide from DATA-SCHEMA.md, ops/DB_BOOTSTRAP.md, OPERATIONS.md, and router metadata for discoverability.
     - Update Prompt.md Last Repo Changes and PATCHSET echo to capture the documentation milestone.
-  notes: READY — Comprehensive documentation requested to support future database workstreams; 2025-10-29: Vendored Postgres 17 client binaries under tools/pgsql17/pgsql/bin and reconciled Render standby _prisma_migrations checksums with redundancy script hashing stable columns only.
+  notes: READY - Comprehensive documentation requested to support future database workstreams; 2025-10-29: Vendored Postgres 17 client binaries under tools/pgsql17/pgsql/bin and reconciled Render standby _prisma_migrations checksums with redundancy script hashing stable columns only.
 
-## Phase 11 — Meta & AI Enablement
+- id: META.ROUTER.COVERAGE
+  title: Complete meta-router coverage for tracked files
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - Add ROUTER.md documentation for every tracked directory and critical root asset currently missing coverage.
+    - Regenerate ops/ROUTER_INDEX.yaml and masterroutetable.md to reflect the expanded router map.
+    - Update Prompt.md and ops/ROUTER.yaml notes so downstream agents know the coverage sweep completed and where to look next.
+  notes: Outcome - Authored ROUTER.md files for every top-level directory, expanded ops/ROUTER.yaml categories, regenerated ops/ROUTER_INDEX.yaml, and refreshed masterroutetable.md plus docs/meta-router.md to reflect the new coverage.
+
+## Phase 11 - Meta & AI Enablement
 
 - id: META.ROUTER.20251028
   title: Refresh router metadata for AI-first navigation

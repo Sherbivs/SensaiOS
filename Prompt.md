@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-29T23:44:00Z
-Revision: 1.34
+Timestamp (UTC): 2025-10-30T02:31:00Z
+Revision: 1.35
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Replaced the outbox worker’s placeholder sink with a configurable backup storage helper (S3 or local) and wrote unit coverage for the local path.
-- Extended `src/shared/config.ts` and OPERATIONS.md with backup storage settings, plus added the AWS SDK dependency for S3 uploads.
-- Marked META.RUNTIME.BACKUP_SINK as DONE, retargeted NEXT to T8.4, and refreshed the patch clipboard’s roadmap plan.
+- Added ROUTER.md coverage for `.github`, `.db-state`, data/docs/playbooks/prisma/router, sync-layer/tools, and each major `src/**` subdomain.
+- Expanded ops/ROUTER.yaml categories, regenerated ops/ROUTER_INDEX.yaml, and refreshed masterroutetable.md with the new router entries.
+- Updated docs/meta-router.md guidance, marked META.ROUTER.COVERAGE DONE, and retargeted NEXT to META.DB.DOCS.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -18,9 +18,9 @@ Revision: 1.34
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** T8.4 — implement the DM Home daily claim button and associated cooldown feedback tests.
-- **READY / In-flight:** T8.4 is READY; T10.DEX.MIGRATE_ACCELERATE stays IN_PROGRESS (role limits still block extra Accelerate roles) with downstream T10.DEX.* tasks READY, and META.ROADMAP.* backlog entries remain PROPOSED pending prioritization.
-- **Recent Finish:** T10.SCALE.LOAD_TEST and T10.SCALE.OPS_STATS_FIX wrapped, confirming connection-mode telemetry and restoring ops stats tests.
+- **NEXT Pointer:** META.DB.DOCS - document the database architecture and operations reference now that router coverage is synchronized.
+- **READY / In-flight:** META.DB.DOCS is READY; T10.DEX.MIGRATE_ACCELERATE remains IN_PROGRESS with downstream T10.DEX.* tasks READY; META.ROADMAP.* backlog entries stay PROPOSED pending prioritization.
+- **Recent Finish:** META.ROUTER.COVERAGE completed with new ROUTER docs, ops/ROUTER.yaml categories, and regenerated router indices.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -61,11 +61,11 @@ Revision: 1.34
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Implemented the durable outbox backup sink (config + worker + docs), added storage tests, marked META.RUNTIME.BACKUP_SINK done, and retargeted NEXT to T8.4.
+Change: Documented the entire meta-router surface (new ROUTER.md files, ops/ROUTER.yaml categories, router indices, and masterroutetable) and marked META.ROUTER.COVERAGE done.
 TasklistDiff: true
-Tests: not run (requires installing new dependency @aws-sdk/client-s3; package install unavailable this run)
+Tests: not run (docs and metadata updates only)
 Contracts: ON
-NEXT: T8.4 — wire the DM Home daily-claim button and add cooldown feedback coverage.
+NEXT: META.DB.DOCS - publish the database systems reference and link it from dependent docs.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)
