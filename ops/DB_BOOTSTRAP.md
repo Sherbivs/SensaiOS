@@ -16,7 +16,8 @@ Checklist and decisions
 
 Procedure A — Apply historical migrations (recommended)
 1. Ensure the repo contains the full migrations history under `prisma/migrations`.
-2. From the repo root (the working copy used for ops), confirm `IG_ENV_FILE` is pointing at `C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env` (or the staging-specific override) and that file defines `DATABASE_POOL_URL`/`DATABASE_URL` (pooled) *and* `DATABASE_DIRECT_URL` (direct). On Windows PowerShell you can verify with `echo $Env:IG_ENV_FILE` and `Get-Content $Env:IG_ENV_FILE | Select-String DATABASE_` or rely on `scripts/setup_ai_env.ps1` to register the path.
+2. From the repo root (the working copy used for ops), confirm `IG_ENV_FILE` is pointing at `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (or the staging-specific override) and that file defines `DATABASE_POOL_URL`/`DATABASE_URL` (pooled) *and* `DATABASE_DIRECT_URL` (direct). On Windows PowerShell you can verify with `echo $Env:IG_ENV_FILE` and `Get-Content $Env:IG_ENV_FILE | Select-String DATABASE_` or rely on `scripts/setup_ai_env.ps1` to register the path.
+  - If you previously ran Accelerate workflows with `Key/Prod/.env`, regenerate the Prisma client (`npx prisma generate`) before connecting so the CLI uses the direct Node engine again.
 3. Run:
 
    npx prisma migrate deploy
@@ -55,29 +56,30 @@ Smoke tests after schema alignment
   - Cooldown upsert/unique flows (ownerId + kind unique)
 
 Dex reference rollout follow-up
-- After the migrations land, seed the canonical dex tables and warm caches:
+- After the migrations land, repopulate the canonical dex tables and verify counts:
 
   ```powershell
-  npx tsx scripts/dex/seed_reference.ts
-  npx tsx scripts/dex/backfill_species.ts --seed-missing
-  npx tsx scripts/dex/warm_cache.ts
+  npm run db:seed:dex
+  npm run db:cli -- status
   ```
 
-  - `backfill_species.ts` exits early when no rows need remediation and refreshes the `SpeciesSheet` view for good measure. Use `--dry-run` to inspect missing IDs without writing changes, or `--seed-missing` (shown above) to import any referenced species that the bootstrap JSON already knows about. The workflow is documented end-to-end in `docs/database-systems.md` §6.
+  - Pass `--dry-run` to preview counts without writing. Capture the status output in Tasklist notes so the audit trail shows >1,000 species after seeding. The workflow is documented end-to-end in `docs/database-systems.md` §6.
+  - Keep the Dev → Prod → Dev cadence: execute these commands on DEV first, switch `IG_ENV_FILE` to the Accelerate/Prod secrets and rerun them (or rely on `scripts/ops/run_dex_migrations.ps1` for a bundled migrate+refresh), then restore `IG_ENV_FILE` to `Key/Dev/.env` and run `npx prisma generate` before resuming local development.
+  - For continuous coverage, run `npm run db:auto-sync` so migrations + seeding loop on deployment and every five minutes when drift is detected. Use `--dry-run`, `--once`, or `--skip-startup` during rehearsals and monitor the JSON logs (`sync.consolidate.*`, `integrity.*`) for drift alerts.
   - `warm_cache.ts` refreshes the materialized view and then primes the Pokémon cache. If the GitHub replication helper is unavailable (missing `octokit`), the script falls back to regenerating `data/cache/pokemon.json` locally and logs the skip.
 
-  Capture the output of these commands in the deployment log so the T10.DEX tasks can be advanced to READY/DONE with confidence.
+  Capture the output of these commands in the deployment log so any follow-up database tasks can move to READY/DONE with confidence.
 
 Connection sanity matrix — 2025-10-29T20:45Z
 - Accelerate (primary)
-  - Load credentials: `Get-Content secrets/prisma-accelerate.env | ForEach-Object { ... }`
+  - Load credentials: `Get-Content C:/Users/sherb/OneDrive/Documents/Key/Prod/.env | ForEach-Object { ... }`
   - Validated commands (PASS):
     - `npx prisma migrate status`
     - `npx prisma migrate deploy`
-    - `npx tsx scripts/dex/seed_reference.ts`
+    - `npm run db:seed:dex`
     - `SELECT public.refresh_species_sheet()` (via Prisma client)
     - `npx tsx scripts/db_smoke.ts`
-  - Observed blocker: `npx tsx scripts/dex/backfill_species.ts` and `npx tsx scripts/dex/warm_cache.ts` now retry via `SELECT public.refresh_species_sheet()` when direct `REFRESH` raises 42501. Expect a warning about the fallback in logs; no manual intervention required unless the helper itself fails.
+- Observed blocker: the consolidated seeder warns when `REFRESH MATERIALIZED VIEW` lacks permission and automatically retries via `SELECT public.refresh_species_sheet()`. Investigate only if both attempts fail or the helper raises an error.
 
 ### Clear the `SpeciesSheet` privilege error (Postgres 42501)
 
@@ -141,7 +143,7 @@ The Prisma role in `DATABASE_URL` is missing privileges on the materialized view
    await prisma.$queryRawUnsafe('SELECT 1 FROM "SpeciesSheet" LIMIT 1');
    ```
 
-Security hygiene: rotate any exposed `OPTIMIZE_API_KEY` tokens in the Prisma Data Platform, update the active `IG_ENV_FILE` secrets file (e.g., `prisma-dev.env`), and restart services that load it.
+Security hygiene: rotate any exposed `OPTIMIZE_API_KEY` tokens in the Prisma Data Platform, update the active `IG_ENV_FILE` secrets file (e.g., `Key/Dev/.env`), and restart services that load it.
 
 Keep the mixed-case name quoted (`"SpeciesSheet"`) in every statement. Add a unique index before using `REFRESH MATERIALIZED VIEW CONCURRENTLY` if one is missing.
 - Render dev standby
@@ -217,7 +219,7 @@ SELECT public.refresh_species_sheet();
 
 ### Rolling the schema to other environments
 
-- Repeat the role creation/grant script on Accelerate once a privileged session is available. Until then, Prisma Accelerate calls to `scripts/dex/backfill_species.ts` will keep failing with `ERROR: permission denied for materialized view SpeciesSheet (42501)`.
+- Repeat the role creation/grant script on Accelerate once a privileged session is available. Until then, Prisma Accelerate calls to `npm run db:seed:dex` will warn about helper fallback until the role can refresh `SpeciesSheet` directly.
 - When introducing new login roles, grant them membership in one or more `prisma_*` groups instead of duplicating privileges. Example: `GRANT prisma_readonly TO analytics_reader;`.
 - If another schema is introduced, mirror the `ALTER DEFAULT PRIVILEGES` statements for that schema or transfer ownership to the same owner role and re-run the grants.
 - Keep credentials (if any) out of source control; Render should manage per-role passwords.

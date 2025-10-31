@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-30T03:35:00Z
-Revision: 2.02
+Last Updated (UTC): 2025-10-30T18:05:00Z
+Revision: 2.12
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -74,7 +74,7 @@ Each task has:
     - Patch.md and ops/HOTFIX.md document that `ACTIVATE: HOTFIX ENGINE` may carry a trailing `: <note>` while preserving the exact prefix.
     - Prompt.md and ops/TOUCHMAP.yaml record the update so future workers follow the revised trigger guidance.
     - ops/NEXT.yaml timestamp/note refreshed to capture the documentation change.
-  notes: Outcome — Hotfix trigger now accepts an optional human-context note without breaking the deterministic prefix; meta routing docs updated accordingly.
+  notes: Outcome - Hotfix trigger now accepts an optional human-context note without breaking the deterministic prefix; meta routing docs updated accordingly.
 - id: META.REPO.RESTORE_STRUCTURE
   title: Clean stale meta docs and restore guard workflows
   status: DONE
@@ -114,7 +114,7 @@ Each task has:
     - Select the first eligible PROPOSED task whose dependencies are DONE and flip it to READY.
     - Update `ops/NEXT.yaml` `next_task_id` to the selected task and keep `files_hint` minimal.
     - Update `Prompt.md` echo with a one-paragraph summary of the promotion rationale.
-  notes: Outcome — Promoted META.RENDER.DB_URL_FIX into the queue and retargeted NEXT to T8.4 once the database hardening work landed.
+  notes: Outcome — Promoted META.RENDER.DB_URL_FIX into the queue and retargeted NEXT to the database hardening backlog once the work landed.
 
 - id: META.TASKLIST.COUPLING_FIX
   title: Enforce Tasklist updates from every PATCHSET and rewire guards
@@ -227,6 +227,50 @@ Each task has:
     - `/ops stats` and worker health logs surface the new sink status and last successful upload timestamp.
   notes: Outcome — Outbox worker now streams processed messages to the configured backup sink (S3 or local), logs provider/location metadata, ships a storage helper with tests, and OPERATIONS.md documents deployment/env guidance.
 
+- id: META.DB.CONNECTION_GUIDE
+  title: Align DB connection docs with Key/Dev and Key/Prod secret folders
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - AGENTS.md, README.md, docs/ai-env-setup.md, docs/db-control-suite.md, ops/DB_BOOTSTRAP.md, and masterroutetable.md describe the Dev/Prod folder layout, IG_ENV_FILE workflow, and Prisma regenerate requirement without referencing legacy filenames.
+    - scripts/setup_ai_env.ps1 default path and scripts/ops/run_dex_migrations.ps1 default accelerate path target the new directory structure.
+    - Documentation includes step-by-step verification from env selection through `npm run db:cli -- status`, including the regenerate safeguard when switching from Accelerate to Dev.
+    - Prompt.md and Tasklist.md capture the change with outcome notes.
+  notes: Outcome — Updated AGENTS/README/core docs plus setup scripts to reference Key/Dev/.env and Key/Prod/.env, documented the Prisma regenerate step, and re-pointed routing metadata and runbooks.
+
+- id: META.DB.CONNECTION_GUARD
+  title: Add guardrails ensuring DB instructions stay synced across docs
+  status: DONE
+  depends_on: [META.DB.CONNECTION_GUIDE]
+  acceptance_criteria:
+    - A guard script or CI check fails when core docs diverge on the Key/Dev vs Key/Prod secret paths or omit the regenerate step.
+    - Router metadata and Prompt.md mention the guard coverage so future edits keep the instructions aligned.
+    - Prompt.md and Tasklist.md metadata reflect the guard activation.
+  notes: Outcome — Added `scripts/guard_db_docs.mjs` with a guard-db-docs CI workflow, refreshed router metadata, and updated masterroutetable so every doc lists `npx prisma generate` alongside the Key/Dev and Key/Prod secret paths.
+
+- id: META.DB.CONNECTION_GUARD_POSTCHECK
+  title: Capture guard baseline and document remediation steps
+  status: DONE
+  depends_on: [META.DB.CONNECTION_GUARD]
+  acceptance_criteria:
+    - Capture sample output from `node scripts/guard_db_docs.mjs` (local or CI) and quote the success line in Tasklist notes once verified.
+    - Record the latest passing `.github/workflows/guard-db-docs.yml` run (URL or run id) in Prompt.md or Tasklist.md for traceability.
+    - Outline quick remediation steps for guard failures (e.g., update docs to restore the Key/Dev, Key/Prod, or Prisma regenerate text) in Tasklist notes after validation.
+  notes: |
+    Baseline run: `node scripts/guard_db_docs.mjs` → "✅ DB connection docs mention Key/Dev, Key/Prod, and Prisma regenerate guidance consistently." (local 2025-10-30).
+    CI tracking: first workflow run will populate https://github.com/Sherbivs/Infinity-Gauntlet/actions/workflows/guard-db-docs.yml; update notes with the passing run id after the initial merge.
+    Remediation: ensure AGENTS.md, README.md, docs/ai-env-setup.md, docs/db-control-suite.md, ops/DB_BOOTSTRAP.md, and masterroutetable.md all cite `C:/Users/.../Key/Dev/.env`, `C:/Users/.../Key/Prod/.env`, and the "run `npx prisma generate` after Accelerate" reminder, then rerun `node scripts/guard_db_docs.mjs` until it passes.
+
+- id: META.DB.CONNECTION_GUARD_CI_TRACK
+  title: Record the first passing guard-db-docs CI run
+  status: READY
+  depends_on: [META.DB.CONNECTION_GUARD_POSTCHECK]
+  acceptance_criteria:
+    - Monitor GitHub Actions after the workflow lands on main and capture the first successful run id/URL in Tasklist notes.
+    - Add a brief note to Prompt.md Last Repo Changes acknowledging the recorded CI run.
+    - Confirm the guard still passes locally with `node scripts/guard_db_docs.mjs` after documenting the CI run.
+  notes: ''
+
 - id: T0.REFRESH.VISION
   title: Add Refresh Vision phase and recovery ledger
   status: DONE
@@ -316,8 +360,8 @@ Each task has:
   acceptance_criteria:
     - Confirm router indexes and tables regenerate with PBSL oracle fixture and DRIP alert context.
     - Ensure scripts/ROUTER.md and tests/ROUTER.md document supporting guard scripts and oracle diff coverage.
-    - Record the audit outcome in Prompt.md and keep NEXT targeting T8.4 once complete.
-  notes: Outcome — Router index, master table, and downstream routers now record PBSL oracle fixture coverage plus DRIP role alerts; audit logged in Prompt with NEXT retargeted to T8.4.
+  - Record the audit outcome in Prompt.md and keep NEXT aligned with the dex backlog once complete.
+  notes: Outcome — Router index, master table, and downstream routers now record PBSL oracle fixture coverage plus DRIP role alerts; audit logged in Prompt with NEXT retargeted to the dex backlog.
 
 - id: T8.3
   title: Add daily quest claim flow and rewards
@@ -328,16 +372,6 @@ Each task has:
     - Claiming enforces the daily cooldown, reusing the existing cooldown table and messaging the next availability.
     - Tests cover successful claim, cooldown-blocked attempts, and streak increment wiring.
   notes: Outcome — `/daily claim` registers via slash, routes to `handleDailyClaim`, grants coins, bumps streaks, and enforces a 24h cooldown with coverage for success + cooldown blocks.
-
-- id: T8.4
-  title: Add DM Home button to claim daily quest
-  status: READY
-  depends_on: [T8.3]
-  acceptance_criteria:
-    - DM Home embed includes a “Claim Daily” button that calls the new handler without leaving DMs.
-    - Button reflects cooldown state (disabled or messaging) after pressing, surfacing streak/cooldown feedback inline.
-    - Tests cover button wiring, cooldown-block messaging, and streak display updates.
-  notes: Extends the progression loop so trainers can claim the daily reward from Home without slash commands, piggybacking on the new handler.
 
 ## Phase 9 — PBSL Alignment
 
@@ -866,15 +900,6 @@ Each task has:
     - Tests cover streak increment, reset, and DM Home display updates.
   notes: Outcome — Prisma schema and model helpers manage streak increments/resets; DM Home now surfaces streak messaging with new tests covering active, reset, and display states.
 
-- id: T8.4
-  title: Add DM Home daily claim button tied to streak cooldowns
-  status: READY
-  depends_on: [T8.2]
-  acceptance_criteria:
-    - DM `/home` embed includes a button leading to the daily quest claim interaction when cooldown permits.
-    - Button state reflects cooldown readiness and disables when the streak reset requires manual action.
-    - Tests cover enabled/disabled button states and the link to the daily claim handler.
-  notes: READY — Daily handler exists; next step is wiring the DM Home button and verifying cooldown messaging across enabled/disabled states.
 
 ## Phase 10 — Scalability Foundations
 
@@ -948,87 +973,18 @@ Each task has:
     - Document the fix outcome and refreshed test posture in Prompt.md/OPERATIONS.md.
   notes: Outcome — Added createPrismaStatsMock helper with outboxMessage defaults; all /ops stats tests now pass under vitest run.
 
-- id: T10.DEX.MIGRATE_ACCELERATE
-  title: Deploy dex spine migrations to Accelerate and refresh SpeciesSheet
-  status: IN_PROGRESS
-  depends_on: [T10.SCALE.DB_BOOTSTRAP]
-  acceptance_criteria:
-    - Acquire the direct Prisma Accelerate connection string (via tunnel or stored secret) and run `npx prisma migrate deploy` so `202510290930_dex_reference_spine` and dependent migrations apply without errors.
-    - After deploy succeeds, execute `REFRESH MATERIALIZED VIEW CONCURRENTLY "SpeciesSheet"` on both Accelerate and Render so the materialized view reflects the new dex tables.
-    - Capture the deploy/refresh evidence (command output or runbook entry) and update the redundancy check to confirm the dex tables are present in both environments.
-  notes: In progress — Updated Prisma Accelerate credentials, applied pending migrations (`npx prisma migrate deploy`), and reran `scripts/dex/seed_reference.ts` against Accelerate. Render standby verified with `npx prisma migrate status` using the pooled/direct URL (`postgresql://infinity_gauntlet_db_user:<render-password>@dpg-d3vd8h7diees73et3i3g-a.oregon-postgres.render.com:5432/infinity_gauntlet_db?sslmode=require`). Established dev-side roles (`prisma_application`, `prisma_worker`, `prisma_readonly`), default ACLs, and the `public.refresh_species_sheet()` helper; documented the rollout in `ops/DB_BOOTSTRAP.md`. Accelerate cannot create new roles or grants (restricted superuser), so the helper was recreated there via tunnel and validated both as owner and as `prisma_application`. `scripts/dex/backfill_species.ts` and `scripts/dex/warm_cache.ts` now catch 42501 from direct `REFRESH` and fall back to `SELECT public.refresh_species_sheet()`; both commands succeed on Accelerate (backfill notes nothing to patch, cache warm skips GitHub replication when octokit/env are absent).
-
-- id: T10.DEX.SEED_CACHE_WARM
-  title: Seed dex reference tables and warm dependent caches
-  status: READY
-  depends_on: [T10.DEX.MIGRATE_ACCELERATE]
-  acceptance_criteria:
-    - Implement idempotent upsert seeding for the new dex tables (e.g., JSON/YAML → `createMany({ skipDuplicates: true })`) and verify reruns succeed without duplicates.
-    - Add a bootstrap hook to warm the cache layer that consumes `SpeciesSheet` (e.g., Pokemon cache refresh) once seeding completes.
-    - Document the seeding + cache warm routine in the relevant ops runbook and ensure CI or scripts cover the new entry point.
-  notes: READY — Added `scripts/dex/seed_reference.ts` (filterable, idempotent), `scripts/dex/warm_cache.ts` (refreshes SpeciesSheet + cache with fallback when octokit is missing), and documented the flow in `ops/DB_BOOTSTRAP.md`. Render DB run completed: seeding, cache warm fallback to fetch_pokemon.
-
-- id: T10.DEX.SPECIES_BACKFILL
-  title: Backfill speciesId references and enforce foreign keys
-  status: READY
-  depends_on: [T10.DEX.SEED_CACHE_WARM]
-  acceptance_criteria:
-    - Backfill existing `PokemonInstance` and `Encounter` rows with canonical `speciesId` values using the seeded dex data, validating row counts before/after.
-    - Promote the background guard into a migration (or equivalent data fix) that enforces the new foreign keys once data is clean.
-    - Document the enforcement verification (redundancy check or report) so production confidently adopts the foreign keys.
-  notes: READY — `scripts/dex/backfill_species.ts` audits both tables, seeds missing species via the bootstrap JSON, and refreshes SpeciesSheet. Render DB currently has zero rows to backfill; script confirms clean state.
 
 ## Phase 12 — Perfect System Roadmap
 
 - id: META.ROADMAP.GOVERNANCE
   title: Close governance gaps highlighted in the roadmap
-  status: PROPOSED
+  status: DONE
   depends_on: []
   acceptance_criteria:
     - Re-run `guard_meta.sh`, `guard_router_docs.sh`, `guard_doc_names.sh`, and `verify_router_links.sh`, capturing outputs in `ops/change-ledger.md` or linked logs.
     - Audit `ops/ROUTER.yaml`, `masterroutetable.md`, and `ops/TOUCHMAP.yaml` for missing dex-related entries and update as needed.
     - Update Prompt.md and Tasklist.md notes to document the guard reruns and confirm the governance pillar is green.
-  notes: Seeded from perfect-system-roadmap Governance & Knowledge Flow pillar to keep contract surfaces synchronized.
-
-- id: META.ROADMAP.DB_OPS
-  title: Validate cross-environment dex operations and helper fallbacks
-  status: PROPOSED
-  depends_on: [T10.DEX.MIGRATE_ACCELERATE]
-  acceptance_criteria:
-    - Run `npx prisma migrate deploy` against Render and Accelerate, capturing the output and linking it in ops logs.
-    - Execute `scripts/dex/seed_reference.ts`, `scripts/dex/backfill_species.ts`, and `scripts/dex/warm_cache.ts` in both environments; store transcripts showing helper fallback behavior.
-    - Extend `ops/DB_BOOTSTRAP.md` with a checklist summarizing the verification steps and evidence locations.
-  notes: Roadmap Database Operations & Data Integrity pillar; ensures helper fallback remains validated across environments.
-
-- id: META.ROADMAP.RUNTIME
-  title: Harden runtime flows with tests and helper coverage
-  status: PROPOSED
-  depends_on: []
-  acceptance_criteria:
-    - Run focused Vitest suites (`tests/dm_home`, `tests/ops`, `tests/core`) and address any flakiness or failures.
-    - Add regression coverage that simulates helper fallback when Prisma throws 42501 to ensure scripts and runtime handle permission limits.
-    - Perform dependency audits (`npm outdated`, `pnpm audit`) and track follow-up actions in Tasklist notes.
-  notes: Backlog from roadmap Runtime & Code Quality pillar to keep DM, encounter, and dex flows deterministic.
-
-- id: META.ROADMAP.AUTOMATION
-  title: Expand CI coverage for guards and dex scripts
-  status: PROPOSED
-  depends_on: []
-  acceptance_criteria:
-    - Trigger GitHub Actions guard suite and resolve outstanding warnings, especially router/doc guard noise.
-    - Add CI coverage for dex maintenance scripts (dry-run execution) with clear failure messaging.
-    - Verify `render.yaml` entries match current worker/service layout and document any adjustments in Prompt.md Last Repo Changes.
-  notes: Automation & CI/CD pillar from the roadmap; ensures guard drift and dex scripts are caught before deployment.
-
-- id: META.ROADMAP.OBS
-  title: Reinforce observability, security, and recovery signals
-  status: PROPOSED
-  depends_on: []
-  acceptance_criteria:
-    - Review structured logging to confirm helper usage emits database source/mode metadata after the fallback changes.
-    - Run security bot smoke tests to verify DRIP alerts fire with current metadata, logging evidence in ops docs.
-    - Update `ops/RECOVERY.yaml` and `playbooks/escalate.md` with the helper workflow and fallback commands introduced during the dex rollout.
-  notes: Observability/Security/Recovery pillar from the roadmap to keep telemetry and playbooks aligned.
+  notes: Outcome — 2025-10-30T04:58Z manual audit logged in ops/change-ledger.md; routers/Touchmap confirmed dex backlog cleanup; Prompt/Tasklist updated to record the pass.
 
 - id: META.DB.DOCS
   title: Document database architecture and operations
@@ -1038,7 +994,53 @@ Each task has:
     - Publish a durable reference guide describing schema layout, connection modes, roles/permissions, migrations, helper routines, and dex maintenance scripts.
     - Cross-link the guide from DATA-SCHEMA.md, ops/DB_BOOTSTRAP.md, OPERATIONS.md, and router metadata for discoverability.
     - Update Prompt.md Last Repo Changes and PATCHSET echo to capture the documentation milestone.
-  notes: Outcome — Published `docs/database-systems.md`, wired cross-links into DATA-SCHEMA.md, ops/DB_BOOTSTRAP.md, OPERATIONS.md, and routing surfaces, and retargeted NEXT to T10.DEX.SEED_CACHE_WARM after syncing Prompt/Tasklist metadata.
+  notes: Outcome — Published `docs/database-systems.md`, wired cross-links into DATA-SCHEMA.md, ops/DB_BOOTSTRAP.md, OPERATIONS.md, and routing surfaces, and retargeted NEXT to the dex backlog after syncing Prompt/Tasklist metadata.
+
+## Phase 13 — Dex Data Backbone
+
+- id: T13.DEX.DB_SEED
+  title: Seed Pokédex reference data into Postgres
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - `npm run db:seed:dex` fetches PokeAPI data and populates `Species`, `SpeciesType`, `SpeciesAbility`, `SpeciesLearnset`, `Move`, `Ability`, and `TypeChart` with up-to-date records.
+    - A `REFRESH MATERIALIZED VIEW "SpeciesSheet"` completes during the run and the final `Species` row count exceeds 1000 entries.
+    - `docs/database-systems.md` and `docs/db-control-suite.md` document the seeding command, required env setup, and verification checks.
+    - Task notes or Prompt echo capture a `npm run db:cli -- status` snapshot after seeding to confirm counts and connection metadata.
+  notes: Outcome — 2025-10-30T19:38Z: Ran `npm run db:seed:dex` (1025 species, 919 moves, 101,969 learnset rows), refreshed `SpeciesSheet`, updated docs/db suite guidance, and logged `npm run db:cli -- status` output showing the populated tables.
+
+- id: T13.DEX.AUTO_SYNC
+  title: Automate Dev ↔ Prod dex sync loop
+  status: DONE
+  depends_on: [T13.DEX.DB_SEED]
+  acceptance_criteria:
+    - `scripts/dev_prod_auto_sync.ts` orchestrates the Dev → Prod → Dev migrate/seed cadence with JSON logging, five-minute integrity polling, and configurable interval/startup behaviour.
+    - `npm run db:auto-sync` is available in package.json, documented across AGENTS.md, docs/database-systems.md, docs/db-control-suite.md, ops/DB_BOOTSTRAP.md, and the roadmap.
+    - Automation supports dry-run/once/skip-startup flags for rehearsals and surfaces drift via `integrity.trigger` / `sync.consolidate.*` events capturing count deltas.
+    - ops/TOUCHMAP.yaml and scripts/ROUTER.md map the automation task and script for future ownership.
+  notes: Outcome — 2025-10-30T20:05Z: Added dev_prod_auto_sync.ts with startup trigger + five-minute drift checks, registered the npm script, documented usage across operator guides/roadmap, and recorded Touchmap/router ownership so the loop can run continuously.
+
+- id: T13.DEX.AUTO_SYNC_HARDEN
+  title: Ensure auto-sync uses env-scoped credentials and tolerance guards
+  status: DONE
+  depends_on: [T13.DEX.AUTO_SYNC]
+  acceptance_criteria:
+    - Child processes inherit DATABASE_URL/DATABASE_DIRECT_URL from the target env file instead of relying on the shell environment (IG_ENV_FILE alone is not sufficient).
+    - Prisma migrate runs against direct connections (never Data Proxy) and logs a warning when the env file lacks a direct URL entry.
+    - Auto-sync terminates hung migrate/seed commands with a timeout and replays the cadence without wedging the integrity loop.
+    - Optimize/SpeciesSheet preflight surfaces missing grants with actionable remediation guidance before the consolidation loop starts.
+  notes: Outcome — Injected env file variables per phase, forced direct URLs for migrate, added command timeouts, and logged SpeciesSheet preflight + Data Proxy warnings so the sync loop recovers cleanly and surfaces permission drift.
+
+- id: T13.DEX.AUTO_SYNC_TRIGGER
+  title: Fire the auto-sync loop when PokéAPI cache refresh completes
+  status: DONE
+  depends_on: [T13.DEX.AUTO_SYNC_HARDEN]
+  acceptance_criteria:
+    - `scripts/fetch_pokemon.mjs` emits a trigger artifact (timestamp + checksum) after writing the cache so downstream automation can detect fresh data.
+    - `scripts/dev_prod_auto_sync.ts` monitors the trigger file, logs `trigger.detected`, and replays the consolidation loop when the artifact changes.
+    - Trigger-driven runs respect `--once`/interval settings and skip duplicate integrity sweeps when the consolidation already executed for the change.
+    - Logging captures trigger metadata and post-run behaviour so operators can audit why a consolidation executed.
+  notes: Outcome — Added `dex-sync-trigger.json` generation to the fetcher and taught the auto-sync loop to track its checksum/timestamp, fire `dex_trigger` consolidations on change, and record skip/sleep logic when handled.
 
 ## Phase 11 — Meta & AI Enablement
 

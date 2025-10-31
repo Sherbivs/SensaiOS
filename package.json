@@ -20,6 +20,8 @@
     "hotfix": "bash scripts/hotfix_entry.sh",
     "tasks:archive": "node scripts/archive_task_history.mjs",
     "db:cli": "tsx scripts/db_admin.ts",
+    "db:seed:dex": "tsx scripts/seed_dex.ts",
+    "db:auto-sync": "tsx scripts/dev_prod_auto_sync.ts",
     "lint": "eslint \"{src,tests}/**/*.ts\"",
     "test": "vitest",
     "test:pbsl": "vitest run tests/pbsl",

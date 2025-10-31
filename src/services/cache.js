@@ -4,7 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 const PRIMARY_CACHE_DIR = '/Store/discord-cache';
 const FALLBACK_CACHE_DIR = path.join(process.cwd(), 'Store', 'discord-cache');
-const MAX_CACHE_PERCENT = 0.25;
+const MAX_CACHE_PERCENT = 0.75;
 const MAX_CACHE_FILE_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 const MAX_WORKSPACE_BYTES = 1024 * 1024 * 1024; // 1 GB workspace budget reminder
 

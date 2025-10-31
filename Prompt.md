@@ -1,14 +1,12 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-30T04:18:00Z
-Revision: 1.42
+Timestamp (UTC): 2025-10-30T21:20:00Z
+Revision: 1.59
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Published `docs/database-systems.md`, capturing schema layout, connection modes, helper routines, and dex maintenance flows in one reference.
-- Cross-linked the guide from `DATA-SCHEMA.md`, `ops/DB_BOOTSTRAP.md`, `OPERATIONS.md`, and router metadata so agents land on it from any meta surface.
-- Marked META.DB.DOCS as DONE, pointed NEXT at T10.DEX.SEED_CACHE_WARM, and refreshed Tasklist/Patchset echo to reflect the docs milestone.
-- Documented how IG_ENV_FILE should toggle between `C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env` and `.../prisma-accelerate.env` across muted docs so agents load the right secrets safely.
-- Expanded the DB control suite doc with migration prerequisites and hydration steps (refresh cache/data pipelines) so thin dev datasets get seeded properly.
-- Taught agents exactly how to reach the external env files (`prisma-dev.env`, `prisma-accelerate.env`) via `AGENTS.md`, `docs/ai-env-setup.md`, and the muted router guides, including verification commands that read the target file and echo `IG_ENV_FILE`.
+- Linked PokéAPI cache refreshes to the dex auto-sync loop: fetcher now emits `dex-sync-trigger.json` and the automation watches for checksum/timestamp bumps before running `dex_trigger` consolidations.
+- Hardened `scripts/dev_prod_auto_sync.ts` so migrate/seed inherit env-specific credentials, migrations force direct URLs, hung commands time out, and Optimize SpeciesSheet preflight logs missing grants.
+- Logged the guard_db_docs baseline in Tasklist.md (✅ `node scripts/guard_db_docs.mjs`) and documented remediation steps while queueing META.DB.CONNECTION_GUARD_CI_TRACK for the first CI run.
+- Maintained the `npx prisma generate` reminder across remediation guidance to keep the guard instructions accurate after any Accelerate work.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -21,9 +19,9 @@ Revision: 1.42
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** T10.DEX.SEED_CACHE_WARM — exercise the dex seeding + cache warm helpers after the Accelerate migrations stabilize.
-- **READY / In-flight:** T10.DEX.SEED_CACHE_WARM and T10.DEX.SPECIES_BACKFILL are READY; T10.DEX.MIGRATE_ACCELERATE stays IN_PROGRESS (role limits still block extra Accelerate roles), and META.ROADMAP.* backlog entries remain PROPOSED pending prioritization.
-- **Recent Finish:** META.DB.DOCS shipped the comprehensive database reference and synced routing metadata.
+- **NEXT Pointer:** META.DB.CONNECTION_GUARD_CI_TRACK — record the first passing guard-db-docs CI run and mirror it into meta docs.
+- **READY / In-flight:** META.DB.CONNECTION_GUARD_CI_TRACK READY; baseline captured locally while we wait for the initial GitHub Actions run.
+- **Recent Finish:** T13.DEX.AUTO_SYNC_TRIGGER wired the PokéAPI fetch trigger into the automation loop so dex consolidations fire when fresh cache data lands and log the trigger metadata for audits.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -64,11 +62,11 @@ Revision: 1.42
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Documented the database architecture and operations surface (`docs/database-systems.md` + cross-links), closed META.DB.DOCS, retargeted NEXT to T10.DEX.SEED_CACHE_WARM, surfaced the active IG_ENV_FILE location in muted docs, clarified the migration/data hydration flow for the DB control suite, and refreshed env-loading docs to point at `prisma-dev.env` / `prisma-accelerate.env` instead of a merged `.env`.
+Change: Added dex-sync trigger emission + watcher so PokéAPI cache refreshes kick off auto-sync consolidations, and captured the new Tasklist milestone.
 TasklistDiff: true
-Tests: not run (docs/meta updates only)
+Tests: npm run lint -- scripts/dev_prod_auto_sync.ts (fails: repository-wide unresolved imports predating this change)
 Contracts: ON
-NEXT: T10.DEX.SEED_CACHE_WARM — validate dex seeding + cache warm helpers once migrations settle.
+NEXT: META.DB.CONNECTION_GUARD_CI_TRACK - log the first passing guard-db-docs CI run and echo it in meta docs.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

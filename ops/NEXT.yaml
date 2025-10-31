@@ -13,17 +13,20 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: T10.DEX.SEED_CACHE_WARM
-reason: >
-  Advance the dex rollout by validating the seed + cache warm helpers once Accelerate migrations settle.
+next_task_id: META.DB.CONNECTION_GUARD_CI_TRACK
+reason: "Log the first passing guard-db-docs CI run and echo it in meta docs."
 
 files_hint:
-  - scripts/dex/seed_reference.ts
-  - scripts/dex/warm_cache.ts
-  - ops/DB_BOOTSTRAP.md
-  - docs/database-systems.md
+  - .github/workflows/guard-db-docs.yml
+  - Tasklist.md
+  - Prompt.md
+  - scripts/guard_db_docs.mjs
 
-timestamp_utc: 2025-10-30T03:35:00Z
+queue:
+  - id: META.DB.CONNECTION_GUARD_CI_TRACK
+    note: "Record first passing CI run id/URL after guard lands on main"
+
+timestamp_utc: 2025-10-30T19:45:00Z
 router_version: 1
-last_notes_read_utc: 2025-10-27T08:30:00Z
-note: "Database docs shipped; next up is exercising the dex seeding + cache warm helpers (T10.DEX.SEED_CACHE_WARM)."
+last_notes_read_utc: 2025-10-30T05:00:00Z
+note: "Dex seeding closed; next step is capturing the first passing guard-db-docs CI run." 

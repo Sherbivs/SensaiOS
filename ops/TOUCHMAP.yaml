@@ -159,13 +159,6 @@ T8.3:
   - "src/models/**"
   - "tests/daily.spec.ts"
 
-T8.4:
-  - "src/commands/home.js"
-  - "src/bot/dm/home.tsx"
-  - "src/bot/index.ts"
-  - "src/bot/daily/claim.ts"
-  - "tests/dm_home.spec.ts"
-
 T10.SCALE.DATA_INDEX:
   - "prisma/schema.prisma"
   - "prisma/migrations/**"
@@ -216,21 +209,39 @@ T10.SCALE.OPS_STATS_FIX:
   - "src/bot/ops/admin.ts"
   - "scripts/guard_meta.sh"
 
-T10.DEX.MIGRATE_ACCELERATE:
-  - "prisma/migrations/202510290930_dex_reference_spine/migration.sql"
-  - "scripts/check_db_redundancy.ts"
+T13.DEX.DB_SEED:
+  - "scripts/seed_dex.ts"
+  - "package.json"
+  - "docs/database-systems.md"
+  - "docs/db-control-suite.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "Prompt.md"
+  - "ops/TOUCHMAP.yaml"
   - "ops/DB_BOOTSTRAP.md"
+  - "docs/perfect-system-roadmap.md"
+  - "AGENTS.md"
+  - "scripts/ROUTER.md"
 
-T10.DEX.SEED_CACHE_WARM:
-  - "data/**"
-  - "scripts/build-data.js"
-  - "scripts/refresh_cache.mjs"
-  - "src/data_pipeline/**"
+T13.DEX.AUTO_SYNC:
+  - "scripts/dev_prod_auto_sync.ts"
+  - "package.json"
+  - "docs/database-systems.md"
+  - "docs/db-control-suite.md"
+  - "ops/DB_BOOTSTRAP.md"
+  - "AGENTS.md"
+  - "docs/perfect-system-roadmap.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "ops/TOUCHMAP.yaml"
+  - "scripts/ROUTER.md"
 
-T10.DEX.SPECIES_BACKFILL:
-  - "prisma/schema.prisma"
-  - "scripts/check_db_redundancy.ts"
-  - "scripts/build-data.js"
+T13.DEX.AUTO_SYNC_HARDEN:
+  - "scripts/dev_prod_auto_sync.ts"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "masterroutetable.md"
+  - "scripts/ROUTER.md"
 
 PBSL.SKELETON:
   - "docs/PBSL.md"
@@ -255,6 +266,38 @@ META.ROUTER.20251028:
 META.AI_DOC_ENABLE:
   - "Agents.md"
   - "README.md"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
+
+META.DB.CONNECTION_GUIDE:
+  - "AGENTS.md"
+  - "README.md"
+  - "docs/ai-env-setup.md"
+  - "docs/db-control-suite.md"
+  - "docs/perfect-system-roadmap.md"
+  - "docs/database-systems.md"
+  - "ops/DB_BOOTSTRAP.md"
+  - "masterroutetable.md"
+  - "ops/ROUTER.yaml"
+  - "scripts/setup_ai_env.ps1"
+  - "scripts/ops/run_dex_migrations.ps1"
+  - "Prompt.md"
+  - "Tasklist.md"
+
+META.DB.CONNECTION_GUARD:
+  - "scripts/guard_db_docs.mjs"
+  - ".github/workflows/guard-db-docs.yml"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "scripts/ROUTER.md"
+  - "ops/ROUTER.md"
+  - "masterroutetable.md"
+
+META.DB.CONNECTION_GUARD_CI_TRACK:
+  - "scripts/guard_db_docs.mjs"
+  - ".github/workflows/guard-db-docs.yml"
+  - "Tasklist.md"
   - "Prompt.md"
   - "ops/NEXT.yaml"
 

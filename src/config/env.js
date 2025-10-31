@@ -4,6 +4,9 @@ const envTruthy = (value) => {
   return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 };
 
+const runtimeEnv = (process.env.NODE_ENV ?? '').toLowerCase();
+const isProdRuntime = runtimeEnv === 'production' || runtimeEnv === 'prod';
+
 let dotenv = null;
 try {
   ({ default: dotenv } = await import('dotenv'));
@@ -16,8 +19,6 @@ if (dotenv?.config) {
     .map((value) => (typeof value === 'string' ? value.trim() : ''))
     .filter(Boolean);
 
-  const runtimeEnv = (process.env.NODE_ENV ?? '').toLowerCase();
-  const isProdRuntime = runtimeEnv === 'production' || runtimeEnv === 'prod';
   const allowRepoFallback = envTruthy(process.env.IG_ALLOW_REPO_ENV ?? process.env.ALLOW_REPO_ENV);
 
   let loaded = false;
@@ -40,6 +41,29 @@ if (dotenv?.config) {
     }
   }
 }
+
+const aliasEnv = (sourceKey, targetKey, predicate = true) => {
+  if (!predicate) return;
+  if (process.env[targetKey]) return;
+  const value = process.env[sourceKey];
+  if (value !== undefined && value !== null && String(value).trim() !== '') {
+    process.env[targetKey] = value;
+  }
+};
+
+aliasEnv('PROD_DATABASE_URL', 'DATABASE_URL', isProdRuntime);
+aliasEnv('PROD_DATABASE_DIRECT_URL', 'DATABASE_DIRECT_URL', isProdRuntime);
+aliasEnv('PROD_DATABASE_POOL_URL', 'DATABASE_POOL_URL', isProdRuntime);
+aliasEnv('PROD_DATABASE_ACCELERATE_URL', 'DATABASE_ACCELERATE_URL', isProdRuntime);
+aliasEnv('PROD_OPTIMIZE_DATABASE_URL', 'OPTIMIZE_DATABASE_URL', isProdRuntime);
+aliasEnv('PROD_OPTIMIZE_DIRECT_URL', 'OPTIMIZE_DIRECT_URL', isProdRuntime);
+
+aliasEnv('DEV_DATABASE_URL', 'DATABASE_URL', !isProdRuntime);
+aliasEnv('DEV_DATABASE_DIRECT_URL', 'DATABASE_DIRECT_URL', !isProdRuntime);
+aliasEnv('DEV_DATABASE_POOL_URL', 'DATABASE_POOL_URL', !isProdRuntime);
+aliasEnv('DEV_DATABASE_ACCELERATE_URL', 'DATABASE_ACCELERATE_URL', !isProdRuntime);
+aliasEnv('DEV_OPTIMIZE_DATABASE_URL', 'OPTIMIZE_DATABASE_URL', !isProdRuntime);
+aliasEnv('DEV_OPTIMIZE_DIRECT_URL', 'OPTIMIZE_DIRECT_URL', !isProdRuntime);
 
 const argv = Array.isArray(process.argv) ? process.argv : [];
 
@@ -92,6 +116,10 @@ const BOT_TOKEN = SECURITY_BOT_TOKEN;
 const ENABLE_CONTINUOUS_SWEEP = process.env.ENABLE_CONTINUOUS_SWEEP === undefined
   ? true
   : toBool(process.env.ENABLE_CONTINUOUS_SWEEP);
+const rawEnableDbAutoSync = process.env.ENABLE_DB_AUTO_SYNC;
+const ENABLE_DB_AUTO_SYNC = rawEnableDbAutoSync === undefined
+  ? false
+  : toBool(rawEnableDbAutoSync);
 
 // Role assignment defaults
 const DEFAULT_ROLE_NAME = 'Trainer';
@@ -186,6 +214,7 @@ export {
   ENABLE_POKEMON_BOT,
   POKEMON_BOT_AUTO_DISABLED,
   ENABLE_CONTINUOUS_SWEEP,
+  ENABLE_DB_AUTO_SYNC,
   DEFAULT_ROLE_NAME,
   ROLE_NAME,
   ROLE_ID,
@@ -233,6 +262,7 @@ export default {
   ENABLE_POKEMON_BOT,
   POKEMON_BOT_AUTO_DISABLED,
   ENABLE_CONTINUOUS_SWEEP,
+  ENABLE_DB_AUTO_SYNC,
   DEFAULT_ROLE_NAME,
   ROLE_NAME,
   ROLE_ID,

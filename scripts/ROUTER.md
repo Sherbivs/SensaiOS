@@ -2,7 +2,7 @@
 Title: Tooling
 Purpose: Guard scripts and automation entrypoints.
 Owned Globs: scripts/**
-Last Updated (UTC): 2025-10-29T12:30:00Z
+Last Updated (UTC): 2025-10-30T20:45:00Z
 
 Notes:
 - guard_meta.sh enforces READY invariants. Called in CI preflight/postflight.
@@ -15,3 +15,8 @@ Notes:
 - 2025-10-29: `sync_accelerate_to_render.ps1` ships the Accelerate→Render refresh workflow and `guard_router_docs.sh` enforces generated router docs stay command-generated.
 - 2025-10-29: Introduced `setup_ai_env.ps1` to register `IG_ENV_FILE` for agent/automation runs while keeping secrets outside the repo.
 - 2025-10-29: Added `db_admin.ts` (run via `npm run db:cli`) as the master database control suite for status inspections and ad-hoc queries.
+- 2025-10-30: Added `guard_db_docs.mjs` + CI workflow to fail when DB connection docs drift on Key/Dev, Key/Prod, or Prisma regenerate guidance.
+- 2025-10-30: Added `dev_prod_auto_sync.ts` (`npm run db:auto-sync`) to consolidate on deployment and poll every five minutes for drift before replaying the Dev → Prod → Dev migration/seed cadence.
+- 2025-10-30: Hardened `dev_prod_auto_sync.ts` to inherit env file credentials, force direct migrations, apply command timeouts, and preflight Optimize SpeciesSheet access.
+- 2025-10-30: Linked `fetch_pokemon.mjs` + `dev_prod_auto_sync.ts`—fetcher now writes `dex-sync-trigger.json` and the auto-sync loop performs `dex_trigger` consolidations when that artifact changes.
+- 2025-10-30: Added `seed_dex.ts` (`npm run db:seed:dex`) to populate Pokédex reference tables and refresh `SpeciesSheet`.

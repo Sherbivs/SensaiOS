@@ -1,12 +1,12 @@
 # Database Control Suite *(Muted — Local Only)*
-Last Updated (UTC): 2025-10-30T03:50:00Z
+Last Updated (UTC): 2025-10-30T20:15:00Z
 
 Purpose: provide a single entry point for routine database inspections, counts, and ad-hoc queries while honoring secure environment loading (`IG_ENV_FILE`). Intended for local operators only; do not run in CI or production.
 
 ## Prerequisites
-- Ensure secrets live outside the repo. This workstation keeps `prisma-dev.env` (Render/DEV direct URLs) and `prisma-accelerate.env` (Accelerate proxy) under `C:/Users/sherb/OneDrive/Documents/Key/`.
-- Point `IG_ENV_FILE` at the file you need (usually `prisma-dev.env` for dev DB access) via `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/prisma-dev.env" -Persist` before running any commands.
-- Swap to Accelerate when required by re-running the helper with `prisma-accelerate.env`. Keep only one target active at a time.
+- Ensure secrets live outside the repo. This workstation keeps the direct credentials in `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` and the Accelerate proxy credentials in `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env`.
+- Point `IG_ENV_FILE` at the file you need (usually `Key/Dev/.env` for dev DB access) via `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env" -Persist` before running any commands.
+- Swap to Accelerate when required by re-running the helper with `Key/Prod/.env`. Keep only one target active at a time, and after returning from Prod run `npx prisma generate` once so Prisma stops expecting the Accelerate data proxy.
 - Verify the override with `echo $Env:IG_ENV_FILE`; the suite refuses to fall back to the repo `.env` in production contexts.
 - Apply schema migrations before querying: `npx prisma migrate deploy` (or `npm run prisma:migrate` if you keep a script) against your dev database so tables such as `BusMessage`, `PokemonInstance`, and `Species` exist. The suite assumes the full Prisma schema is present.
 
@@ -49,10 +49,12 @@ The runner loads environment variables in the following order:
 - If `counts` or `status` complain about missing tables (e.g., `BusMessage`), run `npx prisma migrate deploy` and then rerun the data loaders below to hydrate reference data.
 
 ## Hydrating Reference Data
-- `node scripts/refresh_cache.mjs` (or `npm run data:build`) rebuilds cached dex manifests locally.
-- `node scripts/fetch_pokemon.mjs` pulls the upstream Pokédex JSON used by the loaders.
-- `npm run db:cli -- status` after running the loaders should show hundreds of species, moves, and abilities instead of the 21-row stub that ships in blank databases.
-- For a one-shot bootstrap, follow the `ops/DB_BOOTSTRAP.md` runbook: migrations → `scripts/dex/seed_reference.ts` → `scripts/dex/backfill_species.ts` → `scripts/dex/warm_cache.ts`.
+- `npm run db:seed:dex` is the canonical bootstrap. It fetches live PokeAPI data, repopulates species/moves/abilities/learnsets, rebuilds the type chart, and refreshes `SpeciesSheet`. Use `POKEAPI_SEED_CONCURRENCY` to throttle (default 4). Add `--dry-run` to preview counts without writing.
+- `npm run db:auto-sync` runs the full Dev → Prod → Dev migrate + seed cadence when the service boots, then every 5 minutes if drift is detected. Use `--once` for a single pass, `--dry-run` to log the plan, `--interval <ms>` to tune cadence, and `--skip-startup` to bypass the initial consolidation. Logs appear as JSON (`sync.consolidate.*`, `integrity.*`).
+- `node scripts/fetch_pokemon.mjs` still refreshes the local JSON cache if you need offline data snapshots; the seeder can read cached responses automatically on subsequent runs.
+- `npm run db:cli -- status` after a seed should show >1,000 species with non-empty learnsets; capture the output in Tasklist or Prompt notes for auditing.
+- When bootstrapping from scratch follow `ops/DB_BOOTSTRAP.md`: migrations → set `IG_ENV_FILE` → `npm run db:seed:dex` → `npm run db:cli -- status`.
+- Maintain the Dev → Prod → Dev loop: run each command with `Key/Dev/.env`, swap to `Key/Prod/.env` to repeat it (or use `scripts/ops/run_dex_migrations.ps1` for migrations), then switch back to `Key/Dev/.env` and run `npx prisma generate` before continuing local work.
 
 ## Examples
 

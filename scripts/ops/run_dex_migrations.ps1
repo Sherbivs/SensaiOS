@@ -1,5 +1,5 @@
 param(
-    [string]$AccelerateEnvPath = "secrets/prisma-accelerate.env",
+    [string]$AccelerateEnvPath = "C:/Users/sherb/OneDrive/Documents/Key/Prod/.env",
     [string]$RenderUrl = $Env:DATABASE_DIRECT_URL,
     [switch]$DryRun
 )
