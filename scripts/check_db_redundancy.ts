@@ -1,5 +1,7 @@
+import { pathToFileURL } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { withAccelerate } from "@prisma/extension-accelerate";
+// @ts-ignore Runtime import resolves against pg/esm entry; types are provided via @types/pg.
 import { Client as PgClient } from "pg";
 
 const ACCELERATE_SCHEME = /^prisma\+/i;
@@ -109,13 +111,13 @@ function formatBigInt(value: bigint): string {
   return value.toLocaleString("en-US");
 }
 
-function redactConnectionString(value: string): string {
+export function redactConnectionString(value: string): string {
   let redacted = value.replace(/:([^:@/]+)@/, ":<redacted>@");
   redacted = redacted.replace(/(api_key=)[^&]+/gi, "$1<redacted>");
   return redacted;
 }
 
-function compareSnapshots(primary: DatabaseSnapshot, standby: DatabaseSnapshot) {
+function compareSnapshots(primary: DatabaseSnapshot, standby: DatabaseSnapshot, label: string): boolean {
   const mismatches: Array<{
     tableName: string;
     primary: TableDigest;
@@ -153,15 +155,15 @@ function compareSnapshots(primary: DatabaseSnapshot, standby: DatabaseSnapshot) 
   const primaryRows = formatBigInt(primary.totals.rows);
   const standbyRows = formatBigInt(standby.totals.rows);
 
-  console.info(`Primary tables: ${primary.totals.tables}, total rows: ${primaryRows}`);
-  console.info(`Standby tables: ${standby.totals.tables}, total rows: ${standbyRows}`);
+  console.info(`[${label}] Primary tables: ${primary.totals.tables}, total rows: ${primaryRows}`);
+  console.info(`[${label}] Standby tables: ${standby.totals.tables}, total rows: ${standbyRows}`);
 
   if (mismatches.length === 0) {
-    console.info("✅ All tables match between primary and standby (row counts and checksums).");
-    return;
+    console.info(`[${label}] ✅ All tables match between primary and standby (row counts and checksums).`);
+    return true;
   }
 
-  console.error(`❌ Detected ${mismatches.length} table mismatch(es):`);
+  console.error(`[${label}] ❌ Detected ${mismatches.length} table mismatch(es):`);
   for (const mismatch of mismatches) {
     const primaryCount = formatBigInt(mismatch.primary.rowCount);
     const standbyCount = formatBigInt(mismatch.standby.rowCount);
@@ -170,12 +172,12 @@ function compareSnapshots(primary: DatabaseSnapshot, standby: DatabaseSnapshot) 
     );
   }
 
-  process.exitCode = 1;
+  return false;
 }
 
 async function gatherPrimarySnapshot(url: string): Promise<DatabaseSnapshot> {
   const previousEngineType = process.env.PRISMA_CLIENT_ENGINE_TYPE;
-  process.env.PRISMA_CLIENT_ENGINE_TYPE = "accelerate";
+  process.env.PRISMA_CLIENT_ENGINE_TYPE = "dataproxy";
 
   const baseClient = new PrismaClient({ datasourceUrl: url });
   const client = baseClient.$extends(withAccelerate()) as unknown as PrismaClient;
@@ -209,12 +211,57 @@ async function gatherDirectSnapshot(label: string, url: string): Promise<Databas
 }
 
 async function main(): Promise<void> {
-  const primaryUrl = assertEnv("PRIMARY_DATABASE_URL", process.env.PRIMARY_DATABASE_URL ?? process.env.DATABASE_URL);
-  const standbyUrl = assertEnv("STANDBY_DATABASE_URL", process.env.STANDBY_DATABASE_URL ?? process.env.DATABASE_DIRECT_URL);
+  const args = process.argv.slice(2);
+  let primaryOverride: string | undefined;
+  let standbyOverride: string | undefined;
+  let label = "mirror";
 
-  console.info("Running redundancy check...");
-  console.info("Primary: %s", redactConnectionString(primaryUrl));
-  console.info("Standby: %s", redactConnectionString(standbyUrl));
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    switch (arg) {
+      case "--primary":
+        primaryOverride = args[i + 1];
+        i += 1;
+        break;
+      case "--standby":
+        standbyOverride = args[i + 1];
+        i += 1;
+        break;
+      case "--label":
+        label = args[i + 1] ?? label;
+        i += 1;
+        break;
+      default:
+        break;
+    }
+  }
+
+  const primaryUrl = assertEnv(
+    "PRIMARY_DATABASE_URL",
+    primaryOverride ?? process.env.PRIMARY_DATABASE_URL ?? process.env.DATABASE_URL,
+  );
+  const standbyUrl = assertEnv(
+    "STANDBY_DATABASE_URL",
+    standbyOverride ?? process.env.STANDBY_DATABASE_URL ?? process.env.DATABASE_DIRECT_URL,
+  );
+
+  const ok = await checkMirrors(primaryUrl, standbyUrl, label);
+  process.exitCode = ok ? 0 : 1;
+}
+
+const modulePath = pathToFileURL(process.argv[1] ?? "").href;
+
+if (import.meta.url === modulePath) {
+  main().catch((error) => {
+    console.error("Redundancy check failed:", error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}
+
+export async function checkMirrors(primaryUrl: string, standbyUrl: string, label = "mirror"): Promise<boolean> {
+  console.info(`[${label}] Running redundancy check...`);
+  console.info(`[${label}] Primary: %s`, redactConnectionString(primaryUrl));
+  console.info(`[${label}] Standby: %s`, redactConnectionString(standbyUrl));
 
   const primarySnapshot = ACCELERATE_SCHEME.test(primaryUrl)
     ? await gatherPrimarySnapshot(primaryUrl)
@@ -224,10 +271,5 @@ async function main(): Promise<void> {
     ? await gatherPrimarySnapshot(standbyUrl)
     : await gatherDirectSnapshot("standby", standbyUrl);
 
-  compareSnapshots(primarySnapshot, standbySnapshot);
+  return compareSnapshots(primarySnapshot, standbySnapshot, label);
 }
-
-main().catch((error) => {
-  console.error("Redundancy check failed:", error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});

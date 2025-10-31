@@ -1,6 +1,6 @@
 # Database Systems Guide
 
-_Last updated: 2025-10-30T20:15:00Z (UTC) — Rev: 1.2_
+_Last updated: 2025-10-31T14:20:00Z (UTC) — Rev: 1.3_
 
 This guide captures everything engineers need to understand, operate, and extend Infinity Gauntlet’s PostgreSQL footprint across Render, Prisma Accelerate, and local development. Pair it with `DATA-SCHEMA.md` for entity specifics and `ops/DB_BOOTSTRAP.md` for runbook-grade procedures.
 
@@ -26,6 +26,28 @@ The shared config loader (`src/shared/config.ts`) normalizes these URLs, records
 | `BACKUP_STORAGE_*` | Durable sink configuration | Documented under “Operational Tooling”. |
 
 When none of the managed URLs connect successfully, the loader falls back to `DATABASE_URL`. Production builds reject `localhost` endpoints; overrides must use managed hosts. Bootstrap logs (see `Prompt.md` Last Repo Changes) surface the selected source for auditing.
+
+### Accelerate Client Setup (Serverless)
+
+- Keep Prisma packages current: `npm install prisma @prisma/client@latest @prisma/extension-accelerate`.
+- Generate the data proxy-ready client: `npx prisma generate --no-engine` (already wired into `npm run generate`).
+- Instantiate Prisma with Accelerate in serverless contexts using the client extension:
+
+  ```ts
+  import { PrismaClient } from "@prisma/client";
+  import { withAccelerate } from "@prisma/extension-accelerate";
+
+  const prisma = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL })
+    .$extends(withAccelerate());
+
+  const users = await prisma.user.findMany({
+    where: { email: { contains: "alice@prisma.io" } },
+    cacheStrategy: { ttl: 60 },
+  });
+  ```
+
+- Export `PRISMA_ACCELERATE_RUNTIME=serverless` in Render/CI so Accelerate URLs opt into the serverless runtime (covered in `render.yaml`).
+- Accelerate queries support `cacheStrategy` for response caching; tune TTLs per workload and monitor usage in the Prisma “Insights” dashboard. Set `PRISMA_CLIENT_ENGINE_TYPE=dataproxy` when running scripts directly.
 
 ## 3. Schema Overview
 
@@ -82,6 +104,7 @@ Dex upkeep now routes through the consolidated seeding + control suite:
 | --- | --- | --- |
 | `npm run db:seed:dex` | Fetches live PokeAPI data and repopulates `Species`, `SpeciesType`, `SpeciesAbility`, `SpeciesLearnset`, `Move`, `Ability`, and `TypeChart`. Automatically refreshes `SpeciesSheet`. | Respects `IG_ENV_FILE`; throttle via `POKEAPI_SEED_CONCURRENCY` (default 4). Pass `--dry-run` to inspect counts without writing. |
 | `npm run db:auto-sync` | Runs the Dev → Prod → Dev migrate/seed cadence on startup, then polls every 5 minutes to reconcile if drift is detected. | Options: `--once`, `--dry-run`, `--interval <ms>`, `--dev-env`, `--prod-env`, `--skip-startup`. Emits JSON logs (`sync.consolidate.*`, `integrity.*`) and skips writes when `--dry-run` is present. |
+| `npm run db:mirror:check` | Executes accelerate ↔ direct parity checks for both environments and cross-env comparisons. | Reads the default `Key/Dev` and `Key/Prod` env files; override with `--dev-env`/`--prod-env`. Fails the run if mismatches are detected. |
 | `npm run db:cli -- status` | Verifies active connection metadata and prints sample counts (`Species`, `User`) after a seed. | Captured in Tasklist/Prompt echoes for auditing. |
 | `npm run db:cli -- counts` | Spot-checks common table volumes (species, encounters, bus messages). | Extend `scripts/db_admin.ts` as new tables come online. |
 

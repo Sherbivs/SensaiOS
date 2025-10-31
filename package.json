@@ -22,6 +22,7 @@
     "db:cli": "tsx scripts/db_admin.ts",
     "db:seed:dex": "tsx scripts/seed_dex.ts",
     "db:auto-sync": "tsx scripts/dev_prod_auto_sync.ts",
+  "db:mirror:check": "tsx scripts/db_mirror_checks.ts",
     "lint": "eslint \"{src,tests}/**/*.ts\"",
     "test": "vitest",
     "test:pbsl": "vitest run tests/pbsl",
@@ -31,38 +32,32 @@
     "worker:security": "node security-bot.js"
   },
   "devDependencies": {
-    "@eslint/js": "^9.38.0",
-    "@types/node": "^24.9.2",
-    "@typescript-eslint/eslint-plugin": "^8.46.2",
-    "@typescript-eslint/parser": "^8.46.2",
-    "eslint": "^9.38.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-import-resolver-typescript": "^4.4.4",
+    "@types/node": "^20.12.7",
+  "@types/pg": "^8.11.6",
+    "@typescript-eslint/eslint-plugin": "^7.13.1",
+    "@typescript-eslint/parser": "^7.13.1",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-n": "^17.9.0",
-    "eslint-plugin-promise": "^7.2.1",
-    "globals": "^16.4.0",
+    "eslint-plugin-promise": "^6.1.1",
     "prettier": "^3.3.1",
     "prisma": "^6.18.0",
-    "vitest": "^4.0.5"
+    "vitest": "^4.0.4"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.619.0",
     "@prisma/client": "^6.18.0",
     "@prisma/extension-accelerate": "^2.0.2",
     "@prisma/extension-optimize": "^2.0.0",
+    "@prisma/instrumentation": "^6.18.0",
     "axios": "^1.13.1",
-    "discord.js": "^14.24.1",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "fs-extra": "^11.3.2",
+    "discord.js": "^14.16.3",
     "node-cron": "^4.2.1",
-    "node-fetch": "^3.3.2",
-    "octokit": "^5.0.4",
+    "octokit": "^4.1.4",
     "pg": "^8.16.3",
-    "simple-git": "^3.29.0",
     "tsx": "^4.11.2",
     "typescript": "^5.6.3",
-    "zod": "^4.1.12"
+    "zod": "^3.23.8"
   }
 }

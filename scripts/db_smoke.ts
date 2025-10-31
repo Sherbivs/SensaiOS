@@ -2,7 +2,13 @@ import { PrismaClient } from "@prisma/client";
 import { withAccelerate } from "@prisma/extension-accelerate";
 
 async function main(): Promise<void> {
-  const prisma = new PrismaClient().$extends(withAccelerate());
+  process.env.PRISMA_CLIENT_ENGINE_TYPE = "dataproxy";
+  const datasourceUrl = process.env.DATABASE_URL ?? process.env.PRIMARY_DATABASE_URL;
+  const prisma = new PrismaClient(
+    datasourceUrl
+      ? { datasourceUrl }
+      : undefined,
+  ).$extends(withAccelerate());
   try {
     const command = process.argv[2];
 

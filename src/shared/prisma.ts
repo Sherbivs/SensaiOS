@@ -1,6 +1,5 @@
 import { createRequire } from "node:module";
 import { Prisma, PrismaClient } from "@prisma/client";
-import { PrismaClient as EdgePrismaClient } from "@prisma/client/edge";
 import { withAccelerate } from "@prisma/extension-accelerate";
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
@@ -60,30 +59,34 @@ function isAccelerateUrl(url: string): boolean {
   return ACCELERATE_SCHEME.test(url);
 }
 
-function resolveAccelerateRuntime(): "node" | "edge" {
+function resolveAccelerateRuntime(): "node" | "serverless" {
   const hint = (process.env.PRISMA_ACCELERATE_RUNTIME ?? process.env.PRISMA_ACCELERATE_CLIENT ?? "")
     .trim()
     .toLowerCase();
-  if (hint === "edge" || hint === "node") {
+  if (hint === "serverless" || hint === "node") {
     return hint;
+  }
+  if (hint === "edge") {
+    log.warn("PRISMA_ACCELERATE_RUNTIME=edge is deprecated; defaulting to serverless runtime.");
+    return "serverless";
   }
   if (hint === "auto") {
     if (
+      process.env.PRISMA_ACCELERATE_SERVERLESS === "true" ||
       process.env.PRISMA_ACCELERATE_EDGE === "true" ||
       (process.env.RUNTIME ?? "").toLowerCase().includes("edge") ||
       process.env.VERCEL_EDGE_FUNCTIONS === "1"
     ) {
-      return "edge";
+      return "serverless";
     }
     return "node";
   }
-  if (process.env.PRISMA_ACCELERATE_EDGE === "true") {
-    return "edge";
+  if (process.env.PRISMA_ACCELERATE_SERVERLESS === "true" || process.env.PRISMA_ACCELERATE_EDGE === "true") {
+    return "serverless";
   }
   return "node";
 }
-
-function describeTransport(usesAccelerate: boolean, runtime: "node" | "edge"): string {
+function describeTransport(usesAccelerate: boolean, runtime: "node" | "serverless"): string {
   return usesAccelerate ? `accelerate-${runtime}` : "direct";
 }
 
@@ -323,9 +326,7 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
 
   const usesAccelerate = isAccelerateUrl(candidate.url);
   const runtime = usesAccelerate ? resolveAccelerateRuntime() : "node";
-  const PrismaCtor = usesAccelerate && runtime === "edge"
-    ? (EdgePrismaClient as unknown as typeof PrismaClient)
-    : PrismaClient;
+  const PrismaCtor = PrismaClient;
   const logLevels = nodeEnv === "development" ? ["warn", "error"] : ["error"];
 
   const baseOptions = usesAccelerate
@@ -352,11 +353,12 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
   }
 
   if (usesAccelerate) {
+    // Attach Accelerate so downstream calls can opt into cacheStrategy TTLs when hitting the data proxy.
     client = client.$extends(withAccelerate()) as unknown as PrismaClient;
   }
 
   if (usesAccelerate) {
-    process.env.PRISMA_CLIENT_ENGINE_TYPE = "accelerate";
+    process.env.PRISMA_CLIENT_ENGINE_TYPE = "dataproxy";
   } else {
     delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
   }

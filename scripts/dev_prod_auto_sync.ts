@@ -308,17 +308,23 @@ async function withPrismaClient<T>(
   }
 
   const originalEngine = process.env.PRISMA_CLIENT_ENGINE_TYPE;
-  if (url.startsWith("prisma+postgres://")) {
+  const usesAccelerate = url.startsWith("prisma+");
+  if (usesAccelerate) {
     process.env.PRISMA_CLIENT_ENGINE_TYPE = "dataproxy";
   } else if (!originalEngine) {
     delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
   }
 
-  const client = new PrismaClient({
-    datasources: {
-      db: { url },
-    },
-  });
+  let client: PrismaClient;
+  if (usesAccelerate) {
+    client = new PrismaClient({ datasourceUrl: url });
+  } else {
+    client = new PrismaClient({
+      datasources: {
+        db: { url },
+      },
+    });
+  }
 
   try {
     return await callback(client);

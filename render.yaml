@@ -22,6 +22,8 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: internalConnectionString
+      - key: PRISMA_ACCELERATE_RUNTIME
+        value: serverless
       - key: NODE_ENV
         value: production
       - key: SERVICE_NAME
@@ -48,6 +50,8 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: internalConnectionString
+      - key: PRISMA_ACCELERATE_RUNTIME
+        value: serverless
       - key: NODE_ENV
         value: production
       - key: SERVICE_NAME
@@ -83,6 +87,8 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: internalConnectionString
+      - key: PRISMA_ACCELERATE_RUNTIME
+        value: serverless
       - key: NODE_ENV
         value: production
       - key: SERVICE_NAME
@@ -117,6 +123,8 @@ services:
         value: production
       - key: SERVICE_NAME
         value: security-bot
+      - key: PRISMA_ACCELERATE_RUNTIME
+        value: serverless
       - key: LOG_FORMAT
         value: json
       - key: SECURITY_BOT_TOKEN
@@ -155,6 +163,8 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: internalConnectionString
+      - key: PRISMA_ACCELERATE_RUNTIME
+        value: serverless
       - key: NODE_ENV
         value: production
       - key: SERVICE_NAME
@@ -185,6 +195,8 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: internalConnectionString
+      - key: PRISMA_ACCELERATE_RUNTIME
+        value: serverless
       - key: NODE_ENV
         value: production
       - key: SERVICE_NAME
@@ -218,6 +230,8 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
+      - key: PRISMA_ACCELERATE_RUNTIME
+        value: serverless
       - key: LOG_FORMAT
         value: cli
       - key: GITHUB_REPO
@@ -262,6 +276,8 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
+      - key: PRISMA_ACCELERATE_RUNTIME
+        value: serverless
       - key: LOG_FORMAT
         value: cli
       - key: DATABASE_INTERNAL_URL
