@@ -120,7 +120,7 @@ async function fetchAllResources(endpoint: string): Promise<NamedResource[]> {
   let nextUrl: string | null = `${API_BASE}/${endpoint}`;
 
   while (nextUrl) {
-    const page = await fetchJson<{ results: NamedResource[]; next: string | null }>(nextUrl);
+    const page: { results: NamedResource[]; next: string | null } = await fetchJson(nextUrl);
     resources.push(...page.results);
     nextUrl = page.next;
   }
@@ -331,7 +331,7 @@ function selectLatestLearnset(
   for (const [method, { level }] of best.entries()) {
     output.push({ moveSlug: move.move?.name ?? "", method, level });
   }
-  return output.filter((entry) => entry.moveSlug);
+  return output.filter((entry): entry is LearnsetEntry => Boolean(entry.moveSlug));
 }
 
 async function fetchSpeciesDetail(
@@ -391,7 +391,7 @@ async function fetchSpeciesDetail(
 
   const learnset = (detail.moves ?? [])
     .flatMap((move: any) => selectLatestLearnset(move, versionOrder))
-    .filter((entry) => entry.moveSlug);
+    .filter((entry: LearnsetEntry) => Boolean(entry.moveSlug));
 
   const baseStats = deriveBaseStats(detail);
   const maleRate = deriveMaleRate(speciesDetail.gender_rate);
@@ -617,7 +617,13 @@ async function main(): Promise<void> {
 
   const speciesLearnset = species.flatMap((s) =>
     s.learnset
-      .map((entry) => {
+      .map((entry): {
+        speciesId: number;
+        moveId: number;
+        method: LearnsetEntry["method"];
+        level: number;
+        machineId: null;
+      } | null => {
         const moveId = moveSlugToId.get(entry.moveSlug);
         if (!moveId) return null;
         return {
@@ -626,9 +632,15 @@ async function main(): Promise<void> {
           method: entry.method,
           level: entry.level,
           machineId: null,
-        } as const;
+        };
       })
-      .filter((entry): entry is { speciesId: number; moveId: number; method: LearnsetEntry["method"]; level: number; machineId: null } => Boolean(entry)),
+      .filter((entry): entry is {
+        speciesId: number;
+        moveId: number;
+        method: LearnsetEntry["method"];
+        level: number;
+        machineId: null;
+      } => entry !== null),
   );
 
   const nameVariants = species.map((s) => ({
@@ -692,7 +704,25 @@ async function main(): Promise<void> {
   );
 
   console.log("🔁 Refreshing SpeciesSheet materialized view…");
-  await prisma.$executeRawUnsafe(`REFRESH MATERIALIZED VIEW "SpeciesSheet"`);
+  let refreshed = false;
+  try {
+    await prisma.$executeRawUnsafe(`REFRESH MATERIALIZED VIEW "SpeciesSheet"`);
+    refreshed = true;
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2010") {
+      const meta = (error.meta ?? {}) as { code?: unknown; message?: unknown };
+      const metaCode = typeof meta.code === "string" ? meta.code : undefined;
+      const metaMessage = typeof meta.message === "string" ? meta.message : "";
+      if (metaCode === "42501" || metaMessage.includes("permission denied")) {
+        console.warn("⚠️  REFRESH failed without ownership; calling helper instead.");
+        await prisma.$queryRawUnsafe(`SELECT public.refresh_species_sheet()::text;`);
+        refreshed = true;
+      }
+    }
+    if (!refreshed) {
+      throw error;
+    }
+  }
 
   const [speciesCount, moveCount, abilityCount, learnsetCount] = await Promise.all([
     prisma.species.count(),

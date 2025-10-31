@@ -53,6 +53,7 @@
     "@prisma/instrumentation": "^6.18.0",
     "axios": "^1.13.1",
     "discord.js": "^14.16.3",
+  "dotenv": "^17.2.3",
     "node-cron": "^4.2.1",
     "octokit": "^4.1.4",
     "pg": "^8.16.3",
