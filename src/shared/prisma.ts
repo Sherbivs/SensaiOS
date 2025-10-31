@@ -340,9 +340,7 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
       };
 
   const baseClient = new PrismaCtor(baseOptions as Prisma.PrismaClientOptions) as PrismaClient;
-  let client = usesAccelerate
-    ? (baseClient.$extends(withAccelerate()) as unknown as PrismaClient)
-    : baseClient;
+  let client = baseClient;
 
   if (optimizeExtender) {
     try {
@@ -351,6 +349,10 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
       const message = error instanceof Error ? error.message : String(error);
       log.warn("Prisma Optimize extension attach failed", { error: message });
     }
+  }
+
+  if (usesAccelerate) {
+    client = client.$extends(withAccelerate()) as unknown as PrismaClient;
   }
 
   if (usesAccelerate) {

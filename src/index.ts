@@ -69,7 +69,7 @@ function startMonitor(): void {
     setSection("discord", { title: "Discord Bot", status: "initializing", metrics: [] });
     const securitySection = ENABLE_SECURITY_BOT
       ? { title: "Security Bot", status: "initializing", metrics: [] }
-      : { title: "Security Bot", status: "disabled", metrics: [["note", "disabled via ENABLE_SECURITY_BOT"]] };
+      : { title: "Security Bot", status: "disabled", metrics: [metric("note", "disabled via ENABLE_SECURITY_BOT")] };
     setSection("security", securitySection);
     setSection("cache", { title: "Cache", status: "checking", metrics: [] });
     refreshMonitorMetrics();
@@ -110,6 +110,13 @@ function setGuildCount(count: number): void {
 }
 
 type SectionPayload = Parameters<typeof cliStatus.setSection>[1];
+
+type MetricsEntry = [string, unknown];
+type MetricsList = MetricsEntry[];
+
+function metric(label: string, value: unknown): MetricsEntry {
+  return [label, value];
+}
 
 function setSection(sectionId: string, payload: SectionPayload): void {
   withMonitor((monitor) => {
@@ -240,9 +247,9 @@ function refreshCacheSection(): void {
     const rawSnapshot = getCacheSnapshot();
     const snapshot = normalizeCacheSnapshot(rawSnapshot);
     const budget = getCacheBudget();
-    const metrics: SectionPayload["metrics"] = [];
-    metrics.push(["size", formatBytes(snapshot.sizeBytes)]);
-    metrics.push(["files", snapshot.entryCount]);
+  const metrics: MetricsList = [];
+  metrics.push(metric("size", formatBytes(snapshot.sizeBytes)));
+  metrics.push(metric("files", snapshot.entryCount));
 
     const usageRatio =
       budget && typeof budget.maxAllowedBytes === "number" && budget.maxAllowedBytes > 0
@@ -250,27 +257,29 @@ function refreshCacheSection(): void {
         : null;
     if (usageRatio !== null && Number.isFinite(usageRatio)) {
       const usagePercent = Math.min(usageRatio * 100, 999);
-      metrics.push([
-        "budget used",
-        `${usagePercent.toFixed(usagePercent >= 10 ? 0 : 1)}% of ${formatBytes(budget.maxAllowedBytes)}`,
-      ]);
+      metrics.push(
+        metric(
+          "budget used",
+          `${usagePercent.toFixed(usagePercent >= 10 ? 0 : 1)}% of ${formatBytes(budget.maxAllowedBytes)}`,
+        ),
+      );
     }
 
     if (lastCacheSnapshot) {
       const sizeDelta = snapshot.sizeBytes - lastCacheSnapshot.sizeBytes;
       const fileDelta = snapshot.entryCount - lastCacheSnapshot.entryCount;
       const elapsed = snapshot.timestamp - lastCacheSnapshot.timestamp;
-      metrics.push(["Δ size", `${formatSignedBytes(sizeDelta)} in ${formatDurationMs(elapsed)}`]);
+      metrics.push(metric("Δ size", `${formatSignedBytes(sizeDelta)} in ${formatDurationMs(elapsed)}`));
       if (fileDelta !== 0) {
-        metrics.push(["Δ files", fileDelta > 0 ? `+${fileDelta}` : String(fileDelta)]);
+        metrics.push(metric("Δ files", fileDelta > 0 ? `+${fileDelta}` : String(fileDelta)));
       }
     }
 
     if (snapshot.newestEntryMs) {
-      metrics.push(["last write", formatRelativeTime(snapshot.newestEntryMs)]);
+      metrics.push(metric("last write", formatRelativeTime(snapshot.newestEntryMs)));
     }
     if (snapshot.oldestEntryMs) {
-      metrics.push(["oldest entry", formatRelativeTime(snapshot.oldestEntryMs)]);
+      metrics.push(metric("oldest entry", formatRelativeTime(snapshot.oldestEntryMs)));
     }
 
     const status = (() => {
@@ -293,7 +302,7 @@ function refreshCacheSection(): void {
     setSection("cache", {
       title: "Cache",
       status: "error",
-      metrics: [["error", message]],
+      metrics: [metric("error", message)],
     });
   }
 }
@@ -310,16 +319,16 @@ function renderPrismaHeartbeat(event: PrismaHeartbeatEvent): void {
     return;
   }
 
-  const metrics: SectionPayload["metrics"] = [];
+  const metrics: MetricsList = [];
   const latency = typeof event.latencyMs === "number" && Number.isFinite(event.latencyMs)
     ? event.latencyMs
     : null;
   if (latency !== null) {
-    metrics.push(["latency", formatLatency(latency)]);
+    metrics.push(metric("latency", formatLatency(latency)));
     if (lastPrismaSample?.latencyMs !== null && lastPrismaSample?.latencyMs !== undefined) {
       const delta = latency - (lastPrismaSample.latencyMs ?? 0);
       if (Number.isFinite(delta) && delta !== 0) {
-        metrics.push(["Δ latency", formatSignedLatency(delta)]);
+        metrics.push(metric("Δ latency", formatSignedLatency(delta)));
       }
     }
   }
@@ -327,37 +336,37 @@ function renderPrismaHeartbeat(event: PrismaHeartbeatEvent): void {
   if (lastPrismaSample && event.timestamp instanceof Date) {
     const elapsed = event.timestamp.getTime() - lastPrismaSample.timestamp;
     if (Number.isFinite(elapsed)) {
-      metrics.push(["since last", formatDurationMs(Math.max(elapsed, 0))]);
+      metrics.push(metric("since last", formatDurationMs(Math.max(elapsed, 0))));
     }
   }
 
   if (prismaConnectDurationMs !== null) {
-    metrics.push(["connect", formatLatency(prismaConnectDurationMs)]);
+    metrics.push(metric("connect", formatLatency(prismaConnectDurationMs)));
   }
   if (event.source) {
-    metrics.push(["sample", event.source]);
+    metrics.push(metric("sample", event.source));
   }
   if (config.databaseUrlSource) {
-    metrics.push(["route", config.databaseUrlSource]);
+    metrics.push(metric("route", config.databaseUrlSource));
   }
   if (config.databasePreferenceSource) {
-    metrics.push(["preference", config.databasePreferenceSource]);
+    metrics.push(metric("preference", config.databasePreferenceSource));
   }
   if (config.databaseConnectionMode) {
-    metrics.push(["mode", config.databaseConnectionMode]);
+    metrics.push(metric("mode", config.databaseConnectionMode));
   }
   const transport = getPrismaTransport();
   if (transport) {
-    metrics.push(["transport", transport]);
+    metrics.push(metric("transport", transport));
   }
   if (event.slow) {
-    metrics.push(["status", "slow"]);
+    metrics.push(metric("status", "slow"));
   }
   if (event.consecutiveFailures > 0) {
-    metrics.push(["failures", event.consecutiveFailures]);
+    metrics.push(metric("failures", event.consecutiveFailures));
   }
   if (!event.ok && event.error) {
-    metrics.push(["error", event.error.message]);
+    metrics.push(metric("error", event.error.message));
   }
 
   const status = event.ok ? (event.slow ? "degraded" : "online") : "error";
@@ -387,13 +396,13 @@ function updateDiscordSection(client: Client, status: string): void {
     return;
   }
   const guildCount = client.guilds?.cache?.size ?? 0;
-  const metrics: SectionPayload["metrics"] = [
-    ["identity", client.user?.tag ?? "unknown"],
-    ["guilds", guildCount],
+  const metrics: MetricsList = [
+    metric("identity", client.user?.tag ?? "unknown"),
+    metric("guilds", guildCount),
   ];
   const ping = (client as { ws?: { ping?: number } }).ws?.ping;
   if (typeof ping === "number" && Number.isFinite(ping)) {
-    metrics.push(["ping", `${Math.round(ping)}ms`]);
+    metrics.push(metric("ping", `${Math.round(ping)}ms`));
   }
   setSection("discord", { title: "Discord Bot", status, metrics });
   setGuildCount(guildCount);
@@ -411,11 +420,11 @@ function updateSecuritySection(client: Client | null, status: string): void {
   if (!monitorActive) {
     return;
   }
-  const metrics: SectionPayload["metrics"] = [];
+  const metrics: MetricsList = [];
   if (client) {
     const guildCount = client.guilds?.cache?.size ?? 0;
-    metrics.push(["identity", client.user?.tag ?? "unknown"]);
-    metrics.push(["guilds", guildCount]);
+    metrics.push(metric("identity", client.user?.tag ?? "unknown"));
+    metrics.push(metric("guilds", guildCount));
   }
   setSection("security", { title: "Security Bot", status, metrics });
 }
@@ -461,7 +470,7 @@ async function bootSecurityBot(): Promise<Client | null> {
     setSection("security", {
       title: "Security Bot",
       status: "error",
-      metrics: [["error", message]],
+      metrics: [metric("error", message)],
     });
     log.error("Security bot startup failed", error);
     throw error;
@@ -570,7 +579,7 @@ export async function boot(): Promise<void> {
     setSection("database", {
       title: "Database",
       status: "error",
-      metrics: [["error", message]],
+      metrics: [metric("error", message)],
     });
     setPhase("Startup failed");
     log.error("Database connectivity failed", error, {
@@ -594,7 +603,7 @@ export async function boot(): Promise<void> {
     setSection("security", {
       title: "Security Bot",
       status: "disabled",
-      metrics: [["note", "Security bot disabled via ENABLE_SECURITY_BOT=false"]],
+      metrics: [metric("note", "Security bot disabled via ENABLE_SECURITY_BOT=false")],
     });
   }
 
@@ -607,7 +616,7 @@ export async function boot(): Promise<void> {
       setSection("discord", {
         title: "Discord Bot",
         status: "disabled",
-        metrics: [["note", "Token missing or bot disabled"]],
+        metrics: [metric("note", "Token missing or bot disabled")],
       });
       setPhase("Idle");
       return;
@@ -622,7 +631,7 @@ export async function boot(): Promise<void> {
     setSection("discord", {
       title: "Discord Bot",
       status: "error",
-      metrics: [["error", message]],
+      metrics: [metric("error", message)],
     });
     setPhase("Startup failed");
     log.error("Discord bot startup failed", error);
