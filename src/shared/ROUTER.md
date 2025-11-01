@@ -2,7 +2,7 @@
 Title: Shared Runtime & Utilities
 Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, and shared data access layers.
 Owned Globs: src/shared/**
-Last Updated (UTC): 2025-11-01T16:20:00Z
+Last Updated (UTC): 2025-11-01T17:30:00Z
 
 Notes:
 - `config.ts` now exposes `loadConfig()` that promotes Render's `DATABASE_INTERNAL_URL`, forbids localhost hosts in production, and surfaces cache/runtime settings.
@@ -21,3 +21,7 @@ Areas:
 - outbox.ts — compatibility helpers layered on the event bus
 - log.ts — structured logger used across bots/workers
 - worker-runtime.ts — shared worker bootstrap + signal handling utilities
+
+Subrouters:
+- src/shared/cache/ROUTER.md — Cache backend implementations.
+- src/shared/storage/ROUTER.md — Storage adapter catalog.

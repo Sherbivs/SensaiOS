@@ -2,7 +2,7 @@
 Title: Ops & Governance
 Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-11-01T16:20:00Z
+Last Updated (UTC): 2025-11-01T17:30:00Z
 
 Notes:
 - 2025-11-01: Added dedicated routers for ops/ARCHIVE and ops/INBOX so archival history and operator inbox notes have clear owners.
@@ -50,4 +50,8 @@ Key Files:
 - docs/database-systems.md — canonical database architecture, grants, and maintenance guide
 - masterroutetable.md — text-first router map for hotfix navigation when automation is unavailable
 - ops/POKEMON_CACHE.md — PokeAPI integration runbook (cache workflow, incidents, dependencies)
+
+Subrouters:
+- ops/ARCHIVE/ROUTER.md — Archived Tasklist exports and lineage notes.
+- ops/INBOX/ROUTER.md — Operator inbox staging area; sync with NEXT metadata before edits.
 

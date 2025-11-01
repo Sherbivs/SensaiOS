@@ -2,8 +2,12 @@
 Title: Postgres 17 Bundle
 Purpose: Vendored Postgres 17 client binaries for local recovery and migration workflows.
 Owned Globs: tools/pgsql17/**
-Last Updated (UTC): 2025-11-01T16:20:00Z
+Last Updated (UTC): 2025-11-01T17:30:00Z
 
 Notes:
 - `pgsql/bin/` houses psql, pg_dump, pg_restore, and supporting DLLs; keep checksums documented when upgrading.
 - Binaries are read-only and only used locally; follow ops/DB_BOOTSTRAP.md when replacing the bundle to avoid partial upgrades.
+
+Linked Routers:
+- tools/ROUTER.md — Parent tooling index and ownership.
+- ops/DB_BOOTSTRAP.md — Runbook dictating usage and refresh cadence.

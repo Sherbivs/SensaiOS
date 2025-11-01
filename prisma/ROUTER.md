@@ -2,7 +2,7 @@
 Title: Prisma Schema & Migrations
 Purpose: Database schema definition and migration history.
 Owned Globs: prisma/**
-Last Updated (UTC): 2025-11-01T16:20:00Z
+Last Updated (UTC): 2025-11-01T17:30:00Z
 
 Notes:
 - `schema.prisma` defines the Accelerate-first data model shared by the bot, workers, and maintenance scripts.
@@ -13,3 +13,7 @@ Key Files:
 - schema.prisma - Canonical Prisma schema loaded by runtime/config helpers.
 - migrations/*/migration.sql - Generated SQL migrations; follow runbook before editing.
 - migrations/migration_lock.toml - Prisma migration state, committed to keep drift visible.
+
+Linked Routers:
+- prisma/migrations/ROUTER.md — Timestamped migration bundles and lock state.
+- ops/DB_BOOTSTRAP.md — Runbook governing Prisma migration apply flows.
