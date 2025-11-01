@@ -1,19 +1,20 @@
+import { Prisma } from "@prisma/client";
+import { Events, type Client } from "discord.js";
+
+import { bootDiscord } from "./bot/index.js";
+import { ENABLE_DB_AUTO_SYNC, ENABLE_SECURITY_BOT } from "./config/env.js";
+import { initPrisma, prisma } from "./models/index.js";
+import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
+import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
 import { config } from "./shared/config.js";
 import { log } from "./shared/log.js";
-import cliStatus from "./utils/cliStatus.js";
-import { Events, type Client } from "discord.js";
-import { Prisma } from "@prisma/client";
-import { initPrisma, prisma } from "./models/index.js";
 import {
   onPrismaHeartbeat,
   startPrismaHeartbeat,
   type PrismaHeartbeatEvent,
   getPrismaTransport,
 } from "./shared/prisma.js";
-import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
-import { bootDiscord } from "./bot/index.js";
-import { ENABLE_DB_AUTO_SYNC, ENABLE_SECURITY_BOT } from "./config/env.js";
-import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
+import cliStatus from "./utils/cliStatus.js";
 
 const CLI_MONITOR_DISABLED =
   process.env.DISABLE_CLI_MONITOR === "true" || process.env.NODE_ENV === "test";
@@ -89,7 +90,9 @@ function stopMonitor(): void {
   }
   try {
     cliStatus.stopStatusDisplay();
-  } catch {}
+  } catch {
+    // Monitor shutdown is best effort; stale terminal state is acceptable during exit.
+  }
   if (monitorRefreshTimer) {
     clearInterval(monitorRefreshTimer);
     monitorRefreshTimer = null;

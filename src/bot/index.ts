@@ -1,15 +1,19 @@
-import { Client, GatewayIntentBits, Partials, Interaction, Events } from "discord.js";
 import { once } from "node:events";
-import { log } from "../shared/log.js";
-const { loadCommands } = await import("../command-loader.js");
-import { openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./dm/starters.js";
-import { handleHeal } from "./dm/heal.js";
-import { handleWalk } from "./wilds/walk.js";
-import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
-import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
-import { handleEncounterButton } from "./wilds/controls.js";
-import { handleOpsCommand } from "./ops/admin.js";
+
+import { Client, GatewayIntentBits, Partials, Interaction, Events } from "discord.js";
+
 import { prisma } from "../models/index.js";
+import { log } from "../shared/log.js";
+
+const { loadCommands } = await import("../command-loader.js");
+import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
+import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
+import { handleHeal } from "./dm/heal.js";
+import { openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./dm/starters.js";
+import { handleOpsCommand } from "./ops/admin.js";
+import { handleEncounterButton } from "./wilds/controls.js";
+import { handleWalk } from "./wilds/walk.js";
+
 
 export type BotStartOptions = {
 	token?: string;
@@ -155,7 +159,9 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 					} else {
 						await interaction.reply({ content: "Something went wrong.", ephemeral: true });
 					}
-				} catch {}
+				} catch {
+					// Ignore secondary reply errors; the primary failure is already logged.
+				}
 			}
 		}
 	});

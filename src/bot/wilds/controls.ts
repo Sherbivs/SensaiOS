@@ -1,7 +1,8 @@
 import type { User as DiscordUser, ButtonInteraction } from "discord.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
+
+import { attemptCatch, runFromEncounter } from "../../core/encounter/catch.js";
 import { prisma } from "../../models/index.js";
-import { attemptCatch, runFromEncounter, BallType } from "../../core/encounter/catch.js";
 import { loadEncounter } from "../../services/cache/recipes.js";
 
 export function composeCatchSuccessMessages(discordId: string, pokemonId?: string) {
@@ -42,7 +43,7 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
   const id = interaction.customId;
   if (!id || (!id.startsWith("ENCOUNTER_THROW_") && !id.startsWith("ENCOUNTER_RUN_") && !id.startsWith("ENCOUNTER_SWAP_"))) return;
 
-  const [_, action, encId] = id.split("_"); // ENCOUNTER, ACTION, <id>
+  const [, action] = id.split("_"); // ENCOUNTER, ACTION, <id>
   const encounterId = id.substring(`ENCOUNTER_${action}_`.length);
 
   // Verify encounter belongs to the user
@@ -65,7 +66,9 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
       if (channel && typeof (channel as any).send === "function") {
         await (channel as any).send(msg);
       }
-    } catch {}
+    } catch {
+      // Ignore transient thread failures; encounter continues regardless.
+    }
   };
 
   if (action === "THROW") {

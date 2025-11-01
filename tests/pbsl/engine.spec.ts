@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { BattleEngine } from "../../src/core/pbsl/battle/engine.js";
 
 const baseParticipants = [
@@ -23,7 +24,7 @@ describe("PBSL BattleEngine", () => {
     expect(snapshotA.participants).toStrictEqual(snapshotB.participants);
     expect(snapshotA.rngState).toStrictEqual(snapshotB.rngState);
     const normalizeAudit = (audit: typeof snapshotA.audit) =>
-      audit.map(({ timestamp, ...rest }) => rest);
+      audit.map(({ timestamp: _timestamp, ...rest }) => rest);
     expect(normalizeAudit(snapshotA.audit)).toStrictEqual(normalizeAudit(snapshotB.audit));
   });
 

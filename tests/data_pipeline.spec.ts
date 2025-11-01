@@ -1,6 +1,8 @@
-import { describe, it, expect } from "vitest";
-import { buildData } from "../src/data_pipeline/index.js";
 import { createHash } from "node:crypto";
+
+import { describe, it, expect } from "vitest";
+
+import { buildData } from "../src/data_pipeline/index.js";
 
 function hashAll(contents: string[]): string {
   const h = createHash("sha256");

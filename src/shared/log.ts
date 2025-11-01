@@ -139,11 +139,11 @@ function emit(level: LogLevel, msg: string, err?: unknown, meta?: AnyObj): void 
     const line = JSON.stringify(record);
     if (interruptConsoleOutput) {
       interruptConsoleOutput(() => {
-        // eslint-disable-next-line no-console
+         
         console.log(line);
       });
     } else {
-      // eslint-disable-next-line no-console
+       
       console.log(line);
     }
   }

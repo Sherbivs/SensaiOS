@@ -1,6 +1,6 @@
 import { MemoryAuditTrail, type AuditTrail, type AuditEvent } from "../audit.js";
-import { createSeededRng, type Rng, type RngState } from "../rng.js";
 import type { ProvenanceRecord } from "../data/provenance.js";
+import { createSeededRng, type Rng, type RngState } from "../rng.js";
 
 export type BattleParticipant = {
   id: string;

@@ -1,8 +1,10 @@
 import type { ChatInputCommandInteraction, GuildTextBasedChannel } from "discord.js";
+
 import { spawnEncounterForUser } from "../../core/encounter/spawn.js";
-import { openEncounterDM } from "./controls.js";
 import { prisma } from "../../models/index.js";
 import { canStartWalk } from "../middleware/limits.js";
+
+import { openEncounterDM } from "./controls.js";
 
 async function getCooldownReadyAt(discordId: string, kind: string) {
   const cd = await prisma.cooldown.findFirst({ where: { owner: { discordId }, kind } });

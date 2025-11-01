@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { hasActiveEncounter, hasActiveOrPendingBattle, canStartWalk, canChallengeBattle } from '../src/bot/middleware/limits';
 
 function makePrismaMock({ encounter = false, battle = false } = {}) {

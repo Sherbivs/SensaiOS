@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+
+import { announceBattleResult } from "../src/bot/battle/conclude.js";
 import { BattleRepo } from "../src/models/index.js";
 import type { BattleResultRecord } from "../src/models/index.js";
-import { announceBattleResult } from "../src/bot/battle/conclude.js";
 
 function buildBattle() {
 	return {

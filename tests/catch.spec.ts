@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+
 import { catchChance, attemptCatch } from "../src/core/encounter/catch.js";
 import { UserRepo } from "../src/models/index.js";
 

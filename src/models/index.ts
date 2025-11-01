@@ -2,6 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import type { Battle, PrismaClient, User as PrismaUser } from "@prisma/client";
+
 import { ensurePrisma, prisma } from "../shared/prisma.js";
 
 export async function initPrisma(): Promise<void> {
@@ -44,8 +45,8 @@ function describeResultSummary(reason: BattleResultReason) {
   return reason === "forfeit" ? "by forfeit" : "with a decisive victory";
 }
 
-function normalizeLogCompact(existing: unknown, summary: BattleResultRecord) {
-  const base = typeof existing === "object" && existing !== null ? existing : {};
+function normalizeLogCompact(existing: Prisma.JsonValue, summary: BattleResultRecord): Prisma.JsonObject {
+  const base = (typeof existing === "object" && existing !== null ? (existing as Prisma.JsonObject) : {});
   return {
     ...base,
     result: {
@@ -56,7 +57,7 @@ function normalizeLogCompact(existing: unknown, summary: BattleResultRecord) {
       loserDiscordId: summary.loser.discordId,
       note: `${summary.winner.discordId} ${describeResultSummary(summary.reason)} over ${summary.loser.discordId}`,
     },
-  };
+  } satisfies Prisma.JsonObject;
 }
 
 export const BattleRepo = {
@@ -94,7 +95,7 @@ export const BattleRepo = {
     };
 
     const recordedAt = new Date().toISOString();
-    const resultJson = {
+    const resultJson: Prisma.JsonObject = {
       battleId: result.battleId,
       reason: result.reason,
       turnCount: result.turnCount,
@@ -104,10 +105,10 @@ export const BattleRepo = {
       recordedAt,
       winnerDiscordId: result.winner.discordId,
       loserDiscordId: result.loser.discordId,
-    } as any;
+    } satisfies Prisma.JsonObject;
 
-    const logFull = opts.logFull ?? (opts.battle.logFull as unknown as string[] | undefined);
-    const logCompact = normalizeLogCompact(opts.battle.logCompact, result) as any;
+  const logFull = opts.logFull ?? (opts.battle.logFull as unknown as string[] | undefined);
+  const logCompact = normalizeLogCompact(opts.battle.logCompact, result);
 
     const updates = [
       client.user.update({
@@ -125,17 +126,12 @@ export const BattleRepo = {
           endedAt: new Date(),
           resultJson,
           logCompact,
-          logFull: (logFull ?? null) as any,
+          logFull: (logFull ? (logFull as Prisma.JsonValue) : Prisma.JsonNull) as Prisma.NullableJsonNullValueInput,
         },
       }),
     ];
 
-    const transact = (client as any).$transaction;
-    if (typeof transact === "function") {
-      await transact(updates);
-    } else {
-      for (const op of updates) await op;
-    }
+    await client.$transaction(updates);
 
     return result;
   },

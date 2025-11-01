@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { makeProvenanceRecord } from "../../src/core/pbsl/data/provenance.js";
 
 describe("PBSL Provenance", () => {

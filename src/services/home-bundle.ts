@@ -6,8 +6,9 @@ import type {
   PokemonInstance,
   User,
 } from "@prisma/client";
-import { prisma } from "../shared/prisma.js";
+
 import { TtlLruCache } from "../shared/cache/ttl-lru.js";
+import { prisma } from "../shared/prisma.js";
 
 function coercePositiveNumber(value: unknown, fallback: number, minimum: number): number {
   const numeric = typeof value === "string" || typeof value === "number" ? Number(value) : NaN;

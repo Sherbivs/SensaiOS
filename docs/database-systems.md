@@ -1,6 +1,6 @@
 # Database Systems Guide
 
-_Last updated: 2025-11-01T05:10:00Z (UTC) — Rev: 1.5_
+_Last updated: 2025-11-01T10:20:00Z (UTC) — Rev: 1.6_
 
 This guide captures everything engineers need to understand, operate, and extend Infinity Gauntlet’s PostgreSQL footprint across Render, Prisma Accelerate, and local development. Pair it with `DATA-SCHEMA.md` for entity specifics and `ops/DB_BOOTSTRAP.md` for runbook-grade procedures.
 
@@ -48,6 +48,7 @@ When none of the managed URLs connect successfully, the loader falls back to `DA
 
 - Export `PRISMA_ACCELERATE_RUNTIME=serverless` in Render/CI so Accelerate URLs opt into the serverless runtime (covered in `render.yaml`).
 - Provide `OPTIMIZE_API_KEY` (Render secrets + local `.env` overrides) when you want Prisma Optimize telemetry; Render services expose the key via `sync: false` env vars so the dashboard secret can be attached per service.
+- Optional: override the Optimize endpoint with `OPTIMIZE_API_URL`, but keep it `https://`—non-HTTPS overrides are ignored to avoid leaking telemetry over insecure transport.
 - Accelerate queries support `cacheStrategy` for response caching; tune TTLs per workload and monitor usage in the Prisma “Insights” dashboard. Set `PRISMA_CLIENT_ENGINE_TYPE=dataproxy` when running scripts directly.
 
 ## 3. Schema Overview

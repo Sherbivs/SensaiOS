@@ -1,16 +1,18 @@
-import { afterAll, describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { afterAll, describe, expect, it } from "vitest";
+
+import type { AuditEvent } from "../../src/core/pbsl/audit.js";
 import {
   BattleEngine,
   type BattleAction,
   type BattleParticipant,
   type BattleSnapshot,
 } from "../../src/core/pbsl/battle/engine.js";
-import type { RngState } from "../../src/core/pbsl/rng.js";
-import type { AuditEvent } from "../../src/core/pbsl/audit.js";
 import type { ProvenanceRecord } from "../../src/core/pbsl/data/provenance.js";
+import type { RngState } from "../../src/core/pbsl/rng.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const FIXTURE_DIR = resolve(__dirname, "fixtures");

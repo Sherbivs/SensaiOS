@@ -50,6 +50,19 @@ declare module "../cache.js" {
   export default cacheService;
 }
 
+declare module "../command-loader.js" {
+  import type { Collection } from "discord.js";
+
+  export interface CommandModule {
+    data: { name: string };
+    execute: (...args: unknown[]) => Promise<unknown>;
+  }
+
+  export type LoadedCommands = Collection<string, CommandModule>;
+
+  export function loadCommands(): Promise<LoadedCommands>;
+}
+
 declare module "./bot/main.js" {
   import type { Client } from "discord.js";
 

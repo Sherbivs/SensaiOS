@@ -1,6 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { ChatInputCommandInteraction } from "discord.js";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+
 import { handleDailyClaim } from "../src/bot/daily/claim.js";
+import { evict } from "../src/services/cache/facade.js";
 
 type MockPrisma = {
   user: {
@@ -26,7 +28,7 @@ describe("handleDailyClaim", () => {
   let prisma: MockPrisma;
   let now: Date;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     now = new Date("2025-10-26T12:00:00Z");
     prisma = {
       user: {
@@ -40,6 +42,13 @@ describe("handleDailyClaim", () => {
         create: vi.fn().mockResolvedValue(undefined),
       },
     };
+
+    await evict({ namespace: "quest-reward", key: "discord-1" });
+  });
+
+  afterEach(async () => {
+    await evict({ namespace: "quest-reward", key: "discord-1" });
+    vi.restoreAllMocks();
   });
 
   it("claims daily reward, updates streak, and sets cooldown", async () => {

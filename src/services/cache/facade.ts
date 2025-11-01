@@ -514,7 +514,7 @@ function buildCompositeKey(descriptor: CacheDescriptor): string {
 }
 
 function sanitizeSegment(segment: string): string {
-  return segment.replace(/[^a-z0-9_\-]/gi, "_").toLowerCase();
+  return segment.replace(/[^a-z0-9_-]/gi, "_").toLowerCase();
 }
 
 function namespaceDir(namespace: string, shard?: string): string {
@@ -700,7 +700,7 @@ async function cleanExpiredFiles(): Promise<void> {
 }
 
 function calculateMaintenanceBudget(): MaintenanceBudget {
-  const { free, total } = getDiskStats(config.rootDir);
+  const { free } = getDiskStats(config.rootDir);
   const approx = approxFreeBytes(config.rootDir, free);
   const maxAllowedBytes = Math.min(
     Math.floor(approx * MAX_CACHE_PERCENT),

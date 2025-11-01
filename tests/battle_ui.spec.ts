@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { buildBattleActionPrompt, __testing as actionsTesting } from '../src/bot/battle/actions';
+
 import { buildArenaTurnSummary, buildDMDetailedLog } from '../src/bot/arena/summary';
+import { buildBattleActionPrompt, __testing as actionsTesting } from '../src/bot/battle/actions';
 
 describe('battle UI actions', () => {
   it('builds a DM action prompt with three buttons', () => {

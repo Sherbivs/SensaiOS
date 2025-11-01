@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { createSeededRng, deserializeRngState } from "../../src/core/pbsl/rng.js";
 
 describe("PBSL RNG", () => {

@@ -1,5 +1,6 @@
-import { setTimeout as sleep } from "node:timers/promises";
 import process from "node:process";
+import { setTimeout as sleep } from "node:timers/promises";
+
 import { log } from "./log.js";
 
 const DEFAULT_SNAPSHOT_INTERVAL_MS = Math.max(30_000, Number(process.env.WORKER_TELEMETRY_INTERVAL_MS ?? 60_000));

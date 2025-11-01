@@ -1,9 +1,10 @@
-import type { Client } from "discord.js";
 import type { PrismaClient } from "@prisma/client";
+import type { Client } from "discord.js";
+
 import type { BattleResultRecord, BattleWithPlayers } from "../../models/index.js";
 import { BattleRepo, prisma as prismaClient } from "../../models/index.js";
-import { buildBattleResultDMMessages, buildBattleResultThreadMessage } from "../arena/summary.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
+import { buildBattleResultDMMessages, buildBattleResultThreadMessage } from "../arena/summary.js";
 
 type DiscordClientLike = Pick<Client, "users" | "channels">;
 type UpdateLoserInteraction = (content: string) => Promise<void>;
@@ -17,7 +18,9 @@ async function dmParticipant(client: DiscordClientLike, discordId: string, messa
 		const dm = await user.createDM?.();
 		if (!dm || typeof dm.send !== "function") return;
 		await dm.send(message);
-	} catch {}
+	} catch {
+		// DM delivery failure is non-fatal; ignore and continue with other notifications.
+	}
 }
 
 async function postToArenaThread(client: DiscordClientLike, threadId: string, message: string) {
@@ -25,7 +28,9 @@ async function postToArenaThread(client: DiscordClientLike, threadId: string, me
 		const thread: any = await client.channels.fetch(threadId);
 		if (!thread || typeof thread.send !== "function") return;
 		await thread.send(message);
-	} catch {}
+	} catch {
+		// Thread may have been deleted or unavailable; nothing else to do here.
+	}
 }
 
 export const announceBattleResult = async (opts: {
@@ -42,7 +47,9 @@ export const announceBattleResult = async (opts: {
 		try {
 			await updateLoserInteraction(messages.loser);
 			loserNotified = true;
-		} catch {}
+		} catch {
+			// Interaction edit failed; fall back to DMs below.
+		}
 	}
 
 	if (!loserNotified) {

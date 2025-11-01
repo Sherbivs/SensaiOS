@@ -56,11 +56,25 @@ export default [
     },
     settings: {
       'import/resolver': {
-        typescript: true,
+        typescript: {
+          project: ['tsconfig.json', 'tsconfig.build.json'],
+        },
         node: {
           extensions: ['.js', '.ts', '.mjs', '.cjs'],
         },
       },
+    },
+  },
+  {
+    files: ['tests/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+  {
+    files: ['src/bot/**/*.ts', 'src/services/**/*.ts', 'src/shared/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
   // Apply prettier config to disable conflicting rules

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { log } from "../src/shared/log.js";
+
 import { evaluateDailyQuestStreak, projectDailyQuestCompletion } from "../src/models/index.ts";
+import { log } from "../src/shared/log.js";
 
 describe("log._format", () => {
   it("formats info with message and env", () => {

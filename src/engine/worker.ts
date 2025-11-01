@@ -42,7 +42,7 @@ async function loop(reg: Registration): Promise<void> {
   const inflight = new Set<Promise<void>>();
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     if (inflight.size >= reg.concurrency) {
       await Promise.race(inflight);

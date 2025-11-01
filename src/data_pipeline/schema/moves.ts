@@ -1,4 +1,5 @@
 import { z } from "zod";
+
 import { TypeEnum } from "./species.js";
 
 export const MoveCategory = z.enum(["Physical", "Special", "Status"]);

@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
+
 import { log } from "../shared/log.js";
 
 const RESTART_DELAY_MS = 30_000;

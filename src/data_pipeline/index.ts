@@ -1,7 +1,12 @@
+import { createHash } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash } from "node:crypto";
+
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonObject | JsonArray;
+type JsonObject = { [key: string]: JsonValue };
+type JsonArray = JsonValue[];
 
 type OutputFile = { path: string; content: string; hash: string };
 
@@ -13,17 +18,18 @@ type BuildOptions = {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-function toStable(obj: any): any {
-  if (obj === null || typeof obj !== "object") return obj;
-  if (Array.isArray(obj)) return obj.map(toStable);
-  const out: Record<string, any> = {};
-  for (const key of Object.keys(obj).sort()) {
-    out[key] = toStable(obj[key]);
+function toStable(value: JsonValue): JsonValue {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return (value as JsonArray).map((entry) => toStable(entry));
+  const input = value as JsonObject;
+  const out: JsonObject = {};
+  for (const key of Object.keys(input).sort()) {
+    out[key] = toStable(input[key]);
   }
   return out;
 }
 
-function stableStringify(obj: any): string {
+function stableStringify(obj: JsonValue): string {
   return JSON.stringify(toStable(obj));
 }
 
@@ -64,6 +70,8 @@ export async function buildData(opts: BuildOptions = {}): Promise<{
     basePower?: number | null;
     accuracy?: number | true | null;
     pp?: number;
+    class?: string;
+    power?: number | null;
   };
   type MovesFile = Record<string, MoveEntry> | MoveEntry[];
 
@@ -76,13 +84,19 @@ export async function buildData(opts: BuildOptions = {}): Promise<{
   const moves = await readJson<MovesFile>(movesPath);
   let version = "0.0.0";
   try {
-    const v = await readJson<Record<string, any>>(versionPath);
+    const v = await readJson<Record<string, unknown>>(versionPath);
     version = String(v.version ?? v.tag ?? v.commit ?? "0.0.0");
   } catch {
     // ignore
   }
 
-  const speciesArr: Array<{ id: number; name: string; types: string[]; baseStats: any; abilities: string[] }> = [];
+  const speciesArr: Array<{
+    id: number;
+    name: string;
+    types: string[];
+    baseStats: { hp: number; atk: number; def: number; spa: number; spd: number; spe: number };
+    abilities: string[];
+  }> = [];
   const abilitiesSet = new Set<string>();
 
   const dexEntries: DexEntry[] = Array.isArray(dex) ? dex : Object.values(dex);
@@ -91,7 +105,7 @@ export async function buildData(opts: BuildOptions = {}): Promise<{
     const id = Number.isFinite(Number(idRaw)) ? Number(idRaw) : Number.NaN;
     const name = d.name ?? d.id ?? String(d.num ?? "");
     const types = (d.types ?? []).slice(0, 2);
-    const statsSource: any = d.baseStats ?? d.stats ?? null;
+    const statsSource = (d.baseStats ?? d.stats ?? null) as (DexEntry["baseStats"] & DexEntry["stats"]) | null;
     const baseStats = statsSource
       ? {
           hp: Number(statsSource.hp ?? statsSource.HP ?? 1),
@@ -112,15 +126,14 @@ export async function buildData(opts: BuildOptions = {}): Promise<{
   speciesArr.sort((a, b) => a.id - b.id);
 
   const movesArrRaw: MoveEntry[] = Array.isArray(moves) ? moves : Object.values(moves);
-  const movesArr: Array<{ id: number; name: string; type: string; category: string; power: number | null; accuracy: number | null; pp: number }>
-    = [];
+  const movesArr: Array<{ id: number; name: string; type: string; category: string; power: number | null; accuracy: number | null; pp: number }> = [];
   for (const m of movesArrRaw) {
     const idRaw = m.num ?? (typeof m.id === "string" ? Number.parseInt(m.id, 10) : m.id);
     const id = Number.isFinite(Number(idRaw)) ? Number(idRaw) : Number.NaN;
     const name = m.name ?? m.id ?? String(m.num ?? "");
     const type = m.type ?? "Normal";
-    const category = m.category ?? (m as any).class ?? "Status";
-    const power = m.basePower ?? (m as any).power ?? null;
+    const category = m.category ?? (m as { class?: string }).class ?? "Status";
+    const power = m.basePower ?? (m as { power?: number | null }).power ?? null;
     let acc: number | null = null;
     if (typeof m.accuracy === "number") acc = m.accuracy;
     else if (m.accuracy === true) acc = 100;
@@ -196,10 +209,8 @@ export async function buildData(opts: BuildOptions = {}): Promise<{
 if (import.meta.url === `file://${process.argv[1]}`) {
   const dryRun = process.argv.includes("--dry-run");
   buildData({ dryRun }).then((res) => {
-    // eslint-disable-next-line no-console
     console.log(JSON.stringify({ ok: true, counts: res.counts }, null, 2));
   }).catch((err) => {
-    // eslint-disable-next-line no-console
     console.error("Pipeline failed:", err);
     process.exit(1);
   });

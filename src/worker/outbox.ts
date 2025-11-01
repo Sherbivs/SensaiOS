@@ -1,16 +1,17 @@
 import { setTimeout as sleep } from "node:timers/promises";
+
+import { cache } from "../shared/cache/memory.js";
 import { loadConfig } from "../shared/config.js";
 import { log } from "../shared/log.js";
-import { cache } from "../shared/cache/memory.js";
-import { ensurePrisma, prisma } from "../shared/prisma.js";
 import {
   enqueue,
   claimPendingBatch,
   markProcessed,
   markError,
 } from "../shared/outbox.js";
-import { runWorker, type WorkerContext } from "../shared/worker-runtime.js";
+import { ensurePrisma, prisma } from "../shared/prisma.js";
 import { storeBackup, getBackupProvider } from "../shared/storage/backup-sink.js";
+import { runWorker, type WorkerContext } from "../shared/worker-runtime.js";
 
 const MIN_DELAY_MS = Math.max(50, Number(process.env.OUTBOX_MIN_DELAY_MS ?? 250));
 const MAX_DELAY_MS = Math.max(MIN_DELAY_MS, Number(process.env.OUTBOX_MAX_DELAY_MS ?? 2000));

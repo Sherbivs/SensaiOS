@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import { prisma as prismaClient, UserRepo } from "../../models/index.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
 
@@ -65,13 +67,21 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
   const success = roll < p;
 
   // Track attempts in dataJson
-  const prev = (enc.dataJson as any) || {};
-  const attempts = (prev.attempts ?? 0) + 1;
+  const prev = (enc.dataJson as Prisma.JsonObject | null) ?? {};
+  const prevAttempts = typeof prev.attempts === "number" ? prev.attempts : 0;
+  const attempts = prevAttempts + 1;
 
   if (!success) {
+    const failureData = {
+      ...prev,
+      attempts,
+      lastBall: ball,
+      lastRoll: roll,
+      lastChance: p,
+    } satisfies Prisma.JsonObject;
     await prisma.encounter.update({
       where: { id: enc.id },
-      data: { dataJson: { ...prev, attempts, lastBall: ball, lastRoll: roll, lastChance: p } as any },
+      data: { dataJson: failureData },
     });
     await invalidateEncounter(enc.id);
     return { ok: true, caught: false as const, attempts, chance: p, roll };
@@ -79,11 +89,11 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
 
   // Success: mark Caught, create a PokemonInstance for the user
   const { hp, maxHp } = computeInitialStats(enc.level);
-  const ivs = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 };
-  const evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  const ivs = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 } satisfies Prisma.JsonObject;
+  const evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } satisfies Prisma.JsonObject;
   const moves = [
     { id: 33, name: "Tackle", pp: 35, maxPP: 35 },
-  ];
+  ] satisfies Prisma.JsonArray;
 
   const created = await prisma.pokemonInstance.create({
     data: {
@@ -92,9 +102,9 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
       level: enc.level,
       exp: 0,
       nature: null,
-      ivsJson: ivs as any,
-      evsJson: evs as any,
-      movesJson: moves as any,
+  ivsJson: ivs,
+  evsJson: evs,
+  movesJson: moves,
       status: null,
       hp,
       maxHp,
@@ -121,7 +131,13 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
     where: { id: enc.id },
     data: {
       state: "Caught",
-      dataJson: { ...prev, attempts, caughtAt: new Date().toISOString(), ball, pokemonId: created.id } as any,
+      dataJson: {
+        ...prev,
+        attempts,
+        caughtAt: new Date().toISOString(),
+        ball,
+        pokemonId: created.id,
+      } satisfies Prisma.JsonObject,
     },
   });
   await invalidateEncounter(enc.id);

@@ -1,10 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
 import type { ChatInputCommandInteraction, ButtonInteraction } from "discord.js";
-import { __testing, handleBattleChallengeButton, handleBattleChallengeCommand } from "../src/bot/battle/challenge.js";
-import { handleBattleActionButton } from "../src/bot/battle/actions.js";
-import { BattleRepo } from "../src/models/index.js";
-import * as concludeModule from "../src/bot/battle/conclude.js";
+import { describe, expect, it, vi } from "vitest";
+
 import type { ArenaThreadContext } from "../src/bot/arena/thread.js";
+import { handleBattleActionButton } from "../src/bot/battle/actions.js";
+import { __testing, handleBattleChallengeButton, handleBattleChallengeCommand } from "../src/bot/battle/challenge.js";
+import * as concludeModule from "../src/bot/battle/conclude.js";
+import { BattleRepo } from "../src/models/index.js";
+import type { BattleResultRecord } from "../src/models/index.js";
 
 describe("battle challenge prompt", () => {
   it("creates buttons with accept/decline custom IDs", () => {
@@ -205,7 +207,7 @@ describe("handleBattleActionButton - forfeit", () => {
       },
     } as any;
 
-    const persistedResult = {
+    const persistedResult: BattleResultRecord = {
       battleId: "battle-9",
       reason: "forfeit",
       turnCount: 0,
@@ -223,19 +225,28 @@ describe("handleBattleActionButton - forfeit", () => {
     await handleBattleActionButton(interaction, { prisma });
 
     expect(prisma.battle.findUnique).toHaveBeenCalledWith({ where: { id: "battle-9" }, include: { p1: true, p2: true } });
-    expect(concludeSpy).toHaveBeenCalledWith({
-      prisma,
-      battle,
-      winner: "p2",
-      turnCount: 0,
-      reason: "forfeit",
-    });
-    expect(announceSpy).toHaveBeenCalledWith({
-      client: interaction.client,
-      battle,
-      result: persistedResult,
-      updateLoserInteraction: expect.any(Function),
-    });
+    expect(concludeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prisma,
+        winner: "p2",
+        turnCount: 0,
+        reason: "forfeit",
+        battle: expect.objectContaining({
+          id: "battle-9",
+          state: "Active",
+          p1: expect.objectContaining({ id: "p1", discordId: "loser" }),
+          p2: expect.objectContaining({ id: "p2", discordId: "winner" }),
+        }),
+      })
+    );
+    expect(announceSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        client: interaction.client,
+        result: persistedResult,
+        updateLoserInteraction: expect.any(Function),
+        battle: expect.objectContaining({ id: "battle-9" }),
+      })
+    );
     expect(interaction.update).toHaveBeenCalledWith({ content: "Forfeit recorded", components: [] });
 
     concludeSpy.mockRestore();
@@ -262,9 +273,9 @@ describe("concludeBattleWithVictory", () => {
 
     const client = { users: { fetch: vi.fn() }, channels: { fetch: vi.fn() } } as any;
 
-    const persisted = {
+    const persisted: BattleResultRecord = {
       battleId: battle.id,
-      reason: "victory" as const,
+  reason: "victory",
       turnCount: 3,
       rewards: { winner: 59, loser: 12 },
       winner: { userId: "p1", discordId: "winner" },
@@ -291,20 +302,29 @@ describe("concludeBattleWithVictory", () => {
       where: { id: "battle-42" },
       include: { p1: true, p2: true },
     });
-    expect(concludeSpy).toHaveBeenCalledWith({
-      prisma,
-      battle,
-      winner: "p1",
-      turnCount: 3,
-      reason: "victory",
-      logFull: ["Turn 1", "Turn 2", "Turn 3"],
-    });
-    expect(announceSpy).toHaveBeenCalledWith({
-      client,
-      battle,
-      result: persisted,
-      updateLoserInteraction: undefined,
-    });
+    expect(concludeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prisma,
+        winner: "p1",
+        turnCount: 3,
+        reason: "victory",
+        logFull: ["Turn 1", "Turn 2", "Turn 3"],
+        battle: expect.objectContaining({
+          id: "battle-42",
+          state: "Active",
+          p1: expect.objectContaining({ id: "p1", discordId: "winner" }),
+          p2: expect.objectContaining({ id: "p2", discordId: "loser" }),
+        }),
+      })
+    );
+    expect(announceSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        client,
+        result: persisted,
+        updateLoserInteraction: undefined,
+        battle: expect.objectContaining({ id: "battle-42" }),
+      })
+    );
     expect(result).toBe(persisted);
 
     concludeSpy.mockRestore();
@@ -312,9 +332,32 @@ describe("concludeBattleWithVictory", () => {
   });
 
   it("returns null when battle is missing or finished", async () => {
+    const now = new Date("2025-01-01T00:00:00Z");
     const prisma = {
       battle: {
-        findUnique: vi.fn().mockResolvedValue({ id: "battle-x", state: "Finished" }),
+        findUnique: vi.fn().mockResolvedValue({
+          id: "battle-x",
+          state: "Finished",
+          arenaThreadId: null,
+          startedAt: now,
+          endedAt: now,
+          updatedAt: now,
+          logFull: null,
+          p1: {
+            id: "p1",
+            discordId: "player-1",
+            coins: 0,
+            createdAt: now,
+            updatedAt: now,
+          },
+          p2: {
+            id: "p2",
+            discordId: "player-2",
+            coins: 0,
+            createdAt: now,
+            updatedAt: now,
+          },
+        }),
       },
     } as any;
 

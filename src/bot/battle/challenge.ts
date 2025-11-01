@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+
+import type { Prisma, PrismaClient } from "@prisma/client";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -7,13 +10,13 @@ import {
   EmbedBuilder,
   User as DiscordUser,
 } from "discord.js";
-import { randomUUID } from "node:crypto";
-import type { Battle, Prisma, PrismaClient, User as PrismaUser } from "@prisma/client";
+
 import { prisma as prismaClient } from "../../models/index.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 import { createArenaThread, type ArenaThreadContext } from "../arena/thread.js";
-import { openActionDMs } from "./actions.js";
 import { canChallengeBattle } from "../middleware/limits.js";
+
+import { openActionDMs } from "./actions.js";
 
 const ACCEPT_PREFIX = "BATTLE_ACCEPT_";
 const DECLINE_PREFIX = "BATTLE_DECLINE_";
@@ -24,8 +27,6 @@ type ChallengeMetadata = {
   challengeChannelId: string | null;
   guildId: string | null;
 };
-
-type BattleWithPlayers = Battle & { p1: PrismaUser; p2: PrismaUser };
 
 type CommandOpts = {
   prisma?: PrismaLike;
@@ -293,7 +294,9 @@ export async function handleBattleChallengeButton(
   // Send action menus to both players in DM
   try {
     await openActionDMs(battle.id, (id) => interaction.client.users.fetch(id));
-  } catch {}
+  } catch {
+    // DM dispatch is best effort; log improvements in future work.
+  }
 }
 
 export const __testing = {

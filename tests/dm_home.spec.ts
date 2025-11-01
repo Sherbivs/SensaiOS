@@ -1,4 +1,7 @@
+import type { APIEmbedField } from "discord.js";
 import { describe, expect, test } from "vitest";
+
+import { _internals as homeInternals } from "../src/commands/home.js";
 
 // CommonJS command exports helpers via _internals for testing
 type HomePartyMember = {
@@ -44,8 +47,18 @@ type HomeInternals = {
 	asDiscordTimestamp: (date?: Date | string | null, now?: Date) => string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const internals: HomeInternals = require("../src/commands/home.js")._internals;
+const internals = homeInternals as unknown as HomeInternals;
+
+const blankDailyQuest: HomeDailyQuest = {
+	status: "fresh",
+	streak: 0,
+	fieldValue: "",
+	atRisk: false,
+	lost: false,
+	lastCompleted: null,
+	lastReset: null,
+	nextDue: null,
+};
 
 const { mapTrainerToView, buildHomeEmbed, asDiscordTimestamp } = internals;
 
@@ -110,8 +123,8 @@ describe("DM Home view model", () => {
 
 		const embed = buildHomeEmbed(view);
 		const json = embed.toJSON();
-		const partyField = json.fields?.find((field) => field.name === "Party");
-		const questField = json.fields?.find((field) => field.name === "Daily Quest");
+		const partyField = json.fields?.find((field: APIEmbedField) => field.name === "Party");
+		const questField = json.fields?.find((field: APIEmbedField) => field.name === "Daily Quest");
 		expect(partyField?.value).toContain("#1 Sparky ✨");
 		expect(partyField?.value).toContain("HP 35 / 35");
 		expect(questField?.value).toMatch(/streak|Complete today's quest/);
@@ -128,10 +141,11 @@ describe("DM Home view model", () => {
 				{ battleId: "battle-1", outcome: "WIN", opponentDiscordId: "winner", reward: 65, turnCount: 5 },
 				{ battleId: "battle-2", outcome: "LOSS", opponentDiscordId: "loser", reward: 12, turnCount: null },
 			],
+			dailyQuest: blankDailyQuest,
 		};
 
 		const embed = buildHomeEmbed(view);
-		const historyField = embed.toJSON().fields?.find((field) => field.name === "Battle History");
+		const historyField = embed.toJSON().fields?.find((field: APIEmbedField) => field.name === "Battle History");
 		expect(historyField?.value).toContain("✅ Win vs <@winner>");
 		expect(historyField?.value).toContain("+65 coins");
 		expect(historyField?.value).toContain("❌ Loss vs <@loser>");
@@ -144,10 +158,11 @@ describe("DM Home view model", () => {
 			party: [],
 			showStarters: true,
 			battleHistory: [],
+			dailyQuest: blankDailyQuest,
 		};
 
 		const embed = buildHomeEmbed(view);
-		const historyField = embed.toJSON().fields?.find((field) => field.name === "Battle History");
+		const historyField = embed.toJSON().fields?.find((field: APIEmbedField) => field.name === "Battle History");
 		expect(historyField?.value).toContain("No finished battles yet");
 	});
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+
 import { TypeEnum } from "./species.js";
 
 // Effectiveness values: 0 (no effect), 0.5 (not very effective), 1 (neutral), 2 (super effective)

@@ -84,11 +84,11 @@ function readConnectionPreference(): DatabaseUrlSource | null {
     const payload = fs.readFileSync(preferenceFilePath(), "utf8");
     const parsed = JSON.parse(payload);
     const source = parsed?.lastSource;
-  if (typeof source === "string" && ["external", "pool", "internal", "direct", "env", "accelerate"].includes(source)) {
+    if (typeof source === "string" && ["external", "pool", "internal", "direct", "env", "accelerate"].includes(source)) {
       return source as DatabaseUrlSource;
     }
-  } catch (error) {
-    // ignore read issues
+  } catch {
+    // Ignore read issues; runtime will probe available candidates instead.
   }
   return null;
 }
@@ -102,8 +102,8 @@ function writeConnectionPreference(source: DatabaseUrlSource): void {
       updatedAt: new Date().toISOString(),
     };
     fs.writeFileSync(preferenceFilePath(), JSON.stringify(data));
-  } catch (error) {
-    // ignore write issues
+  } catch {
+    // Ignore write issues; connection mode falls back to auto detection.
   }
 }
 

@@ -1,3 +1,4 @@
+import type { PrismaClient } from "@prisma/client";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -6,10 +7,10 @@ import {
   EmbedBuilder,
   User as DiscordUser,
 } from "discord.js";
-import type { PrismaClient } from "@prisma/client";
+
 import { prisma as prismaClient, BattleRepo } from "../../models/index.js";
-import type { BattleWithPlayers } from "../../models/index.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
+
 import * as concludeModule from "./conclude.js";
 
 export const MOVE_PREFIX = "BATTLE_MOVE_";
@@ -42,12 +43,16 @@ export async function openActionDMs(battleId: string, clientUserFetcher: (id: st
     const u1 = await clientUserFetcher(battle.p1.discordId);
     const dm1 = await u1.createDM();
     await dm1.send({ embeds: [payload.embed], components: payload.components });
-  } catch {}
+  } catch {
+    // Best-effort DM delivery; ignore individual failures.
+  }
   try {
     const u2 = await clientUserFetcher(battle.p2.discordId);
     const dm2 = await u2.createDM();
     await dm2.send({ embeds: [payload.embed], components: payload.components });
-  } catch {}
+  } catch {
+    // Best-effort DM delivery; ignore individual failures.
+  }
   return true;
 }
 

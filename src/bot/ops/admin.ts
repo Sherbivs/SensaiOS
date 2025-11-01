@@ -1,9 +1,6 @@
-import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
 import type { PrismaClient } from "@prisma/client";
-import { log } from "../../shared/log.js";
-import { config } from "../../shared/config.js";
-import { cache } from "../../shared/cache/memory.js";
-import { ensurePrisma, prisma } from "../../shared/prisma.js";
+import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
+
 import {
   collectCacheMetrics,
   runCacheMaintenanceNow,
@@ -13,6 +10,10 @@ import type {
   CacheMetricsSnapshot,
   CacheNamespaceMetricsSnapshot,
 } from "../../services/cache/facade.js";
+import { cache } from "../../shared/cache/memory.js";
+import { config } from "../../shared/config.js";
+import { log } from "../../shared/log.js";
+import { ensurePrisma, prisma } from "../../shared/prisma.js";
 
 type BasicStats = {
   users?: number | null;
@@ -113,7 +114,9 @@ async function acquirePrisma(deps: OpsCommandDeps) {
     if (shouldRelease && prisma) {
       try {
         await prisma.$disconnect?.();
-      } catch {}
+      } catch {
+        // Disconnect best-effort; ignore shutdown errors.
+      }
     }
   };
   return { prisma, release } as const;
@@ -131,7 +134,9 @@ export function isAdmin(interaction: ChatInputCommandInteraction): boolean {
       .map((s) => s.trim())
       .filter(Boolean);
     if (allowList.length && allowList.includes(interaction.user.id)) return true;
-  } catch {}
+  } catch {
+    // Permission lookup failed; default to non-admin.
+  }
   return false;
 }
 

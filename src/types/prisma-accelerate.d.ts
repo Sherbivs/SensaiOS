@@ -1,3 +1,5 @@
 declare module "@prisma/extension-accelerate" {
-  export const withAccelerate: (...args: any[]) => any;
+  export type AccelerateOptions = Record<string, unknown>;
+
+  export function withAccelerate(options?: AccelerateOptions): <Client>(client: Client) => Client;
 }

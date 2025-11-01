@@ -1,12 +1,14 @@
 import type { PrismaClient, Encounter } from "@prisma/client";
+
 import {
   prisma as prismaClient,
   recordDailyQuestCompletion,
   type BattleWithPlayers,
   type DailyQuestStreakStatus,
 } from "../../models/index.js";
-import { getOrHydrate, evict, type CacheHydrateContext } from "./facade.js";
 import { log } from "../../shared/log.js";
+
+import { getOrHydrate, evict, type CacheHydrateContext } from "./facade.js";
 
 const BATTLE_NAMESPACE = "battle-state";
 const ENCOUNTER_NAMESPACE = "encounter-state";
@@ -226,7 +228,7 @@ export async function claimDailyQuestReward(context: QuestClaimContext): Promise
     }
 
     const nextReadyAt = new Date(now.getTime() + DAILY_COOLDOWN_MS);
-  const streakState = await recordCompletionFn({ userId: trainer.id, prisma, completedAt: now });
+    const streakState = await recordCompletionFn({ userId: trainer.id, prisma, completedAt: now });
     const updated = await prisma.user.update({
       where: { id: trainer.id },
       data: { coins: { increment: rewardCoins } },

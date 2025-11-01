@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
+vi.mock("../src/config/env.js", () => ({}));
+
 type ConfigModule = typeof import("../src/shared/config.js");
 
 async function loadConfigModule(): Promise<ConfigModule> {
@@ -13,6 +15,16 @@ beforeEach(() => {
   process.env = { ...ORIGINAL_ENV };
   delete process.env.DATABASE_URL;
   delete process.env.DATABASE_INTERNAL_URL;
+  delete process.env.DATABASE_DIRECT_URL;
+  delete process.env.DATABASE_POOL_URL;
+  delete process.env.DATABASE_EXTERNAL_URL;
+  delete process.env.DATABASE_PUBLIC_URL;
+  delete process.env.DATABASE_ACCELERATE_URL;
+  delete process.env.PRISMA_ACCELERATE_URL;
+  delete process.env.PRISMA_DATA_PROXY_URL;
+  delete process.env.OPTIMIZE_API_KEY;
+  delete process.env.OPTIMIZE_API_URL;
+  delete process.env.OPTIMIZE_API_ENDPOINT;
   delete process.env.CACHE_TTL_MS;
   process.env.NODE_ENV = "development";
 });
@@ -24,7 +36,9 @@ afterEach(() => {
 describe("loadConfig", () => {
   it("falls back to DATABASE_INTERNAL_URL when DATABASE_URL is missing", async () => {
     process.env.DATABASE_INTERNAL_URL = "postgres://render.internal/app";
-    const { loadConfig } = await loadConfigModule();
+    const { loadConfig, resetConfigCacheForTests } = await loadConfigModule();
+    resetConfigCacheForTests();
+    process.env.DATABASE_URL = "";
     const config = loadConfig();
     expect(config.databaseUrl).toBe("postgres://render.internal/app");
     expect(process.env.DATABASE_URL).toBe("postgres://render.internal/app");
@@ -39,7 +53,8 @@ describe("loadConfig", () => {
   it("keeps DATABASE_URL when provided and exposes defaults", async () => {
     process.env.DATABASE_URL = "postgres://example.com/prod";
     delete process.env.CACHE_TTL_MS;
-    const { loadConfig } = await loadConfigModule();
+    const { loadConfig, resetConfigCacheForTests } = await loadConfigModule();
+    resetConfigCacheForTests();
     const config = loadConfig();
     expect(config.databaseUrl).toBe("postgres://example.com/prod");
     expect(config.cacheTtlMs).toBe(60_000);

@@ -1,5 +1,5 @@
-import { createSeededRng, type RngState } from "../rng.js";
 import type { ProvenanceRecord } from "../data/provenance.js";
+import { createSeededRng, type RngState } from "../rng.js";
 
 export type EncounterCandidate = {
   speciesId: string;

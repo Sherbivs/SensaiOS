@@ -1,6 +1,8 @@
 import { createRequire } from "node:module";
+
 import { Prisma, PrismaClient } from "@prisma/client";
 import { withAccelerate } from "@prisma/extension-accelerate";
+
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
 
@@ -54,9 +56,14 @@ const heartbeatListeners: Set<HeartbeatListener> =
 globalPrisma.prismaHeartbeatListeners = heartbeatListeners;
 
 const ACCELERATE_SCHEME = /^prisma\+/i;
+const OPTIMIZE_SCHEME = /^prisma(\+|:\/\/)/i;
 
 function isAccelerateUrl(url: string): boolean {
   return ACCELERATE_SCHEME.test(url);
+}
+
+function isOptimizeCompatibleUrl(url: string): boolean {
+  return OPTIMIZE_SCHEME.test(url);
 }
 
 function resolveAccelerateRuntime(): "node" | "serverless" {
@@ -105,6 +112,30 @@ type OptimizeModule = typeof import("@prisma/extension-optimize");
 
 if (optimizeApiKey) {
   const apiKey = optimizeApiKey;
+  const optimizeEndpointRaw = (
+    process.env.OPTIMIZE_API_URL ?? process.env.OPTIMIZE_API_ENDPOINT ?? ""
+  ).trim();
+  let optimizeEndpoint: string | null = null;
+
+  if (optimizeEndpointRaw) {
+    try {
+      const parsedEndpoint = new URL(optimizeEndpointRaw);
+      if (parsedEndpoint.protocol !== "https:") {
+        log.warn("Prisma Optimize endpoint must use HTTPS; ignoring override", {
+          endpoint: `${parsedEndpoint.protocol}//${parsedEndpoint.host}`,
+        });
+      } else {
+        parsedEndpoint.hash = "";
+        const normalized = parsedEndpoint.toString().replace(/\/?$/, "");
+        optimizeEndpoint = normalized;
+      }
+    } catch (error) {
+      log.warn("Invalid Prisma Optimize endpoint override; ignoring value", {
+        endpoint: optimizeEndpointRaw,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   const attachOptimizeModule = (module: Partial<OptimizeModule> | null | undefined): boolean => {
     if (!module) {
@@ -114,8 +145,12 @@ if (optimizeApiKey) {
     if (typeof withOptimize !== "function") {
       return false;
     }
+    const optimizeOptions: Record<string, unknown> = { apiKey };
+    if (optimizeEndpoint) {
+      optimizeOptions.endpoint = optimizeEndpoint;
+    }
     optimizeExtender = (client: PrismaClient) =>
-      client.$extends(withOptimize({ apiKey })) as unknown as PrismaClient;
+      client.$extends(withOptimize(optimizeOptions as Parameters<typeof withOptimize>[0])) as unknown as PrismaClient;
     return true;
   };
 
@@ -312,9 +347,8 @@ function validateDatabaseUrl(url: string): void {
   }
 
   try {
-    // eslint-disable-next-line no-new
     new URL(url);
-  } catch (error) {
+  } catch {
     throw new Error("DATABASE_URL is not a valid URL.");
   }
 }
@@ -343,13 +377,18 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
   const baseClient = new PrismaCtor(baseOptions as Prisma.PrismaClientOptions) as PrismaClient;
   let client = baseClient;
 
-  if (optimizeExtender) {
+  if (optimizeExtender && isOptimizeCompatibleUrl(candidate.url)) {
     try {
       client = optimizeExtender(client);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       log.warn("Prisma Optimize extension attach failed", { error: message });
     }
+  } else if (optimizeExtender) {
+    log.debug("Prisma Optimize skipped for datasource", {
+      reason: "incompatible-url",
+      source: candidate.source,
+    });
   }
 
   if (usesAccelerate) {

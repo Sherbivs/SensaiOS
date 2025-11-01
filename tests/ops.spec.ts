@@ -1,6 +1,7 @@
+import type { ChatInputCommandInteraction } from 'discord.js';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
-import type { ChatInputCommandInteraction } from 'discord.js';
+
 import { isAdmin, handleOpsCommand } from '../src/bot/ops/admin';
 import * as cacheFacade from '../src/services/cache/facade';
 
@@ -85,7 +86,7 @@ describe('/ops stats reporting', () => {
         getSubcommandGroup: vi.fn().mockReturnValue(null),
         getUser: vi.fn(),
         getInteger: vi.fn().mockReturnValue(null),
-        getString: vi.fn((name: string) => null),
+  getString: vi.fn((_name: string) => null),
       } as any,
       deferReply: deferReply as any,
       editReply: editReply as any,

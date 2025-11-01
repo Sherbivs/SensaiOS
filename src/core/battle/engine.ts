@@ -2,12 +2,52 @@
 // Provides deterministic RNG, simple helpers to build runtimes from dex, and resolve a turn.
 
 // Import CommonJS modules from our JS engine using esModuleInterop
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import engine from '../../engine/index.js';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import calc from '../../engine/calc.js';
+
+// @ts-ignore — legacy JS module without types
+import calc from "../../engine/calc.js";
+// @ts-ignore — legacy JS module without types
+import engine from "../../engine/index.js";
+
+type UnknownRecord = Record<string, unknown>;
+
+type CalcModule = {
+  effectiveStat(pokemon: unknown, key: string, options?: unknown): number;
+};
+
+type ResolveContext = {
+  rng?: RNG;
+  weather: ResolveCtxOptions["weather"] | null;
+  critChance?: number;
+} & UnknownRecord;
+
+export interface BuiltIndexes {
+  dexLookup: (query: string | number) => UnknownRecord | null;
+  movesIndex: Record<string, UnknownRecord>;
+}
+
+type BattleResolution = {
+  log: string[];
+  state: UnknownRecord;
+  [key: string]: unknown;
+};
+
+type BattleRuntime = UnknownRecord;
+
+interface BattleEngineModule {
+  loadIndexes(): BuiltIndexes;
+  makeRuntimeFromDexEntry(entry: UnknownRecord | null, level: number, moves: MoveKey[], options: UnknownRecord): BattleRuntime;
+  newBattleState(a: BattleRuntime, b: BattleRuntime): UnknownRecord;
+  newAction(side: "a" | "b", move: MoveKey): UnknownRecord;
+  resolveTurn(
+    state: UnknownRecord,
+    actionA: UnknownRecord,
+    actionB: UnknownRecord,
+    context: ResolveContext & BuiltIndexes & { publicLog: unknown[] }
+  ): BattleResolution;
+}
+
+const calcModule = calc as CalcModule;
+const engineModule = engine as BattleEngineModule;
 
 export interface RNG {
   next: () => number; // [0,1)
@@ -41,43 +81,43 @@ export interface ResolveCtxOptions {
   critChance?: number; // override global crit chance (0..1)
 }
 
-export interface BuiltIndexes {
-  dexLookup: (q: string | number) => any;
-  movesIndex: Record<string, any>;
-}
-
 export function loadIndexes(): BuiltIndexes {
   // engine.loadIndexes returns { dexLookup, movesIndex }
-  return engine.loadIndexes();
+  return engineModule.loadIndexes();
 }
 
-export function buildRuntimeFromDex(name: string, level = 50, moves: MoveKey[] = [], opts: Record<string, any> = {}) {
+export function buildRuntimeFromDex(
+  name: string,
+  level = 50,
+  moves: MoveKey[] = [],
+  opts: UnknownRecord = {}
+) {
   const { dexLookup } = loadIndexes();
   const dexMon = dexLookup(name);
   if (!dexMon) throw new Error(`Unknown species: ${name}`);
-  const p = engine.makeRuntimeFromDexEntry(dexMon, level, moves, opts);
+  const p = engineModule.makeRuntimeFromDexEntry(dexMon, level, moves, opts);
   return p;
 }
 
 export interface BattleInitOptions extends ResolveCtxOptions {
-  a: { name: string; level?: number; moves?: MoveKey[]; opts?: Record<string, any> };
-  b: { name: string; level?: number; moves?: MoveKey[]; opts?: Record<string, any> };
+  a: { name: string; level?: number; moves?: MoveKey[]; opts?: UnknownRecord };
+  b: { name: string; level?: number; moves?: MoveKey[]; opts?: UnknownRecord };
 }
 
 export function newBattle(init: BattleInitOptions) {
   const { a, b } = init;
   const pa = buildRuntimeFromDex(a.name, a.level ?? 50, a.moves ?? [], a.opts ?? {});
   const pb = buildRuntimeFromDex(b.name, b.level ?? 50, b.moves ?? [], b.opts ?? {});
-  const state = engine.newBattleState(pa, pb);
+  const state = engineModule.newBattleState(pa, pb);
 
   // Build a ctx compatible with engine
   const indexes = loadIndexes();
   const rng = init.seed != null ? new SeededRNG(init.seed) : undefined;
-  const ctx: any = {
+  const ctx: ResolveContext = {
     rng,
     weather: init.weather ?? null,
   };
-  if (typeof init.critChance === 'number') ctx.critChance = init.critChance;
+  if (typeof init.critChance === "number") ctx.critChance = init.critChance;
 
   return { state, ctx, indexes };
 }
@@ -88,21 +128,20 @@ export function resolveTurn(
   moveB: MoveKey,
 ) {
   const { state, ctx, indexes } = battle;
-  const { newAction, resolveTurn } = engine as any;
-  const actionA = newAction('a', moveA);
-  const actionB = newAction('b', moveB);
-  const result = resolveTurn(state, actionA, actionB, { ...ctx, ...indexes, publicLog: [] });
+  const actionA = engineModule.newAction("a", moveA);
+  const actionB = engineModule.newAction("b", moveB);
+  const result = engineModule.resolveTurn(state, actionA, actionB, { ...ctx, ...indexes, publicLog: [] });
   return result;
 }
 
-export function effectiveSpeed(p: any) {
-  return (calc as any).effectiveStat(p, 'speed');
+export function effectiveSpeed(pokemon: unknown) {
+  return calcModule.effectiveStat(pokemon, "speed");
 }
 
 export function makeCtx(opts: ResolveCtxOptions = {}) {
   const rng = opts.seed != null ? new SeededRNG(opts.seed) : undefined;
-  const ctx: any = { rng, weather: opts.weather ?? null };
-  if (typeof opts.critChance === 'number') ctx.critChance = opts.critChance;
+  const ctx: ResolveContext = { rng, weather: opts.weather ?? null };
+  if (typeof opts.critChance === "number") ctx.critChance = opts.critChance;
   return ctx;
 }
 

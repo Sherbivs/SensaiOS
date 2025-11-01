@@ -1,7 +1,9 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
+
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
 import { loadConfig, type BackupStorageConfig, type BackupStorageProvider } from "../config.js";
 import { log } from "../log.js";
 
@@ -28,7 +30,7 @@ let cachedSink: BackupSink | null = null;
 function sanitizeSegment(segment: string): string {
   return segment
     .trim()
-    .replace(/[^a-zA-Z0-9/_\-]+/g, "-")
+  .replace(/[^a-zA-Z0-9/_-]+/g, "-")
     .replace(/--+/g, "-")
     .replace(/^[-/]+|[-/]+$/g, "");
 }

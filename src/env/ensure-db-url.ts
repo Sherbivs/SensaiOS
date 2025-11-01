@@ -122,7 +122,7 @@ function isLikelyLocal(candidate: string): boolean {
     const parsed = new URL(candidate);
     const host = parsed.hostname.toLowerCase();
     return host === "localhost" || host === "127.0.0.1" || host === "::1";
-  } catch (err) {
+  } catch {
     return /localhost|127\.0\.0\.1|::1/.test(candidate);
   }
 }

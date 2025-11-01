@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient, type BusPriority, type BusKind, type BusMessage } from "@prisma/client";
+
 import { prisma } from "../shared/prisma.js";
 
 type BusClient = Pick<PrismaClient, "busMessage" | "busIdemToken" | "$queryRaw">;
