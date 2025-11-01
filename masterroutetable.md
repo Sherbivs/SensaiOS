@@ -212,4 +212,5 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
         - `tests/dm_home_views.spec.ts` — DM Home party/box/profile embed output with pagination buttons
 	- `tests/encounter_walk.spec.ts` — wild encounter flow
 - Notes:
-	- 2025-10-27: PBSL oracle diff suite compares fixtures under tests/pbsl/** for deterministic regressions.
+        - 2025-10-27: PBSL oracle diff suite compares fixtures under tests/pbsl/** for deterministic regressions.
+        - 2025-11-01: Battle engine spec mirrors MVP rules for priority, status modifiers, flinch handling, and early offensive items.
