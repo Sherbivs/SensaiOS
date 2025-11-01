@@ -1,6 +1,6 @@
 # RULESET
 
-_Last initialized: 2025-11-01T19:37:16Z (UTC) — Rev: 0.1_
+_Last initialized: 2025-11-01T20:01:30Z (UTC) — Rev: 0.1_
 
 This document defines the game rules and mechanics versioning for the Discord Pokémon fan server bot.
 

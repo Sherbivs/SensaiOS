@@ -201,7 +201,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Test Suite (`tests/ROUTER.md`)
 - Purpose: Vitest suites covering schemas, data pipeline, battle engines, DM flows, ops tooling.
 - Owned Globs: `tests/**`
-- Last Updated: 2025-10-27T12:30:00Z
+- Last Updated: 2025-11-01T20:02:00Z
 - Representative Specs:
 	- `tests/battle_engine.spec.ts` — deterministic battle engine coverage
 	- `tests/battle_flow.spec.ts` — arena flow integration tests
@@ -210,4 +210,5 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 	- `tests/data_pipeline.spec.ts` — reference data validation
 	- `tests/encounter_walk.spec.ts` — wild encounter flow
 - Notes:
-	- 2025-10-27: PBSL oracle diff suite compares fixtures under tests/pbsl/** for deterministic regressions.
+        - 2025-10-27: PBSL oracle diff suite compares fixtures under tests/pbsl/** for deterministic regressions.
+        - 2025-11-01: Battle engine spec mirrors MVP rules for priority, status modifiers, flinch handling, and early offensive items.
