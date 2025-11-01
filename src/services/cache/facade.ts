@@ -14,7 +14,10 @@ import path from "node:path";
 import { log } from "../../shared/log.js";
 import legacyCache from "../cache.js";
 
-const { MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS } = legacyCache;
+const { MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS } = (legacyCache as unknown as {
+  MAX_CACHE_PERCENT: number;
+  MAX_CACHE_FILE_AGE_MS: number;
+});
 
 const PRIMARY_RUNTIME_CACHE_DIR = "/Store/runtime-cache";
 const FALLBACK_RUNTIME_CACHE_DIR = path.join(process.cwd(), "Store", "runtime-cache");
