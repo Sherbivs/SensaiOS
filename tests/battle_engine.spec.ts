@@ -2,11 +2,17 @@ import { describe, it, expect } from "vitest";
 
 import { newBattle, resolveTurn, loadIndexes } from "../src/core/battle/engine";
 
-function getSide(state: unknown, key: "a" | "b") {
+type Battle = ReturnType<typeof newBattle>;
+
+type BattleResolution = ReturnType<typeof resolveTurn>;
+
+type SideKey = "a" | "b";
+
+function getSide(state: Battle["state"], key: SideKey) {
   if (!state || typeof state !== "object") {
     throw new Error("Battle state missing");
   }
-  const side = (state as Record<"a" | "b", unknown>)[key];
+  const side = (state as Record<SideKey, unknown>)[key];
   if (!side || typeof side !== "object") {
     throw new Error(`Battle state missing side ${key}`);
   }
@@ -17,21 +23,91 @@ function getSide(state: unknown, key: "a" | "b") {
   return { side, hp } as { side: Record<string, unknown>; hp: number };
 }
 
-describe('battle core v1', () => {
-  it('orders by speed when priorities tie', () => {
+function firstLogLine(resolution: BattleResolution) {
+  return (resolution.log[0] || "").toLowerCase();
+}
+
+describe("battle core v1", () => {
+  it("orders by move priority before speed", () => {
     const battle = newBattle({
-      a: { name: 'charizard', level: 50, moves: ['tackle'] },
-      b: { name: 'venusaur', level: 50, moves: ['tackle'] },
-      seed: 42,
+      a: { name: "venusaur", level: 50, moves: ["tackle"] },
+      b: { name: "charizard", level: 50, moves: ["bite"] },
+      seed: 99,
     });
-  const res = resolveTurn(battle, "tackle", "tackle");
-    const firstLine = res.log[0] || '';
-    expect(firstLine.toLowerCase()).toContain('charizard');
-    expect(firstLine.toLowerCase()).toContain('tackle');
+    battle.indexes.movesIndex["tackle"].priority = 1;
+    battle.indexes.movesIndex["bite"].priority = 0;
+
+    const res = resolveTurn(battle, "tackle", "bite");
+    expect(firstLogLine(res)).toContain("venusaur uses tackle");
   });
 
-  it('applies STAB and type effectiveness (fire vs grass/poison)', () => {
-  const { movesIndex } = loadIndexes();
+  it("orders by speed when priorities tie", () => {
+    const battle = newBattle({
+      a: { name: "charizard", level: 50, moves: ["tackle"] },
+      b: { name: "venusaur", level: 50, moves: ["tackle"] },
+      seed: 42,
+    });
+
+    const res = resolveTurn(battle, "tackle", "tackle");
+    expect(firstLogLine(res)).toContain("charizard uses tackle");
+  });
+
+  it("uses deterministic name tiebreak when speed and priority match", () => {
+    const battle = newBattle({
+      a: { name: "charizard", level: 50, moves: ["tackle"] },
+      b: { name: "charizard", level: 50, moves: ["tackle"] },
+      seed: 5,
+    });
+    battle.state.a.name = "Zulu";
+    battle.state.b.name = "Alpha";
+
+    const res = resolveTurn(battle, "tackle", "tackle");
+    expect(firstLogLine(res)).toContain("alpha uses tackle");
+  });
+
+  it("halves speed for paralyzed combatants when ordering actions", () => {
+    const battle = newBattle({
+      a: { name: "talonflame", level: 50, moves: ["tackle"] },
+      b: { name: "garchomp", level: 50, moves: ["tackle"] },
+      seed: 10,
+    });
+    (battle.state.a as { status?: string }).status = "par";
+
+    const res = resolveTurn(battle, "tackle", "tackle");
+    expect(firstLogLine(res)).toContain("garchomp uses tackle");
+  });
+
+  it("allows sleeping combatants to act until sleep behavior is implemented", () => {
+    const battle = newBattle({
+      a: { name: "blastoise", level: 50, moves: ["surf"] },
+      b: { name: "venusaur", level: 50, moves: ["tackle"] },
+      seed: 21,
+    });
+    (battle.state.a as { status?: string }).status = "slp";
+
+    const res = resolveTurn(battle, "surf", "tackle");
+    expect(res.log.some((line) => line.toLowerCase().includes("blastoise uses surf"))).toBe(true);
+  });
+
+  it("skips the next action when a combatant is flinched", () => {
+    const battle = newBattle({
+      a: { name: "charizard", level: 50, moves: ["tackle"] },
+      b: { name: "charizard", level: 50, moves: ["bite", "tackle"] },
+      seed: 3,
+    });
+    battle.indexes.movesIndex["bite"].meta = battle.indexes.movesIndex["bite"].meta || {};
+    battle.indexes.movesIndex["bite"].meta!.flinch_chance = 100;
+
+    resolveTurn(battle, "tackle", "bite");
+    const res = resolveTurn(battle, "tackle", "tackle");
+
+    expect(res.log.some((line) => line.toLowerCase().includes("flinched and couldn’t move"))).toBe(true);
+    const active = getSide(res.state, "a").side;
+    expect((active.volatile as { flinched?: boolean }).flinched).toBeFalsy();
+  });
+
+  it("applies STAB and type effectiveness (fire vs grass/poison)", () => {
+    const { movesIndex } = loadIndexes();
     const battle = newBattle({
       a: { name: "charizard", level: 50, moves: ["flamethrower"] },
       b: { name: "venusaur", level: 50, moves: ["tackle"] },
@@ -42,13 +118,11 @@ describe('battle core v1', () => {
     const hpAfter = getSide(res.state, "b").hp;
     const dealt = hpBefore - hpAfter;
     expect(dealt).toBeGreaterThan(0);
-    // Ensure the move exists and is fire-type
-  expect(movesIndex["flamethrower"].type).toBe("fire");
-    // Log should mention Flamethrower
-  expect(res.log.join("\n").toLowerCase()).toContain("flamethrower");
+    expect(movesIndex["flamethrower"].type).toBe("fire");
+    expect(res.log.join("\n").toLowerCase()).toContain("flamethrower");
   });
 
-  it('respects ability immunities (Levitate vs Ground)', () => {
+  it("respects ability immunities (Levitate vs Ground)", () => {
     const battle = newBattle({
       a: { name: "gyarados", level: 50, moves: ["earthquake"] },
       b: { name: "rotom", level: 50, moves: ["tackle"] },
@@ -57,16 +131,15 @@ describe('battle core v1', () => {
     const hpBefore = getSide(battle.state, "b").hp;
     const res = resolveTurn(battle, "earthquake", "tackle");
     const hpAfter = getSide(res.state, "b").hp;
-    expect(hpAfter).toBe(hpBefore); // immune due to Levitate
+    expect(hpAfter).toBe(hpBefore);
   });
 
-  it('supports deterministic crit via critChance override', () => {
-    // Two identical attacks, but with critChance=1 they should deal strictly more
+  it("supports deterministic crit via critChance override", () => {
     const battleCrit = newBattle({
       a: { name: "charizard", level: 50, moves: ["tackle"] },
       b: { name: "venusaur", level: 50, moves: ["tackle"] },
       seed: 1,
-      critChance: 1, // always crit
+      critChance: 1,
     });
     const beforeCrit = getSide(battleCrit.state, "b").hp;
     const rc = resolveTurn(battleCrit, "tackle", "tackle");
@@ -76,12 +149,70 @@ describe('battle core v1', () => {
       a: { name: "charizard", level: 50, moves: ["tackle"] },
       b: { name: "venusaur", level: 50, moves: ["tackle"] },
       seed: 1,
-      critChance: 0, // never crit
+      critChance: 0,
     });
     const beforeNo = getSide(battleNoCrit.state, "b").hp;
     const rn = resolveTurn(battleNoCrit, "tackle", "tackle");
     const dealtNo = beforeNo - getSide(rn.state, "b").hp;
 
     expect(dealtCrit).toBeGreaterThan(dealtNo);
+  });
+
+  it("boosts physical damage with Choice Band", () => {
+    const base = newBattle({
+      a: { name: "heracross", level: 50, moves: ["close-combat"] },
+      b: { name: "snorlax", level: 50, moves: ["tackle"] },
+      seed: 12,
+    });
+    const baseBefore = getSide(base.state, "b").hp;
+    const baseRes = resolveTurn(base, "close-combat", "tackle");
+    const baseDamage = baseBefore - getSide(baseRes.state, "b").hp;
+
+    const band = newBattle({
+      a: { name: "heracross", level: 50, moves: ["close-combat"], opts: { item: "choice-band" } },
+      b: { name: "snorlax", level: 50, moves: ["tackle"] },
+      seed: 12,
+    });
+    const bandBefore = getSide(band.state, "b").hp;
+    const bandRes = resolveTurn(band, "close-combat", "tackle");
+    const bandDamage = bandBefore - getSide(bandRes.state, "b").hp;
+
+    expect(bandDamage).toBeGreaterThan(baseDamage);
+  });
+
+  it("boosts special damage with Choice Specs", () => {
+    const base = newBattle({
+      a: { name: "blastoise", level: 50, moves: ["surf"] },
+      b: { name: "charizard", level: 50, moves: ["tackle"] },
+      seed: 18,
+    });
+    const baseBefore = getSide(base.state, "b").hp;
+    const baseRes = resolveTurn(base, "surf", "tackle");
+    const baseDamage = baseBefore - getSide(baseRes.state, "b").hp;
+
+    const specs = newBattle({
+      a: { name: "blastoise", level: 50, moves: ["surf"], opts: { item: "choice-specs" } },
+      b: { name: "charizard", level: 50, moves: ["tackle"] },
+      seed: 18,
+    });
+    const specsBefore = getSide(specs.state, "b").hp;
+    const specsRes = resolveTurn(specs, "surf", "tackle");
+    const specsDamage = specsBefore - getSide(specsRes.state, "b").hp;
+
+    expect(specsDamage).toBeGreaterThan(baseDamage);
+  });
+
+  it("applies Life Orb recoil after dealing damage", () => {
+    const battle = newBattle({
+      a: { name: "charizard", level: 50, moves: ["flamethrower"], opts: { item: "life-orb" } },
+      b: { name: "venusaur", level: 50, moves: ["tackle"] },
+      seed: 25,
+    });
+    const hpBefore = getSide(battle.state, "a").hp;
+    const res = resolveTurn(battle, "flamethrower", "tackle");
+    const hpAfter = getSide(res.state, "a").hp;
+
+    expect(hpBefore - hpAfter).toBeGreaterThan(0);
+    expect(res.log.some((line) => line.includes("Life Orb"))).toBe(true);
   });
 });
