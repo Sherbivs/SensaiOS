@@ -130,8 +130,6 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     process.env.PRISMA_DATA_PROXY_URL?.trim() ??
     "";
   const poolUrl = process.env.DATABASE_POOL_URL?.trim() ?? "";
-  const internalUrl = process.env.DATABASE_INTERNAL_URL?.trim() ?? "";
-  const directUrl = process.env.DATABASE_DIRECT_URL?.trim() ?? "";
   const envUrl = process.env.DATABASE_URL?.trim() ?? "";
   const externalUrl =
     process.env.DATABASE_EXTERNAL_URL?.trim() ??
@@ -145,10 +143,9 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
 
   const seen = new Set<string>();
   type CandidateBucket = Array<{ value: string; source: DatabaseUrlSource; fallback: boolean }>;
-  const primaryCandidates: CandidateBucket = [];
-  const fallbackCandidates: CandidateBucket = [];
+  const accelerateCandidates: CandidateBucket = [];
 
-  const addCandidate = (value: string, source: DatabaseUrlSource, priority: "primary" | "fallback"): void => {
+  const addAccelerateCandidate = (value: string, source: DatabaseUrlSource): void => {
     if (!value) {
       return;
     }
@@ -157,39 +154,35 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     }
     seen.add(value);
     const usesAccelerate = isAccelerateUrl(value);
-    const normalizedSource: DatabaseUrlSource = usesAccelerate ? "accelerate" : source;
-    const target = priority === "primary" ? primaryCandidates : fallbackCandidates;
-    target.push({ value, source: normalizedSource, fallback: !usesAccelerate });
+    if (!usesAccelerate) {
+      return;
+    }
+    const normalizedSource: DatabaseUrlSource = "accelerate";
+    accelerateCandidates.push({ value, source: normalizedSource, fallback: false });
   };
 
   // Prioritize pooled Accelerate-style URLs by default.
-  addCandidate(poolUrl, "pool", "primary");
+  addAccelerateCandidate(poolUrl, "pool");
 
   // Respect explicit Accelerate overrides after the pool candidate.
-  addCandidate(accelerateUrl, "accelerate", "primary");
+  addAccelerateCandidate(accelerateUrl, "accelerate");
 
   // If the env URL itself is already Accelerate, include it in the primary list.
   if (envUrl && isAccelerateUrl(envUrl)) {
-    addCandidate(envUrl, "env", "primary");
+    addAccelerateCandidate(envUrl, "env");
   }
 
-  const registerFallbacks = (): void => {
-    addCandidate(externalUrl, "external", "fallback");
-    if (!isAccelerateUrl(envUrl)) {
-      addCandidate(envUrl, "env", "fallback");
-    }
-    addCandidate(internalUrl, "internal", "fallback");
-    addCandidate(directUrl, "direct", "fallback");
-  };
-
-  if (preferExternal) {
-    registerFallbacks();
-  } else {
-    // Internal-first still reuses the same fallback ordering; the primary list already front-loads Accelerate.
-    registerFallbacks();
+  if (externalUrl && isAccelerateUrl(externalUrl)) {
+    addAccelerateCandidate(externalUrl, preferExternal ? "external" : "env");
   }
 
-  const orderedCandidates = [...primaryCandidates, ...fallbackCandidates];
+  const orderedCandidates = [...accelerateCandidates];
+
+  if (!orderedCandidates.length) {
+    throw new Error(
+      "No Accelerate-compatible database URL found. Provide a prisma+ connection string via DATABASE_POOL_URL or DATABASE_ACCELERATE_URL."
+    );
+  }
 
   const preference = readConnectionPreference();
 

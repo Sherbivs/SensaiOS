@@ -19,4 +19,4 @@ Notes:
 - 2025-10-30: Added `dev_prod_auto_sync.ts` (`npm run db:auto-sync`) to consolidate on deployment and poll every five minutes for drift before replaying the Dev → Prod → Dev migration/seed cadence.
 - 2025-10-30: Hardened `dev_prod_auto_sync.ts` to inherit env file credentials, force direct migrations, apply command timeouts, and preflight Optimize SpeciesSheet access.
 - 2025-10-30: Linked `fetch_pokemon.mjs` + `dev_prod_auto_sync.ts`—fetcher now writes `dex-sync-trigger.json` and the auto-sync loop performs `dex_trigger` consolidations when that artifact changes.
-- 2025-10-30: Added `seed_dex.ts` (`npm run db:seed:dex`) to populate Pokédex reference tables and refresh `SpeciesSheet`.
+- 2025-11-01: Added `probe_prisma_optimize.ts` to wrap the Optimize connectivity smoke test without surfacing the Node libuv assertion.
