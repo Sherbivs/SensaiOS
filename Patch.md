@@ -99,7 +99,7 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Clipboard cleared — T14.CACHE.RECIPES delivered this run.]
+[Clipboard cleared — T14.CACHE.OBS instrumentation, docs, and tests committed.]
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

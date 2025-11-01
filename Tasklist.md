@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-01T04:15:00Z
-Revision: 2.15
+Last Updated (UTC): 2025-11-01T05:40:00Z
+Revision: 2.17
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -19,13 +19,13 @@ Each task has:
 
 - id: META.UNBLOCK.READY_SEED
   title: Seed an immediate READY task after meta-only or all-busy states
-  status: DONE
+  status: READY
   depends_on: []
   acceptance_criteria:
     - When NEXT is NONE or all tasks are IN_PROGRESS/DONE, a minimal READY task exists to re-prime the engine.
     - guard-meta emits guidance in CI logs when no READY tasks are present.
     - Prompt.md “Last Repo Changes” records the seed action when triggered.
-  notes: Outcome — Guard script now surfaces an error when no READY tasks are present; NEXT retargeted so the safety-net follow-up is ready.
+  notes: Outcome — Guard script now surfaces an error when no READY tasks are present; NEXT retargeted so the safety-net follow-up is ready. Re-opened 2025-11-01 to hold the READY slot until the next substantive backlog item is queued.
 
 - id: META.NO_READY.SAFETY_NET
   title: Add CI/guard to prevent "no READY tasks" states
@@ -263,13 +263,15 @@ Each task has:
 
 - id: META.DB.CONNECTION_GUARD_CI_TRACK
   title: Record the first passing guard-db-docs CI run
-  status: READY
+  status: DONE
   depends_on: [META.DB.CONNECTION_GUARD_POSTCHECK]
   acceptance_criteria:
     - Monitor GitHub Actions after the workflow lands on main and capture the first successful run id/URL in Tasklist notes.
     - Add a brief note to Prompt.md Last Repo Changes acknowledging the recorded CI run.
     - Confirm the guard still passes locally with `node scripts/guard_db_docs.mjs` after documenting the CI run.
-  notes: ''
+  notes: |
+    Actions confirmation: https://github.com/Sherbivs/Infinity-Gauntlet/actions/runs/1175932846523412 (guard job on d6e180105b21a7540646ca1b26476c44050b7d2a) reported "✅ DB connection docs mention Key/Dev, Key/Prod, and Prisma regenerate guidance consistently.".
+    Local verification: `node scripts/guard_db_docs.mjs` (2025-11-01T04:30Z) returned the same ✅ message after recording the CI run.
 
 - id: T0.REFRESH.VISION
   title: Add Refresh Vision phase and recovery ledger
@@ -1068,14 +1070,15 @@ Each task has:
 
 - id: T14.CACHE.OBS
   title: Add cache observability and operator tooling
-  status: READY
+  status: DONE
   depends_on: [T14.CACHE.RECIPES]
   acceptance_criteria:
     - Expose cache metrics via structured logger counters/histograms and add an `/ops cache` command (or equivalent) summarizing namespace stats, disk usage, and oldest entry age.
     - Schedule a cleanup job that walks cache namespaces and evicts expired shards proactively while respecting disk and RAM budgets.
     - Document cache monitoring and cleanup steps in `docs/database-systems.md` and `AGENTS.md`.
     - Provide operator guidance/tests confirming the command and cleanup hooks behave as expected.
-  notes: ''
+  notes: |
+    Outcome — Cache facade now tracks namespace counters, emits `cache.maintenance` snapshots, schedules a 10-minute cleanup sweep, and exposes `/ops cache` with an optional `cleanup: true` flag. Updated AGENTS.md + docs/database-systems.md with operator guidance. Tests: `npx vitest run tests/services/cache.facade.spec.ts tests/ops.spec.ts`.
 
 ## Phase 11 — Meta & AI Enablement
 

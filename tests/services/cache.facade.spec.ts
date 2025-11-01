@@ -4,10 +4,14 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cacheRoot,
+  collectCacheMetrics,
   configureCacheFacade,
   evict,
   getOrHydrate,
   peek,
+  resetCacheMetrics,
+  runCacheMaintenanceNow,
+  stopCacheMaintenanceScheduler,
   touch,
   type CacheReadOptions,
 } from "../../src/services/cache/facade";
@@ -17,12 +21,16 @@ describe("cache facade", () => {
 
   beforeEach(async () => {
     tempDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "ig-cache-facade-"));
+    stopCacheMaintenanceScheduler();
+    resetCacheMetrics();
     configureCacheFacade({ rootDir: tempDir, maxMemoryBytes: 1024 * 1024, maxMemoryItems: 32 });
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-01-01T00:00:00.000Z"));
   });
 
   afterEach(async () => {
+    stopCacheMaintenanceScheduler();
+    resetCacheMetrics();
     vi.useRealTimers();
     await fsPromises.rm(tempDir, { recursive: true, force: true });
   });
@@ -101,5 +109,34 @@ describe("cache facade", () => {
     const rehydrated = await getOrHydrate(baseOptions, hydrate);
     expect(rehydrated).toEqual({ round: 6 });
     expect(hydrate).toHaveBeenCalledTimes(2);
+  });
+
+  it("collects namespace metrics and maintenance state", async () => {
+    const hydrate = vi.fn().mockResolvedValue({ round: 7 });
+
+    await getOrHydrate(baseOptions, hydrate); // miss + hydration
+    await getOrHydrate(baseOptions, hydrate); // memory hit
+
+    configureCacheFacade({ rootDir: tempDir, maxMemoryBytes: 1024 * 1024, maxMemoryItems: 32 });
+
+    const diskHydrate = vi.fn().mockResolvedValue({ round: 8 });
+    await getOrHydrate(baseOptions, diskHydrate); // disk hit after memory reset
+    expect(diskHydrate).not.toHaveBeenCalled();
+
+    await runCacheMaintenanceNow("manual");
+    const snapshot = await collectCacheMetrics({ maintenanceReason: "snapshot" });
+
+    expect(snapshot.memory.items).toBeGreaterThan(0);
+    expect(snapshot.disk.entries).toBeGreaterThan(0);
+    expect(snapshot.maintenance.runs).toBeGreaterThan(0);
+    expect(snapshot.maintenance.lastReason).toBe("manual");
+
+    const ns = snapshot.namespaces.find((entry) => entry.namespace === baseOptions.namespace);
+    expect(ns).toBeDefined();
+    expect(ns?.memoryHits).toBe(1);
+    expect(ns?.diskHits).toBe(1);
+    expect(ns?.misses).toBe(1);
+    expect(ns?.hydrations).toBe(1);
+    expect(ns?.diskEntries).toBeGreaterThan(0);
   });
 });

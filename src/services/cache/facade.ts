@@ -26,6 +26,7 @@ const WORKSPACE_LIMIT_BYTES = 1024 * 1024 * 1024; // 1 GiB safety ceiling mirror
 const DEFAULT_MAX_MEMORY_BYTES = 16 * 1024 * 1024; // 16 MiB upper bound for hot entries.
 const DEFAULT_MAX_MEMORY_ITEMS = 512;
 const MAINTENANCE_MIN_INTERVAL_MS = 5_000;
+const DEFAULT_MAINTENANCE_INTERVAL_MS = 10 * 60_000;
 
 export interface CacheDescriptor {
   namespace: string;
@@ -69,6 +70,47 @@ interface CacheFacadeConfig {
   maxMemoryItems?: number;
   rootDir?: string;
 }
+
+type MaintenanceReason = "write" | "scheduled" | "manual" | "snapshot";
+
+type NamespaceMetrics = {
+  memoryHits: number;
+  diskHits: number;
+  misses: number;
+  hydrations: number;
+  inflightWaits: number;
+  touches: number;
+  evictions: number;
+  diskPrunes: number;
+  diskCleanups: number;
+  writes: number;
+  lastHitAt: number | null;
+  lastMissAt: number | null;
+  lastHydratedAt: number | null;
+  lastEvictedAt: number | null;
+  lastCleanupAt: number | null;
+  lastWriteAt: number | null;
+};
+
+type MaintenanceError = { message: string; name?: string } | null;
+
+type GlobalMaintenanceStats = {
+  runs: number;
+  lastRunAt: number | null;
+  lastDurationMs: number | null;
+  lastReason: MaintenanceReason | null;
+  lastError: MaintenanceError;
+};
+
+const namespaceMetrics = new Map<string, NamespaceMetrics>();
+
+const maintenanceStats: GlobalMaintenanceStats = {
+  runs: 0,
+  lastRunAt: null,
+  lastDurationMs: null,
+  lastReason: null,
+  lastError: null,
+};
 
 class InMemoryLru<T> {
   #entries = new Map<string, CacheRecord<T>>();
@@ -128,6 +170,15 @@ class InMemoryLru<T> {
     return this.#totalBytes;
   }
 
+  stats(): { items: number; bytes: number; maxItems: number; maxBytes: number } {
+    return {
+      items: this.#entries.size,
+      bytes: this.#totalBytes,
+      maxItems: this.#maxItems,
+      maxBytes: this.#maxBytes,
+    };
+  }
+
   #enforce(): void {
     while (this.#entries.size > this.#maxItems || this.#totalBytes > this.#maxBytes) {
       const oldestKey = this.#entries.keys().next().value;
@@ -145,8 +196,158 @@ const config: Required<CacheFacadeConfig> = {
 
 let memoryCache = new InMemoryLru<unknown>(config.maxMemoryBytes, config.maxMemoryItems);
 const inFlightHydrations = new Map<string, Promise<unknown>>();
+let maintenanceTimer: NodeJS.Timeout | null = null;
 let maintenancePromise: Promise<void> | null = null;
 let lastMaintenanceRun = 0;
+
+function ensureNamespaceMetrics(namespace: string): NamespaceMetrics {
+  let metrics = namespaceMetrics.get(namespace);
+  if (!metrics) {
+    metrics = {
+      memoryHits: 0,
+      diskHits: 0,
+      misses: 0,
+      hydrations: 0,
+      inflightWaits: 0,
+      touches: 0,
+      evictions: 0,
+      diskPrunes: 0,
+      diskCleanups: 0,
+      writes: 0,
+      lastHitAt: null,
+      lastMissAt: null,
+      lastHydratedAt: null,
+      lastEvictedAt: null,
+      lastCleanupAt: null,
+      lastWriteAt: null,
+    };
+    namespaceMetrics.set(namespace, metrics);
+  }
+  return metrics;
+}
+
+function recordHit(namespace: string, tier: "memory" | "disk"): void {
+  const metrics = ensureNamespaceMetrics(namespace);
+  const stamp = Date.now();
+  if (tier === "memory") {
+    metrics.memoryHits += 1;
+  } else {
+    metrics.diskHits += 1;
+  }
+  metrics.lastHitAt = stamp;
+}
+
+function recordMiss(namespace: string): void {
+  const metrics = ensureNamespaceMetrics(namespace);
+  metrics.misses += 1;
+  metrics.lastMissAt = Date.now();
+}
+
+function recordHydration(namespace: string): void {
+  const metrics = ensureNamespaceMetrics(namespace);
+  metrics.hydrations += 1;
+  metrics.lastHydratedAt = Date.now();
+}
+
+function recordWait(namespace: string): void {
+  const metrics = ensureNamespaceMetrics(namespace);
+  metrics.inflightWaits += 1;
+}
+
+function recordTouchMetric(namespace: string): void {
+  const metrics = ensureNamespaceMetrics(namespace);
+  metrics.touches += 1;
+}
+
+function recordEvict(namespace: string): void {
+  const metrics = ensureNamespaceMetrics(namespace);
+  metrics.evictions += 1;
+  metrics.lastEvictedAt = Date.now();
+}
+
+function recordWrite(namespace: string): void {
+  const metrics = ensureNamespaceMetrics(namespace);
+  metrics.writes += 1;
+  metrics.lastWriteAt = Date.now();
+}
+
+function recordDiskRemoval(namespace: string, kind: "budget" | "expired"): void {
+  const metrics = ensureNamespaceMetrics(namespace);
+  metrics.lastCleanupAt = Date.now();
+  if (kind === "budget") {
+    metrics.diskPrunes += 1;
+  } else {
+    metrics.diskCleanups += 1;
+  }
+}
+
+function serializeError(err: unknown): MaintenanceError {
+  if (!err) return null;
+  if (err instanceof Error) {
+    return { message: err.message, name: err.name };
+  }
+  if (typeof err === "object") {
+    const value = err as { message?: unknown; name?: unknown };
+    const message = typeof value.message === "string" ? value.message : JSON.stringify(value);
+    const name = typeof value.name === "string" ? value.name : undefined;
+    return { message, name };
+  }
+  return { message: String(err) };
+}
+
+function namespaceFromPath(filePath: string): string {
+  const relative = path.relative(config.rootDir, filePath);
+  if (!relative || relative.startsWith("..")) {
+    return "unknown";
+  }
+  const [first] = relative.split(path.sep);
+  return first || "unknown";
+}
+
+function ensureMaintenanceTimer(): void {
+  if (!maintenanceTimer) {
+    startCacheMaintenanceScheduler();
+  }
+}
+
+export function startCacheMaintenanceScheduler(intervalMs = DEFAULT_MAINTENANCE_INTERVAL_MS): void {
+  if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
+    stopCacheMaintenanceScheduler();
+    return;
+  }
+  const clamped = Math.max(intervalMs, MAINTENANCE_MIN_INTERVAL_MS);
+  if (maintenanceTimer) {
+    clearInterval(maintenanceTimer);
+    maintenanceTimer = null;
+  }
+  maintenanceTimer = setInterval(() => {
+    scheduleMaintenance("scheduled");
+  }, clamped);
+  maintenanceTimer.unref?.();
+}
+
+export function stopCacheMaintenanceScheduler(): void {
+  if (maintenanceTimer) {
+    clearInterval(maintenanceTimer);
+    maintenanceTimer = null;
+  }
+}
+
+async function runImmediateMaintenance(reason: MaintenanceReason): Promise<void> {
+  if (maintenancePromise) {
+    await maintenancePromise;
+  }
+  maintenancePromise = executeMaintenance(reason).finally(() => {
+    lastMaintenanceRun = Date.now();
+    maintenancePromise = null;
+  });
+  await maintenancePromise;
+}
+
+export async function runCacheMaintenanceNow(reason: MaintenanceReason = "manual"): Promise<void> {
+  ensureMaintenanceTimer();
+  await runImmediateMaintenance(reason);
+}
 
 export function configureCacheFacade(overrides: CacheFacadeConfig): void {
   if (typeof overrides.maxMemoryBytes === "number" && overrides.maxMemoryBytes >= 0) {
@@ -162,14 +363,18 @@ export function configureCacheFacade(overrides: CacheFacadeConfig): void {
 
   memoryCache = new InMemoryLru<unknown>(config.maxMemoryBytes, config.maxMemoryItems);
   inFlightHydrations.clear();
+  ensureMaintenanceTimer();
 }
 
 export async function getOrHydrate<T>(options: CacheReadOptions, hydrator: CacheHydrator<T>): Promise<T> {
+  ensureMaintenanceTimer();
   const composite = buildCompositeKey(options);
   const now = Date.now();
+  const namespace = options.namespace;
 
   const memoryEntry = memoryCache.get(composite) as CacheRecord<T> | undefined;
   if (memoryEntry && !isExpired(memoryEntry, now)) {
+    recordHit(namespace, "memory");
     log.debug("cache.hit", buildLogMeta(options, "memory"));
     return memoryEntry.value;
   }
@@ -179,6 +384,7 @@ export async function getOrHydrate<T>(options: CacheReadOptions, hydrator: Cache
 
   const diskEntry = await readFromDisk<T>(options);
   if (diskEntry && !isExpired(diskEntry, now)) {
+    recordHit(namespace, "disk");
     log.debug("cache.hit", buildLogMeta(options, "disk"));
     memoryCache.set(composite, diskEntry);
     return diskEntry.value;
@@ -190,12 +396,15 @@ export async function getOrHydrate<T>(options: CacheReadOptions, hydrator: Cache
 
   const inFlight = inFlightHydrations.get(composite) as Promise<T> | undefined;
   if (inFlight) {
+    recordWait(namespace);
     log.debug("cache.wait", buildLogMeta(options, "inflight"));
     return inFlight;
   }
 
   const hydratePromise = (async () => {
     const lastValue = diskEntry?.value ?? memoryEntry?.value ?? null;
+    recordMiss(namespace);
+    recordHydration(namespace);
     const value = await hydrator({ ...options, lastValue });
     const record = buildRecord(options, value, Date.now());
     await persistRecord(record);
@@ -233,14 +442,17 @@ export async function peek<T>(descriptor: CacheDescriptor): Promise<T | null> {
 }
 
 export async function touch(options: CacheReadOptions): Promise<boolean> {
+  ensureMaintenanceTimer();
   const composite = buildCompositeKey(options);
   const now = Date.now();
+  const namespace = options.namespace;
 
   const memoryEntry = memoryCache.get(composite) as CacheRecord<unknown> | undefined;
   if (memoryEntry && !isExpired(memoryEntry, now)) {
     const touched = { ...memoryEntry, ttlMs: options.ttlMs, expiresAt: now + options.ttlMs, storedAt: now };
     memoryCache.set(composite, touched);
     await persistRecord(touched);
+    recordTouchMetric(namespace);
     log.debug("cache.touch", buildLogMeta(options, "memory"));
     return true;
   }
@@ -250,6 +462,7 @@ export async function touch(options: CacheReadOptions): Promise<boolean> {
     const touched = { ...diskRecord, ttlMs: options.ttlMs, expiresAt: now + options.ttlMs, storedAt: now };
     memoryCache.set(composite, touched);
     await persistRecord(touched);
+    recordTouchMetric(namespace);
     log.debug("cache.touch", buildLogMeta(options, "disk"));
     return true;
   }
@@ -258,8 +471,10 @@ export async function touch(options: CacheReadOptions): Promise<boolean> {
 }
 
 export async function evict(descriptor: CacheDescriptor): Promise<void> {
+  ensureMaintenanceTimer();
   const composite = buildCompositeKey(descriptor);
   memoryCache.delete(composite);
+  recordEvict(descriptor.namespace);
   await safeUnlink(descriptor);
   log.debug("cache.evict", buildLogMeta(descriptor, "evict"));
 }
@@ -347,7 +562,8 @@ async function persistRecord<T>(record: CacheRecord<T>): Promise<void> {
   } catch (err) {
     log.error("cache.write.error", err, buildLogMeta(record, "disk"));
   }
-  scheduleMaintenance();
+  recordWrite(record.namespace);
+  scheduleMaintenance("write");
 }
 
 async function safeUnlink(descriptor: CacheDescriptor): Promise<void> {
@@ -403,20 +619,45 @@ function buildLogMeta(descriptor: CacheDescriptor, source: string, err?: unknown
   return meta;
 }
 
-function scheduleMaintenance(): void {
+async function executeMaintenance(reason: MaintenanceReason): Promise<void> {
+  const started = Date.now();
+  let error: MaintenanceError = null;
+  try {
+    await enforceDiskBudget();
+    await cleanExpiredFiles();
+  } catch (err) {
+    error = serializeError(err);
+    log.warn("cache.maintenance.error", { reason, err: error });
+  } finally {
+    const finished = Date.now();
+    maintenanceStats.runs += 1;
+    maintenanceStats.lastRunAt = finished;
+    maintenanceStats.lastDurationMs = finished - started;
+    maintenanceStats.lastReason = reason;
+    maintenanceStats.lastError = error;
+    const meta: Record<string, unknown> = {
+      reason,
+      durationMs: maintenanceStats.lastDurationMs,
+      runs: maintenanceStats.runs,
+    };
+    if (error) {
+      meta.err = error;
+    }
+    log.info("cache.maintenance", meta);
+  }
+
+  try {
+    await collectCacheMetrics({ log: true, maintenanceReason: reason });
+  } catch (err) {
+    log.debug("cache.metrics.collect.error", { reason, err: serializeError(err) });
+  }
+}
+
+function scheduleMaintenance(reason: MaintenanceReason = "write"): void {
   const now = Date.now();
   if (maintenancePromise) return;
-  if (now - lastMaintenanceRun < MAINTENANCE_MIN_INTERVAL_MS) return;
-
-  maintenancePromise = (async () => {
-    try {
-      await enforceDiskBudget();
-      await cleanExpiredFiles();
-    } finally {
-      lastMaintenanceRun = Date.now();
-      maintenancePromise = null;
-    }
-  })();
+  if (reason === "write" && now - lastMaintenanceRun < MAINTENANCE_MIN_INTERVAL_MS) return;
+  void runImmediateMaintenance(reason);
 }
 
 async function enforceDiskBudget(): Promise<void> {
@@ -429,6 +670,7 @@ async function enforceDiskBudget(): Promise<void> {
     try {
       await fsPromises.unlink(entry.filePath);
       totalSize -= entry.size;
+      recordDiskRemoval(namespaceFromPath(entry.filePath), "budget");
       log.warn("cache.prune.disk", { file: path.basename(entry.filePath), size: entry.size });
     } catch (err) {
       if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
@@ -446,6 +688,7 @@ async function cleanExpiredFiles(): Promise<void> {
     if (now - entry.mtimeMs <= MAX_CACHE_FILE_AGE_MS) continue;
     try {
       await fsPromises.unlink(entry.filePath);
+      recordDiskRemoval(namespaceFromPath(entry.filePath), "expired");
       log.info("cache.cleanup.disk", { file: path.basename(entry.filePath) });
     } catch (err) {
       if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
@@ -535,4 +778,181 @@ async function listDiskEntries(): Promise<DiskEntry[]> {
   await walk(config.rootDir);
   entries.sort((a, b) => a.mtimeMs - b.mtimeMs);
   return entries;
+}
+
+function toIso(timestamp: number | null): string | null {
+  if (typeof timestamp !== "number" || Number.isNaN(timestamp)) {
+    return null;
+  }
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.valueOf())) {
+    return null;
+  }
+  return date.toISOString();
+}
+
+export type CacheNamespaceMetricsSnapshot = {
+  namespace: string;
+  memoryHits: number;
+  diskHits: number;
+  misses: number;
+  hydrations: number;
+  inflightWaits: number;
+  touches: number;
+  evictions: number;
+  diskPrunes: number;
+  diskCleanups: number;
+  writes: number;
+  lastHitIso: string | null;
+  lastMissIso: string | null;
+  lastHydratedIso: string | null;
+  lastEvictedIso: string | null;
+  lastCleanupIso: string | null;
+  lastWriteIso: string | null;
+  diskEntries: number;
+  diskBytes: number;
+  oldestEntryIso: string | null;
+  newestEntryIso: string | null;
+};
+
+export type CacheMetricsSnapshot = {
+  generatedAtIso: string;
+  memory: {
+    items: number;
+    bytes: number;
+    maxItems: number;
+    maxBytes: number;
+  };
+  disk: {
+    entries: number;
+    bytes: number;
+    approxFreeBytes: number;
+    maxAllowedBytes: number;
+    rootDir: string;
+    oldestEntryIso: string | null;
+    newestEntryIso: string | null;
+  };
+  maintenance: {
+    runs: number;
+    lastRunIso: string | null;
+    lastDurationMs: number | null;
+    lastReason: MaintenanceReason | null;
+    lastError: MaintenanceError;
+    pending: boolean;
+    origin: MaintenanceReason | null;
+  };
+  namespaces: CacheNamespaceMetricsSnapshot[];
+};
+
+type CollectOptions = {
+  log?: boolean;
+  maintenanceReason?: MaintenanceReason;
+};
+
+export async function collectCacheMetrics(options: CollectOptions = {}): Promise<CacheMetricsSnapshot> {
+  ensureMaintenanceTimer();
+  const [entries, budget] = await Promise.all([listDiskEntries(), Promise.resolve(calculateMaintenanceBudget())]);
+  const memoryStats = memoryCache.stats();
+
+  const totalBytes = entries.reduce((sum, entry) => sum + entry.size, 0);
+  const oldestEntryMs = entries.length ? entries[0].mtimeMs : null;
+  const newestEntryMs = entries.length ? entries[entries.length - 1].mtimeMs : null;
+
+  const namespaceDisk = new Map<string, { entries: number; bytes: number; oldest: number | null; newest: number | null }>();
+  for (const entry of entries) {
+    const ns = namespaceFromPath(entry.filePath);
+    let stats = namespaceDisk.get(ns);
+    if (!stats) {
+      stats = { entries: 0, bytes: 0, oldest: null, newest: null };
+      namespaceDisk.set(ns, stats);
+    }
+    stats.entries += 1;
+    stats.bytes += entry.size;
+    stats.oldest = stats.oldest === null ? entry.mtimeMs : Math.min(stats.oldest, entry.mtimeMs);
+    stats.newest = stats.newest === null ? entry.mtimeMs : Math.max(stats.newest, entry.mtimeMs);
+  }
+
+  const namespaces = new Set([...namespaceMetrics.keys(), ...namespaceDisk.keys()]);
+  const snapshotNamespaces: CacheNamespaceMetricsSnapshot[] = [];
+  for (const ns of namespaces) {
+    const metrics = ensureNamespaceMetrics(ns);
+    const disk = namespaceDisk.get(ns) ?? { entries: 0, bytes: 0, oldest: null, newest: null };
+    snapshotNamespaces.push({
+      namespace: ns,
+      memoryHits: metrics.memoryHits,
+      diskHits: metrics.diskHits,
+      misses: metrics.misses,
+      hydrations: metrics.hydrations,
+      inflightWaits: metrics.inflightWaits,
+      touches: metrics.touches,
+      evictions: metrics.evictions,
+      diskPrunes: metrics.diskPrunes,
+      diskCleanups: metrics.diskCleanups,
+      writes: metrics.writes,
+      lastHitIso: toIso(metrics.lastHitAt),
+      lastMissIso: toIso(metrics.lastMissAt),
+      lastHydratedIso: toIso(metrics.lastHydratedAt),
+      lastEvictedIso: toIso(metrics.lastEvictedAt),
+      lastCleanupIso: toIso(metrics.lastCleanupAt),
+      lastWriteIso: toIso(metrics.lastWriteAt),
+      diskEntries: disk.entries,
+      diskBytes: disk.bytes,
+      oldestEntryIso: toIso(disk.oldest),
+      newestEntryIso: toIso(disk.newest),
+    });
+  }
+
+  snapshotNamespaces.sort((a, b) => {
+    const bytesDelta = (b.diskBytes ?? 0) - (a.diskBytes ?? 0);
+    if (bytesDelta !== 0) return bytesDelta;
+    return a.namespace.localeCompare(b.namespace);
+  });
+
+  const snapshot: CacheMetricsSnapshot = {
+    generatedAtIso: new Date().toISOString(),
+    memory: {
+      items: memoryStats.items,
+      bytes: memoryStats.bytes,
+      maxItems: memoryStats.maxItems,
+      maxBytes: memoryStats.maxBytes,
+    },
+    disk: {
+      entries: entries.length,
+      bytes: totalBytes,
+      approxFreeBytes: budget.approxBytes,
+      maxAllowedBytes: budget.maxAllowedBytes,
+      rootDir: config.rootDir,
+      oldestEntryIso: toIso(oldestEntryMs),
+      newestEntryIso: toIso(newestEntryMs),
+    },
+    maintenance: {
+      runs: maintenanceStats.runs,
+      lastRunIso: toIso(maintenanceStats.lastRunAt),
+      lastDurationMs: maintenanceStats.lastDurationMs,
+      lastReason: maintenanceStats.lastReason,
+      lastError: maintenanceStats.lastError,
+      pending: Boolean(maintenancePromise),
+      origin: options.maintenanceReason ?? null,
+    },
+    namespaces: snapshotNamespaces,
+  };
+
+  if (options.log) {
+    log.info("cache.metrics", snapshot);
+  }
+
+  return snapshot;
+}
+
+export function resetCacheMetrics(): void {
+  namespaceMetrics.clear();
+  maintenanceStats.runs = 0;
+  maintenanceStats.lastRunAt = null;
+  maintenanceStats.lastDurationMs = null;
+  maintenanceStats.lastReason = null;
+  maintenanceStats.lastError = null;
+}
+
+if (process.env.NODE_ENV !== "test") {
+  startCacheMaintenanceScheduler();
 }

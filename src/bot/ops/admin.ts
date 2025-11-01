@@ -4,6 +4,15 @@ import { log } from "../../shared/log.js";
 import { config } from "../../shared/config.js";
 import { cache } from "../../shared/cache/memory.js";
 import { ensurePrisma, prisma } from "../../shared/prisma.js";
+import {
+  collectCacheMetrics,
+  runCacheMaintenanceNow,
+  startCacheMaintenanceScheduler,
+} from "../../services/cache/facade.js";
+import type {
+  CacheMetricsSnapshot,
+  CacheNamespaceMetricsSnapshot,
+} from "../../services/cache/facade.js";
 
 type BasicStats = {
   users?: number | null;
@@ -267,6 +276,136 @@ function formatBattleSummary(summary: BattleSummary) {
   return `- ${timestamp} • ${summary.id} • ${winner} over ${loser} (${reason}, ${turnText}) • rewards ${rewardText}`;
 }
 
+function formatBytesShort(bytes: number): string {
+  if (!Number.isFinite(bytes)) return "n/a";
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"] as const;
+  let value = Math.abs(bytes);
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const rounded = value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1);
+  const prefix = bytes < 0 ? "-" : "";
+  return `${prefix}${rounded} ${units[unitIndex]}`;
+}
+
+function formatDurationShort(duration: number | null): string {
+  if (!Number.isFinite(duration) || duration === null) return "n/a";
+  const ms = Math.max(0, duration);
+  if (ms < 1_000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) {
+    const seconds = ms / 1_000;
+    return `${seconds >= 10 ? seconds.toFixed(0) : seconds.toFixed(1)}s`;
+  }
+  if (ms < 3_600_000) {
+    const minutes = ms / 60_000;
+    return `${minutes >= 10 ? minutes.toFixed(0) : minutes.toFixed(1)}m`;
+  }
+  if (ms < 86_400_000) {
+    const hours = ms / 3_600_000;
+    return `${hours >= 10 ? hours.toFixed(0) : hours.toFixed(1)}h`;
+  }
+  const days = ms / 86_400_000;
+  return `${days >= 10 ? days.toFixed(0) : days.toFixed(1)}d`;
+}
+
+function describeInstant(iso: string | null): string {
+  if (!iso) return "n/a";
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.valueOf())) {
+    return iso;
+  }
+  const diff = Date.now() - parsed.getTime();
+  const absolute = Math.abs(diff);
+  const direction = diff >= 0 ? "ago" : "from now";
+  if (absolute < 1_000) return `${iso} (just now)`;
+  if (absolute < 60_000) {
+    return `${iso} (${Math.round(absolute / 1_000)}s ${direction})`;
+  }
+  if (absolute < 3_600_000) {
+    return `${iso} (${Math.round(absolute / 60_000)}m ${direction})`;
+  }
+  if (absolute < 86_400_000) {
+    return `${iso} (${Math.round(absolute / 3_600_000)}h ${direction})`;
+  }
+  return `${iso} (${Math.round(absolute / 86_400_000)}d ${direction})`;
+}
+
+function formatNamespaceMetricsLine(ns: CacheNamespaceMetricsSnapshot): string {
+  const sections = [
+    `mem/disk hits ${ns.memoryHits}/${ns.diskHits}`,
+    `misses ${ns.misses}`,
+    `hydrations ${ns.hydrations}`,
+    `files ${ns.diskEntries} (${formatBytesShort(ns.diskBytes)})`,
+  ];
+  if (ns.inflightWaits) sections.push(`waits ${ns.inflightWaits}`);
+  if (ns.touches) sections.push(`touches ${ns.touches}`);
+  if (ns.evictions) sections.push(`evictions ${ns.evictions}`);
+  if (ns.diskPrunes || ns.diskCleanups) {
+    sections.push(`prune ${ns.diskPrunes}/${ns.diskCleanups}`);
+  }
+  if (ns.lastWriteIso) {
+    sections.push(`last write ${describeInstant(ns.lastWriteIso)}`);
+  }
+  if (ns.lastCleanupIso) {
+    sections.push(`cleanup ${describeInstant(ns.lastCleanupIso)}`);
+  }
+  return `- ${ns.namespace} • ${sections.join(" | ")}`;
+}
+
+function formatCacheReport(snapshot: CacheMetricsSnapshot, cleanupRan: boolean): string {
+  const lines: string[] = [];
+  lines.push(cleanupRan ? "Cache metrics snapshot (cleanup triggered)." : "Cache metrics snapshot.");
+  lines.push(`Generated at: ${snapshot.generatedAtIso}`);
+  lines.push("");
+  lines.push("Memory:");
+  lines.push(`- Items: ${snapshot.memory.items}/${snapshot.memory.maxItems}`);
+  lines.push(`- Bytes: ${formatBytesShort(snapshot.memory.bytes)} of ${formatBytesShort(snapshot.memory.maxBytes)}`);
+  lines.push("");
+  lines.push("Disk:");
+  lines.push(`- Entries: ${snapshot.disk.entries}`);
+  lines.push(`- Size: ${formatBytesShort(snapshot.disk.bytes)}`);
+  lines.push(
+    `- Budget: ${formatBytesShort(snapshot.disk.maxAllowedBytes)} (approx free ${formatBytesShort(
+      snapshot.disk.approxFreeBytes,
+    )})`,
+  );
+  lines.push(`- Root: ${snapshot.disk.rootDir}`);
+  lines.push(`- Oldest entry: ${describeInstant(snapshot.disk.oldestEntryIso)}`);
+  lines.push(`- Newest entry: ${describeInstant(snapshot.disk.newestEntryIso)}`);
+  lines.push("");
+  lines.push("Maintenance:");
+  lines.push(`- Runs: ${snapshot.maintenance.runs}`);
+  lines.push(`- Trigger: ${snapshot.maintenance.origin ?? "snapshot"}`);
+  lines.push(
+    `- Last run: ${snapshot.maintenance.lastRunIso ? describeInstant(snapshot.maintenance.lastRunIso) : "never"}`,
+  );
+  lines.push(`- Duration: ${formatDurationShort(snapshot.maintenance.lastDurationMs)}`);
+  lines.push(`- Pending: ${snapshot.maintenance.pending ? "yes" : "no"}`);
+  if (snapshot.maintenance.lastError) {
+    lines.push(`- Last error: ${snapshot.maintenance.lastError.message}`);
+  }
+
+  if (!snapshot.namespaces.length) {
+    lines.push("");
+    lines.push("Namespaces:");
+    lines.push("- none yet.");
+  } else {
+    const limit = Math.min(snapshot.namespaces.length, 10);
+    lines.push("");
+    lines.push(
+      `Namespaces (top ${limit}${snapshot.namespaces.length > limit ? ` of ${snapshot.namespaces.length}` : ""}):`,
+    );
+    for (const ns of snapshot.namespaces.slice(0, limit)) {
+      lines.push(formatNamespaceMetricsLine(ns));
+    }
+  }
+
+  return lines.join("\n");
+}
+
 function formatOpsStatsReport(
   report: OpsStatsReport | null,
   diagnostics: OpsDiagnostics,
@@ -353,6 +492,26 @@ export async function handleOpsCommand(
       await interaction.editReply(
         `Deleted ${count} cooldown entr${count === 1 ? "y" : "ies"} for <@${user.id}>.`
       );
+    }
+    return;
+  }
+
+  if (sub === "cache") {
+    await interaction.deferReply({ ephemeral: true });
+    const cleanupRequested = Boolean(interaction.options?.getBoolean?.("cleanup"));
+    startCacheMaintenanceScheduler();
+    try {
+      if (cleanupRequested) {
+        await runCacheMaintenanceNow("manual");
+      }
+      const snapshot = await collectCacheMetrics({
+        maintenanceReason: cleanupRequested ? "manual" : "snapshot",
+      });
+      const report = formatCacheReport(snapshot, cleanupRequested);
+      await interaction.editReply({ content: report });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await interaction.editReply({ content: `Cache metrics unavailable: ${message}` });
     }
     return;
   }

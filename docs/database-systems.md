@@ -1,6 +1,6 @@
 # Database Systems Guide
 
-_Last updated: 2025-10-31T14:45:00Z (UTC) — Rev: 1.4_
+_Last updated: 2025-11-01T05:10:00Z (UTC) — Rev: 1.5_
 
 This guide captures everything engineers need to understand, operate, and extend Infinity Gauntlet’s PostgreSQL footprint across Render, Prisma Accelerate, and local development. Pair it with `DATA-SCHEMA.md` for entity specifics and `ops/DB_BOOTSTRAP.md` for runbook-grade procedures.
 
@@ -123,6 +123,12 @@ Materialized view refresh flows through the helper; direct `REFRESH MATERIALIZED
 - **Telemetry:** `worker.metrics.snapshot` feeds queue depth, cache size, and failure counters. Alert thresholds documented in `OPERATIONS.md`.
 - **Guards:** `scripts/guard_meta.sh`, `scripts/check_db_redundancy.ts`, and `scripts/db_smoke.ts` verify data parity and schema readiness.
 - **Control Suite:** `scripts/db_admin.ts` (run via `npm run db:cli`) consolidates counts, status checks, and raw queries while respecting secure env loading.
+
+### Runtime Cache Observability
+
+- `/ops cache` (Discord) reports in-memory and on-disk usage, namespace hit/miss counters, and maintenance history. Add the `cleanup: true` flag to run a maintenance sweep before sampling.
+- The cache facade schedules maintenance every 10 minutes; each run emits `cache.maintenance` and `cache.metrics` logs with duration, run reason, and per-namespace stats. Use `runCacheMaintenanceNow("manual")` (or `cleanup: true`) when a manual sweep is needed between cycles.
+- Tests `tests/services/cache.facade.spec.ts` and `tests/ops.spec.ts` cover the metrics snapshot and command output; run `pnpm test -- tests/services/cache.facade.spec.ts tests/ops.spec.ts` after touching cache instrumentation.
 
 ## 8. Testing & Local Verification
 

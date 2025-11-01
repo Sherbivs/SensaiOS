@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { isAdmin, handleOpsCommand } from '../src/bot/ops/admin';
+import * as cacheFacade from '../src/services/cache/facade';
 
 function mockInteraction(userId: string, isAdminPerm = false): ChatInputCommandInteraction {
   return {
@@ -24,6 +25,30 @@ function createPrismaStatsMock() {
       findFirst: vi.fn().mockResolvedValue(null),
     },
   } as any;
+}
+
+function cacheInteraction(cleanup = false) {
+  const deferReply = vi.fn().mockResolvedValue(undefined);
+  const editReply = vi.fn().mockResolvedValue(undefined);
+  const reply = vi.fn().mockResolvedValue(undefined);
+
+  const interaction: ChatInputCommandInteraction = {
+    user: { id: 'admin-user' } as any,
+    member: { permissions: { has: () => true } } as any,
+    options: {
+      getSubcommand: vi.fn().mockReturnValue('cache'),
+      getSubcommandGroup: vi.fn().mockReturnValue(null),
+      getBoolean: vi.fn().mockReturnValue(cleanup),
+      getUser: vi.fn(),
+      getInteger: vi.fn(),
+      getString: vi.fn(),
+    } as any,
+    deferReply: deferReply as any,
+    editReply: editReply as any,
+    reply: reply as any,
+  } as ChatInputCommandInteraction;
+
+  return { interaction, deferReply, editReply, reply };
 }
 
 describe('/ops admin gating', () => {
@@ -263,5 +288,97 @@ describe('/ops stats reporting', () => {
     const content: string = editReply.mock.calls[0][0].content;
     expect(content).toContain('Finished Battles: total 0 | showing 0/5 | after none | participant <@876543210987654321>');
     expect(content).toContain('none recorded for <@876543210987654321>');
+  });
+});
+
+describe('/ops cache reporting', () => {
+  const sampleSnapshot = (): cacheFacade.CacheMetricsSnapshot => ({
+    generatedAtIso: '2025-11-01T05:00:00Z',
+    memory: { items: 4, bytes: 2048, maxItems: 512, maxBytes: 16 * 1024 * 1024 },
+    disk: {
+      entries: 3,
+      bytes: 4096,
+      approxFreeBytes: 50 * 1024 * 1024,
+      maxAllowedBytes: 100 * 1024 * 1024,
+      rootDir: '/Store/runtime-cache',
+      oldestEntryIso: '2025-11-01T04:54:00Z',
+      newestEntryIso: '2025-11-01T04:59:30Z',
+    },
+    maintenance: {
+      runs: 5,
+      lastRunIso: '2025-11-01T04:59:00Z',
+      lastDurationMs: 1_200,
+      lastReason: 'manual',
+      lastError: null,
+      pending: false,
+      origin: 'snapshot',
+    },
+    namespaces: [
+      {
+        namespace: 'battle-state',
+        memoryHits: 6,
+        diskHits: 2,
+        misses: 1,
+        hydrations: 1,
+        inflightWaits: 0,
+        touches: 3,
+        evictions: 0,
+        diskPrunes: 0,
+        diskCleanups: 0,
+        writes: 4,
+        lastHitIso: '2025-11-01T04:59:30Z',
+        lastMissIso: '2025-11-01T04:52:00Z',
+        lastHydratedIso: '2025-11-01T04:52:00Z',
+        lastEvictedIso: null,
+        lastCleanupIso: null,
+        lastWriteIso: '2025-11-01T04:59:00Z',
+        diskEntries: 2,
+        diskBytes: 2048,
+        oldestEntryIso: '2025-11-01T04:54:00Z',
+        newestEntryIso: '2025-11-01T04:59:00Z',
+      },
+    ],
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reports cache metrics without running cleanup', async () => {
+    const { interaction, deferReply, editReply } = cacheInteraction(false);
+    const snapshot = sampleSnapshot();
+    const collectSpy = vi.spyOn(cacheFacade, 'collectCacheMetrics').mockResolvedValue(snapshot);
+    const runSpy = vi.spyOn(cacheFacade, 'runCacheMaintenanceNow').mockResolvedValue();
+    const startSpy = vi.spyOn(cacheFacade, 'startCacheMaintenanceScheduler').mockImplementation(() => {});
+
+    await handleOpsCommand(interaction);
+
+    expect(deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(startSpy).toHaveBeenCalled();
+    expect(runSpy).not.toHaveBeenCalled();
+    expect(collectSpy).toHaveBeenCalledWith(expect.objectContaining({ maintenanceReason: 'snapshot' }));
+
+    const content: string = editReply.mock.calls[0][0].content;
+    expect(content).toContain('Cache metrics snapshot');
+    expect(content).toContain('Memory:');
+    expect(content).toContain('Namespaces');
+  });
+
+  it('runs manual cleanup when requested', async () => {
+    const { interaction, editReply } = cacheInteraction(true);
+    const snapshot = sampleSnapshot();
+    snapshot.maintenance.origin = 'manual';
+    snapshot.maintenance.lastReason = 'manual';
+    const collectSpy = vi.spyOn(cacheFacade, 'collectCacheMetrics').mockResolvedValue(snapshot);
+    const runSpy = vi.spyOn(cacheFacade, 'runCacheMaintenanceNow').mockResolvedValue();
+    vi.spyOn(cacheFacade, 'startCacheMaintenanceScheduler').mockImplementation(() => {});
+
+    await handleOpsCommand(interaction);
+
+    expect(runSpy).toHaveBeenCalledWith('manual');
+    expect(collectSpy).toHaveBeenCalledWith(expect.objectContaining({ maintenanceReason: 'manual' }));
+
+    const content: string = editReply.mock.calls[0][0].content;
+    expect(content.startsWith('Cache metrics snapshot (cleanup triggered).')).toBe(true);
   });
 });

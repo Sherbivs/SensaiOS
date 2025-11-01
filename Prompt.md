@@ -1,12 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-01T04:15:00Z
-Revision: 1.62
+Timestamp (UTC): 2025-11-01T05:40:00Z
+Revision: 1.64
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added `src/services/cache/recipes.ts` with battle/encounter/quest hydrators, TTLs, and invalidation hooks layered over the runtime cache facade.
-- Rewired battle challenge/action/conclude flows and encounter catch/run handlers to hydrate via the recipes while logging `cache.stale/recover` events.
-- Routed the daily quest claim command through the quest reward recipe for idempotent messaging and preserved fallback behaviour.
-- Marked T14.CACHE.RECIPES as DONE, promoted T14.CACHE.OBS to READY, and validated recipes via `npx vitest run tests/services/cache.facade.spec.ts tests/services/cache.recipes.spec.ts`.
+- Added cache metrics counters, scheduled maintenance, and manual cleanup hooks in `src/services/cache/facade.ts` with `/ops cache` output wiring.
+- Documented the cache observability workflow in `docs/database-systems.md` and `AGENTS.md`, then reopened META.UNBLOCK.READY_SEED as the READY placeholder.
+- Verified coverage via `npx vitest run tests/services/cache.facade.spec.ts` and `npx vitest run tests/ops.spec.ts`, confirming the metrics + command suites pass.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -19,9 +18,9 @@ Revision: 1.62
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** META.DB.CONNECTION_GUARD_CI_TRACK — record the first passing guard-db-docs CI run once Actions history is visible.
-- **READY / In-flight:** META.DB.CONNECTION_GUARD_CI_TRACK READY; guard Actions page currently returns 404 without authentication so we still need the first success details.
-- **Recent Finish:** T13.DEX.AUTO_SYNC_TRIGGER wired the PokéAPI fetch trigger into the automation loop so dex consolidations fire when fresh cache data lands and log the trigger metadata for audits.
+- **NEXT Pointer:** META.UNBLOCK.READY_SEED — placeholder READY task until the next substantive backlog item is promoted.
+- **READY / In-flight:** Seed task READY; stands by to keep guardrails satisfied while new work is queued.
+- **Recent Finish:** T14.CACHE.OBS delivered cache metrics, scheduled cleanup, `/ops cache`, and doc/test coverage for the observability surface.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -62,11 +61,11 @@ Revision: 1.62
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Wired cache recipes into battles, encounters, and daily quests with eviction hooks and added recipe hydration tests while queueing OBS follow-up.
+Change: Added cache metrics snapshot + maintenance scheduler, wired `/ops cache` output, refreshed docs, and retargeted NEXT to the seed placeholder.
 TasklistDiff: true
-Tests: npx vitest run tests/services/cache.facade.spec.ts tests/services/cache.recipes.spec.ts
+Tests: npx vitest run tests/services/cache.facade.spec.ts; npx vitest run tests/ops.spec.ts
 Contracts: ON
-NEXT: META.DB.CONNECTION_GUARD_CI_TRACK - awaiting the first guard-db-docs success (Actions UI currently 404 without login).
+NEXT: META.UNBLOCK.READY_SEED - placeholder READY task while the backlog requeues.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

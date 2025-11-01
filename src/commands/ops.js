@@ -45,6 +45,17 @@ const data = new SlashCommandBuilder()
           .setRequired(false)
       )
   )
+  .addSubcommand((sub) =>
+    sub
+      .setName('cache')
+      .setDescription('Inspect runtime cache metrics and maintenance state')
+      .addBooleanOption((opt) =>
+        opt
+          .setName('cleanup')
+          .setDescription('Run maintenance before collecting metrics')
+          .setRequired(false)
+      )
+  )
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .setDMPermission(false);
 

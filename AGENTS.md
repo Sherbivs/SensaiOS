@@ -127,6 +127,7 @@ Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describ
 - Pokémon data bootstrap lives under `scripts/build-data.js`, `scripts/fetch_pokemon.mjs`, and `data/bootstrap/*`.
 - The security bot uses filesystem caching via `src/services/cache.js` (`/Store/discord-cache`).
 - Live game flows share a typed facade in `src/services/cache/facade.ts` that fronts an in-memory LRU and persists slices under `/Store/runtime-cache/<namespace>`; adjust limits with `configureCacheFacade` for tests or workers.
+- Runtime cache metrics surface via `/ops cache`; the command reports hit/miss counters, disk usage, and maintenance state, and accepts `cleanup: true` to run an immediate sweep. The scheduler runs automatically (10-minute cadence) and logs results via `cache.maintenance` events.
 - Render cron (`pokedex-cache-failsafe`) calls `scripts/refresh_cache_gh_only.mjs` for a GitHub-only fallback.
 
 ## Key Directories Snapshot
