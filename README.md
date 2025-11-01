@@ -109,6 +109,28 @@ interactions are slash-based, so the Message Content intent is not required.
 - Archive older Tasklist DONE entries: `npm run tasks:archive`
 - Database control suite: `npm run db:cli -- status`
 
+### Local Test Instance Checklist
+
+Follow this quick checklist when you just need to spin up a playable build for
+QA or design reviews:
+
+1. **Verify prerequisites.** Confirm `node -v` reports 20.x or later, `npm -v`
+   is 9+, your Postgres 14+ instance is reachable, and you have a Discord bot
+   token with the intents called out in [`AGENTS.md`](AGENTS.md).
+2. **Install dependencies.** Run `npm install` from the repository root so the
+   Prisma client and local tooling are available.
+3. **Load environment variables.** Export `DATABASE_URL` and
+   `DISCORD_BOT_TOKEN`, or point `IG_ENV_FILE` at the populated secrets file you
+   maintain outside the repo (see [`docs/ai-env-setup.md`](docs/ai-env-setup.md)
+   for the secure loading order).
+4. **Prepare the database and build artifacts.** Execute
+   `npx prisma migrate deploy` and `npm run build:ci` (or `npm run build`) to
+   apply schema migrations and regenerate the Prisma client before launching the
+   bot.
+5. **Launch the development instance.** Start the watcher with `npm run dev`;
+   the entry point verifies database connectivity before logging in to Discord
+   so you can exercise encounter and battle flows locally.
+
 ## Data Pipeline & Workers
 
 Reference data is mirrored into `/data` via scripted jobs:
