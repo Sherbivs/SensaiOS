@@ -16,7 +16,7 @@ Checklist and decisions
 
 Procedure A — Apply historical migrations (recommended)
 1. Ensure the repo contains the full migrations history under `prisma/migrations`.
-2. From the repo root (the working copy used for ops), confirm `IG_ENV_FILE` is pointing at `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (or the staging-specific override) and that file defines `DATABASE_POOL_URL`/`DATABASE_URL` (pooled) *and* `DATABASE_DIRECT_URL` (direct). On Windows PowerShell you can verify with `echo $Env:IG_ENV_FILE` and `Get-Content $Env:IG_ENV_FILE | Select-String DATABASE_` or rely on `scripts/setup_ai_env.ps1` to register the path.
+2. From the repo root (the working copy used for ops), confirm `IG_ENV_FILE` is pointing at `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (or the staging-specific override) and that file defines `DATABASE_POOL_URL`/`DATABASE_URL` (pooled) *and* `DATABASE_DIRECT_URL` (direct `postgresql://`). On Windows PowerShell you can verify with `echo $Env:IG_ENV_FILE` and `Get-Content $Env:IG_ENV_FILE | Select-String DATABASE_` or rely on `scripts/setup_ai_env.ps1` to register the path.
   - If you previously ran Accelerate workflows with `Key/Prod/.env`, regenerate the Prisma client (`npx prisma generate`) before connecting so the CLI uses the direct Node engine again.
 3. Run:
 
@@ -64,7 +64,7 @@ Dex reference rollout follow-up
   ```
 
   - Pass `--dry-run` to preview counts without writing. Capture the status output in Tasklist notes so the audit trail shows >1,000 species after seeding. The workflow is documented end-to-end in `docs/database-systems.md` §6.
-  - Keep the Dev → Prod → Dev cadence: execute these commands on DEV first, switch `IG_ENV_FILE` to the Accelerate/Prod secrets and rerun them (or rely on `scripts/ops/run_dex_migrations.ps1` for a bundled migrate+refresh), then restore `IG_ENV_FILE` to `Key/Dev/.env` and run `npx prisma generate` before resuming local development.
+  - Keep the Dev → Prod → Dev cadence: execute these commands on DEV first, switch `IG_ENV_FILE` to the Accelerate/Prod secrets and rerun them (or rely on `scripts/ops/run_dex_migrations.ps1`, which enforces direct URLs, for a bundled migrate+refresh), then restore `IG_ENV_FILE` to `Key/Dev/.env` and run `npx prisma generate` before resuming local development.
   - For continuous coverage, run `npm run db:auto-sync` so migrations + seeding loop on deployment and every five minutes when drift is detected. Use `--dry-run`, `--once`, or `--skip-startup` during rehearsals and monitor the JSON logs (`sync.consolidate.*`, `integrity.*`) for drift alerts.
   - `warm_cache.ts` refreshes the materialized view and then primes the Pokémon cache. If the GitHub replication helper is unavailable (missing `octokit`), the script falls back to regenerating `data/cache/pokemon.json` locally and logs the skip.
 
