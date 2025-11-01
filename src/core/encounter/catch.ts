@@ -1,4 +1,5 @@
 import { prisma as prismaClient, UserRepo } from "../../models/index.js";
+import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
 
 export type BallType = "poke" | "great" | "ultra";
 
@@ -45,7 +46,7 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
 
   const user = await UserRepo.upsertByDiscordId(opts.discordId, prisma);
 
-  const enc = await prisma.encounter.findUnique({ where: { id: opts.encounterId } });
+  const enc = await loadEncounter(opts.encounterId, { prisma });
   if (!enc || enc.ownerId !== user.id) {
     return { ok: false, reason: "not_found_or_not_owner" as const };
   }
@@ -54,6 +55,7 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
   }
   if (enc.expiresAt && enc.expiresAt.getTime() <= Date.now()) {
     await prisma.encounter.update({ where: { id: enc.id }, data: { state: "Expired" } });
+    await invalidateEncounter(enc.id);
     return { ok: false, reason: "expired" as const };
   }
 
@@ -71,6 +73,7 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
       where: { id: enc.id },
       data: { dataJson: { ...prev, attempts, lastBall: ball, lastRoll: roll, lastChance: p } as any },
     });
+    await invalidateEncounter(enc.id);
     return { ok: true, caught: false as const, attempts, chance: p, roll };
   }
 
@@ -121,6 +124,7 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
       dataJson: { ...prev, attempts, caughtAt: new Date().toISOString(), ball, pokemonId: created.id } as any,
     },
   });
+  await invalidateEncounter(enc.id);
 
   return { ok: true, caught: true as const, attempts, pokemonId: created.id };
 }
@@ -134,7 +138,7 @@ export type RunFromEncounterOpts = {
 export async function runFromEncounter(opts: RunFromEncounterOpts) {
   const prisma = opts.prisma ?? prismaClient;
   const user = await UserRepo.upsertByDiscordId(opts.discordId, prisma);
-  const enc = await prisma.encounter.findUnique({ where: { id: opts.encounterId } });
+  const enc = await loadEncounter(opts.encounterId, { prisma });
   if (!enc || enc.ownerId !== user.id) {
     return { ok: false, reason: "not_found_or_not_owner" as const };
   }
@@ -142,5 +146,6 @@ export async function runFromEncounter(opts: RunFromEncounterOpts) {
     return { ok: false, reason: "not_spawned" as const };
   }
   await prisma.encounter.update({ where: { id: enc.id }, data: { state: "Fled" } });
+  await invalidateEncounter(enc.id);
   return { ok: true } as const;
 }

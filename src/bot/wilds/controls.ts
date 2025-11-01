@@ -1,7 +1,8 @@
-import type { RepliableInteraction, User as DiscordUser } from "discord.js";
+import type { User as DiscordUser, ButtonInteraction } from "discord.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import { prisma } from "../../models/index.js";
 import { attemptCatch, runFromEncounter, BallType } from "../../core/encounter/catch.js";
+import { loadEncounter } from "../../services/cache/recipes.js";
 
 export function composeCatchSuccessMessages(discordId: string, pokemonId?: string) {
   const idSuffix = pokemonId ? ` (ID ${pokemonId})` : "";
@@ -29,7 +30,7 @@ export function buildEncounterButtons(encounterId: string) {
 }
 
 export async function openEncounterDM(user: DiscordUser, encounterId: string) {
-  const enc = await prisma.encounter.findUnique({ where: { id: encounterId } });
+  const enc = await loadEncounter(encounterId, { prisma });
   if (!enc) return;
   const dm = await user.createDM();
   const embed = buildEncounterEmbed(enc);
@@ -37,7 +38,7 @@ export async function openEncounterDM(user: DiscordUser, encounterId: string) {
   await dm.send({ embeds: [embed], components });
 }
 
-export async function handleEncounterButton(interaction: RepliableInteraction) {
+export async function handleEncounterButton(interaction: ButtonInteraction) {
   const id = interaction.customId;
   if (!id || (!id.startsWith("ENCOUNTER_THROW_") && !id.startsWith("ENCOUNTER_RUN_") && !id.startsWith("ENCOUNTER_SWAP_"))) return;
 
@@ -45,7 +46,7 @@ export async function handleEncounterButton(interaction: RepliableInteraction) {
   const encounterId = id.substring(`ENCOUNTER_${action}_`.length);
 
   // Verify encounter belongs to the user
-  const enc = await prisma.encounter.findUnique({ where: { id: encounterId } });
+  const enc = await loadEncounter(encounterId, { prisma });
   if (!enc) {
     await interaction.reply({ content: "This encounter no longer exists.", ephemeral: true });
     return;

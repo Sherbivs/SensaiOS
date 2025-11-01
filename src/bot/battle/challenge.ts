@@ -5,12 +5,12 @@ import {
   ButtonStyle,
   ChatInputCommandInteraction,
   EmbedBuilder,
-  GuildTextBasedChannel,
   User as DiscordUser,
 } from "discord.js";
 import { randomUUID } from "node:crypto";
 import type { Battle, Prisma, PrismaClient, User as PrismaUser } from "@prisma/client";
 import { prisma as prismaClient } from "../../models/index.js";
+import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 import { createArenaThread, type ArenaThreadContext } from "../arena/thread.js";
 import { openActionDMs } from "./actions.js";
 import { canChallengeBattle } from "../middleware/limits.js";
@@ -181,13 +181,6 @@ export async function handleBattleChallengeCommand(
   });
 }
 
-async function loadBattle(prisma: PrismaLike, battleId: string): Promise<BattleWithPlayers | null> {
-  return prisma.battle.findUnique({
-    where: { id: battleId },
-    include: { p1: true, p2: true },
-  }) as Promise<BattleWithPlayers | null>;
-}
-
 export async function handleBattleChallengeButton(
   interaction: ButtonInteraction,
   opts: ButtonHandlerOpts = {}
@@ -198,7 +191,7 @@ export async function handleBattleChallengeButton(
   }
 
   const prisma = opts.prisma ?? prismaClient;
-  const battle = await loadBattle(prisma, parsed.battleId);
+  const battle = await loadBattleState(parsed.battleId, { prisma });
   if (!battle) {
     await interaction.reply({ content: "This challenge no longer exists.", ephemeral: true });
     return;
@@ -224,6 +217,7 @@ export async function handleBattleChallengeButton(
         endedAt: new Date(),
       },
     });
+    await invalidateBattleState(battle.id);
 
     await interaction.update({
       content: "You declined the battle challenge.",
@@ -247,7 +241,7 @@ export async function handleBattleChallengeButton(
   }
 
   const channel = (await interaction.client.channels.fetch(metadata.challengeChannelId).catch(() => null)) as
-    | GuildTextBasedChannel
+    | Parameters<typeof createArenaThread>[0]
     | null;
 
   if (!channel) {
@@ -278,6 +272,7 @@ export async function handleBattleChallengeButton(
       arenaThreadId: thread.id,
     },
   });
+  await invalidateBattleState(battle.id);
 
   await interaction.update({
     content: `Challenge accepted! Arena thread created: <#${thread.id}>`,

@@ -3,6 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 import type { BattleResultRecord, BattleWithPlayers } from "../../models/index.js";
 import { BattleRepo, prisma as prismaClient } from "../../models/index.js";
 import { buildBattleResultDMMessages, buildBattleResultThreadMessage } from "../arena/summary.js";
+import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 
 type DiscordClientLike = Pick<Client, "users" | "channels">;
 type UpdateLoserInteraction = (content: string) => Promise<void>;
@@ -67,10 +68,6 @@ function sanitizeTurnCount(turnCount: number, fallbackTurns: number) {
 	return normalized;
 }
 
-async function loadBattle(prisma: PrismaLike, battleId: string): Promise<BattleWithPlayers | null> {
-	return prisma.battle.findUnique({ where: { id: battleId }, include: { p1: true, p2: true } }) as any;
-}
-
 function normalizeFullLog(log: unknown): string[] {
 	if (!Array.isArray(log)) return [];
 	return log.map((entry) => String(entry));
@@ -86,7 +83,7 @@ export async function concludeBattleWithVictory(opts: {
 	updateLoserInteraction?: UpdateLoserInteraction;
 }): Promise<BattleResultRecord | null> {
 	const prisma = opts.prisma ?? prismaClient;
-	const battle = await loadBattle(prisma, opts.battleId);
+		const battle = await loadBattleState(opts.battleId, { prisma });
 	if (!battle || battle.state !== "Active") {
 		return null;
 	}
@@ -102,6 +99,7 @@ export async function concludeBattleWithVictory(opts: {
 		reason: "victory",
 		logFull,
 	});
+		await invalidateBattleState(battle.id);
 
         const { announceBattleResult: announce } = await import("./conclude.js");
 

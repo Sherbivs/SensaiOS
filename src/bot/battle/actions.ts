@@ -9,6 +9,7 @@ import {
 import type { PrismaClient } from "@prisma/client";
 import { prisma as prismaClient, BattleRepo } from "../../models/index.js";
 import type { BattleWithPlayers } from "../../models/index.js";
+import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 import * as concludeModule from "./conclude.js";
 
 export const MOVE_PREFIX = "BATTLE_MOVE_";
@@ -32,13 +33,9 @@ export function buildBattleActionPrompt(battleId: string) {
   return { embed, components: [row] };
 }
 
-async function loadBattle(prisma: PrismaLike, battleId: string): Promise<BattleWithPlayers | null> {
-  return prisma.battle.findUnique({ where: { id: battleId }, include: { p1: true, p2: true } }) as any;
-}
-
 export async function openActionDMs(battleId: string, clientUserFetcher: (id: string) => Promise<DiscordUser>) {
   const prisma = prismaClient;
-  const battle = await loadBattle(prisma, battleId);
+  const battle = await loadBattleState(battleId, { prisma });
   if (!battle) return false;
   const payload = buildBattleActionPrompt(battle.id);
   try {
@@ -66,7 +63,7 @@ export async function handleBattleActionButton(interaction: ButtonInteraction, o
   if (!parsed) return;
 
   const prisma = opts.prisma ?? prismaClient;
-  const battle = await loadBattle(prisma, parsed.battleId);
+  const battle = await loadBattleState(parsed.battleId, { prisma });
   if (!battle) {
     await interaction.reply({ content: "This battle no longer exists.", ephemeral: true });
     return;
@@ -111,6 +108,7 @@ export async function handleBattleActionButton(interaction: ButtonInteraction, o
       turnCount: 0,
       reason: "forfeit",
     });
+    await invalidateBattleState(battle.id);
 
     await concludeModule.announceBattleResult({
       client: interaction.client as any,

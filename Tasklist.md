@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-01T03:52:00Z
-Revision: 2.14
+Last Updated (UTC): 2025-11-01T04:15:00Z
+Revision: 2.15
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1057,18 +1057,18 @@ Each task has:
 
 - id: T14.CACHE.RECIPES
   title: Wire cache recipes for battles, encounters, and quests
-  status: PROPOSED
+  status: DONE
   depends_on: [T14.CACHE.FACADE]
   acceptance_criteria:
     - Create `src/services/cache/recipes.ts` (or equivalent) that defines hydration callbacks, TTLs, and invalidation triggers for battle states, encounter rolls, and quest rewards.
     - Update the battle engine, encounter generator, and quest flows to consume the facade via recipe helpers while preserving existing fallbacks.
     - Emit `cache.hit/miss/stale` logs when recipes execute and ensure Prisma/PokéAPI paths recover on stale entries with `cache.recover` logging.
     - Add targeted tests exercising at least one recipe and its fallback behaviour.
-  notes: ''
+  notes: Outcome — Added `src/services/cache/recipes.ts` with battle/encounter/quest hydrators plus invalidation helpers, rewired battle challenge/action/conclude flows, encounter catch/run handlers, and the daily quest claim command to use the facade, and covered hydration & fallback via `npx vitest run tests/services/cache.recipes.spec.ts`.
 
 - id: T14.CACHE.OBS
   title: Add cache observability and operator tooling
-  status: PROPOSED
+  status: READY
   depends_on: [T14.CACHE.RECIPES]
   acceptance_criteria:
     - Expose cache metrics via structured logger counters/histograms and add an `/ops cache` command (or equivalent) summarizing namespace stats, disk usage, and oldest entry age.

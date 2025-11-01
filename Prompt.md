@@ -1,13 +1,12 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-01T03:52:00Z
-Revision: 1.61
+Timestamp (UTC): 2025-11-01T04:15:00Z
+Revision: 1.62
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Delivered `src/services/cache/facade.ts` with namespace/shard-aware LRU + disk persistence and validated it via `tests/services/cache.facade.spec.ts`.
-- Exported shared cache constants for reuse, added services to `tsconfig.build.json`, and updated module declarations to cover both `.js` import paths.
-- Documented the runtime cache path in AGENTS.md and retargeted NEXT to META.DB.CONNECTION_GUARD_CI_TRACK while Actions UI (guard-db-docs) remains 404 without auth.
-- Hardened `scripts/dev_prod_auto_sync.ts` so migrate/seed inherit env-specific credentials, migrations force direct URLs, hung commands time out, and Optimize SpeciesSheet preflight logs missing grants.
-- Logged the guard_db_docs baseline in Tasklist.md (✅ `node scripts/guard_db_docs.mjs`) and documented remediation steps while queueing META.DB.CONNECTION_GUARD_CI_TRACK for the first CI run.
+- Added `src/services/cache/recipes.ts` with battle/encounter/quest hydrators, TTLs, and invalidation hooks layered over the runtime cache facade.
+- Rewired battle challenge/action/conclude flows and encounter catch/run handlers to hydrate via the recipes while logging `cache.stale/recover` events.
+- Routed the daily quest claim command through the quest reward recipe for idempotent messaging and preserved fallback behaviour.
+- Marked T14.CACHE.RECIPES as DONE, promoted T14.CACHE.OBS to READY, and validated recipes via `npx vitest run tests/services/cache.facade.spec.ts tests/services/cache.recipes.spec.ts`.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -63,9 +62,9 @@ Revision: 1.61
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Landed the typed runtime cache facade with tests/docs and retargeted NEXT to the guard-db-docs CI tracker (Actions still 404 unauthenticated).
+Change: Wired cache recipes into battles, encounters, and daily quests with eviction hooks and added recipe hydration tests while queueing OBS follow-up.
 TasklistDiff: true
-Tests: npx vitest run tests/services/cache.facade.spec.ts
+Tests: npx vitest run tests/services/cache.facade.spec.ts tests/services/cache.recipes.spec.ts
 Contracts: ON
 NEXT: META.DB.CONNECTION_GUARD_CI_TRACK - awaiting the first guard-db-docs success (Actions UI currently 404 without login).
 <!-- PATCHSET:ECHO END -->

@@ -99,37 +99,7 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Task T14.CACHE.FACADE] Build typed runtime cache facade with LRU layer and tests
-
-FILE: src/services/cache.js
-Change: expose shared constants so the typed facade can mirror disk pruning behaviour.
-
-FILE: src/services/cache/facade.ts
-Change: add typed cache facade with namespace/shard-aware `getOrHydrate`, `peek`, `touch`, and `evict` plus in-memory LRU and disk persistence under `/Store/runtime-cache`.
-
-FILE: src/types/js-module-declarations.d.ts
-Change: update cache.js module declarations to include newly exported constants.
-
-FILE: tests/services/cache.facade.spec.ts
-Change: introduce Vitest coverage for hydration, TTL expiry, disk fallback, touch, evict, and in-memory pruning.
-
-FILE: tsconfig.build.json
-Change: ensure the build includes `src/services` so the facade ships with worker/runtime bundles.
-
-FILE: AGENTS.md
-Change: document the runtime cache facade, storage path expectations, and operator guidance.
-
-FILE: Tasklist.md
-Change: mark T14.CACHE.FACADE as DONE with outcome notes.
-
-FILE: ops/NEXT.yaml
-Change: retarget NEXT to META.DB.CONNECTION_GUARD_CI_TRACK now that the facade is complete.
-
-FILE: Prompt.md
-Change: refresh timestamp/revision, summarize the facade landing, record tests, and update the PATCHSET echo.
-
-# TASKLIST UPDATE
-Change: capture the T14.CACHE.FACADE completion notes.
+[Clipboard cleared — T14.CACHE.RECIPES delivered this run.]
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>
