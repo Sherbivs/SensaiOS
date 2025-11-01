@@ -385,10 +385,14 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
       log.warn("Prisma Optimize extension attach failed", { error: message });
     }
   } else if (optimizeExtender) {
-    log.debug("Prisma Optimize skipped for datasource", {
+    const meta: Record<string, unknown> = {
       reason: "incompatible-url",
       source: candidate.source,
-    });
+    };
+    if (candidate.isFallback) {
+      meta.fallback = true;
+    }
+    log.debug("Prisma Optimize skipped for datasource", meta);
   }
 
   if (usesAccelerate) {
@@ -466,6 +470,10 @@ async function attemptCandidateConnection(candidate: DatabaseCandidate, attempt:
     connectionMode: runtimeConfig.databaseConnectionMode,
     transport: lastPrismaTransport,
   };
+
+  if (candidate.isFallback) {
+    meta.fallback = true;
+  }
 
   if (connectError instanceof Error && lastClientUsesAccelerate) {
     meta.connectionWarning = connectError.message;
@@ -552,6 +560,7 @@ async function connectAcrossCandidates(): Promise<void> {
       log.warn("Prisma connection attempt failed; switching candidate", {
         attempt,
         candidateSource: candidate.source,
+        candidateFallback: Boolean(candidate.isFallback),
         error: err.message,
         nextCandidate,
       });
@@ -571,7 +580,7 @@ async function connectAcrossCandidates(): Promise<void> {
 
   log.error("Prisma connection failed after alternating candidates", lastError ?? new Error("No candidates attempted"), {
     attempts: attempt,
-    candidates: candidates.map((candidate) => candidate.source),
+    candidates: candidates.map((candidate) => ({ source: candidate.source, fallback: Boolean(candidate.isFallback) })),
   });
 
   if (lastError) {

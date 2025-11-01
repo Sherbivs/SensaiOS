@@ -10,6 +10,7 @@ export type DatabaseUrlSource = "external" | "pool" | "internal" | "direct" | "e
 export type DatabaseCandidate = {
   url: string;
   source: DatabaseUrlSource;
+  isFallback?: boolean;
 };
 
 export type BackupStorageProvider = "none" | "s3" | "local";
@@ -142,67 +143,67 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
 
   const isAccelerateUrl = (value: string): boolean => /^prisma\+/i.test(value);
 
-  const envIsAccelerate = isAccelerateUrl(envUrl);
-  const accelerateActive = Boolean(accelerateUrl) || envIsAccelerate;
+  const seen = new Set<string>();
+  type CandidateBucket = Array<{ value: string; source: DatabaseUrlSource; fallback: boolean }>;
+  const primaryCandidates: CandidateBucket = [];
+  const fallbackCandidates: CandidateBucket = [];
 
-  const candidates: Array<{ value: string; source: DatabaseUrlSource }> = [];
-
-  const pushCandidate = (value: string, source: DatabaseUrlSource): void => {
+  const addCandidate = (value: string, source: DatabaseUrlSource, priority: "primary" | "fallback"): void => {
     if (!value) {
       return;
     }
-    const normalizedSource: DatabaseUrlSource = isAccelerateUrl(value) ? "accelerate" : source;
-    if (candidates.some((candidate) => candidate.value === value)) {
+    if (seen.has(value)) {
       return;
     }
-    candidates.push({ value, source: normalizedSource });
+    seen.add(value);
+    const usesAccelerate = isAccelerateUrl(value);
+    const normalizedSource: DatabaseUrlSource = usesAccelerate ? "accelerate" : source;
+    const target = priority === "primary" ? primaryCandidates : fallbackCandidates;
+    target.push({ value, source: normalizedSource, fallback: !usesAccelerate });
   };
 
-  if (accelerateUrl) {
-    pushCandidate(accelerateUrl, "accelerate");
+  // Prioritize pooled Accelerate-style URLs by default.
+  addCandidate(poolUrl, "pool", "primary");
+
+  // Respect explicit Accelerate overrides after the pool candidate.
+  addCandidate(accelerateUrl, "accelerate", "primary");
+
+  // If the env URL itself is already Accelerate, include it in the primary list.
+  if (envUrl && isAccelerateUrl(envUrl)) {
+    addCandidate(envUrl, "env", "primary");
   }
 
-  if (!accelerateUrl && envIsAccelerate) {
-    pushCandidate(envUrl, "env");
-  }
-
-  const pushNonAccelerateCandidate = (value: string, source: DatabaseUrlSource): void => {
-    if (accelerateActive) {
-      return;
+  const registerFallbacks = (): void => {
+    addCandidate(externalUrl, "external", "fallback");
+    if (!isAccelerateUrl(envUrl)) {
+      addCandidate(envUrl, "env", "fallback");
     }
-    pushCandidate(value, source);
-  };
-
-  const pushInternalCandidates = (): void => {
-    pushNonAccelerateCandidate(internalUrl, "internal");
-    pushNonAccelerateCandidate(directUrl, "direct");
+    addCandidate(internalUrl, "internal", "fallback");
+    addCandidate(directUrl, "direct", "fallback");
   };
 
   if (preferExternal) {
-    pushNonAccelerateCandidate(externalUrl, "external");
-    pushNonAccelerateCandidate(envUrl, "env");
-    pushNonAccelerateCandidate(poolUrl, "pool");
-    pushInternalCandidates();
+    registerFallbacks();
   } else {
-    pushNonAccelerateCandidate(poolUrl, "pool");
-    pushInternalCandidates();
-    pushNonAccelerateCandidate(envUrl, "env");
-    pushNonAccelerateCandidate(externalUrl, "external");
+    // Internal-first still reuses the same fallback ordering; the primary list already front-loads Accelerate.
+    registerFallbacks();
   }
+
+  const orderedCandidates = [...primaryCandidates, ...fallbackCandidates];
 
   const preference = readConnectionPreference();
 
   if (preference) {
-    const index = candidates.findIndex((candidate) => candidate.source === preference && candidate.value);
+    const index = orderedCandidates.findIndex((candidate) => candidate.source === preference && candidate.value);
     if (index > 0) {
-      const [preferred] = candidates.splice(index, 1);
-      candidates.unshift(preferred);
+      const [preferred] = orderedCandidates.splice(index, 1);
+      orderedCandidates.unshift(preferred);
     }
   }
 
-  const databaseCandidates: DatabaseCandidate[] = candidates
+  const databaseCandidates: DatabaseCandidate[] = orderedCandidates
     .filter((candidate) => Boolean(candidate.value))
-    .map((candidate) => ({ url: candidate.value, source: candidate.source }));
+    .map((candidate) => ({ url: candidate.value, source: candidate.source, isFallback: candidate.fallback }));
 
   const resolved = databaseCandidates[0];
   if (resolved) {
