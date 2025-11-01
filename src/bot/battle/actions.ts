@@ -1,15 +1,29 @@
 import type { PrismaClient } from "@prisma/client";
+import { randomUUID } from "node:crypto";
+
 import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonInteraction,
   ButtonStyle,
+  ComponentType,
   EmbedBuilder,
+  StringSelectMenuBuilder,
   User as DiscordUser,
 } from "discord.js";
 
 import { prisma as prismaClient, BattleRepo } from "../../models/index.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
+
+import {
+  listLegalMoves,
+  listSwitchOptions,
+  queueMoveAction,
+  queueSwitchAction,
+  setPlayerState,
+  type BattleMoveOption,
+  type BattlePartyMember,
+} from "../../core/battle/turn-manager.js";
 
 import * as concludeModule from "./conclude.js";
 
@@ -63,7 +77,218 @@ function parse(customId: string) {
   return null;
 }
 
-export async function handleBattleActionButton(interaction: ButtonInteraction, opts: { prisma?: PrismaLike } = {}) {
+type PromptMoveFn = (context: {
+  interaction: ButtonInteraction;
+  battleId: string;
+  active: BattlePartyMember;
+  moves: BattleMoveOption[];
+}) => Promise<string | null>;
+
+type PromptSwitchFn = (context: {
+  interaction: ButtonInteraction;
+  battleId: string;
+  active: BattlePartyMember;
+  options: BattlePartyMember[];
+}) => Promise<string | null>;
+
+type HandlerOpts = {
+  prisma?: PrismaLike;
+  promptMove?: PromptMoveFn;
+  promptSwitch?: PromptSwitchFn;
+  openActionDmHandler?: typeof openActionDMs;
+};
+
+async function defaultPromptMove({ interaction, battleId, active, moves }: Parameters<PromptMoveFn>[0]) {
+  if (moves.length === 0) return null;
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`${MOVE_PREFIX}SELECT_${battleId}`)
+    .setPlaceholder(`Choose a move for ${active.label}`)
+    .addOptions(
+      moves.map((move) => ({
+        label: move.label.substring(0, 100),
+        value: move.id,
+        description: move.description?.substring(0, 100) ?? undefined,
+      }))
+    );
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+  await interaction.reply({
+    content: `Which move should ${active.label} use?`,
+    components: [row],
+    ephemeral: true,
+  });
+  try {
+    const selection = await interaction.awaitMessageComponent({
+      componentType: ComponentType.StringSelect,
+      time: 30_000,
+      filter: (i) => i.user.id === interaction.user.id && i.customId === select.data.custom_id,
+    });
+    const choice = selection.values?.[0] ?? null;
+    const picked = moves.find((move) => move.id === choice);
+    await selection.update({
+      content: picked ? `Locked in **${picked.label}**.` : "Move selection recorded.",
+      components: [],
+    });
+    return choice;
+  } catch {
+    try {
+      await interaction.editReply({ content: "Move selection timed out.", components: [] });
+    } catch {
+      // ignore edit failures
+    }
+    return null;
+  }
+}
+
+async function defaultPromptSwitch({ interaction, battleId, active, options }: Parameters<PromptSwitchFn>[0]) {
+  if (options.length === 0) return null;
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`${SWITCH_PREFIX}SELECT_${battleId}`)
+    .setPlaceholder(`Switch ${active.label} for...`)
+    .addOptions(
+      options.map((member) => ({
+        label: member.label.substring(0, 100),
+        value: member.id,
+        description: `HP ${member.hp}/${member.maxHp}`.substring(0, 100),
+      }))
+    );
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+  await interaction.reply({
+    content: `Choose a healthy party member to switch in.`,
+    components: [row],
+    ephemeral: true,
+  });
+  try {
+    const selection = await interaction.awaitMessageComponent({
+      componentType: ComponentType.StringSelect,
+      time: 30_000,
+      filter: (i) => i.user.id === interaction.user.id && i.customId === select.data.custom_id,
+    });
+    const choice = selection.values?.[0] ?? null;
+    const picked = options.find((member) => member.id === choice);
+    await selection.update({
+      content: picked ? `Switching to **${picked.label}** next turn.` : "Switch request recorded.",
+      components: [],
+    });
+    return choice;
+  } catch {
+    try {
+      await interaction.editReply({ content: "Switch selection timed out.", components: [] });
+    } catch {
+      // ignore edit failures
+    }
+    return null;
+  }
+}
+
+function identifyPlayer(battle: any, interaction: ButtonInteraction): { key: "p1" | "p2"; player: any } | null {
+  if (interaction.user.id === battle.p1?.discordId) {
+    return { key: "p1", player: battle.p1 };
+  }
+  if (interaction.user.id === battle.p2?.discordId) {
+    return { key: "p2", player: battle.p2 };
+  }
+  return null;
+}
+
+function toPartyMember(entry: any): BattlePartyMember {
+  const movesArray = Array.isArray(entry?.movesJson) ? (entry.movesJson as unknown[]) : [];
+  const moves: BattleMoveOption[] = movesArray
+    .map((move, idx) => {
+      if (!move || typeof move !== "object") return null;
+      const payload = move as Record<string, unknown>;
+      const idValue =
+        typeof payload.id === "string" || typeof payload.id === "number"
+          ? String(payload.id)
+          : typeof payload.slug === "string"
+          ? payload.slug
+          : typeof payload.name === "string"
+          ? payload.name.toLowerCase()
+          : `move-${idx}`;
+      const label = typeof payload.name === "string" && payload.name.length > 0 ? payload.name : `Move ${idx + 1}`;
+      const remaining = typeof payload.pp === "number" ? payload.pp : undefined;
+      const max = typeof payload.maxPP === "number" ? payload.maxPP : undefined;
+      const desc =
+        remaining != null && max != null
+          ? `PP ${remaining}/${max}`
+          : remaining != null
+          ? `PP ${remaining}`
+          : undefined;
+      return {
+        id: idValue,
+        label,
+        remainingPp: remaining,
+        maxPp: max,
+        description: desc,
+      } satisfies BattleMoveOption;
+    })
+    .filter((value): value is BattleMoveOption => Boolean(value));
+
+  const nickname = typeof entry?.nickname === "string" && entry.nickname.length > 0 ? entry.nickname : null;
+  const label = nickname ?? `Lv${entry?.level ?? "?"} #${entry?.speciesId ?? "?"}`;
+
+  const hp = typeof entry?.hp === "number" ? entry.hp : 0;
+  const maxHp = typeof entry?.maxHp === "number" ? entry.maxHp : Math.max(1, hp);
+
+  return {
+    id: String(entry?.id ?? randomUUID()),
+    label,
+    hp,
+    maxHp,
+    fainted: hp <= 0,
+    moves,
+  } satisfies BattlePartyMember;
+}
+
+async function loadParticipantState(
+  prisma: PrismaLike,
+  player: any
+): Promise<{ active: BattlePartyMember; bench: BattlePartyMember[] } | null> {
+  if (!player?.id) return null;
+  const party = await prisma.party.findUnique({
+    where: { ownerId: player.id },
+    include: {
+      slots: {
+        orderBy: { slot: "asc" },
+        include: { pokemon: true },
+      },
+    },
+  });
+  const slots = party?.slots ?? [];
+  if (!Array.isArray(slots) || slots.length === 0) {
+    return null;
+  }
+
+  const members = slots
+    .map((slot: any) => (slot?.pokemon ? toPartyMember(slot.pokemon) : null))
+    .filter((member): member is BattlePartyMember => Boolean(member));
+  if (members.length === 0) {
+    return null;
+  }
+
+  const healthy = members.filter((member) => !member.fainted);
+  const active = healthy[0] ?? members[0];
+  const bench = members.filter((member) => member.id !== active.id);
+
+  return { active, bench };
+}
+
+async function maybeAdvanceTurn(
+  battleId: string,
+  interaction: ButtonInteraction,
+  dispatcher: typeof openActionDMs
+) {
+  await invalidateBattleState(battleId);
+  try {
+    await dispatcher(battleId, (id) => interaction.client.users.fetch(id));
+  } catch {
+    // ignore DM failures for now
+  }
+}
+
+export async function handleBattleActionButton(
+  interaction: ButtonInteraction,
+  opts: HandlerOpts = {}
+) {
   const parsed = parse(interaction.customId);
   if (!parsed) return;
 
@@ -78,12 +303,78 @@ export async function handleBattleActionButton(interaction: ButtonInteraction, o
     return;
   }
 
+  const identified = identifyPlayer(battle, interaction);
+  if (!identified) {
+    await interaction.reply({ content: "You are not a participant in this battle.", ephemeral: true });
+    return;
+  }
+
+  const participant = await loadParticipantState(prisma, identified.player);
+  if (!participant) {
+    await interaction.reply({ content: "No available party members to act.", ephemeral: true });
+    return;
+  }
+
+  setPlayerState(battle.id, identified.key, participant);
+
+  const promptMove = opts.promptMove ?? defaultPromptMove;
+  const promptSwitch = opts.promptSwitch ?? defaultPromptSwitch;
+  const dispatcher = opts.openActionDmHandler ?? openActionDMs;
+
   if (parsed.kind === "move") {
-    await interaction.reply({ content: "Move selection UI coming soon.", ephemeral: true });
+    const moves = listLegalMoves(battle.id, identified.key);
+    if (moves.length === 0) {
+      await interaction.reply({ content: "No moves available for your active Pokémon.", ephemeral: true });
+      return;
+    }
+    const choice = await promptMove({ interaction, battleId: battle.id, active: participant.active, moves });
+    if (!choice) {
+      return;
+    }
+    try {
+      const result = queueMoveAction(battle.id, identified.key, choice);
+      if (result.status === "ready") {
+        await maybeAdvanceTurn(battle.id, interaction, dispatcher);
+      }
+    } catch (err) {
+      await interaction.followUp({
+        content: "That move can't be used right now.",
+        ephemeral: true,
+      });
+    }
     return;
   }
   if (parsed.kind === "switch") {
-    await interaction.reply({ content: "Switch UI coming soon.", ephemeral: true });
+    const options = listSwitchOptions(battle.id, identified.key);
+    if (options.length === 0) {
+      await interaction.reply({ content: "No healthy Pokémon available to switch in.", ephemeral: true });
+      return;
+    }
+    const choice = await promptSwitch({
+      interaction,
+      battleId: battle.id,
+      active: participant.active,
+      options,
+    });
+    if (!choice) {
+      return;
+    }
+    try {
+      const result = queueSwitchAction(battle.id, identified.key, choice);
+      await invalidateBattleState(battle.id);
+      if (result.status === "ready") {
+        try {
+          await dispatcher(battle.id, (id) => interaction.client.users.fetch(id));
+        } catch {
+          // ignore DM issues
+        }
+      }
+    } catch (err) {
+      await interaction.followUp({
+        content: "Cannot switch to that Pokémon right now.",
+        ephemeral: true,
+      });
+    }
     return;
   }
 
