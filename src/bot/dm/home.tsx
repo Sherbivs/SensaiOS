@@ -37,7 +37,9 @@ type ViewRender = {
 type ResponseMode = "reply" | "update" | "dm";
 
 function safeNumber(value: unknown): number | null {
-  if (!Number.isFinite(value)) return null;
+  if (value === null || value === undefined) {
+    return null;
+  }
   const num = typeof value === "number" ? value : Number(value);
   return Number.isFinite(num) ? num : null;
 }
@@ -270,10 +272,16 @@ async function fetchSnapshot(discordId: string): Promise<TrainerHomeSnapshot> {
 }
 
 async function acknowledge(interaction: InteractionWithUser, content: string) {
-  if (interaction.deferred || interaction.replied) {
-    await interaction.followUp({ content, ephemeral: true });
-  } else {
-    await interaction.reply({ content, ephemeral: true });
+  try {
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp({ content, ephemeral: true });
+    } else {
+      await interaction.reply({ content, ephemeral: true });
+    }
+  } catch (error) {
+    // Swallow follow-up failures so DM responses still resolve cleanly when the
+    // acknowledgement cannot be delivered (e.g., interaction already concluded).
+    console.warn("[dm-home] Failed to send acknowledgement", error);
   }
 }
 
@@ -294,10 +302,25 @@ async function respondWithView(
   }
 
   if (mode === "dm") {
-    const dm = await interaction.user.createDM();
-    await dm.send({ embeds: [render.embed], components: render.components });
-    if (ackContent) {
-      await acknowledge(interaction, ackContent);
+    try {
+      const dm = await interaction.user.createDM();
+      await dm.send({ embeds: [render.embed], components: render.components });
+      if (ackContent) {
+        await acknowledge(interaction, ackContent);
+      }
+    } catch (error) {
+      console.warn("[dm-home] Failed to deliver DM view; falling back to ephemeral reply", error);
+      const fallback: InteractionReplyOptions = {
+        ...payload,
+        content:
+          "I couldn't send a DM. Please enable DMs from this server and try again — showing the view here instead.",
+        ephemeral: true,
+      };
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp(fallback);
+      } else {
+        await interaction.reply(fallback);
+      }
     }
     return;
   }
@@ -318,17 +341,30 @@ type OpenViewOptions = {
   now?: Date;
 };
 
+function resolveResponseMode(
+  interaction: InteractionWithUser,
+  options: OpenViewOptions
+): ResponseMode {
+  if (options.respond) {
+    return options.respond;
+  }
+  if ("isButton" in interaction && typeof interaction.isButton === "function" && interaction.isButton()) {
+    return "update";
+  }
+  return "reply";
+}
+
 async function openPartyView(interaction: InteractionWithUser, options: OpenViewOptions = {}): Promise<void> {
   const snapshot = options.snapshot ?? (await fetchSnapshot(interaction.user.id));
   const render = buildPartyView(snapshot);
-  const mode = options.respond ?? ("isButton" in interaction && interaction.isButton() ? "reply" : "reply");
+  const mode = resolveResponseMode(interaction, options);
   await respondWithView(interaction, render, mode, options.ackContent);
 }
 
 async function openBoxView(interaction: InteractionWithUser, options: OpenViewOptions = {}): Promise<void> {
   const snapshot = options.snapshot ?? (await fetchSnapshot(interaction.user.id));
   const render = buildBoxView(snapshot, options.page ?? 1);
-  const mode = options.respond ?? ("isButton" in interaction && interaction.isButton() ? "reply" : "reply");
+  const mode = resolveResponseMode(interaction, options);
   await respondWithView(interaction, render, mode, options.ackContent);
 }
 
@@ -339,7 +375,7 @@ async function openBoxPage(interaction: InteractionWithUser, page: number): Prom
 async function openProfileView(interaction: InteractionWithUser, options: OpenViewOptions = {}): Promise<void> {
   const snapshot = options.snapshot ?? (await fetchSnapshot(interaction.user.id));
   const render = buildProfileView(snapshot, options.now ?? new Date());
-  const mode = options.respond ?? ("isButton" in interaction && interaction.isButton() ? "reply" : "reply");
+  const mode = resolveResponseMode(interaction, options);
   await respondWithView(interaction, render, mode, options.ackContent);
 }
 

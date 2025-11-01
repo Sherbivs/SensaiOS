@@ -174,10 +174,10 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Discord Bot Layer (`src/bot/ROUTER.md`)
 - Purpose: Discord client bootstrap, slash commands, DM flows, arena threads, admin ops.
 - Owned Globs: `src/bot/**`
-- Last Updated: 2025-10-27T11:45:00Z
+- Last Updated: 2025-11-02T00:10:00Z
 - Areas & Key Files:
 	- `src/bot/index.ts` — Discord client bootstrap & routing with ready guards
-	- `src/bot/dm/**` — DM home, starter selection, healing, drip alerts, daily quests
+        - `src/bot/dm/**` — DM home (party/box/profile views with pagination), starter selection, healing, drip alerts, daily quests
 	- `src/bot/commands/**` — Slash command registration (e.g., `/ops`, `/battle`)
 	- `src/bot/wilds/**` — encounter controls
 	- `src/bot/battle/**` — arena threads, announcer summaries, persistence hooks
@@ -185,7 +185,8 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 	- `src/bot/main.js` — legacy security bot (role sweeps, DripTVDD alert digest)
 	- `src/bot/dripAlerts.js` — DM alert scheduler/dispatcher backing security alerts
 - Notes:
-	- 2025-10-27: DRIP security alerts now fire on role assignments with audit-log attribution and CLI telemetry.
+        - 2025-10-27: DRIP security alerts now fire on role assignments with audit-log attribution and CLI telemetry.
+        - 2025-11-02: DM Home embeds handle party, storage, and profile views with navigation plus safe fallbacks when DMs are disabled.
 
 ### Core Game Engines (`src/core/ROUTER.md`)
 - Purpose: Deterministic battle and encounter mechanics.
@@ -201,13 +202,14 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Test Suite (`tests/ROUTER.md`)
 - Purpose: Vitest suites covering schemas, data pipeline, battle engines, DM flows, ops tooling.
 - Owned Globs: `tests/**`
-- Last Updated: 2025-10-27T12:30:00Z
+- Last Updated: 2025-11-02T00:10:00Z
 - Representative Specs:
 	- `tests/battle_engine.spec.ts` — deterministic battle engine coverage
 	- `tests/battle_flow.spec.ts` — arena flow integration tests
 	- `tests/daily.spec.ts` — daily quest claim success and cooldown guard rails
-	- `tests/ops.spec.ts` — `/ops` admin command scenarios (limit/after/participant)
-	- `tests/data_pipeline.spec.ts` — reference data validation
+        - `tests/ops.spec.ts` — `/ops` admin command scenarios (limit/after/participant)
+        - `tests/data_pipeline.spec.ts` — reference data validation
+        - `tests/dm_home_views.spec.ts` — DM Home party/box/profile embed output with pagination buttons
 	- `tests/encounter_walk.spec.ts` — wild encounter flow
 - Notes:
 	- 2025-10-27: PBSL oracle diff suite compares fixtures under tests/pbsl/** for deterministic regressions.
