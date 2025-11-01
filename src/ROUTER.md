@@ -2,7 +2,7 @@
 Title: Application Source
 Purpose: Root app source tree; see sub-routers for domains.
 Owned Globs: src/**
-Last Updated (UTC): 2025-10-30T00:47:00Z
+Last Updated (UTC): 2025-11-01T15:29:00Z
 
 Notes:
 - Battle persistence now centralizes result storage + arena/winner messaging.
@@ -27,6 +27,7 @@ Subdomains:
 - src/models - Prisma access layer and typed helpers
 - src/services - service abstractions feeding DM/command flows
 - src/shared - runtime config, Prisma client, logging, cache, event bus compatibility helpers
+- src/runtime - supervisors that wrap automation scripts (e.g., auto-sync loop)
 - src/types - ambient declaration files bridging external packages
 - src/utils - logging, CLI status, and operational helper utilities
 - src/worker - background worker loops

@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-01T05:40:00Z
-Revision: 2.17
+Last Updated (UTC): 2025-11-01T16:30:00Z
+Revision: 2.19
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -364,6 +364,16 @@ Each task has:
     - Ensure scripts/ROUTER.md and tests/ROUTER.md document supporting guard scripts and oracle diff coverage.
   - Record the audit outcome in Prompt.md and keep NEXT aligned with the dex backlog once complete.
   notes: Outcome — Router index, master table, and downstream routers now record PBSL oracle fixture coverage plus DRIP role alerts; audit logged in Prompt with NEXT retargeted to the dex backlog.
+
+- id: META.ROUTER.GAP_SWEEP
+  title: Close remaining router coverage gaps
+  status: DONE
+  depends_on: [META.ROUTER.AUDIT_20251027]
+  acceptance_criteria:
+    - Add ROUTER.md manifests for ops/ARCHIVE, ops/INBOX, prisma/migrations, scripts/{dex,guards,ops}, src/data_pipeline/schema, src/services/cache, src/shared/{cache,storage}, and tools/pgsql17.
+    - Update parent routers, ops/ROUTER_INDEX.yaml, masterroutetable.md, and meta-router-gap-report.md to reflect the new coverage.
+    - Retarget ops/NEXT.yaml, Prompt.md, and ops/TOUCHMAP.yaml to track the router gap sweep task with fresh timestamps.
+  notes: Outcome — Added ROUTER.md manifests for archive/inbox, Prisma migrations, scripts subfolders, cache/storage surfaces, data schemas, and the pgsql17 bundle; refreshed parent routers, router index/table, gap report, NEXT, Prompt, and Touchmap accordingly.
 
 - id: T8.3
   title: Add daily quest claim flow and rewards

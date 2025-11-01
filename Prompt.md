@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-01T05:40:00Z
-Revision: 1.64
+Timestamp (UTC): 2025-11-01T16:30:00Z
+Revision: 1.65
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added cache metrics counters, scheduled maintenance, and manual cleanup hooks in `src/services/cache/facade.ts` with `/ops cache` output wiring.
-- Documented the cache observability workflow in `docs/database-systems.md` and `AGENTS.md`, then reopened META.UNBLOCK.READY_SEED as the READY placeholder.
-- Verified coverage via `npx vitest run tests/services/cache.facade.spec.ts` and `npx vitest run tests/ops.spec.ts`, confirming the metrics + command suites pass.
+- Added ROUTER.md manifests for ops archive/inbox, Prisma migrations, scripts subfolders, cache/storage services, data pipeline schemas, and the vendored Postgres bundle to close the gap report.
+- Regenerated `ops/ROUTER_INDEX.yaml`, refreshed `masterroutetable.md`, and updated `router/meta-router-gap-report.md` to reflect the new coverage.
+- Retargeted ops/NEXT.yaml and Tasklist.md to META.ROUTER.GAP_SWEEP while leaving META.UNBLOCK.READY_SEED in the queue for post-sweep readiness.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -18,8 +18,8 @@ Revision: 1.64
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** META.UNBLOCK.READY_SEED — placeholder READY task until the next substantive backlog item is promoted.
-- **READY / In-flight:** Seed task READY; stands by to keep guardrails satisfied while new work is queued.
+- **NEXT Pointer:** META.ROUTER.GAP_SWEEP — closing outstanding router coverage gaps for archives, migrations, scripts, cache/storage, and tooling directories.
+- **READY / In-flight:** META.ROUTER.GAP_SWEEP in progress; META.UNBLOCK.READY_SEED remains READY as the standby safety task.
 - **Recent Finish:** T14.CACHE.OBS delivered cache metrics, scheduled cleanup, `/ops cache`, and doc/test coverage for the observability surface.
 
 ## System Highlights
@@ -61,11 +61,11 @@ Revision: 1.64
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Added cache metrics snapshot + maintenance scheduler, wired `/ops cache` output, refreshed docs, and retargeted NEXT to the seed placeholder.
+Change: Documented router coverage for archives, migrations, scripts, cache/storage, data schemas, and the pgsql bundle; regenerated router index/table and retargeted NEXT to META.ROUTER.GAP_SWEEP.
 TasklistDiff: true
-Tests: npx vitest run tests/services/cache.facade.spec.ts; npx vitest run tests/ops.spec.ts
+Tests: not run (docs-only router sweep)
 Contracts: ON
-NEXT: META.UNBLOCK.READY_SEED - placeholder READY task while the backlog requeues.
+NEXT: META.ROUTER.GAP_SWEEP - router gap sweep active with seed task still queued.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

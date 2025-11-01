@@ -2,9 +2,10 @@
 Title: Tooling
 Purpose: Guard scripts and automation entrypoints.
 Owned Globs: scripts/**
-Last Updated (UTC): 2025-10-30T20:45:00Z
+Last Updated (UTC): 2025-11-01T16:20:00Z
 
 Notes:
+- 2025-11-01: Documented dex (reference data), guards (CI invariants), and ops (operator helpers) sub-routers for quicker discovery.
 - guard_meta.sh enforces READY invariants. Called in CI preflight/postflight.
 - When POSTFLIGHT=1 it hard-fails on missing READY or NONE NEXT to keep merges safe.
 - 2025-10-26: guard_meta detects the marker switch, relaxes contracts in Markerless Mode, and still enforces Absolutes.

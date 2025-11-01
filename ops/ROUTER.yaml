@@ -1,7 +1,7 @@
 # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-10-30T03:15:00Z
+updated_utc: 2025-11-01T16:20:00Z
 
 meta_files:
   - Patch.md
@@ -80,19 +80,29 @@ categories:
     - scripts/restore_prisma_postgres.ps1
   router_docs:
     - ops/ROUTER.md
+    - ops/ARCHIVE/ROUTER.md
+    - ops/INBOX/ROUTER.md
     - ops/ROUTER_INDEX.yaml
     - masterroutetable.md
     - .github/ROUTER.md
+    - .github/workflows/ROUTER.md
     - .db-state/ROUTER.md
     - data/ROUTER.md
+    - data/bootstrap/ROUTER.md
+    - data/cache/ROUTER.md
     - docs/ROUTER.md
     - playbooks/ROUTER.md
     - prisma/ROUTER.md
+    - prisma/migrations/ROUTER.md
     - router/ROUTER.md
     - secrets/ROUTER.md
     - sync-layer/ROUTER.md
     - tools/ROUTER.md
+    - tools/pgsql17/ROUTER.md
     - scripts/ROUTER.md
+    - scripts/dex/ROUTER.md
+    - scripts/guards/ROUTER.md
+    - scripts/ops/ROUTER.md
     - src/ROUTER.md
     - src/bot/ROUTER.md
     - src/cache/ROUTER.md
@@ -100,15 +110,24 @@ categories:
     - src/config/ROUTER.md
     - src/core/ROUTER.md
     - src/data_pipeline/ROUTER.md
+    - src/data_pipeline/schema/ROUTER.md
     - src/engine/ROUTER.md
     - src/env/ROUTER.md
     - src/lib/ROUTER.md
     - src/models/ROUTER.md
     - src/services/ROUTER.md
+    - src/services/cache/ROUTER.md
     - src/shared/ROUTER.md
+    - src/shared/cache/ROUTER.md
+    - src/shared/storage/ROUTER.md
     - src/types/ROUTER.md
     - src/utils/ROUTER.md
     - src/worker/ROUTER.md
+    - discord-pokemon-bot/ROUTER.md
+    - discord-pokemon-bot/battles/ROUTER.md
+    - discord-pokemon-bot/data/ROUTER.md
+    - discord-pokemon-bot/scripts/ROUTER.md
+    - discord-pokemon-bot/utils/ROUTER.md
     - tests/ROUTER.md
     - scripts/guard_*.sh
 

@@ -14,7 +14,7 @@ guidance_when_none: |
 auto_promote_if_empty: true
 
 next_task_id: META.UNBLOCK.READY_SEED
-reason: "Seed placeholder READY task while the backlog requeues follow-up work after cache observability."
+reason: "Seed placeholder READY task while the next substantive backlog item is queued after router sweep completion."
 
 files_hint:
   - Tasklist.md
@@ -23,7 +23,7 @@ queue:
   - id: META.UNBLOCK.READY_SEED
     note: "Placeholder READY task to keep NEXT valid until the next substantive item is promoted."
 
-timestamp_utc: 2025-11-01T05:40:00Z
+timestamp_utc: 2025-11-01T16:30:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Cache observability landed; queue reset to seed until the next backlog item is staged."
+note: "Router gap sweep completed; NEXT reset to seed until a new READY item is promoted."

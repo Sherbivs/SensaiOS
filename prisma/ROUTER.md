@@ -2,11 +2,11 @@
 Title: Prisma Schema & Migrations
 Purpose: Database schema definition and migration history.
 Owned Globs: prisma/**
-Last Updated (UTC): 2025-10-30T00:46:00Z
+Last Updated (UTC): 2025-11-01T16:20:00Z
 
 Notes:
 - `schema.prisma` defines the Accelerate-first data model shared by the bot, workers, and maintenance scripts.
-- The `migrations/` folder stores deterministic migration bundles (`migration.sql` + lockfiles) applied via `prisma migrate deploy`.
+- The `migrations/` folder now carries its own router outlining timestamped bundles and the committed `migration_lock.toml` state.
 - Keep migration folders chronological and document rollout evidence in Tasklist notes or ops/DB_BOOTSTRAP.md.
 
 Key Files:

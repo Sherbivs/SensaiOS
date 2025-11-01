@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-10-30T20:15:00Z
+Last Updated (UTC): 2025-11-01T16:20:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -8,6 +8,8 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - `ops/ROUTER.yaml` — Canonical route map. Markerless Mode is documented in `ops/CRITICAL.md`; even when contracts are OFF, do not remove routers.
   - Routes:
   - `ops/ROUTER.md` — Ops & Governance
+    - `ops/ARCHIVE/ROUTER.md` — Tasklist archive snapshots (read-only history)
+    - `ops/INBOX/ROUTER.md` — Operator inbox notes pending Tasklist promotion
     - `scripts/ROUTER.md` — Dev & Docs Scripts (includes bootstrap_staging_db.ps1 helper)
     - `src/ROUTER.md` — Application Source
     - `ops/DB_IMPORT_PRISMA_POSTGRES.md` — Prisma Postgres import runbook for Accelerate migrations
@@ -15,9 +17,30 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `outbox.ts` now wraps the event bus helpers so legacy drains can enqueue/claim messages while handlers migrate.
     - `worker-runtime.ts` centralizes worker lifecycle helpers (shutdown hooks, repeating tasks) for outbox/cache/data pipeline entries.
     - `log.ts` remains the structured logger, consuming the shared runtime config.
-    - `src/bot/ROUTER.md` — Discord Bot Layer
-    - `src/core/ROUTER.md` — Core Game Engines
-    - `tests/ROUTER.md` — Test Suite
+  - `src/bot/ROUTER.md` — Discord Bot Layer
+  - `src/core/ROUTER.md` — Core Game Engines
+  - `tests/ROUTER.md` — Test Suite
+- `data/ROUTER.md` — Pokemon Reference Data
+  - `data/bootstrap/ROUTER.md` — Bootstrap JSON bundles
+  - `data/cache/ROUTER.md` — Generated cache artifacts + sync trigger
+- `prisma/ROUTER.md` — Prisma Schema & Migrations
+  - `prisma/migrations/ROUTER.md` — Timestamped migration bundles + lockfile provenance
+- `scripts/ROUTER.md` — Tooling
+  - `scripts/dex/ROUTER.md` — Dex automation helpers
+  - `scripts/guards/ROUTER.md` — Guard entrypoints
+  - `scripts/ops/ROUTER.md` — Operator automation scripts
+- `src/services/ROUTER.md` — Service Layer Helpers
+  - `src/services/cache/ROUTER.md` — Cache facade + recipes
+- `src/shared/ROUTER.md` — Shared Runtime & Utilities
+  - `src/shared/cache/ROUTER.md` — Cache backends (memory/LRU)
+  - `src/shared/storage/ROUTER.md` — Durable storage adapters
+- `tools/ROUTER.md` — Tooling Binaries & Helpers
+  - `tools/pgsql17/ROUTER.md` — Vendored Postgres client bundle
+- `discord-pokemon-bot/ROUTER.md` — Legacy Discord Bot Package
+  - `discord-pokemon-bot/battles/ROUTER.md` — Legacy battle scaffolding
+  - `discord-pokemon-bot/data/ROUTER.md` — Legacy fixture placeholders
+  - `discord-pokemon-bot/scripts/ROUTER.md` — Legacy build scripts
+  - `discord-pokemon-bot/utils/ROUTER.md` — Legacy helper archive
 
 ## Muted Local Files
 - `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` — Muted (DEV Postgres secrets); set `IG_ENV_FILE` here for local and staging work. Keep the repo `.env` empty.
@@ -28,7 +51,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).
 - Owned Globs: `scripts/**`
-- Last Updated: 2025-10-30T19:55:00Z
+- Last Updated: 2025-11-01T16:20:00Z
 - Key Scripts:
   - `scripts/update_change_ledger.sh` — regenerate Prompt change ledger
   - `scripts/update_router_index.sh` — rebuild `ops/ROUTER_INDEX.yaml`
@@ -43,11 +66,64 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - `scripts/setup_ai_env.ps1` — Muted (agent env helper); registers `IG_ENV_FILE` so secrets load from external storage
   - `scripts/db_smoke.ts` — Accelerate smoke query (`SELECT 1 AS ok`)
   - `scripts/dev_prod_auto_sync.ts` — Muted (automation loop); ensures migrate/seed inherit env-specific credentials, forces direct migrations, times out hung commands, preflights Optimize SpeciesSheet access, watches `data/cache/dex-sync-trigger.json`, and continuously runs the Dev → Prod → Dev cadence with integrity checks (`npm run db:auto-sync`)
+- Sub-Routers:
+  - `scripts/dex/ROUTER.md` — dex backfill/seed/warm helpers
+  - `scripts/guards/ROUTER.md` — CI guard entrypoints (require ensure-db preload, etc.)
+  - `scripts/ops/ROUTER.md` — operator automation (e.g., run_dex_migrations.ps1)
 - Notes:
   - 2025-10-27: Router scripts audited; verify_router_links and update_router_index keep meta routers synchronized during PBSL work.
   - 2025-10-28: Added staging bootstrap helper to tooling catalog.
   - 2025-10-29: Added Accelerate restore + smoke scripts to support Prisma Postgres migrations.
   - 2025-10-30: Added Dev ↔ Prod auto-sync loop to kick on deployment, poll every five minutes, and surface drift via JSON logs.
+  - 2025-11-01: Broke out dex automation, guard entrypoints, and ops scripts into dedicated sub-routers for faster discovery.
+
+### Ops Archive (`ops/ARCHIVE/ROUTER.md`)
+- Purpose: Read-only snapshots of Tasklist history and supporting meta exports.
+- Notes: Populate via `scripts/archive_task_history.mjs`; avoid manual edits so provenance stays intact.
+
+### Ops Inbox (`ops/INBOX/ROUTER.md`)
+- Purpose: Fast notes queue for operators; guard scripts compare its timestamp to `ops/NEXT.yaml.last_notes_read_utc`.
+- Notes: Move resolved items into Tasklist or archive them to keep the inbox actionable.
+
+### Prisma Migrations (`prisma/migrations/ROUTER.md`)
+- Purpose: Timestamped Prisma migration bundles plus `migration_lock.toml` state.
+- Notes: Follow `ops/DB_BOOTSTRAP.md` before applying new migrations; record rollout evidence in Tasklist notes.
+
+### Dex Automation (`scripts/dex/ROUTER.md`)
+- Purpose: Helpers (`backfill_species.ts`, `seed_reference.ts`, `warm_cache.ts`) used during dex seeding and rehearsals.
+- Notes: Coordinate schema changes with the data pipeline and Prisma migrations before re-running seeds.
+
+### Guard Entry Points (`scripts/guards/ROUTER.md`)
+- Purpose: Hardened guard wrappers (e.g., `require-ensure-db-preload.mjs`) consumed by CI and local guard scripts.
+- Notes: Keep outputs terse so developers can remediate failures quickly.
+
+### Operator Scripts (`scripts/ops/ROUTER.md`)
+- Purpose: PowerShell helpers such as `run_dex_migrations.ps1` for environment-specific deploy flows.
+- Notes: Document usage in ops runbooks when adding new operator automation.
+
+### Data Pipeline Schemas (`src/data_pipeline/schema/ROUTER.md`)
+- Purpose: Zod validators for dataset outputs (`abilities`, `moves`, `species`, `typechart`, `manifest`).
+- Notes: Update alongside `data/bootstrap/**` and consumers when introducing breaking schema changes.
+
+### Service Cache Recipes (`src/services/cache/ROUTER.md`)
+- Purpose: Cache facade + namespace recipes powering battle, encounter, and quest flows.
+- Notes: Emit `/ops cache` updates when introducing new namespaces so operators can monitor hit/miss metrics.
+
+### Shared Cache Backends (`src/shared/cache/ROUTER.md`)
+- Purpose: Memory + LRU implementations that back the facade.
+- Notes: Tune TTL or capacity limits here when adjusting runtime budgets.
+
+### Shared Storage Integrations (`src/shared/storage/ROUTER.md`)
+- Purpose: Durable sink adapters (currently `backup-sink.ts`) reused across workers.
+- Notes: Add new providers here instead of embedding storage logic inside command handlers.
+
+### Postgres 17 Bundle (`tools/pgsql17/ROUTER.md`)
+- Purpose: Vendored Postgres client binaries for local recovery and migration workflows.
+- Notes: Treat as read-only; document checksums when upgrading the bundle per `ops/DB_BOOTSTRAP.md`.
+
+### Legacy Discord Bot Package (`discord-pokemon-bot/ROUTER.md` and sub-routers)
+- Purpose: Archived Node implementation retained for archaeology during the TypeScript rewrite.
+- Notes: Keep subdirectories empty unless capturing reference fixtures; modern code lives under `src/bot/**`.
 
 ### Application Source (`src/ROUTER.md`)
 - Purpose: Root TypeScript source tree; delegates to domain routers.
