@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-11-01T16:20:00Z
+Last Updated (UTC): 2025-11-01T19:30:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -18,8 +18,24 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `worker-runtime.ts` centralizes worker lifecycle helpers (shutdown hooks, repeating tasks) for outbox/cache/data pipeline entries.
     - `log.ts` remains the structured logger, consuming the shared runtime config.
   - `src/bot/ROUTER.md` — Discord Bot Layer
+    - `src/bot/arena/ROUTER.md` — Arena threads and announcer summaries
+    - `src/bot/battle/ROUTER.md` — Battle interaction handlers
+    - `src/bot/daily/ROUTER.md` — Daily quest claim flow
+    - `src/bot/dm/ROUTER.md` — DM home, heal, and starter flows
+    - `src/bot/middleware/ROUTER.md` — Command guardrails and limits
+    - `src/bot/ops/ROUTER.md` — `/ops` admin command surface
+    - `src/bot/wilds/ROUTER.md` — Walk/catch encounter handlers
   - `src/core/ROUTER.md` — Core Game Engines
+    - `src/core/battle/ROUTER.md` — Deterministic battle engine internals
+    - `src/core/encounter/ROUTER.md` — Encounter spawn and catch logic
+    - `src/core/pbsl/ROUTER.md` — PBSL deterministic engine scaffold
+      - `src/core/pbsl/battle/ROUTER.md` — PBSL battle resolver
+      - `src/core/pbsl/data/ROUTER.md` — Provenance helpers
+      - `src/core/pbsl/encounter/ROUTER.md` — PBSL encounter generator
   - `tests/ROUTER.md` — Test Suite
+    - `tests/battle/ROUTER.md` — Battle interaction specs
+    - `tests/pbsl/ROUTER.md` — PBSL harness overview
+      - `tests/pbsl/fixtures/ROUTER.md` — Deterministic fixture snapshots
 - `data/ROUTER.md` — Pokemon Reference Data
   - `data/bootstrap/ROUTER.md` — Bootstrap JSON bundles
   - `data/cache/ROUTER.md` — Generated cache artifacts + sync trigger
@@ -34,8 +50,17 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - `src/shared/ROUTER.md` — Shared Runtime & Utilities
   - `src/shared/cache/ROUTER.md` — Cache backends (memory/LRU)
   - `src/shared/storage/ROUTER.md` — Durable storage adapters
+- `sync-layer/ROUTER.md` — Sync Layer Prototype
+  - `sync-layer/data/ROUTER.md` — Stored JSON manifests mirrored by the prototype
+  - `sync-layer/discord/ROUTER.md` — Discord watchers emitting sync payloads
+    - `sync-layer/discord/hooks/ROUTER.md` — Event-specific Discord hooks
+  - `sync-layer/shared/ROUTER.md` — Shared IO/logging helpers
+  - `sync-layer/worker/ROUTER.md` — Worker entries applying payloads
+    - `sync-layer/worker/schema/ROUTER.md` — JSON schemas validating payloads
 - `tools/ROUTER.md` — Tooling Binaries & Helpers
   - `tools/pgsql17/ROUTER.md` — Vendored Postgres client bundle
+    - `tools/pgsql17/pgsql/ROUTER.md` — Bundle root metadata
+    - `tools/pgsql17/pgsql/bin/ROUTER.md` — CLI binaries and usage notes
 - `discord-pokemon-bot/ROUTER.md` — Legacy Discord Bot Package
   - `discord-pokemon-bot/battles/ROUTER.md` — Legacy battle scaffolding
   - `discord-pokemon-bot/data/ROUTER.md` — Legacy fixture placeholders
@@ -117,9 +142,27 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - Purpose: Durable sink adapters (currently `backup-sink.ts`) reused across workers.
 - Notes: Add new providers here instead of embedding storage logic inside command handlers.
 
+### Sync Layer Prototype (`sync-layer/ROUTER.md`)
+- Purpose: Experimental Discord/worker sync utilities that mirror data into JSON manifests.
+- Owned Globs: `sync-layer/**`
+- Last Updated: 2025-11-01T19:30:00Z
+- Areas & Key Files:
+  - `sync-layer/discord/**` — Lightweight Discord client + hooks emitting sync payloads; see `sync-layer/discord/ROUTER.md`
+  - `sync-layer/discord/hooks/**` — Event-specific Discord hook implementations; see `sync-layer/discord/hooks/ROUTER.md`
+  - `sync-layer/worker/**` — Prototype workers ingesting payloads; see `sync-layer/worker/ROUTER.md`
+  - `sync-layer/worker/schema/**` — JSON schemas validating hook output; see `sync-layer/worker/schema/ROUTER.md`
+  - `sync-layer/data/**` — JSON manifest snapshots; see `sync-layer/data/ROUTER.md`
+  - `sync-layer/shared/**` — Shared IO/logging helpers for the prototype; see `sync-layer/shared/ROUTER.md`
+- Notes:
+  - Payload shapes must stay in sync across hooks, schemas, and workers; regenerate fixtures when schemas change.
+  - This prototype remains isolated from production; document intent in Tasklist before promoting changes.
+
 ### Postgres 17 Bundle (`tools/pgsql17/ROUTER.md`)
 - Purpose: Vendored Postgres client binaries for local recovery and migration workflows.
 - Notes: Treat as read-only; document checksums when upgrading the bundle per `ops/DB_BOOTSTRAP.md`.
+- Sub-Routers:
+  - `tools/pgsql17/pgsql/ROUTER.md` — Bundle root metadata (read-only)
+  - `tools/pgsql17/pgsql/bin/ROUTER.md` — CLI binaries used by local scripts
 
 ### Legacy Discord Bot Package (`discord-pokemon-bot/ROUTER.md` and sub-routers)
 - Purpose: Archived Node implementation retained for archaeology during the TypeScript rewrite.
@@ -174,43 +217,50 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Discord Bot Layer (`src/bot/ROUTER.md`)
 - Purpose: Discord client bootstrap, slash commands, DM flows, arena threads, admin ops.
 - Owned Globs: `src/bot/**`
-- Last Updated: 2025-11-02T00:10:00Z
+- Last Updated: 2025-11-02T00:30:00Z
 - Areas & Key Files:
-	- `src/bot/index.ts` — Discord client bootstrap & routing with ready guards
-        - `src/bot/dm/**` — DM home (party/box/profile views with pagination), starter selection, healing, drip alerts, daily quests
-	- `src/bot/commands/**` — Slash command registration (e.g., `/ops`, `/battle`)
-	- `src/bot/wilds/**` — encounter controls
-	- `src/bot/battle/**` — arena threads, announcer summaries, persistence hooks
-	- `src/bot/ops/admin.ts` — `/ops` admin stats with filters (limit, after, participant)
-	- `src/bot/main.js` — legacy security bot (role sweeps, DripTVDD alert digest)
-	- `src/bot/dripAlerts.js` — DM alert scheduler/dispatcher backing security alerts
+  - `src/bot/index.ts` — Discord client bootstrap & routing with ready guards
+  - `src/bot/commands/**` — Slash command registration (e.g., `/ops`, `/battle`)
+  - `src/bot/dm/**` — DM home (party/box/profile views with pagination), starter selection, healing, drip alerts, daily quests; see `src/bot/dm/ROUTER.md`
+  - `src/bot/arena/**` — Arena thread creation and summary helpers; see `src/bot/arena/ROUTER.md`
+  - `src/bot/battle/**` — Interaction handlers queuing moves, switches, and forfeits; see `src/bot/battle/ROUTER.md`
+  - `src/bot/daily/**` — Daily quest claim logic; see `src/bot/daily/ROUTER.md`
+  - `src/bot/middleware/**` — Rate limiting and guardrails; see `src/bot/middleware/ROUTER.md`
+  - `src/bot/ops/**` — `/ops` admin command surface; see `src/bot/ops/ROUTER.md`
+  - `src/bot/wilds/**` — Walk/catch encounter controls; see `src/bot/wilds/ROUTER.md`
+  - `src/bot/main.js` — legacy security bot (role sweeps, DripTVDD alert digest)
+  - `src/bot/dripAlerts.js` — DM alert scheduler/dispatcher backing security alerts
 - Notes:
-        - 2025-10-27: DRIP security alerts now fire on role assignments with audit-log attribution and CLI telemetry.
-        - 2025-11-02: DM Home embeds handle party, storage, and profile views with navigation plus safe fallbacks when DMs are disabled.
+  - 2025-10-27: DRIP security alerts now fire on role assignments with audit-log attribution and CLI telemetry.
+  - 2025-11-02: DM Home embeds handle party, storage, and profile views with navigation plus safe fallbacks when DMs are disabled.
 
 ### Core Game Engines (`src/core/ROUTER.md`)
 - Purpose: Deterministic battle and encounter mechanics.
 - Owned Globs: `src/core/**`
-- Last Updated: 2025-10-27T12:30:00Z
+- Last Updated: 2025-11-01T19:30:00Z
 - Areas & Representative Files:
-	- `src/core/battle/**` — engine wrappers, damage calculations, status effects
-	- `src/core/encounter/**` — spawn/walk logic
-	- Shared math/utilities referenced by `src/bot/**` during battles and encounters
+  - `src/core/battle/**` — Engine wrappers, damage calculations, status effects; see `src/core/battle/ROUTER.md`
+  - `src/core/encounter/**` — Spawn/walk logic and catch resolution; see `src/core/encounter/ROUTER.md`
+  - `src/core/pbsl/**` — Deterministic PBSL scaffolding (RNG, provenance, battle/encounter mirrors); see `src/core/pbsl/ROUTER.md`
+  - Shared math/utilities referenced by `src/bot/**` during battles and encounters
 - Notes:
-	- 2025-10-27: PBSL oracle fixtures diff deterministic battle snapshots against upstream engines for compliance.
+  - 2025-10-27: PBSL oracle fixtures diff deterministic battle snapshots against upstream engines for compliance.
+  - 2025-11-01: Sub-routers capture battle, encounter, and PBSL internals so parity fixes stay discoverable.
 
 ### Test Suite (`tests/ROUTER.md`)
 - Purpose: Vitest suites covering schemas, data pipeline, battle engines, DM flows, ops tooling.
 - Owned Globs: `tests/**`
-- Last Updated: 2025-11-02T00:10:00Z
+- Last Updated: 2025-11-02T00:30:00Z
 - Representative Specs:
-	- `tests/battle_engine.spec.ts` — deterministic battle engine coverage
-	- `tests/battle_flow.spec.ts` — arena flow integration tests
-	- `tests/daily.spec.ts` — daily quest claim success and cooldown guard rails
-        - `tests/ops.spec.ts` — `/ops` admin command scenarios (limit/after/participant)
-        - `tests/data_pipeline.spec.ts` — reference data validation
-        - `tests/dm_home_views.spec.ts` — DM Home party/box/profile embed output with pagination buttons
-	- `tests/encounter_walk.spec.ts` — wild encounter flow
+  - `tests/battle_engine.spec.ts` — deterministic battle engine coverage
+  - `tests/battle_flow.spec.ts` — arena flow integration tests
+  - `tests/battle/actions.interaction.spec.ts` — button prompt coverage; see `tests/battle/ROUTER.md`
+  - `tests/daily.spec.ts` — daily quest claim success and cooldown guard rails
+  - `tests/ops.spec.ts` — `/ops` admin command scenarios (limit/after/participant)
+  - `tests/data_pipeline.spec.ts` — reference data validation
+  - `tests/dm_home_views.spec.ts` — DM Home party/box/profile embed output with pagination buttons
+  - `tests/encounter_walk.spec.ts` — wild encounter flow
 - Notes:
-        - 2025-10-27: PBSL oracle diff suite compares fixtures under tests/pbsl/** for deterministic regressions.
-        - 2025-11-01: Battle engine spec mirrors MVP rules for priority, status modifiers, flinch handling, and early offensive items.
+  - 2025-10-27: PBSL oracle diff suite compares fixtures under tests/pbsl/** for deterministic regressions.
+  - 2025-11-01: Battle engine spec mirrors MVP rules for priority, status modifiers, flinch handling, and early offensive items.
+  - 2025-11-01: PBSL fixtures (`tests/pbsl/fixtures/**`) capture deterministic snapshots referenced by oracle tests.

@@ -1,7 +1,7 @@
 # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-11-01T16:20:00Z
+updated_utc: 2025-11-01T19:30:00Z
 
 meta_files:
   - Patch.md
@@ -94,21 +94,41 @@ categories:
     - playbooks/ROUTER.md
     - prisma/ROUTER.md
     - prisma/migrations/ROUTER.md
+  - prisma/migrations/202510280500_scaling_indexes/ROUTER.md
+  - prisma/migrations/202510290930_dex_reference_spine/ROUTER.md
+  - prisma/migrations/202511010900_schema_constraints/ROUTER.md
     - router/ROUTER.md
     - secrets/ROUTER.md
     - sync-layer/ROUTER.md
+  - sync-layer/discord/hooks/ROUTER.md
+  - sync-layer/worker/schema/ROUTER.md
     - tools/ROUTER.md
     - tools/pgsql17/ROUTER.md
+  - tools/pgsql17/pgsql/ROUTER.md
+  - tools/pgsql17/pgsql/bin/ROUTER.md
     - scripts/ROUTER.md
     - scripts/dex/ROUTER.md
     - scripts/guards/ROUTER.md
     - scripts/ops/ROUTER.md
     - src/ROUTER.md
     - src/bot/ROUTER.md
+  - src/bot/arena/ROUTER.md
+  - src/bot/battle/ROUTER.md
+  - src/bot/daily/ROUTER.md
+  - src/bot/dm/ROUTER.md
+  - src/bot/middleware/ROUTER.md
+  - src/bot/ops/ROUTER.md
+  - src/bot/wilds/ROUTER.md
     - src/cache/ROUTER.md
     - src/commands/ROUTER.md
     - src/config/ROUTER.md
     - src/core/ROUTER.md
+  - src/core/battle/ROUTER.md
+  - src/core/encounter/ROUTER.md
+  - src/core/pbsl/ROUTER.md
+  - src/core/pbsl/battle/ROUTER.md
+  - src/core/pbsl/data/ROUTER.md
+  - src/core/pbsl/encounter/ROUTER.md
     - src/data_pipeline/ROUTER.md
     - src/data_pipeline/schema/ROUTER.md
     - src/engine/ROUTER.md
@@ -129,6 +149,9 @@ categories:
     - discord-pokemon-bot/scripts/ROUTER.md
     - discord-pokemon-bot/utils/ROUTER.md
     - tests/ROUTER.md
+  - tests/battle/ROUTER.md
+  - tests/pbsl/ROUTER.md
+  - tests/pbsl/fixtures/ROUTER.md
     - scripts/guard_*.sh
 
 router_contract:

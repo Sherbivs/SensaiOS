@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-01T16:30:00Z
-Revision: 2.19
+Last Updated (UTC): 2025-11-01T19:25:00Z
+Revision: 2.20
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -26,6 +26,16 @@ Each task has:
     - guard-meta emits guidance in CI logs when no READY tasks are present.
     - Prompt.md “Last Repo Changes” records the seed action when triggered.
   notes: Outcome — Guard script now surfaces an error when no READY tasks are present; NEXT retargeted so the safety-net follow-up is ready. Re-opened 2025-11-01 to hold the READY slot until the next substantive backlog item is queued.
+
+- id: META.ROUTER.SUBROUTERS_20251101
+  title: Add sub-router manifests for newly active directories
+  status: READY
+  depends_on: []
+  acceptance_criteria:
+    - Create `ROUTER.md` manifests for the bot, core, sync-layer, tests, and tooling subdirectories that currently lack coverage.
+    - Update parent routers, `ops/ROUTER.yaml`, `ops/ROUTER_INDEX.yaml`, and `masterroutetable.md` to reference the new manifests.
+    - Document the sweep in Prompt.md and leave NEXT pointing to a READY task when complete.
+  notes: Pending — scope staged 2025-11-01 after router gap scan flagged uncovered directories.
 
 - id: META.NO_READY.SAFETY_NET
   title: Add CI/guard to prevent "no READY tasks" states

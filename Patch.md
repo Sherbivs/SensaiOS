@@ -99,13 +99,13 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Executed PATCHSET — META.ROUTER.GAP_SWEEP]
-- Tasklist.md: recorded META.ROUTER.GAP_SWEEP completion and bumped metadata headers.
-- ops/NEXT.yaml: reset NEXT to META.UNBLOCK.READY_SEED after finishing the router sweep.
-- Added ROUTER.md manifests for ops/ARCHIVE, ops/INBOX, prisma/migrations, scripts/{dex,guards,ops}, src/data_pipeline/schema, src/services/cache, src/shared/{cache,storage}, and tools/pgsql17.
-- Updated parent routers (ops, prisma, scripts, src/data_pipeline, src/services, src/shared, tools) and cleaned data/cache/ROUTER.md.
-- Regenerated ops/ROUTER_INDEX.yaml, refreshed masterroutetable.md, and marked router/meta-router-gap-report.md as covered.
-- Prompt.md now summarizes the sweep and updated PATCHSET echo with NEXT retargeted.
+[Planned PATCHSET — META.ROUTER.SUBROUTERS_20251101]
+- Tasklist.md: add META.ROUTER.SUBROUTERS_20251101 as READY with acceptance criteria for new sub-router coverage.
+- ops/NEXT.yaml: retarget NEXT to the new router task, refresh timestamp, and trim files_hint.
+- Add ROUTER.md manifests for src/bot/{arena,battle,daily,dm,middleware,ops,wilds}, src/core/{battle,encounter,pbsl, pbsl/battle, pbsl/data, pbsl/encounter}, sync-layer/discord/hooks, sync-layer/worker/schema, tests/{battle,pbsl/fixtures}, and tools/pgsql17/{pgsql,pgsql/bin}.
+- Refresh parent routers (src/bot/ROUTER.md, src/core/ROUTER.md, src/core/pbsl/ROUTER.md, sync-layer/discord/ROUTER.md, sync-layer/worker/ROUTER.md, tests/ROUTER.md, tests/pbsl/ROUTER.md, tools/pgsql17/ROUTER.md) with updated notes and timestamps.
+- Update ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, and masterroutetable.md to enumerate the new routers.
+- Bump Prompt.md revision/timestamps with Last Repo Changes and PATCHSET echo once edits are complete.
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>
