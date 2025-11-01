@@ -1,7 +1,7 @@
 // Prisma client singleton and simple repository helpers
 
 import { Prisma } from "@prisma/client";
-import type { Battle, PrismaClient, User as PrismaUser } from "@prisma/client";
+import type { Battle, Cooldown, PrismaClient, User as PrismaUser } from "@prisma/client";
 
 import { ensurePrisma, prisma } from "../shared/prisma.js";
 
@@ -19,6 +19,142 @@ export const UserRepo = {
       update: {},
       create: { discordId, coins: 0 },
     }),
+};
+
+export type TrainerCooldown = Pick<Cooldown, "id" | "kind" | "readyAt">;
+
+export type TrainerHomePokemon = {
+  id: string;
+  speciesId: number | null;
+  speciesName: string | null;
+  nickname: string | null;
+  level: number | null;
+  hp: number | null;
+  maxHp: number | null;
+  isShiny: boolean;
+  status: string | null;
+  boxSlot: number | null;
+  createdAt: Date | null;
+};
+
+export type TrainerPartySlot = {
+  slot: number;
+  pokemon: TrainerHomePokemon | null;
+};
+
+export type TrainerHomeSnapshot = {
+  user: Pick<PrismaUser, "id" | "discordId" | "coins" | "dailyQuestStreak" | "dailyQuestLastCompleted" | "dailyQuestLastReset" | "createdAt">;
+  party: TrainerPartySlot[];
+  box: TrainerHomePokemon[];
+  cooldowns: TrainerCooldown[];
+};
+
+const POKEMON_SUMMARY_SELECT = {
+  id: true,
+  speciesId: true,
+  nickname: true,
+  level: true,
+  hp: true,
+  maxHp: true,
+  isShiny: true,
+  status: true,
+  boxSlot: true,
+  createdAt: true,
+  species: {
+    select: {
+      name: true,
+    },
+  },
+} satisfies Prisma.PokemonInstanceSelect;
+
+type PokemonSummary = Prisma.PokemonInstanceGetPayload<{ select: typeof POKEMON_SUMMARY_SELECT }>;
+
+function mapPokemonSummary(mon: PokemonSummary | null): TrainerHomePokemon | null {
+  if (!mon) return null;
+  return {
+    id: mon.id,
+    speciesId: typeof mon.speciesId === "number" ? mon.speciesId : null,
+    speciesName: typeof mon.species?.name === "string" ? mon.species.name : null,
+    nickname: mon.nickname ?? null,
+    level: typeof mon.level === "number" ? mon.level : null,
+    hp: typeof mon.hp === "number" ? mon.hp : null,
+    maxHp: typeof mon.maxHp === "number" ? mon.maxHp : null,
+    isShiny: Boolean(mon.isShiny),
+    status: mon.status ?? null,
+    boxSlot: typeof mon.boxSlot === "number" ? mon.boxSlot : null,
+    createdAt: mon.createdAt instanceof Date && !Number.isNaN(mon.createdAt.valueOf()) ? mon.createdAt : null,
+  } satisfies TrainerHomePokemon;
+}
+
+async function ensurePrimaryParty(ownerId: string, client: PrismaClient = prisma) {
+  return client.party.upsert({
+    where: { ownerId },
+    update: {},
+    create: { ownerId },
+    include: {
+      slots: {
+        include: {
+          pokemon: {
+            select: POKEMON_SUMMARY_SELECT,
+          },
+        },
+        orderBy: { slot: "asc" },
+      },
+    },
+  });
+}
+
+export const DMHomeRepo = {
+  async loadTrainerHomeSnapshot(
+    discordId: string,
+    client: PrismaClient = prisma
+  ): Promise<TrainerHomeSnapshot> {
+    const user = await UserRepo.upsertByDiscordId(discordId, client);
+
+    const [party, cooldownsRaw, boxRaw] = await Promise.all([
+      ensurePrimaryParty(user.id, client),
+      client.cooldown.findMany({
+        where: { ownerId: user.id },
+        select: { id: true, kind: true, readyAt: true },
+        orderBy: { readyAt: "desc" },
+      }),
+      client.pokemonInstance.findMany({
+        where: {
+          ownerId: user.id,
+          partySlots: party?.id ? { none: { partyId: party.id } } : undefined,
+        },
+        select: POKEMON_SUMMARY_SELECT,
+        orderBy: [
+          { boxSlot: "asc" as const },
+          { createdAt: "asc" as const },
+        ],
+      }),
+    ]);
+
+    const box = boxRaw
+      .map((instance) => mapPokemonSummary(instance))
+      .filter((instance): instance is TrainerHomePokemon => Boolean(instance));
+
+    const partySlots: TrainerPartySlot[] = (party?.slots ?? []).map((slot) => ({
+      slot: slot.slot ?? 0,
+      pokemon: slot.pokemon ? mapPokemonSummary(slot.pokemon) : null,
+    }));
+
+    return {
+      user: {
+        id: user.id,
+        discordId: user.discordId,
+        coins: user.coins,
+        dailyQuestStreak: user.dailyQuestStreak,
+        dailyQuestLastCompleted: user.dailyQuestLastCompleted,
+        dailyQuestLastReset: user.dailyQuestLastReset,
+        createdAt: user.createdAt,
+      },
+      party: partySlots,
+      box,
+      cooldowns: cooldownsRaw.map((cd) => ({ id: cd.id, kind: cd.kind, readyAt: cd.readyAt })),
+    } satisfies TrainerHomeSnapshot;
+  },
 };
 
 type PrismaLike = PrismaClient;

@@ -9,6 +9,7 @@ const { loadCommands } = await import("../command-loader.js");
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
 import { handleHeal } from "./dm/heal.js";
+import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./dm/home.js";
 import { openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./dm/starters.js";
 import { handleOpsCommand } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
@@ -121,22 +122,31 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 						case "HOME_HEAL":
 							await handleHeal(interaction);
 							break;
-						case "HOME_PARTY":
-							await interaction.reply({ content: "Party view is coming soon.", ephemeral: true });
-							break;
-						case "HOME_BOX":
-							await interaction.reply({ content: "Box view is coming soon.", ephemeral: true });
-							break;
-						case "HOME_PROFILE":
-							await interaction.reply({ content: "Profile view is coming soon.", ephemeral: true });
-							break;
-						case "HOME_STARTERS":
+                                                case "HOME_PARTY":
+                                                        await openPartyView(interaction);
+                                                        break;
+                                                case "HOME_BOX":
+                                                        await openBoxView(interaction, { page: 1 });
+                                                        break;
+                                                case "HOME_PROFILE":
+                                                        await openProfileView(interaction);
+                                                        break;
+                                                case "HOME_STARTERS":
 							await openStartersDM(interaction.user);
 							await interaction.reply({ content: "I opened your Starters in DMs.", ephemeral: true });
 							break;
-						default:
-							// Starter pick buttons: STARTER_PICK_<speciesId>
-							if (id.startsWith("STARTER_PICK_")) {
+                                                default:
+                                                        if (id.startsWith(BOX_PAGE_PREFIX) && interaction.isButton()) {
+                                                                const rawPage = Number.parseInt(
+                                                                        id.substring(BOX_PAGE_PREFIX.length),
+                                                                        10
+                                                                );
+                                                                const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+                                                                await openBoxView(interaction, { page, respond: "update" });
+                                                                break;
+                                                        }
+                                                        // Starter pick buttons: STARTER_PICK_<speciesId>
+                                                        if (id.startsWith("STARTER_PICK_")) {
 								const sid = Number(id.substring("STARTER_PICK_".length));
 								const valid = STARTER_OPTIONS.some((s) => s.speciesId === sid);
 								if (!valid) return;
