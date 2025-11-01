@@ -7,6 +7,7 @@ import {
   ComponentType,
   EmbedBuilder,
   StringSelectMenuBuilder,
+  StringSelectMenuInteraction,
 } from "discord.js";
 
 import { attemptCatch, runFromEncounter } from "../../core/encounter/catch.js";
@@ -189,17 +190,19 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
     select.addOptions(options);
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
 
-    await interaction.reply({
+    const replyMessage = await interaction.reply({
       content: `Choose a party member to take the lead against the wild Pokémon.`,
       components: [row],
       ephemeral,
+      fetchReply: true,
     });
 
     try {
-      const selection = await interaction.awaitMessageComponent({
+      const selection = await replyMessage.awaitMessageComponent({
         componentType: ComponentType.StringSelect,
         time: 30_000,
-        filter: (i) => i.user.id === interaction.user.id && i.customId === selectCustomId,
+        filter: (componentInteraction: StringSelectMenuInteraction) =>
+          componentInteraction.user.id === interaction.user.id && componentInteraction.customId === selectCustomId,
       });
       const chosenId = selection.values?.[0];
       if (!chosenId) {

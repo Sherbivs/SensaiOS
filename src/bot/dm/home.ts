@@ -291,27 +291,26 @@ async function respondWithView(
   mode: ResponseMode,
   ackContent?: string
 ) {
-  const payload: InteractionReplyOptions = {
-    embeds: [render.embed],
-    components: render.components,
-  };
+  const embeds = [render.embed];
+  const components = render.components;
 
   if (mode === "update" && "isButton" in interaction && interaction.isButton()) {
-    await interaction.update(payload);
+    await interaction.update({ embeds, components });
     return;
   }
 
   if (mode === "dm") {
     try {
       const dm = await interaction.user.createDM();
-      await dm.send({ embeds: [render.embed], components: render.components });
+      await dm.send({ embeds, components });
       if (ackContent) {
         await acknowledge(interaction, ackContent);
       }
     } catch (error) {
       console.warn("[dm-home] Failed to deliver DM view; falling back to ephemeral reply", error);
       const fallback: InteractionReplyOptions = {
-        ...payload,
+        embeds,
+        components,
         content:
           "I couldn't send a DM. Please enable DMs from this server and try again — showing the view here instead.",
         ephemeral: true,
@@ -325,7 +324,7 @@ async function respondWithView(
     return;
   }
 
-  const finalPayload = { ...payload, ephemeral: true } satisfies InteractionReplyOptions;
+  const finalPayload = { embeds, components, ephemeral: true } satisfies InteractionReplyOptions;
   if (interaction.deferred || interaction.replied) {
     await interaction.followUp(finalPayload);
   } else {

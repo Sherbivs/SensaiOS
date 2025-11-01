@@ -9,6 +9,7 @@ import {
   ComponentType,
   EmbedBuilder,
   StringSelectMenuBuilder,
+  StringSelectMenuInteraction,
   User as DiscordUser,
 } from "discord.js";
 
@@ -100,8 +101,9 @@ type HandlerOpts = {
 
 async function defaultPromptMove({ interaction, battleId, active, moves }: Parameters<PromptMoveFn>[0]) {
   if (moves.length === 0) return null;
+  const selectId = `${MOVE_PREFIX}SELECT_${battleId}`;
   const select = new StringSelectMenuBuilder()
-    .setCustomId(`${MOVE_PREFIX}SELECT_${battleId}`)
+    .setCustomId(selectId)
     .setPlaceholder(`Choose a move for ${active.label}`)
     .addOptions(
       moves.map((move) => ({
@@ -111,16 +113,18 @@ async function defaultPromptMove({ interaction, battleId, active, moves }: Param
       }))
     );
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
-  await interaction.reply({
+  const replyMessage = await interaction.reply({
     content: `Which move should ${active.label} use?`,
     components: [row],
     ephemeral: true,
+    fetchReply: true,
   });
   try {
-    const selection = await interaction.awaitMessageComponent({
+    const selection = await replyMessage.awaitMessageComponent({
       componentType: ComponentType.StringSelect,
       time: 30_000,
-      filter: (i) => i.user.id === interaction.user.id && i.customId === select.data.custom_id,
+      filter: (componentInteraction: StringSelectMenuInteraction) =>
+        componentInteraction.user.id === interaction.user.id && componentInteraction.customId === selectId,
     });
     const choice = selection.values?.[0] ?? null;
     const picked = moves.find((move) => move.id === choice);
@@ -141,8 +145,9 @@ async function defaultPromptMove({ interaction, battleId, active, moves }: Param
 
 async function defaultPromptSwitch({ interaction, battleId, active, options }: Parameters<PromptSwitchFn>[0]) {
   if (options.length === 0) return null;
+  const selectId = `${SWITCH_PREFIX}SELECT_${battleId}`;
   const select = new StringSelectMenuBuilder()
-    .setCustomId(`${SWITCH_PREFIX}SELECT_${battleId}`)
+    .setCustomId(selectId)
     .setPlaceholder(`Switch ${active.label} for...`)
     .addOptions(
       options.map((member) => ({
@@ -152,16 +157,18 @@ async function defaultPromptSwitch({ interaction, battleId, active, options }: P
       }))
     );
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
-  await interaction.reply({
+  const replyMessage = await interaction.reply({
     content: `Choose a healthy party member to switch in.`,
     components: [row],
     ephemeral: true,
+    fetchReply: true,
   });
   try {
-    const selection = await interaction.awaitMessageComponent({
+    const selection = await replyMessage.awaitMessageComponent({
       componentType: ComponentType.StringSelect,
       time: 30_000,
-      filter: (i) => i.user.id === interaction.user.id && i.customId === select.data.custom_id,
+      filter: (componentInteraction: StringSelectMenuInteraction) =>
+        componentInteraction.user.id === interaction.user.id && componentInteraction.customId === selectId,
     });
     const choice = selection.values?.[0] ?? null;
     const picked = options.find((member) => member.id === choice);
@@ -192,36 +199,37 @@ function identifyPlayer(battle: any, interaction: ButtonInteraction): { key: "p1
 
 function toPartyMember(entry: any): BattlePartyMember {
   const movesArray = Array.isArray(entry?.movesJson) ? (entry.movesJson as unknown[]) : [];
-  const moves: BattleMoveOption[] = movesArray
-    .map((move, idx) => {
-      if (!move || typeof move !== "object") return null;
-      const payload = move as Record<string, unknown>;
-      const idValue =
-        typeof payload.id === "string" || typeof payload.id === "number"
-          ? String(payload.id)
-          : typeof payload.slug === "string"
-          ? payload.slug
-          : typeof payload.name === "string"
-          ? payload.name.toLowerCase()
-          : `move-${idx}`;
-      const label = typeof payload.name === "string" && payload.name.length > 0 ? payload.name : `Move ${idx + 1}`;
-      const remaining = typeof payload.pp === "number" ? payload.pp : undefined;
-      const max = typeof payload.maxPP === "number" ? payload.maxPP : undefined;
-      const desc =
-        remaining != null && max != null
-          ? `PP ${remaining}/${max}`
-          : remaining != null
-          ? `PP ${remaining}`
-          : undefined;
-      return {
-        id: idValue,
-        label,
-        remainingPp: remaining,
-        maxPp: max,
-        description: desc,
-      } satisfies BattleMoveOption;
-    })
-    .filter((value): value is BattleMoveOption => Boolean(value));
+  const moves: BattleMoveOption[] = [];
+  movesArray.forEach((move, idx) => {
+    if (!move || typeof move !== "object") {
+      return;
+    }
+    const payload = move as Record<string, unknown>;
+    const idValue =
+      typeof payload.id === "string" || typeof payload.id === "number"
+        ? String(payload.id)
+        : typeof payload.slug === "string"
+        ? payload.slug
+        : typeof payload.name === "string"
+        ? payload.name.toLowerCase()
+        : `move-${idx}`;
+    const label = typeof payload.name === "string" && payload.name.length > 0 ? payload.name : `Move ${idx + 1}`;
+    const remaining = typeof payload.pp === "number" ? payload.pp : undefined;
+    const max = typeof payload.maxPP === "number" ? payload.maxPP : undefined;
+    const desc =
+      remaining != null && max != null
+        ? `PP ${remaining}/${max}`
+        : remaining != null
+        ? `PP ${remaining}`
+        : undefined;
+    moves.push({
+      id: idValue,
+      label,
+      remainingPp: remaining,
+      maxPp: max,
+      description: desc,
+    });
+  });
 
   const nickname = typeof entry?.nickname === "string" && entry.nickname.length > 0 ? entry.nickname : null;
   const label = nickname ?? `Lv${entry?.level ?? "?"} #${entry?.speciesId ?? "?"}`;

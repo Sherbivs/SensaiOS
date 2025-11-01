@@ -1,12 +1,18 @@
 import { describe, it, expect } from "vitest";
 
-import { newBattle, resolveTurn, loadIndexes } from "../src/core/battle/engine";
+import { newBattle, resolveTurn, loadIndexes, type BuiltIndexes } from "../src/core/battle/engine";
 
 type Battle = ReturnType<typeof newBattle>;
 
 type BattleResolution = ReturnType<typeof resolveTurn>;
 
 type SideKey = "a" | "b";
+
+type MoveEntry = Record<string, unknown> & {
+  priority?: number;
+  meta?: (Record<string, unknown> & { flinch_chance?: number }) | undefined;
+  type?: unknown;
+};
 
 function getSide(state: Battle["state"], key: SideKey) {
   if (!state || typeof state !== "object") {
@@ -27,6 +33,21 @@ function firstLogLine(resolution: BattleResolution) {
   return (resolution.log[0] || "").toLowerCase();
 }
 
+function getMove(indexes: BuiltIndexes, key: string): MoveEntry {
+  const move = indexes.movesIndex[key];
+  if (!move || typeof move !== "object") {
+    throw new Error(`Missing move ${key}`);
+  }
+  return move as MoveEntry;
+}
+
+function ensureMoveMeta(move: MoveEntry): Record<string, unknown> & { flinch_chance?: number } {
+  if (!move.meta || typeof move.meta !== "object") {
+    move.meta = {};
+  }
+  return move.meta as Record<string, unknown> & { flinch_chance?: number };
+}
+
 describe("battle core v1", () => {
   it("orders by move priority before speed", () => {
     const battle = newBattle({
@@ -34,8 +55,10 @@ describe("battle core v1", () => {
       b: { name: "charizard", level: 50, moves: ["bite"] },
       seed: 99,
     });
-    battle.indexes.movesIndex["tackle"].priority = 1;
-    battle.indexes.movesIndex["bite"].priority = 0;
+    const tackle = getMove(battle.indexes, "tackle");
+    const bite = getMove(battle.indexes, "bite");
+    tackle.priority = 1;
+    bite.priority = 0;
 
     const res = resolveTurn(battle, "tackle", "bite");
     expect(firstLogLine(res)).toContain("venusaur uses tackle");
@@ -58,8 +81,8 @@ describe("battle core v1", () => {
       b: { name: "charizard", level: 50, moves: ["tackle"] },
       seed: 5,
     });
-    battle.state.a.name = "Zulu";
-    battle.state.b.name = "Alpha";
+    (getSide(battle.state, "a").side as { name?: string }).name = "Zulu";
+    (getSide(battle.state, "b").side as { name?: string }).name = "Alpha";
 
     const res = resolveTurn(battle, "tackle", "tackle");
     expect(firstLogLine(res)).toContain("alpha uses tackle");
@@ -95,8 +118,9 @@ describe("battle core v1", () => {
       b: { name: "charizard", level: 50, moves: ["bite", "tackle"] },
       seed: 3,
     });
-    battle.indexes.movesIndex["bite"].meta = battle.indexes.movesIndex["bite"].meta || {};
-    battle.indexes.movesIndex["bite"].meta!.flinch_chance = 100;
+    const bite = getMove(battle.indexes, "bite");
+    const meta = ensureMoveMeta(bite);
+    meta.flinch_chance = 100;
 
     resolveTurn(battle, "tackle", "bite");
     const res = resolveTurn(battle, "tackle", "tackle");
@@ -107,7 +131,7 @@ describe("battle core v1", () => {
   });
 
   it("applies STAB and type effectiveness (fire vs grass/poison)", () => {
-    const { movesIndex } = loadIndexes();
+    const indexes = loadIndexes();
     const battle = newBattle({
       a: { name: "charizard", level: 50, moves: ["flamethrower"] },
       b: { name: "venusaur", level: 50, moves: ["tackle"] },
@@ -118,7 +142,8 @@ describe("battle core v1", () => {
     const hpAfter = getSide(res.state, "b").hp;
     const dealt = hpBefore - hpAfter;
     expect(dealt).toBeGreaterThan(0);
-    expect(movesIndex["flamethrower"].type).toBe("fire");
+    const flamethrower = getMove(indexes, "flamethrower");
+    expect(flamethrower.type).toBe("fire");
     expect(res.log.join("\n").toLowerCase()).toContain("flamethrower");
   });
 

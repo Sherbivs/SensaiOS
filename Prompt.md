@@ -1,11 +1,10 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-01T16:30:00Z
-Revision: 1.65
+Timestamp (UTC): 2025-11-01T18:10:00Z
+Revision: 1.66
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added ROUTER.md manifests for ops archive/inbox, Prisma migrations, scripts subfolders, cache/storage services, data pipeline schemas, and the vendored Postgres bundle to close the gap report.
-- Regenerated `ops/ROUTER_INDEX.yaml`, refreshed `masterroutetable.md`, and updated `router/meta-router-gap-report.md` to reflect the new coverage.
-- Retargeted ops/NEXT.yaml and Tasklist.md to META.ROUTER.GAP_SWEEP while leaving META.UNBLOCK.READY_SEED in the queue for post-sweep readiness.
+- Refreshed `AGENTS.md` to mirror the current repo layout, correct npm-based local workflows, and clarify the exit checklist guidance for maintaining NEXT.
+- NEXT remains on `META.UNBLOCK.READY_SEED` while the backlog is idle; no additional Tasklist changes were required.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -18,8 +17,8 @@ Revision: 1.65
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** META.ROUTER.GAP_SWEEP — closing outstanding router coverage gaps for archives, migrations, scripts, cache/storage, and tooling directories.
-- **READY / In-flight:** META.ROUTER.GAP_SWEEP in progress; META.UNBLOCK.READY_SEED remains READY as the standby safety task.
+- **NEXT Pointer:** META.UNBLOCK.READY_SEED — seed placeholder preserved until a new substantive backlog item is promoted.
+- **READY / In-flight:** No substantive tasks in flight; the seed task remains READY to keep the queue healthy.
 - **Recent Finish:** T14.CACHE.OBS delivered cache metrics, scheduled cleanup, `/ops cache`, and doc/test coverage for the observability surface.
 
 ## System Highlights
@@ -61,11 +60,11 @@ Revision: 1.65
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Documented router coverage for archives, migrations, scripts, cache/storage, data schemas, and the pgsql bundle; regenerated router index/table and retargeted NEXT to META.ROUTER.GAP_SWEEP.
-TasklistDiff: true
-Tests: not run (docs-only router sweep)
+Change: Refreshed AGENTS.md to align the repo map, npm workflows, and exit checklist with the current maintenance posture.
+TasklistDiff: false
+Tests: not run (docs-only refresh)
 Contracts: ON
-NEXT: META.ROUTER.GAP_SWEEP - router gap sweep active with seed task still queued.
+NEXT: META.UNBLOCK.READY_SEED - seed placeholder maintained while backlog is idle.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

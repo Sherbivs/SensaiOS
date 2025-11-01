@@ -111,8 +111,9 @@ export const DMHomeRepo = {
   ): Promise<TrainerHomeSnapshot> {
     const user = await UserRepo.upsertByDiscordId(discordId, client);
 
-    const [party, cooldownsRaw, boxRaw] = await Promise.all([
-      ensurePrimaryParty(user.id, client),
+    const party = await ensurePrimaryParty(user.id, client);
+
+    const [cooldownsRaw, boxRaw] = await Promise.all([
       client.cooldown.findMany({
         where: { ownerId: user.id },
         select: { id: true, kind: true, readyAt: true },
@@ -135,7 +136,7 @@ export const DMHomeRepo = {
       .map((instance) => mapPokemonSummary(instance))
       .filter((instance): instance is TrainerHomePokemon => Boolean(instance));
 
-    const partySlots: TrainerPartySlot[] = (party?.slots ?? []).map((slot) => ({
+    const partySlots: TrainerPartySlot[] = (party?.slots ?? []).map((slot): TrainerPartySlot => ({
       slot: slot.slot ?? 0,
       pokemon: slot.pokemon ? mapPokemonSummary(slot.pokemon) : null,
     }));

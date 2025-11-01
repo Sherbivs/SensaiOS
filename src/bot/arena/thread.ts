@@ -15,9 +15,10 @@ type ThreadCreateArgs = {
   reason: string;
 };
 
-type ThreadCapableChannel = Pick<GuildTextBasedChannel, "threads"> & {
+type ThreadCapableChannel = {
+  threads?: ThreadManager;
   send?: (content: string) => Promise<unknown>;
-};
+} & Partial<GuildTextBasedChannel>;
 
 type ThreadCreator = (args: ThreadCreateArgs) => Promise<ThreadCreateResult>;
 

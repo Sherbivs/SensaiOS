@@ -5,7 +5,20 @@ import { Client, GatewayIntentBits, Partials, Interaction, Events } from "discor
 import { prisma } from "../models/index.js";
 import { log } from "../shared/log.js";
 
-const { loadCommands } = await import("../command-loader.js");
+type CommandDefinition = {
+	execute: (...args: unknown[]) => Promise<unknown> | unknown;
+	data?: { name?: string };
+	[key: string]: unknown;
+};
+
+type CommandCollection = Map<string, CommandDefinition>;
+
+type CommandLoaderModule = {
+	loadCommands: (...args: unknown[]) => Promise<CommandCollection>;
+};
+
+const commandLoaderModule = (await import("../command-loader.js")) as CommandLoaderModule;
+const { loadCommands } = commandLoaderModule;
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
 import { handleHeal } from "./dm/heal.js";
@@ -45,7 +58,7 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 		partials: [Partials.Channel],
 	});
 
-        const commands = await loadCommands();
+	        const commands = await loadCommands();
 
         const readyPromise = once(client, Events.ClientReady);
 
