@@ -10,6 +10,13 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - `playbooks/` — recovery & escalation recipes
 - `docs/` — architecture, safety, ops, runbooks
 
+## Orientation Flow
+- Start every run by reading `Patch.md` to understand contract rules, marker modes, and Absolutes.
+- Review `Prompt.md` for the current timestamp, revision, recent repo changes, and PATCHSET echo so you know what happened last.
+- Use `masterroutetable.md` alongside `ops/ROUTER.yaml` to map directories to their routers before touching code or docs.
+- Consult `README.md` and domain-specific docs under `docs/` for architecture, operations, and safety context; follow links from the router manifests when deeper knowledge is required.
+- `Tasklist.md` captures backlog intent, but only act after verifying readiness in `Patch.md`/`Prompt.md` and aligning with `ops/NEXT.yaml`.
+
 ## Core Control Documents
 - `Patch.md` — AI Project Manager Contract. Defines marker modes, clipboard expectations, hotfix loop, and Absolutes. Never edit outside the rules described here.
 - `Prompt.md` — Operational prompt. Holds the current timestamp, revision, Last Repo Changes, PATCHSET echo, and NEXT pointer context.
@@ -87,6 +94,7 @@ Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describ
   - `scripts/ROUTER.md` — Guard scripts, router refresh tooling, change ledger automation.
   - `tests/ROUTER.md` — Vitest coverage map for major systems.
 - When in doubt, consult `ops/TOUCHMAP.yaml` for file ownership and escalation paths.
+- Cache/storage routers now cross-link end-to-end: `src/services/cache/ROUTER.md`, `src/shared/cache/ROUTER.md`, and `Store/ROUTER.md` describe recipes, backends, and persisted namespaces respectively.
 - Pair the runbook (`ops/DB_BOOTSTRAP.md`) with `scripts/bootstrap_staging_db.ps1` before touching staging migrations; the script reads the active `IG_ENV_FILE` (defaulting to `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env`), runs `prisma migrate deploy`, and points back to the runbook if baseline tables or connection strings (pooled vs. direct) are missing.
 
 ## Refresh Policy for Materialized Views
@@ -127,7 +135,7 @@ Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describ
 ## Data & Cache Pipelines
 - Pokémon data bootstrap lives under `scripts/build-data.js`, `scripts/fetch_pokemon.mjs`, and `data/bootstrap/*`.
 - The security bot uses filesystem caching via `src/services/cache.js` (`/Store/discord-cache`).
-- Live game flows share a typed facade in `src/services/cache/facade.ts` that fronts an in-memory LRU and persists slices under `/Store/runtime-cache/<namespace>`; adjust limits with `configureCacheFacade` for tests or workers.
+- Live game flows share a typed facade in `src/services/cache/facade.ts` that fronts an in-memory LRU and persists slices under `/Store/runtime-cache/<namespace>`; adjust limits with `configureCacheFacade` for tests or workers. See the linked routers for cache recipes (`src/services/cache/ROUTER.md`), shared backends (`src/shared/cache/ROUTER.md`), persistence (`Store/ROUTER.md`), and storage adapters (`src/shared/storage/ROUTER.md`).
 - Runtime cache metrics surface via `/ops cache`; the command reports hit/miss counters, disk usage, and maintenance state, and accepts `cleanup: true` to run an immediate sweep. The scheduler runs automatically (10-minute cadence) and logs results via `cache.maintenance` events.
 - Render cron (`pokedex-cache-failsafe`) calls `scripts/refresh_cache_gh_only.mjs` for a GitHub-only fallback.
 

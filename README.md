@@ -6,10 +6,10 @@ live-service economy powered by workers and data pipelines.
 
 ## Current Status & Goals
 
-- **Current build:** The TypeScript bot stack (DM Home, Wilds, Arena, admin ops) runs on Prisma-backed Postgres with Render-ready workers and guarded automation.
-- **Recent wins:** Admin `/ops stats` adds targeted filters, `/ops cache` surfaces runtime cache metrics and cleanup, hotfix policies require plain-text echoes, and pooled vs. direct database URLs stay wired through paired runbooks + helper scripts.
-- **Short-term focus:** Keep staging production-ready by maintaining pooled (`DATABASE_POOL_URL`) and direct (`DATABASE_DIRECT_URL`) connection strings, then advance the remaining Phase 10 scaling tasks.
-- **Near horizon:** Split production vs. development routing tables, tighten deployment automation, and prepare structured guild playtests.
+- **Current build:** The TypeScript bot stack (DM Home, Wilds, Arena, admin ops) runs on Prisma-backed Postgres with Render-ready workers, cache instrumentation, and cross-linked router manifests for fast navigation.
+- **Recent wins:** Router docs now reference their sub-routers and related runbooks, `/ops cache` telemetry landed, and hotfix/contract guardrails stayed aligned with pooled vs. direct database workflows.
+- **Short-term focus:** Keep the platform stable (seed READY task, monitor `/ops stats` + `/ops cache`), refresh metadata when structure changes, and wait for new gameplay or ops backlog to promote.
+- **Near horizon:** When new scope arrives, expect work around split prod/dev routing tables, automated deployment guardrails, and structured guild playtests; for now these remain aspirational.
 
 ## Architecture Snapshot
 
@@ -186,7 +186,7 @@ and potential future migrations.
 
 ## Roadmap Highlights
 
-- **Phase 7 Persistence:** Continue shipping battle-result analytics and participant audits with expanded Vitest coverage.
-- **Dual Routing Layers:** Introduce separate prod vs. dev router networks with a shared `DNS.md` index for two-way navigation.
-- **Operational Hardening:** Automate Render deployment guardrails and broaden Refresh Vision telemetry.
-- **Community Playtests:** Stage structured Discord guild sessions once arena persistence and reporting meet admin requirements.
+- **Phase 7 Persistence:** Delivered battle-result storage, admin reporting filters, and DM battle history; future analytics wait on new design direction.
+- **Dual Routing Layers:** Planned next step once new backlog lands—split prod/dev router maps and document the shared index.
+- **Operational Hardening:** Render deployment guardrails and Refresh Vision telemetry are in place; additional automation will follow when new operational risks surface.
+- **Community Playtests:** Ready to plan structured guild sessions after fresh backlog is prioritized.
