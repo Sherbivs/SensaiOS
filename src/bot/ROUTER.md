@@ -2,7 +2,7 @@
 Title: Discord Bot Layer
 Purpose: Client login, intents, command/interaction routing, DM “home” flows.
 Owned Globs: src/bot/**
-Last Updated (UTC): 2025-10-30T21:45:00Z
+Last Updated (UTC): 2025-11-01T20:01:48Z
 
 Notes:
 - Battle victories persist via `concludeBattleWithVictory`, sharing the announcer flow with forfeits.
@@ -16,6 +16,7 @@ Notes:
 - TypeScript entry `src/index.ts` now boots the legacy security worker (`main.js` + `dripAlerts.js`) so DripTVDD alert digests and ops DM notifications stay live until the port completes.
 - Security bot now emits DRIP alerts whenever roles are assigned, including audit-log attribution and CLI telemetry updates.
 - Security sweeps respect `ENABLE_CONTINUOUS_SWEEP`; when false the bot defers to the dedicated Render worker and logs the disabled state to the CLI dashboard.
+- Wild encounter swap controls filter to healthy party members, reorder Prisma slots, invalidate cached encounters, and broadcast confirmations to the DM plus linked spectator threads.
 
 Areas:
 - index.ts — client bootstrap and interaction switchboard
