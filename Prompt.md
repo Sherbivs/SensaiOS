@@ -1,12 +1,13 @@
 # Prompt.md
-Timestamp (UTC): 2025-10-30T21:20:00Z
-Revision: 1.59
+Timestamp (UTC): 2025-11-01T03:52:00Z
+Revision: 1.61
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Linked PokéAPI cache refreshes to the dex auto-sync loop: fetcher now emits `dex-sync-trigger.json` and the automation watches for checksum/timestamp bumps before running `dex_trigger` consolidations.
+- Delivered `src/services/cache/facade.ts` with namespace/shard-aware LRU + disk persistence and validated it via `tests/services/cache.facade.spec.ts`.
+- Exported shared cache constants for reuse, added services to `tsconfig.build.json`, and updated module declarations to cover both `.js` import paths.
+- Documented the runtime cache path in AGENTS.md and retargeted NEXT to META.DB.CONNECTION_GUARD_CI_TRACK while Actions UI (guard-db-docs) remains 404 without auth.
 - Hardened `scripts/dev_prod_auto_sync.ts` so migrate/seed inherit env-specific credentials, migrations force direct URLs, hung commands time out, and Optimize SpeciesSheet preflight logs missing grants.
 - Logged the guard_db_docs baseline in Tasklist.md (✅ `node scripts/guard_db_docs.mjs`) and documented remediation steps while queueing META.DB.CONNECTION_GUARD_CI_TRACK for the first CI run.
-- Maintained the `npx prisma generate` reminder across remediation guidance to keep the guard instructions accurate after any Accelerate work.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -19,8 +20,8 @@ Revision: 1.59
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** META.DB.CONNECTION_GUARD_CI_TRACK — record the first passing guard-db-docs CI run and mirror it into meta docs.
-- **READY / In-flight:** META.DB.CONNECTION_GUARD_CI_TRACK READY; baseline captured locally while we wait for the initial GitHub Actions run.
+- **NEXT Pointer:** META.DB.CONNECTION_GUARD_CI_TRACK — record the first passing guard-db-docs CI run once Actions history is visible.
+- **READY / In-flight:** META.DB.CONNECTION_GUARD_CI_TRACK READY; guard Actions page currently returns 404 without authentication so we still need the first success details.
 - **Recent Finish:** T13.DEX.AUTO_SYNC_TRIGGER wired the PokéAPI fetch trigger into the automation loop so dex consolidations fire when fresh cache data lands and log the trigger metadata for audits.
 
 ## System Highlights
@@ -62,11 +63,11 @@ Revision: 1.59
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Added dex-sync trigger emission + watcher so PokéAPI cache refreshes kick off auto-sync consolidations, and captured the new Tasklist milestone.
+Change: Landed the typed runtime cache facade with tests/docs and retargeted NEXT to the guard-db-docs CI tracker (Actions still 404 unauthenticated).
 TasklistDiff: true
-Tests: npm run lint -- scripts/dev_prod_auto_sync.ts (fails: repository-wide unresolved imports predating this change)
+Tests: npx vitest run tests/services/cache.facade.spec.ts
 Contracts: ON
-NEXT: META.DB.CONNECTION_GUARD_CI_TRACK - log the first passing guard-db-docs CI run and echo it in meta docs.
+NEXT: META.DB.CONNECTION_GUARD_CI_TRACK - awaiting the first guard-db-docs success (Actions UI currently 404 without login).
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

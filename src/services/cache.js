@@ -196,6 +196,7 @@ export {
   getCacheSize,
   getCacheSnapshot,
   MAX_CACHE_PERCENT,
+  MAX_CACHE_FILE_AGE_MS,
   getCacheBudget,
 };
 
@@ -208,5 +209,6 @@ export default {
   getCacheSize,
   getCacheSnapshot,
   MAX_CACHE_PERCENT,
+  MAX_CACHE_FILE_AGE_MS,
   getCacheBudget,
 };

@@ -99,46 +99,37 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Task T13.DEX.AUTO_SYNC] Automate continuous Dev ↔ Prod dex syncing and update operator docs
+[Task T14.CACHE.FACADE] Build typed runtime cache facade with LRU layer and tests
 
-FILE: Tasklist.md
-Change: add T13.DEX.AUTO_SYNC with DONE status capturing the new automation loop, acceptance criteria, and outcome notes.
+FILE: src/services/cache.js
+Change: expose shared constants so the typed facade can mirror disk pruning behaviour.
 
-FILE: package.json
-Change: register `db:auto-sync` npm script invoking the automation loop alongside prior dex helpers.
+FILE: src/services/cache/facade.ts
+Change: add typed cache facade with namespace/shard-aware `getOrHydrate`, `peek`, `touch`, and `evict` plus in-memory LRU and disk persistence under `/Store/runtime-cache`.
 
-FILE: scripts/ROUTER.md
-Change: document the new automation script in router notes and bump Last Updated timestamp.
+FILE: src/types/js-module-declarations.d.ts
+Change: update cache.js module declarations to include newly exported constants.
 
-FILE: scripts/dev_prod_auto_sync.ts
-Change: add continuous sync service that consolidates on deployment, polls every five minutes for drift, and supports dry-run/interval/skip-startup flags with detailed integrity logging.
+FILE: tests/services/cache.facade.spec.ts
+Change: introduce Vitest coverage for hydration, TTL expiry, disk fallback, touch, evict, and in-memory pruning.
 
-FILE: docs/database-systems.md
-Change: expand Dex maintenance section with the automation command, service description, and existing manual cadence.
-
-FILE: docs/db-control-suite.md
-Change: mention the new `npm run db:auto-sync` helper within the Hydrating Reference Data checklist.
-
-FILE: ops/DB_BOOTSTRAP.md
-Change: add `npm run db:auto-sync` to the post-migration checklist and reinforce the loop guidance.
-
-FILE: docs/perfect-system-roadmap.md
-Change: call out the automation loop in the Database Operations scope so roadmap owners track it.
+FILE: tsconfig.build.json
+Change: ensure the build includes `src/services` so the facade ships with worker/runtime bundles.
 
 FILE: AGENTS.md
-Change: highlight the automation service alongside the manual Dev → Prod → Dev workflow guidance.
+Change: document the runtime cache facade, storage path expectations, and operator guidance.
 
-FILE: masterroutetable.md
-Change: record the new automation script in the Dev & Docs Scripts catalog and refresh the timestamp/notes.
+FILE: Tasklist.md
+Change: mark T14.CACHE.FACADE as DONE with outcome notes.
 
-FILE: ops/TOUCHMAP.yaml
-Change: map T13.DEX.DB_SEED ownership to include the automation script and related docs.
+FILE: ops/NEXT.yaml
+Change: retarget NEXT to META.DB.CONNECTION_GUARD_CI_TRACK now that the facade is complete.
 
 FILE: Prompt.md
-Change: update timestamp, revision, Last Repo Changes, and PATCHSET echo to capture the automation work and tests.
+Change: refresh timestamp/revision, summarize the facade landing, record tests, and update the PATCHSET echo.
 
 # TASKLIST UPDATE
-Change: add T13.DEX.AUTO_SYNC as DONE with acceptance criteria covering automation cadence, docs, and integrity checks.
+Change: capture the T14.CACHE.FACADE completion notes.
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

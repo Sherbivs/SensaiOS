@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-10-30T18:05:00Z
-Revision: 2.12
+Last Updated (UTC): 2025-11-01T03:52:00Z
+Revision: 2.14
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1041,6 +1041,41 @@ Each task has:
     - Trigger-driven runs respect `--once`/interval settings and skip duplicate integrity sweeps when the consolidation already executed for the change.
     - Logging captures trigger metadata and post-run behaviour so operators can audit why a consolidation executed.
   notes: Outcome — Added `dex-sync-trigger.json` generation to the fetcher and taught the auto-sync loop to track its checksum/timestamp, fire `dex_trigger` consolidations on change, and record skip/sleep logic when handled.
+
+## Phase 14 — Live Game Cache
+
+- id: T14.CACHE.FACADE
+  title: Build typed cache facade for live game data
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - Introduce a cache service under `src/services/cache/**` that provides async `getOrHydrate`, `peek`, `touch`, and `evict` primitives with namespace and shard support.
+    - Layer an in-memory LRU in front of the existing disk store so `/Store/runtime-cache/<namespace>` persists data while RAM stays bounded.
+    - Surface configurable TTLs per namespace and add structured cache hit/miss logs plus unit tests covering hydration, TTL expiry, and disk fallback.
+    - Document the facade in module-level JSDoc and note the storage path expectations in AGENTS.md.
+  notes: Outcome — Added `src/services/cache/facade.ts` with namespace/shard-aware facade, in-memory LRU, disk pruning, and `configureCacheFacade`; documented the runtime cache path in AGENTS.md and validated behaviour via `npx vitest run tests/services/cache.facade.spec.ts`.
+
+- id: T14.CACHE.RECIPES
+  title: Wire cache recipes for battles, encounters, and quests
+  status: PROPOSED
+  depends_on: [T14.CACHE.FACADE]
+  acceptance_criteria:
+    - Create `src/services/cache/recipes.ts` (or equivalent) that defines hydration callbacks, TTLs, and invalidation triggers for battle states, encounter rolls, and quest rewards.
+    - Update the battle engine, encounter generator, and quest flows to consume the facade via recipe helpers while preserving existing fallbacks.
+    - Emit `cache.hit/miss/stale` logs when recipes execute and ensure Prisma/PokéAPI paths recover on stale entries with `cache.recover` logging.
+    - Add targeted tests exercising at least one recipe and its fallback behaviour.
+  notes: ''
+
+- id: T14.CACHE.OBS
+  title: Add cache observability and operator tooling
+  status: PROPOSED
+  depends_on: [T14.CACHE.RECIPES]
+  acceptance_criteria:
+    - Expose cache metrics via structured logger counters/histograms and add an `/ops cache` command (or equivalent) summarizing namespace stats, disk usage, and oldest entry age.
+    - Schedule a cleanup job that walks cache namespaces and evicts expired shards proactively while respecting disk and RAM budgets.
+    - Document cache monitoring and cleanup steps in `docs/database-systems.md` and `AGENTS.md`.
+    - Provide operator guidance/tests confirming the command and cleanup hooks behave as expected.
+  notes: ''
 
 ## Phase 11 — Meta & AI Enablement
 

@@ -25,6 +25,7 @@ declare module "./services/cache.js" {
   export function getCacheSize(): number;
   export function getCacheSnapshot(): CacheSnapshot;
   export const MAX_CACHE_PERCENT: number;
+  export const MAX_CACHE_FILE_AGE_MS: number;
   export function getCacheBudget(): CacheBudget;
 
   const cacheService: {
@@ -36,9 +37,16 @@ declare module "./services/cache.js" {
     getCacheSize: typeof getCacheSize;
     getCacheSnapshot: typeof getCacheSnapshot;
     MAX_CACHE_PERCENT: typeof MAX_CACHE_PERCENT;
+    MAX_CACHE_FILE_AGE_MS: typeof MAX_CACHE_FILE_AGE_MS;
     getCacheBudget: typeof getCacheBudget;
   };
 
+  export default cacheService;
+}
+
+declare module "../cache.js" {
+  export * from "./services/cache.js";
+  import cacheService from "./services/cache.js";
   export default cacheService;
 }
 

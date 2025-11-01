@@ -14,19 +14,19 @@ guidance_when_none: |
 auto_promote_if_empty: true
 
 next_task_id: META.DB.CONNECTION_GUARD_CI_TRACK
-reason: "Log the first passing guard-db-docs CI run and echo it in meta docs."
+reason: "Capture the first passing guard-db-docs CI run now that the cache facade is complete."
 
 files_hint:
   - .github/workflows/guard-db-docs.yml
+  - scripts/guard_db_docs.mjs
   - Tasklist.md
   - Prompt.md
-  - scripts/guard_db_docs.mjs
 
 queue:
   - id: META.DB.CONNECTION_GUARD_CI_TRACK
-    note: "Record first passing CI run id/URL after guard lands on main"
+    note: "Record first passing guard-db-docs CI run once Actions history is available."
 
-timestamp_utc: 2025-10-30T19:45:00Z
+timestamp_utc: 2025-11-01T03:52:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Dex seeding closed; next step is capturing the first passing guard-db-docs CI run." 
+note: "Facade shipped; waiting on GitHub Actions visibility to log the first guard-db-docs success." 

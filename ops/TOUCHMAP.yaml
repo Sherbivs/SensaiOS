@@ -243,6 +243,30 @@ T13.DEX.AUTO_SYNC_HARDEN:
   - "masterroutetable.md"
   - "scripts/ROUTER.md"
 
+T14.CACHE.FACADE:
+  - "src/services/cache/**"
+  - "src/shared/log.ts"
+  - "tests/**"
+  - "AGENTS.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+T14.CACHE.RECIPES:
+  - "src/services/cache/**"
+  - "src/core/battle/**"
+  - "src/core/encounter/**"
+  - "src/bot/**"
+  - "tests/**"
+  - "Prompt.md"
+
+T14.CACHE.OBS:
+  - "src/services/cache/**"
+  - "src/bot/ops/admin.ts"
+  - "docs/database-systems.md"
+  - "AGENTS.md"
+  - "scripts/**"
+  - "Prompt.md"
+
 PBSL.SKELETON:
   - "docs/PBSL.md"
   - "src/core/pbsl/**"
