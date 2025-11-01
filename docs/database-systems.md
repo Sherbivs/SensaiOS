@@ -89,7 +89,7 @@ Document any manual grant changes in Tasklist notes and keep credentials out of 
 
 ## 5. Migration & Bootstrap Strategy
 
-1. **Standard Flow:** `npx prisma migrate deploy` using `DATABASE_DIRECT_URL` (Render) or `DATABASE_ACCELERATE_URL` (Accelerate).
+1. **Standard Flow:** `npx prisma migrate deploy` using a direct PostgreSQL URL for every target (`DATABASE_DIRECT_URL` for Render and the Prisma Postgres tunnel-direct string for Accelerate).
 2. **Fallback:** `npx prisma db push` only when historical migrations are unavailable—followed by a baseline migration (see `ops/DB_BOOTSTRAP.md`).
 3. **Post-Migration Checks:**
    - `/ops stats` command.
@@ -112,7 +112,7 @@ Dex upkeep now routes through the consolidated seeding + control suite:
 
 `scripts/seed_dex.ts` loads environment overrides the same way as the control suite (`IG_ENV_FILE` → `DOTENV_CONFIG_PATH` → repo `.env` when allowed). Results print per-table row counts so we can confirm >1,000 species before shipping.
 
-Run every dex maintenance action in the Dev → Prod → Dev rhythm: execute the command against DEV first, switch `IG_ENV_FILE` to the Accelerate/Prod secrets and repeat (or invoke `scripts/ops/run_dex_migrations.ps1` when migrations need the same sequence), then point back to `Key/Dev/.env` and run `npx prisma generate` so local tooling reconnects to the direct driver.
+Run every dex maintenance action in the Dev → Prod → Dev rhythm: execute the command against DEV first, switch `IG_ENV_FILE` to the Accelerate/Prod secrets and repeat (or invoke `scripts/ops/run_dex_migrations.ps1`, which now enforces direct URLs, when migrations need the same sequence), then point back to `Key/Dev/.env` and run `npx prisma generate` so local tooling reconnects to the direct driver.
 
 `scripts/dev_prod_auto_sync.ts` powers the automation loop (`npm run db:auto-sync`). On deployment it runs the consolidation once, then performs integrity checks every five minutes. If counts drift (or either database changes between checks), the service replays the migrate + seed cadence and records the result via `sync.consolidate.*` + `integrity.*` events. The loop also watches `data/cache/dex-sync-trigger.json` (written by `scripts/fetch_pokemon.mjs`) and logs `dex_trigger` consolidations whenever a new checksum/timestamp lands.
 

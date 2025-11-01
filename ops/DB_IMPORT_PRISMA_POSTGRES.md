@@ -5,7 +5,7 @@ Use this runbook when migrating data between the Render PostgreSQL cluster and P
 ## Primary vs standby layout
 - **Primary:** Prisma Accelerate service (0.5 GB) fronting Prisma Postgres. All game writes/read traffic flows through this endpoint.
 - **Standby:** Render-hosted Postgres (1 GB). Treat this instance as read-only except during refresh jobs. Point long-running analytics or replica queries here.
-- Prisma migrations must run against **both** databases. After publishing a migration, execute `npx prisma migrate deploy` with `DATABASE_URL` set to Accelerate and again with `DATABASE_URL` set to the Render URL (or run `DATABASE_DIRECT_URL` via `prisma migrate deploy --schema`).
+- Prisma migrations must run against **both** databases using direct PostgreSQL URLs. After publishing a migration, execute `npx prisma migrate deploy` with `DATABASE_URL` set to the Prisma Postgres tunnel/direct connection string and again with `DATABASE_URL` set to Render's `directConnectionString`.
 - Backups rely on `pg_dump`/`pg_restore` transfers; there is no automatic replication between services unless you configure logical replication separately.
 
 ## Prerequisites
@@ -48,6 +48,7 @@ Use this runbook when migrating data between the Render PostgreSQL cluster and P
    ```
 
 2. Keep the API key secret. Do not commit or copy it outside secure notes.
+3. Capture the tunnel-emitted `postgresql://...` string when running migrations—Prisma requires that direct URL instead of the `prisma+` proxy.
 
 ## 3. Restore through Prisma tunnel
 1. Run the helper script (handles tunnel startup, SSL disable, cleanup):

@@ -11,7 +11,7 @@ Purpose: ensure automated agents and local operators load secrets from a secure 
 - When `NODE_ENV=production`, the repo `.env` fallback is skipped unless `IG_ALLOW_REPO_ENV=1` is set.
 
 ## Quick Start
-1. Copy each template outside the repo. This console keeps the Dev and Prod folders side by side under `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (direct connection) and `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` (Accelerate proxy). Populate them with the real tunnel credentials before use.
+1. Copy each template outside the repo. This console keeps the Dev and Prod folders side by side under `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (direct connection) and `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` (Accelerate runtime **plus** its direct PostgreSQL URL for migrations). Populate them with the real tunnel credentials before use.
 2. Open a PowerShell session and point `IG_ENV_FILE` at the file you need for the current task:
    ```powershell
    pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env" -Persist

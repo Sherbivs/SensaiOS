@@ -10,4 +10,6 @@ Tracked templates:
 - `prisma-accelerate.env.example`
 - `prisma-dev.env.example`
 
+`prisma-accelerate.env.example` requires both the Prisma Accelerate runtime URL (`prisma+postgres://...`) and the matching direct PostgreSQL connection string (`postgresql://...`) so migrations bypass the data proxy.
+
 Never commit the files without the `.example` suffix. Rotate any leaked tokens immediately.
