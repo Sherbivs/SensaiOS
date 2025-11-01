@@ -2,7 +2,7 @@
 Title: Ops & Governance
 Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-10-30T17:25:00Z
+Last Updated (UTC): 2025-10-30T21:45:00Z
 
 Notes:
 - 2025-10-26: guard_meta preflight/postflight make READY absence impossible at merge time; NEXT auto-promotion enabled. See scripts/guard_meta.sh and ops/NEXT.yaml.
@@ -32,6 +32,7 @@ Notes:
 - 2025-10-29: Retired the legacy `discord-pokemon-bot/` prototype; router metadata now points exclusively at the TypeScript surfaces.
 - 2025-10-29: Added `docs/database-systems.md` as the canonical database topology and maintenance guide; cross-links from DATA-SCHEMA, OPERATIONS, and DB bootstrap runbooks point here for shared context.
 - 2025-10-30: Documented the DB doc drift guard (`scripts/guard_db_docs.mjs` + guard-db-docs workflow) so ops runbooks stay aligned on Key/Dev, Key/Prod, and Prisma regenerate instructions.
+- 2025-10-30: Runtime cache facade instrumentation landed alongside `/ops cache` diagnostics; docs/tests refreshed to surface maintenance scheduler and cleanup triggers.
 
 Key Files:
 - ops/NEXT.yaml — execution pointer

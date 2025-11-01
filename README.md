@@ -7,7 +7,7 @@ live-service economy powered by workers and data pipelines.
 ## Current Status & Goals
 
 - **Current build:** The TypeScript bot stack (DM Home, Wilds, Arena, admin ops) runs on Prisma-backed Postgres with Render-ready workers and guarded automation.
-- **Recent wins:** Admin `/ops stats` now filters by limit/after/participant; hotfix policies require plain-text echoes; pooled vs. direct database URLs are wired for migration safety with runbook + helper script.
+- **Recent wins:** Admin `/ops stats` adds targeted filters, `/ops cache` surfaces runtime cache metrics and cleanup, hotfix policies require plain-text echoes, and pooled vs. direct database URLs stay wired through paired runbooks + helper scripts.
 - **Short-term focus:** Keep staging production-ready by maintaining pooled (`DATABASE_POOL_URL`) and direct (`DATABASE_DIRECT_URL`) connection strings, then advance the remaining Phase 10 scaling tasks.
 - **Near horizon:** Split production vs. development routing tables, tighten deployment automation, and prepare structured guild playtests.
 
@@ -27,7 +27,7 @@ The project now ships a PBSL scaffold under `src/core/pbsl/**` that implements s
 - **DM-as-Home:** `/home`, heal, starter selection, party/box management, player profile, and drip alerts all originate in `src/bot/dm/**` with shared UI helpers.
 - **Wild Encounters:** `/walk` spawns public `#wilds` threads while DM controls handle throws, swaps, and escapes via `src/bot/wilds/**` plus `src/core/encounter/**` mechanics.
 - **Arena Battles:** `/battle challenge` coordinates arena threads, DM menus, and announcer summaries; Discord orchestration lives in `src/bot/battle/**`, while resolution flows through `src/core/battle/**`.
-- **Admin Operations:** `/ops` exposes cooldown reset tools and stats auditing (with limit/after/participant filters) so staff validate battle throughput without direct DB access.
+- **Admin Operations:** `/ops` exposes cooldown reset tools, `/ops stats` filtering (limit/after/participant), and `/ops cache` for hit/miss metrics plus optional cleanup so staff validate health without direct DB access.
 - **Persistence & Data:** Prisma schema (`prisma/schema.prisma`) keeps trainer state; cached PokéAPI reference data is refreshed through `scripts/fetch_pokemon.mjs` and `scripts/build-data.js`.
 - **Automation:** Render workers and guard scripts enforce Refresh Vision, router hygiene, contract version gates, and Tasklist coupling to keep the repo deterministic.
 
@@ -116,6 +116,7 @@ Reference data is mirrored into `/data` via scripted jobs:
 - `scripts/fetch_pokemon.mjs` pulls fresh PokéAPI payloads.
 - `scripts/build-data.js` normalizes and shards JSON for the bot runtime.
 - `scripts/worker.mjs` coordinates refresh jobs when running inside Render.
+- `/ops cache` reports live cache metrics (hit/miss counters, disk usage, sweep cadence) and can trigger a one-off cleanup.
 - `scripts/render_job_client.mjs` and `worker_trigger_job.mjs` dispatch/monitor Render Job executions.
 
 `render.yaml` wires build and run commands for Render services. On boot the worker queues a refresh job and respects `POKE_REFRESH_CRON` / `POKE_REFRESH_TZ` for scheduled updates.
@@ -149,7 +150,7 @@ Reference data is mirrored into `/data` via scripted jobs:
 1. Copy the `render.yaml` worker named `infinity-gauntlet-app-worker` into your Render account. It builds with `pnpm install --frozen-lockfile && pnpm prisma generate && pnpm build` and starts the compiled worker via `node dist/worker/backup.js`.
 2. Ensure each service (web + workers) declares `envVars.DATABASE_URL` using `fromDatabase.connectionString`; the runtime config loader promotes `DATABASE_INTERNAL_URL` to `DATABASE_URL` automatically for internal connections.
 3. Optional cache tuning: set `CACHE_TTL_MS` or `REDIS_URL` in Render to change the shared cache backend; the default TTL is 60s and currently backed by the in-process memory cache in `src/shared/cache/memory.ts`.
-4. `/ops stats` now prints runtime, database, cache, and outbox diagnostics so you can confirm the worker is draining messages and that Prisma is connected to Render’s Postgres before promoting changes.
+4. `/ops stats` now prints runtime, database, cache, and outbox diagnostics; `/ops cache` adds dedicated cache hit/miss counters, maintenance schedules, and optional cleanup triggers so you can confirm workers stay healthy before promoting changes.
 5. When schema drift appears in staging, run `scripts/bootstrap_staging_db.ps1` (after loading `.env`) for an interactive `prisma migrate deploy`; the script points back to `ops/DB_BOOTSTRAP.md` if relations are missing or pooled vs. direct URLs need adjustments.
 
 ## Operational Guardrails & Meta Workflow

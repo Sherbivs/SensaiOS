@@ -77,6 +77,7 @@ Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describ
 - Emit events to `logs/agent-events.jsonl` and console: `start|step|error|recovered|done`.
 - Use OpenTelemetry traces for tool calls and router decisions.
 - Persist final state in `runs/<ISO8601>/run.json`.
+- `/ops cache` exposes runtime cache metrics and maintenance cadence; expect `cache.maintenance` events in logs when the scheduler runs or manual cleanup executes.
 
 ## Router Navigation
 - Start with `ops/ROUTER.yaml` (router-of-routers) or `masterroutetable.md` for a textual overview.
