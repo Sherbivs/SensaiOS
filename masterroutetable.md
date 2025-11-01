@@ -113,6 +113,10 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Prisma Migrations (`prisma/migrations/ROUTER.md`)
 - Purpose: Timestamped Prisma migration bundles plus `migration_lock.toml` state.
 - Notes: Follow `ops/DB_BOOTSTRAP.md` before applying new migrations; record rollout evidence in Tasklist notes.
+- Sub-Routers:
+  - `prisma/migrations/202510280500_scaling_indexes/ROUTER.md` — Adds scaling indexes and composite uniqueness guards for battle, encounter, cooldown tables.
+  - `prisma/migrations/202510290930_dex_reference_spine/ROUTER.md` — Introduces normalized dex reference spine, supporting extensions, and SpeciesSheet matview.
+  - `prisma/migrations/202511010900_schema_constraints/ROUTER.md` — Tightens relational constraints, formalizes OutboxStatus enum, and adds updatedAt defaults.
 
 ### Dex Automation (`scripts/dex/ROUTER.md`)
 - Purpose: Helpers (`backfill_species.ts`, `seed_reference.ts`, `warm_cache.ts`) used during dex seeding and rehearsals.

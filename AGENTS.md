@@ -69,6 +69,12 @@ Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describ
 4. Clear or archive the clipboard after work. Leave the repository in a consistent state (router docs valid, tests noted, metadata synced).
 5. For hotfixes, follow `ops/HOTFIX.md`, `ops/HOTFIX_PLAN.yaml`, and `HOTFIX.md` instructions. Restrict edits to the approved file list unless the plan expands it.
 
+## Router Contract (Mandatory)
+- Every change to the Discord bot or its supporting code **must** be accompanied by comprehensive routing updates. This includes adding new files, renaming or moving directories, or changing the purpose/activity of existing files.
+- Update all routing systems in the same patchset: `ops/ROUTER.yaml`, `ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, affected `ROUTER.md` manifests (parent and sub-router), and `ops/TOUCHMAP.yaml` as needed.
+- Do not consider a task complete until meta-routers and touch maps fully reflect the new or updated surfaces. If automation generates router docs, rerun the generator and commit the outputs.
+- The AI is responsible for verifying that routing guard scripts (`scripts/guard_routing.sh`, `scripts/guard_router_docs.sh`) pass after the update. Resolve any failures before exiting the run.
+
 ## Safety Invariants (Must Never Be Violated)
 - Never exfiltrate secrets or raw credentials in outputs.
 - Never run shell/DB/file operations without a dry-run or explicit confirmation step in CI.

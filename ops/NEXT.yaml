@@ -13,20 +13,18 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: META.ROUTER.SUBROUTERS_20251101
-reason: "Fill the newly created router docs so bot/core/test directories stay indexed with the meta-router."
+next_task_id: META.UNBLOCK.READY_SEED
+reason: "Seed placeholder restored after router contract update published."
 
 files_hint:
-  - ops/ROUTER.yaml
-  - ops/ROUTER_INDEX.yaml
-  - masterroutetable.md
-  - src/bot/ROUTER.md
+  - Tasklist.md
+  - Prompt.md
 
 queue:
   - id: META.UNBLOCK.READY_SEED
-    note: "Placeholder READY task to keep NEXT valid until the next substantive item is promoted."
+    note: "Seed placeholder to keep READY non-empty if the backlog pauses."
 
-timestamp_utc: 2025-11-01T19:26:00Z
+timestamp_utc: 2025-11-01T21:05:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Router gap scan flagged uncovered bot/core/test/tooling subdirectories; documenting them keeps guards passing."
+note: "Router contract update published; seed READY task resumes while backlog awaits promotion."

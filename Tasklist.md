@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-01T19:25:00Z
-Revision: 2.20
+Last Updated (UTC): 2025-11-01T21:05:00Z
+Revision: 2.26
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -27,15 +27,45 @@ Each task has:
     - Prompt.md “Last Repo Changes” records the seed action when triggered.
   notes: Outcome — Guard script now surfaces an error when no READY tasks are present; NEXT retargeted so the safety-net follow-up is ready. Re-opened 2025-11-01 to hold the READY slot until the next substantive backlog item is queued.
 
+- id: META.ROUTER.GUARD_PASS_20251101
+  title: Clear routing guard warnings after sub-router sweep
+  status: DONE
+  depends_on: [META.ROUTER.SUBROUTERS_20251101]
+  acceptance_criteria:
+    - Update `scripts/guard_routing.sh` and supporting metadata so the routing guard recognizes the new sub-router manifests without emitting warnings.
+    - Capture a passing guard run that covers the new manifests and log the outcome in Tasklist notes once complete.
+    - Document the guard update in Prompt.md Last Repo Changes and keep ops/NEXT.yaml aligned with the task scope.
+  notes: Outcome — guard_routing now unions commit/worktree/untracked changes and auto-allows META.ROUTER.* ROUTER manifests; `"C:/Program Files/Git/bin/bash.exe" scripts/guard_routing.sh` returned ✅ with the expanded router set logged here.
+
+- id: META.ROUTER.GUARD_HARDFAIL_20251101
+  title: Convert routing guard advisory warnings into hard failures
+  status: DONE
+  depends_on: [META.ROUTER.GUARD_PASS_20251101]
+  acceptance_criteria:
+    - Update `scripts/guard_routing.sh` (and wrappers if needed) so unmatched files exit non-zero instead of issuing advisory warnings.
+    - Run the guard locally to capture a failing example (pre-change) and the passing output after the hard-fail logic lands; record the passing run in Tasklist notes.
+    - Update Prompt.md Last Repo Changes and routing metadata (scripts/ROUTER.md, ops/ROUTER.yaml) to reflect the enforcement change.
+  notes: Outcome — guard_routing now exits non-zero when NEXT/Touchmap coverage is missing; captured the advisory pre-run and the hard-fail post-change using `"C:/Program Files/Git/bin/bash.exe" scripts/guard_routing.sh` with a temporary `random.guard.tmp.txt`, then verified the ✅ pass after removing the temp file.
+
+- id: META.ROUTER.CONTRACT_UPDATE_20251101
+  title: Document mandatory router upkeep contract in AGENTS.md
+  status: DONE
+  depends_on: [META.ROUTER.GUARD_HARDFAIL_20251101]
+  acceptance_criteria:
+    - Update AGENTS.md with explicit contract language requiring comprehensive router updates whenever bot files or directory purposes change.
+    - Align ops/NEXT.yaml, Prompt.md, and ops/TOUCHMAP.yaml with the new mandate.
+    - Note the contract addition in Tasklist.md once the work is complete.
+  notes: Outcome — Added Router Contract section to AGENTS.md mandating full router/touchmap updates, refreshed NEXT/Touchmap metadata, and logged the change for future agents.
+
 - id: META.ROUTER.SUBROUTERS_20251101
   title: Add sub-router manifests for newly active directories
-  status: READY
+  status: DONE
   depends_on: []
   acceptance_criteria:
     - Create `ROUTER.md` manifests for the bot, core, sync-layer, tests, and tooling subdirectories that currently lack coverage.
     - Update parent routers, `ops/ROUTER.yaml`, `ops/ROUTER_INDEX.yaml`, and `masterroutetable.md` to reference the new manifests.
     - Document the sweep in Prompt.md and leave NEXT pointing to a READY task when complete.
-  notes: Pending — scope staged 2025-11-01 after router gap scan flagged uncovered directories.
+  notes: Outcome — Added targeted ROUTER.md files across bot/core/sync-layer/tests/tools plus Prisma migration folders, refreshed parent routers + router metadata, and recorded the sweep in Prompt/NEXT.
 
 - id: META.NO_READY.SAFETY_NET
   title: Add CI/guard to prevent "no READY tasks" states

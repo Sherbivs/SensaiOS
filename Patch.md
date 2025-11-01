@@ -99,13 +99,10 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Planned PATCHSET — META.ROUTER.SUBROUTERS_20251101]
-- Tasklist.md: add META.ROUTER.SUBROUTERS_20251101 as READY with acceptance criteria for new sub-router coverage.
-- ops/NEXT.yaml: retarget NEXT to the new router task, refresh timestamp, and trim files_hint.
-- Add ROUTER.md manifests for src/bot/{arena,battle,daily,dm,middleware,ops,wilds}, src/core/{battle,encounter,pbsl, pbsl/battle, pbsl/data, pbsl/encounter}, sync-layer/discord/hooks, sync-layer/worker/schema, tests/{battle,pbsl/fixtures}, and tools/pgsql17/{pgsql,pgsql/bin}.
-- Refresh parent routers (src/bot/ROUTER.md, src/core/ROUTER.md, src/core/pbsl/ROUTER.md, sync-layer/discord/ROUTER.md, sync-layer/worker/ROUTER.md, tests/ROUTER.md, tests/pbsl/ROUTER.md, tools/pgsql17/ROUTER.md) with updated notes and timestamps.
-- Update ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, and masterroutetable.md to enumerate the new routers.
-- Bump Prompt.md revision/timestamps with Last Repo Changes and PATCHSET echo once edits are complete.
+[Planned PATCHSET — META.UNBLOCK.READY_SEED]
+- Monitor Tasklist READY queue and promote the next substantive task when available.
+- Update ops/NEXT.yaml and Prompt.md metadata alongside any promotion.
+- Maintain routing guard hard-fail expectations; rerun guard when router surfaces change.
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

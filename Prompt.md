@@ -1,10 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-01T18:10:00Z
-Revision: 1.66
+Timestamp (UTC): 2025-11-01T21:08:00Z
+Revision: 1.73
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Refreshed `AGENTS.md` to mirror the current repo layout, correct npm-based local workflows, and clarify the exit checklist guidance for maintaining NEXT.
-- NEXT remains on `META.UNBLOCK.READY_SEED` while the backlog is idle; no additional Tasklist changes were required.
+- Added the Router Contract section to AGENTS.md mandating full router metadata updates alongside any bot change.
+- Marked `META.ROUTER.CONTRACT_UPDATE_20251101` DONE, refreshed Tasklist.md, ops/NEXT.yaml, ops/TOUCHMAP.yaml, and Patch.md to reflect the published contract.
+- NEXT returned to the seed fallback after recording the documentation change.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -17,9 +18,9 @@ Revision: 1.66
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** META.UNBLOCK.READY_SEED — seed placeholder preserved until a new substantive backlog item is promoted.
-- **READY / In-flight:** No substantive tasks in flight; the seed task remains READY to keep the queue healthy.
-- **Recent Finish:** T14.CACHE.OBS delivered cache metrics, scheduled cleanup, `/ops cache`, and doc/test coverage for the observability surface.
+- **NEXT Pointer:** META.UNBLOCK.READY_SEED — seed placeholder active while backlog awaits the next promotion.
+- **READY / In-flight:** Only the seed task is READY following the router contract publication.
+- **Recent Finish:** META.ROUTER.SUBROUTERS_20251101 cataloged sub-router manifests across bot/core/sync-layer/tests/tools and refreshed routing metadata.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -60,39 +61,39 @@ Revision: 1.66
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Refreshed AGENTS.md to align the repo map, npm workflows, and exit checklist with the current maintenance posture.
-TasklistDiff: false
-Tests: not run (docs-only refresh)
+Change: Closed META.ROUTER.CONTRACT_UPDATE_20251101 by publishing the router contract in AGENTS.md, syncing metadata, and restoring NEXT to the seed fallback.
+TasklistDiff: true
+Tests: not run (docs/metadata only)
 Contracts: ON
-NEXT: META.UNBLOCK.READY_SEED - seed placeholder maintained while backlog is idle.
+NEXT: META.UNBLOCK.READY_SEED - seed placeholder restored after router contract update.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)
 <!-- LEDGER:BEGIN -->
 
-**Generated:** 2025-10-28T19:09:49Z  |  **Branch:** main
+**Generated:** 2025-11-01T21:12:55Z  |  **Branch:** main
 **Note:** Full 200-entry ledger lives in ops/change-ledger.md
 
-- **8f1c003** — 2025-10-28 — Sherbivs — _logic intent:_ Create Prompt.md
-  Files: `Prompt.md`
-- **8106e8c** — 2025-10-28 — Sherbivs — _logic intent:_ Delete Prompt.md
-  Files: `Prompt.md`
-- **ab8367b** — 2025-10-28 — Sherbivs — _logic intent:_ Merge branch 'main' of https://github.com/Sherbivs/Infinity-Gauntlet
-  Files: `Prompt.md`
-- **404b530** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  Files: `Prompt.md`
-- **4e6076a** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  Files: `Prompt.md`
-- **48fced9** — 2025-10-28 — Sherbivs — _logic intent:_ ,
-  Files: `Prompt.md`
-- **59e1b44** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  Files: `Prompt.md`
-- **3e5d18c** — 2025-10-28 — Sherbivs — _logic intent:_ Update Prompt.md
-  Files: `Prompt.md`
-- **f4dbe76** — 2025-10-28 — Sherbivs — _logic intent:_ .
-  Files: `Prompt.md`, `masterroutetable.md`, `ops/NEXT.yaml`, `ops/ROUTER.md`, `ops/ROUTER.yaml`, +4 more
-- **40f83ce** — 2025-10-28 — Sherbivs — _logic intent:_ [Task T10.SCALE.DB_BOOTSTRAP] Harden runtime DB configuration and close bootstrap loop
-  Files: `Patch.md`, `Prompt.md`, `ops/NEXT.yaml`, `ops/ROUTER.md`, `ops/TOUCHMAP.yaml`, +13 more
+- **750b7f6** — 2025-11-01 — Sherbivs — _logic intent:_ chore: Update documentation across various modules
+  Files: `Patch.md`, `Tasklist.md`, `masterroutetable.md`, `ops/NEXT.yaml`, `ops/ROUTER.yaml`, +32 more
+- **ebb0996** — 2025-11-01 — Sherbivs — _logic intent:_ feat: Refactor command loading and enhance battle interaction handling
+  Files: `AGENTS.md`, `Prompt.md`, `ops/NEXT.yaml`, `src/bot/arena/thread.ts`, `src/bot/battle/actions.ts`, +6 more
+- **7445fc8** — 2025-11-01 — Sherbivs — _logic intent:_ Merge pull request #77 from Sherbivs/codex/update-swap-branch-for-party-member-selection
+  Files: (no file changes detected)
+- **070868f** — 2025-11-01 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/update-swap-branch-for-party-member-selection
+  Files: (no file changes detected)
+- **780d999** — 2025-11-01 — Sherbivs — _logic intent:_ Refine encounter swap workflow
+  Files: `ops/ROUTER_INDEX.yaml`, `src/bot/ROUTER.md`, `src/bot/wilds/controls.ts`
+- **01a6973** — 2025-11-01 — Sherbivs — _logic intent:_ Merge pull request #78 from Sherbivs/codex/update-ruleset.md-and-verify-implementations
+  Files: (no file changes detected)
+- **633e45f** — 2025-11-01 — Sherbivs — _logic intent:_ Merge branch 'main' into codex/update-ruleset.md-and-verify-implementations
+  Files: `masterroutetable.md`, `tests/ROUTER.md`
+- **a50aafb** — 2025-11-01 — Sherbivs — _logic intent:_ Sync battle docs with router metadata
+  Files: `RULESET.md`, `masterroutetable.md`, `tests/ROUTER.md`
+- **9531b75** — 2025-11-01 — Sherbivs — _logic intent:_ Merge pull request #79 from Sherbivs/codex/implement-dm-home-views-and-commands
+  Files: (no file changes detected)
+- **438c617** — 2025-11-01 — Sherbivs — _logic intent:_ Improve DM Home response handling and sync routers
+  Files: `masterroutetable.md`, `ops/ROUTER_INDEX.yaml`, `src/bot/ROUTER.md`, `src/bot/dm/home.tsx`, `src/commands/ROUTER.md`, +3 more
 
 <!-- LEDGER:END -->
 

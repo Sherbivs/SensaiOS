@@ -7,12 +7,22 @@ if [[ -z "$BASE" ]]; then
   exit 0
 fi
 
-CHANGED=$(git diff --name-only "$BASE"...HEAD | tr -d '\r')
+CHANGED_COMMIT=$(git diff --name-only "$BASE"...HEAD | tr -d '\r')
+CHANGED_WORKTREE=$(git diff --name-only | tr -d '\r')
+CHANGED_UNTRACKED=$(git ls-files --others --exclude-standard | tr -d '\r')
+CHANGED=$(printf "%s\n%s\n%s" "$CHANGED_COMMIT" "$CHANGED_WORKTREE" "$CHANGED_UNTRACKED" | sed '/^$/d' | sort -u)
+if [[ -z "$CHANGED" ]]; then
+  echo "🔎 Routing guard — no file changes detected."
+  echo "✅ Routing guard passed."
+  exit 0
+fi
 echo "🔎 Routing guard — changed files:"
 echo "$CHANGED" | sed 's/^/ - /'
 
 # Allowlist for meta/doc files always ok
 ALWAYS_OK_REGEX='^(Patch\.md|Prompt\.md|Tasklist\.md|ops/ROUTER\.yaml|ops/NEXT\.yaml|ops/TOUCHMAP\.yaml|ops/CRITICAL\.md|ops/PATCH_POLICY_BACKUP\.md|\.github/workflows/.*|scripts/guard_.*\.sh)$'
+
+FAILS=0
 
 if echo "$CHANGED" | grep -Ev "$ALWAYS_OK_REGEX" >/dev/null 2>&1; then
   # Try to read NEXT task id
@@ -32,10 +42,14 @@ if echo "$CHANGED" | grep -Ev "$ALWAYS_OK_REGEX" >/dev/null 2>&1; then
   fi
 
   # Check each changed file matches some mapped prefix (/** treated as prefix)
-  FAILS=0
   while IFS= read -r file; do
     echo "$file" | grep -Eq "$ALWAYS_OK_REGEX" && continue
     MATCHED=0
+    if [[ "$NEXT_TASK" =~ ^META\.ROUTER\. ]]; then
+      if [[ "$file" =~ (^|/)ROUTER\.(md|yaml)$ ]]; then
+        MATCHED=1
+      fi
+    fi
     while IFS= read -r pat; do
       p="${pat%\"}"; p="${p#\"}"
       p="${p%/**}"
@@ -48,8 +62,8 @@ if echo "$CHANGED" | grep -Ev "$ALWAYS_OK_REGEX" >/dev/null 2>&1; then
   done <<<"$CHANGED"
 
   if [[ $FAILS -gt 0 ]]; then
-    echo "⚠️ Routing guard is advisory for now; convert to hard fail later."
-    exit 0
+    echo "❌ Routing guard failed: update ops/TOUCHMAP.yaml for task $NEXT_TASK or retarget NEXT." >&2
+    exit 1
   fi
 fi
 

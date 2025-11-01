@@ -2,10 +2,12 @@
 Title: Tooling
 Purpose: Guard scripts and automation entrypoints.
 Owned Globs: scripts/**
-Last Updated (UTC): 2025-11-01T17:30:00Z
+Last Updated (UTC): 2025-11-01T20:58:00Z
 
 Notes:
 - 2025-11-01: Documented dex (reference data), guards (CI invariants), and ops (operator helpers) sub-routers for quicker discovery.
+- 2025-11-01: guard_routing.sh now unions commit/worktree/untracked changes and trusts META.ROUTER.* tasks when touching ROUTER manifests so routing guard runs clean after the sub-router sweep.
+- 2025-11-01: guard_routing.sh exits non-zero when files fall outside the NEXT touch patterns; keep ops/TOUCHMAP.yaml aligned before running guards.
 - guard_meta.sh enforces READY invariants. Called in CI preflight/postflight.
 - When POSTFLIGHT=1 it hard-fails on missing READY or NONE NEXT to keep merges safe.
 - 2025-10-26: guard_meta detects the marker switch, relaxes contracts in Markerless Mode, and still enforces Absolutes.

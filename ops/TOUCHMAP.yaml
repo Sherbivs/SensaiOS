@@ -287,6 +287,60 @@ META.ROUTER.20251028:
   - "scripts/ROUTER.md"
   - "ops/TOUCHMAP.yaml"
 
+META.ROUTER.SUBROUTERS_20251101:
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "masterroutetable.md"
+  - "ops/NEXT.yaml"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "prisma/migrations/**"
+  - "src/bot/**"
+  - "src/core/**"
+  - "sync-layer/**"
+  - "tests/**"
+  - "tools/**"
+
+META.ROUTER.GUARD_PASS_20251101:
+  - "scripts/guard_routing.sh"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+
+META.ROUTER.GUARD_HARDFAIL_20251101:
+  - "scripts/guard_routing.sh"
+  - "scripts/ROUTER.md"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "ops/change-ledger.md"
+  - "prisma/migrations/**"
+  - "src/bot/**"
+  - "src/core/**"
+  - "sync-layer/**"
+  - "tests/**"
+  - "tools/**"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
+
+META.ROUTER.CONTRACT_UPDATE_20251101:
+  - "AGENTS.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
+  - "ops/TOUCHMAP.yaml"
+
+META.UNBLOCK.READY_SEED:
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+
 META.AI_DOC_ENABLE:
   - "Agents.md"
   - "README.md"
