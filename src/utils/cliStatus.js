@@ -4,7 +4,8 @@ import readline from 'node:readline';
 import activityTracker from './activityTracker.js';
 import opsNotifier from './opsNotifier.js';
 
-const UPDATE_INTERVAL_MS = 5000;
+const NORMAL_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
+const ALERT_UPDATE_INTERVAL_MS = 30 * 1000;
 const HEADER = 'Infinity Gauntlet Ops Monitor';
 
 const initialErrors = typeof opsNotifier?.getRecentErrors === 'function'
@@ -19,7 +20,17 @@ const state = {
   activityStats: null,
   recentActivities: [],
   recentErrors: initialErrors,
+  lastUpdatedAt: null,
+  lastRenderAt: null,
 };
+
+const PRIMARY_SECTIONS = [
+  { id: 'security', title: 'Security Bot' },
+  { id: 'database', title: 'Database' },
+  { id: 'pokedex', title: 'PokéAPI Cache' },
+  { id: 'discord', title: 'Discord Bot' },
+  { id: 'cache', title: 'Runtime Cache' },
+];
 
 const SIMPLE_MODE = !(process.stdout && process.stdout.isTTY && process.stderr && process.stderr.isTTY);
 const SIMPLE_VERBOSE_MODE = ['1', 'true', 'yes', 'verbose', 'default', 'legacy', 'full']
@@ -34,6 +45,28 @@ let lastRenderLines = 0;
 let isRendering = false;
 let displayActive = false;
 let lastSimpleRender = '';
+let currentIntervalMs = NORMAL_UPDATE_INTERVAL_MS;
+
+function noteUpdate() {
+  state.lastUpdatedAt = new Date();
+}
+
+function describeInterval(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return 'n/a';
+  }
+  const seconds = Math.round(ms / 1000);
+  if (seconds % 3600 === 0) {
+    return `${seconds / 3600}h`;
+  }
+  if (seconds % 60 === 0) {
+    return `${seconds / 60}m`;
+  }
+  if (ms % 1000 === 0) {
+    return `${seconds}s`;
+  }
+  return `${ms}ms`;
+}
 
 function formatDuration(ms) {
   if (!Number.isFinite(ms) || ms < 0) {
@@ -98,27 +131,127 @@ function toMetricRows(metrics = []) {
     .flatMap((line) => line.split(/\r?\n/));
 }
 
-function buildSectionLines() {
-  if (!state.sections || state.sections.size === 0) {
-    return [];
+function formatCategoryBlock(title, rows = []) {
+  const header = (title || 'Section').toUpperCase();
+  const underline = '─'.repeat(header.length);
+  const block = [header, underline];
+  if (!Array.isArray(rows) || rows.length === 0) {
+    block.push('  No data available');
+    return block;
   }
-  const lines = [];
+  for (const row of rows) {
+    if (row === null || row === undefined) {
+      continue;
+    }
+    const text = String(row);
+    if (text.trim().length === 0) {
+      block.push('');
+    } else if (/^\s/.test(text)) {
+      block.push(text);
+    } else {
+      block.push(`  ${text}`);
+    }
+  }
+  return block;
+}
+
+function computeCapacityInsight() {
+  const statuses = [];
   for (const section of state.sections.values()) {
     if (!section) {
       continue;
     }
-    const title = section.title || section.id || 'Section';
-    const status = section.status || 'pending';
-    lines.push(title);
-    lines.push(`  Status: ${status}`);
-    const metricLines = toMetricRows(section.metrics);
-    if (metricLines.length > 0) {
-      lines.push(...metricLines);
-    }
-    lines.push('');
+    const rawStatus = typeof section.status === 'string' ? section.status : 'pending';
+    statuses.push(rawStatus.toLowerCase());
   }
-  lines.pop();
-  return lines;
+
+  const alerts = Array.isArray(state.recentErrors) ? state.recentErrors.length : 0;
+  const pendingEvents = state.activityStats?.pendingEvents ?? 0;
+
+  let rating = 'nominal';
+  const drivers = [];
+
+  if (alerts > 0) {
+    rating = 'critical';
+    drivers.push(`${alerts} active alert${alerts === 1 ? '' : 's'}`);
+  }
+
+  if (statuses.some((status) => ['error', 'offline', 'failed'].includes(status))) {
+    rating = 'critical';
+    drivers.push('component outage detected');
+  } else if (
+    rating !== 'critical' &&
+    statuses.some((status) => ['degraded', 'reconnecting', 'warming', 'checking', 'pending'].includes(status))
+  ) {
+    rating = 'guarded';
+    drivers.push('systems stabilising');
+  }
+
+  if (pendingEvents > 25) {
+    rating = 'critical';
+    drivers.push(`pending queue high (${pendingEvents})`);
+  } else if (pendingEvents > 10 && rating !== 'critical') {
+    rating = 'guarded';
+    drivers.push(`pending queue elevated (${pendingEvents})`);
+  }
+
+  const detail = drivers.length > 0 ? drivers.join('; ') : 'All systems nominal';
+
+  return {
+    rating,
+    detail,
+    alerts,
+    pendingEvents,
+    guildCount: state.guildCount ?? 0,
+  };
+}
+
+function buildCapacityLines() {
+  const insight = computeCapacityInsight();
+  return [
+    `Status: ${insight.rating}`,
+    `Outlook: ${insight.detail}`,
+    `Observed guilds: ${insight.guildCount}`,
+    `Pending ops queue: ${insight.pendingEvents}`,
+    `Active alerts: ${insight.alerts}`,
+  ];
+}
+
+function buildSectionBlock(sectionId, fallbackTitle) {
+  const section = state.sections.get(sectionId);
+  const title = section?.title || fallbackTitle || sectionId || 'Section';
+  if (!section) {
+    return formatCategoryBlock(title, [
+      'Status: unavailable',
+      'Telemetry pending from supervisor',
+    ]);
+  }
+  const status = section.status || 'pending';
+  const normalizedStatus = typeof status === 'string' ? status.toLowerCase() : 'pending';
+  const rows = [`Status: ${status}`];
+  const metricLines = toMetricRows(section.metrics);
+  if (metricLines.length > 0) {
+    rows.push(...metricLines);
+  } else if (!['disabled', 'offline', 'unavailable'].includes(normalizedStatus)) {
+    rows.push('No metrics reported');
+  }
+  return formatCategoryBlock(title, rows);
+}
+
+function buildSectionBlocks() {
+  const blocks = [];
+  const seen = new Set();
+  for (const { id, title } of PRIMARY_SECTIONS) {
+    blocks.push(buildSectionBlock(id, title));
+    seen.add(id);
+  }
+  for (const [id, section] of state.sections.entries()) {
+    if (seen.has(id)) {
+      continue;
+    }
+    blocks.push(buildSectionBlock(id, section?.title || id));
+  }
+  return blocks;
 }
 
 function formatLifetimeCounts(counts = {}) {
@@ -175,49 +308,57 @@ function formatRecentActivities() {
   });
 }
 
-function buildActivityLines() {
+function buildActivityBlock() {
   if (!state.activityStats) {
     return [];
   }
   const { totalEvents, pendingEvents, lastActivityAt, lastSummaryAt, lifetimeCounts } = state.activityStats;
-  const lines = ['Activity'];
-  lines.push(`  Total events: ${totalEvents ?? 0}`);
-  lines.push(`  Pending queue: ${pendingEvents ?? 0}`);
-  lines.push(`  Last activity: ${formatTimestamp(lastActivityAt)}`);
-  lines.push(`  Last summary: ${formatTimestamp(lastSummaryAt)}`);
+  const status = pendingEvents && pendingEvents > 0 ? 'active' : 'idle';
+  const rows = [
+    `Status: ${status}`,
+    `Total events: ${totalEvents ?? 0}`,
+    `Pending queue: ${pendingEvents ?? 0}`,
+    `Last activity: ${formatTimestamp(lastActivityAt)}`,
+    `Last summary: ${formatTimestamp(lastSummaryAt)}`,
+  ];
   const lifetimeLines = formatLifetimeCounts(lifetimeCounts);
   if (lifetimeLines.length > 0) {
-    lines.push('  Lifetime counts:');
-    lines.push(...lifetimeLines);
+    rows.push('Lifetime counts:');
+    rows.push(...lifetimeLines);
   }
   const recentLines = formatRecentActivities();
   if (recentLines.length > 0) {
-    lines.push('  Recent pending:');
-    lines.push(...recentLines);
+    rows.push('Recent pending:');
+    rows.push(...recentLines);
   }
-  return lines;
+  return formatCategoryBlock('Activity', rows);
 }
 
-function buildErrorLines() {
+function buildAlertsBlock() {
   if (!Array.isArray(state.recentErrors) || state.recentErrors.length === 0) {
     return [];
   }
-  const latest = state.recentErrors.slice(-3).reverse();
-  const lines = ['Alerts'];
+  const latest = state.recentErrors.slice(-5).reverse();
+  const rows = [`Active alerts: ${state.recentErrors.length}`];
   for (const entry of latest) {
-    const when = formatTimestamp(entry.timestamp);
-    const parts = [];
-    if (entry.detail) {
-      parts.push(entry.detail);
+    let timestampValue = entry ? entry.timestamp : null;
+    if (timestampValue && !(timestampValue instanceof Date)) {
+      const parsed = new Date(timestampValue);
+      timestampValue = Number.isNaN(parsed.getTime()) ? null : parsed;
     }
-    if (entry.source) {
-      parts.push(`source: ${entry.source}`);
+    const when = timestampValue ? formatTimestamp(timestampValue) : 'unknown';
+    const details = [];
+    if (entry?.detail) {
+      details.push(entry.detail);
     }
-    parts.push(when);
-    lines.push(`  • ${entry.message}`);
-    lines.push(`    ${parts.filter(Boolean).join(' • ')}`);
+    if (entry?.source) {
+      details.push(`source=${entry.source}`);
+    }
+    rows.push(`• ${entry?.message ?? 'alert'}`);
+    const descriptor = [...details, when].filter(Boolean).join(' • ');
+    rows.push(`  ${descriptor}`);
   }
-  return lines;
+  return formatCategoryBlock('Alerts', rows);
 }
 
 function buildDisplayLines() {
@@ -225,28 +366,33 @@ function buildDisplayLines() {
   const uptime = formatDuration(now - state.startedAt);
   const lines = [
     HEADER,
-    '-'.repeat(HEADER.length),
+    '='.repeat(HEADER.length),
     `Phase: ${state.phase || 'unknown'}`,
     `Guilds observed: ${state.guildCount ?? 0}`,
     `Uptime: ${uptime}`,
+    `Last refresh: ${formatTimestamp(state.lastUpdatedAt)}`,
+    `Last draw: ${formatTimestamp(state.lastRenderAt)}`,
+    `Refresh cadence: nominal ${describeInterval(NORMAL_UPDATE_INTERVAL_MS)} | alerts ${describeInterval(ALERT_UPDATE_INTERVAL_MS)}`,
   ];
 
-  const sectionLines = buildSectionLines();
-  if (sectionLines.length > 0) {
-    lines.push('');
-    lines.push(...sectionLines);
+  const blocks = [];
+  blocks.push(formatCategoryBlock('Capacity', buildCapacityLines()));
+  blocks.push(...buildSectionBlocks());
+  const alertsBlock = buildAlertsBlock();
+  if (alertsBlock.length > 0) {
+    blocks.push(alertsBlock);
+  }
+  const activityBlock = buildActivityBlock();
+  if (activityBlock.length > 0) {
+    blocks.push(activityBlock);
   }
 
-  const errorLines = buildErrorLines();
-  if (errorLines.length > 0) {
+  for (const block of blocks) {
+    if (!block || block.length === 0) {
+      continue;
+    }
     lines.push('');
-    lines.push(...errorLines);
-  }
-
-  const activityLines = buildActivityLines();
-  if (activityLines.length > 0) {
-    lines.push('');
-    lines.push(...activityLines);
+    lines.push(...block);
   }
 
   return lines;
@@ -262,6 +408,13 @@ function clearDisplay() {
 }
 
 // Compose a condensed single-line snapshot for Render logs when no TTY is present.
+function summarizeTimestamp(value) {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return 'never';
+  }
+  return formatTimestamp(value).replace(/\s+/g, '_');
+}
+
 function buildQuietSummary() {
   const dbSection = state.sections.get('database');
   if (!dbSection) {
@@ -297,11 +450,40 @@ function buildQuietSummary() {
     looseNotes.push(String(entry));
   }
 
+  const normalizeValue = (value) => String(value ?? 'unknown').replace(/\s+/g, '_');
+
   const segments = [];
   const phase = state.phase || 'unknown';
   const status = dbSection.status || 'pending';
-  segments.push(`phase=${phase}`);
-  segments.push(`database=${status}`);
+  segments.push(`phase=${normalizeValue(phase)}`);
+  segments.push(`database=${normalizeValue(status)}`);
+
+  const securitySection = state.sections.get('security');
+  if (securitySection) {
+    segments.push(`security=${normalizeValue(securitySection.status || 'pending')}`);
+  }
+
+  const pokedexSection = state.sections.get('pokedex');
+  if (pokedexSection) {
+    segments.push(`pokedex=${normalizeValue(pokedexSection.status || 'pending')}`);
+  }
+
+  const cacheSection = state.sections.get('cache');
+  if (cacheSection) {
+    segments.push(`runtimeCache=${normalizeValue(cacheSection.status || 'pending')}`);
+  }
+
+  const capacity = computeCapacityInsight();
+  segments.push(`capacity=${normalizeValue(capacity.rating)}`);
+  segments.push(`alerts=${capacity.alerts}`);
+  segments.push(`pendingOps=${capacity.pendingEvents}`);
+  if (capacity.detail) {
+    segments.push(`capacityDetail=${capacity.detail.replace(/\s+/g, '_')}`);
+  }
+
+  if (state.lastUpdatedAt) {
+    segments.push(`refreshed=${summarizeTimestamp(state.lastUpdatedAt)}`);
+  }
 
   const pickMetric = (key, label, formatter) => {
     if (!metrics.has(key)) {
@@ -356,6 +538,37 @@ function buildQuietSummary() {
   return segments.join(' | ');
 }
 
+function desiredInterval() {
+  return Array.isArray(state.recentErrors) && state.recentErrors.length > 0
+    ? ALERT_UPDATE_INTERVAL_MS
+    : NORMAL_UPDATE_INTERVAL_MS;
+}
+
+function configureRenderInterval() {
+  if (SIMPLE_MODE && QUIET_SIMPLE_MODE) {
+    if (intervalHandle) {
+      clearInterval(intervalHandle);
+      intervalHandle = null;
+    }
+    currentIntervalMs = desiredInterval();
+    return;
+  }
+
+  const target = desiredInterval();
+  if (intervalHandle && currentIntervalMs === target) {
+    return;
+  }
+
+  if (intervalHandle) {
+    clearInterval(intervalHandle);
+    intervalHandle = null;
+  }
+
+  intervalHandle = setInterval(render, target);
+  intervalHandle.unref?.();
+  currentIntervalMs = target;
+}
+
 function render() {
   if (!displayActive || isRendering) {
     return;
@@ -395,6 +608,7 @@ function render() {
     lastOutputWasDot = false;
   } finally {
     isRendering = false;
+    state.lastRenderAt = new Date();
   }
 }
 
@@ -407,7 +621,8 @@ function handleActivityUpdate(stats) {
       state.recentActivities = [];
     }
   }
-  if (!SIMPLE_MODE && displayActive) {
+  noteUpdate();
+  if (displayActive) {
     render();
   }
 }
@@ -417,7 +632,9 @@ function handleOpsErrorUpdate() {
     return;
   }
   state.recentErrors = opsNotifier.getRecentErrors();
-  if (!SIMPLE_MODE && displayActive) {
+  noteUpdate();
+  configureRenderInterval();
+  if (displayActive) {
     render();
   }
 }
@@ -429,6 +646,8 @@ function startStatusDisplay() {
 
   displayActive = true;
   state.startedAt = new Date();
+  state.lastUpdatedAt = state.startedAt;
+  state.lastRenderAt = null;
   lastSimpleRender = '';
 
   if (typeof activityTracker.subscribe === 'function') {
@@ -446,16 +665,8 @@ function startStatusDisplay() {
     process.stdout.write('\u001B[?25l');
   }
 
-  if (SIMPLE_MODE) {
-    render();
-    if (!QUIET_SIMPLE_MODE) {
-      intervalHandle = setInterval(render, UPDATE_INTERVAL_MS);
-    }
-    return;
-  }
-
   render();
-  intervalHandle = setInterval(render, UPDATE_INTERVAL_MS);
+  configureRenderInterval();
 }
 
 function stopStatusDisplay() {
@@ -463,6 +674,7 @@ function stopStatusDisplay() {
     clearInterval(intervalHandle);
     intervalHandle = null;
   }
+  currentIntervalMs = NORMAL_UPDATE_INTERVAL_MS;
 
   if (unsubscribe) {
     unsubscribe();
@@ -492,17 +704,28 @@ function stopStatusDisplay() {
 }
 
 function setPhase(value) {
-  state.phase = value || state.phase;
+  const nextPhase = value || state.phase;
+  if (!nextPhase || state.phase === nextPhase) {
+    return;
+  }
+  state.phase = nextPhase;
+  noteUpdate();
   if (displayActive) {
     render();
   }
 }
 
 function setGuildCount(value) {
+  let changed = false;
   if (typeof value === 'number' && Number.isFinite(value)) {
-    state.guildCount = Math.max(0, Math.round(value));
+    const nextCount = Math.max(0, Math.round(value));
+    if (state.guildCount !== nextCount) {
+      state.guildCount = nextCount;
+      noteUpdate();
+      changed = true;
+    }
   }
-  if (displayActive) {
+  if (changed && displayActive) {
     render();
   }
 }
@@ -538,6 +761,7 @@ function setSection(sectionId, data) {
       state.sections.set(sectionId, normalized);
     }
   }
+  noteUpdate();
   if (displayActive) {
     render();
   }
