@@ -1,7 +1,7 @@
 # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-11-01T20:58:00Z
+updated_utc: 2025-11-02T14:05:00Z
 
 meta_files:
   - Patch.md
@@ -53,6 +53,7 @@ categories:
     - docs/meta-router.md
   data_assets:
     - data/**
+    - assets/**
   documentation_library:
     - docs/**
   playbooks:
@@ -90,6 +91,7 @@ categories:
     - data/ROUTER.md
     - data/bootstrap/ROUTER.md
     - data/cache/ROUTER.md
+  - assets/ROUTER.md
     - docs/ROUTER.md
     - playbooks/ROUTER.md
     - prisma/ROUTER.md
@@ -129,6 +131,7 @@ categories:
     - src/core/pbsl/battle/ROUTER.md
     - src/core/pbsl/data/ROUTER.md
     - src/core/pbsl/encounter/ROUTER.md
+  - src/data/ROUTER.md
     - src/data_pipeline/ROUTER.md
     - src/data_pipeline/schema/ROUTER.md
     - src/engine/ROUTER.md

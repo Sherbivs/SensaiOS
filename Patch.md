@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-10-29T19:10:00Z
-Revision: 1.48
+Last Updated (UTC): 2025-11-02T13:56:00Z
+Revision: 1.49
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
@@ -99,10 +99,15 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Planned PATCHSET — T13.DEX.AUTO_SYNC_ALERTS]
-- Route `integrity.alert` events to operator notification surfaces (Render alerts and/or Discord ops channel).
-- Capture a runbook entry covering alert handling and simulator steps, updating docs/playbooks as needed.
-- Sync Tasklist/NEXT/Prompt metadata and router docs once alerting lands.
+[Planned PATCHSET — T13.DEX.DEXPACK_ROLLOUT]
+- Completed progress — 2025-11-02T13:52Z:
+   - Normalized dexpack move entries so battle damage calculations retain special vs. physical metadata (Choice Specs, etc.).
+   - Adjusted Discord forfeit handling to conclude battles without party hydration.
+- Remaining scope:
+   - Add deterministic dexpack build tooling plus committed `dexpack.v1.json(.gz)` assets sourced from existing bootstrap/cache data.
+   - Introduce an in-memory dexpack loader/getter surface and migrate dex consumers to the O(1) lookup API.
+   - Extend docs, CI guardrails, and routing metadata to cover dexpack regeneration with Tasklist/NEXT/Prompt updates.
+- Next focus: land build tooling + CI guard updates while finishing consumer migrations.
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

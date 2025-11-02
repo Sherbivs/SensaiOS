@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-02T08:05:00Z
-Revision: 1.77
+Timestamp (UTC): 2025-11-02T13:58:00Z
+Revision: 1.78
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Extended `scripts/dev_prod_auto_sync.ts` to dispatch `integrity.alert` webhooks (deduped) with new CLI flags `--alert-webhook`, `--no-alerts`, and `--simulate-alert`.
-- Updated docs/database-systems.md, docs/db-control-suite.md, and docs/ai-env-setup.md with alert routing details + drift response runbook; synced scripts/ROUTER.md and masterroutetable.md.
-- Ran `npm run db:auto-sync -- --simulate-alert --no-alerts --dev-env .env.example --prod-env .env.example` to capture a sample alert; Tasklist.md (Rev 2.31) now tracks the task IN_PROGRESS with simulation notes.
+- Marked `T13.DEX.DEXPACK_ROLLOUT` as IN_PROGRESS after normalizing dexpack move metadata and fixing Discord forfeit handling; recorded outcome notes in Tasklist.md (Rev 2.33).
+- Updated Patch.md clipboard with completed dexpack scope vs. remaining work and refreshed contract metadata.
+- Retargeted `ops/NEXT.yaml` to keep the dexpack rollout active with trimmed file hints reflecting build tooling, loader migrations, and guard/doc updates.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -18,8 +18,8 @@ Revision: 1.77
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** T13.DEX.AUTO_SYNC_ALERTS — wire `integrity.alert` into operator channels now that monitoring hooks landed.
-- **READY / In-flight:** Alert routing is IN_PROGRESS with webhook dispatch + docs staged; follow-up automation waits for final verification.
+- **NEXT Pointer:** T13.DEX.DEXPACK_ROLLOUT — finish dexpack build tooling, loader migrations, and guard/doc updates.
+- **READY / In-flight:** Dexpack rollout continues with move normalization + forfeit flow fixes landed; next steps cover build asset generation and CI guardrails.
 - **Recent Finish:** T13.DEX.AUTO_SYNC_MONITOR shipped integrity alerts, guard script, and doc updates for the dex auto-sync loop.
 
 ## System Highlights
@@ -61,11 +61,11 @@ Revision: 1.77
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Added webhook routing + simulation flags for auto-sync alerts, refreshed docs/runbook, and logged the simulate-alert dry run.
+Change: Logged dexpack move normalization and forfeit flow fixes, updated Tasklist/Patch/NEXT to reflect ongoing rollout scope.
 TasklistDiff: true
-Tests: npm run db:auto-sync -- --simulate-alert --no-alerts --dev-env .env.example --prod-env .env.example
+Tests: npm test -- --run tests/battle_engine.spec.ts tests/battle_flow.spec.ts tests/battle_results.spec.ts
 Contracts: ON
-NEXT: T13.DEX_AUTO_SYNC_ALERTS - route integrity.alert into operator channels after monitor guardrails.
+NEXT: T13.DEX.DEXPACK_ROLLOUT - finish build tooling, loader migrations, and guard/doc updates for the dexpack rollout.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

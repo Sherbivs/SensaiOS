@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-11-02T08:05:00Z
+Last Updated (UTC): 2025-02-26T00:00:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -37,6 +37,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `tests/pbsl/ROUTER.md` — PBSL harness overview
       - `tests/pbsl/fixtures/ROUTER.md` — Deterministic fixture snapshots
 - `data/ROUTER.md` — Pokemon Reference Data
+- `assets/ROUTER.md` — Generated dexpack assets committed for runtime bootstrapping
   - `data/bootstrap/ROUTER.md` — Bootstrap JSON bundles
   - `data/cache/ROUTER.md` — Generated cache artifacts + sync trigger
 - `prisma/ROUTER.md` — Prisma Schema & Migrations
@@ -76,7 +77,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).
 - Owned Globs: `scripts/**`
-- Last Updated: 2025-11-01T16:20:00Z
+- Last Updated: 2025-11-02T14:05:00Z
 - Key Scripts:
   - `scripts/update_change_ledger.sh` — regenerate Prompt change ledger
   - `scripts/update_router_index.sh` — rebuild `ops/ROUTER_INDEX.yaml`
@@ -91,6 +92,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - `scripts/setup_ai_env.ps1` — Muted (agent env helper); registers `IG_ENV_FILE` so secrets load from external storage
   - `scripts/db_smoke.ts` — Accelerate smoke query (`SELECT 1 AS ok`)
   - `scripts/dev_prod_auto_sync.ts` — Muted (automation loop); ensures migrate/seed inherit env-specific credentials, forces direct migrations, times out hung commands, preflights Optimize SpeciesSheet access, watches `data/cache/dex-sync-trigger.json`, and continuously runs the Dev → Prod → Dev cadence with integrity checks (`npm run db:auto-sync`)
+  - `scripts/build_dexpack.ts` — Deterministic dexpack builder emitting committed JSON + gzip assets (`npm run data:dexpack`)
 - Sub-Routers:
   - `scripts/dex/ROUTER.md` — dex backfill/seed/warm helpers
   - `scripts/guards/ROUTER.md` — CI guard entrypoints (require ensure-db preload, etc.)
@@ -101,6 +103,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - 2025-10-29: Added Accelerate restore + smoke scripts to support Prisma Postgres migrations.
   - 2025-10-30: Added Dev ↔ Prod auto-sync loop to kick on deployment, poll every five minutes, and surface drift via JSON logs.
   - 2025-11-01: Broke out dex automation, guard entrypoints, and ops scripts into dedicated sub-routers for faster discovery.
+  - 2025-11-02: Added dexpack build + guard tooling so committed pack artifacts stay deterministic across branches.
 
 ### Ops Archive (`ops/ARCHIVE/ROUTER.md`)
 - Purpose: Read-only snapshots of Tasklist history and supporting meta exports.
@@ -127,6 +130,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - Notes: Keep outputs terse so developers can remediate failures quickly.
 - Latest: `guard_auto_sync.sh` provides a `--ci --dry-run` auto-sync check so missing secrets or dex trigger metadata fail before deployment.
 - Latest: `dev_prod_auto_sync.ts` now pushes webhook embeds (`ALERT_WEBHOOK_URL`) whenever `integrity.alert` fires after consolidation, suppressing duplicates until counts change.
+- Latest: `guard_dexpack.sh` runs the dexpack builder in verification mode (`npm run guard:dexpack`) so committed assets stay in sync.
 
 ### Operator Scripts (`scripts/ops/ROUTER.md`)
 - Purpose: PowerShell helpers such as `run_dex_migrations.ps1` for environment-specific deploy flows.
@@ -135,6 +139,11 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Data Pipeline Schemas (`src/data_pipeline/schema/ROUTER.md`)
 - Purpose: Zod validators for dataset outputs (`abilities`, `moves`, `species`, `typechart`, `manifest`).
 - Notes: Update alongside `data/bootstrap/**` and consumers when introducing breaking schema changes.
+
+### Generated Assets (`assets/ROUTER.md`)
+- Purpose: Committed build outputs (dexpack JSON + gzip) consumed by the bot, engine, and guards.
+- Notes: Regenerate via `npm run data:dexpack`; verify consistency in CI with `npm run guard:dexpack` so artifacts stay deterministic.
+- Files: `assets/dexpack.v1.json`, `assets/dexpack.v1.json.gz`.
 
 ### Service Cache Recipes (`src/services/cache/ROUTER.md`)
 - Purpose: Cache facade + namespace recipes powering battle, encounter, and quest flows.
@@ -177,23 +186,25 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Application Source (`src/ROUTER.md`)
 - Purpose: Root TypeScript source tree; delegates to domain routers.
 - Owned Globs: `src/**`
-- Last Updated: 2025-10-29T01:50:00Z
+- Last Updated: 2025-11-02T14:05:00Z
 - Downstream Routers:
-        - `src/bot/ROUTER.md` — Discord bot interactions
-        - `src/core/ROUTER.md` — core battle/encounter engines
-        - `src/shared/ROUTER.md` — shared runtime/config/logging
-        - `src/worker/ROUTER.md` — background workers
+  - `src/bot/ROUTER.md` — Discord bot interactions
+  - `src/core/ROUTER.md` — core battle/encounter engines
+  - `src/data/ROUTER.md` — dexpack loader + helper facade for committed assets
+  - `src/shared/ROUTER.md` — shared runtime/config/logging
+  - `src/worker/ROUTER.md` — background workers
 - Supporting Files:
-        - `src/index.ts` — application entry (Prisma init + boots Discord bot and legacy security worker)
-        - `src/shared/**` — shared config, logging, utilities
+  - `src/index.ts` — application entry (Prisma init + boots Discord bot and legacy security worker)
+  - `src/shared/**` — shared config, logging, utilities
 - Recent Notes:
-        - Battle result persistence centralized; announcer flow shared for victories/forfeits.
-        - Daily quest claim flow landed with cooldown wiring.
-        - Render DATABASE_URL overrides prefer managed connection strings.
-        - Entry now launches the security bot before the Discord client so DripTVDD alerts stay online.
-        - Runtime config loader now forbids localhost URLs in production and exposes cache settings.
+  - Battle result persistence centralized; announcer flow shared for victories/forfeits.
+  - Daily quest claim flow landed with cooldown wiring.
+  - Render DATABASE_URL overrides prefer managed connection strings.
+  - Entry now launches the security bot before the Discord client so DripTVDD alerts stay online.
+  - Runtime config loader now forbids localhost URLs in production and exposes cache settings.
+  - Dexpack loader (`src/data/dexpack.js`) exposes the committed bundle via lazy helpers shared across CommonJS + TypeScript callers.
   - Background workers now run via dedicated Render services; ENABLE_CONTINUOUS_SWEEP defers security sweeps to the security worker.
-    - Prisma client boot now prioritises Accelerate URLs surfaced by shared config and reports the active transport (direct vs accelerate-node) in CLI telemetry.
+  - Prisma client boot now prioritises Accelerate URLs surfaced by shared config and reports the active transport (direct vs accelerate-node) in CLI telemetry.
 
 ### Shared Runtime & Utilities (`src/shared/ROUTER.md`)
 - Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, and event bus compatibility helpers.

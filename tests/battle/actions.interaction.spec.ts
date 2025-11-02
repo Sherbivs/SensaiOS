@@ -29,10 +29,10 @@ vi.mock("../../src/shared/config.js", () => {
   };
 });
 
-let handleBattleActionButton: typeof import("../../src/bot/battle/actions.js")
-  ["handleBattleActionButton"];
-let MOVE_PREFIX: typeof import("../../src/bot/battle/actions.js")["MOVE_PREFIX"];
-let SWITCH_PREFIX: typeof import("../../src/bot/battle/actions.js")["SWITCH_PREFIX"];
+type BattleActionsModule = typeof import("../../src/bot/battle/actions.js");
+let handleBattleActionButton: BattleActionsModule["handleBattleActionButton"];
+let MOVE_PREFIX: BattleActionsModule["MOVE_PREFIX"];
+let SWITCH_PREFIX: BattleActionsModule["SWITCH_PREFIX"];
 
 import * as cacheRecipes from "../../src/services/cache/recipes.js";
 import { __testing as turnTesting } from "../../src/core/battle/turn-manager.js";
@@ -83,6 +83,7 @@ function createInteraction(config: {
   const replies: any[] = [];
   const reply = vi.fn(async (payload: any) => {
     replies.push(payload);
+    return { awaitMessageComponent };
   });
   const followUps: any[] = [];
   const followUp = vi.fn(async (payload: any) => {

@@ -2,9 +2,10 @@
 Title: Ops & Governance
 Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-11-01T17:30:00Z
+Last Updated (UTC): 2025-02-26T00:00:00Z
 
 Notes:
+- 2025-02-26: Documented dexpack guard coverage; ops/ROUTER.yaml and touchmap now map assets build to T13.DEX.DEXPACK_ROLLOUT.
 - 2025-11-01: Added dedicated routers for ops/ARCHIVE and ops/INBOX so archival history and operator inbox notes have clear owners.
 - 2025-10-26: guard_meta preflight/postflight make READY absence impossible at merge time; NEXT auto-promotion enabled. See scripts/guard_meta.sh and ops/NEXT.yaml.
 - 2025-10-26: Patch contract adds marker switch, clipboard scratch space, and Markerless Mode guidance; guard_meta enforces Absolutes when contracts are OFF.

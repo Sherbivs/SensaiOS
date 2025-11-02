@@ -71,11 +71,30 @@ export async function openActionDMs(battleId: string, clientUserFetcher: (id: st
   return true;
 }
 
-function parse(customId: string) {
+type ParsedCustomId =
+  | { kind: "move"; battleId: string }
+  | { kind: "switch"; battleId: string }
+  | { kind: "forfeit"; battleId: string };
+
+function parse(customId: string): ParsedCustomId | null {
   if (customId.startsWith(MOVE_PREFIX)) return { kind: "move" as const, battleId: customId.substring(MOVE_PREFIX.length) };
   if (customId.startsWith(SWITCH_PREFIX)) return { kind: "switch" as const, battleId: customId.substring(SWITCH_PREFIX.length) };
   if (customId.startsWith(FORFEIT_PREFIX)) return { kind: "forfeit" as const, battleId: customId.substring(FORFEIT_PREFIX.length) };
   return null;
+}
+
+function collectIds(...values: Array<unknown>): Set<string> {
+  const ids = new Set<string>();
+  for (const value of values) {
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (entry != null) ids.add(String(entry));
+      }
+    } else if (value != null) {
+      ids.add(String(value));
+    }
+  }
+  return ids;
 }
 
 type PromptMoveFn = (context: {
@@ -188,11 +207,17 @@ async function defaultPromptSwitch({ interaction, battleId, active, options }: P
 }
 
 function identifyPlayer(battle: any, interaction: ButtonInteraction): { key: "p1" | "p2"; player: any } | null {
-  if (interaction.user.id === battle.p1?.discordId) {
-    return { key: "p1", player: battle.p1 };
-  }
-  if (interaction.user.id === battle.p2?.discordId) {
-    return { key: "p2", player: battle.p2 };
+  const userIds = collectIds((interaction.user as any)?.id, (interaction.user as any)?.discordId);
+  const p1Ids = collectIds(battle.p1?.id, (battle.p1 as any)?.userId, battle.p1?.discordId);
+  const p2Ids = collectIds(battle.p2?.id, (battle.p2 as any)?.userId, battle.p2?.discordId);
+
+  for (const id of userIds) {
+    if (p1Ids.has(id)) {
+      return { key: "p1", player: battle.p1 };
+    }
+    if (p2Ids.has(id)) {
+      return { key: "p2", player: battle.p2 };
+    }
   }
   return null;
 }
@@ -297,8 +322,9 @@ export async function handleBattleActionButton(
   interaction: ButtonInteraction,
   opts: HandlerOpts = {}
 ) {
-  const parsed = parse(interaction.customId);
-  if (!parsed) return;
+  const parsedResult = parse(interaction.customId);
+  if (!parsedResult) return;
+  const parsed = parsedResult as ParsedCustomId;
 
   const prisma = opts.prisma ?? prismaClient;
   const battle = await loadBattleState(parsed.battleId, { prisma });
@@ -314,6 +340,31 @@ export async function handleBattleActionButton(
   const identified = identifyPlayer(battle, interaction);
   if (!identified) {
     await interaction.reply({ content: "You are not a participant in this battle.", ephemeral: true });
+    return;
+  }
+
+  if (parsed.kind === "forfeit") {
+    const userIds = collectIds((interaction.user as any)?.id, (interaction.user as any)?.discordId);
+    const p1Ids = collectIds(battle.p1?.id, (battle.p1 as any)?.userId, battle.p1?.discordId);
+    const forfeiterIsP1 = Array.from(p1Ids).some((id) => userIds.has(id));
+    const winnerKey = forfeiterIsP1 ? "p2" : "p1";
+    const result = await BattleRepo.concludeBattle({
+      prisma,
+      battle,
+      winner: winnerKey,
+      turnCount: 0,
+      reason: "forfeit",
+    });
+    await invalidateBattleState(battle.id);
+
+    await concludeModule.announceBattleResult({
+      client: interaction.client as any,
+      battle,
+      result,
+      updateLoserInteraction: async (message) => {
+        await interaction.update({ content: message, components: [] });
+      },
+    });
     return;
   }
 
@@ -383,45 +434,6 @@ export async function handleBattleActionButton(
         ephemeral: true,
       });
     }
-    return;
-  }
-
-  if (parsed.kind === "forfeit") {
-    const identify = (...values: Array<string | null | undefined>) => {
-      const ids = new Set<string>();
-      for (const value of values) {
-        if (Array.isArray(value)) {
-          for (const entry of value) {
-            if (entry != null) ids.add(String(entry));
-          }
-        } else if (value != null) {
-          ids.add(String(value));
-        }
-      }
-      return ids;
-    };
-
-    const userIds = identify((interaction.user as any)?.id, (interaction.user as any)?.discordId);
-    const p1Ids = identify(battle.p1?.id, (battle.p1 as any)?.userId, battle.p1?.discordId);
-    const forfeiterIsP1 = Array.from(p1Ids).some((id) => userIds.has(id));
-    const winnerKey = forfeiterIsP1 ? "p2" : "p1";
-    const result = await BattleRepo.concludeBattle({
-      prisma,
-      battle,
-      winner: winnerKey,
-      turnCount: 0,
-      reason: "forfeit",
-    });
-    await invalidateBattleState(battle.id);
-
-    await concludeModule.announceBattleResult({
-      client: interaction.client as any,
-      battle,
-      result,
-      updateLoserInteraction: async (message) => {
-        await interaction.update({ content: message, components: [] });
-      },
-    });
     return;
   }
 }

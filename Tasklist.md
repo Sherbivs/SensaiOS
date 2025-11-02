@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-02T08:05:00Z
-Revision: 2.31
+Last Updated (UTC): 2025-11-02T13:54:00Z
+Revision: 2.33
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1127,14 +1127,25 @@ Each task has:
 
 - id: T13.DEX.AUTO_SYNC_ALERTS
   title: Route auto-sync integrity alerts to operators
-  status: IN_PROGRESS
+  status: BLOCKED
   depends_on: [T13.DEX.AUTO_SYNC_MONITOR]
   acceptance_criteria:
     - Forward `integrity.alert` events to the existing observability/logging pipeline (Render alerts or Discord ops channel) with actionable messaging.
     - Provide a runbook entry in playbooks/ or docs/database-systems.md detailing response steps when alerts fire.
     - Capture a simulated alert in Tasklist notes once routing is validated.
   notes: |
-    IN_PROGRESS — 2025-11-02T07:43Z: `npm run db:auto-sync -- --simulate-alert --no-alerts --dev-env .env.example --prod-env .env.example` emitted the sample `integrity.alert` payload (alerts suppressed for the dry run). Webhook dispatch + docs/runbook updates pending final verification.
+    BLOCKED — 2025-11-02T08:20Z: Alert routing paused while the dexpack build/runtime pipeline takes priority; resume once the dexpack rollout completes and observability hooks can piggyback on the new data surface.
+
+- id: T13.DEX.DEXPACK_ROLLOUT
+  title: Consolidate dexpack build, runtime loader, and CI guardrails
+  status: IN_PROGRESS
+  depends_on: []
+  acceptance_criteria:
+    - Add a deterministic build script that emits a single `dexpack.v1.json` (plus compressed variant) from the existing bootstrap/cache data sources and commit the generated artifact.
+    - Introduce an in-memory loader/getter module that replaces ad-hoc JSON parsing, updating dex consumers to use O(1) lookups against the loaded pack.
+    - Extend CI/guarding to regenerate and verify the pack against pinned upstream versions, documenting the workflow and recovery steps for stale artifacts.
+  notes: |
+    IN_PROGRESS — 2025-11-02T13:52Z: Normalized dexpack move metadata so the battle engine honors special/physical modifiers (Choice Specs fix) and updated Discord forfeit handling to conclude battles without party hydration while loader consumers continue migrating.
 
 ## Phase 14 — Live Game Cache
 

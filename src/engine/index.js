@@ -1,5 +1,4 @@
-import path from 'node:path';
-import fs from 'node:fs';
+import { loadDexpack, getSpecies as lookupSpecies } from '../data/dexpack.js';
 import { newPokemonRuntime, newBattleState, newAction } from './types.js';
 import { derivedStats } from './stats.js';
 import { resolveTurn } from './turn.js';
@@ -143,27 +142,6 @@ function deriveMatchupsFromTypes(types) {
   return result;
 }
 
-function loadJSONWithFallback(primary, fallback) {
-  const candidates = [primary, fallback].filter(Boolean);
-  const baseDir = process.cwd();
-
-  for (const relPath of candidates) {
-    const absolute = path.join(baseDir, relPath);
-    if (relPath && fs.existsSync(absolute)) {
-      return JSON.parse(fs.readFileSync(absolute, 'utf8'));
-    }
-  }
-
-  const formatted = candidates.map((relPath) => (relPath ? `"${relPath}"` : null)).filter(Boolean);
-  const error = new Error(
-    formatted.length
-      ? `Unable to locate dataset. Checked ${formatted.join(', ')}.`
-      : 'Unable to locate dataset. No candidate paths were provided.'
-  );
-  error.code = 'DATA_UNAVAILABLE';
-  throw error;
-}
-
 function makeRuntimeFromDexEntry(dexMon, level = 50, moves = [], opts = {}) {
   const p = newPokemonRuntime(dexMon, level);
   p.derived = derivedStats(p.base, level);
@@ -188,27 +166,102 @@ function makeRuntimeFromDexEntry(dexMon, level = 50, moves = [], opts = {}) {
   return p;
 }
 
-function loadIndexes() {
-  const dex = loadJSONWithFallback('dist/data/dex.min.json', 'data/bootstrap/dex.min.json');
-  const movesIndex = loadJSONWithFallback('dist/data/moves.min.json', 'data/bootstrap/moves.min.json');
+function toLegacyStats(baseStats = {}) {
+  return {
+    hp: baseStats.hp ?? null,
+    attack: baseStats.atk ?? null,
+    defense: baseStats.def ?? null,
+    'special-attack': baseStats.spAtk ?? null,
+    'special-defense': baseStats.spDef ?? null,
+    speed: baseStats.spe ?? null,
+  };
+}
 
-  const enrichedDex = dex.map((entry) => {
-    if (!entry || typeof entry !== 'object') {
-      return entry;
-    }
-    const types = normaliseTypes(entry.types);
-    const matchups = entry.matchups && Object.keys(entry.matchups).length > 0
-      ? entry.matchups
-      : deriveMatchupsFromTypes(types);
-    return { ...entry, types, matchups };
-  });
+function cloneAbilities(list = []) {
+  return list.map((ability, index) => ({
+    name: ability?.name ?? '',
+    hidden: Boolean(ability?.hidden),
+    slot: typeof ability?.slot === 'number' ? ability.slot : index + 1,
+  }));
+}
 
-  const byName = new Map(enrichedDex.map((p) => [String(p.name).toLowerCase(), p]));
-  const byId = new Map(enrichedDex.map((p) => [Number(p.id), p]));
-  function dexLookup(q) {
-    if (typeof q === 'number') return byId.get(q);
-    return byName.get(String(q).toLowerCase());
+function hydrateDexEntry(doc) {
+  const types = normaliseTypes(doc?.typing ?? []);
+  const baseMatchups = doc?.matchups ?? {};
+  const hasNonNeutral = Object.values(baseMatchups).some((value) => Number(value) !== 1);
+  const matchups = hasNonNeutral ? { ...baseMatchups } : deriveMatchupsFromTypes(types);
+  const stats = toLegacyStats(doc?.baseStats ?? {});
+  const learnsets = doc?.learnsets
+    ? {
+        level: Array.isArray(doc.learnsets.level)
+          ? doc.learnsets.level.map((entry) => ({ move: entry.move, level: entry.level ?? null }))
+          : [],
+        machine: Array.isArray(doc.learnsets.machine) ? [...doc.learnsets.machine] : [],
+        tutor: Array.isArray(doc.learnsets.tutor) ? [...doc.learnsets.tutor] : [],
+        egg: Array.isArray(doc.learnsets.egg) ? [...doc.learnsets.egg] : [],
+      }
+    : { level: [], machine: [], tutor: [], egg: [] };
+  return {
+    id: doc.id,
+    name: doc.name,
+    slug: doc.slug,
+    height: doc.height,
+    weight: doc.weight,
+    types,
+    typing: types,
+    abilities: cloneAbilities(doc?.abilities ?? []),
+    stats,
+    base: stats,
+    baseStats: { ...(doc?.baseStats ?? {}) },
+    matchups,
+    learnsets,
+    aliases: Array.isArray(doc?.aliases) ? [...doc.aliases] : [],
+  };
+}
+
+function normalizeMoveEntry(doc) {
+  const move = { ...doc };
+  const category = typeof move.category === 'string' ? move.category.toLowerCase() : null;
+  const legacyClass = typeof move.class === 'string' ? move.class.toLowerCase() : null;
+  move.category = category ?? legacyClass ?? null;
+  const resolvedClass = legacyClass ?? (move.category === 'physical' || move.category === 'special' || move.category === 'status' ? move.category : null);
+  if (resolvedClass) {
+    move.class = resolvedClass;
+  } else {
+    delete move.class;
   }
+  if (typeof move.type === 'string') {
+    move.type = move.type.toLowerCase();
+  }
+  return move;
+}
+
+function loadIndexes() {
+  const pack = loadDexpack();
+  const byId = new Map();
+
+  for (const doc of Object.values(pack.byId)) {
+    if (!doc) continue;
+    const hydrated = hydrateDexEntry(doc);
+    byId.set(hydrated.id, hydrated);
+  }
+
+  function dexLookup(q) {
+    if (typeof q === 'number' && Number.isFinite(q)) {
+      return byId.get(Number(q)) || null;
+    }
+    const doc = lookupSpecies(q);
+    if (!doc) return null;
+    if (!byId.has(doc.id)) {
+      byId.set(doc.id, hydrateDexEntry(doc));
+    }
+    return byId.get(doc.id) || null;
+  }
+
+  const movesIndex = Object.fromEntries(
+    Object.entries(pack.moves).map(([key, value]) => [key, normalizeMoveEntry(value)])
+  );
+
   return { dexLookup, movesIndex };
 }
 

@@ -1,6 +1,6 @@
 # OPERATIONS
 
-_Last updated: 2025-10-29T23:40:00Z (UTC) — Rev: 1.3_
+_Last updated: 2025-11-02T14:30:00Z (UTC) — Rev: 1.4_
 
 ## Service Matrix
 | Render Service | Purpose | Entry Command | Key Env Flags | Health Signals |
@@ -69,3 +69,9 @@ Respond to threshold alerts by tailing Render logs (`worker.alert.*`) and, if ne
 - `npm run worker:outbox` / `worker:cache` / `worker:data-pipeline` for local parity with Render workers.
 - `npm run docs:update-routers` to refresh router metadata after touching routed directories.
 - `npm run docs:update-ledger` to sync Prompt.md and ops/change-ledger.md with recent commits.
+
+## Dexpack Build & Guard Workflow
+- `npm run data:dexpack` regenerates the committed `assets/dexpack.v1.json` and `assets/dexpack.v1.json.gz` pair using `scripts/build_dexpack.ts`. The builder sources the existing bootstrap datasets, enforces sorted keys, and only rewrites the artifacts when content changes.
+- Run `npm run guard:dexpack` (or `node --no-warnings --loader tsx scripts/build_dexpack.ts --check`) before merging; the guard rebuilds in verification mode and fails when committed assets drift.
+- `.github/workflows/guard-dexpack.yml` executes the same verification on push/PR. Fix failures by running the build command locally, committing the refreshed assets, and re-running the guard until it passes.
+- Record rebuild intent and outcomes in Tasklist notes when regenerating the pack (include the species/move counts from the builder log) so operators can cross-check runtime behavior after deployment.

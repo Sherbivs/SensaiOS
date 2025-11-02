@@ -279,6 +279,24 @@ T13.DEX.AUTO_SYNC_ALERTS:
   - "Tasklist.md"
   - "Prompt.md"
 
+T13.DEX.DEXPACK_ROLLOUT:
+  - "assets/dexpack.v1.json"
+  - "assets/dexpack.v1.json.gz"
+  - "scripts/build_dexpack.ts"
+  - "scripts/guards/guard_dexpack.sh"
+  - "src/data/dexpack.js"
+  - "package.json"
+  - ".github/workflows/guard-dexpack.yml"
+  - "assets/ROUTER.md"
+  - "src/data/ROUTER.md"
+  - "scripts/ROUTER.md"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "docs/operations.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+
 T14.CACHE.FACADE:
   - "src/services/cache/**"
   - "src/shared/log.ts"
