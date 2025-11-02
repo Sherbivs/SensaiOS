@@ -54,7 +54,7 @@ The runner loads environment variables in the following order:
 - `node scripts/fetch_pokemon.mjs` still refreshes the local JSON cache if you need offline data snapshots; the seeder can read cached responses automatically on subsequent runs.
 - `npm run db:cli -- status` after a seed should show >1,000 species with non-empty learnsets; capture the output in Tasklist or Prompt notes for auditing.
 - When bootstrapping from scratch follow `ops/DB_BOOTSTRAP.md`: migrations → set `IG_ENV_FILE` → `npm run db:seed:dex` → `npm run db:cli -- status`.
-- Maintain the Dev → Prod → Dev loop: run each command with `Key/Dev/.env`, swap to `Key/Prod/.env` to repeat it (or use `scripts/ops/run_dex_migrations.ps1` for migrations), then switch back to `Key/Dev/.env` and run `npx prisma generate` before continuing local work.
+- Maintain the Dev → Prod → Dev loop: run each command with `Key/Dev/.env`, swap to `Key/Prod/.env` to repeat it (or use `scripts/ops/run_dex_migrations.ps1`, which now validates direct URLs, for migrations), then switch back to `Key/Dev/.env` and run `npx prisma generate` before continuing local work.
 
 ## Examples
 
