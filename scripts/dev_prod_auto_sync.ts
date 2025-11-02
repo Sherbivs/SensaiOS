@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import https from "node:https";
 import { setTimeout as delay } from "node:timers/promises";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -15,6 +16,10 @@ type SyncConfig = {
   once: boolean;
   dryRun: boolean;
   skipStartup: boolean;
+  ci: boolean;
+  alertWebhookUrl: string;
+  suppressAlerts: boolean;
+  simulateAlert: boolean;
 };
 
 type CountSnapshot = {
@@ -38,6 +43,167 @@ type DexTrigger = {
   count?: number;
 };
 
+type IntegrityAlertPayload = {
+  reason: string;
+  delta: Record<string, number>;
+  devCounts: CountSnapshot;
+  prodCounts: CountSnapshot;
+};
+
+type AlertDispatcher = (payload: IntegrityAlertPayload) => Promise<void>;
+
+const ALERT_WEBHOOK_USERNAME = "Dex Auto-Sync";
+const ALERT_EMBED_COLOR = 0xf97316; // orange highlight
+
+function sanitizeWebhook(urlString: string): string {
+  try {
+    const url = new URL(urlString);
+    const segments = url.pathname.split("/").filter(Boolean);
+    if (segments.length > 0) {
+      segments[segments.length - 1] = "***";
+    }
+    return `${url.origin}/${segments.join("/")}`;
+  } catch {
+    return "<redacted>";
+  }
+}
+
+function formatCountsSnapshot(label: string, snapshot: CountSnapshot): string {
+  return `${label}: species ${snapshot.species}, moves ${snapshot.moves}, abilities ${snapshot.abilities}, learnsets ${snapshot.learnsets}`;
+}
+
+function fingerprintAlert(reason: string, delta: Record<string, number>, devCounts: CountSnapshot, prodCounts: CountSnapshot): string {
+  return [
+    reason,
+    delta.species,
+    delta.moves,
+    delta.abilities,
+    delta.learnsets,
+    devCounts.hash,
+    prodCounts.hash,
+  ].join("|");
+}
+
+async function postWebhook(webhookUrl: string, body: Record<string, unknown>): Promise<void> {
+  const data = JSON.stringify(body);
+  const target = new URL(webhookUrl);
+  const options: https.RequestOptions = {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(data),
+    },
+    timeout: 10_000,
+  };
+
+  await new Promise<void>((resolve, reject) => {
+    const req = https.request(target, options, (res) => {
+      res.on("data", () => {});
+      res.on("end", resolve);
+    });
+    req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy(new Error("timeout"));
+    });
+    req.write(data);
+    req.end();
+  });
+}
+
+function buildAlertBody(
+  payload: IntegrityAlertPayload,
+  config: SyncConfig,
+): Record<string, unknown> {
+  const { reason, delta, devCounts, prodCounts } = payload;
+  const deltaLine = `Δ species ${delta.species}, moves ${delta.moves}, abilities ${delta.abilities}, learnsets ${delta.learnsets}`;
+  const igEnvFile = (process.env.IG_ENV_FILE || "").trim();
+  const footerLines = [
+    `dev env: ${config.devEnvPath}`,
+    `prod env: ${config.prodEnvPath}`,
+  ];
+  if (igEnvFile) {
+    footerLines.push(`IG_ENV_FILE: ${igEnvFile}`);
+  }
+
+  return {
+    username: ALERT_WEBHOOK_USERNAME,
+    content: "⚠️ Dex auto-sync detected drift after consolidation.",
+    allowed_mentions: { parse: [] },
+    embeds: [
+      {
+        title: "Dex Auto-Sync Integrity Alert",
+        description: [`Reason: ${reason}`, deltaLine].join("\n"),
+        color: ALERT_EMBED_COLOR,
+        fields: [
+          {
+            name: "Dev counts",
+            value: formatCountsSnapshot("DEV", devCounts),
+            inline: true,
+          },
+          {
+            name: "Prod counts",
+            value: formatCountsSnapshot("PROD", prodCounts),
+            inline: true,
+          },
+          {
+            name: "Investigate",
+            value: "Run `npm run db:cli -- counts` on both envs, inspect recent deploys, and rerun `npm run db:auto-sync -- --once`.",
+            inline: false,
+          },
+        ],
+        timestamp: new Date().toISOString(),
+        footer: {
+          text: footerLines.join(" | "),
+        },
+      },
+    ],
+  };
+}
+
+function createIntegrityAlertDispatcher(config: SyncConfig): AlertDispatcher {
+  let lastFingerprint: string | null = null;
+  return async (payload) => {
+    if (config.suppressAlerts) {
+      log("integrity.alert.skip", { reason: payload.reason, cause: "alerts_suppressed" });
+      return;
+    }
+    if (config.dryRun && !config.simulateAlert) {
+      log("integrity.alert.skip", { reason: payload.reason, cause: "dry_run" });
+      return;
+    }
+
+    const webhook = config.alertWebhookUrl.trim();
+    if (!webhook) {
+      log("integrity.alert.skip", { reason: payload.reason, cause: "no_destination" });
+      return;
+    }
+
+    const fingerprint = fingerprintAlert(payload.reason, payload.delta, payload.devCounts, payload.prodCounts);
+    if (fingerprint === lastFingerprint) {
+      log("integrity.alert.skip", { reason: payload.reason, cause: "duplicate" });
+      return;
+    }
+
+    try {
+      await postWebhook(webhook, buildAlertBody(payload, config));
+      lastFingerprint = fingerprint;
+      log("integrity.alert.dispatched", {
+        reason: payload.reason,
+        destination: "webhook",
+        webhook: sanitizeWebhook(webhook),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log("integrity.alert.dispatch_error", {
+        reason: payload.reason,
+        destination: "webhook",
+        webhook: sanitizeWebhook(webhook),
+        message,
+      });
+    }
+  };
+}
+
 function log(message: string, context: Record<string, unknown> = {}): void {
   const payload = {
     timestamp: new Date().toISOString(),
@@ -58,6 +224,10 @@ function parseArgs(): SyncConfig {
     once: false,
     dryRun: false,
     skipStartup: false,
+    ci: false,
+    alertWebhookUrl: (process.env.ALERT_WEBHOOK_URL || "").trim(),
+    suppressAlerts: false,
+    simulateAlert: false,
   };
 
   for (let i = 0; i < args.length; i += 1) {
@@ -83,6 +253,18 @@ function parseArgs(): SyncConfig {
         break;
       case "--skip-startup":
         config.skipStartup = true;
+        break;
+      case "--ci":
+        config.ci = true;
+        break;
+      case "--alert-webhook":
+        config.alertWebhookUrl = (args[++i] ?? config.alertWebhookUrl).trim();
+        break;
+      case "--no-alerts":
+        config.suppressAlerts = true;
+        break;
+      case "--simulate-alert":
+        config.simulateAlert = true;
         break;
       default:
         break;
@@ -399,6 +581,7 @@ async function runConsolidation(
   reason: string,
   devVars: EnvVars,
   prodVars: EnvVars,
+  dispatchAlert?: AlertDispatcher,
 ): Promise<{ devCounts: CountSnapshot; prodCounts: CountSnapshot }> {
   log("sync.consolidate.start", { dryRun: config.dryRun, reason });
 
@@ -411,14 +594,32 @@ async function runConsolidation(
   ]);
 
   const delta = diffCounts(devCounts, prodCounts);
+  const driftDetected =
+    delta.species !== 0 || delta.moves !== 0 || delta.abilities !== 0 || delta.learnsets !== 0;
+
   log("sync.consolidate.counts", { devCounts, prodCounts, delta, reason });
 
-  if (delta.species !== 0 || delta.moves !== 0 || delta.abilities !== 0 || delta.learnsets !== 0) {
-    log("sync.consolidate.warning", {
+  if (driftDetected) {
+    const alertPayload = {
       message: "Detected count drift between environments after consolidation.",
       reason,
       delta,
+      envs: {
+        dev: config.devEnvPath,
+        prod: config.prodEnvPath,
+      },
+      devCounts,
+      prodCounts,
+    };
+    log("sync.consolidate.warning", alertPayload);
+    log("integrity.alert", {
+      ...alertPayload,
+      severity: "warning",
+      remediation: "Inspect sync logs, rerun migrate/seed if drift persists.",
     });
+    if (dispatchAlert) {
+      await dispatchAlert({ reason, delta, devCounts, prodCounts });
+    }
   } else {
     log("sync.consolidate.success", { message: "Dev and Prod counts aligned after sync.", reason });
   }
@@ -428,9 +629,20 @@ async function runConsolidation(
 
 async function main(): Promise<void> {
   const config = parseArgs();
+  if (config.ci && !config.dryRun) {
+    throw new Error("--ci flag requires --dry-run to avoid mutating databases during guard runs");
+  }
+
   const devVars = await readEnvFile(config.devEnvPath);
   const prodVars = await readEnvFile(config.prodEnvPath);
   const resolvedTriggerPath = resolvePath(config.triggerPath);
+
+  const mergeAlert = (value?: string) => (value ? value.trim() : "");
+  if (!config.alertWebhookUrl) {
+    config.alertWebhookUrl =
+      mergeAlert(prodVars.ALERT_WEBHOOK_URL) || mergeAlert(devVars.ALERT_WEBHOOK_URL);
+  }
+  const alertDispatcher = createIntegrityAlertDispatcher(config);
 
   log("sync.config", {
     devEnv: config.devEnvPath,
@@ -440,7 +652,102 @@ async function main(): Promise<void> {
     once: config.once,
     dryRun: config.dryRun,
     skipStartup: config.skipStartup,
+    ci: config.ci,
+    alertsSuppressed: config.suppressAlerts,
+    alertWebhookConfigured: Boolean(config.alertWebhookUrl),
+    alertWebhook: config.alertWebhookUrl ? sanitizeWebhook(config.alertWebhookUrl) : "",
+    simulateAlert: config.simulateAlert,
   });
+
+  if (config.simulateAlert) {
+    const devCounts: CountSnapshot = {
+      species: 1_025,
+      moves: 919,
+      abilities: 367,
+      learnsets: 101_969,
+      hash: "1025:919:367:101969",
+    };
+    const prodCounts: CountSnapshot = {
+      species: 1_012,
+      moves: 915,
+      abilities: 360,
+      learnsets: 101_800,
+      hash: "1012:915:360:101800",
+    };
+    const delta = diffCounts(devCounts, prodCounts);
+    const alertPayload = {
+      message: "Simulated integrity alert triggered via --simulate-alert.",
+      reason: "simulate_alert",
+      delta,
+      envs: {
+        dev: config.devEnvPath,
+        prod: config.prodEnvPath,
+      },
+      devCounts,
+      prodCounts,
+      simulated: true,
+    };
+    log("integrity.alert", {
+      ...alertPayload,
+      severity: "info",
+      remediation: "Validate webhook delivery and clear the simulate flag before production runs.",
+    });
+    await alertDispatcher({ reason: "simulate_alert", delta, devCounts, prodCounts });
+    log("integrity.alert.simulated", {
+      destination: config.alertWebhookUrl ? "webhook" : "none",
+      delta,
+      devCounts,
+      prodCounts,
+    });
+    return;
+  }
+
+  let bootstrapTrigger: { payload: DexTrigger; fingerprint: string } | null = null;
+  try {
+    bootstrapTrigger = await readDexTrigger(config.triggerPath);
+    if (bootstrapTrigger) {
+      log("trigger.bootstrap", {
+        updatedAt: bootstrapTrigger.payload.updatedAt,
+        checksum: bootstrapTrigger.payload.checksum,
+        path: resolvedTriggerPath,
+      });
+    } else {
+      log("trigger.bootstrap.missing", { path: resolvedTriggerPath });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log("trigger.bootstrap.error", { message, path: resolvedTriggerPath });
+  }
+
+  if (config.ci) {
+    const devDirect =
+      devVars.DATABASE_DIRECT_URL || devVars.DIRECT_URL || devVars.DATABASE_URL || "";
+    const prodDirect =
+      prodVars.DATABASE_DIRECT_URL || prodVars.DIRECT_URL || prodVars.DATABASE_URL || "";
+
+    if (!devDirect) {
+      throw new Error(
+        "CI guard requires DATABASE_DIRECT_URL (or DIRECT_URL/DATABASE_URL) in the Dev env file",
+      );
+    }
+    if (!prodDirect) {
+      throw new Error(
+        "CI guard requires DATABASE_DIRECT_URL (or DIRECT_URL/DATABASE_URL) in the Prod env file",
+      );
+    }
+    if (!bootstrapTrigger) {
+      throw new Error("CI guard requires data/cache/dex-sync-trigger.json to exist with metadata");
+    }
+
+    log("sync.ci.guard.success", {
+      devEnv: config.devEnvPath,
+      prodEnv: config.prodEnvPath,
+      triggerPath: resolvedTriggerPath,
+      updatedAt: bootstrapTrigger.payload.updatedAt,
+      checksum: bootstrapTrigger.payload.checksum,
+    });
+    return;
+  }
 
   try {
     await preflightOptimize(prodVars);
@@ -455,30 +762,18 @@ async function main(): Promise<void> {
     prod: null,
   };
   let baselineCaptured = false;
-  let lastTriggerFingerprint: string | null = null;
-  let triggerMissingLogged = false;
-
-  try {
-    const initialTrigger = await readDexTrigger(config.triggerPath);
-    if (initialTrigger) {
-      lastTriggerFingerprint = initialTrigger.fingerprint;
-      log("trigger.bootstrap", {
-        updatedAt: initialTrigger.payload.updatedAt,
-        checksum: initialTrigger.payload.checksum,
-        path: resolvedTriggerPath,
-      });
-    } else {
-      log("trigger.bootstrap.missing", { path: resolvedTriggerPath });
-      triggerMissingLogged = true;
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    log("trigger.bootstrap.error", { message, path: resolvedTriggerPath });
-  }
+  let lastTriggerFingerprint: string | null = bootstrapTrigger ? bootstrapTrigger.fingerprint : null;
+  let triggerMissingLogged = bootstrapTrigger === null;
 
   if (!config.skipStartup) {
     try {
-      const startupCounts = await runConsolidation(config, "startup", devVars, prodVars);
+      const startupCounts = await runConsolidation(
+        config,
+        "startup",
+        devVars,
+        prodVars,
+        alertDispatcher,
+      );
       history.dev = startupCounts.devCounts;
       history.prod = startupCounts.prodCounts;
       baselineCaptured = true;
@@ -513,6 +808,7 @@ async function main(): Promise<void> {
               "dex_trigger",
               devVars,
               prodVars,
+              alertDispatcher,
             );
             history.dev = consolidated.devCounts;
             history.prod = consolidated.prodCounts;
@@ -550,6 +846,7 @@ async function main(): Promise<void> {
               "drift_detected",
               devVars,
               prodVars,
+              alertDispatcher,
             );
             history.dev = consolidated.devCounts;
             history.prod = consolidated.prodCounts;
@@ -578,6 +875,7 @@ async function main(): Promise<void> {
               driftDetected ? "drift_detected" : "state_changed",
               devVars,
               prodVars,
+              alertDispatcher,
             );
             latestDevCounts = consolidated.devCounts;
             latestProdCounts = consolidated.prodCounts;

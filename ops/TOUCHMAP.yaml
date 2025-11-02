@@ -259,6 +259,7 @@ T13.DEX.AUTO_SYNC_RUN_20251102:
 T13.DEX.AUTO_SYNC_MONITOR:
   - "scripts/dev_prod_auto_sync.ts"
   - "scripts/guard_meta.sh"
+  - "scripts/guards/guard_auto_sync.sh"
   - "package.json"
   - "docs/database-systems.md"
   - "docs/ai-env-setup.md"
@@ -268,7 +269,11 @@ T13.DEX.AUTO_SYNC_MONITOR:
 
 T13.DEX.AUTO_SYNC_ALERTS:
   - "scripts/dev_prod_auto_sync.ts"
+  - "scripts/ROUTER.md"
   - "docs/database-systems.md"
+  - "docs/db-control-suite.md"
+  - "docs/ai-env-setup.md"
+  - "masterroutetable.md"
   - "playbooks/**"
   - "docs/operations.md"
   - "Tasklist.md"

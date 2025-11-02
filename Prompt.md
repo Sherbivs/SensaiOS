@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-02T07:10:56Z
-Revision: 1.75
+Timestamp (UTC): 2025-11-02T08:05:00Z
+Revision: 1.77
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Promoted `T13.DEX.AUTO_SYNC_MONITOR` to READY, added the follow-up alerting task, and refreshed Tasklist.md (Rev 2.28) with detailed acceptance criteria and notes.
-- Updated ops/NEXT.yaml, Patch.md, and ops/TOUCHMAP.yaml to point at the monitoring work with new file hints for scripts/dev_prod_auto_sync.ts and database docs.
-- Prepared documentation surfaces (Prompt plan + Touchmap) for the upcoming monitoring guardrail implementation.
+- Extended `scripts/dev_prod_auto_sync.ts` to dispatch `integrity.alert` webhooks (deduped) with new CLI flags `--alert-webhook`, `--no-alerts`, and `--simulate-alert`.
+- Updated docs/database-systems.md, docs/db-control-suite.md, and docs/ai-env-setup.md with alert routing details + drift response runbook; synced scripts/ROUTER.md and masterroutetable.md.
+- Ran `npm run db:auto-sync -- --simulate-alert --no-alerts --dev-env .env.example --prod-env .env.example` to capture a sample alert; Tasklist.md (Rev 2.31) now tracks the task IN_PROGRESS with simulation notes.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -18,9 +18,9 @@ Revision: 1.75
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** META.UNBLOCK.READY_SEED — seed placeholder active while backlog awaits the next promotion.
-- **READY / In-flight:** Only the seed task is READY following the router contract publication.
-- **Recent Finish:** META.ROUTER.SUBROUTERS_20251101 cataloged sub-router manifests across bot/core/sync-layer/tests/tools and refreshed routing metadata.
+- **NEXT Pointer:** T13.DEX.AUTO_SYNC_ALERTS — wire `integrity.alert` into operator channels now that monitoring hooks landed.
+- **READY / In-flight:** Alert routing is IN_PROGRESS with webhook dispatch + docs staged; follow-up automation waits for final verification.
+- **Recent Finish:** T13.DEX.AUTO_SYNC_MONITOR shipped integrity alerts, guard script, and doc updates for the dex auto-sync loop.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -61,11 +61,11 @@ Revision: 1.75
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Promoted the auto-sync monitoring task, queued its alerting follow-up, and retargeted NEXT/Touchmap/Patch toward monitoring guardrails.
+Change: Added webhook routing + simulation flags for auto-sync alerts, refreshed docs/runbook, and logged the simulate-alert dry run.
 TasklistDiff: true
-Tests: not run (backlog/metadata only)
+Tests: npm run db:auto-sync -- --simulate-alert --no-alerts --dev-env .env.example --prod-env .env.example
 Contracts: ON
-NEXT: T13.DEX.AUTO_SYNC_MONITOR - monitoring/guardrails queued after the successful consolidation run.
+NEXT: T13.DEX_AUTO_SYNC_ALERTS - route integrity.alert into operator channels after monitor guardrails.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

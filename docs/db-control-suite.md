@@ -1,5 +1,5 @@
 # Database Control Suite *(Muted — Local Only)*
-Last Updated (UTC): 2025-10-30T20:15:00Z
+Last Updated (UTC): 2025-11-02T08:05:00Z
 
 Purpose: provide a single entry point for routine database inspections, counts, and ad-hoc queries while honoring secure environment loading (`IG_ENV_FILE`). Intended for local operators only; do not run in CI or production.
 
@@ -50,7 +50,8 @@ The runner loads environment variables in the following order:
 
 ## Hydrating Reference Data
 - `npm run db:seed:dex` is the canonical bootstrap. It fetches live PokeAPI data, repopulates species/moves/abilities/learnsets, rebuilds the type chart, and refreshes `SpeciesSheet`. Use `POKEAPI_SEED_CONCURRENCY` to throttle (default 4). Add `--dry-run` to preview counts without writing.
-- `npm run db:auto-sync` runs the full Dev → Prod → Dev migrate + seed cadence when the service boots, then every 5 minutes if drift is detected. Use `--once` for a single pass, `--dry-run` to log the plan, `--interval <ms>` to tune cadence, and `--skip-startup` to bypass the initial consolidation. Logs appear as JSON (`sync.consolidate.*`, `integrity.*`).
+- `npm run db:auto-sync` runs the full Dev → Prod → Dev migrate + seed cadence when the service boots, then every 5 minutes if drift is detected. Use `--once` for a single pass, `--dry-run` to log the plan, `--interval <ms>` to tune cadence, `--skip-startup` to bypass the initial consolidation, `--ci` for guard runs, `--alert-webhook <url>` to override `ALERT_WEBHOOK_URL`, `--no-alerts` to disable notifications during rehearsals, and `--simulate-alert` to send a sample webhook without touching databases. Logs appear as JSON (`sync.consolidate.*`, `integrity.*`, `integrity.alert`); webhook embeds fire when drift persists after consolidation.
+- `npm run guard:auto-sync` performs a `--ci --dry-run` check that verifies both env files and `data/cache/dex-sync-trigger.json` exist. The guard fails fast when secrets are missing or the trigger metadata is absent—fix the path or rerun `node scripts/fetch_pokemon.mjs` before proceeding.
 - `node scripts/fetch_pokemon.mjs` still refreshes the local JSON cache if you need offline data snapshots; the seeder can read cached responses automatically on subsequent runs.
 - `npm run db:cli -- status` after a seed should show >1,000 species with non-empty learnsets; capture the output in Tasklist or Prompt notes for auditing.
 - When bootstrapping from scratch follow `ops/DB_BOOTSTRAP.md`: migrations → set `IG_ENV_FILE` → `npm run db:seed:dex` → `npm run db:cli -- status`.

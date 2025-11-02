@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-02T07:10:56Z
-Revision: 2.28
+Last Updated (UTC): 2025-11-02T08:05:00Z
+Revision: 2.31
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1117,23 +1117,24 @@ Each task has:
 
 - id: T13.DEX.AUTO_SYNC_MONITOR
   title: Add monitoring and dry-run guardrails for the auto-sync loop
-  status: READY
+  status: DONE
   depends_on: [T13.DEX.AUTO_SYNC_RUN_20251102]
   acceptance_criteria:
     - Teach `scripts/dev_prod_auto_sync.ts` to emit a distinct `integrity.alert` log when species/move/ability/learnset deltas exceed zero after consolidation retries, with env labels in the payload.
     - Add an automated dry-run (`--dry-run --once`) step to CI or a guard script that fails when the loop cannot load env variables or the trigger file; document the remediation in docs/database-systems.md.
     - Update docs/ai-env-setup.md or docs/db-control-suite.md with a monitoring checklist covering log review cadence and the new alert semantics.
-  notes: READY — Monitoring and guard improvements follow the successful one-shot sync so drift is surfaced automatically.
+  notes: Outcome — `integrity.alert` logs now include env paths and row deltas, `npm run guard:auto-sync` wraps a `--ci --dry-run` probe that fails on missing secrets or trigger metadata, and the database/AI env docs describe the monitoring cadence plus guard remediation.
 
 - id: T13.DEX.AUTO_SYNC_ALERTS
   title: Route auto-sync integrity alerts to operators
-  status: PROPOSED
+  status: IN_PROGRESS
   depends_on: [T13.DEX.AUTO_SYNC_MONITOR]
   acceptance_criteria:
     - Forward `integrity.alert` events to the existing observability/logging pipeline (Render alerts or Discord ops channel) with actionable messaging.
     - Provide a runbook entry in playbooks/ or docs/database-systems.md detailing response steps when alerts fire.
     - Capture a simulated alert in Tasklist notes once routing is validated.
-  notes: PROPOSED — Queue after monitoring hook lands so alert routing can reuse the new log semantics.
+  notes: |
+    IN_PROGRESS — 2025-11-02T07:43Z: `npm run db:auto-sync -- --simulate-alert --no-alerts --dev-env .env.example --prod-env .env.example` emitted the sample `integrity.alert` payload (alerts suppressed for the dry run). Webhook dispatch + docs/runbook updates pending final verification.
 
 ## Phase 14 — Live Game Cache
 

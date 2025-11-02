@@ -2,7 +2,7 @@
 Title: Tooling
 Purpose: Guard scripts and automation entrypoints.
 Owned Globs: scripts/**
-Last Updated (UTC): 2025-11-01T20:58:00Z
+Last Updated (UTC): 2025-11-02T08:05:00Z
 
 Notes:
 - 2025-11-01: Documented dex (reference data), guards (CI invariants), and ops (operator helpers) sub-routers for quicker discovery.
@@ -23,6 +23,8 @@ Notes:
 - 2025-10-30: Hardened `dev_prod_auto_sync.ts` to inherit env file credentials, force direct migrations, apply command timeouts, and preflight Optimize SpeciesSheet access.
 - 2025-10-30: Linked `fetch_pokemon.mjs` + `dev_prod_auto_sync.ts`—fetcher now writes `dex-sync-trigger.json` and the auto-sync loop performs `dex_trigger` consolidations when that artifact changes.
 - 2025-11-01: Added `probe_prisma_optimize.ts` to wrap the Optimize connectivity smoke test without surfacing the Node libuv assertion.
+- 2025-11-02: `dev_prod_auto_sync.ts` now dispatches `integrity.alert` payloads to `ALERT_WEBHOOK_URL`, dedupes repeated drifts, and exposes CLI overrides for rehearsals.
+- 2025-11-02: Introduced `guard_auto_sync.sh` (`npm run guard:auto-sync`) to verify env secrets and the dex trigger before automation runs.
 
 Subrouters:
 - scripts/dex/ROUTER.md — Data seeding and cache warmup entrypoints.

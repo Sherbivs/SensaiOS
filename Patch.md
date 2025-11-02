@@ -99,10 +99,10 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Planned PATCHSET — T13.DEX.AUTO_SYNC_MONITOR]
-- Add monitoring guardrails to `scripts/dev_prod_auto_sync.ts`, including integrity alert logging and CI dry-run coverage.
-- Update docs (database-systems, ai-env-setup, db-control-suite) with the new monitoring checklist and remediation steps.
-- Sync Tasklist/NEXT/Prompt metadata and TOUCHMAP routing after implementation.
+[Planned PATCHSET — T13.DEX.AUTO_SYNC_ALERTS]
+- Route `integrity.alert` events to operator notification surfaces (Render alerts and/or Discord ops channel).
+- Capture a runbook entry covering alert handling and simulator steps, updating docs/playbooks as needed.
+- Sync Tasklist/NEXT/Prompt metadata and router docs once alerting lands.
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

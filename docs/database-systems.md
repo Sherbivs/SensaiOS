@@ -1,6 +1,6 @@
 # Database Systems Guide
 
-_Last updated: 2025-11-02T04:15:00Z (UTC) — Rev: 1.7_
+_Last updated: 2025-11-02T08:05:00Z (UTC) — Rev: 1.9_
 
 This guide captures everything engineers need to understand, operate, and extend Infinity Gauntlet’s PostgreSQL footprint across Render, Prisma Accelerate, and local development. Pair it with `DATA-SCHEMA.md` for entity specifics and `ops/DB_BOOTSTRAP.md` for runbook-grade procedures.
 
@@ -105,7 +105,7 @@ Dex upkeep now routes through the consolidated seeding + control suite:
 | Command | Purpose | Notes |
 | --- | --- | --- |
 | `npm run db:seed:dex` | Fetches live PokeAPI data and repopulates `Species`, `SpeciesType`, `SpeciesAbility`, `SpeciesLearnset`, `Move`, `Ability`, and `TypeChart`. Automatically refreshes `SpeciesSheet`. | Respects `IG_ENV_FILE`; throttle via `POKEAPI_SEED_CONCURRENCY` (default 4). Pass `--dry-run` to inspect counts without writing. |
-| `npm run db:auto-sync` | Runs the Dev → Prod → Dev migrate/seed cadence on startup, then polls every 5 minutes to reconcile if drift is detected. | Options: `--once`, `--dry-run`, `--interval <ms>`, `--dev-env`, `--prod-env`, `--skip-startup`. Emits JSON logs (`sync.consolidate.*`, `integrity.*`) and skips writes when `--dry-run` is present. |
+| `npm run db:auto-sync` | Runs the Dev → Prod → Dev migrate/seed cadence on startup, then polls every 5 minutes to reconcile if drift is detected. | Options: `--once`, `--dry-run`, `--interval <ms>`, `--dev-env`, `--prod-env`, `--skip-startup`, `--ci`, `--alert-webhook <url>`, `--no-alerts`, `--simulate-alert`. Emits JSON logs (`sync.consolidate.*`, `integrity.*`, `integrity.alert`) and skips writes when `--dry-run` is present. When alerts are enabled the loop posts a Discord webhook using `ALERT_WEBHOOK_URL` (or the CLI override); `--simulate-alert` fires the webhook without touching databases so operators can test routing. |
 | `npm run db:mirror:check` | Executes accelerate ↔ direct parity checks for both environments and cross-env comparisons. | Reads the default `Key/Dev` and `Key/Prod` env files; override with `--dev-env`/`--prod-env`. Fails the run if mismatches are detected. |
 | `npm run db:cli -- status` | Verifies active connection metadata and prints sample counts (`Species`, `User`) after a seed. | Captured in Tasklist/Prompt echoes for auditing. |
 | `npm run db:cli -- counts` | Spot-checks common table volumes (species, encounters, bus messages). | Extend `scripts/db_admin.ts` as new tables come online. |
@@ -114,7 +114,7 @@ Dex upkeep now routes through the consolidated seeding + control suite:
 
 Run every dex maintenance action in the Dev → Prod → Dev rhythm: execute the command against DEV first, switch `IG_ENV_FILE` to the Accelerate/Prod secrets and repeat (or invoke `scripts/ops/run_dex_migrations.ps1`, which now enforces direct URLs, when migrations need the same sequence), then point back to `Key/Dev/.env` and run `npx prisma generate` so local tooling reconnects to the direct driver.
 
-`scripts/dev_prod_auto_sync.ts` powers the automation loop (`npm run db:auto-sync`). On deployment it runs the consolidation once, then performs integrity checks every five minutes. If counts drift (or either database changes between checks), the service replays the migrate + seed cadence and records the result via `sync.consolidate.*` + `integrity.*` events. The loop also watches `data/cache/dex-sync-trigger.json` (written by `scripts/fetch_pokemon.mjs`) and logs `dex_trigger` consolidations whenever a new checksum/timestamp lands.
+`scripts/dev_prod_auto_sync.ts` powers the automation loop (`npm run db:auto-sync`). On deployment it runs the consolidation once, then performs integrity checks every five minutes. If counts drift (or either database changes between checks), the service replays the migrate + seed cadence and records the result via `sync.consolidate.*` + `integrity.*` events. When drift remains after a consolidation pass the loop emits `integrity.alert` with the Dev/Prod env paths and the row deltas, dispatches a webhook payload to `ALERT_WEBHOOK_URL`, and deduplicates repeat alerts until counts change. The loop also watches `data/cache/dex-sync-trigger.json` (written by `scripts/fetch_pokemon.mjs`) and logs `dex_trigger` consolidations whenever a new checksum/timestamp lands. Use `npm run guard:auto-sync` (`--ci --dry-run`) to validate env files and trigger availability before promoting changes; the guard fails fast when secrets or trigger metadata are missing.
 
 Materialized view refresh flows through the helper; direct `REFRESH MATERIALIZED VIEW` still requires ownership. The seeding script falls back to the helper when permissions restrict direct refresh.
 
@@ -122,7 +122,9 @@ Materialized view refresh flows through the helper; direct `REFRESH MATERIALIZED
 
 - **Outbox sink:** `src/worker/outbox.ts` now writes each processed message to the configured backup sink (`BACKUP_STORAGE_PROVIDER = s3|local|none`). Success logs include provider & location; health metrics report `backupProvider`.
 - **Telemetry:** `worker.metrics.snapshot` feeds queue depth, cache size, and failure counters. Alert thresholds documented in `OPERATIONS.md`.
-- **Guards:** `scripts/guard_meta.sh`, `scripts/check_db_redundancy.ts`, and `scripts/db_smoke.ts` verify data parity and schema readiness.
+- **Guards:** `scripts/guard_meta.sh`, `scripts/check_db_redundancy.ts`, `scripts/db_smoke.ts`, and `scripts/guards/guard_auto_sync.sh` verify metadata, parity, and auto-sync prerequisites.
+- **Auto-sync monitoring:** Review `integrity.alert` logs after each deployment and on the five-minute cadence; investigate non-zero deltas immediately. Run `npm run guard:auto-sync` before releases to confirm secrets + `dex-sync-trigger.json` exist, and capture remediation steps in Tasklist notes when the guard fails.
+- **Auto-sync alerts:** Webhook embeds (`ALERT_WEBHOOK_URL`) fire whenever `integrity.alert` appears after consolidation. Each alert summarizes deltas, links the env files, and calls out the investigation checklist; duplicates are suppressed until counts change or new drift is detected. Override destinations with `--alert-webhook`, temporarily disable with `--no-alerts`, or run `--simulate-alert` to validate routing without touching databases.
 - **Control Suite:** `scripts/db_admin.ts` (run via `npm run db:cli`) consolidates counts, status checks, and raw queries while respecting secure env loading.
 
 ### Runtime Cache Observability
@@ -138,6 +140,14 @@ Materialized view refresh flows through the helper; direct `REFRESH MATERIALIZED
 - **Vitest Suites:** `tests/ops.spec.ts`, `tests/dm_home.spec.ts`, `tests/daily/*.spec.ts` ensure persistence flows stay intact.
 
 For local experiments, set `BACKUP_STORAGE_PROVIDER=local` to inspect JSON backups under `%TEMP%/infinity-gauntlet/outbox-backups`.
+
+### Auto-Sync Drift Response Runbook
+
+1. **Acknowledge the alert:** The Discord webhook payload (or Render log) includes the `integrity.alert` delta snapshot, env paths, and a timestamp. Record the alert in Tasklist notes if a follow-up is already in progress.
+2. **Verify counts:** Run `npm run db:cli -- counts` against DEV and PROD (via `IG_ENV_FILE`) to confirm the delta and capture the output.
+3. **Inspect recent changes:** Review the latest migrations/seeds (`npm run db:auto-sync -- --once`) and Render deploy logs for failed steps or partial seeds.
+4. **Re-run consolidation:** After remediation, execute `npm run db:auto-sync -- --once` to replay the loop; confirm the webhook no longer fires and counts realign.
+5. **Document outcome:** Update Tasklist/Prompt notes with the alert timestamp, remediation steps, and verification commands executed.
 
 ## 9. Incident Response & Recovery
 

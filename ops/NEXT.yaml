@@ -13,24 +13,25 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: T13.DEX.AUTO_SYNC_MONITOR
-reason: "Build monitoring/guardrails on the auto-sync loop now that the initial consolidation run succeeded."
+next_task_id: T13.DEX.AUTO_SYNC_ALERTS
+reason: "Wire integrity.alert into ops channels now that monitoring hooks exist."
 
 files_hint:
   - scripts/dev_prod_auto_sync.ts
+  - scripts/ROUTER.md
+  - playbooks/**
   - docs/database-systems.md
-  - docs/ai-env-setup.md
   - docs/db-control-suite.md
+  - docs/ai-env-setup.md
+  - masterroutetable.md
   - Tasklist.md
   - Prompt.md
 
 queue:
-  - id: T13.DEX.AUTO_SYNC_MONITOR
-    note: "Add auto-sync monitoring + guardrails after the successful consolidation run."
   - id: T13.DEX.AUTO_SYNC_ALERTS
     note: "Route the new integrity alerts to operators once monitoring hooks exist."
 
-timestamp_utc: 2025-11-02T07:10:56Z
+timestamp_utc: 2025-11-02T08:05:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Monitoring improvements queued to keep auto-sync healthy; alert routing follows once hooks land."
+note: "Monitoring shipped; now routing integrity.alert into operator alerting surfaces (webhook + docs + simulation)."

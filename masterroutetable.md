@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-11-01T19:30:00Z
+Last Updated (UTC): 2025-11-02T08:05:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -125,6 +125,8 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Guard Entry Points (`scripts/guards/ROUTER.md`)
 - Purpose: Hardened guard wrappers (e.g., `require-ensure-db-preload.mjs`) consumed by CI and local guard scripts.
 - Notes: Keep outputs terse so developers can remediate failures quickly.
+- Latest: `guard_auto_sync.sh` provides a `--ci --dry-run` auto-sync check so missing secrets or dex trigger metadata fail before deployment.
+- Latest: `dev_prod_auto_sync.ts` now pushes webhook embeds (`ALERT_WEBHOOK_URL`) whenever `integrity.alert` fires after consolidation, suppressing duplicates until counts change.
 
 ### Operator Scripts (`scripts/ops/ROUTER.md`)
 - Purpose: PowerShell helpers such as `run_dex_migrations.ps1` for environment-specific deploy flows.

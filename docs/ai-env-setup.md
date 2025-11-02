@@ -1,5 +1,5 @@
 # AI Environment Setup
-Last Updated (UTC): 2025-11-02T14:30:00Z
+Last Updated (UTC): 2025-11-02T08:05:00Z
 
 Purpose: ensure automated agents and local operators load secrets from a secure location without copying sensitive data into the repository.
 
@@ -143,7 +143,9 @@ Review `.env.example`, `secrets/prisma-accelerate.env.example`, and `render.yaml
 - For CI or automation workers, set the variable in the job configuration rather than persisting on the host.
 - Never commit the external env files (`Key/Dev/.env`, `Key/Prod/.env`) or copy their contents into tracked files.
 - When swapping back from Prod to Dev, run `npx prisma generate` once to rebuild the client without the Accelerate proxy.
- - For database inspections, prefer the structured interface in `npm run db:cli` (documented in `docs/db-control-suite.md`).
+- Before promoting dex changes, run `npm run guard:auto-sync` to verify both env files and `data/cache/dex-sync-trigger.json` are reachable; rerun `node scripts/fetch_pokemon.mjs` if the guard reports a missing trigger.
+- Confirm `ALERT_WEBHOOK_URL` (and overrides passed via CLI) before enabling auto-sync so integrity alerts reach the operations channel; use `--alert-webhook <url>` for rehearsals that need alternate destinations.
+- For database inspections, prefer the structured interface in `npm run db:cli` (documented in `docs/db-control-suite.md`).
 
 ## Troubleshooting
 - **`Environment file was not found`**: pass the correct path via `-EnvFile` or create the file at the expected location.
