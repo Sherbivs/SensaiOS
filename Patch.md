@@ -99,10 +99,10 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Planned PATCHSET — META.UNBLOCK.READY_SEED]
-- Monitor Tasklist READY queue and promote the next substantive task when available.
-- Update ops/NEXT.yaml and Prompt.md metadata alongside any promotion.
-- Maintain routing guard hard-fail expectations; rerun guard when router surfaces change.
+[Planned PATCHSET — T13.DEX.AUTO_SYNC_MONITOR]
+- Add monitoring guardrails to `scripts/dev_prod_auto_sync.ts`, including integrity alert logging and CI dry-run coverage.
+- Update docs (database-systems, ai-env-setup, db-control-suite) with the new monitoring checklist and remediation steps.
+- Sync Tasklist/NEXT/Prompt metadata and TOUCHMAP routing after implementation.
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

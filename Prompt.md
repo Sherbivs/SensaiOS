@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-01T21:08:00Z
-Revision: 1.73
+Timestamp (UTC): 2025-11-02T07:10:56Z
+Revision: 1.75
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added the Router Contract section to AGENTS.md mandating full router metadata updates alongside any bot change.
-- Marked `META.ROUTER.CONTRACT_UPDATE_20251101` DONE, refreshed Tasklist.md, ops/NEXT.yaml, ops/TOUCHMAP.yaml, and Patch.md to reflect the published contract.
-- NEXT returned to the seed fallback after recording the documentation change.
+- Promoted `T13.DEX.AUTO_SYNC_MONITOR` to READY, added the follow-up alerting task, and refreshed Tasklist.md (Rev 2.28) with detailed acceptance criteria and notes.
+- Updated ops/NEXT.yaml, Patch.md, and ops/TOUCHMAP.yaml to point at the monitoring work with new file hints for scripts/dev_prod_auto_sync.ts and database docs.
+- Prepared documentation surfaces (Prompt plan + Touchmap) for the upcoming monitoring guardrail implementation.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -61,11 +61,11 @@ Revision: 1.73
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Closed META.ROUTER.CONTRACT_UPDATE_20251101 by publishing the router contract in AGENTS.md, syncing metadata, and restoring NEXT to the seed fallback.
+Change: Promoted the auto-sync monitoring task, queued its alerting follow-up, and retargeted NEXT/Touchmap/Patch toward monitoring guardrails.
 TasklistDiff: true
-Tests: not run (docs/metadata only)
+Tests: not run (backlog/metadata only)
 Contracts: ON
-NEXT: META.UNBLOCK.READY_SEED - seed placeholder restored after router contract update.
+NEXT: T13.DEX.AUTO_SYNC_MONITOR - monitoring/guardrails queued after the successful consolidation run.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

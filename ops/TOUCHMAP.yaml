@@ -243,6 +243,37 @@ T13.DEX.AUTO_SYNC_HARDEN:
   - "masterroutetable.md"
   - "scripts/ROUTER.md"
 
+T13.DEX.DEV_REHYDRATE_20251102:
+  - "data/cache/**"
+  - "scripts/fetch_pokemon.mjs"
+  - "scripts/seed_dex.ts"
+  - "scripts/setup_ai_env.ps1"
+  - "scripts/db_admin.ts"
+
+T13.DEX.AUTO_SYNC_RUN_20251102:
+  - "scripts/dev_prod_auto_sync.ts"
+  - "data/cache/dex-sync-trigger.json"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+T13.DEX.AUTO_SYNC_MONITOR:
+  - "scripts/dev_prod_auto_sync.ts"
+  - "scripts/guard_meta.sh"
+  - "package.json"
+  - "docs/database-systems.md"
+  - "docs/ai-env-setup.md"
+  - "docs/db-control-suite.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+T13.DEX.AUTO_SYNC_ALERTS:
+  - "scripts/dev_prod_auto_sync.ts"
+  - "docs/database-systems.md"
+  - "playbooks/**"
+  - "docs/operations.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+
 T14.CACHE.FACADE:
   - "src/services/cache/**"
   - "src/shared/log.ts"

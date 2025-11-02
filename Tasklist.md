@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-01T21:05:00Z
-Revision: 2.26
+Last Updated (UTC): 2025-11-02T07:10:56Z
+Revision: 2.28
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1093,6 +1093,47 @@ Each task has:
     - Trigger-driven runs respect `--once`/interval settings and skip duplicate integrity sweeps when the consolidation already executed for the change.
     - Logging captures trigger metadata and post-run behaviour so operators can audit why a consolidation executed.
   notes: Outcome — Added `dex-sync-trigger.json` generation to the fetcher and taught the auto-sync loop to track its checksum/timestamp, fire `dex_trigger` consolidations on change, and record skip/sleep logic when handled.
+
+- id: T13.DEX.DEV_REHYDRATE_20251102
+  title: Rehydrate DEV dex cache and dataset
+  status: DONE
+  depends_on: [T13.DEX.AUTO_SYNC_TRIGGER]
+  acceptance_criteria:
+    - Clear data/cache outputs (pokemon.json, pokemon.json.gz, meta.json, dex-sync-trigger.json) before fetching new data.
+    - Run `npx prisma migrate deploy` and `npm run db:seed:dex` against DEV with IG_ENV_FILE pointing to Key/Dev.
+    - Refresh the PokéAPI cache via `node scripts/fetch_pokemon.mjs` and ensure the seed reports >1,000 species inserted.
+    - Capture `npm run db:cli -- status` results and record the counts in Tasklist notes once complete.
+  notes: Outcome — 2025-11-02T06:54Z: Cleared data/cache artifacts, ran `npx prisma migrate deploy` (no pending), refreshed cache via `node scripts/fetch_pokemon.mjs`, reseeded DEV with `npm run db:seed:dex -- --once` (1025 species, 101969 learnsets), then captured `npm run db:cli -- status` confirming species 1025 / moves 919 / abilities 367 with IG_ENV_FILE=Key/Dev.
+
+- id: T13.DEX.AUTO_SYNC_RUN_20251102
+  title: Execute auto-sync once to hydrate Prod from refreshed DEV
+  status: DONE
+  depends_on: [T13.DEX.DEV_REHYDRATE_20251102]
+  acceptance_criteria:
+    - Run `npm run db:auto-sync -- --once` immediately after the DEV seed completes.
+    - Confirm logs show `sync.consolidate` (or `dex_trigger`) events without errors.
+    - Document the run and any follow-up verifications in Tasklist notes.
+  notes: Outcome — Updated Key/Prod direct host to `.virginia-postgres.render.com`, then 2025-11-02T07:04Z `npm run db:auto-sync -- --once` replayed Dev migrate/seed, Prod migrate/seed (SpeciesSheet helper fallback), and logged `sync.consolidate.counts` + `integrity.check` with dev/prod species 1025, moves 919, abilities 367, learnsets 101969 aligned.
+
+- id: T13.DEX.AUTO_SYNC_MONITOR
+  title: Add monitoring and dry-run guardrails for the auto-sync loop
+  status: READY
+  depends_on: [T13.DEX.AUTO_SYNC_RUN_20251102]
+  acceptance_criteria:
+    - Teach `scripts/dev_prod_auto_sync.ts` to emit a distinct `integrity.alert` log when species/move/ability/learnset deltas exceed zero after consolidation retries, with env labels in the payload.
+    - Add an automated dry-run (`--dry-run --once`) step to CI or a guard script that fails when the loop cannot load env variables or the trigger file; document the remediation in docs/database-systems.md.
+    - Update docs/ai-env-setup.md or docs/db-control-suite.md with a monitoring checklist covering log review cadence and the new alert semantics.
+  notes: READY — Monitoring and guard improvements follow the successful one-shot sync so drift is surfaced automatically.
+
+- id: T13.DEX.AUTO_SYNC_ALERTS
+  title: Route auto-sync integrity alerts to operators
+  status: PROPOSED
+  depends_on: [T13.DEX.AUTO_SYNC_MONITOR]
+  acceptance_criteria:
+    - Forward `integrity.alert` events to the existing observability/logging pipeline (Render alerts or Discord ops channel) with actionable messaging.
+    - Provide a runbook entry in playbooks/ or docs/database-systems.md detailing response steps when alerts fire.
+    - Capture a simulated alert in Tasklist notes once routing is validated.
+  notes: PROPOSED — Queue after monitoring hook lands so alert routing can reuse the new log semantics.
 
 ## Phase 14 — Live Game Cache
 
