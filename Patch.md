@@ -99,10 +99,14 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Archived Plan] T13.DEX.AUTO_SYNC_ALERTS
-- add startup alert config logs in `scripts/dev_prod_auto_sync.ts`
-- document alert routing + runbook steps in `docs/database-systems.md` and `docs/db-control-suite.md`
-- simulate alert, record outcome in Tasklist, update Prompt/NEXT metadata
+[Plan] Implement T13.DEX.V2_DEV_ENABLE — phase 1
+- flip Tasklist entry to IN_PROGRESS with kickoff notes for DEV enablement work
+- refactor `scripts/build_dexpack.ts` to expose reusable builders and export metadata for downstream tooling
+- add new `scripts/build-dexpack.ts` to emit the v2 binary slab + manifest + generated accessors (hash/sign stub)
+- introduce `src/dex/v2/` runtime (loader + compatibility harness) and gate via new `DEX_V2_ENABLED` feature flag wired through env + metrics config
+- update `src/data/dexpack.js` & `src/lib/dex-api.js` to dispatch v1/v2 while preserving legacy APIs
+- create initial parity + regression tests (v1 vs v2, alias MPH) and add perf microbench scaffold
+- refresh routers/touchmap/docs metadata and sync Prompt/NEXT/Test notes after edits
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

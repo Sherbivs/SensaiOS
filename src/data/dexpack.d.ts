@@ -92,7 +92,7 @@ export declare function listSpecies(): SpeciesDoc[];
 export declare function suggestSpecies(prefix: string, limit?: number): string[];
 export declare function resetDexpack(): void;
 
-export declare const dexpackState: Readonly<{ pack: DexPack | null; loadedFrom: string | null; fast: FastDexpack | null }>;
+export declare const dexpackState: Readonly<{ pack: DexPack | null; loadedFrom: string | null; fast: FastDexpack | null; runtime: string | null }>;
 
 declare const _default: {
   loadDexpack: typeof loadDexpack;

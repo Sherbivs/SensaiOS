@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-02-26T00:00:00Z
+Last Updated (UTC): 2025-11-02T17:55:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -25,6 +25,8 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `src/bot/middleware/ROUTER.md` — Command guardrails and limits
     - `src/bot/ops/ROUTER.md` — `/ops` admin command surface
     - `src/bot/wilds/ROUTER.md` — Walk/catch encounter handlers
+  - `docs/ROUTER.md` — Documentation Library
+    - `docs/dex-v2-design.md` — High-availability dex upgrade blueprint plus day-one database plan and rollout playbook
   - `src/core/ROUTER.md` — Core Game Engines
     - `src/core/battle/ROUTER.md` — Deterministic battle engine internals
     - `src/core/encounter/ROUTER.md` — Encounter spawn and catch logic

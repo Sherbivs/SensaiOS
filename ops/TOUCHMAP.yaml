@@ -279,6 +279,67 @@ T13.DEX.AUTO_SYNC_ALERTS:
   - "Tasklist.md"
   - "Prompt.md"
 
+T13.DEX.V2_DESIGN:
+  - "docs/dex-v2-design.md"
+  - "docs/ROUTER.md"
+  - "masterroutetable.md"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+T13.DEX.V2_DEV_ENABLE:
+  - "scripts/build-dexpack.ts"
+  - "src/dex/v2/**"
+  - "src/data/ROUTER.md"
+  - "src/router/commands/pokedex.ts"
+  - "src/flags/featureFlags.ts"
+  - "config/observability/dex.metrics.ts"
+  - "tests/**/dex*.spec.ts"
+  - "package.json"
+  - "docs/dex-v2-design.md"
+  - "docs/database-systems.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+T13.DEX.V2_PROD_CUTOVER:
+  - "render.yaml"
+  - "docs/dex-v2-design.md"
+  - "docs/operations.md"
+  - "docs/database-systems.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
+  - "playbooks/**"
+
+DB.V0.BOOTSTRAP:
+  - "prisma/schema.prisma"
+  - "prisma/migrations/**"
+  - "docs/dex-v2-design.md"
+  - "docs/database-systems.md"
+  - "ops/DB_BOOTSTRAP.md"
+  - "Tasklist.md"
+
+DB.V0.PACK_REGISTRY:
+  - "prisma/schema.prisma"
+  - "prisma/migrations/**"
+  - "scripts/build-dexpack.ts"
+  - "docs/dex-v2-design.md"
+  - "Tasklist.md"
+
+DB.V0.SEED_SMOKE:
+  - "scripts/seed_dex.ts"
+  - "scripts/fetch_pokemon.mjs"
+  - "docs/db-control-suite.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+DB.V0.BACKUP_DR:
+  - "docs/dex-v2-design.md"
+  - "docs/operations.md"
+  - "Tasklist.md"
+  - "playbooks/**"
+
 T13.DEX.DEXPACK_ROLLOUT:
   - "assets/dexpack.v1.json"
   - "assets/dexpack.v1.json.gz"

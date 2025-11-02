@@ -27,6 +27,7 @@ Notes:
 - 2025-11-02: `dev_prod_auto_sync.ts` now dispatches `integrity.alert` payloads to `ALERT_WEBHOOK_URL`, dedupes repeated drifts, and exposes CLI overrides for rehearsals.
 - 2025-11-02: Introduced `guard_auto_sync.sh` (`npm run guard:auto-sync`) to verify env secrets and the dex trigger before automation runs.
 - 2025-11-02: Added `build_dexpack.ts` (`npm run data:dexpack`) and guard wrapper `guards/guard_dexpack.sh` so committed dexpack assets stay deterministic across branches.
+- 2025-11-02: Added `build-dexpack.ts` (`npm run data:dexpack:v2`) to emit the binary slab/manifest for the DEX v2 pipeline alongside the legacy generator.
 
 Subrouters:
 - scripts/dex/ROUTER.md — Data seeding and cache warmup entrypoints.

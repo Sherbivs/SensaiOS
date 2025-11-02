@@ -15,6 +15,8 @@ import {
   SPECIES_MATCHUP_INDEX,
   SPECIES_MATCHUPS,
 } from "../../assets/dexpack.gen.mjs";
+import { loadDexV2Runtime, resetDexV2Runtime } from "../dex/v2/loader.js";
+import { DEX_V2_ENABLED } from "../config/env.js";
 
 /**
  * @typedef {{ move: string; level: number | null }} LearnsetLevelEntry
@@ -99,12 +101,21 @@ import {
 
 const MODULE_ORIGIN = "module:assets/dexpack.gen.mjs";
 
-/** @type {{ pack: DexPack | null; loadedFrom: string | null; fast: FastDexpack | null }} */
+const RUNTIME_SOURCE = {
+  MODULE: "module",
+  V2: "v2",
+  CUSTOM: "custom",
+};
+
+/** @type {{ pack: DexPack | null; loadedFrom: string | null; fast: FastDexpack | null; runtime: string | null }} */
 const state = {
   pack: PACK,
   loadedFrom: MODULE_ORIGIN,
   fast: createFastFromModule(),
+  runtime: RUNTIME_SOURCE.MODULE,
 };
+
+let v2RuntimeFailed = false;
 
 const DEFAULT_JSON_FILES = [
   path.join(process.cwd(), "assets", "dexpack.v1.json.gz"),
@@ -272,6 +283,22 @@ function createFastFromModule() {
   };
 }
 
+function assignFastState(payload) {
+  if (!payload) {
+    state.fast = null;
+    return;
+  }
+  state.fast = {
+    statIndex: payload.statIndex,
+    baseStats: payload.baseStats,
+    matchupIndex: payload.matchupIndex,
+    matchups: payload.matchups,
+    typeOrder: Array.isArray(payload.typeOrder) ? [...payload.typeOrder] : [],
+    nameTable: payload.nameTable ?? null,
+    aliasTable: payload.aliasTable ?? null,
+  };
+}
+
 function readCandidate(filePath) {
   try {
     const stat = fs.statSync(filePath);
@@ -305,26 +332,85 @@ function parseDexpack(buffer) {
   return JSON.parse(buffer.toString("utf8"));
 }
 
-export function loadDexpack(customPath) {
-  if (customPath) {
-    const { buffer, path: resolvedPath } = pickSource(customPath);
-    const pack = parseDexpack(buffer);
-    state.pack = pack;
-    state.loadedFrom = resolvedPath;
-    state.fast = buildFastStateFromPack(pack);
-    return pack;
-  }
-
+function loadDexpackFromModule() {
   state.pack = PACK;
   state.loadedFrom = MODULE_ORIGIN;
-  state.fast = createFastFromModule();
+  assignFastState(createFastFromModule());
+  state.runtime = RUNTIME_SOURCE.MODULE;
   return state.pack;
 }
 
-function requirePack() {
-  if (!state.pack) {
-    return loadDexpack();
+function loadDexpackFromCustom(customPath) {
+  const { buffer, path: resolvedPath } = pickSource(customPath);
+  const pack = parseDexpack(buffer);
+  state.pack = pack;
+  state.loadedFrom = resolvedPath;
+  assignFastState(buildFastStateFromPack(pack));
+  state.runtime = RUNTIME_SOURCE.CUSTOM;
+  return pack;
+}
+
+function loadDexpackFromV2(options = {}) {
+  const rootDir = options.rootDir ?? process.cwd();
+  const runtime = loadDexV2Runtime({ rootDir });
+  state.pack = runtime.pack;
+  state.loadedFrom = path.join(rootDir, "assets", "dexpack.v2.json");
+  assignFastState({
+    statIndex: runtime.statIndex,
+    baseStats: runtime.baseStats,
+    matchupIndex: runtime.matchupIndex,
+    matchups: runtime.matchups,
+    typeOrder: runtime.pack?.types?.order,
+    nameTable: runtime.nameHash,
+    aliasTable: runtime.aliasHash,
+  });
+  state.runtime = RUNTIME_SOURCE.V2;
+  v2RuntimeFailed = false;
+  return state.pack;
+}
+
+export function loadDexpack(customPath) {
+  if (customPath) {
+    return loadDexpackFromCustom(customPath);
   }
+
+  if (DEX_V2_ENABLED && state.runtime !== RUNTIME_SOURCE.CUSTOM && !v2RuntimeFailed) {
+    if (state.runtime === RUNTIME_SOURCE.V2 && state.pack) {
+      return state.pack;
+    }
+    try {
+      return loadDexpackFromV2({ rootDir: process.cwd() });
+    } catch (error) {
+      if (!v2RuntimeFailed) {
+        console.warn(
+          `[dexpack] failed to load dexpack.v2 runtime, falling back to v1: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+      v2RuntimeFailed = true;
+      return loadDexpackFromModule();
+    }
+  }
+
+  if (state.pack) {
+    return state.pack;
+  }
+
+  return loadDexpackFromModule();
+}
+
+function requirePack() {
+  if (DEX_V2_ENABLED) {
+    if (state.runtime !== RUNTIME_SOURCE.V2 && state.runtime !== RUNTIME_SOURCE.CUSTOM && !v2RuntimeFailed) {
+      loadDexpack();
+    }
+  } else if (!state.pack) {
+    loadDexpack();
+  }
+
+  if (!state.pack) {
+    throw new Error("dexpack not loaded");
+  }
+
   return state.pack;
 }
 
@@ -482,9 +568,13 @@ export function getSpeciesMatchups(id) {
 }
 
 export function resetDexpack() {
-  state.pack = PACK;
-  state.loadedFrom = MODULE_ORIGIN;
-  state.fast = createFastFromModule();
+  resetDexV2Runtime();
+  state.pack = null;
+  state.loadedFrom = null;
+  state.fast = null;
+  state.runtime = null;
+  v2RuntimeFailed = false;
+  loadDexpack();
 }
 
 export const dexpackState = state;

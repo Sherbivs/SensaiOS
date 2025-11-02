@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-02T17:25:00Z
-Revision: 1.83
+Timestamp (UTC): 2025-11-02T18:05:00Z
+Revision: 1.84
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added startup `integrity.alert.config_*` telemetry in `scripts/dev_prod_auto_sync.ts` and referenced the runbook directly in the webhook embed.
-- Expanded `docs/database-systems.md` and `docs/db-control-suite.md` with alert routing guidance, rehearsal instructions, and response checkpoints.
-- Simulated the auto-sync alert path with stub env files, then updated Tasklist/NEXT to close T13.DEX.AUTO_SYNC_ALERTS.
+- Added `docs/dex-v2-design.md` capturing the high-availability Pokédex blueprint and day-one database plan.
+- Synced documentation routers and touchmap metadata so the new design doc is discoverable across governance surfaces.
+- Expanded Tasklist with DEX v2 and DB bootstrap tasks and retargeted NEXT to T13.DEX.V2_DEV_ENABLE.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -18,9 +18,9 @@ Revision: 1.83
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** META.UNBLOCK.READY_SEED — standby ready slot until humans queue the next backlog item.
-- **READY / In-flight:** All dexpack rollout work is complete; awaiting the next READY promotion while the seed task holds the runway.
-- **Recent Finish:** T13.DEX.DEXPACK_ROLLOUT delivered perfect-hash/typed-array assets, alias coverage, regenerated packs, and full test verification.
+- **NEXT Pointer:** T13.DEX.V2_DEV_ENABLE — implement the v2 pack pipeline and enable it in DEV during the scheduled window.
+- **READY / In-flight:** T13.DEX.V2_DEV_ENABLE leads the queue; PROD cutover and DB bootstrap tracks remain PROPOSED awaiting approvals.
+- **Recent Finish:** T13.DEX.V2_DESIGN published the blueprint, routing updates, and backlog entries for the rollout.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -61,11 +61,11 @@ Revision: 1.83
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Routed auto-sync integrity alerts with startup config telemetry and refreshed runbook guidance before closing T13.DEX.AUTO_SYNC_ALERTS.
+Change: Added the DEX v2 blueprint, synchronized routing metadata, expanded Tasklist, and retargeted NEXT to the DEV enablement work.
 TasklistDiff: true
-Tests: node scripts/dev_prod_auto_sync.ts --simulate-alert --once --dry-run --dev-env ./tmp/dev.auto-sync.env --prod-env ./tmp/prod.auto-sync.env --alert-webhook https://127.0.0.1:65535/webhook (stub env files removed after rehearsal)
+Tests: Not run (documentation and governance updates only).
 Contracts: ON
-NEXT: META.UNBLOCK.READY_SEED - auto-sync alert routing finished; awaiting the next substantive backlog task.
+NEXT: T13.DEX.V2_DEV_ENABLE - READY to implement the v2 pack builder and enable it in DEV.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

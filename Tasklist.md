@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-02T17:25:00Z
-Revision: 2.39
+Last Updated (UTC): 2025-11-02T18:05:00Z
+Revision: 2.41
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -19,13 +19,13 @@ Each task has:
 
 - id: META.UNBLOCK.READY_SEED
   title: Seed an immediate READY task after meta-only or all-busy states
-  status: READY
+  status: DONE
   depends_on: []
   acceptance_criteria:
     - When NEXT is NONE or all tasks are IN_PROGRESS/DONE, a minimal READY task exists to re-prime the engine.
     - guard-meta emits guidance in CI logs when no READY tasks are present.
     - Prompt.md “Last Repo Changes” records the seed action when triggered.
-  notes: Outcome — Guard script now surfaces an error when no READY tasks are present; NEXT retargeted so the safety-net follow-up is ready. Re-opened 2025-11-01 to hold the READY slot until the next substantive backlog item is queued.
+  notes: Outcome — Guard script surfaces an error when no READY tasks are present; NEXT retargeted so the safety-net follow-up is ready. 2025-11-02: Closed after queuing the DEX v2 backlog (design, DEV enable, PROD cutover, DB bootstrap) so a substantive READY task now leads the queue.
 
 - id: META.ROUTER.GUARD_PASS_20251101
   title: Clear routing guard warnings after sub-router sweep
@@ -1146,6 +1146,36 @@ Each task has:
     - Extend CI/guarding to regenerate and verify the pack against pinned upstream versions, documenting the workflow and recovery steps for stale artifacts.
   notes: Outcome — Perfect-hash and typed-array support now ships in the generated module, runtime helpers use the fast tables with alias coverage (`pika` → `pikachu`), committed JSON/gzip/module assets were regenerated via `npm run data:dexpack`, and `npm test -- --run` passed end-to-end to verify the rollout.
 
+- id: T13.DEX.V2_DESIGN
+  title: Publish DEX v2 blueprint and rollout plan
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - Land `docs/dex-v2-design.md` covering the high-availability dex model, rollout windows, and day-one database blueprint.
+    - Update router metadata (docs/ROUTER.md, ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) to reference the new guide.
+    - Seed follow-on Tasklist items and touchmap entries for DEV enablement, PROD cutover, and DB bootstrap.
+  notes: Outcome — Integrated the blueprint document, refreshed routers, and queued the downstream tasks so approvals and execution can proceed from a single source of truth.
+
+- id: T13.DEX.V2_DEV_ENABLE
+  title: Implement DEX v2 pack builder and enable in DEV
+  status: IN_PROGRESS
+  depends_on: [T13.DEX.V2_DESIGN]
+  acceptance_criteria:
+    - Add the binary pack builder, v2 loader, feature flag, metrics, and compatibility layer while keeping v1 callable.
+    - Ship invariants (v1/v2 parity, MPH alias coverage) plus microbench perf gates and documentation updates.
+    - Enable `DEX_V2_ENABLED` 100% in DEV during the approved window with smoke results captured in Tasklist notes.
+  notes: IN PROGRESS — 2025-11-02: Kicked off scaffold for the binary builder, feature flag wiring, and parity tests ahead of the 2025-11-04 DEV window.
+
+- id: T13.DEX.V2_PROD_CUTOVER
+  title: Stage and ramp DEX v2 in production
+  status: PROPOSED
+  depends_on: [T13.DEX.V2_DEV_ENABLE]
+  acceptance_criteria:
+    - Capture DEV/PROD backups and current flag state before canarying.
+    - Publish the signed pack artifact, canary at 1% → 25% → 50% → 100%, and log SLO/alert outcomes.
+    - Document the pack hash, verifier logs, and final approvals in release notes and Tasklist.
+  notes: Proposal — Execute during the 2025-11-05 PROD window once DEV enablement and perf gates are green.
+
 ## Phase 14 — Live Game Cache
 
 - id: T14.CACHE.FACADE
@@ -1181,6 +1211,48 @@ Each task has:
     - Provide operator guidance/tests confirming the command and cleanup hooks behave as expected.
   notes: |
     Outcome — Cache facade now tracks namespace counters, emits `cache.maintenance` snapshots, schedules a 10-minute cleanup sweep, and exposes `/ops cache` with an optional `cleanup: true` flag. Updated AGENTS.md + docs/database-systems.md with operator guidance. Tests: `npx vitest run tests/services/cache.facade.spec.ts tests/ops.spec.ts`.
+
+## Phase 15 — DB Bootstrap & HA
+
+- id: DB.V0.BOOTSTRAP
+  title: Apply day-one schema blueprint
+  status: PROPOSED
+  depends_on: [T13.DEX.V2_DESIGN]
+  acceptance_criteria:
+    - Introduce migrations covering tenants, trainers, dex pack registry, monsters, encounters, battles, inventory, and audit log per the blueprint.
+    - Provide rollback files and run `npm run db:smoke` against an empty database to confirm baseline tables.
+    - Document the rollout in Tasklist notes and update `docs/database-systems.md` with the new schema version.
+  notes: Blueprint landed; execute once DEX v2 design approvals land and staging rehearsals are scheduled.
+
+- id: DB.V0.PACK_REGISTRY
+  title: Populate dex pack registry wiring
+  status: PROPOSED
+  depends_on: [DB.V0.BOOTSTRAP]
+  acceptance_criteria:
+    - Ensure the v2 pack builder registers the hash/signature in `dex_packs` and the loader refuses unknown hashes.
+    - Add migrations or seeds linking trainers to the active pack hash.
+    - Capture verification steps (hash check, fallback) in Tasklist notes.
+  notes: Sequenced after schema bootstrap so the builder/loader can integrate registry writes.
+
+- id: DB.V0.SEED_SMOKE
+  title: Seed golden tenant and run end-to-end smoke tests
+  status: PROPOSED
+  depends_on: [DB.V0.BOOTSTRAP]
+  acceptance_criteria:
+    - Seed a golden tenant/trainer/party dataset for automated `/pokedex`, `/party`, and encounter tests.
+    - Run smoke flows in DEV ensuring DEX v2 lookups and persistence succeed.
+    - Record commands and outcomes in Tasklist notes.
+  notes: Prepares the environment for deterministic integration tests once DEX v2 lands.
+
+- id: DB.V0.BACKUP_DR
+  title: Validate backups and disaster recovery for day-one schema
+  status: PROPOSED
+  depends_on: [DB.V0.BOOTSTRAP]
+  acceptance_criteria:
+    - Enable PITR backups, perform a restore rehearsal, and document RPO/RTO metrics.
+    - Update `docs/operations.md` and related runbooks with backup/restore procedures and verification steps.
+    - Capture evidence (commands, timings, checksums) in Tasklist notes.
+  notes: Finalize after bootstrap so operators can trust the new schema before production cutovers.
 
 ## Phase 11 — Meta & AI Enablement
 

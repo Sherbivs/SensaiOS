@@ -2,7 +2,7 @@
 Title: Test Suite
 Purpose: Vitest coverage for schemas, pipeline, engines, and flows.
 Owned Globs: tests/**
-Last Updated (UTC): 2025-11-02T00:30:00Z
+Last Updated (UTC): 2025-11-02T22:24:26Z
 
 Notes:
 - Added coverage for `concludeBattleWithVictory` alongside existing persistence and announcer tests.
@@ -17,6 +17,7 @@ Notes:
 - PBSL oracle diff suite compares curated fixtures against upstream outputs nightly to detect regressions.
 - `tests/services/ROUTER.md` tracks cache facade regression coverage; `tests/shared/ROUTER.md` documents cross-suite fixtures.
 - 2025-11-01: `tests/battle_engine.spec.ts` asserts priority ordering, status interactions, flinch skips, and the early-item pool documented in `RULESET.md`.
+- 2025-11-02: `tests/dexpack.v2.spec.ts` toggles the DEX v2 flag and verifies the binary hash guard rejects tampered manifests.
 - Dedicated sub-routers capture focused suites (battle interactions, PBSL fixtures) for faster discovery.
 
 Subrouters:
