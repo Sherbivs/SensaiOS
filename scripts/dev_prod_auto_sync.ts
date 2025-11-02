@@ -147,7 +147,7 @@ function buildAlertBody(
           },
           {
             name: "Investigate",
-            value: "Run `npm run db:cli -- counts` on both envs, inspect recent deploys, and rerun `npm run db:auto-sync -- --once`.",
+            value: "Run `npm run db:cli -- counts` on both envs, inspect recent deploys, rerun `npm run db:auto-sync -- --once`, and review docs/database-systems.md#auto-sync-drift-response-runbook.",
             inline: false,
           },
         ],
@@ -202,6 +202,30 @@ function createIntegrityAlertDispatcher(config: SyncConfig): AlertDispatcher {
       });
     }
   };
+}
+
+function logAlertConfiguration(config: SyncConfig): void {
+  if (config.suppressAlerts) {
+    log("integrity.alert.config", {
+      status: "suppressed",
+      reason: "suppressAlerts_flag",
+    });
+    return;
+  }
+
+  const destination = config.alertWebhookUrl.trim();
+  if (!destination) {
+    log("integrity.alert.config_missing", {
+      message: "Alerts are enabled but no webhook destination is configured.",
+      remediation: "Set ALERT_WEBHOOK_URL in the env file or pass --alert-webhook to reach operators.",
+    });
+    return;
+  }
+
+  log("integrity.alert.config_ready", {
+    destination: "webhook",
+    webhook: sanitizeWebhook(destination),
+  });
 }
 
 function log(message: string, context: Record<string, unknown> = {}): void {
@@ -643,6 +667,7 @@ async function main(): Promise<void> {
       mergeAlert(prodVars.ALERT_WEBHOOK_URL) || mergeAlert(devVars.ALERT_WEBHOOK_URL);
   }
   const alertDispatcher = createIntegrityAlertDispatcher(config);
+  logAlertConfiguration(config);
 
   log("sync.config", {
     devEnv: config.devEnvPath,

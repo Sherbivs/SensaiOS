@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-02T16:42:20Z
-Revision: 2.38
+Last Updated (UTC): 2025-11-02T17:25:00Z
+Revision: 2.39
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1127,14 +1127,14 @@ Each task has:
 
 - id: T13.DEX.AUTO_SYNC_ALERTS
   title: Route auto-sync integrity alerts to operators
-  status: BLOCKED
+  status: DONE
   depends_on: [T13.DEX.AUTO_SYNC_MONITOR]
   acceptance_criteria:
     - Forward `integrity.alert` events to the existing observability/logging pipeline (Render alerts or Discord ops channel) with actionable messaging.
     - Provide a runbook entry in playbooks/ or docs/database-systems.md detailing response steps when alerts fire.
     - Capture a simulated alert in Tasklist notes once routing is validated.
   notes: |
-    BLOCKED — 2025-11-02T08:20Z: Alert routing paused while the dexpack build/runtime pipeline takes priority; resume once the dexpack rollout completes and observability hooks can piggyback on the new data surface.
+    2025-11-02T17:20Z — Added startup `integrity.alert.config_*` telemetry, resurfaced the runbook in docs/database-systems.md, and rehearsed alert delivery with `node scripts/dev_prod_auto_sync.ts --simulate-alert --once --dry-run --dev-env ./tmp/dev.auto-sync.env --prod-env ./tmp/prod.auto-sync.env --alert-webhook https://127.0.0.1:65535/webhook` (temporary stub env files pointing at a closed port). The embed now references the runbook directly and routing uses ALERT_WEBHOOK_URL by default.
 
 - id: T13.DEX.DEXPACK_ROLLOUT
   title: Consolidate dexpack build, runtime loader, and CI guardrails

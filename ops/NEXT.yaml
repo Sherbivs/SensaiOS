@@ -14,15 +14,13 @@ guidance_when_none: |
 auto_promote_if_empty: true
 
 next_task_id: META.UNBLOCK.READY_SEED
-reason: "Keep the READY seed primed while the next substantive backlog item is triaged."
+reason: "Auto-sync alert routing is complete; keep the READY seed primed while humans queue the next backlog item."
 
 files_hint: []
 
-queue:
-  - id: T13.DEX.DEXPACK_ROLLOUT
-    note: "Consolidate dexpack build/runtime/CI per the denormalized pack strategy."
+queue: []
 
-timestamp_utc: 2025-11-02T16:42:20Z
+timestamp_utc: 2025-11-02T17:25:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Dexpack rollout closed with typed-array + perfect-hash assets and full test pass; holding the seed task until humans queue the follow-up work."
+note: "Auto-sync alert routing landed with startup config telemetry and updated runbooks; holding the seed task until humans queue the follow-up work."

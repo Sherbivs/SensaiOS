@@ -125,7 +125,7 @@ Materialized view refresh flows through the helper; direct `REFRESH MATERIALIZED
 - **Guards:** `scripts/guard_meta.sh`, `scripts/check_db_redundancy.ts`, `scripts/db_smoke.ts`, and `scripts/guards/guard_auto_sync.sh` verify metadata, parity, and auto-sync prerequisites.
 - **Dexpack Guard:** `npm run guard:dexpack` regenerates `assets/dexpack.v1.json(.gz)` and `assets/dexpack.gen.mjs` in verification mode to ensure the committed pack (including typed-array vectors and perfect-hash tables) matches the builder output; run after updating bootstrap data, loader logic, or module consumers.
 - **Auto-sync monitoring:** Review `integrity.alert` logs after each deployment and on the five-minute cadence; investigate non-zero deltas immediately. Run `npm run guard:auto-sync` before releases to confirm secrets + `dex-sync-trigger.json` exist, and capture remediation steps in Tasklist notes when the guard fails.
-- **Auto-sync alerts:** Webhook embeds (`ALERT_WEBHOOK_URL`) fire whenever `integrity.alert` appears after consolidation. Each alert summarizes deltas, links the env files, and calls out the investigation checklist; duplicates are suppressed until counts change or new drift is detected. Override destinations with `--alert-webhook`, temporarily disable with `--no-alerts`, or run `--simulate-alert` to validate routing without touching databases.
+- **Auto-sync alerts:** Webhook embeds (`ALERT_WEBHOOK_URL`) fire whenever `integrity.alert` appears after consolidation. Each alert summarizes deltas, links the env files, and calls out the investigation checklist; duplicates are suppressed until counts change or new drift is detected. Startup logs (`integrity.alert.config_ready|config_missing|config`) record whether alerts will dispatch, so confirm Render shows `integrity.alert.config_ready` after deploys. Override destinations with `--alert-webhook`, temporarily disable with `--no-alerts`, or run `--simulate-alert` to validate routing without touching databases.
 - **Control Suite:** `scripts/db_admin.ts` (run via `npm run db:cli`) consolidates counts, status checks, and raw queries while respecting secure env loading.
 
 ### Runtime Cache Observability
@@ -144,7 +144,7 @@ For local experiments, set `BACKUP_STORAGE_PROVIDER=local` to inspect JSON backu
 
 ### Auto-Sync Drift Response Runbook
 
-1. **Acknowledge the alert:** The Discord webhook payload (or Render log) includes the `integrity.alert` delta snapshot, env paths, and a timestamp. Record the alert in Tasklist notes if a follow-up is already in progress.
+1. **Acknowledge the alert:** The Discord webhook payload (or Render log) includes the `integrity.alert` delta snapshot, env paths, and a timestamp. Confirm the operations channel (or Render alert feed) received the embed; investigate `integrity.alert.config_missing` if no external notification appears. Record the alert in Tasklist notes if a follow-up is already in progress.
 2. **Verify counts:** Run `npm run db:cli -- counts` against DEV and PROD (via `IG_ENV_FILE`) to confirm the delta and capture the output.
 3. **Inspect recent changes:** Review the latest migrations/seeds (`npm run db:auto-sync -- --once`) and Render deploy logs for failed steps or partial seeds.
 4. **Re-run consolidation:** After remediation, execute `npm run db:auto-sync -- --once` to replay the loop; confirm the webhook no longer fires and counts realign.

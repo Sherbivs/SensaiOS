@@ -1,12 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-02T16:42:20Z
-Revision: 1.82
+Timestamp (UTC): 2025-11-02T17:25:00Z
+Revision: 1.83
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Extended `scripts/build_dexpack.ts` with typed-array exports, perfect-hash tables, and a `pika` alias so Pikachu resolves through the fast lookup path.
-- Regenerated `assets/dexpack.v1.json`, `.gz`, and `.gen.mjs` to capture the new alias-aware tables and deterministic vector data.
-- Updated `tests/dexpack.fast.spec.ts` to assert alias lookups against the perfect hash and exercised the full Vitest suite.
-- Closed T13.DEX.DEXPACK_ROLLOUT, refreshed Tasklist/NEXT pointers, and recorded outcomes in Prompt/Tasklist metadata.
+- Added startup `integrity.alert.config_*` telemetry in `scripts/dev_prod_auto_sync.ts` and referenced the runbook directly in the webhook embed.
+- Expanded `docs/database-systems.md` and `docs/db-control-suite.md` with alert routing guidance, rehearsal instructions, and response checkpoints.
+- Simulated the auto-sync alert path with stub env files, then updated Tasklist/NEXT to close T13.DEX.AUTO_SYNC_ALERTS.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -62,11 +61,11 @@ Revision: 1.82
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Added perfect-hash/typed-array outputs with Pikachu alias coverage, regenerated dexpack assets, and updated Tasklist/NEXT after closing T13.
+Change: Routed auto-sync integrity alerts with startup config telemetry and refreshed runbook guidance before closing T13.DEX.AUTO_SYNC_ALERTS.
 TasklistDiff: true
-Tests: npm run data:dexpack; npm test -- --run
+Tests: node scripts/dev_prod_auto_sync.ts --simulate-alert --once --dry-run --dev-env ./tmp/dev.auto-sync.env --prod-env ./tmp/prod.auto-sync.env --alert-webhook https://127.0.0.1:65535/webhook (stub env files removed after rehearsal)
 Contracts: ON
-NEXT: META.UNBLOCK.READY_SEED - keep the READY seed primed while humans stage the next backlog task.
+NEXT: META.UNBLOCK.READY_SEED - auto-sync alert routing finished; awaiting the next substantive backlog task.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

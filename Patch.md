@@ -99,7 +99,10 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Clipboard cleared — awaiting next task plan]
+[Archived Plan] T13.DEX.AUTO_SYNC_ALERTS
+- add startup alert config logs in `scripts/dev_prod_auto_sync.ts`
+- document alert routing + runbook steps in `docs/database-systems.md` and `docs/db-control-suite.md`
+- simulate alert, record outcome in Tasklist, update Prompt/NEXT metadata
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>
