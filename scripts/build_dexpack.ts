@@ -175,6 +175,7 @@ const ALIASES: Record<string, string> = {
   "mr. mime": "mr-mime",
   "nidoran♀": "nidoran-f",
   "nidoran♂": "nidoran-m",
+  "pika": "pikachu",
   "type null": "type-null",
   "jangmo o": "jangmo-o",
   "hakamo o": "hakamo-o",

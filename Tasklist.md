@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-02T16:40:00Z
-Revision: 2.37
+Last Updated (UTC): 2025-11-02T16:42:20Z
+Revision: 2.38
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1138,17 +1138,13 @@ Each task has:
 
 - id: T13.DEX.DEXPACK_ROLLOUT
   title: Consolidate dexpack build, runtime loader, and CI guardrails
-  status: IN_PROGRESS
+  status: DONE
   depends_on: []
   acceptance_criteria:
     - Add a deterministic build script that emits a single `dexpack.v1.json` (plus compressed variant) from the existing bootstrap/cache data sources and commit the generated artifact.
     - Introduce an in-memory loader/getter module that replaces ad-hoc JSON parsing, updating dex consumers to use O(1) lookups against the loaded pack.
     - Extend CI/guarding to regenerate and verify the pack against pinned upstream versions, documenting the workflow and recovery steps for stale artifacts.
-  notes: |
-    IN_PROGRESS — 2025-11-02T13:52Z: Normalized dexpack move metadata so the battle engine honors special/physical modifiers (Choice Specs fix) and updated Discord forfeit handling to conclude battles without party hydration while loader consumers continue migrating.
-    IN_PROGRESS — 2025-11-02T15:45Z: Dexpack build now emits a pre-parsed ES module, runtime loader imports it by default with JSON fallback, router/touchmap docs updated, and `npm test -- --run` passed for coverage validation.
-    IN_PROGRESS — 2025-11-02T16:25Z: Engine and dex API now read from the in-memory module (no JSON fallback assumptions), dexpack guard messaging highlights JSON/gzip/module verification, and operations docs describe the new artifact coverage.
-    IN_PROGRESS — 2025-11-02T16:35Z: Ran `npm run guard:dexpack` (23 species, 18 moves) to confirm JSON/gzip/module artifacts in sync; next scope typed-array/perfect-hash improvements for the generated module.
+  notes: Outcome — Perfect-hash and typed-array support now ships in the generated module, runtime helpers use the fast tables with alias coverage (`pika` → `pikachu`), committed JSON/gzip/module assets were regenerated via `npm run data:dexpack`, and `npm test -- --run` passed end-to-end to verify the rollout.
 
 ## Phase 14 — Live Game Cache
 

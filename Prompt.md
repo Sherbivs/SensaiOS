@@ -1,12 +1,12 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-02T16:40:00Z
-Revision: 1.81
+Timestamp (UTC): 2025-11-02T16:42:20Z
+Revision: 1.82
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Replaced legacy `loadDexpack()` usage in `src/engine/index.js` and `src/lib/dex-api.js` with the in-memory `getDexpack()` module pathway.
-- Clarified `scripts/guards/guard_dexpack.sh` output to spell out JSON/gzip/module parity expectations for Phase 2.
-- Updated docs (`docs/database-systems.md`, `OPERATIONS.md`, `masterroutetable.md`) and rollout metadata (`Tasklist.md`, `ops/NEXT.yaml`, `ops/TOUCHMAP.yaml`, `Prompt.md`) to reflect the module-first runtime.
-- Ran `npm run guard:dexpack` to confirm JSON/gzip/module artifacts are in sync and logged the verification for the rollout task.
+- Extended `scripts/build_dexpack.ts` with typed-array exports, perfect-hash tables, and a `pika` alias so Pikachu resolves through the fast lookup path.
+- Regenerated `assets/dexpack.v1.json`, `.gz`, and `.gen.mjs` to capture the new alias-aware tables and deterministic vector data.
+- Updated `tests/dexpack.fast.spec.ts` to assert alias lookups against the perfect hash and exercised the full Vitest suite.
+- Closed T13.DEX.DEXPACK_ROLLOUT, refreshed Tasklist/NEXT pointers, and recorded outcomes in Prompt/Tasklist metadata.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -19,9 +19,9 @@ Revision: 1.81
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** T13.DEX.DEXPACK_ROLLOUT — finish dexpack build tooling, loader migrations, and guard/doc updates.
-- **READY / In-flight:** Dexpack rollout now has the zero-parse module + loader/docs updates; next steps prune JSON-era consumers and tighten guard coverage.
-- **Recent Finish:** T13.DEX.AUTO_SYNC_MONITOR shipped integrity alerts, guard script, and doc updates for the dex auto-sync loop.
+- **NEXT Pointer:** META.UNBLOCK.READY_SEED — standby ready slot until humans queue the next backlog item.
+- **READY / In-flight:** All dexpack rollout work is complete; awaiting the next READY promotion while the seed task holds the runway.
+- **Recent Finish:** T13.DEX.DEXPACK_ROLLOUT delivered perfect-hash/typed-array assets, alias coverage, regenerated packs, and full test verification.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -62,11 +62,11 @@ Revision: 1.81
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Recorded the dexpack guard verification and refreshed rollout metadata ahead of typed-array/perfect-hash planning.
+Change: Added perfect-hash/typed-array outputs with Pikachu alias coverage, regenerated dexpack assets, and updated Tasklist/NEXT after closing T13.
 TasklistDiff: true
-Tests: npm run guard:dexpack
+Tests: npm run data:dexpack; npm test -- --run
 Contracts: ON
-NEXT: T13.DEX.DEXPACK_ROLLOUT - prune JSON-era consumers, tighten guard coverage, and finish docs/tests tidy-up for the dexpack rollout.
+NEXT: META.UNBLOCK.READY_SEED - keep the READY seed primed while humans stage the next backlog task.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

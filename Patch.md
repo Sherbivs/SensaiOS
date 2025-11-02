@@ -99,11 +99,7 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 _Patch Clipboard Scratch Area (leave empty when not in use)_
 
 <<<PATCHSET START>>>
-[Planned PATCHSET — T13.DEX.DEXPACK_ROLLOUT]
-- Phase 3 — Perfect-hash and typed-array rollout (next run):
-   - Prototype hashed lookup/typed-array representations in `scripts/build_dexpack.ts` and surface benchmarks or tests validating improved startup costs.
-   - Update runtime helpers (`src/data/dexpack.js`, dependent engines/APIs) to consume the new structures while preserving fallbacks for custom pack paths.
-   - Extend docs/metadata (Prompt, Tasklist, ops/NEXT.yaml, relevant routers) with migration guidance and guard expectations once the new artifacts land.
+[Clipboard cleared — awaiting next task plan]
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

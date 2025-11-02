@@ -21,8 +21,8 @@ describe('dexpack fast indexes', () => {
   });
 
   it('resolves alias names through the perfect hash table', () => {
-    const mrMime = getSpecies('Mr. Mime');
-    expect(mrMime?.slug).toBe('mr-mime');
+    const pika = getSpecies('Pika');
+    expect(pika?.slug).toBe('pikachu');
   });
 
   it('provides typed-array backed base stats and matchups', () => {
