@@ -6,6 +6,7 @@ import { ENABLE_DB_AUTO_SYNC, ENABLE_SECURITY_BOT } from "./config/env.js";
 import { initPrisma, prisma } from "./models/index.js";
 import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
 import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
+import { getCacheMetadata } from "./services/pokemonService.js";
 import { config } from "./shared/config.js";
 import { log } from "./shared/log.js";
 import {
@@ -29,7 +30,7 @@ type CacheSnapshot = {
   newestEntryMs: number | null;
 };
 
-const MONITOR_REFRESH_INTERVAL_MS = 5_000;
+const MONITOR_REFRESH_INTERVAL_MS = 5 * 60 * 1_000;
 
 let monitorActive = false;
 let shuttingDown = false;
@@ -72,7 +73,8 @@ function startMonitor(): void {
       ? { title: "Security Bot", status: "initializing", metrics: [] }
       : { title: "Security Bot", status: "disabled", metrics: [metric("note", "disabled via ENABLE_SECURITY_BOT")] };
     setSection("security", securitySection);
-    setSection("cache", { title: "Cache", status: "checking", metrics: [] });
+    setSection("cache", { title: "Runtime Cache", status: "checking", metrics: [] });
+    setSection("pokedex", { title: "PokéAPI Cache", status: "checking", metrics: [] });
     refreshMonitorMetrics();
     monitorRefreshTimer = setInterval(refreshMonitorMetrics, MONITOR_REFRESH_INTERVAL_MS);
     monitorRefreshTimer.unref?.();
@@ -297,13 +299,91 @@ function refreshCacheSection(): void {
       return "online";
     })();
 
-    setSection("cache", { title: "Cache", status, metrics });
+    setSection("cache", { title: "Runtime Cache", status, metrics });
     lastCacheSnapshot = snapshot;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log.error("Cache telemetry update failed", error);
     setSection("cache", {
-      title: "Cache",
+      title: "Runtime Cache",
+      status: "error",
+      metrics: [metric("error", message)],
+    });
+  }
+}
+
+function refreshPokedexSection(): void {
+  if (!monitorActive) {
+    return;
+  }
+
+  try {
+    const meta = getCacheMetadata();
+    const metrics: MetricsList = [];
+    const total = typeof meta?.total === "number" ? meta.total : 0;
+    const lastFetchedAt = meta?.lastFetchedAt instanceof Date ? meta.lastFetchedAt : null;
+    const lastAttemptAt = meta?.lastFetchAttemptAt instanceof Date ? meta.lastFetchAttemptAt : null;
+    const now = Date.now();
+
+    metrics.push(metric("entries", total));
+    metrics.push(
+      metric(
+        "last fetch",
+        lastFetchedAt ? formatRelativeTime(lastFetchedAt.getTime()) : "never",
+      ),
+    );
+    metrics.push(
+      metric(
+        "last attempt",
+        lastAttemptAt ? formatRelativeTime(lastAttemptAt.getTime()) : "never",
+      ),
+    );
+
+    if (meta?.cron) {
+      const schedule = meta.timezone ? `${meta.cron} (${meta.timezone})` : meta.cron;
+      metrics.push(metric("schedule", schedule));
+    }
+    if (meta?.cacheFile) {
+      metrics.push(metric("cache file", meta.cacheFile));
+    }
+
+    let status: string = "online";
+    const notes: string[] = [];
+
+    if (!lastFetchedAt) {
+      status = "warming";
+      notes.push("cache has not completed an initial sync");
+    } else {
+      const ageMs = now - lastFetchedAt.getTime();
+      if (Number.isFinite(ageMs) && ageMs > 6 * 60 * 60 * 1_000) {
+        status = "degraded";
+        notes.push("data older than 6h");
+      }
+    }
+
+    if (total === 0) {
+      status = status === "online" ? "degraded" : status;
+      notes.push("no Pokémon cached");
+    }
+
+    if (lastAttemptAt) {
+      const attemptAgeMs = now - lastAttemptAt.getTime();
+      if (Number.isFinite(attemptAgeMs) && attemptAgeMs > 24 * 60 * 60 * 1_000) {
+        status = "degraded";
+        notes.push("refresh job idle >24h");
+      }
+    }
+
+    if (notes.length > 0) {
+      metrics.push(metric("note", notes.join("; ")));
+    }
+
+    setSection("pokedex", { title: "PokéAPI Cache", status, metrics });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log.error("PokéAPI telemetry update failed", error);
+    setSection("pokedex", {
+      title: "PokéAPI Cache",
       status: "error",
       metrics: [metric("error", message)],
     });
@@ -315,6 +395,7 @@ function refreshMonitorMetrics(): void {
     return;
   }
   refreshCacheSection();
+  refreshPokedexSection();
 }
 
 function renderPrismaHeartbeat(event: PrismaHeartbeatEvent): void {

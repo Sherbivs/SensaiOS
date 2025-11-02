@@ -2,11 +2,12 @@
 Title: Utility Helpers
 Purpose: Cross-cutting utilities for logging, CLI status output, and operational helpers.
 Owned Globs: src/utils/**
-Last Updated (UTC): 2025-10-30T00:47:00Z
+Last Updated (UTC): 2025-11-02T20:09:24Z
 
 Notes:
 - Legacy CommonJS utilities still imported by scripts and command handlers.
 - Keep declaration files (`*.d.ts`) synchronized with implementation exports for TypeScript callers.
+- 2025-11-02: CLI status monitor now renders a stat-sheet layout with capacity/alert insights and aligns refresh cadence to 5m (30s during active alerts).
 
 Key Files:
 - activityTracker.js - Tracks user activity/co-op engagement for rate limiting.
