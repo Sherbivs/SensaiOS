@@ -282,9 +282,12 @@ T13.DEX.AUTO_SYNC_ALERTS:
 T13.DEX.DEXPACK_ROLLOUT:
   - "assets/dexpack.v1.json"
   - "assets/dexpack.v1.json.gz"
+  - "assets/dexpack.gen.mjs"
   - "scripts/build_dexpack.ts"
   - "scripts/guards/guard_dexpack.sh"
   - "src/data/dexpack.js"
+  - "src/engine/index.js"
+  - "src/lib/dex-api.js"
   - "package.json"
   - ".github/workflows/guard-dexpack.yml"
   - "assets/ROUTER.md"
@@ -293,7 +296,9 @@ T13.DEX.DEXPACK_ROLLOUT:
   - "ops/ROUTER.yaml"
   - "ops/ROUTER_INDEX.yaml"
   - "masterroutetable.md"
+  - "docs/database-systems.md"
   - "docs/operations.md"
+  - "OPERATIONS.md"
   - "Prompt.md"
   - "Tasklist.md"
 

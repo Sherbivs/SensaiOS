@@ -1,4 +1,11 @@
-import { loadDexpack, getSpecies as lookupSpecies, getMove as lookupMove, suggestSpecies } from '../data/dexpack.js';
+import {
+  getDexpack,
+  getSpecies as lookupSpecies,
+  getMove as lookupMove,
+  suggestSpecies,
+  getSpeciesBaseStats,
+  getSpeciesMatchups,
+} from '../data/dexpack.js';
 
 const DEFAULT_META = { version_group: 'latest' };
 
@@ -72,10 +79,12 @@ function deriveMatchups(types, chart) {
 }
 
 function hydrateSpecies(doc) {
-  const stats = toLegacyStats(doc.baseStats);
+  const baseStatsSource = getSpeciesBaseStats(doc.id) || doc.baseStats || {};
+  const stats = toLegacyStats(baseStatsSource);
   const learnsets = cloneLearnsets(doc.learnsets);
   const typing = Array.isArray(doc.typing) ? [...doc.typing] : [];
-  const baseMatchups = doc?.matchups ?? {};
+  const fastMatchups = getSpeciesMatchups(doc.id);
+  const baseMatchups = fastMatchups && Object.keys(fastMatchups).length > 0 ? fastMatchups : doc?.matchups ?? {};
   const hasNonNeutral = Object.values(baseMatchups).some((value) => Number(value) !== 1);
   const matchups = hasNonNeutral ? { ...baseMatchups } : deriveMatchups(typing, typeChart);
   return {
@@ -87,7 +96,7 @@ function hydrateSpecies(doc) {
     typing,
     types: [...typing],
     abilities: cloneAbilities(doc.abilities),
-    baseStats: { ...doc.baseStats },
+  baseStats: { ...baseStatsSource },
     base_stats: { ...stats },
     stats,
     learnsets: {
@@ -129,7 +138,7 @@ function buildMoveIndex(packMoves) {
 
 function initialise() {
   try {
-    const pack = loadDexpack();
+    const pack = getDexpack();
     const orderedIds = Object.keys(pack.byId).sort((a, b) => Number(a) - Number(b));
     speciesCache = new Map();
     typeChart = pack.types?.chart ?? {};

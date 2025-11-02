@@ -18,17 +18,15 @@ reason: "Finish dexpack rollout by landing deterministic build tooling, loader m
 
 files_hint:
   - scripts/build_dexpack.ts
-  - data/dexpack/**
-  - src/data/**
+  - src/data/dexpack.js
+  - src/**
   - tests/**
-  - docs/**
-  - ops/**
 
 queue:
   - id: T13.DEX.DEXPACK_ROLLOUT
     note: "Consolidate dexpack build/runtime/CI per the denormalized pack strategy."
 
-timestamp_utc: 2025-11-02T13:56:00Z
+timestamp_utc: 2025-11-02T16:40:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Progress logged for move normalization + forfeit handling; next step is to produce the build asset, finish loader migrations, and wire guard/docs updates."
+note: "Dexpack guard now verified; next design typed-array/perfect-hash upgrades for the generated module and touch supporting tests."

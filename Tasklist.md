@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-02T13:54:00Z
-Revision: 2.33
+Last Updated (UTC): 2025-11-02T16:40:00Z
+Revision: 2.37
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1146,6 +1146,9 @@ Each task has:
     - Extend CI/guarding to regenerate and verify the pack against pinned upstream versions, documenting the workflow and recovery steps for stale artifacts.
   notes: |
     IN_PROGRESS — 2025-11-02T13:52Z: Normalized dexpack move metadata so the battle engine honors special/physical modifiers (Choice Specs fix) and updated Discord forfeit handling to conclude battles without party hydration while loader consumers continue migrating.
+    IN_PROGRESS — 2025-11-02T15:45Z: Dexpack build now emits a pre-parsed ES module, runtime loader imports it by default with JSON fallback, router/touchmap docs updated, and `npm test -- --run` passed for coverage validation.
+    IN_PROGRESS — 2025-11-02T16:25Z: Engine and dex API now read from the in-memory module (no JSON fallback assumptions), dexpack guard messaging highlights JSON/gzip/module verification, and operations docs describe the new artifact coverage.
+    IN_PROGRESS — 2025-11-02T16:35Z: Ran `npm run guard:dexpack` (23 species, 18 moves) to confirm JSON/gzip/module artifacts in sync; next scope typed-array/perfect-hash improvements for the generated module.
 
 ## Phase 14 — Live Game Cache
 

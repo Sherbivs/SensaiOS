@@ -1,11 +1,12 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-02T13:58:00Z
-Revision: 1.78
+Timestamp (UTC): 2025-11-02T16:40:00Z
+Revision: 1.81
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Marked `T13.DEX.DEXPACK_ROLLOUT` as IN_PROGRESS after normalizing dexpack move metadata and fixing Discord forfeit handling; recorded outcome notes in Tasklist.md (Rev 2.33).
-- Updated Patch.md clipboard with completed dexpack scope vs. remaining work and refreshed contract metadata.
-- Retargeted `ops/NEXT.yaml` to keep the dexpack rollout active with trimmed file hints reflecting build tooling, loader migrations, and guard/doc updates.
+- Replaced legacy `loadDexpack()` usage in `src/engine/index.js` and `src/lib/dex-api.js` with the in-memory `getDexpack()` module pathway.
+- Clarified `scripts/guards/guard_dexpack.sh` output to spell out JSON/gzip/module parity expectations for Phase 2.
+- Updated docs (`docs/database-systems.md`, `OPERATIONS.md`, `masterroutetable.md`) and rollout metadata (`Tasklist.md`, `ops/NEXT.yaml`, `ops/TOUCHMAP.yaml`, `Prompt.md`) to reflect the module-first runtime.
+- Ran `npm run guard:dexpack` to confirm JSON/gzip/module artifacts are in sync and logged the verification for the rollout task.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -19,7 +20,7 @@ Revision: 1.78
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 - **NEXT Pointer:** T13.DEX.DEXPACK_ROLLOUT — finish dexpack build tooling, loader migrations, and guard/doc updates.
-- **READY / In-flight:** Dexpack rollout continues with move normalization + forfeit flow fixes landed; next steps cover build asset generation and CI guardrails.
+- **READY / In-flight:** Dexpack rollout now has the zero-parse module + loader/docs updates; next steps prune JSON-era consumers and tighten guard coverage.
 - **Recent Finish:** T13.DEX.AUTO_SYNC_MONITOR shipped integrity alerts, guard script, and doc updates for the dex auto-sync loop.
 
 ## System Highlights
@@ -61,11 +62,11 @@ Revision: 1.78
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Logged dexpack move normalization and forfeit flow fixes, updated Tasklist/Patch/NEXT to reflect ongoing rollout scope.
+Change: Recorded the dexpack guard verification and refreshed rollout metadata ahead of typed-array/perfect-hash planning.
 TasklistDiff: true
-Tests: npm test -- --run tests/battle_engine.spec.ts tests/battle_flow.spec.ts tests/battle_results.spec.ts
+Tests: npm run guard:dexpack
 Contracts: ON
-NEXT: T13.DEX.DEXPACK_ROLLOUT - finish build tooling, loader migrations, and guard/doc updates for the dexpack rollout.
+NEXT: T13.DEX.DEXPACK_ROLLOUT - prune JSON-era consumers, tighten guard coverage, and finish docs/tests tidy-up for the dexpack rollout.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

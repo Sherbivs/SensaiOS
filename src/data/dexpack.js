@@ -2,6 +2,20 @@ import fs from "node:fs";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
 
+import {
+  PACK,
+  NAME_HASH_SIZE,
+  NAME_HASH_IDS,
+  NAME_HASH_KEYS,
+  ALIAS_HASH_SIZE,
+  ALIAS_HASH_IDS,
+  ALIAS_HASH_KEYS,
+  SPECIES_STAT_INDEX,
+  SPECIES_BASE_STATS,
+  SPECIES_MATCHUP_INDEX,
+  SPECIES_MATCHUPS,
+} from "../../assets/dexpack.gen.mjs";
+
 /**
  * @typedef {{ move: string; level: number | null }} LearnsetLevelEntry
  *
@@ -65,15 +79,34 @@ import { gunzipSync } from "node:zlib";
  *     chart: Record<string, Record<string, number>>;
  *   };
  * }} DexPack
+ *
+ * @typedef {{
+ *   size: number;
+ *   ids: Int32Array;
+ *   keys: string[];
+ * }} DexpackHashTable
+ *
+ * @typedef {{
+ *   statIndex: Int32Array;
+ *   baseStats: Uint16Array;
+ *   matchupIndex: Int32Array;
+ *   matchups: Float32Array;
+ *   typeOrder: string[];
+ *   nameTable: DexpackHashTable | null;
+ *   aliasTable: DexpackHashTable | null;
+ * }} FastDexpack
  */
 
-/** @type {{ pack: DexPack | null; loadedFrom: string | null }} */
+const MODULE_ORIGIN = "module:assets/dexpack.gen.mjs";
+
+/** @type {{ pack: DexPack | null; loadedFrom: string | null; fast: FastDexpack | null }} */
 const state = {
-  pack: null,
-  loadedFrom: null,
+  pack: PACK,
+  loadedFrom: MODULE_ORIGIN,
+  fast: createFastFromModule(),
 };
 
-const DEFAULT_FILES = [
+const DEFAULT_JSON_FILES = [
   path.join(process.cwd(), "assets", "dexpack.v1.json.gz"),
   path.join(process.cwd(), "assets", "dexpack.v1.json"),
   path.join(process.cwd(), "data", "bootstrap", "dexpack.v1.json"),
@@ -86,6 +119,157 @@ function normalizeLookup(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function hashString(value) {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+function nextPowerOfTwo(value) {
+  let size = 1;
+  while (size < value) {
+    size <<= 1;
+  }
+  return size;
+}
+
+function buildHashTableFromEntries(entries) {
+  if (!entries || entries.length === 0) {
+    return null;
+  }
+
+  const size = nextPowerOfTwo(entries.length * 2);
+  const mask = size - 1;
+  const ids = new Int32Array(size).fill(-1);
+  const keys = new Array(size).fill("");
+
+  for (const [key, value] of entries) {
+    const hash = hashString(key);
+    let index = hash & mask;
+    let step = (hash >>> 16) & mask;
+    if (step === 0) {
+      step = 1;
+    }
+
+    for (let attempt = 0; attempt < size; attempt += 1) {
+      if (ids[index] === -1) {
+        ids[index] = value;
+        keys[index] = key;
+        break;
+      }
+      index = (index + step) & mask;
+    }
+  }
+
+  return { size, ids, keys };
+}
+
+function lookupInHashTable(normalized, table) {
+  if (!table || typeof normalized !== "string" || normalized.length === 0) {
+    return null;
+  }
+
+  const { size, ids, keys } = table;
+  if (!size || !ids || ids.length !== size) {
+    return null;
+  }
+
+  const mask = size - 1;
+  const hash = hashString(normalized);
+  let index = hash & mask;
+  let step = (hash >>> 16) & mask;
+  if (step === 0) {
+    step = 1;
+  }
+
+  for (let attempt = 0; attempt < size; attempt += 1) {
+    const key = keys[index];
+    if (!key) {
+      return null;
+    }
+    if (key === normalized) {
+      const id = ids[index];
+      return typeof id === "number" && id >= 0 ? id : null;
+    }
+    index = (index + step) & mask;
+  }
+
+  return null;
+}
+
+function buildFastStateFromPack(pack) {
+  if (!pack) {
+    return null;
+  }
+
+  const species = Object.values(pack.byId || {}).sort((a, b) => a.id - b.id);
+  if (species.length === 0) {
+    return null;
+  }
+
+  const typeOrder = Array.isArray(pack.types?.order) ? [...pack.types.order] : [];
+  const maxId = species.reduce((max, doc) => Math.max(max, doc.id), 0);
+  const statIndex = new Int32Array(maxId + 1).fill(-1);
+  const matchupIndex = new Int32Array(maxId + 1).fill(-1);
+  const baseStats = new Uint16Array(species.length * 6);
+  const matchups = new Float32Array(species.length * typeOrder.length);
+
+  for (let i = 0; i < species.length; i += 1) {
+    const doc = species[i];
+    const statOffset = i * 6;
+    baseStats[statOffset + 0] = doc.baseStats?.hp ?? 1;
+    baseStats[statOffset + 1] = doc.baseStats?.atk ?? 1;
+    baseStats[statOffset + 2] = doc.baseStats?.def ?? 1;
+    baseStats[statOffset + 3] = doc.baseStats?.spAtk ?? 1;
+    baseStats[statOffset + 4] = doc.baseStats?.spDef ?? 1;
+    baseStats[statOffset + 5] = doc.baseStats?.spe ?? 1;
+    statIndex[doc.id] = statOffset;
+
+    const matchupOffset = i * typeOrder.length;
+    for (let j = 0; j < typeOrder.length; j += 1) {
+      const type = typeOrder[j];
+      const value = doc.matchups?.[type];
+      matchups[matchupOffset + j] = typeof value === "number" && Number.isFinite(value) ? value : 1;
+    }
+    matchupIndex[doc.id] = matchupOffset;
+  }
+
+  const nameTable = buildHashTableFromEntries(Object.entries(pack.byName || {}));
+  const aliasTable = buildHashTableFromEntries(Object.entries(pack.byAlias || {}));
+
+  return {
+    statIndex,
+    baseStats,
+    matchupIndex,
+    matchups,
+    typeOrder,
+    nameTable,
+    aliasTable,
+  };
+}
+
+function createFastFromModule() {
+  const nameTable = NAME_HASH_SIZE
+    ? { size: NAME_HASH_SIZE, ids: NAME_HASH_IDS, keys: NAME_HASH_KEYS }
+    : null;
+  const aliasTable = ALIAS_HASH_SIZE
+    ? { size: ALIAS_HASH_SIZE, ids: ALIAS_HASH_IDS, keys: ALIAS_HASH_KEYS }
+    : null;
+
+  return {
+    statIndex: SPECIES_STAT_INDEX,
+    baseStats: SPECIES_BASE_STATS,
+    matchupIndex: SPECIES_MATCHUP_INDEX,
+    matchups: SPECIES_MATCHUPS,
+    typeOrder: Array.isArray(PACK?.types?.order) ? [...PACK.types.order] : [],
+    nameTable,
+    aliasTable,
+  };
 }
 
 function readCandidate(filePath) {
@@ -105,7 +289,7 @@ function readCandidate(filePath) {
 }
 
 function pickSource(customPath) {
-  const candidates = customPath ? [path.resolve(customPath)] : DEFAULT_FILES;
+  const candidates = customPath ? [path.resolve(customPath)] : DEFAULT_JSON_FILES;
   for (const candidate of candidates) {
     const resolved = readCandidate(candidate);
     if (resolved) {
@@ -122,11 +306,19 @@ function parseDexpack(buffer) {
 }
 
 export function loadDexpack(customPath) {
-  const { buffer, path: resolvedPath } = pickSource(customPath);
-  const pack = parseDexpack(buffer);
-  state.pack = pack;
-  state.loadedFrom = resolvedPath;
-  return pack;
+  if (customPath) {
+    const { buffer, path: resolvedPath } = pickSource(customPath);
+    const pack = parseDexpack(buffer);
+    state.pack = pack;
+    state.loadedFrom = resolvedPath;
+    state.fast = buildFastStateFromPack(pack);
+    return pack;
+  }
+
+  state.pack = PACK;
+  state.loadedFrom = MODULE_ORIGIN;
+  state.fast = createFastFromModule();
+  return state.pack;
 }
 
 function requirePack() {
@@ -141,7 +333,7 @@ export function getDexpack() {
 }
 
 export function getLoadedPath() {
-  return state.loadedFrom;
+  return state.loadedFrom ?? MODULE_ORIGIN;
 }
 
 export function getSpecies(query) {
@@ -151,7 +343,14 @@ export function getSpecies(query) {
   }
   const key = normalizeLookup(query);
   if (!key) return null;
-  const id = pack.byName[key] ?? pack.byAlias[key] ?? null;
+  const fast = state.fast;
+  let id = lookupInHashTable(key, fast?.nameTable);
+  if (id == null) {
+    id = lookupInHashTable(key, fast?.aliasTable);
+  }
+  if (id == null) {
+    id = pack.byName?.[key] ?? pack.byAlias?.[key] ?? null;
+  }
   return id ? pack.byId[String(id)] ?? null : null;
 }
 
@@ -213,9 +412,79 @@ export function suggestSpecies(prefix, limit = 25) {
   return results;
 }
 
+function getFastStatSlice(id) {
+  const fast = state.fast;
+  if (!fast || !fast.statIndex || !fast.baseStats) {
+    return null;
+  }
+  if (id < 0 || id >= fast.statIndex.length) {
+    return null;
+  }
+  const offset = fast.statIndex[id];
+  if (typeof offset !== "number" || offset < 0) {
+    return null;
+  }
+  return fast.baseStats.subarray(offset, offset + 6);
+}
+
+function getFastMatchupSlice(id) {
+  const fast = state.fast;
+  if (!fast || !fast.matchupIndex || !fast.matchups) {
+    return null;
+  }
+  if (id < 0 || id >= fast.matchupIndex.length) {
+    return null;
+  }
+  const offset = fast.matchupIndex[id];
+  if (typeof offset !== "number" || offset < 0) {
+    return null;
+  }
+  const length = fast.typeOrder?.length ?? 0;
+  if (!length) {
+    return null;
+  }
+  return fast.matchups.subarray(offset, offset + length);
+}
+
+export function getSpeciesBaseStats(id) {
+  const numericId = Number(id);
+  const slice = Number.isFinite(numericId) ? getFastStatSlice(numericId) : null;
+  if (slice) {
+    return {
+      hp: slice[0],
+      atk: slice[1],
+      def: slice[2],
+      spAtk: slice[3],
+      spDef: slice[4],
+      spe: slice[5],
+    };
+  }
+  const pack = requirePack();
+  const doc = pack.byId?.[String(id)];
+  return doc?.baseStats ? { ...doc.baseStats } : null;
+}
+
+export function getSpeciesMatchups(id) {
+  const numericId = Number(id);
+  const fast = state.fast;
+  const slice = Number.isFinite(numericId) ? getFastMatchupSlice(numericId) : null;
+  if (slice && fast?.typeOrder?.length) {
+    const result = {};
+    for (let index = 0; index < fast.typeOrder.length; index += 1) {
+      const type = fast.typeOrder[index];
+      result[type] = slice[index] ?? 1;
+    }
+    return result;
+  }
+  const pack = requirePack();
+  const doc = pack.byId?.[String(id)];
+  return doc?.matchups ? { ...doc.matchups } : {};
+}
+
 export function resetDexpack() {
-  state.pack = null;
-  state.loadedFrom = null;
+  state.pack = PACK;
+  state.loadedFrom = MODULE_ORIGIN;
+  state.fast = createFastFromModule();
 }
 
 export const dexpackState = state;
@@ -229,6 +498,8 @@ export default {
   getTypeChart,
   listSpecies,
   suggestSpecies,
+  getSpeciesBaseStats,
+  getSpeciesMatchups,
   resetDexpack,
   dexpackState,
 };

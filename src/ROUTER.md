@@ -13,7 +13,7 @@ Notes:
 - Background workers under `src/worker/**` now run standalone entries (event bus drain, cache refresh, data pipeline) via `runWorker`; ENABLE_CONTINUOUS_SWEEP keeps security sweeps dedicated to the Render worker.
 - `src/engine/**` introduces the durable event bus helpers and category-aware worker loop powering asynchronous tasks.
 - PBSL scaffold (`src/core/pbsl/**`) houses deterministic RNG, audit trails, and encounter generators with provenance metadata recorded in docs/PBSL.md.
-- Dexpack loader (`src/data/dexpack.js`) exposes the committed asset via lazy in-memory helpers shared across CommonJS and TypeScript surfaces.
+- Dexpack loader (`src/data/dexpack.js`) now boots from the generated ES module for zero-parse startup while keeping helpers shared across CommonJS and TypeScript surfaces.
 - Prisma client boot now prioritises Accelerate URLs surfaced from runtime config; CLI telemetry reports the active transport (direct vs accelerate-node).
 
 Subdomains:

@@ -71,7 +71,7 @@ Respond to threshold alerts by tailing Render logs (`worker.alert.*`) and, if ne
 - `npm run docs:update-ledger` to sync Prompt.md and ops/change-ledger.md with recent commits.
 
 ## Dexpack Build & Guard Workflow
-- `npm run data:dexpack` regenerates the committed `assets/dexpack.v1.json` and `assets/dexpack.v1.json.gz` pair using `scripts/build_dexpack.ts`. The builder sources the existing bootstrap datasets, enforces sorted keys, and only rewrites the artifacts when content changes.
-- Run `npm run guard:dexpack` (or `node --no-warnings --loader tsx scripts/build_dexpack.ts --check`) before merging; the guard rebuilds in verification mode and fails when committed assets drift.
+- `npm run data:dexpack` regenerates the committed `assets/dexpack.v1.json`, `assets/dexpack.v1.json.gz`, and `assets/dexpack.gen.mjs` artifacts using `scripts/build_dexpack.ts`. The builder sources the existing bootstrap datasets, emits typed-array vectors plus perfect-hash tables, and only rewrites the artifacts when content changes.
+- Run `npm run guard:dexpack` (or `node --no-warnings --loader tsx scripts/build_dexpack.ts --check`) before merging; the guard rebuilds in verification mode and fails when the JSON, gzip, or module outputs drift from the committed copies.
 - `.github/workflows/guard-dexpack.yml` executes the same verification on push/PR. Fix failures by running the build command locally, committing the refreshed assets, and re-running the guard until it passes.
 - Record rebuild intent and outcomes in Tasklist notes when regenerating the pack (include the species/move counts from the builder log) so operators can cross-check runtime behavior after deployment.

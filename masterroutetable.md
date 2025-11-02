@@ -130,7 +130,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - Notes: Keep outputs terse so developers can remediate failures quickly.
 - Latest: `guard_auto_sync.sh` provides a `--ci --dry-run` auto-sync check so missing secrets or dex trigger metadata fail before deployment.
 - Latest: `dev_prod_auto_sync.ts` now pushes webhook embeds (`ALERT_WEBHOOK_URL`) whenever `integrity.alert` fires after consolidation, suppressing duplicates until counts change.
-- Latest: `guard_dexpack.sh` runs the dexpack builder in verification mode (`npm run guard:dexpack`) so committed assets stay in sync.
+- Latest: `guard_dexpack.sh` runs the dexpack builder in verification mode (`npm run guard:dexpack`) so the committed JSON/gzip/module artifacts stay in sync.
 
 ### Operator Scripts (`scripts/ops/ROUTER.md`)
 - Purpose: PowerShell helpers such as `run_dex_migrations.ps1` for environment-specific deploy flows.
@@ -141,9 +141,9 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - Notes: Update alongside `data/bootstrap/**` and consumers when introducing breaking schema changes.
 
 ### Generated Assets (`assets/ROUTER.md`)
-- Purpose: Committed build outputs (dexpack JSON + gzip) consumed by the bot, engine, and guards.
-- Notes: Regenerate via `npm run data:dexpack`; verify consistency in CI with `npm run guard:dexpack` so artifacts stay deterministic.
-- Files: `assets/dexpack.v1.json`, `assets/dexpack.v1.json.gz`.
+- Purpose: Committed build outputs (dexpack JSON, gzip, and ES module) consumed by the bot, engine, and guards.
+- Notes: Regenerate via `npm run data:dexpack`; verify consistency in CI with `npm run guard:dexpack` so JSON/gzip/module artifacts stay deterministic and keep typed-array/perfect-hash tables aligned with runtime expectations.
+- Files: `assets/dexpack.v1.json`, `assets/dexpack.v1.json.gz`, `assets/dexpack.gen.mjs`.
 
 ### Service Cache Recipes (`src/services/cache/ROUTER.md`)
 - Purpose: Cache facade + namespace recipes powering battle, encounter, and quest flows.
@@ -202,7 +202,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - Render DATABASE_URL overrides prefer managed connection strings.
   - Entry now launches the security bot before the Discord client so DripTVDD alerts stay online.
   - Runtime config loader now forbids localhost URLs in production and exposes cache settings.
-  - Dexpack loader (`src/data/dexpack.js`) exposes the committed bundle via lazy helpers shared across CommonJS + TypeScript callers.
+  - Dexpack loader (`src/data/dexpack.js`) now boots from the generated ES module for zero-parse startup while keeping helpers shared across CommonJS + TypeScript callers.
   - Background workers now run via dedicated Render services; ENABLE_CONTINUOUS_SWEEP defers security sweeps to the security worker.
   - Prisma client boot now prioritises Accelerate URLs surfaced by shared config and reports the active transport (direct vs accelerate-node) in CLI telemetry.
 

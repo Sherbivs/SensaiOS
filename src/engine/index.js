@@ -1,4 +1,4 @@
-import { loadDexpack, getSpecies as lookupSpecies } from '../data/dexpack.js';
+import { getDexpack, getSpecies as lookupSpecies, getSpeciesBaseStats, getSpeciesMatchups } from '../data/dexpack.js';
 import { newPokemonRuntime, newBattleState, newAction } from './types.js';
 import { derivedStats } from './stats.js';
 import { resolveTurn } from './turn.js';
@@ -187,10 +187,12 @@ function cloneAbilities(list = []) {
 
 function hydrateDexEntry(doc) {
   const types = normaliseTypes(doc?.typing ?? []);
-  const baseMatchups = doc?.matchups ?? {};
+  const fastMatchups = getSpeciesMatchups(doc?.id);
+  const baseMatchups = fastMatchups && Object.keys(fastMatchups).length > 0 ? fastMatchups : doc?.matchups ?? {};
   const hasNonNeutral = Object.values(baseMatchups).some((value) => Number(value) !== 1);
   const matchups = hasNonNeutral ? { ...baseMatchups } : deriveMatchupsFromTypes(types);
-  const stats = toLegacyStats(doc?.baseStats ?? {});
+  const baseStatsSource = getSpeciesBaseStats(doc?.id) || doc?.baseStats || {};
+  const stats = toLegacyStats(baseStatsSource);
   const learnsets = doc?.learnsets
     ? {
         level: Array.isArray(doc.learnsets.level)
@@ -212,7 +214,7 @@ function hydrateDexEntry(doc) {
     abilities: cloneAbilities(doc?.abilities ?? []),
     stats,
     base: stats,
-    baseStats: { ...(doc?.baseStats ?? {}) },
+    baseStats: { ...baseStatsSource },
     matchups,
     learnsets,
     aliases: Array.isArray(doc?.aliases) ? [...doc.aliases] : [],
@@ -237,7 +239,7 @@ function normalizeMoveEntry(doc) {
 }
 
 function loadIndexes() {
-  const pack = loadDexpack();
+  const pack = getDexpack();
   const byId = new Map();
 
   for (const doc of Object.values(pack.byId)) {
