@@ -1,6 +1,6 @@
 # Database Systems Guide
 
-_Last updated: 2025-11-01T10:20:00Z (UTC) — Rev: 1.6_
+_Last updated: 2025-11-02T04:15:00Z (UTC) — Rev: 1.7_
 
 This guide captures everything engineers need to understand, operate, and extend Infinity Gauntlet’s PostgreSQL footprint across Render, Prisma Accelerate, and local development. Pair it with `DATA-SCHEMA.md` for entity specifics and `ops/DB_BOOTSTRAP.md` for runbook-grade procedures.
 
@@ -12,7 +12,7 @@ This guide captures everything engineers need to understand, operate, and extend
 | **Prisma Accelerate** | Prisma Data Platform | `DATABASE_ACCELERATE_URL` | High-availability read/write tier used for dex rollouts and helper testing. |
 | **Local** | Developer machine or Docker | `.env` (fallback), optional `DATABASE_EXTERNAL_URL` | Experimentation, feature development, smoke tests. |
 
-The shared config loader (`src/shared/config.ts`) normalizes these URLs, records the chosen source (see `databaseUrlSource`/`databaseConnectionMode`), and persists successful selections to `%USERPROFILE%\.infinity-gauntlet\db-connection.json`.
+The shared config loader (`src/shared/config.ts`) normalizes these URLs, records the chosen source (see `databaseUrlSource`/`databaseConnectionMode`), and persists successful selections to `%USERPROFILE%\.infinity-gauntlet\db-connection.json`. When no Accelerate (`prisma+`) endpoint is available, it now falls back to the best direct PostgreSQL URL (`DATABASE_DIRECT_URL`, `DATABASE_POOL_URL`, `DATABASE_URL`, etc.) instead of erroring, so local development and migration hosts can run without proxy credentials.
 
 ## 2. Connection Modes & Environment Variables
 

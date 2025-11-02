@@ -2,10 +2,10 @@
 Title: Shared Runtime & Utilities
 Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, and shared data access layers.
 Owned Globs: src/shared/**
-Last Updated (UTC): 2025-11-01T17:30:00Z
+Last Updated (UTC): 2025-11-02T04:12:00Z
 
 Notes:
-- `config.ts` now exposes `loadConfig()` that promotes Render's `DATABASE_INTERNAL_URL`, forbids localhost hosts in production, and surfaces cache/runtime settings.
+- `config.ts` now exposes `loadConfig()` that promotes Render's `DATABASE_INTERNAL_URL`, forbids localhost hosts in production, falls back to direct PostgreSQL URLs when Accelerate is unavailable, and surfaces cache/runtime settings.
 - `prisma.ts` initializes a singleton Prisma client, validates URLs early, and shares `$connect()` across importers.
 - `cache/memory.ts` holds the default TTL cache backend used by the bot and background worker until Redis wiring lands; see src/shared/cache/ROUTER.md for backend internals.
 - `outbox.ts` now wraps the event bus helpers so legacy drains can enqueue/claim messages while the new engine comes online.

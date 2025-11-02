@@ -136,29 +136,53 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     process.env.DATABASE_PUBLIC_URL?.trim() ??
     process.env.DATABASE_URL_EXTERNAL?.trim() ??
     "";
+  const directUrl = process.env.DATABASE_DIRECT_URL?.trim() ?? "";
+  const internalUrlPrimary = process.env.DATABASE_INTERNAL_URL?.trim() ?? "";
+  const internalUrlLegacy = process.env.DATABASE_URL_INTERNAL?.trim() ?? "";
 
   const preferExternal = mode === "external" || (mode === "auto" && nodeEnv !== "production");
 
   const isAccelerateUrl = (value: string): boolean => /^prisma\+/i.test(value);
+  const isPostgresUrl = (value: string): boolean => /^postgres(?:ql)?:\/\//i.test(value);
 
   const seen = new Set<string>();
   type CandidateBucket = Array<{ value: string; source: DatabaseUrlSource; fallback: boolean }>;
   const accelerateCandidates: CandidateBucket = [];
+  const directCandidates: CandidateBucket = [];
+
+  const makeKey = (value: string, source: DatabaseUrlSource): string => `${source}::${value}`;
 
   const addAccelerateCandidate = (value: string, source: DatabaseUrlSource): void => {
     if (!value) {
       return;
     }
-    if (seen.has(value)) {
+    if (!isAccelerateUrl(value)) {
       return;
     }
-    seen.add(value);
-    const usesAccelerate = isAccelerateUrl(value);
-    if (!usesAccelerate) {
+    const key = makeKey(value, "accelerate");
+    if (seen.has(key)) {
       return;
     }
-    const normalizedSource: DatabaseUrlSource = "accelerate";
-    accelerateCandidates.push({ value, source: normalizedSource, fallback: false });
+    seen.add(key);
+    accelerateCandidates.push({ value, source: "accelerate", fallback: false });
+  };
+
+  const addDirectCandidate = (value: string, source: DatabaseUrlSource): void => {
+    if (!value) {
+      return;
+    }
+    if (isAccelerateUrl(value)) {
+      return;
+    }
+    if (!isPostgresUrl(value)) {
+      return;
+    }
+    const key = makeKey(value, source);
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    directCandidates.push({ value, source, fallback: false });
   };
 
   // Prioritize pooled Accelerate-style URLs by default.
@@ -168,19 +192,44 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
   addAccelerateCandidate(accelerateUrl, "accelerate");
 
   // If the env URL itself is already Accelerate, include it in the primary list.
-  if (envUrl && isAccelerateUrl(envUrl)) {
-    addAccelerateCandidate(envUrl, "env");
-  }
+  addAccelerateCandidate(envUrl, "env");
 
-  if (externalUrl && isAccelerateUrl(externalUrl)) {
+  // External overrides can point at Accelerate as well.
+  if (externalUrl) {
     addAccelerateCandidate(externalUrl, preferExternal ? "external" : "env");
   }
 
-  const orderedCandidates = [...accelerateCandidates];
+  // Build direct/pooled PostgreSQL fallbacks in priority order.
+  if (preferExternal) {
+    addDirectCandidate(envUrl, "env");
+    addDirectCandidate(externalUrl, "external");
+    addDirectCandidate(poolUrl, "pool");
+    addDirectCandidate(directUrl, "direct");
+    addDirectCandidate(internalUrlPrimary, "internal");
+    addDirectCandidate(internalUrlLegacy, "internal");
+  } else {
+    addDirectCandidate(poolUrl, "pool");
+    addDirectCandidate(internalUrlPrimary, "internal");
+    addDirectCandidate(internalUrlLegacy, "internal");
+    addDirectCandidate(directUrl, "direct");
+    addDirectCandidate(envUrl, "env");
+    addDirectCandidate(externalUrl, "external");
+  }
+
+  let orderedCandidates: CandidateBucket = [];
+
+  if (accelerateCandidates.length > 0) {
+    orderedCandidates = [
+      ...accelerateCandidates,
+      ...directCandidates.map((candidate) => ({ ...candidate, fallback: true })),
+    ];
+  } else {
+    orderedCandidates = [...directCandidates];
+  }
 
   if (!orderedCandidates.length) {
     throw new Error(
-      "No Accelerate-compatible database URL found. Provide a prisma+ connection string via DATABASE_POOL_URL or DATABASE_ACCELERATE_URL."
+      "No database URL found. Provide a Prisma Accelerate prisma+ URL or a direct PostgreSQL connection string via DATABASE_POOL_URL, DATABASE_DIRECT_URL, or DATABASE_URL."
     );
   }
 
@@ -297,7 +346,7 @@ export function recordDatabaseConnectionSuccess(source: DatabaseUrlSource): void
   process.env.DATABASE_CONNECTION_PREFERENCE_SOURCE = source;
   if (source === "internal" || source === "pool" || source === "direct") {
     process.env.DATABASE_CONNECTION_MODE = "internal";
-  } else if (source === "accelerate") {
+  } else if (source === "accelerate" || source === "external" || source === "env") {
     process.env.DATABASE_CONNECTION_MODE = "external";
   }
   if (cachedConfig) {
