@@ -1,13 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-03T05:32:00Z
-Revision: 1.90
+Timestamp (UTC): 2025-11-03T06:05:00Z
+Revision: 1.91
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Taught `npm run ops:simulate-flag` to treat `--dry-run` as a no-op for config apply/webhooks by printing payload previews instead of sending requests.
-- Rehearsed the 1%→100% rollout ladder with `--dry-run --announce --apply`, confirming payloads and logging staging results in Tasklist + docs.
-- Archived the 2025-11-03 prod/dev dumps to `backups/archive/2025-11-03/` and documented retention/ledger updates for the cutover.
-- Added the T-30 release communications template and ops runbook guidance so the live window has pre-approved messaging, monitoring, and rollback triggers.
-- Published the finalized #ops-release copy (initial + follow-up) and referenced it from the ops runbook so on-call can copy/paste and log the wording after execution.
+- Expanded `docs/operations.md` with a minute-by-minute DEX v2 cutover timeline, role roster, go/no-go checklist, and evidence template for the Nov 5 window.
+- Linked the operations timeline from `docs/dex-v2-design.md` so engineers can pivot between the design blueprint and the execution runbook.
+- Logged the new playbook content in `ops/change-ledger.md` and appended Tasklist notes under T13.DEX.V2_PROD_CUTOVER to record the readiness milestone.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -63,11 +61,11 @@ Revision: 1.90
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Published the copy-ready #ops-release messages and linked them from the ops runbook for the DEX v2 production window.
+Change: Documented the DEX v2 production night timeline (roles, go/no-go, evidence template) and cross-linked it from the design blueprint ahead of the Nov 5 window.
 TasklistDiff: true
 Tests: Not run (documentation-only update).
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - Execute live config apply + comms during the 2025-11-05 window.
+NEXT: T13.DEX.V2_PROD_CUTOVER - Execute live config apply + comms during the 2025-11-05 window using the new operations timeline.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

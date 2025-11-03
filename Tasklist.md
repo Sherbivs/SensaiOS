@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-03T05:16:00Z
-Revision: 2.46
+Last Updated (UTC): 2025-11-03T06:05:00Z
+Revision: 2.47
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1183,6 +1183,7 @@ Each task has:
     2025-11-03T05:16Z: Rehearsed config-service apply + Ops webhook announcements via `npm run ops:simulate-flag -- ... --dry-run --announce --apply`, capturing payload previews for each cohort and verifying no live requests were made; archived the verified dumps under `backups/archive/2025-11-03/` for ≥14-day retention and cleared the working directory.
   2025-11-03T05:24Z: Added T-30 release communications template plus ops runbook callouts (monitoring, rollback triggers) so the 2025-11-05 window has pre-approved messaging; approvals to be re-confirmed day-of before posting.
   2025-11-03T05:32Z: Finalized copy-paste ready #ops-release message and post-ramp follow-up text in docs/dex-v2-design.md and annotated docs/operations.md; ledger instruction added to capture the exact wording after execution.
+    2025-11-03T06:05Z: Published minute-by-minute timeline, roles, go/no-go checklist, and evidence template in docs/operations.md; design doc now cross-links the operations view for the Nov 5 window.
 
 ## Phase 14 — Live Game Cache
 

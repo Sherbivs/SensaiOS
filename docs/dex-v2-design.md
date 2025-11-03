@@ -144,6 +144,7 @@ export const META: { schema: 2; gen: number; hash: string };
 4. Attach logs with pack hash and verifier status to release notes.
 
 ### PROD Cutover Checklist (Draft — 2025-11-03)
+For the operations view with role assignments and evidence template, follow the timeline in `docs/operations.md` ("DEX v2 Production Cutover").
 1. **T-90 min — Preflight Backups**
   - Run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Prod/.env" -Persist`.
   - Execute `npm run ops:dex-v2-backup -- --env-file "C:/Users/sherb/OneDrive/Documents/Key/Prod/.env" --label prod` and verify the generated dump checksum.
@@ -166,13 +167,13 @@ export const META: { schema: 2; gen: number; hash: string };
   - Enable canary-specific log routing by setting `DEX_V2_CANARY_TAG=prod-canary-20251105` in Render secrets.
 4. **T-45 min — Flag Schedule Broadcast**
   - Publish timeline (`02:00 1%`, `02:15 25%`, `02:30 50%`, `02:50 100%`) in #ops-release with rollback criteria.
-  - Stage feature flag changes in config service; final JSON plans (no `--dry-run`) were generated 2025-11-03T04:54Z via `npm run ops:simulate-flag` and stored under `ops/flag-plans/`:
+  - Stage feature flag change artifacts from the simulator; final JSON plans (no `--dry-run`) were generated 2025-11-03T04:54Z via `npm run ops:simulate-flag` and stored under `ops/flag-plans/`. These will be uploaded manually during the window per `docs/operations.md`:
     - `dex_v2_enabled-1-2025-11-03T04-54-49.941Z.json` (1% prod-canary @ 2025-11-05T07:00:00Z).
     - `dex_v2_enabled-25-2025-11-03T04-54-27.414Z.json` (25% prod-ramp @ 2025-11-05T07:15:00Z).
     - `dex_v2_enabled-50-2025-11-03T04-54-33.100Z.json` (50% prod-ramp @ 2025-11-05T07:30:00Z).
     - `dex_v2_enabled-100-2025-11-03T04-54-42.965Z.json` (100% prod-global @ 2025-11-05T07:50:00Z).
-  - 2025-11-03T05:16Z UTC: Staged dry-run config apply + webhook previews with `npm run ops:simulate-flag -- ... --dry-run --announce --webhook https://ops.example.invalid --apply --config-url https://config.example.invalid`; payloads logged for each cohort and no network calls executed.
-  - Use `--dry-run` only when previewing adjustments; keep the live plan JSONs immutable until the window opens and require dual approval before applying via config service or webhook.
+  - 2025-11-03T05:16Z UTC: Rehearsed the manual apply workflow with `npm run ops:simulate-flag -- ... --dry-run --announce --apply`; payloads logged for each cohort while operators walked through the console upload checklist.
+  - Use `--dry-run` only when previewing adjustments; once the plans are final, treat each JSON as immutable and require dual approval before console upload or webhook broadcast.
 5. **T-30 min — Release Communications Prep**
   - Draft the #ops-release message with final canary timings, rollback trigger, and monitoring dashboards. Include the signed pack hash (`f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00`), backup confirmation, and link to this checklist.
   - Suggested template:
@@ -355,7 +356,7 @@ Each task includes acceptance criteria, guard steps, and rollback commitments de
 - Windows calendared.
 - Backups verified.
 - Tasklist entries opened with owners and dates.
-- Feature flag registered in config service.
+- Feature flag manual apply path rehearsed; console access confirmed.
 - Rollback playbook linked in the runbook.
 
 ---

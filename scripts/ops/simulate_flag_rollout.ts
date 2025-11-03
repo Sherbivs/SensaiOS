@@ -234,11 +234,13 @@ async function main() {
   if (options.apply) {
     const target = options.configUrl || process.env.FLAG_CONFIG_URL;
     if (!target) {
-      throw new Error("--apply was set but no config service URL was provided (use --config-url or FLAG_CONFIG_URL).");
+      console.warn("--apply requested without a config service URL (FLAG_CONFIG_URL or --config-url). Holding plan for manual execution.");
+      console.warn(`Manual apply reminder: upload ${outputPath} to the configuration console or run the approved request via the on-call procedure.`);
+    } else {
+      console.log(`Sending plan to ${target}`);
+      await applyPlan(plan, target);
+      console.log("Config service acknowledged feature flag plan.");
     }
-    console.log(`Sending plan to ${target}`);
-    await applyPlan(plan, target);
-    console.log("Config service acknowledged feature flag plan.");
   }
 
   if (options.announce) {

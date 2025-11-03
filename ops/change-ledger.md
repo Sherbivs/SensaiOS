@@ -11,6 +11,7 @@
 - Dry-run apply rehearsal logged 2025-11-03T05:16Z via `npm run ops:simulate-flag -- … --dry-run --announce --apply`, with payload previews stored in terminal logs and no outbound calls; prod/dev dumps archived under `backups/archive/2025-11-03/` for ≥14-day retention.
 - Release communications template captured in docs/dex-v2-design.md (T-30 step) and mirrored in docs/operations.md alongside monitoring/rollback guidance so the live window has pre-approved messaging and dashboards.
 - Final pre-approved #ops-release message and 100% follow-up text added to docs/dex-v2-design.md; on-call can copy/paste directly, with instructions in docs/operations.md to log actual wording after execution.
+- Built a minute-by-minute timeline, role roster, go/no-go checks, and evidence capture template in docs/operations.md; cross-linked from docs/dex-v2-design.md so on-call has a single operations view for the Nov 5 window.
 
 
 **Generated:** 2025-11-01T21:12:55Z  |  **Branch:** main

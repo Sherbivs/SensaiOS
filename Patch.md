@@ -99,6 +99,12 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 # _Patch Clipboard Scratch Area (leave empty when not in use)_
 # 
 # <<<PATCHSET START>>>
+# Files: scripts/ops/simulate_flag_rollout.ts, docs/operations.md, docs/dex-v2-design.md, ops/change-ledger.md, Tasklist.md, Prompt.md, ops/NEXT.yaml
+# Goal: Remove the hard dependency on --config-url/FLAG_CONFIG_URL for flag applies and document the manual apply workflow.
+# Steps:
+# - Update scripts/ops/simulate_flag_rollout.ts so --apply without a URL logs manual instructions instead of throwing.
+# - Adjust docs/operations.md and docs/dex-v2-design.md to reference the manual apply path (plan output + manual config dashboard) instead of --config-url.
+# - Record the change in ops/change-ledger.md, append Tasklist note for T13.DEX.V2_PROD_CUTOVER, and refresh Prompt/NEXT metadata.
 # <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>
