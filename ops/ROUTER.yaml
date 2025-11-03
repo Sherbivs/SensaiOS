@@ -1,7 +1,7 @@
 # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-11-02T17:55:00Z
+updated_utc: 2025-11-03T00:15:00Z
 
 meta_files:
   - Patch.md
@@ -132,6 +132,7 @@ categories:
     - src/core/pbsl/battle/ROUTER.md
     - src/core/pbsl/data/ROUTER.md
     - src/core/pbsl/encounter/ROUTER.md
+    - src/dex/ROUTER.md
   - src/data/ROUTER.md
     - src/data_pipeline/ROUTER.md
     - src/data_pipeline/schema/ROUTER.md

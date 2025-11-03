@@ -2,12 +2,13 @@
 Title: Prisma Schema & Migrations
 Purpose: Database schema definition and migration history.
 Owned Globs: prisma/**
-Last Updated (UTC): 2025-11-01T17:30:00Z
+Last Updated (UTC): 2025-11-02T18:29:56Z
 
 Notes:
 - `schema.prisma` defines the Accelerate-first data model shared by the bot, workers, and maintenance scripts.
 - The `migrations/` folder now carries its own router outlining timestamped bundles and the committed `migration_lock.toml` state.
 - Keep migration folders chronological and document rollout evidence in Tasklist notes or ops/DB_BOOTSTRAP.md.
+- 2025-11-02: Added tenants, trainers, dex pack registry, inventories, and audit log foundations to support the DEX v2/DB bootstrap blueprint.
 
 Key Files:
 - schema.prisma - Canonical Prisma schema loaded by runtime/config helpers.

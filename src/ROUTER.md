@@ -2,10 +2,12 @@
 Title: Application Source
 Purpose: Root app source tree; see sub-routers for domains.
 Owned Globs: src/**
-Last Updated (UTC): 2025-11-02T14:05:00Z
+Last Updated (UTC): 2025-11-03T00:15:00Z
 
 Notes:
 - 2025-11-02: Battle engine and Dex API now hydrate from `src/data/dexpack.js` for O(1) lookups instead of ad-hoc JSON parsing.
+- 2025-11-02: `src/dex/**` models the DEX v2 binary runtime; `metrics.js` logs load/fallback/lookup events feeding the new parity and bench suites.
+- 2025-11-03: Alias coverage invariant added—parity spec iterates every v1 alias while guard_dexpack.sh checks both v1 JSON/module and v2 binary outputs.
 - Battle persistence now centralizes result storage + arena/winner messaging.
 - Updated shared config to fall back to Render-provided database env mappings.
 - Daily quest claim flow adds handler, cooldown wiring, and tests under src/bot and src/commands.
@@ -22,6 +24,7 @@ Subdomains:
 - src/cache - Legacy cache publishers for PokeAPI mirrors
 - src/commands - CommonJS command handlers retained for backwards compatibility
 - src/config - Legacy environment shim (CommonJS callers)
+- src/dex - DEX v2 binary runtime loaders and metrics helpers
 - src/core - game engines (battle, encounter, data)
 - src/data - Dexpack loader + helper facade for committed assets
 - src/data_pipeline - reference data ingestion and schema validation

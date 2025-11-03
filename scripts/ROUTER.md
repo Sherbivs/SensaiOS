@@ -2,7 +2,7 @@
 Title: Tooling
 Purpose: Guard scripts and automation entrypoints.
 Owned Globs: scripts/**
-Last Updated (UTC): 2025-02-26T00:00:00Z
+Last Updated (UTC): 2025-11-03T01:10:00Z
 
 Notes:
 - 2025-02-26: Added dexpack guard documentation and touchmap pointer; see guards/guard_dexpack.sh.
@@ -28,6 +28,7 @@ Notes:
 - 2025-11-02: Introduced `guard_auto_sync.sh` (`npm run guard:auto-sync`) to verify env secrets and the dex trigger before automation runs.
 - 2025-11-02: Added `build_dexpack.ts` (`npm run data:dexpack`) and guard wrapper `guards/guard_dexpack.sh` so committed dexpack assets stay deterministic across branches.
 - 2025-11-02: Added `build-dexpack.ts` (`npm run data:dexpack:v2`) to emit the binary slab/manifest for the DEX v2 pipeline alongside the legacy generator.
+- 2025-11-03: Added DEX v2 cutover helpers (`npm run ops:dex-v2-backup`, `npm run ops:simulate-flag`, `npm run ops:dex-v2-alert-dry-run`) for backup, flag scheduling, and alert rehearsals ahead of the PROD canary.
 
 Subrouters:
 - scripts/dex/ROUTER.md — Data seeding and cache warmup entrypoints.

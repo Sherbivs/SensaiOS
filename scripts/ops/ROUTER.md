@@ -2,10 +2,13 @@
 Title: Ops Scripts
 Purpose: Operator helpers that wrap multi-step deployment or migration flows.
 Owned Globs: scripts/ops/**
-Last Updated (UTC): 2025-11-01T17:30:00Z
+Last Updated (UTC): 2025-11-03T01:10:00Z
 
 Notes:
 - `run_dex_migrations.ps1` switches IG_ENV_FILE to the Accelerate secrets set, runs staged migrations, then logs remediation hints.
+- `dex_v2_backup.ts` wraps `pg_dump -Fc` with env-file loading, output naming, and dry-run support (`npm run ops:dex-v2-backup`).
+- `simulate_flag_rollout.ts` emits JSON payloads for the canary ladder, optional webhook announcements, and config-service submissions (`npm run ops:simulate-flag`).
+- `dex_v2_alert_dry_run.ts` dispatches Grafana-style webhook previews to validate canary alert routing (`npm run ops:dex-v2-alert-dry-run`).
 - Extend this directory with additional operator entrypoints rather than crowding scripts/ root; document new flows in ops/ runbooks.
 
 Linked Routers:

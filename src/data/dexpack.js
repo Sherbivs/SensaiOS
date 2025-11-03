@@ -16,6 +16,7 @@ import {
   SPECIES_MATCHUPS,
 } from "../../assets/dexpack.gen.mjs";
 import { loadDexV2Runtime, resetDexV2Runtime } from "../dex/v2/loader.js";
+import { recordDexLoad, recordDexFallback, recordDexLookup, recordDexLookupMiss } from "../dex/metrics.js";
 import { DEX_V2_ENABLED } from "../config/env.js";
 
 /**
@@ -337,6 +338,12 @@ function loadDexpackFromModule() {
   state.loadedFrom = MODULE_ORIGIN;
   assignFastState(createFastFromModule());
   state.runtime = RUNTIME_SOURCE.MODULE;
+  recordDexLoad({
+    runtime: RUNTIME_SOURCE.MODULE,
+    source: "module",
+    counts: PACK?.meta?.counts,
+    path: MODULE_ORIGIN,
+  });
   return state.pack;
 }
 
@@ -347,6 +354,12 @@ function loadDexpackFromCustom(customPath) {
   state.loadedFrom = resolvedPath;
   assignFastState(buildFastStateFromPack(pack));
   state.runtime = RUNTIME_SOURCE.CUSTOM;
+  recordDexLoad({
+    runtime: RUNTIME_SOURCE.CUSTOM,
+    source: "custom",
+    counts: pack?.meta?.counts,
+    path: resolvedPath,
+  });
   return pack;
 }
 
@@ -366,6 +379,13 @@ function loadDexpackFromV2(options = {}) {
   });
   state.runtime = RUNTIME_SOURCE.V2;
   v2RuntimeFailed = false;
+  recordDexLoad({
+    runtime: RUNTIME_SOURCE.V2,
+    source: "v2",
+    counts: runtime.pack?.meta?.counts,
+    manifestHash: runtime.manifest?.hash,
+    path: state.loadedFrom,
+  });
   return state.pack;
 }
 
@@ -381,6 +401,7 @@ export function loadDexpack(customPath) {
     try {
       return loadDexpackFromV2({ rootDir: process.cwd() });
     } catch (error) {
+      recordDexFallback({ runtime: RUNTIME_SOURCE.V2, reason: "load_error", error });
       if (!v2RuntimeFailed) {
         console.warn(
           `[dexpack] failed to load dexpack.v2 runtime, falling back to v1: ${error instanceof Error ? error.message : error}`,
@@ -424,20 +445,61 @@ export function getLoadedPath() {
 
 export function getSpecies(query) {
   const pack = requirePack();
+  const runtimeTag = state.runtime ?? RUNTIME_SOURCE.MODULE;
+  const startedAt = Date.now();
   if (typeof query === "number" && Number.isFinite(query)) {
-    return pack.byId[String(query)] ?? null;
+    const doc = pack.byId[String(query)] ?? null;
+    recordDexLookup({ runtime: runtimeTag, query, resolution: "id", found: Boolean(doc), durationMs: Date.now() - startedAt });
+    return doc;
   }
   const key = normalizeLookup(query);
-  if (!key) return null;
+  if (!key) {
+    recordDexLookupMiss({ runtime: runtimeTag, query, attemptedResolutions: ["empty"] });
+    recordDexLookup({ runtime: runtimeTag, query, resolution: "empty", found: false, durationMs: Date.now() - startedAt });
+    return null;
+  }
   const fast = state.fast;
-  let id = lookupInHashTable(key, fast?.nameTable);
-  if (id == null) {
-    id = lookupInHashTable(key, fast?.aliasTable);
+  const attempted = [];
+  let resolution = "unknown";
+  let id = null;
+
+  if (fast?.nameTable) {
+    attempted.push("name-hash");
+    const lookupId = lookupInHashTable(key, fast.nameTable);
+    if (lookupId != null) {
+      id = lookupId;
+      resolution = "name-hash";
+    }
   }
-  if (id == null) {
-    id = pack.byName?.[key] ?? pack.byAlias?.[key] ?? null;
+
+  if (id == null && fast?.aliasTable) {
+    attempted.push("alias-hash");
+    const aliasId = lookupInHashTable(key, fast.aliasTable);
+    if (aliasId != null) {
+      id = aliasId;
+      resolution = "alias-hash";
+    }
   }
-  return id ? pack.byId[String(id)] ?? null : null;
+
+  if (id == null) {
+    attempted.push("maps");
+    const mapId = pack.byName?.[key] ?? pack.byAlias?.[key] ?? null;
+    if (mapId != null) {
+      id = mapId;
+      resolution = "maps";
+    }
+  }
+
+  const doc = id ? pack.byId[String(id)] ?? null : null;
+  const durationMs = Date.now() - startedAt;
+  if (doc) {
+    recordDexLookup({ runtime: runtimeTag, query: key, resolution, found: true, durationMs });
+    return doc;
+  }
+
+  recordDexLookupMiss({ runtime: runtimeTag, query: key, attemptedResolutions: attempted });
+  recordDexLookup({ runtime: runtimeTag, query: key, resolution, found: false, durationMs });
+  return null;
 }
 
 export function getMove(name) {

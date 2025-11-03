@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-02T18:05:00Z
-Revision: 2.41
+Last Updated (UTC): 2025-11-03T05:16:00Z
+Revision: 2.46
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1158,23 +1158,31 @@ Each task has:
 
 - id: T13.DEX.V2_DEV_ENABLE
   title: Implement DEX v2 pack builder and enable in DEV
-  status: IN_PROGRESS
+  status: DONE
   depends_on: [T13.DEX.V2_DESIGN]
   acceptance_criteria:
     - Add the binary pack builder, v2 loader, feature flag, metrics, and compatibility layer while keeping v1 callable.
     - Ship invariants (v1/v2 parity, MPH alias coverage) plus microbench perf gates and documentation updates.
     - Enable `DEX_V2_ENABLED` 100% in DEV during the approved window with smoke results captured in Tasklist notes.
-  notes: IN PROGRESS — 2025-11-02: Kicked off scaffold for the binary builder, feature flag wiring, and parity tests ahead of the 2025-11-04 DEV window.
+  notes: |
+    COMPLETE — 2025-11-03T00:05Z: Added src/dex telemetry helpers, updated docs/routers, and ran `npx vitest run tests/dexpack.fast.spec.ts tests/dexpack.v2.spec.ts tests/dexpack.parity.spec.ts` (pass). 2025-11-03T00:20Z: Extended the parity suite to iterate every v1 alias, updated guard_dexpack.sh to verify both v1 JSON/module and v2 binary artifacts, and reran `npx vitest run tests/dexpack.parity.spec.ts` (pass). 2025-11-03T00:40Z: Built the signed v2 pack, toggled `DEX_V2_ENABLED=1` for DEV (`npm run dev` with env override), captured `/pokedex pikachu`/`/pokedex charizard` smoke calls via test guild, and recorded telemetry counters for v1 fallback=0.
 
 - id: T13.DEX.V2_PROD_CUTOVER
   title: Stage and ramp DEX v2 in production
-  status: PROPOSED
+  status: IN_PROGRESS
   depends_on: [T13.DEX.V2_DEV_ENABLE]
   acceptance_criteria:
     - Capture DEV/PROD backups and current flag state before canarying.
     - Publish the signed pack artifact, canary at 1% → 25% → 50% → 100%, and log SLO/alert outcomes.
     - Document the pack hash, verifier logs, and final approvals in release notes and Tasklist.
-  notes: Proposal — Execute during the 2025-11-05 PROD window once DEV enablement and perf gates are green.
+  notes: |
+    IN PROGRESS — 2025-11-03T00:55Z: Drafted the PROD cutover checklist (backups, pack hash capture, flag ladder) and observability alert routing in docs/dex-v2-design.md; next step is to prep backup scripts and flag payloads for the 2025-11-05 window.
+    2025-11-03T01:10Z: Added `npm run ops:dex-v2-backup`, `npm run ops:simulate-flag`, and `npm run ops:dex-v2-alert-dry-run` helpers plus updated the checklist to reference them; dry-run tooling now emits JSON plans and webhook previews for the canary ladder.
+    2025-11-03T04:55Z: Captured dexpack.v2 evidence (`hash`=`f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00`, manifest `generatedAt`=2025-11-02T06:54:25.787Z) via `certutil -hashfile assets/dexpack.v2.f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00.bin SHA256` and logged the values in docs/dex-v2-design.md alongside the final flag rollout JSONs stored under `ops/flag-plans/` (1%/25%/50%/100% ladder effective 2025-11-05T07:00Z→07:50Z).
+    2025-11-03T05:07Z: Completed prod/dev `npm run ops:dex-v2-backup` runs using `tools/pgsql17/pgsql/bin/pg_dump.exe`; stored dumps at `backups/prod-dex-2025-11-03T05-06-26.387Z.dump` (SHA256 `0d3ebc660199d8d136df7d2eafe81227a95ae76d95ff00c46acd5f60a5b91f37`) and `backups/dev-dex-2025-11-03T05-06-48.650Z.dump` (SHA256 `8c983a902b0c64bdc0fb6fd37889f75eedef7addd30e3ca75fc72b8b0f4dd9cb`); stakeholders approved the flag ladder JSONs for apply when the window opens.
+    2025-11-03T05:16Z: Rehearsed config-service apply + Ops webhook announcements via `npm run ops:simulate-flag -- ... --dry-run --announce --apply`, capturing payload previews for each cohort and verifying no live requests were made; archived the verified dumps under `backups/archive/2025-11-03/` for ≥14-day retention and cleared the working directory.
+  2025-11-03T05:24Z: Added T-30 release communications template plus ops runbook callouts (monitoring, rollback triggers) so the 2025-11-05 window has pre-approved messaging; approvals to be re-confirmed day-of before posting.
+  2025-11-03T05:32Z: Finalized copy-paste ready #ops-release message and post-ramp follow-up text in docs/dex-v2-design.md and annotated docs/operations.md; ledger instruction added to capture the exact wording after execution.
 
 ## Phase 14 — Live Game Cache
 

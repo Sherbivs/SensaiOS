@@ -79,7 +79,7 @@ export const META: { schema: 2; gen: number; hash: string };
 - Nodes share the same mapped file (leveraging the OS page cache). Warm restarts are near-zero cost.
 - Canary routing via `DEX_V2_ENABLED`; ramp 1% → 100% in controlled stages.
 - SLO for DEX calls: p50 ≤ 50 µs, p95 ≤ 200 µs, p99 ≤ 500 µs on c5.large-class nodes.
-- Observability: lookup counters, MPH misses, fallback counts, latency histograms, boot-time pack hash logs.
+- Observability: structured `dex.metrics.*` logs (load, lookup, miss, fallback), MPH misses, latency histograms, and boot-time pack hash verification.
 
 ### Security
 - Ed25519 signature verified at boot; public key lives in the repo, private key in CI secrets.
@@ -104,8 +104,9 @@ export const META: { schema: 2; gen: number; hash: string };
 
 ## 8. Test Plan
 - **Unit:** golden samples for 50 species and 200 moves; v1 ≡ v2.
+- **Parity:** `vitest run tests/dexpack.parity.spec.ts` compares v1/v2 lookup, stats, move metadata, and iterates every v1 alias to ensure the v2 hash tables resolve the same ids.
 - **Property:** random species×moves type/STAB correctness.
-- **Performance:** microbench in CI; gate on p95 ≤ 200 µs.
+- **Performance:** microbench in CI; gate on p95 ≤ 200 µs (`DEX_V2_BENCH=1 npm run bench:dex`).
 - **Smoke:** bot E2E across `/pokedex`, capture, and battle prechecks in a seeded test guild.
 
 ---
@@ -113,11 +114,14 @@ export const META: { schema: 2; gen: number; hash: string };
 ## 9. Repository Impact (New Paths)
 ```
 /scripts/build-dexpack.ts            # ETL + codegen + pack/sign
-/src/dex/v2/loader.ts                # mmap + views + verifier
-/src/dex/v2/accessors.ts             # generated (git-ignored, CI-built)
+/src/dex/metrics.js                  # structured telemetry for load/lookup/fallback
+/src/dex/v2/loader.js                # mmap + views + verifier
+/src/dex/v2/accessors.js             # generated (git-ignored, CI-built)
 /src/flags/featureFlags.ts           # add DEX_V2_ENABLED
-/src/router/commands/pokedex.ts      # use compatibility layer
-/config/observability/dex.metrics.ts # counters and histograms
+/tests/dexpack.parity.spec.ts        # parity guard for v1 vs v2 lookups
+/tests/dexpack.microbench.ts         # opt-in vitest bench harness (DEX_V2_BENCH=1 npm run bench:dex)
+/scripts/guards/guard_dexpack.sh     # verifies both v1 JSON/module assets and the v2 binary/manifest via --check
+/package.json                        # adds bench:dex script for the microbench harness
 ```
 
 ---
@@ -138,6 +142,65 @@ export const META: { schema: 2; gen: number; hash: string };
 2. If necessary, redeploy the last-known-good image.
 3. Restore previous flag snapshot (DB restore not required for DEX).
 4. Attach logs with pack hash and verifier status to release notes.
+
+### PROD Cutover Checklist (Draft — 2025-11-03)
+1. **T-90 min — Preflight Backups**
+  - Run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Prod/.env" -Persist`.
+  - Execute `npm run ops:dex-v2-backup -- --env-file "C:/Users/sherb/OneDrive/Documents/Key/Prod/.env" --label prod` and verify the generated dump checksum.
+  - Repeat for DEV (`--env-file "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env" --label dev`) and confirm both dumps register in the backup ledger.
+  - 2025-11-03T05:06Z UTC: Prod backup stored at `backups/prod-dex-2025-11-03T05-06-26.387Z.dump` (SHA256 `0d3ebc660199d8d136df7d2eafe81227a95ae76d95ff00c46acd5f60a5b91f37`) via `npm run ops:dex-v2-backup -- --env-file ".../Key/Prod/.env" --label prod --output-dir backups --pg-dump-path tools/pgsql17/pgsql/bin/pg_dump.exe`.
+  - 2025-11-03T05:06Z UTC: DEV backup stored at `backups/dev-dex-2025-11-03T05-06-48.650Z.dump` (SHA256 `8c983a902b0c64bdc0fb6fd37889f75eedef7addd30e3ca75fc72b8b0f4dd9cb`) using the same helper with `--env-file ".../Key/Dev/.env"`.
+  - Archived both dumps to `backups/archive/2025-11-03/` for ≥14-day retention and cleared the working directory once verification completed.
+2. **T-75 min — Pack Hash Capture**
+  - Run `npm run data:dexpack -- --manifest out/dexpack.v2.manifest.json` in CI container.
+  - Record `manifest.hash`, signing public key fingerprint, and artifact S3 path in Tasklist notes and `ops/change-ledger.md`.
+  - Copy the latest v1 pack manifest/hash to `ops/archive/dexpack/` for rollback verification.
+  - Evidence captured 2025-11-03T04:54Z UTC:
+    - Manifest: `assets/dexpack.v2.json` (`generatedAt` 2025-11-02T06:54:25.787Z, `counts.species` 23, `counts.moves` 18).
+    - Binary: `assets/dexpack.v2.f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00.bin` (SHA256 `f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00`, verified via `certutil -hashfile assets/dexpack.v2.f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00.bin SHA256`).
+    - Accessors: `src/dex/v2/accessors.js` exports the same hash/counts to guard runtime verification.
+3. **T-60 min — Observability Hooks**
+  - Ensure Render alert webhook `ALERT_WEBHOOK_URL` points to the Ops Discord channel.
+  - Deploy temporary Grafana alert rule: `dex.metrics.lookup_p99 > 0.0005` (500 µs) for 5 minutes.
+  - Run `npm run ops:dex-v2-alert-dry-run -- --dry-run` to review the payload, then rerun without `--dry-run` (or pass `--webhook <override>`) to confirm the Ops channel receives the canary notification.
+  - Enable canary-specific log routing by setting `DEX_V2_CANARY_TAG=prod-canary-20251105` in Render secrets.
+4. **T-45 min — Flag Schedule Broadcast**
+  - Publish timeline (`02:00 1%`, `02:15 25%`, `02:30 50%`, `02:50 100%`) in #ops-release with rollback criteria.
+  - Stage feature flag changes in config service; final JSON plans (no `--dry-run`) were generated 2025-11-03T04:54Z via `npm run ops:simulate-flag` and stored under `ops/flag-plans/`:
+    - `dex_v2_enabled-1-2025-11-03T04-54-49.941Z.json` (1% prod-canary @ 2025-11-05T07:00:00Z).
+    - `dex_v2_enabled-25-2025-11-03T04-54-27.414Z.json` (25% prod-ramp @ 2025-11-05T07:15:00Z).
+    - `dex_v2_enabled-50-2025-11-03T04-54-33.100Z.json` (50% prod-ramp @ 2025-11-05T07:30:00Z).
+    - `dex_v2_enabled-100-2025-11-03T04-54-42.965Z.json` (100% prod-global @ 2025-11-05T07:50:00Z).
+  - 2025-11-03T05:16Z UTC: Staged dry-run config apply + webhook previews with `npm run ops:simulate-flag -- ... --dry-run --announce --webhook https://ops.example.invalid --apply --config-url https://config.example.invalid`; payloads logged for each cohort and no network calls executed.
+  - Use `--dry-run` only when previewing adjustments; keep the live plan JSONs immutable until the window opens and require dual approval before applying via config service or webhook.
+5. **T-30 min — Release Communications Prep**
+  - Draft the #ops-release message with final canary timings, rollback trigger, and monitoring dashboards. Include the signed pack hash (`f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00`), backup confirmation, and link to this checklist.
+  - Suggested template:
+    - "DEX v2 rollout begins at 02:00 ET (1%). Pack `f840e427...b00` verified 2025-11-02T06:54Z. Backups archived under `backups/archive/2025-11-03/`. Rollback triggers on SLO breach (lookup p99 > 500 µs) or verifier failure. Monitoring: Grafana panel `dex.metrics.lookup`, Render `dex.verifier`, `/ops cache`."
+  - Capture approvals for the outbound message (Eng/Ops/Sec) in Tasklist notes; store the final text in `ops/change-ledger.md` alongside the apply logs after the window.
+  - **Pre-approved message (copy/paste to #ops-release):**
+    - "DEX v2 rollout starts at 02:00 ET / 07:00 UTC with the 1% canary. Pack `f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00` signed 2025-11-02T06:54Z. Prod/dev dumps archived at `backups/archive/2025-11-03/`. Rollback if lookup p99 > 500 µs for 5 minutes, verifier fails the signature, or canary errors double baseline. Dashboards: Grafana › dex.metrics.lookup & dex.metrics.alias-miss, Render › dex.verifier stream, `/ops cache` in prod canary guild."
+    - Follow-up (post-100% ramp): "DEX v2 now 100% in prod. Pack `f840e427…b00`; canary SLOs held. `/ops cache` and `dex.metrics.lookup` remain nominal. See ops/change-ledger.md for apply logs & screenshots."
+6. **T-15 min — Dry-Run Canary**
+  - Use `npm run ops:simulate-flag -- --flag DEX_V2_ENABLED --percent 1 --effective 02:00 --note "Prod canary" --dry-run --announce` to validate payload and send the preview to the Ops channel.
+  - Confirm `/ops cache` and `/ops dex status` respond in the canary guild using DEV credentials.
+7. **Cutover Execution**
+  - Apply flag to 1% cohort; monitor metrics dashboards (latency, miss, fallback, errors) for 10 minutes.
+  - Escalate along the ladder if alerts remain green; pause for investigation if any graph breaches thresholds.
+8. **T+15 min — Integrity Verification**
+  - Run `node scripts/dev_prod_auto_sync.ts --validate-pack --prod-env ./tmp/prod.auto-sync.env`.
+  - Capture pack hash + signature verification logs in release notes and Tasklist.
+9. **T+60 min — Post-Cutover Review**
+  - Confirm `dex.metrics.fallback` remains zero, `MPH.miss` baseline steady, and no increase in `/ops cache` errors.
+  - Transition observability alerts back to standard thresholds and archive temporary Grafana rule.
+  - Notify stakeholders and update `ops/NEXT.yaml` if follow-up actions are required.
+
+### Observability & Alert Routing
+- **Metrics Coverage:** Ensure `dex.metrics.lookup`, `dex.metrics.fallback`, and `dex.metrics.alias-miss` surface in the Render telemetry stream with PROD tags before ramp.
+- **Alert Channels:** Route Grafana and Render managed alerts to `#ops-alarms` with cutover-specific prefixes (`[DEX V2 CANARY]`).
+- **Pager On-Call:** Assign on-call engineer for 02:00–03:30 ET window; confirm escalation ladder.
+- **Logging:** Enable structured JSON logging for `dex.verifier` and `dex.flag-transition` events; pipe to log aggregation with 24h retention filter for quick rollback audit.
+- **Health Checks:** Add temporary `/healthz-dex-v2` endpoint returning pack hash, signature status, cache hit rate; monitor via Render health probes every 30 seconds during ladder.
 
 ---
 

@@ -2,7 +2,7 @@
 Title: Prisma Migrations
 Purpose: Chronological migration bundles applied via `prisma migrate deploy`.
 Owned Globs: prisma/migrations/**
-Last Updated (UTC): 2025-11-01T19:55:00Z
+Last Updated (UTC): 2025-11-02T18:29:56Z
 
 Notes:
 - Each timestamped folder contains a generated `migration.sql` plus metadata; follow ops/DB_BOOTSTRAP.md before applying new migrations.
@@ -13,6 +13,7 @@ Sub-Routers:
 - `prisma/migrations/202510280500_scaling_indexes/ROUTER.md` — Adds scaling indexes and unique guards for battle, encounter, cooldown tables.
 - `prisma/migrations/202510290930_dex_reference_spine/ROUTER.md` — Introduces normalized dex reference spine and required extensions.
 - `prisma/migrations/202511010900_schema_constraints/ROUTER.md` — Tightens relational constraints, adds OutboxStatus enum, and default timestamps.
+- `prisma/migrations/202511021024_db_v0_bootstrap/ROUTER.md` — Seeds tenants, trainers, dex pack registry, inventories, and audit log structures for day-one blueprint alignment.
 
 Linked Routers:
 - prisma/ROUTER.md — Parent schema overview.

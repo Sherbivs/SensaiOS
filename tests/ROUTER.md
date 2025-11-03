@@ -2,7 +2,7 @@
 Title: Test Suite
 Purpose: Vitest coverage for schemas, pipeline, engines, and flows.
 Owned Globs: tests/**
-Last Updated (UTC): 2025-11-02T22:24:26Z
+Last Updated (UTC): 2025-11-03T00:15:00Z
 
 Notes:
 - Added coverage for `concludeBattleWithVictory` alongside existing persistence and announcer tests.
@@ -18,6 +18,9 @@ Notes:
 - `tests/services/ROUTER.md` tracks cache facade regression coverage; `tests/shared/ROUTER.md` documents cross-suite fixtures.
 - 2025-11-01: `tests/battle_engine.spec.ts` asserts priority ordering, status interactions, flinch skips, and the early-item pool documented in `RULESET.md`.
 - 2025-11-02: `tests/dexpack.v2.spec.ts` toggles the DEX v2 flag and verifies the binary hash guard rejects tampered manifests.
+- 2025-11-02: `tests/dexpack.parity.spec.ts` compares v1/v2 lookups, stats, and move metadata to guard the compatibility bridge.
+- 2025-11-03: `tests/dexpack.parity.spec.ts` now walks every v1 alias to confirm the v2 hash tables resolve identical species ids.
+- 2025-11-02: `tests/dexpack.microbench.ts` provides an opt-in vitest bench harness (`DEX_V2_BENCH=1 npm run bench:dex`) for lookup latency tracking.
 - Dedicated sub-routers capture focused suites (battle interactions, PBSL fixtures) for faster discovery.
 
 Subrouters:

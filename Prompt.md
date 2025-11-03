@@ -1,11 +1,13 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-02T18:05:00Z
-Revision: 1.84
+Timestamp (UTC): 2025-11-03T05:32:00Z
+Revision: 1.90
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added `docs/dex-v2-design.md` capturing the high-availability Pokédex blueprint and day-one database plan.
-- Synced documentation routers and touchmap metadata so the new design doc is discoverable across governance surfaces.
-- Expanded Tasklist with DEX v2 and DB bootstrap tasks and retargeted NEXT to T13.DEX.V2_DEV_ENABLE.
+- Taught `npm run ops:simulate-flag` to treat `--dry-run` as a no-op for config apply/webhooks by printing payload previews instead of sending requests.
+- Rehearsed the 1%→100% rollout ladder with `--dry-run --announce --apply`, confirming payloads and logging staging results in Tasklist + docs.
+- Archived the 2025-11-03 prod/dev dumps to `backups/archive/2025-11-03/` and documented retention/ledger updates for the cutover.
+- Added the T-30 release communications template and ops runbook guidance so the live window has pre-approved messaging, monitoring, and rollback triggers.
+- Published the finalized #ops-release copy (initial + follow-up) and referenced it from the ops runbook so on-call can copy/paste and log the wording after execution.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -18,9 +20,9 @@ Revision: 1.84
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** T13.DEX.V2_DEV_ENABLE — implement the v2 pack pipeline and enable it in DEV during the scheduled window.
-- **READY / In-flight:** T13.DEX.V2_DEV_ENABLE leads the queue; PROD cutover and DB bootstrap tracks remain PROPOSED awaiting approvals.
-- **Recent Finish:** T13.DEX.V2_DESIGN published the blueprint, routing updates, and backlog entries for the rollout.
+- **NEXT Pointer:** T13.DEX.V2_PROD_CUTOVER — final prep focuses on live config apply, release comms, and ledger closure.
+- **READY / In-flight:** PROD cutover remains IN_PROGRESS; DB bootstrap tracks stay PROPOSED until post-cutover validation.
+- **Recent Finish:** T13.DEX.V2_DEV_ENABLE earlier enabled v2 in DEV; no new tasks closed this revision.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -61,11 +63,11 @@ Revision: 1.84
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Added the DEX v2 blueprint, synchronized routing metadata, expanded Tasklist, and retargeted NEXT to the DEV enablement work.
+Change: Published the copy-ready #ops-release messages and linked them from the ops runbook for the DEX v2 production window.
 TasklistDiff: true
-Tests: Not run (documentation and governance updates only).
+Tests: Not run (documentation-only update).
 Contracts: ON
-NEXT: T13.DEX.V2_DEV_ENABLE - READY to implement the v2 pack builder and enable it in DEV.
+NEXT: T13.DEX.V2_PROD_CUTOVER - Execute live config apply + comms during the 2025-11-05 window.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

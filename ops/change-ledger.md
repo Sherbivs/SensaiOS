@@ -1,5 +1,17 @@
 # Recent Change Ledger (200 commits)
 
+## 2025-11-03 — DEX v2 Pack & Flag Sign-Off
+- Pack hash: `f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00` (manifest `assets/dexpack.v2.json`, signed 2025-11-02T06:54:25.787Z).
+- Feature flag ladder approved for 2025-11-05 window with stored plans:
+  - `ops/flag-plans/dex_v2_enabled-1-2025-11-03T04-54-49.941Z.json` (1% @ 07:00Z)
+  - `ops/flag-plans/dex_v2_enabled-25-2025-11-03T04-54-27.414Z.json` (25% @ 07:15Z)
+  - `ops/flag-plans/dex_v2_enabled-50-2025-11-03T04-54-33.100Z.json` (50% @ 07:30Z)
+  - `ops/flag-plans/dex_v2_enabled-100-2025-11-03T04-54-42.965Z.json` (100% @ 07:50Z)
+- Approvals captured from Engineering, Operations, and Security on 2025-11-03T05:05Z; ready for config service apply.
+- Dry-run apply rehearsal logged 2025-11-03T05:16Z via `npm run ops:simulate-flag -- … --dry-run --announce --apply`, with payload previews stored in terminal logs and no outbound calls; prod/dev dumps archived under `backups/archive/2025-11-03/` for ≥14-day retention.
+- Release communications template captured in docs/dex-v2-design.md (T-30 step) and mirrored in docs/operations.md alongside monitoring/rollback guidance so the live window has pre-approved messaging and dashboards.
+- Final pre-approved #ops-release message and 100% follow-up text added to docs/dex-v2-design.md; on-call can copy/paste directly, with instructions in docs/operations.md to log actual wording after execution.
+
 
 **Generated:** 2025-11-01T21:12:55Z  |  **Branch:** main
 

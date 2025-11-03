@@ -1,5 +1,5 @@
 version: 1
-generated_utc: "2025-11-02T17:55:00Z"
+generated_utc: "2025-11-02T23:45:00Z"
 routers:
   - path: ".db-state/"
     router_file: ".db-state/ROUTER.md"
@@ -18,10 +18,12 @@ routers:
     last_updated_utc: "2025-11-02T14:05:00Z
 "
   - path: ".github/workflows/"
-    router_file: ".github/workflows/ROUTER.md"
-    title: "CI/CD Workflows
-"
-    purpose: "GitHub Actions definitions guarding docs, routers, database tooling, and runtime deployments.
+        router_file: "src/dex/ROUTER.md"
+        title: "Dex Runtime
+    "
+        purpose: "Binary dexpack loader, generated manifest helpers, and lookup metrics instrumentation.
+    "
+        last_updated_utc: "2025-11-02T23:45:00Z
 "
     last_updated_utc: "2025-11-02T14:05:00Z
 "
@@ -31,8 +33,8 @@ routers:
 "
     purpose: "Deterministic build artifacts committed for runtime bootstrapping.
 "
-    last_updated_utc: "2025-11-02T16:55:00Z
 "
+    last_updated_utc: "2025-11-02T23:45:00Z
   - path: "data/"
     router_file: "data/ROUTER.md"
     title: "Pokemon Reference Data
@@ -103,8 +105,8 @@ routers:
 "
     purpose: "Architecture, safety, and operational guides referenced across the meta-router.
 "
-    last_updated_utc: "2025-10-30T00:46:00Z
 "
+    last_updated_utc: "2025-11-02T23:45:00Z
   - path: "ops/ARCHIVE/"
     router_file: "ops/ARCHIVE/ROUTER.md"
     title: "Ops Archive
@@ -127,7 +129,7 @@ routers:
 "
     purpose: "Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
 "
-    last_updated_utc: "2025-02-26T00:00:00Z
+    last_updated_utc: "2025-11-03T00:15:00Z
 "
   - path: "playbooks/"
     router_file: "playbooks/ROUTER.md"
@@ -191,7 +193,7 @@ routers:
 "
     purpose: "Guard scripts and automation entrypoints.
 "
-    last_updated_utc: "2025-02-26T00:00:00Z
+    last_updated_utc: "2025-11-03T01:10:00Z
 "
   - path: "scripts/dex/"
     router_file: "scripts/dex/ROUTER.md"
@@ -213,9 +215,9 @@ routers:
     router_file: "scripts/ops/ROUTER.md"
     title: "Ops Scripts
 "
-    purpose: "Operator helpers that wrap multi-step deployment or migration flows.
+    purpose: "Operator helpers for migrations, backups, flag rollouts, and alert rehearsals.
 "
-    last_updated_utc: "2025-11-01T17:30:00Z
+    last_updated_utc: "2025-11-03T01:10:00Z
 "
   - path: "src/"
     router_file: "src/ROUTER.md"
@@ -223,7 +225,7 @@ routers:
 "
     purpose: "Root app source tree; see sub-routers for domains.
 "
-    last_updated_utc: "2025-11-02T14:05:00Z
+    last_updated_utc: "2025-11-03T00:15:00Z
 "
   - path: "src/bot/"
     router_file: "src/bot/ROUTER.md"
@@ -231,7 +233,7 @@ routers:
 "
     purpose: "Client login, intents, command/interaction routing, DM “home” flows.
 "
-    last_updated_utc: "2025-11-02T00:30:00Z
+    last_updated_utc: "2025-11-03T00:15:00Z
 "
   - path: "src/bot/arena/"
     router_file: "src/bot/arena/ROUTER.md"
@@ -368,6 +370,14 @@ routers:
     purpose: "Deterministic encounter generator that mirrors live encounter semantics for PBSL validation.
 "
     last_updated_utc: "2025-11-01T19:30:00Z
+"
+  - path: "src/dex/"
+    router_file: "src/dex/ROUTER.md"
+    title: "Dex Runtime
+"
+    purpose: "Binary dexpack loader, generated manifest helpers, and lookup metrics instrumentation.
+"
+    last_updated_utc: "2025-11-03T00:15:00Z
 "
   - path: "src/data/"
     router_file: "src/data/ROUTER.md"

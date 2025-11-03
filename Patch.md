@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-11-02T16:40:00Z
-Revision: 1.51
+Last Updated (UTC): 2025-11-03T00:02:45Z
+Revision: 1.52
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
@@ -91,23 +91,15 @@ Read this file completely before beginning any task. Follow it literally. Before
 Stay disciplined. The repository must always exit a run with a READY pointer, a clean PATCHSET echo, and accurate history.
 
 ## Patch Clipboard
-- Paste the exact patchset (matching `Patch-Template.md`) below this heading before you begin editing so humans can audit the plan.
-- After the run, clear or archive the clipboard if humans do not need the scratchpad.
-- Marker detection reads this section; keep `<<<PATCHSET START>>>` intact when Contract Mode is required.
-- When Tasklist.md contains one or more `PROPOSED` tasks, keep a `<<<PROPOSED PATCHSET START>>>` block that outlines the ready-to-run plan for those tasks; remove the block when no PROPOSED work remains.
-
-_Patch Clipboard Scratch Area (leave empty when not in use)_
-
-<<<PATCHSET START>>>
-[Plan] Implement T13.DEX.V2_DEV_ENABLE — phase 1
-- flip Tasklist entry to IN_PROGRESS with kickoff notes for DEV enablement work
-- refactor `scripts/build_dexpack.ts` to expose reusable builders and export metadata for downstream tooling
-- add new `scripts/build-dexpack.ts` to emit the v2 binary slab + manifest + generated accessors (hash/sign stub)
-- introduce `src/dex/v2/` runtime (loader + compatibility harness) and gate via new `DEX_V2_ENABLED` feature flag wired through env + metrics config
-- update `src/data/dexpack.js` & `src/lib/dex-api.js` to dispatch v1/v2 while preserving legacy APIs
-- create initial parity + regression tests (v1 vs v2, alias MPH) and add perf microbench scaffold
-- refresh routers/touchmap/docs metadata and sync Prompt/NEXT/Test notes after edits
-<<<PATCHSET END>>>
+# - Paste the exact patchset (matching `Patch-Template.md`) below this heading before you begin editing so humans can audit the plan.
+# - After the run, clear or archive the clipboard if humans do not need the scratchpad.
+# - Marker detection reads this section; keep this intact when Contract Mode is required.
+# - When Tasklist.md contains one or more `PROPOSED` tasks, keep a `<<<PROPOSED PATCHSET START>>>` block that outlines the ready-to-run plan for those tasks; remove the block when no PROPOSED work remains.
+# 
+# _Patch Clipboard Scratch Area (leave empty when not in use)_
+# 
+# <<<PATCHSET START>>>
+# <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>
 

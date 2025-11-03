@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-11-02T17:55:00Z
+Last Updated (UTC): 2025-11-02T23:45:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -12,6 +12,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `ops/INBOX/ROUTER.md` — Operator inbox notes pending Tasklist promotion
     - `scripts/ROUTER.md` — Dev & Docs Scripts (includes bootstrap_staging_db.ps1 helper)
     - `src/ROUTER.md` — Application Source
+      - `src/dex/ROUTER.md` — Dex runtime loaders, metrics, and flag instrumentation for the v2 pack
     - `ops/DB_IMPORT_PRISMA_POSTGRES.md` — Prisma Postgres import runbook for Accelerate migrations
   - `ops/POKEMON_CACHE.md` — PokeAPI integration & cache operations runbook
     - `outbox.ts` now wraps the event bus helpers so legacy drains can enqueue/claim messages while handlers migrate.
@@ -79,7 +80,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).
 - Owned Globs: `scripts/**`
-- Last Updated: 2025-11-02T14:05:00Z
+- Last Updated: 2025-11-03T01:10:00Z
 - Key Scripts:
   - `scripts/update_change_ledger.sh` — regenerate Prompt change ledger
   - `scripts/update_router_index.sh` — rebuild `ops/ROUTER_INDEX.yaml`
@@ -95,6 +96,9 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - `scripts/db_smoke.ts` — Accelerate smoke query (`SELECT 1 AS ok`)
   - `scripts/dev_prod_auto_sync.ts` — Muted (automation loop); ensures migrate/seed inherit env-specific credentials, forces direct migrations, times out hung commands, preflights Optimize SpeciesSheet access, watches `data/cache/dex-sync-trigger.json`, and continuously runs the Dev → Prod → Dev cadence with integrity checks (`npm run db:auto-sync`)
   - `scripts/build_dexpack.ts` — Deterministic dexpack builder emitting committed JSON + gzip assets (`npm run data:dexpack`)
+  - `scripts/ops/dex_v2_backup.ts` — `pg_dump -Fc` wrapper for Dev/Prod backups with env selection (`npm run ops:dex-v2-backup`)
+  - `scripts/ops/simulate_flag_rollout.ts` — Feature-flag rollout planner producing JSON payloads and optional webhook alerts (`npm run ops:simulate-flag`)
+  - `scripts/ops/dex_v2_alert_dry_run.ts` — Canary alert rehearsal for Grafana/Discord webhooks (`npm run ops:dex-v2-alert-dry-run`)
 - Sub-Routers:
   - `scripts/dex/ROUTER.md` — dex backfill/seed/warm helpers
   - `scripts/guards/ROUTER.md` — CI guard entrypoints (require ensure-db preload, etc.)
@@ -106,6 +110,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - 2025-10-30: Added Dev ↔ Prod auto-sync loop to kick on deployment, poll every five minutes, and surface drift via JSON logs.
   - 2025-11-01: Broke out dex automation, guard entrypoints, and ops scripts into dedicated sub-routers for faster discovery.
   - 2025-11-02: Added dexpack build + guard tooling so committed pack artifacts stay deterministic across branches.
+  - 2025-11-03: Added DEX v2 cutover helpers covering backups, flag scheduling, and observability alert dry-runs.
 
 ### Ops Archive (`ops/ARCHIVE/ROUTER.md`)
 - Purpose: Read-only snapshots of Tasklist history and supporting meta exports.
@@ -135,8 +140,8 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - Latest: `guard_dexpack.sh` runs the dexpack builder in verification mode (`npm run guard:dexpack`) so the committed JSON/gzip/module artifacts stay in sync.
 
 ### Operator Scripts (`scripts/ops/ROUTER.md`)
-- Purpose: PowerShell helpers such as `run_dex_migrations.ps1` for environment-specific deploy flows.
-- Notes: Document usage in ops runbooks when adding new operator automation.
+- Purpose: Operator helpers for migrations, backups, and rollout rehearsals.
+- Notes: `run_dex_migrations.ps1` drives the Accelerate migrate cadence; new DEX v2 helpers cover backup generation (`ops:dex-v2-backup`), flag plan authoring (`ops:simulate-flag`), and alert dry-runs (`ops:dex-v2-alert-dry-run`).
 
 ### Data Pipeline Schemas (`src/data_pipeline/schema/ROUTER.md`)
 - Purpose: Zod validators for dataset outputs (`abilities`, `moves`, `species`, `typechart`, `manifest`).
@@ -188,11 +193,12 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Application Source (`src/ROUTER.md`)
 - Purpose: Root TypeScript source tree; delegates to domain routers.
 - Owned Globs: `src/**`
-- Last Updated: 2025-11-02T14:05:00Z
+- Last Updated: 2025-11-02T23:45:00Z
 - Downstream Routers:
   - `src/bot/ROUTER.md` — Discord bot interactions
   - `src/core/ROUTER.md` — core battle/encounter engines
   - `src/data/ROUTER.md` — dexpack loader + helper facade for committed assets
+  - `src/dex/ROUTER.md` — DEX v2 runtime loaders, metrics, and manifest accessors
   - `src/shared/ROUTER.md` — shared runtime/config/logging
   - `src/worker/ROUTER.md` — background workers
 - Supporting Files:
@@ -205,8 +211,21 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - Entry now launches the security bot before the Discord client so DripTVDD alerts stay online.
   - Runtime config loader now forbids localhost URLs in production and exposes cache settings.
   - Dexpack loader (`src/data/dexpack.js`) now boots from the generated ES module for zero-parse startup while keeping helpers shared across CommonJS + TypeScript callers.
+  - Dex runtime metrics (`src/dex/metrics.js`) emit structured load, lookup, and fallback events to trace the v1/v2 compatibility bridge.
   - Background workers now run via dedicated Render services; ENABLE_CONTINUOUS_SWEEP defers security sweeps to the security worker.
   - Prisma client boot now prioritises Accelerate URLs surfaced by shared config and reports the active transport (direct vs accelerate-node) in CLI telemetry.
+
+### Dex Runtime (`src/dex/ROUTER.md`)
+- Purpose: Binary runtime, telemetry helpers, and manifest accessors for the DEX v2 pack.
+- Owned Globs: `src/dex/**`
+- Last Updated: 2025-11-02T23:45:00Z
+- Key Files:
+  - `metrics.js` — Structured logging for load, lookup, miss, and fallback events surfaced to operators.
+  - `v2/loader.js` — Maps the v2 binary, verifies signatures, and exposes typed-array views.
+  - `v2/accessors.js` — Generated manifest bindings consumed by the loader and parity tests.
+- Notes:
+  - 2025-11-02: Instrumentation added to capture load/fallback telemetry and feed newly introduced parity and microbench suites.
+  - 2025-11-03: Parity spec now iterates every v1 alias to ensure v2 hash tables resolve identical species ids; guard_dexpack.sh verifies both v1 JSON/module and v2 binary artifacts.
 
 ### Shared Runtime & Utilities (`src/shared/ROUTER.md`)
 - Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, and event bus compatibility helpers.
@@ -269,7 +288,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Test Suite (`tests/ROUTER.md`)
 - Purpose: Vitest suites covering schemas, data pipeline, battle engines, DM flows, ops tooling.
 - Owned Globs: `tests/**`
-- Last Updated: 2025-11-02T00:30:00Z
+- Last Updated: 2025-11-02T23:45:00Z
 - Representative Specs:
   - `tests/battle_engine.spec.ts` — deterministic battle engine coverage
   - `tests/battle_flow.spec.ts` — arena flow integration tests
@@ -283,3 +302,5 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - 2025-10-27: PBSL oracle diff suite compares fixtures under tests/pbsl/** for deterministic regressions.
   - 2025-11-01: Battle engine spec mirrors MVP rules for priority, status modifiers, flinch handling, and early offensive items.
   - 2025-11-01: PBSL fixtures (`tests/pbsl/fixtures/**`) capture deterministic snapshots referenced by oracle tests.
+  - 2025-11-02: `tests/dexpack.parity.spec.ts` verifies v1/v2 lookup parity across species and move metadata.
+  - 2025-11-02: `tests/dexpack.microbench.ts` provides an opt-in bench harness (`DEX_V2_BENCH=1 npm run bench:dex`) to track lookup latency.
