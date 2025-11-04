@@ -680,6 +680,7 @@ async function main(): Promise<void> {
     (chunk) =>
       prisma.speciesLearnset.createMany({
         data: chunk,
+        skipDuplicates: true,
       }),
   );
 
