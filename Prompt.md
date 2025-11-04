@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-03T06:05:00Z
-Revision: 1.91
+Timestamp (UTC): 2025-11-03T06:28:00Z
+Revision: 1.92
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Expanded `docs/operations.md` with a minute-by-minute DEX v2 cutover timeline, role roster, go/no-go checklist, and evidence template for the Nov 5 window.
-- Linked the operations timeline from `docs/dex-v2-design.md` so engineers can pivot between the design blueprint and the execution runbook.
-- Logged the new playbook content in `ops/change-ledger.md` and appended Tasklist notes under T13.DEX.V2_PROD_CUTOVER to record the readiness milestone.
+- Archived the Nov 3 rehearsal flag plan (and dry-run output) under `ops/flag-plans/archive/`, leaving the four 2025-11-05 ladder JSONs ready for console upload.
+- Added per-cohort evidence scaffolding to `ops/change-ledger.md` and expanded T13.DEX.V2_PROD_CUTOVER notes to cover comms prep and monitoring prework.
+- Re-ran the 1% dry-run flag apply rehearsal (manual path) to confirm the script’s console guidance; captured Results in the ledger with webhook still deferred.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -61,11 +61,11 @@ Revision: 1.91
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Documented the DEX v2 production night timeline (roles, go/no-go, evidence template) and cross-linked it from the design blueprint ahead of the Nov 5 window.
+Change: Validated the production flag ladder, rehearsed the manual apply flow, and staged comms/evidence scaffolding for the Nov 5 cutover.
 TasklistDiff: true
-Tests: Not run (documentation-only update).
+Tests: npm run ops:simulate-flag -- --flag DEX_V2_ENABLED --percent 1 --dry-run --announce --apply (exited 1: webhook intentionally omitted during rehearsal).
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - Execute live config apply + comms during the 2025-11-05 window using the new operations timeline.
+NEXT: T13.DEX.V2_PROD_CUTOVER - Await the 2025-11-05 window to run the live ladder using the vetted plans and comms.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

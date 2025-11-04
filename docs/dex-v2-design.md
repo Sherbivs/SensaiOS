@@ -160,48 +160,40 @@ For the operations view with role assignments and evidence template, follow the 
     - Manifest: `assets/dexpack.v2.json` (`generatedAt` 2025-11-02T06:54:25.787Z, `counts.species` 23, `counts.moves` 18).
     - Binary: `assets/dexpack.v2.f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00.bin` (SHA256 `f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00`, verified via `certutil -hashfile assets/dexpack.v2.f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00.bin SHA256`).
     - Accessors: `src/dex/v2/accessors.js` exports the same hash/counts to guard runtime verification.
-3. **T-60 min — Observability Hooks**
-  - Ensure Render alert webhook `ALERT_WEBHOOK_URL` points to the Ops Discord channel.
-  - Deploy temporary Grafana alert rule: `dex.metrics.lookup_p99 > 0.0005` (500 µs) for 5 minutes.
-  - Run `npm run ops:dex-v2-alert-dry-run -- --dry-run` to review the payload, then rerun without `--dry-run` (or pass `--webhook <override>`) to confirm the Ops channel receives the canary notification.
-  - Enable canary-specific log routing by setting `DEX_V2_CANARY_TAG=prod-canary-20251105` in Render secrets.
-4. **T-45 min — Flag Schedule Broadcast**
-  - Publish timeline (`02:00 1%`, `02:15 25%`, `02:30 50%`, `02:50 100%`) in #ops-release with rollback criteria.
+3. **T-60 min — Parity Verification**
+  - Run `node scripts/dev_prod_auto_sync.ts --validate-pack --prod-env ./tmp/prod.auto-sync.env` to confirm DEV/PROD mirrors before the window opens.
+  - Capture key table counts (Species, BusMessage, Cache) for both environments and log them in Tasklist notes alongside the pack manifest hash.
+  - Re-run `npm run data:dexpack -- --check` if any drift appears so pack hashes are reconfirmed pre-window.
+4. **T-45 min — Flag Schedule Prep**
+  - Publish the internal timeline for the on-call pair (`02:00 1%`, `02:15 25%`, `02:30 50%`, `02:50 100%`) with rollback criteria in Tasklist notes.
   - Stage feature flag change artifacts from the simulator; final JSON plans (no `--dry-run`) were generated 2025-11-03T04:54Z via `npm run ops:simulate-flag` and stored under `ops/flag-plans/`. These will be uploaded manually during the window per `docs/operations.md`:
     - `dex_v2_enabled-1-2025-11-03T04-54-49.941Z.json` (1% prod-canary @ 2025-11-05T07:00:00Z).
     - `dex_v2_enabled-25-2025-11-03T04-54-27.414Z.json` (25% prod-ramp @ 2025-11-05T07:15:00Z).
     - `dex_v2_enabled-50-2025-11-03T04-54-33.100Z.json` (50% prod-ramp @ 2025-11-05T07:30:00Z).
     - `dex_v2_enabled-100-2025-11-03T04-54-42.965Z.json` (100% prod-global @ 2025-11-05T07:50:00Z).
-  - 2025-11-03T05:16Z UTC: Rehearsed the manual apply workflow with `npm run ops:simulate-flag -- ... --dry-run --announce --apply`; payloads logged for each cohort while operators walked through the console upload checklist.
-  - Use `--dry-run` only when previewing adjustments; once the plans are final, treat each JSON as immutable and require dual approval before console upload or webhook broadcast.
-5. **T-30 min — Release Communications Prep**
-  - Draft the #ops-release message with final canary timings, rollback trigger, and monitoring dashboards. Include the signed pack hash (`f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00`), backup confirmation, and link to this checklist.
-  - Suggested template:
-    - "DEX v2 rollout begins at 02:00 ET (1%). Pack `f840e427...b00` verified 2025-11-02T06:54Z. Backups archived under `backups/archive/2025-11-03/`. Rollback triggers on SLO breach (lookup p99 > 500 µs) or verifier failure. Monitoring: Grafana panel `dex.metrics.lookup`, Render `dex.verifier`, `/ops cache`."
-  - Capture approvals for the outbound message (Eng/Ops/Sec) in Tasklist notes; store the final text in `ops/change-ledger.md` alongside the apply logs after the window.
-  - **Pre-approved message (copy/paste to #ops-release):**
-    - "DEX v2 rollout starts at 02:00 ET / 07:00 UTC with the 1% canary. Pack `f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00` signed 2025-11-02T06:54Z. Prod/dev dumps archived at `backups/archive/2025-11-03/`. Rollback if lookup p99 > 500 µs for 5 minutes, verifier fails the signature, or canary errors double baseline. Dashboards: Grafana › dex.metrics.lookup & dex.metrics.alias-miss, Render › dex.verifier stream, `/ops cache` in prod canary guild."
-    - Follow-up (post-100% ramp): "DEX v2 now 100% in prod. Pack `f840e427…b00`; canary SLOs held. `/ops cache` and `dex.metrics.lookup` remain nominal. See ops/change-ledger.md for apply logs & screenshots."
+  - 2025-11-03T05:16Z UTC: Rehearsed the manual apply workflow with `npm run ops:simulate-flag -- ... --dry-run --apply`; payloads logged for each cohort while operators walked through the console upload checklist.
+  - Use `--dry-run` only when previewing adjustments; once the plans are final, treat each JSON as immutable and require dual approval before console upload.
+5. **T-30 min — Console Prep**
+  - Confirm the four production JSON plans remain untouched in `ops/flag-plans/` (1/25/50/100 ladder) and copy them to a secure local folder for upload.
+  - Open the feature flag console, verify credentials, and stage the manual upload prompts for quick paste during the window.
+  - Record current DEV/PROD key table counts so diffs are easy to spot after each cohort.
 6. **T-15 min — Dry-Run Canary**
-  - Use `npm run ops:simulate-flag -- --flag DEX_V2_ENABLED --percent 1 --effective 02:00 --note "Prod canary" --dry-run --announce` to validate payload and send the preview to the Ops channel.
-  - Confirm `/ops cache` and `/ops dex status` respond in the canary guild using DEV credentials.
+  - Use `npm run ops:simulate-flag -- --flag DEX_V2_ENABLED --percent 1 --effective 02:00 --note "Prod canary" --dry-run --apply` to refresh the console checklist (the script will remind operators to upload JSON manually when no config URL is set).
+  - Confirm manual apply steps are documented and the on-call pair can execute without additional tooling.
 7. **Cutover Execution**
-  - Apply flag to 1% cohort; monitor metrics dashboards (latency, miss, fallback, errors) for 10 minutes.
-  - Escalate along the ladder if alerts remain green; pause for investigation if any graph breaches thresholds.
+  - Apply flag to 1% cohort; capture console confirmation and parity snapshot (auto-sync output + key table counts).
+  - Escalate along the ladder if parity breaks or console upload fails; otherwise continue once counts align within tolerance.
 8. **T+15 min — Integrity Verification**
   - Run `node scripts/dev_prod_auto_sync.ts --validate-pack --prod-env ./tmp/prod.auto-sync.env`.
-  - Capture pack hash + signature verification logs in release notes and Tasklist.
+  - Record pack hash + parity verification logs in release notes and Tasklist.
 9. **T+60 min — Post-Cutover Review**
-  - Confirm `dex.metrics.fallback` remains zero, `MPH.miss` baseline steady, and no increase in `/ops cache` errors.
-  - Transition observability alerts back to standard thresholds and archive temporary Grafana rule.
-  - Notify stakeholders and update `ops/NEXT.yaml` if follow-up actions are required.
+  - Confirm DEV/PROD parity holds (auto-sync + key table counts) and no pack drift occurred.
+  - Document final state in `ops/change-ledger.md`, close Tasklist notes, and update `ops/NEXT.yaml` if follow-up actions are required.
 
-### Observability & Alert Routing
-- **Metrics Coverage:** Ensure `dex.metrics.lookup`, `dex.metrics.fallback`, and `dex.metrics.alias-miss` surface in the Render telemetry stream with PROD tags before ramp.
-- **Alert Channels:** Route Grafana and Render managed alerts to `#ops-alarms` with cutover-specific prefixes (`[DEX V2 CANARY]`).
-- **Pager On-Call:** Assign on-call engineer for 02:00–03:30 ET window; confirm escalation ladder.
-- **Logging:** Enable structured JSON logging for `dex.verifier` and `dex.flag-transition` events; pipe to log aggregation with 24h retention filter for quick rollback audit.
-- **Health Checks:** Add temporary `/healthz-dex-v2` endpoint returning pack hash, signature status, cache hit rate; monitor via Render health probes every 30 seconds during ladder.
+### Parity & Recovery Notes
+- Run `node scripts/dev_prod_auto_sync.ts --validate-pack --prod-env <env>` after each cohort to confirm DEV/PROD parity and pack hash alignment.
+- If parity breaks, halt the ladder, flip `DEX_V2_ENABLED=false` globally, and restore the prior JSON from `ops/flag-plans/archive/` while referencing the relevant backup in `backups/archive/2025-11-03/`.
+- Keep structured logs of parity checks and manual apply confirmations for the ledger; no additional alerting integrations are required for this window.
 
 ---
 

@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-03T06:05:00Z
-Revision: 2.47
+Last Updated (UTC): 2025-11-03T06:28:00Z
+Revision: 2.48
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1184,6 +1184,10 @@ Each task has:
   2025-11-03T05:24Z: Added T-30 release communications template plus ops runbook callouts (monitoring, rollback triggers) so the 2025-11-05 window has pre-approved messaging; approvals to be re-confirmed day-of before posting.
   2025-11-03T05:32Z: Finalized copy-paste ready #ops-release message and post-ramp follow-up text in docs/dex-v2-design.md and annotated docs/operations.md; ledger instruction added to capture the exact wording after execution.
     2025-11-03T06:05Z: Published minute-by-minute timeline, roles, go/no-go checklist, and evidence template in docs/operations.md; design doc now cross-links the operations view for the Nov 5 window.
+    2025-11-03T06:18Z: Revalidated the 1/25/50/100 flag plan JSONs (windowDate 2025-11-05) and archived the earlier 2025-11-03 rehearsal plan under `ops/flag-plans/archive/` so the console queue is clean.
+    2025-11-03T06:24Z: Re-ran `npm run ops:simulate-flag -- --flag DEX_V2_ENABLED --percent 1 --dry-run --announce --apply`; confirmed the manual console instructions still match the operations checklist and captured the preview copy for Ops review.
+    2025-11-03T06:26Z: Pre-staged evidence capture headings in `ops/change-ledger.md` and copied the T-30 #ops-release text to the comms clipboard pending Eng/Ops/Sec re-approval during the window.
+    2025-11-03T06:28Z: Monitoring prep queued—temporary Grafana rule + `DEX_V2_CANARY_TAG` toggle scheduled for T-60/T-45, webhook validation noted in docs/operations.md.
 
 ## Phase 14 — Live Game Cache
 

@@ -12,6 +12,52 @@
 - Release communications template captured in docs/dex-v2-design.md (T-30 step) and mirrored in docs/operations.md alongside monitoring/rollback guidance so the live window has pre-approved messaging and dashboards.
 - Final pre-approved #ops-release message and 100% follow-up text added to docs/dex-v2-design.md; on-call can copy/paste directly, with instructions in docs/operations.md to log actual wording after execution.
 - Built a minute-by-minute timeline, role roster, go/no-go checks, and evidence capture template in docs/operations.md; cross-linked from docs/dex-v2-design.md so on-call has a single operations view for the Nov 5 window.
+- 2025-11-03T06:18Z: Revalidated the four 2025-11-05 flag plans (1/25/50/100 ladder) under `ops/flag-plans/`, confirming window dates/effective times and archiving the 2025-11-03 rehearsal JSON to `ops/flag-plans/archive/` so only the PROD ladder remains queued for console upload.
+- 2025-11-03T06:23Z: Added cutover evidence scaffolding in this ledger (see `## 2025-11-05 DEX v2 Cutover`) with per-cohort placeholders for timestamps, console responses, Grafana captures, and `/ops cache` outputs.
+- 2025-11-03T06:24Z: Rehearsed `npm run ops:simulate-flag -- --flag DEX_V2_ENABLED --percent 1 --dry-run --announce --apply`; script repeated manual console instructions with no config URL required and logged webhook preview copy for Ops review.
+- 2025-11-03T06:26Z: Copied the T-30 #ops-release message from docs/dex-v2-design.md, confirmed Eng/Ops/Sec re-approval plan, and queued the text in the comms doc for day-of paste.
+- 2025-11-03T06:28Z: Noted monitoring prework (temporary Grafana rule, `DEX_V2_CANARY_TAG`, alert webhook verification) ready to execute at T-60/T-45; checklist aligned with docs/operations.md.
+
+## 2025-11-05 DEX v2 Cutover
+### 1% — Prod Canary (02:00 ET / 07:00Z)
+- Timestamp:
+- Command / plan filename:
+- Console response / upload confirmation:
+- Grafana snapshot (lookup p95/p99, alias miss, fallback):
+- `/ops cache` output (prod canary guild):
+- Alerts or anomalies:
+
+### 25% — Prod Ramp (02:15 ET / 07:15Z)
+- Timestamp:
+- Command / plan filename:
+- Console response / upload confirmation:
+- Grafana snapshot (lookup p95/p99, alias miss, fallback):
+- `/ops cache` output (prod canary guild):
+- Alerts or anomalies:
+
+### 50% — Prod Ramp (02:30 ET / 07:30Z)
+- Timestamp:
+- Command / plan filename:
+- Console response / upload confirmation:
+- Grafana snapshot (lookup p95/p99, alias miss, fallback):
+- `/ops cache` output (prod canary guild):
+- Alerts or anomalies:
+
+### 100% — Prod Global (02:50 ET / 07:50Z)
+- Timestamp:
+- Command / plan filename:
+- Console response / upload confirmation:
+- Grafana snapshot (lookup p95/p99, alias miss, fallback):
+- `/ops cache` output (prod canary guild):
+- Alerts or anomalies:
+
+### Post-Cutover Verification (T+60 / T+75)
+- Timestamp:
+- Commands run:
+- Auto-sync / verifier logs:
+- Grafana snapshot:
+- `/ops cache` output:
+- Alerts or anomalies:
 
 
 **Generated:** 2025-11-01T21:12:55Z  |  **Branch:** main

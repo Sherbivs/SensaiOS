@@ -14,8 +14,6 @@ interface Options {
   note?: string;
   outputDir: string;
   dryRun: boolean;
-  announce: boolean;
-  webhook?: string;
   configUrl?: string;
   apply: boolean;
 }
@@ -38,7 +36,6 @@ function parseArgs(argv: string[]): Options {
     cohort: "global",
     outputDir: path.resolve("ops/flag-plans"),
     dryRun: false,
-    announce: false,
     apply: false,
   };
 
@@ -71,12 +68,6 @@ function parseArgs(argv: string[]): Options {
         break;
       case "--dry-run":
         options.dryRun = true;
-        break;
-      case "--announce":
-        options.announce = true;
-        break;
-      case "--webhook":
-        options.webhook = argv[++i];
         break;
       case "--config-url":
         options.configUrl = argv[++i];
@@ -142,56 +133,6 @@ async function writePlan(plan: FlagPlan, outputDir: string) {
   return outputPath;
 }
 
-async function sendWebhook(plan: FlagPlan, webhookUrl: string, dryRun: boolean) {
-  const payload = buildWebhookPayload(plan, dryRun);
-
-  if (dryRun) {
-    console.log("[DRY-RUN] Webhook payload preview:");
-    console.log(JSON.stringify(payload, null, 2));
-    return;
-  }
-
-  const response = await fetch(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Webhook returned ${response.status}: ${text}`);
-  }
-}
-
-function buildWebhookPayload(plan: FlagPlan, dryRun: boolean) {
-  return {
-    username: "Infinity Ops",
-    content: dryRun
-      ? `⚠️ [DRY-RUN] Feature flag preview for ${plan.flag}`
-      : `🚀 Feature flag rollout for ${plan.flag}`,
-    embeds: [
-      {
-        title: `${plan.flag} → ${plan.percent}% (${plan.cohort})`,
-        description: plan.note || "",
-        color: dryRun ? 0xffa500 : 0x32cd32,
-        fields: [
-          { name: "Percent", value: `${plan.percent}%`, inline: true },
-          { name: "Cohort", value: plan.cohort, inline: true },
-          { name: "Requested By", value: plan.requestedBy, inline: true },
-          ...(plan.windowDate
-            ? [{ name: "Window", value: plan.windowDate, inline: true }]
-            : []),
-          ...(plan.effective
-            ? [{ name: "Effective", value: plan.effective, inline: true }]
-            : []),
-          { name: "Dry Run", value: String(plan.dryRun), inline: true },
-        ],
-        timestamp: plan.requestedAt,
-      },
-    ],
-  };
-}
-
 async function applyPlan(plan: FlagPlan, url: string) {
   if (plan.dryRun) {
     console.log("[DRY-RUN] Skipping config service apply.");
@@ -243,15 +184,6 @@ async function main() {
     }
   }
 
-  if (options.announce) {
-    const webhookUrl = options.webhook || process.env.ALERT_WEBHOOK_URL;
-    if (!webhookUrl) {
-      throw new Error("--announce requires a webhook (provide --webhook or set ALERT_WEBHOOK_URL).");
-    }
-    console.log(`Dispatching ${plan.dryRun ? "dry-run" : "live"} announcement to webhook.`);
-    await sendWebhook(plan, webhookUrl, plan.dryRun);
-    console.log(plan.dryRun ? "Webhook preview complete." : "Webhook dispatched successfully.");
-  }
 }
 
 main().catch((error) => {
