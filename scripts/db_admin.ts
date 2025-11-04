@@ -9,7 +9,6 @@ const DEFAULT_COUNT_TARGETS = [
   { model: "pokemonInstance", label: "Pokemon Instances" },
   { model: "user", label: "Users" },
   { model: "encounter", label: "Encounters" },
-  { model: "busMessage", label: "Bus Messages" },
   { model: "battle", label: "Battles" },
 ];
 
