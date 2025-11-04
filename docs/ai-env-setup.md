@@ -137,6 +137,20 @@ Review `.env.example`, `secrets/prisma-accelerate.env.example`, and `render.yaml
    ```
 6. If you previously targeted `Key/Prod/.env`, run `npx prisma generate` before reconnecting to Dev so the client resets from Accelerate to the direct Node engine.
 
+### Using WSL for database maintenance
+
+- Keep the repo cloned at the Windows path (`C:/Users/sherb/OneDrive/Documents/GitHub/Infinity-Gauntlet`) and invoke commands through WSL with the mirrored `/mnt/c` path.
+- Source Windows secrets inside Bash by stripping carriage returns: `source <(sed "s/\r$//" /mnt/c/Users/sherb/OneDrive/Documents/Key/Infinity-Gauntlet.env)`.
+- Export both direct and Accelerate URLs explicitly before running Prisma commands:
+   ```bash
+   export DATABASE_DIRECT_URL
+   export DATABASE_URL="$DATABASE_DIRECT_URL"   # migrations/reset
+   # or
+   export DATABASE_URL="$DATABASE_POOL_URL"    # dex seeding via Accelerate
+   ```
+- Run `npm ci` once per platform. After cloning or updating lockfiles, execute `npm ci` in WSL (rebuilds Linux-native binaries such as Prisma engines) and again in PowerShell so Windows tooling stays in sync.
+- When switching back to PowerShell, re-confirm `IG_ENV_FILE` via `echo $Env:IG_ENV_FILE` and regenerate the Prisma client if you swapped proxies.
+
 ## Agent Run Checklist
 - Before invoking planner/implementer agents, verify `IG_ENV_FILE` resolves to the expected path.
 - When generating a new secret file, start from the templates tracked in the repo.

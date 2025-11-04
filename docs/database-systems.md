@@ -110,7 +110,54 @@ Dex upkeep now routes through the consolidated seeding + control suite:
 | `npm run db:cli -- status` | Verifies active connection metadata and prints sample counts (`Species`, `User`) after a seed. | Captured in Tasklist/Prompt echoes for auditing. |
 | `npm run db:cli -- counts` | Spot-checks common table volumes (species, encounters, bus messages). | Extend `scripts/db_admin.ts` as new tables come online. |
 
-`scripts/seed_dex.ts` loads environment overrides the same way as the control suite (`IG_ENV_FILE` → `DOTENV_CONFIG_PATH` → repo `.env` when allowed). Results print per-table row counts so we can confirm >1,000 species before shipping.
+`scripts/seed_dex.ts` loads environment overrides the same way as the control suite (`IG_ENV_FILE` → `DOTENV_CONFIG_PATH` → repo `.env` when allowed). Results print per-table row counts so we can confirm >1,000 species before shipping. Re-runs are now idempotent: deduplicated learnset rows are skipped automatically, so a second pass after a partial failure is safe.
+
+### Dev Reset & Hydration Quickstart (2025-11-04)
+
+This sequence mirrors the successful Dev database refresh performed from WSL + Windows. Use it whenever you need to reformat the schema and hydrate the Pokédex.
+
+1. **Provision WSL toolchain (first run only).**
+  ```bash
+  wsl -e bash -lc 'cd /mnt/c/Users/sherb/OneDrive/Documents/GitHub/Infinity-Gauntlet && npm ci'
+  ```
+  Node 18 emits `EBADENGINE` warnings for packages that prefer Node ≥20, but the install completes and rebuilds Linux-native binaries (esbuild, Prisma engines).
+2. **Reset schema from WSL with the direct URL.**
+  ```bash
+  wsl -e bash -lc 'set -euo pipefail \
+    && source <(sed "s/\r$//" /mnt/c/Users/sherb/OneDrive/Documents/Key/Infinity-Gauntlet.env) \
+    && export DATABASE_DIRECT_URL \
+    && export DATABASE_URL="$DATABASE_DIRECT_URL" \
+    && cd /mnt/c/Users/sherb/OneDrive/Documents/GitHub/Infinity-Gauntlet \
+    && npx prisma db push --force-reset'
+  ```
+  `sed` strips Windows carriage returns before sourcing. Keep `DATABASE_URL` pointed at the direct Postgres endpoint any time you run destructive Prisma commands.
+3. **Hydrate the dex spine via Accelerate.**
+  ```bash
+  wsl -e bash -lc 'set -euo pipefail \
+    && source <(sed "s/\r$//" /mnt/c/Users/sherb/OneDrive/Documents/Key/Infinity-Gauntlet.env) \
+    && export DATABASE_DIRECT_URL \
+    && export DATABASE_URL="$DATABASE_POOL_URL" \
+    && export IG_ENV_FILE=/mnt/c/Users/sherb/OneDrive/Documents/Key/Infinity-Gauntlet.env \
+    && cd /mnt/c/Users/sherb/OneDrive/Documents/GitHub/Infinity-Gauntlet \
+    && npm run db:seed:dex'
+  ```
+  The seeder auto-refreshes `SpeciesSheet`, falling back to `public.refresh_species_sheet()` when direct ownership is unavailable.
+4. **Rebuild Windows-side binaries for tooling parity.**
+  ```powershell
+  npm ci
+  ```
+  Run from the repo root so PowerShell sessions keep Windows-native Prisma/tsx binaries aligned with the repo lockfile.
+5. **Mirror checks and fallbacks.**
+  ```powershell
+  # Direct comparisons only
+  npm run db:mirror:check -- --skip-accelerate
+
+  # Include Accelerate but allow transient proxy failures
+  npm run db:mirror:check -- --allow-accelerate-failure
+  ```
+  `read ECONNRESET` during the Accelerate check usually indicates a temporary proxy outage. Log the skip and retry once the proxy is healthy.
+
+Capture counts (`npm run db:cli -- status`) and command transcripts in `Tasklist.md` after the run so the audit trail reflects >1,000 species and a refreshed learnset tally.
 
 Run every dex maintenance action in the Dev → Prod → Dev rhythm: execute the command against DEV first, switch `IG_ENV_FILE` to the Accelerate/Prod secrets and repeat (or invoke `scripts/ops/run_dex_migrations.ps1`, which now enforces direct URLs, when migrations need the same sequence), then point back to `Key/Dev/.env` and run `npx prisma generate` so local tooling reconnects to the direct driver.
 
