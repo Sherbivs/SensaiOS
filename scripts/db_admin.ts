@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import dotenv from "dotenv";
+import * as dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 
 const DEFAULT_COUNT_TARGETS = [

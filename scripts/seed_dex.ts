@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { setTimeout as sleep } from "node:timers/promises";
-import dotenv from "dotenv";
+import * as dotenv from "dotenv";
 import { PrismaClient, Prisma } from "@prisma/client";
 
 type NamedResource = { name: string; url: string };
