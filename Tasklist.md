@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-03T06:28:00Z
-Revision: 2.48
+Last Updated (UTC): 2025-11-04T17:55:30Z
+Revision: 2.52
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -952,6 +952,19 @@ Each task has:
     - Tests cover streak increment, reset, and DM Home display updates.
   notes: Outcome — Prisma schema and model helpers manage streak increments/resets; DM Home now surfaces streak messaging with new tests covering active, reset, and display states.
 
+## Phase 9 — Trainer Profiles
+
+- id: T9.1
+  title: Option C hybrid trainer profile baseline
+  status: DONE
+  depends_on: [T7.1, T8.2]
+  acceptance_criteria:
+    - Prisma schema stores trainer profile customization (tagline, bio, favorite species) with a forward-only migration and rollout notes.
+    - `/profile` slash command supports view/edit/clear flows, reusing a shared embed renderer and cache recipe.
+    - Tests cover the profile embed output and caching helpers so Option C data stays deterministic.
+  notes: |
+    Outcome — Baseline-marked Render dev Postgres with `prisma migrate resolve --applied 202510280500_scaling_indexes` through `202511021024_db_v0_bootstrap`, applied `202511030830_trainer_profile_option_c` via `npx prisma migrate deploy`, and reran `npx vitest run tests/profile_embed.spec.ts` to confirm the embed/cache wiring.
+
 
 ## Phase 10 — Scalability Foundations
 
@@ -1229,13 +1242,23 @@ Each task has:
 
 - id: DB.V0.BOOTSTRAP
   title: Apply day-one schema blueprint
-  status: PROPOSED
+  status: IN_PROGRESS
   depends_on: [T13.DEX.V2_DESIGN]
   acceptance_criteria:
     - Introduce migrations covering tenants, trainers, dex pack registry, monsters, encounters, battles, inventory, and audit log per the blueprint.
     - Provide rollback files and run `npm run db:smoke` against an empty database to confirm baseline tables.
     - Document the rollout in Tasklist notes and update `docs/database-systems.md` with the new schema version.
-  notes: Blueprint landed; execute once DEX v2 design approvals land and staging rehearsals are scheduled.
+  notes: |
+    Blueprint landed; execute once DEX v2 design approvals land and staging rehearsals are scheduled.
+    2025-11-04: Promoted to READY after Option C baseline so the staging bootstrap sequence can resume.
+    2025-11-04T16:55Z: Authored `docs/db-accelerate-workflow.md` capturing IG_ENV_FILE selection, db:cli/db:smoke commands, and parity expectations ahead of bootstrap rehearsal.
+    2025-11-04T16:56Z: With `IG_ENV_FILE=C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` ran `npm run db:cli -- status`, `npm run db:cli -- counts`, `npm run db:cli -- query 'SELECT 1 as ok;'`, and `npm run db:smoke -- --mode=accelerate` to confirm Prisma Accelerate connectivity; mirrored the passes in `docs/db-accelerate-workflow.md`.
+    2025-11-04T16:58Z: Updated `scripts/db_smoke.ts` to load secrets via IG_ENV_FILE, prefer direct Postgres when available, and accept `--mode` / `DB_SMOKE_MODE` overrides so bootstrap dry-runs can explicitly exercise direct vs. pooled paths.
+    2025-11-04T17:20Z: Added `prisma/migrations/202511021024_db_v0_bootstrap/rollback.sql` plus router metadata; documented deploy/rollback linkage in ops/DB_BOOTSTRAP.md and ops/TOUCHMAP.yaml.
+    2025-11-04T17:25Z: Captured sanitized db:cli and db:smoke outputs for Accelerate vs. direct runs in `ops/ARCHIVE/db-bootstrap/2025-11-04-tooling-evidence.md`.
+    2025-11-04T17:42Z: Regenerated router metadata (`ops/ROUTER_INDEX.yaml`, `masterroutetable.md`) and confirmed `scripts/guard_router_docs.sh` and `scripts/guard_routing.sh` pass after the migration scaffolding updates.
+    2025-11-04T17:48Z: Expanded `ops/DB_BOOTSTRAP.md` with blueprint asset map, rollback guidance, and required smoke-test evidence checkpoints.
+    2025-11-04T17:55Z: Bootstrap migration now defaults trainer prefs JSON to `{}` and enforces non-negative inventory quantities; rollback drops the guardrail and runbook notes the safeguards.
 
 - id: DB.V0.PACK_REGISTRY
   title: Populate dex pack registry wiring

@@ -3,8 +3,10 @@ import type { PrismaClient, Encounter } from "@prisma/client";
 import {
   prisma as prismaClient,
   recordDailyQuestCompletion,
+  loadTrainerProfileSummary,
   type BattleWithPlayers,
   type DailyQuestStreakStatus,
+  type TrainerProfileSummary,
 } from "../../models/index.js";
 import { log } from "../../shared/log.js";
 
@@ -13,10 +15,12 @@ import { getOrHydrate, evict, type CacheHydrateContext } from "./facade.js";
 const BATTLE_NAMESPACE = "battle-state";
 const ENCOUNTER_NAMESPACE = "encounter-state";
 const QUEST_NAMESPACE = "quest-reward";
+const PROFILE_NAMESPACE = "trainer-profile";
 
 const DEFAULT_BATTLE_TTL_MS = 15_000;
 const DEFAULT_ENCOUNTER_TTL_MS = 5_000;
 const DEFAULT_QUEST_TTL_MS = 1_000;
+const DEFAULT_PROFILE_TTL_MS = 10_000;
 const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1_000;
 const DEFAULT_STARTER_COINS = 500;
 
@@ -26,6 +30,7 @@ type ErrMeta = { message: string; name?: string };
 
 type BattleCacheValue = BattleWithPlayers | null;
 type EncounterCacheValue = Encounter | null;
+type TrainerProfileCacheValue = TrainerProfileSummary | null;
 
 export type QuestClaimSuccess = {
   kind: "awarded";
@@ -178,6 +183,35 @@ export async function loadEncounter(
 
 export async function invalidateEncounter(encounterId: string): Promise<void> {
   await evict({ namespace: ENCOUNTER_NAMESPACE, key: encounterId });
+}
+
+export async function loadTrainerProfile(
+  discordId: string,
+  opts: { prisma?: PrismaLike; ttlMs?: number } = {}
+): Promise<TrainerProfileSummary | null> {
+  const prisma = opts.prisma ?? prismaClient;
+  const ttlMs = typeof opts.ttlMs === "number" && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_PROFILE_TTL_MS;
+  const descriptor = { namespace: PROFILE_NAMESPACE, key: discordId } as const;
+
+  const hydrate = async ({ lastValue }: CacheHydrateContext<TrainerProfileCacheValue>): Promise<TrainerProfileCacheValue> => {
+    if (lastValue) {
+      log.debug("cache.stale", meta(PROFILE_NAMESPACE, discordId, { reason: "trainer-profile" }));
+    }
+    const summary = await loadTrainerProfileSummary(discordId, prisma);
+    log.debug("cache.recover", meta(PROFILE_NAMESPACE, discordId, { source: "prisma", hit: Boolean(summary) }));
+    return summary;
+  };
+
+  try {
+    return await getOrHydrate({ ...descriptor, ttlMs }, hydrate);
+  } catch (err) {
+    log.warn("cache.recover", meta(PROFILE_NAMESPACE, discordId, { recovery: "direct", err: normalizeError(err) }));
+    return loadTrainerProfileSummary(discordId, prisma);
+  }
+}
+
+export async function invalidateTrainerProfile(discordId: string): Promise<void> {
+  await evict({ namespace: PROFILE_NAMESPACE, key: discordId });
 }
 
 async function ensureTrainer(prisma: PrismaLike, discordId: string) {

@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-11-02T23:45:00Z
+Last Updated (UTC): 2025-11-04T17:42:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -28,6 +28,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `src/bot/wilds/ROUTER.md` — Walk/catch encounter handlers
   - `docs/ROUTER.md` — Documentation Library
     - `docs/dex-v2-design.md` — High-availability dex upgrade blueprint plus day-one database plan and rollout playbook
+    - `docs/db-accelerate-workflow.md` — IG_ENV_FILE selection, db:cli/db:smoke parity checklist, and Accelerate vs. direct Postgres rehearsal guide
   - `src/core/ROUTER.md` — Core Game Engines
     - `src/core/battle/ROUTER.md` — Deterministic battle engine internals
     - `src/core/encounter/ROUTER.md` — Encounter spawn and catch logic
@@ -93,7 +94,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - `scripts/restore_prisma_postgres.ps1` — Muted (local restore); Prisma Postgres tunnel + restore automation
   - `scripts/db_admin.ts` — Muted (local CLI); run via `npm run db:cli` for status, counts, and ad-hoc queries
   - `scripts/setup_ai_env.ps1` — Muted (agent env helper); registers `IG_ENV_FILE` so secrets load from external storage
-  - `scripts/db_smoke.ts` — Accelerate smoke query (`SELECT 1 AS ok`)
+  - `scripts/db_smoke.ts` — IG_ENV_FILE-aware smoke helper with Accelerate/direct mode overrides
   - `scripts/dev_prod_auto_sync.ts` — Muted (automation loop); ensures migrate/seed inherit env-specific credentials, forces direct migrations, times out hung commands, preflights Optimize SpeciesSheet access, watches `data/cache/dex-sync-trigger.json`, and continuously runs the Dev → Prod → Dev cadence with integrity checks (`npm run db:auto-sync`)
   - `scripts/build_dexpack.ts` — Deterministic dexpack builder emitting committed JSON + gzip assets (`npm run data:dexpack`)
   - `scripts/ops/dex_v2_backup.ts` — `pg_dump -Fc` wrapper for Dev/Prod backups with env selection (`npm run ops:dex-v2-backup`)

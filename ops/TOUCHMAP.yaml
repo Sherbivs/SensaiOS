@@ -331,7 +331,17 @@ DB.V0.BOOTSTRAP:
   - "prisma/migrations/**"
   - "docs/dex-v2-design.md"
   - "docs/database-systems.md"
+  - "ops/ARCHIVE/db-bootstrap/**"
+  - "docs/db-accelerate-workflow.md"
   - "ops/DB_BOOTSTRAP.md"
+  - "scripts/db_smoke.ts"
+  - "scripts/db_admin.ts"
+  - "prisma/migrations/202511021024_db_v0_bootstrap/**"
+  - "docs/ROUTER.md"
+  - "scripts/ROUTER.md"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
   - "Tasklist.md"
 
 DB.V0.PACK_REGISTRY:

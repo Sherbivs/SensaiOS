@@ -8,6 +8,15 @@ Quick summary
 - Preferred: run the repository's historical migrations against the staging DB using `npx prisma migrate deploy` from the repository working copy (keeps migration_history consistent).
 - Fallback: if applying historical migrations is impossible for any reason, use `npx prisma db push` to create the schema, then create and commit a baseline migration locally if needed.
 
+Blueprint assets
+- Day-one schema resides in `prisma/migrations/202511021024_db_v0_bootstrap/`. `migration.sql` introduces tenants, trainers, dex pack registry, per-trainer inventory, audit log plumbing, and tenant-aware columns on existing gameplay tables.
+- Day-one schema resides in `prisma/migrations/202511021024_db_v0_bootstrap/`. `migration.sql` introduces tenants, trainers, dex pack registry, per-trainer inventory, audit log plumbing, and tenant-aware columns on existing gameplay tables.
+  - Trainer settings default to an empty JSON payload so reenrollments never fail when prefs are omitted.
+  - Inventory quantities carry a non-negative check constraint to guard against accidental decrements below zero.
+- Emergency rollback is captured in the paired `rollback.sql`. Execute it *only* after coordinating with ops and capturing a fresh snapshot; the script removes the foreign keys, columns, and tables introduced by the bootstrap migration.
+- Operator notes and sanitized command output live in `ops/ARCHIVE/db-bootstrap/2025-11-04-tooling-evidence.md`. Add new evidence files here when rehearsals run so auditors can diff outcomes by timestamp.
+- Router metadata (`ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, `prisma/ROUTER.md`, `prisma/migrations/ROUTER.md`) must be regenerated (`npm run docs:update-routers`) whenever the bootstrap surface changes.
+
 Checklist and decisions
 - Confirm you are running commands from the canonical working directory: the GitHub Desktop clone at C:\Users\sherb\OneDrive\Documents\GitHub\Infinity-Gauntlet (per ops policy).
 - Verify `DATABASE_URL` points to the staging database and is the only staging instance being touched.
@@ -23,9 +32,10 @@ Procedure A — Apply historical migrations (recommended)
    npx prisma migrate deploy
 
    - This will apply all unapplied migrations in order and leave the migration history table updated.
+   - This run creates the bootstrap schema (`db_v0_bootstrap`) and the follow-up trainer profile migration when both folders exist locally.
    - If it succeeds, inspect indexes with `
      SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public';
-     ` and proceed to smoke-tests.
+     `, then proceed to smoke-tests.
 
 Procedure B — Safe fallback with `db push` (use only if A is not possible)
 1. Understand the tradeoff: `prisma db push` creates/updates the database schema to match Prisma models but does not create migration history entries. That makes later `migrate deploy` usage more complicated unless you create a baseline migration locally and mark it as applied.
@@ -55,6 +65,35 @@ Smoke tests after schema alignment
   - DM Home recent-battle retrieval
   - Cooldown upsert/unique flows (ownerId + kind unique)
 
+- Baseline connectivity commands (documented individually in `docs/db-accelerate-workflow.md`) help confirm parity between direct and Accelerate datasources:
+  - `npm run db:cli -- status`
+  - `npm run db:cli -- counts`
+  - `npm run db:cli -- query "SELECT 1 as ok;"`
+  - `npm run db:smoke` (defaults to direct) and `npm run db:smoke -- --mode=accelerate`
+- Capture sanitized output for each target in `ops/ARCHIVE/db-bootstrap/<ISO8601>-tooling-evidence.md` so the audit trail travels with the runbook history.
+
+### Rehearsal workflow (sandbox)
+
+Use this sequence whenever you dry-run the bootstrap migration on a disposable database (DEV or a scratch clone). Each step should be recorded in the evidence archive together with timestamps and sanitized command output.
+
+1. **Load secrets** — run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env"` (or the appropriate scratch file) so `IG_ENV_FILE` points at the target database. Export the same variables for the current shell session if you are invoking commands manually.
+2. **Apply migrations** — execute `npx prisma migrate deploy`. Expect "No pending migrations" on a re-run; the first execution should apply `202511021024_db_v0_bootstrap` and any later folders.
+3. **Smoke the direct connection** — run `npm run db:smoke` and confirm the direct datasource reports `[ { ok: 1 } ]`.
+4. **Smoke Accelerate** (if available) — run `npm run db:smoke -- --mode=accelerate` to verify the proxy path succeeds with the same query.
+5. **Snapshot counts** — capture `npm run db:cli -- status` and `npm run db:cli -- counts` output, noting row totals for the bootstrap tables (Tenants, Trainers, DexPack, etc.).
+6. **Log evidence** — append sanitized summaries to `ops/ARCHIVE/db-bootstrap/<ISO8601>-tooling-evidence.md`, including datasource masks and command outcomes.
+
+### Rollback rehearsal (sandbox)
+
+Only run these steps on an isolated database that can be destroyed or restored from snapshot. The goal is to prove that `rollback.sql` reverses the bootstrap and that the forward migration can be re-applied cleanly afterward.
+
+1. **Snapshot first** — take a managed snapshot or export the database (`pg_dump`/Render backup) so you can revert if required.
+2. **Execute the rollback script** — connect as a privileged role and run `psql -f prisma/migrations/202511021024_db_v0_bootstrap/rollback.sql`. Confirm the Tenant/Trainer/DexPack tables and the new columns disappear (`\dt`, `\d` checks).
+3. **Reapply migrations** — rerun `npx prisma migrate deploy` to recreate the schema; ensure Prisma replays `db_v0_bootstrap` without error.
+4. **Smoke direct/Accelerate** — repeat the connectivity checks (`npm run db:smoke` with and without `--mode=accelerate`).
+5. **Verify counts** — run `npm run db:cli -- counts` to ensure expected tables exist (counts can be zero on a clean rollback rehearsal).
+6. **Archive results** — document the rollback command, the subsequent migrate deploy, and both smoke runs in the evidence log along with the snapshot identifier used for safety.
+
 Dex reference rollout follow-up
 - After the migrations land, repopulate the canonical dex tables and verify counts:
 
@@ -79,7 +118,7 @@ Connection sanity matrix — 2025-10-29T20:45Z
     - `npx prisma migrate deploy`
     - `npm run db:seed:dex`
     - `SELECT public.refresh_species_sheet()` (via Prisma client)
-    - `npx tsx scripts/db_smoke.ts`
+  - `npm run db:smoke -- --mode=accelerate`
 - Observed blocker: the consolidated seeder warns when `REFRESH MATERIALIZED VIEW` lacks permission and automatically retries via `SELECT public.refresh_species_sheet()`. Investigate only if both attempts fail or the helper raises an error.
 
 ### Clear the `SpeciesSheet` privilege error (Postgres 42501)
@@ -247,6 +286,7 @@ SELECT public.refresh_species_sheet();
 - Dex scripts fall back to the helper automatically when direct refresh raises 42501, but the manual command remains handy for ad-hoc refreshes or when scripting outside the repository tools. Document helper usage in Tasklist/Prompt when run manually.
 
 Rollback and safety
+- `prisma/migrations/202511021024_db_v0_bootstrap/rollback.sql` drops the tenant/trainer/dex pack objects and columns created by the bootstrap migration. Run it via psql after taking a fresh snapshot and coordinate with ops before execution; rerun `npm run docs:update-routers` afterward to keep metadata timestamps aligned.
 - If anything goes wrong, do not apply more migrations. Revert to a DB snapshot if you took one and open an ops incident.
 
 References and helpful commands

@@ -1,11 +1,14 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-03T06:28:00Z
-Revision: 1.92
+Timestamp (UTC): 2025-11-04T17:55:40Z
+Revision: 1.99
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Archived the Nov 3 rehearsal flag plan (and dry-run output) under `ops/flag-plans/archive/`, leaving the four 2025-11-05 ladder JSONs ready for console upload.
-- Added per-cohort evidence scaffolding to `ops/change-ledger.md` and expanded T13.DEX.V2_PROD_CUTOVER notes to cover comms prep and monitoring prework.
-- Re-ran the 1% dry-run flag apply rehearsal (manual path) to confirm the script’s console guidance; captured Results in the ledger with webhook still deferred.
+- Regenerated router metadata (`ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, Prisma and docs routers) after the bootstrap migration scaffolding and re-ran `scripts/guard_router_docs.sh` / `scripts/guard_routing.sh` to confirm clean passes.
+- Extended `Tasklist.md` DB.V0.BOOTSTRAP notes with rollback, evidence capture, and guard verification details; timestamp refreshed to 2025-11-04T17:55:30Z.
+- Archived sanitized db:cli and db:smoke outputs for Accelerate vs. direct runs in `ops/ARCHIVE/db-bootstrap/2025-11-04-tooling-evidence.md` to support bootstrap rehearsal sign-off.
+- Authored `docs/db-accelerate-workflow.md` and enhanced `scripts/db_smoke.ts` so operators can explicitly target Accelerate or direct Postgres modes via IG_ENV_FILE and `--mode` overrides.
+- Broadened `ops/DB_BOOTSTRAP.md` with migration/rollback asset maps and explicit evidence capture steps for bootstrap rehearsals.
+- Hardened the bootstrap migration with a default prefs JSON payload plus a non-negative inventory check, updating the rollback script and Tasklist notes to reflect the guardrails.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -18,9 +21,9 @@ Revision: 1.92
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** T13.DEX.V2_PROD_CUTOVER — final prep focuses on live config apply, release comms, and ledger closure.
-- **READY / In-flight:** PROD cutover remains IN_PROGRESS; DB bootstrap tracks stay PROPOSED until post-cutover validation.
-- **Recent Finish:** T13.DEX.V2_DEV_ENABLE earlier enabled v2 in DEV; no new tasks closed this revision.
+- **NEXT Pointer:** DB.V0.BOOTSTRAP — resume the day-one schema bootstrap planning now that trainer profiles are deployed.
+- **READY / In-flight:** DB bootstrap backlog is READY; T13.DEX.V2_PROD_CUTOVER stays IN_PROGRESS pending the Nov 5 window.
+- **Recent Finish:** T9.1 Option C baseline closed after baselining migrations and rerunning the profile embed vitest.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -61,11 +64,11 @@ Revision: 1.92
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Validated the production flag ladder, rehearsed the manual apply flow, and staged comms/evidence scaffolding for the Nov 5 cutover.
+Change: Defaulted trainer prefs JSON, enforced non-negative inventory quantities, and documented the bootstrap safeguards across the runbook and Tasklist.
 TasklistDiff: true
-Tests: npm run ops:simulate-flag -- --flag DEX_V2_ENABLED --percent 1 --dry-run --announce --apply (exited 1: webhook intentionally omitted during rehearsal).
+Tests: not run (routing guards only)
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - Await the 2025-11-05 window to run the live ladder using the vetted plans and comms.
+NEXT: DB.V0.BOOTSTRAP - documentation and parity captured; proceed with schema migrations and rollback planning.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

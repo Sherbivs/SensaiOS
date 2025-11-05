@@ -39,7 +39,7 @@ CREATE INDEX IF NOT EXISTS "Trainer_userId_idx" ON "Trainer"("userId");
 CREATE TABLE IF NOT EXISTS "TrainerSettings" (
     "trainerId" TEXT NOT NULL,
     "activePack" TEXT NOT NULL,
-    "prefsJson" JSONB NOT NULL,
+    "prefsJson" JSONB NOT NULL DEFAULT '{}'::jsonb,
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT "TrainerSettings_pkey" PRIMARY KEY ("trainerId")
 );
@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS "Inventory" (
     "trainerId" TEXT NOT NULL,
     "itemId" SMALLINT NOT NULL,
     "qty" INTEGER NOT NULL DEFAULT 0,
-    CONSTRAINT "Inventory_pkey" PRIMARY KEY ("trainerId", "itemId")
+    CONSTRAINT "Inventory_pkey" PRIMARY KEY ("trainerId", "itemId"),
+    CONSTRAINT "Inventory_qty_non_negative" CHECK ("qty" >= 0)
 );
 CREATE INDEX IF NOT EXISTS "Inventory_itemId_idx" ON "Inventory"("itemId");
 

@@ -184,7 +184,7 @@ Materialized view refresh flows through the helper; direct `REFRESH MATERIALIZED
 ## 8. Testing & Local Verification
 
 - **Unit Tests:** Run `npm test -- shared/backup-sink` to exercise local sink behaviour.
-- **DB Smoke Script:** `npx tsx scripts/db_smoke.ts` checks role permissions and helper reachability.
+- **DB Smoke Script:** `npm run db:smoke` loads IG_ENV_FILE secrets, defaults to direct Postgres, and supports `--mode=accelerate|direct` when pooled parity checks are required.
 - **Vitest Suites:** `tests/ops.spec.ts`, `tests/dm_home.spec.ts`, `tests/daily/*.spec.ts` ensure persistence flows stay intact.
 
 For local experiments, set `BACKUP_STORAGE_PROVIDER=local` to inspect JSON backups under `%TEMP%/infinity-gauntlet/outbox-backups`.

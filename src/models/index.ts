@@ -49,6 +49,80 @@ export type TrainerHomeSnapshot = {
   cooldowns: TrainerCooldown[];
 };
 
+type PrismaTrainerProfileRecord = {
+  userId: string;
+  tagline: string | null;
+  bio: string | null;
+  favoriteSpeciesId: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+  favoriteSpecies?: { id: number; name: string | null; slug: string | null } | null;
+};
+
+const MAX_PROFILE_TAGLINE_LENGTH = 120;
+const MAX_PROFILE_BIO_LENGTH = 600;
+
+export type TrainerProfileRecord = {
+  tagline: string | null;
+  bio: string | null;
+  favoriteSpeciesId: number | null;
+  favoriteSpeciesName: string | null;
+  favoriteSpeciesSlug: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
+
+export type TrainerProfileStats = {
+  totalPokemon: number;
+  partyCount: number;
+  storageCount: number;
+  uniqueSpecies: number;
+  shinyCount: number;
+  recentCaptures: Array<{
+    id: string;
+    speciesId: number | null;
+    speciesName: string | null;
+    nickname: string | null;
+    isShiny: boolean;
+    capturedAt: Date | null;
+  }>;
+};
+
+export type TrainerBattleSummary = {
+  total: number;
+  wins: number;
+  losses: number;
+  forfeits: number;
+  lastOutcome: "win" | "loss" | "forfeit" | "draw" | null;
+  lastBattleAt: Date | null;
+  recent: Array<{
+    id: string;
+    outcome: "win" | "loss" | "forfeit" | "draw";
+    endedAt: Date | null;
+    opponentDiscordId: string | null;
+  }>;
+};
+
+export type TrainerProfileSummary = {
+  user: {
+    id: string;
+    discordId: string;
+    coins: number;
+    createdAt: Date | null;
+  };
+  profile: TrainerProfileRecord;
+  stats: TrainerProfileStats;
+  battles: TrainerBattleSummary;
+  quest: DailyQuestStreakStatus;
+  dailyRewardReadyAt: Date | null;
+};
+
+export type TrainerProfileUpdateInput = {
+  tagline?: string | null;
+  bio?: string | null;
+  favoriteSpeciesId?: number | null;
+};
+
 const POKEMON_SUMMARY_SELECT = {
   id: true,
   speciesId: true,
@@ -157,6 +231,353 @@ export const DMHomeRepo = {
     } satisfies TrainerHomeSnapshot;
   },
 };
+
+type TrainerProfileDelegate = {
+  upsert(args: unknown): Promise<unknown>;
+  update(args: unknown): Promise<unknown>;
+  findUnique(args: unknown): Promise<unknown>;
+};
+
+function getTrainerProfileDelegate(client: PrismaClient): TrainerProfileDelegate {
+  const delegate = (client as unknown as { trainerProfile?: TrainerProfileDelegate }).trainerProfile;
+  if (!delegate) {
+    throw new Error("TrainerProfile delegate unavailable. Run `npx prisma generate` to refresh types.");
+  }
+  return delegate;
+}
+
+function sanitizeProfileText(value: unknown, maxLength: number, collapseWhitespace: boolean): string | null {
+  if (typeof value !== "string") return null;
+  let normalized = value.replace(/\r\n/g, "\n").replace(/\u0000/g, "");
+  normalized = collapseWhitespace ? normalized.replace(/\s+/g, " ") : normalized.replace(/[\t\f\v\x0b]+/g, " ");
+  normalized = normalized.trim();
+  if (!normalized) return null;
+  if (!collapseWhitespace) {
+    normalized = normalized.replace(/\n{3,}/g, "\n\n");
+  }
+  if (normalized.length > maxLength) {
+    normalized = normalized.slice(0, maxLength).trimEnd();
+  }
+  return normalized.length ? normalized : null;
+}
+
+function sanitizeProfileTagline(value: unknown): string | null {
+  return sanitizeProfileText(value, MAX_PROFILE_TAGLINE_LENGTH, true);
+}
+
+function sanitizeProfileBio(value: unknown): string | null {
+  return sanitizeProfileText(value, MAX_PROFILE_BIO_LENGTH, false);
+}
+
+function coerceSpeciesId(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(numeric) || numeric <= 0) {
+    return null;
+  }
+  return numeric;
+}
+
+type PokemonOutline = {
+  id: string;
+  speciesId: number | null;
+  speciesName: string | null;
+  nickname: string | null;
+  isShiny: boolean;
+  inParty: boolean;
+  createdAt: Date | null;
+};
+
+function summarizePokemonRecords(records: PokemonOutline[]): TrainerProfileStats {
+  const total = records.length;
+  const partyCount = records.filter((record) => record.inParty).length;
+  const storageCount = total - partyCount;
+  const speciesIds = new Set(records.map((record) => record.speciesId).filter((id): id is number => typeof id === "number"));
+  const shinyCount = records.filter((record) => record.isShiny).length;
+  const recent = records
+    .slice()
+    .sort((a, b) => {
+      const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+      const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+      return bTime - aTime;
+    })
+    .slice(0, 3)
+    .map((record) => ({
+      id: record.id,
+      speciesId: record.speciesId,
+      speciesName: record.speciesName,
+      nickname: record.nickname,
+      isShiny: record.isShiny,
+      capturedAt: record.createdAt,
+    }));
+
+  return {
+    totalPokemon: total,
+    partyCount,
+    storageCount,
+    uniqueSpecies: speciesIds.size,
+    shinyCount,
+    recentCaptures: recent,
+  } satisfies TrainerProfileStats;
+}
+
+type ParsedBattleResult = {
+  winnerUserId: string | null;
+  loserUserId: string | null;
+  winnerDiscordId: string | null;
+  loserDiscordId: string | null;
+  reason: string | null;
+};
+
+function parseBattleResult(result: Prisma.JsonValue | null | undefined): ParsedBattleResult {
+  if (!result || typeof result !== "object" || result === null) {
+    return {
+      winnerUserId: null,
+      loserUserId: null,
+      winnerDiscordId: null,
+      loserDiscordId: null,
+      reason: null,
+    } satisfies ParsedBattleResult;
+  }
+  const container = result as Record<string, unknown>;
+  const winner = typeof container.winner === "object" && container.winner !== null ? (container.winner as Record<string, unknown>) : null;
+  const loser = typeof container.loser === "object" && container.loser !== null ? (container.loser as Record<string, unknown>) : null;
+  return {
+    winnerUserId: typeof winner?.userId === "string" ? winner.userId : null,
+    loserUserId: typeof loser?.userId === "string" ? loser.userId : null,
+    winnerDiscordId: typeof winner?.discordId === "string" ? winner.discordId : null,
+    loserDiscordId: typeof loser?.discordId === "string" ? loser.discordId : null,
+    reason: typeof container.reason === "string" ? container.reason : null,
+  } satisfies ParsedBattleResult;
+}
+
+function determineBattleOutcome(userId: string, parsed: ParsedBattleResult): "win" | "loss" | "forfeit" | "draw" {
+  if (parsed.winnerUserId === userId) {
+    return "win";
+  }
+  if (parsed.loserUserId === userId) {
+    return parsed.reason === "forfeit" ? "forfeit" : "loss";
+  }
+  return "draw";
+}
+
+type BattleRecord = {
+  id: string;
+  endedAt: Date | null;
+  resultJson: Prisma.JsonValue | null;
+};
+
+function summarizeBattleRecords(records: BattleRecord[], userId: string): TrainerBattleSummary {
+  const summary: TrainerBattleSummary = {
+    total: records.length,
+    wins: 0,
+    losses: 0,
+    forfeits: 0,
+    lastOutcome: null,
+    lastBattleAt: null,
+    recent: [],
+  };
+
+  for (const record of records) {
+    const parsed = parseBattleResult(record.resultJson);
+    const outcome = determineBattleOutcome(userId, parsed);
+    if (!summary.lastOutcome) {
+      summary.lastOutcome = outcome;
+      summary.lastBattleAt = record.endedAt ?? null;
+    }
+    switch (outcome) {
+      case "win":
+        summary.wins += 1;
+        break;
+      case "loss":
+        summary.losses += 1;
+        break;
+      case "forfeit":
+        summary.losses += 1;
+        summary.forfeits += 1;
+        break;
+      default:
+        break;
+    }
+    if (summary.recent.length < 3) {
+      const opponentDiscordId = outcome === "win" ? parsed.loserDiscordId : parsed.winnerDiscordId;
+      summary.recent.push({
+        id: record.id,
+        outcome,
+        endedAt: record.endedAt ?? null,
+        opponentDiscordId: opponentDiscordId ?? null,
+      });
+    }
+  }
+
+  return summary;
+}
+
+function mapTrainerProfileRecord(profile: PrismaTrainerProfileRecord | null | undefined): TrainerProfileRecord {
+  if (!profile) {
+    return {
+      tagline: null,
+      bio: null,
+      favoriteSpeciesId: null,
+      favoriteSpeciesName: null,
+      favoriteSpeciesSlug: null,
+      createdAt: null,
+      updatedAt: null,
+    } satisfies TrainerProfileRecord;
+  }
+  return {
+    tagline: profile.tagline ?? null,
+    bio: profile.bio ?? null,
+    favoriteSpeciesId: typeof profile.favoriteSpeciesId === "number" ? profile.favoriteSpeciesId : null,
+    favoriteSpeciesName: typeof profile.favoriteSpecies?.name === "string" ? profile.favoriteSpecies?.name ?? null : null,
+    favoriteSpeciesSlug: typeof profile.favoriteSpecies?.slug === "string" ? profile.favoriteSpecies?.slug ?? null : null,
+    createdAt: profile.createdAt instanceof Date ? profile.createdAt : null,
+    updatedAt: profile.updatedAt instanceof Date ? profile.updatedAt : null,
+  } satisfies TrainerProfileRecord;
+}
+
+async function ensureTrainerProfile(
+  discordId: string,
+  client: PrismaClient = prisma
+): Promise<{ user: PrismaUser; profile: PrismaTrainerProfileRecord }> {
+  const user = await UserRepo.upsertByDiscordId(discordId, client);
+  const delegate = getTrainerProfileDelegate(client);
+  const profile = (await delegate.upsert({
+    where: { userId: user.id },
+    update: {},
+    create: { userId: user.id },
+    include: { favoriteSpecies: { select: { id: true, name: true, slug: true } } },
+  })) as PrismaTrainerProfileRecord;
+  return { user, profile };
+}
+
+async function fetchTrainerPokemon(client: PrismaClient, userId: string): Promise<PokemonOutline[]> {
+  const records = await client.pokemonInstance.findMany({
+    where: { ownerId: userId },
+    select: {
+      id: true,
+      speciesId: true,
+      nickname: true,
+      isShiny: true,
+      createdAt: true,
+      species: { select: { name: true } },
+      partySlots: { select: { id: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return records.map((record) => ({
+    id: record.id,
+    speciesId: typeof record.speciesId === "number" ? record.speciesId : null,
+    speciesName: typeof record.species?.name === "string" ? record.species.name : null,
+    nickname: record.nickname ?? null,
+    isShiny: Boolean(record.isShiny),
+    inParty: Array.isArray(record.partySlots) && record.partySlots.length > 0,
+    createdAt: record.createdAt instanceof Date ? record.createdAt : null,
+  }));
+}
+
+async function fetchTrainerBattles(client: PrismaClient, userId: string): Promise<BattleRecord[]> {
+  const battles = await client.battle.findMany({
+    where: {
+      state: "Finished",
+      OR: [{ p1Id: userId }, { p2Id: userId }],
+    },
+    select: { id: true, resultJson: true, endedAt: true },
+    orderBy: { endedAt: "desc" },
+    take: 10,
+  });
+  return battles.map((battle) => ({
+    id: battle.id,
+    resultJson: battle.resultJson ?? null,
+    endedAt: battle.endedAt instanceof Date ? battle.endedAt : null,
+  }));
+}
+
+async function fetchDailyRewardCooldown(client: PrismaClient, userId: string): Promise<Date | null> {
+  const record = await client.cooldown.findFirst({
+    where: { ownerId: userId, kind: { in: ["daily", "daily-quest"] } },
+    orderBy: { readyAt: "desc" },
+  });
+  return record?.readyAt ?? null;
+}
+
+export async function loadTrainerProfileSummary(
+  discordId: string,
+  client: PrismaClient = prisma
+): Promise<TrainerProfileSummary> {
+  const { user, profile } = await ensureTrainerProfile(discordId, client);
+  const [pokemon, battles, cooldownReadyAt] = await Promise.all([
+    fetchTrainerPokemon(client, user.id),
+    fetchTrainerBattles(client, user.id),
+    fetchDailyRewardCooldown(client, user.id),
+  ]);
+
+  const stats = summarizePokemonRecords(pokemon);
+  const battleSummary = summarizeBattleRecords(battles, user.id);
+  const quest = evaluateDailyQuestStreak({
+    streak: user.dailyQuestStreak,
+    lastCompleted: user.dailyQuestLastCompleted,
+    lastReset: user.dailyQuestLastReset,
+  });
+
+  return {
+    user: {
+      id: user.id,
+      discordId: user.discordId,
+      coins: user.coins,
+      createdAt: user.createdAt,
+    },
+    profile: mapTrainerProfileRecord(profile),
+    stats,
+    battles: battleSummary,
+    quest,
+    dailyRewardReadyAt: cooldownReadyAt,
+  } satisfies TrainerProfileSummary;
+}
+
+export async function updateTrainerProfile(
+  discordId: string,
+  updates: TrainerProfileUpdateInput,
+  client: PrismaClient = prisma
+): Promise<void> {
+  const { user } = await ensureTrainerProfile(discordId, client);
+  const delegate = getTrainerProfileDelegate(client);
+
+  const changes: Record<string, unknown> = {};
+
+  if (updates.tagline !== undefined) {
+    changes.tagline = sanitizeProfileTagline(updates.tagline) ?? null;
+  }
+
+  if (updates.bio !== undefined) {
+    changes.bio = sanitizeProfileBio(updates.bio) ?? null;
+  }
+
+  if (updates.favoriteSpeciesId !== undefined) {
+    const targetSpeciesId = coerceSpeciesId(updates.favoriteSpeciesId);
+    if (targetSpeciesId === null) {
+      changes.favoriteSpeciesId = null;
+    } else {
+      const species = await client.species.findUnique({ where: { id: targetSpeciesId }, select: { id: true } });
+      if (!species) {
+        const err = new Error(`Unknown species id: ${targetSpeciesId}`);
+        err.name = "TrainerProfileUnknownSpecies";
+        throw err;
+      }
+      changes.favoriteSpeciesId = targetSpeciesId;
+    }
+  }
+
+  if (!Object.keys(changes).length) {
+    return;
+  }
+
+  await delegate.update({
+    where: { userId: user.id },
+    data: changes,
+  });
+}
 
 type PrismaLike = PrismaClient;
 export type BattleWithPlayers = Battle & { p1: PrismaUser; p2: PrismaUser };

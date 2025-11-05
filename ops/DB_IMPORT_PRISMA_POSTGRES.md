@@ -54,7 +54,7 @@ Use this runbook when migrating data between the Render PostgreSQL cluster and P
 1. Run the helper script (handles tunnel startup, SSL disable, cleanup):
 
    ```powershell
-   npx tsx scripts/db_smoke.ts  # optional sanity check before import
+   npm run db:smoke -- --mode=accelerate  # optional sanity check before import
    pwsh .\scripts\restore_prisma_postgres.ps1 -BackupPath .\db_dump.bak
    ```
 
@@ -66,7 +66,7 @@ Use this runbook when migrating data between the Render PostgreSQL cluster and P
 1. Run the smoke query to ensure Prisma client can read via Accelerate:
 
    ```powershell
-   npx tsx scripts/db_smoke.ts
+   npm run db:smoke -- --mode=accelerate
    ```
 
 2. Optionally inspect data with Prisma Studio:

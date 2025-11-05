@@ -99,12 +99,12 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 # _Patch Clipboard Scratch Area (leave empty when not in use)_
 # 
 # <<<PATCHSET START>>>
-# Files: scripts/ops/simulate_flag_rollout.ts, docs/operations.md, docs/dex-v2-design.md, ops/change-ledger.md, Tasklist.md, Prompt.md, ops/NEXT.yaml
-# Goal: Strip webhook/announcement steps from the DEX v2 cutover tooling and docs so the focus stays on DB parity and manual flag applies.
+# Files: prisma/schema.prisma, prisma/migrations/**, ops/DB_BOOTSTRAP.md, Tasklist.md, Prompt.md, ops/NEXT.yaml, ops/TOUCHMAP.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md
+# Goal: Draft the day-one migrations and rollback rehearsal for DB.V0.BOOTSTRAP while keeping routing metadata synchronized.
 # Steps:
-# - Simplify scripts/ops/simulate_flag_rollout.ts by removing --announce/--webhook support and associated payload helpers.
-# - Revise docs/operations.md and docs/dex-v2-design.md to drop webhook/communications references and highlight DB backups + manual console uploads.
-# - Update ops/change-ledger.md with the simplification note, refresh Tasklist/Patch metadata, and keep NEXT pointer aligned.
+# - Author baseline migration SQL (tenants, trainers, dex packs, inventory, encounters, audit) and link supporting rollback instructions in ops/DB_BOOTSTRAP.md.
+# - Update Tasklist.md notes and ops/TOUCHMAP.yaml to record evidence checkpoints and ownership for the new schema assets.
+# - Regenerate router metadata and refresh Prompt.md/NEXT.yaml with the guard results plus the outstanding bootstrap follow-ups.
 # <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

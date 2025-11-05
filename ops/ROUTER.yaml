@@ -1,7 +1,7 @@
 # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-11-03T00:15:00Z
+updated_utc: 2025-11-04T16:58:00Z
 
 meta_files:
   - Patch.md
@@ -48,6 +48,7 @@ categories:
     - docs/operations.md
     - docs/database-systems.md
     - docs/db-control-suite.md
+    - docs/db-accelerate-workflow.md
   - docs/dex-v2-design.md
     - docs/perfect-system-roadmap.md
     - docs/safety.md

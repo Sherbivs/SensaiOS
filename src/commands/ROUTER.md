@@ -2,12 +2,13 @@
 Title: Legacy Slash Command Handlers
 Purpose: Command implementations consumed by the Discord bot prior to the TypeScript port.
 Owned Globs: src/commands/**
-Last Updated (UTC): 2025-11-02T00:10:00Z
+Last Updated (UTC): 2025-11-03T07:45:00Z
 
 Notes:
 - These CommonJS handlers remain for backward compatibility while the TypeScript `/bot/commands` surface is finalized.
 - New features should target the TypeScript command set; keep these files stable until deprecation.
 - `dm-home-loader.js` bridges legacy commands to the TypeScript DM Home renderer so `/party`, `/box`, and `/profile` mirror the DM flows.
+- `/profile` now manages Option C hybrid trainer profiles (view, edit, clear) backed by the new TrainerProfile table and shared embed renderer.
 
 Representative Commands:
 - ops.js - Administrative `/ops` command logic.

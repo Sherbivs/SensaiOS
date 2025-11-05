@@ -27,7 +27,7 @@ The Infinity Gauntlet runtime keeps an evergreen Pokedex cache that mirrors the 
 2. **Run cache worker:** `npm run worker:cache` (runs `src/worker/cache-refresh.ts` via `tsx`). Logs surface refresh attempts, gauge updates, and errors.
 3. **Trigger a one-off fetch:** `node scripts/refresh_cache.mjs` (writes into `data/cache/` and mirrors meta files). Requires Git credentials if replication to GitHub is enabled locally.
 4. **Inspect cache metadata:** `npx tsx -e "import { getCacheMetadata } from './src/services/pokemonService.js'; (async () => console.log(getCacheMetadata()))();"`
-5. **Verify database readiness:** `npx tsx scripts/db_smoke.ts count-pokemon` counts stored Pokemon instances (user-owned). In a clean database this is expected to report `0` until encounters create them.
+5. **Verify database readiness:** `npm run db:smoke -- count-pokemon` loads IG_ENV_FILE secrets and counts stored Pokemon instances (user-owned). In a clean database this is expected to report `0` until encounters create them. Use `--mode=accelerate` when validating the pooled proxy.
 
 ## Render Configuration
 - `infinity-gauntlet-cache` worker keeps `CACHE_WORKER_INTERVAL_MS=0`, relying on the service cron (`0 0 * * 4` in `Etc/UTC`) to refresh every Thursday at 00:00 after the startup fetch.

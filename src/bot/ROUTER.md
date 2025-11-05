@@ -2,7 +2,7 @@
 Title: Discord Bot Layer
 Purpose: Client login, intents, command/interaction routing, DM “home” flows.
 Owned Globs: src/bot/**
-Last Updated (UTC): 2025-11-02T00:30:00Z
+Last Updated (UTC): 2025-11-03T07:45:00Z
 
 Notes:
 - Battle victories persist via `concludeBattleWithVictory`, sharing the announcer flow with forfeits.
@@ -17,6 +17,7 @@ Notes:
 - Security bot now emits DRIP alerts whenever roles are assigned, including audit-log attribution and CLI telemetry updates.
 - Security sweeps respect `ENABLE_CONTINUOUS_SWEEP`; when false the bot defers to the dedicated Render worker and logs the disabled state to the CLI dashboard.
 - DM Home embeds (`dm/home.ts`) render party, box (with pagination), and trainer profile views with button navigation and DM fallbacks when direct messages are disabled.
+- Trainer profile embeds now live under `profile/embed.ts`, shared by the `/profile` slash command to render Option C hybrid summaries.
 
 Areas:
 - index.ts — client bootstrap and interaction switchboard
