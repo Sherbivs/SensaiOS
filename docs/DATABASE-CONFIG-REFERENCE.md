@@ -3,7 +3,7 @@
 ## 🎯 Production Standard (Render)
 
 ```bash
-# PRIMARY - Prisma Accelerate pool connection
+# PRIMARY - Prisma Accelerate pool connection (Render production)
 DATABASE_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_KEY"
 
 # ALIAS - Same as DATABASE_URL (for compatibility)
@@ -12,18 +12,38 @@ DATABASE_POOL_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_KE
 # DIRECT - PostgreSQL connection for migrations/dev
 DATABASE_DIRECT_URL="postgresql://user:pass@host:5432/database"
 
+# LOCAL WORKSTATION - PRIMARY database for live gameplay
+# Auto-populated from Store/db/local-url.txt or set manually
+DATABASE_LOCAL_URL="postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db"
+
 # OPTIONAL - Prisma Optimize monitoring
 OPTIMIZE_API_KEY="your_optimize_key"
 ```
+
+## 🎮 **Workstation Gameplay Priority**
+
+When `DATABASE_LOCAL_URL` is configured, the LOCAL database becomes the **PRIMARY database for live gameplay**:
+
+- **Live Battles**: Use `localPrisma` for <50ms latency
+- **Encounters**: Local workstation handles all encounter logic
+- **Trainer Operations**: CRUD operations on local PostgreSQL cluster
+- **Data Sync**: Automatic replication from PROD/DEV → LOCAL
+- **Failover**: Graceful degradation to PROD if LOCAL unavailable
 
 ## 📋 Variable Summary
 
 | Variable | Purpose | Format | Required |
 |----------|---------|--------|----------|
-| `DATABASE_URL` | **Main connection** (Prisma Client) | `prisma+postgres://...` | ✅ |
+| `DATABASE_URL` | **Main connection** (Prisma Client for Render) | `prisma+postgres://...` | ✅ |
 | `DATABASE_POOL_URL` | Alias for DATABASE_URL | `prisma+postgres://...` | ✅ |
 | `DATABASE_DIRECT_URL` | Direct PostgreSQL (migrations) | `postgresql://...` | ✅ |
-| `DATABASE_LOCAL_URL` | Local mirror (optional failover) | `postgresql://...` | ❌ |
+| `DATABASE_LOCAL_URL` | **Local workstation (PRIMARY for gameplay)** | `postgresql://...` | ✅ Live |
+
+### Priority Hierarchy
+
+1. **Live Gameplay (Workstation)**: `DATABASE_LOCAL_URL` → `localPrisma` client
+2. **Production Operations (Render)**: `DATABASE_URL` → `prisma` client  
+3. **Development/Migrations**: `DATABASE_DIRECT_URL` → `devPrisma` client
 
 ## 🚀 Render Setup Checklist
 
@@ -55,26 +75,34 @@ envVars:
 
 ## 💻 Local Development
 
-### Quick Setup
+### Workstation Gameplay Setup (Recommended)
 
 ```powershell
 # 1. Create secure environment file
 $Env:IG_ENV_FILE = "C:/Users/yourname/Documents/Key/Dev/.env"
 
-# 2. Add credentials to file
+# 2. Add credentials to file (WITH local workstation URL)
 @"
+# Production connections (read-only for replication)
 DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_KEY
 DATABASE_POOL_URL=prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_KEY
 DATABASE_DIRECT_URL=postgresql://user:pass@render-host:5432/infinity_gauntlet_db
+
+# LOCAL WORKSTATION (PRIMARY for live gameplay)
+DATABASE_LOCAL_URL=postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+
 OPTIMIZE_API_KEY=your_key
 BOT_TOKEN=your_token
 "@ | Out-File -FilePath $Env:IG_ENV_FILE
 
-# 3. Generate Prisma Client
-npx prisma generate
+# 3. Bootstrap local database (creates cluster + replicates from PROD)
+npm run ops:auto-bootstrap-local-db
 
-# 4. Run migrations
-npx prisma migrate dev
+# 4. Verify local cluster is ready
+npm run db:health
+
+# Expected output:
+# LOCAL → Status: healthy | Latency: <50ms | Source: local
 ```
 
 ## 🔍 Health Check
@@ -83,10 +111,33 @@ npx prisma migrate dev
 # Check database connection status
 npm run db:health
 
-# Expected output:
-# DEV   → Status: healthy   | Latency: ~100-500ms  | Source: direct
-# PROD  → Status: healthy   | Latency: ~50-200ms   | Source: pool
-# LOCAL → Status: offline   | Latency: n/a         | Source: unknown (normal)
+# Expected output (workstation with local gameplay):
+# DEV   → Status: healthy   | Latency: ~100-500ms  | Source: direct  | (migrations/replication source)
+# PROD  → Status: healthy   | Latency: ~50-200ms   | Source: pool    | (Render production)
+# LOCAL → Status: healthy   | Latency: <50ms       | Source: local   | (PRIMARY for gameplay) ⭐
+
+# If LOCAL is offline (not configured):
+# LOCAL → Status: offline   | Latency: n/a         | Source: unknown | (optional - not required for Render-only)
+```
+
+## 🎮 **Using Local Database for Gameplay**
+
+```typescript
+// In your bot code, use localPrisma for live gameplay operations
+import { localPrisma, prisma } from '../shared/prisma.js';
+
+// Battle operations - use local workstation for <50ms latency
+if (localPrisma) {
+  const trainer = await localPrisma.user.findUnique({
+    where: { discordId: interaction.user.id }
+  });
+  // Local database serves live gameplay
+} else {
+  // Fallback to PROD if local unavailable
+  const trainer = await prisma.user.findUnique({
+    where: { discordId: interaction.user.id }
+  });
+}
 ```
 
 ## ⚠️ Common Issues

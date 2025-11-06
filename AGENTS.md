@@ -56,53 +56,61 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
   npm run db:cli -- count Species  # single-table helpers
   npm run db:cli -- query "SELECT COUNT(*) FROM \"Species\";"
   ```
-4. **Bootstrap the local fallback when required:** set `PG_BIN_DIR` to a Postgres installation with `bin/` + `share/` (e.g., `C:/Program Files/PostgreSQL/17/bin`), then run `npm run ops:bootstrap-local-db` to mirror the DEV database into `Store/db`, rotate timestamped snapshots, and emit `local-url.txt` so `src/shared/config.ts` can fail over to the offline cluster. Prefer `npm run ops:auto-bootstrap-local-db` when you want the script to install PostgreSQL silently (via winget) and run the mirror in one step. Capture the command, timestamp, and resulting URL in Tasklist notes when you refresh the mirror (especially before cutovers or network work).
+4. **Bootstrap the local workstation database (PRIMARY for gameplay):** set `PG_BIN_DIR` to a Postgres installation with `bin/` + `share/` (e.g., `C:/Program Files/PostgreSQL/17/bin`), then run `npm run ops:bootstrap-local-db` to mirror the DEV/PROD database into `Store/db`, rotate timestamped snapshots, and emit `local-url.txt` (e.g., `postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db`) so `src/shared/config.ts` can connect the `localPrisma` client. Prefer `npm run ops:auto-bootstrap-local-db` when you want the script to install PostgreSQL silently (via winget) and run the mirror in one step. Add `DATABASE_LOCAL_URL` to your environment file (`C:/Users/sherb/OneDrive/Documents/Key/Dev/.env`) to enable <50ms latency gameplay. Capture the command, timestamp, and resulting URL in Tasklist notes when you refresh the mirror (especially before cutovers or network work). See `docs/WORKSTATION-GAMEPLAY-SETUP.md` for complete setup guide.
 5. **Document actions:** log purpose, command, and outcome in `Tasklist.md` under the active task when running anything outside status/counts.
 
 Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describe the secure loading order and available commands. These tools run locally only; do not expose the secure env path in CI or production.
 
-### Dual Database Connection Architecture (Runtime)
+### Triple Database Connection Architecture (Runtime)
 
-**As of 2025-11-06**, the production runtime maintains **two Prisma clients connected simultaneously**:
+**As of 2025-11-06**, the production runtime maintains **three Prisma clients connected simultaneously**:
 
-- **`prisma`** (PROD) — Connected to `DATABASE_POOL_URL` or `DATABASE_ACCELERATE_URL`; uses Prisma Accelerate for query caching, connection pooling, and high availability. This is the primary client for all production game operations.
-- **`devPrisma`** (DEV) — Connected to `DATABASE_DIRECT_URL` or `DATABASE_EXTERNAL_URL`; bypasses Accelerate and connects directly to PostgreSQL. Used for development queries, observability, and migration workflows. May be `null` if no direct URL is configured.
+- **`prisma`** (PROD) — Connected to `DATABASE_POOL_URL` or `DATABASE_ACCELERATE_URL`; uses Prisma Accelerate for query caching, connection pooling, and high availability. Used for cloud-based production operations on Render.
+- **`devPrisma`** (DEV) — Connected to `DATABASE_DIRECT_URL` or `DATABASE_EXTERNAL_URL`; bypasses Accelerate and connects directly to PostgreSQL. Used for development queries, observability, migration workflows, and replication source. May be `null` if no direct URL is configured.
+- **`localPrisma`** (LOCAL) — **PRIMARY for live gameplay** — Connected to `DATABASE_LOCAL_URL`; local workstation PostgreSQL cluster providing <50ms latency for battles, encounters, and trainer operations. Receives replicated data from PROD/DEV. May be `null` if not configured.
 
-Both clients initialize on startup via `src/shared/prisma.ts` and maintain independent heartbeat monitoring. The logger (`src/utils/logger.js`) auto-refreshes stats every 15 seconds, displaying telemetry for both connections in console output and restart DM messages.
+All three clients initialize on startup via `src/shared/prisma.ts` and maintain independent heartbeat monitoring. The logger (`src/utils/logger.js`) auto-refreshes stats every 15 seconds, displaying telemetry for all connections in console output and restart DM messages.
 
 **Usage Patterns:**
 
 ```typescript
-import { prisma, devPrisma, getDatabaseStats } from "../shared/prisma.js";
+import { prisma, devPrisma, localPrisma, getDatabaseStats } from "../shared/prisma.js";
 
-// PROD operations (battles, encounters, trainer CRUD)
-const users = await prisma.user.findMany();
+// LIVE GAMEPLAY (battles, encounters, trainer CRUD) - use LOCAL for <50ms latency
+const gameClient = localPrisma || prisma; // Prefer LOCAL, fallback to PROD
+const users = await gameClient.user.findMany();
 
-// DEV operations (debugging, testing) - check for null first
+// CLOUD PRODUCTION operations (Render workers, background jobs)
+const cloudUsers = await prisma.user.findMany();
+
+// DEV operations (migrations, debugging, replication) - check for null first
 if (devPrisma) {
   const devUsers = await devPrisma.user.findMany();
 }
 
-// Get telemetry for both databases
+// Get telemetry for all three databases
 const stats = getDatabaseStats();
-console.log(`DEV: ${stats.dev.status} | PROD: ${stats.prod.status}`);
+console.log(`DEV: ${stats.dev.status} | PROD: ${stats.prod.status} | LOCAL: ${stats.local.status}`);
 ```
 
 **Environment Variable Mapping:**
 
 - `DATABASE_POOL_URL` or `DATABASE_ACCELERATE_URL` → PROD client (`prisma`)
 - `DATABASE_DIRECT_URL` or `DATABASE_EXTERNAL_URL` → DEV client (`devPrisma`)
+- `DATABASE_LOCAL_URL` → LOCAL client (`localPrisma`) **PRIMARY for gameplay**
 
 **When to Use Each Client:**
 
 | Use Case | Client | Reason |
 | --- | --- | --- |
-| Production game operations | `prisma` | Accelerate caching, pooling, HA |
+| **Live gameplay (battles, encounters, trainer ops)** | **`localPrisma`** (fallback `prisma`) | **<50ms latency, local workstation** |
+| Render cloud operations (workers, background jobs) | `prisma` | Accelerate caching, pooling, HA |
 | Development/debugging | `devPrisma` | Direct access, no caching layer |
 | Migrations (`prisma migrate deploy`) | DEV connection via `DATABASE_DIRECT_URL` | Prisma requires direct PostgreSQL for DDL |
-| Stats/observability | Both via `getDatabaseStats()` | Simultaneous visibility |
+| Replication source | `devPrisma` or `prisma` | PROD/DEV → LOCAL data sync |
+| Stats/observability | All three via `getDatabaseStats()` | Simultaneous visibility |
 
-See `docs/database-systems.md` for comprehensive dual architecture documentation including `DualDatabaseStats` type definitions, heartbeat tracking, and connection initialization flows.
+See `docs/database-configuration.md` for comprehensive triple-client architecture documentation including `TripleDatabaseStats` type definitions, heartbeat tracking, workstation gameplay setup, and replication flows.
 
 ## State Persistence (Security Bot)
 

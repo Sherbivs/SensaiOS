@@ -33,23 +33,27 @@ SECURITY_BOT_TOKEN="your_discord_bot_token"
 
 | Variable | Purpose | Source | Required |
 |----------|---------|--------|----------|
-| `DATABASE_URL` | **Primary connection** - Used by Prisma Client for all queries | Prisma Accelerate pool URL | ✅ Yes |
-| `DATABASE_POOL_URL` | Alias for `DATABASE_URL` (legacy compatibility) | Same as DATABASE_URL | ✅ Yes |
+| `DATABASE_URL` | **Primary connection** - Used by Prisma Client for Render production | Prisma Accelerate pool URL | ✅ Render |
+| `DATABASE_POOL_URL` | Alias for `DATABASE_URL` (legacy compatibility) | Same as DATABASE_URL | ✅ Render |
 | `DATABASE_DIRECT_URL` | Direct PostgreSQL connection bypassing Accelerate | PostgreSQL connection string | ✅ Yes |
-| `DATABASE_LOCAL_URL` | Local workstation PostgreSQL mirror (optional failover) | Local PostgreSQL | ❌ No |
+| `DATABASE_LOCAL_URL` | **Local workstation PostgreSQL (PRIMARY for live gameplay)** | Local PostgreSQL cluster | ✅ Gameplay |
 | `OPTIMIZE_API_KEY` | Prisma Optimize performance monitoring | Prisma Console | ❌ No |
 
 ### Connection Priority
 
 The application uses a **cascading fallback system** defined in `src/shared/config.ts`:
 
-1. **Prisma Accelerate** (preferred for production):
+1. **Prisma Accelerate** (preferred for Render production):
    - `DATABASE_POOL_URL` (highest priority)
    - `DATABASE_URL` (if Accelerate format: `prisma+postgres://...`)
 
 2. **Direct PostgreSQL** (fallback):
    - `DATABASE_DIRECT_URL`
-   - `DATABASE_LOCAL_URL` (workstation mirror, last resort)
+
+3. **Local Workstation** (PRIMARY for live gameplay):
+   - `DATABASE_LOCAL_URL` (lowest latency <50ms)
+   - Auto-populated from `Store/db/local-url.txt`
+   - Used by `localPrisma` client for battles, encounters, trainer operations
 
 ## Render Configuration
 
@@ -146,22 +150,33 @@ Use one of these methods:
 The application maintains **three Prisma clients** for different purposes:
 
 ### Production Client (`prisma`)
-- **Purpose**: Primary production database access
+- **Purpose**: Production database access for Render cloud deployment
 - **URL**: `DATABASE_URL` (Prisma Accelerate pool)
-- **Usage**: All normal application queries
+- **Usage**: Cloud-based queries, Render workers, production operations
 - **Export**: `src/shared/prisma.ts`
+- **Latency**: ~50-200ms (via Accelerate)
 
 ### Development Client (`devPrisma`)
-- **Purpose**: Direct database access for dev operations
+- **Purpose**: Direct database access for dev operations and replication source
 - **URL**: `DATABASE_DIRECT_URL`
-- **Usage**: Migrations, replication monitoring, admin tools
+- **Usage**: Migrations, replication monitoring, admin tools, schema changes
 - **Export**: `src/shared/prisma.ts`
+- **Latency**: ~100-500ms (direct to Render PostgreSQL)
 
-### Local Mirror Client (`localPrisma`)
-- **Purpose**: Workstation PostgreSQL mirror (failover)
-- **URL**: `DATABASE_LOCAL_URL` (optional)
-- **Usage**: Replication target, local testing, disaster recovery
+### Local Workstation Client (`localPrisma`) ⭐ **PRIMARY FOR GAMEPLAY**
+- **Purpose**: **Local PostgreSQL cluster for live gameplay operations**
+- **URL**: `DATABASE_LOCAL_URL` (from `Store/db/local-url.txt`)
+- **Usage**: **Battles, encounters, trainer CRUD, active game sessions**
 - **Export**: `src/shared/prisma.ts`
+- **Latency**: **<50ms** (local PostgreSQL, sub-millisecond on NVMe)
+- **Replication**: Receives data sync from PROD/DEV → LOCAL
+
+### Gameplay Priority
+
+When playing the game locally on your workstation:
+1. **Use `localPrisma`** for all live gameplay operations (battles, catches, trainer updates)
+2. **Fall back to `prisma`** if LOCAL is unavailable (graceful degradation)
+3. **Use `devPrisma`** for replication sync and schema migrations
 
 ### Health Monitoring
 
