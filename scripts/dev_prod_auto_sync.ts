@@ -11,8 +11,10 @@ type EnvVars = Record<string, string>;
 type SyncConfig = {
   devEnvPath: string;
   prodEnvPath: string;
+  localEnvPath: string | null;
   triggerPath: string;
   intervalMs: number;
+  reverseCheckIntervalMs: number;
   once: boolean;
   dryRun: boolean;
   skipStartup: boolean;
@@ -20,6 +22,8 @@ type SyncConfig = {
   alertWebhookUrl: string;
   suppressAlerts: boolean;
   simulateAlert: boolean;
+  enforceDevMaster: boolean;
+  includeLocal: boolean;
 };
 
 type CountSnapshot = {
@@ -30,10 +34,14 @@ type CountSnapshot = {
   hash: string;
 };
 
+type EnvironmentName = "dev" | "prod" | "local";
+
 const DEFAULT_DEV_ENV = "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env";
 const DEFAULT_PROD_ENV = "C:/Users/sherb/OneDrive/Documents/Key/Prod/.env";
+const DEFAULT_LOCAL_ENV = null;
 const DEFAULT_TRIGGER_PATH = path.join("data", "cache", "dex-sync-trigger.json");
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_REVERSE_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 type DexTrigger = {
   kind: string;
@@ -48,6 +56,9 @@ type IntegrityAlertPayload = {
   delta: Record<string, number>;
   devCounts: CountSnapshot;
   prodCounts: CountSnapshot;
+  enforcementMode?: "enabled" | "disabled";
+  violationType?: "drift" | "reverse_integrity";
+  affectedEnvironment?: "prod" | "local";
 };
 
 type AlertDispatcher = (payload: IntegrityAlertPayload) => Promise<void>;
@@ -114,7 +125,7 @@ function buildAlertBody(
   payload: IntegrityAlertPayload,
   config: SyncConfig,
 ): Record<string, unknown> {
-  const { reason, delta, devCounts, prodCounts } = payload;
+  const { reason, delta, devCounts, prodCounts, enforcementMode, violationType, affectedEnvironment } = payload;
   const deltaLine = `Δ species ${delta.species}, moves ${delta.moves}, abilities ${delta.abilities}, learnsets ${delta.learnsets}`;
   const igEnvFile = (process.env.IG_ENV_FILE || "").trim();
   const footerLines = [
@@ -125,32 +136,59 @@ function buildAlertBody(
     footerLines.push(`IG_ENV_FILE: ${igEnvFile}`);
   }
 
+  // Add enforcement context to footer
+  if (enforcementMode) {
+    footerLines.push(`enforcement: ${enforcementMode}`);
+  }
+  if (violationType) {
+    footerLines.push(`violation: ${violationType}`);
+  }
+  if (affectedEnvironment) {
+    footerLines.push(`affected: ${affectedEnvironment.toUpperCase()}`);
+  }
+
+  const fields = [
+    {
+      name: "Dev counts",
+      value: formatCountsSnapshot("DEV", devCounts),
+      inline: true,
+    },
+    {
+      name: "Prod counts",
+      value: formatCountsSnapshot("PROD", prodCounts),
+      inline: true,
+    },
+  ];
+
+  // Add enforcement-specific guidance
+  if (enforcementMode === "enabled" && violationType === "reverse_integrity") {
+    fields.push({
+      name: "⚠️ CRITICAL: Unauthorized Database Change Detected",
+      value: `${affectedEnvironment?.toUpperCase()} database diverged from DEV (master). Auto-enforcement will force ${affectedEnvironment?.toUpperCase()} to match DEV on next sync cycle. DEV is the single source of truth.`,
+      inline: false,
+    });
+  }
+
+  fields.push({
+    name: "Investigate",
+    value: "Run `npm run db:cli -- counts` on both envs, inspect recent deploys, rerun `npm run db:auto-sync -- --once`, and review docs/database-systems.md#auto-sync-drift-response-runbook.",
+    inline: false,
+  });
+
   return {
     username: ALERT_WEBHOOK_USERNAME,
-    content: "⚠️ Dex auto-sync detected drift after consolidation.",
+    content: violationType === "reverse_integrity" 
+      ? "🚨 CRITICAL: Unauthorized database change detected - DEV master enforcement active"
+      : "⚠️ Dex auto-sync detected drift after consolidation.",
     allowed_mentions: { parse: [] },
     embeds: [
       {
-        title: "Dex Auto-Sync Integrity Alert",
+        title: violationType === "reverse_integrity" 
+          ? "🔒 DEV Master Enforcement Alert" 
+          : "Dex Auto-Sync Integrity Alert",
         description: [`Reason: ${reason}`, deltaLine].join("\n"),
-        color: ALERT_EMBED_COLOR,
-        fields: [
-          {
-            name: "Dev counts",
-            value: formatCountsSnapshot("DEV", devCounts),
-            inline: true,
-          },
-          {
-            name: "Prod counts",
-            value: formatCountsSnapshot("PROD", prodCounts),
-            inline: true,
-          },
-          {
-            name: "Investigate",
-            value: "Run `npm run db:cli -- counts` on both envs, inspect recent deploys, rerun `npm run db:auto-sync -- --once`, and review docs/database-systems.md#auto-sync-drift-response-runbook.",
-            inline: false,
-          },
-        ],
+        color: violationType === "reverse_integrity" ? 0xff0000 : ALERT_EMBED_COLOR, // Red for reverse integrity violations
+        fields,
         timestamp: new Date().toISOString(),
         footer: {
           text: footerLines.join(" | "),
@@ -243,8 +281,10 @@ function parseArgs(): SyncConfig {
   const config: SyncConfig = {
     devEnvPath: DEFAULT_DEV_ENV,
     prodEnvPath: DEFAULT_PROD_ENV,
+    localEnvPath: DEFAULT_LOCAL_ENV,
     triggerPath: DEFAULT_TRIGGER_PATH,
     intervalMs: DEFAULT_INTERVAL_MS,
+    reverseCheckIntervalMs: DEFAULT_REVERSE_CHECK_INTERVAL_MS,
     once: false,
     dryRun: false,
     skipStartup: false,
@@ -252,6 +292,8 @@ function parseArgs(): SyncConfig {
     alertWebhookUrl: (process.env.ALERT_WEBHOOK_URL || "").trim(),
     suppressAlerts: false,
     simulateAlert: false,
+    enforceDevMaster: true, // DEV is master by default
+    includeLocal: false, // Local workstation sync is opt-in
   };
 
   for (let i = 0; i < args.length; i += 1) {
@@ -263,11 +305,18 @@ function parseArgs(): SyncConfig {
       case "--prod-env":
         config.prodEnvPath = args[++i] ?? config.prodEnvPath;
         break;
+      case "--local-env":
+        config.localEnvPath = args[++i] ?? config.localEnvPath;
+        config.includeLocal = true;
+        break;
       case "--trigger-path":
         config.triggerPath = args[++i] ?? config.triggerPath;
         break;
       case "--interval":
         config.intervalMs = Number.parseInt(args[++i] ?? "", 10) || config.intervalMs;
+        break;
+      case "--reverse-check-interval":
+        config.reverseCheckIntervalMs = Number.parseInt(args[++i] ?? "", 10) || config.reverseCheckIntervalMs;
         break;
       case "--once":
         config.once = true;
@@ -289,6 +338,12 @@ function parseArgs(): SyncConfig {
         break;
       case "--simulate-alert":
         config.simulateAlert = true;
+        break;
+      case "--no-enforce":
+        config.enforceDevMaster = false;
+        break;
+      case "--include-local":
+        config.includeLocal = true;
         break;
       default:
         break;
@@ -501,7 +556,7 @@ function cliEnvForSeed(fileVars: EnvVars): Record<string, string | undefined> {
 }
 
 async function runPhase(
-  name: "dev" | "prod",
+  name: EnvironmentName,
   envPath: string,
   envVars: EnvVars,
   dryRun: boolean,
@@ -541,7 +596,7 @@ async function preflightOptimize(envVars: EnvVars): Promise<void> {
 }
 
 async function withPrismaClient<T>(
-  label: "dev" | "prod",
+  label: EnvironmentName,
   envVars: EnvVars,
   callback: (client: PrismaClient) => Promise<T>,
 ): Promise<T> {
@@ -581,7 +636,7 @@ async function withPrismaClient<T>(
   }
 }
 
-async function captureCounts(label: "dev" | "prod", envVars: EnvVars): Promise<CountSnapshot> {
+async function captureCounts(label: EnvironmentName, envVars: EnvVars): Promise<CountSnapshot> {
   return withPrismaClient(label, envVars, async (client) => {
     const [species, moves, abilities, learnsets] = await Promise.all([
       client.species.count(),
@@ -637,37 +692,159 @@ async function readDexTrigger(
   }
 }
 
+/**
+ * Enforce DEV as master: force target environment to match DEV exactly
+ */
+async function enforceDevMaster(
+  targetEnv: EnvironmentName,
+  targetEnvPath: string,
+  targetVars: EnvVars,
+  devVars: EnvVars,
+  dryRun: boolean,
+): Promise<void> {
+  log("enforce.dev_master.start", { target: targetEnv, dryRun });
+
+  if (dryRun) {
+    log("enforce.dev_master.dry_run", { target: targetEnv, action: "skip" });
+    return;
+  }
+
+  // Run migrations and seed on target to match DEV
+  await runPhase(targetEnv, targetEnvPath, targetVars, dryRun);
+
+  log("enforce.dev_master.complete", { target: targetEnv });
+}
+
+/**
+ * Reverse integrity check: verify target hasn't diverged from DEV
+ * Alerts if unauthorized changes detected in PROD/LOCAL
+ */
+async function reverseIntegrityCheck(
+  targetEnv: EnvironmentName,
+  targetVars: EnvVars,
+  devVars: EnvVars,
+  devCounts: CountSnapshot,
+  dispatchAlert?: AlertDispatcher,
+): Promise<boolean> {
+  log("reverse.integrity.check.start", { target: targetEnv });
+
+  const targetCounts = await captureCounts(targetEnv, targetVars);
+  const delta = diffCounts(devCounts, targetCounts);
+  const driftDetected =
+    delta.species !== 0 || delta.moves !== 0 || delta.abilities !== 0 || delta.learnsets !== 0;
+
+  if (driftDetected) {
+    const alertPayload: IntegrityAlertPayload = {
+      reason: "reverse_integrity_violation",
+      delta,
+      devCounts,
+      prodCounts: targetCounts, // Reusing prodCounts field for alert structure
+      enforcementMode: "enabled",
+      violationType: "reverse_integrity",
+      affectedEnvironment: targetEnv === "local" ? "local" : "prod",
+    };
+
+    log("reverse.integrity.violation", {
+      target: targetEnv,
+      severity: "critical",
+      delta,
+      devCounts,
+      targetCounts,
+      remediation: [
+        `${targetEnv.toUpperCase()} must match DEV exactly`,
+        "DEV is the single source of truth",
+        "Auto-enforcement will trigger on next sync cycle",
+      ],
+    });
+
+    if (dispatchAlert) {
+      await dispatchAlert(alertPayload);
+    }
+
+    return false; // Integrity violated
+  }
+
+  log("reverse.integrity.check.pass", { target: targetEnv });
+  return true; // Integrity maintained
+}
+
 async function runConsolidation(
   config: SyncConfig,
   reason: string,
   devVars: EnvVars,
   prodVars: EnvVars,
+  localVars: EnvVars | null,
   dispatchAlert?: AlertDispatcher,
-): Promise<{ devCounts: CountSnapshot; prodCounts: CountSnapshot }> {
-  log("sync.consolidate.start", { dryRun: config.dryRun, reason });
+): Promise<{ 
+  devCounts: CountSnapshot; 
+  prodCounts: CountSnapshot;
+  localCounts: CountSnapshot | null;
+}> {
+  log("sync.consolidate.start", { 
+    dryRun: config.dryRun, 
+    reason, 
+    enforceDevMaster: config.enforceDevMaster,
+    includeLocal: config.includeLocal,
+  });
 
+  // DEV is always the source of truth - run first
   await runPhase("dev", config.devEnvPath, devVars, config.dryRun);
-  await runPhase("prod", config.prodEnvPath, prodVars, config.dryRun);
+  const devCounts = await captureCounts("dev", devVars);
 
-  const [devCounts, prodCounts] = await Promise.all([
-    captureCounts("dev", devVars),
-    captureCounts("prod", prodVars),
-  ]);
+  if (config.enforceDevMaster) {
+    // Force PROD to match DEV
+    log("enforce.strategy", { target: "prod", source: "dev", mode: "master_enforcement" });
+    await enforceDevMaster("prod", config.prodEnvPath, prodVars, devVars, config.dryRun);
+  } else {
+    // Legacy bidirectional mode
+    await runPhase("prod", config.prodEnvPath, prodVars, config.dryRun);
+  }
 
-  const delta = diffCounts(devCounts, prodCounts);
-  const driftDetected =
-    delta.species !== 0 || delta.moves !== 0 || delta.abilities !== 0 || delta.learnsets !== 0;
+  const prodCounts = await captureCounts("prod", prodVars);
 
-  log("sync.consolidate.counts", { devCounts, prodCounts, delta, reason });
+  // Handle LOCAL workstation if enabled
+  let localCounts: CountSnapshot | null = null;
+  if (config.includeLocal && localVars) {
+    if (config.enforceDevMaster) {
+      log("enforce.strategy", { target: "local", source: "dev", mode: "master_enforcement" });
+      await enforceDevMaster("local", config.localEnvPath!, localVars, devVars, config.dryRun);
+    } else {
+      await runPhase("local", config.localEnvPath!, localVars, config.dryRun);
+    }
+    localCounts = await captureCounts("local", localVars);
+  }
 
-  if (driftDetected) {
+  // Verify alignment
+  const prodDelta = diffCounts(devCounts, prodCounts);
+  const prodDriftDetected =
+    prodDelta.species !== 0 || prodDelta.moves !== 0 || prodDelta.abilities !== 0 || prodDelta.learnsets !== 0;
+
+  let localDriftDetected = false;
+  let localDelta: Record<string, number> | null = null;
+  if (config.includeLocal && localCounts) {
+    localDelta = diffCounts(devCounts, localCounts);
+    localDriftDetected =
+      localDelta.species !== 0 || localDelta.moves !== 0 || localDelta.abilities !== 0 || localDelta.learnsets !== 0;
+  }
+
+  log("sync.consolidate.counts", { 
+    devCounts, 
+    prodCounts, 
+    localCounts,
+    prodDelta, 
+    localDelta,
+    reason,
+  });
+
+  if (prodDriftDetected || localDriftDetected) {
     const alertPayload = {
       message: "Detected count drift between environments after consolidation.",
       reason,
-      delta,
+      delta: prodDelta,
       envs: {
         dev: config.devEnvPath,
         prod: config.prodEnvPath,
+        local: config.localEnvPath,
       },
       devCounts,
       prodCounts,
@@ -675,17 +852,31 @@ async function runConsolidation(
     log("sync.consolidate.warning", alertPayload);
     log("integrity.alert", {
       ...alertPayload,
-      severity: "warning",
-      remediation: "Inspect sync logs, rerun migrate/seed if drift persists.",
+      severity: config.enforceDevMaster ? "critical" : "warning",
+      remediation: config.enforceDevMaster 
+        ? "DEV is master. Target databases will be force-synced on next cycle."
+        : "Inspect sync logs, rerun migrate/seed if drift persists.",
     });
     if (dispatchAlert) {
-      await dispatchAlert({ reason, delta, devCounts, prodCounts });
+      await dispatchAlert({ 
+        reason, 
+        delta: prodDelta, 
+        devCounts, 
+        prodCounts,
+        enforcementMode: config.enforceDevMaster ? "enabled" : "disabled",
+        violationType: "drift",
+        affectedEnvironment: "prod",
+      });
     }
   } else {
-    log("sync.consolidate.success", { message: "Dev and Prod counts aligned after sync.", reason });
+    log("sync.consolidate.success", { 
+      message: "All environments aligned with DEV (master).", 
+      reason,
+      environments: config.includeLocal ? ["dev", "prod", "local"] : ["dev", "prod"],
+    });
   }
 
-  return { devCounts, prodCounts };
+  return { devCounts, prodCounts, localCounts };
 }
 
 async function main(): Promise<void> {
@@ -696,6 +887,26 @@ async function main(): Promise<void> {
 
   const devVars = await readEnvFile(config.devEnvPath);
   const prodVars = await readEnvFile(config.prodEnvPath);
+  let localVars: EnvVars | null = null;
+  
+  if (config.includeLocal && config.localEnvPath) {
+    try {
+      localVars = await readEnvFile(config.localEnvPath);
+    } catch (error) {
+      log("local.env.missing", {
+        message: "Local env file not found; checking for DATABASE_LOCAL_URL in process.env",
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Fallback to process.env for LOCAL database
+      if (process.env.DATABASE_LOCAL_URL) {
+        localVars = {
+          DATABASE_URL: process.env.DATABASE_LOCAL_URL,
+          DATABASE_DIRECT_URL: process.env.DATABASE_LOCAL_URL,
+        };
+      }
+    }
+  }
+  
   const resolvedTriggerPath = resolvePath(config.triggerPath);
 
   const mergeAlert = (value?: string) => (value ? value.trim() : "");
@@ -709,8 +920,10 @@ async function main(): Promise<void> {
   log("sync.config", {
     devEnv: config.devEnvPath,
     prodEnv: config.prodEnvPath,
+    localEnv: config.localEnvPath || "not configured",
     triggerPath: resolvedTriggerPath,
     intervalMs: config.intervalMs,
+    reverseCheckIntervalMs: config.reverseCheckIntervalMs,
     once: config.once,
     dryRun: config.dryRun,
     skipStartup: config.skipStartup,
@@ -718,6 +931,8 @@ async function main(): Promise<void> {
     alertsSuppressed: config.suppressAlerts,
     alertWebhookConfigured: Boolean(config.alertWebhookUrl),
     alertWebhook: config.alertWebhookUrl ? sanitizeWebhook(config.alertWebhookUrl) : "",
+    enforceDevMaster: config.enforceDevMaster,
+    includeLocal: config.includeLocal,
     simulateAlert: config.simulateAlert,
   });
 
@@ -819,9 +1034,14 @@ async function main(): Promise<void> {
     });
   }
 
-  const history: { dev: CountSnapshot | null; prod: CountSnapshot | null } = {
+  const history: { 
+    dev: CountSnapshot | null; 
+    prod: CountSnapshot | null;
+    local: CountSnapshot | null;
+  } = {
     dev: null,
     prod: null,
+    local: null,
   };
   let baselineCaptured = false;
   let lastTriggerFingerprint: string | null = bootstrapTrigger ? bootstrapTrigger.fingerprint : null;
@@ -834,16 +1054,21 @@ async function main(): Promise<void> {
         "startup",
         devVars,
         prodVars,
+        localVars,
         alertDispatcher,
       );
       history.dev = startupCounts.devCounts;
       history.prod = startupCounts.prodCounts;
+      history.local = startupCounts.localCounts;
       baselineCaptured = true;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       log("sync.consolidate.error", { reason: "startup", message });
     }
   }
+
+  // Track last reverse integrity check time
+  let lastReverseCheckTime = Date.now();
 
   while (true) {
     const cycleStartedAt = Date.now();
@@ -870,10 +1095,12 @@ async function main(): Promise<void> {
               "dex_trigger",
               devVars,
               prodVars,
+              localVars,
               alertDispatcher,
             );
             history.dev = consolidated.devCounts;
             history.prod = consolidated.prodCounts;
+            history.local = consolidated.localCounts;
             lastTriggerFingerprint = trigger.fingerprint;
             baselineCaptured = true;
             triggerRan = true;
@@ -908,10 +1135,12 @@ async function main(): Promise<void> {
               "drift_detected",
               devVars,
               prodVars,
+              localVars,
               alertDispatcher,
             );
             history.dev = consolidated.devCounts;
             history.prod = consolidated.prodCounts;
+            history.local = consolidated.localCounts;
           } else {
             history.dev = devCounts;
             history.prod = prodCounts;
@@ -937,16 +1166,63 @@ async function main(): Promise<void> {
               driftDetected ? "drift_detected" : "state_changed",
               devVars,
               prodVars,
+              localVars,
               alertDispatcher,
             );
             latestDevCounts = consolidated.devCounts;
             latestProdCounts = consolidated.prodCounts;
+            // Also update local if included
+            if (config.includeLocal && consolidated.localCounts) {
+              history.local = consolidated.localCounts;
+            }
           } else {
             log("integrity.ok", { message: "No action required; counts aligned." });
           }
 
           history.dev = latestDevCounts;
           history.prod = latestProdCounts;
+        }
+
+        // Perform reverse integrity check hourly (only if enforceDevMaster enabled)
+        const timeSinceLastReverseCheck = Date.now() - lastReverseCheckTime;
+        if (config.enforceDevMaster && timeSinceLastReverseCheck >= config.reverseCheckIntervalMs) {
+          log("reverse.integrity.check.scheduled", {
+            timeSinceLastMs: timeSinceLastReverseCheck,
+            intervalMs: config.reverseCheckIntervalMs,
+          });
+
+          const devCounts = history.dev || await captureCounts("dev", devVars);
+
+          // Check PROD hasn't diverged from DEV
+          const prodIntact = await reverseIntegrityCheck(
+            "prod",
+            prodVars,
+            devVars,
+            devCounts,
+            alertDispatcher,
+          );
+
+          // Check LOCAL hasn't diverged from DEV (if included)
+          let localIntact = true;
+          if (config.includeLocal && localVars) {
+            localIntact = await reverseIntegrityCheck(
+              "local",
+              localVars,
+              devVars,
+              devCounts,
+              alertDispatcher,
+            );
+          }
+
+          if (!prodIntact || !localIntact) {
+            log("reverse.integrity.violation.enforcement", {
+              message: "Reverse integrity violation detected; forcing re-sync on next cycle",
+              prodIntact,
+              localIntact,
+            });
+          }
+
+          lastReverseCheckTime = Date.now();
         }
       }
     } catch (error) {

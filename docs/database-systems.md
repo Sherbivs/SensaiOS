@@ -317,6 +317,180 @@ For local experiments, set `BACKUP_STORAGE_PROVIDER=local` to inspect JSON backu
 4. **Re-run consolidation:** After remediation, execute `npm run db:auto-sync -- --once` to replay the loop; confirm the webhook no longer fires and counts realign.
 5. **Document outcome:** Update Tasklist/Prompt notes with the alert timestamp, remediation steps, and verification commands executed.
 
+### DEV-as-Master Enforcement Architecture (⚠️ CRITICAL)
+
+**As of 2025-11-XX**, the auto-sync system implements **one-way replication enforcement** where DEV is the **single source of truth** for all database changes. PROD and LOCAL must match DEV exactly.
+
+#### Architecture Overview
+
+```
+DEV (Master) → PROD (Replica) → LOCAL (Replica)
+     ↓              ↓                ↓
+  Migrations    Force Sync      Force Sync
+  Seeds         Integrity       Integrity
+               Checks (1hr)    Checks (1hr)
+```
+
+**Key Principles:**
+
+1. **DEV is master** — All schema changes, migrations, and seeds originate in DEV
+2. **PROD/LOCAL are replicas** — Must match DEV exactly; unauthorized changes trigger critical alerts
+3. **Hourly integrity checks** — Reverse verification detects drift in PROD/LOCAL
+4. **Auto-enforcement** — When drift detected, PROD/LOCAL are force-synced on next cycle
+5. **Bidirectional sync removed** — Old Dev ↔ Prod bidirectional flow replaced with one-way enforcement
+
+#### Enforcement Workflow
+
+**Startup/Consolidation:**
+1. Run migrations + seeds on **DEV first**
+2. If `enforceDevMaster=true` (default), force PROD to match DEV via `enforceDevMaster("prod")`
+3. If `includeLocal=true`, force LOCAL to match DEV via `enforceDevMaster("local")`
+4. Capture counts from all three databases
+5. Compare PROD/LOCAL against DEV; alert if drift persists
+
+**Hourly Reverse Integrity Check:**
+1. Every hour (configurable via `--reverse-check-interval`), compare PROD counts against DEV
+2. If PROD diverged, send **critical alert** with enforcement warning
+3. If LOCAL diverged, send **critical alert** with enforcement warning
+4. On next consolidation cycle, force-sync PROD/LOCAL to match DEV
+
+**Alert Escalation:**
+- **Drift alerts** (orange) — Normal sync detected differences after consolidation
+- **Reverse integrity violations** (red) — CRITICAL: Unauthorized changes detected in PROD/LOCAL
+
+#### Configuration Flags
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--enforce-dev-master` / `--no-enforce` | `true` | Enable/disable DEV-as-master enforcement. When disabled, system reverts to drift detection only. |
+| `--include-local` | `false` | Include LOCAL database in enforcement and reverse integrity checks. |
+| `--local-env <path>` | — | Path to env file containing `DATABASE_LOCAL_URL` for LOCAL database connection. |
+| `--reverse-check-interval <ms>` | `3600000` (1hr) | How often to run reverse integrity checks (milliseconds). |
+
+**Examples:**
+
+```bash
+# Standard enforcement (DEV → PROD only)
+npm run db:auto-sync
+
+# Include LOCAL database enforcement
+npm run db:auto-sync -- --include-local --local-env "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env"
+
+# Disable enforcement (detection only, legacy behavior)
+npm run db:auto-sync -- --no-enforce
+
+# Custom reverse check interval (every 30 minutes)
+npm run db:auto-sync -- --reverse-check-interval 1800000
+```
+
+#### ⚠️ Safety Warnings
+
+**DESTRUCTIVE OPERATIONS:**
+- When `enforceDevMaster=true`, PROD/LOCAL databases are **forcefully synced** to match DEV
+- This means running `prisma migrate deploy` and `npm run db:seed:dex` on PROD/LOCAL
+- **Any local-only data in PROD/LOCAL will be overwritten** if schema/reference data diverges
+- Player data (trainers, battles, encounters) should remain intact as long as schema is compatible
+- **Before enabling enforcement in production**, verify all environments share the same schema version
+
+**CRITICAL: Migration Safety:**
+- **Always run migrations on DEV first**
+- Verify DEV migrations succeed before promoting to PROD
+- If DEV migration fails, PROD/LOCAL enforcement will not trigger
+- Use `--no-enforce` during migration testing to prevent auto-sync from forcing incomplete schemas
+
+**Recovery from Enforcement Failures:**
+1. If PROD/LOCAL enforcement fails, check logs for `enforce.dev_master.complete` errors
+2. Manually verify PROD/LOCAL can connect and accept DDL operations
+3. If critical data lost, restore from Render snapshots immediately
+4. Document incident in Tasklist with timestamp, affected environment, and recovery steps
+5. Consider disabling enforcement (`--no-enforce`) until root cause resolved
+
+**When NOT to Use Enforcement:**
+- During active migration development (use `--no-enforce`)
+- When testing schema changes that might fail (use `--dry-run`)
+- When PROD/LOCAL contain local-only test data you need to preserve
+- During incident response when you need to inspect divergent state before fixing
+
+#### Monitoring & Observability
+
+**Log Events:**
+- `enforce.dev_master.start` — Enforcement triggered for target environment
+- `enforce.dev_master.complete` — Enforcement completed successfully
+- `reverse.integrity.check.start` — Hourly reverse check initiated
+- `reverse.integrity.violation` — **CRITICAL**: Unauthorized changes detected
+- `reverse.integrity.check.pass` — Target environment matches DEV
+- `reverse.integrity.violation.enforcement` — Force sync scheduled on next cycle
+
+**Discord Webhook Alerts:**
+- **Drift alerts** (orange embed) — Include `enforcementMode: enabled/disabled` in footer
+- **Reverse integrity violations** (red embed) — Critical header, enforcement warning, remediation steps
+- All alerts include: delta counts, DEV/PROD counts, affected environment, enforcement status
+
+**Alert Payload Structure:**
+```ts
+{
+  reason: "reverse_integrity_violation",
+  delta: { species: 5, moves: 0, abilities: 0, learnsets: 12 },
+  devCounts: { species: 1025, moves: 919, ... },
+  prodCounts: { species: 1020, moves: 919, ... },
+  enforcementMode: "enabled",
+  violationType: "reverse_integrity",
+  affectedEnvironment: "prod"
+}
+```
+
+#### Recovery Procedures
+
+**If unauthorized PROD/LOCAL changes detected:**
+1. Acknowledge critical alert in operations channel
+2. Verify DEV database is healthy and current (`npm run db:cli -- status`)
+3. Identify source of unauthorized changes (failed deploy? manual intervention? migration drift?)
+4. If changes were intentional, apply them to DEV first, then re-sync
+5. If changes were accidental, allow auto-enforcement to restore PROD/LOCAL on next cycle
+6. Document investigation in Tasklist with root cause and prevention steps
+
+**If enforcement fails repeatedly:**
+1. Check `enforce.dev_master.complete` errors in logs
+2. Verify PROD/LOCAL connection URLs are valid and accessible
+3. Verify Prisma migration state (`npx prisma migrate status` on each environment)
+4. Consider temporary `--no-enforce` while debugging
+5. Escalate to database admin if schema corruption suspected
+6. Update recovery runbook (`ops/RECOVERY.yaml`) with new failure mode
+
+**If enforcement corrupts data:**
+1. **IMMEDIATELY** disable auto-sync service on Render
+2. Restore PROD/LOCAL from most recent Render snapshot
+3. Verify data integrity with `/ops stats` and manual spot checks
+4. Investigate schema migration incompatibility (DEV vs PROD schema version)
+5. Document incident with full timeline, affected records, and schema diff
+6. Re-enable enforcement only after root cause fixed and verified on staging
+
+#### Implementation Details
+
+**Core Functions:**
+- `enforceDevMaster(targetEnv, targetEnvPath, targetVars, devVars, dryRun)` — Force target to match DEV
+- `reverseIntegrityCheck(targetEnv, targetVars, devVars, devCounts, dispatchAlert)` — Hourly validation
+- `runConsolidation(config, reason, devVars, prodVars, localVars, dispatchAlert)` — Main sync orchestrator
+
+**Type Definitions:**
+```ts
+type EnvironmentName = "dev" | "prod" | "local";
+type SyncConfig = {
+  enforceDevMaster: boolean;        // Enable one-way enforcement
+  includeLocal: boolean;            // Include LOCAL in enforcement
+  localEnvPath: string | null;      // Path to LOCAL env file
+  reverseCheckIntervalMs: number;   // Hourly reverse check interval
+  // ... other config fields
+};
+```
+
+**Source:** `scripts/dev_prod_auto_sync.ts` (lines 1-1241)
+
+**See also:**
+- `docs/database-systems.md` § 7 Auto-Sync Drift Response Runbook — Standard drift handling
+- `ops/DB_BOOTSTRAP.md` — Migration safety procedures
+- `OPERATIONS.md` — Service monitoring thresholds
+
 ## 9. Incident Response & Recovery
 
 - **Refresh Vision:** `npm run refresh:vision` regenerates router metadata and records recovery hints in `ops/RECOVERY.yaml`.
