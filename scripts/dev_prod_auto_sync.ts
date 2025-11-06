@@ -318,7 +318,44 @@ async function readEnvFile(filePath: string): Promise<EnvVars> {
     .access(absolutePath)
     .then(() => true)
     .catch(() => false);
+  
   if (!exists) {
+    // In production (Render), env files don't exist - use process.env instead
+    const isProd = process.env.NODE_ENV === "production";
+    if (isProd) {
+      log("env.fallback", {
+        message: "Environment file not found, using process.env",
+        path: absolutePath,
+        env: process.env.NODE_ENV,
+      });
+      
+      // Return relevant environment variables from process.env
+      const vars: EnvVars = {};
+      const relevantKeys = [
+        "DATABASE_URL",
+        "DATABASE_POOL_URL",
+        "DATABASE_DIRECT_URL",
+        "DATABASE_ACCELERATE_URL",
+        "DATABASE_EXTERNAL_URL",
+        "OPTIMIZE_DATABASE_URL",
+        "OPTIMIZE_DIRECT_URL",
+        "ALERT_WEBHOOK_URL",
+        "DEV_DATABASE_URL",
+        "DEV_DATABASE_DIRECT_URL",
+        "PROD_DATABASE_URL",
+        "PROD_DATABASE_DIRECT_URL",
+      ];
+      
+      for (const key of relevantKeys) {
+        const value = process.env[key];
+        if (value) {
+          vars[key] = value;
+        }
+      }
+      
+      return vars;
+    }
+    
     throw new Error(`Environment file not found: ${absolutePath}`);
   }
 

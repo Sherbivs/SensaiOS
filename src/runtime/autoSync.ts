@@ -16,9 +16,32 @@ export function startAutoSyncSupervisor(): () => void {
       return;
     }
 
-    log.info("Starting auto-sync loop", { scriptPath });
+    // Build args array with env file paths if provided
+    const args = ["--import", "tsx/esm", scriptPath];
+    
+    // Use env file paths if explicitly provided (local development)
+    const devEnvPath = process.env.DEV_ENV_PATH;
+    const prodEnvPath = process.env.PROD_ENV_PATH;
+    
+    if (devEnvPath) {
+      args.push("--dev-env", devEnvPath);
+    }
+    if (prodEnvPath) {
+      args.push("--prod-env", prodEnvPath);
+    }
+    
+    // Always run in --once mode; supervisor handles the restart interval
+    args.push("--once");
+    
+    log.info("Starting auto-sync loop", { 
+      scriptPath, 
+      args, 
+      env: process.env.NODE_ENV,
+      hasDevEnvPath: Boolean(devEnvPath),
+      hasProdEnvPath: Boolean(prodEnvPath),
+    });
 
-    child = spawn(process.execPath, ["--import", "tsx/esm", scriptPath], {
+    child = spawn(process.execPath, args, {
       env: {
         ...process.env,
         AUTO_SYNC_BACKGROUND: "1",
