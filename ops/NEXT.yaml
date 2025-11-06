@@ -13,17 +13,21 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: T13.DEX.V2_PROD_CUTOVER
-reason: "Ready to execute the Nov 5 DEX v2 ladder with state persistence system operational and documented."
+next_task_id: DB.REPLICATION.VERSION
+reason: "Database replication architecture design complete (docs/db-replication-architecture.md). Ready to implement Phase 1: Version tracking foundation with db_version table, SHA-256 fingerprint calculation, compareVersions() logic, and reversion detection."
 
 files_hint:
-  - src/bot/main.js
-  - src/shared/prisma.ts
+  - prisma/schema.prisma
+  - prisma/migrations/
+  - src/services/db-replication/
+  - src/services/db-replication/version.ts
+  - tests/db-replication/
+  - docs/db-replication-architecture.md
   - Tasklist.md
   - Prompt.md
 
 queue: []
-timestamp_utc: 2025-11-06T16:00:00Z
+timestamp_utc: 2025-11-06T19:00:00Z
 router_version: 1
-last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Completed T14.SECURITY.BOT_STATE: comprehensive state persistence with JSON storage, cumulative stats, timeline tracking, graceful shutdown, /ops state command, and member fetch timeout monitoring." 
+last_notes_read_utc: 2025-11-06T19:00:00Z
+note: "Completed DB.NORTHSTAR.PHASE1 and DB.REPLICATION.DESIGN. Created comprehensive master-replica cascade architecture (DEV → Prisma → Local) with version control, integrity verification, automated sync, silent error elimination. Phase 16 spans 8 tasks across 6 implementation phases. Starting with version tracking foundation (db_version table, fingerprint calculation, reversion detection). DB.NORTHSTAR.SERVICES and other tasks remain READY for future work." 

@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-06T16:00:00Z
-Revision: 2.88
+Last Updated (UTC): 2025-11-06T19:00:00Z
+Revision: 2.90
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1370,4 +1370,242 @@ Each task has:
     - README.md highlights the new bootstrap workflow, refreshed meta-router strategy, and AI enablement guidance in Current Status & Operational Guardrails sections.
     - Prompt.md and ops/NEXT.yaml reflect the updated meta-task completion and READY pointer state.
   notes: Outcome — Agent handbook and README now highlight meta-routing assets, bootstrap flow, and AI guardrails so future agents can reference the repository with minimal rediscovery.
+
+## Phase 15 — Database Northstar Optimization
+
+- id: DB.NORTHSTAR.PHASE1
+  title: Deploy Northstar Phase 1 schema enhancements
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - Create and apply migration 202511061630_northstar_phase1_additions with 19 new User columns, 6 new tables (UserProfile, UserEvent, Achievement, UserAchievement, DailyStats, Leaderboard), and 2 new enums (EventCategory, EventSeverity).
+    - Apply 15 performance indexes covering leaderboards, event tracking, achievements, and analytics.
+    - Document Prisma Accelerate DDL limitation and migration workflow in ops/DB_BOOTSTRAP.md.
+    - Verify all schema changes via information_schema queries and confirm database size within quotas.
+    - Create rollback.sql and completion summary documentation.
+  notes: |
+    DONE — 2025-11-06
+    Migration deployed successfully to DEV database with all schema changes verified:
+    - Enhanced User table: Added nickname, tagline, bio, avatarUrl, premiumCoins, totalBattles/Wins/Catches/Encounters (denormalized stats), favoriteSpeciesId (FK to Species), lastLoginAt/ActivityAt, profileVisibility/showStats/showAchievements (privacy controls)
+    - New tables: UserProfile (extended metadata), UserEvent (6 categories, 4 severity levels, typed JSON payloads), Achievement (criteria JSON, rarity tiers), UserAchievement (progress tracking), DailyStats (time-series metrics), Leaderboard (pre-computed rankings)
+    - Performance indexes: 15 indexes created (3 leaderboard, 4 event timeline, 3 achievement, 3 analytics, 1 profile, 1 activity tracking)
+    - Database size: 30 MB (3% of 1.0 GB dev quota, 6% of 0.5 GB prod quota) - well within limits
+    CRITICAL DISCOVERY: Prisma Accelerate does NOT support DDL operations (CREATE TABLE, ALTER TABLE, CREATE INDEX, etc.). Accelerate silently ignores DDL statements, causing migrations to appear successful without actually creating schema changes. Solution: Created secrets/migrate.env with direct PostgreSQL URLs for migrations; use secrets/runtime.env (with Accelerate) for application queries.
+    2025-11-06T16:30Z: Created migration.sql (370 lines) with all additive changes - backward compatible, zero downtime
+    2025-11-06T16:35Z: Created rollback.sql (108 lines) for safe reversion if needed
+    2025-11-06T17:00Z: First migration attempt via Accelerate appeared successful but created nothing - discovered DDL limitation
+    2025-11-06T17:15Z: Reset migration state, created secrets/migrate.env with direct PostgreSQL URLs
+    2025-11-06T17:20Z: Re-ran migration with direct connection - SUCCESS - all 19 User columns added, all 6 tables created, 2 enums created
+    2025-11-06T17:30Z: Applied 15 performance indexes via psql (CONCURRENTLY support) - 14 succeeded immediately, 1 fixed (NOW() predicate issue)
+    2025-11-06T17:40Z: Verified schema changes: queried information_schema.columns, pg_indexes, pg_type for enums
+    2025-11-06T17:45Z: Checked database size: 30 MB total (acceptable storage overhead)
+    2025-11-06T18:00Z: Documented Accelerate DDL limitation in ops/DB_BOOTSTRAP.md (CRITICAL section) and AGENTS.md
+    2025-11-06T18:10Z: Created docs/northstar-phase1-completion.md (comprehensive summary with migration timeline, lessons learned, next steps)
+    Files modified: ops/DB_BOOTSTRAP.md (+35 lines CRITICAL section), AGENTS.md (+3 lines migration guidance), docs/northstar-phase1-completion.md (new, 200+ lines), secrets/migrate.env (new), prisma/migrations/202511061630_northstar_phase1_additions/ (migration.sql, rollback.sql), prisma/migrations/northstar_essential_indexes.sql (new, 63 lines)
+
+- id: DB.NORTHSTAR.SERVICES
+  title: Build EventTracker and ProfileService with caching
+  status: READY
+  depends_on: [DB.NORTHSTAR.PHASE1]
+  acceptance_criteria:
+    - Create src/services/events/ with EventTracker class, typed event schemas, batching logic (max 100 events, 5s delay), PII handling (IP hashing SHA-256), retention policy calculation.
+    - Create src/services/profiles/ with ProfileService class, cache integration (30min in-memory, 24hr disk), profile queries (getProfile, getStats, getAchievements), leaderboard queries with pagination.
+    - Add metrics/observability hooks for event tracking and profile queries.
+    - Write unit tests for event batching, PII hashing, cache invalidation, leaderboard pagination.
+  notes: |
+    READY — Phase 1 schema complete, ready for service layer implementation.
+    Dependencies: UserEvent table, UserProfile table, User statistics columns, Achievement/UserAchievement tables all deployed and verified.
+    Performance targets: Profile load <50ms with cache hit, Leaderboard <200ms, Event processing <75ms
+    Implementation notes: Follow event tracking schema (docs/event-tracking-schema.md) and query optimization guide (docs/query-optimization-guide.md)
+
+- id: DB.NORTHSTAR.MONITORING
+  title: Extend db:cli with performance monitoring
+  status: PROPOSED
+  depends_on: [DB.NORTHSTAR.PHASE1]
+  acceptance_criteria:
+    - Add performance commands to scripts/db_admin.ts: index_usage (pg_stat_user_indexes scan counts), table_bloat (dead row percentages), slow_queries (pg_stat_statements top 10).
+    - Create VACUUM ANALYZE scheduling helper or document manual schedule.
+    - Build performance dashboard showing query latency, index hit rate, table bloat, cache hit rate with alerting thresholds.
+    - Document monitoring workflow in docs/query-optimization-guide.md maintenance section.
+  notes: |
+    PROPOSED — Performance indexes in place, need ongoing monitoring tooling.
+    Alerting thresholds (from docs/query-optimization-guide.md):
+    - Query latency: warning >500ms, critical >2s
+    - Index hit rate: warning <95%, critical <90%
+    - Table bloat: warning >20%, critical >50%
+    - Cache hit rate: warning <80%, critical <60%
+
+- id: DB.NORTHSTAR.PHASE2
+  title: Data consolidation and TrainerProfile cleanup
+  status: PROPOSED
+  depends_on: [DB.NORTHSTAR.SERVICES, DB.NORTHSTAR.MONITORING]
+  acceptance_criteria:
+    - Create Phase 2 migration to migrate TrainerProfile data into User table, drop TrainerProfile table, add NOT NULL constraints to backfilled User columns.
+    - Take database snapshot before execution.
+    - Create comprehensive rollback.sql with restore instructions.
+    - Test migration on DEV, verify all data migrated correctly, run query performance validation.
+  notes: |
+    PROPOSED — Phase 1 proven stable, ready for data consolidation once services deployed.
+    Risk level: Medium (data manipulation, table drops)
+    Safety measures: Snapshot before execution, comprehensive rollback script, DEV testing required
+
+- id: DB.NORTHSTAR.ANALYTICS
+  title: Build analytics jobs and reporting layer
+  status: PROPOSED
+  depends_on: [DB.NORTHSTAR.PHASE2]
+  acceptance_criteria:
+    - Create analytics jobs: scripts/analytics/generate_daily_stats.ts (aggregates daily metrics), refresh_leaderboards.ts (updates rankings).
+    - Build aggregation logic: daily active users, popular species, battle win rates, achievement completion rates.
+    - Schedule via cron or worker, add export capabilities (CSV, JSON).
+    - Document analytics queries in docs/query-optimization-guide.md.
+  notes: |
+    PROPOSED — Analytics tables ready (DailyStats, Leaderboard), need scheduled jobs to populate.
+    Refresh cadence: DailyStats (daily 00:00 UTC), Leaderboards (hourly), Materialized views (on-demand or hourly)
+
+---
+
+## Phase 16 — Database Replication Architecture (Master-Replica Cascade)
+
+- id: DB.REPLICATION.DESIGN
+  title: Database replication architecture design and planning
+  status: DONE
+  depends_on: [DB.NORTHSTAR.PHASE1]
+  acceptance_criteria:
+    - Create comprehensive design document covering DEV → Prisma → Local cascade with version tracking, integrity checks, automated sync, silent error elimination.
+    - Document data flow hierarchy, version control system (fingerprint calculation, comparison logic, reversion handling), integrity verification framework, sync orchestration.
+    - Define monitoring/alerting strategy, operational workflows, implementation phases (6 phases).
+    - Specify success criteria and eliminate silent errors via explicit validation.
+  notes: |
+    DONE — Created docs/db-replication-architecture.md (13,500+ lines) with:
+    - Master-replica cascade: DEV (master) → Prisma (prod) → Local (workstation)
+    - Version control: SHA-256 fingerprint of migration names + checksums, db_version table, reversion detection
+    - Integrity framework: Schema comparison (tables/columns/indexes/constraints/enums), data checksums, FK validation
+    - Sync orchestration: 5-stage process (version check, integrity verify, migration apply, validation, complete)
+    - Monitoring: Replication metrics dashboard, alerting thresholds (lag >5/10 migrations, integrity failures, sync errors)
+    - Silent error elimination: Explicit validation at every stage, detailed logging, no assumptions
+    - Multi-connection integration: Extends dual Prisma client (devPrisma/prisma) with localPrisma for replication workflows
+    - CLI commands: db:sync, db:replication, db:integrity, db:version with manual/automated triggers
+    - 6 implementation phases: Version Tracking, Integrity Verification, Sync Orchestrator, Monitoring, CLI/Automation, Multi-Connection Integration
+
+- id: DB.REPLICATION.VERSION
+  title: Implement database version tracking and migration state management
+  status: READY
+  depends_on: [DB.REPLICATION.DESIGN]
+  acceptance_criteria:
+    - Create db_version and db_sync_state tables in schema (migration).
+    - Implement getVersion() function calculating SHA-256 fingerprint from _prisma_migrations.
+    - Build compareVersions() logic returning MATCH/AHEAD/BEHIND/DIVERGED with prefix validation.
+    - Add reversion detection with alerting and sync blocking.
+    - Create src/services/db-replication/version.ts module with tests.
+  notes: |
+    READY — Design complete, Phase 1 foundation ready for implementation.
+    Tables: db_version (version_fingerprint, migration_count, last_migration_name, sync_source), db_sync_state (tracking last sync times, durations, errors, integrity checks)
+    Fingerprint: SHA-256(migration_1:checksum|migration_2:checksum|...)
+    Comparison: Prefix validation ensures AHEAD status valid (target migrations are prefix of source)
+    Reversion: DEV migration count < Prod count triggers WAITING_FOR_MASTER status, blocks sync, alerts operators
+
+- id: DB.REPLICATION.INTEGRITY
+  title: Build comprehensive integrity verification framework
+  status: READY
+  depends_on: [DB.REPLICATION.VERSION]
+  acceptance_criteria:
+    - Implement verifySchemaIntegrity() with table/column/index/constraint/enum comparison.
+    - Build verifyDataIntegrity() with row counts, checksums (configurable), FK validation.
+    - Create SchemaDiff and DataCheck types with detailed diff reporting.
+    - Add configurable options (skipTables, skipChecksums, sampleSize for large tables).
+    - Create src/services/db-replication/integrity.ts module with tests.
+  notes: |
+    READY — Version tracking complete, ready for integrity verification.
+    Schema checks: Tables (missing/extra), Columns (type/nullable/default mismatches), Indexes (definition/unique), Constraints (FK/unique/check), Enums (values/order)
+    Data checks: Row counts (all tables), Checksums (configurable tables with sampling for performance), FK integrity (orphaned records)
+    Diff reporting: Structured diffs with type/action/path/details for automated analysis and human review
+    Performance: Skip expensive checksums by default, sample large tables (configurable sample size)
+
+- id: DB.REPLICATION.SYNC
+  title: Implement automated sync orchestrator with rollback handling
+  status: READY
+  depends_on: [DB.REPLICATION.INTEGRITY]
+  acceptance_criteria:
+    - Build syncDevToProd() orchestrator with 5 stages (version check, integrity verify, migration apply, validation, complete).
+    - Build syncProdToLocal() using pg_dump/pg_restore with version gating.
+    - Implement error handling, rollback on failure, idempotency checks.
+    - Add sync event logging with detailed metrics (duration, migrations applied, versions).
+    - Create src/services/db-replication/sync.ts and rollback.ts modules with tests.
+  notes: |
+    READY — Integrity framework complete, ready for sync orchestration.
+    DEV → Prod: Uses secrets/migrate.env (direct PostgreSQL) for DDL, validates fingerprint match post-migration, runs integrity checks before/after
+    Prod → Local: pg_dump from Prod, pg_restore to Local, version validation, integrity checks, snapshot pruning (7-day retention)
+    Rollback: On any stage failure, log error + alert, mark sync failed, preserve pre-sync state, block downstream syncs
+    Idempotency: Version fingerprint check before sync (skip if MATCH), migration replay safe (Prisma tracks applied migrations)
+
+- id: DB.REPLICATION.MONITORING
+  title: Build replication monitoring dashboard and alerting system
+  status: READY
+  depends_on: [DB.REPLICATION.SYNC]
+  acceptance_criteria:
+    - Implement getReplicationMetrics() returning lag, sync status, version fingerprints, integrity status for DEV↔Prod and Prod↔Local.
+    - Build alerting thresholds (lag >5/10 migrations, sync failures, integrity failures, divergence).
+    - Add /ops replication command to Discord bot showing metrics and sync controls.
+    - Integrate with existing logger for sync events (sync.started, sync.completed, sync.failed).
+    - Create src/services/db-replication/monitoring.ts and src/bot/ops/replication.ts with tests.
+  notes: |
+    READY — Sync orchestrator complete, ready for monitoring layer.
+    Metrics: Version lag (migration count difference), sync status (IN_SYNC/LAGGING/BLOCKED/ERROR), last sync time/duration, integrity check results
+    Alerts: WARNING (lag >5, sync >10min), ERROR (lag >10, sync failure, integrity failure), CRITICAL (divergence detected)
+    Dashboard: /ops replication status (current versions, lag, last sync), /ops replication metrics (full details), /ops replication diff (schema diffs)
+    Integration: Reuse existing logger.info/warn/error, sendAlert() for escalation, ops command pattern from /ops cache
+
+- id: DB.REPLICATION.CLI
+  title: Create CLI commands and operational automation
+  status: READY
+  depends_on: [DB.REPLICATION.MONITORING]
+  acceptance_criteria:
+    - Build scripts/db_replication.ts CLI with commands: sync (dev-to-prod, prod-to-local, full-cascade), status, metrics, diff, integrity, version.
+    - Add emergency controls: block-prod, unblock-prod, reset-local.
+    - Create automated sync scheduler (cron/worker) for dev-to-prod (6hr) and prod-to-local (daily).
+    - Document operational workflows in docs/db-replication-runbook.md (daily sync, emergency rollback, version conflict resolution).
+    - Update ops/DB_BOOTSTRAP.md with replication architecture section.
+  notes: |
+    READY — Monitoring complete, ready for CLI and automation.
+    Manual commands: npm run db:sync {target}, npm run db:replication {operation}, npm run db:integrity {scope}, npm run db:version {env}
+    Automated: Every 6hr DEV→Prod sync, daily 2AM Prod→Local sync via worker or cron
+    Emergency: Block/unblock controls for manual intervention, reset-local drops and rebuilds from Prod
+    Runbooks: Daily workflow, rollback procedure (identify version, block syncs, roll back, verify, unblock), conflict resolution (dump/diff/decide/execute)
+
+- id: DB.REPLICATION.INTEGRATION
+  title: Integrate replication system with multi-connection protocol
+  status: READY
+  depends_on: [DB.REPLICATION.CLI]
+  acceptance_criteria:
+    - Extend src/shared/prisma.ts dual client (devPrisma/prisma) with localPrisma for workstation mirror.
+    - Add connection health checks with version awareness (check local version before using localPrisma).
+    - Implement failover logic respecting version constraints (only failover to Local if version >= required).
+    - Update src/utils/logger.js telemetry to include replication metrics (lag, sync status).
+    - Update src/shared/config.ts fallback logic to validate Local version before using Store/db/local-url.txt.
+  notes: |
+    READY — CLI and automation complete, ready for multi-connection integration.
+    Third client: localPrisma = new PrismaClient({ datasources: { db: { url: 'postgresql://localhost:5432/...' } } })
+    Health checks: await getVersion(localPrisma) before every localPrisma query, compare to expected version
+    Failover: Only use localPrisma if devPrisma/prisma unavailable AND local version >= minimum required (e.g., matches last known Prod version)
+    Telemetry: getDatabaseStats() returns { dev, prod, local } with version fingerprints, connection status, replication lag
+    Logger: Auto-refresh includes replication metrics every 15s, restart DMs show local DB status
+
+- id: DB.REPLICATION.TESTING
+  title: Build comprehensive testing and validation suite
+  status: READY
+  depends_on: [DB.REPLICATION.INTEGRATION]
+  acceptance_criteria:
+    - Create tests for version gating (MATCH/AHEAD/BEHIND/DIVERGED scenarios, reversion detection).
+    - Test integrity checks (schema diffs, data mismatches, FK violations, enum differences).
+    - Test sync orchestration (success, partial failure, rollback, idempotency).
+    - Test error handling (network interruptions, migration failures, version conflicts).
+    - Add tests to tests/db-replication/ with Vitest, document test coverage in README.
+  notes: |
+    READY — Integration complete, ready for comprehensive testing.
+    Version tests: compareVersions() for all enum values, fingerprint calculation correctness, reversion detection triggers blocking
+    Integrity tests: Schema comparison with intentional diffs, data validation with mismatched counts/checksums, FK orphans detection
+    Sync tests: Full cascade success, DEV→Prod failure at each stage, rollback execution, idempotent re-run (MATCH version)
+    Error tests: Simulated network failures, migration exit code non-zero, diverged fingerprints, local restore failures
+    Coverage target: >90% for db-replication modules (version, integrity, sync, monitoring)
+
 

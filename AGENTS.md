@@ -39,8 +39,12 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - **Env needed (do not commit secrets):** use `.env.example` and `secrets/*.env.example` as reference, but copy real values into `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (DEV direct URL) and `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` (Accelerate/production proxy). Load them with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file.
 
 ## Local Database Access (Muted / Dev Only)
+
+**CRITICAL:** Prisma Accelerate does NOT support DDL operations (CREATE/ALTER/DROP TABLE, CREATE INDEX, etc.). For migrations, always use direct PostgreSQL URLs. Accelerate silently ignores DDL statements, causing migrations to appear successful without actually creating schema changes. See `ops/DB_BOOTSTRAP.md` for detailed migration workflow.
+
 1. **Copy secrets outside the repo:** place `secrets/prisma-dev.env.example` → `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` and `secrets/prisma-accelerate.env.example` → `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env`. Populate each with the real credentials (DEV direct URL vs. Accelerate proxy). Do **not** retain a combined `.env` in the repo.
 2. **Select the target before DB work:** run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env" -Persist` when you need the DEV Postgres connection. Swap to Accelerate by re-running with the `Key/Prod/.env` path. Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`, so one of these overrides must be active.
+  - **FOR MIGRATIONS:** Create `secrets/migrate.env` with all URLs pointing DIRECTLY to PostgreSQL (not Accelerate). Use this file exclusively for `npx prisma migrate deploy` to ensure DDL operations execute properly.
   - **Verify access:** `echo $Env:IG_ENV_FILE` should print the chosen file; use `Get-Content C:/Users/sherb/OneDrive/Documents/Key/Dev/.env | Select-Object -First 5` to confirm it is reachable before running tooling.
   - **Reset Prisma after Accelerate:** whenever you come back from `Key/Prod/.env`, run `npx prisma generate` once so the local client switches from the Accelerate data proxy back to the direct engine before connecting to DEV.
   - **Dev → Prod → Dev loop:** run migrations or seeding against DEV first, switch to `Key/Prod/.env` and repeat the command (or use `scripts/ops/run_dex_migrations.ps1`), then return to `Key/Dev/.env` and regenerate Prisma so local work continues against DEV with the direct driver.

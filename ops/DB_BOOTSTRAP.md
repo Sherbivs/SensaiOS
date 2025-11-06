@@ -16,9 +16,46 @@ Blueprint assets
 - Operator notes and sanitized command output live in `ops/ARCHIVE/db-bootstrap/2025-11-04-tooling-evidence.md`. Add new evidence files here when rehearsals run so auditors can diff outcomes by timestamp.
 - Router metadata (`ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, `prisma/ROUTER.md`, `prisma/migrations/ROUTER.md`) must be regenerated (`npm run docs:update-routers`) whenever the bootstrap surface changes.
 
+## CRITICAL: Prisma Accelerate DDL Limitation (2025-11-06)
+
+**Prisma Accelerate does NOT support DDL operations** (CREATE TABLE, ALTER TABLE, DROP TABLE, CREATE INDEX, etc.). Accelerate is a read-optimized query cache and connection pooler - it silently ignores DDL statements.
+
+**Symptom:** `npx prisma migrate deploy` reports "All migrations have been successfully applied" but no schema changes occur. Tables/columns/indexes are not created. The migration gets marked as applied in `_prisma_migrations` but nothing actually executed.
+
+**Root Cause:** When `DATABASE_URL` points to a Prisma Accelerate endpoint (`prisma+postgres://accelerate.prisma-data.net/...`), Prisma routes ALL operations through Accelerate, including migrations. Accelerate silently drops DDL statements because it's designed for query caching, not schema management.
+
+**Solution:** For migrations, `DATABASE_URL` MUST point directly to PostgreSQL, not through Accelerate. Use a migration-specific environment file:
+
+```env
+# secrets/migrate.env - For running migrations only
+DATABASE_URL=postgresql://user:pass@host/dbname          # DIRECT PostgreSQL
+DATABASE_DIRECT_URL=postgresql://user:pass@host/dbname   # DIRECT PostgreSQL  
+DATABASE_POOL_URL=postgresql://user:pass@host/dbname     # DIRECT PostgreSQL
+
+# secrets/runtime.env - For application runtime (after migrations complete)
+DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/...     # Accelerate for caching
+DATABASE_DIRECT_URL=postgresql://user:pass@host/dbname            # Direct for admin queries
+DATABASE_POOL_URL=prisma+postgres://accelerate.prisma-data.net/... # Accelerate for pooling
+```
+
+**Migration Workflow:**
+1. Use `secrets/migrate.env` (direct PostgreSQL) for `npx prisma migrate deploy`
+2. Use `secrets/runtime.env` (Accelerate) for `npm start` and application queries
+3. **Never** run migrations with Accelerate URLs - they will silently fail
+
+**Verification After Migration:**
+```powershell
+# Set direct database URL for verification
+$env:DATABASE_URL = "postgresql://user:pass@host/dbname"
+
+# Verify schema changes actually applied
+npm run db:cli -- query "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';"
+```
+
 Checklist and decisions
 - Confirm you are running commands from the canonical working directory: the GitHub Desktop clone at C:\Users\sherb\OneDrive\Documents\GitHub\Infinity-Gauntlet (per ops policy).
 - Verify `DATABASE_URL` points to the staging database and is the only staging instance being touched.
+- **CRITICAL:** For migrations, ensure `DATABASE_URL` points DIRECTLY to PostgreSQL (starts with `postgresql://`), NOT through Prisma Accelerate (starts with `prisma+postgres://`). Accelerate silently ignores DDL statements.
 - Prefer managed poolers: set `DATABASE_POOL_URL` (Render connectionString) for runtime services, and ensure `DATABASE_DIRECT_URL` (Render directConnectionString) is populated so Prisma migrations bypass PGBouncer/SSL pools.
 - Snapshot (optional): If you need a backup, take a production-to-staging snapshot or export the staging DB first.
 

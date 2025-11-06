@@ -1,8 +1,25 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T16:00:00Z
-Revision: 2.34
+Timestamp (UTC): 2025-11-06T19:00:00Z
+Revision: 2.36
 
 ## Last Repo Changes (since previous Prompt.md revision)
+- **Database Replication Architecture Design Complete (DB.REPLICATION.DESIGN - Phase 16):**
+  - Created comprehensive master-replica cascade architecture: **DEV (master) → Prisma (prod) → Local (workstation)** with version control, integrity verification, automated sync, and silent error elimination.
+  - **Design document:** `docs/db-replication-architecture.md` (13,500+ lines) covering data flow hierarchy, version control system, integrity verification framework, sync orchestration, monitoring/alerting, operational workflows, and 6 implementation phases.
+  - **Core features:** DEV is single source of truth, version control via SHA-256 fingerprint of migrations, cascade replication with version gating (prevents sync after reversions), integrity verification (schema + data) before completion, reversion detection blocks downstream sync, silent error elimination via explicit validation at every stage.
+  - **Implementation phases:** (1) Version Tracking, (2) Integrity Verification, (3) Sync Orchestrator, (4) Monitoring & Alerting, (5) CLI & Automation, (6) Multi-Connection Integration — All 6 phases with 8 tasks (DB.REPLICATION.DESIGN DONE, VERSION through TESTING all READY with dependency chain).
+  - **Updated Tasklist.md:** Rev 2.89 → 2.90, added Phase 16 with comprehensive notes documenting fingerprint calculation, reversion handling, sync stages, alerting thresholds.
+  - **Updated ops/NEXT.yaml:** Retargeted to DB.REPLICATION.VERSION (first implementation phase ready).
+- **Northstar Phase 1 Database Optimization Complete (DB.NORTHSTAR.PHASE1):**
+  - Deployed migration 202511061630_northstar_phase1_additions with 19 new User columns (nickname, tagline, bio, avatarUrl, premiumCoins, totalBattles/Wins/Catches/Encounters, favoriteSpeciesId, lastLoginAt/ActivityAt, profileVisibility, showStats, showAchievements), 6 new tables (UserProfile, UserEvent, Achievement, UserAchievement, DailyStats, Leaderboard), and 2 new enums (EventCategory, EventSeverity).
+  - Applied 15 performance indexes covering leaderboards (3), event tracking (4), achievements (3), analytics (3), profiles (1), activity tracking (1).
+  - **CRITICAL DISCOVERY:** Prisma Accelerate does NOT support DDL operations—silently ignores CREATE TABLE, ALTER TABLE, CREATE INDEX. First migration attempt via Accelerate appeared successful but created nothing.
+  - **Solution:** Created `secrets/migrate.env` with direct PostgreSQL URLs for all DATABASE_* variables. Re-ran migration with direct connection—SUCCESS. All schema changes verified via information_schema queries.
+  - Updated `ops/DB_BOOTSTRAP.md` with CRITICAL section documenting Accelerate DDL limitation and migration workflow (use migrate.env for DDL, runtime.env for queries).
+  - Updated `AGENTS.md` with migration-specific guidance: "FOR MIGRATIONS: Create secrets/migrate.env with all URLs pointing DIRECTLY to PostgreSQL (not Accelerate)."
+  - Database size: 30 MB (3% of 1.0 GB dev quota, 6% of 0.5 GB prod quota)—well within acceptable limits.
+  - Created comprehensive completion documentation: `docs/northstar-phase1-completion.md` (migration timeline, lessons learned, next steps).
+  - Updated `Tasklist.md` Rev 2.89: Added Phase 15 — Database Northstar Optimization with DB.NORTHSTAR.PHASE1 (DONE), DB.NORTHSTAR.SERVICES (READY), DB.NORTHSTAR.MONITORING (PROPOSED), DB.NORTHSTAR.PHASE2 (PROPOSED), DB.NORTHSTAR.ANALYTICS (PROPOSED).
 - Implemented comprehensive state persistence system for security bot (T14.SECURITY.BOT_STATE):
   - Created JSON-based state storage in `Store/security-bot-state/` with current.json, previous.json, and timestamped snapshots (7-day retention).
   - Built four state modules: `src/bot/state/persistence.js` (save/load/shutdown lifecycle), `stats.js` (cumulative tracking), `timeline.js` (event formatting), `context.js` (guild context restoration).
