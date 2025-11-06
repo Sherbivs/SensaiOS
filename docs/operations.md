@@ -5,7 +5,7 @@
 
 ## DEX v2 Production Cutover (2025-11-05 02:00–03:00 ET)
 - **Prereqs:** confirm prod/dev dumps archived under `backups/archive/2025-11-03/`, pack hash `f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00`, and flag plans in `ops/flag-plans/`.
-- **Local fallback:** run `npm run ops:bootstrap-local-db` within 24 hours of the window, confirm `Store/db/local-url.txt` points at the freshly mirrored cluster, and log the timestamp + URL in Tasklist notes so the fallback is auditable before go/no-go.
+- **Local fallback:** set `PG_BIN_DIR` to a Postgres install that includes the `share/` directory (e.g., `C:/Program Files/PostgreSQL/17/bin` on Windows), run `npm run ops:bootstrap-local-db` within 24 hours of the window, confirm `Store/db/local-url.txt` points at the freshly mirrored cluster, and log the timestamp + URL in Tasklist notes so the fallback is auditable before go/no-go.
 - **Command cadence:**
 	- `npm run ops:dex-v2-backup -- --env-file <Key/.../.env> --label <prod|dev>` (completed 2025-11-03T05:06Z, rerun only if drift detected).
 	- `npm run ops:simulate-flag -- --flag DEX_V2_ENABLED --percent <1|25|50|100> --apply`; the script writes the approved JSON into `ops/flag-plans/` and reminds on-call to upload the plan via the feature flag console when no config URL is present.

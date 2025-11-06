@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-05T22:45:30Z
-Revision: 2.15
+Timestamp (UTC): 2025-11-06T04:05:30Z
+Revision: 2.16
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Added `scripts/ops/bootstrap_local_fallback.ts` (`npm run ops:bootstrap-local-db`) so operators can hydrate a Store-backed Postgres mirror with rotating snapshots and a published `Store/db/local-url.txt`.
-- Updated AGENTS.md, docs/operations.md, and docs/database-systems.md to require logging the mirror timestamp/URL before the DEX v2 ladder and to reference the config fallback behaviour.
-- Logged the fallback workflow in ops/change-ledger.md and Tasklist.md while keeping T13.DEX.V2_PROD_CUTOVER READY with offline recovery coverage spelled out in NEXT/Prompt metadata.
+- Hardened `scripts/ops/bootstrap_local_fallback.ts` to initialize UTF-8 clusters and restore as `postgres@127.0.0.1`, eliminating pg_restore encoding failures.
+- Documented the `PG_BIN_DIR` requirement across AGENTS.md, docs/operations.md, and docs/database-systems.md so operators point the bootstrapper at a full Postgres install before mirroring.
+- Ran `npm run ops:bootstrap-local-db` (2025-11-06T04:03Z) and logged the resulting `Store/db/local-url.txt` pointer in Tasklist.md for the DEX v2 ladder audit trail.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -61,11 +61,11 @@ Revision: 2.15
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Added the offline Postgres bootstrapper and refreshed operator docs so the DEX v2 ladder records the Store/db mirror timestamp and URL before go/no-go.
+Change: Hardened the offline Postgres bootstrapper, recorded the 2025-11-06 mirror run, and updated operator docs with the PG_BIN_DIR requirement ahead of the DEX v2 ladder.
 TasklistDiff: true
 Tests: not run (documentation-only update).
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with offline fallback, storage metrics, and guardrail rehearsals logged for auditors.
+NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with backups, storage metrics, and the 2025-11-06T04:03Z local mirror logged for auditors.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

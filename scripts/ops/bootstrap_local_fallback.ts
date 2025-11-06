@@ -237,7 +237,19 @@ async function initializeCluster(binaries: PgBinaries, paths: Paths): Promise<bo
   }
 
   await ensureDirectories(paths);
-  await runCommand(binaries.initdb, ["-D", paths.clusterDir, "--username", "postgres", "--auth=trust"], "initdb");
+  await runCommand(
+    binaries.initdb,
+    [
+      "-D",
+      paths.clusterDir,
+      "--username",
+      "postgres",
+      "--auth=trust",
+      "--encoding=UTF8",
+      "--locale=C",
+    ],
+    "initdb",
+  );
   return true;
 }
 
@@ -414,7 +426,7 @@ async function main(): Promise<void> {
 
   const sourceUrl = resolveSourceUrl(options);
   const dbName = extractDatabaseName(sourceUrl);
-  const localUrl = `postgresql://127.0.0.1:${options.port}/${dbName}`;
+  const localUrl = `postgresql://postgres@127.0.0.1:${options.port}/${dbName}`;
 
   if (options.skipSync) {
     await writeMetadata(paths, localUrl, sourceUrl, "");

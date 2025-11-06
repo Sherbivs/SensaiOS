@@ -52,7 +52,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
   npm run db:cli -- count Species  # single-table helpers
   npm run db:cli -- query "SELECT COUNT(*) FROM \"Species\";"
   ```
-4. **Bootstrap the local fallback when required:** run `npm run ops:bootstrap-local-db` to mirror the DEV database into `Store/db`, rotate timestamped snapshots, and emit `local-url.txt` so `src/shared/config.ts` can fail over to the offline cluster. Capture the command, timestamp, and resulting URL in Tasklist notes when you refresh the mirror (especially before cutovers or network work).
+4. **Bootstrap the local fallback when required:** set `PG_BIN_DIR` to a Postgres installation with `bin/` + `share/` (e.g., `C:/Program Files/PostgreSQL/17/bin`), then run `npm run ops:bootstrap-local-db` to mirror the DEV database into `Store/db`, rotate timestamped snapshots, and emit `local-url.txt` so `src/shared/config.ts` can fail over to the offline cluster. Capture the command, timestamp, and resulting URL in Tasklist notes when you refresh the mirror (especially before cutovers or network work).
 5. **Document actions:** log purpose, command, and outcome in `Tasklist.md` under the active task when running anything outside status/counts.
 
 Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describe the secure loading order and available commands. These tools run locally only; do not expose the secure env path in CI or production.
