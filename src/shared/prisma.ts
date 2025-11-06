@@ -99,14 +99,17 @@ function describeTransport(usesAccelerate: boolean, runtime: "node" | "serverles
 
 let devPrismaClient: PrismaClient | null = null;
 let prodPrismaClient: PrismaClient | null = null;
+let localPrismaClient: PrismaClient | null = null;
 let prismaClient: PrismaClient; // Legacy reference - points to prod
 export let prisma: PrismaClient; // Points to PROD client
 export let devPrisma: PrismaClient | null = null; // DEV client
+export let localPrisma: PrismaClient | null = null; // LOCAL client (workstation mirror)
 let activeCandidate: DatabaseCandidate | null = null;
 let lastClientUsesAccelerate = false;
 let lastPrismaTransport = "direct";
 let devTransport = "unknown";
 let prodTransport = "unknown";
+let localTransport = "unknown";
 
 type OptimizeExtender = (client: PrismaClient) => PrismaClient;
 let optimizeExtender: OptimizeExtender | null = null;
@@ -615,21 +618,87 @@ export function getPrismaTransport(): string {
   return lastPrismaTransport;
 }
 
+/**
+ * Check LOCAL database health and version.
+ * Returns connection status and version fingerprint if available.
+ */
+export async function checkLocalHealth(): Promise<{
+  connected: boolean;
+  version: string | null;
+  error?: Error;
+}> {
+  if (!localPrismaClient) {
+    return { connected: false, version: null };
+  }
+  
+  try {
+    // Test connection with simple query
+    await localPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+    
+    // Try to get version from db_version table if it exists
+    try {
+      const versionRecord = await localPrismaClient.$queryRaw<Array<{ fingerprint: string }>>(
+        Prisma.sql`SELECT fingerprint FROM db_version WHERE environment = 'LOCAL' ORDER BY updated_at DESC LIMIT 1`
+      );
+      const version = versionRecord?.[0]?.fingerprint ?? null;
+      return { connected: true, version };
+    } catch {
+      // db_version table might not exist yet
+      return { connected: true, version: null };
+    }
+  } catch (error) {
+    return {
+      connected: false,
+      version: null,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
+}
+
+/**
+ * Validate LOCAL database version against required minimum.
+ * Returns true if LOCAL version >= required, false otherwise.
+ * Used for failover logic to ensure Local mirror is sufficiently up-to-date.
+ */
+export async function validateLocalVersion(requiredVersion: string | null): Promise<boolean> {
+  if (!requiredVersion) {
+    // No version requirement - allow failover
+    return true;
+  }
+  
+  const health = await checkLocalHealth();
+  if (!health.connected || !health.version) {
+    // Cannot validate version if not connected or version unknown
+    return false;
+  }
+  
+  // Version validation: exact match or LOCAL is ahead
+  // In practice, use compareVersions from db-replication/version.ts
+  // For now, simple equality check
+  return health.version === requiredVersion;
+}
+
 export type DatabaseStats = {
   source: string;
   transport: string;
   latency: number | null;
   status: string;
+  version?: string; // Version fingerprint for replication monitoring
 };
 
-export type DualDatabaseStats = {
+export type TripleDatabaseStats = {
   dev: DatabaseStats;
   prod: DatabaseStats;
+  local: DatabaseStats;
 };
+
+// Legacy type for backward compatibility
+export type DualDatabaseStats = TripleDatabaseStats;
 
 let lastHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 let lastDevHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 let lastProdHeartbeatEvent: PrismaHeartbeatEvent | null = null;
+let lastLocalHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 
 onPrismaHeartbeat((event) => {
   lastHeartbeatEvent = event;
@@ -646,7 +715,7 @@ function computeStatus(heartbeat: PrismaHeartbeatEvent | null): string {
   return heartbeat.consecutiveFailures >= HEARTBEAT_DEFAULTS.errorThreshold ? "error" : "reconnecting";
 }
 
-export function getDatabaseStats(): DualDatabaseStats {
+export function getDatabaseStats(): TripleDatabaseStats {
   // PROD stats (main connection)
   const prodCandidate = activeCandidate;
   const prodSource = prodCandidate?.source ?? "unknown";
@@ -662,6 +731,13 @@ export function getDatabaseStats(): DualDatabaseStats {
     ? (lastDevHeartbeatEvent ? computeStatus(lastDevHeartbeatEvent) : "initializing")
     : "offline";
   
+  // LOCAL stats (tertiary connection - workstation mirror)
+  const localSource = process.env.DATABASE_LOCAL_URL ? "local" : "unknown";
+  const localLatency = lastLocalHeartbeatEvent?.latencyMs ?? null;
+  const localStatus = localPrismaClient
+    ? (lastLocalHeartbeatEvent ? computeStatus(lastLocalHeartbeatEvent) : "initializing")
+    : "offline";
+  
   return {
     dev: {
       source: devSource,
@@ -674,6 +750,12 @@ export function getDatabaseStats(): DualDatabaseStats {
       transport: prodTransport,
       latency: prodLatency,
       status: prodStatus,
+    },
+    local: {
+      source: localSource,
+      transport: localTransport,
+      latency: localLatency,
+      status: localStatus,
     },
   };
 }
@@ -782,7 +864,111 @@ async function initializeDevClient(): Promise<void> {
   }
 }
 
-// Initialize both clients
+// Initialize LOCAL client (workstation mirror)
+async function initializeLocalClient(): Promise<void> {
+  const localUrl = process.env.DATABASE_LOCAL_URL?.trim();
+  if (!localUrl) {
+    log.info("LOCAL database connection skipped", { reason: "no DATABASE_LOCAL_URL" });
+    return;
+  }
+  
+  try {
+    const usesAccelerate = /^prisma\+/i.test(localUrl);
+    localTransport = usesAccelerate ? "accelerate-node" : "direct";
+    
+    // For direct PostgreSQL URLs, configure client with temporary DATABASE_URL override
+    if (usesAccelerate) {
+      const baseOptions = {
+        log: ["error"] as any,
+        datasourceUrl: localUrl,
+      };
+      localPrismaClient = new PrismaClient(baseOptions);
+      localPrismaClient = localPrismaClient.$extends(withAccelerate()) as unknown as PrismaClient;
+    } else {
+      // Direct connection - set DATABASE_URL temporarily for this client
+      const originalDatabaseUrl = process.env.DATABASE_URL;
+      process.env.DATABASE_URL = localUrl;
+      
+      const baseOptions = {
+        log: ["error"] as any,
+      };
+      
+      localPrismaClient = new PrismaClient(baseOptions);
+      
+      // Restore original DATABASE_URL
+      if (originalDatabaseUrl) {
+        process.env.DATABASE_URL = originalDatabaseUrl;
+      }
+    }
+    
+    localPrisma = localPrismaClient;
+    
+    // Connect and probe
+    await localPrismaClient.$connect();
+    const start = process.hrtime.bigint();
+    await localPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+    const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+    
+    lastLocalHeartbeatEvent = {
+      ok: true,
+      timestamp: new Date(),
+      latencyMs,
+      slow: latencyMs >= HEARTBEAT_DEFAULTS.warnThresholdMs,
+      consecutiveFailures: 0,
+      source: "startup",
+    };
+    
+    log.info("LOCAL Prisma client connected", {
+      latencyMs: Number(latencyMs.toFixed(2)),
+      transport: localTransport,
+    });
+    
+    // Start LOCAL heartbeat
+    setInterval(async () => {
+      if (!localPrismaClient) return;
+      const probeStart = process.hrtime.bigint();
+      try {
+        await localPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+        const probeLatency = Number(process.hrtime.bigint() - probeStart) / 1_000_000;
+        lastLocalHeartbeatEvent = {
+          ok: true,
+          timestamp: new Date(),
+          latencyMs: probeLatency,
+          slow: probeLatency >= HEARTBEAT_DEFAULTS.warnThresholdMs,
+          consecutiveFailures: 0,
+          source: "heartbeat",
+        };
+      } catch (error) {
+        const failures = (lastLocalHeartbeatEvent?.consecutiveFailures ?? 0) + 1;
+        lastLocalHeartbeatEvent = {
+          ok: false,
+          timestamp: new Date(),
+          latencyMs: null,
+          slow: false,
+          consecutiveFailures: failures,
+          error: error instanceof Error ? error : new Error(String(error)),
+          source: "heartbeat",
+        };
+      }
+    }, HEARTBEAT_DEFAULTS.intervalMs).unref();
+    
+  } catch (error) {
+    log.warn("LOCAL Prisma client connection failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    lastLocalHeartbeatEvent = {
+      ok: false,
+      timestamp: new Date(),
+      latencyMs: null,
+      slow: false,
+      consecutiveFailures: 1,
+      error: error instanceof Error ? error : new Error(String(error)),
+      source: "startup",
+    };
+  }
+}
+
+// Initialize all three clients
 if (!globalPrisma.prismaConnectPromise) {
   const skipInitialConnect = process.env.PRISMA_SKIP_INITIAL_CONNECT === "true";
   if (skipInitialConnect) {
@@ -797,6 +983,7 @@ if (!globalPrisma.prismaConnectPromise) {
         throw error;
       }),
       initializeDevClient(),
+      initializeLocalClient(),
     ]).then(async () => {
       prodPrismaClient = prismaClient;
       prodTransport = lastPrismaTransport;

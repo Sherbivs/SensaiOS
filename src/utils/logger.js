@@ -92,6 +92,12 @@ function collectDatabaseStats() {
         connections: 'n/a',
         source: 'n/a',
       },
+      local: {
+        status: 'loading',
+        latency: 'n/a',
+        connections: 'n/a',
+        source: 'n/a',
+      },
     };
   }
 
@@ -106,6 +112,11 @@ function collectDatabaseStats() {
     // Format PROD stats
     const prodLatency = stats.prod.latency !== null 
       ? `${stats.prod.latency.toFixed(2)}ms` 
+      : 'n/a';
+    
+    // Format LOCAL stats
+    const localLatency = stats.local.latency !== null
+      ? `${stats.local.latency.toFixed(2)}ms`
       : 'n/a';
     
     return {
@@ -123,6 +134,13 @@ function collectDatabaseStats() {
         source: stats.prod.source,
         transport: stats.prod.transport,
       },
+      local: {
+        status: stats.local.status,
+        latency: localLatency,
+        connections: 'n/a',
+        source: stats.local.source,
+        transport: stats.local.transport,
+      },
     };
   } catch (error) {
     return {
@@ -133,6 +151,12 @@ function collectDatabaseStats() {
         source: 'error',
       },
       prod: {
+        status: 'error',
+        latency: 'n/a',
+        connections: 'n/a',
+        source: 'error',
+      },
+      local: {
         status: 'error',
         latency: 'n/a',
         connections: 'n/a',
@@ -183,8 +207,9 @@ function printStats() {
   
   // Database Stats
   lines.push(`[DATABASE]`);
-  lines.push(`  DEV  → Status: ${statsCache.databases.dev.status}  |  Latency: ${statsCache.databases.dev.latency}  |  Source: ${statsCache.databases.dev.source}  |  Connections: ${statsCache.databases.dev.connections}`);
-  lines.push(`  PROD → Status: ${statsCache.databases.prod.status}  |  Latency: ${statsCache.databases.prod.latency}  |  Source: ${statsCache.databases.prod.source}  |  Connections: ${statsCache.databases.prod.connections}`);
+  lines.push(`  DEV   → Status: ${statsCache.databases.dev.status}  |  Latency: ${statsCache.databases.dev.latency}  |  Source: ${statsCache.databases.dev.source}  |  Connections: ${statsCache.databases.dev.connections}`);
+  lines.push(`  PROD  → Status: ${statsCache.databases.prod.status}  |  Latency: ${statsCache.databases.prod.latency}  |  Source: ${statsCache.databases.prod.source}  |  Connections: ${statsCache.databases.prod.connections}`);
+  lines.push(`  LOCAL → Status: ${statsCache.databases.local.status}  |  Latency: ${statsCache.databases.local.latency}  |  Source: ${statsCache.databases.local.source}  |  Connections: ${statsCache.databases.local.connections}`);
   lines.push(SPACER);
   
   // Security Bot Stats
@@ -211,8 +236,9 @@ function getFormattedStats() {
   
   // Database Stats
   lines.push(`[DATABASE]`);
-  lines.push(`  DEV  → Status: ${statsCache.databases.dev.status}  |  Latency: ${statsCache.databases.dev.latency}  |  Source: ${statsCache.databases.dev.source}  |  Connections: ${statsCache.databases.dev.connections}`);
-  lines.push(`  PROD → Status: ${statsCache.databases.prod.status}  |  Latency: ${statsCache.databases.prod.latency}  |  Source: ${statsCache.databases.prod.source}  |  Connections: ${statsCache.databases.prod.connections}`);
+  lines.push(`  DEV   → Status: ${statsCache.databases.dev.status}  |  Latency: ${statsCache.databases.dev.latency}  |  Source: ${statsCache.databases.dev.source}  |  Connections: ${statsCache.databases.dev.connections}`);
+  lines.push(`  PROD  → Status: ${statsCache.databases.prod.status}  |  Latency: ${statsCache.databases.prod.latency}  |  Source: ${statsCache.databases.prod.source}  |  Connections: ${statsCache.databases.prod.connections}`);
+  lines.push(`  LOCAL → Status: ${statsCache.databases.local.status}  |  Latency: ${statsCache.databases.local.latency}  |  Source: ${statsCache.databases.local.source}  |  Connections: ${statsCache.databases.local.connections}`);
   
   return lines.join('\n');
 }

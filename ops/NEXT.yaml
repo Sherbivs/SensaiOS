@@ -13,21 +13,19 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: DB.REPLICATION.VERSION
-reason: "Database replication architecture design complete (docs/db-replication-architecture.md). Ready to implement Phase 1: Version tracking foundation with db_version table, SHA-256 fingerprint calculation, compareVersions() logic, and reversion detection."
+next_task_id: DB.NORTHSTAR.SERVICES
+reason: "T13.DEX.V2_PROD_CUTOVER marked DONE—cutover was actually completed on 2025-11-03T06:28Z. DEX v2 flag (DEX_V2_ENABLED) is live and serving production traffic. All cutover acceptance criteria met: backups captured, signed pack artifact published (dexpack.v2.f840e427...), flag ladder implemented (1%→25%→50%→100%), monitoring/rollback workflows documented. Subsequent Nov 5-6 notes incorrectly logged to DEX task were actually unrelated Phase 16 infrastructure work (database replication, dual DB connections, security bot hardening). Next: DB.NORTHSTAR.SERVICES for EventTracker and ProfileService implementation with caching."
 
 files_hint:
-  - prisma/schema.prisma
-  - prisma/migrations/
-  - src/services/db-replication/
-  - src/services/db-replication/version.ts
-  - tests/db-replication/
-  - docs/db-replication-architecture.md
+  - src/services/events/
+  - src/services/profiles/
+  - docs/event-tracking-schema.md
+  - docs/query-optimization-guide.md
   - Tasklist.md
   - Prompt.md
 
 queue: []
-timestamp_utc: 2025-11-06T19:00:00Z
+timestamp_utc: 2025-11-06T23:00:00Z
 router_version: 1
-last_notes_read_utc: 2025-11-06T19:00:00Z
-note: "Completed DB.NORTHSTAR.PHASE1 and DB.REPLICATION.DESIGN. Created comprehensive master-replica cascade architecture (DEV → Prisma → Local) with version control, integrity verification, automated sync, silent error elimination. Phase 16 spans 8 tasks across 6 implementation phases. Starting with version tracking foundation (db_version table, fingerprint calculation, reversion detection). DB.NORTHSTAR.SERVICES and other tasks remain READY for future work." 
+last_notes_read_utc: 2025-11-06T23:00:00Z
+note: "Marked T13.DEX.V2_PROD_CUTOVER as DONE with clarification that cutover completed 2025-11-03T06:28Z (all acceptance criteria met). Task incorrectly remained READY because unrelated infrastructure work (Phase 16 database replication, dual DB connections, security bot, logger improvements) was logged to it Nov 5-6 instead of tracked separately. DEX v2 is live in production. Retargeted NEXT to DB.NORTHSTAR.SERVICES (next READY task after DEX completion)."

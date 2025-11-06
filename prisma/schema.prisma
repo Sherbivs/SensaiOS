@@ -491,3 +491,34 @@ model AuditLog {
 
   @@index([tenantId, at])
 }
+
+/// ---- Database Replication Tracking ----
+model DbVersion {
+  id                      Int      @id @default(autoincrement())
+  versionFingerprint      String
+  migrationCount          Int
+  lastMigrationName       String
+  lastMigrationAppliedAt  DateTime
+  syncSource              String?
+  createdAt               DateTime @default(now())
+
+  @@index([versionFingerprint])
+  @@map("db_version")
+}
+
+model DbSyncState {
+  id                   Int       @id @default(autoincrement())
+  source               String
+  target               String
+  status               String
+  lastSyncAt           DateTime?
+  lastDuration         Int?
+  lastError            String?
+  lastIntegrityCheck   Json?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([source, target])
+  @@index([status])
+  @@map("db_sync_state")
+}

@@ -162,6 +162,60 @@ process.on('SIGTERM', async () => {
 
 See `docs/security-bot-state.md` for comprehensive state persistence documentation including JSON schema, lifecycle, error handling, and troubleshooting.
 
+## Database Replication Architecture (Phase 16)
+
+**As of 2025-11-06**, the system implements a master-replica cascade architecture for database version control and synchronization across DEV, Prod (Prisma Accelerate), and Local (workstation) environments.
+
+**Architecture:** DEV (master) → Prisma (prod replica) → Local (workstation replica)
+
+**Purpose:** Ensure DEV is the single source of truth for all schema changes, prevent silent errors during sync, detect rollbacks/divergence, and maintain integrity across all environments.
+
+**Version Tracking Foundation (DB.REPLICATION.VERSION - DONE):**
+- **db_version table:** Tracks version fingerprints (SHA-256), migration counts, last migration metadata per environment
+- **db_sync_state table:** Records sync operations, status (MATCH/AHEAD/BEHIND/DIVERGED/WAITING_FOR_MASTER), errors, integrity check results
+- **Version fingerprint calculation:** `SHA-256(migration_1:checksum|migration_2:checksum|...)` from `_prisma_migrations` table ensures tamper-proof version identity
+- **Comparison logic:** Four states determine sync safety:
+  - `MATCH` — Identical fingerprints, databases in sync
+  - `AHEAD` — Source has more migrations with valid prefix, safe to sync
+  - `BEHIND` — Source rolled back (reversion detected), blocks sync until master catches up
+  - `DIVERGED` — Different migration histories, requires manual reconciliation
+- **Reversion detection:** When DEV migration count < Prod count, updates `db_sync_state` with `WAITING_FOR_MASTER`, blocks downstream sync, alerts operators
+- **Prefix validation:** Ensures `AHEAD` status is safe by verifying target migrations are exact prefix of source
+
+**Implementation:**
+- `src/services/db-replication/version.ts` — Core version tracking module (373 lines)
+- `tests/db-replication/version.test.ts` — Comprehensive test suite (15 tests, 100% passing)
+- Migration `20251106115259_add_db_version_tables` — Schema foundation
+
+**Usage Patterns:**
+
+```typescript
+import { getVersion, compareVersions, handleReversion } from '../services/db-replication/version.js';
+import { prisma, devPrisma } from '../shared/prisma.js';
+
+// Get version fingerprint from DEV
+const devVersion = await getVersion(devPrisma, 'DEV');
+
+// Compare DEV vs Prod to determine sync safety
+const comparison = await compareVersions(devVersion, prodVersion, devPrisma, prisma);
+
+if (comparison.status === 'BEHIND') {
+  // Reversion detected - DEV rolled back
+  await handleReversion(devVersion, prodVersion, prisma);
+  // Sync blocked, operators alerted
+}
+```
+
+**Remaining Phases (In Progress):**
+- **DB.REPLICATION.INTEGRITY (READY)** — Schema and data integrity verification framework
+- **DB.REPLICATION.SYNC (READY)** — 5-stage sync orchestrator with rollback handling
+- **DB.REPLICATION.MONITORING (READY)** — Metrics dashboard and alerting
+- **DB.REPLICATION.CLI (READY)** — CLI commands and automation
+- **DB.REPLICATION.INTEGRATION (READY)** — Multi-connection protocol integration
+- **DB.REPLICATION.TESTING (READY)** — Comprehensive end-to-end testing
+
+See `docs/db-replication-architecture.md` for comprehensive architecture documentation covering data flow, integrity verification, sync orchestration, monitoring, and operational workflows.
+
 ## Capabilities & Routing Hints
 - **planner:** break down vague goals; produce measurable milestones and resource budgets.
 - **researcher:** search, synthesize sources; attach citations & uncertainty notes.

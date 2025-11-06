@@ -338,5 +338,151 @@ References and helpful commands
 
   SELECT current_user, inet_client_addr();
 
+---
+
+## Database Replication Architecture (Phase 16 - 2025-11-06)
+
+### Overview
+
+The system implements a **master-replica cascade architecture** for database version control and synchronization across DEV, Prod (Prisma Accelerate), and Local (workstation) environments.
+
+```
+DEV (master) → Prisma Accelerate (prod) → Local (workstation)
+```
+
+**Key Principles:**
+- **DEV is the single source of truth** for all schema changes
+- **Version control via SHA-256 fingerprints** of migration checksums
+- **Integrity verification** (schema + data) before every sync completion
+- **Reversion detection** blocks downstream sync automatically
+- **No silent errors** - all failures logged and alerted
+
+### Version Tracking
+
+**Tables:**
+- `db_version` — Tracks version fingerprints, migration counts, last migration metadata
+- `db_sync_state` — Records sync operations, status, errors, integrity check results
+
+**Version Fingerprint:**
+```
+SHA-256(migration_1:checksum|migration_2:checksum|...)
+```
+
+Calculated from `_prisma_migrations` table ensures tamper-proof version identity.
+
+**Comparison States:**
+- `MATCH` — Identical fingerprints, databases in sync
+- `AHEAD` — Source has more migrations with valid prefix, safe to sync
+- `BEHIND` — Source rolled back (reversion detected), blocks sync until master catches up
+- `DIVERGED` — Different migration histories, requires manual reconciliation
+
+### Sync Orchestration
+
+**DEV → Prod (5-stage process):**
+1. **VERSION_CHECK** — Compare fingerprints via `compareVersions()`
+2. **INTEGRITY_VERIFY** — Pre-migration schema check via `verifySchemaIntegrity()`
+3. **MIGRATION_APPLY** — Execute `npx prisma migrate deploy` using `secrets/migrate.env` (direct PostgreSQL URLs)
+4. **VALIDATION** — Post-migration fingerprint must match DEV exactly, schema integrity must pass
+5. **COMPLETE** — Record metrics and sync event
+
+**Prod → Local:**
+- Version check and idempotency (pg_dump/restore implementation deferred)
+- Only sync if Prod version >= Local version
+- Used for offline work readiness
+
+**Automated Schedule:**
+- DEV → Prod: Every 6 hours
+- Prod → Local: Daily at 2 AM
+
+### CLI Operations
+
+```bash
+# Check replication status
+npm run db:replication status
+
+# View metrics and alerts
+npm run db:replication metrics
+
+# Manual sync
+npm run db:replication sync dev-to-prod
+npm run db:replication sync prod-to-local
+npm run db:replication sync full-cascade
+
+# Verify integrity
+npm run db:replication integrity all
+
+# Compare versions
+npm run db:replication compare
+
+# Schema differences
+npm run db:replication diff dev prod
+
+# Emergency controls
+npm run db:replication block-prod    # Block downstream sync
+npm run db:replication unblock-prod  # Resume sync
+npm run db:replication reset-local   # Rebuild Local from Prod
+```
+
+### Alert Thresholds
+
+| Severity | Condition | Response Time |
+|----------|-----------|---------------|
+| **WARNING** | Lag >5 migrations, sync >10min, blocked status | <1 hour |
+| **ERROR** | Lag >10 migrations, sync failure, integrity failure | <30 min |
+| **CRITICAL** | Diverged fingerprints, reversion detected | <15 min |
+
+### Emergency Procedures
+
+**Rollback DEV:**
+1. Block downstream: `npm run db:replication block-prod`
+2. Roll back migrations: `npx prisma migrate resolve --rolled-back <name>`
+3. Verify schema: `npm run db:replication integrity dev-prod`
+4. Unblock when stable: `npm run db:replication unblock-prod`
+
+**Version Conflict:**
+1. Capture state: `npm run db:replication compare`
+2. Analyze differences: `npm run db:replication diff dev prod`
+3. Decide strategy (reset DEV from Prod, or force sync DEV to Prod)
+4. Execute resolution with confirmation flags
+5. Verify convergence: `npm run db:replication compare`
+
+### Documentation
+
+- **Architecture:** `docs/db-replication-architecture.md` — Comprehensive design document
+- **Runbook:** `docs/db-replication-runbook.md` — Operational procedures and troubleshooting
+- **Implementation:**
+  - `src/services/db-replication/version.ts` — Version tracking (373 lines)
+  - `src/services/db-replication/integrity.ts` — Schema/data verification (761 lines)
+  - `src/services/db-replication/sync.ts` — Sync orchestrator (530 lines)
+  - `src/services/db-replication/monitoring.ts` — Metrics and alerting (468 lines)
+  - `scripts/db_replication.ts` — CLI commands (750 lines)
+
+### Integration with Bootstrap Workflow
+
+When running migrations via `scripts/bootstrap_staging_db.ps1` or manual `npx prisma migrate deploy`:
+
+1. **Use direct PostgreSQL URLs** (`secrets/migrate.env`) to avoid Accelerate DDL limitation
+2. **Verify version after migration:**
+   ```bash
+   npm run db:replication version dev
+   npm run db:replication version prod
+   ```
+3. **Check for divergence:**
+   ```bash
+   npm run db:replication compare
+   ```
+4. **If DEV ahead of Prod, sync:**
+   ```bash
+   npm run db:replication sync dev-to-prod
+   ```
+5. **Verify integrity:**
+   ```bash
+   npm run db:replication integrity dev-prod
+   ```
+
+This ensures migrations propagate correctly across the cascade and no silent errors occur.
+
+---
+
 Contact
 - If unsure, @devops or the repository author listed in `Patch.md` should be pinged before applying destructive fixes.

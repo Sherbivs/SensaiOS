@@ -23,6 +23,7 @@
     "hotfix": "bash scripts/hotfix_entry.sh",
     "tasks:archive": "node scripts/archive_task_history.mjs",
     "db:cli": "tsx scripts/db_admin.ts",
+    "db:replication": "tsx scripts/db_replication.ts",
     "db:seed:dex": "tsx scripts/seed_dex.ts",
     "db:auto-sync": "tsx scripts/dev_prod_auto_sync.ts",
     "db:smoke": "tsx scripts/db_smoke.ts",
