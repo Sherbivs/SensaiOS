@@ -18,7 +18,7 @@ export function startAutoSyncSupervisor(): () => void {
 
     log.info("Starting auto-sync loop", { scriptPath });
 
-    child = spawn(process.execPath, ["--loader", "tsx", scriptPath], {
+    child = spawn(process.execPath, ["--import", "tsx/esm", scriptPath], {
       env: {
         ...process.env,
         AUTO_SYNC_BACKGROUND: "1",
