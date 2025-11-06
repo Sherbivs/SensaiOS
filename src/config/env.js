@@ -118,7 +118,7 @@ const ENABLE_CONTINUOUS_SWEEP = process.env.ENABLE_CONTINUOUS_SWEEP === undefine
   : toBool(process.env.ENABLE_CONTINUOUS_SWEEP);
 const rawEnableDbAutoSync = process.env.ENABLE_DB_AUTO_SYNC;
 const ENABLE_DB_AUTO_SYNC = rawEnableDbAutoSync === undefined
-  ? false
+  ? true  // Enable by default to keep DEV/PROD databases synchronized
   : toBool(rawEnableDbAutoSync);
 
 // Role assignment defaults
