@@ -1,10 +1,10 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T14:45:30Z
-Revision: 2.30
+Timestamp (UTC): 2025-11-06T15:15:30Z
+Revision: 2.32
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Fixed restart DM timing issue in `src/bot/main.js` by awaiting `ensurePrisma()` before collecting stats, ensuring both DEV and PROD database connections complete initialization before stats are displayed in notification messages (previously showed "loading" status).
-- Added dynamic import of `ensurePrisma` function from `src/shared/prisma.js` with try-catch handling for graceful fallback when database initialization is incomplete.
+- Fixed heartbeat race condition in `src/shared/prisma.ts` by adding 50ms delay after dual client connections complete, ensuring heartbeat listeners process initial events before `ensurePrisma()` resolves.
+- Updated `getDatabaseStats()` to return "initializing" status when clients exist but heartbeats haven't populated yet (instead of "loading"/"unknown"), providing clearer restart DM visibility.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -22,7 +22,7 @@ Revision: 2.30
 - **Recent Finish:** DB.V0.BACKUP_DR closed with fresh backup hashes, schema extract rehearsal, and documentation updates.
 
 ## System Highlights
-- **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
+- **Database:** Runtime maintains dual Prisma clients simultaneously—PROD (`prisma`) via `DATABASE_POOL_URL`/Accelerate for production operations, DEV (`devPrisma`) via `DATABASE_DIRECT_URL` for debugging/migrations. `getDatabaseStats()` surfaces both connections in logger output every 15 seconds.
 - **Workers & Scaling:** Dedicated outbox/cache/data-pipeline/security workers run under pooled env wiring; ENABLE_SECURITY_BOT + ENABLE_CONTINUOUS_SWEEP gate sweeps so only the security worker loops in production.
 - **Observability:** Worker telemetry now auto-logs via `worker.metrics.snapshot`; queue depth warns ≥50, cache stale alerts >30m, pipeline stale alerts >8h, and `worker.alert.*` escalations flag repeated failures ahead of the scheduled load test.
 - **Ledger:** Prompt now carries a curated 10-commit summary; run npm run docs:update-ledger to refresh both this summary and ops/change-ledger.md.
@@ -60,9 +60,9 @@ Revision: 2.30
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Fixed restart DM timing by awaiting database initialization before stats collection.
+Change: Fixed heartbeat race condition causing restart DM stats to show "loading" instead of connection status.
 TasklistDiff: true
-Tests: not run (runtime behavior fix, validated by restart DM output).
+Tests: not run (runtime timing fix, validated by restart DM output).
 Contracts: ON
 NEXT_Status: READY (T13.DEX.V2_PROD_CUTOVER)
 NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with dual DB architecture now documented across all surfaces.

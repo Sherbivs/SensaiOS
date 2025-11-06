@@ -1,4 +1,4 @@
-// Prisma client singleton and simple repository helpers
+// Prisma dual client architecture (PROD + DEV) and repository helpers
 
 import { Prisma } from "@prisma/client";
 import type { Battle, Cooldown, PrismaClient, User as PrismaUser } from "@prisma/client";

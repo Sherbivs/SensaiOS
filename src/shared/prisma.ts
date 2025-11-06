@@ -651,12 +651,16 @@ export function getDatabaseStats(): DualDatabaseStats {
   const prodCandidate = activeCandidate;
   const prodSource = prodCandidate?.source ?? "unknown";
   const prodLatency = lastProdHeartbeatEvent?.latencyMs ?? null;
-  const prodStatus = computeStatus(lastProdHeartbeatEvent);
+  const prodStatus = prodPrismaClient 
+    ? (lastProdHeartbeatEvent ? computeStatus(lastProdHeartbeatEvent) : "initializing")
+    : "offline";
   
   // DEV stats (secondary connection)
   const devSource = process.env.DATABASE_DIRECT_URL ? "direct" : "unknown";
   const devLatency = lastDevHeartbeatEvent?.latencyMs ?? null;
-  const devStatus = devPrismaClient ? computeStatus(lastDevHeartbeatEvent) : "offline";
+  const devStatus = devPrismaClient 
+    ? (lastDevHeartbeatEvent ? computeStatus(lastDevHeartbeatEvent) : "initializing")
+    : "offline";
   
   return {
     dev: {
@@ -793,9 +797,13 @@ if (!globalPrisma.prismaConnectPromise) {
         throw error;
       }),
       initializeDevClient(),
-    ]).then(() => {
+    ]).then(async () => {
       prodPrismaClient = prismaClient;
       prodTransport = lastPrismaTransport;
+      
+      // Wait for heartbeat listeners to process initial events
+      // This ensures getDatabaseStats() returns populated stats immediately after ensurePrisma() resolves
+      await new Promise((resolve) => setTimeout(resolve, 50));
     });
   }
 }
