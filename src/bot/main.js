@@ -2168,6 +2168,11 @@ client.once(Events.ClientReady, async () => {
   try {
     botState = await initializeState();
     autoSaveInterval = startAutoSave(botState);
+    
+    // Expose state to global for cross-module telemetry (e.g., logger.js)
+    global.securityBotState = botState;
+    global.securityBotClient = client;
+    
     log('success', 'State persistence initialized', {
       restartNumber: botState.cumulative.restartCount,
       guildsMonitored: Object.keys(botState.guilds).length,

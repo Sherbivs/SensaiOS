@@ -167,29 +167,18 @@ function collectDatabaseStats() {
 }
 
 function collectSecurityBotStats() {
-  try {
-    // Try to import security bot state if available
-    const securityBotModule = require('../bot/main.js');
-    const botState = securityBotModule?.botState;
-    const client = securityBotModule?.client;
-    
-    if (!botState && !client) {
-      // Security bot not initialized yet or disabled
-      return {
-        status: 'disabled',
-        guilds: 0,
-        lastSweep: 'never',
-        assignments: 0,
-        failures: 0,
-      };
-    }
+  // Check if we're running INSIDE the security bot process
+  // by looking for global state that security bot sets up
+  if (typeof global.securityBotState === 'object' && global.securityBotState) {
+    const botState = global.securityBotState;
+    const client = global.securityBotClient;
     
     // Collect runtime stats from client
     const guildCount = client?.guilds?.cache?.size || 0;
     const isReady = client?.isReady?.() || false;
     
     // Collect state-based stats if available
-    if (botState?.stats) {
+    if (botState.stats) {
       const totalSweeps = botState.stats.totalSweeps || 0;
       const totalPermissionChanges = botState.stats.totalPermissionChanges || 0;
       const totalAlerts = botState.stats.totalAlerts || 0;
@@ -231,16 +220,16 @@ function collectSecurityBotStats() {
       assignments: 0,
       failures: 0,
     };
-  } catch (error) {
-    // Security bot module not available or error during collection
-    return {
-      status: 'unavailable',
-      guilds: 0,
-      lastSweep: 'n/a',
-      assignments: 0,
-      failures: 0,
-    };
   }
+  
+  // Not running in security bot process - return disabled status
+  return {
+    status: 'n/a',
+    guilds: 'n/a',
+    lastSweep: 'n/a',
+    assignments: 'n/a',
+    failures: 'n/a',
+  };
 }
 
 function refreshStats() {
