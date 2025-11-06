@@ -1,10 +1,10 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T15:15:30Z
-Revision: 2.32
+Timestamp (UTC): 2025-11-06T15:30:30Z
+Revision: 2.33
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Fixed heartbeat race condition in `src/shared/prisma.ts` by adding 50ms delay after dual client connections complete, ensuring heartbeat listeners process initial events before `ensurePrisma()` resolves.
-- Updated `getDatabaseStats()` to return "initializing" status when clients exist but heartbeats haven't populated yet (instead of "loading"/"unknown"), providing clearer restart DM visibility.
+- Fixed dynamic import race condition in `src/bot/main.js` by replacing fire-and-forget async imports with inline `await import()` within `notifyServiceRestart()`, ensuring `ensurePrisma()` and `getFormattedStats()` are guaranteed available when restart DM sends.
+- Removed redundant top-level dynamic import blocks that were causing null reference issues during security bot startup.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -60,7 +60,7 @@ Revision: 2.32
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Fixed heartbeat race condition causing restart DM stats to show "loading" instead of connection status.
+Change: Fixed dynamic import race preventing restart DM from awaiting database initialization.
 TasklistDiff: true
 Tests: not run (runtime timing fix, validated by restart DM output).
 Contracts: ON

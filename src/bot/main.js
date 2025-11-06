@@ -46,33 +46,6 @@ import { createDripAlertManager, DRIP_ALERT_SEVERITY } from './dripAlerts.js';
 import { loadCommands } from '../command-loader.js';
 import { checkAndSet } from '../lib/cooldown.js';
 
-let getFormattedStats = null;
-let ensurePrisma = null;
-
-// Dynamically load getFormattedStats when available
-(async () => {
-  try {
-    const loggerModule = await import('../utils/logger.js');
-    if (typeof loggerModule.getFormattedStats === 'function') {
-      getFormattedStats = loggerModule.getFormattedStats;
-    }
-  } catch (error) {
-    // Logger module not available yet
-  }
-})();
-
-// Dynamically load ensurePrisma to await DB initialization
-(async () => {
-  try {
-    const prismaModule = await import('../shared/prisma.js');
-    if (typeof prismaModule.ensurePrisma === 'function') {
-      ensurePrisma = prismaModule.ensurePrisma;
-    }
-  } catch (error) {
-    // Prisma module not available yet
-  }
-})();
-
 // Escalate CLI warnings if sweeps lag and keep idle background cadence predictable.
 const CLI_SWEEP_WARNING_THRESHOLD_SECONDS = 5 * 60;
 const CONTINUOUS_SWEEP_IDLE_DELAY_MS = 15_000;
@@ -1163,32 +1136,37 @@ async function notifyServiceRestart() {
         });
       }
       return;
-  }
-  
-  let message = `🛡️ Security monitor restarted at ${new Date().toLocaleString()}.\nContinuous monitoring is active across ${client.guilds.cache.size} guild(s).`;
-  
-  // Wait for database connections to complete before collecting stats
-  if (typeof ensurePrisma === 'function') {
+    }
+    
+    let message = `🛡️ Security monitor restarted at ${new Date().toLocaleString()}.\nContinuous monitoring is active across ${client.guilds.cache.size} guild(s).`;
+    
+    // Wait for database connections to complete before collecting stats
     try {
-      await ensurePrisma();
-      log('info', 'Database connections ready for restart DM stats');
+      const prismaModule = await import('../shared/prisma.js');
+      if (typeof prismaModule.ensurePrisma === 'function') {
+        await prismaModule.ensurePrisma();
+        log('info', 'Database connections ready for restart DM stats');
+      }
     } catch (error) {
       log('warn', 'Database initialization incomplete for restart DM', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
-  }
-  
-  if (typeof getFormattedStats === 'function') {
+    
+    // Collect stats after DB initialization
     try {
-      const stats = getFormattedStats();
-      message += `\n\n${stats}`;
+      const loggerModule = await import('../utils/logger.js');
+      if (typeof loggerModule.getFormattedStats === 'function') {
+        const stats = loggerModule.getFormattedStats();
+        message += `\n\n${stats}`;
+      }
     } catch (error) {
       log('warn', 'Failed to append stats to restart DM', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
-  }    await user.send(message);
+    
+    await user.send(message);
     log('info', 'Restart notification delivered', { target: describeUser(user) });
   } catch (error) {
     log('error', 'Restart notification failed', mergeLogError({

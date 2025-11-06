@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-06T15:15:00Z
-Revision: 2.86
+Last Updated (UTC): 2025-11-06T15:30:00Z
+Revision: 2.87
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1219,6 +1219,7 @@ Each task has:
   2025-11-06T14:45Z: Fixed restart DM timing issue by awaiting ensurePrisma() before collecting stats, ensuring both DEV and PROD database connections complete initialization before stats are displayed in notification messages.
   2025-11-06T15:00Z: Updated terminology across src/models/index.ts (removed "singleton" reference) and Prompt.md System Highlights to reflect dual simultaneous connection architecture (PROD via DATABASE_POOL_URL, DEV via DATABASE_DIRECT_URL).
   2025-11-06T15:15Z: Fixed heartbeat race condition by adding 50ms delay in prismaConnectPromise after connections complete, ensuring heartbeat listeners process initial events before ensurePrisma() resolves; getDatabaseStats() now returns "initializing" status when clients exist but heartbeats haven't populated yet.
+  2025-11-06T15:30Z: Fixed dynamic import race condition in src/bot/main.js by replacing fire-and-forget async imports with inline await import() within notifyServiceRestart(), ensuring ensurePrisma() and getFormattedStats() are available when restart DM sends.
   2025-11-06T04:25Z: Added `npm run ops:auto-bootstrap-local-db` (winget-backed installer + mirror refresh) and updated docs so on-call can run the fallback in one step.
   2025-11-06T04:45Z: Synced router manifests, ops touchmap, and master route tables with the automation tooling so guards resolve the PowerShell helpers during the Nov 5 ladder.
   2025-11-06T04:50Z: Extended T13 touchmap to cover AGENTS/master router edits and reran `scripts/guard_routing.sh` (pass) to confirm coverage ahead of the ladder.
