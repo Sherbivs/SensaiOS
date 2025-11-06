@@ -1,0 +1,156 @@
+[
+  {
+    "user": "golden-ash",
+    "label": "Ash Redwood",
+    "dex": [
+      {
+        "embeds": [
+          {
+            "title": "#25 — pikachu",
+            "color": 16240684,
+            "fields": [
+              { "name": "Types", "value": "electric", "inline": true },
+              { "name": "Abilities", "value": "static, (H) lightning-rod", "inline": true },
+              {
+                "name": "Base Stats",
+                "value": "hp: **35**  •  attack: **55**  •  defense: **40**  •  special attack: **50**  •  special defense: **50**  •  speed: **90**",
+                "inline": false
+              }
+            ],
+            "thumbnail": {},
+            "footer": { "text": "Ruleset: bootstrap" }
+          }
+        ]
+      }
+    ],
+    "party": {
+      "interactions": [
+        {
+          "kind": "reply",
+          "payload": {
+            "content": "Sent your party overview to your DMs.",
+            "ephemeral": true
+          }
+        }
+      ],
+      "dmMessages": [
+        {
+          "embeds": [
+            {
+              "title": "Party Overview",
+              "color": 5025616,
+              "description": "Your active party slots.",
+              "fields": [
+                { "name": "Slot 1", "value": "Volt (Pikachu) — Lv. 42\nHP 94 / 94" },
+                { "name": "Slot 2", "value": "Blaze (Charizard) — Lv. 48\nHP 147 / 147" }
+              ]
+            }
+          ],
+          "components": [
+            {
+              "type": 1,
+              "components": [
+                { "type": 2, "custom_id": "HOME_PARTY", "label": "Party", "style": 3, "disabled": true },
+                { "type": 2, "custom_id": "HOME_BOX", "label": "Box", "style": 2, "disabled": false },
+                { "type": 2, "custom_id": "HOME_PROFILE", "label": "Profile", "style": 2, "disabled": false }
+              ]
+            },
+            {
+              "type": 1,
+              "components": [
+                { "type": 2, "custom_id": "HOME_HEAL", "label": "Heal", "style": 1 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "encounter": {
+      "id": "enc_golden_ash_talonflame",
+      "speciesId": 663,
+      "state": "Spawned",
+      "startedAt": "2025-11-01T00:00:00.000Z",
+      "expiresAt": null,
+      "tenantId": "golden",
+      "trainerId": "trainer_golden_ash",
+      "packHash": "f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00"
+    }
+  },
+  {
+    "user": "golden-misty",
+    "label": "Misty Blue",
+    "dex": [
+      {
+        "embeds": [
+          {
+            "title": "#134 — vaporeon",
+            "color": 6525168,
+            "fields": [
+              { "name": "Types", "value": "water", "inline": true },
+              { "name": "Abilities", "value": "water-absorb, (H) hydration", "inline": true },
+              {
+                "name": "Base Stats",
+                "value": "hp: **130**  •  attack: **65**  •  defense: **60**  •  special attack: **110**  •  special defense: **95**  •  speed: **65**",
+                "inline": false
+              }
+            ],
+            "thumbnail": {},
+            "footer": { "text": "Ruleset: bootstrap" }
+          }
+        ]
+      }
+    ],
+    "party": {
+      "interactions": [
+        {
+          "kind": "reply",
+          "payload": {
+            "content": "Sent your party overview to your DMs.",
+            "ephemeral": true
+          }
+        }
+      ],
+      "dmMessages": [
+        {
+          "embeds": [
+            {
+              "title": "Party Overview",
+              "color": 5025616,
+              "description": "Your active party slots.",
+              "fields": [
+                { "name": "Slot 1", "value": "Ripple (Vaporeon) — Lv. 44\nHP 182 / 182" },
+                { "name": "Slot 2", "value": "Gale (Garchomp) — Lv. 46\nHP 169 / 169" }
+              ]
+            }
+          ],
+          "components": [
+            {
+              "type": 1,
+              "components": [
+                { "type": 2, "custom_id": "HOME_PARTY", "label": "Party", "style": 3, "disabled": true },
+                { "type": 2, "custom_id": "HOME_BOX", "label": "Box", "style": 2, "disabled": false },
+                { "type": 2, "custom_id": "HOME_PROFILE", "label": "Profile", "style": 2, "disabled": false }
+              ]
+            },
+            {
+              "type": 1,
+              "components": [
+                { "type": 2, "custom_id": "HOME_HEAL", "label": "Heal", "style": 1 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "encounter": {
+      "id": "enc_golden_misty_rotom",
+      "speciesId": 479,
+      "state": "Spawned",
+      "startedAt": "2025-11-01T00:00:00.000Z",
+      "expiresAt": null,
+      "tenantId": "golden",
+      "trainerId": "trainer_golden_misty",
+      "packHash": "f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00"
+    }
+  }
+]

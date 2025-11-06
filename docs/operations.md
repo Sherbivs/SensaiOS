@@ -50,3 +50,15 @@
 	- Pack hash verification result (if re-run) and any manual adjustments required.
 	- Any anomalies noted; if none, explicitly state "No drift detected".
 - Append the above under `## 2025-11-05 DEX v2 Cutover` in ops/change-ledger.md and cross-reference in Tasklist/Prompt summaries.
+
+## Day-One Schema Backup & Recovery (db_v0)
+- **Pre-checks:** `npm run db:cli -- status` to confirm the active host (expect direct/Postgres), validate species/user counts, then run
+	`npm run db:cli -- query "SHOW wal_level;"` (returns `replica`) and `npm run db:cli -- query "SHOW archive_mode;"` (Render keeps this `off`; rely on managed PITR snapshots).
+- **Fresh dump:** `npm run ops:dex-v2-backup -- --env-file C:/Users/sherb/OneDrive/Documents/Key/Dev/.env --label dev --output-dir backups --pg-dump-path tools/pgsql17/pgsql/bin/pg_dump.exe`.
+	Wrap in `Measure-Command` for RPO tracking; 2025-11-05 rehearsal completed in 14.79 s and produced `backups/archive/2025-11-05/dev-dex-2025-11-06T00-49-16.472Z.dump`
+	(SHA256 `BDC5F48B5414AF99DBBCF0F69D074CE4FABEA27BF7078D5E586442FD0A76C7FD`).
+- **Restore rehearsal:** `tools/pgsql17/pgsql/bin/pg_restore.exe --format=custom --schema-only --no-owner --file %TEMP%/dev-dex-YYYY-MM-DD-schema.sql <dump>`;
+	the 2025-11-05 run unpacked the schema in 0.09 s, yielding a 43 KB SQL extract suitable for replay during outages.
+- **RPO / RTO:** Treat the fresh dump latency as RPO (<15 s in the latest rehearsal) and log schema extraction timings as the quick-restore RTO baseline (0.09 s).
+	Capture both metrics plus command transcripts in `ops/ARCHIVE/db-bootstrap/<date>-backup-dr-evidence.md`.
+- **Housekeeping:** Move validated dumps into `backups/archive/<YYYY-MM-DD>/`, delete temporary SQL extracts from `%TEMP%`, and reference the archive note in Tasklist/Prompt updates so auditors can trace the rehearsal.

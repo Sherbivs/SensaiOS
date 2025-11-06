@@ -350,6 +350,8 @@ DB.V0.PACK_REGISTRY:
   - "scripts/build-dexpack.ts"
   - "docs/dex-v2-design.md"
   - "Tasklist.md"
+  - "src/dex/v2/loader.js"
+  - "tests/dexpack.v2.spec.ts"
 
 DB.V0.SEED_SMOKE:
   - "scripts/seed_dex.ts"

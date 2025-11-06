@@ -99,12 +99,13 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 # _Patch Clipboard Scratch Area (leave empty when not in use)_
 # 
 # <<<PATCHSET START>>>
-# Files: prisma/schema.prisma, prisma/migrations/**, ops/DB_BOOTSTRAP.md, Tasklist.md, Prompt.md, ops/NEXT.yaml, ops/TOUCHMAP.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md
-# Goal: Draft the day-one migrations and rollback rehearsal for DB.V0.BOOTSTRAP while keeping routing metadata synchronized.
+# Files: ops/ARCHIVE/db-bootstrap/2025-11-05-backup-dr-evidence.md, Tasklist.md, Prompt.md, ops/NEXT.yaml, docs/operations.md, docs/database-systems.md
+# Goal: Validate DB backups/restore rehearsal, capture evidence, and advance DB.V0.BACKUP_DR.
 # Steps:
-# - Author baseline migration SQL (tenants, trainers, dex packs, inventory, encounters, audit) and link supporting rollback instructions in ops/DB_BOOTSTRAP.md.
-# - Update Tasklist.md notes and ops/TOUCHMAP.yaml to record evidence checkpoints and ownership for the new schema assets.
-# - Regenerate router metadata and refresh Prompt.md/NEXT.yaml with the guard results plus the outstanding bootstrap follow-ups.
+# - Run `npm run db:cli -- status`, `npm run ops:dex-v2-backup` (dev, direct), compute SHA256, and extract schema via `pg_restore --schema-only`; log timestamps/RPO/RTO in a new archive note.
+# - Update Tasklist headers, mark DB.V0.BACKUP_DR DONE with detailed command evidence and metrics, and queue the next READY follow-up task.
+# - Refresh Prompt.md Last Repo Changes + PATCHSET Echo with the backup rehearsal summary; set ops/NEXT.yaml to the promoted READY task.
+# - Extend docs/operations.md and docs/database-systems.md with backup/PITR/restore guidance referencing the new evidence and playbook expectations.
 # <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

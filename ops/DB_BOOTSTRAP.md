@@ -10,7 +10,6 @@ Quick summary
 
 Blueprint assets
 - Day-one schema resides in `prisma/migrations/202511021024_db_v0_bootstrap/`. `migration.sql` introduces tenants, trainers, dex pack registry, per-trainer inventory, audit log plumbing, and tenant-aware columns on existing gameplay tables.
-- Day-one schema resides in `prisma/migrations/202511021024_db_v0_bootstrap/`. `migration.sql` introduces tenants, trainers, dex pack registry, per-trainer inventory, audit log plumbing, and tenant-aware columns on existing gameplay tables.
   - Trainer settings default to an empty JSON payload so reenrollments never fail when prefs are omitted.
   - Inventory quantities carry a non-negative check constraint to guard against accidental decrements below zero.
 - Emergency rollback is captured in the paired `rollback.sql`. Execute it *only* after coordinating with ops and capturing a fresh snapshot; the script removes the foreign keys, columns, and tables introduced by the bootstrap migration.

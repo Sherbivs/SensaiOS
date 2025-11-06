@@ -1,6 +1,6 @@
-import type { PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
+import type { PrismaClient } from "@prisma/client";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -13,9 +13,6 @@ import {
   User as DiscordUser,
 } from "discord.js";
 
-import { prisma as prismaClient, BattleRepo } from "../../models/index.js";
-import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
-
 import {
   listLegalMoves,
   listSwitchOptions,
@@ -25,6 +22,8 @@ import {
   type BattleMoveOption,
   type BattlePartyMember,
 } from "../../core/battle/turn-manager.js";
+import { BattleRepo, prisma as prismaClient } from "../../models/index.js";
+import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 
 import * as concludeModule from "./conclude.js";
 
@@ -395,7 +394,7 @@ export async function handleBattleActionButton(
       if (result.status === "ready") {
         await maybeAdvanceTurn(battle.id, interaction, dispatcher);
       }
-    } catch (err) {
+    } catch {
       await interaction.followUp({
         content: "That move can't be used right now.",
         ephemeral: true,
@@ -403,6 +402,7 @@ export async function handleBattleActionButton(
     }
     return;
   }
+
   if (parsed.kind === "switch") {
     const options = listSwitchOptions(battle.id, identified.key);
     if (options.length === 0) {
@@ -428,7 +428,7 @@ export async function handleBattleActionButton(
           // ignore DM issues
         }
       }
-    } catch (err) {
+    } catch {
       await interaction.followUp({
         content: "Cannot switch to that Pokémon right now.",
         ephemeral: true,

@@ -1,14 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-04T17:55:40Z
-Revision: 1.99
+Timestamp (UTC): 2025-11-05T18:55:20Z
+Revision: 2.10
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Regenerated router metadata (`ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, Prisma and docs routers) after the bootstrap migration scaffolding and re-ran `scripts/guard_router_docs.sh` / `scripts/guard_routing.sh` to confirm clean passes.
-- Extended `Tasklist.md` DB.V0.BOOTSTRAP notes with rollback, evidence capture, and guard verification details; timestamp refreshed to 2025-11-04T17:55:30Z.
-- Archived sanitized db:cli and db:smoke outputs for Accelerate vs. direct runs in `ops/ARCHIVE/db-bootstrap/2025-11-04-tooling-evidence.md` to support bootstrap rehearsal sign-off.
-- Authored `docs/db-accelerate-workflow.md` and enhanced `scripts/db_smoke.ts` so operators can explicitly target Accelerate or direct Postgres modes via IG_ENV_FILE and `--mode` overrides.
-- Broadened `ops/DB_BOOTSTRAP.md` with migration/rollback asset maps and explicit evidence capture steps for bootstrap rehearsals.
-- Hardened the bootstrap migration with a default prefs JSON payload plus a non-negative inventory check, updating the rollback script and Tasklist notes to reflect the guardrails.
+- Logged the db_v0 backup/restore rehearsal in `ops/ARCHIVE/db-bootstrap/2025-11-05-backup-dr-evidence.md`, including command transcripts, SHA256, and RPO/RTO snapshots.
+- Extended `docs/operations.md` and `docs/database-systems.md` with backup/PITR guidance that references the rehearsal evidence and Render managed snapshots.
+- Marked DB.V0.BACKUP_DR DONE, returned T13.DEX.V2_PROD_CUTOVER to READY, and retargeted NEXT to the production cutover window.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -21,9 +18,9 @@ Revision: 1.99
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via scripts/update_router_index.sh and scripts/refresh_vision.sh before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
-- **NEXT Pointer:** DB.V0.BOOTSTRAP — resume the day-one schema bootstrap planning now that trainer profiles are deployed.
-- **READY / In-flight:** DB bootstrap backlog is READY; T13.DEX.V2_PROD_CUTOVER stays IN_PROGRESS pending the Nov 5 window.
-- **Recent Finish:** T9.1 Option C baseline closed after baselining migrations and rerunning the profile embed vitest.
+- **NEXT Pointer:** T13.DEX.V2_PROD_CUTOVER — execute the Nov 5 canary ladder now that backups and recovery rehearsal are complete.
+- **READY / In-flight:** T13.DEX.V2_PROD_CUTOVER is READY for the window; follow-up tasks will re-open once the cutover begins.
+- **Recent Finish:** DB.V0.BACKUP_DR closed with fresh backup hashes, schema extract rehearsal, and documentation updates.
 
 ## System Highlights
 - **Database:** Runtime uses `DATABASE_CONNECTION_MODE` with logged `DATABASE_CONNECTION_SOURCE`; dry run validated the external endpoint in auto mode.
@@ -64,11 +61,11 @@ Revision: 1.99
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Defaulted trainer prefs JSON, enforced non-negative inventory quantities, and documented the bootstrap safeguards across the runbook and Tasklist.
+Change: Captured the db_v0 backup/restore rehearsal (backup hash, schema extract, PITR notes), documented the workflow in operations + database guides, and marked DB.V0.BACKUP_DR DONE while promoting the DEX v2 cutover window back to READY.
 TasklistDiff: true
-Tests: not run (routing guards only)
+Tests: npm run db:cli -- status (pass); npm run db:cli -- query 'SHOW wal_level;' (pass); npm run db:cli -- query 'SHOW archive_mode;' (pass); npm run ops:dex-v2-backup -- --env-file C:/Users/sherb/OneDrive/Documents/Key/Dev/.env --label dev --output-dir backups --pg-dump-path tools/pgsql17/pgsql/bin/pg_dump.exe (pass); tools/pgsql17/pgsql/bin/pg_restore.exe --format=custom --schema-only --no-owner --file %TEMP%/dev-dex-2025-11-06-schema.sql backups/dev-dex-2025-11-06T00-49-16.472Z.dump (pass).
 Contracts: ON
-NEXT: DB.V0.BOOTSTRAP - documentation and parity captured; proceed with schema migrations and rollback planning.
+NEXT: T13.DEX.V2_PROD_CUTOVER - ready to run the Nov 5 ladder with backups verified and recovery rehearsal logged.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

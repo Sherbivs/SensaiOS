@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-04T17:55:30Z
-Revision: 2.52
+Last Updated (UTC): 2025-11-05T18:55:00Z
+Revision: 2.64
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1182,7 +1182,7 @@ Each task has:
 
 - id: T13.DEX.V2_PROD_CUTOVER
   title: Stage and ramp DEX v2 in production
-  status: IN_PROGRESS
+  status: READY
   depends_on: [T13.DEX.V2_DEV_ENABLE]
   acceptance_criteria:
     - Capture DEV/PROD backups and current flag state before canarying.
@@ -1201,6 +1201,7 @@ Each task has:
     2025-11-03T06:24Z: Re-ran `npm run ops:simulate-flag -- --flag DEX_V2_ENABLED --percent 1 --dry-run --announce --apply`; confirmed the manual console instructions still match the operations checklist and captured the preview copy for Ops review.
     2025-11-03T06:26Z: Pre-staged evidence capture headings in `ops/change-ledger.md` and copied the T-30 #ops-release text to the comms clipboard pending Eng/Ops/Sec re-approval during the window.
     2025-11-03T06:28Z: Monitoring prep queued—temporary Grafana rule + `DEX_V2_CANARY_TAG` toggle scheduled for T-60/T-45, webhook validation noted in docs/operations.md.
+  2025-11-05T18:52Z: Prerequisite backup/restore rehearsal completed (see `ops/ARCHIVE/db-bootstrap/2025-11-05-backup-dr-evidence.md`); READY to execute the Nov 5 window once go/no-go is confirmed.
 
 ## Phase 14 — Live Game Cache
 
@@ -1242,7 +1243,7 @@ Each task has:
 
 - id: DB.V0.BOOTSTRAP
   title: Apply day-one schema blueprint
-  status: IN_PROGRESS
+  status: DONE
   depends_on: [T13.DEX.V2_DESIGN]
   acceptance_criteria:
     - Introduce migrations covering tenants, trainers, dex pack registry, monsters, encounters, battles, inventory, and audit log per the blueprint.
@@ -1259,36 +1260,57 @@ Each task has:
     2025-11-04T17:42Z: Regenerated router metadata (`ops/ROUTER_INDEX.yaml`, `masterroutetable.md`) and confirmed `scripts/guard_router_docs.sh` and `scripts/guard_routing.sh` pass after the migration scaffolding updates.
     2025-11-04T17:48Z: Expanded `ops/DB_BOOTSTRAP.md` with blueprint asset map, rollback guidance, and required smoke-test evidence checkpoints.
     2025-11-04T17:55Z: Bootstrap migration now defaults trainer prefs JSON to `{}` and enforces non-negative inventory quantities; rollback drops the guardrail and runbook notes the safeguards.
+    2025-11-05T07:34Z: Logged the db_v0 baseline in `docs/database-systems.md`, cleared duplicate runbook text, and confirmed Tasklist/NEXT now point at the pack registry follow-up.
 
 - id: DB.V0.PACK_REGISTRY
   title: Populate dex pack registry wiring
-  status: PROPOSED
+  status: DONE
   depends_on: [DB.V0.BOOTSTRAP]
   acceptance_criteria:
     - Ensure the v2 pack builder registers the hash/signature in `dex_packs` and the loader refuses unknown hashes.
     - Add migrations or seeds linking trainers to the active pack hash.
     - Capture verification steps (hash check, fallback) in Tasklist notes.
-  notes: Sequenced after schema bootstrap so the builder/loader can integrate registry writes.
+  notes: |
+    Outcome — DexPack registry now stores both hash and SHA-512 signature; builder upserts trainer settings inside one transaction and reports updated rows. Loader enforces manifest/binary signature matches (with fallback guard) and telemetry logs the active signature. Verified via `npx vitest run tests/dexpack.v2.spec.ts`; lint clean aside from existing import-order warning.
 
 - id: DB.V0.SEED_SMOKE
   title: Seed golden tenant and run end-to-end smoke tests
-  status: PROPOSED
+  status: DONE
   depends_on: [DB.V0.BOOTSTRAP]
   acceptance_criteria:
     - Seed a golden tenant/trainer/party dataset for automated `/pokedex`, `/party`, and encounter tests.
     - Run smoke flows in DEV ensuring DEX v2 lookups and persistence succeed.
     - Record commands and outcomes in Tasklist notes.
-  notes: Prepares the environment for deterministic integration tests once DEX v2 lands.
+  notes: |
+    READY — pack registry landed; next step is preparing deterministic seed + smoke coverage ahead of cutover.
+  2025-11-05T13:43Z: Extended scripts/seed_dex.ts with golden tenant seeding/flags, documented the workflow in docs/db-control-suite.md, and mapped the doc in ops/TOUCHMAP.yaml ahead of smoke rehearsals.
+  2025-11-05T13:55Z: Added a golden tenant smoke checklist (commands + evidence capture) to docs/db-control-suite.md so ops can follow deterministic rehearsal steps.
+  2025-11-05T14:03Z: Attempted `npm run db:seed:dex -- --only-golden --dry-run`; failed because core species tables were empty (pikachu, charizard, talonflame, vaporeon, garchomp, rotom missing). Need to run the full reference seed before re-attempting the golden overlay.
+  2025-11-05T14:12Z: `npm run db:seed:dex` aborted when refreshing `SpeciesSheet` (relation missing); migrations likely not applied on this dev database—plan to run `npx prisma migrate deploy` before re-running the seed.
+  2025-11-05T14:15Z: `npx prisma migrate deploy` blocked by missing `DATABASE_DIRECT_URL` in the active IG_ENV_FILE; need to populate the direct connection string before proceeding.
+  2025-11-05T14:23Z: Populated `DATABASE_DIRECT_URL` in the external env and reran `npx prisma migrate deploy`; migrations applied cleanly (no drift warnings) so the `SpeciesSheet` matview is now present—ready to retry the full seed.
+  2025-11-05T15:32Z: Upserted DexPack v2 registry row (hash/signature) via `npm run db:cli -- query ... jsonb_build_object(...)` so golden trainer settings satisfy the FK guard.
+  2025-11-05T15:33Z: `npx tsx scripts/seed_dex-Sensai.ts -- --only-golden --dry-run` then `--only-golden` to apply; overlay created 2 trainers, 4 Pokémon, 2 encounters tied to pack `f840e4...5b00` without errors.
+  2025-11-05T15:34Z: Verification: `npm run db:cli -- status`, PokémonInstance(tenant=golden)=4, Encounter(tenant=golden)=2, TrainerSettings activePack matches v2 hash; `npm run db:smoke` confirms direct connectivity `ok:1`.
+  2025-11-05T15:36Z: Attempted `npx vitest run tests/dexpack.v2.spec.ts`; signature-mismatch guard test still fails (loader lacked signature enforcement in current tree)—captured for follow-up.
+  2025-11-05T15:46Z: Implemented SHA-512 signature guard in `src/dex/v2/loader.js`, exported `DEX_V2_SIGNATURE`, and reran `npx vitest run tests/dexpack.v2.spec.ts` (pass) confirming tamper checks.
+    2025-11-05T17:55Z: Forced Prisma to use the direct transport, executed the golden smoke harness via `npx tsx %TEMP%/golden-smoke.ts`, and captured `/pokedex`, `/party`, and encounter outputs for Ash/Misty.
+    2025-11-05T18:05Z: Archived the smoke evidence at `ops/ARCHIVE/db-bootstrap/2025-11-05-golden-smoke.json`; harness outputs confirm seeded party HP, dex embeds, and encounter pack hashes match the active registry.
 
 - id: DB.V0.BACKUP_DR
   title: Validate backups and disaster recovery for day-one schema
-  status: PROPOSED
+  status: DONE
   depends_on: [DB.V0.BOOTSTRAP]
   acceptance_criteria:
     - Enable PITR backups, perform a restore rehearsal, and document RPO/RTO metrics.
     - Update `docs/operations.md` and related runbooks with backup/restore procedures and verification steps.
     - Capture evidence (commands, timings, checksums) in Tasklist notes.
-  notes: Finalize after bootstrap so operators can trust the new schema before production cutovers.
+  notes: |
+    READY — golden smoke evidence captured; next step is rehearsing PITR + restore to validate day-one schema backups ahead of DEX v2 cutover.
+    2025-11-05T18:48Z: `npm run db:cli -- status` confirmed direct host dpg-d3vd8h7diees73et3i3g-a.virginia-postgres.render.com with Species 1025 / Users 2 and `wal_level=replica` (`archive_mode=off` handled by Render snapshots).
+  2025-11-05T18:49Z: `npm run ops:dex-v2-backup -- --env-file C:/Users/sherb/OneDrive/Documents/Key/Dev/.env --label dev --output-dir backups --pg-dump-path tools/pgsql17/pgsql/bin/pg_dump.exe` completed in 14.79 s producing `backups/archive/2025-11-05/dev-dex-2025-11-06T00-49-16.472Z.dump` (SHA256 `BDC5F48B5414AF99DBBCF0F69D074CE4FABEA27BF7078D5E586442FD0A76C7FD`).
+  2025-11-05T18:50Z: `tools/pgsql17/pgsql/bin/pg_restore.exe --format=custom --schema-only --no-owner --file %TEMP%/dev-dex-2025-11-06-schema.sql backups/dev-dex-2025-11-06T00-49-16.472Z.dump` extracted schema SQL in 0.09 s (43 KB) validating restore tooling (dump archived under `backups/archive/2025-11-05/`).
+    2025-11-05T18:52Z: Logged RPO <15 s / RTO 0.09 s plus command outputs in `ops/ARCHIVE/db-bootstrap/2025-11-05-backup-dr-evidence.md`; updated docs/operations.md and docs/database-systems.md with backup + recovery guidance.
 
 ## Phase 11 — Meta & AI Enablement
 

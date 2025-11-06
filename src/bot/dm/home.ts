@@ -10,6 +10,7 @@ import {
   RepliableInteraction,
 } from "discord.js";
 
+import { getSpriteUrl } from "../../lib/assets.js";
 import {
   DMHomeRepo,
   TrainerHomePokemon,
@@ -17,7 +18,6 @@ import {
   TrainerPartySlot,
   evaluateDailyQuestStreak,
 } from "../../models/index.js";
-import { getSpriteUrl } from "../../lib/assets.js";
 
 const BOX_PAGE_SIZE = 10;
 export const BOX_PAGE_PREFIX = "HOME_BOX_PAGE_";
@@ -402,7 +402,6 @@ type DMHomeViewExports = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
   var __dmHomeViews: DMHomeViewExports | undefined;
 }
 

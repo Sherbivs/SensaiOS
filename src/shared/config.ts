@@ -159,12 +159,12 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     if (!isAccelerateUrl(value)) {
       return;
     }
-    const key = makeKey(value, "accelerate");
+    const key = makeKey(value, source);
     if (seen.has(key)) {
       return;
     }
     seen.add(key);
-    accelerateCandidates.push({ value, source: "accelerate", fallback: false });
+    accelerateCandidates.push({ value, source, fallback: false });
   };
 
   const addDirectCandidate = (value: string, source: DatabaseUrlSource): void => {

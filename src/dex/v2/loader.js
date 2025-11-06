@@ -3,7 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { TextDecoder } from "node:util";
 
-import { DEX_V2_BINARY, DEX_V2_MANIFEST_HASH } from "./accessors.js";
+import { DEX_V2_BINARY, DEX_V2_MANIFEST_HASH, DEX_V2_SIGNATURE } from "./accessors.js";
 
 const TEXT_DECODER = new TextDecoder("utf8");
 const SECTION_ID = {
@@ -20,6 +20,10 @@ const SECTION_ID = {
 };
 
 let runtimeCache = null;
+
+function computeSignature(buffer) {
+  return createHash("sha512").update(buffer).digest("hex");
+}
 
 function parseHeader(buffer) {
   if (buffer.length < 8) {
@@ -92,10 +96,28 @@ function loadRuntime(rootDir = process.cwd()) {
   const binaryPath = path.join(rootDir, "assets", binaryName);
   const binary = fs.readFileSync(binaryPath);
 
+  const actualSignature = computeSignature(binary);
+  const manifestSignature = typeof manifest.signature === "string" ? manifest.signature : null;
+  const trustedSignature =
+    typeof DEX_V2_SIGNATURE === "string" && DEX_V2_SIGNATURE.length > 0
+      ? DEX_V2_SIGNATURE
+      : manifestSignature;
+  if (!trustedSignature) {
+    throw new Error("dexpack.v2 signature unavailable — rebuild assets to record the trusted signature");
+  }
+  if (manifestSignature && manifestSignature !== trustedSignature) {
+    throw new Error(
+      `dexpack.v2 manifest signature mismatch (expected ${trustedSignature}, got ${manifestSignature})`,
+    );
+  }
+
   const actualHash = createHash("sha256").update(binary).digest("hex");
   const expectedHash = manifest.hash || DEX_V2_MANIFEST_HASH;
   if (actualHash !== expectedHash) {
     throw new Error(`dexpack.v2 hash mismatch (expected ${expectedHash}, got ${actualHash})`);
+  }
+  if (actualSignature !== trustedSignature) {
+    throw new Error(`dexpack.v2 signature mismatch (expected ${trustedSignature}, got ${actualSignature})`);
   }
 
   const alignment = manifest.alignment || 8;
@@ -136,6 +158,7 @@ function loadRuntime(rootDir = process.cwd()) {
   runtimeCache = {
     manifest,
     binary,
+    signature: trustedSignature,
     alignment,
     pack,
     stringsBlob,

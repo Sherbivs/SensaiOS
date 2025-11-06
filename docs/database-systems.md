@@ -1,6 +1,6 @@
 # Database Systems Guide
 
-_Last updated: 2025-11-02T08:05:00Z (UTC) — Rev: 1.9_
+_Last updated: 2025-11-05T07:32:00Z (UTC) — Rev: 1.10_
 
 This guide captures everything engineers need to understand, operate, and extend Infinity Gauntlet’s PostgreSQL footprint across Render, Prisma Accelerate, and local development. Pair it with `DATA-SCHEMA.md` for entity specifics and `ops/DB_BOOTSTRAP.md` for runbook-grade procedures.
 
@@ -58,6 +58,7 @@ The canonical Prisma schema lives in `prisma/schema.prisma`. Key aggregates:
 - **Core gameplay tables:** `Trainer`, `PokemonInstance`, `Encounter`, `Battle`, `Cooldown`.
 - **Dex spine:** `Species`, `Move`, `Ability`, `Type`, junction tables, plus the `SpeciesSheet` materialized view.
 - **Operations:** `OutboxMessage`, `WorkerHeartbeat`, `DailyQuest`, recent battle views.
+- **Baseline migration:** `202511021024_db_v0_bootstrap` installs tenants, trainer linkage, dex pack registry, per-trainer inventory guards, and audit logging with paired rollback (`rollback.sql`). Evidence from the 2025-11-04 rehearsal lives under `ops/ARCHIVE/db-bootstrap/`.
 
 Refer to `DATA-SCHEMA.md` for detailed entity notes, index strategy (`202510280500_scaling_indexes`), and dex migration metadata. The new dex spine migration (`202510290930_dex_reference_spine`) installs trigram/unaccent extensions and enforces canonical species references.
 
@@ -89,7 +90,7 @@ Document any manual grant changes in Tasklist notes and keep credentials out of 
 
 ## 5. Migration & Bootstrap Strategy
 
-1. **Standard Flow:** `npx prisma migrate deploy` using a direct PostgreSQL URL for every target (`DATABASE_DIRECT_URL` for Render and the Prisma Postgres tunnel-direct string for Accelerate).
+1. **Standard Flow:** `npx prisma migrate deploy` using a direct PostgreSQL URL for every target (`DATABASE_DIRECT_URL` for Render and the Prisma Postgres tunnel-direct string for Accelerate). The db_v0 baseline migration applies first and adds the tenant/dex scaffolding required by downstream tasks (`DB.V0.PACK_REGISTRY`, `DB.V0.SEED_SMOKE`).
 2. **Fallback:** `npx prisma db push` only when historical migrations are unavailable—followed by a baseline migration (see `ops/DB_BOOTSTRAP.md`).
 3. **Post-Migration Checks:**
    - `/ops stats` command.
@@ -174,6 +175,14 @@ Materialized view refresh flows through the helper; direct `REFRESH MATERIALIZED
 - **Auto-sync monitoring:** Review `integrity.alert` logs after each deployment and on the five-minute cadence; investigate non-zero deltas immediately. Run `npm run guard:auto-sync` before releases to confirm secrets + `dex-sync-trigger.json` exist, and capture remediation steps in Tasklist notes when the guard fails.
 - **Auto-sync alerts:** Webhook embeds (`ALERT_WEBHOOK_URL`) fire whenever `integrity.alert` appears after consolidation. Each alert summarizes deltas, links the env files, and calls out the investigation checklist; duplicates are suppressed until counts change or new drift is detected. Startup logs (`integrity.alert.config_ready|config_missing|config`) record whether alerts will dispatch, so confirm Render shows `integrity.alert.config_ready` after deploys. Override destinations with `--alert-webhook`, temporarily disable with `--no-alerts`, or run `--simulate-alert` to validate routing without touching databases.
 - **Control Suite:** `scripts/db_admin.ts` (run via `npm run db:cli`) consolidates counts, status checks, and raw queries while respecting secure env loading.
+
+### Backup & PITR Readiness
+- **Health checks:** Run `npm run db:cli -- status` to confirm the active host and row counts. Inspect `wal_level` and `archive_mode`
+  (`npm run db:cli -- query "SHOW wal_level;"` / `npm run db:cli -- query "SHOW archive_mode;"`). Render keeps `archive_mode=off` while supplying managed PITR snapshots; log the result in Tasklist notes.
+- **Manual dump:** `npm run ops:dex-v2-backup -- --env-file C:/Users/sherb/OneDrive/Documents/Key/Dev/.env --label <env> --output-dir backups --pg-dump-path tools/pgsql17/pgsql/bin/pg_dump.exe`.
+  The 2025-11-05 rehearsal finished in 14.79 s and produced `backups/archive/2025-11-05/dev-dex-2025-11-06T00-49-16.472Z.dump` (SHA256 `BDC5F48B5414AF99DBBCF0F69D074CE4FABEA27BF7078D5E586442FD0A76C7FD`).
+- **Restore rehearsal:** `tools/pgsql17/pgsql/bin/pg_restore.exe --format=custom --schema-only --no-owner --file %TEMP%/dev-dex-YYYY-MM-DD-schema.sql <dump>` unpacked the schema in 0.09 s (43 KB) during the latest run; record timings in `ops/ARCHIVE/db-bootstrap/<date>-backup-dr-evidence.md`.
+- **Retention:** Keep dumps in the ignored `backups/` directory until verified, then move them into `backups/archive/<YYYY-MM-DD>/` and delete temporary schema extracts from `%TEMP%`.
 
 ### Runtime Cache Observability
 

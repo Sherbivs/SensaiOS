@@ -246,10 +246,14 @@ function getTrainerProfileDelegate(client: PrismaClient): TrainerProfileDelegate
   return delegate;
 }
 
+const NULL_CHAR = String.fromCharCode(0);
+const VERTICAL_TAB = String.fromCharCode(0x0b);
+const EXTRA_WHITESPACE_REGEX = new RegExp(`[\\t\\f${VERTICAL_TAB}]+`, "g");
+
 function sanitizeProfileText(value: unknown, maxLength: number, collapseWhitespace: boolean): string | null {
   if (typeof value !== "string") return null;
-  let normalized = value.replace(/\r\n/g, "\n").replace(/\u0000/g, "");
-  normalized = collapseWhitespace ? normalized.replace(/\s+/g, " ") : normalized.replace(/[\t\f\v\x0b]+/g, " ");
+  let normalized = value.replace(/\r\n/g, "\n").split(NULL_CHAR).join("");
+  normalized = collapseWhitespace ? normalized.replace(/\s+/g, " ") : normalized.replace(EXTRA_WHITESPACE_REGEX, " ");
   normalized = normalized.trim();
   if (!normalized) return null;
   if (!collapseWhitespace) {
