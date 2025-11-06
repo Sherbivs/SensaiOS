@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T04:50:45Z
-Revision: 2.19
+Timestamp (UTC): 2025-11-06T04:51:30Z
+Revision: 2.20
 
 ## Last Repo Changes (since previous Prompt.md revision)
 - Synced scripts/Store/ops router manifests plus master routing tables so the new `npm run ops:auto-bootstrap-local-db` path and PowerShell helpers are discoverable with refreshed 2025-11-06T04:45Z timestamps.
 - Extended `ops/TOUCHMAP.yaml` to cover AGENTS.md and masterroutetable.md for T13.DEX.V2_PROD_CUTOVER, updating Tasklist notes and rerunning the routing guard for evidence.
-- `scripts/guard_routing.sh` now passes with the expanded coverage; continue running it after router/doc changes to keep metadata aligned.
+- Bumped Patch.md/Tasklist headers together (2025-11-06T04:51Z) so guard_meta coupling stays satisfied ahead of the ladder.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -61,9 +61,9 @@ Revision: 2.19
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Touchmap now includes AGENTS/master router entries, Tasklist logs the coverage, and `scripts/guard_routing.sh` succeeded after the update.
+Change: Touchmap now includes AGENTS/master router entries, Tasklist logs the coverage, Patch.md headers were bumped, and both routing + meta guards succeeded after reruns.
 TasklistDiff: true
-Tests: "C:/Program Files/Git/bin/bash.exe" scripts/guard_routing.sh (pass).
+Tests: "C:/Program Files/Git/bin/bash.exe" scripts/guard_routing.sh (pass); scripts/guard_meta.sh (pass).
 Contracts: ON
 NEXT: T13.DEX.V2_PROD_CUTOVER - ladder stays READY with automation tooling and routing guard coverage confirmed.
 <!-- PATCHSET:ECHO END -->
