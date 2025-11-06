@@ -12,6 +12,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Resolve state directory relative to project root
+// On Render with persistent disk, this will be at /opt/render/project/src/Store/security-bot-state
+// The persistent disk is mounted at /opt/render/project/src/Store
 const STATE_DIR = path.resolve(__dirname, '../../../Store/security-bot-state');
 const CURRENT_STATE_PATH = path.join(STATE_DIR, 'current.json');
 const PREVIOUS_STATE_PATH = path.join(STATE_DIR, 'previous.json');
@@ -147,6 +149,9 @@ async function createSnapshot(state) {
  */
 async function pruneSnapshots() {
   try {
+    // Ensure snapshots directory exists before trying to read it
+    await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
+    
     const files = await fs.readdir(SNAPSHOTS_DIR);
     const now = Date.now();
     const maxAge = SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
@@ -218,6 +223,19 @@ export async function saveState(state) {
  */
 export async function initializeState() {
   console.log('[State] Initializing state persistence...');
+  console.log(`[State] STATE_DIR: ${STATE_DIR}`);
+  console.log(`[State] Working directory: ${process.cwd()}`);
+  console.log(`[State] Module location: ${__dirname}`);
+  
+  // Verify state directory exists and is writable
+  try {
+    await fs.mkdir(STATE_DIR, { recursive: true });
+    await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
+    console.log('[State] State directory verified/created');
+  } catch (error) {
+    console.error('[State] CRITICAL: Cannot create state directory:', error.message);
+    console.error('[State] State persistence will be degraded (in-memory only)');
+  }
   
   // Load previous state
   const previousState = await loadState();

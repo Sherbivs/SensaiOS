@@ -124,6 +124,10 @@ services:
     buildCommand: "npm install --include=dev && npm run prebuild"
     startCommand: "node security-bot.js"
     autoDeploy: true
+    disks:
+      - name: security-state
+        mountPath: /opt/render/project/src/Store
+        sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
