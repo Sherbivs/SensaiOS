@@ -14,15 +14,15 @@ guidance_when_none: |
 auto_promote_if_empty: true
 
 next_task_id: T13.DEX.V2_PROD_CUTOVER
-reason: "Ready to execute the Nov 5 DEX v2 ladder now that startup sweeps no longer time out on full-member fetches."
+reason: "Ready to execute the Nov 5 DEX v2 ladder with the new logging system providing comprehensive runtime visibility."
 
 files_hint:
-  - src/bot/main.js
+  - src/utils/logger.js
   - Tasklist.md
   - Prompt.md
 
 queue: []
-timestamp_utc: 2025-11-06T12:35:00Z
+timestamp_utc: 2025-11-06T13:25:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Member caching fallback deployed; sweeps and alert lookups hydrate guilds reliably again, clearing the guard seed and keeping T13 ladder at READY."
+note: "Logger rebuilt with 15s refresh showing Node/DB/security stats; caching fallback remains in place and ladder stays READY." 

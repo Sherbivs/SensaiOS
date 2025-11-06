@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T12:35:30Z
-Revision: 2.22
+Timestamp (UTC): 2025-11-06T13:25:30Z
+Revision: 2.24
 
 ## Last Repo Changes (since previous Prompt.md revision)
 - Added a resilient member caching helper in `src/bot/main.js` that retries chunk fetches and falls back to REST pagination so GuildMembersTimeout no longer interrupts sweeps, CLI debug, or alert resolution.
 - Retargeted `ops/NEXT.yaml` to `T13.DEX.V2_PROD_CUTOVER` with fresh rationale now that the guard seed is cleared and startup sweeps succeed.
-- Bumped Patch.md/Tasklist headers together (2025-11-06T12:35Z) and logged the caching mitigation under the T13 task notes.
+- Rebuilt `src/utils/logger.js` with comprehensive spaced output (blank lines for readability), 15-second auto-refresh showing Node stats (uptime, memory, CPU), DB stats (DEV + PROD latency/connections), and security bot activity summary; bumped Patch.md/Tasklist headers (2025-11-06T13:25Z) with the new T13 note.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -61,11 +61,11 @@ Revision: 2.22
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Introduced chunk-retry + pagination fallback for Discord member hydration and reused it across sweeps, stats, CLI debug, and alert lookup so GuildMembersTimeout stops aborting production workflows.
+Change: Rebuilt the logger with spaced layout, 15-second auto-refresh, and comprehensive stats (Node uptime/memory/CPU, DEV+PROD DB latency/connections, security bot activity); T13 notes updated accordingly.
 TasklistDiff: true
-Tests: not run (Discord member fetch path has no automated coverage; manual validation required).
+Tests: not run (logger rebuild only).
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY after the caching fix cleared the guard seed.
+NEXT: T13.DEX.V2_PROD_CUTOVER - ladder stays READY with the new logging system active.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

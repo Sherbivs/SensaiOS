@@ -1,7 +1,5 @@
-import util from 'node:util';
-
-import { interruptConsoleOutput } from './cliStatus.js';
-import opsNotifier from './opsNotifier.js';
+import os from 'node:os';
+import { performance } from 'node:perf_hooks';
 
 const LOG_LABEL = Object.freeze({
   success: 'SUCCESS',
@@ -11,195 +9,205 @@ const LOG_LABEL = Object.freeze({
   error: 'ERROR',
 });
 
-const LEVEL_CONFIG = Object.freeze({
-  success: { label: LOG_LABEL.success, writer: console.log, stream: process.stdout },
-  info: { label: LOG_LABEL.info, writer: console.log, stream: process.stdout },
-  detail: { label: LOG_LABEL.detail, writer: console.log, stream: process.stdout },
-  warn: { label: LOG_LABEL.warn, writer: console.warn, stream: process.stderr },
-  error: { label: LOG_LABEL.error, writer: console.error, stream: process.stderr },
-});
+const REFRESH_INTERVAL_MS = 15_000;
+const SPACER = '';
 
-function getLevelConfig(level = 'info') {
-  if (level && LEVEL_CONFIG[level]) {
-    return LEVEL_CONFIG[level];
-  }
-  return LEVEL_CONFIG.info;
+let logIntervalHandle = null;
+let lastLogTime = 0;
+let statsCache = {
+  node: null,
+  databases: null,
+  security: null,
+  lastRefresh: 0,
+};
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${units[i]}`;
 }
 
-function withCliSafeWrite(_stream, fn) {
-  if (typeof interruptConsoleOutput === 'function') {
-    interruptConsoleOutput(() => {
-      fn();
-    });
-    return;
-  }
-  fn();
+function formatUptime(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return '0s';
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  
+  if (days > 0) return `${days}d ${hours % 24}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+  return `${seconds}s`;
 }
 
-function normalizeContext(context, seen = new WeakSet()) {
-  if (context === null || context === undefined) {
-    return context;
-  }
-  if (typeof context === 'bigint') {
-    return context.toString();
-  }
-  if (context instanceof Date) {
-    return context.toISOString();
-  }
-  if (context instanceof Error) {
-    const errorData = {
-      name: context.name || 'Error',
-      message: context.message || String(context),
-    };
-    if (context.code !== undefined) {
-      errorData.code = context.code;
-    }
-    if (context.stack) {
-      errorData.stack = context.stack;
-    }
-    for (const key of Object.keys(context)) {
-      if (errorData[key] !== undefined) {
-        continue;
-      }
-      errorData[key] = normalizeContext(context[key], seen);
-    }
-    return errorData;
-  }
-  if (context instanceof Map) {
-    return Object.fromEntries(Array.from(context.entries(), ([key, value]) => [key, normalizeContext(value, seen)]));
-  }
-  if (context instanceof Set) {
-    return Array.from(context.values(), (value) => normalizeContext(value, seen));
-  }
-  if (Array.isArray(context)) {
-    return context.map((value) => normalizeContext(value, seen));
-  }
-  if (typeof context === 'function') {
-    return context.name ? `[Function ${context.name}]` : '[Function]';
-  }
-  if (typeof context === 'symbol') {
-    return context.toString();
-  }
-  if (typeof context === 'object') {
-    if (seen.has(context)) {
-      return '[Circular]';
-    }
-    seen.add(context);
-    const output = {};
-    for (const [key, value] of Object.entries(context)) {
-      output[key] = normalizeContext(value, seen);
-    }
-    seen.delete(context);
-    return output;
-  }
-  return context;
-}
-
-function formatLines(lines, writer, stream) {
-  for (const line of lines) {
-    withCliSafeWrite(stream, () => writer(`    ${line}`));
-  }
-}
-
-function emitInspected(value, { debugMode }) {
-  const inspectOptions = {
-    depth: debugMode ? null : 4,
-    colors: false,
-    compact: !debugMode,
-    breakLength: 80,
-    sorted: false,
+function collectNodeStats() {
+  const mem = process.memoryUsage();
+  const cpu = process.cpuUsage();
+  const uptime = process.uptime() * 1000;
+  
+  return {
+    uptime: formatUptime(uptime),
+    memory: {
+      rss: formatBytes(mem.rss),
+      heapUsed: formatBytes(mem.heapUsed),
+      heapTotal: formatBytes(mem.heapTotal),
+      external: formatBytes(mem.external),
+    },
+    cpu: {
+      user: `${(cpu.user / 1000000).toFixed(2)}s`,
+      system: `${(cpu.system / 1000000).toFixed(2)}s`,
+    },
+    pid: process.pid,
+    version: process.version,
   };
-  const inspected = util.inspect(value, inspectOptions);
-  return inspected.split('\n');
 }
 
-function log(level, message, context, { debugMode = false } = {}) {
-  const normalizedLevel = level && LOG_LABEL[level] ? level : 'info';
-  const { label, writer, stream } = getLevelConfig(normalizedLevel);
+function collectDatabaseStats() {
+  // Placeholder - will be populated by DB layer when available
+  return {
+    dev: {
+      status: 'unknown',
+      latency: 'n/a',
+      connections: 'n/a',
+    },
+    prod: {
+      status: 'unknown',
+      latency: 'n/a',
+      connections: 'n/a',
+    },
+  };
+}
+
+function collectSecurityBotStats() {
+  // Placeholder - will be populated by security bot when available
+  return {
+    status: 'unknown',
+    guilds: 0,
+    lastSweep: 'never',
+    assignments: 0,
+    failures: 0,
+  };
+}
+
+function refreshStats() {
+  const now = Date.now();
+  if (now - statsCache.lastRefresh < REFRESH_INTERVAL_MS) {
+    return;
+  }
+  
+  statsCache.node = collectNodeStats();
+  statsCache.databases = collectDatabaseStats();
+  statsCache.security = collectSecurityBotStats();
+  statsCache.lastRefresh = now;
+}
+
+function printStats() {
+  refreshStats();
+  
   const timestamp = new Date().toISOString();
-  withCliSafeWrite(stream, () => writer(`[${timestamp}] [${label}] ${message}`));
-  const normalized = normalizeContext(context);
+  const lines = [];
+  
+  lines.push(SPACER);
+  lines.push(`[${timestamp}] ═══════════════════════════════════════════════════════════════`);
+  lines.push(SPACER);
+  
+  // Node Stats
+  lines.push(`[NODE] Uptime: ${statsCache.node.uptime}  |  PID: ${statsCache.node.pid}  |  Version: ${statsCache.node.version}`);
+  lines.push(`       Memory → RSS: ${statsCache.node.memory.rss}  Heap: ${statsCache.node.memory.heapUsed}/${statsCache.node.memory.heapTotal}  External: ${statsCache.node.memory.external}`);
+  lines.push(`       CPU    → User: ${statsCache.node.cpu.user}  System: ${statsCache.node.cpu.system}`);
+  lines.push(SPACER);
+  
+  // Database Stats
+  lines.push(`[DATABASE]`);
+  lines.push(`  DEV  → Status: ${statsCache.databases.dev.status}  |  Latency: ${statsCache.databases.dev.latency}  |  Connections: ${statsCache.databases.dev.connections}`);
+  lines.push(`  PROD → Status: ${statsCache.databases.prod.status}  |  Latency: ${statsCache.databases.prod.latency}  |  Connections: ${statsCache.databases.prod.connections}`);
+  lines.push(SPACER);
+  
+  // Security Bot Stats
+  lines.push(`[SECURITY BOT]`);
+  lines.push(`  Status: ${statsCache.security.status}  |  Guilds: ${statsCache.security.guilds}  |  Last Sweep: ${statsCache.security.lastSweep}`);
+  lines.push(`  Lifetime → Assignments: ${statsCache.security.assignments}  |  Failures: ${statsCache.security.failures}`);
+  lines.push(SPACER);
+  
+  lines.push(`───────────────────────────────────────────────────────────────`);
+  lines.push(SPACER);
+  
+  console.log(lines.join('\n'));
+}
 
-  if (normalizedLevel === 'error' && opsNotifier && typeof opsNotifier.recordError === 'function') {
-    try {
-      opsNotifier.recordError({
-        message,
-        context: normalized,
-        timestamp: new Date(timestamp),
-        level: normalizedLevel,
-      });
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('[logger opsNotifier]', error instanceof Error ? error.message : error);
-    }
-  }
-
-  if (!context) {
-    return;
-  }
-
-  if (Array.isArray(normalized)) {
-    for (const item of normalized) {
-      const lines = emitInspected(item, { debugMode });
-      if (lines.length === 0) {
-        continue;
+function log(level, message, context, options = {}) {
+  const timestamp = new Date().toISOString();
+  const label = LOG_LABEL[level] || LOG_LABEL.info;
+  
+  console.log(`[${timestamp}] [${label}] ${message}`);
+  
+  if (context && typeof context === 'object') {
+    const keys = Object.keys(context);
+    if (keys.length > 0) {
+      for (const key of keys) {
+        console.log(`  ${key}: ${JSON.stringify(context[key])}`);
       }
-      const [first, ...rest] = lines;
-      formatLines([`- ${first}`, ...rest.map((line) => `  ${line}`)], writer, stream);
     }
-    return;
   }
-
-  if (normalized && typeof normalized === 'object') {
-    for (const [key, value] of Object.entries(normalized)) {
-      const lines = emitInspected(value, { debugMode });
-      if (lines.length === 0) {
-        continue;
-      }
-      const [first, ...rest] = lines;
-      formatLines([`${key}: ${first}`, ...rest.map((line) => `  ${line}`)], writer, stream);
-    }
-    return;
+  
+  const now = Date.now();
+  if (now - lastLogTime >= REFRESH_INTERVAL_MS) {
+    printStats();
+    lastLogTime = now;
   }
-
-  if (typeof normalized === 'string') {
-    const lines = normalized.split('\n');
-    formatLines(lines, writer, stream);
-    return;
-  }
-
-  formatLines([String(normalized)], writer, stream);
 }
 
 function report(title, meta = {}, level = 'info') {
-  const normalizedLevel = level && LOG_LABEL[level] ? level : 'info';
-  const { label, writer, stream } = getLevelConfig(normalizedLevel);
-  const heading = `=== ${title} ===`;
   const timestamp = new Date().toISOString();
-  withCliSafeWrite(stream, () => writer(`[${timestamp}] [${label}] ${heading}`));
+  const label = LOG_LABEL[level] || LOG_LABEL.info;
+  
+  console.log(SPACER);
+  console.log(`[${timestamp}] [${label}] ═══ ${title} ═══`);
+  
   if (meta && typeof meta === 'object') {
-    try {
-      for (const [key, value] of Object.entries(meta)) {
-        withCliSafeWrite(stream, () => writer(`    ${key}: ${value}`));
+    const entries = Object.entries(meta);
+    if (entries.length > 0) {
+      for (const [key, value] of entries) {
+        console.log(`  ${key}: ${value}`);
       }
-    } catch {}
-  }
-
-  if (normalizedLevel === 'error' && opsNotifier && typeof opsNotifier.recordError === 'function') {
-    try {
-      opsNotifier.recordError({
-        message: heading,
-        context: normalizeContext(meta),
-        timestamp: new Date(timestamp),
-        level: normalizedLevel,
-      });
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('[logger opsNotifier]', error instanceof Error ? error.message : error);
     }
+  }
+  
+  console.log(SPACER);
+  
+  const now = Date.now();
+  if (now - lastLogTime >= REFRESH_INTERVAL_MS) {
+    printStats();
+    lastLogTime = now;
   }
 }
 
-export { LOG_LABEL, log, report };
+function startAutoRefresh() {
+  if (logIntervalHandle) return;
+  
+  refreshStats();
+  printStats();
+  
+  logIntervalHandle = setInterval(() => {
+    printStats();
+  }, REFRESH_INTERVAL_MS);
+  
+  if (logIntervalHandle.unref) {
+    logIntervalHandle.unref();
+  }
+}
 
-export default { LOG_LABEL, log, report };
+function stopAutoRefresh() {
+  if (logIntervalHandle) {
+    clearInterval(logIntervalHandle);
+    logIntervalHandle = null;
+  }
+}
+
+// Auto-start on import
+startAutoRefresh();
+
+export { LOG_LABEL, log, report, startAutoRefresh, stopAutoRefresh };
+
+export default { LOG_LABEL, log, report, startAutoRefresh, stopAutoRefresh };
