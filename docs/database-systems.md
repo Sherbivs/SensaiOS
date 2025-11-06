@@ -1,8 +1,8 @@
 # Database Systems Guide
 
-_Last updated: 2025-11-06T14:30:00Z (UTC) — Rev: 1.16_
+_Last updated: 2025-11-07T00:00:00Z (UTC) — Rev: 1.17_
 
-This guide captures everything engineers need to understand, operate, and extend Infinity Gauntlet’s PostgreSQL footprint across Render, Prisma Accelerate, and local development. Pair it with `DATA-SCHEMA.md` for entity specifics and `ops/DB_BOOTSTRAP.md` for runbook-grade procedures.
+This guide captures everything engineers need to understand, operate, and extend Infinity Gauntlet's PostgreSQL footprint across Render, Prisma Accelerate, and local development. Pair it with `DATA-SCHEMA.md` for entity specifics and `ops/DB_BOOTSTRAP.md` for runbook-grade procedures.
 
 ## 1. Topology & Environments
 
@@ -59,50 +59,61 @@ When none of the managed URLs connect successfully, the loader falls back to `DA
 - Optional: override the Optimize endpoint with `OPTIMIZE_API_URL`, but keep it `https://`—non-HTTPS overrides are ignored to avoid leaking telemetry over insecure transport.
 - Accelerate queries support `cacheStrategy` for response caching; tune TTLs per workload and monitor usage in the Prisma "Insights" dashboard. Set `PRISMA_CLIENT_ENGINE_TYPE=dataproxy` when running scripts directly.
 
-### Dual Database Architecture (DEV + PROD Simultaneous)
+### Triple Database Architecture (DEV + PROD + LOCAL Simultaneous)
 
-As of 2025-11-06, the runtime maintains **two separate Prisma clients connected simultaneously**:
+As of 2025-11-06, the runtime maintains **three separate Prisma clients connected simultaneously**:
 
-- **`prisma`** (PROD) — Connected to `DATABASE_POOL_URL` or `DATABASE_ACCELERATE_URL`; uses Prisma Accelerate for query caching and connection pooling. This is the primary client for production operations.
-- **`devPrisma`** (DEV) — Connected to `DATABASE_DIRECT_URL` or `DATABASE_EXTERNAL_URL`; bypasses Accelerate and connects directly to PostgreSQL. Used for development queries, migrations, and observability.
+- **`prisma`** (PROD) — Connected to `DATABASE_POOL_URL` or `DATABASE_ACCELERATE_URL`; uses Prisma Accelerate for query caching and connection pooling. Used for cloud-based production operations on Render.
+- **`devPrisma`** (DEV) — Connected to `DATABASE_DIRECT_URL` or `DATABASE_EXTERNAL_URL`; bypasses Accelerate and connects directly to PostgreSQL. Used for development queries, migrations, and observability. May be `null` if no direct URL configured.
+- **`localPrisma`** (LOCAL) — **PRIMARY for live gameplay** — Connected to `DATABASE_LOCAL_URL`; local workstation PostgreSQL cluster providing <50ms latency for battles, encounters, and trainer operations. Receives replicated data from PROD/DEV. May be `null` if not configured.
 
 **Connection Initialization:**
 
-Both clients initialize on startup via `src/shared/prisma.ts`:
+All three clients initialize on startup via `src/shared/prisma.ts`:
 
 ```ts
-import { prisma, devPrisma, getDatabaseStats } from "../shared/prisma.js";
+import { prisma, devPrisma, localPrisma, getDatabaseStats } from "../shared/prisma.js";
 
-// PROD client - use for production game operations
-const users = await prisma.user.findMany();
+// LIVE GAMEPLAY (battles, encounters, trainer CRUD) - use LOCAL for <50ms latency
+const gameClient = localPrisma || prisma; // Prefer LOCAL, fallback to PROD
+const users = await gameClient.user.findMany();
 
-// DEV client - use for development/debugging (may be null if DATABASE_DIRECT_URL unset)
+// CLOUD PRODUCTION operations (Render workers, background jobs)
+const cloudUsers = await prisma.user.findMany();
+
+// DEV operations (migrations, debugging) - check for null first
 if (devPrisma) {
   const devUsers = await devPrisma.user.findMany();
 }
 
-// Get stats for both databases
+// Get stats for all three databases
 const stats = getDatabaseStats();
-console.log(`DEV: ${stats.dev.status} | PROD: ${stats.prod.status}`);
+console.log(`DEV: ${stats.dev.status} | PROD: ${stats.prod.status} | LOCAL: ${stats.local.status}`);
 ```
 
 **Stats & Observability:**
 
-`getDatabaseStats()` returns a `DualDatabaseStats` object containing telemetry for both connections:
+`getDatabaseStats()` returns a `TripleDatabaseStats` object containing telemetry for all three connections:
 
 ```ts
 {
   dev: {
     source: "direct",      // or "external", "local"
     transport: "direct",   // or "accelerate-node"
-    latency: 12.5,         // milliseconds (null if no heartbeat yet)
+    latency: 390.5,        // milliseconds (null if no heartbeat yet)
     status: "healthy"      // "healthy", "degraded", "reconnecting", "error", "offline", "unknown"
   },
   prod: {
     source: "pool",        // or "accelerate", "env"
     transport: "accelerate-node",
-    latency: 45.2,
+    latency: 88.2,
     status: "healthy"
+  },
+  local: {
+    source: "local",       // from DATABASE_LOCAL_URL or Store/db/local-url.txt
+    transport: "direct",   // always direct PostgreSQL
+    latency: 15.3,         // <50ms typical for localhost
+    status: "healthy"      // "offline" if DATABASE_LOCAL_URL not configured
   }
 }
 ```
@@ -113,17 +124,19 @@ The logger (`src/utils/logger.js`) auto-refreshes these stats every 15 seconds a
 
 | Use Case | Client | Reason |
 | --- | --- | --- |
-| Production game operations (battles, encounters, trainer CRUD) | `prisma` | Accelerate caching, connection pooling, high availability |
-| Development debugging & testing | `devPrisma` | Direct access, no caching, simpler connection |
-| Migrations (`prisma migrate deploy`) | DEV connection (via `DATABASE_DIRECT_URL`) | Prisma requires direct PostgreSQL URL for DDL |
-| Stats/observability | Both (via `getDatabaseStats()`) | Simultaneous visibility into both environments |
+| **Live gameplay (battles, encounters, trainer ops)** | **`localPrisma`** (fallback `prisma`) | **<50ms latency, local workstation** |
+| Render cloud operations (workers, background jobs) | `prisma` | Accelerate caching, pooling, HA |
+| Development debugging & testing | `devPrisma` | Direct access, no caching layer |
+| Migrations (`prisma migrate deploy`) | DEV connection (via `DATABASE_DIRECT_URL`) | Prisma requires direct PostgreSQL for DDL |
+| Stats/observability | All three (via `getDatabaseStats()`) | Simultaneous visibility |
 
 **Environment Variables:**
 
 - **`DATABASE_POOL_URL`** or **`DATABASE_ACCELERATE_URL`** → PROD client (`prisma`)
 - **`DATABASE_DIRECT_URL`** or **`DATABASE_EXTERNAL_URL`** → DEV client (`devPrisma`)
+- **`DATABASE_LOCAL_URL`** → LOCAL client (`localPrisma`) **PRIMARY for gameplay**
 
-If `DATABASE_DIRECT_URL` is unset, the DEV client remains `null` and the runtime continues with PROD-only operations. Both clients support independent heartbeat monitoring tracked via separate `lastDevHeartbeatEvent` and `lastProdHeartbeatEvent` state.
+If `DATABASE_DIRECT_URL` is unset, the DEV client remains `null`. If `DATABASE_LOCAL_URL` is unset, the LOCAL client remains `null` and gameplay falls back to PROD client. All three clients support independent heartbeat monitoring tracked via separate state (`lastDevHeartbeatEvent`, `lastProdHeartbeatEvent`, `lastLocalHeartbeatEvent`).
 
 **Exports:**
 
@@ -131,11 +144,22 @@ If `DATABASE_DIRECT_URL` is unset, the DEV client remains `null` and the runtime
 // src/shared/prisma.ts
 export let prisma: PrismaClient;              // PROD client
 export let devPrisma: PrismaClient | null;    // DEV client (null if no direct URL)
-export function getDatabaseStats(): DualDatabaseStats;
+export let localPrisma: PrismaClient | null;  // LOCAL client (null if no local URL)
+export function getDatabaseStats(): TripleDatabaseStats;
 export async function ensurePrisma(): Promise<PrismaClient>; // Returns PROD client after connection
 ```
 
-See `src/models/index.ts` for additional helpers that re-export both clients for downstream consumption.
+See `src/models/index.ts` for additional helpers that re-export all three clients for downstream consumption.
+
+**Workstation Gameplay Setup:**
+
+To enable <50ms latency for live gameplay, configure your local PostgreSQL cluster:
+
+1. Add `DATABASE_LOCAL_URL=postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db` to your environment file (`C:/Users/sherb/OneDrive/Documents/Key/Dev/.env`)
+2. Run `npm run ops:auto-bootstrap-local-db` to install PostgreSQL (if needed) and mirror data from PROD/DEV
+3. Verify with `npm run db:health` showing LOCAL healthy <50ms
+
+See `docs/WORKSTATION-GAMEPLAY-SETUP.md` for comprehensive setup guide including replication schedule, performance comparison, troubleshooting, and maintenance procedures.
 
 ## 3. Schema Overview
 
