@@ -132,24 +132,26 @@ function toMetricRows(metrics = []) {
 }
 
 function formatCategoryBlock(title, rows = []) {
-  const header = (title || 'Section').toUpperCase();
-  const underline = '─'.repeat(header.length);
-  const block = [header, underline];
+  const label = title || 'Section';
   if (!Array.isArray(rows) || rows.length === 0) {
-    block.push('  No data available');
-    return block;
+    return [`${label}: No data available`];
   }
-  for (const row of rows) {
+
+  const [firstLineRaw, ...rest] = rows;
+  const firstLine = firstLineRaw && String(firstLineRaw).trim().length > 0
+    ? String(firstLineRaw).trim()
+    : 'Status: pending';
+
+  const block = [`${label} | ${firstLine}`];
+  for (const row of rest) {
     if (row === null || row === undefined) {
       continue;
     }
-    const text = String(row);
-    if (text.trim().length === 0) {
+    const text = String(row).trimEnd();
+    if (text.length === 0) {
       block.push('');
-    } else if (/^\s/.test(text)) {
-      block.push(text);
     } else {
-      block.push(`  ${text}`);
+      block.push(`  ${text.trimStart()}`);
     }
   }
   return block;
@@ -204,17 +206,6 @@ function computeCapacityInsight() {
     pendingEvents,
     guildCount: state.guildCount ?? 0,
   };
-}
-
-function buildCapacityLines() {
-  const insight = computeCapacityInsight();
-  return [
-    `Status: ${insight.rating}`,
-    `Outlook: ${insight.detail}`,
-    `Observed guilds: ${insight.guildCount}`,
-    `Pending ops queue: ${insight.pendingEvents}`,
-    `Active alerts: ${insight.alerts}`,
-  ];
 }
 
 function buildSectionBlock(sectionId, fallbackTitle) {
@@ -364,20 +355,22 @@ function buildAlertsBlock() {
 function buildDisplayLines() {
   const now = new Date();
   const uptime = formatDuration(now - state.startedAt);
+  const capacity = computeCapacityInsight();
+  const phase = state.phase || 'unknown';
+  const guilds = state.guildCount ?? 0;
+
   const lines = [
     HEADER,
     '='.repeat(HEADER.length),
-    `Phase: ${state.phase || 'unknown'}`,
-    `Guilds observed: ${state.guildCount ?? 0}`,
-    `Uptime: ${uptime}`,
-    `Last refresh: ${formatTimestamp(state.lastUpdatedAt)}`,
-    `Last draw: ${formatTimestamp(state.lastRenderAt)}`,
-    `Refresh cadence: nominal ${describeInterval(NORMAL_UPDATE_INTERVAL_MS)} | alerts ${describeInterval(ALERT_UPDATE_INTERVAL_MS)}`,
+    `Phase: ${phase}   Guilds: ${guilds}   Uptime: ${uptime}`,
+    `Status: ${capacity.rating}   Alerts: ${capacity.alerts}   Pending Ops: ${capacity.pendingEvents}`,
   ];
 
-  const blocks = [];
-  blocks.push(formatCategoryBlock('Capacity', buildCapacityLines()));
-  blocks.push(...buildSectionBlocks());
+  if (capacity.detail) {
+    lines.push(`Detail: ${capacity.detail}`);
+  }
+
+  const blocks = [...buildSectionBlocks()];
   const alertsBlock = buildAlertsBlock();
   if (alertsBlock.length > 0) {
     blocks.push(alertsBlock);

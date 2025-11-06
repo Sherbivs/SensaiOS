@@ -5,7 +5,15 @@ import path from "node:path";
 
 export type DatabaseConnectionMode = "auto" | "external" | "internal";
 
-export type DatabaseUrlSource = "external" | "pool" | "internal" | "direct" | "env" | "accelerate" | "unset";
+export type DatabaseUrlSource =
+  | "external"
+  | "pool"
+  | "internal"
+  | "direct"
+  | "env"
+  | "accelerate"
+  | "local"
+  | "unset";
 
 export type DatabaseCandidate = {
   url: string;
@@ -60,6 +68,31 @@ function coerceBoolean(value: string | undefined, fallback: boolean): boolean {
   return fallback;
 }
 
+function resolveLocalFallbackUrl(): string {
+  const envOverride = process.env.DATABASE_LOCAL_URL?.trim();
+  if (envOverride) {
+    return envOverride;
+  }
+
+  const fileOverride = process.env.DATABASE_LOCAL_URL_FILE?.trim();
+  const storeRoot = process.env.IG_STORE_ROOT?.trim() || path.join(process.cwd(), "Store");
+  const candidates = [fileOverride, path.join(storeRoot, "db", "local-url.txt"), path.join(storeRoot, "db", "local", "url.txt")]
+    .filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const candidate of candidates) {
+    try {
+      const value = fs.readFileSync(candidate, "utf8").trim();
+      if (value) {
+        return value;
+      }
+    } catch {
+      // Ignore read issues; runtime will fall back to remote candidates instead.
+    }
+  }
+
+  return "";
+}
+
 type ResolvedDatabaseUrl = {
   url: string;
   source: DatabaseUrlSource;
@@ -85,7 +118,10 @@ function readConnectionPreference(): DatabaseUrlSource | null {
     const payload = fs.readFileSync(preferenceFilePath(), "utf8");
     const parsed = JSON.parse(payload);
     const source = parsed?.lastSource;
-    if (typeof source === "string" && ["external", "pool", "internal", "direct", "env", "accelerate"].includes(source)) {
+    if (
+      typeof source === "string" &&
+      ["external", "pool", "internal", "direct", "env", "accelerate", "local"].includes(source)
+    ) {
       return source as DatabaseUrlSource;
     }
   } catch {
@@ -167,7 +203,7 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     accelerateCandidates.push({ value, source, fallback: false });
   };
 
-  const addDirectCandidate = (value: string, source: DatabaseUrlSource): void => {
+  const addDirectCandidate = (value: string, source: DatabaseUrlSource, fallback = false): void => {
     if (!value) {
       return;
     }
@@ -182,7 +218,7 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
       return;
     }
     seen.add(key);
-    directCandidates.push({ value, source, fallback: false });
+    directCandidates.push({ value, source, fallback });
   };
 
   // Prioritize pooled Accelerate-style URLs by default.
@@ -214,6 +250,11 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     addDirectCandidate(directUrl, "direct");
     addDirectCandidate(envUrl, "env");
     addDirectCandidate(externalUrl, "external");
+  }
+
+  const localFallbackUrl = resolveLocalFallbackUrl();
+  if (localFallbackUrl) {
+    addDirectCandidate(localFallbackUrl, "local", true);
   }
 
   let orderedCandidates: CandidateBucket = [];
@@ -344,7 +385,7 @@ export function recordDatabaseConnectionSuccess(source: DatabaseUrlSource): void
   writeConnectionPreference(source);
   process.env.DATABASE_CONNECTION_LAST_SOURCE = source;
   process.env.DATABASE_CONNECTION_PREFERENCE_SOURCE = source;
-  if (source === "internal" || source === "pool" || source === "direct") {
+  if (source === "internal" || source === "pool" || source === "direct" || source === "local") {
     process.env.DATABASE_CONNECTION_MODE = "internal";
   } else if (source === "accelerate" || source === "external" || source === "env") {
     process.env.DATABASE_CONNECTION_MODE = "external";

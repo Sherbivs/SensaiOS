@@ -51,6 +51,31 @@ function envTruthy(value: string | undefined | null): boolean {
   return ["1", "true", "yes", "on"].includes(normalized);
 }
 
+function readLocalFallbackUrl(): string {
+  const envOverride = process.env.DATABASE_LOCAL_URL?.trim();
+  if (envOverride) {
+    return envOverride;
+  }
+
+  const fileOverride = process.env.DATABASE_LOCAL_URL_FILE?.trim();
+  const storeRoot = process.env.IG_STORE_ROOT?.trim() || path.join(process.cwd(), "Store");
+  const candidates = [fileOverride, path.join(storeRoot, "db", "local-url.txt"), path.join(storeRoot, "db", "local", "url.txt")]
+    .filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const candidate of candidates) {
+    try {
+      const value = fs.readFileSync(candidate, "utf8").trim();
+      if (value) {
+        return value;
+      }
+    } catch {
+      // Ignore read issues; caller will fall back to remote datasources.
+    }
+  }
+
+  return "";
+}
+
 function loadEnvironment(): void {
   const overrideCandidates = [process.env.IG_ENV_FILE, process.env.DOTENV_CONFIG_PATH]
     .map((candidate) => (candidate ? candidate.trim() : ""))
@@ -101,6 +126,7 @@ function resolveDatasource(): DatasourceConfig {
   const primaryUrl = process.env.DATABASE_URL ?? "";
   const directUrl = process.env.DATABASE_DIRECT_URL ?? "";
   const accelerate = primaryUrl.startsWith("prisma://") || primaryUrl.startsWith("prisma+postgres://");
+  const localUrl = readLocalFallbackUrl();
 
   if (accelerate) {
     if (!primaryUrl) {
@@ -109,12 +135,21 @@ function resolveDatasource(): DatasourceConfig {
     return { url: primaryUrl, mode: "accelerate" };
   }
 
-  const resolved = directUrl || primaryUrl;
-  if (!resolved) {
-    throw new Error("DATABASE_URL or DATABASE_DIRECT_URL must be set before running db:cli.");
+  const normalizedPrimary = primaryUrl.toLowerCase();
+  const directCandidate =
+    directUrl || (normalizedPrimary.startsWith("postgres://") || normalizedPrimary.startsWith("postgresql://") ? primaryUrl : "");
+
+  if (directCandidate) {
+    return { url: directCandidate, mode: "direct" };
   }
 
-  return { url: resolved, mode: "direct" };
+  if (localUrl) {
+    return { url: localUrl, mode: "direct" };
+  }
+
+  throw new Error(
+    "DATABASE_URL or DATABASE_DIRECT_URL must be set before running db:cli. Provide DATABASE_LOCAL_URL for offline fallback if remote datasources are unavailable.",
+  );
 }
 
 function createDbContext(): DbContext {
@@ -172,6 +207,7 @@ async function showStatus(ctx: DbContext): Promise<void> {
   const url = process.env.DATABASE_URL ?? "";
   const directUrl = process.env.DATABASE_DIRECT_URL ?? "";
   const poolUrl = process.env.DATABASE_POOL_URL ?? "";
+  const localUrl = readLocalFallbackUrl();
   const accelerate = url.startsWith("prisma+postgres://accelerate");
   const host = (() => {
     try {
@@ -191,6 +227,8 @@ async function showStatus(ctx: DbContext): Promise<void> {
   console.log(`DATABASE_URL set : ${url ? "yes" : "no"}`);
   console.log(`DATABASE_DIRECT_URL set : ${directUrl ? "yes" : "no"}`);
   console.log(`DATABASE_POOL_URL set   : ${poolUrl ? "yes" : "no"}`);
+  console.log(`DATABASE_LOCAL_URL set  : ${process.env.DATABASE_LOCAL_URL ? "yes" : "no"}`);
+  console.log(`Local fallback file     : ${localUrl ? "yes" : "no"}`);
   console.log(`Resolved datasource     : ${ctx.mode} ${maskDatasource(ctx.datasource.url)}`);
 
   try {

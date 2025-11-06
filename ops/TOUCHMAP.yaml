@@ -321,6 +321,7 @@ T13.DEX.V2_PROD_CUTOVER:
   - "scripts/ops/dex_v2_backup.ts"
   - "scripts/ops/simulate_flag_rollout.ts"
   - "scripts/ops/dex_v2_alert_dry_run.ts"
+  - "scripts/ops/bootstrap_local_fallback.ts"
   - "ops/ROUTER.yaml"
   - "ops/ROUTER_INDEX.yaml"
   - "ops/change-ledger.md"

@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-05T20:45:30Z
-Revision: 2.13
+Timestamp (UTC): 2025-11-05T22:45:30Z
+Revision: 2.15
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Instrumented the security bot rollback flow so alerts include `revertStatus` / `revertErrors` when auto-heal fails, keeping CLI telemetry aligned.
-- Logged the guardrail hardening in ops/change-ledger.md and added staging rehearsal + go/no-go checklist coverage in docs/operations.md.
-- Synced Tasklist and NEXT timestamps so T13.DEX.V2_PROD_CUTOVER stays READY for the Nov 5 ladder with the guardrail context recorded for auditors.
+- Added `scripts/ops/bootstrap_local_fallback.ts` (`npm run ops:bootstrap-local-db`) so operators can hydrate a Store-backed Postgres mirror with rotating snapshots and a published `Store/db/local-url.txt`.
+- Updated AGENTS.md, docs/operations.md, and docs/database-systems.md to require logging the mirror timestamp/URL before the DEX v2 ladder and to reference the config fallback behaviour.
+- Logged the fallback workflow in ops/change-ledger.md and Tasklist.md while keeping T13.DEX.V2_PROD_CUTOVER READY with offline recovery coverage spelled out in NEXT/Prompt metadata.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -61,11 +61,11 @@ Revision: 2.13
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Logged the security bot guardrail updates in the change ledger and extended the cutover runbook with a staging rehearsal and go/no-go checks for `revertStatus` telemetry.
+Change: Added the offline Postgres bootstrapper and refreshed operator docs so the DEX v2 ladder records the Store/db mirror timestamp and URL before go/no-go.
 TasklistDiff: true
-Tests: not run (security bot changes require live Discord events; staging validation will occur during the canary window).
+Tests: not run (documentation-only update).
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with guardrail rehearsal requirements documented ahead of the window.
+NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with offline fallback, storage metrics, and guardrail rehearsals logged for auditors.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

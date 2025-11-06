@@ -52,7 +52,8 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
   npm run db:cli -- count Species  # single-table helpers
   npm run db:cli -- query "SELECT COUNT(*) FROM \"Species\";"
   ```
-4. **Document actions:** log purpose, command, and outcome in `Tasklist.md` under the active task when running anything outside status/counts.
+4. **Bootstrap the local fallback when required:** run `npm run ops:bootstrap-local-db` to mirror the DEV database into `Store/db`, rotate timestamped snapshots, and emit `local-url.txt` so `src/shared/config.ts` can fail over to the offline cluster. Capture the command, timestamp, and resulting URL in Tasklist notes when you refresh the mirror (especially before cutovers or network work).
+5. **Document actions:** log purpose, command, and outcome in `Tasklist.md` under the active task when running anything outside status/counts.
 
 Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describe the secure loading order and available commands. These tools run locally only; do not expose the secure env path in CI or production.
 
@@ -116,6 +117,7 @@ Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describ
 ## Operational Playbook
 - **Guard Scripts**: `scripts/guard_meta.sh`, `scripts/guard_doc_names.sh`, and `scripts/guard_routing.sh` enforce invariants (READY pointer, canonical spellings, router consistency).
 - **Bootstrap Helper**: `scripts/bootstrap_staging_db.ps1` attempts `npx prisma migrate deploy` against staging after loading the `IG_ENV_FILE` secrets (default `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env`), warns when pooled/direct URLs are absent, and prints fallback guidance from the runbook when relations are missing.
+- **Local Fallback Bootstrapper**: `npm run ops:bootstrap-local-db` provisions the Store-backed Postgres mirror, writes `Store/db/local-url.txt`, and prunes stale snapshots so config fallbacks stay current when Render or Accelerate are unavailable.
 - **Hotfix Loop**: Trigger naming, suffix rules, and recovery steps live in `ops/HOTFIX.md` and `ops/RECOVERY.yaml`. Update both when issuing or closing hotfixes.
 - **Security Bot Guardrail**: Only the guild owner and administrators may change roles or permissions; the security bot auto-reverts other edits, DMing DripTVDD and recording `revertStatus` / `revertErrors` fields when rollback attempts fail.
 - **Clipboard Discipline**: Contract Mode ON requires markers, clipboard, and Prompt updates. Markerless Mode (no markers) relaxes the flow but still enforces Absolutes (routers intact, NEXT READY, canonical docs preserved).
@@ -128,6 +130,7 @@ Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describ
   - `infinity-gauntlet` worker now launches both the Discord bot (`src/bot/index.ts`) and the legacy security bot (`src/bot/main.js`) so DripTVDD DM alerts stay online.
   - `pokedex-cache-worker` handles reference data refresh with persistent disks.
 - The environment expects managed database URLs. See `src/env/ensure-db-url.ts` and `README.md` for override logic.
+- Render Postgres storage quotas sit at 0.5 GB (prod) and 1.0 GB (dev); before cutovers capture Render metrics → Storage Utilization plus `npm run db:cli -- query "SELECT pg_size_pretty(pg_database_size(current_database()))";` output in Tasklist notes and escalate if usage exceeds 60%.
 - Security bot alert routing lives in `src/bot/main.js` and `src/bot/dripAlerts.js`. DM alert recipients/timezones resolve via `src/config/env.js`.
 
 ## Done Criteria (Per Task)

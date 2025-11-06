@@ -1,7 +1,7 @@
 # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-11-04T16:58:00Z
+updated_utc: 2025-11-05T02:10:00Z
 
 meta_files:
   - Patch.md
@@ -101,7 +101,9 @@ categories:
     - prisma/migrations/202510280500_scaling_indexes/ROUTER.md
     - prisma/migrations/202510290930_dex_reference_spine/ROUTER.md
     - prisma/migrations/202511010900_schema_constraints/ROUTER.md
-    - router/ROUTER.md
+  - router/ROUTER.md
+  - Store/ROUTER.md
+  - Store/db/ROUTER.md
     - secrets/ROUTER.md
     - sync-layer/ROUTER.md
     - sync-layer/discord/hooks/ROUTER.md

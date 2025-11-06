@@ -5,12 +5,14 @@
 
 ## DEX v2 Production Cutover (2025-11-05 02:00–03:00 ET)
 - **Prereqs:** confirm prod/dev dumps archived under `backups/archive/2025-11-03/`, pack hash `f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00`, and flag plans in `ops/flag-plans/`.
+- **Local fallback:** run `npm run ops:bootstrap-local-db` within 24 hours of the window, confirm `Store/db/local-url.txt` points at the freshly mirrored cluster, and log the timestamp + URL in Tasklist notes so the fallback is auditable before go/no-go.
 - **Command cadence:**
 	- `npm run ops:dex-v2-backup -- --env-file <Key/.../.env> --label <prod|dev>` (completed 2025-11-03T05:06Z, rerun only if drift detected).
 	- `npm run ops:simulate-flag -- --flag DEX_V2_ENABLED --percent <1|25|50|100> --apply`; the script writes the approved JSON into `ops/flag-plans/` and reminds on-call to upload the plan via the feature flag console when no config URL is present.
 	- `node scripts/dev_prod_auto_sync.ts --validate-pack --prod-env <env>` to confirm DEV/PROD parity after each ladder step.
 - **Mirroring focus:** keep the PROD and DEV datasets aligned before and after each cohort change—log checksum comparisons, auto-sync output, and any manual adjustments in `ops/change-ledger.md`.
 - **Security guardrail:** rehearse an unauthorized role change in staging within 12 hours of the window, confirm the security bot auto-reverts with `revertStatus: success`, and ensure DRIP alerts stay quiet before starting the ladder.
+- **Storage guardrail:** Render Postgres caps are 0.5 GB (prod) and 1.0 GB (dev). Log Render→Metrics storage utilization plus `npm run db:cli -- query "SELECT pg_size_pretty(pg_database_size(current_database()))";` output in Tasklist notes before each ladder step; pause the rollout if either environment exceeds 80% until space is reclaimed or the plan is upsized.
 - **Rollback trigger:** disable `DEX_V2_ENABLED` globally if parity checks fail, backups diverge, or the manual verification uncovers mismatched pack hashes.
 - **Evidence:** store apply logs, parity check output, and DB checksum notes in `ops/change-ledger.md` once the ladder completes; update Tasklist notes and Prompt PATCHSET echo with the outcome.
 
@@ -41,6 +43,7 @@
 ### Go / no-go checklist
 - ❏ Backups verified in `backups/archive/2025-11-03/` with matching SHA256 notes in ops/change-ledger.md.
 - ❏ Feature flag plans reviewed and untouched since approval; console credentials confirmed.
+- ❏ Local fallback mirror refreshed and recorded in Tasklist (`Store/db/local-url.txt` timestamp + URL present).
 - ❏ DEV↔PROD parity confirmed via `node scripts/dev_prod_auto_sync.ts --validate-pack --prod-env <env>`.
 - ❏ Security bot guardrail rehearsal completed within the last 12 hours with `revertStatus: success` and no lingering `revertErrors` in DRIP alerts or the CLI dashboard.
 - ❏ Rollback plan rehearsed (`DEX_V2_ENABLED=false` apply + manual notes updated).

@@ -14,7 +14,7 @@ guidance_when_none: |
 auto_promote_if_empty: true
 
 next_task_id: T13.DEX.V2_PROD_CUTOVER
-reason: "Backups and recovery rehearsal are complete; execute the Nov 5 DEX v2 canary ladder."
+reason: "Backups, recovery rehearsal, and the local fallback mirror are complete; execute the Nov 5 DEX v2 canary ladder."
 
 files_hint:
   - ops/flag-plans/
@@ -23,7 +23,7 @@ files_hint:
   - Tasklist.md
 
 queue: []
-timestamp_utc: 2025-11-05T20:45:30Z
+timestamp_utc: 2025-11-05T22:45:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Backup + restore rehearsal logged; security bot guardrail staging rehearsal + go/no-go checklist documented so the Nov 5 window can proceed once rehearsal evidence is captured."
+note: "Backup/restore rehearsal and Store/db fallback mirror logged; guardrail docs require Render metrics, SQL size, and local mirror timestamps ahead of each ladder cohort."

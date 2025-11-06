@@ -1,5 +1,17 @@
 # Recent Change Ledger (200 commits)
 
+## 2025-11-05 — Local Postgres Fallback Mirror
+- Added `scripts/ops/bootstrap_local_fallback.ts` (`npm run ops:bootstrap-local-db`) to hydrate a Store-backed Postgres mirror, rotate timestamped snapshots, and publish `Store/db/local-url.txt` + metadata for offline failover.
+- Extended `src/shared/config.ts` and `scripts/db_admin.ts` so Prisma and operator CLI flows detect `Store/db/local-url.txt` when managed hosts fail, ensuring local tooling can reconnect without manual rewiring.
+- Updated AGENTS.md, docs/operations.md, and docs/database-systems.md with fallback requirements, including Tasklist logging before the Nov 5 ladder and go/no-go checks that verify the mirror timestamp and URL.
+- Refreshed Prompt.md, Tasklist.md, and ops/NEXT.yaml so T13.DEX.V2_PROD_CUTOVER remains READY with offline recovery coverage captured for auditors.
+
+## 2025-11-05 — Render Storage Quota Guardrails
+- Documented Render Postgres storage ceilings (0.5 GB prod / 1.0 GB dev) in `docs/database-systems.md`, including the Render metrics workflow, SQL size check, and escalation thresholds (60% warn, 80% halt).
+- Added a storage guardrail bullet to `docs/operations.md` so the Nov 5 ladder requires capturing utilization before each cohort change and pausing if either environment breaches 80%.
+- Updated `AGENTS.md` to brief operators on the storage quotas and remind them to log Render metrics + SQL output in Tasklist notes before cutovers.
+- Noted in the ledger that the CLI `database` panel already surfaces `storageUsed` telemetry when supervisors provide it, keeping quiet-mode Render logs aligned with the documentation.
+
 ## 2025-11-05 — Security Bot Guardrail Hardening
 - Added explicit `revertStatus` / `revertErrors` telemetry to the security bot rollback helpers so unauthorized role and permission edits record success/failure in DRIP alerts and the CLI dashboard.
 - Updated AGENTS.md, docs/operations.md, and docs/dex-v2-design.md to require owner/administrator authorization checks during the Nov 5 DEX v2 window and to reference the new telemetry fields in go/no-go reviews.

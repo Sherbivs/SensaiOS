@@ -30,6 +30,7 @@
   "ops:dex-v2-backup": "tsx scripts/ops/dex_v2_backup.ts",
   "ops:simulate-flag": "tsx scripts/ops/simulate_flag_rollout.ts",
   "ops:dex-v2-alert-dry-run": "tsx scripts/ops/dex_v2_alert_dry_run.ts",
+  "ops:bootstrap-local-db": "tsx scripts/ops/bootstrap_local_fallback.ts",
     "guard:dexpack": "bash scripts/guards/guard_dexpack.sh",
     "db:mirror:check": "tsx scripts/db_mirror_checks.ts",
     "db:probe-optimize": "tsx scripts/probe_prisma_optimize.ts",
