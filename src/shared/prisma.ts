@@ -624,3 +624,39 @@ export async function ensurePrisma(): Promise<PrismaClient> {
 export function getPrismaTransport(): string {
   return lastPrismaTransport;
 }
+
+export type DatabaseStats = {
+  source: string;
+  transport: string;
+  latency: number | null;
+  status: string;
+};
+
+let lastHeartbeatEvent: PrismaHeartbeatEvent | null = null;
+
+onPrismaHeartbeat((event) => {
+  lastHeartbeatEvent = event;
+});
+
+export function getDatabaseStats(): DatabaseStats {
+  const candidate = activeCandidate;
+  const source = candidate?.source ?? "unknown";
+  const transport = lastPrismaTransport;
+  const latency = lastHeartbeatEvent?.latencyMs ?? null;
+  
+  let status = "unknown";
+  if (lastHeartbeatEvent) {
+    if (lastHeartbeatEvent.ok) {
+      status = lastHeartbeatEvent.slow ? "degraded" : "healthy";
+    } else {
+      status = lastHeartbeatEvent.consecutiveFailures >= HEARTBEAT_DEFAULTS.errorThreshold ? "error" : "reconnecting";
+    }
+  }
+  
+  return {
+    source,
+    transport,
+    latency,
+    status,
+  };
+}

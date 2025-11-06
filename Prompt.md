@@ -1,11 +1,12 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T13:25:30Z
-Revision: 2.24
+Timestamp (UTC): 2025-11-06T13:45:30Z
+Revision: 2.25
 
 ## Last Repo Changes (since previous Prompt.md revision)
 - Added a resilient member caching helper in `src/bot/main.js` that retries chunk fetches and falls back to REST pagination so GuildMembersTimeout no longer interrupts sweeps, CLI debug, or alert resolution.
 - Retargeted `ops/NEXT.yaml` to `T13.DEX.V2_PROD_CUTOVER` with fresh rationale now that the guard seed is cleared and startup sweeps succeed.
-- Rebuilt `src/utils/logger.js` with comprehensive spaced output (blank lines for readability), 15-second auto-refresh showing Node stats (uptime, memory, CPU), DB stats (DEV + PROD latency/connections), and security bot activity summary; bumped Patch.md/Tasklist headers (2025-11-06T13:25Z) with the new T13 note.
+- Rebuilt `src/utils/logger.js` with comprehensive spaced output (blank lines for readability), 15-second auto-refresh showing Node stats (uptime, memory, CPU), DB stats (DEV + PROD latency/connections), and security bot activity summary.
+- Wired live DB telemetry by exporting `getDatabaseStats()` from `src/shared/prisma.ts` (captures source, transport, latency from heartbeat events) and routing DEV/PROD entries based on connection source; bumped Patch.md/Tasklist headers (2025-11-06T13:45Z) with the integration note.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -61,11 +62,11 @@ Revision: 2.24
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Rebuilt the logger with spaced layout, 15-second auto-refresh, and comprehensive stats (Node uptime/memory/CPU, DEV+PROD DB latency/connections, security bot activity); T13 notes updated accordingly.
+Change: Wired live DB stats into logger via `getDatabaseStats()` export from prisma module; DEV/PROD entries now populate with real source, transport, latency, and status from heartbeat events.
 TasklistDiff: true
-Tests: not run (logger rebuild only).
+Tests: not run (DB stats integration only).
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - ladder stays READY with the new logging system active.
+NEXT: T13.DEX.V2_PROD_CUTOVER - ladder stays READY with live DB telemetry now visible.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

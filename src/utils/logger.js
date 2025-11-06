@@ -12,6 +12,20 @@ const LOG_LABEL = Object.freeze({
 const REFRESH_INTERVAL_MS = 15_000;
 const SPACER = '';
 
+let getDatabaseStats = null;
+
+// Dynamically load getDatabaseStats when available
+(async () => {
+  try {
+    const prismaModule = await import('../shared/prisma.js');
+    if (typeof prismaModule.getDatabaseStats === 'function') {
+      getDatabaseStats = prismaModule.getDatabaseStats;
+    }
+  } catch (error) {
+    // Prisma module not available yet
+  }
+})();
+
 let logIntervalHandle = null;
 let lastLogTime = 0;
 let statsCache = {
@@ -64,19 +78,71 @@ function collectNodeStats() {
 }
 
 function collectDatabaseStats() {
-  // Placeholder - will be populated by DB layer when available
-  return {
-    dev: {
-      status: 'unknown',
-      latency: 'n/a',
-      connections: 'n/a',
-    },
-    prod: {
-      status: 'unknown',
-      latency: 'n/a',
-      connections: 'n/a',
-    },
-  };
+  if (typeof getDatabaseStats !== 'function') {
+    return {
+      dev: {
+        status: 'loading',
+        latency: 'n/a',
+        connections: 'n/a',
+        source: 'n/a',
+      },
+      prod: {
+        status: 'loading',
+        latency: 'n/a',
+        connections: 'n/a',
+        source: 'n/a',
+      },
+    };
+  }
+
+  try {
+    const stats = getDatabaseStats();
+    const latencyDisplay = stats.latency !== null 
+      ? `${stats.latency.toFixed(2)}ms` 
+      : 'n/a';
+    
+    // Determine if this is DEV or PROD based on source/transport
+    const isDev = ['internal', 'local', 'direct'].includes(stats.source) || stats.transport === 'direct';
+    const isProd = ['external', 'pool', 'accelerate'].includes(stats.source) || stats.transport.includes('accelerate');
+    
+    const entry = {
+      status: stats.status,
+      latency: latencyDisplay,
+      connections: 'n/a', // Will be populated when pool stats are available
+      source: stats.source,
+      transport: stats.transport,
+    };
+    
+    return {
+      dev: isDev ? entry : {
+        status: 'unknown',
+        latency: 'n/a',
+        connections: 'n/a',
+        source: 'n/a',
+      },
+      prod: isProd ? entry : {
+        status: 'unknown',
+        latency: 'n/a',
+        connections: 'n/a',
+        source: 'n/a',
+      },
+    };
+  } catch (error) {
+    return {
+      dev: {
+        status: 'error',
+        latency: 'n/a',
+        connections: 'n/a',
+        source: 'error',
+      },
+      prod: {
+        status: 'error',
+        latency: 'n/a',
+        connections: 'n/a',
+        source: 'error',
+      },
+    };
+  }
 }
 
 function collectSecurityBotStats() {
@@ -120,8 +186,8 @@ function printStats() {
   
   // Database Stats
   lines.push(`[DATABASE]`);
-  lines.push(`  DEV  → Status: ${statsCache.databases.dev.status}  |  Latency: ${statsCache.databases.dev.latency}  |  Connections: ${statsCache.databases.dev.connections}`);
-  lines.push(`  PROD → Status: ${statsCache.databases.prod.status}  |  Latency: ${statsCache.databases.prod.latency}  |  Connections: ${statsCache.databases.prod.connections}`);
+  lines.push(`  DEV  → Status: ${statsCache.databases.dev.status}  |  Latency: ${statsCache.databases.dev.latency}  |  Source: ${statsCache.databases.dev.source}  |  Connections: ${statsCache.databases.dev.connections}`);
+  lines.push(`  PROD → Status: ${statsCache.databases.prod.status}  |  Latency: ${statsCache.databases.prod.latency}  |  Source: ${statsCache.databases.prod.source}  |  Connections: ${statsCache.databases.prod.connections}`);
   lines.push(SPACER);
   
   // Security Bot Stats
