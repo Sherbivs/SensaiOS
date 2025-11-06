@@ -1199,7 +1199,7 @@ async function notifyServiceRestart() {
       const prismaModule = await import('../shared/prisma.js');
       if (typeof prismaModule.ensurePrisma === 'function') {
         await prismaModule.ensurePrisma();
-        log('info', 'Database connections ready for restart DM stats');
+        log('info', 'Database connections initialized for restart DM stats');
       }
     } catch (error) {
       log('warn', 'Database initialization incomplete for restart DM', {
@@ -1207,19 +1207,54 @@ async function notifyServiceRestart() {
       });
     }
     
-    // Collect stats after DB initialization
+    // Wait for non-default database stats (retry up to 30 seconds)
+    let stats = null;
+    const maxWaitMs = 30_000;
+    const retryDelayMs = 1_000;
+    const startWaitTime = Date.now();
+    
     try {
       const loggerModule = await import('../utils/logger.js');
       if (typeof loggerModule.getFormattedStats === 'function') {
-        const stats = loggerModule.getFormattedStats();
-        message += `\n\n${stats}`;
+        while (Date.now() - startWaitTime < maxWaitMs) {
+          stats = loggerModule.getFormattedStats();
+          
+          // Check if any database is still in "loading" state
+          const hasLoadingStatus = stats.includes('Status: loading');
+          
+          if (!hasLoadingStatus) {
+            log('info', 'Database stats ready for restart DM', {
+              waitTimeMs: Date.now() - startWaitTime,
+            });
+            break;
+          }
+          
+          log('debug', 'Waiting for database stats to complete initialization', {
+            elapsedMs: Date.now() - startWaitTime,
+            remainingMs: maxWaitMs - (Date.now() - startWaitTime),
+          });
+          
+          await wait(retryDelayMs);
+        }
         
-        // Update bot state with current database status
-        if (botState && stats.includes('DEV') && stats.includes('PROD')) {
-          const devMatch = stats.match(/DEV.*?Status:\s*(\w+)/);
-          const prodMatch = stats.match(/PROD.*?Status:\s*(\w+)/);
-          if (devMatch && prodMatch) {
-            updateDatabaseStatus(botState, devMatch[1], prodMatch[1]);
+        // Check if we timed out
+        if (stats && stats.includes('Status: loading')) {
+          log('warn', 'Database stats still loading after timeout, sending DM anyway', {
+            waitTimeMs: Date.now() - startWaitTime,
+            timeoutMs: maxWaitMs,
+          });
+        }
+        
+        if (stats) {
+          message += `\n\n${stats}`;
+          
+          // Update bot state with current database status
+          if (botState && stats.includes('DEV') && stats.includes('PROD')) {
+            const devMatch = stats.match(/DEV.*?Status:\s*(\w+)/);
+            const prodMatch = stats.match(/PROD.*?Status:\s*(\w+)/);
+            if (devMatch && prodMatch) {
+              updateDatabaseStatus(botState, devMatch[1], prodMatch[1]);
+            }
           }
         }
       }
