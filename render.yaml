@@ -14,14 +14,14 @@ services:
     autoDeploy: true
     plan: starter
     envVars:
+      - key: DATABASE_URL
+        sync: false
       - key: DATABASE_POOL_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: connectionString
+        sync: false
       - key: DATABASE_DIRECT_URL
         fromDatabase:
           name: infinity-gauntlet-db
-          property: internalConnectionString
+          property: connectionString
       - key: PRISMA_ACCELERATE_RUNTIME
         value: serverless
       - key: NODE_ENV
@@ -44,14 +44,14 @@ services:
     startCommand: "node dist/worker/outbox.js"
     autoDeploy: true
     envVars:
+      - key: DATABASE_URL
+        sync: false
       - key: DATABASE_POOL_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: connectionString
+        sync: false
       - key: DATABASE_DIRECT_URL
         fromDatabase:
           name: infinity-gauntlet-db
-          property: internalConnectionString
+          property: connectionString
       - key: PRISMA_ACCELERATE_RUNTIME
         value: serverless
       - key: NODE_ENV
@@ -83,14 +83,14 @@ services:
     startCommand: "npm start"
     autoDeploy: true
     envVars:
+      - key: DATABASE_URL
+        sync: false
       - key: DATABASE_POOL_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: connectionString
+        sync: false
       - key: DATABASE_DIRECT_URL
         fromDatabase:
           name: infinity-gauntlet-db
-          property: internalConnectionString
+          property: connectionString
       - key: PRISMA_ACCELERATE_RUNTIME
         value: serverless
       - key: NODE_ENV
@@ -161,14 +161,14 @@ services:
     startCommand: "node dist/worker/cache-refresh.js"
     autoDeploy: true
     envVars:
+      - key: DATABASE_URL
+        sync: false
       - key: DATABASE_POOL_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: connectionString
+        sync: false
       - key: DATABASE_DIRECT_URL
         fromDatabase:
           name: infinity-gauntlet-db
-          property: internalConnectionString
+          property: connectionString
       - key: PRISMA_ACCELERATE_RUNTIME
         value: serverless
       - key: NODE_ENV
@@ -195,14 +195,14 @@ services:
     startCommand: "node dist/worker/data-pipeline.js"
     autoDeploy: true
     envVars:
+      - key: DATABASE_URL
+        sync: false
       - key: DATABASE_POOL_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: connectionString
+        sync: false
       - key: DATABASE_DIRECT_URL
         fromDatabase:
           name: infinity-gauntlet-db
-          property: internalConnectionString
+          property: connectionString
       - key: PRISMA_ACCELERATE_RUNTIME
         value: serverless
       - key: NODE_ENV
@@ -287,6 +287,10 @@ services:
     schedule: "0 0 * * 4"
     envVars:
       - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_POOL_URL
+        sync: false
+      - key: DATABASE_DIRECT_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
@@ -294,10 +298,6 @@ services:
         value: serverless
       - key: LOG_FORMAT
         value: cli
-      - key: DATABASE_INTERNAL_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: internalConnectionString
       - key: GITHUB_REPO
         value: https://github.com/sherbivs/infinity-gauntlet.git
       - key: GITHUB_BRANCH
