@@ -166,8 +166,73 @@ function resolvePaths(storeRoot: string): Paths {
   };
 }
 
+function locatePgBinDirectory(): string | undefined {
+  const candidates: string[] = [];
+
+  const envCandidate = process.env.PG_BIN_DIR?.trim();
+  if (envCandidate) {
+    candidates.push(envCandidate);
+  }
+
+  const repoToolsCandidate = path.join(process.cwd(), "tools", "pgsql17", "pgsql", "bin");
+  candidates.push(repoToolsCandidate);
+
+  const programFiles = process.env.ProgramFiles || "C:/Program Files";
+  const programFilesX86 = process.env["ProgramFiles(x86)"];
+  const versions = ["17", "16", "15"];
+
+  for (const version of versions) {
+    candidates.push(path.join(programFiles, "PostgreSQL", version, "bin"));
+    if (programFilesX86) {
+      candidates.push(path.join(programFilesX86, "PostgreSQL", version, "bin"));
+    }
+  }
+
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+    const normalized = path.resolve(candidate);
+    if (seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+
+    if (!fs.existsSync(normalized)) {
+      continue;
+    }
+
+    const shareCandidates = [
+      path.join(path.dirname(normalized), "share"),
+      path.join(path.dirname(path.dirname(normalized)), "share"),
+    ];
+
+    const shareFound = shareCandidates.some((sharePath) => fs.existsSync(sharePath) && fs.statSync(sharePath).isDirectory());
+
+    if (!shareFound) {
+      console.warn(
+        `[local-db] Skipping Postgres bin directory without share/: ${normalized}. Run "npm run ops:auto-bootstrap-local-db" to install a complete toolchain.`,
+      );
+      continue;
+    }
+
+    return normalized;
+  }
+
+  return undefined;
+}
+
 function resolvePgBinaries(): PgBinaries {
-  const bundleRoot = process.env.PG_BIN_DIR?.trim() || path.join(process.cwd(), "tools", "pgsql17", "pgsql", "bin");
+  const bundleRoot = locatePgBinDirectory();
+  if (!bundleRoot) {
+    throw new Error(
+      "Unable to locate Postgres binaries with a share directory. Set PG_BIN_DIR manually or run \"npm run ops:auto-bootstrap-local-db\" to install dependencies.",
+    );
+  }
+
+  process.env.PG_BIN_DIR = bundleRoot;
+
   const suffix = process.platform === "win32" ? ".exe" : "";
 
   const resolveBinary = (name: string): string => {

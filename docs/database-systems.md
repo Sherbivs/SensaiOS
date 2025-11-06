@@ -1,6 +1,6 @@
 # Database Systems Guide
 
-_Last updated: 2025-11-06T04:05:00Z (UTC) — Rev: 1.14_
+_Last updated: 2025-11-06T04:25:00Z (UTC) — Rev: 1.15_
 
 This guide captures everything engineers need to understand, operate, and extend Infinity Gauntlet’s PostgreSQL footprint across Render, Prisma Accelerate, and local development. Pair it with `DATA-SCHEMA.md` for entity specifics and `ops/DB_BOOTSTRAP.md` for runbook-grade procedures.
 
@@ -183,7 +183,7 @@ Materialized view refresh flows through the helper; direct `REFRESH MATERIALIZED
 - **Auto-sync monitoring:** Review `integrity.alert` logs after each deployment and on the five-minute cadence; investigate non-zero deltas immediately. Run `npm run guard:auto-sync` before releases to confirm secrets + `dex-sync-trigger.json` exist, and capture remediation steps in Tasklist notes when the guard fails.
 - **Auto-sync alerts:** Webhook embeds (`ALERT_WEBHOOK_URL`) fire whenever `integrity.alert` appears after consolidation. Each alert summarizes deltas, links the env files, and calls out the investigation checklist; duplicates are suppressed until counts change or new drift is detected. Startup logs (`integrity.alert.config_ready|config_missing|config`) record whether alerts will dispatch, so confirm Render shows `integrity.alert.config_ready` after deploys. Override destinations with `--alert-webhook`, temporarily disable with `--no-alerts`, or run `--simulate-alert` to validate routing without touching databases.
 - **Control Suite:** `scripts/db_admin.ts` (run via `npm run db:cli`) consolidates counts, status checks, and raw queries while respecting secure env loading.
-- **Local fallback bootstrapper:** `npm run ops:bootstrap-local-db` mirrors the DEV database into `Store/db`, maintains timestamped snapshots, writes `Store/db/local-url.txt`, and logs the active port so Prisma can use the offline cluster as a final fallback when both Render and Accelerate hosts are unreachable. Export `PG_BIN_DIR` to a Postgres installation that includes `bin/` + `share/` (e.g., `C:/Program Files/PostgreSQL/17/bin`) before running the helper, and record the command, timestamp, and URL in Tasklist notes whenever you refresh the mirror.
+- **Local fallback bootstrapper:** `npm run ops:auto-bootstrap-local-db` ensures a complete PostgreSQL toolchain is installed (silent winget install when required), then mirrors the DEV database into `Store/db`, maintains timestamped snapshots, writes `Store/db/local-url.txt`, and logs the active port so Prisma can use the offline cluster as a final fallback when both Render and Accelerate hosts are unreachable. Use `npm run ops:bootstrap-local-db` when the toolchain already exists. Record the command, timestamp, and URL in Tasklist notes whenever you refresh the mirror.
 
 ### Backup & PITR Readiness
 - **Health checks:** Run `npm run db:cli -- status` to confirm the active host and row counts. Inspect `wal_level` and `archive_mode`

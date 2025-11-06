@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T04:05:30Z
-Revision: 2.16
+Timestamp (UTC): 2025-11-06T04:45:30Z
+Revision: 2.18
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Hardened `scripts/ops/bootstrap_local_fallback.ts` to initialize UTF-8 clusters and restore as `postgres@127.0.0.1`, eliminating pg_restore encoding failures.
-- Documented the `PG_BIN_DIR` requirement across AGENTS.md, docs/operations.md, and docs/database-systems.md so operators point the bootstrapper at a full Postgres install before mirroring.
-- Ran `npm run ops:bootstrap-local-db` (2025-11-06T04:03Z) and logged the resulting `Store/db/local-url.txt` pointer in Tasklist.md for the DEX v2 ladder audit trail.
+- Synced scripts/Store/ops router manifests plus master routing tables so the new `npm run ops:auto-bootstrap-local-db` path and PowerShell helpers are discoverable with refreshed 2025-11-06T04:45Z timestamps.
+- Updated `ops/TOUCHMAP.yaml` and Tasklist notes so T13.DEX.V2_PROD_CUTOVER explicitly tracks the automation scripts for guard coverage ahead of the Nov 5 ladder.
+- Clipboard now mirrors the router sync patchset; run guards after edits to confirm the routing surface remains clean.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -61,11 +61,11 @@ Revision: 2.16
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Hardened the offline Postgres bootstrapper, recorded the 2025-11-06 mirror run, and updated operator docs with the PG_BIN_DIR requirement ahead of the DEX v2 ladder.
+Change: Router manifests, master tables, touchmap, and Tasklist now reference the automated fallback scripts (`ensure_postgres_bundle.ps1`, `auto_bootstrap_local_db.ps1`) with refreshed timestamps.
 TasklistDiff: true
-Tests: not run (documentation-only update).
+Tests: not run (routing/documentation sync only).
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with backups, storage metrics, and the 2025-11-06T04:03Z local mirror logged for auditors.
+NEXT: T13.DEX.V2_PROD_CUTOVER - ladder stays READY with automation tooling mapped for guard coverage before the Nov 5 cohorts.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

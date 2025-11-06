@@ -2,7 +2,7 @@
 Title: Tooling
 Purpose: Guard scripts and automation entrypoints.
 Owned Globs: scripts/**
-Last Updated (UTC): 2025-11-05T02:10:00Z
+Last Updated (UTC): 2025-11-06T04:45:00Z
 
 Notes:
 - 2025-02-26: Added dexpack guard documentation and touchmap pointer; see guards/guard_dexpack.sh.
@@ -31,6 +31,7 @@ Notes:
 - 2025-11-03: Added DEX v2 cutover helpers (`npm run ops:dex-v2-backup`, `npm run ops:simulate-flag`, `npm run ops:dex-v2-alert-dry-run`) for backup, flag scheduling, and alert rehearsals ahead of the PROD canary.
 - 2025-11-04: `db_smoke.ts` now loads IG_ENV_FILE secrets, prefers direct Postgres when available, and exposes `--mode` / `DB_SMOKE_MODE` overrides so operators can force Accelerate parity checks.
 - 2025-11-05: Added `ops:bootstrap-local-db` (see `scripts/ops/bootstrap_local_fallback.ts`) to hydrate the Store-hosted Postgres mirror for offline failover.
+- 2025-11-06: Added `scripts/ops/ensure_postgres_bundle.ps1` and `scripts/ops/auto_bootstrap_local_db.ps1`; run `npm run ops:auto-bootstrap-local-db` to silently install Postgres tooling then refresh the local fallback end-to-end.
 
 Subrouters:
 - scripts/dex/ROUTER.md — Data seeding and cache warmup entrypoints.

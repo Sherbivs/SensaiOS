@@ -1,7 +1,7 @@
 # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-11-05T02:10:00Z
+updated_utc: 2025-11-06T04:45:00Z
 
 meta_files:
   - Patch.md
@@ -81,6 +81,8 @@ categories:
     - scripts/**
     - scripts/bootstrap_staging_db.ps1
     - scripts/restore_prisma_postgres.ps1
+    - scripts/ops/ensure_postgres_bundle.ps1
+    - scripts/ops/auto_bootstrap_local_db.ps1
   router_docs:
     - ops/ROUTER.md
     - ops/ARCHIVE/ROUTER.md

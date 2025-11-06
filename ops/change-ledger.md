@@ -6,10 +6,9 @@
 - Updated AGENTS.md, docs/operations.md, and docs/database-systems.md with fallback requirements, including Tasklist logging before the Nov 5 ladder and go/no-go checks that verify the mirror timestamp and URL.
 - Refreshed Prompt.md, Tasklist.md, and ops/NEXT.yaml so T13.DEX.V2_PROD_CUTOVER remains READY with offline recovery coverage captured for auditors.
 
-## 2025-11-06 — Local fallback bootstrapper hardening
 - Taught the bootstrap helper to initialize clusters with `UTF8` encoding and connect as `postgres@127.0.0.1` so pg_restore can ingest species glyphs and maintain foreign key integrity.
-- Documented the requirement to export `PG_BIN_DIR` to a full Postgres install (e.g., `C:/Program Files/PostgreSQL/17/bin`) before mirroring; updated AGENTS.md, docs/operations.md, and docs/database-systems.md accordingly.
-- Captured the 2025-11-06T04:03Z mirror run in Tasklist notes with the resulting `Store/db/local-url.txt` pointer for the DEX v2 ladder audits.
+- Added `scripts/ops/ensure_postgres_bundle.ps1` + `scripts/ops/auto_bootstrap_local_db.ps1`, exposed via `npm run ops:auto-bootstrap-local-db`, to silently install PostgreSQL (winget) and hydrate the fallback in one step.
+- Documented the automation path across AGENTS.md, docs/operations.md, docs/database-systems.md, and package.json, plus recorded the 2025-11-06T04:03Z mirror run in Tasklist notes for ladder audits.
 
 ## 2025-11-05 — Render Storage Quota Guardrails
 - Documented Render Postgres storage ceilings (0.5 GB prod / 1.0 GB dev) in `docs/database-systems.md`, including the Render metrics workflow, SQL size check, and escalation thresholds (60% warn, 80% halt).
