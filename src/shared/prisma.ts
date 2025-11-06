@@ -97,11 +97,16 @@ function describeTransport(usesAccelerate: boolean, runtime: "node" | "serverles
   return usesAccelerate ? `accelerate-${runtime}` : "direct";
 }
 
-let prismaClient: PrismaClient;
-export let prisma: PrismaClient;
+let devPrismaClient: PrismaClient | null = null;
+let prodPrismaClient: PrismaClient | null = null;
+let prismaClient: PrismaClient; // Legacy reference - points to prod
+export let prisma: PrismaClient; // Points to PROD client
+export let devPrisma: PrismaClient | null = null; // DEV client
 let activeCandidate: DatabaseCandidate | null = null;
 let lastClientUsesAccelerate = false;
 let lastPrismaTransport = "direct";
+let devTransport = "unknown";
+let prodTransport = "unknown";
 
 type OptimizeExtender = (client: PrismaClient) => PrismaClient;
 let optimizeExtender: OptimizeExtender | null = null;
@@ -601,21 +606,6 @@ prismaClient = createClient(initialCandidate, bootstrapConfig.nodeEnv);
 prisma = prismaClient;
 activeCandidate = initialCandidate;
 
-if (!globalPrisma.prismaConnectPromise) {
-  const skipInitialConnect = process.env.PRISMA_SKIP_INITIAL_CONNECT === "true";
-  if (skipInitialConnect) {
-    log.info("Skipping Prisma initial connection", {
-      reason: "PRISMA_SKIP_INITIAL_CONNECT",
-    });
-    globalPrisma.prismaConnectPromise = Promise.resolve();
-  } else {
-    globalPrisma.prismaConnectPromise = connectAcrossCandidates().catch((error) => {
-      globalPrisma.prisma = undefined;
-      throw error;
-    });
-  }
-}
-
 export async function ensurePrisma(): Promise<PrismaClient> {
   await globalPrisma.prismaConnectPromise;
   return prisma;
@@ -632,31 +622,166 @@ export type DatabaseStats = {
   status: string;
 };
 
+export type DualDatabaseStats = {
+  dev: DatabaseStats;
+  prod: DatabaseStats;
+};
+
 let lastHeartbeatEvent: PrismaHeartbeatEvent | null = null;
+let lastDevHeartbeatEvent: PrismaHeartbeatEvent | null = null;
+let lastProdHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 
 onPrismaHeartbeat((event) => {
   lastHeartbeatEvent = event;
+  // Route heartbeats based on which client triggered them
+  // For now, assume main heartbeat goes to prod
+  lastProdHeartbeatEvent = event;
 });
 
-export function getDatabaseStats(): DatabaseStats {
-  const candidate = activeCandidate;
-  const source = candidate?.source ?? "unknown";
-  const transport = lastPrismaTransport;
-  const latency = lastHeartbeatEvent?.latencyMs ?? null;
-  
-  let status = "unknown";
-  if (lastHeartbeatEvent) {
-    if (lastHeartbeatEvent.ok) {
-      status = lastHeartbeatEvent.slow ? "degraded" : "healthy";
-    } else {
-      status = lastHeartbeatEvent.consecutiveFailures >= HEARTBEAT_DEFAULTS.errorThreshold ? "error" : "reconnecting";
-    }
+function computeStatus(heartbeat: PrismaHeartbeatEvent | null): string {
+  if (!heartbeat) return "unknown";
+  if (heartbeat.ok) {
+    return heartbeat.slow ? "degraded" : "healthy";
   }
+  return heartbeat.consecutiveFailures >= HEARTBEAT_DEFAULTS.errorThreshold ? "error" : "reconnecting";
+}
+
+export function getDatabaseStats(): DualDatabaseStats {
+  // PROD stats (main connection)
+  const prodCandidate = activeCandidate;
+  const prodSource = prodCandidate?.source ?? "unknown";
+  const prodLatency = lastProdHeartbeatEvent?.latencyMs ?? null;
+  const prodStatus = computeStatus(lastProdHeartbeatEvent);
+  
+  // DEV stats (secondary connection)
+  const devSource = process.env.DATABASE_DIRECT_URL ? "direct" : "unknown";
+  const devLatency = lastDevHeartbeatEvent?.latencyMs ?? null;
+  const devStatus = devPrismaClient ? computeStatus(lastDevHeartbeatEvent) : "offline";
   
   return {
-    source,
-    transport,
-    latency,
-    status,
+    dev: {
+      source: devSource,
+      transport: devTransport,
+      latency: devLatency,
+      status: devStatus,
+    },
+    prod: {
+      source: prodSource,
+      transport: prodTransport,
+      latency: prodLatency,
+      status: prodStatus,
+    },
   };
+}
+
+// Initialize DEV client separately
+async function initializeDevClient(): Promise<void> {
+  const devUrl = process.env.DATABASE_DIRECT_URL?.trim() || process.env.DATABASE_EXTERNAL_URL?.trim();
+  if (!devUrl) {
+    log.info("DEV database connection skipped", { reason: "no DATABASE_DIRECT_URL or DATABASE_EXTERNAL_URL" });
+    return;
+  }
+  
+  try {
+    const usesAccelerate = /^prisma\+/i.test(devUrl);
+    devTransport = usesAccelerate ? "accelerate-node" : "direct";
+    
+    const baseOptions = {
+      log: ["error"] as any,
+      datasources: { db: { url: devUrl } },
+    };
+    
+    devPrismaClient = new PrismaClient(baseOptions);
+    
+    if (usesAccelerate) {
+      devPrismaClient = devPrismaClient.$extends(withAccelerate()) as unknown as PrismaClient;
+    }
+    
+    devPrisma = devPrismaClient;
+    
+    // Connect and probe
+    await devPrismaClient.$connect();
+    const start = process.hrtime.bigint();
+    await devPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+    const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+    
+    lastDevHeartbeatEvent = {
+      ok: true,
+      timestamp: new Date(),
+      latencyMs,
+      slow: latencyMs >= HEARTBEAT_DEFAULTS.warnThresholdMs,
+      consecutiveFailures: 0,
+      source: "startup",
+    };
+    
+    log.info("DEV Prisma client connected", {
+      latencyMs: Number(latencyMs.toFixed(2)),
+      transport: devTransport,
+    });
+    
+    // Start DEV heartbeat
+    setInterval(async () => {
+      if (!devPrismaClient) return;
+      const probeStart = process.hrtime.bigint();
+      try {
+        await devPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+        const probeLatency = Number(process.hrtime.bigint() - probeStart) / 1_000_000;
+        lastDevHeartbeatEvent = {
+          ok: true,
+          timestamp: new Date(),
+          latencyMs: probeLatency,
+          slow: probeLatency >= HEARTBEAT_DEFAULTS.warnThresholdMs,
+          consecutiveFailures: 0,
+          source: "heartbeat",
+        };
+      } catch (error) {
+        const failures = (lastDevHeartbeatEvent?.consecutiveFailures ?? 0) + 1;
+        lastDevHeartbeatEvent = {
+          ok: false,
+          timestamp: new Date(),
+          latencyMs: null,
+          slow: false,
+          consecutiveFailures: failures,
+          error: error instanceof Error ? error : new Error(String(error)),
+          source: "heartbeat",
+        };
+      }
+    }, HEARTBEAT_DEFAULTS.intervalMs).unref();
+    
+  } catch (error) {
+    log.warn("DEV Prisma client connection failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    lastDevHeartbeatEvent = {
+      ok: false,
+      timestamp: new Date(),
+      latencyMs: null,
+      slow: false,
+      consecutiveFailures: 1,
+      error: error instanceof Error ? error : new Error(String(error)),
+      source: "startup",
+    };
+  }
+}
+
+// Initialize both clients
+if (!globalPrisma.prismaConnectPromise) {
+  const skipInitialConnect = process.env.PRISMA_SKIP_INITIAL_CONNECT === "true";
+  if (skipInitialConnect) {
+    log.info("Skipping Prisma initial connection", {
+      reason: "PRISMA_SKIP_INITIAL_CONNECT",
+    });
+    globalPrisma.prismaConnectPromise = Promise.resolve();
+  } else {
+    globalPrisma.prismaConnectPromise = Promise.all([
+      connectAcrossCandidates().catch((error) => {
+        globalPrisma.prisma = undefined;
+        throw error;
+      }),
+      initializeDevClient(),
+    ]).then(() => {
+      prodPrismaClient = prismaClient;
+      prodTransport = lastPrismaTransport;
+    });
+  }
 }

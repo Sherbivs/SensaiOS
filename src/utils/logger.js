@@ -97,34 +97,31 @@ function collectDatabaseStats() {
 
   try {
     const stats = getDatabaseStats();
-    const latencyDisplay = stats.latency !== null 
-      ? `${stats.latency.toFixed(2)}ms` 
+    
+    // Format DEV stats
+    const devLatency = stats.dev.latency !== null 
+      ? `${stats.dev.latency.toFixed(2)}ms` 
       : 'n/a';
     
-    // Determine if this is DEV or PROD based on source/transport
-    const isDev = ['internal', 'local', 'direct'].includes(stats.source) || stats.transport === 'direct';
-    const isProd = ['external', 'pool', 'accelerate'].includes(stats.source) || stats.transport.includes('accelerate');
-    
-    const entry = {
-      status: stats.status,
-      latency: latencyDisplay,
-      connections: 'n/a', // Will be populated when pool stats are available
-      source: stats.source,
-      transport: stats.transport,
-    };
+    // Format PROD stats
+    const prodLatency = stats.prod.latency !== null 
+      ? `${stats.prod.latency.toFixed(2)}ms` 
+      : 'n/a';
     
     return {
-      dev: isDev ? entry : {
-        status: 'unknown',
-        latency: 'n/a',
-        connections: 'n/a',
-        source: 'n/a',
+      dev: {
+        status: stats.dev.status,
+        latency: devLatency,
+        connections: 'n/a', // Will be populated when pool stats are available
+        source: stats.dev.source,
+        transport: stats.dev.transport,
       },
-      prod: isProd ? entry : {
-        status: 'unknown',
-        latency: 'n/a',
-        connections: 'n/a',
-        source: 'n/a',
+      prod: {
+        status: stats.prod.status,
+        latency: prodLatency,
+        connections: 'n/a', // Will be populated when pool stats are available
+        source: stats.prod.source,
+        transport: stats.prod.transport,
       },
     };
   } catch (error) {

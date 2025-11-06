@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-06T14:00:00Z
-Revision: 2.80
+Last Updated (UTC): 2025-11-06T14:15:00Z
+Revision: 2.81
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1213,6 +1213,7 @@ Each task has:
   2025-11-06T13:20Z: Rebuilt logger with spaced output, 15-second auto-refresh displaying Node stats (uptime, memory, CPU), DB stats (DEV/PROD latency & connections), and security bot activity summary.
   2025-11-06T13:40Z: Wired live DB stats into logger by exporting `getDatabaseStats()` from `src/shared/prisma.ts` (source, transport, latency, status from heartbeat events) and populating DEV/PROD entries based on connection source.
   2025-11-06T13:55Z: Exported `getFormattedStats()` from logger and appended Node/DB stats block to restart DM messages sent to RESTART_DM_RECIPIENT so operators see runtime state immediately after restarts.
+  2025-11-06T14:15Z: Implemented dual database connection architecture (DEV + PROD simultaneous) so game server stats always display both databases; separate Prisma clients with independent heartbeats eliminate routing guesswork.
   2025-11-06T04:25Z: Added `npm run ops:auto-bootstrap-local-db` (winget-backed installer + mirror refresh) and updated docs so on-call can run the fallback in one step.
   2025-11-06T04:45Z: Synced router manifests, ops touchmap, and master route tables with the automation tooling so guards resolve the PowerShell helpers during the Nov 5 ladder.
   2025-11-06T04:50Z: Extended T13 touchmap to cover AGENTS/master router edits and reran `scripts/guard_routing.sh` (pass) to confirm coverage ahead of the ladder.
