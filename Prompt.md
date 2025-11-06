@@ -1,10 +1,10 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T14:30:30Z
-Revision: 2.29
+Timestamp (UTC): 2025-11-06T14:45:30Z
+Revision: 2.30
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Standardized dual database connection architecture across documentation (`docs/database-systems.md` added comprehensive "Dual Database Architecture" section with usage examples, table comparing use cases), router manifests (`src/shared/ROUTER.md` updated prisma.ts entry to document dual clients, `masterroutetable.md` added 2025-11-06 note on simultaneous DEV/PROD connections).
-- Added 2025-11-06T14:30Z note to Tasklist documenting standardization work; bumped Patch/Prompt/Tasklist headers (Patch 1.66, Tasklist 2.83, Prompt 2.29).
+- Fixed restart DM timing issue in `src/bot/main.js` by awaiting `ensurePrisma()` before collecting stats, ensuring both DEV and PROD database connections complete initialization before stats are displayed in notification messages (previously showed "loading" status).
+- Added dynamic import of `ensurePrisma` function from `src/shared/prisma.js` with try-catch handling for graceful fallback when database initialization is incomplete.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -60,10 +60,11 @@ Revision: 2.29
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Standardized dual database connection architecture across documentation and router manifests for consistent pattern understanding.
+Change: Fixed restart DM timing by awaiting database initialization before stats collection.
 TasklistDiff: true
-Tests: not run (documentation standardization only).
+Tests: not run (runtime behavior fix, validated by restart DM output).
 Contracts: ON
+NEXT_Status: READY (T13.DEX.V2_PROD_CUTOVER)
 NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with dual DB architecture now documented across all surfaces.
 <!-- PATCHSET:ECHO END -->
 

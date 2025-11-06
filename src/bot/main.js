@@ -47,6 +47,7 @@ import { loadCommands } from '../command-loader.js';
 import { checkAndSet } from '../lib/cooldown.js';
 
 let getFormattedStats = null;
+let ensurePrisma = null;
 
 // Dynamically load getFormattedStats when available
 (async () => {
@@ -57,6 +58,18 @@ let getFormattedStats = null;
     }
   } catch (error) {
     // Logger module not available yet
+  }
+})();
+
+// Dynamically load ensurePrisma to await DB initialization
+(async () => {
+  try {
+    const prismaModule = await import('../shared/prisma.js');
+    if (typeof prismaModule.ensurePrisma === 'function') {
+      ensurePrisma = prismaModule.ensurePrisma;
+    }
+  } catch (error) {
+    // Prisma module not available yet
   }
 })();
 
@@ -1150,22 +1163,32 @@ async function notifyServiceRestart() {
         });
       }
       return;
+  }
+  
+  let message = `🛡️ Security monitor restarted at ${new Date().toLocaleString()}.\nContinuous monitoring is active across ${client.guilds.cache.size} guild(s).`;
+  
+  // Wait for database connections to complete before collecting stats
+  if (typeof ensurePrisma === 'function') {
+    try {
+      await ensurePrisma();
+      log('info', 'Database connections ready for restart DM stats');
+    } catch (error) {
+      log('warn', 'Database initialization incomplete for restart DM', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
-    
-    let message = `🛡️ Security monitor restarted at ${new Date().toLocaleString()}.\nContinuous monitoring is active across ${client.guilds.cache.size} guild(s).`;
-    
-    if (typeof getFormattedStats === 'function') {
-      try {
-        const stats = getFormattedStats();
-        message += `\n\n${stats}`;
-      } catch (error) {
-        log('warn', 'Failed to append stats to restart DM', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
+  }
+  
+  if (typeof getFormattedStats === 'function') {
+    try {
+      const stats = getFormattedStats();
+      message += `\n\n${stats}`;
+    } catch (error) {
+      log('warn', 'Failed to append stats to restart DM', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
-    
-    await user.send(message);
+  }    await user.send(message);
     log('info', 'Restart notification delivered', { target: describeUser(user) });
   } catch (error) {
     log('error', 'Restart notification failed', mergeLogError({

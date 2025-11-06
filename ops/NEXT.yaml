@@ -14,17 +14,17 @@ guidance_when_none: |
 auto_promote_if_empty: true
 
 next_task_id: T13.DEX.V2_PROD_CUTOVER
-reason: "Ready to execute the Nov 5 DEX v2 ladder with dual database architecture standardized across documentation and routers."
+reason: "Ready to execute the Nov 5 DEX v2 ladder with dual database architecture standardized and restart DM timing fixed."
 
 files_hint:
+  - src/bot/main.js
   - docs/database-systems.md
-  - src/shared/ROUTER.md
-  - masterroutetable.md
+  - src/shared/prisma.ts
   - Tasklist.md
   - Prompt.md
 
 queue: []
-timestamp_utc: 2025-11-06T14:30:00Z
+timestamp_utc: 2025-11-06T14:45:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Standardized dual DB connection architecture across docs/database-systems.md (added comprehensive section), router manifests for consistent pattern understanding." 
+note: "Fixed restart DM timing by awaiting ensurePrisma() before stats collection so DEV/PROD connections complete before notification sends." 

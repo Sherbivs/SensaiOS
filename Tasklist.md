@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-06T14:30:00Z
-Revision: 2.83
+Last Updated (UTC): 2025-11-06T14:45:00Z
+Revision: 2.84
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1216,6 +1216,7 @@ Each task has:
   2025-11-06T14:15Z: Implemented dual database connection architecture (DEV + PROD simultaneous) so game server stats always display both databases; separate Prisma clients with independent heartbeats eliminate routing guesswork.
   2025-11-06T14:20Z: Fixed DEV client initialization to handle direct PostgreSQL URLs by temporarily setting DATABASE_URL before creating the client, preventing "must start with protocol prisma://" validation errors.
   2025-11-06T14:30Z: Standardized dual database connection architecture across docs (database-systems.md added comprehensive section), router manifests (src/shared/ROUTER.md, masterroutetable.md), ensuring consistent pattern understanding across the codebase.
+  2025-11-06T14:45Z: Fixed restart DM timing issue by awaiting ensurePrisma() before collecting stats, ensuring both DEV and PROD database connections complete initialization before stats are displayed in notification messages.
   2025-11-06T04:25Z: Added `npm run ops:auto-bootstrap-local-db` (winget-backed installer + mirror refresh) and updated docs so on-call can run the fallback in one step.
   2025-11-06T04:45Z: Synced router manifests, ops touchmap, and master route tables with the automation tooling so guards resolve the PowerShell helpers during the Nov 5 ladder.
   2025-11-06T04:50Z: Extended T13 touchmap to cover AGENTS/master router edits and reran `scripts/guard_routing.sh` (pass) to confirm coverage ahead of the ladder.
