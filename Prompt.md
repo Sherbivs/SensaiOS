@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T04:51:30Z
-Revision: 2.20
+Timestamp (UTC): 2025-11-06T12:35:30Z
+Revision: 2.22
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Synced scripts/Store/ops router manifests plus master routing tables so the new `npm run ops:auto-bootstrap-local-db` path and PowerShell helpers are discoverable with refreshed 2025-11-06T04:45Z timestamps.
-- Extended `ops/TOUCHMAP.yaml` to cover AGENTS.md and masterroutetable.md for T13.DEX.V2_PROD_CUTOVER, updating Tasklist notes and rerunning the routing guard for evidence.
-- Bumped Patch.md/Tasklist headers together (2025-11-06T04:51Z) so guard_meta coupling stays satisfied ahead of the ladder.
+- Added a resilient member caching helper in `src/bot/main.js` that retries chunk fetches and falls back to REST pagination so GuildMembersTimeout no longer interrupts sweeps, CLI debug, or alert resolution.
+- Retargeted `ops/NEXT.yaml` to `T13.DEX.V2_PROD_CUTOVER` with fresh rationale now that the guard seed is cleared and startup sweeps succeed.
+- Bumped Patch.md/Tasklist headers together (2025-11-06T12:35Z) and logged the caching mitigation under the T13 task notes.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -61,11 +61,11 @@ Revision: 2.20
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Touchmap now includes AGENTS/master router entries, Tasklist logs the coverage, Patch.md headers were bumped, and both routing + meta guards succeeded after reruns.
+Change: Introduced chunk-retry + pagination fallback for Discord member hydration and reused it across sweeps, stats, CLI debug, and alert lookup so GuildMembersTimeout stops aborting production workflows.
 TasklistDiff: true
-Tests: "C:/Program Files/Git/bin/bash.exe" scripts/guard_routing.sh (pass); scripts/guard_meta.sh (pass).
+Tests: not run (Discord member fetch path has no automated coverage; manual validation required).
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - ladder stays READY with automation tooling and routing guard coverage confirmed.
+NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY after the caching fix cleared the guard seed.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

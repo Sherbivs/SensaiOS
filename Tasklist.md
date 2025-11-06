@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-06T04:51:00Z
-Revision: 2.74
+Last Updated (UTC): 2025-11-06T12:35:00Z
+Revision: 2.76
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1208,6 +1208,7 @@ Each task has:
   2025-11-05T21:20Z: Captured Render storage quotas (0.5 GB prod / 1.0 GB dev) across database/operations/agent guides and required ladder steps to log Render metrics plus SQL size checks before each cohort.
   2025-11-05T22:45Z: Landed the Store-backed local Postgres mirror (config fallback + `npm run ops:bootstrap-local-db`), updated AGENTS/operations/database docs with logging requirements, and recorded the workflow in Prompt/NEXT/ledger ahead of the cutover window.
   2025-11-06T04:04Z: Ran `npm run ops:bootstrap-local-db` with `PG_BIN_DIR="C:/Program Files/PostgreSQL/17/bin"`; mirror URL `postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db` written to `Store/db/local-url.txt` with snapshot `infinity_gauntlet_db-2025-11-06T04-03-26-898Z.dump`.
+  2025-11-06T12:30Z: Hardened member caching by adding chunk retries plus REST pagination fallback so GuildMembersTimeout no longer aborts sweeps, CLI debug, or alert resolution.
   2025-11-06T04:25Z: Added `npm run ops:auto-bootstrap-local-db` (winget-backed installer + mirror refresh) and updated docs so on-call can run the fallback in one step.
   2025-11-06T04:45Z: Synced router manifests, ops touchmap, and master route tables with the automation tooling so guards resolve the PowerShell helpers during the Nov 5 ladder.
   2025-11-06T04:50Z: Extended T13 touchmap to cover AGENTS/master router edits and reran `scripts/guard_routing.sh` (pass) to confirm coverage ahead of the ladder.
@@ -1343,3 +1344,4 @@ Each task has:
     - README.md highlights the new bootstrap workflow, refreshed meta-router strategy, and AI enablement guidance in Current Status & Operational Guardrails sections.
     - Prompt.md and ops/NEXT.yaml reflect the updated meta-task completion and READY pointer state.
   notes: Outcome — Agent handbook and README now highlight meta-routing assets, bootstrap flow, and AI guardrails so future agents can reference the repository with minimal rediscovery.
+

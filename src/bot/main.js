@@ -50,6 +50,11 @@ import { checkAndSet } from '../lib/cooldown.js';
 const CLI_SWEEP_WARNING_THRESHOLD_SECONDS = 5 * 60;
 const CONTINUOUS_SWEEP_IDLE_DELAY_MS = 15_000;
 const MEMBER_STATS_REFRESH_INTERVAL_MS = 60_000;
+const GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = 60_000;
+const GUILD_MEMBER_FETCH_CHUNK_RETRIES = 2;
+const GUILD_MEMBER_FETCH_PAGE_LIMIT = 1_000;
+const GUILD_MEMBER_FETCH_MAX_PAGES = 200;
+const GUILD_MEMBER_FETCH_REST_DELAY_MS = 250;
 
 // Warm the disk cache on boot so CLI telemetry reflects current assignments.
 cache.cleanOldCache();
@@ -78,6 +83,131 @@ try {
   }
 } catch (err) {
   console.warn('[commands] loader failed:', err?.message || err);
+}
+
+const GUILD_MEMBERS_TIMEOUT_FRAGMENT = "Members didn't arrive in time.";
+
+function isGuildMembersTimeout(error) {
+  if (!error) return false;
+  const code = error.code || error.name;
+  if (code === 'GuildMembersTimeout') {
+    return true;
+  }
+  const message = typeof error.message === 'string' ? error.message : String(error);
+  return message.includes(GUILD_MEMBERS_TIMEOUT_FRAGMENT);
+}
+
+async function ensureGuildMembersCached(guild, options = {}) {
+  const {
+    origin = 'unspecified',
+    chunkTimeoutMs = GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS,
+    chunkRetries = GUILD_MEMBER_FETCH_CHUNK_RETRIES,
+    pageLimit = GUILD_MEMBER_FETCH_PAGE_LIMIT,
+    maxPages = GUILD_MEMBER_FETCH_MAX_PAGES,
+    restDelayMs = GUILD_MEMBER_FETCH_REST_DELAY_MS,
+  } = options;
+
+  const guildSummary = describeGuild(guild);
+  const targetCount = Number.isFinite(guild.memberCount) ? guild.memberCount : null;
+
+  let chunkAttempts = 0;
+  let chunkSucceeded = false;
+
+  while (chunkAttempts < Math.max(1, chunkRetries)) {
+    chunkAttempts += 1;
+    try {
+      await guild.members.fetch({ time: chunkTimeoutMs });
+      chunkSucceeded = true;
+      break;
+    } catch (error) {
+      if (!isGuildMembersTimeout(error)) {
+        throw error;
+      }
+
+      report('Members Fetch Chunk Timeout', mergeReportError({
+        origin,
+        guild: guildSummary,
+        attempt: chunkAttempts,
+        retries: chunkRetries,
+        timeoutMs: chunkTimeoutMs,
+      }, error), chunkAttempts >= chunkRetries ? 'warn' : 'info');
+
+      if (chunkAttempts >= chunkRetries) {
+        break;
+      }
+
+      await wait(Math.min(chunkTimeoutMs, 500 * chunkAttempts));
+    }
+  }
+
+  const cachedAfterChunk = guild.members.cache.size;
+  if (chunkSucceeded && (!targetCount || cachedAfterChunk >= targetCount)) {
+    return guild.members.cache;
+  }
+
+  let after;
+  let previousAfter;
+  let newlyFetched = 0;
+  let pages = 0;
+  let fallbackUsed = false;
+
+  while (pages < maxPages) {
+    const pageOptions = { limit: pageLimit };
+    if (after) {
+      pageOptions.after = after;
+    }
+
+    const batch = await guild.members.fetch(pageOptions);
+    if (batch.size === 0) {
+      break;
+    }
+
+    fallbackUsed = true;
+    newlyFetched += batch.size;
+    pages += 1;
+
+    const lastKey = batch.lastKey();
+    if (!lastKey || lastKey === previousAfter) {
+      break;
+    }
+    previousAfter = lastKey;
+    after = lastKey;
+
+    if (targetCount && guild.members.cache.size >= targetCount) {
+      break;
+    }
+
+    if (restDelayMs > 0) {
+      await wait(restDelayMs);
+    }
+  }
+
+  if (fallbackUsed) {
+    const cached = guild.members.cache.size;
+    report('Members Fetch Paginated', {
+      origin,
+      guild: guildSummary,
+      cachedMembers: cached,
+      targetMembers: targetCount ?? 'unknown',
+      pages,
+      newlyFetched,
+      chunkAttempts,
+    }, (!targetCount || cached >= targetCount) ? 'info' : 'warn');
+
+    if (targetCount && cached < targetCount) {
+      log('warn', 'Member pagination completed before reaching reported memberCount', {
+        origin,
+        guild: guildSummary,
+        cachedMembers: cached,
+        targetMembers: targetCount,
+        pages,
+        newlyFetched,
+        chunkAttempts,
+      });
+    }
+  }
+
+  return guild.members.cache;
 }
 let loginPromise = null;
 let dripAlertManager = null;
@@ -223,7 +353,7 @@ async function refreshMemberStats(reason = 'unspecified') {
           complete = true;
         } else if (memberCount > 0 && memberCount <= 1000) {
           try {
-            await guild.members.fetch();
+            await ensureGuildMembersCached(guild, { origin: `member-stats:${reason}` });
             roleCount = guild.members.cache.filter((member) => member.roles.cache.has(role.id)).size;
             complete = true;
           } catch (err) {
@@ -1648,7 +1778,7 @@ async function sweepGuild(guild, origin) {
 
   try {
     try {
-      await guild.members.fetch();
+      await ensureGuildMembersCached(guild, { origin: `sweep:${origin}` });
       report('Members Fetched', {
         guild: guildSummary,
         cachedMembers: guild.members.cache.size
@@ -1790,7 +1920,7 @@ async function runCliDebugDump() {
     }
 
     try {
-      await guild.members.fetch();
+      await ensureGuildMembersCached(guild, { origin: 'cli-debug' });
     } catch (error) {
       report('CLI Debug Members Fetch Error', mergeReportError({
         guild: guildSummary,
@@ -2255,7 +2385,7 @@ async function resolveAlertUser(spec) {
   // Search guild members if not found in user cache
   for (const [, guild] of client.guilds.cache) {
     try {
-      const members = await guild.members.fetch();
+      const members = await ensureGuildMembersCached(guild, { origin: 'alert-resolve' });
       for (const [, member] of members) {
         const u = member.user;
         if ((u.tag && u.tag.toLowerCase() === needle) || u.username.toLowerCase() === needle || member.displayName.toLowerCase() === needle) {
