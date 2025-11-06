@@ -96,6 +96,10 @@ T6.2:
 T6.3:
   - "src/bot/main.js"
   - "src/bot/dripAlerts.js"
+  - "src/bot/state/**"
+  - "src/utils/logger.js"
+  - "render.yaml"
+  - "Store/security-bot-state/**"
 
 T7.1:
   - "src/commands/home.js"
@@ -417,6 +421,18 @@ T14.CACHE.OBS:
   - "AGENTS.md"
   - "scripts/**"
   - "Prompt.md"
+
+T14.SECURITY.TELEMETRY:
+  - "src/utils/logger.js"
+  - "src/bot/main.js"
+  - "src/bot/state/persistence.js"
+  - "render.yaml"
+  - "AGENTS.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/TOUCHMAP.yaml"
+  - "Store/security-bot-state/schema.md"
+  - "docs/security-bot-state.md"
 
 PBSL.SKELETON:
   - "docs/PBSL.md"

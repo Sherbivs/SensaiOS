@@ -136,16 +136,35 @@ Store/security-bot-state/
 ```
 
 **Implementation:**
-- `src/bot/state/persistence.js` — Core save/load/shutdown lifecycle
+- `src/bot/state/persistence.js` — Core save/load/shutdown lifecycle with defensive directory creation
 - `src/bot/state/stats.js` — Cumulative statistics tracking
 - `src/bot/state/timeline.js` — Activity timeline formatting
 - `src/bot/state/context.js` — Guild monitoring context restoration
 
 **Integration Points:**
-- Startup: `initializeState()` in `src/bot/main.js` ClientReady event
+- Startup: `initializeState()` in `src/bot/main.js` ClientReady event, exposes `global.securityBotState` and `global.securityBotClient` for telemetry
 - Runtime: `recordSweep()`, `recordPermissionChange()`, `recordAlert()` after operations
 - Shutdown: `shutdownState()` on SIGTERM/SIGINT/uncaughtException
 - Admin: `/ops state` command in `src/bot/ops/admin.ts`
+- Telemetry: `src/utils/logger.js` reads `global.securityBotState` for comprehensive stats display
+
+**Persistent Disk Configuration (Render):**
+The `infinity-gauntlet-security` worker has a 1GB persistent disk mounted at `/opt/render/project/src/Store` to ensure state files survive deployments:
+
+```yaml
+# render.yaml
+- type: worker
+  name: infinity-gauntlet-security
+  disks:
+    - name: security-state
+      mountPath: /opt/render/project/src/Store
+      sizeGB: 1
+```
+
+State files persist at `/opt/render/project/src/Store/security-bot-state/`:
+- `current.json` — Active runtime state
+- `previous.json` — Backup from last restart
+- `snapshots/*.json` — Timestamped backups (7-day retention)
 
 **Usage Patterns:**
 
@@ -153,8 +172,10 @@ Store/security-bot-state/
 import { initializeState, saveState, recordSweep } from './state/persistence.js';
 import { getStatsSummary } from './state/stats.js';
 
-// Startup
+// Startup - state exposed to globals for telemetry
 botState = await initializeState();
+global.securityBotState = botState;
+global.securityBotClient = client;
 autoSaveInterval = startAutoSave(botState);
 
 // After sweep
@@ -168,7 +189,13 @@ process.on('SIGTERM', async () => {
 });
 ```
 
-See `docs/security-bot-state.md` for comprehensive state persistence documentation including JSON schema, lifecycle, error handling, and troubleshooting.
+**Observability:**
+- Logger auto-refreshes security bot stats from `global.securityBotState` every 15 seconds
+- Restart DMs include: restart count, time since last restart, recent activity summary
+- `/ops state` command displays full operational history with cumulative metrics
+- Render logs show: status (online/initializing/n/a), guilds, last sweep time, assignments, failures
+
+See `docs/security-bot-state.md` and `Store/security-bot-state/schema.md` for comprehensive state persistence documentation including JSON schema, lifecycle, error handling, and troubleshooting.
 
 ## Database Replication Architecture (Phase 16)
 
@@ -295,10 +322,12 @@ See `docs/db-replication-architecture.md` for comprehensive architecture documen
 - `render.yaml` defines services:
   - `infinity-gauntlet-bot` (web) and `infinity-gauntlet` (worker) run the TypeScript entry (`npm start` -> `tsx src/index.ts`).
   - `infinity-gauntlet` worker now launches both the Discord bot (`src/bot/index.ts`) and the legacy security bot (`src/bot/main.js`) so DripTVDD DM alerts stay online.
+  - `infinity-gauntlet-security` (worker) runs security bot with 1GB persistent disk at `/opt/render/project/src/Store` for state persistence.
   - `pokedex-cache-worker` handles reference data refresh with persistent disks.
 - The environment expects managed database URLs. See `src/env/ensure-db-url.ts` and `README.md` for override logic.
 - Render Postgres storage quotas sit at 0.5 GB (prod) and 1.0 GB (dev); before cutovers capture Render metrics → Storage Utilization plus `npm run db:cli -- query "SELECT pg_size_pretty(pg_database_size(current_database()))";` output in Tasklist notes and escalate if usage exceeds 60%.
 - Security bot alert routing lives in `src/bot/main.js` and `src/bot/dripAlerts.js`. DM alert recipients/timezones resolve via `src/config/env.js`.
+- Security bot telemetry integration: `src/utils/logger.js` reads `global.securityBotState` and `global.securityBotClient` for comprehensive stats display in Render logs.
 
 ## Done Criteria (Per Task)
 - Diff, tests, and reviewer checklist passed.
