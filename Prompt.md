@@ -1,10 +1,10 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T14:20:30Z
-Revision: 2.28
+Timestamp (UTC): 2025-11-06T14:30:30Z
+Revision: 2.29
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Fixed DEV Prisma client initialization in `src/shared/prisma.ts` to handle direct PostgreSQL URLs (DATABASE_DIRECT_URL) by temporarily swapping DATABASE_URL during client creation, preventing "must start with protocol prisma://" validation errors.
-- Added 2025-11-06T14:20Z note to Tasklist documenting the direct URL fix; bumped Patch/Prompt/Tasklist headers (Patch 1.66, Tasklist 2.82, Prompt 2.28).
+- Standardized dual database connection architecture across documentation (`docs/database-systems.md` added comprehensive "Dual Database Architecture" section with usage examples, table comparing use cases), router manifests (`src/shared/ROUTER.md` updated prisma.ts entry to document dual clients, `masterroutetable.md` added 2025-11-06 note on simultaneous DEV/PROD connections).
+- Added 2025-11-06T14:30Z note to Tasklist documenting standardization work; bumped Patch/Prompt/Tasklist headers (Patch 1.66, Tasklist 2.83, Prompt 2.29).
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -60,11 +60,11 @@ Revision: 2.28
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Fixed DEV Prisma client initialization to handle direct PostgreSQL URLs by temporarily setting DATABASE_URL during client creation.
+Change: Standardized dual database connection architecture across documentation and router manifests for consistent pattern understanding.
 TasklistDiff: true
-Tests: not run (database initialization fix only).
+Tests: not run (documentation standardization only).
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with both databases now connecting properly.
+NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with dual DB architecture now documented across all surfaces.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

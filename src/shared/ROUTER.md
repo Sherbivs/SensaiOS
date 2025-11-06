@@ -2,12 +2,12 @@
 Title: Shared Runtime & Utilities
 Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, and shared data access layers.
 Owned Globs: src/shared/**
-Last Updated (UTC): 2025-11-02T04:12:00Z
+Last Updated (UTC): 2025-11-06T14:30:00Z
 
 Notes:
 - `config.ts` now exposes `loadConfig()` that promotes Render's `DATABASE_INTERNAL_URL`, forbids localhost hosts in production, falls back to direct PostgreSQL URLs when Accelerate is unavailable, and surfaces cache/runtime settings.
 - `config.ts` also reads `DATABASE_LOCAL_URL` or `Store/db/local-url.txt` when present so Prisma can fall back to the Store-hosted Postgres mirror when remote datasources fail.
-- `prisma.ts` initializes a singleton Prisma client, validates URLs early, and shares `$connect()` across importers.
+- `prisma.ts` initializes **dual Prisma clients** (`prisma` for PROD/Accelerate, `devPrisma` for DEV/direct PostgreSQL), validates URLs early, connects both on startup, and shares `$connect()` across importers. Exports `getDatabaseStats()` returning `DualDatabaseStats` with separate telemetry for DEV and PROD connections including source, transport, latency, and status.
 - `cache/memory.ts` holds the default TTL cache backend used by the bot and background worker until Redis wiring lands; see src/shared/cache/ROUTER.md for backend internals.
 - `outbox.ts` now wraps the event bus helpers so legacy drains can enqueue/claim messages while the new engine comes online.
 - `log.ts` remains the structured logger, consuming the shared runtime config.
@@ -17,7 +17,7 @@ Notes:
 
 Areas:
 - config.ts — runtime/env loader
-- prisma.ts — Prisma client singleton + ensure helper
+- prisma.ts — Dual Prisma client singleton (PROD `prisma` + DEV `devPrisma`), ensures both connections, exports `getDatabaseStats(): DualDatabaseStats`
 - cache/memory.ts — memory cache implementation
 - outbox.ts — compatibility helpers layered on the event bus
 - log.ts — structured logger used across bots/workers

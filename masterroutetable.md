@@ -243,14 +243,15 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Shared Runtime & Utilities (`src/shared/ROUTER.md`)
 - Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, and event bus compatibility helpers.
 - Owned Globs: `src/shared/**`
-- Last Updated: 2025-10-29T01:50:00Z
+- Last Updated: 2025-11-06T14:30:00Z
 - Key Files:
   - `config.ts` — `loadConfig()` promotes Render internal URLs and enforces runtime invariants.
-  - `prisma.ts` — singleton Prisma client with early `$connect()` and URL validation.
+  - `prisma.ts` — dual Prisma clients (`prisma` for PROD/Accelerate + `devPrisma` for DEV/direct), both connected on startup, exports `getDatabaseStats()` returning `DualDatabaseStats` with separate DEV/PROD telemetry.
   - `cache/memory.ts` — default TTL cache backing bots and workers.
   - `outbox.ts` — enqueue/dequeue helpers layered on `BusMessage` records for backwards compatibility.
   - `log.ts` — structured logger leveraging shared runtime metadata.
 - Notes:
+  - 2025-11-06: `prisma.ts` maintains simultaneous DEV (direct PostgreSQL via `DATABASE_DIRECT_URL`) and PROD (Accelerate via `DATABASE_POOL_URL`) connections with independent heartbeat tracking; `getDatabaseStats()` surfaces both in logger output.
   - 2025-10-29: `config.ts` and `prisma.ts` surface Accelerate env hints, auto-select edge/node runtimes, and capture transport telemetry for status CLI output.
 - Last Task ID: META.RUNTIME.BLUEPRINT_APPLY
 

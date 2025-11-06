@@ -1,6 +1,6 @@
 # Database Systems Guide
 
-_Last updated: 2025-11-06T04:25:00Z (UTC) — Rev: 1.15_
+_Last updated: 2025-11-06T14:30:00Z (UTC) — Rev: 1.16_
 
 This guide captures everything engineers need to understand, operate, and extend Infinity Gauntlet’s PostgreSQL footprint across Render, Prisma Accelerate, and local development. Pair it with `DATA-SCHEMA.md` for entity specifics and `ops/DB_BOOTSTRAP.md` for runbook-grade procedures.
 
@@ -57,7 +57,85 @@ When none of the managed URLs connect successfully, the loader falls back to `DA
 - Export `PRISMA_ACCELERATE_RUNTIME=serverless` in Render/CI so Accelerate URLs opt into the serverless runtime (covered in `render.yaml`).
 - Provide `OPTIMIZE_API_KEY` (Render secrets + local `.env` overrides) when you want Prisma Optimize telemetry; Render services expose the key via `sync: false` env vars so the dashboard secret can be attached per service.
 - Optional: override the Optimize endpoint with `OPTIMIZE_API_URL`, but keep it `https://`—non-HTTPS overrides are ignored to avoid leaking telemetry over insecure transport.
-- Accelerate queries support `cacheStrategy` for response caching; tune TTLs per workload and monitor usage in the Prisma “Insights” dashboard. Set `PRISMA_CLIENT_ENGINE_TYPE=dataproxy` when running scripts directly.
+- Accelerate queries support `cacheStrategy` for response caching; tune TTLs per workload and monitor usage in the Prisma "Insights" dashboard. Set `PRISMA_CLIENT_ENGINE_TYPE=dataproxy` when running scripts directly.
+
+### Dual Database Architecture (DEV + PROD Simultaneous)
+
+As of 2025-11-06, the runtime maintains **two separate Prisma clients connected simultaneously**:
+
+- **`prisma`** (PROD) — Connected to `DATABASE_POOL_URL` or `DATABASE_ACCELERATE_URL`; uses Prisma Accelerate for query caching and connection pooling. This is the primary client for production operations.
+- **`devPrisma`** (DEV) — Connected to `DATABASE_DIRECT_URL` or `DATABASE_EXTERNAL_URL`; bypasses Accelerate and connects directly to PostgreSQL. Used for development queries, migrations, and observability.
+
+**Connection Initialization:**
+
+Both clients initialize on startup via `src/shared/prisma.ts`:
+
+```ts
+import { prisma, devPrisma, getDatabaseStats } from "../shared/prisma.js";
+
+// PROD client - use for production game operations
+const users = await prisma.user.findMany();
+
+// DEV client - use for development/debugging (may be null if DATABASE_DIRECT_URL unset)
+if (devPrisma) {
+  const devUsers = await devPrisma.user.findMany();
+}
+
+// Get stats for both databases
+const stats = getDatabaseStats();
+console.log(`DEV: ${stats.dev.status} | PROD: ${stats.prod.status}`);
+```
+
+**Stats & Observability:**
+
+`getDatabaseStats()` returns a `DualDatabaseStats` object containing telemetry for both connections:
+
+```ts
+{
+  dev: {
+    source: "direct",      // or "external", "local"
+    transport: "direct",   // or "accelerate-node"
+    latency: 12.5,         // milliseconds (null if no heartbeat yet)
+    status: "healthy"      // "healthy", "degraded", "reconnecting", "error", "offline", "unknown"
+  },
+  prod: {
+    source: "pool",        // or "accelerate", "env"
+    transport: "accelerate-node",
+    latency: 45.2,
+    status: "healthy"
+  }
+}
+```
+
+The logger (`src/utils/logger.js`) auto-refreshes these stats every 15 seconds and displays them in console output. Restart DM messages also include the stats block so operators see runtime state immediately.
+
+**When to Use Each Client:**
+
+| Use Case | Client | Reason |
+| --- | --- | --- |
+| Production game operations (battles, encounters, trainer CRUD) | `prisma` | Accelerate caching, connection pooling, high availability |
+| Development debugging & testing | `devPrisma` | Direct access, no caching, simpler connection |
+| Migrations (`prisma migrate deploy`) | DEV connection (via `DATABASE_DIRECT_URL`) | Prisma requires direct PostgreSQL URL for DDL |
+| Stats/observability | Both (via `getDatabaseStats()`) | Simultaneous visibility into both environments |
+
+**Environment Variables:**
+
+- **`DATABASE_POOL_URL`** or **`DATABASE_ACCELERATE_URL`** → PROD client (`prisma`)
+- **`DATABASE_DIRECT_URL`** or **`DATABASE_EXTERNAL_URL`** → DEV client (`devPrisma`)
+
+If `DATABASE_DIRECT_URL` is unset, the DEV client remains `null` and the runtime continues with PROD-only operations. Both clients support independent heartbeat monitoring tracked via separate `lastDevHeartbeatEvent` and `lastProdHeartbeatEvent` state.
+
+**Exports:**
+
+```ts
+// src/shared/prisma.ts
+export let prisma: PrismaClient;              // PROD client
+export let devPrisma: PrismaClient | null;    // DEV client (null if no direct URL)
+export function getDatabaseStats(): DualDatabaseStats;
+export async function ensurePrisma(): Promise<PrismaClient>; // Returns PROD client after connection
+```
+
+See `src/models/index.ts` for additional helpers that re-export both clients for downstream consumption.
 
 ## 3. Schema Overview
 

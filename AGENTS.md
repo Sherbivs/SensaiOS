@@ -57,6 +57,49 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 
 Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describe the secure loading order and available commands. These tools run locally only; do not expose the secure env path in CI or production.
 
+### Dual Database Connection Architecture (Runtime)
+
+**As of 2025-11-06**, the production runtime maintains **two Prisma clients connected simultaneously**:
+
+- **`prisma`** (PROD) — Connected to `DATABASE_POOL_URL` or `DATABASE_ACCELERATE_URL`; uses Prisma Accelerate for query caching, connection pooling, and high availability. This is the primary client for all production game operations.
+- **`devPrisma`** (DEV) — Connected to `DATABASE_DIRECT_URL` or `DATABASE_EXTERNAL_URL`; bypasses Accelerate and connects directly to PostgreSQL. Used for development queries, observability, and migration workflows. May be `null` if no direct URL is configured.
+
+Both clients initialize on startup via `src/shared/prisma.ts` and maintain independent heartbeat monitoring. The logger (`src/utils/logger.js`) auto-refreshes stats every 15 seconds, displaying telemetry for both connections in console output and restart DM messages.
+
+**Usage Patterns:**
+
+```typescript
+import { prisma, devPrisma, getDatabaseStats } from "../shared/prisma.js";
+
+// PROD operations (battles, encounters, trainer CRUD)
+const users = await prisma.user.findMany();
+
+// DEV operations (debugging, testing) - check for null first
+if (devPrisma) {
+  const devUsers = await devPrisma.user.findMany();
+}
+
+// Get telemetry for both databases
+const stats = getDatabaseStats();
+console.log(`DEV: ${stats.dev.status} | PROD: ${stats.prod.status}`);
+```
+
+**Environment Variable Mapping:**
+
+- `DATABASE_POOL_URL` or `DATABASE_ACCELERATE_URL` → PROD client (`prisma`)
+- `DATABASE_DIRECT_URL` or `DATABASE_EXTERNAL_URL` → DEV client (`devPrisma`)
+
+**When to Use Each Client:**
+
+| Use Case | Client | Reason |
+| --- | --- | --- |
+| Production game operations | `prisma` | Accelerate caching, pooling, HA |
+| Development/debugging | `devPrisma` | Direct access, no caching layer |
+| Migrations (`prisma migrate deploy`) | DEV connection via `DATABASE_DIRECT_URL` | Prisma requires direct PostgreSQL for DDL |
+| Stats/observability | Both via `getDatabaseStats()` | Simultaneous visibility |
+
+See `docs/database-systems.md` for comprehensive dual architecture documentation including `DualDatabaseStats` type definitions, heartbeat tracking, and connection initialization flows.
+
 ## Capabilities & Routing Hints
 - **planner:** break down vague goals; produce measurable milestones and resource budgets.
 - **researcher:** search, synthesize sources; attach citations & uncertainty notes.
