@@ -137,9 +137,12 @@ export function getMonitoringStatus(state) {
  * Build restart summary showing continuity
  */
 export function buildRestartSummary(state) {
-  const now = Date.now();
-  const restartTime = new Date(state.metadata.lastRestart).getTime();
-  const timeSinceRestart = now - restartTime;
+  // Calculate time since previous restart (not current restart)
+  const previousRestartTime = state.metadata.previousRestart 
+    ? new Date(state.metadata.previousRestart).getTime()
+    : new Date(state.metadata.lastRestart).getTime();
+  const currentRestartTime = new Date(state.metadata.lastRestart).getTime();
+  const timeSinceRestart = currentRestartTime - previousRestartTime;
   
   const summary = {
     restartNumber: state.cumulative.restartCount,

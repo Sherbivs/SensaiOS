@@ -247,10 +247,14 @@ export async function initializeState() {
   
   // Create new runtime state
   const now = new Date().toISOString();
+  const previousRestartTime = previousState.metadata?.lastRestart || now;
+  const previousUptime = previousState.runtime?.currentUptime || 0;
+  
   const state = {
     ...previousState,
     metadata: {
       ...previousState.metadata,
+      previousRestart: previousRestartTime, // Preserve previous restart time for continuity reporting
       lastRestart: now,
       processStartTime: now,
       hostname: process.env.RENDER_SERVICE_NAME || 'local',
@@ -258,7 +262,8 @@ export async function initializeState() {
     },
     cumulative: {
       ...previousState.cumulative,
-      restartCount: (previousState.cumulative.restartCount || 0) + 1
+      restartCount: (previousState.cumulative.restartCount || 0) + 1,
+      totalUptime: (previousState.cumulative.totalUptime || 0) + previousUptime
     },
     runtime: {
       currentUptime: 0,
