@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T04:45:30Z
-Revision: 2.18
+Timestamp (UTC): 2025-11-06T04:50:45Z
+Revision: 2.19
 
 ## Last Repo Changes (since previous Prompt.md revision)
 - Synced scripts/Store/ops router manifests plus master routing tables so the new `npm run ops:auto-bootstrap-local-db` path and PowerShell helpers are discoverable with refreshed 2025-11-06T04:45Z timestamps.
-- Updated `ops/TOUCHMAP.yaml` and Tasklist notes so T13.DEX.V2_PROD_CUTOVER explicitly tracks the automation scripts for guard coverage ahead of the Nov 5 ladder.
-- Clipboard now mirrors the router sync patchset; run guards after edits to confirm the routing surface remains clean.
+- Extended `ops/TOUCHMAP.yaml` to cover AGENTS.md and masterroutetable.md for T13.DEX.V2_PROD_CUTOVER, updating Tasklist notes and rerunning the routing guard for evidence.
+- `scripts/guard_routing.sh` now passes with the expanded coverage; continue running it after router/doc changes to keep metadata aligned.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -61,11 +61,11 @@ Revision: 2.18
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Router manifests, master tables, touchmap, and Tasklist now reference the automated fallback scripts (`ensure_postgres_bundle.ps1`, `auto_bootstrap_local_db.ps1`) with refreshed timestamps.
+Change: Touchmap now includes AGENTS/master router entries, Tasklist logs the coverage, and `scripts/guard_routing.sh` succeeded after the update.
 TasklistDiff: true
-Tests: not run (routing/documentation sync only).
+Tests: "C:/Program Files/Git/bin/bash.exe" scripts/guard_routing.sh (pass).
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - ladder stays READY with automation tooling mapped for guard coverage before the Nov 5 cohorts.
+NEXT: T13.DEX.V2_PROD_CUTOVER - ladder stays READY with automation tooling and routing guard coverage confirmed.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

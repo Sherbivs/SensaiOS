@@ -308,9 +308,11 @@ T13.DEX.V2_DEV_ENABLE:
 
 T13.DEX.V2_PROD_CUTOVER:
   - "render.yaml"
+  - "AGENTS.md"
   - "docs/dex-v2-design.md"
   - "docs/operations.md"
   - "docs/database-systems.md"
+  - "masterroutetable.md"
   - "Tasklist.md"
   - "Prompt.md"
   - "ops/NEXT.yaml"
