@@ -686,15 +686,29 @@ async function initializeDevClient(): Promise<void> {
     const usesAccelerate = /^prisma\+/i.test(devUrl);
     devTransport = usesAccelerate ? "accelerate-node" : "direct";
     
-    const baseOptions = {
-      log: ["error"] as any,
-      datasources: { db: { url: devUrl } },
-    };
-    
-    devPrismaClient = new PrismaClient(baseOptions);
-    
+    // For direct PostgreSQL URLs, we need to configure differently
     if (usesAccelerate) {
+      const baseOptions = {
+        log: ["error"] as any,
+        datasourceUrl: devUrl,
+      };
+      devPrismaClient = new PrismaClient(baseOptions);
       devPrismaClient = devPrismaClient.$extends(withAccelerate()) as unknown as PrismaClient;
+    } else {
+      // Direct connection - set DATABASE_URL temporarily for this client
+      const originalDatabaseUrl = process.env.DATABASE_URL;
+      process.env.DATABASE_URL = devUrl;
+      
+      const baseOptions = {
+        log: ["error"] as any,
+      };
+      
+      devPrismaClient = new PrismaClient(baseOptions);
+      
+      // Restore original DATABASE_URL
+      if (originalDatabaseUrl) {
+        process.env.DATABASE_URL = originalDatabaseUrl;
+      }
     }
     
     devPrisma = devPrismaClient;

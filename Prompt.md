@@ -1,11 +1,10 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T14:15:30Z
-Revision: 2.27
+Timestamp (UTC): 2025-11-06T14:20:30Z
+Revision: 2.28
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Implemented dual database connection architecture in `src/shared/prisma.ts` so DEV and PROD Prisma clients stay connected simultaneously; separate heartbeat tracking eliminates routing ambiguity for game server observability.
-- Simplified `src/utils/logger.js` database stats collection to query both clients directly via `getDatabaseStats()`, which now returns `{ dev: {...}, prod: {...} }` instead of requiring source-based routing logic.
-- Added 2025-11-06T14:15Z note to Tasklist documenting the dual DB connection pattern; bumped Patch/Prompt headers (Tasklist 2.81, Prompt 2.27) reflecting the change.
+- Fixed DEV Prisma client initialization in `src/shared/prisma.ts` to handle direct PostgreSQL URLs (DATABASE_DIRECT_URL) by temporarily swapping DATABASE_URL during client creation, preventing "must start with protocol prisma://" validation errors.
+- Added 2025-11-06T14:20Z note to Tasklist documenting the direct URL fix; bumped Patch/Prompt/Tasklist headers (Patch 1.66, Tasklist 2.82, Prompt 2.28).
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -61,11 +60,11 @@ Revision: 2.27
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Implemented dual database connection architecture (DEV + PROD simultaneous) so game server stats always display both databases without routing logic.
+Change: Fixed DEV Prisma client initialization to handle direct PostgreSQL URLs by temporarily setting DATABASE_URL during client creation.
 TasklistDiff: true
-Tests: not run (observability infrastructure change only).
+Tests: not run (database initialization fix only).
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with both databases visible in stats.
+NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with both databases now connecting properly.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

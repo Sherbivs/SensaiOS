@@ -14,7 +14,7 @@ guidance_when_none: |
 auto_promote_if_empty: true
 
 next_task_id: T13.DEX.V2_PROD_CUTOVER
-reason: "Ready to execute the Nov 5 DEX v2 ladder with dual database connections ensuring both DEV and PROD stats display simultaneously."
+reason: "Ready to execute the Nov 5 DEX v2 ladder with dual database connections (DEV direct URL + PROD Accelerate) both working."
 
 files_hint:
   - src/shared/prisma.ts
@@ -23,7 +23,7 @@ files_hint:
   - Prompt.md
 
 queue: []
-timestamp_utc: 2025-11-06T14:15:00Z
+timestamp_utc: 2025-11-06T14:20:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Dual DB connection architecture (DEV + PROD simultaneous) implemented so game server stats always show both databases." 
+note: "Fixed DEV client initialization to handle direct PostgreSQL URLs via temporary DATABASE_URL swap during client creation." 
