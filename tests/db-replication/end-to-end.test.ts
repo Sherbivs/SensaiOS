@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { PrismaClient } from "@prisma/client";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 /**
  * End-to-End Testing Suite for Database Replication System

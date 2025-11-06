@@ -167,14 +167,80 @@ function collectDatabaseStats() {
 }
 
 function collectSecurityBotStats() {
-  // Placeholder - will be populated by security bot when available
-  return {
-    status: 'unknown',
-    guilds: 0,
-    lastSweep: 'never',
-    assignments: 0,
-    failures: 0,
-  };
+  try {
+    // Try to import security bot state if available
+    const securityBotModule = require('../bot/main.js');
+    const botState = securityBotModule?.botState;
+    const client = securityBotModule?.client;
+    
+    if (!botState && !client) {
+      // Security bot not initialized yet or disabled
+      return {
+        status: 'disabled',
+        guilds: 0,
+        lastSweep: 'never',
+        assignments: 0,
+        failures: 0,
+      };
+    }
+    
+    // Collect runtime stats from client
+    const guildCount = client?.guilds?.cache?.size || 0;
+    const isReady = client?.isReady?.() || false;
+    
+    // Collect state-based stats if available
+    if (botState?.stats) {
+      const totalSweeps = botState.stats.totalSweeps || 0;
+      const totalPermissionChanges = botState.stats.totalPermissionChanges || 0;
+      const totalAlerts = botState.stats.totalAlerts || 0;
+      
+      // Get last sweep time from timeline or guild context
+      let lastSweepTime = 'never';
+      if (botState.timeline?.events?.length > 0) {
+        const sweepEvents = botState.timeline.events
+          .filter(e => e.type === 'sweep')
+          .sort((a, b) => b.timestamp - a.timestamp);
+        
+        if (sweepEvents.length > 0) {
+          const lastSweep = sweepEvents[0];
+          const elapsed = Date.now() - lastSweep.timestamp;
+          if (elapsed < 60000) {
+            lastSweepTime = `${Math.round(elapsed / 1000)}s ago`;
+          } else if (elapsed < 3600000) {
+            lastSweepTime = `${Math.round(elapsed / 60000)}m ago`;
+          } else {
+            lastSweepTime = `${Math.round(elapsed / 3600000)}h ago`;
+          }
+        }
+      }
+      
+      return {
+        status: isReady ? 'online' : 'initializing',
+        guilds: guildCount,
+        lastSweep: lastSweepTime,
+        assignments: totalPermissionChanges,
+        failures: totalAlerts,
+      };
+    }
+    
+    // Fallback: basic stats from client only
+    return {
+      status: isReady ? 'online' : 'connecting',
+      guilds: guildCount,
+      lastSweep: 'n/a',
+      assignments: 0,
+      failures: 0,
+    };
+  } catch (error) {
+    // Security bot module not available or error during collection
+    return {
+      status: 'unavailable',
+      guilds: 0,
+      lastSweep: 'n/a',
+      assignments: 0,
+      failures: 0,
+    };
+  }
 }
 
 function refreshStats() {

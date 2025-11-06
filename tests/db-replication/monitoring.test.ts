@@ -4,8 +4,9 @@
  * Tests for replication metrics calculation and alert threshold detection.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { PrismaClient } from '@prisma/client';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import {
   getReplicationMetrics,
   checkAlertThresholds,

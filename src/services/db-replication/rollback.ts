@@ -5,6 +5,7 @@
  */
 
 import type { PrismaClient } from '@prisma/client';
+
 import type { SyncResult, SyncStage } from './sync.js';
 
 // Temporary logger until integration

@@ -12,13 +12,15 @@
  * - Detailed metrics and event logging
  */
 
-import type { PrismaClient } from '@prisma/client';
 import { exec } from 'child_process';
-import { promisify } from 'util';
 import { readFileSync, existsSync } from 'fs';
-import { getVersion, compareVersions, handleReversion, recordVersion, type Version, type VersionComparison } from './version.js';
+import { promisify } from 'util';
+
+import type { PrismaClient } from '@prisma/client';
+
 import { verifySchemaIntegrity, verifyDataIntegrity, type IntegrityOptions } from './integrity.js';
 import { handleSyncFailure } from './rollback.js';
+import { getVersion, compareVersions, handleReversion, recordVersion, type Version, type VersionComparison } from './version.js';
 
 const execAsync = promisify(exec);
 

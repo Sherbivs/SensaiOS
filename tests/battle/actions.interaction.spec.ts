@@ -34,8 +34,8 @@ let handleBattleActionButton: BattleActionsModule["handleBattleActionButton"];
 let MOVE_PREFIX: BattleActionsModule["MOVE_PREFIX"];
 let SWITCH_PREFIX: BattleActionsModule["SWITCH_PREFIX"];
 
-import * as cacheRecipes from "../../src/services/cache/recipes.js";
 import { __testing as turnTesting } from "../../src/core/battle/turn-manager.js";
+import * as cacheRecipes from "../../src/services/cache/recipes.js";
 
 beforeAll(async () => {
   const mod = await import("../../src/bot/battle/actions.js");

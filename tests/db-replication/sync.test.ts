@@ -4,12 +4,13 @@
  * Tests for DEV→Prod and Prod→Local sync orchestrators.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { PrismaClient } from '@prisma/client';
-import { syncDevToProd, syncProdToLocal, SyncStage, type SyncOptions } from '../../src/services/db-replication/sync';
-import * as versionModule from '../../src/services/db-replication/version';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import * as integrityModule from '../../src/services/db-replication/integrity';
 import * as rollbackModule from '../../src/services/db-replication/rollback';
+import { syncDevToProd, syncProdToLocal, SyncStage, type SyncOptions } from '../../src/services/db-replication/sync';
+import * as versionModule from '../../src/services/db-replication/version';
 
 // Mock Prisma clients
 function createMockPrismaClient(name: string): PrismaClient {

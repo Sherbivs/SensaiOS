@@ -5,8 +5,10 @@
  * and reversion detection for database replication architecture.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createHash } from 'crypto';
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import {
   getVersion,
   compareVersions,

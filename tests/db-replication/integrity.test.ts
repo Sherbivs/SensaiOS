@@ -5,8 +5,9 @@
  * between source and target databases in the replication cascade.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { PrismaClient } from '@prisma/client';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import {
   verifySchemaIntegrity,
   verifyDataIntegrity,

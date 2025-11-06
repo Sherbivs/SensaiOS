@@ -7,6 +7,7 @@
  */
 
 import { createHash } from 'crypto';
+
 import { PrismaClient } from '@prisma/client';
 
 // Note: logger import will work after Prisma client regeneration

@@ -6,6 +6,7 @@
  */
 
 import type { PrismaClient } from '@prisma/client';
+
 import { getVersion, compareVersions, type Version } from './version.js';
 
 // Temporary logger until integration
