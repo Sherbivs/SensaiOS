@@ -1,5 +1,11 @@
 # Recent Change Ledger (200 commits)
 
+## 2025-11-05 — Security Bot Guardrail Hardening
+- Added explicit `revertStatus` / `revertErrors` telemetry to the security bot rollback helpers so unauthorized role and permission edits record success/failure in DRIP alerts and the CLI dashboard.
+- Updated AGENTS.md, docs/operations.md, and docs/dex-v2-design.md to require owner/administrator authorization checks during the Nov 5 DEX v2 window and to reference the new telemetry fields in go/no-go reviews.
+- Staged a pre-window rehearsal checklist item instructing ops to simulate an unauthorized role change in staging and capture the resulting `revertStatus: success` evidence before the canary ladder starts.
+- Ops/NEXT.yaml, Prompt.md, and Tasklist.md stamps refreshed so T13.DEX.V2_PROD_CUTOVER stays READY with the guardrail context logged for auditors.
+
 ## 2025-11-03 — DEX v2 Pack & Flag Sign-Off
 - Pack hash: `f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00` (manifest `assets/dexpack.v2.json`, signed 2025-11-02T06:54:25.787Z).
 - Feature flag ladder approved for 2025-11-05 window with stored plans:

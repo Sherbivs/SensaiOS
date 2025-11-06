@@ -123,6 +123,16 @@ let opsErrorRetryTimer = null;
 let memberStatsInterval = null;
 let memberStatsRefreshing = false;
 
+const memberRoleReversionsInProgress = new Set();
+const rolePermissionReversionsInProgress = new Set();
+
+function scheduleCleanup(container, key, ttlMs = 5000) {
+  const timer = setTimeout(() => {
+    container.delete(key);
+  }, ttlMs);
+  timer.unref?.();
+}
+
 function isClientReady() {
   if (typeof client.isReady === 'function') {
     return client.isReady();
@@ -609,6 +619,149 @@ function mergeReportError(base, error) {
   };
 }
 
+function extractAuditRoleIds(change) {
+  if (!change) {
+    return [];
+  }
+  const candidates = [];
+  if (Array.isArray(change.new)) {
+    candidates.push(...change.new);
+  }
+  if (Array.isArray(change.old)) {
+    candidates.push(...change.old);
+  }
+  return candidates
+    .map((item) => (item && typeof item.id === 'string' ? item.id : null))
+    .filter(Boolean);
+}
+
+async function evaluateExecutorAuthorization(guild, executor) {
+  if (!guild || !executor) {
+    return { authorized: false, reason: 'unknown-executor', member: null };
+  }
+
+  const botId = client?.user?.id;
+  if (botId && executor.id === botId) {
+    return { authorized: true, reason: 'security-bot', member: guild.members.me ?? null };
+  }
+
+  if (guild.ownerId === executor.id) {
+    let ownerMember = guild.members.cache.get(executor.id) || null;
+    if (!ownerMember) {
+      try {
+        ownerMember = await guild.members.fetch(executor.id);
+      } catch (error) {
+        log('warn', 'Failed to resolve guild owner during authorization check', mergeLogError({
+          guild: describeGuild(guild),
+          executor: describeUser(executor),
+        }, error));
+      }
+    }
+    return { authorized: true, reason: 'guild-owner', member: ownerMember };
+  }
+
+  let member = guild.members.cache.get(executor.id) || null;
+  if (!member) {
+    try {
+      member = await guild.members.fetch(executor.id);
+    } catch (error) {
+      log('warn', 'Failed to resolve executor member for authorization', mergeLogError({
+        guild: describeGuild(guild),
+        executor: describeUser(executor),
+      }, error));
+    }
+  }
+
+  if (member?.permissions?.has?.(PermissionsBitField.Flags.Administrator)) {
+    return { authorized: true, reason: 'administrator', member };
+  }
+
+  return {
+    authorized: false,
+    reason: member ? 'insufficient-permissions' : 'member-unavailable',
+    member,
+  };
+}
+
+async function revertMemberRoles(member, { rolesToRemove = [], rolesToAdd = [], reason = 'Security bot rollback' } = {}) {
+  if (!member) {
+    return {
+      success: false,
+      removed: [],
+      added: [],
+      errors: [{ action: 'validation', message: 'member-unavailable' }],
+    };
+  }
+
+  const normalize = (input) => {
+    if (!Array.isArray(input)) {
+      return [];
+    }
+    return input
+      .map((role) => {
+        if (!role) return null;
+        if (typeof role === 'string') return role;
+        return role.id || null;
+      })
+      .filter(Boolean);
+  };
+
+  const removeIds = normalize(rolesToRemove);
+  const addIds = normalize(rolesToAdd);
+
+  memberRoleReversionsInProgress.add(member.id);
+  scheduleCleanup(memberRoleReversionsInProgress, member.id, 10_000);
+
+  const errors = [];
+
+  if (removeIds.length > 0) {
+    try {
+      await member.roles.remove(removeIds, reason);
+    } catch (error) {
+      errors.push({
+        action: 'remove',
+        roles: removeIds,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      log('error', 'Failed to remove roles during security rollback', mergeLogError({
+        guild: describeGuild(member.guild),
+        member: describeMember(member),
+        roles: removeIds,
+        reason,
+      }, error));
+    }
+  }
+
+  if (addIds.length > 0) {
+    try {
+      await member.roles.add(addIds, reason);
+    } catch (error) {
+      errors.push({
+        action: 'add',
+        roles: addIds,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      log('error', 'Failed to re-assign roles during security rollback', mergeLogError({
+        guild: describeGuild(member.guild),
+        member: describeMember(member),
+        roles: addIds,
+        reason,
+      }, error));
+    }
+  }
+
+  if (errors.length === 0) {
+    return { success: true, removed: removeIds, added: addIds };
+  }
+
+  return {
+    success: false,
+    removed: removeIds,
+    added: addIds,
+    errors,
+  };
+}
+
 async function wait(ms, signal) {
   const delay = Number(ms);
   if (!Number.isFinite(delay) || delay <= 0) {
@@ -997,8 +1150,8 @@ function canViewAuditLogs(guild) {
   }
 }
 
-async function lookupRoleAuditEntry(guild, memberId, roleIds) {
-  if (!guild || !memberId || !Array.isArray(roleIds) || roleIds.length === 0) {
+async function lookupRoleAuditEntry(guild, memberId, { addedRoleIds = [], removedRoleIds = [] } = {}) {
+  if (!guild || !memberId) {
     return null;
   }
   if (!canViewAuditLogs(guild)) {
@@ -1016,13 +1169,17 @@ async function lookupRoleAuditEntry(guild, memberId, roleIds) {
       const addedChange = Array.isArray(entry.changes)
         ? entry.changes.find((change) => change && change.key === '$add')
         : null;
-      if (!addedChange || !Array.isArray(addedChange.new)) {
-        continue;
-      }
-      const addedIds = addedChange.new
-        .map((item) => item && item.id)
-        .filter((id) => typeof id === 'string');
-      if (addedIds.some((id) => roleIds.includes(id))) {
+      const removedChange = Array.isArray(entry.changes)
+        ? entry.changes.find((change) => change && change.key === '$remove')
+        : null;
+
+      const addedIds = extractAuditRoleIds(addedChange);
+      const removedIds = extractAuditRoleIds(removedChange);
+
+      const addMatch = addedRoleIds.length === 0 || addedRoleIds.some((id) => addedIds.includes(id));
+      const removeMatch = removedRoleIds.length === 0 || removedRoleIds.some((id) => removedIds.includes(id));
+
+      if (addMatch && removeMatch) {
         return entry;
       }
     }
@@ -1030,82 +1187,157 @@ async function lookupRoleAuditEntry(guild, memberId, roleIds) {
     log('warn', 'Audit log lookup for role change failed', mergeLogError({
       guild: describeGuild(guild),
       memberId,
-      roleIds,
+      addedRoleIds,
+      removedRoleIds,
+    }, error));
+  }
+  return null;
+}
+
+async function lookupRolePermissionAuditEntry(guild, roleId) {
+  if (!guild || !roleId) {
+    return null;
+  }
+  if (!canViewAuditLogs(guild)) {
+    return null;
+  }
+
+  try {
+    const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.RoleUpdate, limit: 10 });
+    if (!logs || !logs.entries) {
+      return null;
+    }
+    for (const [, entry] of logs.entries) {
+      if (entry?.target?.id === roleId) {
+        return entry;
+      }
+    }
+  } catch (error) {
+    log('warn', 'Audit log lookup for role permission change failed', mergeLogError({
+      guild: describeGuild(guild),
+      roleId,
     }, error));
   }
   return null;
 }
 
 async function maybeAlertRoleAssignments(oldMember, newMember) {
-  if (!dripAlertManager || !newMember || !newMember.guild) {
-    return;
+  if (!newMember || !newMember.guild) {
+    return { changed: false };
+  }
+
+  if (memberRoleReversionsInProgress.has(newMember.id)) {
+    return { changed: false, skipped: true };
   }
 
   const guild = newMember.guild;
   const newRoles = collectAssignableRoles(newMember);
-  if (!newRoles || newRoles.size === 0) {
-    return;
-  }
-
   const oldRoles = collectAssignableRoles(oldMember);
-  const addedRoles = [];
 
-  newRoles.forEach((role) => {
-    if (!role) {
-      return;
-    }
-    if (!oldRoles || !oldRoles.has(role.id)) {
-      addedRoles.push(role);
-    }
-  });
-
-  if (addedRoles.length === 0) {
-    return;
+  if (!newRoles && !oldRoles) {
+    return { changed: false };
   }
 
+  const addedRoles = [];
   const removedRoles = [];
+
+  if (newRoles) {
+    newRoles.forEach((role) => {
+      if (!role) {
+        return;
+      }
+      if (!oldRoles || !oldRoles.has(role.id)) {
+        addedRoles.push(role);
+      }
+    });
+  }
+
   if (oldRoles) {
     oldRoles.forEach((role) => {
       if (!role) {
         return;
       }
-      if (!newRoles.has(role.id)) {
+      if (!newRoles || !newRoles.has(role.id)) {
         removedRoles.push(role);
       }
     });
   }
 
-  const roleIds = addedRoles.map((role) => role.id);
-  const auditEntry = await lookupRoleAuditEntry(guild, newMember.id, roleIds);
-  const executor = auditEntry?.executor ?? null;
-  const assignedBy = executor ? describeUser(executor) : 'unknown user';
-  const assignedRolesSummary = addedRoles.map((role) => role.name).join(', ');
-  const previousRoles = listRoleSummaries(oldRoles);
-  const removedSummaries = removedRoles.length ? removedRoles.map((role) => describeRole(role)) : [];
+  if (addedRoles.length === 0 && removedRoles.length === 0) {
+    return { changed: false };
+  }
 
-  const meta = {
+  const auditEntry = await lookupRoleAuditEntry(guild, newMember.id, {
+    addedRoleIds: addedRoles.map((role) => role.id),
+    removedRoleIds: removedRoles.map((role) => role.id),
+  });
+
+  const executor = auditEntry?.executor ?? null;
+  const authorization = await evaluateExecutorAuthorization(guild, executor);
+  const executorSummary = executor ? describeUser(executor) : 'unknown user';
+  const previousRoles = listRoleSummaries(oldRoles);
+  const baseMeta = {
     guild: describeGuild(guild),
     member: describeMember(newMember),
     memberId: newMember.id,
     addedRoles: addedRoles.map((role) => describeRole(role)),
-    removedRoles: removedSummaries,
+    removedRoles: removedRoles.map((role) => describeRole(role)),
     previousRoles,
-    assignedBy,
+    assignedBy: executorSummary,
     assignedById: executor?.id ?? null,
     auditId: auditEntry?.id ?? null,
     auditLoggedAt: auditEntry?.createdTimestamp ? new Date(auditEntry.createdTimestamp).toISOString() : null,
     auditReason: auditEntry?.reason ?? null,
+    authorization: authorization.reason,
   };
 
-  const summary = `Assigned ${assignedRolesSummary} to ${describeMember(newMember)}`;
-  const title = `Role assignment detected for ${describeMember(newMember)}`;
+  if (!authorization.authorized) {
+    const revertOutcome = await revertMemberRoles(newMember, {
+      rolesToRemove: addedRoles,
+      rolesToAdd: removedRoles,
+      reason: `Security bot rollback: unauthorized change by ${executorSummary} (${authorization.reason})`,
+    });
 
-  const success = await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.security, title, meta);
-  if (success === false) {
-    log('warn', 'Role assignment alert deferred (DRIP delivery pending)', meta);
-    return;
+    const title = `Unauthorized role change reverted for ${describeMember(newMember)}`;
+    const meta = {
+      ...baseMeta,
+      action: 'reverted',
+      revertStatus: revertOutcome.success ? 'success' : 'failed',
+    };
+
+    if (!revertOutcome.success && Array.isArray(revertOutcome.errors) && revertOutcome.errors.length) {
+      meta.revertErrors = revertOutcome.errors;
+    }
+    if (Array.isArray(revertOutcome.added) && revertOutcome.added.length) {
+      meta.reappliedRoleIds = revertOutcome.added;
+    }
+    if (Array.isArray(revertOutcome.removed) && revertOutcome.removed.length) {
+      meta.removedRoleIds = revertOutcome.removed;
+    }
+
+    if (dripAlertManager) {
+      await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.security, title, meta);
+    }
+    activityTracker.recordActivity('security-alert', title, meta);
+    updateSecurityCliSection({
+      lastAlertSentAt: new Date(),
+      lastAlertMessage: title,
+    });
+    report('Unauthorized Role Change Reverted', meta, 'warn');
+    return { changed: true, unauthorized: true, revertStatus: meta.revertStatus };
   }
 
+  const assignedRolesSummary = addedRoles.map((role) => role.name).join(', ') || 'role change';
+  const summary = `Assigned ${assignedRolesSummary} to ${describeMember(newMember)} by ${executorSummary}`;
+  const title = `Role assignment detected for ${describeMember(newMember)}`;
+  const meta = {
+    ...baseMeta,
+    action: 'recorded',
+  };
+
+  if (dripAlertManager) {
+    await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.security, title, meta);
+  }
   activityTracker.recordActivity('security-alert', summary, meta);
   updateSecurityCliSection({
     lastAlertSentAt: new Date(),
@@ -1115,8 +1347,11 @@ async function maybeAlertRoleAssignments(oldMember, newMember) {
     guild: meta.guild,
     member: meta.member,
     addedRoles: meta.addedRoles.join(', '),
-    assignedBy,
+    removedRoles: meta.removedRoles.join(', ') || 'none',
+    assignedBy: executorSummary,
   }, 'info');
+
+  return { changed: true, unauthorized: false };
 }
 
 function findRole(guild) {
@@ -1867,6 +2102,81 @@ client.on(Events.GuildCreate, () => {
 client.on(Events.GuildDelete, () => {
   updateMonitoringPhase();
 });
+
+async function handleRolePermissionUpdate(oldRole, newRole) {
+  if (!oldRole || !newRole) {
+    return { changed: false };
+  }
+
+  if (rolePermissionReversionsInProgress.has(newRole.id)) {
+    return { changed: false, skipped: true };
+  }
+
+  const oldBitfield = oldRole.permissions?.bitfield;
+  const newBitfield = newRole.permissions?.bitfield;
+  if (oldBitfield === undefined || newBitfield === undefined || oldBitfield === newBitfield) {
+    return { changed: false };
+  }
+
+  const guild = newRole.guild;
+  const auditEntry = await lookupRolePermissionAuditEntry(guild, newRole.id);
+  const executor = auditEntry?.executor ?? null;
+  const authorization = await evaluateExecutorAuthorization(guild, executor);
+  const executorSummary = executor ? describeUser(executor) : 'unknown user';
+
+  if (authorization.authorized) {
+    return { changed: true, unauthorized: false };
+  }
+
+  const meta = {
+    guild: describeGuild(guild),
+    role: describeRole(newRole),
+    roleId: newRole.id,
+    executor: executorSummary,
+    executorId: executor?.id ?? null,
+    auditId: auditEntry?.id ?? null,
+    auditLoggedAt: auditEntry?.createdTimestamp ? new Date(auditEntry.createdTimestamp).toISOString() : null,
+    authorization: authorization.reason,
+    previousPermissions: oldRole.permissions.toArray(),
+    attemptedPermissions: newRole.permissions.toArray(),
+  };
+
+  rolePermissionReversionsInProgress.add(newRole.id);
+  scheduleCleanup(rolePermissionReversionsInProgress, newRole.id, 10_000);
+
+  let revertError = null;
+  try {
+    await newRole.setPermissions(oldRole.permissions, `Security bot rollback: unauthorized permission change by ${executorSummary} (${authorization.reason})`);
+  } catch (error) {
+    revertError = error;
+    log('error', 'Failed to revert unauthorized role permission change', mergeLogError(meta, error));
+  }
+
+  const title = `Unauthorized permission change reverted for ${describeRole(newRole)}`;
+  const alertMeta = {
+    ...meta,
+    action: 'reverted',
+    revertStatus: revertError ? 'failed' : 'success',
+  };
+  if (revertError) {
+    const message = revertError instanceof Error ? revertError.message : String(revertError);
+    alertMeta.revertError = message;
+    alertMeta.revertErrors = [{ action: 'setPermissions', message }];
+  }
+
+  if (dripAlertManager) {
+    await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.security, title, alertMeta);
+  }
+  activityTracker.recordActivity('security-alert', title, alertMeta);
+  updateSecurityCliSection({
+    lastAlertSentAt: new Date(),
+    lastAlertMessage: title,
+  });
+  report('Unauthorized Role Permission Change Reverted', alertMeta, 'warn');
+
+  return { changed: true, unauthorized: true, revertStatus: alertMeta.revertStatus };
+}
+
 client.on('guildMemberAdd', async (member) => {
   const guildSummary = describeGuild(member.guild);
   const memberSummary = describeMember(member);
@@ -1881,8 +2191,8 @@ client.on('guildMemberAdd', async (member) => {
 // Heal members who lose all assignable roles (drop to @everyone only)
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   try {
-    await maybeAlertRoleAssignments(oldMember, newMember);
-    if (hasNoAssignableRoles(newMember)) {
+    const result = await maybeAlertRoleAssignments(oldMember, newMember);
+    if (!result?.unauthorized && hasNoAssignableRoles(newMember)) {
       await ensureTrainerFor(newMember, 'member-update');
     }
   } catch (err) {
@@ -1894,9 +2204,12 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
 });
 
 // Heal role permissions when roles change
-client.on('roleUpdate', async (_oldRole, newRole) => {
+client.on('roleUpdate', async (oldRole, newRole) => {
   try {
-    await enforceRolePermissions(newRole);
+    const permissionResult = await handleRolePermissionUpdate(oldRole, newRole);
+    if (!permissionResult?.unauthorized) {
+      await enforceRolePermissions(newRole);
+    }
   } catch (err) {
     report('Role Update Heal Error', mergeReportError({
       guild: describeGuild(newRole.guild),

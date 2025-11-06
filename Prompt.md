@@ -1,11 +1,11 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-05T18:55:20Z
-Revision: 2.10
+Timestamp (UTC): 2025-11-05T20:45:30Z
+Revision: 2.13
 
 ## Last Repo Changes (since previous Prompt.md revision)
-- Logged the db_v0 backup/restore rehearsal in `ops/ARCHIVE/db-bootstrap/2025-11-05-backup-dr-evidence.md`, including command transcripts, SHA256, and RPO/RTO snapshots.
-- Extended `docs/operations.md` and `docs/database-systems.md` with backup/PITR guidance that references the rehearsal evidence and Render managed snapshots.
-- Marked DB.V0.BACKUP_DR DONE, returned T13.DEX.V2_PROD_CUTOVER to READY, and retargeted NEXT to the production cutover window.
+- Instrumented the security bot rollback flow so alerts include `revertStatus` / `revertErrors` when auto-heal fails, keeping CLI telemetry aligned.
+- Logged the guardrail hardening in ops/change-ledger.md and added staging rehearsal + go/no-go checklist coverage in docs/operations.md.
+- Synced Tasklist and NEXT timestamps so T13.DEX.V2_PROD_CUTOVER stays READY for the Nov 5 ladder with the guardrail context recorded for auditors.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -61,11 +61,11 @@ Revision: 2.10
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Captured the db_v0 backup/restore rehearsal (backup hash, schema extract, PITR notes), documented the workflow in operations + database guides, and marked DB.V0.BACKUP_DR DONE while promoting the DEX v2 cutover window back to READY.
+Change: Logged the security bot guardrail updates in the change ledger and extended the cutover runbook with a staging rehearsal and go/no-go checks for `revertStatus` telemetry.
 TasklistDiff: true
-Tests: npm run db:cli -- status (pass); npm run db:cli -- query 'SHOW wal_level;' (pass); npm run db:cli -- query 'SHOW archive_mode;' (pass); npm run ops:dex-v2-backup -- --env-file C:/Users/sherb/OneDrive/Documents/Key/Dev/.env --label dev --output-dir backups --pg-dump-path tools/pgsql17/pgsql/bin/pg_dump.exe (pass); tools/pgsql17/pgsql/bin/pg_restore.exe --format=custom --schema-only --no-owner --file %TEMP%/dev-dex-2025-11-06-schema.sql backups/dev-dex-2025-11-06T00-49-16.472Z.dump (pass).
+Tests: not run (security bot changes require live Discord events; staging validation will occur during the canary window).
 Contracts: ON
-NEXT: T13.DEX.V2_PROD_CUTOVER - ready to run the Nov 5 ladder with backups verified and recovery rehearsal logged.
+NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with guardrail rehearsal requirements documented ahead of the window.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

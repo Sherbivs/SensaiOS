@@ -182,6 +182,7 @@ For the operations view with role assignments and evidence template, follow the 
   - Confirm manual apply steps are documented and the on-call pair can execute without additional tooling.
 7. **Cutover Execution**
   - Apply flag to 1% cohort; capture console confirmation and parity snapshot (auto-sync output + key table counts).
+  - Confirm the security bot guardrail is healthy before and after each cohort (CLI panel shows latest alert message with `revertStatus: success` and DRIP alerts remain quiet for unauthorized edits); escalate per docs/operations.md if rollbacks fail.
   - Escalate along the ladder if parity breaks or console upload fails; otherwise continue once counts align within tolerance.
 8. **T+15 min — Integrity Verification**
   - Run `node scripts/dev_prod_auto_sync.ts --validate-pack --prod-env ./tmp/prod.auto-sync.env`.

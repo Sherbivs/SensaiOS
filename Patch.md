@@ -99,13 +99,12 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 # _Patch Clipboard Scratch Area (leave empty when not in use)_
 # 
 # <<<PATCHSET START>>>
-# Files: ops/ARCHIVE/db-bootstrap/2025-11-05-backup-dr-evidence.md, Tasklist.md, Prompt.md, ops/NEXT.yaml, docs/operations.md, docs/database-systems.md
-# Goal: Validate DB backups/restore rehearsal, capture evidence, and advance DB.V0.BACKUP_DR.
+# Files: src/utils/cliStatus.js, docs/operations.md, docs/database-systems.md, AGENTS.md, ops/change-ledger.md, Prompt.md, Tasklist.md, ops/NEXT.yaml
+# Goal: Streamline the ops monitor output and document Render storage limits plus resource tracking guidance.
 # Steps:
-# - Run `npm run db:cli -- status`, `npm run ops:dex-v2-backup` (dev, direct), compute SHA256, and extract schema via `pg_restore --schema-only`; log timestamps/RPO/RTO in a new archive note.
-# - Update Tasklist headers, mark DB.V0.BACKUP_DR DONE with detailed command evidence and metrics, and queue the next READY follow-up task.
-# - Refresh Prompt.md Last Repo Changes + PATCHSET Echo with the backup rehearsal summary; set ops/NEXT.yaml to the promoted READY task.
-# - Extend docs/operations.md and docs/database-systems.md with backup/PITR/restore guidance referencing the new evidence and playbook expectations.
+# - Update the CLI status renderer to produce a compact, admin-friendly layout without redundant timestamps or crowding.
+# - Document the 0.5 GB PROD / 1 GB DEV Postgres storage quotas and Render resource monitoring expectations across AGENTS.md and database/operations guides.
+# - Log the change in the ledger and refresh Prompt/Tasklist/NEXT metadata so the READY pointer captures the new operational guidance.
 # <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

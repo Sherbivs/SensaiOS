@@ -10,12 +10,14 @@
 	- `npm run ops:simulate-flag -- --flag DEX_V2_ENABLED --percent <1|25|50|100> --apply`; the script writes the approved JSON into `ops/flag-plans/` and reminds on-call to upload the plan via the feature flag console when no config URL is present.
 	- `node scripts/dev_prod_auto_sync.ts --validate-pack --prod-env <env>` to confirm DEV/PROD parity after each ladder step.
 - **Mirroring focus:** keep the PROD and DEV datasets aligned before and after each cohort change—log checksum comparisons, auto-sync output, and any manual adjustments in `ops/change-ledger.md`.
+- **Security guardrail:** rehearse an unauthorized role change in staging within 12 hours of the window, confirm the security bot auto-reverts with `revertStatus: success`, and ensure DRIP alerts stay quiet before starting the ladder.
 - **Rollback trigger:** disable `DEX_V2_ENABLED` globally if parity checks fail, backups diverge, or the manual verification uncovers mismatched pack hashes.
 - **Evidence:** store apply logs, parity check output, and DB checksum notes in `ops/change-ledger.md` once the ladder completes; update Tasklist notes and Prompt PATCHSET echo with the outcome.
 
 ### Minute-by-minute timeline
 | Window | Primary action | Command owners |
 | ------ | -------------- | -------------- |
+| T-120 min | Rehearse security bot rollback in staging; simulate an unauthorized role change and capture `revertStatus: success` evidence | Ops on-call + Security |
 | T-90 min | Re-run prod/DEV dumps if drift suspected, confirm hashes match ledger | Database DRI |
 | T-75 min | Reconfirm pack manifest (`npm run data:dexpack -- --check`) and note hash alongside DB checks | Release lead |
 | T-60 min | Run `node scripts/dev_prod_auto_sync.ts --validate-pack --prod-env <env>` to verify mirrors before the window | Database DRI |
@@ -40,6 +42,7 @@
 - ❏ Backups verified in `backups/archive/2025-11-03/` with matching SHA256 notes in ops/change-ledger.md.
 - ❏ Feature flag plans reviewed and untouched since approval; console credentials confirmed.
 - ❏ DEV↔PROD parity confirmed via `node scripts/dev_prod_auto_sync.ts --validate-pack --prod-env <env>`.
+- ❏ Security bot guardrail rehearsal completed within the last 12 hours with `revertStatus: success` and no lingering `revertErrors` in DRIP alerts or the CLI dashboard.
 - ❏ Rollback plan rehearsed (`DEX_V2_ENABLED=false` apply + manual notes updated).
 - ❏ Evidence destination ready: ops/change-ledger.md headings created for each ladder step with parity check placeholders.
 
@@ -50,6 +53,12 @@
 	- Pack hash verification result (if re-run) and any manual adjustments required.
 	- Any anomalies noted; if none, explicitly state "No drift detected".
 - Append the above under `## 2025-11-05 DEX v2 Cutover` in ops/change-ledger.md and cross-reference in Tasklist/Prompt summaries.
+
+## Security Bot Guardrail
+- Only the guild owner and members with the Administrator permission may change roles or adjust permission bitfields; the security bot auto-reverts other attempts and DM alerts DripTVDD.
+- Each alert now includes `revertStatus` (success/failed) and, when rollbacks fail, a `revertErrors` payload listing which role operations could not be applied—page the ops on-call immediately if failures repeat.
+- The CLI security panel mirrors the latest alert message and revert status; confirm it stays in a healthy state before and during the DEX v2 cutover window.
+- When manual intervention is required, follow playbooks/escalate.md, restore the expected roles, and document the remediation in Tasklist.md plus ops/change-ledger.md.
 
 ## Day-One Schema Backup & Recovery (db_v0)
 - **Pre-checks:** `npm run db:cli -- status` to confirm the active host (expect direct/Postgres), validate species/user counts, then run

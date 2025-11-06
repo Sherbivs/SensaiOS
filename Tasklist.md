@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-05T18:55:00Z
-Revision: 2.64
+Last Updated (UTC): 2025-11-05T20:45:00Z
+Revision: 2.67
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1202,6 +1202,9 @@ Each task has:
     2025-11-03T06:26Z: Pre-staged evidence capture headings in `ops/change-ledger.md` and copied the T-30 #ops-release text to the comms clipboard pending Eng/Ops/Sec re-approval during the window.
     2025-11-03T06:28Z: Monitoring prep queued—temporary Grafana rule + `DEX_V2_CANARY_TAG` toggle scheduled for T-60/T-45, webhook validation noted in docs/operations.md.
   2025-11-05T18:52Z: Prerequisite backup/restore rehearsal completed (see `ops/ARCHIVE/db-bootstrap/2025-11-05-backup-dr-evidence.md`); READY to execute the Nov 5 window once go/no-go is confirmed.
+  2025-11-05T19:40Z: Hardened security bot guardrails so only the guild owner or administrators can change roles/permissions; unauthorized attempts auto-revert and DM DripTVDD for review.
+  2025-11-05T20:10Z: Instrumented security bot rollback telemetry (`revertStatus` / `revertErrors`) and updated operations guidance ahead of the cutover window.
+  2025-11-05T20:45Z: Logged the guardrail changes in ops/change-ledger.md and expanded docs/operations.md with a staging rehearsal + go/no-go checklist; next action is to execute the staging rehearsal before the window opens.
 
 ## Phase 14 — Live Game Cache
 

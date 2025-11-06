@@ -23,8 +23,7 @@ files_hint:
   - Tasklist.md
 
 queue: []
-
-timestamp_utc: 2025-11-05T18:55:10Z
+timestamp_utc: 2025-11-05T20:45:30Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Backup + restore rehearsal logged; move to executing the production cutover window with flag plans and ledger evidence ready."
+note: "Backup + restore rehearsal logged; security bot guardrail staging rehearsal + go/no-go checklist documented so the Nov 5 window can proceed once rehearsal evidence is captured."
