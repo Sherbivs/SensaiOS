@@ -15,6 +15,25 @@ import { config } from "../../shared/config.js";
 import { log } from "../../shared/log.js";
 import { ensurePrisma, prisma } from "../../shared/prisma.js";
 
+// Import state persistence modules (optional - bot/state may be in JS)
+let stateModules: any = null;
+async function getStateModules() {
+  if (stateModules) return stateModules;
+  try {
+    const [persistence, stats, timeline, context] = await Promise.all([
+      import("../state/persistence.js"),
+      import("../state/stats.js"),
+      import("../state/timeline.js"),
+      import("../state/context.js"),
+    ]);
+    stateModules = { persistence, stats, timeline, context };
+    return stateModules;
+  } catch (err) {
+    log.debug("State persistence modules not available", { err });
+    return null;
+  }
+}
+
 type BasicStats = {
   users?: number | null;
   encountersActive?: number | null;
@@ -583,6 +602,117 @@ export async function handleOpsCommand(
       await interaction.editReply({ content: "Failed to load stats (check logs)." });
     } finally {
       await release();
+    }
+    return;
+  }
+
+  if (sub === "state") {
+    await interaction.deferReply({ ephemeral: true });
+    const showTimeline = Boolean(interaction.options?.getBoolean?.("timeline"));
+    const showGuilds = Boolean(interaction.options?.getBoolean?.("guilds"));
+    
+    try {
+      const modules = await getStateModules();
+      if (!modules) {
+        await interaction.editReply({ content: "State persistence not initialized." });
+        return;
+      }
+      
+      // Access bot state from main.js (exported via global or passed through)
+      const mainModule = await import("../main.js");
+      const botState = (mainModule as any).botState || null;
+      
+      if (!botState) {
+        await interaction.editReply({ content: "Bot state not available (may not be initialized yet)." });
+        return;
+      }
+      
+      const lines: string[] = [];
+      lines.push("🛡️ **Security Bot Operational State**");
+      lines.push(`Generated: ${new Date().toISOString()}`);
+      lines.push("");
+      
+      // Cumulative stats
+      const summary = modules.stats.getStatsSummary(botState);
+      lines.push("**Cumulative Statistics**");
+      lines.push(`• Restart #${summary.restartCount}`);
+      lines.push(`• Total uptime: ${summary.totalUptime}`);
+      lines.push(`• Current uptime: ${summary.currentUptime}`);
+      lines.push(`• Time since restart: ${summary.timeSinceRestart}`);
+      lines.push(`• Total sweeps: ${summary.sweepCount}`);
+      lines.push(`• Total alerts: ${summary.alertCount}`);
+      lines.push(`• Permission changes detected: ${summary.permissionChangesDetected}`);
+      lines.push(`• Successful reverts: ${summary.permissionChangesReverted}`);
+      if (summary.revertFailures > 0) {
+        lines.push(`• ⚠️ Failed reverts: ${summary.revertFailures}`);
+      }
+      lines.push(`• Guilds monitored: ${summary.guildCount}`);
+      lines.push("");
+      
+      // Database status
+      lines.push("**Database Status**");
+      lines.push(`• DEV: ${summary.databaseStatus.dev}`);
+      lines.push(`• PROD: ${summary.databaseStatus.prod}`);
+      lines.push("");
+      
+      // Recent timeline
+      if (showTimeline) {
+        const events = modules.timeline.getFormattedTimeline(botState, 20);
+        lines.push("**Activity Timeline (Recent 20)**");
+        lines.push(...events);
+        lines.push("");
+      } else {
+        const recentSummary = modules.timeline.getRecentActivitySummary(botState, 5);
+        lines.push("**Recent Activity (Last 5)**");
+        lines.push(recentSummary);
+        lines.push("");
+        lines.push("*Use `/ops state timeline:true` for full timeline*");
+        lines.push("");
+      }
+      
+      // Guild monitoring status
+      if (showGuilds) {
+        const guildStatus = modules.context.getMonitoringStatus(botState);
+        lines.push("**Guild Monitoring Status**");
+        if (guildStatus.length === 0) {
+          lines.push("• No guilds monitored yet");
+        } else {
+          for (const guild of guildStatus.slice(0, 10)) {
+            const status = guild.monitoring ? "✅" : "⏸️";
+            const lastSweep = guild.lastSweep 
+              ? new Date(guild.lastSweep).toLocaleString()
+              : "never";
+            lines.push(`${status} ${guild.name} • Sweeps: ${guild.sweepCount} • Last: ${lastSweep}`);
+          }
+          if (guildStatus.length > 10) {
+            lines.push(`... and ${guildStatus.length - 10} more`);
+          }
+        }
+        lines.push("");
+      } else {
+        lines.push("*Use `/ops state guilds:true` for guild details*");
+        lines.push("");
+      }
+      
+      // State metadata
+      lines.push("**State Persistence Metadata**");
+      lines.push(`• Schema version: ${botState.schemaVersion}`);
+      lines.push(`• Last saved: ${botState.metadata.lastSaved}`);
+      lines.push(`• Process start: ${botState.metadata.processStartTime}`);
+      lines.push(`• Hostname: ${botState.metadata.hostname}`);
+      lines.push(`• First ever start: ${botState.cumulative.firstStartTime}`);
+      
+      const message = lines.join("\n");
+      if (message.length > 2000) {
+        // Discord message limit - split or truncate
+        await interaction.editReply({ content: message.substring(0, 1997) + "..." });
+      } else {
+        await interaction.editReply({ content: message });
+      }
+    } catch (err) {
+      log.warn("State command failed", { err });
+      const message = err instanceof Error ? err.message : String(err);
+      await interaction.editReply({ content: `State unavailable: ${message}` });
     }
     return;
   }

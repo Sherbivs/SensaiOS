@@ -56,6 +56,23 @@ const data = new SlashCommandBuilder()
           .setRequired(false)
       )
   )
+  .addSubcommand((sub) =>
+    sub
+      .setName('state')
+      .setDescription('View security bot operational state and history')
+      .addBooleanOption((opt) =>
+        opt
+          .setName('timeline')
+          .setDescription('Show detailed activity timeline')
+          .setRequired(false)
+      )
+      .addBooleanOption((opt) =>
+        opt
+          .setName('guilds')
+          .setDescription('Show per-guild monitoring status')
+          .setRequired(false)
+      )
+  )
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .setDMPermission(false);
 

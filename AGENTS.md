@@ -100,6 +100,64 @@ console.log(`DEV: ${stats.dev.status} | PROD: ${stats.prod.status}`);
 
 See `docs/database-systems.md` for comprehensive dual architecture documentation including `DualDatabaseStats` type definitions, heartbeat tracking, and connection initialization flows.
 
+## State Persistence (Security Bot)
+
+**As of 2025-11-06**, the security bot maintains operational state across restarts via JSON snapshots stored in `Store/security-bot-state/`.
+
+**Purpose:** Give the bot "memory" so it remembers operational history, displays cumulative statistics instead of resetting to zero, and can resume monitoring from where it left off.
+
+**Key Features:**
+- **Cumulative Statistics:** Total uptime, sweeps, alerts, permission changes across all restarts
+- **Activity Timeline:** Rolling window of last 100 events (sweeps, alerts, changes, errors)
+- **Guild Context:** Per-guild tracking of last sweep times, counts, monitoring status
+- **Graceful Recovery:** Auto-saves every 5 minutes, final save on shutdown (SIGTERM/SIGINT/crash)
+- **Enhanced Restart DMs:** Show restart number, time since last restart, recent activity summary
+- **Admin Interface:** `/ops state` command displays full operational history
+
+**State Structure:**
+```
+Store/security-bot-state/
+├── current.json          # Active runtime state
+├── previous.json         # Backup from last restart
+├── snapshots/           # Timestamped backups (7-day retention)
+└── schema.md            # JSON schema documentation
+```
+
+**Implementation:**
+- `src/bot/state/persistence.js` — Core save/load/shutdown lifecycle
+- `src/bot/state/stats.js` — Cumulative statistics tracking
+- `src/bot/state/timeline.js` — Activity timeline formatting
+- `src/bot/state/context.js` — Guild monitoring context restoration
+
+**Integration Points:**
+- Startup: `initializeState()` in `src/bot/main.js` ClientReady event
+- Runtime: `recordSweep()`, `recordPermissionChange()`, `recordAlert()` after operations
+- Shutdown: `shutdownState()` on SIGTERM/SIGINT/uncaughtException
+- Admin: `/ops state` command in `src/bot/ops/admin.ts`
+
+**Usage Patterns:**
+
+```javascript
+import { initializeState, saveState, recordSweep } from './state/persistence.js';
+import { getStatsSummary } from './state/stats.js';
+
+// Startup
+botState = await initializeState();
+autoSaveInterval = startAutoSave(botState);
+
+// After sweep
+recordSweep(botState, guildId, guildName, rolesChecked, changesDetected);
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  stopAutoSave(autoSaveInterval);
+  await shutdownState(botState, 'SIGTERM');
+  process.exit(0);
+});
+```
+
+See `docs/security-bot-state.md` for comprehensive state persistence documentation including JSON schema, lifecycle, error handling, and troubleshooting.
+
 ## Capabilities & Routing Hints
 - **planner:** break down vague goals; produce measurable milestones and resource budgets.
 - **researcher:** search, synthesize sources; attach citations & uncertainty notes.

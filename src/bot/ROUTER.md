@@ -29,5 +29,15 @@ Areas:
 - ops/* — `/ops` admin slash commands; see src/bot/ops/ROUTER.md
 - wilds/* — Wild encounter slash/button flows; see src/bot/wilds/ROUTER.md
 - commands/* — slash command handlers
+- state/* — Operational state persistence (cumulative stats, timeline, context restoration); see notes below
 - main.js — security bot bootstrap (role sweeps, drip alerts)
 - dripAlerts.js — DM alert digest pipeline (DripTVDD security alerts)
+
+State Persistence (Added 2025-11-06):
+- state/persistence.js — Core state save/load/shutdown lifecycle; JSON snapshots in Store/security-bot-state/
+- state/stats.js — Cumulative statistics tracking (sweeps, alerts, permission changes, uptime)
+- state/timeline.js — Rolling activity timeline (last 100 events) with formatting utilities
+- state/context.js — Guild monitoring context restoration (last sweep times, recovery recommendations)
+- Integration: main.js initializes state on startup, records events during sweeps/alerts, saves on shutdown (SIGTERM/SIGINT)
+- Admin Interface: `/ops state` command in ops/admin.ts displays cumulative stats, timeline, guild status
+- Documentation: docs/security-bot-state.md covers architecture, schema, integration points

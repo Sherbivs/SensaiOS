@@ -45,6 +45,10 @@ import { installFatalErrorHandlers } from '../utils/fatalErrorGuard.js';
 import { createDripAlertManager, DRIP_ALERT_SEVERITY } from './dripAlerts.js';
 import { loadCommands } from '../command-loader.js';
 import { checkAndSet } from '../lib/cooldown.js';
+import { initializeState, saveState, shutdownState, startAutoSave, stopAutoSave } from './state/persistence.js';
+import { recordSweep, recordPermissionChange, recordAlert, updateDatabaseStatus, getStatsSummary, getRecentEvents } from './state/stats.js';
+import { getRecentActivitySummary } from './state/timeline.js';
+import { initializeGuild, buildRestartSummary } from './state/context.js';
 
 // Escalate CLI warnings if sweeps lag and keep idle background cadence predictable.
 const CLI_SWEEP_WARNING_THRESHOLD_SECONDS = 5 * 60;
@@ -211,6 +215,8 @@ async function ensureGuildMembersCached(guild, options = {}) {
 }
 let loginPromise = null;
 let dripAlertManager = null;
+let botState = null;
+let autoSaveInterval = null;
 
 const describeRole = (role) => `${role.name} (#${role.id})`;
 const describeMember = (member) => `${member.user.tag} (#${member.id})`;
@@ -1140,6 +1146,28 @@ async function notifyServiceRestart() {
     
     let message = `🛡️ Security monitor restarted at ${new Date().toLocaleString()}.\nContinuous monitoring is active across ${client.guilds.cache.size} guild(s).`;
     
+    // Add state persistence summary if available
+    if (botState) {
+      const summary = buildRestartSummary(botState);
+      message += `\n\n📊 **Operational Continuity**`;
+      message += `\n• Restart #${summary.restartNumber}`;
+      message += `\n• Time since last restart: ${summary.timeSinceLastRestart}`;
+      message += `\n• Total uptime (all time): ${summary.totalUptime}`;
+      message += `\n• Total sweeps: ${summary.totalSweeps}`;
+      message += `\n• Total alerts: ${summary.totalAlerts}`;
+      message += `\n• Permission changes detected: ${summary.totalPermissionChanges}`;
+      message += `\n• Successful reverts: ${summary.successfulReverts}`;
+      if (summary.failedReverts > 0) {
+        message += `\n• ⚠️ Failed reverts: ${summary.failedReverts}`;
+      }
+      
+      // Add recent activity timeline
+      const recentActivity = getRecentActivitySummary(botState, 5);
+      if (recentActivity !== 'No recent activity before restart') {
+        message += `\n\n📜 **Recent Activity Before Restart**\n${recentActivity}`;
+      }
+    }
+    
     // Wait for database connections to complete before collecting stats
     try {
       const prismaModule = await import('../shared/prisma.js');
@@ -1159,6 +1187,15 @@ async function notifyServiceRestart() {
       if (typeof loggerModule.getFormattedStats === 'function') {
         const stats = loggerModule.getFormattedStats();
         message += `\n\n${stats}`;
+        
+        // Update bot state with current database status
+        if (botState && stats.includes('DEV') && stats.includes('PROD')) {
+          const devMatch = stats.match(/DEV.*?Status:\s*(\w+)/);
+          const prodMatch = stats.match(/PROD.*?Status:\s*(\w+)/);
+          if (devMatch && prodMatch) {
+            updateDatabaseStatus(botState, devMatch[1], prodMatch[1]);
+          }
+        }
       }
     } catch (error) {
       log('warn', 'Failed to append stats to restart DM', {
@@ -1925,6 +1962,18 @@ async function sweepGuild(guild, origin) {
       candidates,
       reason: sweepOutcome,
     });
+    
+    // Record sweep in persistent state
+    if (botState) {
+      try {
+        const rolesChecked = guild.roles.cache.size;
+        const changesDetected = success + failed;
+        recordSweep(botState, guild.id, describeGuild(guild), rolesChecked, changesDetected);
+      } catch (error) {
+        log('warn', 'Failed to record sweep in state', mergeLogError({ guild: guildSummary }, error));
+      }
+    }
+    
     updateMonitoringPhase();
   }
 }
@@ -2105,6 +2154,18 @@ function startContinuousSweepLoop(transformer) {
 }
 
 client.once(Events.ClientReady, async () => {
+  // Initialize operational state persistence
+  try {
+    botState = await initializeState();
+    autoSaveInterval = startAutoSave(botState);
+    log('success', 'State persistence initialized', {
+      restartNumber: botState.cumulative.restartCount,
+      guildsMonitored: Object.keys(botState.guilds).length,
+    });
+  } catch (error) {
+    log('error', 'State persistence initialization failed', mergeLogError({}, error));
+  }
+  
   if (CLI_DEBUG_MODE) {
     log('info', 'CLI debug mode active', {
       userTag: client.user.tag,
@@ -2580,8 +2641,34 @@ if (entryHref && import.meta.url === entryHref) {
     log('error', 'Security bot startup failed', mergeLogError({}, error));
     process.exit(1);
   });
+  
+  // Graceful shutdown hooks for state persistence
+  async function handleShutdown(signal) {
+    console.log(`\n[State] Received ${signal}, saving state before exit...`);
+    if (autoSaveInterval) {
+      stopAutoSave(autoSaveInterval);
+    }
+    if (botState) {
+      await shutdownState(botState, signal);
+    }
+    console.log('[State] Shutdown complete');
+    process.exit(0);
+  }
+  
+  process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+  process.on('SIGINT', () => handleShutdown('SIGINT'));
+  process.on('uncaughtException', async (error) => {
+    console.error('[State] Uncaught exception, saving state...', error);
+    if (autoSaveInterval) {
+      stopAutoSave(autoSaveInterval);
+    }
+    if (botState) {
+      await shutdownState(botState, 'uncaughtException');
+    }
+    process.exit(1);
+  });
 }
 
-export { startSecurityBot, client };
+export { startSecurityBot, client, botState };
 
-export default { startSecurityBot, client };
+export default { startSecurityBot, client, botState };
