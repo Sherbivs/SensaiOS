@@ -1,13 +1,11 @@
-import { Client, GatewayIntentBits, Partials, Events, Collection, AuditLogEvent, PermissionsBitField } from 'discord.js';
 import fs from 'node:fs';
-import path from 'node:path';
 import https from 'node:https';
+import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import cache from '../services/cache.js';
-import activityTracker from '../utils/activityTracker.js';
-import cliStatus from '../utils/cliStatus.js';
-import opsNotifier from '../utils/opsNotifier.js';
+import { Client, GatewayIntentBits, Partials, Events, Collection, AuditLogEvent, PermissionsBitField } from 'discord.js';
+
+import { loadCommands } from '../command-loader.js';
 import {
   CLI_DEBUG_MODE,
   ROLE_PERMISSIONS_AUDIT,
@@ -40,22 +38,26 @@ import {
   DRIP_ALERT_MINUTE,
   DRIP_ALERT_TIMEZONE,
 } from '../config/env.js';
-import { log as baseLog, report } from '../utils/logger.js';
-import { installFatalErrorHandlers } from '../utils/fatalErrorGuard.js';
-import { createDripAlertManager, DRIP_ALERT_SEVERITY } from './dripAlerts.js';
-import { loadCommands } from '../command-loader.js';
 import { checkAndSet } from '../lib/cooldown.js';
+import cache from '../services/cache.js';
+import activityTracker from '../utils/activityTracker.js';
+import cliStatus from '../utils/cliStatus.js';
+import { installFatalErrorHandlers } from '../utils/fatalErrorGuard.js';
+import { log as baseLog, report } from '../utils/logger.js';
+import opsNotifier from '../utils/opsNotifier.js';
+
+import { createDripAlertManager, DRIP_ALERT_SEVERITY } from './dripAlerts.js';
+import { initializeGuild, buildRestartSummary } from './state/context.js';
 import { initializeState, saveState, shutdownState, startAutoSave, stopAutoSave } from './state/persistence.js';
 import { recordSweep, recordPermissionChange, recordAlert, recordError, recordMemberFetchTimeout, updateDatabaseStatus, getStatsSummary, getRecentEvents } from './state/stats.js';
 import { getRecentActivitySummary } from './state/timeline.js';
-import { initializeGuild, buildRestartSummary } from './state/context.js';
 
 // Escalate CLI warnings if sweeps lag and keep idle background cadence predictable.
 const CLI_SWEEP_WARNING_THRESHOLD_SECONDS = 5 * 60;
 const CONTINUOUS_SWEEP_IDLE_DELAY_MS = 15_000;
 const MEMBER_STATS_REFRESH_INTERVAL_MS = 60_000;
-const GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = 60_000;
-const GUILD_MEMBER_FETCH_CHUNK_RETRIES = 2;
+const GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = 120_000; // Increased from 60s to 120s for large guilds
+const GUILD_MEMBER_FETCH_CHUNK_RETRIES = 3; // Increased from 2 to 3 for better resilience
 const GUILD_MEMBER_FETCH_PAGE_LIMIT = 1_000;
 const GUILD_MEMBER_FETCH_MAX_PAGES = 200;
 const GUILD_MEMBER_FETCH_REST_DELAY_MS = 250;
@@ -128,13 +130,19 @@ async function ensureGuildMembersCached(guild, options = {}) {
         throw error;
       }
 
-      report('Members Fetch Chunk Timeout', mergeReportError({
+      const isLastAttempt = chunkAttempts >= chunkRetries;
+      const willFallback = isLastAttempt;
+      
+      report('Members Fetch Chunk Timeout (Handled Gracefully)', mergeReportError({
         origin,
         guild: guildSummary,
         attempt: chunkAttempts,
         retries: chunkRetries,
         timeoutMs: chunkTimeoutMs,
-      }, error), chunkAttempts >= chunkRetries ? 'warn' : 'info');
+        willRetry: !isLastAttempt,
+        willFallbackToPagination: willFallback,
+        status: willFallback ? 'Falling back to paginated fetch' : `Retrying (attempt ${chunkAttempts + 1}/${chunkRetries})`,
+      }, error), isLastAttempt ? 'warn' : 'info');
 
       // Record timeout in persistent state for monitoring
       if (botState) {
@@ -147,6 +155,11 @@ async function ensureGuildMembersCached(guild, options = {}) {
       }
 
       if (chunkAttempts >= chunkRetries) {
+        log('info', 'Chunk fetch exhausted retries, switching to paginated fallback', {
+          guild: guildSummary,
+          origin,
+          totalAttempts: chunkAttempts,
+        });
         break;
       }
 
@@ -198,7 +211,8 @@ async function ensureGuildMembersCached(guild, options = {}) {
 
   if (fallbackUsed) {
     const cached = guild.members.cache.size;
-    report('Members Fetch Paginated', {
+    const successful = !targetCount || cached >= targetCount;
+    report('Members Fetch Paginated (Fallback Succeeded)', {
       origin,
       guild: guildSummary,
       cachedMembers: cached,
@@ -206,7 +220,9 @@ async function ensureGuildMembersCached(guild, options = {}) {
       pages,
       newlyFetched,
       chunkAttempts,
-    }, (!targetCount || cached >= targetCount) ? 'info' : 'warn');
+      coverageStatus: successful ? 'Complete' : 'Partial',
+      note: 'Paginated fallback completed successfully after chunk timeout',
+    }, successful ? 'success' : 'warn');
 
     if (targetCount && cached < targetCount) {
       log('warn', 'Member pagination completed before reaching reported memberCount', {
