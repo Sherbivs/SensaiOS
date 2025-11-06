@@ -202,6 +202,24 @@ function printStats() {
   console.log(lines.join('\n'));
 }
 
+function getFormattedStats() {
+  refreshStats();
+  
+  const lines = [];
+  
+  // Node Stats
+  lines.push(`[NODE] Uptime: ${statsCache.node.uptime}  |  PID: ${statsCache.node.pid}  |  Version: ${statsCache.node.version}`);
+  lines.push(`       Memory → RSS: ${statsCache.node.memory.rss}  Heap: ${statsCache.node.memory.heapUsed}/${statsCache.node.memory.heapTotal}  External: ${statsCache.node.memory.external}`);
+  lines.push(`       CPU    → User: ${statsCache.node.cpu.user}  System: ${statsCache.node.cpu.system}`);
+  
+  // Database Stats
+  lines.push(`[DATABASE]`);
+  lines.push(`  DEV  → Status: ${statsCache.databases.dev.status}  |  Latency: ${statsCache.databases.dev.latency}  |  Source: ${statsCache.databases.dev.source}  |  Connections: ${statsCache.databases.dev.connections}`);
+  lines.push(`  PROD → Status: ${statsCache.databases.prod.status}  |  Latency: ${statsCache.databases.prod.latency}  |  Source: ${statsCache.databases.prod.source}  |  Connections: ${statsCache.databases.prod.connections}`);
+  
+  return lines.join('\n');
+}
+
 function log(level, message, context, options = {}) {
   const timestamp = new Date().toISOString();
   const label = LOG_LABEL[level] || LOG_LABEL.info;
@@ -274,6 +292,6 @@ function stopAutoRefresh() {
 // Auto-start on import
 startAutoRefresh();
 
-export { LOG_LABEL, log, report, startAutoRefresh, stopAutoRefresh };
+export { LOG_LABEL, log, report, startAutoRefresh, stopAutoRefresh, getFormattedStats };
 
-export default { LOG_LABEL, log, report, startAutoRefresh, stopAutoRefresh };
+export default { LOG_LABEL, log, report, startAutoRefresh, stopAutoRefresh, getFormattedStats };
