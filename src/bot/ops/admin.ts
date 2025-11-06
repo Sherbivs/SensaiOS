@@ -682,12 +682,17 @@ export async function handleOpsCommand(
             const lastSweep = guild.lastSweep 
               ? new Date(guild.lastSweep).toLocaleString()
               : "never";
-            lines.push(`${status} ${guild.name} • Sweeps: ${guild.sweepCount} • Last: ${lastSweep}`);
+            const timeoutInfo = (botState.guilds[guild.id]?.memberFetchTimeouts || 0) > 0
+              ? ` ⏱️${botState.guilds[guild.id].memberFetchTimeouts}`
+              : '';
+            lines.push(`${status} ${guild.name} • Sweeps: ${guild.sweepCount} • Last: ${lastSweep}${timeoutInfo}`);
           }
           if (guildStatus.length > 10) {
             lines.push(`... and ${guildStatus.length - 10} more`);
           }
         }
+        lines.push("");
+        lines.push("*⏱️ = member fetch timeouts encountered*");
         lines.push("");
       } else {
         lines.push("*Use `/ops state guilds:true` for guild details*");

@@ -35,6 +35,10 @@ export function formatTimelineEvent(event) {
     case 'error':
       return `[${timestamp}] Error: ${event.details.message}`;
     
+    case 'member_fetch_timeout':
+      const status = event.details.isFinal ? '⚠️ FINAL' : `retry ${event.details.attempt}/${event.details.maxRetries}`;
+      return `[${timestamp}] Member Fetch Timeout: ${event.guildName} (${event.details.origin}) [${status}]`;
+    
     default:
       return `[${timestamp}] ${event.type}: ${JSON.stringify(event.details)}`;
   }
@@ -150,6 +154,8 @@ export function getRecentActivitySummary(state, limit = 5) {
         return `• ${relativeTime}: Alert sent to ${event.details.recipient}`;
       case 'error':
         return `• ${relativeTime}: Error - ${event.details.message}`;
+      case 'member_fetch_timeout':
+        return `• ${relativeTime}: Member fetch timeout in ${event.guildName}`;
       default:
         return `• ${relativeTime}: ${event.type}`;
     }
@@ -192,7 +198,8 @@ export function getEventIcon(eventType) {
     alert: '📢',
     restart: '🔄',
     shutdown: '⏹️',
-    error: '❌'
+    error: '❌',
+    member_fetch_timeout: '⏱️'
   };
   
   return icons[eventType] || '📝';

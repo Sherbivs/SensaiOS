@@ -1,10 +1,17 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-06T15:30:30Z
-Revision: 2.33
+Timestamp (UTC): 2025-11-06T16:00:00Z
+Revision: 2.34
 
 ## Last Repo Changes (since previous Prompt.md revision)
+- Implemented comprehensive state persistence system for security bot (T14.SECURITY.BOT_STATE):
+  - Created JSON-based state storage in `Store/security-bot-state/` with current.json, previous.json, and timestamped snapshots (7-day retention).
+  - Built four state modules: `src/bot/state/persistence.js` (save/load/shutdown lifecycle), `stats.js` (cumulative tracking), `timeline.js` (event formatting), `context.js` (guild context restoration).
+  - Integrated into `src/bot/main.js`: state initialization on ClientReady, recordSweep() on sweeps, graceful shutdown hooks (SIGTERM/SIGINT/uncaughtException), 5-minute auto-save interval.
+  - Enhanced restart DMs with continuity info: restart number, time since last restart, cumulative stats (total uptime, sweeps, alerts), recent activity timeline.
+  - Added `/ops state` admin command with optional `timeline:true` and `guilds:true` flags for operational visibility.
+  - Implemented member fetch timeout tracking (`recordMemberFetchTimeout()`) to monitor Discord API instability patterns per guild.
+  - Documented in `docs/security-bot-state.md`, updated `AGENTS.md`, `src/bot/ROUTER.md`, and `Tasklist.md` (Rev 2.88).
 - Fixed dynamic import race condition in `src/bot/main.js` by replacing fire-and-forget async imports with inline `await import()` within `notifyServiceRestart()`, ensuring `ensurePrisma()` and `getFormattedStats()` are guaranteed available when restart DM sends.
-- Removed redundant top-level dynamic import blocks that were causing null reference issues during security bot startup.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -60,12 +67,12 @@ Revision: 2.33
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
 HEAD: pending-local
-Change: Fixed dynamic import race preventing restart DM from awaiting database initialization.
+Change: Implemented comprehensive state persistence system (T14.SECURITY.BOT_STATE) with JSON storage, cumulative stats, timeline tracking, /ops state command, graceful shutdown, and member fetch timeout monitoring.
 TasklistDiff: true
-Tests: not run (runtime timing fix, validated by restart DM output).
+Tests: not run (state persistence architecture, runtime validation pending next bot restart).
 Contracts: ON
 NEXT_Status: READY (T13.DEX.V2_PROD_CUTOVER)
-NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with dual DB architecture now documented across all surfaces.
+NEXT: T13.DEX.V2_PROD_CUTOVER - ladder remains READY with state persistence complete and operational.
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

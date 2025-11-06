@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2025-11-06T15:30:00Z
-Revision: 2.87
+Last Updated (UTC): 2025-11-06T16:00:00Z
+Revision: 2.88
 <!-- # TASKLIST UPDATE -->
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
@@ -1260,6 +1260,21 @@ Each task has:
     - Provide operator guidance/tests confirming the command and cleanup hooks behave as expected.
   notes: |
     Outcome — Cache facade now tracks namespace counters, emits `cache.maintenance` snapshots, schedules a 10-minute cleanup sweep, and exposes `/ops cache` with an optional `cleanup: true` flag. Updated AGENTS.md + docs/database-systems.md with operator guidance. Tests: `npx vitest run tests/services/cache.facade.spec.ts tests/ops.spec.ts`.
+
+- id: T14.SECURITY.BOT_STATE
+  title: Add operational state persistence for security bot
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - Security bot maintains persistent state across restarts via JSON snapshots in Store/security-bot-state/ with schema versioning and auto-migration support.
+    - State includes cumulative statistics (total uptime, sweeps, alerts, permission changes), rolling activity timeline (last 100 events), and per-guild monitoring context.
+    - Restart DMs display continuity information: restart number, time since last restart, cumulative stats, recent activity summary.
+    - `/ops state` admin command shows full operational history with optional timeline and guild detail flags.
+    - Graceful shutdown hooks (SIGTERM, SIGINT, uncaughtException) save final state before exit.
+    - Auto-save runs every 5 minutes to persist runtime changes.
+    - Documentation covers architecture, JSON schema, integration points, and troubleshooting in docs/security-bot-state.md.
+  notes: |
+    2025-11-06T16:00Z: Implemented comprehensive state persistence system with four modules (persistence, stats, timeline, context) providing memory across restarts. Created Store/security-bot-state/ with current.json, previous.json, and timestamped snapshots (7-day retention). Enhanced notifyServiceRestart() to show restart number, time since last restart, total uptime, cumulative stats, and recent activity timeline. Added /ops state command in src/bot/ops/admin.ts with timeline and guilds display options. Registered process exit handlers for graceful shutdown. Documented in docs/security-bot-state.md and updated AGENTS.md + src/bot/ROUTER.md. Added member fetch timeout tracking to monitor chronic Discord API timeout issues per guild.
 
 ## Phase 15 — DB Bootstrap & HA
 

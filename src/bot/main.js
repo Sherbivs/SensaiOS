@@ -46,7 +46,7 @@ import { createDripAlertManager, DRIP_ALERT_SEVERITY } from './dripAlerts.js';
 import { loadCommands } from '../command-loader.js';
 import { checkAndSet } from '../lib/cooldown.js';
 import { initializeState, saveState, shutdownState, startAutoSave, stopAutoSave } from './state/persistence.js';
-import { recordSweep, recordPermissionChange, recordAlert, updateDatabaseStatus, getStatsSummary, getRecentEvents } from './state/stats.js';
+import { recordSweep, recordPermissionChange, recordAlert, recordError, recordMemberFetchTimeout, updateDatabaseStatus, getStatsSummary, getRecentEvents } from './state/stats.js';
 import { getRecentActivitySummary } from './state/timeline.js';
 import { initializeGuild, buildRestartSummary } from './state/context.js';
 
@@ -135,6 +135,16 @@ async function ensureGuildMembersCached(guild, options = {}) {
         retries: chunkRetries,
         timeoutMs: chunkTimeoutMs,
       }, error), chunkAttempts >= chunkRetries ? 'warn' : 'info');
+
+      // Record timeout in persistent state for monitoring
+      if (botState) {
+        try {
+          recordMemberFetchTimeout(botState, guild.id, guildSummary, origin, chunkAttempts, chunkRetries);
+        } catch (err) {
+          // Don't fail the sweep if state recording fails
+          log('debug', 'Failed to record member fetch timeout in state', { err: err?.message });
+        }
+      }
 
       if (chunkAttempts >= chunkRetries) {
         break;

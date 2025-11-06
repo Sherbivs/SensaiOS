@@ -139,7 +139,7 @@ export function recordAlert(state, guildId, recipient, reason, delivered) {
 /**
  * Record error event
  */
-export function recordError(state, message, stack = null) {
+export function recordError(state, message, stack = null, context = {}) {
   // Add to timeline
   state.timeline = [
     {
@@ -147,7 +147,36 @@ export function recordError(state, message, stack = null) {
       type: 'error',
       details: {
         message,
-        stack: stack ? stack.substring(0, 500) : null
+        stack: stack ? stack.substring(0, 500) : null,
+        ...context
+      }
+    },
+    ...state.timeline
+  ].slice(0, 100);
+}
+
+/**
+ * Record member fetch timeout (for monitoring chronic issues)
+ */
+export function recordMemberFetchTimeout(state, guildId, guildName, origin, attempt, maxRetries) {
+  // Track in guild state if this is a recurring issue
+  if (state.guilds[guildId]) {
+    state.guilds[guildId].memberFetchTimeouts = (state.guilds[guildId].memberFetchTimeouts || 0) + 1;
+    state.guilds[guildId].lastMemberFetchTimeout = new Date().toISOString();
+  }
+  
+  // Add to timeline
+  state.timeline = [
+    {
+      timestamp: new Date().toISOString(),
+      type: 'member_fetch_timeout',
+      guildId,
+      guildName,
+      details: {
+        origin,
+        attempt,
+        maxRetries,
+        isFinal: attempt >= maxRetries
       }
     },
     ...state.timeline

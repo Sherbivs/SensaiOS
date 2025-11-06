@@ -14,7 +14,7 @@ guidance_when_none: |
 auto_promote_if_empty: true
 
 next_task_id: T13.DEX.V2_PROD_CUTOVER
-reason: "Ready to execute the Nov 5 DEX v2 ladder with restart DM database stats fully resolved."
+reason: "Ready to execute the Nov 5 DEX v2 ladder with state persistence system operational and documented."
 
 files_hint:
   - src/bot/main.js
@@ -23,7 +23,7 @@ files_hint:
   - Prompt.md
 
 queue: []
-timestamp_utc: 2025-11-06T15:30:00Z
+timestamp_utc: 2025-11-06T16:00:00Z
 router_version: 1
 last_notes_read_utc: 2025-10-30T05:00:00Z
-note: "Fixed dynamic import race by using inline await import() in notifyServiceRestart so ensurePrisma/getFormattedStats are guaranteed available." 
+note: "Completed T14.SECURITY.BOT_STATE: comprehensive state persistence with JSON storage, cumulative stats, timeline tracking, graceful shutdown, /ops state command, and member fetch timeout monitoring." 
