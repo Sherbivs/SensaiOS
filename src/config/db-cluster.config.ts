@@ -387,8 +387,10 @@ export function loadClusterConfig(): ClusterConfig {
     }
   }
   
-  // TODO: Automatically create node configs for detected nodes
-  // For now, return default 2-node config
+  // FUTURE ENHANCEMENT: Automatic node config creation
+  // Current implementation returns static 2-node cluster config (DEV + PROD).
+  // Future: Dynamically generate node configs from detected environment variables.
+  // Tracked in: Phase 9 (Future Enhancements)
   
   return config;
 }

@@ -216,7 +216,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 // Data pipeline entry point (stub)
-// TODO: implement fetch/normalize/shard and manifest generation
+// FUTURE ENHANCEMENT: Complete data pipeline implementation
+// Planned features: fetch/normalize/shard operations, manifest generation
+// Tracked in: Phase 9 (Future Enhancements)
+// Current: Pipeline operations handled by scripts/build-data.js and scripts/fetch_pokemon.mjs
 export const dataPipeline = {
   dryRun: true,
 };

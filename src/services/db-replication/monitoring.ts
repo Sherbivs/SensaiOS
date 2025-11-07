@@ -382,8 +382,10 @@ export async function sendAlert(alert: Alert): Promise<void> {
   logger.warn(`Source: ${alert.source}`);
   logger.warn(`Message: ${alert.message}`);
 
-  // TODO: Integrate with Discord DM system (src/bot/dripAlerts.js)
-  // TODO: Integrate with PagerDuty or other external alerting
+  // FUTURE ENHANCEMENT: External alerting integrations
+  // Discord DM: Integrate with src/bot/dripAlerts.js for operator notifications
+  // PagerDuty: Add webhook integration for CRITICAL severity alerts
+  // Tracked in: Phase 9 (Future Enhancements) - requires Discord bot refactoring
 }
 
 // ============================================================================
