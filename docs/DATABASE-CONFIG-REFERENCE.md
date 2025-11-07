@@ -3,14 +3,12 @@
 ## 🎯 Production Standard (Render)
 
 ```bash
-# PRIMARY - Prisma Accelerate pool connection (Render production)
+# PRIMARY - Prisma Accelerate proxy connection (Render production)
 DATABASE_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_KEY"
 
-# ALIAS - Same as DATABASE_URL (for compatibility)
-DATABASE_POOL_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_KEY"
-
-# DIRECT - PostgreSQL connection for migrations/dev
-DATABASE_DIRECT_URL="postgresql://user:pass@host:5432/database"
+# DIRECT - PostgreSQL connections for migrations/dev
+RENDER_DB_INTERNAL_URL="postgresql://user:pass@host:5432/database"  # Render internal network
+RENDER_DB_EXTERNAL_URL="postgresql://user:pass@host.region-postgres.render.com:5432/database"  # External access
 
 # LOCAL WORKSTATION - PRIMARY database for live gameplay
 # Auto-populated from Store/db/local-url.txt or set manually
@@ -34,16 +32,16 @@ When `DATABASE_LOCAL_URL` is configured, the LOCAL database becomes the **PRIMAR
 
 | Variable | Purpose | Format | Required |
 |----------|---------|--------|----------|
-| `DATABASE_URL` | **Main connection** (Prisma Client for Render) | `prisma+postgres://...` | ✅ |
-| `DATABASE_POOL_URL` | Alias for DATABASE_URL | `prisma+postgres://...` | ✅ |
-| `DATABASE_DIRECT_URL` | Direct PostgreSQL (migrations) | `postgresql://...` | ✅ |
+| `DATABASE_URL` | **Main connection** (Prisma Accelerate for Render) | `prisma+postgres://...` | ✅ |
+| `RENDER_DB_INTERNAL_URL` | Direct PostgreSQL (Render internal, migrations) | `postgresql://...` | ✅ Migrations |
+| `RENDER_DB_EXTERNAL_URL` | Direct PostgreSQL (external access from laptop) | `postgresql://...` | ✅ Dev |
 | `DATABASE_LOCAL_URL` | **Local workstation (PRIMARY for gameplay)** | `postgresql://...` | ✅ Live |
 
 ### Priority Hierarchy
 
 1. **Live Gameplay (Workstation)**: `DATABASE_LOCAL_URL` → `localPrisma` client
 2. **Production Operations (Render)**: `DATABASE_URL` → `prisma` client  
-3. **Development/Migrations**: `DATABASE_DIRECT_URL` → `devPrisma` client
+3. **Development/Migrations**: `RENDER_DB_INTERNAL_URL` or `RENDER_DB_EXTERNAL_URL` → `devPrisma` client
 
 ## 🚀 Render Setup Checklist
 
@@ -52,7 +50,6 @@ Set these **manually** in each service's Environment tab:
 
 ```
 ✅ DATABASE_URL = prisma+postgres://accelerate.prisma-data.net/?api_key=...
-✅ DATABASE_POOL_URL = (same as above)
 ✅ OPTIMIZE_API_KEY = eyJhbGci...
 ✅ BOT_TOKEN = your_bot_token
 ✅ POKEMON_BOT_TOKEN = your_bot_token
@@ -65,9 +62,7 @@ Already configured with `sync: false` for security:
 envVars:
   - key: DATABASE_URL
     sync: false  # ✅ Prevents credential exposure
-  - key: DATABASE_POOL_URL
-    sync: false  # ✅ Prevents credential exposure
-  - key: DATABASE_DIRECT_URL
+  - key: RENDER_DB_INTERNAL_URL
     fromDatabase:
       name: infinity-gauntlet-db
       property: connectionString  # ✅ Auto-populated by Render
@@ -85,8 +80,7 @@ $Env:IG_ENV_FILE = "C:/Users/yourname/Documents/Key/Dev/.env"
 @"
 # Production connections (read-only for replication)
 DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_KEY
-DATABASE_POOL_URL=prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_KEY
-DATABASE_DIRECT_URL=postgresql://user:pass@render-host:5432/infinity_gauntlet_db
+RENDER_DB_EXTERNAL_URL=postgresql://user:pass@render-host.region-postgres.render.com:5432/infinity_gauntlet_db
 
 # LOCAL WORKSTATION (PRIMARY for live gameplay)
 DATABASE_LOCAL_URL=postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db

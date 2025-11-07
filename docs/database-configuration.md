@@ -11,14 +11,12 @@ This document defines the standardized database configuration for the Infinity G
 Based on the live Render deployment configuration:
 
 ```bash
-# Main database connection (Prisma Accelerate pool)
+# Main database connection (Prisma Accelerate proxy)
 DATABASE_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_API_KEY"
 
-# Pool connection alias (same as DATABASE_URL for clarity)
-DATABASE_POOL_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_API_KEY"
-
-# Direct PostgreSQL connection (for migrations, dev work, replication monitoring)
-DATABASE_DIRECT_URL="postgresql://user:password@host:port/database"
+# Direct PostgreSQL connections
+RENDER_DB_INTERNAL_URL="postgresql://user:password@host:port/database"  # Render internal network
+RENDER_DB_EXTERNAL_URL="postgresql://user:password@host.region-postgres.render.com:port/database"  # External access
 
 # Prisma Optimize (optional performance monitoring)
 OPTIMIZE_API_KEY="your_optimize_api_key"
@@ -33,9 +31,9 @@ SECURITY_BOT_TOKEN="your_discord_bot_token"
 
 | Variable | Purpose | Source | Required |
 |----------|---------|--------|----------|
-| `DATABASE_URL` | **Primary connection** - Used by Prisma Client for Render production | Prisma Accelerate pool URL | ✅ Render |
-| `DATABASE_POOL_URL` | Alias for `DATABASE_URL` (legacy compatibility) | Same as DATABASE_URL | ✅ Render |
-| `DATABASE_DIRECT_URL` | Direct PostgreSQL connection bypassing Accelerate | PostgreSQL connection string | ✅ Yes |
+| `DATABASE_URL` | **Primary connection** - Prisma Accelerate proxy for production | Prisma Accelerate pool URL | ✅ Render |
+| `RENDER_DB_INTERNAL_URL` | Direct PostgreSQL (Render internal network, no region suffix) | PostgreSQL internal connection | ✅ Migrations |
+| `RENDER_DB_EXTERNAL_URL` | Direct PostgreSQL (external access, has region suffix) | PostgreSQL external connection | ✅ Dev/Laptop |
 | `DATABASE_LOCAL_URL` | **Local workstation PostgreSQL (PRIMARY for live gameplay)** | Local PostgreSQL cluster | ✅ Gameplay |
 | `OPTIMIZE_API_KEY` | Prisma Optimize performance monitoring | Prisma Console | ❌ No |
 
@@ -44,11 +42,11 @@ SECURITY_BOT_TOKEN="your_discord_bot_token"
 The application uses a **cascading fallback system** defined in `src/shared/config.ts`:
 
 1. **Prisma Accelerate** (preferred for Render production):
-   - `DATABASE_POOL_URL` (highest priority)
-   - `DATABASE_URL` (if Accelerate format: `prisma+postgres://...`)
+   - `DATABASE_URL` (Accelerate proxy with connection pooling)
 
-2. **Direct PostgreSQL** (fallback):
-   - `DATABASE_DIRECT_URL`
+2. **Direct PostgreSQL** (fallback for migrations and development):
+   - `RENDER_DB_INTERNAL_URL` (Render internal network - preferred)
+   - `RENDER_DB_EXTERNAL_URL` (external access from laptop)
 
 3. **Local Workstation** (PRIMARY for live gameplay):
    - `DATABASE_LOCAL_URL` (lowest latency <50ms)
@@ -66,11 +64,9 @@ envVars:
   # Sensitive - set in Render dashboard, not in YAML
   - key: DATABASE_URL
     sync: false
-  - key: DATABASE_POOL_URL
-    sync: false
   
   # Auto-populated from Render database
-  - key: DATABASE_DIRECT_URL
+  - key: RENDER_DB_INTERNAL_URL
     fromDatabase:
       name: infinity-gauntlet-db
       property: connectionString
@@ -84,21 +80,20 @@ envVars:
 
 ### Why `sync: false`?
 
-- `DATABASE_URL` and `DATABASE_POOL_URL` contain **Prisma Accelerate API keys**
+- `DATABASE_URL` contains **Prisma Accelerate API key**
 - These must be set **manually in Render dashboard** as environment variables
 - Marking `sync: false` prevents accidental exposure in repository
-- `DATABASE_DIRECT_URL` uses Render's native database property (safe to auto-populate)
+- `RENDER_DB_INTERNAL_URL` uses Render's native database property (safe to auto-populate)
 
 ### Setting Up on Render
 
 1. **In Render Dashboard** → Service → Environment:
    ```
    DATABASE_URL = prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_KEY
-   DATABASE_POOL_URL = prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_KEY
    OPTIMIZE_API_KEY = your_optimize_key
    ```
 
-2. **DATABASE_DIRECT_URL** auto-populates from database resource
+2. **RENDER_DB_INTERNAL_URL** auto-populates from database resource
 
 3. Deploy service
 
@@ -109,8 +104,7 @@ envVars:
 ```bash
 # .env or secure environment file
 DATABASE_URL=postgresql://localhost:5432/infinity_gauntlet
-DATABASE_POOL_URL=postgresql://localhost:5432/infinity_gauntlet
-DATABASE_DIRECT_URL=postgresql://localhost:5432/infinity_gauntlet
+RENDER_DB_EXTERNAL_URL=postgresql://localhost:5432/infinity_gauntlet
 ```
 
 ### Option 2: Prisma Accelerate (Production-like)
@@ -118,8 +112,7 @@ DATABASE_DIRECT_URL=postgresql://localhost:5432/infinity_gauntlet
 ```bash
 # Use production Accelerate for testing
 DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_KEY
-DATABASE_POOL_URL=prisma+postgres://accelerate.prisma-data.net/?api_key=YOUR_KEY
-DATABASE_DIRECT_URL=postgresql://your-render-db-host:5432/infinity_gauntlet_db
+RENDER_DB_EXTERNAL_URL=postgresql://your-render-db-host.region-postgres.render.com:5432/infinity_gauntlet_db
 ```
 
 ### Secure Environment Files
@@ -158,7 +151,7 @@ The application maintains **three Prisma clients** for different purposes:
 
 ### Development Client (`devPrisma`)
 - **Purpose**: Direct database access for dev operations and replication source
-- **URL**: `DATABASE_DIRECT_URL`
+- **URL**: `RENDER_DB_INTERNAL_URL` (Render internal) or `RENDER_DB_EXTERNAL_URL` (laptop external)
 - **Usage**: Migrations, replication monitoring, admin tools, schema changes
 - **Export**: `src/shared/prisma.ts`
 - **Latency**: ~100-500ms (direct to Render PostgreSQL)
@@ -212,7 +205,7 @@ npm run prebuild  # Includes: prisma generate && prisma migrate deploy
 ### Manual Production Migration
 ```bash
 # Set DATABASE_URL to DIRECT connection temporarily
-export DATABASE_URL=$DATABASE_DIRECT_URL
+export DATABASE_URL=$RENDER_DB_EXTERNAL_URL
 npx prisma migrate deploy
 ```
 
@@ -220,7 +213,7 @@ npx prisma migrate deploy
 
 ### DEV Connection Degraded (High Latency)
 
-**Symptom**: `DATABASE_DIRECT_URL` shows 2000ms+ latency
+**Symptom**: `RENDER_DB_EXTERNAL_URL` shows 2000ms+ latency
 
 **Causes**:
 1. Render free tier databases sleep after inactivity
@@ -236,7 +229,7 @@ npx prisma db execute --sql "SELECT 1"
 # Already configured in production standard
 
 # 3. Configure connection pooling
-DATABASE_DIRECT_URL="postgresql://user:pass@host:5432/db?connection_limit=10&pool_timeout=20"
+RENDER_DB_EXTERNAL_URL="postgresql://user:pass@host.region-postgres.render.com:5432/db?connection_limit=10&pool_timeout=20"
 ```
 
 ### LOCAL Connection Offline
@@ -302,9 +295,10 @@ npx prisma generate
 
 ## Change History
 
-- **2025-11-06**: Standardized to match live Render configuration
-  - `DATABASE_URL` = Prisma Accelerate pool (primary)
-  - `DATABASE_POOL_URL` = Same as DATABASE_URL (alias)
-  - `DATABASE_DIRECT_URL` = Direct PostgreSQL (migrations/dev)
+- **2025-11-06**: Environment variable schema standardization
+  - `DATABASE_URL` = Prisma Accelerate proxy (primary)
+  - `DATABASE_POOL_URL` removed (consolidated into DATABASE_URL)
+  - `DATABASE_DIRECT_URL` split into `RENDER_DB_INTERNAL_URL` (Render internal) and `RENDER_DB_EXTERNAL_URL` (external access)
+  - `DATABASE_EXTERNAL_URL` renamed to `RENDER_DB_EXTERNAL_URL` for clarity
   - Updated `render.yaml` to use `sync: false` for sensitive vars
   - Updated `.env.example` with production standard
