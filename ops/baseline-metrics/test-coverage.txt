@@ -1,0 +1,7 @@
+
+> infinity-gauntlet@0.1.0 test
+> vitest --run --coverage --reporter=verbose
+
+ MISSING DEPENDENCY  Cannot find dependency '@vitest/coverage-v8'
+
+
