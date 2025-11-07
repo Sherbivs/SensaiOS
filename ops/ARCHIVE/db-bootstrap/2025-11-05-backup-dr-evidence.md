@@ -4,7 +4,7 @@
 - Timestamp (UTC): 2025-11-05T18:52:00Z
 - IG_ENV_FILE: `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env`
 - Active host: `dpg-d3vd8h7diees73et3i3g-a.virginia-postgres.render.com`
-- Datasource: Direct/Postgres (Prisma `DATABASE_DIRECT_URL`)
+- Datasource: Direct/Postgres (Prisma `RENDER_DB_EXTERNAL_URL`)
 
 ## Command Log
 1. `npm run db:cli -- status`

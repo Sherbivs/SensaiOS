@@ -78,8 +78,8 @@ First migration attempt appeared successful but created nothing. Tables/columns/
 Created `secrets/migrate.env` with all URLs pointing DIRECTLY to PostgreSQL:
 ```env
 DATABASE_URL=postgresql://user:pass@host/db
-DATABASE_DIRECT_URL=postgresql://user:pass@host/db
-DATABASE_POOL_URL=postgresql://user:pass@host/db
+RENDER_DB_INTERNAL_URL=postgresql://user:pass@host/db
+RENDER_DB_EXTERNAL_URL=postgresql://user:pass@host.region.render.com/db
 ```
 
 Migration workflow:

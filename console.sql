@@ -9,7 +9,7 @@
 -- 2) Optional quick health check via CLI (should succeed if the env is loaded correctly):
 --      npm run db:cli -- status
 --
--- 3) In your IDE, create/select a Data Source using the direct Postgres URL from the loaded environment (DATABASE_DIRECT_URL).
+-- 3) In your IDE, create/select a Data Source using the direct Postgres URL from the loaded environment (RENDER_DB_EXTERNAL_URL or RENDER_DB_INTERNAL_URL).
 --    Attach this console to that Data Source, then run the checks below.
 
 -- Connection and server info
