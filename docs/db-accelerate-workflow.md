@@ -58,7 +58,7 @@ Expected outcomes
 
 Troubleshooting
 - If `status` or any command errors with "URL must start with prisma://" it means the codepath still tried Prisma against a direct URL. The repo tooling includes a fallback that uses `pg` for direct URLs. Make sure:
-  - `IG_ENV_FILE` points to the secrets file that contains `DATABASE_DIRECT_URL` or `DATABASE_URL`.
+  - `IG_ENV_FILE` points to the secrets file that contains `RENDER_DB_EXTERNAL_URL`, `RENDER_DB_INTERNAL_URL`, or `DATABASE_URL`.
   - You exported the env var correctly in the same shell where you run `npm`.
 - TLS/SSL:
   - Direct Postgres connections (e.g., Render-hosted DB) typically require SSL. The scripts configure the `pg` client to use SSL by default for direct mode.

@@ -392,8 +392,9 @@ npm run db:replication reset-local   # Rebuild Local from Prod
 ### Environment Variables
 
 ```bash
-DATABASE_DIRECT_URL      # DEV database (direct PostgreSQL)
-DATABASE_POOL_URL        # PROD database (Accelerate)
+RENDER_DB_EXTERNAL_URL   # DEV database (direct PostgreSQL, external access)
+RENDER_DB_INTERNAL_URL   # DEV/PROD migrations (direct PostgreSQL, Render internal)
+DATABASE_URL             # PROD database (Prisma Accelerate)
 DATABASE_LOCAL_URL       # LOCAL database (workstation mirror)
 IG_ENV_FILE              # External env file path
 ```

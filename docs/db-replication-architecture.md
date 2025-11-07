@@ -36,7 +36,7 @@ This document defines a **comprehensive, automated database replication system**
 │                      DEV DATABASE (MASTER)                           │
 │  Host: dpg-...render.com/infinity_gauntlet_db                       │
 │  Role: Single source of truth                                        │
-│  Connection: DATABASE_DIRECT_URL (devPrisma)                        │
+│  Connection: RENDER_DB_EXTERNAL_URL (devPrisma)                     │
 │                                                                       │
 │  Operations:                                                          │
 │  - Receives ALL schema migrations first                              │
@@ -77,7 +77,7 @@ This document defines a **comprehensive, automated database replication system**
 │                    PRISMA DB (PRODUCTION REPLICA)                    │
 │  Host: accelerate.prisma-data.net (via Accelerate proxy)           │
 │  Role: Production query layer with caching                           │
-│  Connection: DATABASE_POOL_URL (prisma)                             │
+│  Connection: DATABASE_URL (prisma)                                  │
 │                                                                       │
 │  Operations:                                                          │
 │  - Receives migrations ONLY after DEV successful                     │
