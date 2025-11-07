@@ -6,7 +6,7 @@ Purpose: ensure automated agents and local operators load secrets from a secure 
 ## Overview
 - `src/config/env.js` now checks `IG_ENV_FILE` and `DOTENV_CONFIG_PATH` before reading `.env` from the repo root.
 - `scripts/setup_ai_env.ps1` sets or persists `IG_ENV_FILE` so headless runs (hotfix agents, nightly automation) access the correct secret store.
-- Use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DATABASE_POOL_URL (Prisma Accelerate), DATABASE_EXTERNAL_URL (Accelerate), DATABASE_URL (Accelerate), DATABASE_LOCAL_URL (local workstation), OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. **No other key files are needed.**
+- Use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DATABASE_URL (Prisma Accelerate), RENDER_DB_EXTERNAL_URL (direct PostgreSQL external), RENDER_DB_INTERNAL_URL (direct PostgreSQL internal), DATABASE_LOCAL_URL (local workstation), OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. **No other key files are needed.**
 - When `NODE_ENV=production`, the repo `.env` fallback is skipped unless `IG_ALLOW_REPO_ENV=1` is set.
 
 ## Environment key reference
@@ -15,10 +15,10 @@ Render services and local operators rely on the same variable names. Use the tab
 ### Database & Prisma
 | Key | Where to set | Notes |
 | --- | --- | --- |
-| `DATABASE_URL` | Local `.env`, Render (cache worker & cron) | Direct Postgres connection for CLI tooling and cache jobs. |
-| `DATABASE_POOL_URL` | Local `.env`, Render | Managed connection string for pooled runtime traffic. |
-| `DATABASE_DIRECT_URL` | Local `.env`, Render | Direct connection reserved for migrations and maintenance. |
-| `DATABASE_INTERNAL_URL` | Local `.env`, Render (cron, optional) | Internal connection used by some workers and cron jobs. |
+| `DATABASE_URL` | Local `.env`, Render | Prisma Accelerate proxy for production queries. |
+| `RENDER_DB_INTERNAL_URL` | Local `.env`, Render | Direct Postgres (Render internal network) for migrations. |
+| `RENDER_DB_EXTERNAL_URL` | Local `.env` | Direct Postgres (external access from laptop) for development. |
+| `DATABASE_LOCAL_URL` | Local `.env` | Local workstation PostgreSQL for low-latency gameplay. |
 | `PRISMA_ACCELERATE_RUNTIME` | Render | Set to `serverless` when a service talks to Accelerate. |
 | `PRISMA_CLIENT_ENGINE_TYPE` | Local `.env` (optional) | Leave blank for direct drivers; set to `dataproxy` only when forcing Accelerate locally. |
 | `OPTIMIZE_API_KEY` | Local `.env`, Render | Prisma Accelerate API key (do not commit the value). |
@@ -116,7 +116,7 @@ Render services and local operators rely on the same variable names. Use the tab
 Review `secrets/Infinity-Gauntlet.env` and `render.yaml` whenever new services or workflows launch; update the consolidated env file with any new required keys.
 
 ## Quick Start
-1. Ensure `secrets/Infinity-Gauntlet.env` exists with all required keys populated (BOT_TOKEN, DATABASE_POOL_URL, DATABASE_EXTERNAL_URL, DATABASE_URL, DATABASE_LOCAL_URL, OPTIMIZE_API_KEY, POKEMON_BOT_TOKEN). This is the **single consolidated environment file** for all local development.
+1. Ensure `secrets/Infinity-Gauntlet.env` exists with all required keys populated (BOT_TOKEN, DATABASE_URL, RENDER_DB_EXTERNAL_URL, RENDER_DB_INTERNAL_URL, DATABASE_LOCAL_URL, OPTIMIZE_API_KEY, POKEMON_BOT_TOKEN). This is the **single consolidated environment file** for all local development.
 2. Open a PowerShell session and set `IG_ENV_FILE`:
    ```powershell
    pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist
@@ -139,10 +139,11 @@ Review `secrets/Infinity-Gauntlet.env` and `render.yaml` whenever new services o
 
 - Keep the repo cloned at the Windows path (`C:/Users/sherb/OneDrive/Documents/GitHub/Infinity-Gauntlet`) and invoke commands through WSL with the mirrored `/mnt/c` path.
 - Source Windows secrets inside Bash by stripping carriage returns: `source <(sed "s/\r$//" /mnt/c/Users/sherb/OneDrive/Documents/GitHub/Infinity-Gauntlet/secrets/Infinity-Gauntlet.env)`.
-- Export both direct and Accelerate URLs explicitly before running Prisma commands:
+- Export direct and Accelerate URLs explicitly before running Prisma commands:
    ```bash
-   export DATABASE_URL="$DATABASE_POOL_URL"    # Accelerate runtime
-   export DATABASE_EXTERNAL_URL               # Accelerate external
+   export DATABASE_URL                        # Accelerate runtime
+   export RENDER_DB_EXTERNAL_URL              # Direct PostgreSQL external
+   export RENDER_DB_INTERNAL_URL              # Direct PostgreSQL internal (Render)
    export DATABASE_LOCAL_URL                  # Local workstation
    ```
 - Run `npm ci` once per platform. After cloning or updating lockfiles, execute `npm ci` in WSL (rebuilds Linux-native binaries such as Prisma engines) and again in PowerShell so Windows tooling stays in sync.
