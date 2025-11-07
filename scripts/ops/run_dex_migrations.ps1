@@ -81,8 +81,8 @@ if (-not $RenderUrl -or [string]::IsNullOrWhiteSpace($RenderUrl)) {
 
 Assert-DirectUrl -url $RenderUrl -name 'RENDER_DB_EXTERNAL_URL (Render)'
 
-Write-Host '*** Running migrations against Prisma Postgres direct connection (primary)' -ForegroundColor Yellow
-$accelerateSnapshot = Set-EnvVars -vars @{ DATABASE_URL = $accelerateDirect; RENDER_DB_INTERNAL_URL = $accelerateDirect; DATABASE_ACCELERATE_URL = $accelerateUrl; PRISMA_CLIENT_ENGINE_TYPE = $null }
+Write-Host '*** Running migrations against direct PostgreSQL connection' -ForegroundColor Yellow
+$snapshot = Set-EnvVars -vars @{ DATABASE_URL = $accelerateDirect; RENDER_DB_INTERNAL_URL = $accelerateDirect; PRISMA_CLIENT_ENGINE_TYPE = $null }
 try {
     if (-not $DryRun) {
     Invoke-PrismaCommand @('migrate', 'deploy')
@@ -91,15 +91,15 @@ try {
         Write-Host 'Dry run: skipping migrate deploy on Prisma Postgres direct connection.' -ForegroundColor DarkYellow
     }
 } finally {
-    Restore-EnvVars -snapshot $accelerateSnapshot
+    Restore-EnvVars -snapshot $snapshot
 }
 
 Write-Host '*** Running migrations against Render standby direct connection' -ForegroundColor Yellow
 $renderSnapshot = Set-EnvVars -vars @{ DATABASE_URL = $RenderUrl; RENDER_DB_EXTERNAL_URL = $RenderUrl; PRISMA_CLIENT_ENGINE_TYPE = $null }
 try {
     if (-not $DryRun) {
-    Invoke-PrismaCommand @('migrate', 'deploy')
-    Invoke-SpeciesSheetRefresh
+        Invoke-PrismaCommand @('migrate', 'deploy')
+        Invoke-SpeciesSheetRefresh
     } else {
         Write-Host 'Dry run: skipping migrate deploy on Render direct connection.' -ForegroundColor DarkYellow
     }

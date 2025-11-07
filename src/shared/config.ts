@@ -164,13 +164,11 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
   const prodUrl = process.env.PROD_DATABASE_URL?.trim() ?? "";
   const devUrl = process.env.DEV_DATABASE_URL?.trim() ?? "";
   
-  // Legacy references (backwards compatibility)
+  // 2-NODE CLUSTER: Standard environment variables only
   const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL?.trim() ?? "";
   const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL?.trim() ?? "";
   const localUrl = process.env.DATABASE_LOCAL_URL?.trim() ?? "";
   const envUrl = process.env.DATABASE_URL?.trim() ?? "";
-  const internalUrlPrimary = process.env.DATABASE_INTERNAL_URL?.trim() ?? "";
-  const internalUrlLegacy = process.env.DATABASE_URL_INTERNAL?.trim() ?? "";
 
   const preferExternal = mode === "external" || (mode === "auto" && nodeEnv !== "production");
 
@@ -209,15 +207,11 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     addDirectCandidate(prodUrl, "env");
     addDirectCandidate(localUrl, "local");
     addDirectCandidate(envUrl, "env");
-    addDirectCandidate(internalUrlPrimary, "internal");
-    addDirectCandidate(internalUrlLegacy, "internal");
   } else {
     // Production/internal mode: prefer PROD (local) database
     addDirectCandidate(prodUrl, "env");
     addDirectCandidate(localUrl, "local");
     addDirectCandidate(renderInternalUrl, "internal");
-    addDirectCandidate(internalUrlPrimary, "internal");
-    addDirectCandidate(internalUrlLegacy, "internal");
     addDirectCandidate(devUrl, "external");
     addDirectCandidate(envUrl, "env");
     addDirectCandidate(renderExternalUrl, "external");

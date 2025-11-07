@@ -167,7 +167,7 @@ Reference data is mirrored into `/data` via scripted jobs:
 ## Render Runtime & Database Blueprint
 
 1. Copy the `render.yaml` worker named `infinity-gauntlet-app-worker` into your Render account. It builds with `pnpm install --frozen-lockfile && pnpm prisma generate && pnpm build` and starts the compiled worker via `node dist/worker/backup.js`.
-2. Ensure each service (web + workers) declares `envVars.DATABASE_URL` using `fromDatabase.connectionString`; the runtime config loader promotes `DATABASE_INTERNAL_URL` to `DATABASE_URL` automatically for internal connections.
+2. Ensure each service (web + workers) declares `envVars` for the 2-node cluster: `PROD_DATABASE_URL` (primary), `DEV_DATABASE_URL` (DEV master), `RENDER_DB_INTERNAL_URL` (Render internal), `RENDER_DB_EXTERNAL_URL` (Render external). The runtime config loader selects the appropriate connection based on `DATABASE_CONNECTION_MODE` (auto/internal/external).
 3. Optional cache tuning: set `CACHE_TTL_MS` or `REDIS_URL` in Render to change the shared cache backend; the default TTL is 60s and currently backed by the in-process memory cache in `src/shared/cache/memory.ts`.
 4. `/ops stats` now prints runtime, database, cache, and outbox diagnostics; `/ops cache` adds dedicated cache hit/miss counters, maintenance schedules, and optional cleanup triggers so you can confirm workers stay healthy before promoting changes.
 5. When schema drift appears in staging, run `scripts/bootstrap_staging_db.ps1` (after loading `.env`) for an interactive `prisma migrate deploy`; the script points back to `ops/DB_BOOTSTRAP.md` if relations are missing or pooled vs. direct URLs need adjustments.

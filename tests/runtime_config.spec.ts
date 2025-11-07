@@ -14,7 +14,6 @@ const ORIGINAL_ENV = { ...process.env };
 beforeEach(() => {
   process.env = { ...ORIGINAL_ENV };
   delete process.env.DATABASE_URL;
-  delete process.env.DATABASE_INTERNAL_URL;
   delete process.env.PROD_DATABASE_URL;
   delete process.env.DEV_DATABASE_URL;
   delete process.env.RENDER_DB_INTERNAL_URL;
@@ -32,8 +31,8 @@ afterEach(() => {
 });
 
 describe("loadConfig", () => {
-  it("falls back to DATABASE_INTERNAL_URL when DATABASE_URL is missing", async () => {
-    process.env.DATABASE_INTERNAL_URL = "postgres://render.internal/app";
+  it("falls back to RENDER_DB_INTERNAL_URL when DATABASE_URL is missing", async () => {
+    process.env.RENDER_DB_INTERNAL_URL = "postgres://render.internal/app";
     const { loadConfig, resetConfigCacheForTests } = await loadConfigModule();
     resetConfigCacheForTests();
     process.env.DATABASE_URL = "";

@@ -2,8 +2,6 @@ const fallbackOrder = [
   "DATABASE_URL",
   "RENDER_DB_INTERNAL_URL",
   "RENDER_DB_EXTERNAL_URL",
-  "DATABASE_INTERNAL_URL",
-  "DATABASE_URL_INTERNAL",
 ] as const;
 
 type FallbackKey = (typeof fallbackOrder)[number];
@@ -97,25 +95,11 @@ if (hasDirectUrl) {
   structuredLog("info", "RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL provided", {
     "db.direct.preview": redact(process.env.RENDER_DB_INTERNAL_URL?.trim() || process.env.RENDER_DB_EXTERNAL_URL?.trim()),
   });
-} else {
-  const directFallback = candidates.find((entry) => entry.key === "DATABASE_INTERNAL_URL" || entry.key === "DATABASE_URL_INTERNAL");
-  const safeDirect =
-    directFallback?.value ??
-    (preferred && preferred.key !== "DATABASE_URL" ? preferred.value : undefined);
-
-  if (safeDirect) {
-    // Set both for backward compatibility during transition
-    process.env.RENDER_DB_INTERNAL_URL = safeDirect;
-    structuredLog("info", "RENDER_DB_INTERNAL_URL resolved", {
-      "db.direct.source": directFallback?.key ?? preferred?.key ?? "unknown",
-      "db.direct.preview": redact(safeDirect),
-    });
-  } else if (preferred?.key === "DATABASE_URL") {
-    structuredLog("info", "RENDER_DB_INTERNAL_URL missing", {
-      guidance:
-        "Set RENDER_DB_INTERNAL_URL (Render internal connection string) or RENDER_DB_EXTERNAL_URL (external connection) for direct database access in 2-node cluster.",
-    });
-  }
+} else if (preferred?.key === "DATABASE_URL") {
+  structuredLog("info", "RENDER_DB_INTERNAL_URL missing", {
+    guidance:
+      "Set RENDER_DB_INTERNAL_URL (Render internal connection string) or RENDER_DB_EXTERNAL_URL (external connection) for direct database access in 2-node cluster.",
+  });
 }
 
 export const databaseUrlSource: FallbackKey | undefined = resolvedSource;
