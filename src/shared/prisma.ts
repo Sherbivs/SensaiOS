@@ -473,7 +473,7 @@ async function attemptCandidateConnection(candidate: DatabaseCandidate, attempt:
   const meta: Record<string, unknown> = {
     attempt,
     latencyMs: Number(latencyMs.toFixed(2)),
-    directUrlConfigured: Boolean(process.env.DATABASE_DIRECT_URL?.trim()),
+    directUrlConfigured: Boolean(process.env.RENDER_DB_INTERNAL_URL?.trim() || process.env.RENDER_DB_EXTERNAL_URL?.trim()),
     databaseSource: candidate.source,
     connectionMode: runtimeConfig.databaseConnectionMode,
     transport: lastPrismaTransport,
@@ -725,7 +725,7 @@ export function getDatabaseStats(): TripleDatabaseStats {
     : "offline";
   
   // DEV stats (secondary connection)
-  const devSource = process.env.DATABASE_DIRECT_URL ? "direct" : "unknown";
+  const devSource = process.env.RENDER_DB_INTERNAL_URL ? "internal" : process.env.RENDER_DB_EXTERNAL_URL ? "external" : "unknown";
   const devLatency = lastDevHeartbeatEvent?.latencyMs ?? null;
   const devStatus = devPrismaClient 
     ? (lastDevHeartbeatEvent ? computeStatus(lastDevHeartbeatEvent) : "initializing")
@@ -762,9 +762,9 @@ export function getDatabaseStats(): TripleDatabaseStats {
 
 // Initialize DEV client separately
 async function initializeDevClient(): Promise<void> {
-  const devUrl = process.env.DATABASE_DIRECT_URL?.trim() || process.env.DATABASE_EXTERNAL_URL?.trim();
+  const devUrl = process.env.RENDER_DB_INTERNAL_URL?.trim() || process.env.RENDER_DB_EXTERNAL_URL?.trim();
   if (!devUrl) {
-    log.info("DEV database connection skipped", { reason: "no DATABASE_DIRECT_URL or DATABASE_EXTERNAL_URL" });
+    log.info("DEV database connection skipped", { reason: "no RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL" });
     return;
   }
   

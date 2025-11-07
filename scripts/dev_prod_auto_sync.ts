@@ -388,17 +388,14 @@ async function readEnvFile(filePath: string): Promise<EnvVars> {
       const vars: EnvVars = {};
       const relevantKeys = [
         "DATABASE_URL",
-        "DATABASE_POOL_URL",
-        "DATABASE_DIRECT_URL",
-        "DATABASE_ACCELERATE_URL",
-        "DATABASE_EXTERNAL_URL",
-        "OPTIMIZE_DATABASE_URL",
-        "OPTIMIZE_DIRECT_URL",
+        "RENDER_DB_INTERNAL_URL",
+        "RENDER_DB_EXTERNAL_URL",
+        "DATABASE_LOCAL_URL",
+        "PRISMA_CLIENT_URL",
+        "OPTIMIZE_API_KEY",
         "ALERT_WEBHOOK_URL",
         "DEV_DATABASE_URL",
-        "DEV_DATABASE_DIRECT_URL",
         "PROD_DATABASE_URL",
-        "PROD_DATABASE_DIRECT_URL",
       ];
       
       for (const key of relevantKeys) {
@@ -531,14 +528,13 @@ function spawnCommand(
 function cliEnvForMigrate(fileVars: EnvVars): Record<string, string | undefined> {
   // Prefer EXTERNAL_URL for WSL/remote access, fallback to DIRECT_URL for internal Render connections
   const direct =
-    fileVars.DATABASE_EXTERNAL_URL || 
-    fileVars.DATABASE_DIRECT_URL || 
-    fileVars.DIRECT_URL || 
+    fileVars.RENDER_DB_EXTERNAL_URL || 
+    fileVars.RENDER_DB_INTERNAL_URL || 
     fileVars.DATABASE_URL || 
     undefined;
   if (!direct) {
     log("migrate.env.missing_direct", {
-      message: "DATABASE_EXTERNAL_URL/DATABASE_DIRECT_URL missing; migrate may fail",
+      message: "RENDER_DB_EXTERNAL_URL/RENDER_DB_INTERNAL_URL missing; migrate may fail",
     });
   } else if (direct.startsWith("prisma+")) {
     log("migrate.env.dataproxy_warning", {
@@ -548,31 +544,30 @@ function cliEnvForMigrate(fileVars: EnvVars): Record<string, string | undefined>
   }
   return {
     DATABASE_URL: direct,
-    DATABASE_DIRECT_URL: direct,  // Schema requires this to be set
     PRISMA_CLIENT_ENGINE_TYPE: "",
   };
 }
 
 function cliEnvForSeed(fileVars: EnvVars): Record<string, string | undefined> {
   // CRITICAL: In production (Render), Prisma Client is generated for Accelerate mode
-  // and REQUIRES prisma:// URLs. Use POOL URL (Accelerate) instead of direct URLs.
+  // and REQUIRES prisma:// URLs. Use DATABASE_URL (Accelerate) instead of direct URLs.
   // In development, prefer direct URLs to avoid rate limits.
   const isProd = process.env.NODE_ENV === "production";
   
   const seedUrl = isProd
-    ? (fileVars.DATABASE_POOL_URL || 
-       fileVars.DATABASE_ACCELERATE_URL || 
-       fileVars.DATABASE_URL || "")
-    : (fileVars.DATABASE_EXTERNAL_URL || 
-       fileVars.DATABASE_DIRECT_URL || 
+    ? (fileVars.DATABASE_URL || "")
+    : (fileVars.RENDER_DB_EXTERNAL_URL || 
+       fileVars.RENDER_DB_INTERNAL_URL || 
+       fileVars.DATABASE_LOCAL_URL ||
        fileVars.DATABASE_URL || "");
   
   const isDataProxy = seedUrl.startsWith("prisma+") || seedUrl.startsWith("prisma://");
   
   log("cli.env.seed", { 
     environment: process.env.NODE_ENV,
-    hasPoolUrl: !!fileVars.DATABASE_POOL_URL,
-    hasDirectUrl: !!fileVars.DATABASE_DIRECT_URL,
+    hasAccelerateUrl: !!fileVars.DATABASE_URL && (fileVars.DATABASE_URL.startsWith("prisma+") || fileVars.DATABASE_URL.startsWith("prisma://")),
+    hasRenderInternalUrl: !!fileVars.RENDER_DB_INTERNAL_URL,
+    hasRenderExternalUrl: !!fileVars.RENDER_DB_EXTERNAL_URL,
     hasDatabaseUrl: !!fileVars.DATABASE_URL,
     selectedUrl: seedUrl.substring(0, 30) + "...",
     isDataProxy,
@@ -615,7 +610,6 @@ async function preflightOptimize(envVars: EnvVars): Promise<void> {
 
   const targetVars: EnvVars = {
     DATABASE_URL: url,
-    DATABASE_DIRECT_URL: url,
   };
 
   await withPrismaClient("prod", targetVars, async (client) => {
@@ -641,15 +635,14 @@ async function withPrismaClient<T>(
   envVars: EnvVars,
   callback: (client: PrismaClient) => Promise<T>,
 ): Promise<T> {
-  // CRITICAL: In production, use POOL_URL (Accelerate) to match generated Prisma Client
-  // In development, prefer EXTERNAL_URL/DIRECT_URL for direct access
+  // CRITICAL: In production, use DATABASE_URL (Accelerate) to match generated Prisma Client
+  // In development, prefer RENDER_DB_EXTERNAL_URL (laptop) or RENDER_DB_INTERNAL_URL (Render Node) for direct access
   const isProd = process.env.NODE_ENV === "production";
   const url = isProd
-    ? (envVars.DATABASE_POOL_URL ?? 
-       envVars.DATABASE_ACCELERATE_URL ?? 
-       envVars.DATABASE_URL)
-    : (envVars.DATABASE_EXTERNAL_URL ?? 
-       envVars.DATABASE_DIRECT_URL ?? 
+    ? (envVars.DATABASE_URL)
+    : (envVars.RENDER_DB_EXTERNAL_URL ?? 
+       envVars.RENDER_DB_INTERNAL_URL ?? 
+       envVars.DATABASE_LOCAL_URL ??
        envVars.DATABASE_URL);
   
   if (!url) {
@@ -953,7 +946,6 @@ async function main(): Promise<void> {
       if (process.env.DATABASE_LOCAL_URL) {
         localVars = {
           DATABASE_URL: process.env.DATABASE_LOCAL_URL,
-          DATABASE_DIRECT_URL: process.env.DATABASE_LOCAL_URL,
         };
       }
     }
@@ -1050,18 +1042,18 @@ async function main(): Promise<void> {
 
   if (config.ci) {
     const devDirect =
-      devVars.DATABASE_DIRECT_URL || devVars.DIRECT_URL || devVars.DATABASE_URL || "";
+      devVars.RENDER_DB_INTERNAL_URL || devVars.RENDER_DB_EXTERNAL_URL || devVars.DATABASE_URL || "";
     const prodDirect =
-      prodVars.DATABASE_DIRECT_URL || prodVars.DIRECT_URL || prodVars.DATABASE_URL || "";
+      prodVars.RENDER_DB_INTERNAL_URL || prodVars.RENDER_DB_EXTERNAL_URL || prodVars.DATABASE_URL || "";
 
     if (!devDirect) {
       throw new Error(
-        "CI guard requires DATABASE_DIRECT_URL (or DIRECT_URL/DATABASE_URL) in the Dev env file",
+        "CI guard requires RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL (or DATABASE_URL) in the Dev env file",
       );
     }
     if (!prodDirect) {
       throw new Error(
-        "CI guard requires DATABASE_DIRECT_URL (or DIRECT_URL/DATABASE_URL) in the Prod env file",
+        "CI guard requires RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL (or DATABASE_URL) in the Prod env file",
       );
     }
     if (!bootstrapTrigger) {
