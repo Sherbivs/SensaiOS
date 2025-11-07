@@ -554,23 +554,32 @@ function cliEnvForMigrate(fileVars: EnvVars): Record<string, string | undefined>
 }
 
 function cliEnvForSeed(fileVars: EnvVars): Record<string, string | undefined> {
-  // For seeding, prefer external/direct URLs to avoid Accelerate rate limits
-  const directUrl = 
-    fileVars.DATABASE_EXTERNAL_URL || 
-    fileVars.DATABASE_DIRECT_URL || 
-    fileVars.DATABASE_URL || 
-    "";
-  const isDataProxy = directUrl.startsWith("prisma+");
+  // CRITICAL: In production (Render), Prisma Client is generated for Accelerate mode
+  // and REQUIRES prisma:// URLs. Use POOL URL (Accelerate) instead of direct URLs.
+  // In development, prefer direct URLs to avoid rate limits.
+  const isProd = process.env.NODE_ENV === "production";
+  
+  const seedUrl = isProd
+    ? (fileVars.DATABASE_POOL_URL || 
+       fileVars.DATABASE_ACCELERATE_URL || 
+       fileVars.DATABASE_URL || "")
+    : (fileVars.DATABASE_EXTERNAL_URL || 
+       fileVars.DATABASE_DIRECT_URL || 
+       fileVars.DATABASE_URL || "");
+  
+  const isDataProxy = seedUrl.startsWith("prisma+") || seedUrl.startsWith("prisma://");
   
   log("cli.env.seed", { 
+    environment: process.env.NODE_ENV,
+    hasPoolUrl: !!fileVars.DATABASE_POOL_URL,
     hasDirectUrl: !!fileVars.DATABASE_DIRECT_URL,
     hasDatabaseUrl: !!fileVars.DATABASE_URL,
-    selectedUrl: directUrl.substring(0, 30) + "...",
+    selectedUrl: seedUrl.substring(0, 30) + "...",
     isDataProxy,
   });
   
   return {
-    DATABASE_URL: directUrl,
+    DATABASE_URL: seedUrl,
     PRISMA_CLIENT_ENGINE_TYPE: isDataProxy ? "dataproxy" : undefined,
   };
 }
