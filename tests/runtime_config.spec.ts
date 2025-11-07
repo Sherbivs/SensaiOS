@@ -15,6 +15,8 @@ beforeEach(() => {
   process.env = { ...ORIGINAL_ENV };
   delete process.env.DATABASE_URL;
   delete process.env.DATABASE_INTERNAL_URL;
+  delete process.env.PROD_DATABASE_URL;
+  delete process.env.DEV_DATABASE_URL;
   delete process.env.RENDER_DB_INTERNAL_URL;
   delete process.env.RENDER_DB_EXTERNAL_URL;
   delete process.env.DATABASE_LOCAL_URL;
@@ -40,10 +42,20 @@ describe("loadConfig", () => {
     expect(process.env.DATABASE_URL).toBe("postgres://render.internal/app");
   });
 
-  it("throws in production when DATABASE_URL points to localhost", async () => {
+  it("throws in production when DATABASE_URL points to localhost (unless using PROD_DATABASE_URL)", async () => {
     process.env.NODE_ENV = "production";
     process.env.DATABASE_URL = "postgres://localhost/db";
+    // Should fail because DATABASE_URL is localhost but not PROD_DATABASE_URL
     await expect(loadConfigModule()).rejects.toThrow(/cannot point to localhost/i);
+  });
+
+  it("allows localhost in production when using PROD_DATABASE_URL", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.PROD_DATABASE_URL = "postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db";
+    const { loadConfig, resetConfigCacheForTests } = await loadConfigModule();
+    resetConfigCacheForTests();
+    const config = loadConfig();
+    expect(config.databaseUrl).toBe("postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db");
   });
 
   it("keeps DATABASE_URL when provided and exposes defaults", async () => {
@@ -57,25 +69,26 @@ describe("loadConfig", () => {
     expect(config.redisUrl).toBeNull();
   });
 
-  it("prefers Accelerate URLs when available but retains direct fallbacks", async () => {
-    process.env.DATABASE_URL = "prisma+postgres://accelerate.example/primary";
-    process.env.RENDER_DB_INTERNAL_URL = "postgresql://render-direct.example/infinity_gauntlet";
+  it("prefers DEV_DATABASE_URL in development mode", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.DEV_DATABASE_URL = "postgresql://dev-master.example/infinity_gauntlet";
+    process.env.PROD_DATABASE_URL = "postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db";
     const { loadConfig, resetConfigCacheForTests } = await loadConfigModule();
     resetConfigCacheForTests();
     const config = loadConfig();
-    expect(config.databaseUrl).toBe("prisma+postgres://accelerate.example/primary");
-    const directCandidate = config.databaseCandidates.find((candidate) => candidate.source === "internal");
-    expect(directCandidate?.isFallback).toBe(true);
+    expect(config.databaseUrl).toBe("postgresql://dev-master.example/infinity_gauntlet");
+    expect(config.databaseUrlSource).toBe("external");
   });
 
-  it("uses a direct PostgreSQL URL when Accelerate endpoints are absent", async () => {
-    process.env.RENDER_DB_INTERNAL_URL = "postgresql://render-direct.example/infinity_gauntlet";
+  it("prefers PROD_DATABASE_URL in production mode", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.PROD_DATABASE_URL = "postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db";
+    process.env.DEV_DATABASE_URL = "postgresql://dev-master.example/infinity_gauntlet";
     const { loadConfig, resetConfigCacheForTests } = await loadConfigModule();
     resetConfigCacheForTests();
     const config = loadConfig();
-    expect(config.databaseUrl).toBe("postgresql://render-direct.example/infinity_gauntlet");
-    expect(config.databaseCandidates.some((candidate) => candidate.source === "internal")).toBe(true);
-    expect(["direct", "env"]).toContain(config.databaseUrlSource);
+    expect(config.databaseUrl).toBe("postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db");
+    expect(config.databaseUrlSource).toBe("env");
   });
 
   it("falls back to DATABASE_URL when direct URLs are missing", async () => {
