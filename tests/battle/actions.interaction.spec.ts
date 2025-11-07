@@ -12,9 +12,9 @@ vi.mock("../../src/shared/config.js", () => {
   const runtimeConfig = {
     nodeEnv: "test",
     serviceName: "test-service",
-    databaseUrl: "prisma://accelerate.invalid/placeholder",
+    databaseUrl: "postgresql://test-user:test-pass@localhost:5432/test-db",
     databaseConnectionMode: "auto",
-    databaseUrlSource: "accelerate",
+    databaseUrlSource: "test",
     databaseCandidates: [],
     databasePreferenceSource: null,
     redisUrl: null,
