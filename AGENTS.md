@@ -48,7 +48,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
   - **FOR MIGRATIONS:** Migrations require direct PostgreSQL access. Use `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` to connect to the master database for schema changes.
   - **Verify access:** `echo $Env:IG_ENV_FILE` should print the chosen file; use `Get-Content secrets/Infinity-Gauntlet.env | Select-Object -First 5` to confirm it is reachable before running tooling.
   - **Automation service:** `npm run db:auto-sync` runs the consolidation on deployment and then checks for drift every five minutes. Use `--dry-run`, `--once`, or `--skip-startup` when rehearsing new flows.
-3. **Inspect databases:** use the muted control suite documented in `docs/db-control-suite.md`.
+3. **Inspect databases:** use the database CLI tool:
   ```powershell
   npm run db:cli -- status         # connection info + sample counts
   npm run db:cli -- counts         # common table counts (Species, BusMessage, ...)
@@ -58,7 +58,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 4. **Bootstrap the local workstation database (PRIMARY for gameplay):** set `PG_BIN_DIR` to a Postgres installation with `bin/` + `share/` (e.g., `C:/Program Files/PostgreSQL/17/bin`), then run `npm run ops:bootstrap-local-db` to mirror the DEV/PROD database into `Store/db`, rotate timestamped snapshots, and emit `local-url.txt` (e.g., `postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db`) so `src/shared/config.ts` can connect the `localPrisma` client. Prefer `npm run ops:auto-bootstrap-local-db` when you want the script to install PostgreSQL silently (via winget) and run the mirror in one step. The consolidated `secrets/Infinity-Gauntlet.env` already contains `DATABASE_LOCAL_URL` for <50ms latency gameplay. Capture the command, timestamp, and resulting URL in Tasklist notes when you refresh the mirror (especially before cutovers or network work). See `docs/WORKSTATION-GAMEPLAY-SETUP.md` for complete setup guide.
 5. **Document actions:** log purpose, command, and outcome in `Tasklist.md` under the active task when running anything outside status/counts.
 
-Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describe the secure loading order and available commands. These tools run locally only; do not expose the secure env path in CI or production. **All development work uses `secrets/Infinity-Gauntlet.env` as the single consolidated environment file.**
+Reference: `docs/ai-env-setup.md` describes the secure loading order and available commands. These tools run locally only; do not expose the secure env path in CI or production. **All development work uses `secrets/Infinity-Gauntlet.env` as the single consolidated environment file.**
 
 ## Database URL Selection (CRITICAL - Read Before Any Database Operation)
 
@@ -365,7 +365,7 @@ See `docs/db-replication-architecture.md` for comprehensive architecture documen
 - **Security Bot Guardrail**: Only the guild owner and administrators may change roles or permissions; the security bot auto-reverts other edits, DMing DripTVDD and recording `revertStatus` / `revertErrors` fields when rollback attempts fail.
 - **Clipboard Discipline**: Contract Mode ON requires markers, clipboard, and Prompt updates. Markerless Mode (no markers) relaxes the flow but still enforces Absolutes (routers intact, NEXT READY, canonical docs preserved).
 - **Logging**: `Prompt.md` PATCHSET echo should contain a concise summary, tasklist diff flag, test statement, contract mode, and NEXT pointer status.
-- **DB Control Suite (Muted)**: All DB operations funnel through `npm run db:cli` (see `docs/db-control-suite.md`). Load `IG_ENV_FILE` first; production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`.
+- **Database CLI**: All DB operations funnel through `npm run db:cli` for status, counts, and queries. Load `IG_ENV_FILE` first; production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`.
 
 ## Production & Render Notes
 - `render.yaml` defines services:
