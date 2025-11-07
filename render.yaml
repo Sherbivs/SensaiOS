@@ -19,6 +19,9 @@ services:
         sizeGB: 2
     envVars:
       # 2-NODE CLUSTER: PROD_DATABASE_URL (local on disk), DEV_DATABASE_URL (master on Render PostgreSQL)
+      # DATABASE_URL must be set for Prisma client generation (build time)
+      - key: DATABASE_URL
+        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
       - key: PROD_DATABASE_URL
         value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
       - key: DEV_DATABASE_URL
@@ -50,6 +53,9 @@ services:
         sizeGB: 2
     envVars:
       # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
+      # DATABASE_URL must be set for Prisma client generation (build time)
+      - key: DATABASE_URL
+        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
       - key: PROD_DATABASE_URL
         value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
       - key: DEV_DATABASE_URL
@@ -90,6 +96,9 @@ services:
         sizeGB: 2
     envVars:
       # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
+      # DATABASE_URL must be set for Prisma client generation (build time)
+      - key: DATABASE_URL
+        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
       - key: PROD_DATABASE_URL
         value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
       - key: DEV_DATABASE_URL
@@ -174,6 +183,9 @@ services:
         sizeGB: 2
     envVars:
       # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
+      # DATABASE_URL must be set for Prisma client generation (build time)
+      - key: DATABASE_URL
+        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
       - key: PROD_DATABASE_URL
         value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
       - key: DEV_DATABASE_URL
@@ -209,6 +221,9 @@ services:
         sizeGB: 2
     envVars:
       # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
+      # DATABASE_URL must be set for Prisma client generation (build time)
+      - key: DATABASE_URL
+        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
       - key: PROD_DATABASE_URL
         value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
       - key: DEV_DATABASE_URL
