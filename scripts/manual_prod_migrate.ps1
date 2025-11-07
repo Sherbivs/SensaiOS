@@ -2,11 +2,11 @@
 # Purpose: Apply pending migrations to production database
 # CRITICAL: Review this script before running!
 #
-# Last Updated: 2025-11-07
+# Last Updated: 2025-11-06
 # Context: Production database needs schema overhaul with new migrations
 #
 # SAFETY CHECKS:
-# 1. Uses DATABASE_EXTERNAL_URL (direct PostgreSQL, not Accelerate)
+# 1. Uses RENDER_DB_EXTERNAL_URL (laptop) or RENDER_DB_INTERNAL_URL (Render Node) - direct PostgreSQL, not Accelerate
 # 2. Runs in dry-run mode first for verification
 # 3. Requires explicit confirmation before applying migrations
 # 4. Logs all output for audit trail
@@ -43,26 +43,25 @@ foreach ($line in $envContent) {
 # Verify required environment variables
 Write-Host "[2/6] Verifying database URLs..." -ForegroundColor Yellow
 
-$externalUrl = $env:DATABASE_EXTERNAL_URL
-$directUrl = $env:DATABASE_DIRECT_URL
-$poolUrl = $env:DATABASE_POOL_URL
+$externalUrl = $env:RENDER_DB_EXTERNAL_URL
+$internalUrl = $env:RENDER_DB_INTERNAL_URL
+$databaseUrl = $env:DATABASE_URL
 
-if (-not $externalUrl -and -not $directUrl) {
-    Write-Error "No direct database URL found. Need DATABASE_EXTERNAL_URL or DATABASE_DIRECT_URL"
+if (-not $externalUrl -and -not $internalUrl) {
+    Write-Error "No direct database URL found. Need RENDER_DB_EXTERNAL_URL or RENDER_DB_INTERNAL_URL"
     exit 1
 }
 
-# Use EXTERNAL URL (preferred for migrations)
-$migrateUrl = if ($externalUrl) { $externalUrl } else { $directUrl }
+# Use EXTERNAL URL (preferred for migrations from laptop) or INTERNAL (from Render Node)
+$migrateUrl = if ($externalUrl) { $externalUrl } else { $internalUrl }
 
 Write-Host "  Migration URL: $($migrateUrl.Substring(0, 40))..." -ForegroundColor Gray
-Write-Host "  Pool URL: $($poolUrl.Substring(0, 40))..." -ForegroundColor Gray
+Write-Host "  Accelerate URL: $($databaseUrl.Substring(0, 40))..." -ForegroundColor Gray
 Write-Host ""
 
 # Set environment for Prisma
 $env:NODE_ENV = "production"
 $env:DATABASE_URL = $migrateUrl
-$env:DATABASE_DIRECT_URL = $migrateUrl  # Schema requires this
 $env:PRISMA_CLIENT_ENGINE_TYPE = ""  # Direct mode
 
 # Check current migration status

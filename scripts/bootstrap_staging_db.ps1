@@ -35,11 +35,14 @@ if (-not $db) {
     exit 2
 }
 
-$directUrl = $env:DATABASE_DIRECT_URL
+$directUrl = $env:RENDER_DB_INTERNAL_URL
 if (-not $directUrl) {
-    Write-Warning "DATABASE_DIRECT_URL is not set. Prisma migrations will fall back to the pooled URL; add the direct connection string for best results."
+    $directUrl = $env:RENDER_DB_EXTERNAL_URL
+}
+if (-not $directUrl) {
+    Write-Warning "RENDER_DB_INTERNAL_URL and RENDER_DB_EXTERNAL_URL are not set. Prisma migrations will fall back to DATABASE_URL; add a direct connection string for best results."
 } elseif ($directUrl -eq $db) {
-    Write-Warning "DATABASE_DIRECT_URL matches DATABASE_URL. Confirm the direct connection string so migrations bypass pools."
+    Write-Warning "Direct URL matches DATABASE_URL. Confirm the direct connection string so migrations bypass Accelerate."
 }
 
 # Mask creds for display
@@ -52,7 +55,7 @@ function ConvertTo-MaskedDbUrl($u) {
 
 Write-Host "[bootstrap] Detected DATABASE_URL: $(ConvertTo-MaskedDbUrl $db)" -ForegroundColor Yellow
 if ($directUrl) {
-    Write-Host "[bootstrap] Detected DATABASE_DIRECT_URL: $(ConvertTo-MaskedDbUrl $directUrl)" -ForegroundColor Yellow
+    Write-Host "[bootstrap] Detected Direct URL: $(ConvertTo-MaskedDbUrl $directUrl)" -ForegroundColor Yellow
 }
 
 if ($WhatIf) {
