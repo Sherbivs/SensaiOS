@@ -301,8 +301,15 @@ function assertDatabaseUrl(nodeEnv: string, url: string): void {
   if (nodeEnv === "production") {
     try {
       const host = new URL(url).hostname.toLowerCase();
-      if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
-        throw new Error("DATABASE_URL cannot point to localhost in production.");
+      const isLocalhost = host === "localhost" || host === "127.0.0.1" || host === "::1";
+      
+      // CRITICAL: Allow localhost for PROD_DATABASE_URL (2-node cluster architecture)
+      // PROD_DATABASE_URL intentionally uses 127.0.0.1:55433 (local Render Node PostgreSQL)
+      const prodUrl = process.env.PROD_DATABASE_URL?.trim();
+      const isUsingProdLocalDatabase = prodUrl && url === prodUrl && isLocalhost;
+      
+      if (isLocalhost && !isUsingProdLocalDatabase) {
+        throw new Error("DATABASE_URL cannot point to localhost in production (unless using PROD_DATABASE_URL for local node).");
       }
     } catch (error) {
       if (error instanceof Error) {
