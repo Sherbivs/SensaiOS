@@ -13,19 +13,21 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: DB.NORTHSTAR.SERVICES
-reason: "T13.DEX.V2_PROD_CUTOVER marked DONE—cutover was actually completed on 2025-11-03T06:28Z. DEX v2 flag (DEX_V2_ENABLED) is live and serving production traffic. All cutover acceptance criteria met: backups captured, signed pack artifact published (dexpack.v2.f840e427...), flag ladder implemented (1%→25%→50%→100%), monitoring/rollback workflows documented. Subsequent Nov 5-6 notes incorrectly logged to DEX task were actually unrelated Phase 16 infrastructure work (database replication, dual DB connections, security bot hardening). Next: DB.NORTHSTAR.SERVICES for EventTracker and ProfileService implementation with caching."
+next_task_id: REPO.OPTIMIZATION.PLANNING
+reason: "Phase 1-8 complete (Accelerate→2-Node migration). All 16 commits pushed to origin. Repository is production-ready with clean codebase (zero Accelerate refs, zero TODOs, zero stale env vars, zero TypeScript errors). Starting Phase 9: Repository Optimization & Fine-Tuning to maximize operational efficiency. Planning phase will audit: unused files, dead code, dependency bloat, configuration redundancy, documentation accuracy, test suite health. Deliverable: ops/REPO-OPTIMIZATION-PLAN.md with categorized findings and proposed actions. See plan document for 8-phase roadmap (12-17 hour estimate)."
 
 files_hint:
-  - src/services/events/
-  - src/services/profiles/
-  - docs/event-tracking-schema.md
-  - docs/query-optimization-guide.md
+  - ops/REPO-OPTIMIZATION-PLAN.md
+  - scripts/
+  - docs/
+  - package.json
+  - src/
+  - tests/
   - Tasklist.md
   - Prompt.md
 
 queue: []
-timestamp_utc: 2025-11-06T23:00:00Z
+timestamp_utc: 2025-11-07T00:30:00Z
 router_version: 1
-last_notes_read_utc: 2025-11-06T23:00:00Z
-note: "Marked T13.DEX.V2_PROD_CUTOVER as DONE with clarification that cutover completed 2025-11-03T06:28Z (all acceptance criteria met). Task incorrectly remained READY because unrelated infrastructure work (Phase 16 database replication, dual DB connections, security bot, logger improvements) was logged to it Nov 5-6 instead of tracked separately. DEX v2 is live in production. Retargeted NEXT to DB.NORTHSTAR.SERVICES (next READY task after DEX completion)."
+last_notes_read_utc: 2025-11-07T00:30:00Z
+note: "Phase 8 validation complete: build ✅ (zero TypeScript errors), lint ⚠️ (27 warnings - unused vars in tests), verification ✅ (zero Accelerate/TODO/stale vars). All 16 commits pushed to origin (6edb48c HEAD). Starting Phase 9: comprehensive repository optimization with 8 sub-phases covering file pruning, dead code elimination, dependency cleanup, configuration consolidation, documentation accuracy, test optimization. Created ops/REPO-OPTIMIZATION-PLAN.md (comprehensive 400+ line plan). Target metrics: zero linter warnings, <5s test suite, >80% coverage, zero npm vulnerabilities."
