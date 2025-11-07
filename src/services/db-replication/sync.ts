@@ -1,12 +1,12 @@
 /**
  * Database Sync Orchestration
  * 
- * Automates synchronization between DEV, Prod (Prisma Accelerate), and Local databases
- * in the master-replica cascade architecture.
+ * Automates synchronization between DEV (master), PROD (local node), and LOCAL (workstation)
+ * in the 2-node direct PostgreSQL cluster architecture.
  * 
  * Features:
- * - 5-stage DEV→Prod sync (version check, integrity verify, migration apply, validation, complete)
- * - pg_dump/restore for Prod→Local sync with version gating
+ * - 5-stage DEV→PROD sync (version check, integrity verify, migration apply, validation, complete)
+ * - pg_dump/restore for PROD→LOCAL sync with version gating
  * - Rollback handling on any stage failure
  * - Idempotency checks (skip sync if already in sync)
  * - Detailed metrics and event logging
@@ -104,8 +104,7 @@ export interface SyncOptions {
 /**
  * Load secrets/migrate.env file for direct PostgreSQL connections.
  * 
- * CRITICAL: Prisma Accelerate does NOT support DDL operations.
- * migrations must use direct PostgreSQL URLs from migrate.env.
+ * 2-NODE CLUSTER: All migrations use direct PostgreSQL URLs from migrate.env.
  */
 function loadMigrateEnv(): Record<string, string> {
   const envPath = 'secrets/migrate.env';
@@ -212,7 +211,7 @@ async function recordSyncEvent(
 // ============================================================================
 
 /**
- * Sync DEV database to Prod (Prisma Accelerate) using 5-stage process.
+ * Sync DEV database to PROD (direct PostgreSQL local node) using 5-stage process.
  * 
  * Stages:
  * 1. VERSION_CHECK - Compare fingerprints, detect reversions/divergence
@@ -221,7 +220,7 @@ async function recordSyncEvent(
  * 4. VALIDATION - Post-migration fingerprint + integrity verification
  * 5. COMPLETE - Update sync state, record metrics
  * 
- * Idempotency: Skips if DEV and Prod already match (MATCH status).
+ * Idempotency: Skips if DEV and PROD already match (MATCH status).
  * Rollback: On any failure, calls handleSyncFailure() to preserve state and alert.
  */
 export async function syncDevToProd(
@@ -322,9 +321,9 @@ export async function syncDevToProd(
     // STAGE 3: Migration Apply
     // ========================================================================
     result.stage = SyncStage.MIGRATION_APPLY;
-    logger.info('Sync: Stage 3 - Applying migrations to Prod');
+    logger.info('Sync: Stage 3 - Applying migrations to PROD');
 
-    // Load secrets/migrate.env for direct PostgreSQL access (Accelerate doesn't support DDL)
+    // Load secrets/migrate.env for direct PostgreSQL access (2-node cluster)
     const migrateEnv = loadMigrateEnv();
 
     const migrateResult = await execCommand('npx prisma migrate deploy', {

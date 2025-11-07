@@ -113,7 +113,7 @@ if (hasDirectUrl) {
   } else if (preferred?.key === "DATABASE_URL") {
     structuredLog("info", "RENDER_DB_INTERNAL_URL missing", {
       guidance:
-        "Set RENDER_DB_INTERNAL_URL (Render internal connection string) or RENDER_DB_EXTERNAL_URL (external connection) for direct database access bypassing Accelerate.",
+        "Set RENDER_DB_INTERNAL_URL (Render internal connection string) or RENDER_DB_EXTERNAL_URL (external connection) for direct database access in 2-node cluster.",
     });
   }
 }

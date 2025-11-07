@@ -119,7 +119,7 @@ function readConnectionPreference(): DatabaseUrlSource | null {
     const source = parsed?.lastSource;
     if (
       typeof source === "string" &&
-      ["external", "pool", "internal", "direct", "env", "accelerate", "local"].includes(source)
+      ["external", "pool", "internal", "direct", "env", "local"].includes(source)
     ) {
       return source as DatabaseUrlSource;
     }
