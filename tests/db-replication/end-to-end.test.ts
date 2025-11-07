@@ -211,7 +211,7 @@ describe("DB Replication End-to-End", () => {
 
     it("should execute MIGRATION_APPLY with direct PostgreSQL", async () => {
       // Test stage 3: MIGRATION_APPLY
-      // 1. Verify DATABASE_DIRECT_URL used (not Accelerate)
+      // 1. Verify RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL used (not Accelerate)
       // 2. Verify npx prisma migrate deploy executed
       // 3. Verify migration errors captured
       // 4. Verify rollback triggered on failure

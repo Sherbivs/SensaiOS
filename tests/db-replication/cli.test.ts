@@ -253,18 +253,18 @@ describe("CLI Environment Loading", () => {
     expect(envFile === undefined || typeof envFile === "string").toBe(true);
   });
 
-  it("should check for DATABASE_DIRECT_URL", () => {
-    const directUrl = process.env.DATABASE_DIRECT_URL;
+  it("should check for RENDER_DB_INTERNAL_URL", () => {
+    const internalUrl = process.env.RENDER_DB_INTERNAL_URL;
     
     // Should be defined or undefined, not throw
-    expect(directUrl === undefined || typeof directUrl === "string").toBe(true);
+    expect(internalUrl === undefined || typeof internalUrl === "string").toBe(true);
   });
 
-  it("should check for DATABASE_POOL_URL", () => {
-    const poolUrl = process.env.DATABASE_POOL_URL;
+  it("should check for RENDER_DB_EXTERNAL_URL", () => {
+    const externalUrl = process.env.RENDER_DB_EXTERNAL_URL;
     
     // Should be defined or undefined, not throw
-    expect(poolUrl === undefined || typeof poolUrl === "string").toBe(true);
+    expect(externalUrl === undefined || typeof externalUrl === "string").toBe(true);
   });
 
   it("should check for DATABASE_LOCAL_URL", () => {
