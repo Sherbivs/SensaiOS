@@ -58,7 +58,7 @@ _Last updated: 2025-11-07T22:00:00Z (UTC) — Rev: 1.5_
 
 ## Database Connection Modes
 - `DATABASE_CONNECTION_MODE` controls which Postgres endpoint the runtime chooses. Supported values: `auto` (default), `external`, and `internal`.
-- Production services should stay on `auto`, which prefers `RENDER_DB_INTERNAL_URL` (Render internal network) and falls back to `DATABASE_URL` (Accelerate) when necessary.
+- Production services should stay on `auto`, which prefers `RENDER_DB_INTERNAL_URL` (Render internal network) and falls back to `DATABASE_URL` (direct PostgreSQL) when necessary.
 - For local development, set `RENDER_DB_EXTERNAL_URL` to the external Render connection string and (optionally) export `DATABASE_CONNECTION_MODE=external` to force that endpoint. In `auto`, development builds already prefer the external URL when it is present.
 - The helper also stamps `DATABASE_CONNECTION_SOURCE` in the process environment and Prisma connect logs include `databaseSource`/`connectionMode` so you can confirm which endpoint was selected at runtime.
 - When dev mode finds an internal URL that successfully connects, that source is persisted to `%USERPROFILE%\.infinity-gauntlet\db-connection.json`; subsequent runs prefer the saved internal endpoint until another source succeeds.
