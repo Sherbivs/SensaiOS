@@ -47,19 +47,14 @@ check_pattern() {
   
   echo "Checking: $description"
   
-  local grep_cmd="grep -rn --color=never --include=\"*.ts\" --include=\"*.js\" --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git"
-  
-  if [ -n "$exclude_pattern" ]; then
-    grep_cmd="$grep_cmd --exclude=\"$exclude_pattern\""
-  fi
+  local results
   
   # In strict mode, search all files except node_modules/dist/.git
   if [ "$STRICT_MODE" = true ]; then
-    grep_cmd="grep -rn --color=never --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git"
+    results=$(grep -rn --color=never --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git "$pattern" . 2>/dev/null || true)
+  else
+    results=$(grep -rn --color=never --include="*.ts" --include="*.js" --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git "$pattern" . 2>/dev/null || true)
   fi
-  
-  local results
-  results=$(eval "$grep_cmd \"$pattern\" . 2>/dev/null || true)
   
   if [ -n "$results" ]; then
     local count
@@ -135,15 +130,28 @@ echo "=== RENDER CONFIGURATION ==="
 echo ""
 
 if [ -f "render.yaml" ]; then
-  # Check that all services with database access have DATABASE_URL set
-  services_with_db=$(grep -A 20 "type: worker\|type: web" render.yaml | grep -B 5 "DEV_DATABASE_URL\|PROD_DATABASE_URL" | grep "name:" | sed 's/.*name: //' | sort | uniq)
+  # Extract service names that have database environment variables
+  echo "Checking render.yaml for DATABASE_URL configuration..."
   
-  for service in $services_with_db; do
-    # Check if this service has DATABASE_URL explicitly set
+  # Get unique service names
+  service_names=$(grep -E "^\s+name: infinity-gauntlet" render.yaml | sed 's/.*name: //' | sort | uniq)
+  
+  all_good=true
+  for service in $service_names; do
+    # Skip the database itself
+    if [ "$service" = "infinity-gauntlet-db" ]; then
+      continue
+    fi
+    
+    # Check if service has DATABASE_URL
     if grep -A 50 "name: $service" render.yaml | grep -q "key: DATABASE_URL"; then
       echo "  ✅ $service has explicit DATABASE_URL"
     else
-      echo "  ⚠️  $service missing explicit DATABASE_URL (may cause Accelerate client generation)"
+      # Check if service has DEV or PROD URLs (may still work but not ideal)
+      if grep -A 50 "name: $service" render.yaml | grep -q "DEV_DATABASE_URL\|PROD_DATABASE_URL"; then
+        echo "  ⚠️  $service has DEV/PROD URLs but missing explicit DATABASE_URL"
+        echo "     (Prisma generation may fail during build)"
+      fi
     fi
   done
   

@@ -155,7 +155,7 @@ export function logUrlSelection(result: UrlSelectionResult, operation: string): 
  * @returns Environment variable overrides
  */
 export function buildDatabaseEnv(result: UrlSelectionResult): Record<string, string | undefined> {
-  // 2-NODE CLUSTER: Always use direct PostgreSQL (no Accelerate dataproxy)
+  // 2-NODE CLUSTER: Always use direct PostgreSQL connections
   const env: Record<string, string | undefined> = {
     DATABASE_URL: result.url,
     PRISMA_CLIENT_ENGINE_TYPE: undefined, // Always undefined for direct connections
