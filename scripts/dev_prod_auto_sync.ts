@@ -641,14 +641,23 @@ async function withPrismaClient<T>(
   envVars: EnvVars,
   callback: (client: PrismaClient) => Promise<T>,
 ): Promise<T> {
-  // Prefer EXTERNAL_URL for WSL/remote access, fallback to DIRECT_URL for internal connections
-  const url = envVars.DATABASE_EXTERNAL_URL ?? envVars.DATABASE_DIRECT_URL ?? envVars.DATABASE_URL;
+  // CRITICAL: In production, use POOL_URL (Accelerate) to match generated Prisma Client
+  // In development, prefer EXTERNAL_URL/DIRECT_URL for direct access
+  const isProd = process.env.NODE_ENV === "production";
+  const url = isProd
+    ? (envVars.DATABASE_POOL_URL ?? 
+       envVars.DATABASE_ACCELERATE_URL ?? 
+       envVars.DATABASE_URL)
+    : (envVars.DATABASE_EXTERNAL_URL ?? 
+       envVars.DATABASE_DIRECT_URL ?? 
+       envVars.DATABASE_URL);
+  
   if (!url) {
-    throw new Error(`Missing DATABASE_URL/DATABASE_EXTERNAL_URL/DATABASE_DIRECT_URL for ${label} environment`);
+    throw new Error(`Missing DATABASE_URL for ${label} environment (NODE_ENV=${process.env.NODE_ENV})`);
   }
 
   const originalEngine = process.env.PRISMA_CLIENT_ENGINE_TYPE;
-  const usesAccelerate = url.startsWith("prisma+");
+  const usesAccelerate = url.startsWith("prisma+") || url.startsWith("prisma://");
   if (usesAccelerate) {
     process.env.PRISMA_CLIENT_ENGINE_TYPE = "dataproxy";
   } else if (!originalEngine) {
