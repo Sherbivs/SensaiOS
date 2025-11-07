@@ -1,0 +1,5 @@
+Need to install the following packages:
+cloc@2.6.0-cloc
+Ok to proceed? (y) 
+npm error canceled
+npm error A complete log of this run can be found in: C:\Users\sherb\AppData\Local\npm-cache\_logs\2025-11-07T16_29_41_876Z-debug-0.log

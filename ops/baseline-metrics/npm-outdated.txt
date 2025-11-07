@@ -1,0 +1,10 @@
+Package                           Current   Wanted   Latest  Location                                       Depended by
+@aws-sdk/client-s3                3.922.0  3.926.0  3.926.0  node_modules/@aws-sdk/client-s3                Infinity-Gauntlet
+@eslint/js                         9.39.0   9.39.1   9.39.1  node_modules/@eslint/js                        Infinity-Gauntlet
+@types/node                        24.9.2  24.10.0  24.10.0  node_modules/@types/node                       Infinity-Gauntlet
+@typescript-eslint/eslint-plugin   8.46.2   8.46.3   8.46.3  node_modules/@typescript-eslint/eslint-plugin  Infinity-Gauntlet
+@typescript-eslint/parser          8.46.2   8.46.3   8.46.3  node_modules/@typescript-eslint/parser         Infinity-Gauntlet
+axios                              1.13.1   1.13.2   1.13.2  node_modules/axios                             Infinity-Gauntlet
+eslint                             9.39.0   9.39.1   9.39.1  node_modules/eslint                            Infinity-Gauntlet
+simple-git                         3.29.0   3.30.0   3.30.0  node_modules/simple-git                        Infinity-Gauntlet
+vitest                              4.0.6    4.0.8    4.0.8  node_modules/vitest                            Infinity-Gauntlet
