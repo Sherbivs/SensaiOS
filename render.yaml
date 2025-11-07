@@ -9,10 +9,14 @@ services:
   - type: web
     name: infinity-gauntlet-bot
     runtime: node
-    buildCommand: npm install --include=dev && npm run prebuild
+    buildCommand: npm install --include=dev && npm run prebuild && bash scripts/bootstrap_prod_node.sh
     startCommand: npm start
     autoDeploy: true
     plan: starter
+    disks:
+      - name: prod-database
+        mountPath: /opt/render/project/src/Store
+        sizeGB: 2
     envVars:
       # 2-NODE CLUSTER: PROD_DATABASE_URL (local on disk), DEV_DATABASE_URL (master on Render PostgreSQL)
       - key: PROD_DATABASE_URL
@@ -39,9 +43,13 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    buildCommand: "npm install --include=dev && npm run prebuild"
+    buildCommand: "npm install --include=dev && npm run prebuild && bash scripts/bootstrap_prod_node.sh"
     startCommand: "node dist/worker/outbox.js"
     autoDeploy: true
+    disks:
+      - name: prod-database
+        mountPath: /opt/render/project/src/Store
+        sizeGB: 2
     envVars:
       # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
       - key: PROD_DATABASE_URL
@@ -77,9 +85,13 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    buildCommand: "npm install --include=dev && npm run prebuild"
+    buildCommand: "npm install --include=dev && npm run prebuild && bash scripts/bootstrap_prod_node.sh"
     startCommand: "npm start"
     autoDeploy: true
+    disks:
+      - name: prod-database
+        mountPath: /opt/render/project/src/Store
+        sizeGB: 2
     envVars:
       # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
       - key: PROD_DATABASE_URL
@@ -161,9 +173,13 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    buildCommand: "npm install --include=dev && npm run prebuild"
+    buildCommand: "npm install --include=dev && npm run prebuild && bash scripts/bootstrap_prod_node.sh"
     startCommand: "node dist/worker/cache-refresh.js"
     autoDeploy: true
+    disks:
+      - name: prod-database
+        mountPath: /opt/render/project/src/Store
+        sizeGB: 2
     envVars:
       # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
       - key: PROD_DATABASE_URL
@@ -194,9 +210,13 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    buildCommand: "npm install --include=dev && npm run prebuild"
+    buildCommand: "npm install --include=dev && npm run prebuild && bash scripts/bootstrap_prod_node.sh"
     startCommand: "node dist/worker/data-pipeline.js"
     autoDeploy: true
+    disks:
+      - name: prod-database
+        mountPath: /opt/render/project/src/Store
+        sizeGB: 2
     envVars:
       # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
       - key: PROD_DATABASE_URL
