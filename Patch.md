@@ -10,6 +10,7 @@ Read this file completely before beginning any task. Follow it literally. Before
 ## Absolutes (apply in every mode)
 - Never rename or delete canonical meta/routing files (`Patch.md`, `Tasklist.md`, `Prompt.md`, `ops/PATCH_POLICY_BACKUP.md`, `ops/ROUTER.yaml`, `ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, and any `ROUTER.md`).
 - Never delete or rename router manifests (`ROUTER.md`, `ROUTER.yaml`).
+- Ensure `.gitignore` preserves meta documentation for AI navigation (ROUTER.md, README.md in all directories) while excluding sensitive files (secrets/*.env, Store/db/, tools/pgsql*/ binaries).
 1. Read `ops/NEXT.yaml` (respect Marker Switch guidance) to learn the queued task and `files_hint`.
 2. Read `Tasklist.md` and execute **only** tasks marked `status: READY` with dependencies satisfied.
 3. Read `ops/TOUCHMAP.yaml` to scope edits to the listed paths.

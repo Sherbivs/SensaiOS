@@ -71,6 +71,11 @@ fi
 mkdir -p ops
 [[ -f "$ROUTER_INDEX" ]] || echo "# Generated router index (placeholder)" > "$ROUTER_INDEX"
 
+# 2.5) Validate .gitignore preserves meta documentation (best-effort)
+if [[ -x "scripts/guard_gitignore.sh" ]]; then
+  scripts/guard_gitignore.sh || echo "::warning::.gitignore validation skipped or failed"
+fi
+
 # 3) Update Prompt ledger (best-effort)
 if [[ -x "scripts/update_change_ledger.sh" ]]; then
   scripts/update_change_ledger.sh || true

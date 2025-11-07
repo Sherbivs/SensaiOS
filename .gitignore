@@ -20,9 +20,12 @@ secrets/*
 prisma-accelerate.env
 
 # Database files (local PostgreSQL, SQLite)
-Store/
+# Exclude Store contents but keep ROUTER.md meta docs
+Store/*
 !Store/ROUTER.md
-!Store/**/ROUTER.md
+!Store/*/
+Store/*/*
+!Store/*/ROUTER.md
 *.db
 *.sqlite
 *.sqlite3
