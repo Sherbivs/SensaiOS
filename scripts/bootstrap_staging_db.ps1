@@ -42,7 +42,7 @@ if (-not $directUrl) {
 if (-not $directUrl) {
     Write-Warning "RENDER_DB_INTERNAL_URL and RENDER_DB_EXTERNAL_URL are not set. Prisma migrations will fall back to DATABASE_URL; add a direct connection string for best results."
 } elseif ($directUrl -eq $db) {
-    Write-Warning "Direct URL matches DATABASE_URL. Confirm the direct connection string so migrations bypass Accelerate."
+    Write-Warning "Direct URL matches DATABASE_URL. Confirm the direct connection string for migrations."
 }
 
 # Mask creds for display

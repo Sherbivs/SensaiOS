@@ -6,7 +6,7 @@
 # Context: Production database needs schema overhaul with new migrations
 #
 # SAFETY CHECKS:
-# 1. Uses RENDER_DB_EXTERNAL_URL (laptop) or RENDER_DB_INTERNAL_URL (Render Node) - direct PostgreSQL, not Accelerate
+# 1. Uses RENDER_DB_EXTERNAL_URL (laptop) or RENDER_DB_INTERNAL_URL (Render Node) - direct PostgreSQL connection
 # 2. Runs in dry-run mode first for verification
 # 3. Requires explicit confirmation before applying migrations
 # 4. Logs all output for audit trail
@@ -56,7 +56,7 @@ if (-not $externalUrl -and -not $internalUrl) {
 $migrateUrl = if ($externalUrl) { $externalUrl } else { $internalUrl }
 
 Write-Host "  Migration URL: $($migrateUrl.Substring(0, 40))..." -ForegroundColor Gray
-Write-Host "  Accelerate URL: $($databaseUrl.Substring(0, 40))..." -ForegroundColor Gray
+Write-Host "  Connection Type: Direct PostgreSQL" -ForegroundColor Gray
 Write-Host ""
 
 # Set environment for Prisma
