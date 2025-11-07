@@ -1,8 +1,40 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-07T19:30:00Z
-Revision: 2.48
+Timestamp (UTC): 2025-11-07T22:00:00Z
+Revision: 2.49
+
+**Cross-References**:
+- See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
+- See `ops/META-DOC-INDEX.md` for comprehensive meta documentation navigation
+- See `Tasklist.md` for backlog and active tasks
+- See `ops/NEXT.yaml` for current task pointer
+
+**Referenced By**: AGENTS.md (Orientation Flow), Patch.md (echo requirements), ops/NEXT.yaml (sync check)
 
 ## Last Repo Changes (since previous Prompt.md revision)
+
+- **Meta Documentation Overhaul with Bidirectional Cross-Reference Network (Current):**
+  - **Created ops/META-DOC-INDEX.md (Comprehensive Meta Documentation Index):** Established central navigation hub for all meta documentation with complete cross-reference network. Document Hierarchy: Tier 1 (Essential Contract: Patch/Prompt/Tasklist/NEXT), Tier 2 (Architecture & Operations: AGENTS/README/OPERATIONS/workers), Tier 3 (Specialized Guides: deployment/database/routing), Tier 4 (Supporting Documents: TOUCHMAP/ROUTER/HOTFIX/RECOVERY). Quick Reference sections for AI agents (5-step startup) and human developers (5-step onboarding). Core Meta Documents: detailed entries for 7 primary docs (Patch, AGENTS, Prompt, README, OPERATIONS, Tasklist, masterroutetable) + 8 supporting docs (workers, deployment checklist, DB bootstrap, database URL selection, NEXT, TOUCHMAP, ROUTER, REPO-OPTIMIZATION-REPORT). Cross-Reference Patterns: standardized format examples ("See `path/doc.md` Section Name"), network diagram showing bidirectional links (Patch↔Prompt↔Tasklist, AGENTS↔README↔OPERATIONS, workers↔OPERATIONS↔deployment). When to Consult matrix: 10 scenarios (starting task, understanding architecture, database ops, deployment, navigation, hotfix, worker config, monitoring, scaling). Validation Checklist: cross-reference integrity, documentation coverage, standardization.
+  
+  - **Updated Patch.md (Rev 1.71 → 1.72):** Updated timestamp (2025-11-06 → 2025-11-07T22:00:00Z). Added comprehensive Cross-References section linking to Prompt, Tasklist, NEXT, TOUCHMAP, META-DOC-INDEX, database-url-selection. Added Referenced By section (AGENTS, Prompt, deployment checklist). Purpose: establish contract as authoritative with clear bidirectional navigation.
+  
+  - **Updated README.md with Phase 9 Achievements:** Replaced pre-Phase 9 "Current Status & Goals" with comprehensive Phase 9 Complete banner. Added Cross-References section (7 links: AGENTS, OPERATIONS, workers, deployment, META-DOC-INDEX, contract workflow). Phase 9 Achievements: zero linter warnings, zero npm vulnerabilities, zero outdated packages, 293/294 passing tests (6.82s), production-ready, clean documentation (25 current + 6 archived), worker architecture, deployment ready. Reference to ops/REPO-OPTIMIZATION-REPORT.md for detailed metrics. Short-term focus: database replication (Phase 16 DEV→PROD→Local), worker scaling (Phase 10+ battle pool/encounter generator), operational hardening. Near horizon: guild playtests, advanced battle mechanics, trainer progression.
+  
+  - **Updated OPERATIONS.md (Rev 1.4 → 1.5):** Updated timestamp (2025-11-02 → 2025-11-07T22:00:00Z). Added Purpose statement + comprehensive Cross-References section (7 links: workers, database-systems, query-optimization, event-tracking, AGENTS, deployment, render.yaml) + Referenced By section. Added prominent reference after Service Matrix table: "For comprehensive worker architecture, scaling roadmap, and Phase 10+ opportunities, see `docs/workers.md`."
+  
+  - **Updated docs/workers.md with Reverse References:** Added Cross-References section (5 links: OPERATIONS service matrix, AGENTS production notes, deployment scaling, render.yaml, query-optimization) + Referenced By section (4 links: OPERATIONS, AGENTS, deployment, README). Added callout after Current Workers list: "For complete service matrix and operational procedures, see `OPERATIONS.md` (Service Matrix section)."
+  
+  - **Updated ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md:** Added Cross-References section (5 links: workers, OPERATIONS, AGENTS, render.yaml, query-optimization) + Referenced By section (3 links: AGENTS, README, Patch). Purpose: establish deployment checklist as comprehensive reference with clear navigation to related docs.
+  
+  - **Updated AGENTS.md with META-DOC-INDEX Reference:** Added comprehensive Cross-References section at top (9 links: META-DOC-INDEX as first reference, Patch, Prompt, Tasklist, README, OPERATIONS, workers, deployment, database-url-selection) + Referenced By section (4 links: README, Patch, NEXT, deployment). Purpose: make META-DOC-INDEX primary navigation entry point for agents starting work.
+  
+  - **Cross-Reference Network Established:** 30+ bidirectional links created across all meta documentation. Standard format enforced: "See `path/doc.md` Section Name for details". Forward references: all docs link to related docs. Reverse references: referenced docs acknowledge relationships. Integration complete: workers.md and deployment checklist prominently featured in all relevant docs (README, OPERATIONS, AGENTS). Meta documentation index provides hierarchy showing when to consult each document.
+  
+  - **Files Modified:** ops/META-DOC-INDEX.md (created 701 lines), Patch.md (Rev 1.71→1.72 +cross-refs), README.md (Phase 9 achievements +cross-refs), OPERATIONS.md (Rev 1.4→1.5 +cross-refs), docs/workers.md (+cross-refs), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (+cross-refs), AGENTS.md (+cross-refs), Prompt.md (Rev 2.48→2.49 +cross-refs +this entry).
+  
+  - **Validation:** All cross-reference links verified, all section references exist, standard format applied consistently.
+  
+  - **Ready For:** Commit with comprehensive message documenting cross-reference network improvements (5→30+ bidirectional links).
+
 - **Phase 9 Final Cleanup: Production-Ready State (Commit 75071de):**
   - **Duplicate File Cleanup:** Scanned repository for -Sensai backup files, found 42 total. Verified zero active imports via comprehensive grep search across src/**/*.{ts,js}. Removed 26 duplicates successfully: package-Sensai.json, dexpack assets (gen-Sensai.mjs, v1-Sensai.json, v2-Sensai.json), source code (autoSync-Sensai.ts, recipes-Sensai.ts, backup-sink-Sensai.ts, dexpack-Sensai.js, metrics-Sensai.js, v2 accessors/loader), tests (cache.facade.spec-Sensai.ts, cache.recipes.spec-Sensai.ts, backup-sink.spec-Sensai.ts), Prisma schema/migrations (schema-Sensai.prisma, migration-Sensai.sql), ops configs (NEXT-Sensai.yaml, ROUTER_INDEX-Sensai.yaml, TOUCHMAP-Sensai.yaml). Build validated: ✅ Prisma 6.19.0 generated, zero TypeScript errors.
   

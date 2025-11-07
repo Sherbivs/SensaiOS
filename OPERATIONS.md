@@ -1,6 +1,19 @@
 # OPERATIONS
 
-_Last updated: 2025-11-02T14:30:00Z (UTC) — Rev: 1.4_
+_Last updated: 2025-11-07T22:00:00Z (UTC) — Rev: 1.5_
+
+**Purpose**: Service matrix, rollout checklist, observability, incident recovery for production deployment.
+
+**Cross-References**:
+- See `docs/workers.md` for comprehensive worker architecture, scaling roadmap (Phase 10+), monitoring, cost optimization
+- See `docs/database-systems.md` for schema, role, helper context
+- See `docs/query-optimization-guide.md` for alerting thresholds, performance metrics
+- See `docs/event-tracking-schema.md` for event tracking patterns
+- See `AGENTS.md` for router navigation, database URL selection
+- See `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` for deployment procedures
+- See `render.yaml` for service definitions
+
+**Referenced By**: README.md (operations reference), AGENTS.md (Production & Render Notes), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (service validation)
 
 ## Service Matrix
 | Render Service | Purpose | Entry Command | Key Env Flags | Health Signals |
@@ -12,6 +25,8 @@ _Last updated: 2025-11-02T14:30:00Z (UTC) — Rev: 1.4_
 | `infinity-gauntlet-cache` (worker) | Refreshes Pokédex cache on a fixed cadence. | `node dist/worker/cache-refresh.js` | `CACHE_WORKER_INTERVAL_MS`, `CACHE_WORKER_INTERVAL_JITTER_MS`. | `worker.cache.health`, cache metadata timestamps. |
 | `infinity-gauntlet-data-pipeline` (worker) | Rebuilds reference data manifests and pushes to `/data`. | `node dist/worker/data-pipeline.js` | `DATA_PIPELINE_INTERVAL_MS`, `DATA_PIPELINE_RUN_ON_BOOT`. | `worker.pipeline.health`, manifest version logs. |
 | `pokedex-cache-worker` (worker + disk) | Git-backed cache refresher with persistent disk. | `node scripts/worker.mjs` | Render disk mounts, Git credentials, schedule vars. | Render cron telemetry, job logs. |
+
+**For comprehensive worker architecture, scaling roadmap, and Phase 10+ opportunities, see `docs/workers.md`.**
 
 ## Rollout Checklist
 1. Confirm pooled and direct database URLs resolve in Render dashboard for every service (pooled for runtime, direct for Prisma migrate).

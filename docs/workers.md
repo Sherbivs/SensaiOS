@@ -4,6 +4,15 @@
 **Status**: Production-Ready, Scalable  
 **Related**: `render.yaml`, `src/worker/*`, `scripts/worker.mjs`
 
+**Cross-References**:
+- See `OPERATIONS.md` (Service Matrix) for service definitions, rollout checklist, observability
+- See `AGENTS.md` (Production & Render Notes) for environment setup, database configuration
+- See `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` (Scaling Roadmap) for deployment procedures
+- See `render.yaml` for canonical service definitions and environment variables
+- See `docs/query-optimization-guide.md` for performance metrics and alert thresholds
+
+**Referenced By**: OPERATIONS.md (service matrix), AGENTS.md (Production section), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (architecture reference), README.md (architecture snapshot)
+
 ---
 
 ## Overview
@@ -19,6 +28,8 @@ The Infinity Gauntlet uses a **distributed worker architecture** to separate con
 6. **Pokédex Cache Worker** (`pokedex-cache-worker`) - External data sync
 7. **Pokédex Cache Failsafe** (`pokedex-cache-failsafe`) - Cron fallback
 8. **Web Service** (`infinity-gauntlet-bot`) - HTTP health checks & webhooks
+
+**For complete service matrix and operational procedures, see `OPERATIONS.md` (Service Matrix section).**
 
 ---
 

@@ -1,9 +1,19 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-11-06T16:00:00Z
-Revision: 1.71
+Last Updated (UTC): 2025-11-07T22:00:00Z
+Revision: 1.72
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
+
+**Cross-References**:
+- See `Prompt.md` for current timestamp, recent changes, PATCHSET echo template
+- See `Tasklist.md` for backlog (READY queue, dependencies, acceptance criteria)
+- See `ops/NEXT.yaml` for task pointer discipline (must point to READY task)
+- See `ops/TOUCHMAP.yaml` for file scope boundaries per task
+- See `ops/META-DOC-INDEX.md` for comprehensive meta documentation navigation
+- See `docs/database-url-selection.md` for CRITICAL database URL selection logic (Absolute requirement)
+
+**Referenced By**: AGENTS.md (Orientation Flow), Prompt.md (Contract Mode status), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (validation requirements)
 
 ## Marker Switch
 

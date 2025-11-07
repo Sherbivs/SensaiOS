@@ -5,6 +5,19 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 
 **Phase 9 Complete** (2025-11-07): Repository is production-ready, centralized, standardized, and scalable. All quality metrics optimized: zero linter warnings, zero npm vulnerabilities, zero outdated packages, fast tests (6.82s), clean documentation. See `ops/REPO-OPTIMIZATION-REPORT.md` for comprehensive achievements.
 
+**Cross-References**:
+- See `ops/META-DOC-INDEX.md` for complete meta documentation navigation (contracts, operations, deployment, routing)
+- See `Patch.md` for contract rules, marker modes, Absolutes (read first before any work)
+- See `Prompt.md` for current timestamp, recent changes, PATCHSET echo
+- See `Tasklist.md` for backlog (READY queue, dependencies, acceptance criteria)
+- See `README.md` for getting started guide, architecture snapshot, Phase 9 achievements
+- See `OPERATIONS.md` for service matrix, rollout checklist, observability
+- See `docs/workers.md` for worker architecture, scaling roadmap (Phase 10+), cost optimization
+- See `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` for deployment readiness validation
+- See `docs/database-url-selection.md` for CRITICAL database URL selection logic (Absolute requirement)
+
+**Referenced By**: README.md (operations guide), Patch.md (Absolutes), ops/NEXT.yaml (guidance references), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (architecture reference)
+
 ## Repo Map
 - `router/` — meta-router implementation and agent routing runtime
 - `ops/` — governance surface (optimization reports, tasklists, routers, recovery, touchmap, policies)

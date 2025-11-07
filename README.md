@@ -4,12 +4,31 @@ Infinity Gauntlet is a Discord-first Pokémon adventure for Dripcord. Players li
 DMs, explore the Wilds together, battle in public arenas, and progress through a
 live-service economy powered by workers and data pipelines.
 
+**Cross-References**:
+- See `AGENTS.md` for comprehensive operations guide, database setup, worker architecture
+- See `OPERATIONS.md` for service matrix, deployment procedures, monitoring
+- See `docs/workers.md` for worker architecture, scaling roadmap (Phase 10+), cost optimization
+- See `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` for deployment readiness validation
+- See `ops/META-DOC-INDEX.md` for complete meta documentation navigation
+
 ## Current Status & Goals
 
-- **Current build:** The TypeScript bot stack (DM Home, Wilds, Arena, admin ops) runs on Prisma-backed Postgres with Render-ready workers, cache instrumentation, and cross-linked router manifests for fast navigation.
-- **Recent wins:** Router docs now reference their sub-routers and related runbooks, `/ops cache` telemetry landed, and hotfix/contract guardrails stayed aligned with pooled vs. direct database workflows.
-- **Short-term focus:** Keep the platform stable (seed READY task, monitor `/ops stats` + `/ops cache`), refresh metadata when structure changes, and wait for new gameplay or ops backlog to promote.
-- **Near horizon:** When new scope arrives, expect work around split prod/dev routing tables, automated deployment guardrails, and structured guild playtests; for now these remain aspirational.
+**Phase 9 Complete** (2025-11-07): Repository is production-ready, centralized, standardized, and scalable. All quality metrics optimized:
+- ✅ **Zero linter warnings** across TypeScript codebase
+- ✅ **Zero npm vulnerabilities**, all dependencies current
+- ✅ **Fast tests**: 293/294 passing (6.82s execution)
+- ✅ **Clean documentation**: 25 current docs + 6 archived
+- ✅ **Worker architecture**: Comprehensive scaling roadmap (see `docs/workers.md`)
+- ✅ **Deployment ready**: Full production checklist (see `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md`)
+
+**See `ops/REPO-OPTIMIZATION-REPORT.md` for comprehensive Phase 9 achievements.**
+
+**Short-term focus**:
+- Database replication architecture (Phase 16: DEV→PROD→Local cascade with version tracking)
+- Worker scaling & cost optimization (Phase 10+: battle pool, encounter generator)
+- Operational hardening (monitoring, alerting via `/ops stats` + `/ops cache`)
+
+**Near horizon**: Structured guild playtests, advanced battle mechanics (weather/terrain/abilities), trainer progression systems.
 
 ## Architecture Snapshot
 

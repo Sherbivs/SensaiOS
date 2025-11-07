@@ -5,6 +5,15 @@
 **Phase**: Post-Phase 9 Final Cleanup  
 **Version**: v1.0.0-phase9-optimized+  
 
+**Cross-References**:
+- See `docs/workers.md` for worker architecture, scaling roadmap, monitoring, cost optimization
+- See `OPERATIONS.md` for service matrix, rollout checklist, observability
+- See `AGENTS.md` for comprehensive operations guide, database URL selection (CRITICAL)
+- See `render.yaml` for canonical service definitions and environment variables
+- See `docs/query-optimization-guide.md` for alert thresholds and performance metrics
+
+**Referenced By**: AGENTS.md (Core Control Documents), README.md (deployment notes), Patch.md (validation requirements)
+
 ---
 
 ## Pre-Deployment Validation ✅
