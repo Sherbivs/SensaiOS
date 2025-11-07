@@ -6,8 +6,9 @@
   "scripts": {
     "build:ci": "npm run prebuild",
     "postinstall": "npm run prebuild",
+    "validate:urls": "node scripts/validate_database_urls.js",
     "generate": "prisma generate --no-engine",
-    "prebuild": "npm run generate && npm run build:ts",
+    "prebuild": "npm run validate:urls && npm run generate && npm run build:ts",
     "build:ts": "tsc --project tsconfig.build.json",
     "build": "npm run build:ts",
     "dev": "tsx watch src/index.ts",
