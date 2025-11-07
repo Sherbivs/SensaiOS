@@ -760,11 +760,13 @@ export function getDatabaseStats(): TripleDatabaseStats {
   };
 }
 
-// Initialize DEV client separately
+// Initialize DEV client separately (MASTER database - source of truth)
 async function initializeDevClient(): Promise<void> {
-  const devUrl = process.env.RENDER_DB_INTERNAL_URL?.trim() || process.env.RENDER_DB_EXTERNAL_URL?.trim();
+  const devUrl = process.env.DEV_DATABASE_URL?.trim() || 
+                 process.env.RENDER_DB_EXTERNAL_URL?.trim() || 
+                 process.env.RENDER_DB_INTERNAL_URL?.trim();
   if (!devUrl) {
-    log.info("DEV database connection skipped", { reason: "no RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL" });
+    log.info("DEV database connection skipped", { reason: "no DEV_DATABASE_URL, RENDER_DB_EXTERNAL_URL, or RENDER_DB_INTERNAL_URL" });
     return;
   }
   
@@ -814,7 +816,7 @@ async function initializeDevClient(): Promise<void> {
       source: "startup",
     };
     
-    log.info("DEV Prisma client connected", {
+    log.info("DEV Prisma client connected (MASTER)", {
       latencyMs: Number(latencyMs.toFixed(2)),
       transport: devTransport,
     });
@@ -864,11 +866,11 @@ async function initializeDevClient(): Promise<void> {
   }
 }
 
-// Initialize LOCAL client (workstation mirror)
+// Initialize LOCAL client (PRODUCTION database - replicated from MASTER)
 async function initializeLocalClient(): Promise<void> {
-  const localUrl = process.env.DATABASE_LOCAL_URL?.trim();
+  const localUrl = process.env.PROD_DATABASE_URL?.trim() || process.env.DATABASE_LOCAL_URL?.trim();
   if (!localUrl) {
-    log.info("LOCAL database connection skipped", { reason: "no DATABASE_LOCAL_URL" });
+    log.info("PROD database connection skipped", { reason: "no PROD_DATABASE_URL or DATABASE_LOCAL_URL" });
     return;
   }
   
@@ -918,7 +920,7 @@ async function initializeLocalClient(): Promise<void> {
       source: "startup",
     };
     
-    log.info("LOCAL Prisma client connected", {
+    log.info("PROD Prisma client connected (LOCAL)", {
       latencyMs: Number(latencyMs.toFixed(2)),
       transport: localTransport,
     });

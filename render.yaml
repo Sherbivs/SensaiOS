@@ -14,9 +14,10 @@ services:
     autoDeploy: true
     plan: starter
     envVars:
-      - key: DATABASE_URL
-        sync: false
-      - key: RENDER_DB_INTERNAL_URL
+      # 2-NODE CLUSTER: PROD_DATABASE_URL (local on disk), DEV_DATABASE_URL (master on Render PostgreSQL)
+      - key: PROD_DATABASE_URL
+        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+      - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
@@ -42,9 +43,10 @@ services:
     startCommand: "node dist/worker/outbox.js"
     autoDeploy: true
     envVars:
-      - key: DATABASE_URL
-        sync: false
-      - key: RENDER_DB_INTERNAL_URL
+      # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
+      - key: PROD_DATABASE_URL
+        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+      - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
@@ -79,22 +81,14 @@ services:
     startCommand: "npm start"
     autoDeploy: true
     envVars:
-      - key: DATABASE_URL
-        sync: false
-      - key: RENDER_DB_INTERNAL_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: connectionString
-      # Auto-sync uses the same database for both dev and prod in production
-      # This simplifies the setup - it syncs the single production database
+      # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
+      - key: PROD_DATABASE_URL
+        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
       - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
-      - key: PROD_DATABASE_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: connectionString
+      # Auto-sync uses DEV_DATABASE_URL (master) as source
       - key: PRISMA_ACCELERATE_RUNTIME
         value: serverless
       - key: NODE_ENV
@@ -171,9 +165,10 @@ services:
     startCommand: "node dist/worker/cache-refresh.js"
     autoDeploy: true
     envVars:
-      - key: DATABASE_URL
-        sync: false
-      - key: RENDER_DB_INTERNAL_URL
+      # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
+      - key: PROD_DATABASE_URL
+        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+      - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
@@ -203,9 +198,10 @@ services:
     startCommand: "node dist/worker/data-pipeline.js"
     autoDeploy: true
     envVars:
-      - key: DATABASE_URL
-        sync: false
-      - key: RENDER_DB_INTERNAL_URL
+      # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
+      - key: PROD_DATABASE_URL
+        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+      - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
@@ -242,7 +238,8 @@ services:
         mountPath: /store
         sizeGB: 1
     envVars:
-      - key: DATABASE_URL
+      # 2-NODE CLUSTER: Uses DEV_DATABASE_URL (master) for data loading
+      - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
@@ -278,8 +275,6 @@ services:
         sync: false
       - key: OPTIMIZE_API_KEY
         sync: false
-      - key: OPTIMIZE_API_KEY
-        sync: false
 
   # Optional failsafe cron job: refresh GitHub fallback only
   - type: cron
@@ -292,9 +287,8 @@ services:
     startCommand: "node scripts/refresh_cache_gh_only.mjs"
     schedule: "0 0 * * 4"
     envVars:
-      - key: DATABASE_URL
-        sync: false
-      - key: RENDER_DB_INTERNAL_URL
+      # 2-NODE CLUSTER: Uses DEV_DATABASE_URL (master)
+      - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString

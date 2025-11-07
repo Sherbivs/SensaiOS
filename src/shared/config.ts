@@ -160,12 +160,16 @@ function normalizeMode(raw: string | undefined): DatabaseConnectionMode {
 
 function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
   const mode = normalizeMode(process.env.DATABASE_CONNECTION_MODE);
-  const accelerateUrl =
-    process.env.DATABASE_URL?.trim() ?? "";
-  const envUrl = process.env.DATABASE_URL?.trim() ?? "";
+  
+  // 2-NODE CLUSTER: PROD_DATABASE_URL (local) and DEV_DATABASE_URL (master)
+  const prodUrl = process.env.PROD_DATABASE_URL?.trim() ?? "";
+  const devUrl = process.env.DEV_DATABASE_URL?.trim() ?? "";
+  
+  // Legacy references (backwards compatibility)
   const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL?.trim() ?? "";
   const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL?.trim() ?? "";
   const localUrl = process.env.DATABASE_LOCAL_URL?.trim() ?? "";
+  const envUrl = process.env.DATABASE_URL?.trim() ?? "";
   const internalUrlPrimary = process.env.DATABASE_INTERNAL_URL?.trim() ?? "";
   const internalUrlLegacy = process.env.DATABASE_URL_INTERNAL?.trim() ?? "";
 
@@ -214,25 +218,28 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     directCandidates.push({ value, source, fallback });
   };
 
-  // Prioritize DATABASE_URL (Accelerate in production)
-  addAccelerateCandidate(accelerateUrl, "accelerate");
-
-  // If the env URL itself is already Accelerate, include it in the primary list.
-  addAccelerateCandidate(envUrl, "env");
-
-  // Build direct/pooled PostgreSQL fallbacks in priority order.
+  // 2-NODE CLUSTER: Production uses PROD_DATABASE_URL (local), fallback to legacy/external
+  // No Accelerate candidates - removed from architecture
+  
+  // Build direct PostgreSQL candidates in priority order
   if (preferExternal) {
-    addDirectCandidate(envUrl, "env");
+    // Development/external mode: prefer DEV (master) database
+    addDirectCandidate(devUrl, "external");
     addDirectCandidate(renderExternalUrl, "external");
     addDirectCandidate(renderInternalUrl, "internal");
+    addDirectCandidate(prodUrl, "env");
     addDirectCandidate(localUrl, "local");
+    addDirectCandidate(envUrl, "env");
     addDirectCandidate(internalUrlPrimary, "internal");
     addDirectCandidate(internalUrlLegacy, "internal");
   } else {
+    // Production/internal mode: prefer PROD (local) database
+    addDirectCandidate(prodUrl, "env");
+    addDirectCandidate(localUrl, "local");
     addDirectCandidate(renderInternalUrl, "internal");
     addDirectCandidate(internalUrlPrimary, "internal");
     addDirectCandidate(internalUrlLegacy, "internal");
-    addDirectCandidate(localUrl, "local");
+    addDirectCandidate(devUrl, "external");
     addDirectCandidate(envUrl, "env");
     addDirectCandidate(renderExternalUrl, "external");
   }
@@ -244,18 +251,12 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
 
   let orderedCandidates: CandidateBucket = [];
 
-  if (accelerateCandidates.length > 0) {
-    orderedCandidates = [
-      ...accelerateCandidates,
-      ...directCandidates.map((candidate) => ({ ...candidate, fallback: true })),
-    ];
-  } else {
-    orderedCandidates = [...directCandidates];
-  }
+  // No Accelerate candidates in 2-node cluster
+  orderedCandidates = [...directCandidates];
 
   if (!orderedCandidates.length) {
     throw new Error(
-      "No database URL found. Provide a Prisma Accelerate prisma+ URL or a direct PostgreSQL connection string via DATABASE_URL, RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL, or DATABASE_LOCAL_URL."
+      "No database URL found. Provide a direct PostgreSQL connection string via PROD_DATABASE_URL, DEV_DATABASE_URL, RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL, or DATABASE_LOCAL_URL."
     );
   }
 
