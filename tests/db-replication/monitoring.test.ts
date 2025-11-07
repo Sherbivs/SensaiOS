@@ -12,12 +12,11 @@ import {
   checkAlertThresholds,
   formatMetrics,
   type ReplicationMetrics,
-  type Alert,
 } from '../../src/services/db-replication/monitoring';
 import * as versionModule from '../../src/services/db-replication/version';
 
 // Mock Prisma clients
-function createMockPrismaClient(name: string): PrismaClient {
+function createMockPrismaClient(_name: string): PrismaClient {  // Prefixed with _ to indicate intentionally unused
   return {
     $queryRaw: vi.fn(),
     $disconnect: vi.fn(),

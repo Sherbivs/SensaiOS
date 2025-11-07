@@ -5,9 +5,7 @@
  * and reversion detection for database replication architecture.
  */
 
-import { createHash } from 'crypto';
-
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import {
   getVersion,
@@ -15,7 +13,6 @@ import {
   handleReversion,
   recordVersion,
   VersionStatus,
-  type Version,
 } from '../../src/services/db-replication/version.js';
 
 // ---- Mock Setup ----

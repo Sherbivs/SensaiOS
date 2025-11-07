@@ -18,9 +18,9 @@ import { promisify } from 'util';
 
 import type { PrismaClient } from '@prisma/client';
 
-import { verifySchemaIntegrity, verifyDataIntegrity, type IntegrityOptions } from './integrity.js';
+import { verifySchemaIntegrity, verifyDataIntegrity } from './integrity.js';
 import { handleSyncFailure } from './rollback.js';
-import { getVersion, compareVersions, handleReversion, recordVersion, type Version, type VersionComparison } from './version.js';
+import { getVersion, compareVersions, handleReversion, recordVersion } from './version.js';
 
 const execAsync = promisify(exec);
 

@@ -11,8 +11,6 @@
  * - Structured diff reporting for automated analysis
  */
 
-import { createHash } from 'crypto';
-
 import type { PrismaClient } from '@prisma/client';
 
 // Temporary logger until integration

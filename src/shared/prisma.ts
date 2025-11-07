@@ -619,13 +619,14 @@ export type TripleDatabaseStats = {
 // Legacy type for backward compatibility
 export type DualDatabaseStats = TripleDatabaseStats;
 
-let lastHeartbeatEvent: PrismaHeartbeatEvent | null = null;
+// Heartbeat event tracking (prefixed with _ to indicate reserved for future monitoring)
+let _lastHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 let lastDevHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 let lastProdHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 let lastLocalHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 
 onPrismaHeartbeat((event) => {
-  lastHeartbeatEvent = event;
+  _lastHeartbeatEvent = event;
   // Route heartbeats based on which client triggered them
   // For now, assume main heartbeat goes to prod
   lastProdHeartbeatEvent = event;

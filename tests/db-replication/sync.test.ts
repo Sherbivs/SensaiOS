@@ -9,11 +9,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import * as integrityModule from '../../src/services/db-replication/integrity';
 import * as rollbackModule from '../../src/services/db-replication/rollback';
-import { syncDevToProd, syncProdToLocal, SyncStage, type SyncOptions } from '../../src/services/db-replication/sync';
+import { syncDevToProd, syncProdToLocal, SyncStage } from '../../src/services/db-replication/sync';
 import * as versionModule from '../../src/services/db-replication/version';
 
 // Mock Prisma clients
-function createMockPrismaClient(name: string): PrismaClient {
+function createMockPrismaClient(_name: string): PrismaClient {  // Prefixed with _ to indicate intentionally unused
   return {
     $queryRaw: vi.fn(),
     $disconnect: vi.fn(),

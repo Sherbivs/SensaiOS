@@ -1,5 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 
 /**
  * Database Replication CLI Tests
