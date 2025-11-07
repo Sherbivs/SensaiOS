@@ -317,14 +317,14 @@ For local experiments, set `BACKUP_STORAGE_PROVIDER=local` to inspect JSON backu
 4. **Re-run consolidation:** After remediation, execute `npm run db:auto-sync -- --once` to replay the loop; confirm the webhook no longer fires and counts realign.
 5. **Document outcome:** Update Tasklist/Prompt notes with the alert timestamp, remediation steps, and verification commands executed.
 
-### DEV-as-Master Enforcement Architecture (⚠️ CRITICAL)
+### PROD-as-Master Enforcement Architecture (⚠️ CRITICAL)
 
-**As of 2025-11-XX**, the auto-sync system implements **one-way replication enforcement** where DEV is the **single source of truth** for all database changes. PROD and LOCAL must match DEV exactly.
+**As of 2025-11-06**, the auto-sync system implements **one-way replication enforcement** where PROD is the **single source of truth** for all database changes. DEV and LOCAL must match PROD exactly.
 
 #### Architecture Overview
 
 ```
-DEV (Master) → PROD (Replica) → LOCAL (Replica)
+PROD (Master) → DEV (Replica) → LOCAL (Replica)
      ↓              ↓                ↓
   Migrations    Force Sync      Force Sync
   Seeds         Integrity       Integrity
@@ -333,36 +333,36 @@ DEV (Master) → PROD (Replica) → LOCAL (Replica)
 
 **Key Principles:**
 
-1. **DEV is master** — All schema changes, migrations, and seeds originate in DEV
-2. **PROD/LOCAL are replicas** — Must match DEV exactly; unauthorized changes trigger critical alerts
-3. **Hourly integrity checks** — Reverse verification detects drift in PROD/LOCAL
-4. **Auto-enforcement** — When drift detected, PROD/LOCAL are force-synced on next cycle
+1. **PROD is master** — Production database is the authoritative source; all replicas must match
+2. **DEV/LOCAL are replicas** — Must match PROD exactly; unauthorized changes trigger critical alerts
+3. **Hourly integrity checks** — Reverse verification detects drift in DEV/LOCAL
+4. **Auto-enforcement** — When drift detected, DEV/LOCAL are force-synced on next cycle
 5. **Bidirectional sync removed** — Old Dev ↔ Prod bidirectional flow replaced with one-way enforcement
 
 #### Enforcement Workflow
 
 **Startup/Consolidation:**
-1. Run migrations + seeds on **DEV first**
-2. If `enforceDevMaster=true` (default), force PROD to match DEV via `enforceDevMaster("prod")`
-3. If `includeLocal=true`, force LOCAL to match DEV via `enforceDevMaster("local")`
+1. Run migrations + seeds on **PROD first** (production is the source of truth)
+2. If `enforceProdMaster=true` (default), force DEV to match PROD via `enforceProdMaster("dev")`
+3. If `includeLocal=true`, force LOCAL to match PROD via `enforceProdMaster("local")`
 4. Capture counts from all three databases
-5. Compare PROD/LOCAL against DEV; alert if drift persists
+5. Compare DEV/LOCAL against PROD; alert if drift persists
 
 **Hourly Reverse Integrity Check:**
-1. Every hour (configurable via `--reverse-check-interval`), compare PROD counts against DEV
-2. If PROD diverged, send **critical alert** with enforcement warning
+1. Every hour (configurable via `--reverse-check-interval`), compare DEV counts against PROD
+2. If DEV diverged, send **critical alert** with enforcement warning
 3. If LOCAL diverged, send **critical alert** with enforcement warning
-4. On next consolidation cycle, force-sync PROD/LOCAL to match DEV
+4. On next consolidation cycle, force-sync DEV/LOCAL to match PROD
 
 **Alert Escalation:**
 - **Drift alerts** (orange) — Normal sync detected differences after consolidation
-- **Reverse integrity violations** (red) — CRITICAL: Unauthorized changes detected in PROD/LOCAL
+- **Reverse integrity violations** (red) — CRITICAL: Unauthorized changes detected in DEV/LOCAL
 
 #### Configuration Flags
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--enforce-dev-master` / `--no-enforce` | `true` | Enable/disable DEV-as-master enforcement. When disabled, system reverts to drift detection only. |
+| `--no-enforce` | `false` | Disable PROD-as-master enforcement. When set, system reverts to drift detection only. |
 | `--include-local` | `false` | Include LOCAL database in enforcement and reverse integrity checks. |
 | `--local-env <path>` | — | Path to env file containing `DATABASE_LOCAL_URL` for LOCAL database connection. |
 | `--reverse-check-interval <ms>` | `3600000` (1hr) | How often to run reverse integrity checks (milliseconds). |
@@ -370,7 +370,7 @@ DEV (Master) → PROD (Replica) → LOCAL (Replica)
 **Examples:**
 
 ```bash
-# Standard enforcement (DEV → PROD only)
+# Standard enforcement (PROD → DEV only)
 npm run db:auto-sync
 
 # Include LOCAL database enforcement
@@ -386,29 +386,29 @@ npm run db:auto-sync -- --reverse-check-interval 1800000
 #### ⚠️ Safety Warnings
 
 **DESTRUCTIVE OPERATIONS:**
-- When `enforceDevMaster=true`, PROD/LOCAL databases are **forcefully synced** to match DEV
-- This means running `prisma migrate deploy` and `npm run db:seed:dex` on PROD/LOCAL
-- **Any local-only data in PROD/LOCAL will be overwritten** if schema/reference data diverges
-- Player data (trainers, battles, encounters) should remain intact as long as schema is compatible
-- **Before enabling enforcement in production**, verify all environments share the same schema version
+- When `enforceProdMaster=true` (default), DEV/LOCAL databases are **forcefully synced** to match PROD
+- This means running `prisma migrate deploy` and `npm run db:seed:dex` on DEV/LOCAL
+- **Any local-only data in DEV/LOCAL will be overwritten** if schema/reference data diverges
+- Player data in PROD is protected (only replicas are enforced)
+- **Before enabling enforcement**, verify PROD contains the authoritative production data
 
 **CRITICAL: Migration Safety:**
-- **Always run migrations on DEV first**
-- Verify DEV migrations succeed before promoting to PROD
-- If DEV migration fails, PROD/LOCAL enforcement will not trigger
+- **Always run migrations on PROD first** (production is the master)
+- Verify PROD migrations succeed before they propagate to DEV/LOCAL
+- If PROD migration fails, DEV/LOCAL enforcement will not trigger
 - Use `--no-enforce` during migration testing to prevent auto-sync from forcing incomplete schemas
 
 **Recovery from Enforcement Failures:**
-1. If PROD/LOCAL enforcement fails, check logs for `enforce.dev_master.complete` errors
-2. Manually verify PROD/LOCAL can connect and accept DDL operations
-3. If critical data lost, restore from Render snapshots immediately
+1. If DEV/LOCAL enforcement fails, check logs for `enforce.prod_master.complete` errors
+2. Manually verify DEV/LOCAL can connect and accept DDL operations
+3. **PROD data is protected** — enforcement only affects replicas (DEV/LOCAL)
 4. Document incident in Tasklist with timestamp, affected environment, and recovery steps
 5. Consider disabling enforcement (`--no-enforce`) until root cause resolved
 
 **When NOT to Use Enforcement:**
-- During active migration development (use `--no-enforce`)
+- During active migration development on DEV (use `--no-enforce`)
 - When testing schema changes that might fail (use `--dry-run`)
-- When PROD/LOCAL contain local-only test data you need to preserve
+- When DEV/LOCAL contain local-only test data you need to preserve
 - During incident response when you need to inspect divergent state before fixing
 
 #### Monitoring & Observability

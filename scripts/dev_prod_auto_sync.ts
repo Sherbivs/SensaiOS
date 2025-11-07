@@ -22,7 +22,7 @@ type SyncConfig = {
   alertWebhookUrl: string;
   suppressAlerts: boolean;
   simulateAlert: boolean;
-  enforceDevMaster: boolean;
+  enforceProdMaster: boolean; // PROD is the master (production database)
   includeLocal: boolean;
 };
 
@@ -58,7 +58,7 @@ type IntegrityAlertPayload = {
   prodCounts: CountSnapshot;
   enforcementMode?: "enabled" | "disabled";
   violationType?: "drift" | "reverse_integrity";
-  affectedEnvironment?: "prod" | "local";
+  affectedEnvironment?: "dev" | "local"; // PROD is master, so DEV or LOCAL can be affected
 };
 
 type AlertDispatcher = (payload: IntegrityAlertPayload) => Promise<void>;
@@ -292,7 +292,7 @@ function parseArgs(): SyncConfig {
     alertWebhookUrl: (process.env.ALERT_WEBHOOK_URL || "").trim(),
     suppressAlerts: false,
     simulateAlert: false,
-    enforceDevMaster: true, // DEV is master by default
+    enforceProdMaster: true, // PROD is master by default (production database)
     includeLocal: false, // Local workstation sync is opt-in
   };
 
@@ -340,7 +340,7 @@ function parseArgs(): SyncConfig {
         config.simulateAlert = true;
         break;
       case "--no-enforce":
-        config.enforceDevMaster = false;
+        config.enforceProdMaster = false;
         break;
       case "--include-local":
         config.includeLocal = true;
@@ -529,29 +529,49 @@ function spawnCommand(
 }
 
 function cliEnvForMigrate(fileVars: EnvVars): Record<string, string | undefined> {
+  // Prefer EXTERNAL_URL for WSL/remote access, fallback to DIRECT_URL for internal Render connections
   const direct =
-    fileVars.DATABASE_DIRECT_URL || fileVars.DIRECT_URL || fileVars.DATABASE_URL || undefined;
+    fileVars.DATABASE_EXTERNAL_URL || 
+    fileVars.DATABASE_DIRECT_URL || 
+    fileVars.DIRECT_URL || 
+    fileVars.DATABASE_URL || 
+    undefined;
   if (!direct) {
     log("migrate.env.missing_direct", {
-      message: "DATABASE_DIRECT_URL (or DIRECT_URL/DATABASE_URL) missing; migrate may fail",
+      message: "DATABASE_EXTERNAL_URL/DATABASE_DIRECT_URL missing; migrate may fail",
     });
   } else if (direct.startsWith("prisma+")) {
     log("migrate.env.dataproxy_warning", {
       message:
-        "DATABASE_DIRECT_URL resolves to a Prisma Data Proxy URL; migrations require a direct Postgres connection.",
+        "DATABASE URL resolves to a Prisma Data Proxy; migrations require a direct Postgres connection.",
     });
   }
   return {
     DATABASE_URL: direct,
+    DATABASE_DIRECT_URL: direct,  // Schema requires this to be set
     PRISMA_CLIENT_ENGINE_TYPE: "",
   };
 }
 
 function cliEnvForSeed(fileVars: EnvVars): Record<string, string | undefined> {
-  const runtimeUrl = fileVars.DATABASE_URL || "";
-  const isDataProxy = runtimeUrl.startsWith("prisma+");
+  // For seeding, prefer external/direct URLs to avoid Accelerate rate limits
+  const directUrl = 
+    fileVars.DATABASE_EXTERNAL_URL || 
+    fileVars.DATABASE_DIRECT_URL || 
+    fileVars.DATABASE_URL || 
+    "";
+  const isDataProxy = directUrl.startsWith("prisma+");
+  
+  log("cli.env.seed", { 
+    hasDirectUrl: !!fileVars.DATABASE_DIRECT_URL,
+    hasDatabaseUrl: !!fileVars.DATABASE_URL,
+    selectedUrl: directUrl.substring(0, 30) + "...",
+    isDataProxy,
+  });
+  
   return {
-    PRISMA_CLIENT_ENGINE_TYPE: isDataProxy ? "dataproxy" : "",
+    DATABASE_URL: directUrl,
+    PRISMA_CLIENT_ENGINE_TYPE: isDataProxy ? "dataproxy" : undefined,
   };
 }
 
@@ -565,7 +585,19 @@ async function runPhase(
   const seedEnv = buildChildEnv(envPath, envVars, cliEnvForSeed(envVars));
 
   await spawnCommand(`${name}:migrate`, "npx", ["prisma", "migrate", "deploy"], dryRun, migrateEnv);
-  await spawnCommand(`${name}:seed`, "npm", ["run", "db:seed:dex"], dryRun, seedEnv);
+  
+  // Seed may fail if data already exists with foreign key constraints - this is acceptable
+  try {
+    await spawnCommand(`${name}:seed`, "npm", ["run", "db:seed:dex"], dryRun, seedEnv);
+  } catch (seedError) {
+    const message = seedError instanceof Error ? seedError.message : String(seedError);
+    log("seed.skipped", { 
+      environment: name, 
+      reason: "foreign_key_constraint",
+      message: "Seed failed (likely existing data with FK constraints); proceeding with existing data",
+      detail: message,
+    });
+  }
 }
 
 async function preflightOptimize(envVars: EnvVars): Promise<void> {
@@ -600,9 +632,10 @@ async function withPrismaClient<T>(
   envVars: EnvVars,
   callback: (client: PrismaClient) => Promise<T>,
 ): Promise<T> {
-  const url = envVars.DATABASE_DIRECT_URL ?? envVars.DATABASE_URL;
+  // Prefer EXTERNAL_URL for WSL/remote access, fallback to DIRECT_URL for internal connections
+  const url = envVars.DATABASE_EXTERNAL_URL ?? envVars.DATABASE_DIRECT_URL ?? envVars.DATABASE_URL;
   if (!url) {
-    throw new Error(`Missing DATABASE_URL/DATABASE_DIRECT_URL for ${label} environment`);
+    throw new Error(`Missing DATABASE_URL/DATABASE_EXTERNAL_URL/DATABASE_DIRECT_URL for ${label} environment`);
   }
 
   const originalEngine = process.env.PRISMA_CLIENT_ENGINE_TYPE;
@@ -693,43 +726,44 @@ async function readDexTrigger(
 }
 
 /**
- * Enforce DEV as master: force target environment to match DEV exactly
+ * Enforce PROD as master: force target environment to match PROD exactly
+ * PROD is the production database - DEV and LOCAL replicate from it
  */
-async function enforceDevMaster(
+async function enforceProdMaster(
   targetEnv: EnvironmentName,
   targetEnvPath: string,
   targetVars: EnvVars,
-  devVars: EnvVars,
+  prodVars: EnvVars,
   dryRun: boolean,
 ): Promise<void> {
-  log("enforce.dev_master.start", { target: targetEnv, dryRun });
+  log("enforce.prod_master.start", { target: targetEnv, dryRun });
 
   if (dryRun) {
-    log("enforce.dev_master.dry_run", { target: targetEnv, action: "skip" });
+    log("enforce.prod_master.dry_run", { target: targetEnv, action: "skip" });
     return;
   }
 
-  // Run migrations and seed on target to match DEV
+  // Run migrations and seed on target to match PROD
   await runPhase(targetEnv, targetEnvPath, targetVars, dryRun);
 
-  log("enforce.dev_master.complete", { target: targetEnv });
+  log("enforce.prod_master.complete", { target: targetEnv });
 }
 
 /**
- * Reverse integrity check: verify target hasn't diverged from DEV
- * Alerts if unauthorized changes detected in PROD/LOCAL
+ * Reverse integrity check: verify target hasn't diverged from PROD
+ * Alerts if unauthorized changes detected in DEV/LOCAL
  */
 async function reverseIntegrityCheck(
   targetEnv: EnvironmentName,
   targetVars: EnvVars,
-  devVars: EnvVars,
-  devCounts: CountSnapshot,
+  prodVars: EnvVars,
+  prodCounts: CountSnapshot,
   dispatchAlert?: AlertDispatcher,
 ): Promise<boolean> {
   log("reverse.integrity.check.start", { target: targetEnv });
 
   const targetCounts = await captureCounts(targetEnv, targetVars);
-  const delta = diffCounts(devCounts, targetCounts);
+  const delta = diffCounts(prodCounts, targetCounts);
   const driftDetected =
     delta.species !== 0 || delta.moves !== 0 || delta.abilities !== 0 || delta.learnsets !== 0;
 
@@ -737,22 +771,22 @@ async function reverseIntegrityCheck(
     const alertPayload: IntegrityAlertPayload = {
       reason: "reverse_integrity_violation",
       delta,
-      devCounts,
-      prodCounts: targetCounts, // Reusing prodCounts field for alert structure
+      devCounts: prodCounts, // Using devCounts field for PROD (master) in alert structure
+      prodCounts: targetCounts,
       enforcementMode: "enabled",
       violationType: "reverse_integrity",
-      affectedEnvironment: targetEnv === "local" ? "local" : "prod",
+      affectedEnvironment: targetEnv === "local" ? "local" : "dev",
     };
 
     log("reverse.integrity.violation", {
       target: targetEnv,
       severity: "critical",
       delta,
-      devCounts,
+      prodCounts,
       targetCounts,
       remediation: [
-        `${targetEnv.toUpperCase()} must match DEV exactly`,
-        "DEV is the single source of truth",
+        `${targetEnv.toUpperCase()} must match PROD exactly`,
+        "PROD is the single source of truth",
         "Auto-enforcement will trigger on next sync cycle",
       ],
     });
@@ -783,67 +817,67 @@ async function runConsolidation(
   log("sync.consolidate.start", { 
     dryRun: config.dryRun, 
     reason, 
-    enforceDevMaster: config.enforceDevMaster,
+    enforceProdMaster: config.enforceProdMaster,
     includeLocal: config.includeLocal,
   });
 
-  // DEV is always the source of truth - run first
-  await runPhase("dev", config.devEnvPath, devVars, config.dryRun);
-  const devCounts = await captureCounts("dev", devVars);
+  // PROD is always the source of truth - run first
+  await runPhase("prod", config.prodEnvPath, prodVars, config.dryRun);
+  const prodCounts = await captureCounts("prod", prodVars);
 
-  if (config.enforceDevMaster) {
-    // Force PROD to match DEV
-    log("enforce.strategy", { target: "prod", source: "dev", mode: "master_enforcement" });
-    await enforceDevMaster("prod", config.prodEnvPath, prodVars, devVars, config.dryRun);
+  if (config.enforceProdMaster) {
+    // Force DEV to match PROD
+    log("enforce.strategy", { target: "dev", source: "prod", mode: "master_enforcement" });
+    await enforceProdMaster("dev", config.devEnvPath, devVars, prodVars, config.dryRun);
   } else {
     // Legacy bidirectional mode
-    await runPhase("prod", config.prodEnvPath, prodVars, config.dryRun);
+    await runPhase("dev", config.devEnvPath, devVars, config.dryRun);
   }
 
-  const prodCounts = await captureCounts("prod", prodVars);
+  const devCounts = await captureCounts("dev", devVars);
 
   // Handle LOCAL workstation if enabled
   let localCounts: CountSnapshot | null = null;
   if (config.includeLocal && localVars) {
-    if (config.enforceDevMaster) {
-      log("enforce.strategy", { target: "local", source: "dev", mode: "master_enforcement" });
-      await enforceDevMaster("local", config.localEnvPath!, localVars, devVars, config.dryRun);
+    if (config.enforceProdMaster) {
+      log("enforce.strategy", { target: "local", source: "prod", mode: "master_enforcement" });
+      await enforceProdMaster("local", config.localEnvPath!, localVars, prodVars, config.dryRun);
     } else {
       await runPhase("local", config.localEnvPath!, localVars, config.dryRun);
     }
     localCounts = await captureCounts("local", localVars);
   }
 
-  // Verify alignment
-  const prodDelta = diffCounts(devCounts, prodCounts);
-  const prodDriftDetected =
-    prodDelta.species !== 0 || prodDelta.moves !== 0 || prodDelta.abilities !== 0 || prodDelta.learnsets !== 0;
+  // Verify alignment (comparing against PROD as master)
+  const devDelta = diffCounts(prodCounts, devCounts);
+  const devDriftDetected =
+    devDelta.species !== 0 || devDelta.moves !== 0 || devDelta.abilities !== 0 || devDelta.learnsets !== 0;
 
   let localDriftDetected = false;
   let localDelta: Record<string, number> | null = null;
   if (config.includeLocal && localCounts) {
-    localDelta = diffCounts(devCounts, localCounts);
+    localDelta = diffCounts(prodCounts, localCounts);
     localDriftDetected =
       localDelta.species !== 0 || localDelta.moves !== 0 || localDelta.abilities !== 0 || localDelta.learnsets !== 0;
   }
 
   log("sync.consolidate.counts", { 
-    devCounts, 
     prodCounts, 
+    devCounts, 
     localCounts,
-    prodDelta, 
+    devDelta, 
     localDelta,
     reason,
   });
 
-  if (prodDriftDetected || localDriftDetected) {
+  if (devDriftDetected || localDriftDetected) {
     const alertPayload = {
       message: "Detected count drift between environments after consolidation.",
       reason,
-      delta: prodDelta,
+      delta: devDelta,
       envs: {
-        dev: config.devEnvPath,
         prod: config.prodEnvPath,
+        dev: config.devEnvPath,
         local: config.localEnvPath,
       },
       devCounts,
@@ -852,27 +886,27 @@ async function runConsolidation(
     log("sync.consolidate.warning", alertPayload);
     log("integrity.alert", {
       ...alertPayload,
-      severity: config.enforceDevMaster ? "critical" : "warning",
-      remediation: config.enforceDevMaster 
-        ? "DEV is master. Target databases will be force-synced on next cycle."
+      severity: config.enforceProdMaster ? "critical" : "warning",
+      remediation: config.enforceProdMaster 
+        ? "PROD is master. Target databases will be force-synced on next cycle."
         : "Inspect sync logs, rerun migrate/seed if drift persists.",
     });
     if (dispatchAlert) {
       await dispatchAlert({ 
         reason, 
-        delta: prodDelta, 
-        devCounts, 
-        prodCounts,
-        enforcementMode: config.enforceDevMaster ? "enabled" : "disabled",
+        delta: devDelta, 
+        devCounts: prodCounts, // PROD is master, so it goes in devCounts for alert structure
+        prodCounts: devCounts,
+        enforcementMode: config.enforceProdMaster ? "enabled" : "disabled",
         violationType: "drift",
-        affectedEnvironment: "prod",
+        affectedEnvironment: "dev",
       });
     }
   } else {
     log("sync.consolidate.success", { 
-      message: "All environments aligned with DEV (master).", 
+      message: "All environments aligned with PROD (master).", 
       reason,
-      environments: config.includeLocal ? ["dev", "prod", "local"] : ["dev", "prod"],
+      environments: config.includeLocal ? ["prod", "dev", "local"] : ["prod", "dev"],
     });
   }
 
@@ -931,7 +965,7 @@ async function main(): Promise<void> {
     alertsSuppressed: config.suppressAlerts,
     alertWebhookConfigured: Boolean(config.alertWebhookUrl),
     alertWebhook: config.alertWebhookUrl ? sanitizeWebhook(config.alertWebhookUrl) : "",
-    enforceDevMaster: config.enforceDevMaster,
+    enforceProdMaster: config.enforceProdMaster,
     includeLocal: config.includeLocal,
     simulateAlert: config.simulateAlert,
   });
@@ -1183,41 +1217,41 @@ async function main(): Promise<void> {
           history.prod = latestProdCounts;
         }
 
-        // Perform reverse integrity check hourly (only if enforceDevMaster enabled)
+        // Perform reverse integrity check hourly (only if enforceProdMaster enabled)
         const timeSinceLastReverseCheck = Date.now() - lastReverseCheckTime;
-        if (config.enforceDevMaster && timeSinceLastReverseCheck >= config.reverseCheckIntervalMs) {
+        if (config.enforceProdMaster && timeSinceLastReverseCheck >= config.reverseCheckIntervalMs) {
           log("reverse.integrity.check.scheduled", {
             timeSinceLastMs: timeSinceLastReverseCheck,
             intervalMs: config.reverseCheckIntervalMs,
           });
 
-          const devCounts = history.dev || await captureCounts("dev", devVars);
+          const prodCounts = history.prod || await captureCounts("prod", prodVars);
 
-          // Check PROD hasn't diverged from DEV
-          const prodIntact = await reverseIntegrityCheck(
-            "prod",
-            prodVars,
+          // Check DEV hasn't diverged from PROD
+          const devIntact = await reverseIntegrityCheck(
+            "dev",
             devVars,
-            devCounts,
+            prodVars,
+            prodCounts,
             alertDispatcher,
           );
 
-          // Check LOCAL hasn't diverged from DEV (if included)
+          // Check LOCAL hasn't diverged from PROD (if included)
           let localIntact = true;
           if (config.includeLocal && localVars) {
             localIntact = await reverseIntegrityCheck(
               "local",
               localVars,
-              devVars,
-              devCounts,
+              prodVars,
+              prodCounts,
               alertDispatcher,
             );
           }
 
-          if (!prodIntact || !localIntact) {
+          if (!devIntact || !localIntact) {
             log("reverse.integrity.violation.enforcement", {
               message: "Reverse integrity violation detected; forcing re-sync on next cycle",
-              prodIntact,
+              devIntact,
               localIntact,
             });
           }

@@ -36,18 +36,17 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - **Start dev:** `npm run dev`
 - **Test:** `npm test`
 - **Lint:** `npm run lint`
-- **Env needed (do not commit secrets):** use `.env.example` and `secrets/*.env.example` as reference, but copy real values into `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (DEV direct URL) and `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` (Accelerate/production proxy). Load them with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file.
+- **Env needed (do not commit secrets):** use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DATABASE_POOL_URL (Prisma Accelerate), DATABASE_EXTERNAL_URL (Accelerate), DATABASE_URL (Accelerate), DATABASE_LOCAL_URL (local workstation), OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. Load it with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file. **No other key files are needed for development.**
 
 ## Local Database Access (Muted / Dev Only)
 
 **CRITICAL:** Prisma Accelerate does NOT support DDL operations (CREATE/ALTER/DROP TABLE, CREATE INDEX, etc.). For migrations, always use direct PostgreSQL URLs. Accelerate silently ignores DDL statements, causing migrations to appear successful without actually creating schema changes. See `ops/DB_BOOTSTRAP.md` for detailed migration workflow.
 
-1. **Copy secrets outside the repo:** place `secrets/prisma-dev.env.example` → `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` and `secrets/prisma-accelerate.env.example` → `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env`. Populate each with the real credentials (DEV direct URL vs. Accelerate proxy). Do **not** retain a combined `.env` in the repo.
-2. **Select the target before DB work:** run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env" -Persist` when you need the DEV Postgres connection. Swap to Accelerate by re-running with the `Key/Prod/.env` path. Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`, so one of these overrides must be active.
-  - **FOR MIGRATIONS:** Create `secrets/migrate.env` with all URLs pointing DIRECTLY to PostgreSQL (not Accelerate). Use this file exclusively for `npx prisma migrate deploy` to ensure DDL operations execute properly.
-  - **Verify access:** `echo $Env:IG_ENV_FILE` should print the chosen file; use `Get-Content C:/Users/sherb/OneDrive/Documents/Key/Dev/.env | Select-Object -First 5` to confirm it is reachable before running tooling.
-  - **Reset Prisma after Accelerate:** whenever you come back from `Key/Prod/.env`, run `npx prisma generate` once so the local client switches from the Accelerate data proxy back to the direct engine before connecting to DEV.
-  - **Dev → Prod → Dev loop:** run migrations or seeding against DEV first, switch to `Key/Prod/.env` and repeat the command (or use `scripts/ops/run_dex_migrations.ps1`), then return to `Key/Dev/.env` and regenerate Prisma so local work continues against DEV with the direct driver.
+1. **Environment file:** use `secrets/Infinity-Gauntlet.env` as the single consolidated environment file containing all development keys. This file includes DATABASE_POOL_URL (Prisma Accelerate), DATABASE_URL, DATABASE_LOCAL_URL, BOT_TOKEN, OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. **No other environment files are needed.**
+2. **Load environment before DB work:** run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist` to activate the environment. Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`, so this override must be active.
+  - **FOR MIGRATIONS:** The consolidated `secrets/Infinity-Gauntlet.env` file contains Prisma Accelerate URLs, which do NOT support DDL operations. For migrations requiring direct PostgreSQL access, temporarily override DATABASE_URL or create a migration-specific env file with direct URLs pointing to PostgreSQL (not Accelerate).
+  - **Verify access:** `echo $Env:IG_ENV_FILE` should print the chosen file; use `Get-Content secrets/Infinity-Gauntlet.env | Select-Object -First 5` to confirm it is reachable before running tooling.
+  - **Reset Prisma after Accelerate:** whenever you switch between Accelerate and direct PostgreSQL, run `npx prisma generate` once so the local client regenerates with the correct driver configuration.
   - **Automation service:** `npm run db:auto-sync` runs the consolidation on deployment and then checks for drift every five minutes. Use `--dry-run`, `--once`, or `--skip-startup` when rehearsing new flows.
 3. **Inspect databases:** use the muted control suite documented in `docs/db-control-suite.md`.
   ```powershell
@@ -56,10 +55,10 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
   npm run db:cli -- count Species  # single-table helpers
   npm run db:cli -- query "SELECT COUNT(*) FROM \"Species\";"
   ```
-4. **Bootstrap the local workstation database (PRIMARY for gameplay):** set `PG_BIN_DIR` to a Postgres installation with `bin/` + `share/` (e.g., `C:/Program Files/PostgreSQL/17/bin`), then run `npm run ops:bootstrap-local-db` to mirror the DEV/PROD database into `Store/db`, rotate timestamped snapshots, and emit `local-url.txt` (e.g., `postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db`) so `src/shared/config.ts` can connect the `localPrisma` client. Prefer `npm run ops:auto-bootstrap-local-db` when you want the script to install PostgreSQL silently (via winget) and run the mirror in one step. Add `DATABASE_LOCAL_URL` to your environment file (`C:/Users/sherb/OneDrive/Documents/Key/Dev/.env`) to enable <50ms latency gameplay. Capture the command, timestamp, and resulting URL in Tasklist notes when you refresh the mirror (especially before cutovers or network work). See `docs/WORKSTATION-GAMEPLAY-SETUP.md` for complete setup guide.
+4. **Bootstrap the local workstation database (PRIMARY for gameplay):** set `PG_BIN_DIR` to a Postgres installation with `bin/` + `share/` (e.g., `C:/Program Files/PostgreSQL/17/bin`), then run `npm run ops:bootstrap-local-db` to mirror the DEV/PROD database into `Store/db`, rotate timestamped snapshots, and emit `local-url.txt` (e.g., `postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db`) so `src/shared/config.ts` can connect the `localPrisma` client. Prefer `npm run ops:auto-bootstrap-local-db` when you want the script to install PostgreSQL silently (via winget) and run the mirror in one step. The consolidated `secrets/Infinity-Gauntlet.env` already contains `DATABASE_LOCAL_URL` for <50ms latency gameplay. Capture the command, timestamp, and resulting URL in Tasklist notes when you refresh the mirror (especially before cutovers or network work). See `docs/WORKSTATION-GAMEPLAY-SETUP.md` for complete setup guide.
 5. **Document actions:** log purpose, command, and outcome in `Tasklist.md` under the active task when running anything outside status/counts.
 
-Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describe the secure loading order and available commands. These tools run locally only; do not expose the secure env path in CI or production.
+Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describe the secure loading order and available commands. These tools run locally only; do not expose the secure env path in CI or production. **All development work uses `secrets/Infinity-Gauntlet.env` as the single consolidated environment file.**
 
 ### Triple Database Connection Architecture (Runtime)
 
@@ -199,11 +198,11 @@ See `docs/security-bot-state.md` and `Store/security-bot-state/schema.md` for co
 
 ## Database Replication Architecture (Phase 16)
 
-**As of 2025-11-06**, the system implements a master-replica cascade architecture for database version control and synchronization across DEV, Prod (Prisma Accelerate), and Local (workstation) environments.
+**As of 2025-11-06**, the system implements a master-replica cascade architecture for database version control and synchronization across PROD, DEV, and Local (workstation) environments.
 
-**Architecture:** DEV (master) → Prisma (prod replica) → Local (workstation replica)
+**Architecture:** PROD (master) → DEV (replica) → Local (workstation replica)
 
-**Purpose:** Ensure DEV is the single source of truth for all schema changes, prevent silent errors during sync, detect rollbacks/divergence, and maintain integrity across all environments.
+**Purpose:** Ensure PROD is the single source of truth for production data, prevent silent errors during sync, detect rollbacks/divergence, and maintain integrity across all environments.
 
 **Version Tracking Foundation (DB.REPLICATION.VERSION - DONE):**
 - **db_version table:** Tracks version fingerprints (SHA-256), migration counts, last migration metadata per environment
@@ -214,7 +213,7 @@ See `docs/security-bot-state.md` and `Store/security-bot-state/schema.md` for co
   - `AHEAD` — Source has more migrations with valid prefix, safe to sync
   - `BEHIND` — Source rolled back (reversion detected), blocks sync until master catches up
   - `DIVERGED` — Different migration histories, requires manual reconciliation
-- **Reversion detection:** When DEV migration count < Prod count, updates `db_sync_state` with `WAITING_FOR_MASTER`, blocks downstream sync, alerts operators
+- **Reversion detection:** When PROD migration count < replica count, updates `db_sync_state` with `WAITING_FOR_MASTER`, blocks downstream sync, alerts operators
 - **Prefix validation:** Ensures `AHEAD` status is safe by verifying target migrations are exact prefix of source
 
 **Implementation:**
@@ -228,15 +227,15 @@ See `docs/security-bot-state.md` and `Store/security-bot-state/schema.md` for co
 import { getVersion, compareVersions, handleReversion } from '../services/db-replication/version.js';
 import { prisma, devPrisma } from '../shared/prisma.js';
 
-// Get version fingerprint from DEV
-const devVersion = await getVersion(devPrisma, 'DEV');
+// Get version fingerprint from PROD
+const prodVersion = await getVersion(prisma, 'PROD');
 
-// Compare DEV vs Prod to determine sync safety
-const comparison = await compareVersions(devVersion, prodVersion, devPrisma, prisma);
+// Compare PROD vs DEV to determine sync safety
+const comparison = await compareVersions(prodVersion, devVersion, prisma, devPrisma);
 
 if (comparison.status === 'BEHIND') {
-  // Reversion detected - DEV rolled back
-  await handleReversion(devVersion, prodVersion, prisma);
+  // Reversion detected - PROD rolled back
+  await handleReversion(prodVersion, devVersion, devPrisma);
   // Sync blocked, operators alerted
 }
 ```

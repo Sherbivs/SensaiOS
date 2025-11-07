@@ -1,15 +1,29 @@
 # Secrets Directory (Local Only)
 
-This folder remains gitignored. Store real credentials in files that mirror the `*.example` templates and keep them outside of commits. Suggested pattern:
+This folder remains gitignored. The **single consolidated environment file** for all local development and testing is:
 
-1. Copy the example file to a secure location (e.g., `C:/Users/<you>/OneDrive/Documents/Key/Dev/.env` for Dev and `C:/Users/<you>/OneDrive/Documents/Key/Prod/.env` for Prod/Accelerate).
-2. Update the secrets.
-3. Point `IG_ENV_FILE` (or the helper scripts) to that secure path so agents and local runs load it automatically.
+**`secrets/Infinity-Gauntlet.env`**
 
-Tracked templates:
-- `prisma-accelerate.env.example`
-- `prisma-dev.env.example`
+This file contains all required keys:
+- `BOT_TOKEN` — Discord bot authentication
+- `DATABASE_POOL_URL` — Prisma Accelerate connection (pooled)
+- `DATABASE_EXTERNAL_URL` — Prisma Accelerate connection (external alias)
+- `DATABASE_URL` — Prisma Accelerate connection (primary)
+- `DATABASE_LOCAL_URL` — Local workstation PostgreSQL cluster (for <50ms latency gameplay)
+- `OPTIMIZE_API_KEY` — Prisma Optimize telemetry
+- `POKEMON_BOT_TOKEN` — Secondary bot token
 
-`prisma-accelerate.env.example` requires both the Prisma Accelerate runtime URL (`prisma+postgres://...`) and the matching direct PostgreSQL connection string (`postgresql://...`) so migrations bypass the data proxy.
+**No other environment files are needed for development.**
 
-Never commit the files without the `.example` suffix. Rotate any leaked tokens immediately.
+## Usage
+
+1. Ensure `secrets/Infinity-Gauntlet.env` exists with all required keys populated.
+2. Load it with: `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist`
+3. All tooling (`npm run db:cli`, `npm run db:seed:dex`, etc.) will automatically use this file via `IG_ENV_FILE`.
+
+## Security
+
+- Never commit `secrets/Infinity-Gauntlet.env` (gitignored by default).
+- Rotate any leaked tokens immediately.
+- The runtime checks `IG_ENV_FILE` before falling back to repo `.env` (keep repo `.env` empty).
+- On production (`NODE_ENV=production`), the fallback is disabled unless `IG_ALLOW_REPO_ENV=1` is set.

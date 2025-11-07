@@ -1,28 +1,95 @@
 # Dependencies
 node_modules/
+package-lock.json
 
 # Build output
 dist/
+build/
+.next/
+.turbo/
+*.tsbuildinfo
 
-# Env & local
+# Environment & Secrets
 .env
 .env.*
 !.env.example
-# Local secrets (store Prisma Accelerate URL here)
 secrets/*
 !secrets/*.example
 !secrets/README.md
 prisma-accelerate.env
+
+# Database files (local PostgreSQL, SQLite)
+Store/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Logs & Runtime files
 *.log
 !ops/standby_refresh.log
 logs/
-coverage/
+*.pid
+*.lock
+*.seed
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# IDE
+# Cache directories (runtime only, not source code)
+.cache/
+data/cache/*
+!data/cache/ROUTER.md
+**/runtime-cache/
+**/discord-cache/
+.eslintcache
+
+# Backups
+backups/
+tmp/backups/
+*.backup
+*.bak
+*.old
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+*.lcov
+
+# PostgreSQL binaries & debug symbols (tools directory)
+tools/pgsql*/
+*.pdb
+
+# IDE & Editor files
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
 
 # Misc
-.DS_Store
-Store/
-# keep data tracked – do NOT ignore /data
+*.tgz
+*.gz
+*.zip
+*.tar
+
+# Keep data tracked – do NOT ignore /data (except cache subdirectory)
+!data/
+data/cache/*

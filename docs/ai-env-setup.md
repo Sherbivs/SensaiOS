@@ -6,8 +6,7 @@ Purpose: ensure automated agents and local operators load secrets from a secure 
 ## Overview
 - `src/config/env.js` now checks `IG_ENV_FILE` and `DOTENV_CONFIG_PATH` before reading `.env` from the repo root.
 - `scripts/setup_ai_env.ps1` sets or persists `IG_ENV_FILE` so headless runs (hotfix agents, nightly automation) access the correct secret store.
-- Templates (`.env.example`, `secrets/prisma-accelerate.env.example`, `secrets/prisma-dev.env.example`) describe required variables; copy them outside the repo before filling with secrets.
-- Keep the managed secrets outside the repository by placing Dev credentials in `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` and Accelerate/production credentials in `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` so backups and PRs never include them.
+- Use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DATABASE_POOL_URL (Prisma Accelerate), DATABASE_EXTERNAL_URL (Accelerate), DATABASE_URL (Accelerate), DATABASE_LOCAL_URL (local workstation), OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. **No other key files are needed.**
 - When `NODE_ENV=production`, the repo `.env` fallback is skipped unless `IG_ALLOW_REPO_ENV=1` is set.
 
 ## Environment key reference
@@ -114,50 +113,47 @@ Render services and local operators rely on the same variable names. Use the tab
 | `POKE_TIMEOUT_MS` | Render (`pokedex-cache-worker`) | HTTP timeout for refresh jobs. |
 | `RENDER_API_KEY` | Local `.env`, Render (`pokedex-cache-worker`) | Render API token used for cache invalidation. |
 
-Review `.env.example`, `secrets/prisma-accelerate.env.example`, and `render.yaml` whenever new services or workflows launch; update this table alongside those templates.
+Review `secrets/Infinity-Gauntlet.env` and `render.yaml` whenever new services or workflows launch; update the consolidated env file with any new required keys.
 
 ## Quick Start
-1. Copy each template outside the repo. This console keeps the Dev and Prod folders side by side under `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (direct connection) and `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` (Accelerate runtime **plus** its direct PostgreSQL URL for migrations). Populate them with the real tunnel credentials before use.
-2. Open a PowerShell session and point `IG_ENV_FILE` at the file you need for the current task:
+1. Ensure `secrets/Infinity-Gauntlet.env` exists with all required keys populated (BOT_TOKEN, DATABASE_POOL_URL, DATABASE_EXTERNAL_URL, DATABASE_URL, DATABASE_LOCAL_URL, OPTIMIZE_API_KEY, POKEMON_BOT_TOKEN). This is the **single consolidated environment file** for all local development.
+2. Open a PowerShell session and set `IG_ENV_FILE`:
    ```powershell
-   pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env" -Persist
+   pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist
    ```
-   - Swap to Accelerate when needed: `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Prod/.env" -Persist`.
    - Omit `-Persist` to scope the setting to the current shell only.
 3. Restart terminals or VS Code so new sessions inherit `IG_ENV_FILE`.
 4. Confirm the override is active and reachable:
    ```powershell
    dotenv info
    echo $Env:IG_ENV_FILE
-   Get-Content $Env:IG_ENV_FILE | Select-Object -First 5
+   Get-Content secrets/Infinity-Gauntlet.env | Select-Object -First 5
    ```
 5. Run database checks via the control suite once secrets load:
    ```powershell
    npm run db:cli -- status
    ```
-6. If you previously targeted `Key/Prod/.env`, run `npx prisma generate` before reconnecting to Dev so the client resets from Accelerate to the direct Node engine.
+6. When switching between Accelerate and direct PostgreSQL URLs, run `npx prisma generate` to regenerate the client with the correct driver configuration.
 
 ### Using WSL for database maintenance
 
 - Keep the repo cloned at the Windows path (`C:/Users/sherb/OneDrive/Documents/GitHub/Infinity-Gauntlet`) and invoke commands through WSL with the mirrored `/mnt/c` path.
-- Source Windows secrets inside Bash by stripping carriage returns: `source <(sed "s/\r$//" /mnt/c/Users/sherb/OneDrive/Documents/Key/Infinity-Gauntlet.env)`.
+- Source Windows secrets inside Bash by stripping carriage returns: `source <(sed "s/\r$//" /mnt/c/Users/sherb/OneDrive/Documents/GitHub/Infinity-Gauntlet/secrets/Infinity-Gauntlet.env)`.
 - Export both direct and Accelerate URLs explicitly before running Prisma commands:
    ```bash
-   export DATABASE_DIRECT_URL
-   export DATABASE_URL="$DATABASE_DIRECT_URL"   # migrations/reset
-   # or
-   export DATABASE_URL="$DATABASE_POOL_URL"    # dex seeding via Accelerate
+   export DATABASE_URL="$DATABASE_POOL_URL"    # Accelerate runtime
+   export DATABASE_EXTERNAL_URL               # Accelerate external
+   export DATABASE_LOCAL_URL                  # Local workstation
    ```
 - Run `npm ci` once per platform. After cloning or updating lockfiles, execute `npm ci` in WSL (rebuilds Linux-native binaries such as Prisma engines) and again in PowerShell so Windows tooling stays in sync.
-- When switching back to PowerShell, re-confirm `IG_ENV_FILE` via `echo $Env:IG_ENV_FILE` and regenerate the Prisma client if you swapped proxies.
+- When switching back to PowerShell, re-confirm `IG_ENV_FILE` via `echo $Env:IG_ENV_FILE` and regenerate the Prisma client if you swapped between Accelerate and direct connections.
 
 ## Agent Run Checklist
-- Before invoking planner/implementer agents, verify `IG_ENV_FILE` resolves to the expected path.
-- When generating a new secret file, start from the templates tracked in the repo.
+- Before invoking planner/implementer agents, verify `IG_ENV_FILE` resolves to `secrets/Infinity-Gauntlet.env`.
 - For CI or automation workers, set the variable in the job configuration rather than persisting on the host.
-- Never commit the external env files (`Key/Dev/.env`, `Key/Prod/.env`) or copy their contents into tracked files.
-- When swapping back from Prod to Dev, run `npx prisma generate` once to rebuild the client without the Accelerate proxy.
-- Before promoting dex changes, run `npm run guard:auto-sync` to verify both env files and `data/cache/dex-sync-trigger.json` are reachable; rerun `node scripts/fetch_pokemon.mjs` if the guard reports a missing trigger.
+- Never commit `secrets/Infinity-Gauntlet.env` or copy its contents into tracked files.
+- When swapping between Accelerate and direct PostgreSQL, run `npx prisma generate` once to rebuild the client with the correct driver.
+- Before promoting dex changes, run `npm run guard:auto-sync` to verify the env file and `data/cache/dex-sync-trigger.json` are reachable; rerun `node scripts/fetch_pokemon.mjs` if the guard reports a missing trigger.
 - Confirm `ALERT_WEBHOOK_URL` (and overrides passed via CLI) before enabling auto-sync so integrity alerts reach the operations channel; use `--alert-webhook <url>` for rehearsals that need alternate destinations.
 - For database inspections, prefer the structured interface in `npm run db:cli` (documented in `docs/db-control-suite.md`).
 
