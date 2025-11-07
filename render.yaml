@@ -16,9 +16,7 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: DATABASE_POOL_URL
-        sync: false
-      - key: DATABASE_DIRECT_URL
+      - key: RENDER_DB_INTERNAL_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
@@ -46,9 +44,7 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: DATABASE_POOL_URL
-        sync: false
-      - key: DATABASE_DIRECT_URL
+      - key: RENDER_DB_INTERNAL_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
@@ -85,9 +81,7 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: DATABASE_POOL_URL
-        sync: false
-      - key: DATABASE_DIRECT_URL
+      - key: RENDER_DB_INTERNAL_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
@@ -97,15 +91,7 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
-      - key: DEV_DATABASE_DIRECT_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: connectionString
       - key: PROD_DATABASE_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: connectionString
-      - key: PROD_DATABASE_DIRECT_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
@@ -187,9 +173,7 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: DATABASE_POOL_URL
-        sync: false
-      - key: DATABASE_DIRECT_URL
+      - key: RENDER_DB_INTERNAL_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
@@ -221,9 +205,7 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: DATABASE_POOL_URL
-        sync: false
-      - key: DATABASE_DIRECT_URL
+      - key: RENDER_DB_INTERNAL_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
@@ -312,9 +294,7 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: DATABASE_POOL_URL
-        sync: false
-      - key: DATABASE_DIRECT_URL
+      - key: RENDER_DB_INTERNAL_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
