@@ -29,23 +29,23 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - `masterroutetable.md` — Human-readable router index. Pairs with `ops/ROUTER.yaml` for canonical routing metadata.
 - `README.md` (Router & Meta Index section) — Cross-links routers, contract files, and meta tooling for external automation.
 - `ops/DB_BOOTSTRAP.md` — Staging Postgres bootstrap runbook covering migrate deploy vs. db push safety.
-  - Expect both pooled (`DATABASE_POOL_URL`) and direct (`DATABASE_DIRECT_URL`) connection strings to be configured. Runtime services prefer the pooled URL; migrations use the direct URL.
-- `docs/database-url-selection.md` — **CRITICAL:** Canonical database URL selection logic. Production requires `DATABASE_POOL_URL` (Accelerate); Development uses `DATABASE_DIRECT_URL` (Direct PostgreSQL). Non-compliance causes production failures. Read this before any database operation.
+  - Expect both `DATABASE_URL` (Prisma Accelerate) and `RENDER_DB_EXTERNAL_URL` (direct PostgreSQL) to be configured. Runtime services use DATABASE_URL; migrations use RENDER_DB_EXTERNAL_URL.
+- `docs/database-url-selection.md` — **CRITICAL:** Canonical database URL selection logic. Production requires `DATABASE_URL` (Accelerate); Migrations use `RENDER_DB_EXTERNAL_URL` (Direct PostgreSQL). Non-compliance causes production failures. Read this before any database operation.
 
 ## How to Run Locally
 - **Install:** `npm install`
 - **Start dev:** `npm run dev`
 - **Test:** `npm test`
 - **Lint:** `npm run lint`
-- **Env needed (do not commit secrets):** use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DATABASE_POOL_URL (Prisma Accelerate), DATABASE_EXTERNAL_URL (Accelerate), DATABASE_URL (Accelerate), DATABASE_LOCAL_URL (local workstation), OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. Load it with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file. **No other key files are needed for development.**
+- **Env needed (do not commit secrets):** use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DATABASE_URL (Prisma Accelerate), RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_LOCAL_URL (local workstation), OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. Load it with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file. **No other key files are needed for development.**
 
 ## Local Database Access (Muted / Dev Only)
 
 **CRITICAL:** Prisma Accelerate does NOT support DDL operations (CREATE/ALTER/DROP TABLE, CREATE INDEX, etc.). For migrations, always use direct PostgreSQL URLs. Accelerate silently ignores DDL statements, causing migrations to appear successful without actually creating schema changes. See `ops/DB_BOOTSTRAP.md` for detailed migration workflow.
 
-1. **Environment file:** use `secrets/Infinity-Gauntlet.env` as the single consolidated environment file containing all development keys. This file includes DATABASE_POOL_URL (Prisma Accelerate), DATABASE_URL, DATABASE_LOCAL_URL, BOT_TOKEN, OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. **No other environment files are needed.**
+1. **Environment file:** use `secrets/Infinity-Gauntlet.env` as the single consolidated environment file containing all development keys. This file includes DATABASE_URL (Prisma Accelerate), RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_LOCAL_URL, BOT_TOKEN, OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. **No other environment files are needed.**
 2. **Load environment before DB work:** run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist` to activate the environment. Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`, so this override must be active.
-  - **FOR MIGRATIONS:** The consolidated `secrets/Infinity-Gauntlet.env` file contains Prisma Accelerate URLs, which do NOT support DDL operations. For migrations requiring direct PostgreSQL access, temporarily override DATABASE_URL or create a migration-specific env file with direct URLs pointing to PostgreSQL (not Accelerate).
+  - **FOR MIGRATIONS:** Migrations require direct PostgreSQL access. Use `RENDER_DB_EXTERNAL_URL` or temporarily override DATABASE_URL with the direct PostgreSQL connection string (not Accelerate). Prisma Accelerate does NOT support DDL operations.
   - **Verify access:** `echo $Env:IG_ENV_FILE` should print the chosen file; use `Get-Content secrets/Infinity-Gauntlet.env | Select-Object -First 5` to confirm it is reachable before running tooling.
   - **Reset Prisma after Accelerate:** whenever you switch between Accelerate and direct PostgreSQL, run `npx prisma generate` once so the local client regenerates with the correct driver configuration.
   - **Automation service:** `npm run db:auto-sync` runs the consolidation on deployment and then checks for drift every five minutes. Use `--dry-run`, `--once`, or `--skip-startup` when rehearsing new flows.
@@ -81,17 +81,12 @@ function selectQueryUrl(envVars: Record<string, string>): string {
   
   if (isProd) {
     // Production MUST use Accelerate URLs
-    return (
-      envVars.DATABASE_POOL_URL ?? 
-      envVars.DATABASE_ACCELERATE_URL ?? 
-      envVars.DATABASE_URL ?? 
-      ""
-    );
+    return envVars.DATABASE_URL ?? "";
   } else {
     // Development SHOULD use direct URLs
     return (
-      envVars.DATABASE_EXTERNAL_URL ?? 
-      envVars.DATABASE_DIRECT_URL ?? 
+      envVars.RENDER_DB_EXTERNAL_URL ?? 
+      envVars.DATABASE_LOCAL_URL ??
       envVars.DATABASE_URL ?? 
       ""
     );
@@ -101,18 +96,17 @@ function selectQueryUrl(envVars: Record<string, string>): string {
 // For migrations (ALL environments use direct URLs)
 function selectMigrationUrl(envVars: Record<string, string>): string {
   return (
-    envVars.DATABASE_EXTERNAL_URL ?? 
-    envVars.DATABASE_DIRECT_URL ?? 
-    envVars.DATABASE_URL ?? 
+    envVars.RENDER_DB_EXTERNAL_URL ?? 
+    envVars.RENDER_DB_INTERNAL_URL ?? 
     ""
   );
 }
 ```
 
 **Quick Reference:**
-- **Production Queries**: `DATABASE_POOL_URL` (Accelerate) - Required for Render deployments
-- **Development Queries**: `DATABASE_DIRECT_URL` (Direct PostgreSQL) - Faster iteration
-- **Migrations**: `DATABASE_DIRECT_URL` (all environments) - Accelerate does NOT support DDL
+- **Production Queries**: `DATABASE_URL` (Accelerate) - Required for Render deployments
+- **Development Queries**: `RENDER_DB_EXTERNAL_URL` (Direct PostgreSQL) - Faster iteration
+- **Migrations**: `RENDER_DB_EXTERNAL_URL` (all environments) - Accelerate does NOT support DDL
 
 **Contract Status:** This is an **Absolute** requirement in `Patch.md`. Violations cause production failures and must be fixed immediately.
 
@@ -120,8 +114,8 @@ function selectMigrationUrl(envVars: Record<string, string>): string {
 
 **As of 2025-11-06**, the production runtime maintains **three Prisma clients connected simultaneously**:
 
-- **`prisma`** (PROD) — Connected to `DATABASE_POOL_URL` or `DATABASE_ACCELERATE_URL`; uses Prisma Accelerate for query caching, connection pooling, and high availability. Used for cloud-based production operations on Render.
-- **`devPrisma`** (DEV) — Connected to `DATABASE_DIRECT_URL` or `DATABASE_EXTERNAL_URL`; bypasses Accelerate and connects directly to PostgreSQL. Used for development queries, observability, migration workflows, and replication source. May be `null` if no direct URL is configured.
+- **`prisma`** (PROD) — Connected to `DATABASE_URL`; uses Prisma Accelerate for query caching, connection pooling, and high availability. Used for cloud-based production operations on Render.
+- **`devPrisma`** (DEV) — Connected to `RENDER_DB_EXTERNAL_URL`; bypasses Accelerate and connects directly to PostgreSQL. Used for development queries, observability, migration workflows, and replication source. May be `null` if no direct URL is configured.
 - **`localPrisma`** (LOCAL) — **PRIMARY for live gameplay** — Connected to `DATABASE_LOCAL_URL`; local workstation PostgreSQL cluster providing <50ms latency for battles, encounters, and trainer operations. Receives replicated data from PROD/DEV. May be `null` if not configured.
 
 All three clients initialize on startup via `src/shared/prisma.ts` and maintain independent heartbeat monitoring. The logger (`src/utils/logger.js`) auto-refreshes stats every 15 seconds, displaying telemetry for all connections in console output and restart DM messages.
@@ -150,8 +144,8 @@ console.log(`DEV: ${stats.dev.status} | PROD: ${stats.prod.status} | LOCAL: ${st
 
 **Environment Variable Mapping:**
 
-- `DATABASE_POOL_URL` or `DATABASE_ACCELERATE_URL` → PROD client (`prisma`)
-- `DATABASE_DIRECT_URL` or `DATABASE_EXTERNAL_URL` → DEV client (`devPrisma`)
+- `DATABASE_URL` → PROD client (`prisma`) - Prisma Accelerate
+- `RENDER_DB_EXTERNAL_URL` → DEV client (`devPrisma`) - Direct PostgreSQL
 - `DATABASE_LOCAL_URL` → LOCAL client (`localPrisma`) **PRIMARY for gameplay**
 
 **When to Use Each Client:**
@@ -161,7 +155,7 @@ console.log(`DEV: ${stats.dev.status} | PROD: ${stats.prod.status} | LOCAL: ${st
 | **Live gameplay (battles, encounters, trainer ops)** | **`localPrisma`** (fallback `prisma`) | **<50ms latency, local workstation** |
 | Render cloud operations (workers, background jobs) | `prisma` | Accelerate caching, pooling, HA |
 | Development/debugging | `devPrisma` | Direct access, no caching layer |
-| Migrations (`prisma migrate deploy`) | DEV connection via `DATABASE_DIRECT_URL` | Prisma requires direct PostgreSQL for DDL |
+| Migrations (`prisma migrate deploy`) | DEV connection via `RENDER_DB_EXTERNAL_URL` | Prisma requires direct PostgreSQL for DDL |
 | Replication source | `devPrisma` or `prisma` | PROD/DEV → LOCAL data sync |
 | Stats/observability | All three via `getDatabaseStats()` | Simultaneous visibility |
 
@@ -396,7 +390,7 @@ See `docs/db-replication-architecture.md` for comprehensive architecture documen
 - `npm run docs:update-ledger` — Refresh Prompt change ledger.
 - `npm run refresh:vision` — Runs the full metadata refresh pipeline (routers, recovery, NEXT validation).
 - `scripts/bootstrap_staging_db.ps1` — PowerShell entry that wraps `prisma migrate deploy` with interactive confirmation.
-  - Honors `DATABASE_POOL_URL`/`DATABASE_DIRECT_URL` and surfaces guidance when they’re missing or identical.
+  - Honors `DATABASE_URL`/`RENDER_DB_EXTERNAL_URL` and surfaces guidance when they're missing or identical.
   - Works best with the connection retry envs (`PRISMA_CONNECT_MAX_RETRIES`, `PRISMA_CONNECT_RETRY_DELAY_MS`, `PRISMA_CONNECT_MAX_DELAY_MS`) tuned in the external `Key/Dev/.env` secrets file.
 
 ## Data & Cache Pipelines
@@ -412,7 +406,7 @@ See `docs/db-replication-architecture.md` for comprehensive architecture documen
 - `src/data_pipeline/` — Data ingestion/validation logic.
 - `src/shared/` — Logging, config, and utilities used across services.
 - `scripts/` — Automation entrypoints (guards, refreshers, build tools).
-- `ops/DB_BOOTSTRAP.md` & `scripts/bootstrap_staging_db.ps1` — Paired references for staging schema bootstrap; read the runbook before executing the script and confirm both pooled (`DATABASE_POOL_URL`) and direct (`DATABASE_DIRECT_URL`) URLs are set.
+- `ops/DB_BOOTSTRAP.md` & `scripts/bootstrap_staging_db.ps1` — Paired references for staging schema bootstrap; read the runbook before executing the script and confirm both `DATABASE_URL` (Accelerate) and `RENDER_DB_EXTERNAL_URL` (direct) URLs are set.
 - `ops/` — Operational metadata, hotfix plans, NEXT pointers, recovery docs.
 - `tests/` — Vitest specs across engines, data pipeline, DM flow, and ops surfaces.
 
