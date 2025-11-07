@@ -30,6 +30,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - `README.md` (Router & Meta Index section) — Cross-links routers, contract files, and meta tooling for external automation.
 - `ops/DB_BOOTSTRAP.md` — Staging Postgres bootstrap runbook covering migrate deploy vs. db push safety.
   - Expect both pooled (`DATABASE_POOL_URL`) and direct (`DATABASE_DIRECT_URL`) connection strings to be configured. Runtime services prefer the pooled URL; migrations use the direct URL.
+- `docs/database-url-selection.md` — **CRITICAL:** Canonical database URL selection logic. Production requires `DATABASE_POOL_URL` (Accelerate); Development uses `DATABASE_DIRECT_URL` (Direct PostgreSQL). Non-compliance causes production failures. Read this before any database operation.
 
 ## How to Run Locally
 - **Install:** `npm install`
@@ -59,6 +60,61 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 5. **Document actions:** log purpose, command, and outcome in `Tasklist.md` under the active task when running anything outside status/counts.
 
 Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describe the secure loading order and available commands. These tools run locally only; do not expose the secure env path in CI or production. **All development work uses `secrets/Infinity-Gauntlet.env` as the single consolidated environment file.**
+
+## Database URL Selection (CRITICAL - Read Before Any Database Operation)
+
+**As of 2025-11-07**, all database operations MUST use environment-aware URL selection to prevent production failures. See `docs/database-url-selection.md` for complete documentation.
+
+**The Problem:**
+Prisma Client operates in two modes:
+- **Accelerate Mode** (production): Requires `prisma://` or `prisma+postgres://` URLs
+- **Direct Mode** (development): Requires `postgresql://` URLs
+
+Passing the wrong URL type causes validation errors: `PrismaClientKnownRequestError: P6001 - the URL must start with the protocol prisma://`
+
+**Canonical URL Selection Logic:**
+
+```typescript
+// For runtime queries (seed, counts, CRUD operations)
+function selectQueryUrl(envVars: Record<string, string>): string {
+  const isProd = process.env.NODE_ENV === "production";
+  
+  if (isProd) {
+    // Production MUST use Accelerate URLs
+    return (
+      envVars.DATABASE_POOL_URL ?? 
+      envVars.DATABASE_ACCELERATE_URL ?? 
+      envVars.DATABASE_URL ?? 
+      ""
+    );
+  } else {
+    // Development SHOULD use direct URLs
+    return (
+      envVars.DATABASE_EXTERNAL_URL ?? 
+      envVars.DATABASE_DIRECT_URL ?? 
+      envVars.DATABASE_URL ?? 
+      ""
+    );
+  }
+}
+
+// For migrations (ALL environments use direct URLs)
+function selectMigrationUrl(envVars: Record<string, string>): string {
+  return (
+    envVars.DATABASE_EXTERNAL_URL ?? 
+    envVars.DATABASE_DIRECT_URL ?? 
+    envVars.DATABASE_URL ?? 
+    ""
+  );
+}
+```
+
+**Quick Reference:**
+- **Production Queries**: `DATABASE_POOL_URL` (Accelerate) - Required for Render deployments
+- **Development Queries**: `DATABASE_DIRECT_URL` (Direct PostgreSQL) - Faster iteration
+- **Migrations**: `DATABASE_DIRECT_URL` (all environments) - Accelerate does NOT support DDL
+
+**Contract Status:** This is an **Absolute** requirement in `Patch.md`. Violations cause production failures and must be fixed immediately.
 
 ### Triple Database Connection Architecture (Runtime)
 
