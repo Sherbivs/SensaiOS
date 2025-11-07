@@ -57,8 +57,8 @@ TypeScript app in `src/`.
 
 - Node.js 20+
 - npm 9+ (or pnpm/yarn if you wire equivalent scripts)
-- Postgres 14+ reachable via `DATABASE_URL`
-- Render-managed deployments should set `DATABASE_URL` (Prisma Accelerate proxy) and `RENDER_DB_INTERNAL_URL` (Render internal network) or `RENDER_DB_EXTERNAL_URL` (external access) for direct PostgreSQL connections
+- Postgres 14+ reachable via direct PostgreSQL connection
+- Render-managed deployments should set `DEV_DATABASE_URL` (DEV master) and `PROD_DATABASE_URL` (PROD local node) for the 2-node cluster, or `RENDER_DB_INTERNAL_URL` (Render internal network) / `RENDER_DB_EXTERNAL_URL` (external access) for direct PostgreSQL connections
 - Discord bot token with **applications.commands** and **guilds** intents
 
 Optional services:
@@ -76,7 +76,7 @@ Optional services:
    ```powershell
    $env:IG_ENV_FILE="secrets/Infinity-Gauntlet.env"
    ```
-   Use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DATABASE_URL (Prisma Accelerate), RENDER_DB_EXTERNAL_URL (direct PostgreSQL external), RENDER_DB_INTERNAL_URL (direct PostgreSQL internal), DATABASE_LOCAL_URL (local workstation), OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. **No other key files are needed.**
+   Use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DEV_DATABASE_URL (DEV master), PROD_DATABASE_URL (PROD local node), RENDER_DB_EXTERNAL_URL (direct PostgreSQL external), RENDER_DB_INTERNAL_URL (direct PostgreSQL internal), DATABASE_LOCAL_URL (local workstation), OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. **No other key files are needed.**
    
    Run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist` to register the value for future shells (see `docs/ai-env-setup.md` and `docs/db-control-suite.md`). 
    
@@ -149,7 +149,7 @@ Reference data is mirrored into `/data` via scripted jobs:
    npm run data:build
    ```
 2. Required environment variables:
-   - `DATABASE_URL` (Prisma Accelerate proxy). The app falls back to `RENDER_DB_INTERNAL_URL`, `RENDER_DB_EXTERNAL_URL`, or `DATABASE_LOCAL_URL` when Accelerate is unavailable.
+   - `PROD_DATABASE_URL` (PROD local node - PRIMARY for gameplay). The app falls back to `DEV_DATABASE_URL`, `RENDER_DB_INTERNAL_URL`, `RENDER_DB_EXTERNAL_URL`, or `DATABASE_LOCAL_URL` for direct PostgreSQL connections.
    - `DISCORD_BOT_TOKEN` (or legacy `POKEMON_BOT_TOKEN` fallback)
    - Optional Render job variables (`POKE_RENDER_SERVICE_ID`, `POKE_REFRESH_CRON`, etc.)
       - Optional Prisma Optimize endpoint override via `OPTIMIZE_API_URL`; the value must be HTTPS or it will be ignored.
