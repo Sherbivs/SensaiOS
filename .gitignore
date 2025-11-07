@@ -16,10 +16,13 @@ build/
 secrets/*
 !secrets/*.example
 !secrets/README.md
+!secrets/ROUTER.md
 prisma-accelerate.env
 
 # Database files (local PostgreSQL, SQLite)
 Store/
+!Store/ROUTER.md
+!Store/**/ROUTER.md
 *.db
 *.sqlite
 *.sqlite3
@@ -61,7 +64,15 @@ playwright-report/
 *.lcov
 
 # PostgreSQL binaries & debug symbols (tools directory)
-tools/pgsql*/
+# Exclude PostgreSQL binaries but keep ROUTER.md meta docs
+tools/pgsql*/pgsql/bin/*
+tools/pgsql*/pgsql/lib/
+tools/pgsql*/pgsql/share/
+tools/pgsql*/pgsql/include/
+!tools/pgsql*/pgsql/bin/ROUTER.md
+!tools/**/ROUTER.md
+!tools/ROUTER.md
+!tools/README.md
 *.pdb
 
 # IDE & Editor files
