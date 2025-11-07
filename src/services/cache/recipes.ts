@@ -9,6 +9,7 @@ import {
   type TrainerProfileSummary,
 } from "../../models/index.js";
 import { log } from "../../shared/log.js";
+import { normalizeError, type ErrorMeta } from "../../shared/utils/error-utils.js";
 
 import { getOrHydrate, evict, type CacheHydrateContext } from "./facade.js";
 
@@ -25,8 +26,6 @@ const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1_000;
 const DEFAULT_STARTER_COINS = 500;
 
 type PrismaLike = PrismaClient;
-
-type ErrMeta = { message: string; name?: string };
 
 type BattleCacheValue = BattleWithPlayers | null;
 type EncounterCacheValue = Encounter | null;
@@ -60,13 +59,6 @@ export type QuestClaimContext = {
 
 function meta(namespace: string, key: string, extra?: Record<string, unknown>): Record<string, unknown> {
   return { namespace, key, ...(extra ?? {}) };
-}
-
-function normalizeError(err: unknown): ErrMeta {
-  if (err instanceof Error) {
-    return { message: err.message, name: err.name };
-  }
-  return { message: String(err) };
 }
 
 function reviveDate(value: unknown): Date {

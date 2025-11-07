@@ -3,6 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { buffersEqual, readFileIfExists, writeFileIfChanged } from "../src/shared/utils/file-utils.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..");
@@ -592,30 +594,6 @@ export async function buildDexpackContext(): Promise<DexpackBuildContext> {
     versionMeta,
     triggerMeta,
   } satisfies DexpackBuildContext;
-}
-function buffersEqual(a: Buffer, b: Buffer): boolean {
-  return a.length === b.length && a.equals(b);
-}
-
-async function readFileIfExists(filePath: string): Promise<Buffer | null> {
-  try {
-    return await fs.readFile(filePath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
-      return null;
-    }
-    throw error;
-  }
-}
-
-async function writeFileIfChanged(filePath: string, data: string | Buffer): Promise<boolean> {
-  const buffer = typeof data === "string" ? Buffer.from(data, "utf8") : data;
-  const existing = await readFileIfExists(filePath);
-  if (existing && buffersEqual(existing, buffer)) {
-    return false;
-  }
-  await fs.writeFile(filePath, buffer);
-  return true;
 }
 
 type ExpectedOutput = { filePath: string; buffer: Buffer };

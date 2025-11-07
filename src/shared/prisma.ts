@@ -4,6 +4,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
+import { delayWithJitter } from "./utils/async-utils.js";
 
 export type PrismaHeartbeatEvent = {
   ok: boolean;
@@ -378,14 +379,6 @@ function coerceRetryValue(raw: string | undefined, fallback: number, minimum: nu
     return fallback;
   }
   return Math.max(parsed, minimum);
-}
-
-function delayWithJitter(baseMs: number): Promise<void> {
-  const jitter = baseMs * 0.25 * Math.random();
-  const total = baseMs + jitter;
-  return new Promise((resolve) => {
-    setTimeout(resolve, total);
-  });
 }
 
 async function attemptCandidateConnection(candidate: DatabaseCandidate, attempt: number): Promise<void> {

@@ -6,13 +6,14 @@ import { createReadStream, createWriteStream } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { delay } from '../src/shared/utils/async-utils.js';
+
 const CACHE_DIR = process.env.CACHE_DIR || './data/cache';
 const TRIGGER_FILE = process.env.DEX_SYNC_TRIGGER_PATH || path.join(CACHE_DIR, 'dex-sync-trigger.json');
 const LIST_URL = 'https://pokeapi.co/api/v2/pokemon?limit=20000&offset=0';
 const CONCURRENCY = Number(process.env.POKE_CONCURRENCY || 10);
 const REQ_TIMEOUT_MS = Number(process.env.POKE_TIMEOUT_MS || 15000);
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const timeoutFetch = async (url, ms = REQ_TIMEOUT_MS) => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ms);
@@ -79,7 +80,7 @@ async function fetchAllPokemon() {
   const listRes = await timeoutFetch(LIST_URL);
   const { results } = await listRes.json();
   const details = await mapPool(results, CONCURRENCY, async (entry, idx) => {
-    if (idx && idx % 50 === 0) await sleep(250);
+    if (idx && idx % 50 === 0) await delay(250);
     const res = await timeoutFetch(entry.url);
     const json = await res.json();
     return normalizePokemon(json);

@@ -13,25 +13,7 @@ import {
 import { attemptCatch, runFromEncounter } from "../../core/encounter/catch.js";
 import { prisma } from "../../models/index.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
-
-const PARTY_WITH_SLOTS_INCLUDE = {
-  slots: {
-    orderBy: { slot: "asc" as const },
-    include: {
-      pokemon: {
-        select: {
-          id: true,
-          nickname: true,
-          speciesId: true,
-          level: true,
-          hp: true,
-          maxHp: true,
-          species: { select: { name: true } },
-        },
-      },
-    },
-  },
-} as const;
+import { PARTY_WITH_SLOTS_INCLUDE, getPartyWithSlots } from "../../shared/models/index.js";
 
 type PartyWithSlots = Prisma.PartyGetPayload<{ include: typeof PARTY_WITH_SLOTS_INCLUDE }>;
 type PartySlotWithPokemon = PartyWithSlots["slots"][number];
@@ -169,7 +151,7 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
   }
 
   if (action === "SWAP") {
-    const party = await prisma.party.findFirst({ where: { ownerId: user.id }, include: PARTY_WITH_SLOTS_INCLUDE });
+    const party = await getPartyWithSlots(prisma, user.id);
     const slots = party?.slots ?? [];
     const healthySlots = slots.filter((slot) => slot.pokemon && slot.pokemon.hp > 0);
     if (healthySlots.length < 2) {
@@ -211,7 +193,10 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        const freshParty = await tx.party.findFirst({ where: { ownerId: user.id }, include: PARTY_WITH_SLOTS_INCLUDE });
+        const freshParty = await tx.party.findFirst({ 
+          where: { ownerId: user.id }, 
+          include: PARTY_WITH_SLOTS_INCLUDE 
+        });
         const freshSlots = freshParty?.slots ?? [];
         const freshLead = freshSlots.find((slot) => slot.slot === 1) ?? freshSlots[0] ?? null;
         const picked = freshSlots.find((slot) => slot.id === chosenId) ?? null;

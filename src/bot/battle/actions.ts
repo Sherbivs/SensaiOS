@@ -24,6 +24,7 @@ import {
 } from "../../core/battle/turn-manager.js";
 import { BattleRepo, prisma as prismaClient } from "../../models/index.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
+import { PARTY_WITH_SLOTS_INCLUDE } from "../../shared/models/index.js";
 
 import * as concludeModule from "./conclude.js";
 
@@ -278,12 +279,7 @@ async function loadParticipantState(
   if (!player?.id) return null;
   const party = await prisma.party.findUnique({
     where: { ownerId: player.id },
-    include: {
-      slots: {
-        orderBy: { slot: "asc" },
-        include: { pokemon: true },
-      },
-    },
+    include: PARTY_WITH_SLOTS_INCLUDE,
   });
   const slots = party?.slots ?? [];
   if (!Array.isArray(slots) || slots.length === 0) {

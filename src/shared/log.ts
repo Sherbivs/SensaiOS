@@ -2,6 +2,7 @@
 // Outputs JSON lines with timestamp, level, message, and optional context.
 
 import { config } from "./config.js";
+import { safeError } from "./utils/error-utils.js";
 
 type CliLogLevel = "success" | "info" | "detail" | "warn" | "error";
 type CliLogOptions = { debugMode?: boolean };
@@ -46,15 +47,6 @@ let currentLevel: LogLevel = envLevel();
 
 function enabled(level: LogLevel): boolean {
   return levelOrder[level] >= levelOrder[currentLevel];
-}
-
-function safeError(err: unknown): AnyObj {
-  if (!err) return undefined;
-  if (err instanceof Error) {
-    return { name: err.name, message: err.message, stack: err.stack };
-  }
-  if (typeof err === "object") return err as Record<string, unknown>;
-  return { value: String(err) };
 }
 
 function nowIso(): string {

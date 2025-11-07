@@ -1,4 +1,5 @@
 import { claimBatch, loadMessage, finish, fail, seenOnce } from "./bus.js";
+import { delay } from "../shared/utils/async-utils.js";
 
 type HandlerMessage = {
   id: string;
@@ -40,7 +41,6 @@ export async function run(): Promise<void> {
 
 async function loop(reg: Registration): Promise<void> {
   const inflight = new Set<Promise<void>>();
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
    
   while (true) {
@@ -51,7 +51,7 @@ async function loop(reg: Registration): Promise<void> {
 
     const claimed = await claimBatch(64, { topics: [reg.topic] });
     if (claimed.length === 0) {
-      await sleep(250);
+      await delay(250);
       continue;
     }
 

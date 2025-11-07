@@ -16,22 +16,11 @@ import {
   recordVersion,
   VersionStatus,
 } from '../../src/services/db-replication/version.js';
+import { createMockPrismaWithMigrations, type MockMigration } from '../shared/index.js';
 
-// ---- Mock Setup ----
+// ---- Test Data ----
 
-const createMockPrismaClient = (migrations: Array<{ migration_name: string; checksum: string; started_at: Date; finished_at: Date | null }>) => {
-  return {
-    $queryRaw: vi.fn().mockResolvedValue(migrations),
-    dbVersion: {
-      create: vi.fn().mockResolvedValue({}),
-    },
-    dbSyncState: {
-      upsert: vi.fn().mockResolvedValue({}),
-    },
-  } as any;
-};
-
-const sampleMigrations = [
+const sampleMigrations: MockMigration[] = [
   {
     migration_name: '20250101000000_init',
     checksum: 'abc123',
@@ -59,7 +48,7 @@ const sampleMigrations = [
 
 describe('getVersion', () => {
   it('should calculate SHA-256 fingerprint from migrations', async () => {
-    const mockPrisma = createMockPrismaClient(sampleMigrations);
+    const mockPrisma = createMockPrismaWithMigrations(sampleMigrations);
     const version = await getVersion(mockPrisma, 'TEST');
 
     // Verify fingerprint calculation
@@ -73,7 +62,7 @@ describe('getVersion', () => {
   });
 
   it('should handle empty migrations table', async () => {
-    const mockPrisma = createMockPrismaClient([]);
+    const mockPrisma = createMockPrismaWithMigrations([]);
     const version = await getVersion(mockPrisma, 'EMPTY');
 
     expect(version.fingerprint).toBe('');
@@ -82,7 +71,7 @@ describe('getVersion', () => {
   });
 
   it('should use finished_at when available', async () => {
-    const mockPrisma = createMockPrismaClient(sampleMigrations);
+    const mockPrisma = createMockPrismaWithMigrations(sampleMigrations);
     const version = await getVersion(mockPrisma, 'TEST');
 
     expect(version.lastMigrationAppliedAt).toEqual(new Date('2025-01-03T00:00:01Z'));
@@ -91,8 +80,8 @@ describe('getVersion', () => {
 
 describe('compareVersions - MATCH', () => {
   it('should return MATCH when fingerprints are identical', async () => {
-    const mockPrismaSource = createMockPrismaClient(sampleMigrations);
-    const mockPrismaTarget = createMockPrismaClient(sampleMigrations);
+    const mockPrismaSource = createMockPrismaWithMigrations(sampleMigrations);
+    const mockPrismaTarget = createMockPrismaWithMigrations(sampleMigrations);
 
     const sourceVersion = await getVersion(mockPrismaSource, 'DEV');
     const targetVersion = await getVersion(mockPrismaTarget, 'PROD');
@@ -108,8 +97,8 @@ describe('compareVersions - MATCH', () => {
 describe('compareVersions - AHEAD', () => {
   it('should return AHEAD when source has more migrations with valid prefix', async () => {
     const targetMigrations = sampleMigrations.slice(0, 2);
-    const mockPrismaSource = createMockPrismaClient(sampleMigrations);
-    const mockPrismaTarget = createMockPrismaClient(targetMigrations);
+    const mockPrismaSource = createMockPrismaWithMigrations(sampleMigrations);
+    const mockPrismaTarget = createMockPrismaWithMigrations(targetMigrations);
 
     // Mock prefix verification to return target migrations
     mockPrismaSource.$queryRaw = vi.fn()
@@ -142,8 +131,8 @@ describe('compareVersions - AHEAD', () => {
       },
     ];
 
-    const mockPrismaSource = createMockPrismaClient(sampleMigrations);
-    const mockPrismaTarget = createMockPrismaClient(targetMigrations);
+    const mockPrismaSource = createMockPrismaWithMigrations(sampleMigrations);
+    const mockPrismaTarget = createMockPrismaWithMigrations(targetMigrations);
 
     // Mock prefix verification
     mockPrismaSource.$queryRaw = vi.fn()
@@ -168,8 +157,8 @@ describe('compareVersions - AHEAD', () => {
 describe('compareVersions - BEHIND (Reversion)', () => {
   it('should return BEHIND when source has fewer migrations', async () => {
     const sourceMigrations = sampleMigrations.slice(0, 2);
-    const mockPrismaSource = createMockPrismaClient(sourceMigrations);
-    const mockPrismaTarget = createMockPrismaClient(sampleMigrations);
+    const mockPrismaSource = createMockPrismaWithMigrations(sourceMigrations);
+    const mockPrismaTarget = createMockPrismaWithMigrations(sampleMigrations);
 
     const sourceVersion = await getVersion(mockPrismaSource, 'DEV');
     const targetVersion = await getVersion(mockPrismaTarget, 'PROD');
@@ -210,8 +199,8 @@ describe('compareVersions - DIVERGED', () => {
       },
     ];
 
-    const mockPrismaSource = createMockPrismaClient(sampleMigrations);
-    const mockPrismaTarget = createMockPrismaClient(divergedMigrations);
+    const mockPrismaSource = createMockPrismaWithMigrations(sampleMigrations);
+    const mockPrismaTarget = createMockPrismaWithMigrations(divergedMigrations);
 
     const sourceVersion = await getVersion(mockPrismaSource, 'DEV');
     const targetVersion = await getVersion(mockPrismaTarget, 'PROD');
@@ -228,8 +217,8 @@ describe('compareVersions - DIVERGED', () => {
 describe('handleReversion', () => {
   it('should detect reversion and block sync when DEV has fewer migrations', async () => {
     const devMigrations = sampleMigrations.slice(0, 2);
-    const mockPrismaDev = createMockPrismaClient(devMigrations);
-    const mockPrismaProd = createMockPrismaClient(sampleMigrations);
+    const mockPrismaDev = createMockPrismaWithMigrations(devMigrations);
+    const mockPrismaProd = createMockPrismaWithMigrations(sampleMigrations);
 
     const devVersion = await getVersion(mockPrismaDev, 'DEV');
     const prodVersion = await getVersion(mockPrismaProd, 'PROD');
@@ -259,8 +248,8 @@ describe('handleReversion', () => {
   });
 
   it('should return no reversion when DEV is ahead or in sync', async () => {
-    const mockPrismaDev = createMockPrismaClient(sampleMigrations);
-    const mockPrismaProd = createMockPrismaClient(sampleMigrations.slice(0, 2));
+    const mockPrismaDev = createMockPrismaWithMigrations(sampleMigrations);
+    const mockPrismaProd = createMockPrismaWithMigrations(sampleMigrations.slice(0, 2));
 
     const devVersion = await getVersion(mockPrismaDev, 'DEV');
     const prodVersion = await getVersion(mockPrismaProd, 'PROD');
@@ -278,7 +267,7 @@ describe('handleReversion', () => {
 
 describe('recordVersion', () => {
   it('should create version record in db_version table', async () => {
-    const mockPrisma = createMockPrismaClient(sampleMigrations);
+    const mockPrisma = createMockPrismaWithMigrations(sampleMigrations);
     const version = await getVersion(mockPrisma, 'DEV');
 
     await recordVersion(mockPrisma, version);
@@ -296,7 +285,7 @@ describe('recordVersion', () => {
   });
 
   it('should handle empty version gracefully', async () => {
-    const mockPrisma = createMockPrismaClient([]);
+    const mockPrisma = createMockPrismaWithMigrations([]);
     const version = await getVersion(mockPrisma, 'EMPTY');
 
     await recordVersion(mockPrisma, version);
@@ -319,8 +308,8 @@ describe('Fingerprint calculation edge cases', () => {
     const migrations1 = [sampleMigrations[0], sampleMigrations[1]];
     const migrations2 = [sampleMigrations[1], sampleMigrations[0]]; // Reversed order
 
-    const mockPrisma1 = createMockPrismaClient(migrations1);
-    const mockPrisma2 = createMockPrismaClient(migrations2);
+    const mockPrisma1 = createMockPrismaWithMigrations(migrations1);
+    const mockPrisma2 = createMockPrismaWithMigrations(migrations2);
 
     const version1 = await getVersion(mockPrisma1, 'TEST1');
     const version2 = await getVersion(mockPrisma2, 'TEST2');
@@ -337,8 +326,8 @@ describe('Fingerprint calculation edge cases', () => {
       },
     ];
 
-    const mockPrisma1 = createMockPrismaClient(migrations1);
-    const mockPrisma2 = createMockPrismaClient(migrations2);
+    const mockPrisma1 = createMockPrismaWithMigrations(migrations1);
+    const mockPrisma2 = createMockPrismaWithMigrations(migrations2);
 
     const version1 = await getVersion(mockPrisma1, 'TEST1');
     const version2 = await getVersion(mockPrisma2, 'TEST2');
@@ -347,8 +336,8 @@ describe('Fingerprint calculation edge cases', () => {
   });
 
   it('should produce same fingerprint for identical migrations', async () => {
-    const mockPrisma1 = createMockPrismaClient(sampleMigrations);
-    const mockPrisma2 = createMockPrismaClient(sampleMigrations);
+    const mockPrisma1 = createMockPrismaWithMigrations(sampleMigrations);
+    const mockPrisma2 = createMockPrismaWithMigrations(sampleMigrations);
 
     const version1 = await getVersion(mockPrisma1, 'TEST1');
     const version2 = await getVersion(mockPrisma2, 'TEST2');

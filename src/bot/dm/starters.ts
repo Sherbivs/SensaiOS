@@ -9,6 +9,7 @@ import {
 
 import { UserRepo } from "../../models/index.js";
 import { prisma } from "../../shared/prisma.js";
+import { getPartyWithSlots } from "../../shared/models/index.js";
 
 // Kanto starters (species IDs per National Dex)
 export const STARTER_OPTIONS = [
@@ -105,17 +106,23 @@ export async function createStarterAndAssignParty({
     },
   });
 
-  // Ensure a party exists
-  let party = await prisma.party.findFirst({ where: { ownerId: user.id } });
+  // Ensure a party exists and get available slots in one query
+  const party = await getPartyWithSlots(prisma, user.id);
+  
+  let partyId: string;
+  let slots: Array<{ slot: number }>;
+  
   if (!party) {
-    party = await prisma.party.create({ data: { ownerId: user.id } });
+    // Create new party
+    const newParty = await prisma.party.create({ data: { ownerId: user.id } });
+    partyId = newParty.id;
+    slots = [];
+  } else {
+    partyId = party.id;
+    slots = party.slots;
   }
 
   // Determine next available slot 1..6
-  const slots = await prisma.partySlot.findMany({
-    where: { partyId: party.id },
-    orderBy: { slot: "asc" },
-  });
   const used = new Set(slots.map((s) => s.slot));
   let nextSlot = 1;
   for (; nextSlot <= 6; nextSlot++) {
@@ -127,7 +134,7 @@ export async function createStarterAndAssignParty({
   }
 
   await prisma.partySlot.create({
-    data: { partyId: party.id, pokemonId: created.id, slot: nextSlot },
+    data: { partyId, pokemonId: created.id, slot: nextSlot },
   });
 
   return { created, partyFull: false } as const;

@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma as prismaClient, UserRepo } from "../../models/index.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
+import { getPartyWithSlots } from "../../shared/models/index.js";
 
 export type BallType = "poke" | "great" | "ultra";
 
@@ -115,16 +116,19 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
   });
 
   // Try to assign to party if slot is available
-  let party = await prisma.party.findFirst({ where: { ownerId: user.id } });
+  const party = await getPartyWithSlots(prisma, user.id);
   if (!party) {
-    party = await prisma.party.create({ data: { ownerId: user.id } });
-  }
-  const slots = await prisma.partySlot.findMany({ where: { partyId: party.id }, orderBy: { slot: "asc" } });
-  const used = new Set(slots.map((s) => s.slot));
-  let nextSlot = 1;
-  for (; nextSlot <= 6; nextSlot++) if (!used.has(nextSlot)) break;
-  if (nextSlot <= 6) {
-    await prisma.partySlot.create({ data: { partyId: party.id, pokemonId: created.id, slot: nextSlot } });
+    // Create party if it doesn't exist
+    const newParty = await prisma.party.create({ data: { ownerId: user.id } });
+    await prisma.partySlot.create({ data: { partyId: newParty.id, pokemonId: created.id, slot: 1 } });
+  } else {
+    const slots = party.slots ?? [];
+    const used = new Set(slots.map((s) => s.slot));
+    let nextSlot = 1;
+    for (; nextSlot <= 6; nextSlot++) if (!used.has(nextSlot)) break;
+    if (nextSlot <= 6) {
+      await prisma.partySlot.create({ data: { partyId: party.id, pokemonId: created.id, slot: nextSlot } });
+    }
   }
 
   await prisma.encounter.update({
