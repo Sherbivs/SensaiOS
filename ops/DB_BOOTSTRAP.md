@@ -28,14 +28,14 @@ Blueprint assets
 
 ```env
 # secrets/migrate.env - For running migrations only
-DATABASE_URL=postgresql://user:pass@host/dbname          # DIRECT PostgreSQL
-DATABASE_DIRECT_URL=postgresql://user:pass@host/dbname   # DIRECT PostgreSQL  
-DATABASE_POOL_URL=postgresql://user:pass@host/dbname     # DIRECT PostgreSQL
+DATABASE_URL=postgresql://user:pass@host/dbname                   # DIRECT PostgreSQL
+RENDER_DB_INTERNAL_URL=postgresql://user:pass@host/dbname         # DIRECT PostgreSQL (Render internal)
+RENDER_DB_EXTERNAL_URL=postgresql://user:pass@host.region.render.com/dbname  # DIRECT PostgreSQL (external)
 
 # secrets/runtime.env - For application runtime (after migrations complete)
 DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/...     # Accelerate for caching
-DATABASE_DIRECT_URL=postgresql://user:pass@host/dbname            # Direct for admin queries
-DATABASE_POOL_URL=prisma+postgres://accelerate.prisma-data.net/... # Accelerate for pooling
+RENDER_DB_INTERNAL_URL=postgresql://user:pass@host/dbname         # Direct for admin queries (Render internal)
+RENDER_DB_EXTERNAL_URL=postgresql://user:pass@host.region.render.com/dbname  # Direct for laptop access
 ```
 
 **Migration Workflow:**
@@ -56,12 +56,12 @@ Checklist and decisions
 - Confirm you are running commands from the canonical working directory: the GitHub Desktop clone at C:\Users\sherb\OneDrive\Documents\GitHub\Infinity-Gauntlet (per ops policy).
 - Verify `DATABASE_URL` points to the staging database and is the only staging instance being touched.
 - **CRITICAL:** For migrations, ensure `DATABASE_URL` points DIRECTLY to PostgreSQL (starts with `postgresql://`), NOT through Prisma Accelerate (starts with `prisma+postgres://`). Accelerate silently ignores DDL statements.
-- Prefer managed poolers: set `DATABASE_POOL_URL` (Render connectionString) for runtime services, and ensure `DATABASE_DIRECT_URL` (Render directConnectionString) is populated so Prisma migrations bypass PGBouncer/SSL pools.
+- Prefer managed poolers: set `DATABASE_URL` (Accelerate) for runtime services, and ensure `RENDER_DB_INTERNAL_URL` or `RENDER_DB_EXTERNAL_URL` (Render direct connection) is populated so Prisma migrations bypass Accelerate.
 - Snapshot (optional): If you need a backup, take a production-to-staging snapshot or export the staging DB first.
 
 Procedure A — Apply historical migrations (recommended)
 1. Ensure the repo contains the full migrations history under `prisma/migrations`.
-2. From the repo root (the working copy used for ops), confirm `IG_ENV_FILE` is pointing at `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (or the staging-specific override) and that file defines `DATABASE_POOL_URL`/`DATABASE_URL` (pooled) *and* `DATABASE_DIRECT_URL` (direct `postgresql://`). On Windows PowerShell you can verify with `echo $Env:IG_ENV_FILE` and `Get-Content $Env:IG_ENV_FILE | Select-String DATABASE_` or rely on `scripts/setup_ai_env.ps1` to register the path.
+2. From the repo root (the working copy used for ops), confirm `IG_ENV_FILE` is pointing at `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (or the staging-specific override) and that file defines `DATABASE_URL` (Accelerate) *and* `RENDER_DB_INTERNAL_URL` or `RENDER_DB_EXTERNAL_URL` (direct `postgresql://`). On Windows PowerShell you can verify with `echo $Env:IG_ENV_FILE` and `Get-Content $Env:IG_ENV_FILE | Select-String DATABASE_` or rely on `scripts/setup_ai_env.ps1` to register the path.
   - If you previously ran Accelerate workflows with `Key/Prod/.env`, regenerate the Prisma client (`npx prisma generate`) before connecting so the CLI uses the direct Node engine again.
 3. Run:
 
@@ -93,7 +93,7 @@ Procedure B — Safe fallback with `db push` (use only if A is not possible)
 
 Guidance when `202510280500_scaling_indexes` (or other forward-only migrations) fails
 - If the forward-only index migration fails because tables don't exist, do not attempt to modify the forward-only migration to create missing base tables — instead, bring the base schema to the DB via Procedure A or B, then re-run `npx prisma migrate deploy` to run the index migration.
-- If migration commands fail with connection errors (`P1001`/timeouts), double-check that `DATABASE_DIRECT_URL` is set to Render's direct connection string and that the security group allows connections from your workstation.
+- If migration commands fail with connection errors (`P1001`/timeouts), double-check that `RENDER_DB_EXTERNAL_URL` or `RENDER_DB_INTERNAL_URL` is set to Render's direct connection string and that the security group allows connections from your workstation.
 
 Smoke tests after schema alignment
 - Run a small set of tests or ad-hoc queries from the app environment to validate the following paths work:
@@ -223,7 +223,7 @@ Security hygiene: rotate any exposed `OPTIMIZE_API_KEY` tokens in the Prisma Dat
 
 Keep the mixed-case name quoted (`"SpeciesSheet"`) in every statement. Add a unique index before using `REFRESH MATERIALIZED VIEW CONCURRENTLY` if one is missing.
 - Render dev standby
-  - Load credentials: `Set-Item Env:DATABASE_URL 'postgresql://infinity_gauntlet_db_user:<render-password>@dpg-d3vd8h7diees73et3i3g-a.oregon-postgres.render.com:5432/infinity_gauntlet_db?sslmode=require'` (same value for `DATABASE_DIRECT_URL`; copy from Render's connectionString/directConnectionString secrets)
+  - Load credentials: `Set-Item Env:DATABASE_URL 'postgresql://infinity_gauntlet_db_user:<render-password>@dpg-d3vd8h7diees73et3i3g-a.oregon-postgres.render.com:5432/infinity_gauntlet_db?sslmode=require'` (same value for `RENDER_DB_EXTERNAL_URL`; copy from Render's connectionString/directConnectionString secrets)
   - Validated commands (PASS): `npx prisma migrate status`; `SELECT public.refresh_species_sheet()` (owner context); `SET ROLE prisma_application; SELECT public.refresh_species_sheet()`
   - Pending follow-up: mirror the same role grants on Prisma Accelerate, then rerun the dex seeding/backfill scripts to confirm both environments refresh `SpeciesSheet` without 42501 errors.
 

@@ -132,7 +132,7 @@ Use this sequence whenever you want the Render database to mirror the latest pri
     4. **Record the refresh.** Log the run in `Tasklist.md` (include dump timestamp + operator). If the job fails, capture the error and retry before any schema drift accumulates.
 
 ## 7. Failover playbook
-- Keep a copy of both connection strings in Render secrets. Switching the runtime from Accelerate to Render is a matter of updating `DATABASE_URL`/`DATABASE_DIRECT_URL` for each service and redeploying.
+- Keep a copy of both connection strings in Render secrets. Switching the runtime from Accelerate to Render is a matter of updating `DATABASE_URL` (Accelerate), `RENDER_DB_INTERNAL_URL` (Render internal), and `RENDER_DB_EXTERNAL_URL` (Render external) for each service and redeploying.
 - Document the change in `ops/RECOVERY.yaml` when you fail over—include who approved the flip, what data snapshot was last applied, and the target rollback command.
 - Once Accelerate recovers, repeat Section 6 to repopulate the standby, then flip services back to the primary endpoint.
 
