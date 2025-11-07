@@ -16,10 +16,10 @@ describe("database connection preference", () => {
   const trackedEnvKeys = [
     "DATABASE_CONNECTION_STATE_DIR",
     "DATABASE_CONNECTION_MODE",
-    "DATABASE_EXTERNAL_URL",
+    "RENDER_DB_EXTERNAL_URL",
+    "RENDER_DB_INTERNAL_URL",
     "DATABASE_INTERNAL_URL",
-    "DATABASE_DIRECT_URL",
-    "DATABASE_POOL_URL",
+    "DATABASE_LOCAL_URL",
     "DATABASE_URL",
     "NODE_ENV",
   ] as const;
@@ -33,10 +33,10 @@ describe("database connection preference", () => {
     process.env.DATABASE_CONNECTION_STATE_DIR = tempDir;
     process.env.NODE_ENV = "development";
   process.env.DATABASE_CONNECTION_MODE = "auto";
-    process.env.DATABASE_EXTERNAL_URL = "postgresql://external.example/db";
+    process.env.RENDER_DB_EXTERNAL_URL = "postgresql://external.example/db";
     process.env.DATABASE_INTERNAL_URL = "postgresql://internal.example/db";
-    delete process.env.DATABASE_DIRECT_URL;
-    delete process.env.DATABASE_POOL_URL;
+    delete process.env.RENDER_DB_INTERNAL_URL;
+    delete process.env.DATABASE_LOCAL_URL;
     delete process.env.DATABASE_URL;
     resetConfigCacheForTests();
   });

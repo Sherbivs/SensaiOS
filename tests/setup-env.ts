@@ -6,12 +6,8 @@ if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = 'postgres://placeholder.invalid/test-db';
 }
 
-if (!process.env.DATABASE_ACCELERATE_URL) {
-  process.env.DATABASE_ACCELERATE_URL = 'prisma://accelerate.invalid/placeholder';
-}
-
-if (!process.env.DATABASE_POOL_URL) {
-  process.env.DATABASE_POOL_URL = 'prisma://accelerate.invalid/placeholder';
+if (!process.env.RENDER_DB_INTERNAL_URL) {
+  process.env.RENDER_DB_INTERNAL_URL = 'postgres://internal.invalid/test-db';
 }
 
 if (!process.env.PRISMA_SKIP_INITIAL_CONNECT) {
