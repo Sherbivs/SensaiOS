@@ -16,6 +16,11 @@ export default [
       parserOptions: {
         sourceType: 'module',
         ecmaVersion: 2022,
+        // Suppress warning about multiple tsconfig.json files
+        projectService: {
+          allowDefaultProject: ['*.js', '*.mjs'],
+        },
+        tsconfigRootDir: import.meta.dirname,
       },
       globals: {
         ...globals.node,
