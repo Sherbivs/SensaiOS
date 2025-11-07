@@ -74,10 +74,10 @@ function selectDirectDatasource(): string {
   const acceleratePrefixes = ["prisma://", "prisma+postgres://"];
 
   const directCandidates = [
-    process.env.DATABASE_DIRECT_URL ?? "",
+    process.env.RENDER_DB_INTERNAL_URL ?? "",
+    process.env.RENDER_DB_EXTERNAL_URL ?? "",
     process.env.DATABASE_URL ?? "",
     process.env.PRIMARY_DATABASE_URL ?? "",
-    process.env.DATABASE_POOL_URL ?? "",
   ];
 
   const directUrl = directCandidates.find(
@@ -86,7 +86,7 @@ function selectDirectDatasource(): string {
 
   if (!directUrl) {
     throw new Error(
-      "DATABASE_DIRECT_URL (or a postgres:// DATABASE_URL) must be set for db_bootstrap_backfill. Load IG_ENV_FILE first.",
+      "RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL (or a postgres:// DATABASE_URL) must be set for db_bootstrap_backfill. Load IG_ENV_FILE first.",
     );
   }
 

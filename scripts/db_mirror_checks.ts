@@ -117,18 +117,17 @@ function extractConnections(envVars: EnvVars): ConnectionSet {
   const accelerate = [
     envVars.DATABASE_ACCELERATE_URL,
     looksLikeProxy(envVars.DATABASE_URL) ? envVars.DATABASE_URL : undefined,
-    looksLikeProxy(envVars.DATABASE_POOL_URL) ? envVars.DATABASE_POOL_URL : undefined,
   ].find((candidate): candidate is string => !!candidate);
 
   const direct = [
-    envVars.DATABASE_DIRECT_URL,
+    envVars.RENDER_DB_INTERNAL_URL,
+    envVars.RENDER_DB_EXTERNAL_URL,
     envVars.DIRECT_URL,
     looksLikeDirect(envVars.DATABASE_URL) ? envVars.DATABASE_URL : undefined,
-    looksLikeDirect(envVars.DATABASE_POOL_URL) ? envVars.DATABASE_POOL_URL : undefined,
   ].find((candidate): candidate is string => !!candidate && looksLikeDirect(candidate));
 
   const pooled = [
-    envVars.DATABASE_POOL_URL,
+    envVars.DATABASE_URL,
     looksLikeDirect(envVars.DATABASE_URL) ? envVars.DATABASE_URL : undefined,
   ].find((candidate): candidate is string => !!candidate && looksLikeDirect(candidate));
 

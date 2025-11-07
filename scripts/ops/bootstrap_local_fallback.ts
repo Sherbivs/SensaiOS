@@ -349,7 +349,7 @@ function resolveSourceUrl(options: Options): string {
     return options.sourceUrl;
   }
 
-  const explicit = process.env.DATABASE_DIRECT_URL?.trim();
+  const explicit = process.env.RENDER_DB_EXTERNAL_URL?.trim() || process.env.RENDER_DB_INTERNAL_URL?.trim();
   if (explicit) {
     return explicit;
   }
@@ -360,7 +360,7 @@ function resolveSourceUrl(options: Options): string {
   }
 
   throw new Error(
-    "No PostgreSQL source URL available. Set DATABASE_DIRECT_URL, provide --source=postgres://..., or populate DATABASE_URL with a direct connection string before running this script.",
+    "No PostgreSQL source URL available. Set RENDER_DB_EXTERNAL_URL, RENDER_DB_INTERNAL_URL, provide --source=postgres://..., or populate DATABASE_URL with a direct connection string before running this script.",
   );
 }
 

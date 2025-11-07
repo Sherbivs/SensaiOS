@@ -124,7 +124,8 @@ function loadEnvironment(): void {
 
 function resolveDatasource(): DatasourceConfig {
   const primaryUrl = process.env.DATABASE_URL ?? "";
-  const directUrl = process.env.DATABASE_DIRECT_URL ?? "";
+  const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL ?? "";
+  const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL ?? "";
   const accelerate = primaryUrl.startsWith("prisma://") || primaryUrl.startsWith("prisma+postgres://");
   const localUrl = readLocalFallbackUrl();
 
@@ -137,7 +138,7 @@ function resolveDatasource(): DatasourceConfig {
 
   const normalizedPrimary = primaryUrl.toLowerCase();
   const directCandidate =
-    directUrl || (normalizedPrimary.startsWith("postgres://") || normalizedPrimary.startsWith("postgresql://") ? primaryUrl : "");
+    renderInternalUrl || renderExternalUrl || (normalizedPrimary.startsWith("postgres://") || normalizedPrimary.startsWith("postgresql://") ? primaryUrl : "");
 
   if (directCandidate) {
     return { url: directCandidate, mode: "direct" };
@@ -148,7 +149,7 @@ function resolveDatasource(): DatasourceConfig {
   }
 
   throw new Error(
-    "DATABASE_URL or DATABASE_DIRECT_URL must be set before running db:cli. Provide DATABASE_LOCAL_URL for offline fallback if remote datasources are unavailable.",
+    "DATABASE_URL, RENDER_DB_INTERNAL_URL, or RENDER_DB_EXTERNAL_URL must be set before running db:cli. Provide DATABASE_LOCAL_URL for offline fallback if remote datasources are unavailable.",
   );
 }
 
@@ -205,8 +206,8 @@ function parseArgs(argv: string[]): ParsedArgs {
 
 async function showStatus(ctx: DbContext): Promise<void> {
   const url = process.env.DATABASE_URL ?? "";
-  const directUrl = process.env.DATABASE_DIRECT_URL ?? "";
-  const poolUrl = process.env.DATABASE_POOL_URL ?? "";
+  const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL ?? "";
+  const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL ?? "";
   const localUrl = readLocalFallbackUrl();
   const accelerate = url.startsWith("prisma+postgres://accelerate");
   const host = (() => {
@@ -225,8 +226,8 @@ async function showStatus(ctx: DbContext): Promise<void> {
   console.log(`IG_ENV_FILE      : ${process.env.IG_ENV_FILE ?? "(not set)"}`);
   console.log(`DOTENV_CONFIG_PATH: ${process.env.DOTENV_CONFIG_PATH ?? "(not set)"}`);
   console.log(`DATABASE_URL set : ${url ? "yes" : "no"}`);
-  console.log(`DATABASE_DIRECT_URL set : ${directUrl ? "yes" : "no"}`);
-  console.log(`DATABASE_POOL_URL set   : ${poolUrl ? "yes" : "no"}`);
+  console.log(`RENDER_DB_INTERNAL_URL set : ${renderInternalUrl ? "yes" : "no"}`);
+  console.log(`RENDER_DB_EXTERNAL_URL set : ${renderExternalUrl ? "yes" : "no"}`);
   console.log(`DATABASE_LOCAL_URL set  : ${process.env.DATABASE_LOCAL_URL ? "yes" : "no"}`);
   console.log(`Local fallback file     : ${localUrl ? "yes" : "no"}`);
   console.log(`Resolved datasource     : ${ctx.mode} ${maskDatasource(ctx.datasource.url)}`);

@@ -242,7 +242,7 @@ async function main(): Promise<void> {
   );
   const standbyUrl = assertEnv(
     "STANDBY_DATABASE_URL",
-    standbyOverride ?? process.env.STANDBY_DATABASE_URL ?? process.env.DATABASE_DIRECT_URL,
+    standbyOverride ?? process.env.STANDBY_DATABASE_URL ?? process.env.RENDER_DB_EXTERNAL_URL ?? process.env.RENDER_DB_INTERNAL_URL,
   );
 
   const ok = await checkMirrors(primaryUrl, standbyUrl, label);

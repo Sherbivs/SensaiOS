@@ -80,10 +80,10 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   await ensureEnvLoaded(options.envFile);
 
-  const directUrl = process.env.DATABASE_DIRECT_URL;
+  const directUrl = process.env.RENDER_DB_EXTERNAL_URL || process.env.RENDER_DB_INTERNAL_URL;
   if (!directUrl) {
     throw new Error(
-      "DATABASE_DIRECT_URL is required. Provide an env file via --env-file or ensure IG_ENV_FILE is set."
+      "RENDER_DB_EXTERNAL_URL or RENDER_DB_INTERNAL_URL is required. Provide an env file via --env-file or ensure IG_ENV_FILE is set."
     );
   }
 
