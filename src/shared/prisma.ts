@@ -1,7 +1,6 @@
 import { createRequire } from "node:module";
 
 import { Prisma, PrismaClient } from "@prisma/client";
-import { withAccelerate } from "@prisma/extension-accelerate";
 
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
@@ -55,46 +54,11 @@ const heartbeatListeners: Set<HeartbeatListener> =
 
 globalPrisma.prismaHeartbeatListeners = heartbeatListeners;
 
-const ACCELERATE_SCHEME = /^prisma\+/i;
+// 2-NODE CLUSTER: Direct PostgreSQL only (no Accelerate)
 const OPTIMIZE_SCHEME = /^prisma(\+|:\/\/)/i;
-
-function isAccelerateUrl(url: string): boolean {
-  return ACCELERATE_SCHEME.test(url);
-}
 
 function isOptimizeCompatibleUrl(url: string): boolean {
   return OPTIMIZE_SCHEME.test(url);
-}
-
-function resolveAccelerateRuntime(): "node" | "serverless" {
-  const hint = (process.env.PRISMA_ACCELERATE_RUNTIME ?? process.env.PRISMA_ACCELERATE_CLIENT ?? "")
-    .trim()
-    .toLowerCase();
-  if (hint === "serverless" || hint === "node") {
-    return hint;
-  }
-  if (hint === "edge") {
-    log.warn("PRISMA_ACCELERATE_RUNTIME=edge is deprecated; defaulting to serverless runtime.");
-    return "serverless";
-  }
-  if (hint === "auto") {
-    if (
-      process.env.PRISMA_ACCELERATE_SERVERLESS === "true" ||
-      process.env.PRISMA_ACCELERATE_EDGE === "true" ||
-      (process.env.RUNTIME ?? "").toLowerCase().includes("edge") ||
-      process.env.VERCEL_EDGE_FUNCTIONS === "1"
-    ) {
-      return "serverless";
-    }
-    return "node";
-  }
-  if (process.env.PRISMA_ACCELERATE_SERVERLESS === "true" || process.env.PRISMA_ACCELERATE_EDGE === "true") {
-    return "serverless";
-  }
-  return "node";
-}
-function describeTransport(usesAccelerate: boolean, runtime: "node" | "serverless"): string {
-  return usesAccelerate ? `accelerate-${runtime}` : "direct";
 }
 
 let devPrismaClient: PrismaClient | null = null;
@@ -105,7 +69,6 @@ export let prisma: PrismaClient; // Points to PROD client
 export let devPrisma: PrismaClient | null = null; // DEV client
 export let localPrisma: PrismaClient | null = null; // LOCAL client (workstation mirror)
 let activeCandidate: DatabaseCandidate | null = null;
-let lastClientUsesAccelerate = false;
 let lastPrismaTransport = "direct";
 let devTransport = "unknown";
 let prodTransport = "unknown";
@@ -366,21 +329,18 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
   process.env.DATABASE_URL = candidate.url;
   process.env.DATABASE_CONNECTION_SOURCE = candidate.source;
 
-  const usesAccelerate = isAccelerateUrl(candidate.url);
-  const runtime = usesAccelerate ? resolveAccelerateRuntime() : "node";
+  // 2-NODE CLUSTER: Direct PostgreSQL connections only
   const PrismaCtor = PrismaClient;
   const logLevels = nodeEnv === "development" ? ["warn", "error"] : ["error"];
 
-  const baseOptions = usesAccelerate
-    ? { log: logLevels, datasourceUrl: candidate.url }
-    : {
-        log: logLevels,
-        datasources: {
-          db: {
-            url: candidate.url,
-          },
-        },
-      };
+  const baseOptions = {
+    log: logLevels,
+    datasources: {
+      db: {
+        url: candidate.url,
+      },
+    },
+  };
 
   const baseClient = new PrismaCtor(baseOptions as Prisma.PrismaClientOptions) as PrismaClient;
   let client = baseClient;
@@ -403,20 +363,11 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
     log.debug("Prisma Optimize skipped for datasource", meta);
   }
 
-  if (usesAccelerate) {
-    // Attach Accelerate so downstream calls can opt into cacheStrategy TTLs when hitting the data proxy.
-    client = client.$extends(withAccelerate()) as unknown as PrismaClient;
-  }
-
-  if (usesAccelerate) {
-    process.env.PRISMA_CLIENT_ENGINE_TYPE = "dataproxy";
-  } else {
-    delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
-  }
+  // 2-NODE CLUSTER: Always use library engine for direct connections
+  delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
 
   globalPrisma.prisma = client;
-  lastClientUsesAccelerate = usesAccelerate;
-  lastPrismaTransport = describeTransport(usesAccelerate, runtime);
+  lastPrismaTransport = "direct";
   return client;
 }
 
@@ -440,33 +391,10 @@ function delayWithJitter(baseMs: number): Promise<void> {
 async function attemptCandidateConnection(candidate: DatabaseCandidate, attempt: number): Promise<void> {
   const warnThreshold = HEARTBEAT_DEFAULTS.warnThresholdMs;
   const start = process.hrtime.bigint();
-  let latencyMs: number | null = null;
-  let connectError: unknown = null;
 
-  try {
-    await prismaClient.$connect();
-    latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
-  } catch (error) {
-    if (!lastClientUsesAccelerate) {
-      throw error;
-    }
-    connectError = error;
-  }
-
-  if (latencyMs === null) {
-    const probeStart = process.hrtime.bigint();
-    try {
-      await prismaClient.$queryRaw(Prisma.sql`SELECT 1`);
-    } catch (probeError) {
-      if (connectError instanceof Error) {
-        log.warn("Accelerate connect warning", {
-          warning: connectError.message,
-        });
-      }
-      throw probeError;
-    }
-    latencyMs = Number(process.hrtime.bigint() - probeStart) / 1_000_000;
-  }
+  // 2-NODE CLUSTER: Direct PostgreSQL connection
+  await prismaClient.$connect();
+  const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
 
   const slow = latencyMs >= warnThreshold;
   const runtimeConfig = loadConfig();
@@ -481,10 +409,6 @@ async function attemptCandidateConnection(candidate: DatabaseCandidate, attempt:
 
   if (candidate.isFallback) {
     meta.fallback = true;
-  }
-
-  if (connectError instanceof Error && lastClientUsesAccelerate) {
-    meta.connectionWarning = connectError.message;
   }
 
   if (attempt > 0) {
@@ -771,32 +695,22 @@ async function initializeDevClient(): Promise<void> {
   }
   
   try {
-    const usesAccelerate = /^prisma\+/i.test(devUrl);
-    devTransport = usesAccelerate ? "accelerate-node" : "direct";
+    // 2-NODE CLUSTER: Always use direct PostgreSQL connections
+    devTransport = "direct";
     
-    // For direct PostgreSQL URLs, we need to configure differently
-    if (usesAccelerate) {
-      const baseOptions = {
-        log: ["error"] as any,
-        datasourceUrl: devUrl,
-      };
-      devPrismaClient = new PrismaClient(baseOptions);
-      devPrismaClient = devPrismaClient.$extends(withAccelerate()) as unknown as PrismaClient;
-    } else {
-      // Direct connection - set DATABASE_URL temporarily for this client
-      const originalDatabaseUrl = process.env.DATABASE_URL;
-      process.env.DATABASE_URL = devUrl;
-      
-      const baseOptions = {
-        log: ["error"] as any,
-      };
-      
-      devPrismaClient = new PrismaClient(baseOptions);
-      
-      // Restore original DATABASE_URL
-      if (originalDatabaseUrl) {
-        process.env.DATABASE_URL = originalDatabaseUrl;
-      }
+    // Direct connection - set DATABASE_URL temporarily for this client
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = devUrl;
+    
+    const baseOptions = {
+      log: ["error"] as any,
+    };
+    
+    devPrismaClient = new PrismaClient(baseOptions);
+    
+    // Restore original DATABASE_URL
+    if (originalDatabaseUrl) {
+      process.env.DATABASE_URL = originalDatabaseUrl;
     }
     
     devPrisma = devPrismaClient;
@@ -875,32 +789,22 @@ async function initializeLocalClient(): Promise<void> {
   }
   
   try {
-    const usesAccelerate = /^prisma\+/i.test(localUrl);
-    localTransport = usesAccelerate ? "accelerate-node" : "direct";
+    // 2-NODE CLUSTER: Always use direct PostgreSQL connections
+    localTransport = "direct";
     
-    // For direct PostgreSQL URLs, configure client with temporary DATABASE_URL override
-    if (usesAccelerate) {
-      const baseOptions = {
-        log: ["error"] as any,
-        datasourceUrl: localUrl,
-      };
-      localPrismaClient = new PrismaClient(baseOptions);
-      localPrismaClient = localPrismaClient.$extends(withAccelerate()) as unknown as PrismaClient;
-    } else {
-      // Direct connection - set DATABASE_URL temporarily for this client
-      const originalDatabaseUrl = process.env.DATABASE_URL;
-      process.env.DATABASE_URL = localUrl;
-      
-      const baseOptions = {
-        log: ["error"] as any,
-      };
-      
-      localPrismaClient = new PrismaClient(baseOptions);
-      
-      // Restore original DATABASE_URL
-      if (originalDatabaseUrl) {
-        process.env.DATABASE_URL = originalDatabaseUrl;
-      }
+    // Direct connection - set DATABASE_URL temporarily for this client
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = localUrl;
+    
+    const baseOptions = {
+      log: ["error"] as any,
+    };
+    
+    localPrismaClient = new PrismaClient(baseOptions);
+    
+    // Restore original DATABASE_URL
+    if (originalDatabaseUrl) {
+      process.env.DATABASE_URL = originalDatabaseUrl;
     }
     
     localPrisma = localPrismaClient;
