@@ -251,7 +251,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - `outbox.ts` — enqueue/dequeue helpers layered on `BusMessage` records for backwards compatibility.
   - `log.ts` — structured logger leveraging shared runtime metadata.
 - Notes:
-  - 2025-11-06: `prisma.ts` maintains simultaneous DEV (direct PostgreSQL via `DATABASE_DIRECT_URL`) and PROD (Accelerate via `DATABASE_POOL_URL`) connections with independent heartbeat tracking; `getDatabaseStats()` surfaces both in logger output.
+  - 2025-11-06: `prisma.ts` maintains simultaneous DEV (direct PostgreSQL via `RENDER_DB_INTERNAL_URL` or `RENDER_DB_EXTERNAL_URL`) and PROD (Accelerate via `DATABASE_URL`) connections with independent heartbeat tracking; `getDatabaseStats()` surfaces both in logger output.
   - 2025-10-29: `config.ts` and `prisma.ts` surface Accelerate env hints, auto-select edge/node runtimes, and capture transport telemetry for status CLI output.
 - Last Task ID: META.RUNTIME.BLUEPRINT_APPLY
 

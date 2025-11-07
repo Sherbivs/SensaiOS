@@ -8,4 +8,4 @@ Notes:
 - Houses TypeScript utilities that confirm database URLs are present and safe to use before spins.
 
 Key Files:
-- ensure-db-url.ts - Raises descriptive errors when DATABASE_POOL_URL / DATABASE_DIRECT_URL are misconfigured; referenced by runtime entrypoints.
+- ensure-db-url.ts - Raises descriptive errors when DATABASE_URL, RENDER_DB_INTERNAL_URL, or RENDER_DB_EXTERNAL_URL are misconfigured; referenced by runtime entrypoints.

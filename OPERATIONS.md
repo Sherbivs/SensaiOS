@@ -5,7 +5,7 @@ _Last updated: 2025-11-02T14:30:00Z (UTC) — Rev: 1.4_
 ## Service Matrix
 | Render Service | Purpose | Entry Command | Key Env Flags | Health Signals |
 | --- | --- | --- | --- | --- |
-| `infinity-gauntlet-bot` (web) | Boots the TypeScript runtime (`tsx src/index.ts`) and Discord DM features. | `npm start` | `DATABASE_POOL_URL`, `DATABASE_DIRECT_URL`, `ENABLE_SECURITY_BOT=false` | CLI dashboard (`discord` + `database` sections), structured logs tagged `runtime.*`. |
+| `infinity-gauntlet-bot` (web) | Boots the TypeScript runtime (`tsx src/index.ts`) and Discord DM features. | `npm start` | `DATABASE_URL`, `RENDER_DB_INTERNAL_URL`, `ENABLE_SECURITY_BOT=false` | CLI dashboard (`discord` + `database` sections), structured logs tagged `runtime.*`. |
 | `infinity-gauntlet-bots` (worker) | Legacy JS fallback for slash command registration/testing. | `npm start` | Mirrors web service; keep `ENABLE_SECURITY_BOT=false`. | Same telemetry as web; used for horizontal scale without extra security sweeps. |
 | `infinity-gauntlet-security` (worker) | Dedicated security bot (role sweeps, DRIP alerts). | `node security-bot.js` | `ENABLE_SECURITY_BOT=true`, `ENABLE_CONTINUOUS_SWEEP=true`, alert tokens. | CLI security section, `worker.outbox.*`, `security.*`, DRIP alert receipts. |
 | `infinity-gauntlet-outbox` (worker) | Drains `BusMessage` events and uploads payloads to durable storage. | `node dist/worker/outbox.js` | `OUTBOX_MIN/MAX_DELAY_MS`, `OUTBOX_BATCH_SIZE`, `BACKUP_STORAGE_PROVIDER`, `BACKUP_STORAGE_S3_BUCKET`, `BACKUP_STORAGE_S3_REGION`. | `worker.outbox.health`, cache entries `outbox:last-*`, `backupProvider` field. |
@@ -43,12 +43,12 @@ _Last updated: 2025-11-02T14:30:00Z (UTC) — Rev: 1.4_
 
 ## Database Connection Modes
 - `DATABASE_CONNECTION_MODE` controls which Postgres endpoint the runtime chooses. Supported values: `auto` (default), `external`, and `internal`.
-- Production services should stay on `auto`, which prefers pooled/internal URLs from Render and falls back to the configured `DATABASE_URL` only when necessary.
-- For local development, set `DATABASE_EXTERNAL_URL` to the external Render connection string and (optionally) export `DATABASE_CONNECTION_MODE=external` to force that endpoint. In `auto`, development builds already prefer the external URL when it is present.
+- Production services should stay on `auto`, which prefers `RENDER_DB_INTERNAL_URL` (Render internal network) and falls back to `DATABASE_URL` (Accelerate) when necessary.
+- For local development, set `RENDER_DB_EXTERNAL_URL` to the external Render connection string and (optionally) export `DATABASE_CONNECTION_MODE=external` to force that endpoint. In `auto`, development builds already prefer the external URL when it is present.
 - The helper also stamps `DATABASE_CONNECTION_SOURCE` in the process environment and Prisma connect logs include `databaseSource`/`connectionMode` so you can confirm which endpoint was selected at runtime.
 - When dev mode finds an internal URL that successfully connects, that source is persisted to `%USERPROFILE%\.infinity-gauntlet\db-connection.json`; subsequent runs prefer the saved internal endpoint until another source succeeds.
 - Runtime connection attempts alternate one try per source (external/internal) before looping, shortening the fallback path when a preferred endpoint is unavailable.
-- This replaces the manual `DATABASE_URL=` exports during rehearsals—populate `DATABASE_EXTERNAL_URL` once and flip the mode instead of rewriting pooled/internal variables.
+- This replaces the manual `DATABASE_URL=` exports during rehearsals—populate `RENDER_DB_EXTERNAL_URL` once and flip the mode instead of rewriting pooled/internal variables.
 
 ## Load Test / Game-Night Dry Run
 | Date (UTC) | Window | Owners | Focus | Pass Criteria |
