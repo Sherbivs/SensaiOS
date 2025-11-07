@@ -16,8 +16,7 @@ Notes:
 - `src/engine/**` introduces the durable event bus helpers and category-aware worker loop powering asynchronous tasks.
 - PBSL scaffold (`src/core/pbsl/**`) houses deterministic RNG, audit trails, and encounter generators with provenance metadata recorded in docs/PBSL.md.
 - Dexpack loader (`src/data/dexpack.js`) now boots from the generated ES module for zero-parse startup while keeping helpers shared across CommonJS and TypeScript surfaces.
-- Prisma client boot now prioritises Accelerate URLs surfaced from runtime config; CLI telemetry reports the active transport (direct vs accelerate-node).
-- 2025-11-02: CLI status monitor now presents a stat-sheet layout (security, database, PokéAPI, capacity) with a 5-minute baseline refresh and accelerated 30s cadence on alerts.
+- 2025-11-02: CLI status monitor now presents a stat-sheet layout (security, database, PokéAPI, capacity) with a 5-minute baseline refresh and 30s alert cadence.
 
 Subdomains:
 - src/bot - Discord client & interaction handlers
