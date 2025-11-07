@@ -104,12 +104,16 @@ function loadEnvironment(): void {
 }
 
 async function getClients(): Promise<{ devPrisma: PrismaClient | null; prodPrisma: PrismaClient; localPrisma: PrismaClient | null }> {
-  const devUrl = process.env.RENDER_DB_INTERNAL_URL || process.env.RENDER_DB_EXTERNAL_URL;
-  const prodUrl = process.env.DATABASE_URL;
+  // 2-NODE CLUSTER: DEV (master), PROD (local)
+  const devUrl = process.env.DEV_DATABASE_URL || 
+                 process.env.RENDER_DB_EXTERNAL_URL || 
+                 process.env.RENDER_DB_INTERNAL_URL;
+  const prodUrl = process.env.PROD_DATABASE_URL || 
+                  process.env.DATABASE_LOCAL_URL;
   const localUrl = process.env.DATABASE_LOCAL_URL;
 
   if (!prodUrl) {
-    throw new Error("No production database URL configured (DATABASE_URL required)");
+    throw new Error("No production database URL configured (PROD_DATABASE_URL or DATABASE_LOCAL_URL required)");
   }
 
   const devPrisma = devUrl ? new PrismaClient({ datasources: { db: { url: devUrl } } }) : null;
