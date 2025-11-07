@@ -67,8 +67,8 @@ Your complete database configuration should look like:
 ```bash
 # PROD/DEV connections (Render cloud)
 DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGci...
-DATABASE_POOL_URL=prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGci...
-DATABASE_DIRECT_URL=postgresql://infinity_gauntlet_db_user:a7PECaiuqXiJCMpeDze8tlpEbxB68Sy2@dpg-d3vd8h7diees73et3i3g-a.virginia-postgres.render.com/infinity_gauntlet_db
+RENDER_DB_INTERNAL_URL=postgresql://infinity_gauntlet_db_user:a7PECaiuqXiJCMpeDze8tlpEbxB68Sy2@dpg-d3vd8h7diees73et3i3g-a/infinity_gauntlet_db
+RENDER_DB_EXTERNAL_URL=postgresql://infinity_gauntlet_db_user:a7PECaiuqXiJCMpeDze8tlpEbxB68Sy2@dpg-d3vd8h7diees73et3i3g-a.virginia-postgres.render.com/infinity_gauntlet_db
 
 # LOCAL WORKSTATION - PRIMARY for live gameplay
 DATABASE_LOCAL_URL=postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db

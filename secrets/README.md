@@ -6,9 +6,9 @@ This folder remains gitignored. The **single consolidated environment file** for
 
 This file contains all required keys:
 - `BOT_TOKEN` — Discord bot authentication
-- `DATABASE_POOL_URL` — Prisma Accelerate connection (pooled)
-- `DATABASE_EXTERNAL_URL` — Prisma Accelerate connection (external alias)
-- `DATABASE_URL` — Prisma Accelerate connection (primary)
+- `DATABASE_URL` — Prisma Accelerate connection (primary for production)
+- `RENDER_DB_INTERNAL_URL` — Direct PostgreSQL Render internal (migrations on Render)
+- `RENDER_DB_EXTERNAL_URL` — Direct PostgreSQL external access (migrations from laptop)
 - `DATABASE_LOCAL_URL` — Local workstation PostgreSQL cluster (for <50ms latency gameplay)
 - `OPTIMIZE_API_KEY` — Prisma Optimize telemetry
 - `POKEMON_BOT_TOKEN` — Secondary bot token
