@@ -29,25 +29,24 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - `masterroutetable.md` — Human-readable router index. Pairs with `ops/ROUTER.yaml` for canonical routing metadata.
 - `README.md` (Router & Meta Index section) — Cross-links routers, contract files, and meta tooling for external automation.
 - `ops/DB_BOOTSTRAP.md` — Staging Postgres bootstrap runbook covering migrate deploy vs. db push safety.
-  - Expect both `DATABASE_URL` (Prisma Accelerate) and `RENDER_DB_EXTERNAL_URL` (direct PostgreSQL) to be configured. Runtime services use DATABASE_URL; migrations use RENDER_DB_EXTERNAL_URL.
-- `docs/database-url-selection.md` — **CRITICAL:** Canonical database URL selection logic. Production requires `DATABASE_URL` (Accelerate); Migrations use `RENDER_DB_EXTERNAL_URL` (Direct PostgreSQL). Non-compliance causes production failures. Read this before any database operation.
+  - Expect both `DEV_DATABASE_URL` (DEV master) and `PROD_DATABASE_URL` (PROD local node) to be configured. Runtime services use PROD_DATABASE_URL for gameplay; migrations use DEV_DATABASE_URL.
+- `docs/database-url-selection.md` — **CRITICAL:** Canonical database URL selection logic. Production requires `PROD_DATABASE_URL` (direct PostgreSQL local node); Migrations use `DEV_DATABASE_URL` (direct PostgreSQL master). Non-compliance causes production failures. Read this before any database operation.
 
 ## How to Run Locally
 - **Install:** `npm install`
 - **Start dev:** `npm run dev`
 - **Test:** `npm test`
 - **Lint:** `npm run lint`
-- **Env needed (do not commit secrets):** use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DATABASE_URL (Prisma Accelerate), RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_LOCAL_URL (local workstation), OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. Load it with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file. **No other key files are needed for development.**
+- **Env needed (do not commit secrets):** use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DEV_DATABASE_URL (DEV master), PROD_DATABASE_URL (PROD local node), RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_LOCAL_URL (local workstation), OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. Load it with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file. **No other key files are needed for development.**
 
 ## Local Database Access (Muted / Dev Only)
 
-**CRITICAL:** Prisma Accelerate does NOT support DDL operations (CREATE/ALTER/DROP TABLE, CREATE INDEX, etc.). For migrations, always use direct PostgreSQL URLs. Accelerate silently ignores DDL statements, causing migrations to appear successful without actually creating schema changes. See `ops/DB_BOOTSTRAP.md` for detailed migration workflow.
+**CRITICAL:** All database operations use direct PostgreSQL connections. The 2-node cluster architecture (DEV master + PROD local node) ensures <50ms latency for gameplay operations. See `ops/DB_BOOTSTRAP.md` for detailed migration workflow.
 
-1. **Environment file:** use `secrets/Infinity-Gauntlet.env` as the single consolidated environment file containing all development keys. This file includes DATABASE_URL (Prisma Accelerate), RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_LOCAL_URL, BOT_TOKEN, OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. **No other environment files are needed.**
+1. **Environment file:** use `secrets/Infinity-Gauntlet.env` as the single consolidated environment file containing all development keys. This file includes DEV_DATABASE_URL (DEV master), PROD_DATABASE_URL (PROD local node), RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_LOCAL_URL (local workstation), BOT_TOKEN, OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. **No other environment files are needed.**
 2. **Load environment before DB work:** run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist` to activate the environment. Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`, so this override must be active.
-  - **FOR MIGRATIONS:** Migrations require direct PostgreSQL access. Use `RENDER_DB_EXTERNAL_URL` or temporarily override DATABASE_URL with the direct PostgreSQL connection string (not Accelerate). Prisma Accelerate does NOT support DDL operations.
+  - **FOR MIGRATIONS:** Migrations require direct PostgreSQL access. Use `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` to connect to the master database for schema changes.
   - **Verify access:** `echo $Env:IG_ENV_FILE` should print the chosen file; use `Get-Content secrets/Infinity-Gauntlet.env | Select-Object -First 5` to confirm it is reachable before running tooling.
-  - **Reset Prisma after Accelerate:** whenever you switch between Accelerate and direct PostgreSQL, run `npx prisma generate` once so the local client regenerates with the correct driver configuration.
   - **Automation service:** `npm run db:auto-sync` runs the consolidation on deployment and then checks for drift every five minutes. Use `--dry-run`, `--once`, or `--skip-startup` when rehearsing new flows.
 3. **Inspect databases:** use the muted control suite documented in `docs/db-control-suite.md`.
   ```powershell
@@ -63,14 +62,12 @@ Reference: `docs/db-control-suite.md` (muted) and `docs/ai-env-setup.md` describ
 
 ## Database URL Selection (CRITICAL - Read Before Any Database Operation)
 
-**As of 2025-11-07**, all database operations MUST use environment-aware URL selection to prevent production failures. See `docs/database-url-selection.md` for complete documentation.
+**As of 2025-11-07**, all database operations use the 2-node direct PostgreSQL cluster. See `docs/database-url-selection.md` for complete documentation.
 
-**The Problem:**
-Prisma Client operates in two modes:
-- **Accelerate Mode** (production): Requires `prisma://` or `prisma+postgres://` URLs
-- **Direct Mode** (development): Requires `postgresql://` URLs
-
-Passing the wrong URL type causes validation errors: `PrismaClientKnownRequestError: P6001 - the URL must start with the protocol prisma://`
+**The Architecture:**
+The system maintains two direct PostgreSQL nodes:
+- **DEV (Master)**: Source of truth for migrations and schema changes (`DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL`)
+- **PROD (Local Node)**: Primary node for live gameplay with <50ms latency (`PROD_DATABASE_URL`)
 
 **Canonical URL Selection Logic:**
 
@@ -80,22 +77,23 @@ function selectQueryUrl(envVars: Record<string, string>): string {
   const isProd = process.env.NODE_ENV === "production";
   
   if (isProd) {
-    // Production MUST use Accelerate URLs
-    return envVars.DATABASE_URL ?? "";
+    // Production uses local node for <50ms latency
+    return envVars.PROD_DATABASE_URL ?? "";
   } else {
-    // Development SHOULD use direct URLs
+    // Development uses master or local node
     return (
+      envVars.DEV_DATABASE_URL ?? 
       envVars.RENDER_DB_EXTERNAL_URL ?? 
       envVars.DATABASE_LOCAL_URL ??
-      envVars.DATABASE_URL ?? 
       ""
     );
   }
 }
 
-// For migrations (ALL environments use direct URLs)
+// For migrations (ALL environments use master node)
 function selectMigrationUrl(envVars: Record<string, string>): string {
   return (
+    envVars.DEV_DATABASE_URL ?? 
     envVars.RENDER_DB_EXTERNAL_URL ?? 
     envVars.RENDER_DB_INTERNAL_URL ?? 
     ""
@@ -104,62 +102,64 @@ function selectMigrationUrl(envVars: Record<string, string>): string {
 ```
 
 **Quick Reference:**
-- **Production Queries**: `DATABASE_URL` (Accelerate) - Required for Render deployments
-- **Development Queries**: `RENDER_DB_EXTERNAL_URL` (Direct PostgreSQL) - Faster iteration
-- **Migrations**: `RENDER_DB_EXTERNAL_URL` (all environments) - Accelerate does NOT support DDL
+- **Production Queries**: `PROD_DATABASE_URL` (direct PostgreSQL local node) - <50ms latency for gameplay
+- **Development Queries**: `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` (direct PostgreSQL master) - Source of truth
+- **Migrations**: `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` (all environments) - Master database only
 
 **Contract Status:** This is an **Absolute** requirement in `Patch.md`. Violations cause production failures and must be fixed immediately.
 
-### Triple Database Connection Architecture (Runtime)
+### Dual Database Connection Architecture (Runtime)
 
-**As of 2025-11-06**, the production runtime maintains **three Prisma clients connected simultaneously**:
+**As of 2025-11-07**, the production runtime maintains **two Prisma clients connected simultaneously** for the 2-node direct PostgreSQL cluster:
 
-- **`prisma`** (PROD) — Connected to `DATABASE_URL`; uses Prisma Accelerate for query caching, connection pooling, and high availability. Used for cloud-based production operations on Render.
-- **`devPrisma`** (DEV) — Connected to `RENDER_DB_EXTERNAL_URL`; bypasses Accelerate and connects directly to PostgreSQL. Used for development queries, observability, migration workflows, and replication source. May be `null` if no direct URL is configured.
-- **`localPrisma`** (LOCAL) — **PRIMARY for live gameplay** — Connected to `DATABASE_LOCAL_URL`; local workstation PostgreSQL cluster providing <50ms latency for battles, encounters, and trainer operations. Receives replicated data from PROD/DEV. May be `null` if not configured.
+- **`devPrisma`** (DEV/MASTER) — Connected to `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL`; master database and source of truth for migrations. Used for development queries, observability, migration workflows, and replication source. May be `null` if no DEV URL is configured.
+- **`prisma`** (PROD) — Connected to `PROD_DATABASE_URL`; **PRIMARY for live gameplay** — local workstation PostgreSQL cluster providing <50ms latency for battles, encounters, and trainer operations. Used for all production gameplay operations.
+- **`localPrisma`** (LOCAL) — **OPTIONAL** — Connected to `DATABASE_LOCAL_URL`; offline workstation mirror for development when DEV/PROD nodes are unreachable. May be `null` if not configured.
 
-All three clients initialize on startup via `src/shared/prisma.ts` and maintain independent heartbeat monitoring. The logger (`src/utils/logger.js`) auto-refreshes stats every 15 seconds, displaying telemetry for all connections in console output and restart DM messages.
+All clients initialize on startup via `src/shared/prisma.ts` and maintain independent heartbeat monitoring. The logger (`src/utils/logger.js`) auto-refreshes stats every 15 seconds, displaying telemetry for all connections in console output and restart DM messages.
 
 **Usage Patterns:**
 
 ```typescript
 import { prisma, devPrisma, localPrisma, getDatabaseStats } from "../shared/prisma.js";
 
-// LIVE GAMEPLAY (battles, encounters, trainer CRUD) - use LOCAL for <50ms latency
-const gameClient = localPrisma || prisma; // Prefer LOCAL, fallback to PROD
+// LIVE GAMEPLAY (battles, encounters, trainer CRUD) - use PROD for <50ms latency
+const gameClient = prisma; // PROD local node is PRIMARY
 const users = await gameClient.user.findMany();
 
-// CLOUD PRODUCTION operations (Render workers, background jobs)
-const cloudUsers = await prisma.user.findMany();
-
-// DEV operations (migrations, debugging, replication) - check for null first
+// DEV operations (migrations, debugging, replication source)
 if (devPrisma) {
   const devUsers = await devPrisma.user.findMany();
 }
 
-// Get telemetry for all three databases
+// OFFLINE development (when DEV/PROD unreachable)
+if (localPrisma) {
+  const localUsers = await localPrisma.user.findMany();
+}
+
+// Get telemetry for all databases
 const stats = getDatabaseStats();
 console.log(`DEV: ${stats.dev.status} | PROD: ${stats.prod.status} | LOCAL: ${stats.local.status}`);
 ```
 
 **Environment Variable Mapping:**
 
-- `DATABASE_URL` → PROD client (`prisma`) - Prisma Accelerate
-- `RENDER_DB_EXTERNAL_URL` → DEV client (`devPrisma`) - Direct PostgreSQL
-- `DATABASE_LOCAL_URL` → LOCAL client (`localPrisma`) **PRIMARY for gameplay**
+- `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` → DEV client (`devPrisma`) - Master database
+- `PROD_DATABASE_URL` → PROD client (`prisma`) - **PRIMARY for gameplay**
+- `DATABASE_LOCAL_URL` → LOCAL client (`localPrisma`) - Optional offline mirror
 
 **When to Use Each Client:**
 
 | Use Case | Client | Reason |
 | --- | --- | --- |
-| **Live gameplay (battles, encounters, trainer ops)** | **`localPrisma`** (fallback `prisma`) | **<50ms latency, local workstation** |
-| Render cloud operations (workers, background jobs) | `prisma` | Accelerate caching, pooling, HA |
-| Development/debugging | `devPrisma` | Direct access, no caching layer |
-| Migrations (`prisma migrate deploy`) | DEV connection via `RENDER_DB_EXTERNAL_URL` | Prisma requires direct PostgreSQL for DDL |
-| Replication source | `devPrisma` or `prisma` | PROD/DEV → LOCAL data sync |
-| Stats/observability | All three via `getDatabaseStats()` | Simultaneous visibility |
+| **Live gameplay (battles, encounters, trainer ops)** | **`prisma`** | **<50ms latency, PROD local node PRIMARY** |
+| Migrations (`prisma migrate deploy`) | `devPrisma` via `DEV_DATABASE_URL` | Master database is source of truth for schema |
+| Development/debugging | `devPrisma` | Master node with full production data |
+| Replication source | `devPrisma` | DEV → PROD data sync |
+| Offline development | `localPrisma` | Fallback when DEV/PROD unreachable |
+| Stats/observability | All via `getDatabaseStats()` | Simultaneous visibility |
 
-See `docs/database-configuration.md` for comprehensive triple-client architecture documentation including `TripleDatabaseStats` type definitions, heartbeat tracking, workstation gameplay setup, and replication flows.
+See `docs/database-configuration.md` for comprehensive dual-client architecture documentation including `TripleDatabaseStats` type definitions, heartbeat tracking, workstation gameplay setup, and replication flows.
 
 ## State Persistence (Security Bot)
 
@@ -360,7 +360,7 @@ See `docs/db-replication-architecture.md` for comprehensive architecture documen
 ## Operational Playbook
 - **Guard Scripts**: `scripts/guard_meta.sh`, `scripts/guard_doc_names.sh`, and `scripts/guard_routing.sh` enforce invariants (READY pointer, canonical spellings, router consistency).
 - **Bootstrap Helper**: `scripts/bootstrap_staging_db.ps1` attempts `npx prisma migrate deploy` against staging after loading the `IG_ENV_FILE` secrets (default `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env`), warns when pooled/direct URLs are absent, and prints fallback guidance from the runbook when relations are missing.
-- **Local Fallback Bootstrapper**: `npm run ops:auto-bootstrap-local-db` installs PostgreSQL (if necessary) and hydrates the Store-backed mirror, writing `Store/db/local-url.txt` and pruning stale snapshots so config fallbacks stay current when Render or Accelerate are unavailable; `npm run ops:bootstrap-local-db` remains available when you only need the mirror refresh.
+- **Local Fallback Bootstrapper**: `npm run ops:auto-bootstrap-local-db` installs PostgreSQL (if necessary) and hydrates the Store-backed mirror, writing `Store/db/local-url.txt` and pruning stale snapshots so config fallbacks stay current when Render is unavailable; `npm run ops:bootstrap-local-db` remains available when you only need the mirror refresh.
 - **Hotfix Loop**: Trigger naming, suffix rules, and recovery steps live in `ops/HOTFIX.md` and `ops/RECOVERY.yaml`. Update both when issuing or closing hotfixes.
 - **Security Bot Guardrail**: Only the guild owner and administrators may change roles or permissions; the security bot auto-reverts other edits, DMing DripTVDD and recording `revertStatus` / `revertErrors` fields when rollback attempts fail.
 - **Clipboard Discipline**: Contract Mode ON requires markers, clipboard, and Prompt updates. Markerless Mode (no markers) relaxes the flow but still enforces Absolutes (routers intact, NEXT READY, canonical docs preserved).
@@ -406,7 +406,7 @@ See `docs/db-replication-architecture.md` for comprehensive architecture documen
 - `src/data_pipeline/` — Data ingestion/validation logic.
 - `src/shared/` — Logging, config, and utilities used across services.
 - `scripts/` — Automation entrypoints (guards, refreshers, build tools).
-- `ops/DB_BOOTSTRAP.md` & `scripts/bootstrap_staging_db.ps1` — Paired references for staging schema bootstrap; read the runbook before executing the script and confirm both `DATABASE_URL` (Accelerate) and `RENDER_DB_EXTERNAL_URL` (direct) URLs are set.
+- `ops/DB_BOOTSTRAP.md` & `scripts/bootstrap_staging_db.ps1` — Paired references for staging schema bootstrap; read the runbook before executing the script and confirm both `DEV_DATABASE_URL` (master) and `RENDER_DB_EXTERNAL_URL` (direct PostgreSQL) URLs are set.
 - `ops/` — Operational metadata, hotfix plans, NEXT pointers, recovery docs.
 - `tests/` — Vitest specs across engines, data pipeline, DM flow, and ops surfaces.
 
