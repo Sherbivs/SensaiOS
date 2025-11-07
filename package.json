@@ -58,6 +58,7 @@
     "eslint-plugin-n": "^17.9.0",
     "eslint-plugin-promise": "^7.2.1",
     "globals": "^16.5.0",
+    "patch-package": "^8.0.1",
     "prisma": "^6.19.0",
     "vitest": "^4.0.4"
   },
