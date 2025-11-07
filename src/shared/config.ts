@@ -161,18 +161,11 @@ function normalizeMode(raw: string | undefined): DatabaseConnectionMode {
 function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
   const mode = normalizeMode(process.env.DATABASE_CONNECTION_MODE);
   const accelerateUrl =
-    process.env.DATABASE_ACCELERATE_URL?.trim() ??
-    process.env.PRISMA_ACCELERATE_URL?.trim() ??
-    process.env.PRISMA_DATA_PROXY_URL?.trim() ??
-    "";
-  const poolUrl = process.env.DATABASE_POOL_URL?.trim() ?? "";
+    process.env.DATABASE_URL?.trim() ?? "";
   const envUrl = process.env.DATABASE_URL?.trim() ?? "";
-  const externalUrl =
-    process.env.DATABASE_EXTERNAL_URL?.trim() ??
-    process.env.DATABASE_PUBLIC_URL?.trim() ??
-    process.env.DATABASE_URL_EXTERNAL?.trim() ??
-    "";
-  const directUrl = process.env.DATABASE_DIRECT_URL?.trim() ?? "";
+  const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL?.trim() ?? "";
+  const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL?.trim() ?? "";
+  const localUrl = process.env.DATABASE_LOCAL_URL?.trim() ?? "";
   const internalUrlPrimary = process.env.DATABASE_INTERNAL_URL?.trim() ?? "";
   const internalUrlLegacy = process.env.DATABASE_URL_INTERNAL?.trim() ?? "";
 
@@ -221,35 +214,27 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     directCandidates.push({ value, source, fallback });
   };
 
-  // Prioritize pooled Accelerate-style URLs by default.
-  addAccelerateCandidate(poolUrl, "pool");
-
-  // Respect explicit Accelerate overrides after the pool candidate.
+  // Prioritize DATABASE_URL (Accelerate in production)
   addAccelerateCandidate(accelerateUrl, "accelerate");
 
   // If the env URL itself is already Accelerate, include it in the primary list.
   addAccelerateCandidate(envUrl, "env");
 
-  // External overrides can point at Accelerate as well.
-  if (externalUrl) {
-    addAccelerateCandidate(externalUrl, preferExternal ? "external" : "env");
-  }
-
   // Build direct/pooled PostgreSQL fallbacks in priority order.
   if (preferExternal) {
     addDirectCandidate(envUrl, "env");
-    addDirectCandidate(externalUrl, "external");
-    addDirectCandidate(poolUrl, "pool");
-    addDirectCandidate(directUrl, "direct");
+    addDirectCandidate(renderExternalUrl, "external");
+    addDirectCandidate(renderInternalUrl, "internal");
+    addDirectCandidate(localUrl, "local");
     addDirectCandidate(internalUrlPrimary, "internal");
     addDirectCandidate(internalUrlLegacy, "internal");
   } else {
-    addDirectCandidate(poolUrl, "pool");
+    addDirectCandidate(renderInternalUrl, "internal");
     addDirectCandidate(internalUrlPrimary, "internal");
     addDirectCandidate(internalUrlLegacy, "internal");
-    addDirectCandidate(directUrl, "direct");
+    addDirectCandidate(localUrl, "local");
     addDirectCandidate(envUrl, "env");
-    addDirectCandidate(externalUrl, "external");
+    addDirectCandidate(renderExternalUrl, "external");
   }
 
   const localFallbackUrl = resolveLocalFallbackUrl();
@@ -270,7 +255,7 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
 
   if (!orderedCandidates.length) {
     throw new Error(
-      "No database URL found. Provide a Prisma Accelerate prisma+ URL or a direct PostgreSQL connection string via DATABASE_POOL_URL, DATABASE_DIRECT_URL, or DATABASE_URL."
+      "No database URL found. Provide a Prisma Accelerate prisma+ URL or a direct PostgreSQL connection string via DATABASE_URL, RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL, or DATABASE_LOCAL_URL."
     );
   }
 

@@ -52,18 +52,12 @@ const aliasEnv = (sourceKey, targetKey, predicate = true) => {
 };
 
 aliasEnv('PROD_DATABASE_URL', 'DATABASE_URL', isProdRuntime);
-aliasEnv('PROD_DATABASE_DIRECT_URL', 'DATABASE_DIRECT_URL', isProdRuntime);
-aliasEnv('PROD_DATABASE_POOL_URL', 'DATABASE_POOL_URL', isProdRuntime);
-aliasEnv('PROD_DATABASE_ACCELERATE_URL', 'DATABASE_ACCELERATE_URL', isProdRuntime);
-aliasEnv('PROD_OPTIMIZE_DATABASE_URL', 'OPTIMIZE_DATABASE_URL', isProdRuntime);
-aliasEnv('PROD_OPTIMIZE_DIRECT_URL', 'OPTIMIZE_DIRECT_URL', isProdRuntime);
+aliasEnv('PROD_RENDER_DB_INTERNAL_URL', 'RENDER_DB_INTERNAL_URL', isProdRuntime);
+aliasEnv('PROD_RENDER_DB_EXTERNAL_URL', 'RENDER_DB_EXTERNAL_URL', isProdRuntime);
 
 aliasEnv('DEV_DATABASE_URL', 'DATABASE_URL', !isProdRuntime);
-aliasEnv('DEV_DATABASE_DIRECT_URL', 'DATABASE_DIRECT_URL', !isProdRuntime);
-aliasEnv('DEV_DATABASE_POOL_URL', 'DATABASE_POOL_URL', !isProdRuntime);
-aliasEnv('DEV_DATABASE_ACCELERATE_URL', 'DATABASE_ACCELERATE_URL', !isProdRuntime);
-aliasEnv('DEV_OPTIMIZE_DATABASE_URL', 'OPTIMIZE_DATABASE_URL', !isProdRuntime);
-aliasEnv('DEV_OPTIMIZE_DIRECT_URL', 'OPTIMIZE_DIRECT_URL', !isProdRuntime);
+aliasEnv('DEV_RENDER_DB_INTERNAL_URL', 'RENDER_DB_INTERNAL_URL', !isProdRuntime);
+aliasEnv('DEV_RENDER_DB_EXTERNAL_URL', 'RENDER_DB_EXTERNAL_URL', !isProdRuntime);
 
 const argv = Array.isArray(process.argv) ? process.argv : [];
 

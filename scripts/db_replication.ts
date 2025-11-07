@@ -104,12 +104,12 @@ function loadEnvironment(): void {
 }
 
 async function getClients(): Promise<{ devPrisma: PrismaClient | null; prodPrisma: PrismaClient; localPrisma: PrismaClient | null }> {
-  const devUrl = process.env.DATABASE_DIRECT_URL || process.env.DATABASE_EXTERNAL_URL;
-  const prodUrl = process.env.DATABASE_POOL_URL || process.env.DATABASE_ACCELERATE_URL || process.env.DATABASE_URL;
+  const devUrl = process.env.RENDER_DB_INTERNAL_URL || process.env.RENDER_DB_EXTERNAL_URL;
+  const prodUrl = process.env.DATABASE_URL;
   const localUrl = process.env.DATABASE_LOCAL_URL;
 
   if (!prodUrl) {
-    throw new Error("No production database URL configured (DATABASE_POOL_URL or DATABASE_URL required)");
+    throw new Error("No production database URL configured (DATABASE_URL required)");
   }
 
   const devPrisma = devUrl ? new PrismaClient({ datasources: { db: { url: devUrl } } }) : null;
@@ -123,7 +123,7 @@ async function runSync(target: string, options: Record<string, string | boolean>
   const { devPrisma, prodPrisma, localPrisma } = await getClients();
 
   if (!devPrisma) {
-    console.error("[ERROR] DEV database not configured (DATABASE_DIRECT_URL required)");
+    console.error("[ERROR] DEV database not configured (RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL required)");
     process.exit(1);
   }
 
@@ -291,7 +291,7 @@ async function runMetrics(): Promise<void> {
     console.log("Fetching replication metrics...\n");
     
     if (!devPrisma) {
-      console.error("[ERROR] DEV database not configured (DATABASE_DIRECT_URL or DATABASE_EXTERNAL_URL required)");
+      console.error("[ERROR] DEV database not configured (RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL required)");
       process.exit(1);
     }
     
@@ -376,7 +376,7 @@ async function runIntegrity(scope: string): Promise<void> {
   try {
     if (scope === "dev-prod" || scope === "all") {
       if (!devPrisma) {
-        console.error("[ERROR] DEV database not configured (DATABASE_DIRECT_URL required)");
+        console.error("[ERROR] DEV database not configured (RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL required)");
         process.exit(1);
       }
 
@@ -612,9 +612,10 @@ EXAMPLES:
   npm run db:replication compare
 
 ENVIRONMENT VARIABLES:
-  DATABASE_DIRECT_URL        DEV database (direct PostgreSQL)
-  DATABASE_POOL_URL          PROD database (Accelerate)
-  DATABASE_LOCAL_URL         LOCAL database (workstation mirror)
+  DATABASE_URL               PROD database (Prisma Accelerate)
+  RENDER_DB_INTERNAL_URL     DEV database (direct PostgreSQL, Render Node)
+  RENDER_DB_EXTERNAL_URL     DEV database (direct PostgreSQL, laptop)
+  DATABASE_LOCAL_URL         LOCAL database (Render Node disk mirror)
   IG_ENV_FILE                External env file path
 
 DOCUMENTATION:

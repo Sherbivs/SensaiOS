@@ -1,6 +1,7 @@
 const fallbackOrder = [
-  "DATABASE_POOL_URL",
   "DATABASE_URL",
+  "RENDER_DB_INTERNAL_URL",
+  "RENDER_DB_EXTERNAL_URL",
   "DATABASE_INTERNAL_URL",
   "DATABASE_URL_INTERNAL",
 ] as const;
@@ -89,28 +90,30 @@ if (preferred) {
   });
 }
 
-const hasDirectUrl = typeof process.env.DATABASE_DIRECT_URL === "string" && process.env.DATABASE_DIRECT_URL.trim().length > 0;
+const hasDirectUrl = typeof process.env.RENDER_DB_INTERNAL_URL === "string" && process.env.RENDER_DB_INTERNAL_URL.trim().length > 0 ||
+                     typeof process.env.RENDER_DB_EXTERNAL_URL === "string" && process.env.RENDER_DB_EXTERNAL_URL.trim().length > 0;
 
 if (hasDirectUrl) {
-  structuredLog("info", "DATABASE_DIRECT_URL provided", {
-    "db.direct.preview": redact(process.env.DATABASE_DIRECT_URL?.trim()),
+  structuredLog("info", "RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL provided", {
+    "db.direct.preview": redact(process.env.RENDER_DB_INTERNAL_URL?.trim() || process.env.RENDER_DB_EXTERNAL_URL?.trim()),
   });
 } else {
   const directFallback = candidates.find((entry) => entry.key === "DATABASE_INTERNAL_URL" || entry.key === "DATABASE_URL_INTERNAL");
   const safeDirect =
     directFallback?.value ??
-    (preferred && preferred.key !== "DATABASE_POOL_URL" ? preferred.value : undefined);
+    (preferred && preferred.key !== "DATABASE_URL" ? preferred.value : undefined);
 
   if (safeDirect) {
-    process.env.DATABASE_DIRECT_URL = safeDirect;
-    structuredLog("info", "DATABASE_DIRECT_URL resolved", {
+    // Set both for backward compatibility during transition
+    process.env.RENDER_DB_INTERNAL_URL = safeDirect;
+    structuredLog("info", "RENDER_DB_INTERNAL_URL resolved", {
       "db.direct.source": directFallback?.key ?? preferred?.key ?? "unknown",
       "db.direct.preview": redact(safeDirect),
     });
-  } else if (preferred?.key === "DATABASE_POOL_URL") {
-    structuredLog("info", "DATABASE_DIRECT_URL missing", {
+  } else if (preferred?.key === "DATABASE_URL") {
+    structuredLog("info", "RENDER_DB_INTERNAL_URL missing", {
       guidance:
-        "Set DATABASE_DIRECT_URL (Render direct connection string) so Prisma migrations bypass the pooler.",
+        "Set RENDER_DB_INTERNAL_URL (Render internal connection string) or RENDER_DB_EXTERNAL_URL (external connection) for direct database access bypassing Accelerate.",
     });
   }
 }

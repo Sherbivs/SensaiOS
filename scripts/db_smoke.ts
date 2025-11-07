@@ -79,10 +79,10 @@ function selectDatasource(preferredMode?: ConnectionMode): { url: string; mode: 
   const acceleratePrefixes = ["prisma://", "prisma+postgres://"];
 
   const directCandidates = [
-    process.env.DATABASE_DIRECT_URL ?? "",
+    process.env.RENDER_DB_INTERNAL_URL ?? "",
+    process.env.RENDER_DB_EXTERNAL_URL ?? "",
+    process.env.DATABASE_LOCAL_URL ?? "",
     process.env.DATABASE_URL ?? "",
-    process.env.PRIMARY_DATABASE_URL ?? "",
-    process.env.DATABASE_POOL_URL ?? "",
   ];
   const directUrl = directCandidates.find((candidate) =>
     candidate.trim().length > 0 && !acceleratePrefixes.some((prefix) => candidate.startsWith(prefix)),
@@ -90,9 +90,6 @@ function selectDatasource(preferredMode?: ConnectionMode): { url: string; mode: 
 
   const accelerateCandidates = [
     process.env.DATABASE_URL ?? "",
-    process.env.PRIMARY_DATABASE_URL ?? "",
-    process.env.DATABASE_POOL_URL ?? "",
-    process.env.PRISMA_ACCELERATE_URL ?? "",
   ];
   const accelerateUrl = accelerateCandidates.find((candidate) =>
     acceleratePrefixes.some((prefix) => candidate.startsWith(prefix)),
@@ -121,7 +118,7 @@ function selectDatasource(preferredMode?: ConnectionMode): { url: string; mode: 
   }
 
   throw new Error(
-    "DATABASE_URL, DATABASE_DIRECT_URL, or DATABASE_POOL_URL must be set for db:smoke. Ensure the secrets file is loaded.",
+    "DATABASE_URL, RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL, or DATABASE_LOCAL_URL must be set for db:smoke. Ensure the secrets file is loaded.",
   );
 }
 
