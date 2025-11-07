@@ -10,12 +10,9 @@ type RunnerConfig = {
   devEnvPath: string;
   prodEnvPath: string;
   dryRun: boolean;
-  skipAccelerate: boolean;
-  allowAccelerateFailure: boolean;
 };
 
 type ConnectionSet = {
-  accelerate?: string;
   direct?: string;
   pooled?: string;
 };
@@ -73,8 +70,6 @@ function parseArgs(): RunnerConfig {
     devEnvPath: DEFAULT_DEV_ENV,
     prodEnvPath: DEFAULT_PROD_ENV,
     dryRun: false,
-    skipAccelerate: false,
-    allowAccelerateFailure: false,
   };
 
   for (let i = 0; i < args.length; i += 1) {
@@ -91,12 +86,6 @@ function parseArgs(): RunnerConfig {
       case "--dry-run":
         config.dryRun = true;
         break;
-      case "--skip-accelerate":
-        config.skipAccelerate = true;
-        break;
-      case "--allow-accelerate-failure":
-        config.allowAccelerateFailure = true;
-        break;
       default:
         break;
     }
@@ -105,21 +94,12 @@ function parseArgs(): RunnerConfig {
   return config;
 }
 
-function looksLikeProxy(url: string | undefined): boolean {
-  return !!url && url.startsWith("prisma+");
-}
-
 function looksLikeDirect(url: string | undefined): boolean {
   return !!url && url.startsWith("postgres");
 }
 
 function extractConnections(envVars: EnvVars): ConnectionSet {
-  // CRITICAL: Removed DATABASE_ACCELERATE_URL (Accelerate no longer used)
-  // Use PROD_DATABASE_URL and DEV_DATABASE_URL for 2-node cluster
-  const accelerate = [
-    looksLikeProxy(envVars.DATABASE_URL) ? envVars.DATABASE_URL : undefined,
-  ].find((candidate): candidate is string => !!candidate);
-
+  // 2-NODE CLUSTER: Only direct PostgreSQL connections (no Accelerate)
   const direct = [
     envVars.PROD_DATABASE_URL,
     envVars.DEV_DATABASE_URL,
@@ -134,7 +114,7 @@ function extractConnections(envVars: EnvVars): ConnectionSet {
     looksLikeDirect(envVars.DATABASE_URL) ? envVars.DATABASE_URL : undefined,
   ].find((candidate): candidate is string => !!candidate && looksLikeDirect(candidate));
 
-  return { accelerate, direct, pooled };
+  return { direct, pooled };
 }
 
 async function main(): Promise<void> {
@@ -167,24 +147,10 @@ async function main(): Promise<void> {
     pairs.push({ label, primary, standby });
   };
 
-  if (!config.skipAccelerate) {
-    registerPair("dev:accelerate-vs-direct", devConnections.accelerate, devConnections.direct);
-  } else if (devConnections.accelerate) {
-    log("mirror.skip", { label: "dev:accelerate-vs-direct", reason: "skip_accelerate_flag" });
-  }
+  // 2-NODE CLUSTER: Only compare direct PostgreSQL connections
   registerPair("dev:pooled-vs-direct", devConnections.pooled, devConnections.direct);
-  if (!config.skipAccelerate) {
-    registerPair("prod:accelerate-vs-direct", prodConnections.accelerate, prodConnections.direct);
-  } else if (prodConnections.accelerate) {
-    log("mirror.skip", { label: "prod:accelerate-vs-direct", reason: "skip_accelerate_flag" });
-  }
   registerPair("prod:pooled-vs-direct", prodConnections.pooled, prodConnections.direct);
   registerPair("cross:dev-direct-vs-prod-direct", devConnections.direct, prodConnections.direct);
-  if (!config.skipAccelerate) {
-    registerPair("cross:dev-accelerate-vs-prod-accelerate", devConnections.accelerate, prodConnections.accelerate);
-  } else if (devConnections.accelerate && prodConnections.accelerate) {
-    log("mirror.skip", { label: "cross:dev-accelerate-vs-prod-accelerate", reason: "skip_accelerate_flag" });
-  }
 
   if (pairs.length === 0) {
     log("mirror.none", { message: "No mirror pairs could be derived." });
@@ -207,21 +173,14 @@ async function main(): Promise<void> {
 
   let allOk = true;
   for (const pair of pairs) {
-    let ok = false;
     try {
-      ok = await checkMirrors(pair.primary, pair.standby, pair.label);
+      const ok = await checkMirrors(pair.primary, pair.standby, pair.label);
+      if (!ok) {
+        allOk = false;
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const isAcceleratePair = pair.label.includes("accelerate");
-      if (config.allowAccelerateFailure && isAcceleratePair) {
-        log("mirror.skip", { label: pair.label, reason: "accelerate_error", message });
-        continue;
-      }
       log("mirror.error", { label: pair.label, message });
-      allOk = false;
-      continue;
-    }
-    if (!ok) {
       allOk = false;
     }
   }
