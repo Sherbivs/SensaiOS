@@ -2,10 +2,11 @@
 Title: Ambient Type Declarations
 Purpose: Type definitions that augment external modules used by the runtime.
 Owned Globs: src/types/**
-Last Updated (UTC): 2025-10-30T00:47:00Z
+Last Updated (UTC): 2025-11-07T22:00:00Z
 
 Notes:
 - Houses `.d.ts` files needed until upstream packages ship proper typings.
+- Previously contained Prisma Accelerate typings (removed 2025-11-07 with Accelerate removal).
 
 Key Files:
-- prisma-accelerate.d.ts - Declares typings for the Prisma Accelerate extension so TypeScript understands its API.
+- None currently (all Prisma Accelerate references removed)

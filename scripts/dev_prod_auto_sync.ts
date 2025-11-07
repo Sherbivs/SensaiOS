@@ -930,9 +930,10 @@ async function main(): Promise<void> {
         error: error instanceof Error ? error.message : String(error),
       });
       // Fallback to process.env for LOCAL/PROD database
-      if (process.env.PROD_DATABASE_URL || process.env.DATABASE_LOCAL_URL) {
+      const fallbackUrl = process.env.PROD_DATABASE_URL || process.env.DATABASE_LOCAL_URL;
+      if (fallbackUrl) {
         localVars = {
-          DATABASE_URL: process.env.PROD_DATABASE_URL || process.env.DATABASE_LOCAL_URL,
+          DATABASE_URL: fallbackUrl,
         };
       }
     }

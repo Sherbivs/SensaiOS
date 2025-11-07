@@ -12,6 +12,7 @@ export type EnvVars = Record<string, string>;
 
 export type UrlSelectionResult = {
   url: string;
+  /** @deprecated Always false - Accelerate removed 2025-11-07. Kept for backward compatibility. */
   isAccelerate: boolean;
   source: string;
   environment: string;
@@ -20,8 +21,8 @@ export type UrlSelectionResult = {
 /**
  * Select database URL for Prisma Client query operations (seed, counts, CRUD)
  * 
- * PRODUCTION: Uses DATABASE_URL (Accelerate) to match generated Prisma Client mode
- * DEVELOPMENT: Uses RENDER_DB_INTERNAL_URL (Render Node) or RENDER_DB_EXTERNAL_URL (laptop) for faster iteration
+ * PRODUCTION: Uses PROD_DATABASE_URL (direct PostgreSQL local node)
+ * DEVELOPMENT: Uses DEV_DATABASE_URL (direct PostgreSQL master) or DATABASE_LOCAL_URL (local workstation)
  * 
  * @param envVars - Environment variables object
  * @returns Selected URL with metadata
@@ -35,37 +36,33 @@ export function selectQueryUrl(envVars: EnvVars): UrlSelectionResult {
   let source = "";
   
   if (isProd) {
-    // Production MUST use Accelerate URLs
-    if (envVars.DATABASE_URL) {
-      url = envVars.DATABASE_URL;
-      source = "DATABASE_URL";
+    // Production uses local node for <50ms latency
+    if (envVars.PROD_DATABASE_URL) {
+      url = envVars.PROD_DATABASE_URL;
+      source = "PROD_DATABASE_URL";
     }
   } else {
-    // Development SHOULD use direct URLs
-    // Prefer internal (Render Node) then external (laptop) then local (Render Node disk) then fallback to Accelerate
-    if (envVars.RENDER_DB_INTERNAL_URL) {
-      url = envVars.RENDER_DB_INTERNAL_URL;
-      source = "RENDER_DB_INTERNAL_URL";
+    // Development uses master or local node
+    if (envVars.DEV_DATABASE_URL) {
+      url = envVars.DEV_DATABASE_URL;
+      source = "DEV_DATABASE_URL";
     } else if (envVars.RENDER_DB_EXTERNAL_URL) {
       url = envVars.RENDER_DB_EXTERNAL_URL;
       source = "RENDER_DB_EXTERNAL_URL";
     } else if (envVars.DATABASE_LOCAL_URL) {
       url = envVars.DATABASE_LOCAL_URL;
       source = "DATABASE_LOCAL_URL";
-    } else if (envVars.DATABASE_URL) {
-      url = envVars.DATABASE_URL;
-      source = "DATABASE_URL";
     }
   }
   
   if (!url) {
     throw new Error(
       `No database URL found for ${environment}. ` +
-      `Expected: ${isProd ? "DATABASE_URL" : "RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL"}`
+      `Expected: ${isProd ? "PROD_DATABASE_URL" : "DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL"}`
     );
   }
   
-  const isAccelerate = url.startsWith("prisma://") || url.startsWith("prisma+");
+  const isAccelerate = false; // No longer using Accelerate
   
   return {
     url,
@@ -79,10 +76,9 @@ export function selectQueryUrl(envVars: EnvVars): UrlSelectionResult {
  * Select database URL for migration operations
  * 
  * ALL ENVIRONMENTS: MUST use direct PostgreSQL URLs
- * Accelerate does NOT support DDL operations (CREATE TABLE, ALTER TABLE, etc.)
  * 
  * On Render Node: Use RENDER_DB_INTERNAL_URL (internal network access to DEV database)
- * From laptop: Use RENDER_DB_EXTERNAL_URL (external network access to DEV database)
+ * From laptop: Use DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL (external network access to DEV database)
  * 
  * @param envVars - Environment variables object
  * @returns Selected URL with metadata
@@ -92,34 +88,26 @@ export function selectMigrationUrl(envVars: EnvVars): UrlSelectionResult {
   let url = "";
   let source = "";
   
-  // ALWAYS prefer direct URLs for migrations
-  // Prefer internal (Render Node) then external (laptop)
-  if (envVars.RENDER_DB_INTERNAL_URL) {
-    url = envVars.RENDER_DB_INTERNAL_URL;
-    source = "RENDER_DB_INTERNAL_URL";
+  // ALWAYS use direct URLs for migrations (DEV master is source of truth)
+  if (envVars.DEV_DATABASE_URL) {
+    url = envVars.DEV_DATABASE_URL;
+    source = "DEV_DATABASE_URL";
   } else if (envVars.RENDER_DB_EXTERNAL_URL) {
     url = envVars.RENDER_DB_EXTERNAL_URL;
     source = "RENDER_DB_EXTERNAL_URL";
-  } else if (envVars.DATABASE_URL) {
-    url = envVars.DATABASE_URL;
-    source = "DATABASE_URL";
+  } else if (envVars.RENDER_DB_INTERNAL_URL) {
+    url = envVars.RENDER_DB_INTERNAL_URL;
+    source = "RENDER_DB_INTERNAL_URL";
   }
   
   if (!url) {
     throw new Error(
       "No database URL found for migrations. " +
-      "Expected: RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL"
+      "Expected: DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL"
     );
   }
   
-  const isAccelerate = url.startsWith("prisma://") || url.startsWith("prisma+");
-  
-  if (isAccelerate) {
-    throw new Error(
-      `Migration URL from ${source} is an Accelerate URL (${url.substring(0, 30)}...). ` +
-      "Migrations require direct PostgreSQL URLs. Accelerate does NOT support DDL operations."
-    );
-  }
+  const isAccelerate = false; // No longer using Accelerate
   
   return {
     url,
@@ -130,13 +118,14 @@ export function selectMigrationUrl(envVars: EnvVars): UrlSelectionResult {
 }
 
 /**
- * Check if a URL is an Accelerate URL
+ * Check if a URL is an Accelerate URL (deprecated - always returns false)
  * 
  * @param url - Database URL to check
- * @returns True if Accelerate URL
+ * @returns Always false (Accelerate removed)
+ */
  */
 export function isAccelerateUrl(url: string): boolean {
-  return url.startsWith("prisma://") || url.startsWith("prisma+");
+  return false; // Accelerate removed - always return false
 }
 
 /**
@@ -166,15 +155,11 @@ export function logUrlSelection(result: UrlSelectionResult, operation: string): 
  * @returns Environment variable overrides
  */
 export function buildDatabaseEnv(result: UrlSelectionResult): Record<string, string | undefined> {
+  // 2-NODE CLUSTER: Always use direct PostgreSQL (no Accelerate dataproxy)
   const env: Record<string, string | undefined> = {
     DATABASE_URL: result.url,
+    PRISMA_CLIENT_ENGINE_TYPE: undefined, // Always undefined for direct connections
   };
-  
-  if (result.isAccelerate) {
-    env.PRISMA_CLIENT_ENGINE_TYPE = "dataproxy";
-  } else {
-    env.PRISMA_CLIENT_ENGINE_TYPE = undefined;
-  }
   
   return env;
 }

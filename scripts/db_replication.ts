@@ -616,7 +616,7 @@ EXAMPLES:
   npm run db:replication compare
 
 ENVIRONMENT VARIABLES:
-  DATABASE_URL               PROD database (Prisma Accelerate)
+  DATABASE_URL               PROD database (direct PostgreSQL, local node)
   RENDER_DB_INTERNAL_URL     DEV database (direct PostgreSQL, Render Node)
   RENDER_DB_EXTERNAL_URL     DEV database (direct PostgreSQL, laptop)
   DATABASE_LOCAL_URL         LOCAL database (Render Node disk mirror)

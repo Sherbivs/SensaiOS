@@ -71,8 +71,7 @@ function loadEnvironment(): void {
 }
 
 function selectDirectDatasource(): string {
-  const acceleratePrefixes = ["prisma://", "prisma+postgres://"];
-
+  // 2-NODE CLUSTER: All connections are direct PostgreSQL (no Accelerate)
   const directCandidates = [
     process.env.RENDER_DB_INTERNAL_URL ?? "",
     process.env.RENDER_DB_EXTERNAL_URL ?? "",
@@ -81,7 +80,7 @@ function selectDirectDatasource(): string {
   ];
 
   const directUrl = directCandidates.find(
-    (candidate) => candidate.trim().length > 0 && !acceleratePrefixes.some((prefix) => candidate.startsWith(prefix)),
+    (candidate) => candidate.trim().length > 0 && candidate.startsWith("postgresql://"),
   );
 
   if (!directUrl) {

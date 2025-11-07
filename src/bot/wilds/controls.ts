@@ -25,7 +25,7 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
 function formatPokemonName(slot: PartySlotWithPokemon | null | undefined) {
   const mon = slot?.pokemon;
   if (!mon) return "Unknown Pokémon";
-  const speciesName = mon.species?.name ?? `#${mon.speciesId}`;
+  const speciesName = `#${mon.speciesId}`;
   const nickname = typeof mon.nickname === "string" && mon.nickname.trim().length > 0 ? mon.nickname.trim() : null;
   return nickname ? `${nickname} (${speciesName})` : speciesName;
 }

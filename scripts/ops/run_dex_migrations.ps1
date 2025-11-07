@@ -1,12 +1,12 @@
 param(
-    [string]$AccelerateEnvPath = "C:/Users/sherb/OneDrive/Documents/Key/Prod/.env",
+    [string]$EnvFilePath = "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env",
     [string]$RenderUrl = $Env:RENDER_DB_EXTERNAL_URL,
     [switch]$DryRun
 )
 
 function Read-EnvFile([string]$path) {
     if (-not (Test-Path -LiteralPath $path)) {
-        throw "Accelerate env file not found: $path"
+        throw "Environment file not found: $path"
     }
 
     $values = @{}
@@ -66,14 +66,14 @@ function Invoke-SpeciesSheetRefresh() {
     Invoke-PrismaCommand @('db', 'execute', '--command', 'REFRESH MATERIALIZED VIEW CONCURRENTLY "SpeciesSheet";')
 }
 
-$accelerateVars = Read-EnvFile -path $AccelerateEnvPath
-$accelerateUrl = $accelerateVars['DATABASE_URL']
-if ([string]::IsNullOrWhiteSpace($accelerateUrl)) {
-    throw "DATABASE_URL missing from $AccelerateEnvPath"
+$envVars = Read-EnvFile -path $EnvFilePath
+$databaseUrl = $envVars['DATABASE_URL']
+if ([string]::IsNullOrWhiteSpace($databaseUrl)) {
+    throw "DATABASE_URL missing from $EnvFilePath"
 }
 
-$accelerateDirect = $accelerateVars['RENDER_DB_INTERNAL_URL']
-Assert-DirectUrl -url $accelerateDirect -name 'RENDER_DB_INTERNAL_URL (Accelerate)'
+$internalUrl = $envVars['RENDER_DB_INTERNAL_URL']
+Assert-DirectUrl -url $internalUrl -name 'RENDER_DB_INTERNAL_URL (DEV master)'
 
 if (-not $RenderUrl -or [string]::IsNullOrWhiteSpace($RenderUrl)) {
     throw 'RENDER_DB_EXTERNAL_URL must be set in the environment or passed to -RenderUrl.'
@@ -82,7 +82,7 @@ if (-not $RenderUrl -or [string]::IsNullOrWhiteSpace($RenderUrl)) {
 Assert-DirectUrl -url $RenderUrl -name 'RENDER_DB_EXTERNAL_URL (Render)'
 
 Write-Host '*** Running migrations against direct PostgreSQL connection' -ForegroundColor Yellow
-$snapshot = Set-EnvVars -vars @{ DATABASE_URL = $accelerateDirect; RENDER_DB_INTERNAL_URL = $accelerateDirect; PRISMA_CLIENT_ENGINE_TYPE = $null }
+$snapshot = Set-EnvVars -vars @{ DATABASE_URL = $internalUrl; RENDER_DB_INTERNAL_URL = $internalUrl; PRISMA_CLIENT_ENGINE_TYPE = $null }
 try {
     if (-not $DryRun) {
     Invoke-PrismaCommand @('migrate', 'deploy')

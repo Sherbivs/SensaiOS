@@ -143,7 +143,7 @@ describe("DB Replication Integration", () => {
     });
 
     it("should include local transport type in stats", () => {
-      // Test transport reporting (direct vs accelerate)
+      // Test transport reporting (direct PostgreSQL)
       expect(true).toBe(true);
     });
   });
