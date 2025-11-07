@@ -13,7 +13,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `scripts/ROUTER.md` — Dev & Docs Scripts (includes bootstrap_staging_db.ps1 helper)
     - `src/ROUTER.md` — Application Source
       - `src/dex/ROUTER.md` — Dex runtime loaders, metrics, and flag instrumentation for the v2 pack
-    - `ops/DB_IMPORT_PRISMA_POSTGRES.md` — Prisma Postgres import runbook for Accelerate migrations
+    - `ops/DB_IMPORT_PRISMA_POSTGRES.md` — Prisma Postgres import runbook (ARCHIVED - see docs/ACCELERATE-MIGRATION-ARCHIVE.md)
   - `ops/POKEMON_CACHE.md` — PokeAPI integration & cache operations runbook
     - `outbox.ts` now wraps the event bus helpers so legacy drains can enqueue/claim messages while handlers migrate.
     - `worker-runtime.ts` centralizes worker lifecycle helpers (shutdown hooks, repeating tasks) for outbox/cache/data pipeline entries.
@@ -28,7 +28,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `src/bot/wilds/ROUTER.md` — Walk/catch encounter handlers
   - `docs/ROUTER.md` — Documentation Library
     - `docs/dex-v2-design.md` — High-availability dex upgrade blueprint plus day-one database plan and rollout playbook
-    - `docs/db-accelerate-workflow.md` — IG_ENV_FILE selection, db:cli/db:smoke parity checklist, and Accelerate vs. direct Postgres rehearsal guide
+    - `docs/db-accelerate-workflow.md` — IG_ENV_FILE selection and database workflow rehearsal guide (ARCHIVED - see docs/ACCELERATE-MIGRATION-ARCHIVE.md)
   - `src/core/ROUTER.md` — Core Game Engines
     - `src/core/battle/ROUTER.md` — Deterministic battle engine internals
     - `src/core/encounter/ROUTER.md` — Encounter spawn and catch logic
@@ -76,7 +76,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
 ## Muted Local Files
 - `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` — Muted (DEV Postgres secrets); set `IG_ENV_FILE` here for local and staging work. Keep the repo `.env` empty.
-- `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` — Muted (Accelerate/production credentials); repoint `IG_ENV_FILE` here only when working against Prisma Accelerate and run `npx prisma generate` before returning to Dev so the client drops the Accelerate proxy.
+- `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` — Muted (PROD credentials - DEPRECATED); historically used for Accelerate proxy. Now use Dev/.env with DEV_DATABASE_URL/PROD_DATABASE_URL for 2-node cluster.
 - `docs/db-control-suite.md` — Muted (local operator guide); documents `npm run db:cli` usage for dev DB checks.
 - `docs/ai-env-setup.md` — Muted (local env instructions); covers `IG_ENV_FILE` setup for agents.
 
@@ -96,7 +96,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - `scripts/restore_prisma_postgres.ps1` — Muted (local restore); Prisma Postgres tunnel + restore automation
   - `scripts/db_admin.ts` — Muted (local CLI); run via `npm run db:cli` for status, counts, and ad-hoc queries
   - `scripts/setup_ai_env.ps1` — Muted (agent env helper); registers `IG_ENV_FILE` so secrets load from external storage
-  - `scripts/db_smoke.ts` — IG_ENV_FILE-aware smoke helper with Accelerate/direct mode overrides
+  - `scripts/db_smoke.ts` — IG_ENV_FILE-aware smoke helper (supports both DEV/PROD direct PostgreSQL modes)
   - `scripts/dev_prod_auto_sync.ts` — Muted (automation loop); ensures migrate/seed inherit env-specific credentials, forces direct migrations, times out hung commands, preflights Optimize SpeciesSheet access, watches `data/cache/dex-sync-trigger.json`, and continuously runs the Dev → Prod → Dev cadence with integrity checks (`npm run db:auto-sync`)
   - `scripts/build_dexpack.ts` — Deterministic dexpack builder emitting committed JSON + gzip assets (`npm run data:dexpack`)
   - `scripts/ops/dex_v2_backup.ts` — `pg_dump -Fc` wrapper for Dev/Prod backups with env selection (`npm run ops:dex-v2-backup`)
@@ -149,7 +149,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
 ### Operator Scripts (`scripts/ops/ROUTER.md`)
 - Purpose: Operator helpers for migrations, backups, and rollout rehearsals.
-- Notes: `run_dex_migrations.ps1` drives the Accelerate migrate cadence; DEX v2 helpers cover backup generation (`ops:dex-v2-backup`), flag plan authoring (`ops:simulate-flag`), alert dry-runs (`ops:dex-v2-alert-dry-run`), and the Store-backed Postgres fallback bootstrapper (`ops:auto-bootstrap-local-db` for dependency install + refresh, `ops:bootstrap-local-db` when tooling already exists).
+- Notes: `run_dex_migrations.ps1` drives the DEV/PROD migrate cadence; DEX v2 helpers cover backup generation (`ops:dex-v2-backup`), flag plan authoring (`ops:simulate-flag`), alert dry-runs (`ops:dex-v2-alert-dry-run`), and the Store-backed Postgres fallback bootstrapper (`ops:auto-bootstrap-local-db` for dependency install + refresh, `ops:bootstrap-local-db` when tooling already exists).
 
 ### Data Pipeline Schemas (`src/data_pipeline/schema/ROUTER.md`)
 - Purpose: Zod validators for dataset outputs (`abilities`, `moves`, `species`, `typechart`, `manifest`).
@@ -226,7 +226,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - Dexpack loader (`src/data/dexpack.js`) now boots from the generated ES module for zero-parse startup while keeping helpers shared across CommonJS + TypeScript callers.
   - Dex runtime metrics (`src/dex/metrics.js`) emit structured load, lookup, and fallback events to trace the v1/v2 compatibility bridge.
   - Background workers now run via dedicated Render services; ENABLE_CONTINUOUS_SWEEP defers security sweeps to the security worker.
-  - Prisma client boot now prioritises Accelerate URLs surfaced by shared config and reports the active transport (direct vs accelerate-node) in CLI telemetry.
+  - Prisma client boot now uses 2-node direct PostgreSQL cluster (DEV master + PROD local node) for <50ms latency gameplay.
 
 ### Dex Runtime (`src/dex/ROUTER.md`)
 - Purpose: Binary runtime, telemetry helpers, and manifest accessors for the DEX v2 pack.
@@ -246,13 +246,13 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - Last Updated: 2025-11-06T14:30:00Z
 - Key Files:
   - `config.ts` — `loadConfig()` promotes Render internal URLs and enforces runtime invariants.
-  - `prisma.ts` — dual Prisma clients (`prisma` for PROD/Accelerate + `devPrisma` for DEV/direct), both connected on startup, exports `getDatabaseStats()` returning `DualDatabaseStats` with separate DEV/PROD telemetry.
+  - `prisma.ts` — Triple Prisma clients (`prisma` for PROD local node + `devPrisma` for DEV master + `localPrisma` for workstation mirror), all connected on startup, exports `getDatabaseStats()` returning `TripleDatabaseStats` with separate DEV/PROD/LOCAL telemetry.
   - `cache/memory.ts` — default TTL cache backing bots and workers.
   - `outbox.ts` — enqueue/dequeue helpers layered on `BusMessage` records for backwards compatibility.
   - `log.ts` — structured logger leveraging shared runtime metadata.
 - Notes:
-  - 2025-11-06: `prisma.ts` maintains simultaneous DEV (direct PostgreSQL via `RENDER_DB_INTERNAL_URL` or `RENDER_DB_EXTERNAL_URL`) and PROD (Accelerate via `DATABASE_URL`) connections with independent heartbeat tracking; `getDatabaseStats()` surfaces both in logger output.
-  - 2025-10-29: `config.ts` and `prisma.ts` surface Accelerate env hints, auto-select edge/node runtimes, and capture transport telemetry for status CLI output.
+  - 2025-11-07: `prisma.ts` maintains simultaneous DEV (direct PostgreSQL master via `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL`), PROD (direct PostgreSQL local node via `PROD_DATABASE_URL` - PRIMARY for gameplay), and LOCAL (workstation mirror via `DATABASE_LOCAL_URL`) connections with independent heartbeat tracking; `getDatabaseStats()` surfaces all three in logger output.
+  - 2025-10-29: `config.ts` and `prisma.ts` surface database environment configuration and runtime telemetry for status CLI output.
 - Last Task ID: META.RUNTIME.BLUEPRINT_APPLY
 
 ### Background Workers (`src/worker/ROUTER.md`)
