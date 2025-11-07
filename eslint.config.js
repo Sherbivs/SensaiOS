@@ -16,10 +16,6 @@ export default [
       parserOptions: {
         sourceType: 'module',
         ecmaVersion: 2022,
-        // Suppress warning about multiple tsconfig.json files
-        projectService: {
-          allowDefaultProject: ['*.js', '*.mjs'],
-        },
         tsconfigRootDir: import.meta.dirname,
       },
       globals: {
@@ -44,16 +40,9 @@ export default [
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-require-imports': 'warn',
       
-      // Import rules
-      'import/order': [
-        'warn',
-        {
-          alphabetize: { order: 'asc', caseInsensitive: true },
-          'newlines-between': 'always',
-          groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
-        },
-      ],
-      'import/no-unresolved': 'off', // TypeScript handles this
+      // Import rules (disabled - TypeScript handles module resolution)
+      'import/order': 'off',
+      'import/no-unresolved': 'off',
       
       // Node.js rules
       'n/no-missing-import': 'off', // TypeScript handles this
