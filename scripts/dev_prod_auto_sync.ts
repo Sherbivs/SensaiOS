@@ -527,6 +527,7 @@ function spawnCommand(
 
 function cliEnvForMigrate(fileVars: EnvVars): Record<string, string | undefined> {
   // Prefer EXTERNAL_URL for WSL/remote access, fallback to DIRECT_URL for internal Render connections
+  // 2-NODE CLUSTER: Always use direct PostgreSQL for migrations
   const direct =
     fileVars.RENDER_DB_EXTERNAL_URL || 
     fileVars.RENDER_DB_INTERNAL_URL || 
@@ -535,11 +536,6 @@ function cliEnvForMigrate(fileVars: EnvVars): Record<string, string | undefined>
   if (!direct) {
     log("migrate.env.missing_direct", {
       message: "RENDER_DB_EXTERNAL_URL/RENDER_DB_INTERNAL_URL missing; migrate may fail",
-    });
-  } else if (direct.startsWith("prisma+")) {
-    log("migrate.env.dataproxy_warning", {
-      message:
-        "DATABASE URL resolves to a Prisma Data Proxy; migrations require a direct Postgres connection.",
     });
   }
   return {
@@ -562,21 +558,18 @@ function cliEnvForSeed(fileVars: EnvVars): Record<string, string | undefined> {
        fileVars.DATABASE_LOCAL_URL ||
        fileVars.DATABASE_URL || "");
   
-  const isDataProxy = seedUrl.startsWith("prisma+") || seedUrl.startsWith("prisma://");
-  
+  // 2-NODE CLUSTER: Always use direct PostgreSQL (no data proxy)
   log("cli.env.seed", { 
     environment: process.env.NODE_ENV,
-    hasAccelerateUrl: !!fileVars.DATABASE_URL && (fileVars.DATABASE_URL.startsWith("prisma+") || fileVars.DATABASE_URL.startsWith("prisma://")),
     hasRenderInternalUrl: !!fileVars.RENDER_DB_INTERNAL_URL,
     hasRenderExternalUrl: !!fileVars.RENDER_DB_EXTERNAL_URL,
     hasDatabaseUrl: !!fileVars.DATABASE_URL,
     selectedUrl: seedUrl.substring(0, 30) + "...",
-    isDataProxy,
   });
   
   return {
     DATABASE_URL: seedUrl,
-    PRISMA_CLIENT_ENGINE_TYPE: isDataProxy ? "dataproxy" : undefined,
+    PRISMA_CLIENT_ENGINE_TYPE: undefined,
   };
 }
 
@@ -652,24 +645,15 @@ async function withPrismaClient<T>(
     throw new Error(`Missing DATABASE_URL for ${label} environment (NODE_ENV=${process.env.NODE_ENV})`);
   }
 
+  // 2-NODE CLUSTER: Always use direct PostgreSQL connections (library engine)
   const originalEngine = process.env.PRISMA_CLIENT_ENGINE_TYPE;
-  const usesAccelerate = url.startsWith("prisma+") || url.startsWith("prisma://");
-  if (usesAccelerate) {
-    process.env.PRISMA_CLIENT_ENGINE_TYPE = "dataproxy";
-  } else if (!originalEngine) {
-    delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
-  }
+  delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
 
-  let client: PrismaClient;
-  if (usesAccelerate) {
-    client = new PrismaClient({ datasourceUrl: url });
-  } else {
-    client = new PrismaClient({
-      datasources: {
-        db: { url },
-      },
-    });
-  }
+  const client = new PrismaClient({
+    datasources: {
+      db: { url },
+    },
+  });
 
   try {
     return await callback(client);
