@@ -1077,7 +1077,7 @@ Each task has:
   status: DONE
   depends_on: [T13.DEX.AUTO_SYNC]
   acceptance_criteria:
-    - Child processes inherit DATABASE_URL/DATABASE_DIRECT_URL from the target env file instead of relying on the shell environment (IG_ENV_FILE alone is not sufficient).
+    - Child processes inherit DATABASE_URL/RENDER_DB_INTERNAL_URL from the target env file instead of relying on the shell environment (IG_ENV_FILE alone is not sufficient).
     - Prisma migrate runs against direct connections (never Data Proxy) and logs a warning when the env file lacks a direct URL entry.
     - Auto-sync terminates hung migrate/seed commands with a timeout and replays the cadence without wedging the integrity loop.
     - Optimize/SpeciesSheet preflight surfaces missing grants with actionable remediation guidance before the consolidation loop starts.

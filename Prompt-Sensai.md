@@ -51,7 +51,7 @@ Revision: 1.92
 ## Validation Checklist
 - Touching a directory requires updating its ROUTER.md entry and running scripts/update_router_index.sh; commit the regenerated ops/ROUTER_INDEX.yaml.
 - Bump Prompt/Tasklist/Patch timestamps and revisions whenever readiness or scope changes.
-- Run npx prisma migrate deploy before production deploys; ensure DATABASE_DIRECT_URL is present.
+- Run npx prisma migrate deploy before production deploys; ensure RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL is present.
 - Execute relevant Vitest suites (ops, dm_home, daily, affected modules) or document skips in the PATCHSET echo.
 
 ## Diagram Conventions
