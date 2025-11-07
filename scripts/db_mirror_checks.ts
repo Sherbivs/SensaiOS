@@ -114,12 +114,15 @@ function looksLikeDirect(url: string | undefined): boolean {
 }
 
 function extractConnections(envVars: EnvVars): ConnectionSet {
+  // CRITICAL: Removed DATABASE_ACCELERATE_URL (Accelerate no longer used)
+  // Use PROD_DATABASE_URL and DEV_DATABASE_URL for 2-node cluster
   const accelerate = [
-    envVars.DATABASE_ACCELERATE_URL,
     looksLikeProxy(envVars.DATABASE_URL) ? envVars.DATABASE_URL : undefined,
   ].find((candidate): candidate is string => !!candidate);
 
   const direct = [
+    envVars.PROD_DATABASE_URL,
+    envVars.DEV_DATABASE_URL,
     envVars.RENDER_DB_INTERNAL_URL,
     envVars.RENDER_DB_EXTERNAL_URL,
     envVars.DIRECT_URL,

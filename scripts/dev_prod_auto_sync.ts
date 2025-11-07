@@ -387,6 +387,8 @@ async function readEnvFile(filePath: string): Promise<EnvVars> {
       // Return relevant environment variables from process.env
       const vars: EnvVars = {};
       const relevantKeys = [
+        "PROD_DATABASE_URL",
+        "DEV_DATABASE_URL",
         "DATABASE_URL",
         "RENDER_DB_INTERNAL_URL",
         "RENDER_DB_EXTERNAL_URL",
@@ -394,8 +396,6 @@ async function readEnvFile(filePath: string): Promise<EnvVars> {
         "PRISMA_CLIENT_URL",
         "OPTIMIZE_API_KEY",
         "ALERT_WEBHOOK_URL",
-        "DEV_DATABASE_URL",
-        "PROD_DATABASE_URL",
       ];
       
       for (const key of relevantKeys) {
@@ -549,14 +549,15 @@ function cliEnvForMigrate(fileVars: EnvVars): Record<string, string | undefined>
 }
 
 function cliEnvForSeed(fileVars: EnvVars): Record<string, string | undefined> {
-  // CRITICAL: In production (Render), Prisma Client is generated for Accelerate mode
-  // and REQUIRES prisma:// URLs. Use DATABASE_URL (Accelerate) instead of direct URLs.
-  // In development, prefer direct URLs to avoid rate limits.
+  // CRITICAL: Use PROD_DATABASE_URL for production operations (local Render Node PostgreSQL)
+  // Use DEV_DATABASE_URL for development and as source of truth for migrations
+  // Fallback to legacy variables for backwards compatibility
   const isProd = process.env.NODE_ENV === "production";
   
   const seedUrl = isProd
-    ? (fileVars.DATABASE_URL || "")
-    : (fileVars.RENDER_DB_EXTERNAL_URL || 
+    ? (fileVars.PROD_DATABASE_URL || fileVars.DATABASE_URL || "")
+    : (fileVars.DEV_DATABASE_URL ||
+       fileVars.RENDER_DB_EXTERNAL_URL || 
        fileVars.RENDER_DB_INTERNAL_URL || 
        fileVars.DATABASE_LOCAL_URL ||
        fileVars.DATABASE_URL || "");
@@ -635,12 +636,14 @@ async function withPrismaClient<T>(
   envVars: EnvVars,
   callback: (client: PrismaClient) => Promise<T>,
 ): Promise<T> {
-  // CRITICAL: In production, use DATABASE_URL (Accelerate) to match generated Prisma Client
-  // In development, prefer RENDER_DB_EXTERNAL_URL (laptop) or RENDER_DB_INTERNAL_URL (Render Node) for direct access
+  // CRITICAL: Use PROD_DATABASE_URL for production (local Render Node PostgreSQL)
+  // Use DEV_DATABASE_URL for development (master database)
+  // Fallback to legacy variables for backwards compatibility
   const isProd = process.env.NODE_ENV === "production";
   const url = isProd
-    ? (envVars.DATABASE_URL)
-    : (envVars.RENDER_DB_EXTERNAL_URL ?? 
+    ? (envVars.PROD_DATABASE_URL || envVars.DATABASE_URL)
+    : (envVars.DEV_DATABASE_URL ||
+       envVars.RENDER_DB_EXTERNAL_URL ?? 
        envVars.RENDER_DB_INTERNAL_URL ?? 
        envVars.DATABASE_LOCAL_URL ??
        envVars.DATABASE_URL);
@@ -939,13 +942,13 @@ async function main(): Promise<void> {
       localVars = await readEnvFile(config.localEnvPath);
     } catch (error) {
       log("local.env.missing", {
-        message: "Local env file not found; checking for DATABASE_LOCAL_URL in process.env",
+        message: "Local env file not found; checking for PROD_DATABASE_URL or DATABASE_LOCAL_URL in process.env",
         error: error instanceof Error ? error.message : String(error),
       });
-      // Fallback to process.env for LOCAL database
-      if (process.env.DATABASE_LOCAL_URL) {
+      // Fallback to process.env for LOCAL/PROD database
+      if (process.env.PROD_DATABASE_URL || process.env.DATABASE_LOCAL_URL) {
         localVars = {
-          DATABASE_URL: process.env.DATABASE_LOCAL_URL,
+          DATABASE_URL: process.env.PROD_DATABASE_URL || process.env.DATABASE_LOCAL_URL,
         };
       }
     }

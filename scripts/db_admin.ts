@@ -52,14 +52,22 @@ function envTruthy(value: string | undefined | null): boolean {
 }
 
 function readLocalFallbackUrl(): string {
+  // CRITICAL: Prioritize PROD_DATABASE_URL for production operations
+  // Fall back to DATABASE_LOCAL_URL for backwards compatibility
+  const prodOverride = process.env.PROD_DATABASE_URL?.trim();
+  if (prodOverride) {
+    return prodOverride;
+  }
+
   const envOverride = process.env.DATABASE_LOCAL_URL?.trim();
   if (envOverride) {
     return envOverride;
   }
 
+  const prodFileOverride = process.env.PROD_DATABASE_URL_FILE?.trim();
   const fileOverride = process.env.DATABASE_LOCAL_URL_FILE?.trim();
   const storeRoot = process.env.IG_STORE_ROOT?.trim() || path.join(process.cwd(), "Store");
-  const candidates = [fileOverride, path.join(storeRoot, "db", "local-url.txt"), path.join(storeRoot, "db", "local", "url.txt")]
+  const candidates = [prodFileOverride, fileOverride, path.join(storeRoot, "db", "local-url.txt"), path.join(storeRoot, "db", "local", "url.txt")]
     .filter((candidate): candidate is string => Boolean(candidate));
 
   for (const candidate of candidates) {
@@ -149,7 +157,7 @@ function resolveDatasource(): DatasourceConfig {
   }
 
   throw new Error(
-    "DATABASE_URL, RENDER_DB_INTERNAL_URL, or RENDER_DB_EXTERNAL_URL must be set before running db:cli. Provide DATABASE_LOCAL_URL for offline fallback if remote datasources are unavailable.",
+    "PROD_DATABASE_URL, DEV_DATABASE_URL, DATABASE_URL, RENDER_DB_INTERNAL_URL, or RENDER_DB_EXTERNAL_URL must be set before running db:cli. Provide DATABASE_LOCAL_URL for offline fallback if remote datasources are unavailable.",
   );
 }
 
@@ -206,6 +214,8 @@ function parseArgs(argv: string[]): ParsedArgs {
 
 async function showStatus(ctx: DbContext): Promise<void> {
   const url = process.env.DATABASE_URL ?? "";
+  const prodUrl = process.env.PROD_DATABASE_URL ?? "";
+  const devUrl = process.env.DEV_DATABASE_URL ?? "";
   const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL ?? "";
   const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL ?? "";
   const localUrl = readLocalFallbackUrl();
@@ -226,6 +236,8 @@ async function showStatus(ctx: DbContext): Promise<void> {
   console.log(`IG_ENV_FILE      : ${process.env.IG_ENV_FILE ?? "(not set)"}`);
   console.log(`DOTENV_CONFIG_PATH: ${process.env.DOTENV_CONFIG_PATH ?? "(not set)"}`);
   console.log(`DATABASE_URL set : ${url ? "yes" : "no"}`);
+  console.log(`PROD_DATABASE_URL set : ${prodUrl ? "yes" : "no"}`);
+  console.log(`DEV_DATABASE_URL set : ${devUrl ? "yes" : "no"}`);
   console.log(`RENDER_DB_INTERNAL_URL set : ${renderInternalUrl ? "yes" : "no"}`);
   console.log(`RENDER_DB_EXTERNAL_URL set : ${renderExternalUrl ? "yes" : "no"}`);
   console.log(`DATABASE_LOCAL_URL set  : ${process.env.DATABASE_LOCAL_URL ? "yes" : "no"}`);
