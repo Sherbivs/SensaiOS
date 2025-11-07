@@ -3,7 +3,6 @@ import path from "node:path";
 import process from "node:process";
 import * as dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
-import { withAccelerate } from "@prisma/extension-accelerate";
 import { Client as PgClient } from "pg";
 
 const DEFAULT_COUNT_TARGETS = [
@@ -16,17 +15,12 @@ const DEFAULT_COUNT_TARGETS = [
 
 type CountTargetModel = (typeof DEFAULT_COUNT_TARGETS)[number]["model"];
 
-type ConnectionMode = "accelerate" | "direct";
-
 interface DatasourceConfig {
   url: string;
-  mode: ConnectionMode;
 }
 
 interface DbContext {
   datasource: DatasourceConfig;
-  mode: ConnectionMode;
-  prisma?: PrismaClient;
   pg?: PgClient;
 }
 
@@ -134,26 +128,19 @@ function resolveDatasource(): DatasourceConfig {
   const primaryUrl = process.env.DATABASE_URL ?? "";
   const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL ?? "";
   const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL ?? "";
-  const accelerate = primaryUrl.startsWith("prisma://") || primaryUrl.startsWith("prisma+postgres://");
   const localUrl = readLocalFallbackUrl();
 
-  if (accelerate) {
-    if (!primaryUrl) {
-      throw new Error("DATABASE_URL must be set when using Prisma Accelerate.");
-    }
-    return { url: primaryUrl, mode: "accelerate" };
-  }
-
+  // 2-NODE CLUSTER: All connections use direct PostgreSQL (no Accelerate)
   const normalizedPrimary = primaryUrl.toLowerCase();
   const directCandidate =
     renderInternalUrl || renderExternalUrl || (normalizedPrimary.startsWith("postgres://") || normalizedPrimary.startsWith("postgresql://") ? primaryUrl : "");
 
   if (directCandidate) {
-    return { url: directCandidate, mode: "direct" };
+    return { url: directCandidate };
   }
 
   if (localUrl) {
-    return { url: localUrl, mode: "direct" };
+    return { url: localUrl };
   }
 
   throw new Error(
@@ -164,21 +151,14 @@ function resolveDatasource(): DatasourceConfig {
 function createDbContext(): DbContext {
   const datasource = resolveDatasource();
 
-  if (datasource.mode === "accelerate") {
-    process.env.PRISMA_CLIENT_ENGINE_TYPE = "dataproxy";
-    process.env.PRISMA_CLIENT_DATAPROXY = "true";
-    const prisma = new PrismaClient({ datasourceUrl: datasource.url })
-      .$extends(withAccelerate()) as unknown as PrismaClient;
-    return { datasource, mode: "accelerate", prisma };
-  }
-
+  // 2-NODE CLUSTER: Always use direct PostgreSQL connection
   process.env.PRISMA_CLIENT_ENGINE_TYPE = "library";
   process.env.PRISMA_CLIENT_DATAPROXY = "false";
   const pg = new PgClient({
     connectionString: datasource.url,
     ssl: { rejectUnauthorized: false },
   });
-  return { datasource, mode: "direct", pg };
+  return { datasource, pg };
 }
 function maskDatasource(url: string): string {
   if (!url) {
@@ -219,10 +199,11 @@ async function showStatus(ctx: DbContext): Promise<void> {
   const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL ?? "";
   const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL ?? "";
   const localUrl = readLocalFallbackUrl();
-  const accelerate = url.startsWith("prisma+postgres://accelerate");
+  
+  // 2-NODE CLUSTER: Extract host from direct PostgreSQL URL
   const host = (() => {
     try {
-      const parsed = new URL(url.replace("prisma+postgres://", "https://"));
+      const parsed = new URL(url.startsWith("postgres") ? url : `https://${url}`);
       return parsed.host;
     } catch {
       return "unknown";
@@ -231,7 +212,7 @@ async function showStatus(ctx: DbContext): Promise<void> {
 
   console.log("=== Database Status ===");
   console.log(`Active host      : ${host}`);
-  console.log(`Engine           : ${accelerate ? "Prisma Accelerate" : "Direct/Postgres"}`);
+  console.log(`Engine           : Direct PostgreSQL (2-Node Cluster)`);
   console.log(`NODE_ENV         : ${process.env.NODE_ENV ?? "(not set)"}`);
   console.log(`IG_ENV_FILE      : ${process.env.IG_ENV_FILE ?? "(not set)"}`);
   console.log(`DOTENV_CONFIG_PATH: ${process.env.DOTENV_CONFIG_PATH ?? "(not set)"}`);
@@ -242,20 +223,9 @@ async function showStatus(ctx: DbContext): Promise<void> {
   console.log(`RENDER_DB_EXTERNAL_URL set : ${renderExternalUrl ? "yes" : "no"}`);
   console.log(`DATABASE_LOCAL_URL set  : ${process.env.DATABASE_LOCAL_URL ? "yes" : "no"}`);
   console.log(`Local fallback file     : ${localUrl ? "yes" : "no"}`);
-  console.log(`Resolved datasource     : ${ctx.mode} ${maskDatasource(ctx.datasource.url)}`);
+  console.log(`Resolved datasource     : direct ${maskDatasource(ctx.datasource.url)}`);
 
   try {
-    if (ctx.mode === "accelerate" && ctx.prisma) {
-      const [speciesCount, userCount] = await Promise.all([
-        ctx.prisma.species.count(),
-        ctx.prisma.user.count(),
-      ]);
-      console.log("--- Sample Counts ---");
-      console.log(`Species records  : ${speciesCount}`);
-      console.log(`User records     : ${userCount}`);
-      return;
-    }
-
     if (ctx.pg) {
       const [speciesResult, userResult] = await Promise.all([
         ctx.pg.query<{ count: string }>('SELECT COUNT(*)::bigint AS count FROM "Species"'),
@@ -279,17 +249,7 @@ function toTableName(modelKey: string): string {
 async function showCounts(ctx: DbContext): Promise<void> {
   console.log("=== Table Counts ===");
   for (const target of DEFAULT_COUNT_TARGETS) {
-    if (ctx.mode === "accelerate" && ctx.prisma) {
-      const delegate = (ctx.prisma as any)[target.model];
-      if (!delegate?.count) {
-        console.warn(`Skipping unknown model: ${target.model}`);
-        continue;
-      }
-      const count = await delegate.count();
-      console.log(`${target.label.padEnd(18)} : ${count}`);
-      continue;
-    }
-
+    // 2-NODE CLUSTER: Always use direct PostgreSQL connection
     if (ctx.pg) {
       const tableName = toTableName(target.model);
       const result = await ctx.pg.query<{ count: string }>(
@@ -302,18 +262,7 @@ async function showCounts(ctx: DbContext): Promise<void> {
 }
 
 async function showCount(ctx: DbContext, modelName: string): Promise<void> {
-  const delegateKey = modelName.charAt(0).toLowerCase() + modelName.slice(1);
-
-  if (ctx.mode === "accelerate" && ctx.prisma) {
-    const delegate = (ctx.prisma as any)[delegateKey];
-    if (!delegate?.count) {
-      throw new Error(`Model '${modelName}' not found. Try the 'counts' command to see available models.`);
-    }
-    const count = await delegate.count();
-    console.log(`${modelName} count: ${count}`);
-    return;
-  }
-
+  // 2-NODE CLUSTER: Always use direct PostgreSQL connection
   if (ctx.pg) {
     const tableName = modelName.charAt(0).toUpperCase() + modelName.slice(1);
     const result = await ctx.pg.query<{ count: string }>(
@@ -335,27 +284,7 @@ async function runQuery(ctx: DbContext, sql: string, outputJson: boolean): Promi
   const trimmedSql = sql.trim();
   const isSelect = trimmedSql.toLowerCase().startsWith("select");
 
-  if (ctx.mode === "accelerate" && ctx.prisma) {
-    const result = await ctx.prisma.$queryRawUnsafe(trimmedSql);
-
-    if (outputJson) {
-      console.log(JSON.stringify(result, null, 2));
-      return;
-    }
-
-    if (Array.isArray(result)) {
-      if (result.length === 0) {
-        console.log("Query returned zero rows.");
-        return;
-      }
-      console.table(result);
-      return;
-    }
-
-    console.log(isSelect ? result : "Query executed successfully.");
-    return;
-  }
-
+  // 2-NODE CLUSTER: Always use direct PostgreSQL connection
   if (ctx.pg) {
     const result = await ctx.pg.query(trimmedSql);
 
@@ -437,9 +366,7 @@ async function main(): Promise<void> {
       }
     }
   } finally {
-    if (ctx.prisma) {
-      await ctx.prisma.$disconnect();
-    }
+    // 2-NODE CLUSTER: Always disconnect direct PostgreSQL client
     if (ctx.pg) {
       await ctx.pg.end();
     }

@@ -11,7 +11,6 @@ export type DatabaseUrlSource =
   | "internal"
   | "direct"
   | "env"
-  | "accelerate"
   | "local"
   | "unset";
 
@@ -175,36 +174,16 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
 
   const preferExternal = mode === "external" || (mode === "auto" && nodeEnv !== "production");
 
-  const isAccelerateUrl = (value: string): boolean => /^prisma\+/i.test(value);
   const isPostgresUrl = (value: string): boolean => /^postgres(?:ql)?:\/\//i.test(value);
 
   const seen = new Set<string>();
   type CandidateBucket = Array<{ value: string; source: DatabaseUrlSource; fallback: boolean }>;
-  const accelerateCandidates: CandidateBucket = [];
   const directCandidates: CandidateBucket = [];
 
   const makeKey = (value: string, source: DatabaseUrlSource): string => `${source}::${value}`;
 
-  const addAccelerateCandidate = (value: string, source: DatabaseUrlSource): void => {
-    if (!value) {
-      return;
-    }
-    if (!isAccelerateUrl(value)) {
-      return;
-    }
-    const key = makeKey(value, source);
-    if (seen.has(key)) {
-      return;
-    }
-    seen.add(key);
-    accelerateCandidates.push({ value, source, fallback: false });
-  };
-
   const addDirectCandidate = (value: string, source: DatabaseUrlSource, fallback = false): void => {
     if (!value) {
-      return;
-    }
-    if (isAccelerateUrl(value)) {
       return;
     }
     if (!isPostgresUrl(value)) {
@@ -218,8 +197,8 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     directCandidates.push({ value, source, fallback });
   };
 
-  // 2-NODE CLUSTER: Production uses PROD_DATABASE_URL (local), fallback to legacy/external
-  // No Accelerate candidates - removed from architecture
+  // 2-NODE CLUSTER: Production uses PROD_DATABASE_URL (local), Development uses DEV_DATABASE_URL (master)
+  // All connections are direct PostgreSQL (no Accelerate)
   
   // Build direct PostgreSQL candidates in priority order
   if (preferExternal) {
@@ -249,10 +228,8 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     addDirectCandidate(localFallbackUrl, "local", true);
   }
 
-  let orderedCandidates: CandidateBucket = [];
-
-  // No Accelerate candidates in 2-node cluster
-  orderedCandidates = [...directCandidates];
+  // 2-NODE CLUSTER: All candidates are direct PostgreSQL
+  const orderedCandidates: CandidateBucket = [...directCandidates];
 
   if (!orderedCandidates.length) {
     throw new Error(
@@ -380,7 +357,7 @@ export function recordDatabaseConnectionSuccess(source: DatabaseUrlSource): void
   process.env.DATABASE_CONNECTION_PREFERENCE_SOURCE = source;
   if (source === "internal" || source === "pool" || source === "direct" || source === "local") {
     process.env.DATABASE_CONNECTION_MODE = "internal";
-  } else if (source === "accelerate" || source === "external" || source === "env") {
+  } else if (source === "external" || source === "env") {
     process.env.DATABASE_CONNECTION_MODE = "external";
   }
   if (cachedConfig) {

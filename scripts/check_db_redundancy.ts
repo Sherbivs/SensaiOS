@@ -1,10 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { PrismaClient } from "@prisma/client";
-import { withAccelerate } from "@prisma/extension-accelerate";
 // @ts-ignore Runtime import resolves against pg/esm entry; types are provided via @types/pg.
 import { Client as PgClient } from "pg";
-
-const ACCELERATE_SCHEME = /^prisma\+/i;
 
 type TableDigest = {
   tableName: string;
@@ -175,26 +172,6 @@ function compareSnapshots(primary: DatabaseSnapshot, standby: DatabaseSnapshot, 
   return false;
 }
 
-async function gatherPrimarySnapshot(url: string): Promise<DatabaseSnapshot> {
-  const previousEngineType = process.env.PRISMA_CLIENT_ENGINE_TYPE;
-  process.env.PRISMA_CLIENT_ENGINE_TYPE = "dataproxy";
-
-  const baseClient = new PrismaClient({ datasourceUrl: url });
-  const client = baseClient.$extends(withAccelerate()) as unknown as PrismaClient;
-
-  try {
-  const runQuery: QueryRunner = async (sql) => client.$queryRawUnsafe(sql);
-    return await gatherSnapshotWithRunner("primary", runQuery);
-  } finally {
-    await client.$disconnect().catch(() => undefined);
-    if (previousEngineType) {
-      process.env.PRISMA_CLIENT_ENGINE_TYPE = previousEngineType;
-    } else {
-      delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
-    }
-  }
-}
-
 async function gatherDirectSnapshot(label: string, url: string): Promise<DatabaseSnapshot> {
   const client = new PgClient({ connectionString: url });
   await client.connect();
@@ -263,13 +240,9 @@ export async function checkMirrors(primaryUrl: string, standbyUrl: string, label
   console.info(`[${label}] Primary: %s`, redactConnectionString(primaryUrl));
   console.info(`[${label}] Standby: %s`, redactConnectionString(standbyUrl));
 
-  const primarySnapshot = ACCELERATE_SCHEME.test(primaryUrl)
-    ? await gatherPrimarySnapshot(primaryUrl)
-    : await gatherDirectSnapshot("primary", primaryUrl);
-
-  const standbySnapshot = ACCELERATE_SCHEME.test(standbyUrl)
-    ? await gatherPrimarySnapshot(standbyUrl)
-    : await gatherDirectSnapshot("standby", standbyUrl);
+  // 2-NODE CLUSTER: All connections use direct PostgreSQL (no Accelerate)
+  const primarySnapshot = await gatherDirectSnapshot("primary", primaryUrl);
+  const standbySnapshot = await gatherDirectSnapshot("standby", standbyUrl);
 
   return compareSnapshots(primarySnapshot, standbySnapshot, label);
 }
