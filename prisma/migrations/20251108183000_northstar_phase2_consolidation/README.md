@@ -5,6 +5,10 @@
 **Risk Level:** Medium (data manipulation, table drops)  
 **Estimated Downtime:** ~30 seconds (depending on TrainerProfile row count)
 
+## Architecture Note
+
+This system uses **PostgreSQL-native migrations** (pure SQL files applied via `psql`). The `prisma/schema.prisma` file exists solely to generate TypeScript types for `@prisma/client` query builder - it does NOT control database schema changes. All migrations are manual SQL scripts.
+
 ## Purpose
 
 Consolidate TrainerProfile data into User table and drop the redundant TrainerProfile table. This migration completes the Northstar schema consolidation by eliminating the separate profile table and centralizing all trainer data in the User model.
@@ -202,11 +206,13 @@ psql $DATABASE_URL \
 # Step 3: Verify TrainerProfile table restored
 npm run db:cli -- count TrainerProfile
 
-# Step 4: Restore Prisma schema (git revert)
+# Step 4: Revert schema changes (git revert migration commit)
 git revert <migration_commit_sha>
+
+# Step 5: Regenerate TypeScript types from updated schema
 npx prisma generate
 
-# Step 5: Restart application
+# Step 6: Restart application
 # Render Dashboard → infinity-gauntlet-bots → Resume
 ```
 
@@ -228,7 +234,9 @@ npm run db:cli -- query "SELECT COUNT(*) FROM \"TrainerProfile\";" --target expe
 
 ### Required Code Changes
 
-1. **Remove TrainerProfile model from Prisma schema:**
+**Note:** This system uses **PostgreSQL-native migrations** (pure SQL applied via `psql`). The `prisma/schema.prisma` file is used only to generate TypeScript types for `@prisma/client` query builder - it does NOT control migrations.
+
+1. **Update schema.prisma to reflect database changes (remove TrainerProfile model):**
    ```diff
    - model TrainerProfile {
    -   userId            String   @id
@@ -260,10 +268,11 @@ npm run db:cli -- query "SELECT COUNT(*) FROM \"TrainerProfile\";" --target expe
    + const user = await prisma.user.findUnique({ where: { id: userId }, select: { tagline: true, bio: true, favoriteSpeciesId: true } });
    ```
 
-4. **Run Prisma generate:**
+4. **Regenerate TypeScript types after schema changes:**
    ```bash
    npx prisma generate
    ```
+   This regenerates `@prisma/client` types to match the updated `schema.prisma` (no TrainerProfile model).
 
 ### Deployment Checklist
 
@@ -274,9 +283,9 @@ npm run db:cli -- query "SELECT COUNT(*) FROM \"TrainerProfile\";" --target expe
 - [ ] DEV migration applied successfully
 - [ ] DEV data validation passed
 - [ ] PROD replication verified
-- [ ] Application code updated (TrainerProfile removed from schema)
+- [ ] Application code updated (TrainerProfile removed from schema.prisma)
 - [ ] ProfileService queries updated
-- [ ] Prisma client regenerated
+- [ ] TypeScript types regenerated (npx prisma generate)
 - [ ] Application restarted and tested in production
 - [ ] Performance metrics validated (table_bloat, slow_queries)
 - [ ] Monitoring dashboards updated
