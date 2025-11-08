@@ -394,7 +394,6 @@ async function readEnvFile(filePath: string): Promise<EnvVars> {
         "RENDER_DB_EXTERNAL_URL",
         "DATABASE_LOCAL_URL",
         "PRISMA_CLIENT_URL",
-        "OPTIMIZE_API_KEY",
         "ALERT_WEBHOOK_URL",
       ];
       
@@ -596,32 +595,6 @@ async function runPhase(
       detail: message,
     });
   }
-}
-
-async function preflightOptimize(envVars: EnvVars): Promise<void> {
-  const url = envVars.OPTIMIZE_DATABASE_URL || envVars.OPTIMIZE_DIRECT_URL;
-  if (!url) return;
-
-  const targetVars: EnvVars = {
-    DATABASE_URL: url,
-  };
-
-  await withPrismaClient("prod", targetVars, async (client) => {
-    try {
-      await client.$queryRawUnsafe('SELECT 1 FROM "SpeciesSheet" LIMIT 1');
-      log("preflight.optimize.ok", { message: "Optimize DB SpeciesSheet readable." });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      log("preflight.optimize.fail", {
-        message: "Optimize DB SpeciesSheet access failed.",
-        error: message,
-        remediation: [
-          'GRANT USAGE ON SCHEMA public TO <app_user>;',
-          'GRANT SELECT ON MATERIALIZED VIEW public."SpeciesSheet" TO <app_user>;',
-        ],
-      });
-    }
-  });
 }
 
 async function withPrismaClient<T>(
@@ -1056,14 +1029,6 @@ async function main(): Promise<void> {
       checksum: bootstrapTrigger.payload.checksum,
     });
     return;
-  }
-
-  try {
-    await preflightOptimize(prodVars);
-  } catch (error) {
-    log("preflight.optimize.error", {
-      message: error instanceof Error ? error.message : String(error),
-    });
   }
 
   const history: { 

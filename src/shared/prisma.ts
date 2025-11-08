@@ -55,13 +55,7 @@ const heartbeatListeners: Set<HeartbeatListener> =
 
 globalPrisma.prismaHeartbeatListeners = heartbeatListeners;
 
-// 2-NODE CLUSTER: Direct PostgreSQL only (no Accelerate)
-const OPTIMIZE_SCHEME = /^prisma(\+|:\/\/)/i;
-
-function isOptimizeCompatibleUrl(url: string): boolean {
-  return OPTIMIZE_SCHEME.test(url);
-}
-
+// 2-NODE CLUSTER: Direct PostgreSQL only
 let devPrismaClient: PrismaClient | null = null;
 let prodPrismaClient: PrismaClient | null = null;
 let localPrismaClient: PrismaClient | null = null;
@@ -74,97 +68,6 @@ let lastPrismaTransport = "direct";
 let devTransport = "unknown";
 let prodTransport = "unknown";
 let localTransport = "unknown";
-
-type OptimizeExtender = (client: PrismaClient) => PrismaClient;
-let optimizeExtender: OptimizeExtender | null = null;
-
-const optimizeApiKey = process.env.OPTIMIZE_API_KEY?.trim();
-
-type OptimizeModule = typeof import("@prisma/extension-optimize");
-
-if (optimizeApiKey) {
-  const apiKey = optimizeApiKey;
-  const optimizeEndpointRaw = (
-    process.env.OPTIMIZE_API_URL ?? process.env.OPTIMIZE_API_ENDPOINT ?? ""
-  ).trim();
-  let optimizeEndpoint: string | null = null;
-
-  if (optimizeEndpointRaw) {
-    try {
-      const parsedEndpoint = new URL(optimizeEndpointRaw);
-      if (parsedEndpoint.protocol !== "https:") {
-        log.warn("Prisma Optimize endpoint must use HTTPS; ignoring override", {
-          endpoint: `${parsedEndpoint.protocol}//${parsedEndpoint.host}`,
-        });
-      } else {
-        parsedEndpoint.hash = "";
-        const normalized = parsedEndpoint.toString().replace(/\/?$/, "");
-        optimizeEndpoint = normalized;
-      }
-    } catch (error) {
-      log.warn("Invalid Prisma Optimize endpoint override; ignoring value", {
-        endpoint: optimizeEndpointRaw,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  const attachOptimizeModule = (module: Partial<OptimizeModule> | null | undefined): boolean => {
-    if (!module) {
-      return false;
-    }
-    const withOptimize = module.withOptimize;
-    if (typeof withOptimize !== "function") {
-      return false;
-    }
-    const optimizeOptions: Record<string, unknown> = { apiKey };
-    if (optimizeEndpoint) {
-      optimizeOptions.endpoint = optimizeEndpoint;
-    }
-    optimizeExtender = (client: PrismaClient) =>
-      client.$extends(withOptimize(optimizeOptions as Parameters<typeof withOptimize>[0])) as unknown as PrismaClient;
-    return true;
-  };
-
-  let loadError: unknown = null;
-
-  const tryDynamicImport = async (): Promise<boolean> => {
-    try {
-      const module = await import("@prisma/extension-optimize");
-      if (attachOptimizeModule(module)) {
-        loadError = null;
-        return true;
-      }
-      loadError = new Error("withOptimize export is unavailable");
-    } catch (error) {
-      loadError = error;
-    }
-    return false;
-  };
-
-  const tryRequire = (): boolean => {
-    try {
-      const require = createRequire(import.meta.url);
-      const module = require("@prisma/extension-optimize") as OptimizeModule;
-      if (attachOptimizeModule(module)) {
-        loadError = null;
-        return true;
-      }
-      loadError = new Error("withOptimize export is unavailable");
-    } catch (error) {
-      loadError = error;
-    }
-    return false;
-  };
-
-  const loaded = (await tryDynamicImport()) || tryRequire();
-
-  if (!loaded && loadError) {
-    const message = loadError instanceof Error ? loadError.message : String(loadError);
-    log.warn("Prisma Optimize disabled; failed to load extension", { error: message });
-    optimizeExtender = null;
-  }
-}
 
 function emitHeartbeat(event: PrismaHeartbeatEvent): void {
   for (const listener of heartbeatListeners) {
@@ -345,24 +248,6 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
 
   const baseClient = new PrismaCtor(baseOptions as Prisma.PrismaClientOptions) as PrismaClient;
   let client = baseClient;
-
-  if (optimizeExtender && isOptimizeCompatibleUrl(candidate.url)) {
-    try {
-      client = optimizeExtender(client);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      log.warn("Prisma Optimize extension attach failed", { error: message });
-    }
-  } else if (optimizeExtender) {
-    const meta: Record<string, unknown> = {
-      reason: "incompatible-url",
-      source: candidate.source,
-    };
-    if (candidate.isFallback) {
-      meta.fallback = true;
-    }
-    log.debug("Prisma Optimize skipped for datasource", meta);
-  }
 
   // 2-NODE CLUSTER: Always use library engine for direct connections
   delete process.env.PRISMA_CLIENT_ENGINE_TYPE;

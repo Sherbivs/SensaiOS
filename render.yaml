@@ -34,8 +34,6 @@ services:
         value: web
       - key: LOG_FORMAT
         value: cli
-      - key: OPTIMIZE_API_KEY
-        sync: false
 
   - type: worker
     name: infinity-gauntlet-outbox
@@ -76,8 +74,6 @@ services:
         value: "20"
       - key: OUTBOX_BATCH_SIZE
         value: "100"
-      - key: OPTIMIZE_API_KEY
-        sync: false
 
   # Discord bot worker
   - type: worker
@@ -126,8 +122,6 @@ services:
         value: pokemon-battles
       - key: DISABLE_SNAPSHOT_PRECHECK
         value: "true"
-      - key: OPTIMIZE_API_KEY
-        sync: false
 
   - type: worker
     name: infinity-gauntlet-security
@@ -202,8 +196,6 @@ services:
         value: "0"
       - key: CACHE_WORKER_INTERVAL_JITTER_MS
         value: "0"
-      - key: OPTIMIZE_API_KEY
-        sync: false
 
   - type: worker
     name: infinity-gauntlet-data-pipeline
@@ -242,8 +234,6 @@ services:
         value: "900000"
       - key: DATA_PIPELINE_RUN_ON_BOOT
         value: "false"
-      - key: OPTIMIZE_API_KEY
-        sync: false
 
   # Canonical Pokédex cache worker (persistent disk + scheduler)
   - type: worker
@@ -293,8 +283,6 @@ services:
       - key: RENDER_API_KEY
         sync: false
       - key: GITHUB_TOKEN
-        sync: false
-      - key: OPTIMIZE_API_KEY
         sync: false
 
   # Optional failsafe cron job: refresh GitHub fallback only
