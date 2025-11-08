@@ -4,7 +4,7 @@
  * Tests for replication metrics calculation and alert threshold detection.
  */
 
-import type { PrismaClient } from '@prisma/client';
+import type { Pool } from 'pg';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import {
@@ -16,22 +16,22 @@ import {
 import * as versionModule from '../../src/services/db-replication/version';
 
 // Mock Prisma clients
-function createMockPrismaClient(_name: string): PrismaClient {  // Prefixed with _ to indicate intentionally unused
+function createMockPoolClient(_name: string): Pool {  // Prefixed with _ to indicate intentionally unused
   return {
-    $queryRaw: vi.fn(),
-    $disconnect: vi.fn(),
-  } as unknown as PrismaClient;
+    query: vi.fn(),
+    end: vi.fn(),
+  } as unknown as Pool;
 }
 
 describe('getReplicationMetrics', () => {
-  let devPrisma: PrismaClient;
-  let prodPrisma: PrismaClient;
-  let localPrisma: PrismaClient;
+  let devPool: Pool;
+  let prodPool: Pool;
+  let localPool: Pool;
 
   beforeEach(() => {
-    devPrisma = createMockPrismaClient('DEV');
-    prodPrisma = createMockPrismaClient('PROD');
-    localPrisma = createMockPrismaClient('LOCAL');
+    devPool = createMockPoolClient('DEV');
+    prodPool = createMockPoolClient('PROD');
+    localPool = createMockPoolClient('LOCAL');
     vi.clearAllMocks();
   });
 
@@ -49,7 +49,7 @@ describe('getReplicationMetrics', () => {
       .mockResolvedValueOnce(mockVersion) // PROD
       .mockResolvedValueOnce(mockVersion); // LOCAL
 
-    const metrics = await getReplicationMetrics(devPrisma, prodPrisma, localPrisma);
+    const metrics = await getReplicationMetrics(devPool, prodPool, localPool);
 
     expect(metrics.devToProd.versionLag).toBe(0);
     expect(metrics.devToProd.syncStatus).toBe('IN_SYNC');
@@ -89,7 +89,7 @@ describe('getReplicationMetrics', () => {
       .mockResolvedValueOnce(prodVersion)
       .mockResolvedValueOnce(localVersion);
 
-    const metrics = await getReplicationMetrics(devPrisma, prodPrisma, localPrisma);
+    const metrics = await getReplicationMetrics(devPool, prodPool, localPool);
 
     expect(metrics.devToProd.versionLag).toBe(3); // 15 - 12
     expect(metrics.devToProd.syncStatus).toBe('LAGGING'); // lag <= 5
@@ -117,7 +117,7 @@ describe('getReplicationMetrics', () => {
       .mockResolvedValueOnce(devVersion)
       .mockResolvedValueOnce(prodVersion);
 
-    const metrics = await getReplicationMetrics(devPrisma, prodPrisma, null);
+    const metrics = await getReplicationMetrics(devPool, prodPool, null);
 
     expect(metrics.prodToLocal.syncStatus).toBe('UNKNOWN');
     expect(metrics.versionFingerprints.local).toBe('N/A');
@@ -145,7 +145,7 @@ describe('getReplicationMetrics', () => {
       .mockResolvedValueOnce(prodVersion)
       .mockResolvedValueOnce(prodVersion);
 
-    const metrics = await getReplicationMetrics(devPrisma, prodPrisma, localPrisma);
+    const metrics = await getReplicationMetrics(devPool, prodPool, localPool);
 
     expect(metrics.devToProd.versionLag).toBe(8);
     expect(metrics.devToProd.syncStatus).toBe('ERROR'); // lag > 5
@@ -488,3 +488,5 @@ describe('formatMetrics', () => {
     expect(formatted).toContain('abc123def456');
   });
 });
+
+
