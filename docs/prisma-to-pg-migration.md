@@ -1,8 +1,8 @@
 # Prisma ORM to Raw PostgreSQL Migration Plan
 
-**Status**: Task 7 Complete - Encounter Queries Validated  
+**Status**: Task 8 Complete - Battle Queries Validated  
 **Created**: 2025-11-07  
-**Last Updated**: 2025-11-07  
+**Last Updated**: 2025-11-08  
 **Scope**: Complete removal of @prisma/client dependency and migration to raw PostgreSQL via `pg` library
 
 ---
@@ -222,6 +222,52 @@ export async function getUserBasic(
 - Implementation: `src/shared/models/encounter-queries-pg.ts` (~450 lines)
 - Tests: `tests/encounter-queries-pg.test.ts` (~520 lines)
 - Commit: `6b0fab1` (2025-11-07)
+
+### 1.6 Battle Queries Implementation ✅ (2025-11-08)
+
+**Task 8 Complete**: Battle CRUD operations for PvP challenge/accept/conclude gameplay implemented and tested.
+
+**Implementation**:
+- `src/shared/models/battle-queries-pg.ts` (~620 lines)
+  * 4 read operations: findBattleById, findBattleWithPlayers, findActiveOrPendingBattleForUser, countBattlesByState
+  * 7 write operations: createBattle, updateBattleState, updateBattleStateAndEnd, linkBattleToThread, activateBattle, concludeBattle, deleteBattle
+  * BattleWithPlayers type with User JOIN (p1 + p2 records)
+  * State transition support (Pending → Active → Finished/Aborted)
+  * Transaction support for battle conclusion (battle update + 2 coin rewards)
+  * Discord thread linking for Arena UI
+  * Limit check support (findActiveOrPendingBattleForUser)
+
+- `tests/battle-queries-pg.test.ts` (~550 lines)
+  * 28 test cases covering complete battle lifecycle
+  * Tests: challenge creation, find by ID, find with players, limit checks, count by state
+  * State transition validation (Pending → Active → Finished/Aborted)
+  * Edge cases: non-existent IDs, limit enforcement, transaction atomicity
+  * Transaction validation (concludeBattle with coin rewards)
+  * Thread linking tests for Discord Arena integration
+  * Atomic activate operation (state + thread in one update)
+
+**Coverage Highlights**:
+1. **Challenge Creation**: createBattle with p1/p2, state, rngSeed, ruleset, metadata
+2. **Limit Checks**: findActiveOrPendingBattleForUser for canChallengeBattle validation
+3. **State Transitions**: updateBattleState for Pending → Active, updateBattleStateAndEnd for conclusion
+4. **Discord Integration**: linkBattleToThread and activateBattle for Arena threads
+5. **Transactional Conclusion**: concludeBattle atomically updates battle + coins for both players
+6. **Player Context**: findBattleWithPlayers for full battle state with User records
+7. **Complete Lifecycle**: Full CRUD coverage from challenge to cleanup
+
+**Patterns Established for PvP Systems**:
+- Transaction management with BEGIN/COMMIT/ROLLBACK for atomic multi-table updates
+- Complex JOINs with User table (p1 + p2) for battle context
+- State machine transitions with validation (Pending → Active → Finished/Aborted)
+- Limit enforcement via findActiveOrPendingBattleForUser (one active battle per user)
+- Discord thread association for UI state synchronization
+- Coin reward distribution via atomic UPDATE increments
+- Result metadata storage in resultJson with full type safety
+
+**Files**:
+- Implementation: `src/shared/models/battle-queries-pg.ts` (~620 lines)
+- Tests: `tests/battle-queries-pg.test.ts` (~550 lines)
+- Commit: TBD (2025-11-08)
 
 ---
 
