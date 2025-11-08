@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { PrismaClient } from "@prisma/client";
+import type { Pool } from "pg";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -24,15 +24,14 @@ import {
 } from "../../core/battle/turn-manager.js";
 import { BattleRepo, prisma as prismaClient } from "../../models/index.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
-import { PARTY_WITH_SLOTS_INCLUDE } from "../../shared/models/index.js";
+import { getPartyWithSlots } from "../../shared/models/party-queries-pg.js";
+import { getProdDb } from "../../shared/pg-connection.js";
 
 import * as concludeModule from "./conclude.js";
 
 export const MOVE_PREFIX = "BATTLE_MOVE_";
 export const SWITCH_PREFIX = "BATTLE_SWITCH_";
 export const FORFEIT_PREFIX = "BATTLE_FORFEIT_";
-
-type PrismaLike = PrismaClient;
 
 export function buildBattleActionPrompt(battleId: string) {
   const embed = new EmbedBuilder()
@@ -112,7 +111,7 @@ type PromptSwitchFn = (context: {
 }) => Promise<string | null>;
 
 type HandlerOpts = {
-  prisma?: PrismaLike;
+  pool?: Pool;
   promptMove?: PromptMoveFn;
   promptSwitch?: PromptSwitchFn;
   openActionDmHandler?: typeof openActionDMs;
@@ -273,14 +272,11 @@ function toPartyMember(entry: any): BattlePartyMember {
 }
 
 async function loadParticipantState(
-  prisma: PrismaLike,
+  pool: Pool,
   player: any
 ): Promise<{ active: BattlePartyMember; bench: BattlePartyMember[] } | null> {
   if (!player?.id) return null;
-  const party = await prisma.party.findUnique({
-    where: { ownerId: player.id },
-    include: PARTY_WITH_SLOTS_INCLUDE,
-  });
+  const party = await getPartyWithSlots(player.id, pool);
   const slots = party?.slots ?? [];
   if (!Array.isArray(slots) || slots.length === 0) {
     return null;
@@ -321,8 +317,9 @@ export async function handleBattleActionButton(
   if (!parsedResult) return;
   const parsed = parsedResult as ParsedCustomId;
 
-  const prisma = opts.prisma ?? prismaClient;
-  const battle = await loadBattleState(parsed.battleId, { prisma });
+  const pool = opts.pool ?? getProdDb();
+  // Note: loadBattleState still uses Prisma via cache layer - deferred to cache migration task
+  const battle = await loadBattleState(parsed.battleId, { prisma: prismaClient });
   if (!battle) {
     await interaction.reply({ content: "This battle no longer exists.", ephemeral: true });
     return;
@@ -343,8 +340,9 @@ export async function handleBattleActionButton(
     const p1Ids = collectIds(battle.p1?.id, (battle.p1 as any)?.userId, battle.p1?.discordId);
     const forfeiterIsP1 = Array.from(p1Ids).some((id) => userIds.has(id));
     const winnerKey = forfeiterIsP1 ? "p2" : "p1";
+    // Note: BattleRepo.concludeBattle still uses Prisma - deferred to repository migration task
     const result = await BattleRepo.concludeBattle({
-      prisma,
+      prisma: prismaClient,
       battle,
       winner: winnerKey,
       turnCount: 0,
@@ -363,7 +361,7 @@ export async function handleBattleActionButton(
     return;
   }
 
-  const participant = await loadParticipantState(prisma, identified.player);
+  const participant = await loadParticipantState(pool, identified.player);
   if (!participant) {
     await interaction.reply({ content: "No available party members to act.", ephemeral: true });
     return;
