@@ -28,7 +28,6 @@ what to do next, where to change it, and how to update state.
 - After *every* completed task: set `ops/NEXT.yaml:next_task_id` to a READY task (never `NONE`). If none exist, auto-promote or inject `META.UNBLOCK.READY_SEED` and then point NEXT at it. Always narrow `files_hint`.
 - If a task touches new paths not listed, extend `ops/TOUCHMAP.yaml`.
 - If the task changed system behavior/architecture, update `Prompt.md` (Revision History + affected sections) and ensure `ops/KNOWLEDGE.yaml` still points to the right sources.
-- When DONE history exceeds 100 entries, run `npm run tasks:archive` to move older completions into `ops/ARCHIVE/`.
 - Keep these files **small and deterministic**. Re-run yields the same state.
 
 ## Meta Visibility Phase (MANDATORY)

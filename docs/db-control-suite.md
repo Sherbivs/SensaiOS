@@ -1,13 +1,12 @@
 # Database Control Suite *(Muted — Local Only)*
-Last Updated (UTC): 2025-11-05T14:17:00Z
+Last Updated (UTC): 2025-11-07T20:00:00Z
 
 Purpose: provide a single entry point for routine database inspections, counts, and ad-hoc queries while honoring secure environment loading (`IG_ENV_FILE`). Intended for local operators only; do not run in CI or production.
 
 ## Prerequisites
-- Ensure secrets live outside the repo. This workstation keeps the direct credentials in `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` and the Accelerate proxy credentials in `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env`.
-- Point `IG_ENV_FILE` at the file you need (usually `Key/Dev/.env` for dev DB access) via `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env" -Persist` before running any commands.
-- Swap to Accelerate when required by re-running the helper with `Key/Prod/.env`. Keep only one target active at a time, and after returning from Prod run `npx prisma generate` once so Prisma stops expecting the Accelerate data proxy.
-- Confirm the chosen env file defines `RENDER_DB_EXTERNAL_URL` or `RENDER_DB_INTERNAL_URL`; `npx prisma migrate deploy` and the seeder require a direct Postgres connection (`P1012` errors occur when it is missing).
+- Ensure secrets live outside the repo. Use the consolidated environment file at `secrets/Infinity-Gauntlet.env` on your workstation containing all database URLs: `RENDER_DB_EXTERNAL_URL` (for DEV master via internet), `DATABASE_LOCAL_URL` (optional local PostgreSQL on your personal computer). Game Engine (Render) uses `DEV_DATABASE_URL` (internal) and `PROD_DATABASE_URL` (localhost on persistent disk).
+- Point `IG_ENV_FILE` at the consolidated file via `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist` before running any commands on your workstation.
+- Confirm the chosen env file defines `RENDER_DB_EXTERNAL_URL` (for migrations from your workstation) or `DATABASE_LOCAL_URL` (for local queries); `npx prisma migrate deploy` requires direct PostgreSQL connections.
 - Verify the override with `echo $Env:IG_ENV_FILE`; the suite refuses to fall back to the repo `.env` in production contexts.
 - Apply schema migrations before querying: `npx prisma migrate deploy` (or `npm run prisma:migrate` if you keep a script) against your dev database so tables such as `BusMessage`, `PokemonInstance`, and `Species` exist. The suite assumes the full Prisma schema is present.
 

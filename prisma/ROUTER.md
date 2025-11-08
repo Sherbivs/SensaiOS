@@ -5,7 +5,7 @@ Owned Globs: prisma/**
 Last Updated (UTC): 2025-11-04T17:42:30Z
 
 Notes:
-- `schema.prisma` defines the Accelerate-first data model shared by the bot, workers, and maintenance scripts.
+- `schema.prisma` defines the data model shared by the bot, workers, and maintenance scripts (2-node direct PostgreSQL cluster).
 - The `migrations/` folder now carries its own router outlining timestamped bundles and the committed `migration_lock.toml` state.
 - Keep migration folders chronological and document rollout evidence in Tasklist notes or ops/DB_BOOTSTRAP.md.
 - 2025-11-03: Added TrainerProfile table for Option C hybrid trainer profiles (tagline/bio/favorite species) plus referential integrity to Species.

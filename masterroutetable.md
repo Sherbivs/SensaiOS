@@ -8,12 +8,10 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - `ops/ROUTER.yaml` — Canonical route map. Markerless Mode is documented in `ops/CRITICAL.md`; even when contracts are OFF, do not remove routers.
   - Routes:
   - `ops/ROUTER.md` — Ops & Governance
-    - `ops/ARCHIVE/ROUTER.md` — Tasklist archive snapshots (read-only history)
     - `ops/INBOX/ROUTER.md` — Operator inbox notes pending Tasklist promotion
     - `scripts/ROUTER.md` — Dev & Docs Scripts (includes bootstrap_staging_db.ps1 helper)
     - `src/ROUTER.md` — Application Source
       - `src/dex/ROUTER.md` — Dex runtime loaders, metrics, and flag instrumentation for the v2 pack
-    - `ops/DB_IMPORT_PRISMA_POSTGRES.md` — Prisma Postgres import runbook (ARCHIVED - see docs/ACCELERATE-MIGRATION-ARCHIVE.md)
   - `ops/POKEMON_CACHE.md` — PokeAPI integration & cache operations runbook
     - `outbox.ts` now wraps the event bus helpers so legacy drains can enqueue/claim messages while handlers migrate.
     - `worker-runtime.ts` centralizes worker lifecycle helpers (shutdown hooks, repeating tasks) for outbox/cache/data pipeline entries.
@@ -28,7 +26,6 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `src/bot/wilds/ROUTER.md` — Walk/catch encounter handlers
   - `docs/ROUTER.md` — Documentation Library
     - `docs/dex-v2-design.md` — High-availability dex upgrade blueprint plus day-one database plan and rollout playbook
-    - `docs/db-accelerate-workflow.md` — IG_ENV_FILE selection and database workflow rehearsal guide (ARCHIVED - see docs/ACCELERATE-MIGRATION-ARCHIVE.md)
   - `src/core/ROUTER.md` — Core Game Engines
     - `src/core/battle/ROUTER.md` — Deterministic battle engine internals
     - `src/core/encounter/ROUTER.md` — Encounter spawn and catch logic
@@ -97,7 +94,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - `scripts/db_admin.ts` — Muted (local CLI); run via `npm run db:cli` for status, counts, and ad-hoc queries
   - `scripts/setup_ai_env.ps1` — Muted (agent env helper); registers `IG_ENV_FILE` so secrets load from external storage
   - `scripts/db_smoke.ts` — IG_ENV_FILE-aware smoke helper (supports both DEV/PROD direct PostgreSQL modes)
-  - `scripts/dev_prod_auto_sync.ts` — Muted (automation loop); ensures migrate/seed inherit env-specific credentials, forces direct migrations, times out hung commands, preflights Optimize SpeciesSheet access, watches `data/cache/dex-sync-trigger.json`, and continuously runs the Dev → Prod → Dev cadence with integrity checks (`npm run db:auto-sync`)
+  - `scripts/dev_prod_auto_sync.ts` — Muted (automation loop); ensures migrate/seed inherit env-specific credentials, forces direct migrations, times out hung commands, watches `data/cache/dex-sync-trigger.json`, and continuously runs the Dev → Prod → Dev cadence with integrity checks (`npm run db:auto-sync`)
   - `scripts/build_dexpack.ts` — Deterministic dexpack builder emitting committed JSON + gzip assets (`npm run data:dexpack`)
   - `scripts/ops/dex_v2_backup.ts` — `pg_dump -Fc` wrapper for Dev/Prod backups with env selection (`npm run ops:dex-v2-backup`)
   - `scripts/ops/simulate_flag_rollout.ts` — Feature-flag rollout planner producing JSON payloads and optional webhook alerts (`npm run ops:simulate-flag`)
@@ -119,10 +116,6 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - 2025-11-03: Added DEX v2 cutover helpers covering backups, flag scheduling, and observability alert dry-runs.
   - 2025-11-05: Added a Store-backed Postgres fallback bootstrapper that mirrors DEV data and writes `Store/db/local-url.txt` for Prisma failover.
   - 2025-11-06: Landed a silent Postgres dependency installer plus a single wrapper command so `npm run ops:auto-bootstrap-local-db` provisions tooling then refreshes the Store-backed mirror.
-
-### Ops Archive (`ops/ARCHIVE/ROUTER.md`)
-- Purpose: Read-only snapshots of Tasklist history and supporting meta exports.
-- Notes: Populate via `scripts/archive_task_history.mjs`; avoid manual edits so provenance stays intact.
 
 ### Ops Inbox (`ops/INBOX/ROUTER.md`)
 - Purpose: Fast notes queue for operators; guard scripts compare its timestamp to `ops/NEXT.yaml.last_notes_read_utc`.

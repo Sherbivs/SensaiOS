@@ -63,12 +63,11 @@
 - [x] **Persistent Disks**: 1-2 GB per service at /opt/render/project/src/Store
 
 ### Environment Variables (All Set)
-- [x] **Database URLs**: PROD_DATABASE_URL (primary), DEV_DATABASE_URL (master)
+- [x] **Database URLs**: PROD_DATABASE_URL (Game Engine localhost), DEV_DATABASE_URL (Render PostgreSQL master)
 - [x] **Bot Tokens**: DISCORD_BOT_TOKEN, POKEMON_BOT_TOKEN (secrets, sync: false)
 - [x] **Security Bot**: SECURITY_BOT_TOKEN, alert webhook/channel/user configured
 - [x] **Render API**: RENDER_API_KEY for automated operations
 - [x] **GitHub Token**: For cache worker data sync
-- [x] **Optimize API**: OPTIMIZE_API_KEY for Prisma telemetry
 
 ---
 

@@ -12,10 +12,8 @@ Notes:
 Key Documents:
 - meta-router.md - Describes routing philosophy, recovery loop, and budget heuristics for agent runs.
 - architecture.md & operations.md - High-level system overview plus day-to-day operational procedures.
-- database-configuration.md & db-control-suite.md - Canonical reference for triple-client architecture (PROD/DEV/LOCAL), workstation gameplay setup, and database tooling.
-- DATABASE-CONFIG-REFERENCE.md - Quick reference card for production standard (Prisma Accelerate), environment variables, and workstation setup.
+- database-systems.md & db-control-suite.md - Canonical reference for 2-node direct PostgreSQL architecture (DEV master + PROD local node), workstation gameplay setup, and database tooling.
 - WORKSTATION-GAMEPLAY-SETUP.md - Complete guide for configuring LOCAL PostgreSQL as PRIMARY database for live gameplay (<50ms latency).
-- db-accelerate-workflow.md - Quick how-to for selecting IG_ENV_FILE secrets and running db:cli/db:smoke in direct vs. Accelerate modes.
 - dex-v2-design.md - High-availability Pokédex upgrade blueprint paired with the day-one database plan and rollout playbook.
 - perfect-system-roadmap.md - Long-range governance/automation roadmap feeding Phase 12 tasks.
 - safety.md & ai-env-setup.md - Security posture, incident response, and environment setup for agents.

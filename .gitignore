@@ -59,6 +59,12 @@ tmp/backups/
 *.bak
 *.old
 
+# Archives (local historical snapshots only)
+ops/ARCHIVE/
+docs/ARCHIVE/
+**/archive/
+ARCHIVE/
+
 # Testing & Coverage
 coverage/
 .nyc_output/

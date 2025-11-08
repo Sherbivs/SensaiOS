@@ -1093,8 +1093,8 @@ Each task has:
     - Child processes inherit DATABASE_URL/DATABASE_DIRECT_URL from the target env file instead of relying on the shell environment (IG_ENV_FILE alone is not sufficient).
     - Prisma migrate runs against direct connections (never Data Proxy) and logs a warning when the env file lacks a direct URL entry.
     - Auto-sync terminates hung migrate/seed commands with a timeout and replays the cadence without wedging the integrity loop.
-    - Optimize/SpeciesSheet preflight surfaces missing grants with actionable remediation guidance before the consolidation loop starts.
-  notes: Outcome — Injected env file variables per phase, forced direct URLs for migrate, added command timeouts, and logged SpeciesSheet preflight + Data Proxy warnings so the sync loop recovers cleanly and surfaces permission drift.
+    - **[HISTORICAL - Pre-Accelerate removal]** SpeciesSheet preflight surfaces missing grants with actionable remediation guidance before the consolidation loop starts.
+  notes: Outcome — Injected env file variables per phase, forced direct URLs for migrate, added command timeouts, and logged SpeciesSheet preflight warnings so the sync loop recovers cleanly and surfaces permission drift.
 
 - id: T13.DEX.AUTO_SYNC_TRIGGER
   title: Fire the auto-sync loop when PokéAPI cache refresh completes

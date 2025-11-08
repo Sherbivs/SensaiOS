@@ -85,7 +85,6 @@ categories:
     - scripts/ops/auto_bootstrap_local_db.ps1
   router_docs:
     - ops/ROUTER.md
-    - ops/ARCHIVE/ROUTER.md
     - ops/INBOX/ROUTER.md
     - ops/ROUTER_INDEX.yaml
     - masterroutetable.md

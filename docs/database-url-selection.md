@@ -1,6 +1,6 @@
 # Database URL Selection Guide
 
-**Last Updated (UTC):** 2025-11-06T22:00:00Z  
+**Last Updated (UTC):** 2025-11-07T20:30:00Z  
 **Importance:** CRITICAL  
 **Contract Status:** Absolute Requirement (see Patch.md)
 
@@ -8,316 +8,284 @@
 
 This document defines the **canonical URL selection logic** for all database operations across the Infinity Gauntlet project. Non-compliance with these rules causes production failures.
 
-## The Problem
+## The Architecture
 
-Prisma Client can operate in two modes:
-1. **Accelerate Mode** (driver adapter): Requires `prisma://` or `prisma+postgres://` URLs
-2. **Direct Mode** (native driver): Requires `postgresql://` URLs
+**As of 2025-11-07**, the system uses a **2-node direct PostgreSQL cluster** with zero proxy layers:
 
-**In production (Render)**, Prisma Client is generated for Accelerate mode. Passing direct PostgreSQL URLs causes validation errors:
-```
-PrismaClientKnownRequestError: P6001
-Error validating datasource `db`: the URL must start with the protocol `prisma://` or `prisma+postgres://`
-```
+- **DEV (Master)**: Source of truth for migrations and schema changes
+- **PROD (Local Node)**: Primary node for live gameplay with <50ms latency
+
+All connections use direct `postgresql://` URLs. No Prisma Accelerate, no connection pooling proxies.
 
 ## Environment Variables
 
-### Core Variables
+### Core Variables (Production)
+
+```bash
+DEV_DATABASE_URL       # DEV master (migrations, schema changes)
+PROD_DATABASE_URL      # PROD local node (gameplay, <50ms latency)
+DATABASE_LOCAL_URL     # Local workstation mirror (offline development)
 ```
-DATABASE_URL               ← Prisma Accelerate (production queries)
-RENDER_DB_INTERNAL_URL     ← DEV database direct (Render Node internal network)
-RENDER_DB_EXTERNAL_URL     ← DEV database direct (developer laptop external access)
-DATABASE_LOCAL_URL         ← Render Node local PostgreSQL (Store/db/ persistent disk)
-PRISMA_CLIENT_URL          ← Prisma direct connection (non-query operations)
+
+### Legacy Variables (Still Supported for DEV Access)
+
+```bash
+RENDER_DB_EXTERNAL_URL # DEV master external access (same as DEV_DATABASE_URL)
+RENDER_DB_INTERNAL_URL # DEV master internal network (Render services)
 ```
 
 ### Variable Purposes
 
 | Variable | Protocol | Purpose | Access Point |
 | --- | --- | --- | --- |
-| `DATABASE_URL` | `prisma+postgres://` | Prisma Accelerate proxy | Production queries (Render Node) |
-| `RENDER_DB_INTERNAL_URL` | `postgresql://` | DEV database direct | Render Node (internal network) |
-| `RENDER_DB_EXTERNAL_URL` | `postgresql://` | DEV database direct | Developer laptop (migrations) |
-| `DATABASE_LOCAL_URL` | `postgresql://` | Render Node local disk | Render Node (`Store/db/` persistent) |
-| `PRISMA_CLIENT_URL` | `postgres://` | Prisma proxy direct | Prisma Client fallback |
+| `DEV_DATABASE_URL` | `postgresql://` | DEV master database | Migrations, schema changes |
+| `PROD_DATABASE_URL` | `postgresql://` | PROD local node | Live gameplay (<50ms) |
+| `DATABASE_LOCAL_URL` | `postgresql://` | Workstation mirror | Offline development |
+| `RENDER_DB_EXTERNAL_URL` | `postgresql://` | DEV master (legacy) | External access |
+| `RENDER_DB_INTERNAL_URL` | `postgresql://` | DEV master (legacy) | Render internal |
 
-### Architecture Diagram
+## Canonical URL Selection Logic
 
-```
-Developer Laptop          Render Node (Production)        Databases
----------------          ------------------------        ---------
-                         
-RENDER_DB_EXTERNAL_URL ──────────────────────────────────> DEV DB (Render PostgreSQL)
-(migrations only)                                          
-                         RENDER_DB_INTERNAL_URL ────────> DEV DB (Render PostgreSQL)
-                         (dev queries)
-                         
-                         DATABASE_URL ──────────────────> Accelerate ──> PROD DB
-                         (prod queries)                   (proxy)
-                         
-                         DATABASE_LOCAL_URL
-                         ↓
-                         [Render Node Disk]
-                         /opt/render/project/src/Store/db/
-```
-
-## Canonical Selection Logic
-
-### For Runtime Queries (seed, counts, CRUD)
+### For Runtime Queries (Seed, Counts, CRUD)
 
 ```typescript
-/**
- * Select database URL for Prisma Client operations (queries, writes, counts)
- * 
- * PRODUCTION (on Render Node): Uses DATABASE_URL (Accelerate)
- * DEVELOPMENT (on Render Node): Uses RENDER_DB_INTERNAL_URL (DEV db direct)
- * DEVELOPMENT (from laptop): Uses RENDER_DB_EXTERNAL_URL (DEV db external)
- */
 function selectQueryUrl(envVars: Record<string, string>): string {
   const isProd = process.env.NODE_ENV === "production";
   
   if (isProd) {
-    // Production on Render Node: Use Accelerate
-    return envVars.DATABASE_URL ?? "";
+    // Production uses PROD local node for <50ms latency
+    return envVars.PROD_DATABASE_URL ?? "";
   } else {
-    // Development: Prefer internal (Render Node) or external (laptop)
+    // Development uses DEV master or local node
     return (
-      envVars.RENDER_DB_INTERNAL_URL ?? 
+      envVars.DEV_DATABASE_URL ?? 
       envVars.RENDER_DB_EXTERNAL_URL ?? 
       envVars.DATABASE_LOCAL_URL ??
-      envVars.DATABASE_URL ?? 
       ""
     );
   }
 }
 ```
 
-**Key Points:**
-- Production queries on Render Node: `DATABASE_URL` (Accelerate)
-- Development queries on Render Node: `RENDER_DB_INTERNAL_URL` (DEV database direct)
-- Development queries from laptop: `RENDER_DB_EXTERNAL_URL` (DEV database external)
-- Low-latency gameplay: `DATABASE_LOCAL_URL` (Render Node's `Store/db/` PostgreSQL)
-- `DATABASE_URL` as last resort
-
-### For Migrations (DDL operations)
+### For Migrations (ALL Environments Use Master)
 
 ```typescript
-/**
- * Select database URL for Prisma migrations (CREATE TABLE, ALTER TABLE, etc.)
- * 
- * CRITICAL: Prisma Accelerate does NOT support DDL operations.
- * - On Render Node: Use RENDER_DB_INTERNAL_URL (DEV database)
- * - From laptop: Use RENDER_DB_EXTERNAL_URL (DEV database)
- * Always use direct PostgreSQL URLs for migrations.
- */
 function selectMigrationUrl(envVars: Record<string, string>): string {
-  const url = (
-    envVars.RENDER_DB_INTERNAL_URL ??  // Prefer internal (Render Node)
-    envVars.RENDER_DB_EXTERNAL_URL ??  // Fallback to external (laptop)
+  // ALL migrations target DEV master database
+  return (
+    envVars.DEV_DATABASE_URL ?? 
+    envVars.RENDER_DB_EXTERNAL_URL ?? 
+    envVars.RENDER_DB_INTERNAL_URL ?? 
     ""
   );
-  
-  // Validate: Never use Accelerate for migrations
-  if (url.startsWith("prisma://") || url.startsWith("prisma+postgres://")) {
-    throw new Error(
-      "MIGRATION_URL_VALIDATION_ERROR: Cannot use Accelerate URLs for migrations. " +
-      "Prisma Accelerate does NOT support DDL operations (CREATE TABLE, ALTER TABLE, etc.). " +
-      "Set RENDER_DB_INTERNAL_URL (Render Node) or RENDER_DB_EXTERNAL_URL (laptop) to a direct postgresql:// connection."
-    );
-  }
-  
-  return url;
 }
 ```
 
-**Key Points:**
-- **NEVER** use `DATABASE_URL` (Accelerate) for migrations
-- Migrations require direct PostgreSQL access (`postgresql://` protocol)
-- **On Render Node**: Use `RENDER_DB_INTERNAL_URL` (faster, internal network)
-- **From laptop**: Use `RENDER_DB_EXTERNAL_URL` (external access to DEV database)
-- Validation prevents accidental Accelerate usage
-
 ## Quick Reference
 
-### Production Queries (Render Node)
-```bash
-# Use DATABASE_URL (Prisma Accelerate)
-export DATABASE_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=..."
-npx tsx scripts/seed_dex.ts
+| Operation | Environment | URL Variable | Database Node |
+| --- | --- | --- | --- |
+| **Live gameplay** | Production | `PROD_DATABASE_URL` | PROD local node (<50ms) |
+| **Runtime queries** | Development | `DEV_DATABASE_URL` | DEV master |
+| **Migrations** | ALL | `DEV_DATABASE_URL` | DEV master (always) |
+| **Offline dev** | Local | `DATABASE_LOCAL_URL` | Workstation mirror |
+
+## Architecture Diagram
+
+```
+Developer Laptop          Production Workstation        Databases
+---------------          ------------------------      ---------
+
+DEV_DATABASE_URL ────────────────────────────────────> DEV Master (Render)
+(migrations)                                           (Source of truth)
+                                                              |
+                                                              | Replication
+                                                              v
+                         PROD_DATABASE_URL ───────────> PROD Local Node
+                         (gameplay queries)             (<50ms latency)
+                         
+DATABASE_LOCAL_URL ──────────────────────────────────> Local Mirror
+(offline dev)                                          (Workstation)
 ```
 
-### Development Queries (Render Node)
-```bash
-# Use RENDER_DB_INTERNAL_URL to access DEV database
-export RENDER_DB_INTERNAL_URL="postgresql://user:pass@dpg-xxxxxxxxxx/infinity_gauntlet_db"
-npx tsx scripts/seed_dex.ts
-```
+## Critical Rules
 
-### Development Queries (Laptop)
-```bash
-# Use RENDER_DB_EXTERNAL_URL to access DEV database from laptop
-export RENDER_DB_EXTERNAL_URL="postgresql://user:pass@dpg-xxx.virginia-postgres.render.com/infinity_gauntlet_db"
-npx tsx scripts/seed_dex.ts
-```
+### ✅ DO
 
-### Migrations (Render Node)
-```bash
-# Use RENDER_DB_INTERNAL_URL (internal network, no region hostname)
-export RENDER_DB_INTERNAL_URL="postgresql://user:pass@dpg-xxxxxxxxxx/infinity_gauntlet_db"
-npx prisma migrate deploy
-```
+1. **Production gameplay** → Use `PROD_DATABASE_URL` (PROD local node)
+2. **All migrations** → Use `DEV_DATABASE_URL` (DEV master)
+3. **Development queries** → Use `DEV_DATABASE_URL` (DEV master)
+4. **Offline development** → Use `DATABASE_LOCAL_URL` (local mirror)
 
-### Migrations (Laptop → DEV database)
-```bash
-# Use RENDER_DB_EXTERNAL_URL to reach DEV database
-export RENDER_DB_EXTERNAL_URL="postgresql://user:pass@dpg-xxx.virginia-postgres.render.com/infinity_gauntlet_db"
-npx prisma migrate deploy
-```
+### ❌ DON'T
 
-### Low-Latency Gameplay (Render Node Local DB)
-```bash
-# Use DATABASE_LOCAL_URL for Render Node's Store/db/ PostgreSQL
-export DATABASE_LOCAL_URL="postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db"
-npm run dev
-```
+1. **Never** run migrations against `PROD_DATABASE_URL` (local node is a replica)
+2. **Never** mix protocol types (all connections are `postgresql://`)
+3. **Never** use pooled/proxy URLs (direct connections only)
+4. **Never** use `localhost` in production (explicit `PROD_DATABASE_URL` required)
 
-## Common Errors and Fixes
+## Implementation Examples
 
-### Error: P6001 - URL must start with prisma://
-
-**Symptom:**
-```
-PrismaClientKnownRequestError: P6001
-the URL must start with the protocol `prisma://` or `prisma+postgres://`
-```
-
-**Cause:** Passing direct PostgreSQL URL (`postgresql://`) when Prisma Client expects Accelerate URL in production.
-
-**Fix:**
-```bash
-# Set DATABASE_URL to Accelerate, not direct PostgreSQL
-export DATABASE_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=..."
-```
-
-### Error: DDL operations silently fail with Accelerate
-
-**Symptom:** Migrations appear successful but schema changes don't apply.
-
-**Cause:** Prisma Accelerate silently ignores DDL statements (CREATE TABLE, ALTER TABLE, etc.).
-
-**Fix:**
-```bash
-# On Render Node: Use RENDER_DB_INTERNAL_URL
-export RENDER_DB_INTERNAL_URL="postgresql://user:pass@dpg-xxxxxxxxxx/infinity_gauntlet_db"
-npx prisma migrate deploy
-
-# From laptop: Use RENDER_DB_EXTERNAL_URL  
-export RENDER_DB_EXTERNAL_URL="postgresql://user:pass@dpg-xxx.virginia-postgres.render.com/infinity_gauntlet_db"
-npx prisma migrate deploy
-```
-
-### Error: Connection timeout from laptop
-
-**Symptom:** `P1001 - Can't reach database server`
-
-**Cause:** Using `RENDER_DB_INTERNAL_URL` (internal-only hostname) from laptop.
-
-**Fix:**
-```bash
-# From laptop: Use RENDER_DB_EXTERNAL_URL with full region hostname
-export RENDER_DB_EXTERNAL_URL="postgresql://user:pass@dpg-xxx.virginia-postgres.render.com/infinity_gauntlet_db"
-```
-
-## Implementation Checklist
-
-When adding new database operations:
-
-- [ ] Determine operation type (query vs migration)
-- [ ] Select appropriate URL using canonical logic
-- [ ] Add environment-aware selection (check `NODE_ENV`)
-- [ ] Validate URL protocol matches Prisma Client mode
-- [ ] Log selected URL (redacted) for debugging
-- [ ] Add error handling for missing URLs
-- [ ] Document URL requirements in function JSDoc
-
-## Testing Patterns
-
-### Test Query URL Selection
+### Runtime Configuration (src/shared/config.ts)
 
 ```typescript
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { PrismaClient } from "@prisma/client";
 
-describe("selectQueryUrl", () => {
-  const originalEnv = process.env.NODE_ENV;
-  
-  afterEach(() => {
-    process.env.NODE_ENV = originalEnv;
-  });
-
-  it("should use DATABASE_URL in production", () => {
-    process.env.NODE_ENV = "production";
-    const envVars = {
-      DATABASE_URL: "prisma+postgres://accelerate.example/db",
-      RENDER_DB_EXTERNAL_URL: "postgresql://render.example/db",
-    };
-    
-    const url = selectQueryUrl(envVars);
-    expect(url).toBe(envVars.DATABASE_URL);
-  });
-
-  it("should use RENDER_DB_EXTERNAL_URL in development", () => {
-    process.env.NODE_ENV = "development";
-    const envVars = {
-      DATABASE_URL: "prisma+postgres://accelerate.example/db",
-      RENDER_DB_EXTERNAL_URL: "postgresql://render.example/db",
-    };
-    
-    const url = selectQueryUrl(envVars);
-    expect(url).toBe(envVars.RENDER_DB_EXTERNAL_URL);
-  });
+// PROD client - PRIMARY for live gameplay
+export const prisma = new PrismaClient({
+  datasources: {
+    db: { 
+      url: process.env.PROD_DATABASE_URL || 
+           process.env.DATABASE_LOCAL_URL 
+    }
+  }
 });
+
+// DEV client - for migrations and development
+export const devPrisma = new PrismaClient({
+  datasources: {
+    db: { 
+      url: process.env.DEV_DATABASE_URL || 
+           process.env.RENDER_DB_EXTERNAL_URL 
+    }
+  }
+});
+
+// LOCAL client - for offline development (optional)
+export const localPrisma = process.env.DATABASE_LOCAL_URL 
+  ? new PrismaClient({
+      datasources: {
+        db: { url: process.env.DATABASE_LOCAL_URL }
+      }
+    })
+  : null;
 ```
 
-### Test Migration URL Validation
+### Migration Workflows
+
+```bash
+# ALL migrations target DEV master
+export DEV_DATABASE_URL="postgresql://user:pass@render-host/infinity_gauntlet_db"
+npx prisma migrate deploy
+
+# Verify migration applied to master
+npm run db:cli -- status
+```
+
+### Production Gameplay Queries
+
+```bash
+# Production uses PROD local node
+export PROD_DATABASE_URL="postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db"
+export NODE_ENV="production"
+npm start
+```
+
+### Development Queries
+
+```bash
+# Development uses DEV master
+export DEV_DATABASE_URL="postgresql://user:pass@render-host/infinity_gauntlet_db"
+npm run db:cli -- counts
+```
+
+## Troubleshooting
+
+### Error: Connection Refused (Production)
+
+**Cause:** `PROD_DATABASE_URL` not configured or PostgreSQL not running.
+
+**Solution:**
+
+```bash
+# Bootstrap local PostgreSQL cluster
+npm run ops:bootstrap-local-db
+
+# Verify PROD_DATABASE_URL in consolidated env file
+grep PROD_DATABASE_URL secrets/Infinity-Gauntlet.env
+```
+
+### Error: Migration Applied to Wrong Database
+
+**Cause:** `DATABASE_URL` environment variable pointing to PROD local node.
+
+**Solution:**
+
+```bash
+# Ensure migrations use DEV master
+unset DATABASE_URL
+export DEV_DATABASE_URL="postgresql://user:pass@render-host/infinity_gauntlet_db"
+npx prisma migrate deploy
+```
+
+### Error: High Latency in Production
+
+**Cause:** Using `DEV_DATABASE_URL` (Render) instead of `PROD_DATABASE_URL` (local node).
+
+**Solution:**
+
+```bash
+# Switch to local node for production
+export PROD_DATABASE_URL="postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db"
+export NODE_ENV="production"
+npm start
+```
+
+## Testing URL Selection
+
+### Unit Test Example
 
 ```typescript
-describe("selectMigrationUrl", () => {
-  it("should reject Accelerate URLs", () => {
+import { describe, it, expect } from "vitest";
+
+describe("Database URL Selection", () => {
+  it("should use PROD_DATABASE_URL in production", () => {
     const envVars = {
-      RENDER_DB_EXTERNAL_URL: "prisma+postgres://accelerate.example/db",
+      NODE_ENV: "production",
+      PROD_DATABASE_URL: "postgresql://prod-local/db",
+      DEV_DATABASE_URL: "postgresql://dev-master/db"
     };
     
-    expect(() => selectMigrationUrl(envVars)).toThrow(
-      "Cannot use Accelerate URLs for migrations"
-    );
+    const url = selectQueryUrl(envVars);
+    expect(url).toBe(envVars.PROD_DATABASE_URL);
   });
 
-  it("should accept direct PostgreSQL URLs", () => {
+  it("should use DEV_DATABASE_URL in development", () => {
     const envVars = {
-      RENDER_DB_EXTERNAL_URL: "postgresql://render.example/db",
+      NODE_ENV: "development",
+      DEV_DATABASE_URL: "postgresql://dev-master/db",
+      PROD_DATABASE_URL: "postgresql://prod-local/db"
+    };
+    
+    const url = selectQueryUrl(envVars);
+    expect(url).toBe(envVars.DEV_DATABASE_URL);
+  });
+
+  it("should always use DEV_DATABASE_URL for migrations", () => {
+    const envVars = {
+      DEV_DATABASE_URL: "postgresql://dev-master/db",
+      PROD_DATABASE_URL: "postgresql://prod-local/db"
     };
     
     const url = selectMigrationUrl(envVars);
-    expect(url).toBe(envVars.RENDER_DB_EXTERNAL_URL);
+    expect(url).toBe(envVars.DEV_DATABASE_URL);
   });
 });
 ```
 
-## Contract Status
+## Summary
 
-This URL selection logic is an **Absolute Requirement** in `Patch.md`. All database operations MUST comply with:
+1. **Production gameplay** uses `PROD_DATABASE_URL` (PROD local node) for <50ms latency
+2. **All migrations** use `DEV_DATABASE_URL` (DEV master) - source of truth for schema
+3. **Development queries** use `DEV_DATABASE_URL` (DEV master)
+4. **Offline development** uses `DATABASE_LOCAL_URL` (workstation mirror)
+5. **Zero proxy layers** - all connections are direct `postgresql://` URLs
 
-1. **Production queries** use `DATABASE_URL` (Accelerate)
-2. **Migrations within Render** use `RENDER_DB_INTERNAL_URL` (direct PostgreSQL, internal network)
-3. **Dev environment access** uses `RENDER_DB_EXTERNAL_URL` (DEV database from workstation)
-4. **Never** use Accelerate for DDL operations (CREATE/ALTER/DROP TABLE)
-
-Violations cause production failures and must be fixed immediately.
+**Contract Status:** This is an **Absolute** requirement in `Patch.md`. Violations cause production failures and must be fixed immediately.
 
 ## See Also
 
-- `AGENTS.md` - Database URL Selection section with inline examples
-- `Patch.md` - Contract Absolutes for database operations
-- `scripts/shared/database-url.ts` - Reusable URL selection utilities
-- `src/shared/prisma.ts` - Triple-client architecture (PROD/DEV/LOCAL)
-- `ops/DB_BOOTSTRAP.md` - Migration workflow and URL requirements
+- `AGENTS.md` - Database URL Selection section (quick reference)
+- `docs/database-systems.md` - Complete 2-node cluster architecture
+- `ops/DB_BOOTSTRAP.md` - Migration and bootstrap procedures
+- `docs/WORKSTATION-GAMEPLAY-SETUP.md` - Local node setup guide

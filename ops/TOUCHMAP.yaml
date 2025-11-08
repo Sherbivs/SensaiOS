@@ -340,7 +340,6 @@ DB.V0.BOOTSTRAP:
   - "prisma/migrations/**"
   - "docs/dex-v2-design.md"
   - "docs/database-systems.md"
-  - "ops/ARCHIVE/db-bootstrap/**"
   - "docs/db-accelerate-workflow.md"
   - "ops/DB_BOOTSTRAP.md"
   - "scripts/db_smoke.ts"
@@ -636,7 +635,6 @@ META.TASK.HOUSEKEEP:
   - "Patch.md"
   - "Prompt.md"
   - "scripts/archive_task_history.mjs"
-  - "ops/ARCHIVE/**"
 
 META.REFRESH_VISION.REMOTE:
   - "scripts/refresh_vision.sh"
@@ -670,7 +668,6 @@ META.ROUTER.GAP_SWEEP:
   - "ops/ROUTER_INDEX.yaml"
   - "masterroutetable.md"
   - "ops/ROUTER.md"
-  - "ops/ARCHIVE/**"
   - "ops/INBOX/**"
   - "prisma/ROUTER.md"
   - "prisma/migrations/**"

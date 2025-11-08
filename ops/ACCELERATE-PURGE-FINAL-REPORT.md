@@ -5,6 +5,8 @@
 **Total Commits:** 6 commits (9f8f7cc → 27a164a)  
 **Duration:** ~4 hours (systematic meticulous purge)
 
+> **HISTORICAL DOCUMENT:** This report documents the Accelerate elimination effort. All archived documentation and the migration catalog have since been removed from the repository (2025-11-07).
+
 ---
 
 ## Executive Summary

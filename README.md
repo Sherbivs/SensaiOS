@@ -192,9 +192,8 @@ Reference data is mirrored into `/data` via scripted jobs:
 
 ## Operational Guardrails & Meta Workflow
 
-- `scripts/refresh_vision.sh` regenerates router indexes, stamps recovery metadata, and refreshes Prompt.md’s change ledger.
+- `scripts/refresh_vision.sh` regenerates router indexes, stamps recovery metadata, and refreshes Prompt.md's change ledger.
 - `scripts/guard_meta.sh` enforces Prompt/Tasklist coupling and checks router hygiene during CI.
-- `scripts/archive_task_history.mjs` trims Tasklist history to the latest 100 DONE entries by archiving to `ops/ARCHIVE/`.
 - `ops/RECOVERY.yaml` and `ops/NEXT.yaml` coordinate the next actionable task, ensuring deterministic resumes across workers.
 - `ops/HOTFIX_PLAN.yaml` defines the hotfix queue and bootstrap template for emergency work outside the PATCH loop.
 - `ops/DB_BOOTSTRAP.md` + `scripts/bootstrap_staging_db.ps1` describe the pooled vs. direct connection strategy and bootstrap flow that keeps Prisma migrations responsive.

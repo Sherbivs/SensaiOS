@@ -1,6 +1,8 @@
 # Staging DB Bootstrap Runbook
 
-This runbook describes safe steps to bring a staging PostgreSQL database up to the baseline schema expected by the codebase and Prisma migrations. Use this when `npx prisma migrate deploy` fails due to missing baseline tables or missing migration history on the target DB. For Prisma Postgres (Accelerate) import instructions see `ops/DB_IMPORT_PRISMA_POSTGRES.md`, and consult `docs/database-systems.md` for the overarching architecture, role catalog, and helper inventory.
+This runbook describes safe steps to bring a staging PostgreSQL database up to the baseline schema expected by the codebase and Prisma migrations. Use this when `npx prisma migrate deploy` fails due to missing baseline tables or missing migration history on the target DB. See `docs/database-systems.md` for the current architecture, role catalog, and helper inventory.
+
+**Current Architecture (2025-11-07):** The system uses direct PostgreSQL connections for all operations. See HISTORICAL CONTEXT section below for information about the removed Prisma Accelerate layer.
 
 Read this file fully before running any commands on staging. Mistakes here can affect staging data.
 
@@ -16,53 +18,49 @@ Blueprint assets
 - Operator notes and sanitized command output live in `ops/ARCHIVE/db-bootstrap/2025-11-04-tooling-evidence.md`. Add new evidence files here when rehearsals run so auditors can diff outcomes by timestamp.
 - Router metadata (`ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, `prisma/ROUTER.md`, `prisma/migrations/ROUTER.md`) must be regenerated (`npm run docs:update-routers`) whenever the bootstrap surface changes.
 
-## CRITICAL: Prisma Accelerate DDL Limitation (2025-11-06)
+## HISTORICAL CONTEXT: Prisma Accelerate DDL Limitation (Removed 2025-11-06)
 
-**Prisma Accelerate does NOT support DDL operations** (CREATE TABLE, ALTER TABLE, DROP TABLE, CREATE INDEX, etc.). Accelerate is a read-optimized query cache and connection pooler - it silently ignores DDL statements.
+**NOTE: Prisma Accelerate/Optimize has been completely removed from this project as of 2025-11-07. This section is preserved for historical understanding only.**
 
-**Symptom:** `npx prisma migrate deploy` reports "All migrations have been successfully applied" but no schema changes occur. Tables/columns/indexes are not created. The migration gets marked as applied in `_prisma_migrations` but nothing actually executed.
+**Historical Issue:** Prisma Accelerate did NOT support DDL operations (CREATE TABLE, ALTER TABLE, DROP TABLE, CREATE INDEX, etc.). Accelerate was a read-optimized query cache and connection pooler that silently ignored DDL statements.
 
-**Root Cause:** When `DATABASE_URL` points to a Prisma Accelerate endpoint (`prisma+postgres://accelerate.prisma-data.net/...`), Prisma routes ALL operations through Accelerate, including migrations. Accelerate silently drops DDL statements because it's designed for query caching, not schema management.
+**Historical Symptom:** `npx prisma migrate deploy` reported "All migrations have been successfully applied" but no schema changes occurred when using `prisma+postgres://accelerate.prisma-data.net/...` URLs.
 
-**Solution:** For migrations, `DATABASE_URL` MUST point directly to PostgreSQL, not through Accelerate. Use a migration-specific environment file:
+**Historical Root Cause:** Accelerate silently dropped DDL statements because it was designed for query caching, not schema management.
 
+**Historical Solution (No Longer Applicable):**
 ```env
+# OLD PATTERN (Removed) - Used separate env files for migrations vs runtime
 # secrets/migrate.env - For running migrations only
 DATABASE_URL=postgresql://user:pass@host/dbname                   # DIRECT PostgreSQL
-RENDER_DB_INTERNAL_URL=postgresql://user:pass@host/dbname         # DIRECT PostgreSQL (Render internal)
-RENDER_DB_EXTERNAL_URL=postgresql://user:pass@host.region.render.com/dbname  # DIRECT PostgreSQL (external)
 
-# secrets/runtime.env - For application runtime (after migrations complete)
-DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/...     # Accelerate for caching
-RENDER_DB_INTERNAL_URL=postgresql://user:pass@host/dbname         # Direct for admin queries (Render internal)
-RENDER_DB_EXTERNAL_URL=postgresql://user:pass@host.region.render.com/dbname  # Direct for laptop access
+# secrets/runtime.env - For application runtime (REMOVED)
+DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/...     # Accelerate (REMOVED)
 ```
 
-**Migration Workflow:**
-1. Use `secrets/migrate.env` (direct PostgreSQL) for `npx prisma migrate deploy`
-2. Use `secrets/runtime.env` (Accelerate) for `npm start` and application queries
-3. **Never** run migrations with Accelerate URLs - they will silently fail
+**Current Solution (2025-11-07):**
+All operations now use direct PostgreSQL connections. Accelerate/Optimize references have been eliminated. Use:
+- **Game Engine (Render):** `DEV_DATABASE_URL` (internal Render network) + `PROD_DATABASE_URL` (localhost PostgreSQL on persistent disk)
+- **Your Workstation:** `RENDER_DB_EXTERNAL_URL` (DEV master via internet) + optional `DATABASE_LOCAL_URL` (local PostgreSQL mirror)
 
-**Verification After Migration:**
-```powershell
-# Set direct database URL for verification
-$env:DATABASE_URL = "postgresql://user:pass@host/dbname"
-
-# Verify schema changes actually applied
-npm run db:cli -- query "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';"
-```
+No separate migration/runtime env files needed. All URLs point directly to PostgreSQL (`postgresql://...`).
 
 Checklist and decisions
 - Confirm you are running commands from the canonical working directory: the GitHub Desktop clone at C:\Users\sherb\OneDrive\Documents\GitHub\Infinity-Gauntlet (per ops policy).
-- Verify `DATABASE_URL` points to the staging database and is the only staging instance being touched.
-- **CRITICAL:** For migrations, ensure `DATABASE_URL` points DIRECTLY to PostgreSQL (starts with `postgresql://`), NOT through Prisma Accelerate (starts with `prisma+postgres://`). Accelerate silently ignores DDL statements.
-- Prefer managed poolers: set `DATABASE_URL` (Accelerate) for runtime services, and ensure `RENDER_DB_INTERNAL_URL` or `RENDER_DB_EXTERNAL_URL` (Render direct connection) is populated so Prisma migrations bypass Accelerate.
+- Verify database URL points to the correct staging database.
+- **Current System:** All operations use direct PostgreSQL connections (`postgresql://...`). No Accelerate layer.
+- **From your workstation:** Use `RENDER_DB_EXTERNAL_URL` (DEV master via internet) for migrations
+- **From Game Engine (Render):** Use `DEV_DATABASE_URL` (internal Render network) for migrations
 - Snapshot (optional): If you need a backup, take a production-to-staging snapshot or export the staging DB first.
 
 Procedure A — Apply historical migrations (recommended)
 1. Ensure the repo contains the full migrations history under `prisma/migrations`.
-2. From the repo root (the working copy used for ops), confirm `IG_ENV_FILE` is pointing at `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env` (or the staging-specific override) and that file defines `DATABASE_URL` (Accelerate) *and* `RENDER_DB_INTERNAL_URL` or `RENDER_DB_EXTERNAL_URL` (direct `postgresql://`). On Windows PowerShell you can verify with `echo $Env:IG_ENV_FILE` and `Get-Content $Env:IG_ENV_FILE | Select-String DATABASE_` or rely on `scripts/setup_ai_env.ps1` to register the path.
-  - If you previously ran Accelerate workflows with `Key/Prod/.env`, regenerate the Prisma client (`npx prisma generate`) before connecting so the CLI uses the direct Node engine again.
+2. From the repo root (the working copy used for ops), confirm `IG_ENV_FILE` is pointing at `secrets/Infinity-Gauntlet.env` (or the staging-specific override) and that file defines the appropriate database URL:
+   - **From your workstation:** Use `RENDER_DB_EXTERNAL_URL` (DEV master via internet)
+   - **From Game Engine:** Use `DEV_DATABASE_URL` (internal Render network)
+   
+   On Windows PowerShell you can verify with `echo $Env:IG_ENV_FILE` and `Get-Content $Env:IG_ENV_FILE | Select-String DATABASE_` or rely on `scripts/setup_ai_env.ps1` to register the path.
+
 3. Run:
 
    npx prisma migrate deploy
@@ -101,23 +99,22 @@ Smoke tests after schema alignment
   - DM Home recent-battle retrieval
   - Cooldown upsert/unique flows (ownerId + kind unique)
 
-- Baseline connectivity commands (documented individually in `docs/db-accelerate-workflow.md`) help confirm parity between direct and Accelerate datasources:
+- Baseline connectivity commands help confirm database status:
   - `npm run db:cli -- status`
   - `npm run db:cli -- counts`
   - `npm run db:cli -- query "SELECT 1 as ok;"`
-  - `npm run db:smoke` (defaults to direct) and `npm run db:smoke -- --mode=accelerate`
+  - `npm run db:smoke` (test direct PostgreSQL connection)
 - Capture sanitized output for each target in `ops/ARCHIVE/db-bootstrap/<ISO8601>-tooling-evidence.md` so the audit trail travels with the runbook history.
 
 ### Rehearsal workflow (sandbox)
 
 Use this sequence whenever you dry-run the bootstrap migration on a disposable database (DEV or a scratch clone). Each step should be recorded in the evidence archive together with timestamps and sanitized command output.
 
-1. **Load secrets** — run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env"` (or the appropriate scratch file) so `IG_ENV_FILE` points at the target database. Export the same variables for the current shell session if you are invoking commands manually.
+1. **Load secrets** — run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env"` (or the appropriate staging file) so `IG_ENV_FILE` points at the target database. Export the same variables for the current shell session if you are invoking commands manually.
 2. **Apply migrations** — execute `npx prisma migrate deploy`. Expect "No pending migrations" on a re-run; the first execution should apply `202511021024_db_v0_bootstrap` and any later folders.
-3. **Smoke the direct connection** — run `npm run db:smoke` and confirm the direct datasource reports `[ { ok: 1 } ]`.
-4. **Smoke Accelerate** (if available) — run `npm run db:smoke -- --mode=accelerate` to verify the proxy path succeeds with the same query.
-5. **Snapshot counts** — capture `npm run db:cli -- status` and `npm run db:cli -- counts` output, noting row totals for the bootstrap tables (Tenants, Trainers, DexPack, etc.).
-6. **Log evidence** — append sanitized summaries to `ops/ARCHIVE/db-bootstrap/<ISO8601>-tooling-evidence.md`, including datasource masks and command outcomes.
+3. **Smoke the connection** — run `npm run db:smoke` and confirm the datasource reports `[ { ok: 1 } ]`.
+4. **Snapshot counts** — capture `npm run db:cli -- status` and `npm run db:cli -- counts` output, noting row totals for the bootstrap tables (Tenants, Trainers, DexPack, etc.).
+5. **Log evidence** — append sanitized summaries to `ops/ARCHIVE/db-bootstrap/<ISO8601>-tooling-evidence.md`, including datasource masks and command outcomes.
 
 ### Rollback rehearsal (sandbox)
 
@@ -126,9 +123,9 @@ Only run these steps on an isolated database that can be destroyed or restored f
 1. **Snapshot first** — take a managed snapshot or export the database (`pg_dump`/Render backup) so you can revert if required.
 2. **Execute the rollback script** — connect as a privileged role and run `psql -f prisma/migrations/202511021024_db_v0_bootstrap/rollback.sql`. Confirm the Tenant/Trainer/DexPack tables and the new columns disappear (`\dt`, `\d` checks).
 3. **Reapply migrations** — rerun `npx prisma migrate deploy` to recreate the schema; ensure Prisma replays `db_v0_bootstrap` without error.
-4. **Smoke direct/Accelerate** — repeat the connectivity checks (`npm run db:smoke` with and without `--mode=accelerate`).
+4. **Smoke connection** — repeat the connectivity check (`npm run db:smoke`).
 5. **Verify counts** — run `npm run db:cli -- counts` to ensure expected tables exist (counts can be zero on a clean rollback rehearsal).
-6. **Archive results** — document the rollback command, the subsequent migrate deploy, and both smoke runs in the evidence log along with the snapshot identifier used for safety.
+6. **Archive results** — document the rollback command, the subsequent migrate deploy, and the smoke run in the evidence log along with the snapshot identifier used for safety.
 
 Dex reference rollout follow-up
 - After the migrations land, repopulate the canonical dex tables and verify counts:
@@ -139,23 +136,23 @@ Dex reference rollout follow-up
   ```
 
   - Pass `--dry-run` to preview counts without writing. Capture the status output in Tasklist notes so the audit trail shows >1,000 species after seeding. The workflow is documented end-to-end in `docs/database-systems.md` §6.
-  - When running from WSL, follow the "Dev Reset & Hydration Quickstart" in `docs/database-systems.md` to source the Windows secrets, reset the schema (`prisma db push --force-reset`), and reseed via Accelerate without tripping duplicate learnset constraints. Finish by re-running `npm ci` in PowerShell so Windows-native binaries align with the updated lockfile.
-  - Keep the Dev → Prod → Dev cadence: execute these commands on DEV first, switch `IG_ENV_FILE` to the Accelerate/Prod secrets and rerun them (or rely on `scripts/ops/run_dex_migrations.ps1`, which enforces direct URLs, for a bundled migrate+refresh), then restore `IG_ENV_FILE` to `Key/Dev/.env` and run `npx prisma generate` before resuming local development.
+  - When running from WSL, follow the "Dev Reset & Hydration Quickstart" in `docs/database-systems.md` to source the Windows secrets and reset the schema (`prisma db push --force-reset`). Finish by re-running `npm ci` in PowerShell so Windows-native binaries align with the updated lockfile.
+  - Keep the Dev → Prod → Dev cadence: execute these commands on DEV first (from your workstation using `RENDER_DB_EXTERNAL_URL`), then update Game Engine (Render) environment variables if needed, then return to local development.
   - For continuous coverage, run `npm run db:auto-sync` so migrations + seeding loop on deployment and every five minutes when drift is detected. Use `--dry-run`, `--once`, or `--skip-startup` during rehearsals and monitor the JSON logs (`sync.consolidate.*`, `integrity.*`) for drift alerts.
   - `warm_cache.ts` refreshes the materialized view and then primes the Pokémon cache. If the GitHub replication helper is unavailable (missing `octokit`), the script falls back to regenerating `data/cache/pokemon.json` locally and logs the skip.
 
   Capture the output of these commands in the deployment log so any follow-up database tasks can move to READY/DONE with confidence.
 
-Connection sanity matrix — 2025-10-29T20:45Z
-- Accelerate (primary)
-  - Load credentials: `Get-Content C:/Users/sherb/OneDrive/Documents/Key/Prod/.env | ForEach-Object { ... }`
+Connection sanity matrix — 2025-11-07 (Updated)
+- Direct PostgreSQL (current system)
+  - Load credentials: `Get-Content secrets/Infinity-Gauntlet.env | ForEach-Object { ... }`
   - Validated commands (PASS):
     - `npx prisma migrate status`
     - `npx prisma migrate deploy`
     - `npm run db:seed:dex`
     - `SELECT public.refresh_species_sheet()` (via Prisma client)
-  - `npm run db:smoke -- --mode=accelerate`
-- Observed blocker: the consolidated seeder warns when `REFRESH MATERIALIZED VIEW` lacks permission and automatically retries via `SELECT public.refresh_species_sheet()`. Investigate only if both attempts fail or the helper raises an error.
+  - `npm run db:smoke` (test PostgreSQL connection)
+- **Historical Note (2025-10-29):** Previous system used Prisma Accelerate. All Accelerate references have been removed as of 2025-11-07.
 
 ### Clear the `SpeciesSheet` privilege error (Postgres 42501)
 
@@ -219,13 +216,12 @@ The Prisma role in `DATABASE_URL` is missing privileges on the materialized view
    await prisma.$queryRawUnsafe('SELECT 1 FROM "SpeciesSheet" LIMIT 1');
    ```
 
-Security hygiene: rotate any exposed `OPTIMIZE_API_KEY` tokens in the Prisma Data Platform, update the active `IG_ENV_FILE` secrets file (e.g., `Key/Dev/.env`), and restart services that load it.
+Security hygiene: rotate any exposed database credentials, update the active `IG_ENV_FILE` secrets file (e.g., `secrets/Infinity-Gauntlet.env`), and restart services that load it.
 
 Keep the mixed-case name quoted (`"SpeciesSheet"`) in every statement. Add a unique index before using `REFRESH MATERIALIZED VIEW CONCURRENTLY` if one is missing.
 - Render dev standby
-  - Load credentials: `Set-Item Env:DATABASE_URL 'postgresql://infinity_gauntlet_db_user:<render-password>@dpg-d3vd8h7diees73et3i3g-a.oregon-postgres.render.com:5432/infinity_gauntlet_db?sslmode=require'` (same value for `RENDER_DB_EXTERNAL_URL`; copy from Render's connectionString/directConnectionString secrets)
+  - Load credentials: `Set-Item Env:RENDER_DB_EXTERNAL_URL 'postgresql://infinity_gauntlet_db_user:<render-password>@dpg-d3vd8h7diees73et3i3g-a.oregon-postgres.render.com:5432/infinity_gauntlet_db?sslmode=require'` (copy from Render's connectionString/directConnectionString secrets)
   - Validated commands (PASS): `npx prisma migrate status`; `SELECT public.refresh_species_sheet()` (owner context); `SET ROLE prisma_application; SELECT public.refresh_species_sheet()`
-  - Pending follow-up: mirror the same role grants on Prisma Accelerate, then rerun the dex seeding/backfill scripts to confirm both environments refresh `SpeciesSheet` without 42501 errors.
 
 ## Prisma permission schema (Render dev baseline — 2025-10-29T22:05Z)
 
@@ -295,31 +291,22 @@ SELECT public.refresh_species_sheet();
 
 ### Rolling the schema to other environments
 
-- Repeat the role creation/grant script on Accelerate once a privileged session is available. Until then, Prisma Accelerate calls to `npm run db:seed:dex` will warn about helper fallback until the role can refresh `SpeciesSheet` directly.
 - When introducing new login roles, grant them membership in one or more `prisma_*` groups instead of duplicating privileges. Example: `GRANT prisma_readonly TO analytics_reader;`.
 - If another schema is introduced, mirror the `ALTER DEFAULT PRIVILEGES` statements for that schema or transfer ownership to the same owner role and re-run the grants.
 - Keep credentials (if any) out of source control; Render should manage per-role passwords.
 
-### Prisma Accelerate constraints (primary — 2025-10-29T22:20Z)
+### HISTORICAL NOTE: Prisma Accelerate Constraints (Removed 2025-11-07)
 
-- Accelerate exposes `prisma_application` and `prisma_migration` as login roles only. Restricted superuser mode blocks `CREATE ROLE` and `GRANT` statements, so the Render `prisma_worker`/`prisma_readonly` groups cannot be recreated here.
-- The SECURITY DEFINER helper still applies. Create or replace it with:
+**This section is preserved for historical context only. Prisma Accelerate has been removed from the project.**
 
-  ```sql
-  CREATE OR REPLACE FUNCTION public.refresh_species_sheet()
-  RETURNS void
-  LANGUAGE plpgsql
-  SECURITY DEFINER
-  SET search_path = public
-  AS $$
-  BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY "SpeciesSheet";
-  END;
-  $$;
-  ```
+Historical constraints (2025-10-29):
+- Accelerate exposed `prisma_application` and `prisma_migration` as login roles only. Restricted superuser mode blocked `CREATE ROLE` and `GRANT` statements, so the Render `prisma_worker`/`prisma_readonly` groups could not be recreated there.
+- The SECURITY DEFINER helper was required for Accelerate to execute materialized view refreshes without elevated privileges.
 
-  The default function ACL allows `prisma_application` to execute it without additional grants. Confirm by running `SELECT public.refresh_species_sheet();` via a Prisma script (for example: `npx tsx --eval 'import { PrismaClient } from "@prisma/client"; const prisma = new PrismaClient(); prisma.$executeRawUnsafe("SELECT public.refresh_species_sheet();").then(() => { console.log("helper ok"); }).finally(async () => { await prisma.$disconnect(); });'`).
-- Dex scripts fall back to the helper automatically when direct refresh raises 42501, but the manual command remains handy for ad-hoc refreshes or when scripting outside the repository tools. Document helper usage in Tasklist/Prompt when run manually.
+Current system (2025-11-07):
+- All databases use direct PostgreSQL connections with standard role management
+- The `refresh_species_sheet()` helper function remains useful for privilege isolation
+- Dex scripts can refresh materialized views directly or via the helper function
 
 Rollback and safety
 - `prisma/migrations/202511021024_db_v0_bootstrap/rollback.sql` drops the tenant/trainer/dex pack objects and columns created by the bootstrap migration. Run it via psql after taking a fresh snapshot and coordinate with ops before execution; rerun `npm run docs:update-routers` afterward to keep metadata timestamps aligned.
@@ -344,14 +331,14 @@ References and helpful commands
 
 ### Overview
 
-The system implements a **master-replica cascade architecture** for database version control and synchronization across DEV, Prod (Prisma Accelerate), and Local (workstation) environments.
+The system implements a **master-replica cascade architecture** for database version control and synchronization across DEV (Render PostgreSQL master), PROD (Game Engine's localhost PostgreSQL), and Local (your workstation) environments.
 
 ```
-DEV (master) → Prisma Accelerate (prod) → Local (workstation)
+DEV (master) → Game Engine PROD → Local (workstation)
 ```
 
 **Key Principles:**
-- **DEV is the single source of truth** for all schema changes
+- **DEV is the single source of truth** for all schema changes (Render PostgreSQL master)
 - **Version control via SHA-256 fingerprints** of migration checksums
 - **Integrity verification** (schema + data) before every sync completion
 - **Reversion detection** blocks downstream sync automatically
@@ -381,7 +368,7 @@ Calculated from `_prisma_migrations` table ensures tamper-proof version identity
 **DEV → Prod (5-stage process):**
 1. **VERSION_CHECK** — Compare fingerprints via `compareVersions()`
 2. **INTEGRITY_VERIFY** — Pre-migration schema check via `verifySchemaIntegrity()`
-3. **MIGRATION_APPLY** — Execute `npx prisma migrate deploy` using `secrets/migrate.env` (direct PostgreSQL URLs)
+3. **MIGRATION_APPLY** — Execute `npx prisma migrate deploy` using direct PostgreSQL URL (DEV_DATABASE_URL on Game Engine)
 4. **VALIDATION** — Post-migration fingerprint must match DEV exactly, schema integrity must pass
 5. **COMPLETE** — Record metrics and sync event
 
@@ -461,7 +448,9 @@ npm run db:replication reset-local   # Rebuild Local from Prod
 
 When running migrations via `scripts/bootstrap_staging_db.ps1` or manual `npx prisma migrate deploy`:
 
-1. **Use direct PostgreSQL URLs** (`secrets/migrate.env`) to avoid Accelerate DDL limitation
+1. **Use direct PostgreSQL URLs** (current system - all operations direct)
+   - From your workstation: `RENDER_DB_EXTERNAL_URL` (DEV master via internet)
+   - From Game Engine: `DEV_DATABASE_URL` (internal Render network)
 2. **Verify version after migration:**
    ```bash
    npm run db:replication version dev

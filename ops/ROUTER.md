@@ -7,7 +7,7 @@ Last Updated (UTC): 2025-11-06T04:45:00Z
 Notes:
 - 2025-02-26: Documented dexpack guard coverage; ops/ROUTER.yaml and touchmap now map assets build to T13.DEX.DEXPACK_ROLLOUT.
 - 2025-11-06: Local Postgres fallback automation now lives under `scripts/ops/`; `npm run ops:auto-bootstrap-local-db` installs dependencies then refreshes the Store mirror. Docs (AGENTS, OPERATIONS, database-systems) and ledger entries were updated to reflect the silent install flow.
-- 2025-11-01: Added dedicated routers for ops/ARCHIVE and ops/INBOX so archival history and operator inbox notes have clear owners.
+- 2025-11-01: Added dedicated router for ops/INBOX so operator inbox notes have clear owners.
 - 2025-10-26: guard_meta preflight/postflight make READY absence impossible at merge time; NEXT auto-promotion enabled. See scripts/guard_meta.sh and ops/NEXT.yaml.
 - 2025-10-26: Patch contract adds marker switch, clipboard scratch space, and Markerless Mode guidance; guard_meta enforces Absolutes when contracts are OFF.
 - 2025-10-26: Canonical meta docs (CRITICAL.md, HOTFIX.md) live under ops/ after cleanup; outdated duplicates were removed.
@@ -26,12 +26,8 @@ Notes:
 - 2025-10-28: Security bot moved to dedicated Render worker (`infinity-gauntlet-security`) gated by ENABLE_SECURITY_BOT flag; monitor sections mark disabled state in the main runtime.
 - 2025-10-28: OPERATIONS.md now documents the worker matrix, rollout checklist, and recovery toggles (ENABLE_CONTINUOUS_SWEEP, interval envs); master router index regenerated to match.
 - 2025-10-28: Added router_docs category in ops/ROUTER.yaml bundling ops/ROUTER.md, ops/ROUTER_INDEX.yaml, and masterroutetable.md for fast navigation.
-- 2025-10-29: Prisma Accelerate import documented in `ops/DB_IMPORT_PRISMA_POSTGRES.md`; helper script `scripts/restore_prisma_postgres.ps1` automates tunnel + pg_restore workflow.
-- 2025-10-29: Router metadata refreshed to reflect Accelerate-first DB strategy and smoke test script (`scripts/db_smoke.ts`).
 - 2025-10-29: Documented PokeAPI integration and cache operations in `ops/POKEMON_CACHE.md`; runtime now depends on axios + node-cron for scheduled refreshes.
-- 2025-10-29: Dual-database workflow spelled out in `ops/DB_IMPORT_PRISMA_POSTGRES.md` (primary Accelerate, standby Render, failover playbook) to keep router metadata aligned with new DR posture.
 - 2025-10-29: Router contract now requires `npm run docs:update-routers` after metadata edits; generated outputs (`ops/ROUTER_INDEX.yaml`, `masterroutetable.md`) are read-only and guarded by `scripts/guard_router_docs.sh`.
-- 2025-10-29: Store the Prisma Accelerate `DATABASE_URL` in `C:/Users/sherb/OneDrive/Documents/Key/Prod/.env` (gitignored path outside the repo) for local migrate deploys; update `.gitignore` to keep any legacy filenames out of version control.
 - 2025-10-29: Retired the legacy `discord-pokemon-bot/` prototype; router metadata now points exclusively at the TypeScript surfaces.
 - 2025-10-29: Added `docs/database-systems.md` as the canonical database topology and maintenance guide; cross-links from DATA-SCHEMA, OPERATIONS, and DB bootstrap runbooks point here for shared context.
 - 2025-10-30: Documented the DB doc drift guard (`scripts/guard_db_docs.mjs` + guard-db-docs workflow) so ops runbooks stay aligned on Key/Dev, Key/Prod, and Prisma regenerate instructions.
@@ -45,7 +41,6 @@ Key Files:
 - ops/ROUTER_INDEX.yaml — router-of-routers (generated)
 - ops/INBOX/notes.md — quick notes
 - ops/RECOVERY.yaml — resume after timeout
-- ops/ARCHIVE/README.md — guidance for Tasklist history offload
 - ops/CANONICAL_NAMES.yaml — canonical doc/router spellings for CI guard
 - ops/change-ledger.md — generated 200-entry commit ledger (see Prompt summary)
 - OPERATIONS.md — operational runbook documenting worker matrix and rollouts
@@ -54,6 +49,5 @@ Key Files:
 - ops/POKEMON_CACHE.md — PokeAPI integration runbook (cache workflow, incidents, dependencies)
 
 Subrouters:
-- ops/ARCHIVE/ROUTER.md — Archived Tasklist exports and lineage notes.
 - ops/INBOX/ROUTER.md — Operator inbox staging area; sync with NEXT metadata before edits.
 

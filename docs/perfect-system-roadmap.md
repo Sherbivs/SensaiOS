@@ -26,9 +26,9 @@ This roadmap is the canonical planning artifact for Infinity Gauntlet. It aligns
 - **Measures:** Guards green three runs in a row; NEXT pointer matches active task; router docs reference new env workflow.
 
 ### 2. Database Operations & Data Integrity
-- **Goal:** Reproducible migrations and cache hydration across DEV, Render, and Accelerate.
+- **Goal:** Reproducible migrations and cache hydration across DEV, PROD, and LOCAL nodes.
 - **Scope 2025 Q4:**
-  - Load `Key/Dev/.env` / `Key/Prod/.env` via `scripts/setup_ai_env.ps1` before every DB change, and regenerate the Prisma client when switching back from Prod.
+  - Load `secrets/Infinity-Gauntlet.env` via `scripts/setup_ai_env.ps1` before every DB change using the consolidated environment file.
   - Execute `npm run db:seed:dex` (capture `npm run db:cli -- status` output) with transcripts archived in Tasklist.
   - Extend `ops/DB_BOOTSTRAP.md` with dual-environment validation steps when helpers change.
   - Stand up the continuous sync loop (`npm run db:auto-sync`) so deployment kicks off a consolidation and 5-minute drift checks keep Prod/Dev aligned; monitor JSON logs for warnings.
