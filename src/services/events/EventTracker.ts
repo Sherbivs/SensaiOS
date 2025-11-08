@@ -13,6 +13,7 @@
 
 import { createHash } from 'crypto';
 import type { Pool } from 'pg';
+import { log } from '../../utils/logger.js';
 import type { 
   BaseEvent, 
   TrackedEvent, 
@@ -159,9 +160,22 @@ export class EventTracker {
       this.metrics.lastFlushAt = new Date();
 
       if (this.config.enableMetrics) {
-        this.config.logger.info(
-          `[EventTracker] Flushed ${batch.length} events in ${flushTime}ms`
-        );
+        log('info', `[EventTracker] Flushed batch`, {
+          batchSize: batch.length,
+          flushTimeMs: flushTime,
+          totalFlushed: this.metrics.eventsFlushed,
+          avgBatchSize: this.metrics.avgBatchSize.toFixed(2),
+          avgFlushTimeMs: this.metrics.avgFlushTime.toFixed(2),
+        });
+      }
+
+      // Warn if queue depth is high
+      if (this.eventQueue.length > 50) {
+        log('warn', `[EventTracker] High queue depth detected`, {
+          queueDepth: this.eventQueue.length,
+          batchSize: this.config.maxBatchSize,
+          recommendation: 'Consider increasing maxBatchSize or maxBatchDelay',
+        });
       }
 
       // Continue flushing if more events remain
@@ -170,7 +184,11 @@ export class EventTracker {
       }
     } catch (error) {
       this.metrics.errors++;
-      this.config.logger.error('[EventTracker] Failed to insert batch:', error);
+      log('error', '[EventTracker] Failed to insert batch', {
+        error: error instanceof Error ? error.message : String(error),
+        batchSize: batch.length,
+        queueDepth: this.eventQueue.length,
+      });
       // Re-queue failed events at the front
       this.eventQueue.unshift(...batch);
       throw error;

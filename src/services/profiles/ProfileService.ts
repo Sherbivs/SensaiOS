@@ -12,6 +12,7 @@
  */
 
 import type { Pool } from 'pg';
+import { log } from '../../utils/logger.js';
 import type {
   UserProfile,
   UserStats,
@@ -142,6 +143,19 @@ export class ProfileService {
     if (cached) {
       this.metrics.profileCacheHits++;
       this.updateQueryTime(Date.now() - startTime);
+      
+      // Log cache hit rate if enabled
+      if (this.config.enableMetrics) {
+        const hitRate = this.metrics.profileCacheHits / this.metrics.profileQueriesTotal;
+        if (hitRate < 0.7) {
+          log('warn', '[ProfileService] Low profile cache hit rate', {
+            hitRate: `${(hitRate * 100).toFixed(1)}%`,
+            cacheHits: this.metrics.profileCacheHits,
+            cacheMisses: this.metrics.profileCacheMisses,
+          });
+        }
+      }
+      
       return cached;
     }
 
@@ -171,14 +185,24 @@ export class ProfileService {
       [userId]
     );
 
+    const queryTime = Date.now() - startTime;
+    this.updateQueryTime(queryTime);
+
+    // Log slow queries
+    if (this.config.enableMetrics && queryTime > 200) {
+      log('warn', '[ProfileService] Slow profile query detected', {
+        queryTimeMs: queryTime,
+        userId,
+        threshold: '200ms',
+      });
+    }
+
     if (result.rows.length === 0) {
-      this.updateQueryTime(Date.now() - startTime);
       return null;
     }
 
     const profile = result.rows[0];
     this.profileCache.set(userId, profile);
-    this.updateQueryTime(Date.now() - startTime);
 
     return profile;
   }
@@ -466,15 +490,30 @@ export class ProfileService {
     this.profileCache.delete(userId);
     this.statsCache.delete(userId);
     this.achievementsCache.delete(userId);
+
+    if (this.config.enableMetrics) {
+      log('info', '[ProfileService] Cache invalidated for user', {
+        userId,
+        cacheStats: this.getCacheStats(),
+      });
+    }
   }
 
   /**
    * Clear all caches
    */
   clearCaches(): void {
+    const beforeStats = this.getCacheStats();
     this.profileCache.clear();
     this.statsCache.clear();
     this.achievementsCache.clear();
+
+    if (this.config.enableMetrics) {
+      log('info', '[ProfileService] All caches cleared', {
+        beforeStats,
+        afterStats: this.getCacheStats(),
+      });
+    }
   }
 
   /**
