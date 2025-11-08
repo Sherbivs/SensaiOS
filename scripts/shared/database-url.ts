@@ -12,8 +12,6 @@ export type EnvVars = Record<string, string>;
 
 export type UrlSelectionResult = {
   url: string;
-  /** @deprecated Always false - Accelerate removed 2025-11-07. Kept for backward compatibility. */
-  isAccelerate: boolean;
   source: string;
   environment: string;
 };
@@ -62,11 +60,8 @@ export function selectQueryUrl(envVars: EnvVars): UrlSelectionResult {
     );
   }
   
-  const isAccelerate = false; // No longer using Accelerate
-  
   return {
     url,
-    isAccelerate,
     source,
     environment,
   };
@@ -107,59 +102,9 @@ export function selectMigrationUrl(envVars: EnvVars): UrlSelectionResult {
     );
   }
   
-  const isAccelerate = false; // No longer using Accelerate
-  
   return {
     url,
-    isAccelerate: false,
     source,
     environment: process.env.NODE_ENV || "development",
   };
-}
-
-/**
- * Check if a URL is an Accelerate URL (deprecated - always returns false)
- * 
- * @param url - Database URL to check
- * @returns Always false (Accelerate removed)
- */
- */
-export function isAccelerateUrl(url: string): boolean {
-  return false; // Accelerate removed - always return false
-}
-
-/**
- * Log database URL selection decision
- * 
- * @param result - URL selection result
- * @param operation - Operation type (seed, migration, query, etc.)
- */
-export function logUrlSelection(result: UrlSelectionResult, operation: string): void {
-  console.log(
-    JSON.stringify({
-      timestamp: new Date().toISOString(),
-      message: "database.url.selected",
-      operation,
-      environment: result.environment,
-      source: result.source,
-      isAccelerate: result.isAccelerate,
-      urlPrefix: result.url.substring(0, 30) + "...",
-    })
-  );
-}
-
-/**
- * Build environment overrides for child processes
- * 
- * @param result - URL selection result
- * @returns Environment variable overrides
- */
-export function buildDatabaseEnv(result: UrlSelectionResult): Record<string, string | undefined> {
-  // 2-NODE CLUSTER: Always use direct PostgreSQL connections
-  const env: Record<string, string | undefined> = {
-    DATABASE_URL: result.url,
-    PRISMA_CLIENT_ENGINE_TYPE: undefined, // Always undefined for direct connections
-  };
-  
-  return env;
 }
