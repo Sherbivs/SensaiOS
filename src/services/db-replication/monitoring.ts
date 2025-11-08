@@ -5,8 +5,8 @@
  * with metrics tracking, alerting thresholds, and health checks.
  */
 
-import type { PrismaClient } from '@prisma/client';
-
+import type { Pool } from 'pg';
+import { findDbSyncState } from '../../shared/models/db-version-queries-pg.js';
 import { getVersion, type Version } from './version.js';
 
 // Temporary logger until integration
@@ -79,19 +79,19 @@ export interface Alert {
  * to calculate lag, sync status, and integrity status.
  */
 export async function getReplicationMetrics(
-  devPrisma: PrismaClient,
-  prodPrisma: PrismaClient,
-  localPrisma: PrismaClient | null = null
+  devPool: Pool,
+  prodPool: Pool,
+  localPool: Pool | null = null
 ): Promise<ReplicationMetrics> {
   try {
     // Get versions from all environments
-    const devVersion = await getVersion(devPrisma, 'DEV');
-    const prodVersion = await getVersion(prodPrisma, 'PROD');
-    const localVersion = localPrisma ? await getVersion(localPrisma, 'LOCAL') : null;
+    const devVersion = await getVersion(devPool, 'DEV');
+    const prodVersion = await getVersion(prodPool, 'PROD');
+    const localVersion = localPool ? await getVersion(localPool, 'LOCAL') : null;
 
     // Get sync state from db_sync_state table
-    const devToProdState = await getSyncState(prodPrisma, 'DEV', 'PROD');
-    const prodToLocalState = localPrisma ? await getSyncState(localPrisma, 'PROD', 'LOCAL') : null;
+    const devToProdState = await getSyncState(prodPool, 'DEV', 'PROD');
+    const prodToLocalState = localPool ? await getSyncState(localPool, 'PROD', 'LOCAL') : null;
 
     // Calculate DEV → Prod metrics
     const devToProdLag = devVersion.migrationCount - prodVersion.migrationCount;
@@ -139,25 +139,16 @@ export async function getReplicationMetrics(
 /**
  * Get sync state from db_sync_state table.
  * 
- * Returns null if no sync has occurred yet (commented out until schema migration).
+ * Returns null if no sync has occurred yet.
  */
 async function getSyncState(
-  prismaClient: PrismaClient,
+  pool: Pool,
   source: string,
   target: string
 ): Promise<any | null> {
   try {
-    // Note: Commented out until db_sync_state schema is migrated
-    /*
-    const syncState = await prismaClient.dbSyncState.findUnique({
-      where: {
-        source_target: { source, target },
-      },
-    });
+    const syncState = await findDbSyncState(source, target, pool);
     return syncState;
-    */
-    logger.warn(`getSyncState for ${source}→${target} skipped (schema not yet migrated)`);
-    return null;
   } catch (error) {
     logger.error(`Failed to get sync state for ${source}→${target}:`, error);
     return null;
