@@ -5,6 +5,7 @@ import { bootDiscord } from "./bot/index.js";
 import { ENABLE_DB_AUTO_SYNC, ENABLE_SECURITY_BOT } from "./config/env.js";
 import { initPrisma, prisma } from "./models/index.js";
 import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
+import { runDatabaseRecovery } from "./runtime/databaseRecovery.js";
 import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
 import { getCacheMetadata } from "./services/pokemonService.js";
 import { config } from "./shared/config.js";
@@ -665,14 +666,53 @@ export async function boot(): Promise<void> {
       status: "error",
       metrics: [metric("error", message)],
     });
-    setPhase("Startup failed");
-    log.error("Database connectivity failed", error, {
-      remediation: [
-        "Ensure PROD_DATABASE_URL (production) or DEV_DATABASE_URL (development) is set correctly.",
-        "For workers, confirm service type is 'Background Worker' and it references the same DB.",
-      ],
+    setPhase("Database recovery");
+    log.warn("Database connectivity failed; attempting recovery", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
     });
-    throw error;
+    
+    // Attempt automatic database recovery
+    try {
+      await runDatabaseRecovery();
+      
+      // Retry connection after recovery
+      await initPrisma();
+      await prisma.$queryRaw(Prisma.sql`SELECT 1`);
+      const dbDurationMs = Number(process.hrtime.bigint() - dbStart) / 1_000_000;
+      prismaConnectDurationMs = dbDurationMs;
+      renderPrismaHeartbeat({
+        ok: true,
+        timestamp: new Date(),
+        latencyMs: dbDurationMs,
+        slow: false,
+        consecutiveFailures: 0,
+        source: "startup",
+      });
+      log.info("Database connectivity restored after recovery");
+      detachPrismaHeartbeatListener = onPrismaHeartbeat(renderPrismaHeartbeat);
+      stopPrismaHeartbeatTask = startPrismaHeartbeat();
+      if (ENABLE_DB_AUTO_SYNC && !stopAutoSyncSupervisor) {
+        stopAutoSyncSupervisor = startAutoSyncSupervisor();
+      }
+    } catch (recoveryError) {
+      setSection("database", {
+        title: "Database",
+        status: "error",
+        metrics: [metric("error", message), metric("recovery failed", recoveryError instanceof Error ? recoveryError.message : String(recoveryError))],
+      });
+      setPhase("Startup failed");
+      log.error("Database connectivity failed after recovery attempt", error, {
+        recoveryError,
+        remediation: [
+          "Ensure PROD_DATABASE_URL (production) or DEV_DATABASE_URL (development) is set correctly.",
+          "For workers, confirm service type is 'Background Worker' and it references the same DB.",
+          "Check that PostgreSQL is installed and running on the target server.",
+          "Review logs at Store/db/bootstrap.log for bootstrap script errors.",
+        ],
+      });
+      throw error;
+    }
   }
 
   if (ENABLE_SECURITY_BOT) {
