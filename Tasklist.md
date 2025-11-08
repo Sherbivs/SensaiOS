@@ -1601,6 +1601,62 @@ Each task has:
     4. Test ProfileService queries against EXPERIMENTAL
     5. Test rollback.sql on EXPERIMENTAL
     6. If successful, apply to PRIMARY LOCAL for final validation before pushing to DEV master
+    
+    Phase 2 Migration Testing Complete (2025-11-08T20:00:00Z):
+    ✅ Migration Files Ready:
+      - prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql (comprehensive 5-step process with validation)
+      - prisma/migrations/20251108183000_northstar_phase2_consolidation/rollback.sql (complete restore functionality)
+      - prisma/migrations/20251108183000_northstar_phase2_consolidation/README.md (9,800+ lines documentation: purpose, data flow, safety, testing workflow, deployment checklist)
+    
+    ✅ EXPERIMENTAL Database Testing (100% OFFLINE):
+      Prerequisites: Phase 1 migration applied first (202511061630_northstar_phase1_additions) to add User.tagline/bio/favoriteSpeciesId columns
+      
+      Migration Test Results:
+      - Sync from PRIMARY LOCAL: npm run ops:sync-experiment-db -- --from local (2 User, 2 TrainerProfile, 1025 Species, 4 PokemonInstance, 0 Battle)
+      - Pre-migration User profile data: 0 rows (expected - Phase 1 columns NULL)
+      - Pre-migration TrainerProfile: 2 rows (user_golden_ash with Pikachu favorite, user_golden_misty with Vaporeon favorite)
+      - Migration execution: psql postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment -f migration.sql
+      - Data migration: UPDATE User SET tagline/bio/favoriteSpeciesId FROM TrainerProfile → 2 rows updated
+      - Data integrity check PASSED: All 2 TrainerProfile rows migrated to User
+      - Post-migration User profile data: 2 rows (tagline/bio/favoriteSpeciesId populated)
+      - TrainerProfile table dropped: 0 rows in information_schema.tables (confirmed)
+      - PRIMARY LOCAL isolation verified: TrainerProfile still exists (100% offline isolation confirmed)
+      
+      Rollback Test Results:
+      - Rollback execution: psql postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment -f rollback.sql
+      - TrainerProfile table recreated: CREATE TABLE + FK constraints + indexes
+      - Data restore: INSERT INTO TrainerProfile FROM User WHERE tagline/bio/favoriteSpeciesId NOT NULL → 2 rows inserted
+      - Data integrity check PASSED: 2 rows in both User and TrainerProfile
+      - TrainerProfile data verified: user_golden_ash (Pikachu #25), user_golden_misty (Vaporeon #134) with complete tagline/bio
+      - Rollback successful: All data restored, no data loss
+    
+    Testing Commands Used:
+    - Sync EXPERIMENTAL: npm run ops:sync-experiment-db -- --from local
+    - Apply Phase 1: psql "postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment" -f "prisma/migrations/202511061630_northstar_phase1_additions/migration.sql"
+    - Verify Phase 1 columns: psql -c 'SELECT column_name FROM information_schema.columns WHERE table_name = ''User'' AND column_name IN (''tagline'', ''bio'', ''favoriteSpeciesId'');'
+    - Apply Phase 2 migration: psql "postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment" -f "prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql"
+    - Verify migration: psql -c 'SELECT COUNT(*) FROM "User" WHERE "tagline" IS NOT NULL OR "bio" IS NOT NULL OR "favoriteSpeciesId" IS NOT NULL;'
+    - Verify TrainerProfile dropped: psql -c 'SELECT table_name FROM information_schema.tables WHERE table_name = ''TrainerProfile'';'
+    - Verify PRIMARY LOCAL isolation: psql "postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db" -c 'SELECT table_name FROM information_schema.tables WHERE table_name = ''TrainerProfile'';'
+    - Apply rollback: psql "postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment" -f "prisma/migrations/20251108183000_northstar_phase2_consolidation/rollback.sql"
+    - Verify rollback: psql -c 'SELECT COUNT(*) FROM "TrainerProfile";'
+    - Verify data integrity: psql -c 'SELECT "userId", "tagline", "bio", "favoriteSpeciesId" FROM "TrainerProfile";'
+    
+    Migration Readiness Assessment:
+    ✅ Migration SQL validated (5-step process: pre-migration validation, data migration, post-migration validation, DROP TABLE, final validation)
+    ✅ Rollback SQL validated (complete restore: CREATE TABLE, data restore, integrity check)
+    ✅ Data integrity verified (zero data loss, all TrainerProfile rows migrated, data restored on rollback)
+    ✅ Isolation confirmed (EXPERIMENTAL changes NOT visible in PRIMARY LOCAL)
+    ✅ Documentation complete (comprehensive README with workflows, troubleshooting, deployment checklist)
+    ✅ Ready for PRIMARY LOCAL testing before DEV deployment
+    
+    Next Steps:
+    1. Apply Phase 2 migration to PRIMARY LOCAL (offline validation before cloud deployment)
+    2. Test ProfileService queries against PRIMARY LOCAL User columns
+    3. Update Prisma schema to remove TrainerProfile model
+    4. EXPLICIT PUSH to DEV master (manual approval required)
+    5. Monitor DEV → PROD replication
+    6. Deploy application code updates (ProfileService using User columns directly)
 
 - id: DB.NORTHSTAR.ANALYTICS
   title: Build analytics jobs and reporting layer
