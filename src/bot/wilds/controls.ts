@@ -1,4 +1,3 @@
-import type { Prisma } from "@prisma/client";
 import type { User as DiscordUser, ButtonInteraction } from "discord.js";
 import {
   ActionRowBuilder,
@@ -11,12 +10,14 @@ import {
 } from "discord.js";
 
 import { attemptCatch, runFromEncounter } from "../../core/encounter/catch.js";
-import { prisma } from "../../models/index.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
-import { PARTY_WITH_SLOTS_INCLUDE, getPartyWithSlots } from "../../shared/models/index.js";
-
-type PartyWithSlots = Prisma.PartyGetPayload<{ include: typeof PARTY_WITH_SLOTS_INCLUDE }>;
-type PartySlotWithPokemon = PartyWithSlots["slots"][number];
+import { getPartyWithSlots, updatePartySlotPosition } from "../../shared/models/party-queries-pg.js";
+import { getUserBasic } from "../../shared/models/user-queries-pg.js";
+import { updateEncounterData } from "../../shared/models/encounter-queries-pg.js";
+import { transaction } from "../../shared/pg-transaction.js";
+import { getProdDb } from "../../shared/pg-connection.js";
+import type { PartyWithSlots, PartySlotWithPokemon } from "../../types/db-models.js";
+import type { PoolClient } from "pg";
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -49,11 +50,11 @@ function buildOptionDescription(slot: PartySlotWithPokemon, activeId: string | n
   return parts.join(" • ").slice(0, 100);
 }
 
-function toEncounterDataJson(encounterData: unknown): Prisma.JsonObject {
+function toEncounterDataJson(encounterData: unknown): Record<string, unknown> {
   if (isJsonObject(encounterData)) {
-    return { ...(encounterData as Prisma.JsonObject) };
+    return { ...encounterData };
   }
-  return {} as Prisma.JsonObject;
+  return {};
 }
 
 export function composeCatchSuccessMessages(discordId: string, pokemonId?: string) {
@@ -82,7 +83,7 @@ export function buildEncounterButtons(encounterId: string) {
 }
 
 export async function openEncounterDM(user: DiscordUser, encounterId: string) {
-  const enc = await loadEncounter(encounterId, { prisma });
+  const enc = await loadEncounter(encounterId);
   if (!enc) return;
   const dm = await user.createDM();
   const embed = buildEncounterEmbed(enc);
@@ -99,12 +100,12 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
   const ephemeral = interaction.inGuild();
 
   // Verify encounter belongs to the user
-  const enc = await loadEncounter(encounterId, { prisma });
+  const enc = await loadEncounter(encounterId);
   if (!enc) {
     await interaction.reply({ content: "This encounter no longer exists.", ephemeral });
     return;
   }
-  const user = await prisma.user.findUnique({ where: { discordId: interaction.user.id } });
+  const user = await getUserBasic(interaction.user.id);
   if (!user || user.id !== enc.ownerId) {
     await interaction.reply({ content: "This is not your encounter.", ephemeral });
     return;
@@ -151,7 +152,7 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
   }
 
   if (action === "SWAP") {
-    const party = await getPartyWithSlots(prisma, user.id);
+    const party = await getPartyWithSlots(user.id);
     const slots = party?.slots ?? [];
     const healthySlots = slots.filter((slot) => slot.pokemon && slot.pokemon.hp > 0);
     if (healthySlots.length < 2) {
@@ -192,14 +193,18 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
         return;
       }
 
-      const result = await prisma.$transaction(async (tx) => {
-        const freshParty = await tx.party.findFirst({ 
-          where: { ownerId: user.id }, 
-          include: PARTY_WITH_SLOTS_INCLUDE 
-        });
+      type SwapResult = 
+        | { kind: "error"; reason: "missing" | "fainted" }
+        | { kind: "already-lead"; chosen: PartySlotWithPokemon; previous: PartySlotWithPokemon | null }
+        | { kind: "swapped"; chosen: PartySlotWithPokemon; previous: PartySlotWithPokemon | null };
+
+      const result = await transaction<SwapResult>(getProdDb(), async (client: PoolClient) => {
+        // Re-fetch party with fresh data inside transaction
+        // Note: Casting client as any to satisfy Pool type constraint - PoolClient has compatible query() method
+        const freshParty = await getPartyWithSlots(user.id, client as any);
         const freshSlots = freshParty?.slots ?? [];
-        const freshLead = freshSlots.find((slot) => slot.slot === 1) ?? freshSlots[0] ?? null;
-        const picked = freshSlots.find((slot) => slot.id === chosenId) ?? null;
+        const freshLead = freshSlots.find((slot: PartySlotWithPokemon) => slot.slot === 1) ?? freshSlots[0] ?? null;
+        const picked = freshSlots.find((slot: PartySlotWithPokemon) => slot.id === chosenId) ?? null;
         if (!freshParty || !picked) {
           return { kind: "error" as const, reason: "missing" as const };
         }
@@ -210,17 +215,20 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
         if (!freshLead || freshLead.id === picked.id) {
           baseData.activePartySlotId = picked.id;
           baseData.activePokemonId = picked.pokemonId;
-          await tx.encounter.update({ where: { id: enc.id }, data: { dataJson: baseData } });
+          await updateEncounterData(enc.id, baseData, client as any);
           return { kind: "already-lead" as const, chosen: picked, previous: freshLead ?? null };
         }
 
+        // Swap slots: temp slot 0, then swap positions
         const originalSlot = picked.slot;
-        await tx.partySlot.update({ where: { id: picked.id }, data: { slot: 0 } });
-        await tx.partySlot.update({ where: { id: freshLead.id }, data: { slot: originalSlot } });
-        await tx.partySlot.update({ where: { id: picked.id }, data: { slot: 1 } });
+        await updatePartySlotPosition(picked.id, 0, client as any);
+        await updatePartySlotPosition(freshLead.id, originalSlot, client as any);
+        await updatePartySlotPosition(picked.id, 1, client as any);
+        
         baseData.activePartySlotId = picked.id;
         baseData.activePokemonId = picked.pokemonId;
-        await tx.encounter.update({ where: { id: enc.id }, data: { dataJson: baseData } });
+        await updateEncounterData(enc.id, baseData, client as any);
+        
         const swapped = { ...picked, slot: 1 } as PartySlotWithPokemon;
         return { kind: "swapped" as const, chosen: swapped, previous: freshLead ?? null };
       });

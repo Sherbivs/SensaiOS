@@ -19,7 +19,7 @@
  * Migration Phase: 9 (Party/Pokemon queries)
  */
 
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { getProdDb } from "../pg-connection.js";
 import { buildSelect, buildInsert, buildUpdate, buildCount, type QueryOptions } from "../pg-query.js";
 import type { Party, PartySlot, PokemonInstance } from "../../types/db-models.js";
@@ -190,7 +190,7 @@ function revivePartyWithSlots(rows: any[]): PartyWithSlots | null {
 /**
  * Get pool with fallback to PROD
  */
-function getPool(pool?: Pool): Pool {
+function getPool(pool?: Pool | PoolClient): Pool | PoolClient {
   if (pool) return pool;
   const prodPool = getProdDb();
   if (!prodPool) throw new Error("No PROD database pool available");
@@ -665,6 +665,36 @@ export async function updatePokemonHealth(
   if (result.rows.length === 0) return null;
   
   return revivePokemon(result.rows[0]);
+}
+
+/**
+ * Update party slot position
+ * Equivalent to: prisma.partySlot.update({ where: { id }, data: { slot } })
+ * 
+ * Used by: Party slot swapping during encounters
+ * 
+ * @param slotId - PartySlot ID
+ * @param newSlotPosition - New slot position (1-6, or 0 for temp)
+ * @param pool - Optional pg pool override
+ * @returns Updated PartySlot or null if not found
+ */
+export async function updatePartySlotPosition(
+  slotId: string,
+  newSlotPosition: number,
+  pool?: Pool
+): Promise<PartySlot | null> {
+  const db = getPool(pool);
+  
+  const { text, values } = buildUpdate(
+    "PartySlot",
+    { slot: newSlotPosition, updatedAt: "NOW()" },
+    { id: slotId }
+  );
+  
+  const result = await db.query(`${text} RETURNING *`, values);
+  if (result.rows.length === 0) return null;
+  
+  return revivePartySlot(result.rows[0]);
 }
 
 /**
