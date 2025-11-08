@@ -34,6 +34,7 @@
     "ops:dex-v2-alert-dry-run": "tsx scripts/ops/dex_v2_alert_dry_run.ts",
     "ops:bootstrap-local-db": "tsx scripts/ops/bootstrap_local_fallback.ts",
     "ops:auto-bootstrap-local-db": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ops/auto_bootstrap_local_db.ps1",
+    "ops:bootstrap-experiment-db": "tsx scripts/ops/bootstrap_experiment_db.ts",
     "guard:dexpack": "bash scripts/guards/guard_dexpack.sh",
     "db:mirror:check": "tsx scripts/db_mirror_checks.ts",
     "lint": "eslint \"{src,tests}/**/*.ts\"",
