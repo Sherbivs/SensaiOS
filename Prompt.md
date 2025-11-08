@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-08T12:15:00Z
-Revision: 2.52
+Timestamp (UTC): 2025-11-08T17:30:00Z
+Revision: 2.53
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -13,42 +13,32 @@ Revision: 2.52
 
 ## Last Repo Changes (since previous Prompt.md revision)
 
-- **EventTracker & ProfileService Implementation + Tests (Current):**
-  - **Context:** Completed DB.NORTHSTAR.SERVICES task by implementing EventTracker and ProfileService for Northstar schema Phase 1, plus comprehensive unit tests. Services provide event tracking with batching/PII protection and profile management with caching/leaderboards.
+- **DB.NORTHSTAR.SERVICES Completion (2025-11-08T17:30Z):**
+  - **Context:** Completed DB.NORTHSTAR.SERVICES task (Phase 14) with EventTracker and ProfileService implementation, comprehensive unit tests (25/25 passing), test fixes for mock alignment issues, and structured logging integration for production observability.
   
-  - **EventTracker Service (src/services/events/, 3 files ~500 lines, commit 4a6c862):**
-    - **types.ts (280 lines):** Complete type system for event categories (gameplay, engagement, economy, social, system, admin), event severity levels (info, warning, error, critical), specific event interfaces (BattleStartedEvent, BattleOutcomeEvent, PokemonCaughtEvent, PokemonEvolvedEvent, LoginEvent, AchievementUnlockedEvent, CoinsEvent, ErrorEvent), retention policies by category/severity (30d/90d/365d/Infinity).
-    
-    - **EventTracker.ts (340 lines):** Batch event processing (max 100 events, 5s delay), PII protection (SHA-256 IP hashing), automatic retention calculation, performance metrics tracking (events queued/flushed, batches processed, avg flush time), bulk INSERT optimization, graceful shutdown with pending event flush. Native Pool integration (no Prisma dependencies).
-    
-    - **index.ts (35 lines):** Export facade with comprehensive usage examples.
+  - **Implementation Summary:**
+    - EventTracker (src/services/events/, 3 files ~500 lines, commit 4a6c862): Event batching (max 100, 5s delay), PII protection (SHA-256 IP hashing), retention calculation (indefinite gameplay, 365d economy), performance metrics, graceful shutdown. Native Pool integration (no Prisma).
+    - ProfileService (src/services/profiles/, 3 files ~600 lines, commit 4a6c862): Multi-tier caching (30min in-memory), profile queries (getProfile, getStats, getAchievements), leaderboard support (4 types, pagination), cache invalidation, query metrics.
+    - Unit Tests (tests/services/, 2 files ~750 lines, commit 5ab4e61): 11 EventTracker tests (batching, PII, retention, metrics, shutdown), 14 ProfileService tests (queries, caching, leaderboards, metrics). Initial: 19/25 passing.
+    - Test Fixes (commit 9a3870b, 2 files, 74 insertions/-24 deletions): Resolved 6 failures - (1) Batch efficiency: 4 queries due to maxBatchSize=3 triggering multiple flushes, (2) Retention calculation: Direct array indexing (queryParams[11]) instead of .find(), added beforeTrack timestamp to avoid race condition, (3) Error tracking: try-catch for rejected promise, (4) Achievement mock: Database column names (slug/name/description) instead of mapped names, (5) Leaderboard pagination: {count: '50'} + row_num field, (6) User rank: LeaderboardEntry.rank property access. Result: 25/25 passing (100%).
+    - Observability Integration (commit cd3370c, 3 files, 77 insertions/-25 deletions): EventTracker logs batch processing with structured metrics (batchSize, flushTimeMs, totalFlushed, avgBatchSize, avgFlushTimeMs), warns on queue depth >50, enhanced error logs with context. ProfileService monitors cache hit rates (warns <70%), detects slow queries (>200ms), logs cache operations with before/after stats. Fixed logger.d.ts module declaration (removed 'declare module' wrapper, added missing exports). Test output confirms all logging features working.
   
-  - **ProfileService (src/services/profiles/, 3 files ~600 lines, commit 4a6c862):**
-    - **types.ts (90 lines):** UserProfile (16 fields: userId, discordId, nickname, coins, visibility, timestamps), UserStats (9 fields including calculated winRate, totalLosses), UserAchievement (9 fields: achievement metadata + unlock date), LeaderboardEntry (7 fields: rank, user info, value), LeaderboardOptions (4 types: battles, catches, streaks, winrate), pagination support.
-    
-    - **ProfileService.ts (490 lines):** Multi-tier caching (30min in-memory SimpleCache with TTL), profile queries (getProfile, getStats, getAchievements), leaderboard queries with pagination and user rank lookup, cache invalidation, performance metrics (cache hit/miss rate, avg query time), optimized SQL queries with explicit SELECT clauses. ROW_NUMBER() window function for leaderboard ranking.
-    
-    - **index.ts (28 lines):** Export facade with usage examples.
+  - **Performance Verification:**
+    - Event batching: 4 queries for 10 events with maxBatchSize=3 (verified in tests)
+    - Retention calculation: 365-day period validated with 1% tolerance for timing drift
+    - Cache hit rate: Monitored with warnings when <70% (observed 50%, 66.7% during tests)
+    - Query performance: All operations complete in <1ms during test runs
+    - Test execution: 29ms total for 25 tests (100% passing)
   
-  - **Unit Tests (tests/services/, 2 files ~750 lines, commit 5ab4e61):**
-    - **events.spec.ts (11 tests, 8/11 passing):** Event batching (queue without flush ✅, auto-flush at batch size ✅, batch efficiency ⚠️), PII hashing (SHA-256 verification ✅, null handling ✅), retention calculation (gameplay indefinite ✅, economy/info calculation ⚠️), metrics tracking (queued/flushed counters ✅, error tracking ⚠️), graceful shutdown (pending event flush ✅).
-    
-    - **profiles.spec.ts (14 tests, 11/14 passing):** Profile queries (database fetch ✅, null handling ✅, cache integration ✅), stats queries (win rate calculation ✅, zero battles handling ✅, caching ✅), achievement queries (cache integration ✅, JOIN verification ⚠️), leaderboard queries (4 types support ✅, battles pagination ⚠️, user rank lookup ⚠️), cache management (user-specific invalidation ✅, global clear ✅), metrics tracking (query counts, cache hit/miss rates ✅).
-    
-    - **Test Results:** 19/25 tests passing (76%). Failures are mock data alignment issues (not logic errors): retention date calculation (economy/info should be 365 days, not Infinity), achievement mock data structure (missing achievementSlug/achievementName fields), leaderboard total count extraction, user rank object shape mismatch.
+  - **Commits:**
+    - 4a6c862: Implement EventTracker and ProfileService — 6 files, 1307 insertions (services, types, configs)
+    - 5ab4e61: Add comprehensive unit tests — 2 files, 750 lines (events.spec.ts, profiles.spec.ts)
+    - 9a3870b: Fix EventTracker and ProfileService test failures (25/25 passing) — 2 files, 74 insertions/-24 deletions (batch efficiency, retention calculation, error tracking, achievement mock, leaderboard pagination, user rank)
+    - cd3370c: Integrate structured logging for EventTracker and ProfileService — 3 files, 77 insertions/-25 deletions (structured batch logs, cache monitoring, slow query detection, cache operation logs, logger.d.ts fixes)
   
-  - **Features Implemented:**
-    ✅ Event batching logic (max 100 events, 5s delay)
-    ✅ PII handling (IP address hashing with SHA-256)
-    ✅ Retention policy calculation per category/severity
-    ✅ Cache integration (30min in-memory for profiles/stats/achievements)
-    ✅ Profile queries (getProfile, getStats, getAchievements)
-    ✅ Leaderboard queries with pagination (battles, catches, streaks, winrate)
-    ✅ Metrics/observability hooks (event processing stats, cache hit rates, query times)
-    ✅ Type safety (comprehensive TypeScript types for all operations)
+  - **Status:** Task DB.NORTHSTAR.SERVICES marked DONE in Tasklist.md with comprehensive outcome documentation including implementation details, commits, performance verification, files created, dependencies met, next steps (DB.NORTHSTAR.MONITORING).
   
-  - **Performance Targets:**
-    - Profile load <50ms with cache hit (in-memory SimpleCache)
+  - **Next:** DB.NORTHSTAR.MONITORING (extend db:cli with performance monitoring: index_usage, table_bloat, slow_queries, VACUUM scheduling, performance dashboard).
     - Leaderboard <200ms (optimized SQL with ROW_NUMBER() window function)
     - Event processing <75ms (bulk INSERT with batching)
   
@@ -527,18 +517,18 @@ Revision: 2.52
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: main
-Change: EventTracker and ProfileService implementation complete (DB.NORTHSTAR.SERVICES). Created 6 service files (~1100 lines total): EventTracker (src/services/events/, 3 files ~500 lines) with batching (max 100 events, 5s delay), PII protection (SHA-256 IP hashing), retention policies by category/severity (30d/90d/365d/Infinity), performance metrics, graceful shutdown. ProfileService (src/services/profiles/, 3 files ~600 lines) with SimpleCache (30min TTL), profile/stats/achievements queries, 4 leaderboard types (battles/catches/streaks/winrate) with ROW_NUMBER() window function, cache management, metrics tracking. Both services use native Pool integration (no Prisma dependencies). Added comprehensive unit tests (2 files ~750 lines): events.spec.ts (11 tests, 8/11 passing), profiles.spec.ts (14 tests, 11/14 passing). Test failures are mock data mismatches (not logic errors). Commits: 4a6c862 (services), 5ab4e61 (tests).
-TasklistDiff: Pending (will mark DB.NORTHSTAR.SERVICES READY → DONE after observability integration)
-Tests: 19/25 passing (76%), zero TypeScript errors in all service files. Failures: retention calculation (⚠️ economy/info date), achievement mock alignment (⚠️ missing fields), leaderboard result extraction (⚠️ total count, user rank shape).
+HEAD: main (cd3370c)
+Change: DB.NORTHSTAR.SERVICES completed (2025-11-08T17:30Z). Implemented EventTracker + ProfileService with comprehensive testing and observability. Commits: (1) 4a6c862 - Services implementation (6 files, 1307 insertions), (2) 5ab4e61 - Unit tests (2 files, 750 lines), (3) 9a3870b - Test fixes (2 files, 74 insertions/-24 deletions, 25/25 passing 100%), (4) cd3370c - Observability integration (3 files, 77 insertions/-25 deletions). Services use native Pool integration (no Prisma), comprehensive type systems, batching/caching/metrics/logging. Test execution: 29ms for 25 tests. All acceptance criteria met.
+TasklistDiff: ✅ Tasklist.md updated (DB.NORTHSTAR.SERVICES READY → DONE with comprehensive outcome documentation including commits, performance verification, files created, dependencies met, next steps).
+Tests: 25/25 passing (100%). EventTracker: 11 tests (batching, PII, retention, metrics, shutdown). ProfileService: 14 tests (queries, caching, leaderboards, metrics). Test fixes resolved: batch efficiency (4 queries due to maxBatchSize=3), retention calculation (direct array indexing, race condition fix), error tracking (try-catch), achievement mock (database columns), leaderboard pagination ({count}, row_num), user rank (object property).
 ContractMode: Markerless (no clipboard markers)
-NextPointer: ⏸️ DB.NORTHSTAR.SERVICES (80% complete, observability integration pending)
+NextPointer: ✅ DB.NORTHSTAR.SERVICES DONE → DB.NORTHSTAR.MONITORING READY (extend db:cli with performance monitoring: index_usage, table_bloat, slow_queries, VACUUM scheduling, performance dashboard).
 RoutersIntact: ✅ All routing docs unchanged
-CanonicalDocs: ✅ AGENTS.md preserved, README.md preserved, Prompt.md updated with EventTracker/ProfileService entry
+CanonicalDocs: ✅ AGENTS.md preserved, README.md preserved, Prompt.md updated with completion summary (Rev 2.53), Tasklist.md outcome section comprehensive
 <!-- PATCHSET:ECHO END -->
 Contracts: ON
-NEXT_Status: IN_PROGRESS (DB.NORTHSTAR.SERVICES ~80% complete)
-NEXT: DB.NORTHSTAR.SERVICES - Build EventTracker and ProfileService with caching (Phase 1 schema complete, ready for service layer implementation).
+NEXT_Status: READY (DB.NORTHSTAR.MONITORING ready for implementation)
+NEXT: DB.NORTHSTAR.MONITORING - Extend db:cli with performance monitoring commands (index usage, table bloat, slow queries, VACUUM scheduling, performance dashboard with alerting thresholds).
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)
