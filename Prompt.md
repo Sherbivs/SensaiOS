@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-08T18:30:00Z
-Revision: 2.54
+Timestamp (UTC): 2025-11-08T19:45:00Z
+Revision: 2.55
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -13,7 +13,59 @@ Revision: 2.54
 
 ## Last Repo Changes (since previous Prompt.md revision)
 
-- **DB.NORTHSTAR.MONITORING Completion (2025-11-08T18:30Z):**
+- **Dual-Local Database Implementation Complete (2025-11-08T19:45Z):**
+  - **Context:** Implemented complete dual-local database architecture enabling safe migration testing on EXPERIMENTAL database before pushing to DEV master. Two independent PostgreSQL clusters on workstation (PRIMARY LOCAL port 55433, EXPERIMENTAL port 55434) both 100% OFFLINE with no production visibility. All 9 implementation tasks completed across 8 commits.
+  
+  - **Implementation Summary:**
+    - **experimentPrisma Client (commit 266f15f, 122 insertions):** Added 4th Prisma client to src/shared/prisma.ts with initializeExperimentClient(), heartbeat monitoring (30s interval), QuadDatabaseStats type (dev/prod/local/experiment telemetry), graceful degradation when DATABASE_EXPERIMENT_URL not configured.
+    
+    - **Management Scripts (commit 6600821, 500+ lines):** Created 4 operational scripts: sync_experiment_db.ts (500+ lines, pg_dump/pg_restore with --from local/dev/prod flag, snapshot rotation retention 2), start_experiment_db.ps1 (PowerShell cluster start on port 55434), stop_experiment_db.ps1 (PowerShell graceful shutdown), status_local_dbs.ps1 (display status with row counts for User/Species/PokemonInstance/Battle tables). Added 4 npm scripts: ops:bootstrap-experiment-db, ops:sync-experiment-db, ops:start-experiment-db, ops:stop-experiment-db, ops:status-local-dbs.
+    
+    - **Database CLI Enhancement (commit 1a03caa, 142 insertions/-26 deletions):** Enhanced scripts/db_admin.ts with --target flag supporting dev/prod/local/experiment database selection. Added databases command listing all 4 configured databases with connection testing. Updated resolveDatasource() accepting target parameter with switch statement. Updated showStatus() displaying current target. Updated printHelp() with comprehensive target documentation and examples.
+    
+    - **AGENTS.md Documentation (commit 28fafd2, 154 insertions):** Added comprehensive "Dual Local Database Setup (Workstation Only)" section documenting: architecture diagram (cloud DEV/PROD separate from workstation PRIMARY LOCAL/EXPERIMENTAL with 100% offline isolation), use cases table (PRIMARY LOCAL for development, EXPERIMENTAL for migration testing), npm scripts reference, 8-step migration testing workflow, environment variables (DATABASE_LOCAL_URL, DATABASE_EXPERIMENT_URL), Prisma client access patterns (experimentPrisma usage), safety rules (8 DO rules, 3 DON'T rules emphasizing offline isolation).
+    
+    - **Replication Architecture (commit 4709cfe, 1541 insertions):** Created comprehensive docs/db-replication-architecture.md documenting 4-tier database architecture: Cloud Databases (DEV master source of truth + PROD local node gameplay), Workstation Databases (PRIMARY LOCAL development mirror + EXPERIMENTAL migration testing), Complete Replication Flow diagram showing DEV → PROD → PRIMARY LOCAL → EXPERIMENTAL cascade with explicit push requirement, 4 operational workflows (Normal Development DEV→workstation, Migration Testing EXPERIMENTAL→LOCAL→DEV→PROD, Emergency Rollback PROD←DEV←workstation, Sync EXPERIMENTAL from different sources), Database Lifecycle Management (bootstrap/start/stop/sync/status for both databases), Monitoring & Observability (4 databases command, Prisma client telemetry, heartbeat monitoring, replication status checks), Storage Quotas (cloud DEV 1.0 GB + PROD 0.5 GB, workstation PRIMARY LOCAL ~200 MB + EXPERIMENTAL ~50 MB), Safety Rules (14 rules total: 7 DO, 7 DON'T), Troubleshooting (PRIMARY LOCAL issues, EXPERIMENTAL issues, cloud replication issues).
+    
+    - **PowerShell Syntax Fix (commit afb49d7, 6 insertions/-6 deletions):** Fixed status_local_dbs.ps1 PowerShell parsing errors. Changed SQL query string construction from backtick escaping to single-quote concatenation avoiding parser issues. Changed colons to dashes in command display strings.
+    
+    - **Testing Documentation (commit c21546b, 27 insertions):** Added comprehensive dual-local database testing results to Tasklist.md DB.NORTHSTAR.PHASE2 notes section. Testing Results (2025-11-08T19:35:00Z): PRIMARY LOCAL running port 55433 (2 Users, 1025 Species, 4 PokemonInstance, 0 Battle), EXPERIMENTAL synced from PRIMARY LOCAL port 55434 matching data, test migration applied (ALTER TABLE "User" ADD COLUMN test_column TEXT), verified PRIMARY LOCAL isolation (test_column NOT present confirming offline), test rollback applied (ALTER TABLE "User" DROP COLUMN test_column), rollback verified successful. Testing Commands documented: Start PRIMARY LOCAL (pg_ctl start), Verify data (psql COUNT queries), Create EXPERIMENTAL database (psql CREATE DATABASE), Sync EXPERIMENTAL (npm run ops:sync-experiment-db -- --from local), Test migration (psql ALTER TABLE), Verify isolation (psql column check), Test rollback (psql DROP COLUMN). Next Steps for Phase 2 Migration Testing: 6-step workflow documented (sync EXPERIMENTAL, apply Phase 2 migration.sql, validate data migration, test ProfileService queries, test rollback.sql, apply to PRIMARY LOCAL for final validation).
+    
+    - **File Cleanup (commit 7e0b9a3, chore):** Removed SQL connection comment from src/services/db-replication/version.ts header (accidentally added -- Active: ... line).
+  
+  - **Architecture Validation:**
+    - **100% Offline Isolation Confirmed:** EXPERIMENTAL changes do NOT appear in PRIMARY LOCAL, PRIMARY LOCAL changes do NOT appear in EXPERIMENTAL, both databases operate independently on different ports (55433 vs 55434), manual sync required (one-way PULL from PRIMARY LOCAL).
+    - **Production Safety:** Neither workstation database visible to cloud (DEV/PROD) nodes, changes reach production only via explicit push to DEV master, DEV master then replicates to PROD node automatically.
+  
+  - **Commits (8 total):**
+    - 266f15f: feat(prisma): Add experimentPrisma client for dual-local database testing (src/shared/prisma.ts experimentPrisma initialization, heartbeat monitoring, QuadDatabaseStats type)
+    - 6600821: feat(scripts): Add experimental database management tooling (sync_experiment_db.ts 500+ lines, start/stop/status PowerShell scripts, 4 npm scripts)
+    - 28fafd2: docs(AGENTS): Document dual-local database architecture and workflows (154 insertions, architecture diagram, use cases, 8-step workflow, safety rules)
+    - 1a03caa: feat(db:cli): Add --target flag and databases command for multi-database support (142 insertions/-26 deletions, resolveDatasource() with target, showDatabases() connection testing, printHelp() target documentation)
+    - 4709cfe: feat(docs): Add comprehensive database replication architecture documentation (1541 insertions, 4-tier architecture, 4 workflows, lifecycle management, monitoring, storage quotas, safety rules, troubleshooting)
+    - afb49d7: fix: PowerShell syntax in status_local_dbs.ps1 (6 insertions/-6 deletions, single-quote concatenation, dash separators)
+    - c21546b: docs: Document dual-local database testing results (27 insertions, testing timestamp, PRIMARY LOCAL/EXPERIMENTAL status, test migration/rollback, commands used, next steps)
+    - 7e0b9a3: chore: Remove SQL comment from version.ts header (1 deletion, cleanup accidental SQL comment)
+  
+  - **Test Results:**
+    - ✅ PRIMARY LOCAL database running on port 55433 (2 User records, 1025 Species, 4 PokemonInstance)
+    - ✅ EXPERIMENTAL database created on port 55434, synced from PRIMARY LOCAL via npm run ops:sync-experiment-db -- --from local
+    - ✅ Both databases verified running independently with matching data (2 User records each)
+    - ✅ Test migration applied to EXPERIMENTAL: ALTER TABLE "User" ADD COLUMN test_column TEXT DEFAULT NULL;
+    - ✅ Verified PRIMARY LOCAL isolation: test_column NOT present in PRIMARY LOCAL (confirming 100% offline isolation)
+    - ✅ Test rollback applied to EXPERIMENTAL: ALTER TABLE "User" DROP COLUMN test_column;
+    - ✅ Verified rollback success: test_column removed from EXPERIMENTAL
+    - ✅ Dual-local architecture fully functional and ready for Phase 2 migration testing
+  
+  - **Contract Updates:**
+    - Tasklist.md Rev 2.101 → 2.102: DB.NORTHSTAR.PHASE2 notes updated with comprehensive testing documentation (testing timestamp, results, commands, next steps)
+    - Prompt.md Rev 2.54 → 2.55 (this update): Added Dual-Local Database Implementation Complete entry documenting all 9 tasks, 8 commits, architecture validation, testing results
+  
+  - **Status:** All 9 implementation tasks completed (100%): experimentPrisma client, management scripts (sync/start/stop/status), db:cli enhancement (--target flag, databases command), AGENTS.md documentation (154 insertions), replication architecture (1541 insertions), PowerShell syntax fixes, testing documentation. Dual-local database architecture production-ready for Phase 2 migration testing on EXPERIMENTAL database before pushing to DEV master.
+  
+  - **Next:** DB.NORTHSTAR.PHASE2 migration testing on EXPERIMENTAL database following 6-step workflow: (1) Sync EXPERIMENTAL from PRIMARY LOCAL, (2) Apply Phase 2 migration.sql, (3) Validate data migration (TrainerProfile → User columns), (4) Test ProfileService queries, (5) Test rollback.sql, (6) Apply to PRIMARY LOCAL for final validation before pushing to DEV master.
+
+- **DB.NORTHSTAR.MONITORING Completion (2025-11-08T18:30Z - Previous):**
   - **Context:** Completed DB.NORTHSTAR.MONITORING task with 4 performance monitoring commands for db:cli, comprehensive documentation, and maintenance workflow integration. Enables ongoing database health tracking via pg_stat_* system tables.
   
   - **Implementation Summary:**
