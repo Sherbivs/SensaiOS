@@ -311,7 +311,7 @@ describe("DB Replication End-to-End", () => {
   describe("Multi-Connection Protocol", () => {
     it("should maintain three independent Prisma clients", async () => {
       // Test client independence
-      // 1. Initialize devPrisma, prisma (prod), localPrisma
+      // 1. Initialize devPrisma, prisma (prod), onPremiseDevPrisma
       // 2. Verify each has independent connection
       // 3. Verify each has independent heartbeat
       // 4. Verify failure in one doesn't affect others

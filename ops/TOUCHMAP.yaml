@@ -327,7 +327,7 @@ T13.DEX.V2_PROD_CUTOVER:
   - "scripts/ops/dex_v2_backup.ts"
   - "scripts/ops/simulate_flag_rollout.ts"
   - "scripts/ops/dex_v2_alert_dry_run.ts"
-  - "scripts/ops/bootstrap_local_fallback.ts"
+  - "scripts/ops/bootstrap_onpremise_dev.ts"
   - "scripts/ops/ensure_postgres_bundle.ps1"
   - "scripts/ops/auto_bootstrap_local_db.ps1"
   - "ops/ROUTER.yaml"

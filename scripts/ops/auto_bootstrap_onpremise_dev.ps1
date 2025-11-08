@@ -19,7 +19,7 @@ Push-Location $repoRoot
  $exitCode = 0
 try {
     $npxCommand = (Get-Command npx -ErrorAction Stop).Source
-    $runnerArgs = @("tsx", "scripts/ops/bootstrap_local_fallback.ts")
+    $runnerArgs = @("tsx", "scripts/ops/bootstrap_onpremise_dev.ts")
     if ($BootstrapArgs) {
         $runnerArgs += $BootstrapArgs
     }

@@ -128,7 +128,7 @@ function loadEnvironment(): void {
 }
 
 function resolvePaths(storeRoot: string): Paths {
-  const dbRoot = path.join(storeRoot, "db-experiment");
+  const dbRoot = path.join(storeRoot, "onpremise-dev-experiment");
   return {
     storeRoot,
     dbRoot,
@@ -294,10 +294,10 @@ function resolveSourceUrl(source: string): string {
 
   switch (normalizedSource) {
     case "local": {
-      const localUrl = process.env.PROD_DATABASE_URL?.trim() || process.env.DATABASE_LOCAL_URL?.trim();
+      const localUrl = process.env.PROD_DATABASE_URL?.trim() || process.env.DATABASE_ONPREMISE_DEV_PRIMARY?.trim();
       if (!localUrl) {
         throw new Error(
-          "DATABASE_LOCAL_URL or PROD_DATABASE_URL not configured. Bootstrap PRIMARY LOCAL DB first.",
+          "DATABASE_ONPREMISE_DEV_PRIMARY or PROD_DATABASE_URL not configured. Bootstrap PRIMARY LOCAL DB first.",
         );
       }
       return localUrl;
@@ -468,7 +468,7 @@ async function main(): Promise<void> {
   // Validate experimental cluster exists
   if (!fs.existsSync(paths.clusterDir)) {
     console.error("[sync-experiment] Experimental cluster not initialized.");
-    console.error("[sync-experiment] Run: npm run ops:bootstrap-experiment-db");
+    console.error("[sync-experiment] Run: npm run ops:bootstrap-onpremise-experiment");
     process.exit(1);
   }
 

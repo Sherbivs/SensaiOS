@@ -24,8 +24,8 @@ All connections use direct `postgresql://` URLs. No Prisma Accelerate, no connec
 ```bash
 DEV_DATABASE_URL       # DEV master (migrations, schema changes)
 PROD_DATABASE_URL      # PROD local node (gameplay, <50ms latency)
-DATABASE_LOCAL_URL     # Local workstation mirror (offline development, replication testing)
-DATABASE_EXPERIMENT_URL # Local experimental database (migrations, experiments, NO auto-sync)
+DATABASE_ONPREMISE_DEV_PRIMARY     # On-premise workstation mirror (offline development, replication testing)
+DATABASE_ONPREMISE_DEV_EXPERIMENT # Local experimental database (migrations, experiments, NO auto-sync)
 ```
 
 ### Legacy Variables (Still Supported for DEV Access)
@@ -41,21 +41,21 @@ RENDER_DB_INTERNAL_URL # DEV master internal network (Render services)
 | --- | --- | --- | --- | --- |
 | `DEV_DATABASE_URL` | `postgresql://` | DEV master database | Migrations, schema changes | Render |
 | `PROD_DATABASE_URL` | `postgresql://` | PROD local node | Live gameplay (<50ms) | Workstation |
-| `DATABASE_LOCAL_URL` | `postgresql://` | Workstation mirror | Offline dev, replication testing | 55433 |
-| `DATABASE_EXPERIMENT_URL` | `postgresql://` | Experimental clone | Migrations, destructive testing | 55434 |
+| `DATABASE_ONPREMISE_DEV_PRIMARY` | `postgresql://` | Workstation mirror | Offline dev, replication testing | 55433 |
+| `DATABASE_ONPREMISE_DEV_EXPERIMENT` | `postgresql://` | On-premise experimental clone | Migrations, destructive testing | 55434 |
 | `RENDER_DB_EXTERNAL_URL` | `postgresql://` | DEV master (legacy) | External access | Render |
 | `RENDER_DB_INTERNAL_URL` | `postgresql://` | DEV master (legacy) | Render internal | Render |
 
-## Dual Local Database Architecture
+## Dual On-Premise Database Architecture
 
 **As of 2025-11-08**, the workstation maintains **two independent PostgreSQL clusters** that are **completely offline and isolated from production**:
 
-- **PRIMARY LOCAL DB** (`DATABASE_LOCAL_URL`, port 55433) — Can pull data from DEV master (one-way download), **NOT visible to production**, used for local development with production-like data
-- **EXPERIMENTAL DB** (`DATABASE_EXPERIMENT_URL`, port 55434) — Independent clone for development/experiments, **NOT visible to production**, **NO auto-sync** (manual only), used for testing migrations before pushing to cloud
+- **ONPREMISE-DEV-PRIMARY DB** (`DATABASE_ONPREMISE_DEV_PRIMARY`, port 55433) — Can pull data from DEV master (one-way download), **NOT visible to production**, used for on-premise development with production-like data
+- **ONPREMISE-DEV-EXPERIMENT** (`DATABASE_ONPREMISE_DEV_EXPERIMENT`, port 55434) — Independent clone for development/experiments, **NOT visible to production**, **NO auto-sync** (manual only), used for testing migrations before pushing to cloud
 
-**CRITICAL:** Both local databases are **localhost-only**. The production node (PROD) cannot see or access them. Changes reach production only when you **explicitly push migrations to DEV Master**, which then replicates to PROD Node.
+**CRITICAL:** Both on-premise databases are **localhost-only**. The production node (PROD) cannot see or access them. Changes reach production only when you **explicitly push migrations to DEV Master**, which then replicates to PROD Node.
 
-See `docs/dual-local-database-guide.md` for comprehensive architecture, workflows, and best practices.
+See `docs/dual-onpremise-database-guide.md` for comprehensive architecture, workflows, and best practices.
 
 ## Canonical URL Selection Logic
 
@@ -73,7 +73,7 @@ function selectQueryUrl(envVars: Record<string, string>): string {
     return (
       envVars.DEV_DATABASE_URL ?? 
       envVars.RENDER_DB_EXTERNAL_URL ?? 
-      envVars.DATABASE_LOCAL_URL ??
+      envVars.DATABASE_ONPREMISE_DEV_PRIMARY ??
       ""
     );
   }
@@ -101,8 +101,8 @@ function selectMigrationUrl(envVars: Record<string, string>): string {
 | **Live gameplay** | Production | `PROD_DATABASE_URL` | PROD local node (<50ms) | Workstation |
 | **Runtime queries** | Development | `DEV_DATABASE_URL` | DEV master | Render |
 | **Migrations** | ALL | `DEV_DATABASE_URL` | DEV master (always) | Render |
-| **Offline dev** | Local | `DATABASE_LOCAL_URL` | Workstation mirror | 55433 |
-| **Experiments** | Local | `DATABASE_EXPERIMENT_URL` | Workstation clone | 55434 |
+| **Offline dev** | Local | `DATABASE_ONPREMISE_DEV_PRIMARY` | Workstation mirror | 55433 |
+| **Experiments** | Local | `DATABASE_ONPREMISE_DEV_EXPERIMENT` | Workstation clone | 55434 |
 
 ## Architecture Diagram (Updated 2025-11-08)
 
@@ -110,16 +110,16 @@ function selectMigrationUrl(envVars: Record<string, string>): string {
 Cloud Databases              Developer Workstation (OFFLINE)
 ---------------              -------------------------------
 
-DEV Master (Render) ───┐     PRIMARY LOCAL DB
+DEV Master (Render) ───┐     ONPREMISE-DEV-PRIMARY DB
 (Source of truth)      │     Port: 55433 (localhost only)
                        │     Pull: Downloads from DEV (one-way)
 PROD Node (Render)     │     Push: NONE (isolated from cloud)
 (Production gameplay)  │              │
                        │              │ Manual Clone (offline)
                        ▼              ▼
-                  Downloads to    EXPERIMENTAL DB
+                  Downloads to    ONPREMISE-DEV-EXPERIMENT
                   workstation     Port: 55434 (localhost only)
-                  (one-way)       Pull: Clones from PRIMARY LOCAL
+                  (one-way)       Pull: Clones from ONPREMISE-DEV-PRIMARY
                                   Push: NONE (isolated from cloud)
 
                                   When ready to deploy:
@@ -130,27 +130,27 @@ PROD Node (Render)     │     Push: NONE (isolated from cloud)
                                   DEV → PROD replication (automatic)
 ```
 
-**CRITICAL:** Arrows show data flow. Both local databases **cannot be accessed from cloud**. Production changes require **explicit push to DEV Master**.
+**CRITICAL:** Arrows show data flow. Both on-premise databases **cannot be accessed from cloud**. Production changes require **explicit push to DEV Master**.
 
 ## Critical Rules
 
 ### ✅ DO
 
 1. **Production gameplay** → Use `PROD_DATABASE_URL` (PROD cloud node)
-2. **All migrations** → Test on `DATABASE_EXPERIMENT_URL` first, then **explicit push to DEV Master**
-3. **Development queries** → Use `DEV_DATABASE_URL` (DEV master) OR `DATABASE_LOCAL_URL` (offline)
-4. **Offline development** → Use `DATABASE_LOCAL_URL` (primary local mirror, port 55433)
-5. **Migration testing** → Use `DATABASE_EXPERIMENT_URL` (experimental clone, port 55434)
-6. **Destructive experiments** → Use `DATABASE_EXPERIMENT_URL` (isolated, safe)
-7. **Pushing to production** → Test on EXPERIMENTAL → PRIMARY LOCAL → **explicit push to DEV** → DEV replicates to PROD
+2. **All migrations** → Test on `DATABASE_ONPREMISE_DEV_EXPERIMENT` first, then **explicit push to DEV Master**
+3. **Development queries** → Use `DEV_DATABASE_URL` (DEV master) OR `DATABASE_ONPREMISE_DEV_PRIMARY` (offline)
+4. **Offline development** → Use `DATABASE_ONPREMISE_DEV_PRIMARY` (ONPREMISE-DEV-PRIMARY mirror, port 55433)
+5. **Migration testing** → Use `DATABASE_ONPREMISE_DEV_EXPERIMENT` (On-premise experimental clone, port 55434)
+6. **Destructive experiments** → Use `DATABASE_ONPREMISE_DEV_EXPERIMENT` (isolated, safe)
+7. **Pushing to production** → Test on EXPERIMENTAL → ONPREMISE-DEV-PRIMARY → **explicit push to DEV** → DEV replicates to PROD
 
 ### ❌ DON'T
 
 1. **Never** run migrations against `PROD_DATABASE_URL` (production node)
 2. **Never** expect production to see local database changes (they're offline)
-3. **Never** push migrations to DEV without testing on EXPERIMENTAL + PRIMARY LOCAL first
+3. **Never** push migrations to DEV without testing on EXPERIMENTAL + ONPREMISE-DEV-PRIMARY first
 4. **Never** use `localhost` URLs in production code (explicit cloud URLs required)
-5. **Never** run DROP TABLE on PRIMARY LOCAL without testing on EXPERIMENTAL first
+5. **Never** run DROP TABLE on ONPREMISE-DEV-PRIMARY without testing on EXPERIMENTAL first
 6. **Never** assume local databases replicate to cloud automatically (they don't)
 7. **Never** share localhost database URLs (not accessible from cloud or other machines)
 
@@ -166,7 +166,7 @@ export const prisma = new PrismaClient({
   datasources: {
     db: { 
       url: process.env.PROD_DATABASE_URL || 
-           process.env.DATABASE_LOCAL_URL 
+           process.env.DATABASE_ONPREMISE_DEV_PRIMARY 
     }
   }
 });
@@ -182,10 +182,10 @@ export const devPrisma = new PrismaClient({
 });
 
 // LOCAL client - for offline development (optional)
-export const localPrisma = process.env.DATABASE_LOCAL_URL 
+export const onPremiseDevPrisma = process.env.DATABASE_ONPREMISE_DEV_PRIMARY 
   ? new PrismaClient({
       datasources: {
-        db: { url: process.env.DATABASE_LOCAL_URL }
+        db: { url: process.env.DATABASE_ONPREMISE_DEV_PRIMARY }
       }
     })
   : null;
@@ -229,7 +229,7 @@ npm run db:cli -- counts
 
 ```bash
 # Bootstrap local PostgreSQL cluster
-npm run ops:bootstrap-local-db
+npm run ops:bootstrap-onpremise-dev
 
 # Verify PROD_DATABASE_URL in consolidated env file
 grep PROD_DATABASE_URL secrets/Infinity-Gauntlet.env
@@ -308,7 +308,7 @@ describe("Database URL Selection", () => {
 1. **Production gameplay** uses `PROD_DATABASE_URL` (PROD local node) for <50ms latency
 2. **All migrations** use `DEV_DATABASE_URL` (DEV master) - source of truth for schema
 3. **Development queries** use `DEV_DATABASE_URL` (DEV master)
-4. **Offline development** uses `DATABASE_LOCAL_URL` (workstation mirror)
+4. **Offline development** uses `DATABASE_ONPREMISE_DEV_PRIMARY` (workstation mirror)
 5. **Zero proxy layers** - all connections are direct `postgresql://` URLs
 
 **Contract Status:** This is an **Absolute** requirement in `Patch.md`. Violations cause production failures and must be fixed immediately.

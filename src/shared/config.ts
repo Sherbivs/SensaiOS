@@ -68,14 +68,15 @@ function coerceBoolean(value: string | undefined, fallback: boolean): boolean {
 }
 
 function resolveLocalFallbackUrl(): string {
-  const envOverride = process.env.DATABASE_LOCAL_URL?.trim();
+  // CANONICAL: DATABASE_ONPREMISE_DEV_PRIMARY (workstation development database)
+  const envOverride = process.env.DATABASE_ONPREMISE_DEV_PRIMARY?.trim();
   if (envOverride) {
     return envOverride;
   }
 
   const fileOverride = process.env.DATABASE_LOCAL_URL_FILE?.trim();
   const storeRoot = process.env.IG_STORE_ROOT?.trim() || path.join(process.cwd(), "Store");
-  const candidates = [fileOverride, path.join(storeRoot, "db", "local-url.txt"), path.join(storeRoot, "db", "local", "url.txt")]
+  const candidates = [fileOverride, path.join(storeRoot, "onpremise-dev-primary", "local-url.txt"), path.join(storeRoot, "db", "local-url.txt"), path.join(storeRoot, "db", "local", "url.txt")]
     .filter((candidate): candidate is string => Boolean(candidate));
 
   for (const candidate of candidates) {
@@ -160,14 +161,16 @@ function normalizeMode(raw: string | undefined): DatabaseConnectionMode {
 function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
   const mode = normalizeMode(process.env.DATABASE_CONNECTION_MODE);
   
-  // 2-NODE CLUSTER: PROD_DATABASE_URL (local) and DEV_DATABASE_URL (master)
+  // 2-NODE CLUSTER: CLOUD-PROD-RUNTIME (PROD_DATABASE_URL) and CLOUD-DEV-MASTER (DEV_DATABASE_URL)
   const prodUrl = process.env.PROD_DATABASE_URL?.trim() ?? "";
   const devUrl = process.env.DEV_DATABASE_URL?.trim() ?? "";
   
-  // 2-NODE CLUSTER: Standard environment variables only
+  // 2-NODE CLUSTER: Standard environment variables (Render managed databases)
   const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL?.trim() ?? "";
   const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL?.trim() ?? "";
-  const localUrl = process.env.DATABASE_LOCAL_URL?.trim() ?? "";
+  
+  // ONPREMISE-DEV-PRIMARY: Workstation development database (canonical)
+  const onPremiseDevUrl = process.env.DATABASE_ONPREMISE_DEV_PRIMARY?.trim() ?? "";
 
   const preferExternal = mode === "external" || (mode === "auto" && nodeEnv !== "production");
 
@@ -194,21 +197,21 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     directCandidates.push({ value, source, fallback });
   };
 
-  // 2-NODE CLUSTER: Production uses PROD_DATABASE_URL (local), Development uses DEV_DATABASE_URL (master)
+  // 2-NODE CLUSTER: Production uses CLOUD-PROD-RUNTIME (PROD_DATABASE_URL), Development uses CLOUD-DEV-MASTER (DEV_DATABASE_URL)
   // All connections are direct PostgreSQL (no Accelerate)
   
   // Build direct PostgreSQL candidates in priority order
   if (preferExternal) {
-    // Development/external mode: prefer DEV (master) database
+    // Development/external mode: prefer CLOUD-DEV-MASTER (master database)
     addDirectCandidate(devUrl, "external");
     addDirectCandidate(renderExternalUrl, "external");
     addDirectCandidate(renderInternalUrl, "internal");
     addDirectCandidate(prodUrl, "env");
-    addDirectCandidate(localUrl, "local");
+    addDirectCandidate(onPremiseDevUrl, "local");
   } else {
-    // Production/internal mode: prefer PROD (local) database
+    // Production/internal mode: prefer CLOUD-PROD-RUNTIME (runtime database)
     addDirectCandidate(prodUrl, "env");
-    addDirectCandidate(localUrl, "local");
+    addDirectCandidate(onPremiseDevUrl, "local");
     addDirectCandidate(renderInternalUrl, "internal");
     addDirectCandidate(devUrl, "external");
     addDirectCandidate(renderExternalUrl, "external");
@@ -224,7 +227,7 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
 
   if (!orderedCandidates.length) {
     throw new Error(
-      "No database URL found. Provide a direct PostgreSQL connection string via PROD_DATABASE_URL, DEV_DATABASE_URL, RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL, or DATABASE_LOCAL_URL."
+      "No database URL found. Provide a direct PostgreSQL connection string via PROD_DATABASE_URL (CLOUD-PROD-RUNTIME), DEV_DATABASE_URL (CLOUD-DEV-MASTER), RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL, or DATABASE_ONPREMISE_DEV_PRIMARY (workstation)."
     );
   }
 
@@ -261,7 +264,7 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
 function assertDatabaseUrl(nodeEnv: string, url: string): void {
   if (!url) {
     if (nodeEnv === "production") {
-      throw new Error("Database URL is required in production. Set PROD_DATABASE_URL or RENDER_DB_INTERNAL_URL.");
+      throw new Error("Database URL is required in production. Set PROD_DATABASE_URL (CLOUD-PROD-RUNTIME) or RENDER_DB_INTERNAL_URL.");
     }
     return;
   }
@@ -272,12 +275,12 @@ function assertDatabaseUrl(nodeEnv: string, url: string): void {
       const isLocalhost = host === "localhost" || host === "127.0.0.1" || host === "::1";
       
       // CRITICAL: Allow localhost for PROD_DATABASE_URL (2-node cluster architecture)
-      // PROD_DATABASE_URL intentionally uses 127.0.0.1:55433 (local Render Node PostgreSQL)
+      // CLOUD-PROD-RUNTIME intentionally uses 127.0.0.1:55433 (local Render Worker Node PostgreSQL)
       const prodUrl = process.env.PROD_DATABASE_URL?.trim();
       const isUsingProdLocalDatabase = prodUrl && url === prodUrl && isLocalhost;
       
       if (isLocalhost && !isUsingProdLocalDatabase) {
-        throw new Error("Database URL cannot point to localhost in production (unless using PROD_DATABASE_URL for local node).");
+        throw new Error("Database URL cannot point to localhost in production (unless using PROD_DATABASE_URL for CLOUD-PROD-RUNTIME local node).");
       }
     } catch (error) {
       if (error instanceof Error) {

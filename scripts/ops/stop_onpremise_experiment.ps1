@@ -24,7 +24,7 @@ if (-not $StoreRoot) {
     exit 1
 }
 
-$ClusterDir = Join-Path $StoreRoot "db-experiment\pg_data"
+$ClusterDir = Join-Path $StoreRoot "onpremise-dev-experiment\pg_data"
 $Port = 55434
 
 # Check if cluster exists

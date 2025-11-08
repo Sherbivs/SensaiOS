@@ -291,7 +291,7 @@
   - The Architecture (DEV master, PROD local node)
   - Canonical URL Selection Logic (runtime queries, migrations)
   - Quick Reference table
-  - Dual Database Connection Architecture (devPrisma, prisma, localPrisma)
+  - Dual Database Connection Architecture (devPrisma, prisma, onPremiseDevPrisma)
   - Usage Patterns (when to use each client)
 - **Cross-References**:
   - ← `Patch.md` (Absolute requirement)

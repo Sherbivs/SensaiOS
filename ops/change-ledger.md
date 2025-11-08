@@ -1,13 +1,13 @@
 # Recent Change Ledger (200 commits)
 
 ## 2025-11-05 — Local Postgres Fallback Mirror
-- Added `scripts/ops/bootstrap_local_fallback.ts` (`npm run ops:bootstrap-local-db`) to hydrate a Store-backed Postgres mirror, rotate timestamped snapshots, and publish `Store/db/local-url.txt` + metadata for offline failover.
-- Extended `src/shared/config.ts` and `scripts/db_admin.ts` so Prisma and operator CLI flows detect `Store/db/local-url.txt` when managed hosts fail, ensuring local tooling can reconnect without manual rewiring.
+- Added `scripts/ops/bootstrap_onpremise_dev.ts` (`npm run ops:bootstrap-onpremise-dev`) to hydrate a Store-backed Postgres mirror, rotate timestamped snapshots, and publish `Store/onpremise-dev-primary/onpremise-url.txt` + metadata for offline failover.
+- Extended `src/shared/config.ts` and `scripts/db_admin.ts` so Prisma and operator CLI flows detect `Store/onpremise-dev-primary/onpremise-url.txt` when managed hosts fail, ensuring local tooling can reconnect without manual rewiring.
 - Updated AGENTS.md, docs/operations.md, and docs/database-systems.md with fallback requirements, including Tasklist logging before the Nov 5 ladder and go/no-go checks that verify the mirror timestamp and URL.
 - Refreshed Prompt.md, Tasklist.md, and ops/NEXT.yaml so T13.DEX.V2_PROD_CUTOVER remains READY with offline recovery coverage captured for auditors.
 
 - Taught the bootstrap helper to initialize clusters with `UTF8` encoding and connect as `postgres@127.0.0.1` so pg_restore can ingest species glyphs and maintain foreign key integrity.
-- Added `scripts/ops/ensure_postgres_bundle.ps1` + `scripts/ops/auto_bootstrap_local_db.ps1`, exposed via `npm run ops:auto-bootstrap-local-db`, to silently install PostgreSQL (winget) and hydrate the fallback in one step.
+- Added `scripts/ops/ensure_postgres_bundle.ps1` + `scripts/ops/auto_bootstrap_onpremise_dev.ps1`, exposed via `npm run ops:auto-bootstrap-onpremise-dev`, to silently install PostgreSQL (winget) and hydrate the fallback in one step.
 - Documented the automation path across AGENTS.md, docs/operations.md, docs/database-systems.md, and package.json, plus recorded the 2025-11-06T04:03Z mirror run in Tasklist notes for ladder audits.
 
 ## 2025-11-05 — Render Storage Quota Guardrails

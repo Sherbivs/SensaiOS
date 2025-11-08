@@ -149,20 +149,20 @@ function loadEnvironment(): void {
   }
 
   if (!loaded) {
-    console.warn("[local-db] No environment file loaded. Set IG_ENV_FILE or DOTENV_CONFIG_PATH before running this helper.");
+    console.warn("[onpremise-dev] No environment file loaded. Set IG_ENV_FILE or DOTENV_CONFIG_PATH before running this helper.");
   }
 }
 
-function resolvePaths(storeRoot: string): Paths {
-  const dbRoot = path.join(storeRoot, "db");
+function buildPaths(storeRoot: string): Paths {
+  const dbRoot = path.join(storeRoot, "onpremise-dev-primary");
   return {
     storeRoot,
     dbRoot,
-    clusterDir: path.join(dbRoot, "local-cluster"),
+    clusterDir: path.join(dbRoot, "onpremise-cluster"),
     snapshotsDir: path.join(dbRoot, "snapshots"),
-    logFile: path.join(dbRoot, "local-postgres.log"),
-    connectionFile: path.join(dbRoot, "local-url.txt"),
-    metadataFile: path.join(dbRoot, "local-metadata.json"),
+    logFile: path.join(dbRoot, "onpremise-postgres.log"),
+    connectionFile: path.join(dbRoot, "onpremise-url.txt"),
+    metadataFile: path.join(dbRoot, "onpremise-metadata.json"),
   };
 }
 
@@ -212,7 +212,7 @@ function locatePgBinDirectory(): string | undefined {
 
     if (!shareFound) {
       console.warn(
-        `[local-db] Skipping Postgres bin directory without share/: ${normalized}. Run "npm run ops:auto-bootstrap-local-db" to install a complete toolchain.`,
+        `[onpremise-dev] Skipping Postgres bin directory without share/: ${normalized}. Run "npm run ops:auto-bootstrap-local-db" to install a complete toolchain.`,
       );
       continue;
     }
@@ -277,7 +277,7 @@ function execFileAsync(command: string, args: string[]): Promise<{ stdout: strin
 
 function runCommand(command: string, args: string[], label: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    console.log(`[local-db] ${label}: ${command} ${args.join(" ")}`);
+    console.log(`[onpremise-dev] ${label}: ${command} ${args.join(" ")}`);
     const child = spawn(command, args, { stdio: "inherit" });
     child.on("error", (error) => {
       reject(error);
@@ -475,13 +475,13 @@ async function main(): Promise<void> {
   await ensureDirectories(paths);
   const clusterInitialized = await initializeCluster(binaries, paths);
   if (clusterInitialized) {
-    console.log(`[local-db] Initialized new Postgres cluster at ${paths.clusterDir}`);
+    console.log(`[onpremise-dev] Initialized new Postgres cluster at ${paths.clusterDir}`);
   }
 
   if (!options.skipStart) {
     const started = await startCluster(binaries, paths, options.port);
     if (started) {
-      console.log(`[local-db] Started local Postgres on port ${options.port}`);
+      console.log(`[onpremise-dev] Started local Postgres on port ${options.port}`);
     }
   } else if (!(await clusterRunning(binaries, paths))) {
     throw new Error("Local Postgres is not running. Remove --skip-start or start the cluster manually before syncing.");
@@ -495,8 +495,9 @@ async function main(): Promise<void> {
 
   if (options.skipSync) {
     await writeMetadata(paths, localUrl, sourceUrl, "");
-    console.log(`[local-db] Local fallback ready on ${localUrl} (sync skipped).`);
-    console.log(`[local-db] Set DATABASE_LOCAL_URL=${localUrl} or DATABASE_LOCAL_URL_FILE=${paths.connectionFile}`);
+    console.log(`[onpremise-dev] Local fallback ready on ${localUrl} (sync skipped).`);
+    console.log(`[onpremise-dev] Set DATABASE_ONPREMISE_DEV_PRIMARY=${localUrl} or DATABASE_LOCAL_URL_FILE=${paths.connectionFile}`);
+    console.log(`[onpremise-dev] (Legacy: DATABASE_LOCAL_URL is deprecated, use DATABASE_ONPREMISE_DEV_PRIMARY)`);
     return;
   }
 
@@ -505,13 +506,14 @@ async function main(): Promise<void> {
   await pruneSnapshots(paths, options.retention);
   await writeMetadata(paths, localUrl, sourceUrl, snapshotFile);
 
-  console.log(`[local-db] Local fallback synchronized from ${maskConnectionString(sourceUrl)}.`);
-  console.log(`[local-db] Connection string written to ${path.relative(process.cwd(), paths.connectionFile)}`);
-  console.log(`[local-db] Set DATABASE_LOCAL_URL=${localUrl} or point DATABASE_LOCAL_URL_FILE to that path.`);
+  console.log(`[onpremise-dev] Local fallback synchronized from ${maskConnectionString(sourceUrl)}.`);
+  console.log(`[onpremise-dev] Connection string written to ${path.relative(process.cwd(), paths.connectionFile)}`);
+  console.log(`[onpremise-dev] Set DATABASE_ONPREMISE_DEV_PRIMARY=${localUrl} or point DATABASE_LOCAL_URL_FILE to that path.`);
+  console.log(`[onpremise-dev] (Legacy: DATABASE_LOCAL_URL is deprecated, use DATABASE_ONPREMISE_DEV_PRIMARY)`);
 }
 
 void main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`[local-db] bootstrap failed: ${message}`);
+  console.error(`[onpremise-dev] bootstrap failed: ${message}`);
   process.exitCode = 1;
 });

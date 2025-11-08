@@ -18,7 +18,7 @@ beforeEach(() => {
   delete process.env.DEV_DATABASE_URL;
   delete process.env.RENDER_DB_INTERNAL_URL;
   delete process.env.RENDER_DB_EXTERNAL_URL;
-  delete process.env.DATABASE_LOCAL_URL;
+  delete process.env.DATABASE_ONPREMISE_DEV_PRIMARY;
   delete process.env.CACHE_TTL_MS;
   process.env.NODE_ENV = "development";
 });

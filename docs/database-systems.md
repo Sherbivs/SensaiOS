@@ -10,10 +10,10 @@ This guide captures everything engineers need to understand, operate, and extend
 | --- | --- | --- | --- |
 | **DEV (Master)** | Render PostgreSQL | `DEV_DATABASE_URL` (internal), `RENDER_DB_EXTERNAL_URL` (workstation) | Source of truth for migrations and schema changes. Master database for 2-node cluster. |
 | **PROD (Replica)** | Game Engine PostgreSQL | `PROD_DATABASE_URL` | Production database on Game Engine's persistent disk. Mirrors DEV with <50ms latency. Runs integrity checks to detect updates. |
-| **LOCAL (Optional)** | Your workstation | `DATABASE_LOCAL_URL` | Optional offline mirror on your personal computer for development when network unavailable. |
+| **LOCAL (Optional)** | Your workstation | `DATABASE_ONPREMISE_DEV_PRIMARY` | Optional offline mirror on your personal computer for development when network unavailable. |
 
 **Terminology Clarification:**
-- **Game Engine**: Render cloud service hosting Discord bots, battle workers, and database code. Has local PostgreSQL on persistent disk (`/opt/render/project/src/Store/db/`).
+- **Game Engine**: Render cloud service hosting Discord bots, battle workers, and database code. Has local PostgreSQL on persistent disk (`/opt/render/project/src/Store/onpremise-dev-primary/`).
 - **Your Workstation**: Personal computer with VS Code where YOU edit code and run migrations against DEV DB.
 - **DEV DB**: Render PostgreSQL master - all data is processed here first, then replicated to PROD.
 - **PROD DB**: PostgreSQL instance on Game Engine's local disk - mirrors DEV and serves live gameplay queries.
@@ -27,12 +27,12 @@ The shared config loader (`src/shared/config.ts`) normalizes these URLs, records
 | `DEV_DATABASE_URL` | DEV database (master) | Game Engine (internal network) | Source of truth for migrations. Equals `RENDER_DB_INTERNAL_URL` for Game Engine. |
 | `RENDER_DB_EXTERNAL_URL` | DEV database (master) | Your workstation (internet) | External access to DEV DB from your personal computer for migrations and development. |
 | `PROD_DATABASE_URL` | PROD database (replica) | Game Engine (localhost) | PostgreSQL on Game Engine's persistent disk. Connection string: `postgresql://localhost:5432/infinity_gauntlet_db` |
-| `DATABASE_LOCAL_URL` | Optional local mirror | Your workstation (localhost) | Optional PostgreSQL on your personal computer for offline development. |
+| `DATABASE_ONPREMISE_DEV_PRIMARY` | Optional local mirror | Your workstation (localhost) | Optional PostgreSQL on your personal computer for offline development. |
 | `BACKUP_STORAGE_*` | Durable sink configuration | Game Engine | Documented under "Operational Tooling". |
 
 **Connection Patterns:**
 - **Game Engine** uses `DEV_DATABASE_URL` (internal Render network) + `PROD_DATABASE_URL` (localhost on persistent disk)
-- **Your Workstation** uses `RENDER_DB_EXTERNAL_URL` (internet access to DEV) + optional `DATABASE_LOCAL_URL` (local mirror)
+- **Your Workstation** uses `RENDER_DB_EXTERNAL_URL` (internet access to DEV) + optional `DATABASE_ONPREMISE_DEV_PRIMARY` (local mirror)
 - Legacy variable `RENDER_DB_INTERNAL_URL` exists for backwards compatibility but `DEV_DATABASE_URL` is preferred
 
 When none of the managed URLs connect successfully, the loader falls back to `DATABASE_URL`. Production builds reject `localhost` endpoints unless explicitly configured. Bootstrap logs (see `Prompt.md` Last Repo Changes) surface the selected source for auditing.
@@ -73,14 +73,14 @@ As of 2025-11-07, the runtime maintains **three separate Prisma clients connecte
 
 - **`devPrisma`** (DEV/MASTER) — Connected to `DEV_DATABASE_URL` (Game Engine) or `RENDER_DB_EXTERNAL_URL` (your workstation); master database and source of truth for migrations. Used for schema changes and observability. May be `null` if no URL configured.
 - **`prisma`** (PROD) — Connected to `PROD_DATABASE_URL`; PostgreSQL on Game Engine's persistent disk providing <50ms latency. PRIMARY client for live gameplay operations (battles, encounters, trainer CRUD). Mirrors DEV database.
-- **`localPrisma`** (LOCAL) — Connected to `DATABASE_LOCAL_URL`; optional offline PostgreSQL mirror on your personal workstation for development when network unavailable. May be `null` if not configured.
+- **`onPremiseDevPrisma`** (LOCAL) — Connected to `DATABASE_ONPREMISE_DEV_PRIMARY`; optional offline PostgreSQL mirror on your personal workstation for development when network unavailable. May be `null` if not configured.
 
 **Connection Initialization:**
 
 All three clients initialize on startup via `src/shared/prisma.ts`:
 
 ```ts
-import { prisma, devPrisma, localPrisma, getDatabaseStats } from "../shared/prisma.js";
+import { prisma, devPrisma, onPremiseDevPrisma, getDatabaseStats } from "../shared/prisma.js";
 
 // LIVE GAMEPLAY (battles, encounters, trainer CRUD) - use PROD for <50ms latency
 const gameClient = prisma; // PROD on Game Engine's local disk (primary gameplay database)
@@ -92,8 +92,8 @@ if (devPrisma) {
 }
 
 // LOCAL operations (optional offline mirror)
-if (localPrisma) {
-  const localUsers = await localPrisma.user.findMany();
+if (onPremiseDevPrisma) {
+  const localUsers = await onPremiseDevPrisma.user.findMany();
 }
 
 // Get stats for all three databases
@@ -120,10 +120,10 @@ console.log(`DEV: ${stats.dev.status} | PROD: ${stats.prod.status} | LOCAL: ${st
     status: "healthy"
   },
   local: {
-    source: "local",       // from DATABASE_LOCAL_URL or Store/db/local-url.txt
+    source: "local",       // from DATABASE_ONPREMISE_DEV_PRIMARY or Store/onpremise-dev-primary/onpremise-url.txt
     transport: "direct",   // always direct PostgreSQL
     latency: 8.1,          // <10ms typical for Store-backed mirror
-    status: "offline"      // "offline" if DATABASE_LOCAL_URL not configured
+    status: "offline"      // "offline" if DATABASE_ONPREMISE_DEV_PRIMARY not configured
   }
 }
 ```
@@ -136,7 +136,7 @@ The logger (`src/utils/logger.js`) auto-refreshes these stats every 15 seconds a
 | --- | --- | --- |
 | **Live gameplay (battles, encounters, trainer ops)** | **`prisma`** (PROD) | **<50ms latency, Game Engine's local PostgreSQL** |
 | Schema changes & migrations | `devPrisma` | DEV master database, source of truth |
-| Development debugging & testing | `devPrisma` (from workstation) or `localPrisma` (offline) | Direct access to master or local mirror |
+| Development debugging & testing | `devPrisma` (from workstation) or `onPremiseDevPrisma` (offline) | Direct access to master or local mirror |
 | Migrations (`prisma migrate deploy`) | DEV connection (via `DEV_DATABASE_URL` on Game Engine, or `RENDER_DB_EXTERNAL_URL` from your workstation) | Direct PostgreSQL required for DDL operations |
 | Stats/observability | All three (via `getDatabaseStats()`) | Simultaneous visibility |
 
@@ -145,11 +145,11 @@ The logger (`src/utils/logger.js`) auto-refreshes these stats every 15 seconds a
 - **`DEV_DATABASE_URL`** → DEV client (`devPrisma`) - Used by Game Engine (internal Render network)
 - **`RENDER_DB_EXTERNAL_URL`** → DEV client (`devPrisma`) - Used by your workstation (internet access)
 - **`PROD_DATABASE_URL`** → PROD client (`prisma`) - **PRIMARY for live gameplay on Game Engine**
-- **`DATABASE_LOCAL_URL`** → LOCAL client (`localPrisma`) - Optional mirror on your personal computer
+- **`DATABASE_ONPREMISE_DEV_PRIMARY`** → LOCAL client (`onPremiseDevPrisma`) - Optional mirror on your personal computer
 
-Production services (Game Engine) use `DEV_DATABASE_URL` + `PROD_DATABASE_URL`. Your workstation uses `RENDER_DB_EXTERNAL_URL` + optional `DATABASE_LOCAL_URL`.
+Production services (Game Engine) use `DEV_DATABASE_URL` + `PROD_DATABASE_URL`. Your workstation uses `RENDER_DB_EXTERNAL_URL` + optional `DATABASE_ONPREMISE_DEV_PRIMARY`.
 
-If DEV URLs are unset, the DEV client remains `null`. If `DATABASE_LOCAL_URL` is unset, the LOCAL client remains `null`. All three clients support independent heartbeat monitoring tracked via separate state (`lastDevHeartbeatEvent`, `lastProdHeartbeatEvent`, `lastLocalHeartbeatEvent`).
+If DEV URLs are unset, the DEV client remains `null`. If `DATABASE_ONPREMISE_DEV_PRIMARY` is unset, the LOCAL client remains `null`. All three clients support independent heartbeat monitoring tracked via separate state (`lastDevHeartbeatEvent`, `lastProdHeartbeatEvent`, `lastLocalHeartbeatEvent`).
 
 **Exports:**
 
@@ -157,7 +157,7 @@ If DEV URLs are unset, the DEV client remains `null`. If `DATABASE_LOCAL_URL` is
 // src/shared/prisma.ts
 export let prisma: PrismaClient;              // PROD client (Game Engine's local PostgreSQL - PRIMARY for gameplay)
 export let devPrisma: PrismaClient | null;    // DEV client (Render PostgreSQL master - source of truth)
-export let localPrisma: PrismaClient | null;  // LOCAL client (your workstation's optional offline mirror)
+export let onPremiseDevPrisma: PrismaClient | null;  // LOCAL client (your workstation's optional offline mirror)
 export function getDatabaseStats(): TripleDatabaseStats;
 export async function ensurePrisma(): Promise<PrismaClient>; // Returns PROD client after connection
 ```
@@ -168,8 +168,8 @@ See `src/models/index.ts` for additional helpers that re-export all three client
 
 To enable offline development with a local PostgreSQL mirror on your personal computer:
 
-1. Add `DATABASE_LOCAL_URL=postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db` to `secrets/Infinity-Gauntlet.env` on your workstation
-2. Run `npm run ops:auto-bootstrap-local-db` to install PostgreSQL (if needed) and mirror data from DEV
+1. Add `DATABASE_ONPREMISE_DEV_PRIMARY=postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db` to `secrets/Infinity-Gauntlet.env` on your workstation
+2. Run `npm run ops:auto-bootstrap-onpremise-dev` to install PostgreSQL (if needed) and mirror data from DEV
 3. Verify with `npm run db:health` showing LOCAL healthy <50ms
 
 See `docs/WORKSTATION-GAMEPLAY-SETUP.md` for comprehensive setup guide including replication schedule, performance comparison, troubleshooting, and maintenance procedures.
@@ -300,7 +300,7 @@ Materialized view refresh flows through the helper; direct `REFRESH MATERIALIZED
 - **Auto-sync monitoring:** Review `integrity.alert` logs after each deployment and on the five-minute cadence; investigate non-zero deltas immediately. Run `npm run guard:auto-sync` before releases to confirm secrets + `dex-sync-trigger.json` exist, and capture remediation steps in Tasklist notes when the guard fails.
 - **Auto-sync alerts:** Webhook embeds (`ALERT_WEBHOOK_URL`) fire whenever `integrity.alert` appears after consolidation. Each alert summarizes deltas, links the env files, and calls out the investigation checklist; duplicates are suppressed until counts change or new drift is detected. Startup logs (`integrity.alert.config_ready|config_missing|config`) record whether alerts will dispatch, so confirm Render shows `integrity.alert.config_ready` after deploys. Override destinations with `--alert-webhook`, temporarily disable with `--no-alerts`, or run `--simulate-alert` to validate routing without touching databases.
 - **Control Suite:** `scripts/db_admin.ts` (run via `npm run db:cli`) consolidates counts, status checks, and raw queries while respecting secure env loading.
-- **Local fallback bootstrapper:** `npm run ops:auto-bootstrap-local-db` ensures a complete PostgreSQL toolchain is installed (silent winget install when required), then mirrors the DEV database into `Store/db`, maintains timestamped snapshots, writes `Store/db/local-url.txt`, and logs the active port so Prisma can use the offline cluster as a final fallback when Render is unreachable. Use `npm run ops:bootstrap-local-db` when the toolchain already exists. Record the command, timestamp, and URL in Tasklist notes whenever you refresh the mirror.
+- **Local fallback bootstrapper:** `npm run ops:auto-bootstrap-onpremise-dev` ensures a complete PostgreSQL toolchain is installed (silent winget install when required), then mirrors the DEV database into `Store/db`, maintains timestamped snapshots, writes `Store/onpremise-dev-primary/onpremise-url.txt`, and logs the active port so Prisma can use the offline cluster as a final fallback when Render is unreachable. Use `npm run ops:bootstrap-onpremise-dev` when the toolchain already exists. Record the command, timestamp, and URL in Tasklist notes whenever you refresh the mirror.
 
 ### Backup & PITR Readiness
 - **Health checks:** Run `npm run db:cli -- status` to confirm the active host and row counts. Inspect `wal_level` and `archive_mode`
@@ -379,7 +379,7 @@ PROD (Master) → DEV (Replica) → LOCAL (Replica)
 | --- | --- | --- |
 | `--no-enforce` | `false` | Disable PROD-as-master enforcement. When set, system reverts to drift detection only. |
 | `--include-local` | `false` | Include LOCAL database in enforcement and reverse integrity checks. |
-| `--local-env <path>` | — | Path to env file containing `DATABASE_LOCAL_URL` for LOCAL database connection. |
+| `--local-env <path>` | — | Path to env file containing `DATABASE_ONPREMISE_DEV_PRIMARY` for LOCAL database connection. |
 | `--reverse-check-interval <ms>` | `3600000` (1hr) | How often to run reverse integrity checks (milliseconds). |
 
 **Examples:**

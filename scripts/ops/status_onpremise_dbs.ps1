@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Show status of both PRIMARY LOCAL and EXPERIMENTAL databases.
+Show status of both ONPREMISE-DEV-PRIMARY and ONPREMISE-DEV-EXPERIMENT databases.
 
 .DESCRIPTION
 Displays connection status, ports, running state, and basic stats for both local databases.
@@ -93,13 +93,13 @@ function Get-DatabaseStatus {
     Write-Host ""
 }
 
-# Check PRIMARY LOCAL DB
+# Check ONPREMISE-DEV-PRIMARY DB
 $LocalCluster = Join-Path $StoreRoot "db\local-cluster"
-Get-DatabaseStatus -Name "PRIMARY LOCAL" -ClusterPath $LocalCluster -Port 55433 -DbName "infinity_gauntlet_db"
+Get-DatabaseStatus -Name "ONPREMISE-DEV-PRIMARY" -ClusterPath $LocalCluster -Port 55433 -DbName "infinity_gauntlet_db"
 
-# Check EXPERIMENTAL DB
-$ExperimentCluster = Join-Path $StoreRoot "db-experiment\pg_data"
-Get-DatabaseStatus -Name "EXPERIMENTAL" -ClusterPath $ExperimentCluster -Port 55434 -DbName "infinity_gauntlet_experiment"
+# Check ONPREMISE-DEV-EXPERIMENT DB
+$ExperimentCluster = Join-Path $StoreRoot "onpremise-dev-experiment\pg_data"
+Get-DatabaseStatus -Name "ONPREMISE-DEV-EXPERIMENT" -ClusterPath $ExperimentCluster -Port 55434 -DbName "infinity_gauntlet_experiment"
 
 Write-Host "Environment Variables:" -ForegroundColor Yellow
 if ($env:DATABASE_LOCAL_URL) {
@@ -116,6 +116,6 @@ if ($env:DATABASE_EXPERIMENT_URL) {
 
 Write-Host ""
 Write-Host "Commands:" -ForegroundColor Cyan
-Write-Host "  Start experimental - npm run ops:start-experiment-db" -ForegroundColor Gray
-Write-Host "  Stop experimental - npm run ops:stop-experiment-db" -ForegroundColor Gray
-Write-Host "  Sync experimental - npm run ops:sync-experiment-db" -ForegroundColor Gray
+Write-Host "  Start ONPREMISE-DEV-EXPERIMENT - npm run ops:start-experiment-db" -ForegroundColor Gray
+Write-Host "  Stop ONPREMISE-DEV-EXPERIMENT - npm run ops:stop-experiment-db" -ForegroundColor Gray
+Write-Host "  Sync ONPREMISE-DEV-EXPERIMENT - npm run ops:sync-experiment-db" -ForegroundColor Gray

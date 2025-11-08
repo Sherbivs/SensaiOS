@@ -18,7 +18,7 @@ describe("database connection preference", () => {
     "DATABASE_CONNECTION_MODE",
     "RENDER_DB_EXTERNAL_URL",
     "RENDER_DB_INTERNAL_URL",
-    "DATABASE_LOCAL_URL",
+    "DATABASE_ONPREMISE_DEV_PRIMARY",
     "DATABASE_URL",
     "NODE_ENV",
   ] as const;
@@ -34,7 +34,7 @@ describe("database connection preference", () => {
     process.env.DATABASE_CONNECTION_MODE = "auto";
     process.env.RENDER_DB_EXTERNAL_URL = "postgresql://external.example/db";
     process.env.RENDER_DB_INTERNAL_URL = "postgresql://internal.example/db";
-    delete process.env.DATABASE_LOCAL_URL;
+    delete process.env.DATABASE_ONPREMISE_DEV_PRIMARY;
     delete process.env.DATABASE_URL;
     resetConfigCacheForTests();
   });

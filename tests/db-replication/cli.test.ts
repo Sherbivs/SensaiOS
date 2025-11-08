@@ -266,8 +266,8 @@ describe("CLI Environment Loading", () => {
     expect(externalUrl === undefined || typeof externalUrl === "string").toBe(true);
   });
 
-  it("should check for DATABASE_LOCAL_URL", () => {
-    const localUrl = process.env.DATABASE_LOCAL_URL;
+  it("should check for DATABASE_ONPREMISE_DEV_PRIMARY", () => {
+    const localUrl = process.env.DATABASE_ONPREMISE_DEV_PRIMARY;
     
     // Should be defined or undefined, not throw
     expect(localUrl === undefined || typeof localUrl === "string").toBe(true);

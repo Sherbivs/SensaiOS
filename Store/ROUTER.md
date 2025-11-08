@@ -12,7 +12,8 @@ Notes:
 Subdirectories:
 - discord-cache/ — Discord security bot cache namespace; include retention windows when structure changes.
 - runtime-cache/ — General runtime cache namespace persisted by cache facade; describe eviction strategy alongside code changes.
-- db/ — Local Postgres fallback cluster and snapshots (ignored from git); prefer `npm run ops:auto-bootstrap-local-db` for dependency install + refresh, or `npm run ops:bootstrap-local-db` if tooling already exists.
+- onpremise-dev-primary/ (formerly db/) — On-premise PostgreSQL primary cluster and snapshots (ignored from git); prefer `npm run ops:auto-bootstrap-onpremise-dev` for dependency install + refresh, or `npm run ops:bootstrap-onpremise-dev` if tooling already exists.
+- onpremise-dev-experiment/ (formerly db-experiment/) — On-premise PostgreSQL experimental cluster for migration testing (ignored from git); use `npm run ops:bootstrap-onpremise-experiment` to initialize and `npm run ops:sync-onpremise-experiment` to sync from primary or DEV.
 
 Linked Routers:
 - src/services/cache/ROUTER.md — Cache recipes that hydrate and persist these stores.

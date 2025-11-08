@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 
 /**
- * Integration tests for multi-connection protocol with localPrisma.
+ * Integration tests for multi-connection protocol with onPremiseDevPrisma.
  * 
  * Tests:
- * - localPrisma client initialization
+ * - onPremiseDevPrisma client initialization
  * - Health check functions (checkLocalHealth)
  * - Version validation (validateLocalVersion)
  * - Failover scenarios (dev unavailable → prod, prod unavailable → local with version check)
@@ -12,15 +12,15 @@ import { describe, it, expect } from "vitest";
  */
 
 describe("DB Replication Integration", () => {
-  describe("localPrisma Client Initialization", () => {
-    it("should initialize localPrisma when DATABASE_LOCAL_URL is configured", () => {
-      // Test that localPrisma exports from prisma.ts
+  describe("onPremiseDevPrisma Client Initialization", () => {
+    it("should initialize onPremiseDevPrisma when DATABASE_ONPREMISE_DEV_PRIMARY is configured", () => {
+      // Test that onPremiseDevPrisma exports from prisma.ts
       // This is a placeholder - actual test requires environment setup
       expect(true).toBe(true);
     });
 
-    it("should skip localPrisma initialization when DATABASE_LOCAL_URL is missing", () => {
-      // Test that localPrisma remains null without URL
+    it("should skip onPremiseDevPrisma initialization when DATABASE_ONPREMISE_DEV_PRIMARY is missing", () => {
+      // Test that onPremiseDevPrisma remains null without URL
       expect(true).toBe(true);
     });
 
@@ -117,7 +117,7 @@ describe("DB Replication Integration", () => {
       expect(true).toBe(true);
     });
 
-    it("should report local status as offline when localPrisma is null", () => {
+    it("should report local status as offline when onPremiseDevPrisma is null", () => {
       // Test local stats when client not initialized
       expect(true).toBe(true);
     });
@@ -167,7 +167,7 @@ describe("DB Replication Integration", () => {
 
   describe("Version-Aware Failover Logic", () => {
     it("should check LOCAL version before failover", async () => {
-      // Test version check happens before using localPrisma
+      // Test version check happens before using onPremiseDevPrisma
       expect(true).toBe(true);
     });
 
@@ -211,7 +211,7 @@ describe("DB Replication Integration", () => {
 
   describe("Multi-Connection Protocol", () => {
     it("should maintain three independent Prisma clients", () => {
-      // Test devPrisma, prodPrisma (prisma), localPrisma independence
+      // Test devPrisma, prodPrisma (prisma), onPremiseDevPrisma independence
       expect(true).toBe(true);
     });
 

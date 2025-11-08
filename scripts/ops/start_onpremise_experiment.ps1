@@ -4,7 +4,7 @@ Start the experimental PostgreSQL database cluster.
 
 .DESCRIPTION
 Starts the experimental database cluster on port 55434 if it's not already running.
-The cluster must be initialized first using bootstrap_experiment_db.ts.
+The cluster must be initialized first using bootstrap_onpremise_experiment.ts.
 
 .EXAMPLE
 .\scripts\ops\start_experiment_db.ps1
@@ -21,18 +21,18 @@ $StoreRoot = if ($env:IG_STORE_ROOT) {
 $StoreRoot = Resolve-Path $StoreRoot -ErrorAction SilentlyContinue
 
 if (-not $StoreRoot) {
-    Write-Host "❌ Store root not found. Run bootstrap_experiment_db.ts first." -ForegroundColor Red
+    Write-Host "❌ Store root not found. Run bootstrap_onpremise_experiment.ts first." -ForegroundColor Red
     exit 1
 }
 
-$ClusterDir = Join-Path $StoreRoot "db-experiment\pg_data"
-$LogFile = Join-Path $StoreRoot "db-experiment\logs\postgres.log"
+$ClusterDir = Join-Path $StoreRoot "onpremise-dev-experiment\pg_data"
+$LogFile = Join-Path $StoreRoot "onpremise-dev-experiment\logs\postgres.log"
 $Port = 55434
 
 # Check if cluster exists
 if (-not (Test-Path $ClusterDir)) {
     Write-Host "❌ Experimental database cluster not initialized." -ForegroundColor Red
-    Write-Host "Run: npm run ops:bootstrap-experiment-db" -ForegroundColor Yellow
+    Write-Host "Run: npm run ops:bootstrap-onpremise-experiment" -ForegroundColor Yellow
     exit 1
 }
 

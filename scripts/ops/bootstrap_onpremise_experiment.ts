@@ -6,21 +6,21 @@ import { execFile, spawn } from "node:child_process";
 import * as dotenv from "dotenv";
 
 /**
- * Bootstrap Experimental Database Script
+ * Bootstrap ONPREMISE-DEV-EXPERIMENT Database Script
  * 
- * Creates an independent experimental PostgreSQL database on port 55434 for:
- * - Testing migrations before applying to PRIMARY LOCAL/DEV/PROD
+ * Creates an independent ONPREMISE-DEV-EXPERIMENT PostgreSQL database on port 55434 for:
+ * - Testing migrations before applying to ONPREMISE-DEV-PRIMARY/CLOUD-DEV-MASTER/CLOUD-PROD-RUNTIME
  * - Experimenting with schema changes
  * - Destructive testing (DROP TABLE, etc.)
  * 
- * The experimental database does NOT participate in auto-sync/replication.
- * It must be manually synced using sync_experiment_db.ts.
+ * The ONPREMISE-DEV-EXPERIMENT database does NOT participate in auto-sync/replication.
+ * It must be manually synced using sync_onpremise_experiment.ts.
  * 
  * Usage:
- *   npm run ops:bootstrap-experiment-db
- *   npm run ops:bootstrap-experiment-db -- --source local
- *   npm run ops:bootstrap-experiment-db -- --source dev
- *   npm run ops:bootstrap-experiment-db -- --port 55435
+ *   npm run ops:bootstrap-onpremise-experiment
+ *   npm run ops:bootstrap-onpremise-experiment -- --source onpremise-dev
+ *   npm run ops:bootstrap-onpremise-experiment -- --source cloud-dev
+ *   npm run ops:bootstrap-onpremise-experiment -- --port 55435
  */
 
 interface ParsedOptions {
@@ -163,14 +163,14 @@ function getSourceDatabaseUrl(source: string): string | null {
 }
 
 function buildPaths(options: Options): Paths {
-  const dbRoot = path.join(options.storeRoot, "db-experiment");
+  const dbRoot = path.join(options.storeRoot, "onpremise-dev-experiment");
   return {
     storeRoot: options.storeRoot,
     dbRoot,
     clusterDir: path.join(dbRoot, "pg_data"),
     snapshotsDir: path.join(dbRoot, "snapshots"),
     logFile: path.join(dbRoot, "logs", "postgres.log"),
-    connectionFile: path.join(dbRoot, "experiment-url.txt"),
+    connectionFile: path.join(dbRoot, "onpremise-experiment-url.txt"),
     metadataFile: path.join(dbRoot, "metadata.json"),
   };
 }
@@ -456,7 +456,7 @@ async function writeConnectionFile(paths: Paths, port: number): Promise<void> {
 
   await fsPromises.writeFile(paths.connectionFile, url, "utf8");
   console.log(`✅ Connection URL written to: ${paths.connectionFile}`);
-  console.log(`   DATABASE_EXPERIMENT_URL="${url}"`);
+  console.log(`   DATABASE_ONPREMISE_DEV_EXPERIMENT="${url}"`);
 }
 
 async function writeMetadata(paths: Paths, source: string): Promise<void> {
@@ -567,7 +567,7 @@ async function main(): Promise<void> {
       console.log("\nNext steps:");
       console.log("  1. Add to secrets/Infinity-Gauntlet.env:");
       console.log(
-        `     DATABASE_EXPERIMENT_URL=postgresql://postgres@127.0.0.1:${options.port}/infinity_gauntlet_experiment`,
+        `     DATABASE_ONPREMISE_DEV_EXPERIMENT=postgresql://postgres@127.0.0.1:${options.port}/infinity_gauntlet_experiment`,
       );
       console.log("  2. Test connection:");
       console.log("     npm run db:cli -- count User --target experiment");
@@ -576,11 +576,11 @@ async function main(): Promise<void> {
         `     psql postgresql://postgres@127.0.0.1:${options.port}/infinity_gauntlet_experiment -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql`,
       );
       console.log("  4. Sync from primary local when needed:");
-      console.log("     npm run ops:sync-experiment-db --from local");
+      console.log("     npm run ops:sync-onpremise-experiment --from local");
     } else {
       console.log("\n✅ Experimental cluster initialized (not started)");
       console.log("\nTo start cluster:");
-      console.log(`  npm run ops:start-experiment-db`);
+      console.log(`  npm run ops:start-onpremise-experiment`);
     }
   } catch (err) {
     console.error(`\n❌ Bootstrap failed: ${(err as Error).message}`);

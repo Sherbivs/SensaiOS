@@ -41,7 +41,7 @@ DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/...     # Accelerate (
 **Current Solution (2025-11-07):**
 All operations now use direct PostgreSQL connections. Accelerate/Optimize references have been eliminated. Use:
 - **Game Engine (Render):** `DEV_DATABASE_URL` (internal Render network) + `PROD_DATABASE_URL` (localhost PostgreSQL on persistent disk)
-- **Your Workstation:** `RENDER_DB_EXTERNAL_URL` (DEV master via internet) + optional `DATABASE_LOCAL_URL` (local PostgreSQL mirror)
+- **Your Workstation:** `RENDER_DB_EXTERNAL_URL` (DEV master via internet) + optional `DATABASE_ONPREMISE_DEV_PRIMARY` (on-premise PostgreSQL mirror)
 
 No separate migration/runtime env files needed. All URLs point directly to PostgreSQL (`postgresql://...`).
 

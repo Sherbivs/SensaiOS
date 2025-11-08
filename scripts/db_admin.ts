@@ -53,21 +53,21 @@ function envTruthy(value: string | undefined | null): boolean {
 
 function readLocalFallbackUrl(): string {
   // CRITICAL: Prioritize PROD_DATABASE_URL for production operations
-  // Fall back to DATABASE_LOCAL_URL for backwards compatibility
+  // Fall back to DATABASE_ONPREMISE_DEV_PRIMARY for workstation development
   const prodOverride = process.env.PROD_DATABASE_URL?.trim();
   if (prodOverride) {
     return prodOverride;
   }
 
-  const envOverride = process.env.DATABASE_LOCAL_URL?.trim();
-  if (envOverride) {
-    return envOverride;
+  // CANONICAL: DATABASE_ONPREMISE_DEV_PRIMARY (workstation development database)
+  const onPremiseDevOverride = process.env.DATABASE_ONPREMISE_DEV_PRIMARY?.trim();
+  if (onPremiseDevOverride) {
+    return onPremiseDevOverride;
   }
 
   const prodFileOverride = process.env.PROD_DATABASE_URL_FILE?.trim();
-  const fileOverride = process.env.DATABASE_LOCAL_URL_FILE?.trim();
   const storeRoot = process.env.IG_STORE_ROOT?.trim() || path.join(process.cwd(), "Store");
-  const candidates = [prodFileOverride, fileOverride, path.join(storeRoot, "db", "local-url.txt"), path.join(storeRoot, "db", "local", "url.txt")]
+  const candidates = [prodFileOverride, path.join(storeRoot, "onpremise-dev-primary", "local-url.txt"), path.join(storeRoot, "db", "local-url.txt"), path.join(storeRoot, "db", "local", "url.txt")]
     .filter((candidate): candidate is string => Boolean(candidate));
 
   for (const candidate of candidates) {
@@ -131,36 +131,36 @@ function loadEnvironment(): void {
 }
 
 function resolveDatasource(target: string): DatasourceConfig {
-  // Handle explicit target selection
+  // Handle explicit target selection (canonical names only)
   switch (target) {
-    case "dev": {
+    case "cloud-dev": {
       const devUrl = process.env.DEV_DATABASE_URL ?? process.env.RENDER_DB_EXTERNAL_URL ?? "";
       if (!devUrl) {
         throw new Error(
-          "DEV target requires DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL. Set in secrets/Infinity-Gauntlet.env",
+          "CLOUD-DEV-MASTER target requires DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL. Set in secrets/Infinity-Gauntlet.env",
         );
       }
       return { url: devUrl };
     }
-    case "prod": {
+    case "cloud-prod": {
       const prodUrl = process.env.PROD_DATABASE_URL ?? "";
       if (!prodUrl) {
         throw new Error(
-          "PROD target requires PROD_DATABASE_URL. Set in secrets/Infinity-Gauntlet.env",
+          "CLOUD-PROD-RUNTIME target requires PROD_DATABASE_URL. Set in secrets/Infinity-Gauntlet.env",
         );
       }
       return { url: prodUrl };
     }
-    case "experiment": {
-      const experimentUrl = process.env.DATABASE_EXPERIMENT_URL ?? "";
+    case "onpremise-experiment": {
+      const experimentUrl = process.env.DATABASE_ONPREMISE_DEV_EXPERIMENT ?? process.env.DATABASE_EXPERIMENT_URL ?? "";
       if (!experimentUrl) {
         throw new Error(
-          "EXPERIMENT target requires DATABASE_EXPERIMENT_URL. Bootstrap experimental database first: npm run ops:bootstrap-experiment-db",
+          "ONPREMISE-DEV-EXPERIMENT target requires DATABASE_ONPREMISE_DEV_EXPERIMENT. Bootstrap experimental database first: npm run ops:bootstrap-onpremise-experiment",
         );
       }
       return { url: experimentUrl };
     }
-    case "local":
+    case "onpremise-dev":
     default: {
       // Default behavior: try PRIMARY LOCAL, then cloud databases
       const primaryUrl = process.env.DATABASE_URL ?? "";
@@ -182,7 +182,7 @@ function resolveDatasource(target: string): DatasourceConfig {
       }
 
       throw new Error(
-        "PROD_DATABASE_URL, DEV_DATABASE_URL, DATABASE_URL, RENDER_DB_INTERNAL_URL, or RENDER_DB_EXTERNAL_URL must be set before running db:cli. Provide DATABASE_LOCAL_URL for offline fallback if remote datasources are unavailable.",
+        "PROD_DATABASE_URL (CLOUD-PROD-RUNTIME), DEV_DATABASE_URL (CLOUD-DEV-MASTER), DATABASE_URL, RENDER_DB_INTERNAL_URL, or RENDER_DB_EXTERNAL_URL must be set before running db:cli. Provide DATABASE_ONPREMISE_DEV_PRIMARY for offline fallback if remote datasources are unavailable.",
       );
     }
   }
@@ -219,7 +219,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const options: Record<string, string | boolean> = {};
   const rest: string[] = [];
-  let target = "local"; // Default to local (PRIMARY LOCAL DB)
+  let target = "onpremise-dev"; // Default to ONPREMISE-DEV-PRIMARY (workstation development DB)
 
   for (const arg of restArgs) {
     if (arg.startsWith("--")) {
@@ -247,7 +247,9 @@ async function showStatus(ctx: DbContext, target: string): Promise<void> {
   const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL ?? "";
   const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL ?? "";
   const localUrl = readLocalFallbackUrl();
-  const experimentUrl = process.env.DATABASE_EXPERIMENT_URL ?? "";
+  const onPremiseDevUrl = process.env.DATABASE_ONPREMISE_DEV_PRIMARY ?? "";
+  const onPremiseExperimentUrl = process.env.DATABASE_ONPREMISE_DEV_EXPERIMENT ?? "";
+  const legacyExperimentUrl = process.env.DATABASE_EXPERIMENT_URL ?? "";
   
   // 2-NODE CLUSTER: Extract host from direct PostgreSQL URL
   const host = (() => {
@@ -271,8 +273,9 @@ async function showStatus(ctx: DbContext, target: string): Promise<void> {
   console.log(`DEV_DATABASE_URL set : ${devUrl ? "yes" : "no"}`);
   console.log(`RENDER_DB_INTERNAL_URL set : ${renderInternalUrl ? "yes" : "no"}`);
   console.log(`RENDER_DB_EXTERNAL_URL set : ${renderExternalUrl ? "yes" : "no"}`);
-  console.log(`DATABASE_LOCAL_URL set  : ${process.env.DATABASE_LOCAL_URL ? "yes" : "no"}`);
-  console.log(`DATABASE_EXPERIMENT_URL set : ${experimentUrl ? "yes" : "no"}`);
+  console.log(`DATABASE_ONPREMISE_DEV_PRIMARY set : ${onPremiseDevUrl ? "yes" : "no"}`);
+  console.log(`DATABASE_ONPREMISE_DEV_EXPERIMENT set : ${onPremiseExperimentUrl ? "yes" : "no"}`);
+  console.log(`DATABASE_EXPERIMENT_URL set : ${legacyExperimentUrl ? "yes" : "no"}`);
   console.log(`Local fallback file     : ${localUrl ? "yes" : "no"}`);
   console.log(`Resolved datasource     : direct ${maskDatasource(ctx.datasource.url)}`);
 
@@ -780,10 +783,10 @@ async function showDatabases(): Promise<void> {
   console.log("=== Available Databases ===\n");
 
   const databases = [
-    { name: "DEV (Master)", envVar: "DEV_DATABASE_URL", fallback: "RENDER_DB_EXTERNAL_URL", target: "dev" },
-    { name: "PROD (Local Node)", envVar: "PROD_DATABASE_URL", fallback: null, target: "prod" },
-    { name: "PRIMARY LOCAL (Workstation)", envVar: "DATABASE_LOCAL_URL", fallback: null, target: "local" },
-    { name: "EXPERIMENTAL (Migration Testing)", envVar: "DATABASE_EXPERIMENT_URL", fallback: null, target: "experiment" },
+    { name: "CLOUD-DEV-MASTER (DEV Master)", envVar: "DEV_DATABASE_URL", fallback: "RENDER_DB_EXTERNAL_URL", target: "cloud-dev" },
+    { name: "CLOUD-PROD-RUNTIME (Worker Node)", envVar: "PROD_DATABASE_URL", fallback: null, target: "cloud-prod" },
+    { name: "ONPREMISE-DEV-PRIMARY (Workstation)", envVar: "DATABASE_ONPREMISE_DEV_PRIMARY", fallback: null, target: "onpremise-dev" },
+    { name: "ONPREMISE-DEV-EXPERIMENT (Migration Testing)", envVar: "DATABASE_ONPREMISE_DEV_EXPERIMENT", fallback: "DATABASE_EXPERIMENT_URL", target: "onpremise-experiment" },
   ];
 
   for (const db of databases) {
@@ -824,9 +827,10 @@ async function showDatabases(): Promise<void> {
   }
   
   console.log("Usage:");
-  console.log("  npm run db:cli -- status --target=dev");
-  console.log("  npm run db:cli -- count User --target=experiment");
-  console.log("  npm run db:cli -- query \"SELECT * FROM \\\"Species\\\" LIMIT 5;\" --target=prod");
+  console.log("  npm run db:cli -- status --target=cloud-dev");
+  console.log("  npm run db:cli -- count User --target=onpremise-experiment");
+  console.log("  npm run db:cli -- query \"SELECT * FROM \\\"Species\\\" LIMIT 5;\" --target=cloud-prod");
+  console.log("\nLegacy aliases supported: dev (cloud-dev), prod (cloud-prod), local (onpremise-dev), experiment (onpremise-experiment)");
 }
 
 function printHelp(): void {
@@ -845,25 +849,26 @@ function printHelp(): void {
   console.log(`  databases             List all configured databases with connection status.`);
   console.log(`  help                  Show this message.`);
   console.log(`\nOptions:`);
-  console.log(`  --target=<db>         Target database: 'dev', 'prod', 'local' (default), 'experiment'.`);
+  console.log(`  --target=<db>         Target database: 'cloud-dev', 'cloud-prod', 'onpremise-dev' (default), 'onpremise-experiment'.`);
+  console.log(`                        Legacy aliases: 'dev', 'prod', 'local', 'experiment'.`);
   console.log(`  --json                Output results as JSON (query, index_usage, table_bloat, slow_queries, cache_stats).`);
   console.log(`  --table=<Model>       Alias for 'count <Model>'.`);
   console.log(`  --sql="..."           Provide SQL for the query command without quoting.`);
   console.log(`\nTarget Databases:`);
-  console.log(`  dev                   DEV Master (DEV_DATABASE_URL) - Source of truth for migrations.`);
-  console.log(`  prod                  PROD Local Node (PROD_DATABASE_URL) - Primary for gameplay (<50ms).`);
-  console.log(`  local                 PRIMARY LOCAL (DATABASE_LOCAL_URL) - Workstation mirror (default).`);
-  console.log(`  experiment            EXPERIMENTAL (DATABASE_EXPERIMENT_URL) - Migration testing (offline).`);
+  console.log(`  cloud-dev             CLOUD-DEV-MASTER (DEV_DATABASE_URL) - Source of truth for migrations.`);
+  console.log(`  cloud-prod            CLOUD-PROD-RUNTIME (PROD_DATABASE_URL) - Primary for gameplay (<50ms).`);
+  console.log(`  onpremise-dev         ONPREMISE-DEV-PRIMARY (DATABASE_ONPREMISE_DEV_PRIMARY) - Workstation development (default).`);
+  console.log(`  onpremise-experiment  ONPREMISE-DEV-EXPERIMENT (DATABASE_ONPREMISE_DEV_EXPERIMENT) - Migration testing (offline).`);
   console.log(`\nPerformance Monitoring:`);
   console.log(`  index_usage           Identifies unused indexes (0 scans) that waste storage.`);
   console.log(`  table_bloat           Warns if dead rows >20% (warning) or >50% (critical).`);
   console.log(`  slow_queries          Warns if mean time >500ms (warning) or >2s (critical).`);
   console.log(`  cache_stats           Warns if hit rate <80% (warning) or <60% (critical).`);
   console.log(`\nExamples:`);
-  console.log(`  npm run db:cli -- databases                          # List all databases`);
-  console.log(`  npm run db:cli -- status --target=dev                # Check DEV master status`);
-  console.log(`  npm run db:cli -- count User --target=experiment     # Count users in experimental DB`);
-  console.log(`  npm run db:cli -- query "SELECT * FROM \\"Species\\" LIMIT 5;" --target=prod`);
+  console.log(`  npm run db:cli -- databases                                   # List all databases`);
+  console.log(`  npm run db:cli -- status --target=cloud-dev                   # Check CLOUD-DEV-MASTER status`);
+  console.log(`  npm run db:cli -- count User --target=onpremise-experiment    # Count users in experiment DB`);
+  console.log(`  npm run db:cli -- query "SELECT * FROM \\"Species\\" LIMIT 5;" --target=cloud-prod`);
   console.log(`\nEnvironment loading follows IG_ENV_FILE → DOTENV_CONFIG_PATH → repo .env (non-production).`);
 }
 

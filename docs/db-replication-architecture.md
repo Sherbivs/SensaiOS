@@ -6,7 +6,7 @@
 
 **Status:** PRODUCTION  **Owner:** Database Systems  
 
-**Purpose:** Document the complete database replication architecture including cloud nodes, local mirrors, and experimental databases**Last Updated:** 2025-11-06
+**Purpose:** Document the complete database replication architecture including cloud nodes, on-premise mirrors, and ONPREMISE-DEV-EXPERIMENT databases**Last Updated:** 2025-11-06
 
 
 
@@ -14,7 +14,7 @@
 
 
 
-The Infinity Gauntlet system uses a **4-tier database architecture** combining cloud databases (DEV master + PROD local node) with workstation databases (PRIMARY LOCAL + EXPERIMENTAL) for development, testing, and migration workflows.## Executive Summary
+The Infinity Gauntlet system uses a **4-tier database architecture** combining cloud databases (DEV master + PROD local node) with workstation databases (ONPREMISE-DEV-PRIMARY + ONPREMISE-DEV-EXPERIMENT) for development, testing, and migration workflows.## Executive Summary
 
 
 
@@ -118,9 +118,9 @@ PROD Local Node (Gameplay)│  - Validates migration integrity before marking ap
 
                                    │
 
-### PRIMARY LOCAL Database                ┌──────────────────┴──────────────────┐
+### ONPREMISE-DEV-PRIMARY Database                ┌──────────────────┴──────────────────┐
 
-- **URL**: `DATABASE_LOCAL_URL`                │ YES: Proceed                        │ NO: Wait/Alert
+- **URL**: `DATABASE_ONPREMISE_DEV_PRIMARY`                │ YES: Proceed                        │ NO: Wait/Alert
 
 - **Port**: 55433                ▼                                     │
 
@@ -130,7 +130,7 @@ PROD Local Node (Gameplay)│  - Validates migration integrity before marking ap
 
 - **Replication Role**: Replica (downloads from DEV master)│  - Schema comparison (tables, columns, indexes, constraints)        │
 
-- **Sync Method**: Manual (`npm run ops:bootstrap-local-db`)│  - Data checksums (configurable tables)                              │
+- **Sync Method**: Manual (`npm run ops:bootstrap-onpremise-dev`)│  - Data checksums (configurable tables)                              │
 
 - **Location**: Localhost PostgreSQL cluster (workstation)│  - Row count validation                                              │
 
@@ -144,7 +144,7 @@ PROD Local Node (Gameplay)│  - Validates migration integrity before marking ap
 
 - Provides <50ms latency for local development└──────────────────────────────────┬──────────────────────────────────┘
 
-- Used for testing migrations after EXPERIMENTAL validation                                   │
+- Used for testing migrations after ONPREMISE-DEV-EXPERIMENT validation                                   │
 
 - Rotation: Keeps 3 timestamped snapshots (configurable)                                   ▼
 
@@ -176,9 +176,9 @@ Store/db/│  Role: Production query layer with caching                         
 
 │  Version Constraint:                                                  │
 
-### EXPERIMENTAL Database│  - MUST match or lag behind DEV version                              │
+### ONPREMISE-DEV-EXPERIMENT Database│  - MUST match or lag behind DEV version                              │
 
-- **URL**: `DATABASE_EXPERIMENT_URL`│  - Blocks sync if DEV version < Prod version (reversion detected)   │
+- **URL**: `DATABASE_ONPREMISE_DEV_EXPERIMENT`│  - Blocks sync if DEV version < Prod version (reversion detected)   │
 
 - **Port**: 55434│  - Waits for DEV to reach Prod version + 1 before resuming          │
 
@@ -186,19 +186,19 @@ Store/db/│  Role: Production query layer with caching                         
 
 - **Purpose**: Migration testing and schema experiments                                   │
 
-- **Replication Role**: Independent clone (manual sync from PRIMARY LOCAL/DEV/PROD)                                   │ Sync Trigger (automated/manual)
+- **Replication Role**: Independent clone (manual sync from ONPREMISE-DEV-PRIMARY/DEV/PROD)                                   │ Sync Trigger (automated/manual)
 
-- **Sync Method**: Manual (`npm run ops:sync-experiment-db`)                                   │
+- **Sync Method**: Manual (`npm run ops:sync-onpremise-experiment`)                                   │
 
 - **Location**: Localhost PostgreSQL cluster (workstation)                                   ▼
 
-- **CRITICAL**: **100% OFFLINE** — NOT visible to production nodes, isolated from PRIMARY LOCAL                       ┌───────────────────────┐
+- **CRITICAL**: **100% OFFLINE** — NOT visible to production nodes, isolated from ONPREMISE-DEV-PRIMARY                       ┌───────────────────────┐
 
                        │  VERSION GATE CHECK   │
 
 **Features:**                       │  Prod version >= Local?│
 
-- Clones from PRIMARY LOCAL (default), DEV, or PROD                       └───────────┬───────────┘
+- Clones from ONPREMISE-DEV-PRIMARY (default), DEV, or PROD                       └───────────┬───────────┘
 
 - Fully isolated for destructive testing (DROP TABLE, schema experiments)                                   │
 
@@ -262,7 +262,7 @@ Store/db-experiment/│  - Schema comparison against Prod                       
 
            ▼               ▼               ▼└──────────────────────────────────────────────────────────────────────┘
 
-    PROD Local Node    PRIMARY LOCAL   EXPERIMENTAL```
+    PROD Local Node    ONPREMISE-DEV-PRIMARY   ONPREMISE-DEV-EXPERIMENT```
 
     (Gameplay)         (Port 55433)    (Port 54434)
 
@@ -304,13 +304,13 @@ Store/db-experiment/│  - Schema comparison against Prod                       
 
 ```bash```
 
-# Step 1: Download latest data from DEV master to PRIMARY LOCAL
+# Step 1: Download latest data from DEV master to ONPREMISE-DEV-PRIMARY
 
-npm run ops:bootstrap-local-db**Fingerprint Formula:**
+npm run ops:bootstrap-onpremise-dev**Fingerprint Formula:**
 
 ```typescript
 
-# Step 2: Develop locally using PRIMARY LOCAL (port 55433)const migrations = await prisma.$queryRaw`
+# Step 2: Develop locally using ONPREMISE-DEV-PRIMARY (port 55433)const migrations = await prisma.$queryRaw`
 
 npm run db:cli -- status --target=local  SELECT migration_name, checksum 
 
@@ -326,29 +326,29 @@ psql postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
 
   .map(m => `${m.migration_name}:${m.checksum}`)
 
-**Critical:** PRIMARY LOCAL downloads from DEV (one-way PULL). Local changes do NOT sync back to DEV automatically.  .join('|');
+**Critical:** ONPREMISE-DEV-PRIMARY downloads from DEV (one-way PULL). Local changes do NOT sync back to DEV automatically.  .join('|');
 
 
 
-### Workflow 2: Migration Testing (EXPERIMENTAL → PRIMARY LOCAL → DEV → PROD)const versionFingerprint = crypto
+### Workflow 2: Migration Testing (ONPREMISE-DEV-EXPERIMENT → ONPREMISE-DEV-PRIMARY → DEV → PROD)const versionFingerprint = crypto
 
   .createHash('sha256')
 
 ```bash  .update(fingerprintInput)
 
-# Step 1: Ensure PRIMARY LOCAL is up-to-date  .digest('hex');
+# Step 1: Ensure ONPREMISE-DEV-PRIMARY is up-to-date  .digest('hex');
 
-npm run ops:bootstrap-local-db
+npm run ops:bootstrap-onpremise-dev
 
 const version = {
 
-# Step 2: Clone PRIMARY LOCAL to EXPERIMENTAL (100% OFFLINE)  fingerprint: versionFingerprint,
+# Step 2: Clone ONPREMISE-DEV-PRIMARY to ONPREMISE-DEV-EXPERIMENT (100% OFFLINE)  fingerprint: versionFingerprint,
 
-npm run ops:bootstrap-experiment-db  count: migrations.length,
+npm run ops:bootstrap-onpremise-experiment  count: migrations.length,
 
   lastMigration: migrations[migrations.length - 1].migration_name,
 
-# Step 3: Test migration on EXPERIMENTAL (100% OFFLINE)  lastAppliedAt: migrations[migrations.length - 1].finished_at
+# Step 3: Test migration on ONPREMISE-DEV-EXPERIMENT (100% OFFLINE)  lastAppliedAt: migrations[migrations.length - 1].finished_at
 
 psql postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment \};
 
@@ -372,9 +372,9 @@ psql postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment \  AHEAD
 
   DIVERGED = 'DIVERGED'      // Different fingerprints at same count
 
-# Step 6: Validate on PRIMARY LOCAL if successful (100% OFFLINE)}
+# Step 6: Validate on ONPREMISE-DEV-PRIMARY if successful (100% OFFLINE)}
 
-npm run ops:sync-experiment-db --from local
+npm run ops:sync-onpremise-experiment --from local
 
 psql postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db \function compareVersions(source: Version, target: Version): VersionComparison {
 
@@ -406,9 +406,9 @@ psql $DEV_DATABASE_URL -f prisma/migrations/20251108183000_northstar_phase2_cons
 
 ```bash    // Reversion detected! Source rolled back migrations
 
-# Step 1: Test rollback on EXPERIMENTAL (100% OFFLINE)    return VersionComparison.BEHIND;
+# Step 1: Test rollback on ONPREMISE-DEV-EXPERIMENT (100% OFFLINE)    return VersionComparison.BEHIND;
 
-npm run ops:sync-experiment-db --from dev  }
+npm run ops:sync-onpremise-experiment --from dev  }
 
 psql postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment \  
 
@@ -436,27 +436,27 @@ psql $DEV_DATABASE_URL -f prisma/migrations/MIGRATION_ID/rollback.sql**Scenario:
 
 // Prod: version_fingerprint = hash(migrations 1-50), count = 50
 
-### Workflow 4: Sync EXPERIMENTAL from Different Sources// Comparison: DEV is BEHIND Prod
+### Workflow 4: Sync ONPREMISE-DEV-EXPERIMENT from Different Sources// Comparison: DEV is BEHIND Prod
 
 
 
 ```bashasync function handleReversion(devVersion: Version, prodVersion: Version) {
 
-# Clone from PRIMARY LOCAL (default, 100% OFFLINE)  logger.warn('Reversion detected', {
+# Clone from ONPREMISE-DEV-PRIMARY (default, 100% OFFLINE)  logger.warn('Reversion detected', {
 
-npm run ops:sync-experiment-db --from local    dev: { count: devVersion.count, last: devVersion.lastMigration },
+npm run ops:sync-onpremise-experiment --from local    dev: { count: devVersion.count, last: devVersion.lastMigration },
 
     prod: { count: prodVersion.count, last: prodVersion.lastMigration },
 
 # Clone from DEV master (downloads from cloud)    rollbackDepth: prodVersion.count - devVersion.count
 
-npm run ops:sync-experiment-db --from dev  });
+npm run ops:sync-onpremise-experiment --from dev  });
 
   
 
 # Clone from PROD local node (downloads from cloud)  // Block Prod sync until DEV catches up
 
-npm run ops:sync-experiment-db --from prod  await updateSyncState('PROD', {
+npm run ops:sync-onpremise-experiment --from prod  await updateSyncState('PROD', {
 
 ```    status: 'WAITING_FOR_MASTER',
 
@@ -466,7 +466,7 @@ npm run ops:sync-experiment-db --from prod  await updateSyncState('PROD', {
 
     blockedAt: new Date()
 
-### PRIMARY LOCAL Database  });
+### ONPREMISE-DEV-PRIMARY Database  });
 
   
 
@@ -474,7 +474,7 @@ npm run ops:sync-experiment-db --from prod  await updateSyncState('PROD', {
 
 ```bash  await sendAlert({
 
-npm run ops:bootstrap-local-db    severity: 'WARNING',
+npm run ops:bootstrap-onpremise-dev    severity: 'WARNING',
 
 ```    title: 'DB Reversion Detected',
 
@@ -508,13 +508,13 @@ pg_ctl stop -D Store/db/local-cluster -m fast### Schema Comparison
 
 ```bash  passed: boolean;
 
-npm run ops:status-local-dbs  diffs: SchemaDiff[];
+npm run ops:status-onpremise-dbs  diffs: SchemaDiff[];
 
 ```  summary: {
 
     tablesMatch: boolean;
 
-### EXPERIMENTAL Database    columnsMatch: boolean;
+### ONPREMISE-DEV-EXPERIMENT Database    columnsMatch: boolean;
 
     indexesMatch: boolean;
 
@@ -522,15 +522,15 @@ npm run ops:status-local-dbs  diffs: SchemaDiff[];
 
 ```bash    enumsMatch: boolean;
 
-# From PRIMARY LOCAL (default, 100% OFFLINE)  };
+# From ONPREMISE-DEV-PRIMARY (default, 100% OFFLINE)  };
 
-npm run ops:bootstrap-experiment-db}
+npm run ops:bootstrap-onpremise-experiment}
 
 
 
 # From DEV master (downloads from cloud)interface SchemaDiff {
 
-npm run ops:bootstrap-experiment-db -- --source dev  type: 'TABLE' | 'COLUMN' | 'INDEX' | 'CONSTRAINT' | 'ENUM';
+npm run ops:bootstrap-onpremise-experiment -- --source dev  type: 'TABLE' | 'COLUMN' | 'INDEX' | 'CONSTRAINT' | 'ENUM';
 
 ```  action: 'MISSING' | 'EXTRA' | 'MISMATCH';
 
@@ -540,7 +540,7 @@ npm run ops:bootstrap-experiment-db -- --source dev  type: 'TABLE' | 'COLUMN' | 
 
 ```bash  path: string;    // e.g., 'User.email' or 'idx_users_email'
 
-npm run ops:start-experiment-db  details: Record<string, any>;
+npm run ops:start-onpremise-experiment  details: Record<string, any>;
 
 ```}
 
@@ -550,7 +550,7 @@ npm run ops:start-experiment-db  details: Record<string, any>;
 
 ```bash  sourcePrisma: PrismaClient,
 
-npm run ops:stop-experiment-db  targetPrisma: PrismaClient,
+npm run ops:stop-onpremise-experiment  targetPrisma: PrismaClient,
 
 ```  options: { skipTables?: string[] } = {}
 
@@ -560,15 +560,15 @@ npm run ops:stop-experiment-db  targetPrisma: PrismaClient,
 
 ```bash  
 
-# From PRIMARY LOCAL (100% OFFLINE)  // 1. Compare tables
+# From ONPREMISE-DEV-PRIMARY (100% OFFLINE)  // 1. Compare tables
 
-npm run ops:sync-experiment-db  const sourceTables = await getTableNames(sourcePrisma);
+npm run ops:sync-onpremise-experiment  const sourceTables = await getTableNames(sourcePrisma);
 
   const targetTables = await getTableNames(targetPrisma);
 
 # From DEV master (downloads from cloud)  
 
-npm run ops:sync-experiment-db -- --from dev  const missingTables = sourceTables.filter(t => !targetTables.includes(t));
+npm run ops:sync-onpremise-experiment -- --from dev  const missingTables = sourceTables.filter(t => !targetTables.includes(t));
 
 ```  const extraTables = targetTables.filter(t => !sourceTables.includes(t));
 
@@ -578,7 +578,7 @@ npm run ops:sync-experiment-db -- --from dev  const missingTables = sourceTables
 
 ```bash    diffs.push({
 
-npm run ops:status-local-dbs      type: 'TABLE',
+npm run ops:status-onpremise-dbs      type: 'TABLE',
 
 ```      action: 'MISSING',
 
@@ -624,7 +624,7 @@ The system maintains **four simultaneous Prisma clients** with independent heart
 
 ```typescript  // 3. Compare indexes
 
-import { prisma, devPrisma, localPrisma, experimentPrisma } from "../shared/prisma.js";  const indexDiffs = await compareIndexes(sourcePrisma, targetPrisma);
+import { prisma, devPrisma, onPremiseDevPrisma, onPremiseExperimentPrisma } from "../shared/prisma.js";  const indexDiffs = await compareIndexes(sourcePrisma, targetPrisma);
 
   diffs.push(...indexDiffs);
 
@@ -644,21 +644,21 @@ if (devPrisma) {
 
   diffs.push(...enumDiffs);
 
-// PRIMARY LOCAL database (workstation mirror)  
+// ONPREMISE-DEV-PRIMARY database (workstation mirror)  
 
-if (localPrisma) {  return {
+if (onPremiseDevPrisma) {  return {
 
-  const localUsers = await localPrisma.user.findMany();    passed: diffs.length === 0,
+  const localUsers = await onPremiseDevPrisma.user.findMany();    passed: diffs.length === 0,
 
 }    diffs,
 
     summary: {
 
-// EXPERIMENTAL database (migration testing)      tablesMatch: !diffs.some(d => d.type === 'TABLE'),
+// ONPREMISE-DEV-EXPERIMENT database (migration testing)      tablesMatch: !diffs.some(d => d.type === 'TABLE'),
 
-if (experimentPrisma) {      columnsMatch: !diffs.some(d => d.type === 'COLUMN'),
+if (onPremiseExperimentPrisma) {      columnsMatch: !diffs.some(d => d.type === 'COLUMN'),
 
-  const experimentUsers = await experimentPrisma.user.findMany();      indexesMatch: !diffs.some(d => d.type === 'INDEX'),
+  const experimentUsers = await onPremiseExperimentPrisma.user.findMany();      indexesMatch: !diffs.some(d => d.type === 'INDEX'),
 
 }      constraintsMatch: !diffs.some(d => d.type === 'CONSTRAINT'),
 
@@ -684,13 +684,13 @@ interface DataIntegrityResult {
 
 ```bash  passed: boolean;
 
-# Check if PRIMARY LOCAL is up-to-date  checks: DataCheck[];
+# Check if ONPREMISE-DEV-PRIMARY is up-to-date  checks: DataCheck[];
 
 npm run db:cli -- query "SELECT * FROM db_version WHERE environment = 'LOCAL' ORDER BY updated_at DESC LIMIT 1;" --target=local  summary: {
 
     rowCountsMatch: boolean;
 
-# Check if EXPERIMENTAL is up-to-date    checksumsMatch: boolean;
+# Check if ONPREMISE-DEV-EXPERIMENT is up-to-date    checksumsMatch: boolean;
 
 npm run db:cli -- query "SELECT * FROM db_version WHERE environment = 'EXPERIMENT' ORDER BY updated_at DESC LIMIT 1;" --target=experiment    foreignKeysValid: boolean;
 
@@ -730,9 +730,9 @@ npm run db:cli -- query "SELECT pg_size_pretty(pg_database_size(current_database
 
 ### Workstation Databases    skipChecksums?: boolean;     // Skip expensive checksums
 
-- **PRIMARY LOCAL**: ~200 MB (including snapshots)    sampleSize?: number;         // Sample rows for large tables
+- **ONPREMISE-DEV-PRIMARY**: ~200 MB (including snapshots)    sampleSize?: number;         // Sample rows for large tables
 
-- **EXPERIMENTAL**: ~50 MB (manual snapshots only)  } = {}
+- **ONPREMISE-DEV-EXPERIMENT**: ~50 MB (manual snapshots only)  } = {}
 
 ): Promise<DataIntegrityResult> {
 
@@ -740,13 +740,13 @@ npm run db:cli -- query "SELECT pg_size_pretty(pg_database_size(current_database
 
 ```bash  
 
-# PRIMARY LOCAL: Automatic snapshot rotation (keeps 3 most recent)  const tables = options.tables || await getTableNames(sourcePrisma);
+# ONPREMISE-DEV-PRIMARY: Automatic snapshot rotation (keeps 3 most recent)  const tables = options.tables || await getTableNames(sourcePrisma);
 
-npm run ops:bootstrap-local-db  
+npm run ops:bootstrap-onpremise-dev  
 
   for (const table of tables) {
 
-# EXPERIMENTAL: Manual cleanup required    // 1. Row count comparison
+# ONPREMISE-DEV-EXPERIMENT: Manual cleanup required    // 1. Row count comparison
 
 rm Store/db-experiment/snapshots/*.dump    const sourceCount = await sourcePrisma.$queryRaw`
 
@@ -764,15 +764,15 @@ rm Store/db-experiment/snapshots/*.dump    const sourceCount = await sourcePrism
 
 1. **✅ DO** remember both workstation databases are OFFLINE (localhost-only)    const rowCountMatch = sourceCount[0].count === targetCount[0].count;
 
-2. **✅ DO** test migrations on EXPERIMENTAL before PRIMARY LOCAL    checks.push({
+2. **✅ DO** test migrations on ONPREMISE-DEV-EXPERIMENT before ONPREMISE-DEV-PRIMARY    checks.push({
 
-3. **✅ DO** validate migrations on PRIMARY LOCAL before pushing to DEV      table,
+3. **✅ DO** validate migrations on ONPREMISE-DEV-PRIMARY before pushing to DEV      table,
 
 4. **✅ DO** use `--target` flag to avoid accidentally targeting wrong database      check: 'ROW_COUNT',
 
 5. **✅ DO** document testing results in Tasklist.md      passed: rowCountMatch,
 
-6. **✅ DO** bootstrap PRIMARY LOCAL before creating EXPERIMENTAL      source: sourceCount[0].count,
+6. **✅ DO** bootstrap ONPREMISE-DEV-PRIMARY before creating ONPREMISE-DEV-EXPERIMENT      source: sourceCount[0].count,
 
 7. **✅ DO** use explicit push workflow for production changes      target: targetCount[0].count,
 
@@ -782,7 +782,7 @@ rm Store/db-experiment/snapshots/*.dump    const sourceCount = await sourcePrism
 
 9. **❌ DON'T** assume local databases replicate automatically to cloud    
 
-10. **❌ DON'T** skip EXPERIMENTAL testing — always test destructive operations offline first    // 2. Data checksum (if enabled and counts match)
+10. **❌ DON'T** skip ONPREMISE-DEV-EXPERIMENT testing — always test destructive operations offline first    // 2. Data checksum (if enabled and counts match)
 
 11. **❌ DON'T** run migrations on PROD directly — always go through DEV first    if (!options.skipChecksums && rowCountMatch) {
 
@@ -790,7 +790,7 @@ rm Store/db-experiment/snapshots/*.dump    const sourceCount = await sourcePrism
 
 13. **❌ DON'T** use pooled connections for migrations — always use direct PostgreSQL      const targetChecksum = await calculateTableChecksum(targetPrisma, table, options.sampleSize);
 
-14. **❌ DON'T** forget to sync EXPERIMENTAL before testing new migrations      
+14. **❌ DON'T** forget to sync ONPREMISE-DEV-EXPERIMENT before testing new migrations      
 
       checks.push({
 
@@ -798,15 +798,15 @@ rm Store/db-experiment/snapshots/*.dump    const sourceCount = await sourcePrism
 
         check: 'CHECKSUM',
 
-1. **Always test on EXPERIMENTAL first**: Never test destructive operations on PRIMARY LOCAL        passed: sourceChecksum === targetChecksum,
+1. **Always test on ONPREMISE-DEV-EXPERIMENT first**: Never test destructive operations on ONPREMISE-DEV-PRIMARY        passed: sourceChecksum === targetChecksum,
 
-2. **Keep PRIMARY LOCAL up-to-date**: Bootstrap regularly to sync with DEV master        source: sourceChecksum,
+2. **Keep ONPREMISE-DEV-PRIMARY up-to-date**: Bootstrap regularly to sync with DEV master        source: sourceChecksum,
 
 3. **Document migration testing**: Record outcomes in Tasklist.md with timestamps        target: targetChecksum
 
 4. **Use --target flag**: Avoid accidental cross-database operations      });
 
-5. **Monitor storage quotas**: Check disk usage regularly with `ops:status-local-dbs`    }
+5. **Monitor storage quotas**: Check disk usage regularly with `ops:status-onpremise-dbs`    }
 
 6. **Backup before destructive operations**: Take manual snapshots when testing DROP/TRUNCATE  }
 
@@ -816,7 +816,7 @@ rm Store/db-experiment/snapshots/*.dump    const sourceCount = await sourcePrism
 
   const fkChecks = await validateForeignKeys(targetPrisma);
 
-### PRIMARY LOCAL Issues  checks.push(...fkChecks);
+### ONPREMISE-DEV-PRIMARY Issues  checks.push(...fkChecks);
 
   
 
@@ -834,13 +834,13 @@ pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Pe
 
       foreignKeysValid: checks.filter(c => c.check === 'FK_INTEGRITY').every(c => c.passed)
 
-**Problem: PRIMARY LOCAL out of sync with DEV**    }
+**Problem: ONPREMISE-DEV-PRIMARY out of sync with DEV**    }
 
 ```bash  };
 
 # Solution: Re-bootstrap from DEV master}
 
-npm run ops:bootstrap-local-db```
+npm run ops:bootstrap-onpremise-dev```
 
 ```
 
@@ -854,25 +854,25 @@ npm run ops:bootstrap-local-db```
 
 pg_ctl stop -D Store/db/local-cluster -m fast### DEV → Prisma (Prod) Sync
 
-npm run ops:bootstrap-local-db
+npm run ops:bootstrap-onpremise-dev
 
 ``````typescript
 
 interface SyncResult {
 
-### EXPERIMENTAL Issues  success: boolean;
+### ONPREMISE-DEV-EXPERIMENT Issues  success: boolean;
 
   stage: 'VERSION_CHECK' | 'INTEGRITY_VERIFY' | 'MIGRATION_APPLY' | 'VALIDATION' | 'COMPLETE';
 
-**Problem: Bootstrap fails - PRIMARY LOCAL not running**  startedAt: Date;
+**Problem: Bootstrap fails - ONPREMISE-DEV-PRIMARY not running**  startedAt: Date;
 
 ```bash  completedAt?: Date;
 
-# Solution: Start PRIMARY LOCAL first  duration?: number;
+# Solution: Start ONPREMISE-DEV-PRIMARY first  duration?: number;
 
-npm run ops:bootstrap-local-db  errors: SyncError[];
+npm run ops:bootstrap-onpremise-dev  errors: SyncError[];
 
-npm run ops:bootstrap-experiment-db  metrics: SyncMetrics;
+npm run ops:bootstrap-onpremise-experiment  metrics: SyncMetrics;
 
 ```}
 
@@ -884,9 +884,9 @@ npm run ops:bootstrap-experiment-db  metrics: SyncMetrics;
 
 # Solution: Use different source  schemaIntegrityPassed: boolean;
 
-npm run ops:sync-experiment-db --from local  # Use PRIMARY LOCAL (offline)  dataIntegrityPassed: boolean;
+npm run ops:sync-onpremise-experiment --from local  # Use ONPREMISE-DEV-PRIMARY (offline)  dataIntegrityPassed: boolean;
 
-npm run ops:sync-experiment-db --from dev    # Use DEV master (cloud)  versionBefore: string;
+npm run ops:sync-onpremise-experiment --from dev    # Use DEV master (cloud)  versionBefore: string;
 
 ```  versionAfter: string;
 
@@ -898,9 +898,9 @@ npm run ops:sync-experiment-db --from dev    # Use DEV master (cloud)  versionBe
 
 # Solution: Stop existing clusterasync function syncDevToProd(): Promise<SyncResult> {
 
-npm run ops:stop-experiment-db  const result: SyncResult = {
+npm run ops:stop-onpremise-experiment  const result: SyncResult = {
 
-npm run ops:start-experiment-db    success: false,
+npm run ops:start-onpremise-experiment    success: false,
 
 ```    stage: 'VERSION_CHECK',
 
@@ -952,11 +952,11 @@ npm run db:cli -- query "SELECT * FROM _prisma_migrations ORDER BY finished_at D
 
 - `ops/DB_BOOTSTRAP.md` — Staging database bootstrap procedures      // Reversion detected!
 
-- `scripts/ops/bootstrap_local_fallback.ts` — PRIMARY LOCAL bootstrap implementation      await handleReversion(devVersion, prodVersion);
+- `scripts/ops/bootstrap_local_fallback.ts` — ONPREMISE-DEV-PRIMARY bootstrap implementation      await handleReversion(devVersion, prodVersion);
 
-- `scripts/ops/bootstrap_experiment_db.ts` — EXPERIMENTAL bootstrap implementation      throw new Error(`DEV is behind Prod (DEV: ${devVersion.count}, Prod: ${prodVersion.count}). Sync blocked.`);
+- `scripts/ops/bootstrap_experiment_db.ts` — ONPREMISE-DEV-EXPERIMENT bootstrap implementation      throw new Error(`DEV is behind Prod (DEV: ${devVersion.count}, Prod: ${prodVersion.count}). Sync blocked.`);
 
-- `scripts/ops/sync_experiment_db.ts` — EXPERIMENTAL sync implementation    }
+- `scripts/ops/sync_experiment_db.ts` — ONPREMISE-DEV-EXPERIMENT sync implementation    }
 
     
     if (comparison === VersionComparison.DIVERGED) {
@@ -1100,7 +1100,7 @@ async function syncProdToLocal(): Promise<SyncResult> {
   
   try {
     // Connect to local DB
-    const localPrisma = new PrismaClient({
+    const onPremiseDevPrisma = new PrismaClient({
       datasources: {
         db: { url: 'postgresql://localhost:5432/infinity_gauntlet' }
       }
@@ -1108,7 +1108,7 @@ async function syncProdToLocal(): Promise<SyncResult> {
     
     // STAGE 1: Version Check
     const prodVersion = await getVersion(prisma);
-    const localVersion = await getVersion(localPrisma);
+    const localVersion = await getVersion(onPremiseDevPrisma);
     
     const comparison = compareVersions(prodVersion, localVersion);
     
@@ -1146,13 +1146,13 @@ async function syncProdToLocal(): Promise<SyncResult> {
     // STAGE 4: Validation
     result.stage = 'VALIDATION';
     
-    const localVersionAfter = await getVersion(localPrisma);
+    const localVersionAfter = await getVersion(onPremiseDevPrisma);
     
     if (localVersionAfter.fingerprint !== prodVersion.fingerprint) {
       throw new Error(`Version mismatch after restore!`);
     }
     
-    const integrityResult = await verifySchemaIntegrity(prisma, localPrisma);
+    const integrityResult = await verifySchemaIntegrity(prisma, onPremiseDevPrisma);
     result.metrics.schemaIntegrityPassed = integrityResult.passed;
     
     if (!integrityResult.passed) {
@@ -1222,7 +1222,7 @@ interface ReplicationMetrics {
 async function getReplicationMetrics(): Promise<ReplicationMetrics> {
   const devVersion = await getVersion(devPrisma);
   const prodVersion = await getVersion(prisma);
-  const localVersion = await getVersion(localPrisma);
+  const localVersion = await getVersion(onPremiseDevPrisma);
   
   const syncState = await getSyncState();  // From db_sync_state table
   
@@ -1363,13 +1363,13 @@ npm run db:replication reset-local    # Drop and rebuild Local from Prod
 
 ### Phase 6: Multi-Connection Integration (READY after Phase 5)
 - **Tasks:**
-  - Extend dual Prisma client (devPrisma/prisma) with localPrisma
+  - Extend dual Prisma client (devPrisma/prisma) with onPremiseDevPrisma
   - Add connection health checks with version awareness
   - Implement failover logic respecting version constraints
   - Update `src/shared/config.ts` fallback to check Local version
   - Add replication state to connection telemetry
 - **Deliverables:**
-  - Updated `src/shared/prisma.ts` with localPrisma
+  - Updated `src/shared/prisma.ts` with onPremiseDevPrisma
   - Updated `src/utils/logger.js` with replication metrics
   - Tests: connection failover with version gating
 
@@ -1510,7 +1510,7 @@ npm run db:version compare
 
 - ✅ DEV is the single source of truth for all schema changes
 - ✅ Prod mirrors DEV within 6 hours (automated sync cadence)
-- ✅ Local mirrors Prod within 24 hours (daily sync)
+- ✅ on-premise mirrors Prod within 24 hours (daily sync)
 - ✅ Version mismatches detected and blocked automatically
 - ✅ Reversions detected and handled gracefully
 - ✅ Schema integrity verified before every sync completion
