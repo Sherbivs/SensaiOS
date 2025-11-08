@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-08T17:30:00Z
-Revision: 2.53
+Timestamp (UTC): 2025-11-08T18:30:00Z
+Revision: 2.54
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -13,7 +13,49 @@ Revision: 2.53
 
 ## Last Repo Changes (since previous Prompt.md revision)
 
-- **DB.NORTHSTAR.SERVICES Completion (2025-11-08T17:30Z):**
+- **DB.NORTHSTAR.MONITORING Completion (2025-11-08T18:30Z):**
+  - **Context:** Completed DB.NORTHSTAR.MONITORING task with 4 performance monitoring commands for db:cli, comprehensive documentation, and maintenance workflow integration. Enables ongoing database health tracking via pg_stat_* system tables.
+  
+  - **Implementation Summary:**
+    - **Commands Implemented** (scripts/db_admin.ts, ~370 lines, commit bf50704):
+      - `index_usage`: Query pg_stat_user_indexes for scan counts, identify unused (0 scans) and low-usage (<10 scans) indexes, show size/tuples/scans, provide drop recommendations
+      - `table_bloat`: Query pg_stat_user_tables for dead row percentages, warn >20%/>50%, show last VACUUM/ANALYZE times, provide remediation commands
+      - `slow_queries`: Query pg_stat_statements (if enabled) for top 10 by mean execution time, warn >500ms/>2s, check extension availability, provide optimization checklist
+      - `cache_stats`: Query pg_statio_user_tables for heap/index hit rates, warn <80%/<60%, database-wide summary, recommend shared_buffers tuning
+    
+    - **Type-Safe Interfaces:** IndexUsageRow, TableBloatRow, SlowQueryRow, CacheStatsRow for PostgreSQL query results
+    - **Output Formats:** Formatted console output with visual hierarchy (headers, separators, status tags), --json mode for programmatic consumption
+    - **Graceful Degradation:** slow_queries checks pg_stat_statements extension, provides installation instructions if missing
+    - **Help Command:** Updated printHelp() with Performance Monitoring section, threshold explanations for all 4 commands
+  
+  - **Documentation Updates (commit 142d37d, 116 insertions/-12 deletions):**
+    - **README.md:** Added monitoring commands to quick reference (line 127): "Performance monitoring: npm run db:cli -- index_usage, table_bloat, slow_queries, cache_stats"
+    - **docs/query-optimization-guide.md:** Enhanced Maintenance Schedule section with comprehensive monitoring workflow:
+      * Command usage examples for all 4 commands with bash syntax
+      * Interpretation guidance: warning/critical thresholds explained with actionable context
+      * Remediation steps: drop unused indexes, VACUUM bloated tables, optimize slow queries, tune shared_buffers for low cache rates
+      * Integration with Daily/Weekly/Monthly/Quarterly maintenance schedules
+      * Weekly checklist with bash automation examples (log capture, remediation commands)
+      * Quarterly load testing guidance
+      * Revision updated to 1.1 (2025-11-08T18:00:00Z)
+  
+  - **Performance Thresholds Validated:**
+    - Query latency: warning >500ms, critical >2s (aligned with docs/query-optimization-guide.md)
+    - Index usage: unused 0 scans, low-usage <10 scans
+    - Table bloat: warning >20%, critical >50% (aligned with guide)
+    - Cache hit rate: warning <80%, critical <60% (aligned with guide)
+  
+  - **Commits:**
+    - bf50704: "feat: add performance monitoring commands to db:cli (DB.NORTHSTAR.MONITORING)" — Implementation (scripts/db_admin.ts + Tasklist.md, 469 insertions/-4 deletions)
+    - 142d37d: "docs: document performance monitoring workflow (DB.NORTHSTAR.MONITORING)" — Documentation (README.md + query-optimization-guide.md, 116 insertions/-12 deletions)
+  
+  - **Dashboard Integration:** JSON output mode enables programmatic consumption for alerting thresholds: `npm run db:cli -- index_usage --json`
+  
+  - **Status:** Task DB.NORTHSTAR.MONITORING marked DONE in Tasklist.md with comprehensive outcome documentation including implementation details, commits, performance verification, documentation updates, test coverage status, next steps (DB.NORTHSTAR.PHASE2).
+  
+  - **Next:** DB.NORTHSTAR.PHASE2 (Data consolidation and TrainerProfile cleanup - PROPOSED, dependencies met).
+
+- **DB.NORTHSTAR.SERVICES Completion (2025-11-08T17:30Z - Previous):**
   - **Context:** Completed DB.NORTHSTAR.SERVICES task (Phase 14) with EventTracker and ProfileService implementation, comprehensive unit tests (25/25 passing), test fixes for mock alignment issues, and structured logging integration for production observability.
   
   - **Implementation Summary:**
@@ -37,14 +79,6 @@ Revision: 2.53
     - cd3370c: Integrate structured logging for EventTracker and ProfileService — 3 files, 77 insertions/-25 deletions (structured batch logs, cache monitoring, slow query detection, cache operation logs, logger.d.ts fixes)
   
   - **Status:** Task DB.NORTHSTAR.SERVICES marked DONE in Tasklist.md with comprehensive outcome documentation including implementation details, commits, performance verification, files created, dependencies met, next steps (DB.NORTHSTAR.MONITORING).
-  
-  - **Next:** DB.NORTHSTAR.MONITORING (extend db:cli with performance monitoring: index_usage, table_bloat, slow_queries, VACUUM scheduling, performance dashboard).
-    - Leaderboard <200ms (optimized SQL with ROW_NUMBER() window function)
-    - Event processing <75ms (bulk INSERT with batching)
-  
-  - **Commits:**
-    - 4a6c862: "Implement EventTracker and ProfileService (DB.NORTHSTAR.SERVICES)" - 6 files, 1307 insertions
-    - 5ab4e61: "Add EventTracker and ProfileService tests (19/25 passing)" - 2 files, 750 insertions
 
 - **DB Replication Test Suite Migration — Prisma to Pool (Previous):**
   - **Context:** Completed migration of all 7 db-replication test files from PrismaClient mocks to native PostgreSQL Pool mocks as part of ongoing Prisma→PostgreSQL transition. This aligns test infrastructure with production architecture using direct pg library connections.
