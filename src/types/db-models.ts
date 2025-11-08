@@ -1,0 +1,412 @@
+/**
+ * Database Model Types
+ * 
+ * Auto-generated from prisma/schema.prisma
+ * DO NOT EDIT MANUALLY
+ * 
+ * Run: npm run generate:types
+ */
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+export enum MoveCategory {
+  physical = "physical",
+  special = "special",
+  status = "status",
+}
+
+export enum LearnMethod {
+  level = "level",
+  machine = "machine",
+  tutor = "tutor",
+  egg = "egg",
+}
+
+export enum BusKind {
+  event = "event",
+  command = "command",
+}
+
+export enum BusStatus {
+  pending = "pending",
+  processing = "processing",
+  done = "done",
+  error = "error",
+}
+
+export enum BusPriority {
+  high = "high",
+  normal = "normal",
+  low = "low",
+}
+
+// ============================================================================
+// Base Models
+// ============================================================================
+
+export interface Tenant {
+  id: string;
+  createdAt: Date;
+}
+
+export interface Trainer {
+  id: string;
+  tenantId: string;
+  userId: string;
+  nickname: string | null;
+  createdAt: Date;
+}
+
+export interface DexPack {
+  packHash: string;
+  schemaVer: number;
+  gen: number;
+  signedAt: Date;
+  metaJson: any;
+}
+
+export interface TrainerSettings {
+  trainerId: string;
+  activePack: string;
+  prefsJson: any;
+  updatedAt: Date;
+}
+
+export interface TrainerProfile {
+  userId: string;
+  tagline: string | null;
+  bio: string | null;
+  favoriteSpeciesId: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Type {
+  id: number;
+  slug: string;
+  name: string;
+}
+
+export interface Ability {
+  id: number;
+  slug: string;
+  name: string;
+  desc: string | null;
+}
+
+export interface Item {
+  id: number;
+  slug: string;
+  name: string;
+  kind: string;
+  meta: any | null;
+  packHash: string | null;
+}
+
+export interface Move {
+  id: number;
+  slug: string;
+  name: string;
+  typeId: number;
+  power: number | null;
+  accuracy: number | null;
+  pp: number;
+  priority: number;
+  category: MoveCategory;
+  meta: any | null;
+}
+
+export interface Species {
+  id: number;
+  slug: string;
+  name: string;
+  baseHp: number;
+  baseAtk: number;
+  baseDef: number;
+  baseSpAtk: number;
+  baseSpDef: number;
+  baseSpe: number;
+  growth: string;
+  captureRate: number;
+  maleRate: number | null;
+  hatchSteps: number | null;
+  meta: any | null;
+}
+
+export interface SpeciesType {
+  speciesId: number;
+  typeId: number;
+  slot: number;
+}
+
+export interface SpeciesAbility {
+  speciesId: number;
+  abilityId: number;
+  slot: number;
+}
+
+export interface SpeciesLearnset {
+  speciesId: number;
+  moveId: number;
+  method: LearnMethod;
+  level: number;
+  machineId: number | null;
+}
+
+export interface EvolutionStep {
+  fromId: number;
+  toId: number;
+  trigger: string;
+  level: number | null;
+  itemId: number | null;
+  meta: any | null;
+}
+
+export interface TypeChart {
+  atkTypeId: number;
+  defTypeId: number;
+  mult: number;
+}
+
+export interface NameVariant {
+  id: string;
+  kind: string;
+  refIntId: number;
+  locale: string;
+  nameType: string;
+  value: string;
+  normalized: string;
+}
+
+export interface User {
+  id: string;
+  discordId: string;
+  platformId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  coins: number;
+  settingsJson: any | null;
+  dailyQuestStreak: number;
+  dailyQuestLastCompleted: Date | null;
+  dailyQuestLastReset: Date | null;
+}
+
+export interface PokemonInstance {
+  id: string;
+  ownerId: string;
+  speciesId: number;
+  form: string | null;
+  level: number;
+  exp: number;
+  nature: string | null;
+  ivsJson: any;
+  evsJson: any;
+  movesJson: any;
+  status: string | null;
+  hp: number;
+  maxHp: number;
+  isShiny: boolean;
+  nickname: string | null;
+  boxSlot: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+  tenantId: string | null;
+  trainerId: string | null;
+  packHash: string | null;
+}
+
+export interface Party {
+  id: string;
+  ownerId: string;
+  trainerId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PartySlot {
+  id: string;
+  partyId: string;
+  slot: number;
+  pokemonId: string;
+  updatedAt: Date;
+}
+
+export interface Inventory {
+  trainerId: string;
+  itemId: number;
+  qty: number;
+}
+
+export interface Encounter {
+  id: string;
+  ownerId: string;
+  speciesId: number;
+  level: number;
+  state: string;
+  threadChannelId: string | null;
+  startedAt: Date;
+  expiresAt: Date | null;
+  dataJson: any | null;
+  tenantId: string | null;
+  trainerId: string | null;
+  packHash: string | null;
+}
+
+export interface Battle {
+  id: string;
+  p1Id: string;
+  p2Id: string;
+  arenaThreadId: string | null;
+  state: string;
+  rngSeed: string;
+  ruleset: string;
+  logCompact: any | null;
+  logFull: any | null;
+  resultJson: any | null;
+  startedAt: Date;
+  endedAt: Date | null;
+  updatedAt: Date;
+  tenantId: string | null;
+  packHash: string | null;
+  trainer1Id: string | null;
+  trainer2Id: string | null;
+}
+
+export interface Cooldown {
+  id: string;
+  ownerId: string;
+  kind: string;
+  readyAt: Date;
+  metaJson: any | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface BusMessage {
+  id: string;
+  kind: BusKind;
+  topic: string;
+  priority: BusPriority;
+  shardKey: string | null;
+  idempotencyKey: string;
+  payload: any;
+  createdAt: Date;
+  availableAt: Date;
+  status: BusStatus;
+  attempts: number;
+  error: string | null;
+  processedAt: Date | null;
+  updatedAt: Date;
+}
+
+export interface BusIdemToken {
+  key: string;
+  createdAt: Date;
+  ttl: number;
+}
+
+export interface AuditLog {
+  id: bigint;
+  tenantId: string | null;
+  actorUserId: string | null;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  beforeJson: any | null;
+  afterJson: any | null;
+  at: Date;
+}
+
+export interface DbVersion {
+  id: number;
+  versionFingerprint: string;
+  migrationCount: number;
+  lastMigrationName: string;
+  lastMigrationAppliedAt: Date;
+  syncSource: string | null;
+  createdAt: Date;
+}
+
+export interface DbSyncState {
+  id: number;
+  source: string;
+  target: string;
+  status: string;
+  lastSyncAt: Date | null;
+  lastDuration: number | null;
+  lastError: string | null;
+  lastIntegrityCheck: any | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ============================================================================
+// Relation Types (Common Patterns)
+// ============================================================================
+
+export interface UserWithParty extends User {
+  parties: Party[];
+}
+
+export interface UserWithPokemon extends User {
+  pokemon: PokemonInstance[];
+}
+
+export interface UserWithEncounters extends User {
+  encounters: Encounter[];
+}
+
+export interface UserWithBattles extends User {
+  battlesP1: Battle[];
+  battlesP2: Battle[];
+}
+
+export interface PartyWithSlots extends Party {
+  slots: PartySlot[];
+}
+
+export interface PartySlotWithPokemon extends PartySlot {
+  pokemon: PokemonInstance;
+}
+
+export interface PokemonInstanceWithSpecies extends PokemonInstance {
+  species: Species;
+}
+
+export interface EncounterWithSpecies extends Encounter {
+  species: Species;
+}
+
+export interface EncounterWithOwner extends Encounter {
+  owner: User;
+}
+
+export interface BattleWithPlayers extends Battle {
+  p1: User;
+  p2: User;
+}
+
+export interface SpeciesWithTypes extends Species {
+  types: SpeciesType[];
+}
+
+export interface SpeciesWithAbilities extends Species {
+  abilities: SpeciesAbility[];
+}
+
+export interface SpeciesWithLearnset extends Species {
+  learnset: SpeciesLearnset[];
+}
+
+// ============================================================================
+// Common Pick Types (Partial Selects)
+// ============================================================================
+
+export type UserIdOnly = Pick<User, 'id'>;
+export type UserWithCoins = Pick<User, 'id' | 'discordId' | 'coins'>;
+export type UserSummary = Pick<User, 'id' | 'discordId' | 'coins' | 'createdAt'>;
+export type PokemonSummary = Pick<PokemonInstance, 'id' | 'speciesId' | 'level' | 'hp' | 'maxHp' | 'nickname'>;
+export type BattleIdOnly = Pick<Battle, 'id'>;
+export type EncounterSummary = Pick<Encounter, 'id' | 'speciesId' | 'level' | 'state'>;
