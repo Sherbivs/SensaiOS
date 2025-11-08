@@ -29,6 +29,10 @@ type Command =
   | "counts"
   | "count"
   | "query"
+  | "index_usage"
+  | "table_bloat"
+  | "slow_queries"
+  | "cache_stats"
   | "help";
 
 interface ParsedArgs {
@@ -309,6 +313,422 @@ async function runQuery(ctx: DbContext, sql: string, outputJson: boolean): Promi
   throw new Error("No database client available to run query command.");
 }
 
+interface IndexUsageRow {
+  schemaname: string;
+  tablename: string;
+  indexname: string;
+  idx_scan: string;
+  idx_tup_read: string;
+  idx_tup_fetch: string;
+  idx_size: string;
+}
+
+async function showIndexUsage(ctx: DbContext, outputJson: boolean): Promise<void> {
+  if (!ctx.pg) {
+    throw new Error("No database client available for index_usage command.");
+  }
+
+  const query = `
+    SELECT
+      schemaname,
+      tablename,
+      indexname,
+      idx_scan,
+      idx_tup_read,
+      idx_tup_fetch,
+      pg_size_pretty(pg_relation_size(indexrelid)) AS idx_size
+    FROM pg_stat_user_indexes
+    ORDER BY idx_scan ASC, tablename ASC, indexname ASC;
+  `;
+
+  const result = await ctx.pg.query<IndexUsageRow>(query);
+
+  if (outputJson) {
+    console.log(JSON.stringify(result.rows, null, 2));
+    return;
+  }
+
+  if (result.rows.length === 0) {
+    console.log("No user indexes found.");
+    return;
+  }
+
+  console.log("=== Index Usage Analysis ===\n");
+
+  // Group by table for better readability
+  const byTable = new Map<string, IndexUsageRow[]>();
+  for (const row of result.rows) {
+    const key = `${row.schemaname}.${row.tablename}`;
+    if (!byTable.has(key)) {
+      byTable.set(key, []);
+    }
+    byTable.get(key)!.push(row);
+  }
+
+  let unusedCount = 0;
+  const warnings: string[] = [];
+
+  for (const [tableKey, indexes] of byTable) {
+    console.log(`Table: ${tableKey}`);
+    console.log("─".repeat(80));
+
+    for (const idx of indexes) {
+      const scans = parseInt(idx.idx_scan, 10);
+      const status = scans === 0 ? "[UNUSED]" : scans < 10 ? "[LOW]" : "";
+
+      console.log(`  ${idx.indexname.padEnd(40)} ${status}`);
+      console.log(`    Scans: ${idx.idx_scan.padEnd(10)} | Tuples Read: ${idx.idx_tup_read.padEnd(10)} | Tuples Fetched: ${idx.idx_tup_fetch.padEnd(10)} | Size: ${idx.idx_size}`);
+
+      if (scans === 0) {
+        unusedCount++;
+        warnings.push(`UNUSED: ${tableKey}.${idx.indexname} (0 scans, size: ${idx.idx_size})`);
+      }
+    }
+    console.log();
+  }
+
+  if (warnings.length > 0) {
+    console.log("⚠️  WARNINGS:");
+    for (const warning of warnings) {
+      console.log(`  ${warning}`);
+    }
+    console.log(`\nTotal unused indexes: ${unusedCount}`);
+    console.log("Consider dropping unused indexes to reduce storage and maintenance overhead.");
+  } else {
+    console.log("✅ All indexes are being used.");
+  }
+}
+
+interface TableBloatRow {
+  schemaname: string;
+  tablename: string;
+  n_live_tup: string;
+  n_dead_tup: string;
+  dead_pct: number;
+  last_vacuum: Date | null;
+  last_autovacuum: Date | null;
+  last_analyze: Date | null;
+  last_autoanalyze: Date | null;
+}
+
+async function showTableBloat(ctx: DbContext, outputJson: boolean): Promise<void> {
+  if (!ctx.pg) {
+    throw new Error("No database client available for table_bloat command.");
+  }
+
+  const query = `
+    SELECT
+      schemaname,
+      relname AS tablename,
+      n_live_tup,
+      n_dead_tup,
+      CASE 
+        WHEN n_live_tup > 0 
+        THEN ROUND((n_dead_tup::float / n_live_tup::float) * 100, 2)
+        ELSE 0
+      END AS dead_pct,
+      last_vacuum,
+      last_autovacuum,
+      last_analyze,
+      last_autoanalyze
+    FROM pg_stat_user_tables
+    ORDER BY dead_pct DESC, n_dead_tup DESC;
+  `;
+
+  const result = await ctx.pg.query<TableBloatRow>(query);
+
+  if (outputJson) {
+    console.log(JSON.stringify(result.rows, null, 2));
+    return;
+  }
+
+  if (result.rows.length === 0) {
+    console.log("No user tables found.");
+    return;
+  }
+
+  console.log("=== Table Bloat Analysis ===\n");
+
+  const warnings: string[] = [];
+  const critical: string[] = [];
+
+  for (const row of result.rows) {
+    const tableKey = `${row.schemaname}.${row.tablename}`;
+    const deadPct = row.dead_pct;
+    const liveTup = parseInt(row.n_live_tup, 10);
+    const deadTup = parseInt(row.n_dead_tup, 10);
+
+    let status = "";
+    if (deadPct >= 50) {
+      status = "[CRITICAL]";
+      critical.push(`${tableKey}: ${deadPct}% dead rows (${deadTup}/${liveTup + deadTup})`);
+    } else if (deadPct >= 20) {
+      status = "[WARNING]";
+      warnings.push(`${tableKey}: ${deadPct}% dead rows (${deadTup}/${liveTup + deadTup})`);
+    }
+
+    console.log(`Table: ${tableKey} ${status}`);
+    console.log(`  Live Tuples: ${row.n_live_tup.padEnd(10)} | Dead Tuples: ${row.n_dead_tup.padEnd(10)} | Bloat: ${deadPct}%`);
+
+    const lastVacuum = row.last_vacuum || row.last_autovacuum;
+    const lastAnalyze = row.last_analyze || row.last_autoanalyze;
+    console.log(`  Last VACUUM: ${lastVacuum ? lastVacuum.toISOString() : "never"}`);
+    console.log(`  Last ANALYZE: ${lastAnalyze ? lastAnalyze.toISOString() : "never"}`);
+    console.log();
+  }
+
+  if (critical.length > 0) {
+    console.log("🚨 CRITICAL BLOAT (>50%):");
+    for (const msg of critical) {
+      console.log(`  ${msg}`);
+    }
+    console.log("\nRecommendation: Run VACUUM ANALYZE immediately on these tables.");
+    console.log("Example: VACUUM ANALYZE \"User\";");
+    console.log();
+  }
+
+  if (warnings.length > 0) {
+    console.log("⚠️  WARNING BLOAT (>20%):");
+    for (const msg of warnings) {
+      console.log(`  ${msg}`);
+    }
+    console.log("\nRecommendation: Schedule VACUUM ANALYZE during low-traffic period.");
+    console.log();
+  }
+
+  if (critical.length === 0 && warnings.length === 0) {
+    console.log("✅ All tables have healthy bloat levels (<20%).");
+  }
+}
+
+interface SlowQueryRow {
+  query: string;
+  calls: string;
+  mean_exec_time_ms: number;
+  total_exec_time_ms: number;
+  stddev_exec_time_ms: number;
+}
+
+async function showSlowQueries(ctx: DbContext, outputJson: boolean): Promise<void> {
+  if (!ctx.pg) {
+    throw new Error("No database client available for slow_queries command.");
+  }
+
+  // Check if pg_stat_statements extension is available
+  const extensionCheck = await ctx.pg.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+      SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'
+    ) AS exists;`
+  );
+
+  if (!extensionCheck.rows[0]?.exists) {
+    console.log("⚠️  pg_stat_statements extension not installed.");
+    console.log("To enable slow query tracking, run:");
+    console.log("  CREATE EXTENSION IF NOT EXISTS pg_stat_statements;");
+    console.log("\nNote: This requires superuser privileges and may require server restart.");
+    return;
+  }
+
+  const query = `
+    SELECT
+      LEFT(query, 100) AS query,
+      calls,
+      ROUND(mean_exec_time::numeric, 2) AS mean_exec_time_ms,
+      ROUND(total_exec_time::numeric, 2) AS total_exec_time_ms,
+      ROUND(stddev_exec_time::numeric, 2) AS stddev_exec_time_ms
+    FROM pg_stat_statements
+    WHERE query NOT LIKE '%pg_stat_statements%'
+      AND query NOT LIKE '%pg_catalog%'
+    ORDER BY mean_exec_time DESC
+    LIMIT 10;
+  `;
+
+  const result = await ctx.pg.query<SlowQueryRow>(query);
+
+  if (outputJson) {
+    console.log(JSON.stringify(result.rows, null, 2));
+    return;
+  }
+
+  if (result.rows.length === 0) {
+    console.log("No queries found in pg_stat_statements.");
+    console.log("Note: Statistics may have been reset or no queries have been executed yet.");
+    return;
+  }
+
+  console.log("=== Slow Query Analysis (Top 10 by Mean Execution Time) ===\n");
+
+  const warnings: string[] = [];
+  const critical: string[] = [];
+
+  for (let i = 0; i < result.rows.length; i++) {
+    const row = result.rows[i];
+    const meanTime = row.mean_exec_time_ms;
+    
+    let status = "";
+    if (meanTime >= 2000) {
+      status = "[CRITICAL]";
+      critical.push(`Query #${i + 1}: ${meanTime}ms mean execution time`);
+    } else if (meanTime >= 500) {
+      status = "[WARNING]";
+      warnings.push(`Query #${i + 1}: ${meanTime}ms mean execution time`);
+    }
+
+    console.log(`#${i + 1} ${status}`);
+    console.log(`  Query: ${row.query}...`);
+    console.log(`  Calls: ${row.calls} | Mean Time: ${meanTime}ms | Total Time: ${row.total_exec_time_ms}ms | StdDev: ${row.stddev_exec_time_ms}ms`);
+    console.log();
+  }
+
+  if (critical.length > 0) {
+    console.log("🚨 CRITICAL QUERIES (>2s mean time):");
+    for (const msg of critical) {
+      console.log(`  ${msg}`);
+    }
+    console.log("\nRecommendation: Review these queries immediately. Consider:");
+    console.log("  - Adding missing indexes");
+    console.log("  - Optimizing JOIN conditions");
+    console.log("  - Breaking complex queries into smaller parts");
+    console.log();
+  }
+
+  if (warnings.length > 0) {
+    console.log("⚠️  SLOW QUERIES (>500ms mean time):");
+    for (const msg of warnings) {
+      console.log(`  ${msg}`);
+    }
+    console.log("\nRecommendation: Investigate these queries for optimization opportunities.");
+    console.log();
+  }
+
+  if (critical.length === 0 && warnings.length === 0) {
+    console.log("✅ All queries are performing well (<500ms mean time).");
+  }
+}
+
+interface CacheStatsRow {
+  schemaname: string;
+  relname: string;
+  heap_blks_read: string;
+  heap_blks_hit: string;
+  heap_hit_rate: number;
+  idx_blks_read: string;
+  idx_blks_hit: string;
+  idx_hit_rate: number;
+}
+
+async function showCacheStats(ctx: DbContext, outputJson: boolean): Promise<void> {
+  if (!ctx.pg) {
+    throw new Error("No database client available for cache_stats command.");
+  }
+
+  const query = `
+    SELECT
+      schemaname,
+      relname,
+      heap_blks_read,
+      heap_blks_hit,
+      CASE 
+        WHEN (heap_blks_read + heap_blks_hit) > 0 
+        THEN ROUND((heap_blks_hit::float / (heap_blks_read + heap_blks_hit)::float) * 100, 2)
+        ELSE 100.0
+      END AS heap_hit_rate,
+      idx_blks_read,
+      idx_blks_hit,
+      CASE 
+        WHEN (idx_blks_read + idx_blks_hit) > 0 
+        THEN ROUND((idx_blks_hit::float / (idx_blks_read + idx_blks_hit)::float) * 100, 2)
+        ELSE 100.0
+      END AS idx_hit_rate
+    FROM pg_statio_user_tables
+    ORDER BY heap_hit_rate ASC, idx_hit_rate ASC;
+  `;
+
+  const result = await ctx.pg.query<CacheStatsRow>(query);
+
+  if (outputJson) {
+    console.log(JSON.stringify(result.rows, null, 2));
+    return;
+  }
+
+  if (result.rows.length === 0) {
+    console.log("No user tables found.");
+    return;
+  }
+
+  console.log("=== Buffer Cache Hit Rate Analysis ===\n");
+
+  const warnings: string[] = [];
+  const critical: string[] = [];
+
+  let totalHeapRead = 0;
+  let totalHeapHit = 0;
+  let totalIdxRead = 0;
+  let totalIdxHit = 0;
+
+  for (const row of result.rows) {
+    const tableKey = `${row.schemaname}.${row.relname}`;
+    const heapRate = row.heap_hit_rate;
+    const idxRate = row.idx_hit_rate;
+
+    totalHeapRead += parseInt(row.heap_blks_read, 10);
+    totalHeapHit += parseInt(row.heap_blks_hit, 10);
+    totalIdxRead += parseInt(row.idx_blks_read, 10);
+    totalIdxHit += parseInt(row.idx_blks_hit, 10);
+
+    let status = "";
+    if (heapRate < 60 || idxRate < 60) {
+      status = "[CRITICAL]";
+      critical.push(`${tableKey}: Heap ${heapRate}%, Index ${idxRate}%`);
+    } else if (heapRate < 80 || idxRate < 80) {
+      status = "[WARNING]";
+      warnings.push(`${tableKey}: Heap ${heapRate}%, Index ${idxRate}%`);
+    }
+
+    console.log(`Table: ${tableKey} ${status}`);
+    console.log(`  Heap Blocks → Read: ${row.heap_blks_read.padEnd(10)} | Hit: ${row.heap_blks_hit.padEnd(10)} | Hit Rate: ${heapRate}%`);
+    console.log(`  Index Blocks → Read: ${row.idx_blks_read.padEnd(10)} | Hit: ${row.idx_blks_hit.padEnd(10)} | Hit Rate: ${idxRate}%`);
+    console.log();
+  }
+
+  // Calculate database-wide summary
+  const totalHeapOps = totalHeapRead + totalHeapHit;
+  const totalIdxOps = totalIdxRead + totalIdxHit;
+  const overallHeapRate = totalHeapOps > 0 ? ((totalHeapHit / totalHeapOps) * 100).toFixed(2) : "100.00";
+  const overallIdxRate = totalIdxOps > 0 ? ((totalIdxHit / totalIdxOps) * 100).toFixed(2) : "100.00";
+
+  console.log("═".repeat(80));
+  console.log("DATABASE-WIDE SUMMARY:");
+  console.log(`  Overall Heap Cache Hit Rate: ${overallHeapRate}%`);
+  console.log(`  Overall Index Cache Hit Rate: ${overallIdxRate}%`);
+  console.log();
+
+  if (critical.length > 0) {
+    console.log("🚨 CRITICAL CACHE PERFORMANCE (<60%):");
+    for (const msg of critical) {
+      console.log(`  ${msg}`);
+    }
+    console.log("\nRecommendation: Investigate immediately. Possible causes:");
+    console.log("  - Insufficient shared_buffers allocation");
+    console.log("  - Tables/indexes too large for available cache");
+    console.log("  - Sequential scans instead of index scans");
+    console.log();
+  }
+
+  if (warnings.length > 0) {
+    console.log("⚠️  LOW CACHE HIT RATE (<80%):");
+    for (const msg of warnings) {
+      console.log(`  ${msg}`);
+    }
+    console.log("\nRecommendation: Consider increasing shared_buffers or optimizing queries.");
+    console.log();
+  }
+
+  if (critical.length === 0 && warnings.length === 0) {
+    console.log("✅ All tables have healthy cache hit rates (>80%).");
+  }
+}
+
 function printHelp(): void {
   console.log(`Infinity Gauntlet DB Control Suite\n\n`);
   console.log(`Usage:`);
@@ -318,11 +738,20 @@ function printHelp(): void {
   console.log(`  counts                Print counts for common tables.`);
   console.log(`  count <Model>         Count records for a specific Prisma model (e.g., Species, User).`);
   console.log(`  query <SQL>           Execute a raw SQL query (read-only recommended).`);
+  console.log(`  index_usage           Show index scan counts and identify unused indexes.`);
+  console.log(`  table_bloat           Analyze dead row percentages and recommend VACUUM.`);
+  console.log(`  slow_queries          Show top 10 slowest queries (requires pg_stat_statements).`);
+  console.log(`  cache_stats           Show buffer cache hit rates for tables and indexes.`);
   console.log(`  help                  Show this message.`);
   console.log(`\nOptions:`);
-  console.log(`  --json                Output results as JSON (query command).`);
+  console.log(`  --json                Output results as JSON (query, index_usage, table_bloat, slow_queries, cache_stats).`);
   console.log(`  --table=<Model>       Alias for 'count <Model>'.`);
   console.log(`  --sql="..."           Provide SQL for the query command without quoting.`);
+  console.log(`\nPerformance Monitoring:`);
+  console.log(`  index_usage           Identifies unused indexes (0 scans) that waste storage.`);
+  console.log(`  table_bloat           Warns if dead rows >20% (warning) or >50% (critical).`);
+  console.log(`  slow_queries          Warns if mean time >500ms (warning) or >2s (critical).`);
+  console.log(`  cache_stats           Warns if hit rate <80% (warning) or <60% (critical).`);
   console.log(`\nEnvironment loading follows IG_ENV_FILE → DOTENV_CONFIG_PATH → repo .env (non-production).`);
 }
 
@@ -357,6 +786,22 @@ async function main(): Promise<void> {
         const sqlFromOption = typeof options["sql"] === "string" ? (options["sql"] as string) : undefined;
         const sql = sqlFromOption ?? rest.join(" ");
         await runQuery(ctx, sql, Boolean(options["json"]));
+        break;
+      }
+      case "index_usage": {
+        await showIndexUsage(ctx, Boolean(options["json"]));
+        break;
+      }
+      case "table_bloat": {
+        await showTableBloat(ctx, Boolean(options["json"]));
+        break;
+      }
+      case "slow_queries": {
+        await showSlowQueries(ctx, Boolean(options["json"]));
+        break;
+      }
+      case "cache_stats": {
+        await showCacheStats(ctx, Boolean(options["json"]));
         break;
       }
       case "help":

@@ -1471,7 +1471,7 @@ Each task has:
 
 - id: DB.NORTHSTAR.MONITORING
   title: Extend db:cli with performance monitoring
-  status: PROPOSED
+  status: READY
   depends_on: [DB.NORTHSTAR.PHASE1]
   acceptance_criteria:
     - Add performance commands to scripts/db_admin.ts: index_usage (pg_stat_user_indexes scan counts), table_bloat (dead row percentages), slow_queries (pg_stat_statements top 10).
@@ -1479,12 +1479,32 @@ Each task has:
     - Build performance dashboard showing query latency, index hit rate, table bloat, cache hit rate with alerting thresholds.
     - Document monitoring workflow in docs/query-optimization-guide.md maintenance section.
   notes: |
-    PROPOSED — Performance indexes in place, need ongoing monitoring tooling.
-    Alerting thresholds (from docs/query-optimization-guide.md):
+    READY — Phase 1 schema complete, EventTracker/ProfileService deployed with observability integration (2025-11-08T17:30Z). Performance indexes in place from Phase 1 (15 indexes created 2025-11-06T17:30Z, 14 succeeded immediately, 1 fixed). Ready for ongoing monitoring tooling implementation.
+    
+    Dependencies Met:
+    - DB.NORTHSTAR.PHASE1: DONE (2025-11-06T17:45Z) — 19 User columns, 6 tables (UserEvent, DailyStats, Leaderboard, Achievement, UserAchievement, BusMessage), 2 enums, 15 performance indexes all deployed and verified.
+    - DB.NORTHSTAR.SERVICES: DONE (2025-11-08T17:30Z) — EventTracker + ProfileService with structured logging ready to benefit from performance monitoring.
+    
+    Alerting Thresholds (from docs/query-optimization-guide.md):
     - Query latency: warning >500ms, critical >2s
     - Index hit rate: warning <95%, critical <90%
     - Table bloat: warning >20%, critical >50%
     - Cache hit rate: warning <80%, critical <60%
+    
+    Commands to Implement:
+    - index_usage: Query pg_stat_user_indexes for scan counts, identify unused indexes (0 scans), show size/usage for optimization decisions
+    - table_bloat: Query pg_stat_user_tables for dead row percentages, last vacuum/analyze times, suggest VACUUM for bloated tables
+    - slow_queries: Query pg_stat_statements (if enabled) for top 10 slowest queries by mean execution time, gracefully handle missing extension
+    - cache_stats: Query pg_statio_user_tables for buffer cache hit rates (heap + index), show database-wide summary
+    
+    Performance Indexes Available for Monitoring:
+    - User: (discordId), (createdAt DESC), (lastActivityAt DESC), (coins DESC), (catches DESC), (battles DESC)
+    - Species: (pokedexNumber), (name)
+    - UserEvent: (userId, occurredAt DESC), (category, occurredAt DESC), (retainUntil) for cleanup automation
+    - Achievement: (slug UNIQUE)
+    - UserAchievement: (userId, achievementId UNIQUE), (userId, unlockedAt DESC)
+    - DailyStats: (date DESC UNIQUE)
+    - Leaderboard: (type, rank)
 
 - id: DB.NORTHSTAR.PHASE2
   title: Data consolidation and TrainerProfile cleanup
