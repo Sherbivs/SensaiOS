@@ -1,6 +1,6 @@
 # Prisma ORM to Raw PostgreSQL Migration Plan
 
-**Status**: Task 8 Complete - Battle Queries Validated  
+**Status**: Task 9 Complete - Party/Pokemon Queries Validated  
 **Created**: 2025-11-07  
 **Last Updated**: 2025-11-08  
 **Scope**: Complete removal of @prisma/client dependency and migration to raw PostgreSQL via `pg` library
@@ -267,6 +267,54 @@ export async function getUserBasic(
 **Files**:
 - Implementation: `src/shared/models/battle-queries-pg.ts` (~620 lines)
 - Tests: `tests/battle-queries-pg.test.ts` (~550 lines)
+- Commit: TBD (2025-11-08)
+
+### 1.7 Party/Pokemon Queries Implementation ✅ (2025-11-08)
+
+**Task 9 Complete**: Party, PartySlot, and PokemonInstance CRUD operations for team management implemented and tested.
+
+**Implementation**:
+- `src/shared/models/party-queries-pg.ts` (~850 lines)
+  * Party operations (6): getPartyWithSlots, getPartyByIdWithSlots, getAllPartiesWithSlots, hasParty, getPartyWithSlotCount, createParty, deleteParty
+  * PartySlot operations (4): createPartySlot, findNextAvailableSlot, deletePartySlot
+  * PokemonInstance operations (6): createPokemon, findPokemonById, updatePokemonHealth, healPokemon, deletePokemon
+  * PartyWithSlots type with complex 3-way JOIN (Party → Slots → Pokemon)
+  * Slot management logic (find next available 1-6, full party detection)
+  * Bulk healing via ANY($1::uuid[]) for multiple Pokemon
+  * JSON field support (ivsJson, evsJson, movesJson)
+  * Box management (boxSlot tracking)
+
+- `tests/party-queries-pg.test.ts` (~650 lines)
+  * 23 test cases covering complete party/pokemon lifecycle
+  * Tests: party creation, slot assignment, pokemon creation, 3-way JOINs, slot finding
+  * Edge cases: full party (6/6), empty party, non-existent IDs, bulk operations
+  * Complex JOIN validation (getPartyWithSlots with nested data)
+  * Slot management validation (findNextAvailableSlot logic)
+  * Bulk healing validation (healPokemon on multiple Pokemon)
+  * Aggregation tests (getPartyWithSlotCount)
+  * Multiple parties grouping (getAllPartiesWithSlots)
+
+**Coverage Highlights**:
+1. **3-Way JOIN**: getPartyWithSlots loads Party → Slots → Pokemon in one query
+2. **Slot Management**: findNextAvailableSlot finds first unused slot 1-6, returns null if full
+3. **Pokemon Creation**: createPokemon with IVs, EVs, moves JSON, stats
+4. **Bulk Healing**: healPokemon updates multiple Pokemon HP/status atomically
+5. **Party Lifecycle**: Create party → assign Pokemon → heal → delete
+6. **Aggregation**: getPartyWithSlotCount for slot count without full Pokemon data
+7. **Multiple Parties**: getAllPartiesWithSlots with grouping logic
+
+**Patterns Established for Team Management**:
+- Complex multi-level JOINs (Party → Slots → Pokemon) with field aliasing
+- JSON field storage and retrieval (ivsJson, evsJson, movesJson)
+- Slot finding algorithm (iterate 1-6, find first unused)
+- Bulk updates via ANY($1::uuid[]) for healing multiple Pokemon
+- Row grouping for multiple parties (Map-based grouping by party ID)
+- Date revival for nested objects (party + slots + pokemon all need conversion)
+- NULL handling in LEFT JOINs (filter out null slot IDs for empty parties)
+
+**Files**:
+- Implementation: `src/shared/models/party-queries-pg.ts` (~850 lines)
+- Tests: `tests/party-queries-pg.test.ts` (~650 lines)
 - Commit: TBD (2025-11-08)
 
 ---
