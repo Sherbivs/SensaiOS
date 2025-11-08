@@ -4,9 +4,10 @@
  * Handles sync failures, preserves state, and alerts operators.
  */
 
-import type { PrismaClient } from '@prisma/client';
+import type { Pool } from 'pg';
 
 import type { SyncResult } from './sync.js';
+import { upsertDbSyncState } from '../../shared/models/db-version-queries-pg.js';
 
 // Temporary logger until integration
 const logger = {
@@ -25,7 +26,7 @@ const logger = {
  * 4. Block downstream syncs until manual resolution
  */
 export async function handleSyncFailure(
-  prismaClient: PrismaClient,
+  pool: Pool,
   source: string,
   target: string,
   result: SyncResult
@@ -51,32 +52,13 @@ export async function handleSyncFailure(
 
   // Update db_sync_state to block downstream syncs
   try {
-    // Note: This will fail until dbSyncState model is added to schema
-    // Commenting out to avoid compile errors for now
-    /*
-    await prismaClient.dbSyncState.upsert({
-      where: {
-        source_target: { source, target },
-      },
-      create: {
-        source,
-        target,
-        status: 'FAILED',
-        lastSyncAt: result.startedAt,
-        lastDuration: result.duration || null,
-        lastError: JSON.stringify(result.errors),
-        lastIntegrityCheck: null,
-      },
-      update: {
-        status: 'FAILED',
-        lastSyncAt: result.startedAt,
-        lastDuration: result.duration || null,
-        lastError: JSON.stringify(result.errors),
-        updatedAt: new Date(),
-      },
-    });
-    */
-    logger.warn('dbSyncState update skipped (schema not yet migrated)');
+    await upsertDbSyncState({
+      source,
+      target,
+      status: 'FAILED',
+      lastSyncAt: result.startedAt,
+      lastError: JSON.stringify(result.errors),
+    }, pool);
   } catch (error) {
     logger.error('Failed to update sync state:', error);
   }
@@ -105,7 +87,7 @@ async function sendAlert(alert: {
  * Captures version fingerprint and schema snapshot before sync begins.
  */
 export async function preservePreSyncState(
-  prismaClient: PrismaClient,
+  pool: Pool,
   source: string
 ): Promise<{ fingerprint: string; timestamp: Date }> {
   // Simplified - would capture version and schema
@@ -122,7 +104,7 @@ export async function preservePreSyncState(
  * Updates db_sync_state with WAITING_FOR_MASTER status.
  */
 export async function blockDownstreamSync(
-  prismaClient: PrismaClient,
+  pool: Pool,
   source: string,
   target: string,
   reason: string
