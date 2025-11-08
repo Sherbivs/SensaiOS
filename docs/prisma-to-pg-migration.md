@@ -1,6 +1,6 @@
 # Prisma ORM to Raw PostgreSQL Migration Plan
 
-**Status**: Task 9 Complete - Party/Pokemon Queries Validated  
+**Status**: Task 10 Complete - Bus/Outbox Queries Validated  
 **Created**: 2025-11-07  
 **Last Updated**: 2025-11-08  
 **Scope**: Complete removal of @prisma/client dependency and migration to raw PostgreSQL via `pg` library
@@ -315,6 +315,67 @@ export async function getUserBasic(
 **Files**:
 - Implementation: `src/shared/models/party-queries-pg.ts` (~850 lines)
 - Tests: `tests/party-queries-pg.test.ts` (~650 lines)
+- Commit: fa188f1 (2025-11-08)
+
+---
+
+### 1.8 Bus/Outbox Queries Implementation (~560 lines implementation + ~580 test lines)
+
+**Task**: Convert BusMessage/BusIdemToken operations from `src/shared/outbox.ts` and `src/engine/bus.ts`
+
+**Module**: `src/shared/models/bus-queries-pg.ts` (20 functions)
+
+**Test Suite**: `tests/bus-queries-pg.test.ts` (23 test cases)
+
+**Read Functions (7)**:
+1. `findMessageById(id)` - Load message by ID (null if not found)
+2. `getMessageById(id)` - Load message by ID (throws if not found)
+3. `countMessagesByStatus(status)` - Count messages by BusStatus enum
+4. `countReadyMessages()` - Count pending messages where availableAt <= now
+5. `findMessagesByTopic(topic, limit)` - Load messages by topic (DESC by createdAt)
+
+**Write Functions (10)**:
+1. `publishMessage(topic, payload, opts)` - Enqueue message with idempotency (upsert on conflict)
+2. `claimMessageBatch(limit, options)` - Claim pending messages with FOR UPDATE SKIP LOCKED
+3. `markMessageProcessed(id)` - Set status='done', processedAt=now, error=null
+4. `markMessageFailed(id, error, options)` - Retry logic (status='pending' if attempts < max, else 'error')
+5. `updateMessageStatus(id, status)` - Direct status update (admin/testing)
+6. `incrementMessageAttempts(id)` - Increment attempts counter
+7. `deleteMessage(id)` - Hard delete message
+8. `cleanupOldMessages(olderThanDays)` - Delete old 'done' messages (default 30 days)
+9. `deleteMessagesByStatus(status, limit)` - Bulk delete by status
+
+**Idempotency Token Functions (3)**:
+1. `hasSeenToken(token)` - Check if token exists (returns true) or create (returns false)
+2. `cleanupOldTokens(olderThanDays)` - Delete old tokens (default 7 days)
+3. `countTokens()` - Count tokens for monitoring
+
+**Key Patterns**:
+- **Idempotency**: `ON CONFLICT (topic, idempotencyKey) DO UPDATE SET updatedAt = NOW()` prevents duplicates
+- **Atomic claiming**: CTE with `FOR UPDATE SKIP LOCKED` enables lock-free concurrent processing
+- **Priority ordering**: `CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END` + `createdAt` FIFO
+- **Retry logic**: `markMessageFailed` checks attempts vs maxAttempts (default 20), sets status='pending' for retry or 'error' for permanent failure
+- **Backoff**: `availableAt = NOW() + backoffMs` (default 5000ms) delays retry attempts
+- **Error truncation**: Error messages truncated to 512 chars to prevent column overflow
+- **Cleanup operations**: INTERVAL-based cleanup for old messages and tokens to prevent unbounded growth
+- **Date revival**: All timestamp fields (createdAt, availableAt, processedAt, updatedAt) revived to Date objects
+- **JSON payloads**: Stored as JSONB, serialized with `JSON.stringify`, returned as-is
+
+**Patterns Established for Async Message Bus**:
+- Idempotent publishing with ON CONFLICT upsert (duplicate prevention)
+- FOR UPDATE SKIP LOCKED for lock-free concurrent batch claiming
+- Priority-based message ordering (high → normal → low, then FIFO)
+- Exponential backoff retry logic with max attempts threshold
+- Cleanup operations for old processed messages and idempotency tokens
+- Topic filtering in claim operations for worker specialization
+- Delay support via availableAt timestamp for scheduled messages
+- Error truncation to prevent database column overflow
+- Shard key support for partitioned processing
+- Kind distinction (event vs command) for routing patterns
+
+**Files**:
+- Implementation: `src/shared/models/bus-queries-pg.ts` (~560 lines)
+- Tests: `tests/bus-queries-pg.test.ts` (~580 lines)
 - Commit: TBD (2025-11-08)
 
 ---
