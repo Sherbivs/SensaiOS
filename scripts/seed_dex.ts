@@ -3,7 +3,37 @@ import path from "node:path";
 import process from "node:process";
 import { setTimeout as sleep } from "node:timers/promises";
 import * as dotenv from "dotenv";
-import { PrismaClient, Prisma } from "@prisma/client";
+import { getProdDb } from "../src/shared/pg-connection.js";
+import {
+  findAllTypes,
+  countTable,
+  deleteAllSpeciesLearnsets,
+  deleteAllSpeciesAbilities,
+  deleteAllSpeciesTypes,
+  deleteAllEvolutionSteps,
+  deleteSpeciesNameVariants,
+  deleteAllSpecies,
+  deleteAllMoves,
+  deleteAllAbilities,
+  deleteAllTypeChart,
+  insertAbilities,
+  insertMoves,
+  insertSpecies,
+  insertSpeciesTypes,
+  insertSpeciesAbilities,
+  insertSpeciesLearnsets,
+  insertNameVariants,
+  insertTypeChart,
+  refreshSpeciesSheet,
+  type AbilityInsert,
+  type MoveInsert,
+  type SpeciesInsert,
+  type SpeciesTypeInsert,
+  type SpeciesAbilityInsert,
+  type SpeciesLearnsetInsert,
+  type NameVariantInsert,
+  type TypeChartInsert,
+} from "../src/shared/models/dex-queries-pg.js";
 
 type NamedResource = { name: string; url: string };
 
@@ -25,7 +55,7 @@ type MoveRecord = {
   pp: number | null;
   priority: number;
   category: "physical" | "special" | "status";
-  meta: Prisma.JsonObject;
+  meta: Record<string, unknown>;
 };
 
 type LearnsetEntry = {
@@ -54,12 +84,10 @@ type SpeciesRecord = {
   abilities: Array<{ slug: string; slot: number; isHidden: boolean }>;
   learnset: LearnsetEntry[];
   nameVariant: { value: string; normalized: string };
-  meta: Prisma.JsonObject;
+  meta: Record<string, unknown>;
 };
 
 type TypeChartRow = { atkTypeId: number; defTypeId: number; mult: number };
-
-const prisma = new PrismaClient();
 
 const API_BASE = "https://pokeapi.co/api/v2";
 const DEFAULT_CONCURRENCY = Number.parseInt(process.env.POKEAPI_SEED_CONCURRENCY ?? "4", 10);
@@ -185,7 +213,7 @@ function normalizeForSearch(value: string): string {
 }
 
 async function loadTypeMap(): Promise<Map<string, number>> {
-  const types = await prisma.type.findMany({ select: { id: true, slug: true } });
+  const types = await findAllTypes();
   return new Map(types.map((t) => [t.slug, t.id]));
 }
 
@@ -217,7 +245,7 @@ async function fetchMoveDetail(
   const typeId = typeMap.get(typeSlug) ?? null;
 
   const effectEntry = detail.effect_entries?.find((e: any) => e.language?.name === "en");
-  const meta: Prisma.JsonObject = {
+  const meta: Record<string, unknown> = {
     target: detail.target?.name ?? null,
     effect: effectEntry?.effect ?? null,
     shortEffect: effectEntry?.short_effect ?? null,
@@ -352,7 +380,7 @@ async function fetchSpeciesDetail(
     speciesDetail.flavor_text_entries?.find((f: any) => f.language?.name === "en")?.flavor_text ??
     null;
 
-  const meta: Prisma.JsonObject = {
+  const meta: Record<string, unknown> = {
     heightDecimetres: detail.height ?? null,
     weightHectograms: detail.weight ?? null,
     baseExperience: detail.base_experience ?? null,
@@ -512,31 +540,22 @@ async function main(): Promise<void> {
   }
 
   console.log("🧹 Clearing existing dex tables…");
-  await prisma.$transaction([
-    prisma.speciesLearnset.deleteMany(),
-    prisma.speciesAbility.deleteMany(),
-    prisma.speciesType.deleteMany(),
-    prisma.evolutionStep.deleteMany(),
-    prisma.nameVariant.deleteMany({ where: { kind: "species" } }),
-  ]);
-  await prisma.species.deleteMany();
-  await prisma.move.deleteMany();
-  await prisma.ability.deleteMany();
-  await prisma.typeChart.deleteMany();
+  // Delete in order to respect foreign key constraints
+  await deleteAllSpeciesLearnsets();
+  await deleteAllSpeciesAbilities();
+  await deleteAllSpeciesTypes();
+  await deleteAllEvolutionSteps();
+  await deleteSpeciesNameVariants();
+  await deleteAllSpecies();
+  await deleteAllMoves();
+  await deleteAllAbilities();
+  await deleteAllTypeChart();
 
   console.log("📝 Inserting abilities…");
   await createManyChunked(
     "abilities",
     abilities,
-    (chunk) =>
-      prisma.ability.createMany({
-        data: chunk.map((a) => ({
-          id: a.id,
-          slug: a.slug,
-          name: a.name,
-          desc: a.desc,
-        })),
-      }),
+    (chunk) => insertAbilities(chunk),
   );
 
   const validMoves = moves.filter((m) => m.typeId !== null) as Array<
@@ -551,21 +570,7 @@ async function main(): Promise<void> {
   await createManyChunked(
     "moves",
     validMoves,
-    (chunk) =>
-      prisma.move.createMany({
-        data: chunk.map((m) => ({
-          id: m.id,
-          slug: m.slug,
-          name: m.name,
-          typeId: m.typeId,
-          power: m.power,
-          accuracy: m.accuracy,
-          pp: m.pp ?? 0,
-          priority: m.priority,
-          category: m.category,
-          meta: m.meta,
-        })),
-      }),
+    (chunk) => insertMoves(chunk.map(m => ({ ...m, pp: m.pp ?? 0 }))),
   );
 
   console.log("📝 Inserting species…");
@@ -573,8 +578,8 @@ async function main(): Promise<void> {
     "species",
     species,
     (chunk) =>
-      prisma.species.createMany({
-        data: chunk.map((s) => ({
+      insertSpecies(
+        chunk.map((s) => ({
           id: s.id,
           slug: s.slug,
           name: s.name,
@@ -589,8 +594,8 @@ async function main(): Promise<void> {
           maleRate: s.maleRate,
           hatchSteps: s.hatchSteps,
           meta: s.meta,
-        })),
-      }),
+        }))
+      ),
   );
 
   const speciesTypes = species.flatMap((s) =>
@@ -657,79 +662,45 @@ async function main(): Promise<void> {
   await createManyChunked(
     "species types",
     speciesTypes,
-    (chunk) =>
-      prisma.speciesType.createMany({
-        data: chunk,
-      }),
+    (chunk) => insertSpeciesTypes(chunk),
   );
 
   console.log("📝 Inserting species abilities…");
   await createManyChunked(
     "species abilities",
     speciesAbilities,
-    (chunk) =>
-      prisma.speciesAbility.createMany({
-        data: chunk,
-      }),
+    (chunk) => insertSpeciesAbilities(chunk),
   );
 
   console.log("📝 Inserting species learnsets…");
   await createManyChunked(
     "species learnsets",
     speciesLearnset,
-    (chunk) =>
-      prisma.speciesLearnset.createMany({
-        data: chunk,
-        skipDuplicates: true,
-      }),
+    (chunk) => insertSpeciesLearnsets(chunk),
   );
 
   console.log("📝 Inserting name variants…");
   await createManyChunked(
     "name variants",
     nameVariants,
-    (chunk) =>
-      prisma.nameVariant.createMany({
-        data: chunk,
-      }),
+    (chunk) => insertNameVariants(chunk),
   );
 
   console.log("📝 Inserting type chart…");
   await createManyChunked(
     "type chart rows",
     typeChart,
-    (chunk) =>
-      prisma.typeChart.createMany({
-        data: chunk,
-      }),
+    (chunk) => insertTypeChart(chunk),
   );
 
   console.log("🔁 Refreshing SpeciesSheet materialized view…");
-  let refreshed = false;
-  try {
-    await prisma.$executeRawUnsafe(`REFRESH MATERIALIZED VIEW "SpeciesSheet"`);
-    refreshed = true;
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2010") {
-      const meta = (error.meta ?? {}) as { code?: unknown; message?: unknown };
-      const metaCode = typeof meta.code === "string" ? meta.code : undefined;
-      const metaMessage = typeof meta.message === "string" ? meta.message : "";
-      if (metaCode === "42501" || metaMessage.includes("permission denied")) {
-        console.warn("⚠️  REFRESH failed without ownership; calling helper instead.");
-        await prisma.$queryRawUnsafe(`SELECT public.refresh_species_sheet()::text;`);
-        refreshed = true;
-      }
-    }
-    if (!refreshed) {
-      throw error;
-    }
-  }
+  await refreshSpeciesSheet();
 
   const [speciesCount, moveCount, abilityCount, learnsetCount] = await Promise.all([
-    prisma.species.count(),
-    prisma.move.count(),
-    prisma.ability.count(),
-    prisma.speciesLearnset.count(),
+    countTable("Species"),
+    countTable("Move"),
+    countTable("Ability"),
+    countTable("SpeciesLearnset"),
   ]);
 
   console.log("✅ Seeding complete!");
@@ -745,5 +716,5 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    // Connection pool will be cleaned up on process exit
   });
