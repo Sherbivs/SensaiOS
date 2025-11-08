@@ -537,27 +537,128 @@ LIMIT 20;
 
 ## Maintenance Schedule
 
+### Using Performance Monitoring Commands
+
+The `npm run db:cli` toolkit provides 4 performance monitoring commands (added 2025-11-08, DB.NORTHSTAR.MONITORING):
+
+#### 1. Index Usage Analysis
+```bash
+npm run db:cli -- index_usage [--json]
+```
+**Purpose:** Identify unused indexes (0 scans) and low-usage indexes (<10 scans)  
+**When to run:** Weekly during index review  
+**Action:** Drop unused indexes to reduce storage and maintenance overhead
+
+**Interpreting Results:**
+- `[UNUSED]` — 0 scans, safe to drop (verify not used for UNIQUE constraints)
+- `[LOW]` — <10 scans, investigate if index is needed or query patterns changed
+- Check `idx_size` column to prioritize large unused indexes
+
+#### 2. Table Bloat Analysis
+```bash
+npm run db:cli -- table_bloat [--json]
+```
+**Purpose:** Detect dead row accumulation requiring VACUUM  
+**When to run:** Weekly during bloat check  
+**Action:** Run VACUUM ANALYZE on tables with >20% dead rows
+
+**Interpreting Results:**
+- `[WARNING]` — >20% dead rows, schedule VACUUM during low-traffic period
+- `[CRITICAL]` — >50% dead rows, run VACUUM ANALYZE immediately
+- Check `last_vacuum` and `last_autovacuum` timestamps to verify autovacuum is running
+
+**Example Remediation:**
+```sql
+-- For critical bloat
+VACUUM ANALYZE "User";
+
+-- For persistent bloat, check autovacuum settings
+SELECT relname, n_dead_tup, n_live_tup, last_autovacuum
+FROM pg_stat_user_tables
+WHERE schemaname = 'public'
+ORDER BY n_dead_tup DESC;
+```
+
+#### 3. Slow Query Analysis
+```bash
+npm run db:cli -- slow_queries [--json]
+```
+**Purpose:** Identify queries exceeding performance targets  
+**When to run:** Daily during slow query review  
+**Action:** Optimize queries with >500ms mean execution time
+
+**Interpreting Results:**
+- `[WARNING]` — >500ms mean time, investigate for optimization opportunities
+- `[CRITICAL]` — >2s mean time, immediate attention required
+- Review `calls` column to prioritize high-frequency slow queries
+
+**Optimization Checklist:**
+- Add missing indexes (check `EXPLAIN ANALYZE` output)
+- Optimize JOIN conditions (ensure indexed columns)
+- Break complex queries into smaller parts
+- Add appropriate WHERE clauses to reduce result sets
+
+**Note:** Requires `pg_stat_statements` extension. If missing, run:
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+-- May require server restart and superuser privileges
+```
+
+#### 4. Cache Hit Rate Analysis
+```bash
+npm run db:cli -- cache_stats [--json]
+```
+**Purpose:** Monitor buffer cache effectiveness  
+**When to run:** Weekly during cache verification  
+**Action:** Investigate tables with <80% hit rate
+
+**Interpreting Results:**
+- `[WARNING]` — <80% hit rate, suboptimal cache utilization
+- `[CRITICAL]` — <60% hit rate, serious performance impact
+- Check DATABASE-WIDE SUMMARY for overall cache health
+
+**Remediation Steps:**
+- <80% heap hit rate → Increase `shared_buffers` or optimize queries to use indexes
+- <80% index hit rate → Add missing indexes or review query patterns
+- Sequential scans → Add indexes for common WHERE/JOIN columns
+
+### Performance Monitoring Schedule
+
 ### Daily
-- Monitor slow query log
-- Check alert thresholds
+- Run `slow_queries` to check for query regressions
+- Monitor slow query log from application logs
+- Check alert thresholds in monitoring dashboard
 - Review error rate in UserEvent table
 
 ### Weekly
-- Review index usage stats
-- Check table bloat percentages
-- Verify cache hit rates
-- Run ANALYZE on high-churn tables
+- Run `index_usage` to identify unused indexes
+- Run `table_bloat` to check for dead row accumulation
+- Run `cache_stats` to verify buffer cache effectiveness
+- Run ANALYZE on high-churn tables (User, Battle, UserEvent)
+
+**Weekly Checklist:**
+```bash
+# Full monitoring suite
+npm run db:cli -- index_usage > logs/index_usage_$(date +%Y%m%d).log
+npm run db:cli -- table_bloat > logs/table_bloat_$(date +%Y%m%d).log
+npm run db:cli -- slow_queries > logs/slow_queries_$(date +%Y%m%d).log
+npm run db:cli -- cache_stats > logs/cache_stats_$(date +%Y%m%d).log
+
+# Address findings
+psql -c "VACUUM ANALYZE \"User\";"  # If bloat >20%
+psql -c "DROP INDEX IF EXISTS idx_unused_index;"  # If unused confirmed
+```
 
 ### Monthly
-- Review and remove unused indexes
-- Optimize query patterns based on pg_stat_statements
-- Update query performance targets
+- Review and remove confirmed unused indexes
+- Optimize query patterns based on `slow_queries` output
+- Update query performance targets based on `cache_stats` trends
 - Refresh materialized views during maintenance window
 
 ### Quarterly
-- Full VACUUM on large tables
-- Reindex tables with high bloat
-- Review and update caching strategy
+- Full VACUUM on large tables (User, Battle, PokemonInstance)
+- Reindex tables with high bloat (REINDEX CONCURRENTLY)
+- Review and update caching strategy based on cache_stats trends
 - Load testing with production-like data
 
 ---
@@ -567,6 +668,8 @@ LIMIT 20;
 - `docs/database-systems.md` — Database architecture
 - `docs/schema-northstar-optimization.md` — Overall optimization plan
 - `src/services/cache/` — Caching implementation
+- `scripts/db_admin.ts` — Performance monitoring implementation
 
 **Revision History:**
 - 2025-11-06T16:35:00Z — Initial version (Rev 1.0)
+- 2025-11-08T18:00:00Z — Added performance monitoring commands section (Rev 1.1, DB.NORTHSTAR.MONITORING)

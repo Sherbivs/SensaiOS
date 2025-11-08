@@ -124,6 +124,7 @@ interactions are slash-based, so the Message Content intent is not required.
 - Refresh Vision (routers + recovery metadata): `npm run refresh:vision`
 - Archive older Tasklist DONE entries: `npm run tasks:archive`
 - Database control suite: `npm run db:cli -- status`
+- Performance monitoring: `npm run db:cli -- index_usage`, `table_bloat`, `slow_queries`, `cache_stats`
 
 ### Local Test Instance Checklist
 
