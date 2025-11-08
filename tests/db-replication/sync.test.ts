@@ -2,9 +2,11 @@
  * Sync Orchestration Tests
  * 
  * Tests for DEV→Prod and Prod→Local sync orchestrators.
+ * 
+ * Updated for PostgreSQL Pool (native pg library).
  */
 
-import type { PrismaClient } from '@prisma/client';
+import type { Pool } from 'pg';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import * as integrityModule from '../../src/services/db-replication/integrity';
@@ -12,21 +14,21 @@ import * as rollbackModule from '../../src/services/db-replication/rollback';
 import { syncDevToProd, syncProdToLocal, SyncStage } from '../../src/services/db-replication/sync';
 import * as versionModule from '../../src/services/db-replication/version';
 
-// Mock Prisma clients
-function createMockPrismaClient(_name: string): PrismaClient {  // Prefixed with _ to indicate intentionally unused
+// Mock Pool clients
+function createMockPoolClient(_name: string): Pool {  // Prefixed with _ to indicate intentionally unused
   return {
-    $queryRaw: vi.fn(),
-    $disconnect: vi.fn(),
-  } as unknown as PrismaClient;
+    query: vi.fn(),
+    end: vi.fn(),
+  } as unknown as Pool;
 }
 
 describe('syncDevToProd', () => {
-  let devPrisma: PrismaClient;
-  let prodPrisma: PrismaClient;
+  let devPool: Pool;
+  let prodPool: Pool;
 
   beforeEach(() => {
-    devPrisma = createMockPrismaClient('DEV');
-    prodPrisma = createMockPrismaClient('PROD');
+    devPool = createMockPoolClient('DEV');
+    prodPool = createMockPoolClient('PROD');
     vi.clearAllMocks();
   });
 
@@ -52,7 +54,7 @@ describe('syncDevToProd', () => {
         message: 'Versions match',
       });
 
-      const result = await syncDevToProd(devPrisma, prodPrisma);
+      const result = await syncDevToProd(devPool, prodPool);
 
       expect(result.success).toBe(true);
       expect(result.stage).toBe(SyncStage.COMPLETE);
@@ -99,13 +101,13 @@ describe('syncDevToProd', () => {
 
       vi.spyOn(rollbackModule, 'handleSyncFailure').mockResolvedValue();
 
-      const result = await syncDevToProd(devPrisma, prodPrisma);
+      const result = await syncDevToProd(devPool, prodPool);
 
       expect(result.success).toBe(false);
       expect(result.stage).toBe(SyncStage.VERSION_CHECK);
       expect(result.errors.length).toBeGreaterThan(0);
       expect(result.errors[0].message).toContain('BEHIND');
-      expect(versionModule.handleReversion).toHaveBeenCalledWith(devVersion, prodVersion, prodPrisma);
+      expect(versionModule.handleReversion).toHaveBeenCalledWith(devVersion, prodVersion, prodPool);
     });
 
     it('should throw error if DEV and Prod DIVERGED', async () => {
@@ -139,7 +141,7 @@ describe('syncDevToProd', () => {
 
       vi.spyOn(rollbackModule, 'handleSyncFailure').mockResolvedValue();
 
-      const result = await syncDevToProd(devPrisma, prodPrisma);
+      const result = await syncDevToProd(devPool, prodPool);
 
       expect(result.success).toBe(false);
       expect(result.errors[0].message).toContain('DIVERGED');
@@ -177,7 +179,7 @@ describe('syncDevToProd', () => {
         message: 'AHEAD by 2',
       });
 
-      const result = await syncDevToProd(devPrisma, prodPrisma, { dryRun: true });
+      const result = await syncDevToProd(devPool, prodPool, { dryRun: true });
 
       expect(result.success).toBe(true);
       expect(result.stage).toBe(SyncStage.COMPLETE);
@@ -217,7 +219,7 @@ describe('syncDevToProd', () => {
 
       const verifySchemaSpy = vi.spyOn(integrityModule, 'verifySchemaIntegrity');
 
-      await syncDevToProd(devPrisma, prodPrisma, { dryRun: true, skipIntegrity: true });
+      await syncDevToProd(devPool, prodPool, { dryRun: true, skipIntegrity: true });
 
       expect(verifySchemaSpy).not.toHaveBeenCalled();
     });
@@ -228,12 +230,12 @@ describe('syncDevToProd', () => {
       vi.spyOn(versionModule, 'getVersion').mockRejectedValue(new Error('Database connection failed'));
       vi.spyOn(rollbackModule, 'handleSyncFailure').mockResolvedValue();
 
-      const result = await syncDevToProd(devPrisma, prodPrisma);
+      const result = await syncDevToProd(devPool, prodPool);
 
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
       expect(rollbackModule.handleSyncFailure).toHaveBeenCalledWith(
-        prodPrisma,
+        prodPool,
         'DEV',
         'PROD',
         expect.objectContaining({ success: false })
@@ -243,12 +245,12 @@ describe('syncDevToProd', () => {
 });
 
 describe('syncProdToLocal', () => {
-  let prodPrisma: PrismaClient;
-  let localPrisma: PrismaClient;
+  let prodPool: Pool;
+  let localPool: Pool;
 
   beforeEach(() => {
-    prodPrisma = createMockPrismaClient('PROD');
-    localPrisma = createMockPrismaClient('LOCAL');
+    prodPool = createMockPoolClient('PROD');
+    localPool = createMockPoolClient('LOCAL');
     vi.clearAllMocks();
   });
 
@@ -266,7 +268,7 @@ describe('syncProdToLocal', () => {
         .mockResolvedValueOnce(mockVersion) // PROD
         .mockResolvedValueOnce(mockVersion); // LOCAL
 
-      const result = await syncProdToLocal(prodPrisma, localPrisma);
+      const result = await syncProdToLocal(prodPool, localPool);
 
       expect(result.success).toBe(true);
       expect(result.stage).toBe(SyncStage.COMPLETE);
@@ -293,7 +295,7 @@ describe('syncProdToLocal', () => {
         .mockResolvedValueOnce(prodVersion)
         .mockResolvedValueOnce(localVersion);
 
-      const result = await syncProdToLocal(prodPrisma, localPrisma, { dryRun: true });
+      const result = await syncProdToLocal(prodPool, localPool, { dryRun: true });
 
       expect(result.success).toBe(true);
       expect(result.stage).toBe(SyncStage.COMPLETE);
@@ -304,7 +306,7 @@ describe('syncProdToLocal', () => {
     it('should handle version check failures gracefully', async () => {
       vi.spyOn(versionModule, 'getVersion').mockRejectedValue(new Error('Connection timeout'));
 
-      const result = await syncProdToLocal(prodPrisma, localPrisma);
+      const result = await syncProdToLocal(prodPool, localPool);
 
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
@@ -315,9 +317,9 @@ describe('syncProdToLocal', () => {
 
 describe('Integration: Full DEV→Prod→Local Cascade', () => {
   it('should sync DEV→Prod then Prod→Local in sequence', async () => {
-    const devPrisma = createMockPrismaClient('DEV');
-    const prodPrisma = createMockPrismaClient('PROD');
-    const localPrisma = createMockPrismaClient('LOCAL');
+    const devPool = createMockPoolClient('DEV');
+    const prodPool = createMockPoolClient('PROD');
+    const localPool = createMockPoolClient('LOCAL');
 
     // DEV version (ahead)
     const devVersion = {
@@ -359,7 +361,7 @@ describe('Integration: Full DEV→Prod→Local Cascade', () => {
       message: 'AHEAD by 3',
     });
 
-    const resultDevToProd = await syncDevToProd(devPrisma, prodPrisma, { dryRun: true });
+    const resultDevToProd = await syncDevToProd(devPool, prodPool, { dryRun: true });
 
     expect(resultDevToProd.success).toBe(true);
     expect(resultDevToProd.metrics.migrationsApplied).toBe(3);
@@ -369,8 +371,9 @@ describe('Integration: Full DEV→Prod→Local Cascade', () => {
       .mockResolvedValueOnce(devVersion) // PROD now matches DEV
       .mockResolvedValueOnce(localVersion); // LOCAL
 
-    const resultProdToLocal = await syncProdToLocal(prodPrisma, localPrisma, { dryRun: true });
+    const resultProdToLocal = await syncProdToLocal(prodPool, localPool, { dryRun: true });
 
     expect(resultProdToLocal.success).toBe(true);
   });
 });
+
