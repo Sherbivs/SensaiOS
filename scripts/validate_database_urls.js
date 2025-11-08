@@ -16,12 +16,14 @@ const ACCELERATE_PATTERN = /prisma(\+|:\/\/)/i;
 const VALID_PATTERN = /^postgresql:\/\//i;
 
 // 2-NODE CLUSTER: Check environment-specific URLs (DEV master, PROD local node)
+// Uses canonical database naming schema (see docs/database-naming-schema.md)
 const DATABASE_ENV_VARS = [
-  'DEV_DATABASE_URL',
-  'PROD_DATABASE_URL',
-  'RENDER_DB_EXTERNAL_URL',
-  'RENDER_DB_INTERNAL_URL',
-  'DATABASE_LOCAL_URL',
+  'DEV_DATABASE_URL',                      // CLOUD-DEV-MASTER (Render master database)
+  'PROD_DATABASE_URL',                     // CLOUD-PROD-RUNTIME (Render worker node)
+  'RENDER_DB_EXTERNAL_URL',                // Fallback for CLOUD-DEV-MASTER
+  'RENDER_DB_INTERNAL_URL',                // Fallback for CLOUD-PROD-RUNTIME
+  'DATABASE_ONPREMISE_DEV_PRIMARY',        // ONPREMISE-DEV-PRIMARY (workstation development)
+  'DATABASE_ONPREMISE_DEV_EXPERIMENT',     // ONPREMISE-DEV-EXPERIMENT (migration testing)
 ];
 
 let failures = 0;
