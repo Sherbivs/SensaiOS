@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 
-import type { Prisma, PrismaClient } from "@prisma/client";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -11,17 +10,16 @@ import {
   User as DiscordUser,
 } from "discord.js";
 
-import { prisma as prismaClient } from "../../models/index.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 import { createArenaThread, type ArenaThreadContext } from "../arena/thread.js";
 import { canChallengeBattle } from "../middleware/limits.js";
+import { ensureUser } from "../../shared/models/user-queries-pg.js";
+import { createBattle, updateBattleStateAndEnd, activateBattle } from "../../shared/models/battle-queries-pg.js";
 
 import { openActionDMs } from "./actions.js";
 
 const ACCEPT_PREFIX = "BATTLE_ACCEPT_";
 const DECLINE_PREFIX = "BATTLE_DECLINE_";
-
-type PrismaLike = PrismaClient;
 
 type ChallengeMetadata = {
   challengeChannelId: string | null;
@@ -29,12 +27,10 @@ type ChallengeMetadata = {
 };
 
 type CommandOpts = {
-  prisma?: PrismaLike;
   rngSeed?: string;
 };
 
 type ButtonHandlerOpts = {
-  prisma?: PrismaLike;
   arenaCreator?: typeof createArenaThread;
 };
 
@@ -81,8 +77,8 @@ function decodeMetadata(data: unknown): ChallengeMetadata {
   };
 }
 
-function encodeMetadata(meta: ChallengeMetadata): Prisma.InputJsonValue {
-  return { ...meta } satisfies Record<string, string | null> as Prisma.InputJsonValue;
+function encodeMetadata(meta: ChallengeMetadata): Record<string, string | null> {
+  return { ...meta };
 }
 
 function parseCustomId(customId: string) {
@@ -93,14 +89,6 @@ function parseCustomId(customId: string) {
     return { action: "decline" as const, battleId: customId.substring(DECLINE_PREFIX.length) };
   }
   return null;
-}
-
-async function ensureUser(prisma: PrismaLike, discordId: string) {
-  return prisma.user.upsert({
-    where: { discordId },
-    update: {},
-    create: { discordId, coins: 0 },
-  });
 }
 
 async function notifyUser(discordId: string, message: string, interaction: ButtonInteraction) {
@@ -131,9 +119,8 @@ export async function handleBattleChallengeCommand(
     return;
   }
 
-  const prisma = opts.prisma ?? prismaClient;
   // Limit check: one active/pending battle per user
-  const lim = await canChallengeBattle(interaction.user.id, opponent.id, prisma);
+  const lim = await canChallengeBattle(interaction.user.id, opponent.id);
   if (!lim.ok) {
     const msg =
       lim.reason === "CHALLENGER_BUSY"
@@ -145,23 +132,21 @@ export async function handleBattleChallengeCommand(
     return;
   }
 
-  const challengerRecord = await ensureUser(prisma, interaction.user.id);
-  const opponentRecord = await ensureUser(prisma, opponent.id);
+  const challengerRecord = await ensureUser(interaction.user.id);
+  const opponentRecord = await ensureUser(opponent.id);
 
   const meta: ChallengeMetadata = {
     challengeChannelId: interaction.channelId,
     guildId: interaction.guildId ?? null,
   };
 
-  const battle = await prisma.battle.create({
-    data: {
-      p1Id: challengerRecord.id,
-      p2Id: opponentRecord.id,
-      state: "Pending",
-      rngSeed: opts.rngSeed ?? randomUUID(),
-      ruleset: "standard-v1",
-      logCompact: encodeMetadata(meta),
-    },
+  const battle = await createBattle({
+    p1Id: challengerRecord.id,
+    p2Id: opponentRecord.id,
+    state: "Pending",
+    rngSeed: opts.rngSeed ?? randomUUID(),
+    ruleset: "standard-v1",
+    logCompact: encodeMetadata(meta),
   });
 
   const challenge = buildChallengePrompt(interaction.user, battle.id);
@@ -191,8 +176,7 @@ export async function handleBattleChallengeButton(
     return;
   }
 
-  const prisma = opts.prisma ?? prismaClient;
-  const battle = await loadBattleState(parsed.battleId, { prisma });
+  const battle = await loadBattleState(parsed.battleId);
   if (!battle) {
     await interaction.reply({ content: "This challenge no longer exists.", ephemeral: true });
     return;
@@ -211,13 +195,7 @@ export async function handleBattleChallengeButton(
   const metadata = decodeMetadata(battle.logCompact);
 
   if (parsed.action === "decline") {
-    await prisma.battle.update({
-      where: { id: battle.id },
-      data: {
-        state: "Aborted",
-        endedAt: new Date(),
-      },
-    });
+    await updateBattleStateAndEnd(battle.id, "Aborted", new Date());
     await invalidateBattleState(battle.id);
 
     await interaction.update({
@@ -266,13 +244,7 @@ export async function handleBattleChallengeButton(
     return;
   }
 
-  await prisma.battle.update({
-    where: { id: battle.id },
-    data: {
-      state: "Active",
-      arenaThreadId: thread.id,
-    },
-  });
+  await activateBattle(battle.id, thread.id);
   await invalidateBattleState(battle.id);
 
   await interaction.update({

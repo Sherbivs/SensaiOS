@@ -1,12 +1,12 @@
 import { RepliableInteraction } from "discord.js";
 
-import { prisma, UserRepo } from "../../models/index.js";
-import { getPartyWithSlots } from "../../shared/models/index.js";
+import { ensureUser } from "../../shared/models/user-queries-pg.js";
+import { getPartyWithSlots, healPokemon } from "../../shared/models/party-queries-pg.js";
 
 export async function healPartyForUser(discordId: string) {
-  const user = await UserRepo.upsertByDiscordId(discordId);
+  const user = await ensureUser(discordId);
   // Find user's first party with all slots and pokemon in one query
-  const party = await getPartyWithSlots(prisma, user.id);
+  const party = await getPartyWithSlots(user.id);
   if (!party) return { healed: 0 } as const;
 
   const slots = party.slots;
@@ -19,15 +19,9 @@ export async function healPartyForUser(discordId: string) {
 
   if (!instances.length) return { healed: 0 } as const;
 
-  // Heal each instance
-  const updates = instances.map((p) =>
-    prisma.pokemonInstance.update({
-      where: { id: p.id },
-      data: { hp: p.maxHp, status: null },
-    })
-  );
-  await prisma.$transaction(updates);
-  return { healed: instances.length } as const;
+  // Heal all pokemon instances at once
+  const healed = await healPokemon(instances.map(p => p.id));
+  return { healed } as const;
 }
 
 export async function handleHeal(interaction: RepliableInteraction) {

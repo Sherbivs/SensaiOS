@@ -7,9 +7,9 @@ import {
   RepliableInteraction,
 } from "discord.js";
 
-import { UserRepo } from "../../models/index.js";
-import { prisma } from "../../shared/prisma.js";
-import { getPartyWithSlots } from "../../shared/models/index.js";
+import { ensureUser } from "../../shared/models/user-queries-pg.js";
+import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
+import { getProdDb } from "../../shared/pg-connection.js";
 
 // Kanto starters (species IDs per National Dex)
 export const STARTER_OPTIONS = [
@@ -67,12 +67,16 @@ export async function createStarterAndAssignParty({
   speciesId,
 }: CreateOpts) {
   // Ensure user exists
-  const user = await UserRepo.upsertByDiscordId(discordId);
+  const user = await ensureUser(discordId);
 
   // Check if user already owns any Pokemon — starter is one-time
-  const existingCount = await prisma.pokemonInstance.count({
-    where: { ownerId: user.id },
-  });
+  const db = getProdDb();
+  const countResult = await db.query(
+    'SELECT COUNT(*)::int as count FROM "PokemonInstance" WHERE "ownerId" = $1',
+    [user.id]
+  );
+  const existingCount = countResult.rows[0]?.count ?? 0;
+  
   if (existingCount > 0) {
     return { alreadyHasStarter: true } as const;
   }
@@ -87,34 +91,32 @@ export async function createStarterAndAssignParty({
     { id: 45, name: "Growl", pp: 40, maxPP: 40 },
   ];
 
-  const created = await prisma.pokemonInstance.create({
-    data: {
-      ownerId: user.id,
-      speciesId,
-      level,
-      exp: 0,
-      nature: null,
-      ivsJson: ivs as any,
-      evsJson: evs as any,
-      movesJson: moves as any,
-      status: null,
-      hp,
-      maxHp,
-      isShiny: false,
-      nickname: null,
-      boxSlot: null,
-    },
+  const created = await createPokemon({
+    ownerId: user.id,
+    speciesId,
+    level,
+    exp: 0,
+    nature: null,
+    ivsJson: ivs,
+    evsJson: evs,
+    movesJson: moves,
+    status: null,
+    hp,
+    maxHp,
+    isShiny: false,
+    nickname: null,
+    boxSlot: null,
   });
 
   // Ensure a party exists and get available slots in one query
-  const party = await getPartyWithSlots(prisma, user.id);
+  const party = await getPartyWithSlots(user.id);
   
   let partyId: string;
   let slots: Array<{ slot: number }>;
   
   if (!party) {
     // Create new party
-    const newParty = await prisma.party.create({ data: { ownerId: user.id } });
+    const newParty = await createParty(user.id);
     partyId = newParty.id;
     slots = [];
   } else {
@@ -133,9 +135,7 @@ export async function createStarterAndAssignParty({
     return { created, partyFull: true } as const;
   }
 
-  await prisma.partySlot.create({
-    data: { partyId, pokemonId: created.id, slot: nextSlot },
-  });
+  await createPartySlot(partyId, created.id, nextSlot);
 
   return { created, partyFull: false } as const;
 }

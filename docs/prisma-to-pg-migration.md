@@ -1,6 +1,6 @@
 # Prisma ORM to Raw PostgreSQL Migration Plan
 
-**Status**: Task 11 Complete - Home Bundle Aggregations Validated  
+**Status**: Task 13 In Progress - Bot Commands Migration (5/8 files complete)  
 **Created**: 2025-11-07  
 **Last Updated**: 2025-11-08  
 **Scope**: Complete removal of @prisma/client dependency and migration to raw PostgreSQL via `pg` library
@@ -915,6 +915,144 @@ npm install db-migrate db-migrate-pg
 - [ ] 7 days production stability with zero rollbacks
 - [ ] Documentation fully updated
 - [ ] Team trained on new query patterns
+
+---
+
+### 1.13 Bot Commands Migration (Task 13 - IN PROGRESS)
+
+**Goal**: Convert Discord bot command handlers to use pg query modules instead of Prisma
+
+**Scope**: 8 bot command files with ~27 Prisma operations
+
+#### Migration Approach
+- Replace Prisma client imports with query module imports
+- Replace Prisma operations with equivalent pg functions
+- Remove PrismaClient type dependencies
+- Maintain exact same behavior and error handling
+
+#### Files Migrated (5/8 complete - 62.5%)
+
+**✅ src/bot/middleware/limits.ts** (~30 lines)
+- Converted: `hasActiveEncounter`, `hasActiveOrPendingBattle`
+- Query modules: `findActiveEncounterForUser`, `findActiveOrPendingBattleForUser`
+- Removed: PrismaClient type dependency, optional prisma parameter pattern
+- Result: Simplified function signatures, zero compilation errors
+
+**✅ src/bot/wilds/walk.ts** (~90 lines)
+- Converted: `getCooldownReadyAt`, `setCooldown`, `handleWalk`
+- Query modules: `findCooldownByUserAndKind`, `createCooldown`, `updateCooldownReadyAt`, `ensureUser`, `linkEncounterToThread`
+- Replaced: `prisma.user.upsert`, `prisma.cooldown.upsert`, `prisma.encounter.update`
+- Pattern: Upsert logic split into check + create/update (explicit control flow)
+- Result: Zero compilation errors, clearer data flow
+
+**✅ src/bot/dm/heal.ts** (~45 lines)
+- Converted: `healPartyForUser`
+- Query modules: `ensureUser`, `getPartyWithSlots`, `healPokemon`
+- Replaced: `UserRepo.upsertByDiscordId`, `prisma.$transaction` bulk updates
+- Optimization: `healPokemon` handles bulk operations natively (single UPDATE with ANY())
+- Result: Simpler code, zero compilation errors
+
+**✅ src/bot/dm/starters.ts** (~140 lines)
+- Converted: `createStarterAndAssignParty`
+- Query modules: `ensureUser`, `createPokemon`, `getPartyWithSlots`, `createParty`, `createPartySlot`
+- Replaced: `UserRepo.upsertByDiscordId`, `prisma.pokemonInstance.create`, `prisma.party.create`, `prisma.partySlot.create`, `prisma.pokemonInstance.count`
+- Pattern: Raw SQL for count operation (`getProdDb().query()`), pg query modules for CRUD
+- Result: Zero compilation errors, functional equivalence maintained
+
+**✅ src/bot/battle/challenge.ts** (~290 lines)
+- Converted: `handleBattleChallengeCommand`, `handleBattleChallengeButton`
+- Query modules: `ensureUser`, `createBattle`, `updateBattleStateAndEnd`, `activateBattle`
+- Replaced: `prisma.user.upsert`, `prisma.battle.create`, `prisma.battle.update`
+- Pattern: `activateBattle` atomically sets state="Active" + arenaThreadId
+- Removed: Local `ensureUser` helper (used query module version), PrismaLike type, Prisma.InputJsonValue type
+- Result: Zero compilation errors, cleaner type signatures
+
+#### Remaining Files (3/8 - 37.5%)
+
+**⏸️ src/bot/wilds/controls.ts** (~260 lines) - **COMPLEX TRANSACTION**
+- Operations: `prisma.user.findUnique`, `prisma.$transaction` (swap logic with party slot updates)
+- Challenge: Complex transaction swapping party slots atomically
+- Approach: Will need transaction builder from `pg-transaction.ts` or manual BEGIN/COMMIT
+- Priority: HIGH (core encounter interaction flow)
+
+**⏸️ src/bot/ops/admin.ts** (~700 lines) - **STATS & ADMIN OPERATIONS**
+- Operations: Multiple `count()`, `findMany()`, `findFirst()`, `deleteMany()`, aggregation queries
+- Challenge: Admin dashboard with complex aggregations and statistics
+- Approach: Replace with COUNT queries, parameterized SELECT queries, cache stats from `global` state
+- Priority: MEDIUM (ops tooling, not critical path)
+
+**⏸️ src/bot/battle/actions.ts** + **conclude.ts** (~400 lines combined) - **BATTLE ACTIONS**
+- Operations: Battle state updates, Pokemon HP updates, reward calculations
+- Challenge: Multi-model updates with transactions
+- Approach: Use existing `concludeBattle`, `updatePokemonHealth` functions from query modules
+- Priority: HIGH (core battle flow)
+
+#### Patterns Validated
+
+1. **Upsert → Check + Create/Update**
+   ```typescript
+   // Before (Prisma upsert)
+   await prisma.cooldown.upsert({
+     where: { ownerId_kind: { ownerId: user.id, kind } },
+     update: { readyAt },
+     create: { ownerId: user.id, kind, readyAt }
+   });
+   
+   // After (pg explicit)
+   const existing = await findCooldownByUserAndKind(discordId, kind);
+   if (existing) {
+     await updateCooldownReadyAt(existing.id, readyAt);
+   } else {
+     await createCooldown(user.id, kind, readyAt);
+   }
+   ```
+
+2. **Bulk Operations → Native SQL with ANY()**
+   ```typescript
+   // Before (Prisma transaction with map)
+   const updates = instances.map(p => 
+     prisma.pokemonInstance.update({
+       where: { id: p.id },
+       data: { hp: p.maxHp, status: null }
+     })
+   );
+   await prisma.$transaction(updates);
+   
+   // After (pg bulk update)
+   await healPokemon(instances.map(p => p.id));
+   // Executes: UPDATE "PokemonInstance" SET "hp" = "maxHp", "status" = NULL WHERE "id" = ANY($1::uuid[])
+   ```
+
+3. **Count Queries → Raw SQL**
+   ```typescript
+   // Before
+   const count = await prisma.pokemonInstance.count({ where: { ownerId: user.id } });
+   
+   // After
+   const result = await db.query(
+     'SELECT COUNT(*)::int as count FROM "PokemonInstance" WHERE "ownerId" = $1',
+     [user.id]
+   );
+   const count = result.rows[0]?.count ?? 0;
+   ```
+
+4. **Type Cleanup**
+   - Removed: `PrismaClient`, `Prisma.InputJsonValue`, `Prisma.JsonObject` types
+   - Replaced: Direct TypeScript types (`Record<string, string | null>`, etc.)
+   - Simplified: Function signatures no longer need `prisma?: PrismaLike` parameter
+
+#### Compilation Status
+- **Zero TypeScript errors** across all 5 migrated files
+- **Zero lint warnings**
+- **All imports resolved** from pg query modules
+- **Type safety maintained** via generated db-models.ts types
+
+#### Next Actions
+1. Migrate `controls.ts` transaction logic using transaction builder
+2. Migrate `actions.ts` + `conclude.ts` battle operations
+3. Migrate `admin.ts` stats/aggregation queries
+4. Run integration tests with PROD/LOCAL pools
+5. Update cache recipes if needed (currently using Prisma types)
 
 ---
 

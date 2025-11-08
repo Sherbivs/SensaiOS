@@ -1,28 +1,28 @@
 import type { ChatInputCommandInteraction, GuildTextBasedChannel } from "discord.js";
 
 import { spawnEncounterForUser } from "../../core/encounter/spawn.js";
-import { prisma } from "../../models/index.js";
+import { linkEncounterToThread } from "../../shared/models/encounter-queries-pg.js";
+import { findCooldownByUserAndKind, createCooldown, updateCooldownReadyAt } from "../../services/home-bundle-pg.js";
+import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { canStartWalk } from "../middleware/limits.js";
 
 import { openEncounterDM } from "./controls.js";
 
 async function getCooldownReadyAt(discordId: string, kind: string) {
-  const cd = await prisma.cooldown.findFirst({ where: { owner: { discordId }, kind } });
+  const cd = await findCooldownByUserAndKind(discordId, kind);
   return cd?.readyAt ?? null;
 }
 
 async function setCooldown(discordId: string, kind: string, ms: number) {
-  const user = await prisma.user.upsert({
-    where: { discordId },
-    update: {},
-    create: { discordId, coins: 0 },
-  });
+  const user = await ensureUser(discordId);
   const readyAt = new Date(Date.now() + ms);
-  return prisma.cooldown.upsert({
-    where: { ownerId_kind: { ownerId: user.id, kind } },
-    update: { readyAt },
-    create: { ownerId: user.id, kind, readyAt },
-  });
+  const existing = await findCooldownByUserAndKind(discordId, kind);
+  
+  if (existing) {
+    await updateCooldownReadyAt(existing.id, readyAt);
+  } else {
+    await createCooldown(user.id, kind, readyAt);
+  }
 }
 
 export async function handleWalk(interaction: ChatInputCommandInteraction) {
@@ -54,7 +54,7 @@ export async function handleWalk(interaction: ChatInputCommandInteraction) {
   }
 
   // Limit: one active encounter per user
-  const allowed = await canStartWalk(interaction.user.id, prisma);
+  const allowed = await canStartWalk(interaction.user.id);
   if (!allowed.ok) {
     await interaction.reply({ content: "You already have an active encounter. Finish it first.", ephemeral: true });
     return;
@@ -75,7 +75,7 @@ export async function handleWalk(interaction: ChatInputCommandInteraction) {
 
   if (thread) {
     // Link thread to encounter
-    await prisma.encounter.update({ where: { id: enc.id }, data: { threadChannelId: thread.id } });
+    await linkEncounterToThread(enc.id, thread.id);
     await thread.send(
       `A wild Pokémon appears (Lv ${enc.level})! <@${interaction.user.id}> check your DMs for controls.`
     );
