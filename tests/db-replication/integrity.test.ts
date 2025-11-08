@@ -5,7 +5,7 @@
  * between source and target databases in the replication cascade.
  */
 
-import type { PrismaClient } from '@prisma/client';
+import type { Pool, QueryResult } from 'pg';
 import { describe, it, expect, vi } from 'vitest';
 
 import {
@@ -17,7 +17,7 @@ import {
 // Mock Prisma Client Factory
 // ============================================================================
 
-function createMockPrismaClient(mockData: {
+function createMockPoolClient(mockData: {
   tables?: Array<{ table_name: string }>;
   columns?: Array<{
     table_name: string;
@@ -40,79 +40,87 @@ function createMockPrismaClient(mockData: {
   rowCounts?: Record<string, number>;
   checksums?: Record<string, string>;
   fkOrphans?: Record<string, number>;
-}): PrismaClient {
+}): Pool {
+  const queryFn = vi.fn(async (query: string | { text: string }, params?: unknown[]): Promise<QueryResult> => {
+    const queryStr = typeof query === 'string' ? query : query.text;
+    const queryParams = params || [];
+
+    // Tables query
+    if (queryStr.includes('FROM information_schema.tables')) {
+      const rows = mockData.tables || [];
+      return { rows, rowCount: rows.length, command: 'SELECT', oid: 0, fields: [] };
+    }
+
+    // Columns query (parameterized for specific table)
+    if (queryStr.includes('FROM information_schema.columns') && queryParams.length > 0) {
+      const tableName = queryParams[0] as string;
+      const rows = mockData.columns?.filter(c => c.table_name === tableName) || [];
+      return { rows, rowCount: rows.length, command: 'SELECT', oid: 0, fields: [] };
+    }
+
+    // Columns query (all columns)
+    if (queryStr.includes('FROM information_schema.columns')) {
+      const rows = mockData.columns || [];
+      return { rows, rowCount: rows.length, command: 'SELECT', oid: 0, fields: [] };
+    }
+
+    // Indexes query
+    if (queryStr.includes('FROM pg_indexes')) {
+      const rows = mockData.indexes || [];
+      return { rows, rowCount: rows.length, command: 'SELECT', oid: 0, fields: [] };
+    }
+
+    // Constraints query
+    if (queryStr.includes('FROM information_schema.table_constraints')) {
+      const rows = mockData.constraints || [];
+      return { rows, rowCount: rows.length, command: 'SELECT', oid: 0, fields: [] };
+    }
+
+    // FK query
+    if (queryStr.includes('information_schema.key_column_usage')) {
+      return { rows: [], rowCount: 0, command: 'SELECT', oid: 0, fields: [] };
+    }
+
+    // Row count queries
+    if (queryStr.includes('SELECT COUNT(*)') || queryStr.includes('SELECT count(*)')) {
+      const match = queryStr.match(/FROM "(\w+)"/);
+      if (match && mockData.rowCounts) {
+        const tableName = match[1];
+        const rows = [{ count: BigInt(mockData.rowCounts[tableName] || 0) }];
+        return { rows, rowCount: 1, command: 'SELECT', oid: 0, fields: [] };
+      }
+      return { rows: [{ count: BigInt(0) }], rowCount: 1, command: 'SELECT', oid: 0, fields: [] };
+    }
+
+    // Checksum queries (case-insensitive)
+    if (queryStr.toUpperCase().includes('MD5') && queryStr.toUpperCase().includes('STRING_AGG')) {
+      const match = queryStr.match(/FROM "(\w+)"/);
+      if (match && mockData.checksums) {
+        const tableName = match[1];
+        const rows = [{ checksum: mockData.checksums[tableName] || 'EMPTY' }];
+        return { rows, rowCount: 1, command: 'SELECT', oid: 0, fields: [] };
+      }
+      return { rows: [{ checksum: 'EMPTY' }], rowCount: 1, command: 'SELECT', oid: 0, fields: [] };
+    }
+
+    // FK orphan queries
+    if (queryStr.includes('LEFT JOIN')) {
+      const match = queryStr.match(/FROM "(\w+)" child/);
+      if (match && mockData.fkOrphans) {
+        const tableName = match[1];
+        const rows = [{ count: BigInt(mockData.fkOrphans[tableName] || 0) }];
+        return { rows, rowCount: 1, command: 'SELECT', oid: 0, fields: [] };
+      }
+      return { rows: [{ count: BigInt(0) }], rowCount: 1, command: 'SELECT', oid: 0, fields: [] };
+    }
+
+    return { rows: [], rowCount: 0, command: 'SELECT', oid: 0, fields: [] };
+  });
+
   return {
-    $queryRaw: vi.fn(async (query: TemplateStringsArray) => {
-      const queryStr = query.join('');
-
-      // Tables query
-      if (queryStr.includes('FROM information_schema.tables')) {
-        return mockData.tables || [];
-      }
-
-      // Columns query
-      if (queryStr.includes('FROM information_schema.columns')) {
-        return mockData.columns || [];
-      }
-
-      // Indexes query
-      if (queryStr.includes('FROM pg_indexes')) {
-        return mockData.indexes || [];
-      }
-
-      // Constraints query
-      if (queryStr.includes('FROM information_schema.table_constraints')) {
-        return mockData.constraints || [];
-      }
-
-      // FK query
-      if (queryStr.includes('information_schema.key_column_usage')) {
-        return [];
-      }
-
-      return [];
-    }),
-    $queryRawUnsafe: vi.fn(async (query: string, ...params: unknown[]) => {
-      // Row count queries
-      if (query.includes('SELECT COUNT(*) as count FROM')) {
-        const match = query.match(/FROM "(\w+)"/);
-        if (match && mockData.rowCounts) {
-          const tableName = match[1];
-          return [{ count: BigInt(mockData.rowCounts[tableName] || 0) }];
-        }
-        return [{ count: BigInt(0) }];
-      }
-
-      // Checksum queries
-      if (query.includes('md5(string_agg')) {
-        const match = query.match(/FROM "(\w+)"/);
-        if (match && mockData.checksums) {
-          const tableName = match[1];
-          return [{ checksum: mockData.checksums[tableName] || 'EMPTY' }];
-        }
-        return [{ checksum: 'EMPTY' }];
-      }
-
-      // FK orphan queries
-      if (query.includes('LEFT JOIN')) {
-        const match = query.match(/FROM "(\w+)" child/);
-        if (match && mockData.fkOrphans) {
-          const tableName = match[1];
-          return [{ count: BigInt(mockData.fkOrphans[tableName] || 0) }];
-        }
-        return [{ count: BigInt(0) }];
-      }
-
-      // Column list query
-      if (query.includes('FROM information_schema.columns') && params.length > 0) {
-        const tableName = params[0] as string;
-        const cols = mockData.columns?.filter(c => c.table_name === tableName) || [];
-        return cols.map(c => ({ column_name: c.column_name }));
-      }
-
-      return [];
-    }),
-  } as unknown as PrismaClient;
+    query: queryFn,
+    end: vi.fn(),
+  } as unknown as Pool;
 }
 
 // ============================================================================
@@ -122,14 +130,14 @@ function createMockPrismaClient(mockData: {
 describe('verifySchemaIntegrity', () => {
   describe('Table Comparison', () => {
     it('should detect missing tables in target', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }, { table_name: 'posts' }],
         columns: [],
         indexes: [],
         constraints: [],
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [],
         indexes: [],
@@ -148,14 +156,14 @@ describe('verifySchemaIntegrity', () => {
     });
 
     it('should detect extra tables in target', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [],
         indexes: [],
         constraints: [],
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }, { table_name: 'posts' }],
         columns: [],
         indexes: [],
@@ -176,7 +184,7 @@ describe('verifySchemaIntegrity', () => {
 
   describe('Column Comparison', () => {
     it('should detect column type mismatch', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [
           {
@@ -192,7 +200,7 @@ describe('verifySchemaIntegrity', () => {
         constraints: [],
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [
           {
@@ -222,7 +230,7 @@ describe('verifySchemaIntegrity', () => {
     });
 
     it('should detect column nullable mismatch', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [
           {
@@ -238,7 +246,7 @@ describe('verifySchemaIntegrity', () => {
         constraints: [],
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [
           {
@@ -267,7 +275,7 @@ describe('verifySchemaIntegrity', () => {
     });
 
     it('should detect column default mismatch', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [
           {
@@ -283,7 +291,7 @@ describe('verifySchemaIntegrity', () => {
         constraints: [],
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [
           {
@@ -310,7 +318,7 @@ describe('verifySchemaIntegrity', () => {
     });
 
     it('should detect missing columns', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [
           {
@@ -334,7 +342,7 @@ describe('verifySchemaIntegrity', () => {
         constraints: [],
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [
           {
@@ -356,13 +364,13 @@ describe('verifySchemaIntegrity', () => {
       const missingDiff = result.diffs.find(d => 
         d.type === 'column' && 
         d.action === 'missing' &&
-        d.path === 'public.users.email'
+        d.path === 'users.email'
       );
       expect(missingDiff).toBeDefined();
     });
 
     it('should detect extra columns', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [
           {
@@ -378,7 +386,7 @@ describe('verifySchemaIntegrity', () => {
         constraints: [],
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [
           {
@@ -408,7 +416,7 @@ describe('verifySchemaIntegrity', () => {
       const extraDiff = result.diffs.find(d => 
         d.type === 'column' && 
         d.action === 'extra' &&
-        d.path === 'public.users.extra_field'
+        d.path === 'users.extra_field'
       );
       expect(extraDiff).toBeDefined();
     });
@@ -416,7 +424,7 @@ describe('verifySchemaIntegrity', () => {
 
   describe('Index Comparison', () => {
     it('should detect missing indexes', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [],
         indexes: [
@@ -429,7 +437,7 @@ describe('verifySchemaIntegrity', () => {
         constraints: [],
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [],
         indexes: [],
@@ -448,7 +456,7 @@ describe('verifySchemaIntegrity', () => {
     });
 
     it('should detect index definition mismatch', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [],
         indexes: [
@@ -461,7 +469,7 @@ describe('verifySchemaIntegrity', () => {
         constraints: [],
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [],
         indexes: [
@@ -487,7 +495,7 @@ describe('verifySchemaIntegrity', () => {
 
   describe('Constraint Comparison', () => {
     it('should detect missing constraints', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'posts' }],
         columns: [],
         indexes: [],
@@ -500,7 +508,7 @@ describe('verifySchemaIntegrity', () => {
         ],
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'posts' }],
         columns: [],
         indexes: [],
@@ -519,7 +527,7 @@ describe('verifySchemaIntegrity', () => {
     });
 
     it('should detect constraint type mismatch', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [],
         indexes: [],
@@ -532,7 +540,7 @@ describe('verifySchemaIntegrity', () => {
         ],
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [],
         indexes: [],
@@ -586,8 +594,8 @@ describe('verifySchemaIntegrity', () => {
         ],
       };
 
-      const sourceClient = createMockPrismaClient(mockData);
-      const targetClient = createMockPrismaClient(mockData);
+      const sourceClient = createMockPoolClient(mockData);
+      const targetClient = createMockPoolClient(mockData);
 
       const result = await verifySchemaIntegrity(sourceClient, targetClient);
 
@@ -605,13 +613,13 @@ describe('verifySchemaIntegrity', () => {
 describe('verifyDataIntegrity', () => {
   describe('Row Count Validation', () => {
     it('should pass when row counts match', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [{ table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { users: 100 },
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [{ table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { users: 100 },
@@ -628,13 +636,13 @@ describe('verifyDataIntegrity', () => {
     });
 
     it('should fail when row counts differ', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [{ table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { users: 100 },
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [{ table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { users: 95 },
@@ -654,14 +662,14 @@ describe('verifyDataIntegrity', () => {
 
   describe('Checksum Validation', () => {
     it('should pass when checksums match', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [{ table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { users: 10 },
         checksums: { users: 'abc123def456' },
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [{ table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { users: 10 },
@@ -678,14 +686,14 @@ describe('verifyDataIntegrity', () => {
     });
 
     it('should fail when checksums differ', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [{ table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { users: 10 },
         checksums: { users: 'abc123def456' },
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [{ table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { users: 10 },
@@ -701,13 +709,13 @@ describe('verifyDataIntegrity', () => {
     });
 
     it('should skip checksums when skipChecksums option is true', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [{ table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { users: 10 },
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }],
         columns: [{ table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { users: 10 },
@@ -722,14 +730,14 @@ describe('verifyDataIntegrity', () => {
 
   describe('Foreign Key Integrity', () => {
     it('should pass when no FK orphans exist', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'posts' }],
         columns: [{ table_name: 'posts', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { posts: 50 },
         fkOrphans: { posts: 0 },
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'posts' }],
         columns: [{ table_name: 'posts', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { posts: 50 },
@@ -746,7 +754,7 @@ describe('verifyDataIntegrity', () => {
     });
 
     it('should detect FK orphans', async () => {
-      const mockClient = createMockPrismaClient({
+      const mockClient = createMockPoolClient({
         tables: [{ table_name: 'posts' }],
         columns: [{ table_name: 'posts', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { posts: 50 },
@@ -766,7 +774,7 @@ describe('verifyDataIntegrity', () => {
 
   describe('Configuration Options', () => {
     it('should skip tables when skipTables option is provided', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'users' }, { table_name: 'logs' }],
         columns: [
           { table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null },
@@ -775,7 +783,7 @@ describe('verifyDataIntegrity', () => {
         rowCounts: { users: 100, logs: 1000 },
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'users' }, { table_name: 'logs' }],
         columns: [
           { table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null },
@@ -794,14 +802,14 @@ describe('verifyDataIntegrity', () => {
     });
 
     it('should use sampleSize option for large tables', async () => {
-      const sourceClient = createMockPrismaClient({
+      const sourceClient = createMockPoolClient({
         tables: [{ table_name: 'large_table' }],
         columns: [{ table_name: 'large_table', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { large_table: 1000000 },
         checksums: { large_table: 'sample123' },
       });
 
-      const targetClient = createMockPrismaClient({
+      const targetClient = createMockPoolClient({
         tables: [{ table_name: 'large_table' }],
         columns: [{ table_name: 'large_table', column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null, character_maximum_length: null }],
         rowCounts: { large_table: 1000000 },
@@ -816,3 +824,4 @@ describe('verifyDataIntegrity', () => {
     });
   });
 });
+
