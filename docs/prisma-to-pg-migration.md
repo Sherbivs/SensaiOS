@@ -1,6 +1,6 @@
 # Prisma ORM to Raw PostgreSQL Migration Plan
 
-**Status**: Phase 5 Complete - POC Validated  
+**Status**: Task 7 Complete - Encounter Queries Validated  
 **Created**: 2025-11-07  
 **Last Updated**: 2025-11-07  
 **Scope**: Complete removal of @prisma/client dependency and migration to raw PostgreSQL via `pg` library
@@ -146,6 +146,82 @@ export async function getUserBasic(
 - Implementation: `src/shared/models/user-queries-pg.ts` (356 lines)
 - Tests: `tests/user-queries-pg.test.ts` (280 lines)
 - Commit: `c270fb2` (2025-11-07)
+
+### 1.4 User Queries Write Operations ✅ (2025-11-07)
+
+**Task 6 Complete**: User write operations (create, update, upsert, delete) implemented and tested.
+
+**Implementation**:
+- `src/shared/models/user-queries-pg.ts` (617 lines total, +261 lines)
+  * 7 write functions: createUser, updateUserCoins, incrementUserCoins, upsertUser, upsertUserWithCoinIncrement, ensureUser, deleteUser
+  * Atomic operations using PostgreSQL native features (RETURNING, ON CONFLICT)
+  * Transaction-safe increment operations (SET coins = coins + $1)
+  * Upsert patterns for idempotent operations
+  * Comprehensive error handling and validation
+
+- `tests/user-queries-pg.test.ts` (542 lines total, +262 lines)
+  * 16 test cases for write operations
+  * Tests cover: basic create, coin updates, atomic increments, upserts, ensures, deletes
+  * Validation of common patterns: battle challenges, daily rewards, cooldowns
+  * Atomicity validation with concurrent operations
+  * Unique ID generation per test for isolation
+
+**Key Patterns Validated**:
+1. **CREATE with RETURNING**: Insert and return complete row in one query
+2. **Atomic INCREMENT**: Safe concurrent coin updates via SET coins = coins + $1
+3. **UPSERT (INSERT ON CONFLICT)**: Idempotent operations for user initialization
+4. **Combined UPSERT + INCREMENT**: Battle reward patterns with ON CONFLICT DO UPDATE
+5. **ENSURE pattern**: Get-or-create with upsert fallback
+6. **DELETE with RETURNING**: Cleanup with confirmation data
+
+**Files**:
+- Implementation: `src/shared/models/user-queries-pg.ts` (617 lines total)
+- Tests: `tests/user-queries-pg.test.ts` (542 lines total)
+- Commit: `a8cc863` (2025-11-07)
+
+### 1.5 Encounter Queries Implementation ✅ (2025-11-07)
+
+**Task 7 Complete**: Encounter CRUD operations for spawn/catch/state transition gameplay implemented and tested.
+
+**Implementation**:
+- `src/shared/models/encounter-queries-pg.ts` (~450 lines)
+  * 4 read operations: findEncounterById, findActiveEncounterForUser, findEncountersForUser, countEncountersByState
+  * 7 write operations: createEncounter, updateEncounterState, updateEncounterData, updateEncounterStateAndData, linkEncounterToThread, expireStaleEncounters, deleteEncounter
+  * reviveEncounter helper for Date field conversion (startedAt, expiresAt, createdAt, updatedAt)
+  * State transition support (Spawned → Caught/Fled/Expired/Fainted)
+  * Discord thread linking for UI integration
+  * Bulk expiration cleanup for maintenance
+
+- `tests/encounter-queries-pg.test.ts` (~520 lines)
+  * 24 test cases covering complete encounter lifecycle
+  * Tests: spawn, find by ID, find active, list with filters, count by state
+  * State transition validation (all valid transitions)
+  * Edge cases: non-existent IDs, expired encounters, concurrent operations
+  * Atomic update validation (state + dataJson together)
+  * Thread linking tests for Discord integration
+  * Bulk expiration cleanup validation
+
+**Coverage Highlights**:
+1. **Spawn Gameplay**: createEncounter with species/level, 60-minute TTL
+2. **Catch Attempts**: updateEncounterData tracking attempts, ball type, rolls
+3. **State Transitions**: updateEncounterState for Caught/Fled/Expired/Fainted
+4. **Atomic Updates**: updateEncounterStateAndData for consistent state+data changes
+5. **Discord Integration**: linkEncounterToThread for UI state synchronization
+6. **Cleanup Automation**: expireStaleEncounters for scheduled maintenance
+7. **Complete Lifecycle**: Full CRUD coverage from spawn to cleanup
+
+**Patterns Established for Gameplay Systems**:
+- Date field revival from database results (PostgreSQL returns strings)
+- State machine transitions with validation
+- JSON data tracking for gameplay state (attempts, rolls, catch details)
+- Thread/channel associations for Discord UX
+- Bulk operations for maintenance (expireStaleEncounters)
+- Expiration handling (WHERE expiresAt < NOW() OR expiresAt IS NULL)
+
+**Files**:
+- Implementation: `src/shared/models/encounter-queries-pg.ts` (~450 lines)
+- Tests: `tests/encounter-queries-pg.test.ts` (~520 lines)
+- Commit: `6b0fab1` (2025-11-07)
 
 ---
 
