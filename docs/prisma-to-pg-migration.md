@@ -1,6 +1,6 @@
 # Prisma ORM to Raw PostgreSQL Migration Plan
 
-**Status**: Task 10 Complete - Bus/Outbox Queries Validated  
+**Status**: Task 11 Complete - Home Bundle Aggregations Validated  
 **Created**: 2025-11-07  
 **Last Updated**: 2025-11-08  
 **Scope**: Complete removal of @prisma/client dependency and migration to raw PostgreSQL via `pg` library
@@ -376,6 +376,58 @@ export async function getUserBasic(
 **Files**:
 - Implementation: `src/shared/models/bus-queries-pg.ts` (~560 lines)
 - Tests: `tests/bus-queries-pg.test.ts` (~580 lines)
+- Commit: e8ba603 (2025-11-08)
+
+---
+
+### 1.9 Home Bundle Aggregations (~315 lines implementation + ~280 test lines)
+
+**Task**: Convert multi-model aggregations from `src/services/home-bundle.ts`
+
+**Module**: `src/services/home-bundle-pg.ts` (14 functions)
+
+**Test Suite**: `tests/home-bundle-pg.test.ts` (17 test cases)
+
+**Cooldown Functions (7)**:
+1. `findCooldownsByUserId(userId)` - Load all cooldowns for user (ordered by readyAt ASC)
+2. `findCooldownByUserAndKind(userId, kind)` - Find specific cooldown (e.g., "daily-quest", "walk")
+3. `createCooldown(userId, kind, readyAt, metaJson)` - Create new cooldown with metadata
+4. `updateCooldownReadyAt(cooldownId, readyAt)` - Update expiration timestamp
+5. `deleteCooldown(cooldownId)` - Hard delete cooldown
+6. `deleteExpiredCooldowns()` - Cleanup expired cooldowns (readyAt < now)
+
+**Home Bundle Functions (2)**:
+1. `loadHomeBundleByDiscordId(discordId)` - Load User + Party + Cooldowns + Encounter by Discord ID
+2. `loadHomeBundleByUserId(userId)` - Load bundle by user UUID (bypasses Discord lookup)
+
+**Cache Management Functions (5)**:
+1. `invalidateHomeBundle(userId)` - Clear cached bundle after mutations
+2. `primeHomeBundle(userId, bundle)` - Pre-populate cache (optimistic updates)
+3. `getHomeCacheStats()` - Monitor cache (size, max, ttl)
+4. `clearHomeCache()` - Clear entire cache (testing/admin)
+
+**Key Patterns**:
+- **Parallel loading**: `Promise.all([getPartyWithSlots(), findCooldowns(), findEncounter()])` for independent queries
+- **Composition**: Reuses existing query modules (user-queries-pg, party-queries-pg, encounter-queries-pg)
+- **Cache integration**: TtlLruCache with configurable TTL (default 60s) and max entries (default 500)
+- **NULL handling**: Party and Encounter may be null for new users
+- **Date revival**: readyAt, createdAt, updatedAt converted to Date objects
+- **Type expansion**: UserBasic → User cast for bundle (getUserBasic returns all fields)
+- **Cache key**: `home:${userId}` for consistent invalidation
+
+**Patterns Established for Multi-Model Aggregations**:
+- Parallel loading pattern with Promise.all for independent queries
+- Cache-first strategy with TTL expiration and manual invalidation
+- Composition over duplication (reuses existing query modules)
+- Optimistic cache priming for immediate UI updates after mutations
+- Cache statistics for monitoring hit rates and memory usage
+- NULL-safe aggregation (party/encounter optional for new users)
+- Metadata storage in cooldown.metaJson for flexible extensibility
+- Cleanup operations for expired cooldowns to prevent unbounded growth
+
+**Files**:
+- Implementation: `src/services/home-bundle-pg.ts` (~315 lines)
+- Tests: `tests/home-bundle-pg.test.ts` (~280 lines)
 - Commit: TBD (2025-11-08)
 
 ---
