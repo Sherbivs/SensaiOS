@@ -99,22 +99,56 @@ describe('compareVersions - MATCH', () => {
 describe('compareVersions - AHEAD', () => {
   it('should return AHEAD when source has more migrations with valid prefix', async () => {
     const targetMigrations = sampleMigrations.slice(0, 2);
-    const mockPrismaSource = createMockPrismaWithMigrations(sampleMigrations);
-    const mockPrismaTarget = createMockPrismaWithMigrations(targetMigrations);
+    
+    // Create pools with custom query behavior for prefix verification
+    const sourceQueryMock = vi.fn((sql: string, params?: any[]) => {
+      // getMigrations (no LIMIT) returns all 3 migrations
+      if (sql.includes('_prisma_migrations') && !sql.includes('LIMIT')) {
+        return Promise.resolve({
+          rows: sampleMigrations,
+          rowCount: sampleMigrations.length,
+          command: 'SELECT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      // getMigrationsWithLimit (for prefix verification) - return first 2
+      if (sql.includes('_prisma_migrations') && sql.includes('LIMIT')) {
+        return Promise.resolve({
+          rows: targetMigrations,
+          rowCount: targetMigrations.length,
+          command: 'SELECT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      return Promise.resolve({ rows: [], rowCount: 0, command: '', oid: 0, fields: [] });
+    });
 
-    // Mock prefix verification to return target migrations
-    mockPrismaSource.$queryRaw = vi.fn()
-      .mockResolvedValueOnce(sampleMigrations) // First call for getVersion
-      .mockResolvedValueOnce(targetMigrations); // Second call for prefix verification
+    const targetQueryMock = vi.fn((sql: string) => {
+      // getMigrations returns 2 migrations
+      if (sql.includes('_prisma_migrations')) {
+        return Promise.resolve({
+          rows: targetMigrations,
+          rowCount: targetMigrations.length,
+          command: 'SELECT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      return Promise.resolve({ rows: [], rowCount: 0, command: '', oid: 0, fields: [] });
+    });
 
-    mockPrismaTarget.$queryRaw = vi.fn()
-      .mockResolvedValueOnce(targetMigrations) // First call for getVersion
-      .mockResolvedValueOnce(targetMigrations); // Second call for prefix verification
+    const mockPoolSource = { query: sourceQueryMock } as any;
+    const mockPoolTarget = { query: targetQueryMock } as any;
 
-    const sourceVersion = await getVersion(mockPrismaSource, 'DEV');
-    const targetVersion = await getVersion(mockPrismaTarget, 'PROD');
+    const sourceVersion = await getVersion(mockPoolSource, 'DEV');
+    const targetVersion = await getVersion(mockPoolTarget, 'PROD');
 
-    const comparison = await compareVersions(sourceVersion, targetVersion, mockPrismaSource, mockPrismaTarget);
+    const comparison = await compareVersions(sourceVersion, targetVersion, mockPoolSource, mockPoolTarget);
 
     expect(comparison.status).toBe(VersionStatus.AHEAD);
     expect(comparison.migrationCountDiff).toBe(1);
@@ -133,22 +167,52 @@ describe('compareVersions - AHEAD', () => {
       },
     ];
 
-    const mockPrismaSource = createMockPrismaWithMigrations(sampleMigrations);
-    const mockPrismaTarget = createMockPrismaWithMigrations(targetMigrations);
+    const sourceQueryMock = vi.fn((sql: string, params?: any[]) => {
+      if (sql.includes('_prisma_migrations') && !sql.includes('LIMIT')) {
+        return Promise.resolve({
+          rows: sampleMigrations,
+          rowCount: sampleMigrations.length,
+          command: 'SELECT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      // Prefix check - return first migration from source
+      if (sql.includes('LIMIT')) {
+        return Promise.resolve({
+          rows: [sampleMigrations[0]],
+          rowCount: 1,
+          command: 'SELECT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      return Promise.resolve({ rows: [], rowCount: 0, command: '', oid: 0, fields: [] });
+    });
 
-    // Mock prefix verification
-    mockPrismaSource.$queryRaw = vi.fn()
-      .mockResolvedValueOnce(sampleMigrations)
-      .mockResolvedValueOnce([sampleMigrations[0]]); // First migration from source
+    const targetQueryMock = vi.fn((sql: string) => {
+      if (sql.includes('_prisma_migrations')) {
+        return Promise.resolve({
+          rows: targetMigrations,
+          rowCount: targetMigrations.length,
+          command: 'SELECT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      return Promise.resolve({ rows: [], rowCount: 0, command: '', oid: 0, fields: [] });
+    });
 
-    mockPrismaTarget.$queryRaw = vi.fn()
-      .mockResolvedValueOnce(targetMigrations)
-      .mockResolvedValueOnce(targetMigrations);
+    const mockPoolSource = { query: sourceQueryMock } as any;
+    const mockPoolTarget = { query: targetQueryMock } as any;
 
-    const sourceVersion = await getVersion(mockPrismaSource, 'DEV');
-    const targetVersion = await getVersion(mockPrismaTarget, 'PROD');
+    const sourceVersion = await getVersion(mockPoolSource, 'DEV');
+    const targetVersion = await getVersion(mockPoolTarget, 'PROD');
 
-    const comparison = await compareVersions(sourceVersion, targetVersion, mockPrismaSource, mockPrismaTarget);
+    const comparison = await compareVersions(sourceVersion, targetVersion, mockPoolSource, mockPoolTarget);
 
     expect(comparison.status).toBe(VersionStatus.DIVERGED);
     expect(comparison.message).toContain('DIVERGENCE');
@@ -159,13 +223,13 @@ describe('compareVersions - AHEAD', () => {
 describe('compareVersions - BEHIND (Reversion)', () => {
   it('should return BEHIND when source has fewer migrations', async () => {
     const sourceMigrations = sampleMigrations.slice(0, 2);
-    const mockPrismaSource = createMockPrismaWithMigrations(sourceMigrations);
-    const mockPrismaTarget = createMockPrismaWithMigrations(sampleMigrations);
+    const mockPoolSource = createMockPoolWithMigrations(sourceMigrations);
+    const mockPoolTarget = createMockPoolWithMigrations(sampleMigrations);
 
-    const sourceVersion = await getVersion(mockPrismaSource, 'DEV');
-    const targetVersion = await getVersion(mockPrismaTarget, 'PROD');
+    const sourceVersion = await getVersion(mockPoolSource, 'DEV');
+    const targetVersion = await getVersion(mockPoolTarget, 'PROD');
 
-    const comparison = await compareVersions(sourceVersion, targetVersion, mockPrismaSource, mockPrismaTarget);
+    const comparison = await compareVersions(sourceVersion, targetVersion, mockPoolSource, mockPoolTarget);
 
     expect(comparison.status).toBe(VersionStatus.BEHIND);
     expect(comparison.migrationCountDiff).toBe(-1);
@@ -201,13 +265,13 @@ describe('compareVersions - DIVERGED', () => {
       },
     ];
 
-    const mockPrismaSource = createMockPrismaWithMigrations(sampleMigrations);
-    const mockPrismaTarget = createMockPrismaWithMigrations(divergedMigrations);
+    const mockPoolSource = createMockPoolWithMigrations(sampleMigrations);
+    const mockPoolTarget = createMockPoolWithMigrations(divergedMigrations);
 
-    const sourceVersion = await getVersion(mockPrismaSource, 'DEV');
-    const targetVersion = await getVersion(mockPrismaTarget, 'PROD');
+    const sourceVersion = await getVersion(mockPoolSource, 'DEV');
+    const targetVersion = await getVersion(mockPoolTarget, 'PROD');
 
-    const comparison = await compareVersions(sourceVersion, targetVersion, mockPrismaSource, mockPrismaTarget);
+    const comparison = await compareVersions(sourceVersion, targetVersion, mockPoolSource, mockPoolTarget);
 
     expect(comparison.status).toBe(VersionStatus.DIVERGED);
     expect(comparison.migrationCountDiff).toBe(0);
@@ -219,13 +283,51 @@ describe('compareVersions - DIVERGED', () => {
 describe('handleReversion', () => {
   it('should detect reversion and block sync when DEV has fewer migrations', async () => {
     const devMigrations = sampleMigrations.slice(0, 2);
-    const mockPrismaDev = createMockPrismaWithMigrations(devMigrations);
-    const mockPrismaProd = createMockPrismaWithMigrations(sampleMigrations);
+    
+    // Create mock pool that tracks query calls
+    const upsertCalls: any[] = [];
+    const prodQueryMock = vi.fn((sql: string, params?: any[]) => {
+      // getMigrations
+      if (sql.includes('SELECT') && sql.includes('_prisma_migrations')) {
+        return Promise.resolve({
+          rows: sampleMigrations,
+          rowCount: sampleMigrations.length,
+          command: 'SELECT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      // upsertDbSyncState
+      if (sql.includes('INSERT INTO "DbSyncState"') && sql.includes('ON CONFLICT')) {
+        upsertCalls.push({ sql, params });
+        return Promise.resolve({
+          rows: [{
+            source: params?.[0],
+            target: params?.[1],
+            status: params?.[2],
+            lastSyncAt: params?.[3],
+            lastError: params?.[4],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }],
+          rowCount: 1,
+          command: 'INSERT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      return Promise.resolve({ rows: [], rowCount: 0, command: '', oid: 0, fields: [] });
+    });
 
-    const devVersion = await getVersion(mockPrismaDev, 'DEV');
-    const prodVersion = await getVersion(mockPrismaProd, 'PROD');
+    const mockPoolDev = createMockPoolWithMigrations(devMigrations);
+    const mockPoolProd = { query: prodQueryMock } as any;
 
-    const result = await handleReversion(devVersion, prodVersion, mockPrismaProd);
+    const devVersion = await getVersion(mockPoolDev, 'DEV');
+    const prodVersion = await getVersion(mockPoolProd, 'PROD');
+
+    const result = await handleReversion(devVersion, prodVersion, mockPoolProd);
 
     expect(result.reversionDetected).toBe(true);
     expect(result.syncBlocked).toBe(true);
@@ -234,74 +336,145 @@ describe('handleReversion', () => {
     expect(result.message).toContain('rolled back 1 migration');
     expect(result.message).toContain('catches up to 3 migrations');
 
-    // Verify db_sync_state update
-    expect(mockPrismaProd.dbSyncState.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { source_target: { source: 'DEV', target: 'PROD' } },
-        create: expect.objectContaining({
-          status: 'WAITING_FOR_MASTER',
-          lastError: expect.stringContaining('Reversion detected'),
-        }),
-        update: expect.objectContaining({
-          status: 'WAITING_FOR_MASTER',
-        }),
-      })
-    );
+    // Verify upsertDbSyncState was called with correct parameters
+    expect(upsertCalls.length).toBeGreaterThan(0);
+    const lastCall = upsertCalls[upsertCalls.length - 1];
+    expect(lastCall.params[0]).toBe('DEV'); // source
+    expect(lastCall.params[1]).toBe('PROD'); // target
+    expect(lastCall.params[2]).toBe('WAITING_FOR_MASTER'); // status
+    expect(lastCall.params[4]).toContain('Reversion detected'); // lastError
   });
 
   it('should return no reversion when DEV is ahead or in sync', async () => {
-    const mockPrismaDev = createMockPrismaWithMigrations(sampleMigrations);
-    const mockPrismaProd = createMockPrismaWithMigrations(sampleMigrations.slice(0, 2));
+    const queryCallCount = { prod: 0 };
+    
+    const prodQueryMock = vi.fn((sql: string) => {
+      queryCallCount.prod++;
+      
+      if (sql.includes('_prisma_migrations')) {
+        return Promise.resolve({
+          rows: sampleMigrations.slice(0, 2),
+          rowCount: 2,
+          command: 'SELECT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      return Promise.resolve({ rows: [], rowCount: 0, command: '', oid: 0, fields: [] });
+    });
 
-    const devVersion = await getVersion(mockPrismaDev, 'DEV');
-    const prodVersion = await getVersion(mockPrismaProd, 'PROD');
+    const mockPoolDev = createMockPoolWithMigrations(sampleMigrations);
+    const mockPoolProd = { query: prodQueryMock } as any;
 
-    const result = await handleReversion(devVersion, prodVersion, mockPrismaProd);
+    const devVersion = await getVersion(mockPoolDev, 'DEV');
+    const prodVersion = await getVersion(mockPoolProd, 'PROD');
+
+    const result = await handleReversion(devVersion, prodVersion, mockPoolProd);
 
     expect(result.reversionDetected).toBe(false);
     expect(result.syncBlocked).toBe(false);
     expect(result.message).toContain('No reversion detected');
 
-    // Verify db_sync_state NOT updated
-    expect(mockPrismaProd.dbSyncState.upsert).not.toHaveBeenCalled();
+    // Verify upsertDbSyncState was NOT called (no additional queries beyond getMigrations)
+    expect(queryCallCount.prod).toBe(1); // Only getMigrations, no upsert
   });
 });
 
 describe('recordVersion', () => {
   it('should create version record in db_version table', async () => {
-    const mockPrisma = createMockPrismaWithMigrations(sampleMigrations);
-    const version = await getVersion(mockPrisma, 'DEV');
+    const createCalls: any[] = [];
+    const queryMock = vi.fn((sql: string, params?: any[]) => {
+      if (sql.includes('_prisma_migrations')) {
+        return Promise.resolve({
+          rows: sampleMigrations,
+          rowCount: sampleMigrations.length,
+          command: 'SELECT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      if (sql.includes('INSERT INTO "DbVersion"')) {
+        createCalls.push({ sql, params });
+        return Promise.resolve({
+          rows: [{
+            id: 1,
+            versionFingerprint: params?.[0],
+            migrationCount: params?.[1],
+            lastMigrationName: params?.[2],
+            lastMigrationAppliedAt: params?.[3],
+            syncSource: params?.[4],
+            createdAt: new Date(),
+          }],
+          rowCount: 1,
+          command: 'INSERT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      return Promise.resolve({ rows: [], rowCount: 0, command: '', oid: 0, fields: [] });
+    });
 
-    await recordVersion(mockPrisma, version);
+    const mockPool = { query: queryMock } as any;
+    const version = await getVersion(mockPool, 'DEV');
 
-    expect(mockPrisma.dbVersion.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          versionFingerprint: version.fingerprint,
-          migrationCount: 3,
-          lastMigrationName: '20250103000000_add_pokemon',
-          syncSource: 'DEV',
-        }),
-      })
-    );
+    await recordVersion(mockPool, version);
+
+    expect(createCalls.length).toBe(1);
+    const call = createCalls[0];
+    expect(call.params[0]).toBe(version.fingerprint); // versionFingerprint
+    expect(call.params[1]).toBe(3); // migrationCount
+    expect(call.params[2]).toBe('20250103000000_add_pokemon'); // lastMigrationName
+    expect(call.params[4]).toBe('DEV'); // syncSource
   });
 
   it('should handle empty version gracefully', async () => {
-    const mockPrisma = createMockPrismaWithMigrations([]);
-    const version = await getVersion(mockPrisma, 'EMPTY');
+    const createCalls: any[] = [];
+    const queryMock = vi.fn((sql: string, params?: any[]) => {
+      if (sql.includes('_prisma_migrations')) {
+        return Promise.resolve({
+          rows: [],
+          rowCount: 0,
+          command: 'SELECT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      if (sql.includes('INSERT INTO "DbVersion"')) {
+        createCalls.push({ sql, params });
+        return Promise.resolve({
+          rows: [{
+            id: 1,
+            versionFingerprint: '',
+            migrationCount: 0,
+            lastMigrationName: '',
+            syncSource: 'EMPTY',
+            createdAt: new Date(),
+          }],
+          rowCount: 1,
+          command: 'INSERT',
+          oid: 0,
+          fields: [],
+        });
+      }
+      
+      return Promise.resolve({ rows: [], rowCount: 0, command: '', oid: 0, fields: [] });
+    });
 
-    await recordVersion(mockPrisma, version);
+    const mockPool = { query: queryMock } as any;
+    const version = await getVersion(mockPool, 'EMPTY');
 
-    expect(mockPrisma.dbVersion.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          versionFingerprint: '',
-          migrationCount: 0,
-          lastMigrationName: '',
-          syncSource: 'EMPTY',
-        }),
-      })
-    );
+    await recordVersion(mockPool, version);
+
+    expect(createCalls.length).toBe(1);
+    const call = createCalls[0];
+    expect(call.params[0]).toBe(''); // versionFingerprint
+    expect(call.params[1]).toBe(0); // migrationCount
+    expect(call.params[2]).toBe(''); // lastMigrationName
+    expect(call.params[4]).toBe('EMPTY'); // syncSource
   });
 });
 
@@ -310,11 +483,11 @@ describe('Fingerprint calculation edge cases', () => {
     const migrations1 = [sampleMigrations[0], sampleMigrations[1]];
     const migrations2 = [sampleMigrations[1], sampleMigrations[0]]; // Reversed order
 
-    const mockPrisma1 = createMockPrismaWithMigrations(migrations1);
-    const mockPrisma2 = createMockPrismaWithMigrations(migrations2);
+    const mockPool1 = createMockPoolWithMigrations(migrations1);
+    const mockPool2 = createMockPoolWithMigrations(migrations2);
 
-    const version1 = await getVersion(mockPrisma1, 'TEST1');
-    const version2 = await getVersion(mockPrisma2, 'TEST2');
+    const version1 = await getVersion(mockPool1, 'TEST1');
+    const version2 = await getVersion(mockPool2, 'TEST2');
 
     expect(version1.fingerprint).not.toBe(version2.fingerprint);
   });
@@ -328,21 +501,21 @@ describe('Fingerprint calculation edge cases', () => {
       },
     ];
 
-    const mockPrisma1 = createMockPrismaWithMigrations(migrations1);
-    const mockPrisma2 = createMockPrismaWithMigrations(migrations2);
+    const mockPool1 = createMockPoolWithMigrations(migrations1);
+    const mockPool2 = createMockPoolWithMigrations(migrations2);
 
-    const version1 = await getVersion(mockPrisma1, 'TEST1');
-    const version2 = await getVersion(mockPrisma2, 'TEST2');
+    const version1 = await getVersion(mockPool1, 'TEST1');
+    const version2 = await getVersion(mockPool2, 'TEST2');
 
     expect(version1.fingerprint).not.toBe(version2.fingerprint);
   });
 
   it('should produce same fingerprint for identical migrations', async () => {
-    const mockPrisma1 = createMockPrismaWithMigrations(sampleMigrations);
-    const mockPrisma2 = createMockPrismaWithMigrations(sampleMigrations);
+    const mockPool1 = createMockPoolWithMigrations(sampleMigrations);
+    const mockPool2 = createMockPoolWithMigrations(sampleMigrations);
 
-    const version1 = await getVersion(mockPrisma1, 'TEST1');
-    const version2 = await getVersion(mockPrisma2, 'TEST2');
+    const version1 = await getVersion(mockPool1, 'TEST1');
+    const version2 = await getVersion(mockPool2, 'TEST2');
 
     expect(version1.fingerprint).toBe(version2.fingerprint);
   });
