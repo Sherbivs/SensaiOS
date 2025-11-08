@@ -1,6 +1,6 @@
 # Prisma ORM to Raw PostgreSQL Migration Plan
 
-**Status**: Task 13 In Progress - Bot Commands Migration (5/8 files complete)  
+**Status**: Task 13 In Progress - Bot Commands Migration (6/8 files complete - 75%)  
 **Created**: 2025-11-07  
 **Last Updated**: 2025-11-08  
 **Scope**: Complete removal of @prisma/client dependency and migration to raw PostgreSQL via `pg` library
@@ -967,13 +967,22 @@ npm install db-migrate db-migrate-pg
 - Removed: Local `ensureUser` helper (used query module version), PrismaLike type, Prisma.InputJsonValue type
 - Result: Zero compilation errors, cleaner type signatures
 
-#### Remaining Files (3/8 - 37.5%)
+**✅ src/bot/wilds/controls.ts** (~260 lines) - **COMPLEX TRANSACTION**
+- Converted: `handleEncounterButton` with SWAP action transaction
+- Query modules: `getUserBasic`, `getPartyWithSlots`, `updatePartySlotPosition`, `updateEncounterData`, `transaction`
+- Replaced: `prisma.$transaction`, `tx.party.findFirst`, `tx.partySlot.update`, `tx.encounter.update`
+- Pattern: `transaction(getProdDb(), async (client) => { ... })`
+- NEW Function: `updatePartySlotPosition(slotId, newSlotPosition, pool?)` added to party-queries-pg.ts
+- Transaction Logic:
+  * Re-fetch party inside transaction for fresh data
+  * Atomic slot swap: picked → slot 0, lead → originalSlot, picked → slot 1
+  * Update encounter dataJson with new active slot/pokemon
+  * Type-safe result with discriminated union (error | already-lead | swapped)
+- PoolClient Handling: Cast `client as any` to satisfy Pool type constraint (PoolClient has compatible query())
+- Type Cleanup: Removed Prisma.JsonObject → Record<string, unknown>
+- Result: Zero compilation errors, transaction atomicity maintained
 
-**⏸️ src/bot/wilds/controls.ts** (~260 lines) - **COMPLEX TRANSACTION**
-- Operations: `prisma.user.findUnique`, `prisma.$transaction` (swap logic with party slot updates)
-- Challenge: Complex transaction swapping party slots atomically
-- Approach: Will need transaction builder from `pg-transaction.ts` or manual BEGIN/COMMIT
-- Priority: HIGH (core encounter interaction flow)
+#### Remaining Files (2/8 - 25%)
 
 **⏸️ src/bot/ops/admin.ts** (~700 lines) - **STATS & ADMIN OPERATIONS**
 - Operations: Multiple `count()`, `findMany()`, `findFirst()`, `deleteMany()`, aggregation queries
@@ -1023,7 +1032,29 @@ npm install db-migrate db-migrate-pg
    // Executes: UPDATE "PokemonInstance" SET "hp" = "maxHp", "status" = NULL WHERE "id" = ANY($1::uuid[])
    ```
 
-3. **Count Queries → Raw SQL**
+3. **Complex Transactions → transaction() with PoolClient**
+   ```typescript
+   // Before (Prisma transaction)
+   const result = await prisma.$transaction(async (tx) => {
+     const party = await tx.party.findFirst({ where: { ownerId }, include: { slots: true } });
+     await tx.partySlot.update({ where: { id: slot1 }, data: { slot: 0 } });
+     await tx.partySlot.update({ where: { id: slot2 }, data: { slot: slot1.slot } });
+     await tx.partySlot.update({ where: { id: slot1 }, data: { slot: 1 } });
+     return { swapped: true };
+   });
+   
+   // After (pg transaction)
+   type Result = { kind: "success"; data: any } | { kind: "error"; reason: string };
+   const result = await transaction<Result>(getProdDb(), async (client: PoolClient) => {
+     const party = await getPartyWithSlots(userId, client as any);
+     await updatePartySlotPosition(slot1, 0, client as any);
+     await updatePartySlotPosition(slot2, slot1.slot, client as any);
+     await updatePartySlotPosition(slot1, 1, client as any);
+     return { kind: "success", data: party };
+   });
+   ```
+
+4. **Count Queries → Raw SQL**
    ```typescript
    // Before
    const count = await prisma.pokemonInstance.count({ where: { ownerId: user.id } });
@@ -1042,16 +1073,29 @@ npm install db-migrate db-migrate-pg
    - Simplified: Function signatures no longer need `prisma?: PrismaLike` parameter
 
 #### Compilation Status
-- **Zero TypeScript errors** across all 5 migrated files
+- **Zero TypeScript errors** across all 6 migrated files
 - **Zero lint warnings**
 - **All imports resolved** from pg query modules
 - **Type safety maintained** via generated db-models.ts types
+- **Transaction logic validated** with proper atomicity
+
+#### New Functions Added
+- `updatePartySlotPosition(slotId, newSlotPosition, pool?)` in party-queries-pg.ts
+  * Updates PartySlot.slot field for swapping logic
+  * Supports temporary slot 0 during atomic swaps
+  * Returns updated PartySlot with Date revival
+
+#### Type System Updates
+- `getPool()` in party-queries-pg.ts now accepts `Pool | PoolClient`
+- Enables transaction callbacks to use query functions
+- PoolClient has compatible query() method signature
 
 #### Next Actions
-1. Migrate `controls.ts` transaction logic using transaction builder
+1. ✅ ~~Migrate `controls.ts` transaction logic~~ (DONE)
 2. Migrate `actions.ts` + `conclude.ts` battle operations
 3. Migrate `admin.ts` stats/aggregation queries
 4. Run integration tests with PROD/LOCAL pools
+5. Update cache recipes if needed (currently using Prisma types)
 5. Update cache recipes if needed (currently using Prisma types)
 
 ---
