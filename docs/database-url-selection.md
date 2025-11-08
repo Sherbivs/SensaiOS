@@ -48,10 +48,12 @@ RENDER_DB_INTERNAL_URL # DEV master internal network (Render services)
 
 ## Dual Local Database Architecture
 
-**As of 2025-11-08**, the workstation maintains **two independent PostgreSQL clusters**:
+**As of 2025-11-08**, the workstation maintains **two independent PostgreSQL clusters** that are **completely offline and isolated from production**:
 
-- **PRIMARY LOCAL DB** (`DATABASE_LOCAL_URL`, port 55433) — Participates in DEV→LOCAL replication cascade, auto-syncs every 5 minutes, used for production-like testing
-- **EXPERIMENTAL DB** (`DATABASE_EXPERIMENT_URL`, port 55434) — Independent clone for development/experiments, **NO auto-sync** (manual only), used for testing migrations before applying to LOCAL/DEV
+- **PRIMARY LOCAL DB** (`DATABASE_LOCAL_URL`, port 55433) — Can pull data from DEV master (one-way download), **NOT visible to production**, used for local development with production-like data
+- **EXPERIMENTAL DB** (`DATABASE_EXPERIMENT_URL`, port 55434) — Independent clone for development/experiments, **NOT visible to production**, **NO auto-sync** (manual only), used for testing migrations before pushing to cloud
+
+**CRITICAL:** Both local databases are **localhost-only**. The production node (PROD) cannot see or access them. Changes reach production only when you **explicitly push migrations to DEV Master**, which then replicates to PROD Node.
 
 See `docs/dual-local-database-guide.md` for comprehensive architecture, workflows, and best practices.
 
@@ -105,47 +107,52 @@ function selectMigrationUrl(envVars: Record<string, string>): string {
 ## Architecture Diagram (Updated 2025-11-08)
 
 ```
-Developer Laptop          Production Workstation          Databases
----------------          ------------------------        ---------
+Cloud Databases              Developer Workstation (OFFLINE)
+---------------              -------------------------------
 
-DEV_DATABASE_URL ────────────────────────────────────> DEV Master (Render)
-(migrations)                                           (Source of truth)
-                                                              |
-                                                              | Replication
-                                                              v
-                         PROD_DATABASE_URL ───────────> PROD Local Node
-                         (gameplay queries)             (<50ms latency)
-                         
-DATABASE_LOCAL_URL ──────────────────────────────────> Primary Local DB
-(offline dev, replication)                             Port: 55433
-                                                       Auto-sync: Every 5min
-                                                              |
-                                                              | Manual Clone
-                                                              v
-DATABASE_EXPERIMENT_URL ─────────────────────────────> Experimental DB
-(migrations, experiments)                              Port: 55434
-                                                       Auto-sync: DISABLED
+DEV Master (Render) ───┐     PRIMARY LOCAL DB
+(Source of truth)      │     Port: 55433 (localhost only)
+                       │     Pull: Downloads from DEV (one-way)
+PROD Node (Render)     │     Push: NONE (isolated from cloud)
+(Production gameplay)  │              │
+                       │              │ Manual Clone (offline)
+                       ▼              ▼
+                  Downloads to    EXPERIMENTAL DB
+                  workstation     Port: 55434 (localhost only)
+                  (one-way)       Pull: Clones from PRIMARY LOCAL
+                                  Push: NONE (isolated from cloud)
+
+                                  When ready to deploy:
+                                       │
+                                       │ EXPLICIT PUSH
+                                       ▼
+                                  Upload migration to DEV Master
+                                  DEV → PROD replication (automatic)
 ```
+
+**CRITICAL:** Arrows show data flow. Both local databases **cannot be accessed from cloud**. Production changes require **explicit push to DEV Master**.
 
 ## Critical Rules
 
 ### ✅ DO
 
-1. **Production gameplay** → Use `PROD_DATABASE_URL` (PROD local node)
-2. **All migrations** → Use `DEV_DATABASE_URL` (DEV master)
-3. **Development queries** → Use `DEV_DATABASE_URL` (DEV master)
+1. **Production gameplay** → Use `PROD_DATABASE_URL` (PROD cloud node)
+2. **All migrations** → Test on `DATABASE_EXPERIMENT_URL` first, then **explicit push to DEV Master**
+3. **Development queries** → Use `DEV_DATABASE_URL` (DEV master) OR `DATABASE_LOCAL_URL` (offline)
 4. **Offline development** → Use `DATABASE_LOCAL_URL` (primary local mirror, port 55433)
 5. **Migration testing** → Use `DATABASE_EXPERIMENT_URL` (experimental clone, port 55434)
-6. **Destructive experiments** → Use `DATABASE_EXPERIMENT_URL` (safe, won't affect replication)
+6. **Destructive experiments** → Use `DATABASE_EXPERIMENT_URL` (isolated, safe)
+7. **Pushing to production** → Test on EXPERIMENTAL → PRIMARY LOCAL → **explicit push to DEV** → DEV replicates to PROD
 
 ### ❌ DON'T
 
-1. **Never** run migrations against `PROD_DATABASE_URL` (local node is a replica)
-2. **Never** mix protocol types (all connections are `postgresql://`)
-3. **Never** use pooled/proxy URLs (direct connections only)
-4. **Never** use `localhost` in production (explicit `PROD_DATABASE_URL` required)
-5. **Never** run DROP TABLE on `DATABASE_LOCAL_URL` without testing on `DATABASE_EXPERIMENT_URL` first
-6. **Never** disable auto-sync on `DATABASE_LOCAL_URL` (breaks replication testing)
+1. **Never** run migrations against `PROD_DATABASE_URL` (production node)
+2. **Never** expect production to see local database changes (they're offline)
+3. **Never** push migrations to DEV without testing on EXPERIMENTAL + PRIMARY LOCAL first
+4. **Never** use `localhost` URLs in production code (explicit cloud URLs required)
+5. **Never** run DROP TABLE on PRIMARY LOCAL without testing on EXPERIMENTAL first
+6. **Never** assume local databases replicate to cloud automatically (they don't)
+7. **Never** share localhost database URLs (not accessible from cloud or other machines)
 
 ## Implementation Examples
 

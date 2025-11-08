@@ -9,39 +9,50 @@
 The dual-local-database architecture provides **two PostgreSQL clusters** on the workstation:
 
 1. **PRIMARY LOCAL DB** (`DATABASE_LOCAL_URL`) — Port **55433**
-   - Participates in DEV→LOCAL replication cascade
-   - Mirrors DEV master for <50ms gameplay performance
-   - Used for production-like local testing
-   - Automatically synced via `npm run db:auto-sync`
+   - Downloads data from DEV master (one-way sync, PULL only)
+   - **OFFLINE:** Not visible to production, not accessible from cloud
+   - Used for local development and testing with production-like data
+   - Automatically pulls from DEV master every 5 minutes (optional, can disable)
+   - **Cannot push changes back to DEV** — read-only sync
 
 2. **EXPERIMENTAL DB** (`DATABASE_EXPERIMENT_URL`) — Port **55434**
-   - Independent clone for development/experiments
-   - **Does NOT participate in automatic replication**
-   - Used for testing migrations before applying to LOCAL/DEV
-   - Manually synced when needed
+   - Independent clone from PRIMARY LOCAL (manual sync only)
+   - **OFFLINE:** Not visible to production, not accessible from cloud
+   - Used for testing migrations before applying to DEV
+   - **Does NOT sync automatically** — completely isolated
+   - Safe for destructive operations (DROP TABLE, schema experiments)
 
 ## Architecture Diagram
 
 ```
-Databases                    Workstation
----------                    -----------
+Cloud Databases              Workstation (OFFLINE - NOT VISIBLE TO PRODUCTION)
+---------------              ------------------------------------------------
 
-DEV Master (Render) ────────> PRIMARY LOCAL DB
-(Source of truth)             Port: 55433
-                              Store: Store/db/
-                              URL: DATABASE_LOCAL_URL
-                              Auto-sync: Every 5 minutes
-                              Purpose: Replication testing
-                                       │
-                                       │ Manual Clone
-                                       ▼
-                              EXPERIMENTAL DB
-                              Port: 55434
-                              Store: Store/db-experiment/
-                              URL: DATABASE_EXPERIMENT_URL
-                              Auto-sync: DISABLED
-                              Purpose: Development/migrations
+DEV Master (Render) ───┐     PRIMARY LOCAL DB
+(Source of truth)      │     Port: 55433
+                       │     Store: Store/db/
+PROD Node (Render)     │     URL: DATABASE_LOCAL_URL
+(Production gameplay)  │     Sync: PULL ONLY from DEV (one-way)
+                       │     Purpose: Offline testing/development
+                       │              │
+                       ▼              │ Manual Clone
+                  Downloads to        ▼
+                  workstation    EXPERIMENTAL DB
+                                 Port: 55434
+                                 Store: Store/db-experiment/
+                                 URL: DATABASE_EXPERIMENT_URL
+                                 Sync: MANUAL clone from PRIMARY LOCAL
+                                 Purpose: Migration testing (isolated)
+
+                                 │
+                                 │ EXPLICIT PUSH (when ready)
+                                 ▼
+                            Upload to DEV Master
+                            (migrations, schema changes)
+                            DEV Master then replicates to PROD Node
 ```
+
+**CRITICAL:** Both local databases are **completely offline and isolated**. The production node (PROD) cannot see or access either local database. Changes only reach production when you **explicitly push migrations to DEV Master**, which then replicates to PROD Node.
 
 ## Environment Variables
 
@@ -57,28 +68,36 @@ DATABASE_EXPERIMENT_URL=postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_
 
 ### Variable Purposes
 
-| Variable | Port | Store Path | Replication | Purpose |
+| Variable | Port | Store Path | Cloud Access | Purpose |
 | --- | --- | --- | --- | --- |
-| `DATABASE_LOCAL_URL` | 55433 | `Store/db/` | **YES** (DEV→LOCAL) | Production-like testing, <50ms gameplay |
-| `DATABASE_EXPERIMENT_URL` | 55434 | `Store/db-experiment/` | **NO** (manual) | Migrations, experiments, destructive testing |
+| `DATABASE_LOCAL_URL` | 55433 | `Store/db/` | **NONE (offline)** | Local development, pulls from DEV (one-way) |
+| `DATABASE_EXPERIMENT_URL` | 55434 | `Store/db-experiment/` | **NONE (offline)** | Migration testing, isolated experiments |
+
+**IMPORTANT:** Neither local database is visible to production nodes. Changes reach production only when you:
+1. Test migration on EXPERIMENTAL DB (port 55434)
+2. Validate migration on PRIMARY LOCAL DB (port 55433)
+3. **Explicitly push migration to DEV Master** (via `psql` or `prisma migrate deploy`)
+4. DEV Master replicates changes to PROD Node automatically
 
 ## When to Use Each Database
 
 ### Use PRIMARY LOCAL DB When:
-- ✅ Testing production-like gameplay scenarios
-- ✅ Validating replication cascade (DEV→LOCAL)
-- ✅ Running performance benchmarks that need real data
-- ✅ Testing queries against production schema
-- ✅ Verifying data integrity after replication
+- ✅ Testing locally with production-like data (offline)
+- ✅ Pulling latest schema/data from DEV master for local development
+- ✅ Running queries that don't require cloud access
+- ✅ Validating migrations after testing on EXPERIMENTAL
+- ✅ Developing features that need real data structures
 
 ### Use EXPERIMENTAL DB When:
-- ✅ Testing Phase 2 migration before applying to LOCAL/DEV
-- ✅ Experimenting with schema changes
+- ✅ Testing Phase 2 migration **before** pushing to DEV
+- ✅ Experimenting with schema changes (completely isolated)
 - ✅ Testing destructive operations (DROP TABLE, etc.)
 - ✅ Prototyping new features with schema modifications
 - ✅ Running migration rollback tests
 - ✅ Testing data migration scripts
 - ✅ Learning new SQL patterns without risk
+
+**KEY POINT:** Test migrations on EXPERIMENTAL → Validate on PRIMARY LOCAL → **Push to DEV Master** → DEV replicates to PROD
 
 ## Operational Workflows
 
@@ -113,14 +132,14 @@ EXPERIMENTAL DB (port 55434)
 ### Workflow 2: Test Migration on Experimental DB
 
 ```bash
-# Step 1: Ensure experimental DB has fresh data
+# Step 1: Ensure experimental DB has fresh data (from primary local)
 npm run ops:sync-experiment-db --from local
 
-# Step 2: Run migration on experimental DB (DRY RUN)
+# Step 2: Run migration on experimental DB (ISOLATED TEST)
 psql postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment \
   -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql
 
-# Step 3: Verify migration success
+# Step 3: Verify migration success (on experimental only)
 npm run db:cli -- count TrainerProfile --target experiment
 # Expected: 0 rows (table dropped)
 
@@ -135,32 +154,41 @@ psql postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment \
 npm run db:cli -- count TrainerProfile --target experiment
 # Expected: Original row count restored
 
-# Step 6: If tests pass, apply to PRIMARY LOCAL DB
+# Step 6: If tests pass, apply to PRIMARY LOCAL DB (still offline)
 npm run ops:sync-experiment-db --from local  # Refresh experiment
-# Re-run migration.sql on PRIMARY LOCAL (port 55433)
-# Then apply to DEV master
+psql postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db \
+  -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql
+
+# Step 7: ONLY AFTER LOCAL VALIDATION - Push to DEV Master
+psql $DEV_DATABASE_URL \
+  -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql
+# DEV Master will then replicate to PROD Node automatically
 ```
+
+**CRITICAL:** Steps 1-6 are **completely offline**. Production cannot see your changes until Step 7 (explicit push to DEV Master).
 
 ### Workflow 3: Sync Experimental DB from PRIMARY LOCAL
 
 ```bash
-# Refresh experimental DB with latest local data
+# Refresh experimental DB with latest local data (OFFLINE operation)
 npm run ops:sync-experiment-db --from local
 
-# Alternative: Sync from DEV master (bypasses local)
+# Alternative: Sync from DEV master (downloads from cloud)
 npm run ops:sync-experiment-db --from dev
 
-# Alternative: Sync from PROD (production data snapshot)
+# Alternative: Sync from PROD (downloads production snapshot)
 npm run ops:sync-experiment-db --from prod
 ```
 
-**Sync Process:**
-1. Take snapshot of source database (local/dev/prod)
+**Sync Process (ALL OFFLINE until --from dev/prod):**
+1. Take snapshot of source database (local=offline, dev/prod=downloads from cloud)
 2. Stop experimental database cluster (pg_ctl stop)
 3. Clear experimental database directory
 4. Restore snapshot to experimental database
 5. Start experimental database cluster (pg_ctl start)
 6. Log sync timestamp and row counts
+
+**IMPORTANT:** Only `--from dev` or `--from prod` connect to cloud. `--from local` is 100% offline.
 
 ### Workflow 4: Start/Stop Databases Independently
 
@@ -309,29 +337,31 @@ npm run ops:bootstrap-experiment-db --source local
 
 ### DO ✅
 
-- **Test all migrations on EXPERIMENTAL first** before applying to LOCAL/DEV/PROD
-- **Keep PRIMARY LOCAL synced** with DEV master (auto-sync every 5 minutes)
+- **Test all migrations on EXPERIMENTAL first** before applying to PRIMARY LOCAL or cloud
+- **Keep PRIMARY LOCAL synced** with DEV master via periodic pulls (optional auto-sync)
 - **Create manual snapshots** before destructive operations on EXPERIMENTAL
 - **Use `--target experiment`** flag when testing risky queries
 - **Verify rollback scripts** on EXPERIMENTAL before trusting them
 - **Document experiment outcomes** in Tasklist.md or migration docs
 - **Stop EXPERIMENTAL when not in use** (saves CPU/memory)
+- **Remember both databases are OFFLINE** — changes don't reach production until explicit push to DEV
 
 ### DON'T ❌
 
-- **DON'T run DROP TABLE on PRIMARY LOCAL** without backup
-- **DON'T disable auto-sync** on PRIMARY LOCAL (breaks replication testing)
+- **DON'T run DROP TABLE on PRIMARY LOCAL** without testing on EXPERIMENTAL first
+- **DON'T expect production to see local changes** — they're completely offline
+- **DON'T push migrations to DEV Master** without testing on EXPERIMENTAL → PRIMARY LOCAL first
 - **DON'T use EXPERIMENTAL for production-like gameplay** (data may be stale)
-- **DON'T share EXPERIMENTAL connection URL** (local-only access)
+- **DON'T share local database URLs** (localhost-only access, not accessible from cloud)
 - **DON'T rely on EXPERIMENTAL for data integrity** (can be reset anytime)
 - **DON'T run migrations on PRIMARY LOCAL** before testing on EXPERIMENTAL
-- **DON'T forget to sync EXPERIMENTAL** before testing (may have old data)
+- **DON'T forget both local databases are isolated** — PROD node cannot access them
 
 ## Migration Testing Strategy (Phase 2 Example)
 
-### Step-by-Step: Testing Phase 2 Migration
+### Step-by-Step: Testing Phase 2 Migration (OFFLINE → Cloud Push)
 
-**Day 1: Experimental Testing**
+**Day 1: Experimental Testing (100% OFFLINE)**
 1. ✅ Sync EXPERIMENTAL from PRIMARY LOCAL: `npm run ops:sync-experiment-db --from local`
 2. ✅ Snapshot EXPERIMENTAL manually: `pg_dump ... -f manual_pre_phase2.dump`
 3. ✅ Run migration.sql on EXPERIMENTAL: `psql ... -f migration.sql`
@@ -340,28 +370,30 @@ npm run ops:bootstrap-experiment-db --source local
 6. ✅ Verify rollback success: TrainerProfile restored, data matches snapshot
 7. ✅ Document results in Tasklist.md
 
-**Day 2: PRIMARY LOCAL Testing**
+**Day 2: PRIMARY LOCAL Testing (100% OFFLINE)**
 1. ✅ Sync EXPERIMENTAL again: `npm run ops:sync-experiment-db --from local`
 2. ✅ Re-run migration.sql on EXPERIMENTAL (final rehearsal)
-3. ✅ Snapshot PRIMARY LOCAL automatically (already happening)
+3. ✅ Snapshot PRIMARY LOCAL: Automatic or manual `pg_dump`
 4. ✅ Run migration.sql on PRIMARY LOCAL: `psql ... -f migration.sql`
 5. ✅ Verify data integrity on PRIMARY LOCAL
-6. ✅ Test gameplay queries against PRIMARY LOCAL
+6. ✅ Test queries locally (still offline)
 7. ✅ Monitor performance: `npm run db:cli -- slow_queries`
 
-**Day 3: DEV Master Testing**
-1. ✅ Take snapshot of DEV master: `pg_dump ... -f dev_pre_phase2.dump`
-2. ✅ Run migration.sql on DEV master
+**Day 3: DEV Master Push (CLOUD OPERATION)**
+1. ✅ Take snapshot of DEV master: `pg_dump $DEV_DATABASE_URL -f dev_pre_phase2.dump`
+2. ✅ **EXPLICIT PUSH:** Run migration.sql on DEV master: `psql $DEV_DATABASE_URL -f migration.sql`
 3. ✅ Verify data integrity on DEV
-4. ✅ Sync PRIMARY LOCAL from DEV: Auto-sync will pull changes
-5. ✅ Verify PRIMARY LOCAL reflects DEV state
+4. ✅ Optionally pull changes to PRIMARY LOCAL: `npm run ops:bootstrap-local-db --source dev`
+5. ✅ Verify PRIMARY LOCAL reflects DEV state (if pulled)
 
-**Day 4: PROD Deployment**
-1. ✅ Take snapshot of PROD: `pg_dump ... -f prod_pre_phase2.dump`
-2. ✅ Run migration.sql on PROD during maintenance window
+**Day 4: PROD Deployment (AUTOMATIC from DEV)**
+1. ✅ DEV Master automatically replicates to PROD Node (if configured)
+2. ✅ OR manually push to PROD: `psql $PROD_DATABASE_URL -f migration.sql` (during maintenance)
 3. ✅ Verify data integrity on PROD
 4. ✅ Deploy code updates with new schema
 5. ✅ Monitor error rates and performance for 24 hours
+
+**KEY INSIGHT:** Days 1-2 are **completely offline**. Production sees nothing until Day 3 explicit push to DEV Master.
 
 ## Troubleshooting
 
