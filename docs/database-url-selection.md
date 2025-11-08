@@ -24,7 +24,8 @@ All connections use direct `postgresql://` URLs. No Prisma Accelerate, no connec
 ```bash
 DEV_DATABASE_URL       # DEV master (migrations, schema changes)
 PROD_DATABASE_URL      # PROD local node (gameplay, <50ms latency)
-DATABASE_LOCAL_URL     # Local workstation mirror (offline development)
+DATABASE_LOCAL_URL     # Local workstation mirror (offline development, replication testing)
+DATABASE_EXPERIMENT_URL # Local experimental database (migrations, experiments, NO auto-sync)
 ```
 
 ### Legacy Variables (Still Supported for DEV Access)
@@ -36,13 +37,23 @@ RENDER_DB_INTERNAL_URL # DEV master internal network (Render services)
 
 ### Variable Purposes
 
-| Variable | Protocol | Purpose | Access Point |
-| --- | --- | --- | --- |
-| `DEV_DATABASE_URL` | `postgresql://` | DEV master database | Migrations, schema changes |
-| `PROD_DATABASE_URL` | `postgresql://` | PROD local node | Live gameplay (<50ms) |
-| `DATABASE_LOCAL_URL` | `postgresql://` | Workstation mirror | Offline development |
-| `RENDER_DB_EXTERNAL_URL` | `postgresql://` | DEV master (legacy) | External access |
-| `RENDER_DB_INTERNAL_URL` | `postgresql://` | DEV master (legacy) | Render internal |
+| Variable | Protocol | Purpose | Access Point | Port |
+| --- | --- | --- | --- | --- |
+| `DEV_DATABASE_URL` | `postgresql://` | DEV master database | Migrations, schema changes | Render |
+| `PROD_DATABASE_URL` | `postgresql://` | PROD local node | Live gameplay (<50ms) | Workstation |
+| `DATABASE_LOCAL_URL` | `postgresql://` | Workstation mirror | Offline dev, replication testing | 55433 |
+| `DATABASE_EXPERIMENT_URL` | `postgresql://` | Experimental clone | Migrations, destructive testing | 55434 |
+| `RENDER_DB_EXTERNAL_URL` | `postgresql://` | DEV master (legacy) | External access | Render |
+| `RENDER_DB_INTERNAL_URL` | `postgresql://` | DEV master (legacy) | Render internal | Render |
+
+## Dual Local Database Architecture
+
+**As of 2025-11-08**, the workstation maintains **two independent PostgreSQL clusters**:
+
+- **PRIMARY LOCAL DB** (`DATABASE_LOCAL_URL`, port 55433) — Participates in DEV→LOCAL replication cascade, auto-syncs every 5 minutes, used for production-like testing
+- **EXPERIMENTAL DB** (`DATABASE_EXPERIMENT_URL`, port 55434) — Independent clone for development/experiments, **NO auto-sync** (manual only), used for testing migrations before applying to LOCAL/DEV
+
+See `docs/dual-local-database-guide.md` for comprehensive architecture, workflows, and best practices.
 
 ## Canonical URL Selection Logic
 
@@ -83,18 +94,19 @@ function selectMigrationUrl(envVars: Record<string, string>): string {
 
 ## Quick Reference
 
-| Operation | Environment | URL Variable | Database Node |
-| --- | --- | --- | --- |
-| **Live gameplay** | Production | `PROD_DATABASE_URL` | PROD local node (<50ms) |
-| **Runtime queries** | Development | `DEV_DATABASE_URL` | DEV master |
-| **Migrations** | ALL | `DEV_DATABASE_URL` | DEV master (always) |
-| **Offline dev** | Local | `DATABASE_LOCAL_URL` | Workstation mirror |
+| Operation | Environment | URL Variable | Database Node | Port |
+| --- | --- | --- | --- | --- |
+| **Live gameplay** | Production | `PROD_DATABASE_URL` | PROD local node (<50ms) | Workstation |
+| **Runtime queries** | Development | `DEV_DATABASE_URL` | DEV master | Render |
+| **Migrations** | ALL | `DEV_DATABASE_URL` | DEV master (always) | Render |
+| **Offline dev** | Local | `DATABASE_LOCAL_URL` | Workstation mirror | 55433 |
+| **Experiments** | Local | `DATABASE_EXPERIMENT_URL` | Workstation clone | 55434 |
 
-## Architecture Diagram
+## Architecture Diagram (Updated 2025-11-08)
 
 ```
-Developer Laptop          Production Workstation        Databases
----------------          ------------------------      ---------
+Developer Laptop          Production Workstation          Databases
+---------------          ------------------------        ---------
 
 DEV_DATABASE_URL ────────────────────────────────────> DEV Master (Render)
 (migrations)                                           (Source of truth)
@@ -104,8 +116,15 @@ DEV_DATABASE_URL ─────────────────────
                          PROD_DATABASE_URL ───────────> PROD Local Node
                          (gameplay queries)             (<50ms latency)
                          
-DATABASE_LOCAL_URL ──────────────────────────────────> Local Mirror
-(offline dev)                                          (Workstation)
+DATABASE_LOCAL_URL ──────────────────────────────────> Primary Local DB
+(offline dev, replication)                             Port: 55433
+                                                       Auto-sync: Every 5min
+                                                              |
+                                                              | Manual Clone
+                                                              v
+DATABASE_EXPERIMENT_URL ─────────────────────────────> Experimental DB
+(migrations, experiments)                              Port: 55434
+                                                       Auto-sync: DISABLED
 ```
 
 ## Critical Rules
@@ -115,7 +134,9 @@ DATABASE_LOCAL_URL ────────────────────�
 1. **Production gameplay** → Use `PROD_DATABASE_URL` (PROD local node)
 2. **All migrations** → Use `DEV_DATABASE_URL` (DEV master)
 3. **Development queries** → Use `DEV_DATABASE_URL` (DEV master)
-4. **Offline development** → Use `DATABASE_LOCAL_URL` (local mirror)
+4. **Offline development** → Use `DATABASE_LOCAL_URL` (primary local mirror, port 55433)
+5. **Migration testing** → Use `DATABASE_EXPERIMENT_URL` (experimental clone, port 55434)
+6. **Destructive experiments** → Use `DATABASE_EXPERIMENT_URL` (safe, won't affect replication)
 
 ### ❌ DON'T
 
@@ -123,6 +144,8 @@ DATABASE_LOCAL_URL ────────────────────�
 2. **Never** mix protocol types (all connections are `postgresql://`)
 3. **Never** use pooled/proxy URLs (direct connections only)
 4. **Never** use `localhost` in production (explicit `PROD_DATABASE_URL` required)
+5. **Never** run DROP TABLE on `DATABASE_LOCAL_URL` without testing on `DATABASE_EXPERIMENT_URL` first
+6. **Never** disable auto-sync on `DATABASE_LOCAL_URL` (breaks replication testing)
 
 ## Implementation Examples
 
