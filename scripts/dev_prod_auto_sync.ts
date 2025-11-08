@@ -891,6 +891,20 @@ async function main(): Promise<void> {
 
   const devVars = await readEnvFile(config.devEnvPath);
   const prodVars = await readEnvFile(config.prodEnvPath);
+  
+  // UNIFIED ARCHITECTURE CHECK: If DEV and PROD URLs are identical, skip sync entirely
+  const devDbUrl = devVars.DEV_DATABASE_URL || devVars.DATABASE_URL || "";
+  const prodDbUrl = prodVars.PROD_DATABASE_URL || prodVars.DATABASE_URL || "";
+  
+  if (devDbUrl && prodDbUrl && devDbUrl === prodDbUrl) {
+    log("unified.architecture.detected", {
+      message: "DEV_DATABASE_URL === PROD_DATABASE_URL - unified database mode, auto-sync disabled",
+      databaseUrl: sanitizeWebhook(devDbUrl),
+    });
+    console.log("✅ Unified architecture detected - all URLs point to same database. Auto-sync not needed.");
+    return; // Exit gracefully - no sync required
+  }
+  
   let localVars: EnvVars | null = null;
   
   if (config.includeLocal && config.localEnvPath) {

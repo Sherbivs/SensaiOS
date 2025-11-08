@@ -1,13 +1,21 @@
 #!/bin/bash
-# bootstrap_prod_node.sh - Automated PROD database node bootstrap for Render
+# bootstrap_prod_node.sh - FOR LOCAL/ON-PREMISE DEVELOPMENT ONLY
+#
+# ⚠️  IMPORTANT: Render deployments use MANAGED PostgreSQL and do NOT need this script.
+# ⚠️  This script is only for setting up local workstation PostgreSQL clusters.
 #
 # PURPOSE:
-#   Automatically set up PostgreSQL on Render Node persistent disk for PROD_DATABASE_URL.
-#   This script runs during Render deployment to initialize the local PostgreSQL cluster.
+#   Set up PostgreSQL on local workstation persistent disk for on-premise development.
+#   Creates a local PostgreSQL cluster for testing without cloud database dependencies.
 #
-# ARCHITECTURE:
-#   PROD_DATABASE_URL → postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
-#   Location: /Store/db/ (Render persistent disk)
+# ARCHITECTURE (Local Development Only):
+#   DATABASE_ONPREMISE_DEV_PRIMARY → postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+#   Location: Store/onpremise-dev-primary/ (workstation persistent disk)
+#
+# RENDER DEPLOYMENTS:
+#   - Use Render-managed PostgreSQL (infinity-gauntlet-db)
+#   - All DATABASE_URL/PROD_DATABASE_URL/DEV_DATABASE_URL → fromDatabase connection strings
+#   - Automatic migrations via databaseRecovery.ts (no bootstrap needed)
 #
 # USAGE:
 #   ./scripts/bootstrap_prod_node.sh [--dry-run] [--force]
@@ -17,18 +25,20 @@
 #   --force      Recreate database even if it already exists
 #
 # ENVIRONMENT VARIABLES REQUIRED:
-#   DEV_DATABASE_URL - Master database connection string (source of truth)
-#   PROD_DATABASE_URL - Local production database connection string (127.0.0.1:55433)
+#   DEV_DATABASE_URL - Source database for replication (optional)
+#   DATABASE_ONPREMISE_DEV_PRIMARY - Local database connection string (127.0.0.1:55433)
 
 set -euo pipefail
 
 # Configuration
-STORE_DIR="${IG_STORE_ROOT:-/opt/render/project/src/Store}"
-DB_DIR="${STORE_DIR}/db"
-PG_PORT="${PROD_PG_PORT:-55433}"
-PG_USER="${PROD_PG_USER:-postgres}"
-PG_DATABASE="${PROD_PG_DATABASE:-infinity_gauntlet_db}"
+STORE_DIR="${IG_STORE_ROOT:-Store}"
+DB_DIR="${STORE_DIR}/onpremise-dev-primary"
+PG_PORT="${ONPREMISE_PG_PORT:-55433}"
+PG_USER="${ONPREMISE_PG_USER:-postgres}"
+PG_DATABASE="${ONPREMISE_PG_DATABASE:-infinity_gauntlet_db}"
 LOG_FILE="${DB_DIR}/bootstrap.log"
+```</output>
+
 
 DRY_RUN=false
 FORCE=false

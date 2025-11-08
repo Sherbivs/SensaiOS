@@ -222,12 +222,12 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     addDirectCandidate(localFallbackUrl, "local", true);
   }
 
-  // 2-NODE CLUSTER: All candidates are direct PostgreSQL
+  // UNIFIED ARCHITECTURE: All candidates are direct PostgreSQL
   const orderedCandidates: CandidateBucket = [...directCandidates];
 
   if (!orderedCandidates.length) {
     throw new Error(
-      "No database URL found. Provide a direct PostgreSQL connection string via PROD_DATABASE_URL (CLOUD-PROD-RUNTIME), DEV_DATABASE_URL (CLOUD-DEV-MASTER), RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL, or DATABASE_ONPREMISE_DEV_PRIMARY (workstation)."
+      "No database URL found. Provide a direct PostgreSQL connection string via PROD_DATABASE_URL, DEV_DATABASE_URL, RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL, or DATABASE_ONPREMISE_DEV_PRIMARY (workstation)."
     );
   }
 
@@ -274,8 +274,8 @@ function assertDatabaseUrl(nodeEnv: string, url: string): void {
       const host = new URL(url).hostname.toLowerCase();
       const isLocalhost = host === "localhost" || host === "127.0.0.1" || host === "::1";
       
-      // CRITICAL: Allow localhost for PROD_DATABASE_URL (2-node cluster architecture)
-      // CLOUD-PROD-RUNTIME intentionally uses 127.0.0.1:55433 (local Render Worker Node PostgreSQL)
+      // IMPORTANT: Allow localhost for on-premise development (DATABASE_ONPREMISE_DEV_PRIMARY)
+      // Production uses Render-managed PostgreSQL (no localhost)
       const prodUrl = process.env.PROD_DATABASE_URL?.trim();
       const isUsingProdLocalDatabase = prodUrl && url === prodUrl && isLocalhost;
       
