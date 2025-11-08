@@ -3,6 +3,8 @@
  * 
  * Tests version fingerprint calculation, comparison logic,
  * and reversion detection for database replication architecture.
+ * 
+ * Updated for PostgreSQL Pool (native pg library).
  */
 
 import { createHash } from 'crypto';
@@ -16,7 +18,7 @@ import {
   recordVersion,
   VersionStatus,
 } from '../../src/services/db-replication/version.js';
-import { createMockPrismaWithMigrations, type MockMigration } from '../shared/index.js';
+import { createMockPoolWithMigrations, type MockMigration } from '../shared/index.js';
 
 // ---- Test Data ----
 
@@ -48,8 +50,8 @@ const sampleMigrations: MockMigration[] = [
 
 describe('getVersion', () => {
   it('should calculate SHA-256 fingerprint from migrations', async () => {
-    const mockPrisma = createMockPrismaWithMigrations(sampleMigrations);
-    const version = await getVersion(mockPrisma, 'TEST');
+    const mockPool = createMockPoolWithMigrations(sampleMigrations);
+    const version = await getVersion(mockPool, 'TEST');
 
     // Verify fingerprint calculation
     const expectedInput = '20250101000000_init:abc123|20250102000000_add_users:def456|20250103000000_add_pokemon:ghi789';
@@ -62,8 +64,8 @@ describe('getVersion', () => {
   });
 
   it('should handle empty migrations table', async () => {
-    const mockPrisma = createMockPrismaWithMigrations([]);
-    const version = await getVersion(mockPrisma, 'EMPTY');
+    const mockPool = createMockPoolWithMigrations([]);
+    const version = await getVersion(mockPool, 'EMPTY');
 
     expect(version.fingerprint).toBe('');
     expect(version.migrationCount).toBe(0);
@@ -71,8 +73,8 @@ describe('getVersion', () => {
   });
 
   it('should use finished_at when available', async () => {
-    const mockPrisma = createMockPrismaWithMigrations(sampleMigrations);
-    const version = await getVersion(mockPrisma, 'TEST');
+    const mockPool = createMockPoolWithMigrations(sampleMigrations);
+    const version = await getVersion(mockPool, 'TEST');
 
     expect(version.lastMigrationAppliedAt).toEqual(new Date('2025-01-03T00:00:01Z'));
   });
@@ -80,13 +82,13 @@ describe('getVersion', () => {
 
 describe('compareVersions - MATCH', () => {
   it('should return MATCH when fingerprints are identical', async () => {
-    const mockPrismaSource = createMockPrismaWithMigrations(sampleMigrations);
-    const mockPrismaTarget = createMockPrismaWithMigrations(sampleMigrations);
+    const mockPoolSource = createMockPoolWithMigrations(sampleMigrations);
+    const mockPoolTarget = createMockPoolWithMigrations(sampleMigrations);
 
-    const sourceVersion = await getVersion(mockPrismaSource, 'DEV');
-    const targetVersion = await getVersion(mockPrismaTarget, 'PROD');
+    const sourceVersion = await getVersion(mockPoolSource, 'DEV');
+    const targetVersion = await getVersion(mockPoolTarget, 'PROD');
 
-    const comparison = await compareVersions(sourceVersion, targetVersion, mockPrismaSource, mockPrismaTarget);
+    const comparison = await compareVersions(sourceVersion, targetVersion, mockPoolSource, mockPoolTarget);
 
     expect(comparison.status).toBe(VersionStatus.MATCH);
     expect(comparison.migrationCountDiff).toBe(0);

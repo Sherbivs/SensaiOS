@@ -34,6 +34,14 @@ export {
   type MockSchemaData,
 } from './prisma-mocks.js';
 
+// PostgreSQL Pool mock utilities
+export {
+  createMockPoolWithMigrations,
+  createMockPoolWithSchema,
+  createMockPool,
+  createBasicMockPool,
+} from './pool-mocks.js';
+
 // Test fixtures
 export {
   // Migrations
