@@ -15,8 +15,8 @@
 const ACCELERATE_PATTERN = /prisma(\+|:\/\/)/i;
 const VALID_PATTERN = /^postgresql:\/\//i;
 
+// 2-NODE CLUSTER: Check environment-specific URLs (DEV master, PROD local node)
 const DATABASE_ENV_VARS = [
-  'DATABASE_URL',
   'DEV_DATABASE_URL',
   'PROD_DATABASE_URL',
   'RENDER_DB_EXTERNAL_URL',
@@ -60,23 +60,25 @@ for (const key of DATABASE_ENV_VARS) {
 
 console.log('');
 
-// Check for DATABASE_URL specifically (required for Prisma generation)
-if (!process.env.DATABASE_URL) {
-  console.warn('⚠️  DATABASE_URL not set');
-  console.warn('   Prisma client generation may fail or use incorrect engine type');
-  console.warn('   Recommendation: Set DATABASE_URL to a direct PostgreSQL connection');
-  warnings++;
-}
-
-// Check NODE_ENV
+// Check NODE_ENV and ensure correct environment-specific URL is set
 const nodeEnv = process.env.NODE_ENV || 'development';
 console.log(`Environment: ${nodeEnv}`);
 
-// In production, warn if DATABASE_URL isn't set
-if (nodeEnv === 'production' && !process.env.DATABASE_URL) {
-  console.error('❌ CRITICAL: DATABASE_URL not set in production');
-  console.error('   Prisma client will generate with incorrect engine type');
-  failures++;
+// Verify environment-specific database URLs are configured
+if (nodeEnv === 'production') {
+  const hasProdUrl = process.env.PROD_DATABASE_URL || process.env.RENDER_DB_INTERNAL_URL;
+  if (!hasProdUrl) {
+    console.error('❌ CRITICAL: PROD_DATABASE_URL or RENDER_DB_INTERNAL_URL not set in production');
+    console.error('   Production requires direct PostgreSQL connection to local node');
+    failures++;
+  }
+} else {
+  const hasDevUrl = process.env.DEV_DATABASE_URL || process.env.RENDER_DB_EXTERNAL_URL;
+  if (!hasDevUrl) {
+    console.warn('⚠️  DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL not set in development');
+    console.warn('   Development requires connection to master database');
+    warnings++;
+  }
 }
 
 // Summary
@@ -98,8 +100,8 @@ if (failures === 0 && warnings === 0) {
   console.error('');
   console.error('Action Required:');
   console.error('  1. Remove Accelerate URLs from environment variables');
-  console.error('  2. Set DATABASE_URL to direct PostgreSQL format: postgresql://...');
-  console.error('  3. Update render.yaml to set explicit DATABASE_URL for all services');
+  console.error('  2. Set PROD_DATABASE_URL (production) or DEV_DATABASE_URL (development)');
+  console.error('  3. Use direct PostgreSQL format: postgresql://...');
   console.error('');
   console.error('See docs/database-url-selection.md for canonical URL selection logic');
   console.error('See ops/CODEBASE-OVERHAUL-PLAN.md for comprehensive cleanup guide');

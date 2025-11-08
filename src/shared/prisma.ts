@@ -691,9 +691,9 @@ async function initializeLocalClient(): Promise<void> {
     prisma = prodPrismaClient;
     
     // Connect and probe
-    await localPrismaClient.$connect();
+    await prodPrismaClient.$connect();
     const start = process.hrtime.bigint();
-    await localPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+    await prodPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
     const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
     
     lastLocalHeartbeatEvent = {
