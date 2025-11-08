@@ -95,7 +95,7 @@ Optional services:
    ```powershell
    $env:IG_ENV_FILE="secrets/Infinity-Gauntlet.env"
    ```
-   Use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DEV_DATABASE_URL (DEV master), PROD_DATABASE_URL (PROD local node), RENDER_DB_EXTERNAL_URL (direct PostgreSQL external), RENDER_DB_INTERNAL_URL (direct PostgreSQL internal), DATABASE_LOCAL_URL (local workstation), OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. **No other key files are needed.**
+   Use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DEV_DATABASE_URL (DEV master), PROD_DATABASE_URL (PROD local node), RENDER_DB_EXTERNAL_URL (direct PostgreSQL external), RENDER_DB_INTERNAL_URL (direct PostgreSQL internal), DATABASE_LOCAL_URL (local workstation), and POKEMON_BOT_TOKEN. **No other key files are needed.**
    
    Run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist` to register the value for future shells (see `docs/ai-env-setup.md` and `docs/db-control-suite.md`). 
    
@@ -171,7 +171,6 @@ Reference data is mirrored into `/data` via scripted jobs:
    - `PROD_DATABASE_URL` (PROD local node - PRIMARY for gameplay). The app falls back to `DEV_DATABASE_URL`, `RENDER_DB_INTERNAL_URL`, `RENDER_DB_EXTERNAL_URL`, or `DATABASE_LOCAL_URL` for direct PostgreSQL connections.
    - `DISCORD_BOT_TOKEN` (or legacy `POKEMON_BOT_TOKEN` fallback)
    - Optional Render job variables (`POKE_RENDER_SERVICE_ID`, `POKE_REFRESH_CRON`, etc.)
-      - Optional Prisma Optimize endpoint override via `OPTIMIZE_API_URL`; the value must be HTTPS or it will be ignored.
 3. Optional connection tuning: set `PRISMA_CONNECT_MAX_RETRIES`, `PRISMA_CONNECT_RETRY_DELAY_MS`, and `PRISMA_CONNECT_MAX_DELAY_MS` to adjust connection retry behaviour. `PRISMA_SKIP_INITIAL_CONNECT=true` keeps tests fast and local dev resilient when the DB is offline.
 4. Additional feature flags in `src/config/env.js` tune rate limits, alerts, and remediation behaviors.
 5. If staging is missing baseline tables, follow `ops/DB_BOOTSTRAP.md` and run `scripts/bootstrap_staging_db.ps1` (PowerShell) before forward-only migrations.

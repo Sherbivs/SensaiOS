@@ -52,13 +52,13 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - **Start dev:** `npm run dev`
 - **Test:** `npm test`
 - **Lint:** `npm run lint`
-- **Env needed (do not commit secrets):** use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DEV_DATABASE_URL (DEV master), PROD_DATABASE_URL (PROD local node), RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_LOCAL_URL (local workstation), OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. Load it with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file. **No other key files are needed for development.**
+- **Env needed (do not commit secrets):** use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DEV_DATABASE_URL (DEV master), PROD_DATABASE_URL (PROD local node), RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_LOCAL_URL (local workstation), and POKEMON_BOT_TOKEN. Load it with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file. **No other key files are needed for development.**
 
 ## Local Database Access (Muted / Dev Only)
 
 **CRITICAL:** All database operations use direct PostgreSQL connections. The 2-node cluster architecture (DEV master + PROD local node) ensures <50ms latency for gameplay operations. See `ops/DB_BOOTSTRAP.md` for detailed migration workflow.
 
-1. **Environment file:** use `secrets/Infinity-Gauntlet.env` as the single consolidated environment file containing all development keys. This file includes DEV_DATABASE_URL (DEV master), PROD_DATABASE_URL (PROD local node), RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_LOCAL_URL (local workstation), BOT_TOKEN, OPTIMIZE_API_KEY, and POKEMON_BOT_TOKEN. **No other environment files are needed.**
+1. **Environment file:** use `secrets/Infinity-Gauntlet.env` as the single consolidated environment file containing all development keys. This file includes DEV_DATABASE_URL (DEV master), PROD_DATABASE_URL (PROD local node), RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_LOCAL_URL (local workstation), BOT_TOKEN, and POKEMON_BOT_TOKEN. **No other environment files are needed.**
 2. **Load environment before DB work:** run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist` to activate the environment. Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`, so this override must be active.
   - **FOR MIGRATIONS:** Migrations require direct PostgreSQL access. Use `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` to connect to the master database for schema changes.
   - **Verify access:** `echo $Env:IG_ENV_FILE` should print the chosen file; use `Get-Content secrets/Infinity-Gauntlet.env | Select-Object -First 5` to confirm it is reachable before running tooling.

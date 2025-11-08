@@ -11,7 +11,6 @@ This file contains all required keys:
 - `RENDER_DB_INTERNAL_URL` — Direct PostgreSQL Render internal (migrations on Render)
 - `RENDER_DB_EXTERNAL_URL` — Direct PostgreSQL external access (migrations from laptop)
 - `DATABASE_LOCAL_URL` — Local workstation PostgreSQL cluster (optional offline mirror)
-- `OPTIMIZE_API_KEY` — Prisma Optimize telemetry
 - `POKEMON_BOT_TOKEN` — Secondary bot token
 
 **No other environment files are needed for development.**

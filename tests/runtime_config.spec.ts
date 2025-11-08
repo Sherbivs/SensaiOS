@@ -19,9 +19,6 @@ beforeEach(() => {
   delete process.env.RENDER_DB_INTERNAL_URL;
   delete process.env.RENDER_DB_EXTERNAL_URL;
   delete process.env.DATABASE_LOCAL_URL;
-  delete process.env.OPTIMIZE_API_KEY;
-  delete process.env.OPTIMIZE_API_URL;
-  delete process.env.OPTIMIZE_API_ENDPOINT;
   delete process.env.CACHE_TTL_MS;
   process.env.NODE_ENV = "development";
 });
