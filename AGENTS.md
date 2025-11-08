@@ -133,6 +133,160 @@ function selectMigrationUrl(envVars: Record<string, string>): string {
 
 All clients initialize on startup via `src/shared/prisma.ts` and maintain independent heartbeat monitoring. The logger (`src/utils/logger.js`) auto-refreshes stats every 15 seconds, displaying telemetry for all connections in console output and restart DM messages.
 
+### Dual Local Database Setup (Workstation Only)
+
+**As of 2025-11-08**, the workstation maintains **two independent PostgreSQL clusters** for development and migration testing. Both databases are **completely OFFLINE** and NOT visible to production nodes. See `docs/dual-local-database-guide.md` for comprehensive documentation.
+
+**Architecture:**
+
+```
+Cloud Databases              Workstation (OFFLINE)
+---------------              ---------------------
+
+DEV Master (Render) ───┐     PRIMARY LOCAL DB
+(Source of truth)      │     Port: 55433
+                       │     Store: Store/db/
+PROD Node (Render)     │     URL: DATABASE_LOCAL_URL
+(Production gameplay)  │     Sync: PULL from DEV (one-way)
+                       │     Purpose: Local development with production-like data
+                       │              │
+                       ▼              │ Manual Clone
+                  Downloads to        ▼
+                  workstation    EXPERIMENTAL DB
+                                 Port: 55434
+                                 Store: Store/db-experiment/
+                                 URL: DATABASE_EXPERIMENT_URL
+                                 Sync: MANUAL clone from PRIMARY LOCAL
+                                 Purpose: Migration testing (isolated)
+
+                                 │
+                                 │ EXPLICIT PUSH (when ready)
+                                 ▼
+                            Upload to DEV Master
+                            (migrations, schema changes)
+                            DEV Master then replicates to PROD Node
+```
+
+**CRITICAL:** Both local databases are **completely offline and isolated**. The production node (PROD) cannot see or access either local database. Changes only reach production when you **explicitly push migrations to DEV Master**, which then replicates to PROD Node.
+
+**Use Cases:**
+
+| Database | Port | Purpose | When to Use |
+| --- | --- | --- | --- |
+| **PRIMARY LOCAL** | 55433 | Local development with production-like data | Testing locally with real data structures, validating migrations after testing on EXPERIMENTAL |
+| **EXPERIMENTAL** | 55434 | Migration testing, schema experiments | Testing Phase 2 migration **before** pushing to DEV, destructive operations (DROP TABLE, etc.) |
+
+**Workflow:** Test on EXPERIMENTAL → Validate on PRIMARY LOCAL → **Push to DEV Master** → DEV replicates to PROD
+
+**npm Scripts:**
+
+```bash
+# Bootstrap PRIMARY LOCAL database (port 55433)
+npm run ops:bootstrap-local-db
+
+# Bootstrap EXPERIMENTAL database (port 55434) from PRIMARY LOCAL
+npm run ops:bootstrap-experiment-db
+
+# Bootstrap EXPERIMENTAL from DEV master (downloads from cloud)
+npm run ops:bootstrap-experiment-db -- --source dev
+
+# Sync EXPERIMENTAL from PRIMARY LOCAL (offline sync, default)
+npm run ops:sync-experiment-db
+
+# Sync EXPERIMENTAL from DEV master (downloads from cloud)
+npm run ops:sync-experiment-db -- --from dev
+
+# Start EXPERIMENTAL cluster
+npm run ops:start-experiment-db
+
+# Stop EXPERIMENTAL cluster
+npm run ops:stop-experiment-db
+
+# Show status of both databases (running state, row counts)
+npm run ops:status-local-dbs
+```
+
+**Migration Testing Workflow:**
+
+```bash
+# Step 1: Ensure PRIMARY LOCAL is up-to-date
+npm run ops:bootstrap-local-db
+
+# Step 2: Clone PRIMARY LOCAL to EXPERIMENTAL (100% OFFLINE)
+npm run ops:bootstrap-experiment-db
+
+# Step 3: Test Phase 2 migration on EXPERIMENTAL (100% OFFLINE)
+psql postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment \
+  -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql
+
+# Step 4: Validate migration results (100% OFFLINE)
+npm run db:cli -- count User --target experiment
+npm run db:cli -- query "SELECT COUNT(*) FROM \"TrainerProfile\";" --target experiment
+
+# Step 5: Test rollback if needed (100% OFFLINE)
+psql postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment \
+  -f prisma/migrations/20251108183000_northstar_phase2_consolidation/rollback.sql
+
+# Step 6: Validate on PRIMARY LOCAL if successful (100% OFFLINE)
+npm run ops:sync-experiment-db --from local
+psql postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db \
+  -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql
+
+# Step 7: ONLY AFTER LOCAL VALIDATION - Push to DEV Master (CLOUD OPERATION)
+# Connect to DEV master and apply migration
+psql $DEV_DATABASE_URL -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql
+
+# Step 8: DEV Master replicates to PROD Node automatically
+```
+
+**Key Points:**
+- **Steps 1-6 are completely offline** — no cloud connections, no production visibility
+- PRIMARY LOCAL downloads from DEV master (one-way PULL), does NOT push changes back
+- EXPERIMENTAL never connects to cloud — fully isolated for testing
+- Changes reach production only via **explicit push to DEV Master** in Step 7
+- Both databases use localhost-only connections (127.0.0.1) on ports 55433/55434
+
+**Environment Variables:**
+
+```bash
+# secrets/Infinity-Gauntlet.env
+DATABASE_LOCAL_URL=postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+DATABASE_EXPERIMENT_URL=postgresql://postgres@127.0.0.1:55434/infinity_gauntlet_experiment
+```
+
+**Prisma Client Access:**
+
+```typescript
+import { prisma, devPrisma, localPrisma, experimentPrisma } from "../shared/prisma.js";
+
+// PROD database (gameplay operations)
+const prodUsers = await prisma.user.findMany();
+
+// DEV database (master, source of truth)
+if (devPrisma) {
+  const devUsers = await devPrisma.user.findMany();
+}
+
+// PRIMARY LOCAL database (workstation mirror)
+if (localPrisma) {
+  const localUsers = await localPrisma.user.findMany();
+}
+
+// EXPERIMENTAL database (migration testing)
+if (experimentPrisma) {
+  const experimentUsers = await experimentPrisma.user.findMany();
+}
+```
+
+**Safety Rules:**
+- ✅ DO remember both databases are OFFLINE (localhost-only)
+- ✅ DO test migrations on EXPERIMENTAL before PRIMARY LOCAL
+- ✅ DO validate migrations on PRIMARY LOCAL before pushing to DEV
+- ✅ DO document testing results in Tasklist.md
+- ❌ DON'T expect production to see local database changes
+- ❌ DON'T assume local databases replicate automatically to cloud
+- ❌ DON'T skip EXPERIMENTAL testing — always test destructive operations offline first
+
 **Usage Patterns:**
 
 ```typescript
