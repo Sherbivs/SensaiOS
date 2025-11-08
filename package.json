@@ -7,9 +7,7 @@
     "build:ci": "npm run prebuild",
     "postinstall": "npm run prebuild",
     "validate:urls": "node scripts/validate_database_urls.js",
-    "generate:clean": "node -e \"try { require('fs').rmSync('node_modules/.prisma', { recursive: true, force: true }); require('fs').rmSync('node_modules/@prisma/client', { recursive: true, force: true }); } catch (e) { /* ignore */ }\"",
-    "generate": "npm run generate:clean && prisma generate --no-engine",
-    "prebuild": "npm run validate:urls && npm run generate && npm run build:ts",
+    "prebuild": "npm run validate:urls && npm run build:ts",
     "build:ts": "tsc --project tsconfig.build.json",
     "build": "npm run build:ts",
     "dev": "tsx watch src/index.ts",
@@ -65,7 +63,6 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.619.0",
-    "@prisma/client": "^6.19.0",
     "axios": "^1.13.1",
     "discord.js": "^14.16.3",
     "dotenv": "^17.2.3",
