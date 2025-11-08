@@ -204,9 +204,19 @@ describe('ProfileService - Core Functionality', () => {
 
   describe('Achievement Queries', () => {
     it('should fetch achievements with JOIN', async () => {
-      // Mock achievements query
+      // Mock achievements query with database column names
       (mockPool.query as any).mockResolvedValueOnce({
-        rows: [mockAchievement],
+        rows: [{
+          achievementId: 1,
+          slug: 'first-catch',
+          name: 'First Catch',
+          description: 'Catch your first Pokémon',
+          category: 'gameplay',
+          rarity: 'common',
+          coinReward: 100,
+          unlockedAt: new Date('2024-01-02'),
+          progress: 1,
+        }],
         rowCount: 1,
       });
 
@@ -256,14 +266,22 @@ describe('ProfileService - Core Functionality', () => {
     };
 
     it('should fetch battles leaderboard with pagination', async () => {
-      // Mock leaderboard query
+      // Mock leaderboard query - entries and count
       (mockPool.query as any)
         .mockResolvedValueOnce({
-          rows: [mockLeaderboardRow],
+          rows: [{
+            userId: testUserId,
+            discordId: testDiscordId,
+            nickname: 'TestTrainer',
+            avatarUrl: null,
+            value: 100,
+            favoriteSpeciesId: 25,
+            row_num: '1',
+          }],
           rowCount: 1,
         })
         .mockResolvedValueOnce({
-          rows: [{ total: 50 }],
+          rows: [{ count: '50' }],
           rowCount: 1,
         });
 
@@ -332,18 +350,34 @@ describe('ProfileService - Core Functionality', () => {
     });
 
     it('should include user rank when requested', async () => {
-      // Mock leaderboard query
+      // Mock leaderboard query - entries, count, and user rank
       (mockPool.query as any)
         .mockResolvedValueOnce({
-          rows: [mockLeaderboardRow],
+          rows: [{
+            userId: testUserId,
+            discordId: testDiscordId,
+            nickname: 'TestTrainer',
+            avatarUrl: null,
+            value: 100,
+            favoriteSpeciesId: 25,
+            row_num: '1',
+          }],
           rowCount: 1,
         })
         .mockResolvedValueOnce({
-          rows: [{ total: 50 }],
+          rows: [{ count: '50' }],
           rowCount: 1,
         })
         .mockResolvedValueOnce({
-          rows: [{ rank: 15 }],
+          rows: [{
+            userId: testUserId,
+            discordId: testDiscordId,
+            nickname: 'TestTrainer',
+            avatarUrl: null,
+            value: 100,
+            favoriteSpeciesId: 25,
+            row_num: '15',
+          }],
           rowCount: 1,
         });
 
@@ -356,7 +390,8 @@ describe('ProfileService - Core Functionality', () => {
 
       const result = await service.getLeaderboard(options);
 
-      expect(result.userRank).toBe(15);
+      expect(result.userRank).toBeDefined();
+      expect(result.userRank?.rank).toBe(15);
       expect(mockPool.query).toHaveBeenCalledTimes(3); // entries + total + user rank
     });
   });
