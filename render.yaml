@@ -9,7 +9,7 @@ services:
   - type: web
     name: infinity-gauntlet-bot
     runtime: node
-    buildCommand: rm -rf node_modules && rm -rf node_modules/.prisma && rm -rf node_modules/@prisma && npm install --include=dev && npm run prebuild && bash scripts/bootstrap_prod_node.sh
+    buildCommand: rm -rf node_modules && rm -rf node_modules/.prisma && rm -rf node_modules/@prisma && npm install --include=dev && npm run prebuild
     startCommand: npm start
     autoDeploy: true
     plan: starter
@@ -18,12 +18,16 @@ services:
         mountPath: /opt/render/project/src/Store
         sizeGB: 2
     envVars:
-      # 2-NODE CLUSTER: PROD_DATABASE_URL (local on disk), DEV_DATABASE_URL (master on Render PostgreSQL)
-      # DATABASE_URL must be set for Prisma client generation (build time)
+      # Unified architecture: Render-managed PostgreSQL as single source of truth
+      # All environments point to same managed database for now (scalable for multi-DB future)
       - key: DATABASE_URL
-        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
       - key: PROD_DATABASE_URL
-        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
       - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
@@ -42,7 +46,7 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild && bash scripts/bootstrap_prod_node.sh"
+    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
     startCommand: "node dist/worker/outbox.js"
     autoDeploy: true
     disks:
@@ -50,12 +54,16 @@ services:
         mountPath: /opt/render/project/src/Store
         sizeGB: 2
     envVars:
-      # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
-      # DATABASE_URL must be set for Prisma client generation (build time)
+      # Unified architecture: Render-managed PostgreSQL as single source of truth
+      # All environments point to same managed database for now (scalable for multi-DB future)
       - key: DATABASE_URL
-        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
       - key: PROD_DATABASE_URL
-        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
       - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
@@ -83,7 +91,7 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild && bash scripts/bootstrap_prod_node.sh"
+    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
     startCommand: "npm start"
     autoDeploy: true
     disks:
@@ -91,17 +99,21 @@ services:
         mountPath: /opt/render/project/src/Store
         sizeGB: 2
     envVars:
-      # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
-      # DATABASE_URL must be set for Prisma client generation (build time)
+      # Unified architecture: Render-managed PostgreSQL as single source of truth
+      # All environments point to same managed database for now (scalable for multi-DB future)
       - key: DATABASE_URL
-        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
       - key: PROD_DATABASE_URL
-        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
       - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
-      # Auto-sync uses DEV_DATABASE_URL (master) as source
+      # Note: Auto-sync disabled in unified mode (all URLs point to same database)
       - key: NODE_ENV
         value: production
       - key: SERVICE_NAME
@@ -117,7 +129,7 @@ services:
       - key: ENABLE_SECURITY_BOT
         value: "false"
       - key: ENABLE_DB_AUTO_SYNC
-        value: "true"
+        value: "false"
       - key: BATTLE_CHANNEL_NAME
         value: pokemon-battles
       - key: DISABLE_SNAPSHOT_PRECHECK
@@ -168,7 +180,7 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild && bash scripts/bootstrap_prod_node.sh"
+    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
     startCommand: "node dist/worker/cache-refresh.js"
     autoDeploy: true
     disks:
@@ -176,12 +188,16 @@ services:
         mountPath: /opt/render/project/src/Store
         sizeGB: 2
     envVars:
-      # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
-      # DATABASE_URL must be set for Prisma client generation (build time)
+      # Unified architecture: Render-managed PostgreSQL as single source of truth
+      # All environments point to same managed database for now (scalable for multi-DB future)
       - key: DATABASE_URL
-        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
       - key: PROD_DATABASE_URL
-        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
       - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
@@ -204,7 +220,7 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild && bash scripts/bootstrap_prod_node.sh"
+    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
     startCommand: "node dist/worker/data-pipeline.js"
     autoDeploy: true
     disks:
@@ -212,12 +228,16 @@ services:
         mountPath: /opt/render/project/src/Store
         sizeGB: 2
     envVars:
-      # 2-NODE CLUSTER: PROD_DATABASE_URL (local), DEV_DATABASE_URL (master)
-      # DATABASE_URL must be set for Prisma client generation (build time)
+      # Unified architecture: Render-managed PostgreSQL as single source of truth
+      # All environments point to same managed database for now (scalable for multi-DB future)
       - key: DATABASE_URL
-        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
       - key: PROD_DATABASE_URL
-        value: postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
       - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
@@ -296,7 +316,7 @@ services:
     startCommand: "node scripts/refresh_cache_gh_only.mjs"
     schedule: "0 0 * * 4"
     envVars:
-      # 2-NODE CLUSTER: Uses DEV_DATABASE_URL (master)
+      # Unified architecture: Single Render-managed PostgreSQL database
       - key: DEV_DATABASE_URL
         fromDatabase:
           name: infinity-gauntlet-db
