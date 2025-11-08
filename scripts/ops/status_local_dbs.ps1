@@ -77,13 +77,13 @@ function Get-DatabaseStatus {
         Write-Host "  Row Counts:" -ForegroundColor Gray
         foreach ($Table in $Tables) {
             try {
-                $Query = "SELECT COUNT(*) FROM `"$Table`";"
+                $Query = 'SELECT COUNT(*) FROM "' + $Table + '";'
                 $Count = & $Psql $ConnStr -t -A -c $Query 2>$null
                 if ($LASTEXITCODE -eq 0 -and $Count) {
-                    Write-Host "    $Table`: $Count" -ForegroundColor White
+                    Write-Host "    $Table - $Count" -ForegroundColor White
                 }
             } catch {
-                Write-Host "    $Table`: (error)" -ForegroundColor DarkGray
+                Write-Host "    $Table - (error)" -ForegroundColor DarkGray
             }
         }
     } else {
@@ -116,6 +116,6 @@ if ($env:DATABASE_EXPERIMENT_URL) {
 
 Write-Host ""
 Write-Host "Commands:" -ForegroundColor Cyan
-Write-Host "  Start experimental: npm run ops:start-experiment-db" -ForegroundColor Gray
-Write-Host "  Stop experimental:  npm run ops:stop-experiment-db" -ForegroundColor Gray
-Write-Host "  Sync experimental:  npm run ops:sync-experiment-db" -ForegroundColor Gray
+Write-Host "  Start experimental - npm run ops:start-experiment-db" -ForegroundColor Gray
+Write-Host "  Stop experimental - npm run ops:stop-experiment-db" -ForegroundColor Gray
+Write-Host "  Sync experimental - npm run ops:sync-experiment-db" -ForegroundColor Gray
