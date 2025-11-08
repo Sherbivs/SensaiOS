@@ -16,11 +16,12 @@ import { exec } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
 import { promisify } from 'util';
 
-import type { PrismaClient } from '@prisma/client';
+import type { Pool } from 'pg';
 
 import { verifySchemaIntegrity, verifyDataIntegrity } from './integrity.js';
 import { handleSyncFailure } from './rollback.js';
 import { getVersion, compareVersions, handleReversion, recordVersion } from './version.js';
+import { upsertDbSyncState } from '../../shared/models/db-version-queries-pg.js';
 
 const execAsync = promisify(exec);
 
@@ -165,41 +166,21 @@ async function execCommand(
  * Record sync event in db_sync_state table.
  */
 async function recordSyncEvent(
-  prismaClient: PrismaClient,
+  pool: Pool,
   source: string,
   target: string,
   result: SyncResult
 ): Promise<void> {
   try {
-    // Note: This will fail until dbSyncState model is added to schema
-    // Commenting out to avoid compile errors for now
-    /*
-    await prismaClient.dbSyncState.upsert({
-      where: {
-        source_target: { source, target },
-      },
-      create: {
-        source,
-        target,
-        status: result.success ? 'IN_SYNC' : 'ERROR',
-        lastSyncAt: result.completedAt || result.startedAt,
-        lastDuration: result.duration || null,
-        lastError: result.errors.length > 0 ? JSON.stringify(result.errors) : null,
-        lastIntegrityCheck: result.metrics.schemaIntegrityPassed ? { passed: true } : null,
-      },
-      update: {
-        status: result.success ? 'IN_SYNC' : 'ERROR',
-        lastSyncAt: result.completedAt || result.startedAt,
-        lastDuration: result.duration || null,
-        lastError: result.errors.length > 0 ? JSON.stringify(result.errors) : null,
-        lastIntegrityCheck: result.metrics.schemaIntegrityPassed ? { passed: true } : null,
-        updatedAt: new Date(),
-      },
-    });
-    */
+    await upsertDbSyncState({
+      source,
+      target,
+      status: result.success ? 'IN_SYNC' : 'ERROR',
+      lastSyncAt: result.completedAt || result.startedAt,
+      lastError: result.errors.length > 0 ? JSON.stringify(result.errors) : null,
+    }, pool);
 
     logger.info(`Recorded sync event: ${source} → ${target}`, { success: result.success });
-    logger.warn('dbSyncState update skipped (schema not yet migrated)');
   } catch (error) {
     logger.error('Failed to record sync event:', error);
     // Non-fatal: don't throw
@@ -224,8 +205,8 @@ async function recordSyncEvent(
  * Rollback: On any failure, calls handleSyncFailure() to preserve state and alert.
  */
 export async function syncDevToProd(
-  devPrisma: PrismaClient,
-  prodPrisma: PrismaClient,
+  devPool: Pool,
+  prodPool: Pool,
   options: SyncOptions = {}
 ): Promise<SyncResult> {
   const result: SyncResult = {
@@ -251,16 +232,16 @@ export async function syncDevToProd(
     result.stage = SyncStage.VERSION_CHECK;
     logger.info('Sync: Stage 1 - Version Check');
 
-    const devVersion = await getVersion(devPrisma, 'DEV');
-    const prodVersion = await getVersion(prodPrisma, 'PROD');
+    const devVersion = await getVersion(devPool, 'DEV');
+    const prodVersion = await getVersion(prodPool, 'PROD');
 
     result.metrics.versionBefore = prodVersion.fingerprint;
 
-    const comparison = await compareVersions(devVersion, prodVersion, devPrisma, prodPrisma);
+    const comparison = await compareVersions(devVersion, prodVersion, devPool, prodPool);
 
     if (comparison.status === 'BEHIND') {
       // Reversion detected! DEV rolled back.
-      await handleReversion(devVersion, prodVersion, prodPrisma);
+      await handleReversion(devVersion, prodVersion, prodPool);
       throw new Error(
         `DEV is BEHIND Prod (reversion detected). DEV: ${devVersion.migrationCount}, Prod: ${prodVersion.migrationCount}. Sync blocked.`
       );
@@ -305,7 +286,7 @@ export async function syncDevToProd(
       result.stage = SyncStage.INTEGRITY_VERIFY;
       logger.info('Sync: Stage 2 - Pre-migration integrity check');
 
-      const integrityResult = await verifySchemaIntegrity(devPrisma, prodPrisma);
+      const integrityResult = await verifySchemaIntegrity(devPool, prodPool);
 
       if (!integrityResult.passed) {
         logger.warn('Pre-migration integrity check found diffs (expected before migration)', {
@@ -345,7 +326,7 @@ export async function syncDevToProd(
     result.stage = SyncStage.VALIDATION;
     logger.info('Sync: Stage 4 - Post-migration validation');
 
-    const prodVersionAfter = await getVersion(prodPrisma, 'PROD');
+    const prodVersionAfter = await getVersion(prodPool, 'PROD');
     result.metrics.versionAfter = prodVersionAfter.fingerprint;
 
     if (prodVersionAfter.fingerprint !== devVersion.fingerprint) {
@@ -359,7 +340,7 @@ export async function syncDevToProd(
     });
 
     if (!options.skipIntegrity) {
-      const postIntegrity = await verifySchemaIntegrity(devPrisma, prodPrisma);
+      const postIntegrity = await verifySchemaIntegrity(devPool, prodPool);
       result.metrics.schemaIntegrityPassed = postIntegrity.passed;
 
       if (!postIntegrity.passed) {
@@ -372,7 +353,7 @@ export async function syncDevToProd(
     }
 
     if (!options.skipDataChecks) {
-      const dataIntegrity = await verifyDataIntegrity(devPrisma, prodPrisma, {
+      const dataIntegrity = await verifyDataIntegrity(devPool, prodPool, {
         skipTables: ['_prisma_migrations'], // Exclude metadata tables
         skipChecksums: true, // Row counts only for performance
       });
@@ -404,10 +385,10 @@ export async function syncDevToProd(
     });
 
     // Record sync event in db_sync_state
-    await recordSyncEvent(prodPrisma, 'DEV', 'PROD', result);
+    await recordSyncEvent(prodPool, 'DEV', 'PROD', result);
 
     // Record version snapshot in db_version
-    await recordVersion(prodPrisma, prodVersionAfter);
+    await recordVersion(prodPool, prodVersionAfter);
 
     return result;
   } catch (error: any) {
@@ -428,7 +409,7 @@ export async function syncDevToProd(
     });
 
     // Trigger rollback handling
-    await handleSyncFailure(prodPrisma, 'DEV', 'PROD', result);
+    await handleSyncFailure(prodPool, 'DEV', 'PROD', result);
 
     return result;
   }
@@ -452,8 +433,8 @@ export async function syncDevToProd(
  * Requires: PG_BIN_DIR environment variable pointing to PostgreSQL bin/ directory.
  */
 export async function syncProdToLocal(
-  prodPrisma: PrismaClient,
-  localPrisma: PrismaClient,
+  prodPool: Pool,
+  localPool: Pool,
   options: SyncOptions = {}
 ): Promise<SyncResult> {
   const result: SyncResult = {
@@ -474,8 +455,8 @@ export async function syncProdToLocal(
     logger.info('Sync: Prod → Local - STARTED');
 
     // Version check
-    const prodVersion = await getVersion(prodPrisma, 'PROD');
-    const localVersion = await getVersion(localPrisma, 'LOCAL');
+    const prodVersion = await getVersion(prodPool, 'PROD');
+    const localVersion = await getVersion(localPool, 'LOCAL');
 
     result.metrics.versionBefore = localVersion.fingerprint;
 
