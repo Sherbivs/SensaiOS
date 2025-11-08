@@ -59,15 +59,18 @@ globalPrisma.prismaHeartbeatListeners = heartbeatListeners;
 let devPrismaClient: PrismaClient | null = null;
 let prodPrismaClient: PrismaClient | null = null;
 let localPrismaClient: PrismaClient | null = null;
+let experimentPrismaClient: PrismaClient | null = null;
 let prismaClient: PrismaClient; // Legacy reference - points to prod
 export let prisma: PrismaClient; // Points to PROD client
 export let devPrisma: PrismaClient | null = null; // DEV client
 export let localPrisma: PrismaClient | null = null; // LOCAL client (workstation mirror)
+export let experimentPrisma: PrismaClient | null = null; // EXPERIMENTAL client (migration testing)
 let activeCandidate: DatabaseCandidate | null = null;
 let lastPrismaTransport = "direct";
 let devTransport = "unknown";
 let prodTransport = "unknown";
 let localTransport = "unknown";
+let experimentTransport = "unknown";
 
 function emitHeartbeat(event: PrismaHeartbeatEvent): void {
   for (const listener of heartbeatListeners) {
@@ -494,6 +497,13 @@ export type TripleDatabaseStats = {
   local: DatabaseStats;
 };
 
+export type QuadDatabaseStats = {
+  dev: DatabaseStats;
+  prod: DatabaseStats;
+  local: DatabaseStats;
+  experiment: DatabaseStats;
+};
+
 // Legacy type for backward compatibility
 export type DualDatabaseStats = TripleDatabaseStats;
 
@@ -502,6 +512,7 @@ let _lastHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 let lastDevHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 let lastProdHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 let lastLocalHeartbeatEvent: PrismaHeartbeatEvent | null = null;
+let lastExperimentHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 
 onPrismaHeartbeat((event) => {
   _lastHeartbeatEvent = event;
@@ -518,7 +529,7 @@ function computeStatus(heartbeat: PrismaHeartbeatEvent | null): string {
   return heartbeat.consecutiveFailures >= HEARTBEAT_DEFAULTS.errorThreshold ? "error" : "reconnecting";
 }
 
-export function getDatabaseStats(): TripleDatabaseStats {
+export function getDatabaseStats(): QuadDatabaseStats {
   // PROD stats (main connection)
   const prodCandidate = activeCandidate;
   const prodSource = prodCandidate?.source ?? "unknown";
@@ -541,6 +552,13 @@ export function getDatabaseStats(): TripleDatabaseStats {
     ? (lastLocalHeartbeatEvent ? computeStatus(lastLocalHeartbeatEvent) : "initializing")
     : "offline";
   
+  // EXPERIMENT stats (quaternary connection - independent clone for migration testing)
+  const experimentSource = process.env.DATABASE_EXPERIMENT_URL ? "experiment" : "unknown";
+  const experimentLatency = lastExperimentHeartbeatEvent?.latencyMs ?? null;
+  const experimentStatus = experimentPrismaClient
+    ? (lastExperimentHeartbeatEvent ? computeStatus(lastExperimentHeartbeatEvent) : "initializing")
+    : "offline";
+  
   return {
     dev: {
       source: devSource,
@@ -559,6 +577,12 @@ export function getDatabaseStats(): TripleDatabaseStats {
       transport: localTransport,
       latency: localLatency,
       status: localStatus,
+    },
+    experiment: {
+      source: experimentSource,
+      transport: experimentTransport,
+      latency: experimentLatency,
+      status: experimentStatus,
     },
   };
 }
@@ -755,7 +779,102 @@ async function initializeLocalClient(): Promise<void> {
   }
 }
 
-// Initialize all three clients
+// Initialize EXPERIMENT client (EXPERIMENTAL database - independent clone for migration testing)
+async function initializeExperimentClient(): Promise<void> {
+  const experimentUrl = process.env.DATABASE_EXPERIMENT_URL?.trim();
+  if (!experimentUrl) {
+    log.info("EXPERIMENT database connection skipped", { reason: "no DATABASE_EXPERIMENT_URL" });
+    return;
+  }
+  
+  try {
+    // 2-NODE CLUSTER: Always use direct PostgreSQL connections
+    experimentTransport = "direct";
+    
+    // PRISMA INTERNAL REQUIREMENT: Temporarily set DATABASE_URL for PrismaClient constructor
+    // Prisma requires process.env.DATABASE_URL at instantiation time, even though we use direct URLs
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = experimentUrl;
+    
+    const baseOptions = {
+      log: ["error"] as any,
+    };
+    
+    experimentPrismaClient = new PrismaClient(baseOptions);
+    
+    // Restore original DATABASE_URL after Prisma client creation
+    if (originalDatabaseUrl) {
+      process.env.DATABASE_URL = originalDatabaseUrl;
+    }
+    
+    experimentPrisma = experimentPrismaClient;
+    
+    // Connect and probe
+    await experimentPrismaClient.$connect();
+    const start = process.hrtime.bigint();
+    await experimentPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+    const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+    
+    lastExperimentHeartbeatEvent = {
+      ok: true,
+      timestamp: new Date(),
+      latencyMs,
+      slow: latencyMs >= HEARTBEAT_DEFAULTS.warnThresholdMs,
+      consecutiveFailures: 0,
+      source: "startup",
+    };
+    
+    log.info("EXPERIMENT Prisma client connected (MIGRATION TESTING)", {
+      latencyMs: Number(latencyMs.toFixed(2)),
+      transport: experimentTransport,
+    });
+    
+    // Start EXPERIMENT heartbeat
+    setInterval(async () => {
+      if (!experimentPrismaClient) return;
+      const probeStart = process.hrtime.bigint();
+      try {
+        await experimentPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+        const probeLatency = Number(process.hrtime.bigint() - probeStart) / 1_000_000;
+        lastExperimentHeartbeatEvent = {
+          ok: true,
+          timestamp: new Date(),
+          latencyMs: probeLatency,
+          slow: probeLatency >= HEARTBEAT_DEFAULTS.warnThresholdMs,
+          consecutiveFailures: 0,
+          source: "heartbeat",
+        };
+      } catch (error) {
+        const failures = (lastExperimentHeartbeatEvent?.consecutiveFailures ?? 0) + 1;
+        lastExperimentHeartbeatEvent = {
+          ok: false,
+          timestamp: new Date(),
+          latencyMs: null,
+          slow: false,
+          consecutiveFailures: failures,
+          error: error instanceof Error ? error : new Error(String(error)),
+          source: "heartbeat",
+        };
+      }
+    }, HEARTBEAT_DEFAULTS.intervalMs).unref();
+    
+  } catch (error) {
+    log.warn("EXPERIMENT Prisma client connection failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    lastExperimentHeartbeatEvent = {
+      ok: false,
+      timestamp: new Date(),
+      latencyMs: null,
+      slow: false,
+      consecutiveFailures: 1,
+      error: error instanceof Error ? error : new Error(String(error)),
+      source: "startup",
+    };
+  }
+}
+
+// Initialize all four clients
 if (!globalPrisma.prismaConnectPromise) {
   const skipInitialConnect = process.env.PRISMA_SKIP_INITIAL_CONNECT === "true";
   if (skipInitialConnect) {
@@ -771,6 +890,7 @@ if (!globalPrisma.prismaConnectPromise) {
       }),
       initializeDevClient(),
       initializeLocalClient(),
+      initializeExperimentClient(),
     ]).then(async () => {
       prodPrismaClient = prismaClient;
       prodTransport = lastPrismaTransport;
