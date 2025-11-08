@@ -125,7 +125,7 @@ export async function getMessageById(
  */
 export async function countMessagesByStatus(
   status: BusStatus,
-  client?: PoolClient,
+  client?: Pool | PoolClient,
 ): Promise<number> {
   const pool = client ?? getProdDb();
   const sql = `SELECT COUNT(*) AS count FROM "BusMessage" WHERE status = $1`;
@@ -138,7 +138,7 @@ export async function countMessagesByStatus(
  * @returns Count of pending messages where availableAt <= now
  */
 export async function countReadyMessages(
-  client?: PoolClient,
+  client?: Pool | PoolClient,
 ): Promise<number> {
   const pool = client ?? getProdDb();
   const sql = `SELECT COUNT(*) AS count FROM "BusMessage" WHERE status = 'pending' AND "availableAt" <= NOW()`;

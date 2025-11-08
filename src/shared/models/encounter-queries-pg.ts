@@ -191,6 +191,27 @@ export async function countEncountersByState(
   return parseInt(result.rows[0]?.count || "0", 10);
 }
 
+/**
+ * Count encounters globally by state (admin stats).
+ * 
+ * @param state - Encounter state to count
+ * @param pool - Optional pool override
+ * @returns Total encounter count for state
+ */
+export async function countAllEncountersByState(
+  state: EncounterState,
+  pool?: Pool
+): Promise<number> {
+  const db = getPool(pool);
+  
+  const result = await db.query<{ count: string }>(
+    `SELECT COUNT(*) as count FROM "Encounter" WHERE "state" = $1`,
+    [state]
+  );
+  
+  return parseInt(result.rows[0]?.count || "0", 10);
+}
+
 // ============================================================================
 // Write Operations
 // ============================================================================

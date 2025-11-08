@@ -1,5 +1,6 @@
-import type { PrismaClient } from "@prisma/client";
 import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
+import type { Pool } from "pg";
+import type { BusStatus } from "../../types/db-models.js";
 
 import {
   collectCacheMetrics,
@@ -13,7 +14,20 @@ import type {
 import { cache } from "../../shared/cache/memory.js";
 import { config } from "../../shared/config.js";
 import { log } from "../../shared/log.js";
-import { ensurePrisma, prisma } from "../../shared/prisma.js";
+import { getProdDb } from "../../shared/pg-connection.js";
+
+// Query modules
+import { getUserBasic, countUsers } from "../../shared/models/user-queries-pg.js";
+import { countAllEncountersByState } from "../../shared/models/encounter-queries-pg.js";
+import { 
+  countBattlesByState, 
+  countFinishedBattles, 
+  findRecentFinishedBattles,
+  findLastProcessedBusMessage,
+  type BattleHistoryRow 
+} from "../../shared/models/battle-queries-pg.js";
+import { countAllCooldowns, deleteUserCooldowns } from "../../shared/models/cooldown-queries-pg.js";
+import { countMessagesByStatus } from "../../shared/models/bus-queries-pg.js";
 
 // Import state persistence modules (optional - bot/state may be in JS)
 let stateModules: any = null;
@@ -74,12 +88,10 @@ type OpsDiagnostics = {
   databaseHost: string | null;
   cacheSize: number;
   cacheTtlMs: number;
-  prismaStatus: "connected" | "unavailable";
+  dbStatus: "connected" | "unavailable";
   busPending: number | null;
   busLastProcessedIso: string | null;
 };
-
-type PrismaLike = PrismaClient;
 
 const DEFAULT_RECENT_LIMIT = 5;
 const MAX_RECENT_LIMIT = 20;
@@ -111,35 +123,9 @@ function getDatabaseHost(): string | null {
   }
 }
 
-async function getPrismaSafe(): Promise<PrismaLike | null> {
-  try {
-    await ensurePrisma();
-    return prisma;
-  } catch (err) {
-    log.debug("Prisma unavailable, running in no-DB mode", { err });
-    return null;
-  }
-}
-
 export type OpsCommandDeps = {
-  prismaFactory?: () => Promise<PrismaLike | null>;
+  poolFactory?: () => Pool;
 };
-
-async function acquirePrisma(deps: OpsCommandDeps) {
-  const factory = deps.prismaFactory ?? getPrismaSafe;
-  const prisma = await factory();
-  const shouldRelease = Boolean(deps.prismaFactory);
-  const release = async () => {
-    if (shouldRelease && prisma) {
-      try {
-        await prisma.$disconnect?.();
-      } catch {
-        // Disconnect best-effort; ignore shutdown errors.
-      }
-    }
-  };
-  return { prisma, release } as const;
-}
 
 export function isAdmin(interaction: ChatInputCommandInteraction): boolean {
   try {
@@ -160,18 +146,15 @@ export function isAdmin(interaction: ChatInputCommandInteraction): boolean {
 }
 
 async function resetCooldownsForDiscordId(discordId: string, deps: OpsCommandDeps): Promise<number | null> {
-  const { prisma, release } = await acquirePrisma(deps);
-  if (!prisma) return null;
   try {
-    const user = await prisma.user.findUnique({ where: { discordId } });
+    const pool = deps.poolFactory ? deps.poolFactory() : getProdDb();
+    const user = await getUserBasic(discordId, pool);
     if (!user) return 0;
-    const res = await prisma.cooldown.deleteMany({ where: { ownerId: user.id } });
-    return res.count ?? 0;
+    const count = await deleteUserCooldowns(user.id, pool);
+    return count;
   } catch (err) {
     log.warn("Cooldown reset failed", { err });
     return null;
-  } finally {
-    await release();
   }
 }
 
@@ -215,60 +198,47 @@ function parseBattleResult(raw: unknown) {
   return { winnerDiscordId, loserDiscordId, rewards, reason, turnCount };
 }
 
-async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow): Promise<OpsStatsReport> {
-  const finishedWhere: Record<string, unknown> = { state: "Finished" };
-  if (window.after) {
-    finishedWhere.endedAt = { gt: window.after };
-  }
-  if (window.participant) {
-    finishedWhere.OR = [
-      { p1: { discordId: window.participant } },
-      { p2: { discordId: window.participant } },
-    ];
-  }
+async function collectOpsStatsFromDb(pool: Pool, window: StatsWindow): Promise<OpsStatsReport> {
+  const filters = {
+    after: window.after ?? undefined,
+    participant: window.participant ?? undefined,
+    limit: window.limit,
+  };
 
   const [
     users,
-    encountersActive,
-    battlesActive,
+    encountersSpawned,
+    encountersIdle,
+    battlesPending,
+    battlesActiveCount,
     cooldowns,
     totalFinishedBattles,
     recent,
     busPending,
     lastProcessed,
   ] = await Promise.all([
-    prisma.user.count(),
-    prisma.encounter.count({ where: { state: { in: ["Spawned", "Idle"] } } }),
-    prisma.battle.count({ where: { state: { in: ["Pending", "Active"] } } }),
-    prisma.cooldown.count(),
-    prisma.battle.count({ where: finishedWhere }),
-    prisma.battle.findMany({
-      where: finishedWhere,
-      orderBy: { endedAt: "desc" },
-      take: window.limit,
-      select: {
-        id: true,
-        endedAt: true,
-        resultJson: true,
-        p1: { select: { discordId: true } },
-        p2: { select: { discordId: true } },
-      },
-    }),
-    prisma.busMessage.count({ where: { status: "pending" } }),
-    prisma.busMessage.findFirst({
-      where: { status: { in: ["done", "error"] }, processedAt: { not: null } },
-      orderBy: { processedAt: "desc" },
-      select: { processedAt: true },
-    }),
+    countUsers(pool),
+    countAllEncountersByState("Spawned", pool),
+    countAllEncountersByState("Idle", pool),
+    countBattlesByState("Pending", pool),
+    countBattlesByState("Active", pool),
+    countAllCooldowns(pool),
+    countFinishedBattles(filters, pool),
+    findRecentFinishedBattles(filters, pool),
+    countMessagesByStatus("pending" as BusStatus, pool),
+    findLastProcessedBusMessage(pool),
   ]);
 
-  const recentBattles: BattleSummary[] = recent.map((row) => {
+  const encountersActive = encountersSpawned + encountersIdle;
+  const battlesActive = battlesPending + battlesActiveCount;
+
+  const recentBattles: BattleSummary[] = recent.map((row: BattleHistoryRow) => {
     const parsed = parseBattleResult(row.resultJson);
     return {
       id: row.id,
       endedAt: row.endedAt ?? null,
-      winnerDiscordId: parsed?.winnerDiscordId ?? row.p1?.discordId ?? null,
-      loserDiscordId: parsed?.loserDiscordId ?? row.p2?.discordId ?? null,
+      winnerDiscordId: parsed?.winnerDiscordId ?? row.p1DiscordId ?? null,
+      loserDiscordId: parsed?.loserDiscordId ?? row.p2DiscordId ?? null,
       rewards: parsed?.rewards ?? null,
       reason: parsed?.reason ?? null,
       turnCount: parsed?.turnCount ?? null,
@@ -281,7 +251,7 @@ async function collectOpsStatsFromPrisma(prisma: PrismaLike, window: StatsWindow
     recentBattles,
     window,
     busPending,
-    busLastProcessedAt: lastProcessed?.processedAt ?? null,
+    busLastProcessedAt: lastProcessed ?? null,
     prismaStatus: "connected",
   };
 }
@@ -455,7 +425,7 @@ function formatOpsStatsReport(
     "",
     "Database:",
     `- Host: ${diagnostics.databaseHost ?? "unknown"}`,
-    `- Prisma: ${report ? report.prismaStatus : diagnostics.prismaStatus}`,
+    `- Status: ${report ? report.prismaStatus : diagnostics.dbStatus}`,
     "",
     "Cache:",
     "- Backend: memory",
@@ -577,21 +547,15 @@ export async function handleOpsCommand(
       databaseHost: getDatabaseHost(),
       cacheSize: cache.size,
       cacheTtlMs: config.cacheTtlMs,
-      prismaStatus: "unavailable",
+      dbStatus: "unavailable",
       busPending: null,
       busLastProcessedIso: cache.get<string>("outbox:last-processed") ?? null,
     };
-    const { prisma, release } = await acquirePrisma(deps);
 
     try {
-      if (!prisma) {
-        const message = formatOpsStatsReport(null, diagnostics, window);
-        await interaction.editReply({ content: message });
-        return;
-      }
-
-      const report = await collectOpsStatsFromPrisma(prisma, window);
-      diagnostics.prismaStatus = report.prismaStatus;
+      const pool = deps.poolFactory ? deps.poolFactory() : getProdDb();
+      const report = await collectOpsStatsFromDb(pool, window);
+      diagnostics.dbStatus = report.prismaStatus;
       diagnostics.busPending = report.busPending;
       diagnostics.busLastProcessedIso =
         report.busLastProcessedAt?.toISOString() ?? diagnostics.busLastProcessedIso;
@@ -600,8 +564,6 @@ export async function handleOpsCommand(
     } catch (err) {
       log.warn("Stats query failed", { err });
       await interaction.editReply({ content: "Failed to load stats (check logs)." });
-    } finally {
-      await release();
     }
     return;
   }

@@ -309,6 +309,24 @@ export async function userExists(
 }
 
 /**
+ * Count total users in database
+ * 
+ * Raw SQL equivalent of:
+ *   prisma.user.count()
+ * 
+ * @param pool - Optional pool override
+ * @returns Total user count
+ */
+export async function countUsers(pool?: Pool): Promise<number> {
+  const db = getPool(pool);
+  
+  const { text, values } = buildCount("User", {});
+  
+  const result = await db.query<{ count: string }>(text, values);
+  return parseInt(result.rows[0]?.count || "0", 10);
+}
+
+/**
  * Get user's coin balance only
  * Ultra-lightweight query for coin checks
  * 

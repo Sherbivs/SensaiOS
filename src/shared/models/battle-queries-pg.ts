@@ -520,3 +520,143 @@ export async function deleteBattle(
   if (result.rows.length === 0) return null;
   return reviveBattle(result.rows[0]);
 }
+
+// ============================================================================
+// Battle History Queries (for admin/stats commands)
+// ============================================================================
+
+/**
+ * Count finished battles with optional filters.
+ * 
+ * Equivalent to: prisma.battle.count({ where: finishedWhere })
+ * 
+ * Filters:
+ * - after: Only count battles that ended after this date
+ * - participant: Only count battles where this Discord ID participated (p1 or p2)
+ * 
+ * @param filters - Optional query filters
+ * @param pool - Optional pool override
+ * @returns Count of matching battles
+ */
+export async function countFinishedBattles(
+  filters?: { after?: Date; participant?: string },
+  pool?: Pool
+): Promise<number> {
+  const db = getPool(pool);
+  
+  let sql = `SELECT COUNT(*) AS count FROM "Battle" WHERE state = 'Finished'`;
+  const values: unknown[] = [];
+  let paramIndex = 1;
+  
+  if (filters?.after) {
+    sql += ` AND "endedAt" > $${paramIndex}`;
+    values.push(filters.after);
+    paramIndex++;
+  }
+  
+  if (filters?.participant) {
+    sql += ` AND (
+      "p1Id" IN (SELECT id FROM "User" WHERE "discordId" = $${paramIndex})
+      OR "p2Id" IN (SELECT id FROM "User" WHERE "discordId" = $${paramIndex})
+    )`;
+    values.push(filters.participant);
+    paramIndex++;
+  }
+  
+  const result = await db.query<{ count: string }>(sql, values);
+  return parseInt(result.rows[0]?.count || "0", 10);
+}
+
+/**
+ * Battle history row for admin stats display.
+ */
+export type BattleHistoryRow = {
+  id: string;
+  endedAt: Date | null;
+  resultJson: unknown;
+  p1DiscordId: string | null;
+  p2DiscordId: string | null;
+};
+
+/**
+ * Find recent finished battles with optional filters.
+ * 
+ * Equivalent to: prisma.battle.findMany({ where: finishedWhere, orderBy: { endedAt: "desc" }, take: limit })
+ * 
+ * Filters:
+ * - after: Only battles that ended after this date
+ * - participant: Only battles where this Discord ID participated (p1 or p2)
+ * - limit: Maximum number of battles to return (default 5, max 20)
+ * 
+ * @param filters - Query filters
+ * @param pool - Optional pool override
+ * @returns Array of battle history rows
+ */
+export async function findRecentFinishedBattles(
+  filters?: { after?: Date; participant?: string; limit?: number },
+  pool?: Pool
+): Promise<BattleHistoryRow[]> {
+  const db = getPool(pool);
+  
+  const limit = Math.max(1, Math.min(filters?.limit || 5, 20));
+  
+  let sql = `
+    SELECT 
+      b.id,
+      b."endedAt",
+      b."resultJson",
+      p1."discordId" AS "p1DiscordId",
+      p2."discordId" AS "p2DiscordId"
+    FROM "Battle" b
+    LEFT JOIN "User" p1 ON b."p1Id" = p1.id
+    LEFT JOIN "User" p2 ON b."p2Id" = p2.id
+    WHERE b.state = 'Finished'
+  `;
+  
+  const values: unknown[] = [];
+  let paramIndex = 1;
+  
+  if (filters?.after) {
+    sql += ` AND b."endedAt" > $${paramIndex}`;
+    values.push(filters.after);
+    paramIndex++;
+  }
+  
+  if (filters?.participant) {
+    sql += ` AND (
+      p1."discordId" = $${paramIndex}
+      OR p2."discordId" = $${paramIndex}
+    )`;
+    values.push(filters.participant);
+    paramIndex++;
+  }
+  
+  sql += ` ORDER BY b."endedAt" DESC LIMIT $${paramIndex}`;
+  values.push(limit);
+  
+  const result = await db.query<BattleHistoryRow>(sql, values);
+  return result.rows;
+}
+
+/**
+ * Find last processed bus message timestamp.
+ * 
+ * Equivalent to: prisma.busMessage.findFirst({ where: { status: { in: ["done", "error"] }, processedAt: { not: null } }, orderBy: { processedAt: "desc" } })
+ * 
+ * @param pool - Optional pool override
+ * @returns Last processed timestamp or null
+ */
+export async function findLastProcessedBusMessage(pool?: Pool): Promise<Date | null> {
+  const db = getPool(pool);
+  
+  const sql = `
+    SELECT "processedAt"
+    FROM "BusMessage"
+    WHERE status IN ('done', 'error') AND "processedAt" IS NOT NULL
+    ORDER BY "processedAt" DESC
+    LIMIT 1
+  `;
+  
+  const result = await db.query<{ processedAt: Date }>(sql);
+  return result.rows[0]?.processedAt ?? null;
+}
