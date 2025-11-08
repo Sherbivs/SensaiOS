@@ -1,6 +1,6 @@
 # Prisma ORM to Raw PostgreSQL Migration Plan
 
-**Status**: Task 13 In Progress - Bot Commands Migration (6/8 files complete - 75%)  
+**Status**: Task 13 Complete - Bot Commands Migration (8/8 files - 100%) ✅  
 **Created**: 2025-11-07  
 **Last Updated**: 2025-11-08  
 **Scope**: Complete removal of @prisma/client dependency and migration to raw PostgreSQL via `pg` library
@@ -918,11 +918,13 @@ npm install db-migrate db-migrate-pg
 
 ---
 
-### 1.13 Bot Commands Migration (Task 13 - IN PROGRESS)
+### 1.13 Bot Commands Migration (Task 13 - COMPLETE ✅)
 
 **Goal**: Convert Discord bot command handlers to use pg query modules instead of Prisma
 
 **Scope**: 8 bot command files with ~27 Prisma operations
+
+**Status**: 8/8 files complete (100%) - All bot commands migrated
 
 #### Migration Approach
 - Replace Prisma client imports with query module imports
@@ -930,9 +932,9 @@ npm install db-migrate db-migrate-pg
 - Remove PrismaClient type dependencies
 - Maintain exact same behavior and error handling
 
-#### Files Migrated (5/8 complete - 62.5%)
+#### Files Migrated (8/8 complete - 100%)
 
-**✅ src/bot/middleware/limits.ts** (~30 lines)
+**✅ src/bot/middleware/limits.ts** (~30 lines - commit cd23405)
 - Converted: `hasActiveEncounter`, `hasActiveOrPendingBattle`
 - Query modules: `findActiveEncounterForUser`, `findActiveOrPendingBattleForUser`
 - Removed: PrismaClient type dependency, optional prisma parameter pattern
@@ -982,19 +984,45 @@ npm install db-migrate db-migrate-pg
 - Type Cleanup: Removed Prisma.JsonObject → Record<string, unknown>
 - Result: Zero compilation errors, transaction atomicity maintained
 
-#### Remaining Files (2/8 - 25%)
+**✅ src/bot/ops/admin.ts** (~700 lines - commit 103dd91) - **STATS & ADMIN OPERATIONS**
+- Created: `cooldown-queries-pg.ts` with `countAllCooldowns`, `countUserCooldowns`, `deleteUserCooldowns`
+- Added Functions:
+  * `countUsers()` to user-queries-pg.ts for global user count
+  * `countFinishedBattles(filters)` - battle history with participant/date filters
+  * `findRecentFinishedBattles(filters)` - recent battles with JOINs
+  * `findLastProcessedBusMessage()` - bus processing timestamp
+  * `countAllEncountersByState(state)` - global encounter counts by state
+- Converted: `collectOpsStatsFromPrisma` → `collectOpsStatsFromDb` using pg queries
+- Replaced: `prisma.user.count`, `prisma.encounter.count`, `prisma.battle.count`, `prisma.cooldown.count`, `prisma.battle.findMany`, `prisma.busMessage.count`, `prisma.busMessage.findFirst`
+- Removed: PrismaClient, acquirePrisma, getPrismaSafe helpers
+- Updated: OpsCommandDeps to use poolFactory, replaced prismaStatus with dbStatus
+- Pattern: All Promise.all queries use pg query modules
+- Result: Zero compilation errors, all stats/cache/state commands functional
 
-**⏸️ src/bot/ops/admin.ts** (~700 lines) - **STATS & ADMIN OPERATIONS**
-- Operations: Multiple `count()`, `findMany()`, `findFirst()`, `deleteMany()`, aggregation queries
-- Challenge: Admin dashboard with complex aggregations and statistics
-- Approach: Replace with COUNT queries, parameterized SELECT queries, cache stats from `global` state
-- Priority: MEDIUM (ops tooling, not critical path)
+**✅ src/bot/battle/actions.ts** (~438 lines - commit af5b8b3) - **BATTLE ACTIONS**
+- Converted: `loadParticipantState` to use `getPartyWithSlots(userId, pool)`
+- Replaced: `prisma.party.findUnique + PARTY_WITH_SLOTS_INCLUDE` with pg query
+- Updated: HandlerOpts.prisma → HandlerOpts.pool
+- Removed: PrismaLike type definition
+- Added: getProdDb() import for default pool
+- Note: `loadBattleState` (cache layer) and `BattleRepo.concludeBattle` (repository layer) still use Prisma - deferred to separate migration tasks
+- Result: Zero compilation errors
 
-**⏸️ src/bot/battle/actions.ts** + **conclude.ts** (~400 lines combined) - **BATTLE ACTIONS**
-- Operations: Battle state updates, Pokemon HP updates, reward calculations
-- Challenge: Multi-model updates with transactions
-- Approach: Use existing `concludeBattle`, `updatePokemonHealth` functions from query modules
-- Priority: HIGH (core battle flow)
+**✅ src/bot/battle/conclude.ts** (~130 lines) - **BATTLE RESULTS**
+- No direct migration needed (uses BattleRepo pattern)
+- Note: BattleRepo.concludeBattle uses Prisma internally - repository migration deferred
+- Result: Zero compilation errors, unchanged
+
+#### Remaining Infrastructure (Deferred to Separate Tasks)
+
+**⏸️ Cache Layer** (`src/services/cache/recipes.ts`)
+- Functions: `loadBattleState`, `loadEncounter`
+- Pattern: Cache-aside with Prisma hydration
+- Priority: Separate task after bot commands complete
+
+**⏸️ Repository Layer** (`src/models/index.ts`, `BattleRepo`)
+- Functions: `concludeBattle`, legacy model operations
+- Priority: Separate task, minimal remaining usage
 
 #### Patterns Validated
 
