@@ -306,4 +306,276 @@ describe("User Queries: PostgreSQL Implementation Tests", () => {
       expect(avg).toBeLessThan(100);
     });
   });
+
+  describe("Write Operations", () => {
+    // Use unique Discord IDs for write tests to avoid conflicts
+    const generateTestId = () => `test-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+    describe("createUser", () => {
+      it("should create a new user with default coins", async () => {
+        const testDiscordId = generateTestId();
+        
+        const result = await pgQueries.createUser(testDiscordId, 0, pool);
+
+        expect(result).not.toBeNull();
+        expect(result.discordId).toBe(testDiscordId);
+        expect(result.coins).toBe(0);
+        expect(result.id).toBeDefined();
+        expect(result.createdAt).toBeInstanceOf(Date);
+        console.log(`✓ createUser: Created user ${testDiscordId} with 0 coins`);
+
+        // Cleanup
+        await pgQueries.deleteUser(testDiscordId, pool);
+      });
+
+      it("should create a new user with specified coins", async () => {
+        const testDiscordId = generateTestId();
+        
+        const result = await pgQueries.createUser(testDiscordId, 1000, pool);
+
+        expect(result.coins).toBe(1000);
+        console.log(`✓ createUser: Created user with 1000 coins`);
+
+        // Cleanup
+        await pgQueries.deleteUser(testDiscordId, pool);
+      });
+    });
+
+    describe("updateUserCoins", () => {
+      it("should update existing user's coins", async () => {
+        const testDiscordId = generateTestId();
+        
+        // Setup: Create user with initial coins
+        await pgQueries.createUser(testDiscordId, 100, pool);
+        
+        // Update coins
+        const result = await pgQueries.updateUserCoins(testDiscordId, 500, pool);
+
+        expect(result).not.toBeNull();
+        if (result) {
+          expect(result.coins).toBe(500);
+          expect(result.discordId).toBe(testDiscordId);
+          console.log(`✓ updateUserCoins: Updated coins from 100 to 500`);
+        }
+
+        // Cleanup
+        await pgQueries.deleteUser(testDiscordId, pool);
+      });
+
+      it("should return null for non-existent user", async () => {
+        const nonExistentId = generateTestId();
+        
+        const result = await pgQueries.updateUserCoins(nonExistentId, 500, pool);
+
+        expect(result).toBeNull();
+        console.log("✓ updateUserCoins: Returns null for non-existent user");
+      });
+    });
+
+    describe("incrementUserCoins", () => {
+      it("should increment user's coins", async () => {
+        const testDiscordId = generateTestId();
+        
+        // Setup: Create user with 100 coins
+        await pgQueries.createUser(testDiscordId, 100, pool);
+        
+        // Increment by 50
+        const result = await pgQueries.incrementUserCoins(testDiscordId, 50, pool);
+
+        expect(result).not.toBeNull();
+        if (result) {
+          expect(result.coins).toBe(150);
+          console.log(`✓ incrementUserCoins: Incremented from 100 to 150`);
+        }
+
+        // Cleanup
+        await pgQueries.deleteUser(testDiscordId, pool);
+      });
+
+      it("should decrement user's coins with negative amount", async () => {
+        const testDiscordId = generateTestId();
+        
+        // Setup: Create user with 100 coins
+        await pgQueries.createUser(testDiscordId, 100, pool);
+        
+        // Decrement by 30 (negative increment)
+        const result = await pgQueries.incrementUserCoins(testDiscordId, -30, pool);
+
+        expect(result).not.toBeNull();
+        if (result) {
+          expect(result.coins).toBe(70);
+          console.log(`✓ incrementUserCoins: Decremented from 100 to 70`);
+        }
+
+        // Cleanup
+        await pgQueries.deleteUser(testDiscordId, pool);
+      });
+
+      it("should return null for non-existent user", async () => {
+        const nonExistentId = generateTestId();
+        
+        const result = await pgQueries.incrementUserCoins(nonExistentId, 50, pool);
+
+        expect(result).toBeNull();
+        console.log("✓ incrementUserCoins: Returns null for non-existent user");
+      });
+    });
+
+    describe("upsertUser", () => {
+      it("should create user if not exists", async () => {
+        const testDiscordId = generateTestId();
+        
+        const result = await pgQueries.upsertUser(testDiscordId, 0, pool);
+
+        expect(result).not.toBeNull();
+        expect(result.discordId).toBe(testDiscordId);
+        expect(result.coins).toBe(0);
+        console.log(`✓ upsertUser: Created new user ${testDiscordId}`);
+
+        // Cleanup
+        await pgQueries.deleteUser(testDiscordId, pool);
+      });
+
+      it("should return existing user without modification", async () => {
+        const testDiscordId = generateTestId();
+        
+        // First upsert creates user with 100 coins
+        const first = await pgQueries.upsertUser(testDiscordId, 100, pool);
+        
+        // Second upsert should return existing user (coins unchanged)
+        const second = await pgQueries.upsertUser(testDiscordId, 999, pool);
+
+        expect(second.id).toBe(first.id);
+        expect(second.coins).toBe(100); // Should keep original coins, not 999
+        console.log(`✓ upsertUser: Returned existing user without modification`);
+
+        // Cleanup
+        await pgQueries.deleteUser(testDiscordId, pool);
+      });
+    });
+
+    describe("upsertUserWithCoinIncrement", () => {
+      it("should create user with initial coins if not exists", async () => {
+        const testDiscordId = generateTestId();
+        
+        const result = await pgQueries.upsertUserWithCoinIncrement(testDiscordId, 50, 100, pool);
+
+        expect(result.discordId).toBe(testDiscordId);
+        expect(result.coins).toBe(100); // Initial coins, not incremented
+        console.log(`✓ upsertUserWithCoinIncrement: Created user with initial 100 coins`);
+
+        // Cleanup
+        await pgQueries.deleteUser(testDiscordId, pool);
+      });
+
+      it("should increment existing user's coins", async () => {
+        const testDiscordId = generateTestId();
+        
+        // Create user with 100 coins
+        await pgQueries.createUser(testDiscordId, 100, pool);
+        
+        // Upsert with increment of 50
+        const result = await pgQueries.upsertUserWithCoinIncrement(testDiscordId, 50, 999, pool);
+
+        expect(result.coins).toBe(150); // 100 + 50, ignores initialCoins (999)
+        console.log(`✓ upsertUserWithCoinIncrement: Incremented existing user from 100 to 150`);
+
+        // Cleanup
+        await pgQueries.deleteUser(testDiscordId, pool);
+      });
+    });
+
+    describe("ensureUser", () => {
+      it("should create user if not exists and return minimal fields", async () => {
+        const testDiscordId = generateTestId();
+        
+        const result = await pgQueries.ensureUser(testDiscordId, 50, pool);
+
+        expect(result).toHaveProperty("id");
+        expect(result).toHaveProperty("coins");
+        expect(Object.keys(result)).toHaveLength(2); // Only id and coins
+        expect(result.coins).toBe(50);
+        console.log(`✓ ensureUser: Created user, returned minimal fields (id, coins)`);
+
+        // Cleanup
+        await pgQueries.deleteUser(testDiscordId, pool);
+      });
+
+      it("should return existing user's id and coins", async () => {
+        const testDiscordId = generateTestId();
+        
+        // Create user with 200 coins
+        await pgQueries.createUser(testDiscordId, 200, pool);
+        
+        // Ensure user should return existing
+        const result = await pgQueries.ensureUser(testDiscordId, 999, pool);
+
+        expect(result.coins).toBe(200); // Original coins, not 999
+        expect(Object.keys(result)).toHaveLength(2);
+        console.log(`✓ ensureUser: Returned existing user's minimal fields`);
+
+        // Cleanup
+        await pgQueries.deleteUser(testDiscordId, pool);
+      });
+    });
+
+    describe("deleteUser", () => {
+      it("should delete existing user", async () => {
+        const testDiscordId = generateTestId();
+        
+        // Create user
+        const created = await pgQueries.createUser(testDiscordId, 100, pool);
+        
+        // Delete user
+        const deleted = await pgQueries.deleteUser(testDiscordId, pool);
+
+        expect(deleted).not.toBeNull();
+        if (deleted) {
+          expect(deleted.id).toBe(created.id);
+          expect(deleted.discordId).toBe(testDiscordId);
+          console.log(`✓ deleteUser: Deleted user ${testDiscordId}`);
+        }
+
+        // Verify deletion
+        const notFound = await pgQueries.getUserBasic(testDiscordId, pool);
+        expect(notFound).toBeNull();
+        console.log("✓ deleteUser: User no longer exists after deletion");
+      });
+
+      it("should return null for non-existent user", async () => {
+        const nonExistentId = generateTestId();
+        
+        const result = await pgQueries.deleteUser(nonExistentId, pool);
+
+        expect(result).toBeNull();
+        console.log("✓ deleteUser: Returns null for non-existent user");
+      });
+    });
+
+    describe("Coin Operations Atomicity", () => {
+      it("should handle concurrent increments correctly", async () => {
+        const testDiscordId = generateTestId();
+        
+        // Create user with 0 coins
+        await pgQueries.createUser(testDiscordId, 0, pool);
+        
+        // Simulate concurrent increments
+        const increments = [
+          pgQueries.incrementUserCoins(testDiscordId, 10, pool),
+          pgQueries.incrementUserCoins(testDiscordId, 20, pool),
+          pgQueries.incrementUserCoins(testDiscordId, 30, pool),
+        ];
+        
+        await Promise.all(increments);
+        
+        // Final balance should be 0 + 10 + 20 + 30 = 60
+        const final = await pgQueries.getUserCoins(testDiscordId, pool);
+        expect(final).toBe(60);
+        console.log("✓ Coin Operations: Atomic increments handled correctly (0 → 60)");
+
+        // Cleanup
+        await pgQueries.deleteUser(testDiscordId, pool);
+      });
+    });
+  });
 });

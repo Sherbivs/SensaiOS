@@ -353,3 +353,257 @@ export async function getUserProfile(
   const result = await db.query<User>(text, values);
   return result.rows[0] || null;
 }
+
+// ============================================================================
+// Write Operations
+// ============================================================================
+
+/**
+ * Create a new user
+ * 
+ * Raw SQL equivalent of:
+ *   prisma.user.create({ data: { discordId, coins } })
+ * 
+ * @param discordId - Discord user ID
+ * @param coins - Initial coin balance (default: 0)
+ * @param pool - Optional pool override
+ * @returns Created user record
+ */
+export async function createUser(
+  discordId: string,
+  coins: number = 0,
+  pool?: Pool
+): Promise<User> {
+  const db = getPool(pool);
+  
+  const result = await db.query<User>(
+    `
+      INSERT INTO "User" ("id", "discordId", "coins", "createdAt", "updatedAt")
+      VALUES (gen_random_uuid(), $1, $2, NOW(), NOW())
+      RETURNING *
+    `,
+    [discordId, coins]
+  );
+  
+  if (result.rows.length === 0) {
+    throw new Error("Failed to create user");
+  }
+  
+  return result.rows[0];
+}
+
+/**
+ * Update user coins (absolute set)
+ * 
+ * Raw SQL equivalent of:
+ *   prisma.user.update({ where: { discordId }, data: { coins } })
+ * 
+ * @param discordId - Discord user ID
+ * @param coins - New coin balance
+ * @param pool - Optional pool override
+ * @returns Updated user or null if not found
+ */
+export async function updateUserCoins(
+  discordId: string,
+  coins: number,
+  pool?: Pool
+): Promise<User | null> {
+  const db = getPool(pool);
+  
+  const result = await db.query<User>(
+    `
+      UPDATE "User"
+      SET "coins" = $1, "updatedAt" = NOW()
+      WHERE "discordId" = $2
+      RETURNING *
+    `,
+    [coins, discordId]
+  );
+  
+  return result.rows[0] || null;
+}
+
+/**
+ * Increment user coins atomically
+ * 
+ * Raw SQL equivalent of:
+ *   prisma.user.update({ where: { discordId }, data: { coins: { increment: amount } } })
+ * 
+ * @param discordId - Discord user ID
+ * @param amount - Amount to add (can be negative for decrement)
+ * @param pool - Optional pool override
+ * @returns Updated user or null if not found
+ */
+export async function incrementUserCoins(
+  discordId: string,
+  amount: number,
+  pool?: Pool
+): Promise<User | null> {
+  const db = getPool(pool);
+  
+  const result = await db.query<User>(
+    `
+      UPDATE "User"
+      SET "coins" = "coins" + $1, "updatedAt" = NOW()
+      WHERE "discordId" = $2
+      RETURNING *
+    `,
+    [amount, discordId]
+  );
+  
+  return result.rows[0] || null;
+}
+
+/**
+ * Upsert user (create if not exists, update if exists)
+ * 
+ * Raw SQL equivalent of:
+ *   prisma.user.upsert({
+ *     where: { discordId },
+ *     update: {},
+ *     create: { discordId, coins: 0 }
+ *   })
+ * 
+ * Common pattern: Ensure user exists before operations
+ * 
+ * @param discordId - Discord user ID
+ * @param coins - Initial coin balance for new users (default: 0)
+ * @param pool - Optional pool override
+ * @returns User record (existing or newly created)
+ */
+export async function upsertUser(
+  discordId: string,
+  coins: number = 0,
+  pool?: Pool
+): Promise<User> {
+  const db = getPool(pool);
+  
+  const result = await db.query<User>(
+    `
+      INSERT INTO "User" ("id", "discordId", "coins", "createdAt", "updatedAt")
+      VALUES (gen_random_uuid(), $1, $2, NOW(), NOW())
+      ON CONFLICT ("discordId")
+      DO UPDATE SET "updatedAt" = NOW()
+      RETURNING *
+    `,
+    [discordId, coins]
+  );
+  
+  if (result.rows.length === 0) {
+    throw new Error("Upsert failed to return user");
+  }
+  
+  return result.rows[0];
+}
+
+/**
+ * Upsert user and increment coins if exists
+ * 
+ * Raw SQL equivalent of:
+ *   prisma.user.upsert({
+ *     where: { discordId },
+ *     update: { coins: { increment: amount } },
+ *     create: { discordId, coins: initialCoins }
+ *   })
+ * 
+ * Use case: Daily rewards, quest completions
+ * 
+ * @param discordId - Discord user ID
+ * @param amount - Amount to add to existing users
+ * @param initialCoins - Initial coins for new users (default: 0)
+ * @param pool - Optional pool override
+ * @returns User record with updated/initial coins
+ */
+export async function upsertUserWithCoinIncrement(
+  discordId: string,
+  amount: number,
+  initialCoins: number = 0,
+  pool?: Pool
+): Promise<User> {
+  const db = getPool(pool);
+  
+  const result = await db.query<User>(
+    `
+      INSERT INTO "User" ("id", "discordId", "coins", "createdAt", "updatedAt")
+      VALUES (gen_random_uuid(), $1, $2, NOW(), NOW())
+      ON CONFLICT ("discordId")
+      DO UPDATE SET 
+        "coins" = "User"."coins" + $3,
+        "updatedAt" = NOW()
+      RETURNING *
+    `,
+    [discordId, initialCoins, amount]
+  );
+  
+  if (result.rows.length === 0) {
+    throw new Error("Upsert with increment failed to return user");
+  }
+  
+  return result.rows[0];
+}
+
+/**
+ * Delete user by Discord ID
+ * 
+ * Raw SQL equivalent of:
+ *   prisma.user.delete({ where: { discordId } })
+ * 
+ * WARNING: This will cascade delete related records if foreign keys are configured
+ * 
+ * @param discordId - Discord user ID
+ * @param pool - Optional pool override
+ * @returns Deleted user or null if not found
+ */
+export async function deleteUser(
+  discordId: string,
+  pool?: Pool
+): Promise<User | null> {
+  const db = getPool(pool);
+  
+  const result = await db.query<User>(
+    `
+      DELETE FROM "User"
+      WHERE "discordId" = $1
+      RETURNING *
+    `,
+    [discordId]
+  );
+  
+  return result.rows[0] || null;
+}
+
+/**
+ * Ensure user exists (lightweight upsert that only returns id and coins)
+ * 
+ * Optimized version of upsertUser for operations that only need user ID
+ * Used by: Battle challenge, cooldown operations, encounter spawning
+ * 
+ * @param discordId - Discord user ID
+ * @param initialCoins - Initial coins for new users (default: 0)
+ * @param pool - Optional pool override
+ * @returns User ID and coins
+ */
+export async function ensureUser(
+  discordId: string,
+  initialCoins: number = 0,
+  pool?: Pool
+): Promise<Pick<User, "id" | "coins">> {
+  const db = getPool(pool);
+  
+  const result = await db.query<Pick<User, "id" | "coins">>(
+    `
+      INSERT INTO "User" ("id", "discordId", "coins", "createdAt", "updatedAt")
+      VALUES (gen_random_uuid(), $1, $2, NOW(), NOW())
+      ON CONFLICT ("discordId")
+      DO UPDATE SET "updatedAt" = NOW()
+      RETURNING "id", "coins"
+    `,
+    [discordId, initialCoins]
+  );
+  
+  if (result.rows.length === 0) {
+    throw new Error("ensureUser failed to return user");
+  }
+  
+  return result.rows[0];
+}
