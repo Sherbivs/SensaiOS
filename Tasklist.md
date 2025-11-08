@@ -1539,7 +1539,7 @@ Each task has:
 
 - id: DB.NORTHSTAR.PHASE2
   title: Data consolidation and TrainerProfile cleanup
-  status: PROPOSED
+  status: READY
   depends_on: [DB.NORTHSTAR.SERVICES, DB.NORTHSTAR.MONITORING]
   acceptance_criteria:
     - Create Phase 2 migration to migrate TrainerProfile data into User table, drop TrainerProfile table, add NOT NULL constraints to backfilled User columns.
@@ -1547,9 +1547,33 @@ Each task has:
     - Create comprehensive rollback.sql with restore instructions.
     - Test migration on DEV, verify all data migrated correctly, run query performance validation.
   notes: |
-    PROPOSED — Phase 1 proven stable, ready for data consolidation once services deployed.
-    Risk level: Medium (data manipulation, table drops)
-    Safety measures: Snapshot before execution, comprehensive rollback script, DEV testing required
+    READY — Dependencies met: Phase 1 schema deployed (19 User columns including tagline/bio/favoriteSpeciesId), Services deployed with EventTracker/ProfileService, Monitoring implemented with performance commands. Ready for data consolidation to eliminate redundant TrainerProfile table.
+    
+    Dependencies Met:
+    - DB.NORTHSTAR.PHASE1: DONE (2025-11-06T17:45Z) — 19 User columns added including profile fields (nickname, tagline, bio, avatarUrl, favoriteSpeciesId)
+    - DB.NORTHSTAR.SERVICES: DONE (2025-11-08T17:30Z) — EventTracker + ProfileService deployed, ready to reference consolidated User columns
+    - DB.NORTHSTAR.MONITORING: DONE (2025-11-08T18:30Z) — Performance monitoring commands available for migration validation
+    
+    Migration Strategy:
+    - Phase 1 added User columns: tagline, bio, favoriteSpeciesId (nullable for backward compatibility)
+    - TrainerProfile currently stores: userId (PK), tagline, bio, favoriteSpeciesId, createdAt, updatedAt
+    - Phase 2 will: (1) Migrate TrainerProfile.tagline → User.tagline, (2) Migrate TrainerProfile.bio → User.bio, (3) Migrate TrainerProfile.favoriteSpeciesId → User.favoriteSpeciesId (already has FK constraint), (4) Drop TrainerProfile table, (5) Update User.profile relation in schema
+    
+    Data Migration SQL (3 steps):
+    1. UPDATE "User" SET "tagline" = "TrainerProfile"."tagline", "bio" = "TrainerProfile"."bio", "favoriteSpeciesId" = "TrainerProfile"."favoriteSpeciesId" FROM "TrainerProfile" WHERE "User"."id" = "TrainerProfile"."userId";
+    2. Verify migration: SELECT COUNT(*) FROM "User" WHERE "tagline" IS NOT NULL OR "bio" IS NOT NULL OR "favoriteSpeciesId" IS NOT NULL; (should match TrainerProfile row count)
+    3. DROP TABLE "TrainerProfile" CASCADE;
+    
+    Safety Measures:
+    - Snapshot before execution: pg_dump --schema-only + pg_dump --data-only for TrainerProfile table
+    - Rollback.sql: CREATE TABLE "TrainerProfile" + INSERT statements to restore original data
+    - DEV testing required: Run migration on DEV, verify data integrity, test ProfileService queries
+    - Performance validation: Run npm run db:cli -- table_bloat, slow_queries to ensure no regressions
+    
+    Risk Level: Medium (data manipulation, table drops)
+    - Risk: TrainerProfile table drop is irreversible without rollback
+    - Mitigation: Comprehensive snapshot, tested rollback script, DEV validation
+    - Impact: ProfileService currently references TrainerProfile via User.profile relation, will need code update
 
 - id: DB.NORTHSTAR.ANALYTICS
   title: Build analytics jobs and reporting layer
