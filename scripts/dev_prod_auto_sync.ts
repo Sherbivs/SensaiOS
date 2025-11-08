@@ -313,10 +313,10 @@ function parseArgs(): SyncConfig {
         config.triggerPath = args[++i] ?? config.triggerPath;
         break;
       case "--interval":
-        config.intervalMs = Number.parseInt(args[++i] ?? "", 10) || config.intervalMs;
+        config.intervalMs = (Number.parseInt((args[++i] ?? ""), 10) || config.intervalMs);
         break;
       case "--reverse-check-interval":
-        config.reverseCheckIntervalMs = Number.parseInt(args[++i] ?? "", 10) || config.reverseCheckIntervalMs;
+        config.reverseCheckIntervalMs = (Number.parseInt((args[++i] ?? ""), 10) || config.reverseCheckIntervalMs);
         break;
       case "--once":
         config.once = true;
@@ -604,14 +604,13 @@ async function withPrismaClient<T>(
 ): Promise<T> {
   // CRITICAL: Use PROD_DATABASE_URL for production (local Render Node PostgreSQL)
   // Use DEV_DATABASE_URL for development (master database)
-  // Fallback to legacy variables for backwards compatibility
   const isProd = process.env.NODE_ENV === "production";
   const url = isProd
     ? (envVars.PROD_DATABASE_URL || envVars.DATABASE_URL)
     : (envVars.DEV_DATABASE_URL ||
-       envVars.RENDER_DB_EXTERNAL_URL ?? 
-       envVars.RENDER_DB_INTERNAL_URL ?? 
-       envVars.DATABASE_LOCAL_URL ??
+       envVars.RENDER_DB_EXTERNAL_URL ||
+       envVars.RENDER_DB_INTERNAL_URL ||
+       envVars.DATABASE_ONPREMISE_DEV_PRIMARY ||
        envVars.DATABASE_URL);
   
   if (!url) {
