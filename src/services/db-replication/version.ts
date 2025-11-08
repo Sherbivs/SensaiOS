@@ -7,8 +7,14 @@
  */
 
 import { createHash } from 'crypto';
-
-import { PrismaClient } from '@prisma/client';
+import type { Pool } from 'pg';
+import {
+  getMigrations,
+  getMigrationsWithLimit,
+  createDbVersion,
+  upsertDbSyncState,
+  type MigrationRow,
+} from '../../shared/models/db-version-queries-pg.js';
 
 // Note: logger import will work after Prisma client regeneration
 // For now, using console for logging during initial implementation
@@ -58,29 +64,17 @@ export interface ReversionResult {
  * 
  * Formula: SHA-256(migration_1:checksum|migration_2:checksum|...)
  * 
- * @param prismaClient - Prisma client connected to target database
+ * @param pool - PostgreSQL connection pool for target database
  * @param sourceName - Descriptive name for this database (e.g., 'DEV', 'PROD', 'LOCAL')
  * @returns Version object with fingerprint and metadata
  */
 export async function getVersion(
-  prismaClient: PrismaClient,
+  pool: Pool,
   sourceName: string
 ): Promise<Version> {
   try {
     // Query _prisma_migrations table (internal Prisma tracking table)
-    const migrations = await prismaClient.$queryRaw<
-      Array<{
-        migration_name: string;
-        checksum: string;
-        applied_steps_count: number;
-        started_at: Date;
-        finished_at: Date | null;
-      }>
-    >`
-      SELECT migration_name, checksum, applied_steps_count, started_at, finished_at
-      FROM _prisma_migrations
-      ORDER BY started_at ASC
-    `;
+    const migrations = await getMigrations(pool);
 
     if (migrations.length === 0) {
       logger.warn(`[db-replication] No migrations found in ${sourceName} database`);
@@ -95,14 +89,14 @@ export async function getVersion(
 
     // Build fingerprint: migration_1:checksum|migration_2:checksum|...
     const fingerprintInput = migrations
-      .map((m) => `${m.migration_name}:${m.checksum}`)
+      .map((m: MigrationRow) => `${m.migration_name}:${m.checksum}`)
       .join('|');
 
     const fingerprint = createHash('sha256')
       .update(fingerprintInput)
       .digest('hex');
 
-    const lastMigration = migrations[migrations.length - 1];
+    const lastMigration = migrations[migrations.length - 1]!;
 
     return {
       fingerprint,
@@ -128,13 +122,15 @@ export async function getVersion(
  * 
  * @param source - Version from source database (e.g., DEV)
  * @param target - Version from target database (e.g., PROD)
+ * @param poolSource - PostgreSQL pool for source database
+ * @param poolTarget - PostgreSQL pool for target database
  * @returns VersionComparison with status and metadata
  */
 export async function compareVersions(
   source: Version,
   target: Version,
-  prismaSource: PrismaClient,
-  prismaTarget: PrismaClient
+  poolSource: Pool,
+  poolTarget: Pool
 ): Promise<VersionComparison> {
   // Case 1: Identical fingerprints
   if (source.fingerprint === target.fingerprint) {
@@ -163,8 +159,8 @@ export async function compareVersions(
   // Case 3: Source has more migrations - verify prefix
   if (migrationCountDiff > 0) {
     const prefixValid = await verifyMigrationPrefix(
-      prismaSource,
-      prismaTarget,
+      poolSource,
+      poolTarget,
       target.migrationCount
     );
 
@@ -203,34 +199,20 @@ export async function compareVersions(
  * Used to ensure AHEAD status is safe - target must have exact same migrations
  * as source (just fewer).
  * 
- * @param prismaSource - Source Prisma client
- * @param prismaTarget - Target Prisma client
+ * @param poolSource - Source PostgreSQL pool
+ * @param poolTarget - Target PostgreSQL pool
  * @param targetCount - Number of migrations in target
  * @returns true if target is valid prefix, false if diverged
  */
 async function verifyMigrationPrefix(
-  prismaSource: PrismaClient,
-  prismaTarget: PrismaClient,
+  poolSource: Pool,
+  poolTarget: Pool,
   targetCount: number
 ): Promise<boolean> {
   try {
     // Get first N migrations from both databases
-    const sourceMigrations = await prismaSource.$queryRaw<
-      Array<{ migration_name: string; checksum: string }>
-    >`
-      SELECT migration_name, checksum
-      FROM _prisma_migrations
-      ORDER BY started_at ASC
-      LIMIT ${targetCount}
-    `;
-
-    const targetMigrations = await prismaTarget.$queryRaw<
-      Array<{ migration_name: string; checksum: string }>
-    >`
-      SELECT migration_name, checksum
-      FROM _prisma_migrations
-      ORDER BY started_at ASC
-    `;
+    const sourceMigrations = await getMigrationsWithLimit(targetCount, poolSource);
+    const targetMigrations = await getMigrationsWithLimit(targetCount, poolTarget);
 
     // Compare migration names and checksums
     if (sourceMigrations.length !== targetMigrations.length) {
@@ -238,8 +220,8 @@ async function verifyMigrationPrefix(
     }
 
     for (let i = 0; i < targetMigrations.length; i++) {
-      const source = sourceMigrations[i];
-      const target = targetMigrations[i];
+      const source = sourceMigrations[i]!;
+      const target = targetMigrations[i]!;
 
       if (
         source.migration_name !== target.migration_name ||
@@ -270,13 +252,13 @@ async function verifyMigrationPrefix(
  * 
  * @param devVersion - Version from DEV database (master)
  * @param prodVersion - Version from PROD database (replica)
- * @param prismaProd - Prisma client for PROD database
+ * @param poolProd - PostgreSQL pool for PROD database
  * @returns ReversionResult with detection metadata
  */
 export async function handleReversion(
   devVersion: Version,
   prodVersion: Version,
-  prismaProd: PrismaClient
+  poolProd: Pool
 ): Promise<ReversionResult> {
   const reversionDetected = devVersion.migrationCount < prodVersion.migrationCount;
 
@@ -294,27 +276,15 @@ export async function handleReversion(
 
   // Update db_sync_state to block sync
   try {
-    await prismaProd.dbSyncState.upsert({
-      where: {
-        source_target: {
-          source: 'DEV',
-          target: 'PROD',
-        },
-      },
-      create: {
+    await upsertDbSyncState(
+      {
         source: 'DEV',
         target: 'PROD',
         status: 'WAITING_FOR_MASTER',
         lastError: `Reversion detected: DEV rolled back ${migrationGap} migration(s). Sync blocked until DEV catches up.`,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
-      update: {
-        status: 'WAITING_FOR_MASTER',
-        lastError: `Reversion detected: DEV rolled back ${migrationGap} migration(s). Sync blocked until DEV catches up.`,
-        updatedAt: new Date(),
-      },
-    });
+      poolProd
+    );
 
     logger.error(
       `[db-replication] REVERSION DETECTED: DEV has ${devVersion.migrationCount} migrations, PROD has ${prodVersion.migrationCount}. Sync blocked.`,
@@ -344,24 +314,24 @@ export async function handleReversion(
  * 
  * Stores version metadata for historical tracking and observability.
  * 
- * @param prismaClient - Prisma client for target database
+ * @param pool - PostgreSQL pool for target database
  * @param version - Version object to record
  */
 export async function recordVersion(
-  prismaClient: PrismaClient,
+  pool: Pool,
   version: Version
 ): Promise<void> {
   try {
-    await prismaClient.dbVersion.create({
-      data: {
+    await createDbVersion(
+      {
         versionFingerprint: version.fingerprint,
         migrationCount: version.migrationCount,
         lastMigrationName: version.lastMigrationName || '',
         lastMigrationAppliedAt: version.lastMigrationAppliedAt || new Date(),
         syncSource: version.source,
-        createdAt: new Date(),
       },
-    });
+      pool
+    );
 
     logger.info(`[db-replication] Recorded version snapshot for ${version.source}`, {
       fingerprint: version.fingerprint.substring(0, 12),
