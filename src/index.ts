@@ -668,7 +668,7 @@ export async function boot(): Promise<void> {
     setPhase("Startup failed");
     log.error("Database connectivity failed", error, {
       remediation: [
-        "On Render, ensure render.yaml sets envVars.DATABASE_URL fromDatabase.connectionString (internal).",
+        "Ensure PROD_DATABASE_URL (production) or DEV_DATABASE_URL (development) is set correctly.",
         "For workers, confirm service type is 'Background Worker' and it references the same DB.",
       ],
     });

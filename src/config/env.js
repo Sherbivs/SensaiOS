@@ -51,11 +51,10 @@ const aliasEnv = (sourceKey, targetKey, predicate = true) => {
   }
 };
 
-aliasEnv('PROD_DATABASE_URL', 'DATABASE_URL', isProdRuntime);
+// Alias environment-specific RENDER_DB_* variables based on NODE_ENV
 aliasEnv('PROD_RENDER_DB_INTERNAL_URL', 'RENDER_DB_INTERNAL_URL', isProdRuntime);
 aliasEnv('PROD_RENDER_DB_EXTERNAL_URL', 'RENDER_DB_EXTERNAL_URL', isProdRuntime);
 
-aliasEnv('DEV_DATABASE_URL', 'DATABASE_URL', !isProdRuntime);
 aliasEnv('DEV_RENDER_DB_INTERNAL_URL', 'RENDER_DB_INTERNAL_URL', !isProdRuntime);
 aliasEnv('DEV_RENDER_DB_EXTERNAL_URL', 'RENDER_DB_EXTERNAL_URL', !isProdRuntime);
 

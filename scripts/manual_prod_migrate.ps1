@@ -45,7 +45,6 @@ Write-Host "[2/6] Verifying database URLs..." -ForegroundColor Yellow
 
 $externalUrl = $env:RENDER_DB_EXTERNAL_URL
 $internalUrl = $env:RENDER_DB_INTERNAL_URL
-$databaseUrl = $env:DATABASE_URL
 
 if (-not $externalUrl -and -not $internalUrl) {
     Write-Error "No direct database URL found. Need RENDER_DB_EXTERNAL_URL or RENDER_DB_INTERNAL_URL"
@@ -59,9 +58,8 @@ Write-Host "  Migration URL: $($migrateUrl.Substring(0, 40))..." -ForegroundColo
 Write-Host "  Connection Type: Direct PostgreSQL" -ForegroundColor Gray
 Write-Host ""
 
-# Set environment for Prisma
+# Set environment for Prisma (Prisma CLI will use the --url flag directly)
 $env:NODE_ENV = "production"
-$env:DATABASE_URL = $migrateUrl
 $env:PRISMA_CLIENT_ENGINE_TYPE = ""  # Direct mode
 
 # Check current migration status
@@ -69,7 +67,7 @@ Write-Host "[3/6] Checking current migration status..." -ForegroundColor Yellow
 Write-Host ""
 
 try {
-    $statusOutput = npx prisma migrate status 2>&1 | Out-String
+    $statusOutput = npx prisma migrate status --url="$migrateUrl" 2>&1 | Out-String
     Write-Host $statusOutput
     
     if ($statusOutput -match "Database schema is up to date") {
@@ -92,7 +90,7 @@ Write-Host ""
 if ($DryRun) {
     Write-Host "[4/6] DRY RUN MODE - No changes will be made" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "Would run: npx prisma migrate deploy" -ForegroundColor Gray
+    Write-Host "Would run: npx prisma migrate deploy --url=`"$migrateUrl`"" -ForegroundColor Gray
     Write-Host ""
     Write-Host "To apply migrations, run with -Apply flag:" -ForegroundColor Yellow
     Write-Host "  .\scripts\manual_prod_migrate.ps1 -Apply" -ForegroundColor White
@@ -113,10 +111,10 @@ if ($Apply) {
     }
     
     Write-Host ""
-    Write-Host "[5/6] Running: npx prisma migrate deploy" -ForegroundColor Yellow
+    Write-Host "[5/6] Running: npx prisma migrate deploy --url=`"$migrateUrl`"" -ForegroundColor Yellow
     
     try {
-        $deployOutput = npx prisma migrate deploy 2>&1 | Out-String
+        $deployOutput = npx prisma migrate deploy --url="$migrateUrl" 2>&1 | Out-String
         Write-Host $deployOutput
         
         if ($LASTEXITCODE -eq 0) {
@@ -132,7 +130,7 @@ if ($Apply) {
     
     Write-Host ""
     Write-Host "[6/6] Verifying final state..." -ForegroundColor Yellow
-    npx prisma migrate status
+    npx prisma migrate status --url="$migrateUrl"
     
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan

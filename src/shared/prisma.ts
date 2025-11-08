@@ -577,7 +577,8 @@ async function initializeDevClient(): Promise<void> {
     // 2-NODE CLUSTER: Always use direct PostgreSQL connections
     devTransport = "direct";
     
-    // Direct connection - set DATABASE_URL temporarily for this client
+    // PRISMA INTERNAL REQUIREMENT: Temporarily set DATABASE_URL for PrismaClient constructor
+    // Prisma requires process.env.DATABASE_URL at instantiation time, even though we use direct URLs
     const originalDatabaseUrl = process.env.DATABASE_URL;
     process.env.DATABASE_URL = devUrl;
     
@@ -587,7 +588,7 @@ async function initializeDevClient(): Promise<void> {
     
     devPrismaClient = new PrismaClient(baseOptions);
     
-    // Restore original DATABASE_URL
+    // Restore original DATABASE_URL after Prisma client creation
     if (originalDatabaseUrl) {
       process.env.DATABASE_URL = originalDatabaseUrl;
     }
@@ -669,9 +670,10 @@ async function initializeLocalClient(): Promise<void> {
   
   try {
     // 2-NODE CLUSTER: Always use direct PostgreSQL connections
-    localTransport = "direct";
+    prodTransport = "direct";
     
-    // Direct connection - set DATABASE_URL temporarily for this client
+    // PRISMA INTERNAL REQUIREMENT: Temporarily set DATABASE_URL for PrismaClient constructor
+    // Prisma requires process.env.DATABASE_URL at instantiation time, even though we use direct URLs
     const originalDatabaseUrl = process.env.DATABASE_URL;
     process.env.DATABASE_URL = localUrl;
     
@@ -679,14 +681,14 @@ async function initializeLocalClient(): Promise<void> {
       log: ["error"] as any,
     };
     
-    localPrismaClient = new PrismaClient(baseOptions);
+    prodPrismaClient = new PrismaClient(baseOptions);
     
-    // Restore original DATABASE_URL
+    // Restore original DATABASE_URL after Prisma client creation
     if (originalDatabaseUrl) {
       process.env.DATABASE_URL = originalDatabaseUrl;
     }
     
-    localPrisma = localPrismaClient;
+    prisma = prodPrismaClient;
     
     // Connect and probe
     await localPrismaClient.$connect();

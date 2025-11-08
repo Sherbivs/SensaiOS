@@ -6,7 +6,7 @@ This script is interactive by design. It tries `npx prisma migrate deploy` first
 Usage (PowerShell):
   pwsh.exe -File .\scripts\bootstrap_staging_db.ps1
 
-Be sure you run this from the repo root and that `.env` contains a valid DATABASE_URL for staging.
+Requires RENDER_DB_EXTERNAL_URL or RENDER_DB_INTERNAL_URL for direct PostgreSQL connections.
 #>
 
 param(
@@ -29,20 +29,14 @@ function Import-EnvFile {
 Write-Host "[bootstrap] Loading .env (if present)" -ForegroundColor Cyan
 Import-EnvFile
 
-$db = $env:DATABASE_URL
-if (-not $db) {
-    Write-Error "DATABASE_URL is not set in the environment or .env. Aborting."
+# Use direct PostgreSQL URLs (preferred for migrations)
+$directUrl = $env:RENDER_DB_EXTERNAL_URL
+if (-not $directUrl) {
+    $directUrl = $env:RENDER_DB_INTERNAL_URL
+}
+if (-not $directUrl) {
+    Write-Error "No direct database URL found. Set RENDER_DB_EXTERNAL_URL or RENDER_DB_INTERNAL_URL in your environment."
     exit 2
-}
-
-$directUrl = $env:RENDER_DB_INTERNAL_URL
-if (-not $directUrl) {
-    $directUrl = $env:RENDER_DB_EXTERNAL_URL
-}
-if (-not $directUrl) {
-    Write-Warning "RENDER_DB_INTERNAL_URL and RENDER_DB_EXTERNAL_URL are not set. Prisma migrations will fall back to DATABASE_URL; add a direct connection string for best results."
-} elseif ($directUrl -eq $db) {
-    Write-Warning "Direct URL matches DATABASE_URL. Confirm the direct connection string for migrations."
 }
 
 # Mask creds for display
@@ -50,25 +44,22 @@ function ConvertTo-MaskedDbUrl($u) {
     try {
         if ($u -match '^(.*://)(.*?@)(.*)$') { return $u -replace '\\S+@','***@' }
     } catch { }
-    return 'DATABASE_URL (hidden)'
+    return 'Direct URL (hidden)'
 }
 
-Write-Host "[bootstrap] Detected DATABASE_URL: $(ConvertTo-MaskedDbUrl $db)" -ForegroundColor Yellow
-if ($directUrl) {
-    Write-Host "[bootstrap] Detected Direct URL: $(ConvertTo-MaskedDbUrl $directUrl)" -ForegroundColor Yellow
-}
+Write-Host "[bootstrap] Detected Direct URL: $(ConvertTo-MaskedDbUrl $directUrl)" -ForegroundColor Yellow
 
 if ($WhatIf) {
-    Write-Host "WhatIf: would run 'npx prisma migrate deploy' against the target DB." -ForegroundColor Green
+    Write-Host "WhatIf: would run 'npx prisma migrate deploy --url=`"$directUrl`"' against the target DB." -ForegroundColor Green
     exit 0
 }
 
-$confirm = Read-Host "Proceed to run 'npx prisma migrate deploy' against the above DATABASE_URL? Type 'yes' to continue"
+$confirm = Read-Host "Proceed to run 'npx prisma migrate deploy' against the above Direct URL? Type 'yes' to continue"
 if ($confirm -ne 'yes') { Write-Host 'Aborted by user.'; exit 1 }
 
-Write-Host "Running: npx prisma migrate deploy" -ForegroundColor Cyan
+Write-Host "Running: npx prisma migrate deploy --url=`"$directUrl`"" -ForegroundColor Cyan
 try {
-    $proc = Start-Process -FilePath 'npx' -ArgumentList 'prisma','migrate','deploy' -NoNewWindow -Wait -PassThru -RedirectStandardOutput pipes -RedirectStandardError pipes
+    $proc = Start-Process -FilePath 'npx' -ArgumentList 'prisma','migrate','deploy','--url',$directUrl -NoNewWindow -Wait -PassThru -RedirectStandardOutput pipes -RedirectStandardError pipes
     $out = $proc.StandardOutput.ReadToEnd()
     $err = $proc.StandardError.ReadToEnd()
     if ($out) { Write-Host $out }

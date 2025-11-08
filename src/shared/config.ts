@@ -168,7 +168,6 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
   const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL?.trim() ?? "";
   const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL?.trim() ?? "";
   const localUrl = process.env.DATABASE_LOCAL_URL?.trim() ?? "";
-  const envUrl = process.env.DATABASE_URL?.trim() ?? "";
 
   const preferExternal = mode === "external" || (mode === "auto" && nodeEnv !== "production");
 
@@ -206,14 +205,12 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     addDirectCandidate(renderInternalUrl, "internal");
     addDirectCandidate(prodUrl, "env");
     addDirectCandidate(localUrl, "local");
-    addDirectCandidate(envUrl, "env");
   } else {
     // Production/internal mode: prefer PROD (local) database
     addDirectCandidate(prodUrl, "env");
     addDirectCandidate(localUrl, "local");
     addDirectCandidate(renderInternalUrl, "internal");
     addDirectCandidate(devUrl, "external");
-    addDirectCandidate(envUrl, "env");
     addDirectCandidate(renderExternalUrl, "external");
   }
 
@@ -264,7 +261,7 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
 function assertDatabaseUrl(nodeEnv: string, url: string): void {
   if (!url) {
     if (nodeEnv === "production") {
-      throw new Error("DATABASE_URL is required in production.");
+      throw new Error("Database URL is required in production. Set PROD_DATABASE_URL or RENDER_DB_INTERNAL_URL.");
     }
     return;
   }
@@ -280,13 +277,13 @@ function assertDatabaseUrl(nodeEnv: string, url: string): void {
       const isUsingProdLocalDatabase = prodUrl && url === prodUrl && isLocalhost;
       
       if (isLocalhost && !isUsingProdLocalDatabase) {
-        throw new Error("DATABASE_URL cannot point to localhost in production (unless using PROD_DATABASE_URL for local node).");
+        throw new Error("Database URL cannot point to localhost in production (unless using PROD_DATABASE_URL for local node).");
       }
     } catch (error) {
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error("DATABASE_URL must be a valid URL in production.");
+      throw new Error("Database URL must be a valid URL in production.");
     }
   }
 }

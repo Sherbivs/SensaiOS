@@ -67,10 +67,6 @@ function Invoke-SpeciesSheetRefresh() {
 }
 
 $envVars = Read-EnvFile -path $EnvFilePath
-$databaseUrl = $envVars['DATABASE_URL']
-if ([string]::IsNullOrWhiteSpace($databaseUrl)) {
-    throw "DATABASE_URL missing from $EnvFilePath"
-}
 
 $internalUrl = $envVars['RENDER_DB_INTERNAL_URL']
 Assert-DirectUrl -url $internalUrl -name 'RENDER_DB_INTERNAL_URL (DEV master)'
@@ -81,24 +77,24 @@ if (-not $RenderUrl -or [string]::IsNullOrWhiteSpace($RenderUrl)) {
 
 Assert-DirectUrl -url $RenderUrl -name 'RENDER_DB_EXTERNAL_URL (Render)'
 
-Write-Host '*** Running migrations against direct PostgreSQL connection' -ForegroundColor Yellow
-$snapshot = Set-EnvVars -vars @{ DATABASE_URL = $internalUrl; RENDER_DB_INTERNAL_URL = $internalUrl; PRISMA_CLIENT_ENGINE_TYPE = $null }
+Write-Host '*** Running migrations against direct PostgreSQL connection (DEV master)' -ForegroundColor Yellow
+$snapshot = Set-EnvVars -vars @{ RENDER_DB_INTERNAL_URL = $internalUrl; PRISMA_CLIENT_ENGINE_TYPE = $null }
 try {
     if (-not $DryRun) {
-    Invoke-PrismaCommand @('migrate', 'deploy')
-    Invoke-SpeciesSheetRefresh
+        Invoke-PrismaCommand @('migrate', 'deploy', '--url', $internalUrl)
+        Invoke-SpeciesSheetRefresh
     } else {
-        Write-Host 'Dry run: skipping migrate deploy on Prisma Postgres direct connection.' -ForegroundColor DarkYellow
+        Write-Host 'Dry run: skipping migrate deploy on DEV master direct connection.' -ForegroundColor DarkYellow
     }
 } finally {
     Restore-EnvVars -snapshot $snapshot
 }
 
 Write-Host '*** Running migrations against Render standby direct connection' -ForegroundColor Yellow
-$renderSnapshot = Set-EnvVars -vars @{ DATABASE_URL = $RenderUrl; RENDER_DB_EXTERNAL_URL = $RenderUrl; PRISMA_CLIENT_ENGINE_TYPE = $null }
+$renderSnapshot = Set-EnvVars -vars @{ RENDER_DB_EXTERNAL_URL = $RenderUrl; PRISMA_CLIENT_ENGINE_TYPE = $null }
 try {
     if (-not $DryRun) {
-        Invoke-PrismaCommand @('migrate', 'deploy')
+        Invoke-PrismaCommand @('migrate', 'deploy', '--url', $RenderUrl)
         Invoke-SpeciesSheetRefresh
     } else {
         Write-Host 'Dry run: skipping migrate deploy on Render direct connection.' -ForegroundColor DarkYellow
