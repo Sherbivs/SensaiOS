@@ -11,7 +11,19 @@
  * - Structured diff reporting for automated analysis
  */
 
-import type { PrismaClient } from '@prisma/client';
+import type { Pool } from 'pg';
+
+import {
+  getTableNames,
+  getTableColumns,
+  getTableIndexes,
+  getTableConstraints,
+  countTableRows,
+  getColumnsForChecksum,
+  getForeignKeys,
+  countOrphanRecords,
+} from '../../shared/models/db-version-queries-pg.js';
+import { calculateTableChecksum as calculateChecksum } from '../../shared/models/db-version-queries-pg.js';
 
 // Temporary logger until integration
 const logger = {
@@ -92,14 +104,14 @@ export interface DataIntegrityResult {
  * - Constraints (FK, unique, check)
  * - Enums (values, order)
  * 
- * @param sourceClient - Source database Prisma client
- * @param targetClient - Target database Prisma client
+ * @param sourceClient - Source database Pool
+ * @param targetClient - Target database Pool
  * @param options - Verification options
  * @returns Schema integrity result with structured diffs
  */
 export async function verifySchemaIntegrity(
-  sourceClient: PrismaClient,
-  targetClient: PrismaClient,
+  sourceClient: Pool,
+  targetClient: Pool,
   options: IntegrityOptions = {}
 ): Promise<SchemaIntegrityResult> {
   logger.info('Starting schema integrity verification');
@@ -143,34 +155,21 @@ export async function verifySchemaIntegrity(
  * Identifies missing and extra tables.
  */
 async function compareTableStructures(
-  sourceClient: PrismaClient,
-  targetClient: PrismaClient,
+  sourceClient: Pool,
+  targetClient: Pool,
   skipTables: Set<string>
 ): Promise<SchemaDiff[]> {
   const diffs: SchemaDiff[] = [];
 
   // Get table lists from information_schema
-  const sourceTables = await sourceClient.$queryRaw<Array<{ table_name: string }>>`
-    SELECT table_name 
-    FROM information_schema.tables 
-    WHERE table_schema = 'public' 
-      AND table_type = 'BASE TABLE'
-    ORDER BY table_name
-  `;
-
-  const targetTables = await targetClient.$queryRaw<Array<{ table_name: string }>>`
-    SELECT table_name 
-    FROM information_schema.tables 
-    WHERE table_schema = 'public' 
-      AND table_type = 'BASE TABLE'
-    ORDER BY table_name
-  `;
+  const sourceTables = await getTableNames(sourceClient);
+  const targetTables = await getTableNames(targetClient);
 
   const sourceTableNames = new Set(
-    sourceTables.map(t => t.table_name).filter(name => !skipTables.has(name))
+    sourceTables.filter((name: string) => !skipTables.has(name))
   );
   const targetTableNames = new Set(
-    targetTables.map(t => t.table_name).filter(name => !skipTables.has(name))
+    targetTables.filter((name: string) => !skipTables.has(name))
   );
 
   // Find missing tables (in source but not target)
@@ -205,150 +204,109 @@ async function compareTableStructures(
  * Checks type, nullable, default values, and character length.
  */
 async function compareColumnDefinitions(
-  sourceClient: PrismaClient,
-  targetClient: PrismaClient,
+  sourceClient: Pool,
+  targetClient: Pool,
   skipTables: Set<string>
 ): Promise<SchemaDiff[]> {
   const diffs: SchemaDiff[] = [];
 
-  // Get column metadata from information_schema
-  const sourceColumns = await sourceClient.$queryRaw<Array<{
-    table_name: string;
-    column_name: string;
-    data_type: string;
-    is_nullable: string;
-    column_default: string | null;
-    character_maximum_length: number | null;
-  }>>`
-    SELECT table_name, column_name, data_type, is_nullable, column_default, character_maximum_length
-    FROM information_schema.columns
-    WHERE table_schema = 'public'
-    ORDER BY table_name, ordinal_position
-  `;
+  // Get all table names first
+  const sourceTables = await getTableNames(sourceClient);
+  const targetTables = await getTableNames(targetClient);
+  const allTables = new Set([...sourceTables, ...targetTables]);
 
-  const targetColumns = await targetClient.$queryRaw<Array<{
-    table_name: string;
-    column_name: string;
-    data_type: string;
-    is_nullable: string;
-    column_default: string | null;
-    character_maximum_length: number | null;
-  }>>`
-    SELECT table_name, column_name, data_type, is_nullable, column_default, character_maximum_length
-    FROM information_schema.columns
-    WHERE table_schema = 'public'
-    ORDER BY table_name, ordinal_position
-  `;
+  // Get column metadata for all tables
+  for (const tableName of allTables) {
+    if (skipTables.has(tableName)) continue;
 
-  // Build lookup maps
-  const sourceMap = new Map<string, typeof sourceColumns[0]>();
-  for (const col of sourceColumns) {
-    if (!skipTables.has(col.table_name)) {
-      sourceMap.set(`${col.table_name}.${col.column_name}`, col);
-    }
-  }
+    const sourceColumns = await getTableColumns(tableName, sourceClient);
+    const targetColumns = await getTableColumns(tableName, targetClient);
 
-  const targetMap = new Map<string, typeof targetColumns[0]>();
-  for (const col of targetColumns) {
-    if (!skipTables.has(col.table_name)) {
-      targetMap.set(`${col.table_name}.${col.column_name}`, col);
-    }
-  }
-
-  // Compare columns that exist in both
-  for (const [key, sourceCol] of sourceMap) {
-    const targetCol = targetMap.get(key);
-
-    if (!targetCol) {
-      // Column missing in target
-      diffs.push({
-        type: 'column',
-        action: 'missing',
-        path: `public.${key}`,
-        details: {
-          table: sourceCol.table_name,
-          column: sourceCol.column_name,
-          sourceType: sourceCol.data_type,
-        },
-      });
-      continue;
+    // Build lookup maps
+    const sourceMap = new Map<string, typeof sourceColumns[0]>();
+    for (const col of sourceColumns) {
+      sourceMap.set(`${tableName}.${col.column_name}`, col);
     }
 
-    // Check for mismatches
-    if (sourceCol.data_type !== targetCol.data_type) {
-      diffs.push({
-        type: 'column',
-        action: 'mismatch',
-        path: `public.${key}`,
-        details: {
-          table: sourceCol.table_name,
-          column: sourceCol.column_name,
-          field: 'data_type',
-          source: sourceCol.data_type,
-          target: targetCol.data_type,
-        },
-      });
+    const targetMap = new Map<string, typeof targetColumns[0]>();
+    for (const col of targetColumns) {
+      targetMap.set(`${tableName}.${col.column_name}`, col);
     }
 
-    if (sourceCol.is_nullable !== targetCol.is_nullable) {
-      diffs.push({
-        type: 'column',
-        action: 'mismatch',
-        path: `public.${key}`,
-        details: {
-          table: sourceCol.table_name,
-          column: sourceCol.column_name,
-          field: 'is_nullable',
-          source: sourceCol.is_nullable,
-          target: targetCol.is_nullable,
-        },
-      });
+    // Compare columns
+    for (const [colPath, sourceCol] of sourceMap) {
+      const targetCol = targetMap.get(colPath);
+
+      if (!targetCol) {
+        diffs.push({
+          type: 'column',
+          action: 'missing',
+          path: colPath,
+          details: {
+            data_type: sourceCol.data_type,
+            is_nullable: sourceCol.is_nullable,
+          },
+        });
+        continue;
+      }
+
+      // Check for type mismatch
+      if (sourceCol.data_type !== targetCol.data_type) {
+        diffs.push({
+          type: 'column',
+          action: 'mismatch',
+          path: colPath,
+          details: {
+            field: 'data_type',
+            source: sourceCol.data_type,
+            target: targetCol.data_type,
+          },
+        });
+      }
+
+      // Check nullable mismatch
+      if (sourceCol.is_nullable !== targetCol.is_nullable) {
+        diffs.push({
+          type: 'column',
+          action: 'mismatch',
+          path: colPath,
+          details: {
+            field: 'is_nullable',
+            source: sourceCol.is_nullable,
+            target: targetCol.is_nullable,
+          },
+        });
+      }
+
+      // Check default value mismatch
+      if (sourceCol.column_default !== targetCol.column_default) {
+        diffs.push({
+          type: 'column',
+          action: 'mismatch',
+          path: colPath,
+          details: {
+            field: 'column_default',
+            source: sourceCol.column_default,
+            target: targetCol.column_default,
+          },
+        });
+      }
     }
 
-    if (sourceCol.column_default !== targetCol.column_default) {
-      diffs.push({
-        type: 'column',
-        action: 'mismatch',
-        path: `public.${key}`,
-        details: {
-          table: sourceCol.table_name,
-          column: sourceCol.column_name,
-          field: 'column_default',
-          source: sourceCol.column_default,
-          target: targetCol.column_default,
-        },
-      });
-    }
-
-    if (sourceCol.character_maximum_length !== targetCol.character_maximum_length) {
-      diffs.push({
-        type: 'column',
-        action: 'mismatch',
-        path: `public.${key}`,
-        details: {
-          table: sourceCol.table_name,
-          column: sourceCol.column_name,
-          field: 'character_maximum_length',
-          source: sourceCol.character_maximum_length,
-          target: targetCol.character_maximum_length,
-        },
-      });
-    }
-  }
-
-  // Find extra columns (in target but not source)
-  for (const [key, targetCol] of targetMap) {
-    if (!sourceMap.has(key)) {
-      diffs.push({
-        type: 'column',
-        action: 'extra',
-        path: `public.${key}`,
-        details: {
-          table: targetCol.table_name,
-          column: targetCol.column_name,
-          targetType: targetCol.data_type,
-        },
-      });
+    // Find extra columns in target
+    for (const colPath of targetMap.keys()) {
+      if (!sourceMap.has(colPath)) {
+        const targetCol = targetMap.get(colPath)!;
+        diffs.push({
+          type: 'column',
+          action: 'extra',
+          path: colPath,
+          details: {
+            data_type: targetCol.data_type,
+            is_nullable: targetCol.is_nullable,
+          },
+        });
+      }
     }
   }
 
@@ -360,45 +318,49 @@ async function compareColumnDefinitions(
  * Checks index definition, uniqueness, and columns.
  */
 async function compareIndexes(
-  sourceClient: PrismaClient,
-  targetClient: PrismaClient,
+  sourceClient: Pool,
+  targetClient: Pool,
   skipTables: Set<string>
 ): Promise<SchemaDiff[]> {
   const diffs: SchemaDiff[] = [];
 
-  // Get index definitions from pg_indexes
-  const sourceIndexes = await sourceClient.$queryRaw<Array<{
-    tablename: string;
-    indexname: string;
-    indexdef: string;
-  }>>`
+  // Get index definitions from pg_indexes using direct queries
+  const sourceQuery = `
+    SELECT tablename, indexname, indexdef
+    FROM pg_indexes
+    WHERE schemaname = 'public'
+    ORDER BY tablename, indexname
+  `;
+  
+  const targetQuery = `
     SELECT tablename, indexname, indexdef
     FROM pg_indexes
     WHERE schemaname = 'public'
     ORDER BY tablename, indexname
   `;
 
-  const targetIndexes = await targetClient.$queryRaw<Array<{
+  const sourceResult = await sourceClient.query<{
     tablename: string;
     indexname: string;
     indexdef: string;
-  }>>`
-    SELECT tablename, indexname, indexdef
-    FROM pg_indexes
-    WHERE schemaname = 'public'
-    ORDER BY tablename, indexname
-  `;
+  }>(sourceQuery);
+  
+  const targetResult = await targetClient.query<{
+    tablename: string;
+    indexname: string;
+    indexdef: string;
+  }>(targetQuery);
 
   // Build lookup maps
   const sourceMap = new Map<string, string>();
-  for (const idx of sourceIndexes) {
+  for (const idx of sourceResult.rows) {
     if (!skipTables.has(idx.tablename)) {
       sourceMap.set(idx.indexname, idx.indexdef);
     }
   }
 
   const targetMap = new Map<string, string>();
-  for (const idx of targetIndexes) {
+  for (const idx of targetResult.rows) {
     if (!skipTables.has(idx.tablename)) {
       targetMap.set(idx.indexname, idx.indexdef);
     }
@@ -449,18 +411,14 @@ async function compareIndexes(
  * Checks foreign keys, unique constraints, and check constraints.
  */
 async function compareConstraints(
-  sourceClient: PrismaClient,
-  targetClient: PrismaClient,
+  sourceClient: Pool,
+  targetClient: Pool,
   skipTables: Set<string>
 ): Promise<SchemaDiff[]> {
   const diffs: SchemaDiff[] = [];
 
-  // Get constraint metadata from information_schema
-  const sourceConstraints = await sourceClient.$queryRaw<Array<{
-    table_name: string;
-    constraint_name: string;
-    constraint_type: string;
-  }>>`
+  // Get constraint metadata from information_schema using direct queries
+  const constraintQuery = `
     SELECT table_name, constraint_name, constraint_type
     FROM information_schema.table_constraints
     WHERE table_schema = 'public'
@@ -468,28 +426,28 @@ async function compareConstraints(
     ORDER BY table_name, constraint_name
   `;
 
-  const targetConstraints = await targetClient.$queryRaw<Array<{
+  const sourceResult = await sourceClient.query<{
     table_name: string;
     constraint_name: string;
     constraint_type: string;
-  }>>`
-    SELECT table_name, constraint_name, constraint_type
-    FROM information_schema.table_constraints
-    WHERE table_schema = 'public'
-      AND constraint_type IN ('FOREIGN KEY', 'UNIQUE', 'CHECK')
-    ORDER BY table_name, constraint_name
-  `;
+  }>(constraintQuery);
+  
+  const targetResult = await targetClient.query<{
+    table_name: string;
+    constraint_name: string;
+    constraint_type: string;
+  }>(constraintQuery);
 
   // Build lookup maps
   const sourceMap = new Map<string, string>();
-  for (const con of sourceConstraints) {
+  for (const con of sourceResult.rows) {
     if (!skipTables.has(con.table_name)) {
       sourceMap.set(con.constraint_name, con.constraint_type);
     }
   }
 
   const targetMap = new Map<string, string>();
-  for (const con of targetConstraints) {
+  for (const con of targetResult.rows) {
     if (!skipTables.has(con.table_name)) {
       targetMap.set(con.constraint_name, con.constraint_type);
     }
@@ -553,8 +511,8 @@ async function compareConstraints(
  * @returns Data integrity result with check details
  */
 export async function verifyDataIntegrity(
-  sourceClient: PrismaClient,
-  targetClient: PrismaClient,
+  sourceClient: Pool,
+  targetClient: Pool,
   options: IntegrityOptions = {}
 ): Promise<DataIntegrityResult> {
   logger.info('Starting data integrity verification');
@@ -564,27 +522,15 @@ export async function verifyDataIntegrity(
 
   try {
     // Get table list
-    const tables = await sourceClient.$queryRaw<Array<{ table_name: string }>>`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-        AND table_type = 'BASE TABLE'
-      ORDER BY table_name
-    `;
+    const tables = await getTableNames(sourceClient);
 
     // Verify row counts for all tables
-    for (const { table_name } of tables) {
+    for (const table_name of tables) {
       if (skipTables.has(table_name)) continue;
 
-      const sourceCount = await sourceClient.$queryRawUnsafe<Array<{ count: bigint }>>(
-        `SELECT COUNT(*) as count FROM "${table_name}"`
-      );
-      const targetCount = await targetClient.$queryRawUnsafe<Array<{ count: bigint }>>(
-        `SELECT COUNT(*) as count FROM "${table_name}"`
-      );
-
-      const sourceNum = Number(sourceCount[0].count);
-      const targetNum = Number(targetCount[0].count);
+      const sourceNum = await countTableRows(table_name, sourceClient);
+      const targetNum = await countTableRows(table_name, targetClient);
+      
       const passed = sourceNum === targetNum;
 
       checks.push({
@@ -602,7 +548,7 @@ export async function verifyDataIntegrity(
 
     // Verify checksums if not skipped
     if (!options.skipChecksums) {
-      for (const { table_name } of tables) {
+      for (const table_name of tables) {
         if (skipTables.has(table_name)) continue;
 
         try {
@@ -651,23 +597,18 @@ export async function verifyDataIntegrity(
  * Uses MD5 hash of ordered row data with optional sampling.
  */
 async function calculateTableChecksum(
-  client: PrismaClient,
+  client: Pool,
   tableName: string,
   sampleSize?: number
 ): Promise<string> {
   // Get column list
-  const columns = await client.$queryRawUnsafe<Array<{ column_name: string }>>(
-    `SELECT column_name FROM information_schema.columns 
-     WHERE table_schema = 'public' AND table_name = $1
-     ORDER BY ordinal_position`,
-    tableName
-  );
+  const columns = await getColumnsForChecksum(tableName, client);
 
   if (columns.length === 0) {
     return 'EMPTY';
   }
 
-  const columnList = columns.map(c => `"${c.column_name}"`).join(', ');
+  const columnList = columns.map((colName: string) => `"${colName}"`).join(', ');
 
   // Build query with optional sampling
   let query = `SELECT md5(string_agg(row_data, '')) as checksum 
@@ -682,8 +623,8 @@ async function calculateTableChecksum(
   query += ` ORDER BY ${columnList} LIMIT ${sampleSize || 'ALL'}
              ) as ordered_rows`;
 
-  const result = await client.$queryRawUnsafe<Array<{ checksum: string | null }>>(query);
-  return result[0].checksum || 'EMPTY';
+  const result = await client.query<{ checksum: string | null }>(query);
+  return result.rows[0]?.checksum || 'EMPTY';
 }
 
 /**
@@ -691,19 +632,13 @@ async function calculateTableChecksum(
  * Detects orphaned records (child records with missing parents).
  */
 async function verifyForeignKeyIntegrity(
-  client: PrismaClient,
+  client: Pool,
   skipTables: Set<string>
 ): Promise<DataCheck[]> {
   const checks: DataCheck[] = [];
 
-  // Get FK constraints
-  const fks = await client.$queryRaw<Array<{
-    table_name: string;
-    constraint_name: string;
-    column_name: string;
-    foreign_table_name: string;
-    foreign_column_name: string;
-  }>>`
+  // Get FK constraints using direct query
+  const fkQuery = `
     SELECT 
       tc.table_name,
       tc.constraint_name,
@@ -720,23 +655,29 @@ async function verifyForeignKeyIntegrity(
     ORDER BY tc.table_name, tc.constraint_name
   `;
 
+  const fkResult = await client.query<{
+    table_name: string;
+    constraint_name: string;
+    column_name: string;
+    foreign_table_name: string;
+    foreign_column_name: string;
+  }>(fkQuery);
+
   // Check each FK for orphans
-  for (const fk of fks) {
+  for (const fk of fkResult.rows) {
     if (skipTables.has(fk.table_name) || skipTables.has(fk.foreign_table_name)) {
       continue;
     }
 
     try {
-      const orphans = await client.$queryRawUnsafe<Array<{ count: bigint }>>(
-        `SELECT COUNT(*) as count 
-         FROM "${fk.table_name}" child
-         LEFT JOIN "${fk.foreign_table_name}" parent
-           ON child."${fk.column_name}" = parent."${fk.foreign_column_name}"
-         WHERE child."${fk.column_name}" IS NOT NULL
-           AND parent."${fk.foreign_column_name}" IS NULL`
+      const orphanCount = await countOrphanRecords(
+        fk.table_name,
+        fk.column_name,
+        fk.foreign_table_name,
+        fk.foreign_column_name,
+        client
       );
 
-      const orphanCount = Number(orphans[0].count);
       const passed = orphanCount === 0;
 
       checks.push({
