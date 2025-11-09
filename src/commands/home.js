@@ -545,10 +545,10 @@ const command = {
 
         view = mapTrainerToView(trainerForView, now, { battleHistory, questState });
         if (createdUser) {
-          console.info(`[home] Created trainer baseline for ${interaction.user.id} (coins=${DEFAULT_STARTER_COINS}).`);
+          log('info', `[home] Created trainer baseline for ${interaction.user.id} (coins=${DEFAULT_STARTER_COINS}).`);
         }
         if (createdParty) {
-          console.info(`[home] Created starter party shell for ${interaction.user.id}.`);
+          log('info', `[home] Created starter party shell for ${interaction.user.id}.`);
         }
         if (!view.party.some((member) => member.speciesId)) {
           log.warn(`[home] Trainer ${interaction.user.id} has no Pokémon yet — prompt them to use /starter.`);

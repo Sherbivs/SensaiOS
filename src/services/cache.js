@@ -15,15 +15,20 @@ const MAX_CACHE_FILE_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 const MAX_WORKSPACE_BYTES = 1024 * 1024 * 1024; // 1 GB workspace budget reminder
 
 function logCacheIssue(level, tag, err, meta = {}) {
-  const writer = level === 'warn' ? console.warn : console.error;
   const contextParts = Object.entries(meta)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
     .map(([key, value]) => `${key}=${value}`);
   const message = err instanceof Error ? err.message : String(err);
   const prefix = contextParts.length ? `${contextParts.join(' ')} ` : '';
-  writer(`[CACHE ${tag}] ${prefix}${message}`);
-  if (err instanceof Error && err.stack) {
-    writer(err.stack);
+  const fullMessage = `[CACHE ${tag}] ${prefix}${message}`;
+  
+  if (level === 'warn') {
+    log('warn', fullMessage, { error: err, ...meta });
+  } else {
+    log('error', fullMessage, { error: err, ...meta });
+    if (err instanceof Error && err.stack) {
+      log('error', err.stack);
+    }
   }
 }
 
