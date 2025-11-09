@@ -247,34 +247,65 @@ function refreshStats() {
 function printStats() {
   refreshStats();
   
-  const timestamp = new Date().toISOString();
   const lines = [];
   
-  lines.push(SPACER);
-  lines.push(`[${timestamp}] ═══════════════════════════════════════════════════════════════`);
-  lines.push(SPACER);
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════════════');
+  lines.push('');
   
   // Node Stats
-  lines.push(`[NODE] Uptime: ${statsCache.node.uptime}  |  PID: ${statsCache.node.pid}  |  Version: ${statsCache.node.version}`);
-  lines.push(`       Memory → RSS: ${statsCache.node.memory.rss}  Heap: ${statsCache.node.memory.heapUsed}/${statsCache.node.memory.heapTotal}  External: ${statsCache.node.memory.external}`);
-  lines.push(`       CPU    → User: ${statsCache.node.cpu.user}  System: ${statsCache.node.cpu.system}`);
-  lines.push(SPACER);
+  lines.push(`[NODE]`);
+  lines.push(`  Uptime: ${statsCache.node.uptime}`);
+  lines.push(`  Process: PID ${statsCache.node.pid} | ${statsCache.node.version}`);
+  lines.push(``);
+  lines.push(`  Memory:`);
+  lines.push(`    RSS:      ${statsCache.node.memory.rss}`);
+  lines.push(`    Heap:     ${statsCache.node.memory.heapUsed} / ${statsCache.node.memory.heapTotal}`);
+  lines.push(`    External: ${statsCache.node.memory.external}`);
+  lines.push(``);
+  lines.push(`  CPU:`);
+  lines.push(`    User:   ${statsCache.node.cpu.user}`);
+  lines.push(`    System: ${statsCache.node.cpu.system}`);
+  lines.push('');
   
   // Database Stats
   lines.push(`[DATABASE]`);
-  lines.push(`  DEV   → Status: ${statsCache.databases.dev.status}  |  Latency: ${statsCache.databases.dev.latency}  |  Source: ${statsCache.databases.dev.source}  |  Connections: ${statsCache.databases.dev.connections}`);
-  lines.push(`  PROD  → Status: ${statsCache.databases.prod.status}  |  Latency: ${statsCache.databases.prod.latency}  |  Source: ${statsCache.databases.prod.source}  |  Connections: ${statsCache.databases.prod.connections}`);
-  lines.push(`  LOCAL → Status: ${statsCache.databases.local.status}  |  Latency: ${statsCache.databases.local.latency}  |  Source: ${statsCache.databases.local.source}  |  Connections: ${statsCache.databases.local.connections}`);
-  lines.push(SPACER);
+  
+  const devStatus = statsCache.databases.dev.status.toUpperCase().padEnd(12);
+  const devLatency = statsCache.databases.dev.latency.padEnd(10);
+  const devSource = statsCache.databases.dev.source || 'n/a';
+  lines.push(`  DEV   → ${devStatus} Latency: ${devLatency} Database: ${devSource}`);
+  
+  const prodStatus = statsCache.databases.prod.status.toUpperCase().padEnd(12);
+  const prodLatency = statsCache.databases.prod.latency.padEnd(10);
+  const prodSource = statsCache.databases.prod.source || 'n/a';
+  lines.push(`  PROD  → ${prodStatus} Latency: ${prodLatency} Database: ${prodSource}`);
+  
+  const localStatus = statsCache.databases.local.status.toUpperCase().padEnd(12);
+  const localLatency = statsCache.databases.local.latency.padEnd(10);
+  const localSource = statsCache.databases.local.source || 'n/a';
+  lines.push(`  LOCAL → ${localStatus} Latency: ${localLatency} Database: ${localSource}`);
+  lines.push('');
   
   // Security Bot Stats
   lines.push(`[SECURITY BOT]`);
-  lines.push(`  Status: ${statsCache.security.status}  |  Guilds: ${statsCache.security.guilds}  |  Last Sweep: ${statsCache.security.lastSweep}`);
-  lines.push(`  Lifetime → Assignments: ${statsCache.security.assignments}  |  Failures: ${statsCache.security.failures}`);
-  lines.push(SPACER);
+  const secStatus = String(statsCache.security.status).toUpperCase();
+  lines.push(`  Status: ${secStatus}`);
   
-  lines.push(`───────────────────────────────────────────────────────────────`);
-  lines.push(SPACER);
+  if (secStatus !== 'N/A' && secStatus !== 'INITIALIZING') {
+    lines.push(`  Guilds: ${statsCache.security.guilds}`);
+    lines.push(`  Last Sweep: ${statsCache.security.lastSweep}`);
+    lines.push(``);
+    lines.push(`  Lifetime Statistics:`);
+    lines.push(`    Assignments: ${statsCache.security.assignments}`);
+    lines.push(`    Failures:    ${statsCache.security.failures}`);
+  } else if (secStatus === 'N/A') {
+    lines.push(`  (Security bot disabled)`);
+  }
+  
+  lines.push('');
+  lines.push('───────────────────────────────────────────────────────────────────────────');
+  lines.push('');
   
   console.log(lines.join('\n'));
 }
@@ -285,24 +316,27 @@ function getFormattedStats() {
   const lines = [];
   
   // Node Stats
-  lines.push(`[NODE] Uptime: ${statsCache.node.uptime}  |  PID: ${statsCache.node.pid}  |  Version: ${statsCache.node.version}`);
-  lines.push(`       Memory → RSS: ${statsCache.node.memory.rss}  Heap: ${statsCache.node.memory.heapUsed}/${statsCache.node.memory.heapTotal}  External: ${statsCache.node.memory.external}`);
-  lines.push(`       CPU    → User: ${statsCache.node.cpu.user}  System: ${statsCache.node.cpu.system}`);
+  lines.push(`[NODE]`);
+  lines.push(`  Uptime: ${statsCache.node.uptime}`);
+  lines.push(`  Process: PID ${statsCache.node.pid} | ${statsCache.node.version}`);
+  lines.push(``);
+  lines.push(`  Memory: RSS ${statsCache.node.memory.rss} | Heap ${statsCache.node.memory.heapUsed}/${statsCache.node.memory.heapTotal} | External ${statsCache.node.memory.external}`);
+  lines.push(`  CPU: User ${statsCache.node.cpu.user} | System ${statsCache.node.cpu.system}`);
+  lines.push('');
   
   // Database Stats
   lines.push(`[DATABASE]`);
-  lines.push(`  DEV   → Status: ${statsCache.databases.dev.status}  |  Latency: ${statsCache.databases.dev.latency}  |  Source: ${statsCache.databases.dev.source}  |  Connections: ${statsCache.databases.dev.connections}`);
-  lines.push(`  PROD  → Status: ${statsCache.databases.prod.status}  |  Latency: ${statsCache.databases.prod.latency}  |  Source: ${statsCache.databases.prod.source}  |  Connections: ${statsCache.databases.prod.connections}`);
-  lines.push(`  LOCAL → Status: ${statsCache.databases.local.status}  |  Latency: ${statsCache.databases.local.latency}  |  Source: ${statsCache.databases.local.source}  |  Connections: ${statsCache.databases.local.connections}`);
+  lines.push(`  DEV   → ${statsCache.databases.dev.status} | Latency: ${statsCache.databases.dev.latency} | ${statsCache.databases.dev.source}`);
+  lines.push(`  PROD  → ${statsCache.databases.prod.status} | Latency: ${statsCache.databases.prod.latency} | ${statsCache.databases.prod.source}`);
+  lines.push(`  LOCAL → ${statsCache.databases.local.status} | Latency: ${statsCache.databases.local.latency} | ${statsCache.databases.local.source}`);
   
   return lines.join('\n');
 }
 
 function log(level, message, context, options = {}) {
-  const timestamp = new Date().toISOString();
   const label = LOG_LABEL[level] || LOG_LABEL.info;
   
-  console.log(`[${timestamp}] [${label}] ${message}`);
+  console.log(`[${label}] ${message}`);
   
   if (context && typeof context === 'object') {
     const keys = Object.keys(context);
@@ -321,11 +355,10 @@ function log(level, message, context, options = {}) {
 }
 
 function report(title, meta = {}, level = 'info') {
-  const timestamp = new Date().toISOString();
   const label = LOG_LABEL[level] || LOG_LABEL.info;
   
-  console.log(SPACER);
-  console.log(`[${timestamp}] [${label}] ═══ ${title} ═══`);
+  console.log('');
+  console.log(`[${label}] ═══ ${title} ═══`);
   
   if (meta && typeof meta === 'object') {
     const entries = Object.entries(meta);
@@ -336,7 +369,7 @@ function report(title, meta = {}, level = 'info') {
     }
   }
   
-  console.log(SPACER);
+  console.log('');
   
   const now = Date.now();
   if (now - lastLogTime >= REFRESH_INTERVAL_MS) {

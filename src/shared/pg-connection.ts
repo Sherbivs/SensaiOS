@@ -96,11 +96,12 @@ export class PostgresConnection {
     // Start heartbeat monitoring (every 15 seconds)
     this.startHeartbeat();
 
-    console.log('[pg-connection] Initialized successfully', {
-      dev: !!this.devPool,
-      prod: !!this.prodPool,
-      local: !!this.localPool,
-    });
+    console.log('');
+    console.log('[PostgreSQL] Connection pools initialized');
+    console.log(`  DEV:   ${this.devPool ? 'enabled' : 'disabled'}`);
+    console.log(`  PROD:  ${this.prodPool ? 'enabled' : 'disabled'}`);
+    console.log(`  LOCAL: ${this.localPool ? 'enabled' : 'disabled'}`);
+    console.log('');
   }
 
   /**
@@ -178,7 +179,8 @@ export class PostgresConnection {
    * Drains active connections, stops heartbeat monitoring, and closes pools.
    */
   async shutdown(): Promise<void> {
-    console.log('[pg-connection] Shutting down...');
+    console.log('');
+    console.log('[PostgreSQL] Shutting down connection pools...');
 
     // Stop heartbeat
     if (this.heartbeatInterval) {
@@ -201,7 +203,8 @@ export class PostgresConnection {
 
     await Promise.all(closePromises);
 
-    console.log('[pg-connection] Shutdown complete');
+    console.log('[PostgreSQL] Shutdown complete');
+    console.log('');
   }
 
   // ==========================================================================
@@ -243,10 +246,7 @@ export class PostgresConnection {
         lastCheck: new Date(),
       };
 
-      console.log(`[pg-connection] ${type.toUpperCase()} connected:`, {
-        database: result.rows[0].db,
-        latency: `${latency}ms`,
-      });
+      console.log(`[PostgreSQL] ${type.toUpperCase()} → Connected to "${result.rows[0].db}" (${latency}ms)`);
     } catch (error) {
       this.stats[type] = {
         status: 'error',
@@ -352,13 +352,15 @@ export async function initializeConnection(): Promise<void> {
 
   // Register shutdown handlers
   process.on('SIGTERM', async () => {
-    console.log('[pg-connection] Received SIGTERM, shutting down...');
+    console.log('');
+    console.log('[SIGNAL] SIGTERM received');
     await connection?.shutdown();
     process.exit(0);
   });
 
   process.on('SIGINT', async () => {
-    console.log('[pg-connection] Received SIGINT, shutting down...');
+    console.log('');
+    console.log('[SIGNAL] SIGINT received');
     await connection?.shutdown();
     process.exit(0);
   });
