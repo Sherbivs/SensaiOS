@@ -483,6 +483,7 @@ See `docs/db-replication-architecture.md` for comprehensive architecture documen
 - Use OpenTelemetry traces for tool calls and router decisions.
 - Persist final state in `runs/<ISO8601>/run.json`.
 - `/ops cache` exposes runtime cache metrics and maintenance cadence; expect `cache.maintenance` events in logs when the scheduler runs or manual cleanup executes.
+- **Centralized Log Buffer**: All services use intelligent log buffering (10-second intervals) to reduce console noise. Logs are deduplicated (identical messages show count instead of repeating), aggregated (similar messages grouped with timing metadata), and flushed periodically with summary headers (`📦 Log buffer flush: X unique messages, Y total`). Errors and warnings bypass the buffer for immediate visibility. Configure via `LOG_BUFFER_ENABLED`, `LOG_BUFFER_INTERVAL`, `LOG_BUFFER_BYPASS_CRITICAL` environment variables. See `docs/log-buffer.md` for comprehensive documentation.
 
 ## Router Navigation
 - Start with `ops/ROUTER.yaml` (router-of-routers) or `masterroutetable.md` for a textual overview.

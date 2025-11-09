@@ -9,8 +9,8 @@ import { PrismaClient } from "@prisma/client";
 type EnvVars = Record<string, string>;
 
 type SyncConfig = {
-  devEnvPath: string;
-  prodEnvPath: string;
+  devEnvPath: string | null;
+  prodEnvPath: string | null;
   localEnvPath: string | null;
   triggerPath: string;
   intervalMs: number;

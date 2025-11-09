@@ -33,6 +33,12 @@ services:
         value: web
       - key: LOG_FORMAT
         value: cli
+      - key: LOG_BUFFER_ENABLED
+        value: "true"
+      - key: LOG_BUFFER_INTERVAL
+        value: "10000"
+      - key: LOG_BUFFER_BYPASS_CRITICAL
+        value: "true"
 
   - type: worker
     name: infinity-gauntlet-outbox
@@ -64,6 +70,12 @@ services:
         value: outbox-worker
       - key: LOG_FORMAT
         value: json
+      - key: LOG_BUFFER_ENABLED
+        value: "true"
+      - key: LOG_BUFFER_INTERVAL
+        value: "10000"
+      - key: LOG_BUFFER_BYPASS_CRITICAL
+        value: "true"
       - key: OUTBOX_MIN_DELAY_MS
         value: "250"
       - key: OUTBOX_MAX_DELAY_MS
@@ -105,6 +117,12 @@ services:
         value: discord-bots
       - key: LOG_FORMAT
         value: cli
+      - key: LOG_BUFFER_ENABLED
+        value: "true"
+      - key: LOG_BUFFER_INTERVAL
+        value: "10000"
+      - key: LOG_BUFFER_BYPASS_CRITICAL
+        value: "true"
       - key: SECURITY_BOT_TOKEN
         sync: false
       - key: POKEMON_BOT_TOKEN
@@ -141,6 +159,12 @@ services:
         value: security-bot
       - key: LOG_FORMAT
         value: json
+      - key: LOG_BUFFER_ENABLED
+        value: "true"
+      - key: LOG_BUFFER_INTERVAL
+        value: "10000"
+      - key: LOG_BUFFER_BYPASS_CRITICAL
+        value: "true"
       - key: SECURITY_BOT_TOKEN
         sync: false
       - key: ENABLE_SECURITY_BOT
@@ -188,6 +212,12 @@ services:
         value: cache-worker
       - key: LOG_FORMAT
         value: json
+      - key: LOG_BUFFER_ENABLED
+        value: "true"
+      - key: LOG_BUFFER_INTERVAL
+        value: "10000"
+      - key: LOG_BUFFER_BYPASS_CRITICAL
+        value: "true"
       - key: CACHE_WORKER_INTERVAL_MS
         value: "0"
       - key: CACHE_WORKER_INTERVAL_JITTER_MS
@@ -223,6 +253,12 @@ services:
         value: data-pipeline-worker
       - key: LOG_FORMAT
         value: json
+      - key: LOG_BUFFER_ENABLED
+        value: "true"
+      - key: LOG_BUFFER_INTERVAL
+        value: "10000"
+      - key: LOG_BUFFER_BYPASS_CRITICAL
+        value: "true"
       - key: DATA_PIPELINE_INTERVAL_MS
         value: "86400000"
       - key: DATA_PIPELINE_INTERVAL_JITTER_MS
@@ -253,6 +289,12 @@ services:
           property: connectionString
       - key: LOG_FORMAT
         value: cli
+      - key: LOG_BUFFER_ENABLED
+        value: "true"
+      - key: LOG_BUFFER_INTERVAL
+        value: "10000"
+      - key: LOG_BUFFER_BYPASS_CRITICAL
+        value: "true"
       - key: GITHUB_REPO
         value: https://github.com/sherbivs/infinity-gauntlet.git
       - key: GITHUB_BRANCH
