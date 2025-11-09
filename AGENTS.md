@@ -442,6 +442,52 @@ if (comparison.status === 'BEHIND') {
 
 See `docs/db-replication-architecture.md` for comprehensive architecture documentation covering data flow, integrity verification, sync orchestration, monitoring, and operational workflows.
 
+## Engine Database Replication (Phase 17-22)
+
+**As of 2025-11-09**, the system implements a **bidirectional Engine DB replication architecture** that separates read operations (static Pokemon data) from write operations (gameplay outcomes) with integrity validation before mirroring back to PROD.
+
+**Architecture:** PROD → Engine Read-DB (SQLite) → Game Engine → Engine Write-DB (SQLite) → Integrity Scanner → PROD
+
+**Purpose:** Provide fast local lookups for game engine (10-100x faster than remote PostgreSQL), enable offline gameplay, validate data quality before polluting PROD, and capture battle outcomes for analysis.
+
+**Key Components:**
+- **Engine Read-DB** (`/Store/engine-read.db`) — Read-only SQLite database synced from PROD daily
+  - Tables: `pokemon`, `moves`, `types`, `abilities`, `type_effectiveness`
+  - Use case: Battle calculations, type effectiveness lookups, move validation
+  - Sync: PROD → Read-DB (one-way PULL, hourly/daily)
+  
+- **Engine Write-DB** (`/Store/engine-write.db`) — Write-only SQLite database for gameplay logs
+  - Tables: `battle_logs`, `move_usage`, `anomalies`, `engine_metrics`
+  - Use case: Capture battle outcomes, damage calculations, performance metrics
+  - Validation: Integrity scanner runs every 10 minutes
+  
+- **Integrity Scanner** — Validates Write-DB data before PROD upload
+  - Rules: Schema validation, range checks, FK integrity, logic validation, anomaly detection
+  - Outcomes: PASS (eligible for upload), WARN (suspicious), FAIL (quarantine), ANOMALY (escalate)
+  - Quality threshold: 95% pass rate required for PROD upload
+  
+- **Write-DB → PROD Sync** — Uploads verified gameplay data hourly
+  - New PROD tables: `BattleLog`, `MoveUsageStats`, `EngineAnomaly`, `EngineMetrics`
+  - Method: SQLite SELECT → INSERT INTO PROD (with deduplication)
+  - Retention: Prune uploaded Write-DB rows after 7 days
+
+**Implementation Phases:**
+- **Phase 17 (READY):** Engine Read-DB foundation, PROD → Read sync
+- **Phase 18 (READY after 17):** Engine Write-DB foundation, logging operations
+- **Phase 19 (READY after 18):** Integrity scanner with validation rules
+- **Phase 20 (READY after 19):** Write-DB → PROD sync with PROD schema migration
+- **Phase 21 (READY after 20):** Battle engine integration (Read/Write-DB usage)
+- **Phase 22 (READY after 21):** Monitoring, automation, `/ops engine` command
+
+**Benefits:**
+- **Performance:** Local SQLite reads <1ms vs remote PostgreSQL 50-100ms
+- **Offline capability:** Game engine works when PROD unreachable
+- **Data quality:** Integrity scanner catches bugs before PROD pollution
+- **Auditability:** Every battle decision logged and traceable
+- **Cost reduction:** Fewer PROD database connections needed
+
+See `docs/engine-db-replication.md` for comprehensive design documentation covering data flow, validation rules, sync orchestration, schema definitions, and operational workflows.
+
 ## Capabilities & Routing Hints
 - **planner:** break down vague goals; produce measurable milestones and resource budgets.
 - **researcher:** search, synthesize sources; attach citations & uncertainty notes.
