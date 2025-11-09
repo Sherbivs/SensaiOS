@@ -178,13 +178,13 @@ function buildAlertBody(
   return {
     username: ALERT_WEBHOOK_USERNAME,
     content: violationType === "reverse_integrity" 
-      ? "🚨 CRITICAL: Unauthorized database change detected - DEV master enforcement active"
+      ? "🚨 CRITICAL: Unauthorized database change detected - Render database enforcement active"
       : "⚠️ Dex auto-sync detected drift after consolidation.",
     allowed_mentions: { parse: [] },
     embeds: [
       {
         title: violationType === "reverse_integrity" 
-          ? "🔒 DEV Master Enforcement Alert" 
+          ? "🔒 Render Database Enforcement Alert" 
           : "Dex Auto-Sync Integrity Alert",
         description: [`Reason: ${reason}`, deltaLine].join("\n"),
         color: violationType === "reverse_integrity" ? 0xff0000 : ALERT_EMBED_COLOR, // Red for reverse integrity violations
@@ -526,7 +526,7 @@ function spawnCommand(
 
 function cliEnvForMigrate(fileVars: EnvVars): Record<string, string | undefined> {
   // Prefer EXTERNAL_URL for WSL/remote access, fallback to DIRECT_URL for internal Render connections
-  // 2-NODE CLUSTER: Always use direct PostgreSQL for migrations
+  // UNIFIED ARCHITECTURE: Always use direct PostgreSQL for migrations
   const direct =
     fileVars.RENDER_DB_EXTERNAL_URL || 
     fileVars.RENDER_DB_INTERNAL_URL || 
@@ -557,7 +557,7 @@ function cliEnvForSeed(fileVars: EnvVars): Record<string, string | undefined> {
        fileVars.DATABASE_LOCAL_URL ||
        fileVars.DATABASE_URL || "");
   
-  // 2-NODE CLUSTER: Always use direct PostgreSQL (no data proxy)
+  // UNIFIED ARCHITECTURE: Always use direct PostgreSQL (no data proxy)
   log("cli.env.seed", { 
     environment: process.env.NODE_ENV,
     hasRenderInternalUrl: !!fileVars.RENDER_DB_INTERNAL_URL,
@@ -617,7 +617,7 @@ async function withPrismaClient<T>(
     throw new Error(`Missing DATABASE_URL for ${label} environment (NODE_ENV=${process.env.NODE_ENV})`);
   }
 
-  // 2-NODE CLUSTER: Always use direct PostgreSQL connections (library engine)
+  // UNIFIED ARCHITECTURE: Always use direct PostgreSQL connections (library engine)
   const originalEngine = process.env.PRISMA_CLIENT_ENGINE_TYPE;
   delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
 

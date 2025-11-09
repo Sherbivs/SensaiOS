@@ -71,7 +71,7 @@ function loadEnvironment(): void {
 }
 
 function selectDirectDatasource(): string {
-  // 2-NODE CLUSTER: All connections are direct PostgreSQL (no Accelerate)
+  // UNIFIED ARCHITECTURE: All connections are direct PostgreSQL (no Accelerate)
   const directCandidates = [
     process.env.RENDER_DB_INTERNAL_URL ?? "",
     process.env.RENDER_DB_EXTERNAL_URL ?? "",

@@ -55,7 +55,7 @@ function loadEnvironment(): void {
 }
 
 function selectDatasource(): string {
-  // 2-NODE CLUSTER: Only support direct PostgreSQL connections
+  // UNIFIED ARCHITECTURE: Only support direct PostgreSQL connections
   const directCandidates = [
     process.env.PROD_DATABASE_URL ?? "",
     process.env.DEV_DATABASE_URL ?? "",
@@ -86,7 +86,7 @@ function maskUrl(url: string): string {
 }
 
 async function runDirect(url: string, command: string | undefined): Promise<void> {
-  // 2-NODE CLUSTER: Always use library engine for direct PostgreSQL
+  // UNIFIED ARCHITECTURE: Always use library engine for direct PostgreSQL
   process.env.PRISMA_CLIENT_ENGINE_TYPE = "library";
   delete process.env.PRISMA_CLIENT_DATAPROXY;
   

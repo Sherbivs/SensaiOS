@@ -99,7 +99,7 @@ function looksLikeDirect(url: string | undefined): boolean {
 }
 
 function extractConnections(envVars: EnvVars): ConnectionSet {
-  // 2-NODE CLUSTER: Only direct PostgreSQL connections (no Accelerate)
+  // UNIFIED ARCHITECTURE: Only direct PostgreSQL connections (no Accelerate)
   const direct = [
     envVars.PROD_DATABASE_URL,
     envVars.DEV_DATABASE_URL,
@@ -147,7 +147,7 @@ async function main(): Promise<void> {
     pairs.push({ label, primary, standby });
   };
 
-  // 2-NODE CLUSTER: Only compare direct PostgreSQL connections
+  // UNIFIED ARCHITECTURE: Only compare direct PostgreSQL connections
   registerPair("dev:pooled-vs-direct", devConnections.pooled, devConnections.direct);
   registerPair("prod:pooled-vs-direct", prodConnections.pooled, prodConnections.direct);
   registerPair("cross:dev-direct-vs-prod-direct", devConnections.direct, prodConnections.direct);

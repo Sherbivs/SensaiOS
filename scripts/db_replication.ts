@@ -104,7 +104,7 @@ function loadEnvironment(): void {
 }
 
 async function getClients(): Promise<{ devPrisma: PrismaClient | null; prodPrisma: PrismaClient; localPrisma: PrismaClient | null }> {
-  // 2-NODE CLUSTER: DEV (master), PROD (local)
+  // UNIFIED ARCHITECTURE: Render managed database
   const devUrl = process.env.DEV_DATABASE_URL || 
                  process.env.RENDER_DB_EXTERNAL_URL || 
                  process.env.RENDER_DB_INTERNAL_URL;

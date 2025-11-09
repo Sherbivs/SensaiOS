@@ -240,9 +240,10 @@ export async function checkMirrors(primaryUrl: string, standbyUrl: string, label
   console.info(`[${label}] Primary: %s`, redactConnectionString(primaryUrl));
   console.info(`[${label}] Standby: %s`, redactConnectionString(standbyUrl));
 
-  // 2-NODE CLUSTER: All connections use direct PostgreSQL (no Accelerate)
+  // UNIFIED ARCHITECTURE: All connections use direct PostgreSQL (no Accelerate)
   const primarySnapshot = await gatherDirectSnapshot("primary", primaryUrl);
   const standbySnapshot = await gatherDirectSnapshot("standby", standbyUrl);
 
   return compareSnapshots(primarySnapshot, standbySnapshot, label);
 }
+

@@ -168,7 +168,7 @@ function resolveDatasource(target: string): DatasourceConfig {
       const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL ?? "";
       const localUrl = readLocalFallbackUrl();
 
-      // 2-NODE CLUSTER: All connections use direct PostgreSQL (no Accelerate)
+      // UNIFIED ARCHITECTURE: All connections use direct PostgreSQL (no Accelerate)
       const normalizedPrimary = primaryUrl.toLowerCase();
       const directCandidate =
         renderInternalUrl || renderExternalUrl || (normalizedPrimary.startsWith("postgres://") || normalizedPrimary.startsWith("postgresql://") ? primaryUrl : "");
@@ -191,7 +191,7 @@ function resolveDatasource(target: string): DatasourceConfig {
 function createDbContext(target: string): DbContext {
   const datasource = resolveDatasource(target);
 
-  // 2-NODE CLUSTER: Always use direct PostgreSQL connection
+  // UNIFIED ARCHITECTURE: Always use direct PostgreSQL connection
   process.env.PRISMA_CLIENT_ENGINE_TYPE = "library";
   process.env.PRISMA_CLIENT_DATAPROXY = "false";
   const pg = new PgClient({
@@ -251,7 +251,7 @@ async function showStatus(ctx: DbContext, target: string): Promise<void> {
   const onPremiseExperimentUrl = process.env.DATABASE_ONPREMISE_DEV_EXPERIMENT ?? "";
   const legacyExperimentUrl = process.env.DATABASE_EXPERIMENT_URL ?? "";
   
-  // 2-NODE CLUSTER: Extract host from direct PostgreSQL URL
+  // UNIFIED ARCHITECTURE: Extract host from direct PostgreSQL URL
   const host = (() => {
     try {
       const parsed = new URL(url.startsWith("postgres") ? url : `https://${url}`);
@@ -264,7 +264,7 @@ async function showStatus(ctx: DbContext, target: string): Promise<void> {
   console.log("=== Database Status ===");
   console.log(`Target           : ${target.toUpperCase()}`);
   console.log(`Active host      : ${host}`);
-  console.log(`Engine           : Direct PostgreSQL (2-Node Cluster)`);
+  console.log(`Engine           : Direct PostgreSQL (Unified Architecture)`);
   console.log(`NODE_ENV         : ${process.env.NODE_ENV ?? "(not set)"}`);
   console.log(`IG_ENV_FILE      : ${process.env.IG_ENV_FILE ?? "(not set)"}`);
   console.log(`DOTENV_CONFIG_PATH: ${process.env.DOTENV_CONFIG_PATH ?? "(not set)"}`);
@@ -303,7 +303,7 @@ function toTableName(modelKey: string): string {
 async function showCounts(ctx: DbContext): Promise<void> {
   console.log("=== Table Counts ===");
   for (const target of DEFAULT_COUNT_TARGETS) {
-    // 2-NODE CLUSTER: Always use direct PostgreSQL connection
+    // UNIFIED ARCHITECTURE: Always use direct PostgreSQL connection
     if (ctx.pg) {
       const tableName = toTableName(target.model);
       const result = await ctx.pg.query<{ count: string }>(
@@ -316,7 +316,7 @@ async function showCounts(ctx: DbContext): Promise<void> {
 }
 
 async function showCount(ctx: DbContext, modelName: string): Promise<void> {
-  // 2-NODE CLUSTER: Always use direct PostgreSQL connection
+  // UNIFIED ARCHITECTURE: Always use direct PostgreSQL connection
   if (ctx.pg) {
     const tableName = modelName.charAt(0).toUpperCase() + modelName.slice(1);
     const result = await ctx.pg.query<{ count: string }>(
@@ -338,7 +338,7 @@ async function runQuery(ctx: DbContext, sql: string, outputJson: boolean): Promi
   const trimmedSql = sql.trim();
   const isSelect = trimmedSql.toLowerCase().startsWith("select");
 
-  // 2-NODE CLUSTER: Always use direct PostgreSQL connection
+  // UNIFIED ARCHITECTURE: Always use direct PostgreSQL connection
   if (ctx.pg) {
     const result = await ctx.pg.query(trimmedSql);
 
@@ -783,7 +783,7 @@ async function showDatabases(): Promise<void> {
   console.log("=== Available Databases ===\n");
 
   const databases = [
-    { name: "CLOUD-DEV-MASTER (DEV Master)", envVar: "DEV_DATABASE_URL", fallback: "RENDER_DB_EXTERNAL_URL", target: "cloud-dev" },
+    { name: "CLOUD-DEV-MASTER (Render Managed)", envVar: "DEV_DATABASE_URL", fallback: "RENDER_DB_EXTERNAL_URL", target: "cloud-dev" },
     { name: "CLOUD-PROD-RUNTIME (Worker Node)", envVar: "PROD_DATABASE_URL", fallback: null, target: "cloud-prod" },
     { name: "ONPREMISE-DEV-PRIMARY (Workstation)", envVar: "DATABASE_ONPREMISE_DEV_PRIMARY", fallback: null, target: "onpremise-dev" },
     { name: "ONPREMISE-DEV-EXPERIMENT (Migration Testing)", envVar: "DATABASE_ONPREMISE_DEV_EXPERIMENT", fallback: "DATABASE_EXPERIMENT_URL", target: "onpremise-experiment" },
@@ -932,7 +932,7 @@ async function main(): Promise<void> {
       }
     }
   } finally {
-    // 2-NODE CLUSTER: Always disconnect direct PostgreSQL client
+    // UNIFIED ARCHITECTURE: Always disconnect direct PostgreSQL client
     if (ctx.pg) {
       await ctx.pg.end();
     }
