@@ -6,8 +6,9 @@ import { ENABLE_DB_AUTO_SYNC, ENABLE_SECURITY_BOT } from "./config/env.js";
 import { initPrisma, prisma } from "./models/index.js";
 import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
 import { runDatabaseRecovery } from "./runtime/databaseRecovery.js";
-import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
-import { getCacheMetadata } from "./services/pokemonService.js";
+// Lazy-loaded cache monitoring imports (not needed on critical startup path)
+// import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
+// import { getCacheMetadata } from "./services/pokemonService.js";
 import { config } from "./shared/config.js";
 import { log } from "./shared/log.js";
 import { setupLogBuffer } from "./shared/logBufferInit.js";
@@ -270,68 +271,81 @@ function refreshCacheSection(): void {
   if (!monitorActive) {
     return;
   }
-  try {
-    const rawSnapshot = getCacheSnapshot();
-    const snapshot = normalizeCacheSnapshot(rawSnapshot);
-    const budget = getCacheBudget();
-  const metrics: MetricsList = [];
-  metrics.push(metric("size", formatBytes(snapshot.sizeBytes)));
-  metrics.push(metric("files", snapshot.entryCount));
+  
+  // Lazy-load cache monitoring functions (not needed on critical startup path)
+  import("./services/cache.js")
+    .then(({ getCacheSnapshot, getCacheBudget }) => {
+      try {
+        const rawSnapshot = getCacheSnapshot();
+        const snapshot = normalizeCacheSnapshot(rawSnapshot);
+        const budget = getCacheBudget();
+        const metrics: MetricsList = [];
+        metrics.push(metric("size", formatBytes(snapshot.sizeBytes)));
+        metrics.push(metric("files", snapshot.entryCount));
 
-    const usageRatio =
-      budget && typeof budget.maxAllowedBytes === "number" && budget.maxAllowedBytes > 0
-        ? snapshot.sizeBytes / budget.maxAllowedBytes
-        : null;
-    if (usageRatio !== null && Number.isFinite(usageRatio)) {
-      const usagePercent = Math.min(usageRatio * 100, 999);
-      metrics.push(
-        metric(
-          "budget used",
-          `${usagePercent.toFixed(usagePercent >= 10 ? 0 : 1)}% of ${formatBytes(budget.maxAllowedBytes)}`,
-        ),
-      );
-    }
-
-    if (lastCacheSnapshot) {
-      const sizeDelta = snapshot.sizeBytes - lastCacheSnapshot.sizeBytes;
-      const fileDelta = snapshot.entryCount - lastCacheSnapshot.entryCount;
-      const elapsed = snapshot.timestamp - lastCacheSnapshot.timestamp;
-      metrics.push(metric("Δ size", `${formatSignedBytes(sizeDelta)} in ${formatDurationMs(elapsed)}`));
-      if (fileDelta !== 0) {
-        metrics.push(metric("Δ files", fileDelta > 0 ? `+${fileDelta}` : String(fileDelta)));
-      }
-    }
-
-    if (snapshot.newestEntryMs) {
-      metrics.push(metric("last write", formatRelativeTime(snapshot.newestEntryMs)));
-    }
-    if (snapshot.oldestEntryMs) {
-      metrics.push(metric("oldest entry", formatRelativeTime(snapshot.oldestEntryMs)));
-    }
-
-    const status = (() => {
-      if (usageRatio !== null && Number.isFinite(usageRatio)) {
-        if (usageRatio >= 1) {
-          return "error";
+        const usageRatio =
+          budget && typeof budget.maxAllowedBytes === "number" && budget.maxAllowedBytes > 0
+            ? snapshot.sizeBytes / budget.maxAllowedBytes
+            : null;
+        if (usageRatio !== null && Number.isFinite(usageRatio)) {
+          const usagePercent = Math.min(usageRatio * 100, 999);
+          metrics.push(
+            metric(
+              "budget used",
+              `${usagePercent.toFixed(usagePercent >= 10 ? 0 : 1)}% of ${formatBytes(budget.maxAllowedBytes)}`,
+            ),
+          );
         }
-        if (usageRatio >= 0.9) {
-          return "degraded";
-        }
-      }
-      return "online";
-    })();
 
-    setSection("cache", { title: "Runtime Cache", status, metrics });
-    lastCacheSnapshot = snapshot;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    log.error("Cache telemetry update failed", error);
-    setSection("cache", {
-      title: "Runtime Cache",
-      status: "error",
-      metrics: [metric("error", message)],
+        if (lastCacheSnapshot) {
+          const sizeDelta = snapshot.sizeBytes - lastCacheSnapshot.sizeBytes;
+          const fileDelta = snapshot.entryCount - lastCacheSnapshot.entryCount;
+          const elapsed = snapshot.timestamp - lastCacheSnapshot.timestamp;
+          metrics.push(metric("Δ size", `${formatSignedBytes(sizeDelta)} in ${formatDurationMs(elapsed)}`));
+          if (fileDelta !== 0) {
+            metrics.push(metric("Δ files", fileDelta > 0 ? `+${fileDelta}` : String(fileDelta)));
+          }
+        }
+
+        if (snapshot.newestEntryMs) {
+          metrics.push(metric("last write", formatRelativeTime(snapshot.newestEntryMs)));
+        }
+        if (snapshot.oldestEntryMs) {
+          metrics.push(metric("oldest entry", formatRelativeTime(snapshot.oldestEntryMs)));
+        }
+
+        const status = (() => {
+          if (usageRatio !== null && Number.isFinite(usageRatio)) {
+            if (usageRatio >= 1) {
+              return "error";
+            }
+            if (usageRatio >= 0.9) {
+              return "degraded";
+            }
+          }
+          return "online";
+        })();
+
+        setSection("cache", { title: "Runtime Cache", status, metrics });
+        lastCacheSnapshot = snapshot;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        log.error("Cache telemetry update failed", error);
+        setSection("cache", {
+          title: "Runtime Cache",
+          status: "error",
+          metrics: [metric("error", message)],
+        });
+      }
+    })
+    .catch((importError) => {
+      log.error("Failed to load cache monitoring module", importError);
+      setSection("cache", {
+        title: "Runtime Cache",
+        status: "error",
+        metrics: [metric("error", "Module load failed")],
+      });
     });
-  }
 }
 
 function refreshPokedexSection(): void {
@@ -339,77 +353,89 @@ function refreshPokedexSection(): void {
     return;
   }
 
-  try {
-    const meta = getCacheMetadata();
-    const metrics: MetricsList = [];
-    const total = typeof meta?.total === "number" ? meta.total : 0;
-    const lastFetchedAt = meta?.lastFetchedAt instanceof Date ? meta.lastFetchedAt : null;
-    const lastAttemptAt = meta?.lastFetchAttemptAt instanceof Date ? meta.lastFetchAttemptAt : null;
-    const now = Date.now();
+  // Lazy-load Pokédex cache metadata (not needed on critical startup path)
+  import("./services/pokemonService.js")
+    .then(({ getCacheMetadata }) => {
+      try {
+        const meta = getCacheMetadata();
+        const metrics: MetricsList = [];
+        const total = typeof meta?.total === "number" ? meta.total : 0;
+        const lastFetchedAt = meta?.lastFetchedAt instanceof Date ? meta.lastFetchedAt : null;
+        const lastAttemptAt = meta?.lastFetchAttemptAt instanceof Date ? meta.lastFetchAttemptAt : null;
+        const now = Date.now();
 
-    metrics.push(metric("entries", total));
-    metrics.push(
-      metric(
-        "last fetch",
-        lastFetchedAt ? formatRelativeTime(lastFetchedAt.getTime()) : "never",
-      ),
-    );
-    metrics.push(
-      metric(
-        "last attempt",
-        lastAttemptAt ? formatRelativeTime(lastAttemptAt.getTime()) : "never",
-      ),
-    );
+        metrics.push(metric("entries", total));
+        metrics.push(
+          metric(
+            "last fetch",
+            lastFetchedAt ? formatRelativeTime(lastFetchedAt.getTime()) : "never",
+          ),
+        );
+        metrics.push(
+          metric(
+            "last attempt",
+            lastAttemptAt ? formatRelativeTime(lastAttemptAt.getTime()) : "never",
+          ),
+        );
 
-    if (meta?.cron) {
-      const schedule = meta.timezone ? `${meta.cron} (${meta.timezone})` : meta.cron;
-      metrics.push(metric("schedule", schedule));
-    }
-    if (meta?.cacheFile) {
-      metrics.push(metric("cache file", meta.cacheFile));
-    }
+        if (meta?.cron) {
+          const schedule = meta.timezone ? `${meta.cron} (${meta.timezone})` : meta.cron;
+          metrics.push(metric("schedule", schedule));
+        }
+        if (meta?.cacheFile) {
+          metrics.push(metric("cache file", meta.cacheFile));
+        }
 
-    let status: string = "online";
-    const notes: string[] = [];
+        let status: string = "online";
+        const notes: string[] = [];
 
-    if (!lastFetchedAt) {
-      status = "warming";
-      notes.push("cache has not completed an initial sync");
-    } else {
-      const ageMs = now - lastFetchedAt.getTime();
-      if (Number.isFinite(ageMs) && ageMs > 6 * 60 * 60 * 1_000) {
-        status = "degraded";
-        notes.push("data older than 6h");
+        if (!lastFetchedAt) {
+          status = "warming";
+          notes.push("cache has not completed an initial sync");
+        } else {
+          const ageMs = now - lastFetchedAt.getTime();
+          if (Number.isFinite(ageMs) && ageMs > 6 * 60 * 60 * 1_000) {
+            status = "degraded";
+            notes.push("data older than 6h");
+          }
+        }
+
+        if (total === 0) {
+          status = status === "online" ? "degraded" : status;
+          notes.push("no Pokémon cached");
+        }
+
+        if (lastAttemptAt) {
+          const attemptAgeMs = now - lastAttemptAt.getTime();
+          if (Number.isFinite(attemptAgeMs) && attemptAgeMs > 24 * 60 * 60 * 1_000) {
+            status = "degraded";
+            notes.push("refresh job idle >24h");
+          }
+        }
+
+        if (notes.length > 0) {
+          metrics.push(metric("note", notes.join("; ")));
+        }
+
+        setSection("pokedex", { title: "PokéAPI Cache", status, metrics });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        log.error("PokéAPI telemetry update failed", error);
+        setSection("pokedex", {
+          title: "PokéAPI Cache",
+          status: "error",
+          metrics: [metric("error", message)],
+        });
       }
-    }
-
-    if (total === 0) {
-      status = status === "online" ? "degraded" : status;
-      notes.push("no Pokémon cached");
-    }
-
-    if (lastAttemptAt) {
-      const attemptAgeMs = now - lastAttemptAt.getTime();
-      if (Number.isFinite(attemptAgeMs) && attemptAgeMs > 24 * 60 * 60 * 1_000) {
-        status = "degraded";
-        notes.push("refresh job idle >24h");
-      }
-    }
-
-    if (notes.length > 0) {
-      metrics.push(metric("note", notes.join("; ")));
-    }
-
-    setSection("pokedex", { title: "PokéAPI Cache", status, metrics });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    log.error("PokéAPI telemetry update failed", error);
-    setSection("pokedex", {
-      title: "PokéAPI Cache",
-      status: "error",
-      metrics: [metric("error", message)],
+    })
+    .catch((importError) => {
+      log.error("Failed to load pokemonService module", importError);
+      setSection("pokedex", {
+        title: "PokéAPI Cache",
+        status: "error",
+        metrics: [metric("error", "Module load failed")],
+      });
     });
-  }
 }
 
 function refreshMonitorMetrics(): void {
