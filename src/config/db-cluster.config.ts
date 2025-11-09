@@ -165,7 +165,7 @@ export const DEFAULT_2_NODE_CONFIG: ClusterConfig = {
       id: 'MASTER_1',
       role: 'MASTER',
       instance: 1,
-      url: process.env.MASTER_1_DATABASE_URL || process.env.DEV_DATABASE_URL || '',
+      url: process.env.MASTER_1_DATABASE_URL || process.env.PROD_DATABASE_URL || '',
       purpose: 'READ_WRITE',
       priority: 1,
       healthCheckInterval: 30000, // 30s
@@ -184,7 +184,7 @@ export const DEFAULT_2_NODE_CONFIG: ClusterConfig = {
       metadata: {
         region: 'us-virginia',
         provider: 'render',
-        description: 'Master database - source of truth',
+        description: 'Master database - Render-managed PostgreSQL',
       },
     },
     {

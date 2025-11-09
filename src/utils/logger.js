@@ -92,12 +92,6 @@ function collectNodeStats() {
 function collectDatabaseStats() {
   if (typeof getDatabaseStats !== 'function') {
     return {
-      dev: {
-        status: 'loading',
-        latency: 'n/a',
-        connections: 'n/a',
-        source: 'n/a',
-      },
       prod: {
         status: 'loading',
         latency: 'n/a',
@@ -105,7 +99,7 @@ function collectDatabaseStats() {
         source: 'n/a',
       },
       local: {
-        status: 'loading',
+        status: 'disabled',
         latency: 'n/a',
         connections: 'n/a',
         source: 'n/a',
@@ -119,12 +113,6 @@ function collectDatabaseStats() {
     // If connection not initialized, return 'initializing' instead of error
     if (!stats || stats.error) {
       return {
-        dev: {
-          status: 'initializing',
-          latency: 'n/a',
-          connections: 'n/a',
-          source: 'n/a',
-        },
         prod: {
           status: 'initializing',
           latency: 'n/a',
@@ -132,7 +120,7 @@ function collectDatabaseStats() {
           source: 'n/a',
         },
         local: {
-          status: 'initializing',
+          status: 'disabled',
           latency: 'n/a',
           connections: 'n/a',
           source: 'n/a',
@@ -140,28 +128,17 @@ function collectDatabaseStats() {
       };
     }
     
-    // Format DEV stats
-    const devLatency = stats.dev.latency !== null 
-      ? `${stats.dev.latency.toFixed(2)}ms` 
-      : 'n/a';
-    
-    // Format PROD stats
+    // Format PROD stats (unified Render database - PRIMARY for all operations)
     const prodLatency = stats.prod.latency !== null 
       ? `${stats.prod.latency.toFixed(2)}ms` 
       : 'n/a';
     
-    // Format LOCAL stats
-    const localLatency = stats.local.latency !== null
-      ? `${stats.local.latency.toFixed(2)}ms`
+    // Format LOCAL stats (onPremiseDev - optional workstation development)
+    const localLatency = stats.onPremiseDev.latency !== null
+      ? `${stats.onPremiseDev.latency.toFixed(2)}ms`
       : 'n/a';
     
     return {
-      dev: {
-        status: stats.dev.status,
-        latency: devLatency,
-        connections: stats.dev.connections !== null ? stats.dev.connections : 'n/a',
-        source: stats.dev.source || 'n/a',
-      },
       prod: {
         status: stats.prod.status,
         latency: prodLatency,
@@ -169,21 +146,15 @@ function collectDatabaseStats() {
         source: stats.prod.source || 'n/a',
       },
       local: {
-        status: stats.local.status,
+        status: stats.onPremiseDev.status,
         latency: localLatency,
-        connections: stats.local.connections !== null ? stats.local.connections : 'n/a',
-        source: stats.local.source || 'n/a',
+        connections: stats.onPremiseDev.connections !== null ? stats.onPremiseDev.connections : 'n/a',
+        source: stats.onPremiseDev.source || 'n/a',
       },
     };
   } catch (error) {
     // Don't log errors during initialization - connection may not be ready yet
     return {
-      dev: {
-        status: 'initializing',
-        latency: 'n/a',
-        connections: 'n/a',
-        source: 'n/a',
-      },
       prod: {
         status: 'initializing',
         latency: 'n/a',
@@ -191,7 +162,7 @@ function collectDatabaseStats() {
         source: 'n/a',
       },
       local: {
-        status: 'error',
+        status: 'disabled',
         latency: 'n/a',
         connections: 'n/a',
         source: 'error',
@@ -305,11 +276,6 @@ function printStats() {
   // Database Stats
   lines.push(`[DATABASE]`);
   
-  const devStatus = statsCache.databases.dev.status.toUpperCase().padEnd(12);
-  const devLatency = statsCache.databases.dev.latency.padEnd(10);
-  const devSource = statsCache.databases.dev.source || 'n/a';
-  lines.push(`  DEV   → ${devStatus} Latency: ${devLatency} Database: ${devSource}`);
-  
   const prodStatus = statsCache.databases.prod.status.toUpperCase().padEnd(12);
   const prodLatency = statsCache.databases.prod.latency.padEnd(10);
   const prodSource = statsCache.databases.prod.source || 'n/a';
@@ -360,7 +326,6 @@ function getFormattedStats() {
   
   // Database Stats
   lines.push(`[DATABASE]`);
-  lines.push(`  DEV   → ${statsCache.databases.dev.status} | Latency: ${statsCache.databases.dev.latency} | ${statsCache.databases.dev.source}`);
   lines.push(`  PROD  → ${statsCache.databases.prod.status} | Latency: ${statsCache.databases.prod.latency} | ${statsCache.databases.prod.source}`);
   lines.push(`  LOCAL → ${statsCache.databases.local.status} | Latency: ${statsCache.databases.local.latency} | ${statsCache.databases.local.source}`);
   

@@ -1,8 +1,8 @@
 /**
  * PostgreSQL Connection Manager
  * 
- * Replaces src/shared/prisma.ts dual PrismaClient architecture with pg.Pool connections.
- * Maintains DEV (master), PROD (local node), and LOCAL (workstation) connection pools.
+ * UNIFIED ARCHITECTURE: Single production database (Render-managed PostgreSQL)
+ * Maintains PROD (production database) and LOCAL (optional workstation) connection pools.
  * 
  * Key Features:
  * - <50ms latency for PROD node gameplay operations
@@ -11,9 +11,8 @@
  * - Automatic reconnection on failure
  * 
  * Architecture:
- * - DEV Pool: Connected to DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL (master database)
- * - PROD Pool: Connected to PROD_DATABASE_URL (PRIMARY for gameplay, local node)
- * - LOCAL Pool: Connected to DATABASE_LOCAL_URL (optional workstation mirror)
+ * - PROD Pool: Connected to PROD_DATABASE_URL (PRIMARY for all operations - Render managed database)
+ * - LOCAL Pool: Connected to DATABASE_ONPREMISE_DEV_PRIMARY (optional workstation mirror)
  */
 
 import pg from 'pg';
@@ -26,9 +25,8 @@ const { Pool } = pg;
 // ============================================================================
 
 export interface DbConfig {
-  dev?: string;    // DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL
-  prod?: string;   // PROD_DATABASE_URL (PRIMARY for gameplay)
-  local?: string;  // DATABASE_LOCAL_URL (optional)
+  prod?: string;   // PROD_DATABASE_URL (PRIMARY for all operations)
+  local?: string;  // DATABASE_ONPREMISE_DEV_PRIMARY (optional workstation mirror)
 }
 
 export interface DbStats {
@@ -40,8 +38,7 @@ export interface DbStats {
   lastCheck: Date | null;
 }
 
-export interface TripleDbStats {
-  dev: DbStats;
+export interface DualDbStats {
   prod: DbStats;
   local: DbStats;
 }
@@ -51,13 +48,11 @@ export interface TripleDbStats {
 // ============================================================================
 
 export class PostgresConnection {
-  private devPool: pg.Pool | null = null;
   private prodPool: pg.Pool | null = null;
   private localPool: pg.Pool | null = null;
 
   private heartbeatInterval: NodeJS.Timeout | null = null;
-  private stats: TripleDbStats = {
-    dev: this.createEmptyStats(),
+  private stats: DualDbStats = {
     prod: this.createEmptyStats(),
     local: this.createEmptyStats(),
   };
@@ -69,25 +64,21 @@ export class PostgresConnection {
    * @throws Error if no valid database URLs provided
    */
   async initialize(config: DbConfig): Promise<void> {
-    const { dev, prod, local } = config;
+    const { prod, local } = config;
 
-    // PROD is PRIMARY for gameplay - must exist
+    // PROD is PRIMARY for all operations - must exist
     if (!prod) {
       throw new Error(
-        'PROD_DATABASE_URL is required for gameplay operations. ' +
-        'Ensure render.yaml sets this to the local PostgreSQL node connection string.'
+        'PROD_DATABASE_URL is required for all database operations. ' +
+        'Ensure render.yaml sets this to the Render-managed PostgreSQL connection string.'
       );
     }
 
-    // Create pools
-    if (dev) {
-      this.devPool = this.createPool(dev, 'DEV');
-      await this.testConnection(this.devPool, 'dev');
-    }
-
+    // Create PROD pool (PRIMARY)
     this.prodPool = this.createPool(prod, 'PROD');
     await this.testConnection(this.prodPool, 'prod');
 
+    // Create LOCAL pool (optional workstation mirror)
     if (local) {
       this.localPool = this.createPool(local, 'LOCAL');
       await this.testConnection(this.localPool, 'local');
@@ -98,29 +89,15 @@ export class PostgresConnection {
 
     console.log('');
     console.log('[PostgreSQL] Connection pools initialized');
-    console.log(`  DEV:   ${this.devPool ? 'enabled' : 'disabled'}`);
     console.log(`  PROD:  ${this.prodPool ? 'enabled' : 'disabled'}`);
     console.log(`  LOCAL: ${this.localPool ? 'enabled' : 'disabled'}`);
     console.log('');
   }
 
   /**
-   * Get DEV database pool (master database, source of truth for migrations).
+   * Get PROD database pool (PRIMARY for all operations).
    * 
-   * @returns pg.Pool instance
-   * @throws Error if DEV pool not initialized
-   */
-  getDevClient(): pg.Pool {
-    if (!this.devPool) {
-      throw new Error('DEV database pool not initialized. Check DEV_DATABASE_URL configuration.');
-    }
-    return this.devPool;
-  }
-
-  /**
-   * Get PROD database pool (PRIMARY for gameplay operations).
-   * 
-   * This is the local PostgreSQL node providing <50ms latency for battles, encounters, etc.
+   * This is the Render-managed PostgreSQL providing database access for battles, encounters, etc.
    * 
    * @returns pg.Pool instance
    * @throws Error if PROD pool not initialized
@@ -140,7 +117,7 @@ export class PostgresConnection {
    */
   getLocalClient(): pg.Pool {
     if (!this.localPool) {
-      throw new Error('LOCAL database pool not initialized. Check DATABASE_LOCAL_URL configuration.');
+      throw new Error('LOCAL database pool not initialized. Check DATABASE_ONPREMISE_DEV_PRIMARY configuration.');
     }
     return this.localPool;
   }
@@ -148,9 +125,9 @@ export class PostgresConnection {
   /**
    * Get current statistics for all database connections.
    * 
-   * @returns TripleDbStats with status, latency, connections for each pool
+   * @returns DualDbStats with status, latency, connections for each pool
    */
-  getStats(): TripleDbStats {
+  getStats(): DualDbStats {
     return { ...this.stats };
   }
 
@@ -191,9 +168,6 @@ export class PostgresConnection {
     // Close pools
     const closePromises: Promise<void>[] = [];
 
-    if (this.devPool) {
-      closePromises.push(this.devPool.end());
-    }
     if (this.prodPool) {
       closePromises.push(this.prodPool.end());
     }
@@ -231,7 +205,7 @@ export class PostgresConnection {
     });
   }
 
-  private async testConnection(pool: pg.Pool, type: 'dev' | 'prod' | 'local'): Promise<void> {
+  private async testConnection(pool: pg.Pool, type: 'prod' | 'local'): Promise<void> {
     try {
       const start = Date.now();
       const result = await pool.query('SELECT NOW() as timestamp, current_database() as db');
@@ -271,9 +245,6 @@ export class PostgresConnection {
   private async updateStats(): Promise<void> {
     const checks: Array<Promise<void>> = [];
 
-    if (this.devPool) {
-      checks.push(this.updatePoolStats(this.devPool, 'dev'));
-    }
     if (this.prodPool) {
       checks.push(this.updatePoolStats(this.prodPool, 'prod'));
     }
@@ -284,7 +255,7 @@ export class PostgresConnection {
     await Promise.allSettled(checks);
   }
 
-  private async updatePoolStats(pool: pg.Pool, type: 'dev' | 'prod' | 'local'): Promise<void> {
+  private async updatePoolStats(pool: pg.Pool, type: 'prod' | 'local'): Promise<void> {
     try {
       const start = Date.now();
       await pool.query('SELECT 1');
@@ -342,9 +313,8 @@ export async function initializeConnection(): Promise<void> {
   }
 
   const dbConfig: DbConfig = {
-    dev: process.env.DEV_DATABASE_URL || process.env.RENDER_DB_EXTERNAL_URL,
-    prod: process.env.PROD_DATABASE_URL,
-    local: process.env.DATABASE_LOCAL_URL,
+    prod: process.env.PROD_DATABASE_URL || process.env.RENDER_DB_EXTERNAL_URL,
+    local: process.env.DATABASE_ONPREMISE_DEV_PRIMARY,
   };
 
   connection = new PostgresConnection();
@@ -382,17 +352,10 @@ export function getConnection(): PostgresConnection {
 }
 
 /**
- * Convenience export: Get PROD client directly (PRIMARY for gameplay).
+ * Convenience export: Get PROD client directly (PRIMARY for all operations).
  */
 export function getProdDb(): pg.Pool {
   return getConnection().getProdClient();
-}
-
-/**
- * Convenience export: Get DEV client directly (master database).
- */
-export function getDevDb(): pg.Pool {
-  return getConnection().getDevClient();
 }
 
 /**
@@ -406,7 +369,7 @@ export function getLocalDb(): pg.Pool {
  * Convenience export: Get current database statistics.
  * Returns error state if connection not initialized yet.
  */
-export function getDatabaseStats(): TripleDbStats | { error: true } {
+export function getDatabaseStats(): DualDbStats | { error: true } {
   if (!connection) {
     return { error: true };
   }

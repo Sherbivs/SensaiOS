@@ -705,7 +705,7 @@ export async function boot(): Promise<void> {
       log.error("Database connectivity failed after recovery attempt", error, {
         recoveryError,
         remediation: [
-          "Ensure PROD_DATABASE_URL (production) or DEV_DATABASE_URL (development) is set correctly.",
+          "Ensure PROD_DATABASE_URL is set correctly (points to Render-managed PostgreSQL).",
           "For workers, confirm service type is 'Background Worker' and it references the same DB.",
           "Check that PostgreSQL is installed and running on the target server.",
           "Review logs at Store/db/bootstrap.log for bootstrap script errors.",

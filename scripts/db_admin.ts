@@ -134,13 +134,14 @@ function resolveDatasource(target: string): DatasourceConfig {
   // Handle explicit target selection (canonical names only)
   switch (target) {
     case "cloud-dev": {
-      const devUrl = process.env.DEV_DATABASE_URL ?? process.env.RENDER_DB_EXTERNAL_URL ?? "";
-      if (!devUrl) {
+      // UNIFIED ARCHITECTURE: cloud-dev now points to same database as cloud-prod
+      const prodUrl = process.env.PROD_DATABASE_URL ?? process.env.RENDER_DB_EXTERNAL_URL ?? "";
+      if (!prodUrl) {
         throw new Error(
-          "CLOUD-DEV-MASTER target requires DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL. Set in secrets/Infinity-Gauntlet.env",
+          "CLOUD database target requires PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL. Set in secrets/Infinity-Gauntlet.env",
         );
       }
-      return { url: devUrl };
+      return { url: prodUrl };
     }
     case "cloud-prod": {
       const prodUrl = process.env.PROD_DATABASE_URL ?? "";
@@ -182,7 +183,7 @@ function resolveDatasource(target: string): DatasourceConfig {
       }
 
       throw new Error(
-        "PROD_DATABASE_URL (CLOUD-PROD-RUNTIME), DEV_DATABASE_URL (CLOUD-DEV-MASTER), DATABASE_URL, RENDER_DB_INTERNAL_URL, or RENDER_DB_EXTERNAL_URL must be set before running db:cli. Provide DATABASE_ONPREMISE_DEV_PRIMARY for offline fallback if remote datasources are unavailable.",
+        "PROD_DATABASE_URL, DATABASE_URL, RENDER_DB_INTERNAL_URL, or RENDER_DB_EXTERNAL_URL must be set before running db:cli. Provide DATABASE_ONPREMISE_DEV_PRIMARY for offline fallback if remote datasources are unavailable.",
       );
     }
   }
@@ -243,7 +244,6 @@ function parseArgs(argv: string[]): ParsedArgs {
 async function showStatus(ctx: DbContext, target: string): Promise<void> {
   const url = process.env.DATABASE_URL ?? "";
   const prodUrl = process.env.PROD_DATABASE_URL ?? "";
-  const devUrl = process.env.DEV_DATABASE_URL ?? "";
   const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL ?? "";
   const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL ?? "";
   const localUrl = readLocalFallbackUrl();
@@ -270,7 +270,6 @@ async function showStatus(ctx: DbContext, target: string): Promise<void> {
   console.log(`DOTENV_CONFIG_PATH: ${process.env.DOTENV_CONFIG_PATH ?? "(not set)"}`);
   console.log(`DATABASE_URL set : ${url ? "yes" : "no"}`);
   console.log(`PROD_DATABASE_URL set : ${prodUrl ? "yes" : "no"}`);
-  console.log(`DEV_DATABASE_URL set : ${devUrl ? "yes" : "no"}`);
   console.log(`RENDER_DB_INTERNAL_URL set : ${renderInternalUrl ? "yes" : "no"}`);
   console.log(`RENDER_DB_EXTERNAL_URL set : ${renderExternalUrl ? "yes" : "no"}`);
   console.log(`DATABASE_ONPREMISE_DEV_PRIMARY set : ${onPremiseDevUrl ? "yes" : "no"}`);
@@ -783,8 +782,7 @@ async function showDatabases(): Promise<void> {
   console.log("=== Available Databases ===\n");
 
   const databases = [
-    { name: "CLOUD-DEV-MASTER (Render Managed)", envVar: "DEV_DATABASE_URL", fallback: "RENDER_DB_EXTERNAL_URL", target: "cloud-dev" },
-    { name: "CLOUD-PROD-RUNTIME (Worker Node)", envVar: "PROD_DATABASE_URL", fallback: null, target: "cloud-prod" },
+    { name: "CLOUD-PROD (Render Managed)", envVar: "PROD_DATABASE_URL", fallback: "RENDER_DB_EXTERNAL_URL", target: "cloud-prod" },
     { name: "ONPREMISE-DEV-PRIMARY (Workstation)", envVar: "DATABASE_ONPREMISE_DEV_PRIMARY", fallback: null, target: "onpremise-dev" },
     { name: "ONPREMISE-DEV-EXPERIMENT (Migration Testing)", envVar: "DATABASE_ONPREMISE_DEV_EXPERIMENT", fallback: "DATABASE_EXPERIMENT_URL", target: "onpremise-experiment" },
   ];
@@ -855,8 +853,7 @@ function printHelp(): void {
   console.log(`  --table=<Model>       Alias for 'count <Model>'.`);
   console.log(`  --sql="..."           Provide SQL for the query command without quoting.`);
   console.log(`\nTarget Databases:`);
-  console.log(`  cloud-dev             CLOUD-DEV-MASTER (DEV_DATABASE_URL) - Source of truth for migrations.`);
-  console.log(`  cloud-prod            CLOUD-PROD-RUNTIME (PROD_DATABASE_URL) - Primary for gameplay (<50ms).`);
+  console.log(`  cloud-prod            CLOUD-PROD (PROD_DATABASE_URL) - Primary Render-managed database for all operations.`);
   console.log(`  onpremise-dev         ONPREMISE-DEV-PRIMARY (DATABASE_ONPREMISE_DEV_PRIMARY) - Workstation development (default).`);
   console.log(`  onpremise-experiment  ONPREMISE-DEV-EXPERIMENT (DATABASE_ONPREMISE_DEV_EXPERIMENT) - Migration testing (offline).`);
   console.log(`\nPerformance Monitoring:`);
@@ -866,7 +863,7 @@ function printHelp(): void {
   console.log(`  cache_stats           Warns if hit rate <80% (warning) or <60% (critical).`);
   console.log(`\nExamples:`);
   console.log(`  npm run db:cli -- databases                                   # List all databases`);
-  console.log(`  npm run db:cli -- status --target=cloud-dev                   # Check CLOUD-DEV-MASTER status`);
+  console.log(`  npm run db:cli -- status --target=cloud-prod                  # Check CLOUD-PROD status`);
   console.log(`  npm run db:cli -- count User --target=onpremise-experiment    # Count users in experiment DB`);
   console.log(`  npm run db:cli -- query "SELECT * FROM \\"Species\\" LIMIT 5;" --target=cloud-prod`);
   console.log(`\nEnvironment loading follows IG_ENV_FILE → DOTENV_CONFIG_PATH → repo .env (non-production).`);

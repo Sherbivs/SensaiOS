@@ -13,7 +13,7 @@
  */
 
 import { Pool, PoolClient } from "pg";
-import { getProdDb, getDevDb } from "../pg-connection.js";
+import { getProdDb } from "../pg-connection.js";
 import { buildSelect, buildWhereClause, buildCount } from "../pg-query.js";
 import type { User, Party, PartySlot, PokemonInstance } from "../../types/db-models.js";
 

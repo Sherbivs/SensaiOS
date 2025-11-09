@@ -161,15 +161,14 @@ function normalizeMode(raw: string | undefined): DatabaseConnectionMode {
 function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
   const mode = normalizeMode(process.env.DATABASE_CONNECTION_MODE);
   
-  // 2-NODE CLUSTER: CLOUD-PROD-RUNTIME (PROD_DATABASE_URL) and CLOUD-DEV-MASTER (DEV_DATABASE_URL)
+  // UNIFIED ARCHITECTURE: Single production database (Render-managed PostgreSQL)
   const prodUrl = process.env.PROD_DATABASE_URL?.trim() ?? "";
-  const devUrl = process.env.DEV_DATABASE_URL?.trim() ?? "";
   
-  // 2-NODE CLUSTER: Standard environment variables (Render managed databases)
+  // Fallback URLs for compatibility
   const renderInternalUrl = process.env.RENDER_DB_INTERNAL_URL?.trim() ?? "";
   const renderExternalUrl = process.env.RENDER_DB_EXTERNAL_URL?.trim() ?? "";
   
-  // ONPREMISE-DEV-PRIMARY: Workstation development database (canonical)
+  // ONPREMISE-DEV-PRIMARY: Workstation development database (optional offline fallback)
   const onPremiseDevUrl = process.env.DATABASE_ONPREMISE_DEV_PRIMARY?.trim() ?? "";
 
   const preferExternal = mode === "external" || (mode === "auto" && nodeEnv !== "production");
@@ -197,25 +196,14 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
     directCandidates.push({ value, source, fallback });
   };
 
-  // 2-NODE CLUSTER: Production uses CLOUD-PROD-RUNTIME (PROD_DATABASE_URL), Development uses CLOUD-DEV-MASTER (DEV_DATABASE_URL)
-  // All connections are direct PostgreSQL (no Accelerate)
+  // UNIFIED ARCHITECTURE: All environments use PROD_DATABASE_URL (Render-managed PostgreSQL)
+  // Priority: PROD_DATABASE_URL → RENDER_DB_EXTERNAL_URL → RENDER_DB_INTERNAL_URL → LOCAL
   
   // Build direct PostgreSQL candidates in priority order
-  if (preferExternal) {
-    // Development/external mode: prefer CLOUD-DEV-MASTER (master database)
-    addDirectCandidate(devUrl, "external");
-    addDirectCandidate(renderExternalUrl, "external");
-    addDirectCandidate(renderInternalUrl, "internal");
-    addDirectCandidate(prodUrl, "env");
-    addDirectCandidate(onPremiseDevUrl, "local");
-  } else {
-    // Production/internal mode: prefer CLOUD-PROD-RUNTIME (runtime database)
-    addDirectCandidate(prodUrl, "env");
-    addDirectCandidate(onPremiseDevUrl, "local");
-    addDirectCandidate(renderInternalUrl, "internal");
-    addDirectCandidate(devUrl, "external");
-    addDirectCandidate(renderExternalUrl, "external");
-  }
+  addDirectCandidate(prodUrl, "env");
+  addDirectCandidate(renderExternalUrl, "external");
+  addDirectCandidate(renderInternalUrl, "internal");
+  addDirectCandidate(onPremiseDevUrl, "local");
 
   const localFallbackUrl = resolveLocalFallbackUrl();
   if (localFallbackUrl) {
@@ -227,7 +215,7 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
 
   if (!orderedCandidates.length) {
     throw new Error(
-      "No database URL found. Provide a direct PostgreSQL connection string via PROD_DATABASE_URL, DEV_DATABASE_URL, RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL, or DATABASE_ONPREMISE_DEV_PRIMARY (workstation)."
+      "No database URL found. Provide a direct PostgreSQL connection string via PROD_DATABASE_URL, RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL, or DATABASE_ONPREMISE_DEV_PRIMARY (workstation)."
     );
   }
 
