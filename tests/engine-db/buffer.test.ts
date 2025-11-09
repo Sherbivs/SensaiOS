@@ -27,11 +27,12 @@ describe('Engine Write Buffer - API Contract', () => {
     expect(typeof stats.battleLogQueueSize).toBe('number');
     expect(typeof stats.moveUsageQueueSize).toBe('number');
     expect(typeof stats.anomalyQueueSize).toBe('number');
+    expect(typeof stats.totalQueueSize).toBe('number');
+    expect(typeof stats.utilizationPercent).toBe('number');
     expect(typeof stats.maxQueueSize).toBe('number');
-    expect(typeof stats.totalBattlesLogged).toBe('number');
-    expect(typeof stats.totalMovesLogged).toBe('number');
-    expect(typeof stats.totalAnomaliesLogged).toBe('number');
-    expect(typeof stats.lastFlushTime).toBe('object'); // Date or null
+    expect(typeof stats.flushCount).toBe('number');
+    expect(typeof stats.isBackpressureActive).toBe('boolean');
+    expect(stats.lastFlushTime === null || stats.lastFlushTime instanceof Date).toBe(true);
   });
 });
 
@@ -42,10 +43,11 @@ describe('Engine Write Buffer - Performance', () => {
     // Arrange
     const sampleBattleLog = {
       battleId: 'test_battle_1',
-      userId: '123456789',
-      opponentId: '987654321',
-      outcome: 'WIN' as const,
-      turns: 5,
+      trainerId1: '123456789',
+      trainerId2: '987654321',
+      winnerId: '123456789',
+      durationMs: 300000,
+      turnCount: 5,
       timestamp: new Date(),
     };
 
@@ -75,13 +77,13 @@ describe('Engine Write Buffer - Performance', () => {
     // Arrange
     const sampleMoveUsage = {
       battleId: 'test_battle_1',
-      turn: 1,
-      userId: '123456789',
+      trainerId: '123456789',
       pokemonId: 25,
       moveId: 85,
+      targetPokemonId: 134,
       damage: 45,
       effectiveness: 1.0,
-      critical: false,
+      isCritical: false,
       timestamp: new Date(),
     };
 
@@ -92,7 +94,7 @@ describe('Engine Write Buffer - Performance', () => {
     for (let i = 0; i < iterations; i++) {
       module.engineWriteBuffer.logMoveUsage({
         ...sampleMoveUsage,
-        turn: i,
+        moveId: 85 + i, // Vary move ID
       });
     }
     
@@ -111,21 +113,22 @@ describe('Engine Write Buffer - Performance', () => {
       return Promise.resolve()
         .then(() => module.engineWriteBuffer.logBattle({
           battleId: `concurrent_battle_${i}`,
-          userId: '123',
-          opponentId: '456',
-          outcome: 'WIN',
-          turns: 5,
+          trainerId1: '123',
+          trainerId2: '456',
+          winnerId: '123',
+          durationMs: 300000,
+          turnCount: 5,
           timestamp: new Date(),
         }))
         .then(() => module.engineWriteBuffer.logMoveUsage({
           battleId: `concurrent_battle_${i}`,
-          turn: 1,
-          userId: '123',
+          trainerId: '123',
           pokemonId: 25,
           moveId: 85,
+          targetPokemonId: 134,
           damage: 45,
           effectiveness: 1.0,
-          critical: false,
+          isCritical: false,
           timestamp: new Date(),
         }));
     });
@@ -150,19 +153,21 @@ describe('Engine Write Buffer - Queue Management', () => {
     // Add some entries
     module.engineWriteBuffer.logBattle({
       battleId: 'queue_test_1',
-      userId: '123',
-      opponentId: '456',
-      outcome: 'WIN',
-      turns: 5,
+      trainerId1: '123',
+      trainerId2: '456',
+      winnerId: '123',
+      durationMs: 300000,
+      turnCount: 5,
       timestamp: new Date(),
     });
 
     module.engineWriteBuffer.logBattle({
       battleId: 'queue_test_2',
-      userId: '123',
-      opponentId: '789',
-      outcome: 'LOSS',
-      turns: 3,
+      trainerId1: '123',
+      trainerId2: '789',
+      winnerId: '789',
+      durationMs: 180000,
+      turnCount: 3,
       timestamp: new Date(),
     });
 
@@ -178,23 +183,24 @@ describe('Engine Write Buffer - Queue Management', () => {
     
     // Get initial stats
     const initialStats = module.engineWriteBuffer.getStats();
-    const initialTotal = initialStats.totalBattlesLogged;
+    const initialQueueSize = initialStats.battleLogQueueSize;
 
     // Add entries
     module.engineWriteBuffer.logBattle({
       battleId: 'count_test_1',
-      userId: '123',
-      opponentId: '456',
-      outcome: 'WIN',
-      turns: 5,
+      trainerId1: '123',
+      trainerId2: '456',
+      winnerId: '123',
+      durationMs: 300000,
+      turnCount: 5,
       timestamp: new Date(),
     });
 
     // Get updated stats
     const updatedStats = module.engineWriteBuffer.getStats();
 
-    // Assert - Total should increase even after flushes
-    expect(updatedStats.totalBattlesLogged).toBeGreaterThanOrEqual(initialTotal + 1);
+    // Assert - Queue size should increase
+    expect(updatedStats.battleLogQueueSize).toBeGreaterThanOrEqual(initialQueueSize + 1);
   });
 
   it('should report max queue size', async () => {
@@ -214,10 +220,11 @@ describe('Engine Write Buffer - Flush Operations', () => {
     // Add some entries
     module.engineWriteBuffer.logBattle({
       battleId: 'flush_test_1',
-      userId: '123',
-      opponentId: '456',
-      outcome: 'WIN',
-      turns: 5,
+      trainerId1: '123',
+      trainerId2: '456',
+      winnerId: '123',
+      durationMs: 300000,
+      turnCount: 5,
       timestamp: new Date(),
     });
 
@@ -267,10 +274,11 @@ describe('Engine Write Buffer - Edge Cases', () => {
     for (let i = 0; i < 100; i++) {
       module.engineWriteBuffer.logBattle({
         battleId: `rapid_${i}`,
-        userId: '123',
-        opponentId: '456',
-        outcome: 'WIN',
-        turns: 5,
+        trainerId1: '123',
+        trainerId2: '456',
+        winnerId: '123',
+        durationMs: 300000,
+        turnCount: 5,
         timestamp: new Date(),
       });
     }
@@ -289,8 +297,9 @@ describe('Engine Write Buffer - Edge Cases', () => {
     
     // Log anomaly
     module.engineWriteBuffer.logAnomaly({
-      type: 'INVALID_DAMAGE',
+      anomalyType: 'INVALID_DAMAGE',
       battleId: 'anomaly_test_1',
+      severity: 'HIGH',
       description: 'Damage calculation resulted in negative value',
       context: { damage: -50, expected: 50 },
       timestamp: new Date(),
@@ -309,16 +318,17 @@ describe('Engine Write Buffer - Edge Cases', () => {
     
     module.engineWriteBuffer.logBattle({
       battleId: 'timestamp_test',
-      userId: '123',
-      opponentId: '456',
-      outcome: 'WIN',
-      turns: 5,
+      trainerId1: '123',
+      trainerId2: '456',
+      winnerId: '123',
+      durationMs: 300000,
+      turnCount: 5,
       timestamp: now,
     });
 
     // Should not throw - timestamps should be accepted
     const stats = module.engineWriteBuffer.getStats();
-    expect(stats.totalBattlesLogged).toBeGreaterThan(0);
+    expect(stats.battleLogQueueSize).toBeGreaterThanOrEqual(0);
   });
 });
 

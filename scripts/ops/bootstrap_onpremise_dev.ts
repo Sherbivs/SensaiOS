@@ -470,7 +470,7 @@ async function main(): Promise<void> {
   loadEnvironment();
   const options = applyDefaults(parseArgs(process.argv.slice(2)));
   const binaries = resolvePgBinaries();
-  const paths = resolvePaths(options.storeRoot);
+  const paths = buildPaths(options.storeRoot);
 
   await ensureDirectories(paths);
   const clusterInitialized = await initializeCluster(binaries, paths);

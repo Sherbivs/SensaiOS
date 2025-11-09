@@ -541,8 +541,8 @@ function formatEngineDbStats(): string {
     
     lines.push("**WRITE BUFFER**");
     lines.push(`• Utilization: ${utilizationPct}% ${backpressureIcon}`);
-    lines.push(`• Queues: ${bufferStats.battleLogCount} battles, ${bufferStats.moveUsageCount} moves, ${bufferStats.anomalyCount} anomalies`);
-    lines.push(`• Total Pending: ${bufferStats.totalPendingCount} entries`);
+    lines.push(`• Queues: ${bufferStats.battleLogQueueSize} battles, ${bufferStats.moveUsageQueueSize} moves, ${bufferStats.anomalyQueueSize} anomalies`);
+    lines.push(`• Total Pending: ${bufferStats.totalQueueSize} entries`);
     lines.push(`• Backpressure: ${bufferStats.isBackpressureActive ? "ACTIVE (rejecting writes)" : "inactive"}`);
     lines.push(`• Flush Count: ${bufferStats.flushCount}`);
     lines.push(`• Last Flush: ${formatTimestamp(bufferStats.lastFlushTime)}`);
