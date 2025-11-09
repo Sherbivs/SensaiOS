@@ -908,97 +908,11 @@ export async function boot(): Promise<void> {
   }
 
   // ============================================================================
-  // Engine DB Initialization
+  // Engine DB + Bots Initialization (Parallel)
   // ============================================================================
   
-  setPhase("Initializing Engine DB");
+  setPhase("Initializing Engine DB + Bots");
   setSection("engine", { title: "Engine DB", status: "initializing", metrics: [] });
-  
-  try {
-    log.info("Initializing Engine DB runtime");
-    
-    // Step 1: Validate config (ensure storage directories exist)
-    validateEngineDbConfig();
-    log.info("Engine DB config validated");
-    
-    // Steps 2-5: Parallelize Read-DB and Write-DB initialization (independent SQLite databases)
-    // Read-DB path: init → L1 cache load (BLOCKING)
-    // Write-DB path: init → WAL replay
-    const [readDbStats, writeDbStats] = await Promise.all([
-      // Read-DB initialization + L1 Cache load
-      (async () => {
-        // Step 2: Initialize Read-DB (SQLite read-only database)
-        await engineReadDb.initialize();
-        const readStats = engineReadDb.getStats();
-        log.info("Engine Read-DB initialized", {
-          pokemon: readStats.pokemonCount,
-          moves: readStats.moveCount,
-          typeEffectiveness: readStats.typeEffectivenessCount,
-          sizeBytes: readStats.sizeBytes
-        });
-        
-        // Step 3: Initialize L1 Cache (BLOCKING - load Pokemon/Moves/Types into memory)
-        await engineCache.initialize();
-        const cacheStats = engineCache.getStats();
-        log.info("Engine L1 Cache initialized", {
-          pokemon: cacheStats.pokemonCount,
-          moves: cacheStats.moveCount,
-          typeEffectiveness: cacheStats.typeEffectivenessCount,
-          memorySizeMb: cacheStats.memorySizeMb.toFixed(2)
-        });
-        
-        return readStats;
-      })(),
-      
-      // Write-DB initialization + WAL replay
-      (async () => {
-        // Step 4: Initialize Write-DB (SQLite append-only database)
-        await engineWriteDb.initialize();
-        log.info("Engine Write-DB initialized");
-        
-        // Step 5: Replay WAL (recover from crashes)
-        await engineWriteDb.replayWAL();
-        const writeStats = engineWriteDb.getStats();
-        log.info("Engine Write-DB WAL replayed", {
-          battleLogs: writeStats.battleLogCount,
-          moveUsage: writeStats.moveUsageCount,
-          anomalies: writeStats.anomalyCount,
-          walEntries: writeStats.walEntryCount
-        });
-        
-        return writeStats;
-      })(),
-    ]);
-    
-    // Step 6: Start background workers
-    await startEngineWorkers();
-    engineWorkersRunning = true;
-    log.info("Engine DB workers started");
-    
-    // Step 7: Mark engine as ready for battles
-    global.engineReady = true;
-    
-    // Update monitor
-    updateEngineSection();
-    log.info("Engine DB runtime online");
-    
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    setSection("engine", {
-      title: "Engine DB",
-      status: "error",
-      metrics: [metric("error", message)],
-    });
-    log.error("Engine DB initialization failed", error);
-    
-    // Engine DB is optional - continue without it
-    log.warn("Continuing without Engine DB (battles will use Prisma queries)");
-  }
-
-  // Boot security bot and Discord bot in parallel for ~500ms startup savings
-  setPhase("Starting bots");
-  
-  // Set initial statuses
   setSection("discord", { title: "Discord Bot", status: "connecting", metrics: [] });
   if (!ENABLE_SECURITY_BOT) {
     setSection("security", {
@@ -1008,13 +922,105 @@ export async function boot(): Promise<void> {
     });
   }
   
-  try {
-    // Run both bots in parallel - they are independent
-    const [_, client] = await Promise.all([
-      ENABLE_SECURITY_BOT ? bootSecurityBot() : Promise.resolve(null),
-      bootDiscord()
-    ]);
+  // Parallelize Engine DB initialization with Bot startup
+  // Engine DB is optional ("continue without it"), so failure doesn't block bots
+  // Total time = max(Engine DB, Bots) instead of sum
+  const [engineResult, _, client] = await Promise.all([
+    // Engine DB initialization (independent from bots)
+    (async () => {
+      try {
+        log.info("Initializing Engine DB runtime");
+        
+        // Step 1: Validate config (ensure storage directories exist)
+        validateEngineDbConfig();
+        log.info("Engine DB config validated");
+        
+        // Steps 2-5: Parallelize Read-DB and Write-DB initialization (independent SQLite databases)
+        // Read-DB path: init → L1 cache load (BLOCKING)
+        // Write-DB path: init → WAL replay
+        const [readDbStats, writeDbStats] = await Promise.all([
+          // Read-DB initialization + L1 Cache load
+          (async () => {
+            // Step 2: Initialize Read-DB (SQLite read-only database)
+            await engineReadDb.initialize();
+            const readStats = engineReadDb.getStats();
+            log.info("Engine Read-DB initialized", {
+              pokemon: readStats.pokemonCount,
+              moves: readStats.moveCount,
+              typeEffectiveness: readStats.typeEffectivenessCount,
+              sizeBytes: readStats.sizeBytes
+            });
+            
+            // Step 3: Initialize L1 Cache (BLOCKING - load Pokemon/Moves/Types into memory)
+            await engineCache.initialize();
+            const cacheStats = engineCache.getStats();
+            log.info("Engine L1 Cache initialized", {
+              pokemon: cacheStats.pokemonCount,
+              moves: cacheStats.moveCount,
+              typeEffectiveness: cacheStats.typeEffectivenessCount,
+              memorySizeMb: cacheStats.memorySizeMb.toFixed(2)
+            });
+            
+            return readStats;
+          })(),
+          
+          // Write-DB initialization + WAL replay
+          (async () => {
+            // Step 4: Initialize Write-DB (SQLite append-only database)
+            await engineWriteDb.initialize();
+            log.info("Engine Write-DB initialized");
+            
+            // Step 5: Replay WAL (recover from crashes)
+            await engineWriteDb.replayWAL();
+            const writeStats = engineWriteDb.getStats();
+            log.info("Engine Write-DB WAL replayed", {
+              battleLogs: writeStats.battleLogCount,
+              moveUsage: writeStats.moveUsageCount,
+              anomalies: writeStats.anomalyCount,
+              walEntries: writeStats.walEntryCount
+            });
+            
+            return writeStats;
+          })(),
+        ]);
+        
+        // Step 6: Start background workers
+        await startEngineWorkers();
+        engineWorkersRunning = true;
+        log.info("Engine DB workers started");
+        
+        // Step 7: Mark engine as ready for battles
+        global.engineReady = true;
+        
+        // Update monitor
+        updateEngineSection();
+        log.info("Engine DB runtime online");
+        
+        return { success: true };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setSection("engine", {
+          title: "Engine DB",
+          status: "error",
+          metrics: [metric("error", message)],
+        });
+        log.error("Engine DB initialization failed", error);
+        
+        // Engine DB is optional - continue without it
+        log.warn("Continuing without Engine DB (battles will use Prisma queries)");
+        return { success: false, error };
+      }
+    })(),
     
+    // Security Bot (if enabled)
+    ENABLE_SECURITY_BOT ? bootSecurityBot() : Promise.resolve(null),
+    
+    // Discord Bot (main bot)
+    bootDiscord()
+  ]);
+  
+  // Check bot startup results
+  try {
     if (!isClientReady(client)) {
       setSection("discord", {
         title: "Discord Bot",
@@ -1055,9 +1061,7 @@ export async function boot(): Promise<void> {
     log.error("Bot startup failed", error);
     throw error;
   }
-}
-
-if (import.meta.url === `file://${process.argv[1]}`) {
+}if (import.meta.url === `file://${process.argv[1]}`) {
   boot().catch((err) => {
     log.error("Fatal during boot", err);
     process.exit(1);
