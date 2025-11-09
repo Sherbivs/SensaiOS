@@ -36,8 +36,11 @@ type CountSnapshot = {
 
 type EnvironmentName = "dev" | "prod" | "local";
 
-const DEFAULT_DEV_ENV = "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env";
-const DEFAULT_PROD_ENV = "C:/Users/sherb/OneDrive/Documents/Key/Prod/.env";
+// DEPRECATED: Auto-sync is no longer needed in unified architecture
+// These paths are only used if --dev-env and --prod-env are not explicitly provided
+// In production, the script will detect unified architecture and exit gracefully
+const DEFAULT_DEV_ENV = process.env.DEV_ENV_PATH || null;
+const DEFAULT_PROD_ENV = process.env.PROD_ENV_PATH || null;
 const DEFAULT_LOCAL_ENV = null;
 const DEFAULT_TRIGGER_PATH = path.join("data", "cache", "dex-sync-trigger.json");
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
