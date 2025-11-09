@@ -56,18 +56,19 @@ const heartbeatListeners: Set<HeartbeatListener> =
 globalPrisma.prismaHeartbeatListeners = heartbeatListeners;
 
 // 2-NODE CLUSTER: Direct PostgreSQL only
-let devPrismaClient: PrismaClient | null = null;
+// UNIFIED ARCHITECTURE: Single production database (Render-managed PostgreSQL)
+// - prisma: PRIMARY client connected to PROD_DATABASE_URL (unified Render database)
+// - onPremiseDevPrisma: OPTIONAL client for offline workstation development (DATABASE_ONPREMISE_DEV_PRIMARY)
+// - onPremiseExperimentPrisma: OPTIONAL client for migration testing (DATABASE_ONPREMISE_DEV_EXPERIMENT)
 let prodPrismaClient: PrismaClient | null = null;
 let onPremiseDevPrismaClient: PrismaClient | null = null;
 let onPremiseExperimentPrismaClient: PrismaClient | null = null;
-let prismaClient: PrismaClient; // Legacy reference - points to CLOUD-PROD-RUNTIME
-export let prisma: PrismaClient; // Points to CLOUD-PROD-RUNTIME client
-export let devPrisma: PrismaClient | null = null; // CLOUD-DEV-MASTER client
-export let onPremiseDevPrisma: PrismaClient | null = null; // ONPREMISE-DEV-PRIMARY client (workstation development)
-export let onPremiseExperimentPrisma: PrismaClient | null = null; // ONPREMISE-DEV-EXPERIMENT client (migration testing)
+let prismaClient: PrismaClient; // Legacy reference - points to PROD (unified database)
+export let prisma: PrismaClient; // PRIMARY client - unified Render database
+export let onPremiseDevPrisma: PrismaClient | null = null; // OPTIONAL: Workstation development (offline)
+export let onPremiseExperimentPrisma: PrismaClient | null = null; // OPTIONAL: Migration testing (offline)
 let activeCandidate: DatabaseCandidate | null = null;
 let lastPrismaTransport = "direct";
-let devTransport = "unknown";
 let prodTransport = "unknown";
 let onPremiseDevTransport = "unknown";
 let onPremiseExperimentTransport = "unknown";
@@ -491,32 +492,27 @@ export type DatabaseStats = {
   version?: string; // Version fingerprint for replication monitoring
 };
 
-export type TripleDatabaseStats = {
-  dev: DatabaseStats;
+// UNIFIED ARCHITECTURE: Single PROD + optional LOCAL clients
+export type DualDatabaseStats = {
   prod: DatabaseStats;
   onPremiseDev: DatabaseStats;
 };
 
-export type QuadDatabaseStats = {
-  dev: DatabaseStats;
+export type TripleDatabaseStats = {
   prod: DatabaseStats;
   onPremiseDev: DatabaseStats;
   onPremiseExperiment: DatabaseStats;
 };
 
-export type QuintupleDatabaseStats = QuadDatabaseStats; // Alias for future expansion
-
 // Heartbeat event tracking (prefixed with _ to indicate reserved for future monitoring)
 let _lastHeartbeatEvent: PrismaHeartbeatEvent | null = null;
-let lastDevHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 let lastProdHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 let lastOnPremiseDevHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 let lastOnPremiseExperimentHeartbeatEvent: PrismaHeartbeatEvent | null = null;
 
 onPrismaHeartbeat((event) => {
   _lastHeartbeatEvent = event;
-  // Route heartbeats based on which client triggered them
-  // For now, assume main heartbeat goes to prod
+  // Main heartbeat goes to prod (unified database)
   lastProdHeartbeatEvent = event;
 });
 
@@ -528,8 +524,8 @@ function computeStatus(heartbeat: PrismaHeartbeatEvent | null): string {
   return heartbeat.consecutiveFailures >= HEARTBEAT_DEFAULTS.errorThreshold ? "error" : "reconnecting";
 }
 
-export function getDatabaseStats(): QuadDatabaseStats {
-  // CLOUD-PROD-RUNTIME stats (main connection)
+export function getDatabaseStats(): TripleDatabaseStats {
+  // UNIFIED ARCHITECTURE: Single production database (Render-managed PostgreSQL)
   const prodCandidate = activeCandidate;
   const prodSource = prodCandidate?.source ?? "unknown";
   const prodLatency = lastProdHeartbeatEvent?.latencyMs ?? null;
@@ -537,34 +533,21 @@ export function getDatabaseStats(): QuadDatabaseStats {
     ? (lastProdHeartbeatEvent ? computeStatus(lastProdHeartbeatEvent) : "initializing")
     : "offline";
   
-  // CLOUD-DEV-MASTER stats (secondary connection - schema source of truth)
-  const devSource = process.env.RENDER_DB_INTERNAL_URL ? "internal" : process.env.RENDER_DB_EXTERNAL_URL ? "external" : "unknown";
-  const devLatency = lastDevHeartbeatEvent?.latencyMs ?? null;
-  const devStatus = devPrismaClient 
-    ? (lastDevHeartbeatEvent ? computeStatus(lastDevHeartbeatEvent) : "initializing")
-    : "offline";
-  
-  // ONPREMISE-DEV-PRIMARY stats (tertiary connection - workstation development)
+  // ONPREMISE-DEV-PRIMARY stats (optional - workstation development)
   const onPremiseDevSource = process.env.DATABASE_ONPREMISE_DEV_PRIMARY ? "onpremise-dev" : "unknown";
   const onPremiseDevLatency = lastOnPremiseDevHeartbeatEvent?.latencyMs ?? null;
   const onPremiseDevStatus = onPremiseDevPrismaClient
     ? (lastOnPremiseDevHeartbeatEvent ? computeStatus(lastOnPremiseDevHeartbeatEvent) : "initializing")
-    : "offline";
+    : "disabled";
   
-  // ONPREMISE-DEV-EXPERIMENT stats (quaternary connection - migration testing)
+  // ONPREMISE-DEV-EXPERIMENT stats (optional - migration testing)
   const onPremiseExperimentSource = process.env.DATABASE_ONPREMISE_DEV_EXPERIMENT ? "onpremise-experiment" : "unknown";
   const onPremiseExperimentLatency = lastOnPremiseExperimentHeartbeatEvent?.latencyMs ?? null;
   const onPremiseExperimentStatus = onPremiseExperimentPrismaClient
     ? (lastOnPremiseExperimentHeartbeatEvent ? computeStatus(lastOnPremiseExperimentHeartbeatEvent) : "initializing")
-    : "offline";
+    : "disabled";
   
   return {
-    dev: {
-      source: devSource,
-      transport: devTransport,
-      latency: devLatency,
-      status: devStatus,
-    },
     prod: {
       source: prodSource,
       transport: prodTransport,
@@ -586,114 +569,17 @@ export function getDatabaseStats(): QuadDatabaseStats {
   };
 }
 
-// Initialize CLOUD-DEV-MASTER client (MASTER database - source of truth for migrations)
-async function initializeDevClient(): Promise<void> {
-  const devUrl = process.env.DEV_DATABASE_URL?.trim() || 
-                 process.env.RENDER_DB_EXTERNAL_URL?.trim() || 
-                 process.env.RENDER_DB_INTERNAL_URL?.trim();
-  if (!devUrl) {
-    log.info("DEV database connection skipped", { reason: "no DEV_DATABASE_URL, RENDER_DB_EXTERNAL_URL, or RENDER_DB_INTERNAL_URL" });
-    return;
-  }
-  
-  try {
-    // 2-NODE CLUSTER: Always use direct PostgreSQL connections
-    devTransport = "direct";
-    
-    // PRISMA INTERNAL REQUIREMENT: Temporarily set DATABASE_URL for PrismaClient constructor
-    // Prisma requires process.env.DATABASE_URL at instantiation time, even though we use direct URLs
-    const originalDatabaseUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = devUrl;
-    
-    const baseOptions = {
-      log: ["error"] as any,
-    };
-    
-    devPrismaClient = new PrismaClient(baseOptions);
-    
-    // Restore original DATABASE_URL after Prisma client creation
-    if (originalDatabaseUrl) {
-      process.env.DATABASE_URL = originalDatabaseUrl;
-    }
-    
-    devPrisma = devPrismaClient;
-    
-    // Connect and probe
-    await devPrismaClient.$connect();
-    const start = process.hrtime.bigint();
-    await devPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
-    const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
-    
-    lastDevHeartbeatEvent = {
-      ok: true,
-      timestamp: new Date(),
-      latencyMs,
-      slow: latencyMs >= HEARTBEAT_DEFAULTS.warnThresholdMs,
-      consecutiveFailures: 0,
-      source: "startup",
-    };
-    
-    log.info("DEV Prisma client connected (MASTER)", {
-      latencyMs: Number(latencyMs.toFixed(2)),
-      transport: devTransport,
-    });
-    
-    // Start DEV heartbeat
-    setInterval(async () => {
-      if (!devPrismaClient) return;
-      const probeStart = process.hrtime.bigint();
-      try {
-        await devPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
-        const probeLatency = Number(process.hrtime.bigint() - probeStart) / 1_000_000;
-        lastDevHeartbeatEvent = {
-          ok: true,
-          timestamp: new Date(),
-          latencyMs: probeLatency,
-          slow: probeLatency >= HEARTBEAT_DEFAULTS.warnThresholdMs,
-          consecutiveFailures: 0,
-          source: "heartbeat",
-        };
-      } catch (error) {
-        const failures = (lastDevHeartbeatEvent?.consecutiveFailures ?? 0) + 1;
-        lastDevHeartbeatEvent = {
-          ok: false,
-          timestamp: new Date(),
-          latencyMs: null,
-          slow: false,
-          consecutiveFailures: failures,
-          error: error instanceof Error ? error : new Error(String(error)),
-          source: "heartbeat",
-        };
-      }
-    }, HEARTBEAT_DEFAULTS.intervalMs).unref();
-    
-  } catch (error) {
-    log.warn("DEV Prisma client connection failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    lastDevHeartbeatEvent = {
-      ok: false,
-      timestamp: new Date(),
-      latencyMs: null,
-      slow: false,
-      consecutiveFailures: 1,
-      error: error instanceof Error ? error : new Error(String(error)),
-      source: "startup",
-    };
-  }
-}
-
-// Initialize ONPREMISE-DEV-PRIMARY client (workstation development database)
+// Initialize ONPREMISE-DEV-PRIMARY client (workstation development database - OPTIONAL)
 async function initializeOnPremiseDevClient(): Promise<void> {
-  const onPremiseDevUrl = process.env.PROD_DATABASE_URL?.trim() || process.env.DATABASE_ONPREMISE_DEV_PRIMARY?.trim();
+  const onPremiseDevUrl = process.env.DATABASE_ONPREMISE_DEV_PRIMARY?.trim();
   if (!onPremiseDevUrl) {
-    log.info("ONPREMISE-DEV-PRIMARY database connection skipped", { reason: "no PROD_DATABASE_URL or DATABASE_ONPREMISE_DEV_PRIMARY" });
+    log.info("LOCAL database connection skipped", { reason: "no DATABASE_ONPREMISE_DEV_PRIMARY" });
     return;
   }
   
   try {
     // 2-NODE CLUSTER: Always use direct PostgreSQL connections
-    prodTransport = "direct";
+    onPremiseDevTransport = "direct";
     
     // PRISMA INTERNAL REQUIREMENT: Temporarily set DATABASE_URL for PrismaClient constructor
     // Prisma requires process.env.DATABASE_URL at instantiation time, even though we use direct URLs
@@ -704,19 +590,19 @@ async function initializeOnPremiseDevClient(): Promise<void> {
       log: ["error"] as any,
     };
     
-    prodPrismaClient = new PrismaClient(baseOptions);
+    onPremiseDevPrismaClient = new PrismaClient(baseOptions);
     
     // Restore original DATABASE_URL after Prisma client creation
     if (originalDatabaseUrl) {
       process.env.DATABASE_URL = originalDatabaseUrl;
     }
     
-    prisma = prodPrismaClient;
+    onPremiseDevPrisma = onPremiseDevPrismaClient;
     
     // Connect and probe
-    await prodPrismaClient.$connect();
+    await onPremiseDevPrismaClient.$connect();
     const start = process.hrtime.bigint();
-    await prodPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+    await onPremiseDevPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
     const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
     
     lastOnPremiseDevHeartbeatEvent = {
@@ -728,12 +614,12 @@ async function initializeOnPremiseDevClient(): Promise<void> {
       source: "startup",
     };
     
-    log.info("ONPREMISE-DEV-PRIMARY Prisma client connected", {
+    log.info("LOCAL Prisma client connected (workstation development)", {
       latencyMs: Number(latencyMs.toFixed(2)),
       transport: onPremiseDevTransport,
     });
     
-    // Start ONPREMISE-DEV-PRIMARY heartbeat
+    // Start LOCAL heartbeat
     setInterval(async () => {
       if (!onPremiseDevPrismaClient) return;
       const probeStart = process.hrtime.bigint();
@@ -763,7 +649,7 @@ async function initializeOnPremiseDevClient(): Promise<void> {
     }, HEARTBEAT_DEFAULTS.intervalMs).unref();
     
   } catch (error) {
-    log.warn("ONPREMISE-DEV-PRIMARY Prisma client connection failed", {
+    log.warn("LOCAL Prisma client connection failed", {
       error: error instanceof Error ? error.message : String(error),
     });
     lastOnPremiseDevHeartbeatEvent = {
@@ -873,7 +759,7 @@ async function initializeOnPremiseExperimentClient(): Promise<void> {
   }
 }
 
-// Initialize all four clients
+// Initialize all clients (PROD + optional LOCAL clients)
 if (!globalPrisma.prismaConnectPromise) {
   const skipInitialConnect = process.env.PRISMA_SKIP_INITIAL_CONNECT === "true";
   if (skipInitialConnect) {
@@ -887,9 +773,8 @@ if (!globalPrisma.prismaConnectPromise) {
         globalPrisma.prisma = undefined;
         throw error;
       }),
-      initializeDevClient(),
-      initializeOnPremiseDevClient(),
-      initializeOnPremiseExperimentClient(),
+      initializeOnPremiseDevClient(), // LOCAL client (optional)
+      initializeOnPremiseExperimentClient(), // EXPERIMENT client (optional)
     ]).then(async () => {
       prodPrismaClient = prismaClient;
       prodTransport = lastPrismaTransport;
