@@ -4,8 +4,10 @@ import { Events, type Client } from "discord.js";
 import { bootDiscord } from "./bot/index.js";
 import { ENABLE_DB_AUTO_SYNC, ENABLE_SECURITY_BOT } from "./config/env.js";
 import { initPrisma, prisma } from "./models/index.js";
-import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
-import { runDatabaseRecovery } from "./runtime/databaseRecovery.js";
+// Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
+// import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
+// Lazy-loaded database recovery (only needed when connection fails)
+// import { runDatabaseRecovery } from "./runtime/databaseRecovery.js";
 // Lazy-loaded cache monitoring imports (not needed on critical startup path)
 // import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
 // import { getCacheMetadata } from "./services/pokemonService.js";
@@ -828,7 +830,14 @@ export async function boot(): Promise<void> {
     detachPrismaHeartbeatListener = onPrismaHeartbeat(renderPrismaHeartbeat);
     stopPrismaHeartbeatTask = startPrismaHeartbeat();
     if (ENABLE_DB_AUTO_SYNC && !stopAutoSyncSupervisor) {
-      stopAutoSyncSupervisor = startAutoSyncSupervisor();
+      // Lazy-load auto-sync supervisor (only used when enabled)
+      import("./runtime/autoSync.js")
+        .then(({ startAutoSyncSupervisor }) => {
+          stopAutoSyncSupervisor = startAutoSyncSupervisor();
+        })
+        .catch((error) => {
+          log.error("Failed to load auto-sync supervisor", error);
+        });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -845,6 +854,8 @@ export async function boot(): Promise<void> {
     
     // Attempt automatic database recovery
     try {
+      // Lazy-load database recovery (only needed when connection fails)
+      const { runDatabaseRecovery } = await import("./runtime/databaseRecovery.js");
       await runDatabaseRecovery();
       
       // Retry connection after recovery
@@ -867,7 +878,14 @@ export async function boot(): Promise<void> {
       detachPrismaHeartbeatListener = onPrismaHeartbeat(renderPrismaHeartbeat);
       stopPrismaHeartbeatTask = startPrismaHeartbeat();
       if (ENABLE_DB_AUTO_SYNC && !stopAutoSyncSupervisor) {
-        stopAutoSyncSupervisor = startAutoSyncSupervisor();
+        // Lazy-load auto-sync supervisor (only used when enabled)
+        import("./runtime/autoSync.js")
+          .then(({ startAutoSyncSupervisor }) => {
+            stopAutoSyncSupervisor = startAutoSyncSupervisor();
+          })
+          .catch((error) => {
+            log.error("Failed to load auto-sync supervisor", error);
+          });
       }
     } catch (recoveryError) {
       setSection("database", {
