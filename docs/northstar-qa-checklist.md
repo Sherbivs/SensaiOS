@@ -234,21 +234,21 @@
   - Table bloat <20%
   - No new slow queries (>2s)
 
-### Tier 3: DEV Master (Staging Validation)
+### Tier 3: Production Staging (Staging Validation)
 
 - [ ] **Pre-Deployment**
   - Maintenance window scheduled
   - Snapshot created:
     ```bash
-    pg_dump $DEV_DATABASE_URL \
+    pg_dump $PROD_DATABASE_URL \
       --format=custom \
-      --file=dev_backup_$(date +%Y%m%d_%H%M%S).dump
+      --file=prod_backup_$(date +%Y%m%d_%H%M%S).dump
     ```
   - Rollback script ready and tested
 
 - [ ] **Migration Execution**
   ```bash
-  psql $DEV_DATABASE_URL \
+  psql $PROD_DATABASE_URL \
     -f prisma/migrations/YYYYMMDDHHMMSS_migration_name/migration.sql
   ```
   - Migration completes without errors
@@ -256,7 +256,7 @@
   - No errors in Render logs
 
 - [ ] **Service Deployment**
-  - Updated services deployed to DEV environment
+  - Updated services deployed to staging environment
   - Health checks passing
   - No startup errors
 

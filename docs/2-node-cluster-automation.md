@@ -1,7 +1,13 @@
 # 2-Node Cluster Automation Guide
 
-**Last Updated**: 2025-01-23  
-**Status**: Complete - All scripts updated, bootstrap automation integrated
+> **⚠️ HISTORICAL DOCUMENT - DEPRECATED**  
+> **Last Updated**: 2025-01-23  
+> **Status**: SUPERSEDED by unified architecture (November 9, 2025)  
+> **Current Architecture**: Single Render-managed PostgreSQL database (`PROD_DATABASE_URL`) for all operations  
+> This document describes 2-node automation that is no longer in use. See `AGENTS.md` for current architecture.
+
+**Original Date**: 2025-01-23  
+**Original Status**: Complete - All scripts updated, bootstrap automation integrated
 
 ## Overview
 

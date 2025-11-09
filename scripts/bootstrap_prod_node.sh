@@ -14,7 +14,7 @@
 #
 # RENDER DEPLOYMENTS:
 #   - Use Render-managed PostgreSQL (infinity-gauntlet-db)
-#   - All DATABASE_URL/PROD_DATABASE_URL/DEV_DATABASE_URL → fromDatabase connection strings
+#   - All DATABASE_URL/PROD_DATABASE_URL → fromDatabase connection strings
 #   - Automatic migrations via databaseRecovery.ts (no bootstrap needed)
 #
 # USAGE:
@@ -25,7 +25,7 @@
 #   --force      Recreate database even if it already exists
 #
 # ENVIRONMENT VARIABLES REQUIRED:
-#   DEV_DATABASE_URL - Source database for replication (optional)
+#   PROD_DATABASE_URL - Source database for replication (optional)
 #   DATABASE_ONPREMISE_DEV_PRIMARY - Local database connection string (127.0.0.1:55433)
 
 set -euo pipefail
@@ -188,24 +188,24 @@ create_database() {
   log "INFO" "Database created successfully"
 }
 
-# Run migrations from DEV (master)
+# Run migrations from PROD (Render managed database)
 run_migrations() {
-  if [[ -z "${DEV_DATABASE_URL:-}" ]]; then
-    log "ERROR" "DEV_DATABASE_URL not set - cannot run migrations"
+  if [[ -z "${PROD_DATABASE_URL:-}" ]]; then
+    log "ERROR" "PROD_DATABASE_URL not set - cannot run migrations"
     return 1
   fi
 
   if [[ "$DRY_RUN" == true ]]; then
-    log "DRY-RUN" "Would run 'npx prisma migrate deploy' against DEV_DATABASE_URL"
+    log "DRY-RUN" "Would run 'npx prisma migrate deploy' against PROD_DATABASE_URL"
     return 0
   fi
 
-  log "INFO" "Running migrations from DEV (master) database"
+  log "INFO" "Running migrations from PROD (Render managed) database"
   
-  # Set DATABASE_URL to PROD for migration target
+  # Set DATABASE_URL to local database for migration target
   export DATABASE_URL="postgresql://$PG_USER@127.0.0.1:$PG_PORT/$PG_DATABASE"
   
-  # Use DEV_DATABASE_URL as directUrl source
+  # Use PROD_DATABASE_URL as directUrl source
   npx prisma migrate deploy
   
   log "INFO" "Migrations completed successfully"

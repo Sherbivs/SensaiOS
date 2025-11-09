@@ -147,9 +147,9 @@ if [ -f "render.yaml" ]; then
     if grep -A 50 "name: $service" render.yaml | grep -q "key: DATABASE_URL"; then
       echo "  ✅ $service has explicit DATABASE_URL"
     else
-      # Check if service has DEV or PROD URLs (may still work but not ideal)
-      if grep -A 50 "name: $service" render.yaml | grep -q "DEV_DATABASE_URL\|PROD_DATABASE_URL"; then
-        echo "  ⚠️  $service has DEV/PROD URLs but missing explicit DATABASE_URL"
+      # Check if service has PROD URLs (may still work but not ideal)
+      if grep -A 50 "name: $service" render.yaml | grep -q "PROD_DATABASE_URL"; then
+        echo "  ⚠️  $service has PROD_DATABASE_URL but missing explicit DATABASE_URL"
         echo "     (Prisma generation may fail during build)"
       fi
     fi

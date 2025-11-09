@@ -1,7 +1,13 @@
 # 2-Node Database Cluster Migration
 
-**Date**: November 7, 2025  
-**Status**: ✅ COMPLETE (Core Infrastructure)
+> **⚠️ HISTORICAL DOCUMENT - DEPRECATED**  
+> **Date**: November 7, 2025  
+> **Status**: SUPERSEDED by unified architecture (November 9, 2025)  
+> **Current Architecture**: Single Render-managed PostgreSQL database (`PROD_DATABASE_URL`) for all operations  
+> This document describes a 2-node DEV/PROD split that is no longer in use. See `AGENTS.md` for current architecture.
+
+**Original Date**: November 7, 2025  
+**Original Status**: ✅ COMPLETE (Core Infrastructure)
 
 ## Overview
 

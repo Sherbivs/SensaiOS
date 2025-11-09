@@ -6,11 +6,10 @@ This folder remains gitignored. The **single consolidated environment file** for
 
 This file contains all required keys:
 - `BOT_TOKEN` — Discord bot authentication
-- `DEV_DATABASE_URL` — DEV master database connection (source of truth for migrations)
-- `PROD_DATABASE_URL` — PROD local node connection (PRIMARY for gameplay with <50ms latency)
+- `PROD_DATABASE_URL` — Render managed PostgreSQL (PRIMARY for all operations)
 - `RENDER_DB_INTERNAL_URL` — Direct PostgreSQL Render internal (migrations on Render)
-- `RENDER_DB_EXTERNAL_URL` — Direct PostgreSQL external access (migrations from laptop)
-- `DATABASE_LOCAL_URL` — Local workstation PostgreSQL cluster (optional offline mirror)
+- `RENDER_DB_EXTERNAL_URL` — Direct PostgreSQL external access (migrations from workstation)
+- `DATABASE_ONPREMISE_DEV_PRIMARY` — Local workstation PostgreSQL cluster (optional offline mirror)
 - `POKEMON_BOT_TOKEN` — Secondary bot token
 
 **No other environment files are needed for development.**

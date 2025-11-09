@@ -142,19 +142,19 @@ Every migration must pass all 4 tiers before production deployment:
   4. Capture performance metrics
   5. If successful, proceed to Tier 3
 
-#### **Tier 3: DEV Master (CLOUD OPERATION)**
+#### **Tier 3: Production Staging (CLOUD OPERATION)**
 - **Purpose:** Staging validation with live services
-- **Database:** Render managed PostgreSQL (DEV)
+- **Database:** Render managed PostgreSQL (PROD)
 - **Process:**
   1. Schedule maintenance window
-  2. Create snapshot: `pg_dump $DEV_DATABASE_URL > snapshot.sql`
-  3. Apply migration: `psql $DEV_DATABASE_URL -f migration.sql`
-  4. Deploy updated services to DEV environment
+  2. Create snapshot: `pg_dump $PROD_DATABASE_URL > snapshot.sql`
+  3. Apply migration: `psql $PROD_DATABASE_URL -f migration.sql`
+  4. Deploy updated services to staging environment
   5. Run integration tests
   6. Monitor for 24-48 hours
   7. Validate performance improvements
 
-#### **Tier 4: PROD Deployment (PRODUCTION)**
+#### **Tier 4: Production Deployment (PRODUCTION)**
 - **Purpose:** Production rollout with monitoring
 - **Database:** Render managed PostgreSQL (PROD)
 - **Process:**
