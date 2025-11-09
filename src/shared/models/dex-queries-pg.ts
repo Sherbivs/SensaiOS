@@ -416,7 +416,7 @@ export async function insertSpeciesLearnsets(
   const text = `
     INSERT INTO "SpeciesLearnset" ("speciesId", "moveId", "method", "level", "machineId")
     VALUES ${placeholders.join(", ")}
-    ON CONFLICT ("speciesId", "moveId", "method") DO NOTHING
+    ON CONFLICT ("speciesId", "moveId", "method", "level") DO NOTHING
   `.trim();
   
   await db.query(text, values);
