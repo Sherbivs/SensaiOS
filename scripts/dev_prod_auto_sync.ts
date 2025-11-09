@@ -388,11 +388,10 @@ async function readEnvFile(filePath: string): Promise<EnvVars> {
       const vars: EnvVars = {};
       const relevantKeys = [
         "PROD_DATABASE_URL",
-        "DEV_DATABASE_URL",
         "DATABASE_URL",
         "RENDER_DB_INTERNAL_URL",
         "RENDER_DB_EXTERNAL_URL",
-        "DATABASE_LOCAL_URL",
+        "DATABASE_ONPREMISE_DEV_PRIMARY",
         "PRISMA_CLIENT_URL",
         "ALERT_WEBHOOK_URL",
       ];
@@ -544,18 +543,15 @@ function cliEnvForMigrate(fileVars: EnvVars): Record<string, string | undefined>
 }
 
 function cliEnvForSeed(fileVars: EnvVars): Record<string, string | undefined> {
-  // CRITICAL: Use PROD_DATABASE_URL for production operations (local Render Node PostgreSQL)
-  // Use DEV_DATABASE_URL for development and as source of truth for migrations
-  // Fallback to legacy variables for backwards compatibility
-  const isProd = process.env.NODE_ENV === "production";
+  // UNIFIED ARCHITECTURE: Use PROD_DATABASE_URL (Render managed PostgreSQL) for all operations
+  // Fallback chain: PROD → RENDER_EXTERNAL → RENDER_INTERNAL → LOCAL → DATABASE_URL
   
-  const seedUrl = isProd
-    ? (fileVars.PROD_DATABASE_URL || fileVars.DATABASE_URL || "")
-    : (fileVars.DEV_DATABASE_URL ||
-       fileVars.RENDER_DB_EXTERNAL_URL || 
-       fileVars.RENDER_DB_INTERNAL_URL || 
-       fileVars.DATABASE_LOCAL_URL ||
-       fileVars.DATABASE_URL || "");
+  const seedUrl = 
+    fileVars.PROD_DATABASE_URL ||
+    fileVars.RENDER_DB_EXTERNAL_URL || 
+    fileVars.RENDER_DB_INTERNAL_URL || 
+    fileVars.DATABASE_ONPREMISE_DEV_PRIMARY ||
+    fileVars.DATABASE_URL || "";
   
   // UNIFIED ARCHITECTURE: Always use direct PostgreSQL (no data proxy)
   log("cli.env.seed", { 
@@ -602,16 +598,13 @@ async function withPrismaClient<T>(
   envVars: EnvVars,
   callback: (client: PrismaClient) => Promise<T>,
 ): Promise<T> {
-  // CRITICAL: Use PROD_DATABASE_URL for production (local Render Node PostgreSQL)
-  // Use DEV_DATABASE_URL for development (master database)
-  const isProd = process.env.NODE_ENV === "production";
-  const url = isProd
-    ? (envVars.PROD_DATABASE_URL || envVars.DATABASE_URL)
-    : (envVars.DEV_DATABASE_URL ||
-       envVars.RENDER_DB_EXTERNAL_URL ||
-       envVars.RENDER_DB_INTERNAL_URL ||
-       envVars.DATABASE_ONPREMISE_DEV_PRIMARY ||
-       envVars.DATABASE_URL);
+  // UNIFIED ARCHITECTURE: Use PROD_DATABASE_URL (Render managed PostgreSQL) for all operations
+  const url = 
+    envVars.PROD_DATABASE_URL ||
+    envVars.RENDER_DB_EXTERNAL_URL ||
+    envVars.RENDER_DB_INTERNAL_URL ||
+    envVars.DATABASE_ONPREMISE_DEV_PRIMARY ||
+    envVars.DATABASE_URL;
   
   if (!url) {
     throw new Error(`Missing DATABASE_URL for ${label} environment (NODE_ENV=${process.env.NODE_ENV})`);
@@ -892,13 +885,13 @@ async function main(): Promise<void> {
   const devVars = await readEnvFile(config.devEnvPath);
   const prodVars = await readEnvFile(config.prodEnvPath);
   
-  // UNIFIED ARCHITECTURE CHECK: If DEV and PROD URLs are identical, skip sync entirely
-  const devDbUrl = devVars.DEV_DATABASE_URL || devVars.DATABASE_URL || "";
+  // UNIFIED ARCHITECTURE CHECK: If all URLs point to same database, skip sync entirely
+  const devDbUrl = devVars.PROD_DATABASE_URL || devVars.DATABASE_URL || "";
   const prodDbUrl = prodVars.PROD_DATABASE_URL || prodVars.DATABASE_URL || "";
   
   if (devDbUrl && prodDbUrl && devDbUrl === prodDbUrl) {
     log("unified.architecture.detected", {
-      message: "DEV_DATABASE_URL === PROD_DATABASE_URL - unified database mode, auto-sync disabled",
+      message: "PROD_DATABASE_URL identical across environments - unified database mode, auto-sync disabled",
       databaseUrl: sanitizeWebhook(devDbUrl),
     });
     console.log("✅ Unified architecture detected - all URLs point to same database. Auto-sync not needed.");

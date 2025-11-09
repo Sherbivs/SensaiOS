@@ -303,10 +303,10 @@ function resolveSourceUrl(source: string): string {
       return localUrl;
     }
     case "dev": {
-      const devUrl = process.env.DEV_DATABASE_URL?.trim() || process.env.RENDER_DB_EXTERNAL_URL?.trim();
+      const devUrl = process.env.PROD_DATABASE_URL?.trim() || process.env.RENDER_DB_EXTERNAL_URL?.trim();
       if (!devUrl) {
         throw new Error(
-          "DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL not configured.",
+          "PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL not configured.",
         );
       }
       return devUrl;

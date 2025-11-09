@@ -221,7 +221,7 @@ psql postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db \
 
 # Step 7: ONLY AFTER LOCAL VALIDATION - Push to Render database (CLOUD OPERATION)
 # Connect to Render managed database and apply migration
-psql $DEV_DATABASE_URL -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql
+psql $PROD_DATABASE_URL -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql
 ```
 
 **Key Points:**
@@ -242,15 +242,10 @@ DATABASE_ONPREMISE_DEV_EXPERIMENT=postgresql://postgres@127.0.0.1:55434/infinity
 **Prisma Client Access:**
 
 ```typescript
-import { prisma, devPrisma, onPremiseDevPrisma, experimentPrisma } from "../shared/prisma.js";
+import { prisma, onPremiseDevPrisma, experimentPrisma } from "../shared/prisma.js";
 
 // Production database (Render managed - all operations)
 const prodUsers = await prisma.user.findMany();
-
-// DEV database (in unified mode, points to same database as prisma)
-if (devPrisma) {
-  const devUsers = await devPrisma.user.findMany();
-}
 
 // ONPREMISE-DEV-PRIMARY database (workstation mirror for offline development)
 if (onPremiseDevPrisma) {
@@ -558,7 +553,7 @@ See `docs/db-replication-architecture.md` for comprehensive architecture documen
 - `src/data_pipeline/` — Data ingestion/validation logic.
 - `src/shared/` — Logging, config, and utilities used across services.
 - `scripts/` — Automation entrypoints (guards, refreshers, build tools).
-- `ops/DB_BOOTSTRAP.md` & `scripts/bootstrap_staging_db.ps1` — Paired references for staging schema bootstrap; read the runbook before executing the script and confirm both `DEV_DATABASE_URL` (master) and `RENDER_DB_EXTERNAL_URL` (direct PostgreSQL) URLs are set.
+- `ops/DB_BOOTSTRAP.md` & `scripts/bootstrap_staging_db.ps1` — Paired references for staging schema bootstrap; read the runbook before executing the script and confirm PROD_DATABASE_URL and RENDER_DB_EXTERNAL_URL (direct PostgreSQL) URLs are set.
 - `ops/` — Operational metadata, hotfix plans, NEXT pointers, recovery docs.
 - `tests/` — Vitest specs across engines, data pipeline, DM flow, and ops surfaces.
 

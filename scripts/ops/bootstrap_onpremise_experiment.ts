@@ -148,9 +148,9 @@ function loadEnvironment(): void {
 function getSourceDatabaseUrl(source: string): string | null {
   switch (source) {
     case "local":
-      return process.env.DATABASE_LOCAL_URL || null;
+      return process.env.DATABASE_ONPREMISE_DEV_PRIMARY || null;
     case "dev":
-      return process.env.DEV_DATABASE_URL || process.env.RENDER_DB_EXTERNAL_URL || null;
+      return process.env.PROD_DATABASE_URL || process.env.RENDER_DB_EXTERNAL_URL || null;
     case "prod":
       return process.env.PROD_DATABASE_URL || null;
     default:
@@ -527,8 +527,8 @@ async function main(): Promise<void> {
     console.error(`❌ Source database URL not found for: ${options.source}`);
     console.error("Available sources: local, dev, prod, or full postgresql:// URL");
     console.error("Ensure environment variables are set:");
-    console.error("  - DATABASE_LOCAL_URL (for source=local)");
-    console.error("  - DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL (for source=dev)");
+    console.error("  - DATABASE_ONPREMISE_DEV_PRIMARY (for source=local)");
+    console.error("  - PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL (for source=dev)");
     console.error("  - PROD_DATABASE_URL (for source=prod)");
     process.exit(1);
   }

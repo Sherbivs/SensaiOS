@@ -19,8 +19,8 @@ export type UrlSelectionResult = {
 /**
  * Select database URL for Prisma Client query operations (seed, counts, CRUD)
  * 
- * PRODUCTION: Uses PROD_DATABASE_URL (direct PostgreSQL local node)
- * DEVELOPMENT: Uses DEV_DATABASE_URL (direct PostgreSQL master) or DATABASE_LOCAL_URL (local workstation)
+ * UNIFIED ARCHITECTURE: All environments use PROD_DATABASE_URL (Render managed PostgreSQL)
+ * LOCAL DEVELOPMENT: Falls back to DATABASE_ONPREMISE_DEV_PRIMARY (workstation offline mode)
  * 
  * @param envVars - Environment variables object
  * @returns Selected URL with metadata
@@ -33,30 +33,22 @@ export function selectQueryUrl(envVars: EnvVars): UrlSelectionResult {
   let url = "";
   let source = "";
   
-  if (isProd) {
-    // Production uses local node for <50ms latency
-    if (envVars.PROD_DATABASE_URL) {
-      url = envVars.PROD_DATABASE_URL;
-      source = "PROD_DATABASE_URL";
-    }
-  } else {
-    // Development uses master or local node
-    if (envVars.DEV_DATABASE_URL) {
-      url = envVars.DEV_DATABASE_URL;
-      source = "DEV_DATABASE_URL";
-    } else if (envVars.RENDER_DB_EXTERNAL_URL) {
-      url = envVars.RENDER_DB_EXTERNAL_URL;
-      source = "RENDER_DB_EXTERNAL_URL";
-    } else if (envVars.DATABASE_LOCAL_URL) {
-      url = envVars.DATABASE_LOCAL_URL;
-      source = "DATABASE_LOCAL_URL";
-    }
+  // Unified architecture: PROD_DATABASE_URL for all environments
+  if (envVars.PROD_DATABASE_URL) {
+    url = envVars.PROD_DATABASE_URL;
+    source = "PROD_DATABASE_URL";
+  } else if (envVars.RENDER_DB_EXTERNAL_URL) {
+    url = envVars.RENDER_DB_EXTERNAL_URL;
+    source = "RENDER_DB_EXTERNAL_URL";
+  } else if (envVars.DATABASE_ONPREMISE_DEV_PRIMARY) {
+    url = envVars.DATABASE_ONPREMISE_DEV_PRIMARY;
+    source = "DATABASE_ONPREMISE_DEV_PRIMARY";
   }
   
   if (!url) {
     throw new Error(
       `No database URL found for ${environment}. ` +
-      `Expected: ${isProd ? "PROD_DATABASE_URL" : "DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL"}`
+      `Expected: PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL`
     );
   }
   
@@ -70,10 +62,10 @@ export function selectQueryUrl(envVars: EnvVars): UrlSelectionResult {
 /**
  * Select database URL for migration operations
  * 
- * ALL ENVIRONMENTS: MUST use direct PostgreSQL URLs
+ * UNIFIED ARCHITECTURE: All migrations use PROD_DATABASE_URL (Render managed PostgreSQL)
  * 
- * On Render Node: Use RENDER_DB_INTERNAL_URL (internal network access to DEV database)
- * From laptop: Use DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL (external network access to DEV database)
+ * On Render: PROD_DATABASE_URL or RENDER_DB_INTERNAL_URL (internal network)
+ * From workstation: PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL (external network)
  * 
  * @param envVars - Environment variables object
  * @returns Selected URL with metadata
@@ -83,10 +75,10 @@ export function selectMigrationUrl(envVars: EnvVars): UrlSelectionResult {
   let url = "";
   let source = "";
   
-  // ALWAYS use direct URLs for migrations (DEV master is source of truth)
-  if (envVars.DEV_DATABASE_URL) {
-    url = envVars.DEV_DATABASE_URL;
-    source = "DEV_DATABASE_URL";
+  // Unified architecture: PROD_DATABASE_URL for migrations
+  if (envVars.PROD_DATABASE_URL) {
+    url = envVars.PROD_DATABASE_URL;
+    source = "PROD_DATABASE_URL";
   } else if (envVars.RENDER_DB_EXTERNAL_URL) {
     url = envVars.RENDER_DB_EXTERNAL_URL;
     source = "RENDER_DB_EXTERNAL_URL";
@@ -98,7 +90,7 @@ export function selectMigrationUrl(envVars: EnvVars): UrlSelectionResult {
   if (!url) {
     throw new Error(
       "No database URL found for migrations. " +
-      "Expected: DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL"
+      "Expected: PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL"
     );
   }
   

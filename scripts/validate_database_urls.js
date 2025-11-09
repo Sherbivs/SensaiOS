@@ -15,13 +15,12 @@
 const ACCELERATE_PATTERN = /prisma(\+|:\/\/)/i;
 const VALID_PATTERN = /^postgresql:\/\//i;
 
-// 2-NODE CLUSTER: Check environment-specific URLs (DEV master, PROD local node)
+// Unified architecture: Check environment-specific URLs (PROD primary, optional LOCAL)
 // Uses canonical database naming schema (see docs/database-naming-schema.md)
 const DATABASE_ENV_VARS = [
-  'DEV_DATABASE_URL',                      // CLOUD-DEV-MASTER (Render master database)
-  'PROD_DATABASE_URL',                     // CLOUD-PROD-RUNTIME (Render worker node)
-  'RENDER_DB_EXTERNAL_URL',                // Fallback for CLOUD-DEV-MASTER
-  'RENDER_DB_INTERNAL_URL',                // Fallback for CLOUD-PROD-RUNTIME
+  'PROD_DATABASE_URL',                     // CLOUD-PROD-MASTER (Render managed PostgreSQL)
+  'RENDER_DB_EXTERNAL_URL',                // Fallback for CLOUD-PROD-MASTER
+  'RENDER_DB_INTERNAL_URL',                // Fallback for CLOUD-PROD-MASTER
   'DATABASE_ONPREMISE_DEV_PRIMARY',        // ONPREMISE-DEV-PRIMARY (workstation development)
   'DATABASE_ONPREMISE_DEV_EXPERIMENT',     // ONPREMISE-DEV-EXPERIMENT (migration testing)
 ];
@@ -71,14 +70,14 @@ if (nodeEnv === 'production') {
   const hasProdUrl = process.env.PROD_DATABASE_URL || process.env.RENDER_DB_INTERNAL_URL;
   if (!hasProdUrl) {
     console.error('❌ CRITICAL: PROD_DATABASE_URL or RENDER_DB_INTERNAL_URL not set in production');
-    console.error('   Production requires direct PostgreSQL connection to local node');
+    console.error('   Production requires direct PostgreSQL connection to Render managed database');
     failures++;
   }
 } else {
-  const hasDevUrl = process.env.DEV_DATABASE_URL || process.env.RENDER_DB_EXTERNAL_URL;
-  if (!hasDevUrl) {
-    console.warn('⚠️  DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL not set in development');
-    console.warn('   Development requires connection to master database');
+  const hasProdUrl = process.env.PROD_DATABASE_URL || process.env.RENDER_DB_EXTERNAL_URL;
+  if (!hasProdUrl) {
+    console.warn('⚠️  PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL not set in development');
+    console.warn('   Development requires connection to Render managed database');
     warnings++;
   }
 }
@@ -102,11 +101,10 @@ if (failures === 0 && warnings === 0) {
   console.error('');
   console.error('Action Required:');
   console.error('  1. Remove Accelerate URLs from environment variables');
-  console.error('  2. Set PROD_DATABASE_URL (production) or DEV_DATABASE_URL (development)');
+  console.error('  2. Set PROD_DATABASE_URL (production/development)');
   console.error('  3. Use direct PostgreSQL format: postgresql://...');
   console.error('');
   console.error('See docs/database-url-selection.md for canonical URL selection logic');
-  console.error('See ops/CODEBASE-OVERHAUL-PLAN.md for comprehensive cleanup guide');
   console.error('');
   process.exit(1);
 }

@@ -58,10 +58,9 @@ function selectDatasource(): string {
   // UNIFIED ARCHITECTURE: Only support direct PostgreSQL connections
   const directCandidates = [
     process.env.PROD_DATABASE_URL ?? "",
-    process.env.DEV_DATABASE_URL ?? "",
     process.env.RENDER_DB_INTERNAL_URL ?? "",
     process.env.RENDER_DB_EXTERNAL_URL ?? "",
-    process.env.DATABASE_LOCAL_URL ?? "",
+    process.env.DATABASE_ONPREMISE_DEV_PRIMARY ?? "",
     process.env.DATABASE_URL ?? "",
   ];
   
@@ -72,7 +71,7 @@ function selectDatasource(): string {
   }
 
   throw new Error(
-    "PROD_DATABASE_URL, DEV_DATABASE_URL, DATABASE_URL, RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL, or DATABASE_LOCAL_URL must be set for db:smoke. Ensure the secrets file is loaded.",
+    "PROD_DATABASE_URL, DATABASE_URL, RENDER_DB_INTERNAL_URL, RENDER_DB_EXTERNAL_URL, or DATABASE_ONPREMISE_DEV_PRIMARY must be set for db:smoke. Ensure the secrets file is loaded.",
   );
 }
 

@@ -104,19 +104,18 @@ function loadEnvironment(): void {
 }
 
 async function getClients(): Promise<{ devPrisma: PrismaClient | null; prodPrisma: PrismaClient; localPrisma: PrismaClient | null }> {
-  // UNIFIED ARCHITECTURE: Render managed database
-  const devUrl = process.env.DEV_DATABASE_URL || 
-                 process.env.RENDER_DB_EXTERNAL_URL || 
-                 process.env.RENDER_DB_INTERNAL_URL;
+  // UNIFIED ARCHITECTURE: Render managed database (PROD_DATABASE_URL for all operations)
   const prodUrl = process.env.PROD_DATABASE_URL || 
-                  process.env.DATABASE_LOCAL_URL;
-  const localUrl = process.env.DATABASE_LOCAL_URL;
+                  process.env.RENDER_DB_EXTERNAL_URL || 
+                  process.env.RENDER_DB_INTERNAL_URL;
+  const localUrl = process.env.DATABASE_ONPREMISE_DEV_PRIMARY;
 
   if (!prodUrl) {
-    throw new Error("No production database URL configured (PROD_DATABASE_URL or DATABASE_LOCAL_URL required)");
+    throw new Error("No production database URL configured (PROD_DATABASE_URL required)");
   }
 
-  const devPrisma = devUrl ? new PrismaClient({ datasources: { db: { url: devUrl } } }) : null;
+  // Note: devPrisma maintained for backward compatibility but will be null in unified architecture
+  const devPrisma = null;
   const prodPrisma = new PrismaClient({ datasources: { db: { url: prodUrl } } });
   const localPrisma = localUrl ? new PrismaClient({ datasources: { db: { url: localUrl } } }) : null;
 
@@ -126,9 +125,15 @@ async function getClients(): Promise<{ devPrisma: PrismaClient | null; prodPrism
 async function runSync(target: string, options: Record<string, string | boolean>): Promise<void> {
   const { devPrisma, prodPrisma, localPrisma } = await getClients();
 
-  if (!devPrisma) {
-    console.error("[ERROR] DEV database not configured (RENDER_DB_INTERNAL_URL or RENDER_DB_EXTERNAL_URL required)");
+  if (!prodPrisma) {
+    console.error("[ERROR] Production database not configured (PROD_DATABASE_URL required)");
     process.exit(1);
+  }
+
+  // UNIFIED ARCHITECTURE: devPrisma is null, sync operations not applicable
+  if (!devPrisma) {
+    console.log("[INFO] Unified architecture detected - DEV/PROD sync not applicable (single database)");
+    process.exit(0);
   }
 
   const dryRun = Boolean(options["dry-run"]);

@@ -15,7 +15,6 @@ beforeEach(() => {
   process.env = { ...ORIGINAL_ENV };
   delete process.env.DATABASE_URL;
   delete process.env.PROD_DATABASE_URL;
-  delete process.env.DEV_DATABASE_URL;
   delete process.env.RENDER_DB_INTERNAL_URL;
   delete process.env.RENDER_DB_EXTERNAL_URL;
   delete process.env.DATABASE_ONPREMISE_DEV_PRIMARY;
@@ -65,21 +64,21 @@ describe("loadConfig", () => {
     expect(config.redisUrl).toBeNull();
   });
 
-  it("prefers DEV_DATABASE_URL in development mode", async () => {
+  it("prefers PROD_DATABASE_URL in all environments (unified architecture)", async () => {
     process.env.NODE_ENV = "development";
-    process.env.DEV_DATABASE_URL = "postgresql://dev-master.example/infinity_gauntlet";
-    process.env.PROD_DATABASE_URL = "postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db";
+    process.env.PROD_DATABASE_URL = "postgresql://render-managed.example/infinity_gauntlet";
+    process.env.RENDER_DB_EXTERNAL_URL = "postgresql://external-fallback.example/infinity_gauntlet";
     const { loadConfig, resetConfigCacheForTests } = await loadConfigModule();
     resetConfigCacheForTests();
     const config = loadConfig();
-    expect(config.databaseUrl).toBe("postgresql://dev-master.example/infinity_gauntlet");
-    expect(config.databaseUrlSource).toBe("external");
+    expect(config.databaseUrl).toBe("postgresql://render-managed.example/infinity_gauntlet");
+    expect(config.databaseUrlSource).toBe("env");
   });
 
   it("prefers PROD_DATABASE_URL in production mode", async () => {
     process.env.NODE_ENV = "production";
     process.env.PROD_DATABASE_URL = "postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db";
-    process.env.DEV_DATABASE_URL = "postgresql://dev-master.example/infinity_gauntlet";
+    process.env.RENDER_DB_EXTERNAL_URL = "postgresql://external-fallback.example/infinity_gauntlet";
     const { loadConfig, resetConfigCacheForTests } = await loadConfigModule();
     resetConfigCacheForTests();
     const config = loadConfig();

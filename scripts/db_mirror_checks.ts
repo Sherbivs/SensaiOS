@@ -102,7 +102,6 @@ function extractConnections(envVars: EnvVars): ConnectionSet {
   // UNIFIED ARCHITECTURE: Only direct PostgreSQL connections (no Accelerate)
   const direct = [
     envVars.PROD_DATABASE_URL,
-    envVars.DEV_DATABASE_URL,
     envVars.RENDER_DB_INTERNAL_URL,
     envVars.RENDER_DB_EXTERNAL_URL,
     envVars.DIRECT_URL,
