@@ -209,6 +209,10 @@ export class PostgresConnection {
   // ==========================================================================
 
   private createPool(connectionString: string, label: string): pg.Pool {
+    // Detect if this is an external connection requiring SSL
+    const isExternal = connectionString.includes('.render.com') || 
+                       connectionString.includes('postgres://') && !connectionString.includes('127.0.0.1') && !connectionString.includes('localhost');
+    
     return new Pool({
       connectionString,
       max: 20,                          // Max connections per pool
@@ -217,6 +221,10 @@ export class PostgresConnection {
       keepAlive: true,                  // Enable TCP keepalive
       keepAliveInitialDelayMillis: 10000, // Wait 10s before first keepalive
       application_name: `infinity-gauntlet-${label.toLowerCase()}`,
+      // SSL/TLS configuration for external databases (Render managed PostgreSQL)
+      ssl: isExternal ? {
+        rejectUnauthorized: false,      // Accept self-signed certificates from Render
+      } : false,
     });
   }
 
