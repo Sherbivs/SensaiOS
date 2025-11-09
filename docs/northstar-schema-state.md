@@ -3,6 +3,17 @@
 **Created:** 2025-11-08  
 **Purpose:** Document the delta between current production schema and Northstar target schema
 
+**Cross-References:**
+- See `docs/northstar-methodology.md` for comprehensive methodology and standards
+- See `docs/northstar-qa-checklist.md` for standardized QA validation
+- See `docs/schema-northstar-optimization.md` for overall optimization plan design
+- See `prisma/migrations/202511061630_northstar_phase1_additions/` for Phase 1 migration (PENDING)
+- See `prisma/migrations/20251108183000_northstar_phase2_consolidation/` for Phase 2 migration (BLOCKED)
+- See `prisma/schema.prisma` for current production schema definition
+- See `Tasklist.md` Phase 15 for task tracking
+
+**Referenced By:** northstar-methodology.md, northstar-qa-checklist.md, northstar-solidification-summary.md, Tasklist.md
+
 ---
 
 ## Current Production Schema State

@@ -4,6 +4,16 @@
 **Session Focus:** Methodology, standards, and quality assurance solidification  
 **Status:** Complete
 
+**Cross-References:**
+- See `docs/northstar-methodology.md` for comprehensive methodology (832 lines)
+- See `docs/northstar-qa-checklist.md` for QA validation checklists (572 lines)
+- See `docs/northstar-schema-state.md` for current vs. planned schema (424 lines)
+- See `docs/schema-northstar-optimization.md` for overall optimization plan
+- See `Tasklist.md` Phase 15 (DB.NORTHSTAR.PHASE2) for task tracking
+- See `Prompt.md` Last Repo Changes for session details
+
+**Referenced By:** northstar-schema-state.md, Tasklist.md (Phase 15)
+
 ---
 
 ## Executive Summary

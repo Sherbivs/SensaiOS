@@ -4,6 +4,16 @@
 **Created:** 2025-11-08  
 **Status:** Living Document
 
+**Cross-References:**
+- See `docs/northstar-methodology.md` for comprehensive methodology and standards
+- See `docs/northstar-schema-state.md` for current vs. planned schema
+- See `docs/schema-northstar-optimization.md` for overall optimization plan
+- See `docs/dual-onpremise-database-guide.md` for dual-local database testing setup
+- See `prisma/migrations/20251108183000_northstar_phase2_consolidation/README.md` for Phase 2 migration guide
+- See `Tasklist.md` Phase 15 for task tracking
+
+**Referenced By:** northstar-methodology.md, northstar-schema-state.md, Tasklist.md (Phase 15)
+
 ---
 
 ## Table of Contents

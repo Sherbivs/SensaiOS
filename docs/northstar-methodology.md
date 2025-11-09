@@ -4,6 +4,17 @@
 **Status:** Living Document  
 **Purpose:** Define comprehensive methodology, coding standards, testing protocols, and quality gates for all Northstar optimization phases
 
+**Cross-References:**
+- See `docs/northstar-qa-checklist.md` for standardized QA validation checklists
+- See `docs/northstar-schema-state.md` for current vs. planned schema comparison
+- See `docs/northstar-solidification-summary.md` for session executive summary
+- See `docs/schema-northstar-optimization.md` for overall optimization plan
+- See `docs/dual-onpremise-database-guide.md` for testing environment setup
+- See `Tasklist.md` Phase 15 for task tracking
+- See `AGENTS.md` Database Replication Architecture for version control
+
+**Referenced By:** northstar-qa-checklist.md, northstar-schema-state.md, Tasklist.md (Phase 15)
+
 ---
 
 ## Table of Contents
