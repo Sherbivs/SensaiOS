@@ -980,27 +980,26 @@ export async function boot(): Promise<void> {
     log.warn("Continuing without Engine DB (battles will use Prisma queries)");
   }
 
-  if (ENABLE_SECURITY_BOT) {
-    setPhase("Starting security bot");
-    try {
-      await bootSecurityBot();
-    } catch (error) {
-      setPhase("Startup failed");
-      throw error;
-    }
-  } else {
+  // Boot security bot and Discord bot in parallel for ~500ms startup savings
+  setPhase("Starting bots");
+  
+  // Set initial statuses
+  setSection("discord", { title: "Discord Bot", status: "connecting", metrics: [] });
+  if (!ENABLE_SECURITY_BOT) {
     setSection("security", {
       title: "Security Bot",
       status: "disabled",
       metrics: [metric("note", "Security bot disabled via ENABLE_SECURITY_BOT=false")],
     });
   }
-
-  setPhase("Connecting to Discord");
-  setSection("discord", { title: "Discord Bot", status: "connecting", metrics: [] });
-
+  
   try {
-    const client = await bootDiscord();
+    // Run both bots in parallel - they are independent
+    const [_, client] = await Promise.all([
+      ENABLE_SECURITY_BOT ? bootSecurityBot() : Promise.resolve(null),
+      bootDiscord()
+    ]);
+    
     if (!isClientReady(client)) {
       setSection("discord", {
         title: "Discord Bot",
@@ -1017,13 +1016,28 @@ export async function boot(): Promise<void> {
     setPhase("Online");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    setSection("discord", {
-      title: "Discord Bot",
-      status: "error",
-      metrics: [metric("error", message)],
-    });
+    
+    // Determine which bot failed based on error message or type
+    const isSecurityError = error instanceof Error && error.message.includes("Security bot");
+    const isDiscordError = error instanceof Error && error.message.includes("Discord bot");
+    
+    if (isSecurityError) {
+      setSection("security", {
+        title: "Security Bot",
+        status: "error",
+        metrics: [metric("error", message)],
+      });
+    }
+    if (isDiscordError || !isSecurityError) {
+      setSection("discord", {
+        title: "Discord Bot",
+        status: "error",
+        metrics: [metric("error", message)],
+      });
+    }
+    
     setPhase("Startup failed");
-    log.error("Discord bot startup failed", error);
+    log.error("Bot startup failed", error);
     throw error;
   }
 }
