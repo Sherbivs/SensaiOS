@@ -52,17 +52,19 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - **Start dev:** `npm run dev`
 - **Test:** `npm test`
 - **Lint:** `npm run lint`
-- **Env needed (do not commit secrets):** use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DEV_DATABASE_URL (DEV master), PROD_DATABASE_URL (PROD local node), RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_ONPREMISE_DEV_PRIMARY (local workstation), and POKEMON_BOT_TOKEN. Load it with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file. **No other key files are needed for development.**
+- **Env needed (do not commit secrets):** use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, DEV_DATABASE_URL, PROD_DATABASE_URL, RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_ONPREMISE_DEV_PRIMARY (local workstation), and POKEMON_BOT_TOKEN. Load it with `IG_ENV_FILE`; keep the repo `.env` empty so local tooling always pulls from the external file. **No other key files are needed for development.**
 
-## On-Premise Database Access (Muted / Dev Only)
+## On-Premise Database Access (Local Development Only)
 
-**CRITICAL:** All database operations use direct PostgreSQL connections. The 2-node cluster architecture (DEV master + PROD local node) ensures <50ms latency for gameplay operations. See `ops/DB_BOOTSTRAP.md` for detailed migration workflow.
+**PRODUCTION ARCHITECTURE:** Render deployments use **unified managed PostgreSQL** (infinity-gauntlet-db). All DATABASE_URL/PROD_DATABASE_URL/DEV_DATABASE_URL point to the same Render-managed database for simplicity and reliability.
 
-1. **Environment file:** use `secrets/Infinity-Gauntlet.env` as the single consolidated environment file containing all development keys. This file includes DEV_DATABASE_URL (DEV master), PROD_DATABASE_URL (PROD local node), RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_ONPREMISE_DEV_PRIMARY (local workstation), BOT_TOKEN, and POKEMON_BOT_TOKEN. **No other environment files are needed.**
+**LOCAL DEVELOPMENT:** On-premise databases (DATABASE_ONPREMISE_DEV_PRIMARY) provide offline development capability when cloud databases are unavailable. These are **workstation-only** and never used in production.
+
+1. **Environment file:** use `secrets/Infinity-Gauntlet.env` as the single consolidated environment file containing all development keys. This file includes DEV_DATABASE_URL, PROD_DATABASE_URL, RENDER_DB_EXTERNAL_URL (direct PostgreSQL), DATABASE_ONPREMISE_DEV_PRIMARY (local workstation), BOT_TOKEN, and POKEMON_BOT_TOKEN. **No other environment files are needed.**
 2. **Load environment before DB work:** run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist` to activate the environment. Production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`, so this override must be active.
-  - **FOR MIGRATIONS:** Migrations require direct PostgreSQL access. Use `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` to connect to the master database for schema changes.
+  - **FOR MIGRATIONS:** Migrations use direct PostgreSQL access via `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` (Render-managed database).
   - **Verify access:** `echo $Env:IG_ENV_FILE` should print the chosen file; use `Get-Content secrets/Infinity-Gauntlet.env | Select-Object -First 5` to confirm it is reachable before running tooling.
-  - **Automation service:** `npm run db:auto-sync` runs the consolidation on deployment and then checks for drift every five minutes. Use `--dry-run`, `--once`, or `--skip-startup` when rehearsing new flows.
+  - **Automation service:** `npm run db:auto-sync` detects unified architecture mode and exits gracefully when all URLs point to same database.
 3. **Inspect databases:** use the database CLI tool:
   ```powershell
   npm run db:cli -- status         # connection info + sample counts
@@ -70,32 +72,31 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
   npm run db:cli -- count Species  # single-table helpers
   npm run db:cli -- query "SELECT COUNT(*) FROM \"Species\";"
   ```
-4. **Bootstrap the local workstation database (PRIMARY for gameplay):** set `PG_BIN_DIR` to a Postgres installation with `bin/` + `share/` (e.g., `C:/Program Files/PostgreSQL/17/bin`), then run `npm run ops:bootstrap-onpremise-dev` to mirror the DEV/PROD database into `Store/onpremise-dev-primary`, rotate timestamped snapshots, and emit `onpremise-url.txt` (e.g., `postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db`) so `src/shared/config.ts` can connect the `onPremiseDevPrisma` client. Prefer `npm run ops:auto-bootstrap-onpremise-dev` when you want the script to install PostgreSQL silently (via winget) and run the mirror in one step. The consolidated `secrets/Infinity-Gauntlet.env` already contains `DATABASE_ONPREMISE_DEV_PRIMARY` for <50ms latency gameplay. Capture the command, timestamp, and resulting URL in Tasklist notes when you refresh the mirror (especially before cutovers or network work). See `docs/WORKSTATION-GAMEPLAY-SETUP.md` for complete setup guide.
+4. **Bootstrap the local workstation database (OPTIONAL for offline development):** set `PG_BIN_DIR` to a Postgres installation with `bin/` + `share/` (e.g., `C:/Program Files/PostgreSQL/17/bin`), then run `npm run ops:bootstrap-onpremise-dev` to mirror the Render database into `Store/onpremise-dev-primary`, rotate timestamped snapshots, and emit `onpremise-url.txt` (e.g., `postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db`) so `src/shared/config.ts` can connect the `onPremiseDevPrisma` client. Prefer `npm run ops:auto-bootstrap-onpremise-dev` when you want the script to install PostgreSQL silently (via winget) and run the mirror in one step. See `docs/WORKSTATION-GAMEPLAY-SETUP.md` for complete setup guide.
 5. **Document actions:** log purpose, command, and outcome in `Tasklist.md` under the active task when running anything outside status/counts.
 
 Reference: `docs/ai-env-setup.md` describes the secure loading order and available commands. These tools run locally only; do not expose the secure env path in CI or production. **All development work uses `secrets/Infinity-Gauntlet.env` as the single consolidated environment file.**
 
 ## Database URL Selection (CRITICAL - Read Before Any Database Operation)
 
-**As of 2025-11-07**, all database operations use the 2-node direct PostgreSQL cluster. See `docs/database-url-selection.md` for complete documentation.
+**As of 2025-11-08**, production uses **unified Render-managed PostgreSQL**. See `docs/database-url-selection.md` for complete documentation.
 
 **The Architecture:**
-The system maintains two direct PostgreSQL nodes:
-- **DEV (Master)**: Source of truth for migrations and schema changes (`DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL`)
-- **PROD (Local Node)**: Primary node for live gameplay with <50ms latency (`PROD_DATABASE_URL`)
+- **PRODUCTION (Render)**: Single managed database (infinity-gauntlet-db) - All DATABASE_URL/PROD_DATABASE_URL/DEV_DATABASE_URL point here
+- **LOCAL DEVELOPMENT**: On-premise databases (DATABASE_ONPREMISE_DEV_PRIMARY) for offline work - Optional, workstation-only
 
 **Canonical URL Selection Logic:**
 
 ```typescript
-// For runtime queries (seed, counts, CRUD operations)
+// UNIFIED ARCHITECTURE: Production uses single Render-managed database
 function selectQueryUrl(envVars: Record<string, string>): string {
   const isProd = process.env.NODE_ENV === "production";
   
   if (isProd) {
-    // Production uses local node for <50ms latency
-    return envVars.PROD_DATABASE_URL ?? "";
+    // Production: Render-managed PostgreSQL (all URLs point to same database)
+    return envVars.PROD_DATABASE_URL ?? envVars.DEV_DATABASE_URL ?? "";
   } else {
-    // Development uses master or local node
+    // Development: Render-managed or on-premise for offline work
     return (
       envVars.DEV_DATABASE_URL ?? 
       envVars.RENDER_DB_EXTERNAL_URL ?? 
@@ -105,50 +106,50 @@ function selectQueryUrl(envVars: Record<string, string>): string {
   }
 }
 
-// For migrations (ALL environments use master node)
+// For migrations: Use DEV_DATABASE_URL (points to Render-managed database)
 function selectMigrationUrl(envVars: Record<string, string>): string {
   return (
     envVars.DEV_DATABASE_URL ?? 
     envVars.RENDER_DB_EXTERNAL_URL ?? 
-    envVars.RENDER_DB_INTERNAL_URL ?? 
     ""
   );
 }
 ```
 
 **Quick Reference:**
-- **Production Queries**: `PROD_DATABASE_URL` (direct PostgreSQL local node) - <50ms latency for gameplay
-- **Development Queries**: `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` (direct PostgreSQL master) - Source of truth
-- **Migrations**: `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` (all environments) - Master database only
+- **Production**: `PROD_DATABASE_URL` → Render-managed PostgreSQL (infinity-gauntlet-db)
+- **Development**: `DEV_DATABASE_URL` → Render-managed PostgreSQL (same as production)
+- **Migrations**: `DEV_DATABASE_URL` → Render-managed PostgreSQL
+- **Local Development** (optional): `DATABASE_ONPREMISE_DEV_PRIMARY` → Workstation PostgreSQL (offline)
 
 **Contract Status:** This is an **Absolute** requirement in `Patch.md`. Violations cause production failures and must be fixed immediately.
 
 ### Dual Database Connection Architecture (Runtime)
 
-**As of 2025-11-07**, the production runtime maintains **two Prisma clients connected simultaneously** for the 2-node direct PostgreSQL cluster:
+**As of 2025-11-08**, the runtime maintains **dual Prisma clients for future scalability**, though production currently uses unified Render-managed PostgreSQL:
 
-- **`devPrisma`** (DEV/MASTER) — Connected to `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL`; master database and source of truth for migrations. Used for development queries, observability, migration workflows, and replication source. May be `null` if no DEV URL is configured.
-- **`prisma`** (PROD) — Connected to `PROD_DATABASE_URL`; **PRIMARY for live gameplay** — local workstation PostgreSQL cluster providing <50ms latency for battles, encounters, and trainer operations. Used for all production gameplay operations.
-- **`onPremiseDevPrisma`** (LOCAL) — **OPTIONAL** — Connected to `DATABASE_ONPREMISE_DEV_PRIMARY`; offline workstation mirror for development when DEV/PROD nodes are unreachable. May be `null` if not configured.
+- **`prisma`** (PRIMARY) — Connected to `PROD_DATABASE_URL`; **PRIMARY for all operations** in production (Render-managed database). Used for gameplay, migrations, and all database operations.
+- **`devPrisma`** (OPTIONAL) — Connected to `DEV_DATABASE_URL`; in unified mode, points to same database as `prisma`. Reserved for future multi-database expansion. May be `null` if not configured.
+- **`onPremiseDevPrisma`** (LOCAL) — **OPTIONAL** — Connected to `DATABASE_ONPREMISE_DEV_PRIMARY`; offline workstation mirror for local development when cloud databases are unavailable. May be `null` if not configured.
 
 All clients initialize on startup via `src/shared/prisma.ts` and maintain independent heartbeat monitoring. The logger (`src/utils/logger.js`) auto-refreshes stats every 15 seconds, displaying telemetry for all connections in console output and restart DM messages.
 
-### Dual On-Premise Database Setup (Workstation Only)
+### Dual On-Premise Database Setup (Workstation Only - NOT Production)
 
-**As of 2025-11-08**, the workstation maintains **two independent PostgreSQL clusters** for development and migration testing. Both databases are **completely OFFLINE** and NOT visible to production nodes. See `docs/dual-onpremise-database-guide.md` for comprehensive documentation.
+**As of 2025-11-08**, workstations can maintain **two independent PostgreSQL clusters** for local development and migration testing. These databases are **completely OFFLINE** and NOT used in production. See `docs/dual-onpremise-database-guide.md` for comprehensive documentation.
 
 **Architecture:**
 
 ```
-Cloud Databases              Workstation (OFFLINE)
----------------              ---------------------
+Production (Render)          Workstation (OFFLINE - Local Dev Only)
+-------------------          ----------------------------------------
 
-DEV Master (Render) ───┐     ONPREMISE-DEV-PRIMARY DB
-(Source of truth)      │     Port: 55433
-                       │     Store: Store/onpremise-dev-primary/
-PROD Node (Render)     │     URL: DATABASE_ONPREMISE_DEV_PRIMARY
-(Production gameplay)  │     Sync: PULL from DEV (one-way)
-                       │     Purpose: Local development with production-like data
+Infinity-Gauntlet-DB ───┐     ONPREMISE-DEV-PRIMARY DB
+(Render managed)       │     Port: 55433
+Production database    │     Store: Store/onpremise-dev-primary/
+All services connect   │     URL: DATABASE_ONPREMISE_DEV_PRIMARY
+here                   │     Sync: PULL from Render (one-way)
+                       │     Purpose: Local development with cloud-like data
                        │              │
                        ▼              │ Manual Clone
                   Downloads to        ▼
@@ -162,26 +163,25 @@ PROD Node (Render)     │     URL: DATABASE_ONPREMISE_DEV_PRIMARY
                                  │
                                  │ EXPLICIT PUSH (when ready)
                                  ▼
-                            Upload to DEV Master
+                            Upload to Render DB
                             (migrations, schema changes)
-                            DEV Master then replicates to PROD Node
 ```
 
-**CRITICAL:** Both on-premise databases are **completely offline and isolated**. The production node (PROD) cannot see or access either on-premise database. Changes only reach production when you **explicitly push migrations to DEV Master**, which then replicates to PROD Node.
+**CRITICAL:** Both on-premise databases are **completely offline and isolated**. Production cannot see or access either on-premise database. Changes only reach production when you **explicitly push migrations to Render database**.
 
 **Use Cases:**
 
 | Database | Port | Purpose | When to Use |
 | --- | --- | --- | --- |
-| **ONPREMISE-DEV-PRIMARY** | 55433 | Local development with production-like data | Testing locally with real data structures, validating migrations after testing on ONPREMISE-DEV-EXPERIMENT |
-| **ONPREMISE-DEV-EXPERIMENT** | 55434 | Migration testing, schema experiments | Testing Phase 2 migration **before** pushing to DEV, destructive operations (DROP TABLE, etc.) |
+| **ONPREMISE-DEV-PRIMARY** | 55433 | Local development with production-like data | Testing locally with real data structures, offline development |
+| **ONPREMISE-DEV-EXPERIMENT** | 55434 | Migration testing, schema experiments | Testing migrations **before** pushing to Render, destructive operations (DROP TABLE, etc.) |
 
-**Workflow:** Test on ONPREMISE-DEV-EXPERIMENT → Validate on ONPREMISE-DEV-PRIMARY → **Push to DEV Master** → DEV replicates to PROD
+**Workflow:** Test on ONPREMISE-DEV-EXPERIMENT → Validate on ONPREMISE-DEV-PRIMARY → **Push to Render DB**
 
 **npm Scripts:**
 
 ```bash
-# Bootstrap ONPREMISE-DEV-PRIMARY database (port 55433)
+# Bootstrap ONPREMISE-DEV-PRIMARY database (port 55433) - mirrors Render database
 npm run ops:bootstrap-onpremise-dev
 
 # Bootstrap ONPREMISE-DEV-EXPERIMENT database (port 55434) from ONPREMISE-DEV-PRIMARY
@@ -232,18 +232,16 @@ npm run ops:sync-onpremise-experiment --from local
 psql postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db \
   -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql
 
-# Step 7: ONLY AFTER LOCAL VALIDATION - Push to DEV Master (CLOUD OPERATION)
-# Connect to DEV master and apply migration
+# Step 7: ONLY AFTER LOCAL VALIDATION - Push to Render database (CLOUD OPERATION)
+# Connect to Render managed database and apply migration
 psql $DEV_DATABASE_URL -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql
-
-# Step 8: DEV Master replicates to PROD Node automatically
 ```
 
 **Key Points:**
 - **Steps 1-6 are completely offline** — no cloud connections, no production visibility
-- ONPREMISE-DEV-PRIMARY downloads from DEV master (one-way PULL), does NOT push changes back
+- ONPREMISE-DEV-PRIMARY downloads from Render database (one-way PULL), does NOT push changes back
 - ONPREMISE-DEV-EXPERIMENT never connects to cloud — fully isolated for testing
-- Changes reach production only via **explicit push to DEV Master** in Step 7
+- Changes reach production only via **explicit push to Render database** in Step 7
 - Both databases use localhost-only connections (127.0.0.1) on ports 55433/55434
 
 **Environment Variables:**
@@ -259,15 +257,15 @@ DATABASE_ONPREMISE_DEV_EXPERIMENT=postgresql://postgres@127.0.0.1:55434/infinity
 ```typescript
 import { prisma, devPrisma, onPremiseDevPrisma, experimentPrisma } from "../shared/prisma.js";
 
-// PROD database (gameplay operations)
+// Production database (Render managed - all operations)
 const prodUsers = await prisma.user.findMany();
 
-// DEV database (master, source of truth)
+// DEV database (in unified mode, points to same database as prisma)
 if (devPrisma) {
   const devUsers = await devPrisma.user.findMany();
 }
 
-// ONPREMISE-DEV-PRIMARY database (workstation mirror)
+// ONPREMISE-DEV-PRIMARY database (workstation mirror for offline development)
 if (onPremiseDevPrisma) {
   const localUsers = await onPremiseDevPrisma.user.findMany();
 }
@@ -281,7 +279,7 @@ if (experimentPrisma) {
 **Safety Rules:**
 - ✅ DO remember both databases are OFFLINE (localhost-only)
 - ✅ DO test migrations on ONPREMISE-DEV-EXPERIMENT before ONPREMISE-DEV-PRIMARY
-- ✅ DO validate migrations on ONPREMISE-DEV-PRIMARY before pushing to DEV
+- ✅ DO validate migrations on ONPREMISE-DEV-PRIMARY before pushing to Render
 - ✅ DO document testing results in Tasklist.md
 - ❌ DON'T expect production to see local database changes
 - ❌ DON'T assume local databases replicate automatically to cloud
@@ -292,16 +290,16 @@ if (experimentPrisma) {
 ```typescript
 import { prisma, devPrisma, onPremiseDevPrisma, getDatabaseStats } from "../shared/prisma.js";
 
-// LIVE GAMEPLAY (battles, encounters, trainer CRUD) - use PROD for <50ms latency
-const gameClient = prisma; // PROD local node is PRIMARY
+// PRODUCTION GAMEPLAY (battles, encounters, trainer CRUD) - unified Render database
+const gameClient = prisma; // PRIMARY for all operations
 const users = await gameClient.user.findMany();
 
-// DEV operations (migrations, debugging, replication source)
+// DEV operations (in unified mode, points to same database as prisma)
 if (devPrisma) {
   const devUsers = await devPrisma.user.findMany();
 }
 
-// OFFLINE development (when DEV/PROD unreachable)
+// OFFLINE development (when Render database unreachable)
 if (onPremiseDevPrisma) {
   const localUsers = await onPremiseDevPrisma.user.findMany();
 }
@@ -313,19 +311,18 @@ console.log(`DEV: ${stats.dev.status} | PROD: ${stats.prod.status} | LOCAL: ${st
 
 **Environment Variable Mapping:**
 
-- `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` → DEV client (`devPrisma`) - Master database
-- `PROD_DATABASE_URL` → PROD client (`prisma`) - **PRIMARY for gameplay**
+- `DEV_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` → DEV client (`devPrisma`) - Render managed database
+- `PROD_DATABASE_URL` → PROD client (`prisma`) - **PRIMARY for all operations**
 - `DATABASE_ONPREMISE_DEV_PRIMARY` → LOCAL client (`onPremiseDevPrisma`) - Optional offline mirror
 
 **When to Use Each Client:**
 
 | Use Case | Client | Reason |
 | --- | --- | --- |
-| **Live gameplay (battles, encounters, trainer ops)** | **`prisma`** | **<50ms latency, PROD local node PRIMARY** |
-| Migrations (`prisma migrate deploy`) | `devPrisma` via `DEV_DATABASE_URL` | Master database is source of truth for schema |
-| Development/debugging | `devPrisma` | Master node with full production data |
-| Replication source | `devPrisma` | DEV → PROD data sync |
-| Offline development | `onPremiseDevPrisma` | Fallback when DEV/PROD unreachable |
+| **Live gameplay (battles, encounters, trainer ops)** | **`prisma`** | **PRIMARY for all production operations** |
+| Migrations (`prisma migrate deploy`) | `devPrisma` via `DEV_DATABASE_URL` | Render managed database |
+| Development/debugging | `devPrisma` | Render managed database (same as production in unified mode) |
+| Offline development | `onPremiseDevPrisma` | Fallback when Render database unreachable |
 | Stats/observability | All via `getDatabaseStats()` | Simultaneous visibility |
 
 See `docs/database-configuration.md` for comprehensive dual-client architecture documentation including `TripleDatabaseStats` type definitions, heartbeat tracking, workstation gameplay setup, and replication flows.
