@@ -1,3 +1,4 @@
+import { log } from '../utils/logger.js';
 import fs from "node:fs";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
@@ -404,7 +405,7 @@ export function loadDexpack(customPath) {
     } catch (error) {
       recordDexFallback({ runtime: RUNTIME_SOURCE.V2, reason: "load_error", error });
       if (!v2RuntimeFailed) {
-        console.warn(
+        log.warn(
           `[dexpack] failed to load dexpack.v2 runtime, falling back to v1: ${error instanceof Error ? error.message : error}`,
         );
       }

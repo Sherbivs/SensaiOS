@@ -8,6 +8,7 @@
 
 import { createHash } from 'crypto';
 import type { Pool } from 'pg';
+import { log } from '../../shared/log.js';
 import {
   getMigrations,
   getMigrationsWithLimit,
@@ -16,12 +17,11 @@ import {
   type MigrationRow,
 } from '../../shared/models/db-version-queries-pg.js';
 
-// Note: logger import will work after Prisma client regeneration
-// For now, using console for logging during initial implementation
+// Logger wrapper for consistent formatting
 const logger = {
-  info: (msg: string, meta?: Record<string, unknown>) => console.log(`[INFO] ${msg}`, meta || ''),
-  warn: (msg: string, meta?: Record<string, unknown>) => console.warn(`[WARN] ${msg}`, meta || ''),
-  error: (msg: string, meta?: Record<string, unknown>) => console.error(`[ERROR] ${msg}`, meta || ''),
+  info: (msg: string, meta?: Record<string, unknown>) => log.info(`[INFO] ${msg}`, meta),
+  warn: (msg: string, meta?: Record<string, unknown>) => log.warn(`[WARN] ${msg}`, meta),
+  error: (msg: string, err?: unknown, meta?: Record<string, unknown>) => log.error(`[ERROR] ${msg}`, err, meta),
 };
 
 // ---- Types ----

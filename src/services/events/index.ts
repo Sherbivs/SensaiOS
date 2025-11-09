@@ -1,3 +1,4 @@
+import { log } from '../../utils/logger.js';
 /**
  * Event Tracking Service
  * 
@@ -37,10 +38,10 @@
  * 
  * // Get metrics
  * const metrics = tracker.getMetrics();
- * console.log(`Events queued: ${metrics.eventsQueued}`);
- * console.log(`Events flushed: ${metrics.eventsFlushed}`);
- * console.log(`Avg batch size: ${metrics.avgBatchSize}`);
- * console.log(`Avg flush time: ${metrics.avgFlushTime}ms`);
+ * log.info(`Events queued: ${metrics.eventsQueued}`);
+ * log.info(`Events flushed: ${metrics.eventsFlushed}`);
+ * log.info(`Avg batch size: ${metrics.avgBatchSize}`);
+ * log.info(`Avg flush time: ${metrics.avgFlushTime}ms`);
  * 
  * // Shutdown gracefully
  * await tracker.shutdown();

@@ -1,3 +1,4 @@
+import { log } from '../shared/log.js';
 import { createHash } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -209,9 +210,9 @@ export async function buildData(opts: BuildOptions = {}): Promise<{
 if (import.meta.url === `file://${process.argv[1]}`) {
   const dryRun = process.argv.includes("--dry-run");
   buildData({ dryRun }).then((res) => {
-    console.log(JSON.stringify({ ok: true, counts: res.counts }, null, 2));
+    log.info(JSON.stringify({ ok: true, counts: res.counts }, null, 2));
   }).catch((err) => {
-    console.error("Pipeline failed:", err);
+    log.error("Pipeline failed:", err);
     process.exit(1);
   });
 }

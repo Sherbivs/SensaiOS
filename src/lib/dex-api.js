@@ -1,3 +1,4 @@
+import { log } from '../utils/logger.js';
 import {
   getDexpack,
   getSpecies as lookupSpecies,
@@ -164,7 +165,7 @@ function initialise() {
     };
   } catch (err) {
     disabled = true;
-    console.warn('⚠️  dex-api: Failed to load dexpack:', err?.message || err);
+    log.warn('⚠️  dex-api: Failed to load dexpack:', err?.message || err);
   }
 }
 

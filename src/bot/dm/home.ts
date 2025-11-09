@@ -1,3 +1,4 @@
+import { log } from '../../utils/logger.js';
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -281,7 +282,7 @@ async function acknowledge(interaction: InteractionWithUser, content: string) {
   } catch (error) {
     // Swallow follow-up failures so DM responses still resolve cleanly when the
     // acknowledgement cannot be delivered (e.g., interaction already concluded).
-    console.warn("[dm-home] Failed to send acknowledgement", error);
+    log.warn("[dm-home] Failed to send acknowledgement", error);
   }
 }
 
@@ -307,7 +308,7 @@ async function respondWithView(
         await acknowledge(interaction, ackContent);
       }
     } catch (error) {
-      console.warn("[dm-home] Failed to deliver DM view; falling back to ephemeral reply", error);
+      log.warn("[dm-home] Failed to deliver DM view; falling back to ephemeral reply", error);
       const fallback: InteractionReplyOptions = {
         embeds,
         components,

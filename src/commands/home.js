@@ -7,6 +7,7 @@ import {
 } from 'discord.js';
 import { createRequire } from 'node:module';
 import { getSpriteUrl } from '../lib/assets.js';
+import { log } from '../utils/logger.js';
 
 const requireESM = createRequire(import.meta.url);
 const DEFAULT_STARTER_COINS = 500;
@@ -323,7 +324,7 @@ async function getPrisma() {
     }
     return prismaSingleton;
   } catch (err) {
-    console.error('[home] Failed to initialise Prisma client:', err?.message || err);
+    log.error('[home] Failed to initialise Prisma client:', err?.message || err);
     return null;
   }
 }
@@ -492,7 +493,7 @@ async function loadRecentBattleHistory(prisma, trainer) {
       })
       .filter(Boolean);
   } catch (err) {
-    console.error(`[home] Failed to load battle history for ${trainer?.discordId ?? 'unknown'}:`, err?.message || err);
+    log.error(`[home] Failed to load battle history for ${trainer?.discordId ?? 'unknown'}:`, err?.message || err);
     return [];
   }
 }
@@ -524,7 +525,7 @@ const command = {
     try {
       const prisma = await getPrisma();
       if (!prisma) {
-        console.warn('[home] Prisma client unavailable — showing placeholder Home view.');
+        log.warn('[home] Prisma client unavailable — showing placeholder Home view.');
       } else {
         const { trainer, createdUser, createdParty } = await loadTrainerWithBootstrap(prisma, interaction.user.id);
         const battleHistory = await loadRecentBattleHistory(prisma, trainer);
@@ -538,7 +539,7 @@ const command = {
             trainerForView = freshness?.trainer ?? trainer;
             questState = freshness?.state ?? null;
           } catch (err) {
-            console.warn('[home] Failed to refresh quest streak state:', err?.message || err);
+            log.warn('[home] Failed to refresh quest streak state:', err?.message || err);
           }
         }
 
@@ -550,11 +551,11 @@ const command = {
           console.info(`[home] Created starter party shell for ${interaction.user.id}.`);
         }
         if (!view.party.some((member) => member.speciesId)) {
-          console.warn(`[home] Trainer ${interaction.user.id} has no Pokémon yet — prompt them to use /starter.`);
+          log.warn(`[home] Trainer ${interaction.user.id} has no Pokémon yet — prompt them to use /starter.`);
         }
       }
     } catch (err) {
-      console.error('[home] Failed to load trainer data:', err?.message || err);
+      log.error('[home] Failed to load trainer data:', err?.message || err);
     }
 
     try {
@@ -570,7 +571,7 @@ const command = {
         await interaction.reply({ content: 'Home opened above.', ephemeral: false });
       }
     } catch (err) {
-      console.error('[home] Failed to open DM Home:', err?.message || err);
+      log.error('[home] Failed to open DM Home:', err?.message || err);
       try {
         if (!interaction.replied && !interaction.deferred) {
           await interaction.reply({ content: 'Could not open your DM Home. Check your privacy settings.', ephemeral: true });

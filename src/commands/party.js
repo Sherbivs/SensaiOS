@@ -1,3 +1,4 @@
+import { log } from '../utils/logger.js';
 import { SlashCommandBuilder } from 'discord.js';
 
 import { loadHomeViews } from './dm-home-loader.js';
@@ -22,7 +23,7 @@ async function execute(interaction) {
       ackContent: 'Sent your party overview to your DMs.',
     });
   } catch (err) {
-    console.error('[party] Failed to open party view:', err?.message || err);
+    log.error('[party] Failed to open party view:', err?.message || err);
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: 'Failed to load your party. Please try again later.',

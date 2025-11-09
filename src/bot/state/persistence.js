@@ -1,3 +1,4 @@
+import { log } from '../../utils/logger.js';
 /**
  * @file State Persistence Module
  * @description Manages security bot operational state across restarts
@@ -87,7 +88,7 @@ function migrateState(state) {
   }
 
   // Future migrations would go here
-  console.warn(`[State] Unknown state version ${state.version}, using as-is`);
+  log.warn(`[State] Unknown state version ${state.version}, using as-is`);
   return state;
 }
 
@@ -100,7 +101,7 @@ async function loadStateFile(filePath) {
     const state = JSON.parse(data);
     
     if (!validateState(state)) {
-      console.error(`[State] Invalid state structure in ${filePath}`);
+      log.error(`[State] Invalid state structure in ${filePath}`);
       return null;
     }
     
@@ -110,7 +111,7 @@ async function loadStateFile(filePath) {
       // File doesn't exist yet
       return null;
     }
-    console.error(`[State] Error loading ${filePath}:`, error.message);
+    log.error(`[State] Error loading ${filePath}:`, error.message);
     return null;
   }
 }
@@ -125,7 +126,7 @@ async function saveStateFile(filePath, state) {
     await fs.writeFile(filePath, json, 'utf8');
     return true;
   } catch (error) {
-    console.error(`[State] Error saving ${filePath}:`, error.message);
+    log.error(`[State] Error saving ${filePath}:`, error.message);
     return false;
   }
 }
@@ -141,7 +142,7 @@ async function createSnapshot(state) {
     await saveStateFile(snapshotPath, state);
     return snapshotPath;
   } catch (error) {
-    console.error('[State] Error creating snapshot:', error.message);
+    log.error('[State] Error creating snapshot:', error.message);
     return null;
   }
 }
@@ -173,10 +174,10 @@ async function pruneSnapshots() {
     }
     
     if (pruned > 0) {
-      console.log(`[State] Pruned ${pruned} old snapshot(s)`);
+      log.info(`[State] Pruned ${pruned} old snapshot(s)`);
     }
   } catch (error) {
-    console.error('[State] Error pruning snapshots:', error.message);
+    log.error('[State] Error pruning snapshots:', error.message);
   }
 }
 
@@ -184,23 +185,23 @@ async function pruneSnapshots() {
  * Load current state with fallback chain
  */
 export async function loadState() {
-  console.log('[State] Loading operational state...');
+  log.info('[State] Loading operational state...');
   
   // Try current.json first
   let state = await loadStateFile(CURRENT_STATE_PATH);
   
   // Fall back to previous.json
   if (!state) {
-    console.log('[State] current.json not found, trying previous.json...');
+    log.info('[State] current.json not found, trying previous.json...');
     state = await loadStateFile(PREVIOUS_STATE_PATH);
   }
   
   // Fall back to default
   if (!state) {
-    console.log('[State] No previous state found, initializing fresh state');
+    log.info('[State] No previous state found, initializing fresh state');
     state = createDefaultState();
   } else {
-    console.log(`[State] Loaded state (last saved: ${state.metadata.lastSaved})`);
+    log.info(`[State] Loaded state (last saved: ${state.metadata.lastSaved})`);
   }
   
   return state;
@@ -214,7 +215,7 @@ export async function saveState(state) {
   const success = await saveStateFile(CURRENT_STATE_PATH, state);
   
   if (success) {
-    console.log('[State] State saved successfully');
+    log.info('[State] State saved successfully');
   }
   
   return success;
@@ -224,19 +225,19 @@ export async function saveState(state) {
  * Initialize state on startup
  */
 export async function initializeState() {
-  console.log('[State] Initializing state persistence...');
-  console.log(`[State] STATE_DIR: ${STATE_DIR}`);
-  console.log(`[State] Working directory: ${process.cwd()}`);
-  console.log(`[State] Module location: ${__dirname}`);
+  log.info('[State] Initializing state persistence...');
+  log.info(`[State] STATE_DIR: ${STATE_DIR}`);
+  log.info(`[State] Working directory: ${process.cwd()}`);
+  log.info(`[State] Module location: ${__dirname}`);
   
   // Verify state directory exists and is writable
   try {
     await fs.mkdir(STATE_DIR, { recursive: true });
     await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
-    console.log('[State] State directory verified/created');
+    log.info('[State] State directory verified/created');
   } catch (error) {
-    console.error('[State] CRITICAL: Cannot create state directory:', error.message);
-    console.error('[State] State persistence will be degraded (in-memory only)');
+    log.error('[State] CRITICAL: Cannot create state directory:', error.message);
+    log.error('[State] State persistence will be degraded (in-memory only)');
   }
   
   // Load previous state
@@ -296,7 +297,7 @@ export async function initializeState() {
   await createSnapshot(state);
   await pruneSnapshots();
   
-  console.log(`[State] Initialized (restart #${state.cumulative.restartCount})`);
+  log.info(`[State] Initialized (restart #${state.cumulative.restartCount})`);
   return state;
 }
 
@@ -359,11 +360,11 @@ export function updateRuntimeState(state, updates) {
  */
 export function startAutoSave(state) {
   const interval = setInterval(async () => {
-    console.log('[State] Auto-saving state...');
+    log.info('[State] Auto-saving state...');
     await saveState(state);
   }, AUTO_SAVE_INTERVAL_MS);
   
-  console.log(`[State] Auto-save enabled (interval: ${AUTO_SAVE_INTERVAL_MS / 1000}s)`);
+  log.info(`[State] Auto-save enabled (interval: ${AUTO_SAVE_INTERVAL_MS / 1000}s)`);
   return interval;
 }
 
@@ -373,7 +374,7 @@ export function startAutoSave(state) {
 export function stopAutoSave(interval) {
   if (interval) {
     clearInterval(interval);
-    console.log('[State] Auto-save stopped');
+    log.info('[State] Auto-save stopped');
   }
 }
 
@@ -381,7 +382,7 @@ export function stopAutoSave(interval) {
  * Graceful shutdown - save final state
  */
 export async function shutdownState(state, reason = 'manual') {
-  console.log(`[State] Shutting down (reason: ${reason})...`);
+  log.info(`[State] Shutting down (reason: ${reason})...`);
   
   // Add shutdown event
   addTimelineEvent(state, {
@@ -399,5 +400,5 @@ export async function shutdownState(state, reason = 'manual') {
   await saveState(state);
   await createSnapshot(state);
   
-  console.log('[State] Shutdown complete');
+  log.info('[State] Shutdown complete');
 }

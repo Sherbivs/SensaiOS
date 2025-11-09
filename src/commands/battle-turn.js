@@ -1,3 +1,4 @@
+import { log } from '../utils/logger.js';
 import { SlashCommandBuilder } from 'discord.js';
 import dexApi from '../lib/dex-api.js';
 import { makeRNG } from '../engine/rng.js';
@@ -157,9 +158,9 @@ const command = {
         // Graceful degradation: Log error but don't fail the battle
         if (error.message && error.message.includes('Backpressure active')) {
           // Expected error when queue is full - log at debug level
-          console.debug('Engine Write Buffer backpressure active - skipping battle log');
+          log.debug('Engine Write Buffer backpressure active - skipping battle log');
         } else {
-          console.error('Engine Write Buffer logging failed:', error);
+          log.error('Engine Write Buffer logging failed:', error);
         }
       }
     }
@@ -206,7 +207,7 @@ const command = {
         if (x.type === 'content') await interaction.followUp({ content: x.payload });
       }
     } catch (err) {
-      console.error('Battle log send failed:', err);
+      log.error('Battle log send failed:', err);
       // Fallback to plain text
       const text = `Battle Log\n${title}\n${description}`;
       if (interaction.replied || interaction.deferred) {

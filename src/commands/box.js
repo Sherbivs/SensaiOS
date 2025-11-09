@@ -1,3 +1,4 @@
+import { log } from '../utils/logger.js';
 import { SlashCommandBuilder } from 'discord.js';
 
 import { loadHomeViews } from './dm-home-loader.js';
@@ -23,7 +24,7 @@ async function execute(interaction) {
       ackContent: 'Sent your storage box listing to your DMs.',
     });
   } catch (err) {
-    console.error('[box] Failed to open box view:', err?.message || err);
+    log.error('[box] Failed to open box view:', err?.message || err);
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: 'Failed to load your storage box. Please try again later.',

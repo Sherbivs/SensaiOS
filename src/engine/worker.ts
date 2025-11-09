@@ -1,3 +1,4 @@
+import { log } from '../utils/logger.js';
 import { claimBatch, loadMessage, finish, fail, seenOnce } from "./bus.js";
 import { delay } from "../shared/utils/async-utils.js";
 
@@ -33,7 +34,7 @@ export async function run(): Promise<void> {
       try {
         await loop(reg);
       } catch (error) {
-        console.error("worker.loop.crash", error);
+        log.error("worker.loop.crash", error);
       }
     }),
   );
@@ -82,7 +83,7 @@ async function loop(reg: Registration): Promise<void> {
           try {
             await fail(row.id, error);
           } catch (failError) {
-            console.error("worker.loop.fail_error", failError);
+            log.error("worker.loop.fail_error", failError);
           }
         }
       })();

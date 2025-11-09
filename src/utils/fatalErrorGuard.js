@@ -1,3 +1,4 @@
+import { log } from '../utils/logger.js';
 import util from 'node:util';
 
 let handlersInstalled = false;
@@ -46,7 +47,7 @@ function installFatalErrorHandlers({
     : (level, message, context) => {
         if (level === 'error') {
           // eslint-disable-next-line no-console
-          console.error(message, context);
+          log.error(message, context);
         }
       };
 

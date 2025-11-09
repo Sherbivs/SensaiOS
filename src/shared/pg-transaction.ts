@@ -13,6 +13,7 @@
  */
 
 import type pg from 'pg';
+import { log } from './log.js';
 
 // ============================================================================
 // Types
@@ -83,7 +84,7 @@ export async function transaction<T>(
     try {
       await client.query('ROLLBACK');
     } catch (rollbackError) {
-      console.error('[pg-transaction] Rollback failed:', rollbackError);
+      log.error('[pg-transaction] Rollback failed:', rollbackError);
     }
 
     throw error;
@@ -113,7 +114,7 @@ export async function transaction<T>(
  *       await client.query('INSERT INTO "Cooldown" ...');
  *     });
  *   } catch (error) {
- *     console.log('Optional operation failed, continuing');
+ *     log.info('Optional operation failed, continuing');
  *   }
  *   
  *   // Main transaction continues
@@ -147,7 +148,7 @@ export async function savepoint<T>(
     try {
       await client.query(`ROLLBACK TO SAVEPOINT ${name}`);
     } catch (rollbackError) {
-      console.error(`[pg-transaction] Savepoint ${name} rollback failed:`, rollbackError);
+      log.error(`[pg-transaction] Savepoint ${name} rollback failed:`, rollbackError);
     }
 
     throw error;
@@ -243,7 +244,7 @@ export async function retryTransaction<T>(
       const delay = initialDelay * Math.pow(2, attempt);
       await new Promise(resolve => setTimeout(resolve, delay));
 
-      console.warn(
+      log.warn(
         `[pg-transaction] Serialization error, retrying (${attempt + 1}/${maxRetries})...`
       );
     }
@@ -293,7 +294,7 @@ export async function readOnlyTransaction<T>(
     try {
       await client.query('ROLLBACK');
     } catch (rollbackError) {
-      console.error('[pg-transaction] Read-only rollback failed:', rollbackError);
+      log.error('[pg-transaction] Read-only rollback failed:', rollbackError);
     }
 
     throw error;

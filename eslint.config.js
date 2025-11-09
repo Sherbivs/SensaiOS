@@ -35,6 +35,9 @@ export default [
       'no-empty': 'warn',
       'no-undef': 'off', // TypeScript handles this
       
+      // Console usage prevention (optimization initiative)
+      'no-console': 'error', // No console.* allowed - use log() API from logger.js
+      
       // TypeScript ESLint rules
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
@@ -63,6 +66,13 @@ export default [
     files: ['tests/**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+      'no-console': 'off', // Allow console in tests for debugging
+    },
+  },
+  {
+    files: ['src/utils/logger.js', 'src/shared/log.ts', 'src/shared/logBuffer.ts'],
+    rules: {
+      'no-console': 'off', // Logging infrastructure needs console access
     },
   },
   {

@@ -1,3 +1,4 @@
+import { log } from '../utils/logger.js';
 const subscribers = new Set();
 const pendingActivities = [];
 const lifetimeCounts = new Map();
@@ -23,10 +24,10 @@ function notify() {
       handler(snapshot);
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error('[activity-tracker notify]', err instanceof Error ? err.message : err);
+      log.error('[activity-tracker notify]', err instanceof Error ? err.message : err);
       if (err instanceof Error && err.stack) {
         // eslint-disable-next-line no-console
-        console.error(err.stack);
+        log.error(err.stack);
       }
     }
   }
@@ -98,10 +99,10 @@ function subscribe(handler) {
     handler(getStats());
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error('[activity-tracker subscribe]', err instanceof Error ? err.message : err);
+    log.error('[activity-tracker subscribe]', err instanceof Error ? err.message : err);
     if (err instanceof Error && err.stack) {
       // eslint-disable-next-line no-console
-      console.error(err.stack);
+      log.error(err.stack);
     }
   }
   return () => {

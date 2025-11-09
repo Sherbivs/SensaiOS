@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { log } from '../utils/logger.js';
 
 const MANIFEST_PATH = path.join(process.cwd(), 'dist', 'assets', 'manifest.json');
 let manifest = { sprites: {}, version_group: 'latest' };
@@ -9,7 +10,7 @@ try {
   }
 } catch (err) {
   // Keep a safe default; commands should handle undefined URLs gracefully
-  console.warn('[assets] Failed to read manifest:', err?.message || err);
+  log.warn('[assets] Failed to read manifest:', err?.message || err);
 }
 
 function getSpriteUrl(idOrName, style = 'artwork') {

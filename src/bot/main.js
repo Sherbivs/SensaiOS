@@ -77,12 +77,12 @@ function loadTimeoutConfig() {
       const config = JSON.parse(data);
       if (config.timeoutMs && typeof config.timeoutMs === 'number') {
         const clamped = Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, config.timeoutMs));
-        console.log(`[timeout-config] Loaded: ${clamped}ms (adjustments: ${config.adjustments || 0}, last: ${config.lastAdjusted || 'never'})`);
+        log.info(`[timeout-config] Loaded: ${clamped}ms (adjustments: ${config.adjustments || 0}, last: ${config.lastAdjusted || 'never'})`);
         return clamped;
       }
     }
   } catch (err) {
-    console.warn('[timeout-config] Failed to load, using default:', err.message);
+    log.warn('[timeout-config] Failed to load, using default:', err.message);
   }
   return DEFAULT_TIMEOUT_MS;
 }
@@ -128,9 +128,9 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
     });
     
     fs.writeFileSync(TIMEOUT_CONFIG_FILE, JSON.stringify(config, null, 2));
-    console.log(`[timeout-config] Saved: ${timeoutMs}ms (reason: ${reason}, total adjustments: ${adjustments})`);
+    log.info(`[timeout-config] Saved: ${timeoutMs}ms (reason: ${reason}, total adjustments: ${adjustments})`);
   } catch (err) {
-    console.error('[timeout-config] Failed to save:', err.message);
+    log.error('[timeout-config] Failed to save:', err.message);
   }
 }
 
@@ -138,11 +138,11 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
 function incrementTimeout(currentTimeout, reason = 'timeout_error') {
   const newTimeout = Math.min(MAX_TIMEOUT_MS, currentTimeout + TIMEOUT_INCREMENT_MS);
   if (newTimeout > currentTimeout) {
-    console.log(`[timeout-config] Auto-incrementing: ${currentTimeout}ms → ${newTimeout}ms (+${TIMEOUT_INCREMENT_MS}ms) - ${reason}`);
+    log.info(`[timeout-config] Auto-incrementing: ${currentTimeout}ms → ${newTimeout}ms (+${TIMEOUT_INCREMENT_MS}ms) - ${reason}`);
     saveTimeoutConfig(newTimeout, reason);
     return newTimeout;
   }
-  console.log(`[timeout-config] Already at maximum (${MAX_TIMEOUT_MS}ms), not incrementing`);
+  log.info(`[timeout-config] Already at maximum (${MAX_TIMEOUT_MS}ms), not incrementing`);
   return currentTimeout;
 }
 
@@ -180,7 +180,7 @@ try {
     client.commands = new Collection([...commands.entries()]);
   }
 } catch (err) {
-  console.warn('[commands] loader failed:', err?.message || err);
+  log.warn('[commands] loader failed:', err?.message || err);
 }
 
 const GUILD_MEMBERS_TIMEOUT_FRAGMENT = "Members didn't arrive in time.";
@@ -2217,11 +2217,11 @@ async function runCliDebugDump() {
       members: memberSummaries
     };
 
-    console.log(JSON.stringify(payload, null, 2));
-    console.log('');
+    log.info(JSON.stringify(payload, null, 2));
+    log.info('');
   }
 
-  console.log('[cli-debug] Completed diagnostic dump.');
+  log.info('[cli-debug] Completed diagnostic dump.');
   await client.destroy();
   process.exit(0);
 }
@@ -2474,7 +2474,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     await cmd.execute(interaction);
   } catch (err) {
-    console.error('[commands] handler error:', err);
+    log.error('[commands] handler error:', err);
     if (interaction.deferred || interaction.replied) {
       return interaction.editReply({ content: 'Something went wrong.' });
     }
@@ -2810,21 +2810,21 @@ if (entryHref && import.meta.url === entryHref) {
   
   // Graceful shutdown hooks for state persistence
   async function handleShutdown(signal) {
-    console.log(`\n[State] Received ${signal}, saving state before exit...`);
+    log.info(`\n[State] Received ${signal}, saving state before exit...`);
     if (autoSaveInterval) {
       stopAutoSave(autoSaveInterval);
     }
     if (botState) {
       await shutdownState(botState, signal);
     }
-    console.log('[State] Shutdown complete');
+    log.info('[State] Shutdown complete');
     process.exit(0);
   }
   
   process.on('SIGTERM', () => handleShutdown('SIGTERM'));
   process.on('SIGINT', () => handleShutdown('SIGINT'));
   process.on('uncaughtException', async (error) => {
-    console.error('[State] Uncaught exception, saving state...', error);
+    log.error('[State] Uncaught exception, saving state...', error);
     if (autoSaveInterval) {
       stopAutoSave(autoSaveInterval);
     }

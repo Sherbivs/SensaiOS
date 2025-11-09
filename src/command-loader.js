@@ -1,3 +1,4 @@
+import { log } from './utils/logger.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -47,12 +48,12 @@ async function loadCommands() {
         (typeof message === 'string' && message.includes('require is not defined in ES module scope'))
       ) {
         if (!esmWarningLogged) {
-          console.warn('[command-loader] Legacy CommonJS commands detected; skipping slash-command bootstrap.');
+          log.warn('[command-loader] Legacy CommonJS commands detected; skipping slash-command bootstrap.');
           esmWarningLogged = true;
         }
         break;
       }
-      console.warn(`[command-loader] Failed to load ${f}:`, message || err);
+      log.warn(`[command-loader] Failed to load ${f}:`, message || err);
     }
   }
   return commands;

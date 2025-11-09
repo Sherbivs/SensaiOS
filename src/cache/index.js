@@ -1,3 +1,4 @@
+import { log } from '../utils/logger.js';
 'use strict';
 
 const {
@@ -23,7 +24,7 @@ async function run() {
   const result = await commitAndPush(message);
 
   const tookMs = Date.now() - start;
-  console.log(
+  log.info(
     JSON.stringify(
       {
         branch: BRANCH,
@@ -38,6 +39,6 @@ async function run() {
 }
 
 run().catch((error) => {
-  console.error('[cache] failed:', error?.stack || error);
+  log.error('[cache] failed:', error?.stack || error);
   process.exit(1);
 });

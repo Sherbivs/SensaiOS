@@ -15,6 +15,8 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - See `docs/workers.md` for worker architecture, scaling roadmap (Phase 10+), cost optimization
 - See `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` for deployment readiness validation
 - See `docs/database-url-selection.md` for CRITICAL database URL selection logic (Absolute requirement)
+- See `docs/OPTIMIZATION-BIBLE.md` for comprehensive system optimization roadmap (startup, console logging, profile creation, runtime weight, queries, cache)
+- See `docs/engine-db-persistence-opportunities.md` for Engine DB disk persistence migration (sql.js → better-sqlite3, 78% memory reduction)
 
 **Referenced By**: README.md (operations guide), Patch.md (Absolutes), ops/NEXT.yaml (guidance references), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (architecture reference)
 

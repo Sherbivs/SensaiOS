@@ -1,3 +1,4 @@
+import { log } from '../../shared/log.js';
 /**
  * Database Integrity Verification
  * 
@@ -27,9 +28,9 @@ import { calculateTableChecksum as calculateChecksum } from '../../shared/models
 
 // Temporary logger until integration
 const logger = {
-  info: (msg: string, ...args: unknown[]) => console.log(`[INFO] ${msg}`, ...args),
-  warn: (msg: string, ...args: unknown[]) => console.warn(`[WARN] ${msg}`, ...args),
-  error: (msg: string, ...args: unknown[]) => console.error(`[ERROR] ${msg}`, ...args),
+  info: (msg: string, meta?: Record<string, unknown>) => log.info(`[INFO] ${msg}`, meta),
+  warn: (msg: string, meta?: Record<string, unknown>) => log.warn(`[WARN] ${msg}`, meta),
+  error: (msg: string, err?: unknown, meta?: Record<string, unknown>) => log.error(`[ERROR] ${msg}`, err, meta),
 };
 
 // ============================================================================
@@ -568,7 +569,7 @@ export async function verifyDataIntegrity(
             logger.warn(`Checksum mismatch in ${table_name}: source=${sourceChecksum}, target=${targetChecksum}`);
           }
         } catch (error) {
-          logger.warn(`Checksum calculation failed for ${table_name}:`, error);
+          logger.warn(`Checksum calculation failed for ${table_name}`, { error });
           // Non-fatal: continue with other tables
         }
       }
@@ -692,7 +693,7 @@ async function verifyForeignKeyIntegrity(
         logger.warn(`FK integrity violation in ${fk.table_name}.${fk.column_name}: ${orphanCount} orphaned records`);
       }
     } catch (error) {
-      logger.warn(`FK check failed for ${fk.constraint_name}:`, error);
+      logger.warn(`FK check failed for ${fk.constraint_name}`, { error });
       // Non-fatal: continue with other FKs
     }
   }

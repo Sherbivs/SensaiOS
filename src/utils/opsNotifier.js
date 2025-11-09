@@ -1,3 +1,4 @@
+import { log } from '../utils/logger.js';
 'use strict';
 
 const MAX_RECENT_ERRORS = 10;
@@ -196,12 +197,12 @@ function recordError({
       if (result && typeof result.then === 'function') {
         result.catch((error) => {
           // eslint-disable-next-line no-console
-          console.error('[ops-notifier]', error instanceof Error ? error.message : error);
+          log.error('[ops-notifier]', error instanceof Error ? error.message : error);
         });
       }
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('[ops-notifier]', error instanceof Error ? error.message : error);
+      log.error('[ops-notifier]', error instanceof Error ? error.message : error);
     }
   }
 

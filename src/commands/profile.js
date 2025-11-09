@@ -1,3 +1,4 @@
+import { log } from '../utils/logger.js';
 import { SlashCommandBuilder } from 'discord.js';
 
 import { buildTrainerProfileEmbed } from '../bot/profile/embed.js';
@@ -77,7 +78,7 @@ async function sendProfileEmbed(interaction, { ackMessage = 'Sent your trainer p
       }
     }
   } catch (error) {
-    console.warn('[profile] Failed to deliver DM profile view; falling back to ephemeral reply', error);
+    log.warn('[profile] Failed to deliver DM profile view; falling back to ephemeral reply', error);
     const payload = { embeds: [embed], ephemeral: true, content: ackMessage };
     if (interaction.deferred || interaction.replied) {
       await interaction.followUp(payload);
@@ -114,7 +115,7 @@ async function handleEdit(interaction) {
       });
       return;
     }
-    console.error('[profile] Failed to update trainer profile:', error?.message || error);
+    log.error('[profile] Failed to update trainer profile:', error?.message || error);
     await interaction.reply({ content: 'Failed to update your profile. Please try again later.', ephemeral: true });
   }
 }
@@ -131,7 +132,7 @@ async function handleClear(interaction) {
     await invalidateTrainerProfile(interaction.user.id);
     await sendProfileEmbed(interaction, { ackMessage: 'Cleared that field and sent your updated profile to DMs.' });
   } catch (error) {
-    console.error('[profile] Failed to clear field:', error?.message || error);
+    log.error('[profile] Failed to clear field:', error?.message || error);
     await interaction.reply({ content: 'Failed to clear that field. Please try again later.', ephemeral: true });
   }
 }

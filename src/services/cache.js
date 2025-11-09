@@ -1,3 +1,4 @@
+import { log } from '../utils/logger.js';
 // Persistent caching utilities for the security role-healing bot
 import fs from 'node:fs';
 import path from 'node:path';
@@ -165,7 +166,7 @@ function pruneCache() {
     try {
       fs.unlinkSync(e.filePath);
       total -= e.size;
-      console.log(`[CACHE PRUNE] ${path.basename(e.filePath)} removed`);
+      log.info(`[CACHE PRUNE] ${path.basename(e.filePath)} removed`);
     } catch (err) {
       logCacheIssue('warn', 'PRUNE', err, { file: path.basename(e.filePath) });
     }
@@ -185,7 +186,7 @@ function cleanOldCache() {
       const st = fs.statSync(fp);
       if (now - st.mtimeMs > MAX_CACHE_FILE_AGE_MS) {
         fs.unlinkSync(fp);
-        console.log(`[CACHE CLEANUP] ${path.basename(fp)} removed`);
+        log.info(`[CACHE CLEANUP] ${path.basename(fp)} removed`);
       }
     } catch (err) {
       logCacheIssue('warn', 'CLEAN', err, { file: path.basename(fp) });

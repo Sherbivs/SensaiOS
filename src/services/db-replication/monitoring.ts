@@ -1,3 +1,4 @@
+import { log } from '../../shared/log.js';
 /**
  * Database Replication Monitoring & Alerting
  * 
@@ -11,9 +12,9 @@ import { getVersion, type Version } from './version.js';
 
 // Temporary logger until integration
 const logger = {
-  info: (msg: string, ...args: unknown[]) => console.log(`[INFO] ${msg}`, ...args),
-  warn: (msg: string, ...args: unknown[]) => console.warn(`[WARN] ${msg}`, ...args),
-  error: (msg: string, ...args: unknown[]) => console.error(`[ERROR] ${msg}`, ...args),
+  info: (msg: string, meta?: Record<string, unknown>) => log.info(`[INFO] ${msg}`, meta),
+  warn: (msg: string, meta?: Record<string, unknown>) => log.warn(`[WARN] ${msg}`, meta),
+  error: (msg: string, err?: unknown, meta?: Record<string, unknown>) => log.error(`[ERROR] ${msg}`, err, meta),
 };
 
 // ============================================================================
