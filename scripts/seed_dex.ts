@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { setTimeout as sleep } from "node:timers/promises";
 import * as dotenv from "dotenv";
-import { getProdDb } from "../src/shared/pg-connection.js";
+import { initializeConnection, getProdDb } from "../src/shared/pg-connection.js";
 import {
   findAllTypes,
   countTable,
@@ -498,6 +498,10 @@ async function createManyChunked<T>(
 
 async function main(): Promise<void> {
   loadEnvironment();
+  
+  // Initialize PostgreSQL connection pool
+  await initializeConnection();
+  
   const dryRun = process.argv.includes("--dry-run");
 
   console.log("🔄 Preparing Pokédex seeding (dryRun=%s)…", dryRun);
