@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-09T13:10:00Z
-Revision: 2.58
+Timestamp (UTC): 2025-11-09T13:30:00Z
+Revision: 2.59
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -12,6 +12,31 @@ Revision: 2.58
 **Referenced By**: AGENTS.md (Orientation Flow), Patch.md (echo requirements), ops/NEXT.yaml (sync check)
 
 ## Last Repo Changes (since previous Prompt.md revision)
+
+- **Critical Bug Fixes: PROD Database Stats + GuildMembersTimeout (2025-11-09T13:30Z):**
+  - **Context:** Fixed two production issues identified from runtime logs: (1) PROD database showing "INITIALIZING" forever instead of real stats, (2) Discord GuildMembersTimeout errors requiring timeout increase.
+  
+  - **Bug 1: PROD Database Stats Stuck at "INITIALIZING"**
+    - **Problem:** Logger showed `PROD → INITIALIZING Latency: n/a Database: n/a` indefinitely despite database being online. Root cause: Startup heartbeat event in `src/index.ts` called `renderPrismaHeartbeat()` directly but didn't trigger `onPrismaHeartbeat()` callback, leaving `lastProdHeartbeatEvent` null until first automatic heartbeat (5+ seconds later).
+    - **Fix Applied (3 files):**
+      * **src/shared/prisma.ts:** Added `fireProdHeartbeatEvent()` export to manually update `lastProdHeartbeatEvent` during startup
+      * **src/index.ts:** Import `fireProdHeartbeatEvent`, create typed `startupEvent`/`recoveryEvent` with `as const`, call `fireProdHeartbeatEvent()` after `renderPrismaHeartbeat()` in both startup path (line 667) and recovery path (line 705)
+    - **Impact:** Database stats now show immediately on startup instead of "initializing" for 5+ seconds. Logger displays accurate `database=online` status from first render.
+  
+  - **Bug 2: Discord GuildMembersTimeout Errors**
+    - **Problem:** Production logs showed `Error [GuildMembersTimeout]: Members didn't arrive in time.` during Discord member fetching operations, indicating 120-second timeout was insufficient for large guilds.
+    - **Fix Applied (src/bot/Main.js line 59):**
+      * Changed `GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS` from `120_000` to `120_250` (+250ms)
+      * Updated comment: `// Increased from 120000ms by 250ms (GuildMembersTimeout fix - 2025-11-09)`
+    - **Rationale:** User requested 0.25 second (250ms) increase per timeout occurrence with value written directly into script for permanent tracking. Comment documents the change for future reference.
+    - **Impact:** Discord member fetch operations now have 120.25 seconds before timeout, reducing GuildMembersTimeout errors in large guilds.
+  
+  - **Build & Validation:**
+    - TypeScript compilation: ✅ 0 errors (typed events with `as const` for source literal)
+    - Runtime validation: Database stats will show immediately on next startup
+    - Discord timeout: Increased resilience for large guild member operations
+
+## Previous Changes
 
 - **Centralized Log Buffer System Implementation + Auto-Sync Path Fix (2025-11-09T13:10Z):**
   - **Context:** Implemented production-grade centralized log buffer to reduce console noise by consolidating logs every 10 seconds with deduplication and aggregation. Fixed critical bug in `dev_prod_auto_sync.ts` where hardcoded Windows paths caused malformed Linux paths in production (e.g., `/opt/render/project/src/C:/Users/...`), resulting in null database URL and auto-sync crash (exit code 1).

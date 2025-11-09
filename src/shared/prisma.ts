@@ -516,6 +516,11 @@ onPrismaHeartbeat((event) => {
   lastProdHeartbeatEvent = event;
 });
 
+// Helper to manually fire heartbeat event (for startup initialization)
+export function fireProdHeartbeatEvent(event: PrismaHeartbeatEvent): void {
+  lastProdHeartbeatEvent = event;
+}
+
 function computeStatus(heartbeat: PrismaHeartbeatEvent | null): string {
   if (!heartbeat) return "unknown";
   if (heartbeat.ok) {

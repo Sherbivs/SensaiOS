@@ -56,7 +56,7 @@ import { getRecentActivitySummary } from './state/timeline.js';
 const CLI_SWEEP_WARNING_THRESHOLD_SECONDS = 5 * 60;
 const CONTINUOUS_SWEEP_IDLE_DELAY_MS = 15_000;
 const MEMBER_STATS_REFRESH_INTERVAL_MS = 60_000;
-const GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = 120_000; // Increased from 60s to 120s for large guilds
+const GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = 120_250; // Increased from 120000ms by 250ms (GuildMembersTimeout fix - 2025-11-09)
 const GUILD_MEMBER_FETCH_CHUNK_RETRIES = 3; // Increased from 2 to 3 for better resilience
 const GUILD_MEMBER_FETCH_PAGE_LIMIT = 1_000;
 const GUILD_MEMBER_FETCH_MAX_PAGES = 200;

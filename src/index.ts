@@ -15,6 +15,7 @@ import { destroyLogBuffer } from "./shared/logBuffer.js";
 import {
   onPrismaHeartbeat,
   startPrismaHeartbeat,
+  fireProdHeartbeatEvent,
   type PrismaHeartbeatEvent,
   getPrismaTransport,
 } from "./shared/prisma.js";
@@ -653,14 +654,17 @@ export async function boot(): Promise<void> {
     await prisma.$queryRaw(Prisma.sql`SELECT 1`);
     const dbDurationMs = Number(process.hrtime.bigint() - dbStart) / 1_000_000;
     prismaConnectDurationMs = dbDurationMs;
-    renderPrismaHeartbeat({
+    const startupEvent: PrismaHeartbeatEvent = {
       ok: true,
       timestamp: new Date(),
       latencyMs: dbDurationMs,
       slow: false,
       consecutiveFailures: 0,
-      source: "startup",
-    });
+      source: "startup" as const,
+    };
+    renderPrismaHeartbeat(startupEvent);
+    // Fire the event to update lastProdHeartbeatEvent so stats show immediately
+    fireProdHeartbeatEvent(startupEvent);
     log.info("Database connectivity OK");
     detachPrismaHeartbeatListener = onPrismaHeartbeat(renderPrismaHeartbeat);
     stopPrismaHeartbeatTask = startPrismaHeartbeat();
@@ -689,14 +693,17 @@ export async function boot(): Promise<void> {
       await prisma.$queryRaw(Prisma.sql`SELECT 1`);
       const dbDurationMs = Number(process.hrtime.bigint() - dbStart) / 1_000_000;
       prismaConnectDurationMs = dbDurationMs;
-      renderPrismaHeartbeat({
+      const recoveryEvent: PrismaHeartbeatEvent = {
         ok: true,
         timestamp: new Date(),
         latencyMs: dbDurationMs,
         slow: false,
         consecutiveFailures: 0,
-        source: "startup",
-      });
+        source: "startup" as const,
+      };
+      renderPrismaHeartbeat(recoveryEvent);
+      // Fire the event to update lastProdHeartbeatEvent so stats show immediately
+      fireProdHeartbeatEvent(recoveryEvent);
       log.info("Database connectivity restored after recovery");
       detachPrismaHeartbeatListener = onPrismaHeartbeat(renderPrismaHeartbeat);
       stopPrismaHeartbeatTask = startPrismaHeartbeat();
