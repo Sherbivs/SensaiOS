@@ -1,7 +1,14 @@
 # Tasklist
-Last Updated (UTC): 2025-11-08T12:15:00Z
-Revision: 2.101
+Last Updated (UTC): 2025-11-08T21:45:00Z
+Revision: 2.102
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2025-11-08T21:45Z):**
+- ✅ Fixed dex seeding DELETE safety (TRUNCATE TABLE implementation)
+- ✅ Fixed dex seeding ON CONFLICT constraint mismatch (included level in PK)
+- ✅ Fixed logger database stats timing (graceful pre-initialization handling)
+- ✅ Created Northstar methodology document (800+ lines, comprehensive standards)
+- ✅ Created Northstar QA checklist (600+ lines, 4-tier validation protocol)
 
 Status legend: `PROPOSED` → `READY` → `IN_PROGRESS` → `DONE` → `BLOCKED`
 
