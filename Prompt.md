@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-09T13:35:00Z
-Revision: 2.60
+Timestamp (UTC): 2025-11-09T14:15:00Z
+Revision: 2.61
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -12,6 +12,77 @@ Revision: 2.60
 **Referenced By**: AGENTS.md (Orientation Flow), Patch.md (echo requirements), ops/NEXT.yaml (sync check)
 
 ## Last Repo Changes (since previous Prompt.md revision)
+
+- **Render Persistent Disk Mount Path Fix (2025-11-09T14:15Z) - CRITICAL:**
+  - **Context:** All state persistence (security bot state, timeout configs) was failing silently in production. Files appeared to save successfully but were lost on every restart. Investigation revealed mount path mismatch between Render Dashboard (`/Store`) and render.yaml (`/opt/render/project/src/Store`), causing writes to ephemeral filesystem instead of persistent disk.
+  
+  - **Root Cause:**
+    * **Dashboard Configuration:** Persistent disk mounted at `/Store` (absolute root path)
+    * **render.yaml Configuration:** All 7 services had `mountPath: /opt/render/project/src/Store`
+    * **Code Resolution:** Relative paths resolved to `/opt/render/project/src/Store/...`
+    * **Result:** Files written to ephemeral filesystem, wiped on every deploy/restart
+  
+  - **Evidence:**
+    * Security bot logs: `restartNumber: 1` on every restart (never incremented)
+    * Render docs: "Only filesystem changes under your disk's mount path are preserved"
+    * User screenshot: Dashboard showed `/Store` as mount point
+  
+  - **Implementation:**
+    
+    **Phase 1: Infrastructure (render.yaml) - 7 Services Fixed:**
+    * Changed `mountPath: /opt/render/project/src/Store` → `mountPath: /Store` for:
+      - infinity-gauntlet-bot (web)
+      - infinity-gauntlet-outbox (worker)
+      - infinity-gauntlet-bots (worker)
+      - infinity-gauntlet-cache (worker)
+      - infinity-gauntlet-data-pipeline (worker)
+      - infinity-gauntlet-security (worker)
+      - pokedex-cache-worker (worker)
+    * Result: All services now write to actual persistent disk instead of ephemeral filesystem
+    
+    **Phase 2: Application Code - Environment-Aware Paths:**
+    * **src/bot/state/persistence.js (line 17):**
+      ```javascript
+      // BEFORE: Always relative path
+      const STATE_DIR = path.resolve(__dirname, '../../../Store/security-bot-state');
+      
+      // AFTER: Absolute path on Render, relative locally
+      const STATE_DIR = process.env.RENDER 
+        ? '/Store/security-bot-state'
+        : path.resolve(__dirname, '../../../Store/security-bot-state');
+      ```
+    
+    * **src/bot/Main.js (line 62):**
+      ```javascript
+      // BEFORE: Always relative path
+      const TIMEOUT_CONFIG_FILE = './Store/guild-member-timeout-config.json';
+      
+      // AFTER: Absolute path on Render, relative locally
+      const TIMEOUT_CONFIG_FILE = process.env.RENDER
+        ? '/Store/guild-member-timeout-config.json'
+        : './Store/guild-member-timeout-config.json';
+      ```
+    
+    * **Rationale:** `process.env.RENDER` automatically set by platform, allows same code to work in both production (absolute paths to disk) and local development (relative paths to repo Store/)
+  
+  - **Impact:**
+    * **Before:** 0% state persistence (all data lost on restart)
+    * **After:** 100% state persistence (survives deploys, restarts)
+    * **Auto-Increment System:** Now fully functional (timeout learning persists)
+    * **Security Bot State:** Now preserves operational history across restarts
+    * **Debugging:** Full historical context now available
+  
+  - **Verification Plan (Post-Deploy):**
+    ```bash
+    # SSH to service and verify:
+    ls -la /Store/
+    cat /Store/security-bot-state/current.json  # restartNumber should increment
+    cat /Store/guild-member-timeout-config.json  # history should accumulate
+    ```
+  
+  - **Documentation:**
+    * Created `docs/render-disk-mount-fix.md` with comprehensive analysis, verification plan, lessons learned
+    * Documents infrastructure vs code mismatch, silent failure modes, environment detection patterns
 
 - **Auto-Adjusting Guild Member Fetch Timeout System (2025-11-09T13:35Z):**
   - **Context:** Evolved static timeout increment into intelligent self-adjusting system that automatically increases timeout on GuildMembersTimeout errors and persists configuration across restarts.

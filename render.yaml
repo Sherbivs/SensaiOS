@@ -150,7 +150,7 @@ services:
     autoDeploy: true
     disks:
       - name: security-state
-        mountPath: /opt/render/project/src/Store
+        mountPath: /Store
         sizeGB: 1
     envVars:
       - key: NODE_ENV

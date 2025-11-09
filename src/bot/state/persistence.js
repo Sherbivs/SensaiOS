@@ -12,9 +12,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Resolve state directory relative to project root
-// On Render with persistent disk, this will be at /opt/render/project/src/Store/security-bot-state
-// The persistent disk is mounted at /opt/render/project/src/Store
-const STATE_DIR = path.resolve(__dirname, '../../../Store/security-bot-state');
+// On Render with persistent disk mounted at /Store
+// Locally falls back to Store/ in project directory
+const STATE_DIR = process.env.RENDER 
+  ? '/Store/security-bot-state'
+  : path.resolve(__dirname, '../../../Store/security-bot-state');
 const CURRENT_STATE_PATH = path.join(STATE_DIR, 'current.json');
 const PREVIOUS_STATE_PATH = path.join(STATE_DIR, 'previous.json');
 const SNAPSHOTS_DIR = path.join(STATE_DIR, 'snapshots');

@@ -59,7 +59,11 @@ const MEMBER_STATS_REFRESH_INTERVAL_MS = 60_000;
 
 // Auto-adjusting timeout for GuildMembersTimeout errors
 // Increases by 250ms each time a timeout occurs, persists across restarts
-const TIMEOUT_CONFIG_FILE = './Store/guild-member-timeout-config.json';
+// On Render with persistent disk mounted at /Store
+// Locally falls back to Store/ in project directory
+const TIMEOUT_CONFIG_FILE = process.env.RENDER
+  ? '/Store/guild-member-timeout-config.json'
+  : './Store/guild-member-timeout-config.json';
 const DEFAULT_TIMEOUT_MS = 120_000;
 const TIMEOUT_INCREMENT_MS = 250;
 const MIN_TIMEOUT_MS = 60_000;
