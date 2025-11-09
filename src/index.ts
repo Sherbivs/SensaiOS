@@ -10,6 +10,8 @@ import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
 import { getCacheMetadata } from "./services/pokemonService.js";
 import { config } from "./shared/config.js";
 import { log } from "./shared/log.js";
+import { setupLogBuffer } from "./shared/logBufferInit.js";
+import { destroyLogBuffer } from "./shared/logBuffer.js";
 import {
   onPrismaHeartbeat,
   startPrismaHeartbeat,
@@ -17,6 +19,9 @@ import {
   getPrismaTransport,
 } from "./shared/prisma.js";
 import cliStatus from "./utils/cliStatus.js";
+
+// Initialize log buffer early (before most logging occurs)
+setupLogBuffer();
 
 const CLI_MONITOR_DISABLED =
   process.env.DISABLE_CLI_MONITOR === "true" || process.env.NODE_ENV === "test";
@@ -601,6 +606,9 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   }
 
   stopMonitor();
+
+  // Flush and destroy log buffer before exit
+  destroyLogBuffer();
 
   if (signal === "uncaughtException") {
     process.exit(1);

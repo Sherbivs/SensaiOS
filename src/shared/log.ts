@@ -1,8 +1,10 @@
 // Minimal structured logger without external deps.
 // Outputs JSON lines with timestamp, level, message, and optional context.
+// Now includes optional buffering to reduce console noise.
 
 import { config } from "./config.js";
 import { safeError } from "./utils/error-utils.js";
+import { getLogBuffer, type BufferedLogEntry } from "./logBuffer.js";
 
 type CliLogLevel = "success" | "info" | "detail" | "warn" | "error";
 type CliLogOptions = { debugMode?: boolean };
@@ -112,9 +114,32 @@ const jsonEnabled =
 
 const cliDebugMode = config.nodeEnv !== "production";
 
+/**
+ * Emit a log entry - checks if buffering is enabled first
+ */
 function emit(level: LogLevel, msg: string, err?: unknown, meta?: AnyObj): void {
   if (!enabled(level)) return;
 
+  // Check if we should buffer this log
+  const buffer = getLogBuffer();
+  if (buffer && level !== "error") {
+    // Buffer non-error logs (errors always bypass for immediate visibility)
+    const context = meta ? { ...meta } : {};
+    if (err) {
+      context.err = safeError(err);
+    }
+    buffer.add(level, msg, context);
+    return;
+  }
+
+  // Immediate output (no buffering or error log)
+  emitImmediate(level, msg, err, meta);
+}
+
+/**
+ * Emit a log entry immediately (bypasses buffer)
+ */
+function emitImmediate(level: LogLevel, msg: string, err?: unknown, meta?: AnyObj): void {
   const record = formatRecord(level, msg, err, meta);
 
   if (cliEnabled && cliLogImpl) {
@@ -138,6 +163,36 @@ function emit(level: LogLevel, msg: string, err?: unknown, meta?: AnyObj): void 
        
       console.log(line);
     }
+  }
+}
+
+/**
+ * Flush buffered logs (called by logBuffer)
+ */
+export function flushBufferedLogs(entries: BufferedLogEntry[]): void {
+  if (entries.length === 0) return;
+
+  // Emit a summary header if multiple entries
+  if (entries.length > 1) {
+    const totalMessages = entries.reduce((sum, e) => sum + e.count, 0);
+    emitImmediate("info", `📦 Log buffer flush: ${entries.length} unique messages, ${totalMessages} total`);
+  }
+
+  // Emit each buffered entry
+  for (const entry of entries) {
+    const meta = entry.context ? { ...entry.context } : {};
+    
+    // Add metadata about buffering
+    if (entry.count > 1) {
+      meta._buffered = {
+        count: entry.count,
+        firstSeen: new Date(entry.firstSeen).toISOString(),
+        lastSeen: new Date(entry.lastSeen).toISOString(),
+        durationMs: entry.lastSeen - entry.firstSeen,
+      };
+    }
+
+    emitImmediate(entry.level, entry.message, undefined, meta);
   }
 }
 
