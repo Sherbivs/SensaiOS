@@ -19,7 +19,11 @@ const { MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS } = (legacyCache as unknown as 
   MAX_CACHE_FILE_AGE_MS: number;
 });
 
-const PRIMARY_RUNTIME_CACHE_DIR = "/Store/runtime-cache";
+// On Render with persistent disk mounted at /Store
+// Locally falls back to Store/ in project directory
+const PRIMARY_RUNTIME_CACHE_DIR = process.env.RENDER 
+  ? "/Store/runtime-cache"
+  : path.join(process.cwd(), "Store", "runtime-cache");
 const FALLBACK_RUNTIME_CACHE_DIR = path.join(process.cwd(), "Store", "runtime-cache");
 const CACHE_RECORD_VERSION = 1;
 const WORKSPACE_LIMIT_BYTES = 1024 * 1024 * 1024; // 1 GiB safety ceiling mirroring the legacy cache.

@@ -81,6 +81,28 @@ const TIMEOUT_CONFIG_FILE = process.env.RENDER
   : './Store/guild-member-timeout-config.json';
 ```
 
+**File**: `src/services/cache.js` (line 5)
+```javascript
+// BEFORE:
+const PRIMARY_CACHE_DIR = '/Store/discord-cache';
+
+// AFTER:
+const PRIMARY_CACHE_DIR = process.env.RENDER 
+  ? '/Store/discord-cache'
+  : path.join(process.cwd(), 'Store', 'discord-cache');
+```
+
+**File**: `src/services/cache/facade.ts` (line 22)
+```typescript
+// BEFORE:
+const PRIMARY_RUNTIME_CACHE_DIR = "/Store/runtime-cache";
+
+// AFTER:
+const PRIMARY_RUNTIME_CACHE_DIR = process.env.RENDER 
+  ? "/Store/runtime-cache"
+  : path.join(process.cwd(), "Store", "runtime-cache");
+```
+
 **Rationale**:
 - **Production (Render)**: Use absolute path `/Store/...` matching mount point
 - **Local Development**: Use relative path `./Store/...` or `../../../Store/...` for local filesystem

@@ -2,7 +2,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-const PRIMARY_CACHE_DIR = '/Store/discord-cache';
+
+// On Render with persistent disk mounted at /Store
+// Locally falls back to Store/ in project directory
+const PRIMARY_CACHE_DIR = process.env.RENDER 
+  ? '/Store/discord-cache'
+  : path.join(process.cwd(), 'Store', 'discord-cache');
 const FALLBACK_CACHE_DIR = path.join(process.cwd(), 'Store', 'discord-cache');
 const MAX_CACHE_PERCENT = 0.75;
 const MAX_CACHE_FILE_AGE_MS = 1000 * 60 * 60 * 24 * 7;

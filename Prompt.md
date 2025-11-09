@@ -63,6 +63,28 @@ Revision: 2.61
         : './Store/guild-member-timeout-config.json';
       ```
     
+    * **src/services/cache.js (line 5):**
+      ```javascript
+      // BEFORE: Always absolute path
+      const PRIMARY_CACHE_DIR = '/Store/discord-cache';
+      
+      // AFTER: Absolute path on Render, relative locally
+      const PRIMARY_CACHE_DIR = process.env.RENDER 
+        ? '/Store/discord-cache'
+        : path.join(process.cwd(), 'Store', 'discord-cache');
+      ```
+    
+    * **src/services/cache/facade.ts (line 22):**
+      ```typescript
+      // BEFORE: Always absolute path
+      const PRIMARY_RUNTIME_CACHE_DIR = "/Store/runtime-cache";
+      
+      // AFTER: Absolute path on Render, relative locally
+      const PRIMARY_RUNTIME_CACHE_DIR = process.env.RENDER 
+        ? "/Store/runtime-cache"
+        : path.join(process.cwd(), "Store", "runtime-cache");
+      ```
+    
     * **Rationale:** `process.env.RENDER` automatically set by platform, allows same code to work in both production (absolute paths to disk) and local development (relative paths to repo Store/)
   
   - **Impact:**
@@ -70,6 +92,8 @@ Revision: 2.61
     * **After:** 100% state persistence (survives deploys, restarts)
     * **Auto-Increment System:** Now fully functional (timeout learning persists)
     * **Security Bot State:** Now preserves operational history across restarts
+    * **Discord Cache:** Role/guild data now persists properly
+    * **Runtime Cache:** Encounter/battle data now survives restarts
     * **Debugging:** Full historical context now available
   
   - **Verification Plan (Post-Deploy):**
@@ -608,11 +632,11 @@ Revision: 2.61
       name: infinity-gauntlet-security
       disks:
         - name: security-state
-          mountPath: /opt/render/project/src/Store
+          mountPath: /Store
           sizeGB: 1
     ```
   
-  - **Path Resolution:** On Render, state files persist at `/opt/render/project/src/Store/security-bot-state/` (persistent disk mount point), surviving deployments/restarts/crashes.
+  - **Path Resolution:** On Render, state files persist at `/Store/security-bot-state/` (persistent disk mount point), surviving deployments/restarts/crashes.
   
   - **Defensive Error Handling:** Updated `src/bot/state/persistence.js` with:
     - Added Render-specific path documentation explaining mount point location
@@ -625,7 +649,7 @@ Revision: 2.61
   - **Expected Startup Logs (Render):**
     ```
     [State] Initializing state persistence...
-    [State] STATE_DIR: /opt/render/project/src/Store/security-bot-state
+    [State] STATE_DIR: /Store/security-bot-state
     [State] Working directory: /opt/render/project/src
     [State] Module location: /opt/render/project/src/bot/state
     [State] State directory verified/created

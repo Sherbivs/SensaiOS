@@ -340,7 +340,7 @@ Store/security-bot-state/
 - Telemetry: `src/utils/logger.js` reads `global.securityBotState` for comprehensive stats display
 
 **Persistent Disk Configuration (Render):**
-The `infinity-gauntlet-security` worker has a 1GB persistent disk mounted at `/opt/render/project/src/Store` to ensure state files survive deployments:
+The `infinity-gauntlet-security` worker has a 1GB persistent disk mounted at `/Store` to ensure state files survive deployments:
 
 ```yaml
 # render.yaml
@@ -348,11 +348,11 @@ The `infinity-gauntlet-security` worker has a 1GB persistent disk mounted at `/o
   name: infinity-gauntlet-security
   disks:
     - name: security-state
-      mountPath: /opt/render/project/src/Store
+      mountPath: /Store
       sizeGB: 1
 ```
 
-State files persist at `/opt/render/project/src/Store/security-bot-state/`:
+State files persist at `/Store/security-bot-state/`:
 - `current.json` — Active runtime state
 - `previous.json` — Backup from last restart
 - `snapshots/*.json` — Timestamped backups (7-day retention)

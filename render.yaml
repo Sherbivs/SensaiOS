@@ -15,7 +15,7 @@ services:
     plan: starter
     disks:
       - name: prod-database
-        mountPath: /opt/render/project/src/Store
+        mountPath: /Store
         sizeGB: 2
     envVars:
       # Unified architecture: Single Render-managed PostgreSQL database
@@ -52,7 +52,7 @@ services:
     autoDeploy: true
     disks:
       - name: prod-database
-        mountPath: /opt/render/project/src/Store
+        mountPath: /Store
         sizeGB: 2
     envVars:
       # Unified architecture: Single Render-managed PostgreSQL database
@@ -98,7 +98,7 @@ services:
     autoDeploy: true
     disks:
       - name: prod-database
-        mountPath: /opt/render/project/src/Store
+        mountPath: /Store
         sizeGB: 2
     envVars:
       # Unified architecture: Single Render-managed PostgreSQL database
@@ -194,7 +194,7 @@ services:
     autoDeploy: true
     disks:
       - name: prod-database
-        mountPath: /opt/render/project/src/Store
+        mountPath: /Store
         sizeGB: 2
     envVars:
       # Unified architecture: Single Render-managed PostgreSQL database
@@ -235,7 +235,7 @@ services:
     autoDeploy: true
     disks:
       - name: prod-database
-        mountPath: /opt/render/project/src/Store
+        mountPath: /Store
         sizeGB: 2
     envVars:
       # Unified architecture: Single Render-managed PostgreSQL database
@@ -279,7 +279,7 @@ services:
     autoDeploy: true
     disks:
       - name: pokedata
-        mountPath: /store
+        mountPath: /Store
         sizeGB: 1
     envVars:
       # Unified architecture: Single Render-managed PostgreSQL database
@@ -304,7 +304,7 @@ services:
       - key: GITHUB_RAW_URL
         value: https://raw.githubusercontent.com/sherbivs/infinity-gauntlet/data-cache/data/cache
       - key: CACHE_DIR
-        value: /store/cache
+        value: /Store/cache
       - key: POKE_CONCURRENCY
         value: "10"
       - key: POKE_TIMEOUT_MS
