@@ -370,7 +370,37 @@ function stripQuotes(value: string): string {
   return trimmed;
 }
 
-async function readEnvFile(filePath: string): Promise<EnvVars> {
+async function readEnvFile(filePath: string | null): Promise<EnvVars> {
+  // In production (Render), env files don't exist - use process.env instead
+  if (!filePath || process.env.NODE_ENV === "production") {
+    log("env.fallback", {
+      message: "No environment file path provided or production mode, using process.env",
+      path: filePath || "null",
+      env: process.env.NODE_ENV,
+    });
+    
+    // Return relevant environment variables from process.env
+    const vars: EnvVars = {};
+    const relevantKeys = [
+      "PROD_DATABASE_URL",
+      "DATABASE_URL",
+      "RENDER_DB_INTERNAL_URL",
+      "RENDER_DB_EXTERNAL_URL",
+      "DATABASE_ONPREMISE_DEV_PRIMARY",
+      "PRISMA_CLIENT_URL",
+      "ALERT_WEBHOOK_URL",
+    ];
+    
+    for (const key of relevantKeys) {
+      const value = process.env[key];
+      if (value) {
+        vars[key] = value;
+      }
+    }
+    
+    return vars;
+  }
+  
   const absolutePath = resolvePath(filePath);
   const exists = await fs
     .access(absolutePath)
@@ -378,37 +408,6 @@ async function readEnvFile(filePath: string): Promise<EnvVars> {
     .catch(() => false);
   
   if (!exists) {
-    // In production (Render), env files don't exist - use process.env instead
-    const isProd = process.env.NODE_ENV === "production";
-    if (isProd) {
-      log("env.fallback", {
-        message: "Environment file not found, using process.env",
-        path: absolutePath,
-        env: process.env.NODE_ENV,
-      });
-      
-      // Return relevant environment variables from process.env
-      const vars: EnvVars = {};
-      const relevantKeys = [
-        "PROD_DATABASE_URL",
-        "DATABASE_URL",
-        "RENDER_DB_INTERNAL_URL",
-        "RENDER_DB_EXTERNAL_URL",
-        "DATABASE_ONPREMISE_DEV_PRIMARY",
-        "PRISMA_CLIENT_URL",
-        "ALERT_WEBHOOK_URL",
-      ];
-      
-      for (const key of relevantKeys) {
-        const value = process.env[key];
-        if (value) {
-          vars[key] = value;
-        }
-      }
-      
-      return vars;
-    }
-    
     throw new Error(`Environment file not found: ${absolutePath}`);
   }
 
