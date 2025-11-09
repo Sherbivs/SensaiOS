@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-09T13:30:00Z
-Revision: 2.59
+Timestamp (UTC): 2025-11-09T13:35:00Z
+Revision: 2.60
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -12,6 +12,54 @@ Revision: 2.59
 **Referenced By**: AGENTS.md (Orientation Flow), Patch.md (echo requirements), ops/NEXT.yaml (sync check)
 
 ## Last Repo Changes (since previous Prompt.md revision)
+
+- **Auto-Adjusting Guild Member Fetch Timeout System (2025-11-09T13:35Z):**
+  - **Context:** Evolved static timeout increment into intelligent self-adjusting system that automatically increases timeout on GuildMembersTimeout errors and persists configuration across restarts.
+  
+  - **Implementation (src/bot/Main.js):**
+    - **Persistent Configuration System:**
+      * File: `Store/guild-member-timeout-config.json` (JSON config with history tracking)
+      * `loadTimeoutConfig()`: Loads timeout from disk on startup, falls back to 120000ms default
+      * `saveTimeoutConfig()`: Persists timeout with metadata (adjustments count, timestamp, reason, 10-entry history)
+      * `incrementTimeout()`: Auto-increments by 250ms on error, clamped to 60000ms-300000ms range
+    
+    - **Auto-Increment Logic:**
+      * Triggers on **first timeout attempt** (chunkAttempts === 1) to prevent multiple increments per error
+      * Increments: `currentTimeout + 250ms` up to 5-minute maximum
+      * Logs: `[timeout-config] Auto-incrementing: 120250ms → 120500ms (+250ms) - GuildMembersTimeout in <guild>`
+      * Persists immediately so next restart uses new value
+    
+    - **Configuration Tracking:**
+      * `adjustments`: Total number of auto-increments since initial setup
+      * `lastAdjusted`: ISO timestamp of last change
+      * `reason`: Human-readable explanation (e.g., "GuildMembersTimeout in Black Infinity Gauntlet")
+      * `history[]`: Rolling 10-entry log of all adjustments with timestamps
+    
+    - **Safety Features:**
+      * Min/Max bounds: 60s minimum, 5 minutes maximum (prevents runaway growth)
+      * Graceful degradation: Falls back to default (120s) if config load fails
+      * Non-blocking: Config save failures don't interrupt member fetch operations
+      * Directory auto-creation: Creates `Store/` if missing
+  
+  - **Initial State:**
+    - Created `Store/guild-member-timeout-config.json` with 120250ms baseline (carries forward manual fix)
+    - System will auto-increment from this point forward on each timeout occurrence
+    - Example: 120250ms → 120500ms → 120750ms → 121000ms... (250ms steps)
+  
+  - **Observability:**
+    - Startup log: `[timeout-config] Loaded: 120250ms (adjustments: 1, last: 2025-11-09T13:30:00.000Z)`
+    - Increment log: `[timeout-config] Auto-incrementing: 120250ms → 120500ms (+250ms) - <reason>`
+    - Save log: `[timeout-config] Saved: 120500ms (reason: <reason>, total adjustments: 2)`
+    - Max reached log: `[timeout-config] Already at maximum (300000ms), not incrementing`
+  
+  - **Benefits:**
+    - **Zero maintenance**: Timeout adjusts automatically without manual intervention
+    - **Production resilience**: Each guild's timeout errors permanently increase the threshold
+    - **Audit trail**: Complete history of adjustments with context for debugging
+    - **Adaptive**: System learns optimal timeout for actual Discord API performance
+    - **Restart-safe**: Configuration persists across deployments and restarts
+
+## Previous Changes
 
 - **Critical Bug Fixes: PROD Database Stats + GuildMembersTimeout (2025-11-09T13:30Z):**
   - **Context:** Fixed two production issues identified from runtime logs: (1) PROD database showing "INITIALIZING" forever instead of real stats, (2) Discord GuildMembersTimeout errors requiring timeout increase.

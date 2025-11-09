@@ -56,7 +56,95 @@ import { getRecentActivitySummary } from './state/timeline.js';
 const CLI_SWEEP_WARNING_THRESHOLD_SECONDS = 5 * 60;
 const CONTINUOUS_SWEEP_IDLE_DELAY_MS = 15_000;
 const MEMBER_STATS_REFRESH_INTERVAL_MS = 60_000;
-const GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = 120_250; // Increased from 120000ms by 250ms (GuildMembersTimeout fix - 2025-11-09)
+
+// Auto-adjusting timeout for GuildMembersTimeout errors
+// Increases by 250ms each time a timeout occurs, persists across restarts
+const TIMEOUT_CONFIG_FILE = './Store/guild-member-timeout-config.json';
+const DEFAULT_TIMEOUT_MS = 120_000;
+const TIMEOUT_INCREMENT_MS = 250;
+const MIN_TIMEOUT_MS = 60_000;
+const MAX_TIMEOUT_MS = 300_000; // 5 minutes max
+
+// Load timeout from persistent config
+function loadTimeoutConfig() {
+  try {
+    if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
+      const data = fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8');
+      const config = JSON.parse(data);
+      if (config.timeoutMs && typeof config.timeoutMs === 'number') {
+        const clamped = Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, config.timeoutMs));
+        console.log(`[timeout-config] Loaded: ${clamped}ms (adjustments: ${config.adjustments || 0}, last: ${config.lastAdjusted || 'never'})`);
+        return clamped;
+      }
+    }
+  } catch (err) {
+    console.warn('[timeout-config] Failed to load, using default:', err.message);
+  }
+  return DEFAULT_TIMEOUT_MS;
+}
+
+// Save timeout to persistent config
+function saveTimeoutConfig(timeoutMs, reason = 'manual') {
+  try {
+    const dir = path.dirname(TIMEOUT_CONFIG_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
+    let adjustments = 0;
+    try {
+      if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
+        const existing = JSON.parse(fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8'));
+        adjustments = (existing.adjustments || 0) + 1;
+      }
+    } catch {}
+    
+    const config = {
+      timeoutMs,
+      adjustments,
+      lastAdjusted: new Date().toISOString(),
+      reason,
+      history: [],
+    };
+    
+    // Load history if exists
+    try {
+      if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
+        const existing = JSON.parse(fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8'));
+        if (Array.isArray(existing.history)) {
+          config.history = existing.history.slice(-10); // Keep last 10
+        }
+      }
+    } catch {}
+    
+    config.history.push({
+      timestamp: new Date().toISOString(),
+      timeoutMs,
+      reason,
+    });
+    
+    fs.writeFileSync(TIMEOUT_CONFIG_FILE, JSON.stringify(config, null, 2));
+    console.log(`[timeout-config] Saved: ${timeoutMs}ms (reason: ${reason}, total adjustments: ${adjustments})`);
+  } catch (err) {
+    console.error('[timeout-config] Failed to save:', err.message);
+  }
+}
+
+// Auto-increment timeout on error
+function incrementTimeout(currentTimeout, reason = 'timeout_error') {
+  const newTimeout = Math.min(MAX_TIMEOUT_MS, currentTimeout + TIMEOUT_INCREMENT_MS);
+  if (newTimeout > currentTimeout) {
+    console.log(`[timeout-config] Auto-incrementing: ${currentTimeout}ms → ${newTimeout}ms (+${TIMEOUT_INCREMENT_MS}ms) - ${reason}`);
+    saveTimeoutConfig(newTimeout, reason);
+    return newTimeout;
+  }
+  console.log(`[timeout-config] Already at maximum (${MAX_TIMEOUT_MS}ms), not incrementing`);
+  return currentTimeout;
+}
+
+// Initialize timeout from config
+let GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = loadTimeoutConfig();
+
 const GUILD_MEMBER_FETCH_CHUNK_RETRIES = 3; // Increased from 2 to 3 for better resilience
 const GUILD_MEMBER_FETCH_PAGE_LIMIT = 1_000;
 const GUILD_MEMBER_FETCH_MAX_PAGES = 200;
@@ -143,6 +231,14 @@ async function ensureGuildMembersCached(guild, options = {}) {
         willFallbackToPagination: willFallback,
         status: willFallback ? 'Falling back to paginated fetch' : `Retrying (attempt ${chunkAttempts + 1}/${chunkRetries})`,
       }, error), isLastAttempt ? 'warn' : 'info');
+
+      // Auto-increment timeout on first occurrence (before retries)
+      if (chunkAttempts === 1) {
+        GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = incrementTimeout(
+          GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS,
+          `GuildMembersTimeout in ${guildSummary} (origin: ${origin})`
+        );
+      }
 
       // Record timeout in persistent state for monitoring
       if (botState) {
