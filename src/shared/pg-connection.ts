@@ -404,7 +404,11 @@ export function getLocalDb(): pg.Pool {
 
 /**
  * Convenience export: Get current database statistics.
+ * Returns error state if connection not initialized yet.
  */
-export function getDatabaseStats(): TripleDbStats {
-  return getConnection().getStats();
+export function getDatabaseStats(): TripleDbStats | { error: true } {
+  if (!connection) {
+    return { error: true };
+  }
+  return connection.getStats();
 }

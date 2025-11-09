@@ -116,6 +116,30 @@ function collectDatabaseStats() {
   try {
     const stats = getDatabaseStats();
     
+    // If connection not initialized, return 'initializing' instead of error
+    if (!stats || stats.error) {
+      return {
+        dev: {
+          status: 'initializing',
+          latency: 'n/a',
+          connections: 'n/a',
+          source: 'n/a',
+        },
+        prod: {
+          status: 'initializing',
+          latency: 'n/a',
+          connections: 'n/a',
+          source: 'n/a',
+        },
+        local: {
+          status: 'initializing',
+          latency: 'n/a',
+          connections: 'n/a',
+          source: 'n/a',
+        },
+      };
+    }
+    
     // Format DEV stats
     const devLatency = stats.dev.latency !== null 
       ? `${stats.dev.latency.toFixed(2)}ms` 
@@ -152,19 +176,19 @@ function collectDatabaseStats() {
       },
     };
   } catch (error) {
-    console.error('[Logger] Error collecting database stats:', error.message);
+    // Don't log errors during initialization - connection may not be ready yet
     return {
       dev: {
-        status: 'error',
+        status: 'initializing',
         latency: 'n/a',
         connections: 'n/a',
-        source: 'error',
+        source: 'n/a',
       },
       prod: {
-        status: 'error',
+        status: 'initializing',
         latency: 'n/a',
         connections: 'n/a',
-        source: 'error',
+        source: 'n/a',
       },
       local: {
         status: 'error',

@@ -128,8 +128,8 @@ export async function countTable(
  */
 export async function deleteAllSpeciesLearnsets(pool?: Pool | PoolClient): Promise<void> {
   const db = pool ?? getProdDb();
-  const { text, values } = buildDelete("SpeciesLearnset", {});
-  await db.query(text, values);
+  // Use TRUNCATE for bulk delete (faster and safer for seeding)
+  await db.query('TRUNCATE TABLE "SpeciesLearnset" CASCADE');
 }
 
 /**
@@ -137,8 +137,7 @@ export async function deleteAllSpeciesLearnsets(pool?: Pool | PoolClient): Promi
  */
 export async function deleteAllSpeciesAbilities(pool?: Pool | PoolClient): Promise<void> {
   const db = pool ?? getProdDb();
-  const { text, values } = buildDelete("SpeciesAbility", {});
-  await db.query(text, values);
+  await db.query('TRUNCATE TABLE "SpeciesAbility" CASCADE');
 }
 
 /**
@@ -146,8 +145,7 @@ export async function deleteAllSpeciesAbilities(pool?: Pool | PoolClient): Promi
  */
 export async function deleteAllSpeciesTypes(pool?: Pool | PoolClient): Promise<void> {
   const db = pool ?? getProdDb();
-  const { text, values } = buildDelete("SpeciesType", {});
-  await db.query(text, values);
+  await db.query('TRUNCATE TABLE "SpeciesType" CASCADE');
 }
 
 /**
@@ -155,8 +153,7 @@ export async function deleteAllSpeciesTypes(pool?: Pool | PoolClient): Promise<v
  */
 export async function deleteAllEvolutionSteps(pool?: Pool | PoolClient): Promise<void> {
   const db = pool ?? getProdDb();
-  const { text, values } = buildDelete("EvolutionStep", {});
-  await db.query(text, values);
+  await db.query('TRUNCATE TABLE "EvolutionStep" CASCADE');
 }
 
 /**
@@ -173,8 +170,7 @@ export async function deleteSpeciesNameVariants(pool?: Pool | PoolClient): Promi
  */
 export async function deleteAllSpecies(pool?: Pool | PoolClient): Promise<void> {
   const db = pool ?? getProdDb();
-  const { text, values } = buildDelete("Species", {});
-  await db.query(text, values);
+  await db.query('TRUNCATE TABLE "Species" CASCADE');
 }
 
 /**
@@ -182,8 +178,7 @@ export async function deleteAllSpecies(pool?: Pool | PoolClient): Promise<void> 
  */
 export async function deleteAllMoves(pool?: Pool | PoolClient): Promise<void> {
   const db = pool ?? getProdDb();
-  const { text, values } = buildDelete("Move", {});
-  await db.query(text, values);
+  await db.query('TRUNCATE TABLE "Move" CASCADE');
 }
 
 /**
@@ -191,8 +186,7 @@ export async function deleteAllMoves(pool?: Pool | PoolClient): Promise<void> {
  */
 export async function deleteAllAbilities(pool?: Pool | PoolClient): Promise<void> {
   const db = pool ?? getProdDb();
-  const { text, values } = buildDelete("Ability", {});
-  await db.query(text, values);
+  await db.query('TRUNCATE TABLE "Ability" CASCADE');
 }
 
 /**
@@ -200,8 +194,7 @@ export async function deleteAllAbilities(pool?: Pool | PoolClient): Promise<void
  */
 export async function deleteAllTypeChart(pool?: Pool | PoolClient): Promise<void> {
   const db = pool ?? getProdDb();
-  const { text, values } = buildDelete("TypeChart", {});
-  await db.query(text, values);
+  await db.query('TRUNCATE TABLE "TypeChart" CASCADE');
 }
 
 // ============================================================================
