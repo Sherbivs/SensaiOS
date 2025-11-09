@@ -28,7 +28,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - `docs/` — architecture, safety, operations, runbooks, and knowledge guides (Phase 9: 25 current + 6 archived)
 - `playbooks/` — escalation and recovery recipes
 - `tools/` — vendored binaries (e.g., Postgres bundle) and helpers
-- `tests/` — Vitest coverage for engines, data, ops, and cache surfaces (293/294 passing, 6.82s execution)
+- `tests/` — Vitest coverage for engines, data, ops, and cache surfaces (269 passing, 14 failing, 137 skipped of 420 total; 4.22s execution; DEV connection issues under investigation)
 
 ## Orientation Flow
 - Start every run by reading `Patch.md` to understand contract rules, marker modes, and Absolutes.

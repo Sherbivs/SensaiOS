@@ -1,15 +1,17 @@
 -- Dev DB Connection Console (Read-only)
 -- 
 -- How to use:
--- 1) Load DEV env secrets into your shell (PowerShell):
---      pwsh -File scripts/setup_ai_env.ps1 -EnvFile "C:/Users/sherb/OneDrive/Documents/Key/Dev/.env" -Persist
---    If you were previously on the Accelerate proxy, switch the Prisma client back to direct:
+-- 1) Load environment secrets into your shell (PowerShell):
+--      pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist
+--    Ensure Prisma client is using direct PostgreSQL mode:
 --      npx prisma generate
 --
 -- 2) Optional quick health check via CLI (should succeed if the env is loaded correctly):
 --      npm run db:cli -- status
 --
--- 3) In your IDE, create/select a Data Source using the direct Postgres URL from the loaded environment (RENDER_DB_EXTERNAL_URL or RENDER_DB_INTERNAL_URL).
+-- 3) In your IDE, create/select a Data Source using the Render database URL from the loaded environment:
+--    - Production (Render services): Use RENDER_DB_INTERNAL_URL (internal network)
+--    - Development (laptop): Use DEV_DATABASE_URL or RENDER_DB_EXTERNAL_URL (external access)
 --    Attach this console to that Data Source, then run the checks below.
 
 -- Connection and server info

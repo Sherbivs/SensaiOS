@@ -56,10 +56,10 @@ BATTLE_CHANNEL_NAME: pokemon-battles
 DISABLE_SNAPSHOT_PRECHECK: true
 ```
 
-**Database Access**:
-- **PROD_DATABASE_URL**: Local PostgreSQL node (127.0.0.1:55433) for <50ms latency
-- **DEV_DATABASE_URL**: Master PostgreSQL on Render (source of truth for migrations)
-- Auto-sync worker consolidates DEV→PROD→LOCAL every 5 minutes
+**Database Access** (Unified Architecture):
+- **PROD_DATABASE_URL**: Render-managed PostgreSQL internal URL (dpg-d3vd8h7diees73et3i3g-a) for <50ms latency within Render network
+- **DEV_DATABASE_URL**: Same database, external URL (dpg-...virginia-postgres.render.com) for migrations from workstations
+- **Note**: Unified architecture (2025-11-08) - single Render database replaces 2-node cluster; auto-sync disabled (ENABLE_DB_AUTO_SYNC checks for unified mode)
 
 **Scaling Considerations**:
 - CPU-bound during battle calculations (turn resolution, damage, RNG)
