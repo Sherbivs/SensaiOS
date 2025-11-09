@@ -18,6 +18,7 @@ import {
 import { loadDexV2Runtime, resetDexV2Runtime } from "../dex/v2/loader.js";
 import { recordDexLoad, recordDexFallback, recordDexLookup, recordDexLookupMiss } from "../dex/metrics.js";
 import { DEX_V2_ENABLED } from "../config/env.js";
+import { engineCache } from "../services/engine-cache.js";
 
 /**
  * @typedef {{ move: string; level: number | null }} LearnsetLevelEntry
@@ -444,6 +445,90 @@ export function getLoadedPath() {
 }
 
 export function getSpecies(query) {
+  // ============================================================================
+  // ENGINE CACHE INTEGRATION (Phase 17-22)
+  // ============================================================================
+  //
+  // Try Engine L1 Cache first (synchronous, <1μs latency).
+  // Falls back to dexpack if cache miss or not initialized.
+  //
+  // Performance impact:
+  // - Cache hit: <1μs (Map lookup, no I/O)
+  // - Cache miss: +0.1-1ms (fallback to dexpack, acceptable overhead)
+  //
+  // global.engineReady check ensures cache is fully initialized before use.
+  // If engine not ready or cache returns null, fallback to dexpack immediately.
+  //
+  if (global.engineReady && engineCache.isReady()) {
+    const startedAt = Date.now();
+    
+    // Try by ID first (fastest path)
+    if (typeof query === "number" && Number.isFinite(query)) {
+      const cached = engineCache.getPokemon(query);
+      if (cached) {
+        recordDexLookup({ 
+          runtime: "engine-cache", 
+          query, 
+          resolution: "id", 
+          found: true, 
+          durationMs: Date.now() - startedAt 
+        });
+        
+        // Convert cache entry to dexpack format
+        return {
+          id: cached.id,
+          slug: cached.slug,
+          name: cached.name,
+          typing: cached.types,
+          abilities: cached.abilities,
+          baseStats: cached.baseStats,
+          height: cached.height,
+          weight: cached.weight,
+          learnsets: cached.learnsets || { level: [], machine: [], tutor: [], egg: [] },
+          matchups: cached.matchups || {},
+          aliases: []
+        };
+      }
+    }
+    
+    // Try by name (uses secondary index)
+    if (typeof query === "string") {
+      const key = normalizeLookup(query);
+      if (key) {
+        const cached = engineCache.getPokemonByName(key);
+        if (cached) {
+          recordDexLookup({ 
+            runtime: "engine-cache", 
+            query, 
+            resolution: "name", 
+            found: true, 
+            durationMs: Date.now() - startedAt 
+          });
+          
+          return {
+            id: cached.id,
+            slug: cached.slug,
+            name: cached.name,
+            typing: cached.types,
+            abilities: cached.abilities,
+            baseStats: cached.baseStats,
+            height: cached.height,
+            weight: cached.weight,
+            learnsets: cached.learnsets || { level: [], machine: [], tutor: [], egg: [] },
+            matchups: cached.matchups || {},
+            aliases: []
+          };
+        }
+      }
+    }
+    
+    // Cache miss - fall through to dexpack
+  }
+  
+  // ============================================================================
+  // DEXPACK FALLBACK (original implementation)
+  // ============================================================================
+  
   const pack = requirePack();
   const runtimeTag = state.runtime ?? RUNTIME_SOURCE.MODULE;
   const startedAt = Date.now();

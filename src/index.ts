@@ -20,6 +20,12 @@ import {
   getPrismaTransport,
 } from "./shared/prisma.js";
 import cliStatus from "./utils/cliStatus.js";
+import { validateEngineDbConfig } from "./config/engine-db-config.js";
+import * as engineReadDb from "./services/engine-read-db.js";
+import * as engineWriteDb from "./services/engine-write-db.js";
+import { engineCache } from "./services/engine-cache.js";
+import { engineWriteBuffer } from "./services/engine-write-buffer.js";
+import { startEngineWorkers, stopEngineWorkers, type EngineWorkersStatus } from "./workers/engine-workers.js";
 
 // Initialize log buffer early (before most logging occurs)
 setupLogBuffer();
@@ -51,6 +57,14 @@ let lastCacheSnapshot: CacheSnapshot | null = null;
 let lastPrismaSample: { timestamp: number; latencyMs: number | null } | null = null;
 let prismaConnectDurationMs: number | null = null;
 let stopAutoSyncSupervisor: (() => void) | null = null;
+let engineWorkersRunning = false;
+
+// Declare global.engineReady for battle engine readiness check
+declare global {
+  // eslint-disable-next-line no-var
+  var engineReady: boolean;
+}
+global.engineReady = false;
 
 function withMonitor(callback: (monitor: typeof cliStatus) => void): void {
   if (!monitorActive) {
@@ -75,6 +89,7 @@ function startMonitor(): void {
     monitorActive = true;
     setPhase("Booting");
     setSection("database", { title: "Database", status: "checking", metrics: [] });
+    setSection("engine", { title: "Engine DB", status: "initializing", metrics: [] });
     setSection("discord", { title: "Discord Bot", status: "initializing", metrics: [] });
     const securitySection = ENABLE_SECURITY_BOT
       ? { title: "Security Bot", status: "initializing", metrics: [] }
@@ -520,6 +535,77 @@ function updateSecuritySection(client: Client | null, status: string): void {
   setSection("security", { title: "Security Bot", status, metrics });
 }
 
+function updateEngineSection(workerStatus?: EngineWorkersStatus): void {
+  if (!monitorActive) {
+    return;
+  }
+  
+  try {
+    const cacheStats = engineCache.getStats();
+    const bufferStats = engineWriteBuffer.getStats();
+    const readDbStats = engineReadDb.getStats();
+    const writeDbStats = engineWriteDb.getStats();
+    
+    const metrics: MetricsList = [];
+    
+    // Cache metrics
+    const hitRate = cacheStats.hitCount + cacheStats.missCount > 0
+      ? (cacheStats.hitCount / (cacheStats.hitCount + cacheStats.missCount)) * 100
+      : 0;
+    metrics.push(metric("cache hit rate", `${hitRate.toFixed(1)}%`));
+    metrics.push(metric("cache memory", `${cacheStats.memorySizeMb.toFixed(1)} MB`));
+    
+    // Buffer metrics
+    const utilizationPct = (bufferStats.utilizationPercent * 100).toFixed(1);
+    metrics.push(metric("buffer util", `${utilizationPct}%`));
+    
+    if (bufferStats.isBackpressureActive) {
+      metrics.push(metric("⚠️ backpressure", "active"));
+    }
+    
+    // Database metrics
+    metrics.push(metric("read-db", `${readDbStats.pokemonCount} pokemon`));
+    metrics.push(metric("write-db", `${writeDbStats.battleLogCount} battles`));
+    
+    // Worker status
+    if (workerStatus) {
+      const workerErrors = 
+        workerStatus.cacheRefresh.errorCount +
+        workerStatus.bufferFlush.errorCount +
+        workerStatus.writeDbValidator.errorCount;
+      
+      if (workerErrors > 0) {
+        metrics.push(metric("worker errors", workerErrors));
+      }
+    }
+    
+    // Determine status
+    let status: string = "online";
+    if (!global.engineReady) {
+      status = "initializing";
+    } else if (bufferStats.isBackpressureActive) {
+      status = "degraded";
+    } else if (workerStatus && (
+      workerStatus.cacheRefresh.errorCount > 5 ||
+      workerStatus.bufferFlush.errorCount > 5 ||
+      workerStatus.writeDbValidator.errorCount > 5
+    )) {
+      status = "degraded";
+    }
+    
+    setSection("engine", { title: "Engine DB", status, metrics });
+    
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log.error('Engine DB telemetry update failed', error);
+    setSection("engine", {
+      title: "Engine DB",
+      status: "error",
+      metrics: [metric("error", message)],
+    });
+  }
+}
+
 function bindSecurityLifecycle(client: Client): void {
   const updateOnline = () => updateSecuritySection(client, "online");
   client.on("guildCreate", updateOnline);
@@ -576,6 +662,53 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   setPhase(`Shutting down (${signal})`);
   log.warn("Shutdown requested", { signal });
 
+  // Step 1: Mark engine as not ready (stop accepting new battles)
+  global.engineReady = false;
+  
+  // Step 2: Stop Engine DB workers
+  if (engineWorkersRunning) {
+    try {
+      log.info("Stopping Engine DB workers");
+      stopEngineWorkers();
+      engineWorkersRunning = false;
+    } catch (error) {
+      log.error("Error stopping Engine DB workers", error);
+    }
+  }
+  
+  // Step 3: Flush write buffer (best-effort, emergency mode)
+  try {
+    log.info("Flushing Engine write buffer");
+    await engineWriteBuffer.emergencyShutdown();
+  } catch (error) {
+    log.error("Error during write buffer emergency shutdown", error);
+  }
+  
+  // Step 4: Save Write-DB to disk (final persistence)
+  try {
+    log.info("Saving Engine Write-DB");
+    await engineWriteDb.close();
+  } catch (error) {
+    log.error("Error closing Engine Write-DB", error);
+  }
+  
+  // Step 5: Close Read-DB
+  try {
+    log.info("Closing Engine Read-DB");
+    await engineReadDb.close();
+  } catch (error) {
+    log.error("Error closing Engine Read-DB", error);
+  }
+  
+  // Step 6: Cleanup Engine cache
+  try {
+    log.info("Shutting down Engine cache");
+    engineCache.shutdown();
+  } catch (error) {
+    log.error("Error during Engine cache shutdown", error);
+  }
+
+  // Step 7: Disconnect Prisma and other services
   try {
     detachPrismaHeartbeatListener?.();
     detachPrismaHeartbeatListener = null;
@@ -728,6 +861,79 @@ export async function boot(): Promise<void> {
       });
       throw error;
     }
+  }
+
+  // ============================================================================
+  // Engine DB Initialization
+  // ============================================================================
+  
+  setPhase("Initializing Engine DB");
+  setSection("engine", { title: "Engine DB", status: "initializing", metrics: [] });
+  
+  try {
+    log.info("Initializing Engine DB runtime");
+    
+    // Step 1: Validate config (ensure storage directories exist)
+    validateEngineDbConfig();
+    log.info("Engine DB config validated");
+    
+    // Step 2: Initialize Read-DB (SQLite read-only database)
+    await engineReadDb.initialize();
+    const readDbStats = engineReadDb.getStats();
+    log.info("Engine Read-DB initialized", {
+      pokemon: readDbStats.pokemonCount,
+      moves: readDbStats.moveCount,
+      typeEffectiveness: readDbStats.typeEffectivenessCount,
+      sizeBytes: readDbStats.sizeBytes
+    });
+    
+    // Step 3: Initialize L1 Cache (BLOCKING - load Pokemon/Moves/Types into memory)
+    await engineCache.initialize();
+    const cacheStats = engineCache.getStats();
+    log.info("Engine L1 Cache initialized", {
+      pokemon: cacheStats.pokemonCount,
+      moves: cacheStats.moveCount,
+      typeEffectiveness: cacheStats.typeEffectivenessCount,
+      memorySizeMb: cacheStats.memorySizeMb.toFixed(2)
+    });
+    
+    // Step 4: Initialize Write-DB (SQLite append-only database)
+    await engineWriteDb.initialize();
+    log.info("Engine Write-DB initialized");
+    
+    // Step 5: Replay WAL (recover from crashes)
+    await engineWriteDb.replayWAL();
+    const writeDbStats = engineWriteDb.getStats();
+    log.info("Engine Write-DB WAL replayed", {
+      battleLogs: writeDbStats.battleLogCount,
+      moveUsage: writeDbStats.moveUsageCount,
+      anomalies: writeDbStats.anomalyCount,
+      walEntries: writeDbStats.walEntryCount
+    });
+    
+    // Step 6: Start background workers
+    await startEngineWorkers();
+    engineWorkersRunning = true;
+    log.info("Engine DB workers started");
+    
+    // Step 7: Mark engine as ready for battles
+    global.engineReady = true;
+    
+    // Update monitor
+    updateEngineSection();
+    log.info("Engine DB runtime online");
+    
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    setSection("engine", {
+      title: "Engine DB",
+      status: "error",
+      metrics: [metric("error", message)],
+    });
+    log.error("Engine DB initialization failed", error);
+    
+    // Engine DB is optional - continue without it
+    log.warn("Continuing without Engine DB (battles will use Prisma queries)");
   }
 
   if (ENABLE_SECURITY_BOT) {

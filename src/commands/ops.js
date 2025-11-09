@@ -58,6 +58,11 @@ const data = new SlashCommandBuilder()
   )
   .addSubcommand((sub) =>
     sub
+      .setName('engine')
+      .setDescription('View Engine DB operational dashboard (cache, buffer, workers, databases)')
+  )
+  .addSubcommand((sub) =>
+    sub
       .setName('state')
       .setDescription('View security bot operational state and history')
       .addBooleanOption((opt) =>

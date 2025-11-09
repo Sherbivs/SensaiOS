@@ -433,6 +433,71 @@ T14.SECURITY.TELEMETRY:
   - "Store/security-bot-state/schema.md"
   - "docs/security-bot-state.md"
 
+# Engine DB Replication (Phase 17-22)
+ENGINE_DB.CONFIG:
+  - "src/config/engine-db-config.ts"
+  - "src/config/ROUTER.md"
+  - "AGENTS.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+
+ENGINE_DB.CACHE:
+  - "src/services/engine-cache.ts"
+  - "src/services/ROUTER.md"
+  - "src/data/dexpack.js"
+  - "tests/engine-db/**"
+  - "AGENTS.md"
+  - "Prompt.md"
+
+ENGINE_DB.WRITE_BUFFER:
+  - "src/services/engine-write-buffer.ts"
+  - "src/services/ROUTER.md"
+  - "src/commands/battle-turn.js"
+  - "tests/engine-db/**"
+  - "AGENTS.md"
+  - "Prompt.md"
+
+ENGINE_DB.WORKERS:
+  - "src/workers/engine-workers.ts"
+  - "src/workers/ROUTER.md"
+  - "src/index.ts"
+  - "tests/engine-db/**"
+  - "AGENTS.md"
+  - "Prompt.md"
+
+ENGINE_DB.READ_DB:
+  - "src/services/engine-read-db.ts"
+  - "src/services/ROUTER.md"
+  - "Store/engine-read.db"
+  - "tests/engine-db/**"
+  - "AGENTS.md"
+  - "Prompt.md"
+
+ENGINE_DB.WRITE_DB:
+  - "src/services/engine-write-db.ts"
+  - "src/services/ROUTER.md"
+  - "Store/engine-write.db"
+  - "tests/engine-db/**"
+  - "AGENTS.md"
+  - "Prompt.md"
+
+ENGINE_DB.INTEGRATION:
+  - "src/index.ts"
+  - "src/data/dexpack.js"
+  - "src/commands/battle-turn.js"
+  - "src/bot/ops/admin.ts"
+  - "src/commands/ops.js"
+  - "AGENTS.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+
+ENGINE_DB.OPS_COMMAND:
+  - "src/bot/ops/admin.ts"
+  - "src/commands/ops.js"
+  - "docs/engine-db-replication.md"
+  - "AGENTS.md"
+  - "Prompt.md"
+
 PBSL.SKELETON:
   - "docs/PBSL.md"
   - "src/core/pbsl/**"

@@ -29,6 +29,14 @@ import {
 import { countAllCooldowns, deleteUserCooldowns } from "../../shared/models/cooldown-queries-pg.js";
 import { countMessagesByStatus } from "../../shared/models/bus-queries-pg.js";
 
+// Engine DB modules (Phase 17-22)
+import { engineCache } from "../../services/engine-cache.js";
+import { engineWriteBuffer } from "../../services/engine-write-buffer.js";
+import * as engineReadDb from "../../services/engine-read-db.js";
+import * as engineWriteDb from "../../services/engine-write-db.js";
+import { getEngineWorkersStatus } from "../../workers/engine-workers.js";
+import type { EngineWorkersStatus } from "../../workers/engine-workers.js";
+
 // Import state persistence modules (optional - bot/state may be in JS)
 let stateModules: any = null;
 async function getStateModules() {
@@ -462,6 +470,131 @@ function formatOpsStatsReport(
   return lines.join("\n");
 }
 
+// ============================================================================
+// ENGINE DB STATS (Phase 17-22)
+// ============================================================================
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "0s";
+  if (ms < 1000) return `${ms.toFixed(0)}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  if (ms < 3600000) return `${(ms / 60000).toFixed(1)}m`;
+  return `${(ms / 3600000).toFixed(1)}h`;
+}
+
+function formatTimestamp(date: Date | null): string {
+  if (!date) return "never";
+  const now = Date.now();
+  const diff = now - date.getTime();
+  if (diff < 1000) return "just now";
+  if (diff < 60000) return `${Math.floor(diff / 1000)}s ago`;
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return `${Math.floor(diff / 86400000)}d ago`;
+}
+
+function formatEngineDbStats(): string {
+  const lines: string[] = [];
+  
+  // Header
+  lines.push("**ENGINE DB OPERATIONAL DASHBOARD**");
+  lines.push("");
+  
+  // Engine Ready Status
+  const ready = global.engineReady ? "✅ READY" : "⚠️ NOT READY";
+  lines.push(`**Status:** ${ready}`);
+  lines.push("");
+  
+  if (!global.engineReady) {
+    lines.push("Engine DB not initialized. Check startup logs for errors.");
+    return lines.join("\n");
+  }
+  
+  try {
+    // L1 Cache Stats
+    const cacheStats = engineCache.getStats();
+    const hitRate = cacheStats.hitCount + cacheStats.missCount > 0
+      ? ((cacheStats.hitCount / (cacheStats.hitCount + cacheStats.missCount)) * 100).toFixed(1)
+      : "0.0";
+    
+    lines.push("**L1 CACHE**");
+    lines.push(`• Hit Rate: ${hitRate}% (${cacheStats.hitCount} hits, ${cacheStats.missCount} misses)`);
+    lines.push(`• Memory: ${cacheStats.memorySizeMb.toFixed(1)} MB`);
+    lines.push(`• Entries: ${cacheStats.pokemonCount} Pokemon, ${cacheStats.moveCount} Moves, ${cacheStats.typeEffectivenessCount} Type Chart`);
+    lines.push(`• Avg Latency: ${cacheStats.avgLatencyUs.toFixed(2)} μs`);
+    lines.push(`• Last Refresh: ${formatTimestamp(cacheStats.lastRefreshTime)}`);
+    lines.push(`• Status: ${cacheStats.isInitialized ? "initialized" : "not initialized"}`);
+    lines.push("");
+    
+    // Write Buffer Stats
+    const bufferStats = engineWriteBuffer.getStats();
+    const utilizationPct = (bufferStats.utilizationPercent * 100).toFixed(1);
+    const backpressureIcon = bufferStats.isBackpressureActive ? "🔴" : "🟢";
+    
+    lines.push("**WRITE BUFFER**");
+    lines.push(`• Utilization: ${utilizationPct}% ${backpressureIcon}`);
+    lines.push(`• Queues: ${bufferStats.battleLogCount} battles, ${bufferStats.moveUsageCount} moves, ${bufferStats.anomalyCount} anomalies`);
+    lines.push(`• Total Pending: ${bufferStats.totalPendingCount} entries`);
+    lines.push(`• Backpressure: ${bufferStats.isBackpressureActive ? "ACTIVE (rejecting writes)" : "inactive"}`);
+    lines.push(`• Flush Count: ${bufferStats.flushCount}`);
+    lines.push(`• Last Flush: ${formatTimestamp(bufferStats.lastFlushTime)}`);
+    lines.push("");
+    
+    // Worker Status
+    const workerStatus = getEngineWorkersStatus();
+    
+    lines.push("**WORKERS**");
+    lines.push(`• Cache Refresh: ${formatWorkerStatus(workerStatus.cacheRefresh)}`);
+    lines.push(`• Buffer Flush: ${formatWorkerStatus(workerStatus.bufferFlush)}`);
+    lines.push(`• Read-DB Sync: ${formatWorkerStatus(workerStatus.readDbSync)}`);
+    lines.push(`• Write-DB Validator: ${formatWorkerStatus(workerStatus.writeDbValidator)}`);
+    lines.push("");
+    
+    // Read-DB Stats
+    const readDbStats = engineReadDb.getStats();
+    
+    lines.push("**READ-DB (SQLite)**");
+    lines.push(`• Pokemon: ${readDbStats.pokemonCount}`);
+    lines.push(`• Moves: ${readDbStats.moveCount}`);
+    lines.push(`• Type Effectiveness: ${readDbStats.typeEffectivenessCount}`);
+    lines.push(`• Size: ${formatBytes(readDbStats.sizeBytes)}`);
+    lines.push(`• Status: ${readDbStats.isInitialized ? "initialized" : "not initialized"}`);
+    lines.push("");
+    
+    // Write-DB Stats
+    const writeDbStats = engineWriteDb.getStats();
+    
+    lines.push("**WRITE-DB (SQLite)**");
+    lines.push(`• Battle Logs: ${writeDbStats.battleLogCount}`);
+    lines.push(`• Move Usage: ${writeDbStats.moveUsageCount}`);
+    lines.push(`• Anomalies: ${writeDbStats.anomalyCount}`);
+    lines.push(`• WAL Entries: ${writeDbStats.walEntryCount}`);
+    lines.push(`• Size: ${formatBytes(writeDbStats.sizeBytes)}`);
+    lines.push(`• Oldest Entry: ${formatDuration(writeDbStats.oldestEntryAge)}`);
+    lines.push(`• Status: ${writeDbStats.isInitialized ? "initialized" : "not initialized"}`);
+    
+  } catch (error) {
+    lines.push("");
+    lines.push(`⚠️ Error collecting stats: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  
+  return lines.join("\n");
+}
+
+function formatWorkerStatus(worker: { name: string; isRunning: boolean; lastRunTime: Date | null; successCount: number; errorCount: number }): string {
+  const statusIcon = worker.isRunning ? "🔄" : "⏸️";
+  const errorIcon = worker.errorCount > 0 ? " ⚠️" : "";
+  return `${statusIcon} ${worker.successCount} runs, ${worker.errorCount} errors${errorIcon}, last: ${formatTimestamp(worker.lastRunTime)}`;
+}
+
 export async function handleOpsCommand(
   interaction: ChatInputCommandInteraction,
   deps: OpsCommandDeps = {}
@@ -506,6 +639,18 @@ export async function handleOpsCommand(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await interaction.editReply({ content: `Cache metrics unavailable: ${message}` });
+    }
+    return;
+  }
+
+  if (sub === "engine") {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const report = formatEngineDbStats();
+      await interaction.editReply({ content: report });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await interaction.editReply({ content: `Engine DB stats unavailable: ${message}` });
     }
     return;
   }
