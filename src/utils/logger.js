@@ -14,15 +14,27 @@ const SPACER = '';
 
 let getDatabaseStats = null;
 
-// Dynamically load getDatabaseStats when available
+// Dynamically load getDatabaseStats from pg-connection when available
 (async () => {
   try {
+    // Try pg-connection first (new PostgreSQL pool architecture)
+    const pgConnectionModule = await import('../shared/pg-connection.js');
+    if (typeof pgConnectionModule.getDatabaseStats === 'function') {
+      getDatabaseStats = pgConnectionModule.getDatabaseStats;
+      return;
+    }
+  } catch (error) {
+    // pg-connection not available, try Prisma fallback
+  }
+  
+  try {
+    // Fallback to Prisma (legacy)
     const prismaModule = await import('../shared/prisma.js');
     if (typeof prismaModule.getDatabaseStats === 'function') {
       getDatabaseStats = prismaModule.getDatabaseStats;
     }
   } catch (error) {
-    // Prisma module not available yet
+    // Database stats not available
   }
 })();
 
@@ -123,26 +135,24 @@ function collectDatabaseStats() {
       dev: {
         status: stats.dev.status,
         latency: devLatency,
-        connections: 'n/a', // Will be populated when pool stats are available
-        source: stats.dev.source,
-        transport: stats.dev.transport,
+        connections: stats.dev.connections !== null ? stats.dev.connections : 'n/a',
+        source: stats.dev.source || 'n/a',
       },
       prod: {
         status: stats.prod.status,
         latency: prodLatency,
-        connections: 'n/a', // Will be populated when pool stats are available
-        source: stats.prod.source,
-        transport: stats.prod.transport,
+        connections: stats.prod.connections !== null ? stats.prod.connections : 'n/a',
+        source: stats.prod.source || 'n/a',
       },
       local: {
         status: stats.local.status,
         latency: localLatency,
-        connections: 'n/a',
-        source: stats.local.source,
-        transport: stats.local.transport,
+        connections: stats.local.connections !== null ? stats.local.connections : 'n/a',
+        source: stats.local.source || 'n/a',
       },
     };
   } catch (error) {
+    console.error('[Logger] Error collecting database stats:', error.message);
     return {
       dev: {
         status: 'error',
