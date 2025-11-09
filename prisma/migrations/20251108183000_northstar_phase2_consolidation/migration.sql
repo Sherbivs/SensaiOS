@@ -135,7 +135,11 @@ DROP INDEX IF EXISTS "TrainerProfile_favoriteSpeciesId_idx";
 -- Drop the TrainerProfile table
 DROP TABLE IF EXISTS "TrainerProfile" CASCADE;
 
-RAISE NOTICE 'TrainerProfile table dropped successfully';
+-- Log table drop
+DO $$
+BEGIN
+    RAISE NOTICE 'TrainerProfile table dropped successfully';
+END $$;
 
 -- ============================================================================
 -- STEP 5: POST-MIGRATION VERIFICATION
