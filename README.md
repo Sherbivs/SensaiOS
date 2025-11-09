@@ -13,18 +13,19 @@ live-service economy powered by workers and data pipelines.
 
 ## Current Status & Goals
 
-**Phase 9 Complete** (2025-11-07): Repository is production-ready, centralized, standardized, and scalable. All quality metrics optimized:
+**Phase 9 Complete** (2025-11-08): Repository is production-ready, centralized, standardized, and scalable. All quality metrics optimized:
 - ✅ **Zero linter warnings** across TypeScript codebase
 - ✅ **Zero npm vulnerabilities**, all dependencies current
 - ✅ **Fast tests**: 293/294 passing (6.82s execution)
 - ✅ **Clean documentation**: 25 current docs + 6 archived
+- ✅ **Unified Render PostgreSQL**: Single managed database for all services (scalable to multi-DB when needed)
 - ✅ **Worker architecture**: Comprehensive scaling roadmap (see `docs/workers.md`)
 - ✅ **Deployment ready**: Full production checklist (see `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md`)
 
 **See `ops/REPO-OPTIMIZATION-REPORT.md` for comprehensive Phase 9 achievements.**
 
 **Short-term focus**:
-- Database replication architecture (Phase 16: DEV→PROD→Local cascade with version tracking)
+- Database replication architecture (Phase 16: Unified→Multi-DB expansion when infrastructure allows)
 - Worker scaling & cost optimization (Phase 10+: battle pool, encounter generator)
 - Operational hardening (monitoring, alerting via `/ops stats` + `/ops cache`)
 
@@ -34,7 +35,7 @@ live-service economy powered by workers and data pipelines.
 
 - **Discord Bot Layer:** `src/bot/**` manages slash commands, DM experiences, arena threads, ops tooling, and router-driven routing metadata.
 - **Core Engine:** `src/core/**` executes deterministic battle and encounter logic, keeping shared math and status systems separate from the Discord layer.
-- **Data & Persistence:** Prisma schema (`prisma/schema.prisma`) persists trainers, parties, encounters, and battles; worker scripts refresh cached reference data under `/data`.
+- **Data & Persistence:** Prisma schema (`prisma/schema.prisma`) persists trainers, parties, encounters, and battles; unified Render-managed PostgreSQL (infinity-gauntlet-db) provides reliable cloud database with automatic migrations; worker scripts refresh cached reference data under `/data`.
 - **Automation & Guardrails:** `Patch.md`, `Tasklist.md`, and `Prompt.md` define the contract; scripts in `/ops` and `/scripts` enforce Refresh Vision, router indexes, and contract version gates.
 
 ## PBSL (Pokémon Buddy System Logics)
