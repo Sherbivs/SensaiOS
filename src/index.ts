@@ -47,6 +47,7 @@ import { engineCache } from "./services/engine-cache.js";
 import { engineWriteBuffer } from "./services/engine-write-buffer.js";
 import { startEngineWorkers, stopEngineWorkers, type EngineWorkersStatus } from "./workers/engine-workers.js";
 import { errorLearningWorker } from "./workers/error-learning-worker.js";
+import { resourceManager } from "./services/resource-manager.js";
 import { startResourceMonitoring, stopResourceMonitoring } from "./services/resource-monitor.js";
 
 // Record module import completion
@@ -801,6 +802,14 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.error("Error stopping resource monitor", error);
   }
   
+  // Shutdown Resource Manager (cleanup all tracked resources)
+  try {
+    log.info("Shutting down Resource Manager");
+    await resourceManager.shutdown();
+  } catch (error) {
+    log.error("Error during Resource Manager shutdown", error);
+  }
+  
   // Step 3: Flush write buffer (best-effort, emergency mode)
   try {
     log.info("Flushing Engine write buffer");
@@ -1135,6 +1144,10 @@ export async function boot(): Promise<void> {
         // Start error learning worker (hourly analysis)
         await errorLearningWorker.start();
         log.info("Error learning worker started");
+        
+        // Initialize Resource Manager (background leak detection every 5 minutes)
+        resourceManager.initialize();
+        log.info("Resource Manager initialized");
         
         // Start resource monitoring (twice-daily health checks)
         startResourceMonitoring();
