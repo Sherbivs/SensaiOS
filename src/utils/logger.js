@@ -17,6 +17,17 @@ const REFRESH_INTERVAL_MS = 15_000;
 const STATS_CHANGE_THRESHOLD = 0.1; // 10% change triggers re-print
 const LATENCY_CHANGE_THRESHOLD_MS = 5; // 5ms change triggers re-print
 
+// Metric unavailability reasons (for transparency)
+const METRIC_UNAVAILABLE = Object.freeze({
+  NOT_QUERIED_YET: 'not-queried-yet',      // Provider not initialized
+  INITIALIZING: 'initializing',             // Provider loading
+  NO_PROVIDER: 'no-provider',               // No stats provider available
+  QUERY_FAILED: 'query-failed',             // Stats query threw error
+  NOT_CONNECTED: 'not-connected',           // Database not connected
+  DISABLED: 'disabled',                     // Feature disabled
+  NOT_APPLICABLE: 'n/a',                    // Not relevant to this service
+});
+
 // ============================================================================
 // Database Stats Provider (Deferred Initialization)
 // ============================================================================
@@ -215,6 +226,7 @@ function collectNodeStats() {
 /**
  * Collect database connection statistics with health checks.
  * Initializes the database stats provider on first call.
+ * Returns metrics with explicit unavailability reasons when data cannot be queried.
  * @returns {Promise<object>} Database stats for PROD and LOCAL connections
  */
 async function collectDatabaseStats() {
@@ -225,18 +237,28 @@ async function collectDatabaseStats() {
   
   // Provider not loaded yet or unavailable
   if (typeof getDatabaseStats !== 'function') {
+    const reason = databaseStatsProvider === 'none' 
+      ? METRIC_UNAVAILABLE.NO_PROVIDER 
+      : METRIC_UNAVAILABLE.INITIALIZING;
+      
     return {
       prod: {
-        status: 'loading',
-        latency: 'n/a',
-        connections: 'n/a',
-        source: `(${databaseStatsProvider})`,
+        status: reason,
+        latency: null,
+        latencyReason: reason,
+        connections: null,
+        connectionsReason: reason,
+        source: null,
+        sourceReason: reason,
       },
       local: {
-        status: 'disabled',
-        latency: 'n/a',
-        connections: 'n/a',
-        source: 'n/a',
+        status: METRIC_UNAVAILABLE.DISABLED,
+        latency: null,
+        latencyReason: METRIC_UNAVAILABLE.DISABLED,
+        connections: null,
+        connectionsReason: METRIC_UNAVAILABLE.DISABLED,
+        source: null,
+        sourceReason: METRIC_UNAVAILABLE.DISABLED,
       },
     };
   }
@@ -248,51 +270,79 @@ async function collectDatabaseStats() {
     if (!stats || stats.error) {
       return {
         prod: {
-          status: 'initializing',
-          latency: 'n/a',
-          connections: 'n/a',
-          source: 'n/a',
+          status: METRIC_UNAVAILABLE.NOT_CONNECTED,
+          latency: null,
+          latencyReason: METRIC_UNAVAILABLE.NOT_CONNECTED,
+          connections: null,
+          connectionsReason: METRIC_UNAVAILABLE.NOT_CONNECTED,
+          source: null,
+          sourceReason: METRIC_UNAVAILABLE.NOT_CONNECTED,
         },
         local: {
-          status: 'disabled',
-          latency: 'n/a',
-          connections: 'n/a',
-          source: 'n/a',
+          status: METRIC_UNAVAILABLE.DISABLED,
+          latency: null,
+          latencyReason: METRIC_UNAVAILABLE.DISABLED,
+          connections: null,
+          connectionsReason: METRIC_UNAVAILABLE.DISABLED,
+          source: null,
+          sourceReason: METRIC_UNAVAILABLE.DISABLED,
         },
       };
     }
     
     // Format PROD stats (unified Render database - PRIMARY for all operations)
-    const prodLatency = stats.prod.latency !== null 
-      ? `${stats.prod.latency.toFixed(2)}ms` 
-      : 'n/a';
+    const prodLatency = stats.prod.latency !== null && stats.prod.latency !== undefined
+      ? stats.prod.latency
+      : null;
+    const prodLatencyReason = prodLatency === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null;
     
     // Extract database name from source if available
-    const prodSource = stats.prod.source 
-      ? extractDatabaseName(stats.prod.source)
-      : 'n/a';
+    const prodSource = stats.prod.source || null;
+    const prodSourceReason = prodSource === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null;
+    
+    const prodConnections = stats.prod.connections !== null && stats.prod.connections !== undefined
+      ? stats.prod.connections
+      : null;
+    const prodConnectionsReason = prodConnections === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null;
     
     // Format LOCAL stats (onPremiseDev - optional workstation development)
-    const localLatency = stats.onPremiseDev.latency !== null
-      ? `${stats.onPremiseDev.latency.toFixed(2)}ms`
-      : 'n/a';
+    const localLatency = stats.onPremiseDev.latency !== null && stats.onPremiseDev.latency !== undefined
+      ? stats.onPremiseDev.latency
+      : null;
+    const localLatencyReason = stats.onPremiseDev.status === 'disabled' 
+      ? METRIC_UNAVAILABLE.DISABLED 
+      : (localLatency === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
     
-    const localSource = stats.onPremiseDev.source
-      ? extractDatabaseName(stats.onPremiseDev.source)
-      : 'n/a';
+    const localSource = stats.onPremiseDev.source || null;
+    const localSourceReason = stats.onPremiseDev.status === 'disabled'
+      ? METRIC_UNAVAILABLE.DISABLED
+      : (localSource === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
+    
+    const localConnections = stats.onPremiseDev.connections !== null && stats.onPremiseDev.connections !== undefined
+      ? stats.onPremiseDev.connections
+      : null;
+    const localConnectionsReason = stats.onPremiseDev.status === 'disabled'
+      ? METRIC_UNAVAILABLE.DISABLED
+      : (localConnections === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
     
     return {
       prod: {
         status: stats.prod.status,
         latency: prodLatency,
-        connections: stats.prod.connections !== null ? stats.prod.connections : 'n/a',
-        source: prodSource,
+        latencyReason: prodLatencyReason,
+        connections: prodConnections,
+        connectionsReason: prodConnectionsReason,
+        source: prodSource ? extractDatabaseName(prodSource) : null,
+        sourceReason: prodSourceReason,
       },
       local: {
         status: stats.onPremiseDev.status,
         latency: localLatency,
-        connections: stats.onPremiseDev.connections !== null ? stats.onPremiseDev.connections : 'n/a',
-        source: localSource,
+        latencyReason: localLatencyReason,
+        connections: localConnections,
+        connectionsReason: localConnectionsReason,
+        source: localSource ? extractDatabaseName(localSource) : null,
+        sourceReason: localSourceReason,
       },
     };
   } catch (error) {
@@ -300,16 +350,22 @@ async function collectDatabaseStats() {
     console.warn('[logger] Error collecting database stats:', error.message);
     return {
       prod: {
-        status: 'error',
-        latency: 'n/a',
-        connections: 'n/a',
-        source: 'error',
+        status: METRIC_UNAVAILABLE.QUERY_FAILED,
+        latency: null,
+        latencyReason: METRIC_UNAVAILABLE.QUERY_FAILED,
+        connections: null,
+        connectionsReason: METRIC_UNAVAILABLE.QUERY_FAILED,
+        source: null,
+        sourceReason: METRIC_UNAVAILABLE.QUERY_FAILED,
       },
       local: {
-        status: 'disabled',
-        latency: 'n/a',
-        connections: 'n/a',
-        source: 'n/a',
+        status: METRIC_UNAVAILABLE.DISABLED,
+        latency: null,
+        latencyReason: METRIC_UNAVAILABLE.DISABLED,
+        connections: null,
+        connectionsReason: METRIC_UNAVAILABLE.DISABLED,
+        source: null,
+        sourceReason: METRIC_UNAVAILABLE.DISABLED,
       },
     };
   }
@@ -414,8 +470,25 @@ async function refreshStats() {
 }
 
 /**
+ * Format a metric value with explicit unavailability reason when null.
+ * @param {any} value - The metric value
+ * @param {string|null} reason - The unavailability reason (from METRIC_UNAVAILABLE)
+ * @param {function} formatter - Optional formatter for non-null values
+ * @returns {string} Formatted string declaring why metric is unavailable if null
+ */
+function formatMetric(value, reason, formatter = null) {
+  if (value === null || value === undefined) {
+    // Explicitly declare why metric cannot be queried
+    return `<unavailable: ${reason || 'unknown'}>`;
+  }
+  
+  return formatter ? formatter(value) : String(value);
+}
+
+/**
  * Print comprehensive stats to console.
  * Uses change detection to avoid spamming identical output.
+ * ALL metrics are either queried live or explicitly declared unavailable with reason.
  * @returns {Promise<void>}
  */
 async function printStats() {
@@ -437,7 +510,7 @@ async function printStats() {
   lines.push('');
   
   // -------------------------------------------------------------------------
-  // Node Stats - Clean format matching screenshot
+  // Node Stats - All metrics queried from Node.js runtime (process.memoryUsage, process.cpuUsage, process.uptime)
   // -------------------------------------------------------------------------
   lines.push('[NODE]');
   lines.push(`  Uptime: ${statsCache.node.uptime}`);
@@ -454,25 +527,39 @@ async function printStats() {
   lines.push('');
   
   // -------------------------------------------------------------------------
-  // Database Stats - Clean format matching screenshot
+  // Database Stats - Metrics queried from getDatabaseStats() or declared unavailable
   // -------------------------------------------------------------------------
   lines.push('[DATABASE]');
   
-  // PROD database
+  // PROD database - format with explicit unavailability reasons
   const prodStatus = statsCache.databases.prod.status.toUpperCase().padEnd(12);
-  const prodLatency = statsCache.databases.prod.latency;
-  const prodSource = statsCache.databases.prod.source || 'unknown';
-  lines.push(`  PROD  = ${prodStatus}  Latency: ${prodLatency.padEnd(10)}  Database: ${prodSource}`);
+  const prodLatency = formatMetric(
+    statsCache.databases.prod.latency,
+    statsCache.databases.prod.latencyReason,
+    (val) => `${val.toFixed(2)}ms`
+  );
+  const prodSource = formatMetric(
+    statsCache.databases.prod.source,
+    statsCache.databases.prod.sourceReason
+  );
+  lines.push(`  PROD  = ${prodStatus}  Latency: ${prodLatency.padEnd(30)}  Database: ${prodSource}`);
   
-  // LOCAL database
+  // LOCAL database - format with explicit unavailability reasons
   const localStatus = statsCache.databases.local.status.toUpperCase().padEnd(12);
-  const localLatency = statsCache.databases.local.latency;
-  const localSource = statsCache.databases.local.source || 'unknown';
-  lines.push(`  LOCAL = ${localStatus}  Latency: ${localLatency.padEnd(10)}  Database: ${localSource}`);
+  const localLatency = formatMetric(
+    statsCache.databases.local.latency,
+    statsCache.databases.local.latencyReason,
+    (val) => `${val.toFixed(2)}ms`
+  );
+  const localSource = formatMetric(
+    statsCache.databases.local.source,
+    statsCache.databases.local.sourceReason
+  );
+  lines.push(`  LOCAL = ${localStatus}  Latency: ${localLatency.padEnd(30)}  Database: ${localSource}`);
   lines.push('');
   
   // -------------------------------------------------------------------------
-  // Security Bot Stats (only if applicable to this service)
+  // Security Bot Stats (only if applicable to this service) - Metrics queried from global.securityBotState or declared unavailable
   // -------------------------------------------------------------------------
   if (statsCache.security !== null) {
     lines.push('[SECURITY BOT]');
@@ -480,14 +567,17 @@ async function printStats() {
     lines.push(`  Status: ${secStatus}`);
     
     if (secStatus === 'ONLINE') {
-      lines.push(`  Guilds: ${statsCache.security.guilds}`);
-      lines.push(`  Last Sweep: ${statsCache.security.lastSweep}`);
+      // All metrics queried from global.securityBotState
+      lines.push(`  Guilds: ${statsCache.security.guilds} (queried from client.guilds.cache.size)`);
+      lines.push(`  Last Sweep: ${statsCache.security.lastSweep} (queried from botState.timeline.events)`);
       lines.push('');
-      lines.push('  Lifetime Statistics:');
+      lines.push('  Lifetime Statistics (queried from botState.stats):');
       lines.push(`    Assignments: ${statsCache.security.assignments}`);
       lines.push(`    Failures:    ${statsCache.security.failures}`);
     } else if (secStatus === 'LOADING' || secStatus === 'INITIALIZING' || secStatus === 'CONNECTING') {
-      lines.push('  (Initializing...)');
+      lines.push('  <unavailable: bot-initializing>');
+    } else {
+      lines.push(`  <unavailable: ${statsCache.security.statusReason || 'unknown'}>`);
     }
     
     lines.push('');
@@ -502,14 +592,15 @@ async function printStats() {
 
 /**
  * Get formatted stats as string (for programmatic use).
- * @returns {Promise<string>} Formatted stats
+ * ALL metrics are either queried live or explicitly declared unavailable with reason.
+ * @returns {Promise<string>} Formatted stats with explicit unavailability declarations
  */
 async function getFormattedStats() {
   await refreshStats();
   
   const lines = [];
   
-  // Node Stats
+  // Node Stats - All metrics queried from Node.js runtime
   lines.push(`[NODE]`);
   lines.push(`  Uptime: ${statsCache.node.uptime}`);
   lines.push(`  Process: PID ${statsCache.node.pid} | ${statsCache.node.version}`);
@@ -518,10 +609,30 @@ async function getFormattedStats() {
   lines.push(`  CPU: User ${statsCache.node.cpu.user} | System ${statsCache.node.cpu.system}`);
   lines.push('');
   
-  // Database Stats
+  // Database Stats - Metrics queried from getDatabaseStats() or declared unavailable
   lines.push(`[DATABASE]`);
-  lines.push(`  PROD  → ${statsCache.databases.prod.status} | Latency: ${statsCache.databases.prod.latency} | ${statsCache.databases.prod.source}`);
-  lines.push(`  LOCAL → ${statsCache.databases.local.status} | Latency: ${statsCache.databases.local.latency} | ${statsCache.databases.local.source}`);
+  
+  const prodLatency = formatMetric(
+    statsCache.databases.prod.latency,
+    statsCache.databases.prod.latencyReason,
+    (val) => `${val.toFixed(2)}ms`
+  );
+  const prodSource = formatMetric(
+    statsCache.databases.prod.source,
+    statsCache.databases.prod.sourceReason
+  );
+  lines.push(`  PROD  → ${statsCache.databases.prod.status} | Latency: ${prodLatency} | ${prodSource}`);
+  
+  const localLatency = formatMetric(
+    statsCache.databases.local.latency,
+    statsCache.databases.local.latencyReason,
+    (val) => `${val.toFixed(2)}ms`
+  );
+  const localSource = formatMetric(
+    statsCache.databases.local.source,
+    statsCache.databases.local.sourceReason
+  );
+  lines.push(`  LOCAL → ${statsCache.databases.local.status} | Latency: ${localLatency} | ${localSource}`);
   
   return lines.join('\n');
 }
