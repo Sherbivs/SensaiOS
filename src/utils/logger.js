@@ -533,10 +533,9 @@ async function collectErrorStats() {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const stats = await errorTracker.getErrorStats(oneHourAgo);
     
-    // Get top 10 recent errors
-    const topErrors = await errorTracker.getRecentErrors({
-      limit: 10,
-      orderBy: 'lastSeen',
+    // Get top 10 recent errors (limit as first param, filters as second)
+    const topErrors = await errorTracker.getRecentErrors(10, {
+      since: oneHourAgo,
     });
     
     return {
