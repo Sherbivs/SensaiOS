@@ -449,6 +449,7 @@ class IntelligentLogger extends EventEmitter {
   private writeQueue: LogEntry[] = [];
   private writeInterval: NodeJS.Timeout | null = null;
   private isShuttingDown: boolean = false;
+  private errorStreamListener?: (event: LiveErrorEvent) => void; // MEMORY LEAK FIX: Store listener reference
   
   constructor() {
     super();
@@ -470,9 +471,7 @@ class IntelligentLogger extends EventEmitter {
     
     // Subscribe to error tracker live stream for automatic error logging
     this.subscribeToErrorStream();
-  }
-  
-  // --------------------------------------------------------------------------
+  }  // --------------------------------------------------------------------------
   // Public API
   // --------------------------------------------------------------------------
   
@@ -605,16 +604,29 @@ class IntelligentLogger extends EventEmitter {
   
   /**
    * Graceful shutdown
+   * MEMORY LEAK FIX: Remove event listeners to prevent accumulation
    */
   async shutdown(): Promise<void> {
+    console.info('[intelligent-logger] Shutting down...');
     this.isShuttingDown = true;
     
+    // Clear write interval
     if (this.writeInterval) {
       clearInterval(this.writeInterval);
       this.writeInterval = null;
     }
     
+    // MEMORY LEAK FIX: Remove error stream listener
+    if (this.errorStreamListener) {
+      liveErrorStream.off('error', this.errorStreamListener);
+      console.info('[intelligent-logger] Unsubscribed from error tracker live stream');
+      this.errorStreamListener = undefined;
+    }
+    
+    // Flush remaining logs to disk
     await this.flushToDisk();
+    
+    console.info('[intelligent-logger] Shutdown complete');
   }
   
   // --------------------------------------------------------------------------
@@ -801,10 +813,13 @@ class IntelligentLogger extends EventEmitter {
   /**
    * Subscribe to error tracker live stream for automatic error logging
    * Every error captured by error tracker is automatically logged with full context
+   * 
+   * MEMORY LEAK FIX: Store listener reference for cleanup on shutdown
    */
   private subscribeToErrorStream(): void {
     try {
-      liveErrorStream.on('error', (event: LiveErrorEvent) => {
+      // Create listener function and store reference for cleanup
+      this.errorStreamListener = (event: LiveErrorEvent) => {
         // Log error with enhanced context from error tracker
         const message = `[ERROR-TRACKER] ${event.errorName}: ${event.errorMessage}`;
         
@@ -845,7 +860,10 @@ class IntelligentLogger extends EventEmitter {
         
         // Log with ERROR level
         this.log('error', message, options);
-      });
+      };
+      
+      // Add listener to liveErrorStream
+      liveErrorStream.on('error', this.errorStreamListener);
       
       console.info('[intelligent-logger] Subscribed to error tracker live stream');
     } catch (error) {

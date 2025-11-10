@@ -54,6 +54,9 @@ export interface LiveErrorEvent {
 // Logger subscribes to this for real-time ERROR MONITORING section updates
 export const liveErrorStream = new EventEmitter();
 
+// Prevent listener memory leaks - set reasonable max (logger + tests + monitoring)
+liveErrorStream.setMaxListeners(5);
+
 /// ---- Error Types ----
 
 export type ErrorCategory = 
