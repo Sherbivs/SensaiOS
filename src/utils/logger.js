@@ -18,22 +18,34 @@ const STATS_CHANGE_THRESHOLD = 0.1; // 10% change triggers re-print
 const LATENCY_CHANGE_THRESHOLD_MS = 5; // 5ms change triggers re-print
 
 // ============================================================================
-// Database Stats Provider (Top-Level Initialization)
+// Database Stats Provider (Deferred Initialization)
 // ============================================================================
 
 let getDatabaseStats = null;
 let databaseStatsProvider = 'none';
+let databaseStatsInitialized = false;
 
-// Load database stats provider synchronously to avoid race conditions
-try {
-  // Try Prisma first (primary database client)
-  const prismaModule = await import('../shared/prisma.js');
-  if (typeof prismaModule.getDatabaseStats === 'function') {
-    getDatabaseStats = prismaModule.getDatabaseStats;
-    databaseStatsProvider = 'prisma';
-    console.info('[logger] Database stats provider: Prisma (primary)');
+/**
+ * Initialize database stats provider asynchronously.
+ * This is called once during the first stats collection to avoid top-level await.
+ */
+async function initializeDatabaseStatsProvider() {
+  if (databaseStatsInitialized) return;
+  databaseStatsInitialized = true;
+  
+  try {
+    // Try Prisma first (primary database client)
+    const prismaModule = await import('../shared/prisma.js');
+    if (typeof prismaModule.getDatabaseStats === 'function') {
+      getDatabaseStats = prismaModule.getDatabaseStats;
+      databaseStatsProvider = 'prisma';
+      console.info('[logger] Database stats provider: Prisma (primary)');
+      return;
+    }
+  } catch (prismaError) {
+    // Prisma not available, try fallback
   }
-} catch (prismaError) {
+  
   try {
     // Fallback to pg-connection if Prisma unavailable
     const pgModule = await import('../shared/pg-connection.js');
@@ -41,12 +53,14 @@ try {
       getDatabaseStats = pgModule.getDatabaseStats;
       databaseStatsProvider = 'pg-connection';
       console.info('[logger] Database stats provider: pg-connection (fallback)');
+      return;
     }
   } catch (pgError) {
-    console.warn('[logger] Database stats unavailable - both Prisma and pg-connection failed to load');
-    console.warn('[logger] Prisma error:', prismaError.message);
-    console.warn('[logger] pg-connection error:', pgError.message);
+    // Both providers unavailable
   }
+  
+  // If we get here, no provider is available
+  console.warn('[logger] Database stats unavailable - both Prisma and pg-connection failed to load');
 }
 
 // ============================================================================
@@ -200,10 +214,16 @@ function collectNodeStats() {
 
 /**
  * Collect database connection statistics with health checks.
- * @returns {object} Database stats for PROD and LOCAL connections
+ * Initializes the database stats provider on first call.
+ * @returns {Promise<object>} Database stats for PROD and LOCAL connections
  */
-function collectDatabaseStats() {
-  // Provider not loaded yet
+async function collectDatabaseStats() {
+  // Initialize provider on first call (deferred loading to avoid top-level await)
+  if (!databaseStatsInitialized) {
+    await initializeDatabaseStatsProvider();
+  }
+  
+  // Provider not loaded yet or unavailable
   if (typeof getDatabaseStats !== 'function') {
     return {
       prod: {
@@ -379,19 +399,16 @@ function collectSecurityBotStats() {
 
 /**
  * Refresh cached stats if refresh interval has elapsed.
+ * @returns {Promise<void>}
  */
-
-/**
- * Refresh cached stats if refresh interval has elapsed.
- */
-function refreshStats() {
+async function refreshStats() {
   const now = Date.now();
   if (now - statsCache.lastRefresh < REFRESH_INTERVAL_MS) {
     return;
   }
   
   statsCache.node = collectNodeStats();
-  statsCache.databases = collectDatabaseStats();
+  statsCache.databases = await collectDatabaseStats(); // Now async
   statsCache.security = collectSecurityBotStats();
   statsCache.lastRefresh = now;
 }
@@ -399,9 +416,10 @@ function refreshStats() {
 /**
  * Print comprehensive stats to console.
  * Uses change detection to avoid spamming identical output.
+ * @returns {Promise<void>}
  */
-function printStats() {
-  refreshStats();
+async function printStats() {
+  await refreshStats();
   
   // Skip printing if no significant changes detected
   if (!hasSignificantChange(statsCache, previousStats)) {
@@ -480,15 +498,10 @@ function printStats() {
 
 /**
  * Get formatted stats as string (for programmatic use).
- * @returns {string} Formatted stats
+ * @returns {Promise<string>} Formatted stats
  */
-
-/**
- * Get formatted stats as string (for programmatic use).
- * @returns {string} Formatted stats
- */
-function getFormattedStats() {
-  refreshStats();
+async function getFormattedStats() {
+  await refreshStats();
   
   const lines = [];
   
@@ -534,10 +547,10 @@ function log(level, message, context, options = {}) {
     }
   }
   
-  // Print stats on interval
+  // Print stats on interval (fire-and-forget)
   const now = Date.now();
   if (now - lastLogTime >= REFRESH_INTERVAL_MS) {
-    printStats();
+    printStats().catch(err => console.warn('[logger] Stats print failed:', err.message));
     lastLogTime = now;
   }
 }
@@ -565,14 +578,15 @@ function report(title, meta = {}, level = 'info') {
   
   console.log('');
   
-  // Print stats on interval
+  // Print stats on interval (fire-and-forget)
   const now = Date.now();
   if (now - lastLogTime >= REFRESH_INTERVAL_MS) {
-    printStats();
+    printStats().catch(err => console.warn('[logger] Stats print failed:', err.message));
     lastLogTime = now;
   }
 }
 
+// ============================================================================
 // ============================================================================
 // Auto-Refresh Management
 // ============================================================================
@@ -584,13 +598,14 @@ function report(title, meta = {}, level = 'info') {
 function startAutoRefresh() {
   if (logIntervalHandle) return;
   
-  // Initial stats collection and print
-  refreshStats();
-  printStats();
+  // Initial stats collection and print (fire-and-forget)
+  refreshStats()
+    .then(() => printStats())
+    .catch(err => console.warn('[logger] Initial stats failed:', err.message));
   
-  // Set up interval
+  // Set up interval with error handling
   logIntervalHandle = setInterval(() => {
-    printStats();
+    printStats().catch(err => console.warn('[logger] Stats refresh failed:', err.message));
   }, REFRESH_INTERVAL_MS);
   
   // Allow process to exit even if interval is active
