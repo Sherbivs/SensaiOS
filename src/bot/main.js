@@ -1307,7 +1307,9 @@ async function notifyServiceRestart() {
       return;
     }
     
-    let message = `🛡️ Security monitor restarted at ${new Date().toLocaleString()}.\nContinuous monitoring is active across ${client.guilds.cache.size} guild(s).`;
+    let message = `🛡️ **Security Monitor - System Status Report**\n`;
+    message += `Restarted at ${new Date().toLocaleString()}\n`;
+    message += `Continuous monitoring is active across ${client.guilds.cache.size} guild(s).`;
     
     // Add state persistence summary if available
     if (botState) {
@@ -1321,10 +1323,68 @@ async function notifyServiceRestart() {
       message += `\n• Permission changes detected: ${summary.totalPermissionChanges}`;
       message += `\n• Successful reverts: ${summary.successfulReverts}`;
       
+      // Add timeout configuration status
+      try {
+        const timeoutConfigPath = process.env.RENDER
+          ? '/Store/guild-member-timeout-config.json'
+          : './Store/guild-member-timeout-config.json';
+        if (fs.existsSync(timeoutConfigPath)) {
+          const timeoutConfig = JSON.parse(fs.readFileSync(timeoutConfigPath, 'utf8'));
+          const timeoutSeconds = (timeoutConfig.timeoutMs / 1000).toFixed(1);
+          message += `\n\n⚙️ **Configuration**`;
+          message += `\n• Member fetch timeout: ${timeoutSeconds}s (${timeoutConfig.adjustments || 0} auto-adjustments)`;
+          if (timeoutConfig.adjustments > 0) {
+            message += `\n• Last adjusted: ${timeoutConfig.lastAdjusted ? new Date(timeoutConfig.lastAdjusted).toLocaleString() : 'unknown'}`;
+          }
+        }
+      } catch (err) {
+        // Skip timeout config if unavailable
+      }
+      
+      // Add guild-level health summary
+      if (botState.guilds && Object.keys(botState.guilds).length > 0) {
+        const guildsList = Object.values(botState.guilds);
+        const activeGuilds = guildsList.filter(g => g.monitoring);
+        const recentSweeps = guildsList.filter(g => {
+          if (!g.lastSweep) return false;
+          const lastSweepTime = new Date(g.lastSweep).getTime();
+          const hourAgo = Date.now() - (60 * 60 * 1000);
+          return lastSweepTime > hourAgo;
+        });
+        
+        message += `\n\n🏰 **Guild Health**`;
+        message += `\n• Active monitoring: ${activeGuilds.length}/${guildsList.length} guilds`;
+        message += `\n• Swept in last hour: ${recentSweeps.length} guilds`;
+        
+        // List guilds with their sweep counts
+        if (guildsList.length <= 5) {
+          for (const guild of guildsList) {
+            const sweepCount = guild.sweepCount || 0;
+            const alertCount = guild.alertCount || 0;
+            message += `\n  • ${guild.name}: ${sweepCount} sweeps, ${alertCount} alerts`;
+          }
+        }
+      }
+      
       // Add recent activity timeline
       const recentActivity = getRecentActivitySummary(botState, 5);
       if (recentActivity && recentActivity !== 'No recent activity before restart') {
         message += `\n\n📜 **Recent Activity Before Restart**\n${recentActivity}`;
+      }
+      
+      // Add error summary if any errors recorded
+      if (botState.timeline && Array.isArray(botState.timeline)) {
+        const recentErrors = botState.timeline
+          .filter(e => e.type === 'error')
+          .slice(0, 3);
+        
+        if (recentErrors.length > 0) {
+          message += `\n\n⚠️ **Recent Errors** (last ${recentErrors.length})`;
+          for (const error of recentErrors) {
+            const timeAgo = Math.round((Date.now() - new Date(error.timestamp).getTime()) / 1000 / 60);
+            message += `\n• ${timeAgo}m ago: ${error.details?.error || 'Unknown error'}`;
+          }
+        }
       }
     }
     
