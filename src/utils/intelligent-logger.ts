@@ -17,6 +17,8 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { liveErrorStream, type LiveErrorEvent } from '../services/error-tracker.js';
+import type { ParsedStackTrace, StackFrame } from './stack-trace-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -75,6 +77,23 @@ export interface LogEntry {
       stack: string;
       fingerprint: string;
       cause?: any;
+      // Enhanced with stack trace parsing
+      stackMetadata?: {
+        depth: number;
+        topFrame?: {
+          file: string | null;
+          line: number | null;
+          column: number | null;
+          function: string | null;
+        };
+        callChain: string[];
+        userCodeFrames: number;
+      };
+      sourceLocation?: {
+        file: string;
+        line: number;
+        column: number | null;
+      };
     };
     tags?: string[];
   };
@@ -448,6 +467,9 @@ class IntelligentLogger extends EventEmitter {
     this.ensureLogDirectory().catch(err => {
       console.error('[intelligent-logger] Failed to create log directory:', err);
     });
+    
+    // Subscribe to error tracker live stream for automatic error logging
+    this.subscribeToErrorStream();
   }
   
   // --------------------------------------------------------------------------
@@ -773,6 +795,61 @@ class IntelligentLogger extends EventEmitter {
       } catch (fallbackError) {
         console.error('[intelligent-logger] Emergency fallback also failed:', fallbackError);
       }
+    }
+  }
+  
+  /**
+   * Subscribe to error tracker live stream for automatic error logging
+   * Every error captured by error tracker is automatically logged with full context
+   */
+  private subscribeToErrorStream(): void {
+    try {
+      liveErrorStream.on('error', (event: LiveErrorEvent) => {
+        // Log error with enhanced context from error tracker
+        const message = `[ERROR-TRACKER] ${event.errorName}: ${event.errorMessage}`;
+        
+        const options: LogOptions = {
+          category: 'ERROR',
+          data: {
+            errorId: event.errorId,
+            fingerprint: event.fingerprint,
+            severity: event.severity,
+            category: event.category,
+          },
+        };
+        
+        // Add stack trace metadata if available
+        if (event.parsedStack) {
+          options.data!.stackMetadata = {
+            depth: event.parsedStack.depth,
+            topFrame: event.topFrame ? {
+              file: event.topFrame.relativeFilePath || event.topFrame.filePath,
+              line: event.topFrame.lineNumber,
+              column: event.topFrame.columnNumber,
+              function: event.topFrame.functionName,
+            } : null,
+            callChain: event.callChain || event.parsedStack.callChain,
+            userCodeFrames: event.parsedStack.userCodeFrames.length,
+          };
+        }
+        
+        // Add source location if available
+        if (event.sourceLocation) {
+          options.data!.sourceLocation = event.sourceLocation;
+        }
+        
+        // Add context from error tracker
+        if (event.context) {
+          options.data!.errorContext = event.context;
+        }
+        
+        // Log with ERROR level
+        this.log('error', message, options);
+      });
+      
+      console.info('[intelligent-logger] Subscribed to error tracker live stream');
+    } catch (error) {
+      console.error('[intelligent-logger] Failed to subscribe to error stream:', error);
     }
   }
 }

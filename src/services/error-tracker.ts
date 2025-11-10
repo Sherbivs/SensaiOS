@@ -18,6 +18,15 @@ import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { prisma } from '../shared/prisma.js';
 import type { ErrorLog, ErrorAlert } from '@prisma/client';
+import {
+  parseStackTrace,
+  enrichStackFramesWithSource,
+  captureErrorContextSnapshot,
+  formatErrorReportForAI,
+  type ParsedStackTrace,
+  type ErrorContextSnapshot,
+  type StackFrame,
+} from '../utils/stack-trace-parser.js';
 
 /// ---- Live Error Stream ----
 
@@ -30,6 +39,15 @@ export interface LiveErrorEvent {
   errorMessage: string;
   timestamp: string;
   context: Record<string, any>;
+  // Enhanced with stack trace parsing
+  parsedStack?: ParsedStackTrace;
+  topFrame?: StackFrame | null;
+  sourceLocation?: {
+    file: string;
+    line: number;
+    column: number | null;
+  };
+  callChain?: string[];
 }
 
 // Global event emitter for live error streaming
@@ -224,14 +242,31 @@ export class ErrorTracker {
    * CRITICAL: This is a LIVE operation - NO CACHING, NO DELAYS
    * Every error must be captured immediately to ensure zero false negatives
    * 
+   * ENHANCED: Now includes advanced stack trace parsing with:
+   * - File paths, line numbers, column numbers
+   * - Source code snippets around error location
+   * - Call chain reconstruction
+   * - AI-optimized troubleshooting hints
+   * 
    * @returns errorId of created or updated ErrorLog entry
    */
   async captureError(error: Error, context: ErrorContext = {}): Promise<string> {
     // IMMEDIATE console output for live visibility (before any async operations)
     const timestamp = new Date().toISOString();
+    
+    // Parse stack trace IMMEDIATELY (synchronous operation)
+    const parsedStack = parseStackTrace(error);
+    const topFrame = parsedStack.topFrame;
+    
+    // Enhanced console output with source location
     console.error(`\n🚨 [ERROR CAPTURED] ${timestamp}`);
     console.error(`   Type: ${error.name}`);
     console.error(`   Message: ${error.message}`);
+    if (topFrame?.relativeFilePath) {
+      console.error(`   Location: ${topFrame.relativeFilePath}:${topFrame.lineNumber}:${topFrame.columnNumber}`);
+      console.error(`   Function: ${topFrame.functionName || '<anonymous>'}`);
+    }
+    console.error(`   Call Chain: ${parsedStack.callChain.slice(0, 3).join(' → ')}`);
     console.error(`   Context: ${JSON.stringify({
       service: context.service,
       operation: context.operation,
@@ -245,7 +280,16 @@ export class ErrorTracker {
       const severity = classifySeverity(error, context);
       const fingerprint = generateFingerprint(error, category);
       
-      // Enrich context with automatic detection
+      // Enrich stack frames with source code snippets (async, but non-blocking)
+      // Run in background to avoid blocking error capture
+      enrichStackFramesWithSource(parsedStack.frames).then(enriched => {
+        parsedStack.frames = enriched;
+      }).catch(err => {
+        // Source enrichment failed - not critical, continue
+        console.warn('[ErrorTracker] Source enrichment failed:', err.message);
+      });
+      
+      // Enrich context with automatic detection + stack trace metadata
       const enrichedContext = {
         ...context,
         category,
@@ -253,6 +297,18 @@ export class ErrorTracker {
         timestamp,
         nodeVersion: process.version,
         platform: process.platform,
+        // Stack trace metadata for AI analysis
+        stackMetadata: {
+          depth: parsedStack.depth,
+          topFrame: topFrame ? {
+            file: topFrame.relativeFilePath || topFrame.filePath,
+            line: topFrame.lineNumber,
+            column: topFrame.columnNumber,
+            function: topFrame.functionName,
+          } : null,
+          callChain: parsedStack.callChain,
+          userCodeFrames: parsedStack.userCodeFrames.length,
+        },
       };
       
       // LIVE DATABASE WRITE - No caching layer, direct to PostgreSQL
@@ -262,7 +318,7 @@ export class ErrorTracker {
         update: {
           lastSeen: new Date(),
           occurrenceCount: { increment: 1 },
-          contextData: enrichedContext as any, // Store latest context
+          contextData: enrichedContext as any, // Store latest context with stack metadata
         },
         create: {
           fingerprint,
@@ -277,7 +333,7 @@ export class ErrorTracker {
         },
       });
       
-      // Emit to live error stream for immediate logger visibility
+      // Emit to live error stream for immediate logger visibility (with parsed stack)
       this.emitToLiveStream({
         errorId: result.errorId,
         fingerprint,
@@ -287,9 +343,24 @@ export class ErrorTracker {
         errorMessage: error.message,
         timestamp,
         context: enrichedContext,
+        // Enhanced fields for logger integration
+        parsedStack,
+        topFrame,
+        sourceLocation: topFrame?.relativeFilePath ? {
+          file: topFrame.relativeFilePath,
+          line: topFrame.lineNumber!,
+          column: topFrame.columnNumber,
+        } : undefined,
+        callChain: parsedStack.callChain,
       });
       
       console.error(`   ✅ Persisted: ${result.errorId} (fingerprint: ${fingerprint.substring(0, 8)}...)`);
+      
+      // Generate AI-optimized error report (async, fire-and-forget)
+      // Write to Store/error-reports/ for SSH analysis
+      this.generateAndStoreAIReport(error, parsedStack, enrichedContext, fingerprint).catch((err: Error) => {
+        console.warn('[ErrorTracker] AI report generation failed:', err.message);
+      });
       
       return result.errorId;
     } catch (captureError) {
@@ -302,7 +373,7 @@ export class ErrorTracker {
       console.error('   Context:', JSON.stringify(context, null, 2));
       
       // Fallback: Write to emergency error log file (backup persistence)
-      this.writeToEmergencyLog(error, context, captureError);
+      this.writeToEmergencyLog(error, context, captureError, parsedStack);
       
       return 'capture-failed';
     }
@@ -514,13 +585,51 @@ export class ErrorTracker {
   }
   
   /**
+   * Generate AI-optimized error report and store to disk
+   * Runs in background (fire-and-forget) to avoid blocking error capture
+   */
+  private async generateAndStoreAIReport(
+    error: Error,
+    parsedStack: ParsedStackTrace,
+    context: Record<string, any>,
+    fingerprint: string
+  ): Promise<void> {
+    try {
+      const reportsDir = path.join(process.cwd(), 'Store', 'error-reports');
+      await fs.mkdir(reportsDir, { recursive: true });
+      
+      // Capture full error context snapshot
+      const snapshot = await captureErrorContextSnapshot(error, {
+        ...context,
+        fingerprint,
+      });
+      
+      // Generate AI-optimized report
+      const report = formatErrorReportForAI(snapshot);
+      
+      // Write to disk with fingerprint-based filename (for deduplication)
+      const shortFingerprint = fingerprint.substring(0, 12);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `error-${shortFingerprint}-${timestamp}.md`;
+      const filepath = path.join(reportsDir, filename);
+      
+      await fs.writeFile(filepath, report, 'utf-8');
+      console.error(`   📊 AI Report: ${filepath}`);
+    } catch (reportError) {
+      // Report generation failed - not critical
+      console.warn('[ErrorTracker] AI report generation failed:', reportError);
+    }
+  }
+  
+  /**
    * Write error to emergency log file as last-resort fallback
    * Ensures ZERO false negatives even if database and live stream fail
    */
   private async writeToEmergencyLog(
     error: Error,
     context: ErrorContext,
-    captureError: unknown
+    captureError: unknown,
+    parsedStack?: ParsedStackTrace
   ): Promise<void> {
     try {
       const emergencyDir = path.join(process.cwd(), 'Store', 'emergency-error-logs');
@@ -545,6 +654,17 @@ export class ErrorTracker {
         } : String(captureError),
         nodeVersion: process.version,
         platform: process.platform,
+        // Include parsed stack trace if available
+        stackMetadata: parsedStack ? {
+          depth: parsedStack.depth,
+          topFrame: parsedStack.topFrame ? {
+            file: parsedStack.topFrame.relativeFilePath || parsedStack.topFrame.filePath,
+            line: parsedStack.topFrame.lineNumber,
+            column: parsedStack.topFrame.columnNumber,
+            function: parsedStack.topFrame.functionName,
+          } : null,
+          callChain: parsedStack.callChain,
+        } : null,
       };
       
       await fs.writeFile(filepath, JSON.stringify(emergencyEntry, null, 2));
