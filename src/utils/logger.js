@@ -1,6 +1,10 @@
 import os from 'node:os';
 import { performance } from 'node:perf_hooks';
 
+// ============================================================================
+// Constants & Configuration
+// ============================================================================
+
 const LOG_LABEL = Object.freeze({
   success: 'SUCCESS',
   info: 'INFO',
@@ -10,36 +14,67 @@ const LOG_LABEL = Object.freeze({
 });
 
 const REFRESH_INTERVAL_MS = 15_000;
-const SPACER = '';
+const STATS_CHANGE_THRESHOLD = 0.1; // 10% change triggers re-print
+const LATENCY_CHANGE_THRESHOLD_MS = 5; // 5ms change triggers re-print
+
+// ============================================================================
+// Database Stats Provider (Top-Level Initialization)
+// ============================================================================
 
 let getDatabaseStats = null;
+let databaseStatsProvider = 'none';
 
-// Dynamically load getDatabaseStats from pg-connection when available
-(async () => {
-  try {
-    // Try pg-connection first (new PostgreSQL pool architecture)
-    const pgConnectionModule = await import('../shared/pg-connection.js');
-    if (typeof pgConnectionModule.getDatabaseStats === 'function') {
-      getDatabaseStats = pgConnectionModule.getDatabaseStats;
-      return;
-    }
-  } catch (error) {
-    // pg-connection not available, try Prisma fallback
+// Load database stats provider synchronously to avoid race conditions
+try {
+  // Try Prisma first (primary database client)
+  const prismaModule = await import('../shared/prisma.js');
+  if (typeof prismaModule.getDatabaseStats === 'function') {
+    getDatabaseStats = prismaModule.getDatabaseStats;
+    databaseStatsProvider = 'prisma';
+    console.info('[logger] Database stats provider: Prisma (primary)');
   }
-  
+} catch (prismaError) {
   try {
-    // Fallback to Prisma (legacy)
-    const prismaModule = await import('../shared/prisma.js');
-    if (typeof prismaModule.getDatabaseStats === 'function') {
-      getDatabaseStats = prismaModule.getDatabaseStats;
+    // Fallback to pg-connection if Prisma unavailable
+    const pgModule = await import('../shared/pg-connection.js');
+    if (typeof pgModule.getDatabaseStats === 'function') {
+      getDatabaseStats = pgModule.getDatabaseStats;
+      databaseStatsProvider = 'pg-connection';
+      console.info('[logger] Database stats provider: pg-connection (fallback)');
     }
-  } catch (error) {
-    // Database stats not available
+  } catch (pgError) {
+    console.warn('[logger] Database stats unavailable - both Prisma and pg-connection failed to load');
+    console.warn('[logger] Prisma error:', prismaError.message);
+    console.warn('[logger] pg-connection error:', pgError.message);
   }
-})();
+}
+
+// ============================================================================
+// Service Detection
+// ============================================================================
+
+/**
+ * Detect which Render service this process is running in.
+ * Used to conditionally show/hide service-specific stats.
+ */
+function detectServiceType() {
+  const serviceName = process.env.RENDER_SERVICE_NAME || process.env.SERVICE_NAME || '';
+  return {
+    isSecurityBot: serviceName.includes('security'),
+    isMainBot: serviceName.includes('bots') && !serviceName.includes('security'),
+    isWorker: serviceName.includes('worker') || serviceName.includes('cache') || serviceName.includes('data-pipeline'),
+    isWeb: serviceName.includes('web') || serviceName === 'infinity-gauntlet-bot',
+    serviceName: serviceName || 'unknown',
+  };
+}
+
+// ============================================================================
+// State Management
+// ============================================================================
 
 let logIntervalHandle = null;
 let lastLogTime = 0;
+let previousStats = null; // Track previous stats for change detection
 let statsCache = {
   node: null,
   databases: null,
@@ -47,6 +82,15 @@ let statsCache = {
   lastRefresh: 0,
 };
 
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Format bytes into human-readable string.
+ * @param {number} bytes - Number of bytes
+ * @returns {string} Formatted string (e.g., "154.02 MB")
+ */
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB'];
@@ -54,6 +98,11 @@ function formatBytes(bytes) {
   return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${units[i]}`;
 }
 
+/**
+ * Format milliseconds into human-readable uptime.
+ * @param {number} ms - Milliseconds
+ * @returns {string} Formatted uptime (e.g., "2m 34s")
+ */
 function formatUptime(ms) {
   if (!Number.isFinite(ms) || ms < 0) return '0s';
   const seconds = Math.floor(ms / 1000);
@@ -67,6 +116,66 @@ function formatUptime(ms) {
   return `${seconds}s`;
 }
 
+/**
+ * Extract database name from connection string for observability.
+ * @param {string} connectionString - Database URL
+ * @returns {string} Database name or 'unknown'
+ */
+function extractDatabaseName(connectionString) {
+  if (!connectionString || typeof connectionString !== 'string') {
+    return 'unknown';
+  }
+  
+  try {
+    // PostgreSQL URL format: postgresql://user:pass@host:port/dbname?params
+    const match = connectionString.match(/\/([^/?]+)(\?|$)/);
+    if (match && match[1]) {
+      return match[1];
+    }
+  } catch (error) {
+    // Ignore parsing errors
+  }
+  
+  return 'unknown';
+}
+
+/**
+ * Check if stats have changed significantly (for deduplication).
+ * @param {object} current - Current stats
+ * @param {object} previous - Previous stats
+ * @returns {boolean} True if significant change detected
+ */
+function hasSignificantChange(current, previous) {
+  if (!previous) return true; // First run
+  
+  // Check database status changes
+  if (current.databases.prod.status !== previous.databases.prod.status) return true;
+  if (current.databases.local.status !== previous.databases.local.status) return true;
+  
+  // Check latency changes (>5ms difference)
+  const currentProdLatency = parseFloat(current.databases.prod.latency) || 0;
+  const previousProdLatency = parseFloat(previous.databases.prod.latency) || 0;
+  if (Math.abs(currentProdLatency - previousProdLatency) > LATENCY_CHANGE_THRESHOLD_MS) return true;
+  
+  // Check security bot status changes
+  if (current.security.status !== previous.security.status) return true;
+  
+  return false;
+}
+
+// ============================================================================
+// Stats Collection Functions
+// ============================================================================
+
+/**
+ * Collect Node.js process statistics.
+ * @returns {object} Node stats (uptime, memory, CPU, PID, version)
+ */
+
+/**
+ * Collect Node.js process statistics.
+ * @returns {object} Node stats (uptime, memory, CPU, PID, version)
+ */
 function collectNodeStats() {
   const mem = process.memoryUsage();
   const cpu = process.cpuUsage();
@@ -89,14 +198,19 @@ function collectNodeStats() {
   };
 }
 
+/**
+ * Collect database connection statistics with health checks.
+ * @returns {object} Database stats for PROD and LOCAL connections
+ */
 function collectDatabaseStats() {
+  // Provider not loaded yet
   if (typeof getDatabaseStats !== 'function') {
     return {
       prod: {
         status: 'loading',
         latency: 'n/a',
         connections: 'n/a',
-        source: 'n/a',
+        source: `(${databaseStatsProvider})`,
       },
       local: {
         status: 'disabled',
@@ -110,7 +224,7 @@ function collectDatabaseStats() {
   try {
     const stats = getDatabaseStats();
     
-    // If connection not initialized, return 'initializing' instead of error
+    // Connection not initialized yet
     if (!stats || stats.error) {
       return {
         prod: {
@@ -133,9 +247,18 @@ function collectDatabaseStats() {
       ? `${stats.prod.latency.toFixed(2)}ms` 
       : 'n/a';
     
+    // Extract database name from source if available
+    const prodSource = stats.prod.source 
+      ? extractDatabaseName(stats.prod.source)
+      : 'n/a';
+    
     // Format LOCAL stats (onPremiseDev - optional workstation development)
     const localLatency = stats.onPremiseDev.latency !== null
       ? `${stats.onPremiseDev.latency.toFixed(2)}ms`
+      : 'n/a';
+    
+    const localSource = stats.onPremiseDev.source
+      ? extractDatabaseName(stats.onPremiseDev.source)
       : 'n/a';
     
     return {
@@ -143,37 +266,44 @@ function collectDatabaseStats() {
         status: stats.prod.status,
         latency: prodLatency,
         connections: stats.prod.connections !== null ? stats.prod.connections : 'n/a',
-        source: stats.prod.source || 'n/a',
+        source: prodSource,
       },
       local: {
         status: stats.onPremiseDev.status,
         latency: localLatency,
         connections: stats.onPremiseDev.connections !== null ? stats.onPremiseDev.connections : 'n/a',
-        source: stats.onPremiseDev.source || 'n/a',
+        source: localSource,
       },
     };
   } catch (error) {
-    // Don't log errors during initialization - connection may not be ready yet
+    // Catch-all for unexpected errors during stats collection
+    console.warn('[logger] Error collecting database stats:', error.message);
     return {
       prod: {
-        status: 'initializing',
+        status: 'error',
         latency: 'n/a',
         connections: 'n/a',
-        source: 'n/a',
+        source: 'error',
       },
       local: {
         status: 'disabled',
         latency: 'n/a',
         connections: 'n/a',
-        source: 'error',
+        source: 'n/a',
       },
     };
   }
 }
 
+/**
+ * Collect security bot statistics.
+ * Returns null if security bot is not applicable to this service.
+ * @returns {object|null} Security bot stats or null if not applicable
+ */
 function collectSecurityBotStats() {
+  const serviceInfo = detectServiceType();
+  
   // Check if we're running INSIDE the security bot process
-  // by looking for global state that security bot sets up
   if (typeof global.securityBotState === 'object' && global.securityBotState) {
     const botState = global.securityBotState;
     const client = global.securityBotClient;
@@ -188,7 +318,7 @@ function collectSecurityBotStats() {
       const totalPermissionChanges = botState.stats.totalPermissionChanges || 0;
       const totalAlerts = botState.stats.totalAlerts || 0;
       
-      // Get last sweep time from timeline or guild context
+      // Get last sweep time from timeline
       let lastSweepTime = 'never';
       if (botState.timeline?.events?.length > 0) {
         const sweepEvents = botState.timeline.events
@@ -227,16 +357,33 @@ function collectSecurityBotStats() {
     };
   }
   
-  // Not running in security bot process - return disabled status
-  return {
-    status: 'n/a',
-    guilds: 'n/a',
-    lastSweep: 'n/a',
-    assignments: 'n/a',
-    failures: 'n/a',
-  };
+  // Check if this service SHOULD run security bot
+  if (serviceInfo.isSecurityBot) {
+    // Expected to run but not initialized yet
+    return {
+      status: 'loading',
+      guilds: 0,
+      lastSweep: 'n/a',
+      assignments: 0,
+      failures: 0,
+    };
+  }
+  
+  // Security bot not applicable to this service - hide section
+  return null;
 }
 
+// ============================================================================
+// Stats Display Functions
+// ============================================================================
+
+/**
+ * Refresh cached stats if refresh interval has elapsed.
+ */
+
+/**
+ * Refresh cached stats if refresh interval has elapsed.
+ */
 function refreshStats() {
   const now = Date.now();
   if (now - statsCache.lastRefresh < REFRESH_INTERVAL_MS) {
@@ -249,8 +396,20 @@ function refreshStats() {
   statsCache.lastRefresh = now;
 }
 
+/**
+ * Print comprehensive stats to console.
+ * Uses change detection to avoid spamming identical output.
+ */
 function printStats() {
   refreshStats();
+  
+  // Skip printing if no significant changes detected
+  if (!hasSignificantChange(statsCache, previousStats)) {
+    return;
+  }
+  
+  // Store current stats for next comparison
+  previousStats = JSON.parse(JSON.stringify(statsCache));
   
   const lines = [];
   
@@ -258,7 +417,9 @@ function printStats() {
   lines.push('═══════════════════════════════════════════════════════════════════════════');
   lines.push('');
   
+  // -------------------------------------------------------------------------
   // Node Stats
+  // -------------------------------------------------------------------------
   lines.push(`[NODE]`);
   lines.push(`  Uptime: ${statsCache.node.uptime}`);
   lines.push(`  Process: PID ${statsCache.node.pid} | ${statsCache.node.version}`);
@@ -273,7 +434,9 @@ function printStats() {
   lines.push(`    System: ${statsCache.node.cpu.system}`);
   lines.push('');
   
+  // -------------------------------------------------------------------------
   // Database Stats
+  // -------------------------------------------------------------------------
   lines.push(`[DATABASE]`);
   
   const prodStatus = statsCache.databases.prod.status.toUpperCase().padEnd(12);
@@ -287,29 +450,43 @@ function printStats() {
   lines.push(`  LOCAL → ${localStatus} Latency: ${localLatency} Database: ${localSource}`);
   lines.push('');
   
-  // Security Bot Stats
-  lines.push(`[SECURITY BOT]`);
-  const secStatus = String(statsCache.security.status).toUpperCase();
-  lines.push(`  Status: ${secStatus}`);
-  
-  if (secStatus !== 'N/A' && secStatus !== 'INITIALIZING') {
-    lines.push(`  Guilds: ${statsCache.security.guilds}`);
-    lines.push(`  Last Sweep: ${statsCache.security.lastSweep}`);
-    lines.push(``);
-    lines.push(`  Lifetime Statistics:`);
-    lines.push(`    Assignments: ${statsCache.security.assignments}`);
-    lines.push(`    Failures:    ${statsCache.security.failures}`);
-  } else if (secStatus === 'N/A') {
-    lines.push(`  (Security bot disabled)`);
+  // -------------------------------------------------------------------------
+  // Security Bot Stats (only if applicable to this service)
+  // -------------------------------------------------------------------------
+  if (statsCache.security !== null) {
+    lines.push(`[SECURITY BOT]`);
+    const secStatus = String(statsCache.security.status).toUpperCase();
+    lines.push(`  Status: ${secStatus}`);
+    
+    if (secStatus === 'ONLINE') {
+      lines.push(`  Guilds: ${statsCache.security.guilds}`);
+      lines.push(`  Last Sweep: ${statsCache.security.lastSweep}`);
+      lines.push(``);
+      lines.push(`  Lifetime Statistics:`);
+      lines.push(`    Assignments: ${statsCache.security.assignments}`);
+      lines.push(`    Failures:    ${statsCache.security.failures}`);
+    } else if (secStatus === 'LOADING' || secStatus === 'INITIALIZING' || secStatus === 'CONNECTING') {
+      lines.push(`  (Initializing...)`);
+    }
+    
+    lines.push('');
   }
   
-  lines.push('');
   lines.push('───────────────────────────────────────────────────────────────────────────');
   lines.push('');
   
   console.log(lines.join('\n'));
 }
 
+/**
+ * Get formatted stats as string (for programmatic use).
+ * @returns {string} Formatted stats
+ */
+
+/**
+ * Get formatted stats as string (for programmatic use).
+ * @returns {string} Formatted stats
+ */
 function getFormattedStats() {
   refreshStats();
   
@@ -332,6 +509,17 @@ function getFormattedStats() {
   return lines.join('\n');
 }
 
+// ============================================================================
+// Logging Functions
+// ============================================================================
+
+/**
+ * Log a message with context and automatic stats refresh.
+ * @param {string} level - Log level (info, warn, error, success, detail)
+ * @param {string} message - Log message
+ * @param {object} context - Optional context object to display
+ * @param {object} options - Optional configuration
+ */
 function log(level, message, context, options = {}) {
   const label = LOG_LABEL[level] || LOG_LABEL.info;
   
@@ -346,6 +534,7 @@ function log(level, message, context, options = {}) {
     }
   }
   
+  // Print stats on interval
   const now = Date.now();
   if (now - lastLogTime >= REFRESH_INTERVAL_MS) {
     printStats();
@@ -353,6 +542,12 @@ function log(level, message, context, options = {}) {
   }
 }
 
+/**
+ * Report a structured event with metadata.
+ * @param {string} title - Report title
+ * @param {object} meta - Metadata key-value pairs
+ * @param {string} level - Log level (default: 'info')
+ */
 function report(title, meta = {}, level = 'info') {
   const label = LOG_LABEL[level] || LOG_LABEL.info;
   
@@ -370,6 +565,7 @@ function report(title, meta = {}, level = 'info') {
   
   console.log('');
   
+  // Print stats on interval
   const now = Date.now();
   if (now - lastLogTime >= REFRESH_INTERVAL_MS) {
     printStats();
@@ -377,21 +573,35 @@ function report(title, meta = {}, level = 'info') {
   }
 }
 
+// ============================================================================
+// Auto-Refresh Management
+// ============================================================================
+
+/**
+ * Start automatic stats refresh on interval.
+ * Stats will be printed every REFRESH_INTERVAL_MS if significant changes detected.
+ */
 function startAutoRefresh() {
   if (logIntervalHandle) return;
   
+  // Initial stats collection and print
   refreshStats();
   printStats();
   
+  // Set up interval
   logIntervalHandle = setInterval(() => {
     printStats();
   }, REFRESH_INTERVAL_MS);
   
+  // Allow process to exit even if interval is active
   if (logIntervalHandle.unref) {
     logIntervalHandle.unref();
   }
 }
 
+/**
+ * Stop automatic stats refresh.
+ */
 function stopAutoRefresh() {
   if (logIntervalHandle) {
     clearInterval(logIntervalHandle);
@@ -399,8 +609,16 @@ function stopAutoRefresh() {
   }
 }
 
-// Auto-start on import
+// ============================================================================
+// Initialization
+// ============================================================================
+
+// Auto-start stats refresh on module load
 startAutoRefresh();
+
+// ============================================================================
+// Exports
+// ============================================================================
 
 export { LOG_LABEL, log, report, startAutoRefresh, stopAutoRefresh, getFormattedStats };
 
