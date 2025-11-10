@@ -908,6 +908,546 @@ context_error() {
 }
 
 # ============================================================================
+# Error Analysis Commands
+# ============================================================================
+
+cmd_error() {
+  local subcommand="${1:-}"
+  
+  if [[ -z "$subcommand" ]] || [[ "$subcommand" == "--help" ]]; then
+    cat <<EOF
+${CYAN}Error Analysis Commands${NC}
+
+Usage: log-cli.sh error <subcommand> [options]
+
+Subcommands:
+  trace       Reconstruct full error flow (error → logs → system state)
+  context     Get system state at error time
+  suggest     AI-generated fix suggestions
+  similar     Find similar errors by fingerprint or pattern
+  timeline    Build timeline of events leading to error
+
+Examples:
+  log-cli.sh error trace --fingerprint a1b2c3d4e5f6
+  log-cli.sh error context --fingerprint a1b2c3d4e5f6
+  log-cli.sh error suggest --fingerprint a1b2c3d4e5f6
+  log-cli.sh error similar --fingerprint a1b2c3d4e5f6
+  log-cli.sh error timeline --fingerprint a1b2c3d4e5f6 --window 5m
+
+EOF
+    return 0
+  fi
+  
+  shift
+  
+  case "$subcommand" in
+    trace)
+      cmd_error_trace "$@"
+      ;;
+    context)
+      cmd_error_context "$@"
+      ;;
+    suggest)
+      cmd_error_suggest "$@"
+      ;;
+    similar)
+      cmd_error_similar "$@"
+      ;;
+    timeline)
+      cmd_error_timeline "$@"
+      ;;
+    *)
+      echo "Unknown error subcommand: $subcommand"
+      echo "Run 'log-cli.sh error --help' for usage information"
+      return 1
+      ;;
+  esac
+}
+
+# Reconstruct full error flow
+cmd_error_trace() {
+  local fingerprint=""
+  local error_id=""
+  local output_format="text"
+  
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --fingerprint)
+        fingerprint="$2"
+        shift 2
+        ;;
+      --error-id)
+        error_id="$2"
+        shift 2
+        ;;
+      --format)
+        output_format="$2"
+        shift 2
+        ;;
+      *)
+        echo "Unknown option: $1" >&2
+        return 1
+        ;;
+    esac
+  done
+  
+  if [[ -z "$fingerprint" ]] && [[ -z "$error_id" ]]; then
+    echo "Error: --fingerprint or --error-id required" >&2
+    return 1
+  fi
+  
+  print_header "🔍 ERROR TRACE RECONSTRUCTION"
+  
+  # Step 1: Find AI report
+  echo -e "${BLUE}Step 1: Loading AI Report...${NC}"
+  local report_dir="/Store/error-reports"
+  local report_file=""
+  
+  if [[ -n "$fingerprint" ]]; then
+    report_file=$(ls -t "$report_dir" | grep "$fingerprint" | head -n 1)
+  fi
+  
+  if [[ -n "$report_file" ]]; then
+    echo -e "${GREEN}✓${NC} Found AI Report: $report_file"
+    echo ""
+    cat "$report_dir/$report_file"
+    echo ""
+  else
+    echo -e "${YELLOW}⚠${NC} No AI report found"
+  fi
+  
+  # Step 2: Query related logs
+  echo -e "${BLUE}Step 2: Querying Related Logs...${NC}"
+  
+  local filter=""
+  if [[ -n "$fingerprint" ]]; then
+    filter="data.fingerprint=\"$fingerprint\""
+  elif [[ -n "$error_id" ]]; then
+    filter="data.errorId=\"$error_id\""
+  fi
+  
+  # Find all logs with this error
+  local related_logs=$(find_log_files "" "" | xargs zcat -f 2>/dev/null | \
+    jq -c "select($filter)" 2>/dev/null || true)
+  
+  local log_count=$(echo "$related_logs" | grep -c . || echo "0")
+  echo -e "${GREEN}✓${NC} Found $log_count related log entries"
+  
+  if [[ "$log_count" -gt 0 ]]; then
+    echo ""
+    echo -e "${CYAN}Recent Error Occurrences:${NC}"
+    echo "$related_logs" | head -n 5 | jq -r '[.timestamp, .level, .message] | @tsv' | \
+      while IFS=$'\t' read -r ts level msg; do
+        echo "  [$ts] $level: $msg"
+      done
+  fi
+  
+  # Step 3: Get stack trace metadata
+  echo ""
+  echo -e "${BLUE}Step 3: Stack Trace Metadata...${NC}"
+  
+  local stack_metadata=$(echo "$related_logs" | head -n 1 | \
+    jq -r '.data.stackMetadata // empty' 2>/dev/null)
+  
+  if [[ -n "$stack_metadata" ]] && [[ "$stack_metadata" != "null" ]]; then
+    echo -e "${GREEN}✓${NC} Stack metadata available"
+    echo ""
+    echo "$stack_metadata" | jq -r '
+      "  Depth: \(.depth // "unknown")",
+      "  Top Frame: \(.topFrame.file // "unknown"):\(.topFrame.line // "?")",
+      "  Function: \(.topFrame.function // "anonymous")",
+      "  Call Chain: \(.callChain | join(" → "))",
+      "  User Code Frames: \(.userCodeFrames // 0)"
+    '
+  else
+    echo -e "${YELLOW}⚠${NC} No stack metadata available"
+  fi
+  
+  # Step 4: Emergency logs check
+  echo ""
+  echo -e "${BLUE}Step 4: Checking Emergency Logs...${NC}"
+  
+  local emergency_dir="/Store/emergency-error-logs"
+  if [[ -d "$emergency_dir" ]]; then
+    local emergency_files=$(ls -t "$emergency_dir" 2>/dev/null | head -n 5)
+    if [[ -n "$emergency_files" ]]; then
+      echo -e "${YELLOW}⚠${NC} Found emergency fallback logs (database may have been unavailable)"
+      echo "$emergency_files" | head -n 3 | while read -r file; do
+        echo "  - $file"
+      done
+    else
+      echo -e "${GREEN}✓${NC} No emergency fallback logs (normal operation)"
+    fi
+  fi
+  
+  echo ""
+  print_success "Trace reconstruction complete"
+}
+
+# Get system state at error time
+cmd_error_context() {
+  local fingerprint=""
+  local error_id=""
+  
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --fingerprint)
+        fingerprint="$2"
+        shift 2
+        ;;
+      --error-id)
+        error_id="$2"
+        shift 2
+        ;;
+      *)
+        echo "Unknown option: $1" >&2
+        return 1
+        ;;
+    esac
+  done
+  
+  if [[ -z "$fingerprint" ]] && [[ -z "$error_id" ]]; then
+    echo "Error: --fingerprint or --error-id required" >&2
+    return 1
+  fi
+  
+  print_header "🖥️  SYSTEM STATE AT ERROR TIME"
+  
+  # Find the error log entry
+  local filter=""
+  if [[ -n "$fingerprint" ]]; then
+    filter="data.fingerprint=\"$fingerprint\""
+  elif [[ -n "$error_id" ]]; then
+    filter="data.errorId=\"$error_id\""
+  fi
+  
+  local error_entry=$(find_log_files "" "" | xargs zcat -f 2>/dev/null | \
+    jq -c "select($filter)" 2>/dev/null | head -n 1)
+  
+  if [[ -z "$error_entry" ]]; then
+    print_error "Error not found in logs"
+    return 1
+  fi
+  
+  echo -e "${GREEN}✓${NC} Found error entry"
+  echo ""
+  
+  # Extract context
+  echo -e "${CYAN}Error Details:${NC}"
+  echo "$error_entry" | jq -r '
+    "  Timestamp: \(.timestamp)",
+    "  Level: \(.level)",
+    "  Category: \(.category)",
+    "  Message: \(.message)"
+  '
+  
+  echo ""
+  echo -e "${CYAN}System State:${NC}"
+  echo "$error_entry" | jq -r '.context.process // empty | 
+    "  PID: \(.pid)",
+    "  Uptime: \(.uptime)s",
+    "  Memory RSS: \(.memory.rss | tonumber / 1024 / 1024 | floor)MB",
+    "  Memory Heap: \(.memory.heapUsed | tonumber / 1024 / 1024 | floor)MB / \(.memory.heapTotal | tonumber / 1024 / 1024 | floor)MB"
+  '
+  
+  echo ""
+  echo -e "${CYAN}Error Context:${NC}"
+  echo "$error_entry" | jq -r '.data.errorContext // .context.error // empty |
+    "  Service: \(.service // "unknown")",
+    "  Operation: \(.operation // "unknown")",
+    "  Severity: \(.severity // "unknown")",
+    "  Category: \(.category // "unknown")"
+  '
+  
+  echo ""
+  echo -e "${CYAN}Source Location:${NC}"
+  echo "$error_entry" | jq -r '.data.sourceLocation // empty |
+    "  File: \(.file)",
+    "  Line: \(.line)",
+    "  Column: \(.column // "unknown")"
+  '
+  
+  echo ""
+  print_success "System state extraction complete"
+}
+
+# Generate AI fix suggestions
+cmd_error_suggest() {
+  local fingerprint=""
+  
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --fingerprint)
+        fingerprint="$2"
+        shift 2
+        ;;
+      *)
+        echo "Unknown option: $1" >&2
+        return 1
+        ;;
+    esac
+  done
+  
+  if [[ -z "$fingerprint" ]]; then
+    echo "Error: --fingerprint required" >&2
+    return 1
+  fi
+  
+  print_header "💡 AI FIX SUGGESTIONS"
+  
+  # Find AI report
+  local report_dir="/Store/error-reports"
+  local report_file=$(ls -t "$report_dir" 2>/dev/null | grep "$fingerprint" | head -n 1)
+  
+  if [[ -z "$report_file" ]]; then
+    print_error "No AI report found for fingerprint: $fingerprint"
+    return 1
+  fi
+  
+  echo -e "${GREEN}✓${NC} Found AI Report: $report_file"
+  echo ""
+  
+  # Extract troubleshooting hints section
+  echo -e "${CYAN}Troubleshooting Hints:${NC}"
+  sed -n '/## 💡 Troubleshooting Hints/,/## /p' "$report_dir/$report_file" | \
+    sed '1d;$d' | \
+    grep -v '^$'
+  
+  echo ""
+  echo -e "${CYAN}Suggested Actions:${NC}"
+  
+  # Generate suggestions based on error type
+  local error_type=$(grep "^\*\*Error:\*\*" "$report_dir/$report_file" | \
+    sed 's/.*Error:\*\* \([^:]*\):.*/\1/')
+  
+  case "$error_type" in
+    TypeError)
+      echo "  1. Check for null/undefined values before property access"
+      echo "  2. Add type guards and null checks"
+      echo "  3. Verify object initialization before use"
+      echo "  4. Review function return types"
+      ;;
+    ReferenceError)
+      echo "  1. Check for missing imports or typos in variable names"
+      echo "  2. Verify scope and hoisting issues"
+      echo "  3. Check for missing module exports"
+      echo "  4. Review variable declarations"
+      ;;
+    *Prisma*)
+      echo "  1. Verify database connection string"
+      echo "  2. Check Prisma schema matches database"
+      echo "  3. Review query syntax and relations"
+      echo "  4. Check for missing migrations"
+      ;;
+    *Discord*)
+      echo "  1. Verify bot permissions in guild"
+      echo "  2. Check for API rate limits"
+      echo "  3. Review Discord API changes"
+      echo "  4. Verify token validity"
+      ;;
+    *)
+      echo "  1. Review error message and stack trace"
+      echo "  2. Check recent code changes"
+      echo "  3. Verify environment configuration"
+      echo "  4. Check for external service issues"
+      ;;
+  esac
+  
+  echo ""
+  echo -e "${CYAN}Debugging Commands:${NC}"
+  echo "  # View full AI report"
+  echo "  cat $report_dir/$report_file"
+  echo ""
+  echo "  # Query related logs"
+  echo "  log-cli.sh query --filter 'data.fingerprint=\"$fingerprint\"'"
+  echo ""
+  echo "  # View error timeline"
+  echo "  log-cli.sh error timeline --fingerprint $fingerprint"
+  
+  echo ""
+  print_success "Suggestions generated"
+}
+
+# Find similar errors
+cmd_error_similar() {
+  local fingerprint=""
+  local pattern=""
+  local limit=10
+  
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --fingerprint)
+        fingerprint="$2"
+        shift 2
+        ;;
+      --pattern)
+        pattern="$2"
+        shift 2
+        ;;
+      --limit)
+        limit="$2"
+        shift 2
+        ;;
+      *)
+        echo "Unknown option: $1" >&2
+        return 1
+        ;;
+    esac
+  done
+  
+  if [[ -z "$fingerprint" ]] && [[ -z "$pattern" ]]; then
+    echo "Error: --fingerprint or --pattern required" >&2
+    return 1
+  fi
+  
+  print_header "🔎 SIMILAR ERRORS"
+  
+  if [[ -n "$fingerprint" ]]; then
+    # Find error with this fingerprint
+    local base_error=$(find_log_files "" "" | xargs zcat -f 2>/dev/null | \
+      jq -c "select(.data.fingerprint == \"$fingerprint\")" 2>/dev/null | head -n 1)
+    
+    if [[ -z "$base_error" ]]; then
+      print_error "Error not found with fingerprint: $fingerprint"
+      return 1
+    fi
+    
+    local error_name=$(echo "$base_error" | jq -r '.data.errorContext.errorName // .context.error.name // "unknown"')
+    local category=$(echo "$base_error" | jq -r '.data.errorContext.category // .category // "unknown"')
+    
+    echo -e "${CYAN}Base Error:${NC}"
+    echo "  Type: $error_name"
+    echo "  Category: $category"
+    echo "  Fingerprint: $fingerprint"
+    echo ""
+    
+    echo -e "${CYAN}Finding similar errors (same type, different fingerprints)...${NC}"
+    
+    # Find errors with same type but different fingerprints
+    find_log_files "" "" | xargs zcat -f 2>/dev/null | \
+      jq -c "select(.category == \"ERROR\" and 
+                    (.data.errorContext.errorName // .context.error.name) == \"$error_name\" and
+                    .data.fingerprint != \"$fingerprint\")" 2>/dev/null | \
+      head -n "$limit" | \
+      jq -r '[.timestamp, .data.fingerprint[0:12], .message] | @tsv' | \
+      while IFS=$'\t' read -r ts fp msg; do
+        echo "  [$ts] fp:$fp - $msg"
+      done
+    
+  else
+    # Pattern-based search
+    echo -e "${CYAN}Searching for pattern: $pattern${NC}"
+    echo ""
+    
+    find_log_files "" "" | xargs zcat -f 2>/dev/null | \
+      jq -c "select(.category == \"ERROR\" and (.message | test(\"$pattern\"; \"i\")))" 2>/dev/null | \
+      head -n "$limit" | \
+      jq -r '[.timestamp, .data.fingerprint[0:12] // "no-fp", .message] | @tsv' | \
+      while IFS=$'\t' read -r ts fp msg; do
+        echo "  [$ts] fp:$fp - $msg"
+      done
+  fi
+  
+  echo ""
+  print_success "Similar errors search complete"
+}
+
+# Build error timeline
+cmd_error_timeline() {
+  local fingerprint=""
+  local window="5m"
+  
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --fingerprint)
+        fingerprint="$2"
+        shift 2
+        ;;
+      --window)
+        window="$2"
+        shift 2
+        ;;
+      *)
+        echo "Unknown option: $1" >&2
+        return 1
+        ;;
+    esac
+  done
+  
+  if [[ -z "$fingerprint" ]]; then
+    echo "Error: --fingerprint required" >&2
+    return 1
+  fi
+  
+  print_header "📅 ERROR TIMELINE"
+  
+  # Find first occurrence of this error
+  local first_error=$(find_log_files "" "" | xargs zcat -f 2>/dev/null | \
+    jq -c "select(.data.fingerprint == \"$fingerprint\")" 2>/dev/null | head -n 1)
+  
+  if [[ -z "$first_error" ]]; then
+    print_error "Error not found with fingerprint: $fingerprint"
+    return 1
+  fi
+  
+  local error_time=$(echo "$first_error" | jq -r '.timestamp')
+  local error_msg=$(echo "$first_error" | jq -r '.message')
+  
+  echo -e "${CYAN}Error Occurred:${NC} $error_time"
+  echo -e "${CYAN}Message:${NC} $error_msg"
+  echo ""
+  
+  # Calculate time window
+  local since=$(date -u -d "$error_time - $window" +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || echo "$error_time")
+  local until=$(date -u -d "$error_time + $window" +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || echo "$error_time")
+  
+  echo -e "${CYAN}Timeline Window:${NC} $since to $until"
+  echo ""
+  
+  echo -e "${CYAN}Events Leading Up To Error:${NC}"
+  
+  # Get all logs in time window
+  find_log_files "$since" "$until" | xargs zcat -f 2>/dev/null | \
+    jq -c "select(.timestamp < \"$error_time\")" 2>/dev/null | \
+    sort -t: -k2 | \
+    tail -n 10 | \
+    jq -r '[.timestamp, .level, .category, .message[0:60]] | @tsv' | \
+    while IFS=$'\t' read -r ts level cat msg; do
+      local color="${NC}"
+      case "$level" in
+        error|fatal) color="${RED}" ;;
+        warn) color="${YELLOW}" ;;
+        info) color="${GREEN}" ;;
+      esac
+      echo -e "  ${color}[$ts]${NC} $level/$cat: $msg"
+    done
+  
+  echo ""
+  echo -e "${RED}>>> ERROR OCCURRED HERE <<<${NC}"
+  echo ""
+  
+  echo -e "${CYAN}Events After Error:${NC}"
+  
+  find_log_files "$since" "$until" | xargs zcat -f 2>/dev/null | \
+    jq -c "select(.timestamp > \"$error_time\")" 2>/dev/null | \
+    sort -t: -k2 | \
+    head -n 10 | \
+    jq -r '[.timestamp, .level, .category, .message[0:60]] | @tsv' | \
+    while IFS=$'\t' read -r ts level cat msg; do
+      local color="${NC}"
+      case "$level" in
+        error|fatal) color="${RED}" ;;
+        warn) color="${YELLOW}" ;;
+        info) color="${GREEN}" ;;
+      esac
+      echo -e "  ${color}[$ts]${NC} $level/$cat: $msg"
+    done
+  
+  echo ""
+  print_success "Timeline reconstruction complete"
+}
+
+# ============================================================================
 # Main Entry Point
 # ============================================================================
 
@@ -923,12 +1463,15 @@ Commands:
   report      Generate AI-optimized summaries
   pattern     Detect anomalies and trends
   context     Reconstruct session context
+  error       Error analysis and troubleshooting (NEW)
 
 Examples:
   log-cli.sh query --level error --since "1h ago"
   log-cli.sh report session --since "24h ago"
   log-cli.sh pattern anomaly --since "24h ago"
   log-cli.sh context user --user-id "123456789"
+  log-cli.sh error trace --fingerprint a1b2c3d4e5f6
+  log-cli.sh error suggest --fingerprint a1b2c3d4e5f6
 
 For detailed help on a command:
   log-cli.sh <command> --help
@@ -952,6 +1495,9 @@ EOF
       ;;
     context)
       cmd_context "$@"
+      ;;
+    error)
+      cmd_error "$@"
       ;;
     *)
       echo "Unknown command: $command"

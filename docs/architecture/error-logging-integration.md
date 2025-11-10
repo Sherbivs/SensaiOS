@@ -418,25 +418,132 @@ liveErrorStream.on('error', (event) => {
 
 **File:** `scripts/log-cli.sh`
 
-### Query Errors by Fingerprint
+The intelligent logging system provides comprehensive SSH CLI tools for error analysis, including new error-specific commands for deep troubleshooting.
+
+### Basic Error Commands
 
 ```bash
-log-query --category ERROR --filter 'data.fingerprint="a1b2c3d4e5f6"'
+# Query errors by fingerprint
+log-cli.sh query --category ERROR --filter 'data.fingerprint="a1b2c3d4e5f6"'
+
+# Generate error reports
+log-cli.sh report errors --since "1h ago" --format markdown > errors-last-hour.md
+
+# Find error patterns
+log-cli.sh pattern anomaly --since "24h ago"
 ```
 
-### Get Error Context
+### Error Analysis Commands (NEW)
+
+#### 1. Error Trace - Reconstruct Full Error Flow
 
 ```bash
-log-context error --fingerprint a1b2c3d4e5f6
+# Trace error by fingerprint (recommended)
+log-cli.sh error trace --fingerprint a1b2c3d4e5f6
+
+# Trace error by ID
+log-cli.sh error trace --error-id "uuid-here"
 ```
 
-### Generate Error Report
+**Output includes:**
+- AI troubleshooting report (if available)
+- All related log entries with timestamps
+- Stack trace metadata (depth, top frame, call chain, user code frames)
+- Emergency fallback logs check
+
+#### 2. Error Context - System State at Error Time
 
 ```bash
-log-report errors --since "1h ago" --format markdown > errors-last-hour.md
+# Get complete system context
+log-cli.sh error context --fingerprint a1b2c3d4e5f6
 ```
 
-### View AI Reports
+**Output includes:**
+- Error details (timestamp, level, category, message)
+- System state (PID, uptime, memory RSS/heap usage)
+- Error context (service, operation, severity, category)
+- Source location (file path, line number, column)
+
+#### 3. Error Suggestions - AI-Powered Fix Recommendations
+
+```bash
+# Get automated fix suggestions
+log-cli.sh error suggest --fingerprint a1b2c3d4e5f6
+```
+
+**Provides:**
+- Troubleshooting hints from AI report
+- Error-type-specific action items:
+  - **TypeError**: Null/undefined checks, type guards, initialization
+  - **ReferenceError**: Import checks, scope analysis, declarations
+  - **Prisma errors**: Connection validation, schema checks, migrations
+  - **Discord errors**: Permissions, rate limits, API changes
+- Debugging commands for further investigation
+
+#### 4. Similar Errors - Pattern Matching
+
+```bash
+# Find errors similar to a known fingerprint
+log-cli.sh error similar --fingerprint a1b2c3d4e5f6
+
+# Search by error message pattern
+log-cli.sh error similar --pattern "Cannot read property"
+
+# Limit results (default: 10)
+log-cli.sh error similar --fingerprint a1b2c3d4e5f6 --limit 20
+```
+
+**Search strategies:**
+- By fingerprint: Same error type, different instances
+- By pattern: Regex matching on error messages
+- Results: Timestamp, fingerprint (first 12 chars), message
+
+#### 5. Error Timeline - Event Context
+
+```bash
+# View events ±5 minutes around error (default)
+log-cli.sh error timeline --fingerprint a1b2c3d4e5f6
+
+# Customize time window
+log-cli.sh error timeline --fingerprint a1b2c3d4e5f6 --window 10m
+```
+
+**Timeline shows:**
+- 10 events before error (color-coded by level)
+- **>>> ERROR OCCURRED HERE <<<** marker
+- 10 events after error
+- Helps understand cascading effects
+
+### Command Chaining - Full Investigation Workflow
+
+```bash
+# Set error fingerprint
+ERROR_FP="a1b2c3d4e5f6"
+
+# Step 1: Get AI suggestions (quick diagnosis)
+log-cli.sh error suggest --fingerprint $ERROR_FP
+
+# Step 2: View full trace (comprehensive details)
+log-cli.sh error trace --fingerprint $ERROR_FP
+
+# Step 3: Check system state (resource analysis)
+log-cli.sh error context --fingerprint $ERROR_FP
+
+# Step 4: Find similar occurrences (pattern analysis)
+log-cli.sh error similar --fingerprint $ERROR_FP
+
+# Step 5: Build timeline (understand context)
+log-cli.sh error timeline --fingerprint $ERROR_FP --window 15m
+```
+
+### Error Command Help
+
+```bash
+# View all error subcommands
+log-cli.sh error --help
+```
+
+### View AI Reports on Disk
 
 ```bash
 # SSH into Render service
