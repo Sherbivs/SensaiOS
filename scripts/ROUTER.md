@@ -2,7 +2,7 @@
 Title: Tooling
 Purpose: Guard scripts and automation entrypoints.
 Owned Globs: scripts/**
-Last Updated (UTC): 2025-11-06T04:45:00Z
+Last Updated (UTC): 2025-11-09T00:00:00Z
 
 Notes:
 - 2025-02-26: Added dexpack guard documentation and touchmap pointer; see guards/guard_dexpack.sh.
@@ -32,8 +32,16 @@ Notes:
 - 2025-11-04: `db_smoke.ts` now loads IG_ENV_FILE secrets, prefers direct Postgres connections, and exposes `--mode` / `DB_SMOKE_MODE` overrides for testing different connection modes.
 - 2025-11-05: Added `ops:bootstrap-local-db` (see `scripts/ops/bootstrap_local_fallback.ts`) to hydrate the Store-hosted Postgres mirror for offline failover.
 - 2025-11-06: Added `scripts/ops/ensure_postgres_bundle.ps1` and `scripts/ops/auto_bootstrap_local_db.ps1`; run `npm run ops:auto-bootstrap-local-db` to silently install Postgres tooling then refresh the local fallback end-to-end.
+- 2025-11-09: Completed console output standardization initiative - migrated 11 scripts to use centralized output-formatter utility (db_replication.ts, db_admin.ts, fetch_pokemon.mjs, db_smoke.ts, check_db_redundancy.ts, db_bootstrap_backfill.ts, build_dexpack.ts, build-dexpack.ts, archive_task_history.mjs, cache_client.mjs, build-data.js). Added ESLint enforcement (no-console rules) and comprehensive test coverage (61 tests).
 
 Subrouters:
 - scripts/dex/ROUTER.md — Data seeding and cache warmup entrypoints.
 - scripts/guards/ROUTER.md — CI and guard rails for repository invariants.
 - scripts/ops/ROUTER.md — Operator-focused migration and recovery helpers.
+
+Output Formatting:
+- All scripts now use src/utils/output-formatter.ts for consistent CLI output
+- ESLint enforces no-console in production (error), scripts (warn), tests (off)
+- 11 functions available: formatBorder, formatSectionHeader, formatKeyValue, formatKeyValueList, formatTable, formatList, formatStatus, formatProgress, formatOutputBlock, formatSeparator, formatSection
+- See docs/console-output-standards.md for comprehensive guidelines
+- See docs/console-output-quick-reference.md for common patterns

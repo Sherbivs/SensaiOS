@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { formatStatus } from '../src/utils/output-formatter.js';
 
 const CACHE_DIR = process.env.CACHE_DIR || './data/cache';
 const RAW = (process.env.GITHUB_RAW_URL || '').replace(/\/$/, '');
@@ -45,13 +46,13 @@ export async function getPokemonData() {
   try {
     return await readLocal();
   } catch (error) {
-    console.warn('Local cache unavailable:', error instanceof Error ? error.message : error);
+    console.log(formatStatus(`Local cache unavailable: ${error instanceof Error ? error.message : error}`, 'warning'));
   }
 
   try {
     return await readGitHub();
   } catch (error) {
-    console.warn('GitHub cache unavailable:', error instanceof Error ? error.message : error);
+    console.log(formatStatus(`GitHub cache unavailable: ${error instanceof Error ? error.message : error}`, 'warning'));
   }
 
   return readFromAPIAndRebuild();

@@ -7,6 +7,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { delay } from '../src/shared/utils/async-utils.js';
+import { formatStatus } from '../src/utils/output-formatter.js';
 
 const CACHE_DIR = process.env.CACHE_DIR || './data/cache';
 const TRIGGER_FILE = process.env.DEX_SYNC_TRIGGER_PATH || path.join(CACHE_DIR, 'dex-sync-trigger.json');
@@ -129,12 +130,12 @@ async function writeCache(pokemon) {
 }
 
 export async function main() {
-  console.log('🔎 Fetching Pokémon index…');
+  console.log(formatStatus('Fetching Pokémon index…', 'info'));
   const pokemon = await fetchAllPokemon();
-  console.log(`✅ Fetched ${pokemon.length} Pokémon.`);
+  console.log(formatStatus(`Fetched ${pokemon.length} Pokémon.`, 'success'));
   const out = await writeCache(pokemon);
-  console.log(`🗃️  Cache written: ${out.dataPath}`);
-  console.log(`🧾  Meta: ${path.join(CACHE_DIR, 'meta.json')}`);
+  console.log(formatStatus(`Cache written: ${out.dataPath}`, 'success'));
+  console.log(formatStatus(`Meta: ${path.join(CACHE_DIR, 'meta.json')}`, 'info'));
 }
 
 const invokedDirectly = (() => {
@@ -149,7 +150,8 @@ const invokedDirectly = (() => {
 
 if (invokedDirectly) {
   main().catch((error) => {
-    console.error('fetch_pokemon failed:', error);
+    console.log(formatStatus('fetch_pokemon failed', 'error'));
+    console.error(error);
     process.exit(1);
   });
 }

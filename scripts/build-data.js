@@ -3,6 +3,9 @@
 const fs = require('fs');
 const path = require('path');
 
+// Import CommonJS version of output-formatter
+const { formatStatus } = require('../src/utils/output-formatter.js');
+
 const ROOT = process.cwd();
 // Point this to your cached PokeAPI clone if different:
 const DATA_ROOT =
@@ -115,7 +118,7 @@ function matchups(types, chart) {
 
 function build() {
   const latest = pickLatestVersionGroup();
-  console.log('Using latest version group:', latest.name, `(#${latest.id})`);
+  console.log(formatStatus(`Using latest version group: ${latest.name} (#${latest.id})`, 'info'));
 
   const movesIndex = gatherMoves();
   if (!movesIndex.tackle) {
@@ -169,7 +172,7 @@ function build() {
   );
 
   console.log(
-    `Built ${dex.length} Pokémon and ${Object.keys(movesIndex).length} moves -> dist/data/*.json`
+    formatStatus(`Built ${dex.length} Pokémon and ${Object.keys(movesIndex).length} moves → dist/data/*.json`, 'success')
   );
 }
 

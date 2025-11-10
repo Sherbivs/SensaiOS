@@ -10,6 +10,7 @@ import {
   type HashTablePayload,
   type SpeciesVectors,
 } from "./build_dexpack.js";
+import { formatStatus, formatList } from "../src/utils/output-formatter.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -211,12 +212,16 @@ function parseCliArgs(): CliOptions {
     } else if (arg === "--quiet") {
       options.quiet = true;
     } else if (arg === "--help" || arg === "-h") {
-      console.log("Usage: tsx scripts/build-dexpack.ts [--check] [--quiet]");
-      console.log("  --check   Verify existing outputs without writing");
-      console.log("  --quiet   Suppress success logs");
+      console.log(
+        formatList([
+          "Usage: tsx scripts/build-dexpack.ts [--check] [--quiet]",
+          "--check   Verify existing outputs without writing",
+          "--quiet   Suppress success logs",
+        ])
+      );
       process.exit(0);
     } else {
-      console.warn(`Unknown flag: ${arg}`);
+      console.log(formatStatus(`Unknown flag: ${arg}`, "warning"));
     }
   }
   return options;
@@ -312,7 +317,12 @@ async function main(options: CliOptions = {}): Promise<void> {
       throw new Error("dexpack.v2 artifacts are stale — run scripts/build-dexpack.ts to regenerate.");
     }
     if (!quiet) {
-      console.log(`dexpack.v2 verified (${context.pack.meta.counts.species} species, ${context.pack.meta.counts.moves} moves)`);
+      console.log(
+        formatStatus(
+          `dexpack.v2 verified (${context.pack.meta.counts.species} species, ${context.pack.meta.counts.moves} moves)`,
+          "success"
+        )
+      );
     }
     return;
   }
@@ -339,7 +349,7 @@ async function main(options: CliOptions = {}): Promise<void> {
       .filter(Boolean)
       .join(", ");
     const suffix = updatedParts ? ` (${updatedParts})` : "";
-    console.log(`dexpack.v2 generated → ${binaryFilename}${suffix}`);
+    console.log(formatStatus(`dexpack.v2 generated → ${binaryFilename}${suffix}`, "success"));
   }
 }
 
@@ -356,7 +366,8 @@ const invokedDirectly = (() => {
 if (invokedDirectly) {
   const options = parseCliArgs();
   main(options).catch((error) => {
-    console.error("build-dexpack failed:", error);
+    console.log(formatStatus("build-dexpack failed", "error"));
+    console.error(error);
     process.exitCode = 1;
   });
 }

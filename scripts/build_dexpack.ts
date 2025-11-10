@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buffersEqual, readFileIfExists, writeFileIfChanged } from "../src/shared/utils/file-utils.js";
+import { formatStatus, formatKeyValueList, formatList } from "../src/utils/output-formatter.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -646,12 +647,16 @@ function parseCliArgs(): CliOptions {
     } else if (arg === "--quiet") {
       options.quiet = true;
     } else if (arg === "--help" || arg === "-h") {
-      console.log("Usage: tsx scripts/build_dexpack.ts [--check] [--quiet]");
-      console.log("  --check   Verify committed artifacts match regenerated output (no writes)");
-      console.log("  --quiet   Suppress success logging");
+      console.log(
+        formatList([
+          "Usage: tsx scripts/build_dexpack.ts [--check] [--quiet]",
+          "--check   Verify committed artifacts match regenerated output (no writes)",
+          "--quiet   Suppress success logging",
+        ])
+      );
       process.exit(0);
     } else {
-      console.warn(`Unknown flag: ${arg}`);
+      console.log(formatStatus(`Unknown flag: ${arg}`, "warning"));
     }
   }
   return options;
@@ -705,7 +710,10 @@ async function main(options: CliOptions = {}): Promise<void> {
     ]);
     if (!quiet) {
       console.log(
-        `Dexpack verified (${pack.meta.counts.species} species, ${pack.meta.counts.moves} moves)`
+        formatStatus(
+          `Dexpack verified (${pack.meta.counts.species} species, ${pack.meta.counts.moves} moves)`,
+          "success"
+        )
       );
     }
     return;
@@ -720,7 +728,7 @@ async function main(options: CliOptions = {}): Promise<void> {
     const message = updated
       ? `Dexpack generated → ${path.relative(ROOT, OUTPUT_JSON)} (${pack.meta.counts.species} species, ${pack.meta.counts.moves} moves)`
       : `Dexpack already up to date (${pack.meta.counts.species} species, ${pack.meta.counts.moves} moves)`;
-    console.log(message);
+    console.log(formatStatus(message, updated ? "success" : "info"));
   }
 }
 
@@ -737,7 +745,8 @@ const invokedDirectly = (() => {
 if (invokedDirectly) {
   const cliOptions = parseCliArgs();
   main(cliOptions).catch((error) => {
-    console.error("build_dexpack failed:", error);
+    console.log(formatStatus("build_dexpack failed", "error"));
+    console.error(error);
     process.exitCode = 1;
   });
 }

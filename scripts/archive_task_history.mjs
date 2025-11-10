@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import process from 'process';
 import { fileURLToPath } from 'url';
+import { formatStatus } from '../src/utils/output-formatter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -133,7 +134,7 @@ const main = async () => {
   const original = await fs.readFile(tasklistPath, 'utf8');
   const tasks = parseTasks(original);
   if (tasks.length === 0) {
-    console.error('No tasks detected in Tasklist.md — aborting.');
+    console.log(formatStatus('No tasks detected in Tasklist.md — aborting.', 'error'));
     process.exit(1);
   }
 
@@ -141,7 +142,7 @@ const main = async () => {
   const doneTasks = tasks.filter((task) => task.status === 'DONE');
 
   if (doneTasks.length <= limit) {
-    console.log(`No trimming needed — ${doneTasks.length} DONE task(s) ≤ limit ${limit}.`);
+    console.log(formatStatus(`No trimming needed — ${doneTasks.length} DONE task(s) ≤ limit ${limit}.`, 'info'));
     return;
   }
 
@@ -149,14 +150,14 @@ const main = async () => {
   const excess = doneTasks.length - limit;
 
   if (archivable.length === 0) {
-    console.warn('Done tasks exceed limit but none are eligible for archival (all still referenced).');
+    console.log(formatStatus('Done tasks exceed limit but none are eligible for archival (all still referenced).', 'warning'));
     return;
   }
 
   const toArchive = archivable.slice(0, Math.min(excess, archivable.length));
 
   if (toArchive.length === 0) {
-    console.warn('No eligible tasks could be archived without violating dependencies.');
+    console.log(formatStatus('No eligible tasks could be archived without violating dependencies.', 'warning'));
     return;
   }
 
@@ -177,14 +178,15 @@ const main = async () => {
   await fs.writeFile(tasklistPath, updatedTasklist.trimEnd() + '\n');
   await fs.writeFile(archivePath, archiveContent);
 
-  console.log(`Archived ${toArchive.length} task(s) to ${path.relative(repoRoot, archivePath)}.`);
+  console.log(formatStatus(`Archived ${toArchive.length} task(s) to ${path.relative(repoRoot, archivePath)}.`, 'success'));
   const remainingDone = doneTasks.length - toArchive.length;
   if (remainingDone > limit) {
-    console.warn(`Remaining DONE tasks (${remainingDone}) still exceed limit (${limit}) due to protected dependencies.`);
+    console.log(formatStatus(`Remaining DONE tasks (${remainingDone}) still exceed limit (${limit}) due to protected dependencies.`, 'warning'));
   }
 };
 
 main().catch((error) => {
+  console.log(formatStatus('archive_task_history failed', 'error'));
   console.error(error);
   process.exit(1);
 });

@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import * as dotenv from "dotenv";
 import { Client } from "pg";
+import { formatStatus, formatKeyValueList, formatList, formatSectionHeader } from "../src/utils/output-formatter.js";
 
 const TRAINER_PREFIX = "trainer_";
 
@@ -67,7 +68,10 @@ function loadEnvironment(): void {
     }
   }
 
-  console.warn("[db-backfill] No environment file loaded; ensure IG_ENV_FILE or DOTENV_CONFIG_PATH points to a secrets file.");
+  console.log(formatStatus(
+    "No environment file loaded; ensure IG_ENV_FILE or DOTENV_CONFIG_PATH points to a secrets file.",
+    "warning"
+  ));
 }
 
 function selectDirectDatasource(): string {
@@ -180,7 +184,7 @@ function parseArgs(argv: string[]): BackfillOptions {
       continue;
     }
 
-    console.warn(`[db-backfill] Ignoring unknown argument '${arg}'.`);
+    console.log(formatStatus(`Ignoring unknown argument '${arg}'.`, "warning"));
   }
 
   if (!options.packHash) {
@@ -197,19 +201,19 @@ async function runStep(
   params: unknown[],
   options: BackfillOptions,
 ): Promise<StepResult> {
-  console.log(`\n[db-backfill] ${description}`);
+  console.log("\n" + formatSectionHeader(description, 1));
 
   if (options.verbose || options.dryRun) {
-    console.log("[db-backfill] SQL:\n" + sql.trim().split("\n").map((line) => `  ${line}`).join("\n"));
+    console.log("SQL:\n" + sql.trim().split("\n").map((line) => `  ${line}`).join("\n"));
   }
 
   if (options.dryRun) {
-    console.log("[db-backfill] dry-run mode: query not executed.");
+    console.log(formatStatus("dry-run mode: query not executed.", "info"));
     return { key: description, description, rows: null };
   }
 
   const result = await client.query(sql, params);
-  console.log(`[db-backfill] rows affected: ${result.rowCount}`);
+  console.log(formatKeyValueList([["rows affected", String(result.rowCount)]]));
   return { key: description, description, rows: result.rowCount };
 }
 
@@ -218,19 +222,21 @@ async function runVerification(
   options: BackfillOptions,
   queries: VerificationQuery[],
 ): Promise<void> {
-  console.log("\n[db-backfill] Verification");
+  console.log("\n" + formatSectionHeader("Verification", 1));
+  const verifications: Array<[string, string]> = [];
   for (const query of queries) {
     const result = await client.query<{ count: string }>(query.sql, query.params ?? []);
     const count = result.rows[0]?.count ?? "0";
-    console.log(`[verify] ${query.description}: ${count}`);
+    verifications.push([query.description, count]);
   }
+  console.log(formatKeyValueList(verifications, { indent: 1 }));
 }
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   loadEnvironment();
   const datasource = selectDirectDatasource();
-  console.log(`[db-backfill] Using direct datasource ${maskUrl(datasource)}`);
+  console.log(formatStatus(`Using direct datasource ${maskUrl(datasource)}`, "info"));
 
   const client = new Client({ connectionString: datasource, ssl: { rejectUnauthorized: false } });
   await client.connect();
@@ -374,19 +380,20 @@ WHERE s."trainerId" IS NULL`,
 
   await client.end();
 
-  console.log("\n[db-backfill] Completed. Summary:");
-  for (const result of results) {
-    const label = result.description;
-    const value = result.rows ?? "(dry-run)";
-    console.log(`  - ${label}: ${value}`);
-  }
+  console.log("\n" + formatSectionHeader("Completed - Summary", 1));
+  const summaryItems: Array<[string, string]> = results.map((result) => [
+    result.description,
+    String(result.rows ?? "(dry-run)")
+  ]);
+  console.log(formatKeyValueList(summaryItems, { indent: 1 }));
 
   if (options.dryRun) {
-    console.log("\n[db-backfill] dry-run complete. Re-run with --apply to execute changes.");
+    console.log("\n" + formatStatus("dry-run complete. Re-run with --apply to execute changes.", "info"));
   }
 }
 
 main().catch((error) => {
-  console.error("[db-backfill] Backfill failed", error);
+  console.log(formatStatus("Backfill failed", "error"));
+  console.error(error);
   process.exitCode = 1;
 });

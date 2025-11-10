@@ -431,66 +431,70 @@ async function printStats() {
   
   const lines = [];
   
+  // Top border
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════════════');
+  lines.push('─────────────────────────────────────────────────────────────────────────');
   lines.push('');
   
   // -------------------------------------------------------------------------
-  // Node Stats
+  // Node Stats - Clean format matching screenshot
   // -------------------------------------------------------------------------
-  lines.push(`[NODE]`);
+  lines.push('[NODE]');
   lines.push(`  Uptime: ${statsCache.node.uptime}`);
   lines.push(`  Process: PID ${statsCache.node.pid} | ${statsCache.node.version}`);
-  lines.push(``);
-  lines.push(`  Memory:`);
-  lines.push(`    RSS:      ${statsCache.node.memory.rss}`);
+  lines.push('');
+  lines.push('  Memory:');
+  lines.push(`    RSS:      ${statsCache.node.memory.rss.padEnd(12)}`);
   lines.push(`    Heap:     ${statsCache.node.memory.heapUsed} / ${statsCache.node.memory.heapTotal}`);
   lines.push(`    External: ${statsCache.node.memory.external}`);
-  lines.push(``);
-  lines.push(`  CPU:`);
+  lines.push('');
+  lines.push('  CPU:');
   lines.push(`    User:   ${statsCache.node.cpu.user}`);
   lines.push(`    System: ${statsCache.node.cpu.system}`);
   lines.push('');
   
   // -------------------------------------------------------------------------
-  // Database Stats
+  // Database Stats - Clean format matching screenshot
   // -------------------------------------------------------------------------
-  lines.push(`[DATABASE]`);
+  lines.push('[DATABASE]');
   
+  // PROD database
   const prodStatus = statsCache.databases.prod.status.toUpperCase().padEnd(12);
-  const prodLatency = statsCache.databases.prod.latency.padEnd(10);
-  const prodSource = statsCache.databases.prod.source || 'n/a';
-  lines.push(`  PROD  → ${prodStatus} Latency: ${prodLatency} Database: ${prodSource}`);
+  const prodLatency = statsCache.databases.prod.latency;
+  const prodSource = statsCache.databases.prod.source || 'unknown';
+  lines.push(`  PROD  = ${prodStatus}  Latency: ${prodLatency.padEnd(10)}  Database: ${prodSource}`);
   
+  // LOCAL database
   const localStatus = statsCache.databases.local.status.toUpperCase().padEnd(12);
-  const localLatency = statsCache.databases.local.latency.padEnd(10);
-  const localSource = statsCache.databases.local.source || 'n/a';
-  lines.push(`  LOCAL → ${localStatus} Latency: ${localLatency} Database: ${localSource}`);
+  const localLatency = statsCache.databases.local.latency;
+  const localSource = statsCache.databases.local.source || 'unknown';
+  lines.push(`  LOCAL = ${localStatus}  Latency: ${localLatency.padEnd(10)}  Database: ${localSource}`);
   lines.push('');
   
   // -------------------------------------------------------------------------
   // Security Bot Stats (only if applicable to this service)
   // -------------------------------------------------------------------------
   if (statsCache.security !== null) {
-    lines.push(`[SECURITY BOT]`);
+    lines.push('[SECURITY BOT]');
     const secStatus = String(statsCache.security.status).toUpperCase();
     lines.push(`  Status: ${secStatus}`);
     
     if (secStatus === 'ONLINE') {
       lines.push(`  Guilds: ${statsCache.security.guilds}`);
       lines.push(`  Last Sweep: ${statsCache.security.lastSweep}`);
-      lines.push(``);
-      lines.push(`  Lifetime Statistics:`);
+      lines.push('');
+      lines.push('  Lifetime Statistics:');
       lines.push(`    Assignments: ${statsCache.security.assignments}`);
       lines.push(`    Failures:    ${statsCache.security.failures}`);
     } else if (secStatus === 'LOADING' || secStatus === 'INITIALIZING' || secStatus === 'CONNECTING') {
-      lines.push(`  (Initializing...)`);
+      lines.push('  (Initializing...)');
     }
     
     lines.push('');
   }
   
-  lines.push('───────────────────────────────────────────────────────────────────────────');
+  // Bottom border
+  lines.push('─────────────────────────────────────────────────────────────────────────');
   lines.push('');
   
   console.log(lines.join('\n'));

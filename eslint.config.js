@@ -70,9 +70,15 @@ export default [
     },
   },
   {
-    files: ['src/utils/logger.js', 'src/shared/log.ts', 'src/shared/logBuffer.ts'],
+    files: ['src/utils/logger.js', 'src/shared/log.ts', 'src/shared/logBuffer.ts', 'src/utils/output-formatter.ts'],
     rules: {
       'no-console': 'off', // Logging infrastructure needs console access
+    },
+  },
+  {
+    files: ['scripts/**/*.ts', 'scripts/**/*.js', 'scripts/**/*.mjs'],
+    rules: {
+      'no-console': 'warn', // Scripts should use output-formatter, but warn instead of error for migration
     },
   },
   {

@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-11-06T04:45:00Z
+Last Updated (UTC): 2025-11-09T00:00:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -80,22 +80,29 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Dev & Docs Scripts (`scripts/ROUTER.md`)
 - Purpose: Repository automation (ledger, router index, refresh, archiving, guards).
 - Owned Globs: `scripts/**`
-- Last Updated: 2025-11-06T04:45:00Z
+- Last Updated: 2025-11-09T00:00:00Z
 - Key Scripts:
   - `scripts/update_change_ledger.sh` — regenerate Prompt change ledger
   - `scripts/update_router_index.sh` — rebuild `ops/ROUTER_INDEX.yaml`
   - `scripts/refresh_vision.sh` — refresh routers + recovery metadata
-  - `scripts/archive_task_history.mjs` — Muted (local archival helper); archive Tasklist history to `ops/ARCHIVE/`
+  - `scripts/archive_task_history.mjs` — Muted (local archival helper); archive Tasklist history to `ops/ARCHIVE/` (now uses output-formatter)
   - `scripts/verify_router_links.sh` — Muted (CI-only guard); canonical path guard (CI)
   - `scripts/hotfix_entry.sh` — Muted (operator checklist); hotfix checklist helper
   - `scripts/guard_meta.sh` — Muted (preflight-only); enforces READY invariants pre/post flight
   - `scripts/bootstrap_staging_db.ps1` — Muted (staging-only); interactive helper to run `prisma migrate deploy` on staging safely
   - `scripts/restore_prisma_postgres.ps1` — Muted (local restore); Prisma Postgres tunnel + restore automation
-  - `scripts/db_admin.ts` — Muted (local CLI); run via `npm run db:cli` for status, counts, and ad-hoc queries
+  - `scripts/db_admin.ts` — Muted (local CLI); run via `npm run db:cli` for status, counts, and ad-hoc queries (now uses output-formatter)
   - `scripts/setup_ai_env.ps1` — Muted (agent env helper); registers `IG_ENV_FILE` so secrets load from external storage
-  - `scripts/db_smoke.ts` — IG_ENV_FILE-aware smoke helper (supports both DEV/PROD direct PostgreSQL modes)
+  - `scripts/db_smoke.ts` — IG_ENV_FILE-aware smoke helper (supports both DEV/PROD direct PostgreSQL modes, now uses output-formatter)
   - `scripts/dev_prod_auto_sync.ts` — Muted (automation loop); ensures migrate/seed inherit env-specific credentials, forces direct migrations, times out hung commands, watches `data/cache/dex-sync-trigger.json`, and continuously runs the Dev → Prod → Dev cadence with integrity checks (`npm run db:auto-sync`)
-  - `scripts/build_dexpack.ts` — Deterministic dexpack builder emitting committed JSON + gzip assets (`npm run data:dexpack`)
+  - `scripts/db_replication.ts` — Muted (CLI tool); database replication management with 11 commands (now uses output-formatter)
+  - `scripts/check_db_redundancy.ts` — Muted (verification tool); database mirror comparison and checksums (now uses output-formatter)
+  - `scripts/db_bootstrap_backfill.ts` — Muted (backfill tool); database backfill operations (now uses output-formatter)
+  - `scripts/build_dexpack.ts` — Deterministic dexpack builder emitting committed JSON + gzip assets (`npm run data:dexpack`, now uses output-formatter)
+  - `scripts/build-dexpack.ts` — DEX v2 binary format builder (`npm run data:dexpack:v2`, now uses output-formatter)
+  - `scripts/build-data.js` — Legacy data pipeline builder (now uses output-formatter)
+  - `scripts/fetch_pokemon.mjs` — PokeAPI data fetching (now uses output-formatter)
+  - `scripts/cache_client.mjs` — Cache fallback client (now uses output-formatter)
   - `scripts/ops/dex_v2_backup.ts` — `pg_dump -Fc` wrapper for Dev/Prod backups with env selection (`npm run ops:dex-v2-backup`)
   - `scripts/ops/simulate_flag_rollout.ts` — Feature-flag rollout planner producing JSON payloads and optional webhook alerts (`npm run ops:simulate-flag`)
   - `scripts/ops/dex_v2_alert_dry_run.ts` — Canary alert rehearsal for Grafana/Discord webhooks (`npm run ops:dex-v2-alert-dry-run`)
@@ -116,10 +123,33 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - 2025-11-03: Added DEX v2 cutover helpers covering backups, flag scheduling, and observability alert dry-runs.
   - 2025-11-05: Added a Store-backed Postgres fallback bootstrapper that mirrors DEV data and writes `Store/db/local-url.txt` for Prisma failover.
   - 2025-11-06: Landed a silent Postgres dependency installer plus a single wrapper command so `npm run ops:auto-bootstrap-local-db` provisions tooling then refreshes the Store-backed mirror.
+  - 2025-11-09: Completed console output standardization - 11 scripts migrated to centralized output-formatter utility (src/utils/output-formatter.ts) with ESLint enforcement and 61 comprehensive tests. All CLI scripts now use consistent formatting patterns.
 
 ### Ops Inbox (`ops/INBOX/ROUTER.md`)
 - Purpose: Fast notes queue for operators; guard scripts compare its timestamp to `ops/NEXT.yaml.last_notes_read_utc`.
 - Notes: Move resolved items into Tasklist or archive them to keep the inbox actionable.
+
+### Documentation Library (`docs/ROUTER.md`)
+- Purpose: Architecture, safety guides, and operational procedures referenced across the meta-router.
+- Owned Globs: `docs/**`
+- Last Updated: 2025-11-09T00:15:00Z
+- Key Documents:
+  - `meta-router.md` — Routing philosophy, recovery loop, and budget heuristics for agent runs
+  - `architecture.md` & `operations.md` — High-level system overview and operational procedures
+  - `database-systems.md` & `db-control-suite.md` — 2-node direct PostgreSQL architecture (DEV master + PROD local node), workstation gameplay setup
+  - `db-replication-architecture.md` — Master-replica cascade with version control (Phase 16)
+  - `engine-db-replication.md` — Bidirectional Engine DB architecture (Phase 17-22), read/write split, integrity scanner
+  - `WORKSTATION-GAMEPLAY-SETUP.md` — Complete guide for LOCAL PostgreSQL as PRIMARY database for live gameplay (<50ms latency)
+  - `dex-v2-design.md` — High-availability Pokédex upgrade blueprint with day-one database plan
+  - `perfect-system-roadmap.md` — Long-range governance/automation roadmap
+  - `safety.md` & `ai-env-setup.md` — Security posture, incident response, and agent environment setup
+  - `PBSL.md` — Provenance and validation notes for deterministic battle fixtures
+  - `console-output-standards.md` — Comprehensive standards for consistent CLI/script output formatting using output-formatter utility
+  - `console-output-quick-reference.md` — Quick reference guide for common output formatting patterns and functions
+  - `console-output-project.md` — Project plan and migration strategy for console output standardization initiative
+  - `console-output-final-report.md` — Final report documenting completion of console output standardization across 11 scripts
+- Notes:
+  - 2025-11-09: Added console output standardization documentation suite covering centralized CLI/script formatting standards, ESLint enforcement, and migration completion report
 
 ### Prisma Migrations (`prisma/migrations/ROUTER.md`)
 - Purpose: Timestamped Prisma migration bundles plus `migration_lock.toml` state.

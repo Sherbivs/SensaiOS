@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import * as dotenv from "dotenv";
 import { Client as PgClient } from "pg";
+import { formatStatus, formatKeyValueList } from "../src/utils/output-formatter.js";
 
 interface SmokeOptions {
   command?: string;
@@ -51,7 +52,10 @@ function loadEnvironment(): void {
     }
   }
 
-  console.warn("[db-smoke] No environment file loaded; ensure IG_ENV_FILE or DOTENV_CONFIG_PATH points to a secrets file.");
+  console.log(formatStatus(
+    "No environment file loaded; ensure IG_ENV_FILE or DOTENV_CONFIG_PATH points to a secrets file.",
+    "warning"
+  ));
 }
 
 function selectDatasource(): string {
@@ -101,12 +105,13 @@ async function runDirect(url: string, command: string | undefined): Promise<void
         'SELECT COUNT(*)::bigint AS count FROM "PokemonInstance"',
       );
       const count = result.rows[0]?.count ?? "0";
-      console.log(`cachedPokemonCount=${count}`);
+      console.log(formatKeyValueList([["cachedPokemonCount", count]]));
       return;
     }
 
     const result = await client.query("SELECT 1 AS ok");
-    console.log("Direct query result:", result.rows);
+    console.log(formatStatus("Direct query result:", "success"));
+    console.log(JSON.stringify(result.rows, null, 2));
   } finally {
     await client.end();
   }
@@ -117,11 +122,15 @@ async function main(): Promise<void> {
   const { command } = parseArgs(process.argv.slice(2));
   const datasource = selectDatasource();
 
-  console.log(`[db-smoke] Using direct PostgreSQL datasource ${maskUrl(datasource)}`);
+  console.log(formatStatus(
+    `Using direct PostgreSQL datasource ${maskUrl(datasource)}`,
+    "info"
+  ));
   await runDirect(datasource, command);
 }
 
 main().catch((error) => {
-  console.error("[db-smoke] Smoke check failed", error);
+  console.log(formatStatus("Smoke check failed", "error"));
+  console.error(error);
   process.exit(1);
 });

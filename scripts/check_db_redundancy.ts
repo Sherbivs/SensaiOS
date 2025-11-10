@@ -2,6 +2,7 @@ import { pathToFileURL } from "node:url";
 import { PrismaClient } from "@prisma/client";
 // @ts-ignore Runtime import resolves against pg/esm entry; types are provided via @types/pg.
 import { Client as PgClient } from "pg";
+import { formatStatus, formatKeyValueList } from "../src/utils/output-formatter.js";
 
 type TableDigest = {
   tableName: string;
@@ -152,15 +153,17 @@ function compareSnapshots(primary: DatabaseSnapshot, standby: DatabaseSnapshot, 
   const primaryRows = formatBigInt(primary.totals.rows);
   const standbyRows = formatBigInt(standby.totals.rows);
 
-  console.info(`[${label}] Primary tables: ${primary.totals.tables}, total rows: ${primaryRows}`);
-  console.info(`[${label}] Standby tables: ${standby.totals.tables}, total rows: ${standbyRows}`);
+  console.log(formatKeyValueList([
+    ["Primary tables", `${primary.totals.tables}, total rows: ${primaryRows}`],
+    ["Standby tables", `${standby.totals.tables}, total rows: ${standbyRows}`]
+  ]));
 
   if (mismatches.length === 0) {
-    console.info(`[${label}] ✅ All tables match between primary and standby (row counts and checksums).`);
+    console.log(formatStatus("All tables match between primary and standby (row counts and checksums).", "success"));
     return true;
   }
 
-  console.error(`[${label}] ❌ Detected ${mismatches.length} table mismatch(es):`);
+  console.log(formatStatus(`Detected ${mismatches.length} table mismatch(es):`, "error"));
   for (const mismatch of mismatches) {
     const primaryCount = formatBigInt(mismatch.primary.rowCount);
     const standbyCount = formatBigInt(mismatch.standby.rowCount);
@@ -230,15 +233,18 @@ const modulePath = pathToFileURL(process.argv[1] ?? "").href;
 
 if (import.meta.url === modulePath) {
   main().catch((error) => {
-    console.error("Redundancy check failed:", error instanceof Error ? error.message : error);
+    console.log(formatStatus("Redundancy check failed", "error"));
+    console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
   });
 }
 
 export async function checkMirrors(primaryUrl: string, standbyUrl: string, label = "mirror"): Promise<boolean> {
-  console.info(`[${label}] Running redundancy check...`);
-  console.info(`[${label}] Primary: %s`, redactConnectionString(primaryUrl));
-  console.info(`[${label}] Standby: %s`, redactConnectionString(standbyUrl));
+  console.log(formatStatus(`Running redundancy check (${label})...`, "info"));
+  console.log(formatKeyValueList([
+    ["Primary", redactConnectionString(primaryUrl)],
+    ["Standby", redactConnectionString(standbyUrl)]
+  ]));
 
   // UNIFIED ARCHITECTURE: All connections use direct PostgreSQL (no Accelerate)
   const primarySnapshot = await gatherDirectSnapshot("primary", primaryUrl);
