@@ -19,6 +19,10 @@ secrets/*
 !secrets/ROUTER.md
 prisma-accelerate.env
 
+# Environment documentation with credentials
+docs/environment/*-credentials-*.md
+docs/environment/render-credentials-reference.md
+
 # Database files (local PostgreSQL, SQLite)
 # Exclude Store contents but keep ROUTER.md meta docs
 Store/*
