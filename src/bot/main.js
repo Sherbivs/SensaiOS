@@ -1283,13 +1283,10 @@ async function notifyServiceRestart() {
       message += `\n• Total alerts: ${summary.totalAlerts}`;
       message += `\n• Permission changes detected: ${summary.totalPermissionChanges}`;
       message += `\n• Successful reverts: ${summary.successfulReverts}`;
-      if (summary.failedReverts > 0) {
-        message += `\n• ⚠️ Failed reverts: ${summary.failedReverts}`;
-      }
       
       // Add recent activity timeline
       const recentActivity = getRecentActivitySummary(botState, 5);
-      if (recentActivity !== 'No recent activity before restart') {
+      if (recentActivity && recentActivity !== 'No recent activity before restart') {
         message += `\n\n📜 **Recent Activity Before Restart**\n${recentActivity}`;
       }
     }
