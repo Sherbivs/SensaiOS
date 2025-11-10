@@ -47,6 +47,7 @@ import { engineCache } from "./services/engine-cache.js";
 import { engineWriteBuffer } from "./services/engine-write-buffer.js";
 import { startEngineWorkers, stopEngineWorkers, type EngineWorkersStatus } from "./workers/engine-workers.js";
 import { errorLearningWorker } from "./workers/error-learning-worker.js";
+import { startResourceMonitoring, stopResourceMonitoring } from "./services/resource-monitor.js";
 
 // Record module import completion
 recordTiming("module_imports", MODULE_IMPORT_START);
@@ -792,6 +793,14 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.error("Error stopping error learning worker", error);
   }
   
+  // Stop resource monitoring
+  try {
+    log.info("Stopping resource monitor");
+    stopResourceMonitoring();
+  } catch (error) {
+    log.error("Error stopping resource monitor", error);
+  }
+  
   // Step 3: Flush write buffer (best-effort, emergency mode)
   try {
     log.info("Flushing Engine write buffer");
@@ -1126,6 +1135,10 @@ export async function boot(): Promise<void> {
         // Start error learning worker (hourly analysis)
         await errorLearningWorker.start();
         log.info("Error learning worker started");
+        
+        // Start resource monitoring (twice-daily health checks)
+        startResourceMonitoring();
+        log.info("Resource monitor started");
         
         // Step 7: Mark engine as ready for battles
         global.engineReady = true;
