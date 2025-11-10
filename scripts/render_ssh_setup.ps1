@@ -215,5 +215,5 @@ Write-Host "  4. Give it a name (e.g., 'Windows Workstation')" -ForegroundColor 
 Write-Host "  5. Test connection: npm run render:ssh-connect" -ForegroundColor White
 Write-Host ""
 Write-Host "📚 Documentation:" -ForegroundColor Cyan
-Write-Host "   docs/render-ssh-automation.md" -ForegroundColor Gray
+Write-Host "   docs/deployment/render-ssh-automation.md" -ForegroundColor Gray
 Write-Host ""

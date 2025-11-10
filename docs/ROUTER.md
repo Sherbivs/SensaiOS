@@ -37,6 +37,7 @@ Key Documents by Category:
 - metrics-transparency.md - System metrics and observability
 - restart-dm-format.md - Restart notification formatting
 - cache-lru-optimization-summary.md - LRU cache optimization report
+- cross-worker-state-visibility.md - Multi-worker state sharing via persisted storage
 
 **Database** (database/):
 - database-systems.md & db-control-suite.md - Canonical reference for 2-node direct PostgreSQL architecture
@@ -78,6 +79,11 @@ Key Documents by Category:
 - render-disk-mount-fix.md - Render persistent disk mount configuration
 - render-mount-verification.md - Mount path verification procedures
 - comprehensive-mount-path-audit.md - Complete audit of mount paths across services
+- render-api-logging-summary.md - Render API integration and logging
+- render-one-off-jobs.md - Render one-off jobs feature documentation
+- render-ssh-automation.md - Comprehensive SSH automation suite for Render services
+- ssh-protocol.md - SSH protocol documentation (Ed25519, regions, operations)
+- vscode-render-integration.md - VS Code integration with Render services
 
 **Environment** (environment/):
 - ai-env-setup.md - Secure environment setup for AI agents

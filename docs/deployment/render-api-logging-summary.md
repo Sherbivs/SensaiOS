@@ -129,9 +129,9 @@ render deploys list srv-d3snk2ndiees73cn709g
 - ✅ `.env.example` - RENDER_API_KEY documentation
 
 ### Documentation
-- ✅ `docs/vscode-render-integration.md` - Complete setup guide
+- ✅ `docs/deployment/vscode-render-integration.md` - Complete setup guide
 - ✅ `scripts/README-RENDER.md` - Script reference
-- ✅ `docs/render-api-logging-summary.md` - This file
+- ✅ `docs/deployment/render-api-logging-summary.md` - This file
 
 ## Service Information
 

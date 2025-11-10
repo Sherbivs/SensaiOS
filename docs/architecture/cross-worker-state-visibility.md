@@ -234,7 +234,7 @@ ssh srv-{id}@ssh.virginia.render.com "cat /Store/security-bot-state/current.json
 scp srv-{id}@ssh.virginia.render.com:/Store/security-bot-state/current.json ./security-state.json
 ```
 
-See `docs/ssh-protocol.md` for complete SSH documentation.
+See `docs/deployment/ssh-protocol.md` for complete SSH documentation.
 
 ## Benefits
 
@@ -324,8 +324,8 @@ ssh srv-d3snk2ndiees73cn709g@ssh.virginia.render.com "cat /Store/security-bot-st
 
 ## Related Documentation
 
-- **State Persistence**: `docs/security-bot-state.md` - Security bot state architecture
-- **SSH Protocol**: `docs/ssh-protocol.md` - File access via SSH
+- **State Persistence**: `docs/architecture/security-bot-state.md` - Security bot state architecture
+- **SSH Protocol**: `docs/deployment/ssh-protocol.md` - File access via SSH
 - **Logger**: `src/utils/logger.js` - Stats collection and display
 - **Security Bot**: `src/bot/state/persistence.js` - State save/load lifecycle
 - **Schema**: `Store/security-bot-state/schema.md` - JSON structure documentation

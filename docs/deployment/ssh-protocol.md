@@ -408,7 +408,7 @@ SSH complements the Render API but serves different purposes:
 - Render SSH Documentation: https://docs.render.com/ssh
 - Ed25519 Specification: RFC 8709
 - OpenSSH Documentation: https://www.openssh.com/manual.html
-- Related Docs: `docs/render-ssh-automation.md`, `docs/render-api-logging-summary.md`
+- Related Docs: `docs/deployment/render-ssh-automation.md`, `docs/deployment/render-api-logging-summary.md`
 
 ## Changelog
 
