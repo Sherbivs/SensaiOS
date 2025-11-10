@@ -77,12 +77,12 @@ function loadTimeoutConfig() {
       const config = JSON.parse(data);
       if (config.timeoutMs && typeof config.timeoutMs === 'number') {
         const clamped = Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, config.timeoutMs));
-        log.info(`[timeout-config] Loaded: ${clamped}ms (adjustments: ${config.adjustments || 0}, last: ${config.lastAdjusted || 'never'})`);
+        baseLog('info', `[timeout-config] Loaded: ${clamped}ms (adjustments: ${config.adjustments || 0}, last: ${config.lastAdjusted || 'never'})`, {}, { debugMode: CLI_DEBUG_MODE });
         return clamped;
       }
     }
   } catch (err) {
-    log.warn('[timeout-config] Failed to load, using default:', err.message);
+    baseLog('warn', '[timeout-config] Failed to load, using default:', { error: err.message }, { debugMode: CLI_DEBUG_MODE });
   }
   return DEFAULT_TIMEOUT_MS;
 }
