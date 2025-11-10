@@ -16,6 +16,9 @@ import { EventEmitter } from 'node:events';
 import { errorTracker } from './error-tracker.js';
 import { log } from '../utils/logger.js';
 
+// Note: resource-monitor.ts imports this file, so we can't import it here (circular dependency)
+// Instead, resource-monitor will call resourceManager.getStats() directly
+
 // ============================================================================
 // Types & Interfaces
 // ============================================================================
@@ -107,13 +110,16 @@ class ResourceManager {
       this.limits = { ...this.limits, ...customLimits };
     }
 
-    // Start background monitoring
+    // Start background monitoring (runs every 5 minutes)
     this.startMonitoring();
 
     log('info', '[ResourceManager] Initialized', {
       limits: this.limits,
       monitoringIntervalMs: this.MONITORING_INTERVAL_MS,
     });
+
+    // Note: Lightweight resource monitor (runs twice daily) is started separately
+    // via startResourceMonitoring() in src/index.ts
   }
 
   public async shutdown(): Promise<void> {
