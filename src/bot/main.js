@@ -72,17 +72,33 @@ const MAX_TIMEOUT_MS = 300_000; // 5 minutes max
 // Load timeout from persistent config
 function loadTimeoutConfig() {
   try {
+    baseLog('info', `[timeout-config] Loading from: ${TIMEOUT_CONFIG_FILE}`, {}, { debugMode: CLI_DEBUG_MODE });
+    
     if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
       const data = fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8');
       const config = JSON.parse(data);
       if (config.timeoutMs && typeof config.timeoutMs === 'number') {
         const clamped = Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, config.timeoutMs));
-        baseLog('info', `[timeout-config] Loaded: ${clamped}ms (adjustments: ${config.adjustments || 0}, last: ${config.lastAdjusted || 'never'})`, {}, { debugMode: CLI_DEBUG_MODE });
+        baseLog('info', `[timeout-config] Loaded from disk`, {
+          timeoutMs: clamped,
+          adjustments: config.adjustments || 0,
+          lastAdjusted: config.lastAdjusted || 'never',
+          lastReason: config.reason || 'unknown',
+          file: TIMEOUT_CONFIG_FILE
+        }, { debugMode: CLI_DEBUG_MODE });
         return clamped;
       }
+    } else {
+      baseLog('info', `[timeout-config] File does not exist, using default: ${DEFAULT_TIMEOUT_MS}ms`, {
+        file: TIMEOUT_CONFIG_FILE
+      }, { debugMode: CLI_DEBUG_MODE });
     }
   } catch (err) {
-    baseLog('warn', '[timeout-config] Failed to load, using default:', { error: err.message }, { debugMode: CLI_DEBUG_MODE });
+    baseLog('warn', '[timeout-config] Failed to load, using default', { 
+      error: err.message,
+      file: TIMEOUT_CONFIG_FILE,
+      default: DEFAULT_TIMEOUT_MS
+    }, { debugMode: CLI_DEBUG_MODE });
   }
   return DEFAULT_TIMEOUT_MS;
 }
@@ -128,9 +144,25 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
     });
     
     fs.writeFileSync(TIMEOUT_CONFIG_FILE, JSON.stringify(config, null, 2));
-    baseLog('info', '[timeout-config] Saved', { timeoutMs, reason, adjustments });
+    
+    // Verify write succeeded
+    const verification = fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8');
+    const verified = JSON.parse(verification);
+    
+    baseLog('info', '[timeout-config] Saved', { 
+      timeoutMs, 
+      reason, 
+      adjustments,
+      file: TIMEOUT_CONFIG_FILE,
+      verified: verified.timeoutMs === timeoutMs,
+      fileExists: fs.existsSync(TIMEOUT_CONFIG_FILE)
+    });
   } catch (err) {
-    baseLog('error', '[timeout-config] Failed to save', { error: err.message });
+    baseLog('error', '[timeout-config] Failed to save', { 
+      error: err.message,
+      file: TIMEOUT_CONFIG_FILE,
+      stack: err.stack
+    });
   }
 }
 
