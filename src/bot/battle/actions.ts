@@ -26,6 +26,7 @@ import { BattleRepo, prisma as prismaClient } from "../../models/index.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 import { getPartyWithSlots } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
+import { errorTracker } from "../../services/error-tracker.js";
 
 import * as concludeModule from "./conclude.js";
 
@@ -388,7 +389,18 @@ export async function handleBattleActionButton(
       if (result.status === "ready") {
         await maybeAdvanceTurn(battle.id, interaction, dispatcher);
       }
-    } catch {
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'ENGINE',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        operation: 'battle:queueMoveAction',
+        context: {
+          battleId: battle.id,
+          playerKey: identified.key,
+          moveId: choice,
+        },
+      });
       await interaction.followUp({
         content: "That move can't be used right now.",
         ephemeral: true,
@@ -418,11 +430,23 @@ export async function handleBattleActionButton(
       if (result.status === "ready") {
         try {
           await dispatcher(battle.id, (id) => interaction.client.users.fetch(id));
-        } catch {
-          // ignore DM issues
+        } catch (dmErr) {
+          // DM delivery failures are expected (users may have DMs disabled)
+          // Don't track these as errors
         }
       }
-    } catch {
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'ENGINE',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        operation: 'battle:queueSwitchAction',
+        context: {
+          battleId: battle.id,
+          playerKey: identified.key,
+          switchToId: choice,
+        },
+      });
       await interaction.followUp({
         content: "Cannot switch to that Pokémon right now.",
         ephemeral: true,

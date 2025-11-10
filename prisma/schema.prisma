@@ -522,3 +522,67 @@ model DbSyncState {
   @@index([status])
   @@map("db_sync_state")
 }
+
+/// ---- Error Detection & Learning System ----
+model ErrorLog {
+  errorId                String   @id @default(uuid())
+  fingerprint            String   @unique
+  category               String
+  severity               String
+  
+  // Occurrence tracking
+  firstSeen              DateTime @default(now())
+  lastSeen               DateTime @default(now())
+  occurrenceCount        Int      @default(1)
+  
+  // Error details
+  errorName              String
+  errorMessage           String   @db.Text
+  stackTrace             String?  @db.Text
+  
+  // Context (JSONB for flexibility)
+  contextData            Json?
+  
+  // Recovery tracking
+  recoveryAttempted      Int      @default(0)
+  recoverySuccess        Int      @default(0)
+  lastRecoveryStrategy   String?
+  lastRecoveryOutcome    String?
+  
+  // Impact assessment
+  impactedFeatures       String[]
+  estimatedUserImpact    Int?
+  
+  // Learning metadata (JSONB for ML features)
+  learningMetadata       Json?
+  
+  // Timestamps
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  
+  alerts                 ErrorAlert[]
+  
+  @@index([fingerprint])
+  @@index([category])
+  @@index([severity])
+  @@index([lastSeen(sort: Desc)])
+  @@index([occurrenceCount(sort: Desc)])
+  @@map("ErrorLog")
+}
+
+model ErrorAlert {
+  alertId         String    @id @default(uuid())
+  errorId         String
+  alertType       String
+  recipientId     String?
+  sentAt          DateTime  @default(now())
+  acknowledged    Boolean   @default(false)
+  acknowledgedAt  DateTime?
+  acknowledgedBy  String?
+  
+  error           ErrorLog  @relation(fields: [errorId], references: [errorId], onDelete: Cascade)
+  
+  @@index([errorId])
+  @@index([sentAt(sort: Desc)])
+  @@map("ErrorAlert")
+}

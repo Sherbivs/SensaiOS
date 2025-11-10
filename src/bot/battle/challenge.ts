@@ -15,6 +15,7 @@ import { createArenaThread, type ArenaThreadContext } from "../arena/thread.js";
 import { canChallengeBattle } from "../middleware/limits.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { createBattle, updateBattleStateAndEnd, activateBattle } from "../../shared/models/battle-queries-pg.js";
+import { errorTracker } from "../../services/error-tracker.js";
 
 import { openActionDMs } from "./actions.js";
 

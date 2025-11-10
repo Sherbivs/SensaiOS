@@ -8,6 +8,7 @@ import { log } from '../../utils/logger.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { errorTracker } from '../../services/error-tracker.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -112,6 +113,17 @@ async function loadStateFile(filePath) {
       return null;
     }
     log('error', '[State] Error loading file', { filePath, error: error.message });
+    
+    // Track non-ENOENT errors (corruption, parse failures, etc.)
+    errorTracker.captureError(
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        category: 'WORKER',
+        operation: 'state:loadFile',
+        customData: { filePath, errorCode: error.code },
+      }
+    ).catch(() => {}); // Fire-and-forget (sync function context)
+    
     return null;
   }
 }
@@ -127,6 +139,17 @@ async function saveStateFile(filePath, state) {
     return true;
   } catch (error) {
     log('error', '[State] Error saving file', { filePath, error: error.message });
+    
+    // Track save failures (disk full, permissions, etc.)
+    await errorTracker.captureError(
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        category: 'WORKER',
+        operation: 'state:saveFile',
+        customData: { filePath, errorCode: error.code },
+      }
+    );
+    
     return false;
   }
 }
@@ -238,6 +261,21 @@ export async function initializeState() {
   } catch (error) {
     log('error', '[State] CRITICAL: Cannot create state directory', { error: error.message });
     log('error', '[State] State persistence will be degraded (in-memory only)');
+    
+    // Track critical directory creation failures
+    await errorTracker.captureError(
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        category: 'WORKER',
+        severity: 'CRITICAL',
+        operation: 'state:initializeDirectories',
+        customData: {
+          stateDir: STATE_DIR,
+          snapshotsDir: SNAPSHOTS_DIR,
+          errorCode: error.code,
+        },
+      }
+    );
   }
   
   // Load previous state

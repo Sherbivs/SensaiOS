@@ -24,6 +24,7 @@
 
 import { EngineDbConfig } from '../config/engine-db-config.js';
 import { log, LOG_LABEL } from '../utils/logger.js';
+import { errorTracker } from './error-tracker.js';
 
 // ============================================================================
 // Type Definitions
@@ -1163,6 +1164,12 @@ export class EngineCache {
       this.corruptionDetected = false;
       
     } catch (error) {
+      // Track checksum failure (fire-and-forget)
+      errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
+        category: 'CACHE',
+        operation: 'engine-cache:updateChecksum',
+      }).catch(() => {});
+      
       log('error', 'engine-cache: Failed to update checksum', error);
       this.dataChecksum = null;
     }

@@ -19,6 +19,7 @@ import {
   TrainerPartySlot,
   evaluateDailyQuestStreak,
 } from "../../models/index.js";
+import { errorTracker } from "../../services/error-tracker.js";
 
 const BOX_PAGE_SIZE = 10;
 export const BOX_PAGE_PREFIX = "HOME_BOX_PAGE_";
@@ -282,7 +283,7 @@ async function acknowledge(interaction: InteractionWithUser, content: string) {
   } catch (error) {
     // Swallow follow-up failures so DM responses still resolve cleanly when the
     // acknowledgement cannot be delivered (e.g., interaction already concluded).
-    log.warn("[dm-home] Failed to send acknowledgement", error);
+    log('warn', "[dm-home] Failed to send acknowledgement", { error });
   }
 }
 
@@ -308,7 +309,20 @@ async function respondWithView(
         await acknowledge(interaction, ackContent);
       }
     } catch (error) {
-      log.warn("[dm-home] Failed to deliver DM view; falling back to ephemeral reply", error);
+      log('warn', "[dm-home] Failed to deliver DM view; falling back to ephemeral reply", { error });
+      
+      // Track DM delivery failure
+      await errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
+        category: 'DISCORD',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        operation: 'dm:createDM',
+        context: {
+          view: 'dm-home',
+          fallback: 'ephemeral-reply',
+        },
+      });
+      
       const fallback: InteractionReplyOptions = {
         embeds,
         components,

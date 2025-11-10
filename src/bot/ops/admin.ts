@@ -37,6 +37,11 @@ import * as engineWriteDb from "../../services/engine-write-db.js";
 import { getEngineWorkersStatus } from "../../workers/engine-workers.js";
 import type { EngineWorkersStatus } from "../../workers/engine-workers.js";
 
+// Error Detection modules (Phase 9-12)
+import { errorTracker } from "../../services/error-tracker.js";
+import { errorLearning } from "../../services/error-learning.js";
+import type { ErrorSeverity, ErrorCategory } from "../../services/error-tracker.js";
+
 // Import state persistence modules (optional - bot/state may be in JS)
 let stateModules: any = null;
 async function getStateModules() {
@@ -637,6 +642,13 @@ export async function handleOpsCommand(
       const report = formatCacheReport(snapshot, cleanupRequested);
       await interaction.editReply({ content: report });
     } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'CACHE',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops cache',
+        operation: 'collectCacheMetrics',
+      });
       const message = err instanceof Error ? err.message : String(err);
       await interaction.editReply({ content: `Cache metrics unavailable: ${message}` });
     }
@@ -649,6 +661,13 @@ export async function handleOpsCommand(
       const report = formatEngineDbStats();
       await interaction.editReply({ content: report });
     } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'ENGINE',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops engine',
+        operation: 'formatEngineDbStats',
+      });
       const message = err instanceof Error ? err.message : String(err);
       await interaction.editReply({ content: `Engine DB stats unavailable: ${message}` });
     }
@@ -707,7 +726,14 @@ export async function handleOpsCommand(
       const message = formatOpsStatsReport(report, diagnostics);
       await interaction.editReply({ content: message });
     } catch (err) {
-      log.warn("Stats query failed", { err });
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'DATABASE',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops stats',
+        operation: 'collectOpsStatsFromDb',
+      });
+      log('warn', "Stats query failed", { err });
       await interaction.editReply({ content: "Failed to load stats (check logs)." });
     }
     return;
@@ -822,12 +848,218 @@ export async function handleOpsCommand(
         await interaction.editReply({ content: message });
       }
     } catch (err) {
-      log.warn("State command failed", { err });
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'WORKER',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops state',
+        operation: 'getSecurityBotState',
+      });
+      log('warn', "State command failed", { err });
       const message = err instanceof Error ? err.message : String(err);
       await interaction.editReply({ content: `State unavailable: ${message}` });
     }
     return;
   }
 
+  if (sub === "errors") {
+    await interaction.deferReply({ ephemeral: true });
+    
+    // Parse filters from options
+    const severityFilter = interaction.options?.getString?.("severity") as ErrorSeverity | null;
+    const categoryFilter = interaction.options?.getString?.("category") as ErrorCategory | null;
+    const sinceRaw = interaction.options?.getString?.("since") ?? "24h";
+    
+    // Parse "since" duration
+    const durationMatch = sinceRaw.match(/^(\d+)(h|d)$/);
+    if (!durationMatch) {
+      await interaction.editReply({ 
+        content: "Invalid 'since' format. Use: 1h, 6h, 24h, 7d, 30d" 
+      });
+      return;
+    }
+    
+    const value = parseInt(durationMatch[1], 10);
+    const unit = durationMatch[2];
+    const hoursAgo = unit === 'h' ? value : value * 24;
+    const sinceDate = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+    
+    try {
+      // Collect error statistics
+      const stats = await errorTracker.getErrorStats(sinceDate);
+      const recentErrors = await errorTracker.getRecentErrors(100);
+      
+      // Apply filters
+      let filteredErrors = recentErrors.filter((err: any) => err.lastSeen >= sinceDate);
+      if (severityFilter) {
+        filteredErrors = filteredErrors.filter((err: any) => err.severity === severityFilter);
+      }
+      if (categoryFilter) {
+        filteredErrors = filteredErrors.filter((err: any) => err.category === categoryFilter);
+      }
+      
+      // Calculate trends (compare to previous period)
+      const previousPeriodStart = new Date(sinceDate.getTime() - hoursAgo * 60 * 60 * 1000);
+      const previousStats = await errorTracker.getErrorStats(previousPeriodStart);
+      const currentCount = stats.totalOccurrences;
+      const previousCount = previousStats.totalOccurrences - stats.totalOccurrences;
+      const trendPercent = previousCount > 0 
+        ? Math.round(((currentCount - previousCount) / previousCount) * 100)
+        : 0;
+      const trendIndicator = trendPercent > 0 ? `📈 +${trendPercent}%` : trendPercent < 0 ? `📉 ${trendPercent}%` : `➡️ ${trendPercent}%`;
+      
+      // Get top 10 most frequent errors
+      const errorFrequency = new Map<string, { name: string; count: number; lastSeen: Date }>();
+      for (const err of filteredErrors) {
+        const existing = errorFrequency.get(err.fingerprint);
+        if (existing) {
+          existing.count++;
+          if (err.lastSeen > existing.lastSeen) {
+            existing.lastSeen = err.lastSeen;
+          }
+        } else {
+          errorFrequency.set(err.fingerprint, {
+            name: err.errorName,
+            count: 1,
+            lastSeen: err.lastSeen,
+          });
+        }
+      }
+      
+      const topErrors = Array.from(errorFrequency.entries())
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 10);
+      
+      // Get critical errors (last 24h, CRITICAL + HIGH)
+      const criticalErrors = filteredErrors
+        .filter((err: any) => err.severity === 'CRITICAL' || err.severity === 'HIGH')
+        .sort((a: any, b: any) => b.lastSeen.getTime() - a.lastSeen.getTime())
+        .slice(0, 5);
+      
+      // Calculate recovery success rates
+      const errorsWithRecovery = filteredErrors.filter((err: any) => err.recoveryAttempted > 0);
+      const overallRecoveryRate = errorsWithRecovery.length > 0
+        ? Math.round((errorsWithRecovery.filter((e: any) => e.recoverySuccess > 0).length / errorsWithRecovery.length) * 100)
+        : 0;
+      
+      // Calculate error rate per hour
+      const errorRate = Math.round(currentCount / hoursAgo);
+      
+      // Build response
+      const lines: string[] = [];
+      lines.push("🚨 **Error Detection System Dashboard**");
+      lines.push(`Period: Last ${sinceRaw} (since ${sinceDate.toISOString()})`);
+      if (severityFilter) lines.push(`Filter: Severity = ${severityFilter}`);
+      if (categoryFilter) lines.push(`Filter: Category = ${categoryFilter}`);
+      lines.push("");
+      
+      // Section 1: Summary Stats
+      lines.push("**📊 Summary Statistics**");
+      lines.push(`• Total unique errors: ${stats.totalUnique}`);
+      lines.push(`• Total occurrences: ${currentCount}`);
+      lines.push(`• Error rate: ~${errorRate}/hour`);
+      lines.push(`• Trend: ${trendIndicator} vs previous ${sinceRaw}`);
+      lines.push("");
+      
+      lines.push("**By Severity:**");
+      lines.push(`• CRITICAL: ${stats.bySeverity.CRITICAL || 0}`);
+      lines.push(`• HIGH: ${stats.bySeverity.HIGH || 0}`);
+      lines.push(`• MEDIUM: ${stats.bySeverity.MEDIUM || 0}`);
+      lines.push(`• LOW: ${stats.bySeverity.LOW || 0}`);
+      lines.push("");
+      
+      lines.push("**By Category:**");
+      Object.entries(stats.byCategory).forEach(([cat, count]) => {
+        lines.push(`• ${cat}: ${count}`);
+      });
+      lines.push("");
+      
+      // Section 2: Top 10 Errors
+      lines.push("**🔥 Top 10 Most Frequent Errors**");
+      if (topErrors.length === 0) {
+        lines.push("• No errors in period");
+      } else {
+        topErrors.forEach(([fp, data], idx) => {
+          const fpShort = fp.substring(0, 8);
+          const lastSeenAgo = formatTimeSince(data.lastSeen);
+          lines.push(`${idx + 1}. \`${fpShort}\` ${data.name} • Count: ${data.count} • Last: ${lastSeenAgo}`);
+        });
+      }
+      lines.push("");
+      
+      // Section 3: Recent Critical Errors
+      lines.push("**⚠️ Recent Critical/High Errors**");
+      if (criticalErrors.length === 0) {
+        lines.push("• No critical errors in period 🎉");
+      } else {
+        criticalErrors.forEach((err: any, idx: number) => {
+          const fpShort = err.fingerprint.substring(0, 8);
+          const ago = formatTimeSince(err.lastSeen);
+          lines.push(`${idx + 1}. [${err.severity}] \`${fpShort}\` ${err.errorName} • ${ago}`);
+          if (err.errorMessage) {
+            const msgTrunc = err.errorMessage.length > 60 ? err.errorMessage.substring(0, 57) + "..." : err.errorMessage;
+            lines.push(`   └─ ${msgTrunc}`);
+          }
+        });
+      }
+      lines.push("");
+      
+      // Section 4: Recovery Success Rates
+      lines.push("**🔧 Recovery Success Rates**");
+      lines.push(`• Overall: ${overallRecoveryRate}% (${errorsWithRecovery.filter((e: any) => e.recoverySuccess > 0).length}/${errorsWithRecovery.length} attempts)`);
+      lines.push("");
+      
+      // Section 5: Learning Insights (if available)
+      const errorWithLearning = filteredErrors.find((err: any) => err.learningMetadata);
+      if (errorWithLearning?.learningMetadata) {
+        lines.push("**🧠 Learning Insights**");
+        const learning = errorWithLearning.learningMetadata as any;
+        if (learning.timePatterns?.length > 0) {
+          const pattern = learning.timePatterns[0];
+          lines.push(`• Time pattern detected: Peak at hour ${pattern.hour} (~${pattern.errorRate.toFixed(1)} errors/hour)`);
+        }
+        if (learning.correlations?.length > 0) {
+          const corr = learning.correlations[0];
+          lines.push(`• Correlation found: \`${corr.error2Fingerprint.substring(0, 8)}\` follows within ${corr.timeDeltaMs}ms`);
+        }
+        if (learning.recoveryStrategies?.length > 0) {
+          const strat = learning.recoveryStrategies[0];
+          lines.push(`• Best recovery: "${strat.strategy}" (${strat.effectiveness} effectiveness)`);
+        }
+      } else {
+        lines.push("**🧠 Learning Insights**");
+        lines.push("• Waiting for hourly analysis...");
+      }
+      lines.push("");
+      
+      lines.push("*Use filters: `--severity critical`, `--category database`, `--since 7d`*");
+      
+      const message = lines.join("\n");
+      if (message.length > 2000) {
+        // Split message if too long
+        await interaction.editReply({ content: message.substring(0, 1997) + "..." });
+      } else {
+        await interaction.editReply({ content: message });
+      }
+    } catch (err) {
+      log.warn("Error dashboard command failed", { err });
+      const message = err instanceof Error ? err.message : String(err);
+      await interaction.editReply({ content: `Error dashboard unavailable: ${message}` });
+    }
+    return;
+  }
+
   await interaction.reply({ content: "Unknown /ops command.", ephemeral: true });
+}
+
+// Helper function to format time since
+function formatTimeSince(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }

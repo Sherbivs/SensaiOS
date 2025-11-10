@@ -23,6 +23,7 @@
 import { EngineDbConfig } from '../config/engine-db-config.js';
 import { engineCache } from '../services/engine-cache.js';
 import { engineWriteBuffer } from '../services/engine-write-buffer.js';
+import { workerErrorHandler } from './worker-error-handler.js';
 import { log } from '../utils/logger.js';
 
 // ============================================================================
@@ -141,6 +142,14 @@ class CacheRefreshWorker {
         error: this.status.lastError,
         errorCount: this.status.errorCount
       });
+      
+      // Capture error for tracking
+      if (error instanceof Error) {
+        await workerErrorHandler.handleCacheRefreshError(error, {
+          operation: 'cache-refresh',
+          workerName: 'CacheRefreshWorker',
+        });
+      }
 
     } finally {
       this.status.isRunning = false;
@@ -271,6 +280,19 @@ class WriteBufferFlusher {
         error: this.status.lastError,
         errorCount: this.status.errorCount
       });
+      
+      // Capture error for tracking
+      if (error instanceof Error) {
+        const bufferStats = engineWriteBuffer.getStats();
+        await workerErrorHandler.handleTaskError(error, 'WriteBufferFlusher', 'flush', {
+          operation: 'buffer-flush',
+          customData: {
+            battleLogQueueSize: bufferStats.battleLogQueueSize,
+            moveUsageQueueSize: bufferStats.moveUsageQueueSize,
+            anomalyQueueSize: bufferStats.anomalyQueueSize,
+          },
+        });
+      }
 
     } finally {
       this.status.isRunning = false;
@@ -509,6 +531,16 @@ class WriteDbValidatorWorker {
         error: this.status.lastError,
         errorCount: this.status.errorCount
       });
+      
+      // Capture error for tracking
+      if (error instanceof Error) {
+        await workerErrorHandler.handleTaskError(error, 'WriteDbValidatorWorker', 'validation', {
+          operation: 'write-db-validation',
+          customData: {
+            taskType: 'validation',
+          },
+        });
+      }
 
     } finally {
       this.status.isRunning = false;

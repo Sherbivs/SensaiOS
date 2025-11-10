@@ -13,6 +13,7 @@ import path from "node:path";
 
 import { log } from "../../shared/log.js";
 import legacyCache from "../cache.js";
+import { errorTracker } from "../error-tracker.js";
 
 const { MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS } = (legacyCache as unknown as {
   MAX_CACHE_PERCENT: number;
@@ -605,6 +606,13 @@ function ensureDirSync(dir: string): boolean {
     fs.unlinkSync(probe);
     return true;
   } catch (err) {
+    // Track cache write failure (fire-and-forget to avoid blocking)
+    errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+      category: 'CACHE',
+      operation: 'cache:ensureDirWritable',
+      customData: { dir },
+    }).catch(() => {}); // Prevent unhandled rejection
+    
     log.warn("cache.dir.failure", { dir, err });
     return false;
   }
@@ -631,6 +639,14 @@ async function executeMaintenance(reason: MaintenanceReason): Promise<void> {
     await cleanExpiredFiles();
   } catch (err) {
     error = serializeError(err);
+    
+    // Track maintenance failure
+    await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+      category: 'CACHE',
+      operation: 'cache:maintenance',
+      customData: { reason },
+    });
+    
     log.warn("cache.maintenance.error", { reason, err: error });
   } finally {
     const finished = Date.now();

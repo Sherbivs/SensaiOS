@@ -78,6 +78,43 @@ const data = new SlashCommandBuilder()
           .setRequired(false)
       )
   )
+  .addSubcommand((sub) =>
+    sub
+      .setName('errors')
+      .setDescription('View comprehensive error detection dashboard with learning insights')
+      .addStringOption((opt) =>
+        opt
+          .setName('severity')
+          .setDescription('Filter by severity level')
+          .setRequired(false)
+          .addChoices(
+            { name: 'CRITICAL', value: 'CRITICAL' },
+            { name: 'HIGH', value: 'HIGH' },
+            { name: 'MEDIUM', value: 'MEDIUM' },
+            { name: 'LOW', value: 'LOW' }
+          )
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName('category')
+          .setDescription('Filter by error category')
+          .setRequired(false)
+          .addChoices(
+            { name: 'DATABASE', value: 'DATABASE' },
+            { name: 'DISCORD', value: 'DISCORD' },
+            { name: 'ENGINE', value: 'ENGINE' },
+            { name: 'WORKER', value: 'WORKER' },
+            { name: 'CACHE', value: 'CACHE' },
+            { name: 'UNKNOWN', value: 'UNKNOWN' }
+          )
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName('since')
+          .setDescription('Time period (e.g., 1h, 6h, 24h, 7d, 30d)')
+          .setRequired(false)
+      )
+  )
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .setDMPermission(false);
 

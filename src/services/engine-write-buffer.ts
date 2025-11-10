@@ -25,6 +25,7 @@
 
 import { EngineDbConfig } from '../config/engine-db-config.js';
 import { log } from '../utils/logger.js';
+import { errorTracker } from './error-tracker.js';
 
 // ============================================================================
 // Type Definitions
@@ -338,6 +339,15 @@ export class EngineWriteBuffer {
       this.checkBackpressure();
       
     } catch (error) {
+      // Track flush failure
+      await errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
+        category: 'ENGINE',
+        operation: 'engine-write-buffer:flush',
+        customData: {
+          queueSizes: this.getStats(),
+        },
+      });
+      
       log('error', 'engine-write-buffer: Flush failed', error);
       
       // TODO: Re-queue failed entries? Or let them be lost?

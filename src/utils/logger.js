@@ -104,6 +104,7 @@ let statsCache = {
   node: null,
   databases: null,
   security: null,
+  errors: null,
   lastRefresh: 0,
 };
 
@@ -506,6 +507,75 @@ function collectSecurityBotStats() {
 }
 
 // ============================================================================
+// Error Stats Collection (Error Detection System Integration)
+// ============================================================================
+
+/**
+ * Collect error statistics from ErrorTracker service.
+ * Returns last 10 unique errors with occurrence counts and metadata.
+ * @returns {Promise<object>} Error statistics or unavailability status
+ */
+async function collectErrorStats() {
+  try {
+    // Dynamic import to avoid circular dependency
+    const errorTrackerModule = await import('../services/error-tracker.js');
+    const { errorTracker } = errorTrackerModule;
+    
+    if (!errorTracker) {
+      return {
+        status: METRIC_UNAVAILABLE.NO_PROVIDER,
+        recentErrors: [],
+        summary: null,
+      };
+    }
+    
+    // Get stats for last hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const stats = await errorTracker.getErrorStats(oneHourAgo);
+    
+    // Get top 10 recent errors
+    const topErrors = await errorTracker.getRecentErrors({
+      limit: 10,
+      orderBy: 'lastSeen',
+    });
+    
+    return {
+      status: 'ready',
+      summary: {
+        totalUnique: stats.totalErrors,
+        totalOccurrences: stats.totalOccurrences,
+        criticalCount: stats.bySeverity.CRITICAL || 0,
+        highCount: stats.bySeverity.HIGH || 0,
+        mediumCount: stats.bySeverity.MEDIUM || 0,
+        lowCount: stats.bySeverity.LOW || 0,
+        errorRate: stats.errorRate,
+        topCategories: stats.byCategory,
+      },
+      recentErrors: topErrors.map(err => ({
+        severity: err.severity,
+        category: err.category,
+        name: err.errorName,
+        message: err.errorMessage,
+        count: err.occurrenceCount,
+        lastSeen: err.lastSeen,
+        impactedFeatures: err.impactedFeatures || [],
+        recoveryAttempts: err.recoveryAttempts,
+        recoverySuccesses: err.recoverySuccesses,
+      })),
+    };
+    
+  } catch (error) {
+    // ErrorTracker not available or query failed
+    return {
+      status: METRIC_UNAVAILABLE.QUERY_FAILED,
+      statusReason: error.message,
+      recentErrors: [],
+      summary: null,
+    };
+  }
+}
+
+// ============================================================================
 // Stats Display Functions
 // ============================================================================
 
@@ -522,6 +592,7 @@ async function refreshStats() {
   statsCache.node = collectNodeStats();
   statsCache.databases = await collectDatabaseStats(); // Now async
   statsCache.security = collectSecurityBotStats();
+  statsCache.errors = await collectErrorStats(); // Now includes error monitoring
   statsCache.lastRefresh = now;
 }
 
@@ -539,6 +610,25 @@ function formatMetric(value, reason, formatter = null) {
   }
   
   return formatter ? formatter(value) : String(value);
+}
+
+/**
+ * Format time elapsed since a given date into human-readable string.
+ * @param {Date} date - The past date
+ * @returns {string} Formatted time (e.g., "2m", "1h", "3d")
+ */
+function formatTimeSince(date) {
+  const now = new Date();
+  const diffMs = now - date;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+  
+  if (diffDay > 0) return `${diffDay}d`;
+  if (diffHour > 0) return `${diffHour}h`;
+  if (diffMin > 0) return `${diffMin}m`;
+  return `${diffSec}s`;
 }
 
 /**
@@ -684,6 +774,65 @@ async function printStats() {
       lines.push('  <unavailable: bot-initializing>');
     } else {
       lines.push(`  <unavailable: ${statsCache.security.statusReason || 'unknown'}>`);
+    }
+    
+    lines.push('');
+  }
+  
+  // -------------------------------------------------------------------------
+  // Error Monitoring Stats (from ErrorTracker service) - Last hour error tracking
+  // -------------------------------------------------------------------------
+  if (statsCache.errors) {
+    lines.push('[ERROR MONITORING] (Last Hour)');
+    
+    if (statsCache.errors.status === 'ready' && statsCache.errors.summary) {
+      const summary = statsCache.errors.summary;
+      
+      // Summary line with severity breakdown
+      lines.push(`  🚨 CRITICAL: ${summary.criticalCount} unique | ⚠️  HIGH: ${summary.highCount} unique | 📊 MEDIUM: ${summary.mediumCount} unique | 📝 LOW: ${summary.lowCount} unique`);
+      lines.push(`  Total: ${summary.totalUnique} unique errors | ${summary.totalOccurrences} occurrences | Rate: ${summary.errorRate.toFixed(2)}/min`);
+      lines.push('');
+      
+      // Top errors (up to 5)
+      if (statsCache.errors.recentErrors.length > 0) {
+        lines.push('  Top Recent Errors:');
+        const topErrors = statsCache.errors.recentErrors.slice(0, 5);
+        
+        topErrors.forEach(err => {
+          const icon = err.severity === 'CRITICAL' ? '❌' : err.severity === 'HIGH' ? '⚠️ ' : err.severity === 'MEDIUM' ? '📊' : '📝';
+          const timeSince = formatTimeSince(new Date(err.lastSeen));
+          const recoveryInfo = err.recoveryAttempts > 0 
+            ? ` | Recovery: ${err.recoverySuccesses}/${err.recoveryAttempts}`
+            : '';
+          
+          lines.push(`    ${icon} [${err.severity}] ${err.name} (x${err.count}, ${timeSince} ago)${recoveryInfo}`);
+          
+          if (err.impactedFeatures && err.impactedFeatures.length > 0) {
+            lines.push(`       → affecting: ${err.impactedFeatures.slice(0, 3).join(', ')}`);
+          }
+        });
+      } else {
+        lines.push('  ✅ No errors in last hour');
+      }
+      
+      lines.push('');
+      
+      // Top categories (show top 3)
+      const topCategories = Object.entries(summary.topCategories)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 3);
+      
+      if (topCategories.length > 0) {
+        const categoryStr = topCategories.map(([cat, count]) => `${cat} (${count})`).join(', ');
+        lines.push(`  Top Categories: ${categoryStr}`);
+      }
+      
+    } else if (statsCache.errors.status === METRIC_UNAVAILABLE.QUERY_FAILED) {
+      lines.push(`  <unavailable: ${statsCache.errors.statusReason || 'query-failed'}>`);
+    } else if (statsCache.errors.status === METRIC_UNAVAILABLE.NO_PROVIDER) {
+      lines.push('  <unavailable: error-tracker-not-loaded>');
+    } else {
+      lines.push(`  <unavailable: ${statsCache.errors.status}>`);
     }
     
     lines.push('');

@@ -17,6 +17,7 @@ import { Prisma } from "@prisma/client";
 import { Events, type Client } from "discord.js";
 
 import { bootDiscord } from "./bot/index.js";
+import { botErrorHandler } from "./bot/error-handler.js";
 import { ENABLE_DB_AUTO_SYNC, ENABLE_SECURITY_BOT } from "./config/env.js";
 import { initPrisma, prisma } from "./models/index.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
@@ -44,6 +45,7 @@ import * as engineWriteDb from "./services/engine-write-db.js";
 import { engineCache } from "./services/engine-cache.js";
 import { engineWriteBuffer } from "./services/engine-write-buffer.js";
 import { startEngineWorkers, stopEngineWorkers, type EngineWorkersStatus } from "./workers/engine-workers.js";
+import { errorLearningWorker } from "./workers/error-learning-worker.js";
 
 // Record module import completion
 recordTiming("module_imports", MODULE_IMPORT_START);
@@ -573,6 +575,20 @@ function bindDiscordLifecycle(client: Client): void {
   client.on("guildDelete", updateOnline);
   client.on("shardDisconnect", () => updateDiscordSection(client, "reconnecting"));
   client.on("shardResume", updateOnline);
+  
+  // Global Discord error handler - captures all Discord.js client errors
+  client.on("error", async (error) => {
+    log.error("Discord client error", error);
+    await botErrorHandler.handleDiscordAPIError(error, {
+      endpoint: "websocket",
+      method: "N/A",
+    });
+  });
+  
+  // Warning handler for Discord connection issues
+  client.on("warn", (info) => {
+    log.warn("Discord client warning", { info });
+  });
 }
 
 function updateSecuritySection(client: Client | null, status: string): void {
@@ -665,6 +681,20 @@ function bindSecurityLifecycle(client: Client): void {
   client.on("guildDelete", updateOnline);
   client.on("shardDisconnect", () => updateSecuritySection(client, "reconnecting"));
   client.on("shardResume", updateOnline);
+  
+  // Global Discord error handler for security bot
+  client.on("error", async (error) => {
+    log.error("Security bot client error", error);
+    await botErrorHandler.handleDiscordAPIError(error, {
+      endpoint: "websocket",
+      method: "N/A",
+    });
+  });
+  
+  // Warning handler for security bot connection issues
+  client.on("warn", (info) => {
+    log.warn("Security bot client warning", { info });
+  });
 }
 
 type SecurityBotModule = {
@@ -727,6 +757,14 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     } catch (error) {
       log.error("Error stopping Engine DB workers", error);
     }
+  }
+  
+  // Stop error learning worker
+  try {
+    log.info("Stopping error learning worker");
+    errorLearningWorker.stop();
+  } catch (error) {
+    log.error("Error stopping error learning worker", error);
   }
   
   // Step 3: Flush write buffer (best-effort, emergency mode)
@@ -816,13 +854,50 @@ function installSignalHandlers(): void {
     });
   }
 
-  process.on("unhandledRejection", (reason) => {
+  process.on("unhandledRejection", async (reason) => {
     const error = reason instanceof Error ? reason : new Error(String(reason));
     log.error("Unhandled promise rejection", error);
+    
+    // Capture error for tracking and learning
+    try {
+      const { errorTracker } = await import("./services/error-tracker.js");
+      await errorTracker.captureError(error, {
+        category: "UNKNOWN",
+        severity: "HIGH",
+        operation: "unhandledRejection",
+        customData: {
+          rejectionReason: String(reason),
+          stack: error.stack,
+        },
+      });
+    } catch (captureError) {
+      // Fallback if ErrorTracker fails - already logged above
+      log.error("Failed to capture unhandledRejection", captureError instanceof Error ? captureError : new Error(String(captureError)));
+    }
   });
 
-  process.on("uncaughtException", (error) => {
+  process.on("uncaughtException", async (error) => {
     log.error("Uncaught exception", error);
+    
+    // Capture error for tracking (CRITICAL severity - system crash)
+    try {
+      const { errorTracker } = await import("./services/error-tracker.js");
+      await errorTracker.captureError(error, {
+        category: "UNKNOWN",
+        severity: "CRITICAL",
+        operation: "uncaughtException",
+        customData: {
+          errorName: error.name,
+          errorMessage: error.message,
+          stack: error.stack,
+        },
+      });
+    } catch (captureError) {
+      // Fallback if ErrorTracker fails - already logged above
+      log.error("Failed to capture uncaughtException", captureError instanceof Error ? captureError : new Error(String(captureError)));
+    }
+    
+    // Proceed with graceful shutdown
     void gracefulShutdown("uncaughtException");
   });
 }
@@ -1022,6 +1097,10 @@ export async function boot(): Promise<void> {
         await startEngineWorkers();
         engineWorkersRunning = true;
         log.info("Engine DB workers started");
+        
+        // Start error learning worker (hourly analysis)
+        await errorLearningWorker.start();
+        log.info("Error learning worker started");
         
         // Step 7: Mark engine as ready for battles
         global.engineReady = true;
