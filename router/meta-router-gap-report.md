@@ -14,7 +14,7 @@ The table below lists every repository directory without a ROUTER.md after exclu
 | _(none)_ | Covered | All directories previously flagged now have ROUTER manifests or are documented by their parent routers. Continue to rerun the scan after creating new directories.
 
 ## Recommended Next Steps
-1. Triage legacy bundles (`discord-pokemon-bot/*`, `scripts/*`, `data/bootstrap`) and add routers or plan deprecation.
+1. Triage legacy bundles (`scripts/*`, `data/bootstrap`) and add routers or plan deprecation.
 2. Close remaining core gaps (`src/data_pipeline/schema`, `src/services/cache`, `src/shared/cache`, `src/shared/storage`, `tools/pgsql17`) with routers or parent coverage.
 3. Keep prisma migration parents and sync-layer routers updated as new folders spawn (use fold-under guidance above).
 4. After each wave of router additions run `pwsh -NoLogo -NoProfile -Command "Get-ChildItem -Recurse -Directory ..."` to verify coverage.
