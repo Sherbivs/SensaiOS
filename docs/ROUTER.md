@@ -74,6 +74,13 @@ Key Documents by Category:
 - PBSL.md - Provenance and validation notes for deterministic battle fixtures
 - event-tracking-schema.md - Event tracking schema for gameplay analytics
 
+**Resource Management** (root docs/):
+- resource-manager.md - Centralized resource lifecycle management (800+ lines architecture)
+- resource-manager-integration.md - Step-by-step integration guide for fixing 25 resource leaks
+- RESOURCE-MANAGER-SUMMARY.md - Executive summary with success metrics
+- RESOURCE-MANAGER-QUICK-REF.md - Quick reference for common patterns
+- resource-monitor-integration-summary.md - Complete Resource Monitor integration and deployment guide
+
 **Deployment** (deployment/):
 - workers.md - Worker architecture, scaling roadmap, and cost optimization
 - render-disk-mount-fix.md - Render persistent disk mount configuration
