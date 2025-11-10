@@ -61,6 +61,6 @@ try {
     Write-Host "View in dashboard: https://dashboard.render.com/services/$serviceId" -ForegroundColor Blue
     
 } catch {
-    Write-Error "Failed to restart: $_"
+    Write-Host "❌ Failed to restart: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }

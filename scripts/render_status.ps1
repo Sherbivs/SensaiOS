@@ -53,6 +53,7 @@ try {
     Write-Host "✅ Status check complete" -ForegroundColor Green
     
 } catch {
-    Write-Error "Failed to check status: $_"
+    $errorMsg = $_.Exception.Message
+    Write-Host "❌ Failed to check status: $errorMsg" -ForegroundColor Red
     exit 1
 }

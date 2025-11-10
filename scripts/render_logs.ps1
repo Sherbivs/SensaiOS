@@ -77,6 +77,6 @@ try {
     }
     
 } catch {
-    Write-Error "Failed to fetch logs: $_"
+    Write-Host "❌ Failed to fetch logs: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }
