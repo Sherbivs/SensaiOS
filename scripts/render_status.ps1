@@ -13,11 +13,11 @@ if (Test-Path $envFile) {
 
 $apiKey = $env:RENDER_API_KEY
 if (-not $apiKey) {
-    Write-Error "RENDER_API_KEY not found. Add it to secrets/Infinity-Gauntlet.env"
+    Write-Host "RENDER_API_KEY not found. Add it to secrets/Infinity-Gauntlet.env" -ForegroundColor Red
     exit 1
 }
 
-Write-Host "📊 Checking Render services status..." -ForegroundColor Cyan
+Write-Host "Checking Render services status..." -ForegroundColor Cyan
 Write-Host ""
 
 $headers = @{
@@ -50,10 +50,11 @@ try {
     }
     
     Write-Host ""
-    Write-Host "✅ Status check complete" -ForegroundColor Green
+    Write-Host "Status check complete" -ForegroundColor Green
     
 } catch {
     $errorMsg = $_.Exception.Message
-    Write-Host "❌ Failed to check status: $errorMsg" -ForegroundColor Red
+    Write-Host "Failed to check status" -ForegroundColor Red
+    Write-Host $errorMsg -ForegroundColor Red
     exit 1
 }

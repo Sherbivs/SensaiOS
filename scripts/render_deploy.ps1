@@ -54,6 +54,7 @@ try {
     Write-Host "View in dashboard: https://dashboard.render.com/services/$serviceId" -ForegroundColor Blue
     
 } catch {
-    Write-Host "❌ Failed to deploy: $($_.Exception.Message)" -ForegroundColor Red
+    $errorMsg = $_.Exception.Message
+    Write-Host "❌ Failed to deploy: $errorMsg" -ForegroundColor Red
     exit 1
 }

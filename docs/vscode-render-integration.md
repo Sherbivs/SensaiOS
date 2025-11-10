@@ -74,12 +74,34 @@ pwsh -File scripts/render_deploy.ps1 -Service "infinity-gauntlet-bots"
 ```
 
 ### 📋 View Logs
-Stream service logs in real-time:
+**Note:** The Render REST API has limited logs support. For best experience, use one of these options:
 
+**Option 1: Render Dashboard** (Recommended for browsing/searching)
+```
+https://dashboard.render.com/worker/srv-d3snk2ndiees73cn709g
+```
+
+**Option 2: Render CLI** (Recommended for live tailing)
 ```powershell
-npm run render:logs
+# Install Render CLI (one-time setup)
+# Windows: Download from https://github.com/render-oss/cli/releases
+# Or use Chocolatey: choco install render
+
+# Authenticate with your API key
+$env:RENDER_API_KEY = "your_api_key_here"
+
+# Interactive mode (select service from menu)
+render services
+
+# Direct service logs
+render logs -s srv-d3snk2ndiees73cn709g
+```
+
+**Option 3: Recent Deploys** (Shows deployment history)
+```powershell
+npm run render:deploys
 # or manually:
-pwsh -File scripts/render_logs.ps1 -Service "infinity-gauntlet-bots" -Tail
+pwsh -File scripts/render_deploys.ps1 -Service "Infinity-Gauntlet"
 ```
 
 ### 🔄 Restart Service
@@ -112,7 +134,7 @@ For convenience, you can add these to `package.json`:
   "scripts": {
     "render:status": "pwsh -File scripts/render_status.ps1",
     "render:deploy": "pwsh -File scripts/render_deploy.ps1 -Service infinity-gauntlet-bots",
-    "render:logs": "pwsh -File scripts/render_logs.ps1 -Service infinity-gauntlet-bots -Tail",
+    "render:deploys": "pwsh -File scripts/render_deploys.ps1 -Service Infinity-Gauntlet",
     "render:restart": "pwsh -File scripts/render_restart.ps1 -Service infinity-gauntlet-bots"
   }
 }

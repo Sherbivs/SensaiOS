@@ -20,11 +20,11 @@ if (Test-Path $envFile) {
 
 $apiKey = $env:RENDER_API_KEY
 if (-not $apiKey) {
-    Write-Error "RENDER_API_KEY not found. Add it to secrets/Infinity-Gauntlet.env"
+    Write-Host "RENDER_API_KEY not found. Add it to secrets/Infinity-Gauntlet.env" -ForegroundColor Red
     exit 1
 }
 
-Write-Host "📋 Fetching logs for $Service..." -ForegroundColor Cyan
+Write-Host "Fetching logs for $Service..." -ForegroundColor Cyan
 
 $headers = @{
     "Authorization" = "Bearer $apiKey"
@@ -37,7 +37,7 @@ try {
     $targetService = $services | Where-Object { $_.service.name -eq $Service } | Select-Object -First 1
     
     if (-not $targetService) {
-        Write-Error "Service '$Service' not found"
+        Write-Host "Service '$Service' not found" -ForegroundColor Red
         exit 1
     }
     
@@ -45,38 +45,43 @@ try {
     
     if ($Tail) {
         Write-Host "Tailing logs (Ctrl+C to stop)..." -ForegroundColor Yellow
-        $cursor = $null
+        $startTime = $null
+        $endTime = $null
         
         while ($true) {
-            $uri = "https://api.render.com/v1/services/$serviceId/logs?limit=100"
-            if ($cursor) {
-                $uri += "&cursor=$cursor"
+            if ($startTime -and $endTime) {
+                $uri = "https://api.render.com/v1/logs?resourceIds=$serviceId&startTime=$startTime&endTime=$endTime&limit=100"
+            } else {
+                $uri = "https://api.render.com/v1/logs?resourceIds=$serviceId&limit=100"
             }
             
             $response = Invoke-RestMethod -Uri $uri -Headers $headers
             
-            foreach ($log in $response) {
+            foreach ($log in $response.logs) {
                 $timestamp = [DateTime]::Parse($log.timestamp).ToLocalTime().ToString("HH:mm:ss")
-                Write-Host "[$timestamp] $($log.message)"
+                Write-Host "[$timestamp] $($log.text)"
             }
             
-            if ($response.Count -gt 0) {
-                $cursor = $response[-1].id
+            if ($response.hasMore) {
+                $startTime = $response.nextStartTime
+                $endTime = $response.nextEndTime
             }
             
             Start-Sleep -Seconds 2
         }
     } else {
         # Get last 100 logs
-        $logs = Invoke-RestMethod -Uri "https://api.render.com/v1/services/$serviceId/logs?limit=100" -Headers $headers
+        $logs = Invoke-RestMethod -Uri "https://api.render.com/v1/logs?resourceIds=$serviceId&limit=100" -Headers $headers
         
-        foreach ($log in $logs) {
+        foreach ($log in $logs.logs) {
             $timestamp = [DateTime]::Parse($log.timestamp).ToLocalTime().ToString("HH:mm:ss")
-            Write-Host "[$timestamp] $($log.message)"
+            Write-Host "[$timestamp] $($log.text)"
         }
     }
     
 } catch {
-    Write-Host "❌ Failed to fetch logs: $($_.Exception.Message)" -ForegroundColor Red
+    $errorMsg = $_.Exception.Message
+    Write-Host "Failed to fetch logs" -ForegroundColor Red
+    Write-Host $errorMsg -ForegroundColor Red
     exit 1
 }

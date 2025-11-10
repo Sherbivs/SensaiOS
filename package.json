@@ -56,7 +56,7 @@
     "worker:security": "node security-bot.js",
     "render:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_status.ps1",
     "render:deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_deploy.ps1 -Service infinity-gauntlet-bots",
-    "render:logs": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_logs.ps1 -Service infinity-gauntlet-bots -Tail",
+    "render:deploys": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_deploys.ps1 -Service Infinity-Gauntlet",
     "render:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_restart.ps1 -Service infinity-gauntlet-bots"
   },
   "devDependencies": {
