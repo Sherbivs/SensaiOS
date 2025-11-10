@@ -227,7 +227,7 @@ function collectNodeStats() {
  * Collect database connection statistics with health checks.
  * Initializes the database stats provider on first call.
  * Returns metrics with explicit unavailability reasons when data cannot be queried.
- * @returns {Promise<object>} Database stats for PROD and LOCAL connections
+ * @returns {Promise<object>} Database stats for MASTER (PROD), LOCAL (Engine DBs), ONPREMISE-DEV, ONPREMISE-EXPERIMENT
  */
 async function collectDatabaseStats() {
   // Initialize provider on first call (deferred loading to avoid top-level await)
@@ -235,32 +235,54 @@ async function collectDatabaseStats() {
     await initializeDatabaseStatsProvider();
   }
   
+  const defaultReturn = {
+    master: {
+      status: METRIC_UNAVAILABLE.INITIALIZING,
+      latency: null,
+      latencyReason: METRIC_UNAVAILABLE.INITIALIZING,
+      source: null,
+      sourceReason: METRIC_UNAVAILABLE.INITIALIZING,
+    },
+    engineRead: {
+      status: METRIC_UNAVAILABLE.INITIALIZING,
+      latency: null,
+      latencyReason: METRIC_UNAVAILABLE.INITIALIZING,
+      entries: null,
+      entriesReason: METRIC_UNAVAILABLE.INITIALIZING,
+    },
+    engineWrite: {
+      status: METRIC_UNAVAILABLE.INITIALIZING,
+      latency: null,
+      latencyReason: METRIC_UNAVAILABLE.INITIALIZING,
+      entries: null,
+      entriesReason: METRIC_UNAVAILABLE.INITIALIZING,
+    },
+    onPremiseDev: {
+      status: METRIC_UNAVAILABLE.NOT_APPLICABLE,
+      latency: null,
+      latencyReason: METRIC_UNAVAILABLE.NOT_APPLICABLE,
+      source: null,
+      sourceReason: METRIC_UNAVAILABLE.NOT_APPLICABLE,
+    },
+    onPremiseExperiment: {
+      status: METRIC_UNAVAILABLE.NOT_APPLICABLE,
+      latency: null,
+      latencyReason: METRIC_UNAVAILABLE.NOT_APPLICABLE,
+      source: null,
+      sourceReason: METRIC_UNAVAILABLE.NOT_APPLICABLE,
+    },
+  };
+  
   // Provider not loaded yet or unavailable
   if (typeof getDatabaseStats !== 'function') {
     const reason = databaseStatsProvider === 'none' 
       ? METRIC_UNAVAILABLE.NO_PROVIDER 
       : METRIC_UNAVAILABLE.INITIALIZING;
       
-    return {
-      prod: {
-        status: reason,
-        latency: null,
-        latencyReason: reason,
-        connections: null,
-        connectionsReason: reason,
-        source: null,
-        sourceReason: reason,
-      },
-      local: {
-        status: METRIC_UNAVAILABLE.DISABLED,
-        latency: null,
-        latencyReason: METRIC_UNAVAILABLE.DISABLED,
-        connections: null,
-        connectionsReason: METRIC_UNAVAILABLE.DISABLED,
-        source: null,
-        sourceReason: METRIC_UNAVAILABLE.DISABLED,
-      },
-    };
+    defaultReturn.master.status = reason;
+    defaultReturn.master.latencyReason = reason;
+    defaultReturn.master.sourceReason = reason;
+    return defaultReturn;
   }
 
   try {
@@ -268,106 +290,119 @@ async function collectDatabaseStats() {
     
     // Connection not initialized yet
     if (!stats || stats.error) {
-      return {
-        prod: {
-          status: METRIC_UNAVAILABLE.NOT_CONNECTED,
-          latency: null,
-          latencyReason: METRIC_UNAVAILABLE.NOT_CONNECTED,
-          connections: null,
-          connectionsReason: METRIC_UNAVAILABLE.NOT_CONNECTED,
-          source: null,
-          sourceReason: METRIC_UNAVAILABLE.NOT_CONNECTED,
-        },
-        local: {
-          status: METRIC_UNAVAILABLE.DISABLED,
-          latency: null,
-          latencyReason: METRIC_UNAVAILABLE.DISABLED,
-          connections: null,
-          connectionsReason: METRIC_UNAVAILABLE.DISABLED,
-          source: null,
-          sourceReason: METRIC_UNAVAILABLE.DISABLED,
-        },
-      };
+      defaultReturn.master.status = METRIC_UNAVAILABLE.NOT_CONNECTED;
+      defaultReturn.master.latencyReason = METRIC_UNAVAILABLE.NOT_CONNECTED;
+      defaultReturn.master.sourceReason = METRIC_UNAVAILABLE.NOT_CONNECTED;
+      return defaultReturn;
     }
     
-    // Format PROD stats (unified Render database - PRIMARY for all operations)
-    const prodLatency = stats.prod.latency !== null && stats.prod.latency !== undefined
+    // Format MASTER stats (PROD - unified Render database - PRIMARY for all operations)
+    const masterLatency = stats.prod.latency !== null && stats.prod.latency !== undefined
       ? stats.prod.latency
       : null;
-    const prodLatencyReason = prodLatency === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null;
+    const masterLatencyReason = masterLatency === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null;
     
-    // Extract database name from source if available
-    const prodSource = stats.prod.source || null;
-    const prodSourceReason = prodSource === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null;
+    const masterSource = stats.prod.source || null;
+    const masterSourceReason = masterSource === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null;
     
-    const prodConnections = stats.prod.connections !== null && stats.prod.connections !== undefined
-      ? stats.prod.connections
-      : null;
-    const prodConnectionsReason = prodConnections === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null;
-    
-    // Format LOCAL stats (onPremiseDev - optional workstation development)
-    const localLatency = stats.onPremiseDev.latency !== null && stats.onPremiseDev.latency !== undefined
+    // Format ONPREMISE-DEV stats (optional workstation development)
+    const onPremiseDevLatency = stats.onPremiseDev.latency !== null && stats.onPremiseDev.latency !== undefined
       ? stats.onPremiseDev.latency
       : null;
-    const localLatencyReason = stats.onPremiseDev.status === 'disabled' 
+    const onPremiseDevLatencyReason = stats.onPremiseDev.status === 'disabled' 
       ? METRIC_UNAVAILABLE.DISABLED 
-      : (localLatency === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
+      : (onPremiseDevLatency === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
     
-    const localSource = stats.onPremiseDev.source || null;
-    const localSourceReason = stats.onPremiseDev.status === 'disabled'
+    const onPremiseDevSource = stats.onPremiseDev.source || null;
+    const onPremiseDevSourceReason = stats.onPremiseDev.status === 'disabled'
       ? METRIC_UNAVAILABLE.DISABLED
-      : (localSource === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
+      : (onPremiseDevSource === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
     
-    const localConnections = stats.onPremiseDev.connections !== null && stats.onPremiseDev.connections !== undefined
-      ? stats.onPremiseDev.connections
+    // Format ONPREMISE-EXPERIMENT stats (optional workstation testing)
+    const onPremiseExperimentLatency = stats.onPremiseExperiment?.latency !== null && stats.onPremiseExperiment?.latency !== undefined
+      ? stats.onPremiseExperiment.latency
       : null;
-    const localConnectionsReason = stats.onPremiseDev.status === 'disabled'
+    const onPremiseExperimentLatencyReason = stats.onPremiseExperiment?.status === 'disabled' 
+      ? METRIC_UNAVAILABLE.DISABLED 
+      : (onPremiseExperimentLatency === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
+    
+    const onPremiseExperimentSource = stats.onPremiseExperiment?.source || null;
+    const onPremiseExperimentSourceReason = stats.onPremiseExperiment?.status === 'disabled'
       ? METRIC_UNAVAILABLE.DISABLED
-      : (localConnections === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
+      : (onPremiseExperimentSource === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
+    
+    // Collect Engine DB stats (SQLite databases on persistent disk)
+    let engineReadStats = { status: 'n/a', latency: null, entries: null };
+    let engineWriteStats = { status: 'n/a', latency: null, entries: null };
+    
+    try {
+      const engineReadDb = await import('../services/engine-read-db.js');
+      if (typeof engineReadDb.getStats === 'function') {
+        engineReadStats = engineReadDb.getStats();
+      }
+    } catch (err) {
+      // Engine Read-DB not available (expected in non-production environments)
+    }
+    
+    try {
+      const engineWriteDb = await import('../services/engine-write-db.js');
+      if (typeof engineWriteDb.getStats === 'function') {
+        engineWriteStats = engineWriteDb.getStats();
+      }
+    } catch (err) {
+      // Engine Write-DB not available (expected in non-production environments)
+    }
     
     return {
-      prod: {
+      master: {
         status: stats.prod.status,
-        latency: prodLatency,
-        latencyReason: prodLatencyReason,
-        connections: prodConnections,
-        connectionsReason: prodConnectionsReason,
-        source: prodSource ? extractDatabaseName(prodSource) : null,
-        sourceReason: prodSourceReason,
+        latency: masterLatency,
+        latencyReason: masterLatencyReason,
+        source: masterSource ? extractDatabaseName(masterSource) : null,
+        sourceReason: masterSourceReason,
       },
-      local: {
+      engineRead: {
+        status: engineReadStats.status || 'n/a',
+        latency: engineReadStats.latency || null,
+        latencyReason: engineReadStats.latency ? null : METRIC_UNAVAILABLE.NOT_APPLICABLE,
+        entries: engineReadStats.pokemonCount || null,
+        entriesReason: engineReadStats.pokemonCount ? null : METRIC_UNAVAILABLE.NOT_APPLICABLE,
+      },
+      engineWrite: {
+        status: engineWriteStats.status || 'n/a',
+        latency: engineWriteStats.latency || null,
+        latencyReason: engineWriteStats.latency ? null : METRIC_UNAVAILABLE.NOT_APPLICABLE,
+        entries: engineWriteStats.battleLogCount || null,
+        entriesReason: engineWriteStats.battleLogCount ? null : METRIC_UNAVAILABLE.NOT_APPLICABLE,
+      },
+      onPremiseDev: {
         status: stats.onPremiseDev.status,
-        latency: localLatency,
-        latencyReason: localLatencyReason,
-        connections: localConnections,
-        connectionsReason: localConnectionsReason,
-        source: localSource ? extractDatabaseName(localSource) : null,
-        sourceReason: localSourceReason,
+        latency: onPremiseDevLatency,
+        latencyReason: onPremiseDevLatencyReason,
+        source: onPremiseDevSource ? extractDatabaseName(onPremiseDevSource) : null,
+        sourceReason: onPremiseDevSourceReason,
+      },
+      onPremiseExperiment: {
+        status: stats.onPremiseExperiment?.status || 'disabled',
+        latency: onPremiseExperimentLatency,
+        latencyReason: onPremiseExperimentLatencyReason,
+        source: onPremiseExperimentSource ? extractDatabaseName(onPremiseExperimentSource) : null,
+        sourceReason: onPremiseExperimentSourceReason,
       },
     };
   } catch (error) {
     // Catch-all for unexpected errors during stats collection
     console.warn('[logger] Error collecting database stats:', error.message);
-    return {
-      prod: {
-        status: METRIC_UNAVAILABLE.QUERY_FAILED,
-        latency: null,
-        latencyReason: METRIC_UNAVAILABLE.QUERY_FAILED,
-        connections: null,
-        connectionsReason: METRIC_UNAVAILABLE.QUERY_FAILED,
-        source: null,
-        sourceReason: METRIC_UNAVAILABLE.QUERY_FAILED,
-      },
-      local: {
-        status: METRIC_UNAVAILABLE.DISABLED,
-        latency: null,
-        latencyReason: METRIC_UNAVAILABLE.DISABLED,
-        connections: null,
-        connectionsReason: METRIC_UNAVAILABLE.DISABLED,
-        source: null,
-        sourceReason: METRIC_UNAVAILABLE.DISABLED,
-      },
-    };
+    defaultReturn.master.status = METRIC_UNAVAILABLE.QUERY_FAILED;
+    defaultReturn.master.latencyReason = METRIC_UNAVAILABLE.QUERY_FAILED;
+    defaultReturn.master.sourceReason = METRIC_UNAVAILABLE.QUERY_FAILED;
+    defaultReturn.engineRead.status = METRIC_UNAVAILABLE.QUERY_FAILED;
+    defaultReturn.engineRead.latencyReason = METRIC_UNAVAILABLE.QUERY_FAILED;
+    defaultReturn.engineRead.entriesReason = METRIC_UNAVAILABLE.QUERY_FAILED;
+    defaultReturn.engineWrite.status = METRIC_UNAVAILABLE.QUERY_FAILED;
+    defaultReturn.engineWrite.latencyReason = METRIC_UNAVAILABLE.QUERY_FAILED;
+    defaultReturn.engineWrite.entriesReason = METRIC_UNAVAILABLE.QUERY_FAILED;
+    return defaultReturn;
   }
 }
 
@@ -528,34 +563,79 @@ async function printStats() {
   
   // -------------------------------------------------------------------------
   // Database Stats - Metrics queried from getDatabaseStats() or declared unavailable
+  // MASTER = Production PostgreSQL (Render managed - single source of truth)
+  // LOCAL = Engine DBs on persistent disk (Read-DB + Write-DB for game engine)
+  // ONPREMISE = Workstation development/testing databases (not visible in production)
   // -------------------------------------------------------------------------
   lines.push('[DATABASE]');
   
-  // PROD database - format with explicit unavailability reasons
-  const prodStatus = statsCache.databases.prod.status.toUpperCase().padEnd(12);
-  const prodLatency = formatMetric(
-    statsCache.databases.prod.latency,
-    statsCache.databases.prod.latencyReason,
+  // MASTER database (PROD PostgreSQL - single source of truth)
+  const masterStatus = statsCache.databases.master.status.toUpperCase().padEnd(12);
+  const masterLatency = formatMetric(
+    statsCache.databases.master.latency,
+    statsCache.databases.master.latencyReason,
     (val) => `${val.toFixed(2)}ms`
   );
-  const prodSource = formatMetric(
-    statsCache.databases.prod.source,
-    statsCache.databases.prod.sourceReason
+  const masterSource = formatMetric(
+    statsCache.databases.master.source,
+    statsCache.databases.master.sourceReason
   );
-  lines.push(`  PROD  = ${prodStatus}  Latency: ${prodLatency.padEnd(30)}  Database: ${prodSource}`);
+  lines.push(`  MASTER = ${masterStatus}  Latency: ${masterLatency.padEnd(30)}  Database: ${masterSource}`);
   
-  // LOCAL database - format with explicit unavailability reasons
-  const localStatus = statsCache.databases.local.status.toUpperCase().padEnd(12);
-  const localLatency = formatMetric(
-    statsCache.databases.local.latency,
-    statsCache.databases.local.latencyReason,
+  // LOCAL databases (Engine DBs on persistent disk - production perspective)
+  const engineReadStatus = statsCache.databases.engineRead.status.toUpperCase().padEnd(12);
+  const engineReadLatency = formatMetric(
+    statsCache.databases.engineRead.latency,
+    statsCache.databases.engineRead.latencyReason,
     (val) => `${val.toFixed(2)}ms`
   );
-  const localSource = formatMetric(
-    statsCache.databases.local.source,
-    statsCache.databases.local.sourceReason
+  const engineReadEntries = formatMetric(
+    statsCache.databases.engineRead.entries,
+    statsCache.databases.engineRead.entriesReason
   );
-  lines.push(`  LOCAL = ${localStatus}  Latency: ${localLatency.padEnd(30)}  Database: ${localSource}`);
+  lines.push(`  LOCAL-R = ${engineReadStatus}  Latency: ${engineReadLatency.padEnd(30)}  Pokemon: ${engineReadEntries}`);
+  
+  const engineWriteStatus = statsCache.databases.engineWrite.status.toUpperCase().padEnd(12);
+  const engineWriteLatency = formatMetric(
+    statsCache.databases.engineWrite.latency,
+    statsCache.databases.engineWrite.latencyReason,
+    (val) => `${val.toFixed(2)}ms`
+  );
+  const engineWriteEntries = formatMetric(
+    statsCache.databases.engineWrite.entries,
+    statsCache.databases.engineWrite.entriesReason
+  );
+  lines.push(`  LOCAL-W = ${engineWriteStatus}  Latency: ${engineWriteLatency.padEnd(30)}  Battles: ${engineWriteEntries}`);
+  
+  // ONPREMISE databases (workstation development/testing - NOT production visible)
+  const serviceInfo = detectServiceType();
+  if (!serviceInfo.isWeb && !serviceInfo.isWorker) {
+    // Only show ONPREMISE databases on workstation (not in Render production)
+    const onPremiseDevStatus = statsCache.databases.onPremiseDev.status.toUpperCase().padEnd(12);
+    const onPremiseDevLatency = formatMetric(
+      statsCache.databases.onPremiseDev.latency,
+      statsCache.databases.onPremiseDev.latencyReason,
+      (val) => `${val.toFixed(2)}ms`
+    );
+    const onPremiseDevSource = formatMetric(
+      statsCache.databases.onPremiseDev.source,
+      statsCache.databases.onPremiseDev.sourceReason
+    );
+    lines.push(`  ONPREM-D = ${onPremiseDevStatus}  Latency: ${onPremiseDevLatency.padEnd(30)}  Database: ${onPremiseDevSource}`);
+    
+    const onPremiseExpStatus = statsCache.databases.onPremiseExperiment.status.toUpperCase().padEnd(12);
+    const onPremiseExpLatency = formatMetric(
+      statsCache.databases.onPremiseExperiment.latency,
+      statsCache.databases.onPremiseExperiment.latencyReason,
+      (val) => `${val.toFixed(2)}ms`
+    );
+    const onPremiseExpSource = formatMetric(
+      statsCache.databases.onPremiseExperiment.source,
+      statsCache.databases.onPremiseExperiment.sourceReason
+    );
+    lines.push(`  ONPREM-E = ${onPremiseExpStatus}  Latency: ${onPremiseExpLatency.padEnd(30)}  Database: ${onPremiseExpSource}`);
+  }
+  
   lines.push('');
   
   // -------------------------------------------------------------------------
@@ -610,29 +690,45 @@ async function getFormattedStats() {
   lines.push('');
   
   // Database Stats - Metrics queried from getDatabaseStats() or declared unavailable
+  // MASTER = Production PostgreSQL (Render managed - single source of truth)
+  // LOCAL = Engine DBs on persistent disk (Read-DB + Write-DB)
   lines.push(`[DATABASE]`);
   
-  const prodLatency = formatMetric(
-    statsCache.databases.prod.latency,
-    statsCache.databases.prod.latencyReason,
+  // MASTER (PROD PostgreSQL)
+  const masterLatency = formatMetric(
+    statsCache.databases.master.latency,
+    statsCache.databases.master.latencyReason,
     (val) => `${val.toFixed(2)}ms`
   );
-  const prodSource = formatMetric(
-    statsCache.databases.prod.source,
-    statsCache.databases.prod.sourceReason
+  const masterSource = formatMetric(
+    statsCache.databases.master.source,
+    statsCache.databases.master.sourceReason
   );
-  lines.push(`  PROD  → ${statsCache.databases.prod.status} | Latency: ${prodLatency} | ${prodSource}`);
+  lines.push(`  MASTER → ${statsCache.databases.master.status} | Latency: ${masterLatency} | ${masterSource}`);
   
-  const localLatency = formatMetric(
-    statsCache.databases.local.latency,
-    statsCache.databases.local.latencyReason,
+  // LOCAL-R (Engine Read-DB)
+  const engineReadLatency = formatMetric(
+    statsCache.databases.engineRead.latency,
+    statsCache.databases.engineRead.latencyReason,
     (val) => `${val.toFixed(2)}ms`
   );
-  const localSource = formatMetric(
-    statsCache.databases.local.source,
-    statsCache.databases.local.sourceReason
+  const engineReadEntries = formatMetric(
+    statsCache.databases.engineRead.entries,
+    statsCache.databases.engineRead.entriesReason
   );
-  lines.push(`  LOCAL → ${statsCache.databases.local.status} | Latency: ${localLatency} | ${localSource}`);
+  lines.push(`  LOCAL-R → ${statsCache.databases.engineRead.status} | Latency: ${engineReadLatency} | Pokemon: ${engineReadEntries}`);
+  
+  // LOCAL-W (Engine Write-DB)
+  const engineWriteLatency = formatMetric(
+    statsCache.databases.engineWrite.latency,
+    statsCache.databases.engineWrite.latencyReason,
+    (val) => `${val.toFixed(2)}ms`
+  );
+  const engineWriteEntries = formatMetric(
+    statsCache.databases.engineWrite.entries,
+    statsCache.databases.engineWrite.entriesReason
+  );
+  lines.push(`  LOCAL-W → ${statsCache.databases.engineWrite.status} | Latency: ${engineWriteLatency} | Battles: ${engineWriteEntries}`);
   
   return lines.join('\n');
 }

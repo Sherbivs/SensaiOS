@@ -27,6 +27,7 @@ import initSqlJs, { type Database } from 'sql.js';
 import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { EngineDbConfig } from '../config/engine-db-config.js';
 import { log } from '../utils/logger.js';
@@ -512,6 +513,8 @@ export function getStats(): {
   typeEffectivenessCount: number;
   sizeBytes: number;
   isInitialized: boolean;
+  status: string;
+  latency: number | null;
 } {
   if (!db || !isInitialized) {
     return {
@@ -519,11 +522,16 @@ export function getStats(): {
       moveCount: 0,
       typeEffectivenessCount: 0,
       sizeBytes: 0,
-      isInitialized: false
+      isInitialized: false,
+      status: 'offline',
+      latency: null,
     };
   }
 
   try {
+    // Measure query latency
+    const start = performance.now();
+    
     // Count Pokemon
     const pokemonResult = db.exec('SELECT COUNT(*) FROM pokemon');
     const pokemonCount = (pokemonResult[0]?.values[0]?.[0] as number) ?? 0;
@@ -536,6 +544,9 @@ export function getStats(): {
     const typeResult = db.exec('SELECT COUNT(*) FROM type_effectiveness');
     const typeEffectivenessCount = (typeResult[0]?.values[0]?.[0] as number) ?? 0;
 
+    // Calculate query latency
+    const latency = performance.now() - start;
+
     // Estimate database size (sql.js in-memory size)
     const data = db.export();
     const sizeBytes = data.byteLength;
@@ -545,12 +556,22 @@ export function getStats(): {
       moveCount,
       typeEffectivenessCount,
       sizeBytes,
-      isInitialized: true
+      isInitialized: true,
+      status: 'healthy',
+      latency,
     };
 
   } catch (error) {
     log('error', 'engine-read-db: getStats failed', error);
-    throw error;
+    return {
+      pokemonCount: 0,
+      moveCount: 0,
+      typeEffectivenessCount: 0,
+      sizeBytes: 0,
+      isInitialized: false,
+      status: 'error',
+      latency: null,
+    };
   }
 }
 

@@ -30,6 +30,7 @@ import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { EngineDbConfig } from '../config/engine-db-config.js';
 import { log } from '../utils/logger.js';
@@ -95,6 +96,8 @@ export interface WriteDbStats {
   sizeBytes: number;
   oldestEntryAge: number; // Hours
   isInitialized: boolean;
+  status: string;
+  latency: number | null;
 }
 
 // ============================================================================
@@ -857,11 +860,16 @@ export function getStats(): WriteDbStats {
       walEntryCount: 0,
       sizeBytes: 0,
       oldestEntryAge: 0,
-      isInitialized: false
+      isInitialized: false,
+      status: 'offline',
+      latency: null,
     };
   }
 
   try {
+    // Measure query latency
+    const start = performance.now();
+    
     // Count battle logs
     const battleResult = db.exec('SELECT COUNT(*) FROM battle_logs');
     const battleLogCount = (battleResult[0]?.values[0]?.[0] as number) ?? 0;
@@ -885,6 +893,9 @@ export function getStats(): WriteDbStats {
       ? (Date.now() / 1000 - oldestTimestamp) / 3600 // Convert to hours
       : 0;
 
+    // Calculate query latency
+    const latency = performance.now() - start;
+
     // Estimate database size
     const data = db.export();
     const sizeBytes = data.byteLength;
@@ -896,12 +907,24 @@ export function getStats(): WriteDbStats {
       walEntryCount,
       sizeBytes,
       oldestEntryAge,
-      isInitialized: true
+      isInitialized: true,
+      status: 'healthy',
+      latency,
     };
 
   } catch (error) {
     log('error', 'engine-write-db: getStats failed', error);
-    throw error;
+    return {
+      battleLogCount: 0,
+      moveUsageCount: 0,
+      anomalyCount: 0,
+      walEntryCount: 0,
+      sizeBytes: 0,
+      oldestEntryAge: 0,
+      isInitialized: false,
+      status: 'error',
+      latency: null,
+    };
   }
 }
 

@@ -1309,7 +1309,8 @@ async function notifyServiceRestart() {
       });
     }
     
-    // Wait for non-default database stats (retry up to 30 seconds)
+    // Wait for complete database stats (retry up to 30 seconds)
+    // Check for MASTER, LOCAL-R, and LOCAL-W readiness (not just checking for 'loading')
     let stats = null;
     const maxWaitMs = 30_000;
     const retryDelayMs = 1_000;
@@ -1321,10 +1322,15 @@ async function notifyServiceRestart() {
         while (Date.now() - startWaitTime < maxWaitMs) {
           stats = await loggerModule.getFormattedStats();
           
-          // Check if any database is still in "loading" state
-          const hasLoadingStatus = stats.includes('Status: loading');
+          // Check if any database is still initializing
+          // Look for "initializing" or "loading" in any database line
+          const hasInitializingStatus = stats.includes('initializing') || stats.includes('loading');
           
-          if (!hasLoadingStatus) {
+          // Check for unavailable metrics that should be available
+          const hasUnavailableMetrics = stats.includes('<unavailable: initializing>') 
+            || stats.includes('<unavailable: not-queried-yet>');
+          
+          if (!hasInitializingStatus && !hasUnavailableMetrics) {
             log('info', 'Database stats ready for restart DM', {
               waitTimeMs: Date.now() - startWaitTime,
             });
@@ -1334,14 +1340,16 @@ async function notifyServiceRestart() {
           log('debug', 'Waiting for database stats to complete initialization', {
             elapsedMs: Date.now() - startWaitTime,
             remainingMs: maxWaitMs - (Date.now() - startWaitTime),
+            hasInitializing: hasInitializingStatus,
+            hasUnavailable: hasUnavailableMetrics,
           });
           
           await wait(retryDelayMs);
         }
         
         // Check if we timed out
-        if (stats && stats.includes('Status: loading')) {
-          log('warn', 'Database stats still loading after timeout, sending DM anyway', {
+        if (stats && (stats.includes('initializing') || stats.includes('loading') || stats.includes('<unavailable: initializing>'))) {
+          log('warn', 'Database stats still initializing after timeout, sending DM anyway', {
             waitTimeMs: Date.now() - startWaitTime,
             timeoutMs: maxWaitMs,
           });
@@ -1350,12 +1358,14 @@ async function notifyServiceRestart() {
         if (stats) {
           message += `\n\n${stats}`;
           
-          // Update bot state with current database status
-          if (botState && stats.includes('DEV') && stats.includes('PROD')) {
-            const devMatch = stats.match(/DEV.*?Status:\s*(\w+)/);
-            const prodMatch = stats.match(/PROD.*?Status:\s*(\w+)/);
-            if (devMatch && prodMatch) {
-              updateDatabaseStatus(botState, devMatch[1], prodMatch[1]);
+          // Update bot state with current database status (legacy - keep for compatibility)
+          if (botState && stats.includes('MASTER')) {
+            const masterMatch = stats.match(/MASTER.*?→\s*(\w+)/);
+            if (masterMatch) {
+              // Legacy field update - record MASTER status
+              if (botState.databases) {
+                botState.databases.master = { status: masterMatch[1], lastCheck: Date.now() };
+              }
             }
           }
         }
