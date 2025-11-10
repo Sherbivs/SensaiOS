@@ -430,6 +430,16 @@ function collectSecurityBotStats() {
       const totalPermissionChanges = botState.stats.totalPermissionChanges || 0;
       const totalAlerts = botState.stats.totalAlerts || 0;
       
+      // Debug: Log timeline structure
+      console.log('[logger] DEBUG botState.timeline:', {
+        isArray: Array.isArray(botState.timeline),
+        length: botState.timeline?.length,
+        hasEvents: !!botState.timeline?.events,
+        eventsLength: botState.timeline?.events?.length,
+        firstEntry: botState.timeline?.[0],
+        firstEvent: botState.timeline?.events?.[0],
+      });
+      
       // Get last sweep time from timeline
       let lastSweepTime = 'never';
       // Note: botState.timeline is an array directly, not botState.timeline.events
@@ -665,7 +675,7 @@ async function printStats() {
     if (secStatus === 'ONLINE') {
       // All metrics queried from global.securityBotState
       lines.push(`  Guilds: ${statsCache.security.guilds} (queried from client.guilds.cache.size)`);
-      lines.push(`  Last Sweep: ${statsCache.security.lastSweep} (queried from botState.timeline.events)`);
+      lines.push(`  Last Sweep: ${statsCache.security.lastSweep} (queried from botState.timeline)`);
       lines.push('');
       lines.push('  Lifetime Statistics (queried from botState.stats):');
       lines.push(`    Assignments: ${statsCache.security.assignments}`);
