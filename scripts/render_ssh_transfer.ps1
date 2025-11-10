@@ -36,8 +36,8 @@ param(
     [ValidateSet("upload", "download")]
     [string]$Direction,
     
-    [ValidateSet("oregon", "ohio", "virginia", "frankfurt", "singapore")]
-    [string]$Region = "oregon",
+    [ValidateSet("virginia", "oregon", "frankfurt", "singapore")]
+    [string]$Region = "virginia",
     
     [switch]$Recursive
 )

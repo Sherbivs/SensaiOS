@@ -29,8 +29,8 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Command,
     
-    [ValidateSet("oregon", "ohio", "virginia", "frankfurt", "singapore")]
-    [string]$Region = "oregon",
+    [ValidateSet("virginia", "oregon", "frankfurt", "singapore")]
+    [string]$Region = "virginia",
     
     [string]$Instance,
     

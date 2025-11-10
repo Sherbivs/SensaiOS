@@ -25,8 +25,8 @@
 param(
     [string]$ServiceId,
     [string]$Instance,
-    [ValidateSet("oregon", "ohio", "virginia", "frankfurt", "singapore")]
-    [string]$Region = "oregon",
+    [ValidateSet("virginia", "oregon", "frankfurt", "singapore")]
+    [string]$Region = "virginia",
     [string]$Command
 )
 

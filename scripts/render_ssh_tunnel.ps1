@@ -37,8 +37,8 @@ param(
     [ValidateSet("local", "remote", "dynamic")]
     [string]$Type,
     
-    [ValidateSet("oregon", "ohio", "virginia", "frankfurt", "singapore")]
-    [string]$Region = "oregon"
+    [ValidateSet("virginia", "oregon", "frankfurt", "singapore")]
+    [string]$Region = "virginia"
 )
 
 $ErrorActionPreference = "Stop"
