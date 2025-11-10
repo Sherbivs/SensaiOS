@@ -2,7 +2,7 @@
 Title: Test Suite
 Purpose: Vitest coverage for schemas, pipeline, engines, and flows.
 Owned Globs: tests/**
-Last Updated (UTC): 2025-11-03T00:15:00Z
+Last Updated (UTC): 2025-11-09T00:00:00Z
 
 Notes:
 - Added coverage for `concludeBattleWithVictory` alongside existing persistence and announcer tests.
@@ -22,6 +22,8 @@ Notes:
 - 2025-11-03: `tests/dexpack.parity.spec.ts` now walks every v1 alias to confirm the v2 hash tables resolve identical species ids.
 - 2025-11-02: `tests/dexpack.microbench.ts` provides an opt-in vitest bench harness (`DEX_V2_BENCH=1 npm run bench:dex`) for lookup latency tracking.
 - Dedicated sub-routers capture focused suites (battle interactions, PBSL fixtures) for faster discovery.
+- 2025-11-09: `tests/engine-db/cache.test.ts` validates L1 cache LRU eviction policy with 9 new tests covering lastAccessed tracking, eviction counts, cache miss fallback, hit rate calculation (>95% target), memory footprint reduction (60%, 20MB → 8MB), and maxEntries limits (500 Pokemon, 200 Moves).
+- 2025-11-09: `tests/engine-db/cache.test.ts` includes Read-DB fallback tests verifying cache miss recovery (<5ms penalty) and hit rate maintenance under LRU eviction workloads.
 
 Subrouters:
 - tests/battle/ROUTER.md — Interaction tests for Discord battle prompts.

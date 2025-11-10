@@ -1,3 +1,18 @@
+// ============================================================================
+// STARTUP PERFORMANCE INSTRUMENTATION (Phase 1: Baseline Measurement)
+// ============================================================================
+const STARTUP_START = process.hrtime.bigint();
+const STARTUP_TIMINGS: { [key: string]: number } = {};
+
+function recordTiming(label: string, startTime: bigint) {
+  const durationMs = Number(process.hrtime.bigint() - startTime) / 1_000_000;
+  STARTUP_TIMINGS[label] = durationMs;
+  return durationMs;
+}
+
+// Capture module import time
+const MODULE_IMPORT_START = process.hrtime.bigint();
+
 import { Prisma } from "@prisma/client";
 import { Events, type Client } from "discord.js";
 
@@ -29,6 +44,16 @@ import * as engineWriteDb from "./services/engine-write-db.js";
 import { engineCache } from "./services/engine-cache.js";
 import { engineWriteBuffer } from "./services/engine-write-buffer.js";
 import { startEngineWorkers, stopEngineWorkers, type EngineWorkersStatus } from "./workers/engine-workers.js";
+
+// Record module import completion
+recordTiming("module_imports", MODULE_IMPORT_START);
+
+// Memory profiling
+const STARTUP_MEMORY: { [key: string]: NodeJS.MemoryUsage } = {};
+function recordMemory(label: string) {
+  STARTUP_MEMORY[label] = process.memoryUsage();
+}
+recordMemory("initial");
 
 // Initialize log buffer early (before most logging occurs)
 setupLogBuffer();
@@ -803,10 +828,13 @@ function installSignalHandlers(): void {
 }
 
 export async function boot(): Promise<void> {
+  const BOOT_START = process.hrtime.bigint();
   installSignalHandlers();
   startMonitor();
 
   log.info("Infinity Gauntlet: toolchain online", { env: config.nodeEnv });
+  
+  recordMemory("pre_database");
 
   const dbStart = process.hrtime.bigint();
   setSection("database", { title: "Database", status: "connecting", metrics: [] });
@@ -815,6 +843,8 @@ export async function boot(): Promise<void> {
     await prisma.$queryRaw(Prisma.sql`SELECT 1`);
     const dbDurationMs = Number(process.hrtime.bigint() - dbStart) / 1_000_000;
     prismaConnectDurationMs = dbDurationMs;
+    recordTiming("database_connect", dbStart);
+    recordMemory("post_database");
     const startupEvent: PrismaHeartbeatEvent = {
       ok: true,
       timestamp: new Date(),
@@ -922,6 +952,10 @@ export async function boot(): Promise<void> {
     });
   }
   
+  // Time the parallel initialization phase
+  const ENGINE_AND_BOTS_START = process.hrtime.bigint();
+  recordMemory("pre_engine_and_bots");
+  
   // Parallelize Engine DB initialization with Bot startup
   // Engine DB is optional ("continue without it"), so failure doesn't block bots
   // Total time = max(Engine DB, Bots) instead of sum
@@ -1019,6 +1053,10 @@ export async function boot(): Promise<void> {
     bootDiscord()
   ]);
   
+  // Record parallel initialization completion
+  recordTiming("engine_and_bots_init", ENGINE_AND_BOTS_START);
+  recordMemory("post_engine_and_bots");
+  
   // Check bot startup results
   try {
     if (!isClientReady(client)) {
@@ -1035,6 +1073,30 @@ export async function boot(): Promise<void> {
     updateDiscordSection(client, "online");
     bindDiscordLifecycle(client);
     setPhase("Online");
+    
+    // Record total startup time and log comprehensive metrics
+    const totalStartupMs = recordTiming("total_startup", STARTUP_START);
+    const totalBootMs = recordTiming("boot_function", BOOT_START);
+    recordMemory("steady_state");
+    
+    // Log comprehensive startup metrics
+    log.info("🚀 Startup complete - Performance baseline established", {
+      totalStartupMs,
+      totalBootMs,
+      phases: {
+        module_imports: STARTUP_TIMINGS.module_imports,
+        database_connect: STARTUP_TIMINGS.database_connect,
+        engine_and_bots_init: STARTUP_TIMINGS.engine_and_bots_init,
+      },
+      memory: {
+        initial_rss_mb: Math.round(STARTUP_MEMORY.initial.rss / 1024 / 1024),
+        post_database_rss_mb: Math.round(STARTUP_MEMORY.post_database.rss / 1024 / 1024),
+        post_engine_rss_mb: Math.round(STARTUP_MEMORY.post_engine_and_bots.rss / 1024 / 1024),
+        steady_state_rss_mb: Math.round(STARTUP_MEMORY.steady_state.rss / 1024 / 1024),
+        heap_used_mb: Math.round(STARTUP_MEMORY.steady_state.heapUsed / 1024 / 1024),
+        heap_total_mb: Math.round(STARTUP_MEMORY.steady_state.heapTotal / 1024 / 1024),
+      }
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     

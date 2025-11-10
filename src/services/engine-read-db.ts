@@ -331,6 +331,102 @@ export function getAllMoves(): ReadDbMoveRecord[] {
 }
 
 /**
+ * Get single Pokemon by ID (for L1 cache miss fallback).
+ * 
+ * OPTIMIZATION: This supports LRU cache misses - when L1 cache evicts
+ * a Pokemon, we can fetch it individually from Read-DB (<5ms penalty).
+ * 
+ * @param id Pokemon ID
+ * @returns Pokemon record or null if not found
+ */
+export function getPokemonById(id: number): ReadDbPokemonRecord | null {
+  if (!db) {
+    throw new Error('Read-DB not initialized');
+  }
+
+  try {
+    const result = db.exec(`
+      SELECT id, name, type1_id, type2_id, hp, attack, defense, 
+             special_attack, special_defense, speed, abilities, moves
+      FROM pokemon
+      WHERE id = ?
+    `, [id]);
+
+    if (!result || result.length === 0 || !result[0].values || result[0].values.length === 0) {
+      return null; // Pokemon not found
+    }
+
+    const row = result[0].values[0];
+    const record: ReadDbPokemonRecord = {
+      id: row[0] as number,
+      name: row[1] as string,
+      type1_id: row[2] as number,
+      type2_id: row[3] as number | null,
+      hp: row[4] as number,
+      attack: row[5] as number,
+      defense: row[6] as number,
+      special_attack: row[7] as number,
+      special_defense: row[8] as number,
+      speed: row[9] as number,
+      abilities: row[10] as string,
+      moves: row[11] as string
+    };
+
+    return record;
+
+  } catch (error) {
+    log('error', 'engine-read-db: getPokemonById failed', { pokemonId: id, error });
+    return null; // Graceful degradation
+  }
+}
+
+/**
+ * Get single Move by ID (for L1 cache miss fallback).
+ * 
+ * OPTIMIZATION: This supports LRU cache misses - when L1 cache evicts
+ * a Move, we can fetch it individually from Read-DB (<5ms penalty).
+ * 
+ * @param id Move ID
+ * @returns Move record or null if not found
+ */
+export function getMoveById(id: number): ReadDbMoveRecord | null {
+  if (!db) {
+    throw new Error('Read-DB not initialized');
+  }
+
+  try {
+    const result = db.exec(`
+      SELECT id, name, type_id, category, power, accuracy, pp, priority, effect_id
+      FROM moves
+      WHERE id = ?
+    `, [id]);
+
+    if (!result || result.length === 0 || !result[0].values || result[0].values.length === 0) {
+      return null; // Move not found
+    }
+
+    const row = result[0].values[0];
+    const record: ReadDbMoveRecord = {
+      id: row[0] as number,
+      name: row[1] as string,
+      type_id: row[2] as number,
+      category: row[3] as 'physical' | 'special' | 'status',
+      power: row[4] as number | null,
+      accuracy: row[5] as number | null,
+      pp: row[6] as number,
+      priority: row[7] as number,
+      effect_id: row[8] as number | null
+    };
+
+    return record;
+
+  } catch (error) {
+    log('error', 'engine-read-db: getMoveById failed', { moveId: id, error });
+    return null; // Graceful degradation
+  }
+}
+
+/**
  * Get all Type Effectiveness records (for L1 cache type chart).
  * 
  * @returns Array of type matchups (empty if database not seeded)

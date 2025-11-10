@@ -241,8 +241,13 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
   const PrismaCtor = PrismaClient;
   const logLevels = nodeEnv === "development" ? ["warn", "error"] : ["error"];
 
+  // OPTIMIZATION: Query performance monitoring (Phase 5.1)
+  // Enable query event logging to detect slow queries (>100ms) and N+1 patterns
   const baseOptions = {
-    log: logLevels,
+    log: [
+      ...logLevels.map(level => ({ emit: "stdout" as const, level: level as any })),
+      { emit: "event" as const, level: "query" as any }, // Query performance instrumentation
+    ],
     datasources: {
       db: {
         url: candidate.url,
@@ -252,6 +257,22 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
 
   const baseClient = new PrismaCtor(baseOptions as Prisma.PrismaClientOptions) as PrismaClient;
   let client = baseClient;
+  
+  // Attach query performance monitoring handler
+  // Logs warnings for slow queries (>100ms) to help identify N+1 patterns and optimization targets
+  (baseClient as any).$on('query', (e: any) => {
+    const duration = e.duration; // Duration in milliseconds
+    if (duration > 100) {
+      // Slow query detected
+      log.warn('Slow query detected', {
+        duration,
+        query: e.query,
+        params: e.params,
+        target: e.target,
+        timestamp: e.timestamp
+      });
+    }
+  });
 
   // 2-NODE CLUSTER: Always use library engine for direct connections
   delete process.env.PRISMA_CLIENT_ENGINE_TYPE;

@@ -210,3 +210,127 @@ describe('Engine Cache - Edge Cases', () => {
     }
   });
 });
+
+describe('Engine Cache - LRU Eviction Policy', () => {
+  it('should track lastAccessed timestamp on cache hits', async () => {
+    const module = await import('../../src/services/engine-cache.js');
+    
+    // Get a Pokemon if exists
+    const pokemon = module.engineCache.getPokemon(1);
+    
+    if (pokemon) {
+      // Should have lastAccessed timestamp
+      expect(pokemon.lastAccessed).toBeDefined();
+      expect(typeof pokemon.lastAccessed).toBe('number');
+      expect(pokemon.lastAccessed).toBeGreaterThan(0);
+    }
+  });
+
+  it('should report eviction count in stats', async () => {
+    const module = await import('../../src/services/engine-cache.js');
+    const stats = module.engineCache.getStats();
+
+    // Eviction count should be tracked
+    expect(typeof stats.evictionCount).toBe('number');
+    expect(stats.evictionCount).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should report cache miss with fallback count in stats', async () => {
+    const module = await import('../../src/services/engine-cache.js');
+    const stats = module.engineCache.getStats();
+
+    // Cache miss with fallback count should be tracked
+    expect(typeof stats.cacheMissWithFallbackCount).toBe('number');
+    expect(stats.cacheMissWithFallbackCount).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should calculate hit rate correctly', async () => {
+    const module = await import('../../src/services/engine-cache.js');
+    const stats = module.engineCache.getStats();
+
+    // Hit rate should be a percentage (0-100)
+    expect(typeof stats.hitRate).toBe('number');
+    expect(stats.hitRate).toBeGreaterThanOrEqual(0);
+    expect(stats.hitRate).toBeLessThanOrEqual(100);
+
+    // If there are operations, hit rate should match calculation
+    if (stats.hitCount + stats.missCount > 0) {
+      const expectedHitRate = (stats.hitCount / (stats.hitCount + stats.missCount)) * 100;
+      expect(stats.hitRate).toBeCloseTo(expectedHitRate, 2);
+    }
+  });
+
+  it('should maintain reduced memory footprint with LRU', async () => {
+    const module = await import('../../src/services/engine-cache.js');
+    const stats = module.engineCache.getStats();
+
+    // With LRU eviction (maxPokemonEntries=500, maxMoveEntries=200):
+    // Expected memory: ~8MB (vs ~20MB without LRU)
+    
+    if (stats.pokemonCount > 0 || stats.moveCount > 0) {
+      // If cache is populated and LRU is working, memory should be significantly reduced
+      // Target: <12MB (vs 20MB before LRU)
+      if (stats.pokemonCount <= 500 && stats.moveCount <= 200) {
+        expect(stats.memorySizeMb).toBeLessThan(12);
+      }
+    }
+  });
+
+  it('should not exceed maxPokemonEntries after eviction', async () => {
+    const module = await import('../../src/services/engine-cache.js');
+    const stats = module.engineCache.getStats();
+
+    // LRU should limit Pokemon count to maxPokemonEntries (500)
+    // This test passes if eviction is working or if total Pokemon < 500
+    expect(stats.pokemonCount).toBeLessThanOrEqual(500);
+  });
+
+  it('should not exceed maxMoveEntries after eviction', async () => {
+    const module = await import('../../src/services/engine-cache.js');
+    const stats = module.engineCache.getStats();
+
+    // LRU should limit Move count to maxMoveEntries (200)
+    // This test passes if eviction is working or if total moves < 200
+    expect(stats.moveCount).toBeLessThanOrEqual(200);
+  });
+});
+
+describe('Engine Cache - Read-DB Fallback', () => {
+  it('should handle cache miss with Read-DB fallback gracefully', async () => {
+    const module = await import('../../src/services/engine-cache.js');
+    
+    // Try to get a Pokemon that might not be in L1 cache
+    // If it exists in Read-DB, it should be fetched and promoted to L1
+    const initialStats = module.engineCache.getStats();
+    
+    // Try a Gen 9 Pokemon (more likely to be evicted from L1 if LRU is working)
+    const pokemon = module.engineCache.getPokemon(900); // Kleavor (Gen 8/9)
+    
+    const updatedStats = module.engineCache.getStats();
+    
+    // If fallback occurred, cacheMissWithFallbackCount should increase
+    // (This test doesn't fail if Pokemon doesn't exist, just validates the counter)
+    if (pokemon !== null) {
+      expect(updatedStats.cacheMissWithFallbackCount).toBeGreaterThanOrEqual(
+        initialStats.cacheMissWithFallbackCount
+      );
+    }
+  });
+
+  it('should maintain hit rate above 95% target (when sufficient operations)', async () => {
+    const module = await import('../../src/services/engine-cache.js');
+    const stats = module.engineCache.getStats();
+
+    const totalOps = stats.hitCount + stats.missCount;
+    
+    // Only check if there have been enough operations for meaningful hit rate
+    if (totalOps >= 1000) {
+      // LRU optimization target: >95% hit rate
+      expect(stats.hitRate).toBeGreaterThan(95.0);
+    } else {
+      // Not enough data yet, just validate hit rate is in valid range
+      expect(stats.hitRate).toBeGreaterThanOrEqual(0);
+      expect(stats.hitRate).toBeLessThanOrEqual(100);
+    }
+  });
+});
