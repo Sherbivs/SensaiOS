@@ -60,7 +60,12 @@
     "render:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_restart.ps1 -Service infinity-gauntlet-bots",
     "render:job": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_run_job.ps1",
     "render:check-db": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_run_job.ps1 -ServiceId srv-d3snk2ndiees73cn709g -Command 'npx tsx scripts/check_prisma_findmany.ts'",
-    "render:migrate": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_run_job.ps1 -ServiceId srv-d3snk2ndiees73cn709g -Command 'npx prisma migrate deploy'"
+    "render:migrate": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_run_job.ps1 -ServiceId srv-d3snk2ndiees73cn709g -Command 'npx prisma migrate deploy'",
+    "render:ssh-setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_ssh_setup.ps1",
+    "render:ssh-connect": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_ssh_connect.ps1",
+    "render:ssh-exec": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_ssh_exec.ps1",
+    "render:ssh-transfer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_ssh_transfer.ps1",
+    "render:ssh-tunnel": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_ssh_tunnel.ps1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

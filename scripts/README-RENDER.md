@@ -80,6 +80,46 @@ One-off jobs execute commands in your production environment without deploying c
 
 See [One-Off Jobs Guide](../docs/render-one-off-jobs.md) for detailed documentation.
 
+## SSH Integration
+
+Complete SSH automation suite for Render services. See [SSH Automation Guide](../docs/render-ssh-automation.md) for comprehensive documentation.
+
+### Quick SSH Commands
+
+```powershell
+# Setup SSH keys
+npm run render:ssh-setup
+
+# Connect to service (interactive)
+npm run render:ssh-connect
+
+# Execute command remotely
+npm run render:ssh-exec -- -ServiceId "srv-abc123" -Command "ls -la"
+
+# Transfer files
+npm run render:ssh-transfer -- `
+  -ServiceId "srv-abc123" `
+  -Source "./file.txt" `
+  -Destination "/Store/file.txt" `
+  -Direction upload
+
+# Create SSH tunnel
+npm run render:ssh-tunnel -- `
+  -ServiceId "srv-abc123" `
+  -LocalPort 5432 `
+  -RemotePort 5432 `
+  -Type local
+```
+
+**Available SSH scripts:**
+- `render_ssh_setup.ps1` - Generate and configure SSH keys
+- `render_ssh_connect.ps1` - Interactive SSH connection
+- `render_ssh_exec.ps1` - Execute commands remotely
+- `render_ssh_transfer.ps1` - File transfer via SCP
+- `render_ssh_tunnel.ps1` - Port forwarding and SOCKS proxy
+
+See [SSH Automation Guide](../docs/render-ssh-automation.md) for detailed usage and examples.
+
 ## VS Code Tasks
 
 All scripts are integrated as VS Code tasks. Access via:
