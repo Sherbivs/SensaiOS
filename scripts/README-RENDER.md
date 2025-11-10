@@ -58,6 +58,28 @@ pwsh -File scripts/render_restart.ps1 -Service "infinity-gauntlet-cache"
 
 Useful for forcing a clean restart without redeploying.
 
+### render_run_job.ps1
+**Run one-off commands in production environment**
+
+```powershell
+# Run a diagnostic script:
+npm run render:check-db
+
+# Run Prisma migrations:
+npm run render:migrate
+
+# Run custom commands:
+npm run render:job -- -ServiceId "srv-xxx" -Command "node scripts/my-task.js"
+```
+
+One-off jobs execute commands in your production environment without deploying changes. Perfect for:
+- Database health checks
+- Running migrations
+- Executing maintenance scripts
+- Debugging production issues
+
+See [One-Off Jobs Guide](../docs/render-one-off-jobs.md) for detailed documentation.
+
 ## VS Code Tasks
 
 All scripts are integrated as VS Code tasks. Access via:

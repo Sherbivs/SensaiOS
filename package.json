@@ -57,7 +57,10 @@
     "render:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_status.ps1",
     "render:deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_deploy.ps1 -Service infinity-gauntlet-bots",
     "render:deploys": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_deploys.ps1 -Service Infinity-Gauntlet",
-    "render:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_restart.ps1 -Service infinity-gauntlet-bots"
+    "render:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_restart.ps1 -Service infinity-gauntlet-bots",
+    "render:job": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_run_job.ps1",
+    "render:check-db": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_run_job.ps1 -ServiceId srv-d3snk2ndiees73cn709g -Command 'npx tsx scripts/check_prisma_findmany.ts'",
+    "render:migrate": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_run_job.ps1 -ServiceId srv-d3snk2ndiees73cn709g -Command 'npx prisma migrate deploy'"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
