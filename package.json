@@ -53,7 +53,11 @@
     "worker:outbox": "tsx src/worker/outbox.ts",
     "worker:cache": "tsx src/worker/cache-refresh.ts",
     "worker:data-pipeline": "tsx src/worker/data-pipeline.ts",
-    "worker:security": "node security-bot.js"
+    "worker:security": "node security-bot.js",
+    "render:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_status.ps1",
+    "render:deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_deploy.ps1 -Service infinity-gauntlet-bots",
+    "render:logs": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_logs.ps1 -Service infinity-gauntlet-bots -Tail",
+    "render:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_restart.ps1 -Service infinity-gauntlet-bots"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

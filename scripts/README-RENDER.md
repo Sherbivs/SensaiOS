@@ -1,0 +1,99 @@
+# Render Integration Scripts
+
+PowerShell scripts for managing Render services directly from VS Code.
+
+## Prerequisites
+
+1. **Render API Key**: Create at [Render Dashboard → API Keys](https://dashboard.render.com/u/settings/api-keys)
+2. **Environment File**: Add `RENDER_API_KEY=rnd_...` to `secrets/Infinity-Gauntlet.env`
+
+## Scripts
+
+### render_status.ps1
+**Check deployment status of all services**
+
+```powershell
+npm run render:status
+```
+
+Shows:
+- Service name and type (web/worker/cron)
+- Current deployment status (live, building, deploying)
+- Service URLs (if applicable)
+
+### render_deploy.ps1
+**Trigger a new deployment**
+
+```powershell
+npm run render:deploy
+
+# Or specify a different service:
+pwsh -File scripts/render_deploy.ps1 -Service "infinity-gauntlet-security"
+```
+
+Triggers deployment from the current Git branch on Render. Returns deploy ID and dashboard link.
+
+### render_logs.ps1
+**View service logs**
+
+```powershell
+# Tail logs in real-time (Ctrl+C to stop):
+npm run render:logs
+
+# Get last 100 log entries:
+pwsh -File scripts/render_logs.ps1 -Service "infinity-gauntlet-bots"
+```
+
+Streams logs with local timestamps for easier debugging.
+
+### render_restart.ps1
+**Restart a service (suspend + resume)**
+
+```powershell
+npm run render:restart
+
+# Or specify a different service:
+pwsh -File scripts/render_restart.ps1 -Service "infinity-gauntlet-cache"
+```
+
+Useful for forcing a clean restart without redeploying.
+
+## VS Code Tasks
+
+All scripts are integrated as VS Code tasks. Access via:
+- **Command Palette**: `Ctrl+Shift+P` → `Tasks: Run Task`
+- **Terminal Menu**: `Terminal` → `Run Task...`
+- **Keyboard**: `Ctrl+Shift+B` (build tasks)
+
+See `.vscode/tasks.json` for configuration.
+
+## Service Names
+
+Available services from `render.yaml`:
+
+- `infinity-gauntlet-bot` (web service)
+- `infinity-gauntlet-bots` (main Discord bot worker)
+- `infinity-gauntlet-outbox` (async message delivery)
+- `infinity-gauntlet-cache` (cache maintenance)
+- `infinity-gauntlet-data-pipeline` (reference data updates)
+- `infinity-gauntlet-security` (permission guardrails)
+- `pokedex-cache-worker` (external data sync)
+
+## Error Handling
+
+All scripts include:
+- ✅ Environment validation (checks for API key)
+- ✅ Service existence validation
+- ✅ Detailed error messages
+- ✅ Non-zero exit codes on failure
+
+## Rate Limits
+
+Render API limits:
+- **100 requests per minute** per API key
+- Scripts include delays where appropriate
+
+## References
+
+- [Render API Documentation](https://api-docs.render.com/)
+- [VS Code Integration Guide](../docs/vscode-render-integration.md)
