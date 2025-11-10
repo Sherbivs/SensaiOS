@@ -144,11 +144,11 @@ function formatUptime(ms) {
 /**
  * Extract database name from connection string for observability.
  * @param {string} connectionString - Database URL
- * @returns {string} Database name or 'unknown'
+ * @returns {string|null} Database name or null if unparseable
  */
 function extractDatabaseName(connectionString) {
   if (!connectionString || typeof connectionString !== 'string') {
-    return 'unknown';
+    return null;
   }
   
   try {
@@ -161,7 +161,7 @@ function extractDatabaseName(connectionString) {
     // Ignore parsing errors
   }
   
-  return 'unknown';
+  return null;
 }
 
 /**

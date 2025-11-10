@@ -2331,6 +2331,59 @@ client.once(Events.ClientReady, async () => {
       errorMessage: error instanceof Error ? error.message : String(error),
       errorStack: error instanceof Error ? error.stack : undefined,
     }, error));
+    
+    // Create minimal fallback state so bot can still function
+    const now = new Date().toISOString();
+    botState = {
+      version: 1,
+      schemaVersion: '1.0.0',
+      metadata: {
+        lastSaved: now,
+        lastRestart: now,
+        previousRestart: now,
+        processStartTime: now,
+        hostname: process.env.RENDER_SERVICE_NAME || 'local',
+        nodeVersion: process.version,
+        botVersion: '2.0.0'
+      },
+      cumulative: {
+        totalUptime: 0,
+        restartCount: 1,
+        sweepCount: 0,
+        alertCount: 0,
+        permissionChangesDetected: 0,
+        successfulReverts: 0,
+        failedReverts: 0
+      },
+      runtime: {
+        currentUptime: 0,
+        currentRestartTime: now,
+        databaseStatus: { dev: 'unknown', prod: 'unknown' },
+        activeSweepIntervals: []
+      },
+      timeline: [{
+        timestamp: now,
+        type: 'restart',
+        details: { reason: 'fallback state (persistence unavailable)', previousUptime: 0 }
+      }],
+      guilds: {},
+      stats: {
+        totalSweeps: 0,
+        totalAlerts: 0,
+        totalPermissionChanges: 0,
+        successfulReverts: 0,
+        failedReverts: 0
+      }
+    };
+    
+    // Expose fallback state to globals
+    global.securityBotState = botState;
+    global.securityBotClient = client;
+    
+    log('warn', 'Using fallback state (persistence unavailable)', {
+      restartNumber: 1,
+      guildsMonitored: 0,
+    });
   }
   
   if (CLI_DEBUG_MODE) {
