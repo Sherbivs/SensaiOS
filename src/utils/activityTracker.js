@@ -24,10 +24,10 @@ function notify() {
       handler(snapshot);
     } catch (err) {
       // eslint-disable-next-line no-console
-      log.error('[activity-tracker notify]', err instanceof Error ? err.message : err);
+      log('error', '[activity-tracker notify]', { error: err instanceof Error ? err.message : err });
       if (err instanceof Error && err.stack) {
         // eslint-disable-next-line no-console
-        log.error(err.stack);
+        log('error', '[activity-tracker stack]', { stack: err.stack });
       }
     }
   }
@@ -99,10 +99,10 @@ function subscribe(handler) {
     handler(getStats());
   } catch (err) {
     // eslint-disable-next-line no-console
-    log.error('[activity-tracker subscribe]', err instanceof Error ? err.message : err);
+    log('error', '[activity-tracker subscribe]', { error: err instanceof Error ? err.message : err });
     if (err instanceof Error && err.stack) {
       // eslint-disable-next-line no-console
-      log.error(err.stack);
+      log('error', '[activity-tracker stack]', { stack: err.stack });
     }
   }
   return () => {

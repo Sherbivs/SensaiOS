@@ -171,7 +171,7 @@ function pruneCache() {
     try {
       fs.unlinkSync(e.filePath);
       total -= e.size;
-      log.info(`[CACHE PRUNE] ${path.basename(e.filePath)} removed`);
+      log('info', '[CACHE PRUNE] File removed', { file: path.basename(e.filePath) });
     } catch (err) {
       logCacheIssue('warn', 'PRUNE', err, { file: path.basename(e.filePath) });
     }
@@ -191,7 +191,7 @@ function cleanOldCache() {
       const st = fs.statSync(fp);
       if (now - st.mtimeMs > MAX_CACHE_FILE_AGE_MS) {
         fs.unlinkSync(fp);
-        log.info(`[CACHE CLEANUP] ${path.basename(fp)} removed`);
+        log('info', '[CACHE CLEANUP] File removed', { file: path.basename(fp) });
       }
     } catch (err) {
       logCacheIssue('warn', 'CLEAN', err, { file: path.basename(fp) });

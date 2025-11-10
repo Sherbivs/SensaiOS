@@ -197,12 +197,12 @@ function recordError({
       if (result && typeof result.then === 'function') {
         result.catch((error) => {
           // eslint-disable-next-line no-console
-          log.error('[ops-notifier]', error instanceof Error ? error.message : error);
+          log('error', '[ops-notifier]', { error: error instanceof Error ? error.message : error });
         });
       }
     } catch (error) {
       // eslint-disable-next-line no-console
-      log.error('[ops-notifier]', error instanceof Error ? error.message : error);
+      log('error', '[ops-notifier]', { error: error instanceof Error ? error.message : error });
     }
   }
 
