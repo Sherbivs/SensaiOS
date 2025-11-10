@@ -11,6 +11,7 @@ Notes:
 - On-premise development database setup
 
 Key Documents:
+- **database-connections-reference.md** - **ESSENTIAL** Comprehensive connection methods for all databases (production, dev primary, experiment)
 - **database-systems.md** - Canonical reference for database architecture
 - **database-url-selection.md** - CRITICAL database URL selection logic (Absolute requirement)
 - **db-control-suite.md** - Database tooling and CLI commands
