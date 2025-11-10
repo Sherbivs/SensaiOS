@@ -502,6 +502,59 @@ function collectSecurityBotStats() {
     };
   }
   
+  // Try to read state from persisted file (cross-worker visibility)
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const stateFile = process.env.IS_RENDER
+      ? '/Store/security-bot-state/current.json'
+      : path.resolve(__dirname, '../../Store/security-bot-state/current.json');
+    
+    if (fs.existsSync(stateFile)) {
+      const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+      const cumulative = stateData.cumulative || {};
+      const timeline = stateData.timeline || [];
+      
+      // Get last sweep time from timeline
+      let lastSweepTime = 'n/a';
+      if (Array.isArray(timeline) && timeline.length > 0) {
+        const sweepEvents = timeline
+          .filter(e => e.type === 'sweep')
+          .sort((a, b) => {
+            const tsA = typeof a.timestamp === 'string' ? new Date(a.timestamp).getTime() : a.timestamp;
+            const tsB = typeof b.timestamp === 'string' ? new Date(b.timestamp).getTime() : b.timestamp;
+            return tsB - tsA;
+          });
+        
+        if (sweepEvents.length > 0) {
+          const lastSweep = sweepEvents[0];
+          const lastSweepTs = typeof lastSweep.timestamp === 'string' 
+            ? new Date(lastSweep.timestamp).getTime() 
+            : lastSweep.timestamp;
+          const elapsed = Date.now() - lastSweepTs;
+          if (elapsed < 60000) {
+            lastSweepTime = `${Math.round(elapsed / 1000)}s ago`;
+          } else if (elapsed < 3600000) {
+            lastSweepTime = `${Math.round(elapsed / 60000)}m ago`;
+          } else {
+            lastSweepTime = `${Math.round(elapsed / 3600000)}h ago`;
+          }
+        }
+      }
+      
+      return {
+        status: 'online',
+        guilds: cumulative.guildCount || 0,
+        lastSweep: lastSweepTime,
+        assignments: cumulative.permissionChangesReverted || 0,
+        failures: cumulative.revertFailures || 0,
+        source: 'persisted-state',
+      };
+    }
+  } catch (error) {
+    // File read failed, silently continue
+  }
+  
   // Security bot not applicable to this service - hide section
   return null;
 }
@@ -759,14 +812,16 @@ async function printStats() {
   if (statsCache.security !== null) {
     lines.push('[SECURITY BOT]');
     const secStatus = String(statsCache.security.status).toUpperCase();
-    lines.push(`  Status: ${secStatus}`);
+    const source = statsCache.security.source === 'persisted-state' ? ' (from persisted state)' : '';
+    lines.push(`  Status: ${secStatus}${source}`);
     
     if (secStatus === 'ONLINE') {
-      // All metrics queried from global.securityBotState
-      lines.push(`  Guilds: ${statsCache.security.guilds} (queried from client.guilds.cache.size)`);
-      lines.push(`  Last Sweep: ${statsCache.security.lastSweep} (queried from botState.timeline)`);
+      // All metrics queried from global.securityBotState or persisted file
+      const stateSource = statsCache.security.source === 'persisted-state' ? 'persisted state file' : 'botState.timeline';
+      lines.push(`  Guilds: ${statsCache.security.guilds} (queried from ${statsCache.security.source === 'persisted-state' ? 'state.cumulative' : 'client.guilds.cache.size'})`);
+      lines.push(`  Last Sweep: ${statsCache.security.lastSweep} (queried from ${stateSource})`);
       lines.push('');
-      lines.push('  Lifetime Statistics (queried from botState.stats):');
+      lines.push(`  Lifetime Statistics (queried from ${statsCache.security.source === 'persisted-state' ? 'state.cumulative' : 'botState.stats'}):`);
       lines.push(`    Assignments: ${statsCache.security.assignments}`);
       lines.push(`    Failures:    ${statsCache.security.failures}`);
     } else if (secStatus === 'LOADING' || secStatus === 'INITIALIZING' || secStatus === 'CONNECTING') {
