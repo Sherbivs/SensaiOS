@@ -432,14 +432,24 @@ function collectSecurityBotStats() {
       
       // Get last sweep time from timeline
       let lastSweepTime = 'never';
-      if (botState.timeline?.events?.length > 0) {
-        const sweepEvents = botState.timeline.events
+      // Note: botState.timeline is an array directly, not botState.timeline.events
+      if (Array.isArray(botState.timeline) && botState.timeline.length > 0) {
+        const sweepEvents = botState.timeline
           .filter(e => e.type === 'sweep')
-          .sort((a, b) => b.timestamp - a.timestamp);
+          .sort((a, b) => {
+            // Handle both ISO string and numeric timestamps
+            const tsA = typeof a.timestamp === 'string' ? new Date(a.timestamp).getTime() : a.timestamp;
+            const tsB = typeof b.timestamp === 'string' ? new Date(b.timestamp).getTime() : b.timestamp;
+            return tsB - tsA;
+          });
         
         if (sweepEvents.length > 0) {
           const lastSweep = sweepEvents[0];
-          const elapsed = Date.now() - lastSweep.timestamp;
+          // Convert ISO string to timestamp if needed
+          const lastSweepTs = typeof lastSweep.timestamp === 'string' 
+            ? new Date(lastSweep.timestamp).getTime() 
+            : lastSweep.timestamp;
+          const elapsed = Date.now() - lastSweepTs;
           if (elapsed < 60000) {
             lastSweepTime = `${Math.round(elapsed / 1000)}s ago`;
           } else if (elapsed < 3600000) {
