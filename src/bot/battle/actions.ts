@@ -395,7 +395,7 @@ export async function handleBattleActionButton(
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,
         operation: 'battle:queueMoveAction',
-        context: {
+        customData: {
           battleId: battle.id,
           playerKey: identified.key,
           moveId: choice,
@@ -441,7 +441,7 @@ export async function handleBattleActionButton(
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,
         operation: 'battle:queueSwitchAction',
-        context: {
+        customData: {
           battleId: battle.id,
           playerKey: identified.key,
           switchToId: choice,

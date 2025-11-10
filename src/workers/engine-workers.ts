@@ -145,10 +145,11 @@ class CacheRefreshWorker {
       
       // Capture error for tracking
       if (error instanceof Error) {
-        await workerErrorHandler.handleCacheRefreshError(error, {
-          operation: 'cache-refresh',
-          workerName: 'CacheRefreshWorker',
-        });
+        await workerErrorHandler.handleCacheRefreshError(
+          error,
+          'engine-cache-l1',
+          'refresh'
+        );
       }
 
     } finally {

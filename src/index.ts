@@ -18,6 +18,7 @@ import { Events, type Client } from "discord.js";
 
 import { bootDiscord } from "./bot/index.js";
 import { botErrorHandler } from "./bot/error-handler.js";
+import { errorTracker } from "./services/error-tracker.js";
 import { ENABLE_DB_AUTO_SYNC, ENABLE_SECURITY_BOT } from "./config/env.js";
 import { initPrisma, prisma } from "./models/index.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
@@ -579,10 +580,22 @@ function bindDiscordLifecycle(client: Client): void {
   // Global Discord error handler - captures all Discord.js client errors
   client.on("error", async (error) => {
     log.error("Discord client error", error);
-    await botErrorHandler.handleDiscordAPIError(error, {
-      endpoint: "websocket",
-      method: "N/A",
-    });
+    
+    // Check if it's a DiscordAPIError before using the specific handler
+    if ('status' in error && 'code' in error && 'method' in error) {
+      await botErrorHandler.handleDiscordAPIError(error as any, {
+        service: "discord-websocket",
+        operation: "websocket-connection",
+      });
+    } else {
+      // Generic error handling
+      await errorTracker.captureError(error, {
+        category: 'DISCORD',
+        service: 'discord-client',
+        operation: 'websocket',
+        severity: 'HIGH',
+      });
+    }
   });
   
   // Warning handler for Discord connection issues
@@ -685,10 +698,22 @@ function bindSecurityLifecycle(client: Client): void {
   // Global Discord error handler for security bot
   client.on("error", async (error) => {
     log.error("Security bot client error", error);
-    await botErrorHandler.handleDiscordAPIError(error, {
-      endpoint: "websocket",
-      method: "N/A",
-    });
+    
+    // Check if it's a DiscordAPIError before using the specific handler
+    if ('status' in error && 'code' in error && 'method' in error) {
+      await botErrorHandler.handleDiscordAPIError(error as any, {
+        service: "security-bot-websocket",
+        operation: "websocket-connection",
+      });
+    } else {
+      // Generic error handling
+      await errorTracker.captureError(error, {
+        category: 'DISCORD',
+        service: 'security-bot-client',
+        operation: 'websocket',
+        severity: 'HIGH',
+      });
+    }
   });
   
   // Warning handler for security bot connection issues

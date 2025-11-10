@@ -317,7 +317,7 @@ async function respondWithView(
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,
         operation: 'dm:createDM',
-        context: {
+        customData: {
           view: 'dm-home',
           fallback: 'ephemeral-reply',
         },

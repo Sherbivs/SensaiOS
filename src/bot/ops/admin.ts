@@ -733,7 +733,7 @@ export async function handleOpsCommand(
         commandName: '/ops stats',
         operation: 'collectOpsStatsFromDb',
       });
-      log('warn', "Stats query failed", { err });
+      log.warn("Stats query failed", { err });
       await interaction.editReply({ content: "Failed to load stats (check logs)." });
     }
     return;
@@ -855,7 +855,7 @@ export async function handleOpsCommand(
         commandName: '/ops state',
         operation: 'getSecurityBotState',
       });
-      log('warn', "State command failed", { err });
+      log.warn("State command failed", { err });
       const message = err instanceof Error ? err.message : String(err);
       await interaction.editReply({ content: `State unavailable: ${message}` });
     }
