@@ -80,6 +80,7 @@ Key Documents by Category:
 - RESOURCE-MANAGER-SUMMARY.md - Executive summary with success metrics
 - RESOURCE-MANAGER-QUICK-REF.md - Quick reference for common patterns
 - resource-monitor-integration-summary.md - Complete Resource Monitor integration and deployment guide
+- resource-manager-deployment-validation.md - Production validation checklist for Render deployment
 
 **Deployment** (deployment/):
 - workers.md - Worker architecture, scaling roadmap, and cost optimization
