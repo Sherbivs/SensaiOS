@@ -49,6 +49,7 @@
     "test": "vitest --run",
     "test:watch": "vitest",
     "test:pbsl": "vitest run tests/pbsl",
+    "test:error-integration": "tsx scripts/test-error-integration.ts",
     "bench:dex": "vitest bench tests/dexpack.microbench.ts",
     "worker:outbox": "tsx src/worker/outbox.ts",
     "worker:cache": "tsx src/worker/cache-refresh.ts",

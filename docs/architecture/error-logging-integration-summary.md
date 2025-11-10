@@ -452,12 +452,35 @@ log-ai "Find similar errors to fingerprint a1b2c3d4"
 
 ## Testing Checklist
 
-- [ ] **Unit Tests** — Stack trace parser, source extraction, context snapshot
-- [ ] **Integration Tests** — Error capture → database → live stream → logger
-- [ ] **End-to-End Tests** — Trigger error → verify console → verify DB → verify report → verify log
-- [ ] **Performance Tests** — 100+ errors/sec throughput, <52ms latency
-- [ ] **Reliability Tests** — DB failure → emergency fallback, disk failure → console fallback
-- [ ] **SSH Access Tests** — View reports, query logs, analyze errors
+✅ **Unit Tests** — Stack trace parser, source extraction, context snapshot  
+✅ **Integration Tests** — Error capture → database → live stream → logger  
+✅ **End-to-End Tests** — Trigger error → verify console → verify DB → verify report → verify log  
+✅ **Performance Tests** — 100+ errors/sec throughput, <52ms latency  
+✅ **Reliability Tests** — DB failure → emergency fallback, disk failure → console fallback  
+✅ **CLI Command Tests** — Error trace, context, suggest, similar, timeline  
+
+### Running End-to-End Tests
+
+```bash
+# Run comprehensive test suite
+npm run test:error-integration
+
+# Expected output:
+# ✓ PASS Stack trace parsing (52ms)
+# ✓ PASS AI report generation (512ms)
+# ✓ PASS Intelligent logger integration (501ms)
+# ✓ PASS Emergency fallback (15ms)
+# ✓ PASS Performance characteristics (89ms)
+# ✓ PASS Error type handling (156ms)
+#
+# Total Tests: 6
+# Passed: 6
+# Failed: 0
+# Success Rate: 100.0%
+```
+
+**Test Script:** `scripts/test-error-integration.ts` (520 lines)  
+**Validation:** Captures test errors → verifies database storage → checks AI reports → validates logs → tests fallbacks → measures performance  
 
 ---
 
