@@ -173,17 +173,18 @@ function extractDatabaseName(connectionString) {
 function hasSignificantChange(current, previous) {
   if (!previous) return true; // First run
   
-  // Check database status changes
-  if (current.databases.prod.status !== previous.databases.prod.status) return true;
-  if (current.databases.local.status !== previous.databases.local.status) return true;
+  // Check database status changes (updated for new structure)
+  if (current.databases?.master?.status !== previous.databases?.master?.status) return true;
+  if (current.databases?.engineRead?.status !== previous.databases?.engineRead?.status) return true;
+  if (current.databases?.engineWrite?.status !== previous.databases?.engineWrite?.status) return true;
   
   // Check latency changes (>5ms difference)
-  const currentProdLatency = parseFloat(current.databases.prod.latency) || 0;
-  const previousProdLatency = parseFloat(previous.databases.prod.latency) || 0;
-  if (Math.abs(currentProdLatency - previousProdLatency) > LATENCY_CHANGE_THRESHOLD_MS) return true;
+  const currentMasterLatency = parseFloat(current.databases?.master?.latency) || 0;
+  const previousMasterLatency = parseFloat(previous.databases?.master?.latency) || 0;
+  if (Math.abs(currentMasterLatency - previousMasterLatency) > LATENCY_CHANGE_THRESHOLD_MS) return true;
   
   // Check security bot status changes
-  if (current.security.status !== previous.security.status) return true;
+  if (current.security?.status !== previous.security?.status) return true;
   
   return false;
 }
@@ -529,6 +530,11 @@ function formatMetric(value, reason, formatter = null) {
 async function printStats() {
   await refreshStats();
   
+  // Skip printing if stats not ready
+  if (!statsCache.databases || !statsCache.node || !statsCache.security) {
+    return;
+  }
+  
   // Skip printing if no significant changes detected
   if (!hasSignificantChange(statsCache, previousStats)) {
     return;
@@ -677,6 +683,11 @@ async function printStats() {
  */
 async function getFormattedStats() {
   await refreshStats();
+  
+  // Return empty string if stats not ready
+  if (!statsCache.databases || !statsCache.node) {
+    return '';
+  }
   
   const lines = [];
   
