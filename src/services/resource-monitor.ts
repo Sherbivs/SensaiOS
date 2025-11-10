@@ -5,6 +5,10 @@
  * Integrates with intelligent logger for visibility
  * Self-cleaning: automatically removes old monitor data
  * Minimal overhead: <1ms CPU, <1KB memory per check
+ * 
+ * Integration: Called from src/index.ts boot() and gracefulShutdown()
+ * - Starts after error learning worker initialization (line ~1133)
+ * - Stops during graceful shutdown before write buffer flush (line ~798)
  */
 
 import { resourceManager } from './resource-manager.js';
