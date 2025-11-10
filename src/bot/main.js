@@ -1317,7 +1317,7 @@ async function notifyServiceRestart() {
       const loggerModule = await import('../utils/logger.js');
       if (typeof loggerModule.getFormattedStats === 'function') {
         while (Date.now() - startWaitTime < maxWaitMs) {
-          stats = loggerModule.getFormattedStats();
+          stats = await loggerModule.getFormattedStats();
           
           // Check if any database is still in "loading" state
           const hasLoadingStatus = stats.includes('Status: loading');
@@ -2329,7 +2329,11 @@ client.once(Events.ClientReady, async () => {
       guildsMonitored: Object.keys(botState.guilds).length,
     });
   } catch (error) {
-    log('error', 'State persistence initialization failed', mergeLogError({}, error));
+    log('error', 'State persistence initialization failed', mergeLogError({
+      errorType: error?.constructor?.name || typeof error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+    }, error));
   }
   
   if (CLI_DEBUG_MODE) {
