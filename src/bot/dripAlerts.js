@@ -49,6 +49,12 @@ function createDripAlertManager({
   let started = false;
   let cachedRecipient = null;
   let resolving = null;
+  
+  // Phase 2.3.2: Event Bus subscription tracking
+  const subscriptions = {
+    immediate: null,  // For critical + security alerts
+    digest: null,     // For warning + notice alerts
+  };
 
   function logContext(level, message, context = {}) {
     if (typeof log === 'function') {
@@ -149,6 +155,18 @@ function createDripAlertManager({
       clearTimeout(digestTimer);
       digestTimer = null;
     }
+    
+    // Phase 2.3.2: Unsubscribe from Event Bus
+    const bus = EventBus.getInstance();
+    if (subscriptions.immediate) {
+      bus.unsubscribe(subscriptions.immediate);
+      subscriptions.immediate = null;
+    }
+    if (subscriptions.digest) {
+      bus.unsubscribe(subscriptions.digest);
+      subscriptions.digest = null;
+    }
+    
     started = false;
   }
 
@@ -329,6 +347,51 @@ function createDripAlertManager({
       logContext('warn', 'Drip alert system inactive (recipient unset)', {});
       return;
     }
+    
+    // Phase 2.3.2: Subscribe to Event Bus for alert delivery
+    const bus = EventBus.getInstance();
+    
+    // Subscribe to immediate alerts (critical + security) - high priority
+    subscriptions.immediate = bus.subscribe(
+      'alert.critical|alert.security',
+      (event) => {
+        // Handler for immediate alerts - already handled by deliverImmediate()
+        // This subscription is for future Event Bus-only delivery (Phase 2.3.3)
+        logContext('debug', 'Event Bus received immediate alert', {
+          topic: event.topic,
+          correlationId: event.correlationId,
+          title: event.payload.title,
+        });
+      },
+      {
+        priority: 20,
+        maxQueueSize: 50,
+      }
+    );
+    
+    // Subscribe to digest alerts (warning + notice) - standard priority
+    subscriptions.digest = bus.subscribe(
+      'alert.warning|alert.notice',
+      (event) => {
+        // Handler for digest alerts - already handled by queue.push()
+        // This subscription is for future Event Bus-only delivery (Phase 2.3.3)
+        logContext('debug', 'Event Bus received digest alert', {
+          topic: event.topic,
+          correlationId: event.correlationId,
+          title: event.payload.title,
+        });
+      },
+      {
+        priority: 10,
+        maxQueueSize: 100,
+      }
+    );
+    
+    logContext('info', 'Drip alert Event Bus subscriptions created', {
+      immediate: subscriptions.immediate,
+      digest: subscriptions.digest,
+    });
+    
     scheduleDigest();
   }
 
