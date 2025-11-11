@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-11T18:30:00Z
-Revision: 2.72
+Timestamp (UTC): 2025-11-11T19:00:00Z
+Revision: 2.73
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -13,10 +13,70 @@ Revision: 2.72
 - See `docs/deployment/MEMORY-TO-DISK-MIGRATION-PLAN.md` for comprehensive Phase 2 memory optimization roadmap (added 2025-11-11T09:00:00Z)
 - See `docs/architecture/phase2.2-errortracker-migration-complete.md` for Phase 2.2 completion report (added 2025-11-11T17:45:00Z)
 - See `docs/architecture/phase2.3-dripalertmanager-migration-complete.md` for Phase 2.3 completion report (added 2025-11-11T18:30:00Z)
+- See `docs/architecture/phase2.4-intelligentlogger-migration-plan.md` for Phase 2.4 migration plan (added 2025-11-11T19:00:00Z)
 
 **Referenced By**: AGENTS.md (Orientation Flow), Patch.md (echo requirements), ops/NEXT.yaml (sync check)
 
 ## Last Repo Changes (since previous Prompt.md revision)
+
+- **PHASE 2.4: INTELLIGENTLOGGER EVENT BUS MIGRATION PLAN CREATED (2025-11-11T19:00Z):**
+  - **Task:** Plan migration of IntelligentLogger from EventEmitter to unified Event Bus
+  - **Status:** PLAN COMPLETE, READY FOR EXECUTION (commit 61f717c)
+  - **Planning Duration:** 1 hour
+  
+  - **Migration Target:** IntelligentLogger (src/utils/intelligent-logger.ts)
+    - Currently extends EventEmitter (line 446)
+    - Emits 2 event types:
+      * `'log'` event (line 544) — emitted for every log entry (trace/debug/info/warn/error/fatal)
+      * `'cache:eviction'` event (line 383) — emitted when circular buffer evicts entries
+    - **Key Insight:** Currently has 0 external consumers (preventive migration)
+    - Already subscribes to Event Bus `error.**` pattern (Phase 2.2.2 integration, line 835)
+  
+  - **Migration Strategy:** 3-phase incremental rollout (defer Phase 2.4.2)
+    1. Phase 2.4.1: Add Event Bus emission alongside EventEmitter (backward compatible)
+    2. Phase 2.4.2: Add Event Bus subscriptions (DEFERRED — no current consumers)
+    3. Phase 2.4.3: Remove EventEmitter, use Event Bus exclusively
+  
+  - **Phase 2.4.0 Deliverables (Planning):**
+    - Implementation plan (748 lines, docs/architecture/phase2.4-intelligentlogger-migration-plan.md)
+    - Proposed Topics:
+      * `log.trace`, `log.debug`, `log.info` (NORMAL priority)
+      * `log.warn` (HIGH priority)
+      * `log.error`, `log.fatal` (CRITICAL priority)
+      * `cache.eviction` (NORMAL priority)
+    - Priority Mapping:
+      * error/fatal → CRITICAL (highest urgency)
+      * warn → HIGH (elevated urgency)
+      * trace/debug/info → NORMAL (low urgency)
+    - Estimated Duration: 3 hours (based on Phase 2.3 experience: 4 hours actual)
+    - Risk Assessment: LOW (no external consumers, proven pattern, small surface area)
+    - Rollback Plan: 15-minute revert to EventEmitter if needed
+  
+  - **Migration Benefits:**
+    - Centralized log distribution through Event Bus (consistent with ErrorTracker, DripAlertManager)
+    - Correlation IDs for tracking log sequences across async operations
+    - Replay buffer access to last 100 log events for debugging/analysis
+    - Priority queuing (CRITICAL for errors, HIGH for warnings, NORMAL for info/debug)
+    - Future-proof for log aggregation and monitoring features
+  
+  - **Future Opportunities (Post-Migration):**
+    - Centralized Log Aggregator: Subscribe to `log.**`, forward to Datadog/CloudWatch (4-6 hours)
+    - Real-Time Log Monitoring: Subscribe to `log.error` + `log.fatal`, emit to DripAlertManager (2-3 hours)
+    - Debug Console: Subscribe to `log.**`, stream to web UI (8-10 hours)
+    - Log Analytics: Subscribe to `log.**`, aggregate error rates and performance trends (6-8 hours)
+  
+  - **Next Steps:**
+    - ✅ Phase 2.4.0 complete (planning, commit 61f717c)
+    - ⏳ Awaiting user approval to proceed with Phase 2.4.1 (execution)
+  
+  - **Cross-Reference:**
+    - Plan: docs/architecture/phase2.4-intelligentlogger-migration-plan.md
+    - Previous migrations: Phase 2.2 (ErrorTracker), Phase 2.3 (DripAlertManager)
+    - Event Bus foundation: Phase 2.1 (574 lines, src/shared/event-bus.ts)
+
+---
+
+**Previous Repo Changes:**
 
 - **PHASE 2.3: DRIPALERTMANAGER EVENT BUS MIGRATION COMPLETE (2025-11-11T18:30Z):**
   - **Task:** Migrate DripAlertManager from in-memory queue to unified Event Bus
@@ -1683,18 +1743,18 @@ Revision: 2.72
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: main (2fb4e5e)
-Change: Phase 2.3 DripAlertManager Event Bus Migration Complete (2025-11-11T18:30Z). Migrated DripAlertManager from in-memory queue to Event Bus in 3 phases over 6 commits (413cafd → 2fb4e5e, 4 hours duration). Phase 2.3.1 (commit 413cafd) added Event Bus emission to recordAlert() with UUID v4 correlation IDs emitting to alert.critical|security|warning|notice topics plus TypeScript type definitions (dripAlerts.d.ts, 156 lines) and 9 validation tests (100% passing). Phase 2.3.2 (commit b04ba33) added 2 Event Bus subscriptions (immediate priority 20 for critical/security, digest priority 10 for warning/notice) with cleanup on stop() plus 8 validation tests (100% passing). Phase 2.3.3 (commit 5c4af02) removed all in-memory queue references (18 occurrences, grep validated to 0), replaced with Event Bus replay buffer for digest assembly and Event Bus re-emission for failure retry with parentCorrelationId tracking. Phase 2.3.4 (commit 6683420) added 12 integration tests (6/12 passing, WIP tests demonstrate correct behavior but require test isolation improvements). Phase 2.3.5 (commit 299b22a) updated 3 ROUTER.md files documenting Event Bus integration architecture. Completion report (commit 2fb4e5e, 317 lines) documents technical achievements (queue removal, replay buffer, retry mechanism), performance metrics (less than 1ms emit, less than 10ms handler, less than 5ms replay scan, less than 20ms total latency), architectural benefits (decoupling, traceability, observability, resilience, extensibility).
+HEAD: main (61f717c)
+Change: Phase 2.4 IntelligentLogger Event Bus Migration Plan Created (2025-11-11T19:00Z). Created comprehensive 748-line implementation plan for migrating IntelligentLogger from EventEmitter to Event Bus (docs/architecture/phase2.4-intelligentlogger-migration-plan.md). Target: IntelligentLogger (src/utils/intelligent-logger.ts) currently extends EventEmitter (line 446) emitting 2 event types: 'log' event (line 544) for every log entry (trace/debug/info/warn/error/fatal) and 'cache:eviction' event (line 383) for circular buffer evictions. Key insight: Currently has 0 external consumers (preventive migration to establish Event Bus pattern before future coupling). Proposed 3-phase rollout: Phase 2.4.1 (dual emission, backward compatible) → Phase 2.4.2 (DEFERRED, no current subscribers) → Phase 2.4.3 (remove EventEmitter). Topics: log.trace/debug/info (NORMAL priority), log.warn (HIGH priority), log.error/fatal (CRITICAL priority), cache.eviction (NORMAL priority). Estimated 3 hours (based on Phase 2.3: 4 hours actual). Plan includes comprehensive architecture analysis, testing strategy (unit + integration + regression), rollback procedures, risk assessment (LOW - no external dependencies), and future opportunities (log aggregation, real-time monitoring, debug console, analytics). Migration benefits: Centralized log distribution, correlation IDs for async tracking, replay buffer (last 100 events), priority queuing, consistent with ErrorTracker (Phase 2.2) and DripAlertManager (Phase 2.3).
 TasklistDiff: ✅ Tasklist.md not updated (Phase 2 Event Bus migrations not yet tracked in backlog, recommend adding Phase 2.4-2.N tasks for future migrations)
-Tests: Phase 2.3.1 validation (9/9 passing), Phase 2.3.2 validation (8/8 passing), Phase 2.3.4 integration (6/12 passing, WIP tests require test isolation). Total: 23/29 passing (79%). Build: TypeScript 0 errors (1 unrelated warning).
-ContractMode: Markerless (Event Bus migration work, comprehensive testing and documentation)
-NextPointer: ⏳ ops/NEXT.yaml currently NONE (Resource Optimization complete per 2025-11-11T10:45Z). Recommend either (1) continue Event Bus migrations (Phase 2.4: identify next service) or (2) execute DB.NORTHSTAR.ANALYTICS (READY task awaiting priority assignment).
-RoutersIntact: ✅ Updated src/bot/ROUTER.md (dripAlerts.js Event Bus integration), src/shared/ROUTER.md (event-bus.ts documentation), tests/ROUTER.md (Phase 2.3 test suite)
-CanonicalDocs: ✅ AGENTS.md preserved, README.md preserved, Prompt.md updated with Phase 2.3 completion (Rev 2.71 → 2.72), Tasklist.md unchanged (Phase 2 migrations not yet in backlog)
+Tests: No code changes in this session (planning only). Phase 2.4.1 tests planned: 10+ tests covering dual emission, priority mapping, correlation ID passthrough, backward compatibility, graceful degradation.
+ContractMode: Markerless (Event Bus migration planning, comprehensive documentation)
+NextPointer: ⏳ ops/NEXT.yaml awaiting update to Phase 2.4 (READY for execution with user approval). Plan complete, awaiting user decision: (1) Execute Phase 2.4.1-2.4.3 (3 hours estimated) or (2) defer Event Bus migrations or (3) pivot to DB.NORTHSTAR.ANALYTICS or other priorities.
+RoutersIntact: ✅ ROUTER.md updates planned for Phase 2.4 execution (src/utils/ROUTER.md, tests/ROUTER.md)
+CanonicalDocs: ✅ AGENTS.md preserved, README.md preserved, Prompt.md updated with Phase 2.4 plan cross-reference (Rev 2.72 → 2.73), Tasklist.md unchanged
 <!-- PATCHSET:ECHO END -->
 Contracts: ON
-NEXT_Status: NONE (Resource Optimization complete, DB.NORTHSTAR.ANALYTICS on hold per user request, Phase 2.4 Event Bus migrations available)
-NEXT: Awaiting user priority: (1) Phase 2.4 Event Bus migrations (identify next service for migration) or (2) DB.NORTHSTAR.ANALYTICS (READY but on non-impeding hold) or (3) other backlog priorities from Tasklist.md.
+NEXT_Status: READY (Phase 2.4 IntelligentLogger migration plan complete, awaiting user approval for execution)
+NEXT: Awaiting user approval to proceed with Phase 2.4.1 (add Event Bus emission) or pivot to other priorities (DB.NORTHSTAR.ANALYTICS, other backlog tasks).
 <!-- PATCHSET:ECHO END -->
 
 ## Recent Change Ledger (last 10 commits)

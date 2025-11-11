@@ -13,16 +13,17 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: NONE
-reason: "Phase 2.3 DripAlertManager Event Bus Migration COMPLETE (2025-11-11T18:30Z). Migration: 3-phase incremental rollout (emit → subscribe → cleanup) over 6 commits (413cafd → 2fb4e5e). Duration: 4 hours (50% under planned 9-14 hours). Results: 18 queue references removed (grep validated to 0), Event Bus replay buffer for digest assembly, Event Bus re-emission for failure retry with parentCorrelationId. Testing: 29 tests (23 passing - 79%, 6 WIP require test isolation). Build: TypeScript 0 errors. Performance: <20ms added latency (1ms emit + 10ms handler + 5ms replay). Documentation: 3 ROUTER.md files updated, 317-line completion report. Awaiting next priority: (1) Phase 2.4 Event Bus migrations (identify next service) or (2) DB.NORTHSTAR.ANALYTICS (READY but on hold per user 2025-11-11T10:45Z) or (3) other backlog."
+next_task_id: PHASE_2.4_INTELLIGENTLOGGER_MIGRATION
+reason: "Phase 2.4 IntelligentLogger Event Bus Migration plan COMPLETE (2025-11-11T19:00Z). Plan: 748-line comprehensive implementation plan (docs/architecture/phase2.4-intelligentlogger-migration-plan.md) covering 3-phase rollout (Phase 2.4.1 dual emission → Phase 2.4.2 subscriptions DEFERRED → Phase 2.4.3 remove EventEmitter). Target: IntelligentLogger (src/utils/intelligent-logger.ts) extends EventEmitter (line 446), emits 2 event types: 'log' (line 544, trace/debug/info/warn/error/fatal levels) and 'cache:eviction' (line 383, buffer management). Key insight: 0 external consumers currently (preventive migration). Topics: log.trace/debug/info (NORMAL), log.warn (HIGH), log.error/fatal (CRITICAL), cache.eviction (NORMAL). Estimated: 3 hours (based on Phase 2.3: 4 hours actual). Risk: LOW (no external dependencies, proven pattern). Awaiting user approval to execute Phase 2.4.1 (add Event Bus emission alongside EventEmitter, backward compatible)."
 
 files_hint:
-  - Tasklist.md (identify next READY task or add Phase 2.4+ Event Bus migration tasks)
-  - ops/NEXT.yaml (update with chosen task)
-  - docs/architecture/phase2.3-dripalertmanager-migration-complete.md (Phase 2.3 completion report)
+  - docs/architecture/phase2.4-intelligentlogger-migration-plan.md (comprehensive plan - COMPLETE)
+  - src/utils/intelligent-logger.ts (migration target - lines 446, 544, 383)
+  - tests/utils/intelligent-logger-event-bus.test.ts (Phase 2.4.1 tests - NEW)
+  - src/shared/event-bus.ts (Event Bus foundation - Phase 2.1)
 
 queue: []
-timestamp_utc: 2025-11-11T18:30:00Z
+timestamp_utc: 2025-11-11T19:00:00Z
 router_version: 1
-last_notes_read_utc: 2025-11-11T18:30:00Z
-note: "Phase 2.3 complete: 6 commits pushed (413cafd Event Bus emission + dripAlerts.d.ts + 9 tests, b04ba33 Event Bus subscriptions + 8 tests, 5c4af02 queue removal + grep 0 refs, 6683420 integration tests 6/12 passing, 299b22a ROUTER.md updates, 2fb4e5e completion report). Total migration: in-memory queue (18 refs) → Event Bus replay buffer (digest) + Event Bus re-emission (retry). Build: TypeScript passing (0 errors). Tests: Phase 2.3.1 (9/9) + Phase 2.3.2 (8/8) + Phase 2.3.4 (6/12 WIP) = 23/29 passing (79%). Next candidates: Phase 2.4 Event Bus migrations (identify service) or DB.NORTHSTAR.ANALYTICS (READY, on hold per user). Awaiting user priority from backlog."
+last_notes_read_utc: 2025-11-11T19:00:00Z
+note: "Phase 2.4 planning complete: Commit 61f717c (748-line migration plan for IntelligentLogger → Event Bus). Analysis: IntelligentLogger extends EventEmitter, emits 'log' + 'cache:eviction' events, grep shows 0 external consumers (preventive migration). 3-phase strategy: Phase 2.4.1 (dual emission), Phase 2.4.2 (DEFERRED - no current subscribers), Phase 2.4.3 (remove EventEmitter). Topics: log.* (6 levels), cache.eviction. Priority mapping: error/fatal → CRITICAL, warn → HIGH, rest → NORMAL. Estimated 3 hours. Risk: LOW. Plan includes testing strategy (unit + integration + regression), rollback procedures (15 min), future opportunities (log aggregation, monitoring, debug console, analytics). Awaiting user approval to execute Phase 2.4.1 or pivot to other priorities."
