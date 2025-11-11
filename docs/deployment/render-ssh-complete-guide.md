@@ -27,12 +27,6 @@ Render provides two methods to access running services:
 
 ### Access Methods
 
-**Dashboard Shell (No Setup Required):**
-- Go to https://dashboard.render.com
-- Navigate to service → "Shell" tab
-- Click "Connect" to open web-based terminal
-- Select specific instance from dropdown (for scaled services)
-
 **SSH from Terminal (Setup Required):**
 - Generate SSH key pair (Ed25519 recommended)
 - Add public key to Render account

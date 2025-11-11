@@ -60,9 +60,9 @@ Write-Host "   Command: $Command" -ForegroundColor Gray
 Write-Host "   Timeout: $Timeout seconds" -ForegroundColor Gray
 Write-Host ""
 
-# Check if SSH key exists
+# Check if SSH key exists (using standard SSH key name per Render documentation)
 $sshDir = Join-Path $env:USERPROFILE ".ssh"
-$defaultKey = Join-Path $sshDir "id_ed25519_render"
+$defaultKey = Join-Path $sshDir "id_ed25519"
 if (-not (Test-Path $defaultKey)) {
     Write-Host "⚠️  Render SSH key not found: $defaultKey" -ForegroundColor Yellow
     Write-Host "   Run: npm run render:ssh-setup" -ForegroundColor Gray
