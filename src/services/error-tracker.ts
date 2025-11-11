@@ -16,6 +16,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
+import { EventBus } from '../shared/event-bus.js';
 import { prisma } from '../shared/prisma.js';
 import type { ErrorLog, ErrorAlert } from '@prisma/client';
 import {
@@ -336,8 +337,8 @@ export class ErrorTracker {
         },
       });
       
-      // Emit to live error stream for immediate logger visibility (with parsed stack)
-      this.emitToLiveStream({
+      // Emit to Event Bus for immediate logger visibility (with parsed stack)
+      this.emitToEventBus({
         errorId: result.errorId,
         fingerprint,
         category,
@@ -574,16 +575,56 @@ export class ErrorTracker {
   }
   
   /**
-   * Emit error to live stream for immediate logger visibility
-   * CRITICAL: This must be synchronous and non-blocking
+   * Emit error to Event Bus for immediate logger visibility
+   * CRITICAL: This must be non-blocking and fault-tolerant
+   * 
+   * Event routing: error.<severity> topics
+   * - error.critical (CRITICAL errors)
+   * - error.high (HIGH errors)
+   * - error.medium (MEDIUM errors)
+   * - error.low (LOW errors)
+   * 
+   * Features:
+   * - Correlation ID tracking (UUID v4)
+   * - Parent correlation chaining (from context.correlationId)
+   * - Event replay buffer (last 100 errors)
+   * - Pattern-based subscriptions (error.** for all errors)
    */
-  private emitToLiveStream(event: LiveErrorEvent): void {
+  private emitToEventBus(event: LiveErrorEvent): void {
     try {
-      // Emit to global event stream (logger subscribes to 'error' event)
+      const bus = EventBus.getInstance();
+      
+      // Emit to error.<severity> topic
+      const topic = `error.${event.severity.toLowerCase()}`;
+      const correlationId = bus.emit(topic, {
+        errorId: event.errorId,
+        fingerprint: event.fingerprint,
+        category: event.category,
+        severity: event.severity,
+        errorName: event.errorName,
+        errorMessage: event.errorMessage,
+        timestamp: event.timestamp,
+        context: event.context,
+        parsedStack: event.parsedStack,
+        topFrame: event.topFrame,
+        sourceLocation: event.sourceLocation,
+        callChain: event.callChain,
+      }, {
+        emitter: 'error-tracker',
+        parentCorrelationId: event.context?.correlationId, // Chain if exists
+      });
+      
+      // Emit to legacy EventEmitter for backward compatibility (TEMPORARY)
+      // TODO: Remove after Phase 2.2.2 (logger migration complete)
       liveErrorStream.emit('error', event);
+      
+      // Log correlation ID for debugging (minimal output to avoid noise)
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`   🔗 Correlation: ${correlationId.substring(0, 8)}... → ${topic}`);
+      }
     } catch (emitError) {
-      // MUST NOT throw - live stream is optional enhancement
-      console.error('[ErrorTracker] Failed to emit to live stream:', emitError);
+      // MUST NOT throw - Event Bus emission is optional enhancement
+      console.error('[ErrorTracker] Failed to emit to Event Bus:', emitError);
     }
   }
   
