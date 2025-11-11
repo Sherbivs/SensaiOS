@@ -13,19 +13,18 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: DB.NORTHSTAR.PHASE2
-reason: "Northstar Methodology Solidification Complete (2025-11-09T06:00Z). Comprehensive documentation session: (1) Bug fixes (3 total: dex seeding DELETE safety TRUNCATE, ON CONFLICT constraint level column, logger timing graceful degradation), (2) Documentation (4 files, 2,700+ lines: northstar-methodology.md 832 lines principles/pattern/standards/testing/gates, northstar-qa-checklist.md 572 lines pre/during/post QA + failure response, northstar-solidification-summary.md 594 lines executive overview, northstar-schema-state.md 424 lines current vs. planned schema), (3) Phase 2 migration validation (EXPERIMENTAL testing: migration.sql + rollback.sql tested, 2 TrainerProfile rows migrated to User, table dropped, zero data loss, rollback successful complete restore, PRIMARY LOCAL isolation confirmed 100% offline). Migration files ready: prisma/migrations/20251108183000_northstar_phase2_consolidation/ with migration.sql (5-step process), rollback.sql (complete restore), README.md (9,800+ lines comprehensive guide). TypeScript build passing, all commits pushed (eac364e, d292493, 64da66f, 9a609f8, 41fe1f5). Next: DB.NORTHSTAR.PHASE2 READY for PRIMARY LOCAL validation before DEV deployment (apply migration to PRIMARY LOCAL, test ProfileService queries, update Prisma schema, EXPLICIT PUSH to DEV master)."
+next_task_id: DB.NORTHSTAR.ANALYTICS
+reason: "Resource Optimization Phase 2A Complete (2025-11-11T09:00Z). Memory-to-disk migration via configuration changes: Runtime Cache (16 MB → 5 MB), Write Buffer (25 MB → 5 MB), Logger Buffer (5 MB → 1 MB). Total immediate savings: -35 MB (-23% reduction, 154 MB → 119 MB runtime). Phase 2B (sql.js → better-sqlite3) deferred pending major refactoring. DB.NORTHSTAR.PHASE2 also complete (TrainerProfile model removed). DB.NORTHSTAR.ANALYTICS now READY: dependencies met, analytics tables ready (DailyStats, Leaderboard), need scheduled jobs."
 
 files_hint:
-  - prisma/migrations/20251108183000_northstar_phase2_consolidation/ (migration.sql, rollback.sql, README.md ready)
-  - Store/onpremise-dev-primary/ (PRIMARY LOCAL database for final offline validation)
-  - src/services/profiles/ (ProfileService to test against consolidated User columns)
-  - prisma/schema.prisma (update after PRIMARY LOCAL validation: remove TrainerProfile model)
-  - Tasklist.md (DB.NORTHSTAR.PHASE2 update with PRIMARY LOCAL results)
-  - Prompt.md (update with PRIMARY LOCAL validation outcome)
+  - scripts/analytics/ (create generate_daily_stats.ts, refresh_leaderboards.ts)
+  - docs/query-optimization-guide.md (document analytics queries)
+  - Tasklist.md (DB.NORTHSTAR.ANALYTICS status updates)
+  - Prompt.md (analytics implementation summary)
+  - docs/deployment/MEMORY-TO-DISK-MIGRATION-PLAN.md (Phase 2B roadmap when ready)
 
 queue: []
-timestamp_utc: 2025-11-09T06:00:00Z
+timestamp_utc: 2025-11-11T09:00:00Z
 router_version: 1
-last_notes_read_utc: 2025-11-09T06:00:00Z
-note: "Northstar Methodology Solidification COMPLETE. Comprehensive documentation established (2,700+ lines across 4 docs covering principles, standards, testing, QA gates, schema evolution). Bug fixes validated (dex seeding TRUNCATE, ON CONFLICT level column, logger graceful degradation). Phase 2 migration validated on EXPERIMENTAL (zero data loss, rollback tested, PRIMARY LOCAL isolation confirmed). Migration readiness: ✅ Migration SQL validated (5-step process), ✅ Rollback SQL validated (complete restore), ✅ Data integrity verified (zero data loss), ✅ Isolation confirmed (EXPERIMENTAL changes NOT visible in PRIMARY LOCAL), ✅ Documentation complete (comprehensive README with workflows/troubleshooting/checklist). Ready for DB.NORTHSTAR.PHASE2 PRIMARY LOCAL validation: (1) Apply migration to PRIMARY LOCAL, (2) Test ProfileService queries, (3) Validate data integrity, (4) Update Prisma schema remove TrainerProfile, (5) EXPLICIT PUSH to DEV master (manual approval required)."
+last_notes_read_utc: 2025-11-11T09:00:00Z
+note: "Resource Optimization Phase 2A complete (3 config files modified: facade.ts, engine-db-config.ts, logBuffer.ts). Achieved -35 MB immediate memory reduction. Build passing (TypeScript 0 errors, Prisma v6.19.0). Phase 2B (better-sqlite3 migration for -30 MB additional savings) requires major refactoring: dependency installation, engine-read-db.ts rewrite, engine-write-db.ts rewrite, L1 cache lazy loading (see docs/game-engine/engine-db-persistence-opportunities.md). DB.NORTHSTAR.ANALYTICS remains READY for immediate execution. Choice: Continue with ANALYTICS (analytics jobs implementation) or start Phase 2B (database migration major refactoring)."
