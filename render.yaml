@@ -87,7 +87,7 @@ services:
 
   # Discord bot worker
   - type: worker
-    name: infinity-gauntlet-bots
+    name: infinity-gauntlet
     runtime: node
     plan: starter
     region: oregon

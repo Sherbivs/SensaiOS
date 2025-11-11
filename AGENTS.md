@@ -622,9 +622,12 @@ See `docs/engine-db-replication.md` for comprehensive design documentation. See 
 - `render.yaml` defines 8 services: web service, 6 workers, 1 cron job
 - **See `docs/workers.md` for comprehensive worker architecture, scaling roadmap, and Phase 10+ opportunities**
 - **Deployment Command:** Use `pwsh -File "scripts/render_deploy.ps1" -Service "Infinity-Gauntlet"` to deploy the main bot worker to production. The Render API uses the service name "Infinity-Gauntlet" (with capital letters) for the `infinity-gauntlet-bots` worker defined in render.yaml.
+  - **Service ID:** srv-d3snk2ndiees73cn709g
+  - **Region:** Virginia
+  - **Dashboard:** https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g
 - Current workers:
   - `infinity-gauntlet-bot` (web) - HTTP health checks & webhooks
-  - `infinity-gauntlet-bots` (worker) - Main Discord bot + auto-sync [**Deploy:** `Infinity-Gauntlet`]
+  - `infinity-gauntlet-bots` (worker) - Main Discord bot + auto-sync [**Deploy:** `Infinity-Gauntlet` | **ID:** srv-d3snk2ndiees73cn709g]
   - `infinity-gauntlet-outbox` (worker) - Async message delivery
   - `infinity-gauntlet-cache` (worker) - Runtime cache maintenance
   - `infinity-gauntlet-data-pipeline` (worker) - Reference data updates
