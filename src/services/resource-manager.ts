@@ -29,7 +29,10 @@ export type ResourceType =
   | 'connection' 
   | 'cache' 
   | 'file' 
-  | 'stream';
+  | 'stream'
+  | 'disk-cache'     // Disk-backed cache (Runtime Cache, Read-DB, Write-DB)
+  | 'disk-buffer'    // Disk-backed buffer (Write Buffer, Logger Buffer)
+  | 'disk-log';      // Disk-backed log storage
 
 export interface ResourceHandle {
   id: string;
@@ -62,12 +65,54 @@ export interface ConnectionHandle extends ResourceHandle {
   cleanup: () => Promise<void> | void;
 }
 
+export interface DiskCacheHandle extends ResourceHandle {
+  type: 'disk-cache';
+  cacheType: 'runtime-cache' | 'read-db' | 'write-db';
+  path: string;
+  sizeBytes: number;
+  hotLayerBytes?: number; // In-memory hot layer size
+  diskBytes?: number;     // Disk-only size
+  lastAccessTime: Date;
+  cleanup: () => Promise<void> | void;
+}
+
+export interface DiskBufferHandle extends ResourceHandle {
+  type: 'disk-buffer';
+  bufferType: 'write-buffer' | 'logger-buffer';
+  path: string;
+  queueSize: number;
+  maxQueueSize: number;
+  flushIntervalMs: number;
+  lastFlushTime: Date | null;
+  cleanup: () => Promise<void> | void;
+}
+
+export interface DiskLogHandle extends ResourceHandle {
+  type: 'disk-log';
+  logType: 'application' | 'battle' | 'error' | 'audit';
+  path: string;
+  sizeBytes: number;
+  retentionDays: number;
+  lastRotationTime: Date | null;
+  cleanup: () => Promise<void> | void;
+}
+
 export interface ResourceStats {
   total: number;
   byType: Record<ResourceType, number>;
   byOwner: Record<string, number>;
   oldest?: ResourceHandle;
   leakSuspects: ResourceHandle[]; // Resources older than threshold
+  diskUsage?: {
+    totalDiskBytes: number;
+    byType: {
+      cacheBytes: number;
+      bufferBytes: number;
+      logBytes: number;
+    };
+    hotLayerBytes: number;  // Total in-memory hot layer size
+    coldLayerBytes: number; // Total disk-only size
+  };
 }
 
 export interface ResourceLimits {
@@ -498,6 +543,334 @@ class ResourceManager {
   }
 
   // ============================================================================
+  // Disk Cache Management (Runtime Cache, Read-DB, Write-DB)
+  // ============================================================================
+
+  public registerDiskCache(
+    owner: string,
+    name: string,
+    cacheType: 'runtime-cache' | 'read-db' | 'write-db',
+    path: string,
+    sizeBytes: number,
+    cleanup: () => Promise<void> | void,
+    options?: {
+      hotLayerBytes?: number;
+      diskBytes?: number;
+      metadata?: Record<string, any>;
+    }
+  ): DiskCacheHandle {
+    const id = this.generateId('disk-cache', owner, name);
+    
+    const handle: DiskCacheHandle = {
+      id,
+      type: 'disk-cache',
+      cacheType,
+      path,
+      sizeBytes,
+      hotLayerBytes: options?.hotLayerBytes,
+      diskBytes: options?.diskBytes,
+      name,
+      owner,
+      createdAt: new Date(),
+      lastAccessTime: new Date(),
+      cleanup,
+      metadata: options?.metadata,
+    };
+
+    this.resources.set(id, handle);
+
+    log('detail', '[ResourceManager] Disk cache registered', {
+      id,
+      owner,
+      name,
+      cacheType,
+      path,
+      sizeBytes: `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
+      hotLayerBytes: options?.hotLayerBytes ? `${(options.hotLayerBytes / (1024 * 1024)).toFixed(2)} MB` : 'N/A',
+      diskBytes: options?.diskBytes ? `${(options.diskBytes / (1024 * 1024)).toFixed(2)} MB` : 'N/A',
+    });
+
+    return handle;
+  }
+
+  public async unregisterDiskCache(id: string): Promise<boolean> {
+    const resource = this.resources.get(id);
+    if (!resource || resource.type !== 'disk-cache') {
+      return false;
+    }
+
+    const diskCache = resource as DiskCacheHandle;
+    
+    try {
+      await diskCache.cleanup();
+    } catch (error) {
+      log('error', '[ResourceManager] Disk cache cleanup failed', {
+        id,
+        owner: diskCache.owner,
+        name: diskCache.name,
+        path: diskCache.path,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    this.resources.delete(id);
+
+    log('detail', '[ResourceManager] Disk cache unregistered', {
+      id,
+      owner: diskCache.owner,
+      name: diskCache.name,
+      cacheType: diskCache.cacheType,
+    });
+
+    return true;
+  }
+
+  public updateDiskCacheStats(
+    id: string,
+    updates: {
+      sizeBytes?: number;
+      hotLayerBytes?: number;
+      diskBytes?: number;
+      lastAccessTime?: Date;
+    }
+  ): boolean {
+    const resource = this.resources.get(id);
+    if (!resource || resource.type !== 'disk-cache') {
+      return false;
+    }
+
+    const diskCache = resource as DiskCacheHandle;
+    
+    if (updates.sizeBytes !== undefined) diskCache.sizeBytes = updates.sizeBytes;
+    if (updates.hotLayerBytes !== undefined) diskCache.hotLayerBytes = updates.hotLayerBytes;
+    if (updates.diskBytes !== undefined) diskCache.diskBytes = updates.diskBytes;
+    if (updates.lastAccessTime !== undefined) diskCache.lastAccessTime = updates.lastAccessTime;
+
+    return true;
+  }
+
+  // ============================================================================
+  // Disk Buffer Management (Write Buffer, Logger Buffer)
+  // ============================================================================
+
+  public registerDiskBuffer(
+    owner: string,
+    name: string,
+    bufferType: 'write-buffer' | 'logger-buffer',
+    path: string,
+    maxQueueSize: number,
+    flushIntervalMs: number,
+    cleanup: () => Promise<void> | void,
+    metadata?: Record<string, any>
+  ): DiskBufferHandle {
+    const id = this.generateId('disk-buffer', owner, name);
+    
+    const handle: DiskBufferHandle = {
+      id,
+      type: 'disk-buffer',
+      bufferType,
+      path,
+      queueSize: 0,
+      maxQueueSize,
+      flushIntervalMs,
+      lastFlushTime: null,
+      name,
+      owner,
+      createdAt: new Date(),
+      cleanup,
+      metadata,
+    };
+
+    this.resources.set(id, handle);
+
+    log('detail', '[ResourceManager] Disk buffer registered', {
+      id,
+      owner,
+      name,
+      bufferType,
+      path,
+      maxQueueSize,
+      flushIntervalMs: `${flushIntervalMs}ms`,
+    });
+
+    return handle;
+  }
+
+  public async unregisterDiskBuffer(id: string): Promise<boolean> {
+    const resource = this.resources.get(id);
+    if (!resource || resource.type !== 'disk-buffer') {
+      return false;
+    }
+
+    const diskBuffer = resource as DiskBufferHandle;
+    
+    try {
+      await diskBuffer.cleanup();
+    } catch (error) {
+      log('error', '[ResourceManager] Disk buffer cleanup failed', {
+        id,
+        owner: diskBuffer.owner,
+        name: diskBuffer.name,
+        path: diskBuffer.path,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    this.resources.delete(id);
+
+    log('detail', '[ResourceManager] Disk buffer unregistered', {
+      id,
+      owner: diskBuffer.owner,
+      name: diskBuffer.name,
+      bufferType: diskBuffer.bufferType,
+    });
+
+    return true;
+  }
+
+  public updateDiskBufferStats(
+    id: string,
+    updates: {
+      queueSize?: number;
+      lastFlushTime?: Date;
+    }
+  ): boolean {
+    const resource = this.resources.get(id);
+    if (!resource || resource.type !== 'disk-buffer') {
+      return false;
+    }
+
+    const diskBuffer = resource as DiskBufferHandle;
+    
+    if (updates.queueSize !== undefined) diskBuffer.queueSize = updates.queueSize;
+    if (updates.lastFlushTime !== undefined) diskBuffer.lastFlushTime = updates.lastFlushTime;
+
+    return true;
+  }
+
+  // ============================================================================
+  // Disk Log Management (Application Logs, Battle Logs, Error Logs)
+  // ============================================================================
+
+  public registerDiskLog(
+    owner: string,
+    name: string,
+    logType: 'application' | 'battle' | 'error' | 'audit',
+    path: string,
+    retentionDays: number,
+    cleanup: () => Promise<void> | void,
+    metadata?: Record<string, any>
+  ): DiskLogHandle {
+    const id = this.generateId('disk-log', owner, name);
+    
+    const handle: DiskLogHandle = {
+      id,
+      type: 'disk-log',
+      logType,
+      path,
+      sizeBytes: 0,
+      retentionDays,
+      lastRotationTime: null,
+      name,
+      owner,
+      createdAt: new Date(),
+      cleanup,
+      metadata,
+    };
+
+    this.resources.set(id, handle);
+
+    log('detail', '[ResourceManager] Disk log registered', {
+      id,
+      owner,
+      name,
+      logType,
+      path,
+      retentionDays,
+    });
+
+    return handle;
+  }
+
+  public async unregisterDiskLog(id: string): Promise<boolean> {
+    const resource = this.resources.get(id);
+    if (!resource || resource.type !== 'disk-log') {
+      return false;
+    }
+
+    const diskLog = resource as DiskLogHandle;
+    
+    try {
+      await diskLog.cleanup();
+    } catch (error) {
+      log('error', '[ResourceManager] Disk log cleanup failed', {
+        id,
+        owner: diskLog.owner,
+        name: diskLog.name,
+        path: diskLog.path,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    this.resources.delete(id);
+
+    log('detail', '[ResourceManager] Disk log unregistered', {
+      id,
+      owner: diskLog.owner,
+      name: diskLog.name,
+      logType: diskLog.logType,
+    });
+
+    return true;
+  }
+
+  public updateDiskLogStats(
+    id: string,
+    updates: {
+      sizeBytes?: number;
+      lastRotationTime?: Date;
+    }
+  ): boolean {
+    const resource = this.resources.get(id);
+    if (!resource || resource.type !== 'disk-log') {
+      return false;
+    }
+
+    const diskLog = resource as DiskLogHandle;
+    
+    if (updates.sizeBytes !== undefined) diskLog.sizeBytes = updates.sizeBytes;
+    if (updates.lastRotationTime !== undefined) diskLog.lastRotationTime = updates.lastRotationTime;
+
+    return true;
+  }
+
+  public async clearAllDiskResources(owner?: string): Promise<number> {
+    let count = 0;
+    const promises: Promise<boolean>[] = [];
+    
+    for (const [id, resource] of this.resources.entries()) {
+      const isDiskResource = resource.type === 'disk-cache' || 
+                            resource.type === 'disk-buffer' || 
+                            resource.type === 'disk-log';
+      
+      if (isDiskResource && (!owner || resource.owner === owner)) {
+        if (resource.type === 'disk-cache') {
+          promises.push(this.unregisterDiskCache(id));
+        } else if (resource.type === 'disk-buffer') {
+          promises.push(this.unregisterDiskBuffer(id));
+        } else if (resource.type === 'disk-log') {
+          promises.push(this.unregisterDiskLog(id));
+        }
+      }
+    }
+
+    const results = await Promise.all(promises);
+    count = results.filter(Boolean).length;
+    
+    return count;
+  }
+
+  // ============================================================================
   // Resource Querying & Statistics
   // ============================================================================
 
@@ -509,12 +882,23 @@ class ResourceManager {
       cache: 0,
       file: 0,
       stream: 0,
+      'disk-cache': 0,
+      'disk-buffer': 0,
+      'disk-log': 0,
     };
 
     const byOwner: Record<string, number> = {};
     let oldest: ResourceHandle | undefined;
     const leakSuspects: ResourceHandle[] = [];
     const leakThreshold = Date.now() - this.limits.leakDetectionThresholdMs;
+
+    // Calculate disk usage
+    let totalDiskBytes = 0;
+    let cacheBytes = 0;
+    let bufferBytes = 0;
+    let logBytes = 0;
+    let hotLayerBytes = 0;
+    let coldLayerBytes = 0;
 
     for (const resource of this.resources.values()) {
       byType[resource.type]++;
@@ -527,6 +911,25 @@ class ResourceManager {
       if (resource.createdAt.getTime() < leakThreshold) {
         leakSuspects.push(resource);
       }
+
+      // Calculate disk usage
+      if (resource.type === 'disk-cache') {
+        const diskCache = resource as DiskCacheHandle;
+        totalDiskBytes += diskCache.sizeBytes;
+        cacheBytes += diskCache.sizeBytes;
+        if (diskCache.hotLayerBytes) hotLayerBytes += diskCache.hotLayerBytes;
+        if (diskCache.diskBytes) coldLayerBytes += diskCache.diskBytes;
+      } else if (resource.type === 'disk-buffer') {
+        const diskBuffer = resource as DiskBufferHandle;
+        // Estimate buffer size (queueSize × average entry size)
+        const estimatedBytes = diskBuffer.queueSize * 1024; // 1 KB per entry estimate
+        totalDiskBytes += estimatedBytes;
+        bufferBytes += estimatedBytes;
+      } else if (resource.type === 'disk-log') {
+        const diskLog = resource as DiskLogHandle;
+        totalDiskBytes += diskLog.sizeBytes;
+        logBytes += diskLog.sizeBytes;
+      }
     }
 
     return {
@@ -535,6 +938,16 @@ class ResourceManager {
       byOwner,
       oldest,
       leakSuspects,
+      diskUsage: {
+        totalDiskBytes,
+        byType: {
+          cacheBytes,
+          bufferBytes,
+          logBytes,
+        },
+        hotLayerBytes,
+        coldLayerBytes,
+      },
     };
   }
 
@@ -737,4 +1150,57 @@ export function createManagedConnection(
   metadata?: Record<string, any>
 ): ConnectionHandle {
   return resourceManager.registerConnection(owner, name, connectionType, cleanup, metadata);
+}
+
+/**
+ * Register a managed disk cache - automatically tracked and cleaned up
+ * Used for Runtime Cache, Read-DB, Write-DB
+ */
+export function createManagedDiskCache(
+  owner: string,
+  name: string,
+  cacheType: 'runtime-cache' | 'read-db' | 'write-db',
+  path: string,
+  sizeBytes: number,
+  cleanup: () => Promise<void> | void,
+  options?: {
+    hotLayerBytes?: number;
+    diskBytes?: number;
+    metadata?: Record<string, any>;
+  }
+): DiskCacheHandle {
+  return resourceManager.registerDiskCache(owner, name, cacheType, path, sizeBytes, cleanup, options);
+}
+
+/**
+ * Register a managed disk buffer - automatically tracked and cleaned up
+ * Used for Write Buffer, Logger Buffer
+ */
+export function createManagedDiskBuffer(
+  owner: string,
+  name: string,
+  bufferType: 'write-buffer' | 'logger-buffer',
+  path: string,
+  maxQueueSize: number,
+  flushIntervalMs: number,
+  cleanup: () => Promise<void> | void,
+  metadata?: Record<string, any>
+): DiskBufferHandle {
+  return resourceManager.registerDiskBuffer(owner, name, bufferType, path, maxQueueSize, flushIntervalMs, cleanup, metadata);
+}
+
+/**
+ * Register a managed disk log - automatically tracked and cleaned up
+ * Used for Application Logs, Battle Logs, Error Logs, Audit Logs
+ */
+export function createManagedDiskLog(
+  owner: string,
+  name: string,
+  logType: 'application' | 'battle' | 'error' | 'audit',
+  path: string,
+  retentionDays: number,
+  cleanup: () => Promise<void> | void,
+  metadata?: Record<string, any>
+): DiskLogHandle {
+  return resourceManager.registerDiskLog(owner, name, logType, path, retentionDays, cleanup, metadata);
 }
