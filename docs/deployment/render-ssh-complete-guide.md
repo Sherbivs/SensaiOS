@@ -48,7 +48,7 @@ Render provides two methods to access running services:
 
 ### Infinity Gauntlet Services (All Compatible ✅)
 
-- **infinity-gauntlet-bots** (Background Worker) — srv-d3snk2ndiees73cn709g
+- **Infinity-Gauntlet** (Background Worker) — srv-d3snk2ndiees73cn709g — Main Discord bot (render.yaml: `infinity-gauntlet-bots`)
 - **infinity-gauntlet-bot** (Web Service) — Check `render.yaml`
 - **infinity-gauntlet-security** (Background Worker) — Check `render.yaml`
 - **infinity-gauntlet-outbox** (Background Worker) — Check `render.yaml`
@@ -476,10 +476,12 @@ SSH sessions use service's allocated memory:
 - ⚠️ Private key location: `$HOME\.ssh\id_ed25519` (verify exists)
 
 **Primary Service:**
-- Service: `infinity-gauntlet-bots`
+- Service: `Infinity-Gauntlet` (Render API name - capital letters)
+- Worker Name: `infinity-gauntlet-bots` (render.yaml definition)
 - ID: `srv-d3snk2ndiees73cn709g`
 - Region: Virginia
 - Type: Background Worker (SSH compatible ✅)
+- Dashboard: https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g
 
 #### Quick Connect:
 
