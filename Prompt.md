@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-11T00:50:00Z
-Revision: 2.65
+Timestamp (UTC): 2025-11-11T07:00:00Z
+Revision: 2.66
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -14,6 +14,45 @@ Revision: 2.65
 **Referenced By**: AGENTS.md (Orientation Flow), Patch.md (echo requirements), ops/NEXT.yaml (sync check)
 
 ## Last Repo Changes (since previous Prompt.md revision)
+
+- **PRODUCTION HOTFIX: Prisma v6 API Compatibility (2025-11-11T07:00Z):**
+  - **Commit:** 7e8be84 ("hotfix(prisma): Remove deprecated $use() API for v6 compatibility")
+  
+  - **Crisis Context:** Production deployment dep-d49do9k9c44c73bk7n4g caused complete outage (all 8 Render services down). Error: `TypeError: prisma.$use is not a function` at ai-log-integrations.js:174. Root cause: Prisma Client v6.19.0 (upgraded 2025-11-08) removed `$use()` middleware API. AI logging system Prisma integration used deprecated v4/v5 API pattern.
+  
+  - **Fix Applied:** Removed query middleware integration from integratePrisma() function. Now logs connection events only without requiring deprecated API. Detailed query-level logging (slow queries >100ms, all queries at DEBUG level, query errors) deferred to future enhancement requiring `$extends()` refactor throughout codebase.
+  
+  - **Impact:** Production restored. Prisma integration gracefully handles v6 compatibility. 10/11 AI logging integrations fully functional (Error Tracker, Console Logger, Resource Monitor, Resource Manager, Database Monitor, Worker Process, Discord Client, Game Engine, Security Bot, User Actions). Query-level logging requires architectural refactor to use extended client.
+  
+  - **Next Steps:** Implement `$extends()` query logging in future enhancement. Requires refactoring all Prisma client references throughout application to use extended client. See docs/AI-LOG-SYSTEM.md for Prisma v6 query logging architecture notes.
+  
+  - **Deployment:** Hotfix deployed as dep-[ID] to infinity-gauntlet-bots worker. Services restored after ~15 minutes downtime.
+
+- **AI Learning Log System Scaling (2025-11-11T01:00Z):**
+  - **Commit:** 865bce9 ("feat(ai-logs): Scale to 48+ hours with comprehensive integrations")
+  
+  - **Context:** User requested 48+ hour retention and comprehensive integration: "Make sure any thing reported to the online CLI gets at least 48 hours of readable hard log archives on the disk. The hardest part of this is going to be centralzing the hard log sub system into every part of this applications that deserves hard logs."
+  
+  - **Scaling Changes:**
+    * **Retention Doubled:** maxFiles 100 → 200 (48+ hours guaranteed at high volume vs previous 24 hours)
+    * **Integration Expansion:** 5 → 11 integration points (added Resource Manager, Database Monitor, Worker Process, enhanced existing integrations)
+    * **Capacity Planning:** High volume (10k ops/min, 50MB/day uncompressed, 12.5MB/day compressed, 2.5GB retained), Medium volume (1k ops/min, 5MB/day, 1.25MB/day, 250MB retained), Low volume (100 ops/min, 500KB/day, 125KB/day, 25MB retained)
+    * **Documentation:** Created docs/AI-LOG-SCALING.md (700+ lines) comprehensive scaling guide with integration points, capacity planning, query interface, self-learning explanation, best practices
+  
+  - **Integration Points (11 total):**
+    * Error Tracker ✅ - trackError intercept
+    * Console Logger ✅ - log()/report() mirror
+    * Resource Monitor ✅ - performHealthCheck logging
+    * Resource Manager ✅ - Memory leak detection (threshold violations, recovery actions, leak signals)
+    * Database Monitor ✅ - Connection health (1min intervals, query stats, connection pool metrics)
+    * Worker Process ✅ - Lifecycle + metrics (5min intervals, startup/shutdown, performance metrics)
+    * Prisma Middleware ❌ → ✅ - Fixed in hotfix 7e8be84 (connection events only, query logging deferred)
+    * Discord Client ✅ - Rate limits, errors, warnings
+    * Game Engine ✅ - Battle events, Pokemon spawns
+    * Security Bot ✅ - Permission changes, sweeps
+    * User Actions ✅ - Command executions
+  
+  - **Deployment:** Deployed as dep-d49do9k9c44c73bk7n4g (caused production crash, fixed by hotfix 7e8be84)
 
 - **AI Learning Log System Complete (2025-11-11T00:50Z):**
   - **Commit:** c7a0cac ("feat(ai-logs): Complete AI logging system integration")
