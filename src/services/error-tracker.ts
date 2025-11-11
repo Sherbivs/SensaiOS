@@ -15,7 +15,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { EventEmitter } from 'node:events';
 import { EventBus } from '../shared/event-bus.js';
 import { prisma } from '../shared/prisma.js';
 import type { ErrorLog, ErrorAlert } from '@prisma/client';
@@ -50,13 +49,6 @@ export interface LiveErrorEvent {
   };
   callChain?: string[];
 }
-
-// Global event emitter for live error streaming
-// Logger subscribes to this for real-time ERROR MONITORING section updates
-export const liveErrorStream = new EventEmitter();
-
-// Prevent listener memory leaks - set reasonable max (logger + tests + monitoring)
-liveErrorStream.setMaxListeners(5);
 
 /// ---- Error Types ----
 
@@ -613,10 +605,6 @@ export class ErrorTracker {
         emitter: 'error-tracker',
         parentCorrelationId: event.context?.correlationId, // Chain if exists
       });
-      
-      // Emit to legacy EventEmitter for backward compatibility (TEMPORARY)
-      // TODO: Remove after Phase 2.2.2 (logger migration complete)
-      liveErrorStream.emit('error', event);
       
       // Log correlation ID for debugging (minimal output to avoid noise)
       if (process.env.NODE_ENV === 'development') {

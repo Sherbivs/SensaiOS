@@ -17,7 +17,7 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { liveErrorStream, type LiveErrorEvent } from '../services/error-tracker.js';
+import type { LiveErrorEvent } from '../services/error-tracker.js';
 import { EventBus, type BusEvent } from '../shared/event-bus.js';
 import type { ParsedStackTrace, StackFrame } from './stack-trace-parser.js';
 
@@ -450,7 +450,6 @@ class IntelligentLogger extends EventEmitter {
   private writeQueue: LogEntry[] = [];
   private writeInterval: NodeJS.Timeout | null = null;
   private isShuttingDown: boolean = false;
-  private errorStreamListener?: (event: LiveErrorEvent) => void; // LEGACY: EventEmitter listener (deprecated)
   private errorBusSubscriptionId?: string; // MEMORY LEAK FIX: Store Event Bus subscription ID
   
   constructor() {
@@ -624,13 +623,6 @@ class IntelligentLogger extends EventEmitter {
       bus.unsubscribe(this.errorBusSubscriptionId);
       console.info('[intelligent-logger] Unsubscribed from error tracker Event Bus');
       this.errorBusSubscriptionId = undefined;
-    }
-    
-    // MEMORY LEAK FIX: Remove legacy EventEmitter listener
-    if (this.errorStreamListener) {
-      liveErrorStream.off('error', this.errorStreamListener);
-      console.info('[intelligent-logger] Unsubscribed from error tracker legacy EventEmitter');
-      this.errorStreamListener = undefined;
     }
     
     // Flush remaining logs to disk
@@ -889,17 +881,7 @@ class IntelligentLogger extends EventEmitter {
         maxQueueSize: 100, // Backpressure control (prevent memory leaks)
       });
       
-      // LEGACY: Subscribe to EventEmitter for backward compatibility (TEMPORARY)
-      // TODO: Remove after Phase 2.2.3 (ErrorTracker EventEmitter removal)
-      this.errorStreamListener = (event: LiveErrorEvent) => {
-        // Suppress duplicate logging - Event Bus subscription is primary
-        // This listener only exists to prevent EventEmitter warnings during migration
-      };
-      
-      // Add listener to liveErrorStream
-      liveErrorStream.on('error', this.errorStreamListener);
-      
-      console.info('[intelligent-logger] Subscribed to error tracker Event Bus (error.**) + legacy EventEmitter');
+      console.info('[intelligent-logger] Subscribed to error tracker Event Bus (error.**)');
     } catch (error) {
       console.error('[intelligent-logger] Failed to subscribe to error stream:', error);
     }
