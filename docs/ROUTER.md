@@ -89,6 +89,7 @@ Key Documents by Category:
 - comprehensive-mount-path-audit.md - Complete audit of mount paths across services
 - render-api-logging-summary.md - Render API integration and logging
 - render-one-off-jobs.md - Render one-off jobs feature documentation
+- render-ssh-complete-guide.md - Complete Render SSH guide (setup, troubleshooting, best practices)
 - render-ssh-automation.md - Comprehensive SSH automation suite for Render services
 - ssh-protocol.md - SSH protocol documentation (Ed25519, regions, operations)
 - vscode-render-integration.md - VS Code integration with Render services
