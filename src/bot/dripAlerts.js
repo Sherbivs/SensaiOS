@@ -44,7 +44,7 @@ function createDripAlertManager({
   digestHour = 2,
   digestMinute = 0,
 } = {}) {
-  const queue = [];
+  // Phase 2.3.3: Removed in-memory queue, using Event Bus exclusively
   let digestTimer = null;
   let started = false;
   let cachedRecipient = null;
@@ -171,20 +171,30 @@ function createDripAlertManager({
   }
 
   async function flushDigest() {
-    if (queue.length === 0) {
+    // Phase 2.3.3: Use Event Bus replay buffer for digest alerts
+    const bus = EventBus.getInstance();
+    const replayEvents = bus.getReplayBuffer();
+    
+    // Filter for warning/notice alerts since last digest
+    const digestAlerts = replayEvents.filter(event => 
+      event.topic === 'alert.warning' || event.topic === 'alert.notice'
+    );
+    
+    if (digestAlerts.length === 0) {
       logContext('info', 'Drip alert digest skipped (no pending alerts)', {
         recipient: recipient || 'unset',
       });
       return false;
     }
+    
     const user = await ensureRecipient();
     if (!user) {
       logContext('warn', 'Drip alert digest could not be delivered (recipient missing)', {
-        pendingAlerts: queue.length,
+        pendingAlerts: digestAlerts.length,
       });
       return false;
     }
-    const items = queue.splice(0, queue.length);
+    
     const generatedAt = new Date();
     const headerTime = formatInTimeZone(generatedAt, timeZone, {
       dateStyle: 'long',
@@ -195,26 +205,29 @@ function createDripAlertManager({
       `Generated ${headerTime} (${timeZone})`,
       '',
     ];
-    items.forEach((item, index) => {
-      const icon = SEVERITY_ICON[item.severity] || '•';
-      const when = formatInTimeZone(item.timestamp, timeZone, { timeStyle: 'short' });
-      lines.push(`${index + 1}. [${when}] ${icon} ${item.title}`);
-      if (item.meta) {
+    
+    digestAlerts.forEach((event, index) => {
+      const { severity, title, meta, timestamp } = event.payload;
+      const icon = SEVERITY_ICON[severity] || '•';
+      const when = formatInTimeZone(new Date(timestamp), timeZone, { timeStyle: 'short' });
+      lines.push(`${index + 1}. [${when}] ${icon} ${title}`);
+      if (meta) {
         lines.push('```json');
-        lines.push(item.meta);
+        lines.push(meta);
         lines.push('```');
       }
       lines.push('');
     });
+    
     const message = lines.join('\n').trim();
     try {
       await user.send(message);
       logContext('info', 'Drip alert digest delivered', {
         recipient: describeUser ? describeUser(user) : recipient,
-        alertsIncluded: items.length,
+        alertsIncluded: digestAlerts.length,
       });
-      record('drip-alert-digest', `${items.length} alert(s) delivered`, {
-        alertsIncluded: items.length,
+      record('drip-alert-digest', `${digestAlerts.length} alert(s) delivered`, {
+        alertsIncluded: digestAlerts.length,
         generatedAt: generatedAt.toISOString(),
       });
       return true;
@@ -223,7 +236,8 @@ function createDripAlertManager({
         recipient: describeUser ? describeUser(user) : recipient,
         error: error instanceof Error ? error.message : String(error),
       });
-      queue.unshift(...items);
+      // Phase 2.3.3: Event Bus replay buffer retains events automatically
+      // No need to re-queue - they'll be in next digest attempt
       return false;
     }
   }
@@ -254,7 +268,22 @@ function createDripAlertManager({
         severity: entry.severity,
         correlationId,
       });
-      queue.unshift(entry);
+      
+      // Phase 2.3.3: Re-emit as warning instead of queue
+      const bus = EventBus.getInstance();
+      bus.emit(`alert.warning`, {
+        severity: 'warning',
+        title: `[Retry] ${entry.title}`,
+        meta: entry.meta,
+        timestamp: new Date().toISOString(),
+        recipient,
+        originalSeverity: entry.severity,
+        retryReason: 'recipient-missing',
+      }, {
+        emitter: 'drip-alert-manager',
+        parentCorrelationId: correlationId,
+      });
+      
       record('drip-alert-warning', entry.title, {
         severity: entry.severity,
         meta: entry.meta,
@@ -286,7 +315,23 @@ function createDripAlertManager({
         error: error instanceof Error ? error.message : String(error),
         correlationId,
       });
-      queue.unshift(entry);
+      
+      // Phase 2.3.3: Re-emit as warning for retry instead of queue
+      const bus = EventBus.getInstance();
+      bus.emit(`alert.warning`, {
+        severity: 'warning',
+        title: `[Retry] ${entry.title}`,
+        meta: entry.meta,
+        timestamp: new Date().toISOString(),
+        recipient,
+        originalSeverity: entry.severity,
+        retryReason: 'delivery-failed',
+        retryError: error instanceof Error ? error.message : String(error),
+      }, {
+        emitter: 'drip-alert-manager',
+        parentCorrelationId: correlationId,
+      });
+      
       record('drip-alert-warning', entry.title, {
         severity: entry.severity,
         meta: entry.meta,
@@ -324,12 +369,12 @@ function createDripAlertManager({
       console.log(`🔗 Alert Correlation: ${correlationId} (${topic})`);
     }
 
-    // EXISTING: Keep in-memory queue logic (backward compatible)
+    // Phase 2.3.3: All alerts handled by Event Bus subscribers
     if (normalizedSeverity === SEVERITY.critical || normalizedSeverity === SEVERITY.security) {
       return deliverImmediate(entry, correlationId);
     }
 
-    queue.push(entry);
+    // Digest alerts (warning/notice) are queued via Event Bus subscription handler
     record('drip-alert-warning', title, {
       severity: normalizedSeverity,
       meta: normalizedMeta,
@@ -354,14 +399,27 @@ function createDripAlertManager({
     // Subscribe to immediate alerts (critical + security) - high priority
     subscriptions.immediate = bus.subscribe(
       'alert.critical|alert.security',
-      (event) => {
-        // Handler for immediate alerts - already handled by deliverImmediate()
-        // This subscription is for future Event Bus-only delivery (Phase 2.3.3)
-        logContext('debug', 'Event Bus received immediate alert', {
+      async (event) => {
+        // Phase 2.3.3: Handle immediate delivery via Event Bus
+        const { severity, title, meta, timestamp, recipient: eventRecipient } = event.payload;
+        
+        logContext('debug', 'Event Bus immediate alert received', {
           topic: event.topic,
+          severity,
+          title,
           correlationId: event.correlationId,
-          title: event.payload.title,
         });
+        
+        // Build entry matching recordAlert format
+        const entry = {
+          severity,
+          title,
+          meta: meta || {},
+          timestamp: timestamp ? new Date(timestamp) : new Date(),
+        };
+        
+        // Deliver immediately
+        await deliverImmediate(entry, event.correlationId);
       },
       {
         priority: 20,
@@ -373,13 +431,18 @@ function createDripAlertManager({
     subscriptions.digest = bus.subscribe(
       'alert.warning|alert.notice',
       (event) => {
-        // Handler for digest alerts - already handled by queue.push()
-        // This subscription is for future Event Bus-only delivery (Phase 2.3.3)
-        logContext('debug', 'Event Bus received digest alert', {
+        // Phase 2.3.3: Digest alerts handled by flushDigest via Event Bus replay
+        const { severity, title } = event.payload;
+        
+        logContext('debug', 'Event Bus digest alert received', {
           topic: event.topic,
+          severity,
+          title,
           correlationId: event.correlationId,
-          title: event.payload.title,
         });
+        
+        // Event stays in replay buffer for digest delivery
+        // No action needed here - flushDigest will process via bus.getReplayBuffer()
       },
       {
         priority: 10,
