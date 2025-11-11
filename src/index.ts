@@ -18,9 +18,10 @@ import { Events, type Client } from "discord.js";
 
 import { bootDiscord } from "./bot/index.js";
 import { botErrorHandler } from "./bot/error-handler.js";
-import { errorTracker } from "./services/error-tracker.js";
 import { ENABLE_DB_AUTO_SYNC, ENABLE_SECURITY_BOT } from "./config/env.js";
 import { initPrisma, prisma } from "./models/index.js";
+import { ServiceRegistry } from "./shared/service-registry.js";
+import { getAllServiceConfigs } from "./shared/service-factories.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
 // import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
 // Lazy-loaded database recovery (only needed when connection fails)
@@ -44,11 +45,8 @@ import cliStatus from "./utils/cliStatus.js";
 import { validateEngineDbConfig } from "./config/engine-db-config.js";
 import * as engineReadDb from "./services/engine-read-db.js";
 import * as engineWriteDb from "./services/engine-write-db.js";
-import { engineCache } from "./services/engine-cache.js";
-import { engineWriteBuffer } from "./services/engine-write-buffer.js";
 import { startEngineWorkers, stopEngineWorkers, type EngineWorkersStatus } from "./workers/engine-workers.js";
 import { errorLearningWorker } from "./workers/error-learning-worker.js";
-import { resourceManager } from "./services/resource-manager.js";
 import { startResourceMonitoring, stopResourceMonitoring } from "./services/resource-monitor.js";
 import * as aiLogger from "./services/ai-log-writer.js";
 import * as aiLogAnalyzer from "./services/ai-log-analyzer.js";
@@ -102,6 +100,15 @@ declare global {
   var engineReady: boolean;
 }
 global.engineReady = false;
+
+// ============================================================================
+// Service Registry - Centralized Service Lifecycle Management
+// ============================================================================
+const registry = ServiceRegistry.getInstance();
+let resourceManager: any = null;
+let errorTracker: any = null;
+let engineCache: any = null;
+let engineWriteBuffer: any = null;
 
 function withMonitor(callback: (monitor: typeof cliStatus) => void): void {
   if (!monitorActive) {
@@ -806,12 +813,14 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.error("Error stopping resource monitor", error);
   }
   
-  // Shutdown Resource Manager (cleanup all tracked resources)
+  // Shutdown Services via Service Registry (graceful, reverse dependency order)
+  // This handles: ResourceManager, ErrorTracker, EngineCache, EngineWriteBuffer
   try {
-    log.info("Shutting down Resource Manager");
-    await resourceManager.shutdown();
+    log.info("Shutting down services via Service Registry");
+    await registry.shutdownAll();
+    log.info("All services shut down successfully");
   } catch (error) {
-    log.error("Error during Resource Manager shutdown", error);
+    log.error("Error during Service Registry shutdown", error);
   }
   
   // Shutdown AI Logging System (flush logs, save analysis state)
@@ -823,15 +832,7 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.error("Error during AI Logging System shutdown", error);
   }
   
-  // Step 3: Flush write buffer (best-effort, emergency mode)
-  try {
-    log.info("Flushing Engine write buffer");
-    await engineWriteBuffer.emergencyShutdown();
-  } catch (error) {
-    log.error("Error during write buffer emergency shutdown", error);
-  }
-  
-  // Step 4: Save Write-DB to disk (final persistence)
+  // Save Write-DB to disk (final persistence)
   try {
     log.info("Saving Engine Write-DB");
     await engineWriteDb.close();
@@ -839,23 +840,15 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.error("Error closing Engine Write-DB", error);
   }
   
-  // Step 5: Close Read-DB
+  // Close Read-DB
   try {
     log.info("Closing Engine Read-DB");
     await engineReadDb.close();
   } catch (error) {
     log.error("Error closing Engine Read-DB", error);
   }
-  
-  // Step 6: Cleanup Engine cache
-  try {
-    log.info("Shutting down Engine cache");
-    engineCache.shutdown();
-  } catch (error) {
-    log.error("Error during Engine cache shutdown", error);
-  }
 
-  // Step 7: Disconnect Prisma and other services
+  // Disconnect Prisma and other services
   try {
     detachPrismaHeartbeatListener?.();
     detachPrismaHeartbeatListener = null;
@@ -964,6 +957,46 @@ export async function boot(): Promise<void> {
   startMonitor();
 
   log.info("Infinity Gauntlet: toolchain online", { env: config.nodeEnv });
+  
+  // ============================================================================
+  // Service Registry Initialization (Phase 1: Foundation Services)
+  // ============================================================================
+  setPhase("Initializing Services");
+  const REGISTRY_START = process.hrtime.bigint();
+  try {
+    log.info("Registering services with Service Registry");
+    registry.registerAll(getAllServiceConfigs());
+    
+    log.info("Initializing services via Service Registry");
+    await registry.initializeAll();
+    
+    // Get service instances from registry
+    resourceManager = registry.get('resource-manager');
+    errorTracker = registry.get('error-tracker');
+    engineCache = registry.get('engine-cache');
+    engineWriteBuffer = registry.get('engine-write-buffer');
+    
+    const registryDurationMs = recordTiming("service_registry", REGISTRY_START);
+    log.info("Service Registry initialized", {
+      services: 4,
+      duration: `${registryDurationMs.toFixed(2)}ms`,
+    });
+    
+    // Display service health
+    const allHealth = registry.getAllHealth();
+    const healthyCount = Object.values(allHealth).filter(h => h.status === 'healthy').length;
+    log.info("Service health check", {
+      healthy: healthyCount,
+      total: Object.keys(allHealth).length,
+      services: Object.entries(allHealth).map(([name, health]) => ({
+        name,
+        status: health.status,
+      })),
+    });
+  } catch (error) {
+    log.error("Service Registry initialization failed", error);
+    throw error;
+  }
   
   recordMemory("pre_database");
 
@@ -1116,10 +1149,9 @@ export async function boot(): Promise<void> {
               sizeBytes: readStats.sizeBytes
             });
             
-            // Step 3: Initialize L1 Cache (BLOCKING - load Pokemon/Moves/Types into memory)
-            await engineCache.initialize();
+            // Step 3: L1 Cache already initialized by Service Registry - just get stats
             const cacheStats = engineCache.getStats();
-            log.info("Engine L1 Cache initialized", {
+            log.info("Engine L1 Cache ready", {
               pokemon: cacheStats.pokemonCount,
               moves: cacheStats.moveCount,
               typeEffectiveness: cacheStats.typeEffectivenessCount,
@@ -1163,9 +1195,7 @@ export async function boot(): Promise<void> {
         await aiLogAnalyzer.initialize();
         log.info("AI Logging System initialized");
         
-        // Initialize Resource Manager (background leak detection every 5 minutes)
-        resourceManager.initialize();
-        log.info("Resource Manager initialized");
+        // Resource Manager already initialized by Service Registry
         
         // Start resource monitoring (twice-daily health checks)
         startResourceMonitoring();
