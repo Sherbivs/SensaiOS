@@ -21,6 +21,7 @@ Areas:
 - outbox.ts — compatibility helpers layered on the event bus
 - log.ts — structured logger used across bots/workers
 - worker-runtime.ts — shared worker bootstrap + signal handling utilities
+- **event-bus.ts (574 lines)** — Singleton Event Bus implementation for decoupled pub/sub messaging. Features: Dot-separated topic patterns (exact, single-level `*`, multi-level `**`), priority-based subscription ordering, backpressure protection (maxQueueSize limits), replay buffer (last 100 events FIFO), correlation ID chaining (parentCorrelationId for event genealogy), sync/async handler support, graceful shutdown with draining. API: `getInstance()`, `emit(topic, payload, options)`, `subscribe(pattern, handler, options)`, `getReplayBuffer()`, `getStats()`, `shutdown()`. Integrations: ErrorTracker (Phase 2.2), DripAlertManager (Phase 2.3), future services. See docs/architecture/phase2.1-event-bus-foundation-complete.md for design rationale and docs/architecture/phase2.3-dripalertmanager-migration-plan.md for migration example.
 
 Subrouters:
 - src/shared/cache/ROUTER.md — Cache backend implementations.

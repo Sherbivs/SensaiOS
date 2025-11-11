@@ -31,7 +31,7 @@ Areas:
 - commands/* — slash command handlers
 - state/* — Operational state persistence (cumulative stats, timeline, context restoration); see notes below
 - main.js — security bot bootstrap (role sweeps, drip alerts)
-- dripAlerts.js — DM alert digest pipeline (DripTVDD security alerts)
+- dripAlerts.js — DM alert digest pipeline (DripTVDD security alerts); **Phase 2.3 Event Bus Integration (2025-11-08):** Migrated from in-memory queue to Event Bus for all alert queuing, delivery, and retry. Subscribes to `alert.critical|alert.security` (immediate delivery, priority 20) and `alert.warning|alert.notice` (digest delivery, priority 10). Uses Event Bus replay buffer for digest assembly. Re-emits failed deliveries to `alert.warning` with parentCorrelationId for retry tracking. Tested via Phase 2.3.1-2.3.4 validation (17 unit tests + 6 integration tests passing). See docs/architecture/phase2.3-dripalertmanager-migration-plan.md for migration details.
 - **bot-error-handler.ts (289 lines)** — Domain-specific error handler for Discord bot operations. Recognizes Discord API errors (DiscordAPIError), rate limits (429), interaction timeouts, command errors, member fetch failures. Enriches errors with bot-specific context (userId, guildId, commandName, interactionType). Classifies severity (CRITICAL for bot crashes, HIGH for command failures, MEDIUM for rate limits, LOW for validation). Suggests recovery actions (reconnect, retry with backoff, increase timeout). Integrates with ErrorTracker for persistence and recovery. Exposes handleBotError(error, context) API called from all bot command/interaction handlers. See docs/error-detection-system.md for integration patterns.
 
 State Persistence (Added 2025-11-06):
