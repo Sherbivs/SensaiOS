@@ -107,31 +107,40 @@ export const L1_CACHE_INIT_TIMEOUT_MS = IS_TEST ? 5000 : 30000; // 30 seconds
 
 /**
  * Maximum write buffer size per queue (battles, moves, anomalies)
- * Default: 10,000 entries per queue = 30,000 total
+ * Default: 2,000 entries per queue = 6,000 total
  * 
- * Memory estimate: 10k battles * 500 bytes = 5 MB per queue = 15 MB total
- * Backpressure triggers at 95% utilization (9,500 entries)
+ * Memory estimate: 2k battles * 500 bytes = 1 MB per queue = 3 MB total
+ * Backpressure triggers at 90% utilization (1,800 entries)
+ * 
+ * OPTIMIZATION (Phase 2): Reduced from 10k → 2k (5x reduction) to achieve
+ * 154 MB → 100 MB runtime memory target. Write buffer: 25 MB → 5 MB.
  */
-export const WRITE_BUFFER_MAX_QUEUE_SIZE = IS_TEST ? 100 : 10_000;
+export const WRITE_BUFFER_MAX_QUEUE_SIZE = IS_TEST ? 100 : 2_000;
 
 /**
  * Write buffer flush interval (drain queues to Write-DB)
- * Default: 30 seconds
+ * Default: 10 seconds
+ * 
+ * OPTIMIZATION (Phase 2): Reduced from 30s → 10s (3x faster) to compensate
+ * for smaller queue size and reduce data loss risk.
  * 
  * Trade-off: Shorter interval = less data loss risk, more disk I/O
  *            Longer interval = better batching, higher memory usage
  */
 export const WRITE_BUFFER_FLUSH_INTERVAL_MS = IS_TEST
   ? 5 * 1000  // 5 seconds (faster test cycles)
-  : 30 * 1000; // 30 seconds
+  : 10 * 1000; // 10 seconds (reduced from 30s for memory optimization)
 
 /**
  * Backpressure threshold (percentage of max queue size)
  * At 75%: Log warnings, alert operators
- * At 95%: Reject new battles, emergency flush
+ * At 90%: Reject new battles, emergency flush
+ * 
+ * OPTIMIZATION (Phase 2): Reject threshold reduced from 95% → 90% to
+ * trigger earlier backpressure with smaller queue size.
  */
 export const WRITE_BUFFER_WARN_THRESHOLD = 0.75;  // 75%
-export const WRITE_BUFFER_REJECT_THRESHOLD = 0.95; // 95%
+export const WRITE_BUFFER_REJECT_THRESHOLD = 0.90; // 90% (reduced from 95%)
 
 /**
  * Write buffer shutdown timeout (graceful termination)

@@ -40,8 +40,8 @@ export type LogBufferConfig = {
 type FlushCallback = (entries: BufferedLogEntry[]) => void;
 
 const DEFAULT_CONFIG: LogBufferConfig = {
-  flushIntervalMs: 10_000, // 10 seconds
-  maxBufferSize: 1000,
+  flushIntervalMs: 10_000, // 10 seconds (unchanged for balanced flush frequency)
+  maxBufferSize: 200,      // Reduced from 1000 (5x reduction for memory optimization)
   bypassCritical: true,
   enabled: true,
 };

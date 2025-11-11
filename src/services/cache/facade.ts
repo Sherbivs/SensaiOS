@@ -28,8 +28,8 @@ const PRIMARY_RUNTIME_CACHE_DIR = process.env.RENDER
 const FALLBACK_RUNTIME_CACHE_DIR = path.join(process.cwd(), "Store", "runtime-cache");
 const CACHE_RECORD_VERSION = 1;
 const WORKSPACE_LIMIT_BYTES = 1024 * 1024 * 1024; // 1 GiB safety ceiling mirroring the legacy cache.
-const DEFAULT_MAX_MEMORY_BYTES = 16 * 1024 * 1024; // 16 MiB upper bound for hot entries.
-const DEFAULT_MAX_MEMORY_ITEMS = 512;
+const DEFAULT_MAX_MEMORY_BYTES = 5 * 1024 * 1024; // 5 MiB hot layer (reduced from 16 MiB for memory optimization).
+const DEFAULT_MAX_MEMORY_ITEMS = 200; // Reduced from 512 for memory optimization.
 const MAINTENANCE_MIN_INTERVAL_MS = 5_000;
 const DEFAULT_MAINTENANCE_INTERVAL_MS = 10 * 60_000;
 
