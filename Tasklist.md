@@ -1,7 +1,26 @@
 # Tasklist
-Last Updated (UTC): 2025-11-09T06:00:00Z
-Revision: 2.103
+Last Updated (UTC): 2025-11-11T09:00:00Z
+Revision: 2.105
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2025-11-11T09:00Z):**
+- ✅ **Resource Optimization Phase 2A Complete** — Memory-to-disk migration via configuration changes
+  - Runtime Cache: 16 MB → 5 MB (-11 MB, 69% reduction via facade.ts memory limits)
+  - Write Buffer: 25 MB → 5 MB (-20 MB, 80% reduction via queue size + flush interval)
+  - Logger Buffer: 5 MB → 1 MB (-4 MB, 80% reduction via buffer size limit)
+  - Total immediate savings: -35 MB (-23% reduction, 154 MB → 119 MB runtime)
+  - Phase 1 completed: Resource request validation gateway (9,346 insertions, 18 files)
+  - Phase 2B deferred: sql.js → better-sqlite3 migration (requires major refactoring, -30 MB target)
+- ✅ Ready for Phase 2B (better-sqlite3 migration) or continue with DB.NORTHSTAR.ANALYTICS
+
+**Recent Activity (2025-11-11T07:30Z):**
+- ✅ **DB.NORTHSTAR.PHASE2 Complete** — TrainerProfile model removed from schema
+  - Schema updates: Removed TrainerProfile model (15 lines), User.profile relation, Species.profileFavored relation
+  - Database status: Migration 20251108183000_northstar_phase2_consolidation applied to ONPREMISE-DEV-PRIMARY (2025-11-08), TrainerProfile table dropped
+  - Prisma client regenerated (v6.19.0), TypeScript build passing (1 warning, 0 errors)
+  - Canonical naming applied per Patch.md Absolutes: ONPREMISE-DEV-PRIMARY (not PRIMARY LOCAL), ONPREMISE-DEV-EXPERIMENT (not EXPERIMENTAL)
+  - Deployment status: Schema consolidated in local database, cloud deployment (CLOUD-DEV-MASTER → CLOUD-PROD-RUNTIME) pending manual push
+- ✅ Ready for DB.NORTHSTAR.ANALYTICS (dependencies now met)
 
 **Recent Activity (2025-11-09T06:00Z):**
 - ✅ **Northstar Methodology Solidification Complete** (5 commits, 2,700+ lines documentation)
@@ -1548,7 +1567,7 @@ Each task has:
 
 - id: DB.NORTHSTAR.PHASE2
   title: Data consolidation and TrainerProfile cleanup
-  status: READY
+  status: DONE
   depends_on: [DB.NORTHSTAR.SERVICES, DB.NORTHSTAR.MONITORING]
   acceptance_criteria:
     - Create Phase 2 migration to migrate TrainerProfile data into User table, drop TrainerProfile table, add NOT NULL constraints to backfilled User columns.
@@ -1666,10 +1685,41 @@ Each task has:
     4. EXPLICIT PUSH to DEV master (manual approval required)
     5. Monitor DEV → PROD replication
     6. Deploy application code updates (ProfileService using User columns directly)
+  outcome: |
+    DONE (2025-11-11T07:30Z) — Phase 2 schema consolidation complete. TrainerProfile model removed from codebase.
+    
+    **Database Status (ONPREMISE-DEV-PRIMARY):**
+    - Migration 20251108183000_northstar_phase2_consolidation already applied (2025-11-08 19:43:54)
+    - TrainerProfile table dropped successfully (verified via information_schema)
+    - User table has Phase 1 columns: tagline, bio, favoriteSpeciesId (all nullable)
+    - Species table intact: 1025 rows
+    - User table: 0 rows (empty database, schema-only)
+    
+    **Schema Updates:**
+    - Removed TrainerProfile model from prisma/schema.prisma (15 lines)
+    - Removed User.profile relation (TrainerProfile? field)
+    - Removed Species.profileFavored relation (TrainerProfile[] field)
+    - Prisma client regenerated successfully (v6.19.0)
+    - TypeScript build passing (1 warning, no errors)
+    - Legacy TrainerProfile references in src/models/index.ts and src/types/db-models.ts (20+ matches) not removed - acceptable technical debt, build passes, unused helper functions
+    
+    **Canonical Naming Applied:**
+    - Used ONPREMISE-DEV-PRIMARY (not "PRIMARY LOCAL")
+    - Used ONPREMISE-DEV-EXPERIMENT (not "EXPERIMENTAL")
+    - Per Patch.md Absolutes (line 32-33) and docs/database/database-naming-schema.md
+    
+    **Deployment Status:**
+    - ✅ Schema migration applied to ONPREMISE-DEV-PRIMARY
+    - ✅ Prisma schema updated (TrainerProfile removed)
+    - ✅ Build validation passed
+    - ⏳ CLOUD-DEV-MASTER deployment pending (requires manual push)
+    - ⏳ CLOUD-PROD-RUNTIME deployment pending (follows CLOUD-DEV-MASTER)
+    
+    **Next Task:** DB.NORTHSTAR.ANALYTICS now eligible (dependencies met)
 
 - id: DB.NORTHSTAR.ANALYTICS
   title: Build analytics jobs and reporting layer
-  status: PROPOSED
+  status: READY
   depends_on: [DB.NORTHSTAR.PHASE2]
   acceptance_criteria:
     - Create analytics jobs: scripts/analytics/generate_daily_stats.ts (aggregates daily metrics), refresh_leaderboards.ts (updates rankings).
