@@ -1292,6 +1292,7 @@ export async function boot(): Promise<void> {
       totalBootMs,
       phases: {
         module_imports: STARTUP_TIMINGS.module_imports,
+        service_registry: STARTUP_TIMINGS.service_registry,
         database_connect: STARTUP_TIMINGS.database_connect,
         engine_and_bots_init: STARTUP_TIMINGS.engine_and_bots_init,
       },
