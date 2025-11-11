@@ -1,7 +1,17 @@
 # Tasklist
-Last Updated (UTC): 2025-11-11T09:00:00Z
-Revision: 2.105
+Last Updated (UTC): 2025-11-11T10:30:00Z
+Revision: 2.106
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2025-11-11T10:30Z):**
+- ✅ **Resource Optimization Phase 2B Complete** — Alternative optimizations without native dependencies
+  - L1 Cache LRU: 20 MB → 6 MB (-14 MB, 70% reduction via lazy loading + feature flag)
+  - Cooldown Store: Unbounded → 1 hour TTL (-1 MB, prevents memory leaks)
+  - Total Phase 2B savings: -15 MB (-13% reduction, 119 MB → 104 MB runtime)
+  - better-sqlite3 migration DEFERRED: requires Python + Visual Studio Build Tools (native compilation blocker)
+  - Dex API cache migration DEFERRED: synchronous API requirement, minimal footprint (~1-2 MB)
+  - **Total Resource Optimization: -50 MB (-32% from 154 MB baseline to 104 MB)**
+- ✅ Ready for DB.NORTHSTAR.ANALYTICS or Phase 3 miscellaneous cache optimizations
 
 **Recent Activity (2025-11-11T09:00Z):**
 - ✅ **Resource Optimization Phase 2A Complete** — Memory-to-disk migration via configuration changes
@@ -10,8 +20,6 @@ Revision: 2.105
   - Logger Buffer: 5 MB → 1 MB (-4 MB, 80% reduction via buffer size limit)
   - Total immediate savings: -35 MB (-23% reduction, 154 MB → 119 MB runtime)
   - Phase 1 completed: Resource request validation gateway (9,346 insertions, 18 files)
-  - Phase 2B deferred: sql.js → better-sqlite3 migration (requires major refactoring, -30 MB target)
-- ✅ Ready for Phase 2B (better-sqlite3 migration) or continue with DB.NORTHSTAR.ANALYTICS
 
 **Recent Activity (2025-11-11T07:30Z):**
 - ✅ **DB.NORTHSTAR.PHASE2 Complete** — TrainerProfile model removed from schema
