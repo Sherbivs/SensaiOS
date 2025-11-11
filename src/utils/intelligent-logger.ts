@@ -18,6 +18,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { liveErrorStream, type LiveErrorEvent } from '../services/error-tracker.js';
+import { EventBus, type BusEvent } from '../shared/event-bus.js';
 import type { ParsedStackTrace, StackFrame } from './stack-trace-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -449,7 +450,8 @@ class IntelligentLogger extends EventEmitter {
   private writeQueue: LogEntry[] = [];
   private writeInterval: NodeJS.Timeout | null = null;
   private isShuttingDown: boolean = false;
-  private errorStreamListener?: (event: LiveErrorEvent) => void; // MEMORY LEAK FIX: Store listener reference
+  private errorStreamListener?: (event: LiveErrorEvent) => void; // LEGACY: EventEmitter listener (deprecated)
+  private errorBusSubscriptionId?: string; // MEMORY LEAK FIX: Store Event Bus subscription ID
   
   constructor() {
     super();
@@ -616,10 +618,18 @@ class IntelligentLogger extends EventEmitter {
       this.writeInterval = null;
     }
     
-    // MEMORY LEAK FIX: Remove error stream listener
+    // MEMORY LEAK FIX: Remove Event Bus subscription
+    if (this.errorBusSubscriptionId) {
+      const bus = EventBus.getInstance();
+      bus.unsubscribe(this.errorBusSubscriptionId);
+      console.info('[intelligent-logger] Unsubscribed from error tracker Event Bus');
+      this.errorBusSubscriptionId = undefined;
+    }
+    
+    // MEMORY LEAK FIX: Remove legacy EventEmitter listener
     if (this.errorStreamListener) {
       liveErrorStream.off('error', this.errorStreamListener);
-      console.info('[intelligent-logger] Unsubscribed from error tracker live stream');
+      console.info('[intelligent-logger] Unsubscribed from error tracker legacy EventEmitter');
       this.errorStreamListener = undefined;
     }
     
@@ -811,61 +821,85 @@ class IntelligentLogger extends EventEmitter {
   }
   
   /**
-   * Subscribe to error tracker live stream for automatic error logging
+   * Subscribe to error tracker Event Bus for live error stream
+   * 
    * Every error captured by error tracker is automatically logged with full context
    * 
-   * MEMORY LEAK FIX: Store listener reference for cleanup on shutdown
+   * MIGRATION: Phase 2.2.2 - Subscribe to Event Bus (error.** pattern) instead of EventEmitter
+   * Features:
+   * - Correlation ID tracking (UUID v4)
+   * - Event replay buffer (last 100 errors)
+   * - Backpressure control (max 100 queued errors)
+   * - Pattern-based filtering (error.critical, error.high, etc.)
+   * 
+   * MEMORY LEAK FIX: Store subscription ID for cleanup on shutdown
    */
   private subscribeToErrorStream(): void {
     try {
-      // Create listener function and store reference for cleanup
-      this.errorStreamListener = (event: LiveErrorEvent) => {
+      const bus = EventBus.getInstance();
+      
+      // Subscribe to all error events via Event Bus
+      this.errorBusSubscriptionId = bus.subscribe('error.**', (event: BusEvent) => {
+        // Extract error event from bus payload
+        const errorEvent: LiveErrorEvent = event.payload;
+        
         // Log error with enhanced context from error tracker
-        const message = `[ERROR-TRACKER] ${event.errorName}: ${event.errorMessage}`;
+        const message = `[ERROR-TRACKER] ${errorEvent.errorName}: ${errorEvent.errorMessage}`;
         
         const options: LogOptions = {
           category: 'ERROR',
           data: {
-            errorId: event.errorId,
-            fingerprint: event.fingerprint,
-            severity: event.severity,
-            category: event.category,
+            errorId: errorEvent.errorId,
+            fingerprint: errorEvent.fingerprint,
+            severity: errorEvent.severity,
+            category: errorEvent.category,
+            correlationId: event.correlationId, // ADD: Event Bus correlation ID
           },
         };
         
         // Add stack trace metadata if available
-        if (event.parsedStack) {
+        if (errorEvent.parsedStack) {
           options.data!.stackMetadata = {
-            depth: event.parsedStack.depth,
-            topFrame: event.topFrame ? {
-              file: event.topFrame.relativeFilePath || event.topFrame.filePath,
-              line: event.topFrame.lineNumber,
-              column: event.topFrame.columnNumber,
-              function: event.topFrame.functionName,
+            depth: errorEvent.parsedStack.depth,
+            topFrame: errorEvent.topFrame ? {
+              file: errorEvent.topFrame.relativeFilePath || errorEvent.topFrame.filePath,
+              line: errorEvent.topFrame.lineNumber,
+              column: errorEvent.topFrame.columnNumber,
+              function: errorEvent.topFrame.functionName,
             } : null,
-            callChain: event.callChain || event.parsedStack.callChain,
-            userCodeFrames: event.parsedStack.userCodeFrames.length,
+            callChain: errorEvent.callChain || errorEvent.parsedStack.callChain,
+            userCodeFrames: errorEvent.parsedStack.userCodeFrames.length,
           };
         }
         
         // Add source location if available
-        if (event.sourceLocation) {
-          options.data!.sourceLocation = event.sourceLocation;
+        if (errorEvent.sourceLocation) {
+          options.data!.sourceLocation = errorEvent.sourceLocation;
         }
         
         // Add context from error tracker
-        if (event.context) {
-          options.data!.errorContext = event.context;
+        if (errorEvent.context) {
+          options.data!.errorContext = errorEvent.context;
         }
         
         // Log with ERROR level
         this.log('error', message, options);
+      }, {
+        priority: 10, // High priority for monitoring
+        maxQueueSize: 100, // Backpressure control (prevent memory leaks)
+      });
+      
+      // LEGACY: Subscribe to EventEmitter for backward compatibility (TEMPORARY)
+      // TODO: Remove after Phase 2.2.3 (ErrorTracker EventEmitter removal)
+      this.errorStreamListener = (event: LiveErrorEvent) => {
+        // Suppress duplicate logging - Event Bus subscription is primary
+        // This listener only exists to prevent EventEmitter warnings during migration
       };
       
       // Add listener to liveErrorStream
       liveErrorStream.on('error', this.errorStreamListener);
       
-      console.info('[intelligent-logger] Subscribed to error tracker live stream');
+      console.info('[intelligent-logger] Subscribed to error tracker Event Bus (error.**) + legacy EventEmitter');
     } catch (error) {
       console.error('[intelligent-logger] Failed to subscribe to error stream:', error);
     }
