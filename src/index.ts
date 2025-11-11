@@ -38,6 +38,7 @@ import {
   fireProdHeartbeatEvent,
   type PrismaHeartbeatEvent,
   getPrismaTransport,
+  getDatabaseStats,
 } from "./shared/prisma.js";
 import cliStatus from "./utils/cliStatus.js";
 import { validateEngineDbConfig } from "./config/engine-db-config.js";
@@ -1226,8 +1227,14 @@ export async function boot(): Promise<void> {
       errorTracker,
       logger: log,
       resourceMonitor: { performHealthCheck: async () => ({ status: 'healthy', metrics: {}, warnings: [], errors: [] }) },
+      resourceManager,
+      databaseMonitor: { getDatabaseStats: () => getDatabaseStats() },
       prisma,
       discordClient: client,
+      workerConfig: {
+        name: process.env.RENDER_SERVICE_NAME || 'infinity-gauntlet',
+        type: process.env.RENDER_SERVICE_TYPE || 'worker',
+      },
     });
     log.info("AI Logging integrations complete");
     

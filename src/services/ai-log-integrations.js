@@ -497,6 +497,182 @@ export const userActions = {
 };
 
 // ============================================================================
+// Resource Manager Integration
+// ============================================================================
+
+/**
+ * Hook into resource-manager for leak detection and tracking.
+ * @param {object} resourceManager - ResourceManager instance
+ */
+export function integrateResourceManager(resourceManager) {
+  if (!resourceManager) return;
+  
+  // Log leak detections
+  const originalDetectLeaks = resourceManager.detectLeaks?.bind(resourceManager);
+  
+  if (originalDetectLeaks) {
+    resourceManager.detectLeaks = function() {
+      const result = originalDetectLeaks();
+      
+      if (result && result.length > 0) {
+        aiLogger.warn(CONFIG.categories.RESOURCE, `Memory leaks detected: ${result.length} resources`, {
+          data: {
+            leaks: result.map(leak => ({
+              type: leak.type,
+              id: leak.id,
+              size: leak.size,
+              age: leak.age,
+              stackTrace: leak.stackTrace?.slice(0, 3), // First 3 frames
+            })),
+            totalSize: result.reduce((sum, leak) => sum + (leak.size || 0), 0),
+          },
+          tags: ['resource-manager', 'memory-leak', 'detection'],
+        });
+      }
+      
+      return result;
+    };
+  }
+  
+  // Log resource tracking
+  const originalTrack = resourceManager.track?.bind(resourceManager);
+  
+  if (originalTrack) {
+    resourceManager.track = function(type, resource, metadata = {}) {
+      const result = originalTrack(type, resource, metadata);
+      
+      // Log high-value resources only
+      if (metadata.size > 1024 * 1024 || metadata.critical) {
+        aiLogger.debug(CONFIG.categories.RESOURCE, `Tracking ${type} resource`, {
+          data: {
+            type,
+            id: resource.id || resource.name,
+            size: metadata.size,
+            critical: metadata.critical,
+          },
+          tags: ['resource-manager', 'tracking', type],
+        });
+      }
+      
+      return result;
+    };
+  }
+  
+  console.log('[ai-log-integrations] Resource Manager integrated');
+}
+
+// ============================================================================
+// Database Connection Monitoring
+// ============================================================================
+
+/**
+ * Monitor database connection health and operations.
+ * @param {object} connectionMonitor - Connection monitor with getDatabaseStats
+ */
+export function integrateDatabaseMonitor(connectionMonitor) {
+  if (!connectionMonitor || !connectionMonitor.getDatabaseStats) return;
+  
+  // Periodically log database stats
+  setInterval(() => {
+    try {
+      const stats = connectionMonitor.getDatabaseStats();
+      
+      // Log each database's health
+      for (const [dbName, dbStats] of Object.entries(stats)) {
+        if (dbStats.status === 'error' || dbStats.status === 'degraded') {
+          aiLogger.warn(CONFIG.categories.DATABASE, `Database ${dbName} health issue`, {
+            data: {
+              database: dbName,
+              status: dbStats.status,
+              latency: dbStats.latency,
+              connections: dbStats.connections,
+              source: dbStats.source,
+              transport: dbStats.transport,
+            },
+            tags: ['database', 'health', dbName, dbStats.status],
+          });
+        }
+      }
+    } catch (error) {
+      aiLogger.debug(CONFIG.categories.SYSTEM, 'Database stats collection failed', { error });
+    }
+  }, 60 * 1000); // Every minute
+  
+  console.log('[ai-log-integrations] Database Monitor integrated');
+}
+
+// ============================================================================
+// Worker Process Integration
+// ============================================================================
+
+/**
+ * Log worker process lifecycle and metrics.
+ * @param {object} workerConfig - Worker configuration with name and type
+ */
+export function integrateWorkerProcess(workerConfig = {}) {
+  const workerName = workerConfig.name || process.env.RENDER_SERVICE_NAME || 'unknown-worker';
+  const workerType = workerConfig.type || process.env.RENDER_SERVICE_TYPE || 'unknown';
+  
+  // Log worker startup
+  aiLogger.info(CONFIG.categories.SYSTEM, `Worker process started: ${workerName}`, {
+    data: {
+      workerName,
+      workerType,
+      nodeVersion: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      pid: process.pid,
+      cwd: process.cwd(),
+    },
+    tags: ['worker', 'startup', workerName, workerType],
+  });
+  
+  // Log uncaught errors
+  process.on('uncaughtException', (error) => {
+    aiLogger.fatal(CONFIG.categories.ERROR, `Uncaught exception in ${workerName}`, {
+      error,
+      data: { workerName, workerType },
+      tags: ['worker', 'fatal', 'uncaught-exception', workerName],
+    });
+  });
+  
+  process.on('unhandledRejection', (reason, promise) => {
+    aiLogger.critical(CONFIG.categories.ERROR, `Unhandled rejection in ${workerName}`, {
+      error: reason instanceof Error ? reason : new Error(String(reason)),
+      data: { workerName, workerType, promise: promise.toString() },
+      tags: ['worker', 'critical', 'unhandled-rejection', workerName],
+    });
+  });
+  
+  // Log process metrics periodically
+  setInterval(() => {
+    const usage = process.memoryUsage();
+    const cpuUsage = process.cpuUsage();
+    
+    aiLogger.debug(CONFIG.categories.PERFORMANCE, `Worker metrics: ${workerName}`, {
+      data: {
+        workerName,
+        workerType,
+        memory: {
+          rss: usage.rss,
+          heapUsed: usage.heapUsed,
+          heapTotal: usage.heapTotal,
+          external: usage.external,
+        },
+        cpu: {
+          user: cpuUsage.user,
+          system: cpuUsage.system,
+        },
+        uptime: process.uptime(),
+      },
+      tags: ['worker', 'metrics', workerName, 'performance'],
+    });
+  }, 5 * 60 * 1000); // Every 5 minutes
+  
+  console.log(`[ai-log-integrations] Worker process integrated: ${workerName}`);
+}
+
+// ============================================================================
 // Auto-Integration
 // ============================================================================
 
@@ -510,15 +686,21 @@ export async function integrateAll(services = {}) {
     errorTracker,
     logger,
     resourceMonitor,
+    resourceManager,
+    databaseMonitor,
     prisma,
     discordClient,
+    workerConfig,
   } = services;
   
   if (errorTracker) integrateErrorTracker(errorTracker);
   if (logger) integrateConsoleLogger(logger);
   if (resourceMonitor) integrateResourceMonitor(resourceMonitor);
+  if (resourceManager) integrateResourceManager(resourceManager);
+  if (databaseMonitor) integrateDatabaseMonitor(databaseMonitor);
   if (prisma) integratePrisma(prisma);
   if (discordClient) integrateDiscordClient(discordClient);
+  if (workerConfig) integrateWorkerProcess(workerConfig);
   
   console.log('[ai-log-integrations] All integrations complete');
 }
@@ -527,6 +709,9 @@ export default {
   integrateErrorTracker,
   integrateConsoleLogger,
   integrateResourceMonitor,
+  integrateResourceManager,
+  integrateDatabaseMonitor,
+  integrateWorkerProcess,
   integratePrisma,
   integrateDiscordClient,
   gameEngine,

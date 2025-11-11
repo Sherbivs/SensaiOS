@@ -39,7 +39,7 @@ const CONFIG = {
   rotation: {
     maxSize: 10 * 1024 * 1024, // 10MB per file
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    maxFiles: 100, // Keep last 100 log files
+    maxFiles: 200, // Keep last 200 log files (48+ hours at high volume)
     compressAfter: 60 * 60 * 1000, // Compress after 1 hour
   },
   
