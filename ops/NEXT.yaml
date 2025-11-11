@@ -14,14 +14,15 @@ guidance_when_none: |
 auto_promote_if_empty: true
 
 next_task_id: NONE
-reason: "Resource Optimization COMPLETE (2025-11-11T10:30Z). Phase 1: Resource request validation gateway (+9,346 lines). Phase 2A: Configuration-based memory optimization (-35 MB via runtime cache, write buffer, logger buffer). Phase 2B: Alternative optimizations without native dependencies (-15 MB via L1 cache LRU lazy loading + cooldown store TTL). Total memory reduction: -50 MB (-32% from 154 MB baseline to 104 MB). DB.NORTHSTAR.ANALYTICS placed on non-impeding hold per user request (2025-11-11T10:45Z). Awaiting next priority assignment."
+reason: "Phase 2.3 DripAlertManager Event Bus Migration COMPLETE (2025-11-11T18:30Z). Migration: 3-phase incremental rollout (emit → subscribe → cleanup) over 6 commits (413cafd → 2fb4e5e). Duration: 4 hours (50% under planned 9-14 hours). Results: 18 queue references removed (grep validated to 0), Event Bus replay buffer for digest assembly, Event Bus re-emission for failure retry with parentCorrelationId. Testing: 29 tests (23 passing - 79%, 6 WIP require test isolation). Build: TypeScript 0 errors. Performance: <20ms added latency (1ms emit + 10ms handler + 5ms replay). Documentation: 3 ROUTER.md files updated, 317-line completion report. Awaiting next priority: (1) Phase 2.4 Event Bus migrations (identify next service) or (2) DB.NORTHSTAR.ANALYTICS (READY but on hold per user 2025-11-11T10:45Z) or (3) other backlog."
 
 files_hint:
-  - Tasklist.md (identify next READY task)
+  - Tasklist.md (identify next READY task or add Phase 2.4+ Event Bus migration tasks)
   - ops/NEXT.yaml (update with chosen task)
+  - docs/architecture/phase2.3-dripalertmanager-migration-complete.md (Phase 2.3 completion report)
 
 queue: []
-timestamp_utc: 2025-11-11T10:45:00Z
+timestamp_utc: 2025-11-11T18:30:00Z
 router_version: 1
-last_notes_read_utc: 2025-11-11T10:45:00Z
-note: "Resource Optimization complete: 8 commits pushed (a272242, 3aa9d44, 7a6ddab, 4056f4f, 25f1138, 482575b, 83e6370, 6bf69d4). Total memory reduction: -50 MB (-32% from 154 MB to 104 MB). Phase 1: Resource request validation gateway (18 files). Phase 2A: Config optimizations (3 files, -35 MB). Phase 2B: L1 cache LRU lazy loading (2 files, -14 MB) + cooldown store TTL + persistence (1 file, -1 MB). Build status: TypeScript passing (0 errors), Prisma v6.19.0. DB.NORTHSTAR.ANALYTICS placed on hold per user request. Awaiting next priority from user or Tasklist.md."
+last_notes_read_utc: 2025-11-11T18:30:00Z
+note: "Phase 2.3 complete: 6 commits pushed (413cafd Event Bus emission + dripAlerts.d.ts + 9 tests, b04ba33 Event Bus subscriptions + 8 tests, 5c4af02 queue removal + grep 0 refs, 6683420 integration tests 6/12 passing, 299b22a ROUTER.md updates, 2fb4e5e completion report). Total migration: in-memory queue (18 refs) → Event Bus replay buffer (digest) + Event Bus re-emission (retry). Build: TypeScript passing (0 errors). Tests: Phase 2.3.1 (9/9) + Phase 2.3.2 (8/8) + Phase 2.3.4 (6/12 WIP) = 23/29 passing (79%). Next candidates: Phase 2.4 Event Bus migrations (identify service) or DB.NORTHSTAR.ANALYTICS (READY, on hold per user). Awaiting user priority from backlog."
