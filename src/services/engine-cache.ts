@@ -201,11 +201,23 @@ export class EngineCache {
       });
       
       // Background path: Load extended data (Gen 3-9 Pokemon + rare moves)
-      // This runs after startup completes, doesn't block bot readiness
-      this.loadExtendedDataAsync().catch(error => {
-        log('error', 'engine-cache: Extended data loading failed (non-critical)', error);
-        // Non-critical: Core data already loaded, battles can continue with Gen 1-2
-      });
+      // OPTIMIZATION (Phase 2B Alternative): Disabled by default to enforce LRU lazy-loading.
+      // Extended Pokemon will be lazy-loaded on-demand from Read-DB when accessed.
+      // Set ENGINE_FEATURE_L1_EXTENDED_LOADING=true to enable full dataset preload.
+      if (EngineDbConfig.featureL1ExtendedLoadingEnabled) {
+        this.loadExtendedDataAsync().catch(error => {
+          log('error', 'engine-cache: Extended data loading failed (non-critical)', error);
+          // Non-critical: Core data already loaded, battles can continue with Gen 1-2
+        });
+      } else {
+        log('info', 'engine-cache: Extended data loading disabled (LRU lazy-load mode)', {
+          mode: 'lazy-load',
+          coreGeneration: 'Gen 1-2 (IDs 1-251)',
+          extendedGeneration: 'Gen 3-9 (IDs 252+) on-demand',
+          maxPokemonEntries: this.maxPokemonEntries,
+          maxMoveEntries: this.maxMoveEntries
+        });
+      }
       
       // Pre-warm Read-DB cache with most-used Pokemon (starters + meta)
       // OPTIMIZATION: Prime SQLite query cache to reduce first-query latency by 50%

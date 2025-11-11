@@ -74,15 +74,28 @@ export const ENGINE_READ_VERSION_PATH = path.join(STORAGE_BASE_DIR, 'engine-read
 
 /**
  * Maximum L1 cache size (in-memory Pokemon + Move + Type data)
- * Default: 20 MB (assumes ~1,328 Pokemon + 900 Moves + 300 Types)
  * 
- * Calculation: 1328 Pokemon * 10 KB avg = 13 MB
- *              + 900 Moves * 2 KB avg = 1.8 MB
- *              + 300 Types * 1 KB avg = 0.3 MB
- *              + overhead (Maps, indexes) = ~5 MB
- *              = ~20 MB total
+ * OPTIMIZATION (Phase 2B Alternative): Reduced from 20 MB → 6 MB via LRU enforcement.
+ * 
+ * Previous (load-all approach):
+ *   1,328 Pokemon * 10 KB avg = 13.3 MB
+ *   900 Moves * 2 KB avg = 1.8 MB
+ *   300 Types * 1 KB avg = 0.3 MB
+ *   + overhead (Maps, indexes) = ~5 MB
+ *   = ~20 MB total
+ * 
+ * Current (LRU lazy-load approach):
+ *   500 Pokemon * 10 KB avg = 5 MB (most-used only, Gen 1-2 priority)
+ *   200 Moves * 2 KB avg = 0.4 MB (common moves only)
+ *   300 Types * 1 KB avg = 0.3 MB (always loaded, small dataset)
+ *   + overhead (Maps, indexes) = ~1 MB
+ *   = ~6-7 MB total
+ * 
+ * Memory savings: -14 MB (-70% reduction)
+ * 
+ * Extended Pokemon (Gen 3-9) lazy-loaded on-demand from Read-DB, then cached with LRU eviction.
  */
-export const L1_CACHE_MAX_SIZE_MB = IS_TEST ? 5 : 20;
+export const L1_CACHE_MAX_SIZE_MB = IS_TEST ? 5 : 6;
 
 /**
  * L1 cache refresh interval (background worker)
@@ -363,6 +376,24 @@ export const METRICS_LOG_INTERVAL_MS = IS_TEST
 export const FEATURE_L1_CACHE_ENABLED = process.env.ENGINE_FEATURE_L1_CACHE !== 'false';
 
 /**
+ * Enable L1 cache extended data loading (Gen 3-9 Pokemon, rare moves)
+ * 
+ * OPTIMIZATION (Phase 2B Alternative): Disabled by default to enforce LRU lazy-loading.
+ * 
+ * When disabled (default):
+ * - Only Gen 1-2 Pokemon (IDs 1-251) + common moves loaded at startup
+ * - Extended Pokemon lazy-loaded on-demand from Read-DB
+ * - Memory: ~6 MB (500 Pokemon max via LRU eviction)
+ * 
+ * When enabled:
+ * - All Pokemon (IDs 1-1025) + all moves loaded eventually
+ * - Memory: ~20 MB (full dataset)
+ * 
+ * Set ENGINE_FEATURE_L1_EXTENDED_LOADING=true to enable full dataset.
+ */
+export const FEATURE_L1_EXTENDED_LOADING_ENABLED = process.env.ENGINE_FEATURE_L1_EXTENDED_LOADING === 'true';
+
+/**
  * Enable Write Buffer (in-memory queues)
  * Disable to write directly to Write-DB (useful for debugging)
  */
@@ -457,6 +488,7 @@ export const EngineDbConfig = {
   
   // Feature Flags
   featureL1CacheEnabled: FEATURE_L1_CACHE_ENABLED,
+  featureL1ExtendedLoadingEnabled: FEATURE_L1_EXTENDED_LOADING_ENABLED,
   featureWriteBufferEnabled: FEATURE_WRITE_BUFFER_ENABLED,
   featureWorkersEnabled: FEATURE_WORKERS_ENABLED,
   featureValidationEnabled: FEATURE_VALIDATION_ENABLED,
