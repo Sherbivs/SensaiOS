@@ -66,7 +66,12 @@
     "render:ssh-connect": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_ssh_connect.ps1",
     "render:ssh-exec": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_ssh_exec.ps1",
     "render:ssh-transfer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_ssh_transfer.ps1",
-    "render:ssh-tunnel": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_ssh_tunnel.ps1"
+    "render:ssh-tunnel": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render_ssh_tunnel.ps1",
+    "ai-logs:query": "node src/cli/ai-log-query.js query",
+    "ai-logs:analyze": "node src/cli/ai-log-query.js analyze",
+    "ai-logs:patterns": "node src/cli/ai-log-query.js patterns",
+    "ai-logs:insights": "node src/cli/ai-log-query.js insights",
+    "ai-logs:stats": "node src/cli/ai-log-query.js stats"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
@@ -90,6 +95,8 @@
     "@aws-sdk/client-s3": "^3.619.0",
     "@prisma/client": "^6.19.0",
     "axios": "^1.13.1",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
     "discord.js": "^14.16.3",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",

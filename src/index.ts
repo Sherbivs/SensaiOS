@@ -49,6 +49,9 @@ import { startEngineWorkers, stopEngineWorkers, type EngineWorkersStatus } from 
 import { errorLearningWorker } from "./workers/error-learning-worker.js";
 import { resourceManager } from "./services/resource-manager.js";
 import { startResourceMonitoring, stopResourceMonitoring } from "./services/resource-monitor.js";
+import * as aiLogger from "./services/ai-log-writer.js";
+import * as aiLogAnalyzer from "./services/ai-log-analyzer.js";
+import * as aiLogIntegrations from "./services/ai-log-integrations.js";
 
 // Record module import completion
 recordTiming("module_imports", MODULE_IMPORT_START);
@@ -810,6 +813,15 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.error("Error during Resource Manager shutdown", error);
   }
   
+  // Shutdown AI Logging System (flush logs, save analysis state)
+  try {
+    log.info("Shutting down AI Logging System");
+    await aiLogger.shutdown();
+    await aiLogAnalyzer.shutdown();
+  } catch (error) {
+    log.error("Error during AI Logging System shutdown", error);
+  }
+  
   // Step 3: Flush write buffer (best-effort, emergency mode)
   try {
     log.info("Flushing Engine write buffer");
@@ -1145,6 +1157,11 @@ export async function boot(): Promise<void> {
         await errorLearningWorker.start();
         log.info("Error learning worker started");
         
+        // Initialize AI Logging System (hard logs to /Store/ai-logs/)
+        await aiLogger.initialize();
+        await aiLogAnalyzer.initialize();
+        log.info("AI Logging System initialized");
+        
         // Initialize Resource Manager (background leak detection every 5 minutes)
         resourceManager.initialize();
         log.info("Resource Manager initialized");
@@ -1203,6 +1220,29 @@ export async function boot(): Promise<void> {
     updateDiscordSection(client, "online");
     bindDiscordLifecycle(client);
     setPhase("Online");
+    
+    // Integrate AI logger with existing systems (after client is ready)
+    await aiLogIntegrations.integrateAll({
+      errorTracker,
+      logger: log,
+      resourceMonitor: { performHealthCheck: async () => ({ status: 'healthy', metrics: {}, warnings: [], errors: [] }) },
+      prisma,
+      discordClient: client,
+    });
+    log.info("AI Logging integrations complete");
+    
+    // Log startup completion to AI system
+    aiLogger.info(aiLogger.CONFIG.categories.SYSTEM, 'Infinity Gauntlet startup complete', {
+      data: {
+        version: '0.1.0',
+        nodeVersion: process.version,
+        environment: process.env.IS_RENDER ? 'render' : 'local',
+        engineReady: global.engineReady,
+        discordGuilds: client.guilds.cache.size,
+        botUser: client.user?.tag,
+      },
+      tags: ['startup', 'system-ready'],
+    });
     
     // Record total startup time and log comprehensive metrics
     const totalStartupMs = recordTiming("total_startup", STARTUP_START);
