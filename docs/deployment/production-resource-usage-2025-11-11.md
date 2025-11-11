@@ -11,8 +11,13 @@
 
 - **Plan:** Starter
 - **Instances:** 1
-- **Persistent Disk:** 1 GB (mounted at `/Store`)
+- **Allocated Resources (Plan Specs):**
+  - Memory: 512 MB
+  - CPU: 0.5 vCPU
+  - Persistent Disk: 1 GB (mounted at `/Store`)
 - **Region:** us-east-1 (Virginia)
+
+**Note:** Measurements below reflect actual VM resources, which may differ from plan specifications due to Render's infrastructure provisioning.
 
 ## Current Deployment
 
