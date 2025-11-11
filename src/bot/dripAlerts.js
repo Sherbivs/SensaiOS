@@ -1,4 +1,5 @@
 import { msUntilNextZonedTime, formatInTimeZone } from '../utils/timezone.js';
+import { EventBus } from '../shared/event-bus.js';
 
 const DEFAULT_TIME_ZONE = 'America/New_York';
 const SEVERITY = Object.freeze({
@@ -209,45 +210,54 @@ function createDripAlertManager({
     }
   }
 
-  function buildImmediateMessage({ title, severity, meta, timestamp }) {
+  function buildImmediateMessage({ title, severity, meta, timestamp }, correlationId) {
     const icon = SEVERITY_ICON[severity] || '⚠️';
     const header = `${icon} DripTVDD Alert — ${title}`;
     const parts = [header, `Severity: ${severity.toUpperCase()}`, `Timestamp: ${formatInTimeZone(timestamp, timeZone, {
       dateStyle: 'short',
       timeStyle: 'short',
     })} (${timeZone})`];
+    
+    if (correlationId && process.env.NODE_ENV !== 'production') {
+      parts.push(`Correlation: ${correlationId}`);
+    }
+    
     if (meta) {
       parts.push('', '```json', meta, '```');
     }
     return parts.join('\n');
   }
 
-  async function deliverImmediate(entry) {
+  async function deliverImmediate(entry, correlationId) {
     const user = await ensureRecipient();
     if (!user) {
       logContext('warn', 'Drip alert immediate delivery skipped (recipient missing)', {
         title: entry.title,
         severity: entry.severity,
+        correlationId,
       });
       queue.unshift(entry);
       record('drip-alert-warning', entry.title, {
         severity: entry.severity,
         meta: entry.meta,
         reason: 'recipient-missing',
+        correlationId,
       });
       return false;
     }
-    const message = buildImmediateMessage(entry);
+    const message = buildImmediateMessage(entry, correlationId);
     try {
       await user.send(message);
       logContext('info', 'Drip alert delivered', {
         recipient: describeUser ? describeUser(user) : recipient,
         severity: entry.severity,
         title: entry.title,
+        correlationId,
       });
       record('drip-alert-critical', entry.title, {
         severity: entry.severity,
         meta: entry.meta ? entry.meta : undefined,
+        correlationId,
       });
       return true;
     } catch (error) {
@@ -256,12 +266,14 @@ function createDripAlertManager({
         severity: entry.severity,
         title: entry.title,
         error: error instanceof Error ? error.message : String(error),
+        correlationId,
       });
       queue.unshift(entry);
       record('drip-alert-warning', entry.title, {
         severity: entry.severity,
         meta: entry.meta,
         reason: 'delivery-failed',
+        correlationId,
       });
       return false;
     }
@@ -277,14 +289,33 @@ function createDripAlertManager({
       timestamp: new Date(),
     };
 
+    // NEW: Emit to Event Bus (Phase 2.3.1)
+    const bus = EventBus.getInstance();
+    const topic = `alert.${normalizedSeverity}`;
+    const correlationId = bus.emit(topic, {
+      severity: normalizedSeverity,
+      title,
+      meta: normalizedMeta,
+      timestamp: entry.timestamp.toISOString(),
+      recipient,
+    }, {
+      emitter: 'drip-alert-manager',
+    });
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`🔗 Alert Correlation: ${correlationId} (${topic})`);
+    }
+
+    // EXISTING: Keep in-memory queue logic (backward compatible)
     if (normalizedSeverity === SEVERITY.critical || normalizedSeverity === SEVERITY.security) {
-      return deliverImmediate(entry);
+      return deliverImmediate(entry, correlationId);
     }
 
     queue.push(entry);
     record('drip-alert-warning', title, {
       severity: normalizedSeverity,
       meta: normalizedMeta,
+      correlationId,
     });
     return true;
   }
