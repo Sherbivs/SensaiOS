@@ -4,11 +4,12 @@
  * @module bot/state/timeline
  */
 
+import { toEasternString } from '../../shared/datetime.js';
+
 /**
  * Format timeline event for human-readable display
  */
 export function formatTimelineEvent(event) {
-  const { toEasternString } = require('../../shared/datetime.js');
   const timestamp = toEasternString(new Date(event.timestamp), {
     month: 'short',
     day: 'numeric',

@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { Client, GatewayIntentBits, Partials, Events, Collection, LimitedCollection, AuditLogEvent, PermissionsBitField } from 'discord.js';
 
 import { loadCommands } from '../command-loader.js';
+import { toEasternString, toEasternDate, toEasternTime } from '../shared/datetime.js';
 import {
   CLI_DEBUG_MODE,
   ROLE_PERMISSIONS_AUDIT,
@@ -505,7 +506,6 @@ function describeMomentForCli(value) {
   if (!value) {
     return 'never';
   }
-  const { toEasternString } = require('../shared/datetime.js');
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
     return 'unknown';
@@ -1248,7 +1248,6 @@ function msUntilNextReport(hour, minute) {
 }
 
 function formatSummaryReport(entries, generatedAt) {
-  const { toEasternDate, toEasternTime } = require('../shared/datetime.js');
   const headerDate = toEasternDate(generatedAt);
   const headerTime = toEasternTime(generatedAt);
   const header = `🛡️ Daily Security Summary — ${headerDate} @ ${headerTime}`;

@@ -3,6 +3,7 @@ import readline from 'node:readline';
 
 import activityTracker from './activityTracker.js';
 import opsNotifier from './opsNotifier.js';
+import { toEasternLogFormat } from '../shared/datetime.js';
 
 const NORMAL_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
 const ALERT_UPDATE_INTERVAL_MS = 30 * 1000;
@@ -573,8 +574,6 @@ function render() {
       if (QUIET_SIMPLE_MODE) {
         const summary = buildQuietSummary();
         if (summary && summary !== lastSimpleRender) {
-          // Import at function level to avoid circular dependencies
-          const { toEasternLogFormat } = require('../shared/datetime.js');
           const line = `${toEasternLogFormat()} ${summary}${os.EOL}`;
           process.stdout.write(line);
           lastSimpleRender = summary;

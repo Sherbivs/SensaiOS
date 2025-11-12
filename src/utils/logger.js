@@ -1,5 +1,7 @@
 import os from 'node:os';
 import { performance } from 'node:perf_hooks';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // ============================================================================
 // Constants & Configuration
@@ -504,8 +506,6 @@ function collectSecurityBotStats() {
   
   // Try to read state from persisted file (cross-worker visibility)
   try {
-    const fs = require('fs');
-    const path = require('path');
     const stateFile = process.env.IS_RENDER
       ? '/Store/security-bot-state/current.json'
       : path.resolve(__dirname, '../../Store/security-bot-state/current.json');
