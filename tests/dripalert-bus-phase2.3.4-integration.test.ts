@@ -29,12 +29,16 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
   let bus: ReturnType<typeof EventBus.getInstance>;
   
   beforeEach(() => {
-    // Get Event Bus instance
+    // Reset Event Bus singleton to ensure clean state
+    EventBus.resetInstance();
+    // Get fresh Event Bus instance
     bus = EventBus.getInstance();
   });
   
-  afterEach(() => {
-    // No cleanup needed - Event Bus is singleton, tests should be independent
+  afterEach(async () => {
+    // Shutdown Event Bus and reset instance for test isolation
+    await bus.shutdown();
+    EventBus.resetInstance();
   });
 
   describe('End-to-End Alert Delivery', () => {

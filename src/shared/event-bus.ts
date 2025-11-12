@@ -96,6 +96,65 @@ export interface BusStats {
 /// ---- Pattern Matching ----
 
 /**
+ * Pattern cache for compiled regex matchers
+ * Key: subscription pattern, Value: compiled regex
+ */
+const patternCache = new Map<string, RegExp>();
+
+/**
+ * Compile pattern to regex (with caching)
+ * 
+ * @param pattern - Subscription pattern
+ * @returns Compiled regex for topic matching
+ */
+function compilePattern(pattern: string): RegExp {
+  // Check cache first
+  const cached = patternCache.get(pattern);
+  if (cached) return cached;
+  
+  // Match all
+  if (pattern === '*' || pattern === '**') {
+    const regex = /.*/;
+    patternCache.set(pattern, regex);
+    return regex;
+  }
+  
+  // Exact match (no wildcards)
+  if (!pattern.includes('*')) {
+    // Escape ALL regex special characters for literal matching
+    const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^${escaped}$`);
+    patternCache.set(pattern, regex);
+    return regex;
+  }
+  
+  // Split pattern into parts and build regex
+  const parts = pattern.split('.');
+  const regexParts: string[] = [];
+  
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    
+    if (part === '**') {
+      // Multi-level wildcard: matches everything after this point
+      regexParts.push('.*');
+      break; // Stop processing (** matches all remaining levels)
+    } else if (part === '*') {
+      // Single-level wildcard: matches one segment (no dots)
+      regexParts.push('[^.]+');
+    } else {
+      // Literal segment - escape regex special characters
+      regexParts.push(part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    }
+  }
+  
+  const regexPattern = regexParts.join('\\.');
+  const regex = new RegExp(`^${regexPattern}$`);
+  patternCache.set(pattern, regex);
+  return regex;
+}
+
+/**
  * Check if topic matches pattern
  * 
  * Supported patterns:
@@ -109,20 +168,12 @@ export interface BusStats {
  * @returns true if topic matches pattern
  */
 function matchesPattern(topic: string, pattern: string): boolean {
-  if (pattern === topic) return true; // Exact match
-  if (pattern === '*' || pattern === '**') return true; // Match all
+  // Fast path: exact match
+  if (pattern === topic) return true;
   
-  const patternParts = pattern.split('.');
-  const topicParts = topic.split('.');
-  
-  for (let i = 0; i < patternParts.length; i++) {
-    if (patternParts[i] === '**') return true; // Multi-level wildcard (matches rest)
-    if (patternParts[i] === '*') continue;     // Single-level wildcard (matches this level)
-    if (patternParts[i] !== topicParts[i]) return false; // Mismatch
-  }
-  
-  // Exact length match required (unless multi-level wildcard)
-  return topicParts.length === patternParts.length;
+  // Use compiled regex from cache
+  const regex = compilePattern(pattern);
+  return regex.test(topic);
 }
 
 /// ---- Event Replay Buffer ----
@@ -354,6 +405,9 @@ export class EventBus {
     } else {
       EventBus.instance = null;
     }
+    
+    // Clear pattern cache on reset
+    patternCache.clear();
   }
   
   /**
@@ -546,6 +600,16 @@ export class EventBus {
     }
     
     return subscriptions.map(sub => sub.getInfo());
+  }
+  
+  /**
+   * Get pattern cache statistics
+   */
+  getPatternCacheStats(): { size: number; patterns: string[] } {
+    return {
+      size: patternCache.size,
+      patterns: Array.from(patternCache.keys()),
+    };
   }
   
   /**
