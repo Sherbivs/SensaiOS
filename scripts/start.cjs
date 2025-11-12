@@ -14,26 +14,29 @@ function findProjectRoot() {
   console.log('🔍 Searching for project root...');
   console.log('   Current working directory:', process.cwd());
   
-  // 1. Check absolute Render deployment path FIRST
-  // NOTE: Render strips package.json from root after build, so check for src/ + tsconfig.json
+  // 1. Check absolute Render deployment path FIRST  
+  // CRITICAL: We need to detect /opt/render/project even when:
+  // - package.json is stripped by Render
+  // - tsconfig.json is stripped by Render  
+  // - Only src/ and nodes/ (node_modules) directories remain
+  //
+  // Strategy: If /opt/render/project/src exists, assume that's NOT the root
+  // The root should be /opt/render/project (parent of src/)
   const renderPath = '/opt/render/project';
   console.log(`\n   🔎 DEBUG: Checking Render path: ${renderPath}`);
   console.log(`     - Directory exists: ${fs.existsSync(renderPath)}`);
   
   if (fs.existsSync(renderPath)) {
-    const renderPkg = path.join(renderPath, 'package.json');
     const renderSrc = path.join(renderPath, 'src');
     const renderDist = path.join(renderPath, 'dist');
-    const renderTsConfig = path.join(renderPath, 'tsconfig.json');
     
-    console.log(`     - package.json exists: ${fs.existsSync(renderPkg)}`);
     console.log(`     - src/ exists: ${fs.existsSync(renderSrc)}`);
     console.log(`     - dist/ exists: ${fs.existsSync(renderDist)}`);
-    console.log(`     - tsconfig.json exists: ${fs.existsSync(renderTsConfig)}`);
     
-    // Primary check: src/ + tsconfig.json (Render strips package.json)
-    if (fs.existsSync(renderSrc) && fs.existsSync(renderTsConfig)) {
-      console.log(`   ✓ Found project root at: ${renderPath} (detected via src/ + tsconfig.json)`);
+    // If /opt/render/project/src exists, then /opt/render/project IS the root
+    // (regardless of whether dist/ exists yet - build might have failed)
+    if (fs.existsSync(renderSrc)) {
+      console.log(`   ✓ Found project root at: ${renderPath} (Render deployment structure)`);
       return renderPath;
     }
     
