@@ -9,6 +9,7 @@ services:
   - type: web
     name: infinity-gauntlet-bot
     runtime: node
+    rootDirectory: .
     buildCommand: rm -rf node_modules && rm -rf node_modules/.prisma && rm -rf node_modules/@prisma && npm install --include=dev && npm run prebuild
     startCommand: npm start
     autoDeploy: true
@@ -47,6 +48,7 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
+    rootDirectory: .
     buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
     startCommand: "node dist/worker/outbox.js"
     autoDeploy: true
@@ -93,6 +95,7 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
+    rootDirectory: .
     buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
     startCommand: "npm start"
     autoDeploy: true
@@ -145,6 +148,7 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
+    rootDirectory: .
     buildCommand: "npm install --include=dev && npm run prebuild"
     startCommand: "node security-bot.js"
     autoDeploy: true
@@ -189,6 +193,7 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
+    rootDirectory: .
     buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
     startCommand: "node dist/worker/cache-refresh.js"
     autoDeploy: true
@@ -230,6 +235,7 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
+    rootDirectory: .
     buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
     startCommand: "node dist/worker/data-pipeline.js"
     autoDeploy: true
@@ -274,6 +280,7 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
+    rootDirectory: .
     buildCommand: "npm install --include=dev && npm run prebuild"
     startCommand: "node scripts/worker.mjs"
     autoDeploy: true
@@ -329,6 +336,7 @@ services:
     plan: starter
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
+    rootDirectory: .
     buildCommand: "npm install --include=dev && npm run prebuild"
     startCommand: "node scripts/refresh_cache_gh_only.mjs"
     schedule: "0 0 * * 4"
