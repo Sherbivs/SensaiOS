@@ -2,7 +2,7 @@ import os from 'node:os';
 import { performance } from 'node:perf_hooks';
 import fs from 'node:fs';
 import path from 'node:path';
-import { getMetrics as getResourceMetrics } from '../services/resource-monitor.js';
+import resourceMonitor from '../services/resource-monitor.js';
 
 // ============================================================================
 // Constants & Configuration
@@ -208,7 +208,7 @@ function hasSignificantChange(current, previous) {
  */
 function collectNodeStats() {
   // Get real-time metrics from resource monitor
-  const resourceMetrics = getResourceMetrics();
+  const resourceMetrics = resourceMonitor.getMetrics();
   
   return {
     uptime: formatUptime(resourceMetrics.uptime * 1000),
@@ -232,7 +232,7 @@ function collectNodeStats() {
  * @returns {object} Cache and resource stats
  */
 function collectCacheStats() {
-  const resourceMetrics = getResourceMetrics();
+  const resourceMetrics = resourceMonitor.getMetrics();
   
   return {
     cacheDir: resourceMetrics.cacheDir,
