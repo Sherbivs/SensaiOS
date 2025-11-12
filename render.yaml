@@ -9,9 +9,9 @@ services:
   - type: web
     name: infinity-gauntlet-bot
     runtime: node
-    rootDirectory: .
-    buildCommand: rm -rf node_modules && rm -rf node_modules/.prisma && rm -rf node_modules/@prisma && npm install --include=dev && npm run prebuild
-    startCommand: npm start
+    rootDirectory: src
+    buildCommand: cd .. && rm -rf node_modules && rm -rf node_modules/.prisma && rm -rf node_modules/@prisma && npm install --include=dev && npm run prebuild
+    startCommand: cd .. && npm start
     autoDeploy: true
     plan: starter
     disks:
@@ -48,9 +48,9 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    rootDirectory: .
-    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
-    startCommand: "cd /opt/render/project && node dist/worker/outbox.js"
+    rootDirectory: src
+    buildCommand: "cd .. && rm -rf node_modules && npm install --include=dev && npm run prebuild"
+    startCommand: "cd .. && node dist/worker/outbox.js"
     autoDeploy: true
     disks:
       - name: prod-database
@@ -95,9 +95,9 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    rootDirectory: .
-    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
-    startCommand: "npm start"
+    rootDirectory: src
+    buildCommand: "cd .. && rm -rf node_modules && npm install --include=dev && npm run prebuild"
+    startCommand: "cd .. && npm start"
     autoDeploy: true
     disks:
       - name: prod-database
@@ -148,9 +148,9 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    rootDirectory: .
-    buildCommand: "npm install --include=dev && npm run prebuild"
-    startCommand: "cd /opt/render/project && node security-bot.js"
+    rootDirectory: src
+    buildCommand: "cd .. && npm install --include=dev && npm run prebuild"
+    startCommand: "cd .. && node security-bot.js"
     autoDeploy: true
     disks:
       - name: security-state
@@ -193,9 +193,9 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    rootDirectory: .
-    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
-    startCommand: "cd /opt/render/project && node dist/worker/cache-refresh.js"
+    rootDirectory: src
+    buildCommand: "cd .. && rm -rf node_modules && npm install --include=dev && npm run prebuild"
+    startCommand: "cd .. && node dist/worker/cache-refresh.js"
     autoDeploy: true
     disks:
       - name: prod-database
@@ -235,9 +235,9 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    rootDirectory: .
-    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
-    startCommand: "cd /opt/render/project && node dist/worker/data-pipeline.js"
+    rootDirectory: src
+    buildCommand: "cd .. && rm -rf node_modules && npm install --include=dev && npm run prebuild"
+    startCommand: "cd .. && node dist/worker/data-pipeline.js"
     autoDeploy: true
     disks:
       - name: prod-database
@@ -280,9 +280,9 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    rootDirectory: .
-    buildCommand: "npm install --include=dev && npm run prebuild"
-    startCommand: "cd /opt/render/project && node scripts/worker.mjs"
+    rootDirectory: src
+    buildCommand: "cd .. && npm install --include=dev && npm run prebuild"
+    startCommand: "cd .. && node scripts/worker.mjs"
     autoDeploy: true
     disks:
       - name: pokedata
@@ -336,9 +336,9 @@ services:
     plan: starter
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    rootDirectory: .
-    buildCommand: "npm install --include=dev && npm run prebuild"
-    startCommand: "cd /opt/render/project && node scripts/refresh_cache_gh_only.mjs"
+    rootDirectory: src
+    buildCommand: "cd .. && npm install --include=dev && npm run prebuild"
+    startCommand: "cd .. && node scripts/refresh_cache_gh_only.mjs"
     schedule: "0 0 * * 4"
     envVars:
       # Unified architecture: Single Render-managed PostgreSQL database
