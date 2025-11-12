@@ -14,6 +14,37 @@ function findProjectRoot() {
   console.log('🔍 Searching for project root...');
   console.log('   Current working directory:', process.cwd());
   
+  // DEBUG: List Render directory structure
+  console.log('\n🔍 DEBUG: Exploring Render filesystem...');
+  if (fs.existsSync('/opt/render/project')) {
+    console.log('   /opt/render/project/ contents:');
+    try {
+      const files = fs.readdirSync('/opt/render/project');
+      files.slice(0, 20).forEach(f => {
+        const fullPath = path.join('/opt/render/project', f);
+        const isDir = fs.statSync(fullPath).isDirectory();
+        console.log(`     ${isDir ? '[DIR]' : '[FILE]'} ${f}`);
+      });
+    } catch (err) {
+      console.log(`     Error listing: ${err.message}`);
+    }
+  }
+  
+  if (fs.existsSync('/opt/render/project/src')) {
+    console.log('   /opt/render/project/src/ contents:');
+    try {
+      const files = fs.readdirSync('/opt/render/project/src');
+      files.slice(0, 15).forEach(f => {
+        const fullPath = path.join('/opt/render/project/src', f);
+        const isDir = fs.statSync(fullPath).isDirectory();
+        console.log(`     ${isDir ? '[DIR]' : '[FILE]'} ${f}`);
+      });
+    } catch (err) {
+      console.log(`     Error listing: ${err.message}`);
+    }
+  }
+  console.log();
+  
   // 1. Check absolute Render deployment path FIRST
   const renderPath = '/opt/render/project';
   if (fs.existsSync(renderPath)) {
