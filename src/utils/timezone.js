@@ -89,14 +89,6 @@ function msUntilNextZonedTime(hour, minute, timeZone = EASTERN_TIMEZONE) {
   return targetTomorrow - now.getTime();
 }
 
-function formatInTimeZone(date, timeZone, options = {}) {
-  const formatter = new Intl.DateTimeFormat(DEFAULT_LOCALE, {
-    timeZone,
-    ...options,
-  });
-  return formatter.format(date);
-}
-
 export { msUntilNextZonedTime, formatInTimeZone };
 
 export default { msUntilNextZonedTime, formatInTimeZone };
