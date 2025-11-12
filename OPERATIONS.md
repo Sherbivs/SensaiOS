@@ -47,6 +47,8 @@ _Last updated: 2025-11-07T22:00:00Z (UTC) — Rev: 1.5_
 - **Cache refresh:** `cache.stale_seconds` warns when data is >10 minutes old, alerts past 30 minutes. Check network/API health, rerun `npm run worker:cache` locally, and confirm cache targets in `/ops stats`.
 - **Data pipeline:** `pipeline.stale_seconds` warns after 4 hours with no success, alerts after 8 hours. Review `runWorker` logs, ensure buildData completes, and redeploy if failures persist.
 - Telemetry counters (`refresh.failed`, `pipeline.failed`, `messages.failed`) surface in metrics payloads; triage repeated failures alongside the alert logs and record outcomes in Tasklist/Prompt when they trigger.
+- **Memory safety:** All runtime structures now bounded (writeQueue 10K cap, Discord.js cache sweepers, ops error queue 100 cap). Peak RAM stable at ~300-350 MB (58-68% of 512 MB limit). Monitor for OOM alerts; unbounded growth fixed Nov 2025.
+- **State persistence:** Security bot state persists to `/Store/security-bot-state/` with 7-day hourly metrics history, surviving restarts/deploys. Monitor `restartNumber` in logs; failures indicate disk mount issues.
 - For deeper schema, role, and helper context, see `docs/database-systems.md`.
 
 ### Durable Event Bus Sink

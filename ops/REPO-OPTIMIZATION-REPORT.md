@@ -21,6 +21,12 @@ Successfully completed comprehensive repository optimization achieving **product
 - ✅ **Clean documentation** (6 obsolete files archived with rationale)
 - ✅ **Zero build errors** (TypeScript compilation clean)
 
+**Recent Enhancements (November 2025)**:
+- ✅ **Memory safety audit complete** (12/12 runtime structures bounded, 3 critical bugs fixed)
+- ✅ **State persistence enhanced** (7-day hourly metrics history, comprehensive restart recovery)
+- ✅ **Peak RAM optimized** (~300-350 MB, 32-41% headroom below 512 MB limit)
+- ✅ **Event Bus Phase 2.4.3** (IntelligentLogger migration complete, EventEmitter removed)
+
 ---
 
 ## Before/After Metrics

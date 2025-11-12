@@ -21,8 +21,16 @@ live-service economy powered by workers and data pipelines.
 - ✅ **Unified Render PostgreSQL**: Single managed database for all services (scalable to multi-DB when needed)
 - ✅ **Worker architecture**: Comprehensive scaling roadmap (see `docs/workers.md`)
 - ✅ **Deployment ready**: Full production checklist (see `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md`)
+- ✅ **Memory safety**: Comprehensive audit complete (12/12 structures bounded, ~300-350 MB peak RAM)
+- ✅ **7-day state persistence**: Security bot maintains hourly metrics with full restart continuity
 
 **See `ops/REPO-OPTIMIZATION-REPORT.md` for comprehensive Phase 9 achievements.**
+
+**Recent Enhancements (November 2025)**:
+- ✅ **Phase 2.4.3 Complete**: IntelligentLogger Event Bus migration (unified pub-sub, correlation tracking)
+- ✅ **Memory Safety Audit**: Fixed 3 critical unbounded growth bugs (writeQueue, Discord.js caches, ops error queue)
+- ✅ **State Persistence**: 7-day hourly metrics history for security bot (168 hours of trend data)
+- ✅ **Cache Sweeping**: Discord.js automatic cache management (prevents 100+ MB memory leaks)
 
 **Short-term focus**:
 - Database replication architecture (Phase 16: Unified→Multi-DB expansion when infrastructure allows)
@@ -33,9 +41,11 @@ live-service economy powered by workers and data pipelines.
 
 ## Architecture Snapshot
 
-- **Discord Bot Layer:** `src/bot/**` manages slash commands, DM experiences, arena threads, ops tooling, and router-driven routing metadata.
+- **Discord Bot Layer:** `src/bot/**` manages slash commands, DM experiences, arena threads, ops tooling, and router-driven routing metadata. Security bot (`security-bot.js`) monitors guild permissions with 7-day state persistence and automatic reversion.
 - **Core Engine:** `src/core/**` executes deterministic battle and encounter logic, keeping shared math and status systems separate from the Discord layer.
-- **Data & Persistence:** Prisma schema (`prisma/schema.prisma`) persists trainers, parties, encounters, and battles; unified Render-managed PostgreSQL (infinity-gauntlet-db) provides reliable cloud database with automatic migrations; worker scripts refresh cached reference data under `/data`.
+- **Data & Persistence:** Prisma schema (`prisma/schema.prisma`) persists trainers, parties, encounters, and battles; unified Render-managed PostgreSQL (infinity-gauntlet-db) provides reliable cloud database with automatic migrations; worker scripts refresh cached reference data under `/data`. Security bot state persists to `Store/security-bot-state/` with hourly metrics, cumulative totals, and 7-day trend data.
+- **Memory Management:** Comprehensive memory safety with bounded data structures (Discord.js cache sweeping, write queue caps, auto-pruning). Peak RAM: ~300-350 MB per service (58-68% of 512 MB limit).
+- **Event Bus:** Unified pub-sub system (`src/shared/event-bus.ts`) for cross-service communication with correlation tracking, pattern matching, and backpressure protection (Phase 2.4.3 complete).
 - **Automation & Guardrails:** `Patch.md`, `Tasklist.md`, and `Prompt.md` define the contract; scripts in `/ops` and `/scripts` enforce Refresh Vision, router indexes, and contract version gates.
 
 ## PBSL (Pokémon Buddy System Logics)
