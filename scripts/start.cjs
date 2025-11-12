@@ -15,6 +15,7 @@ function findProjectRoot() {
   console.log('   Current working directory:', process.cwd());
   
   // 1. Check absolute Render deployment path FIRST
+  // NOTE: Render strips package.json from root after build, so check for src/ + tsconfig.json
   const renderPath = '/opt/render/project';
   console.log(`\n   🔎 DEBUG: Checking Render path: ${renderPath}`);
   console.log(`     - Directory exists: ${fs.existsSync(renderPath)}`);
@@ -23,11 +24,20 @@ function findProjectRoot() {
     const renderPkg = path.join(renderPath, 'package.json');
     const renderSrc = path.join(renderPath, 'src');
     const renderDist = path.join(renderPath, 'dist');
+    const renderTsConfig = path.join(renderPath, 'tsconfig.json');
     
     console.log(`     - package.json exists: ${fs.existsSync(renderPkg)}`);
     console.log(`     - src/ exists: ${fs.existsSync(renderSrc)}`);
     console.log(`     - dist/ exists: ${fs.existsSync(renderDist)}`);
+    console.log(`     - tsconfig.json exists: ${fs.existsSync(renderTsConfig)}`);
     
+    // Primary check: src/ + tsconfig.json (Render strips package.json)
+    if (fs.existsSync(renderSrc) && fs.existsSync(renderTsConfig)) {
+      console.log(`   ✓ Found project root at: ${renderPath} (detected via src/ + tsconfig.json)`);
+      return renderPath;
+    }
+    
+    // Fallback: package.json exists (local development)
     if (fs.existsSync(renderPkg)) {
       try {
         const pkgContent = fs.readFileSync(renderPkg, 'utf-8');
@@ -35,7 +45,7 @@ function findProjectRoot() {
         console.log(`     - package.json name field: "${pkg.name}"`);
         
         if (pkg.name === 'infinity-gauntlet' && fs.existsSync(renderSrc)) {
-          console.log(`   ✓ Found project root at: ${renderPath}`);
+          console.log(`   ✓ Found project root at: ${renderPath} (verified package name)`);
           return renderPath;
         } else {
           console.log(`     ⚠ Package name mismatch or src/ missing`);
@@ -44,7 +54,7 @@ function findProjectRoot() {
         console.log(`     ✗ Failed to read/parse package.json: ${err.message}`);
       }
     } else {
-      console.log(`     ✗ package.json not found at ${renderPkg}`);
+      console.log(`     ✗ package.json not found (this is NORMAL on Render after deployment)`);
       console.log(`     🔎 Listing ${renderPath} contents:`);
       try {
         const files = fs.readdirSync(renderPath);
