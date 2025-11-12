@@ -3,7 +3,7 @@ import https from 'node:https';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { Client, GatewayIntentBits, Partials, Events, Collection, AuditLogEvent, PermissionsBitField } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, Events, Collection, LimitedCollection, AuditLogEvent, PermissionsBitField } from 'discord.js';
 
 import { loadCommands } from '../command-loader.js';
 import {
@@ -206,7 +206,45 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers
   ],
-  partials: [Partials.User]
+  partials: [Partials.User],
+  // MEMORY MANAGEMENT: Cache sweeping to prevent unbounded growth
+  sweepers: {
+    // Sweep messages older than 1 hour (keep recent for context)
+    messages: {
+      interval: 3600, // Every hour
+      lifetime: 3600, // Keep 1 hour
+    },
+    // Sweep guild members not seen in 12 hours (except high-priority roles)
+    guildMembers: {
+      interval: 3600, // Every hour
+      filter: () => (member) => {
+        // Keep members with roles (they're active)
+        if (member.roles.cache.size > 1) return false; // More than @everyone role
+        // Keep recently seen members
+        if (Date.now() - (member.joinedTimestamp || 0) < 12 * 60 * 60 * 1000) return false;
+        return true; // Sweep inactive members
+      },
+    },
+    // Sweep users not in any guild we care about
+    users: {
+      interval: 3600, // Every hour
+      filter: () => (user) => {
+        // Keep bot owner and important users
+        if (user.id === '1049161859555643433') return false; // DripTVDD
+        // Keep users with recent DMs
+        return true;
+      },
+    },
+  },
+  // Limit cache sizes to prevent unbounded growth
+  makeCache: (manager) => {
+    // Limit messages to 200 per channel (20 channels × 200 = 4000 messages max)
+    if (manager.name === 'MessageManager') {
+      return new LimitedCollection({ maxSize: 200 });
+    }
+    // Default caching for other managers
+    return new Collection();
+  },
 });
 // Load slash commands (optional; safe if none present)
 let commands = null;
