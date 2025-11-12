@@ -11,7 +11,7 @@ services:
     runtime: node
     rootDirectory: .
     buildCommand: rm -rf node_modules && rm -rf node_modules/.prisma && rm -rf node_modules/@prisma && npm install --include=dev && npm run prebuild
-    startCommand: cd /opt/render/project && npm start
+    startCommand: npm start
     autoDeploy: true
     plan: starter
     disks:
@@ -97,7 +97,7 @@ services:
     branch: main
     rootDirectory: .
     buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
-    startCommand: "cd /opt/render/project && node dist/index.js"
+    startCommand: "npm start"
     autoDeploy: true
     disks:
       - name: prod-database
