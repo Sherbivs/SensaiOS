@@ -38,6 +38,7 @@ Key Documents by Category:
 - restart-dm-format.md - Restart notification formatting
 - cache-lru-optimization-summary.md - LRU cache optimization report
 - cross-worker-state-visibility.md - Multi-worker state sharing via persisted storage
+- phase2.4.1-intelligentlogger-dual-emission-complete.md - Phase 2.4.1 IntelligentLogger Event Bus dual emission implementation complete (17/17 tests passing)
 
 **Database** (database/):
 - database-systems.md & db-control-suite.md - Canonical reference for 2-node direct PostgreSQL architecture
