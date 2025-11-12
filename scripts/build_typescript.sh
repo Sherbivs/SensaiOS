@@ -48,6 +48,17 @@ echo "Compiling TypeScript from: $(pwd)"
 echo "Running: tsc --project tsconfig.build.json"
 npx tsc --project tsconfig.build.json
 
+# Copy JavaScript source files that aren't compiled by TypeScript
+echo "Copying JavaScript source files to dist/..."
+if [ -d "src/services" ]; then
+  mkdir -p dist/services
+  for jsfile in src/services/*.js; do
+    if [ -f "$jsfile" ]; then
+      cp -v "$jsfile" "dist/services/"
+    fi
+  done
+fi
+
 # Verify output
 if [ -f "dist/index.js" ]; then
   echo "✅ TypeScript compilation successful!"
