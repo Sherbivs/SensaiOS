@@ -40,7 +40,11 @@ fi
 
 # Run TypeScript compiler
 echo "Compiling TypeScript from: $(pwd)"
+echo "Contents of src/ before build:"
+ls -la src/ | head -10
 npx tsc --project tsconfig.build.json
+echo "Contents of dist/ after build:"
+ls -la dist/ | head -10
 
 # Verify output
 if [ -f "dist/index.js" ]; then
