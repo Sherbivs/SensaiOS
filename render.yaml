@@ -11,7 +11,7 @@ services:
     runtime: node
     rootDirectory: .
     buildCommand: rm -rf node_modules && rm -rf node_modules/.prisma && rm -rf node_modules/@prisma && npm install --include=dev && npm run prebuild
-    startCommand: npm start
+    startCommand: cd /opt/render/project && npm start
     autoDeploy: true
     plan: starter
     disks:
@@ -50,7 +50,7 @@ services:
     branch: main
     rootDirectory: .
     buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
-    startCommand: "node dist/worker/outbox.js"
+    startCommand: "cd /opt/render/project && node dist/worker/outbox.js"
     autoDeploy: true
     disks:
       - name: prod-database
@@ -97,7 +97,7 @@ services:
     branch: main
     rootDirectory: .
     buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
-    startCommand: "npm start"
+    startCommand: "cd /opt/render/project && node dist/index.js"
     autoDeploy: true
     disks:
       - name: prod-database
@@ -150,7 +150,7 @@ services:
     branch: main
     rootDirectory: .
     buildCommand: "npm install --include=dev && npm run prebuild"
-    startCommand: "node security-bot.js"
+    startCommand: "cd /opt/render/project && node security-bot.js"
     autoDeploy: true
     disks:
       - name: security-state
@@ -195,7 +195,7 @@ services:
     branch: main
     rootDirectory: .
     buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
-    startCommand: "node dist/worker/cache-refresh.js"
+    startCommand: "cd /opt/render/project && node dist/worker/cache-refresh.js"
     autoDeploy: true
     disks:
       - name: prod-database
@@ -237,7 +237,7 @@ services:
     branch: main
     rootDirectory: .
     buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
-    startCommand: "node dist/worker/data-pipeline.js"
+    startCommand: "cd /opt/render/project && node dist/worker/data-pipeline.js"
     autoDeploy: true
     disks:
       - name: prod-database
@@ -282,7 +282,7 @@ services:
     branch: main
     rootDirectory: .
     buildCommand: "npm install --include=dev && npm run prebuild"
-    startCommand: "node scripts/worker.mjs"
+    startCommand: "cd /opt/render/project && node scripts/worker.mjs"
     autoDeploy: true
     disks:
       - name: pokedata
@@ -338,7 +338,7 @@ services:
     branch: main
     rootDirectory: .
     buildCommand: "npm install --include=dev && npm run prebuild"
-    startCommand: "node scripts/refresh_cache_gh_only.mjs"
+    startCommand: "cd /opt/render/project && node scripts/refresh_cache_gh_only.mjs"
     schedule: "0 0 * * 4"
     envVars:
       # Unified architecture: Single Render-managed PostgreSQL database
