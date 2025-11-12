@@ -12,12 +12,16 @@ echo "   Working directory: $(pwd)"
 echo "   Compiling TypeScript..."
 npx tsc --project tsconfig.build.json
 
-# Copy JavaScript source files to dist/
+# Copy ALL JavaScript source files to dist/ (preserving directory structure)
+# tsconfig excludes .js files, so we must copy them manually
 echo "   Copying JavaScript source files..."
-if [ -d "src/services" ]; then
-  mkdir -p dist/services
-  cp src/services/*.js dist/services/ 2>/dev/null || true
-fi
+cd src
+find . -type f -name "*.js" | while read -r jsfile; do
+  targetdir="$(dirname "../dist/$jsfile")"
+  mkdir -p "$targetdir"
+  cp "$jsfile" "../dist/$jsfile"
+done
+cd ..
 
 # Verify output
 if [ -f "dist/index.js" ]; then
