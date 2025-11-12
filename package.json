@@ -8,7 +8,7 @@
     "postinstall": "npx prisma generate",
     "validate:urls": "node scripts/validate_database_urls.js",
     "generate:types": "tsx scripts/generate_pg_types.ts",
-    "prebuild": "npm run validate:urls && npx prisma generate && npm run build:ts",
+    "prebuild": "npm run validate:urls && npx prisma generate && npm run build:ts && ls -la dist/",
     "build:ts": "tsc --project tsconfig.build.json",
     "build": "npm run build:ts",
     "dev": "tsx watch src/index.ts",
