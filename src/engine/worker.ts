@@ -34,7 +34,7 @@ export async function run(): Promise<void> {
       try {
         await loop(reg);
       } catch (error) {
-        log.error("worker.loop.crash", error);
+        log('error', "worker.loop.crash", error);
       }
     }),
   );
@@ -83,7 +83,7 @@ async function loop(reg: Registration): Promise<void> {
           try {
             await fail(row.id, error);
           } catch (failError) {
-            log.error("worker.loop.fail_error", failError);
+            log('error', "worker.loop.fail_error", failError);
           }
         }
       })();

@@ -4,9 +4,10 @@
     "noEmit": false
   },
   "include": [
-    "src/shared/**/*.ts",
-    "src/services/**/*.ts",
-    "src/worker/**/*.ts",
-    "src/types/**/*.d.ts"
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts"
   ]
 }
