@@ -12,7 +12,7 @@
     "build:ts": "tsc --project tsconfig.build.json",
     "build": "npm run build:ts",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
+    "start": "test -f dist/index.js && node dist/index.js || test -f ../dist/index.js && cd .. && node dist/index.js || echo 'ERROR: Cannot find dist/index.js' && exit 1",
     "start:dev": "tsx src/index.ts",
     "data:build": "tsx src/data_pipeline/index.ts",
     "data:dexpack": "npm run data:dexpack:v1 && npm run data:dexpack:v2",
