@@ -93,8 +93,8 @@ services:
     region: oregon
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
-    buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild && echo 'Build complete, checking dist:' && ls -la dist/ && ls -la dist/*.js"
-    startCommand: "npm start"
+    buildCommand: "cd /opt/render/project && pwd && rm -rf node_modules && npm install --include=dev && npm run prebuild && echo 'Build complete, checking dist:' && ls -la dist/ && ls -la dist/*.js"
+    startCommand: "cd /opt/render/project && npm start"
     autoDeploy: true
     disks:
       - name: prod-database
