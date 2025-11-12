@@ -454,6 +454,7 @@ class IntelligentLogger {
   private minLevel: LogLevel;
   private serviceName: string;
   private writeQueue: LogEntry[] = [];
+  private readonly maxWriteQueueSize: number = 10000; // MEMORY CAP: Max 10k entries (~5-10 MB)
   private writeInterval: NodeJS.Timeout | null = null;
   private isShuttingDown: boolean = false;
   private errorBusSubscriptionId?: string; // MEMORY LEAK FIX: Store Event Bus subscription ID
@@ -542,8 +543,19 @@ class IntelligentLogger {
     // Add to buffer
     this.buffer.add(entry);
     
-    // Queue for disk write
-    this.writeQueue.push(entry);
+    // Queue for disk write (with backpressure protection)
+    if (this.writeQueue.length < this.maxWriteQueueSize) {
+      this.writeQueue.push(entry);
+    } else {
+      // Backpressure: Drop oldest entries if queue full (prevents unbounded growth)
+      this.writeQueue.shift(); // Remove oldest
+      this.writeQueue.push(entry);
+      
+      // Log warning on first backpressure event (don't spam)
+      if (this.writeQueue.length === this.maxWriteQueueSize) {
+        console.warn(`[intelligent-logger] Write queue at capacity (${this.maxWriteQueueSize} entries), dropping oldest logs`);
+      }
+    }
     
     // PHASE 2.4.3: Emit to Event Bus (exclusive emission, EventEmitter removed)
     try {
