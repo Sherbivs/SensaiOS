@@ -23,11 +23,12 @@ const CURRENT_STATE_PATH = path.join(STATE_DIR, 'current.json');
 const PREVIOUS_STATE_PATH = path.join(STATE_DIR, 'previous.json');
 const SNAPSHOTS_DIR = path.join(STATE_DIR, 'snapshots');
 
-const SCHEMA_VERSION = '1.0.0';
+const SCHEMA_VERSION = '1.1.0';
 const STATE_VERSION = 1;
 const MAX_TIMELINE_EVENTS = 100;
 const SNAPSHOT_RETENTION_DAYS = 7;
 const AUTO_SAVE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const METRICS_HISTORY_DAYS = 7; // Keep 7 days of hourly metrics
 
 /**
  * Default empty state structure
@@ -54,6 +55,13 @@ function createDefaultState() {
       revertFailures: 0,
       guildCount: 0,
       firstStartTime: new Date().toISOString()
+    },
+    // ENHANCED: 7-day comprehensive metrics history (hourly granularity)
+    metricsHistory: {
+      // Array of hourly metric snapshots: { timestamp, sweeps, alerts, changes, reverts, failures }
+      hourly: [],
+      // Retention: Automatically pruned to keep only last 7 days (168 hours)
+      lastPruned: new Date().toISOString()
     },
     timeline: [],
     guilds: {},
@@ -330,6 +338,9 @@ export async function initializeState() {
     ...previousState.timeline
   ].slice(0, MAX_TIMELINE_EVENTS);
   
+  // ENHANCED: Record restart in hourly metrics history
+  recordMetricsEvent(state, 'restart', 1);
+  
   // Save initial state
   await saveState(state);
   await createSnapshot(state);
@@ -391,6 +402,174 @@ export function updateGuildState(state, guildId, updates) {
 export function updateRuntimeState(state, updates) {
   Object.assign(state.runtime, updates);
   state.runtime.currentUptime = Date.now() - new Date(state.metadata.processStartTime).getTime();
+}
+
+/**
+ * Get or create current hour's metrics bucket
+ */
+function getCurrentHourMetrics(state) {
+  const now = new Date();
+  const hourTimestamp = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours()).toISOString();
+  
+  // Ensure metricsHistory exists (migration support)
+  if (!state.metricsHistory) {
+    state.metricsHistory = {
+      hourly: [],
+      lastPruned: new Date().toISOString()
+    };
+  }
+  
+  // Find existing bucket for current hour
+  let hourMetrics = state.metricsHistory.hourly.find(m => m.timestamp === hourTimestamp);
+  
+  if (!hourMetrics) {
+    // Create new bucket for this hour
+    hourMetrics = {
+      timestamp: hourTimestamp,
+      sweeps: 0,
+      alerts: 0,
+      permissionChanges: 0,
+      permissionReverts: 0,
+      revertFailures: 0,
+      errors: 0,
+      memberFetchTimeouts: 0,
+      restarts: 0
+    };
+    state.metricsHistory.hourly.push(hourMetrics);
+    
+    // Keep array sorted by timestamp (newest first)
+    state.metricsHistory.hourly.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+  
+  return hourMetrics;
+}
+
+/**
+ * Prune metrics history older than retention period
+ */
+function pruneMetricsHistory(state) {
+  if (!state.metricsHistory) return;
+  
+  const now = Date.now();
+  const retentionMs = METRICS_HISTORY_DAYS * 24 * 60 * 60 * 1000;
+  const cutoffTime = now - retentionMs;
+  
+  const originalCount = state.metricsHistory.hourly.length;
+  state.metricsHistory.hourly = state.metricsHistory.hourly.filter(m => {
+    const timestamp = new Date(m.timestamp).getTime();
+    return timestamp >= cutoffTime;
+  });
+  
+  const pruned = originalCount - state.metricsHistory.hourly.length;
+  if (pruned > 0) {
+    log('info', '[State] Pruned old metrics', { pruned, remaining: state.metricsHistory.hourly.length });
+  }
+  
+  state.metricsHistory.lastPruned = new Date().toISOString();
+}
+
+/**
+ * Record metrics event (updates both cumulative and hourly history)
+ */
+export function recordMetricsEvent(state, eventType, count = 1) {
+  const hourMetrics = getCurrentHourMetrics(state);
+  
+  switch (eventType) {
+    case 'sweep':
+      hourMetrics.sweeps += count;
+      break;
+    case 'alert':
+      hourMetrics.alerts += count;
+      break;
+    case 'permission_change':
+      hourMetrics.permissionChanges += count;
+      break;
+    case 'permission_revert':
+      hourMetrics.permissionReverts += count;
+      break;
+    case 'revert_failure':
+      hourMetrics.revertFailures += count;
+      break;
+    case 'error':
+      hourMetrics.errors += count;
+      break;
+    case 'member_fetch_timeout':
+      hourMetrics.memberFetchTimeouts += count;
+      break;
+    case 'restart':
+      hourMetrics.restarts += count;
+      break;
+  }
+  
+  // Prune old metrics every hour (check on each event for simplicity)
+  const lastPruned = new Date(state.metricsHistory.lastPruned).getTime();
+  const hoursSinceLastPrune = (Date.now() - lastPruned) / (60 * 60 * 1000);
+  if (hoursSinceLastPrune >= 1) {
+    pruneMetricsHistory(state);
+  }
+}
+
+/**
+ * Get metrics summary for a time range
+ */
+export function getMetricsSummary(state, hoursBack = 24) {
+  if (!state.metricsHistory || !state.metricsHistory.hourly) {
+    return {
+      sweeps: 0,
+      alerts: 0,
+      permissionChanges: 0,
+      permissionReverts: 0,
+      revertFailures: 0,
+      errors: 0,
+      memberFetchTimeouts: 0,
+      restarts: 0,
+      hoursWithData: 0
+    };
+  }
+  
+  const cutoffTime = Date.now() - (hoursBack * 60 * 60 * 1000);
+  const recentMetrics = state.metricsHistory.hourly.filter(m => {
+    return new Date(m.timestamp).getTime() >= cutoffTime;
+  });
+  
+  const summary = {
+    sweeps: 0,
+    alerts: 0,
+    permissionChanges: 0,
+    permissionReverts: 0,
+    revertFailures: 0,
+    errors: 0,
+    memberFetchTimeouts: 0,
+    restarts: 0,
+    hoursWithData: recentMetrics.length
+  };
+  
+  for (const m of recentMetrics) {
+    summary.sweeps += m.sweeps;
+    summary.alerts += m.alerts;
+    summary.permissionChanges += m.permissionChanges;
+    summary.permissionReverts += m.permissionReverts;
+    summary.revertFailures += m.revertFailures;
+    summary.errors += m.errors;
+    summary.memberFetchTimeouts += m.memberFetchTimeouts;
+    summary.restarts += m.restarts;
+  }
+  
+  return summary;
+}
+
+/**
+ * Get hourly metrics trend for charts/graphs
+ */
+export function getMetricsTrend(state, hoursBack = 168) {
+  if (!state.metricsHistory || !state.metricsHistory.hourly) {
+    return [];
+  }
+  
+  const cutoffTime = Date.now() - (hoursBack * 60 * 60 * 1000);
+  return state.metricsHistory.hourly
+    .filter(m => new Date(m.timestamp).getTime() >= cutoffTime)
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); // Oldest to newest for charts
 }
 
 /**

@@ -4,7 +4,10 @@
  * @module bot/state/stats
  */
 
-import { updateCumulativeStats, updateRuntimeState } from './persistence.js';
+import { updateCumulativeStats, updateRuntimeState, recordMetricsEvent, getMetricsSummary, getMetricsTrend } from './persistence.js';
+
+// Re-export metrics functions
+export { getMetricsSummary, getMetricsTrend } from './persistence.js';
 
 /**
  * Record a role sweep completion
@@ -14,6 +17,9 @@ export function recordSweep(state, guildId, guildName, rolesChecked, changesDete
   updateCumulativeStats(state, {
     sweepCount: 1
   });
+  
+  // ENHANCED: Record in hourly metrics history for trend analysis
+  recordMetricsEvent(state, 'sweep', 1);
   
   // Update guild-specific stats
   if (!state.guilds[guildId]) {
@@ -69,6 +75,15 @@ export function recordPermissionChange(
     revertFailures: reverted && revertStatus !== 'success' ? 1 : 0
   });
   
+  // ENHANCED: Record in hourly metrics history for trend analysis
+  recordMetricsEvent(state, 'permission_change', 1);
+  if (reverted) {
+    recordMetricsEvent(state, 'permission_revert', 1);
+    if (revertStatus !== 'success') {
+      recordMetricsEvent(state, 'revert_failure', 1);
+    }
+  }
+  
   // Update guild-specific stats
   if (!state.guilds[guildId]) {
     state.guilds[guildId] = {
@@ -114,6 +129,9 @@ export function recordAlert(state, guildId, recipient, reason, delivered) {
     alertCount: 1
   });
   
+  // ENHANCED: Record in hourly metrics history for trend analysis
+  recordMetricsEvent(state, 'alert', 1);
+  
   // Update guild-specific stats
   if (state.guilds[guildId]) {
     state.guilds[guildId].alertCount = (state.guilds[guildId].alertCount || 0) + 1;
@@ -140,6 +158,9 @@ export function recordAlert(state, guildId, recipient, reason, delivered) {
  * Record error event
  */
 export function recordError(state, message, stack = null, context = {}) {
+  // ENHANCED: Record in hourly metrics history for trend analysis
+  recordMetricsEvent(state, 'error', 1);
+  
   // Add to timeline
   state.timeline = [
     {
@@ -159,6 +180,9 @@ export function recordError(state, message, stack = null, context = {}) {
  * Record member fetch timeout (for monitoring chronic issues)
  */
 export function recordMemberFetchTimeout(state, guildId, guildName, origin, attempt, maxRetries) {
+  // ENHANCED: Record in hourly metrics history for trend analysis
+  recordMetricsEvent(state, 'member_fetch_timeout', 1);
+  
   // Track in guild state if this is a recurring issue
   if (state.guilds[guildId]) {
     state.guilds[guildId].memberFetchTimeouts = (state.guilds[guildId].memberFetchTimeouts || 0) + 1;
