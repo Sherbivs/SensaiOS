@@ -454,6 +454,7 @@ const continuousSweepState = {
 };
 
 const pendingOpsErrorQueue = [];
+const MAX_OPS_ERROR_QUEUE_SIZE = 100; // MEMORY CAP: Prevent unbounded growth
 const deliveredOpsErrorIds = new Set();
 let deliveringOpsErrors = false;
 let opsErrorRetryTimer = null;
@@ -838,6 +839,14 @@ function queueOpsError(event) {
   }
   if (pendingOpsErrorQueue.some((item) => item.id === event.id)) {
     return;
+  }
+  // MEMORY CAP: Drop oldest if queue full (prevents unbounded growth under sustained failures)
+  if (pendingOpsErrorQueue.length >= MAX_OPS_ERROR_QUEUE_SIZE) {
+    const dropped = pendingOpsErrorQueue.shift();
+    log('warn', '[ops-errors] Queue at capacity, dropping oldest alert', { 
+      droppedMessage: dropped?.message,
+      queueSize: pendingOpsErrorQueue.length 
+    });
   }
   pendingOpsErrorQueue.push({ ...event, attempts: event.attempts || 0 });
   updateSecurityCliSection({
