@@ -66,15 +66,28 @@ The project now ships a PBSL scaffold under `src/core/pbsl/**` that implements s
 ```
 ├─ src/                    # TypeScript source (bot, core engines, data pipeline)
 │  ├─ bot/                 # Discord interactions (DM, wilds, arena, ops, alerts)
+│  │  └─ state/            # State persistence (security bot, hourly metrics)
 │  ├─ core/                # Deterministic battle + encounter logic
 │  ├─ data_pipeline/       # Fetch + normalize PokéAPI payloads
 │  ├─ shared/              # Config, logging, Prisma helpers, shared utils
+│  │  ├─ cache/            # Centralized cache facade (in-memory LRU + disk)
+│  │  └─ event-bus.ts      # Unified pub-sub system (correlation tracking)
 │  └─ index.ts             # Boot entry (Discord + Prisma wiring)
 ├─ scripts/                # Automation (refresh vision, data jobs, guards, workers)
 ├─ tests/                  # Vitest suites for core engines, pipeline, ops, UI
 ├─ prisma/schema.prisma    # Database schema for persistent state
 ├─ ops/                    # Meta governance: Tasklist, routers, NEXT, hotfix plan
+├─ docs/                   # Architecture, operations, runbooks, knowledge guides
+│  ├─ architecture/        # System design, Event Bus phases, migration reports
+│  ├─ database/            # Schema docs, replication, query optimization
+│  ├─ deployment/          # Production checklists, Render configuration
+│  ├─ game-engine/         # Battle mechanics, encounter logic, Engine DB
+│  └─ workers.md           # Worker architecture, scaling roadmap (Phase 10+)
 ├─ data/                   # Cached reference data shards checked in by workers
+├─ Store/                  # On-disk cache namespaces maintained by runtime services
+│  ├─ security-bot-state/  # Security bot state (7-day hourly metrics, cumulative totals)
+│  ├─ runtime-cache/       # Runtime cache persistence (encounters, battles)
+│  └─ discord-cache/       # Discord entity cache (roles, guilds)
 └─ README.md               # This guide
 ```
 
@@ -158,6 +171,20 @@ QA or design reviews:
 5. **Launch the development instance.** Start the watcher with `npm run dev`;
    the entry point verifies database connectivity before logging in to Discord
    so you can exercise encounter and battle flows locally.
+
+## Datetime & Timezone Handling
+
+All user-facing timestamps display in **Eastern Time (America/New_York)**, automatically handling EST/EDT transitions. The application uses centralized datetime utilities (`src/shared/datetime.js`) for consistent formatting.
+
+**Key Functions:**
+- `toEasternString(date)` - Full date/time (e.g., "11/12/2025, 8:21:32 PM")
+- `toEasternTime(date)` - Time only (e.g., "8:21:32 PM")
+- `toEasternDate(date)` - Date only (e.g., "11/12/2025")
+- `nowEastern()` - Current timestamp in Eastern Time
+
+See [`docs/datetime-utilities.md`](docs/datetime-utilities.md) for comprehensive usage guide, migration patterns, and testing recommendations.
+
+**Important:** Internal state files and Event Bus metadata continue to use ISO timestamps (UTC) for consistency and portability. Only user-facing displays (Discord messages, restart notifications, summaries) use Eastern Time formatting.
 
 ## Data Pipeline & Workers
 

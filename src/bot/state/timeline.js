@@ -8,12 +8,13 @@
  * Format timeline event for human-readable display
  */
 export function formatTimelineEvent(event) {
-  const timestamp = new Date(event.timestamp).toLocaleString('en-US', {
+  const { toEasternString } = require('../../shared/datetime.js');
+  const timestamp = toEasternString(new Date(event.timestamp), {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit'
+    second: undefined,
   });
   
   switch (event.type) {

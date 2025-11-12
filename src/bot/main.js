@@ -122,7 +122,7 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
     const config = {
       timeoutMs,
       adjustments,
-      lastAdjusted: new Date().toISOString(),
+      lastAdjusted: new Date().toISOString(), // Keep ISO for config file
       reason,
       history: [],
     };
@@ -138,7 +138,7 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
     } catch {}
     
     config.history.push({
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString(), // Keep ISO for config file
       timeoutMs,
       reason,
     });
@@ -505,6 +505,7 @@ function describeMomentForCli(value) {
   if (!value) {
     return 'never';
   }
+  const { toEasternString } = require('../shared/datetime.js');
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
     return 'unknown';
@@ -523,7 +524,7 @@ function describeMomentForCli(value) {
   } else {
     relative = `${Math.floor(abs / 86_400_000)}d ${diff >= 0 ? 'ago' : 'from now'}`;
   }
-  return `${date.toLocaleString()} (${relative})`;
+  return `${toEasternString(date)} (${relative})`;
 }
 
 async function refreshMemberStats(reason = 'unspecified') {
@@ -800,7 +801,7 @@ function safeSerialize(value, limit = 1800) {
 function buildOpsErrorMeta(event) {
   const meta = {
     id: event.id,
-    occurredAt: event.timestamp instanceof Date ? event.timestamp.toISOString() : new Date().toISOString(),
+    occurredAt: event.timestamp instanceof Date ? event.timestamp.toISOString() : new Date().toISOString(), // Keep ISO for metadata
   };
   if (event.detail) {
     meta.detail = event.detail;
@@ -1247,8 +1248,9 @@ function msUntilNextReport(hour, minute) {
 }
 
 function formatSummaryReport(entries, generatedAt) {
-  const headerDate = generatedAt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  const headerTime = generatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const { toEasternDate, toEasternTime } = require('../shared/datetime.js');
+  const headerDate = toEasternDate(generatedAt);
+  const headerTime = toEasternTime(generatedAt);
   const header = `🛡️ Daily Security Summary — ${headerDate} @ ${headerTime}`;
   if (!entries || entries.length === 0) {
     return `${header}\n\nNo role assignments or permission changes were recorded since the previous summary.\nMonitoring remains active.`;
@@ -1265,7 +1267,7 @@ function formatSummaryReport(entries, generatedAt) {
 
   const details = entries
     .map((entry) => {
-      const when = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const when = toEasternTime(new Date(entry.timestamp));
       return `• ${when} — ${entry.summary}`;
     })
     .join('\n');
@@ -1320,21 +1322,22 @@ async function sendDailySummaryReport() {
   }
 }
 
-function scheduleDailySummaryReports() {
+async function scheduleDailySummaryReports() {
   if (summaryTimer) {
     clearTimeout(summaryTimer);
   }
   const delay = msUntilNextReport(SUMMARY_REPORT_HOUR, SUMMARY_REPORT_MINUTE);
   const safeDelay = Number.isFinite(delay) ? Math.max(0, delay) : 0;
   const nextRun = new Date(Date.now() + safeDelay);
+  const { toEasternString } = await import('../shared/datetime.js');
   log('info', 'Daily summary scheduled', {
     recipient: SUMMARY_REPORT_RECIPIENT || 'unset',
-    nextRunIso: nextRun.toISOString(),
-    nextRunLocal: nextRun.toLocaleString(),
+    nextRunIso: nextRun.toISOString(), // Keep ISO for logging
+    nextRunEastern: toEasternString(nextRun),
   });
   summaryTimer = setTimeout(async () => {
     await sendDailySummaryReport();
-    scheduleDailySummaryReports();
+    await scheduleDailySummaryReports();
   }, safeDelay);
 }
 
@@ -1343,6 +1346,7 @@ async function notifyServiceRestart() {
     return;
   }
   try {
+    const { toEasternString } = await import('../shared/datetime.js');
     const user = await resolveAlertUser(RESTART_DM_RECIPIENT);
     if (!user) {
       log('warn', 'Restart DM recipient not found', { recipient: RESTART_DM_RECIPIENT });
@@ -1355,7 +1359,7 @@ async function notifyServiceRestart() {
     }
     
     let message = `🛡️ **Security Monitor - System Status Report**\n`;
-    message += `Restarted at ${new Date().toLocaleString()}\n`;
+    message += `Restarted at ${toEasternString(new Date())}\n`;
     message += `Continuous monitoring is active across ${client.guilds.cache.size} guild(s).`;
     
     // Add state persistence summary if available
@@ -1381,7 +1385,7 @@ async function notifyServiceRestart() {
           message += `\n\n⚙️ **Configuration**`;
           message += `\n• Member fetch timeout: ${timeoutSeconds}s (${timeoutConfig.adjustments || 0} auto-adjustments)`;
           if (timeoutConfig.adjustments > 0) {
-            message += `\n• Last adjusted: ${timeoutConfig.lastAdjusted ? new Date(timeoutConfig.lastAdjusted).toLocaleString() : 'unknown'}`;
+            message += `\n• Last adjusted: ${timeoutConfig.lastAdjusted ? toEasternString(new Date(timeoutConfig.lastAdjusted)) : 'unknown'}`;
           }
         }
       } catch (err) {

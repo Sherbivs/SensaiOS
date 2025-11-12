@@ -99,6 +99,9 @@ Key Documents by Category:
 - ai-env-setup.md - Secure environment setup for AI agents
 - WORKSTATION-GAMEPLAY-SETUP.md - Complete guide for configuring LOCAL PostgreSQL for live gameplay
 
+**Datetime & Timezone** (root docs/):
+- datetime-utilities.md - Eastern Time (EST/EDT) formatting utilities, usage patterns, migration guide
+
 **Northstar** (northstar/):
 - northstar-methodology.md - Northstar schema consolidation methodology
 - northstar-phase1-contract-verification.md - Phase 1 contract verification

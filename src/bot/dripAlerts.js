@@ -134,8 +134,7 @@ function createDripAlertManager({
     const nextRun = new Date(Date.now() + safeDelay);
     logContext('info', 'Drip alert digest scheduled', {
       recipient: recipient || 'unset',
-      nextRunIso: nextRun.toISOString(),
-      nextRunLocal: nextRun.toLocaleString(),
+      nextRunIso: nextRun.toISOString(), // Keep ISO for logging
       nextRunEastern: formatInTimeZone(nextRun, timeZone, {
         dateStyle: 'short',
         timeStyle: 'short',
