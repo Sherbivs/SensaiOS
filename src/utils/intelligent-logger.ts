@@ -13,7 +13,6 @@
 
 import crypto from 'node:crypto';
 import { performance } from 'node:perf_hooks';
-import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -123,6 +122,7 @@ export interface LogOptions {
   retryCount?: number;
   tags?: string[];
   importance?: number;
+  correlationId?: string; // Phase 2.4.1: Event Bus correlation ID passthrough
 }
 
 interface Timer {
@@ -379,12 +379,18 @@ class CircularBuffer {
     const evictedIds = new Set(evicted.map(e => e.id));
     this.timeline = this.timeline.filter(id => !evictedIds.has(id));
     
-    // Emit eviction event
-    logger.emit('cache:eviction', {
-      evicted: evicted.length,
-      remaining: this.entries.size,
-      freedBytes: evicted.reduce((sum, e) => sum + this.estimateSize(e), 0),
-    });
+    // Emit eviction event via Event Bus (Phase 2.4.3)
+    try {
+      const bus = EventBus.getInstance();
+      bus.emit('cache.eviction', {
+        evicted: evicted.length,
+        remaining: this.entries.size,
+        freedBytes: evicted.reduce((sum, e) => sum + this.estimateSize(e), 0),
+      }, { priority: 'normal' });
+    } catch (err) {
+      // Graceful degradation - log to console if Event Bus fails
+      console.error('[intelligent-logger] Failed to emit cache eviction event:', err);
+    }
   }
   
   /**
@@ -443,7 +449,7 @@ class CircularBuffer {
 // Intelligent Logger Class
 // ============================================================================
 
-class IntelligentLogger extends EventEmitter {
+class IntelligentLogger {
   private buffer: CircularBuffer;
   private minLevel: LogLevel;
   private serviceName: string;
@@ -453,7 +459,6 @@ class IntelligentLogger extends EventEmitter {
   private errorBusSubscriptionId?: string; // MEMORY LEAK FIX: Store Event Bus subscription ID
   
   constructor() {
-    super();
     this.buffer = new CircularBuffer();
     this.minLevel = this.parseLogLevel(process.env.LOG_LEVEL || 'info');
     this.serviceName = this.detectServiceName();
@@ -540,8 +545,18 @@ class IntelligentLogger extends EventEmitter {
     // Queue for disk write
     this.writeQueue.push(entry);
     
-    // Emit event
-    this.emit('log', entry);
+    // PHASE 2.4.3: Emit to Event Bus (exclusive emission, EventEmitter removed)
+    try {
+      const bus = EventBus.getInstance();
+      const priority = this.mapLogLevelToPriority(level);
+      
+      bus.emit(`log.${level}`, entry, {
+        priority,
+        parentCorrelationId: options?.correlationId, // Pass through if provided
+      });
+    } catch (err) {
+      console.error('[intelligent-logger] Failed to emit to Event Bus:', err);
+    }
     
     // Immediate console output for errors and fatal
     if (level === 'error' || level === 'fatal') {
@@ -634,6 +649,21 @@ class IntelligentLogger extends EventEmitter {
   // --------------------------------------------------------------------------
   // Internal Methods
   // --------------------------------------------------------------------------
+  
+  /**
+   * Map log level to Event Bus priority
+   */
+  private mapLogLevelToPriority(level: LogLevel): 'high' | 'normal' | 'low' {
+    switch (level) {
+      case 'error':
+      case 'fatal':
+        return 'high'; // CRITICAL priority for errors
+      case 'warn':
+        return 'high'; // HIGH priority for warnings
+      default:
+        return 'normal'; // NORMAL priority for trace/debug/info
+    }
+  }
   
   private createEntry(level: LogLevel, message: string, options?: LogOptions): LogEntry {
     const category = options?.category || this.detectCategory(message, options);
@@ -927,6 +957,10 @@ class ScopedLogger {
 // Exports
 // ============================================================================
 
+// Export the class for testing (allows creating instances with custom env)
+export { IntelligentLogger };
+
+// Export singleton instance for normal use
 export const logger = new IntelligentLogger();
 
 // Graceful shutdown
