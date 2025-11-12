@@ -208,40 +208,65 @@ const client = new Client({
     GatewayIntentBits.GuildMembers
   ],
   partials: [Partials.User],
-  // MEMORY MANAGEMENT: Cache sweeping to prevent unbounded growth
+  // MEMORY MANAGEMENT: Aggressive cache sweeping to prevent memory leaks
   sweepers: {
-    // Sweep messages older than 1 hour (keep recent for context)
+    // Sweep messages every 15 minutes, keep only 30 minutes
     messages: {
-      interval: 3600, // Every hour
-      lifetime: 3600, // Keep 1 hour
+      interval: 900, // Every 15 minutes
+      lifetime: 1800, // Keep 30 minutes
     },
-    // Sweep guild members not seen in 12 hours (except high-priority roles)
+    // Sweep guild members every 15 minutes, aggressive cleanup
     guildMembers: {
-      interval: 3600, // Every hour
+      interval: 900, // Every 15 minutes
       filter: () => (member) => {
-        // Keep members with roles (they're active)
-        if (member.roles.cache.size > 1) return false; // More than @everyone role
-        // Keep recently seen members
-        if (Date.now() - (member.joinedTimestamp || 0) < 12 * 60 * 60 * 1000) return false;
+        // Keep bot owner and important users
+        if (member.id === '1049161859555643433') return false; // DripTVDD
+        // Keep members with roles beyond @everyone
+        if (member.roles.cache.size > 1) return false;
+        // Keep recently joined members (last 2 hours)
+        if (Date.now() - (member.joinedTimestamp || 0) < 2 * 60 * 60 * 1000) return false;
         return true; // Sweep inactive members
       },
     },
-    // Sweep users not in any guild we care about
+    // Sweep users every 15 minutes
     users: {
-      interval: 3600, // Every hour
+      interval: 900, // Every 15 minutes
       filter: () => (user) => {
-        // Keep bot owner and important users
+        // Keep bot owner
         if (user.id === '1049161859555643433') return false; // DripTVDD
-        // Keep users with recent DMs
+        // Sweep all other users
         return true;
       },
+    },
+    // Sweep threads every 15 minutes
+    threads: {
+      interval: 900, // Every 15 minutes
+      lifetime: 1800, // Keep 30 minutes
+    },
+    // Sweep stage instances
+    stageInstances: {
+      interval: 900,
+      lifetime: 1800,
+    },
+    // Sweep voice states
+    voiceStates: {
+      interval: 900,
+      filter: () => (state) => !state.channel, // Remove disconnected voice states
     },
   },
   // Limit cache sizes to prevent unbounded growth
   makeCache: (manager) => {
-    // Limit messages to 200 per channel (20 channels × 200 = 4000 messages max)
+    // Limit messages to 50 per channel (aggressive memory optimization)
     if (manager.name === 'MessageManager') {
-      return new LimitedCollection({ maxSize: 200 });
+      return new LimitedCollection({ maxSize: 50 });
+    }
+    // Limit guild members to 1000 (for large servers)
+    if (manager.name === 'GuildMemberManager') {
+      return new LimitedCollection({ maxSize: 1000 });
+    }
+    // Limit threads to 50
+    if (manager.name === 'ThreadManager') {
+      return new LimitedCollection({ maxSize: 50 });
     }
     // Default caching for other managers
     return new Collection();
