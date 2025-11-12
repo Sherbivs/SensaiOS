@@ -11,15 +11,47 @@ echo "Current directory: $(pwd)"
 # Find project root (directory containing package.json)
 # Check absolute Render path FIRST to avoid false positives
 if [ -d "/opt/render/project" ] && [ -f "/opt/render/project/package.json" ]; then
-  PROJECT_ROOT="/opt/render/project"
-elif [ -f "../package.json" ]; then
-  PROJECT_ROOT="$(cd .. && pwd)"
-elif [ -f "../../package.json" ]; then
-  PROJECT_ROOT="$(cd ../.. && pwd)"
-elif [ -f "package.json" ]; then
-  PROJECT_ROOT="$(pwd)"
-else
-  echo "❌ ERROR: Cannot find project root (package.json not found)"
+  # Verify it's the correct package.json by checking the name field
+  PKG_NAME=$(grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' /opt/render/project/package.json | cut -d'"' -f4)
+  if [ "$PKG_NAME" = "infinity-gauntlet" ]; then
+    PROJECT_ROOT="/opt/render/project"
+    echo "✓ Found Render project root at /opt/render/project (verified package name)"
+  else
+    echo "⚠ Found package.json at /opt/render/project but name is '$PKG_NAME' (expected 'infinity-gauntlet')"
+    PROJECT_ROOT=""
+  fi
+fi
+
+# If not found yet, check parent directories
+if [ -z "$PROJECT_ROOT" ]; then
+  if [ -f "../package.json" ]; then
+    PKG_NAME=$(grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' ../package.json | cut -d'"' -f4)
+    if [ "$PKG_NAME" = "infinity-gauntlet" ]; then
+      PROJECT_ROOT="$(cd .. && pwd)"
+      echo "✓ Found project root at parent directory (verified package name)"
+    fi
+  elif [ -f "../../package.json" ]; then
+    PKG_NAME=$(grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' ../../package.json | cut -d'"' -f4)
+    if [ "$PKG_NAME" = "infinity-gauntlet" ]; then
+      PROJECT_ROOT="$(cd ../.. && pwd)"
+      echo "✓ Found project root at grandparent directory (verified package name)"
+    fi
+  elif [ -f "package.json" ]; then
+    PKG_NAME=$(grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' package.json | cut -d'"' -f4)
+    if [ "$PKG_NAME" = "infinity-gauntlet" ]; then
+      PROJECT_ROOT="$(pwd)"
+      echo "✓ Found project root at current directory (verified package name)"
+    fi
+  fi
+fi
+
+if [ -z "$PROJECT_ROOT" ]; then
+  echo "❌ ERROR: Cannot find project root (no valid infinity-gauntlet package.json found)"
+  echo "Checked locations:"
+  echo "  - /opt/render/project/package.json"
+  echo "  - ../package.json"
+  echo "  - ../../package.json"
+  echo "  - ./package.json"
   exit 1
 fi
 
