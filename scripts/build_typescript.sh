@@ -7,12 +7,23 @@ set -e
 
 echo "🔨 TypeScript Build Starting..."
 echo "Current directory: $(pwd)"
+echo ""
+echo "🔍 DEBUG: Checking file system..."
+echo "  - /opt/render/project exists: $([ -d "/opt/render/project" ] && echo "YES" || echo "NO")"
+echo "  - /opt/render/project/package.json exists: $([ -f "/opt/render/project/package.json" ] && echo "YES" || echo "NO")"
+if [ -f "/opt/render/project/package.json" ]; then
+  echo "  - /opt/render/project/package.json contents (first 5 lines):"
+  head -5 /opt/render/project/package.json | sed 's/^/    /'
+fi
+echo "  - Current dir package.json exists: $([ -f "package.json" ] && echo "YES" || echo "NO")"
+echo ""
 
 # Find project root (directory containing package.json)
 # Check absolute Render path FIRST to avoid false positives
 if [ -d "/opt/render/project" ] && [ -f "/opt/render/project/package.json" ]; then
   # Verify it's the correct package.json by checking the name field
   PKG_NAME=$(grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' /opt/render/project/package.json | cut -d'"' -f4)
+  echo "📦 Found package.json at /opt/render/project with name: '$PKG_NAME'"
   if [ "$PKG_NAME" = "infinity-gauntlet" ]; then
     PROJECT_ROOT="/opt/render/project"
     echo "✓ Found Render project root at /opt/render/project (verified package name)"

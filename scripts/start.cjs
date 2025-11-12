@@ -14,52 +14,44 @@ function findProjectRoot() {
   console.log('🔍 Searching for project root...');
   console.log('   Current working directory:', process.cwd());
   
-  // DEBUG: List Render directory structure
-  console.log('\n🔍 DEBUG: Exploring Render filesystem...');
-  if (fs.existsSync('/opt/render/project')) {
-    console.log('   /opt/render/project/ contents:');
-    try {
-      const files = fs.readdirSync('/opt/render/project');
-      files.slice(0, 20).forEach(f => {
-        const fullPath = path.join('/opt/render/project', f);
-        const isDir = fs.statSync(fullPath).isDirectory();
-        console.log(`     ${isDir ? '[DIR]' : '[FILE]'} ${f}`);
-      });
-    } catch (err) {
-      console.log(`     Error listing: ${err.message}`);
-    }
-  }
-  
-  if (fs.existsSync('/opt/render/project/src')) {
-    console.log('   /opt/render/project/src/ contents:');
-    try {
-      const files = fs.readdirSync('/opt/render/project/src');
-      files.slice(0, 15).forEach(f => {
-        const fullPath = path.join('/opt/render/project/src', f);
-        const isDir = fs.statSync(fullPath).isDirectory();
-        console.log(`     ${isDir ? '[DIR]' : '[FILE]'} ${f}`);
-      });
-    } catch (err) {
-      console.log(`     Error listing: ${err.message}`);
-    }
-  }
-  console.log();
-  
   // 1. Check absolute Render deployment path FIRST
   const renderPath = '/opt/render/project';
+  console.log(`\n   🔎 DEBUG: Checking Render path: ${renderPath}`);
+  console.log(`     - Directory exists: ${fs.existsSync(renderPath)}`);
+  
   if (fs.existsSync(renderPath)) {
     const renderPkg = path.join(renderPath, 'package.json');
     const renderSrc = path.join(renderPath, 'src');
     const renderDist = path.join(renderPath, 'dist');
     
-    console.log(`   Checking Render path: ${renderPath}`);
     console.log(`     - package.json exists: ${fs.existsSync(renderPkg)}`);
     console.log(`     - src/ exists: ${fs.existsSync(renderSrc)}`);
     console.log(`     - dist/ exists: ${fs.existsSync(renderDist)}`);
     
-    if (fs.existsSync(renderPkg) && fs.existsSync(renderSrc)) {
-      console.log(`   ✓ Found project root at: ${renderPath}`);
-      return renderPath;
+    if (fs.existsSync(renderPkg)) {
+      try {
+        const pkgContent = fs.readFileSync(renderPkg, 'utf-8');
+        const pkg = JSON.parse(pkgContent);
+        console.log(`     - package.json name field: "${pkg.name}"`);
+        
+        if (pkg.name === 'infinity-gauntlet' && fs.existsSync(renderSrc)) {
+          console.log(`   ✓ Found project root at: ${renderPath}`);
+          return renderPath;
+        } else {
+          console.log(`     ⚠ Package name mismatch or src/ missing`);
+        }
+      } catch (err) {
+        console.log(`     ✗ Failed to read/parse package.json: ${err.message}`);
+      }
+    } else {
+      console.log(`     ✗ package.json not found at ${renderPkg}`);
+      console.log(`     🔎 Listing ${renderPath} contents:`);
+      try {
+        const files = fs.readdirSync(renderPath);
+        files.slice(0, 20).forEach(f => console.log(`       - ${f}`));
+      } catch (err) {
+        console.log(`     ✗ Cannot list directory: ${err.message}`);
+      }
     }
   }
   
