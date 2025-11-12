@@ -2,6 +2,7 @@ import os from 'node:os';
 import { performance } from 'node:perf_hooks';
 import fs from 'node:fs';
 import path from 'node:path';
+import { getMetrics as getResourceMetrics } from '../services/resource-monitor.js';
 
 // ============================================================================
 // Constants & Configuration
@@ -206,24 +207,43 @@ function hasSignificantChange(current, previous) {
  * @returns {object} Node stats (uptime, memory, CPU, PID, version)
  */
 function collectNodeStats() {
-  const mem = process.memoryUsage();
-  const cpu = process.cpuUsage();
-  const uptime = process.uptime() * 1000;
+  // Get real-time metrics from resource monitor
+  const resourceMetrics = getResourceMetrics();
   
   return {
-    uptime: formatUptime(uptime),
+    uptime: formatUptime(resourceMetrics.uptime * 1000),
     memory: {
-      rss: formatBytes(mem.rss),
-      heapUsed: formatBytes(mem.heapUsed),
-      heapTotal: formatBytes(mem.heapTotal),
-      external: formatBytes(mem.external),
+      rss: formatBytes(resourceMetrics.rss),
+      heapUsed: formatBytes(resourceMetrics.heapUsed),
+      heapTotal: formatBytes(resourceMetrics.heapTotal),
+      external: formatBytes(resourceMetrics.external),
     },
     cpu: {
-      user: `${(cpu.user / 1000000).toFixed(2)}s`,
-      system: `${(cpu.system / 1000000).toFixed(2)}s`,
+      user: `${resourceMetrics.cpuUser.toFixed(1)}%`,
+      system: `${resourceMetrics.cpuSystem.toFixed(1)}%`,
     },
-    pid: process.pid,
-    version: process.version,
+    pid: resourceMetrics.pid,
+    version: resourceMetrics.nodeVersion,
+  };
+}
+
+/**
+ * Collect cache and resource usage statistics from resource monitor.
+ * @returns {object} Cache and resource stats
+ */
+function collectCacheStats() {
+  const resourceMetrics = getResourceMetrics();
+  
+  return {
+    cacheDir: resourceMetrics.cacheDir,
+    cacheSize: formatBytes(resourceMetrics.cacheSize),
+    cacheBudgetMax: formatBytes(resourceMetrics.cacheBudgetMax),
+    cacheBudgetPercent: `${resourceMetrics.cacheBudgetPercent.toFixed(1)}%`,
+    approxFree: formatBytes(resourceMetrics.cacheBudgetMax - resourceMetrics.cacheSize),
+    workspaceLimit: formatBytes(resourceMetrics.workspaceLimit),
+    workspaceFree: formatBytes(resourceMetrics.approxFree),
+    diskTotal: formatBytes(resourceMetrics.diskTotal),
+    diskFree: formatBytes(resourceMetrics.diskFree),
   };
 }
 
@@ -642,6 +662,7 @@ async function refreshStats() {
   }
   
   statsCache.node = collectNodeStats();
+  statsCache.cache = collectCacheStats(); // NEW: Cache & resource metrics
   statsCache.databases = await collectDatabaseStats(); // Now async
   statsCache.security = collectSecurityBotStats();
   statsCache.errors = await collectErrorStats(); // Now includes error monitoring
@@ -693,7 +714,7 @@ async function printStats() {
   await refreshStats();
   
   // Skip printing if stats not ready
-  if (!statsCache.databases || !statsCache.node || !statsCache.security) {
+  if (!statsCache.databases || !statsCache.node || !statsCache.security || !statsCache.cache) {
     return;
   }
   
@@ -727,6 +748,21 @@ async function printStats() {
   lines.push('  CPU:');
   lines.push(`    User:   ${statsCache.node.cpu.user}`);
   lines.push(`    System: ${statsCache.node.cpu.system}`);
+  lines.push('');
+  
+  // -------------------------------------------------------------------------
+  // Cache & Resource Stats - Real-time metrics from resource monitor
+  // -------------------------------------------------------------------------
+  lines.push('[CACHE & RESOURCES]');
+  lines.push(`  Cache Directory: ${statsCache.cache.cacheDir}`);
+  lines.push(`  Cache Size: ${statsCache.cache.cacheSize} / ${statsCache.cache.cacheBudgetMax} (${statsCache.cache.cacheBudgetPercent})`);
+  lines.push(`  Cache Free: ${statsCache.cache.approxFree}`);
+  lines.push('');
+  lines.push(`  Workspace Limit: ${statsCache.cache.workspaceLimit}`);
+  lines.push(`  Workspace Free:  ${statsCache.cache.workspaceFree}`);
+  lines.push('');
+  lines.push(`  Disk Total: ${statsCache.cache.diskTotal}`);
+  lines.push(`  Disk Free:  ${statsCache.cache.diskFree}`);
   lines.push('');
   
   // -------------------------------------------------------------------------
