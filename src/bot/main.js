@@ -243,11 +243,6 @@ const client = new Client({
       interval: 900, // Every 15 minutes
       lifetime: 1800, // Keep 30 minutes
     },
-    // Sweep stage instances
-    stageInstances: {
-      interval: 900,
-      lifetime: 1800,
-    },
     // Sweep voice states
     voiceStates: {
       interval: 900,
