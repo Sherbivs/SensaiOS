@@ -509,14 +509,14 @@ async function collectMetrics() {
 /**
  * Get current metrics (returns cached values)
  */
-export function getMetrics() {
+function getMetrics() {
   return { ...metrics };
 }
 
 /**
  * Get formatted metrics for display
  */
-export function getFormattedMetrics() {
+function getFormattedMetrics() {
   return {
     memory: {
       rss: formatBytes(metrics.rss),
@@ -559,7 +559,7 @@ export function getFormattedMetrics() {
 /**
  * Start monitoring
  */
-export function startMonitoring() {
+function startMonitoring() {
   if (monitorInterval) {
     return; // Already running
   }
@@ -593,7 +593,7 @@ export function startMonitoring() {
 /**
  * Stop monitoring
  */
-export function stopMonitoring() {
+function stopMonitoring() {
   if (monitorInterval) {
     clearInterval(monitorInterval);
     monitorInterval = null;
@@ -605,37 +605,30 @@ export function stopMonitoring() {
 }
 
 /**
- * Get current metrics (returns cached values)
- */
-export function getMetrics() {
-  return { ...metrics };
-}
-
-/**
  * Get historical snapshots
  */
-export function getSnapshots() {
+function getSnapshots() {
   return [...snapshots];
 }
 
 /**
  * Get alert history
  */
-export function getAlertHistory() {
+function getAlertHistory() {
   return [...alertHistory];
 }
 
 /**
  * Get current alerts only
  */
-export function getCurrentAlerts() {
+function getCurrentAlerts() {
   return [...metrics.alerts];
 }
 
 /**
  * Get resource checkpoint (comprehensive status)
  */
-export function getCheckpoint() {
+function getCheckpoint() {
   return {
     timestamp: new Date().toISOString(),
     status: metrics.status,
