@@ -15,6 +15,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { toEasternLogFormat } from '../shared/datetime.js';
 import { EventBus } from '../shared/event-bus.js';
 import { prisma } from '../shared/prisma.js';
 import type { ErrorLog, ErrorAlert } from '@prisma/client';
@@ -248,7 +249,7 @@ export class ErrorTracker {
    */
   async captureError(error: Error, context: ErrorContext = {}): Promise<string> {
     // IMMEDIATE console output for live visibility (before any async operations)
-    const timestamp = new Date().toISOString();
+    const timestamp = toEasternLogFormat();
     
     // Parse stack trace IMMEDIATELY (synchronous operation)
     const parsedStack = parseStackTrace(error);

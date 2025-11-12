@@ -6,10 +6,10 @@
  * @module services/error-alerting
  */
 
-import type { Client, User } from 'discord.js';
+import type { Client } from 'discord.js';
 import type { ErrorLog } from '@prisma/client';
+import { toEasternString } from '../shared/datetime.js';
 import { errorTracker } from './error-tracker.js';
-import type { ErrorSeverity, ErrorCategory } from './error-tracker.js';
 import { log } from '../utils/logger.js';
 
 /// ---- Configuration ----
@@ -299,8 +299,8 @@ function formatCriticalErrorDM(error: ErrorLog): string {
   lines.push(`**Fingerprint**: \`${error.fingerprint.substring(0, 12)}\``);
   lines.push(`**Category**: ${error.category}`);
   lines.push(`**Occurrences**: ${error.occurrenceCount}`);
-  lines.push(`**First Seen**: ${error.firstSeen.toISOString()}`);
-  lines.push(`**Last Seen**: ${error.lastSeen.toISOString()}`);
+  lines.push(`**First Seen**: ${toEasternString(error.firstSeen)}`);
+  lines.push(`**Last Seen**: ${toEasternString(error.lastSeen)}`);
   lines.push('');
   
   if (error.errorMessage) {

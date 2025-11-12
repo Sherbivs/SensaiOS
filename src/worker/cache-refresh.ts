@@ -1,5 +1,6 @@
 import { CACHE_WORKER_INTERVAL_MS, CACHE_WORKER_INTERVAL_JITTER_MS } from "../config/env.js";
 import { initializePokemonCache, refreshPokemonCache, getCacheMetadata } from "../services/pokemonService.js";
+import { toEasternString } from "../shared/datetime.js";
 import { log } from "../shared/log.js";
 import { runWorker, type WorkerMetrics } from "../shared/worker-runtime.js";
 
@@ -16,7 +17,7 @@ async function runManualRefresh(metrics: WorkerMetrics, reason: string): Promise
     log.info("worker.cache_refreshed", {
       reason,
       total: result.total,
-      lastFetchedAt: result.lastFetchedAt?.toISOString?.() ?? null,
+      lastFetchedAt: result.lastFetchedAt ? toEasternString(result.lastFetchedAt) : null,
     });
     metrics.incrementCounter("refresh.success", 1);
     metrics.recordSuccess("cache-refresh", { durationMs: Date.now() - startedAt });
@@ -39,7 +40,7 @@ await runWorker("cache-refresh", async (ctx) => {
     const meta = getCacheMetadata();
     log.info("worker.cache.initialized", {
       total: init.total,
-      lastFetchedAt: init.lastFetchedAt?.toISOString?.() ?? meta.lastFetchedAt?.toISOString?.() ?? null,
+      lastFetchedAt: init.lastFetchedAt ? toEasternString(init.lastFetchedAt) : (meta.lastFetchedAt ? toEasternString(meta.lastFetchedAt) : null),
       cron: meta.cron,
       timezone: meta.timezone,
     });
@@ -65,8 +66,8 @@ await runWorker("cache-refresh", async (ctx) => {
       ctx.metrics.setGauge("cache.total_records", meta.total);
       log.info("worker.cache.health", {
         total: meta.total,
-        lastFetchedAt: meta.lastFetchedAt?.toISOString?.() ?? null,
-        lastFetchAttemptAt: meta.lastFetchAttemptAt?.toISOString?.() ?? null,
+        lastFetchedAt: meta.lastFetchedAt ? toEasternString(meta.lastFetchedAt) : null,
+        lastFetchAttemptAt: meta.lastFetchAttemptAt ? toEasternString(meta.lastFetchAttemptAt) : null,
         cron: meta.cron,
         timezone: meta.timezone,
         intervalMs: REFRESH_INTERVAL_MS,

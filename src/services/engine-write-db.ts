@@ -26,7 +26,6 @@
  */
 
 import initSqlJs, { type Database } from 'sql.js';
-import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -812,19 +811,19 @@ export async function pruneOldEntries(): Promise<void> {
     });
 
     // Delete uploaded entries older than retention period
-    const battleResult = db.exec(`
+    db.exec(`
       DELETE FROM battle_logs 
       WHERE uploaded_at IS NOT NULL 
       AND created_at < ${cutoffTime}
     `);
     
-    const moveResult = db.exec(`
+    db.exec(`
       DELETE FROM move_usage 
       WHERE uploaded_at IS NOT NULL 
       AND created_at < ${cutoffTime}
     `);
     
-    const anomalyResult = db.exec(`
+    db.exec(`
       DELETE FROM anomalies 
       WHERE uploaded_at IS NOT NULL 
       AND created_at < ${cutoffTime}

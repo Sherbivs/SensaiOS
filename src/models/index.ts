@@ -2,7 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import type { Battle, Cooldown, PrismaClient, User as PrismaUser } from "@prisma/client";
-
+import { toEasternString } from "../shared/datetime.js";
 import { ensurePrisma, prisma } from "../shared/prisma.js";
 
 export async function initPrisma(): Promise<void> {
@@ -802,7 +802,7 @@ export function evaluateDailyQuestStreak(input: DailyQuestStateInput): DailyQues
       lastReset,
       nextDue,
       daysSinceCompletion: 0,
-      message: `On a ${streak}-day streak! Next quest unlocks ${nextDue.toISOString()}.`,
+      message: `On a ${streak}-day streak! Next quest unlocks ${toEasternString(nextDue)}.`,
     };
   }
 

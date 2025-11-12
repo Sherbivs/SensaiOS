@@ -1329,11 +1329,11 @@ async function scheduleDailySummaryReports() {
   const delay = msUntilNextReport(SUMMARY_REPORT_HOUR, SUMMARY_REPORT_MINUTE);
   const safeDelay = Number.isFinite(delay) ? Math.max(0, delay) : 0;
   const nextRun = new Date(Date.now() + safeDelay);
-  const { toEasternString } = await import('../shared/datetime.js');
+  const { toEasternString, toEasternLogFormat } = await import('../shared/datetime.js');
   log('info', 'Daily summary scheduled', {
     recipient: SUMMARY_REPORT_RECIPIENT || 'unset',
-    nextRunIso: nextRun.toISOString(), // Keep ISO for logging
-    nextRunEastern: toEasternString(nextRun),
+    nextRunEastern: toEasternLogFormat(nextRun),
+    nextRunFormatted: toEasternString(nextRun),
   });
   summaryTimer = setTimeout(async () => {
     await sendDailySummaryReport();

@@ -1,8 +1,30 @@
 /**
- * Datetime utilities for EST/EDT timezone formatting
+ * Datetime Utilities - Eastern Time (EST/EDT)
  * 
- * All user-facing timestamps should use these helpers to ensure
- * consistent Eastern Time display across the application.
+ * **CRITICAL: This is the SINGLE SOURCE OF TRUTH for all timestamp formatting
+ * across the entire application.**
+ * 
+ * All timestamps displayed to users or written to logs should use functions from
+ * this module to ensure consistent timezone handling. The application uses
+ * Eastern Time (America/New_York) as the standard timezone for all displays.
+ * 
+ * **Timestamp Categories:**
+ * 1. **User-Facing Displays** (Discord messages, notifications, summaries):
+ *    → Use toEasternString(), toEasternTime(), toEasternDate()
+ * 
+ * 2. **Console Logging** (monitoring output, debug statements):
+ *    → Use toEasternLogFormat() for high-precision timestamps
+ * 
+ * 3. **State Persistence** (JSON files, database records, Event Bus metadata):
+ *    → Use Date.toISOString() for UTC format (portability)
+ * 
+ * **DO NOT use these directly in application code:**
+ * - ❌ new Date().toLocaleString() → Use toEasternString()
+ * - ❌ new Date().toLocaleDateString() → Use toEasternDate()
+ * - ❌ new Date().toLocaleTimeString() → Use toEasternTime()
+ * - ❌ Intl.DateTimeFormat without timezone → Use formatInTimeZone()
+ * 
+ * @module shared/datetime
  */
 
 const EASTERN_TIMEZONE = 'America/New_York';
@@ -107,3 +129,52 @@ export function getEasternTimezoneAbbr(date = new Date()) {
   const timeZonePart = parts.find(part => part.type === 'timeZoneName');
   return timeZonePart ? timeZonePart.value : 'EST';
 }
+
+/**
+ * Generic timezone formatting function
+ * Use this for custom timezone formatting needs, but prefer toEasternString()
+ * for standard Eastern Time displays.
+ * 
+ * @param {Date|number|string} date - Date to format
+ * @param {string} timeZone - IANA timezone identifier (e.g., 'America/New_York')
+ * @param {Intl.DateTimeFormatOptions} [options] - Formatting options
+ * @returns {string} Formatted date string in specified timezone
+ */
+export function formatInTimeZone(date, timeZone, options = {}) {
+  const dateObj = date instanceof Date ? date : new Date(date);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    ...options,
+  });
+  return formatter.format(dateObj);
+}
+
+/**
+ * Format date/time for console logging with milliseconds
+ * Provides high-precision timestamps for debugging and monitoring.
+ * 
+ * @param {Date|number|string} [date=new Date()] - Date to format
+ * @returns {string} Formatted string like "11/12/2025, 8:21:32.456 PM EST"
+ */
+export function toEasternLogFormat(date = new Date()) {
+  const dateObj = date instanceof Date ? date : new Date(date);
+  const baseFormat = toEasternString(dateObj);
+  const ms = dateObj.getMilliseconds().toString().padStart(3, '0');
+  const abbr = getEasternTimezoneAbbr(dateObj);
+  return `${baseFormat}.${ms} ${abbr}`;
+}
+
+/**
+ * Get Eastern Time timezone identifier
+ * @returns {string} 'America/New_York'
+ */
+export function getEasternTimezone() {
+  return EASTERN_TIMEZONE;
+}
+
+/**
+ * Compatibility export for existing utils/timezone.js usage
+ * Re-exports formatInTimeZone for code that already uses it
+ */
+export { formatInTimeZone as formatInEasternTimeZone };
+

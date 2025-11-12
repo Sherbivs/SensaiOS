@@ -24,7 +24,6 @@
  */
 
 import initSqlJs, { type Database } from 'sql.js';
-import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';

@@ -1,6 +1,7 @@
 import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
 import type { Pool } from "pg";
 import type { BusStatus } from "../../types/db-models.js";
+import { toEasternString } from "../../shared/datetime.js";
 
 import {
   collectCacheMetrics,
@@ -270,7 +271,7 @@ async function collectOpsStatsFromDb(pool: Pool, window: StatsWindow): Promise<O
 }
 
 function formatBattleSummary(summary: BattleSummary) {
-  const timestamp = summary.endedAt ? summary.endedAt.toISOString() : "time unknown";
+  const timestamp = summary.endedAt ? toEasternString(summary.endedAt) : "time unknown";
   const winner = summary.winnerDiscordId ? `<@${summary.winnerDiscordId}>` : "winner n/a";
   const loser = summary.loserDiscordId ? `<@${summary.loserDiscordId}>` : "loser n/a";
   const reason = summary.reason ?? "result n/a";
@@ -422,13 +423,13 @@ function formatOpsStatsReport(
   const n = (value: number | null | undefined) => (value === null || value === undefined ? "n/a" : String(value));
   const window = report?.window ?? windowOverride ?? { limit: DEFAULT_RECENT_LIMIT, after: null, participant: null };
   const limitText = window.limit ? String(window.limit) : "n/a";
-  const afterText = window.after ? window.after.toISOString() : "none";
+  const afterText = window.after ? toEasternString(window.after) : "none";
   const participantText = window.participant ? `<@${window.participant}>` : "all";
   const totalFinished = report?.totalFinishedBattles ?? null;
   const shown = report?.recentBattles?.length ?? 0;
   const busPending = report?.busPending ?? diagnostics.busPending;
   const busLastProcessedIso =
-    report?.busLastProcessedAt?.toISOString() ?? diagnostics.busLastProcessedIso;
+    report?.busLastProcessedAt ? toEasternString(report.busLastProcessedAt) : diagnostics.busLastProcessedIso;
 
   const lines = [
     "Runtime:",
@@ -722,7 +723,7 @@ export async function handleOpsCommand(
       diagnostics.dbStatus = report.prismaStatus;
       diagnostics.busPending = report.busPending;
       diagnostics.busLastProcessedIso =
-        report.busLastProcessedAt?.toISOString() ?? diagnostics.busLastProcessedIso;
+        report.busLastProcessedAt ? toEasternString(report.busLastProcessedAt) : diagnostics.busLastProcessedIso;
       const message = formatOpsStatsReport(report, diagnostics);
       await interaction.editReply({ content: message });
     } catch (err) {
@@ -762,7 +763,7 @@ export async function handleOpsCommand(
       
       const lines: string[] = [];
       lines.push("🛡️ **Security Bot Operational State**");
-      lines.push(`Generated: ${new Date().toISOString()}`);
+      lines.push(`Generated: ${toEasternString(new Date())}`);
       lines.push("");
       
       // Cumulative stats
@@ -813,7 +814,7 @@ export async function handleOpsCommand(
           for (const guild of guildStatus.slice(0, 10)) {
             const status = guild.monitoring ? "✅" : "⏸️";
             const lastSweep = guild.lastSweep 
-              ? new Date(guild.lastSweep).toLocaleString()
+              ? toEasternString(new Date(guild.lastSweep))
               : "never";
             const timeoutInfo = (botState.guilds[guild.id]?.memberFetchTimeouts || 0) > 0
               ? ` ⏱️${botState.guilds[guild.id].memberFetchTimeouts}`
@@ -948,7 +949,7 @@ export async function handleOpsCommand(
       // Build response
       const lines: string[] = [];
       lines.push("🚨 **Error Detection System Dashboard**");
-      lines.push(`Period: Last ${sinceRaw} (since ${sinceDate.toISOString()})`);
+      lines.push(`Period: Last ${sinceRaw} (since ${toEasternString(sinceDate)})`);
       if (severityFilter) lines.push(`Filter: Severity = ${severityFilter}`);
       if (categoryFilter) lines.push(`Filter: Category = ${categoryFilter}`);
       lines.push("");

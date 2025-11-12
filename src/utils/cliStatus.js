@@ -573,7 +573,9 @@ function render() {
       if (QUIET_SIMPLE_MODE) {
         const summary = buildQuietSummary();
         if (summary && summary !== lastSimpleRender) {
-          const line = `${new Date().toISOString()} ${summary}${os.EOL}`;
+          // Import at function level to avoid circular dependencies
+          const { toEasternLogFormat } = require('../shared/datetime.js');
+          const line = `${toEasternLogFormat()} ${summary}${os.EOL}`;
           process.stdout.write(line);
           lastSimpleRender = summary;
         }

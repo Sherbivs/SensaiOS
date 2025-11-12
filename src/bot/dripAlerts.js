@@ -1,4 +1,5 @@
 import { msUntilNextZonedTime, formatInTimeZone } from '../utils/timezone.js';
+import { toEasternLogFormat } from '../shared/datetime.js';
 import { EventBus } from '../shared/event-bus.js';
 
 const DEFAULT_TIME_ZONE = 'America/New_York';
@@ -134,8 +135,8 @@ function createDripAlertManager({
     const nextRun = new Date(Date.now() + safeDelay);
     logContext('info', 'Drip alert digest scheduled', {
       recipient: recipient || 'unset',
-      nextRunIso: nextRun.toISOString(), // Keep ISO for logging
-      nextRunEastern: formatInTimeZone(nextRun, timeZone, {
+      nextRunEastern: toEasternLogFormat(nextRun),
+      nextRunFormatted: formatInTimeZone(nextRun, timeZone, {
         dateStyle: 'short',
         timeStyle: 'short',
       }),

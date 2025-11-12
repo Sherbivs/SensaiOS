@@ -101,6 +101,7 @@ Key Documents by Category:
 
 **Datetime & Timezone** (root docs/):
 - datetime-utilities.md - Eastern Time (EST/EDT) formatting utilities, usage patterns, migration guide
+- timezone-standardization-guide.md - **ACTIVE MIGRATION** - Application-wide timezone standardization plan and progress tracking
 
 **Northstar** (northstar/):
 - northstar-methodology.md - Northstar schema consolidation methodology
