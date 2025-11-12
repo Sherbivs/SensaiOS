@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build:ci": "npm run prebuild",
-    "postinstall": "npx prisma generate",
+    "postinstall": "npx prisma generate && echo 'Running postinstall TypeScript build...' && npm run build:ts && echo 'postinstall build complete'",
     "validate:urls": "node scripts/validate_database_urls.js",
     "generate:types": "tsx scripts/generate_pg_types.ts",
     "prebuild": "echo 'Starting prebuild...' && npm run validate:urls && npx prisma generate && echo 'Running TypeScript build...' && npm run build:ts && echo 'Build complete!' && npm run verify:dist",
