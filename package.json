@@ -13,7 +13,7 @@
     "build": "npm run build:ts",
     "verify:dist": "node -e \"const fs=require('fs'); const path=require('path'); function findProjectRoot(){const checks=['.','..','..']; for(const dir of checks){const testPath=path.join(dir,'package.json'); if(fs.existsSync(testPath)){return path.resolve(dir)}} if(fs.existsSync('/opt/render/project/package.json')){return '/opt/render/project'} return null} const root=findProjectRoot(); if(!root){console.error('✗ Cannot find project root'); process.exit(1)} const distPath=path.join(root,'dist','index.js'); if(fs.existsSync(distPath)){console.log('✓ Found dist/index.js at:',distPath)}else{console.error('✗ FATAL: dist/index.js not found'); console.log('Project root:',root); console.log('Expected:',distPath); process.exit(1)}\"",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
+    "start": "cd /opt/render/project 2>/dev/null || cd . && node dist/index.js",
     "start:dev": "tsx src/index.ts",
     "data:build": "tsx src/data_pipeline/index.ts",
     "data:dexpack": "npm run data:dexpack:v1 && npm run data:dexpack:v2",
