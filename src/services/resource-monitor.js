@@ -178,11 +178,13 @@ async function getDirectorySize(dirPath) {
 
 /**
  * Get CPU usage percentage
+ * CRITICAL: First call establishes baseline, returns 0s gracefully
  */
 function getCpuUsage() {
   const currentUsage = process.cpuUsage();
   
   if (!lastCpuUsage) {
+    // First call - establish baseline for next measurement
     lastCpuUsage = currentUsage;
     return { user: 0, system: 0, total: 0 };
   }
@@ -197,8 +199,10 @@ function getCpuUsage() {
   const systemPercent = (systemDiff / intervalMicros) * 100;
   const totalPercent = (totalDiff / intervalMicros) * 100;
   
+  // Update baseline for next measurement
   lastCpuUsage = currentUsage;
   
+  // Clamp to valid range [0, 100]
   return {
     user: Math.min(100, Math.max(0, userPercent)),
     system: Math.min(100, Math.max(0, systemPercent)),
@@ -416,9 +420,10 @@ function createSnapshot() {
   
   snapshots.push(snapshot);
   
-  // Trim old snapshots (keep last 24 hours)
+  // Trim old snapshots (keep last 24 hours) - CRITICAL: Use splice to mutate in place
   if (snapshots.length > SNAPSHOT_RETENTION) {
-    snapshots = snapshots.slice(-SNAPSHOT_RETENTION);
+    const excessCount = snapshots.length - SNAPSHOT_RETENTION;
+    snapshots.splice(0, excessCount);
   }
   
   return snapshot;
@@ -426,84 +431,134 @@ function createSnapshot() {
 
 /**
  * Collect all resource metrics
+ * CRITICAL: Each section has individual error handling for graceful degradation
  */
 async function collectMetrics() {
-  // Memory metrics
-  const mem = process.memoryUsage();
-  metrics.rss = mem.rss;
-  metrics.heapUsed = mem.heapUsed;
-  metrics.heapTotal = mem.heapTotal;
-  metrics.external = mem.external;
-  metrics.arrayBuffers = mem.arrayBuffers || 0;
-  
-  // Calculate percentages
-  metrics.heapPercent = metrics.heapTotal > 0 
-    ? (metrics.heapUsed / metrics.heapTotal) * 100 
-    : 0;
-  metrics.workspacePercent = WORKSPACE_LIMIT > 0
-    ? (metrics.rss / WORKSPACE_LIMIT) * 100
-    : 0;
-  metrics.memoryLimitPercent = MEMORY_LIMIT > 0
-    ? (metrics.rss / MEMORY_LIMIT) * 100
-    : 0;
-  
-  // CPU metrics
-  const cpu = getCpuUsage();
-  metrics.cpuPercent = cpu.total;
-  metrics.cpuUser = cpu.user;
-  metrics.cpuSystem = cpu.system;
-  
-  // Process info
-  metrics.uptime = process.uptime();
-  metrics.uptimeSec = Math.floor(metrics.uptime);
-  
-  // Cache metrics
   try {
-    metrics.cacheSize = await getDirectorySize(CACHE_DIR);
-    metrics.cacheBudgetPercent = metrics.cacheBudgetMax > 0
-      ? (metrics.cacheSize / metrics.cacheBudgetMax) * 100
-      : 0;
-  } catch (err) {
-    // Cache directory might not exist yet
-    metrics.cacheSize = 0;
-    metrics.cacheBudgetPercent = 0;
-  }
-  
-  // Disk metrics
-  const disk = await getDiskUsage();
-  metrics.diskFree = disk.free;
-  metrics.diskTotal = disk.total;
-  metrics.diskUsed = disk.used;
-  metrics.diskPercent = disk.percent;
-  
-  // Workspace metrics
-  metrics.approxFree = WORKSPACE_LIMIT - metrics.rss;
-  
-  // Resource manager integration
-  metrics.resources = await collectResourceManagerStats();
-  
-  // Generate alerts based on thresholds
-  const { alerts, status } = generateAlerts();
-  metrics.alerts = alerts;
-  metrics.status = status;
-  
-  // Store alerts in history
-  if (alerts.length > 0) {
-    alertHistory.push({
-      timestamp: new Date().toISOString(),
-      alerts: alerts.map(a => ({ ...a })),
-    });
-    
-    // Keep last 100 alert events
-    if (alertHistory.length > 100) {
-      alertHistory = alertHistory.slice(-100);
+    // Memory metrics - CRITICAL: Always collect, never fail
+    try {
+      const mem = process.memoryUsage();
+      metrics.rss = mem.rss;
+      metrics.heapUsed = mem.heapUsed;
+      metrics.heapTotal = mem.heapTotal;
+      metrics.external = mem.external;
+      metrics.arrayBuffers = mem.arrayBuffers || 0;
+      
+      // Calculate percentages
+      metrics.heapPercent = metrics.heapTotal > 0 
+        ? (metrics.heapUsed / metrics.heapTotal) * 100 
+        : 0;
+      metrics.workspacePercent = WORKSPACE_LIMIT > 0
+        ? (metrics.rss / WORKSPACE_LIMIT) * 100
+        : 0;
+      metrics.memoryLimitPercent = MEMORY_LIMIT > 0
+        ? (metrics.rss / MEMORY_LIMIT) * 100
+        : 0;
+    } catch (memErr) {
+      console.error('[resource-monitor] Memory collection failed:', memErr);
+      // Keep previous values, don't crash
     }
+    
+    // CPU metrics - Graceful degradation on first call
+    try {
+      const cpu = getCpuUsage();
+      metrics.cpuPercent = cpu.total;
+      metrics.cpuUser = cpu.user;
+      metrics.cpuSystem = cpu.system;
+    } catch (cpuErr) {
+      console.error('[resource-monitor] CPU collection failed:', cpuErr);
+      // Keep previous values
+    }
+    
+    // Process info - Always available
+    metrics.uptime = process.uptime();
+    metrics.uptimeSec = Math.floor(metrics.uptime);
+    
+    // Cache metrics - May fail if directory doesn't exist
+    try {
+      metrics.cacheSize = await getDirectorySize(CACHE_DIR);
+      metrics.cacheBudgetPercent = metrics.cacheBudgetMax > 0
+        ? (metrics.cacheSize / metrics.cacheBudgetMax) * 100
+        : 0;
+    } catch (cacheErr) {
+      // Cache directory might not exist yet or be inaccessible
+      metrics.cacheSize = 0;
+      metrics.cacheBudgetPercent = 0;
+    }
+    
+    // Disk metrics - Linux only, optional
+    try {
+      const disk = await getDiskUsage();
+      metrics.diskFree = disk.free;
+      metrics.diskTotal = disk.total;
+      metrics.diskUsed = disk.used;
+      metrics.diskPercent = disk.percent;
+    } catch (diskErr) {
+      // Not critical, keep previous values
+      console.error('[resource-monitor] Disk collection failed:', diskErr);
+    }
+    
+    // Workspace metrics
+    metrics.approxFree = WORKSPACE_LIMIT - metrics.rss;
+    
+    // Resource manager integration - May fail during startup
+    try {
+      metrics.resources = await collectResourceManagerStats();
+    } catch (rmErr) {
+      console.error('[resource-monitor] Resource manager integration failed:', rmErr);
+      // Keep previous values or use defaults
+      if (!metrics.resources || metrics.resources.total === 0) {
+        metrics.resources = {
+          total: 0,
+          timers: 0,
+          listeners: 0,
+          connections: 0,
+          caches: 0,
+          diskCaches: 0,
+          diskBuffers: 0,
+          diskLogs: 0,
+          leakSuspects: 0,
+          diskUsageBytes: 0,
+        };
+      }
+    }
+    
+    // Generate alerts based on thresholds
+    try {
+      const { alerts, status } = generateAlerts();
+      metrics.alerts = alerts;
+      metrics.status = status;
+      
+      // Store alerts in history
+      if (alerts.length > 0) {
+        alertHistory.push({
+          timestamp: new Date().toISOString(),
+          alerts: alerts.map(a => ({ ...a })),
+        });
+        
+        // Keep last 100 alert events - CRITICAL: Use splice to mutate in place
+        if (alertHistory.length > 100) {
+          const excessCount = alertHistory.length - 100;
+          alertHistory.splice(0, excessCount);
+        }
+      }
+    } catch (alertErr) {
+      console.error('[resource-monitor] Alert generation failed:', alertErr);
+      metrics.alerts = [];
+      metrics.status = 'healthy';
+    }
+    
+    // Timing - Always update
+    metrics.lastUpdate = new Date().toISOString();
+    
+    return metrics;
+    
+  } catch (err) {
+    // Top-level catch - Should never reach here due to individual try-catches
+    console.error('[resource-monitor] CRITICAL: Metrics collection completely failed:', err);
+    // Return current state, don't throw
+    return metrics;
   }
-  
-  // Timing
-  metrics.lastUpdate = new Date().toISOString();
-  
-  return metrics;
 }
 
 /**
@@ -515,44 +570,45 @@ function getMetrics() {
 
 /**
  * Get formatted metrics for display
+ * CRITICAL: Defensive against null/undefined values
  */
 function getFormattedMetrics() {
   return {
     memory: {
-      rss: formatBytes(metrics.rss),
-      heapUsed: formatBytes(metrics.heapUsed),
-      heapTotal: formatBytes(metrics.heapTotal),
-      external: formatBytes(metrics.external),
-      heapPercent: `${metrics.heapPercent.toFixed(1)}%`,
-      workspacePercent: `${metrics.workspacePercent.toFixed(1)}%`,
+      rss: formatBytes(metrics.rss || 0),
+      heapUsed: formatBytes(metrics.heapUsed || 0),
+      heapTotal: formatBytes(metrics.heapTotal || 0),
+      external: formatBytes(metrics.external || 0),
+      heapPercent: `${(metrics.heapPercent || 0).toFixed(1)}%`,
+      workspacePercent: `${(metrics.workspacePercent || 0).toFixed(1)}%`,
     },
     cpu: {
-      total: `${metrics.cpuPercent.toFixed(1)}%`,
-      user: `${metrics.cpuUser.toFixed(1)}%`,
-      system: `${metrics.cpuSystem.toFixed(1)}%`,
+      total: `${(metrics.cpuPercent || 0).toFixed(1)}%`,
+      user: `${(metrics.cpuUser || 0).toFixed(1)}%`,
+      system: `${(metrics.cpuSystem || 0).toFixed(1)}%`,
     },
     cache: {
-      size: formatBytes(metrics.cacheSize),
-      budgetMax: formatBytes(metrics.cacheBudgetMax),
-      budgetPercent: `${metrics.cacheBudgetPercent.toFixed(1)}%`,
-      approxFree: formatBytes(metrics.cacheBudgetMax - metrics.cacheSize),
+      size: formatBytes(metrics.cacheSize || 0),
+      budgetMax: formatBytes(metrics.cacheBudgetMax || 0),
+      budgetPercent: `${(metrics.cacheBudgetPercent || 0).toFixed(1)}%`,
+      approxFree: formatBytes(Math.max(0, (metrics.cacheBudgetMax || 0) - (metrics.cacheSize || 0))),
     },
     disk: {
-      free: formatBytes(metrics.diskFree),
-      total: formatBytes(metrics.diskTotal),
-      used: formatBytes(metrics.diskUsed),
-      percent: `${metrics.diskPercent.toFixed(1)}%`,
+      free: formatBytes(metrics.diskFree || 0),
+      total: formatBytes(metrics.diskTotal || 0),
+      used: formatBytes(metrics.diskUsed || 0),
+      percent: `${(metrics.diskPercent || 0).toFixed(1)}%`,
     },
     workspace: {
-      limit: formatBytes(metrics.workspaceLimit),
-      approxFree: formatBytes(metrics.approxFree),
+      limit: formatBytes(metrics.workspaceLimit || 0),
+      approxFree: formatBytes(metrics.approxFree || 0),
     },
     process: {
-      pid: metrics.pid,
-      uptime: `${metrics.uptimeSec}s`,
-      nodeVersion: metrics.nodeVersion,
+      pid: metrics.pid || process.pid,
+      uptime: `${metrics.uptimeSec || 0}s`,
+      nodeVersion: metrics.nodeVersion || process.version,
     },
-    lastUpdate: metrics.lastUpdate,
+    lastUpdate: metrics.lastUpdate || new Date().toISOString(),
   };
 }
 
