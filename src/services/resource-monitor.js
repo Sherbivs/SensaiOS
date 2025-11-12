@@ -715,7 +715,8 @@ function getCheckpoint() {
 // Exports
 // ============================================================================
 
-export default {
+// Named exports for TypeScript modules (index.ts, resource-request.ts)
+export const resourceMonitor = {
   // Core monitoring
   getMetrics,
   getFormattedMetrics,
@@ -741,6 +742,13 @@ export default {
     snapshotCount: snapshots.length,
   }),
 };
+
+// Aliases for index.ts lifecycle management
+export const startResourceMonitoring = startMonitoring;
+export const stopResourceMonitoring = stopMonitoring;
+
+// Default export for logger.js compatibility
+export default resourceMonitor;
 
 // ============================================================================
 // Initialization
