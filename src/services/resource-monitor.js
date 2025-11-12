@@ -1,7 +1,18 @@
 /**
- * @file Real-Time Resource Monitor
- * @description Tracks actual process memory, CPU, disk, and cache usage
+ * @file Centralized Resource Monitoring & Pooling System
+ * @description Real-time checkpoint tool integrating:
+ *   - Process metrics (RSS, heap, CPU from process APIs)
+ *   - Cache/disk tracking (directory sizes, workspace limits)
+ *   - Resource manager integration (timers, listeners, connections)
+ *   - Historical snapshots for leak detection
+ *   - Alert generation with thresholds
  * @module services/resource-monitor
+ * 
+ * Integration Points:
+ *   - logger.js: Reads metrics for stats display
+ *   - resource-manager.ts: Provides resource counts
+ *   - resource-monitor.ts: Scheduling and alerting
+ *   - index.ts: Lifecycle management
  */
 
 import os from 'node:os';
@@ -13,18 +24,45 @@ import path from 'node:path';
 // Configuration
 // ============================================================================
 
-const REFRESH_INTERVAL_MS = 15_000; // 15 seconds
+const REFRESH_INTERVAL_MS = 15_000; // 15 seconds (real-time monitoring)
+const SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (historical snapshots)
+const SNAPSHOT_RETENTION = 288; // Keep 24 hours (288 × 5min = 1440min = 24h)
+
 const CACHE_DIR = process.env.IS_RENDER 
   ? '/Store/discord-cache' 
   : './Store/discord-cache';
 const WORKSPACE_LIMIT = 1.0 * 1024 * 1024 * 1024; // 1 GB in bytes
+const MEMORY_LIMIT = 512 * 1024 * 1024; // 512 MB Render limit
+
+// Thresholds aligned with Render Starter plan
+const THRESHOLDS = {
+  memory: {
+    emergency: 460 * 1024 * 1024,  // 90% of 512 MB
+    critical: 435 * 1024 * 1024,   // 85%
+    warning: 384 * 1024 * 1024,    // 75%
+    optimal: 307 * 1024 * 1024,    // 60%
+  },
+  cpu: {
+    emergency: 90,  // 90% CPU
+    critical: 70,   // 70%
+    warning: 50,    // 50%
+  },
+  cache: {
+    warning: 500 * 1024 * 1024,    // 500 MB
+    critical: 650 * 1024 * 1024,   // 650 MB
+  },
+};
 
 // ============================================================================
 // State
 // ============================================================================
 
 let monitorInterval = null;
+let snapshotInterval = null;
 let lastCpuUsage = null;
+let resourceManagerStats = null; // Cached stats from resource-manager.ts
+
+// Current metrics (updated every 15 seconds)
 let metrics = {
   // Memory metrics (from process.memoryUsage())
   rss: 0,              // Resident Set Size (total memory allocated)
@@ -36,6 +74,7 @@ let metrics = {
   // Calculated percentages
   heapPercent: 0,
   workspacePercent: 0,
+  memoryLimitPercent: 0,
   
   // CPU metrics
   cpuPercent: 0,
@@ -63,10 +102,34 @@ let metrics = {
   workspaceLimit: WORKSPACE_LIMIT,
   approxFree: 0,
   
+  // Resource manager metrics (from TypeScript system)
+  resources: {
+    total: 0,
+    timers: 0,
+    listeners: 0,
+    connections: 0,
+    caches: 0,
+    diskCaches: 0,
+    diskBuffers: 0,
+    diskLogs: 0,
+    leakSuspects: 0,
+    diskUsageBytes: 0,
+  },
+  
+  // Alert status
+  alerts: [],
+  status: 'healthy', // healthy | warning | critical | emergency
+  
   // Timing
   lastUpdate: null,
   uptimeSec: 0,
 };
+
+// Historical snapshots (5-minute intervals, 24-hour retention)
+let snapshots = [];
+
+// Alert tracking
+let alertHistory = [];
 
 // ============================================================================
 // Helpers
@@ -182,6 +245,186 @@ async function getDiskUsage() {
 // ============================================================================
 
 /**
+ * Integrate with resource-manager.ts to get managed resource stats
+ */
+async function collectResourceManagerStats() {
+  try {
+    // Dynamic import to avoid circular dependency
+    const { resourceManager } = await import('./resource-manager.js');
+    const stats = resourceManager.getStats();
+    
+    resourceManagerStats = {
+      total: stats.total,
+      timers: stats.byType?.timer || 0,
+      listeners: stats.byType?.listener || 0,
+      connections: stats.byType?.connection || 0,
+      caches: stats.byType?.cache || 0,
+      diskCaches: stats.byType?.['disk-cache'] || 0,
+      diskBuffers: stats.byType?.['disk-buffer'] || 0,
+      diskLogs: stats.byType?.['disk-log'] || 0,
+      leakSuspects: stats.leakSuspects?.length || 0,
+      diskUsageBytes: stats.diskUsage?.totalDiskBytes || 0,
+    };
+    
+    return resourceManagerStats;
+  } catch (err) {
+    // Resource manager not loaded yet or not available
+    return {
+      total: 0,
+      timers: 0,
+      listeners: 0,
+      connections: 0,
+      caches: 0,
+      diskCaches: 0,
+      diskBuffers: 0,
+      diskLogs: 0,
+      leakSuspects: 0,
+      diskUsageBytes: 0,
+    };
+  }
+}
+
+/**
+ * Generate alerts based on current metrics and thresholds
+ */
+function generateAlerts() {
+  const alerts = [];
+  
+  // Memory alerts
+  if (metrics.rss >= THRESHOLDS.memory.emergency) {
+    alerts.push({
+      level: 'emergency',
+      category: 'memory',
+      message: `Memory usage critical: ${formatBytes(metrics.rss)} / ${formatBytes(MEMORY_LIMIT)} (${metrics.memoryLimitPercent.toFixed(1)}%)`,
+      value: metrics.rss,
+      threshold: THRESHOLDS.memory.emergency,
+      action: 'Immediate restart or scale required',
+    });
+  } else if (metrics.rss >= THRESHOLDS.memory.critical) {
+    alerts.push({
+      level: 'critical',
+      category: 'memory',
+      message: `Memory usage high: ${formatBytes(metrics.rss)} / ${formatBytes(MEMORY_LIMIT)} (${metrics.memoryLimitPercent.toFixed(1)}%)`,
+      value: metrics.rss,
+      threshold: THRESHOLDS.memory.critical,
+      action: 'Scale or optimize within 1 hour',
+    });
+  } else if (metrics.rss >= THRESHOLDS.memory.warning) {
+    alerts.push({
+      level: 'warning',
+      category: 'memory',
+      message: `Memory usage elevated: ${formatBytes(metrics.rss)} / ${formatBytes(MEMORY_LIMIT)} (${metrics.memoryLimitPercent.toFixed(1)}%)`,
+      value: metrics.rss,
+      threshold: THRESHOLDS.memory.warning,
+      action: 'Monitor closely, consider optimization',
+    });
+  }
+  
+  // CPU alerts
+  if (metrics.cpuPercent >= THRESHOLDS.cpu.emergency) {
+    alerts.push({
+      level: 'emergency',
+      category: 'cpu',
+      message: `CPU usage critical: ${metrics.cpuPercent.toFixed(1)}%`,
+      value: metrics.cpuPercent,
+      threshold: THRESHOLDS.cpu.emergency,
+      action: 'Check for runaway processes',
+    });
+  } else if (metrics.cpuPercent >= THRESHOLDS.cpu.critical) {
+    alerts.push({
+      level: 'critical',
+      category: 'cpu',
+      message: `CPU usage high: ${metrics.cpuPercent.toFixed(1)}%`,
+      value: metrics.cpuPercent,
+      threshold: THRESHOLDS.cpu.critical,
+      action: 'Investigate CPU-intensive operations',
+    });
+  } else if (metrics.cpuPercent >= THRESHOLDS.cpu.warning) {
+    alerts.push({
+      level: 'warning',
+      category: 'cpu',
+      message: `CPU usage elevated: ${metrics.cpuPercent.toFixed(1)}%`,
+      value: metrics.cpuPercent,
+      threshold: THRESHOLDS.cpu.warning,
+      action: 'Monitor CPU usage patterns',
+    });
+  }
+  
+  // Cache alerts
+  if (metrics.cacheSize >= THRESHOLDS.cache.critical) {
+    alerts.push({
+      level: 'critical',
+      category: 'cache',
+      message: `Cache size critical: ${formatBytes(metrics.cacheSize)}`,
+      value: metrics.cacheSize,
+      threshold: THRESHOLDS.cache.critical,
+      action: 'Clear cache immediately',
+    });
+  } else if (metrics.cacheSize >= THRESHOLDS.cache.warning) {
+    alerts.push({
+      level: 'warning',
+      category: 'cache',
+      message: `Cache size high: ${formatBytes(metrics.cacheSize)}`,
+      value: metrics.cacheSize,
+      threshold: THRESHOLDS.cache.warning,
+      action: 'Schedule cache cleanup',
+    });
+  }
+  
+  // Leak suspect alerts
+  if (metrics.resources.leakSuspects >= 10) {
+    alerts.push({
+      level: 'critical',
+      category: 'leaks',
+      message: `High leak suspects: ${metrics.resources.leakSuspects} resources`,
+      value: metrics.resources.leakSuspects,
+      threshold: 10,
+      action: 'Investigate resource leaks',
+    });
+  } else if (metrics.resources.leakSuspects >= 5) {
+    alerts.push({
+      level: 'warning',
+      category: 'leaks',
+      message: `Leak suspects detected: ${metrics.resources.leakSuspects} resources`,
+      value: metrics.resources.leakSuspects,
+      threshold: 5,
+      action: 'Review long-lived resources',
+    });
+  }
+  
+  // Determine overall status
+  let status = 'healthy';
+  if (alerts.some(a => a.level === 'emergency')) {
+    status = 'emergency';
+  } else if (alerts.some(a => a.level === 'critical')) {
+    status = 'critical';
+  } else if (alerts.some(a => a.level === 'warning')) {
+    status = 'warning';
+  }
+  
+  return { alerts, status };
+}
+
+/**
+ * Create a snapshot for historical tracking
+ */
+function createSnapshot() {
+  const snapshot = {
+    timestamp: new Date().toISOString(),
+    metrics: JSON.parse(JSON.stringify(metrics)),
+  };
+  
+  snapshots.push(snapshot);
+  
+  // Trim old snapshots (keep last 24 hours)
+  if (snapshots.length > SNAPSHOT_RETENTION) {
+    snapshots = snapshots.slice(-SNAPSHOT_RETENTION);
+  }
+  
+  return snapshot;
+}
+
+/**
  * Collect all resource metrics
  */
 async function collectMetrics() {
@@ -199,6 +442,9 @@ async function collectMetrics() {
     : 0;
   metrics.workspacePercent = WORKSPACE_LIMIT > 0
     ? (metrics.rss / WORKSPACE_LIMIT) * 100
+    : 0;
+  metrics.memoryLimitPercent = MEMORY_LIMIT > 0
+    ? (metrics.rss / MEMORY_LIMIT) * 100
     : 0;
   
   // CPU metrics
@@ -232,6 +478,27 @@ async function collectMetrics() {
   
   // Workspace metrics
   metrics.approxFree = WORKSPACE_LIMIT - metrics.rss;
+  
+  // Resource manager integration
+  metrics.resources = await collectResourceManagerStats();
+  
+  // Generate alerts based on thresholds
+  const { alerts, status } = generateAlerts();
+  metrics.alerts = alerts;
+  metrics.status = status;
+  
+  // Store alerts in history
+  if (alerts.length > 0) {
+    alertHistory.push({
+      timestamp: new Date().toISOString(),
+      alerts: alerts.map(a => ({ ...a })),
+    });
+    
+    // Keep last 100 alert events
+    if (alertHistory.length > 100) {
+      alertHistory = alertHistory.slice(-100);
+    }
+  }
   
   // Timing
   metrics.lastUpdate = new Date().toISOString();
@@ -302,16 +569,24 @@ export function startMonitoring() {
     console.error('[resource-monitor] Initial collection failed:', err);
   });
   
-  // Set up interval
+  // Set up real-time refresh interval (15 seconds)
   monitorInterval = setInterval(() => {
     collectMetrics().catch(err => {
       console.error('[resource-monitor] Collection failed:', err);
     });
   }, REFRESH_INTERVAL_MS);
   
+  // Set up snapshot interval (5 minutes)
+  snapshotInterval = setInterval(() => {
+    createSnapshot();
+  }, SNAPSHOT_INTERVAL_MS);
+  
   // Allow process to exit
   if (monitorInterval.unref) {
     monitorInterval.unref();
+  }
+  if (snapshotInterval.unref) {
+    snapshotInterval.unref();
   }
 }
 
@@ -323,16 +598,67 @@ export function stopMonitoring() {
     clearInterval(monitorInterval);
     monitorInterval = null;
   }
+  if (snapshotInterval) {
+    clearInterval(snapshotInterval);
+    snapshotInterval = null;
+  }
 }
 
 /**
- * Get monitoring status
+ * Get current metrics (returns cached values)
  */
-export function getStatus() {
+export function getMetrics() {
+  return { ...metrics };
+}
+
+/**
+ * Get historical snapshots
+ */
+export function getSnapshots() {
+  return [...snapshots];
+}
+
+/**
+ * Get alert history
+ */
+export function getAlertHistory() {
+  return [...alertHistory];
+}
+
+/**
+ * Get current alerts only
+ */
+export function getCurrentAlerts() {
+  return [...metrics.alerts];
+}
+
+/**
+ * Get resource checkpoint (comprehensive status)
+ */
+export function getCheckpoint() {
   return {
-    running: monitorInterval !== null,
-    refreshInterval: REFRESH_INTERVAL_MS,
-    lastUpdate: metrics.lastUpdate,
+    timestamp: new Date().toISOString(),
+    status: metrics.status,
+    metrics: {
+      memory: {
+        rss: metrics.rss,
+        heapUsed: metrics.heapUsed,
+        heapTotal: metrics.heapTotal,
+        limitPercent: metrics.memoryLimitPercent,
+      },
+      cpu: {
+        total: metrics.cpuPercent,
+        user: metrics.cpuUser,
+        system: metrics.cpuSystem,
+      },
+      cache: {
+        size: metrics.cacheSize,
+        percent: metrics.cacheBudgetPercent,
+      },
+      resources: metrics.resources,
+    },
+    alerts: metrics.alerts,
+    uptime: metrics.uptimeSec,
   };
 }
 
@@ -348,9 +674,28 @@ startMonitoring();
 // ============================================================================
 
 export default {
+  // Core monitoring
   getMetrics,
   getFormattedMetrics,
   startMonitoring,
   stopMonitoring,
-  getStatus,
+  
+  // Historical data
+  getSnapshots,
+  getAlertHistory,
+  getCurrentAlerts,
+  
+  // Checkpoint API
+  getCheckpoint,
+  
+  // Status
+  getStatus: () => ({
+    running: monitorInterval !== null,
+    refreshInterval: REFRESH_INTERVAL_MS,
+    snapshotInterval: SNAPSHOT_INTERVAL_MS,
+    lastUpdate: metrics.lastUpdate,
+    status: metrics.status,
+    alertCount: metrics.alerts.length,
+    snapshotCount: snapshots.length,
+  }),
 };
