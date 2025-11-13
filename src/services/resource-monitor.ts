@@ -19,7 +19,25 @@
 import { resourceManager } from './resource-manager.js';
 import logger from '../utils/intelligent-logger.js';
 import type { ResourceStats } from './resource-manager.js';
-import type { IPrunableCache } from './memory-guardian.js';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/** Prunable cache interface (all caches must implement this) */
+export interface IPrunableCache {
+  /** Cache identifier for logging */
+  name: string;
+  
+  /** Current memory footprint estimate in bytes */
+  getMemoryUsage(): number;
+  
+  /** Prune to target size (normal pressure response) */
+  prune(targetSizePercent: number): Promise<{ itemsRemoved: number; bytesFreed: number }>;
+  
+  /** Emergency prune to minimum viable size */
+  emergencyPrune(): Promise<{ itemsRemoved: number; bytesFreed: number }>;
+}
 
 // ============================================================================
 // Configuration

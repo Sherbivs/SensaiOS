@@ -2,14 +2,24 @@
 
 ## Executive Summary
 
-**Deployed**: January 13, 2025, ~00:15 UTC  
+**Deployed**: January 13, 2025, ~00:15 UTC (Unified November 13, 2025)  
 **Problem**: Memory leak ~32 MB/hour, approaching Render's 512MB limit  
-**Solution**: 3-tier memory protection (reactive LRU + proactive guardian + emergency pruning)  
+**Solution**: Unified resource & memory monitoring with adaptive polling  
+**Architecture**: 3-tier protection now integrated into single ResourceMonitor service  
 **Expected Impact**: Memory stabilizes at 307-384MB (60-75%), zero OOM crashes
 
 ---
 
 ## Architecture Overview
+
+### Unified Resource Monitor
+**File**: `src/services/resource-monitor.ts`
+
+**Integration Complete** (November 13, 2025):
+- Merged Memory Guardian functionality into unified ResourceMonitor
+- Single service handles both health checks + active memory protection
+- Eliminated redundant polling (was 2 separate timers, now 1 unified system)
+- All cache registration, pressure detection, and pruning now centralized
 
 ### Tier 1: Reactive LRU Eviction (Fixed)
 **File**: `src/services/engine-cache.ts`
@@ -46,8 +56,8 @@ getPokemon(id) {
 
 ---
 
-### Tier 2: Proactive Memory Guardian (NEW)
-**File**: `src/services/memory-guardian.ts`
+### Tier 2: Active Memory Protection (Unified)
+**File**: `src/services/resource-monitor.ts` (formerly memory-guardian.ts)
 
 **What It Does**:
 1. **Active Monitoring**: Polls `process.memoryUsage()` every 30 seconds
@@ -55,6 +65,9 @@ getPokemon(id) {
 3. **Coordinated Pruning**: Broadcasts events to all registered caches
 4. **Forced GC**: Triggers garbage collection with cooldown
 5. **Statistics Tracking**: Records prunes, bytes freed, GC cycles
+
+**NOTE**: As of November 13, 2025, this functionality is integrated into `resourceMonitor`.
+The standalone `memory-guardian.ts` service has been deprecated and removed.
 
 **Pressure Levels**:
 ```
@@ -138,15 +151,18 @@ interface IPrunableCache {
 ```typescript
 // After Engine DB initialization:
 await engineCache.initialize();           // Tier 1: LRU enabled
-await engineCache.registerWithGuardian(); // Tier 2: Guardian watches
+await engineCache.registerWithMonitor();  // Tier 2: ResourceMonitor watches
 
-const { memoryGuardian } = await import('./memory-guardian.js');
-memoryGuardian.start();                   // Tier 3: 30s polling begins
+// Start unified resource monitoring (includes memory protection)
+startResourceMonitoring();                // Tier 3: 30s memory polling begins
 ```
+
+**NOTE**: As of November 13, 2025, memory protection is handled by `resourceMonitor`.
+No separate `memoryGuardian` service exists.
 
 **Timing**:
 - LRU active from cache startup
-- Guardian starts after all services ready
+- ResourceMonitor starts after all services ready
 - First poll happens immediately
 - Subsequent polls every 30 seconds
 
@@ -155,7 +171,7 @@ memoryGuardian.start();                   // Tier 3: 30s polling begins
 
 ```typescript
 // Graceful shutdown order:
-memoryGuardian.stop();           // Stop polling
+stopResourceMonitoring();        // Stop unified monitoring (includes memory protection)
 await registry.shutdownAll();    // Stop all services (includes cache)
 await engineWriteDb.close();     // Flush to disk
 ```
@@ -169,9 +185,10 @@ await engineWriteDb.close();     // Flush to disk
 
 ## Monitoring & Observability
 
-### Memory Guardian Stats
+### Resource Monitor Stats (includes Memory Protection)
 ```typescript
-memoryGuardian.getStats()
+// NOTE: Access via resourceMonitor, not memoryGuardian (deprecated)
+const stats = resourceMonitor.getMemoryStats();
 // Returns:
 {
   currentSnapshot: {
@@ -203,14 +220,16 @@ engineCache.getStats()
 
 ### Logs to Watch For
 ```
-[INFO] memory-guardian: Started active memory protection
-[INFO] memory-guardian: Normal pressure (rssMB: 372.5, 72.7%)
-[WARN] memory-guardian: WARNING PRESSURE - Preemptive pruning (rssMB: 390.2, 76.2%)
-[WARN] memory-guardian: CRITICAL PRESSURE - Aggressive pruning (rssMB: 442.1, 86.3%)
-[ERROR] memory-guardian: EMERGENCY PRESSURE - Initiating nuclear pruning (rssMB: 468.7, 91.5%)
+[INFO] resource-monitor: Started unified resource monitoring (includes memory protection)
+[INFO] resource-monitor: Memory: NORMAL pressure (rssMB: 372.5, 72.7%)
+[WARN] resource-monitor: Memory: WARNING PRESSURE - Preemptive pruning (rssMB: 390.2, 76.2%)
+[WARN] resource-monitor: Memory: CRITICAL PRESSURE - Aggressive pruning (rssMB: 442.1, 86.3%)
+[ERROR] resource-monitor: Memory: EMERGENCY PRESSURE - Nuclear pruning (rssMB: 468.7, 91.5%)
 [INFO] engine-cache: Prune complete (itemsRemoved: 200, bytesFreedMB: 3.8)
-[INFO] memory-guardian: Forced garbage collection (freedMB: 8.2)
+[INFO] resource-monitor: Forced garbage collection (freedMB: 8.2)
 ```
+
+**NOTE**: Log prefixes changed from `memory-guardian:` to `resource-monitor:` after unification.
 
 ---
 
@@ -287,11 +306,13 @@ git push origin main
 ### Alternative: Tune Thresholds
 If protection too aggressive (over-pruning):
 ```typescript
-// In memory-guardian.ts:
-WARNING_MB: 400,   // Was 384 (increase threshold)
-CRITICAL_MB: 450,  // Was 435 (give more headroom)
-EMERGENCY_MB: 480, // Was 460 (last resort only)
+// In resource-monitor.ts (MEMORY_THRESHOLDS):
+warningMB: 400,   // Was 384 (increase threshold)
+criticalMB: 450,  // Was 435 (give more headroom)
+emergencyMB: 480, // Was 460 (last resort only)
 ```
+
+**NOTE**: Thresholds now live in `resource-monitor.ts`, not `memory-guardian.ts` (deprecated).
 
 ---
 
@@ -321,10 +342,11 @@ EMERGENCY_MB: 480, // Was 460 (last resort only)
 
 ### Deployment Success ✅
 - [x] Build succeeded (no TypeScript errors)
-- [x] Memory Guardian starts on boot
-- [x] EngineCache registers with Guardian
+- [x] Resource Monitor starts on boot (includes memory protection)
+- [x] EngineCache registers with Resource Monitor
 - [x] Shutdown sequence clean
-- [x] Deployed to production (commit a40beb8)
+- [x] Unified architecture deployed (commit 6e684c0, November 2025)
+- [x] Memory Guardian deprecated and removed (November 13, 2025)
 
 ### Runtime Validation (Next 3-6 Hours)
 - [ ] Memory graph shows downward trend from 476MB
@@ -347,24 +369,26 @@ EMERGENCY_MB: 480, // Was 460 (last resort only)
 ## Documentation & Knowledge Transfer
 
 ### Key Files
-1. **Memory Guardian**: `src/services/memory-guardian.ts`
-   - Active protection system
-   - 650 lines, well-commented
-   - Event emitter for extensibility
+1. **Unified Resource Monitor**: `src/services/resource-monitor.ts`
+   - Unified resource tracking + active memory protection
+   - 888 lines, well-commented
+   - Includes memory guardian functionality
+   - **Replaces**: `memory-guardian.ts` (deprecated November 13, 2025)
 
 2. **Cache Integration**: `src/services/engine-cache.ts`
    - IPrunableCache implementation
    - Emergency prune methods
-   - +150 lines added
+   - Registers with resourceMonitor (not memoryGuardian)
 
 3. **Startup/Shutdown**: `src/index.ts`
-   - Guardian lifecycle management
-   - +20 lines added
+   - Unified monitoring lifecycle (startResourceMonitoring/stopResourceMonitoring)
+   - Single service replaces separate guardian + health check
 
 4. **Documentation**:
    - `docs/MEMORY-LEAK-FIX-2025-01-13.md` (original fix)
    - `docs/MEMORY-LEAK-DEPLOYMENT-2025-01-13.md` (monitoring plan)
-   - `docs/MEMORY-PROTECTION-SYSTEM.md` (this file)
+   - `docs/MEMORY-PROTECTION-SYSTEM.md` (this file - updated November 13, 2025)
+   - `docs/archive/memory-guardian.ts.DEPRECATED_2025-11-13` (archived original)
 
 ### Related Systems
 - **ResourceManager**: Timer/listener cleanup
