@@ -813,6 +813,15 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.error("Error stopping resource monitor", error);
   }
   
+  // Stop Memory Guardian
+  try {
+    log.info("Stopping Memory Guardian");
+    const { memoryGuardian } = await import("./services/memory-guardian.js");
+    memoryGuardian.stop();
+  } catch (error) {
+    log.error("Error stopping Memory Guardian", error);
+  }
+  
   // Shutdown Services via Service Registry (graceful, reverse dependency order)
   // This handles: ResourceManager, ErrorTracker, EngineCache, EngineWriteBuffer
   try {
@@ -1200,6 +1209,24 @@ export async function boot(): Promise<void> {
         // Start resource monitoring (twice-daily health checks)
         startResourceMonitoring();
         log.info("Resource monitor started");
+        
+        // Start Memory Guardian (active 30s polling with automatic pruning)
+        try {
+          const { memoryGuardian } = await import("./services/memory-guardian.js");
+          memoryGuardian.start();
+          log.info("Memory Guardian started (30s polling, automatic pruning)", {
+            limits: {
+              warning: '384MB',
+              critical: '435MB',
+              emergency: '460MB',
+              renderLimit: '512MB',
+            },
+          });
+        } catch (error) {
+          log.warn("Memory Guardian failed to start (non-critical)", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
         
         // Step 7: Mark engine as ready for battles
         global.engineReady = true;

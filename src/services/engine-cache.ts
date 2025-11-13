@@ -25,6 +25,7 @@
 import { EngineDbConfig } from '../config/engine-db-config.js';
 import { log, LOG_LABEL } from '../utils/logger.js';
 import { errorTracker } from './error-tracker.js';
+import type { IPrunableCache } from './memory-guardian.js';
 
 // ============================================================================
 // Type Definitions
@@ -104,8 +105,12 @@ export interface CacheStats {
 /**
  * In-memory cache for Pokemon, Moves, and Type Effectiveness data.
  * Provides synchronous access with <1μs read latency.
+ * Implements IPrunableCache for memory guardian integration.
  */
-export class EngineCache {
+export class EngineCache implements IPrunableCache {
+  // IPrunableCache interface
+  public readonly name = 'EngineCache-L1';
+  
   // Primary storage (Map-based for O(1) lookups)
   // CRITICAL: These Maps are READ-ONLY after initialization/refresh
   // Only refresh() method may write to these via atomic swap
@@ -229,6 +234,15 @@ export class EngineCache {
       // Start background refresh worker (if enabled)
       if (EngineDbConfig.featureL1CacheEnabled && EngineDbConfig.featureWorkersEnabled) {
         this.startRefreshWorker();
+      }
+      
+      // Register with MemoryGuardian for automatic pruning under memory pressure
+      try {
+        const { memoryGuardian } = await import('./memory-guardian.js');
+        memoryGuardian.registerCache(this);
+        log('info', 'engine-cache: Registered with MemoryGuardian for automatic pruning');
+      } catch (error) {
+        log('warn', 'engine-cache: Failed to register with MemoryGuardian (non-critical)', error);
       }
       
     } catch (error) {
@@ -1278,6 +1292,183 @@ export class EngineCache {
     this.latencyCount = 0;
     this.evictionCount = 0;
     this.cacheMissWithFallbackCount = 0;
+  }
+  
+  // ============================================================================
+  // IPrunableCache Implementation (Memory Guardian Integration)
+  // ============================================================================
+  
+  /**
+   * Get current memory footprint estimate
+   * Used by MemoryGuardian to track cache memory usage
+   */
+  getMemoryUsage(): number {
+    return this.estimateMemoryUsage() * 1024 * 1024; // Convert MB to bytes
+  }
+  
+  /**
+   * Prune cache to target size (normal pressure response)
+   * @param targetSizePercent - Target size as percentage of max (e.g., 60 = 60% of max)
+   * @returns Items removed and bytes freed
+   */
+  async prune(targetSizePercent: number): Promise<{ itemsRemoved: number; bytesFreed: number }> {
+    const startTime = performance.now();
+    
+    // Calculate target sizes
+    const targetPokemon = Math.floor(this.maxPokemonEntries * (targetSizePercent / 100));
+    const targetMoves = Math.floor(this.maxMoveEntries * (targetSizePercent / 100));
+    
+    let itemsRemoved = 0;
+    let bytesFreed = 0;
+    
+    // Prune Pokemon if over target
+    if (this.pokemon.size > targetPokemon) {
+      const toRemove = this.pokemon.size - targetPokemon;
+      const beforeSize = this.pokemon.size;
+      
+      await this.pruneOldestPokemon(toRemove);
+      
+      const actualRemoved = beforeSize - this.pokemon.size;
+      itemsRemoved += actualRemoved;
+      bytesFreed += actualRemoved * 10 * 1024; // ~10KB per Pokemon
+    }
+    
+    // Prune Moves if over target
+    if (this.moves.size > targetMoves) {
+      const toRemove = this.moves.size - targetMoves;
+      const beforeSize = this.moves.size;
+      
+      await this.pruneOldestMoves(toRemove);
+      
+      const actualRemoved = beforeSize - this.moves.size;
+      itemsRemoved += actualRemoved;
+      bytesFreed += actualRemoved * 2 * 1024; // ~2KB per Move
+    }
+    
+    const durationMs = performance.now() - startTime;
+    
+    log('info', 'engine-cache: Prune complete (MemoryGuardian)', {
+      targetSizePercent,
+      itemsRemoved,
+      bytesFreedMB: (bytesFreed / 1024 / 1024).toFixed(2),
+      durationMs: durationMs.toFixed(2),
+      remainingPokemon: this.pokemon.size,
+      remainingMoves: this.moves.size,
+    });
+    
+    return { itemsRemoved, bytesFreed };
+  }
+  
+  /**
+   * Emergency prune to minimum viable size
+   * Drops cache to bare minimum for emergency memory recovery
+   */
+  async emergencyPrune(): Promise<{ itemsRemoved: number; bytesFreed: number }> {
+    const startTime = performance.now();
+    
+    // Emergency minimums: 100 Pokemon + 50 moves (Gen 1 starters + basic attacks)
+    const EMERGENCY_MIN_POKEMON = 100;
+    const EMERGENCY_MIN_MOVES = 50;
+    
+    let itemsRemoved = 0;
+    let bytesFreed = 0;
+    
+    // Prune Pokemon to emergency minimum
+    if (this.pokemon.size > EMERGENCY_MIN_POKEMON) {
+      const toRemove = this.pokemon.size - EMERGENCY_MIN_POKEMON;
+      const beforeSize = this.pokemon.size;
+      
+      await this.pruneOldestPokemon(toRemove);
+      
+      const actualRemoved = beforeSize - this.pokemon.size;
+      itemsRemoved += actualRemoved;
+      bytesFreed += actualRemoved * 10 * 1024;
+    }
+    
+    // Prune Moves to emergency minimum
+    if (this.moves.size > EMERGENCY_MIN_MOVES) {
+      const toRemove = this.moves.size - EMERGENCY_MIN_MOVES;
+      const beforeSize = this.moves.size;
+      
+      await this.pruneOldestMoves(toRemove);
+      
+      const actualRemoved = beforeSize - this.moves.size;
+      itemsRemoved += actualRemoved;
+      bytesFreed += actualRemoved * 2 * 1024;
+    }
+    
+    const durationMs = performance.now() - startTime;
+    
+    log('error', 'engine-cache: EMERGENCY PRUNE executed (MemoryGuardian)', {
+      itemsRemoved,
+      bytesFreedMB: (bytesFreed / 1024 / 1024).toFixed(2),
+      durationMs: durationMs.toFixed(2),
+      remainingPokemon: this.pokemon.size,
+      remainingMoves: this.moves.size,
+      minimumsPokemon: EMERGENCY_MIN_POKEMON,
+      minimumsMove: EMERGENCY_MIN_MOVES,
+    });
+    
+    // Capture error for tracking
+    await errorTracker.captureError(
+      new Error('Emergency cache prune triggered by MemoryGuardian'),
+      {
+        category: 'CACHE',
+        severity: 'CRITICAL',
+        customData: {
+          itemsRemoved,
+          bytesFreedMB: (bytesFreed / 1024 / 1024).toFixed(2),
+        },
+      }
+    );
+    
+    return { itemsRemoved, bytesFreed };
+  }
+  
+  /**
+   * Prune oldest N Pokemon entries
+   */
+  private async pruneOldestPokemon(count: number): Promise<void> {
+    if (count <= 0) return;
+    
+    // Sort by lastAccessed (oldest first)
+    const entries = Array.from(this.pokemon.entries())
+      .sort((a, b) => {
+        const aTime = a[1].lastAccessed ?? 0;
+        const bTime = b[1].lastAccessed ?? 0;
+        return aTime - bTime;
+      })
+      .slice(0, count);
+    
+    // Remove oldest entries
+    for (const [id, entry] of entries) {
+      this.pokemon.delete(id);
+      this.pokemonByName.delete(entry.name.toLowerCase());
+      this.evictionCount++;
+    }
+  }
+  
+  /**
+   * Prune oldest N Move entries
+   */
+  private async pruneOldestMoves(count: number): Promise<void> {
+    if (count <= 0) return;
+    
+    // Sort by lastAccessed (oldest first)
+    const entries = Array.from(this.moves.entries())
+      .sort((a, b) => {
+        const aTime = a[1].lastAccessed ?? 0;
+        const bTime = b[1].lastAccessed ?? 0;
+        return aTime - bTime;
+      })
+      .slice(0, count);
+    
+    // Remove oldest entries
+    for (const [id, entry] of entries) {
+      this.moves.delete(id);
+      this.movesByName.delete(entry.name.toLowerCase());
+      this.evictionCount++;
+    }
   }
   
   // ============================================================================
