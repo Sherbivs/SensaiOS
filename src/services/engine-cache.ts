@@ -236,13 +236,13 @@ export class EngineCache implements IPrunableCache {
         this.startRefreshWorker();
       }
       
-      // Register with MemoryGuardian for automatic pruning under memory pressure
+      // Register with ResourceMonitor for automatic memory management and pruning
       try {
-        const { memoryGuardian } = await import('./memory-guardian.js');
-        memoryGuardian.registerCache(this);
-        log('info', 'engine-cache: Registered with MemoryGuardian for automatic pruning');
+        const { resourceMonitor } = await import('./resource-monitor.js');
+        resourceMonitor.registerCache(this);
+        log('info', 'engine-cache: Registered with ResourceMonitor for automatic memory management');
       } catch (error) {
-        log('warn', 'engine-cache: Failed to register with MemoryGuardian (non-critical)', error);
+        log('warn', 'engine-cache: Failed to register with ResourceMonitor (non-critical)', error);
       }
       
     } catch (error) {

@@ -805,21 +805,12 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.error("Error stopping error learning worker", error);
   }
   
-  // Stop resource monitoring
+  // Stop unified resource monitoring (includes memory guardian)
   try {
-    log.info("Stopping resource monitor");
+    log.info("Stopping resource monitor (includes memory guardian)");
     stopResourceMonitoring();
   } catch (error) {
     log.error("Error stopping resource monitor", error);
-  }
-  
-  // Stop Memory Guardian
-  try {
-    log.info("Stopping Memory Guardian");
-    const { memoryGuardian } = await import("./services/memory-guardian.js");
-    memoryGuardian.stop();
-  } catch (error) {
-    log.error("Error stopping Memory Guardian", error);
   }
   
   // Shutdown Services via Service Registry (graceful, reverse dependency order)
@@ -1206,27 +1197,18 @@ export async function boot(): Promise<void> {
         
         // Resource Manager already initialized by Service Registry
         
-        // Start resource monitoring (twice-daily health checks)
+        // Start unified resource monitoring (health checks + memory guardian)
         startResourceMonitoring();
-        log.info("Resource monitor started");
-        
-        // Start Memory Guardian (active 30s polling with automatic pruning)
-        try {
-          const { memoryGuardian } = await import("./services/memory-guardian.js");
-          memoryGuardian.start();
-          log.info("Memory Guardian started (30s polling, automatic pruning)", {
-            limits: {
-              warning: '384MB',
-              critical: '435MB',
-              emergency: '460MB',
-              renderLimit: '512MB',
-            },
-          });
-        } catch (error) {
-          log.warn("Memory Guardian failed to start (non-critical)", {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
+        log.info("Resource monitor started with integrated memory guardian", {
+          healthCheckIntervalHours: 12,
+          memoryGuardianIntervalSec: 30,
+          limits: {
+            warning: '384MB',
+            critical: '435MB',
+            emergency: '460MB',
+            renderLimit: '512MB',
+          },
+        });
         
         // Step 7: Mark engine as ready for battles
         global.engineReady = true;
