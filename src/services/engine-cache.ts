@@ -96,6 +96,12 @@ export interface CacheStats {
   evictionCount: number;        // LRU: total entries evicted
   cacheMissWithFallbackCount: number; // LRU: cache misses that fell back to Read-DB
   hitRate: number;              // (hitCount / (hitCount + missCount)) * 100
+  // Adaptive polling metrics
+  totalRefreshes: number;
+  totalDataChanges: number;
+  consecutiveNoChangeRefreshes: number;
+  currentRefreshIntervalMs: number;
+  lastDataChangeTime: Date | null;
 }
 
 // ============================================================================
@@ -136,6 +142,13 @@ export class EngineCache implements IPrunableCache {
   // Corruption detection
   private dataChecksum: string | null = null;
   private corruptionDetected: boolean = false;
+  
+  // Smart refresh tracking (adaptive polling)
+  private consecutiveNoChangeRefreshes: number = 0;  // Track stable data periods
+  private currentRefreshIntervalMs: number = EngineDbConfig.l1CacheRefreshIntervalMs;
+  private lastDataChangeTime: Date | null = null;
+  private totalRefreshes: number = 0;
+  private totalDataChanges: number = 0;
   
   // Performance metrics
   private hitCount: number = 0;
@@ -972,8 +985,8 @@ export class EngineCache implements IPrunableCache {
    * Also runs periodic integrity checks and GC hints.
    */
   private startRefreshWorker(): void {
-    log('info', 'engine-cache: Starting background refresh worker', {
-      intervalMs: EngineDbConfig.l1CacheRefreshIntervalMs
+    log('info', 'engine-cache: Starting background refresh worker with adaptive polling', {
+      initialIntervalMs: this.currentRefreshIntervalMs
     });
     
     this.refreshInterval = setInterval(async () => {
@@ -989,13 +1002,67 @@ export class EngineCache implements IPrunableCache {
       // Verify integrity after refresh
       this.verifyIntegrity();
       
+      // Adjust polling interval based on data stability
+      this.adjustRefreshInterval();
+      
       // FIX: Periodic GC hint to reclaim memory from evicted entries
       // NOTE: global.gc() only available if Node.js started with --expose-gc flag
       if (global.gc) {
         log('info', 'engine-cache: Triggering garbage collection (post-refresh cleanup)');
         global.gc();
       }
-    }, EngineDbConfig.l1CacheRefreshIntervalMs);
+    }, this.currentRefreshIntervalMs);
+  }
+  
+  /**
+   * Adjust refresh interval based on data stability (adaptive polling).
+   * 
+   * Strategy:
+   * - If data unchanged for 3+ refreshes: Double interval (up to 4 hours max)
+   * - If data changed: Reset to base interval (1 hour)
+   * 
+   * This prevents unlimited polling when Pokemon data is stable (static dataset).
+   */
+  private adjustRefreshInterval(): void {
+    const baseIntervalMs = EngineDbConfig.l1CacheRefreshIntervalMs;
+    const maxIntervalMs = 4 * 60 * 60 * 1000; // 4 hours max
+    
+    if (this.consecutiveNoChangeRefreshes >= 3) {
+      // Data stable for 3+ hours, reduce polling frequency
+      const newIntervalMs = Math.min(this.currentRefreshIntervalMs * 2, maxIntervalMs);
+      
+      if (newIntervalMs !== this.currentRefreshIntervalMs) {
+        log('info', 'engine-cache: Data stable, reducing refresh frequency (adaptive polling)', {
+          from: `${(this.currentRefreshIntervalMs / 1000 / 60).toFixed(0)}min`,
+          to: `${(newIntervalMs / 1000 / 60).toFixed(0)}min`,
+          consecutiveNoChanges: this.consecutiveNoChangeRefreshes,
+          reason: 'Static dataset - Pokemon data rarely changes',
+        });
+        
+        this.currentRefreshIntervalMs = newIntervalMs;
+        
+        // Restart timer with new interval
+        if (this.refreshInterval) {
+          clearInterval(this.refreshInterval);
+          this.startRefreshWorker();
+        }
+      }
+    } else if (this.currentRefreshIntervalMs !== baseIntervalMs) {
+      // Data changed, reset to base interval
+      log('info', 'engine-cache: Data changed, resetting refresh frequency', {
+        from: `${(this.currentRefreshIntervalMs / 1000 / 60).toFixed(0)}min`,
+        to: `${(baseIntervalMs / 1000 / 60).toFixed(0)}min`,
+        reason: 'New data detected - resume normal polling',
+      });
+      
+      this.currentRefreshIntervalMs = baseIntervalMs;
+      
+      // Restart timer with new interval
+      if (this.refreshInterval) {
+        clearInterval(this.refreshInterval);
+        this.startRefreshWorker();
+      }
+    }
   }
   
   /**
@@ -1005,6 +1072,7 @@ export class EngineCache implements IPrunableCache {
    * 1. Build new Maps in temporary variables (doesn't affect current cache)
    * 2. Atomically swap references (ongoing battles see old or new, never partial)
    * 3. Old cache garbage collected automatically
+   * 4. Detect changes via checksum comparison (adaptive polling)
    */
   private async refresh(): Promise<void> {
     if (this.isRefreshing) {
@@ -1018,6 +1086,9 @@ export class EngineCache implements IPrunableCache {
     try {
       log('info', 'engine-cache: Starting background refresh...');
       
+      // Capture current checksum for change detection
+      const previousChecksum = this.dataChecksum;
+      
       // Step 1: Build new cache (doesn't affect current cache)
       const newPokemon = new Map<number, PokemonCacheEntry>();
       const newMoves = new Map<number, MoveCacheEntry>();
@@ -1030,11 +1101,18 @@ export class EngineCache implements IPrunableCache {
       // ... populate new Maps ...
       
       // TEMPORARY: Copy current data (no-op refresh)
+      // This simulates stable data scenario for adaptive polling testing
       this.pokemon.forEach((value, key) => newPokemon.set(key, value));
       this.moves.forEach((value, key) => newMoves.set(key, value));
       this.typeChart.forEach((value, key) => newTypeChart.set(key, value));
       this.pokemonByName.forEach((value, key) => newPokemonByName.set(key, value));
       this.movesByName.forEach((value, key) => newMovesByName.set(key, value));
+      
+      // Calculate new checksum before swap
+      const tempChecksum = this.calculateChecksum(newPokemon, newMoves, newTypeChart);
+      
+      // Detect changes via checksum comparison
+      const dataChanged = previousChecksum !== tempChecksum;
       
       // Step 2: Atomic swap (battles see old or new, never partial state)
       this.pokemon = newPokemon;
@@ -1044,9 +1122,31 @@ export class EngineCache implements IPrunableCache {
       this.movesByName = newMovesByName;
       
       this.lastRefreshTime = new Date();
+      this.totalRefreshes++;
       
       // Update checksum for corruption detection
-      this.updateDataChecksum();
+      this.dataChecksum = tempChecksum;
+      
+      // Track change detection metrics
+      if (dataChanged) {
+        this.consecutiveNoChangeRefreshes = 0;
+        this.totalDataChanges++;
+        this.lastDataChangeTime = new Date();
+        
+        log('info', 'engine-cache: Data CHANGED detected during refresh', {
+          previousChecksum: previousChecksum?.substring(0, 8),
+          newChecksum: tempChecksum?.substring(0, 8),
+          totalChanges: this.totalDataChanges,
+        });
+      } else {
+        this.consecutiveNoChangeRefreshes++;
+        
+        log('info', 'engine-cache: NO DATA CHANGE detected during refresh', {
+          checksum: tempChecksum?.substring(0, 8),
+          consecutiveNoChanges: this.consecutiveNoChangeRefreshes,
+          totalRefreshes: this.totalRefreshes,
+        });
+      }
       
       const durationMs = performance.now() - startTime;
       const stats = this.getStats();
@@ -1056,7 +1156,11 @@ export class EngineCache implements IPrunableCache {
         pokemonCount: stats.pokemonCount,
         moveCount: stats.moveCount,
         memorySizeMb: stats.memorySizeMb.toFixed(2),
-        checksum: this.dataChecksum?.substring(0, 8)
+        dataChanged,
+        adaptivePolling: {
+          consecutiveNoChanges: this.consecutiveNoChangeRefreshes,
+          currentIntervalMin: (this.currentRefreshIntervalMs / 1000 / 60).toFixed(0),
+        },
       });
       
     } catch (error) {
@@ -1122,7 +1226,13 @@ export class EngineCache implements IPrunableCache {
       avgLatencyUs: this.latencyCount > 0 ? this.latencySum / this.latencyCount : 0,
       evictionCount: this.evictionCount,
       cacheMissWithFallbackCount: this.cacheMissWithFallbackCount,
-      hitRate
+      hitRate,
+      // Adaptive polling metrics
+      totalRefreshes: this.totalRefreshes,
+      totalDataChanges: this.totalDataChanges,
+      consecutiveNoChangeRefreshes: this.consecutiveNoChangeRefreshes,
+      currentRefreshIntervalMs: this.currentRefreshIntervalMs,
+      lastDataChangeTime: this.lastDataChangeTime,
     };
   }
   
@@ -1191,13 +1301,32 @@ export class EngineCache implements IPrunableCache {
    * if the cache Maps got cleared/corrupted unexpectedly.
    */
   private updateDataChecksum(): void {
+    this.dataChecksum = this.calculateChecksum(this.pokemon, this.moves, this.typeChart);
+  }
+  
+  /**
+   * Calculate checksum for given Maps (used for change detection).
+   * 
+   * This method can work with temporary Maps during refresh to detect
+   * if data actually changed before swapping.
+   * 
+   * @param pokemonMap - Pokemon data Map
+   * @param movesMap - Moves data Map
+   * @param typeChartMap - Type effectiveness Map
+   * @returns Checksum string (hex) or null on error
+   */
+  private calculateChecksum(
+    pokemonMap: Map<number, PokemonCacheEntry>,
+    movesMap: Map<number, MoveCacheEntry>,
+    typeChartMap: Map<string, number>
+  ): string | null {
     try {
       // Collect data fingerprint
-      const pokemonIds = Array.from(this.pokemon.keys()).slice(0, 10).join(',');
-      const moveIds = Array.from(this.moves.keys()).slice(0, 10).join(',');
-      const typeKeys = Array.from(this.typeChart.keys()).slice(0, 10).join(',');
+      const pokemonIds = Array.from(pokemonMap.keys()).slice(0, 10).join(',');
+      const moveIds = Array.from(movesMap.keys()).slice(0, 10).join(',');
+      const typeKeys = Array.from(typeChartMap.keys()).slice(0, 10).join(',');
       
-      const fingerprint = `P:${this.pokemon.size}:${pokemonIds}|M:${this.moves.size}:${moveIds}|T:${this.typeChart.size}:${typeKeys}`;
+      const fingerprint = `P:${pokemonMap.size}:${pokemonIds}|M:${movesMap.size}:${moveIds}|T:${typeChartMap.size}:${typeKeys}`;
       
       // Simple hash (not cryptographic, just fast corruption detection)
       let hash = 0;
@@ -1207,18 +1336,17 @@ export class EngineCache implements IPrunableCache {
         hash = hash & hash; // Convert to 32bit integer
       }
       
-      this.dataChecksum = hash.toString(16);
-      this.corruptionDetected = false;
+      return hash.toString(16);
       
     } catch (error) {
       // Track checksum failure (fire-and-forget)
       errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
         category: 'CACHE',
-        operation: 'engine-cache:updateChecksum',
+        operation: 'engine-cache:calculateChecksum',
       }).catch(() => {});
       
-      log('error', 'engine-cache: Failed to update checksum', error);
-      this.dataChecksum = null;
+      log('error', 'engine-cache: Failed to calculate checksum', error);
+      return null;
     }
   }
   
