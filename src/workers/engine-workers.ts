@@ -212,9 +212,15 @@ class WriteBufferFlusher {
     errorCount: 0,
     lastError: null
   };
+  
+  // Adaptive polling state
+  private consecutiveEmptyFlushes: number = 0;
+  private currentFlushIntervalMs: number = EngineDbConfig.writeBufferFlushIntervalMs;
+  private lastDataSeen: Date | null = null;
+  private totalFlushesSkipped: number = 0;
 
   /**
-   * Start periodic flush worker with staggered startup
+   * Start periodic flush worker with staggered startup and adaptive polling
    */
   async start(): Promise<void> {
     if (this.interval) {
@@ -222,8 +228,8 @@ class WriteBufferFlusher {
       return;
     }
 
-    log('info', 'engine-workers: Starting WriteBufferFlusher', {
-      intervalMs: EngineDbConfig.writeBufferFlushIntervalMs,
+    log('info', 'engine-workers: Starting WriteBufferFlusher with adaptive polling', {
+      baseIntervalMs: this.currentFlushIntervalMs,
       staggerDelayMs: EngineDbConfig.workerStartupStaggerMs * 2
     });
 
@@ -233,13 +239,14 @@ class WriteBufferFlusher {
     // Start periodic execution
     this.interval = setInterval(async () => {
       await this.execute();
-    }, EngineDbConfig.writeBufferFlushIntervalMs);
+    }, this.currentFlushIntervalMs);
 
     this.isRunning = true;
   }
 
   /**
-   * Execute buffer flush task
+   * Execute buffer flush task with adaptive polling
+   * Skips flush if queues empty, adjusts interval based on activity
    */
   private async execute(): Promise<void> {
     if (this.status.isRunning) {
@@ -247,10 +254,41 @@ class WriteBufferFlusher {
       return;
     }
 
+    // Check buffer state BEFORE taking lock (fast check)
+    const bufferStats = engineWriteBuffer.getStats();
+    
+    // ADAPTIVE CONTROL: Skip flush if queues empty
+    if (bufferStats.totalQueueSize === 0) {
+      this.consecutiveEmptyFlushes++;
+      this.totalFlushesSkipped++;
+      
+      log('info', 'engine-workers: WriteBufferFlusher skipping empty flush (adaptive polling)', {
+        consecutiveEmpty: this.consecutiveEmptyFlushes,
+        currentInterval: `${this.currentFlushIntervalMs / 1000}s`,
+        totalSkipped: this.totalFlushesSkipped,
+      });
+      
+      // Adjust interval after 5 consecutive empty flushes
+      if (this.consecutiveEmptyFlushes >= 5) {
+        this.adjustFlushInterval('increase');
+      }
+      
+      return; // Skip flush entirely
+    }
+
     this.status.isRunning = true;
     const startTime = performance.now();
 
     try {
+      // Data present, reset adaptive state
+      this.consecutiveEmptyFlushes = 0;
+      this.lastDataSeen = new Date();
+      
+      // Reset interval if needed
+      if (this.currentFlushIntervalMs !== EngineDbConfig.writeBufferFlushIntervalMs) {
+        this.adjustFlushInterval('reset');
+      }
+      
       // Delegate to engineWriteBuffer (handles atomic splice)
       await engineWriteBuffer.flush();
 
@@ -261,12 +299,17 @@ class WriteBufferFlusher {
       this.status.lastError = null;
 
       // Only log if flush actually wrote data (check buffer stats)
-      const bufferStats = engineWriteBuffer.getStats();
-      if (bufferStats.flushCount > 0) {
+      const updatedStats = engineWriteBuffer.getStats();
+      if (updatedStats.flushCount > 0) {
         log('info', 'engine-workers: WriteBufferFlusher execution complete', {
           durationMs: durationMs.toFixed(2),
-          flushCount: bufferStats.flushCount,
-          successCount: this.status.successCount
+          flushCount: updatedStats.flushCount,
+          successCount: this.status.successCount,
+          adaptivePolling: {
+            consecutiveEmpty: this.consecutiveEmptyFlushes,
+            currentInterval: `${this.currentFlushIntervalMs / 1000}s`,
+            totalSkipped: this.totalFlushesSkipped,
+          },
         });
       }
 
@@ -299,6 +342,57 @@ class WriteBufferFlusher {
       this.status.isRunning = false;
     }
   }
+  
+  /**
+   * Adjust flush interval based on activity (adaptive polling)
+   * @param action - 'increase' to double interval (low activity), 'reset' to base interval (activity detected)
+   */
+  private adjustFlushInterval(action: 'increase' | 'reset'): void {
+    const baseInterval = EngineDbConfig.writeBufferFlushIntervalMs;
+    const maxInterval = 60 * 1000; // 60 seconds max (6x base for 10s interval)
+    
+    if (action === 'increase') {
+      const newInterval = Math.min(this.currentFlushIntervalMs * 2, maxInterval);
+      
+      if (newInterval !== this.currentFlushIntervalMs) {
+        const oldInterval = this.currentFlushIntervalMs;
+        this.currentFlushIntervalMs = newInterval;
+        this.restartTimer();
+        
+        log('info', 'engine-workers: WriteBufferFlusher increasing flush interval (low activity)', {
+          from: `${oldInterval / 1000}s`,
+          to: `${newInterval / 1000}s`,
+          consecutiveEmpty: this.consecutiveEmptyFlushes,
+          reason: 'No battles detected, reducing disk I/O',
+        });
+      }
+    } else if (action === 'reset') {
+      if (this.currentFlushIntervalMs !== baseInterval) {
+        const oldInterval = this.currentFlushIntervalMs;
+        this.currentFlushIntervalMs = baseInterval;
+        this.restartTimer();
+        
+        log('info', 'engine-workers: WriteBufferFlusher resetting flush interval (activity detected)', {
+          from: `${oldInterval / 1000}s`,
+          to: `${baseInterval / 1000}s`,
+          reason: 'Battles detected, resuming normal flush frequency',
+        });
+      }
+    }
+  }
+  
+  /**
+   * Restart timer with current interval (called after interval adjustment)
+   */
+  private restartTimer(): void {
+    if (this.interval) {
+      clearInterval(this.interval);
+    }
+    
+    this.interval = setInterval(async () => {
+      await this.execute();
+    }, this.currentFlushIntervalMs);
+  }
 
   /**
    * Stop worker gracefully
@@ -312,7 +406,11 @@ class WriteBufferFlusher {
       log('info', 'engine-workers: WriteBufferFlusher stopped', {
         totalRuns: this.status.successCount + this.status.errorCount,
         successCount: this.status.successCount,
-        errorCount: this.status.errorCount
+        errorCount: this.status.errorCount,
+        adaptivePolling: {
+          totalFlushesSkipped: this.totalFlushesSkipped,
+          finalInterval: `${this.currentFlushIntervalMs / 1000}s`,
+        },
       });
     }
   }
