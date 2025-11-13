@@ -11,7 +11,7 @@ services:
     runtime: node
     rootDirectory: .
     buildCommand: rm -rf node_modules && rm -rf node_modules/.prisma && rm -rf node_modules/@prisma && npm install --include=dev && npm run prebuild
-    startCommand: npm start
+    startCommand: node --expose-gc dist/index.js
     autoDeploy: true
     plan: starter
     disks:
