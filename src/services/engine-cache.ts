@@ -566,6 +566,9 @@ export class EngineCache {
       const toRemoveCount = entries.length - this.maxPokemonEntries;
       const toRemove = entries.slice(0, toRemoveCount);
       
+      // Track what we're evicting (for debugging)
+      const evictedNames = toRemove.slice(0, 5).map(([_, entry]) => entry.name).join(', ');
+      
       // Remove from primary map
       for (const [id, entry] of toRemove) {
         this.pokemon.delete(id);
@@ -581,7 +584,8 @@ export class EngineCache {
       log('info', 'engine-cache: LRU eviction complete (Pokemon)', {
         removedCount: toRemoveCount,
         remainingCount: this.pokemon.size,
-        durationMs: durationMs.toFixed(2)
+        durationMs: durationMs.toFixed(2),
+        samplesEvicted: evictedNames + (toRemoveCount > 5 ? '...' : '')
       });
       
     } catch (error) {
@@ -615,6 +619,9 @@ export class EngineCache {
       const toRemoveCount = entries.length - this.maxMoveEntries;
       const toRemove = entries.slice(0, toRemoveCount);
       
+      // Track what we're evicting (for debugging)
+      const evictedNames = toRemove.slice(0, 5).map(([_, entry]) => entry.name).join(', ');
+      
       // Remove from primary map
       for (const [id, entry] of toRemove) {
         this.moves.delete(id);
@@ -630,7 +637,8 @@ export class EngineCache {
       log('info', 'engine-cache: LRU eviction complete (Moves)', {
         removedCount: toRemoveCount,
         remainingCount: this.moves.size,
-        durationMs: durationMs.toFixed(2)
+        durationMs: durationMs.toFixed(2),
+        samplesEvicted: evictedNames + (toRemoveCount > 5 ? '...' : '')
       });
       
     } catch (error) {
@@ -668,10 +676,14 @@ export class EngineCache {
       // Cache HIT: Update lastAccessed for LRU tracking
       this.hitCount++;
       
-      result.lastAccessed = Date.now();
+      // FIX: Update the Map entry directly, not the returned object
+      // BEFORE: result.lastAccessed = Date.now(); (mutation didn't persist to Map)
+      // AFTER: Re-set the entry with updated timestamp
+      const updated = { ...result, lastAccessed: Date.now() };
+      this.pokemon.set(id, updated);
       
       // Return defensive copy to prevent external mutation
-      const copy = { ...result, baseStats: { ...result.baseStats } };
+      const copy = { ...updated, baseStats: { ...updated.baseStats } };
       this.trackLatency(performance.now() - start);
       return copy;
     } else {
@@ -708,7 +720,7 @@ export class EngineCache {
           this.pokemon.set(entry.id, entry);
           this.pokemonByName.set(entry.name.toLowerCase(), entry.id);
           
-          // Trigger LRU eviction if needed
+          // FIX: CRITICAL - Trigger LRU eviction after insertion
           this.evictColdPokemon();
           
           log('info', 'engine-cache: Cache miss with Read-DB fallback (Pokemon)', {
@@ -790,10 +802,12 @@ export class EngineCache {
       // Cache HIT: Update lastAccessed for LRU tracking
       this.hitCount++;
       
-      result.lastAccessed = Date.now();
+      // FIX: Update the Map entry directly, not the returned object
+      const updated = { ...result, lastAccessed: Date.now() };
+      this.moves.set(id, updated);
       
       // Return defensive copy to prevent external mutation
-      const copy = { ...result };
+      const copy = { ...updated };
       this.trackLatency(performance.now() - start);
       return copy;
     } else {
@@ -826,7 +840,7 @@ export class EngineCache {
           this.moves.set(entry.id, entry);
           this.movesByName.set(entry.name.toLowerCase(), entry.id);
           
-          // Trigger LRU eviction if needed
+          // FIX: CRITICAL - Trigger LRU eviction after insertion
           this.evictColdMoves();
           
           log('info', 'engine-cache: Cache miss with Read-DB fallback (Move)', {
@@ -941,7 +955,7 @@ export class EngineCache {
   /**
    * Start background refresh worker (hourly interval).
    * Uses double-buffering to avoid blocking ongoing battles.
-   * Also runs periodic integrity checks.
+   * Also runs periodic integrity checks and GC hints.
    */
   private startRefreshWorker(): void {
     log('info', 'engine-cache: Starting background refresh worker', {
@@ -960,6 +974,13 @@ export class EngineCache {
       
       // Verify integrity after refresh
       this.verifyIntegrity();
+      
+      // FIX: Periodic GC hint to reclaim memory from evicted entries
+      // NOTE: global.gc() only available if Node.js started with --expose-gc flag
+      if (global.gc) {
+        log('info', 'engine-cache: Triggering garbage collection (post-refresh cleanup)');
+        global.gc();
+      }
     }, EngineDbConfig.l1CacheRefreshIntervalMs);
   }
   
