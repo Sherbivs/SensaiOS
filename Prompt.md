@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-11T23:00:00Z
-Revision: 2.74
+Timestamp (UTC): 2025-11-13T00:00:00Z
+Revision: 2.75
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -10,6 +10,7 @@ Revision: 2.74
 - See `ops/CODE-OPTIMIZATION-AUDIT.md` for comprehensive code audit findings and implementation roadmap
 - See `docs/OPTIMIZATION-BIBLE.md` for comprehensive optimization roadmap and completed work (section 0 added 2025-11-09T21:30:00Z)
 - See `docs/MEMORY-LEAK-ANALYSIS.md` for critical EventEmitter memory leak fix and rollout plan (added 2025-11-10T04:00:00Z)
+- See `docs/MEMORY-LEAK-INVESTIGATION-2025-11-13.md` for comprehensive memory leak investigation report (added 2025-11-13T00:00:00Z)
 - See `docs/deployment/MEMORY-TO-DISK-MIGRATION-PLAN.md` for comprehensive Phase 2 memory optimization roadmap (added 2025-11-11T09:00:00Z)
 - See `docs/architecture/phase2.2-errortracker-migration-complete.md` for Phase 2.2 completion report (added 2025-11-11T17:45:00Z)
 - See `docs/architecture/phase2.3-dripalertmanager-migration-complete.md` for Phase 2.3 completion report (added 2025-11-11T18:30:00Z)
@@ -20,6 +21,59 @@ Revision: 2.74
 **Referenced By**: AGENTS.md (Orientation Flow), Patch.md (echo requirements), ops/NEXT.yaml (sync check)
 
 ## Last Repo Changes (since previous Prompt.md revision)
+
+- **MEMORY LEAK INVESTIGATION 2025-11-13 (2025-11-13T00:00Z):**
+  - **Task:** Comprehensive memory leak investigation across 4 core systems
+  - **Status:** COMPLETE ✅ (All systems properly bounded, Event Bus shutdown verified)
+  - **Duration:** Investigation + documentation + verification
+  
+  - **Systems Investigated:**
+    1. **ErrorTracker** (src/services/error-tracker.ts) — ✅ NO LEAK
+       - Stateless architecture, immediate PostgreSQL persistence
+       - No in-memory accumulation (0 bytes steady-state)
+       - Emergency fallback writes to disk (Store/emergency-error-logs/)
+    
+    2. **LogBuffer** (src/shared/logBuffer.ts) — ✅ NO LEAK
+       - Bounded size: 200 entries max (~100 KB)
+       - Auto-flush every 10 seconds + overflow protection
+       - Proper cleanup via destroy() in gracefulShutdown()
+    
+    3. **Prisma Connections** (src/shared/prisma.ts) — ✅ NO LEAK
+       - 3 singleton clients (prod, onPremiseDev, onPremiseExperiment)
+       - Heartbeat monitoring with failure tracking
+       - Proper disconnect in gracefulShutdown()
+    
+    4. **Worker Intervals** (src/workers/) — ✅ NO LEAK
+       - Each worker has exactly 1 interval stored in this.interval
+       - All workers properly clear intervals in stop()
+       - 6 workers verified: CacheRefresh, WriteBufferFlusher, ReadDbSync, WriteDbValidator, EngineMaintenance, ErrorLearning
+    
+    5. **Event Bus** (src/shared/event-bus.ts) — ✅ VERIFIED FIXED
+       - shutdown() method exists and IS called in gracefulShutdown() (src/index.ts lines 860-910)
+       - Drains all subscriptions (1000-event queues)
+       - Clears replay buffer (100 events)
+       - Verified via grep and code inspection
+  
+  - **Additional Bounded Structures:**
+    - Event Bus Replay Buffer: 100 events max (~100 KB)
+    - Event Bus Subscription Queues: 1000 events/subscriber (~1 MB per subscriber)
+    - All with FIFO eviction and graceful drain
+  
+  - **Deliverables:**
+    - docs/MEMORY-LEAK-INVESTIGATION-2025-11-13.md (comprehensive report, 463 lines)
+    - Updated docs/ROUTER.md with investigation report reference
+    - Updated docs/RESOURCE-MANAGER-QUICK-REF.md with cleanup contracts (from earlier session)
+  
+  - **Recommendations Implemented:**
+    1. ✅ Event Bus shutdown integration (already in gracefulShutdown)
+    2. ✅ Memory metrics in /ops commands (Event Bus telemetry visible)
+    3. ✅ Cleanup contracts documented (RESOURCE-MANAGER-QUICK-REF.md)
+  
+  - **Conclusion:** All memory systems are properly bounded with appropriate cleanup mechanisms. No memory leaks detected in production code.
+
+---
+
+**Previous Repo Changes:**
 
 - **PHASE 2.4.3: INTELLIGENTLOGGER EVENT BUS EXCLUSIVE (EVENTBUS ONLY) - COMPLETE (2025-11-11T23:00Z):**
   - **Task:** Remove EventEmitter from IntelligentLogger, make Event Bus the exclusive emission mechanism
