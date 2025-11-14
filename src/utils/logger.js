@@ -1036,6 +1036,13 @@ function log(level, message, context, options = {}) {
   }
 }
 
+// Convenience helpers (maintain compatibility with log.warn / log.error usage)
+log.info = (message, context, options) => log('info', message, context, options);
+log.warn = (message, context, options) => log('warn', message, context, options);
+log.error = (message, context, options) => log('error', message, context, options);
+log.success = (message, context, options) => log('success', message, context, options);
+log.detail = (message, context, options) => log('detail', message, context, options);
+
 /**
  * Report a structured event with metadata.
  * @param {string} title - Report title
