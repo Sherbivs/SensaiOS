@@ -2,7 +2,7 @@
 Title: Documentation Library
 Purpose: Architecture, safety, and operational guides referenced across the meta-router.
 Owned Globs: docs/**
-Last Updated (UTC): 2025-11-13T00:00:00Z
+Last Updated (UTC): 2025-11-14T12:45:00Z
 
 Notes:
 - Documents under this tree backstop agents and humans with architecture diagrams, safety guidance, and roadmap context.
@@ -85,6 +85,10 @@ Key Documents by Category:
 - MEMORY-LEAK-INVESTIGATION-2025-11-13.md - Memory leak investigation report covering ErrorTracker, LogBuffer, Prisma connections, worker intervals, Event Bus subscriptions (all bounded, Event Bus shutdown verified)
 
 **Deployment** (deployment/):
+- RENDER-PATH-MAPPING-2025-11-14.md - Render virtual service path mapping investigation (production behavior, temporary service degradation explained, disk usage analysis)
+- RENDER-ARCHITECTURE-AUDIT-2025-11-12.md - Architecture redesign and lessons learned
+- DEPLOYMENT-SUCCESS-2025-11-12.md - Successful deployment report (November 12, 2025)
+- SYSTEM-VERIFICATION-2025-11-12.md - System verification procedures
 - workers.md - Worker architecture, scaling roadmap, and cost optimization
 - render-disk-mount-fix.md - Render persistent disk mount configuration
 - render-mount-verification.md - Mount path verification procedures

@@ -34,6 +34,7 @@ import { config } from "./shared/config.js";
 import { log } from "./shared/log.js";
 import { setupLogBuffer } from "./shared/logBufferInit.js";
 import { destroyLogBuffer } from "./shared/logBuffer.js";
+import { startAutoRefresh as startLoggerAutoRefresh } from "./utils/logger.js";
 import {
   onPrismaHeartbeat,
   startPrismaHeartbeat,
@@ -1045,6 +1046,15 @@ export async function boot(): Promise<void> {
         name,
         status: health.status,
       })),
+    });
+    
+    // Start logger auto-refresh AFTER services initialize to avoid race condition
+    // where logger tries to import error-tracker before it's ready.
+    // Previously caused "degraded" warnings for error-tracker/engine-cache/engine-write-buffer.
+    startLoggerAutoRefresh();
+    log.info("Logger auto-refresh started", {
+      interval: "15s",
+      note: "Started after Service Registry to prevent startup race condition",
     });
   } catch (error) {
     log.error("Service Registry initialization failed", error);

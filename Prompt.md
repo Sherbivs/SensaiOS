@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-13T00:00:00Z
-Revision: 2.75
+Timestamp (UTC): 2025-11-14T13:45:00Z
+Revision: 2.76
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -21,6 +21,80 @@ Revision: 2.75
 **Referenced By**: AGENTS.md (Orientation Flow), Patch.md (echo requirements), ops/NEXT.yaml (sync check)
 
 ## Last Repo Changes (since previous Prompt.md revision)
+
+- **RENDER PRODUCTION INVESTIGATION + LOGGER STARTUP FIX (2025-11-14T13:45Z):**
+  - **Task:** Investigate production service degradation warnings, document Render virtual service architecture, fix logger startup race condition
+  - **Status:** COMPLETE ✅ (Documentation + Code Fixes + OPERATIONS.md Updates)
+  - **Duration:** 6-day investigation + implementation plan (completed ahead of schedule)
+  
+  - **Investigation Findings:**
+    1. **Render Virtual Service Architecture** — DOCUMENTED
+       - Repository cloned to `/opt/render/project/src/` (not `/opt/render/project/`)
+       - Creates nested structure: our `src/` appears at `/opt/render/project/src/src/`
+       - Working directory is `/opt/render/project/src/` for all build/runtime commands
+       - Compiled dist/ at `/opt/render/project/src/dist/`, imports resolve correctly after initialization
+       - **This is expected Render platform behavior, not a bug**
+    
+    2. **Service Degradation Root Cause** — IDENTIFIED & FIXED
+       - Logger auto-starts on module load (`logger.js:1120`)
+       - Service Registry initializes AFTER logger starts (`index.ts:1024`)
+       - Race condition: logger's `collectErrorStats()` tries to import error-tracker before it's ready
+       - Result: Temporary "degraded" warnings for error-tracker, engine-cache, engine-write-buffer during first 10-20s
+       - **NOT a bug, but suboptimal initialization order**
+    
+    3. **Disk Usage** — HEALTHY
+       - /Store using 4.7MB of 974MB (0.5% capacity)
+       - Security-bot-state: 164 snapshot files for 7-day retention
+       - Retention policy working correctly
+       - Growth rate: ~20-30KB/hour (stable)
+    
+    4. **Restart Frequency** — NORMAL
+       - 164 restarts over 5 days = 33 restarts/day average (intensive development cycle)
+       - Normal production: 3-4 restarts/day (deployments, config changes)
+       - Security bot tracks cumulative restart count in persistent state
+  
+  - **Code Changes:**
+    1. **src/utils/logger.js** (lines 1120-1130):
+       - Removed `startAutoRefresh()` call on module load
+       - Added explanatory comment about race condition prevention
+    
+    2. **src/index.ts** (lines 34-37, 1045-1054):
+       - Added import: `import { startAutoRefresh as startLoggerAutoRefresh } from "./utils/logger.js"`
+       - Call `startLoggerAutoRefresh()` AFTER Service Registry initialization and health check
+       - Added log entry documenting the delayed start with reason
+    
+    3. **Build Verification:** ✅ npm run build (TypeScript 0 errors)
+  
+  - **Documentation Updates:**
+    1. **docs/deployment/RENDER-PATH-MAPPING-2025-11-14.md** (NEW, 500+ lines):
+       - Executive summary of investigation
+       - Path mapping structure with examples
+       - Service degradation analysis
+       - Disk usage investigation
+       - Restart frequency analysis
+       - SSH troubleshooting guide
+    
+    2. **docs/deployment/ROUTER.md** (updated 2025-11-14T12:45:00Z):
+       - Added RENDER-PATH-MAPPING reference to Key Documents section
+    
+    3. **docs/ROUTER.md** (updated 2025-11-14T12:45:00Z):
+       - Added RENDER-PATH-MAPPING to Deployment section
+    
+    4. **OPERATIONS.md** (updated 2025-11-14T13:30:00Z Rev 1.6):
+       - Added "Restart frequency" subsection with SSH monitoring commands
+       - Added "Disk Monitoring & Maintenance" section with thresholds and procedures
+       - Defined investigation thresholds: >50% disk usage, >100MB/day growth, >10 restarts/hour
+  
+  - **Production Deployment:** READY
+    - Use: `pwsh -File scripts/render_deploy.ps1 -Service Infinity-Gauntlet`
+    - Monitor for: "Service health check" showing all "healthy", "Logger auto-refresh started" after Service Registry
+    - Validate: NO "degraded" warnings during first 30 seconds of startup
+  
+  - **Key Learning:** Always verify platform behavior via SSH before assuming bugs. Render's virtual service architecture is standard, service initialization order matters for dependent services.
+
+---
+
+**Previous Repo Changes:**
 
 - **MEMORY LEAK INVESTIGATION 2025-11-13 (2025-11-13T00:00Z):**
   - **Task:** Comprehensive memory leak investigation across 4 core systems

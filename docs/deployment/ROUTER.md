@@ -2,7 +2,7 @@
 Title: Deployment Documentation
 Purpose: Render deployment, workers, mount paths, and infrastructure.
 Owned Globs: docs/deployment/**
-Last Updated (UTC): 2025-11-10T00:00:00Z
+Last Updated (UTC): 2025-11-14T12:45:00Z
 
 Notes:
 - Render infrastructure configuration and deployment procedures
@@ -11,6 +11,25 @@ Notes:
 - Infrastructure audit and troubleshooting
 
 Key Documents:
+- **RENDER-PATH-MAPPING-2025-11-14.md** - Render virtual service path mapping investigation
+  * Production path structure: /opt/render/project/src/ (repository root)
+  * Double src/ nesting explained: /opt/render/project/src/src/ (our source)
+  * Temporary service degradation during startup (expected behavior)
+  * Disk usage analysis: 4.7MB/974MB (0.5%), security-bot snapshots working correctly
+  * SSH troubleshooting guide and verification commands
+- **RENDER-ARCHITECTURE-AUDIT-2025-11-12.md** - Architecture redesign and lessons learned
+  * Root cause analysis of deployment failures (November 12, 2025)
+  * TypeScript .js file copying requirements
+  * rootDirectory configuration (must be `.` not `src`)
+  * Platform alignment principles
+- **DEPLOYMENT-SUCCESS-2025-11-12.md** - Successful deployment report
+  * Solution: Copy all .js files from src/ to dist/ after TypeScript compilation
+  * Deploy dep-d4ah2o3e5dus73arplo0 LIVE status
+  * Verification checklist and Phase 3-5 monitoring
+- **SYSTEM-VERIFICATION-2025-11-12.md** - System verification procedures
+  * Working directory verification (/opt/render/project)
+  * Module resolution validation
+  * Health check procedures
 - **workers.md** - Worker architecture, scaling roadmap, and cost optimization
   * 8 Render services: 1 web + 6 workers + 1 cron job
   * Worker types: bot, outbox, cache, data-pipeline, security, pokedex-cache

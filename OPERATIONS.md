@@ -1,6 +1,6 @@
 # OPERATIONS
 
-_Last updated: 2025-11-07T22:00:00Z (UTC) — Rev: 1.5_
+_Last updated: 2025-11-14T13:30:00Z (UTC) — Rev: 1.6_
 
 **Purpose**: Service matrix, rollout checklist, observability, incident recovery for production deployment.
 
@@ -41,6 +41,42 @@ _Last updated: 2025-11-07T22:00:00Z (UTC) — Rev: 1.5_
 - Cache/data workers can be paused by setting the interval env vars to `0`; resumes require redeploy with the previous cadence.
 - When migrations add new worker files, run `npm run docs:update-routers` so ops/ROUTER_INDEX.yaml and masterroutetable.md stay authoritative.
 
+## Disk Monitoring & Maintenance
+**Production Storage:** The security bot worker has a 1GB persistent disk mounted at `/Store` (defined in `render.yaml`), used primarily for security-bot-state persistence with 7-day snapshot retention.
+
+**SSH Monitoring Commands:**
+```bash
+# Check disk usage summary
+df -h /Store
+
+# Breakdown by directory
+du -sh /Store/*
+
+# Security bot state inspection (most active directory)
+du -sh /Store/security-bot-state/*
+ls -lah /Store/security-bot-state/snapshots/ | wc -l  # Count snapshots (expect ~168 for 7 days hourly)
+
+# Historical growth analysis (requires multiple samples)
+date; du -sh /Store; sleep 3600; date; du -sh /Store  # 1-hour delta
+```
+
+**Thresholds & Alerts:**
+- **>50% disk usage** (>500MB): Review snapshot retention, check for log file accumulation, verify cleanup automation
+- **>100MB/day growth rate**: Indicates retention policy failure or unexpected file creation; investigate new files with `find /Store -type f -mtime -1 -ls`
+- **Disk full (>95%)**: Emergency response required - manually prune old snapshots (`rm /Store/security-bot-state/snapshots/*.json` for files >7 days), check for abandoned temp files
+
+**Expected Baseline (Nov 2025):**
+- Total disk usage: 4.7MB of 974MB (0.5%)
+- Security-bot-state: ~164 snapshot files for 7-day retention (hourly saves)
+- Growth rate: ~20-30KB/hour (new snapshots), stable after retention pruning
+
+**Maintenance Automation:**
+- Security bot auto-prunes snapshots older than 7 days on startup and during state saves
+- No manual intervention required for normal operations
+- Document anomalies in Tasklist.md when investigating disk alerts
+
+See `docs/deployment/RENDER-PATH-MAPPING-2025-11-14.md` for comprehensive SSH setup, disk investigation procedures, and troubleshooting.
+
 ## Observability (Live)
 - `worker.metrics.snapshot` logs now emit every 60s with gauges/counters; `worker.alert.*` entries fire on threshold breaches and consecutive failures (warn at 3, error at 5).
 - **Event bus worker:** `queue.depth` gauge warns ≥50, alerts ≥200 pending messages. Investigate Render DB health and backlog before 100; alert requires paging ops + Sherbivs, consider scaling the worker or pausing enqueueing flows (`/ops stats` → queue section).
@@ -49,6 +85,18 @@ _Last updated: 2025-11-07T22:00:00Z (UTC) — Rev: 1.5_
 - Telemetry counters (`refresh.failed`, `pipeline.failed`, `messages.failed`) surface in metrics payloads; triage repeated failures alongside the alert logs and record outcomes in Tasklist/Prompt when they trigger.
 - **Memory safety:** All runtime structures now bounded (writeQueue 10K cap, Discord.js cache sweepers, ops error queue 100 cap). Peak RAM stable at ~300-350 MB (58-68% of 512 MB limit). Monitor for OOM alerts; unbounded growth fixed Nov 2025.
 - **State persistence:** Security bot state persists to `/Store/security-bot-state/` with 7-day hourly metrics history, surviving restarts/deploys. Monitor `restartNumber` in logs; failures indicate disk mount issues.
+- **Restart frequency:** Normal production activity generates 3-4 restarts/day during active development (deployments, config changes, health checks). The security bot tracks cumulative restart count in persistent state. SSH investigation (Nov 2025) found 164 restarts over 5 days = 33 restarts/day average, which included intensive development cycles. To monitor restart patterns, use SSH commands:
+  ```bash
+  # View security-bot-state snapshots to count restarts
+  ls -lah /Store/security-bot-state/snapshots/ | wc -l
+  
+  # Check state persistence (current.json shows restart count)
+  cat /Store/security-bot-state/current.json | grep restartNumber
+  
+  # Monitor restart rate (snapshots created on each restart)
+  ls -lt /Store/security-bot-state/snapshots/ | head -20
+  ```
+  **Thresholds for investigation:** >10 restarts/hour sustained over 4+ hours (indicates crash loop), restart count regressing to 0 (state persistence failure, disk mount issue).
 - For deeper schema, role, and helper context, see `docs/database-systems.md`.
 
 ### Durable Event Bus Sink

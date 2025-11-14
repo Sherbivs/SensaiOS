@@ -1116,8 +1116,12 @@ function stopAutoRefresh() {
 // Initialization
 // ============================================================================
 
-// Auto-start stats refresh on module load
-startAutoRefresh();
+// NOTE: Auto-refresh is NOT started on module load to avoid race condition
+// where logger tries to import error-tracker before Service Registry initializes.
+// Call startAutoRefresh() explicitly from src/index.ts after registry.initializeAll().
+//
+// Previously: startAutoRefresh() called here caused "degraded" warnings for
+// error-tracker, engine-cache, engine-write-buffer during first 10-20 seconds.
 
 // ============================================================================
 // Exports
