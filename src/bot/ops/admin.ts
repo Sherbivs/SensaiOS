@@ -1,5 +1,6 @@
 import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
 import type { Pool } from "pg";
+import type { PrismaClient, Prisma } from "@prisma/client";
 import type { BusStatus } from "../../types/db-models.js";
 import { toEasternString } from "../../shared/datetime.js";
 
@@ -15,6 +16,8 @@ import type {
 import { cache } from "../../shared/cache/memory.js";
 import { config } from "../../shared/config.js";
 import { log } from "../../shared/log.js";
+import { getLogBuffer } from "../../shared/logBuffer.js";
+import { EventBus } from "../../shared/event-bus.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 
 // Query modules
@@ -137,8 +140,12 @@ function getDatabaseHost(): string | null {
   }
 }
 
+type PrismaFactory = () => Promise<PrismaClient | null> | PrismaClient | null;
+
 export type OpsCommandDeps = {
-  poolFactory?: () => Pool;
+  poolFactory?: () => Pool | null;
+  prismaFactory?: PrismaFactory;
+  disconnectPrisma?: boolean;
 };
 
 export function isAdmin(interaction: ChatInputCommandInteraction): boolean {
@@ -162,6 +169,7 @@ export function isAdmin(interaction: ChatInputCommandInteraction): boolean {
 async function resetCooldownsForDiscordId(discordId: string, deps: OpsCommandDeps): Promise<number | null> {
   try {
     const pool = deps.poolFactory ? deps.poolFactory() : getProdDb();
+    if (!pool) return null;
     const user = await getUserBasic(discordId, pool);
     if (!user) return 0;
     const count = await deleteUserCooldowns(user.id, pool);
@@ -268,6 +276,106 @@ async function collectOpsStatsFromDb(pool: Pool, window: StatsWindow): Promise<O
     busLastProcessedAt: lastProcessed ?? null,
     prismaStatus: "connected",
   };
+}
+
+function buildFinishedBattlesWhere(filters: { after?: Date; participant?: string | null }): Prisma.BattleWhereInput {
+  const where: Prisma.BattleWhereInput = { state: "Finished" };
+
+  if (filters.after) {
+    where.endedAt = { gt: filters.after };
+  }
+
+  if (filters.participant) {
+    where.OR = [
+      { p1: { discordId: filters.participant } },
+      { p2: { discordId: filters.participant } },
+    ];
+  }
+
+  return where;
+}
+
+function sanitizeRecentLimit(limit: number): number {
+  if (!Number.isFinite(limit)) return DEFAULT_RECENT_LIMIT;
+  return Math.max(1, Math.min(limit, MAX_RECENT_LIMIT));
+}
+
+async function collectOpsStatsFromPrisma(prisma: PrismaClient, window: StatsWindow): Promise<OpsStatsReport> {
+  const filters = {
+    after: window.after ?? undefined,
+    participant: window.participant ?? undefined,
+  };
+  const finishedWhere = buildFinishedBattlesWhere(filters);
+  const recentLimit = sanitizeRecentLimit(window.limit);
+
+  const [
+    users,
+    encountersSpawned,
+    encountersIdle,
+    battlesPending,
+    battlesActiveCount,
+    cooldowns,
+    totalFinishedBattles,
+    busPending,
+    lastProcessed,
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.encounter.count({ where: { state: "Spawned" } }),
+    prisma.encounter.count({ where: { state: "Idle" } }),
+    prisma.battle.count({ where: { state: "Pending" } }),
+    prisma.battle.count({ where: { state: "Active" } }),
+    prisma.cooldown.count(),
+    prisma.battle.count({ where: finishedWhere }),
+    prisma.busMessage.count({ where: { status: "pending" } }),
+    prisma.busMessage.findFirst({
+      where: { status: { in: ["done", "error"] }, processedAt: { not: null } },
+      orderBy: { processedAt: "desc" },
+      select: { processedAt: true },
+    }),
+  ]);
+
+  const recent = await prisma.battle.findMany({
+    where: finishedWhere,
+    orderBy: { endedAt: "desc" },
+    take: recentLimit,
+    select: {
+      id: true,
+      endedAt: true,
+      resultJson: true,
+      p1: { select: { discordId: true } },
+      p2: { select: { discordId: true } },
+    },
+  });
+
+  const recentBattles: BattleSummary[] = recent.map((battle) => {
+    const parsed = parseBattleResult(battle.resultJson);
+    return {
+      id: battle.id,
+      endedAt: battle.endedAt ?? null,
+      winnerDiscordId: parsed?.winnerDiscordId ?? battle.p1?.discordId ?? null,
+      loserDiscordId: parsed?.loserDiscordId ?? battle.p2?.discordId ?? null,
+      rewards: parsed?.rewards ?? null,
+      reason: parsed?.reason ?? null,
+      turnCount: parsed?.turnCount ?? null,
+    };
+  });
+
+  const encountersActive = encountersSpawned + encountersIdle;
+  const battlesActive = battlesPending + battlesActiveCount;
+
+  return {
+    counts: { users, encountersActive, battlesActive, cooldowns },
+    totalFinishedBattles,
+    recentBattles,
+    window,
+    busPending,
+    busLastProcessedAt: lastProcessed?.processedAt ?? null,
+    prismaStatus: "connected",
+  };
+}
+
+async function resolvePrismaFactory(factory: PrismaFactory): Promise<PrismaClient | null> {
+  return await Promise.resolve(factory());
 }
 
 function formatBattleSummary(summary: BattleSummary) {
@@ -411,6 +519,52 @@ function formatCacheReport(snapshot: CacheMetricsSnapshot, cleanupRan: boolean):
     }
   }
 
+  // Runtime memory footprint
+  const memory = process.memoryUsage();
+  const arrayBuffers = (memory as any).arrayBuffers ?? 0;
+  lines.push("");
+  lines.push("Runtime Memory:");
+  lines.push(`- RSS: ${formatBytesShort(memory.rss)}`);
+  lines.push(`- Heap Used/Total: ${formatBytesShort(memory.heapUsed)} / ${formatBytesShort(memory.heapTotal)}`);
+  lines.push(`- External: ${formatBytesShort(memory.external)} | ArrayBuffers: ${formatBytesShort(arrayBuffers)}`);
+  lines.push(`- Uptime: ${formatDurationShort(process.uptime() * 1000)}`);
+
+  // Log buffer observability
+  const logBuffer = getLogBuffer();
+  lines.push("");
+  lines.push("Log Buffer:");
+  if (logBuffer) {
+    const bufferStats = logBuffer.getStats();
+    lines.push(`- Buffered Entries: ${logBuffer.size()} (max 200)`);
+    lines.push(`- Aggregated Messages: ${bufferStats.totalMessages}`);
+    lines.push(`- Pending Flush Groups: ${bufferStats.buffered}`);
+  } else {
+    lines.push("- Disabled (LOG_BUFFER_ENABLED=false)");
+  }
+
+  // Event Bus telemetry
+  const eventBus = EventBus.getInstance();
+  const busStats = eventBus.getStats();
+  lines.push("");
+  lines.push("Event Bus:");
+  lines.push(`- Subscriptions: ${busStats.subscriptionsActive}`);
+  lines.push(`- Replay Buffer: ${busStats.replayBufferSize} events`);
+  lines.push(`- Events Emitted: ${busStats.eventsEmitted}`);
+  lines.push(`- Handler Invocations: ${busStats.totalHandlerInvocations} (failures ${busStats.failedHandlerInvocations})`);
+  lines.push(`- Avg Handler Latency: ${busStats.averageHandlerLatency.toFixed(2)} ms`);
+
+  const topSubscribers = eventBus
+    .getSubscribers()
+    .sort((a, b) => b.queueSize - a.queueSize)
+    .slice(0, 3);
+  if (topSubscribers.length) {
+    lines.push(
+      `- Top Queues: ${topSubscribers
+        .map((sub) => `${sub.pattern} (${sub.queueSize}/${sub.maxQueueSize}, dropped ${sub.droppedEvents})`)
+        .join(" | ")}`,
+    );
+  }
+
   return lines.join("\n");
 }
 
@@ -429,7 +583,7 @@ function formatOpsStatsReport(
   const shown = report?.recentBattles?.length ?? 0;
   const busPending = report?.busPending ?? diagnostics.busPending;
   const busLastProcessedIso =
-    report?.busLastProcessedAt ? toEasternString(report.busLastProcessedAt) : diagnostics.busLastProcessedIso;
+    report?.busLastProcessedAt ? report.busLastProcessedAt.toISOString() : diagnostics.busLastProcessedIso;
 
   const lines = [
     "Runtime:",
@@ -515,82 +669,127 @@ function formatEngineDbStats(): string {
   lines.push("");
   
   // Engine Ready Status
-  const ready = global.engineReady ? "✅ READY" : "⚠️ NOT READY";
+  const engineInitialized = Boolean(global.engineReady);
+  const ready = engineInitialized ? "✅ READY" : "⚠️ NOT READY";
   lines.push(`**Status:** ${ready}`);
   lines.push("");
   
-  if (!global.engineReady) {
+  if (!engineInitialized) {
     lines.push("Engine DB not initialized. Check startup logs for errors.");
-    return lines.join("\n");
+    lines.push("");
+  } else {
+    try {
+      // L1 Cache Stats
+      const cacheStats = engineCache.getStats();
+      const hitRate = cacheStats.hitCount + cacheStats.missCount > 0
+        ? ((cacheStats.hitCount / (cacheStats.hitCount + cacheStats.missCount)) * 100).toFixed(1)
+        : "0.0";
+      
+      lines.push("**L1 CACHE**");
+      lines.push(`• Hit Rate: ${hitRate}% (${cacheStats.hitCount} hits, ${cacheStats.missCount} misses)`);
+      lines.push(`• Memory: ${cacheStats.memorySizeMb.toFixed(1)} MB`);
+      lines.push(`• Entries: ${cacheStats.pokemonCount} Pokemon, ${cacheStats.moveCount} Moves, ${cacheStats.typeEffectivenessCount} Type Chart`);
+      lines.push(`• Avg Latency: ${cacheStats.avgLatencyUs.toFixed(2)} μs`);
+      lines.push(`• Last Refresh: ${formatTimestamp(cacheStats.lastRefreshTime)}`);
+      lines.push(`• Status: ${cacheStats.isInitialized ? "initialized" : "not initialized"}`);
+      lines.push("");
+      
+      // Write Buffer Stats
+      const bufferStats = engineWriteBuffer.getStats();
+      const utilizationPct = (bufferStats.utilizationPercent * 100).toFixed(1);
+      const backpressureIcon = bufferStats.isBackpressureActive ? "🔴" : "🟢";
+      
+      lines.push("**WRITE BUFFER**");
+      lines.push(`• Utilization: ${utilizationPct}% ${backpressureIcon}`);
+      lines.push(`• Queues: ${bufferStats.battleLogQueueSize} battles, ${bufferStats.moveUsageQueueSize} moves, ${bufferStats.anomalyQueueSize} anomalies`);
+      lines.push(`• Total Pending: ${bufferStats.totalQueueSize} entries`);
+      lines.push(`• Backpressure: ${bufferStats.isBackpressureActive ? "ACTIVE (rejecting writes)" : "inactive"}`);
+      lines.push(`• Flush Count: ${bufferStats.flushCount}`);
+      lines.push(`• Last Flush: ${formatTimestamp(bufferStats.lastFlushTime)}`);
+      lines.push("");
+      
+      // Worker Status
+      const workerStatus = getEngineWorkersStatus();
+      
+      lines.push("**WORKERS**");
+      lines.push(`• Cache Refresh: ${formatWorkerStatus(workerStatus.cacheRefresh)}`);
+      lines.push(`• Buffer Flush: ${formatWorkerStatus(workerStatus.bufferFlush)}`);
+      lines.push(`• Read-DB Sync: ${formatWorkerStatus(workerStatus.readDbSync)}`);
+      lines.push(`• Write-DB Validator: ${formatWorkerStatus(workerStatus.writeDbValidator)}`);
+      lines.push(`• Maintenance: ${formatWorkerStatus(workerStatus.maintenance)}`);
+      lines.push("");
+      
+      // Read-DB Stats
+      const readDbStats = engineReadDb.getStats();
+      
+      lines.push("**READ-DB (SQLite)**");
+      lines.push(`• Pokemon: ${readDbStats.pokemonCount}`);
+      lines.push(`• Moves: ${readDbStats.moveCount}`);
+      lines.push(`• Type Effectiveness: ${readDbStats.typeEffectivenessCount}`);
+      lines.push(`• Size: ${formatBytes(readDbStats.sizeBytes)}`);
+      lines.push(`• Status: ${readDbStats.isInitialized ? "initialized" : "not initialized"}`);
+      lines.push("");
+      
+      // Write-DB Stats
+      const writeDbStats = engineWriteDb.getStats();
+      
+      lines.push("**WRITE-DB (SQLite)**");
+      lines.push(`• Battle Logs: ${writeDbStats.battleLogCount}`);
+      lines.push(`• Move Usage: ${writeDbStats.moveUsageCount}`);
+      lines.push(`• Anomalies: ${writeDbStats.anomalyCount}`);
+      lines.push(`• WAL Entries: ${writeDbStats.walEntryCount}`);
+      lines.push(`• Size: ${formatBytes(writeDbStats.sizeBytes)}`);
+      lines.push(`• Oldest Entry: ${formatDuration(writeDbStats.oldestEntryAge)}`);
+      lines.push(`• Status: ${writeDbStats.isInitialized ? "initialized" : "not initialized"}`);
+      lines.push("");
+    } catch (error) {
+      lines.push(`⚠️ Error collecting stats: ${error instanceof Error ? error.message : String(error)}`);
+      lines.push("");
+    }
   }
-  
-  try {
-    // L1 Cache Stats
-    const cacheStats = engineCache.getStats();
-    const hitRate = cacheStats.hitCount + cacheStats.missCount > 0
-      ? ((cacheStats.hitCount / (cacheStats.hitCount + cacheStats.missCount)) * 100).toFixed(1)
-      : "0.0";
-    
-    lines.push("**L1 CACHE**");
-    lines.push(`• Hit Rate: ${hitRate}% (${cacheStats.hitCount} hits, ${cacheStats.missCount} misses)`);
-    lines.push(`• Memory: ${cacheStats.memorySizeMb.toFixed(1)} MB`);
-    lines.push(`• Entries: ${cacheStats.pokemonCount} Pokemon, ${cacheStats.moveCount} Moves, ${cacheStats.typeEffectivenessCount} Type Chart`);
-    lines.push(`• Avg Latency: ${cacheStats.avgLatencyUs.toFixed(2)} μs`);
-    lines.push(`• Last Refresh: ${formatTimestamp(cacheStats.lastRefreshTime)}`);
-    lines.push(`• Status: ${cacheStats.isInitialized ? "initialized" : "not initialized"}`);
-    lines.push("");
-    
-    // Write Buffer Stats
-    const bufferStats = engineWriteBuffer.getStats();
-    const utilizationPct = (bufferStats.utilizationPercent * 100).toFixed(1);
-    const backpressureIcon = bufferStats.isBackpressureActive ? "🔴" : "🟢";
-    
-    lines.push("**WRITE BUFFER**");
-    lines.push(`• Utilization: ${utilizationPct}% ${backpressureIcon}`);
-    lines.push(`• Queues: ${bufferStats.battleLogQueueSize} battles, ${bufferStats.moveUsageQueueSize} moves, ${bufferStats.anomalyQueueSize} anomalies`);
-    lines.push(`• Total Pending: ${bufferStats.totalQueueSize} entries`);
-    lines.push(`• Backpressure: ${bufferStats.isBackpressureActive ? "ACTIVE (rejecting writes)" : "inactive"}`);
-    lines.push(`• Flush Count: ${bufferStats.flushCount}`);
-    lines.push(`• Last Flush: ${formatTimestamp(bufferStats.lastFlushTime)}`);
-    lines.push("");
-    
-    // Worker Status
-    const workerStatus = getEngineWorkersStatus();
-    
-    lines.push("**WORKERS**");
-    lines.push(`• Cache Refresh: ${formatWorkerStatus(workerStatus.cacheRefresh)}`);
-    lines.push(`• Buffer Flush: ${formatWorkerStatus(workerStatus.bufferFlush)}`);
-    lines.push(`• Read-DB Sync: ${formatWorkerStatus(workerStatus.readDbSync)}`);
-    lines.push(`• Write-DB Validator: ${formatWorkerStatus(workerStatus.writeDbValidator)}`);
-  lines.push(`• Maintenance: ${formatWorkerStatus(workerStatus.maintenance)}`);
-    lines.push("");
-    
-    // Read-DB Stats
-    const readDbStats = engineReadDb.getStats();
-    
-    lines.push("**READ-DB (SQLite)**");
-    lines.push(`• Pokemon: ${readDbStats.pokemonCount}`);
-    lines.push(`• Moves: ${readDbStats.moveCount}`);
-    lines.push(`• Type Effectiveness: ${readDbStats.typeEffectivenessCount}`);
-    lines.push(`• Size: ${formatBytes(readDbStats.sizeBytes)}`);
-    lines.push(`• Status: ${readDbStats.isInitialized ? "initialized" : "not initialized"}`);
-    lines.push("");
-    
-    // Write-DB Stats
-    const writeDbStats = engineWriteDb.getStats();
-    
-    lines.push("**WRITE-DB (SQLite)**");
-    lines.push(`• Battle Logs: ${writeDbStats.battleLogCount}`);
-    lines.push(`• Move Usage: ${writeDbStats.moveUsageCount}`);
-    lines.push(`• Anomalies: ${writeDbStats.anomalyCount}`);
-    lines.push(`• WAL Entries: ${writeDbStats.walEntryCount}`);
-    lines.push(`• Size: ${formatBytes(writeDbStats.sizeBytes)}`);
-    lines.push(`• Oldest Entry: ${formatDuration(writeDbStats.oldestEntryAge)}`);
-    lines.push(`• Status: ${writeDbStats.isInitialized ? "initialized" : "not initialized"}`);
-    
-  } catch (error) {
-    lines.push("");
-    lines.push(`⚠️ Error collecting stats: ${error instanceof Error ? error.message : String(error)}`);
+
+  // Runtime memory regardless of engine readiness
+  const memory = process.memoryUsage();
+  const arrayBuffers = (memory as any).arrayBuffers ?? 0;
+  lines.push("**RUNTIME MEMORY**");
+  lines.push(`• RSS: ${formatBytes(memory.rss)}`);
+  lines.push(`• Heap Used/Total: ${formatBytes(memory.heapUsed)} / ${formatBytes(memory.heapTotal)}`);
+  lines.push(`• External: ${formatBytes(memory.external)} | ArrayBuffers: ${formatBytes(arrayBuffers)}`);
+  lines.push(`• Uptime: ${formatDuration(process.uptime() * 1000)}`);
+  lines.push("");
+
+  // Log buffer telemetry
+  lines.push("**LOG BUFFER**");
+  const logBuffer = getLogBuffer();
+  if (logBuffer) {
+    const bufferStats = logBuffer.getStats();
+    lines.push(`• Buffered Entries: ${logBuffer.size()} (max 200)`);
+    lines.push(`• Aggregated Messages: ${bufferStats.totalMessages}`);
+    lines.push(`• Pending Flush Groups: ${bufferStats.buffered}`);
+  } else {
+    lines.push("• Buffer disabled (LOG_BUFFER_ENABLED=false).");
+  }
+  lines.push("");
+
+  // Event bus telemetry
+  const eventBus = EventBus.getInstance();
+  const busStats = eventBus.getStats();
+  lines.push("**EVENT BUS**");
+  lines.push(`• Subscriptions: ${busStats.subscriptionsActive}`);
+  lines.push(`• Replay Buffer: ${busStats.replayBufferSize} events`);
+  lines.push(`• Events Emitted: ${busStats.eventsEmitted}`);
+  lines.push(`• Handler Invocations: ${busStats.totalHandlerInvocations} (failures ${busStats.failedHandlerInvocations})`);
+  lines.push(`• Avg Handler Latency: ${busStats.averageHandlerLatency.toFixed(2)} ms`);
+  lines.push(`• Backpressure Drops: ${busStats.backpressureEvents}`);
+  const topSubscribers = eventBus
+    .getSubscribers()
+    .sort((a, b) => b.queueSize - a.queueSize)
+    .slice(0, 3);
+  if (topSubscribers.length) {
+    const summary = topSubscribers
+      .map((sub) => `${sub.pattern} (${sub.queueSize}/${sub.maxQueueSize}, dropped ${sub.droppedEvents})`)
+      .join(" | ");
+    lines.push(`• Top Queues: ${summary}`);
   }
   
   return lines.join("\n");
@@ -718,26 +917,55 @@ export async function handleOpsCommand(
       busLastProcessedIso: cache.get<string>("outbox:last-processed") ?? null,
     };
 
+    let prismaClient: PrismaClient | null = null;
+    let dataSource: "prisma" | "pool" | null = null;
+    let report: OpsStatsReport | null = null;
+    const shouldDisconnect = deps.disconnectPrisma ?? true;
+
     try {
-      const pool = deps.poolFactory ? deps.poolFactory() : getProdDb();
-      const report = await collectOpsStatsFromDb(pool, window);
-      diagnostics.dbStatus = report.prismaStatus;
-      diagnostics.busPending = report.busPending;
-      diagnostics.busLastProcessedIso =
-        report.busLastProcessedAt ? toEasternString(report.busLastProcessedAt) : diagnostics.busLastProcessedIso;
-      const message = formatOpsStatsReport(report, diagnostics);
-      await interaction.editReply({ content: message });
+      if (deps.prismaFactory) {
+        prismaClient = await resolvePrismaFactory(deps.prismaFactory);
+        if (prismaClient) {
+          dataSource = "prisma";
+          report = await collectOpsStatsFromPrisma(prismaClient, window);
+        }
+      } else {
+        const pool = deps.poolFactory ? deps.poolFactory() : getProdDb();
+        if (pool) {
+          dataSource = "pool";
+          report = await collectOpsStatsFromDb(pool, window);
+        }
+      }
     } catch (err) {
       await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
         category: 'DATABASE',
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,
         commandName: '/ops stats',
-        operation: 'collectOpsStatsFromDb',
+        operation: dataSource === "pool" ? 'collectOpsStatsFromDb' : 'collectOpsStatsFromPrisma',
       });
-      log.warn("Stats query failed", { err });
+      log.warn("Stats query failed", { err, dataSource });
       await interaction.editReply({ content: "Failed to load stats (check logs)." });
+      return;
+    } finally {
+      if (prismaClient && shouldDisconnect && typeof prismaClient.$disconnect === "function") {
+        try {
+          await prismaClient.$disconnect();
+        } catch (disconnectErr) {
+          log.warn("Failed to disconnect ops Prisma client", { err: disconnectErr });
+        }
+      }
     }
+
+    if (report) {
+      diagnostics.dbStatus = report.prismaStatus;
+      diagnostics.busPending = report.busPending;
+      diagnostics.busLastProcessedIso =
+        report.busLastProcessedAt ? report.busLastProcessedAt.toISOString() : diagnostics.busLastProcessedIso;
+    }
+
+    const message = formatOpsStatsReport(report, diagnostics, window);
+    await interaction.editReply({ content: message });
     return;
   }
 
