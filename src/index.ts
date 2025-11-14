@@ -22,6 +22,7 @@ import { ENABLE_DB_AUTO_SYNC, ENABLE_SECURITY_BOT } from "./config/env.js";
 import { initPrisma, prisma } from "./models/index.js";
 import { ServiceRegistry } from "./shared/service-registry.js";
 import { getAllServiceConfigs } from "./shared/service-factories.js";
+import { EventBus } from "./shared/event-bus.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
 // import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
 // Lazy-loaded database recovery (only needed when connection fails)
@@ -864,6 +865,15 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.info("All services shut down successfully");
   } catch (error) {
     log.error("Error during Service Registry shutdown", error);
+  }
+  
+  // Shutdown Event Bus to drain subscriptions and clear replay buffer
+  try {
+    log.info("Shutting down Event Bus");
+    const eventBus = EventBus.getInstance();
+    await eventBus.shutdown();
+  } catch (error) {
+    log.error("Error during Event Bus shutdown", error);
   }
   
   // Shutdown AI Logging System (flush logs, save analysis state)
