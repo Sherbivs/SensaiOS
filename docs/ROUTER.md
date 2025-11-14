@@ -2,7 +2,7 @@
 Title: Documentation Library
 Purpose: Architecture, safety, and operational guides referenced across the meta-router.
 Owned Globs: docs/**
-Last Updated (UTC): 2025-11-10T00:00:00Z
+Last Updated (UTC): 2025-11-13T00:00:00Z
 
 Notes:
 - Documents under this tree backstop agents and humans with architecture diagrams, safety guidance, and roadmap context.
@@ -82,6 +82,7 @@ Key Documents by Category:
 - RESOURCE-MANAGER-QUICK-REF.md - Quick reference for common patterns
 - resource-monitor-integration-summary.md - Complete Resource Monitor integration and deployment guide
 - resource-manager-deployment-validation.md - Production validation checklist for Render deployment
+- MEMORY-LEAK-INVESTIGATION-2025-11-13.md - Memory leak investigation report covering ErrorTracker, LogBuffer, Prisma connections, worker intervals, Event Bus subscriptions (all bounded, Event Bus shutdown verified)
 
 **Deployment** (deployment/):
 - workers.md - Worker architecture, scaling roadmap, and cost optimization
