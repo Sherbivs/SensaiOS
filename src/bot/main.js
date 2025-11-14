@@ -2025,6 +2025,11 @@ async function fixGuildRoles(guild) {
   }
 
   for (const [, role] of roles) {
+    // Verify role still exists and is not @everyone
+    if (!role || role.id === guild.roles.everyone?.id) {
+      continue;
+    }
+
     const analysis = analyzeRolePermissions(role);
 
     if (analysis.policy === 'unmanaged') {
@@ -2047,6 +2052,28 @@ async function fixGuildRoles(guild) {
       log('success', 'Role permissions match standard', {
         guild: guildSummary,
         role: describeRole(role)
+      });
+      continue;
+    }
+
+    // Verify bot can manage this role (hierarchy + permissions check)
+    if (!canAssignRole(guild, role)) {
+      log('warn', 'Cannot modify role: bot lacks ManageRoles permission or role is above bot in hierarchy', {
+        guild: guildSummary,
+        role: describeRole(role),
+        missing: analysis.missing.join(', ') || 'none',
+        extra: analysis.extra.join(', ') || 'none'
+      });
+      continue;
+    }
+
+    // Verify role is manageable (Discord.js built-in check)
+    if (!role.editable) {
+      log('warn', 'Cannot modify role: role is not editable by bot', {
+        guild: guildSummary,
+        role: describeRole(role),
+        missing: analysis.missing.join(', ') || 'none',
+        extra: analysis.extra.join(', ') || 'none'
       });
       continue;
     }
@@ -2082,10 +2109,26 @@ async function fixGuildRoles(guild) {
 }
 // Enforce a single role's permissions if it's managed and remediation is enabled
 async function enforceRolePermissions(role) {
+  // Verify role still exists
+  if (!role || !role.guild) {
+    log('warn', 'Cannot enforce permissions: role or guild is null', {
+      roleId: role?.id || 'unknown',
+      roleName: role?.name || 'unknown'
+    });
+    return;
+  }
+
   const guildSummary = describeGuild(role.guild);
+  
+  // Skip @everyone role
+  if (role.id === role.guild.roles.everyone?.id) {
+    return;
+  }
+
   const analysis = analyzeRolePermissions(role);
   if (analysis.policy === 'unmanaged' || analysis.policy === 'all') return;
   if (analysis.missing.length === 0 && analysis.extra.length === 0) return;
+  
   if (!ROLE_PERMISSIONS_REMEDIATE) {
     report('Role Drift Detected (Remediation Disabled)', {
       guild: guildSummary,
@@ -2102,6 +2145,45 @@ async function enforceRolePermissions(role) {
     });
     return;
   }
+
+  // Verify bot can manage this role (hierarchy + permissions check)
+  if (!canAssignRole(role.guild, role)) {
+    log('warn', 'Cannot enforce permissions: bot lacks ManageRoles permission or role is above bot in hierarchy', {
+      guild: guildSummary,
+      role: describeRole(role),
+      missing: analysis.missing.join(', ') || 'none',
+      extra: analysis.extra.join(', ') || 'none'
+    });
+    await sendSecurityAlert('Cannot enforce role permissions (permission/hierarchy issue)', {
+      guild: guildSummary,
+      role: describeRole(role),
+      policy: analysis.policy,
+      missing: analysis.missing,
+      extra: analysis.extra,
+      reason: 'Bot lacks ManageRoles or role is above bot in hierarchy'
+    });
+    return;
+  }
+
+  // Verify role is manageable (Discord.js built-in check)
+  if (!role.editable) {
+    log('warn', 'Cannot enforce permissions: role is not editable by bot', {
+      guild: guildSummary,
+      role: describeRole(role),
+      missing: analysis.missing.join(', ') || 'none',
+      extra: analysis.extra.join(', ') || 'none'
+    });
+    await sendSecurityAlert('Cannot enforce role permissions (role not editable)', {
+      guild: guildSummary,
+      role: describeRole(role),
+      policy: analysis.policy,
+      missing: analysis.missing,
+      extra: analysis.extra,
+      reason: 'Role is not editable by bot'
+    });
+    return;
+  }
+
   try {
     await role.setPermissions(analysis.expected);
     report('Role Permissions Healed', {
@@ -2129,6 +2211,22 @@ async function enforceRolePermissions(role) {
   }
 }
 async function ensureTrainerFor(member, origin = 'unspecified') {
+  // Verify member object exists and is valid
+  if (!member || !member.guild || !member.id || !member.user) {
+    log('warn', 'Cannot assign role: invalid member object', {
+      origin,
+      memberId: member?.id || 'unknown',
+      hasGuild: Boolean(member?.guild),
+      hasUser: Boolean(member?.user)
+    });
+    return;
+  }
+
+  // Skip bots
+  if (member.user.bot) {
+    return;
+  }
+
   const guildSummary = describeGuild(member.guild);
   const memberSummary = describeMember(member);
 
@@ -2157,7 +2255,15 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
   }
 
   // Pre-check hierarchy/permissions
-  canAssignRole(member.guild, role);
+  if (!canAssignRole(member.guild, role)) {
+    log('warn', 'Cannot assign role: bot lacks permission or role is above bot in hierarchy', {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      role: describeRole(role)
+    });
+    return;
+  }
 
   // Cache: skip if we recently assigned this member
   const cacheKey = `assign:${member.guild.id}:${member.id}:${role.id}`;
