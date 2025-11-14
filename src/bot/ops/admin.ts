@@ -1403,6 +1403,54 @@ export async function handleOpsCommand(
         lines.push("• Engine Write-DB: n/a");
       }
       
+      // Get Log Buffer stats
+      try {
+        const logBuffer = getLogBuffer();
+        if (logBuffer) {
+          const bufferStats = logBuffer.getStats();
+          const bufferMB = ((bufferStats.buffered * 2) / 1024).toFixed(2); // ~2KB per entry estimate
+          lines.push(`• Log Buffer: ~${bufferMB} MB (${bufferStats.buffered}/200 entries)`);
+        } else {
+          lines.push("• Log Buffer: n/a (not initialized)");
+        }
+      } catch {
+        lines.push("• Log Buffer: n/a");
+      }
+      
+      // Get Event Bus stats
+      try {
+        const eventBus = EventBus.getInstance();
+        const busStats = eventBus.getStats();
+        const patternCacheStats = eventBus.getPatternCacheStats();
+        const busMB = ((busStats.replayBufferSize * 1 + busStats.subscriptionsActive * 100) / 1024).toFixed(2); // Rough estimate
+        lines.push(`• Event Bus: ~${busMB} MB (${busStats.subscriptionsActive} subs, ${busStats.replayBufferSize} replay)`);
+        lines.push(`  - Pattern Cache: ${patternCacheStats.size}/500 patterns`);
+      } catch {
+        lines.push("• Event Bus: n/a");
+      }
+      
+      // Get Discord.js cache stats (if client available)
+      try {
+        const client = (global as any).discordClient;
+        if (client && client.guilds) {
+          const messageCount = client.channels.cache.reduce((acc: number, ch: any) => {
+            return acc + (ch.messages?.cache?.size ?? 0);
+          }, 0);
+          const memberCount = client.guilds.cache.reduce((acc: number, g: any) => {
+            return acc + g.members.cache.size;
+          }, 0);
+          const threadCount = client.channels.cache.reduce((acc: number, ch: any) => {
+            return acc + (ch.threads?.cache?.size ?? 0);
+          }, 0);
+          const discordMB = ((messageCount * 2 + memberCount * 1 + threadCount * 1) / 1024).toFixed(1);
+          lines.push(`• Discord Cache: ~${discordMB} MB (${messageCount} msg, ${memberCount} members, ${threadCount} threads)`);
+        } else {
+          lines.push("• Discord Cache: n/a (client not initialized)");
+        }
+      } catch {
+        lines.push("• Discord Cache: n/a");
+      }
+      
       lines.push("");
       
       // Section 5: Heap Statistics (simplified - v8 module not imported)

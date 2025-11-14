@@ -98,11 +98,14 @@ export interface BusStats {
 /**
  * Pattern cache for compiled regex matchers
  * Key: subscription pattern, Value: compiled regex
+ * 
+ * MEMORY PROTECTION: LRU eviction when cache exceeds 500 entries
  */
 const patternCache = new Map<string, RegExp>();
+const MAX_PATTERN_CACHE_SIZE = 500;
 
 /**
- * Compile pattern to regex (with caching)
+ * Compile pattern to regex (with caching and LRU eviction)
  * 
  * @param pattern - Subscription pattern
  * @returns Compiled regex for topic matching
@@ -110,46 +113,61 @@ const patternCache = new Map<string, RegExp>();
 function compilePattern(pattern: string): RegExp {
   // Check cache first
   const cached = patternCache.get(pattern);
-  if (cached) return cached;
+  if (cached) {
+    // LRU: Move to end by deleting and re-inserting
+    patternCache.delete(pattern);
+    patternCache.set(pattern, cached);
+    return cached;
+  }
+  
+  // Compile regex based on pattern type
+  let regex: RegExp;
   
   // Match all
   if (pattern === '*' || pattern === '**') {
-    const regex = /.*/;
-    patternCache.set(pattern, regex);
-    return regex;
+    regex = /.*/;
   }
-  
   // Exact match (no wildcards)
-  if (!pattern.includes('*')) {
+  else if (!pattern.includes('*')) {
     // Escape ALL regex special characters for literal matching
     const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`^${escaped}$`);
-    patternCache.set(pattern, regex);
-    return regex;
+    regex = new RegExp(`^${escaped}$`);
+  }
+  // Pattern with wildcards - compile below
+  else {
+    // Split pattern into parts and build regex
+    const parts = pattern.split('.');
+    const regexParts: string[] = [];
+    
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      
+      if (part === '**') {
+        // Multi-level wildcard: matches everything after this point
+        regexParts.push('.*');
+        break; // Stop processing (** matches all remaining levels)
+      } else if (part === '*') {
+        // Single-level wildcard: matches one segment (no dots)
+        regexParts.push('[^.]+');
+      } else {
+        // Literal segment - escape regex special characters
+        regexParts.push(part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      }
+    }
+    
+    const regexPattern = regexParts.join('\\.');
+    regex = new RegExp(`^${regexPattern}$`);
   }
   
-  // Split pattern into parts and build regex
-  const parts = pattern.split('.');
-  const regexParts: string[] = [];
-  
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    
-    if (part === '**') {
-      // Multi-level wildcard: matches everything after this point
-      regexParts.push('.*');
-      break; // Stop processing (** matches all remaining levels)
-    } else if (part === '*') {
-      // Single-level wildcard: matches one segment (no dots)
-      regexParts.push('[^.]+');
-    } else {
-      // Literal segment - escape regex special characters
-      regexParts.push(part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  // LRU eviction: Remove oldest entry if cache is full
+  if (patternCache.size >= MAX_PATTERN_CACHE_SIZE) {
+    const firstKey = patternCache.keys().next().value;
+    if (firstKey !== undefined) {
+      patternCache.delete(firstKey);
     }
   }
   
-  const regexPattern = regexParts.join('\\.');
-  const regex = new RegExp(`^${regexPattern}$`);
+  // Store compiled regex in cache
   patternCache.set(pattern, regex);
   return regex;
 }
