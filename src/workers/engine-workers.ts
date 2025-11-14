@@ -1,11 +1,12 @@
 /**
  * Engine Workers Orchestrator — Background Task Coordination
  * 
- * Coordinates 4 background workers that handle Engine DB operations:
+ * Coordinates 5 background workers that handle Engine DB operations:
  * 1. Cache Refresh Worker → Refreshes L1 cache hourly (non-blocking)
  * 2. Write Buffer Flusher → Flushes write buffer every 30s (non-blocking)
  * 3. Read-DB Sync Worker → Syncs PROD → Read-DB daily (Render cron job)
  * 4. Write-DB Validator → Validates + uploads Write-DB every 10 minutes
+ * 5. Engine Maintenance Worker → Forces buffer flush + Read-DB rebuild every 8 hours
  * 
  * Key Features:
  * - Graceful startup (staggered initialization to prevent thundering herd)
@@ -20,6 +21,7 @@
  * @module workers/engine-workers
  */
 
+import { performance } from 'node:perf_hooks';
 import { EngineDbConfig } from '../config/engine-db-config.js';
 import { engineCache } from '../services/engine-cache.js';
 import { engineWriteBuffer } from '../services/engine-write-buffer.js';
@@ -51,6 +53,7 @@ export interface EngineWorkersStatus {
   bufferFlush: WorkerStatus;
   readDbSync: WorkerStatus;
   writeDbValidator: WorkerStatus;
+  maintenance: WorkerStatus;
 }
 
 // ============================================================================
@@ -679,6 +682,151 @@ class WriteDbValidatorWorker {
 }
 
 // ============================================================================
+// Worker 5: Engine Maintenance Worker
+// ============================================================================
+
+/**
+ * Worker 5: Forces write buffer flush + Read-DB rebuild every 8 hours.
+ *
+ * Purpose: Guarantee write buffer persistence and Read-DB health without manual ops.
+ * Frequency: 8 hours (configurable via EngineDbConfig.maintenanceWorkerIntervalMs)
+ * Sequence: Flush Write Buffer → Save Write-DB → Rebuild Read-DB with backup
+ */
+class EngineMaintenanceWorker {
+  private interval: NodeJS.Timeout | null = null;
+  private isRunning: boolean = false;
+  private status: WorkerStatus = {
+    name: 'EngineMaintenanceWorker',
+    isRunning: false,
+    lastRunTime: null,
+    lastRunDurationMs: 0,
+    successCount: 0,
+    errorCount: 0,
+    lastError: null,
+  };
+
+  /**
+   * Start periodic maintenance worker with staggered startup (after other workers)
+   */
+  async start(): Promise<void> {
+    if (this.interval) {
+      log('warn', 'engine-workers: EngineMaintenanceWorker already running');
+      return;
+    }
+
+    log('info', 'engine-workers: Starting EngineMaintenanceWorker', {
+      intervalMs: EngineDbConfig.maintenanceWorkerIntervalMs,
+      staggerDelayMs: EngineDbConfig.workerStartupStaggerMs * 4,
+    });
+
+    // Stagger startup (ensure other workers settle first)
+    await this.delay(EngineDbConfig.workerStartupStaggerMs * 4);
+
+    this.interval = setInterval(async () => {
+      await this.execute();
+    }, EngineDbConfig.maintenanceWorkerIntervalMs);
+
+    this.isRunning = true;
+  }
+
+  /**
+   * Execute maintenance cycle: flush → persist → rebuild
+   */
+  private async execute(): Promise<void> {
+    if (this.status.isRunning) {
+      log('warn', 'engine-workers: EngineMaintenanceWorker execution skipped (previous run still in progress)');
+      return;
+    }
+
+    this.status.isRunning = true;
+    const startTime = performance.now();
+
+    try {
+      log('info', 'engine-workers: EngineMaintenanceWorker maintenance cycle started');
+
+      // Step 1: Force write buffer flush (best-effort)
+      await engineWriteBuffer.flush();
+      const bufferStats = engineWriteBuffer.getStats();
+
+      // Step 2: Persist Write-DB to disk
+      const writeDb = await import('../services/engine-write-db.js');
+      if (!writeDb.isReady()) {
+        await writeDb.initialize();
+      }
+      await writeDb.saveToFile();
+
+      // Step 3: Rebuild Read-DB with optional backup
+      const readDb = await import('../services/engine-read-db.js');
+      await readDb.rebuild({
+        reason: 'engine-maintenance-worker',
+        backupExisting: true,
+      });
+
+      const durationMs = performance.now() - startTime;
+      this.status.lastRunTime = new Date();
+      this.status.lastRunDurationMs = durationMs;
+      this.status.successCount++;
+      this.status.lastError = null;
+
+      log('info', 'engine-workers: EngineMaintenanceWorker maintenance cycle complete', {
+        durationMs: durationMs.toFixed(2),
+        bufferStats,
+        successCount: this.status.successCount,
+      });
+
+    } catch (error) {
+      const durationMs = performance.now() - startTime;
+      this.status.lastRunTime = new Date();
+      this.status.lastRunDurationMs = durationMs;
+      this.status.errorCount++;
+      this.status.lastError = error instanceof Error ? error.message : String(error);
+
+      log('error', 'engine-workers: EngineMaintenanceWorker maintenance cycle failed', {
+        error: this.status.lastError,
+        errorCount: this.status.errorCount,
+      });
+
+      if (error instanceof Error) {
+        await workerErrorHandler.handleTaskError(error, 'EngineMaintenanceWorker', 'maintenance-cycle', {
+          operation: 'engine-maintenance',
+        });
+      }
+
+    } finally {
+      this.status.isRunning = false;
+    }
+  }
+
+  /**
+   * Stop worker gracefully
+   */
+  stop(): void {
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
+      this.isRunning = false;
+
+      log('info', 'engine-workers: EngineMaintenanceWorker stopped', {
+        totalRuns: this.status.successCount + this.status.errorCount,
+        successCount: this.status.successCount,
+        errorCount: this.status.errorCount,
+      });
+    }
+  }
+
+  /**
+   * Get worker status snapshot
+   */
+  getStatus(): WorkerStatus {
+    return { ...this.status };
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+
+// ============================================================================
 // Workers Orchestrator
 // ============================================================================
 
@@ -687,6 +835,7 @@ const cacheRefreshWorker = new CacheRefreshWorker();
 const writeBufferFlusher = new WriteBufferFlusher();
 const readDbSyncWorker = new ReadDbSyncWorker();
 const writeDbValidatorWorker = new WriteDbValidatorWorker();
+const engineMaintenanceWorker = new EngineMaintenanceWorker();
 
 /**
  * Start all enabled Engine workers.
@@ -696,6 +845,7 @@ const writeDbValidatorWorker = new WriteDbValidatorWorker();
  * - Worker 2 (Buffer Flush): +10s delay
  * - Worker 3 (Read-DB Sync): Render cron job (not in-process)
  * - Worker 4 (Validator): +15s delay
+ * - Worker 5 (Maintenance): +20s delay
  * 
  * @throws {Error} If required workers fail to start
  */
@@ -727,6 +877,13 @@ export async function startEngineWorkers(): Promise<void> {
       log('info', 'engine-workers: WriteDbValidatorWorker disabled (feature flag off)');
     }
 
+    // Worker 5: Engine Maintenance (always enabled with workers)
+    if (EngineDbConfig.featureWorkersEnabled) {
+      await engineMaintenanceWorker.start();
+    } else {
+      log('info', 'engine-workers: EngineMaintenanceWorker disabled (feature flag off)');
+    }
+
     log('info', 'engine-workers: All Engine workers started successfully');
 
   } catch (error) {
@@ -748,6 +905,7 @@ export function stopEngineWorkers(): void {
   writeBufferFlusher.stop();
   readDbSyncWorker.stop();
   writeDbValidatorWorker.stop();
+  engineMaintenanceWorker.stop();
 
   log('info', 'engine-workers: All Engine workers stopped');
 }
@@ -762,7 +920,8 @@ export function getEngineWorkersStatus(): EngineWorkersStatus {
     cacheRefresh: cacheRefreshWorker.getStatus(),
     bufferFlush: writeBufferFlusher.getStatus(),
     readDbSync: readDbSyncWorker.getStatus(),
-    writeDbValidator: writeDbValidatorWorker.getStatus()
+    writeDbValidator: writeDbValidatorWorker.getStatus(),
+    maintenance: engineMaintenanceWorker.getStatus(),
   };
 }
 

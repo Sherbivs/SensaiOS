@@ -93,6 +93,13 @@ export interface ReadDbVersion {
   type_effectiveness_count: number;
 }
 
+export interface ReadDbRebuildOptions {
+  /** Optional label for observability */
+  reason?: string;
+  /** Whether to keep a timestamped backup before dropping the file */
+  backupExisting?: boolean;
+}
+
 // ============================================================================
 // Database State
 // ============================================================================
@@ -598,4 +605,45 @@ export async function close(): Promise<void> {
  */
 export function isReady(): boolean {
   return isInitialized && db !== null;
+}
+
+/**
+ * Rebuild Read-DB from scratch by dropping the on-disk file and re-running initialization.
+ * Designed for scheduled maintenance cycles that require a fresh snapshot from PROD.
+ */
+export async function rebuild(options: ReadDbRebuildOptions = {}): Promise<void> {
+  const backupExisting = options.backupExisting ?? true;
+  const reason = options.reason ?? 'scheduled-maintenance';
+  const readDbPath = EngineDbConfig.readDbPath;
+
+  log('info', 'engine-read-db: Rebuild requested', { reason, backupExisting, path: readDbPath });
+
+  // Close current connection before touching the file
+  await close();
+
+  if (backupExisting) {
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupPath = `${readDbPath}.${timestamp}.bak`;
+      await fsPromises.copyFile(readDbPath, backupPath);
+      log('info', 'engine-read-db: Backup created before rebuild', { backupPath });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        log('warn', 'engine-read-db: Failed to create backup before rebuild', { error });
+      } else {
+        log('info', 'engine-read-db: No existing Read-DB file to back up');
+      }
+    }
+  }
+
+  try {
+    await fsPromises.rm(readDbPath, { force: true });
+    log('info', 'engine-read-db: Existing Read-DB removed');
+  } catch (error) {
+    log('warn', 'engine-read-db: Failed to remove existing Read-DB (continuing)', { error });
+  }
+
+  await initialize();
+
+  log('info', 'engine-read-db: Rebuild complete', { reason });
 }

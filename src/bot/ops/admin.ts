@@ -562,6 +562,7 @@ function formatEngineDbStats(): string {
     lines.push(`• Buffer Flush: ${formatWorkerStatus(workerStatus.bufferFlush)}`);
     lines.push(`• Read-DB Sync: ${formatWorkerStatus(workerStatus.readDbSync)}`);
     lines.push(`• Write-DB Validator: ${formatWorkerStatus(workerStatus.writeDbValidator)}`);
+  lines.push(`• Maintenance: ${formatWorkerStatus(workerStatus.maintenance)}`);
     lines.push("");
     
     // Read-DB Stats
@@ -1046,6 +1047,171 @@ export async function handleOpsCommand(
       log.warn("Error dashboard command failed", { err });
       const message = err instanceof Error ? err.message : String(err);
       await interaction.editReply({ content: `Error dashboard unavailable: ${message}` });
+    }
+    return;
+  }
+
+  // /ops memory - Real-time memory profiling and startup progression
+  if (sub === "memory") {
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      // Get STARTUP_MEMORY from global context (populated in index.ts)
+      const startupMemory = (global as any).STARTUP_MEMORY;
+      const current = process.memoryUsage();
+      
+      const formatMB = (bytes: number) => (bytes / 1024 / 1024).toFixed(1);
+      const formatPercent = (value: number, limit: number) => ((value / limit) * 100).toFixed(1);
+      
+      const lines: string[] = [];
+      lines.push("📊 **Memory Profiling Report**");
+      lines.push("");
+      
+      // Section 1: Startup Progression (if available)
+      if (startupMemory && typeof startupMemory === 'object') {
+        lines.push("**🚀 Startup Memory Progression**");
+        
+        if (startupMemory.initial) {
+          const initialRss = formatMB(startupMemory.initial.rss);
+          lines.push(`• Initial: ${initialRss} MB RSS`);
+        }
+        
+        if (startupMemory.post_database) {
+          const dbRss = formatMB(startupMemory.post_database.rss);
+          const delta = startupMemory.initial ? formatMB(startupMemory.post_database.rss - startupMemory.initial.rss) : '?';
+          lines.push(`• Post-Database: ${dbRss} MB RSS (+${delta} MB)`);
+        }
+        
+        if (startupMemory.post_engine_and_bots) {
+          const engineRss = formatMB(startupMemory.post_engine_and_bots.rss);
+          const delta = startupMemory.post_database ? formatMB(startupMemory.post_engine_and_bots.rss - startupMemory.post_database.rss) : '?';
+          lines.push(`• Post-Engine: ${engineRss} MB RSS (+${delta} MB)`);
+        }
+        
+        if (startupMemory.steady_state) {
+          const steadyRss = formatMB(startupMemory.steady_state.rss);
+          const delta = startupMemory.post_engine_and_bots ? formatMB(startupMemory.steady_state.rss - startupMemory.post_engine_and_bots.rss) : '?';
+          lines.push(`• Steady State: ${steadyRss} MB RSS (+${delta} MB)`);
+        }
+        
+        lines.push("");
+      }
+      
+      // Section 2: Current Memory State
+      lines.push("**📈 Current Memory State**");
+      lines.push(`• RSS: ${formatMB(current.rss)} MB (total process memory)`);
+      lines.push(`• Heap Used: ${formatMB(current.heapUsed)} MB / ${formatMB(current.heapTotal)} MB`);
+      lines.push(`• External: ${formatMB(current.external)} MB (C++ objects)`);
+      lines.push(`• Array Buffers: ${formatMB(current.arrayBuffers)} MB`);
+      
+      // Calculate delta from steady state
+      if (startupMemory?.steady_state) {
+        const deltaRss = current.rss - startupMemory.steady_state.rss;
+        const deltaHeap = current.heapUsed - startupMemory.steady_state.heapUsed;
+        lines.push("");
+        lines.push("**Δ from Steady State:**");
+        lines.push(`• RSS: ${deltaRss >= 0 ? '+' : ''}${formatMB(deltaRss)} MB`);
+        lines.push(`• Heap: ${deltaHeap >= 0 ? '+' : ''}${formatMB(deltaHeap)} MB`);
+      }
+      
+      lines.push("");
+      
+      // Section 3: Resource Limits (Render = 512 MB)
+      const renderLimitMB = 512;
+      const warningLimitMB = 384;  // 75%
+      const criticalLimitMB = 435; // 85%
+      const emergencyLimitMB = 460; // 90%
+      
+      const rssPercent = formatPercent(current.rss, renderLimitMB * 1024 * 1024);
+      const status = 
+        current.rss >= emergencyLimitMB * 1024 * 1024 ? '💀 EMERGENCY' :
+        current.rss >= criticalLimitMB * 1024 * 1024 ? '🚨 CRITICAL' :
+        current.rss >= warningLimitMB * 1024 * 1024 ? '⚠️ WARNING' :
+        '✅ HEALTHY';
+      
+      lines.push("**🎯 Resource Limits**");
+      lines.push(`• Status: ${status}`);
+      lines.push(`• Usage: ${formatMB(current.rss)} MB / ${renderLimitMB} MB (${rssPercent}%)`);
+      lines.push(`• Warning: ${warningLimitMB} MB (${formatPercent(current.rss, warningLimitMB * 1024 * 1024)}%)`);
+      lines.push(`• Critical: ${criticalLimitMB} MB (${formatPercent(current.rss, criticalLimitMB * 1024 * 1024)}%)`);
+      lines.push(`• Emergency: ${emergencyLimitMB} MB (${formatPercent(current.rss, emergencyLimitMB * 1024 * 1024)}%)`);
+      lines.push("");
+      
+      // Section 4: Component Memory (estimates)
+      lines.push("**🧩 Component Memory Estimates**");
+      
+      // Get Engine Cache stats
+      try {
+        const cacheStats = engineCache.getStats();
+        lines.push(`• Engine L1 Cache: ~${cacheStats.memorySizeMb.toFixed(1)} MB`);
+      } catch {
+        lines.push("• Engine L1 Cache: n/a");
+      }
+      
+      // Get Write Buffer stats
+      try {
+        const bufferStats = engineWriteBuffer.getStats();
+        const bufferMB = ((bufferStats.battleLogQueueSize + bufferStats.moveUsageQueueSize + bufferStats.anomalyQueueSize) * 0.5 / 1024).toFixed(1);
+        lines.push(`• Write Buffer: ~${bufferMB} MB (${bufferStats.totalQueueSize} entries)`);
+      } catch {
+        lines.push("• Write Buffer: n/a");
+      }
+      
+      // Get Read-DB stats
+      try {
+        const readDbStats = engineReadDb.getStats();
+        const readDbMB = (readDbStats.sizeBytes / 1024 / 1024).toFixed(1);
+        lines.push(`• Engine Read-DB: ~${readDbMB} MB (SQLite)`);
+      } catch {
+        lines.push("• Engine Read-DB: n/a");
+      }
+      
+      // Get Write-DB stats
+      try {
+        const writeDbStats = engineWriteDb.getStats();
+        const writeDbMB = (writeDbStats.sizeBytes / 1024 / 1024).toFixed(1);
+        lines.push(`• Engine Write-DB: ~${writeDbMB} MB (SQLite)`);
+      } catch {
+        lines.push("• Engine Write-DB: n/a");
+      }
+      
+      lines.push("");
+      
+      // Section 5: Heap Statistics (simplified - v8 module not imported)
+      const heapUsedPercent = ((current.heapUsed / current.heapTotal) * 100).toFixed(1);
+      lines.push("**� Heap Statistics**");
+      lines.push(`• Heap Usage: ${heapUsedPercent}% of allocated`);
+      lines.push(`• Available: ${formatMB(current.heapTotal - current.heapUsed)} MB`);
+      lines.push("");
+      
+      // Section 6: Recommendations
+      lines.push("**💡 Recommendations**");
+      if (current.rss >= emergencyLimitMB * 1024 * 1024) {
+        lines.push("• 💀 EMERGENCY: Restart service immediately");
+        lines.push("• Memory guardian should trigger aggressive cleanup");
+      } else if (current.rss >= criticalLimitMB * 1024 * 1024) {
+        lines.push("• 🚨 CRITICAL: Monitor closely, cleanup recommended");
+        lines.push("• Consider restarting service soon");
+      } else if (current.rss >= warningLimitMB * 1024 * 1024) {
+        lines.push("• ⚠️ WARNING: Memory usage elevated");
+        lines.push("• Review component growth patterns");
+      } else {
+        lines.push("• ✅ Memory usage within normal range");
+      }
+      
+      lines.push("");
+      lines.push("*See `docs/memory-profiling-report.md` for optimization opportunities*");
+      
+      const message = lines.join("\n");
+      if (message.length > 2000) {
+        await interaction.editReply({ content: message.substring(0, 1997) + "..." });
+      } else {
+        await interaction.editReply({ content: message });
+      }
+    } catch (err) {
+      log.warn("Memory profiling command failed", { err });
+      const message = err instanceof Error ? err.message : String(err);
+      await interaction.editReply({ content: `Memory profiling unavailable: ${message}` });
     }
     return;
   }

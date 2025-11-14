@@ -193,6 +193,14 @@ export const WRITE_DB_VALIDATOR_INTERVAL_MS = IS_TEST
   : 10 * 60 * 1000; // 10 minutes
 
 /**
+ * Engine Maintenance Worker (Write-DB flush + Read-DB rebuild)
+ * Frequency: Every 8 hours in production, 1 minute during tests.
+ */
+export const ENGINE_MAINTENANCE_INTERVAL_MS = IS_TEST
+  ? 60 * 1000        // 1 minute for unit tests
+  : 8 * 60 * 60 * 1000; // 8 hours
+
+/**
  * Worker startup stagger delay (prevent thundering herd)
  * Each worker waits N seconds before first execution
  */
@@ -448,6 +456,7 @@ export const EngineDbConfig = {
   bufferFlushWorkerIntervalMs: BUFFER_FLUSH_WORKER_INTERVAL_MS,
   readDbSyncCron: READ_DB_SYNC_CRON,
   writeDbValidatorIntervalMs: WRITE_DB_VALIDATOR_INTERVAL_MS,
+  maintenanceWorkerIntervalMs: ENGINE_MAINTENANCE_INTERVAL_MS,
   workerStartupStaggerMs: WORKER_STARTUP_STAGGER_MS,
   
   // Validation

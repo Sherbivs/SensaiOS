@@ -13,18 +13,17 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: NONE
-reason: "Phase 2.4 (IntelligentLogger Event Bus Migration) COMPLETE (2025-11-11T23:00Z). Phase 2.4.3 finished - EventEmitter removed, Event Bus exclusive emission established. All tests passing (15/15), TypeScript 0 errors, grep 0 EventEmitter code references. IntelligentLogger now pure TypeScript class with Event Bus as exclusive publish-subscribe system. Awaiting selection of next READY task from backlog."
+next_task_id: DB.NORTHSTAR.ANALYTICS
+reason: "Only READY task remaining is DB.NORTHSTAR.ANALYTICS (analytics jobs + reporting layer). Routing pointer there to resume Northstar follow-up work."
 
 files_hint:
-  - docs/architecture/phase2.4.3-intelligentlogger-eventbus-exclusive-complete.md (Phase 2.4.3 completion report)
-  - docs/architecture/phase2.4.1-intelligentlogger-dual-emission-complete.md (Phase 2.4.1 completion report)
-  - docs/architecture/phase2.4-intelligentlogger-migration-plan.md (migration plan)
-  - src/utils/intelligent-logger.ts (970 lines, EventEmitter removed)
-  - tests/utils/intelligent-logger-event-bus.test.ts (335 lines, 15/15 tests passing)
+  - scripts/analytics/generate_daily_stats.ts (daily metrics job)
+  - scripts/analytics/refresh_leaderboards.ts (hourly leaderboard refresh)
+  - docs/query-optimization-guide.md (document aggregation queries)
+  - data/README.md (reference datasets)
 
 queue: []
-timestamp_utc: 2025-11-11T23:00:00Z
+timestamp_utc: 2025-11-13T03:10:00Z
 router_version: 1
-last_notes_read_utc: 2025-11-11T23:00:00Z
-note: "Phase 2.4 COMPLETE: EventEmitter removed from IntelligentLogger (Phase 2.4.3). Total duration ~4 hours (1h planning + 2-3h Phase 2.4.1 dual emission + 25min Phase 2.4.3 EventEmitter removal). Key achievements: Event Bus exclusive emission (log.trace/debug/info/warn/error/fatal + cache.eviction), 15/15 tests passing, TypeScript 0 errors, grep 0 EventEmitter code references, performance improvement (10-20% reduction in log overhead), IntelligentLogger now pure TypeScript class. Phase 2.4.1 established dual emission with 17/17 tests passing. Phase 2.4.2 SKIPPED (no external consumers). Phase 2.4.3 removed EventEmitter cleanly (2 backward compatibility tests removed, 17→15 tests). Comprehensive completion report created (docs/architecture/phase2.4.3-intelligentlogger-eventbus-exclusive-complete.md). Next task selection needed from backlog."
+last_notes_read_utc: 2025-11-13T03:10:00Z
+note: "Pointer advanced to DB.NORTHSTAR.ANALYTICS (READY, dependencies satisfied). Work covers analytics jobs (generate_daily_stats.ts, refresh_leaderboards.ts), aggregation logic for DAU/popular species/battle win rates/achievement completion, scheduling, and docs/query-optimization-guide.md updates."

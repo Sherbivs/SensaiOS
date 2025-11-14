@@ -62,6 +62,47 @@ function recordMemory(label: string) {
 }
 recordMemory("initial");
 
+// Expose STARTUP_MEMORY globally for /ops memory command
+(global as any).STARTUP_MEMORY = STARTUP_MEMORY;
+
+/**
+ * Calculate memory progression deltas from startup phases
+ */
+function calculateMemoryProgression(memory: { [key: string]: NodeJS.MemoryUsage }) {
+  const formatMB = (bytes: number) => Math.round(bytes / 1024 / 1024);
+  
+  const phases = [
+    { name: "Module Imports", from: "initial", to: "post_database" },
+    { name: "Database Connection", from: "post_database", to: "pre_engine_and_bots" },
+    { name: "Engine DB + Bots", from: "pre_engine_and_bots", to: "post_engine_and_bots" },
+    { name: "Runtime Monitoring", from: "post_engine_and_bots", to: "steady_state" },
+  ];
+  
+  const progression: any = {
+    total_growth_mb: 0,
+    phases: []
+  };
+  
+  for (const phase of phases) {
+    if (memory[phase.from] && memory[phase.to]) {
+      const rssDelta = memory[phase.to].rss - memory[phase.from].rss;
+      const heapDelta = memory[phase.to].heapUsed - memory[phase.from].heapUsed;
+      const externalDelta = memory[phase.to].external - memory[phase.from].external;
+      
+      progression.phases.push({
+        name: phase.name,
+        rss_delta_mb: formatMB(rssDelta),
+        heap_delta_mb: formatMB(heapDelta),
+        external_delta_mb: formatMB(externalDelta),
+      });
+      
+      progression.total_growth_mb += formatMB(rssDelta);
+    }
+  }
+  
+  return progression;
+}
+
 // Initialize log buffer early (before most logging occurs)
 setupLogBuffer();
 
@@ -667,7 +708,8 @@ function updateEngineSection(workerStatus?: EngineWorkersStatus): void {
       const workerErrors = 
         workerStatus.cacheRefresh.errorCount +
         workerStatus.bufferFlush.errorCount +
-        workerStatus.writeDbValidator.errorCount;
+        workerStatus.writeDbValidator.errorCount +
+        workerStatus.maintenance.errorCount;
       
       if (workerErrors > 0) {
         metrics.push(metric("worker errors", workerErrors));
@@ -683,7 +725,8 @@ function updateEngineSection(workerStatus?: EngineWorkersStatus): void {
     } else if (workerStatus && (
       workerStatus.cacheRefresh.errorCount > 5 ||
       workerStatus.bufferFlush.errorCount > 5 ||
-      workerStatus.writeDbValidator.errorCount > 5
+      workerStatus.writeDbValidator.errorCount > 5 ||
+      workerStatus.maintenance.errorCount > 5
     )) {
       status = "degraded";
     }
@@ -1314,6 +1357,10 @@ export async function boot(): Promise<void> {
         heap_total_mb: Math.round(STARTUP_MEMORY.steady_state.heapTotal / 1024 / 1024),
       }
     });
+    
+    // Log memory progression breakdown
+    const memProgression = calculateMemoryProgression(STARTUP_MEMORY);
+    log.info("📊 Memory Progression Breakdown", memProgression);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     
