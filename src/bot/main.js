@@ -1828,11 +1828,12 @@ async function maybeAlertRoleAssignments(oldMember, newMember) {
       reason: `Security bot rollback: unauthorized change by ${executorSummary} (${authorization.reason})`,
     });
 
-    const title = `Unauthorized role change reverted for ${describeMember(newMember)}`;
+    const title = `🚨 SECURITY: Unauthorized role change reverted`;
     const meta = {
       ...baseMeta,
       action: 'reverted',
       revertStatus: revertOutcome.success ? 'success' : 'failed',
+      alertType: 'unauthorized-reversion',
     };
 
     if (!revertOutcome.success && Array.isArray(revertOutcome.errors) && revertOutcome.errors.length) {
@@ -1857,16 +1858,51 @@ async function maybeAlertRoleAssignments(oldMember, newMember) {
     return { changed: true, unauthorized: true, revertStatus: meta.revertStatus };
   }
 
+  // Authorized role change detected
   const assignedRolesSummary = addedRoles.map((role) => role.name).join(', ') || 'role change';
-  const summary = `Assigned ${assignedRolesSummary} to ${describeMember(newMember)} by ${executorSummary}`;
-  const title = `Role assignment detected for ${describeMember(newMember)}`;
+  const removedRolesSummary = removedRoles.map((role) => role.name).join(', ') || 'none';
+  
+  // Check if this is a new member join (member created recently and receiving first role)
+  const memberAge = Date.now() - (newMember.joinedTimestamp || 0);
+  const isNewMember = memberAge < 60_000; // Joined within last minute
+  const isFirstRole = oldRoles.size === 0 && addedRoles.length > 0;
+  
+  let title, severity, alertType, summary;
+  
+  if (isNewMember && isFirstRole) {
+    // New member joining and receiving standard permissions
+    title = `👋 New member joined: ${newMember.user.tag}`;
+    severity = DRIP_ALERT_SEVERITY.notice;
+    alertType = 'new-member-join';
+    summary = `New member ${describeMember(newMember)} joined and received ${assignedRolesSummary}`;
+  } else if (removedRoles.length > 0) {
+    // Roles were modified (added and/or removed)
+    title = `🔄 Role modification for ${newMember.user.tag}`;
+    severity = DRIP_ALERT_SEVERITY.notice;
+    alertType = 'authorized-role-modification';
+    summary = `${describeMember(newMember)} roles modified by ${executorSummary}: +${assignedRolesSummary}, -${removedRolesSummary}`;
+  } else {
+    // Existing member received additional role(s)
+    title = `➕ Role assigned to ${newMember.user.tag}`;
+    severity = DRIP_ALERT_SEVERITY.notice;
+    alertType = 'authorized-role-addition';
+    summary = `${describeMember(newMember)} received ${assignedRolesSummary} from ${executorSummary}`;
+  }
+  
   const meta = {
     ...baseMeta,
     action: 'recorded',
+    alertType,
+    memberAge: isNewMember ? `${Math.floor(memberAge / 1000)}s` : 'existing',
+    isFirstRole,
+    userTag: newMember.user.tag,
+    username: newMember.user.username,
+    userCreatedAt: newMember.user.createdAt?.toISOString() || null,
+    memberJoinedAt: newMember.joinedAt?.toISOString() || null,
   };
 
   if (dripAlertManager) {
-    await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.security, title, meta);
+    await dripAlertManager.recordAlert(severity, title, meta);
   }
   activityTracker.recordActivity('security-alert', summary, meta);
   updateSecurityCliSection({
@@ -1879,6 +1915,7 @@ async function maybeAlertRoleAssignments(oldMember, newMember) {
     addedRoles: meta.addedRoles.join(', '),
     removedRoles: meta.removedRoles.join(', ') || 'none',
     assignedBy: executorSummary,
+    alertType,
   }, 'info');
 
   return { changed: true, unauthorized: false };
