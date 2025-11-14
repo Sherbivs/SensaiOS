@@ -206,6 +206,37 @@ const connHandle = createManagedConnection('owner', 'name', 'database', async ()
 
 ---
 
+## ♻️ Cleanup Contracts & Lifecycle Guarantees
+
+### Worker / Service Contract
+
+- Every worker implements `start()` **and** `stop()`; `stop()` **must** clear every `setInterval`, timer handle, or queue drain before resolving.
+- Orchestrators (e.g., `startEngineWorkers()` / `stopEngineWorkers()`) call each worker’s `stop()` prior to shutdown and log completion.
+- Services registered with the Service Registry expose `shutdown()`; `gracefulShutdown()` awaits each service and logs failures via `errorTracker`.
+
+```typescript
+await stopEngineWorkers({ reason: signal });
+await resourceManager.shutdown();
+```
+
+### Event Bus Lifecycle
+
+- Event Bus is a singleton: `const bus = EventBus.getInstance();`.
+- **Shutdown requirement:** call `await bus.shutdown()` after the Service Registry finishes so subscriptions and replay buffers clear.
+- `/ops engine` and `/ops cache` now surface Event Bus telemetry (subscriptions, replay depth, handler latency) to verify drains in prod.
+
+```typescript
+await registry.shutdownAll();
+await EventBus.getInstance().shutdown();
+```
+
+### Log Buffer & Memory Observability
+
+- Log buffer is bounded (max 200 entries). `/ops engine` + `/ops cache` show queue depth and aggregated message count.
+- Runtime memory (RSS, heap, external) appears in both commands—use it to confirm cleanup contracts stay below 350 MB budget after redeploys.
+
+---
+
 ## 🛠️ Troubleshooting
 
 ### "Timer limit exceeded"
