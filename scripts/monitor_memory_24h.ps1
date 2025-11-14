@@ -43,7 +43,7 @@ function Get-ProcessMemory {
     param([string]$ServiceId)
     
     try {
-        $result = & pwsh -File "scripts/render_ssh_exec.ps1" -ServiceId $ServiceId -Command "ps aux | grep node | grep -v grep" 2>&1
+        $result = & pwsh -File "scripts/render_ssh_exec.ps1" -ServiceId $ServiceId -Command "ps aux" 2>&1
         
         if ($LASTEXITCODE -ne 0) {
             return @{
@@ -54,11 +54,18 @@ function Get-ProcessMemory {
         }
         
         # Parse ps output: USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND
-        $lines = $result | Where-Object { $_ -match "node" -and $_ -notmatch "grep" }
+        # Find line with "node dist/index.js" (main bot process, not shell wrapper)
+        # Look for " Sl " status (sleeping interruptible, leader) which is the node process
+        # Exclude "sh -c" wrapper which has " S " status
+        $lines = $result | Where-Object { 
+            $_ -match "^\s*render\s+\d+.*\sSl\s+.*node\s+dist/index\.js" 
+        }
         
         if ($lines) {
             $line = $lines | Select-Object -First 1
-            $parts = $line -split '\s+', 11
+            # Remove leading/trailing whitespace and split
+            $cleanLine = $line.Trim() -replace '\s+', ' '
+            $parts = $cleanLine -split ' ', 11
             
             if ($parts.Count -ge 6) {
                 $rssKb = [int]$parts[5]
@@ -66,9 +73,11 @@ function Get-ProcessMemory {
                 $vsz = $parts[4]
                 $cpu = $parts[2]
                 $mem = $parts[3]
+                $processPid = $parts[1]
                 
                 return @{
                     Success = $true
+                    ProcessPID = $processPid
                     RSS_KB = $rssKb
                     RSS_MB = $rssMb
                     VSZ = $vsz
@@ -147,9 +156,8 @@ while ((Get-Date) -lt $endTime) {
     $memInfo = Get-ProcessMemory -ServiceId $ServiceId
     
     if ($memInfo.Success) {
-        Write-Log "RSS: $($memInfo.RSS_MB) MB ($($memInfo.RSS_KB) KB)"
-        Write-Log "VSZ: $($memInfo.VSZ) KB"
-        Write-Log "CPU: $($memInfo.CPU_Percent)%, MEM: $($memInfo.MEM_Percent)%"
+        Write-Log "PID: $($memInfo.ProcessPID) | RSS: $($memInfo.RSS_MB) MB ($($memInfo.RSS_KB) KB)"
+        Write-Log "VSZ: $($memInfo.VSZ) KB | CPU: $($memInfo.CPU_Percent)%, MEM: $($memInfo.MEM_Percent)%"
         
         # Calculate delta from baseline
         if ($null -eq $baseline) {
