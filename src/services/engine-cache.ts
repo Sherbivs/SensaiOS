@@ -26,6 +26,7 @@ import { EngineDbConfig } from '../config/engine-db-config.js';
 import { log } from '../utils/logger.js';
 import { errorTracker } from './error-tracker.js';
 import type { IPrunableCache } from './resource-monitor.js';
+import * as readDb from './engine-read-db.js';
 
 // ============================================================================
 // Type Definitions
@@ -719,8 +720,7 @@ export class EngineCache implements IPrunableCache {
       
       try {
         // Lazy-load Read-DB module (only on first miss)
-        const readDbModule = require('./engine-read-db.js');
-        const readDbRecord = readDbModule.getPokemonById(id);
+        const readDbRecord = readDb.getPokemonById(id);
         
         if (readDbRecord) {
           // Found in Read-DB: Promote to L1 cache
@@ -843,8 +843,7 @@ export class EngineCache implements IPrunableCache {
       
       try {
         // Lazy-load Read-DB module (only on first miss)
-        const readDbModule = require('./engine-read-db.js');
-        const readDbRecord = readDbModule.getMoveById(id);
+        const readDbRecord = readDb.getMoveById(id);
         
         if (readDbRecord) {
           // Found in Read-DB: Promote to L1 cache
