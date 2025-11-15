@@ -22,7 +22,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { LiveErrorEvent } from '../services/error-tracker.js';
 import { EventBus, type BusEvent } from '../shared/event-bus.js';
-import type { ParsedStackTrace, StackFrame } from './stack-trace-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -182,7 +181,6 @@ const EVICTION_PERCENT = 0.1; // Evict 10% of entries
 // Store directory
 const STORE_DIR = path.resolve(process.cwd(), 'Store', 'logs');
 const CURRENT_LOG_FILE = path.join(STORE_DIR, 'current.jsonl');
-const INDEX_DB_FILE = path.join(STORE_DIR, 'index.db');
 
 // ============================================================================
 // Circular Buffer (7MB Intelligent Cache)

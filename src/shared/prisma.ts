@@ -1,5 +1,3 @@
-import { createRequire } from "node:module";
-
 import { Prisma, PrismaClient } from "@prisma/client";
 
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";

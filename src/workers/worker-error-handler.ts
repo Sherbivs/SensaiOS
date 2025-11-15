@@ -273,7 +273,7 @@ export class WorkerErrorHandler {
   
   private classifyTaskErrorSeverity(
     error: Error,
-    workerName: string
+    _workerName: string
   ): 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' {
     // Database errors are CRITICAL
     if (error.name.includes('Prisma') || error.message.includes('database')) {

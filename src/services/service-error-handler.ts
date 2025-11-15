@@ -315,7 +315,7 @@ export class ServiceErrorHandler {
   
   private classifyAPIErrorSeverity(
     httpStatus: number | undefined,
-    error: Error
+    _error: Error
   ): 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' {
     if (!httpStatus) {
       // Network errors (no response) are HIGH

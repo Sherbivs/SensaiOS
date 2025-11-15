@@ -19,7 +19,6 @@ const BORDER_STYLES = {
 } as const;
 
 const INDENT_SIZE = 2;
-const SECTION_PADDING = 1;
 const DEFAULT_COLUMN_WIDTH = 75;
 
 // ============================================================================

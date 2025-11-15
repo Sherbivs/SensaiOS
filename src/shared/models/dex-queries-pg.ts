@@ -5,7 +5,7 @@
  */
 
 import type { Pool, PoolClient } from "pg";
-import { buildSelect, buildInsert, buildDelete, buildCount } from "../pg-query.js";
+import { buildSelect, buildDelete, buildCount } from "../pg-query.js";
 import { getProdDb } from "../pg-connection.js";
 
 // ============================================================================

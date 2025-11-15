@@ -39,7 +39,7 @@ export interface ComponentMemoryStats {
 function safeJsonSize(obj: any): number {
   try {
     return JSON.stringify(obj).length;
-  } catch (err) {
+  } catch (_err) {
     // Circular reference or other serialization error
     return 0;
   }

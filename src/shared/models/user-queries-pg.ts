@@ -12,9 +12,9 @@
  * Performance: Raw SQL eliminates ORM overhead (5-10ms improvement per query)
  */
 
-import { Pool, PoolClient } from "pg";
+import { Pool } from "pg";
 import { getProdDb } from "../pg-connection.js";
-import { buildSelect, buildWhereClause, buildCount } from "../pg-query.js";
+import { buildSelect, buildCount } from "../pg-query.js";
 import type { User, Party, PartySlot, PokemonInstance } from "../../types/db-models.js";
 
 /**

@@ -379,7 +379,7 @@ export async function extractSourceSnippet(
       lineNumber,
       columnNumber,
     };
-  } catch (error) {
+  } catch (_error) {
     // File not accessible (maybe in node_modules, or deleted)
     return null;
   }

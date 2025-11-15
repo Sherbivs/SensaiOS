@@ -20,7 +20,7 @@
 
 import { Pool } from "pg";
 import { getProdDb } from "../pg-connection.js";
-import { buildSelect, buildInsert, buildUpdate, buildWhereClause } from "../pg-query.js";
+import { buildSelect } from "../pg-query.js";
 import type { Encounter } from "../../types/db-models.js";
 
 /**

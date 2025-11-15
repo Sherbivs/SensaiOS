@@ -171,7 +171,7 @@ function resolveDatabaseUrl(nodeEnv: string): ResolvedDatabaseUrl {
   // ONPREMISE-DEV-PRIMARY: Workstation development database (optional offline fallback)
   const onPremiseDevUrl = process.env.DATABASE_ONPREMISE_DEV_PRIMARY?.trim() ?? "";
 
-  const preferExternal = mode === "external" || (mode === "auto" && nodeEnv !== "production");
+  const _preferExternal = mode === "external" || (mode === "auto" && nodeEnv !== "production");
 
   const isPostgresUrl = (value: string): boolean => /^postgres(?:ql)?:\/\//i.test(value);
 

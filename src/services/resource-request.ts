@@ -13,7 +13,6 @@
  */
 
 import { resourceManager } from './resource-manager.js';
-import { resourceMonitor } from './resource-monitor.js';
 import logger from '../utils/intelligent-logger.js';
 import type { 
   ResourceType, 
@@ -222,7 +221,6 @@ class ResourceRequestHandler {
     }
 
     // Validation Rule 4: Per-owner quotas
-    const ownerStats = stats.byOwner[request.owner] || 0;
     const ownerTimers = Array.from(resourceManager.getResourcesByOwner(request.owner))
       .filter(r => r.type === 'timer').length;
     const ownerListeners = Array.from(resourceManager.getResourcesByOwner(request.owner))

@@ -21,7 +21,7 @@
 
 import type { Pool, PoolClient } from "pg";
 import { getProdDb } from "../pg-connection.js";
-import { buildSelect, buildInsert, buildUpdate, buildCount, type QueryOptions } from "../pg-query.js";
+import { buildSelect, buildInsert, buildUpdate, buildCount } from "../pg-query.js";
 import type { Party, PartySlot, PokemonInstance } from "../../types/db-models.js";
 
 // ============================================================================
