@@ -343,21 +343,3 @@ export function formatOutputBlock(options: {
   
   return lines.join('\n');
 }
-
-// ============================================================================
-// Exports
-// ============================================================================
-
-export default {
-  formatBorder,
-  formatSeparator,
-  formatSectionHeader,
-  formatSection,
-  formatKeyValue,
-  formatKeyValueList,
-  formatTable,
-  formatList,
-  formatStatus,
-  formatProgress,
-  formatOutputBlock,
-};
