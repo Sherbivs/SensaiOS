@@ -1,4 +1,4 @@
-\src\index.ts:1007 - boot (used in module)
+\src\index.ts:1014 - boot (used in module)
 \src\bot\dripAlerts.d.ts:129 - createDripAlertManager
 \src\bot\dripAlerts.d.ts:13 - AlertSeverity (used in module)
 \src\bot\dripAlerts.d.ts:18 - AlertMeta (used in module)
@@ -136,9 +136,7 @@
 \src\services\engine-cache.ts:38 - PokemonCacheEntry (used in module)
 \src\services\engine-cache.ts:58 - MoveCacheEntry (used in module)
 \src\services\engine-cache.ts:74 - CacheStats (used in module)
-\src\services\engine-cache.ts:107 - EngineCache (used in module)
 \src\services\engine-write-buffer.ts:77 - BufferStats (used in module)
-\src\services\engine-write-buffer.ts:97 - EngineWriteBuffer (used in module)
 \src\services\error-learning.ts:29 - TimePattern (used in module)
 \src\services\error-learning.ts:40 - ErrorCorrelation (used in module)
 \src\services\error-learning.ts:52 - ErrorCascade (used in module)
@@ -146,15 +144,7 @@
 \src\services\error-learning.ts:75 - RecoveryStrategy (used in module)
 \src\services\error-learning.ts:88 - LearningMetadata (used in module)
 \src\services\error-learning.ts:101 - ErrorLearningService (used in module)
-\src\services\home-bundle-pg.ts:81 - primeHomeBundle
-\src\services\home-bundle-pg.ts:110 - findCooldownsByUserId (used in module)
-\src\services\home-bundle-pg.ts:190 - deleteCooldown
-\src\services\home-bundle-pg.ts:204 - deleteExpiredCooldowns
-\src\services\home-bundle-pg.ts:226 - loadHomeBundleByDiscordId
-\src\services\home-bundle-pg.ts:262 - loadHomeBundleByUserId
-\src\services\home-bundle-pg.ts:297 - getHomeCacheStats
-\src\services\home-bundle-pg.ts:309 - clearHomeCache
-\src\services\home-bundle-pg.ts:57 - HomeBundle (used in module)
+\src\services\home-bundle-pg.ts:52 - findCooldownsByUserId
 \src\services\home-bundle.ts:48 - loadHomeBundleByDiscordId
 \src\services\home-bundle.ts:84 - primeHomeBundle
 \src\services\home-bundle.ts:28 - PartyWithSlots (used in module)
@@ -293,28 +283,28 @@
 \src\types\db-models.ts:177 - NameVariant
 \src\types\db-models.ts:240 - Inventory
 \src\types\db-models.ts:246 - EncounterData
-\src\types\db-models.ts:302 - BusIdemToken
-\src\types\db-models.ts:308 - AuditLog
-\src\types\db-models.ts:320 - DbVersion
-\src\types\db-models.ts:330 - DbSyncState
-\src\types\db-models.ts:347 - UserWithParty
-\src\types\db-models.ts:351 - UserWithPokemon
-\src\types\db-models.ts:355 - UserWithEncounters
-\src\types\db-models.ts:359 - UserWithBattles
-\src\types\db-models.ts:364 - PartyWithSlots
-\src\types\db-models.ts:372 - PokemonInstanceWithSpecies
-\src\types\db-models.ts:376 - EncounterWithSpecies
-\src\types\db-models.ts:380 - EncounterWithOwner
-\src\types\db-models.ts:384 - BattleWithPlayers
-\src\types\db-models.ts:389 - SpeciesWithTypes
-\src\types\db-models.ts:393 - SpeciesWithAbilities
-\src\types\db-models.ts:397 - SpeciesWithLearnset
-\src\types\db-models.ts:405 - UserIdOnly
-\src\types\db-models.ts:406 - UserWithCoins
-\src\types\db-models.ts:407 - UserSummary
-\src\types\db-models.ts:408 - PokemonSummary
-\src\types\db-models.ts:409 - BattleIdOnly
-\src\types\db-models.ts:410 - EncounterSummary
+\src\types\db-models.ts:317 - BusIdemToken
+\src\types\db-models.ts:323 - AuditLog
+\src\types\db-models.ts:335 - DbVersion
+\src\types\db-models.ts:345 - DbSyncState
+\src\types\db-models.ts:362 - UserWithParty
+\src\types\db-models.ts:366 - UserWithPokemon
+\src\types\db-models.ts:370 - UserWithEncounters
+\src\types\db-models.ts:374 - UserWithBattles
+\src\types\db-models.ts:379 - PartyWithSlots
+\src\types\db-models.ts:387 - PokemonInstanceWithSpecies
+\src\types\db-models.ts:391 - EncounterWithSpecies
+\src\types\db-models.ts:395 - EncounterWithOwner
+\src\types\db-models.ts:399 - BattleWithPlayers
+\src\types\db-models.ts:404 - SpeciesWithTypes
+\src\types\db-models.ts:408 - SpeciesWithAbilities
+\src\types\db-models.ts:412 - SpeciesWithLearnset
+\src\types\db-models.ts:420 - UserIdOnly
+\src\types\db-models.ts:421 - UserWithCoins
+\src\types\db-models.ts:422 - UserSummary
+\src\types\db-models.ts:423 - PokemonSummary
+\src\types\db-models.ts:424 - BattleIdOnly
+\src\types\db-models.ts:425 - EncounterSummary
 \src\utils\intelligent-logger.ts:33 - LogLevel (used in module)
 \src\utils\intelligent-logger.ts:35 - LogCategory (used in module)
 \src\utils\intelligent-logger.ts:41 - LogEntry (used in module)
@@ -438,15 +428,15 @@
 \src\data_pipeline\schema\moves.ts:17 - Move
 \src\data_pipeline\schema\species.ts:25 - Species
 \src\data_pipeline\schema\typechart.ts:23 - TypeChart
-\src\services\cache\facade.ts:334 - stopCacheMaintenanceScheduler (used in module)
-\src\services\cache\facade.ts:357 - configureCacheFacade
-\src\services\cache\facade.ts:428 - peek
-\src\services\cache\facade.ts:449 - touch
-\src\services\cache\facade.ts:487 - cacheRoot
-\src\services\cache\facade.ts:967 - resetCacheMetrics
-\src\services\cache\facade.ts:36 - CacheDescriptor (used in module)
-\src\services\cache\facade.ts:42 - CacheReadOptions (used in module)
-\src\services\cache\facade.ts:51 - CacheHydrator (used in module)
+\src\services\cache\facade.ts:335 - stopCacheMaintenanceScheduler (used in module)
+\src\services\cache\facade.ts:358 - configureCacheFacade
+\src\services\cache\facade.ts:429 - peek
+\src\services\cache\facade.ts:450 - touch
+\src\services\cache\facade.ts:488 - cacheRoot
+\src\services\cache\facade.ts:968 - resetCacheMetrics
+\src\services\cache\facade.ts:37 - CacheDescriptor (used in module)
+\src\services\cache\facade.ts:43 - CacheReadOptions (used in module)
+\src\services\cache\facade.ts:52 - CacheHydrator (used in module)
 \src\services\cache\recipes.ts:180 - loadTrainerProfile
 \src\services\cache\recipes.ts:205 - invalidateTrainerProfile
 \src\services\cache\recipes.ts:34 - QuestClaimSuccess (used in module)
@@ -617,6 +607,7 @@
 \src\shared\models\party-queries-pg.ts:650 - updatePokemonHealth
 \src\shared\models\party-queries-pg.ts:736 - deletePokemon
 \src\shared\models\party-queries-pg.ts:35 - PartySlotWithPokemon (used in module)
+\src\shared\models\party-queries-pg.ts:43 - PartyWithSlots (used in module)
 \src\shared\models\party-queries-pg.ts:51 - PartyWithSlotCount (used in module)
 \src\shared\models\party-queries-pg.ts:58 - PokemonStats
 \src\shared\models\party-queries-pg.ts:66 - IVs (used in module)
