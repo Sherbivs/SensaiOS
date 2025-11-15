@@ -35,5 +35,3 @@ function getSpriteUrl(idOrName, style = 'artwork') {
 }
 
 export { getSpriteUrl, manifest };
-
-export default { getSpriteUrl, manifest };
