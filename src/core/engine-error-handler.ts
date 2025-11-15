@@ -174,8 +174,9 @@ export class EngineErrorHandler {
   async handleStatCalculationError(
     error: Error,
     statType: string,
-    inputs: Record<string, any>
+    inputs: Record<string, unknown>
   ): Promise<string> {
+    const numInputs = inputs as Record<string, number | undefined>;
     const context: EngineErrorContext = {
       category: 'ENGINE',
       severity: 'HIGH',
@@ -185,9 +186,9 @@ export class EngineErrorHandler {
       inputValues: this.sanitizeInputs(inputs),
       customData: {
         statType,
-        hasInvalidBase: inputs.base === undefined || inputs.base < 0,
-        hasInvalidIV: inputs.iv === undefined || inputs.iv < 0 || inputs.iv > 31,
-        hasInvalidEV: inputs.ev === undefined || inputs.ev < 0 || inputs.ev > 255,
+        hasInvalidBase: numInputs.base === undefined || numInputs.base < 0,
+        hasInvalidIV: numInputs.iv === undefined || numInputs.iv < 0 || numInputs.iv > 31,
+        hasInvalidEV: numInputs.ev === undefined || numInputs.ev < 0 || numInputs.ev > 255,
       },
     };
     
@@ -292,7 +293,7 @@ export class EngineErrorHandler {
     return 'unknown';
   }
   
-  private sanitizeBattleState(battleState: Partial<BattleState>): Record<string, any> {
+  private sanitizeBattleState(battleState: Partial<BattleState>): Record<string, unknown> {
     return {
       battleId: battleState.battleId,
       turn: battleState.turn,
@@ -309,8 +310,8 @@ export class EngineErrorHandler {
     };
   }
   
-  private sanitizeInputs(inputs: Record<string, any>): Record<string, any> {
-    const sanitized: Record<string, any> = {};
+  private sanitizeInputs(inputs: Record<string, unknown>): Record<string, unknown> {
+    const sanitized: Record<string, unknown> = {};
     
     for (const [key, value] of Object.entries(inputs)) {
       // Sanitize sensitive data

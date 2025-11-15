@@ -323,7 +323,7 @@ export function formatOutputBlock(options: {
     
     // Section content based on type
     if (section.type === 'keyvalue' && Array.isArray(section.content[0])) {
-      lines.push(...formatKeyValueList(section.content as Array<[string, any]>));
+      lines.push(...formatKeyValueList(section.content as Array<[string, string | number | boolean | null | undefined]>));
     } else if (Array.isArray(section.content)) {
       lines.push(...(section.content as string[]));
     }

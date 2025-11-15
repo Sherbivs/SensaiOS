@@ -151,7 +151,7 @@ export interface ErrorContextSnapshot {
   };
   
   /** Related context (if available) */
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   
   /** AI-optimized troubleshooting hints */
   troubleshootingHints: string[];
@@ -425,7 +425,7 @@ export async function enrichStackFramesWithSource(
  */
 export async function captureErrorContextSnapshot(
   error: Error,
-  context?: Record<string, any>
+  context?: Record<string, unknown> & { fingerprint?: string }
 ): Promise<ErrorContextSnapshot> {
   // Parse stack trace
   const stackTrace = parseStackTrace(error);

@@ -50,7 +50,7 @@ export interface LogEntry {
   
   // Content
   message: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   
   // Context (auto-enriched)
   context: {
@@ -79,7 +79,7 @@ export interface LogEntry {
       message: string;
       stack: string;
       fingerprint: string;
-      cause?: any;
+      cause?: unknown;
       // Enhanced with stack trace parsing
       stackMetadata?: {
         depth: number;
@@ -114,7 +114,7 @@ export interface LogEntry {
 export interface LogOptions {
   category?: LogCategory;
   subcategory?: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   userId?: string;
   username?: string;
   guildId?: string;
@@ -681,7 +681,7 @@ class IntelligentLogger {
   
   private createEntry(level: LogLevel, message: string, options?: LogOptions): LogEntry {
     const category = options?.category || this.detectCategory(message, options);
-    const error = options?.data?.error;
+    const error = options?.data?.error as (Error & { cause?: unknown }) | undefined;
     
     return {
       id: this.generateId(),
@@ -734,7 +734,7 @@ class IntelligentLogger {
     return crypto.randomUUID();
   }
   
-  private generateErrorFingerprint(error: any): string {
+  private generateErrorFingerprint(error: Error & { stack?: string }): string {
     const normalizedStack = error.stack
       ?.split('\n')
       .slice(0, 5)
