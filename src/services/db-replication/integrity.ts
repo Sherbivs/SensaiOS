@@ -17,14 +17,10 @@ import type { Pool } from 'pg';
 import {
   getTableNames,
   getTableColumns,
-  getTableIndexes,
-  getTableConstraints,
   countTableRows,
   getColumnsForChecksum,
-  getForeignKeys,
   countOrphanRecords,
 } from '../../shared/models/db-version-queries-pg.js';
-import { calculateTableChecksum as calculateChecksum } from '../../shared/models/db-version-queries-pg.js';
 
 // Temporary logger until integration
 const logger = {

@@ -1,4 +1,3 @@
-import { log } from '../../utils/logger.js';
 /**
  * Event Tracking Service
  * 

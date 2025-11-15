@@ -18,8 +18,7 @@ import type {
   BaseEvent, 
   TrackedEvent, 
   EventCategory, 
-  EventSeverity,
-  RETENTION_POLICIES 
+  EventSeverity
 } from './types.js';
 import { RETENTION_POLICIES as POLICIES } from './types.js';
 
@@ -90,7 +89,7 @@ export class EventTracker {
     const processedEvent = this.processPII(event);
 
     // Calculate retention date
-    const retainUntil = this.calculateRetention(
+    const _retainUntil = this.calculateRetention(
       processedEvent.category,
       processedEvent.severity
     );

@@ -20,7 +20,6 @@
  */
 
 import initSqlJs, { type Database } from 'sql.js';
-import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,16 +36,6 @@ const ENGINE_DB_PATH = process.env.RENDER
 
 const ENGINE_DB_VERSION = 1;
 const POKEMON_DATA_PATH = path.join(process.cwd(), 'data', 'pokemon.json');
-
-interface PokemonRecord {
-  id: number;
-  name: string;
-  types: string; // JSON array
-  abilities: string; // JSON array
-  base_stats: string; // JSON object
-  sprites: string; // JSON object
-  indexed_at: number; // Unix timestamp
-}
 
 interface PokemonStats {
   hp: number;

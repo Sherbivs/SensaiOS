@@ -1186,7 +1186,7 @@ export async function boot(): Promise<void> {
   // Parallelize Engine DB initialization with Bot startup
   // Engine DB is optional ("continue without it"), so failure doesn't block bots
   // Total time = max(Engine DB, Bots) instead of sum
-  const [engineResult, _, client] = await Promise.all([
+  const [_engineResult, _, client] = await Promise.all([
     // Engine DB initialization (independent from bots)
     (async () => {
       try {
@@ -1199,7 +1199,7 @@ export async function boot(): Promise<void> {
         // Steps 2-5: Parallelize Read-DB and Write-DB initialization (independent SQLite databases)
         // Read-DB path: init → L1 cache load (BLOCKING)
         // Write-DB path: init → WAL replay
-        const [readDbStats, writeDbStats] = await Promise.all([
+        await Promise.all([
           // Read-DB initialization + L1 Cache load
           (async () => {
             // Step 2: Initialize Read-DB (SQLite read-only database)

@@ -8,7 +8,6 @@
 
 import type { ErrorLog } from '@prisma/client';
 import { prisma } from '../shared/prisma.js';
-import { errorTracker } from './error-tracker.js';
 import type { ErrorCategory } from './error-tracker.js';
 import { log } from '../utils/logger.js';
 

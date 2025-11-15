@@ -351,7 +351,7 @@ export class ErrorLearningService {
   async predictImpact(
     errorName: string,
     category: string,
-    context: Record<string, unknown> = {}
+    _context: Record<string, unknown> = {}
   ): Promise<ImpactPrediction> {
     try {
       // Find similar historical errors
@@ -659,7 +659,7 @@ export class ErrorLearningService {
       log.info('Starting error learning knowledge base update');
       
       // Detect patterns
-      const timePatterns = await this.detectTimePatterns(null, 7);
+      const _timePatterns = await this.detectTimePatterns(null, 7);
       const correlations = await this.detectCorrelations(5, 3);
       const cascades = await this.detectCascades(3);
       

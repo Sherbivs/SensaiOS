@@ -160,24 +160,6 @@ function mapPokemonSummary(mon: PokemonSummary | null): TrainerHomePokemon | nul
   } satisfies TrainerHomePokemon;
 }
 
-async function ensurePrimaryParty(ownerId: string, client: PrismaClient = prisma) {
-  return client.party.upsert({
-    where: { ownerId },
-    update: {},
-    create: { ownerId },
-    include: {
-      slots: {
-        include: {
-          pokemon: {
-            select: POKEMON_SUMMARY_SELECT,
-          },
-        },
-        orderBy: { slot: "asc" },
-      },
-    },
-  });
-}
-
 export const DMHomeRepo = {
   async loadTrainerHomeSnapshot(
     discordId: string,

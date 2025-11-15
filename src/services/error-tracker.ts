@@ -19,14 +19,13 @@ import { toEasternLogFormat } from '../shared/datetime.js';
 import { EventBus } from '../shared/event-bus.js';
 import { prisma } from '../shared/prisma.js';
 import { log } from '../utils/logger.js';
-import type { ErrorLog, ErrorAlert } from '@prisma/client';
+import type { ErrorLog } from '@prisma/client';
 import {
   parseStackTrace,
   enrichStackFramesWithSource,
   captureErrorContextSnapshot,
   formatErrorReportForAI,
   type ParsedStackTrace,
-  type ErrorContextSnapshot,
   type StackFrame,
 } from '../utils/stack-trace-parser.js';
 
@@ -559,7 +558,7 @@ export class ErrorTracker {
     return Array.from(features);
   }
   
-  private estimateUserImpact(error: Error, context: ErrorContext): number | null {
+  private estimateUserImpact(_error: Error, _context: ErrorContext): number | null {
     // TODO: Implement user impact estimation based on:
     // - Number of active users in affected guild
     // - Severity of error
