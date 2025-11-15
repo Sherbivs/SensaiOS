@@ -333,6 +333,3 @@ export class EngineErrorHandler {
     return `Move ${moveId}`;
   }
 }
-
-// Singleton instance
-export const engineErrorHandler = new EngineErrorHandler();
