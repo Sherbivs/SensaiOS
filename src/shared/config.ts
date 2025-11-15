@@ -357,7 +357,3 @@ export function recordDatabaseConnectionSuccess(source: DatabaseUrlSource): void
     };
   }
 }
-
-export function resetConfigCacheForTests(): void {
-  cachedConfig = null;
-}

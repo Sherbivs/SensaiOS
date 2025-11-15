@@ -489,10 +489,6 @@ export type DatabaseStats = {
 };
 
 // UNIFIED ARCHITECTURE: Single PROD + optional LOCAL clients
-export type DualDatabaseStats = {
-  prod: DatabaseStats;
-  onPremiseDev: DatabaseStats;
-};
 
 export type TripleDatabaseStats = {
   prod: DatabaseStats;
