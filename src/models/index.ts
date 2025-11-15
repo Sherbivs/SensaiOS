@@ -114,12 +114,6 @@ export type TrainerProfileSummary = {
   dailyRewardReadyAt: Date | null;
 };
 
-export type TrainerProfileUpdateInput = {
-  tagline?: string | null;
-  bio?: string | null;
-  favoriteSpeciesId?: number | null;
-};
-
 const POKEMON_SUMMARY_SELECT = {
   id: true,
   speciesId: true,
@@ -765,17 +759,6 @@ export function projectDailyQuestCompletion(input: DailyQuestProjectionInput): D
   }
   return { newStreak: 1, reset: true, repeated: false, gap };
 }
-
-export type EnsureDailyQuestOptions = {
-  trainer: {
-    id: string;
-    dailyQuestStreak?: number | null;
-    dailyQuestLastCompleted?: Date | string | null;
-    dailyQuestLastReset?: Date | string | null;
-  };
-  prisma?: PrismaClient;
-  now?: Date;
-};
 
 export type RecordDailyQuestOptions = {
   userId?: string;
