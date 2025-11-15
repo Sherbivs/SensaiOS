@@ -84,36 +84,6 @@ export function toEasternDate(date) {
 }
 
 /**
- * Format a date to EST/EDT short format (date + time, no seconds)
- * @param {Date|number|string} date - Date object, timestamp, or ISO string
- * @returns {string} Formatted date string in Eastern Time (e.g., "11/12/2025, 8:21 PM")
- */
-export function toEasternShort(date) {
-  return toEasternString(date, {
-    second: undefined,
-  });
-}
-
-/**
- * Format a date to EST/EDT long format with weekday
- * @param {Date|number|string} date - Date object, timestamp, or ISO string
- * @returns {string} Formatted date string in Eastern Time (e.g., "Monday, 11/12/2025, 8:21:32 PM")
- */
-export function toEasternLong(date) {
-  return toEasternString(date, {
-    weekday: 'long',
-  });
-}
-
-/**
- * Get current date/time in Eastern timezone
- * @returns {string} Current timestamp in Eastern Time
- */
-export function nowEastern() {
-  return toEasternString(new Date());
-}
-
-/**
  * Get timezone abbreviation (EST or EDT) for a given date
  * @param {Date|number|string} date - Date object, timestamp, or ISO string
  * @returns {string} Timezone abbreviation ('EST' or 'EDT')
@@ -163,18 +133,4 @@ export function toEasternLogFormat(date = new Date()) {
   const abbr = getEasternTimezoneAbbr(dateObj);
   return `${baseFormat}.${ms} ${abbr}`;
 }
-
-/**
- * Get Eastern Time timezone identifier
- * @returns {string} 'America/New_York'
- */
-export function getEasternTimezone() {
-  return EASTERN_TIMEZONE;
-}
-
-/**
- * Compatibility export for existing utils/timezone.js usage
- * Re-exports formatInTimeZone for code that already uses it
- */
-export { formatInTimeZone as formatInEasternTimeZone };
 
