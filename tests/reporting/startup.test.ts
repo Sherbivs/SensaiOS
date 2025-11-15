@@ -20,9 +20,9 @@ describe('Startup Performance Metrics Accuracy', () => {
       const start = process.hrtime.bigint();
       
       // Brief operation
-      let sum = 0;
+      let _sum = 0;
       for (let i = 0; i < 1000; i++) {
-        sum += i;
+        _sum += i;
       }
       
       const end = process.hrtime.bigint();
@@ -46,9 +46,9 @@ describe('Startup Performance Metrics Accuracy', () => {
       for (let workSize = 100; workSize <= 500; workSize += 100) {
         const start = process.hrtime.bigint();
         
-        let sum = 0;
+        let _sum = 0;
         for (let i = 0; i < workSize; i++) {
-          sum += i;
+          _sum += i;
         }
         
         const end = process.hrtime.bigint();
@@ -176,7 +176,7 @@ describe('Startup Performance Metrics Accuracy', () => {
       
       // Real measurements rarely exactly match round numbers
       // (they have decimal precision)
-      const hasDecimals = durationMs % 1 !== 0;
+      const _hasDecimals = durationMs % 1 !== 0;
       
       // If duration is exactly a round number, it's suspicious
       if (commonEstimates.includes(durationMs)) {

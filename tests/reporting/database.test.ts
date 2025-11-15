@@ -12,7 +12,7 @@
  * @module tests/reporting/database
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { prisma, getDatabaseStats } from '../../src/shared/prisma.js';
 
 describe('Database Reporting Accuracy', () => {
