@@ -19,6 +19,13 @@ import { log } from "../../shared/log.js";
 import { getLogBuffer } from "../../shared/logBuffer.js";
 import { EventBus } from "../../shared/event-bus.js";
 import { getProdDb } from "../../shared/pg-connection.js";
+import { 
+  measureLogBufferMemory, 
+  measureEventBusMemory, 
+  measureDiscordCacheMemory,
+  formatMB,
+  getConfidenceEmoji
+} from "../../utils/memory-measurement.js";
 
 // Query modules
 import { getUserBasic, countUsers } from "../../shared/models/user-queries-pg.js";
@@ -1408,8 +1415,11 @@ export async function handleOpsCommand(
         const logBuffer = getLogBuffer();
         if (logBuffer) {
           const bufferStats = logBuffer.getStats();
-          const bufferMB = ((bufferStats.buffered * 2) / 1024).toFixed(2); // ~2KB per entry estimate
-          lines.push(`• Log Buffer: ~${bufferMB} MB (${bufferStats.buffered}/200 entries)`);
+          const bufferMemory = measureLogBufferMemory(bufferStats);
+          const bufferMB = formatMB(bufferMemory.estimatedBytes);
+          const confidenceEmoji = getConfidenceEmoji(bufferMemory.confidence);
+          lines.push(`• Log Buffer: ${bufferMB} MB (${bufferStats.buffered}/200 entries) ${confidenceEmoji}`);
+          lines.push(`  └─ Measured via ${bufferMemory.measurementMethod}, ${Math.round(bufferMemory.averageBytesPerEntry)} bytes/entry avg`);
         } else {
           lines.push("• Log Buffer: n/a (not initialized)");
         }
@@ -1422,9 +1432,11 @@ export async function handleOpsCommand(
         const eventBus = EventBus.getInstance();
         const busStats = eventBus.getStats();
         const patternCacheStats = eventBus.getPatternCacheStats();
-        const busMB = ((busStats.replayBufferSize * 1 + busStats.subscriptionsActive * 100) / 1024).toFixed(2); // Rough estimate
-        lines.push(`• Event Bus: ~${busMB} MB (${busStats.subscriptionsActive} subs, ${busStats.replayBufferSize} replay)`);
-        lines.push(`  - Pattern Cache: ${patternCacheStats.size}/500 patterns`);
+        const busMemory = measureEventBusMemory(busStats);
+        const busMB = formatMB(busMemory.estimatedBytes);
+        const confidenceEmoji = getConfidenceEmoji(busMemory.confidence);
+        lines.push(`• Event Bus: ${busMB} MB (${busStats.subscriptionsActive} subs, ${busStats.replayBufferSize} replay) ${confidenceEmoji}`);
+        lines.push(`  └─ Pattern Cache: ${patternCacheStats.size}/500, measured via ${busMemory.measurementMethod}`);
       } catch {
         lines.push("• Event Bus: n/a");
       }
@@ -1433,22 +1445,20 @@ export async function handleOpsCommand(
       try {
         const client = (global as any).discordClient;
         if (client && client.guilds) {
-          const messageCount = client.channels.cache.reduce((acc: number, ch: any) => {
-            return acc + (ch.messages?.cache?.size ?? 0);
-          }, 0);
-          const memberCount = client.guilds.cache.reduce((acc: number, g: any) => {
-            return acc + g.members.cache.size;
-          }, 0);
-          const threadCount = client.channels.cache.reduce((acc: number, ch: any) => {
-            return acc + (ch.threads?.cache?.size ?? 0);
-          }, 0);
-          const discordMB = ((messageCount * 2 + memberCount * 1 + threadCount * 1) / 1024).toFixed(1);
-          lines.push(`• Discord Cache: ~${discordMB} MB (${messageCount} msg, ${memberCount} members, ${threadCount} threads)`);
+          const discordMemory = measureDiscordCacheMemory(client);
+          const discordMB = formatMB(discordMemory.estimatedBytes);
+          const confidenceEmoji = getConfidenceEmoji(discordMemory.confidence);
+          const meta = discordMemory.metadata;
+          lines.push(`• Discord Cache: ${discordMB} MB (${discordMemory.entryCount} total entries) ${confidenceEmoji}`);
+          if (meta) {
+            lines.push(`  └─ ${meta.messageCount} msg (${meta.avgMessageBytes}B avg), ${meta.memberCount} members (${meta.avgMemberBytes}B avg), ${meta.threadCount} threads`);
+            lines.push(`  └─ Measured via ${discordMemory.measurementMethod} (${meta.sampleSizes?.messages || 0} msg samples, ${meta.sampleSizes?.members || 0} member samples)`);
+          }
         } else {
           lines.push("• Discord Cache: n/a (client not initialized)");
         }
-      } catch {
-        lines.push("• Discord Cache: n/a");
+      } catch (err) {
+        lines.push(`• Discord Cache: n/a (error: ${err instanceof Error ? err.message : 'unknown'})`);
       }
       
       lines.push("");
