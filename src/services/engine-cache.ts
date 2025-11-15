@@ -69,16 +69,6 @@ export interface MoveCacheEntry {
 }
 
 /**
- * Type effectiveness entry (optimized for lookups)
- * Key format: "attackTypeId:defenseTypeId" (e.g., "10:5")
- */
-export interface TypeEffectivenessEntry {
-  attackTypeId: number;
-  defenseTypeId: number;
-  multiplier: number; // 0, 0.25, 0.5, 1.0, 2.0, 4.0
-}
-
-/**
  * Cache statistics (for observability)
  */
 export interface CacheStats {

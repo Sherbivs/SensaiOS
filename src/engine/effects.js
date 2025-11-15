@@ -251,12 +251,3 @@ function applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx = {}) {
 }
 
 export { checkAccuracy, applySecondaryEffects, computeTotalDamage, applyAdvancedAfterDamage, registerEffectRule, EFFECT_RULES };
-
-export default {
-  checkAccuracy,
-  applySecondaryEffects,
-  computeTotalDamage,
-  applyAdvancedAfterDamage,
-  registerEffectRule,
-  EFFECT_RULES,
-};

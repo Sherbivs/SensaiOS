@@ -9,7 +9,6 @@
 
 export type NodeRole = 'MASTER' | 'PROD' | 'REPLICA' | 'WORKER' | 'ANALYTICS' | 'STAGING';
 export type NodePurpose = 'READ_WRITE' | 'READ_ONLY' | 'WRITE_ONLY' | 'ANALYTICS';
-export type NodeHealth = 'HEALTHY' | 'DEGRADED' | 'OFFLINE' | 'UNKNOWN';
 export type ReplicationStrategy = 'MASTER_SLAVE' | 'MULTI_MASTER' | 'PEER_TO_PEER';
 export type LoadBalancingStrategy = 'ROUND_ROBIN' | 'LEAST_CONNECTIONS' | 'WEIGHTED' | 'RANDOM';
 

@@ -504,11 +504,6 @@ export const EngineDbConfig = {
 } as const;
 
 /**
- * Type-safe config accessor (for tests, allows mocking)
- */
-export type EngineDbConfigType = typeof EngineDbConfig;
-
-/**
  * Validation: Ensure critical paths exist at startup
  * Throws error if storage directory inaccessible
  */

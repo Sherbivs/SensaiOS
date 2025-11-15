@@ -66,4 +66,4 @@ export const ITEMS = {
   }
 };
 
-export default { ABILITIES, ITEMS };
+export { ABILITIES, ITEMS };

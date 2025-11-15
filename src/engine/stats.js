@@ -22,5 +22,3 @@ function derivedStats(base, level) {
 }
 
 export { stageMultiplier, derivedStats };
-
-export default { stageMultiplier, derivedStats };

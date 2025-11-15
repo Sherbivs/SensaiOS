@@ -39,5 +39,3 @@ function newAction(which, moveName) {
 }
 
 export { newPokemonRuntime, newBattleState, newAction };
-
-export default { newPokemonRuntime, newBattleState, newAction };

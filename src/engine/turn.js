@@ -116,5 +116,3 @@ function resolveTurn(state, actionA, actionB, ctx) {
 }
 
 export { resolveTurn };
-
-export default { resolveTurn };
