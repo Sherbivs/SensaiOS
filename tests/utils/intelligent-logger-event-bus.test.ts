@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EventBus, type BusEvent } from '../../src/shared/event-bus.js';
-import { IntelligentLogger, type LogEntry } from '../../src/utils/intelligent-logger.js';
+import { IntelligentLogger } from '../../src/utils/intelligent-logger.js';
 
 describe('IntelligentLogger Event Bus Integration - Phase 2.4.3', () => {
   let bus: EventBus;
@@ -21,14 +21,6 @@ describe('IntelligentLogger Event Bus Integration - Phase 2.4.3', () => {
 
   // Helper to wait for Event Bus async processing
   const waitForEventBus = () => new Promise(resolve => setTimeout(resolve, 50));
-  
-  // Helper to wait for specific event count (polling with timeout)
-  const waitForEvents = async (expectedCount: number, timeout = 500) => {
-    const start = Date.now();
-    while (eventBusEvents.length < expectedCount && Date.now() - start < timeout) {
-      await new Promise(resolve => setTimeout(resolve, 10));
-    }
-  };
 
   beforeEach(() => {
     // Save and set LOG_LEVEL to trace to capture all log levels

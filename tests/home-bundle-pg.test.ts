@@ -204,7 +204,7 @@ describe("Home Bundle Aggregations (PostgreSQL)", () => {
     });
 
     it("should use cache on second load", async () => {
-      const pool = getProdDb();
+      const _pool = getProdDb();
       
       const user = await createUser("test-bundle-cache");
       
@@ -220,7 +220,7 @@ describe("Home Bundle Aggregations (PostgreSQL)", () => {
     });
 
     it("should bypass cache after invalidation", async () => {
-      const pool = getProdDb();
+      const _pool = getProdDb();
       
       const user = await createUser("test-bundle-invalidate");
       
@@ -240,7 +240,7 @@ describe("Home Bundle Aggregations (PostgreSQL)", () => {
     });
 
     it("should use primed cache", async () => {
-      const pool = getProdDb();
+      const _pool = getProdDb();
       
       const user = await createUser("test-bundle-prime");
       
@@ -269,7 +269,7 @@ describe("Home Bundle Aggregations (PostgreSQL)", () => {
 
   describe("loadHomeBundleByUserId", () => {
     it("should load bundle by user ID", async () => {
-      const pool = getProdDb();
+      const _pool = getProdDb();
       
       const user = await createUser("test-bundle-userid");
       const bundle = await loadHomeBundleByUserId(user.id);
@@ -288,7 +288,7 @@ describe("Home Bundle Aggregations (PostgreSQL)", () => {
     });
 
     it("should use cache", async () => {
-      const pool = getProdDb();
+      const _pool = getProdDb();
       
       const user = await createUser("test-bundle-userid-cache");
       
@@ -316,7 +316,7 @@ describe("Home Bundle Aggregations (PostgreSQL)", () => {
     });
 
     it("should clear cache", async () => {
-      const pool = getProdDb();
+      const _pool = getProdDb();
       
       const user = await createUser("test-cache-clear");
       
@@ -336,7 +336,7 @@ describe("Home Bundle Aggregations (PostgreSQL)", () => {
     });
 
     it("should track cache size", async () => {
-      const pool = getProdDb();
+      const _pool = getProdDb();
       
       clearHomeCache();
       

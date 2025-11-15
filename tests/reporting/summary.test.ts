@@ -46,7 +46,7 @@ describe('Reporting Accuracy Summary', () => {
       };
       
       // Measurements (dynamic, must vary)
-      const measurements = {
+      const _measurements = {
         uptime: performance.now(),          // Current uptime
         heapUsed: process.memoryUsage().heapUsed, // Current memory
         timestamp: Date.now(),              // Current time
@@ -116,7 +116,7 @@ describe('Reporting Accuracy Summary', () => {
   describe('Measurement Precision', () => {
     it('should use appropriate precision for each metric type', () => {
       // Document expected precision per measurement type
-      const precisionLevels = {
+      const _precisionLevels = {
         nanosecond: ['process.hrtime.bigint()'],            // Startup timing
         microsecond: ['performance.now()'],                  // Worker duration
         millisecond: ['Date.now()', 'new Date()'],          // Timestamps

@@ -6,14 +6,13 @@
  * @module tests/memory-measurement
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { 
   measureLogBufferMemory, 
   measureEventBusMemory, 
   measureDiscordCacheMemory,
   formatMB,
-  getConfidenceEmoji,
-  type ComponentMemoryStats
+  getConfidenceEmoji
 } from '../src/utils/memory-measurement.js';
 import { getLogBuffer } from '../src/shared/logBuffer.js';
 import { EventBus } from '../src/shared/event-bus.js';
@@ -82,7 +81,7 @@ describe('Memory Measurement Utilities', () => {
     
     it('should measure Event Bus with subscriptions and events', () => {
       // Add subscription
-      bus.subscribe('test.*', (event) => {
+      bus.subscribe('test.*', (_event) => {
         // Handler
       });
       

@@ -4,8 +4,7 @@ import { EventTracker, type EventTrackerConfig } from '../../src/services/events
 import { 
   type LoginEvent,
   type BattleStartedEvent, 
-  type CoinsEvent,
-  RETENTION_POLICIES 
+  type CoinsEvent
 } from '../../src/services/events/types.js';
 
 // Mock Pool instance
@@ -292,7 +291,7 @@ describe('EventTracker - Core Functionality', () => {
       // Flush should fail and increment error counter
       try {
         await tracker.flush();
-      } catch (error) {
+      } catch {
         // Expected error - flush re-throws after logging
       }
       

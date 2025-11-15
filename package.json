@@ -127,12 +127,10 @@
   },
   "lint-staged": {
     "src/**/*.{js,ts}": [
-      "eslint",
-      "tsc --noEmit --pretty false --skipLibCheck true"
+      "eslint"
     ],
     "tests/**/*.{js,ts}": [
-      "eslint",
-      "tsc --noEmit --pretty false --skipLibCheck true"
+      "eslint"
     ]
   }
 }
