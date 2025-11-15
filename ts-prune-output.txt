@@ -11,23 +11,18 @@
 \src\bot\error-handler.ts:15 - DiscordErrorContext (used in module)
 \src\bot\error-handler.ts:25 - BotErrorHandler (used in module)
 \src\bot\index.ts:32 - BotStartOptions (used in module)
-\src\bot\main.d.ts:5 - startSecurityBot (used in module)
-\src\bot\main.d.ts:3 - client (used in module)
-\src\bot\main.d.ts:12 - default
-\src\config\db-cluster.config.ts:372 - loadClusterConfig
-\src\config\db-cluster.config.ts:401 - validateClusterConfig
+\src\bot\main.d.ts:5 - startSecurityBot
+\src\bot\main.d.ts:3 - client
 \src\config\db-cluster.config.ts:10 - NodeRole (used in module)
 \src\config\db-cluster.config.ts:11 - NodePurpose (used in module)
-\src\config\db-cluster.config.ts:12 - NodeHealth
-\src\config\db-cluster.config.ts:13 - ReplicationStrategy (used in module)
-\src\config\db-cluster.config.ts:14 - LoadBalancingStrategy (used in module)
-\src\config\db-cluster.config.ts:19 - DatabaseNode (used in module)
-\src\config\db-cluster.config.ts:73 - ReplicationConfig (used in module)
-\src\config\db-cluster.config.ts:96 - FailoverConfig (used in module)
-\src\config\db-cluster.config.ts:119 - LoadBalancingConfig (used in module)
-\src\config\db-cluster.config.ts:139 - ClusterConfig (used in module)
-\src\config\db-cluster.config.ts:162 - DEFAULT_2_NODE_CONFIG (used in module)
-\src\config\db-cluster.config.ts:245 - EXAMPLE_5_NODE_CONFIG
+\src\config\db-cluster.config.ts:12 - ReplicationStrategy (used in module)
+\src\config\db-cluster.config.ts:13 - LoadBalancingStrategy (used in module)
+\src\config\db-cluster.config.ts:18 - DatabaseNode (used in module)
+\src\config\db-cluster.config.ts:72 - ReplicationConfig (used in module)
+\src\config\db-cluster.config.ts:95 - FailoverConfig (used in module)
+\src\config\db-cluster.config.ts:118 - LoadBalancingConfig (used in module)
+\src\config\db-cluster.config.ts:138 - ClusterConfig (used in module)
+\src\config\db-cluster.config.ts:161 - DEFAULT_2_NODE_CONFIG
 \src\config\engine-db-config.ts:25 - IS_PRODUCTION (used in module)
 \src\config\engine-db-config.ts:30 - IS_TEST (used in module)
 \src\config\engine-db-config.ts:38 - STORAGE_BASE_DIR (used in module)
@@ -78,7 +73,6 @@
 \src\config\engine-db-config.ts:408 - FEATURE_WRITE_BUFFER_ENABLED (used in module)
 \src\config\engine-db-config.ts:414 - FEATURE_WORKERS_ENABLED (used in module)
 \src\config\engine-db-config.ts:420 - FEATURE_VALIDATION_ENABLED (used in module)
-\src\config\engine-db-config.ts:509 - EngineDbConfigType
 \src\core\engine-error-handler.ts:13 - EngineErrorContext (used in module)
 \src\core\engine-error-handler.ts:23 - BattleState (used in module)
 \src\core\engine-error-handler.ts:34 - EncounterContext (used in module)
@@ -98,28 +92,21 @@
 \src\data\dexpack.d.ts:67 - DexpackHashTable (used in module)
 \src\data\dexpack.d.ts:73 - FastDexpack (used in module)
 \src\data\dexpack.d.ts:95 - dexpackState (used in module)
-\src\data\dexpack.d.ts:112 - default
-\src\data_pipeline\index.ts:224 - dataPipeline
+\src\data\dexpack.d.ts:97 - _default
 \src\engine\bus.ts:19 - publish
 \src\engine\bus.ts:11 - PublishOpts (used in module)
 \src\engine\calc.js:159 - stab (used in module)
 \src\engine\calc.js:159 - typeEffectiveness (used in module)
 \src\engine\effects.js:253 - registerEffectRule (used in module)
 \src\engine\effects.js:253 - EFFECT_RULES (used in module)
-\src\engine\effects.js:255 - default
 \src\engine\index.js:270 - loadIndexes (used in module)
 \src\engine\index.js:270 - makeRuntimeFromDexEntry (used in module)
 \src\engine\index.js:270 - newBattleState (used in module)
 \src\engine\index.js:270 - newAction (used in module)
 \src\engine\index.js:270 - resolveTurn (used in module)
-\src\engine\stats.js:26 - default
-\src\engine\tables.js:69 - default
-\src\engine\turn.js:120 - default
-\src\engine\types.js:43 - default
 \src\engine\worker.ts:24 - on
 \src\engine\worker.ts:31 - run
 \src\lib\assets.js:37 - manifest (used in module)
-\src\lib\assets.js:39 - default
 \src\models\index.ts:550 - updateTrainerProfile
 \src\models\index.ts:831 - projectDailyQuestCompletion (used in module)
 \src\models\index.ts:862 - ensureDailyQuestStreakFreshness
@@ -176,9 +163,8 @@
 \src\services\cache.d.ts:41 - default
 \src\services\engine-cache.ts:38 - PokemonCacheEntry (used in module)
 \src\services\engine-cache.ts:58 - MoveCacheEntry (used in module)
-\src\services\engine-cache.ts:75 - TypeEffectivenessEntry
-\src\services\engine-cache.ts:84 - CacheStats (used in module)
-\src\services\engine-cache.ts:117 - EngineCache (used in module)
+\src\services\engine-cache.ts:74 - CacheStats (used in module)
+\src\services\engine-cache.ts:107 - EngineCache (used in module)
 \src\services\engine-db.ts:257 - getPokemonById
 \src\services\engine-db.ts:289 - getPokemonByName
 \src\services\engine-db.ts:320 - getAllPokemonIds
@@ -210,19 +196,17 @@
 \src\services\error-recovery.ts:16 - RecoveryStrategy (used in module)
 \src\services\error-recovery.ts:26 - RecoveryAttempt (used in module)
 \src\services\error-recovery.ts:38 - RecoveryConfig (used in module)
-\src\services\home-bundle-pg.ts:81 - invalidateHomeBundle
-\src\services\home-bundle-pg.ts:89 - primeHomeBundle
-\src\services\home-bundle-pg.ts:118 - findCooldownsByUserId (used in module)
-\src\services\home-bundle-pg.ts:198 - deleteCooldown
-\src\services\home-bundle-pg.ts:212 - deleteExpiredCooldowns
-\src\services\home-bundle-pg.ts:234 - loadHomeBundleByDiscordId
-\src\services\home-bundle-pg.ts:270 - loadHomeBundleByUserId
-\src\services\home-bundle-pg.ts:305 - getHomeCacheStats
-\src\services\home-bundle-pg.ts:317 - clearHomeCache
+\src\services\home-bundle-pg.ts:81 - primeHomeBundle
+\src\services\home-bundle-pg.ts:110 - findCooldownsByUserId (used in module)
+\src\services\home-bundle-pg.ts:190 - deleteCooldown
+\src\services\home-bundle-pg.ts:204 - deleteExpiredCooldowns
+\src\services\home-bundle-pg.ts:226 - loadHomeBundleByDiscordId
+\src\services\home-bundle-pg.ts:262 - loadHomeBundleByUserId
+\src\services\home-bundle-pg.ts:297 - getHomeCacheStats
+\src\services\home-bundle-pg.ts:309 - clearHomeCache
 \src\services\home-bundle-pg.ts:57 - HomeBundle (used in module)
 \src\services\home-bundle.ts:48 - loadHomeBundleByDiscordId
-\src\services\home-bundle.ts:84 - invalidateHomeBundle
-\src\services\home-bundle.ts:88 - primeHomeBundle
+\src\services\home-bundle.ts:84 - primeHomeBundle
 \src\services\home-bundle.ts:28 - PartyWithSlots (used in module)
 \src\services\home-bundle.ts:32 - HomeBundle (used in module)
 \src\services\resource-manager.ts:1105 - createManagedInterval
@@ -390,17 +374,16 @@
 \src\utils\memory-measurement.ts:338 - formatMB
 \src\utils\memory-measurement.ts:21 - ComponentMemoryStats (used in module)
 \src\utils\output-formatter.ts:34 - formatBorder (used in module)
-\src\utils\output-formatter.ts:48 - formatSeparator (used in module)
+\src\utils\output-formatter.ts:48 - formatSeparator
 \src\utils\output-formatter.ts:70 - formatSectionHeader (used in module)
-\src\utils\output-formatter.ts:82 - formatSection (used in module)
+\src\utils\output-formatter.ts:82 - formatSection
 \src\utils\output-formatter.ts:118 - formatKeyValue (used in module)
 \src\utils\output-formatter.ts:141 - formatKeyValueList (used in module)
-\src\utils\output-formatter.ts:170 - formatTable (used in module)
-\src\utils\output-formatter.ts:226 - formatList (used in module)
-\src\utils\output-formatter.ts:254 - formatStatus (used in module)
-\src\utils\output-formatter.ts:278 - formatProgress (used in module)
-\src\utils\output-formatter.ts:298 - formatOutputBlock (used in module)
-\src\utils\output-formatter.ts:351 - default
+\src\utils\output-formatter.ts:170 - formatTable
+\src\utils\output-formatter.ts:226 - formatList
+\src\utils\output-formatter.ts:254 - formatStatus
+\src\utils\output-formatter.ts:278 - formatProgress
+\src\utils\output-formatter.ts:298 - formatOutputBlock
 \src\utils\stack-trace-parser.ts:210 - parseStackFrame (used in module)
 \src\utils\stack-trace-parser.ts:354 - extractSourceSnippet (used in module)
 \src\utils\stack-trace-parser.ts:70 - SourceSnippet (used in module)
