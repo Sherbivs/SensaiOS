@@ -59,9 +59,6 @@ type PrismaTrainerProfileRecord = {
   favoriteSpecies?: { id: number; name: string | null; slug: string | null } | null;
 };
 
-const MAX_PROFILE_TAGLINE_LENGTH = 120;
-const MAX_PROFILE_BIO_LENGTH = 600;
-
 export type TrainerProfileRecord = {
   tagline: string | null;
   bio: string | null;
@@ -251,42 +248,6 @@ function getTrainerProfileDelegate(client: PrismaClient): TrainerProfileDelegate
     throw new Error("TrainerProfile delegate unavailable. Run `npx prisma generate` to refresh types.");
   }
   return delegate;
-}
-
-const NULL_CHAR = String.fromCharCode(0);
-const VERTICAL_TAB = String.fromCharCode(0x0b);
-const EXTRA_WHITESPACE_REGEX = new RegExp(`[\\t\\f${VERTICAL_TAB}]+`, "g");
-
-function sanitizeProfileText(value: unknown, maxLength: number, collapseWhitespace: boolean): string | null {
-  if (typeof value !== "string") return null;
-  let normalized = value.replace(/\r\n/g, "\n").split(NULL_CHAR).join("");
-  normalized = collapseWhitespace ? normalized.replace(/\s+/g, " ") : normalized.replace(EXTRA_WHITESPACE_REGEX, " ");
-  normalized = normalized.trim();
-  if (!normalized) return null;
-  if (!collapseWhitespace) {
-    normalized = normalized.replace(/\n{3,}/g, "\n\n");
-  }
-  if (normalized.length > maxLength) {
-    normalized = normalized.slice(0, maxLength).trimEnd();
-  }
-  return normalized.length ? normalized : null;
-}
-
-function sanitizeProfileTagline(value: unknown): string | null {
-  return sanitizeProfileText(value, MAX_PROFILE_TAGLINE_LENGTH, true);
-}
-
-function sanitizeProfileBio(value: unknown): string | null {
-  return sanitizeProfileText(value, MAX_PROFILE_BIO_LENGTH, false);
-}
-
-function coerceSpeciesId(value: unknown): number | null {
-  if (value === null || value === undefined) return null;
-  const numeric = typeof value === "number" ? value : Number(value);
-  if (!Number.isInteger(numeric) || numeric <= 0) {
-    return null;
-  }
-  return numeric;
 }
 
 type PokemonOutline = {
@@ -545,49 +506,6 @@ export async function loadTrainerProfileSummary(
     quest,
     dailyRewardReadyAt: cooldownReadyAt,
   } satisfies TrainerProfileSummary;
-}
-
-export async function updateTrainerProfile(
-  discordId: string,
-  updates: TrainerProfileUpdateInput,
-  client: PrismaClient = prisma
-): Promise<void> {
-  const { user } = await ensureTrainerProfile(discordId, client);
-  const delegate = getTrainerProfileDelegate(client);
-
-  const changes: Record<string, unknown> = {};
-
-  if (updates.tagline !== undefined) {
-    changes.tagline = sanitizeProfileTagline(updates.tagline) ?? null;
-  }
-
-  if (updates.bio !== undefined) {
-    changes.bio = sanitizeProfileBio(updates.bio) ?? null;
-  }
-
-  if (updates.favoriteSpeciesId !== undefined) {
-    const targetSpeciesId = coerceSpeciesId(updates.favoriteSpeciesId);
-    if (targetSpeciesId === null) {
-      changes.favoriteSpeciesId = null;
-    } else {
-      const species = await client.species.findUnique({ where: { id: targetSpeciesId }, select: { id: true } });
-      if (!species) {
-        const err = new Error(`Unknown species id: ${targetSpeciesId}`);
-        err.name = "TrainerProfileUnknownSpecies";
-        throw err;
-      }
-      changes.favoriteSpeciesId = targetSpeciesId;
-    }
-  }
-
-  if (!Object.keys(changes).length) {
-    return;
-  }
-
-  await delegate.update({
-    where: { userId: user.id },
-    data: changes,
-  });
 }
 
 type PrismaLike = PrismaClient;
@@ -858,51 +776,6 @@ export type EnsureDailyQuestOptions = {
   prisma?: PrismaClient;
   now?: Date;
 };
-
-export async function ensureDailyQuestStreakFreshness(options: EnsureDailyQuestOptions) {
-  const client = options.prisma ?? prisma;
-  const now = options.now instanceof Date ? options.now : new Date();
-  const state = evaluateDailyQuestStreak({
-    streak: options.trainer.dailyQuestStreak ?? 0,
-    lastCompleted: options.trainer.dailyQuestLastCompleted ?? null,
-    lastReset: options.trainer.dailyQuestLastReset ?? null,
-    now,
-  });
-
-  if (!state.lost || (options.trainer.dailyQuestStreak ?? 0) === 0) {
-    return { trainer: options.trainer, state, updated: false };
-  }
-
-  const updated = await client.user.update({
-    where: { id: options.trainer.id },
-    data: {
-      dailyQuestStreak: 0,
-      dailyQuestLastReset: now,
-    },
-    select: {
-      id: true,
-      dailyQuestStreak: true,
-      dailyQuestLastCompleted: true,
-      dailyQuestLastReset: true,
-    },
-  });
-
-  const merged = {
-    ...options.trainer,
-    dailyQuestStreak: updated.dailyQuestStreak,
-    dailyQuestLastCompleted: updated.dailyQuestLastCompleted,
-    dailyQuestLastReset: updated.dailyQuestLastReset,
-  };
-
-  const refreshed = evaluateDailyQuestStreak({
-    streak: merged.dailyQuestStreak ?? 0,
-    lastCompleted: merged.dailyQuestLastCompleted ?? null,
-    lastReset: merged.dailyQuestLastReset ?? null,
-    now,
-  });
-
-  return { trainer: merged, state: refreshed, updated: true };
-}
 
 export type RecordDailyQuestOptions = {
   userId?: string;
