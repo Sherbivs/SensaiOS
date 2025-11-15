@@ -11,8 +11,6 @@
 \src\bot\error-handler.ts:15 - DiscordErrorContext (used in module)
 \src\bot\error-handler.ts:25 - BotErrorHandler (used in module)
 \src\bot\index.ts:32 - BotStartOptions (used in module)
-\src\bot\main.d.ts:5 - startSecurityBot
-\src\bot\main.d.ts:3 - client
 \src\config\db-cluster.config.ts:10 - NodeRole (used in module)
 \src\config\db-cluster.config.ts:11 - NodePurpose (used in module)
 \src\config\db-cluster.config.ts:12 - ReplicationStrategy (used in module)
@@ -21,8 +19,7 @@
 \src\config\db-cluster.config.ts:72 - ReplicationConfig (used in module)
 \src\config\db-cluster.config.ts:95 - FailoverConfig (used in module)
 \src\config\db-cluster.config.ts:118 - LoadBalancingConfig (used in module)
-\src\config\db-cluster.config.ts:138 - ClusterConfig (used in module)
-\src\config\db-cluster.config.ts:161 - DEFAULT_2_NODE_CONFIG
+\src\config\db-cluster.config.ts:138 - ClusterConfig
 \src\config\engine-db-config.ts:25 - IS_PRODUCTION (used in module)
 \src\config\engine-db-config.ts:30 - IS_TEST (used in module)
 \src\config\engine-db-config.ts:38 - STORAGE_BASE_DIR (used in module)
@@ -76,23 +73,21 @@
 \src\core\engine-error-handler.ts:13 - EngineErrorContext (used in module)
 \src\core\engine-error-handler.ts:23 - BattleState (used in module)
 \src\core\engine-error-handler.ts:34 - EncounterContext (used in module)
-\src\core\engine-error-handler.ts:44 - EngineErrorHandler (used in module)
-\src\core\engine-error-handler.ts:338 - engineErrorHandler
-\src\data\dexpack.d.ts:83 - loadDexpack (used in module)
-\src\data\dexpack.d.ts:85 - getLoadedPath (used in module)
-\src\data\dexpack.d.ts:89 - getMove (used in module)
-\src\data\dexpack.d.ts:90 - getTypeChart (used in module)
-\src\data\dexpack.d.ts:91 - listSpecies (used in module)
-\src\data\dexpack.d.ts:92 - suggestSpecies (used in module)
-\src\data\dexpack.d.ts:93 - resetDexpack (used in module)
+\src\core\engine-error-handler.ts:44 - EngineErrorHandler
+\src\data\dexpack.d.ts:83 - loadDexpack
+\src\data\dexpack.d.ts:85 - getLoadedPath
+\src\data\dexpack.d.ts:89 - getMove
+\src\data\dexpack.d.ts:90 - getTypeChart
+\src\data\dexpack.d.ts:91 - listSpecies
+\src\data\dexpack.d.ts:92 - suggestSpecies
+\src\data\dexpack.d.ts:93 - resetDexpack
 \src\data\dexpack.d.ts:1 - LearnsetLevelEntry (used in module)
 \src\data\dexpack.d.ts:6 - SpeciesDoc (used in module)
 \src\data\dexpack.d.ts:25 - MoveDoc (used in module)
 \src\data\dexpack.d.ts:40 - DexPack (used in module)
 \src\data\dexpack.d.ts:67 - DexpackHashTable (used in module)
 \src\data\dexpack.d.ts:73 - FastDexpack (used in module)
-\src\data\dexpack.d.ts:95 - dexpackState (used in module)
-\src\data\dexpack.d.ts:97 - _default
+\src\data\dexpack.d.ts:95 - dexpackState
 \src\engine\bus.ts:19 - publish
 \src\engine\bus.ts:11 - PublishOpts (used in module)
 \src\engine\calc.js:159 - stab (used in module)

@@ -131,26 +131,3 @@ export interface LoadBalancingConfig {
     ttlSeconds: number;
   };
 }
-
-/**
- * Complete cluster configuration
- */
-export interface ClusterConfig {
-  /** All nodes in the cluster */
-  nodes: DatabaseNode[];
-  
-  /** Replication settings */
-  replication: ReplicationConfig;
-  
-  /** Failover settings */
-  failover: FailoverConfig;
-  
-  /** Load balancing settings */
-  loadBalancing: LoadBalancingConfig;
-  
-  /** Global timeout for all operations */
-  globalTimeout?: number;
-  
-  /** Enable verbose logging */
-  debug?: boolean;
-}

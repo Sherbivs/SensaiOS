@@ -127,13 +127,3 @@ export interface DripAlertManager {
  * @returns DripAlertManager instance
  */
 export function createDripAlertManager(config: DripAlertManagerConfig): DripAlertManager;
-
-/**
- * Severity constants
- */
-export const SEVERITY: {
-  critical: 'critical';
-  security: 'security';
-  warning: 'warning';
-  notice: 'notice';
-};
