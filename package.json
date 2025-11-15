@@ -45,6 +45,8 @@
     "db:mirror:check": "tsx scripts/db_mirror_checks.ts",
     "measure:startup": "node scripts/measure_startup_time.mjs",
     "measure:memory": "node --expose-gc scripts/measure_memory.mjs",
+    "monitor:memory": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/monitor_memory_enhanced.ps1",
+    "monitor:memory:24h": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/monitor_memory_24h.ps1",
     "migrate:console-logs": "node scripts/migrate_console_logs.mjs",
     "migrate:console-logs:dry-run": "node scripts/migrate_console_logs.mjs --dry-run",
     "verify:metrics": "node scripts/verify-metrics-accuracy.mjs --all",
