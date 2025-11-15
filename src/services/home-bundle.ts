@@ -81,10 +81,6 @@ export async function loadHomeBundleByDiscordId(discordId: string): Promise<Home
   return bundle;
 }
 
-export function invalidateHomeBundle(userId: string): void {
-  homeCache.delete(cacheKey(userId));
-}
-
 export function primeHomeBundle(userId: string, bundle: HomeBundle): void {
   homeCache.set(cacheKey(userId), bundle);
 }

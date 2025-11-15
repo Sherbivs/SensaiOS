@@ -75,14 +75,6 @@ function cacheKey(userId: string): string {
 }
 
 /**
- * Invalidate cached home bundle for user
- * Called after mutations that affect home data (party changes, encounters, etc.)
- */
-export function invalidateHomeBundle(userId: string): void {
-  homeCache.delete(cacheKey(userId));
-}
-
-/**
  * Prime cache with pre-loaded home bundle
  * Useful for optimistic updates after mutations
  */

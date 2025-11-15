@@ -108,5 +108,3 @@ declare const _default: {
   resetDexpack: typeof resetDexpack;
   dexpackState: typeof dexpackState;
 };
-
-export default _default;
