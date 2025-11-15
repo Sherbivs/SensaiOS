@@ -103,6 +103,7 @@
     "lint-staged": "^16.2.6",
     "patch-package": "^8.0.0",
     "prisma": "^6.19.0",
+    "ts-prune": "^0.10.3",
     "vitest": "^4.0.4"
   },
   "dependencies": {
