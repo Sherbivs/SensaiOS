@@ -480,29 +480,6 @@ export async function checkOnPremiseDevHealth(): Promise<{
   }
 }
 
-/**
- * Validate ONPREMISE-DEV-PRIMARY database version against required minimum.
- * Returns true if ONPREMISE version >= required, false otherwise.
- * Used for failover logic to ensure workstation mirror is sufficiently up-to-date.
- */
-export async function validateOnPremiseDevVersion(requiredVersion: string | null): Promise<boolean> {
-  if (!requiredVersion) {
-    // No version requirement - allow failover
-    return true;
-  }
-  
-  const health = await checkOnPremiseDevHealth();
-  if (!health.connected || !health.version) {
-    // Cannot validate version if not connected or version unknown
-    return false;
-  }
-  
-  // Version validation: exact match or ONPREMISE is ahead
-  // In practice, use compareVersions from db-replication/version.ts
-  // For now, simple equality check
-  return health.version === requiredVersion;
-}
-
 export type DatabaseStats = {
   source: string;
   transport: string;

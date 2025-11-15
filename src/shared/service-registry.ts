@@ -708,22 +708,4 @@ export class ServiceRegistry {
 // Exports
 // ============================================================================
 
-// Export singleton instance getter
-export const getServiceRegistry = (): ServiceRegistry => ServiceRegistry.getInstance();
-
-// Export convenience functions
-export const registerService = (config: ServiceConfig): void => {
-  ServiceRegistry.getInstance().register(config);
-};
-
-export const getService = <T = any>(serviceName: string): T => {
-  return ServiceRegistry.getInstance().get<T>(serviceName);
-};
-
-export const initializeServices = async (): Promise<void> => {
-  await ServiceRegistry.getInstance().initializeAll();
-};
-
-export const shutdownServices = async (): Promise<void> => {
-  await ServiceRegistry.getInstance().shutdownAll();
-};
+// ServiceRegistry class is the primary export - used throughout src/index.ts

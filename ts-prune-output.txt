@@ -150,22 +150,14 @@
 \src\services\resource-manager.ts:90 - DiskLogHandle (used in module)
 \src\services\resource-manager.ts:118 - ResourceLimits (used in module)
 \src\services\resource-request.ts:457 - resourceRequestHandler
-\src\services\service-error-handler.ts:13 - ServiceErrorContext (used in module)
-\src\services\service-error-handler.ts:26 - ServiceErrorHandler (used in module)
-\src\services\service-error-handler.ts:421 - serviceErrorHandler
 \src\shared\config.ts:361 - resetConfigCacheForTests
 \src\shared\config.ts:6 - DatabaseConnectionMode (used in module)
 \src\shared\config.ts:8 - DatabaseUrlSource (used in module)
 \src\shared\config.ts:35 - RuntimeConfig (used in module)
 \src\shared\datetime.js:60 - toEasternTime
 \src\shared\datetime.js:77 - toEasternDate
-\src\shared\datetime.js:91 - toEasternShort
-\src\shared\datetime.js:102 - toEasternLong
-\src\shared\datetime.js:112 - nowEastern
-\src\shared\datetime.js:121 - getEasternTimezoneAbbr (used in module)
-\src\shared\datetime.js:143 - formatInTimeZone (used in module)
-\src\shared\datetime.js:171 - getEasternTimezone
-\src\shared\datetime.js:179 - formatInEasternTimeZone
+\src\shared\datetime.js:91 - getEasternTimezoneAbbr (used in module)
+\src\shared\datetime.js:113 - formatInTimeZone
 \src\shared\event-bus.ts:40 - EmitOptions (used in module)
 \src\shared\event-bus.ts:49 - EventHandler (used in module)
 \src\shared\event-bus.ts:54 - SubscribeOptions (used in module)

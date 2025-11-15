@@ -1,5 +1,4 @@
 import process from "node:process";
-import { setTimeout as sleep } from "node:timers/promises";
 
 import { log } from "./log.js";
 
@@ -401,10 +400,4 @@ export async function runWorker(name: string, start: (ctx: WorkerContext) => Pro
   await waitForShutdownPromise;
   metrics.emitSnapshot();
   log.info("worker.stop", { worker: name });
-}
-
-export async function untilShutdown(ctx: WorkerContext, pollIntervalMs = 1_000): Promise<void> {
-  while (!ctx.isShuttingDown()) {
-    await sleep(pollIntervalMs);
-  }
 }

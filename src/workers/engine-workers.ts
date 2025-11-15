@@ -924,21 +924,3 @@ export function getEngineWorkersStatus(): EngineWorkersStatus {
     maintenance: engineMaintenanceWorker.getStatus(),
   };
 }
-
-/**
- * Update Read-DB Sync Worker status externally (called by cron job handler).
- * 
- * Since Worker 3 runs as a separate Render Cron Job, we track its status
- * manually by calling this function after cron job completion.
- * 
- * @param success Whether cron job succeeded
- * @param durationMs Execution duration in milliseconds
- * @param error Error message if failed
- */
-export function recordReadDbSyncExecution(
-  success: boolean,
-  durationMs: number,
-  error: string | null = null
-): void {
-  readDbSyncWorker.recordExecution(success, durationMs, error);
-}
