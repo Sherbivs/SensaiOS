@@ -17,7 +17,7 @@ export interface EngineErrorContext extends ErrorContext {
   pokemonId?: string;
   moveId?: string;
   calculationType?: string;
-  inputValues?: Record<string, any>;
+  inputValues?: Record<string, unknown>;
 }
 
 export interface BattleState {
@@ -74,7 +74,7 @@ export class EngineErrorHandler {
   async handleCalculationError(
     error: Error,
     calculation: string,
-    inputs: Record<string, any>
+    inputs: Record<string, unknown>
   ): Promise<string> {
     const context: EngineErrorContext = {
       category: 'ENGINE',

@@ -10,6 +10,7 @@
 import { getLogBuffer } from '../shared/logBuffer.js';
 import { EventBus } from '../shared/event-bus.js';
 import type { BusStats } from '../shared/event-bus.js';
+import type { Client, Message, GuildMember, ThreadChannel, TextChannel, Guild, Role } from 'discord.js';
 
 /** Log buffer statistics shape (inline type) */
 type LogBufferStats = { buffered: number; totalMessages: number };
@@ -29,14 +30,14 @@ export interface ComponentMemoryStats {
   /** Confidence level in the measurement */
   confidence: 'high' | 'medium' | 'low';
   /** Additional metadata about the measurement */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
  * Safely estimate size of an object using JSON serialization
  * Handles circular references by catching errors
  */
-function safeJsonSize(obj: any): number {
+function safeJsonSize(obj: unknown): number {
   try {
     return JSON.stringify(obj).length;
   } catch {
@@ -58,7 +59,7 @@ export function measureLogBufferMemory(bufferStats: LogBufferStats): ComponentMe
   try {
     const buffer = getLogBuffer();
     // Access internal buffer Map (private but accessible in TypeScript)
-    const internalBuffer = (buffer as any).buffer as Map<string, any>;
+    const internalBuffer = (buffer as unknown as { buffer: Map<string, unknown> }).buffer;
     
     // Measure by serializing all buffer entries
     const entries = Array.from(internalBuffer.entries());
@@ -110,20 +111,20 @@ export function measureEventBusMemory(busStats: BusStats): ComponentMemoryStats 
     const bus = EventBus.getInstance();
     
     // Measure replay buffer (array of events)
-    const replayBuffer = (bus as any).replayBuffer as any[];
+    const replayBuffer = (bus as unknown as { replayBuffer: unknown[] }).replayBuffer;
     const replayBytes = safeJsonSize(replayBuffer);
     
     // Measure subscriptions (Map of pattern -> subscription)
     // Convert to serializable format (exclude handler functions)
-    const subscriptions = (bus as any).subscriptions as Map<string, any>;
+    const subscriptions = (bus as unknown as { subscriptions: Map<string, unknown> }).subscriptions;
     const subscriptionData = Array.from(subscriptions.values()).map(sub => ({
-      pattern: sub.pattern ? sub.pattern.toString() : 'unknown',
-      stats: sub.getStats ? sub.getStats() : {}
+      pattern: (sub as { pattern?: { toString(): string } }).pattern?.toString() || 'unknown',
+      stats: (sub as { getStats?: () => unknown }).getStats?.() || {}
     }));
     const subsBytes = safeJsonSize(subscriptionData);
     
     // Measure pattern cache (LRU cache)
-    const patternCache = (bus as any).patternCache as Map<string, any>;
+    const patternCache = (bus as unknown as { patternCache: Map<string, { toString(): string }> }).patternCache;
     const cacheEntries = Array.from(patternCache.entries()).map(([key, regex]) => ({
       key,
       regex: regex.toString()
@@ -177,7 +178,7 @@ export function measureEventBusMemory(busStats: BusStats): ComponentMemoryStats 
  * @param client - Discord.js Client instance
  * @returns Component memory statistics
  */
-export function measureDiscordCacheMemory(client: any): ComponentMemoryStats {
+export function measureDiscordCacheMemory(client: Client): ComponentMemoryStats {
   try {
     const messageSamples: number[] = [];
     const memberSamples: number[] = [];
@@ -189,9 +190,9 @@ export function measureDiscordCacheMemory(client: any): ComponentMemoryStats {
     
     // Sample messages (up to 10 from channels with messages)
     for (const channel of client.channels.cache.values()) {
-      if (channel.messages?.cache?.size > 0) {
+      if ('messages' in channel && channel.messages?.cache?.size > 0) {
         const messages = Array.from(channel.messages.cache.values()).slice(0, 10);
-        messages.forEach((msg: any) => {
+        messages.forEach((msg: Message) => {
           const size = safeJsonSize({
             id: msg.id,
             content: msg.content,
@@ -210,11 +211,11 @@ export function measureDiscordCacheMemory(client: any): ComponentMemoryStats {
     // Sample members (up to 10 from guilds)
     for (const guild of client.guilds.cache.values()) {
       const members = Array.from(guild.members.cache.values()).slice(0, 10);
-      members.forEach((member: any) => {
+      members.forEach((member: GuildMember) => {
         const size = safeJsonSize({
           id: member.id,
           user: member.user,
-          roles: member.roles.cache.map((r: any) => r.id),
+          roles: member.roles.cache.map((r: Role) => r.id),
           joinedAt: member.joinedAt,
           premiumSince: member.premiumSince
         });
@@ -226,9 +227,9 @@ export function measureDiscordCacheMemory(client: any): ComponentMemoryStats {
     
     // Sample threads (up to 10 from channels with threads)
     for (const channel of client.channels.cache.values()) {
-      if (channel.threads?.cache?.size > 0) {
-        const threads = Array.from(channel.threads.cache.values()).slice(0, 10);
-        threads.forEach((thread: any) => {
+      if ('threads' in channel && channel.threads?.cache?.size > 0) {
+        const threads = Array.from(channel.threads.cache.values() as Iterable<ThreadChannel>).slice(0, 10);
+        threads.forEach((thread: ThreadChannel) => {
           const size = safeJsonSize({
             id: thread.id,
             name: thread.name,
@@ -296,14 +297,14 @@ export function measureDiscordCacheMemory(client: any): ComponentMemoryStats {
     let threadCount = 0;
     
     try {
-      messageCount = client.channels.cache.reduce((acc: number, ch: any) => {
-        return acc + (ch.messages?.cache?.size ?? 0);
+      messageCount = client.channels.cache.reduce((acc: number, ch) => {
+        return acc + ('messages' in ch && ch.messages?.cache?.size ? ch.messages.cache.size : 0);
       }, 0);
-      memberCount = client.guilds.cache.reduce((acc: number, g: any) => {
+      memberCount = client.guilds.cache.reduce((acc: number, g: Guild) => {
         return acc + g.members.cache.size;
       }, 0);
-      threadCount = client.channels.cache.reduce((acc: number, ch: any) => {
-        return acc + (ch.threads?.cache?.size ?? 0);
+      threadCount = client.channels.cache.reduce((acc: number, ch) => {
+        return acc + ('threads' in ch && ch.threads?.cache?.size ? ch.threads.cache.size : 0);
       }, 0);
     } catch {
       // Ignore errors in fallback counting
