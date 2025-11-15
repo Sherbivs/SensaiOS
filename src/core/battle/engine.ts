@@ -4,14 +4,9 @@
 // Import CommonJS modules from our JS engine using esModuleInterop
 
 // Legacy CommonJS modules without TypeScript definitions
-import calc from "../../engine/calc.js";
 import engine from "../../engine/index.js";
 
 type UnknownRecord = Record<string, unknown>;
-
-type CalcModule = {
-  effectiveStat(pokemon: unknown, key: string, options?: unknown): number;
-};
 
 type ResolveContext = {
   rng?: RNG;
@@ -45,7 +40,6 @@ interface BattleEngineModule {
   ): BattleResolution;
 }
 
-const calcModule = calc as CalcModule;
 const engineModule = engine as BattleEngineModule;
 
 export interface RNG {
@@ -132,16 +126,3 @@ export function resolveTurn(
   const result = engineModule.resolveTurn(state, actionA, actionB, { ...ctx, ...indexes, publicLog: [] });
   return result;
 }
-
-export function effectiveSpeed(pokemon: unknown) {
-  return calcModule.effectiveStat(pokemon, "speed");
-}
-
-export function makeCtx(opts: ResolveCtxOptions = {}) {
-  const rng = opts.seed != null ? new SeededRNG(opts.seed) : undefined;
-  const ctx: ResolveContext = { rng, weather: opts.weather ?? null };
-  if (typeof opts.critChance === "number") ctx.critChance = opts.critChance;
-  return ctx;
-}
-
-export type BattleLog = string[];
