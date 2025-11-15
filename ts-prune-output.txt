@@ -10,14 +10,6 @@
 \src\bot\error-handler.ts:15 - DiscordErrorContext (used in module)
 \src\bot\error-handler.ts:25 - BotErrorHandler (used in module)
 \src\bot\index.ts:32 - BotStartOptions (used in module)
-\src\config\db-cluster.config.ts:10 - NodeRole (used in module)
-\src\config\db-cluster.config.ts:11 - NodePurpose (used in module)
-\src\config\db-cluster.config.ts:12 - ReplicationStrategy (used in module)
-\src\config\db-cluster.config.ts:13 - LoadBalancingStrategy (used in module)
-\src\config\db-cluster.config.ts:18 - DatabaseNode
-\src\config\db-cluster.config.ts:72 - ReplicationConfig
-\src\config\db-cluster.config.ts:95 - FailoverConfig
-\src\config\db-cluster.config.ts:118 - LoadBalancingConfig
 \src\config\engine-db-config.ts:25 - IS_PRODUCTION (used in module)
 \src\config\engine-db-config.ts:30 - IS_TEST (used in module)
 \src\config\engine-db-config.ts:38 - STORAGE_BASE_DIR (used in module)
@@ -82,8 +74,6 @@
 \src\data\dexpack.d.ts:67 - DexpackHashTable (used in module)
 \src\data\dexpack.d.ts:73 - FastDexpack (used in module)
 \src\data\dexpack.d.ts:95 - dexpackState
-\src\engine\bus.ts:19 - publish
-\src\engine\bus.ts:11 - PublishOpts (used in module)
 \src\engine\calc.js:159 - stab (used in module)
 \src\engine\calc.js:159 - typeEffectiveness (used in module)
 \src\engine\effects.js:253 - registerEffectRule (used in module)
@@ -93,21 +83,17 @@
 \src\engine\index.js:270 - newBattleState (used in module)
 \src\engine\index.js:270 - newAction (used in module)
 \src\engine\index.js:270 - resolveTurn (used in module)
-\src\engine\worker.ts:24 - on
-\src\engine\worker.ts:31 - run
 \src\lib\assets.js:37 - manifest (used in module)
-\src\models\index.ts:749 - projectDailyQuestCompletion (used in module)
+\src\models\index.ts:743 - projectDailyQuestCompletion (used in module)
 \src\models\index.ts:24 - TrainerCooldown (used in module)
 \src\models\index.ts:62 - TrainerProfileRecord (used in module)
 \src\models\index.ts:72 - TrainerProfileStats (used in module)
 \src\models\index.ts:88 - TrainerBattleSummary (used in module)
-\src\models\index.ts:117 - TrainerProfileUpdateInput
-\src\models\index.ts:513 - BattleResultReason (used in module)
-\src\models\index.ts:662 - DailyQuestStateInput (used in module)
-\src\models\index.ts:736 - DailyQuestProjectionInput (used in module)
-\src\models\index.ts:742 - DailyQuestCompletionProjection (used in module)
-\src\models\index.ts:769 - EnsureDailyQuestOptions
-\src\models\index.ts:780 - RecordDailyQuestOptions (used in module)
+\src\models\index.ts:507 - BattleResultReason (used in module)
+\src\models\index.ts:656 - DailyQuestStateInput (used in module)
+\src\models\index.ts:730 - DailyQuestProjectionInput (used in module)
+\src\models\index.ts:736 - DailyQuestCompletionProjection (used in module)
+\src\models\index.ts:763 - RecordDailyQuestOptions (used in module)
 \src\services\ai-log-analyzer.js:773 - analyze (used in module)
 \src\services\ai-log-analyzer.js:774 - query (used in module)
 \src\services\ai-log-analyzer.js:775 - detectErrorPatterns (used in module)
@@ -151,24 +137,8 @@
 \src\services\engine-cache.ts:58 - MoveCacheEntry (used in module)
 \src\services\engine-cache.ts:74 - CacheStats (used in module)
 \src\services\engine-cache.ts:107 - EngineCache (used in module)
-\src\services\engine-db.ts:257 - getPokemonById
-\src\services\engine-db.ts:289 - getPokemonByName
-\src\services\engine-db.ts:320 - getAllPokemonIds
-\src\services\engine-db.ts:339 - getPokemonCount
-\src\services\engine-db.ts:354 - searchPokemonByName
-\src\services\engine-db.ts:386 - getEngineStats
-\src\services\engine-db.ts:419 - close (used in module)
-\src\services\engine-db.ts:430 - ENGINE_DB_PATH (used in module)
-\src\services\engine-db.ts:430 - initialize (used in module)
 \src\services\engine-write-buffer.ts:77 - BufferStats (used in module)
 \src\services\engine-write-buffer.ts:97 - EngineWriteBuffer (used in module)
-\src\services\error-alerting.ts:58 - initializeAlerting
-\src\services\error-alerting.ts:71 - alertOnCritical (used in module)
-\src\services\error-alerting.ts:122 - alertOnPattern (used in module)
-\src\services\error-alerting.ts:175 - alertOnNewError (used in module)
-\src\services\error-alerting.ts:214 - escalateToRender (used in module)
-\src\services\error-alerting.ts:242 - getAlertingStats
-\src\services\error-alerting.ts:377 - getCriticalErrorsSummary
 \src\services\error-learning.ts:29 - TimePattern (used in module)
 \src\services\error-learning.ts:40 - ErrorCorrelation (used in module)
 \src\services\error-learning.ts:52 - ErrorCascade (used in module)
@@ -176,12 +146,6 @@
 \src\services\error-learning.ts:75 - RecoveryStrategy (used in module)
 \src\services\error-learning.ts:88 - LearningMetadata (used in module)
 \src\services\error-learning.ts:101 - ErrorLearningService (used in module)
-\src\services\error-recovery.ts:76 - attemptRecovery
-\src\services\error-recovery.ts:186 - getRecoveryStats
-\src\services\error-recovery.ts:204 - clearRecoveryState
-\src\services\error-recovery.ts:16 - RecoveryStrategy (used in module)
-\src\services\error-recovery.ts:26 - RecoveryAttempt (used in module)
-\src\services\error-recovery.ts:38 - RecoveryConfig (used in module)
 \src\services\home-bundle-pg.ts:81 - primeHomeBundle
 \src\services\home-bundle-pg.ts:110 - findCooldownsByUserId (used in module)
 \src\services\home-bundle-pg.ts:190 - deleteCooldown
@@ -474,6 +438,15 @@
 \src\data_pipeline\schema\moves.ts:17 - Move
 \src\data_pipeline\schema\species.ts:25 - Species
 \src\data_pipeline\schema\typechart.ts:23 - TypeChart
+\src\services\cache\facade.ts:334 - stopCacheMaintenanceScheduler (used in module)
+\src\services\cache\facade.ts:357 - configureCacheFacade
+\src\services\cache\facade.ts:428 - peek
+\src\services\cache\facade.ts:449 - touch
+\src\services\cache\facade.ts:487 - cacheRoot
+\src\services\cache\facade.ts:967 - resetCacheMetrics
+\src\services\cache\facade.ts:36 - CacheDescriptor (used in module)
+\src\services\cache\facade.ts:42 - CacheReadOptions (used in module)
+\src\services\cache\facade.ts:51 - CacheHydrator (used in module)
 \src\services\cache\recipes.ts:180 - loadTrainerProfile
 \src\services\cache\recipes.ts:205 - invalidateTrainerProfile
 \src\services\cache\recipes.ts:34 - QuestClaimSuccess (used in module)
