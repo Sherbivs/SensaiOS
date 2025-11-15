@@ -22,7 +22,7 @@
 
 import type { Pool } from "pg";
 import { getProdDb } from "../pg-connection.js";
-import { buildSelect, buildInsert, buildUpdate, buildCount } from "../pg-query.js";
+import { buildInsert, buildUpdate, buildCount } from "../pg-query.js";
 import type { Battle } from "../../types/db-models.js";
 
 // ============================================================================
@@ -85,31 +85,6 @@ function reviveBattle(row: any): Battle {
 }
 
 /**
- * Convert BattleWithPlayers Date fields (battle + both users)
- */
-function reviveBattleWithPlayers(row: any): BattleWithPlayers {
-  return {
-    ...reviveBattle(row),
-    p1: {
-      id: row.p1_id,
-      discordId: row.p1_discordId,
-      platformId: row.p1_platformId,
-      coins: row.p1_coins,
-      createdAt: new Date(row.p1_createdAt),
-      updatedAt: new Date(row.p1_updatedAt),
-    },
-    p2: {
-      id: row.p2_id,
-      discordId: row.p2_discordId,
-      platformId: row.p2_platformId,
-      coins: row.p2_coins,
-      createdAt: new Date(row.p2_createdAt),
-      updatedAt: new Date(row.p2_updatedAt),
-    },
-  };
-}
-
-/**
  * Get pool with fallback to PROD
  */
 function getPool(pool?: Pool): Pool {
@@ -122,69 +97,6 @@ function getPool(pool?: Pool): Pool {
 // ============================================================================
 // Read Operations
 // ============================================================================
-
-/**
- * Find battle by ID
- * Equivalent to: prisma.battle.findUnique({ where: { id } })
- * 
- * @param battleId - Battle UUID
- * @param pool - Optional pg pool override
- * @returns Battle or null if not found
- */
-export async function findBattleById(
-  battleId: string,
-  pool?: Pool
-): Promise<Battle | null> {
-  const db = getPool(pool);
-  
-  const { text, values } = buildSelect(
-    "Battle",
-    ["id", "p1Id", "p2Id", "arenaThreadId", "state", "rngSeed", "ruleset", "logCompact", "logFull", "resultJson", "startedAt", "endedAt", "updatedAt", "tenantId", "packHash", "trainer1Id", "trainer2Id"],
-    { id: battleId }
-  );
-  
-  const result = await db.query(text, values);
-  if (result.rows.length === 0) return null;
-  
-  return reviveBattle(result.rows[0]);
-}
-
-/**
- * Find battle by ID with player User records joined
- * Equivalent to: prisma.battle.findUnique({ where: { id }, include: { p1: true, p2: true } })
- * 
- * Used by: loadBattleState (cache recipes), battle UI handlers
- * 
- * @param battleId - Battle UUID
- * @param pool - Optional pg pool override
- * @returns BattleWithPlayers or null if not found
- */
-export async function findBattleWithPlayers(
-  battleId: string,
-  pool?: Pool
-): Promise<BattleWithPlayers | null> {
-  const db = getPool(pool);
-  
-  const query = `
-    SELECT 
-      b."id", b."p1Id", b."p2Id", b."arenaThreadId", b."state", b."rngSeed", b."ruleset",
-      b."logCompact", b."logFull", b."resultJson", b."startedAt", b."endedAt", b."updatedAt",
-      b."tenantId", b."packHash", b."trainer1Id", b."trainer2Id",
-      p1."id" AS p1_id, p1."discordId" AS p1_discordId, p1."platformId" AS p1_platformId,
-      p1."coins" AS p1_coins, p1."createdAt" AS p1_createdAt, p1."updatedAt" AS p1_updatedAt,
-      p2."id" AS p2_id, p2."discordId" AS p2_discordId, p2."platformId" AS p2_platformId,
-      p2."coins" AS p2_coins, p2."createdAt" AS p2_createdAt, p2."updatedAt" AS p2_updatedAt
-    FROM "Battle" b
-    INNER JOIN "User" p1 ON b."p1Id" = p1."id"
-    INNER JOIN "User" p2 ON b."p2Id" = p2."id"
-    WHERE b."id" = $1
-  `;
-  
-  const result = await db.query(query, [battleId]);
-  if (result.rows.length === 0) return null;
-  
-  return reviveBattleWithPlayers(result.rows[0]);
-}
 
 /**
  * Find active or pending battle for a user (by discordId)
@@ -284,36 +196,6 @@ export async function createBattle(
 }
 
 /**
- * Update battle state
- * Equivalent to: prisma.battle.update({ where: { id }, data: { state } })
- * 
- * Used by: Challenge accept/decline, battle conclusion
- * 
- * @param battleId - Battle UUID
- * @param state - New state (Active, Finished, Aborted)
- * @param pool - Optional pg pool override
- * @returns Updated Battle or null if not found
- */
-export async function updateBattleState(
-  battleId: string,
-  state: string,
-  pool?: Pool
-): Promise<Battle | null> {
-  const db = getPool(pool);
-  
-  const { text, values } = buildUpdate(
-    "Battle",
-    { state, updatedAt: "NOW()" },
-    { id: battleId }
-  );
-  
-  const result = await db.query(`${text} RETURNING *`, values);
-  if (result.rows.length === 0) return null;
-  
-  return reviveBattle(result.rows[0]);
-}
-
-/**
  * Update battle state and endedAt timestamp
  * Equivalent to: prisma.battle.update({ where: { id }, data: { state, endedAt } })
  * 
@@ -336,36 +218,6 @@ export async function updateBattleStateAndEnd(
   const { text, values } = buildUpdate(
     "Battle",
     { state, endedAt, updatedAt: "NOW()" },
-    { id: battleId }
-  );
-  
-  const result = await db.query(`${text} RETURNING *`, values);
-  if (result.rows.length === 0) return null;
-  
-  return reviveBattle(result.rows[0]);
-}
-
-/**
- * Link battle to arena thread
- * Equivalent to: prisma.battle.update({ where: { id }, data: { arenaThreadId } })
- * 
- * Used by: Challenge accept (when thread created)
- * 
- * @param battleId - Battle UUID
- * @param arenaThreadId - Discord thread channel ID
- * @param pool - Optional pg pool override
- * @returns Updated Battle or null if not found
- */
-export async function linkBattleToThread(
-  battleId: string,
-  arenaThreadId: string,
-  pool?: Pool
-): Promise<Battle | null> {
-  const db = getPool(pool);
-  
-  const { text, values } = buildUpdate(
-    "Battle",
-    { arenaThreadId, updatedAt: "NOW()" },
     { id: battleId }
   );
   
@@ -485,27 +337,6 @@ export async function concludeBattle(
   } finally {
     client.release();
   }
-}
-
-/**
- * Delete battle (cleanup)
- * Equivalent to: prisma.battle.delete({ where: { id } })
- * 
- * @param battleId - Battle UUID
- * @param pool - Optional pg pool override
- * @returns Deleted Battle or null if not found
- */
-export async function deleteBattle(
-  battleId: string,
-  pool?: Pool
-): Promise<Battle | null> {
-  const db = getPool(pool);
-  
-  const query = `DELETE FROM "Battle" WHERE "id" = $1 RETURNING *`;
-  const result = await db.query(query, [battleId]);
-  
-  if (result.rows.length === 0) return null;
-  return reviveBattle(result.rows[0]);
 }
 
 // ============================================================================
