@@ -1,0 +1,8 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Run existing metric accuracy verification
+node scripts/pre-commit-metrics.mjs
+
+# Run lint-staged (ESLint + TypeScript type checking)
+npx lint-staged

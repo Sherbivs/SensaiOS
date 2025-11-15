@@ -53,6 +53,7 @@
     "verify:metrics:staged": "node scripts/verify-metrics-accuracy.mjs --staged",
     "setup:git-hooks": "node scripts/setup-git-hooks.mjs",
     "lint": "eslint \"{src,tests}/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
     "test": "vitest --run",
     "guard:store": "bash scripts/verify_store_protection.sh",
     "guard:pre-commit": "bash scripts/pre-commit-store-guard.sh",
@@ -81,7 +82,8 @@
     "ai-logs:analyze": "node src/cli/ai-log-query.js analyze",
     "ai-logs:patterns": "node src/cli/ai-log-query.js patterns",
     "ai-logs:insights": "node src/cli/ai-log-query.js insights",
-    "ai-logs:stats": "node src/cli/ai-log-query.js stats"
+    "ai-logs:stats": "node src/cli/ai-log-query.js stats",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
@@ -97,6 +99,8 @@
     "eslint-plugin-promise": "^7.2.1",
     "glob": "^11.0.3",
     "globals": "^16.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.6",
     "patch-package": "^8.0.0",
     "prisma": "^6.19.0",
     "vitest": "^4.0.4"
@@ -120,5 +124,15 @@
     "tsx": "^4.11.2",
     "typescript": "^5.6.3",
     "zod": "^4.1.12"
+  },
+  "lint-staged": {
+    "src/**/*.{js,ts}": [
+      "eslint",
+      "tsc --noEmit --pretty false --skipLibCheck true"
+    ],
+    "tests/**/*.{js,ts}": [
+      "eslint",
+      "tsc --noEmit --pretty false --skipLibCheck true"
+    ]
   }
 }
