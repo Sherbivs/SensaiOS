@@ -8,8 +8,12 @@
  * - Pattern detection and anomaly flagging
  * - Zero-overhead async design (<1ms latency)
  * 
+ * NOTE: This file uses console.error as last-resort fallback when the logger itself fails.
+ * These are intentional meta-logging statements and should not be replaced.
+ * 
  * @module utils/intelligent-logger
  */
+/* eslint-disable no-console */
 
 import crypto from 'node:crypto';
 import { performance } from 'node:perf_hooks';

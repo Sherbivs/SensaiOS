@@ -18,6 +18,7 @@ import path from 'node:path';
 import { toEasternLogFormat } from '../shared/datetime.js';
 import { EventBus } from '../shared/event-bus.js';
 import { prisma } from '../shared/prisma.js';
+import { log } from '../utils/logger.js';
 import type { ErrorLog, ErrorAlert } from '@prisma/client';
 import {
   parseStackTrace,
@@ -255,16 +256,16 @@ export class ErrorTracker {
     const parsedStack = parseStackTrace(error);
     const topFrame = parsedStack.topFrame;
     
-    // Enhanced console output with source location
-    console.error(`\n🚨 [ERROR CAPTURED] ${timestamp}`);
-    console.error(`   Type: ${error.name}`);
-    console.error(`   Message: ${error.message}`);
+    // Enhanced logging output with source location
+    log('error', `🚨 [ERROR CAPTURED] ${timestamp}`);
+    log('error', `   Type: ${error.name}`);
+    log('error', `   Message: ${error.message}`);
     if (topFrame?.relativeFilePath) {
-      console.error(`   Location: ${topFrame.relativeFilePath}:${topFrame.lineNumber}:${topFrame.columnNumber}`);
-      console.error(`   Function: ${topFrame.functionName || '<anonymous>'}`);
+      log('error', `   Location: ${topFrame.relativeFilePath}:${topFrame.lineNumber}:${topFrame.columnNumber}`);
+      log('error', `   Function: ${topFrame.functionName || '<anonymous>'}`);
     }
-    console.error(`   Call Chain: ${parsedStack.callChain.slice(0, 3).join(' → ')}`);
-    console.error(`   Context: ${JSON.stringify({
+    log('error', `   Call Chain: ${parsedStack.callChain.slice(0, 3).join(' → ')}`);
+    log('error', `   Context: ${JSON.stringify({
       service: context.service,
       operation: context.operation,
       userId: context.userId,
@@ -283,7 +284,7 @@ export class ErrorTracker {
         parsedStack.frames = enriched;
       }).catch(err => {
         // Source enrichment failed - not critical, continue
-        console.warn('[ErrorTracker] Source enrichment failed:', err.message);
+        log('warn', '[ErrorTracker] Source enrichment failed: ' + err.message);
       });
       
       // Enrich context with automatic detection + stack trace metadata
@@ -351,23 +352,23 @@ export class ErrorTracker {
         callChain: parsedStack.callChain,
       });
       
-      console.error(`   ✅ Persisted: ${result.errorId} (fingerprint: ${fingerprint.substring(0, 8)}...)`);
+      log('error', `   ✅ Persisted: ${result.errorId} (fingerprint: ${fingerprint.substring(0, 8)}...)`);
       
       // Generate AI-optimized error report (async, fire-and-forget)
       // Write to Store/error-reports/ for SSH analysis
       this.generateAndStoreAIReport(error, parsedStack, enrichedContext, fingerprint).catch((err: Error) => {
-        console.warn('[ErrorTracker] AI report generation failed:', err.message);
+        log('warn', '[ErrorTracker] AI report generation failed: ' + err.message);
       });
       
       return result.errorId;
     } catch (captureError) {
       // CRITICAL: Even if database write fails, MUST log to console
       // This ensures ZERO false negatives - every error is visible somewhere
-      console.error('\n❌ [ERROR TRACKER FAILURE] Database write failed!');
-      console.error('   Capture Error:', captureError);
-      console.error('   Original Error:', error);
-      console.error('   Stack:', error.stack);
-      console.error('   Context:', JSON.stringify(context, null, 2));
+      log('error', '\n❌ [ERROR TRACKER FAILURE] Database write failed!');
+      log('error', '   Capture Error: ' + String(captureError));
+      log('error', '   Original Error: ' + String(error));
+      log('error', '   Stack: ' + (error.stack || 'No stack trace'));
+      log('error', '   Context: ' + JSON.stringify(context, null, 2));
       
       // Fallback: Write to emergency error log file (backup persistence)
       this.writeToEmergencyLog(error, context, captureError, parsedStack);
@@ -609,11 +610,11 @@ export class ErrorTracker {
       
       // Log correlation ID for debugging (minimal output to avoid noise)
       if (process.env.NODE_ENV === 'development') {
-        console.error(`   🔗 Correlation: ${correlationId.substring(0, 8)}... → ${topic}`);
+        log('error', `   🔗 Correlation: ${correlationId.substring(0, 8)}... → ${topic}`);
       }
     } catch (emitError) {
       // MUST NOT throw - Event Bus emission is optional enhancement
-      console.error('[ErrorTracker] Failed to emit to Event Bus:', emitError);
+      log('error', '[ErrorTracker] Failed to emit to Event Bus: ' + String(emitError));
     }
   }
   
@@ -647,10 +648,10 @@ export class ErrorTracker {
       const filepath = path.join(reportsDir, filename);
       
       await fs.writeFile(filepath, report, 'utf-8');
-      console.error(`   📊 AI Report: ${filepath}`);
+      log('error', `   📊 AI Report: ${filepath}`);
     } catch (reportError) {
       // Report generation failed - not critical
-      console.warn('[ErrorTracker] AI report generation failed:', reportError);
+      log('warn', '[ErrorTracker] AI report generation failed: ' + String(reportError));
     }
   }
   
@@ -701,11 +702,11 @@ export class ErrorTracker {
       };
       
       await fs.writeFile(filepath, JSON.stringify(emergencyEntry, null, 2));
-      console.error(`   📝 Emergency log written: ${filepath}`);
+      log('error', `   📝 Emergency log written: ${filepath}`);
     } catch (fileError) {
       // Absolute last resort: just log to console
-      console.error('[ErrorTracker] Emergency file write also failed:', fileError);
-      console.error('[ErrorTracker] Error data:', JSON.stringify({
+      log('error', '[ErrorTracker] Emergency file write also failed: ' + String(fileError));
+      log('error', '[ErrorTracker] Error data: ' + JSON.stringify({
         error: { name: error.name, message: error.message },
         context,
       }, null, 2));

@@ -8,6 +8,7 @@
 
 import { DiscordAPIError, CommandInteraction, Interaction, Message } from 'discord.js';
 import { errorTracker, type ErrorContext } from '../services/error-tracker.js';
+import { log } from '../utils/logger.js';
 
 /// ---- Discord Error Types ----
 
@@ -310,7 +311,7 @@ export class BotErrorHandler {
       }
     } catch (notifyError) {
       // Failed to notify user - log but don't throw
-      console.error('[BotErrorHandler] Failed to notify user of error:', notifyError);
+      log('error', '[BotErrorHandler] Failed to notify user of error: ' + String(notifyError));
     }
   }
 }
