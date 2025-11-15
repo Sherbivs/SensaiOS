@@ -144,27 +144,12 @@
 \src\services\error-learning.ts:75 - RecoveryStrategy (used in module)
 \src\services\error-learning.ts:88 - LearningMetadata (used in module)
 \src\services\error-learning.ts:101 - ErrorLearningService (used in module)
-\src\services\home-bundle-pg.ts:52 - findCooldownsByUserId
-\src\services\resource-manager.ts:1105 - createManagedInterval
-\src\services\resource-manager.ts:1118 - createManagedTimeout
-\src\services\resource-manager.ts:1131 - createManagedListener
-\src\services\resource-manager.ts:1145 - createManagedConnection
-\src\services\resource-manager.ts:1159 - createManagedDiskCache
-\src\services\resource-manager.ts:1179 - createManagedDiskBuffer
-\src\services\resource-manager.ts:1196 - createManagedDiskLog
 \src\services\resource-manager.ts:37 - ResourceHandle (used in module)
 \src\services\resource-manager.ts:68 - DiskCacheHandle (used in module)
 \src\services\resource-manager.ts:79 - DiskBufferHandle (used in module)
 \src\services\resource-manager.ts:90 - DiskLogHandle (used in module)
 \src\services\resource-manager.ts:118 - ResourceLimits (used in module)
-\src\services\resource-request.ts:468 - requestManagedInterval
-\src\services\resource-request.ts:494 - requestManagedTimeout
-\src\services\resource-request.ts:520 - requestManagedListener
-\src\services\resource-request.ts:549 - requestManagedConnection
-\src\services\resource-request.ts:574 - getResourceRequestStats
-\src\services\resource-request.ts:581 - getResourceBudget
-\src\services\resource-request.ts:588 - updateResourceBudget
-\src\services\resource-request.ts:457 - resourceRequestHandler (used in module)
+\src\services\resource-request.ts:457 - resourceRequestHandler
 \src\services\service-error-handler.ts:13 - ServiceErrorContext (used in module)
 \src\services\service-error-handler.ts:26 - ServiceErrorHandler (used in module)
 \src\services\service-error-handler.ts:421 - serviceErrorHandler
