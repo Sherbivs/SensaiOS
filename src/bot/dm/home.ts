@@ -431,15 +431,3 @@ globalThis.__dmHomeViews = {
   openProfileView,
   BOX_PAGE_PREFIX,
 };
-
-export default {
-  buildBoxView,
-  buildPartyView,
-  buildProfileView,
-  fetchTrainerHomeSnapshot: fetchSnapshot,
-  openBoxPage,
-  openBoxView,
-  openPartyView,
-  openProfileView,
-  BOX_PAGE_PREFIX,
-};
