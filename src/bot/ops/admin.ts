@@ -1445,10 +1445,10 @@ export async function handleOpsCommand(
           const discordMemory = measureDiscordCacheMemory(client);
           const discordMB = formatMB(discordMemory.estimatedBytes);
           const confidenceEmoji = getConfidenceEmoji(discordMemory.confidence);
-          const meta = discordMemory.metadata;
+          const meta = discordMemory.metadata as Record<string, any> | undefined;
           lines.push(`• Discord Cache: ${discordMB} MB (${discordMemory.entryCount} total entries) ${confidenceEmoji}`);
           if (meta) {
-            lines.push(`  └─ ${meta.messageCount} msg (${meta.avgMessageBytes}B avg), ${meta.memberCount} members (${meta.avgMemberBytes}B avg), ${meta.threadCount} threads`);
+            lines.push(`  └─ ${meta.messageCount || 0} msg (${meta.avgMessageBytes || 0}B avg), ${meta.memberCount || 0} members (${meta.avgMemberBytes || 0}B avg), ${meta.threadCount || 0} threads`);
             lines.push(`  └─ Measured via ${discordMemory.measurementMethod} (${meta.sampleSizes?.messages || 0} msg samples, ${meta.sampleSizes?.members || 0} member samples)`);
           }
         } else {

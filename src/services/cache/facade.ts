@@ -12,10 +12,11 @@ import os from "node:os";
 import path from "node:path";
 
 import { log } from "../../shared/log.js";
-import legacyCache from "../cache.js";
+import * as legacyCacheModule from "../cache.js";
 import { errorTracker } from "../error-tracker.js";
 
-const { MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS } = (legacyCache as unknown as {
+const legacyCache = (legacyCacheModule as any).default || legacyCacheModule;
+const { MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS } = (legacyCache as {
   MAX_CACHE_PERCENT: number;
   MAX_CACHE_FILE_AGE_MS: number;
 });

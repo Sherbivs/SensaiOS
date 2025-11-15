@@ -47,6 +47,9 @@ import cliStatus from "./utils/cliStatus.js";
 import { validateEngineDbConfig } from "./config/engine-db-config.js";
 import * as engineReadDb from "./services/engine-read-db.js";
 import * as engineWriteDb from "./services/engine-write-db.js";
+import type { EngineCache } from "./services/engine-cache.js";
+import type { EngineWriteBuffer } from "./services/engine-write-buffer.js";
+import type { ErrorTracker } from "./services/error-tracker.js";
 import { startEngineWorkers, stopEngineWorkers, type EngineWorkersStatus } from "./workers/engine-workers.js";
 import { errorLearningWorker } from "./workers/error-learning-worker.js";
 import { startResourceMonitoring, stopResourceMonitoring } from "./services/resource-monitor.js";
@@ -80,7 +83,7 @@ function calculateMemoryProgression(memory: { [key: string]: NodeJS.MemoryUsage 
     { name: "Runtime Monitoring", from: "post_engine_and_bots", to: "steady_state" },
   ];
   
-  const progression: { total_growth_mb: number; phases: Array<{ name: string; rss_delta_mb: number; heap_delta_mb: number }> } = {
+  const progression: { total_growth_mb: number; phases: Array<{ name: string; rss_delta_mb: number; heap_delta_mb: number; external_delta_mb: number }> } = {
     total_growth_mb: 0,
     phases: []
   };
@@ -147,10 +150,10 @@ global.engineReady = false;
 // Service Registry - Centralized Service Lifecycle Management
 // ============================================================================
 const registry = ServiceRegistry.getInstance();
-let resourceManager: unknown = null;
-let errorTracker: unknown = null;
-let engineCache: unknown = null;
-let engineWriteBuffer: unknown = null;
+let resourceManager: { shutdown: () => Promise<void> } | null = null;
+let errorTracker: ErrorTracker | null = null;
+let engineCache: EngineCache | null = null;
+let engineWriteBuffer: EngineWriteBuffer | null = null;
 
 function withMonitor(callback: (monitor: typeof cliStatus) => void): void {
   if (!monitorActive) {
@@ -644,12 +647,14 @@ function bindDiscordLifecycle(client: Client): void {
       });
     } else {
       // Generic error handling
-      await errorTracker.captureError(error, {
-        category: 'DISCORD',
-        service: 'discord-client',
-        operation: 'websocket',
-        severity: 'HIGH',
-      });
+      if (errorTracker) {
+        await errorTracker.captureError(error, {
+          category: 'DISCORD',
+          service: 'discord-client',
+          operation: 'websocket',
+          severity: 'HIGH',
+        });
+      }
     }
   });
   
@@ -673,7 +678,7 @@ function updateSecuritySection(client: Client | null, status: string): void {
 }
 
 function updateEngineSection(workerStatus?: EngineWorkersStatus): void {
-  if (!monitorActive) {
+  if (!monitorActive || !engineCache || !engineWriteBuffer) {
     return;
   }
   
@@ -764,12 +769,14 @@ function bindSecurityLifecycle(client: Client): void {
       });
     } else {
       // Generic error handling
-      await errorTracker.captureError(error, {
-        category: 'DISCORD',
-        service: 'security-bot-client',
-        operation: 'websocket',
-        severity: 'HIGH',
-      });
+      if (errorTracker) {
+        await errorTracker.captureError(error, {
+          category: 'DISCORD',
+          service: 'security-bot-client',
+          operation: 'websocket',
+          severity: 'HIGH',
+        });
+      }
     }
   });
   
@@ -1212,13 +1219,15 @@ export async function boot(): Promise<void> {
             });
             
             // Step 3: L1 Cache already initialized by Service Registry - just get stats
-            const cacheStats = engineCache.getStats();
-            log.info("Engine L1 Cache ready", {
-              pokemon: cacheStats.pokemonCount,
-              moves: cacheStats.moveCount,
-              typeEffectiveness: cacheStats.typeEffectivenessCount,
-              memorySizeMb: cacheStats.memorySizeMb.toFixed(2)
-            });
+            if (engineCache) {
+              const cacheStats = engineCache.getStats();
+              log.info("Engine L1 Cache ready", {
+                pokemon: cacheStats.pokemonCount,
+                moves: cacheStats.moveCount,
+                typeEffectiveness: cacheStats.typeEffectivenessCount,
+                memorySizeMb: cacheStats.memorySizeMb.toFixed(2)
+              });
+            }
             
             return readStats;
           })(),

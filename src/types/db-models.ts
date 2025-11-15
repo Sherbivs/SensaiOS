@@ -252,6 +252,21 @@ export interface EncounterData {
   packHash: string | null;
 }
 
+export interface Encounter {
+  id: string;
+  ownerId: string;
+  speciesId: number;
+  level: number;
+  state: string;
+  threadChannelId: string | null;
+  startedAt: Date;
+  expiresAt: Date | null;
+  dataJson: Prisma.JsonValue | null;
+  tenantId: string | null;
+  trainerId: string | null;
+  packHash: string | null;
+}
+
 export interface Battle {
   id: string;
   p1Id: string;
@@ -390,7 +405,7 @@ export interface SpeciesWithTypes extends Species {
   types: SpeciesType[];
 }
 
-export interface SpeciesWithAbilities extends Species {
+export interface SpeciesWithAbilities extends Omit<Species, 'abilities'> {
   abilities: SpeciesAbility[];
 }
 
