@@ -25,17 +25,3 @@ export function getCacheSize(): number;
 export function getCacheSnapshot(): CacheSnapshot;
 export const MAX_CACHE_PERCENT: number;
 export function getCacheBudget(): CacheBudget;
-
-declare const cacheService: {
-  CACHE_DIR: typeof CACHE_DIR;
-  readCache: typeof readCache;
-  writeCache: typeof writeCache;
-  pruneCache: typeof pruneCache;
-  cleanOldCache: typeof cleanOldCache;
-  getCacheSize: typeof getCacheSize;
-  getCacheSnapshot: typeof getCacheSnapshot;
-  MAX_CACHE_PERCENT: typeof MAX_CACHE_PERCENT;
-  getCacheBudget: typeof getCacheBudget;
-};
-
-export default cacheService;
