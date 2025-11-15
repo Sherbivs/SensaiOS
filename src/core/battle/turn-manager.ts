@@ -174,7 +174,3 @@ export function queueSwitchAction(battleId: string, player: PlayerKey, targetId:
 
   return { status: "queued", turn: runtime.turn, action } satisfies QueueResult;
 }
-
-export function clearBattleRuntime(battleId: string): void {
-  runtimes.delete(battleId);
-}

@@ -426,27 +426,6 @@ export async function getOrHydrate<T>(options: CacheReadOptions, hydrator: Cache
   return hydratePromise;
 }
 
-export async function peek<T>(descriptor: CacheDescriptor): Promise<T | null> {
-  const composite = buildCompositeKey(descriptor);
-  const now = Date.now();
-
-  const memoryEntry = memoryCache.get(composite) as CacheRecord<T> | undefined;
-  if (memoryEntry && !isExpired(memoryEntry, now)) {
-    return memoryEntry.value;
-  }
-  if (memoryEntry) {
-    memoryCache.delete(composite);
-  }
-
-  const diskRecord = await readFromDisk<T>(descriptor);
-  if (diskRecord && !isExpired(diskRecord, now)) {
-    memoryCache.set(composite, diskRecord);
-    return diskRecord.value;
-  }
-
-  return null;
-}
-
 export async function touch(options: CacheReadOptions): Promise<boolean> {
   ensureMaintenanceTimer();
   const composite = buildCompositeKey(options);

@@ -6,9 +6,3 @@ export function canApplyMajorStatus(target: { status?: MajorStatus }, status: Ma
   if (target.status) return false; // don't overwrite major status
   return true;
 }
-
-export function applyMajorStatus(target: { status?: MajorStatus }, status: MajorStatus) {
-  if (!canApplyMajorStatus(target, status)) return false;
-  target.status = status;
-  return true;
-}
