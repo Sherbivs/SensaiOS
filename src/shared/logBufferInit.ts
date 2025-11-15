@@ -61,18 +61,3 @@ export function setupLogBuffer(customConfig?: Partial<LogBufferConfig>): void {
   // Initialize the global buffer
   initLogBuffer(flushBufferedLogs, finalConfig);
 }
-
-/**
- * Convenience function to disable log buffering
- * (useful for debugging or when immediate log output is needed)
- */
-export function disableLogBuffer(): void {
-  setupLogBuffer({ enabled: false });
-}
-
-/**
- * Convenience function to enable log buffering
- */
-export function enableLogBuffer(config?: Partial<LogBufferConfig>): void {
-  setupLogBuffer({ ...config, enabled: true });
-}
