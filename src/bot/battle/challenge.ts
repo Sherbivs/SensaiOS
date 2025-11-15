@@ -270,10 +270,3 @@ export async function handleBattleChallengeButton(
     // DM dispatch is best effort; log improvements in future work.
   }
 }
-
-export const __testing = {
-  buildChallengePrompt,
-  parseCustomId,
-  decodeMetadata,
-  encodeMetadata,
-};

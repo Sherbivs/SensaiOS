@@ -455,5 +455,3 @@ export async function handleBattleActionButton(
     return;
   }
 }
-
-export const __testing = { parse };

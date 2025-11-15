@@ -178,8 +178,3 @@ export function queueSwitchAction(battleId: string, player: PlayerKey, targetId:
 export function clearBattleRuntime(battleId: string): void {
   runtimes.delete(battleId);
 }
-
-export const __testing = {
-  clear: () => runtimes.clear(),
-  getRuntime: (battleId: string) => runtimes.get(battleId),
-};

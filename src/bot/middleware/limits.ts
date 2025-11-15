@@ -27,5 +27,3 @@ export async function canChallengeBattle(
     return { ok: false as const, reason: "OPPONENT_BUSY" };
   return { ok: true as const };
 }
-
-export const __testing = { hasActiveEncounter, hasActiveOrPendingBattle };
