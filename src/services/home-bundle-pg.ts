@@ -20,7 +20,7 @@
  * - src/shared/models/encounter-queries-pg.ts (Encounter operations)
  */
 
-import type { Pool, PoolClient } from "pg";
+import type { PoolClient } from "pg";
 import { getProdDb } from "../shared/pg-connection.js";
 import { TtlLruCache } from "../shared/cache/ttl-lru.js";
 import type { User, Cooldown, Encounter } from "../types/db-models.js";

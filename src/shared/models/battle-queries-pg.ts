@@ -22,7 +22,7 @@
 
 import type { Pool } from "pg";
 import { getProdDb } from "../pg-connection.js";
-import { buildSelect, buildInsert, buildUpdate, buildCount, type QueryOptions } from "../pg-query.js";
+import { buildSelect, buildInsert, buildUpdate, buildCount } from "../pg-query.js";
 import type { Battle } from "../../types/db-models.js";
 
 // ============================================================================
