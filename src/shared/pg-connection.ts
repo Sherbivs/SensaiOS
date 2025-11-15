@@ -359,13 +359,6 @@ export function getProdDb(): pg.Pool {
 }
 
 /**
- * Convenience export: Get LOCAL client directly (workstation mirror).
- */
-export function getLocalDb(): pg.Pool {
-  return getConnection().getLocalClient();
-}
-
-/**
  * Convenience export: Get current database statistics.
  * Returns error state if connection not initialized yet.
  */
