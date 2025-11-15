@@ -7,7 +7,6 @@
 \src\bot\dripAlerts.d.ts:39 - ActivityMeta (used in module)
 \src\bot\dripAlerts.d.ts:46 - DripAlertManagerConfig (used in module)
 \src\bot\dripAlerts.d.ts:91 - DripAlertManager (used in module)
-\src\bot\dripAlerts.d.ts:134 - SEVERITY
 \src\bot\error-handler.ts:15 - DiscordErrorContext (used in module)
 \src\bot\error-handler.ts:25 - BotErrorHandler (used in module)
 \src\bot\index.ts:32 - BotStartOptions (used in module)
@@ -15,11 +14,10 @@
 \src\config\db-cluster.config.ts:11 - NodePurpose (used in module)
 \src\config\db-cluster.config.ts:12 - ReplicationStrategy (used in module)
 \src\config\db-cluster.config.ts:13 - LoadBalancingStrategy (used in module)
-\src\config\db-cluster.config.ts:18 - DatabaseNode (used in module)
-\src\config\db-cluster.config.ts:72 - ReplicationConfig (used in module)
-\src\config\db-cluster.config.ts:95 - FailoverConfig (used in module)
-\src\config\db-cluster.config.ts:118 - LoadBalancingConfig (used in module)
-\src\config\db-cluster.config.ts:138 - ClusterConfig
+\src\config\db-cluster.config.ts:18 - DatabaseNode
+\src\config\db-cluster.config.ts:72 - ReplicationConfig
+\src\config\db-cluster.config.ts:95 - FailoverConfig
+\src\config\db-cluster.config.ts:118 - LoadBalancingConfig
 \src\config\engine-db-config.ts:25 - IS_PRODUCTION (used in module)
 \src\config\engine-db-config.ts:30 - IS_TEST (used in module)
 \src\config\engine-db-config.ts:38 - STORAGE_BASE_DIR (used in module)
@@ -70,10 +68,6 @@
 \src\config\engine-db-config.ts:408 - FEATURE_WRITE_BUFFER_ENABLED (used in module)
 \src\config\engine-db-config.ts:414 - FEATURE_WORKERS_ENABLED (used in module)
 \src\config\engine-db-config.ts:420 - FEATURE_VALIDATION_ENABLED (used in module)
-\src\core\engine-error-handler.ts:13 - EngineErrorContext (used in module)
-\src\core\engine-error-handler.ts:23 - BattleState (used in module)
-\src\core\engine-error-handler.ts:34 - EncounterContext (used in module)
-\src\core\engine-error-handler.ts:44 - EngineErrorHandler
 \src\data\dexpack.d.ts:83 - loadDexpack
 \src\data\dexpack.d.ts:85 - getLoadedPath
 \src\data\dexpack.d.ts:89 - getMove
@@ -102,20 +96,18 @@
 \src\engine\worker.ts:24 - on
 \src\engine\worker.ts:31 - run
 \src\lib\assets.js:37 - manifest (used in module)
-\src\models\index.ts:550 - updateTrainerProfile
-\src\models\index.ts:831 - projectDailyQuestCompletion (used in module)
-\src\models\index.ts:862 - ensureDailyQuestStreakFreshness
+\src\models\index.ts:749 - projectDailyQuestCompletion (used in module)
 \src\models\index.ts:24 - TrainerCooldown (used in module)
-\src\models\index.ts:65 - TrainerProfileRecord (used in module)
-\src\models\index.ts:75 - TrainerProfileStats (used in module)
-\src\models\index.ts:91 - TrainerBattleSummary (used in module)
-\src\models\index.ts:120 - TrainerProfileUpdateInput (used in module)
-\src\models\index.ts:595 - BattleResultReason (used in module)
-\src\models\index.ts:744 - DailyQuestStateInput (used in module)
-\src\models\index.ts:818 - DailyQuestProjectionInput (used in module)
-\src\models\index.ts:824 - DailyQuestCompletionProjection (used in module)
-\src\models\index.ts:851 - EnsureDailyQuestOptions (used in module)
-\src\models\index.ts:907 - RecordDailyQuestOptions (used in module)
+\src\models\index.ts:62 - TrainerProfileRecord (used in module)
+\src\models\index.ts:72 - TrainerProfileStats (used in module)
+\src\models\index.ts:88 - TrainerBattleSummary (used in module)
+\src\models\index.ts:117 - TrainerProfileUpdateInput
+\src\models\index.ts:513 - BattleResultReason (used in module)
+\src\models\index.ts:662 - DailyQuestStateInput (used in module)
+\src\models\index.ts:736 - DailyQuestProjectionInput (used in module)
+\src\models\index.ts:742 - DailyQuestCompletionProjection (used in module)
+\src\models\index.ts:769 - EnsureDailyQuestOptions
+\src\models\index.ts:780 - RecordDailyQuestOptions (used in module)
 \src\services\ai-log-analyzer.js:773 - analyze (used in module)
 \src\services\ai-log-analyzer.js:774 - query (used in module)
 \src\services\ai-log-analyzer.js:775 - detectErrorPatterns (used in module)
@@ -144,18 +136,17 @@
 \src\services\ai-log-writer.js:671 - getStats (used in module)
 \src\services\ai-log-writer.js:672 - generateCorrelationId (used in module)
 \src\services\ai-log-writer.js:676 - default
-\src\services\cache.d.ts:20 - readCache (used in module)
-\src\services\cache.d.ts:21 - writeCache (used in module)
-\src\services\cache.d.ts:22 - pruneCache (used in module)
-\src\services\cache.d.ts:23 - cleanOldCache (used in module)
-\src\services\cache.d.ts:24 - getCacheSize (used in module)
-\src\services\cache.d.ts:25 - getCacheSnapshot (used in module)
-\src\services\cache.d.ts:27 - getCacheBudget (used in module)
+\src\services\cache.d.ts:20 - readCache
+\src\services\cache.d.ts:21 - writeCache
+\src\services\cache.d.ts:22 - pruneCache
+\src\services\cache.d.ts:23 - cleanOldCache
+\src\services\cache.d.ts:24 - getCacheSize
+\src\services\cache.d.ts:25 - getCacheSnapshot
+\src\services\cache.d.ts:27 - getCacheBudget
 \src\services\cache.d.ts:1 - CacheSnapshot (used in module)
 \src\services\cache.d.ts:9 - CacheBudget (used in module)
-\src\services\cache.d.ts:18 - CACHE_DIR (used in module)
-\src\services\cache.d.ts:26 - MAX_CACHE_PERCENT (used in module)
-\src\services\cache.d.ts:41 - default
+\src\services\cache.d.ts:18 - CACHE_DIR
+\src\services\cache.d.ts:26 - MAX_CACHE_PERCENT
 \src\services\engine-cache.ts:38 - PokemonCacheEntry (used in module)
 \src\services\engine-cache.ts:58 - MoveCacheEntry (used in module)
 \src\services\engine-cache.ts:74 - CacheStats (used in module)
