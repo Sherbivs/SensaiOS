@@ -117,7 +117,7 @@ describe('Engine Cache - Statistics Tracking', () => {
     
     // Get initial stats
     const initialStats = module.engineCache.getStats();
-    const initialHits = initialStats.hitCount;
+    const _initialHits = initialStats.hitCount;
     const initialMisses = initialStats.missCount;
 
     // Trigger some cache misses

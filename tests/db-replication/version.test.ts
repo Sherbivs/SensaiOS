@@ -101,7 +101,7 @@ describe('compareVersions - AHEAD', () => {
     const targetMigrations = sampleMigrations.slice(0, 2);
     
     // Create pools with custom query behavior for prefix verification
-    const sourceQueryMock = vi.fn((sql: string, params?: any[]) => {
+    const sourceQueryMock = vi.fn((sql: string, _params?: any[]) => {
       // getMigrations (no LIMIT) returns all 3 migrations
       if (sql.includes('_prisma_migrations') && !sql.includes('LIMIT')) {
         return Promise.resolve({
@@ -167,7 +167,7 @@ describe('compareVersions - AHEAD', () => {
       },
     ];
 
-    const sourceQueryMock = vi.fn((sql: string, params?: any[]) => {
+    const sourceQueryMock = vi.fn((sql: string, _params?: any[]) => {
       if (sql.includes('_prisma_migrations') && !sql.includes('LIMIT')) {
         return Promise.resolve({
           rows: sampleMigrations,

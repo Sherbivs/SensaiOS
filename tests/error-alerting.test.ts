@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { initializeAlerting, getCriticalErrorsSummary } from '../src/services/error-alerting.js';
 import type { ErrorLog } from '@prisma/client';
 import { Client } from 'discord.js';
@@ -150,7 +150,7 @@ describe('ErrorAlerting', () => {
 
     it('should calculate time window correctly', async () => {
       const hoursAgo = 12;
-      const expectedCutoff = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+      const _expectedCutoff = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
 
       const { prisma } = await import('../src/shared/prisma.js');
       vi.mocked(prisma.errorLog.findMany).mockResolvedValue([]);

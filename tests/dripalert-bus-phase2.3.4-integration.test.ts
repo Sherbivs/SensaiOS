@@ -17,7 +17,7 @@ import { createDripAlertManager } from '../src/bot/dripAlerts.js';
 const createMockUser = (shouldFail = false) => ({
   id: '123456789',
   username: 'TestUser',
-  send: vi.fn(async (message: string) => {
+  send: vi.fn(async (_message: string) => {
     if (shouldFail) {
       throw new Error('Discord API error');
     }

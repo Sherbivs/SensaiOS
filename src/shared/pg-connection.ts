@@ -16,7 +16,6 @@
  */
 
 import pg from 'pg';
-import { config } from './config.js';
 import { log } from './log.js';
 
 const { Pool } = pg;

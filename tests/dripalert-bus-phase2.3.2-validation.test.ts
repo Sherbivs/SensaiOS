@@ -115,7 +115,7 @@ describe('DripAlertManager Event Bus Subscriptions - Phase 2.3.2', () => {
       } as any);
       
       alertManager.start();
-      const firstCallCount = logSpy.mock.calls.filter(
+      const _firstCallCount = logSpy.mock.calls.filter(
         call => call[1] && call[1].includes('Drip alert Event Bus subscriptions created')
       ).length;
       

@@ -476,7 +476,7 @@ describe("Bus Message Queries (PostgreSQL)", () => {
 
   describe("deleteMessagesByStatus", () => {
     it("should delete messages by status with limit", async () => {
-      const pool = getProdDb();
+      const _pool = getProdDb();
       
       const msg1 = await publishMessage("test.delete.status", { num: 1 }, { idempotencyKey: "delstatus1" });
       const msg2 = await publishMessage("test.delete.status", { num: 2 }, { idempotencyKey: "delstatus2" });

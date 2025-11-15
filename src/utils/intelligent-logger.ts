@@ -745,7 +745,7 @@ class IntelligentLogger {
     return crypto.createHash('sha256').update(key).digest('hex');
   }
   
-  private detectCategory(message: string, options?: LogOptions): LogCategory {
+  private detectCategory(message: string, _options?: LogOptions): LogCategory {
     const msgLower = message.toLowerCase();
     
     if (msgLower.includes('startup') || msgLower.includes('initialize')) return 'STARTUP';
