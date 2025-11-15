@@ -74,69 +74,6 @@ export function buildWhereClause(
   return { text, values };
 }
 
-/**
- * Build an advanced WHERE clause from conditions array.
- * 
- * @example
- * buildAdvancedWhere([
- *   { field: 'age', operator: '>', value: 18 },
- *   { field: 'status', operator: 'IN', value: ['active', 'pending'] }
- * ])
- * 
- * @param conditions - Array of condition objects
- * @param startIndex - Starting parameter index (default 1)
- * @returns QueryOptions with WHERE clause text and values
- */
-export function buildAdvancedWhere(
-  conditions: WhereCondition[],
-  startIndex: number = 1
-): QueryOptions {
-  const clauses: string[] = [];
-  const values: any[] = [];
-  let paramIndex = startIndex;
-
-  for (const condition of conditions) {
-    const { field, operator, value } = condition;
-
-    if (operator === 'IS NULL' || operator === 'IS NOT NULL') {
-      clauses.push(`"${field}" ${operator}`);
-    } else if (operator === 'IN' && Array.isArray(value)) {
-      const placeholders = value.map(() => `$${paramIndex++}`).join(', ');
-      clauses.push(`"${field}" IN (${placeholders})`);
-      values.push(...value);
-    } else {
-      clauses.push(`"${field}" ${operator} $${paramIndex++}`);
-      values.push(value);
-    }
-  }
-
-  const text = clauses.length > 0 ? clauses.join(' AND ') : '1=1';
-  return { text, values };
-}
-
-/**
- * Build an IN clause for a single field.
- * 
- * @example
- * buildInClause('status', ['active', 'pending'])
- * // Returns: { text: '"status" IN ($1, $2)', values: ['active', 'pending'] }
- */
-export function buildInClause(
-  field: string,
-  values: any[],
-  startIndex: number = 1
-): QueryOptions {
-  if (values.length === 0) {
-    return { text: '1=0', values: [] }; // No matches
-  }
-
-  const placeholders = values.map((_, i) => `$${startIndex + i}`).join(', ');
-  return {
-    text: `"${field}" IN (${placeholders})`,
-    values,
-  };
-}
-
 // ============================================================================
 // SELECT Builder
 // ============================================================================
@@ -241,58 +178,6 @@ export function buildInsert(
   return { text: query, values };
 }
 
-/**
- * Build an INSERT ... ON CONFLICT (upsert) query.
- * 
- * @example
- * buildUpsert(
- *   'User',
- *   { discordId: '123', coins: 100 },
- *   ['discordId'],
- *   { coins: 150 },
- *   ['id', 'coins']
- * )
- * // Returns INSERT ... ON CONFLICT ("discordId") DO UPDATE SET "coins" = $3 RETURNING ...
- * 
- * @param table - Table name
- * @param data - Initial insert data
- * @param conflictFields - Fields for ON CONFLICT clause
- * @param updateData - Data to update on conflict
- * @param returning - Optional columns to return
- * @returns QueryOptions with UPSERT query
- */
-export function buildUpsert(
-  table: string,
-  data: Record<string, any>,
-  conflictFields: string[],
-  updateData: Record<string, any>,
-  returning?: string[]
-): QueryOptions {
-  const insertFields = Object.keys(data);
-  const insertValues = Object.values(data);
-
-  const insertFieldList = insertFields.map(f => `"${f}"`).join(', ');
-  const insertPlaceholders = insertValues.map((_, i) => `$${i + 1}`).join(', ');
-
-  const conflictList = conflictFields.map(f => `"${f}"`).join(', ');
-
-  const updateFields = Object.keys(updateData);
-  const updateValues = Object.values(updateData);
-  const updateClauses = updateFields.map((f, i) => `"${f}" = $${insertValues.length + i + 1}`);
-
-  let query = `INSERT INTO "${table}" (${insertFieldList}) VALUES (${insertPlaceholders}) `;
-  query += `ON CONFLICT (${conflictList}) DO UPDATE SET ${updateClauses.join(', ')}`;
-
-  const allValues = [...insertValues, ...updateValues];
-
-  if (returning && returning.length > 0) {
-    const returnList = returning.map(col => col === '*' ? '*' : `"${col}"`).join(', ');
-    query += ` RETURNING ${returnList}`;
-  }
-
-  return { text: query, values: allValues };
-}
-
 // ============================================================================
 // UPDATE Builder
 // ============================================================================
@@ -328,42 +213,6 @@ export function buildUpdate(
   let query = `UPDATE "${table}" SET ${setClauses.join(', ')} WHERE ${whereClause.text}`;
 
   const allValues = [...updateValues, ...whereClause.values];
-
-  if (returning && returning.length > 0) {
-    const returnList = returning.map(col => col === '*' ? '*' : `"${col}"`).join(', ');
-    query += ` RETURNING ${returnList}`;
-  }
-
-  return { text: query, values: allValues };
-}
-
-/**
- * Build an UPDATE query with increment/decrement operations.
- * 
- * @example
- * buildIncrementUpdate('User', { coins: 10 }, { discordId: '123' }, ['coins'])
- * // Returns: UPDATE "User" SET "coins" = "coins" + $1 WHERE "discordId" = $2 RETURNING "coins"
- */
-export function buildIncrementUpdate(
-  table: string,
-  increments: Record<string, number>,
-  where: Record<string, any>,
-  returning?: string[]
-): QueryOptions {
-  const fields = Object.keys(increments);
-  const values = Object.values(increments);
-
-  const setClauses = fields.map((f, i) => {
-    const val = values[i];
-    const op = val >= 0 ? '+' : '-';
-    return `"${f}" = "${f}" ${op} $${i + 1}`;
-  });
-
-  const whereClause = buildWhereClause(where, values.length + 1);
-
-  let query = `UPDATE "${table}" SET ${setClauses.join(', ')} WHERE ${whereClause.text}`;
-
-  const allValues = [...values.map(v => Math.abs(v)), ...whereClause.values];
 
   if (returning && returning.length > 0) {
     const returnList = returning.map(col => col === '*' ? '*' : `"${col}"`).join(', ');
@@ -438,29 +287,4 @@ export function buildCount(
   }
 
   return { text: query, values };
-}
-
-// ============================================================================
-// Utility Functions
-// ============================================================================
-
-/**
- * Escape identifiers (table/column names) for safe use in SQL.
- * PostgreSQL uses double quotes for identifiers.
- */
-export function escapeIdentifier(identifier: string): string {
-  return `"${identifier.replace(/"/g, '""')}"`;
-}
-
-/**
- * Build a simple pagination query.
- */
-export function buildPagination(
-  page: number,
-  pageSize: number
-): { limit: number; offset: number } {
-  return {
-    limit: pageSize,
-    offset: (page - 1) * pageSize,
-  };
 }
