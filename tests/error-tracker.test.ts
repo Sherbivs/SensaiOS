@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { errorTracker } from '../src/services/error-tracker.js';
 import type { ErrorLog } from '@prisma/client';
 
@@ -232,7 +232,7 @@ describe('ErrorTracker', () => {
         severity: 'CRITICAL',
       }));
 
-      const result = await errorTracker.captureError(error, context);
+      const _result = await errorTracker.captureError(error, context);
 
       expect(prisma.errorLog.upsert).toHaveBeenCalled(); // Severity tested via mock call'CRITICAL');
     });
@@ -249,7 +249,7 @@ describe('ErrorTracker', () => {
         severity: 'LOW',
       }));
 
-      const result = await errorTracker.captureError(error, context);
+      const _result = await errorTracker.captureError(error, context);
 
       expect(prisma.errorLog.upsert).toHaveBeenCalled(); // Severity tested via mock call'LOW');
     });
@@ -266,7 +266,7 @@ describe('ErrorTracker', () => {
         severity: 'MEDIUM',
       }));
 
-      const result = await errorTracker.captureError(error, context);
+      const _result = await errorTracker.captureError(error, context);
 
       expect(prisma.errorLog.upsert).toHaveBeenCalled(); // Severity tested via mock call'MEDIUM');
     });
@@ -286,7 +286,7 @@ describe('ErrorTracker', () => {
         severity: 'HIGH',
       }));
 
-      const result = await errorTracker.captureError(error, context);
+      const _result = await errorTracker.captureError(error, context);
 
       expect(prisma.errorLog.upsert).toHaveBeenCalled(); // Severity tested via mock call'HIGH');
     });
@@ -311,7 +311,7 @@ describe('ErrorTracker', () => {
         errorId: 'test-id',
       }));
 
-      const result = await errorTracker.captureError(error, context);
+      const _result = await errorTracker.captureError(error, context);
 
       // Verify upsert was called - context data tested via upsert args
       expect(prisma.errorLog.upsert).toHaveBeenCalled();
@@ -328,7 +328,7 @@ describe('ErrorTracker', () => {
         errorId: 'test-id',
       }));
 
-      const result = await errorTracker.captureError(error, context);
+      const _result = await errorTracker.captureError(error, context);
 
       // Verify upsert was called - timestamp tested via upsert args
       expect(prisma.errorLog.upsert).toHaveBeenCalled();
@@ -436,7 +436,7 @@ describe('ErrorTracker', () => {
         impactedFeatures: ['database'],
       }));
 
-      const result = await errorTracker.captureError(error, context);
+      const _result = await errorTracker.captureError(error, context);
 
       // Verify upsert was called - impacted features tested via upsert args
       expect(prisma.errorLog.upsert).toHaveBeenCalled();
@@ -457,7 +457,7 @@ describe('ErrorTracker', () => {
         impactedFeatures: ['battle'],
       }));
 
-      const result = await errorTracker.captureError(error, context);
+      const _result = await errorTracker.captureError(error, context);
 
       // Verify upsert was called - impacted features tested via upsert args
       expect(prisma.errorLog.upsert).toHaveBeenCalled();

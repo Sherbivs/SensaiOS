@@ -8,7 +8,7 @@
  * @module tests/error-tracker-bus-integration
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { EventBus } from '../src/shared/event-bus.js';
 import type { BusEvent } from '../src/shared/event-bus.js';
 import type { LiveErrorEvent } from '../src/services/error-tracker.js';
@@ -239,7 +239,7 @@ describe('ErrorTracker Event Bus Integration', () => {
     });
 
     it('should replay errors since timestamp', async () => {
-      const t1 = new Date();
+      const _t1 = new Date();
       
       // Emit errors before timestamp
       bus.emit('error.medium', createMockErrorPayload('MEDIUM'));
@@ -343,7 +343,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       expect(initialStats.backpressureEvents).toBe(0);
       
       // Create slow subscriber
-      bus.subscribe('error.medium', async (event) => {
+      bus.subscribe('error.medium', async (_event) => {
         await new Promise(resolve => setTimeout(resolve, 100));
       }, {
         maxQueueSize: 5,
@@ -485,7 +485,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       const successfulEvents: BusEvent[] = [];
       
       // Faulty handler
-      bus.subscribe('error.medium', (event) => {
+      bus.subscribe('error.medium', (_event) => {
         throw new Error('Handler error');
       });
       
@@ -530,7 +530,7 @@ describe('ErrorTracker Event Bus Integration', () => {
     });
 
     it('should clear subscriptions after shutdown', async () => {
-      bus.subscribe('error.**', (event) => {
+      bus.subscribe('error.**', (_event) => {
         // No-op
       });
       
