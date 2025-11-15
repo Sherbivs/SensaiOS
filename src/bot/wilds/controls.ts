@@ -16,7 +16,7 @@ import { getUserBasic } from "../../shared/models/user-queries-pg.js";
 import { updateEncounterData } from "../../shared/models/encounter-queries-pg.js";
 import { transaction } from "../../shared/pg-transaction.js";
 import { getProdDb } from "../../shared/pg-connection.js";
-import type { PartyWithSlots, PartySlotWithPokemon } from "../../types/db-models.js";
+import type { PartySlotWithPokemon } from "../../types/db-models.js";
 import type { PoolClient } from "pg";
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {

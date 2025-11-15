@@ -82,7 +82,7 @@ async function runBootstrapScript(): Promise<void> {
     return;
   }
   
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     log.info("Running bootstrap script for on-premise production node...");
     
     const proc = spawn("bash", ["scripts/bootstrap_prod_node.sh"], {

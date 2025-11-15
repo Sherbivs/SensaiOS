@@ -23,7 +23,6 @@ import {
   measureLogBufferMemory, 
   measureEventBusMemory, 
   measureDiscordCacheMemory,
-  formatMB,
   getConfidenceEmoji
 } from "../../utils/memory-measurement.js";
 
@@ -46,11 +45,9 @@ import { engineWriteBuffer } from "../../services/engine-write-buffer.js";
 import * as engineReadDb from "../../services/engine-read-db.js";
 import * as engineWriteDb from "../../services/engine-write-db.js";
 import { getEngineWorkersStatus } from "../../workers/engine-workers.js";
-import type { EngineWorkersStatus } from "../../workers/engine-workers.js";
 
 // Error Detection modules (Phase 9-12)
 import { errorTracker } from "../../services/error-tracker.js";
-import { errorLearning } from "../../services/error-learning.js";
 import type { ErrorSeverity, ErrorCategory } from "../../services/error-tracker.js";
 
 // Import state persistence modules (optional - bot/state may be in JS)

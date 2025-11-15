@@ -9,7 +9,7 @@ import {
   type TrainerProfileSummary,
 } from "../../models/index.js";
 import { log } from "../../shared/log.js";
-import { normalizeError, type ErrorMeta } from "../../shared/utils/error-utils.js";
+import { normalizeError } from "../../shared/utils/error-utils.js";
 
 import { getOrHydrate, evict, type CacheHydrateContext } from "./facade.js";
 

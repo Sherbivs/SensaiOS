@@ -430,7 +430,7 @@ export async function handleBattleActionButton(
       if (result.status === "ready") {
         try {
           await dispatcher(battle.id, (id) => interaction.client.users.fetch(id));
-        } catch (dmErr) {
+        } catch {
           // DM delivery failures are expected (users may have DMs disabled)
           // Don't track these as errors
         }
