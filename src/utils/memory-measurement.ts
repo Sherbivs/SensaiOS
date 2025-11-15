@@ -10,7 +10,7 @@
 import { getLogBuffer } from '../shared/logBuffer.js';
 import { EventBus } from '../shared/event-bus.js';
 import type { BusStats } from '../shared/event-bus.js';
-import type { Client, Message, GuildMember, ThreadChannel, TextChannel, Guild, Role } from 'discord.js';
+import type { Client, Message, GuildMember, ThreadChannel, Guild, Role } from 'discord.js';
 
 /** Log buffer statistics shape (inline type) */
 type LogBufferStats = { buffered: number; totalMessages: number };

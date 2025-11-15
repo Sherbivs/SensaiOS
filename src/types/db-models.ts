@@ -7,6 +7,8 @@
  * Run: npm run generate:types
  */
 
+import type { Prisma } from '@prisma/client';
+
 // ============================================================================
 // Enums
 // ============================================================================
@@ -64,13 +66,13 @@ export interface DexPack {
   schemaVer: number;
   gen: number;
   signedAt: Date;
-  metaJson: any;
+  metaJson: Prisma.JsonValue;
 }
 
 export interface TrainerSettings {
   trainerId: string;
   activePack: string;
-  prefsJson: any;
+  prefsJson: Prisma.JsonValue;
   updatedAt: Date;
 }
 
@@ -101,7 +103,7 @@ export interface Item {
   slug: string;
   name: string;
   kind: string;
-  meta: any | null;
+  meta: Prisma.JsonValue | null;
   packHash: string | null;
 }
 
@@ -113,26 +115,28 @@ export interface Move {
   power: number | null;
   accuracy: number | null;
   pp: number;
-  priority: number;
-  category: MoveCategory;
-  meta: any | null;
+  meta: Prisma.JsonValue | null;
+  packHash: string | null;
 }
 
 export interface Species {
   id: number;
   slug: string;
   name: string;
-  baseHp: number;
-  baseAtk: number;
-  baseDef: number;
-  baseSpAtk: number;
-  baseSpDef: number;
-  baseSpe: number;
-  growth: string;
-  captureRate: number;
-  maleRate: number | null;
-  hatchSteps: number | null;
-  meta: any | null;
+  typeOne: string;
+  typeTwo: string | null;
+  abilities: string[];
+  baseStats: number[];
+  evYields: number[];
+  gen: number;
+  eggGroups: string[];
+  genderRatio: number | null;
+  catchRate: number;
+  baseFriendship: number;
+  baseExpYield: number;
+  growthRate: string;
+  meta: Prisma.JsonValue | null;
+  packHash: string | null;
 }
 
 export interface SpeciesType {
@@ -161,7 +165,7 @@ export interface EvolutionStep {
   trigger: string;
   level: number | null;
   itemId: number | null;
-  meta: any | null;
+  meta: Prisma.JsonValue | null;
 }
 
 export interface TypeChart {
@@ -187,7 +191,7 @@ export interface User {
   createdAt: Date;
   updatedAt: Date;
   coins: number;
-  settingsJson: any | null;
+  settingsJson: Prisma.JsonValue | null;
   dailyQuestStreak: number;
   dailyQuestLastCompleted: Date | null;
   dailyQuestLastReset: Date | null;
@@ -201,9 +205,9 @@ export interface PokemonInstance {
   level: number;
   exp: number;
   nature: string | null;
-  ivsJson: any;
-  evsJson: any;
-  movesJson: any;
+  ivsJson: Prisma.JsonValue;
+  evsJson: Prisma.JsonValue;
+  movesJson: Prisma.JsonValue;
   status: string | null;
   hp: number;
   maxHp: number;
@@ -239,18 +243,12 @@ export interface Inventory {
   qty: number;
 }
 
-export interface Encounter {
-  id: string;
-  ownerId: string;
-  speciesId: number;
-  level: number;
-  state: string;
-  threadChannelId: string | null;
-  startedAt: Date;
-  expiresAt: Date | null;
-  dataJson: any | null;
-  tenantId: string | null;
-  trainerId: string | null;
+export interface EncounterData {
+  id: number;
+  route: string;
+  method: string;
+  wildSpeciesId: number;
+  meta: Prisma.JsonValue | null;
   packHash: string | null;
 }
 
@@ -262,9 +260,9 @@ export interface Battle {
   state: string;
   rngSeed: string;
   ruleset: string;
-  logCompact: any | null;
-  logFull: any | null;
-  resultJson: any | null;
+  logCompact: Prisma.JsonValue | null;
+  logFull: Prisma.JsonValue | null;
+  resultJson: Prisma.JsonValue | null;
   startedAt: Date;
   endedAt: Date | null;
   updatedAt: Date;
@@ -279,7 +277,7 @@ export interface Cooldown {
   ownerId: string;
   kind: string;
   readyAt: Date;
-  metaJson: any | null;
+  metaJson: Prisma.JsonValue | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -291,7 +289,7 @@ export interface BusMessage {
   priority: BusPriority;
   shardKey: string | null;
   idempotencyKey: string;
-  payload: any;
+  payload: Prisma.JsonValue;
   createdAt: Date;
   availableAt: Date;
   status: BusStatus;
@@ -314,8 +312,8 @@ export interface AuditLog {
   action: string;
   entityType: string;
   entityId: string | null;
-  beforeJson: any | null;
-  afterJson: any | null;
+  beforeJson: Prisma.JsonValue | null;
+  afterJson: Prisma.JsonValue | null;
   at: Date;
 }
 
@@ -337,7 +335,7 @@ export interface DbSyncState {
   lastSyncAt: Date | null;
   lastDuration: number | null;
   lastError: string | null;
-  lastIntegrityCheck: any | null;
+  lastIntegrityCheck: Prisma.JsonValue | null;
   createdAt: Date;
   updatedAt: Date;
 }
