@@ -90,7 +90,7 @@ const isTty = Boolean(process.stdout?.isTTY && process.stderr?.isTTY);
 let cliLogImpl: CliLogFn | null = null;
 let interruptConsoleOutput: InterruptFn | null = null;
 try {
-  // @ts-ignore - runtime import for CLI logger (no typed module in build output)
+  // Runtime dynamic import of CLI logger module
   const loggerModule: any = await import("../utils/logger.js");
   cliLogImpl = loggerModule.log ?? loggerModule.default?.log ?? null;
 } catch {
@@ -98,7 +98,7 @@ try {
 }
 
 try {
-  // @ts-ignore - runtime import for CLI status helper (dynamic only)
+  // Runtime dynamic import of CLI status helper
   const cliStatusModule: any = await import("../utils/cliStatus.js");
   interruptConsoleOutput =
     cliStatusModule.interruptConsoleOutput ?? cliStatusModule.default?.interruptConsoleOutput ?? null;

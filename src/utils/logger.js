@@ -1,5 +1,3 @@
-import os from 'node:os';
-import { performance } from 'node:perf_hooks';
 import fs from 'node:fs';
 import path from 'node:path';
 import resourceMonitor from '../services/resource-monitor.js';
@@ -17,7 +15,7 @@ const LOG_LABEL = Object.freeze({
 });
 
 const REFRESH_INTERVAL_MS = 15_000;
-const STATS_CHANGE_THRESHOLD = 0.1; // 10% change triggers re-print
+const _STATS_CHANGE_THRESHOLD = 0.1; // Reserved for future use
 const LATENCY_CHANGE_THRESHOLD_MS = 5; // 5ms change triggers re-print
 
 // Metric unavailability reasons (for transparency)
@@ -56,7 +54,7 @@ async function initializeDatabaseStatsProvider() {
       console.info('[logger] Database stats provider: Prisma (primary)');
       return;
     }
-  } catch (prismaError) {
+  } catch {
     // Prisma not available, try fallback
   }
   
@@ -69,7 +67,7 @@ async function initializeDatabaseStatsProvider() {
       console.info('[logger] Database stats provider: pg-connection (fallback)');
       return;
     }
-  } catch (pgError) {
+  } catch {
     // Both providers unavailable
   }
   
@@ -161,7 +159,7 @@ function extractDatabaseName(connectionString) {
     if (match && match[1]) {
       return match[1];
     }
-  } catch (error) {
+  } catch {
     // Ignore parsing errors
   }
   
@@ -364,7 +362,7 @@ async function collectDatabaseStats() {
       if (typeof engineReadDb.getStats === 'function') {
         engineReadStats = engineReadDb.getStats();
       }
-    } catch (err) {
+    } catch {
       // Engine Read-DB not available (expected in non-production environments)
     }
     
@@ -373,7 +371,7 @@ async function collectDatabaseStats() {
       if (typeof engineWriteDb.getStats === 'function') {
         engineWriteStats = engineWriteDb.getStats();
       }
-    } catch (err) {
+    } catch {
       // Engine Write-DB not available (expected in non-production environments)
     }
     
@@ -449,19 +447,9 @@ function collectSecurityBotStats() {
     
     // Collect state-based stats if available
     if (botState.stats) {
-      const totalSweeps = botState.stats.totalSweeps || 0;
+      const _totalSweeps = botState.stats.totalSweeps || 0; // Reserved for future use
       const totalPermissionChanges = botState.stats.totalPermissionChanges || 0;
       const totalAlerts = botState.stats.totalAlerts || 0;
-      
-      // Debug: Log timeline structure
-      console.log('[logger] DEBUG botState.timeline:', {
-        isArray: Array.isArray(botState.timeline),
-        length: botState.timeline?.length,
-        hasEvents: !!botState.timeline?.events,
-        eventsLength: botState.timeline?.events?.length,
-        firstEntry: botState.timeline?.[0],
-        firstEvent: botState.timeline?.events?.[0],
-      });
       
       // Get last sweep time from timeline
       let lastSweepTime = 'never';
@@ -571,7 +559,7 @@ function collectSecurityBotStats() {
         source: 'persisted-state',
       };
     }
-  } catch (error) {
+  } catch {
     // File read failed, silently continue
   }
   
@@ -1012,9 +1000,8 @@ async function getFormattedStats() {
  * @param {string} level - Log level (info, warn, error, success, detail)
  * @param {string} message - Log message
  * @param {object} context - Optional context object to display
- * @param {object} options - Optional configuration
  */
-function log(level, message, context, options = {}) {
+function log(level, message, context) {
   const label = LOG_LABEL[level] || LOG_LABEL.info;
   
   console.log(`[${label}] ${message}`);

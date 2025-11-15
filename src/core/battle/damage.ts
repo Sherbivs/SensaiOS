@@ -1,6 +1,6 @@
 // Thin TS wrapper around src/engine/calc.js to expose damage helpers
 
-// @ts-ignore — legacy JS module without types
+// Legacy CommonJS module without TypeScript definitions
 import calc from "../../engine/calc.js";
 
 type DamageCalculator = {

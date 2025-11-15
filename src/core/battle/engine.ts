@@ -3,9 +3,8 @@
 
 // Import CommonJS modules from our JS engine using esModuleInterop
 
-// @ts-ignore — legacy JS module without types
+// Legacy CommonJS modules without TypeScript definitions
 import calc from "../../engine/calc.js";
-// @ts-ignore — legacy JS module without types
 import engine from "../../engine/index.js";
 
 type UnknownRecord = Record<string, unknown>;
