@@ -14,7 +14,7 @@ function recordTiming(label: string, startTime: bigint) {
 const MODULE_IMPORT_START = process.hrtime.bigint();
 
 import { Prisma } from "@prisma/client";
-import { Events, type Client } from "discord.js";
+import { Events, DiscordAPIError, type Client } from "discord.js";
 
 import { bootDiscord } from "./bot/index.js";
 import { botErrorHandler } from "./bot/error-handler.js";
@@ -65,7 +65,7 @@ function recordMemory(label: string) {
 recordMemory("initial");
 
 // Expose STARTUP_MEMORY globally for /ops memory command
-(global as any).STARTUP_MEMORY = STARTUP_MEMORY;
+(global as typeof global & { STARTUP_MEMORY: typeof STARTUP_MEMORY }).STARTUP_MEMORY = STARTUP_MEMORY;
 
 /**
  * Calculate memory progression deltas from startup phases
@@ -80,7 +80,7 @@ function calculateMemoryProgression(memory: { [key: string]: NodeJS.MemoryUsage 
     { name: "Runtime Monitoring", from: "post_engine_and_bots", to: "steady_state" },
   ];
   
-  const progression: any = {
+  const progression: { total_growth_mb: number; phases: Array<{ name: string; rss_delta_mb: number; heap_delta_mb: number }> } = {
     total_growth_mb: 0,
     phases: []
   };
@@ -147,10 +147,10 @@ global.engineReady = false;
 // Service Registry - Centralized Service Lifecycle Management
 // ============================================================================
 const registry = ServiceRegistry.getInstance();
-let resourceManager: any = null;
-let errorTracker: any = null;
-let engineCache: any = null;
-let engineWriteBuffer: any = null;
+let resourceManager: unknown = null;
+let errorTracker: unknown = null;
+let engineCache: unknown = null;
+let engineWriteBuffer: unknown = null;
 
 function withMonitor(callback: (monitor: typeof cliStatus) => void): void {
   if (!monitorActive) {
@@ -638,7 +638,7 @@ function bindDiscordLifecycle(client: Client): void {
     
     // Check if it's a DiscordAPIError before using the specific handler
     if ('status' in error && 'code' in error && 'method' in error) {
-      await botErrorHandler.handleDiscordAPIError(error as any, {
+      await botErrorHandler.handleDiscordAPIError(error as DiscordAPIError, {
         service: "discord-websocket",
         operation: "websocket-connection",
       });
@@ -758,7 +758,7 @@ function bindSecurityLifecycle(client: Client): void {
     
     // Check if it's a DiscordAPIError before using the specific handler
     if ('status' in error && 'code' in error && 'method' in error) {
-      await botErrorHandler.handleDiscordAPIError(error as any, {
+      await botErrorHandler.handleDiscordAPIError(error as DiscordAPIError, {
         service: "security-bot-websocket",
         operation: "websocket-connection",
       });
