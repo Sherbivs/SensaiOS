@@ -5,8 +5,7 @@
  * Validates <10μs push latency, backpressure handling, and flush operations.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { BufferStats } from '../../src/services/engine-write-buffer.js';
+import { describe, it, expect } from 'vitest';
 
 describe('Engine Write Buffer - API Contract', () => {
   it('should export required functions', async () => {

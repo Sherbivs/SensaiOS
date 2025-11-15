@@ -8,8 +8,7 @@
  * rather than mocking the entire module, to ensure real performance validation.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import type { CacheStats } from '../../src/services/engine-cache.js';
+import { describe, it, expect } from 'vitest';
 
 describe('Engine Cache - API Contract', () => {
   it('should export required functions', async () => {

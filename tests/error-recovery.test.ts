@@ -376,7 +376,7 @@ describe('ErrorRecovery', () => {
 
   describe('State Management', () => {
     it('should clear recovery state on demand', () => {
-      const statsBefore = getRecoveryStats();
+      const _statsBefore = getRecoveryStats();
       clearRecoveryState();
       const statsAfter = getRecoveryStats();
 
