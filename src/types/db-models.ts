@@ -359,23 +359,6 @@ export interface DbSyncState {
 // Relation Types (Common Patterns)
 // ============================================================================
 
-export interface UserWithParty extends User {
-  parties: Party[];
-}
-
-export interface UserWithPokemon extends User {
-  pokemon: PokemonInstance[];
-}
-
-export interface UserWithEncounters extends User {
-  encounters: Encounter[];
-}
-
-export interface UserWithBattles extends User {
-  battlesP1: Battle[];
-  battlesP2: Battle[];
-}
-
 export interface PartyWithSlots extends Party {
   slots: PartySlot[];
 }
@@ -388,38 +371,17 @@ export interface PokemonInstanceWithSpecies extends PokemonInstance {
   species: Species;
 }
 
-export interface EncounterWithSpecies extends Encounter {
-  species: Species;
-}
-
-export interface EncounterWithOwner extends Encounter {
-  owner: User;
-}
-
 export interface BattleWithPlayers extends Battle {
   p1: User;
   p2: User;
-}
-
-export interface SpeciesWithTypes extends Species {
-  types: SpeciesType[];
 }
 
 export interface SpeciesWithAbilities extends Omit<Species, 'abilities'> {
   abilities: SpeciesAbility[];
 }
 
-export interface SpeciesWithLearnset extends Species {
-  learnset: SpeciesLearnset[];
-}
-
 // ============================================================================
 // Common Pick Types (Partial Selects)
 // ============================================================================
 
-export type UserIdOnly = Pick<User, 'id'>;
-export type UserWithCoins = Pick<User, 'id' | 'discordId' | 'coins'>;
-export type UserSummary = Pick<User, 'id' | 'discordId' | 'coins' | 'createdAt'>;
 export type PokemonSummary = Pick<PokemonInstance, 'id' | 'speciesId' | 'level' | 'hp' | 'maxHp' | 'nickname'>;
-export type BattleIdOnly = Pick<Battle, 'id'>;
-export type EncounterSummary = Pick<Encounter, 'id' | 'speciesId' | 'level' | 'state'>;

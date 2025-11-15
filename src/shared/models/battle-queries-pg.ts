@@ -53,19 +53,6 @@ export interface BattleWithPlayers extends Battle {
 }
 
 /**
- * Basic battle fields (commonly selected subset)
- */
-export interface BattleBasic {
-  id: string;
-  p1Id: string;
-  p2Id: string;
-  state: string;
-  arenaThreadId: string | null;
-  startedAt: Date;
-  endedAt: Date | null;
-}
-
-/**
  * Battle result metadata for recording outcomes
  */
 export interface BattleResultJson {
