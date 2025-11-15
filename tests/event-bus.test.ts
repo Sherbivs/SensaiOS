@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { EventBus, type BusEvent, type SubscriptionId } from '../src/shared/event-bus.js';
+import { EventBus, type BusEvent } from '../src/shared/event-bus.js';
 
 describe('EventBus', () => {
   let bus: EventBus;
@@ -347,7 +347,7 @@ describe('EventBus', () => {
     });
 
     it('should replay events since timestamp', async () => {
-      const t1 = new Date();
+      const _t1 = new Date();
       bus.emit('test.topic', { id: 1 });
 
       // Wait 100ms to ensure timestamp difference
@@ -461,7 +461,7 @@ describe('EventBus', () => {
 
     it('should track active subscriptions', () => {
       const id1 = bus.subscribe('test.topic', () => {});
-      const id2 = bus.subscribe('test.topic', () => {});
+      const _id2 = bus.subscribe('test.topic', () => {});
 
       let stats = bus.getStats();
       expect(stats.subscriptionsActive).toBe(2);
@@ -570,7 +570,6 @@ describe('EventBus', () => {
   describe('Error Handling', () => {
     it('should continue processing after handler error', async () => {
       const events1: BusEvent[] = [];
-      const events2: BusEvent[] = [];
 
       bus.subscribe('test.topic', () => {
         throw new Error('Handler 1 error');
