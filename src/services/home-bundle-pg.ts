@@ -45,21 +45,6 @@ function reviveDates(row: any): any {
 // ============================================================================
 
 /**
- * Find all cooldowns for a user
- * @param userId - User UUID
- * @returns Array of cooldowns (empty if none)
- */
-export async function findCooldownsByUserId(
-  userId: string,
-  client?: PoolClient,
-): Promise<Cooldown[]> {
-  const pool = client ?? getProdDb();
-  const sql = `SELECT * FROM "Cooldown" WHERE "ownerId" = $1 ORDER BY "readyAt" ASC`;
-  const result = await pool.query(sql, [userId]);
-  return result.rows.map(reviveDates);
-}
-
-/**
  * Find specific cooldown by user and kind
  * @param userId - User UUID
  * @param kind - Cooldown kind (e.g., "daily-quest", "walk")
