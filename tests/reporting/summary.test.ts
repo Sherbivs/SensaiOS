@@ -58,7 +58,7 @@ describe('Reporting Accuracy Summary', () => {
       // Measurements should change between calls
       const uptime1 = performance.now();
       // Wait briefly
-      for (let i = 0; i < 10000; i++) {}
+      for (let i = 0; i < 10000; i++) { /* work */ }
       const uptime2 = performance.now();
       expect(uptime2).toBeGreaterThan(uptime1);
     });
@@ -100,7 +100,7 @@ describe('Reporting Accuracy Summary', () => {
       
       // Real measurement log format (should NOT include these)
       const start = performance.now();
-      for (let i = 0; i < 1000; i++) {}
+      for (let i = 0; i < 1000; i++) { /* work */ }
       const end = performance.now();
       const duration = end - start;
       
@@ -166,7 +166,7 @@ describe('Reporting Accuracy Summary', () => {
         const start = performance.now();
         
         // Varying work
-        for (let j = 0; j < (i + 1) * 1000; j++) {}
+        for (let j = 0; j < (i + 1) * 1000; j++) { /* work */ }
         
         const end = performance.now();
         samples.push(end - start);
@@ -190,7 +190,7 @@ describe('Reporting Accuracy Summary', () => {
         uptimeSamples.push(performance.now());
         
         // Wait briefly
-        for (let j = 0; j < 10000; j++) {}
+        for (let j = 0; j < 10000; j++) { /* work */ }
       }
       
       // Check if all samples are identical (frozen)
@@ -214,7 +214,7 @@ describe('Reporting Accuracy Summary', () => {
       // GOOD: Dynamic measurement
       const start = performance.now();
       // Simulate operation
-      for (let i = 0; i < 1000; i++) {}
+      for (let i = 0; i < 1000; i++) { /* work */ }
       const end = performance.now();
       const measuredLatency = end - start; // ✅ Measured
       

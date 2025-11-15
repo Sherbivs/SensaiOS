@@ -139,7 +139,6 @@ let engineWorkersRunning = false;
 
 // Declare global.engineReady for battle engine readiness check
 declare global {
-  // eslint-disable-next-line no-var
   var engineReady: boolean;
 }
 global.engineReady = false;

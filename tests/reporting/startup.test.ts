@@ -151,7 +151,7 @@ describe('Startup Performance Metrics Accuracy', () => {
       // Measurement (should vary)
       const start = process.hrtime.bigint();
       // Brief work
-      for (let i = 0; i < 100; i++) {}
+      for (let i = 0; i < 100; i++) { /* work */ }
       const end = process.hrtime.bigint();
       const measuredMs = Number(end - start) / 1_000_000;
       
@@ -166,7 +166,7 @@ describe('Startup Performance Metrics Accuracy', () => {
       const start = process.hrtime.bigint();
       
       // Brief operation
-      for (let i = 0; i < 1000; i++) {}
+      for (let i = 0; i < 1000; i++) { /* work */ }
       
       const end = process.hrtime.bigint();
       const durationMs = Number(end - start) / 1_000_000;
@@ -197,7 +197,7 @@ describe('Startup Performance Metrics Accuracy', () => {
         
         // Simulate work (different amounts per phase)
         const workSize = phases.indexOf(phase) * 1000;
-        for (let i = 0; i < workSize; i++) {}
+        for (let i = 0; i < workSize; i++) { /* work */ }
         
         const end = process.hrtime.bigint();
         timings[phase] = Number(end - start) / 1_000_000;
@@ -221,7 +221,7 @@ describe('Startup Performance Metrics Accuracy', () => {
         const phaseStart = process.hrtime.bigint();
         
         // Simulate work
-        for (let j = 0; j < 1000; j++) {}
+        for (let j = 0; j < 1000; j++) { /* work */ }
         
         const phaseEnd = process.hrtime.bigint();
         phases.push(Number(phaseEnd - phaseStart) / 1_000_000);
@@ -296,7 +296,7 @@ describe('Startup Performance Metrics Accuracy', () => {
         const start = process.hrtime.bigint();
         
         // Varying work
-        for (let j = 0; j < (i + 1) * 1000; j++) {}
+        for (let j = 0; j < (i + 1) * 1000; j++) { /* work */ }
         
         const end = process.hrtime.bigint();
         samples.push(Number(end - start) / 1_000_000);
@@ -314,7 +314,7 @@ describe('Startup Performance Metrics Accuracy', () => {
       // should use exact measurements, not approximate language
       
       const start = process.hrtime.bigint();
-      for (let i = 0; i < 1000; i++) {}
+      for (let i = 0; i < 1000; i++) { /* work */ }
       const end = process.hrtime.bigint();
       const durationMs = Number(end - start) / 1_000_000;
       
