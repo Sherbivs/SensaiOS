@@ -638,7 +638,7 @@ Revision: 2.76
   
   - **Next Steps:** Implement `$extends()` query logging in future enhancement. Requires refactoring all Prisma client references throughout application to use extended client. See docs/AI-LOG-SYSTEM.md for Prisma v6 query logging architecture notes.
   
-  - **Deployment:** Hotfix deployed as dep-[ID] to infinity-gauntlet-bots worker. Services restored after ~15 minutes downtime.
+  - **Deployment:** Hotfix deployed as dep-[ID] to main bot worker. Services restored after ~15 minutes downtime.
 
 - **AI Learning Log System Scaling (2025-11-11T01:00Z):**
   - **Commit:** 865bce9 ("feat(ai-logs): Scale to 48+ hours with comprehensive integrations")
@@ -1078,11 +1078,10 @@ Revision: 2.76
   
   - **Implementation:**
     
-    **Phase 1: Infrastructure (render.yaml) - 7 Services Fixed:**
+    **Phase 1: Infrastructure (render.yaml) - 6 Services Fixed:**
     * Changed `mountPath: /opt/render/project/src/Store` → `mountPath: /Store` for:
-      - infinity-gauntlet-bot (web)
+      - infinity-gauntlet (main bot worker)
       - infinity-gauntlet-outbox (worker)
-      - infinity-gauntlet-bots (worker)
       - infinity-gauntlet-cache (worker)
       - infinity-gauntlet-data-pipeline (worker)
       - infinity-gauntlet-security (worker)

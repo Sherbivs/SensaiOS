@@ -6,21 +6,20 @@
 
 ## Summary of Changes
 
-Fixed critical infrastructure misconfiguration where all 7 Render services had incorrect mount paths (`/opt/render/project/src/Store`) that didn't match the actual disk mount point (`/Store`), causing all state files to write to ephemeral filesystem instead of persistent disk.
+Fixed critical infrastructure misconfiguration where all Render services had incorrect mount paths (`/opt/render/project/src/Store`) that didn't match the actual disk mount point (`/Store`), causing all state files to write to ephemeral filesystem instead of persistent disk.
 
 ## Files Modified
 
 ### Infrastructure (render.yaml)
-✅ **Line 18** - infinity-gauntlet-bot: `mountPath: /Store`  
-✅ **Line 55** - infinity-gauntlet-outbox: `mountPath: /Store`  
-✅ **Line 101** - infinity-gauntlet-bots: `mountPath: /Store`  
-✅ **Line 153** - infinity-gauntlet-security: `mountPath: /Store`  
-✅ **Line 197** - infinity-gauntlet-cache: `mountPath: /Store`  
-✅ **Line 238** - infinity-gauntlet-data-pipeline: `mountPath: /Store`  
-✅ **Line 282** - pokedex-cache-worker: `mountPath: /Store`  
-✅ **Line 291** - pokedex-cache-worker CACHE_DIR: `value: /Store/cache`
+✅ **Line 45** - infinity-gauntlet (main bot): `mountPath: /Store`  
+✅ **Line 82** - infinity-gauntlet-outbox: `mountPath: /Store`  
+✅ **Line 128** - infinity-gauntlet-security: `mountPath: /Store`  
+✅ **Line 172** - infinity-gauntlet-cache: `mountPath: /Store`  
+✅ **Line 213** - infinity-gauntlet-data-pipeline: `mountPath: /Store`  
+✅ **Line 257** - pokedex-cache-worker: `mountPath: /Store`  
+✅ **Line 266** - pokedex-cache-worker CACHE_DIR: `value: /Store/cache`
 
-**Total**: 7 services, 8 mount path references corrected
+**Total**: 6 services, 7 mount path references corrected (web service removed in batch 16a)
 
 ### Application Code
 ✅ **src/bot/state/persistence.js** (line 17):
