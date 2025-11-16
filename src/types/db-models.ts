@@ -13,12 +13,6 @@ import type { Prisma } from '@prisma/client';
 // Enums
 // ============================================================================
 
-export enum MoveCategory {
-  physical = "physical",
-  special = "special",
-  status = "status",
-}
-
 export enum LearnMethod {
   level = "level",
   machine = "machine",
@@ -47,43 +41,6 @@ export enum BusPriority {
 // ============================================================================
 // Base Models
 // ============================================================================
-
-export interface Tenant {
-  id: string;
-  createdAt: Date;
-}
-
-export interface Trainer {
-  id: string;
-  tenantId: string;
-  userId: string;
-  nickname: string | null;
-  createdAt: Date;
-}
-
-export interface DexPack {
-  packHash: string;
-  schemaVer: number;
-  gen: number;
-  signedAt: Date;
-  metaJson: Prisma.JsonValue;
-}
-
-export interface TrainerSettings {
-  trainerId: string;
-  activePack: string;
-  prefsJson: Prisma.JsonValue;
-  updatedAt: Date;
-}
-
-export interface TrainerProfile {
-  userId: string;
-  tagline: string | null;
-  bio: string | null;
-  favoriteSpeciesId: number | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 export interface Type {
   id: number;
