@@ -24,6 +24,7 @@ import { ServiceRegistry } from "./shared/service-registry.js";
 import { getAllServiceConfigs } from "./shared/service-factories.js";
 import { EventBus } from "./shared/event-bus.js";
 import { formatBytes } from "./shared/utils/format-utils.js";
+import { getErrorMessage } from "./shared/utils/error-utils.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
 // import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
 // Lazy-loaded database recovery (only needed when connection fails)
@@ -165,7 +166,7 @@ function withMonitor(callback: (monitor: typeof cliStatus) => void): void {
   } catch (error) {
     monitorActive = false;
     log.warn("CLI monitor disabled after write failure", {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
   }
 }
@@ -193,7 +194,7 @@ function startMonitor(): void {
   } catch (error) {
     monitorActive = false;
     log.warn("CLI monitor unavailable; continuing without interactive dashboard", {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
   }
 }
@@ -400,7 +401,7 @@ function refreshCacheSection(): void {
         setSection("cache", { title: "Runtime Cache", status, metrics });
         lastCacheSnapshot = snapshot;
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = getErrorMessage(error);
         log.error("Cache telemetry update failed", error);
         setSection("cache", {
           title: "Runtime Cache",
@@ -490,7 +491,7 @@ function refreshPokedexSection(): void {
 
         setSection("pokedex", { title: "PokéAPI Cache", status, metrics });
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = getErrorMessage(error);
         log.error("PokéAPI telemetry update failed", error);
         setSection("pokedex", {
           title: "PokéAPI Cache",
@@ -723,7 +724,7 @@ function updateEngineSection(workerStatus?: EngineWorkersStatus): void {
     setSection("engine", { title: "Engine DB", status, metrics });
     
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     log.error('Engine DB telemetry update failed', error);
     setSection("engine", {
       title: "Engine DB",
@@ -798,7 +799,7 @@ async function bootSecurityBot(): Promise<Client | null> {
 
     return candidateClient;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     setSection("security", {
       title: "Security Bot",
       status: "error",
@@ -1086,7 +1087,7 @@ export async function boot(): Promise<void> {
         });
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     setSection("database", {
       title: "Database",
       status: "error",
@@ -1094,7 +1095,7 @@ export async function boot(): Promise<void> {
     });
     setPhase("Database recovery");
     log.warn("Database connectivity failed; attempting recovery", {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
     
@@ -1137,7 +1138,7 @@ export async function boot(): Promise<void> {
       setSection("database", {
         title: "Database",
         status: "error",
-        metrics: [metric("error", message), metric("recovery failed", recoveryError instanceof Error ? recoveryError.message : String(recoveryError))],
+        metrics: [metric("error", message), metric("recovery failed", getErrorMessage(recoveryError))],
       });
       setPhase("Startup failed");
       log.error("Database connectivity failed after recovery attempt", error, {
@@ -1273,7 +1274,7 @@ export async function boot(): Promise<void> {
         
         return { success: true };
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = getErrorMessage(error);
         setSection("engine", {
           title: "Engine DB",
           status: "error",
@@ -1373,7 +1374,7 @@ export async function boot(): Promise<void> {
     const memProgression = calculateMemoryProgression(STARTUP_MEMORY);
     log.info("📊 Memory Progression Breakdown", memProgression);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     
     // Determine which bot failed based on error message or type
     const isSecurityError = error instanceof Error && error.message.includes("Security bot");
