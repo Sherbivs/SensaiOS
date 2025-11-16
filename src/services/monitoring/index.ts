@@ -45,5 +45,29 @@ export type { ErrorTracker, ErrorCategory, ErrorSeverity, ErrorContext } from '.
 export * as errorLearning from './error-learning.js';
 
 // Resource Monitoring (default export + types)
-export { resourceMonitor } from './resource-monitor.js';
+export { resourceMonitor, startResourceMonitoring, stopResourceMonitoring, getResourceHealth } from './resource-monitor.js';
 export type { IPrunableCache, MemoryPressureLevel } from './resource-monitor.js';
+
+// Shared Utilities (performance-optimized helpers)
+export {
+  generateResourceId,
+  generateFingerprint,
+  formatTimestamp,
+  calculateAge,
+  calculateAgeHours,
+  formatBytes,
+  calculateMemoryPercent,
+  calculatePercentile,
+  calculateAverage,
+  calculateStdDev,
+  checkThreshold,
+  deduplicateBy,
+  groupBy,
+  RateLimiter,
+  clearAllCaches,
+  getCacheStats,
+} from './monitoring-utils.js';
+export type {
+  ThresholdResult,
+  CacheStats,
+} from './monitoring-utils.js';

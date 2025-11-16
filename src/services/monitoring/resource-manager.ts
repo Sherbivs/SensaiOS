@@ -16,6 +16,7 @@ import { EventEmitter } from 'node:events';
 import { errorTracker } from './error-tracker.js';
 import { log } from '../../utils/logger.js';
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
+import { generateResourceId } from './monitoring-utils.js';
 
 // Note: resource-monitor.ts imports this file, so we can't import it here (circular dependency)
 // Instead, resource-monitor will call resourceManager.getStats() directly
@@ -198,7 +199,7 @@ class ResourceManager {
     intervalMs: number,
     metadata?: Record<string, any>
   ): TimerHandle {
-    // Check limits
+    // Fast path: check limits first (most common case)
     const currentCount = this.ownerTimerCounts.get(owner) ?? 0;
     if (currentCount >= this.limits.maxTimersPerOwner) {
       const error = new Error(`Timer limit exceeded for owner: ${owner} (max: ${this.limits.maxTimersPerOwner})`);
@@ -212,8 +213,8 @@ class ResourceManager {
       throw error;
     }
 
-    // Create timer
-    const id = this.generateId('timer', owner, name);
+    // Create timer first (optimized: use cached ID generation)
+    const id = generateResourceId('timer', owner, name);
     const nodeTimer = setInterval(callback, intervalMs);
 
     const handle: TimerHandle = {
@@ -228,15 +229,19 @@ class ResourceManager {
       metadata,
     };
 
+    // Update tracking (batch operations)
     this.resources.set(id, handle);
     this.ownerTimerCounts.set(owner, currentCount + 1);
 
-    log('detail', '[ResourceManager] Interval registered', {
-      id,
-      owner,
-      name,
-      intervalMs,
-    });
+    // Log only in debug mode (reduce I/O overhead)
+    if (process.env.LOG_LEVEL === 'detail') {
+      log('detail', '[ResourceManager] Interval registered', {
+        id,
+        owner,
+        name,
+        intervalMs,
+      });
+    }
 
     return handle;
   }
@@ -248,7 +253,7 @@ class ResourceManager {
     timeoutMs: number,
     metadata?: Record<string, any>
   ): TimerHandle {
-    // Check limits
+    // Fast path: check limits first
     const currentCount = this.ownerTimerCounts.get(owner) ?? 0;
     if (currentCount >= this.limits.maxTimersPerOwner) {
       const error = new Error(`Timer limit exceeded for owner: ${owner} (max: ${this.limits.maxTimersPerOwner})`);
@@ -262,8 +267,8 @@ class ResourceManager {
       throw error;
     }
 
-    // Create timeout with auto-cleanup
-    const id = this.generateId('timer', owner, name);
+    // Create timeout with auto-cleanup (optimized: use cached ID generation)
+    const id = generateResourceId('timer', owner, name);
     const nodeTimer = setTimeout(() => {
       callback();
       // Auto-cleanup after execution
@@ -282,15 +287,19 @@ class ResourceManager {
       metadata,
     };
 
+    // Update tracking (batch operations)
     this.resources.set(id, handle);
     this.ownerTimerCounts.set(owner, currentCount + 1);
 
-    log('detail', '[ResourceManager] Timeout registered', {
-      id,
-      owner,
-      name,
-      timeoutMs,
-    });
+    // Log only in debug mode
+    if (process.env.LOG_LEVEL === 'detail') {
+      log('detail', '[ResourceManager] Timeout registered', {
+        id,
+        owner,
+        name,
+        timeoutMs,
+      });
+    }
 
     return handle;
   }
@@ -369,7 +378,7 @@ class ResourceManager {
     }
 
     // Create handle
-    const id = this.generateId('listener', owner, `${name}:${eventName}`);
+    const id = generateResourceId('listener', owner, `${name}:${eventName}`);
     const handle: ListenerHandle = {
       id,
       type: 'listener',
@@ -470,7 +479,7 @@ class ResourceManager {
       throw error;
     }
 
-    const id = this.generateId('connection', owner, name);
+    const id = generateResourceId('connection', owner, name);
     const handle: ConnectionHandle = {
       id,
       type: 'connection',
@@ -560,7 +569,7 @@ class ResourceManager {
       metadata?: Record<string, any>;
     }
   ): DiskCacheHandle {
-    const id = this.generateId('disk-cache', owner, name);
+    const id = generateResourceId('disk-cache', owner, name);
     
     const handle: DiskCacheHandle = {
       id,
@@ -664,7 +673,7 @@ class ResourceManager {
     cleanup: () => Promise<void> | void,
     metadata?: Record<string, any>
   ): DiskBufferHandle {
-    const id = this.generateId('disk-buffer', owner, name);
+    const id = generateResourceId('disk-buffer', owner, name);
     
     const handle: DiskBufferHandle = {
       id,
@@ -762,7 +771,7 @@ class ResourceManager {
     cleanup: () => Promise<void> | void,
     metadata?: Record<string, any>
   ): DiskLogHandle {
-    const id = this.generateId('disk-log', owner, name);
+    const id = generateResourceId('disk-log', owner, name);
     
     const handle: DiskLogHandle = {
       id,
@@ -1069,14 +1078,8 @@ class ResourceManager {
   }
 
   // ============================================================================
-  // Utility Methods
+  // Utility Methods (Configuration)
   // ============================================================================
-
-  private generateId(type: ResourceType, owner: string, name: string): string {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
-    return `${type}:${owner}:${name}:${timestamp}:${random}`;
-  }
 
   public getLimits(): ResourceLimits {
     return { ...this.limits };

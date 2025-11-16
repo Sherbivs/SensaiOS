@@ -5,11 +5,11 @@ Owned Globs: src/services/**
 Last Updated (UTC): 2025-11-16T00:00:00Z
 
 Notes:
-- **Phase 5 Reorganization (2025-11-16):** Services reorganized into 4 domain-based subdirectories with barrel exports for clean imports.
-- **Subdirectories:** `cache/` (4 files), `database/` (2 files), `monitoring/` (3 files), `ai/` (3 files).
+- **Phase 5 Consolidation (2025-11-16):** Services organized into 4 domain subdirectories with barrel exports. Deleted duplicate resource-manager.ts and legacy resource-monitor.js from root (now in monitoring/).
+- **Subdirectories:** `cache/` (5 files), `database/` (3 files), `monitoring/` (5 files), `ai/` (4 files).
 - **Barrel Exports:** Each subdirectory exports via `index.ts` with namespace exports to avoid naming collisions.
-- **Import Pattern:** Bot layer uses barrel exports (e.g., `from '../../services/monitoring/index.js'`).
-- Keep TypeScript declaration files aligned with their CommonJS counterparts for legacy files.
+- **Import Pattern:** Bot layer uses barrel exports (e.g., `from '../../services/monitoring'`).
+- **Legacy Root Files:** 3 active services remain at root level: pokemonService.js (Pokemon cache), cache.js (security bot cache), home-bundle-pg.ts (cooldown queries).
 
 **Service Subdirectories:**
 - **cache/** (4 files + ROUTER.md) — Runtime cache facade, engine L1 cache, write buffer, namespace recipes. See `src/services/cache/ROUTER.md`.
@@ -18,11 +18,9 @@ Notes:
 - **ai/** (3 files + ROUTER.md) — AI logging, analysis, integrations (JavaScript legacy). See `src/services/ai/ROUTER.md`.
 
 **Legacy Root Files:**
-- pokemonService.js / .d.ts - Provides Pokemon lookup helpers for commands and DM flows.
-- cache.js - Wraps cache hydration logic for downstream consumers.
-- home-bundle-pg.ts - Bundles DM home data for React renderers.
-- resource-manager.ts - Resource lifecycle management (pending move to monitoring/).
-- resource-monitor.js - Legacy resource monitoring (superseded by monitoring/resource-monitor.ts).
+- **pokemonService.js / .d.ts** (589 lines) — Pokemon cache service fetching from PokéAPI. Dynamically imported in src/index.ts. Provides in-memory Pokemon lookup (pokemonById, pokemonByName Maps) with weekly cron refresh (Thursday 12 AM UTC). Exports getPokemonList(), getPokemonById(), getPokemonByName(), getCacheMetadata(), refreshCache(), scheduleCronRefresh() API.
+- **cache.js** (227 lines) — Legacy filesystem cache for security bot (Discord role healing). Used by src/bot/main.js. Stores guild/role metadata in Store/discord-cache/ with 7-day TTL. Provides ensureDir(), readCache(), writeCache(), pruneCache() API.
+- **home-bundle-pg.ts** (117 lines) — PostgreSQL query helpers for DM home bundles. Used by src/bot/wilds/walk.ts. Provides findCooldownByUserAndKind(), createCooldown(), updateCooldownReadyAt() API for cooldown management.
 
 **Engine DB Services (Phase 17-22):**
 - **engine-cache.ts (661 lines)** — L1 in-memory cache (Map-based) for synchronous Pokemon/Move/Type lookups. **LRU eviction** (500 Pokemon, 200 Moves) with Read-DB fallback for 60% memory reduction (20MB → 8MB). Performance: <1μs cache hit, <5ms cache miss with fallback, >95% hit rate maintained. Loads Gen 1-2 Pokemon (~200ms) + background extended loading (Gen 3-9). Pre-warms Read-DB with 35 hot Pokemon (starters + meta) for 50% faster first queries. Exposes getPokemon(), getMove(), getTypeEffectiveness(), getStats() API with eviction metrics (evictionCount, cacheMissWithFallbackCount, hitRate).
