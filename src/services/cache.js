@@ -1,4 +1,5 @@
 import { log } from '../utils/logger.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 // Persistent caching utilities for the security role-healing bot
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,7 +19,7 @@ function logCacheIssue(level, tag, err, meta = {}) {
   const contextParts = Object.entries(meta)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
     .map(([key, value]) => `${key}=${value}`);
-  const message = err instanceof Error ? err.message : String(err);
+  const message = getErrorMessage(err);
   const prefix = contextParts.length ? `${contextParts.join(' ')} ` : '';
   const fullMessage = `[CACHE ${tag}] ${prefix}${message}`;
   
@@ -59,7 +60,7 @@ function getDiskStats(dir) {
 }
 
 function getCachePath(key) {
-  const safe = key.replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
+  const safe = key.replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
   return path.join(CACHE_DIR, `${safe}.json`);
 }
 function readCache(key) {

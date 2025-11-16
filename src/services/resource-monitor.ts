@@ -17,6 +17,7 @@
  */
 
 import { resourceManager } from './resource-manager.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 import logger from '../utils/intelligent-logger.js';
 import type { ResourceStats } from './resource-manager.js';
 
@@ -207,7 +208,7 @@ class ResourceMonitor {
     } catch (error) {
       logger.warn('[ResourceMonitor] Failed to register with ResourceManager (non-critical)', {
         category: 'SYSTEM',
-        data: { error: error instanceof Error ? error.message : String(error) },
+        data: { error: getErrorMessage(error) },
       });
     }
 
@@ -409,7 +410,7 @@ class ResourceMonitor {
       } catch (error) {
         logger.error(`[ResourceMonitor] Emergency prune failed for cache: ${cacheName}`, {
           category: 'SYSTEM',
-          data: { error: error instanceof Error ? error.message : String(error) },
+          data: { error: getErrorMessage(error) },
         });
       }
     }
@@ -463,7 +464,7 @@ class ResourceMonitor {
       } catch (error) {
         logger.error(`[ResourceMonitor] Prune failed for cache: ${cacheName}`, {
           category: 'SYSTEM',
-          data: { error: error instanceof Error ? error.message : String(error) },
+          data: { error: getErrorMessage(error) },
         });
       }
     }

@@ -9,6 +9,7 @@
 
 import { getLogBuffer } from '../shared/logBuffer.js';
 import { EventBus } from '../shared/event-bus.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 import type { BusStats } from '../shared/event-bus.js';
 import type { Client, Message, GuildMember, ThreadChannel, Guild, Role } from 'discord.js';
 
@@ -85,7 +86,7 @@ export function measureLogBufferMemory(bufferStats: LogBufferStats): ComponentMe
       measurementMethod: 'json',
       confidence: 'low',
       metadata: {
-        error: err instanceof Error ? err.message : String(err),
+        error: getErrorMessage(err),
         fallbackUsed: true
       }
     };
@@ -157,7 +158,7 @@ export function measureEventBusMemory(busStats: BusStats): ComponentMemoryStats 
       measurementMethod: 'json',
       confidence: 'low',
       metadata: {
-        error: err instanceof Error ? err.message : String(err),
+        error: getErrorMessage(err),
         fallbackUsed: true
       }
     };
@@ -320,7 +321,7 @@ export function measureDiscordCacheMemory(client: Client): ComponentMemoryStats 
       measurementMethod: 'sampling',
       confidence: 'low',
       metadata: {
-        error: err instanceof Error ? err.message : String(err),
+        error: getErrorMessage(err),
         fallbackUsed: true,
         messageCount,
         memberCount,

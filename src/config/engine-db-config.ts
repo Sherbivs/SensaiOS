@@ -14,6 +14,7 @@
  */
 
 import path from 'node:path';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 // ============================================================================
 // Environment Detection
@@ -515,7 +516,7 @@ export async function validateEngineDbConfig(): Promise<void> {
   } catch (error) {
     throw new Error(
       `Engine DB config validation failed: Cannot create storage directory ${STORAGE_BASE_DIR}. ` +
-      `Error: ${error instanceof Error ? error.message : String(error)}`
+      `Error: ${getErrorMessage(error)}`
     );
   }
 }

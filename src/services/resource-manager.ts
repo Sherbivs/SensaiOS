@@ -15,6 +15,7 @@
 import { EventEmitter } from 'node:events';
 import { errorTracker } from './error-tracker.js';
 import { log } from '../utils/logger.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 // Note: resource-monitor.ts imports this file, so we can't import it here (circular dependency)
 // Instead, resource-monitor will call resourceManager.getStats() directly
@@ -509,7 +510,7 @@ class ResourceManager {
         id,
         owner: connection.owner,
         name: connection.name,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
 
@@ -609,7 +610,7 @@ class ResourceManager {
         owner: diskCache.owner,
         name: diskCache.name,
         path: diskCache.path,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
 
@@ -712,7 +713,7 @@ class ResourceManager {
         owner: diskBuffer.owner,
         name: diskBuffer.name,
         path: diskBuffer.path,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
 
@@ -808,7 +809,7 @@ class ResourceManager {
         owner: diskLog.owner,
         name: diskLog.name,
         path: diskLog.path,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
 

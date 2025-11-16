@@ -13,6 +13,7 @@
 import { spawn } from "node:child_process";
 import { config } from "../shared/config.js";
 import { log } from "../shared/log.js";
+import { getErrorMessage } from "../shared/utils/error-utils.js";
 
 /**
  * Run Prisma migrations to ensure database schema is up-to-date
@@ -139,7 +140,7 @@ export async function runDatabaseRecovery(): Promise<void> {
       log.info("Database recovery: migrations completed");
     } catch (error) {
       log.warn("Migration step failed during recovery", {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
       // Continue to bootstrap step
@@ -151,7 +152,7 @@ export async function runDatabaseRecovery(): Promise<void> {
       log.info("Database recovery: bootstrap completed");
     } catch (error) {
       log.warn("Bootstrap step failed during recovery", {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
     }
@@ -162,6 +163,6 @@ export async function runDatabaseRecovery(): Promise<void> {
     log.info("Database recovery sequence completed");
   } catch (error) {
     log.error("Database recovery sequence failed", error);
-    throw new Error(`Database recovery failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Database recovery failed: ${getErrorMessage(error)}`);
   }
 }

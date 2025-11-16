@@ -1,6 +1,7 @@
 import { msUntilNextZonedTime, formatInTimeZone } from '../utils/timezone.js';
 import { toEasternLogFormat } from '../shared/datetime.js';
 import { EventBus } from '../shared/event-bus.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 const DEFAULT_TIME_ZONE = 'America/New_York';
 const SEVERITY = Object.freeze({
@@ -101,7 +102,7 @@ function createDripAlertManager({
       .catch((error) => {
         logContext('error', 'Drip alert recipient resolution failed', {
           recipient,
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
         return null;
       })
@@ -234,7 +235,7 @@ function createDripAlertManager({
     } catch (error) {
       logContext('error', 'Drip alert digest delivery failed', {
         recipient: describeUser ? describeUser(user) : recipient,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       // Phase 2.3.3: Event Bus replay buffer retains events automatically
       // No need to re-queue - they'll be in next digest attempt
@@ -312,7 +313,7 @@ function createDripAlertManager({
         recipient: describeUser ? describeUser(user) : recipient,
         severity: entry.severity,
         title: entry.title,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
         correlationId,
       });
       
@@ -326,7 +327,7 @@ function createDripAlertManager({
         recipient,
         originalSeverity: entry.severity,
         retryReason: 'delivery-failed',
-        retryError: error instanceof Error ? error.message : String(error),
+        retryError: getErrorMessage(error),
       }, {
         emitter: 'drip-alert-manager',
         parentCorrelationId: correlationId,
@@ -364,10 +365,6 @@ function createDripAlertManager({
     }, {
       emitter: 'drip-alert-manager',
     });
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`🔗 Alert Correlation: ${correlationId} (${topic})`);
-    }
 
     // Phase 2.3.3: All alerts handled by Event Bus subscribers
     if (normalizedSeverity === SEVERITY.critical || normalizedSeverity === SEVERITY.security) {

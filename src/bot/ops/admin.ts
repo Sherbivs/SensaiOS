@@ -724,7 +724,7 @@ function formatEngineDbStats(): string {
       lines.push(`• Status: ${writeDbStats.isInitialized ? "initialized" : "not initialized"}`);
       lines.push("");
     } catch (error) {
-      lines.push(`⚠️ Error collecting stats: ${error instanceof Error ? error.message : String(error)}`);
+      lines.push(`⚠️ Error collecting stats: ${getErrorMessage(error)}`);
       lines.push("");
     }
   }

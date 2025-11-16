@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
 
 import { log } from "../shared/log.js";
+import { getErrorMessage } from "../shared/utils/error-utils.js";
 
 const RESTART_DELAY_MS = 30_000;
 
@@ -80,7 +81,7 @@ export function startAutoSyncSupervisor(): () => void {
         child.kill("SIGTERM");
       } catch (error) {
         log.warn("Failed to terminate auto-sync process", {
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
       }
       child = null;
