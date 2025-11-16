@@ -121,15 +121,6 @@ export interface PartySlot {
   updatedAt: Date;
 }
 
-export interface EncounterData {
-  id: number;
-  route: string;
-  method: string;
-  wildSpeciesId: number;
-  meta: Prisma.JsonValue | null;
-  packHash: string | null;
-}
-
 export interface Encounter {
   id: string;
   ownerId: string;
