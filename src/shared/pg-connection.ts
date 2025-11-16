@@ -17,6 +17,7 @@
 
 import pg from 'pg';
 import { log } from './log.js';
+import { getErrorMessage } from './utils/error-utils.js';
 
 const { Pool } = pg;
 
@@ -227,7 +228,7 @@ export class PostgresConnection {
         latency: null,
         connections: null,
         source: null,
-        lastError: error instanceof Error ? error.message : String(error),
+        lastError: getErrorMessage(error),
         lastCheck: new Date(),
       };
 
@@ -273,7 +274,7 @@ export class PostgresConnection {
       this.stats[type] = {
         ...this.stats[type],
         status: 'error',
-        lastError: error instanceof Error ? error.message : String(error),
+        lastError: getErrorMessage(error),
         lastCheck: new Date(),
       };
 

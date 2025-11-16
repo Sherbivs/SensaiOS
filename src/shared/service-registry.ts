@@ -15,6 +15,7 @@
  */
 
 import { log } from '../utils/logger.js';
+import { getErrorMessage } from './utils/error-utils.js';
 
 // ============================================================================
 // Types & Interfaces
@@ -264,7 +265,7 @@ export class ServiceRegistry {
     } catch (error) {
       metadata.status = 'error';
       log('error', `[ServiceRegistry] Failed to initialize service: ${serviceName}`, error);
-      throw new Error(`Failed to initialize service '${serviceName}': ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to initialize service '${serviceName}': ${getErrorMessage(error)}`);
     }
   }
 

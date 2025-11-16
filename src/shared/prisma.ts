@@ -3,6 +3,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
 import { delayWithJitter } from "./utils/async-utils.js";
+import { getErrorMessage } from "./utils/error-utils.js";
 
 export type PrismaHeartbeatEvent = {
   ok: boolean;
@@ -77,7 +78,7 @@ function emitHeartbeat(event: PrismaHeartbeatEvent): void {
       listener(event);
     } catch (error) {
       log.warn("Prisma heartbeat listener threw", {
-        listenerError: error instanceof Error ? error.message : String(error),
+        listenerError: getErrorMessage(error),
       });
     }
   }
@@ -336,7 +337,7 @@ async function disconnectPrismaClient(): Promise<void> {
       await prismaClient.$disconnect();
     } catch (error) {
       log.warn("Ignoring Prisma disconnect error during datasource switch", {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
   }
@@ -610,7 +611,7 @@ async function initializeOnPremiseDevClient(): Promise<void> {
     
   } catch (error) {
     log.warn("LOCAL Prisma client connection failed", {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
     lastOnPremiseDevHeartbeatEvent = {
       ok: false,
@@ -705,7 +706,7 @@ async function initializeOnPremiseExperimentClient(): Promise<void> {
     
   } catch (error) {
     log.warn("ONPREMISE-DEV-EXPERIMENT Prisma client connection failed", {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
     lastOnPremiseExperimentHeartbeatEvent = {
       ok: false,

@@ -19,6 +19,7 @@
 
 import { randomUUID } from 'crypto';
 import { log } from '../utils/logger.js';
+import { getErrorMessage } from './utils/error-utils.js';
 
 /// ---- Type Definitions ----
 
@@ -330,7 +331,7 @@ class Subscription {
           pattern: this.pattern,
           topic: event.topic,
           correlationId: event.correlationId,
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
       }
       
