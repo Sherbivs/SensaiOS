@@ -1,0 +1,138 @@
+/**
+ * Format utilities for bytes, durations, and other common formatting needs.
+ * Centralizes duplicate formatting logic across the codebase.
+ * 
+ * @module shared/utils/format-utils
+ */
+
+/**
+ * Format bytes into human-readable string with appropriate unit (B, KB, MB, GB).
+ * 
+ * @param bytes - Number of bytes to format
+ * @returns Formatted string (e.g., "1.50 MB", "512.00 KB", "0 B")
+ * 
+ * @example
+ * ```typescript
+ * formatBytes(1536) // "1.50 KB"
+ * formatBytes(1048576) // "1.00 MB"
+ * formatBytes(0) // "0 B"
+ * formatBytes(-100) // "0 B"
+ * ```
+ */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${units[i]}`;
+}
+
+/**
+ * Format bytes into abbreviated human-readable string (shorter variant).
+ * Uses single-letter units for compact display.
+ * 
+ * @param bytes - Number of bytes to format
+ * @returns Compact formatted string (e.g., "1.5M", "512K", "0B")
+ * 
+ * @example
+ * ```typescript
+ * formatBytesShort(1536) // "1.50K"
+ * formatBytesShort(1048576) // "1.00M"
+ * ```
+ */
+export function formatBytesShort(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0B';
+  const units = ['B', 'K', 'M', 'G'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(2)}${units[i]}`;
+}
+
+/**
+ * Format milliseconds into human-readable duration string.
+ * 
+ * @param ms - Milliseconds to format
+ * @returns Formatted duration (e.g., "2m 34s", "1h 5m", "45s")
+ * 
+ * @example
+ * ```typescript
+ * formatDuration(154000) // "2m 34s"
+ * formatDuration(3900000) // "1h 5m"
+ * formatDuration(45000) // "45s"
+ * ```
+ */
+export function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '0s';
+  
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    return `${days}d ${hours % 24}h`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  }
+  return `${seconds}s`;
+}
+
+/**
+ * Format uptime in milliseconds to human-readable string (compact variant).
+ * 
+ * @param ms - Uptime in milliseconds
+ * @returns Compact uptime string (e.g., "2m 34s", "45s")
+ */
+export function formatUptime(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '0s';
+  
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  }
+  return `${seconds}s`;
+}
+
+/**
+ * Format a number with thousand separators for readability.
+ * 
+ * @param value - Number to format
+ * @returns Formatted string with commas (e.g., "1,234,567")
+ * 
+ * @example
+ * ```typescript
+ * formatNumber(1234567) // "1,234,567"
+ * formatNumber(42) // "42"
+ * ```
+ */
+export function formatNumber(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  return value.toLocaleString('en-US');
+}
+
+/**
+ * Format a percentage with specified decimal places.
+ * 
+ * @param value - Decimal value (0.0 to 1.0)
+ * @param decimals - Number of decimal places (default: 2)
+ * @returns Formatted percentage string (e.g., "75.50%", "100.00%")
+ * 
+ * @example
+ * ```typescript
+ * formatPercentage(0.7550) // "75.50%"
+ * formatPercentage(1.0) // "100.00%"
+ * formatPercentage(0.123, 1) // "12.3%"
+ * ```
+ */
+export function formatPercentage(value: number, decimals = 2): string {
+  if (!Number.isFinite(value)) return '0.00%';
+  return `${(value * 100).toFixed(decimals)}%`;
+}

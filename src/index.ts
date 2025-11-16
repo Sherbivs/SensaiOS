@@ -23,6 +23,7 @@ import { initPrisma, prisma } from "./models/index.js";
 import { ServiceRegistry } from "./shared/service-registry.js";
 import { getAllServiceConfigs } from "./shared/service-factories.js";
 import { EventBus } from "./shared/event-bus.js";
+import { formatBytes } from "./shared/utils/format-utils.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
 // import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
 // Lazy-loaded database recovery (only needed when connection fails)
@@ -261,25 +262,7 @@ function normalizeCacheSnapshot(raw: unknown): CacheSnapshot {
   };
 }
 
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes)) {
-    return "0 B";
-  }
-  const absolute = Math.abs(bytes);
-  if (absolute < 1024) {
-    return `${bytes >= 0 ? Math.round(absolute) : -Math.round(absolute)} B`;
-  }
-  const units = ["KB", "MB", "GB", "TB"] as const;
-  let value = absolute / 1024;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  const rounded = value >= 10 ? value.toFixed(0) : value.toFixed(1);
-  const prefix = bytes < 0 ? "-" : "";
-  return `${prefix}${rounded} ${units[unitIndex]}`;
-}
+// formatBytes now imported from shared/utils/format-utils.js (centralized)
 
 function formatSignedBytes(delta: number): string {
   if (!Number.isFinite(delta) || delta === 0) {
