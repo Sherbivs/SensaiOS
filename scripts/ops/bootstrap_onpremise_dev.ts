@@ -4,6 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { execFile, spawn } from "node:child_process";
 import * as dotenv from "dotenv";
+import { extractDatabaseName } from "../../src/shared/utils/url-utils.js";
 
 interface ParsedOptions {
   port?: number;
@@ -364,19 +365,7 @@ function resolveSourceUrl(options: Options): string {
   );
 }
 
-function extractDatabaseName(url: string): string {
-  try {
-    const parsed = new URL(url);
-    const dbName = parsed.pathname.replace(/^\//, "").split("/")[0];
-    if (!dbName) {
-      throw new Error("Database name missing");
-    }
-    return dbName;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to parse database name from source URL: ${message}`);
-  }
-}
+// extractDatabaseName now imported from shared/utils/url-utils.ts (centralized)
 
 function maskConnectionString(url: string): string {
   if (!url) {
@@ -491,6 +480,9 @@ async function main(): Promise<void> {
 
   const sourceUrl = resolveSourceUrl(options);
   const dbName = extractDatabaseName(sourceUrl);
+  if (!dbName) {
+    throw new Error(`Failed to extract database name from source URL: ${sourceUrl}`);
+  }
   const localUrl = `postgresql://postgres@127.0.0.1:${options.port}/${dbName}`;
 
   if (options.skipSync) {

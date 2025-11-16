@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import resourceMonitor from '../services/resource-monitor.js';
 import { formatBytes } from '../shared/utils/format-utils.js';
+import { extractDatabaseName } from '../shared/utils/url-utils.js';
 
 // ============================================================================
 // Constants & Configuration
@@ -144,23 +145,7 @@ function formatUptime(ms) {
  * @param {string} connectionString - Database URL
  * @returns {string|null} Database name or null if unparseable
  */
-function extractDatabaseName(connectionString) {
-  if (!connectionString || typeof connectionString !== 'string') {
-    return null;
-  }
-  
-  try {
-    // PostgreSQL URL format: postgresql://user:pass@host:port/dbname?params
-    const match = connectionString.match(/\/([^/?]+)(\?|$)/);
-    if (match && match[1]) {
-      return match[1];
-    }
-  } catch {
-    // Ignore parsing errors
-  }
-  
-  return null;
-}
+// extractDatabaseName now imported from shared/utils/url-utils.js (centralized)
 
 /**
  * Check if stats have changed significantly (for deduplication).

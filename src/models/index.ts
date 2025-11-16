@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import type { Battle, Cooldown, PrismaClient, User as PrismaUser } from "@prisma/client";
 import { toEasternString } from "../shared/datetime.js";
 import { ensurePrisma, prisma } from "../shared/prisma.js";
+import { clamp } from "../shared/utils/math-utils.js";
 
 export async function initPrisma(): Promise<void> {
   await ensurePrisma();
@@ -519,7 +520,7 @@ const DEFAULT_REWARDS = Object.freeze({ winner: 50, loser: 10 });
 
 function clampTurns(turnCount: number) {
   if (!Number.isFinite(turnCount)) return 0;
-  return Math.max(0, Math.min(Math.floor(turnCount), 40));
+  return clamp(turnCount, 0, 40);
 }
 
 function describeResultSummary(reason: BattleResultReason) {

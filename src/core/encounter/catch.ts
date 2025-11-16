@@ -3,12 +3,9 @@ import type { Prisma } from "@prisma/client";
 import { prisma as prismaClient, UserRepo } from "../../models/index.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
 import { getPartyWithSlots } from "../../shared/models/index.js";
+import { clamp } from "../../shared/utils/math-utils.js";
 
 export type BallType = "poke" | "great" | "ultra";
-
-function clamp(n: number, lo: number, hi: number) {
-  return Math.max(lo, Math.min(hi, n));
-}
 
 function ballBonus(ball: BallType): number {
   switch (ball) {
