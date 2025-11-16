@@ -35,32 +35,6 @@ export enum BusPriority {
 // Base Models
 // ============================================================================
 
-export interface Species {
-  id: number;
-  slug: string;
-  name: string;
-  typeOne: string;
-  typeTwo: string | null;
-  abilities: string[];
-  baseStats: number[];
-  evYields: number[];
-  gen: number;
-  eggGroups: string[];
-  genderRatio: number | null;
-  catchRate: number;
-  baseFriendship: number;
-  baseExpYield: number;
-  growthRate: string;
-  meta: Prisma.JsonValue | null;
-  packHash: string | null;
-}
-
-export interface SpeciesAbility {
-  speciesId: number;
-  abilityId: number;
-  slot: number;
-}
-
 export interface User {
   id: string;
   discordId: string;
