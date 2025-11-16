@@ -8,6 +8,7 @@ import { Client, GatewayIntentBits, Partials, Events, Collection, LimitedCollect
 import { loadCommands } from '../command-loader.js';
 import { toEasternString, toEasternDate, toEasternTime } from '../shared/datetime.js';
 import { formatBytes, formatDuration } from '../shared/utils/format-utils.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 import {
   CLI_DEBUG_MODE,
   ROLE_PERMISSIONS_AUDIT,
@@ -1068,7 +1069,7 @@ async function revertMemberRoles(member, { rolesToRemove = [], rolesToAdd = [], 
       errors.push({
         action: 'remove',
         roles: removeIds,
-        message: error instanceof Error ? error.message : String(error),
+        message: getErrorMessage(error),
       });
       log('error', 'Failed to remove roles during security rollback', mergeLogError({
         guild: describeGuild(member.guild),
@@ -1086,7 +1087,7 @@ async function revertMemberRoles(member, { rolesToRemove = [], rolesToAdd = [], 
       errors.push({
         action: 'add',
         roles: addIds,
-        message: error instanceof Error ? error.message : String(error),
+        message: getErrorMessage(error),
       });
       log('error', 'Failed to re-assign roles during security rollback', mergeLogError({
         guild: describeGuild(member.guild),
@@ -1310,7 +1311,7 @@ async function sendDailySummaryReport() {
     if (dripAlertManager) {
       await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.warning, 'Daily summary delivery failed', {
         recipient: SUMMARY_REPORT_RECIPIENT,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
   }
@@ -1442,7 +1443,7 @@ async function notifyServiceRestart() {
       }
     } catch (error) {
       log('warn', 'Database initialization incomplete for restart DM', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
     
@@ -1509,7 +1510,7 @@ async function notifyServiceRestart() {
       }
     } catch (error) {
       log('warn', 'Failed to append stats to restart DM', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
     
@@ -1522,7 +1523,7 @@ async function notifyServiceRestart() {
     if (dripAlertManager) {
       await dripAlertManager.recordAlert(DRIP_ALERT_SEVERITY.warning, 'Restart notification delivery failed', {
         recipient: RESTART_DM_RECIPIENT,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
   }
@@ -2624,7 +2625,7 @@ client.once(Events.ClientReady, async () => {
   } catch (error) {
     log('error', 'State persistence initialization failed', mergeLogError({
       errorType: error?.constructor?.name || typeof error,
-      errorMessage: error instanceof Error ? error.message : String(error),
+      errorMessage: getErrorMessage(error),
       errorStack: error instanceof Error ? error.stack : undefined,
     }, error));
     
@@ -2894,7 +2895,7 @@ async function handleRolePermissionUpdate(oldRole, newRole) {
     revertStatus: revertError ? 'failed' : 'success',
   };
   if (revertError) {
-    const message = revertError instanceof Error ? revertError.message : String(revertError);
+    const message = getErrorMessage(revertError);
     alertMeta.revertError = message;
     alertMeta.revertErrors = [{ action: 'setPermissions', message }];
   }
