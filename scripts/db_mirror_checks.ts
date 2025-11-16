@@ -4,6 +4,7 @@ import process from "node:process";
 import { pathToFileURL } from "node:url";
 import { checkMirrors, redactConnectionString } from "./check_db_redundancy.js";
 import { stripQuotes } from "../src/shared/utils/format-utils.js";
+import { getErrorMessage } from "../src/shared/utils/error-utils.js";
 
 type EnvVars = Record<string, string>;
 
@@ -176,7 +177,7 @@ async function main(): Promise<void> {
         allOk = false;
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       log("mirror.error", { label: pair.label, message });
       allOk = false;
     }
@@ -191,7 +192,7 @@ const modulePath = pathToFileURL(process.argv[1] ?? "").href;
 
 if (import.meta.url === modulePath) {
   main().catch((error) => {
-    log("mirror.error", { message: error instanceof Error ? error.message : String(error) });
+    log("mirror.error", { message: getErrorMessage(error) });
     process.exitCode = 1;
   });
 }

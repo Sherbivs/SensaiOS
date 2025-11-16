@@ -6,6 +6,7 @@ import path from "node:path";
 import process from "node:process";
 import { PrismaClient } from "@prisma/client";
 import { stripQuotes } from "../src/shared/utils/format-utils.js";
+import { getErrorMessage } from "../src/shared/utils/error-utils.js";
 
 type EnvVars = Record<string, string>;
 
@@ -235,7 +236,7 @@ function createIntegrityAlertDispatcher(config: SyncConfig): AlertDispatcher {
         webhook: sanitizeWebhook(webhook),
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       log("integrity.alert.dispatch_error", {
         reason: payload.reason,
         destination: "webhook",
@@ -481,7 +482,7 @@ function spawnCommand(
           label,
           command,
           args,
-          message: error instanceof Error ? error.message : String(error),
+          message: getErrorMessage(error),
         });
       }
       setTimeout(() => {
@@ -492,7 +493,7 @@ function spawnCommand(
             label,
             command,
             args,
-            message: error instanceof Error ? error.message : String(error),
+            message: getErrorMessage(error),
           });
         }
       }, 2_000);
@@ -578,7 +579,7 @@ async function runPhase(
   try {
     await spawnCommand(`${name}:seed`, "npm", ["run", "db:seed:dex"], dryRun, seedEnv);
   } catch (seedError) {
-    const message = seedError instanceof Error ? seedError.message : String(seedError);
+    const message = getErrorMessage(seedError);
     log("seed.skipped", { 
       environment: name, 
       reason: "foreign_key_constraint",
@@ -678,7 +679,7 @@ async function readDexTrigger(
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
       return null;
     }
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     throw new Error(`Failed to read trigger file at ${absolutePath}: ${message}`);
   }
 }
@@ -901,7 +902,7 @@ async function main(): Promise<void> {
     } catch (error) {
       log("local.env.missing", {
         message: "Local env file not found; checking for PROD_DATABASE_URL or DATABASE_LOCAL_URL in process.env",
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       // Fallback to process.env for LOCAL/PROD database
       const fallbackUrl = process.env.PROD_DATABASE_URL || process.env.DATABASE_LOCAL_URL;
@@ -998,7 +999,7 @@ async function main(): Promise<void> {
       log("trigger.bootstrap.missing", { path: resolvedTriggerPath });
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     log("trigger.bootstrap.error", { message, path: resolvedTriggerPath });
   }
 
@@ -1060,7 +1061,7 @@ async function main(): Promise<void> {
       history.local = startupCounts.localCounts;
       baselineCaptured = true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       log("sync.consolidate.error", { reason: "startup", message });
     }
   }
@@ -1105,7 +1106,7 @@ async function main(): Promise<void> {
           }
         }
       } catch (triggerError) {
-        const message = triggerError instanceof Error ? triggerError.message : String(triggerError);
+        const message = getErrorMessage(triggerError);
         log("trigger.error", { message, path: resolvedTriggerPath });
       }
 
@@ -1224,7 +1225,7 @@ async function main(): Promise<void> {
         }
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       log("integrity.error", { message });
     }
 
@@ -1240,7 +1241,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = getErrorMessage(error);
   log("sync.fatal", { message });
   process.exitCode = 1;
 });
