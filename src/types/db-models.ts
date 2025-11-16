@@ -13,13 +13,6 @@ import type { Prisma } from '@prisma/client';
 // Enums
 // ============================================================================
 
-export enum LearnMethod {
-  level = "level",
-  machine = "machine",
-  tutor = "tutor",
-  egg = "egg",
-}
-
 export enum BusKind {
   event = "event",
   command = "command",
