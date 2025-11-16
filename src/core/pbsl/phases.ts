@@ -20,9 +20,3 @@ export const BATTLE_PHASES: readonly BattlePhase[] = Object.freeze([
 export function isBattlePhase(value: string): value is BattlePhase {
   return (BATTLE_PHASES as readonly string[]).includes(value);
 }
-
-export function assertBattlePhase(value: string): asserts value is BattlePhase {
-  if (!isBattlePhase(value)) {
-    throw new Error(`Unknown battle phase: ${value}`);
-  }
-}
