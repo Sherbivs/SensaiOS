@@ -53,14 +53,6 @@ export interface PartyWithSlotCount extends Party {
 }
 
 /**
- * Stats for PokemonInstance creation
- */
-export interface PokemonStats {
-  hp: number;
-  maxHp: number;
-}
-
-/**
  * IVs JSON structure
  */
 export interface IVs {
