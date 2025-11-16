@@ -96,3 +96,22 @@ export function formatError(err: unknown): string {
   
   return "An unknown error occurred";
 }
+
+/**
+ * Extract error message string from unknown error
+ * Common pattern: safely get error.message or convert to string
+ * @param error - Unknown error value
+ * @returns Error message string
+ * 
+ * @example
+ * ```typescript
+ * try {
+ *   // risky operation
+ * } catch (error) {
+ *   log.error(getErrorMessage(error)); // replaces: error instanceof Error ? error.message : String(error)
+ * }
+ * ```
+ */
+export function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

@@ -4,6 +4,7 @@ import type { PrismaClient, Prisma } from "@prisma/client";
 import type { BusStatus } from "../../types/db-models.js";
 import { toEasternString } from "../../shared/datetime.js";
 import { formatBytes, formatBytesShort, formatDurationCompact } from "../../shared/utils/format-utils.js";
+import { getErrorMessage } from "../../shared/utils/error-utils.js";
 
 import {
   collectCacheMetrics,
@@ -830,7 +831,7 @@ export async function handleOpsCommand(
         commandName: '/ops cache',
         operation: 'collectCacheMetrics',
       });
-      const message = err instanceof Error ? err.message : String(err);
+      const message = getErrorMessage(err);
       await interaction.editReply({ content: `Cache metrics unavailable: ${message}` });
     }
     return;
@@ -849,7 +850,7 @@ export async function handleOpsCommand(
         commandName: '/ops engine',
         operation: 'formatEngineDbStats',
       });
-      const message = err instanceof Error ? err.message : String(err);
+      const message = getErrorMessage(err);
       await interaction.editReply({ content: `Engine DB stats unavailable: ${message}` });
     }
     return;
@@ -1066,7 +1067,7 @@ export async function handleOpsCommand(
         operation: 'getSecurityBotState',
       });
       log.warn("State command failed", { err });
-      const message = err instanceof Error ? err.message : String(err);
+      const message = getErrorMessage(err);
       await interaction.editReply({ content: `State unavailable: ${message}` });
     }
     return;
@@ -1253,7 +1254,7 @@ export async function handleOpsCommand(
       }
     } catch (err) {
       log.warn("Error dashboard command failed", { err });
-      const message = err instanceof Error ? err.message : String(err);
+      const message = getErrorMessage(err);
       await interaction.editReply({ content: `Error dashboard unavailable: ${message}` });
     }
     return;
@@ -1469,7 +1470,7 @@ export async function handleOpsCommand(
       }
     } catch (err) {
       log.warn("Memory profiling command failed", { err });
-      const message = err instanceof Error ? err.message : String(err);
+      const message = getErrorMessage(err);
       await interaction.editReply({ content: `Memory profiling unavailable: ${message}` });
     }
     return;
