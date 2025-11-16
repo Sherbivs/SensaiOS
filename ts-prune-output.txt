@@ -74,6 +74,7 @@
 \src\data\dexpack.d.ts:67 - DexpackHashTable (used in module)
 \src\data\dexpack.d.ts:73 - FastDexpack (used in module)
 \src\data\dexpack.d.ts:95 - dexpackState
+\src\data_pipeline\index.ts:46 - buildData (used in module)
 \src\engine\calc.js:159 - stab (used in module)
 \src\engine\calc.js:159 - typeEffectiveness (used in module)
 \src\engine\effects.js:253 - registerEffectRule (used in module)
@@ -144,15 +145,19 @@
 \src\services\error-learning.ts:75 - RecoveryStrategy (used in module)
 \src\services\error-learning.ts:88 - LearningMetadata (used in module)
 \src\services\error-learning.ts:101 - ErrorLearningService (used in module)
+\src\services\resource-manager.ts:26 - ResourceType (used in module)
 \src\services\resource-manager.ts:37 - ResourceHandle (used in module)
+\src\services\resource-manager.ts:46 - TimerHandle (used in module)
+\src\services\resource-manager.ts:53 - ListenerHandle (used in module)
+\src\services\resource-manager.ts:61 - ConnectionHandle (used in module)
 \src\services\resource-manager.ts:68 - DiskCacheHandle (used in module)
 \src\services\resource-manager.ts:79 - DiskBufferHandle (used in module)
 \src\services\resource-manager.ts:90 - DiskLogHandle (used in module)
 \src\services\resource-manager.ts:118 - ResourceLimits (used in module)
-\src\services\resource-request.ts:457 - resourceRequestHandler
-\src\shared\config.ts:361 - resetConfigCacheForTests
 \src\shared\config.ts:6 - DatabaseConnectionMode (used in module)
 \src\shared\config.ts:8 - DatabaseUrlSource (used in module)
+\src\shared\config.ts:23 - BackupStorageProvider (used in module)
+\src\shared\config.ts:25 - BackupStorageConfig (used in module)
 \src\shared\config.ts:35 - RuntimeConfig (used in module)
 \src\shared\datetime.js:60 - toEasternTime
 \src\shared\datetime.js:77 - toEasternDate
@@ -164,42 +169,25 @@
 \src\shared\event-bus.ts:63 - CorrelationId (used in module)
 \src\shared\event-bus.ts:68 - SubscriptionId (used in module)
 \src\shared\event-bus.ts:73 - SubscriberInfo (used in module)
-\src\shared\index.ts:2 - sharedReady
 \src\shared\logBuffer.ts:73 - LogBuffer (used in module)
-\src\shared\logBufferInit.ts:69 - disableLogBuffer
-\src\shared\logBufferInit.ts:76 - enableLogBuffer
-\src\shared\outbox.ts:5 - OutboxMessage (used in module)
 \src\shared\pg-connection.ts:309 - initializeConnection
 \src\shared\pg-connection.ts:345 - getConnection (used in module)
-\src\shared\pg-connection.ts:364 - getLocalDb
-\src\shared\pg-connection.ts:372 - getDatabaseStats
+\src\shared\pg-connection.ts:365 - getDatabaseStats
 \src\shared\pg-connection.ts:27 - DbConfig (used in module)
 \src\shared\pg-connection.ts:32 - DbStats (used in module)
 \src\shared\pg-connection.ts:41 - DualDbStats (used in module)
 \src\shared\pg-connection.ts:50 - PostgresConnection (used in module)
 \src\shared\pg-query.ts:48 - buildWhereClause (used in module)
-\src\shared\pg-query.ts:90 - buildAdvancedWhere
-\src\shared\pg-query.ts:124 - buildInClause
-\src\shared\pg-query.ts:264 - buildUpsert
-\src\shared\pg-query.ts:347 - buildIncrementUpdate
-\src\shared\pg-query.ts:451 - escapeIdentifier
-\src\shared\pg-query.ts:458 - buildPagination
 \src\shared\pg-query.ts:22 - QueryOptions (used in module)
-\src\shared\pg-query.ts:27 - WhereCondition (used in module)
-\src\shared\pg-transaction.ts:130 - savepoint
-\src\shared\pg-transaction.ts:179 - batchTransaction
-\src\shared\pg-transaction.ts:217 - retryTransaction
-\src\shared\pg-transaction.ts:279 - readOnlyTransaction
+\src\shared\pg-query.ts:27 - WhereCondition
 \src\shared\pg-transaction.ts:22 - TransactionOptions (used in module)
 \src\shared\pg-transaction.ts:27 - TransactionCallback (used in module)
 \src\shared\prisma.ts:209 - stopPrismaHeartbeat (used in module)
-\src\shared\prisma.ts:450 - checkOnPremiseDevHealth (used in module)
-\src\shared\prisma.ts:488 - validateOnPremiseDevVersion
+\src\shared\prisma.ts:450 - checkOnPremiseDevHealth
 \src\shared\prisma.ts:66 - onPremiseDevPrisma (used in module)
 \src\shared\prisma.ts:67 - onPremiseExperimentPrisma (used in module)
-\src\shared\prisma.ts:506 - DatabaseStats (used in module)
-\src\shared\prisma.ts:515 - DualDatabaseStats
-\src\shared\prisma.ts:520 - TripleDatabaseStats (used in module)
+\src\shared\prisma.ts:483 - DatabaseStats (used in module)
+\src\shared\prisma.ts:493 - TripleDatabaseStats (used in module)
 \src\shared\service-factories.ts:57 - createResourceManager (used in module)
 \src\shared\service-factories.ts:72 - resourceManagerHealthCheck (used in module)
 \src\shared\service-factories.ts:106 - resourceManagerShutdown (used in module)
@@ -225,19 +213,10 @@
 \src\shared\service-registry.ts:76 - HealthCheckFunction (used in module)
 \src\shared\service-registry.ts:77 - ShutdownFunction (used in module)
 \src\shared\service-registry.ts:78 - ServiceDependencies (used in module)
-\src\shared\service-registry.ts:712 - getServiceRegistry
-\src\shared\service-registry.ts:715 - registerService
-\src\shared\service-registry.ts:719 - getService
-\src\shared\service-registry.ts:723 - initializeServices
-\src\shared\service-registry.ts:727 - shutdownServices
-\src\shared\worker-runtime.ts:406 - untilShutdown
-\src\shared\worker-runtime.ts:11 - MetricThreshold (used in module)
-\src\shared\worker-runtime.ts:35 - WorkerMetricsSnapshot (used in module)
-\src\shared\worker-runtime.ts:234 - WorkerShutdownHandler (used in module)
-\src\shared\worker-runtime.ts:236 - RepeatOptions (used in module)
-\src\shared\worker-runtime.ts:246 - RepeatHandle (used in module)
 \src\types\db-models.ts:16 - MoveCategory
 \src\types\db-models.ts:22 - LearnMethod (used in module)
+\src\types\db-models.ts:29 - BusKind (used in module)
+\src\types\db-models.ts:41 - BusPriority (used in module)
 \src\types\db-models.ts:51 - Tenant
 \src\types\db-models.ts:56 - Trainer
 \src\types\db-models.ts:64 - DexPack
@@ -248,9 +227,9 @@
 \src\types\db-models.ts:101 - Item
 \src\types\db-models.ts:110 - Move
 \src\types\db-models.ts:122 - Species (used in module)
-\src\types\db-models.ts:142 - SpeciesType (used in module)
+\src\types\db-models.ts:142 - SpeciesType
 \src\types\db-models.ts:148 - SpeciesAbility (used in module)
-\src\types\db-models.ts:154 - SpeciesLearnset (used in module)
+\src\types\db-models.ts:154 - SpeciesLearnset
 \src\types\db-models.ts:162 - EvolutionStep
 \src\types\db-models.ts:171 - TypeChart
 \src\types\db-models.ts:177 - NameVariant
@@ -260,24 +239,11 @@
 \src\types\db-models.ts:323 - AuditLog
 \src\types\db-models.ts:335 - DbVersion
 \src\types\db-models.ts:345 - DbSyncState
-\src\types\db-models.ts:362 - UserWithParty
-\src\types\db-models.ts:366 - UserWithPokemon
-\src\types\db-models.ts:370 - UserWithEncounters
-\src\types\db-models.ts:374 - UserWithBattles
-\src\types\db-models.ts:379 - PartyWithSlots
-\src\types\db-models.ts:387 - PokemonInstanceWithSpecies
-\src\types\db-models.ts:391 - EncounterWithSpecies
-\src\types\db-models.ts:395 - EncounterWithOwner
-\src\types\db-models.ts:399 - BattleWithPlayers
-\src\types\db-models.ts:404 - SpeciesWithTypes
-\src\types\db-models.ts:408 - SpeciesWithAbilities
-\src\types\db-models.ts:412 - SpeciesWithLearnset
-\src\types\db-models.ts:420 - UserIdOnly
-\src\types\db-models.ts:421 - UserWithCoins
-\src\types\db-models.ts:422 - UserSummary
-\src\types\db-models.ts:423 - PokemonSummary
-\src\types\db-models.ts:424 - BattleIdOnly
-\src\types\db-models.ts:425 - EncounterSummary
+\src\types\db-models.ts:362 - PartyWithSlots
+\src\types\db-models.ts:370 - PokemonInstanceWithSpecies
+\src\types\db-models.ts:374 - BattleWithPlayers
+\src\types\db-models.ts:379 - SpeciesWithAbilities
+\src\types\db-models.ts:387 - PokemonSummary
 \src\utils\intelligent-logger.ts:33 - LogLevel (used in module)
 \src\utils\intelligent-logger.ts:35 - LogCategory (used in module)
 \src\utils\intelligent-logger.ts:41 - LogEntry (used in module)
@@ -286,79 +252,52 @@
 \src\utils\intelligent-logger.ts:978 - logger (used in module)
 \src\utils\memory-measurement.ts:338 - formatMB
 \src\utils\memory-measurement.ts:21 - ComponentMemoryStats (used in module)
-\src\utils\output-formatter.ts:34 - formatBorder (used in module)
-\src\utils\output-formatter.ts:48 - formatSeparator
-\src\utils\output-formatter.ts:70 - formatSectionHeader (used in module)
-\src\utils\output-formatter.ts:82 - formatSection
-\src\utils\output-formatter.ts:118 - formatKeyValue (used in module)
-\src\utils\output-formatter.ts:141 - formatKeyValueList (used in module)
-\src\utils\output-formatter.ts:170 - formatTable
-\src\utils\output-formatter.ts:226 - formatList
-\src\utils\output-formatter.ts:254 - formatStatus
-\src\utils\output-formatter.ts:278 - formatProgress
-\src\utils\output-formatter.ts:298 - formatOutputBlock
 \src\utils\stack-trace-parser.ts:210 - parseStackFrame (used in module)
 \src\utils\stack-trace-parser.ts:354 - extractSourceSnippet (used in module)
 \src\utils\stack-trace-parser.ts:70 - SourceSnippet (used in module)
 \src\utils\stack-trace-parser.ts:122 - ErrorContextSnapshot (used in module)
-\src\workers\engine-workers.ts:938 - recordReadDbSyncExecution
 \src\workers\error-learning-worker.ts:26 - ErrorLearningWorkerStatus (used in module)
 \src\workers\error-learning-worker.ts:41 - ErrorLearningWorker (used in module)
-\src\bot\arena\summary.ts:5 - buildArenaTurnSummary
-\src\bot\arena\summary.ts:17 - buildDMDetailedLog
 \src\bot\arena\thread.ts:33 - buildArenaIntro (used in module)
 \src\bot\arena\thread.ts:10 - ThreadCreateResult (used in module)
 \src\bot\battle\actions.ts:37 - buildBattleActionPrompt (used in module)
-\src\bot\battle\actions.ts:459 - __testing
-\src\bot\battle\challenge.ts:274 - __testing
 \src\bot\dm\heal.ts:6 - healPartyForUser (used in module)
 \src\bot\dm\home.ts:397 - buildBoxView (used in module)
 \src\bot\dm\home.ts:398 - buildPartyView (used in module)
 \src\bot\dm\home.ts:399 - buildProfileView (used in module)
 \src\bot\dm\home.ts:400 - fetchTrainerHomeSnapshot (used in module)
 \src\bot\dm\home.ts:401 - openBoxPage (used in module)
-\src\bot\dm\home.ts:435 - default
 \src\bot\dm\starters.ts:21 - buildStartersEmbed (used in module)
 \src\bot\dm\starters.ts:38 - buildStartersButtons (used in module)
 \src\bot\dm\starters.ts:65 - createStarterAndAssignParty (used in module)
 \src\bot\middleware\limits.ts:4 - hasActiveEncounter (used in module)
 \src\bot\middleware\limits.ts:9 - hasActiveOrPendingBattle (used in module)
-\src\bot\middleware\limits.ts:31 - __testing
 \src\bot\ops\admin.ts:155 - isAdmin (used in module)
 \src\bot\ops\admin.ts:149 - OpsCommandDeps (used in module)
 \src\bot\profile\embed.ts:47 - buildTrainerProfileEmbed
 \src\bot\wilds\controls.ts:60 - composeCatchSuccessMessages (used in module)
 \src\bot\wilds\controls.ts:68 - buildEncounterEmbed (used in module)
 \src\bot\wilds\controls.ts:76 - buildEncounterButtons (used in module)
-\src\core\battle\damage.ts:15 - computeDamage
-\src\core\battle\damage.ts:24 - stab (used in module)
-\src\core\battle\damage.ts:28 - typeEffectiveness (used in module)
-\src\core\battle\damage.ts:32 - effectiveStat (used in module)
-\src\core\battle\engine.ts:83 - loadIndexes (used in module)
-\src\core\battle\engine.ts:88 - buildRuntimeFromDex (used in module)
-\src\core\battle\engine.ts:106 - newBattle (used in module)
-\src\core\battle\engine.ts:124 - resolveTurn (used in module)
-\src\core\battle\engine.ts:136 - effectiveSpeed
-\src\core\battle\engine.ts:140 - makeCtx
-\src\core\battle\engine.ts:22 - BuiltIndexes (used in module)
-\src\core\battle\engine.ts:51 - RNG (used in module)
-\src\core\battle\engine.ts:56 - SeededRNG (used in module)
-\src\core\battle\engine.ts:75 - MoveKey (used in module)
-\src\core\battle\engine.ts:77 - ResolveCtxOptions (used in module)
-\src\core\battle\engine.ts:101 - BattleInitOptions (used in module)
-\src\core\battle\engine.ts:147 - BattleLog
-\src\core\battle\index.ts:2 - battleCoreInit
-\src\core\battle\status.ts:4 - canApplyMajorStatus (used in module)
-\src\core\battle\status.ts:10 - applyMajorStatus
+\src\core\battle\damage.ts:14 - stab (used in module)
+\src\core\battle\damage.ts:18 - typeEffectiveness (used in module)
+\src\core\battle\damage.ts:22 - effectiveStat (used in module)
+\src\core\battle\engine.ts:77 - loadIndexes (used in module)
+\src\core\battle\engine.ts:82 - buildRuntimeFromDex (used in module)
+\src\core\battle\engine.ts:100 - newBattle (used in module)
+\src\core\battle\engine.ts:118 - resolveTurn (used in module)
+\src\core\battle\engine.ts:17 - BuiltIndexes (used in module)
+\src\core\battle\engine.ts:45 - RNG (used in module)
+\src\core\battle\engine.ts:50 - SeededRNG (used in module)
+\src\core\battle\engine.ts:69 - MoveKey (used in module)
+\src\core\battle\engine.ts:71 - ResolveCtxOptions (used in module)
+\src\core\battle\engine.ts:95 - BattleInitOptions (used in module)
+\src\core\battle\status.ts:4 - canApplyMajorStatus
 \src\core\battle\status.ts:2 - MajorStatus (used in module)
-\src\core\battle\turn-manager.ts:178 - clearBattleRuntime
 \src\core\battle\turn-manager.ts:46 - QueueResult (used in module)
-\src\core\battle\turn-manager.ts:182 - __testing
 \src\core\encounter\catch.ts:28 - catchChance (used in module)
 \src\core\encounter\catch.ts:7 - BallType (used in module)
 \src\core\encounter\catch.ts:39 - AttemptCatchOpts (used in module)
 \src\core\encounter\catch.ts:152 - RunFromEncounterOpts (used in module)
-\src\core\encounter\index.ts:2 - spawnEncounter
 \src\core\encounter\spawn.ts:4 - chooseSpeciesId (used in module)
 \src\core\encounter\spawn.ts:10 - chooseLevel (used in module)
 \src\core\encounter\spawn.ts:15 - SpawnOpts (used in module)
@@ -403,10 +342,9 @@
 \src\data_pipeline\schema\typechart.ts:23 - TypeChart
 \src\services\cache\facade.ts:335 - stopCacheMaintenanceScheduler (used in module)
 \src\services\cache\facade.ts:358 - configureCacheFacade
-\src\services\cache\facade.ts:429 - peek
-\src\services\cache\facade.ts:450 - touch
-\src\services\cache\facade.ts:488 - cacheRoot
-\src\services\cache\facade.ts:968 - resetCacheMetrics
+\src\services\cache\facade.ts:429 - touch
+\src\services\cache\facade.ts:467 - cacheRoot
+\src\services\cache\facade.ts:947 - resetCacheMetrics
 \src\services\cache\facade.ts:37 - CacheDescriptor (used in module)
 \src\services\cache\facade.ts:43 - CacheReadOptions (used in module)
 \src\services\cache\facade.ts:52 - CacheHydrator (used in module)
@@ -416,105 +354,30 @@
 \src\services\cache\recipes.ts:43 - QuestClaimCooldown (used in module)
 \src\services\cache\recipes.ts:50 - QuestClaimResult (used in module)
 \src\services\cache\recipes.ts:52 - QuestClaimContext (used in module)
-\src\services\db-replication\integrity.ts:36 - IntegrityOptions (used in module)
-\src\services\db-replication\integrity.ts:45 - SchemaDiffType (used in module)
-\src\services\db-replication\integrity.ts:46 - SchemaDiffAction (used in module)
-\src\services\db-replication\integrity.ts:48 - SchemaDiff (used in module)
-\src\services\db-replication\integrity.ts:59 - DataCheck (used in module)
-\src\services\db-replication\integrity.ts:72 - SchemaIntegrityResult (used in module)
-\src\services\db-replication\integrity.ts:81 - DataIntegrityResult (used in module)
-\src\services\db-replication\monitoring.ts:82 - getReplicationMetrics
-\src\services\db-replication\monitoring.ts:236 - checkAlertThresholds
-\src\services\db-replication\monitoring.ts:362 - sendAlert
-\src\services\db-replication\monitoring.ts:390 - formatMetrics
-\src\services\db-replication\monitoring.ts:24 - SyncStatus (used in module)
-\src\services\db-replication\monitoring.ts:25 - IntegrityStatus (used in module)
-\src\services\db-replication\monitoring.ts:26 - AlertSeverity (used in module)
-\src\services\db-replication\monitoring.ts:28 - CascadeMetrics (used in module)
-\src\services\db-replication\monitoring.ts:41 - ReplicationMetrics (used in module)
-\src\services\db-replication\monitoring.ts:62 - Alert (used in module)
-\src\services\db-replication\rollback.ts:90 - preservePreSyncState
-\src\services\db-replication\rollback.ts:107 - blockDownstreamSync
-\src\services\db-replication\sync.ts:208 - syncDevToProd
-\src\services\db-replication\sync.ts:436 - syncProdToLocal
-\src\services\db-replication\sync.ts:517 - pruneLocalSnapshots
-\src\services\db-replication\sync.ts:40 - SyncStage (used in module)
-\src\services\db-replication\sync.ts:48 - SyncError (used in module)
-\src\services\db-replication\sync.ts:59 - SyncMetrics (used in module)
-\src\services\db-replication\sync.ts:91 - SyncOptions (used in module)
-\src\services\db-replication\version.ts:37 - VersionStatus (used in module)
-\src\services\db-replication\version.ts:44 - VersionComparison (used in module)
-\src\services\db-replication\version.ts:52 - ReversionResult (used in module)
-\src\services\events\index.ts:11 - EventCategory
-\src\services\events\index.ts:22 - EventSeverity
-\src\services\events\index.ts:31 - BaseEvent
-\src\services\events\index.ts:49 - BattleStartedEvent
-\src\services\events\index.ts:63 - BattleOutcomeEvent
-\src\services\events\index.ts:81 - PokemonCaughtEvent
-\src\services\events\index.ts:99 - PokemonEvolvedEvent
-\src\services\events\index.ts:120 - LoginEvent
-\src\services\events\index.ts:131 - AchievementUnlockedEvent
-\src\services\events\index.ts:154 - CoinsEvent
-\src\services\events\index.ts:173 - ErrorEvent
-\src\services\events\index.ts:190 - RETENTION_POLICIES
-\src\services\events\index.ts:232 - TrackedEvent
-\src\services\events\index.ts:330 - createEventTracker
-\src\services\events\index.ts:340 - getEventTracker
-\src\services\events\index.ts:28 - EventTrackerConfig
-\src\services\events\index.ts:46 - EventTrackerMetrics
-\src\services\events\index.ts:59 - EventTracker
-\src\services\profiles\index.ts:8 - UserProfile
-\src\services\profiles\index.ts:30 - UserStats
-\src\services\profiles\index.ts:45 - UserAchievement
-\src\services\profiles\index.ts:60 - LeaderboardEntry
-\src\services\profiles\index.ts:73 - LeaderboardType
-\src\services\profiles\index.ts:82 - LeaderboardOptions
-\src\services\profiles\index.ts:96 - LeaderboardResult
-\src\services\profiles\index.ts:572 - createProfileService
-\src\services\profiles\index.ts:582 - getProfileService
-\src\services\profiles\index.ts:29 - ProfileServiceConfig
-\src\services\profiles\index.ts:47 - ProfileServiceMetrics
-\src\services\profiles\index.ts:103 - ProfileService
 \src\shared\cache\memory.ts:61 - MemoryCache (used in module)
-\src\shared\cache\ttl-lru.ts:1 - Clock (used in module)
-\src\shared\cache\ttl-lru.ts:10 - TtlLruCacheOptions (used in module)
-\src\shared\cache\ttl-lru.ts:16 - TtlLruCache
-\src\shared\models\battle-queries-pg.ts:147 - findBattleById
-\src\shared\models\battle-queries-pg.ts:175 - findBattleWithPlayers
-\src\shared\models\battle-queries-pg.ts:310 - updateBattleState
-\src\shared\models\battle-queries-pg.ts:372 - linkBattleToThread
-\src\shared\models\battle-queries-pg.ts:442 - concludeBattle
-\src\shared\models\battle-queries-pg.ts:511 - deleteBattle
-\src\shared\models\battle-queries-pg.ts:36 - BattleWithPlayers (used in module)
-\src\shared\models\battle-queries-pg.ts:58 - BattleBasic
-\src\shared\models\battle-queries-pg.ts:71 - BattleResultJson (used in module)
-\src\shared\models\bus-queries-pg.ts:97 - findMessageById (used in module)
-\src\shared\models\bus-queries-pg.ts:111 - getMessageById (used in module)
-\src\shared\models\bus-queries-pg.ts:139 - countReadyMessages
-\src\shared\models\bus-queries-pg.ts:154 - findMessagesByTopic
-\src\shared\models\bus-queries-pg.ts:178 - publishMessage
-\src\shared\models\bus-queries-pg.ts:223 - claimMessageBatch
-\src\shared\models\bus-queries-pg.ts:279 - markMessageProcessed
-\src\shared\models\bus-queries-pg.ts:310 - markMessageFailed
-\src\shared\models\bus-queries-pg.ts:348 - updateMessageStatus
-\src\shared\models\bus-queries-pg.ts:366 - incrementMessageAttempts
-\src\shared\models\bus-queries-pg.ts:388 - deleteMessage
-\src\shared\models\bus-queries-pg.ts:409 - cleanupOldMessages
-\src\shared\models\bus-queries-pg.ts:431 - deleteMessagesByStatus
-\src\shared\models\bus-queries-pg.ts:462 - hasSeenToken
-\src\shared\models\bus-queries-pg.ts:486 - cleanupOldTokens
-\src\shared\models\bus-queries-pg.ts:505 - countTokens
-\src\shared\models\bus-queries-pg.ts:37 - PublishOptions (used in module)
-\src\shared\models\bus-queries-pg.ts:48 - ClaimOptions (used in module)
-\src\shared\models\bus-queries-pg.ts:55 - FailOptions (used in module)
-\src\shared\models\bus-queries-pg.ts:63 - ClaimedMessage (used in module)
+\src\shared\models\battle-queries-pg.ts:281 - concludeBattle
+\src\shared\models\battle-queries-pg.ts:36 - BattleWithPlayers
+\src\shared\models\battle-queries-pg.ts:58 - BattleResultJson (used in module)
+\src\shared\models\bus-queries-pg.ts:60 - findMessageById (used in module)
+\src\shared\models\bus-queries-pg.ts:74 - getMessageById
 \src\shared\models\cooldown-queries-pg.ts:44 - countUserCooldowns
+\src\shared\models\db-version-queries-pg.ts:50 - getMigrations
+\src\shared\models\db-version-queries-pg.ts:72 - getMigrationsWithLimit
+\src\shared\models\db-version-queries-pg.ts:97 - createDbVersion
+\src\shared\models\db-version-queries-pg.ts:148 - findDbSyncState
+\src\shared\models\db-version-queries-pg.ts:176 - upsertDbSyncState
+\src\shared\models\db-version-queries-pg.ts:235 - getTableNames
+\src\shared\models\db-version-queries-pg.ts:255 - getTableColumns
 \src\shared\models\db-version-queries-pg.ts:292 - getTableIndexes
 \src\shared\models\db-version-queries-pg.ts:330 - getTableConstraints
+\src\shared\models\db-version-queries-pg.ts:361 - countTableRows
+\src\shared\models\db-version-queries-pg.ts:379 - getColumnsForChecksum
 \src\shared\models\db-version-queries-pg.ts:401 - calculateTableChecksum
 \src\shared\models\db-version-queries-pg.ts:431 - getForeignKeys
+\src\shared\models\db-version-queries-pg.ts:474 - countOrphanRecords
 \src\shared\models\db-version-queries-pg.ts:14 - DbVersion (used in module)
 \src\shared\models\db-version-queries-pg.ts:24 - DbSyncState (used in module)
+\src\shared\models\db-version-queries-pg.ts:34 - MigrationRow (used in module)
 \src\shared\models\dex-queries-pg.ts:100 - findAllTypes
 \src\shared\models\dex-queries-pg.ts:112 - countTable
 \src\shared\models\dex-queries-pg.ts:129 - deleteAllSpeciesLearnsets
@@ -605,15 +468,6 @@
 \src\shared\models\user-queries-pg.ts:33 - PartySlotWithPokemon (used in module)
 \src\shared\models\user-queries-pg.ts:40 - PartyWithSlots (used in module)
 \src\shared\models\user-queries-pg.ts:47 - UserWithParty (used in module)
-\src\shared\storage\backup-sink.ts:161 - resetBackupSinkForTests
-\src\shared\storage\backup-sink.ts:10 - BackupPayload (used in module)
-\src\shared\storage\backup-sink.ts:18 - BackupResult (used in module)
-\src\shared\utils\index.ts:14 - buffersEqual
-\src\shared\utils\index.ts:24 - readFileIfExists
-\src\shared\utils\index.ts:41 - writeFileIfChanged
-\src\shared\utils\index.ts:55 - ensureDirectory
-\src\shared\utils\index.ts:65 - readJsonFile
-\src\shared\utils\index.ts:76 - writeJsonFile
 \src\shared\utils\index.ts:11 - delay
 \src\shared\utils\index.ts:23 - delayWithJitter
 \src\shared\utils\index.ts:38 - retry
