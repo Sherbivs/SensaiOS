@@ -30,29 +30,6 @@ import type { Battle } from "../../types/db-models.js";
 // ============================================================================
 
 /**
- * Battle with player User records joined
- * Equivalent to: prisma.battle.findUnique({ include: { p1: true, p2: true } })
- */
-export interface BattleWithPlayers extends Battle {
-  p1: {
-    id: string;
-    discordId: string;
-    platformId: string | null;
-    coins: number;
-    createdAt: Date;
-    updatedAt: Date;
-  };
-  p2: {
-    id: string;
-    discordId: string;
-    platformId: string | null;
-    coins: number;
-    createdAt: Date;
-    updatedAt: Date;
-  };
-}
-
-/**
  * Battle result metadata for recording outcomes
  */
 export interface BattleResultJson {
