@@ -1,65 +1,4 @@
-\src\index.ts:1014 - boot (used in module)
 \src\bot\dripAlerts.d.ts:129 - createDripAlertManager
-\src\bot\dripAlerts.d.ts:13 - AlertSeverity (used in module)
-\src\bot\dripAlerts.d.ts:18 - AlertMeta (used in module)
-\src\bot\dripAlerts.d.ts:23 - AlertUser (used in module)
-\src\bot\dripAlerts.d.ts:32 - LogContext (used in module)
-\src\bot\dripAlerts.d.ts:39 - ActivityMeta (used in module)
-\src\bot\dripAlerts.d.ts:46 - DripAlertManagerConfig (used in module)
-\src\bot\dripAlerts.d.ts:91 - DripAlertManager (used in module)
-\src\bot\error-handler.ts:15 - DiscordErrorContext (used in module)
-\src\bot\error-handler.ts:25 - BotErrorHandler (used in module)
-\src\bot\index.ts:32 - BotStartOptions (used in module)
-\src\config\engine-db-config.ts:25 - IS_PRODUCTION (used in module)
-\src\config\engine-db-config.ts:30 - IS_TEST (used in module)
-\src\config\engine-db-config.ts:38 - STORAGE_BASE_DIR (used in module)
-\src\config\engine-db-config.ts:52 - ENGINE_READ_DB_PATH (used in module)
-\src\config\engine-db-config.ts:58 - ENGINE_WRITE_DB_PATH (used in module)
-\src\config\engine-db-config.ts:64 - ENGINE_WAL_PATH (used in module)
-\src\config\engine-db-config.ts:69 - ENGINE_READ_VERSION_PATH (used in module)
-\src\config\engine-db-config.ts:98 - L1_CACHE_MAX_SIZE_MB (used in module)
-\src\config\engine-db-config.ts:107 - L1_CACHE_REFRESH_INTERVAL_MS (used in module)
-\src\config\engine-db-config.ts:115 - L1_CACHE_INIT_TIMEOUT_MS (used in module)
-\src\config\engine-db-config.ts:131 - WRITE_BUFFER_MAX_QUEUE_SIZE (used in module)
-\src\config\engine-db-config.ts:143 - WRITE_BUFFER_FLUSH_INTERVAL_MS (used in module)
-\src\config\engine-db-config.ts:155 - WRITE_BUFFER_WARN_THRESHOLD (used in module)
-\src\config\engine-db-config.ts:156 - WRITE_BUFFER_REJECT_THRESHOLD (used in module)
-\src\config\engine-db-config.ts:162 - WRITE_BUFFER_SHUTDOWN_TIMEOUT_MS (used in module)
-\src\config\engine-db-config.ts:172 - CACHE_REFRESH_WORKER_INTERVAL_MS (used in module)
-\src\config\engine-db-config.ts:178 - BUFFER_FLUSH_WORKER_INTERVAL_MS (used in module)
-\src\config\engine-db-config.ts:185 - READ_DB_SYNC_CRON (used in module)
-\src\config\engine-db-config.ts:191 - WRITE_DB_VALIDATOR_INTERVAL_MS (used in module)
-\src\config\engine-db-config.ts:199 - ENGINE_MAINTENANCE_INTERVAL_MS (used in module)
-\src\config\engine-db-config.ts:207 - WORKER_STARTUP_STAGGER_MS (used in module)
-\src\config\engine-db-config.ts:217 - VALIDATION_MIN_QUALITY_SCORE (used in module)
-\src\config\engine-db-config.ts:223 - VALIDATION_SAMPLING_RATE (used in module)
-\src\config\engine-db-config.ts:229 - VALIDATION_BATCH_SIZE (used in module)
-\src\config\engine-db-config.ts:234 - VALIDATION_BATCH_TIMEOUT_MS (used in module)
-\src\config\engine-db-config.ts:240 - VALIDATION_MAX_QUARANTINE_SIZE (used in module)
-\src\config\engine-db-config.ts:250 - SQLITE_BUSY_TIMEOUT_MS (used in module)
-\src\config\engine-db-config.ts:256 - SQLITE_PAGE_SIZE (used in module)
-\src\config\engine-db-config.ts:262 - SQLITE_CACHE_SIZE_PAGES (used in module)
-\src\config\engine-db-config.ts:268 - POSTGRES_POOL_SIZE (used in module)
-\src\config\engine-db-config.ts:274 - POSTGRES_QUERY_TIMEOUT_MS (used in module)
-\src\config\engine-db-config.ts:284 - L1_CACHE_EXPECTED_LATENCY_US (used in module)
-\src\config\engine-db-config.ts:290 - WRITE_BUFFER_EXPECTED_LATENCY_US (used in module)
-\src\config\engine-db-config.ts:296 - READ_DB_EXPECTED_LATENCY_MS (used in module)
-\src\config\engine-db-config.ts:302 - WRITE_DB_EXPECTED_LATENCY_MS (used in module)
-\src\config\engine-db-config.ts:312 - WRITE_DB_RETENTION_HOURS (used in module)
-\src\config\engine-db-config.ts:318 - WRITE_DB_PRUNING_INTERVAL_MS (used in module)
-\src\config\engine-db-config.ts:327 - DISK_SPACE_WARN_THRESHOLD (used in module)
-\src\config\engine-db-config.ts:328 - DISK_SPACE_EMERGENCY_THRESHOLD (used in module)
-\src\config\engine-db-config.ts:334 - WRITE_DB_MAX_SIZE_MB (used in module)
-\src\config\engine-db-config.ts:344 - HEALTH_CHECK_PATH (used in module)
-\src\config\engine-db-config.ts:350 - HEALTH_CHECK_TIMEOUT_MS (used in module)
-\src\config\engine-db-config.ts:356 - HEALTH_CHECK_FAILURE_THRESHOLD (used in module)
-\src\config\engine-db-config.ts:366 - ENGINE_LOG_LEVEL (used in module)
-\src\config\engine-db-config.ts:372 - METRICS_LOG_INTERVAL_MS (used in module)
-\src\config\engine-db-config.ts:384 - FEATURE_L1_CACHE_ENABLED (used in module)
-\src\config\engine-db-config.ts:402 - FEATURE_L1_EXTENDED_LOADING_ENABLED (used in module)
-\src\config\engine-db-config.ts:408 - FEATURE_WRITE_BUFFER_ENABLED (used in module)
-\src\config\engine-db-config.ts:414 - FEATURE_WORKERS_ENABLED (used in module)
-\src\config\engine-db-config.ts:420 - FEATURE_VALIDATION_ENABLED (used in module)
 \src\data\dexpack.d.ts:83 - loadDexpack
 \src\data\dexpack.d.ts:85 - getLoadedPath
 \src\data\dexpack.d.ts:89 - getMove
@@ -67,233 +6,20 @@
 \src\data\dexpack.d.ts:91 - listSpecies
 \src\data\dexpack.d.ts:92 - suggestSpecies
 \src\data\dexpack.d.ts:93 - resetDexpack
-\src\data\dexpack.d.ts:1 - LearnsetLevelEntry (used in module)
-\src\data\dexpack.d.ts:6 - SpeciesDoc (used in module)
-\src\data\dexpack.d.ts:25 - MoveDoc (used in module)
-\src\data\dexpack.d.ts:40 - DexPack (used in module)
-\src\data\dexpack.d.ts:67 - DexpackHashTable (used in module)
-\src\data\dexpack.d.ts:73 - FastDexpack (used in module)
 \src\data\dexpack.d.ts:95 - dexpackState
-\src\data_pipeline\index.ts:46 - buildData (used in module)
-\src\engine\calc.js:159 - stab (used in module)
-\src\engine\calc.js:159 - typeEffectiveness (used in module)
-\src\engine\effects.js:253 - registerEffectRule (used in module)
-\src\engine\effects.js:253 - EFFECT_RULES (used in module)
-\src\engine\index.js:270 - loadIndexes (used in module)
-\src\engine\index.js:270 - makeRuntimeFromDexEntry (used in module)
-\src\engine\index.js:270 - newBattleState (used in module)
-\src\engine\index.js:270 - newAction (used in module)
-\src\engine\index.js:270 - resolveTurn (used in module)
-\src\lib\assets.js:37 - manifest (used in module)
-\src\models\index.ts:743 - projectDailyQuestCompletion (used in module)
-\src\models\index.ts:24 - TrainerCooldown (used in module)
-\src\models\index.ts:62 - TrainerProfileRecord (used in module)
-\src\models\index.ts:72 - TrainerProfileStats (used in module)
-\src\models\index.ts:88 - TrainerBattleSummary (used in module)
-\src\models\index.ts:507 - BattleResultReason (used in module)
-\src\models\index.ts:656 - DailyQuestStateInput (used in module)
-\src\models\index.ts:730 - DailyQuestProjectionInput (used in module)
-\src\models\index.ts:736 - DailyQuestCompletionProjection (used in module)
-\src\models\index.ts:763 - RecordDailyQuestOptions (used in module)
-\src\services\ai-log-analyzer.js:773 - analyze (used in module)
-\src\services\ai-log-analyzer.js:774 - query (used in module)
-\src\services\ai-log-analyzer.js:775 - detectErrorPatterns (used in module)
-\src\services\ai-log-analyzer.js:776 - detectPerformancePatterns (used in module)
-\src\services\ai-log-analyzer.js:777 - findCorrelations (used in module)
-\src\services\ai-log-analyzer.js:778 - detectAnomalies (used in module)
-\src\services\ai-log-analyzer.js:779 - generateInsights (used in module)
-\src\services\ai-log-analyzer.js:780 - getKnowledgeSummary (used in module)
-\src\services\ai-log-analyzer.js:781 - saveKnowledgeBase (used in module)
-\src\services\ai-log-analyzer.js:782 - loadKnowledgeBase (used in module)
 \src\services\ai-log-analyzer.js:785 - default
-\src\services\ai-log-integrations.js:25 - integrateErrorTracker (used in module)
-\src\services\ai-log-integrations.js:67 - integrateConsoleLogger (used in module)
-\src\services\ai-log-integrations.js:126 - integrateResourceMonitor (used in module)
-\src\services\ai-log-integrations.js:175 - integratePrisma (used in module)
-\src\services\ai-log-integrations.js:211 - integrateDiscordClient (used in module)
-\src\services\ai-log-integrations.js:483 - integrateResourceManager (used in module)
-\src\services\ai-log-integrations.js:548 - integrateDatabaseMonitor (used in module)
-\src\services\ai-log-integrations.js:588 - integrateWorkerProcess (used in module)
-\src\services\ai-log-integrations.js:273 - gameEngine (used in module)
-\src\services\ai-log-integrations.js:364 - securityBot (used in module)
-\src\services\ai-log-integrations.js:425 - userActions (used in module)
 \src\services\ai-log-integrations.js:684 - default
-\src\services\ai-log-writer.js:662 - trace (used in module)
-\src\services\ai-log-writer.js:670 - flush (used in module)
-\src\services\ai-log-writer.js:671 - getStats (used in module)
-\src\services\ai-log-writer.js:672 - generateCorrelationId (used in module)
 \src\services\ai-log-writer.js:676 - default
-\src\services\engine-cache.ts:38 - PokemonCacheEntry (used in module)
-\src\services\engine-cache.ts:58 - MoveCacheEntry (used in module)
-\src\services\engine-cache.ts:74 - CacheStats (used in module)
-\src\services\engine-write-buffer.ts:77 - BufferStats (used in module)
-\src\services\error-learning.ts:29 - TimePattern (used in module)
-\src\services\error-learning.ts:40 - ErrorCorrelation (used in module)
-\src\services\error-learning.ts:52 - ErrorCascade (used in module)
-\src\services\error-learning.ts:64 - ImpactPrediction (used in module)
-\src\services\error-learning.ts:75 - RecoveryStrategy (used in module)
-\src\services\error-learning.ts:88 - LearningMetadata (used in module)
-\src\services\error-learning.ts:101 - ErrorLearningService (used in module)
-\src\services\resource-manager.ts:26 - ResourceType (used in module)
-\src\services\resource-manager.ts:37 - ResourceHandle (used in module)
-\src\services\resource-manager.ts:46 - TimerHandle (used in module)
-\src\services\resource-manager.ts:53 - ListenerHandle (used in module)
-\src\services\resource-manager.ts:61 - ConnectionHandle (used in module)
-\src\services\resource-manager.ts:68 - DiskCacheHandle (used in module)
-\src\services\resource-manager.ts:79 - DiskBufferHandle (used in module)
-\src\services\resource-manager.ts:90 - DiskLogHandle (used in module)
-\src\services\resource-manager.ts:118 - ResourceLimits (used in module)
-\src\shared\config.ts:6 - DatabaseConnectionMode (used in module)
-\src\shared\config.ts:8 - DatabaseUrlSource (used in module)
-\src\shared\config.ts:23 - BackupStorageProvider (used in module)
-\src\shared\config.ts:25 - BackupStorageConfig (used in module)
-\src\shared\config.ts:35 - RuntimeConfig (used in module)
 \src\shared\datetime.js:60 - toEasternTime
 \src\shared\datetime.js:77 - toEasternDate
-\src\shared\datetime.js:91 - getEasternTimezoneAbbr (used in module)
 \src\shared\datetime.js:113 - formatInTimeZone
-\src\shared\event-bus.ts:40 - EmitOptions (used in module)
-\src\shared\event-bus.ts:49 - EventHandler (used in module)
-\src\shared\event-bus.ts:54 - SubscribeOptions (used in module)
-\src\shared\event-bus.ts:63 - CorrelationId (used in module)
-\src\shared\event-bus.ts:68 - SubscriptionId (used in module)
-\src\shared\event-bus.ts:73 - SubscriberInfo (used in module)
-\src\shared\logBuffer.ts:73 - LogBuffer (used in module)
 \src\shared\pg-connection.ts:309 - initializeConnection
-\src\shared\pg-connection.ts:345 - getConnection (used in module)
 \src\shared\pg-connection.ts:365 - getDatabaseStats
-\src\shared\pg-connection.ts:27 - DbConfig (used in module)
-\src\shared\pg-connection.ts:32 - DbStats (used in module)
-\src\shared\pg-connection.ts:41 - DualDbStats (used in module)
-\src\shared\pg-connection.ts:50 - PostgresConnection (used in module)
-\src\shared\pg-query.ts:48 - buildWhereClause (used in module)
-\src\shared\pg-query.ts:22 - QueryOptions (used in module)
-\src\shared\pg-query.ts:27 - WhereCondition
-\src\shared\pg-transaction.ts:22 - TransactionOptions (used in module)
-\src\shared\pg-transaction.ts:27 - TransactionCallback (used in module)
-\src\shared\prisma.ts:209 - stopPrismaHeartbeat (used in module)
-\src\shared\prisma.ts:66 - onPremiseDevPrisma (used in module)
-\src\shared\prisma.ts:67 - onPremiseExperimentPrisma (used in module)
-\src\shared\prisma.ts:446 - DatabaseStats (used in module)
-\src\shared\prisma.ts:456 - TripleDatabaseStats (used in module)
-\src\shared\service-factories.ts:57 - createResourceManager (used in module)
-\src\shared\service-factories.ts:72 - resourceManagerHealthCheck (used in module)
-\src\shared\service-factories.ts:106 - resourceManagerShutdown (used in module)
-\src\shared\service-factories.ts:145 - createErrorTracker (used in module)
-\src\shared\service-factories.ts:158 - errorTrackerHealthCheck (used in module)
-\src\shared\service-factories.ts:184 - errorTrackerShutdown (used in module)
-\src\shared\service-factories.ts:227 - createEngineCache (used in module)
-\src\shared\service-factories.ts:240 - engineCacheHealthCheck (used in module)
-\src\shared\service-factories.ts:266 - engineCacheShutdown (used in module)
-\src\shared\service-factories.ts:308 - createEngineWriteBuffer (used in module)
-\src\shared\service-factories.ts:321 - engineWriteBufferHealthCheck (used in module)
-\src\shared\service-factories.ts:356 - engineWriteBufferShutdown (used in module)
-\src\shared\service-factories.ts:113 - resourceManagerConfig (used in module)
-\src\shared\service-factories.ts:193 - errorTrackerConfig (used in module)
-\src\shared\service-factories.ts:274 - engineCacheConfig (used in module)
-\src\shared\service-factories.ts:363 - engineWriteBufferConfig (used in module)
-\src\shared\service-registry.ts:23 - ServiceStatus (used in module)
-\src\shared\service-registry.ts:42 - ServiceMetadata (used in module)
-\src\shared\service-registry.ts:53 - ServiceStats (used in module)
-\src\shared\service-registry.ts:62 - ServiceHealth (used in module)
-\src\shared\service-registry.ts:71 - DependencyGraph (used in module)
-\src\shared\service-registry.ts:75 - ServiceFactory (used in module)
-\src\shared\service-registry.ts:76 - HealthCheckFunction (used in module)
-\src\shared\service-registry.ts:77 - ShutdownFunction (used in module)
-\src\shared\service-registry.ts:78 - ServiceDependencies (used in module)
-\src\types\db-models.ts:16 - MoveCategory
-\src\types\db-models.ts:22 - LearnMethod (used in module)
-\src\types\db-models.ts:29 - BusKind (used in module)
-\src\types\db-models.ts:41 - BusPriority (used in module)
-\src\types\db-models.ts:51 - Tenant
-\src\types\db-models.ts:56 - Trainer
-\src\types\db-models.ts:64 - DexPack
-\src\types\db-models.ts:72 - TrainerSettings
-\src\types\db-models.ts:79 - TrainerProfile
-\src\types\db-models.ts:88 - Type
-\src\types\db-models.ts:94 - Ability
-\src\types\db-models.ts:101 - Item
-\src\types\db-models.ts:110 - Move
-\src\types\db-models.ts:122 - Species (used in module)
-\src\types\db-models.ts:142 - SpeciesType
-\src\types\db-models.ts:148 - SpeciesAbility (used in module)
-\src\types\db-models.ts:154 - SpeciesLearnset
-\src\types\db-models.ts:162 - EvolutionStep
-\src\types\db-models.ts:171 - TypeChart
-\src\types\db-models.ts:177 - NameVariant
-\src\types\db-models.ts:240 - Inventory
-\src\types\db-models.ts:246 - EncounterData
-\src\types\db-models.ts:317 - BusIdemToken
-\src\types\db-models.ts:323 - AuditLog
-\src\types\db-models.ts:335 - DbVersion
-\src\types\db-models.ts:345 - DbSyncState
-\src\types\db-models.ts:362 - PartyWithSlots
-\src\types\db-models.ts:370 - PokemonInstanceWithSpecies
-\src\types\db-models.ts:374 - BattleWithPlayers
-\src\types\db-models.ts:379 - SpeciesWithAbilities
-\src\types\db-models.ts:387 - PokemonSummary
-\src\utils\intelligent-logger.ts:33 - LogLevel (used in module)
-\src\utils\intelligent-logger.ts:35 - LogCategory (used in module)
-\src\utils\intelligent-logger.ts:41 - LogEntry (used in module)
-\src\utils\intelligent-logger.ts:114 - LogOptions (used in module)
-\src\utils\intelligent-logger.ts:975 - IntelligentLogger (used in module)
-\src\utils\intelligent-logger.ts:978 - logger (used in module)
-\src\utils\memory-measurement.ts:21 - ComponentMemoryStats (used in module)
-\src\utils\stack-trace-parser.ts:210 - parseStackFrame (used in module)
-\src\utils\stack-trace-parser.ts:354 - extractSourceSnippet (used in module)
-\src\utils\stack-trace-parser.ts:70 - SourceSnippet (used in module)
-\src\utils\stack-trace-parser.ts:122 - ErrorContextSnapshot (used in module)
-\src\workers\error-learning-worker.ts:26 - ErrorLearningWorkerStatus (used in module)
-\src\workers\error-learning-worker.ts:41 - ErrorLearningWorker (used in module)
-\src\bot\arena\thread.ts:33 - buildArenaIntro (used in module)
-\src\bot\arena\thread.ts:10 - ThreadCreateResult (used in module)
-\src\bot\battle\actions.ts:37 - buildBattleActionPrompt (used in module)
-\src\bot\dm\heal.ts:6 - healPartyForUser (used in module)
-\src\bot\dm\home.ts:397 - buildBoxView (used in module)
-\src\bot\dm\home.ts:398 - buildPartyView (used in module)
-\src\bot\dm\home.ts:399 - buildProfileView (used in module)
-\src\bot\dm\home.ts:400 - fetchTrainerHomeSnapshot (used in module)
-\src\bot\dm\home.ts:401 - openBoxPage (used in module)
-\src\bot\dm\starters.ts:21 - buildStartersEmbed (used in module)
-\src\bot\dm\starters.ts:38 - buildStartersButtons (used in module)
-\src\bot\dm\starters.ts:65 - createStarterAndAssignParty (used in module)
-\src\bot\middleware\limits.ts:4 - hasActiveEncounter (used in module)
-\src\bot\middleware\limits.ts:9 - hasActiveOrPendingBattle (used in module)
-\src\bot\ops\admin.ts:155 - isAdmin (used in module)
-\src\bot\ops\admin.ts:149 - OpsCommandDeps (used in module)
+\src\types\db-models.ts:157 - PartyWithSlots
+\src\types\db-models.ts:165 - BattleWithPlayers
 \src\bot\profile\embed.ts:47 - buildTrainerProfileEmbed
-\src\bot\wilds\controls.ts:60 - composeCatchSuccessMessages (used in module)
-\src\bot\wilds\controls.ts:68 - buildEncounterEmbed (used in module)
-\src\bot\wilds\controls.ts:76 - buildEncounterButtons (used in module)
-\src\core\battle\damage.ts:14 - stab (used in module)
-\src\core\battle\damage.ts:18 - typeEffectiveness (used in module)
-\src\core\battle\damage.ts:22 - effectiveStat (used in module)
-\src\core\battle\engine.ts:77 - loadIndexes (used in module)
-\src\core\battle\engine.ts:82 - buildRuntimeFromDex (used in module)
-\src\core\battle\engine.ts:100 - newBattle (used in module)
-\src\core\battle\engine.ts:118 - resolveTurn (used in module)
-\src\core\battle\engine.ts:17 - BuiltIndexes (used in module)
-\src\core\battle\engine.ts:45 - RNG (used in module)
-\src\core\battle\engine.ts:50 - SeededRNG (used in module)
-\src\core\battle\engine.ts:69 - MoveKey (used in module)
-\src\core\battle\engine.ts:71 - ResolveCtxOptions (used in module)
-\src\core\battle\engine.ts:95 - BattleInitOptions (used in module)
-\src\core\battle\turn-manager.ts:46 - QueueResult (used in module)
-\src\core\encounter\catch.ts:28 - catchChance (used in module)
-\src\core\encounter\catch.ts:7 - BallType (used in module)
-\src\core\encounter\catch.ts:39 - AttemptCatchOpts (used in module)
-\src\core\encounter\catch.ts:152 - RunFromEncounterOpts (used in module)
-\src\core\encounter\spawn.ts:4 - chooseSpeciesId (used in module)
-\src\core\encounter\spawn.ts:10 - chooseLevel (used in module)
-\src\core\encounter\spawn.ts:15 - SpawnOpts (used in module)
-\src\core\pbsl\audit.ts:23 - assertAuditEvent (used in module)
-\src\core\pbsl\audit.ts:3 - AuditEventContext (used in module)
-\src\core\pbsl\phases.ts:20 - isBattlePhase (used in module)
-\src\core\pbsl\phases.ts:24 - assertBattlePhase
-\src\core\pbsl\phases.ts:1 - BattlePhase (used in module)
-\src\core\pbsl\phases.ts:10 - BATTLE_PHASES (used in module)
+\src\core\pbsl\phases.ts:10 - BATTLE_PHASES
 \src\core\pbsl\rng.ts:95 - deserializeRngState
-\src\data_pipeline\schema\abilities.ts:9 - Ability
 \src\data_pipeline\schema\index.ts:1 - SpeciesSchema
 \src\data_pipeline\schema\index.ts:1 - TypeEnum
 \src\data_pipeline\schema\index.ts:1 - BaseStats
@@ -303,31 +29,14 @@
 \src\data_pipeline\schema\index.ts:4 - TypeChartSchema
 \src\data_pipeline\schema\index.ts:4 - Effectiveness
 \src\data_pipeline\schema\index.ts:5 - ManifestSchema
-\src\data_pipeline\schema\manifest.ts:13 - Manifest
-\src\data_pipeline\schema\moves.ts:17 - Move
-\src\data_pipeline\schema\species.ts:25 - Species
-\src\data_pipeline\schema\typechart.ts:23 - TypeChart
-\src\services\cache\facade.ts:335 - stopCacheMaintenanceScheduler (used in module)
 \src\services\cache\facade.ts:358 - configureCacheFacade
 \src\services\cache\facade.ts:429 - touch
 \src\services\cache\facade.ts:467 - cacheRoot
 \src\services\cache\facade.ts:947 - resetCacheMetrics
-\src\services\cache\facade.ts:37 - CacheDescriptor (used in module)
-\src\services\cache\facade.ts:43 - CacheReadOptions (used in module)
-\src\services\cache\facade.ts:52 - CacheHydrator (used in module)
 \src\services\cache\recipes.ts:180 - loadTrainerProfile
 \src\services\cache\recipes.ts:205 - invalidateTrainerProfile
-\src\services\cache\recipes.ts:34 - QuestClaimSuccess (used in module)
-\src\services\cache\recipes.ts:43 - QuestClaimCooldown (used in module)
-\src\services\cache\recipes.ts:50 - QuestClaimResult (used in module)
-\src\services\cache\recipes.ts:52 - QuestClaimContext (used in module)
-\src\shared\cache\memory.ts:61 - MemoryCache (used in module)
-\src\shared\models\battle-queries-pg.ts:281 - concludeBattle
-\src\shared\models\battle-queries-pg.ts:36 - BattleWithPlayers
-\src\shared\models\battle-queries-pg.ts:58 - BattleResultJson (used in module)
-\src\shared\models\bus-queries-pg.ts:60 - findMessageById (used in module)
+\src\shared\models\battle-queries-pg.ts:258 - concludeBattle
 \src\shared\models\bus-queries-pg.ts:74 - getMessageById
-\src\shared\models\cooldown-queries-pg.ts:44 - countUserCooldowns
 \src\shared\models\dex-queries-pg.ts:100 - findAllTypes
 \src\shared\models\dex-queries-pg.ts:112 - countTable
 \src\shared\models\dex-queries-pg.ts:129 - deleteAllSpeciesLearnsets
@@ -348,15 +57,6 @@
 \src\shared\models\dex-queries-pg.ts:428 - insertNameVariants
 \src\shared\models\dex-queries-pg.ts:459 - insertTypeChart
 \src\shared\models\dex-queries-pg.ts:495 - refreshSpeciesSheet
-\src\shared\models\dex-queries-pg.ts:15 - TypeRow (used in module)
-\src\shared\models\dex-queries-pg.ts:20 - AbilityInsert (used in module)
-\src\shared\models\dex-queries-pg.ts:27 - MoveInsert (used in module)
-\src\shared\models\dex-queries-pg.ts:40 - SpeciesInsert (used in module)
-\src\shared\models\dex-queries-pg.ts:57 - SpeciesTypeInsert (used in module)
-\src\shared\models\dex-queries-pg.ts:63 - SpeciesAbilityInsert (used in module)
-\src\shared\models\dex-queries-pg.ts:69 - SpeciesLearnsetInsert (used in module)
-\src\shared\models\dex-queries-pg.ts:77 - NameVariantInsert (used in module)
-\src\shared\models\dex-queries-pg.ts:87 - TypeChartInsert (used in module)
 \src\shared\models\encounter-queries-pg.ts:70 - findEncounterById
 \src\shared\models\encounter-queries-pg.ts:136 - findEncountersForUser
 \src\shared\models\encounter-queries-pg.ts:176 - countEncountersByState
@@ -365,7 +65,6 @@
 \src\shared\models\encounter-queries-pg.ts:374 - updateEncounterStateAndData
 \src\shared\models\encounter-queries-pg.ts:448 - expireStaleEncounters
 \src\shared\models\encounter-queries-pg.ts:476 - deleteEncounter
-\src\shared\models\encounter-queries-pg.ts:29 - EncounterState (used in module)
 \src\shared\models\index.ts:61 - getPartyByIdWithSlots
 \src\shared\models\index.ts:79 - getAllPartiesWithSlots
 \src\shared\models\index.ts:98 - hasParty
@@ -383,23 +82,16 @@
 \src\shared\models\index.ts:17 - UserBasic
 \src\shared\models\index.ts:22 - UserForDisplay
 \src\shared\models\index.ts:27 - UserWithParty
-\src\shared\models\party-queries-pg.ts:253 - getPartyByIdWithSlots
-\src\shared\models\party-queries-pg.ts:293 - getAllPartiesWithSlots
-\src\shared\models\party-queries-pg.ts:351 - hasParty
-\src\shared\models\party-queries-pg.ts:373 - getPartyWithSlotCount
-\src\shared\models\party-queries-pg.ts:443 - deleteParty
-\src\shared\models\party-queries-pg.ts:502 - findNextAvailableSlot
-\src\shared\models\party-queries-pg.ts:536 - deletePartySlot
-\src\shared\models\party-queries-pg.ts:620 - findPokemonById
-\src\shared\models\party-queries-pg.ts:650 - updatePokemonHealth
-\src\shared\models\party-queries-pg.ts:736 - deletePokemon
-\src\shared\models\party-queries-pg.ts:35 - PartySlotWithPokemon (used in module)
-\src\shared\models\party-queries-pg.ts:43 - PartyWithSlots (used in module)
-\src\shared\models\party-queries-pg.ts:51 - PartyWithSlotCount (used in module)
-\src\shared\models\party-queries-pg.ts:58 - PokemonStats
-\src\shared\models\party-queries-pg.ts:66 - IVs (used in module)
-\src\shared\models\party-queries-pg.ts:78 - EVs (used in module)
-\src\shared\models\party-queries-pg.ts:90 - Move (used in module)
+\src\shared\models\party-queries-pg.ts:245 - getPartyByIdWithSlots
+\src\shared\models\party-queries-pg.ts:285 - getAllPartiesWithSlots
+\src\shared\models\party-queries-pg.ts:343 - hasParty
+\src\shared\models\party-queries-pg.ts:365 - getPartyWithSlotCount
+\src\shared\models\party-queries-pg.ts:435 - deleteParty
+\src\shared\models\party-queries-pg.ts:494 - findNextAvailableSlot
+\src\shared\models\party-queries-pg.ts:528 - deletePartySlot
+\src\shared\models\party-queries-pg.ts:612 - findPokemonById
+\src\shared\models\party-queries-pg.ts:642 - updatePokemonHealth
+\src\shared\models\party-queries-pg.ts:728 - deletePokemon
 \src\shared\models\user-queries-pg.ts:101 - getUserBasicById
 \src\shared\models\user-queries-pg.ts:128 - getUserForDisplay
 \src\shared\models\user-queries-pg.ts:167 - getUserWithParty
@@ -413,33 +105,6 @@
 \src\shared\models\user-queries-pg.ts:492 - upsertUser
 \src\shared\models\user-queries-pg.ts:535 - upsertUserWithCoinIncrement
 \src\shared\models\user-queries-pg.ts:575 - deleteUser
-\src\shared\models\user-queries-pg.ts:23 - UserBasic (used in module)
-\src\shared\models\user-queries-pg.ts:28 - UserForDisplay (used in module)
-\src\shared\models\user-queries-pg.ts:33 - PartySlotWithPokemon (used in module)
-\src\shared\models\user-queries-pg.ts:40 - PartyWithSlots (used in module)
-\src\shared\models\user-queries-pg.ts:47 - UserWithParty (used in module)
-\src\shared\utils\index.ts:11 - delay
-\src\shared\utils\index.ts:23 - delayWithJitter
-\src\shared\utils\index.ts:38 - retry
-\src\shared\utils\index.ts:94 - withTimeout
-\src\shared\utils\index.ts:121 - batchProcess
-\src\shared\utils\index.ts:163 - debounce
-\src\shared\utils\index.ts:23 - safeError
-\src\shared\utils\index.ts:58 - normalizeError
-\src\shared\utils\index.ts:82 - formatError
-\src\shared\utils\index.ts:106 - isErrorCode
-\src\shared\utils\index.ts:116 - isTimeoutError
-\src\shared\utils\index.ts:134 - aggregateErrors
-\src\shared\utils\index.ts:148 - wrapError
-\src\shared\utils\index.ts:9 - ErrorMeta
-\src\core\pbsl\battle\engine.ts:5 - BattleParticipant (used in module)
-\src\core\pbsl\battle\engine.ts:14 - BattleAction (used in module)
-\src\core\pbsl\battle\engine.ts:23 - BattleEngineConfig (used in module)
-\src\core\pbsl\battle\engine.ts:30 - BattleSnapshot (used in module)
+\src\shared\utils\async-utils.ts:11 - delay
+\src\shared\utils\error-utils.ts:82 - formatError
 \src\core\pbsl\battle\engine.ts:44 - BattleEngine
-\src\core\pbsl\data\provenance.ts:1 - ProvenanceSource (used in module)
-\src\core\pbsl\encounter\generator.ts:71 - generateEncounter
-\src\core\pbsl\encounter\generator.ts:4 - EncounterCandidate (used in module)
-\src\core\pbsl\encounter\generator.ts:11 - EncounterConfig (used in module)
-\src\core\pbsl\encounter\generator.ts:18 - EncounterRoll (used in module)
-\src\core\pbsl\encounter\generator.ts:25 - EncounterResult (used in module)
