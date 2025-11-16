@@ -102,6 +102,29 @@ export function formatUptime(ms: number): string {
 }
 
 /**
+ * Format duration in milliseconds to compact single-unit string.
+ * Shows only the most significant unit (for compact displays).
+ * 
+ * @param ms - Duration in milliseconds
+ * @returns Compact duration string (e.g., "2.5m", "1.2h", "45s")
+ * 
+ * @example
+ * ```typescript
+ * formatDurationCompact(154000) // "2.6m"
+ * formatDurationCompact(3900000) // "1.1h"
+ * formatDurationCompact(45000) // "45.0s"
+ * formatDurationCompact(500) // "500ms"
+ * ```
+ */
+export function formatDurationCompact(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '0s';
+  if (ms < 1000) return `${ms.toFixed(0)}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  if (ms < 3600000) return `${(ms / 60000).toFixed(1)}m`;
+  return `${(ms / 3600000).toFixed(1)}h`;
+}
+
+/**
  * Format a number with thousand separators for readability.
  * 
  * @param value - Number to format

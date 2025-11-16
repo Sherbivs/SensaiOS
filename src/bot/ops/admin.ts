@@ -3,7 +3,7 @@ import type { Pool } from "pg";
 import type { PrismaClient, Prisma } from "@prisma/client";
 import type { BusStatus } from "../../types/db-models.js";
 import { toEasternString } from "../../shared/datetime.js";
-import { formatBytes, formatBytesShort } from "../../shared/utils/format-utils.js";
+import { formatBytes, formatBytesShort, formatDurationCompact } from "../../shared/utils/format-utils.js";
 
 import {
   collectCacheMetrics,
@@ -628,14 +628,7 @@ function formatOpsStatsReport(
 // ============================================================================
 
 // formatBytes now imported from shared/utils/format-utils.js (centralized)
-
-function formatDuration(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return "0s";
-  if (ms < 1000) return `${ms.toFixed(0)}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  if (ms < 3600000) return `${(ms / 60000).toFixed(1)}m`;
-  return `${(ms / 3600000).toFixed(1)}h`;
-}
+// formatDuration → formatDurationCompact imported from format-utils.js (centralized)
 
 function formatTimestamp(date: Date | null): string {
   if (!date) return "never";
@@ -726,7 +719,7 @@ function formatEngineDbStats(): string {
       lines.push(`• Anomalies: ${writeDbStats.anomalyCount}`);
       lines.push(`• WAL Entries: ${writeDbStats.walEntryCount}`);
       lines.push(`• Size: ${formatBytes(writeDbStats.sizeBytes)}`);
-      lines.push(`• Oldest Entry: ${formatDuration(writeDbStats.oldestEntryAge)}`);
+      lines.push(`• Oldest Entry: ${formatDurationCompact(writeDbStats.oldestEntryAge)}`);
       lines.push(`• Status: ${writeDbStats.isInitialized ? "initialized" : "not initialized"}`);
       lines.push("");
     } catch (error) {
@@ -742,7 +735,7 @@ function formatEngineDbStats(): string {
   lines.push(`• RSS: ${formatBytes(memory.rss)}`);
   lines.push(`• Heap Used/Total: ${formatBytes(memory.heapUsed)} / ${formatBytes(memory.heapTotal)}`);
   lines.push(`• External: ${formatBytes(memory.external)} | ArrayBuffers: ${formatBytes(arrayBuffers)}`);
-  lines.push(`• Uptime: ${formatDuration(process.uptime() * 1000)}`);
+  lines.push(`• Uptime: ${formatDurationCompact(process.uptime() * 1000)}`);
   lines.push("");
 
   // Log buffer telemetry
