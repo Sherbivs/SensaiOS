@@ -314,47 +314,6 @@ export interface BusMessage {
   updatedAt: Date;
 }
 
-export interface BusIdemToken {
-  key: string;
-  createdAt: Date;
-  ttl: number;
-}
-
-export interface AuditLog {
-  id: bigint;
-  tenantId: string | null;
-  actorUserId: string | null;
-  action: string;
-  entityType: string;
-  entityId: string | null;
-  beforeJson: Prisma.JsonValue | null;
-  afterJson: Prisma.JsonValue | null;
-  at: Date;
-}
-
-export interface DbVersion {
-  id: number;
-  versionFingerprint: string;
-  migrationCount: number;
-  lastMigrationName: string;
-  lastMigrationAppliedAt: Date;
-  syncSource: string | null;
-  createdAt: Date;
-}
-
-export interface DbSyncState {
-  id: number;
-  source: string;
-  target: string;
-  status: string;
-  lastSyncAt: Date | null;
-  lastDuration: number | null;
-  lastError: string | null;
-  lastIntegrityCheck: Prisma.JsonValue | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 // ============================================================================
 // Relation Types (Common Patterns)
 // ============================================================================

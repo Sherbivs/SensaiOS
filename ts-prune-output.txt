@@ -123,17 +123,6 @@
 \src\services\ai-log-writer.js:671 - getStats (used in module)
 \src\services\ai-log-writer.js:672 - generateCorrelationId (used in module)
 \src\services\ai-log-writer.js:676 - default
-\src\services\cache.d.ts:20 - readCache
-\src\services\cache.d.ts:21 - writeCache
-\src\services\cache.d.ts:22 - pruneCache
-\src\services\cache.d.ts:23 - cleanOldCache
-\src\services\cache.d.ts:24 - getCacheSize
-\src\services\cache.d.ts:25 - getCacheSnapshot
-\src\services\cache.d.ts:27 - getCacheBudget
-\src\services\cache.d.ts:1 - CacheSnapshot (used in module)
-\src\services\cache.d.ts:9 - CacheBudget (used in module)
-\src\services\cache.d.ts:18 - CACHE_DIR
-\src\services\cache.d.ts:26 - MAX_CACHE_PERCENT
 \src\services\engine-cache.ts:38 - PokemonCacheEntry (used in module)
 \src\services\engine-cache.ts:58 - MoveCacheEntry (used in module)
 \src\services\engine-cache.ts:74 - CacheStats (used in module)
@@ -183,11 +172,10 @@
 \src\shared\pg-transaction.ts:22 - TransactionOptions (used in module)
 \src\shared\pg-transaction.ts:27 - TransactionCallback (used in module)
 \src\shared\prisma.ts:209 - stopPrismaHeartbeat (used in module)
-\src\shared\prisma.ts:450 - checkOnPremiseDevHealth
 \src\shared\prisma.ts:66 - onPremiseDevPrisma (used in module)
 \src\shared\prisma.ts:67 - onPremiseExperimentPrisma (used in module)
-\src\shared\prisma.ts:483 - DatabaseStats (used in module)
-\src\shared\prisma.ts:493 - TripleDatabaseStats (used in module)
+\src\shared\prisma.ts:446 - DatabaseStats (used in module)
+\src\shared\prisma.ts:456 - TripleDatabaseStats (used in module)
 \src\shared\service-factories.ts:57 - createResourceManager (used in module)
 \src\shared\service-factories.ts:72 - resourceManagerHealthCheck (used in module)
 \src\shared\service-factories.ts:106 - resourceManagerShutdown (used in module)
@@ -250,7 +238,6 @@
 \src\utils\intelligent-logger.ts:114 - LogOptions (used in module)
 \src\utils\intelligent-logger.ts:975 - IntelligentLogger (used in module)
 \src\utils\intelligent-logger.ts:978 - logger (used in module)
-\src\utils\memory-measurement.ts:338 - formatMB
 \src\utils\memory-measurement.ts:21 - ComponentMemoryStats (used in module)
 \src\utils\stack-trace-parser.ts:210 - parseStackFrame (used in module)
 \src\utils\stack-trace-parser.ts:354 - extractSourceSnippet (used in module)
@@ -291,8 +278,6 @@
 \src\core\battle\engine.ts:69 - MoveKey (used in module)
 \src\core\battle\engine.ts:71 - ResolveCtxOptions (used in module)
 \src\core\battle\engine.ts:95 - BattleInitOptions (used in module)
-\src\core\battle\status.ts:4 - canApplyMajorStatus
-\src\core\battle\status.ts:2 - MajorStatus (used in module)
 \src\core\battle\turn-manager.ts:46 - QueueResult (used in module)
 \src\core\encounter\catch.ts:28 - catchChance (used in module)
 \src\core\encounter\catch.ts:7 - BallType (used in module)
@@ -301,31 +286,13 @@
 \src\core\encounter\spawn.ts:4 - chooseSpeciesId (used in module)
 \src\core\encounter\spawn.ts:10 - chooseLevel (used in module)
 \src\core\encounter\spawn.ts:15 - SpawnOpts (used in module)
-\src\core\pbsl\index.ts:1 - createSeededRng
-\src\core\pbsl\index.ts:1 - deserializeRngState
-\src\core\pbsl\index.ts:1 - Rng
-\src\core\pbsl\index.ts:1 - RngState
-\src\core\pbsl\index.ts:3 - MemoryAuditTrail
-\src\core\pbsl\index.ts:4 - assertAuditEvent
-\src\core\pbsl\index.ts:5 - AuditEvent
-\src\core\pbsl\index.ts:6 - AuditEventContext
-\src\core\pbsl\index.ts:7 - AuditTrail
-\src\core\pbsl\index.ts:9 - BATTLE_PHASES
-\src\core\pbsl\index.ts:9 - isBattlePhase
-\src\core\pbsl\index.ts:9 - assertBattlePhase
-\src\core\pbsl\index.ts:9 - BattlePhase
-\src\core\pbsl\index.ts:11 - BattleEngine
-\src\core\pbsl\index.ts:12 - BattleEngineConfig
-\src\core\pbsl\index.ts:13 - BattleParticipant
-\src\core\pbsl\index.ts:14 - BattleAction
-\src\core\pbsl\index.ts:15 - BattleSnapshot
-\src\core\pbsl\index.ts:18 - generateEncounter
-\src\core\pbsl\index.ts:19 - EncounterConfig
-\src\core\pbsl\index.ts:20 - EncounterResult
-\src\core\pbsl\index.ts:21 - EncounterRoll
-\src\core\pbsl\index.ts:24 - makeProvenanceRecord
-\src\core\pbsl\index.ts:25 - ProvenanceRecord
-\src\core\pbsl\index.ts:26 - ProvenanceSource
+\src\core\pbsl\audit.ts:23 - assertAuditEvent (used in module)
+\src\core\pbsl\audit.ts:3 - AuditEventContext (used in module)
+\src\core\pbsl\phases.ts:20 - isBattlePhase (used in module)
+\src\core\pbsl\phases.ts:24 - assertBattlePhase
+\src\core\pbsl\phases.ts:1 - BattlePhase (used in module)
+\src\core\pbsl\phases.ts:10 - BATTLE_PHASES (used in module)
+\src\core\pbsl\rng.ts:95 - deserializeRngState
 \src\data_pipeline\schema\abilities.ts:9 - Ability
 \src\data_pipeline\schema\index.ts:1 - SpeciesSchema
 \src\data_pipeline\schema\index.ts:1 - TypeEnum
@@ -361,23 +328,6 @@
 \src\shared\models\bus-queries-pg.ts:60 - findMessageById (used in module)
 \src\shared\models\bus-queries-pg.ts:74 - getMessageById
 \src\shared\models\cooldown-queries-pg.ts:44 - countUserCooldowns
-\src\shared\models\db-version-queries-pg.ts:50 - getMigrations
-\src\shared\models\db-version-queries-pg.ts:72 - getMigrationsWithLimit
-\src\shared\models\db-version-queries-pg.ts:97 - createDbVersion
-\src\shared\models\db-version-queries-pg.ts:148 - findDbSyncState
-\src\shared\models\db-version-queries-pg.ts:176 - upsertDbSyncState
-\src\shared\models\db-version-queries-pg.ts:235 - getTableNames
-\src\shared\models\db-version-queries-pg.ts:255 - getTableColumns
-\src\shared\models\db-version-queries-pg.ts:292 - getTableIndexes
-\src\shared\models\db-version-queries-pg.ts:330 - getTableConstraints
-\src\shared\models\db-version-queries-pg.ts:361 - countTableRows
-\src\shared\models\db-version-queries-pg.ts:379 - getColumnsForChecksum
-\src\shared\models\db-version-queries-pg.ts:401 - calculateTableChecksum
-\src\shared\models\db-version-queries-pg.ts:431 - getForeignKeys
-\src\shared\models\db-version-queries-pg.ts:474 - countOrphanRecords
-\src\shared\models\db-version-queries-pg.ts:14 - DbVersion (used in module)
-\src\shared\models\db-version-queries-pg.ts:24 - DbSyncState (used in module)
-\src\shared\models\db-version-queries-pg.ts:34 - MigrationRow (used in module)
 \src\shared\models\dex-queries-pg.ts:100 - findAllTypes
 \src\shared\models\dex-queries-pg.ts:112 - countTable
 \src\shared\models\dex-queries-pg.ts:129 - deleteAllSpeciesLearnsets
@@ -482,4 +432,14 @@
 \src\shared\utils\index.ts:134 - aggregateErrors
 \src\shared\utils\index.ts:148 - wrapError
 \src\shared\utils\index.ts:9 - ErrorMeta
+\src\core\pbsl\battle\engine.ts:5 - BattleParticipant (used in module)
+\src\core\pbsl\battle\engine.ts:14 - BattleAction (used in module)
+\src\core\pbsl\battle\engine.ts:23 - BattleEngineConfig (used in module)
+\src\core\pbsl\battle\engine.ts:30 - BattleSnapshot (used in module)
+\src\core\pbsl\battle\engine.ts:44 - BattleEngine
+\src\core\pbsl\data\provenance.ts:1 - ProvenanceSource (used in module)
+\src\core\pbsl\encounter\generator.ts:71 - generateEncounter
 \src\core\pbsl\encounter\generator.ts:4 - EncounterCandidate (used in module)
+\src\core\pbsl\encounter\generator.ts:11 - EncounterConfig (used in module)
+\src\core\pbsl\encounter\generator.ts:18 - EncounterRoll (used in module)
+\src\core\pbsl\encounter\generator.ts:25 - EncounterResult (used in module)
