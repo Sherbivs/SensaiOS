@@ -19,5 +19,3 @@ export const TypeChartSchema = z.record(
     return result;
   })
 );
-
-export type TypeChart = z.infer<typeof TypeChartSchema>;

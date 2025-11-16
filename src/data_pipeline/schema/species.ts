@@ -21,5 +21,3 @@ export const SpeciesSchema = z.object({
   baseStats: BaseStats,
   abilities: z.array(z.string()).min(1),
 });
-
-export type Species = z.infer<typeof SpeciesSchema>;

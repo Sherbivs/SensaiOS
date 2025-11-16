@@ -13,5 +13,3 @@ export const MoveSchema = z.object({
   accuracy: z.number().min(0).max(100).nullable(),
   pp: z.number().int().positive(),
 });
-
-export type Move = z.infer<typeof MoveSchema>;

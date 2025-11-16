@@ -9,5 +9,3 @@ export const ManifestSchema = z.object({
     abilities: z.number().int().nonnegative(),
   }),
 });
-
-export type Manifest = z.infer<typeof ManifestSchema>;
