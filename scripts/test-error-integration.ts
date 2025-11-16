@@ -17,6 +17,7 @@
 import { errorTracker } from '../src/services/error-tracker.js';
 import intelligentLogger from '../src/utils/intelligent-logger.js';
 import { prisma } from '../src/shared/prisma.js';
+import { delay } from '../src/shared/utils/async-utils.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -68,10 +69,8 @@ function recordResult(name: string, passed: boolean, error?: string, duration?: 
 let testErrorFingerprint: string | undefined;
 let testErrorId: string | undefined;
 
-// Helper: Wait for async operations
-async function wait(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+// Helper: Wait for async operations - now imported from centralized async-utils.ts
+// function wait removed - using centralized delay()
 
 // Test 1: Stack Trace Parsing
 async function testStackTraceParsing(): Promise<void> {
@@ -98,7 +97,7 @@ async function testStackTraceParsing(): Promise<void> {
     testErrorId = errorId;
     
     // Wait for async operations (AI report generation)
-    await wait(100);
+    await delay(100);
     
     // Verify error was captured
     if (!errorId) {
@@ -164,7 +163,7 @@ async function testAIReportGeneration(): Promise<void> {
     const startTime = Date.now();
     
     // Wait for AI report to be written (happens async after captureError)
-    await wait(500);
+    await delay(500);
     
     const reportDir = path.join(process.cwd(), 'Store', 'error-reports');
     
@@ -220,7 +219,7 @@ async function testIntelligentLoggerIntegration(): Promise<void> {
     const startTime = Date.now();
     
     // Wait for intelligent logger to process error stream
-    await wait(500);
+    await delay(500);
     
     // Read current log file
     const logDir = path.join(process.cwd(), 'Store', 'intelligent-logs');
@@ -483,22 +482,22 @@ async function main() {
   try {
     // Run tests sequentially
     await testStackTraceParsing();
-    await wait(100);
+    await delay(100);
     
     await testAIReportGeneration();
-    await wait(100);
+    await delay(100);
     
     await testIntelligentLoggerIntegration();
-    await wait(100);
+    await delay(100);
     
     await testEmergencyFallback();
-    await wait(100);
+    await delay(100);
     
     await testPerformanceCharacteristics();
-    await wait(100);
+    await delay(100);
     
     await testErrorTypeHandling();
-    await wait(100);
+    await delay(100);
     
     // Print summary
     printTestSummary();
@@ -507,7 +506,7 @@ async function main() {
     log('Tests complete. Exiting...', 'cyan');
     
     // Give time for async operations to complete
-    await wait(500);
+    await delay(500);
     
     // Disconnect Prisma
     await prisma.$disconnect();
