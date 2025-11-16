@@ -188,21 +188,11 @@ export interface PartySlotWithPokemon extends PartySlot {
   pokemon: PokemonInstance;
 }
 
-export interface PokemonInstanceWithSpecies extends PokemonInstance {
-  species: Species;
-}
-
 export interface BattleWithPlayers extends Battle {
   p1: User;
   p2: User;
 }
 
-export interface SpeciesWithAbilities extends Omit<Species, 'abilities'> {
-  abilities: SpeciesAbility[];
-}
-
 // ============================================================================
 // Common Pick Types (Partial Selects)
 // ============================================================================
-
-export type PokemonSummary = Pick<PokemonInstance, 'id' | 'speciesId' | 'level' | 'hp' | 'maxHp' | 'nickname'>;
