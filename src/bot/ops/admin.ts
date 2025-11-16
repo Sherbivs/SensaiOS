@@ -3,6 +3,7 @@ import type { Pool } from "pg";
 import type { PrismaClient, Prisma } from "@prisma/client";
 import type { BusStatus } from "../../types/db-models.js";
 import { toEasternString } from "../../shared/datetime.js";
+import { formatBytes, formatBytesShort } from "../../shared/utils/format-utils.js";
 
 import {
   collectCacheMetrics,
@@ -396,20 +397,8 @@ function formatBattleSummary(summary: BattleSummary) {
   return `- ${timestamp} • ${summary.id} • ${winner} over ${loser} (${reason}, ${turnText}) • rewards ${rewardText}`;
 }
 
-function formatBytesShort(bytes: number): string {
-  if (!Number.isFinite(bytes)) return "n/a";
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"] as const;
-  let value = Math.abs(bytes);
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  const rounded = value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1);
-  const prefix = bytes < 0 ? "-" : "";
-  return `${prefix}${rounded} ${units[unitIndex]}`;
-}
+
+// formatBytesShort now imported from shared/utils/format-utils.js (centralized)
 
 function formatDurationShort(duration: number | null): string {
   if (!Number.isFinite(duration) || duration === null) return "n/a";
@@ -638,13 +627,7 @@ function formatOpsStatsReport(
 // ENGINE DB STATS (Phase 17-22)
 // ============================================================================
 
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
+// formatBytes now imported from shared/utils/format-utils.js (centralized)
 
 function formatDuration(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return "0s";
