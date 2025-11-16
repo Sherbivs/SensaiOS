@@ -1,9 +1,9 @@
-import { msUntilNextZonedTime, formatInTimeZone } from '../utils/timezone.js';
-import { toEasternLogFormat } from '../shared/datetime.js';
+import { msUntilNextZonedTime, formatInTimeZone, toEasternLogFormat } from '../shared/datetime.js';
 import { EventBus } from '../shared/event-bus.js';
-import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { getErrorMessage } from '../shared/utils/index.js';
+import { TIME_CONSTANTS } from '../shared/constants.js';
 
-const DEFAULT_TIME_ZONE = 'America/New_York';
+const { DEFAULT_TIME_ZONE, MIN_DIGEST_DELAY_MS, MS_PER_DAY } = TIME_CONSTANTS;
 const SEVERITY = Object.freeze({
   critical: 'critical',
   security: 'security',
@@ -18,9 +18,7 @@ const SEVERITY_ICON = Object.freeze({
   [SEVERITY.notice]: 'ℹ️',
 });
 
-const MIN_DIGEST_DELAY_MS = 60_000; // guard against tight loops when clocks mismatch
 const FALLBACK_DIGEST_DELAY_MS = 60 * 60 * 1000; // 1 hour safety delay
-const MILLIS_IN_DAY = 24 * 60 * 60 * 1000;
 
 function normalizeMeta(meta) {
   if (meta === null || meta === undefined) {
@@ -31,7 +29,7 @@ function normalizeMeta(meta) {
   }
   try {
     return JSON.stringify(meta, null, 2);
-  } catch (error) {
+  } catch {
     return String(meta);
   }
 }
@@ -126,7 +124,7 @@ function createDripAlertManager({
         fallbackDelayMs: safeDelay,
       });
     } else if (safeDelay < MIN_DIGEST_DELAY_MS) {
-      safeDelay = Math.max(MIN_DIGEST_DELAY_MS, safeDelay + MILLIS_IN_DAY);
+      safeDelay = Math.max(MIN_DIGEST_DELAY_MS, safeDelay + MS_PER_DAY);
       logContext('info', 'Drip alert digest delay rolled forward to next window', {
         recipient: recipient || 'unset',
         computedDelay: delay,
@@ -398,7 +396,7 @@ function createDripAlertManager({
       'alert.critical|alert.security',
       async (event) => {
         // Phase 2.3.3: Handle immediate delivery via Event Bus
-        const { severity, title, meta, timestamp, recipient: eventRecipient } = event.payload;
+        const { severity, title, meta, timestamp, recipient: _eventRecipient } = event.payload;
         
         logContext('debug', 'Event Bus immediate alert received', {
           topic: event.topic,

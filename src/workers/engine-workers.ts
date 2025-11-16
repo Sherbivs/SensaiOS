@@ -27,7 +27,7 @@ import { engineCache } from '../services/cache/engine-cache.js';
 import { engineWriteBuffer } from '../services/cache/engine-write-buffer.js';
 import { workerErrorHandler } from './worker-error-handler.js';
 import { log } from '../utils/logger.js';
-import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { getErrorMessage, delay } from '../shared/utils/index.js';
 
 // ============================================================================
 // Type Definitions
@@ -96,7 +96,7 @@ class CacheRefreshWorker {
     });
 
     // Stagger startup (prevent thundering herd)
-    await this.delay(EngineDbConfig.workerStartupStaggerMs);
+    await delay(EngineDbConfig.workerStartupStaggerMs);
 
     // Start periodic execution
     this.interval = setInterval(async () => {
@@ -184,13 +184,6 @@ class CacheRefreshWorker {
   getStatus(): WorkerStatus {
     return { ...this.status };
   }
-
-  /**
-   * Utility: Delay helper
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
 }
 
 // ============================================================================
@@ -238,7 +231,7 @@ class WriteBufferFlusher {
     });
 
     // Stagger startup (2x delay to avoid overlap with Worker 1)
-    await this.delay(EngineDbConfig.workerStartupStaggerMs * 2);
+    await delay(EngineDbConfig.workerStartupStaggerMs * 2);
 
     // Start periodic execution
     this.interval = setInterval(async () => {
@@ -425,13 +418,6 @@ class WriteBufferFlusher {
   getStatus(): WorkerStatus {
     return { ...this.status };
   }
-
-  /**
-   * Utility: Delay helper
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
 }
 
 // ============================================================================
@@ -539,7 +525,7 @@ class WriteDbValidatorWorker {
     });
 
     // Stagger startup (3x delay to avoid overlap with Workers 1 & 2)
-    await this.delay(EngineDbConfig.workerStartupStaggerMs * 3);
+    await delay(EngineDbConfig.workerStartupStaggerMs * 3);
 
     // Start periodic execution
     this.interval = setInterval(async () => {
@@ -673,13 +659,6 @@ class WriteDbValidatorWorker {
   getStatus(): WorkerStatus {
     return { ...this.status };
   }
-
-  /**
-   * Utility: Delay helper
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
 }
 
 // ============================================================================
@@ -721,7 +700,7 @@ class EngineMaintenanceWorker {
     });
 
     // Stagger startup (ensure other workers settle first)
-    await this.delay(EngineDbConfig.workerStartupStaggerMs * 4);
+    await delay(EngineDbConfig.workerStartupStaggerMs * 4);
 
     this.interval = setInterval(async () => {
       await this.execute();
@@ -820,10 +799,6 @@ class EngineMaintenanceWorker {
    */
   getStatus(): WorkerStatus {
     return { ...this.status };
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 

@@ -125,42 +125,6 @@ export function formatDurationCompact(ms: number): string {
 }
 
 /**
- * Format a number with thousand separators for readability.
- * 
- * @param value - Number to format
- * @returns Formatted string with commas (e.g., "1,234,567")
- * 
- * @example
- * ```typescript
- * formatNumber(1234567) // "1,234,567"
- * formatNumber(42) // "42"
- * ```
- */
-export function formatNumber(value: number): string {
-  if (!Number.isFinite(value)) return '0';
-  return value.toLocaleString('en-US');
-}
-
-/**
- * Format a percentage with specified decimal places.
- * 
- * @param value - Decimal value (0.0 to 1.0)
- * @param decimals - Number of decimal places (default: 2)
- * @returns Formatted percentage string (e.g., "75.50%", "100.00%")
- * 
- * @example
- * ```typescript
- * formatPercentage(0.7550) // "75.50%"
- * formatPercentage(1.0) // "100.00%"
- * formatPercentage(0.123, 1) // "12.3%"
- * ```
- */
-export function formatPercentage(value: number, decimals = 2): string {
-  if (!Number.isFinite(value)) return '0.00%';
-  return `${(value * 100).toFixed(decimals)}%`;
-}
-
-/**
  * Truncate a string to a maximum length with ellipsis.
  * 
  * @param value - Value to truncate (string or any type)

@@ -2,8 +2,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
-import { delayWithJitter } from "./utils/async-utils.js";
-import { getErrorMessage } from "./utils/error-utils.js";
+import { delayWithJitter, getErrorMessage } from "./utils/index.js";
 
 export type PrismaHeartbeatEvent = {
   ok: boolean;

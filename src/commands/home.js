@@ -8,10 +8,11 @@ import {
 import { createRequire } from 'node:module';
 import { getSpriteUrl } from '../lib/assets.js';
 import { log } from '../utils/logger.js';
+import { GAME_CONSTANTS } from '../shared/constants.js';
+import { toDate, diffInUtcDays } from '../shared/utils/index.js';
 
 const requireESM = createRequire(import.meta.url);
-const DEFAULT_STARTER_COINS = 500;
-const BATTLE_HISTORY_LIMIT = 3;
+const { DEFAULT_STARTER_COINS, BATTLE_HISTORY_LIMIT } = GAME_CONSTANTS;
 const HISTORY_SYMBOL = { WIN: "✅", LOSS: "❌" };
 
 let questModuleCache = null;
@@ -27,28 +28,7 @@ function loadQuestModule() {
   return questModuleCache;
 }
 
-function toDate(value) {
-  if (value instanceof Date) {
-    return Number.isNaN(value.valueOf()) ? null : value;
-  }
-  if (typeof value === "string" || typeof value === "number") {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.valueOf()) ? null : parsed;
-  }
-  return null;
-}
-
-function startOfUtcDay(date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-}
-
-function diffInUtcDays(a, b) {
-  const startA = startOfUtcDay(a).getTime();
-  const startB = startOfUtcDay(b).getTime();
-  return Math.floor((startA - startB) / (24 * 60 * 60 * 1000));
-}
-
-function formatRelativeTimestamp(value, now = new Date()) {
+function formatRelativeTimestamp(value, _now = new Date()) {
   const date = toDate(value);
   if (!date) return null;
   const unix = Math.floor(date.getTime() / 1000);
@@ -126,7 +106,9 @@ function evaluateDailyQuestStreakForView(input = {}, now = new Date()) {
   if (mod && typeof mod.evaluateDailyQuestStreak === 'function') {
     try {
       return mod.evaluateDailyQuestStreak({ ...input, now });
-    } catch {}
+    } catch {
+      // Fall back to built-in implementation
+    }
   }
   return fallbackEvaluateDailyQuestStreak(input, now);
 }
@@ -312,7 +294,9 @@ async function getPrisma() {
       }
       return prismaSingleton;
     }
-  } catch {}
+  } catch {
+    // Fall back to require fallback
+  }
 
   try {
     const { PrismaClient } = requireESM('@prisma/client');
@@ -586,7 +570,9 @@ const command = {
         if (!interaction.replied && !interaction.deferred) {
           await interaction.reply({ content: 'Could not open your DM Home. Check your privacy settings.', ephemeral: true });
         }
-      } catch {}
+      } catch {
+        // Ignore reply errors after DM failure
+      }
     }
   },
   _internals: internals,

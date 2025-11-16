@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createWriteStream } from 'node:fs';
 import { createGzip } from 'node:zlib';
+import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 
 // ============================================================================
 // AI-OPTIMIZED HARD LOGGING SYSTEM
@@ -208,7 +209,7 @@ async function ensureLogDirectory() {
  * @returns {string} Filename
  */
 function generateLogFilename(category = 'general') {
-  const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];
+  const timestamp = getFilesafeTimestamp();
   return `${category}-${timestamp}.ndjson`;
 }
 

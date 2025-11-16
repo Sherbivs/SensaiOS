@@ -1,4 +1,6 @@
-import { log } from '../utils/logger.js';
+import { log } from './logger.js';
+import { toDate, cloneDate } from '../shared/utils/index.js';
+
 const subscribers = new Set();
 const pendingActivities = [];
 const lifetimeCounts = new Map();
@@ -7,26 +9,14 @@ let lastActivityAt = null;
 let lastSummaryAt = null;
 let sequence = 0;
 
-function cloneDate(value) {
-  return value instanceof Date ? new Date(value.getTime()) : null;
-}
-
-function toDate(value) {
-  if (value instanceof Date) return value;
-  const asDate = new Date(value);
-  return Number.isNaN(asDate.getTime()) ? new Date() : asDate;
-}
-
 function notify() {
   const snapshot = getStats();
   for (const handler of subscribers) {
     try {
       handler(snapshot);
     } catch (err) {
-      // eslint-disable-next-line no-console
       log('error', '[activity-tracker notify]', { error: err instanceof Error ? err.message : err });
       if (err instanceof Error && err.stack) {
-        // eslint-disable-next-line no-console
         log('error', '[activity-tracker stack]', { stack: err.stack });
       }
     }
@@ -98,10 +88,8 @@ function subscribe(handler) {
   try {
     handler(getStats());
   } catch (err) {
-    // eslint-disable-next-line no-console
     log('error', '[activity-tracker subscribe]', { error: err instanceof Error ? err.message : err });
     if (err instanceof Error && err.stack) {
-      // eslint-disable-next-line no-console
       log('error', '[activity-tracker stack]', { stack: err.stack });
     }
   }

@@ -23,7 +23,9 @@ const POKE_API_URL = 'https://pokeapi.co/api/v2/pokemon';
 const REQUEST_TIMEOUT_MS = 20_000;
 const PAGE_SIZE = 200;
 const CONCURRENCY_LIMIT = 20;
-const CACHE_FILE_PATH = path.join(process.cwd(), 'data', 'pokemon.json');
+import { deepClone, normalizeString } from '../shared/utils/index.js';
+
+const CACHE_FILE_PATH = path.join(storeRoot, 'pokemon-cache.json');
 const CACHE_FILE_VERSION = 1;
 const CRON_SCHEDULE = '0 0 * * 4'; // 12 AM every Thursday
 const DEFAULT_TIMEZONE = process.env.POKEMON_CACHE_TZ || 'Etc/UTC';
@@ -72,10 +74,7 @@ let refreshPromise = null;
 let cronTask = null;
 
 function cloneValue(value) {
-  if (typeof structuredClone === 'function') {
-    return structuredClone(value);
-  }
-  return JSON.parse(JSON.stringify(value));
+  return deepClone(value);
 }
 
 async function ensureCacheDirectory() {
@@ -536,7 +535,7 @@ async function getPokemon(identifier) {
   if (typeof identifier === 'number') {
     entry = pokemonById.get(identifier);
   } else if (typeof identifier === 'string') {
-    const trimmed = identifier.trim().toLowerCase();
+    const trimmed = normalizeString(identifier);
     if (/^\d+$/.test(trimmed)) {
       entry = pokemonById.get(Number(trimmed));
     }

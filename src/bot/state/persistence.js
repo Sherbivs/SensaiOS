@@ -1,4 +1,5 @@
 import { log } from '../../utils/logger.js';
+import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 /**
  * @file State Persistence Module
  * @description Manages security bot operational state across restarts
@@ -168,7 +169,7 @@ async function saveStateFile(filePath, state) {
 async function createSnapshot(state) {
   try {
     await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
-    const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];
+    const timestamp = getFilesafeTimestamp();
     const snapshotPath = path.join(SNAPSHOTS_DIR, `${timestamp}.json`);
     await saveStateFile(snapshotPath, state);
     return snapshotPath;

@@ -1,6 +1,8 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { getMove, moves, disabled } from '../lib/dex-api.js';
-import TYPE_COLORS from '../lib/type-colors.js';
+import { GAME_CONSTANTS } from '../shared/constants.js';
+
+const { TYPE_COLORS } = GAME_CONSTANTS;
 
 const MOVE_LIST = Object.keys(moves || {}).sort();
 

@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma as prismaClient, UserRepo } from "../../models/index.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
 import { getPartyWithSlots } from "../../shared/models/index.js";
-import { clamp } from "../../shared/utils/math-utils.js";
+import { clamp } from "../../shared/utils/index.js";
 
 export type BallType = "poke" | "great" | "ultra";
 

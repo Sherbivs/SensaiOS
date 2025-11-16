@@ -4,7 +4,7 @@
 import { program } from 'commander';
 import * as aiLogAnalyzer from '../services/ai-log-analyzer.js';
 import * as aiLogWriter from '../services/ai-log-writer.js';
-import { truncate } from '../shared/utils/format-utils.js';
+import { truncate } from '../shared/utils/index.js';
 import chalk from 'chalk';
 
 // ============================================================================

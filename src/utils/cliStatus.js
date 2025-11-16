@@ -4,10 +4,10 @@ import readline from 'node:readline';
 import activityTracker from './activityTracker.js';
 import opsNotifier from './opsNotifier.js';
 import { toEasternLogFormat } from '../shared/datetime.js';
-import { formatDuration, formatTimestamp } from '../shared/utils/format-utils.js';
+import { formatDuration, formatTimestamp } from '../shared/utils/index.js';
+import { TIME_CONSTANTS } from '../shared/constants.js';
 
-const NORMAL_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
-const ALERT_UPDATE_INTERVAL_MS = 30 * 1000;
+const { NORMAL_UPDATE_INTERVAL_MS, ALERT_UPDATE_INTERVAL_MS } = TIME_CONSTANTS;
 const HEADER = 'Infinity Gauntlet Ops Monitor';
 
 const initialErrors = typeof opsNotifier?.getRecentErrors === 'function'
@@ -42,7 +42,7 @@ const QUIET_SIMPLE_MODE = SIMPLE_MODE && !SIMPLE_VERBOSE_MODE;
 let intervalHandle = null;
 let unsubscribe = null;
 let unsubscribeErrors = null;
-let lastOutputWasDot = false;
+let _lastOutputWasDot = false; // Reserved for future use
 let lastRenderLines = 0;
 let isRendering = false;
 let displayActive = false;
@@ -53,7 +53,8 @@ function noteUpdate() {
   state.lastUpdatedAt = new Date();
 }
 
-function describeInterval(ms) {
+function _describeInterval(ms) {
+  // Reserved for future use
   if (!Number.isFinite(ms) || ms <= 0) {
     return 'n/a';
   }

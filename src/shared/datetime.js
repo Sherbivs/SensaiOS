@@ -134,3 +134,74 @@ export function toEasternLogFormat(date = new Date()) {
   return `${baseFormat}.${ms} ${abbr}`;
 }
 
+/**
+ * Internal helpers for timezone calculations
+ */
+function getZonedParts(date, timeZone) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const parts = formatter.formatToParts(date);
+  const bag = Object.create(null);
+  for (const part of parts) {
+    if (part.type === 'literal') continue;
+    bag[part.type] = part.value;
+  }
+  return {
+    year: Number(bag.year),
+    month: Number(bag.month),
+    day: Number(bag.day),
+    hour: Number(bag.hour),
+    minute: Number(bag.minute),
+    second: Number(bag.second),
+  };
+}
+
+function partsToUtcMs({ year, month, day, hour, minute, second }) {
+  return Date.UTC(year, month - 1, day, hour, minute, second || 0, 0);
+}
+
+/**
+ * Calculate milliseconds until next occurrence of hour:minute in given timezone
+ * Used for scheduling operations at specific times in a timezone (e.g., daily digests).
+ * 
+ * @param {number} hour - Target hour (0-23)
+ * @param {number} minute - Target minute (0-59)
+ * @param {string} [timeZone='America/New_York'] - IANA timezone identifier
+ * @returns {number} Milliseconds until target time
+ * 
+ * @example
+ * // Schedule something for 9:00 AM EST tomorrow
+ * const msUntil9AM = msUntilNextZonedTime(9, 0);
+ * setTimeout(task, msUntil9AM);
+ */
+export function msUntilNextZonedTime(hour, minute, timeZone = EASTERN_TIMEZONE) {
+  const now = new Date();
+  const nowParts = getZonedParts(now, timeZone);
+  const targetToday = partsToUtcMs({
+    ...nowParts,
+    hour,
+    minute,
+    second: 0,
+  });
+  if (targetToday > now.getTime()) {
+    return targetToday - now.getTime();
+  }
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowParts = getZonedParts(tomorrow, timeZone);
+  const targetTomorrow = partsToUtcMs({
+    ...tomorrowParts,
+    hour,
+    minute,
+    second: 0,
+  });
+  return targetTomorrow - now.getTime();
+}
+

@@ -14,7 +14,7 @@
  */
 
 import fs from 'node:fs/promises';
-import { formatBytes } from '../shared/utils/format-utils.js';
+import { formatBytes } from '../shared/utils/index.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 

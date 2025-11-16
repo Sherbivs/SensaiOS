@@ -1,7 +1,9 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { getPokemon, suggestPokemon, meta, disabled } from '../lib/dex-api.js';
-import TYPE_COLORS from '../lib/type-colors.js';
+import { GAME_CONSTANTS } from '../shared/constants.js';
 import { getSpriteUrl } from '../lib/assets.js';
+
+const { TYPE_COLORS } = GAME_CONSTANTS;
 
 const data = new SlashCommandBuilder()
   .setName('dex')

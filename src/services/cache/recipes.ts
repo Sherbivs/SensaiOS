@@ -12,18 +12,15 @@ import { log } from "../../shared/log.js";
 import { normalizeError } from "../../shared/utils/error-utils.js";
 
 import { getOrHydrate, evict, type CacheHydrateContext } from "./facade.js";
+import { CACHE_CONSTANTS, GAME_CONSTANTS } from "../../shared/constants.js";
 
 const BATTLE_NAMESPACE = "battle-state";
 const ENCOUNTER_NAMESPACE = "encounter-state";
 const QUEST_NAMESPACE = "quest-reward";
 const PROFILE_NAMESPACE = "trainer-profile";
 
-const DEFAULT_BATTLE_TTL_MS = 15_000;
-const DEFAULT_ENCOUNTER_TTL_MS = 5_000;
-const DEFAULT_QUEST_TTL_MS = 1_000;
-const DEFAULT_PROFILE_TTL_MS = 10_000;
-const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1_000;
-const DEFAULT_STARTER_COINS = 500;
+const { DEFAULT_BATTLE_TTL_MS, DEFAULT_ENCOUNTER_TTL_MS, DEFAULT_QUEST_TTL_MS, DEFAULT_PROFILE_TTL_MS, DAILY_COOLDOWN_MS } = CACHE_CONSTANTS;
+const { DEFAULT_STARTER_COINS } = GAME_CONSTANTS;
 
 type PrismaLike = PrismaClient;
 

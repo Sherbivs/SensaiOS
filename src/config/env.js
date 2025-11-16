@@ -1,6 +1,8 @@
+import { clamp, normalizeString } from '../shared/utils/index.js';
+
 const envTruthy = (value) => {
   if (value === undefined || value === null) return false;
-  const normalized = String(value).trim().toLowerCase();
+  const normalized = normalizeString(String(value));
   return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 };
 
@@ -37,6 +39,8 @@ if (dotenv?.config) {
         loaded = true;
       }
     } else {
+      // Production safety: require explicit override to load repository .env
+      // eslint-disable-next-line no-console
       console.info('[env] Skipping repository .env fallback because NODE_ENV=production. Set IG_ALLOW_REPO_ENV=1 to override.');
     }
   }
@@ -80,7 +84,7 @@ const toList = (value, { fallback = [], map = (item) => item.trim(), filter = Bo
 
 const CLI_DEBUG_MODE = toBool(process.env.CLI_DEBUG_MODE) || argv.includes('--debug-cli') || argv.includes('--cli-debug');
 
-const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+// clamp() now imported from shared/utils/math-utils.js (centralized)
 
 // Feature flags and role governance (forced on for continuous monitoring)
 const ROLE_PERMISSIONS_AUDIT = true;

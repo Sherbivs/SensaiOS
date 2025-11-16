@@ -14,7 +14,7 @@
  */
 
 import path from 'node:path';
-import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { getErrorMessage } from '../shared/utils/index.js';
 
 // ============================================================================
 // Environment Detection

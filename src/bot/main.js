@@ -7,8 +7,8 @@ import { Client, GatewayIntentBits, Partials, Events, Collection, LimitedCollect
 
 import { loadCommands } from '../command-loader.js';
 import { toEasternString, toEasternDate, toEasternTime } from '../shared/datetime.js';
-import { formatBytes, formatDuration } from '../shared/utils/format-utils.js';
-import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { formatBytes, formatDuration, getErrorMessage, normalizeString } from '../shared/utils/index.js';
+import { TIME_CONSTANTS, MONITORING_CONSTANTS, DISCORD_CONSTANTS } from '../shared/constants.js';
 import {
   CLI_DEBUG_MODE,
   ROLE_PERMISSIONS_AUDIT,
@@ -50,15 +50,15 @@ import { log as baseLog, report } from '../utils/logger.js';
 import opsNotifier from '../utils/opsNotifier.js';
 
 import { createDripAlertManager, DRIP_ALERT_SEVERITY } from './dripAlerts.js';
-import { initializeGuild, buildRestartSummary } from './state/context.js';
-import { initializeState, saveState, shutdownState, startAutoSave, stopAutoSave } from './state/persistence.js';
-import { recordSweep, recordPermissionChange, recordAlert, recordError, recordMemberFetchTimeout, updateDatabaseStatus, getStatsSummary, getRecentEvents } from './state/stats.js';
+import { buildRestartSummary } from './state/context.js';
+import { initializeState, shutdownState, startAutoSave, stopAutoSave } from './state/persistence.js';
+import { recordSweep, recordMemberFetchTimeout } from './state/stats.js';
 import { getRecentActivitySummary } from './state/timeline.js';
 
-// Escalate CLI warnings if sweeps lag and keep idle background cadence predictable.
-const CLI_SWEEP_WARNING_THRESHOLD_SECONDS = 5 * 60;
-const CONTINUOUS_SWEEP_IDLE_DELAY_MS = 15_000;
-const MEMBER_STATS_REFRESH_INTERVAL_MS = 60_000;
+// Extract constants from centralized constants
+const { DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS, MEMBER_STATS_REFRESH_INTERVAL_MS } = TIME_CONSTANTS;
+const { MAX_OPS_ERROR_QUEUE_SIZE } = MONITORING_CONSTANTS;
+const { CLI_SWEEP_WARNING_THRESHOLD_SECONDS, CONTINUOUS_SWEEP_IDLE_DELAY_MS, GUILD_MEMBER_FETCH_CHUNK_RETRIES, TIMEOUT_INCREMENT_MS } = DISCORD_CONSTANTS;
 
 // Auto-adjusting timeout for GuildMembersTimeout errors
 // Increases by 250ms each time a timeout occurs, persists across restarts
@@ -67,10 +67,6 @@ const MEMBER_STATS_REFRESH_INTERVAL_MS = 60_000;
 const TIMEOUT_CONFIG_FILE = process.env.RENDER
   ? '/Store/guild-member-timeout-config.json'
   : './Store/guild-member-timeout-config.json';
-const DEFAULT_TIMEOUT_MS = 120_000;
-const TIMEOUT_INCREMENT_MS = 250;
-const MIN_TIMEOUT_MS = 60_000;
-const MAX_TIMEOUT_MS = 300_000; // 5 minutes max
 
 // Load timeout from persistent config
 function loadTimeoutConfig() {
@@ -120,7 +116,9 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
         const existing = JSON.parse(fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8'));
         adjustments = (existing.adjustments || 0) + 1;
       }
-    } catch {}
+    } catch {
+      // Ignore history loading errors
+    }
     
     const config = {
       timeoutMs,
@@ -138,7 +136,9 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
           config.history = existing.history.slice(-10); // Keep last 10
         }
       }
-    } catch {}
+    } catch {
+      // Ignore history loading errors
+    }
     
     config.history.push({
       timestamp: new Date().toISOString(), // Keep ISO for config file
@@ -189,7 +189,6 @@ function incrementTimeout(currentTimeout, reason = 'timeout_error') {
 // Initialize timeout from config
 let GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = loadTimeoutConfig();
 
-const GUILD_MEMBER_FETCH_CHUNK_RETRIES = 3; // Increased from 2 to 3 for better resilience
 const GUILD_MEMBER_FETCH_PAGE_LIMIT = 1_000;
 const GUILD_MEMBER_FETCH_MAX_PAGES = 200;
 const GUILD_MEMBER_FETCH_REST_DELAY_MS = 250;
@@ -477,7 +476,6 @@ const continuousSweepState = {
 };
 
 const pendingOpsErrorQueue = [];
-const MAX_OPS_ERROR_QUEUE_SIZE = 100; // MEMORY CAP: Prevent unbounded growth
 const deliveredOpsErrorIds = new Set();
 let deliveringOpsErrors = false;
 let opsErrorRetryTimer = null;
@@ -794,7 +792,8 @@ function safeSerialize(value, limit = 1800) {
       return serialized;
     }
     return `${serialized.slice(0, limit - 3)}...`;
-  } catch (error) {
+  } catch {
+    // Ignore serialization errors
     return undefined;
   }
 }
@@ -1383,7 +1382,7 @@ async function notifyServiceRestart() {
             message += `\n• Last adjusted: ${timeoutConfig.lastAdjusted ? toEasternString(new Date(timeoutConfig.lastAdjusted)) : 'unknown'}`;
           }
         }
-      } catch (err) {
+      } catch {
         // Skip timeout config if unavailable
       }
       
@@ -2495,7 +2494,8 @@ async function runCliDebugDump() {
           .map(role => role.name)
       }));
 
-    const payload = {
+    // Build diagnostic payload (for future debugging)
+    const _payload = {
       guild: guildSummary,
       totals: {
         roles: roleSummaries.length,
@@ -2511,7 +2511,7 @@ async function runCliDebugDump() {
     };
 
     // Debug output disabled in production
-    // console.log(JSON.stringify(payload, null, 2));
+    // console.log(JSON.stringify(_payload, null, 2));
     // console.log('');
   }
 
@@ -2980,7 +2980,7 @@ async function resolveAlertUser(spec) {
     }
   }
 
-  const needle = String(spec).trim().toLowerCase();
+  const needle = normalizeString(String(spec));
   // Try exact tag match (username#discriminator)
   for (const [, user] of client.users.cache) {
     if ((user.tag && user.tag.toLowerCase() === needle) || user.username.toLowerCase() === needle) {

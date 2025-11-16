@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import type { Battle, Cooldown, PrismaClient, User as PrismaUser } from "@prisma/client";
 import { toEasternString } from "../shared/datetime.js";
 import { ensurePrisma, prisma } from "../shared/prisma.js";
-import { clamp } from "../shared/utils/math-utils.js";
+import { clamp, toDate, diffInUtcDays } from "../shared/utils/index.js";
 
 export async function initPrisma(): Promise<void> {
   await ensurePrisma();
@@ -620,27 +620,6 @@ export const BattleRepo = {
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function toDate(value: unknown): Date | null {
-  if (value instanceof Date) {
-    return Number.isNaN(value.valueOf()) ? null : value;
-  }
-  if (typeof value === "string" || typeof value === "number") {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.valueOf()) ? null : parsed;
-  }
-  return null;
-}
-
-function startOfUtcDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-}
-
-function diffInUtcDays(a: Date, b: Date): number {
-  const startA = startOfUtcDay(a).getTime();
-  const startB = startOfUtcDay(b).getTime();
-  return Math.floor((startA - startB) / MS_PER_DAY);
-}
 
 export type DailyQuestStreakStatus = {
   streak: number;

@@ -4,7 +4,7 @@
  * @module bot/state/stats
  */
 
-import { updateCumulativeStats, updateRuntimeState, recordMetricsEvent, getMetricsSummary, getMetricsTrend } from './persistence.js';
+import { updateCumulativeStats, updateRuntimeState, recordMetricsEvent } from './persistence.js';
 
 // Re-export metrics functions
 export { getMetricsSummary, getMetricsTrend } from './persistence.js';
@@ -229,23 +229,10 @@ export function updateActiveSweeps(state, guildIds) {
 }
 
 /**
- * Get formatted uptime string
+ * Get formatted uptime string (delegates to shared utility)
  */
 export function formatUptime(milliseconds) {
-  const seconds = Math.floor(milliseconds / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-  
-  if (days > 0) {
-    return `${days}d ${hours % 24}h ${minutes % 60}m`;
-  } else if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
-  } else {
-    return `${seconds}s`;
-  }
+  return sharedFormatUptime(milliseconds);
 }
 
 /**

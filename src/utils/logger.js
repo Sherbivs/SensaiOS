@@ -1,8 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import resourceMonitor from '../services/monitoring/resource-monitor.js';
-import { formatBytes } from '../shared/utils/format-utils.js';
-import { extractDatabaseName } from '../shared/utils/url-utils.js';
+import { formatBytes, deepClone } from '../shared/utils/index.js';
 
 // ============================================================================
 // Constants & Configuration
@@ -127,18 +126,7 @@ let statsCache = {
  * @param {number} ms - Milliseconds
  * @returns {string} Formatted uptime (e.g., "2m 34s")
  */
-function formatUptime(ms) {
-  if (!Number.isFinite(ms) || ms < 0) return '0s';
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-  
-  if (days > 0) return `${days}d ${hours % 24}h`;
-  if (hours > 0) return `${hours}h ${minutes % 60}m`;
-  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-  return `${seconds}s`;
-}
+// formatUptime now imported from shared/utils/format-utils.js (centralized)
 
 /**
  * Extract database name from connection string for observability.
@@ -693,7 +681,7 @@ async function printStats() {
   }
   
   // Store current stats for next comparison
-  previousStats = JSON.parse(JSON.stringify(statsCache));
+  previousStats = deepClone(statsCache);
   
   const lines = [];
   

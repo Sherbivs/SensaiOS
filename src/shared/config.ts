@@ -2,6 +2,7 @@ import "../config/env.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { normalizeString } from "./utils/index.js";
 
 export type DatabaseConnectionMode = "auto" | "external" | "internal";
 
@@ -57,7 +58,7 @@ function coerceBoolean(value: string | undefined, fallback: boolean): boolean {
   if (typeof value !== "string") {
     return fallback;
   }
-  const normalized = value.trim().toLowerCase();
+  const normalized = normalizeString(value);
   if (["1", "true", "yes", "on"].includes(normalized)) {
     return true;
   }
@@ -145,7 +146,7 @@ function writeConnectionPreference(source: DatabaseUrlSource): void {
 }
 
 function normalizeMode(raw: string | undefined): DatabaseConnectionMode {
-  const candidate = raw?.trim().toLowerCase();
+  const candidate = raw ? normalizeString(raw) : undefined;
   if (!candidate) {
     return "auto";
   }
@@ -298,7 +299,7 @@ export function loadConfig(): RuntimeConfig {
   const redisUrl = process.env.REDIS_URL?.trim() || null;
   const cacheTtlMs = coerceNumber(process.env.CACHE_TTL_MS, 60_000);
 
-  const backupProviderRaw = process.env.BACKUP_STORAGE_PROVIDER?.trim().toLowerCase();
+  const backupProviderRaw = process.env.BACKUP_STORAGE_PROVIDER ? normalizeString(process.env.BACKUP_STORAGE_PROVIDER) : undefined;
   const backupProvider: BackupStorageProvider = backupProviderRaw === "s3"
     ? "s3"
     : backupProviderRaw === "local"

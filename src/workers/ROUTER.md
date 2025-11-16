@@ -2,7 +2,13 @@
 Title: Background Workers
 Purpose: Long-running background tasks for cache refresh, data sync, validation, and maintenance.
 Owned Globs: src/workers/**
-Last Updated (UTC): 2025-11-09T00:00:00Z
+Last Updated (UTC): 2025-11-16T00:00:00Z
+
+**Recent Consolidation (2025-11-16):**
+- ✅ Eliminated 4 duplicate `delay()` functions from engine-workers.ts
+- ✅ Now imports shared `delay()` from `src/shared/utils/async-utils.ts`
+- ✅ Impact: -20 lines of duplicate code, improved maintainability
+- ✅ Pattern: All workers use shared async utilities instead of private helpers
 
 Notes:
 - Workers run as separate processes in production (Render background workers).

@@ -18,7 +18,7 @@
 
 import { errorLearning } from '../services/monitoring/error-learning.js';
 import { log } from '../utils/logger.js';
-import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { getErrorMessage } from '../shared/utils/index.js';
 
 // ============================================================================
 // Type Definitions

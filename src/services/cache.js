@@ -1,9 +1,12 @@
 import { log } from '../utils/logger.js';
-import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { getErrorMessage } from '../shared/utils/index.js';
+import { CACHE_CONSTANTS } from '../shared/constants.js';
 // Persistent caching utilities for the security role-healing bot
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+
+const { MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS, MAX_WORKSPACE_BYTES } = CACHE_CONSTANTS;
 
 // On Render with persistent disk mounted at /Store
 // Locally falls back to Store/ in project directory
@@ -11,9 +14,6 @@ const PRIMARY_CACHE_DIR = process.env.RENDER
   ? '/Store/discord-cache'
   : path.join(process.cwd(), 'Store', 'discord-cache');
 const FALLBACK_CACHE_DIR = path.join(process.cwd(), 'Store', 'discord-cache');
-const MAX_CACHE_PERCENT = 0.75;
-const MAX_CACHE_FILE_AGE_MS = 1000 * 60 * 60 * 24 * 7;
-const MAX_WORKSPACE_BYTES = 1024 * 1024 * 1024; // 1 GB workspace budget reminder
 
 function logCacheIssue(level, tag, err, meta = {}) {
   const contextParts = Object.entries(meta)

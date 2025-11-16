@@ -1,8 +1,9 @@
 import { log } from '../utils/logger.js';
-import { truncate } from '../shared/utils/format-utils.js';
+import { truncate } from '../shared/utils/index.js';
+import { MONITORING_CONSTANTS } from '../shared/constants.js';
 'use strict';
 
-const MAX_RECENT_ERRORS = 10;
+const { MAX_RECENT_ERRORS } = MONITORING_CONSTANTS;
 
 const recentErrors = [];
 const subscribers = new Set();

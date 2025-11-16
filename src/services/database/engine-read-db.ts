@@ -30,6 +30,7 @@ import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { EngineDbConfig } from '../../config/engine-db-config.js';
 import { log } from '../../utils/logger.js';
+import { getTableCount } from './sql-utils.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -539,16 +540,13 @@ export function getStats(): {
     const start = performance.now();
     
     // Count Pokemon
-    const pokemonResult = db.exec('SELECT COUNT(*) FROM pokemon');
-    const pokemonCount = (pokemonResult[0]?.values[0]?.[0] as number) ?? 0;
+    const pokemonCount = getTableCount(db, 'pokemon');
 
     // Count Moves
-    const movesResult = db.exec('SELECT COUNT(*) FROM moves');
-    const moveCount = (movesResult[0]?.values[0]?.[0] as number) ?? 0;
+    const moveCount = getTableCount(db, 'moves');
 
     // Count Type Effectiveness
-    const typeResult = db.exec('SELECT COUNT(*) FROM type_effectiveness');
-    const typeEffectivenessCount = (typeResult[0]?.values[0]?.[0] as number) ?? 0;
+    const typeEffectivenessCount = getTableCount(db, 'type_effectiveness');
 
     // Calculate query latency
     const latency = performance.now() - start;

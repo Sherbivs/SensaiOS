@@ -33,6 +33,7 @@ import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { EngineDbConfig } from '../../config/engine-db-config.js';
 import { log } from '../../utils/logger.js';
+import { getTableCount, getCount } from './sql-utils.js';
 import type { 
   BattleLogEntry, 
   MoveUsageEntry, 
@@ -625,11 +626,9 @@ export async function validateData(): Promise<ValidationReport> {
     log('info', 'engine-write-db: Starting data validation...');
 
     // Count total rows
-    const battleCountResult = db.exec('SELECT COUNT(*) FROM battle_logs WHERE uploaded_at IS NULL');
-    const moveCountResult = db.exec('SELECT COUNT(*) FROM move_usage WHERE uploaded_at IS NULL');
-    const totalRows = 
-      ((battleCountResult[0]?.values[0]?.[0] as number) ?? 0) +
-      ((moveCountResult[0]?.values[0]?.[0] as number) ?? 0);
+    const battleCount = getCount(db, 'SELECT COUNT(*) FROM battle_logs WHERE uploaded_at IS NULL');
+    const moveCount = getCount(db, 'SELECT COUNT(*) FROM move_usage WHERE uploaded_at IS NULL');
+    const totalRows = battleCount + moveCount;
 
     let validatedRows = 0;
     let passedRows = 0;
@@ -699,8 +698,7 @@ export async function validateData(): Promise<ValidationReport> {
     }
 
     // Count anomalies
-    const anomalyResult = db.exec('SELECT COUNT(*) FROM anomalies WHERE uploaded_at IS NULL');
-    const anomalyCount = (anomalyResult[0]?.values[0]?.[0] as number) ?? 0;
+    const anomalyCount = getCount(db, 'SELECT COUNT(*) FROM anomalies WHERE uploaded_at IS NULL');
 
     const qualityScore = validatedRows > 0 ? passedRows / validatedRows : 1.0;
     const durationMs = performance.now() - startTime;
@@ -870,20 +868,16 @@ export function getStats(): WriteDbStats {
     const start = performance.now();
     
     // Count battle logs
-    const battleResult = db.exec('SELECT COUNT(*) FROM battle_logs');
-    const battleLogCount = (battleResult[0]?.values[0]?.[0] as number) ?? 0;
+    const battleLogCount = getTableCount(db, 'battle_logs');
 
     // Count move usage
-    const moveResult = db.exec('SELECT COUNT(*) FROM move_usage');
-    const moveUsageCount = (moveResult[0]?.values[0]?.[0] as number) ?? 0;
+    const moveUsageCount = getTableCount(db, 'move_usage');
 
     // Count anomalies
-    const anomalyResult = db.exec('SELECT COUNT(*) FROM anomalies');
-    const anomalyCount = (anomalyResult[0]?.values[0]?.[0] as number) ?? 0;
+    const anomalyCount = getTableCount(db, 'anomalies');
 
     // Count WAL entries
-    const walResult = db.exec('SELECT COUNT(*) FROM write_ahead_log');
-    const walEntryCount = (walResult[0]?.values[0]?.[0] as number) ?? 0;
+    const walEntryCount = getTableCount(db, 'write_ahead_log');
 
     // Get oldest entry age
     const oldestResult = db.exec('SELECT MIN(created_at) FROM battle_logs');
