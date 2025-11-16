@@ -4,7 +4,7 @@ import readline from 'node:readline';
 import activityTracker from './activityTracker.js';
 import opsNotifier from './opsNotifier.js';
 import { toEasternLogFormat } from '../shared/datetime.js';
-import { formatDuration } from '../shared/utils/format-utils.js';
+import { formatDuration, formatTimestamp } from '../shared/utils/format-utils.js';
 
 const NORMAL_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
 const ALERT_UPDATE_INTERVAL_MS = 30 * 1000;
@@ -71,20 +71,7 @@ function describeInterval(ms) {
 }
 
 // formatDuration now imported from shared/utils/format-utils.js (centralized)
-
-function formatTimestamp(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-    return 'never';
-  }
-  const now = Date.now();
-  const diff = now - date.getTime();
-  const prefix = diff < 0 ? 'in ' : '';
-  const magnitude = Math.abs(diff);
-  if (magnitude < 1000) {
-    return diff < 0 ? 'soon' : 'just now';
-  }
-  return `${prefix}${formatDuration(magnitude)}${diff < 0 ? '' : ' ago'}`;
-}
+// formatTimestamp now imported from shared/utils/format-utils.js (centralized)
 
 function toMetricRows(metrics = []) {
   if (!Array.isArray(metrics) || metrics.length === 0) {

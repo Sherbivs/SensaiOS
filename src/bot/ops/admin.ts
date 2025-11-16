@@ -3,7 +3,7 @@ import type { Pool } from "pg";
 import type { PrismaClient, Prisma } from "@prisma/client";
 import type { BusStatus } from "../../types/db-models.js";
 import { toEasternString } from "../../shared/datetime.js";
-import { formatBytes, formatBytesShort, formatDurationCompact } from "../../shared/utils/format-utils.js";
+import { formatBytes, formatBytesShort, formatDurationCompact, formatTimestamp } from "../../shared/utils/format-utils.js";
 import { getErrorMessage } from "../../shared/utils/error-utils.js";
 
 import {
@@ -630,17 +630,7 @@ function formatOpsStatsReport(
 
 // formatBytes now imported from shared/utils/format-utils.js (centralized)
 // formatDuration → formatDurationCompact imported from format-utils.js (centralized)
-
-function formatTimestamp(date: Date | null): string {
-  if (!date) return "never";
-  const now = Date.now();
-  const diff = now - date.getTime();
-  if (diff < 1000) return "just now";
-  if (diff < 60000) return `${Math.floor(diff / 1000)}s ago`;
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return `${Math.floor(diff / 86400000)}d ago`;
-}
+// formatTimestamp now imported from shared/utils/format-utils.js (centralized)
 
 function formatEngineDbStats(): string {
   const lines: string[] = [];

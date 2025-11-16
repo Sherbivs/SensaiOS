@@ -192,6 +192,50 @@ export function truncate(value: unknown, maxLength = 100, ellipsis = '…'): str
 }
 
 /**
+ * Format a timestamp as a human-readable relative time string.
+ * Supports past dates ("X ago"), future dates ("in X"), and edge cases.
+ * 
+ * @param date - Date object, timestamp number, or null/undefined
+ * @returns Relative time string like "just now", "5m ago", "in 3h", or "never"
+ * 
+ * @example
+ * ```typescript
+ * formatTimestamp(new Date()) // "just now"
+ * formatTimestamp(new Date(Date.now() - 300000)) // "5m ago"
+ * formatTimestamp(new Date(Date.now() + 3600000)) // "in 1h"
+ * formatTimestamp(null) // "never"
+ * formatTimestamp(new Date('invalid')) // "never"
+ * ```
+ */
+export function formatTimestamp(date: Date | number | null | undefined): string {
+  // Handle null/undefined
+  if (!date) return 'never';
+
+  // Convert to Date if needed
+  const dateObj = date instanceof Date ? date : new Date(date);
+
+  // Handle invalid dates
+  if (Number.isNaN(dateObj.getTime())) {
+    return 'never';
+  }
+
+  // Calculate time difference
+  const now = Date.now();
+  const diff = now - dateObj.getTime();
+  const prefix = diff < 0 ? 'in ' : '';
+  const magnitude = Math.abs(diff);
+
+  // Handle very recent/soon
+  if (magnitude < 1000) {
+    return diff < 0 ? 'soon' : 'just now';
+  }
+
+  // Use formatDuration for the time component
+  const duration = formatDuration(magnitude);
+  return `${prefix}${duration}${diff < 0 ? '' : ' ago'}`;
+}
+
+/**
  * Strip surrounding quotes from a string (single or double quotes).
  * Useful for parsing environment variables or configuration values.
  * 
