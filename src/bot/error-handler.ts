@@ -7,7 +7,7 @@
  */
 
 import { DiscordAPIError, CommandInteraction, Interaction, Message } from 'discord.js';
-import { errorTracker, type ErrorContext } from '../services/error-tracker.js';
+import { errorTracker, type ErrorContext } from '../services/monitoring/index.js';
 import { log } from '../utils/logger.js';
 
 /// ---- Discord Error Types ----

@@ -19,7 +19,7 @@ import {
 import { loadDexV2Runtime, resetDexV2Runtime } from "../dex/v2/loader.js";
 import { recordDexLoad, recordDexFallback, recordDexLookup, recordDexLookupMiss } from "../dex/metrics.js";
 import { DEX_V2_ENABLED } from "../config/env.js";
-import { engineCache } from "../services/engine-cache.js";
+import { engineCache } from '../services/cache/engine-cache.js';
 
 /**
  * @typedef {{ move: string; level: number | null }} LearnsetLevelEntry

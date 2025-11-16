@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import fs from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { createGunzip } from 'node:zlib';
@@ -172,11 +173,11 @@ async function* readAllLogs(dirPath = CONFIG.baseDir, options = {}) {
             if (limit && count >= limit) return;
           }
         }
-      } catch (error) {
+      } catch {
         // Compressed directory might not exist yet
       }
     }
-  } catch (error) {
+  } catch {
     console.error('[ai-log-analyzer] Failed to read logs:', error);
   }
 }
@@ -555,7 +556,7 @@ async function generateInsights() {
   const insights = [];
   
   // Insight 1: Recurring errors
-  for (const [key, pattern] of knowledgeBase.errorPatterns.entries()) {
+  for (const [_key, pattern] of knowledgeBase.errorPatterns.entries()) {
     if (pattern.totalOccurrences >= 10) {
       insights.push({
         type: 'recurring_error',
@@ -584,7 +585,7 @@ async function generateInsights() {
   }
   
   // Insight 3: Cascading failures
-  for (const [key, corr] of knowledgeBase.correlations.entries()) {
+  for (const [_key, corr] of knowledgeBase.correlations.entries()) {
     if (corr.count >= 5 && corr.event1.includes('ERROR')) {
       insights.push({
         type: 'cascading_failure',
@@ -680,7 +681,7 @@ async function loadKnowledgeBase() {
     Object.assign(stats, parsed.stats || {});
     
     console.log('[ai-log-analyzer] Knowledge base loaded');
-  } catch (error) {
+  } catch {
     // File doesn't exist yet, start fresh
     console.log('[ai-log-analyzer] Starting with fresh knowledge base');
   }

@@ -47,17 +47,18 @@ import {
 } from "./shared/prisma.js";
 import cliStatus from "./utils/cliStatus.js";
 import { validateEngineDbConfig } from "./config/engine-db-config.js";
-import * as engineReadDb from "./services/engine-read-db.js";
-import * as engineWriteDb from "./services/engine-write-db.js";
-import type { EngineCache } from "./services/engine-cache.js";
-import type { EngineWriteBuffer } from "./services/engine-write-buffer.js";
-import type { ErrorTracker } from "./services/error-tracker.js";
+import type { EngineCache } from "./services/cache/engine-cache.js";
+import type { EngineWriteBuffer } from "./services/cache/engine-write-buffer.js";
+import type { ErrorTracker } from "./services/monitoring/error-tracker.js";
 import { startEngineWorkers, stopEngineWorkers, type EngineWorkersStatus } from "./workers/engine-workers.js";
 import { errorLearningWorker } from "./workers/error-learning-worker.js";
-import { startResourceMonitoring, stopResourceMonitoring } from "./services/resource-monitor.js";
-import * as aiLogger from "./services/ai-log-writer.js";
-import * as aiLogAnalyzer from "./services/ai-log-analyzer.js";
-import * as aiLogIntegrations from "./services/ai-log-integrations.js";
+import * as aiLogger from "./services/ai/ai-log-writer.js";
+import * as aiLogAnalyzer from "./services/ai/ai-log-analyzer.js";
+import * as aiLogIntegrations from "./services/ai/ai-log-integrations.js";
+
+// Import types for Engine DB services (used by registry service variables)
+import type * as EngineReadDbModule from "./services/database/engine-read-db.js";
+import type * as EngineWriteDbModule from "./services/database/engine-write-db.js";
 
 // Record module import completion
 recordTiming("module_imports", MODULE_IMPORT_START);
@@ -156,6 +157,12 @@ let resourceManager: { shutdown: () => Promise<void> } | null = null;
 let errorTracker: ErrorTracker | null = null;
 let engineCache: EngineCache | null = null;
 let engineWriteBuffer: EngineWriteBuffer | null = null;
+// Phase 4 expansion services (9 total registered)
+let _errorLearning: { shutdown: () => Promise<void> } | null = null;
+let resourceMonitor: { resourceMonitor: { start: () => void; stop: () => void } } | null = null;
+let engineReadDbService: typeof EngineReadDbModule | null = null;
+let engineWriteDbService: typeof EngineWriteDbModule | null = null;
+let _cacheFacadeService: { stopCacheMaintenanceScheduler: () => void; runCacheMaintenanceNow: (reason: string) => Promise<void> } | null = null;
 
 function withMonitor(callback: (monitor: typeof cliStatus) => void): void {
   if (!monitorActive) {
@@ -669,8 +676,8 @@ function updateEngineSection(workerStatus?: EngineWorkersStatus): void {
   try {
     const cacheStats = engineCache.getStats();
     const bufferStats = engineWriteBuffer.getStats();
-    const readDbStats = engineReadDb.getStats();
-    const writeDbStats = engineWriteDb.getStats();
+    const readDbStats = engineReadDbService ? engineReadDbService.getStats() : null;
+    const writeDbStats = engineWriteDbService ? engineWriteDbService.getStats() : null;
     
     const metrics: MetricsList = [];
     
@@ -690,8 +697,12 @@ function updateEngineSection(workerStatus?: EngineWorkersStatus): void {
     }
     
     // Database metrics
-    metrics.push(metric("read-db", `${readDbStats.pokemonCount} pokemon`));
-    metrics.push(metric("write-db", `${writeDbStats.battleLogCount} battles`));
+    if (readDbStats) {
+      metrics.push(metric("read-db", `${readDbStats.pokemonCount} pokemon`));
+    }
+    if (writeDbStats) {
+      metrics.push(metric("write-db", `${writeDbStats.battleLogCount} battles`));
+    }
     
     // Worker status
     if (workerStatus) {
@@ -843,7 +854,9 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   // Stop unified resource monitoring (includes memory guardian)
   try {
     log.info("Stopping resource monitor (includes memory guardian)");
-    stopResourceMonitoring();
+    if (resourceMonitor) {
+      resourceMonitor.resourceMonitor.stop();
+    }
   } catch (error) {
     log.error("Error stopping resource monitor", error);
   }
@@ -879,7 +892,9 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   // Save Write-DB to disk (final persistence)
   try {
     log.info("Saving Engine Write-DB");
-    await engineWriteDb.close();
+    if (engineWriteDbService) {
+      await engineWriteDbService.close();
+    }
   } catch (error) {
     log.error("Error closing Engine Write-DB", error);
   }
@@ -887,7 +902,9 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   // Close Read-DB
   try {
     log.info("Closing Engine Read-DB");
-    await engineReadDb.close();
+    if (engineReadDbService) {
+      await engineReadDbService.close();
+    }
   } catch (error) {
     log.error("Error closing Engine Read-DB", error);
   }
@@ -953,7 +970,7 @@ function installSignalHandlers(): void {
     
     // Capture error for tracking and learning
     try {
-      const { errorTracker } = await import("./services/error-tracker.js");
+      const { errorTracker } = await import("./services/monitoring/error-tracker.js");
       await errorTracker.captureError(error, {
         category: "UNKNOWN",
         severity: "HIGH",
@@ -974,7 +991,7 @@ function installSignalHandlers(): void {
     
     // Capture error for tracking (CRITICAL severity - system crash)
     try {
-      const { errorTracker } = await import("./services/error-tracker.js");
+      const { errorTracker } = await import("./services/monitoring/error-tracker.js");
       await errorTracker.captureError(error, {
         category: "UNKNOWN",
         severity: "CRITICAL",
@@ -1014,15 +1031,20 @@ export async function boot(): Promise<void> {
     log.info("Initializing services via Service Registry");
     await registry.initializeAll();
     
-    // Get service instances from registry
+    // Get service instances from registry (Phase 1-4: 9 services)
     resourceManager = registry.get('resource-manager');
     errorTracker = registry.get('error-tracker');
     engineCache = registry.get('engine-cache');
     engineWriteBuffer = registry.get('engine-write-buffer');
+    _errorLearning = registry.get('error-learning');
+    resourceMonitor = registry.get('resource-monitor');
+    engineReadDbService = registry.get('engine-read-db');
+    engineWriteDbService = registry.get('engine-write-db');
+    _cacheFacadeService = registry.get('cache-facade');
     
     const registryDurationMs = recordTiming("service_registry", REGISTRY_START);
     log.info("Service Registry initialized", {
-      services: 4,
+      services: 9,
       duration: `${registryDurationMs.toFixed(2)}ms`,
     });
     
@@ -1193,8 +1215,11 @@ export async function boot(): Promise<void> {
           // Read-DB initialization + L1 Cache load
           (async () => {
             // Step 2: Initialize Read-DB (SQLite read-only database)
-            await engineReadDb.initialize();
-            const readStats = engineReadDb.getStats();
+            if (!engineReadDbService) {
+              throw new Error('Engine Read-DB service not initialized from registry');
+            }
+            await engineReadDbService.initialize();
+            const readStats = engineReadDbService.getStats();
             log.info("Engine Read-DB initialized", {
               pokemon: readStats.pokemonCount,
               moves: readStats.moveCount,
@@ -1219,12 +1244,15 @@ export async function boot(): Promise<void> {
           // Write-DB initialization + WAL replay
           (async () => {
             // Step 4: Initialize Write-DB (SQLite append-only database)
-            await engineWriteDb.initialize();
+            if (!engineWriteDbService) {
+              throw new Error('Engine Write-DB service not initialized from registry');
+            }
+            await engineWriteDbService.initialize();
             log.info("Engine Write-DB initialized");
             
             // Step 5: Replay WAL (recover from crashes)
-            await engineWriteDb.replayWAL();
-            const writeStats = engineWriteDb.getStats();
+            await engineWriteDbService.replayWAL();
+            const writeStats = engineWriteDbService.getStats();
             log.info("Engine Write-DB WAL replayed", {
               battleLogs: writeStats.battleLogCount,
               moveUsage: writeStats.moveUsageCount,
@@ -1253,17 +1281,19 @@ export async function boot(): Promise<void> {
         // Resource Manager already initialized by Service Registry
         
         // Start unified resource monitoring (health checks + memory guardian)
-        startResourceMonitoring();
-        log.info("Resource monitor started with integrated memory guardian", {
-          healthCheckIntervalHours: 12,
-          memoryGuardianIntervalSec: 30,
-          limits: {
-            warning: '384MB',
-            critical: '435MB',
-            emergency: '460MB',
-            renderLimit: '512MB',
-          },
-        });
+        if (resourceMonitor) {
+          resourceMonitor.resourceMonitor.start();
+          log.info("Resource monitor started with integrated memory guardian", {
+            healthCheckIntervalHours: 12,
+            memoryGuardianIntervalSec: 30,
+            limits: {
+              warning: '384MB',
+              critical: '435MB',
+              emergency: '460MB',
+              renderLimit: '512MB',
+            },
+          });
+        }
         
         // Step 7: Mark engine as ready for battles
         global.engineReady = true;

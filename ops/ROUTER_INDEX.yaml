@@ -1,5 +1,5 @@
 version: 1
-generated_utc: "2025-11-09T17:02:34Z"
+generated_utc: "2025-11-16T18:19:06Z"
 routers:
   - path: ".db-state/"
     router_file: ".db-state/ROUTER.md"
@@ -85,7 +85,52 @@ routers:
     router_file: "docs/ROUTER.md"
     title: "Documentation Library"
     purpose: "Architecture, safety, and operational guides referenced across the meta-router."
-    last_updated_utc: "2025-11-09T00:15:00Z"
+    last_updated_utc: "2025-11-14T12:45:00Z"
+  - path: "docs/architecture/"
+    router_file: "docs/architecture/ROUTER.md"
+    title: "Architecture Documentation"
+    purpose: "System architecture, operations, roadmap, and meta-routing guides."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/console-output/"
+    router_file: "docs/console-output/ROUTER.md"
+    title: "Console Output Documentation"
+    purpose: "Console output standardization, formatting standards, and implementation reports."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/database/"
+    router_file: "docs/database/ROUTER.md"
+    title: "Database Documentation"
+    purpose: "Database architecture, replication, clustering, migration, and optimization."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/deployment/"
+    router_file: "docs/deployment/ROUTER.md"
+    title: "Deployment Documentation"
+    purpose: "Render deployment, workers, mount paths, and infrastructure."
+    last_updated_utc: "2025-11-14T12:45:00Z"
+  - path: "docs/environment/"
+    router_file: "docs/environment/ROUTER.md"
+    title: "Environment Setup Documentation"
+    purpose: "Environment configuration, AI agent setup, and workstation gameplay."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/error-system/"
+    router_file: "docs/error-system/ROUTER.md"
+    title: "Error System Documentation"
+    purpose: "Error detection, tracking, learning, alerting, and recovery documentation."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/game-engine/"
+    router_file: "docs/game-engine/ROUTER.md"
+    title: "Game Engine Documentation"
+    purpose: "Battle engine, encounter system, PBSL, event tracking, and engine database."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/northstar/"
+    router_file: "docs/northstar/ROUTER.md"
+    title: "Northstar Methodology Documentation"
+    purpose: "Northstar schema consolidation methodology and implementation phases."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/task-reports/"
+    router_file: "docs/task-reports/ROUTER.md"
+    title: "Task Reports Documentation"
+    purpose: "Task completion summaries and phase reports for major implementations."
+    last_updated_utc: "2025-11-10T00:00:00Z"
   - path: "ops/INBOX/"
     router_file: "ops/INBOX/ROUTER.md"
     title: "Ops Inbox"
@@ -150,7 +195,7 @@ routers:
     router_file: "scripts/ROUTER.md"
     title: "Tooling"
     purpose: "Guard scripts and automation entrypoints."
-    last_updated_utc: "2025-11-06T04:45:00Z"
+    last_updated_utc: "2025-11-09T00:00:00Z"
   - path: "scripts/dex/"
     router_file: "scripts/dex/ROUTER.md"
     title: "Dex Automation Scripts"
@@ -296,11 +341,6 @@ routers:
     title: "Event Bus & Battle Engine Primitives"
     purpose: "Shared mechanics for battle calculations and worker orchestration."
     last_updated_utc: "2025-10-30T00:47:00Z"
-  - path: "src/env/"
-    router_file: "src/env/ROUTER.md"
-    title: "Environment Utilities"
-    purpose: "Helpers that validate runtime configuration."
-    last_updated_utc: "2025-10-30T00:47:00Z"
   - path: "src/lib/"
     router_file: "src/lib/ROUTER.md"
     title: "Shared Library Helpers"
@@ -319,13 +359,28 @@ routers:
   - path: "src/services/"
     router_file: "src/services/ROUTER.md"
     title: "Service Layer Helpers"
-    purpose: "Legacy abstractions that supply data to command handlers and DM flows."
-    last_updated_utc: "2025-11-09T00:00:00Z"
+    purpose: "Organized service layer providing cache management, database operations, error monitoring, resource management, and AI logging."
+    last_updated_utc: "2025-11-16T00:00:00Z"
+  - path: "src/services/ai/"
+    router_file: "src/services/ai/ROUTER.md"
+    title: "AI Logging System Services"
+    purpose: "AI agent logging, analysis, and integration for development workflow automation."
+    last_updated_utc: "2025-11-16T00:00:00Z"
   - path: "src/services/cache/"
     router_file: "src/services/cache/ROUTER.md"
     title: "Service Cache Recipes"
     purpose: "Namespaced cache facade entrypoints for battles, encounters, and quests."
     last_updated_utc: "2025-11-01T17:30:00Z"
+  - path: "src/services/database/"
+    router_file: "src/services/database/ROUTER.md"
+    title: "Engine Database Services"
+    purpose: "SQLite database services for Pokémon engine data persistence (read-only reference data + append-only battle logs)."
+    last_updated_utc: "2025-11-16T00:00:00Z"
+  - path: "src/services/monitoring/"
+    router_file: "src/services/monitoring/ROUTER.md"
+    title: "Error Monitoring & Resource Management Services"
+    purpose: "Error tracking, pattern learning, resource monitoring, resource lifecycle management with centralized observability."
+    last_updated_utc: "2025-11-16T00:00:00Z"
   - path: "src/shared/"
     router_file: "src/shared/ROUTER.md"
     title: "Shared Runtime & Utilities"
@@ -350,52 +405,17 @@ routers:
     router_file: "src/utils/ROUTER.md"
     title: "Utility Helpers"
     purpose: "Cross-cutting utilities for logging, CLI status output, and operational helpers."
-    last_updated_utc: "2025-11-02T20:09:24Z"
-  - path: "src/worker/"
-    router_file: "src/worker/ROUTER.md"
+    last_updated_utc: "2025-11-09T00:00:00Z"
+  - path: "src/workers/"
+    router_file: "src/workers/ROUTER.md"
     title: "Background Workers"
-    purpose: "Render background services that drain the event bus and perform offline tasks."
-    last_updated_utc: "2025-10-28T22:55:00Z"
-  - path: "sync-layer/"
-    router_file: "sync-layer/ROUTER.md"
-    title: "Sync Layer Prototype"
-    purpose: "Worker and Discord sync utilities for legacy data synchronization."
-    last_updated_utc: "2025-11-01T19:30:00Z"
-  - path: "sync-layer/data/"
-    router_file: "sync-layer/data/ROUTER.md"
-    title: "Sync Layer Data Manifests"
-    purpose: "Curated JSON manifests that describe the state mirrored by the sync layer prototype."
-    last_updated_utc: "2025-11-01T15:22:00Z"
-  - path: "sync-layer/discord/"
-    router_file: "sync-layer/discord/ROUTER.md"
-    title: "Sync Layer Discord Hooks"
-    purpose: "Discord-side watchers that emit sync payloads for downstream workers."
-    last_updated_utc: "2025-11-01T19:30:00Z"
-  - path: "sync-layer/discord/hooks/"
-    router_file: "sync-layer/discord/hooks/ROUTER.md"
-    title: "Sync Discord Event Hooks"
-    purpose: "Event-specific Discord handlers that publish sync payloads for the prototype pipeline."
-    last_updated_utc: "2025-11-01T19:30:00Z"
-  - path: "sync-layer/shared/"
-    router_file: "sync-layer/shared/ROUTER.md"
-    title: "Sync Layer Shared Utilities"
-    purpose: "Shared IO and logging helpers leveraged by the sync layer prototype."
-    last_updated_utc: "2025-11-01T15:24:00Z"
-  - path: "sync-layer/worker/"
-    router_file: "sync-layer/worker/ROUTER.md"
-    title: "Sync Layer Worker Entries"
-    purpose: "Background workers that consume Discord deltas and commit them to mirrored storage."
-    last_updated_utc: "2025-11-01T19:30:00Z"
-  - path: "sync-layer/worker/schema/"
-    router_file: "sync-layer/worker/schema/ROUTER.md"
-    title: "Sync Worker Schemas"
-    purpose: "JSON schema definitions that validate Discord sync payloads before workers commit state."
-    last_updated_utc: "2025-11-01T19:30:00Z"
+    purpose: "Long-running background tasks for cache refresh, data sync, validation, and maintenance."
+    last_updated_utc: "2025-11-09T00:00:00Z"
   - path: "tests/"
     router_file: "tests/ROUTER.md"
     title: "Test Suite"
     purpose: "Vitest coverage for schemas, pipeline, engines, and flows."
-    last_updated_utc: "2025-11-03T00:15:00Z"
+    last_updated_utc: "2025-11-09T00:00:00Z"
   - path: "tests/battle/"
     router_file: "tests/battle/ROUTER.md"
     title: "Battle Interaction Tests"
@@ -419,8 +439,8 @@ routers:
   - path: "tests/shared/"
     router_file: "tests/shared/ROUTER.md"
     title: "Shared Test Utilities"
-    purpose: "Common test fixtures and sinks shared across the Vitest suite."
-    last_updated_utc: "2025-11-01T15:28:00Z"
+    purpose: "Common test fixtures, mocks, and assertions shared across the Vitest suite."
+    last_updated_utc: "2025-11-16T00:00:00Z"
   - path: "tools/"
     router_file: "tools/ROUTER.md"
     title: "Tooling Binaries & Helpers"

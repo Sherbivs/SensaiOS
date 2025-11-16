@@ -1,51 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { errorTracker } from '../src/services/error-tracker.js';
+import { errorTracker } from '../src/services/monitoring/error-tracker.js';
+import { createMockErrorLog, mockPrismaWithErrorLog, mockLogger } from './shared/index.js';
 import type { ErrorLog } from '@prisma/client';
 
 // Mock Prisma
 vi.mock('../src/shared/prisma.js', () => ({
-  prisma: {
-    errorLog: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      findMany: vi.fn(),
-      count: vi.fn(),
-    },
-  },
+  prisma: mockPrismaWithErrorLog(),
 }));
 
 // Mock logger
-vi.mock('../src/utils/logger.js', () => ({
-  log: vi.fn(),
-}));
-
-// Helper function to create valid ErrorLog mocks
-function createMockErrorLog(overrides: Partial<ErrorLog> = {}): ErrorLog {
-  return {
-    errorId: 'test-id',
-    fingerprint: 'mock-fingerprint',
-    category: 'VALIDATION',
-    severity: 'MEDIUM',
-    firstSeen: new Date(),
-    lastSeen: new Date(),
-    occurrenceCount: 1,
-    errorName: 'Error',
-    errorMessage: 'Test error',
-    stackTrace: null,
-    contextData: null,
-    recoveryAttempted: 0,
-    recoverySuccess: 0,
-    lastRecoveryStrategy: null,
-    lastRecoveryOutcome: null,
-    impactedFeatures: [],
-    estimatedUserImpact: null,
-    learningMetadata: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
-  };
-}
+vi.mock('../src/utils/logger.js', () => mockLogger());
 
 describe('ErrorTracker', () => {
   beforeEach(() => {

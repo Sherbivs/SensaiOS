@@ -3,9 +3,9 @@ import { SlashCommandBuilder } from 'discord.js';
 import dexApi from '../lib/dex-api.js';
 import { makeRNG } from '../engine/rng.js';
 import engine from '../engine/index.js';
-import { engineWriteBuffer } from '../services/engine-write-buffer.js';
+import { engineWriteBuffer } from '../services/cache/engine-write-buffer.js';
 
-const { getPokemon, getMove, disabled, moves: dexMoves } = dexApi;
+const { getPokemon, disabled, moves: dexMoves } = dexApi;
 const { makeRuntimeFromDexEntry, newBattleState, newAction, resolveTurn } = engine;
 
 const TYPE_EMOJIS = {

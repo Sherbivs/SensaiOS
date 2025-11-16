@@ -1,5 +1,4 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
+#!/usr/bin/env sh
 
 # Run existing metric accuracy verification
 node scripts/pre-commit-metrics.mjs

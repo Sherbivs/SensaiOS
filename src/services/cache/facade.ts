@@ -13,7 +13,7 @@ import path from "node:path";
 
 import { log } from "../../shared/log.js";
 import * as legacyCacheModule from "../cache.js";
-import { errorTracker } from "../error-tracker.js";
+import { errorTracker } from "../monitoring/error-tracker.js";
 
 const legacyCache = (legacyCacheModule as any).default || legacyCacheModule;
 const { MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS } = (legacyCache as {

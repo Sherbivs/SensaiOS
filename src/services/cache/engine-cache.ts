@@ -22,11 +22,11 @@
  * @module services/engine-cache
  */
 
-import { EngineDbConfig } from '../config/engine-db-config.js';
-import { log } from '../utils/logger.js';
-import { errorTracker } from './error-tracker.js';
-import type { IPrunableCache } from './resource-monitor.js';
-import * as readDb from './engine-read-db.js';
+import { EngineDbConfig } from '../../config/engine-db-config.js';
+import { log } from '../../utils/logger.js';
+import { errorTracker } from '../monitoring/error-tracker.js';
+import type { IPrunableCache } from '../monitoring/resource-monitor.js';
+import * as readDb from '../database/engine-read-db.js';
 
 // ============================================================================
 // Type Definitions
@@ -242,7 +242,7 @@ export class EngineCache implements IPrunableCache {
       
       // Register with ResourceMonitor for automatic memory management and pruning
       try {
-        const { resourceMonitor } = await import('./resource-monitor.js');
+        const { resourceMonitor } = await import('../monitoring/resource-monitor.js');
         resourceMonitor.registerCache(this);
         log('info', 'engine-cache: Registered with ResourceMonitor for automatic memory management');
       } catch (error) {
@@ -265,7 +265,7 @@ export class EngineCache implements IPrunableCache {
    * - All type effectiveness (always needed for damage calculations)
    */
   private async loadCoreData(): Promise<void> {
-    const readDb = await import('./engine-read-db.js');
+    const readDb = await import('../database/engine-read-db.js');
     
     // Ensure Read-DB initialized
     if (!readDb.isReady()) {
@@ -373,7 +373,7 @@ export class EngineCache implements IPrunableCache {
     
     log('info', 'engine-cache: Starting extended data load (background)...');
     
-    const readDb = await import('./engine-read-db.js');
+    const readDb = await import('../database/engine-read-db.js');
     
     // Load Gen 3-9 Pokemon (IDs 252+)
     const allPokemon = readDb.getAllPokemon();
@@ -465,7 +465,7 @@ export class EngineCache implements IPrunableCache {
     log('info', 'engine-cache: Pre-warming Read-DB cache (background)...');
     
     try {
-      const readDb = await import('./engine-read-db.js');
+      const readDb = await import('../database/engine-read-db.js');
       
       // Most frequently accessed Pokemon IDs (starters + competitive meta)
       const hotPokemon = [
@@ -1086,7 +1086,7 @@ export class EngineCache implements IPrunableCache {
       const newMovesByName = new Map<string, number>();
       
       // TODO: Load from Read-DB into new Maps
-      // const readDb = await import('./engine-read-db.js');
+      // const readDb = await import('../database/engine-read-db.js');
       // ... populate new Maps ...
       
       // TEMPORARY: Copy current data (no-op refresh)

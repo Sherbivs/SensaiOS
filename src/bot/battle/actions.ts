@@ -26,7 +26,7 @@ import { BattleRepo, prisma as prismaClient } from "../../models/index.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 import { getPartyWithSlots } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
-import { errorTracker } from "../../services/error-tracker.js";
+import { errorTracker } from '../../services/monitoring/index.js';
 
 import * as concludeModule from "./conclude.js";
 

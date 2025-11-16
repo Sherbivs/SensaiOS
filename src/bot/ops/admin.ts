@@ -42,15 +42,13 @@ import { countAllCooldowns, deleteUserCooldowns } from "../../shared/models/cool
 import { countMessagesByStatus } from "../../shared/models/bus-queries-pg.js";
 
 // Engine DB modules (Phase 17-22)
-import { engineCache } from "../../services/engine-cache.js";
-import { engineWriteBuffer } from "../../services/engine-write-buffer.js";
-import * as engineReadDb from "../../services/engine-read-db.js";
-import * as engineWriteDb from "../../services/engine-write-db.js";
+import { engineCache, engineWriteBuffer } from '../../services/cache/index.js';
+import * as engineReadDb from '../../services/database/engine-read-db.js';
+import * as engineWriteDb from '../../services/database/engine-write-db.js';
 import { getEngineWorkersStatus } from "../../workers/engine-workers.js";
 
 // Error Detection modules (Phase 9-12)
-import { errorTracker } from "../../services/error-tracker.js";
-import type { ErrorSeverity, ErrorCategory } from "../../services/error-tracker.js";
+import { errorTracker, type ErrorSeverity, type ErrorCategory } from '../../services/monitoring/index.js';
 
 // Import state persistence modules (optional - bot/state may be in JS)
 let stateModules: any = null;

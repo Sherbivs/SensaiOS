@@ -42,6 +42,18 @@ export {
   createBasicMockPool,
 } from './pool-mocks.js';
 
+// Error Tracker mock utilities
+export {
+  createMockErrorLog,
+  createMockErrorLogs,
+  mockPrismaWithErrorLog,
+  mockLogger,
+  mockEventBus,
+  createErrorLogBatch,
+  createFrequentError,
+  createLearnedError,
+} from './error-tracker-mocks.js';
+
 // Test fixtures
 export {
   // Migrations

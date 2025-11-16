@@ -19,7 +19,7 @@ import {
   TrainerPartySlot,
   evaluateDailyQuestStreak,
 } from "../../models/index.js";
-import { errorTracker } from "../../services/error-tracker.js";
+import { errorTracker } from '../../services/monitoring/index.js';
 
 const BOX_PAGE_SIZE = 10;
 export const BOX_PAGE_PREFIX = "HOME_BOX_PAGE_";

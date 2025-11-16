@@ -17,8 +17,8 @@
  */
 
 import { resourceManager } from './resource-manager.js';
-import { getErrorMessage } from '../shared/utils/error-utils.js';
-import logger from '../utils/intelligent-logger.js';
+import { getErrorMessage } from '../../shared/utils/error-utils.js';
+import logger from '../../utils/intelligent-logger.js';
 import type { ResourceStats } from './resource-manager.js';
 
 // ============================================================================

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import * as aiLogger from './ai-log-writer.js';
 
 // ============================================================================

@@ -6,7 +6,7 @@
  * @module workers/worker-error-handler
  */
 
-import { errorTracker, type ErrorContext } from '../services/error-tracker.js';
+import { errorTracker, type ErrorContext } from '../services/monitoring/error-tracker.js';
 
 /// ---- Worker Error Types ----
 

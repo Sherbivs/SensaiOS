@@ -16,8 +16,8 @@
  * @module services/error-learning
  */
 
-import { prisma } from '../models/index.js';
-import { log } from '../shared/log.js';
+import { prisma } from '../../models/index.js';
+import { log } from '../../shared/log.js';
 
 // ============================================================================
 // Type Definitions

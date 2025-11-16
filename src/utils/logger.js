@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import resourceMonitor from '../services/resource-monitor.js';
+import resourceMonitor from '../services/monitoring/resource-monitor.js';
 import { formatBytes } from '../shared/utils/format-utils.js';
 import { extractDatabaseName } from '../shared/utils/url-utils.js';
 
@@ -560,7 +560,7 @@ function collectSecurityBotStats() {
 async function collectErrorStats() {
   try {
     // Dynamic import to avoid circular dependency
-    const errorTrackerModule = await import('../services/error-tracker.js');
+    const errorTrackerModule = await import('../services/monitoring/error-tracker.js');
     const { errorTracker } = errorTrackerModule;
     
     if (!errorTracker) {

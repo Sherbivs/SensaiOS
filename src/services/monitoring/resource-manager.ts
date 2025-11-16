@@ -14,8 +14,8 @@
 
 import { EventEmitter } from 'node:events';
 import { errorTracker } from './error-tracker.js';
-import { log } from '../utils/logger.js';
-import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { log } from '../../utils/logger.js';
+import { getErrorMessage } from '../../shared/utils/error-utils.js';
 
 // Note: resource-monitor.ts imports this file, so we can't import it here (circular dependency)
 // Instead, resource-monitor will call resourceManager.getStats() directly

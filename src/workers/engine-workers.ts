@@ -23,8 +23,8 @@
 
 import { performance } from 'node:perf_hooks';
 import { EngineDbConfig } from '../config/engine-db-config.js';
-import { engineCache } from '../services/engine-cache.js';
-import { engineWriteBuffer } from '../services/engine-write-buffer.js';
+import { engineCache } from '../services/cache/engine-cache.js';
+import { engineWriteBuffer } from '../services/cache/engine-write-buffer.js';
 import { workerErrorHandler } from './worker-error-handler.js';
 import { log } from '../utils/logger.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
@@ -565,7 +565,7 @@ class WriteDbValidatorWorker {
       log('info', 'engine-workers: WriteDbValidatorWorker execution started');
 
       // Import Write-DB service
-      const writeDb = await import('../services/engine-write-db.js');
+      const writeDb = await import('../services/database/engine-write-db.js');
       
       // Ensure Write-DB initialized
       if (!writeDb.isReady()) {
@@ -750,14 +750,14 @@ class EngineMaintenanceWorker {
       const bufferStats = engineWriteBuffer.getStats();
 
       // Step 2: Persist Write-DB to disk
-      const writeDb = await import('../services/engine-write-db.js');
+      const writeDb = await import('../services/database/engine-write-db.js');
       if (!writeDb.isReady()) {
         await writeDb.initialize();
       }
       await writeDb.saveToFile();
 
       // Step 3: Rebuild Read-DB with optional backup
-      const readDb = await import('../services/engine-read-db.js');
+      const readDb = await import('../services/database/engine-read-db.js');
       await readDb.rebuild({
         reason: 'engine-maintenance-worker',
         backupExisting: true,

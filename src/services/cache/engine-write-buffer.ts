@@ -23,9 +23,9 @@
  * @module services/engine-write-buffer
  */
 
-import { EngineDbConfig } from '../config/engine-db-config.js';
-import { log } from '../utils/logger.js';
-import { errorTracker } from './error-tracker.js';
+import { EngineDbConfig } from '../../config/engine-db-config.js';
+import { log } from '../../utils/logger.js';
+import { errorTracker } from '../monitoring/error-tracker.js';
 
 // ============================================================================
 // Type Definitions
@@ -302,7 +302,7 @@ export class EngineWriteBuffer {
       const anomalies = this.anomalyQueue.splice(0, this.anomalyQueue.length);
       
       // Step 2: Write to Write-DB (integrate with engine-write-db.ts)
-      const writeDb = await import('./engine-write-db.js');
+      const writeDb = await import('../database/engine-write-db.js');
       
       // Ensure Write-DB initialized
       if (!writeDb.isReady()) {

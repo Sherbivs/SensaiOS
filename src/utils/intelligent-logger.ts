@@ -20,7 +20,7 @@ import { performance } from 'node:perf_hooks';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { LiveErrorEvent } from '../services/error-tracker.js';
+import type { LiveErrorEvent } from '../services/monitoring/error-tracker.js';
 import { EventBus, type BusEvent } from '../shared/event-bus.js';
 
 const __filename = fileURLToPath(import.meta.url);

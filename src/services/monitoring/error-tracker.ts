@@ -15,10 +15,10 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { toEasternLogFormat } from '../shared/datetime.js';
-import { EventBus } from '../shared/event-bus.js';
-import { prisma } from '../shared/prisma.js';
-import { log } from '../utils/logger.js';
+import { toEasternLogFormat } from '../../shared/datetime.js';
+import { EventBus } from '../../shared/event-bus.js';
+import { prisma } from '../../shared/prisma.js';
+import { log } from '../../utils/logger.js';
 import type { ErrorLog } from '@prisma/client';
 import {
   parseStackTrace,
@@ -27,7 +27,7 @@ import {
   formatErrorReportForAI,
   type ParsedStackTrace,
   type StackFrame,
-} from '../utils/stack-trace-parser.js';
+} from '../../utils/stack-trace-parser.js';
 
 /// ---- Live Error Stream ----
 

@@ -1,48 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { attemptRecovery, getRecoveryStats, clearRecoveryState } from '../src/services/error-recovery.js';
 import type { ErrorLog } from '@prisma/client';
-
-// Helper to create complete ErrorLog objects
-function createMockErrorLog(partial: Partial<ErrorLog>): ErrorLog {
-  return {
-    errorId: 'test-id',
-    fingerprint: 'test-fingerprint',
-    category: 'TEST',
-    severity: 'MEDIUM',
-    errorName: 'Error',
-    errorMessage: 'Test error',
-    stackTrace: 'stack trace',
-    contextData: {},
-    firstSeen: new Date(),
-    lastSeen: new Date(),
-    occurrenceCount: 1,
-    recoveryAttempted: 0,
-    recoverySuccess: 0,
-    lastRecoveryStrategy: null,
-    lastRecoveryOutcome: null,
-    impactedFeatures: [],
-    estimatedUserImpact: null,
-    learningMetadata: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...partial,
-  };
-}
+import { createMockErrorLog, mockPrismaWithErrorLog, mockLogger } from './shared/index.js';
 
 // Mock Prisma
 vi.mock('../src/shared/prisma.js', () => ({
-  prisma: {
-    errorLog: {
-      update: vi.fn(),
-    },
-    $queryRaw: vi.fn(),
-  },
+  prisma: mockPrismaWithErrorLog(),
 }));
 
 // Mock logger
-vi.mock('../src/utils/logger.js', () => ({
-  log: vi.fn(),
-}));
+vi.mock('../src/utils/logger.js', () => mockLogger());
 
 // Mock cache facade
 vi.mock('../src/services/cache/facade.js', () => ({

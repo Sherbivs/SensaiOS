@@ -1,8 +1,8 @@
+/* eslint-disable no-console */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createWriteStream } from 'node:fs';
 import { createGzip } from 'node:zlib';
-import { performance } from 'node:perf_hooks';
 
 // ============================================================================
 // AI-OPTIMIZED HARD LOGGING SYSTEM

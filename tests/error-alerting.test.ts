@@ -2,33 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { initializeAlerting, getCriticalErrorsSummary } from '../src/services/error-alerting.js';
 import type { ErrorLog } from '@prisma/client';
 import { Client } from 'discord.js';
-
-// Helper to create complete ErrorLog objects
-function createMockErrorLog(partial: Partial<ErrorLog>): ErrorLog {
-  return {
-    errorId: 'test-id',
-    fingerprint: 'test-fingerprint',
-    category: 'TEST',
-    severity: 'MEDIUM',
-    errorName: 'Error',
-    errorMessage: 'Test error',
-    stackTrace: 'stack trace',
-    contextData: {},
-    firstSeen: new Date(),
-    lastSeen: new Date(),
-    occurrenceCount: 1,
-    recoveryAttempted: 0,
-    recoverySuccess: 0,
-    lastRecoveryStrategy: null,
-    lastRecoveryOutcome: null,
-    impactedFeatures: [],
-    estimatedUserImpact: null,
-    learningMetadata: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...partial,
-  };
-}
+import { createMockErrorLog, mockPrismaWithErrorLog, mockLogger } from './shared/index.js';
 
 // Mock error tracker
 vi.mock('../src/services/error-tracker.js', () => ({
@@ -39,18 +13,11 @@ vi.mock('../src/services/error-tracker.js', () => ({
 
 // Mock Prisma
 vi.mock('../src/shared/prisma.js', () => ({
-  prisma: {
-    errorLog: {
-      findMany: vi.fn(),
-      count: vi.fn(),
-    },
-  },
+  prisma: mockPrismaWithErrorLog(),
 }));
 
 // Mock logger
-vi.mock('../src/utils/logger.js', () => ({
-  log: vi.fn(),
-}));
+vi.mock('../src/utils/logger.js', () => mockLogger());
 
 describe('ErrorAlerting', () => {
   let mockClient: Client;

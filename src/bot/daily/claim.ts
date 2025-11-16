@@ -3,7 +3,7 @@ import { log } from '../../utils/logger.js';
 
 import { prisma as prismaClient, recordDailyQuestCompletion } from "../../models/index.js";
 import { claimDailyQuestReward } from "../../services/cache/recipes.js";
-import { errorTracker } from "../../services/error-tracker.js";
+import { errorTracker } from '../../services/monitoring/index.js';
 
 type PrismaLike = typeof prismaClient;
 
