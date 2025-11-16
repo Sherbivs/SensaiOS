@@ -42,40 +42,6 @@ export enum BusPriority {
 // Base Models
 // ============================================================================
 
-export interface Type {
-  id: number;
-  slug: string;
-  name: string;
-}
-
-export interface Ability {
-  id: number;
-  slug: string;
-  name: string;
-  desc: string | null;
-}
-
-export interface Item {
-  id: number;
-  slug: string;
-  name: string;
-  kind: string;
-  meta: Prisma.JsonValue | null;
-  packHash: string | null;
-}
-
-export interface Move {
-  id: number;
-  slug: string;
-  name: string;
-  typeId: number;
-  power: number | null;
-  accuracy: number | null;
-  pp: number;
-  meta: Prisma.JsonValue | null;
-  packHash: string | null;
-}
-
 export interface Species {
   id: number;
   slug: string;
@@ -96,49 +62,10 @@ export interface Species {
   packHash: string | null;
 }
 
-export interface SpeciesType {
-  speciesId: number;
-  typeId: number;
-  slot: number;
-}
-
 export interface SpeciesAbility {
   speciesId: number;
   abilityId: number;
   slot: number;
-}
-
-export interface SpeciesLearnset {
-  speciesId: number;
-  moveId: number;
-  method: LearnMethod;
-  level: number;
-  machineId: number | null;
-}
-
-export interface EvolutionStep {
-  fromId: number;
-  toId: number;
-  trigger: string;
-  level: number | null;
-  itemId: number | null;
-  meta: Prisma.JsonValue | null;
-}
-
-export interface TypeChart {
-  atkTypeId: number;
-  defTypeId: number;
-  mult: number;
-}
-
-export interface NameVariant {
-  id: string;
-  kind: string;
-  refIntId: number;
-  locale: string;
-  nameType: string;
-  value: string;
-  normalized: string;
 }
 
 export interface User {
@@ -192,12 +119,6 @@ export interface PartySlot {
   slot: number;
   pokemonId: string;
   updatedAt: Date;
-}
-
-export interface Inventory {
-  trainerId: string;
-  itemId: number;
-  qty: number;
 }
 
 export interface EncounterData {
