@@ -443,43 +443,6 @@ export function getPrismaTransport(): string {
   return lastPrismaTransport;
 }
 
-/**
- * Check ONPREMISE-DEV-PRIMARY database health and version.
- * Returns connection status and version fingerprint if available.
- */
-export async function checkOnPremiseDevHealth(): Promise<{
-  connected: boolean;
-  version: string | null;
-  error?: Error;
-}> {
-  if (!onPremiseDevPrismaClient) {
-    return { connected: false, version: null };
-  }
-  
-  try {
-    // Test connection with simple query
-    await onPremiseDevPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
-    
-    // Try to get version from db_version table if it exists
-    try {
-      const versionRecord = await onPremiseDevPrismaClient.$queryRaw<Array<{ fingerprint: string }>>(
-        Prisma.sql`SELECT fingerprint FROM db_version WHERE environment = 'ONPREMISE_DEV' ORDER BY updated_at DESC LIMIT 1`
-      );
-      const version = versionRecord?.[0]?.fingerprint ?? null;
-      return { connected: true, version };
-    } catch {
-      // db_version table might not exist yet
-      return { connected: true, version: null };
-    }
-  } catch (error) {
-    return {
-      connected: false,
-      version: null,
-      error: error instanceof Error ? error : new Error(String(error)),
-    };
-  }
-}
-
 export type DatabaseStats = {
   source: string;
   transport: string;
