@@ -16,7 +16,3 @@ export const BATTLE_PHASES: readonly BattlePhase[] = Object.freeze([
   "TURN_END",
   "BATTLE_END",
 ]);
-
-export function isBattlePhase(value: string): value is BattlePhase {
-  return (BATTLE_PHASES as readonly string[]).includes(value);
-}
