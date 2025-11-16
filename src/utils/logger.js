@@ -89,7 +89,7 @@ function detectServiceType() {
     isSecurityBot: serviceName.includes('security'),
     isMainBot: serviceName.includes('bots') && !serviceName.includes('security'),
     isWorker: serviceName.includes('worker') || serviceName.includes('cache') || serviceName.includes('data-pipeline'),
-    isWeb: serviceName.includes('web') || serviceName === 'infinity-gauntlet-bot',
+    isWeb: serviceName.includes('web'),  // Removed reference to deleted 'infinity-gauntlet-bot' web service
     serviceName: serviceName || 'unknown',
   };
 }

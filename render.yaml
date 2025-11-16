@@ -5,42 +5,7 @@ databases:
     user: gauntlet
 
 services:
-  # New web service for the compiled bot (fixes missing npm start by running dist output)
-  - type: web
-    name: infinity-gauntlet-bot
-    runtime: node
-    rootDirectory: .
-    buildCommand: rm -rf node_modules && rm -rf node_modules/.prisma && rm -rf node_modules/@prisma && npm install --include=dev && npm run prebuild
-    startCommand: node --expose-gc dist/index.js
-    autoDeploy: true
-    plan: starter
-    disks:
-      - name: prod-database
-        mountPath: /Store
-        sizeGB: 2
-    envVars:
-      # Unified architecture: Single Render-managed PostgreSQL database
-      - key: DATABASE_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: connectionString
-      - key: PROD_DATABASE_URL
-        fromDatabase:
-          name: infinity-gauntlet-db
-          property: connectionString
-      - key: NODE_ENV
-        value: production
-      - key: SERVICE_NAME
-        value: web
-      - key: LOG_FORMAT
-        value: cli
-      - key: LOG_BUFFER_ENABLED
-        value: "true"
-      - key: LOG_BUFFER_INTERVAL
-        value: "10000"
-      - key: LOG_BUFFER_BYPASS_CRITICAL
-        value: "true"
-
+  # Discord bot workers and background services
   - type: worker
     name: infinity-gauntlet-outbox
     runtime: node
