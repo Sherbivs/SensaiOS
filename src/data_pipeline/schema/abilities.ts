@@ -5,5 +5,3 @@ export const AbilitySchema = z.object({
   name: z.string().min(1),
   description: z.string().min(1),
 });
-
-export type Ability = z.infer<typeof AbilitySchema>;
