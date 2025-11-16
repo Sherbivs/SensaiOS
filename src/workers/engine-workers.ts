@@ -27,6 +27,7 @@ import { engineCache } from '../services/engine-cache.js';
 import { engineWriteBuffer } from '../services/engine-write-buffer.js';
 import { workerErrorHandler } from './worker-error-handler.js';
 import { log } from '../utils/logger.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 // ============================================================================
 // Type Definitions
@@ -139,7 +140,7 @@ class CacheRefreshWorker {
       this.status.lastRunTime = new Date();
       this.status.lastRunDurationMs = durationMs;
       this.status.errorCount++;
-      this.status.lastError = error instanceof Error ? error.message : String(error);
+      this.status.lastError = getErrorMessage(error);
 
       log('error', 'engine-workers: CacheRefreshWorker execution failed', {
         error: this.status.lastError,
@@ -321,7 +322,7 @@ class WriteBufferFlusher {
       this.status.lastRunTime = new Date();
       this.status.lastRunDurationMs = durationMs;
       this.status.errorCount++;
-      this.status.lastError = error instanceof Error ? error.message : String(error);
+      this.status.lastError = getErrorMessage(error);
 
       log('error', 'engine-workers: WriteBufferFlusher execution failed', {
         error: this.status.lastError,
@@ -627,7 +628,7 @@ class WriteDbValidatorWorker {
       this.status.lastRunTime = new Date();
       this.status.lastRunDurationMs = durationMs;
       this.status.errorCount++;
-      this.status.lastError = error instanceof Error ? error.message : String(error);
+      this.status.lastError = getErrorMessage(error);
 
       log('error', 'engine-workers: WriteDbValidatorWorker execution failed', {
         error: this.status.lastError,
@@ -779,7 +780,7 @@ class EngineMaintenanceWorker {
       this.status.lastRunTime = new Date();
       this.status.lastRunDurationMs = durationMs;
       this.status.errorCount++;
-      this.status.lastError = error instanceof Error ? error.message : String(error);
+      this.status.lastError = getErrorMessage(error);
 
       log('error', 'engine-workers: EngineMaintenanceWorker maintenance cycle failed', {
         error: this.status.lastError,

@@ -18,6 +18,7 @@
 
 import { errorLearning } from '../services/error-learning.js';
 import { log } from '../utils/logger.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 // ============================================================================
 // Type Definitions
@@ -129,7 +130,7 @@ export class ErrorLearningWorker {
       this.status.lastRunTime = new Date();
       this.status.lastRunDurationMs = durationMs;
       this.status.errorCount++;
-      this.status.lastError = error instanceof Error ? error.message : String(error);
+      this.status.lastError = getErrorMessage(error);
       
       log('error', 'error-learning-worker: Execution failed', {
         error: this.status.lastError,
