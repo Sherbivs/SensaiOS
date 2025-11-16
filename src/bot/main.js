@@ -2534,8 +2534,9 @@ async function runCliDebugDump() {
       members: memberSummaries
     };
 
-    console.log(JSON.stringify(payload, null, 2));
-    console.log('');
+    // Debug output disabled in production
+    // console.log(JSON.stringify(payload, null, 2));
+    // console.log('');
   }
 
   log('info', '[cli-debug] Completed diagnostic dump.');
