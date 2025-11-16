@@ -161,6 +161,37 @@ export function formatPercentage(value: number, decimals = 2): string {
 }
 
 /**
+ * Truncate a string to a maximum length with ellipsis.
+ * 
+ * @param value - Value to truncate (string or any type)
+ * @param maxLength - Maximum length before truncation (default: 100)
+ * @param ellipsis - String to append when truncated (default: '…')
+ * @returns Truncated string, original value if not a string, or empty string if falsy
+ * 
+ * @example
+ * ```typescript
+ * truncate('Hello World', 5) // "Hell…"
+ * truncate('Short', 10) // "Short"
+ * truncate(null) // ""
+ * truncate(123, 10) // 123 (non-string passthrough)
+ * truncate('Long text', 8, '...') // "Long ..."
+ * ```
+ */
+export function truncate(value: unknown, maxLength = 100, ellipsis = '…'): string | unknown {
+  // Handle falsy values
+  if (!value && value !== 0) return '';
+  
+  // Handle non-strings (passthrough for compatibility)
+  if (typeof value !== 'string') return value;
+  
+  // No truncation needed
+  if (value.length <= maxLength) return value;
+  
+  // Truncate with ellipsis
+  return value.slice(0, maxLength - ellipsis.length) + ellipsis;
+}
+
+/**
  * Strip surrounding quotes from a string (single or double quotes).
  * Useful for parsing environment variables or configuration values.
  * 
@@ -184,3 +215,4 @@ export function stripQuotes(value: string): string {
   }
   return trimmed;
 }
+

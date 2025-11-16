@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
+/* eslint-disable no-console */
 import { program } from 'commander';
 import * as aiLogAnalyzer from '../services/ai-log-analyzer.js';
 import * as aiLogWriter from '../services/ai-log-writer.js';
+import { truncate } from '../shared/utils/format-utils.js';
 import chalk from 'chalk';
 
 // ============================================================================
@@ -39,15 +41,6 @@ function formatDuration(ms) {
   if (ms < 1000) return `${ms.toFixed(1)}ms`;
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${(ms / 60000).toFixed(1)}m`;
-}
-
-/**
- * Truncate string to max length.
- */
-function truncate(str, maxLen = 80) {
-  if (!str) return '';
-  if (str.length <= maxLen) return str;
-  return str.substring(0, maxLen - 3) + '...';
 }
 
 /**
@@ -157,7 +150,7 @@ program
             `${formatTime(entry.timestamp)} ` +
             `${colorizeLevel(entry.level)} ` +
             `${colorizeCategory(entry.category)} ` +
-            `${truncate(entry.message, 60)}`
+            `${truncate(entry.message, 60, '...')}`
           );
         } else {
           console.log('');
@@ -181,7 +174,7 @@ program
             console.log(chalk.gray('  Data:'));
             for (const [key, value] of Object.entries(entry.data)) {
               const val = typeof value === 'object' ? JSON.stringify(value) : value;
-              console.log(chalk.gray(`    ${key}: ${truncate(String(val), 60)}`));
+              console.log(chalk.gray(`    ${key}: ${truncate(String(val), 60, '...')}`));
             }
           }
           
@@ -247,7 +240,7 @@ program
         console.log(chalk.yellow.bold(`Error Patterns: ${results.errorPatterns.length}`));
         for (const pattern of results.errorPatterns.slice(0, 5)) {
           console.log(`  ${chalk.red('●')} ${pattern.errorName} (x${pattern.count})`);
-          console.log(chalk.gray(`    ${truncate(pattern.pattern, 70)}`));
+          console.log(chalk.gray(`    ${truncate(pattern.pattern, 70, '...')}`));
           console.log(chalk.gray(`    Files: ${pattern.files.slice(0, 2).join(', ')}`));
         }
         console.log('');
@@ -327,7 +320,7 @@ program
         
         for (const pattern of patterns) {
           console.log(chalk.red(`● ${pattern.errorName}`));
-          console.log(chalk.gray(`  Pattern: ${truncate(pattern.pattern, 70)}`));
+          console.log(chalk.gray(`  Pattern: ${truncate(pattern.pattern, 70, '...')}`));
           console.log(chalk.gray(`  Occurrences: ${pattern.count}`));
           console.log(chalk.gray(`  First seen: ${formatTime(pattern.firstSeen)}`));
           console.log(chalk.gray(`  Last seen: ${formatTime(pattern.lastSeen)}`));

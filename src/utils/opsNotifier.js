@@ -1,4 +1,5 @@
 import { log } from '../utils/logger.js';
+import { truncate } from '../shared/utils/format-utils.js';
 'use strict';
 
 const MAX_RECENT_ERRORS = 10;
@@ -27,22 +28,12 @@ function cloneValue(value) {
   return value;
 }
 
-function truncate(value, length = 120) {
-  if (typeof value !== 'string') {
-    return value;
-  }
-  if (value.length <= length) {
-    return value;
-  }
-  return `${value.slice(0, length - 1)}…`;
-}
-
 function previewValue(value) {
   if (value === null || value === undefined) {
     return '';
   }
   if (typeof value === 'string') {
-    return truncate(value.trim());
+    return truncate(value.trim(), 120);
   }
   if (typeof value === 'number' || typeof value === 'boolean') {
     return String(value);
@@ -196,12 +187,10 @@ function recordError({
       const result = handler(entry);
       if (result && typeof result.then === 'function') {
         result.catch((error) => {
-          // eslint-disable-next-line no-console
           log('error', '[ops-notifier]', { error: error instanceof Error ? error.message : error });
         });
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
       log('error', '[ops-notifier]', { error: error instanceof Error ? error.message : error });
     }
   }
