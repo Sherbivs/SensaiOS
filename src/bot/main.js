@@ -7,6 +7,7 @@ import { Client, GatewayIntentBits, Partials, Events, Collection, LimitedCollect
 
 import { loadCommands } from '../command-loader.js';
 import { toEasternString, toEasternDate, toEasternTime } from '../shared/datetime.js';
+import { formatBytes } from '../shared/utils/format-utils.js';
 import {
   CLI_DEBUG_MODE,
   ROLE_PERMISSIONS_AUDIT,
@@ -1211,12 +1212,7 @@ function canAssignRole(guild, role) {
 }
 
 // ----- Operational reporting -----
-function formatBytes(n) {
-  const mb = n / (1024 * 1024);
-  if (mb < 1024) return `${mb.toFixed(1)} MB`;
-  const gb = mb / 1024;
-  return `${gb.toFixed(2)} GB`;
-}
+// formatBytes now imported from shared/utils/format-utils.js (centralized)
 
 function reportOperationalStats(where = 'startup') {
   const hasBudget = cache && typeof cache.getCacheBudget === 'function';

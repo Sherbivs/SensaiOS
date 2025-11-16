@@ -14,6 +14,7 @@
  */
 
 import fs from 'node:fs/promises';
+import { formatBytes } from '../shared/utils/format-utils.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -655,10 +656,5 @@ export function formatErrorReportForAI(snapshot: ErrorContextSnapshot): string {
 /**
  * Format bytes into human-readable string
  */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-}
+// formatBytes now imported from shared/utils/format-utils.js (centralized)
+

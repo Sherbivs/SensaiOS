@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * @file Centralized Resource Monitoring & Pooling System
  * @description Real-time checkpoint tool integrating:
@@ -13,12 +14,16 @@
  *   - resource-manager.ts: Provides resource counts
  *   - resource-monitor.ts: Scheduling and alerting
  *   - index.ts: Lifecycle management
+ * 
+ * NOTE: console.error statements intentionally enabled for critical failure logging
+ * when standard logger may be unavailable during resource exhaustion.
  */
 
 import os from 'node:os';
 import { performance } from 'node:perf_hooks';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { formatBytes } from '../shared/utils/format-utils.js';
 
 // ============================================================================
 // Configuration
@@ -138,13 +143,7 @@ let alertHistory = [];
 /**
  * Format bytes to human-readable string
  */
-function formatBytes(bytes) {
-  if (bytes === 0) return '0 B';
-  if (bytes < 1024) return `${bytes.toFixed(1)} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
+// formatBytes now imported from shared/utils/format-utils.js (centralized)
 
 /**
  * Get directory size recursively

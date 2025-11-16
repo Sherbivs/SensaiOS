@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import resourceMonitor from '../services/resource-monitor.js';
+import { formatBytes } from '../shared/utils/format-utils.js';
 
 // ============================================================================
 // Constants & Configuration
@@ -118,12 +119,7 @@ let statsCache = {
  * @param {number} bytes - Number of bytes
  * @returns {string} Formatted string (e.g., "154.02 MB")
  */
-function formatBytes(bytes) {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${units[i]}`;
-}
+// formatBytes now imported from shared/utils/format-utils.js (centralized)
 
 /**
  * Format milliseconds into human-readable uptime.
