@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { PrismaClient } from "@prisma/client";
+import { stripQuotes } from "../src/shared/utils/format-utils.js";
 
 type EnvVars = Record<string, string>;
 
@@ -360,15 +361,7 @@ function resolvePath(targetPath: string): string {
   return path.isAbsolute(targetPath) ? targetPath : path.join(process.cwd(), targetPath);
 }
 
-function stripQuotes(value: string): string {
-  if (!value) return value;
-  const trimmed = value.trim();
-  const first = trimmed.at(0);
-  if ((first === '"' || first === "'") && trimmed.endsWith(first)) {
-    return trimmed.slice(1, -1);
-  }
-  return trimmed;
-}
+// Helper function stripQuotes removed - using centralized version from format-utils.ts
 
 async function readEnvFile(filePath: string | null): Promise<EnvVars> {
   // In production (Render), env files don't exist - use process.env instead

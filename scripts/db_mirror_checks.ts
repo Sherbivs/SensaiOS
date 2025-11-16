@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 import { checkMirrors, redactConnectionString } from "./check_db_redundancy.js";
+import { stripQuotes } from "../src/shared/utils/format-utils.js";
 
 type EnvVars = Record<string, string>;
 
@@ -31,19 +32,16 @@ function log(event: string, context: Record<string, unknown> = {}): void {
   console.log(JSON.stringify({ timestamp: new Date().toISOString(), event, ...context }));
 }
 
+// Helper function stripQuotes removed - now imported from centralized format-utils.ts
+
+async function loadEnvVars(envPath: string): Promise<EnvVars> {
+}
+
 function resolvePath(targetPath: string): string {
   return path.isAbsolute(targetPath) ? targetPath : path.join(process.cwd(), targetPath);
 }
 
-function stripQuotes(value: string): string {
-  if (!value) return value;
-  const trimmed = value.trim();
-  const first = trimmed.at(0);
-  if ((first === '"' || first === "'") && trimmed.endsWith(first)) {
-    return trimmed.slice(1, -1);
-  }
-  return trimmed;
-}
+// Helper function stripQuotes removed - using centralized version from format-utils.ts
 
 async function readEnvFile(filePath: string): Promise<EnvVars> {
   const absolutePath = resolvePath(filePath);

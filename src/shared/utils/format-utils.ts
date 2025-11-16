@@ -159,3 +159,28 @@ export function formatPercentage(value: number, decimals = 2): string {
   if (!Number.isFinite(value)) return '0.00%';
   return `${(value * 100).toFixed(decimals)}%`;
 }
+
+/**
+ * Strip surrounding quotes from a string (single or double quotes).
+ * Useful for parsing environment variables or configuration values.
+ * 
+ * @param value - String potentially wrapped in quotes
+ * @returns String with quotes removed, or original if no matching quotes
+ * 
+ * @example
+ * ```typescript
+ * stripQuotes('"hello"') // "hello"
+ * stripQuotes("'world'") // "world"
+ * stripQuotes('no quotes') // "no quotes"
+ * stripQuotes('"mismatched\'') // '"mismatched\''
+ * ```
+ */
+export function stripQuotes(value: string): string {
+  if (!value) return value;
+  const trimmed = value.trim();
+  const first = trimmed.at(0);
+  if ((first === '"' || first === "'") && trimmed.endsWith(first)) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
