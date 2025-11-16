@@ -45,9 +45,8 @@
 
 ## Infrastructure Configuration ✅
 
-### Render Services (8 Total)
-- [x] **Web Service**: infinity-gauntlet-bot (HTTP health checks, webhooks)
-- [x] **Worker 1**: infinity-gauntlet-bots (main Discord bot + auto-sync)
+### Render Services (7 Total)
+- [x] **Worker 1**: infinity-gauntlet (main Discord bot with Pokémon gameplay)
 - [x] **Worker 2**: infinity-gauntlet-outbox (async message delivery)
 - [x] **Worker 3**: infinity-gauntlet-cache (runtime cache maintenance)
 - [x] **Worker 4**: infinity-gauntlet-data-pipeline (reference data updates)

@@ -41,7 +41,7 @@ Triggers deployment from the current Git branch on Render. Returns deploy ID and
 npm run render:logs
 
 # Get last 100 log entries:
-pwsh -File scripts/render_logs.ps1 -Service "infinity-gauntlet-bots"
+pwsh -File scripts/render_logs.ps1 -Service "Infinity-Gauntlet"
 ```
 
 Streams logs with local timestamps for easier debugging.
@@ -133,13 +133,14 @@ See `.vscode/tasks.json` for configuration.
 
 Available services from `render.yaml`:
 
-- `infinity-gauntlet-bot` (web service)
-- `infinity-gauntlet-bots` (main Discord bot worker)
+- `Infinity-Gauntlet` (main Discord bot worker - render.yaml name: `infinity-gauntlet`)
 - `infinity-gauntlet-outbox` (async message delivery)
 - `infinity-gauntlet-cache` (cache maintenance)
 - `infinity-gauntlet-data-pipeline` (reference data updates)
 - `infinity-gauntlet-security` (permission guardrails)
 - `pokedex-cache-worker` (external data sync)
+
+**Note**: Use display name `Infinity-Gauntlet` (capitalized) in deployment commands, not the render.yaml lowercase `infinity-gauntlet`.
 
 ## Error Handling
 

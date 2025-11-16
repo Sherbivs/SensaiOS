@@ -18,8 +18,7 @@ _Last updated: 2025-11-14T13:30:00Z (UTC) — Rev: 1.6_
 ## Service Matrix
 | Render Service | Purpose | Entry Command | Key Env Flags | Health Signals |
 | --- | --- | --- | --- | --- |
-| `infinity-gauntlet-bot` (web) | Boots the TypeScript runtime (`tsx src/index.ts`) and Discord DM features. | `npm start` | `DATABASE_URL`, `RENDER_DB_INTERNAL_URL`, `ENABLE_SECURITY_BOT=false` | CLI dashboard (`discord` + `database` sections), structured logs tagged `runtime.*`. |
-| `infinity-gauntlet-bots` (worker) | Legacy JS fallback for slash command registration/testing. | `npm start` | Mirrors web service; keep `ENABLE_SECURITY_BOT=false`. | Same telemetry as web; used for horizontal scale without extra security sweeps. |
+| `infinity-gauntlet` (worker) | Main Discord bot (Pokémon battles, DM features, slash commands). Runs compiled TypeScript from dist/. | `npm start` (→ `node dist/index.js`) | `DATABASE_URL`, `ENABLE_SECURITY_BOT=false`, `ENABLE_POKEMON_BOT=true` | CLI dashboard (`discord` + `database` sections), structured logs tagged `runtime.*`. |
 | `infinity-gauntlet-security` (worker) | Dedicated security bot (role sweeps, DRIP alerts). | `node security-bot.js` | `ENABLE_SECURITY_BOT=true`, `ENABLE_CONTINUOUS_SWEEP=true`, alert tokens. | CLI security section, `worker.outbox.*`, `security.*`, DRIP alert receipts. |
 | `infinity-gauntlet-outbox` (worker) | Drains `BusMessage` events and uploads payloads to durable storage. | `node dist/worker/outbox.js` | `OUTBOX_MIN/MAX_DELAY_MS`, `OUTBOX_BATCH_SIZE`, `BACKUP_STORAGE_PROVIDER`, `BACKUP_STORAGE_S3_BUCKET`, `BACKUP_STORAGE_S3_REGION`. | `worker.outbox.health`, cache entries `outbox:last-*`, `backupProvider` field. |
 | `infinity-gauntlet-cache` (worker) | Refreshes Pokédex cache on a fixed cadence. | `node dist/worker/cache-refresh.js` | `CACHE_WORKER_INTERVAL_MS`, `CACHE_WORKER_INTERVAL_JITTER_MS`. | `worker.cache.health`, cache metadata timestamps. |
@@ -30,13 +29,13 @@ _Last updated: 2025-11-14T13:30:00Z (UTC) — Rev: 1.6_
 
 ## Rollout Checklist
 1. Confirm pooled and direct database URLs resolve in Render dashboard for every service (pooled for runtime, direct for Prisma migrate).
-2. Deploy `infinity-gauntlet-security` first so ENABLE_CONTINUOUS_SWEEP traffic moves off the web worker.
-3. Once security worker healthy, redeploy the web worker with `ENABLE_SECURITY_BOT=false` to prevent duplicate sweeps.
+2. Deploy `infinity-gauntlet-security` first so ENABLE_CONTINUOUS_SWEEP traffic moves off the main bot worker.
+3. Once security worker healthy, redeploy the main bot worker (`infinity-gauntlet`) with `ENABLE_SECURITY_BOT=false` to prevent duplicate sweeps.
 4. Tail `worker.outbox.health` and `worker.cache.health` logs to ensure cadence and pending counts stabilize (<5 minutes to first signal).
 5. Run `/ops stats`, DM Home history, and cooldown flows after redeploy to ensure query plans leverage the new indexes.
 
 ## Incident & Recovery Notes
-- If security sweeps lag, toggle `ENABLE_CONTINUOUS_SWEEP` back on for the web worker as a temporary bridge; redeploy once dedicated worker recovers.
+- If security sweeps lag, toggle `ENABLE_CONTINUOUS_SWEEP` back on for the main bot worker as a temporary bridge; redeploy once dedicated worker recovers.
 - Event bus worker failures enqueue `worker.crash` messages; `/ops stats` surfaces crash telemetry—investigate before re-enabling drains.
 - Cache/data workers can be paused by setting the interval env vars to `0`; resumes require redeploy with the previous cadence.
 - When migrations add new worker files, run `npm run docs:update-routers` so ops/ROUTER_INDEX.yaml and masterroutetable.md stay authoritative.
