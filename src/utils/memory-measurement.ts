@@ -331,15 +331,6 @@ export function measureDiscordCacheMemory(client: Client): ComponentMemoryStats 
 }
 
 /**
- * Format bytes to human-readable MB string
- * @param bytes - Number of bytes
- * @returns Formatted string (e.g., "12.34 MB")
- */
-export function formatMB(bytes: number): string {
-  return (bytes / 1024 / 1024).toFixed(2);
-}
-
-/**
  * Get confidence emoji indicator
  * @param confidence - Confidence level
  * @returns Emoji string
