@@ -186,35 +186,619 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 
 ## Section 6: Error System
 
+**Motto**: "No Silent Errors"  
+**Mission**: Capture every error at every layer with zero false negatives, learn from patterns, recover automatically, and alert operators for critical issues.
+
 ### 6.1 Detection Architecture
 
-*(Content to be consolidated from `error-system/error-detection-system.md` in Phase 1 Week 3)*
+**Purpose**: Multi-tier error detection ensuring 100% error capture rate regardless of database health.
 
-**Placeholder**: Error detection system design, classification, routing, telemetry.
+#### Architecture Overview
+
+```
+Application Runtime → Domain Error Handlers → Error Tracker Service → [Database | Emergency Fallback] → Live Stream → Logger
+```
+
+**Core Components**:
+
+1. **Error Tracker Service** (`src/services/error-tracker.ts`)
+   - Captures errors with fingerprinting (SHA-256 hash of stack + message + category)
+   - Deduplicates identical errors (same fingerprint → increment `occurrenceCount`)
+   - Context enrichment (userId, guildId, commandName, service, operation, system state)
+   - Severity classification (CRITICAL, HIGH, MEDIUM, LOW)
+   - Database persistence (PostgreSQL `ErrorLog` table with atomic upsert)
+   - Live stream emission (EventEmitter for real-time monitoring)
+
+2. **Domain-Specific Error Handlers**
+   - **BotErrorHandler** (`src/bot/error-handler.ts`): Discord API errors, interaction timeouts, permission errors
+   - **EngineErrorHandler** (`src/core/engine-error-handler.ts`): Battle calculation errors, encounter logic failures
+   - **WorkerErrorHandler** (`src/workers/worker-error-handler.ts`): Worker crashes, background job failures, scheduler errors
+   - **ServiceErrorHandler** (`src/services/service-error-handler.ts`): Database errors, cache corruption, API timeouts
+
+3. **Error Learning Engine** (`src/services/error-learning.ts`)
+   - Pattern detection (time-of-day clustering, correlation analysis, cascade detection)
+   - Impact prediction (affected features, estimated user impact, cascade effects)
+   - Mitigation suggestions (recovery strategies with historical success rates)
+   - Knowledge base updates (learns from recovery outcomes, builds error relationship graph)
+
+4. **Error Recovery Engine** (`src/services/error-recovery.ts`)
+   - Auto-retry strategies (exponential backoff for database/network errors, rate limit queuing, cache rebuild on corruption)
+   - Recovery tracking (success rate, recovery time, strategy effectiveness)
+   - Escalation (Render incident creation after 3 failed recovery attempts)
+
+5. **Error Alerting System** (`src/services/error-alerting.ts`)
+   - Critical alerts (immediate DM to admin for CRITICAL severity)
+   - Pattern alerts (error storm detection >10/min)
+   - New error alerts (first occurrence of unknown fingerprint)
+   - Escalation alerts (recovery failed 3x → create Render incident)
+
+**Error Taxonomy**:
+
+**9 Categories**: VALIDATION (input failures, schema mismatches), NETWORK (HTTP errors, API timeouts, rate limits), DATABASE (query failures, connection errors, constraint violations), DISCORD (API errors, permission errors, interaction timeouts), ENGINE (battle calculation errors, encounter errors), WORKER (worker crashes, background job failures), CONFIG (missing env vars, invalid configuration), CACHE (cache corruption, eviction errors), UNKNOWN (uncategorized errors requiring human classification)
+
+**4 Severity Levels**:
+- **CRITICAL** (system-wide failure, data loss risk, service down) → Immediate recovery + DM admin
+- **HIGH** (feature broken, user-facing errors, data inconsistency) → Attempt recovery + log + /ops
+- **MEDIUM** (degraded performance, recoverable errors, warnings) → Attempt recovery + stats only
+- **LOW** (non-critical issues, informational, expected errors) → Log only, no action
+
+**Database Schema**:
+
+```sql
+-- ErrorLog table (PROD PostgreSQL)
+CREATE TABLE "ErrorLog" (
+  "errorId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "fingerprint" VARCHAR(64) NOT NULL UNIQUE,
+  "category" VARCHAR(20) NOT NULL,  -- VALIDATION, NETWORK, DATABASE, etc.
+  "severity" VARCHAR(10) NOT NULL,   -- CRITICAL, HIGH, MEDIUM, LOW
+  
+  -- Occurrence tracking
+  "firstSeen" TIMESTAMP NOT NULL DEFAULT NOW(),
+  "lastSeen" TIMESTAMP NOT NULL DEFAULT NOW(),
+  "occurrenceCount" INTEGER NOT NULL DEFAULT 1,
+  
+  -- Error details
+  "errorName" VARCHAR(255) NOT NULL,
+  "errorMessage" TEXT NOT NULL,
+  "stackTrace" TEXT,
+  
+  -- Context (JSONB for flexibility)
+  "contextData" JSONB,  -- {userId, guildId, commandName, service, operation, stackMetadata, sourceLocation}
+  
+  -- Recovery tracking
+  "recoveryAttempted" INTEGER DEFAULT 0,
+  "recoverySuccess" INTEGER DEFAULT 0,
+  "lastRecoveryStrategy" VARCHAR(50),
+  "lastRecoveryOutcome" VARCHAR(20),  -- success, failed, partial
+  
+  -- Impact assessment
+  "impactedFeatures" TEXT[],  -- ['battles', 'encounters', 'commands.battle']
+  "estimatedUserImpact" INTEGER,  -- Number of users potentially affected
+  
+  -- Learning metadata (JSONB for ML features)
+  "learningMetadata" JSONB,  -- {hourlyPattern, correlatedErrors, cascadeParent, mitigationSuccess}
+  
+  -- Timestamps
+  "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Indexes for fast queries
+CREATE INDEX "idx_errorlog_fingerprint" ON "ErrorLog"("fingerprint");
+CREATE INDEX "idx_errorlog_category" ON "ErrorLog"("category");
+CREATE INDEX "idx_errorlog_severity" ON "ErrorLog"("severity");
+CREATE INDEX "idx_errorlog_lastseen" ON "ErrorLog"("lastSeen" DESC);
+CREATE INDEX "idx_errorlog_occurrences" ON "ErrorLog"("occurrenceCount" DESC);
+CREATE INDEX "idx_errorlog_context" ON "ErrorLog" USING GIN("contextData");
+
+-- ErrorAlert table (alert history)
+CREATE TABLE "ErrorAlert" (
+  "alertId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "errorId" UUID NOT NULL REFERENCES "ErrorLog"("errorId") ON DELETE CASCADE,
+  "alertType" VARCHAR(20) NOT NULL,  -- critical, pattern, new, escalation
+  "recipientId" VARCHAR(20),  -- Discord user ID
+  "sentAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+  "acknowledged" BOOLEAN DEFAULT FALSE,
+  "acknowledgedAt" TIMESTAMP,
+  "acknowledgedBy" VARCHAR(20)
+);
+```
+
+**Global Error Boundaries**:
+
+```typescript
+// Process-level (src/index.ts)
+process.on('uncaughtException', async (error) => {
+  await errorTracker.captureError(error, { category: 'UNKNOWN', severity: 'CRITICAL', service: 'process' });
+  await gracefulShutdown(1);
+});
+
+process.on('unhandledRejection', async (reason) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  await errorTracker.captureError(error, { category: 'UNKNOWN', severity: 'HIGH', service: 'process' });
+});
+
+// Discord client (src/bot/main.js)
+client.on('error', async (error) => {
+  await errorTracker.captureError(error, { category: 'DISCORD', severity: 'HIGH', service: 'discord-client' });
+});
+
+// Worker boundary (src/workers/engine-workers.ts)
+function wrapWorkerWithErrorBoundary(worker) {
+  // Try-catch wrapper with automatic restart on crash (max 3 attempts)
+  // Escalates to Render after restart limit reached
+}
+```
 
 ### 6.2 Guarantees
 
-*(Content to be consolidated from `error-system/error-detection-guarantees.md` in Phase 1 Week 3)*
+**Zero False Negatives**: Triple redundancy ensures 100% error capture.
 
-**Placeholder**: Error detection guarantees, coverage, response times, recovery procedures.
+#### Five-Layer Fallback System
+
+**Layer 1: Console Output (tier 1, <1ms)** — Always succeeds, synchronous:
+```typescript
+console.error(`🚨 [ERROR CAPTURED] ${timestamp}`);
+console.error(`   Type: ${error.name}`);
+console.error(`   Message: ${error.message}`);
+console.error(`   Location: ${topFrame.relativeFilePath}:${topFrame.lineNumber}`);
+```
+
+**Layer 2: Database Write (tier 2, ~50ms)** — Primary persistence with atomic upsert:
+```typescript
+await prisma.errorLog.upsert({
+  where: { fingerprint },
+  update: {
+    lastSeen: new Date(),
+    occurrenceCount: { increment: 1 },  // Atomic, no race condition
+    contextData: enrichedContext,
+  },
+  create: { /* ... */ },
+});
+```
+
+**Layer 3: Emergency Log (tier 3, ~10ms)** — Disk fallback if database fails:
+```typescript
+await fs.writeFile(`Store/emergency-error-logs/error-${Date.now()}.json`, JSON.stringify(error));
+```
+
+**Layer 4: Live Stream (tier 4, <100ms)** — Real-time event emission to logger:
+```typescript
+liveErrorStream.emit('error', { errorId, fingerprint, severity, message, timestamp, parsedStack });
+```
+
+**Layer 5: Absolute Last Resort** — Console dump if all else fails:
+```typescript
+console.error('[ErrorTracker] Error data:', JSON.stringify({ error, context }));
+```
+
+**Latency Targets**:
+- Console visibility: **<1ms** (synchronous, immediate)
+- Database write: **~50-100ms** (async, non-blocking)
+- Emergency fallback: **~10ms** (async file write)
+- Live stream emission: **<100ms** (event emitter)
+- Logger integration: **<100ms** (event subscriber)
+
+**Critical Design Principles**:
+
+1. **NO CACHING (Live Detection Only)** — Every error captured immediately with NO intermediate caching layer. Caching creates false negatives (errors occurring between refresh cycles are missed).
+
+2. **CONSOLE FIRST (Immediate Visibility)** — Console output BEFORE any async operations. Order: console output (sync, <1ms) → database write (async, ~50ms) → live stream (async, <100ms). This ensures every error is visible within <1ms, before any async operations that might fail.
+
+3. **ATOMIC UPSERT (No Race Conditions)** — Single atomic operation handles both insert and update with increment. Accurate occurrence counts even at 1000+ errors/second.
+
+4. **LIVE STREAM (Real-Time Monitoring)** — Event-driven architecture with immediate emission to logger. Logger ERROR MONITORING section updates within <100ms (vs. 15s polling delay).
+
+**Testing & Verification**:
+
+```typescript
+// Test 1: Console output latency
+const start = performance.now();
+await errorTracker.captureError(new Error('Test'), { service: 'test' });
+const consoleLatency = performance.now() - start;
+assert(consoleLatency < 1, 'Console output must be <1ms');
+
+// Test 2: Database failure fallback
+jest.spyOn(prisma, 'errorLog').mockImplementation(() => {
+  throw new Error('Database unavailable');
+});
+const errorId = await errorTracker.captureError(new Error('Test'), { service: 'test' });
+// Verify emergency log file created
+const files = await fs.readdir('Store/emergency-error-logs');
+assert(files.length > 0, 'Emergency log file created');
+
+// Test 3: High-frequency accuracy (1000 identical errors)
+await Promise.all(Array(1000).fill(0).map(() => 
+  errorTracker.captureError(new Error('Timeout'), { service: 'test' })
+));
+// Verify occurrence count is exactly 1000 (no race conditions)
+const errorLog = await prisma.errorLog.findUnique({ where: { fingerprint } });
+assert(errorLog.occurrenceCount === 1000, 'Accurate count under high frequency');
+
+// Test 4: Live stream latency
+let streamReceived = false;
+const start = performance.now();
+liveErrorStream.once('error', (event) => {
+  streamReceived = true;
+  const latency = performance.now() - start;
+  assert(latency < 100, 'Live stream latency must be <100ms');
+});
+await errorTracker.captureError(new Error('Test'), { service: 'test' });
+assert(streamReceived, 'Live stream event emitted');
+```
+
+**Operational Checklist**:
+- ✅ Console logs show `🚨 [ERROR CAPTURED]` for test errors
+- ✅ Database ErrorLog table populated
+- ✅ Emergency log directory exists: `Store/emergency-error-logs/`
+- ✅ Logger ERROR MONITORING section visible
+- ✅ Live stream events emitting (<100ms latency)
+
+**Troubleshooting**:
+- **Error not in console**: Error occurred before ErrorTracker initialized → Add error boundaries at process level
+- **Error in emergency logs but not database**: Database connection issues → Check DATABASE_URL, verify Prisma connectivity
+- **ERROR MONITORING section not updating**: Logger not subscribed to liveErrorStream → Add subscription in logger initialization
+- **Inaccurate occurrence counts**: Race condition (find-then-update instead of upsert) → Verify atomic upsert with increment
 
 ### 6.3 Tracker Integration
 
-*(Content to be consolidated from `error-system/error-tracker-integration.md` in Phase 1 Week 3)*
+**Phase 1 Complete (Critical User-Facing Paths)**: 6 files modified, 120+ lines added, 9 catch blocks enhanced.
 
-**Placeholder**: ErrorTracker integration, error aggregation, reporting.
+**Integration Strategy**: Systematic integration of `errorTracker.captureError()` throughout codebase to ensure all errors tracked with contextual enrichment.
+
+**Phase 1 Completed Files**:
+
+1. **Daily Commands** (`src/bot/daily/claim.ts`) — Error tracking for daily quest claim failures with context (userId, guildId, commandName, operation)
+
+2. **Battle Actions** (`src/bot/battle/actions.ts`) — Error tracking for move queue failures and switch action failures with context (battleId, playerKey, moveId/switchToId, operation)
+
+3. **Battle Challenges** (`src/bot/battle/challenge.ts`) — Import added (DM delivery failures intentionally silent per best-effort patterns)
+
+4. **DM Home Views** (`src/bot/dm/home.ts`) — Error tracking for DM delivery failures with context (userId, view type, fallback mode)
+
+5. **Admin Operations** (`src/bot/ops/admin.ts`) — Error tracking for `/ops cache`, `/ops engine`, `/ops stats`, `/ops state` failures with category-specific context (CACHE, ENGINE, DATABASE, WORKER)
+
+**Standard Error Tracking Pattern**:
+
+```typescript
+try {
+  const result = await someOperation();
+} catch (err) {
+  // Track error with context
+  await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+    category: 'DISCORD' | 'DATABASE' | 'ENGINE' | 'WORKER' | 'CACHE',
+    userId: interaction?.user.id,
+    guildId: interaction?.guildId || undefined,
+    commandName: '/command-name',
+    operation: 'module:function',
+    context: {
+      relevantId: 'value',
+      input: 'parameters',
+    },
+  });
+  
+  // User-facing error message
+  await interaction.reply({ content: "Operation failed. Please try again later.", ephemeral: true });
+}
+```
+
+**Category Guidelines**:
+- **DISCORD**: Discord API failures, interaction timeouts, DM delivery (rate limits, missing permissions, user blocked DMs)
+- **DATABASE**: PostgreSQL/Prisma failures, connection issues, query timeouts (connection timeout, constraint violation, deadlock)
+- **ENGINE**: Battle engine, encounter logic, calculation errors (invalid move queue, switch failure, damage overflow)
+- **WORKER**: Background worker failures, scheduled task errors (worker crash, timeout, memory exceeded)
+- **CACHE**: Cache corruption, Redis failures, eviction errors (cache miss on critical data, serialization failure)
+- **UNKNOWN**: Unclassifiable or unexpected errors (generic JavaScript errors, unexpected types)
+
+**Context Enrichment (Required Fields)**:
+- `userId`: `interaction.user.id` — Always include for user-triggered operations
+- `guildId`: `interaction.guildId || undefined` — Include for server context
+- `operation`: `'module:function'` — Specific operation that failed
+- Optional: `commandName` (/command-name), `battleId`, `encounterId`, `moveId`, `input` (relevant parameters)
+
+**Phase 2-4 Pending**:
+- **Phase 2: Service Layer** (15 files) — Cache facade, Engine DB services (cache, buffer, read-db, write-db), data pipeline
+- **Phase 3: Worker Tasks** (5 files) — Engine workers, error learning worker, state persistence
+- **Phase 4: Core Engine** (8 files) — Battle turn manager, encounter manager, calculation modules (damage, stats)
+
+**Build Status**: ✅ PASSING (0 errors, 0 warnings)
 
 ### 6.4 Logger Integration
 
-*(Content to be consolidated from `error-system/error-monitoring-logger-integration.md` in Phase 1 Week 3)*
+**Purpose**: Real-time error visibility in console output alongside Node, Database, and Security Bot metrics.
 
-**Placeholder**: Logger-error bridge, automatic error capture, context enrichment.
+**Implementation**: `src/utils/logger.js` (+130 lines, ERROR MONITORING section added)
+
+**Auto-Refresh**: Every 15 seconds with live stream integration.
+
+**Console Format**:
+
+```
+[ERROR MONITORING] (Last Hour)
+  🚨 CRITICAL: 2 unique | ⚠️  HIGH: 5 unique | 📊 MEDIUM: 12 unique | 📝 LOW: 31 unique
+  Total: 50 unique errors | 234 occurrences | Rate: 3.90/min
+
+  Top Recent Errors:
+    ❌ [CRITICAL] PrismaClientInitializationError (x5, 2m ago) | Recovery: 0/5
+       → affecting: battles, encounters, trainer-ops
+    ⚠️  [HIGH] DiscordAPIError[50013] (x8, 5m ago) | Recovery: 6/8
+       → affecting: permission-sweeps, role-management
+    📊 [MEDIUM] TimeoutError: Member fetch timeout (x10, 8m ago) | Recovery: 10/10
+       → affecting: security-sweeps
+
+  Top Categories: DATABASE (45), DISCORD (30), WORKER (15)
+```
+
+**Live Stream Subscription**:
+
+```javascript
+// In src/utils/logger.js after collectDatabaseStats()
+async function collectErrorStats() {
+  const errorTracker = await import('../services/error-tracker.js');
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  
+  const stats = await errorTracker.getErrorStats(oneHourAgo);
+  const topErrors = await errorTracker.getRecentErrors({ limit: 10, orderBy: 'lastSeen' });
+  
+  return { stats, topErrors, status: 'ready' };
+}
+
+// In printStats() add ERROR MONITORING section
+if (statsCache.errors?.status === 'ready') {
+  const { stats, topErrors } = statsCache.errors;
+  
+  console.log('\n[ERROR MONITORING] (Last Hour)');
+  console.log(`  🚨 CRITICAL: ${stats.bySeverity.CRITICAL} unique | ...`);
+  // ... format top 5 errors with affecting features and recovery status
+}
+```
+
+**Display Logic**:
+- Shows top 5 recent errors (from last 10 queried)
+- Icon per severity: ❌ CRITICAL, ⚠️  HIGH, 📊 MEDIUM, 📝 LOW
+- Occurrence count: `(x5)` = 5 occurrences of same error
+- Time since last occurrence: `2m ago`
+- Recovery statistics: `0/5` = 0 successes out of 5 attempts
+- Impacted features: First 3 features shown
+- Top 3 error categories with counts
+
+**Performance Impact**:
+- **Memory overhead**: ~50 KB per refresh cycle (summary stats 1 KB + top 10 errors 5 KB each)
+- **CPU overhead**: <5ms per refresh cycle (database query 2-3ms + transformation/formatting <2ms)
+- **Database load**: Minimal (1 query per 15s = 4 queries/min = 240 queries/hour, indexed queries ~2-3ms each)
+- **Network overhead**: None (local database queries)
+
+**Operational Benefits**:
+- **Immediate error visibility**: Errors visible in same console view as runtime metrics (no SSH/database queries needed)
+- **Quick diagnosis**: Severity breakdown shows error distribution at glance, top errors highlight most frequent issues, recovery stats show which errors self-heal
+- **Proactive monitoring**: Error rate shows if errors increasing, time since last shows if errors still occurring, category breakdown identifies problem areas
+- **Zero-cost debugging**: Real-time updates every 15s without manual log parsing or database queries
 
 ### 6.5 Logging Integration
 
-*(Content to be consolidated from `architecture/error-logging-integration.md` in Phase 1 Week 3)*
+**Purpose**: Comprehensive guide to integrated error detection, stack trace parsing, and intelligent logging for AI-powered troubleshooting.
 
-**Placeholder**: Error-logging pipeline, structured error logs, correlation.
+**Components**: error-tracker.ts, stack-trace-parser.ts, intelligent-logger.ts
+
+**Architecture Flow**:
+
+```
+Error Occurs
+    │
+    ▼
+error-tracker.ts
+    │
+    ├─► Parse Stack Trace (stack-trace-parser.ts)
+    │   ├─► Extract file/line/function
+    │   ├─► Build call chain
+    │   ├─► Get source code snippets
+    │   └─► Calculate importance
+    │
+    ├─► Enrich Context (system state, environment, AI troubleshooting hints)
+    ├─► Persist to Database (PostgreSQL, fingerprint deduplication)
+    ├─► Generate AI Report (async, fire-and-forget, Store/error-reports/)
+    ├─► Emit to Live Stream (liveErrorStream)
+    │   └─► intelligent-logger.ts subscribes
+    └─► Emergency Fallback (if DB fails, Store/emergency-error-logs/)
+```
+
+**Stack Trace Parsing** (`src/utils/stack-trace-parser.ts`):
+
+**Features**:
+- Frame extraction (parse V8 stack traces into structured frames)
+- Source locations (file path, line number, column number)
+- Function names (extract function/method names from stack)
+- Call chain (reconstruct execution flow: A → B → C)
+- Source snippets (extract 3 lines around error: before, error line, after)
+- TypeScript support (handle compiled JS → TS source maps, future enhancement)
+
+**Stack Frame Structure**:
+```typescript
+interface StackFrame {
+  functionName: string | null;          // "BattleEngine.resolveTurn"
+  filePath: string | null;               // Absolute path
+  relativeFilePath: string | null;       // "src/core/battle-engine.ts"
+  lineNumber: number | null;             // 1-indexed
+  columnNumber: number | null;           // 1-indexed
+  fileType: 'typescript' | 'javascript' | 'native' | 'unknown';
+  isNodeModule: boolean;                 // Skip node_modules
+  isNative: boolean;                     // Native Node.js code
+  isAnonymous: boolean;                  // Anonymous function
+  raw: string;                           // Original frame string
+  sourceSnippet?: SourceSnippet;        // Source code around error
+}
+```
+
+**Error Context Snapshot** (`captureErrorContextSnapshot()`):
+
+Captures complete system state at error time:
+```typescript
+interface ErrorContextSnapshot {
+  timestamp: string;                    // ISO 8601
+  error: { name, message, fingerprint };
+  stackTrace: ParsedStackTrace;        // Full parsed stack
+  system: {
+    nodeVersion: string;                // "v20.10.0"
+    platform: string;                   // "win32"
+    architecture: string;               // "x64"
+    memoryUsage: NodeJS.MemoryUsage;    // RSS, heap, external
+    uptime: number;                     // Process uptime (seconds)
+  };
+  environment: {
+    cwd: string;                        // Working directory
+    execPath: string;                   // Node.js binary path
+    execArgv: string[];                 // Node.js arguments
+    env: Record<string, string>;        // Safe env vars (no secrets)
+  };
+  context?: Record<string, any>;       // Additional context
+  troubleshootingHints: string[];      // AI-optimized hints
+}
+```
+
+**Troubleshooting Hints** (automatically generated):
+- Primary location: "Error originated in: src/core/battle-engine.ts:42"
+- Error type hints: "TypeError suggests: undefined/null access, incorrect type usage"
+- Call chain: "Call sequence: resolveTurn → executeBattle → handleCommand"
+- Memory pressure: "⚠️ High memory usage: 92.3% heap used - possible memory leak"
+- Review files: "Review user code in: src/core/battle-engine.ts, src/commands/battle.ts"
+- Stack depth: "⚠️ Deep call stack (>50 frames) - possible infinite recursion"
+
+**AI-Optimized Error Reports** (`formatErrorReportForAI()`):
+
+**Storage**: `Store/error-reports/error-{fingerprint}-{timestamp}.md`
+
+**Format**:
+```markdown
+# 🔍 AI Error Analysis Report
+
+**Generated:** 2025-11-10T15:42:33.182Z
+**Error:** TypeError: Cannot read property 'hp' of undefined
+**Fingerprint:** `a1b2c3d4e5f6`
+
+## 💡 Troubleshooting Hints
+- Error originated in: src/core/battle-engine.ts:42
+- TypeError suggests: undefined/null access, incorrect type usage
+- Call sequence: resolveTurn → executeBattle → handleCommand
+- Review user code in: src/core/battle-engine.ts
+
+## 📚 Stack Trace
+**Depth:** 15 frames | **User Code Frames:** 3
+**Call Chain:** resolveTurn → executeBattle → handleCommand → ...
+
+### Frame 1: BattleEngine.resolveTurn
+**Location:** `src/core/battle-engine.ts:42:15`
+**Source:**
+```typescript
+41:   const targetPokemon = battle.getActivePokemon(target);
+42:   if (targetPokemon.hp <= 0) { <-- ERROR HERE
+43:     return { success: false, reason: 'target-fainted' };
+```
+
+## 🖥️  System State
+- **Node.js:** v20.10.0
+- **Platform:** win32 (x64)
+- **Uptime:** 3247s
+- **Memory:** RSS 154.23 MB | Heap 98.45 MB/128.00 MB
+
+## 🌍 Environment
+- **Working Directory:** `C:/Users/sherb/OneDrive/Documents/GitHub/Infinity-Gauntlet`
+- **Node Binary:** `C:/Program Files/nodejs/node.exe`
+```
+
+**Intelligent Logger Integration** (`src/utils/intelligent-logger.ts`):
+
+**Live Stream Subscription**:
+```typescript
+// In IntelligentLogger constructor
+liveErrorStream.on('error', (event: LiveErrorEvent) => {
+  const message = `[ERROR-TRACKER] ${event.errorName}: ${event.errorMessage}`;
+  
+  // Log with full stack trace metadata
+  this.log('error', message, {
+    category: 'ERROR',
+    data: {
+      errorId: event.errorId,
+      fingerprint: event.fingerprint,
+      severity: event.severity,
+      stackMetadata: {
+        depth: event.parsedStack.depth,
+        topFrame: { file, line, column, function },
+        callChain: event.callChain,
+        userCodeFrames: event.parsedStack.userCodeFrames.length,
+      },
+      sourceLocation: { file, line, column },
+      errorContext: event.context,
+    },
+  });
+});
+```
+
+**Enhanced Log Entry Schema**:
+```typescript
+interface LogEntry {
+  context: {
+    error?: {
+      name: string;
+      message: string;
+      stack: string;
+      fingerprint: string;
+      stackMetadata?: {
+        depth: number;
+        topFrame?: { file, line, column, function };
+        callChain: string[];
+        userCodeFrames: number;
+      };
+      sourceLocation?: { file, line, column };
+    };
+  };
+}
+```
+
+**Storage Locations**:
+- **Intelligent Logs**: `Store/intelligent-logs/current.jsonl` (JSONL, live log stream)
+- **Error Reports**: `Store/error-reports/error-{fp}-{ts}.md` (Markdown, AI-optimized analysis)
+- **Emergency Logs**: `Store/emergency-error-logs/error-{ts}.json` (JSON, fallback when DB fails)
+- **Hourly Archive**: `Store/intelligent-logs/hourly/*.jsonl.gz` (24h retention)
+- **Daily Archive**: `Store/intelligent-logs/daily/*.jsonl.gz` (30d retention)
+- **Monthly Archive**: `Store/intelligent-logs/archive/*.tar.gz` (90d retention)
+
+**SSH CLI Access** (`scripts/log-cli.sh`):
+
+**Error Analysis Commands**:
+```bash
+# Trace error by fingerprint
+log-cli.sh error trace --fingerprint a1b2c3d4e5f6
+
+# Get system context at error time
+log-cli.sh error context --fingerprint a1b2c3d4e5f6
+
+# Get AI-powered fix suggestions
+log-cli.sh error suggest --fingerprint a1b2c3d4e5f6
+
+# Find similar errors
+log-cli.sh error similar --fingerprint a1b2c3d4e5f6
+
+# View events ±5 minutes around error
+log-cli.sh error timeline --fingerprint a1b2c3d4e5f6 --window 10m
+```
+
+**Performance Characteristics**:
+- Stack parsing: <1ms (sync), 10,000+ ops/sec, 100% reliability
+- Database write: ~50ms (async), 100+ writes/sec, 99.9% reliability
+- AI report generation: ~100ms (background), fire-and-forget, best-effort
+- Live stream emit: <0.5ms (sync), 50,000+ events/sec, 100% reliability
+- Intelligent logger: <1ms (async buffer), 1000+ logs/sec, 100% reliability
+- Emergency fallback: ~10ms (disk I/O), 100+ writes/sec, 100% reliability
+
+**Total error capture latency**: ~52ms (parsing + DB write)  
+**User-facing impact**: **ZERO** (async, non-blocking)
+
+**Zero False Negatives Guarantee**: Five layers ensure NO ERRORS ARE LOST:
+1. **Layer 1: Console output** (<1ms, always succeeds)
+2. **Layer 2: Database persistence** (~50ms, primary storage)
+3. **Layer 3: Live stream emit** (<100ms, real-time monitoring)
+4. **Layer 4: Emergency file fallback** (~10ms, if DB fails)
+5. **Layer 5: Absolute last resort** (console dump if all else fails)
 
 ---
 
