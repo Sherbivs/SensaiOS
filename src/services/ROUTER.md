@@ -1,19 +1,28 @@
 # ROUTER
 Title: Service Layer Helpers
-Purpose: Legacy abstractions that supply data to command handlers and DM flows.
+Purpose: Organized service layer providing cache management, database operations, error monitoring, resource management, and AI logging.
 Owned Globs: src/services/**
-Last Updated (UTC): 2025-11-09T00:00:00Z
+Last Updated (UTC): 2025-11-16T00:00:00Z
 
 Notes:
-- These modules bridge cached data and presentation layers pending full TypeScript rewrites.
-- Keep TypeScript declaration files aligned with their CommonJS counterparts.
-- `cache/facade.ts` now tracks hit/miss counters, disk usage, maintenance schedule state, and exposes an immediate cleanup trigger consumed by `/ops cache` and tests; see src/services/cache/ROUTER.md for namespace recipes.
-- **Engine DB Runtime (Phase 17-22)** — Bidirectional replication architecture separating read operations (static Pokemon data) from write operations (gameplay outcomes) with integrity validation before mirroring back to PROD. Performance: <1μs cache reads, <10μs buffer writes, 10-100x faster than remote PostgreSQL.
+- **Phase 5 Reorganization (2025-11-16):** Services reorganized into 4 domain-based subdirectories with barrel exports for clean imports.
+- **Subdirectories:** `cache/` (4 files), `database/` (2 files), `monitoring/` (3 files), `ai/` (3 files).
+- **Barrel Exports:** Each subdirectory exports via `index.ts` with namespace exports to avoid naming collisions.
+- **Import Pattern:** Bot layer uses barrel exports (e.g., `from '../../services/monitoring/index.js'`).
+- Keep TypeScript declaration files aligned with their CommonJS counterparts for legacy files.
 
-Key Files:
+**Service Subdirectories:**
+- **cache/** (4 files + ROUTER.md) — Runtime cache facade, engine L1 cache, write buffer, namespace recipes. See `src/services/cache/ROUTER.md`.
+- **database/** (2 files + ROUTER.md) — Engine Read-DB (static Pokemon data) + Write-DB (battle logs). See `src/services/database/ROUTER.md`.
+- **monitoring/** (3 files + ROUTER.md) — Error tracking, pattern learning, resource monitoring. See `src/services/monitoring/ROUTER.md`.
+- **ai/** (3 files + ROUTER.md) — AI logging, analysis, integrations (JavaScript legacy). See `src/services/ai/ROUTER.md`.
+
+**Legacy Root Files:**
 - pokemonService.js / .d.ts - Provides Pokemon lookup helpers for commands and DM flows.
 - cache.js - Wraps cache hydration logic for downstream consumers.
-- home-bundle.ts - Bundles DM home data for React renderers.
+- home-bundle-pg.ts - Bundles DM home data for React renderers.
+- resource-manager.ts - Resource lifecycle management (pending move to monitoring/).
+- resource-monitor.js - Legacy resource monitoring (superseded by monitoring/resource-monitor.ts).
 
 **Engine DB Services (Phase 17-22):**
 - **engine-cache.ts (661 lines)** — L1 in-memory cache (Map-based) for synchronous Pokemon/Move/Type lookups. **LRU eviction** (500 Pokemon, 200 Moves) with Read-DB fallback for 60% memory reduction (20MB → 8MB). Performance: <1μs cache hit, <5ms cache miss with fallback, >95% hit rate maintained. Loads Gen 1-2 Pokemon (~200ms) + background extended loading (Gen 3-9). Pre-warms Read-DB with 35 hot Pokemon (starters + meta) for 50% faster first queries. Exposes getPokemon(), getMove(), getTypeEffectiveness(), getStats() API with eviction metrics (evictionCount, cacheMissWithFallbackCount, hitRate).
@@ -33,13 +42,20 @@ Key Files:
 - **error-recovery.ts (634 lines)** — Automated error recovery service implementing 7 strategies: exponential-backoff-retry (network errors, transient failures), rate-limit-queue (Discord 429 errors), increase-timeout (timeout errors, +5s per occurrence), rebuild-cache (cache corruption), restart-worker (worker crashes, max 3 attempts), reconnect-database (connection failures with SELECT 1 test), clear-corrupted-state (state corruption). Tracks recovery attempts in database (recoveryAttempted counter, lastRecoveryStrategy, lastRecoveryOutcome), enforces max retries (default 3), applies exponential backoff (baseDelayMs * 2^attemptNumber, capped at maxDelayMs). Exposes attemptRecovery(), getRecoveryStats(), clearRecoveryState() API.
 
 Linked Routers:
-- src/services/cache/ROUTER.md — Namespace recipes and instrumentation backing these helpers.
-- src/shared/cache/ROUTER.md — Backend implementations leveraged by service caches.
-- Store/ROUTER.md — Persistent cache targets populated via service hydration.
-- src/workers/ROUTER.md — Engine DB background workers (cache refresh, buffer flush, sync, validation).
-- src/config/ROUTER.md — Engine DB configuration (if exists).
-- docs/engine-db-replication.md — Comprehensive architecture documentation for Engine DB runtime.
-- docs/error-detection-system.md — Comprehensive error detection system documentation (architecture, taxonomy, integration guide).
-- docs/deployment/RESOURCE-REQUEST-MIGRATION.md — Centralized resource request system migration guide with API changes, code examples, validation rules, testing strategy, and rollout plan.
-- docs/deployment/RESOURCE-MONITOR-STANDARDS.md — Standardized resource monitoring thresholds aligned with 512 MB Starter plan.
-- docs/deployment/RENDER-RESOURCE-OPTIMIZATION-PLAN.md — Overall resource optimization strategy and 6-phase roadmap.
+- **Subdirectory Routers:**
+  - src/services/cache/ROUTER.md — Cache services (facade, engine cache, write buffer, recipes).
+  - src/services/database/ROUTER.md — Engine DB services (Read-DB, Write-DB).
+  - src/services/monitoring/ROUTER.md — Error tracking, learning, resource monitoring.
+  - src/services/ai/ROUTER.md — AI logging, analysis, integrations.
+- **Related Systems:**
+  - src/shared/cache/ROUTER.md — Backend implementations leveraged by service caches.
+  - Store/ROUTER.md — Persistent cache targets populated via service hydration.
+  - src/workers/ROUTER.md — Engine DB background workers (cache refresh, buffer flush, sync, validation).
+  - src/config/ROUTER.md — Engine DB configuration (if exists).
+  - tests/shared/ROUTER.md — Centralized test mocks (error-tracker-mocks.ts with 8 factory functions).
+- **Documentation:**
+  - docs/engine-db-replication.md — Comprehensive architecture documentation for Engine DB runtime.
+  - docs/error-detection-system.md — Comprehensive error detection system documentation (architecture, taxonomy, integration guide).
+  - docs/deployment/RESOURCE-REQUEST-MIGRATION.md — Centralized resource request system migration guide.
+  - docs/deployment/RESOURCE-MONITOR-STANDARDS.md — Standardized resource monitoring thresholds aligned with 512 MB Starter plan.
+  - docs/deployment/RENDER-RESOURCE-OPTIMIZATION-PLAN.md — Overall resource optimization strategy and 6-phase roadmap.
