@@ -4,6 +4,7 @@ import readline from 'node:readline';
 import activityTracker from './activityTracker.js';
 import opsNotifier from './opsNotifier.js';
 import { toEasternLogFormat } from '../shared/datetime.js';
+import { formatDuration } from '../shared/utils/format-utils.js';
 
 const NORMAL_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
 const ALERT_UPDATE_INTERVAL_MS = 30 * 1000;
@@ -69,24 +70,7 @@ function describeInterval(ms) {
   return `${ms}ms`;
 }
 
-function formatDuration(ms) {
-  if (!Number.isFinite(ms) || ms < 0) {
-    return '0s';
-  }
-  const totalSeconds = Math.floor(ms / 1000);
-  const seconds = totalSeconds % 60;
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const minutes = totalMinutes % 60;
-  const hours = Math.floor(totalMinutes / 60) % 24;
-  const days = Math.floor(totalMinutes / 60 / 24);
-
-  const parts = [];
-  if (days > 0) parts.push(`${days}d`);
-  if (hours > 0 || days > 0) parts.push(`${hours}h`);
-  if (minutes > 0 || hours > 0 || days > 0) parts.push(`${minutes}m`);
-  parts.push(`${seconds}s`);
-  return parts.join(' ');
-}
+// formatDuration now imported from shared/utils/format-utils.js (centralized)
 
 function formatTimestamp(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {

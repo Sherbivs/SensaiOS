@@ -5,6 +5,7 @@
  */
 
 import { toEasternString } from '../../shared/datetime.js';
+import { formatDuration } from '../../shared/utils/format-utils.js';
 
 /**
  * Format timeline event for human-readable display
@@ -37,9 +38,10 @@ export function formatTimelineEvent(event) {
     case 'error':
       return `[${timestamp}] Error: ${event.details.message}`;
     
-    case 'member_fetch_timeout':
+    case 'member_fetch_timeout': {
       const status = event.details.isFinal ? '⚠️ FINAL' : `retry ${event.details.attempt}/${event.details.maxRetries}`;
       return `[${timestamp}] Member Fetch Timeout: ${event.guildName} (${event.details.origin}) [${status}]`;
+    }
     
     default:
       return `[${timestamp}] ${event.type}: ${JSON.stringify(event.details)}`;
@@ -48,23 +50,9 @@ export function formatTimelineEvent(event) {
 
 /**
  * Format duration in milliseconds to human-readable string
+ * Now imported from centralized format-utils.js
  */
-function formatDuration(ms) {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-  
-  if (days > 0) {
-    return `${days}d ${hours % 24}h ${minutes % 60}m`;
-  } else if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
-  } else {
-    return `${seconds}s`;
-  }
-}
+// function formatDuration removed - using centralized version
 
 /**
  * Get timeline events filtered by type

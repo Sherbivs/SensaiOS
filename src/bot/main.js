@@ -7,7 +7,7 @@ import { Client, GatewayIntentBits, Partials, Events, Collection, LimitedCollect
 
 import { loadCommands } from '../command-loader.js';
 import { toEasternString, toEasternDate, toEasternTime } from '../shared/datetime.js';
-import { formatBytes } from '../shared/utils/format-utils.js';
+import { formatBytes, formatDuration } from '../shared/utils/format-utils.js';
 import {
   CLI_DEBUG_MODE,
   ROLE_PERMISSIONS_AUDIT,
@@ -500,28 +500,7 @@ function isClientReady() {
   return Boolean(client.readyAt);
 }
 
-function formatDurationShort(ms) {
-  if (!Number.isFinite(ms) || ms <= 0) {
-    return '0s';
-  }
-  const totalSeconds = Math.floor(ms / 1000);
-  if (totalSeconds < 60) {
-    return `${totalSeconds}s`;
-  }
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (totalMinutes < 60) {
-    return `${totalMinutes}m ${seconds.toString().padStart(2, '0')}s`;
-  }
-  const totalHours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (totalHours < 48) {
-    return `${totalHours}h ${minutes.toString().padStart(2, '0')}m`;
-  }
-  const days = Math.floor(totalHours / 24);
-  const hours = totalHours % 24;
-  return `${days}d ${hours}h`;
-}
+// formatDurationShort now imported as formatDuration from shared/utils/format-utils.js (centralized)
 
 function describeMomentForCli(value) {
   if (!value) {
@@ -680,7 +659,7 @@ function updateSecurityCliSection(overrides = {}) {
     metrics.push(['last sweep', `${target} via ${origin}`]);
     metrics.push(['sweep finished', describeMomentForCli(securityCliState.lastSweepCompletedAt)]);
     if (Number.isFinite(securityCliState.lastSweepDurationMs)) {
-      metrics.push(['sweep duration', formatDurationShort(securityCliState.lastSweepDurationMs)]);
+      metrics.push(['sweep duration', formatDuration(securityCliState.lastSweepDurationMs)]);
     }
     const parts = [];
     if (securityCliState.lastSweepCandidates) {
@@ -747,7 +726,7 @@ function updateSecurityCliSection(overrides = {}) {
   if (!sweepInProgress && lastCompletedAtMs) {
     const elapsed = now - lastCompletedAtMs;
     if (elapsed >= CLI_SWEEP_WARNING_THRESHOLD_SECONDS * 1000) {
-      displayStatus = `Warning: sweeps stale (${formatDurationShort(elapsed)})`;
+      displayStatus = `Warning: sweeps stale (${formatDuration(elapsed)})`;
     }
   }
 
