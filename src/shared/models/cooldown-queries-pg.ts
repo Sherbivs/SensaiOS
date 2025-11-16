@@ -32,22 +32,6 @@ export async function countAllCooldowns(pool?: Pool): Promise<number> {
   return result.rows[0]?.count ? parseInt(result.rows[0].count, 10) : 0;
 }
 
-/**
- * Count cooldowns for a specific user.
- * 
- * Equivalent to: prisma.cooldown.count({ where: { ownerId } })
- * 
- * @param ownerId - User ID
- * @param pool - Optional pool instance (defaults to PROD)
- * @returns Cooldown count for user
- */
-export async function countUserCooldowns(ownerId: string, pool?: Pool): Promise<number> {
-  const client = pool ?? getProdDb();
-  const { text, values } = buildCount("Cooldown", { ownerId });
-  const result = await client.query(text, values);
-  return result.rows[0]?.count ? parseInt(result.rows[0].count, 10) : 0;
-}
-
 // ============================================================================
 // Write Operations
 // ============================================================================
