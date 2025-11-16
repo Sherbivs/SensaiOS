@@ -24,12 +24,6 @@ export interface QueryOptions {
   values: any[];
 }
 
-export interface WhereCondition {
-  field: string;
-  operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'LIKE' | 'ILIKE' | 'IN' | 'IS NULL' | 'IS NOT NULL';
-  value?: any;
-}
-
 // ============================================================================
 // WHERE Clause Builders
 // ============================================================================
