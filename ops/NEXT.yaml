@@ -1,8 +1,16 @@
-# NEXT POINTER — Single-file pointer for the next actionable task and file hints.
+# NEXT POINTER — Multi-task queue for parallel actionable work and file hints.
 # The AI should read this first, then confirm against Tasklist.md, then proceed.
-# GUIDANCE: If `next_task_id` is `NONE`, follow `guidance_when_none` below to pick the
-# first READY task, update this file, and document why.
-# Markerless Mode is allowed for a single run; Postflight still refuses to exit until `next_task_id` targets READY.
+# GUIDANCE: Up to 3 main tasks + 1 quick/hot task can be worked simultaneously.
+# Main tasks: Full implementation work requiring multiple commits.
+# Quick/hot tasks: Bug fixes, documentation updates, or hotfixes (< 30 min work).
+#
+# META-SYSTEM HEALTH ENFORCEMENT (Anti-Stuck Rules):
+# The quick_task slot can be FORCE-ASSIGNED by Postflight checks to prevent technical debt:
+# - META.ROUTER.SYNC: 5+ code changes without router updates
+# - META.BIBLE.CONSOLIDATE: 10+ changes without Bible documentation
+# - META.TASKLIST.ARCHIVE: 20+ DONE tasks accumulating
+# - META.PROMPT.COMPRESS: Prompt.md >500 lines
+# These forced tasks MUST complete before resuming main work (prevents system decay).
 
 guidance_when_none: |
   Run the Preflight policy: If no READY exists (excluding the seed), promote the oldest eligible PROPOSED; if none exist, inject META.UNBLOCK.READY_SEED.
@@ -13,17 +21,35 @@ guidance_when_none: |
 
 auto_promote_if_empty: true
 
-next_task_id: DB.NORTHSTAR.ANALYTICS
-reason: "Only READY task remaining is DB.NORTHSTAR.ANALYTICS (analytics jobs + reporting layer). Routing pointer there to resume Northstar follow-up work."
+# Main task queue (up to 3 concurrent tasks)
+main_tasks:
+  - task_id: DB.NORTHSTAR.ANALYTICS
+    reason: "Analytics jobs + reporting layer - aggregation logic for DAU, species popularity, battle win rates"
+    files_hint:
+      - scripts/analytics/generate_daily_stats.ts
+      - scripts/analytics/refresh_leaderboards.ts
+      - docs/query-optimization-guide.md
+      - data/README.md
+    priority: 1
+    started_utc: 2025-11-13T03:10:00Z
 
+# Quick/hot task slot (1 concurrent quick task allowed)
+quick_task:
+  task_id: null
+  reason: "Available for bug fixes, documentation, or hotfixes"
+  files_hint: []
+  priority: 0
+  started_utc: null
+
+# Legacy fields (maintained for backward compatibility)
+next_task_id: DB.NORTHSTAR.ANALYTICS
+reason: "Primary task: Analytics jobs + reporting layer"
 files_hint:
-  - scripts/analytics/generate_daily_stats.ts (daily metrics job)
-  - scripts/analytics/refresh_leaderboards.ts (hourly leaderboard refresh)
-  - docs/query-optimization-guide.md (document aggregation queries)
-  - data/README.md (reference datasets)
+  - scripts/analytics/generate_daily_stats.ts
+  - scripts/analytics/refresh_leaderboards.ts
 
 queue: []
-timestamp_utc: 2025-11-13T03:10:00Z
-router_version: 1
-last_notes_read_utc: 2025-11-13T03:10:00Z
-note: "Pointer advanced to DB.NORTHSTAR.ANALYTICS (READY, dependencies satisfied). Work covers analytics jobs (generate_daily_stats.ts, refresh_leaderboards.ts), aggregation logic for DAU/popular species/battle win rates/achievement completion, scheduling, and docs/query-optimization-guide.md updates."
+timestamp_utc: 2025-11-17T08:55:00Z
+router_version: 2
+last_notes_read_utc: 2025-11-17T08:55:00Z
+note: "Updated to multi-task queue system: 3 main tasks + 1 quick/hot task allowed. Currently: 1 main task active (DB.NORTHSTAR.ANALYTICS), quick task slot available."

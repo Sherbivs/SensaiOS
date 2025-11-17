@@ -1,5 +1,26 @@
 # Infinity Gauntlet — Agent Operations Guide
 
+## ⚠️ CRITICAL: Patch Engine Compliance (READ FIRST)
+
+**MANDATORY REQUIREMENT:** All work MUST flow through the Patch engine system defined in `Patch.md`. This is NOT optional for:
+- ❌ **Error handling and debugging** (all error codes, exceptions, failures)
+- ❌ **System optimizations** (performance, memory, startup time, queries)
+- ❌ **Architecture upgrades** (database, workers, cache, API changes)
+- ❌ **Infrastructure changes** (deployment, configuration, scaling)
+
+**Enforcement:** Any work on errors, optimization, or system upgrades that bypasses Patch.md workflow will be rejected and reverted. No exceptions.
+
+**Required Reading Order:**
+1. **`Patch.md`** — Contract rules, Absolutes, workflow (MUST READ FIRST)
+2. **`ops/NEXT.yaml`** — Multi-task queue (3 main + 1 quick/hot task)
+3. **`Tasklist.md`** — READY queue, dependencies, acceptance criteria
+4. **`Prompt.md`** — Current state, PATCHSET echo, recent changes
+5. **This document** — Operations guide and capabilities
+
+**See Patch Engine Enforcement at:** Lines 1-25 (introduction), Line 150 (orientation flow), Line 400 (contract workflow), Line 650 (final reminder)
+
+---
+
 ## Mission
 An agentic system that routes tasks to capable sub-agents, never gets stuck, and can self-heal after errors. The system prioritizes safety, observability, and progress over perfection.
 
@@ -38,11 +59,18 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - `tests/` — Vitest coverage for engines, data, ops, and cache surfaces (269 passing, 14 failing, 137 skipped of 420 total; 4.22s execution; DEV connection issues under investigation)
 
 ## Orientation Flow
-- Start every run by reading `Patch.md` to understand contract rules, marker modes, and Absolutes.
+- **START HERE:** Read `Patch.md` completely before ANY work. Understand marker modes, Absolutes, and the multi-task queue system (3 main + 1 quick/hot task). This is MANDATORY for errors/optimization/upgrades.
+- Review `ops/NEXT.yaml` to see active task queue and quick task slot availability.
 - Review `Prompt.md` for the current timestamp, revision, recent repo changes, and PATCHSET echo so you know what happened last.
 - Use `masterroutetable.md` alongside `ops/ROUTER.yaml` to map directories to their routers before touching code or docs.
 - Consult `README.md` and domain-specific docs under `docs/` for architecture, operations, and safety context; follow links from the router manifests when deeper knowledge is required.
 - `Tasklist.md` captures backlog intent, but only act after verifying readiness in `Patch.md`/`Prompt.md` and aligning with `ops/NEXT.yaml`.
+
+---
+
+**⚠️ PATCH ENGINE CHECKPOINT #1:** Before proceeding, confirm you've read `Patch.md` and understand the multi-task queue system. All error handling, optimization, and upgrade work MUST use this workflow.
+
+---
 
 ## Core Control Documents
 - `Patch.md` — AI Project Manager Contract. Defines marker modes, clipboard expectations, hotfix loop, and Absolutes. Never edit outside the rules described here.
@@ -556,17 +584,33 @@ See `docs/db-replication-architecture.md` for comprehensive architecture documen
 See `docs/engine-db-replication.md` for comprehensive design documentation. See `src/services/ROUTER.md`, `src/workers/ROUTER.md`, and `src/config/ROUTER.md` for detailed API documentation and usage patterns.
 
 ## Capabilities & Routing Hints
-- **planner:** break down vague goals; produce measurable milestones and resource budgets.
+
+**⚠️ PATCH ENGINE CHECKPOINT #3:** Reminder - Error handling, optimization, and system upgrade tasks must be added to `ops/NEXT.yaml` task queue before work begins.
+
+- **planner:** break down vague goals; produce measurable milestones and resource budgets. (Use Patch.md for errors/optimization/upgrades)
 - **researcher:** search, synthesize sources; attach citations & uncertainty notes.
-- **implementer:** write/change code and config; run tests.
+- **implementer:** write/change code and config; run tests. (MUST follow Patch.md workflow for errors/optimization/upgrades)
 - **reviewer:** verify diffs, run safety/eval checklists; approve or request changes.
 
 ## Contract Workflow Quickstart
-1. Open `Patch.md` and populate the clipboard (between `<<<PATCHSET START>>>` markers) with the planned file operations.
-2. Execute edits exactly as described. Maintain ASCII output, respect existing formatting, and keep comments succinct.
-3. Update `Prompt.md` Last Repo Changes and PATCHSET echo before finishing. Ensure `ops/NEXT.yaml` points to a READY task.
-4. Clear or archive the clipboard after work. Leave the repository in a consistent state (router docs valid, tests noted, metadata synced).
-5. For hotfixes, follow `ops/HOTFIX.md`, `ops/HOTFIX_PLAN.yaml`, and `HOTFIX.md` instructions. Restrict edits to the approved file list unless the plan expands it.
+
+**⚠️ MANDATORY FOR: Error handling, Optimization, System upgrades**
+
+1. Open `Patch.md` and review the multi-task queue system (3 main tasks + 1 quick/hot task allowed).
+2. Check `ops/NEXT.yaml` to see available task slots (main_tasks queue + quick_task slot).
+3. Plan file operations following Patch.md guidelines. Update `ops/NEXT.yaml` task queue.
+4. Execute edits exactly as described. Maintain ASCII output, respect existing formatting, and keep comments succinct.
+5. Update `Prompt.md` Last Repo Changes and PATCHSET echo before finishing. Ensure `ops/NEXT.yaml` reflects current task state.
+6. Clear or archive the clipboard after work. Leave the repository in a consistent state (router docs valid, tests noted, metadata synced).
+7. For hotfixes, follow `ops/HOTFIX.md`, `ops/HOTFIX_PLAN.yaml`, and `HOTFIX.md` instructions. Restrict edits to the approved file list unless the plan expands it.
+
+**Non-compliance with this workflow for errors/optimization/upgrades will result in work rejection.**
+
+---
+
+**⚠️ PATCH ENGINE CHECKPOINT #2:** You are now halfway through this document. Remember: ALL error handling, optimization, and system upgrade work MUST flow through Patch.md workflow with proper task queue management.
+
+---
 
 ## Router Contract (Mandatory)
 - Every change to the Discord bot or its supporting code **must** be accompanied by comprehensive routing updates. This includes adding new files, renaming or moving directories, or changing the purpose/activity of existing files.
@@ -575,12 +619,19 @@ See `docs/engine-db-replication.md` for comprehensive design documentation. See 
 - The AI is responsible for verifying that routing guard scripts (`scripts/guard_routing.sh`, `scripts/guard_router_docs.sh`) pass after the update. Resolve any failures before exiting the run.
 
 ## Safety Invariants (Must Never Be Violated)
+
+**⚠️ PATCH ENGINE REQUIREMENT:** When handling errors or exceptions, ALL debugging and fixes must flow through Patch.md workflow with proper task queue management.
+
 - Never exfiltrate secrets or raw credentials in outputs.
 - Never run shell/DB/file operations without a dry-run or explicit confirmation step in CI.
 - Always attach sources for claims from the web; flag low-confidence inferences.
 - On error, **self-forgive**: reset working memory, keep the log, try a smaller step.
+- **NEW:** On error requiring code changes, add task to `ops/NEXT.yaml` and follow Patch.md workflow.
 
 ## Stuckness Detection & Recovery (Self-Healing)
+
+**⚠️ PATCH ENGINE CHECKPOINT #4:** When implementing recovery steps that modify code, optimization, or system configuration, you MUST use Patch.md workflow and update `ops/NEXT.yaml` task queue.
+
 - A run is **stuck** if any of these fire:
   - No new artifact or state change in N=3 consecutive steps.
   - Same error string seen ≥2 times in the last 10 minutes.
@@ -590,6 +641,7 @@ See `docs/engine-db-replication.md` for comprehensive design documentation. See 
   2) **Swap strategy** (change search terms, alternate tool, or prompt template).
   3) **Reset context** (clear ephemeral memory; keep breadcrumb log).
   4) **Escalate** using `playbooks/escalate.md` (open an Issue and summarize state).
+  5) **If recovery requires code changes:** Add task to `ops/NEXT.yaml` and follow Patch.md workflow (MANDATORY).
 
 ## Observability
 - Emit events to `logs/agent-events.jsonl` and console: `start|step|error|recovered|done`.
@@ -676,11 +728,60 @@ See `docs/engine-db-replication.md` for comprehensive design documentation. See 
 - `tests/` — Vitest specs across engines, data pipeline, DM flow, and ops surfaces.
 
 ## Checklist Before Exit
+
+**⚠️ PATCH ENGINE COMPLIANCE VERIFICATION:**
+
+For any work involving errors, optimization, or system upgrades, verify:
+- ✅ Work was added to `ops/NEXT.yaml` task queue (main_tasks or quick_task)
+- ✅ `Patch.md` workflow was followed (Preflight → Execute → Postflight)
+- ✅ `Prompt.md` PATCHSET echo documents the work
+- ✅ `Tasklist.md` updated with task status changes
+
+**Standard Exit Checklist:**
 - Patch clipboard cleared, markers intact.
 - `Prompt.md` updated with accurate summary, tests note, NEXT pointer status.
-- `ops/NEXT.yaml` targets the correct READY task for the active backlog.
+- `ops/NEXT.yaml` task queue reflects current work state (main_tasks + quick_task).
 - Routers synchronized if structural docs changed.
 - Commit message (when applicable) references task ID and change summary.
 
+---
+
+## 🚨 FINAL REMINDER: Patch Engine Enforcement
+
+You have completed reading this operations guide. Remember:
+
+**MANDATORY PATCH ENGINE USAGE:**
+- ❌ All error handling work → Patch.md workflow
+- ❌ All optimization work → Patch.md workflow  
+- ❌ All system upgrades → Patch.md workflow
+- ❌ All infrastructure changes → Patch.md workflow
+
+**Why This Matters:**
+- Ensures work is tracked in task queue system (3 main + 1 quick/hot)
+- Prevents work duplication and conflicts
+- Maintains audit trail in Prompt.md PATCHSET echo
+- Enables rollback and recovery when needed
+- Enforces testing and validation requirements
+
+**Enforcement Policy:**
+Work that bypasses Patch.md workflow for errors/optimization/upgrades will be:
+1. Rejected immediately
+2. Reverted from codebase
+3. Reopened in Tasklist.md for proper workflow
+4. Documented as non-compliant in Prompt.md
+
+**No Exceptions.** The Patch engine system exists to prevent chaos, ensure quality, and maintain production stability. Use it.
+
+**Required Reading Before ANY Work:**
+1. `Patch.md` — Complete contract (Absolutes, multi-task queue, workflow)
+2. `ops/NEXT.yaml` — Current task state (main_tasks, quick_task)
+3. `Tasklist.md` — READY queue and dependencies
+4. `Prompt.md` — Recent changes and PATCHSET echo
 
 Following this handbook ensures automation, human operators, and downstream agents see a consistent system snapshot and can continue work without rediscovery.
+
+---
+
+**Document Version:** 1.1 (2025-11-17) — Patch Engine Enforcement Added
+**Last Updated:** 2025-11-17T09:00:00Z
+**Enforcement Status:** ACTIVE — All errors/optimization/upgrades require Patch.md compliance

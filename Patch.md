@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-11-07T22:00:00Z
-Revision: 1.72
+Last Updated (UTC): 2025-11-17T09:15:00Z
+Revision: 1.74
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
@@ -24,6 +24,12 @@ Read this file completely before beginning any task. Follow it literally. Before
 - Ensure `.gitignore` preserves meta documentation for AI navigation (ROUTER.md, README.md in all directories) while excluding sensitive files (secrets/*.env, Store/db/, tools/pgsql*/ binaries).
 - **All database operations must use environment-aware URL selection** (see `operations-bible/02-database-operations.md`): All environments use `PROD_DATABASE_URL` (Render managed PostgreSQL); Migrations use `PROD_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` (direct PostgreSQL); Local development falls back to `DATABASE_ONPREMISE_DEV_PRIMARY` (workstation offline mode). Non-compliance causes production failures.
 - **Database naming MUST use canonical terms:** CLOUD-PROD-MASTER (`PROD_DATABASE_URL`), ONPREMISE-DEV-PRIMARY (`DATABASE_ONPREMISE_DEV_PRIMARY`), ONPREMISE-DEV-EXPERIMENT (`DATABASE_ONPREMISE_DEV_EXPERIMENT`). NEVER use ambiguous terms: local, LOCAL, PRIMARY LOCAL, EXPERIMENTAL, experiment, DEV_DATABASE_URL (deprecated). Prisma clients: `prisma`, `onPremiseDevPrisma`, `onPremiseExperimentPrisma`. CLI targets: `cloud-prod`, `onpremise-dev`, `onpremise-experiment`. See `operations-bible/02-database-operations.md` for complete specification.
+- **Meta-System Quality Discipline (Anti-Stuck Rules):**
+  - Code changes MUST update routers when adding/moving/changing file purposes (failure accumulates technical debt)
+  - Architectural knowledge MUST flow into Bible system (architecture-bible/, operations-bible/, development-bible/) not scattered .md files
+  - Transient notes belong in Tasklist.md or Prompt.md, NOT as standalone documents in ops/ or root
+  - Router manifests MUST stay synchronized: run `npm run docs:update-routers` after structural changes
+  - TOUCHMAP.yaml MUST reflect actual file ownership (stale entries cause scope confusion)
 1. Read `ops/NEXT.yaml` (respect Marker Switch guidance) to learn the queued task and `files_hint`.
 2. Read `Tasklist.md` and execute **only** tasks marked `status: READY` with dependencies satisfied.
 3. Read `ops/TOUCHMAP.yaml` to scope edits to the listed paths.
@@ -31,25 +37,40 @@ Read this file completely before beginning any task. Follow it literally. Before
 
 ## Preflight
 - If Tasklist.md has no READY tasks (ignoring `META.UNBLOCK.READY_SEED`), promote the oldest eligible PROPOSED whose dependencies are DONE. If none exist, add `META.UNBLOCK.READY_SEED` as READY.
-- Ensure `ops/NEXT.yaml:next_task_id` points to a READY task and `files_hint` only lists files you expect to touch.
+- Ensure `ops/NEXT.yaml:main_tasks` contains up to 3 active READY tasks and `quick_task` slot is available for hot work.
+- Verify `files_hint` for each task only lists files you expect to touch.
 - Confirm `Patch.md`, `Prompt.md`, and `Tasklist.md` are readable. If any are missing or corrupt, stop and request refreshed copies.
 - Clear or overwrite any prior clipboard or NEXT context when beginning a new task; every run starts with a fresh plan so stale patchsets or pointers cannot stall progress.
 
 ## Operating Loop (Contract Mode)
 1. **Plan & Execute**
-   - Select the first READY task (respect dependency order) and plan tightly scoped edits. Honor `ops/TOUCHMAP.yaml`.
-   - Implement the change using a single PATCHSET from the clipboard (see “Legacy Layout Bridge”).
+   - Select up to 3 main tasks from READY queue (respect dependency order) for parallel work. Honor `ops/TOUCHMAP.yaml`.
+   - Quick/hot tasks (bug fixes, docs, hotfixes < 30min) can be added as a 4th concurrent task.
+   - Implement changes using PATCHSET from the clipboard (see "Legacy Layout Bridge").
    - Run targeted tests whenever tooling is available; if not, state why in the echo and commit message.
 2. **Update State**
-   - Mark the task `DONE` in `Tasklist.md` with a concise outcome note. Promote newly unblocked tasks to `READY`.
-   - Update `ops/NEXT.yaml` to point to the next READY task with an updated timestamp, rationale, and trimmed `files_hint`.
+   - Mark completed tasks `DONE` in `Tasklist.md` with concise outcome notes. Promote newly unblocked tasks to `READY`.
+   - Update `ops/NEXT.yaml` main_tasks queue (add/remove/reorder) and quick_task slot with updated timestamp and rationale.
    - Extend `ops/TOUCHMAP.yaml` if you touched new paths.
-   - Refresh `Prompt.md` (Timestamp, Revision, “Last Repo Changes”, PATCHSET Echo, and any relevant tables).
+   - Refresh `Prompt.md` (Timestamp, Revision, "Last Repo Changes", PATCHSET Echo, and any relevant tables).
+3. **Meta-System Maintenance (Mandatory Quality Gates)**
+   - **Router Sync:** If code changes touched new directories or modified file purposes → Update parent/child `ROUTER.md` + run `npm run docs:update-routers`
+   - **Bible Integration:** If architectural decisions, operational procedures, or development patterns established → Document in appropriate Bible section (architecture-bible/, operations-bible/, development-bible/)
+   - **Tasklist Cleanup:** If task completed with outcome notes → Consider archiving if >20 DONE tasks accumulate
+   - **Prompt Compression:** If Prompt.md grows >500 lines → Archive historical logs, keep only recent 10 commits + current PATCHSET
+   - **TOUCHMAP Accuracy:** If files edited outside existing entries → Extend `ops/TOUCHMAP.yaml` with new paths and ownership
+   - Skipping meta-maintenance triggers Postflight anti-stuck enforcement (forces META.* tasks into queue)
 
 ## Postflight
 - Refuse to exit if Tasklist.md lists no READY tasks besides the seed; auto-promote as needed.
-- Refuse to exit if `ops/NEXT.yaml:next_task_id` is `NONE` or not READY; retarget before finishing.
-- Record the final READY pointer and contract state (Contracts ON/OFF) inside the PATCHSET Echo.
+- Refuse to exit if `ops/NEXT.yaml:main_tasks` is empty and `quick_task` is null; populate at least one task before finishing.
+- Record the final active tasks (main + quick) and contract state (Contracts ON/OFF) inside the PATCHSET Echo.
+- **Meta-System Health Check (Anti-Stuck Enforcement):**
+  - If 5+ consecutive runs modified code WITHOUT updating routers → FORCE `META.ROUTER.SYNC` task into quick_task slot
+  - If Bible system not updated in 10+ code changes → FORCE `META.BIBLE.CONSOLIDATE` task into quick_task slot
+  - If Tasklist.md has 20+ DONE tasks → FORCE `META.TASKLIST.ARCHIVE` task into quick_task slot
+  - If Prompt.md >500 lines → FORCE `META.PROMPT.COMPRESS` task into quick_task slot
+  - These checks prevent technical debt accumulation and ensure high-quality meta-system maintenance
 
 ## Prompt Echo Template
 - Keep the PATCHSET Echo between the markers in `Prompt.md`.
@@ -90,8 +111,9 @@ Read this file completely before beginning any task. Follow it literally. Before
 ## Hotfix Loop (no PATCHSET)
 - Trigger with `ACTIVATE: HOTFIX ENGINE`, optionally appending `: <short note>` for human routing; the prefix before the second colon must match exactly.
 - Hotfix ignores the marker switch unless the human also omits the marker; overrides stack only when explicitly invoked.
+- Hotfixes can use the `quick_task` slot in `ops/NEXT.yaml` or run independently.
 - Restrict edits to `ops/HOTFIX_PLAN.yaml`, `ops/NEXT.yaml`, `Tasklist.md`, and files listed in the hotfix request.
-- Restore `ops/NEXT.yaml` to a READY task before exiting; leave a note documenting the state.
+- Restore `ops/NEXT.yaml` main_tasks queue before exiting; leave a note documenting the state.
 
 ## CLEAR TASKS Trigger (cleanup mode)
 - Trigger with the exact phrase `CLEAR TASKS` when humans want all pending patch plans reconciled.
