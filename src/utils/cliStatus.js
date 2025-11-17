@@ -42,7 +42,7 @@ const QUIET_SIMPLE_MODE = SIMPLE_MODE && !SIMPLE_VERBOSE_MODE;
 let intervalHandle = null;
 let unsubscribe = null;
 let unsubscribeErrors = null;
-let _lastOutputWasDot = false; // Reserved for future use
+let _lastOutputWasDot = false; // Track if last output was a dot (for console formatting) - currently unused but referenced
 let lastRenderLines = 0;
 let isRendering = false;
 let displayActive = false;
@@ -550,7 +550,7 @@ function render() {
           process.stdout.write(line);
           lastSimpleRender = summary;
         }
-        lastOutputWasDot = false;
+        _lastOutputWasDot = false;
         return;
       }
       const lines = buildDisplayLines();
@@ -559,7 +559,7 @@ function render() {
         process.stdout.write(output);
         lastSimpleRender = output;
       }
-      lastOutputWasDot = false;
+      _lastOutputWasDot = false;
       return;
     }
 
@@ -571,7 +571,7 @@ function render() {
     const output = `${lines.join(os.EOL)}${os.EOL}`;
     process.stdout.write(output);
     lastRenderLines = lines.length;
-    lastOutputWasDot = false;
+    _lastOutputWasDot = false;
   } finally {
     isRendering = false;
     state.lastRenderAt = new Date();
