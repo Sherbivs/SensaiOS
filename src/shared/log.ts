@@ -89,22 +89,33 @@ const isTty = Boolean(process.stdout?.isTTY && process.stderr?.isTTY);
 
 let cliLogImpl: CliLogFn | null = null;
 let interruptConsoleOutput: InterruptFn | null = null;
+
+console.log('[log.ts] About to await import logger.js...');
+
 try {
   // Runtime dynamic import of CLI logger module
   const loggerModule: any = await import("../utils/logger.js");
   cliLogImpl = loggerModule.log ?? loggerModule.default?.log ?? null;
-} catch {
+  console.log('[log.ts] logger.js imported successfully');
+} catch (error) {
   cliLogImpl = null;
+  console.error('[log.ts] Failed to import logger.js:', error);
 }
+
+console.log('[log.ts] About to await import cliStatus.js...');
 
 try {
   // Runtime dynamic import of CLI status helper
   const cliStatusModule: any = await import("../utils/cliStatus.js");
   interruptConsoleOutput =
     cliStatusModule.interruptConsoleOutput ?? cliStatusModule.default?.interruptConsoleOutput ?? null;
-} catch {
+  console.log('[log.ts] cliStatus.js imported successfully');
+} catch (error) {
   interruptConsoleOutput = null;
+  console.error('[log.ts] Failed to import cliStatus.js:', error);
 }
+
+console.log('[log.ts] All dynamic imports completed');
 
 const cliEnabled = Boolean(cliLogImpl) && (logFormat === "cli" || logFormat === "both" || (logFormat === "auto" && isTty));
 const jsonEnabled =
