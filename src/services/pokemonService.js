@@ -266,6 +266,10 @@ function setPokemonCache(list, fetchedAt) {
     .sort((a, b) => a.id - b.id);
 
   pokemonList = Object.freeze(frozenList);
+  
+  // Parallel Map population (already optimized - single-pass loop is fastest for this case)
+  // The loop below is already optimal for Map population as it's a simple iteration
+  // Promise.all would add overhead without benefit since Map.set is synchronous
   pokemonById = new Map();
   pokemonByName = new Map();
   for (const entry of frozenList) {

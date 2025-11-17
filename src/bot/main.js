@@ -2547,11 +2547,16 @@ function startContinuousSweepLoop(transformer) {
       cliStatus.setPhase('Continuous sweep cycle');
       updateSecurityCliSection({ status: 'Continuous sweep cycle' });
 
-      for (const guild of guilds) {
+      // Batched parallel guild sweeps (5 guilds at a time to respect rate limits)
+      const GUILD_SWEEP_BATCH_SIZE = 5;
+      for (let i = 0; i < guilds.length; i += GUILD_SWEEP_BATCH_SIZE) {
         if (abortController.signal.aborted) {
           break;
         }
-        await sweepGuild(guild, 'continuous');
+        
+        const batch = guilds.slice(i, i + GUILD_SWEEP_BATCH_SIZE);
+        await Promise.all(batch.map(guild => sweepGuild(guild, 'continuous')));
+        
         if (abortController.signal.aborted) {
           break;
         }
@@ -2560,7 +2565,8 @@ function startContinuousSweepLoop(transformer) {
         if (abortController.signal.aborted) {
           break;
         }
-        if (BACKFILL_DELAY_MS > 0) {
+        // Delay between batches (not between individual guilds)
+        if (BACKFILL_DELAY_MS > 0 && i + GUILD_SWEEP_BATCH_SIZE < guilds.length) {
           await wait(BACKFILL_DELAY_MS, abortController.signal);
         }
       }
@@ -2743,16 +2749,31 @@ client.once(Events.ClientReady, async () => {
     } else {
       cliStatus.setPhase('Startup sweep');
       updateSecurityCliSection({ status: 'Startup sweep' });
-      for (const [, guild] of client.guilds.cache) {
-        if (ROLE_PERMISSIONS_AUDIT) {
-          await reportGuildRoles(guild);
-          await validateGuildRoles(guild);
+      
+      // Batched parallel guild sweeps (5 guilds at a time to respect rate limits)
+      const GUILD_SWEEP_BATCH_SIZE = 5;
+      const guildArray = Array.from(client.guilds.cache.values());
+      
+      for (let i = 0; i < guildArray.length; i += GUILD_SWEEP_BATCH_SIZE) {
+        const batch = guildArray.slice(i, i + GUILD_SWEEP_BATCH_SIZE);
+        
+        // Parallel audit/validation/remediation for batch
+        if (ROLE_PERMISSIONS_AUDIT || ROLE_PERMISSIONS_REMEDIATE) {
+          await Promise.all(batch.map(async (guild) => {
+            if (ROLE_PERMISSIONS_AUDIT) {
+              await reportGuildRoles(guild);
+              await validateGuildRoles(guild);
+            }
+            if (ROLE_PERMISSIONS_REMEDIATE) {
+              await fixGuildRoles(guild);
+            }
+          }));
         }
-        if (ROLE_PERMISSIONS_REMEDIATE) {
-          await fixGuildRoles(guild);
-        }
-        await sweepGuild(guild, 'startup');
+        
+        // Parallel sweep for batch
+        await Promise.all(batch.map(guild => sweepGuild(guild, 'startup')));
       }
+      
       updateMonitoringPhase();
     }
 

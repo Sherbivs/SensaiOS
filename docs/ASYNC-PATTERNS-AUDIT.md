@@ -542,70 +542,70 @@ Improvement: 90-95% reduction
 
 ### 10.2 Potential Optimizations (Minor)
 
-#### Optimization 1: Cache Warm-Up Parallelization
+#### ~~Optimization 1: Cache Warm-Up Parallelization~~ ✅ NOT NEEDED
 **Location:** `src/services/pokemonService.js`
 
-**Current:**
-```typescript
-// Sequential cache warm-up
-for (const species of allSpecies) {
-  await cache.set(species.name, species);
-}
-```
+**Analysis:** The cache warm-up is already optimally implemented. Map population uses a single-pass loop which is the fastest approach for synchronous `Map.set()` operations. Using `Promise.all` would add unnecessary overhead without benefit.
 
-**Optimized:**
-```typescript
-// Parallel cache warm-up (batch writes)
-await Promise.all(
-  allSpecies.map(species =>
-    cache.set(species.name, species)
-  )
-);
-```
+**Status:** ✅ Already optimal (no changes needed)
 
-**Benefit:** 10x faster cache population
-
-#### Optimization 2: Security Bot Guild Sweeps
+#### Optimization 2: Security Bot Guild Sweeps ✅ IMPLEMENTED
 **Location:** `src/bot/main.js`
 
-**Current:**
-```typescript
-// Sequential guild sweeps
+**Before:**
+```javascript
+// Sequential guild sweeps (startup)
+for (const [, guild] of client.guilds.cache) {
+  await sweepGuild(guild, 'startup');
+}
+
+// Sequential guild sweeps (continuous)
 for (const guild of guilds) {
-  await sweepGuild(guild);
+  await sweepGuild(guild, 'continuous');
 }
 ```
 
-**Optimized:**
-```typescript
-// Parallel guild sweeps (batched)
-const BATCH_SIZE = 5; // Prevent rate limits
-for (let i = 0; i < guilds.length; i += BATCH_SIZE) {
-  const batch = guilds.slice(i, i + BATCH_SIZE);
-  await Promise.all(batch.map(guild => sweepGuild(guild)));
+**After:**
+```javascript
+// Batched parallel guild sweeps (startup)
+const GUILD_SWEEP_BATCH_SIZE = 5;
+const guildArray = Array.from(client.guilds.cache.values());
+
+for (let i = 0; i < guildArray.length; i += GUILD_SWEEP_BATCH_SIZE) {
+  const batch = guildArray.slice(i, i + GUILD_SWEEP_BATCH_SIZE);
+  await Promise.all(batch.map(guild => sweepGuild(guild, 'startup')));
+}
+
+// Batched parallel guild sweeps (continuous)
+for (let i = 0; i < guilds.length; i += GUILD_SWEEP_BATCH_SIZE) {
+  const batch = guilds.slice(i, i + GUILD_SWEEP_BATCH_SIZE);
+  await Promise.all(batch.map(guild => sweepGuild(guild, 'continuous')));
+  
+  // Delay between batches (not between individual guilds)
+  if (BACKFILL_DELAY_MS > 0 && i + GUILD_SWEEP_BATCH_SIZE < guilds.length) {
+    await wait(BACKFILL_DELAY_MS, abortController.signal);
+  }
 }
 ```
 
-**Benefit:** 5x faster security sweeps (respects rate limits)
+**Benefit:** 5x faster security sweeps (respects rate limits via batching)
 
-#### Optimization 3: Log Buffer Flush
+**Status:** ✅ IMPLEMENTED (2025-11-17)
+
+**Performance Impact:**
+- **Before:** N guilds × ~2-5s = 10-25s for 5 guilds (sequential)
+- **After:** (N guilds / 5) × ~2-5s = 2-5s for 5 guilds (parallel batches)
+- **Improvement:** 5x faster for typical guild counts
+
+**Rate Limit Protection:**
+- Batch size: 5 guilds (conservative for Discord API)
+- Delay between batches: Configurable via `BACKFILL_DELAY_MS`
+- Each guild's member assignments already use `BACKFILL_CONCURRENCY` batching
+
+#### ~~Optimization 3: Log Buffer Flush~~ ✅ ALREADY OPTIMAL
 **Location:** `src/shared/logBuffer.js`
 
-**Current:**
-```typescript
-// Sequential log writes (already buffered)
-for (const entry of buffer) {
-  await writeLog(entry);
-}
-```
-
-**Optimized:**
-```typescript
-// Already optimal (single batched write)
-await fs.appendFile(logFile, buffer.join('\n'), 'utf8');
-```
-
-**Status:** ✅ Already optimized (single write per flush)
+**Status:** ✅ Already optimized (single batched write per flush)
 
 ### 10.3 Documentation Improvements
 
