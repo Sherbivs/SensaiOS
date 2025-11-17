@@ -639,7 +639,17 @@ function formatMetric(value, reason, formatter = null) {
     return `<unavailable: ${reason || 'unknown'}>`;
   }
   
-  return formatter ? formatter(value) : String(value);
+  // Apply formatter with error handling
+  if (formatter) {
+    try {
+      return formatter(value);
+    } catch {
+      // Formatter failed (e.g., trying to call .toFixed() on non-number)
+      return `<unavailable: formatter-error>`;
+    }
+  }
+  
+  return String(value);
 }
 
 /**
