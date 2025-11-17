@@ -79,6 +79,14 @@ interface LogEntry {
 - Message content (keywords, patterns)
 - Context metadata (operation type, error type)
 
+**Initialization Order Constraint (2025-11-17)**:
+
+> **CRITICAL**: Event Bus (`src/shared/event-bus.ts`) must NOT import `logger.js` to avoid circular dependency.  
+> **Dependency Chain**: `intelligent-logger.ts` constructor → `EventBus.subscribe()` → would call `log()` → accesses `LOG_LABEL` before initialization.  
+> **Solution**: Event Bus uses direct `console.*()` calls for internal logging (subscribe, unsubscribe, backpressure, errors).  
+> **Documented with**: `/* eslint-disable no-console */` at top of `event-bus.ts`.  
+> **Why It Works**: Event Bus is low-level infrastructure that initializes before logger, avoiding the circular dependency.
+
 **Storage Architecture**:
 
 ```

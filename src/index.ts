@@ -1013,10 +1013,16 @@ function installSignalHandlers(): void {
 }
 
 export async function boot(): Promise<void> {
+  // Emergency debugging: Direct console output to verify boot() is called
+  // eslint-disable-next-line no-console
+  console.log('[BOOT] Starting boot sequence...');
+  
   const BOOT_START = process.hrtime.bigint();
   installSignalHandlers();
   startMonitor();
 
+  // eslint-disable-next-line no-console
+  console.log('[BOOT] Signal handlers installed, calling log.info...');
   log.info("Infinity Gauntlet: toolchain online", { env: config.nodeEnv });
   
   // ============================================================================

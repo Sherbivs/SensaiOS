@@ -37,6 +37,9 @@
 
 **Core API** (`src/shared/event-bus.ts`, 400 lines):
 
+> **CRITICAL: Circular Dependency Prevention (2025-11-17)**  
+> Event Bus uses `console.*()` for internal logging instead of `logger.js` to avoid circular dependency during initialization. The `intelligent-logger` subscribes to Event Bus in its constructor, which would trigger `log()` calls before `LOG_LABEL` is initialized, causing "Cannot access before initialization" errors. This is intentional and documented with `/* eslint-disable no-console */`.
+
 ```typescript
 class EventBus {
   // Singleton
