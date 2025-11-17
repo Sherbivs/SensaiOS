@@ -8,6 +8,7 @@ Notes:
 - 2025-11-02: Battle engine and Dex API now hydrate from `src/data/dexpack.js` for O(1) lookups instead of ad-hoc JSON parsing.
 - 2025-11-02: `src/dex/**` models the DEX v2 binary runtime; `metrics.js` logs load/fallback/lookup events feeding the new parity and bench suites.
 - 2025-11-03: Alias coverage invariant added—parity spec iterates every v1 alias while guard_dexpack.sh checks both v1 JSON/module and v2 binary outputs.
+- 2025-11-16: Documentation centralized into Bible system (see docs/architecture-bible, docs/operations-bible, docs/development-bible).
 - Battle persistence now centralizes result storage + arena/winner messaging.
 - Updated shared config to fall back to Render-provided database env mappings.
 - Daily quest claim flow adds handler, cooldown wiring, and tests under src/bot and src/commands.

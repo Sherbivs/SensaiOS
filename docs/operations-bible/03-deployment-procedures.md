@@ -104,7 +104,7 @@ ps aux | grep node
 # Output: node dist/index.js (runs from /opt/render/project/src/)
 ```
 
-See [docs/deployment/RENDER-PATH-MAPPING-2025-11-14.md](../deployment/RENDER-PATH-MAPPING-2025-11-14.md) for comprehensive investigation report.
+Path mapping investigation documented in operations-bible/03-deployment-procedures.md § 7.2 (originally 2025-11-14).
 
 ## 3.2 Service Naming
 

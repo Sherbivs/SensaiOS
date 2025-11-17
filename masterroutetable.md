@@ -130,26 +130,23 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - Notes: Move resolved items into Tasklist or archive them to keep the inbox actionable.
 
 ### Documentation Library (`docs/ROUTER.md`)
-- Purpose: Architecture, safety guides, and operational procedures referenced across the meta-router.
+- Purpose: Centralized Bible-based documentation system with Architecture, Operations, and Development guides.
 - Owned Globs: `docs/**`
-- Last Updated: 2025-11-09T00:15:00Z
-- Key Documents:
-  - `meta-router.md` — Routing philosophy, recovery loop, and budget heuristics for agent runs
-  - `architecture.md` & `operations.md` — High-level system overview and operational procedures
-  - `database-systems.md` & `db-control-suite.md` — 2-node direct PostgreSQL architecture (DEV master + PROD local node), workstation gameplay setup
-  - `db-replication-architecture.md` — Master-replica cascade with version control (Phase 16)
-  - `engine-db-replication.md` — Bidirectional Engine DB architecture (Phase 17-22), read/write split, integrity scanner
-  - `WORKSTATION-GAMEPLAY-SETUP.md` — Complete guide for LOCAL PostgreSQL as PRIMARY database for live gameplay (<50ms latency)
-  - `dex-v2-design.md` — High-availability Pokédex upgrade blueprint with day-one database plan
-  - `perfect-system-roadmap.md` — Long-range governance/automation roadmap
-  - `safety.md` & `ai-env-setup.md` — Security posture, incident response, and agent environment setup
-  - `PBSL.md` — Provenance and validation notes for deterministic battle fixtures
-  - `console-output-standards.md` — Comprehensive standards for consistent CLI/script output formatting using output-formatter utility
-  - `console-output-quick-reference.md` — Quick reference guide for common output formatting patterns and functions
-  - `console-output-project.md` — Project plan and migration strategy for console output standardization initiative
-  - `console-output-final-report.md` — Final report documenting completion of console output standardization across 11 scripts
+- Last Updated: 2025-11-16T00:00:00Z
+- Bible Structure:
+  - `docs/architecture-bible/` (15 files) — System overview, infrastructure, database, services, game engine, Discord bot, future roadmap
+  - `docs/operations-bible/` (6 files) — Service matrix, database operations, deployment, environment, monitoring
+  - `docs/development-bible/` (8 files) — Local setup, testing, debugging, performance, error handling, console tooling, utilities
+  - `docs/ROUTER.md` — Comprehensive navigation hub with Bible tables, quick refs, cross-references
+- Standalone Documents:
+  - `docs/DISCORD-COMMAND-SUITE.md` — Complete Discord command reference
+  - `docs/metrics-calculation.md` — Metrics calculation documentation
+  - `docs/timezone-standardization-guide.md` — UTC/local timezone best practices
+  - `docs/datetime-utilities.md` — DateTime helper functions
 - Notes:
-  - 2025-11-09: Added console output standardization documentation suite covering centralized CLI/script formatting standards, ESLint enforcement, and migration completion report
+  - 2025-11-16: Documentation centralized into Bible system (93.4% reduction, 454 → 30 files)
+  - All operational directories (architecture/, database/, deployment/, environment/, error-system/, game-engine/, console-output/, specs/) consolidated into Bible sections
+  - See docs/ROUTER.md for comprehensive navigation tables and quick reference index
 
 ### Prisma Migrations (`prisma/migrations/ROUTER.md`)
 - Purpose: Timestamped Prisma migration bundles plus `migration_lock.toml` state.

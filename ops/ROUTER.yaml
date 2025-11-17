@@ -44,16 +44,12 @@ categories:
     - ops/POKEMON_CACHE.md
     - ops/DB_BOOTSTRAP.md
     - ops/DB_IMPORT_PRISMA_POSTGRES.md
-    - docs/architecture.md
-    - docs/operations.md
-    - docs/database-systems.md
-    - docs/db-control-suite.md
-    - docs/db-accelerate-workflow.md
-  - docs/dex-v2-design.md
-    - docs/perfect-system-roadmap.md
-    - docs/safety.md
-    - docs/meta-router.md
-    - docs/error-detection-system.md
+    - docs/architecture-bible/INDEX.md
+    - docs/operations-bible/INDEX.md
+    - docs/development-bible/INDEX.md
+    - docs/ROUTER.md
+  documentation_library:
+    - docs/**
   error_monitoring:
     services:
       - src/services/error-tracker.ts
@@ -71,20 +67,8 @@ categories:
       - tests/error-alerting.test.ts
       - tests/error-recovery.test.ts
     documentation:
-      - docs/error-detection-system.md
-      - docs/task01-architecture-complete.md
-      - docs/task02-schema-complete.md
-      - docs/task03-error-tracker-complete.md
-      - docs/task04-domain-handlers-complete.md
-      - docs/task05-error-boundaries-complete.md
-      - docs/task06-logger-integration-complete.md
-      - docs/task07-error-learning-complete.md
-      - docs/task08-error-dashboard-complete.md
-      - docs/task09-codebase-integration-complete.md
-      - docs/task10-error-alerting-complete.md
-      - docs/task11-error-recovery-complete.md
-      - docs/task12-error-testing-complete.md
-      - docs/error-system-implementation-summary.md
+      - docs/architecture-bible/06-error-system.md
+      - docs/development-bible/05-error-handling.md
     commands:
       - /ops errors --severity <critical|high|medium|low>
       - /ops errors --category <validation|network|database|discord|engine|worker|config|unknown>
@@ -115,8 +99,6 @@ categories:
   data_assets:
     - data/**
     - assets/**
-  documentation_library:
-    - docs/**
   playbooks:
     - playbooks/**
   prisma_schema:

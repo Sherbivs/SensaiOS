@@ -321,9 +321,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 **Documentation Structure**:
 
 ```
-docs/discord-command-suite.md       → Complete command reference
-docs/game-engine/battle-dm-flow.md  → Battle interaction flows
-docs/game-engine/encounter-dm-flow.md → Wild encounter flows
+docs/DISCORD-COMMAND-SUITE.md      → Complete command reference
+architecture-bible/09-game-engine.md → Game engine architecture
 src/bot/ROUTER.md                   → Code navigation for Discord bot layer
 ```
 

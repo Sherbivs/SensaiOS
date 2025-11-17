@@ -11,7 +11,7 @@ Read this file completely before beginning any task. Follow it literally. Before
 - See `ops/NEXT.yaml` for task pointer discipline (must point to READY task)
 - See `ops/TOUCHMAP.yaml` for file scope boundaries per task
 - See `ops/META-DOC-INDEX.md` for comprehensive meta documentation navigation
-- See `docs/database-url-selection.md` for CRITICAL database URL selection logic (Absolute requirement)
+- See `operations-bible/02-database-operations.md` for CRITICAL database URL selection logic (Absolute requirement)
 
 **Referenced By**: AGENTS.md (Orientation Flow), Prompt.md (Contract Mode status), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (validation requirements)
 
@@ -21,8 +21,8 @@ Read this file completely before beginning any task. Follow it literally. Before
 - Never rename or delete canonical meta/routing files (`Patch.md`, `Tasklist.md`, `Prompt.md`, `ops/PATCH_POLICY_BACKUP.md`, `ops/ROUTER.yaml`, `ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, and any `ROUTER.md`).
 - Never delete or rename router manifests (`ROUTER.md`, `ROUTER.yaml`).
 - Ensure `.gitignore` preserves meta documentation for AI navigation (ROUTER.md, README.md in all directories) while excluding sensitive files (secrets/*.env, Store/db/, tools/pgsql*/ binaries).
-- **All database operations must use environment-aware URL selection** (see `docs/database-url-selection.md`): All environments use `PROD_DATABASE_URL` (Render managed PostgreSQL); Migrations use `PROD_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` (direct PostgreSQL); Local development falls back to `DATABASE_ONPREMISE_DEV_PRIMARY` (workstation offline mode). Non-compliance causes production failures.
-- **Database naming MUST use canonical terms:** CLOUD-PROD-MASTER (`PROD_DATABASE_URL`), ONPREMISE-DEV-PRIMARY (`DATABASE_ONPREMISE_DEV_PRIMARY`), ONPREMISE-DEV-EXPERIMENT (`DATABASE_ONPREMISE_DEV_EXPERIMENT`). NEVER use ambiguous terms: local, LOCAL, PRIMARY LOCAL, EXPERIMENTAL, experiment, DEV_DATABASE_URL (deprecated). Prisma clients: `prisma`, `onPremiseDevPrisma`, `onPremiseExperimentPrisma`. CLI targets: `cloud-prod`, `onpremise-dev`, `onpremise-experiment`. See `docs/database-naming-schema.md` for complete specification.
+- **All database operations must use environment-aware URL selection** (see `operations-bible/02-database-operations.md`): All environments use `PROD_DATABASE_URL` (Render managed PostgreSQL); Migrations use `PROD_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` (direct PostgreSQL); Local development falls back to `DATABASE_ONPREMISE_DEV_PRIMARY` (workstation offline mode). Non-compliance causes production failures.
+- **Database naming MUST use canonical terms:** CLOUD-PROD-MASTER (`PROD_DATABASE_URL`), ONPREMISE-DEV-PRIMARY (`DATABASE_ONPREMISE_DEV_PRIMARY`), ONPREMISE-DEV-EXPERIMENT (`DATABASE_ONPREMISE_DEV_EXPERIMENT`). NEVER use ambiguous terms: local, LOCAL, PRIMARY LOCAL, EXPERIMENTAL, experiment, DEV_DATABASE_URL (deprecated). Prisma clients: `prisma`, `onPremiseDevPrisma`, `onPremiseExperimentPrisma`. CLI targets: `cloud-prod`, `onpremise-dev`, `onpremise-experiment`. See `operations-bible/02-database-operations.md` for complete specification.
 1. Read `ops/NEXT.yaml` (respect Marker Switch guidance) to learn the queued task and `files_hint`.
 2. Read `Tasklist.md` and execute **only** tasks marked `status: READY` with dependencies satisfied.
 3. Read `ops/TOUCHMAP.yaml` to scope edits to the listed paths.

@@ -122,7 +122,7 @@ npm run db:cli -- counts --target local
 npm run db:cli -- query "SELECT COUNT(*) FROM \"Species\";" --target experiment
 ```
 
-See [docs/environment/WORKSTATION-GAMEPLAY-SETUP.md](../environment/WORKSTATION-GAMEPLAY-SETUP.md) for comprehensive setup guide.
+See operations-bible/04-environment-management.md § 4.3 for comprehensive setup guide (originally WORKSTATION-GAMEPLAY-SETUP.md).
 
 ## 1.3 VS Code Integration
 

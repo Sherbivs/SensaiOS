@@ -5,9 +5,9 @@ _Last updated: 2025-11-14T13:30:00Z (UTC) — Rev: 1.6_
 **Purpose**: Service matrix, rollout checklist, observability, incident recovery for production deployment.
 
 **Cross-References**:
-- See `docs/workers.md` for comprehensive worker architecture, scaling roadmap (Phase 10+), monitoring, cost optimization
-- See `docs/database-systems.md` for schema, role, helper context
-- See `docs/query-optimization-guide.md` for alerting thresholds, performance metrics
+- See `operations-bible/01-service-matrix.md` for comprehensive worker architecture, scaling roadmap (Phase 10+), monitoring, cost optimization
+- See `operations-bible/02-database-operations.md` for schema, role, helper context
+- See `architecture-bible/08-database-architecture.md` for query optimization, alerting thresholds, performance metrics
 - See `docs/event-tracking-schema.md` for event tracking patterns
 - See `AGENTS.md` for router navigation, database URL selection
 - See `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` for deployment procedures
@@ -74,7 +74,7 @@ date; du -sh /Store; sleep 3600; date; du -sh /Store  # 1-hour delta
 - No manual intervention required for normal operations
 - Document anomalies in Tasklist.md when investigating disk alerts
 
-See `docs/deployment/RENDER-PATH-MAPPING-2025-11-14.md` for comprehensive SSH setup, disk investigation procedures, and troubleshooting.
+See `operations-bible/03-deployment-procedures.md` for comprehensive SSH setup, disk investigation procedures, and troubleshooting.
 
 ## Observability (Live)
 - `worker.metrics.snapshot` logs now emit every 60s with gauges/counters; `worker.alert.*` entries fire on threshold breaches and consecutive failures (warn at 3, error at 5).
@@ -96,7 +96,7 @@ See `docs/deployment/RENDER-PATH-MAPPING-2025-11-14.md` for comprehensive SSH se
   ls -lt /Store/security-bot-state/snapshots/ | head -20
   ```
   **Thresholds for investigation:** >10 restarts/hour sustained over 4+ hours (indicates crash loop), restart count regressing to 0 (state persistence failure, disk mount issue).
-- For deeper schema, role, and helper context, see `docs/database-systems.md`.
+- For deeper schema, role, and helper context, see `operations-bible/02-database-operations.md`.
 
 ### Durable Event Bus Sink
 - **Providers:** Set `BACKUP_STORAGE_PROVIDER` to `s3` (Render/production) or `local` (developer dry runs). Leaving it unset defaults to `none`, which logs a warning and skips uploads—use only for emergency disablement.

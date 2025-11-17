@@ -32,7 +32,12 @@ Notes:
 - 2025-11-04: `db_smoke.ts` now loads IG_ENV_FILE secrets, prefers direct Postgres connections, and exposes `--mode` / `DB_SMOKE_MODE` overrides for testing different connection modes.
 - 2025-11-05: Added `ops:bootstrap-local-db` (see `scripts/ops/bootstrap_local_fallback.ts`) to hydrate the Store-hosted Postgres mirror for offline failover.
 - 2025-11-06: Added `scripts/ops/ensure_postgres_bundle.ps1` and `scripts/ops/auto_bootstrap_local_db.ps1`; run `npm run ops:auto-bootstrap-local-db` to silently install Postgres tooling then refresh the local fallback end-to-end.
-- 2025-11-09: Completed console output standardization initiative - migrated 11 scripts to use centralized output-formatter utility (db_replication.ts, db_admin.ts, fetch_pokemon.mjs, db_smoke.ts, check_db_redundancy.ts, db_bootstrap_backfill.ts, build_dexpack.ts, build-dexpack.ts, archive_task_history.mjs, cache_client.mjs, build-data.js). Added ESLint enforcement (no-console rules) and comprehensive test coverage (61 tests).
+- 2025-11-09: Console Output Standardization (2025-11-09):
+- All CLI scripts migrated to centralized output-formatter utility (src/utils/output-formatter.ts)
+- ESLint enforcement via scripts-prefer-output-formatter rule
+- 61 comprehensive tests (100% coverage)
+- 11 scripts standardized: db_admin.ts, db_smoke.ts, db_replication.ts, check_db_redundancy.ts, db_bootstrap_backfill.ts, build_dexpack.ts, build-dexpack.ts, build-data.js, fetch_pokemon.mjs, cache_client.mjs, archive_task_history.mjs
+- See development-bible/06-console-tooling.md for comprehensive guidelines and quick reference patterns
 
 Subrouters:
 - scripts/dex/ROUTER.md — Data seeding and cache warmup entrypoints.
