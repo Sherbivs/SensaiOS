@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
-import { formatBytes, deepClone } from '../shared/utils/index.js';
+import { formatBytes, formatUptime, deepClone } from '../shared/utils/index.js';
 
 // ============================================================================
 // Constants & Configuration
