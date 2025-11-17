@@ -116,7 +116,7 @@ describe('formatSection', () => {
 describe('formatKeyValue', () => {
   it('should format key-value with default settings', () => {
     const result = formatKeyValue('Uptime', '49s');
-    expect(result).toMatch(/^\s{2}\w+\s*:\s*49s$/);
+    expect(result).toMatch(/^\s{2}\w+\s*=\s*49s$/);
     expect(result).toContain('Uptime');
     expect(result).toContain('49s');
   });
