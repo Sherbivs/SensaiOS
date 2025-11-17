@@ -131,9 +131,12 @@ export async function initialize(): Promise<void> {
       path: EngineDbConfig.readDbPath 
     });
 
-    // Initialize sql.js
+    // Initialize sql.js - locate WASM file from project root
+    // In production: /opt/render/project/src/node_modules/sql.js/dist/
+    // In development: <project-root>/node_modules/sql.js/dist/
+    const projectRoot = process.cwd();
     SQL = await initSqlJs({
-      locateFile: (file: string) => path.join(__dirname, '../../node_modules/sql.js/dist/', file)
+      locateFile: (file: string) => path.join(projectRoot, 'node_modules/sql.js/dist/', file)
     });
 
     // Ensure Store directory exists
