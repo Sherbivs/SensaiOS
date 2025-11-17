@@ -7,11 +7,11 @@
  * - Resource leak detection and alerting
  * - Integrated with intelligent logger for visibility
  * 
- * Memory Protection Levels:
- * - NORMAL: <384MB (75%) - Monitor only
- * - WARNING: 384-434MB (75-85%) - Preemptive pruning
- * - CRITICAL: 435-459MB (85-90%) - Aggressive pruning
- * - EMERGENCY: 460-511MB (90-99%) - Nuclear pruning
+ * Memory Protection Levels (Standard Plan: 2 GB):
+ * - NORMAL: <1536MB (75%) - Monitor only
+ * - WARNING: 1536-1740MB (75-85%) - Preemptive pruning
+ * - CRITICAL: 1741-1842MB (85-90%) - Aggressive pruning
+ * - EMERGENCY: 1843-2047MB (90-99%) - Nuclear pruning
  * 
  * Integration: Called from src/index.ts boot() and gracefulShutdown()
  */
@@ -45,20 +45,21 @@ export interface IPrunableCache {
 // Configuration
 // ============================================================================
 
-// Standard thresholds aligned with Render Starter plan (512 MB, 0.5 vCPU)
+// Standard thresholds aligned with Render Standard plan (2 GB RAM, 1 vCPU)
+// Upgraded from Starter (512 MB, 0.5 vCPU) on 2025-11-17
 // See: docs/deployment/RESOURCE-MONITOR-STANDARDS.md for complete specification
 const MEMORY_THRESHOLDS = {
-  planLimitMB: 512,
-  emergencyMB: 460,      // 90% - Immediate action required
-  criticalMB: 435,       // 85% - Scale or optimize
-  warningMB: 384,        // 75% - Monitor closely
-  optimalMinMB: 307,     // 60% - Target minimum
-  optimalMaxMB: 384,     // 75% - Target maximum
-  underutilizedMB: 256,  // 50% - Consider optimization
+  planLimitMB: 2048,      // 2 GB RAM (Standard plan)
+  emergencyMB: 1843,      // 90% - Immediate action required
+  criticalMB: 1741,       // 85% - Scale or optimize
+  warningMB: 1536,        // 75% - Monitor closely
+  optimalMinMB: 1229,     // 60% - Target minimum
+  optimalMaxMB: 1536,     // 75% - Target maximum
+  underutilizedMB: 1024,  // 50% - Consider optimization
 };
 
 const CPU_THRESHOLDS = {
-  planVCPU: 0.5,
+  planVCPU: 1.0,          // 1 full vCPU (Standard plan)
   emergencyPercent: 90,
   criticalPercent: 70,
   warningPercent: 50,
@@ -82,11 +83,11 @@ const MONITOR_CONFIG = {
   // Cleanup monitor history after 7 days
   historyRetentionMs: 7 * 24 * 60 * 60 * 1000,
   
-  // Alert thresholds (aligned with 512 MB Starter plan)
+  // Alert thresholds (aligned with 2 GB Standard plan)
   thresholds: {
-    // Resource count limits (increased for 512 MB capacity)
-    totalResourcesWarning: 150,      // Increased from 50 (3x for 512 MB plan)
-    totalResourcesCritical: 250,     // Increased from 100 (2.5x for 512 MB plan)
+    // Resource count limits (scaled for 2 GB capacity)
+    totalResourcesWarning: 300,      // Increased from 150 (2x for Standard plan)
+    totalResourcesCritical: 500,     // Increased from 250 (2x for Standard plan)
     
     // Leak detection (strict - keep as-is)
     leakSuspectsWarning: 5,          // Warn if >5 leak suspects
@@ -94,11 +95,11 @@ const MONITOR_CONFIG = {
     resourceGrowthRate: 1.5,         // Warn if resources grow >50% between checks
     
     // Memory utilization thresholds (aligned with plan specs)
-    memoryWarningMB: MEMORY_THRESHOLDS.warningMB,       // 384 MB (75%)
-    memoryCriticalMB: MEMORY_THRESHOLDS.criticalMB,     // 435 MB (85%)
-    memoryEmergencyMB: MEMORY_THRESHOLDS.emergencyMB,   // 460 MB (90%)
-    memoryOptimalMinMB: MEMORY_THRESHOLDS.optimalMinMB, // 307 MB (60%)
-    memoryOptimalMaxMB: MEMORY_THRESHOLDS.optimalMaxMB, // 384 MB (75%)
+    memoryWarningMB: MEMORY_THRESHOLDS.warningMB,       // 1536 MB (75%)
+    memoryCriticalMB: MEMORY_THRESHOLDS.criticalMB,     // 1741 MB (85%)
+    memoryEmergencyMB: MEMORY_THRESHOLDS.emergencyMB,   // 1843 MB (90%)
+    memoryOptimalMinMB: MEMORY_THRESHOLDS.optimalMinMB, // 1229 MB (60%)
+    memoryOptimalMaxMB: MEMORY_THRESHOLDS.optimalMaxMB, // 1536 MB (75%)
     memoryUnderutilizedMB: MEMORY_THRESHOLDS.underutilizedMB, // 256 MB (50%)
     
     // CPU utilization thresholds
@@ -379,7 +380,7 @@ class ResourceMonitor {
   }
   
   /**
-   * Handle EMERGENCY pressure (460-512 MB) - Nuclear option
+   * Handle EMERGENCY pressure (1843-2048 MB) - Nuclear option
    */
   private async handleEmergencyPressure(snapshot: MemorySnapshot): Promise<void> {
     logger.error('[ResourceMonitor] EMERGENCY MEMORY PRESSURE - Immediate action required', {
@@ -506,7 +507,7 @@ class ResourceMonitor {
   }
   
   /**
-   * Handle NORMAL pressure (<384 MB) - All good
+   * Handle NORMAL pressure (<1536 MB) - All good
    */
   private handleNormalPressure(snapshot: MemorySnapshot): void {
     // Only log periodically to avoid spam (every 10 minutes)
@@ -590,7 +591,7 @@ class ResourceMonitor {
       },
       threshold: {
         level,
-        triggerPoint: level === 'EMERGENCY' ? '460 MB (90%)' : '435 MB (85%)',
+        triggerPoint: level === 'EMERGENCY' ? '1843 MB (90%)' : '1741 MB (85%)',
       },
       action: {
         immediate: level === 'EMERGENCY' ? 'Emergency cache pruning + Force GC' : 'Aggressive cache pruning',
@@ -694,11 +695,11 @@ class ResourceMonitor {
     const memoryRssMB = memoryUsage.rss / (1024 * 1024);
     const memoryPercent = (memoryRssMB / MEMORY_THRESHOLDS.planLimitMB) * 100;
 
-    // Check 1: Memory utilization (aligned with 512 MB plan specs)
+    // Check 1: Memory utilization (aligned with 2 GB Standard plan)
     if (memoryRssMB >= MONITOR_CONFIG.thresholds.memoryEmergencyMB) {
       alerts.push({
         level: 'error',
-        message: `🚨 Memory exhaustion imminent: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 512 MB). IMMEDIATE ACTION REQUIRED.`,
+        message: `🚨 Memory exhaustion imminent: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 2 GB). IMMEDIATE ACTION REQUIRED.`,
         metric: 'memory_emergency',
         value: memoryRssMB,
         threshold: MONITOR_CONFIG.thresholds.memoryEmergencyMB,
@@ -706,7 +707,7 @@ class ResourceMonitor {
     } else if (memoryRssMB >= MONITOR_CONFIG.thresholds.memoryCriticalMB) {
       alerts.push({
         level: 'error',
-        message: `🔴 Memory usage critical: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 512 MB). Optimize or scale plan.`,
+        message: `🔴 Memory usage critical: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 2 GB). Optimize or scale plan.`,
         metric: 'memory_critical',
         value: memoryRssMB,
         threshold: MONITOR_CONFIG.thresholds.memoryCriticalMB,
@@ -714,7 +715,7 @@ class ResourceMonitor {
     } else if (memoryRssMB >= MONITOR_CONFIG.thresholds.memoryWarningMB) {
       alerts.push({
         level: 'warn',
-        message: `⚠️ Memory usage high: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 512 MB). Monitor closely.`,
+        message: `⚠️ Memory usage high: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 2 GB). Monitor closely.`,
         metric: 'memory_warning',
         value: memoryRssMB,
         threshold: MONITOR_CONFIG.thresholds.memoryWarningMB,
@@ -722,7 +723,7 @@ class ResourceMonitor {
     } else if (memoryRssMB < MONITOR_CONFIG.thresholds.memoryUnderutilizedMB) {
       alerts.push({
         level: 'info',
-        message: `ℹ️ Memory underutilized: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 512 MB). Consider increasing cache sizes.`,
+        message: `ℹ️ Memory underutilized: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 2 GB). Consider increasing cache sizes.`,
         metric: 'memory_underutilized',
         value: memoryRssMB,
         threshold: MONITOR_CONFIG.thresholds.memoryUnderutilizedMB,
@@ -731,7 +732,7 @@ class ResourceMonitor {
       // Optimal range - no alert, just log for visibility
       alerts.push({
         level: 'info',
-        message: `✅ Memory utilization optimal: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 512 MB, target: 60-75%)`,
+        message: `✅ Memory utilization optimal: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 2 GB, target: 60-75%)`,
         metric: 'memory_optimal',
         value: memoryRssMB,
       });

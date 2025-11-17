@@ -236,7 +236,7 @@ log.debug("Cache hit", { key: "pokemon:25" });
 
 // Immediate (bypasses buffer)
 log.error("Database connection failed", error);
-log.warn("High memory usage detected", { heapUsed: "512MB" });
+log.warn("High memory usage detected", { heapUsed: "1536MB" });
 
 // Manual flush
 import { getLogBuffer } from "./shared/logBuffer.js";

@@ -1313,11 +1313,11 @@ export async function handleOpsCommand(
       
       lines.push("");
       
-      // Section 3: Resource Limits (Render = 512 MB)
-      const renderLimitMB = 512;
-      const warningLimitMB = 384;  // 75%
-      const criticalLimitMB = 435; // 85%
-      const emergencyLimitMB = 460; // 90%
+      // Section 3: Resource Limits (Render Standard = 2 GB)
+      const renderLimitMB = 2048;  // 2 GB Standard plan
+      const warningLimitMB = 1536;  // 75%
+      const criticalLimitMB = 1741; // 85%
+      const emergencyLimitMB = 1843; // 90%
       
       const rssPercent = formatPercent(current.rss, renderLimitMB * 1024 * 1024);
       const status = 

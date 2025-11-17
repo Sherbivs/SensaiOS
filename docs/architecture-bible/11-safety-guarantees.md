@@ -29,7 +29,7 @@
 - ✅ L1 Cache bounded at 20 MB (lazy loading + feature flags)
 - ✅ Write buffer bounded at 5 MB (10k entries max)
 - ✅ Logger buffer bounded at 1 MB (200 entry cap)
-- ✅ Peak RAM target: 300-350 MB per service (58-68% of 512 MB limit)
+- ✅ Peak RAM target: 300-600 MB per service (15-30% of 2 GB limit, Standard plan)
 
 **Error Isolation**:
 - ✅ Five-layer error detection (try-catch, wrappers, global handlers, Discord, Prisma)

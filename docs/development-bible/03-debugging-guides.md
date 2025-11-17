@@ -251,7 +251,7 @@ grep ERROR logs/app.log > errors-$(date +%Y%m%d).log
 ```
 [WARN] [ServiceRegistry] High memory usage
   heapUsed: 428MB
-  heapTotal: 512MB
+  heapTotal: 2048MB
   utilization: 83.6%
   recommendation: Investigate memory leak
 ```

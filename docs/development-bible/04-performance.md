@@ -13,7 +13,7 @@
 ### Current Baselines (November 2025)
 
 **Target Memory Usage:**
-- **Per Service:** <512 MB (Render plan limit)
+- **Per Service:** <2 GB (Render Standard plan limit)
 - **Peak RAM:** ~300-350 MB (58-68% of limit)
 - **L1 Cache:** 20 MB max (lazy loading + feature flags)
 - **Write Buffer:** 5 MB (queue size limits)

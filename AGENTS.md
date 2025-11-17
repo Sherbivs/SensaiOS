@@ -27,7 +27,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 **Phase 9 Complete** (2025-11-07): Repository is production-ready, centralized, standardized, and scalable. All quality metrics optimized: zero linter warnings, zero npm vulnerabilities, zero outdated packages, fast tests (6.82s), clean documentation. See `ops/REPO-OPTIMIZATION-REPORT.md` for comprehensive achievements.
 
 **Recent Enhancements (November 2025)**:
-- ✅ **Memory Safety Audit Complete**: 12/12 runtime structures bounded, peak RAM ~300-350 MB (58-68% of 512 MB limit)
+- ✅ **Memory Safety Audit Complete**: 12/12 runtime structures bounded, peak RAM ~300-350 MB (15-17% of 2 GB limit, upgraded from Starter 512 MB on 2025-11-17)
 - ✅ **7-Day State Persistence**: Security bot maintains hourly metrics with full restart continuity (Store/security-bot-state/)
 - ✅ **Event Bus Phase 2.4.3**: IntelligentLogger migration complete with correlation tracking and pattern caching
 - ✅ **Cache Management**: Discord.js automatic sweeping prevents 100+ MB memory leaks

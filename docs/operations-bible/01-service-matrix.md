@@ -41,7 +41,7 @@ The Infinity Gauntlet deploys **8 independent Render services**:
 **Health Signals:**
 - CLI dashboard (`discord` + `database` sections)
 - Structured logs tagged `runtime.*`
-- Memory usage <350 MB (58-68% of 512 MB limit)
+- Memory usage <600 MB (15-30% of 2 GB limit, Standard plan)
 - Latency <100ms for database queries
 
 **Scaling Considerations:** CPU-bound during battle calculations, memory-bound with large guild caches. **Future:** Extract battle engine to dedicated worker pool (Phase 10+).
@@ -219,7 +219,7 @@ The Infinity Gauntlet deploys **8 independent Render services**:
 - **Guilds:** 5-10 concurrent guilds
 - **Players:** 100-200 concurrent users
 - **Battles:** 10-20 concurrent battles
-- **Memory:** 300-350 MB per service (58-68% of 512 MB limit)
+- **Memory:** 300-600 MB per service (15-30% of 2 GB limit, Standard plan)
 
 **Phase 10+ Scaling Opportunities** (See [docs/workers.md](../deployment/workers.md)):
 
@@ -241,21 +241,29 @@ The Infinity Gauntlet deploys **8 independent Render services**:
 
 ### Vertical Scaling (Increase Resources)
 
-1. **Memory Upgrade** (512 MB → 1 GB)
-   - When: Memory usage >400 MB sustained
-   - Benefits: Support larger guild caches, more concurrent battles
+**✅ CURRENT:** Standard Plan (Upgraded 2025-11-17)
+- 1 vCPU, 2 GB RAM per service
+- 1 GB persistent disk (/Store)
+- ~300-600 MB memory utilization (15-30%)
 
-2. **CPU Upgrade** (Shared → Dedicated)
+**Future Scaling Options:**
+
+1. **CPU Upgrade** (1 vCPU → 2 vCPU)
    - When: Battle calculations cause latency >500ms
    - Benefits: Faster battle resolution, improved player experience
+
+2. **Memory Upgrade** (2 GB → 4 GB)
+   - When: Memory usage >1.5 GB sustained
+   - Benefits: Support larger guild caches, more concurrent battles
 
 ### Cost Optimization
 
 **Current Costs (November 2025):**
-- 7 workers @ $7/month = $49/month
-- 1 web service @ $7/month = $7/month
+- Standard Plan: $25/month per service (1 CPU, 2 GB RAM)
+- 7 workers @ $25/month = $175/month
+- 1 web service @ $25/month = $25/month
 - PostgreSQL @ $7/month = $7/month
-- **Total:** ~$63/month
+- **Total:** ~$207/month
 
 **Scaling Cost Projections:**
 - +2 battle workers: +$14/month ($77/month total)

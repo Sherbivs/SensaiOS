@@ -354,7 +354,7 @@ while ((Get-Date) -lt $endTime) {
             "HEALTHY" { "✅" }
         }
         
-        Write-Log "Status: $statusIcon $status ($($memInfo.RSS_MB) MB / 512 MB = $memoryUsagePercent%)"
+        Write-Log "Status: $statusIcon $status ($($memInfo.RSS_MB) MB / 2048 MB = $memoryUsagePercent%)"
         
         # Export to CSV
         if ($ExportCsv) {

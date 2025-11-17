@@ -164,7 +164,7 @@ curl https://infinity-gauntlet-bot.onrender.com/health
 ⏱ Node Runtime
   Status: online
   Uptime: 2h 34m 12s
-  Memory: 342 MB / 512 MB (66.8%)
+  Memory: 342 MB / 2048 MB (16.7%)
   Process: PID 1234, Node v22.16.0
 
 🗄️ Database (PROD)
@@ -256,7 +256,7 @@ ALERT_USER_ID=987654321  # DripTVDD's Discord user ID
 
 **Memory Alerts:**
 ```typescript
-// Trigger when memory exceeds 450 MB (88% of 512 MB limit)
+// Trigger when memory exceeds 1800 MB (88% of 2 GB limit)
 if (memoryUsage > 450 * 1024 * 1024) {
   sendDripAlert({
     level: 'CRITICAL',

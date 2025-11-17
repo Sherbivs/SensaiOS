@@ -95,7 +95,7 @@ console.log(`Database: ${formatMetric(dbStatus, 'not-connected')}`);
 ⏱ Node Runtime
   Status: online
   Uptime: 2h 34m 12s
-  Memory: 342 MB / 512 MB (66.8%)
+  Memory: 342 MB / 2048 MB (16.7%)
   Process: PID 1234, Node v22.16.0
 
 🗄️ Database (PROD)

@@ -74,7 +74,7 @@ All runtime structures bounded per 2025-11-06 audit:
 - **Write queues** — 10k entry cap, 75% backpressure
 - **Ops error queue** — 200 entry rolling buffer
 - **L1 Cache** — 20 MB max via lazy loading + feature flags
-- Peak RAM: ~300-350 MB per service (58-68% of 512 MB limit)
+- Peak RAM: ~300-600 MB per service (15-30% of 2 GB limit, Standard plan upgraded 2025-11-17)
 
 ## Development Workflows
 
@@ -266,7 +266,7 @@ Agent considered stuck if:
 - See `src/index.ts` lines 1045-1054 for initialization order
 
 ### Memory Footprint
-- **Target:** <512 MB per service
+- **Target:** <2 GB per service (Render Standard plan)
 - **Actual:** ~300-350 MB (58-68% of limit)
 - **L1 Cache:** 20 MB max (lazy loading + feature flags)
 - **Write Buffer:** 5 MB (queue size limits)

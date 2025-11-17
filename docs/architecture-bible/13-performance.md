@@ -25,7 +25,7 @@
 - **Post-Database:** STARTUP_MEMORY.post_database
 - **Post-Engine Cache:** STARTUP_MEMORY.post_engine_and_bots (20MB → 8MB L1 cache)
 - **Steady-State:** STARTUP_MEMORY.steady_state (final footprint)
-- **Peak RAM Target:** 300-350 MB per service (58-68% of 512 MB limit)
+- **Peak RAM Target:** 300-600 MB per service (15-30% of 2 GB limit, Standard plan)
 
 **Profile Creation (OPTIMIZED - 2025-11-09):**
 - **BEFORE:** 150-250ms (4-query chain)

@@ -1294,10 +1294,10 @@ export async function boot(): Promise<void> {
             healthCheckIntervalHours: 12,
             memoryGuardianIntervalSec: 30,
             limits: {
-              warning: '384MB',
-              critical: '435MB',
-              emergency: '460MB',
-              renderLimit: '512MB',
+              warning: '1536MB',   // 75% of 2 GB
+              critical: '1741MB',  // 85% of 2 GB
+              emergency: '1843MB', // 90% of 2 GB
+              renderLimit: '2048MB', // 2 GB Standard plan
             },
           });
         }

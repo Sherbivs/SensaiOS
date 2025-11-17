@@ -183,7 +183,7 @@ while ((Get-Date) -lt $endTime) {
                   elseif ($memInfo.RSS_MB -ge 435) { "🚨 CRITICAL" }
                   elseif ($memInfo.RSS_MB -ge 384) { "⚠️ WARNING" }
                   else { "✅ HEALTHY" }
-        Write-Log "Status: $status ($($memInfo.RSS_MB) MB / 512 MB = $(([math]::Round($memInfo.RSS_MB / 512 * 100, 1)))%)"
+        Write-Log "Status: $status ($($memInfo.RSS_MB) MB / 2048 MB = $(([math]::Round($memInfo.RSS_MB / 2048 * 100, 1)))%)"
     }
     else {
         Write-Log "❌ Failed to get memory info: $($memInfo.Error)"

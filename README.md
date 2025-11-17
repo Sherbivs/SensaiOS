@@ -28,7 +28,7 @@
 - ✅ Zero npm vulnerabilities, all dependencies current
 - ✅ 293/294 tests passing (99.7% pass rate, 6.82s execution)
 - ✅ Clean documentation: Architecture + Operations + Development Bibles
-- ✅ Memory safety: ~300-350 MB peak RAM (58-68% of 512 MB limit)
+- ✅ Memory safety: ~300-350 MB peak RAM (15-17% of 2 GB limit, Standard plan)
 
 **Recent Enhancements (November 2025):**
 - ✅ **Phase 2.4.3**: IntelligentLogger Event Bus migration (unified pub-sub, correlation tracking)

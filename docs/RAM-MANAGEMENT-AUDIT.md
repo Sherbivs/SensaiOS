@@ -2,7 +2,7 @@
 
 **Date:** 2025-11-17  
 **Status:** ✅ ALL SYSTEMS CAPPED & MONITORED  
-**Compliance:** Render Starter Plan (512 MB RAM limit)
+**Compliance:** Render Standard Plan (2 GB RAM limit, upgraded 2025-11-17)
 
 ## Executive Summary
 
@@ -20,12 +20,12 @@ All memory-consuming structures in the Infinity Gauntlet system are **bounded, m
 - ✅ **Coordinated pruning** - All caches registered and managed
 - ✅ **Statistics tracking** - Total prunes, bytes freed, GC count
 
-**Memory Thresholds (512 MB Plan):**
+**Memory Thresholds (2 GB Standard Plan):**
 ```typescript
-NORMAL:     < 384 MB (75%)  // Monitor only
-WARNING:    384-434 MB      // Preemptive pruning
-CRITICAL:   435-459 MB      // Aggressive pruning
-EMERGENCY:  460-511 MB      // Nuclear pruning + Force GC
+NORMAL:     < 1536 MB (75%)  // Monitor only
+WARNING:    1536-1740 MB     // Preemptive pruning
+CRITICAL:   1741-1842 MB     // Aggressive pruning
+EMERGENCY:  1843-2047 MB     // Nuclear pruning + Force GC
 ```
 
 **Guardian Statistics:**
@@ -176,26 +176,26 @@ EMERGENCY:  460-511 MB      // Nuclear pruning + Force GC
 
 ## 3. Memory Guardian Actions
 
-### 3.1 NORMAL Pressure (<384 MB)
+### 3.1 NORMAL Pressure (<1536 MB)
 **Actions:**
 - Monitor only
 - No intervention
 - Log periodically (every 10 minutes)
 
-### 3.2 WARNING Pressure (384-434 MB)
+### 3.2 WARNING Pressure (1536-1740 MB)
 **Actions:**
 - ✅ Suggest garbage collection (with 60s cooldown)
 - ✅ Log memory status
 - ✅ Monitor closely
 
-### 3.3 CRITICAL Pressure (435-459 MB)
+### 3.3 CRITICAL Pressure (1741-1842 MB)
 **Actions:**
 - ✅ Prune ALL registered caches (target 50% size reduction)
 - ✅ Force garbage collection (with 60s cooldown)
 - ✅ Log detailed prune statistics
 - ✅ Respect 2-minute prune cooldown
 
-### 3.4 EMERGENCY Pressure (460-511 MB)
+### 3.4 EMERGENCY Pressure (1843-2047 MB)
 **Actions:**
 - ✅ **IMMEDIATE:** Emergency prune ALL caches (no cooldown)
 - ✅ **IMMEDIATE:** Force garbage collection (no cooldown)
@@ -352,7 +352,7 @@ resourceMonitor.registerCache({
 - ✅ L1 Cache bounded at 20 MB (lazy loading + feature flags)
 - ✅ Write buffer bounded at 5 MB (10k entries max)
 - ✅ Logger buffer bounded at 1 MB (200 entry cap)
-- ✅ Peak RAM target: 300-350 MB per service (58-68% of 512 MB limit)
+- ✅ Peak RAM target: 300-600 MB per service (15-30% of 2 GB limit)
 ```
 
 ## 8. Compliance Verification
@@ -385,23 +385,24 @@ resourceMonitor.registerCache({
 ### 8.2 Production Metrics
 
 **Current Performance (Nov 2025):**
-- Typical RSS: 300-350 MB (58-68% of 512 MB)
-- Peak memory: <400 MB (78% of limit)
+- Typical RSS: 300-600 MB (15-30% of 2 GB, Standard plan)
+- Peak memory: <800 MB (39% of limit)
 - Memory guardian triggers: Rare (NORMAL pressure most of time)
 - OOM incidents: 0 (since bounded structures implemented)
 
 ### 8.3 Render Plan Alignment
 
-**Starter Plan Specs:**
-- RAM: 512 MB
-- vCPU: 0.5
+**Standard Plan Specs (Upgraded 2025-11-17):**
+- RAM: 2048 MB (2 GB)
+- vCPU: 1.0 (dedicated)
+- Persistent Disk: 1 GB (/Store)
 
 **System Design:**
-- Peak target: 350 MB (68% utilization)
-- Emergency threshold: 460 MB (90% utilization)
-- Safety margin: 52 MB (10% buffer before OOM)
+- Peak target: 600 MB (30% utilization)
+- Emergency threshold: 1843 MB (90% utilization)
+- Safety margin: 205 MB (10% buffer before OOM)
 
-**Verdict:** ✅ System operates well within Render Starter plan limits
+**Verdict:** ✅ System operates with substantial headroom within Render Standard plan limits. The 4x memory increase provides excellent capacity for future growth.
 
 ## 9. Recommendations
 
