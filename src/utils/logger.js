@@ -17,7 +17,7 @@ async function getErrorTracker() {
     const errorTrackerModule = await import('../services/monitoring/error-tracker.js');
     errorTracker = errorTrackerModule.errorTracker;
     return errorTracker;
-  } catch (err) {
+  } catch {
     // Error tracker not available (early startup or testing environment)
     return null;
   }
