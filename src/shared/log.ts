@@ -89,33 +89,39 @@ const isTty = Boolean(process.stdout?.isTTY && process.stderr?.isTTY);
 
 let cliLogImpl: CliLogFn | null = null;
 let interruptConsoleOutput: InterruptFn | null = null;
+let cliLoggerLoading = false;
+let cliLoggerLoaded = false;
 
-console.log('[log.ts] About to await import logger.js...');
-
-try {
-  // Runtime dynamic import of CLI logger module
-  const loggerModule: any = await import("../utils/logger.js");
-  cliLogImpl = loggerModule.log ?? loggerModule.default?.log ?? null;
-  console.log('[log.ts] logger.js imported successfully');
-} catch (error) {
-  cliLogImpl = null;
-  console.error('[log.ts] Failed to import logger.js:', error);
+/**
+ * Lazy-load CLI logger to avoid circular dependency deadlock.
+ * The top-level await was causing module initialization to hang because:
+ * index.ts → log.ts (await import logger.js) → logger.js → resource-monitor.ts → intelligent-logger.ts → event-bus.ts
+ * This creates a circular dependency where the await never resolves.
+ * 
+ * Solution: Load logger.js lazily on first use instead of at module load time.
+ */
+async function ensureCliLoggerLoaded(): Promise<void> {
+  if (cliLoggerLoaded || cliLoggerLoading) return;
+  cliLoggerLoading = true;
+  
+  try {
+    // Lazy dynamic import of CLI logger module
+    const loggerModule: any = await import("../utils/logger.js");
+    cliLogImpl = loggerModule.log ?? loggerModule.default?.log ?? null;
+    
+    // Lazy dynamic import of CLI status helper
+    const cliStatusModule: any = await import("../utils/cliStatus.js");
+    interruptConsoleOutput =
+      cliStatusModule.interruptConsoleOutput ?? cliStatusModule.default?.interruptConsoleOutput ?? null;
+    
+    cliLoggerLoaded = true;
+  } catch {
+    // Fallback to JSON-only logging if CLI logger unavailable
+    cliLogImpl = null;
+    interruptConsoleOutput = null;
+    cliLoggerLoaded = true;
+  }
 }
-
-console.log('[log.ts] About to await import cliStatus.js...');
-
-try {
-  // Runtime dynamic import of CLI status helper
-  const cliStatusModule: any = await import("../utils/cliStatus.js");
-  interruptConsoleOutput =
-    cliStatusModule.interruptConsoleOutput ?? cliStatusModule.default?.interruptConsoleOutput ?? null;
-  console.log('[log.ts] cliStatus.js imported successfully');
-} catch (error) {
-  interruptConsoleOutput = null;
-  console.error('[log.ts] Failed to import cliStatus.js:', error);
-}
-
-console.log('[log.ts] All dynamic imports completed');
 
 const cliEnabled = Boolean(cliLogImpl) && (logFormat === "cli" || logFormat === "both" || (logFormat === "auto" && isTty));
 const jsonEnabled =
@@ -130,6 +136,13 @@ const cliDebugMode = config.nodeEnv !== "production";
  */
 function emit(level: LogLevel, msg: string, err?: unknown, meta?: AnyObj): void {
   if (!enabled(level)) return;
+
+  // Lazy-load CLI logger on first use
+  if (!cliLoggerLoaded && !cliLoggerLoading) {
+    ensureCliLoggerLoaded().catch(() => {
+      // Silently fall back to JSON-only logging
+    });
+  }
 
   // Check if we should buffer this log
   const buffer = getLogBuffer();
