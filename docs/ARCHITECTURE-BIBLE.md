@@ -1561,9 +1561,25 @@ Continuous monitoring is active across 1 guild(s).
 
 ## Section 8: Router System
 
-*(Content to be consolidated from `architecture/meta-router.md` in Phase 1 Week 3)*
+**Meta-router Design:** Routes by capability and learned priors. Keeps a no-progress counter and hashes changes.
 
-**Placeholder**: Meta-router design, router-of-routers architecture, routing discipline, navigation patterns.
+**Recovery Playbook:** shrink step → swap strategy → reset context → escalate.
+
+**Budgets:** Default 15 min / 80k tokens; override per task.
+
+**Coverage Map:**
+- `ops/ROUTER.yaml` and `masterroutetable.md` remain canonical indices — run `npm run docs:update-routers` after adding or moving any `ROUTER.md`.
+- Every tracked directory carries a `ROUTER.md` with key assets and ownership notes (e.g., `.github/`, `.db-state/`, `data/`, `docs/`, `playbooks/`, `prisma/`, `router/`, `secrets/`, `sync-layer/`, `tools/`, and the full `src/**` subdomains).
+- Guard scripts (`scripts/guard_router_docs.sh`, `scripts/verify_router_links.sh`) should pass cleanly once new routers land; re-run them whenever the map changes.
+- When adding new surfaces, create the `ROUTER.md`, update `ops/ROUTER.yaml` categories, and append a summary entry to `masterroutetable.md`.
+
+**Router Discipline (Mandatory):**
+- Every code change **must** be accompanied by comprehensive routing updates.
+- Includes: adding new files, renaming/moving directories, changing purpose/activity of existing files.
+- Update all routing systems in same patchset: `ops/ROUTER.yaml`, `ops/ROUTER_INDEX.yaml`, `masterroutetable.md`, affected `ROUTER.md` manifests (parent + sub-router), and `ops/TOUCHMAP.yaml` as needed.
+- Do not consider a task complete until meta-routers and touch maps fully reflect the new or updated surfaces.
+- If automation generates router docs, rerun the generator and commit the outputs.
+- AI is responsible for verifying that routing guard scripts pass after the update. Resolve any failures before exiting the run.
 
 ---
 
