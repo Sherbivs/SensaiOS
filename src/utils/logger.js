@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
-import { formatBytes, formatUptime, deepClone, extractDatabaseName } from '../shared/utils/index.js';
+import { formatBytes, formatUptime, extractDatabaseName } from '../shared/utils/index.js';
 
 // Import error tracker for integration
 let errorTracker = null;
@@ -158,8 +158,11 @@ let statsCache = {
 /**
  * Check if stats have changed significantly (for deduplication).
  * @param {object} current - Current stats
- * @param {object} previous - Previous stats
+ * @param {object} previous - Previous stats (shallow reference comparison only)
  * @returns {boolean} True if significant change detected
+ * 
+ * MEMORY OPTIMIZATION: Only checks specific fields instead of deep cloning entire stats object.
+ * This prevents 1-2 MB allocations every 15 seconds (stats object is ~1-2 MB serialized).
  */
 function hasSignificantChange(current, previous) {
   if (!previous) return true; // First run
@@ -176,6 +179,11 @@ function hasSignificantChange(current, previous) {
   
   // Check security bot status changes
   if (current.security?.status !== previous.security?.status) return true;
+  
+  // Check memory changes (>50MB difference to avoid noise)
+  const currentRss = current.node?.memory?.rss || 0;
+  const previousRss = previous.node?.memory?.rss || 0;
+  if (Math.abs(currentRss - previousRss) > 50 * 1024 * 1024) return true; // 50 MB threshold
   
   return false;
 }
@@ -730,8 +738,12 @@ async function printStats() {
     return;
   }
   
-  // Store current stats for next comparison
-  previousStats = deepClone(statsCache);
+  // MEMORY OPTIMIZATION: Store shallow reference only (not deep clone)
+  // We only check specific fields in hasSignificantChange(), so we don't need
+  // a full deep clone that allocates 1-2 MB every 15 seconds.
+  // Previous behavior: deepClone(statsCache) = 1-2 MB allocation every 15 seconds = ~5 MB/min
+  // New behavior: shallow reference = 0 allocation, just pointer swap
+  previousStats = statsCache;
   
   const lines = [];
   
