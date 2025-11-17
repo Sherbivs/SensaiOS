@@ -1,6 +1,6 @@
 import { once } from "node:events";
 
-import { Client, GatewayIntentBits, Partials, Interaction, Events } from "discord.js";
+import { Client, GatewayIntentBits, Partials, Interaction, Events, Options } from "discord.js";
 
 import { prisma } from "../models/index.js";
 import { log } from "../shared/log.js";
@@ -56,6 +56,31 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 	const client = new Client({
 		intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages],
 		partials: [Partials.Channel],
+		// MEMORY OPTIMIZATION (2025-11-17): Prevent unbounded cache growth on idle bot
+		// Discord.js caches everything indefinitely by default, causing 50-200 MB/day growth
+		// even with zero gameplay activity. Configure limits + sweeping to cap memory usage.
+		makeCache: Options.cacheWithLimits({
+			MessageManager: 200, // Last 200 messages per channel (needed for DM interactions)
+			GuildMemberManager: 200, // 200 members per guild (needed for battle challenges)
+			PresenceManager: 0, // Disable - not used
+			ReactionManager: 0, // Disable - not used
+			VoiceStateManager: 0, // Disable - not used
+			ApplicationCommandManager: 0, // Disable - commands loaded separately
+			BaseGuildEmojiManager: 0, // Disable - not used
+			GuildEmojiManager: 0, // Disable - not used
+			GuildBanManager: 0, // Disable - not used
+			GuildInviteManager: 0, // Disable - not used
+			StageInstanceManager: 0, // Disable - not used
+			ThreadManager: 0, // Disable - not used
+			ThreadMemberManager: 0, // Disable - not used
+		}),
+		sweepers: {
+			// Sweep messages older than 30 minutes every hour
+			messages: {
+				interval: 3600, // 1 hour (in seconds)
+				lifetime: 1800, // 30 minutes (in seconds)
+			},
+		},
 	});
 
 	// OPTIMIZATION: Lazy-load commands on first interaction (saves ~500-1000ms on startup)
@@ -205,5 +230,41 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 	});
 
         await Promise.all([client.login(token), readyPromise]);
+
+        // MEMORY OPTIMIZATION (2025-11-17): Cache hygiene monitoring
+        // Automatic sweepers (configured in Client options) handle cleanup.
+        // Log cache stats periodically to verify sweeping is working.
+        const cacheMonitorInterval = setInterval(() => {
+                try {
+                        const messageCount = client.channels.cache.reduce((total, channel) => {
+                                if ("messages" in channel && channel.messages?.cache) {
+                                        return total + channel.messages.cache.size;
+                                }
+                                return total;
+                        }, 0);
+                        const memberCount = client.guilds.cache.reduce((total, guild) => {
+                                return total + guild.members.cache.size;
+                        }, 0);
+                        
+                        // Only log if caches are growing beyond expected limits
+                        if (messageCount > 500 || memberCount > 500) {
+                                log.warn("Discord cache above threshold", { 
+                                        messages: messageCount, 
+                                        members: memberCount,
+                                        note: "Sweepers should be reducing this - check configuration"
+                                });
+                        }
+                } catch (err: any) {
+                        log.warn("Cache monitor failed", { err: err?.message || String(err) });
+                }
+        }, 3600_000); // 1 hour
+
+        // Cleanup on shutdown
+        const cleanup = () => {
+                clearInterval(cacheMonitorInterval);
+        };
+        process.once("SIGTERM", cleanup);
+        process.once("SIGINT", cleanup);
+
         return client;
 }
