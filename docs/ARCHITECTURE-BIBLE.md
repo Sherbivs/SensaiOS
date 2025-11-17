@@ -1809,27 +1809,508 @@ export const META: { schema: 2; gen: number; hash: string };
 
 ### 10.1 Command Suite
 
-*(Content to be consolidated from `DISCORD-COMMAND-SUITE.md` in Phase 1 Week 3)*
+**Admin Commands** (Administrator permission required):
 
-**Placeholder**: Discord command suite overview, command categories, usage patterns.
+- **`/ops stats`** — Usage statistics across all systems (users, encounters, battles, cache hits, database queries). Options: `--verbose` (detailed stats), `--json` (machine-readable), `--history` (7-day trend). Response time: 50-200ms.
 
-### 10.2 AI DM Commands
+- **`/ops state`** — Security bot operational state (sweeps run, alerts sent, permission changes, per-guild monitoring status, restart history). Options: `--timeline` (rolling event window), `--guilds` (per-guild stats). Response time: 50-150ms.
 
-*(Content to be consolidated from `specs/AI DM COMMAND SUITE GUIDANCE.md` in Phase 1 Week 3)*
+- **`/ops memory`** — Memory profiling dashboard (heap usage, L1 cache, write buffer, database connections, worker memory, leak detection). Options: `--verbose` (detailed breakdown), `--json` (export), `--history` (24h trend). Response time: 100-300ms.
 
-**Placeholder**: AI DM command guidance, automation patterns, error handling.
+- **`/ops cache`** — Cache metrics and maintenance (hit/miss ratios, eviction rates, disk usage, namespaces, maintenance status). Options: `--cleanup` (manual sweep), `--detailed` (namespace breakdown). Response time: 50-150ms.
 
-### 10.3 Admin Command Spec
+- **`/ops engine`** — Engine DB dashboard (L1 cache stats, write buffer utilization, worker status, Read-DB/Write-DB metrics, WAL size, oldest entry). Options: `--workers` (worker details), `--detailed` (full breakdown). Response time: 100-200ms.
 
-*(Content to be consolidated from `specs/DM-ADMIN-COMMAND-SUITE-SPEC.md` in Phase 1 Week 3)*
+- **`/ops errors`** — Error detection dashboard (recent errors by severity/category/fingerprint, resolution status, alert history, error trends). Options: `--severity <level>` (filter), `--category <name>` (filter), `--since <duration>` (time window), `--export` (JSON), `--fingerprint <id>` (specific error). Response time: 100-300ms.
 
-**Placeholder**: Admin command specification, access control, validation.
+- **`/ops cooldown reset`** — Reset user command cooldowns (admin override for testing/support). Options: `--user <id>` (target), `--confirm` (required). Response time: 50-100ms.
 
-### 10.4 Admin Docs Index
+**Regular Commands** (All users):
 
-*(Content to be consolidated from `specs/DM-ADMIN-DOCS-INDEX.md` in Phase 1 Week 3)*
+- **`/battle`** — Initiate wild Pokémon battle (encounter + battle flow).
+- **`/starter`** — Choose starter Pokémon (first-time setup).
+- **`/walk`** — Explore and encounter wild Pokémon.
+- **`/party`** — View and manage party lineup (6 Pokémon max).
+- **`/box`** — Access Pokémon storage (unlimited).
+- **`/heal`** — Restore party HP at Pokémon Center.
+- **`/dex`** — Pokédex lookup (species info, stats, moves, evolutions).
+- **`/move`** — Move database search (power, type, accuracy, effects).
+- **`/weak`** — Type effectiveness calculator.
+- **`/calc`** — Damage calculator (attacker, defender, move).
+- **`/profile`** — View trainer profile (stats, badges, achievements) with pagination (◀️ ▶️ buttons for multi-page profiles).
+- **`/daily`** — Daily login rewards.
+- **`/help`** — Command reference guide.
+- **`/ping`** — Bot latency check.
+- **`/version`** — Build info and last deployed.
 
-**Placeholder**: Admin documentation navigation, quick reference, troubleshooting.
+**Monitoring Scenarios**:
+
+1. **Quick Health Check**: `/ops stats` → `/ops state` → `/ops cache` (2-3 minutes, 150-500ms total)
+2. **Memory Investigation**: `/ops memory --verbose` → `/ops cache --detailed` → `/ops engine --workers` (5 minutes, 300-700ms)
+3. **Security Audit**: `/ops state --timeline --guilds` → Check sweep logs (3 minutes, 150ms)
+4. **Performance Analysis**: `/ops stats --history` → `/ops cache` → `/ops engine` (4 minutes, 300-500ms)
+5. **Error Investigation**: `/ops errors --severity critical` → `/ops errors --fingerprint <id>` → Check logs (5 minutes, 200-600ms)
+6. **Guild Sweep Status**: `/ops state --guilds` → Review monitoring status per guild (2 minutes, 150ms)
+7. **Full Diagnostic**: All `/ops` commands with `--verbose` (10 minutes, 800ms+)
+
+**Tips & Best Practices**:
+- Admin commands require `Administrator` permission (enforced by Discord + bot checks)
+- Use `--json` flags for automation/scripting
+- Response times assume healthy database connections (50-100ms Render latency)
+- Cache cleanup via `/ops cache --cleanup` runs synchronously (may take 1-2 seconds)
+- Error fingerprints are SHA-256 hashes (use `/ops errors` to find IDs before drilling down)
+- Memory profiling captures snapshot at execution time (run multiple times for trend analysis)
+
+### 10.2 DM Implementation Guide
+
+**Discord Client Setup**:
+
+```typescript
+import { Client, GatewayIntentBits, Partials } from 'discord.js';
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.MessageContent, // Privileged intent required
+  ],
+  partials: [
+    Partials.Channel, // Required for DM support
+    Partials.Message, // Required for DM support
+  ],
+});
+```
+
+**DM Admin Router Architecture**:
+
+```
+DM Received → isDmCommand() → isAuthorizedDmAdmin() → checkRateLimit() 
+→ parseDmCommand() → executeDmCommand() → formatResponse()
+```
+
+**Environment Configuration**:
+
+```bash
+DM_ADMIN_ENABLED=true                # Feature flag
+DM_ADMIN_PREFIX=!ops                 # Command prefix
+DM_ADMIN_RATE_LIMIT=10               # Commands per minute
+DRIP_ALERT_RECIPIENT=<user_id>      # Authorized admin user ID
+```
+
+**DM Auth Helpers**:
+
+```typescript
+function isAuthorizedDmAdmin(userId: string): boolean {
+  const authorizedUsers = [process.env.DRIP_ALERT_RECIPIENT];
+  return authorizedUsers.includes(userId);
+}
+
+function isDmCommand(message: Message): boolean {
+  return message.channel.type === ChannelType.DM 
+    && message.content.startsWith(process.env.DM_ADMIN_PREFIX || '!ops');
+}
+```
+
+**Rate Limiting** (In-Memory Map):
+
+```typescript
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(userId: string, limit: number = 10, windowMs: number = 60000): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(userId);
+  
+  if (!record || now > record.resetAt) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  
+  if (record.count >= limit) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+```
+
+**DM Command Parsing**:
+
+```typescript
+function parseDmCommand(content: string): { command: string; args: string[]; flags: Record<string, string> } {
+  const parts = content.slice(process.env.DM_ADMIN_PREFIX!.length).trim().split(/\s+/);
+  const command = parts[0];
+  const args: string[] = [];
+  const flags: Record<string, string> = {};
+  
+  for (let i = 1; i < parts.length; i++) {
+    if (parts[i].startsWith('--')) {
+      const flagName = parts[i].slice(2);
+      const flagValue = parts[i + 1] && !parts[i + 1].startsWith('--') ? parts[i + 1] : 'true';
+      flags[flagName] = flagValue;
+      if (flagValue !== 'true') i++;
+    } else {
+      args.push(parts[i]);
+    }
+  }
+  
+  return { command, args, flags };
+}
+```
+
+**Stats Models** (Prisma):
+
+```prisma
+model User {
+  id         String   @id
+  username   String
+  encounters Encounter[]
+  battles    Battle[]
+  createdAt  DateTime @default(now())
+}
+
+model Encounter {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  speciesId Int
+  outcome   String   // 'caught' | 'fled' | 'defeated'
+  createdAt DateTime @default(now())
+}
+
+model Battle {
+  id           String              @id @default(uuid())
+  createdAt    DateTime            @default(now())
+  status       String              // 'in_progress' | 'completed'
+  participants BattleParticipant[]
+}
+
+model BattleParticipant {
+  id       String @id @default(uuid())
+  battleId String
+  battle   Battle @relation(fields: [battleId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+  isWinner Boolean?
+}
+```
+
+**Stats Query Helpers**:
+
+```typescript
+async function getOpsStats() {
+  const [userCount, encounterCount, battleCount, recentBattles] = await Promise.all([
+    prisma.user.count(),
+    prisma.encounter.count(),
+    prisma.battle.count(),
+    prisma.battle.findMany({
+      where: { status: 'completed' },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: { participants: { include: { user: true } } },
+    }),
+  ]);
+  
+  return { userCount, encounterCount, battleCount, recentBattles };
+}
+
+async function getRecentBattles(limit: number = 10, userId?: string) {
+  return prisma.battle.findMany({
+    where: userId ? { participants: { some: { userId } } } : undefined,
+    orderBy: { createdAt: 'desc' },
+    take: Math.min(limit, 50), // Clamp to 50 max
+    include: { participants: { include: { user: true } } },
+  });
+}
+```
+
+**Stats Embed Formatter**:
+
+```typescript
+import { EmbedBuilder } from 'discord.js';
+
+function formatStatsEmbed(stats: ReturnType<typeof getOpsStats>) {
+  const embed = new EmbedBuilder()
+    .setTitle('📊 Bot Statistics')
+    .setColor(0x5865F2)
+    .addFields(
+      { name: '👥 Total Users', value: stats.userCount.toString(), inline: true },
+      { name: '🌿 Total Encounters', value: stats.encounterCount.toString(), inline: true },
+      { name: '⚔️ Total Battles', value: stats.battleCount.toString(), inline: true },
+    )
+    .setTimestamp();
+  
+  if (stats.recentBattles.length > 0) {
+    const recentBattlesList = stats.recentBattles
+      .map(b => `Battle ${b.id.slice(0, 8)} - ${b.participants.length} participants`)
+      .join('\n');
+    embed.addFields({ name: '🕐 Recent Battles', value: recentBattlesList });
+  }
+  
+  return embed;
+}
+```
+
+**DM Command Handler** (Example: `!ops stats`):
+
+```typescript
+async function handleStatsCommand(message: Message, args: string[], flags: Record<string, string>) {
+  const limit = parseInt(flags.limit || '10', 10);
+  const clampedLimit = Math.max(1, Math.min(limit, 50));
+  
+  const stats = await getOpsStats();
+  
+  if (flags.json) {
+    await message.reply(`\`\`\`json\n${JSON.stringify(stats, null, 2)}\n\`\`\``);
+  } else {
+    const embed = formatStatsEmbed(stats);
+    await message.reply({ embeds: [embed] });
+  }
+}
+```
+
+### 10.3 DM Admin Specification
+
+**Feature Overview**:
+- **Interface**: DM-only (private channel with bot)
+- **Authentication**: Single-user (DripTVDD via `DRIP_ALERT_RECIPIENT`)
+- **Command Format**: Text-based (`!ops <subcommand> [options]`)
+- **Coverage**: 20+ admin commands across 7 categories
+- **Responses**: Rich embeds, JSON export, confirmation prompts
+
+**Command Syntax**: `!ops <subcommand> [options]` or `!admin <subcommand> [options]`
+
+**Command Categories**:
+
+1. **System Health** (5 commands):
+   - `!ops stats` — Usage statistics (users, encounters, battles, cache, DB queries)
+     - Options: `--verbose` (detailed), `--json` (export), `--history` (7-day trend)
+   - `!ops memory` — Memory profiling (heap, cache, buffer, connections, workers, leaks)
+     - Options: `--verbose`, `--json`, `--history` (24h trend)
+   - `!ops state` — Security bot state (sweeps, alerts, changes, per-guild monitoring, restarts)
+     - Options: `--timeline` (events), `--guilds` (per-guild)
+   - `!ops cache` — Cache metrics (hit/miss, evictions, disk, namespaces, maintenance)
+     - Options: `--cleanup` (manual sweep), `--detailed` (namespaces)
+   - `!ops engine` — Engine DB dashboard (L1 cache, buffer, workers, Read-DB, Write-DB, WAL)
+     - Options: `--workers` (details), `--detailed` (full)
+   - `!ops errors` — Error detection (recent by severity/category/fingerprint, trends)
+     - Options: `--severity <level>`, `--category <name>`, `--since <duration>`, `--export`, `--fingerprint <id>`
+
+2. **User Management** (2 commands):
+   - `!ops cooldown reset` — Reset user command cooldowns
+     - Options: `--user <id>`, `--confirm` (required)
+   - `!ops user <id>` — User profile and stats (future)
+
+3. **Guild Management** (2 commands):
+   - `!ops guild <id>` — Guild info and stats (future)
+   - `!ops sweep <guild_id>` — Trigger manual security sweep (future)
+
+4. **Service Control** (3 commands):
+   - `!ops restart` — Restart bot service (future)
+     - Options: `--confirm` (required)
+   - `!ops logs` — View recent logs (future)
+     - Options: `--lines <n>`, `--level <level>`, `--since <duration>`
+   - `!ops deploy` — Trigger deployment (future)
+     - Options: `--confirm` (required)
+
+5. **Database Operations** (2 commands):
+   - `!ops db query <sql>` — Execute read-only query (future)
+     - Safety: Read-only enforced, no `UPDATE`/`DELETE`/`DROP`
+   - `!ops db stats` — Database statistics (connections, queries, slow queries) (future)
+
+6. **Monitoring & Alerts** (2 commands):
+   - `!ops monitor start` — Start monitoring session (future)
+     - Options: `--interval <ms>`, `--duration <ms>`
+   - `!ops monitor stop` — Stop monitoring session (future)
+   - `!ops alerts` — View recent alerts (future)
+
+7. **Quick Actions** (3 commands):
+   - `!ops ping` — Latency check
+   - `!ops status` — Quick health summary (all systems)
+   - `!ops help` — Command reference
+
+**Enhanced Options** (All commands):
+- `--verbose` — Detailed output with additional metrics
+- `--json` — Machine-readable JSON export
+- `--history` — Historical data (time window varies by command)
+- `--export` — Save to file (for large datasets)
+- `--confirm` — Required for destructive operations
+- `--detailed` — Full breakdown (subsystem-specific)
+
+**Implementation Plan** (6 Phases, 8-10 Weeks):
+
+**Phase 1: Foundation** (1 week)
+- DM detection and routing
+- Auth check (`DRIP_ALERT_RECIPIENT`)
+- Rate limiting (10/min default)
+- Command parsing (`!ops <cmd> [--flags]`)
+- Basic error handling
+
+**Phase 2: Core Monitoring** (2 weeks)
+- `!ops stats` (full implementation)
+- `!ops memory` (full implementation)
+- `!ops state` (full implementation)
+- `!ops cache` (full implementation)
+- `!ops engine` (full implementation)
+- `!ops errors` (full implementation)
+
+**Phase 3: User & Guild Management** (1 week)
+- `!ops cooldown reset` (full implementation)
+- `!ops user <id>` (profile lookup)
+- `!ops guild <id>` (guild info)
+- `!ops sweep <guild_id>` (manual sweep)
+
+**Phase 4: Service Control** (2 weeks)
+- `!ops restart` (service restart with confirmation)
+- `!ops logs` (tail recent logs with filters)
+- `!ops deploy` (trigger deployment with confirmation)
+
+**Phase 5: Database Operations** (1 week)
+- `!ops db query` (read-only SQL execution)
+- `!ops db stats` (connection pool, query performance)
+
+**Phase 6: Monitoring & Alerts** (1 week)
+- `!ops monitor start/stop` (live monitoring sessions)
+- `!ops alerts` (recent alert history)
+
+**Priority**: Medium (Phase 26-27, ETA 1.5 months after Phase 25 complete)
+
+**Safety Rules**:
+- All database queries are **read-only** (enforced at query execution)
+- Destructive operations require `--confirm` flag
+- All DM commands logged to audit trail
+- Rate limiting prevents abuse (10/min default, configurable)
+- Single-user auth (expandable to RBAC in future)
+
+### 10.4 DM Documentation Index
+
+**Document Relationships**:
+
+| Document | Role | Content |
+|----------|------|---------|
+| **DM-ADMIN-COMMAND-SUITE-SPEC.md** | **Spec (WHAT)** | Feature specification, command list, implementation phases, safety rules |
+| **DM-ADMIN-IMPLEMENTATION-GUIDE.md** | **Implementation (HOW)** | Code structure, routing logic, database queries, embed formatting |
+| **AI DM COMMAND SUITE GUIDANCE.md** | **Best Practices** | Discord.js patterns, Prisma queries, rate limiting, error handling |
+
+**Implementation Workflow**:
+
+1. **Review Spec** → Understand feature requirements, command syntax, safety rules
+2. **Study Implementation** → Review code structure, routing, parsing, execution
+3. **Reference Guidance** → Apply Discord.js best practices, optimize Prisma queries
+4. **Begin Coding** → Implement foundation, add commands incrementally, test end-to-end
+
+**Cross-Reference Map** (Command → Sections):
+
+| Command | Spec Section | Implementation Section | Guidance Section |
+|---------|--------------|------------------------|------------------|
+| `!ops stats` | § 5.1.1 System Health | § 3.1 Stats Command | § 2.4 Stats Queries |
+| `!ops memory` | § 5.1.2 System Health | § 3.2 Memory Command | § 2.5 Memory Profiling |
+| `!ops state` | § 5.1.3 System Health | § 3.3 State Command | § 2.6 State Formatting |
+| `!ops cache` | § 5.1.4 System Health | § 3.4 Cache Command | § 2.7 Cache Metrics |
+| `!ops engine` | § 5.1.5 System Health | § 3.5 Engine Command | § 2.8 Engine Stats |
+| `!ops errors` | § 5.1.6 System Health | § 3.6 Errors Command | § 2.9 Error Queries |
+| `!ops cooldown reset` | § 5.2.1 User Management | § 3.7 Cooldown Command | § 2.10 User Lookup |
+| `!ops user` | § 5.2.2 User Management | § 3.8 User Command | § 2.10 User Lookup |
+| `!ops guild` | § 5.3.1 Guild Management | § 3.9 Guild Command | § 2.11 Guild Queries |
+| `!ops sweep` | § 5.3.2 Guild Management | § 3.10 Sweep Command | § 2.12 Security Integration |
+| `!ops restart` | § 5.4.1 Service Control | § 3.11 Restart Command | § 2.13 Process Control |
+| `!ops logs` | § 5.4.2 Service Control | § 3.12 Logs Command | § 2.14 Log Streaming |
+| `!ops deploy` | § 5.4.3 Service Control | § 3.13 Deploy Command | § 2.15 Render API |
+| `!ops db query` | § 5.5.1 Database Ops | § 3.14 DB Query Command | § 2.16 Read-Only Queries |
+| `!ops db stats` | § 5.5.2 Database Ops | § 3.15 DB Stats Command | § 2.17 Connection Pool |
+| `!ops monitor` | § 5.6.1 Monitoring | § 3.16 Monitor Command | § 2.18 Live Sessions |
+| `!ops alerts` | § 5.6.2 Monitoring | § 3.17 Alerts Command | § 2.19 Alert History |
+| `!ops ping` | § 5.7.1 Quick Actions | § 3.18 Ping Command | § 2.1 DM Basics |
+| `!ops status` | § 5.7.2 Quick Actions | § 3.19 Status Command | § 2.20 Health Checks |
+| `!ops help` | § 5.7.3 Quick Actions | § 3.20 Help Command | § 2.2 Command Parsing |
+
+**Architecture Patterns**:
+
+**Auth Flow**:
+```
+DM → isDmCommand() → isAuthorizedDmAdmin() → checkRateLimit() 
+→ parseDmCommand() → executeDmCommand()
+```
+
+**Command Dispatch**:
+```typescript
+switch (command) {
+  case 'stats': return handleStatsCommand(message, args, flags);
+  case 'memory': return handleMemoryCommand(message, args, flags);
+  case 'state': return handleStateCommand(message, args, flags);
+  // ...
+}
+```
+
+**Data Query Pattern**:
+```typescript
+const [users, encounters, battles] = await Promise.all([
+  prisma.user.count(),
+  prisma.encounter.count(),
+  prisma.battle.count(),
+]);
+```
+
+**Testing Coverage**:
+
+**Unit Tests**:
+- Command parser (flags, args, edge cases)
+- Rate limiter (window reset, multiple users)
+- Auth checker (authorized/unauthorized users)
+
+**Integration Tests**:
+- End-to-end DM command execution
+- Database queries (mocked Prisma)
+- Embed formatting (Discord.js mocks)
+
+**Environment Configuration**:
+
+```bash
+# Required for DM admin commands
+DM_ADMIN_ENABLED=true                # Feature flag
+DM_ADMIN_PREFIX=!ops                 # Command prefix
+DM_ADMIN_RATE_LIMIT=10               # Commands per minute
+DRIP_ALERT_RECIPIENT=<user_id>      # Authorized admin user ID
+```
+
+**Discord Developer Portal Setup**:
+
+1. **Bot Permissions**: `Administrator` (or granular: `View Channels`, `Send Messages`, `Embed Links`, `Read Message History`)
+2. **Gateway Intents**: `Guilds`, `GuildMessages`, `DirectMessages`, `MessageContent` (privileged)
+3. **Privileged Intent Approval**: Request `MessageContent` intent from Discord Developer Portal
+4. **OAuth2 Scopes**: `bot`, `applications.commands`
+
+**Success Metrics**:
+
+- **Phase 1**: DM commands received and parsed successfully
+- **Phase 2**: Core monitoring commands operational (`!ops stats`, `!ops memory`, `!ops state`, `!ops cache`, `!ops engine`, `!ops errors`)
+- **Phase 6**: All 20+ commands operational, rate limiting enforced, audit logging active
+
+**Known Limitations**:
+
+- Single-user authentication (expandable to RBAC in future)
+- In-memory rate limiting (resets on restart; consider Redis for persistence)
+- No pagination for large datasets (implement in Phase 6+)
+- No query timeouts (add in Database Operations phase)
+
+**Future Enhancements**:
+
+- Multi-user RBAC (roles: `OWNER`, `ADMIN`, `MODERATOR`, `VIEWER`)
+- Persistent rate limiting (Redis backend)
+- Interactive pagination (Discord buttons for large datasets)
+- Query streaming (real-time results for long queries)
+- Slash command equivalents (`/admin stats` alongside `!ops stats`)
+
+**Support & Troubleshooting**:
+
+| Issue | Solution |
+|-------|----------|
+| DM commands not received | Verify `DirectMessages` intent + `Partials.Channel` |
+| Auth fails | Check `DRIP_ALERT_RECIPIENT` matches user ID |
+| Rate limit too strict | Adjust `DM_ADMIN_RATE_LIMIT` (default 10/min) |
+| Embed too large | Use `--json` flag or implement pagination |
+| Query timeout | Add `PRISMA_QUERY_TIMEOUT_MS` environment variable |
 
 ---
 
