@@ -60,14 +60,8 @@ import * as aiLogIntegrations from "./services/ai/ai-log-integrations.js";
 import type * as EngineReadDbModule from "./services/database/engine-read-db.js";
 import type * as EngineWriteDbModule from "./services/database/engine-write-db.js";
 
-// eslint-disable-next-line no-console
-console.log('[MODULE] All imports completed successfully');
-
 // Record module import completion
 recordTiming("module_imports", MODULE_IMPORT_START);
-
-// eslint-disable-next-line no-console
-console.log('[MODULE] recordTiming completed, about to recordMemory...');
 
 // Memory profiling
 const STARTUP_MEMORY: { [key: string]: NodeJS.MemoryUsage } = {};
@@ -76,14 +70,8 @@ function recordMemory(label: string) {
 }
 recordMemory("initial");
 
-// eslint-disable-next-line no-console
-console.log('[MODULE] recordMemory(initial) completed');
-
 // Expose STARTUP_MEMORY globally for /ops memory command
 (global as typeof global & { STARTUP_MEMORY: typeof STARTUP_MEMORY }).STARTUP_MEMORY = STARTUP_MEMORY;
-
-// eslint-disable-next-line no-console
-console.log('[MODULE] STARTUP_MEMORY exposed to global');
 
 /**
  * Calculate memory progression deltas from startup phases
@@ -165,9 +153,6 @@ global.engineReady = false;
 // Service Registry - Centralized Service Lifecycle Management
 // ============================================================================
 const registry = ServiceRegistry.getInstance();
-
-// eslint-disable-next-line no-console
-console.log('[MODULE] ServiceRegistry initialized');
 
 let resourceManager: { shutdown: () => Promise<void> } | null = null;
 let errorTracker: ErrorTracker | null = null;
@@ -1030,15 +1015,10 @@ function installSignalHandlers(): void {
 
 export async function boot(): Promise<void> {
   // Emergency debugging: Direct console output to verify boot() is called
-  // eslint-disable-next-line no-console
-  console.log('[BOOT] Starting boot sequence...');
-  
   const BOOT_START = process.hrtime.bigint();
   installSignalHandlers();
   startMonitor();
 
-  // eslint-disable-next-line no-console
-  console.log('[BOOT] Signal handlers installed, calling log.info...');
   log.info("Infinity Gauntlet: toolchain online", { env: config.nodeEnv });
   
   // ============================================================================
@@ -1453,25 +1433,14 @@ export async function boot(): Promise<void> {
   }
 }
 
-// eslint-disable-next-line no-console
-console.log('[MODULE CHECK] import.meta.url:', import.meta.url);
-// eslint-disable-next-line no-console
-console.log('[MODULE CHECK] process.argv[1]:', process.argv[1]);
-// eslint-disable-next-line no-console
-console.log('[MODULE CHECK] file path:', `file://${process.argv[1]}`);
-// eslint-disable-next-line no-console
-console.log('[MODULE CHECK] Match:', import.meta.url === `file://${process.argv[1]}`);
-
+// Auto-invoke boot() when run directly as main module
 if (import.meta.url === `file://${process.argv[1]}`) {
   boot().catch((err) => {
     log.error("Fatal during boot", err);
     process.exit(1);
   });
 } else {
-  // eslint-disable-next-line no-console
-  console.log('[MODULE CHECK] Not invoked directly - boot() will not be called');
-  // eslint-disable-next-line no-console
-  console.log('[MODULE CHECK] This is a problem! Force invoking boot()...');
+  // Fallback: invoke boot() anyway (Render environment detection)
   boot().catch((err) => {
     log.error("Fatal during boot", err);
     process.exit(1);
