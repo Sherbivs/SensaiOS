@@ -1437,7 +1437,25 @@ export async function boot(): Promise<void> {
   }
 }
 
+// eslint-disable-next-line no-console
+console.log('[MODULE CHECK] import.meta.url:', import.meta.url);
+// eslint-disable-next-line no-console
+console.log('[MODULE CHECK] process.argv[1]:', process.argv[1]);
+// eslint-disable-next-line no-console
+console.log('[MODULE CHECK] file path:', `file://${process.argv[1]}`);
+// eslint-disable-next-line no-console
+console.log('[MODULE CHECK] Match:', import.meta.url === `file://${process.argv[1]}`);
+
 if (import.meta.url === `file://${process.argv[1]}`) {
+  boot().catch((err) => {
+    log.error("Fatal during boot", err);
+    process.exit(1);
+  });
+} else {
+  // eslint-disable-next-line no-console
+  console.log('[MODULE CHECK] Not invoked directly - boot() will not be called');
+  // eslint-disable-next-line no-console
+  console.log('[MODULE CHECK] This is a problem! Force invoking boot()...');
   boot().catch((err) => {
     log.error("Fatal during boot", err);
     process.exit(1);
