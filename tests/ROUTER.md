@@ -29,7 +29,7 @@ Notes:
   - `tests/dripalert-bus-phase2.3.1-validation.test.ts` — Event Bus emission validation (9 tests, 100% passing). Validates alert emission to correct topics (alert.critical, alert.security, alert.warning, alert.notice), correlation ID generation (UUID v4 format), Event Bus replay buffer population, payload structure (severity, title, meta, timestamp, recipient).
   - `tests/dripalert-bus-phase2.3.2-validation.test.ts` — Event Bus subscription validation (8 tests, 100% passing). Validates subscription creation on start (2 subscriptions: immediate + digest), priority levels (immediate=20, digest=10), topic patterns (alert.critical|alert.security, alert.warning|alert.notice), subscription cleanup on stop.
   - `tests/dripalert-bus-phase2.3.4-integration.test.ts` — End-to-end integration tests (12 tests, 6 passing, 6 WIP). Passing tests: Critical/security immediate delivery via Event Bus subscriptions, warning/notice queuing in replay buffer, digest delivery with multiple alerts, digest skip when empty. WIP tests: Failure retry re-emission, subscription lifecycle, correlation ID propagation (requires test isolation improvements).
-  - Total: 29 tests (23 passing, 6 WIP), validates complete Event Bus migration from in-memory queue architecture. See docs/architecture/phase2.3-dripalertmanager-migration-plan.md for migration design.
+  - Total: 29 tests (23 passing, 6 WIP), validates complete Event Bus migration from in-memory queue architecture. See architecture-bible/05-event-bus.md for Event Bus architecture and development-bible/02-testing-guidelines.md for testing patterns.
 
 Subrouters:
 - tests/battle/ROUTER.md — Interaction tests for Discord battle prompts.

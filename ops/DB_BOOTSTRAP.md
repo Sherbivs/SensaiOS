@@ -1,6 +1,6 @@
 # Staging DB Bootstrap Runbook
 
-This runbook describes safe steps to bring a staging PostgreSQL database up to the baseline schema expected by the codebase and Prisma migrations. Use this when `npx prisma migrate deploy` fails due to missing baseline tables or missing migration history on the target DB. See `docs/database-systems.md` for the current architecture, role catalog, and helper inventory.
+This runbook describes safe steps to bring a staging PostgreSQL database up to the baseline schema expected by the codebase and Prisma migrations. Use this when `npx prisma migrate deploy` fails due to missing baseline tables or missing migration history on the target DB. See `operations-bible/02-database-operations.md` for the current architecture, role catalog, and helper inventory.
 
 **Current Architecture (2025-11-07):** The system uses direct PostgreSQL connections for all operations. See HISTORICAL CONTEXT section below for information about the removed Prisma Accelerate layer.
 
@@ -135,8 +135,8 @@ Dex reference rollout follow-up
   npm run db:cli -- status
   ```
 
-  - Pass `--dry-run` to preview counts without writing. Capture the status output in Tasklist notes so the audit trail shows >1,000 species after seeding. The workflow is documented end-to-end in `docs/database-systems.md` §6.
-  - When running from WSL, follow the "Dev Reset & Hydration Quickstart" in `docs/database-systems.md` to source the Windows secrets and reset the schema (`prisma db push --force-reset`). Finish by re-running `npm ci` in PowerShell so Windows-native binaries align with the updated lockfile.
+  - Pass `--dry-run` to preview counts without writing. Capture the status output in Tasklist notes so the audit trail shows >1,000 species after seeding. The workflow is documented end-to-end in `operations-bible/02-database-operations.md` §6.
+  - When running from WSL, follow the "Dev Reset & Hydration Quickstart" in `operations-bible/02-database-operations.md` to source the Windows secrets and reset the schema (`prisma db push --force-reset`). Finish by re-running `npm ci` in PowerShell so Windows-native binaries align with the updated lockfile.
   - Keep the Dev → Prod → Dev cadence: execute these commands on DEV first (from your workstation using `RENDER_DB_EXTERNAL_URL`), then update Game Engine (Render) environment variables if needed, then return to local development.
   - For continuous coverage, run `npm run db:auto-sync` so migrations + seeding loop on deployment and every five minutes when drift is detected. Use `--dry-run`, `--once`, or `--skip-startup` during rehearsals and monitor the JSON logs (`sync.consolidate.*`, `integrity.*`) for drift alerts.
   - `warm_cache.ts` refreshes the materialized view and then primes the Pokémon cache. If the GitHub replication helper is unavailable (missing `octokit`), the script falls back to regenerating `data/cache/pokemon.json` locally and logs the skip.

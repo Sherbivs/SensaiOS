@@ -82,7 +82,7 @@ See [One-Off Jobs Guide](../docs/render-one-off-jobs.md) for detailed documentat
 
 ## SSH Integration
 
-Complete SSH automation suite for Render services. See [SSH Automation Guide](../docs/deployment/render-ssh-automation.md) for comprehensive documentation.
+Complete SSH automation suite for Render services. See operations-bible/03-deployment-procedures.md § 7 for comprehensive SSH automation documentation.
 
 ### Quick SSH Commands
 
@@ -118,7 +118,7 @@ npm run render:ssh-tunnel -- `
 - `render_ssh_transfer.ps1` - File transfer via SCP
 - `render_ssh_tunnel.ps1` - Port forwarding and SOCKS proxy
 
-See [SSH Automation Guide](../docs/deployment/render-ssh-automation.md) for detailed usage and examples.
+See operations-bible/03-deployment-procedures.md § 7 for detailed SSH automation usage and examples.
 
 ## VS Code Tasks
 

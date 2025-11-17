@@ -20,7 +20,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - See `OPERATIONS.md` for service matrix, rollout checklist, observability
 - See `docs/workers.md` for worker architecture, scaling roadmap (Phase 10+), cost optimization
 - See `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` for deployment readiness validation
-- See `docs/database-url-selection.md` for CRITICAL database URL selection logic (Absolute requirement)
+- See `operations-bible/02-database-operations.md` for CRITICAL database URL selection logic (Absolute requirement)
 - See `docs/OPTIMIZATION-BIBLE.md` for comprehensive system optimization roadmap (startup, console logging, profile creation, runtime weight, queries, cache)
 - See `docs/engine-db-persistence-opportunities.md` for Engine DB disk persistence migration (sql.js → better-sqlite3, 78% memory reduction)
 
@@ -53,7 +53,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - `README.md` (Router & Meta Index section) — Cross-links routers, contract files, and meta tooling for external automation.
 - `ops/DB_BOOTSTRAP.md` — Staging Postgres bootstrap runbook covering migrate deploy vs. db push safety.
   - Expect `PROD_DATABASE_URL` (Render-managed PostgreSQL) to be configured. Runtime services use PROD_DATABASE_URL for all operations including gameplay and migrations.
-- `docs/database-url-selection.md` — **CRITICAL:** Canonical database URL selection logic. Production requires `PROD_DATABASE_URL` (direct PostgreSQL - Render managed database). Non-compliance causes production failures. Read this before any database operation.
+- `operations-bible/02-database-operations.md` — **CRITICAL:** Canonical database URL selection logic. Production requires `PROD_DATABASE_URL` (direct PostgreSQL - Render managed database). Non-compliance causes production failures. Read this before any database operation.
 
 ## How to Run Locally
 - **Install:** `npm install`
@@ -87,7 +87,7 @@ Reference: `docs/ai-env-setup.md` describes the secure loading order and availab
 
 ## Database URL Selection (CRITICAL - Read Before Any Database Operation)
 
-**As of 2025-11-08**, production uses **unified Render-managed PostgreSQL**. See `docs/database-url-selection.md` for complete documentation.
+**As of 2025-11-08**, production uses **unified Render-managed PostgreSQL**. See `operations-bible/02-database-operations.md` for complete documentation.
 
 **The Architecture:**
 - **PRODUCTION (Render)**: Single managed database (infinity-gauntlet-db) accessed via PROD_DATABASE_URL
@@ -309,7 +309,7 @@ console.log(`PROD: ${stats.prod.status} | LOCAL: ${stats.onPremiseDev.status}`);
 | Offline development | `onPremiseDevPrisma` | Fallback when Render database unreachable |
 | Stats/observability | All via `getDatabaseStats()` | Simultaneous visibility |
 
-See `docs/database-configuration.md` for comprehensive database architecture documentation including `TripleDatabaseStats` type definitions, heartbeat tracking, workstation gameplay setup, and replication flows.
+See `operations-bible/02-database-operations.md` for comprehensive database architecture documentation including `TripleDatabaseStats` type definitions, heartbeat tracking, workstation gameplay setup, and replication flows.
 
 ## State Persistence (Security Bot)
 

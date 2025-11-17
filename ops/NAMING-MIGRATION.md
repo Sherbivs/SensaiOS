@@ -2,7 +2,7 @@
 
 **Status:** Active (2025-11-08)  
 **Purpose:** Track systematic migration from old terminology (local/LOCAL/PRIMARY LOCAL/EXPERIMENTAL) to canonical naming schema (CLOUD-DEV-MASTER, CLOUD-PROD-RUNTIME, ONPREMISE-DEV-PRIMARY, ONPREMISE-DEV-EXPERIMENT).  
-**Authority:** See `docs/database-naming-schema.md` for canonical definitions.
+**Authority:** See `operations-bible/02-database-operations.md` for canonical definitions.
 
 ---
 
@@ -194,7 +194,7 @@ grep "localPrisma\|experimentPrisma" src/utils/logger.js
 - [ ] Update all environment variable references
 - [ ] Update all Prisma client references
 - [ ] Update replication flow diagrams
-- [ ] Add prominent link to `docs/database-naming-schema.md` at top of database sections
+- [ ] Add prominent link to `operations-bible/02-database-operations.md` at top of database sections
 - [ ] Update "Dual Local Database Setup" → "Dual On-Premise Database Setup"
 
 **Verification:**
@@ -208,9 +208,9 @@ grep -i "local database\|LOCAL.*database\|PRIMARY LOCAL\|EXPERIMENTAL database" 
 ### 2.2 Database Documentation Files
 
 **Files:**
-- `docs/database-url-selection.md`
-- `docs/database-configuration.md`
-- `docs/database-systems.md`
+- `operations-bible/02-database-operations.md`
+- `operations-bible/02-database-operations.md`
+- `operations-bible/02-database-operations.md`
 - `docs/db-replication-architecture.md`
 - `docs/dual-local-database-guide.md` → `docs/dual-onpremise-database-guide.md` (rename file)
 - `docs/workstation-gameplay-setup.md`
@@ -221,7 +221,7 @@ grep -i "local database\|LOCAL.*database\|PRIMARY LOCAL\|EXPERIMENTAL database" 
 - [ ] Update all references to `DATABASE_EXPERIMENT_URL` → `DATABASE_ONPREMISE_DEV_EXPERIMENT`
 - [ ] Update all prose: "local database" → "ONPREMISE-DEV-PRIMARY" (context-dependent)
 - [ ] Update architecture diagrams with new names
-- [ ] Add reference to `docs/database-naming-schema.md` at top of each file
+- [ ] Add reference to `operations-bible/02-database-operations.md` at top of each file
 - [ ] Update all code examples with new client names
 
 **Verification:**
@@ -571,7 +571,7 @@ ls -la Store/ | grep -E "^d.*\bdb\b|db-experiment"
 ## Breaking Changes
 
 **For AI Agents:**
-- ALL database operations must now use canonical names from `docs/database-naming-schema.md`
+- ALL database operations must now use canonical names from `operations-bible/02-database-operations.md`
 - Prisma clients renamed: `localPrisma` → `onPremiseDevPrisma`, `experimentPrisma` → `onPremiseExperimentPrisma`
 - Environment variables renamed: `DATABASE_LOCAL_*` → `DATABASE_ONPREMISE_DEV_*`
 - CLI targets renamed: `--target local` → `--target onpremise-dev`
@@ -580,7 +580,7 @@ ls -la Store/ | grep -E "^d.*\bdb\b|db-experiment"
 **For Human Operators:**
 - Update local environment files with new variable names
 - Update any scripts or aliases referencing old names
-- Bookmark `docs/database-naming-schema.md` for reference
+- Bookmark `operations-bible/02-database-operations.md` for reference
 
 ---
 

@@ -51,7 +51,7 @@ if (onPremiseExperimentPrisma) {
 3. `DATABASE_ONPREMISE_DEV_PRIMARY` → Workstation mirror (offline mode)
 4. `DATABASE_ONPREMISE_DEV_EXPERIMENT` → Migration testing cluster
 
-**See `docs/database-url-selection.md` for complete URL selection logic.**
+**See `operations-bible/02-database-operations.md` for complete URL selection logic.**
 
 ### State Persistence (Security Bot)
 Security bot maintains 7-day state history in `Store/security-bot-state/`:
@@ -327,7 +327,7 @@ Areas:
 
 - **Architecture:** `README.md` → comprehensive system overview
 - **Operations:** `OPERATIONS.md` → service matrix + deployment procedures
-- **Database Guide:** `docs/database-url-selection.md` → URL selection logic
+- **Database Guide:** `operations-bible/02-database-operations.md` → URL selection logic
 - **Worker Scaling:** `docs/workers.md` → Phase 10+ roadmap
 - **Memory Audit:** `docs/MEMORY-LEAK-INVESTIGATION-2025-11-13.md` → leak investigation
 - **PBSL Manifesto:** `docs/PBSL.md` → deterministic battle system

@@ -54,6 +54,5 @@ Linked Routers:
 - **Documentation:**
   - docs/engine-db-replication.md — Comprehensive architecture documentation for Engine DB runtime.
   - docs/error-detection-system.md — Comprehensive error detection system documentation (architecture, taxonomy, integration guide).
-  - docs/deployment/RESOURCE-REQUEST-MIGRATION.md — Centralized resource request system migration guide.
-  - docs/deployment/RESOURCE-MONITOR-STANDARDS.md — Standardized resource monitoring thresholds aligned with 512 MB Starter plan.
-  - docs/deployment/RENDER-RESOURCE-OPTIMIZATION-PLAN.md — Overall resource optimization strategy and 6-phase roadmap.
+  - operations-bible/03-deployment-procedures.md — Render deployment procedures and resource management
+  - operations-bible/05-monitoring.md — Standardized resource monitoring thresholds aligned with 512 MB Starter plan

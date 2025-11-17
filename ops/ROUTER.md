@@ -6,7 +6,7 @@ Last Updated (UTC): 2025-11-06T04:45:00Z
 
 Notes:
 - 2025-02-26: Documented dexpack guard coverage; ops/ROUTER.yaml and touchmap now map assets build to T13.DEX.DEXPACK_ROLLOUT.
-- 2025-11-06: Local Postgres fallback automation now lives under `scripts/ops/`; `npm run ops:auto-bootstrap-local-db` installs dependencies then refreshes the Store mirror. Docs (AGENTS, OPERATIONS, database-systems) and ledger entries were updated to reflect the silent install flow.
+- 2025-11-06: Local Postgres fallback automation now lives under `scripts/ops/`; `npm run ops:auto-bootstrap-local-db` installs dependencies then refreshes the Store mirror. Docs (AGENTS, OPERATIONS, operations-bible) and ledger entries were updated to reflect the silent install flow.
 - 2025-11-01: Added dedicated router for ops/INBOX so operator inbox notes have clear owners.
 - 2025-10-26: guard_meta preflight/postflight make READY absence impossible at merge time; NEXT auto-promotion enabled. See scripts/guard_meta.sh and ops/NEXT.yaml.
 - 2025-10-26: Patch contract adds marker switch, clipboard scratch space, and Markerless Mode guidance; guard_meta enforces Absolutes when contracts are OFF.
@@ -29,7 +29,8 @@ Notes:
 - 2025-10-29: Documented PokeAPI integration and cache operations in `ops/POKEMON_CACHE.md`; runtime now depends on axios + node-cron for scheduled refreshes.
 - 2025-10-29: Router contract now requires `npm run docs:update-routers` after metadata edits; generated outputs (`ops/ROUTER_INDEX.yaml`, `masterroutetable.md`) are read-only and guarded by `scripts/guard_router_docs.sh`.
 - 2025-10-29: Retired the legacy `discord-pokemon-bot/` prototype; router metadata now points exclusively at the TypeScript surfaces.
-- 2025-10-29: Added `docs/database-systems.md` as the canonical database topology and maintenance guide; cross-links from DATA-SCHEMA, OPERATIONS, and DB bootstrap runbooks point here for shared context.
+- 2025-10-29: Added `operations-bible/02-database-operations.md` as the canonical database topology and maintenance guide; cross-links from DATA-SCHEMA, OPERATIONS, and DB bootstrap runbooks point here for shared context.
+- 2025-11-16: Documentation centralized into Bible system (454 → 30 files, 93.4% reduction); all operational guides consolidated into architecture-bible, operations-bible, and development-bible subdirectories.
 - 2025-10-30: Documented the DB doc drift guard (`scripts/guard_db_docs.mjs` + guard-db-docs workflow) so ops runbooks stay aligned on Key/Dev, Key/Prod, and Prisma regenerate instructions.
 - 2025-10-30: Runtime cache facade instrumentation landed alongside `/ops cache` diagnostics; docs/tests refreshed to surface maintenance scheduler and cleanup triggers.
 
@@ -44,7 +45,7 @@ Key Files:
 - ops/CANONICAL_NAMES.yaml — canonical doc/router spellings for CI guard
 - ops/change-ledger.md — generated 200-entry commit ledger (see Prompt summary)
 - OPERATIONS.md — operational runbook documenting worker matrix and rollouts
-- docs/database-systems.md — canonical database architecture, grants, and maintenance guide
+- operations-bible/02-database-operations.md — canonical database architecture, grants, and maintenance guide
 - masterroutetable.md — text-first router map for hotfix navigation when automation is unavailable
 - ops/POKEMON_CACHE.md — PokeAPI integration runbook (cache workflow, incidents, dependencies)
 

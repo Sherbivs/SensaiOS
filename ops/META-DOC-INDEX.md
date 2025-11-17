@@ -20,7 +20,7 @@
 2. **Operations**: `OPERATIONS.md` (service matrix, deployment, monitoring)
 3. **Deployment**: `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` (comprehensive deployment guide)
 4. **Worker Architecture**: `docs/workers.md` (scaling roadmap, monitoring, cost optimization)
-5. **Database Operations**: `ops/DB_BOOTSTRAP.md` + `docs/database-url-selection.md`
+5. **Database Operations**: `ops/DB_BOOTSTRAP.md` + `operations-bible/02-database-operations.md`
 
 ---
 
@@ -43,7 +43,7 @@
   - → `ops/NEXT.yaml` (pointer discipline, task routing)
   - → `ops/TOUCHMAP.yaml` (file scope boundaries)
   - → `Patch-Template.md` (legacy layout bridge)
-  - → `docs/database-url-selection.md` (Absolute: database URL selection)
+  - → `operations-bible/02-database-operations.md` (Absolute: database URL selection)
 - **Referenced By**:
   - `AGENTS.md` (Orientation Flow)
   - `Prompt.md` (Contract Mode status)
@@ -142,7 +142,7 @@
   - → `README.md` (getting started, architecture)
   - → `OPERATIONS.md` (service matrix, deployment)
   - → `docs/workers.md` (worker architecture, scaling)
-  - → `docs/database-url-selection.md` (database URL logic)
+  - → `operations-bible/02-database-operations.md` (database URL logic)
   - → `ops/DB_BOOTSTRAP.md` (migration workflow)
   - → `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` (deployment guide)
   - → `masterroutetable.md` (router index)
@@ -206,7 +206,7 @@
   - Dexpack Build & Guard Workflow
 - **Cross-References**:
   - → `docs/workers.md` (comprehensive worker architecture)
-  - → `docs/database-systems.md` (schema, role, helper context)
+  - → `operations-bible/02-database-operations.md` (schema, role, helper context)
   - → `docs/query-optimization-guide.md` (alerting thresholds)
   - → `docs/event-tracking-schema.md` (event tracking)
   - → `AGENTS.md` (router navigation)
@@ -275,15 +275,15 @@
   - Rollback procedures
 - **Cross-References**:
   - ← `AGENTS.md` (Core Control Documents, database access)
-  - → `docs/database-url-selection.md` (URL selection logic)
+  - → `operations-bible/02-database-operations.md` (URL selection logic)
   - → `scripts/bootstrap_staging_db.ps1` (automation script)
   - → `secrets/migrate.env` (migration environment file)
 - **Referenced By**:
   - `AGENTS.md` (Local Database Access)
   - `README.md` (deployment notes)
-  - `docs/database-url-selection.md` (migration workflow)
+  - `operations-bible/02-database-operations.md` (migration workflow)
 
-#### docs/database-url-selection.md — Database URL Selection Logic
+#### operations-bible/02-database-operations.md — Database URL Selection Logic
 - **Purpose**: Canonical database URL selection logic for 2-node cluster
 - **Contract Status**: Absolute Requirement (see `Patch.md`)
 - **When to Read**: BEFORE any database operation
@@ -298,7 +298,7 @@
   - ← `AGENTS.md` (Database URL Selection section)
   - → `ops/DB_BOOTSTRAP.md` (migration workflow)
   - → `src/shared/prisma.ts` (implementation)
-  - → `docs/database-configuration.md` (comprehensive dual-client architecture)
+  - → `operations-bible/02-database-operations.md` (comprehensive dual-client architecture)
 - **Referenced By**:
   - `Patch.md` (Absolutes)
   - `AGENTS.md` (Database URL Selection)
@@ -425,7 +425,7 @@ Patch.md (Contract)
   ├→ Tasklist.md (READY queue)
   ├→ ops/NEXT.yaml (pointer discipline)
   ├→ ops/TOUCHMAP.yaml (scope enforcement)
-  └→ docs/database-url-selection.md (Absolute)
+  └→ operations-bible/02-database-operations.md (Absolute)
 
 AGENTS.md (Operations Guide)
   ├→ Patch.md (contract rules)
@@ -434,7 +434,7 @@ AGENTS.md (Operations Guide)
   ├→ README.md (getting started)
   ├→ OPERATIONS.md (service matrix)
   ├→ docs/workers.md (architecture)
-  ├→ docs/database-url-selection.md (database logic)
+  ├→ operations-bible/02-database-operations.md (database logic)
   ├→ ops/DB_BOOTSTRAP.md (migrations)
   ├→ ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (deployment)
   └→ masterroutetable.md + ops/ROUTER.yaml (routing)
@@ -449,7 +449,7 @@ README.md (Getting Started)
 
 OPERATIONS.md (Service Matrix)
   ├→ docs/workers.md (architecture)
-  ├→ docs/database-systems.md (schema)
+  ├→ operations-bible/02-database-operations.md (schema)
   ├→ AGENTS.md (routing)
   └→ render.yaml (service definitions)
 
@@ -485,7 +485,7 @@ ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (Deployment)
 ### Tier 3: Specialized Guides (Read as Needed)
 - `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` — Deployment procedures
 - `ops/DB_BOOTSTRAP.md` — Database migrations
-- `docs/database-url-selection.md` — Database URL logic
+- `operations-bible/02-database-operations.md` — Database URL logic
 - `masterroutetable.md` — Router navigation
 
 ### Tier 4: Supporting Documents (Reference)
@@ -505,7 +505,7 @@ ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (Deployment)
 | Starting a new task | `Patch.md`, `Prompt.md`, `Tasklist.md` | `ops/NEXT.yaml`, `ops/TOUCHMAP.yaml` |
 | Understanding architecture | `AGENTS.md` | `README.md`, `docs/workers.md`, `OPERATIONS.md` |
 | Setting up development | `README.md` | `AGENTS.md` (Local Database Access), `docs/ai-env-setup.md` |
-| Database operations | `docs/database-url-selection.md` | `ops/DB_BOOTSTRAP.md`, `AGENTS.md` (Database section) |
+| Database operations | `operations-bible/02-database-operations.md` | `ops/DB_BOOTSTRAP.md`, `AGENTS.md` (Database section) |
 | Deploying to production | `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` | `OPERATIONS.md`, `docs/workers.md`, `render.yaml` |
 | Navigating codebase | `masterroutetable.md`, `ops/ROUTER.yaml` | Domain-specific `ROUTER.md` manifests |
 | Emergency hotfix | `Patch.md` (Hotfix Loop) | `ops/HOTFIX_PLAN.yaml`, `ops/RECOVERY.yaml` |
