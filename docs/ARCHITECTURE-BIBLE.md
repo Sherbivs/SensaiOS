@@ -102,9 +102,38 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 
 ## Section 1: System Overview
 
-*(Content to be consolidated from `architecture/architecture.md` in Phase 1 Week 3)*
+**Meta-router:** Orchestrates Planner → Researcher → Implementer → Reviewer loops.
 
-**Placeholder**: High-level architecture snapshot, technology stack, service topology, design principles.
+**Agents:** Pure functions: input Task → output StepResult; keep side effects behind tools.
+
+**Observability:** JSONL event log + OpenTelemetry traces for router and tools.
+
+**State:** Working memory (ephemeral), Artifacts (files, PRs), Ledger (run.json).
+
+**Service Matrix (8 Render Services):**
+- `infinity-gauntlet-bot` (web) — HTTP health checks + webhooks
+- `Infinity-Gauntlet` (worker) — Main Discord bot + auto-sync [Deploy: `Infinity-Gauntlet` | ID: `srv-d3snk2ndiees73cn709g`]
+- `infinity-gauntlet-outbox` (worker) — Async message delivery
+- `infinity-gauntlet-cache` (worker) — Runtime cache maintenance
+- `infinity-gauntlet-data-pipeline` (worker) — Reference data updates
+- `infinity-gauntlet-security` (worker) — Permission guardrails with persistent state
+- `pokedex-cache-worker` (worker) — External data sync to GitHub
+- `pokedex-cache-failsafe` (cron) — Weekly fallback refresh
+
+**Production Database:** Unified Render-managed PostgreSQL (infinity-gauntlet-db). All services connect via `PROD_DATABASE_URL`.
+
+**Development Databases (Workstation-Only, OFFLINE):**
+- `DATABASE_ONPREMISE_DEV_PRIMARY` — Local PostgreSQL (port 55433) for offline development
+- `DATABASE_ONPREMISE_DEV_EXPERIMENT` — Local PostgreSQL (port 55434) for migration testing
+
+**Key Technologies:** Node.js 22.16.0, TypeScript 5.7.3, Discord.js v14, Prisma, PostgreSQL, Vitest, ESLint
+
+**Quality Metrics:**
+- Build status: ✅ 0 errors, 0 warnings
+- Tests: 293/294 passing (6.82s execution)
+- Linter: ✅ 0 warnings
+- Security: ✅ 0 npm vulnerabilities
+- Packages: ✅ 0 outdated packages
 
 ---
 
