@@ -484,4 +484,103 @@ npm run data:dexpack
 
 ---
 
+## 9.10 Game Rules & Mechanics (MVP)
+
+**Ruleset Version:** 0.1 (tied to code releases)  
+**Philosophy:** Classic core mechanics, no Z/Max/Tera initially
+
+### Scope
+
+**Included in MVP:**
+- Type effectiveness system with STAB (Same Type Attack Bonus)
+- Critical hits with 6.25% base rate
+- Accuracy calculations
+- Stat stage modifiers (-6 to +6 per stat)
+- Major status conditions (Burn, Paralyze, Freeze, Sleep, Poison)
+- Turn order resolution
+- Minimal moveset for early tests
+
+**Excluded from MVP:**
+- Z-Moves, Dynamax, Gigantamax
+- Terastallization
+- Weather effects (Sunny Day, Rain Dance, etc.)
+- Terrain effects (Electric Terrain, Grassy Terrain, etc.)
+- Complex abilities beyond basic passive effects
+
+### Status & Turn Order
+
+**Turn Priority Resolution:**
+1. **Move priority** — Highest priority moves resolve first (Quick Attack = +1, Protect = +4)
+2. **Effective Speed** — After status and stage modifiers applied
+3. **Deterministic tiebreaker** — Alphabetical by combatant name when speed ties
+
+**Status Effects:**
+
+**Paralysis:**
+- Halves effective Speed stat
+- No "fully paralyzed" turn skip in MVP (future enhancement)
+
+**Burn:**
+- Halves physical Attack stat
+- Deals 1/16 max HP damage per turn
+
+**Poison:**
+- Deals 1/8 max HP damage per turn (regular poison)
+- Badly Poisoned increases damage each turn
+
+**Sleep:**
+- Tracked on status field but does not inhibit acting yet (MVP limitation)
+- Full sleep mechanics in later revisions
+
+**Freeze:**
+- Tracked on status field but does not inhibit acting yet (MVP limitation)
+- Full freeze mechanics in later revisions
+
+**Flinch:**
+- Applied after damage is dealt
+- Consumed at start of next turn (before order calculation)
+- Flinched Pokémon forfeits that action entirely
+
+### Early Battle Item Pool
+
+**Offensive Held Items (Enabled):**
+
+**Choice Band:**
+- Effect: +50% Attack stat
+- Restriction: Locks into first move used (not enforced in MVP)
+
+**Choice Specs:**
+- Effect: +50% Special Attack stat
+- Restriction: Locks into first move used (not enforced in MVP)
+
+**Life Orb:**
+- Effect: +30% damage on all damaging moves
+- Cost: 10% max HP recoil after successful hit
+
+**Disabled Items:**
+- All other held items ignored by engine in MVP
+- Defensive items (Leftovers, Sitrus Berry, etc.) planned for later phases
+- Status items (Flame Orb, Toxic Orb, etc.) planned for later phases
+
+### Versioning Policy
+
+**Breaking Changes:**
+- Require migration notes
+- Must update test suite
+- Document in ops/change-ledger.md
+
+**Ruleset Updates:**
+- Tied to code releases (semantic versioning)
+- Major version bump for mechanics changes
+- Minor version bump for item/move additions
+- Patch version for bug fixes
+
+**See Also:**
+- § 9.1 (PBSL Manifesto) — Deterministic testing framework
+- § 9.2 (Battle Flow) — Combat resolution sequence
+- § 9.5 (Engine DB) — Battle state persistence
+- `tests/pbsl/fixtures/` — Oracle test fixtures
+
+---
+
 [← Back to INDEX](INDEX.md) | [← Previous: Router System](08-router-system.md) | [Next: Discord Bot →](10-discord-bot.md)

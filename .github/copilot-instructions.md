@@ -326,12 +326,14 @@ Areas:
 ## Quick Reference Links
 
 - **Architecture:** `README.md` → comprehensive system overview
-- **Operations:** `OPERATIONS.md` → service matrix + deployment procedures
-- **Database Guide:** `operations-bible/02-database-operations.md` → URL selection logic
-- **Worker Scaling:** `docs/workers.md` → Phase 10+ roadmap
-- **Memory Audit:** `docs/MEMORY-LEAK-INVESTIGATION-2025-11-13.md` → leak investigation
-- **PBSL Manifesto:** `docs/PBSL.md` → deterministic battle system
-- **Error System:** `docs/error-detection-system.md` → comprehensive error handling
+- **Architecture Bible:** `docs/architecture-bible/INDEX.md` → 15 sections (system design, database, workers, game engine, etc.)
+- **Operations Bible:** `docs/operations-bible/INDEX.md` → 6 sections (service matrix, deployment, monitoring, database operations)
+- **Development Bible:** `docs/development-bible/INDEX.md` → 7 sections (local setup, testing, debugging, utilities)
+- **Database Guide:** `docs/operations-bible/02-database-operations.md` → URL selection logic, schema architecture
+- **Schema Architecture:** `docs/operations-bible/02-database-operations.md` § 2.10 → Entities, dex spine, indexes
+- **Game Rules:** `docs/architecture-bible/09-game-engine.md` § 9.10 → MVP mechanics, status effects, item pool
+- **Worker Scaling:** `docs/architecture-bible/03-worker-architecture.md` → Phase 10+ roadmap
+- **Error System:** `docs/architecture-bible/06-error-system.md` → Comprehensive error handling
 
 ## Getting Help
 

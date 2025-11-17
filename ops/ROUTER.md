@@ -18,36 +18,19 @@ Notes:
 - 2025-10-26: Documented Hotfix Engine contract + pointer and updated meta routing notes.
 - 2025-10-26: Added T7.4/T7.5 persistence backlog items and repointed NEXT at T7.4.
 - 2025-10-25: Router index timestamp refreshed after Render deployment wiring update.
-- 2025-10-27: Router maps refreshed to note PBSL oracle fixtures and DRIP role assignment alerts; ops/NEXT.yaml timestamp updated alongside master router table.
-- 2025-10-28: Added ops/DB_BOOTSTRAP.md runbook to router index, refreshed timestamps, and mapped staging bootstrap helper for AI operators.
-- 2025-10-28: Ledger automation now runs through scripts/update_change_ledger.mjs with cross-shell wrappers delegating via NODE_BIN.
-- 2025-10-28: ops/change-ledger.md introduced to house the full 200-entry commit log while Prompt.md carries a 10-entry summary.
-- 2025-10-28: Render config split outbox/cache/data-pipeline workers with dedicated SERVICE_NAME metadata and pooled DB URLs.
-- 2025-10-28: Security bot moved to dedicated Render worker (`infinity-gauntlet-security`) gated by ENABLE_SECURITY_BOT flag; monitor sections mark disabled state in the main runtime.
-- 2025-10-28: OPERATIONS.md now documents the worker matrix, rollout checklist, and recovery toggles (ENABLE_CONTINUOUS_SWEEP, interval envs); master router index regenerated to match.
-- 2025-10-28: Added router_docs category in ops/ROUTER.yaml bundling ops/ROUTER.md, ops/ROUTER_INDEX.yaml, and masterroutetable.md for fast navigation.
-- 2025-10-29: Documented PokeAPI integration and cache operations in `ops/POKEMON_CACHE.md`; runtime now depends on axios + node-cron for scheduled refreshes.
-- 2025-10-29: Router contract now requires `npm run docs:update-routers` after metadata edits; generated outputs (`ops/ROUTER_INDEX.yaml`, `masterroutetable.md`) are read-only and guarded by `scripts/guard_router_docs.sh`.
-- 2025-10-29: Retired the legacy `discord-pokemon-bot/` prototype; router metadata now points exclusively at the TypeScript surfaces.
-- 2025-10-29: Added `operations-bible/02-database-operations.md` as the canonical database topology and maintenance guide; cross-links from DATA-SCHEMA, OPERATIONS, and DB bootstrap runbooks point here for shared context.
+- 2025-10-28: Router maps refreshed to note PBSL oracle fixtures and DRIP role assignment alerts; ops/NEXT.yaml timestamp updated alongside master router table.
 - 2025-11-16: Documentation centralized into Bible system (454 → 30 files, 93.4% reduction); all operational guides consolidated into architecture-bible, operations-bible, and development-bible subdirectories.
 - 2025-10-30: Documented the DB doc drift guard (`scripts/guard_db_docs.mjs` + guard-db-docs workflow) so ops runbooks stay aligned on Key/Dev, Key/Prod, and Prisma regenerate instructions.
 - 2025-10-30: Runtime cache facade instrumentation landed alongside `/ops cache` diagnostics; docs/tests refreshed to surface maintenance scheduler and cleanup triggers.
 
 Key Files:
 - ops/NEXT.yaml — execution pointer
-- ops/CRITICAL.md — policies & guardrails
 - Agents.md — contract-first agent handbook
 - ops/ROUTER.yaml — canonical path map
 - ops/ROUTER_INDEX.yaml — router-of-routers (generated)
-- ops/INBOX/notes.md — quick notes
-- ops/RECOVERY.yaml — resume after timeout
-- ops/CANONICAL_NAMES.yaml — canonical doc/router spellings for CI guard
-- ops/change-ledger.md — generated 200-entry commit ledger (see Prompt summary)
 - OPERATIONS.md — operational runbook documenting worker matrix and rollouts
 - operations-bible/02-database-operations.md — canonical database architecture, grants, and maintenance guide
 - masterroutetable.md — text-first router map for hotfix navigation when automation is unavailable
-- ops/POKEMON_CACHE.md — PokeAPI integration runbook (cache workflow, incidents, dependencies)
 
 Subrouters:
 - ops/INBOX/ROUTER.md — Operator inbox staging area; sync with NEXT metadata before edits.

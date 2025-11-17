@@ -12,7 +12,6 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - ✅ **Cache Management**: Discord.js automatic sweeping prevents 100+ MB memory leaks
 
 **Cross-References**:
-- See `ops/META-DOC-INDEX.md` for complete meta documentation navigation (contracts, operations, deployment, routing)
 - See `Patch.md` for contract rules, marker modes, Absolutes (read first before any work)
 - See `Prompt.md` for current timestamp, recent changes, PATCHSET echo
 - See `Tasklist.md` for backlog (READY queue, dependencies, acceptance criteria)

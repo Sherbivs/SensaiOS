@@ -10,7 +10,8 @@ Read this file completely before beginning any task. Follow it literally. Before
 - See `Tasklist.md` for backlog (READY queue, dependencies, acceptance criteria)
 - See `ops/NEXT.yaml` for task pointer discipline (must point to READY task)
 - See `ops/TOUCHMAP.yaml` for file scope boundaries per task
-- See `ops/META-DOC-INDEX.md` for comprehensive meta documentation navigation
+**Cross-References**:
+- See `Prompt.md` for operational context (current timestamp, revision, recent changes, PATCHSET echo)
 - See `operations-bible/02-database-operations.md` for CRITICAL database URL selection logic (Absolute requirement)
 
 **Referenced By**: AGENTS.md (Orientation Flow), Prompt.md (Contract Mode status), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (validation requirements)

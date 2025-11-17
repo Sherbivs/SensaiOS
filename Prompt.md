@@ -4,7 +4,6 @@ Revision: 2.76
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
-- See `ops/META-DOC-INDEX.md` for comprehensive meta documentation navigation
 - See `Tasklist.md` for backlog and active tasks
 - See `ops/NEXT.yaml` for current task pointer
 - See `ops/CODE-OPTIMIZATION-AUDIT.md` for comprehensive code audit findings and implementation roadmap

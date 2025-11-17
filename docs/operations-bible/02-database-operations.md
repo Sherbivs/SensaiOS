@@ -401,4 +401,103 @@ npm run db:cli -- query "EXPLAIN ANALYZE SELECT * FROM \"Species\" WHERE \"gener
 
 ---
 
+## 2.10 Schema Architecture
+
+### Persistent Entities
+
+Core gameplay entities managed by Prisma:
+- **Users** — Discord user records, trainer profiles
+- **PokemonInstances** — Individual Pokémon owned by trainers
+- **Parties** — Active party compositions (6-member teams)
+- **Encounters** — Wild Pokémon encounter state
+- **Battles** — Arena battle records and outcomes
+- **Cooldowns** — Time-gated action restrictions per trainer
+
+### Reference Data (Dex Spine)
+
+Read-only Pokémon reference data refreshed by data pipeline:
+
+**Core Reference Tables:**
+- `Type` — Pokémon types (Fire, Water, Grass, etc.)
+- `Ability` — Pokémon abilities
+- `Item` — Held items and consumables
+- `Move` — Attack moves and effects
+- `Species` — Pokémon species definitions
+
+**Junction Tables:**
+- `SpeciesType` — Species-to-type mappings (compound PK)
+- `SpeciesAbility` — Species-to-ability mappings (compound PK)
+- `SpeciesLearnset` — Species move learning patterns (method + level)
+
+**Supporting Tables:**
+- `EvolutionStep` — Evolution chain definitions
+- `TypeChart` — Type effectiveness multipliers
+- `NameVariant` — Fuzzy name matching with trigram GIN index
+
+**Materialized Views:**
+- `SpeciesSheet` — Pre-joined species data for battle UI hydration
+  - Refresh: `REFRESH MATERIALIZED VIEW CONCURRENTLY "SpeciesSheet";`
+  - Run after dex patches to update battle lookups
+
+**Manifest:**
+- Top-level digest for pipeline exports under `data/{pokemon,moves,abilities}/`
+
+### Schema Design Patterns
+
+**IDs & Slugs:**
+- All reference IDs are `SMALLINT` primaries
+- ASCII slugs for human-readable lookups
+- Rows upsert idempotently via `id` + `slug`
+
+**Junction Tables:**
+- Compound primary keys prevent duplicates
+- Keep joins narrow for performance
+- Example: `SpeciesType(speciesId, typeId)` is PK
+
+**Special Columns:**
+- `SpeciesLearnset.level` stores `0` for non-level methods (deterministic PK)
+- `NameVariant.normalized` carries lowercase/unaccented text for fuzzy search
+  - Use with `unaccent(lower($input))` for nickname resolution
+  - Trigram GIN index enables efficient fuzzy matching
+
+### Performance Indexes (2025-10-28)
+
+**Cooldown Optimization:**
+- `Cooldown (ownerId, kind)` — Unique key for trainer/kind pairs
+- Enables clean upserts without duplicates
+- Run `VACUUM ANALYZE` weekly to maintain index statistics
+
+**Battle Query Optimization:**
+- `Battle (state, endedAt)` — State-filtered battle history
+- `Battle (p1Id, state, endedAt)` — Player 1 battle lookups
+- `Battle (p2Id, state, endedAt)` — Player 2 battle lookups
+- Speeds DM history and `/ops stats` filters
+- Run `REINDEX` during schema upgrades if bloat exceeds 30%
+
+**Encounter & Ownership:**
+- `Encounter (ownerId, state)` — Trainer encounter queries
+- `Encounter (state, startedAt)` — State-based encounter filtering
+- `PokemonInstance (ownerId)` — Party/box management queries
+- `Party (ownerId)` — Active party lookups
+- Ensures O(log n) performance as concurrency grows
+
+**Migration References:**
+- `202510280500_scaling_indexes` — Applies performance indexes (forward-only)
+- `202510290930_dex_reference_spine` — Installs trigram/unaccent extensions, dex tables, SpeciesSheet
+- Deploy during quiet windows, monitor autovacuum lag post-deployment
+
+### Data Pipeline Integration
+
+**Schema Definitions:**
+- Formal JSON schemas: `src/data_pipeline/schema/*`
+- Pipeline output layout: `data/{pokemon,moves,abilities}/...`, `manifest.json`
+- Bootstrap payloads: `data/bootstrap/*.json` (trimmed reference data)
+
+**See Also:**
+- § 2.6 (Database CLI) — Query and inspect schema
+- § 2.7 (On-Premise Setup) — Local database mirroring
+- § 2.Y (Bootstrap Procedures) — Schema initialization workflows
+
+---
+
 [← Back to INDEX](INDEX.md) | [← Previous: Service Matrix](01-service-matrix.md) | [Next: Deployment Procedures →](03-deployment-procedures.md)
