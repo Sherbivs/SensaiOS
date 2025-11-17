@@ -1435,7 +1435,9 @@ export async function boot(): Promise<void> {
     log.error("Bot startup failed", error);
     throw error;
   }
-}if (import.meta.url === `file://${process.argv[1]}`) {
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
   boot().catch((err) => {
     log.error("Fatal during boot", err);
     process.exit(1);
