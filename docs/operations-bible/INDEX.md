@@ -18,6 +18,7 @@ Single source of truth for Infinity Gauntlet operational procedures, deployment 
 3. **[Deployment Procedures](03-deployment-procedures.md)** — **[CRITICAL]** Path structure, service naming, API integration, SSH automation, disk resources
 4. **[Environment Management](04-environment-management.md)** — Render access configuration, credentials reference, secret management
 5. **[Monitoring](05-monitoring.md)** — Error dashboard, service health, performance metrics, alerting
+6. **[Optimization History](06-optimization-history.md)** — Repository modernization, Phase 9 optimization, database naming migration, Accelerate elimination
 
 ---
 

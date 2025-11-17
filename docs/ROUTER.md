@@ -6,22 +6,26 @@ Last Updated (UTC): 2025-11-17T01:00:00Z
 
 Notes:
 - **PHASE 1 COMPLETE (2025-11-17)**: ALL documentation centralized into 3 modular Bible subdirectories.
-- 454 → 30 files (93.4% reduction, 424 files deleted).
+- **PHASE 2 COMPLETE (2025-11-17)**: ops/ historical reports archived to docs/historical-archive/ (13 files).
+- 454 → 31 current files (93.2% reduction) + 13 historical archive files = 44 total documentation files.
 - Reference guides cross-linked from Patch/Prompt/Tasklist for contract updates and recovery playbooks.
 - Keep new guides ASCII-only and reference them from masterroutetable.md or ops/ROUTER.yaml when added.
 - **Bible System**: All operational knowledge consolidated into architecture-bible/, operations-bible/, development-bible/.
+- **Historical Archive**: Detailed reports, migration records, optimization analyses preserved in historical-archive/.
 
 Directory Structure (FINAL):
-- **architecture-bible/** - System architecture Bible (15 files: INDEX + 14 sections, ~3,500 lines)
-- **operations-bible/** - Operations & deployment Bible (6 files: INDEX + 5 sections, ~1,800 lines)
+- **architecture-bible/** - System architecture Bible (16 files: INDEX + 15 sections including project history, ~4,500 lines)
+- **operations-bible/** - Operations & deployment Bible (7 files: INDEX + 6 sections including optimization history, ~3,500 lines)
 - **development-bible/** - Development practices Bible (8 files: INDEX + 7 sections, ~1,538 lines)
+- **historical-archive/** - Detailed historical reports (14 files: INDEX + 13 archived reports, ~170 KB)
+- **ARCHIVE/** - Obsolete technical documentation (6 files from Accelerate-era)
 
-**Total: 30 markdown files (29 Bible sections + 1 root ROUTER.md)**
+**Total: 31 current + 13 historical = 44 markdown files**
 
 ## Bible Navigation
 
 ### Architecture Bible (architecture-bible/)
-**15 files** — System architecture, infrastructure, and technical design.
+**16 files** — System architecture, infrastructure, technical design, and project history.
 
 | Section | File | Coverage |
 |---------|------|----------|
@@ -40,9 +44,10 @@ Directory Structure (FINAL):
 | **12. Observability** | 12-observability.md | Metrics transparency, telemetry, monitoring dashboards, /ops commands |
 | **13. Performance** | 13-performance.md | Optimization strategies, memory management, profiling, bounded structures |
 | **14. Future Roadmap** | 14-future-roadmap.md | Long-range governance, automation evolution, Phase 10+ scaling |
+| **15. Project History** | 15-project-history.md | Major refactorings (Accelerate elimination, Phase 2/4), migration summaries |
 
 ### Operations Bible (operations-bible/)
-**6 files** — Day-to-day operations, deployment, monitoring, and environment management.
+**7 files** — Day-to-day operations, deployment, monitoring, environment management, and optimization history.
 
 | Section | File | Coverage |
 |---------|------|----------|
@@ -52,6 +57,7 @@ Directory Structure (FINAL):
 | **3. Deployment Procedures** | 03-deployment-procedures.md | Render path structure, service naming, API integration, SSH automation, disk resources, mount verification, one-off jobs, VS Code integration |
 | **4. Environment Management** | 04-environment-management.md | AI environment setup, Render access configuration, credentials reference, secure loading |
 | **5. Monitoring** | 05-monitoring.md | Resource standards, optimization, error dashboard, memory metrics, /ops commands |
+| **6. Optimization History** | 06-optimization-history.md | Repository modernization (Phase 9), database naming migration, Accelerate elimination summaries |
 
 ### Development Bible (development-bible/)
 **8 files** — Development workflows, testing, debugging, and implementation guides.
@@ -66,6 +72,29 @@ Directory Structure (FINAL):
 | **5. Error Handling** | 05-error-handling.md | Error boundaries (bot/engine/worker layers), stuckness detection, recovery workflows |
 | **6. Console Tooling** | 06-console-tooling.md | Output standards (output-formatter.ts), formatting helpers, ESLint enforcement |
 | **7. Utilities** | 07-utilities.md | DateTime helpers (UTC standardization), timezone best practices, admin implementation patterns |
+
+### Historical Archive (historical-archive/)
+**14 files** — Detailed historical reports, migration records, optimization analyses preserved for institutional knowledge.
+
+| Document | Description |
+|----------|-------------|
+| **INDEX.md** | Archive catalog with navigation, rationale for each archived document |
+| **PHASE2-ACCELERATE-ELIMINATION-COMPLETE.md** | Phase 2 systematic Accelerate residue elimination (4 commits, prevention system) |
+| **PHASE4-DEAD-CODE-ELIMINATION-COMPLETE.md** | Phase 4 unused code cleanup (-59 lines, @deprecated fields removed) |
+| **ACCELERATE-PURGE-FINAL-REPORT.md** | Comprehensive 6-commit purge timeline (emergency fix, validation proof, metrics) |
+| **NAMING-MIGRATION.md** | Systematic 20-task naming migration checklist with rollback procedures |
+| **NAMING-MIGRATION-REPORT.md** | Complete migration report (35+ files, 200+ replacements, clean break philosophy) |
+| **REPO-OPTIMIZATION-REPORT.md** | Phase 9 completion report (10 commits, 8 phases, before/after metrics) |
+| **REPO-OPTIMIZATION-PLAN.md** | Initial 6-phase systematic optimization roadmap |
+| **CODE-OPTIMIZATION-AUDIT.md** | Baseline audit (linter warnings, outdated packages, test performance) |
+| **CODEBASE-OVERHAUL-PLAN.md** | Early multi-phase cleanup plan (Accelerate + optimization) |
+| **PHASE9-CHECKLIST.md** | Phase 9 execution tracking checklist |
+| **PHASE9.7-ANALYSIS.md** | Test suite optimization analysis (6.82s baseline, determined already optimal) |
+| **DB_IMPORT_PRISMA_POSTGRES.md** | Prisma Postgres (Accelerate-backed) import workflow (obsolete after migration) |
+| **NAMING-MIGRATION.md** | Database naming migration systematic checklist |
+| **PATCH_POLICY_BACKUP.md** | Contract policy backup (superseded by Patch.md) |
+
+**Purpose:** Preserve detailed historical context for institutional knowledge. For current practices, see Bible sections above.
 
 ---
 

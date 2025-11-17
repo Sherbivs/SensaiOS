@@ -27,6 +27,7 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 | **12. Observability** | [12-observability.md](12-observability.md) | Metrics transparency, calculation methods, monitoring |
 | **13. Performance** | [13-performance.md](13-performance.md) | Optimization roadmap, centralization, benchmarks |
 | **14. Future Roadmap** | [14-future-roadmap.md](14-future-roadmap.md) | Vision, milestones, workstreams, dependencies |
+| **15. Project History** | [15-project-history.md](15-project-history.md) | Major refactorings, Accelerate elimination, dead code cleanup |
 
 ---
 
