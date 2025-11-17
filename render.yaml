@@ -31,6 +31,8 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
+      - key: TZ
+        value: America/New_York
       - key: NODE_ENV
         value: production
       - key: SERVICE_NAME
@@ -79,6 +81,8 @@ services:
           name: infinity-gauntlet-db
           property: connectionString
       # Note: Auto-sync disabled in unified mode (all URLs point to same database)
+      - key: TZ
+        value: America/New_York
       - key: NODE_ENV
         value: production
       - key: SERVICE_NAME
@@ -122,6 +126,8 @@ services:
         mountPath: /Store
         sizeGB: 1
     envVars:
+      - key: TZ
+        value: America/New_York
       - key: NODE_ENV
         value: production
       - key: SERVICE_NAME
@@ -176,6 +182,8 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
+      - key: TZ
+        value: America/New_York
       - key: NODE_ENV
         value: production
       - key: SERVICE_NAME
@@ -218,6 +226,8 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
+      - key: TZ
+        value: America/New_York
       - key: NODE_ENV
         value: production
       - key: SERVICE_NAME
@@ -259,6 +269,8 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
+      - key: TZ
+        value: America/New_York
       - key: LOG_FORMAT
         value: cli
       - key: LOG_BUFFER_ENABLED
@@ -311,6 +323,8 @@ services:
         fromDatabase:
           name: infinity-gauntlet-db
           property: connectionString
+      - key: TZ
+        value: America/New_York
       - key: LOG_FORMAT
         value: cli
       - key: GITHUB_REPO
