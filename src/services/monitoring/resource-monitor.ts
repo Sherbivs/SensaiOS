@@ -941,7 +941,7 @@ class ResourceMonitor {
 
   /**
    * Get current resource metrics (legacy API for logger.js compatibility)
-   * @returns Current resource usage metrics
+   * @returns Current resource usage metrics including cache/disk stats
    */
   public getMetrics(): {
     uptime: number;
@@ -954,9 +954,25 @@ class ResourceMonitor {
     pid: number;
     nodeVersion: string;
     cacheDir: string;
+    cacheSize: number;
+    cacheBudgetMax: number;
+    cacheBudgetPercent: number;
+    workspaceLimit: number;
+    approxFree: number;
+    diskTotal: number;
+    diskFree: number;
   } {
     const mem = process.memoryUsage();
     const cpuUsage = process.cpuUsage();
+    
+    // Cache/disk metrics (placeholder values - real implementation would query filesystem)
+    // These prevent toFixed() errors in logger.js collectCacheStats()
+    const cacheSize = 0; // TODO: Query actual cache size from /Store
+    const cacheBudgetMax = 100 * 1024 * 1024; // 100 MB default budget
+    const cacheBudgetPercent = cacheBudgetMax > 0 ? (cacheSize / cacheBudgetMax) * 100 : 0;
+    const workspaceLimit = 1024 * 1024 * 1024; // 1 GB workspace limit (Render default)
+    const diskTotal = 10 * 1024 * 1024 * 1024; // 10 GB disk total (Render persistent disk)
+    const diskFree = diskTotal - cacheSize; // Approximate free space
     
     return {
       uptime: process.uptime(),
@@ -969,6 +985,13 @@ class ResourceMonitor {
       pid: process.pid,
       nodeVersion: process.version,
       cacheDir: '/Store', // Standard cache directory
+      cacheSize,
+      cacheBudgetMax,
+      cacheBudgetPercent,
+      workspaceLimit,
+      approxFree: workspaceLimit - cacheSize,
+      diskTotal,
+      diskFree,
     };
   }
 
