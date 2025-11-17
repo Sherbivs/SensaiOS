@@ -2848,9 +2848,59 @@ DRIP_ALERT_RECIPIENT=<user_id>      # Authorized admin user ID
 
 ## Section 14: Future Roadmap
 
-*(Content to be consolidated from `architecture/perfect-system-roadmap.md` in Phase 1 Week 3)*
+**Vision:** Deliver a resilient, self-healing Discord experience backed by reproducible data pipelines and guarded operational metadata. Favor observable, automatable workflows over ad-hoc manual fixes. Keep governance artifacts (`Patch`, `Prompt`, `Tasklist`, `NEXT`, routers) in lockstep with actual system state.
 
-**Placeholder**: System evolution vision, planned improvements, research areas, scalability targets.
+**Timeline & Milestones:**
+
+| Window | Milestone | Key Deliverables | Exit Criteria |
+| --- | --- | --- | --- |
+| **Immediate (Oct–Nov 2025)** | Stabilize Secrets & Schema | Restore DEV/Prod secret folders, re-run migrations, update dex cache | `secrets/Infinity-Gauntlet.env` validated, `npx prisma migrate deploy` green, `npm run db:cli -- counts` logged |
+| **Near-Term (Dec 2025)** | Harden Runtime & Guards | Close ROUTER drift, refresh guard scripts, green Vitest/ESLint baselines | Guard suite green, Tasklist shows regression tests landed |
+| **Mid-Term (Jan–Mar 2026)** | Automate Recovery & Telemetry | CI coverage for dex scripts, structured logging dashboards, revised recovery playbooks | CI catches dex regressions, Ops dashboards track cache refresh mode, recovery dry-run documented |
+| **Long-Term (Apr–Jun 2026)** | Scale & Integrate | Shard cache pipeline, analytics read models, formalize release cadence | Render services auto-scale, analytics dashboards online, release checklist institutionalized |
+
+**Workstreams:**
+
+**1. Governance & Knowledge Flow**
+- **Goal**: Zero drift across contract artifacts and router inventory
+- **Scope 2025 Q4**: Re-run guard scripts (`guard_meta`, `guard_router_docs`, `guard_doc_names`, `verify_router_links`), close Tasklist `META.ROADMAP.*` backlog items for router audits, keep `Prompt.md` / change ledger updates paired with real diffs
+- **Measures**: Guards green 3 runs in a row; NEXT pointer matches active task; router docs reference new env workflow
+
+**2. Database Operations & Data Integrity**
+- **Goal**: Reproducible migrations and cache hydration across PROD, DEV, and LOCAL nodes
+- **Scope 2025 Q4**: Load `secrets/Infinity-Gauntlet.env` via `scripts/setup_ai_env.ps1` before every DB change (consolidated environment file), execute `npm run db:seed:dex` (capture `npm run db:cli -- status` output), extend `ops/DB_BOOTSTRAP.md` with dual-environment validation, stand up continuous sync loop (`npm run db:auto-sync`) for 5-minute drift checks
+- **Measures**: `_prisma_migrations` parity confirmed monthly; `SpeciesSheet` refresh logged in both environments; cache warm timestamp recorded after each deploy
+- **Status 2025-10-30**: Deferred—dex cache/migration backlog cleared from Tasklist; future verification reintroduced when credentials/environments restored
+
+**3. Runtime Quality & Testing**
+- **Goal**: Core flows covered by deterministic tests and linting, with helper fallbacks validated
+- **Scope 2025 Q4–Q1**: Add Vitest specs for `refresh_species_sheet` fallback and dex cache warmers, integrate dependency audits into release cadence (`npm outdated`, `pnpm audit`), track flaky tests in Tasklist and resolve within same iteration
+- **Measures**: CI pipeline green 5 consecutive runs; helper fallback test suite passes; dependency risks logged with owners
+- **Status 2025-10-30**: Deferred—runtime hardening tasks removed from active backlog pending renewed automation focus
+
+**4. Automation & Delivery**
+- **Goal**: Guards, CI, and Render deploys reflect the living blueprint
+- **Scope 2025 Q4–Q2**: Add CI dry-run coverage for dex scripts and router guard outputs, ensure `render.yaml` matches latest service matrix after every architectural change, capture Render deploy logs and link in Tasklist for traceability
+- **Measures**: CI jobs publish artifacts; Render deploy checklists stored under `ops/`; automation reruns succeed without manual patches
+- **Status 2025-10-30**: Deferred—guard/dex automation tasks cleared from Tasklist; revisit after roadmap reassessment
+
+**5. Observability, Security & Recovery**
+- **Goal**: Actionable telemetry and rehearsed recovery steps spanning bot, workers, and scripts
+- **Scope 2025 Q4–Q2**: Emit OTEL spans for cache refresh attempts (direct vs helper fallback), smoke-test security bot alerts quarterly (document results in Tasklist), update `ops/RECOVERY.yaml` and `playbooks/escalate.md` after each incident or tooling change
+- **Measures**: Telemetry dashboards show refresh mode distribution; DRIP alerts validated; recovery playbooks reference current scripts
+- **Status 2025-10-30**: Deferred—observability/security backlog items removed from Tasklist until renewed monitoring effort begins
+
+**Dependencies & Risks:**
+- **Secrets Hygiene**: Loss of `secrets/Infinity-Gauntlet.env` blocks migrations. Mitigation: mirror files to secure backup, document regenerate cadence, verify weekly
+- **GitHub Automation**: Dex replication requires `GITHUB_REPO` and `GITHUB_TOKEN`. Track token rotations in Tasklist
+- **Guard Drift**: Router or contract file drift forces manual recovery. Run guard suite after each structural change
+
+**Reporting & Cadence:**
+- Review progress in weekly ops sync; capture decisions in `Tasklist.md` under `META.ROADMAP` items
+- At end of each milestone window, update this document with status (On Track / At Risk / Blocked) and roll forward incomplete work
+- When milestone completes, link verifying logs or PRs in `docs/` or `ops/` and archive related tasks
+
+**Status**: Living document, canonical planning artifact. Update whenever milestones shift or new risks surface.
 
 ---
 
