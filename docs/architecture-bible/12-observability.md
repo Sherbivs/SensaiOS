@@ -48,6 +48,7 @@ const METRIC_UNAVAILABLE = Object.freeze({
 - CPU: `process.cpuUsage()` (user, system)
 - PID: `process.pid`
 - Version: `process.version`
+- Persisted Disk: (PLACEHOLDER FOR FUTURE FULL IMPLMENTATION AND DOCUMENTATION)
 
 **Database Stats** (Conditionally Available):
 - Source: `getDatabaseStats()` from Prisma client or pg-connection fallback
