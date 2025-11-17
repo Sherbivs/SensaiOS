@@ -49,6 +49,8 @@ export interface ServiceMetadata {
   healthCheckTimer?: NodeJS.Timeout;
   lastHealthCheckAt?: Date;
   lastHealthCheckResult?: boolean;
+  initializationStartedAt?: Date; // Track when initialization began
+  initializationTimeoutMs?: number; // Max time allowed in 'initializing' state (default: 5 minutes)
 }
 
 export interface ServiceStats {
@@ -244,6 +246,8 @@ export class ServiceRegistry {
 
     log('info', `[ServiceRegistry] Initializing service: ${serviceName}`);
     metadata.status = 'initializing';
+    metadata.initializationStartedAt = new Date();
+    metadata.initializationTimeoutMs = 5 * 60 * 1000; // 5 minutes timeout
 
     try {
       // Gather dependencies
@@ -409,16 +413,48 @@ export class ServiceRegistry {
       if (!isHealthy) {
         metadata.stats.healthCheckFailures++;
         
-        if (metadata.status === 'healthy') {
+        // Check if service is still initializing
+        if (metadata.status === 'initializing') {
+          // Check if initialization timeout exceeded (default: 5 minutes)
+          const initElapsed = Date.now() - (metadata.initializationStartedAt?.getTime() || 0);
+          const timeout = metadata.initializationTimeoutMs || 5 * 60 * 1000;
+          
+          if (initElapsed > timeout) {
+            // Timeout exceeded - mark as degraded
+            metadata.status = 'degraded';
+            log('warn', `[ServiceRegistry] Service initialization timeout: ${serviceName}`, {
+              elapsedMs: initElapsed,
+              timeoutMs: timeout,
+              failures: metadata.stats.healthCheckFailures,
+            });
+          } else {
+            // Still within initialization window - keep status as 'initializing'
+            // Log at info level with initialization progress
+            log('info', `[ServiceRegistry] Service still initializing: ${serviceName}`, {
+              elapsedMs: initElapsed,
+              timeoutMs: timeout,
+              remainingMs: timeout - initElapsed,
+            });
+          }
+        } else if (metadata.status === 'healthy') {
+          // Service was healthy but now failing - mark as degraded
           metadata.status = 'degraded';
           log('warn', `[ServiceRegistry] Service degraded: ${serviceName}`, {
             failures: metadata.stats.healthCheckFailures,
           });
         }
       } else {
+        // Health check passed
         if (metadata.status === 'degraded') {
           metadata.status = 'healthy';
           log('info', `[ServiceRegistry] Service recovered: ${serviceName}`);
+        } else if (metadata.status === 'initializing') {
+          // First successful health check - transition from initializing to healthy
+          metadata.status = 'healthy';
+          const initElapsed = Date.now() - (metadata.initializationStartedAt?.getTime() || 0);
+          log('info', `[ServiceRegistry] Service initialization complete: ${serviceName}`, {
+            initializationTimeMs: initElapsed,
+          });
         }
       }
     } catch (error) {

@@ -1053,8 +1053,13 @@ export async function boot(): Promise<void> {
     // Display service health
     const allHealth = registry.getAllHealth();
     const healthyCount = Object.values(allHealth).filter(h => h.status === 'healthy').length;
+    const initializingCount = Object.values(allHealth).filter(h => h.status === 'initializing').length;
+    const degradedCount = Object.values(allHealth).filter(h => h.status === 'degraded').length;
+    
     log.info("Service health check", {
       healthy: healthyCount,
+      initializing: initializingCount,
+      degraded: degradedCount,
       total: Object.keys(allHealth).length,
       services: Object.entries(allHealth).map(([name, health]) => ({
         name,
