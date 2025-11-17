@@ -845,6 +845,39 @@ class ResourceMonitor {
     return this.lastSnapshot;
   }
 
+  /**
+   * Get current resource metrics (legacy API for logger.js compatibility)
+   * @returns Current resource usage metrics
+   */
+  public getMetrics(): {
+    uptime: number;
+    rss: number;
+    heapUsed: number;
+    heapTotal: number;
+    external: number;
+    cpuUser: number;
+    cpuSystem: number;
+    pid: number;
+    nodeVersion: string;
+    cacheDir: string;
+  } {
+    const mem = process.memoryUsage();
+    const cpuUsage = process.cpuUsage();
+    
+    return {
+      uptime: process.uptime(),
+      rss: mem.rss,
+      heapUsed: mem.heapUsed,
+      heapTotal: mem.heapTotal,
+      external: mem.external,
+      cpuUser: cpuUsage.user / 1000000, // Convert microseconds to seconds
+      cpuSystem: cpuUsage.system / 1000000,
+      pid: process.pid,
+      nodeVersion: process.version,
+      cacheDir: '/Store', // Standard cache directory
+    };
+  }
+
   public getHealthSummary(): {
     isRunning: boolean;
     totalChecksRun: number;
