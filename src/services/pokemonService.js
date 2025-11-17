@@ -25,6 +25,9 @@ const PAGE_SIZE = 200;
 const CONCURRENCY_LIMIT = 20;
 import { deepClone, normalizeString } from '../shared/utils/index.js';
 
+// Store directory: /Store on Render, Store/ locally
+const storeRoot = process.env.RENDER ? '/Store' : path.join(process.cwd(), 'Store');
+
 const CACHE_FILE_PATH = path.join(storeRoot, 'pokemon-cache.json');
 const CACHE_FILE_VERSION = 1;
 const CRON_SCHEDULE = '0 0 * * 4'; // 12 AM every Thursday
