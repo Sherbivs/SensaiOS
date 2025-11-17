@@ -18,17 +18,24 @@ async function importCommand(filePath) {
     if (message.includes('Cannot find module') || message.includes('Unexpected token')) {
       throw error;
     }
-    try {
-      return require(filePath);
-    } catch (fallbackError) {
-      throw fallbackError;
-    }
+    // Fallback to require for CommonJS modules
+    return require(filePath);
   }
 }
 
 async function loadCommands() {
-  const dir = path.join(process.cwd(), 'src', 'commands');
-  if (!fs.existsSync(dir)) return new Map();
+  // In development: cwd is project root, commands at src/commands
+  // In production (Render): cwd is /opt/render/project/src, commands at commands/ (sibling to command-loader.js)
+  // Solution: Check if src/commands exists first (dev), otherwise use commands/ (prod)
+  const devPath = path.join(process.cwd(), 'src', 'commands');
+  const prodPath = path.join(process.cwd(), 'commands');
+  const dir = fs.existsSync(devPath) ? devPath : prodPath;
+  
+  if (!fs.existsSync(dir)) {
+    log('warn', `[command-loader] Commands directory not found at ${dir}`);
+    return new Map();
+  }
+  
   const files = fs.readdirSync(dir).filter((f) => f.endsWith('.js'));
   const commands = new Map();
   for (const f of files) {
