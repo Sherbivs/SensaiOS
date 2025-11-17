@@ -1,7 +1,27 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
-import { formatBytes, formatUptime, deepClone } from '../shared/utils/index.js';
+import { formatBytes, formatUptime, deepClone, extractDatabaseName } from '../shared/utils/index.js';
+
+// Import error tracker for integration
+let errorTracker = null;
+
+/**
+ * Lazy-load error tracker to avoid circular dependencies.
+ * Error tracker may not be available during early startup phases.
+ */
+async function getErrorTracker() {
+  if (errorTracker) return errorTracker;
+  
+  try {
+    const errorTrackerModule = await import('../services/monitoring/error-tracker.js');
+    errorTracker = errorTrackerModule.errorTracker;
+    return errorTracker;
+  } catch (err) {
+    // Error tracker not available (early startup or testing environment)
+    return null;
+  }
+}
 
 // ============================================================================
 // Constants & Configuration
@@ -384,6 +404,26 @@ async function collectDatabaseStats() {
   } catch (error) {
     // Catch-all for unexpected errors during stats collection
     console.warn('[logger] Error collecting database stats:', error.message);
+    
+    // Track error in error tracker for visibility
+    getErrorTracker()
+      .then(tracker => {
+        if (tracker) {
+          tracker.captureError(error, {
+            service: 'logger',
+            operation: 'collectDatabaseStats',
+            category: 'DATABASE',
+            severity: 'MEDIUM',
+          }).catch(trackErr => {
+            // Error tracker itself failed - just log it
+            console.warn('[logger] Failed to track database stats error:', trackErr.message);
+          });
+        }
+      })
+      .catch(() => {
+        // Error tracker not available - continue without tracking
+      });
+    
     defaultReturn.master.status = METRIC_UNAVAILABLE.QUERY_FAILED;
     defaultReturn.master.latencyReason = METRIC_UNAVAILABLE.QUERY_FAILED;
     defaultReturn.master.sourceReason = METRIC_UNAVAILABLE.QUERY_FAILED;
