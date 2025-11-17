@@ -60,8 +60,14 @@ import * as aiLogIntegrations from "./services/ai/ai-log-integrations.js";
 import type * as EngineReadDbModule from "./services/database/engine-read-db.js";
 import type * as EngineWriteDbModule from "./services/database/engine-write-db.js";
 
+// eslint-disable-next-line no-console
+console.log('[MODULE] All imports completed successfully');
+
 // Record module import completion
 recordTiming("module_imports", MODULE_IMPORT_START);
+
+// eslint-disable-next-line no-console
+console.log('[MODULE] recordTiming completed, about to recordMemory...');
 
 // Memory profiling
 const STARTUP_MEMORY: { [key: string]: NodeJS.MemoryUsage } = {};
@@ -70,8 +76,14 @@ function recordMemory(label: string) {
 }
 recordMemory("initial");
 
+// eslint-disable-next-line no-console
+console.log('[MODULE] recordMemory(initial) completed');
+
 // Expose STARTUP_MEMORY globally for /ops memory command
 (global as typeof global & { STARTUP_MEMORY: typeof STARTUP_MEMORY }).STARTUP_MEMORY = STARTUP_MEMORY;
+
+// eslint-disable-next-line no-console
+console.log('[MODULE] STARTUP_MEMORY exposed to global');
 
 /**
  * Calculate memory progression deltas from startup phases
@@ -153,6 +165,10 @@ global.engineReady = false;
 // Service Registry - Centralized Service Lifecycle Management
 // ============================================================================
 const registry = ServiceRegistry.getInstance();
+
+// eslint-disable-next-line no-console
+console.log('[MODULE] ServiceRegistry initialized');
+
 let resourceManager: { shutdown: () => Promise<void> } | null = null;
 let errorTracker: ErrorTracker | null = null;
 let engineCache: EngineCache | null = null;
