@@ -327,7 +327,7 @@ async function collectDatabaseStats() {
     let engineWriteStats = { status: 'n/a', latency: null, entries: null };
     
     try {
-      const engineReadDb = await import('../services/engine-read-db.js');
+      const engineReadDb = await import('../services/database/engine-read-db.js');
       if (typeof engineReadDb.getStats === 'function') {
         engineReadStats = engineReadDb.getStats();
       }
@@ -336,7 +336,7 @@ async function collectDatabaseStats() {
     }
     
     try {
-      const engineWriteDb = await import('../services/engine-write-db.js');
+      const engineWriteDb = await import('../services/database/engine-write-db.js');
       if (typeof engineWriteDb.getStats === 'function') {
         engineWriteStats = engineWriteDb.getStats();
       }
