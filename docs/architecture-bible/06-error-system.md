@@ -561,6 +561,155 @@ node src/cli/ai-log-query.js query --correlationId abc123
 - **Correlation**: Link errors to user actions, performance issues
 - **Learning**: AI adapts error severity based on historical data
 
+## 6.4 Error Tracker Integration Patterns
+
+**Status:** ACTIVE — Error tracker integration pattern established (2025-11-17)  
+**Purpose:** Ensure ALL production errors are captured, logged, and made visible in error monitoring dashboard
+
+### 6.4.1 The Integration Challenge
+
+**Problem:** Error tracker not capturing production errors despite errors actively occurring.
+
+**Root Cause:** Error tracker not integrated into error catch blocks throughout application. Errors logged to console but never passed to `captureError()` function.
+
+**Solution:** Integrate error tracker into all critical error handling paths using lazy-loading pattern to avoid circular dependencies.
+
+### 6.4.2 Lazy-Loading Pattern
+
+**Purpose:** Avoid circular dependencies between logger and error tracker while ensuring error capture.
+
+**Pattern:**
+
+```javascript
+// Top of file - lazy-load error tracker
+let errorTracker = null;
+
+async function getErrorTracker() {
+  if (errorTracker) return errorTracker;
+  
+  try {
+    const errorTrackerModule = await import('../services/monitoring/error-tracker.js');
+    errorTracker = errorTrackerModule.errorTracker;
+    return errorTracker;
+  } catch (err) {
+    // Error tracker not available (early startup or testing environment)
+    return null;
+  }
+}
+
+// In catch block
+try {
+  // ... risky operation
+} catch (error) {
+  console.warn('[component] Error occurred:', error.message);
+  
+  // Track error in error tracker for visibility
+  getErrorTracker()
+    .then(tracker => {
+      if (tracker) {
+        return tracker.captureError(error, {
+          context: {
+            service: 'logger',
+            operation: 'collectDatabaseStats',
+            severity: 'MEDIUM'
+          }
+        });
+      }
+    })
+    .catch(trackError => {
+      console.error('[component] Failed to track error:', trackError.message);
+    });
+}
+```
+
+### 6.4.3 Integration Locations
+
+**Completed Integrations (Phase 1 - 2025-11-17):**
+
+1. **logger.js — Database Stats Collection**
+   - Location: `src/utils/logger.js` lines 1-30, 387-420
+   - Errors: `extractDatabaseName` import errors, database connection failures
+   - Context: `{ service: 'logger', operation: 'collectDatabaseStats', severity: 'MEDIUM' }`
+
+**Planned Integrations (Phase 2-4):**
+
+2. **Phase 2 — Discord Bot Layer** (Ready)
+   - `src/bot/index.ts` — Command execution errors
+   - `src/bot/battle/**` — Battle engine errors
+   - `src/bot/dm/**` — DM flow errors
+   - Context: `{ service: 'bot', operation: '<command>', userId, guildId }`
+
+3. **Phase 3 — Core Engines** (Ready)
+   - `src/core/battle/engine.ts` — Battle calculation errors
+   - `src/core/encounter/spawn.ts` — Encounter generation errors
+   - Context: `{ service: 'engine', operation: '<function>', severity: 'HIGH' }`
+
+4. **Phase 4 — Workers** (Ready)
+   - `src/workers/*.ts` — Background job errors
+   - `src/services/monitoring/*.ts` — Monitoring failures
+   - Context: `{ service: 'worker', operation: '<job>', severity: 'CRITICAL' }`
+
+### 6.4.4 Integration Best Practices
+
+**✅ DO:**
+- Use lazy-loading pattern to avoid circular dependencies
+- Include rich context (service, operation, userId, guildId)
+- Set appropriate severity (CRITICAL, HIGH, MEDIUM, LOW)
+- Log to console FIRST (immediate visibility), then track
+- Handle error tracker failures gracefully (don't crash on tracking failure)
+
+**❌ DON'T:**
+- Import error tracker at top level (causes circular dependencies)
+- Block execution waiting for error tracking
+- Throw errors during error tracking (use .catch())
+- Track same error multiple times (let deduplication handle it)
+- Skip console logging (always log for immediate debugging)
+
+### 6.4.5 Testing Integration
+
+**Verify Error Capture:**
+
+```bash
+# Trigger test error
+npm run test:error-tracker
+
+# Check error tracker database
+npm run db:cli -- query "SELECT COUNT(*) FROM \"ErrorLog\" WHERE component = 'logger';"
+
+# Check recent errors
+npm run db:cli -- query "SELECT * FROM \"ErrorLog\" ORDER BY \"createdAt\" DESC LIMIT 5;"
+```
+
+**Expected Behavior:**
+- ✅ Error appears in console immediately
+- ✅ Error appears in ErrorLog table within 100ms
+- ✅ Error tracker shows non-zero error count
+- ✅ `/ops errors` command displays tracked error
+- ✅ Error has proper context (service, operation, severity)
+
+### 6.4.6 Monitoring Error Tracker Health
+
+**Check Error Tracker Status:**
+
+```bash
+# View error tracker stats
+npm run ops:error-stats
+
+# Expected output:
+# Total errors: 15
+# Unique errors: 8
+# Critical: 2
+# High: 5
+# Medium: 6
+# Low: 2
+```
+
+**Production Verification:**
+- Check `/ops errors` command shows recent errors
+- Verify error count increases when errors occur
+- Confirm error fingerprinting working (duplicates grouped)
+- Validate context enrichment (userId, guildId present)
+
 ---
 
 [← Back to INDEX](INDEX.md) | [← Previous: Logging Architecture](05-logging-architecture.md) | [Next: Security Bot →](07-security-bot.md)

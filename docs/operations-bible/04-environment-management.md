@@ -143,6 +143,93 @@ echo $Env:IG_ENV_FILE
 
 See [docs/ai-env-setup.md](../environment/ai-env-setup.md) for comprehensive setup guide.
 
+## 4.4 Environment Variables Quick Reference
+
+**File:** `secrets/Infinity-Gauntlet.env`  
+**Status:** Production Ready  
+**Last Updated:** 2025-11-17
+
+### Critical Variables
+
+**Discord Bot Credentials:**
+```bash
+BOT_TOKEN=<discord-bot-token>
+POKEMON_BOT_TOKEN=<same-as-bot-token>
+```
+
+**Render Platform:**
+```bash
+# API key for deployment automation
+RENDER_API_KEY=rnd_<api-key>
+
+# SSH key for service access
+RENDER_SSH_KEY=ssh-ed25519 AAAAC3Nza... render-sherb@SENSAI
+```
+
+**Database URLs (Production - Render Managed PostgreSQL):**
+```bash
+# PRIMARY database for all operations
+PROD_DATABASE_URL=postgresql://user:pass@host.virginia-postgres.render.com/db
+
+# Same database, different connection methods
+DATABASE_URL=postgresql://user:pass@host/db
+RENDER_DB_EXTERNAL_URL=postgresql://user:pass@host.virginia-postgres.render.com/db
+RENDER_DB_INTERNAL_URL=postgresql://user:pass@host/db
+```
+
+**Database URLs (Development - Optional Local PostgreSQL):**
+```bash
+# Workstation mirror (offline fallback only, NOT production)
+DATABASE_ONPREMISE_DEV_PRIMARY=postgresql://postgres@localhost:55433/infinity_gauntlet_db
+
+# Migration testing cluster (isolated experiments)
+DATABASE_ONPREMISE_DEV_EXPERIMENT=postgresql://postgres@localhost:55434/infinity_gauntlet_experiment
+```
+
+### Usage Patterns
+
+**Loading Environment:**
+
+```powershell
+# Load for AI services (persists across sessions)
+pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist
+
+# Verify loading
+echo $Env:IG_ENV_FILE  # Should show: secrets/Infinity-Gauntlet.env
+
+# Check specific variable
+echo $Env:PROD_DATABASE_URL
+```
+
+**Accessing in Scripts:**
+
+```powershell
+# PowerShell scripts
+if (-not $Env:IG_ENV_FILE) {
+    Write-Error "IG_ENV_FILE not set. Run: pwsh -File scripts/setup_ai_env.ps1 -EnvFile 'secrets/Infinity-Gauntlet.env' -Persist"
+    exit 1
+}
+
+# Node.js / TypeScript
+import dotenv from 'dotenv';
+const envFile = process.env.IG_ENV_FILE || 'secrets/Infinity-Gauntlet.env';
+dotenv.config({ path: envFile });
+```
+
+**Production Behavior:**
+- Render services load environment variables directly from dashboard
+- Repository `.env` file is IGNORED in production (empty by design)
+- Production never uses `IG_ENV_FILE` (Render platform manages secrets)
+- Local development requires explicit `IG_ENV_FILE` setting
+
+**Safety Rules:**
+- ✅ DO use `secrets/Infinity-Gauntlet.env` for all local development
+- ✅ DO keep repository `.env` file EMPTY
+- ✅ DO load via `IG_ENV_FILE` pointer (never hardcode path)
+- ❌ DON'T commit secrets to git
+- ❌ DON'T use multiple environment files (single source of truth)
+- ❌ DON'T set `IG_ALLOW_REPO_ENV=1` in production
+
 ## 4.3 Secret Rotation
 
 ### Rotation Schedule
