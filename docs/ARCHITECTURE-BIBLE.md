@@ -1287,15 +1287,275 @@ log-cli.sh error timeline --fingerprint a1b2c3d4e5f6 --window 10m
 
 ### 7.1 State Persistence
 
-*(Content to be consolidated from `architecture/security-bot-state.md` in Phase 1 Week 3)*
+**Purpose:** Give the security bot "memory" — cumulative statistics across restarts, operational history, per-guild tracking, intelligent recovery.
 
-**Placeholder**: 7-day state history, hourly snapshots, restart continuity, cumulative statistics.
+**Storage Structure**:
+
+```
+Store/security-bot-state/
+├── current.json          # Active runtime state (auto-saved every 5 minutes)
+├── previous.json         # Backup from last restart
+├── snapshots/           # Timestamped backups (7-day retention)
+└── schema.md            # JSON schema documentation
+```
+
+**State Lifecycle**:
+
+1. **Startup:**
+   - Load `current.json` (fallback: `previous.json` → default state)
+   - Validate schema version, migrate if needed
+   - Increment `restartCount` in cumulative stats
+   - Add restart event to timeline
+   - Save backup to `previous.json`
+   - Initialize auto-save (every 5 minutes)
+
+2. **Runtime:**
+   - Update stats on every sweep, alert, permission change
+   - Append events to rolling timeline (max 100)
+   - Track per-guild monitoring state
+   - Auto-save every 5 minutes
+   - Manual save on critical events
+
+3. **Shutdown:**
+   - Capture final state snapshot
+   - Add shutdown event to timeline
+   - Save to `current.json`
+   - Create timestamped snapshot
+   - Prune snapshots older than 7 days
+
+**Modules** (`src/bot/state/`):
+
+- **`persistence.js`** — Core state management: `initializeState()`, `saveState()`, `shutdownState()`, `startAutoSave()`, `stopAutoSave()`, `loadState()`, `addTimelineEvent()`, `updateCumulativeStats()`, `updateGuildState()`, `updateRuntimeState()`. Three-tier fallback (current → previous → default), automatic schema migration, timestamped snapshots with auto-pruning, error-tolerant (never crashes bot).
+
+- **`stats.js`** — Statistics collection: `recordSweep()`, `recordPermissionChange()`, `recordAlert()`, `recordError()`, `updateDatabaseStatus()`, `getStatsSummary()`, `getRecentEvents()`, `formatUptime()`. Tracks: total uptime, sweeps, alerts, permission changes/reverts, revert failures, guild count, database connection status (PROD + LOCAL).
+
+- **`timeline.js`** — Activity timeline: `formatTimelineEvent()`, `getEventsByType()`, `getEventsByGuild()`, `getEventsByTimeRange()`, `getTimelineSummary()`, `getFormattedTimeline()`, `getRecentActivitySummary()`, `buildTimelineEmbedFields()`. Event types: `sweep`, `permission_change`, `alert`, `restart`, `shutdown`, `error`.
+
+- **`context.js`** — Operational context restoration: `restoreGuildContext()`, `getTimeSinceLastSweep()`, `isSweepOverdue()`, `getGuildsNeedingSweep()`, `initializeGuild()`, `enableGuildMonitoring()`, `disableGuildMonitoring()`, `getMonitoringStatus()`, `buildRestartSummary()`, `getRecoveryRecommendations()`. Guild state tracking: last sweep timestamp, total sweeps, alerts, permission changes, monitoring enabled/disabled, last activity.
+
+**JSON Schema (v1.0.0)**:
+
+```json
+{
+  "version": 1,
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "lastSaved": "ISO timestamp",
+    "lastRestart": "ISO timestamp",
+    "processStartTime": "ISO timestamp",
+    "hostname": "Render service name",
+    "nodeVersion": "v22.16.0",
+    "botVersion": "1.0.0"
+  },
+  "cumulative": {
+    "totalUptime": 0,            // ms
+    "restartCount": 0,
+    "sweepCount": 0,
+    "alertCount": 0,
+    "permissionChangesDetected": 0,
+    "permissionChangesReverted": 0,
+    "revertFailures": 0,
+    "guildCount": 0,
+    "firstStartTime": "ISO timestamp"
+  },
+  "timeline": [
+    {
+      "timestamp": "ISO timestamp",
+      "type": "sweep|permission_change|alert|restart|shutdown|error",
+      "guildId": "string",
+      "guildName": "string",
+      "details": { /* event-specific */ }
+    }
+  ],
+  "guilds": {
+    "guildId": {
+      "id": "string",
+      "name": "string",
+      "lastSweep": "ISO timestamp",
+      "sweepCount": 0,
+      "alertCount": 0,
+      "permissionChanges": 0,
+      "monitoring": true,
+      "lastActivity": "ISO timestamp"
+    }
+  },
+  "runtime": {
+    "currentUptime": 0,          // ms since process start
+    "currentRestartTime": "ISO timestamp",
+    "databaseStatus": { "prod": "healthy", "local": "disabled" },
+    "activeSweepIntervals": ["guildId1", "guildId2"]
+  }
+}
+```
+
+**Integration Points**:
+
+- **Startup** (`src/bot/main.js` ClientReady): `botState = await initializeState(); autoSaveInterval = startAutoSave(botState);`
+- **After Sweeps**: `recordSweep(botState, guildId, guildName, rolesChecked, changesDetected);`
+- **On Permission Changes**: `recordPermissionChange(botState, guildId, guildName, userId, userName, action, reverted, revertStatus);`
+- **On Alerts**: `recordAlert(botState, guildId, recipient, reason, delivered);`
+- **Graceful Shutdown**: `process.on('SIGTERM', async () => { stopAutoSave(autoSaveInterval); await shutdownState(botState, 'SIGTERM'); process.exit(0); });`
+- **Admin Interface**: `/ops state` command displays cumulative statistics, database status, recent activity summary. Options: `timeline:true` (last 20 events), `guilds:true` (per-guild monitoring status).
+
+**Performance**:
+- Startup: <100ms (load + migrate + save)
+- Auto-save: <50ms every 5 minutes (async, non-blocking)
+- Event recording: <1ms (in-memory append)
+- State size: ~10-50 KB typical, ~100 KB max
+- Disk I/O: Minimal (auto-save + graceful shutdown only)
+
+**Error Handling**:
+- **Corrupt State Files**: Fallback chain (current → previous → default), log error, continue
+- **Save Failures**: Log error, continue, retry on next auto-save
+- **Schema Migration Errors**: Log warning, use state as-is, continue
+- **Graceful Shutdown Failures**: Best-effort save, don't block process exit, recoverable from auto-save
+
+**Security**:
+- No secrets/tokens in state files
+- Public identifiers only (Discord guild/user IDs)
+- No message content (only metadata: timestamps, counts, IDs)
+- Production state persists on Render worker disk (ephemeral but restarts preserve)
+
+**Render Persistent Disk**:
+```yaml
+# render.yaml
+- type: worker
+  name: infinity-gauntlet-security
+  disks:
+    - name: security-state
+      mountPath: /Store
+      sizeGB: 1
+```
+
+State files persist at `/Store/security-bot-state/` (survives deployments):
+- `current.json` — Active runtime state
+- `previous.json` — Backup from last restart
+- `snapshots/*.json` — Timestamped backups (7-day retention)
 
 ### 7.2 Restart DMs
 
-*(Content to be consolidated from `architecture/restart-dm-format.md` in Phase 1 Week 3)*
+**Purpose:** Provide comprehensive operational continuity and system health metrics when the security bot restarts.
 
-**Placeholder**: Restart notification format, operational summary, activity timeline.
+**Message Template**:
+
+```
+🛡️ Security monitor restarted at [timestamp].
+Continuous monitoring is active across [N] guild(s).
+
+📊 **Operational Continuity**
+• Restart #[N]
+• Time since last restart: [duration]
+• Total uptime (all time): [duration]
+• Total sweeps: [N]
+• Total alerts: [N]
+• Permission changes detected: [N]
+• Successful reverts: [N]
+
+📜 **Recent Activity Before Restart**
+• 0s ago: restart
+• [time] ago: [activity description]
+• [time] ago: [activity description]
+• [time] ago: [activity description]
+• [time] ago: [activity description]
+
+[NODE]
+  Uptime: [duration]
+  Process: PID [N] | v[version]
+
+  Memory: RSS [size] | Heap [used]/[total] | External [size]
+  CPU: User [time] | System [time]
+
+[DATABASE]
+  PROD  → [status] | Latency: [value or <unavailable: reason>] | [database or <unavailable: reason>]
+  LOCAL → [status] | Latency: [value or <unavailable: reason>] | [database or <unavailable: reason>]
+```
+
+**Metrics Transparency** (follows contract in `docs/metrics-transparency.md`):
+
+**Database Status Values:**
+- `initializing` — Database connection being established
+- `online` — Database connected and healthy
+- `disabled` — Database intentionally not configured (LOCAL in production)
+- `error` — Database connection failed
+
+**Latency Format:**
+- ✅ Live value: `24.56ms`
+- ❌ Unavailable: `<unavailable: initializing>`, `<unavailable: disabled>`, `<unavailable: not_connected>`, `<unavailable: not_queried_yet>`, `<unavailable: no_provider>`, `<unavailable: query_failed>`
+
+**Database Source Format:**
+- ✅ Live value: `infinity_gauntlet_prod`
+- ❌ Unavailable: `<unavailable: [reason]>` (same reasons as latency)
+
+**Implementation** (`src/bot/main.js` - `notifyServiceRestart()`):
+
+1. Build header with restart time and guild count
+2. Add operational continuity section from `botState`
+3. Add recent activity timeline (last 5 events from state)
+4. Wait for database initialization (up to 30 seconds)
+5. Query formatted stats from logger module (`getFormattedStats()`)
+6. Append stats to message
+
+**Stats Collection** (`src/utils/logger.js` - `getFormattedStats()`):
+
+1. Refresh all stats (Node, Database, Security Bot)
+2. Format Node stats (always available from process APIs)
+3. Format Database stats with explicit unavailability declarations
+4. Return formatted string
+
+**Error Handling**:
+- **Missing Recipient**: Log warning, record alert
+- **Database Timeout**: Send message with "initializing" status
+- **Stats Collection Failure**: Send message without stats section
+
+**Example Output** (Database Online):
+
+```
+🛡️ Security monitor restarted at 11/9/2025, 5:24:54 PM.
+Continuous monitoring is active across 1 guild(s).
+
+📊 **Operational Continuity**
+• Restart #5
+• Time since last restart: 2h 8m
+• Total uptime (all time): 0s
+• Total sweeps: 173
+• Total alerts: 0
+• Permission changes detected: 0
+• Successful reverts: 0
+
+📜 **Recent Activity Before Restart**
+• 0s ago: restart
+• 4m ago: Swept Black Infinity Gauntlet (#1100976155579712222)
+• 5m ago: Swept Black Infinity Gauntlet (#1100976155579712222)
+• 6m ago: Swept Black Infinity Gauntlet (#1100976155579712222)
+• 7m ago: Swept Black Infinity Gauntlet (#1100976155579712222)
+
+[NODE]
+  Uptime: 34s
+  Process: PID 73 | v22.16.0
+
+  Memory: RSS 126.39 MB | Heap 25.83 MB/29.29 MB | External 25.96 MB
+  CPU: User 2.22s | System 0.48s
+
+[DATABASE]
+  PROD  → online | Latency: 24.56ms | infinity_gauntlet_prod
+  LOCAL → disabled | Latency: <unavailable: disabled> | <unavailable: disabled>
+```
+
+**Configuration**:
+- **Environment Variable**: `RESTART_DM_RECIPIENT`
+- **Format**: Discord user ID (string)
+- **Required**: No (restart notifications disabled if not set)
+
+**Verification Workflow**:
+1. Build the project: `npm run build`
+2. Deploy to Render (automatic via GitHub push)
+3. Restart the bot (Render dashboard or automatic redeploy)
+4. Check DM sent to configured `RESTART_DM_RECIPIENT`
+
+**Change History**:
+- **2025-11-09**: Enhanced with metrics transparency contract (explicit unavailability reasons, removed hardcoded "n/a", cleaner output when counts are 0)
+- **2025-11-08**: Added operational continuity tracking (state persistence summary, recent activity timeline, database stats)
+- **Original**: Basic restart notification (header with timestamp and guild count only)
 
 ---
 
