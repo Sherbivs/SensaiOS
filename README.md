@@ -182,7 +182,7 @@ All user-facing timestamps display in **Eastern Time (America/New_York)**, autom
 - `toEasternDate(date)` - Date only (e.g., "11/12/2025")
 - `nowEastern()` - Current timestamp in Eastern Time
 
-See [`docs/datetime-utilities.md`](docs/datetime-utilities.md) for comprehensive usage guide, migration patterns, and testing recommendations.
+See development-bible/07-utilities.md § 7.1-7.2 for comprehensive DateTime utilities usage guide, migration patterns, and timezone standardization.
 
 **Important:** Internal state files and Event Bus metadata continue to use ISO timestamps (UTC) for consistency and portability. Only user-facing displays (Discord messages, restart notifications, summaries) use Eastern Time formatting.
 

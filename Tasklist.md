@@ -1736,7 +1736,7 @@ Each task has:
     **Canonical Naming Applied:**
     - Used ONPREMISE-DEV-PRIMARY (not "PRIMARY LOCAL")
     - Used ONPREMISE-DEV-EXPERIMENT (not "EXPERIMENTAL")
-    - Per Patch.md Absolutes (line 32-33) and docs/database/database-naming-schema.md
+    - Per Patch.md Absolutes (line 32-33) and operations-bible/02-database-operations.md
     
     **Deployment Status:**
     - ✅ Schema migration applied to ONPREMISE-DEV-PRIMARY

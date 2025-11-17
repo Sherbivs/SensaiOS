@@ -321,7 +321,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 **Documentation Structure**:
 
 ```
-docs/DISCORD-COMMAND-SUITE.md      → Complete command reference
+architecture-bible/10-discord-bot.md → Discord bot architecture and command reference
 architecture-bible/09-game-engine.md → Game engine architecture
 src/bot/ROUTER.md                   → Code navigation for Discord bot layer
 ```
@@ -329,10 +329,10 @@ src/bot/ROUTER.md                   → Code navigation for Discord bot layer
 **Workflow**:
 
 1. **User requests feature**: "Add trade command"
-2. **Consult documentation**: Read `discord-command-suite.md` for existing patterns
+2. **Consult documentation**: Read architecture-bible/10-discord-bot.md (this file) for existing patterns
 3. **Locate code**: Use `src/bot/ROUTER.md` to find command handlers
 4. **Implement**: Follow established patterns (command builder + execute function)
-5. **Update docs**: Add trade command to documentation
+5. **Update docs**: Add trade command to this Bible section
 6. **Update router**: Reflect new files in `src/bot/ROUTER.md`
 7. **Test**: Write integration test (button flows, error cases)
 8. **Commit**: Include code + docs + router updates
