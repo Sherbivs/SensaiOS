@@ -19,6 +19,7 @@
 import { resourceManager } from './resource-manager.js';
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
 import logger from '../../utils/intelligent-logger.js';
+import { EventBus } from '../../shared/event-bus.js';
 import type { ResourceStats } from './resource-manager.js';
 
 // ============================================================================
@@ -158,6 +159,10 @@ class ResourceMonitor {
   private lastPruneTime = 0;
   private lastNormalLogAt = 0;
   private consecutiveHighPressure = 0;
+  
+  // DM alert tracking (prevent spam)
+  private lastAlertSentAt = new Map<MemoryPressureLevel, number>();
+  private readonly ALERT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes between alerts of same level
   
   // Memory guardian statistics
   private totalPrunesTriggered = 0;
@@ -387,6 +392,9 @@ class ResourceMonitor {
       },
     });
     
+    // Send critical DM alert
+    this.sendMemoryAlert('EMERGENCY', snapshot);
+    
     // Emergency prune ALL caches (no cooldown)
     for (const [cacheName, cache] of this.registeredCaches) {
       try {
@@ -430,6 +438,9 @@ class ResourceMonitor {
         percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
       },
     });
+    
+    // Send critical DM alert
+    this.sendMemoryAlert('CRITICAL', snapshot);
     
     // Respect prune cooldown (don't spam pruning)
     const timeSinceLastPrune = Date.now() - this.lastPruneAt;
@@ -538,6 +549,89 @@ class ResourceMonitor {
     } else {
       logger.warn('[ResourceMonitor] global.gc() not available - start with --expose-gc', {
         category: 'SYSTEM',
+      });
+    }
+  }
+  
+  /**
+   * Send DM alert for memory threshold breach
+   * Uses Event Bus for delivery with debouncing to prevent spam
+   */
+  private sendMemoryAlert(level: 'CRITICAL' | 'EMERGENCY', snapshot: MemorySnapshot): void {
+    // Check cooldown to prevent alert spam
+    const lastSent = this.lastAlertSentAt.get(level) || 0;
+    const timeSinceLastAlert = Date.now() - lastSent;
+    
+    if (timeSinceLastAlert < this.ALERT_COOLDOWN_MS) {
+      logger.debug(`[ResourceMonitor] Skipping ${level} alert (cooldown active)`, {
+        category: 'SYSTEM',
+        data: {
+          cooldownRemainingSec: ((this.ALERT_COOLDOWN_MS - timeSinceLastAlert) / 1000).toFixed(0),
+        },
+      });
+      return;
+    }
+    
+    // Update last sent timestamp
+    this.lastAlertSentAt.set(level, Date.now());
+    
+    // Prepare alert message
+    const severity = level === 'EMERGENCY' ? 'critical' : 'security';
+    const title = level === 'EMERGENCY' 
+      ? '🚨 EMERGENCY: Memory Exhaustion Imminent'
+      : '🔴 CRITICAL: High Memory Usage Detected';
+    
+    const meta = {
+      memoryUsage: {
+        rss: `${snapshot.rss.toFixed(1)} MB`,
+        heapUsed: `${snapshot.heapUsed.toFixed(1)} MB`,
+        percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
+        limit: `${MEMORY_THRESHOLDS.planLimitMB} MB`,
+      },
+      threshold: {
+        level,
+        triggerPoint: level === 'EMERGENCY' ? '460 MB (90%)' : '435 MB (85%)',
+      },
+      action: {
+        immediate: level === 'EMERGENCY' ? 'Emergency cache pruning + Force GC' : 'Aggressive cache pruning',
+        recommendation: level === 'EMERGENCY' 
+          ? 'Investigate immediately - Risk of OOM crash'
+          : 'Monitor closely - Consider scaling plan if sustained',
+      },
+      statistics: {
+        totalPrunesTriggered: this.totalPrunesTriggered,
+        totalGcTriggered: this.totalGcTriggered,
+        totalBytesFreedMB: (this.totalBytesFreed / 1024 / 1024).toFixed(2),
+      },
+      timestamp: new Date().toISOString(),
+    };
+    
+    try {
+      const bus = EventBus.getInstance();
+      bus.emit(`alert.${severity}`, {
+        severity,
+        title,
+        meta: JSON.stringify(meta, null, 2),
+        timestamp: new Date().toISOString(),
+      }, {
+        emitter: 'resource-monitor',
+      });
+      
+      logger.info(`[ResourceMonitor] ${level} memory alert sent to Event Bus`, {
+        category: 'SYSTEM',
+        data: {
+          severity,
+          rss: `${snapshot.rss.toFixed(0)}MB`,
+          percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
+        },
+      });
+    } catch (error) {
+      logger.error('[ResourceMonitor] Failed to send memory alert', {
+        category: 'SYSTEM',
+        data: {
+          level,
+          error: getErrorMessage(error),
+        },
       });
     }
   }
