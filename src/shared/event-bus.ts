@@ -16,10 +16,15 @@
  * 
  * @module shared/event-bus
  */
+/* eslint-disable no-console */
 
 import { randomUUID } from 'crypto';
-import { log } from '../utils/logger.js';
 import { getErrorMessage } from './utils/error-utils.js';
+
+// NOTE: Event Bus uses console.log for internal logging to avoid circular dependency
+// with logger.js during early initialization. The intelligent-logger subscribes to
+// Event Bus during its constructor, which would trigger log() calls before LOG_LABEL
+// is initialized, causing "Cannot access before initialization" errors.
 
 /// ---- Type Definitions ----
 
@@ -326,7 +331,7 @@ class Subscription {
         this.stats.successfulInvocations++;
       } catch (error) {
         this.stats.failedInvocations++;
-        log('error', 'EventBus: Handler error', {
+        console.error('[EventBus] Handler error:', {
           subscriptionId: this.id,
           pattern: this.pattern,
           topic: event.topic,
@@ -471,7 +476,7 @@ export class EventBus {
     
     // Log backpressure events
     if (backpressureCount > 0) {
-      log('warn', 'EventBus: Backpressure detected', {
+      console.warn('[EventBus] Backpressure detected:', {
         topic,
         correlationId,
         droppedSubscribers: backpressureCount,
@@ -501,7 +506,7 @@ export class EventBus {
     const subscription = new Subscription(pattern, handler, options);
     this.subscriptions.set(subscription.id, subscription);
     
-    log('info', 'EventBus: Subscription added', {
+    console.info('[EventBus] Subscription added:', {
       subscriptionId: subscription.id,
       pattern,
       priority: subscription.priority,
@@ -519,7 +524,7 @@ export class EventBus {
     const removed = this.subscriptions.delete(subscriptionId);
     
     if (removed) {
-      log('info', 'EventBus: Subscription removed', {
+      console.info('[EventBus] Subscription removed:', {
         subscriptionId,
         totalSubscriptions: this.subscriptions.size,
       });
@@ -537,7 +542,7 @@ export class EventBus {
       // Remove all subscriptions
       const count = this.subscriptions.size;
       this.subscriptions.clear();
-      log('info', 'EventBus: All subscriptions removed', { count });
+      console.info('[EventBus] All subscriptions removed', { count });
       return count;
     }
     
@@ -551,7 +556,7 @@ export class EventBus {
     }
     
     if (count > 0) {
-      log('info', 'EventBus: Pattern subscriptions removed', {
+      console.info('[EventBus] Pattern subscriptions removed:', {
         pattern,
         count,
         totalSubscriptions: this.subscriptions.size,
@@ -635,7 +640,7 @@ export class EventBus {
    * Graceful shutdown - drain all subscriptions
    */
   async shutdown(): Promise<void> {
-    log('info', 'EventBus: Shutting down', {
+    console.info('[EventBus] Shutting down', {
       subscriptions: this.subscriptions.size,
       queuedEvents: Array.from(this.subscriptions.values())
         .reduce((sum, sub) => sum + sub.getInfo().queueSize, 0),
@@ -651,6 +656,6 @@ export class EventBus {
     // Clear replay buffer
     this.replayBuffer.clear();
     
-    log('info', 'EventBus: Shutdown complete');
+    console.info('[EventBus] Shutdown complete');
   }
 }
