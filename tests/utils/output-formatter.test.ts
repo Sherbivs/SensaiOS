@@ -11,7 +11,7 @@ import {
   formatStatus,
   formatProgress,
   formatOutputBlock,
-} from '../../src/utils/output-formatter.js';
+} from '../../src/utils/output-formatter.ts';
 
 describe('formatBorder', () => {
   it('should create light border of default width', () => {
@@ -182,7 +182,7 @@ describe('formatKeyValueList', () => {
     ]);
     
     // All keys should be padded to same width
-    const keyEnds = result.map(line => line.indexOf('='));
+    const keyEnds = result.map((line: string) => line.indexOf('='));
     expect(keyEnds[0]).toBe(keyEnds[1]);
     expect(keyEnds[1]).toBe(keyEnds[2]);
   });
