@@ -2770,9 +2770,47 @@ DRIP_ALERT_RECIPIENT=<user_id>      # Authorized admin user ID
 
 ## Section 11: Safety Guarantees
 
-*(Content to be consolidated from `architecture/safety.md` in Phase 1 Week 3)*
+**Secret Protection:**
+- Never output secrets in logs or error messages
+- Mask tokens (show only first/last 4 characters)
+- Redact credentials in error contexts
+- Use environment variables for all sensitive data
 
-**Placeholder**: Memory safety, error isolation, state persistence, disaster recovery, operational safeguards.
+**Database Safety:**
+- **Materialized View Refresh**: Use `SECURITY DEFINER` functions or ownership transfer; never grant blanket superuser
+- **RLS Policies**: If Row-Level Security enabled, policies must allow app role read/write access
+- **Dry-Run First**: Test shell/DB commands with dry-run flags until reviewer approval
+- **Read-Only Queries**: DM admin `!ops db query` enforces read-only (no `UPDATE`, `DELETE`, `DROP`)
+
+**Memory Safety:**
+- All runtime structures bounded (Event Bus 100-entry replay buffer, write queues 10k cap, ops error queue 200 entries)
+- Discord.js cache sweeping prevents 100+ MB leaks
+- L1 Cache 20 MB max via lazy loading + feature flags
+- Peak RAM: ~300-350 MB per service (58-68% of 512 MB limit)
+
+**Error Isolation:**
+- Domain-specific handlers in every layer (bot, engine, worker)
+- Triple redundancy: immediate console + live stream + async database persistence
+- 5-layer fallback: IntelligentLogger → ErrorTracker → EventBus → BusMessage → Console
+- Errors never crash services (try-catch at handler boundaries)
+
+**State Persistence:**
+- Security bot 7-day state history (hourly snapshots, cumulative statistics survive restarts)
+- Auto-save every 5 minutes + final save on SIGTERM/SIGINT
+- Three-tier fallback: current.json → previous.json → default state
+- Render persistent disk (1GB `/Store` mount) preserves state across deployments
+
+**Disaster Recovery:**
+- Database backups: Render automated daily snapshots (7-day retention)
+- State files: Timestamped snapshots with 7-day retention
+- On-premise database mirrors: Bootstrap from production (offline fallback)
+- Graceful shutdown: All services flush buffers, save state, close connections
+
+**Operational Safeguards:**
+- Destructive operations require `--confirm` flag (`!ops restart`, `!ops deploy`)
+- Rate limiting: 10 commands/minute default (DM admin)
+- Audit logging: All admin commands logged to database
+- Permission guardrails: Security bot auto-reverts unauthorized role changes
 
 ---
 
