@@ -1464,6 +1464,108 @@ export async function handleOpsCommand(
     return;
   }
 
+  if (sub === "snapshot") {
+    await interaction.deferReply({ ephemeral: true });
+    const detailed = Boolean(interaction.options?.getBoolean?.("detailed"));
+    
+    try {
+      const v8 = await import('node:v8');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      
+      // Helper function for formatting bytes
+      const formatSnapshotBytes = (bytes: number): string => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+      };
+      
+      // Get process memory
+      const mem = process.memoryUsage();
+      const heapStats = v8.getHeapStatistics();
+      
+      const lines: string[] = [];
+      lines.push("📸 **Memory Heap Snapshot**");
+      lines.push(`Timestamp: ${new Date().toISOString()}`);
+      lines.push("");
+      
+      // Process Memory
+      lines.push("**💾 Process Memory Usage**");
+      lines.push(`• RSS (Resident Set): ${formatSnapshotBytes(mem.rss)}`);
+      lines.push(`• Heap Total: ${formatSnapshotBytes(mem.heapTotal)}`);
+      lines.push(`• Heap Used: ${formatSnapshotBytes(mem.heapUsed)}`);
+      lines.push(`• External: ${formatSnapshotBytes(mem.external)}`);
+      lines.push(`• Array Buffers: ${formatSnapshotBytes(mem.arrayBuffers)}`);
+      
+      const accountedFor = mem.heapTotal + mem.external;
+      const mystery = mem.rss - accountedFor;
+      lines.push("");
+      lines.push(`**Accounted for:** ${formatSnapshotBytes(accountedFor)}`);
+      lines.push(`**Mystery allocation:** ${formatSnapshotBytes(mystery)} (${((mystery / mem.rss) * 100).toFixed(1)}% of RSS)`);
+      
+      // V8 Heap Statistics
+      lines.push("");
+      lines.push("**📊 V8 Heap Statistics**");
+      lines.push(`• Total Heap Size: ${formatSnapshotBytes(heapStats.total_heap_size)}`);
+      lines.push(`• Heap Size Limit: ${formatSnapshotBytes(heapStats.heap_size_limit)}`);
+      lines.push(`• Used Heap Size: ${formatSnapshotBytes(heapStats.used_heap_size)}`);
+      lines.push(`• Malloced Memory: ${formatSnapshotBytes(heapStats.malloced_memory)}`);
+      lines.push(`• External Memory: ${formatSnapshotBytes(heapStats.external_memory)}`);
+      
+      // Detailed heap spaces breakdown (if requested)
+      if (detailed) {
+        const heapSpaces = v8.getHeapSpaceStatistics();
+        lines.push("");
+        lines.push("**🗺️ Heap Spaces Breakdown**");
+        for (const space of heapSpaces) {
+          if (space.space_size === 0) continue; // Skip empty spaces
+          const utilization = ((space.space_used_size / space.space_size) * 100).toFixed(1);
+          lines.push(`• ${space.space_name}: ${formatSnapshotBytes(space.space_used_size)} / ${formatSnapshotBytes(space.space_size)} (${utilization}%)`);
+        }
+      }
+      
+      // Capture heap snapshot to disk
+      lines.push("");
+      lines.push("**📁 Heap Snapshot File**");
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `heap-snapshot-${timestamp}.heapsnapshot`;
+      const storeDir = process.env.RENDER ? '/Store' : path.join(process.cwd(), 'Store');
+      const filepath = path.join(storeDir, filename);
+      
+      try {
+        fs.mkdirSync(storeDir, { recursive: true });
+        const snapshotPath = v8.writeHeapSnapshot(filepath);
+        const snapshotSize = fs.statSync(snapshotPath).size;
+        
+        lines.push(`✅ Snapshot captured: ${formatSnapshotBytes(snapshotSize)}`);
+        lines.push(`📂 Location: \`${filename}\``);
+        lines.push("");
+        lines.push("**💡 Analysis Instructions:**");
+        lines.push("1. Download snapshot file from Render dashboard");
+        lines.push("2. Open Chrome DevTools (F12) → Memory tab");
+        lines.push("3. Click 'Load' and select the .heapsnapshot file");
+        lines.push("4. Analyze memory allocations by constructor");
+      } catch (fsErr) {
+        lines.push(`❌ Failed to write snapshot: ${getErrorMessage(fsErr)}`);
+      }
+      
+      const message = lines.join("\n");
+      if (message.length > 2000) {
+        await interaction.editReply({ content: message.substring(0, 1997) + "..." });
+      } else {
+        await interaction.editReply({ content: message });
+      }
+    } catch (err) {
+      log.warn("Snapshot command failed", { err });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Heap snapshot unavailable: ${message}` });
+    }
+    return;
+  }
+
   await interaction.reply({ content: "Unknown /ops command.", ephemeral: true });
 }
 

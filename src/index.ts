@@ -1410,6 +1410,63 @@ export async function boot(): Promise<void> {
     // Log memory progression breakdown
     const memProgression = calculateMemoryProgression(STARTUP_MEMORY);
     log.info("📊 Memory Progression Breakdown", memProgression);
+    
+    // MEMORY PROFILING: Capture detailed heap snapshot after startup
+    try {
+      const v8 = await import('node:v8');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      
+      const heapStats = v8.getHeapStatistics();
+      const mem = process.memoryUsage();
+      
+      // Log comprehensive memory breakdown
+      log.info("🔬 Post-Startup Memory Analysis", {
+        process: {
+          rss_mb: Math.round(mem.rss / 1024 / 1024),
+          heap_total_mb: Math.round(mem.heapTotal / 1024 / 1024),
+          heap_used_mb: Math.round(mem.heapUsed / 1024 / 1024),
+          external_mb: Math.round(mem.external / 1024 / 1024),
+          array_buffers_mb: Math.round(mem.arrayBuffers / 1024 / 1024),
+        },
+        v8_heap: {
+          total_heap_mb: Math.round(heapStats.total_heap_size / 1024 / 1024),
+          used_heap_mb: Math.round(heapStats.used_heap_size / 1024 / 1024),
+          heap_limit_mb: Math.round(heapStats.heap_size_limit / 1024 / 1024),
+          malloced_mb: Math.round(heapStats.malloced_memory / 1024 / 1024),
+          external_mb: Math.round(heapStats.external_memory / 1024 / 1024),
+        },
+        analysis: {
+          accounted_for_mb: Math.round((mem.heapTotal + mem.external) / 1024 / 1024),
+          mystery_allocation_mb: Math.round((mem.rss - mem.heapTotal - mem.external) / 1024 / 1024),
+          heap_utilization_percent: ((mem.heapUsed / mem.heapTotal) * 100).toFixed(1),
+        }
+      });
+      
+      // Capture heap snapshot to disk (production only, to avoid local pollution)
+      if (process.env.RENDER) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `startup-heap-${timestamp}.heapsnapshot`;
+        const storeDir = '/Store';
+        const filepath = path.join(storeDir, filename);
+        
+        try {
+          fs.mkdirSync(storeDir, { recursive: true });
+          const snapshotPath = v8.writeHeapSnapshot(filepath);
+          const snapshotSize = fs.statSync(snapshotPath).size;
+          
+          log.info("📸 Startup heap snapshot captured", {
+            filename,
+            size_mb: Math.round(snapshotSize / 1024 / 1024),
+            location: storeDir,
+          });
+        } catch (fsErr) {
+          log.warn("Failed to write startup heap snapshot", { error: getErrorMessage(fsErr) });
+        }
+      }
+    } catch (memErr) {
+      log.warn("Memory profiling failed", { error: getErrorMessage(memErr) });
+    }
   } catch (error) {
     const message = getErrorMessage(error);
     

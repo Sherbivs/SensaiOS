@@ -115,6 +115,17 @@ const data = new SlashCommandBuilder()
           .setRequired(false)
       )
   )
+  .addSubcommand((sub) =>
+    sub
+      .setName('snapshot')
+      .setDescription('Capture memory heap snapshot for analysis')
+      .addBooleanOption((opt) =>
+        opt
+          .setName('detailed')
+          .setDescription('Include detailed heap space breakdown')
+          .setRequired(false)
+      )
+  )
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .setDMPermission(false);
 
