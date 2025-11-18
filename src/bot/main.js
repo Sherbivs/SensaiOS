@@ -476,7 +476,11 @@ const continuousSweepState = {
 };
 
 const pendingOpsErrorQueue = [];
+// MEMORY FIX (2025-11-18): Bound deliveredOpsErrorIds to prevent unbounded growth
+// Previous: Set grew indefinitely (47 MB/hour leak on idle bot)
+// After: LRU with 200 entry cap (rolling window of recent deliveries)
 const deliveredOpsErrorIds = new Set();
+const MAX_DELIVERED_IDS_SIZE = 200; // Cap to prevent memory leak
 let deliveringOpsErrors = false;
 let opsErrorRetryTimer = null;
 let memberStatsInterval = null;
@@ -873,6 +877,15 @@ async function deliverOpsErrors() {
         continue;
       }
       if (deliveredOpsErrorIds.has(event.id) || event.skipAlert || event.source === 'drip-alerts') {
+        // MEMORY FIX (2025-11-18): Evict oldest IDs when Set exceeds cap
+        if (deliveredOpsErrorIds.size >= MAX_DELIVERED_IDS_SIZE) {
+          // Convert to array, remove first 20% (FIFO approximation)
+          const idsArray = Array.from(deliveredOpsErrorIds);
+          const toRemove = Math.ceil(idsArray.length * 0.2);
+          for (let i = 0; i < toRemove; i++) {
+            deliveredOpsErrorIds.delete(idsArray[i]);
+          }
+        }
         deliveredOpsErrorIds.add(event.id);
         continue;
       }
@@ -889,9 +902,25 @@ async function deliverOpsErrors() {
             });
             scheduleOpsErrorRetry();
           } else {
+            // MEMORY FIX (2025-11-18): Evict oldest IDs when Set exceeds cap
+            if (deliveredOpsErrorIds.size >= MAX_DELIVERED_IDS_SIZE) {
+              const idsArray = Array.from(deliveredOpsErrorIds);
+              const toRemove = Math.ceil(idsArray.length * 0.2);
+              for (let i = 0; i < toRemove; i++) {
+                deliveredOpsErrorIds.delete(idsArray[i]);
+              }
+            }
             deliveredOpsErrorIds.add(event.id);
           }
           break;
+        }
+        // MEMORY FIX (2025-11-18): Evict oldest IDs when Set exceeds cap
+        if (deliveredOpsErrorIds.size >= MAX_DELIVERED_IDS_SIZE) {
+          const idsArray = Array.from(deliveredOpsErrorIds);
+          const toRemove = Math.ceil(idsArray.length * 0.2);
+          for (let i = 0; i < toRemove; i++) {
+            deliveredOpsErrorIds.delete(idsArray[i]);
+          }
         }
         deliveredOpsErrorIds.add(event.id);
         updateSecurityCliSection({
@@ -907,6 +936,14 @@ async function deliverOpsErrors() {
           });
           scheduleOpsErrorRetry();
         } else {
+          // MEMORY FIX (2025-11-18): Evict oldest IDs when Set exceeds cap
+          if (deliveredOpsErrorIds.size >= MAX_DELIVERED_IDS_SIZE) {
+            const idsArray = Array.from(deliveredOpsErrorIds);
+            const toRemove = Math.ceil(idsArray.length * 0.2);
+            for (let i = 0; i < toRemove; i++) {
+              deliveredOpsErrorIds.delete(idsArray[i]);
+            }
+          }
           deliveredOpsErrorIds.add(event.id);
         }
         log('error', 'Ops error alert dispatch failed', mergeLogError({ originalMessage: event.message }, error));
