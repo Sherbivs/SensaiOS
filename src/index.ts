@@ -148,6 +148,8 @@ let engineWorkersRunning = false;
 // Declare global.engineReady for battle engine readiness check
 declare global {
   var engineReady: boolean;
+  var securityBotState: unknown; // Security bot state from bot/state/persistence.js (JavaScript)
+  var securityBotClient: unknown; // Discord client for security bot (JavaScript)
 }
 global.engineReady = false;
 
@@ -862,6 +864,80 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     autoRestartTimer = null;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 1: CRITICAL DATA PERSISTENCE (Priority Order - Execute First)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // These operations must complete BEFORE service shutdown to prevent data loss.
+  // Each is wrapped in try-catch to ensure one failure doesn't block others.
+  
+  log.info("PHASE 1: Critical data persistence starting");
+  
+  // 1A. Flush Engine Write Buffer (battle data - highest priority)
+  try {
+    log.info("PRIORITY: Flushing Engine Write Buffer");
+    if (engineWriteBuffer) {
+      await engineWriteBuffer.flush();
+      log.info("Engine Write Buffer flushed successfully");
+    }
+  } catch (error) {
+    log.error("CRITICAL: Engine Write Buffer flush failed", error);
+  }
+  
+  // 1B. Save security bot state (operational metrics)
+  try {
+    log.info("PRIORITY: Saving security bot state");
+    const securityBotState = global.securityBotState;
+    if (securityBotState) {
+      const { shutdownState } = await import("./bot/state/persistence.js");
+      await shutdownState(securityBotState, signal);
+      log.info("Security bot state saved successfully");
+    }
+  } catch (error) {
+    log.error("CRITICAL: Security bot state save failed", error);
+  }
+  
+  // 1C. Flush AI logs (diagnostic data)
+  try {
+    log.info("PRIORITY: Flushing AI logs");
+    await aiLogger.flush();
+    log.info("AI logs flushed successfully");
+  } catch (error) {
+    log.error("CRITICAL: AI log flush failed", error);
+  }
+  
+  // 1D. Persist cooldowns (user experience)
+  try {
+    log.info("PRIORITY: Persisting cooldowns");
+    const cooldownModule = await import("./lib/cooldown.js");
+    if ('shutdown' in cooldownModule && typeof cooldownModule.shutdown === 'function') {
+      await cooldownModule.shutdown();
+      log.info("Cooldowns persisted successfully");
+    }
+  } catch (error) {
+    log.error("CRITICAL: Cooldown persist failed", error);
+  }
+  
+  // 1E. Save Pokémon service cache (optional, non-critical)
+  try {
+    log.info("OPTIONAL: Saving Pokémon service cache");
+    const pokemonService = await import("./services/pokemonService.js");
+    if ('saveCache' in pokemonService && typeof pokemonService.saveCache === 'function') {
+      await pokemonService.saveCache();
+      log.info("Pokémon service cache saved successfully");
+    }
+  } catch (error) {
+    const message = getErrorMessage(error);
+    log.warn("Pokémon cache save failed (non-critical)", { error: message });
+  }
+  
+  log.info("PHASE 1: Critical data persistence complete");
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 2: GRACEFUL SERVICE SHUTDOWN (Existing Flow)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  log.info("PHASE 2: Service shutdown starting");
+
   // Step 1: Mark engine as not ready (stop accepting new battles)
   global.engineReady = false;
   
@@ -895,7 +971,7 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   }
   
   // Shutdown Services via Service Registry (graceful, reverse dependency order)
-  // This handles: ResourceManager, ErrorTracker, EngineCache, EngineWriteBuffer
+  // This handles: ResourceManager, ErrorTracker, EngineCache (EngineWriteBuffer already flushed)
   try {
     log.info("Shutting down services via Service Registry");
     await registry.shutdownAll();
