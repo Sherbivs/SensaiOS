@@ -28,6 +28,7 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 | **13. Performance** | [13-performance.md](13-performance.md) | Optimization roadmap, centralization, benchmarks |
 | **14. Future Roadmap** | [14-future-roadmap.md](14-future-roadmap.md) | Vision, milestones, workstreams, dependencies |
 | **15. Project History** | [15-project-history.md](15-project-history.md) | Major refactorings, Accelerate elimination, dead code cleanup |
+| **16. Boot Sequence** | [16-boot-sequence.md](16-boot-sequence.md) | Startup phases, timing, memory progression, observability, recovery |
 
 ---
 
@@ -61,7 +62,7 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 - Phase 0: 454 → 93 files (79% reduction, 361 files deleted)
 - Phase 1: 93 → 66 files (88% reduction, 388 files deleted total)
 - 28 files consolidated into ARCHITECTURE-BIBLE (Discord Bot, Security Bot, Router System, Game Engine, Error System, Logging, Event Bus, System Overview, Safety Guarantees, Future Roadmap, and 4 remaining sections)
-- Final structure: 14 section files + 1 index = 15 architecture documents
+- Final structure: 16 section files + 1 index = 17 architecture documents
 
 ---
 
