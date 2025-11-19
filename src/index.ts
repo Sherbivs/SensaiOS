@@ -117,7 +117,7 @@ setupLogBuffer();
 const CLI_MONITOR_DISABLED =
   process.env.DISABLE_CLI_MONITOR === "true" || process.env.NODE_ENV === "test";
 
-type ShutdownTrigger = NodeJS.Signals | "uncaughtException";
+type ShutdownTrigger = NodeJS.Signals | "uncaughtException" | "scheduled-restart";
 
 type CacheSnapshot = {
   timestamp: number;
@@ -128,11 +128,13 @@ type CacheSnapshot = {
 };
 
 const MONITOR_REFRESH_INTERVAL_MS = 5 * 60 * 1_000;
+const AUTO_RESTART_INTERVAL_MS = 12 * 60 * 60 * 1_000; // 12 hours in milliseconds
 
 let monitorActive = false;
 let shuttingDown = false;
 let signalsInstalled = false;
 let activeClient: Client | null = null;
+let autoRestartTimer: NodeJS.Timeout | null = null;
 let securityClient: Client | null = null;
 let stopPrismaHeartbeatTask: (() => void) | null = null;
 let detachPrismaHeartbeatListener: (() => void) | null = null;
@@ -822,6 +824,30 @@ async function bootSecurityBot(): Promise<Client | null> {
   }
 }
 
+/**
+ * Schedule automatic restart after 12 hours of uptime.
+ * This helps maintain system health by periodically clearing memory and resetting connections.
+ */
+function scheduleAutoRestart(): void {
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer);
+  }
+  
+  const restartTime = new Date(Date.now() + AUTO_RESTART_INTERVAL_MS);
+  log.info("⏰ Scheduled automatic restart", {
+    interval_hours: 12,
+    scheduled_time: restartTime.toISOString(),
+  });
+  
+  autoRestartTimer = setTimeout(() => {
+    log.info("🔄 Initiating scheduled 12-hour restart");
+    void gracefulShutdown("scheduled-restart");
+  }, AUTO_RESTART_INTERVAL_MS);
+  
+  // Prevent the timer from keeping the process alive during shutdown
+  autoRestartTimer.unref();
+}
+
 async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   if (shuttingDown) {
     return;
@@ -829,6 +855,12 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   shuttingDown = true;
   setPhase(`Shutting down (${signal})`);
   log.warn("Shutdown requested", { signal });
+  
+  // Cancel auto-restart timer if it exists
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer);
+    autoRestartTimer = null;
+  }
 
   // Step 1: Mark engine as not ready (stop accepting new battles)
   global.engineReady = false;
@@ -1466,6 +1498,13 @@ export async function boot(): Promise<void> {
       }
     } catch (memErr) {
       log.warn("Memory profiling failed", { error: getErrorMessage(memErr) });
+    }
+    
+    // Schedule automatic restart every 12 hours (production only)
+    if (process.env.RENDER) {
+      scheduleAutoRestart();
+    } else {
+      log.info("⏰ Auto-restart disabled in local development");
     }
   } catch (error) {
     const message = getErrorMessage(error);
