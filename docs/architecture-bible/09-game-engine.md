@@ -484,6 +484,527 @@ npm run data:dexpack
 
 ---
 
+## 9.8 Engine DB Runtime Architecture
+
+**Purpose**: Initialize Engine DB runtime (Read-DB + Write-DB) for ultra-fast Pokémon data access and battle log persistence during Phase 3 of boot.
+
+**Source**: `src/index.ts` Phase 3 Engine DB initialization (lines 1292-1420)
+
+**Called From**: `src/index.ts` Phase 3 (Engine DB + Discord Bots) — parallel initialization with Discord bot
+
+**Architecture**: 3-tier caching system with SQLite persistence.
+
+```
+PROD PostgreSQL (slow: 50-100ms)
+    ↓ Daily sync (Worker 3)
+Read-DB (SQLite, fast: ~50ms)
+    ↓ L1 Cache load (blocking)
+L1 Cache (Map, ultra-fast: <1μs)
+    ↓ Game engine lookups
+Battle Resolution (<1ms total lookup overhead)
+```
+
+### 9.8.1 Initialization Flow
+
+**7-Step Initialization Sequence**:
+
+```typescript
+// Phase 3: Engine DB + Bots (Parallel)
+const [engineResult, _, client] = await Promise.all([
+  // Engine DB initialization (7 steps)
+  (async () => {
+    // Step 1: Validate config
+    validateEngineDbConfig();
+    
+    // Steps 2-5: Parallel Read-DB + Write-DB init
+    await Promise.all([
+      // Read-DB path
+      (async () => {
+        await engineReadDbService.initialize();  // Step 2
+        // L1 cache already loaded by Service Registry // Step 3
+      })(),
+      
+      // Write-DB path
+      (async () => {
+        await engineWriteDbService.initialize();  // Step 4
+        await engineWriteDbService.replayWAL();   // Step 5
+      })(),
+    ]);
+    
+    // Step 6: Start background workers
+    await startEngineWorkers();
+    await errorLearningWorker.start();
+    await aiLogger.initialize();
+    resourceMonitor.resourceMonitor.start();
+    
+    // Step 7: Mark engine ready
+    global.engineReady = true;
+    
+    return { success: true };
+  })(),
+  
+  // Security Bot (if enabled)
+  ENABLE_SECURITY_BOT ? bootSecurityBot() : Promise.resolve(null),
+  
+  // Discord Bot (main bot)
+  bootDiscord(),
+]);
+```
+
+**Parallelization**: Read-DB and Write-DB initialize concurrently (independent SQLite databases).
+
+**Graceful Degradation**: Engine DB failures don't block boot — app continues with Prisma fallback.
+
+### 9.8.2 Step 1: Config Validation
+
+**Purpose**: Ensure storage directories exist before database operations.
+
+```typescript
+// From src/config/engine-db-config.ts
+export function validateEngineDbConfig(): void {
+  // Check that storage paths are configured
+  if (!READ_DB_PATH || !WRITE_DB_PATH) {
+    throw new Error('Engine DB paths not configured');
+  }
+  
+  // Ensure directories exist (create if missing)
+  const readDir = path.dirname(READ_DB_PATH);
+  const writeDir = path.dirname(WRITE_DB_PATH);
+  
+  if (!fs.existsSync(readDir)) {
+    fs.mkdirSync(readDir, { recursive: true });
+  }
+  
+  if (!fs.existsSync(writeDir)) {
+    fs.mkdirSync(writeDir, { recursive: true });
+  }
+}
+```
+
+**Storage Paths**:
+- **Production**: `/Store/engine-read.db`, `/Store/engine-write.db`
+- **Workstation**: `Store/engine-read.db`, `Store/engine-write.db`
+- **Test**: `Store/test/engine-read.db`, `Store/test/engine-write.db`
+
+### 9.8.3 Step 2: Read-DB Initialization
+
+**Purpose**: Load read-only SQLite database containing Pokémon reference data.
+
+**Service**: Retrieved from Service Registry (initialized in Phase 1).
+
+```typescript
+if (!engineReadDbService) {
+  throw new Error('Engine Read-DB service not initialized from registry');
+}
+
+await engineReadDbService.initialize();
+
+const readStats = engineReadDbService.getStats();
+log.info("Engine Read-DB initialized", {
+  pokemon: readStats.pokemonCount,         // ~1000 species
+  moves: readStats.moveCount,              // ~800 moves
+  typeEffectiveness: readStats.typeEffectivenessCount, // ~300 matchups
+  sizeBytes: readStats.sizeBytes           // ~5-10 MB
+});
+```
+
+**Database Schema** (Read-DB):
+
+```sql
+CREATE TABLE pokemon (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  types TEXT NOT NULL,  -- JSON array
+  stats TEXT NOT NULL,  -- JSON object
+  abilities TEXT,       -- JSON array
+  UNIQUE(id)
+);
+
+CREATE TABLE moves (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  category TEXT NOT NULL,  -- "Physical", "Special", "Status"
+  power INTEGER,
+  accuracy INTEGER,
+  pp INTEGER,
+  priority INTEGER DEFAULT 0,
+  UNIQUE(id)
+);
+
+CREATE TABLE type_effectiveness (
+  attacking_type TEXT NOT NULL,
+  defending_type TEXT NOT NULL,
+  multiplier REAL NOT NULL,
+  PRIMARY KEY (attacking_type, defending_type)
+);
+
+CREATE TABLE engine_read_version (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  version_fingerprint TEXT NOT NULL,
+  last_sync_at TEXT NOT NULL,
+  migration_count INTEGER NOT NULL
+);
+```
+
+**Indexes**:
+- `pokemon.id` (primary key)
+- `pokemon.name` (unique)
+- `moves.id` (primary key)
+- `moves.name` (unique)
+- `type_effectiveness (attacking_type, defending_type)` (composite primary key)
+
+**SQLite Configuration**:
+- WAL mode: `PRAGMA journal_mode = WAL`
+- Synchronous: `PRAGMA synchronous = NORMAL`
+- Cache size: Configurable via `SQLITE_CACHE_SIZE_KB` (default: 8192 KB = 8 MB)
+- Busy timeout: 5000ms
+
+### 9.8.4 Step 3: L1 Cache Load (Already Complete)
+
+**Purpose**: In-memory Map structures for <1μs lookups during battles.
+
+**Note**: L1 Cache (engine-cache service) already loaded by Service Registry in Phase 1 (startupOrder: 30). No additional work needed in Phase 3.
+
+**Cache Contents**:
+
+```typescript
+// From src/services/engine-cache.ts
+export class EngineCache {
+  private pokemon: Map<number, Pokemon> = new Map();
+  private pokemonByName: Map<string, Pokemon> = new Map();
+  private moves: Map<number, Move> = new Map();
+  private typeChart: Map<string, number> = new Map();
+  
+  // Loaded from engineReadDbService during Service Registry init
+  async refresh(): Promise<void> {
+    const allPokemon = await this.engineReadDb.getAllPokemon();
+    const allMoves = await this.engineReadDb.getAllMoves();
+    const allTypeEffectiveness = await this.engineReadDb.getAllTypeEffectiveness();
+    
+    // Populate Maps (O(n) one-time cost)
+    this.pokemon.clear();
+    this.pokemonByName.clear();
+    for (const p of allPokemon) {
+      this.pokemon.set(p.id, p);
+      this.pokemonByName.set(p.name.toLowerCase(), p);
+    }
+    
+    this.moves.clear();
+    for (const m of allMoves) {
+      this.moves.set(m.id, m);
+    }
+    
+    this.typeChart.clear();
+    for (const te of allTypeEffectiveness) {
+      const key = `${te.attacking_type}:${te.defending_type}`;
+      this.typeChart.set(key, te.multiplier);
+    }
+  }
+}
+```
+
+**Stats Logging**:
+
+```typescript
+if (engineCache) {
+  const cacheStats = engineCache.getStats();
+  log.info("Engine L1 Cache ready", {
+    pokemon: cacheStats.pokemonCount,
+    moves: cacheStats.moveCount,
+    typeEffectiveness: cacheStats.typeEffectivenessCount,
+    memorySizeMb: cacheStats.memorySizeMb.toFixed(2)  // ~20 MB
+  });
+}
+```
+
+**Performance**: <1μs lookups (hash table O(1) complexity).
+
+### 9.8.5 Step 4: Write-DB Initialization
+
+**Purpose**: Load append-only SQLite database for battle logs and analytics.
+
+```typescript
+if (!engineWriteDbService) {
+  throw new Error('Engine Write-DB service not initialized from registry');
+}
+
+await engineWriteDbService.initialize();
+log.info("Engine Write-DB initialized");
+```
+
+**Database Schema** (Write-DB):
+
+```sql
+CREATE TABLE battle_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  battle_id TEXT NOT NULL,
+  turn_number INTEGER NOT NULL,
+  player1_pokemon TEXT NOT NULL,
+  player2_pokemon TEXT NOT NULL,
+  winner TEXT,
+  total_turns INTEGER,
+  timestamp TEXT NOT NULL,
+  metadata TEXT  -- JSON
+);
+
+CREATE TABLE move_usage (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  battle_id TEXT NOT NULL,
+  turn_number INTEGER NOT NULL,
+  trainer_id TEXT NOT NULL,
+  pokemon_id TEXT NOT NULL,
+  move_name TEXT NOT NULL,
+  target_id TEXT,
+  damage_dealt INTEGER,
+  was_critical BOOLEAN DEFAULT 0,
+  timestamp TEXT NOT NULL
+);
+
+CREATE TABLE anomalies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  battle_id TEXT NOT NULL,
+  turn_number INTEGER NOT NULL,
+  anomaly_type TEXT NOT NULL,
+  description TEXT NOT NULL,
+  severity TEXT NOT NULL,  -- "LOW", "MEDIUM", "HIGH"
+  timestamp TEXT NOT NULL
+);
+
+CREATE TABLE write_ahead_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  operation TEXT NOT NULL,  -- "INSERT_BATTLE_LOG", "INSERT_MOVE_USAGE", etc.
+  table_name TEXT NOT NULL,
+  data TEXT NOT NULL,       -- JSON
+  checksum TEXT NOT NULL,   -- SHA-256 for corruption detection
+  timestamp TEXT NOT NULL
+);
+```
+
+**Indexes**:
+- `battle_logs.battle_id`
+- `move_usage.battle_id`
+- `move_usage.trainer_id`
+- `anomalies.battle_id`
+- `write_ahead_log.timestamp`
+
+**SQLite Configuration**: Same as Read-DB (WAL mode, NORMAL synchronous, 8 MB cache).
+
+### 9.8.6 Step 5: WAL Replay (Crash Recovery)
+
+**Purpose**: Replay Write-Ahead Log to recover data from crashes.
+
+```typescript
+await engineWriteDbService.replayWAL();
+
+const writeStats = engineWriteDbService.getStats();
+log.info("Engine Write-DB WAL replayed", {
+  battleLogs: writeStats.battleLogCount,
+  moveUsage: writeStats.moveUsageCount,
+  anomalies: writeStats.anomalyCount,
+  walEntries: writeStats.walEntryCount  // Should be 0 after replay
+});
+```
+
+**WAL Replay Logic**:
+
+```typescript
+// From src/services/database/engine-write-db.ts
+async replayWAL(): Promise<void> {
+  const walEntries = await this.db.all('SELECT * FROM write_ahead_log ORDER BY id');
+  
+  for (const entry of walEntries) {
+    // Verify checksum
+    const expectedChecksum = crypto.createHash('sha256').update(entry.data).digest('hex');
+    if (entry.checksum !== expectedChecksum) {
+      log.error('WAL entry corrupted', { entryId: entry.id, expectedChecksum, actualChecksum: entry.checksum });
+      continue; // Skip corrupted entry
+    }
+    
+    // Parse and apply operation
+    const data = JSON.parse(entry.data);
+    switch (entry.operation) {
+      case 'INSERT_BATTLE_LOG':
+        await this.insertBattleLogs([data]);
+        break;
+      case 'INSERT_MOVE_USAGE':
+        await this.insertMoveUsage([data]);
+        break;
+      case 'INSERT_ANOMALY':
+        await this.insertAnomalies([data]);
+        break;
+    }
+    
+    // Delete replayed entry
+    await this.db.run('DELETE FROM write_ahead_log WHERE id = ?', entry.id);
+  }
+  
+  log.info('WAL replay complete', { entriesReplayed: walEntries.length });
+}
+```
+
+**Safety**: Corrupted entries skipped (SHA-256 checksum validation).
+
+### 9.8.7 Step 6: Background Workers
+
+**Purpose**: Start 4 background workers for cache refresh, buffer flush, sync, and validation.
+
+```typescript
+await startEngineWorkers();
+engineWorkersRunning = true;
+log.info("Engine DB workers started");
+```
+
+**4 Workers** (from `src/workers/engine-workers.ts`):
+
+1. **CacheRefreshWorker** (hourly + 5s stagger)
+   - Calls `engineCache.refresh()` to reload L1 cache from Read-DB
+   - Ensures cache stays fresh without blocking battles
+   - Logs: `"Engine L1 Cache refreshed"` with new counts
+
+2. **BufferFlushWorker** (30s + 10s stagger)
+   - Calls `engineWriteBuffer.flush()` to drain in-memory queues
+   - Batches battle logs / move usage / anomalies to Write-DB
+   - Backpressure monitoring (75% warn, 95% reject)
+
+3. **ReadDbSyncWorker** (daily + Render cron)
+   - Downloads fresh Pokémon data from PROD PostgreSQL
+   - Rebuilds Read-DB with latest species/moves/types
+   - **Note**: Placeholder in Phase 3, full implementation in Phase 23+
+
+4. **WriteDbValidatorWorker** (10min + 15s stagger)
+   - Validates Write-DB data quality (95% threshold)
+   - Uploads validated batches to PROD PostgreSQL
+   - Prunes old entries (24h retention after upload)
+
+**Additional Workers**:
+
+```typescript
+// Error learning worker (hourly analysis)
+await errorLearningWorker.start();
+log.info("Error learning worker started");
+
+// AI Logging System (Store/ai-logs/ persistence)
+await aiLogger.initialize();
+await aiLogAnalyzer.initialize();
+log.info("AI Logging System initialized");
+```
+
+**Resource Monitoring**:
+
+```typescript
+if (resourceMonitor) {
+  resourceMonitor.resourceMonitor.start();
+  log.info("Resource monitor started with integrated memory guardian", {
+    healthCheckIntervalHours: 12,
+    memoryGuardianIntervalSec: 30,
+    limits: {
+      warning: '1536MB',   // 75% of 2 GB
+      critical: '1741MB',  // 85% of 2 GB
+      emergency: '1843MB', // 90% of 2 GB
+      renderLimit: '2048MB', // 2 GB Standard plan
+    },
+  });
+}
+```
+
+### 9.8.8 Step 7: Engine Ready Flag
+
+**Purpose**: Signal that engine is ready for battle operations.
+
+```typescript
+global.engineReady = true;
+```
+
+**Usage**: Battle handlers check `global.engineReady` before executing moves.
+
+```typescript
+// In battle handler
+if (!global.engineReady) {
+  await interaction.reply({
+    content: "⚠️ Battle engine is still initializing. Please try again in a moment.",
+    ephemeral: true
+  });
+  return;
+}
+```
+
+**CLI Dashboard Update**:
+
+```typescript
+updateEngineSection();  // Refreshes Engine DB status in console
+```
+
+### 9.8.9 Performance Metrics
+
+**Phase 3 Timing** (Engine DB + Bots parallel):
+- **Production**: ~800ms total (max of Engine DB ~600ms, Discord ~800ms)
+- **Workstation**: ~600ms total (max of Engine DB ~400ms, Discord ~600ms)
+
+**Engine DB Breakdown**:
+- Step 1 (Config validation): <5ms
+- Step 2 (Read-DB init): ~50ms (SQLite open + schema check)
+- Step 3 (L1 Cache): 0ms (already loaded in Phase 1)
+- Step 4 (Write-DB init): ~30ms (SQLite open + schema check)
+- Step 5 (WAL replay): ~20ms (typical: 0-10 entries, <1ms per entry)
+- Step 6 (Workers start): ~100ms (timer registration + initial health checks)
+- Step 7 (Engine ready): <1ms (flag set)
+
+**Memory Footprint**:
+- Read-DB: ~5-10 MB (SQLite file in memory)
+- Write-DB: ~2-5 MB (SQLite file in memory)
+- L1 Cache: ~20 MB (Map structures)
+- Write Buffer: ~5 MB (in-memory queues)
+- Worker overhead: <1 MB (timers + metadata)
+- **Total**: ~30-40 MB stable
+
+**Latency Comparison**:
+- PROD PostgreSQL: 50-100ms per query
+- Read-DB (SQLite): ~50ms per query
+- L1 Cache (Map): <1μs per lookup (50,000x faster than PROD)
+
+**See Also**:
+- [Section 16: Boot Sequence](16-boot-sequence.md) § Phase 3 for complete boot flow
+- [Section 17: Service Registry](17-service-registry.md) for engine service initialization
+- [Section 13: Performance](13-performance.md) § Engine DB optimization strategies
+
+### 9.8.10 Error Handling & Graceful Degradation
+
+**Initialization Failure**:
+
+```typescript
+try {
+  // ... 7-step initialization
+  return { success: true };
+} catch (error) {
+  const message = getErrorMessage(error);
+  setSection("engine", {
+    title: "Engine DB",
+    status: "error",
+    metrics: [metric("error", message)],
+  });
+  log.error("Engine DB initialization failed", error);
+  
+  // Engine DB is optional - continue without it
+  log.warn("Continuing without Engine DB (battles will use Prisma queries)");
+  return { success: false, error };
+}
+```
+
+**Fallback Behavior**:
+- Battles use direct PROD PostgreSQL queries (50-100ms latency)
+- Write Buffer queues to Prisma instead of Write-DB
+- Workers disabled (no background sync/validation)
+- Application continues normally (no user-facing errors)
+
+**Runtime Failures**:
+- Worker crashes logged, timers cleared gracefully
+- WAL corruption detected via SHA-256 checksums, corrupted entries skipped
+- Read-DB unavailable → L1 Cache serves stale data (hourly refresh retry)
+- Write-DB unavailable → Write Buffer queues to Prisma fallback
+
+---
+
 ## 9.10 Game Rules & Mechanics (MVP)
 
 **Ruleset Version:** 0.1 (tied to code releases)  
