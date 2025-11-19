@@ -63,7 +63,442 @@ if (onPremiseExperimentPrisma) {
 3. `DATABASE_ONPREMISE_DEV_PRIMARY` → Workstation mirror (offline mode)
 4. `DATABASE_ONPREMISE_DEV_EXPERIMENT` → Migration testing cluster
 
-## 2.2 Database Replication
+## 2.2 Prisma Client Initialization
+
+**Purpose**: Initialize up to 3 Prisma clients (PROD + optional LOCAL + optional EXPERIMENT) during boot Phase 2.
+
+**Source**: `src/shared/prisma.ts` (`ensurePrisma` function) + `src/models/index.ts` (`initPrisma` wrapper)
+
+**Called From**: `src/index.ts` Phase 2 (Database Connection) — after Service Registry, before Engine/Bots
+
+### 2.2.1 Initialization Flow
+
+**Entry Point** (`src/index.ts` Phase 2):
+
+```typescript
+await initPrisma(); // Wrapper that calls ensurePrisma()
+await prisma.$queryRaw(Prisma.sql`SELECT 1`); // Connectivity probe
+```
+
+**Core Logic** (`src/shared/prisma.ts`):
+
+```typescript
+export async function ensurePrisma(): Promise<PrismaClient> {
+  // Use existing singleton if already connected
+  await globalPrisma.prismaConnectPromise;
+  return prisma;
+}
+```
+
+**Singleton Pattern**: Prisma clients initialized once, reused across entire app lifecycle.
+
+**globalPrisma.prismaConnectPromise**: Promise that resolves when all configured clients connect successfully.
+
+### 2.2.2 Multi-Client Architecture
+
+**3 Prisma Clients** (1 required + 2 optional):
+
+1. **`prisma`** (PRIMARY - REQUIRED)
+   - Connected to: `PROD_DATABASE_URL` (Render-managed PostgreSQL)
+   - Purpose: ALL production operations (gameplay, migrations, monitoring)
+   - Export: `export let prisma: PrismaClient`
+   - Initialization: Always attempted, fails boot if unreachable
+
+2. **`onPremiseDevPrisma`** (LOCAL - OPTIONAL)
+   - Connected to: `DATABASE_ONPREMISE_DEV_PRIMARY` (localhost:55433)
+   - Purpose: Offline development fallback
+   - Export: `export let onPremiseDevPrisma: PrismaClient | null = null`
+   - Initialization: Only if environment variable present, skips gracefully if missing
+
+3. **`onPremiseExperimentPrisma`** (EXPERIMENT - OPTIONAL)
+   - Connected to: `DATABASE_ONPREMISE_DEV_EXPERIMENT` (localhost:55434)
+   - Purpose: Migration testing (isolated sandbox)
+   - Export: `export let onPremiseExperimentPrisma: PrismaClient | null = null`
+   - Initialization: Only if environment variable present, skips gracefully if missing
+
+**Graceful Degradation**: Missing optional clients log info message, don't fail boot.
+
+### 2.2.3 PROD Client Initialization
+
+**Configuration Detection**:
+
+```typescript
+// From src/shared/config.ts
+const config = loadConfig();
+const candidate = config.databases.find(db => db.isPrimary); // PROD_DATABASE_URL
+activeCandidate = candidate;
+```
+
+**Transport Selection**: Always "direct" (no connection pooling).
+
+```typescript
+prodTransport = "direct";
+```
+
+**Client Creation**:
+
+```typescript
+const baseOptions = {
+  log: ["error"] as any, // Only log errors (reduce noise)
+};
+
+// PRISMA REQUIREMENT: Temporarily set DATABASE_URL for constructor
+const originalDatabaseUrl = process.env.DATABASE_URL;
+process.env.DATABASE_URL = candidate.url; // PROD_DATABASE_URL
+
+prodPrismaClient = new PrismaClient(baseOptions);
+
+// Restore original DATABASE_URL
+if (originalDatabaseUrl) {
+  process.env.DATABASE_URL = originalDatabaseUrl;
+}
+```
+
+**Connection + Probe**:
+
+```typescript
+await prodPrismaClient.$connect();
+
+const start = process.hrtime.bigint();
+await prodPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+
+log.info("PROD Prisma client connected", {
+  latencyMs: latencyMs.toFixed(2),
+  transport: "direct",
+  source: candidate.source, // "PROD_DATABASE_URL"
+});
+```
+
+**Export Assignment**:
+
+```typescript
+prisma = prodPrismaClient; // Primary export
+prismaClient = prodPrismaClient; // Legacy reference
+```
+
+### 2.2.4 LOCAL Client Initialization (Optional)
+
+**Skip Condition**:
+
+```typescript
+const onPremiseDevUrl = process.env.DATABASE_ONPREMISE_DEV_PRIMARY?.trim();
+if (!onPremiseDevUrl) {
+  log.info("LOCAL database connection skipped", { 
+    reason: "no DATABASE_ONPREMISE_DEV_PRIMARY" 
+  });
+  return; // Graceful skip
+}
+```
+
+**Client Creation** (same pattern as PROD):
+
+```typescript
+onPremiseDevTransport = "direct";
+
+process.env.DATABASE_URL = onPremiseDevUrl;
+onPremiseDevPrismaClient = new PrismaClient({ log: ["error"] });
+process.env.DATABASE_URL = originalDatabaseUrl; // Restore
+
+onPremiseDevPrisma = onPremiseDevPrismaClient; // Export assignment
+```
+
+**Connection + Probe**:
+
+```typescript
+await onPremiseDevPrismaClient.$connect();
+
+const start = process.hrtime.bigint();
+await onPremiseDevPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+
+log.info("LOCAL Prisma client connected (workstation development)", {
+  latencyMs: latencyMs.toFixed(2),
+  transport: "direct",
+});
+```
+
+**Heartbeat Start**: Independent 30-second heartbeat for LOCAL client.
+
+```typescript
+setInterval(async () => {
+  if (!onPremiseDevPrismaClient) return;
+  
+  const probeStart = process.hrtime.bigint();
+  try {
+    await onPremiseDevPrismaClient.$queryRaw(Prisma.sql`SELECT 1`);
+    const probeLatencyMs = Number(process.hrtime.bigint() - probeStart) / 1_000_000;
+    
+    lastOnPremiseDevHeartbeatEvent = {
+      ok: true,
+      timestamp: new Date(),
+      latencyMs: probeLatencyMs,
+      slow: probeLatencyMs >= 1000,
+      consecutiveFailures: 0,
+      source: "heartbeat",
+    };
+  } catch (error) {
+    lastOnPremiseDevHeartbeatEvent = {
+      ok: false,
+      timestamp: new Date(),
+      latencyMs: null,
+      slow: false,
+      consecutiveFailures: (lastOnPremiseDevHeartbeatEvent?.consecutiveFailures ?? 0) + 1,
+      error: error as Error,
+      source: "heartbeat",
+    };
+  }
+}, 30_000); // 30 seconds
+```
+
+### 2.2.5 EXPERIMENT Client Initialization (Optional)
+
+**Same Pattern**: Identical to LOCAL client initialization, but uses `DATABASE_ONPREMISE_DEV_EXPERIMENT`.
+
+**Export**: `onPremiseExperimentPrisma` (null if not configured).
+
+**Purpose**: Isolated testing environment, never accessed in production code paths.
+
+### 2.2.6 Heartbeat Monitoring
+
+**Purpose**: Continuously monitor database connectivity, detect degradation.
+
+**PROD Heartbeat** (primary monitoring):
+
+```typescript
+export function startPrismaHeartbeat(options?: HeartbeatOptions): () => void {
+  const state: HeartbeatState = {
+    timer: null,
+    stopped: false,
+    consecutiveFailures: 0,
+    options: coerceOptions(options), // Default: 30s interval, 1s warn threshold
+  };
+  
+  // Run immediately
+  performHeartbeat(state, state.options);
+  
+  // Schedule recurring
+  state.timer = setInterval(() => {
+    performHeartbeat(state, state.options);
+  }, state.options.intervalMs);
+  
+  // Return stop function
+  return () => {
+    if (state.timer) clearInterval(state.timer);
+    state.stopped = true;
+  };
+}
+```
+
+**Heartbeat Probe**:
+
+```typescript
+async function performHeartbeat(state: HeartbeatState, options: Required<HeartbeatOptions>): Promise<void> {
+  const start = process.hrtime.bigint();
+  
+  try {
+    await prisma.$queryRaw(Prisma.sql`SELECT 1`);
+    const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+    
+    const slow = latencyMs >= options.warnThresholdMs; // Default: 1000ms
+    
+    if (slow) {
+      log.warn("Prisma heartbeat slow", { latencyMs, thresholdMs: options.warnThresholdMs });
+    }
+    
+    state.consecutiveFailures = 0;
+    
+    emitHeartbeat({
+      ok: true,
+      timestamp: new Date(),
+      latencyMs,
+      slow,
+      consecutiveFailures: 0,
+      source: "heartbeat",
+    });
+  } catch (error) {
+    state.consecutiveFailures += 1;
+    
+    if (state.consecutiveFailures >= options.errorThreshold) { // Default: 3
+      log.error("Prisma heartbeat failed", error);
+    } else {
+      log.warn("Prisma heartbeat failed", { consecutiveFailures: state.consecutiveFailures });
+    }
+    
+    emitHeartbeat({
+      ok: false,
+      timestamp: new Date(),
+      latencyMs: null,
+      slow: false,
+      consecutiveFailures: state.consecutiveFailures,
+      error: error as Error,
+      source: "heartbeat",
+    });
+  }
+}
+```
+
+**Event Emission**: Heartbeat events broadcast to listeners (CLI dashboard, monitoring).
+
+```typescript
+function emitHeartbeat(event: PrismaHeartbeatEvent): void {
+  for (const listener of heartbeatListeners) {
+    try {
+      listener(event);
+    } catch (error) {
+      log.warn("Prisma heartbeat listener threw", { listenerError: getErrorMessage(error) });
+    }
+  }
+}
+```
+
+### 2.2.7 Database Stats API
+
+**Purpose**: Expose connection status, latency, transport for monitoring.
+
+**Triple Stats Structure**:
+
+```typescript
+export type TripleDatabaseStats = {
+  prod: DatabaseStats;
+  onPremiseDev: DatabaseStats;
+  onPremiseExperiment: DatabaseStats;
+};
+
+export type DatabaseStats = {
+  source: string;        // "PROD_DATABASE_URL" | "onpremise-dev" | "onpremise-experiment"
+  transport: string;     // "direct" (always)
+  latency: number | null; // Last heartbeat latency in ms
+  status: string;        // "healthy" | "degraded" | "error" | "initializing" | "disabled"
+};
+```
+
+**Status Computation**:
+
+```typescript
+function computeStatus(heartbeat: PrismaHeartbeatEvent | null): string {
+  if (!heartbeat) return "unknown";
+  
+  if (heartbeat.ok) {
+    return heartbeat.slow ? "degraded" : "healthy"; // slow = latency > 1000ms
+  }
+  
+  // Failed heartbeat
+  const errorThreshold = 3;
+  return heartbeat.consecutiveFailures >= errorThreshold ? "error" : "reconnecting";
+}
+```
+
+**Get Stats**:
+
+```typescript
+export function getDatabaseStats(): TripleDatabaseStats {
+  const prodLatency = lastProdHeartbeatEvent?.latencyMs ?? null;
+  const prodStatus = prodPrismaClient 
+    ? (lastProdHeartbeatEvent ? computeStatus(lastProdHeartbeatEvent) : "initializing")
+    : "offline";
+  
+  const onPremiseDevLatency = lastOnPremiseDevHeartbeatEvent?.latencyMs ?? null;
+  const onPremiseDevStatus = onPremiseDevPrismaClient
+    ? (lastOnPremiseDevHeartbeatEvent ? computeStatus(lastOnPremiseDevHeartbeatEvent) : "initializing")
+    : "disabled";
+  
+  const onPremiseExperimentLatency = lastOnPremiseExperimentHeartbeatEvent?.latencyMs ?? null;
+  const onPremiseExperimentStatus = onPremiseExperimentPrismaClient
+    ? (lastOnPremiseExperimentHeartbeatEvent ? computeStatus(lastOnPremiseExperimentHeartbeatEvent) : "initializing")
+    : "disabled";
+  
+  return {
+    prod: {
+      source: activeCandidate?.source ?? "unknown",
+      transport: prodTransport,
+      latency: prodLatency,
+      status: prodStatus,
+    },
+    onPremiseDev: {
+      source: process.env.DATABASE_ONPREMISE_DEV_PRIMARY ? "onpremise-dev" : "unknown",
+      transport: onPremiseDevTransport,
+      latency: onPremiseDevLatency,
+      status: onPremiseDevStatus,
+    },
+    onPremiseExperiment: {
+      source: process.env.DATABASE_ONPREMISE_DEV_EXPERIMENT ? "onpremise-experiment" : "unknown",
+      transport: onPremiseExperimentTransport,
+      latency: onPremiseExperimentLatency,
+      status: onPremiseExperimentStatus,
+    },
+  };
+}
+```
+
+**CLI Dashboard Usage**:
+
+```typescript
+import { getDatabaseStats } from "../shared/prisma.js";
+
+const stats = getDatabaseStats();
+
+console.log(`PROD: ${stats.prod.status} (${stats.prod.latency}ms)`);
+console.log(`LOCAL: ${stats.onPremiseDev.status} (${stats.onPremiseDev.latency}ms)`);
+console.log(`EXPERIMENT: ${stats.onPremiseExperiment.status} (${stats.onPremiseExperiment.latency}ms)`);
+```
+
+### 2.2.8 Performance Metrics
+
+**Phase 2 Timing** (Database Connection):
+- Production: ~50ms typical, ~200ms max
+- Workstation: <20ms typical (localhost), ~100ms max
+
+**Breakdown**:
+- Client creation: <5ms (instantiation)
+- `$connect()`: ~30-100ms (TCP handshake + auth)
+- Probe query (`SELECT 1`): ~10-50ms (latency check)
+- Heartbeat setup: <5ms (timer registration)
+
+**Memory Footprint**:
+- Each PrismaClient: ~10-20 MB
+- 3 clients: ~30-60 MB total
+- Heartbeat timers: <1 KB (negligible)
+
+**Latency Thresholds**:
+- **Healthy**: <1000ms
+- **Degraded**: ≥1000ms (slow but functional)
+- **Error**: 3+ consecutive failures
+
+**See Also**: [Section 16: Boot Sequence](16-boot-sequence.md) § Phase 2 for complete timing breakdown.
+
+### 2.2.9 Error Handling
+
+**Initialization Failures**:
+
+```typescript
+try {
+  await initPrisma();
+  await prisma.$queryRaw(Prisma.sql`SELECT 1`);
+  log.info("Database connectivity OK");
+} catch (error) {
+  log.warn("Database connectivity failed; attempting recovery");
+  
+  // Lazy-load database recovery module
+  const { runDatabaseRecovery } = await import("./runtime/databaseRecovery.js");
+  await runDatabaseRecovery();
+  
+  // Retry connection
+  await initPrisma();
+  await prisma.$queryRaw(Prisma.sql`SELECT 1`);
+}
+```
+
+**Recovery Strategies**:
+1. Retry with exponential backoff (3 attempts)
+2. Switch to fallback URL if available (RENDER_DB_EXTERNAL_URL → PROD_DATABASE_URL)
+3. Fail boot if all attempts exhausted (database required for operation)
+
+**Runtime Failures**: Heartbeat monitoring detects degradation, logs warnings, but doesn't crash app.
+
+**Graceful Degradation**: Optional clients (LOCAL, EXPERIMENT) silently skip if unavailable.
+
+## 2.3 Database Replication
 
 **Master-Replica Cascade with Version Control** — Automated replication system with integrity verification.
 
