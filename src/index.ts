@@ -26,6 +26,7 @@ import { EventBus } from "./shared/event-bus.js";
 import { formatBytes } from "./shared/utils/format-utils.js";
 import { getErrorMessage } from "./shared/utils/error-utils.js";
 import { startHealthServer, stopHealthServer } from "./services/health-server.js";
+import { notifyBoot, notifyShutdown, notifyCrash } from "./services/lifecycle-notifier.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
 // import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
 // Lazy-loaded database recovery (only needed when connection fails)
@@ -859,11 +860,24 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   setPhase(`Shutting down (${signal})`);
   log.warn("Shutdown requested", { signal });
   
+  // Calculate uptime for shutdown notification
+  const uptimeMs = process.uptime() * 1000;
+  
   // Cancel auto-restart timer if it exists
   if (autoRestartTimer) {
     clearTimeout(autoRestartTimer);
     autoRestartTimer = null;
   }
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // LIFECYCLE WEBHOOK: Shutdown Notification
+  // ══════════════════════════════════════════════════════════════════════════
+  // Send Discord webhook BEFORE shutdown (fire-and-forget, non-blocking)
+  notifyShutdown(signal, uptimeMs).catch((error) => {
+    log.warn("Lifecycle webhook failed (non-critical)", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PHASE 1: CRITICAL DATA PERSISTENCE (Priority Order - Execute First)
@@ -1106,6 +1120,16 @@ function installSignalHandlers(): void {
 
   process.on("uncaughtException", async (error) => {
     log.error("Uncaught exception", error);
+    
+    // ══════════════════════════════════════════════════════════════════════════
+    // LIFECYCLE WEBHOOK: Crash Notification
+    // ══════════════════════════════════════════════════════════════════════════
+    // Send Discord webhook IMMEDIATELY on crash (fire-and-forget, non-blocking)
+    notifyCrash(error).catch((webhookError) => {
+      log.warn("Lifecycle webhook failed (non-critical)", {
+        error: webhookError instanceof Error ? webhookError.message : String(webhookError),
+      });
+    });
     
     // Capture error for tracking (CRITICAL severity - system crash)
     try {
@@ -1539,6 +1563,16 @@ export async function boot(): Promise<void> {
     // Log memory progression breakdown
     const memProgression = calculateMemoryProgression(STARTUP_MEMORY);
     log.info("📊 Memory Progression Breakdown", memProgression);
+    
+    // ══════════════════════════════════════════════════════════════════════════
+    // LIFECYCLE WEBHOOK: Boot Notification
+    // ══════════════════════════════════════════════════════════════════════════
+    // Send Discord webhook with boot status (fire-and-forget, non-blocking)
+    notifyBoot().catch((error) => {
+      log.warn("Lifecycle webhook failed (non-critical)", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
     
     // MEMORY PROFILING: Capture detailed heap snapshot after startup
     try {
