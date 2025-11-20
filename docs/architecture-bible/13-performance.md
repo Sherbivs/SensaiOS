@@ -829,6 +829,988 @@ public getStatus(): ResourceMonitorStatus {
 - **[development-bible/03-debugging.md](../development-bible/03-debugging.md)** — Memory leak debugging
 - **MEMORY-OPTIMIZATION-2025-11-17.md** — Memory optimization audit results
 
+### 13.3.6 PokéAPI Cache Service Runtime
+
+**Purpose**: In-memory caching layer for Pokémon data (species metadata, stats, abilities, sprites) with weekly cron-based refresh from PokeAPI.
+
+**Why This Matters**: The Pokemon Service maintains an always-available in-memory cache to eliminate PokeAPI network latency (typically 100-500ms per request). This is critical for:
+1. **Battle initialization** — Instant species lookup when users start battles (<1ms vs 100-500ms)
+2. **Wild encounters** — Real-time species data for walk/catch flows
+3. **Dexpack operations** — Fallback when dexpack cache unavailable
+4. **Offline development** — Workstation development without network dependency
+
+**As of 2025-11-20**, the system maintains three in-memory Maps (pokemonById, pokemonByName) populated from disk cache (Store/pokemon-cache.json) with automatic weekly refresh from PokeAPI (Thursday 12 AM UTC).
+
+---
+
+#### 13.3.6.1 Data Structures
+
+**In-Memory Storage** (src/services/pokemonService.js, lines 73-79):
+
+```javascript
+let pokemonList = [];            // Frozen array of all Pokemon (sorted by ID)
+let pokemonById = new Map();     // Map<id: number, pokemon: Pokemon>
+let pokemonByName = new Map();   // Map<name: string, pokemon: Pokemon> (lowercase keys)
+let lastFetchedAt = null;        // Date | null
+let lastFetchAttemptAt = null;   // Date | null
+let initializationPromise = null; // Promise | null (single-flight init)
+let refreshPromise = null;        // Promise | null (single-flight refresh)
+let cronTask = null;             // CronTask | null (weekly refresh job)
+```
+
+**Pokemon Entry Structure**:
+
+```typescript
+interface PokemonEntry {
+  id: number;                    // Pokédex number (1-1025+)
+  name: string;                  // Species name (e.g., "charizard")
+  types: string[];               // Type names (e.g., ["fire", "flying"])
+  abilities: Ability[];          // Ability list with hidden flag
+  base_stats: BaseStats;         // HP, Attack, Defense, etc.
+  sprites: Sprites;              // Image URLs (default, shiny, official artwork, home)
+}
+
+interface Ability {
+  name: string;                  // Ability name (e.g., "blaze")
+  is_hidden: boolean;            // Hidden ability flag
+  slot: number | null;           // Ability slot (1, 2, 3, or null)
+}
+
+interface BaseStats {
+  hp: number;
+  attack: number;
+  defense: number;
+  special_attack: number;
+  special_defense: number;
+  speed: number;
+}
+
+interface Sprites {
+  default: string | null;        // Front default sprite URL
+  shiny: string | null;          // Front shiny sprite URL
+  official_artwork: string | null; // Official artwork URL (high-res)
+  home: string | null;           // Pokemon Home sprite URL
+}
+```
+
+**Memory Footprint** (per Pokemon):
+- **Minimal Entry**: ~200 bytes (name, types, basic stats)
+- **With Sprites**: ~500-800 bytes (includes 4 sprite URLs)
+- **Total (1000 Pokemon)**: ~500-800 KB in-memory (very lightweight)
+
+**Data Immutability**:
+- All entries frozen with `Object.freeze()` (prevents accidental mutation)
+- Getters return deep clones (defensive copying)
+- Maps rebuilt atomically during refresh (no partial state)
+
+---
+
+#### 13.3.6.2 Disk Persistence
+
+**Cache File Location** (src/services/pokemonService.js, lines 30-32):
+
+```javascript
+const storeRoot = process.env.RENDER ? '/Store' : path.join(process.cwd(), 'Store');
+const CACHE_FILE_PATH = path.join(storeRoot, 'pokemon-cache.json');
+const CACHE_FILE_VERSION = 1;
+```
+
+**File Paths:**
+- **Production (Render)**: `/Store/pokemon-cache.json`
+- **Local Development**: `Store/pokemon-cache.json` (relative to cwd)
+
+**Cache File Format** (JSON):
+
+```json
+{
+  "version": 1,
+  "lastFetchedAt": "2025-11-20T00:00:00.000Z",
+  "total": 1025,
+  "pokemon": [
+    {
+      "id": 1,
+      "name": "bulbasaur",
+      "types": ["grass", "poison"],
+      "abilities": [
+        { "name": "overgrow", "is_hidden": false, "slot": 1 },
+        { "name": "chlorophyll", "is_hidden": true, "slot": 3 }
+      ],
+      "base_stats": {
+        "hp": 45,
+        "attack": 49,
+        "defense": 49,
+        "special_attack": 65,
+        "special_defense": 65,
+        "speed": 45
+      },
+      "sprites": {
+        "default": "https://raw.githubusercontent.com/.../bulbasaur.png",
+        "shiny": "https://raw.githubusercontent.com/.../bulbasaur-shiny.png",
+        "official_artwork": "https://raw.githubusercontent.com/.../bulbasaur-artwork.png",
+        "home": "https://raw.githubusercontent.com/.../bulbasaur-home.png"
+      }
+    }
+    // ... 1024 more entries
+  ]
+}
+```
+
+**Write Operations** (writeCacheToDisk function, lines 324-342):
+
+```javascript
+async function writeCacheToDisk(list, fetchedAt) {
+  try {
+    await ensureCacheDirectory();  // mkdir -p Store/
+    const iso = (fetchedAt instanceof Date && !Number.isNaN(fetchedAt.getTime()))
+      ? fetchedAt.toISOString()
+      : new Date().toISOString();
+    const payload = {
+      version: CACHE_FILE_VERSION,
+      lastFetchedAt: iso,
+      total: Array.isArray(list) ? list.length : 0,
+      pokemon: Array.isArray(list) ? list : [],
+    };
+    await fs.writeFile(CACHE_FILE_PATH, JSON.stringify(payload, null, 2), 'utf8');
+  } catch (error) {
+    log('warn', 'Failed to write Pokémon cache to disk', { error, cacheFile: CACHE_FILE_PATH });
+  }
+}
+```
+
+**Read Operations** (loadCacheFromDisk function, lines 302-322):
+
+```javascript
+async function loadCacheFromDisk() {
+  try {
+    const raw = await fs.readFile(CACHE_FILE_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed) {
+      return null;
+    }
+    if (Array.isArray(parsed)) {
+      return { list: parsed, fetchedAt: null };
+    }
+    const list = Array.isArray(parsed.pokemon) ? parsed.pokemon : null;
+    if (!list) {
+      return null;
+    }
+    const fetchedAt = parsed.lastFetchedAt || parsed.fetchedAt || null;
+    return { list, fetchedAt };
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return null;  // File doesn't exist (first run)
+    }
+    log('warn', 'Failed to read Pokémon cache from disk', { error, cacheFile: CACHE_FILE_PATH });
+    return null;
+  }
+}
+```
+
+**Persistence Benefits**:
+- **Fast Startup**: Load from disk (~50-100ms) instead of PokeAPI fetch (~30-60 seconds)
+- **Offline Development**: Workstation development without internet (cached data available)
+- **Graceful Degradation**: If PokeAPI fetch fails, continue with stale cache data
+
+---
+
+#### 13.3.6.3 PokeAPI Fetch Logic
+
+**Fetch Strategy** (fetchPokemonRoster function, lines 344-392):
+
+```javascript
+async function fetchPokemonRoster() {
+  const startedAt = Date.now();
+  log('info', 'Fetching Pokémon roster index from PokéAPI', {
+    url: POKE_API_URL,
+    startedAt: new Date(startedAt).toISOString(),
+  });
+
+  // Step 1: Paginate through roster index (200 entries per page)
+  const listings = [];
+  let nextUrl = `${POKE_API_URL}?limit=${PAGE_SIZE}&offset=0`;
+  while (nextUrl) {
+    const page = await getJson(nextUrl);
+    const results = Array.isArray(page?.results) ? page.results : [];
+    listings.push(...results);
+    nextUrl = page?.next || null;
+    log('detail', 'Fetched Pokémon index page', {
+      accumulated: listings.length,
+      pageSize: results.length,
+      total: page?.count ?? null,
+    });
+  }
+
+  if (listings.length === 0) {
+    throw new Error('PokéAPI returned an empty roster.');
+  }
+
+  log('info', 'Fetching detailed Pokémon data', {
+    total: listings.length,
+    concurrency: CONCURRENCY_LIMIT,
+  });
+
+  // Step 2: Fetch detailed data with concurrency limit (20 parallel requests)
+  const fetchStarted = Date.now();
+  const details = await runWithConcurrency(listings, CONCURRENCY_LIMIT, async (entry, index) => {
+    const detail = await getJson(entry.url);
+    const normalised = buildPokemonRecord(detail);
+
+    if ((index + 1) % 50 === 0 || index + 1 === listings.length) {
+      log('detail', 'Fetched Pokémon details progress', {
+        fetched: index + 1,
+        total: listings.length,
+      });
+    }
+
+    return normalised;
+  });
+
+  log('info', 'Completed Pokémon roster fetch', {
+    total: details.length,
+    indexDurationMs: fetchStarted - startedAt,
+    detailDurationMs: Date.now() - fetchStarted,
+  });
+
+  return details;
+}
+```
+
+**Concurrency Control** (runWithConcurrency function, lines 394-413):
+
+```javascript
+async function runWithConcurrency(items, limit, iterator) {
+  const results = new Array(items.length);
+  let index = 0;
+
+  async function worker() {
+    while (true) {
+      const currentIndex = index++;
+      if (currentIndex >= items.length) {
+        break;
+      }
+      results[currentIndex] = await iterator(items[currentIndex], currentIndex);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+```
+
+**PokeAPI Configuration** (lines 20-28, 36-41):
+
+```javascript
+const POKE_API_URL = 'https://pokeapi.co/api/v2/pokemon';
+const REQUEST_TIMEOUT_MS = 20_000;  // 20 seconds per request
+const PAGE_SIZE = 200;              // 200 Pokemon per index page
+const CONCURRENCY_LIMIT = 20;       // 20 parallel requests max
+
+const HTTP_HEADERS = Object.freeze({
+  'User-Agent': 'Infinity-Gauntlet-PokemonService/1.0 (+https://pokeapi.co/)',
+});
+```
+
+**Performance** (full roster fetch):
+- **Index Pagination**: ~5-10 seconds (5-6 pages, 200 entries each)
+- **Detail Fetching**: ~20-40 seconds (1000+ Pokemon, 20 parallel requests)
+- **Total Duration**: ~30-60 seconds (varies by network latency)
+- **Data Volume**: ~5-10 MB JSON (1000+ Pokemon with sprites/stats)
+
+---
+
+#### 13.3.6.4 Weekly Cron Refresh
+
+**Cron Configuration** (src/services/pokemonService.js, lines 33-34):
+
+```javascript
+const CRON_SCHEDULE = '0 0 * * 4'; // 12 AM every Thursday
+const DEFAULT_TIMEZONE = process.env.POKEMON_CACHE_TZ || 'Etc/UTC';
+```
+
+**Schedule Breakdown**:
+- **Cron Pattern**: `0 0 * * 4`
+  - Minute: 0 (top of hour)
+  - Hour: 0 (midnight)
+  - Day of Month: * (any day)
+  - Month: * (any month)
+  - Day of Week: 4 (Thursday, 0=Sunday)
+- **Timezone**: UTC (configurable via `POKEMON_CACHE_TZ` env var)
+- **Frequency**: Weekly (every Thursday at midnight UTC)
+
+**Schedule Logic** (scheduleWeeklyRefresh function, lines 461-482):
+
+```javascript
+function scheduleWeeklyRefresh() {
+  if (cronTask) {
+    return;  // Already scheduled (idempotent)
+  }
+
+  const cronApi = ensureCron();  // Throws if node-cron missing
+  cronTask = cronApi.schedule(
+    CRON_SCHEDULE,
+    () => {
+      refreshPokemonCache({ reason: 'scheduled' }).catch((error) => {
+        log('error', 'Scheduled Pokémon cache refresh failed', { error });
+      });
+    },
+    { timezone: DEFAULT_TIMEZONE }
+  );
+
+  log('info', 'Scheduled weekly Pokémon cache refresh', {
+    cron: CRON_SCHEDULE,
+    timezone: DEFAULT_TIMEZONE,
+  });
+}
+```
+
+**Why Weekly?**:
+- **PokeAPI Stability**: Pokemon data rarely changes (new generations ~yearly)
+- **Rate Limit Friendly**: Weekly refresh avoids PokeAPI rate limits (respectful usage)
+- **Resource Efficient**: No need for hourly/daily refresh (data stable)
+- **Thursday Timing**: Low-traffic day (avoids weekend/Monday deploy cycles)
+
+**Manual Refresh** (refreshPokemonCache function, lines 418-456):
+
+```javascript
+async function refreshPokemonCache(options = {}) {
+  if (refreshPromise) {
+    return refreshPromise;  // Single-flight (deduplicate concurrent refresh calls)
+  }
+
+  const { reason = 'manual' } = options;
+  refreshPromise = (async () => {
+    const startedAt = new Date();
+    lastFetchAttemptAt = startedAt;
+    log('info', 'Refreshing Pokémon cache', {
+      reason,
+      startedAt: startedAt.toISOString(),
+    });
+
+    const roster = await fetchPokemonRoster();  // 30-60 seconds
+    setPokemonCache(roster, startedAt);         // <100ms (Map population)
+    await writeCacheToDisk(roster, startedAt);  // <500ms (JSON write)
+
+    log('info', 'pokemon.cache.count', {
+      total: pokemonList.length,
+      reason,
+      fetchedAt: startedAt.toISOString(),
+    });
+
+    log('info', 'Pokémon cache refresh complete', {
+      reason,
+      total: pokemonList.length,
+      durationMs: Date.now() - startedAt.getTime(),
+      cacheFile: CACHE_FILE_PATH,
+    });
+
+    return {
+      total: pokemonList.length,
+      lastFetchedAt,
+    };
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
+```
+
+**Refresh Reasons**:
+- `startup`: Initial fetch during bot boot (if cache stale or missing)
+- `scheduled`: Weekly cron job (Thursday midnight UTC)
+- `manual`: Admin-triggered via `/ops refresh-pokemon` (future)
+
+---
+
+#### 13.3.6.5 Initialization Lifecycle
+
+**Boot Sequence** (initializePokemonCache function, lines 484-522):
+
+```javascript
+async function initializePokemonCache() {
+  if (initializationPromise) {
+    return initializationPromise;  // Single-flight (deduplicate concurrent init calls)
+  }
+
+  initializationPromise = (async () => {
+    await ensureCacheDirectory();  // mkdir -p Store/
+
+    // Step 1: Load from disk (fast startup)
+    const disk = await loadCacheFromDisk();
+    if (disk && Array.isArray(disk.list) && disk.list.length > 0) {
+      setPokemonCache(disk.list, disk.fetchedAt);
+      log('info', 'Loaded Pokémon cache from disk', {
+        cacheFile: CACHE_FILE_PATH,
+        total: pokemonList.length,
+        lastFetchedAt: lastFetchedAt ? lastFetchedAt.toISOString() : null,
+      });
+    }
+
+    // Step 2: Refresh from PokeAPI (background)
+    try {
+      await refreshPokemonCache({ reason: 'startup' });
+    } catch (error) {
+      if (!pokemonList.length) {
+        log('error', 'Failed to initialize Pokémon cache and no cached data available', { error });
+        throw error;  // Fatal (no fallback data)
+      }
+      log('warn', 'Pokémon cache refresh failed during startup; continuing with cached data', { error });
+    }
+
+    // Step 3: Schedule weekly refresh
+    scheduleWeeklyRefresh();
+
+    return {
+      total: pokemonList.length,
+      lastFetchedAt,
+    };
+  })();
+
+  try {
+    return await initializationPromise;
+  } finally {
+    initializationPromise = null;
+  }
+}
+```
+
+**Initialization Timing**:
+- **Disk Load**: 50-100ms (read JSON + parse)
+- **PokeAPI Fetch**: 30-60 seconds (if cache stale/missing)
+- **Total**: 50ms - 60 seconds (depends on cache availability)
+
+**Integration Point** (src/index.ts, lines 436-519):
+
+The Pokemon Service is **dynamically imported** (not on critical boot path) for telemetry only:
+
+```typescript
+// src/index.ts (refreshPokedexSection function)
+function refreshPokedexSection(): void {
+  if (!monitorActive) {
+    return;
+  }
+
+  // Lazy-load Pokédex cache metadata (not needed on critical startup path)
+  import("./services/pokemonService.js")
+    .then(({ getCacheMetadata }) => {
+      try {
+        const meta = getCacheMetadata();
+        const metrics: MetricsList = [];
+        const total = typeof meta?.total === "number" ? meta.total : 0;
+        const lastFetchedAt = meta?.lastFetchedAt instanceof Date ? meta.lastFetchedAt : null;
+        const lastAttemptAt = meta?.lastFetchAttemptAt instanceof Date ? meta.lastFetchAttemptAt : null;
+        const now = Date.now();
+
+        metrics.push(metric("entries", total));
+        metrics.push(
+          metric(
+            "last fetch",
+            lastFetchedAt ? formatRelativeTime(lastFetchedAt.getTime()) : "never",
+          ),
+        );
+        // ... more metrics
+      } catch (error) {
+        log.error("PokéAPI telemetry update failed", error);
+      }
+    })
+    .catch((importError) => {
+      log.error("Failed to load pokemonService module", importError);
+    });
+}
+```
+
+**Why Dynamic Import?**:
+- **Non-Critical**: Pokemon Service not needed for bot startup (dexpack provides fallback)
+- **Telemetry Only**: Only used for `/ops` stats display (not battle/encounter runtime)
+- **Startup Performance**: Avoid blocking boot sequence with 30-60 second PokeAPI fetch
+
+**Actual Usage** (UNDOCUMENTED - NOT battle/encounter runtime):
+
+Currently, Pokemon Service is **ONLY** used for telemetry in `refreshPokedexSection()`. Battle/encounter systems use **dexpack cache** (see Section 9.10) instead. This is an **unused runtime component** kept for future migration.
+
+---
+
+#### 13.3.6.6 API Surface
+
+**Public Functions** (src/services/pokemonService.js, lines 567-579):
+
+```javascript
+export {
+  initializePokemonCache,
+  refreshPokemonCache,
+  getPokemon,
+  getAllPokemon,
+  getCacheMetadata,
+};
+```
+
+**initializePokemonCache()**:
+
+```typescript
+function initializePokemonCache(): Promise<CacheInitResult>
+
+interface CacheInitResult {
+  total: number;
+  lastFetchedAt: Date | null;
+}
+```
+
+- **Purpose**: Initialize cache (load from disk + optional PokeAPI fetch + schedule cron)
+- **Returns**: Cache statistics (total Pokemon, last fetch timestamp)
+- **Idempotent**: Safe to call multiple times (returns existing promise)
+- **Duration**: 50ms (disk hit) to 60 seconds (PokeAPI fetch)
+
+**refreshPokemonCache(options)**:
+
+```typescript
+function refreshPokemonCache(options?: { reason?: string }): Promise<CacheRefreshResult>
+
+interface CacheRefreshResult {
+  total: number;
+  lastFetchedAt: Date | null;
+}
+```
+
+- **Purpose**: Fetch latest Pokemon data from PokeAPI (manual or scheduled refresh)
+- **Parameters**: `reason` (string) — "startup", "scheduled", "manual" (for logging)
+- **Returns**: Cache statistics (total Pokemon, last fetch timestamp)
+- **Idempotent**: Single-flight (deduplicates concurrent refresh calls)
+- **Duration**: 30-60 seconds (PokeAPI fetch + Map population + disk write)
+
+**getPokemon(identifier)**:
+
+```typescript
+function getPokemon(identifier: number | string): Promise<PokemonEntry | null>
+```
+
+- **Purpose**: Get single Pokemon by ID or name
+- **Parameters**: `identifier` — Pokédex number (e.g., 6) or name (e.g., "charizard")
+- **Returns**: Deep clone of Pokemon entry (defensive copy) or null if not found
+- **Performance**: <1ms (Map lookup + deep clone)
+- **Waits for Init**: Blocks until initializationPromise resolves (if in progress)
+
+**getAllPokemon()**:
+
+```typescript
+function getAllPokemon(): Promise<PokemonEntry[]>
+```
+
+- **Purpose**: Get all Pokemon (full roster)
+- **Returns**: Deep clone of entire pokemonList array (defensive copy)
+- **Performance**: ~10-50ms (1000+ Pokemon deep clone)
+- **Waits for Init**: Blocks until initializationPromise resolves (if in progress)
+
+**getCacheMetadata()**:
+
+```typescript
+function getCacheMetadata(): CacheMetadata
+
+interface CacheMetadata {
+  cacheFile: string;             // Cache file path (Store/pokemon-cache.json)
+  total: number;                 // Total Pokemon cached
+  lastFetchedAt: Date | null;    // Last successful PokeAPI fetch timestamp
+  lastFetchAttemptAt: Date | null; // Last attempted fetch timestamp (includes failures)
+  cron: string;                  // Cron schedule (0 0 * * 4)
+  timezone: string;              // Cron timezone (Etc/UTC)
+}
+```
+
+- **Purpose**: Get cache metadata (for telemetry/observability)
+- **Returns**: Cache statistics + schedule info (synchronous, no Promise)
+- **Performance**: <1μs (simple object construction)
+
+---
+
+#### 13.3.6.7 Error Handling
+
+**Dependency Checks** (ensureAxios, ensureCron functions):
+
+```javascript
+function ensureAxios() {
+  if (!axios) {
+    throw new Error('axios dependency missing. Install axios to enable Pokémon cache refresh.');
+  }
+  return axios;
+}
+
+function ensureCron() {
+  if (!cron) {
+    throw new Error('node-cron dependency missing. Install node-cron to schedule Pokémon cache refresh jobs.');
+  }
+  return cron;
+}
+```
+
+**Graceful Degradation**:
+
+```javascript
+// Step 2: Refresh from PokeAPI (background)
+try {
+  await refreshPokemonCache({ reason: 'startup' });
+} catch (error) {
+  if (!pokemonList.length) {
+    log('error', 'Failed to initialize Pokémon cache and no cached data available', { error });
+    throw error;  // Fatal (no fallback data)
+  }
+  log('warn', 'Pokémon cache refresh failed during startup; continuing with cached data', { error });
+}
+```
+
+**Error Categories**:
+
+| Error | Cause | Recovery | Impact |
+|-------|-------|----------|--------|
+| **axios missing** | Dependency not installed | Throw error, cache unavailable | Fatal (no PokeAPI access) |
+| **node-cron missing** | Dependency not installed | Throw error, no cron scheduling | No automatic refresh (manual only) |
+| **PokeAPI timeout** | Network issue, rate limit, PokeAPI outage | Use stale cache data | Stale data (until next successful fetch) |
+| **PokeAPI empty roster** | PokeAPI bug, API change | Throw error | Fatal if no disk cache |
+| **Disk read failure** | File corruption, permission issue | Log warning, attempt PokeAPI fetch | Slower startup (PokeAPI fetch required) |
+| **Disk write failure** | Disk full, permission issue | Log warning, continue with in-memory data | No persistence (lost on restart) |
+
+**Network Timeout Configuration**:
+
+```javascript
+const REQUEST_TIMEOUT_MS = 20_000;  // 20 seconds per request
+
+async function getJson(url) {
+  const http = ensureAxios();
+  const response = await http.get(url, {
+    timeout: REQUEST_TIMEOUT_MS,
+    headers: HTTP_HEADERS,
+  });
+  return response.data;
+}
+```
+
+---
+
+#### 13.3.6.8 Performance Characteristics
+
+**Memory Usage**:
+- **In-Memory Cache**: ~500-800 KB (1000+ Pokemon with sprites/stats)
+- **Disk Cache**: ~5-10 MB JSON (pretty-printed with 2-space indent)
+- **Total**: <1 MB RAM (very lightweight compared to dexpack ~20 MB)
+
+**Lookup Performance**:
+- **By ID**: <1μs (Map.get direct lookup)
+- **By Name**: <1μs (Map.get on normalized lowercase key)
+- **Get All**: ~10-50ms (deep clone of 1000+ entries)
+
+**Refresh Performance**:
+- **PokeAPI Fetch**: 30-60 seconds (network-bound)
+- **Map Population**: <100ms (setPokemonCache)
+- **Disk Write**: <500ms (JSON.stringify + fs.writeFile)
+- **Total Refresh**: ~30-60 seconds
+
+**Comparison to Dexpack** (see Section 9.10):
+
+| Feature | Pokemon Service | Dexpack |
+|---------|----------------|---------|
+| **Data Volume** | ~1 MB (1000+ Pokemon) | ~20 MB (full dex data) |
+| **Lookup Speed** | <1μs (Map.get) | <1μs (L1 cache) or 0.3-1ms (fallback) |
+| **Refresh Frequency** | Weekly (cron) | Hourly (worker) |
+| **Persistence** | JSON file (Store/) | JSON assets (assets/) |
+| **Usage** | Telemetry only (UNUSED) | Battle/encounter runtime (PRIMARY) |
+| **Startup Impact** | Non-blocking (dynamic import) | Blocking (critical boot path) |
+
+**Current Status**: Pokemon Service is **UNUSED** in battle/encounter runtime. Dexpack is the **PRIMARY** data source. Pokemon Service exists for:
+1. **Legacy compatibility** (older code may reference it)
+2. **Future migration** (may replace dexpack for certain use cases)
+3. **Telemetry** (PokéAPI Cache observability in `/ops`)
+
+---
+
+#### 13.3.6.9 Observability
+
+**Logger Integration** (src/services/pokemonService.js, lines 486-522):
+
+```javascript
+log('info', 'Loaded Pokémon cache from disk', {
+  cacheFile: CACHE_FILE_PATH,
+  total: pokemonList.length,
+  lastFetchedAt: lastFetchedAt ? lastFetchedAt.toISOString() : null,
+});
+
+log('info', 'Refreshing Pokémon cache', {
+  reason,
+  startedAt: startedAt.toISOString(),
+});
+
+log('info', 'pokemon.cache.count', {
+  total: pokemonList.length,
+  reason,
+  fetchedAt: startedAt.toISOString(),
+});
+
+log('info', 'Pokémon cache refresh complete', {
+  reason,
+  total: pokemonList.length,
+  durationMs: Date.now() - startedAt.getTime(),
+  cacheFile: CACHE_FILE_PATH,
+});
+
+log('error', 'Scheduled Pokémon cache refresh failed', { error });
+```
+
+**Telemetry Display** (src/index.ts, lines 436-519):
+
+Logger auto-refresh displays Pokemon Service metrics every 15 seconds:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ PokéAPI Cache                                            [online]    │
+├─────────────────────────────────────────────────────────────────────┤
+│ entries           1025                                               │
+│ last fetch        2h 35m ago                                         │
+│ last attempt      2h 35m ago                                         │
+│ schedule          0 0 * * 4 (Etc/UTC)                                │
+│ cache file        Store/pokemon-cache.json                           │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Status Indicators**:
+- **online**: Cache loaded, data <6h old
+- **warming**: Cache not yet fetched (first run)
+- **degraded**: Data >6h old OR no Pokemon cached OR refresh idle >24h
+- **error**: Telemetry update failed (module import error)
+
+**Degradation Detection** (src/index.ts, lines 473-492):
+
+```typescript
+if (!lastFetchedAt) {
+  status = "warming";
+  notes.push("cache has not completed an initial sync");
+} else {
+  const ageMs = now - lastFetchedAt.getTime();
+  if (Number.isFinite(ageMs) && ageMs > 6 * 60 * 60 * 1_000) {
+    status = "degraded";
+    notes.push("data older than 6h");
+  }
+}
+
+if (total === 0) {
+  status = status === "online" ? "degraded" : status;
+  notes.push("no Pokémon cached");
+}
+
+if (lastAttemptAt) {
+  const attemptAgeMs = now - lastAttemptAt.getTime();
+  if (Number.isFinite(attemptAgeMs) && attemptAgeMs > 24 * 60 * 60 * 1_000) {
+    status = "degraded";
+    notes.push("refresh job idle >24h");
+  }
+}
+```
+
+---
+
+#### 13.3.6.10 Testing Patterns
+
+**Unit Tests** (not yet implemented):
+
+```typescript
+describe("pokemonService", () => {
+  beforeEach(() => {
+    // Reset module state (clear Maps, promises, cron task)
+    vi.resetModules();
+  });
+
+  it("loads cache from disk on init", async () => {
+    // Mock disk cache with 10 Pokemon
+    vi.mock("node:fs/promises", () => ({
+      readFile: vi.fn().mockResolvedValue(JSON.stringify({
+        version: 1,
+        lastFetchedAt: new Date().toISOString(),
+        total: 10,
+        pokemon: [/* 10 entries */]
+      }))
+    }));
+
+    const result = await initializePokemonCache();
+    expect(result.total).toBe(10);
+  });
+
+  it("fetches from PokeAPI if disk cache missing", async () => {
+    // Mock disk cache ENOENT (file not found)
+    vi.mock("node:fs/promises", () => ({
+      readFile: vi.fn().mockRejectedValue({ code: "ENOENT" })
+    }));
+
+    // Mock PokeAPI fetch
+    const mockAxios = {
+      get: vi.fn()
+        .mockResolvedValueOnce({ data: { results: [/* page 1 */], next: "..." } })
+        .mockResolvedValueOnce({ data: { results: [/* page 2 */], next: null } })
+    };
+
+    const result = await refreshPokemonCache({ reason: "test" });
+    expect(result.total).toBeGreaterThan(0);
+  });
+
+  it("schedules weekly cron refresh", async () => {
+    const mockSchedule = vi.fn();
+    vi.mock("node-cron", () => ({
+      schedule: mockSchedule
+    }));
+
+    await initializePokemonCache();
+    
+    expect(mockSchedule).toHaveBeenCalledWith(
+      "0 0 * * 4",
+      expect.any(Function),
+      { timezone: "Etc/UTC" }
+    );
+  });
+
+  it("getPokemon returns deep clone (defensive copy)", async () => {
+    await initializePokemonCache();
+    const pokemon1 = await getPokemon(6);  // Charizard
+    const pokemon2 = await getPokemon(6);  // Same Charizard
+
+    expect(pokemon1).toEqual(pokemon2);  // Deep equality
+    expect(pokemon1).not.toBe(pokemon2);  // Different object references
+  });
+
+  it("handles PokeAPI timeout gracefully", async () => {
+    vi.mock("axios", () => ({
+      get: vi.fn().mockRejectedValue(new Error("ETIMEDOUT"))
+    }));
+
+    await expect(refreshPokemonCache()).rejects.toThrow("ETIMEDOUT");
+  });
+});
+```
+
+**Integration Tests** (not yet implemented):
+
+```typescript
+describe("pokemonService integration", () => {
+  it("full refresh cycle (PokeAPI → disk → Maps)", async () => {
+    // 1. Fetch from PokeAPI (real network call)
+    const result = await refreshPokemonCache({ reason: "integration-test" });
+    expect(result.total).toBeGreaterThan(1000);
+
+    // 2. Verify disk cache written
+    const diskCache = JSON.parse(await fs.readFile(CACHE_FILE_PATH, "utf8"));
+    expect(diskCache.pokemon).toHaveLength(result.total);
+
+    // 3. Verify in-memory Maps populated
+    const charizard = await getPokemon(6);
+    expect(charizard.name).toBe("charizard");
+    expect(charizard.types).toContain("fire");
+  });
+
+  it("weekly cron job triggers refresh", async () => {
+    // Mock time to Thursday 12 AM UTC
+    vi.setSystemTime(new Date("2025-11-20T00:00:00.000Z"));
+
+    await initializePokemonCache();
+
+    // Wait for cron execution (next tick)
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Verify refresh was triggered
+    const meta = getCacheMetadata();
+    expect(meta.lastAttemptAt).toBeTruthy();
+  });
+});
+```
+
+---
+
+#### 13.3.6.11 Known Limitations
+
+**Current Limitations**:
+
+1. **Unused in Runtime** (CRITICAL):
+   - Pokemon Service is NOT used by battle/encounter systems
+   - Dexpack is the PRIMARY data source (see Section 9.10)
+   - Service exists only for telemetry and future migration
+
+2. **No Real-Time Updates**:
+   - Weekly refresh schedule (Thursday midnight UTC)
+   - Data can be up to 7 days stale (acceptable for Pokemon data)
+   - No push notifications from PokeAPI (polling-based)
+
+3. **No Form Variations**:
+   - Only stores base form (no Mega, Gigantamax, Alola, Galar forms)
+   - Form data requires separate PokeAPI endpoints (not implemented)
+
+4. **No Move Data**:
+   - Only stores base stats, types, abilities, sprites
+   - Move data (name, power, accuracy, type, PP) not cached
+   - Move lookups require dexpack (see Section 9.10)
+
+5. **Single-Region Deployment**:
+   - No multi-region cache synchronization
+   - Each Render service maintains independent cache
+   - No shared cache layer (Redis, Memcached)
+
+6. **No Cache Versioning**:
+   - Cache format version is hardcoded (v1)
+   - No migration strategy for schema changes
+   - Breaking changes require cache wipe + refetch
+
+---
+
+#### 13.3.6.12 Future Enhancements
+
+**Phase 1: Runtime Integration** (Priority: LOW):
+- Replace dexpack with Pokemon Service for species lookups
+- Add move data caching (separate Map for moves)
+- Benchmark Pokemon Service vs Dexpack lookup performance
+- Gradual migration: dexpack → Pokemon Service fallback
+
+**Phase 2: Form Variations** (Priority: MEDIUM):
+- Fetch form data from PokeAPI (`/pokemon-form/{id}/`)
+- Store forms in separate Map (formsByPokemonId)
+- Add form selection API (`getPokemonForm(pokemonId, formName)`)
+- Example: Charizard → Mega Charizard X, Mega Charizard Y
+
+**Phase 3: Move Caching** (Priority: HIGH):
+- Fetch move data from PokeAPI (`/move/{id}/`)
+- Store moves in separate Map (movesById, movesByName)
+- Add move lookup API (`getMove(identifier)`)
+- Cache move effects, accuracy, power, PP, type
+
+**Phase 4: Multi-Region Sync** (Priority: LOW):
+- Add Redis cache layer (shared across Render services)
+- Implement cache-aside pattern (Redis → Pokemon Service → PokeAPI)
+- Add cache invalidation webhooks (PokeAPI → Redis pub/sub)
+
+**Phase 5: Real-Time Updates** (Priority: VERY LOW):
+- Subscribe to PokeAPI webhooks (when available)
+- Implement incremental updates (fetch only changed Pokemon)
+- Add cache diffing (detect changes, log updates)
+
+---
+
+#### 13.3.6.13 Cross-References
+
+**Related Architecture Bible Sections**:
+- **[9.10 Dexpack → Engine Cache Integration](09-game-engine.md#9-10-dexpack-engine-cache-integration)** — PRIMARY Pokemon data source (battle/encounter runtime)
+- **[16.3 Boot Sequence](16-boot-sequence.md#16-3-boot-sequence)** — Pokemon Service dynamic import (telemetry only)
+- **[5.5 Logger Auto-Refresh Runtime](05-logging-architecture.md#5-5-logger-auto-refresh-runtime)** — PokéAPI Cache telemetry display
+- **[13.3.5 Resource Monitor Runtime](13-performance.md#13-3-5-resource-monitor-runtime)** — Memory monitoring integration
+
+**Related Operations Bible Sections**:
+- **[operations-bible/03-monitoring.md](../operations-bible/03-monitoring.md)** — PokéAPI Cache observability
+- **[operations-bible/01-service-matrix.md](../operations-bible/01-service-matrix.md)** — Worker topology (no dedicated Pokemon Service worker)
+
+**Related Development Bible Sections**:
+- **[development-bible/02-local-development.md](../development-bible/02-local-development.md)** — Offline development with stale cache
+- **[development-bible/04-testing.md](../development-bible/04-testing.md)** — Pokemon Service mocking patterns
+
+**Related Source Files**:
+- `src/services/pokemonService.js` (589 lines) — Complete Pokemon Service implementation
+- `src/services/pokemonService.d.ts` (22 lines) — TypeScript type definitions
+- `src/index.ts` (lines 436-519) — PokéAPI Cache telemetry integration (refreshPokedexSection)
+- `Store/pokemon-cache.json` (5-10 MB) — Disk-persisted Pokemon cache
+- `src/data/dexpack.js` (PRIMARY) — Battle/encounter Pokemon data source
+
 ---
 
 ## 13.4 Performance Metrics
