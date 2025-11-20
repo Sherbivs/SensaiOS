@@ -27,7 +27,7 @@ import { formatBytes } from "./shared/utils/format-utils.js";
 import { getErrorMessage } from "./shared/utils/error-utils.js";
 import { startHealthServer, stopHealthServer } from "./services/health-server.js";
 import { notifyBoot, notifyShutdown, notifyCrash } from "./services/lifecycle-notifier.js";
-import { initializeMetrics, recordShutdown, recordCrash, saveMetrics } from "./services/restart-metrics.js";
+import { initializeMetrics, recordShutdown, recordCrash } from "./services/restart-metrics.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
 // import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
 // Lazy-loaded database recovery (only needed when connection fails)
