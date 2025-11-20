@@ -1,0 +1,117 @@
+name: Scheduled Service Restart
+
+# Purpose: Restart Render service every 12 hours for memory hygiene
+# Strategy: Don't rely on Render's auto-restart - force periodic restarts via API
+# Note: This is a RESTART (graceful shutdown + boot), NOT a redeploy
+
+on:
+  schedule:
+    # Run every 12 hours: 00:00 UTC and 12:00 UTC
+    - cron: '0 */12 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  restart-service:
+    name: Restart Infinity-Gauntlet Service
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Restart Render Service
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: srv-d3snk2ndiees73cn709g
+        run: |
+          echo "🔄 Restarting Render service: $SERVICE_ID"
+          
+          # Trigger service restart via Render API
+          # POST /v1/services/{serviceId}/restart
+          # https://api-docs.render.com/reference/restart-service
+          
+          response=$(curl -s -w "\n%{http_code}" \
+            -X POST \
+            -H "Accept: application/json" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            "https://api.render.com/v1/services/$SERVICE_ID/restart")
+          
+          # Extract HTTP status code (last line)
+          http_code=$(echo "$response" | tail -n1)
+          # Extract response body (everything except last line)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+          
+          if [ "$http_code" = "200" ] || [ "$http_code" = "201" ] || [ "$http_code" = "202" ]; then
+            echo "✅ Service restart triggered successfully"
+            echo "$body" | jq '.' || echo "$body"
+            exit 0
+          else
+            echo "❌ Service restart failed"
+            echo "$body" | jq '.' || echo "$body"
+            exit 1
+          fi
+      
+      - name: Wait for service to restart
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: srv-d3snk2ndiees73cn709g
+        run: |
+          echo "⏳ Waiting for service to restart..."
+          
+          max_attempts=30
+          attempt=0
+          
+          while [ $attempt -lt $max_attempts ]; do
+            attempt=$((attempt + 1))
+            echo "Attempt $attempt/$max_attempts: Checking service status..."
+            
+            # Get service status
+            response=$(curl -s -w "\n%{http_code}" \
+              -H "Accept: application/json" \
+              -H "Authorization: Bearer $RENDER_API_KEY" \
+              "https://api.render.com/v1/services/$SERVICE_ID")
+            
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | sed '$d')
+            
+            if [ "$http_code" = "200" ]; then
+              # Parse service status from response
+              status=$(echo "$body" | jq -r '.service.serviceDetails.state // "unknown"')
+              echo "  Service state: $status"
+              
+              if [ "$status" = "running" ] || [ "$status" = "available" ]; then
+                echo "✅ Service is running!"
+                exit 0
+              fi
+            else
+              echo "  ⚠️ Failed to check status (HTTP $http_code)"
+            fi
+            
+            # Wait 10 seconds before next attempt
+            sleep 10
+          done
+          
+          echo "⚠️ Service did not become available within timeout (5 minutes)"
+          echo "Check Render dashboard: https://dashboard.render.com/services/$SERVICE_ID"
+          exit 1
+      
+      - name: Verify health endpoint
+        run: |
+          echo "🏥 Checking health endpoint..."
+          
+          # Note: Health endpoint runs on worker service, not web service
+          # We can't directly ping it, but restart verification above confirms boot success
+          echo "✅ Service restart complete"
+          echo "Health endpoint available at service internal network"
+          echo "Monitor via Render dashboard: https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g"
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Scheduled restart failed!"
+          echo "Manual intervention required - check Render dashboard"
+          echo "Dashboard: https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g"
