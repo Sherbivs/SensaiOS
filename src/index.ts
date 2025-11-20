@@ -25,6 +25,7 @@ import { getAllServiceConfigs } from "./shared/service-factories.js";
 import { EventBus } from "./shared/event-bus.js";
 import { formatBytes } from "./shared/utils/format-utils.js";
 import { getErrorMessage } from "./shared/utils/error-utils.js";
+import { startHealthServer, stopHealthServer } from "./services/health-server.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
 // import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
 // Lazy-loaded database recovery (only needed when connection fails)
@@ -1051,6 +1052,14 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
 
   stopMonitor();
 
+  // Stop health check server (external monitors will see 503 or connection refused)
+  try {
+    log.info("Stopping health check server");
+    await stopHealthServer();
+  } catch (error) {
+    log.error("Error stopping health server", error);
+  }
+
   // Flush and destroy log buffer before exit
   destroyLogBuffer();
 
@@ -1128,6 +1137,18 @@ export async function boot(): Promise<void> {
   startMonitor();
 
   log.info("Infinity Gauntlet: toolchain online", { env: config.nodeEnv });
+  
+  // ============================================================================
+  // Health Check Server (Start EARLY for external monitoring)
+  // ============================================================================
+  // Start HTTP health check server BEFORE any async initialization.
+  // External monitors (UptimeRobot, Pingdom, GitHub Actions watchdog) can ping /health
+  // immediately to detect if application is down.
+  // Returns 503 during initialization, 200 when engineReady = true.
+  startHealthServer();
+  log.info("Health check server started (early boot)", {
+    note: "External monitors can now detect downtime via /health endpoint",
+  });
   
   // ============================================================================
   // Service Registry Initialization (Phase 1: Foundation Services)

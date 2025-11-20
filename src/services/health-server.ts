@@ -1,0 +1,256 @@
+/**
+ * HTTP Health Check Server
+ * 
+ * Purpose: Lightweight HTTP server that external monitors can ping to detect downtime.
+ * Strategy: Don't rely on Render's auto-restart - implement our own monitoring layer.
+ * 
+ * Features:
+ * - Returns 200 OK when application is healthy (engineReady = true)
+ * - Returns 503 Service Unavailable during initialization or shutdown
+ * - Includes uptime, memory, service health in response body
+ * - Port configurable via HEALTH_CHECK_PORT (default: 3000)
+ * 
+ * Integration:
+ * - External monitors (UptimeRobot, Pingdom) ping /health endpoint
+ * - GitHub Actions watchdog pings every 5 minutes
+ * - Discord webhooks trigger on consecutive failures
+ * - Render API restart triggered after threshold exceeded
+ * 
+ * @module health-server
+ */
+
+import http from 'node:http';
+import { HEALTH_CHECK_PATH, HEALTH_CHECK_TIMEOUT_MS } from '../config/engine-db-config.js';
+import { log } from '../utils/logger.js';
+import { ServiceRegistry } from '../shared/service-registry.js';
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+const PORT = parseInt(process.env.HEALTH_CHECK_PORT ?? '3000', 10);
+const HOST = process.env.HEALTH_CHECK_HOST ?? '0.0.0.0';
+
+// ============================================================================
+// Health Server State
+// ============================================================================
+
+let server: http.Server | null = null;
+let startTime = Date.now();
+
+// ============================================================================
+// Health Check Logic
+// ============================================================================
+
+interface HealthResponse {
+  status: 'healthy' | 'degraded' | 'initializing' | 'shutting_down';
+  timestamp: number;
+  uptime_ms: number;
+  uptime_human: string;
+  memory: {
+    rss_mb: number;
+    heap_used_mb: number;
+    heap_total_mb: number;
+    external_mb: number;
+  };
+  services?: {
+    healthy: number;
+    degraded: number;
+    error: number;
+    total: number;
+  };
+  engine_ready: boolean;
+}
+
+function getHealthStatus(): HealthResponse {
+  const now = Date.now();
+  const uptimeMs = now - startTime;
+  const uptimeSeconds = Math.floor(uptimeMs / 1000);
+  const uptimeMinutes = Math.floor(uptimeSeconds / 60);
+  const uptimeHours = Math.floor(uptimeMinutes / 60);
+  const uptimeDays = Math.floor(uptimeHours / 24);
+
+  const uptimeHuman = 
+    uptimeDays > 0 ? `${uptimeDays}d ${uptimeHours % 24}h` :
+    uptimeHours > 0 ? `${uptimeHours}h ${uptimeMinutes % 60}m` :
+    uptimeMinutes > 0 ? `${uptimeMinutes}m ${uptimeSeconds % 60}s` :
+    `${uptimeSeconds}s`;
+
+  const memUsage = process.memoryUsage();
+  const memory = {
+    rss_mb: Math.round(memUsage.rss / 1024 / 1024),
+    heap_used_mb: Math.round(memUsage.heapUsed / 1024 / 1024),
+    heap_total_mb: Math.round(memUsage.heapTotal / 1024 / 1024),
+    external_mb: Math.round(memUsage.external / 1024 / 1024),
+  };
+
+  const engineReady = global.engineReady ?? false;
+
+  // Check Service Registry health
+  let status: HealthResponse['status'] = 'initializing';
+  let services: HealthResponse['services'] | undefined;
+
+  try {
+    const registry = ServiceRegistry.getInstance();
+    const registryStatus = registry.getStatus();
+
+    if (registryStatus.isShuttingDown) {
+      status = 'shutting_down';
+    } else if (!engineReady) {
+      status = 'initializing';
+    } else if (registryStatus.errorCount > 0 || registryStatus.degradedCount > 0) {
+      status = 'degraded';
+    } else {
+      status = 'healthy';
+    }
+
+    services = {
+      healthy: registryStatus.healthyCount,
+      degraded: registryStatus.degradedCount,
+      error: registryStatus.errorCount,
+      total: registryStatus.serviceCount,
+    };
+  } catch {
+    // Service Registry not initialized yet
+    status = 'initializing';
+  }
+
+  return {
+    status,
+    timestamp: now,
+    uptime_ms: uptimeMs,
+    uptime_human: uptimeHuman,
+    memory,
+    services,
+    engine_ready: engineReady,
+  };
+}
+
+// ============================================================================
+// HTTP Request Handler
+// ============================================================================
+
+function handleRequest(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): void {
+  // Only respond to GET requests on HEALTH_CHECK_PATH
+  if (req.method !== 'GET' || req.url !== HEALTH_CHECK_PATH) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not Found');
+    return;
+  }
+
+  const health = getHealthStatus();
+
+  // Determine HTTP status code
+  const statusCode = 
+    health.status === 'healthy' ? 200 :
+    health.status === 'degraded' ? 200 : // Still operational, just degraded
+    503; // initializing or shutting_down
+
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'X-Service-Status': health.status,
+    'X-Engine-Ready': String(health.engine_ready),
+  });
+
+  res.end(JSON.stringify(health, null, 2));
+
+  // Log health checks at debug level (too noisy for info)
+  if (statusCode !== 200) {
+    log.warn('Health check returned non-200 status', {
+      status: health.status,
+      statusCode,
+      engineReady: health.engine_ready,
+      services: health.services,
+    });
+  }
+}
+
+// ============================================================================
+// Server Lifecycle
+// ============================================================================
+
+/**
+ * Start HTTP health check server
+ */
+export function startHealthServer(): void {
+  if (server) {
+    log.warn('Health server already running', { port: PORT, host: HOST });
+    return;
+  }
+
+  server = http.createServer(handleRequest);
+
+  // Set timeouts to prevent hanging connections
+  server.timeout = HEALTH_CHECK_TIMEOUT_MS;
+  server.keepAliveTimeout = HEALTH_CHECK_TIMEOUT_MS;
+  server.headersTimeout = HEALTH_CHECK_TIMEOUT_MS + 1000;
+
+  server.listen(PORT, HOST, () => {
+    log.info('Health check server started', {
+      port: PORT,
+      host: HOST,
+      path: HEALTH_CHECK_PATH,
+      timeout: `${HEALTH_CHECK_TIMEOUT_MS}ms`,
+    });
+  });
+
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      log.error('Health server port already in use', { port: PORT, host: HOST });
+    } else {
+      log.error('Health server error', { error: error.message });
+    }
+  });
+
+  // Ensure server doesn't prevent process exit
+  server.unref();
+}
+
+/**
+ * Stop HTTP health check server
+ */
+export async function stopHealthServer(): Promise<void> {
+  if (!server) {
+    return;
+  }
+
+  return new Promise((resolve, reject) => {
+    server!.close((error) => {
+      if (error) {
+        log.error('Health server shutdown error', { error: error.message });
+        reject(error);
+      } else {
+        log.info('Health server stopped');
+        server = null;
+        resolve();
+      }
+    });
+
+    // Force close after 5 seconds
+    setTimeout(() => {
+      if (server) {
+        log.warn('Health server force closing after timeout');
+        server = null;
+        resolve();
+      }
+    }, 5000);
+  });
+}
+
+/**
+ * Reset start time (for testing)
+ */
+export function resetStartTime(): void {
+  startTime = Date.now();
+}
+
+/**
+ * Get current server instance (for testing)
+ */
+export function getServer(): http.Server | null {
+  return server;
+}

@@ -66,6 +66,8 @@ services:
     buildCommand: "rm -rf node_modules && npm install --include=dev && npm run prebuild"
     startCommand: "npm start"
     autoDeploy: true
+    # Health check configuration (HTTP endpoint monitoring)
+    healthCheckPath: /health
     disks:
       - name: prod-database
         mountPath: /Store
@@ -81,6 +83,11 @@ services:
           name: infinity-gauntlet-db
           property: connectionString
       # Note: Auto-sync disabled in unified mode (all URLs point to same database)
+      # Health check server configuration
+      - key: HEALTH_CHECK_PORT
+        value: "3000"
+      - key: HEALTH_CHECK_HOST
+        value: "0.0.0.0"
       - key: TZ
         value: America/New_York
       - key: NODE_ENV
