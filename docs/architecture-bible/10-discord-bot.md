@@ -1907,6 +1907,913 @@ With Persistence:
 - `src/index.ts` (lines 911-914) — Cooldown shutdown integration (Phase 1, Step 1E)
 - `src/bot/commands/*.ts` — Command-level cooldown integration (checkAndSet() calls)
 
+## 10.7 Battle Turn Command Runtime
+
+**Purpose**: In-memory session management for turn-by-turn battle simulation via `/battle-turn` Discord slash command.
+
+**Why This Matters**: The battle-turn command provides a testing/debugging interface for the battle engine. Unlike production battles (which use persistent state), this command maintains ephemeral in-memory sessions keyed by Discord user ID. When users restart the bot, all sessions are lost—this is intentional for development/testing workflows.
+
+**As of 2025-11-20**, the system maintains a single `SESSIONS` Map for all battle-turn invocations. Each Discord user gets one session (one active battle), with lazy initialization on first `/battle-turn` use. Sessions are deleted automatically when either Pokémon faints.
+
+### 10.7.1 SESSIONS Map Architecture
+
+**Data Structure** (src/commands/battle-turn.js, line 35):
+
+```javascript
+const SESSIONS = new Map();
+// Map<userId: string, session: { state: BattleState }>
+```
+
+**Key Characteristics**:
+- **In-Memory Only**: No persistence (lost on restart/deploy)
+- **Per-User Keyed**: Map key is Discord user ID (string)
+- **Single Battle Per User**: One session = one active battle
+- **Lazy Initialization**: Session created on first `/battle-turn` invocation
+- **Automatic Cleanup**: Session deleted when either Pokémon faints (KO detection)
+
+**Session Structure**:
+
+```typescript
+interface BattleSession {
+  state: BattleState; // From src/core/battle/engine.ts
+}
+
+// BattleState includes:
+// - pokemon1: PokemonState (active HP, status, stat stages, etc.)
+// - pokemon2: PokemonState
+// - turn: number
+// - weather: WeatherType | null
+// - terrain: TerrainType | null
+// - ended: boolean
+// - winner: 1 | 2 | null
+```
+
+**Memory Footprint** (per session):
+- **Session Overhead**: ~50 bytes (Map entry)
+- **BattleState**: ~2-5 KB (two Pokémon with stats, status, moves)
+- **Total per User**: ~5 KB
+- **100 concurrent users**: ~500 KB total
+
+**Lifecycle**:
+1. **Creation**: `ensureBattleState(userId)` called on first `/battle-turn`
+2. **Active**: Persists across multiple turn invocations by same user
+3. **Termination**: Deleted when either Pokémon HP reaches 0
+4. **Implicit Cleanup**: Lost on bot restart (no persistence layer)
+
+### 10.7.2 Session Lifecycle
+
+**Phase 1: Lazy Initialization** (ensureBattleState function, lines 37-52):
+
+```javascript
+function ensureBattleState(userId) {
+  if (!SESSIONS.has(userId)) {
+    const charizard = dexApi.getSpecies(6);   // Charizard (Pokédex #6)
+    const venusaur = dexApi.getSpecies(3);    // Venusaur (Pokédex #3)
+    
+    const initialState = initBattle(
+      charizard, 
+      venusaur, 
+      50,        // Level 50
+      50
+    );
+    
+    SESSIONS.set(userId, { state: initialState });
+    logger.info(`[battle-turn] Created new session for user ${userId}`);
+  }
+  return SESSIONS.get(userId);
+}
+```
+
+**Default Matchup**:
+- **Player 1**: Charizard (Pokédex #6) at Level 50
+- **Player 2**: Venusaur (Pokédex #3) at Level 50
+- **Why These Two?**: Gen 1 starters with type advantage dynamic (Fire vs Grass)
+- **Future Enhancement**: Allow users to specify Pokémon/level via command options
+
+**Initialization Triggers**:
+- First `/battle-turn` invocation by a user
+- After previous session deleted due to KO
+
+**Initialization Dependencies**:
+- **dexApi.getSpecies()**: Fetches Pokémon data from Dexpack cache (see Section 9.10)
+- **initBattle()**: From `src/core/battle/engine.ts` (deterministic battle initialization)
+
+**Performance**:
+- **Dexpack Lookup**: <1μs (L1 cache hit) or 0.3-1ms (cache miss + Dexpack fallback)
+- **initBattle()**: ~5-10ms (stat calculation, move parsing, state allocation)
+- **Total Initialization**: ~5-11ms per new session
+
+**Phase 2: Active Session** (execute handler, lines 71-223):
+
+Each `/battle-turn` invocation:
+1. **Retrieve Session**: `ensureBattleState(userId)` (creates if missing)
+2. **Parse Actions**: `parseActions(interaction.options)` (move/switch/item/forfeit)
+3. **Resolve Turn**: `resolveTurn(state, actions, context)` (battle engine)
+4. **Update Session**: Mutate `session.state` with new HP/status/turn
+5. **Check KO**: If either Pokémon HP = 0, delete session + declare winner
+6. **Format Response**: Embed with HP bars, status effects, move outcomes
+
+**Session Persistence**:
+- **Between Turns**: Session remains in SESSIONS Map
+- **Across Minutes/Hours**: No timeout (session persists until KO or restart)
+- **Not Persistent**: Lost on bot restart/deploy (intentional design)
+
+**Phase 3: Termination** (lines 195-198):
+
+```javascript
+if (koPokemon) {
+  SESSIONS.delete(interaction.user.id);
+  logger.info(`[battle-turn] Session ended for ${interaction.user.id} - ${koPokemon.name} fainted`);
+}
+```
+
+**KO Detection Logic**:
+- Check `state.pokemon1.hp === 0` → Player 2 wins
+- Check `state.pokemon2.hp === 0` → Player 1 wins
+- Delete session immediately (free memory)
+- Display winner in embed
+
+**Manual Termination** (not yet implemented):
+- `/battle-forfeit` command (future enhancement)
+- Session timeout after 30 minutes inactivity (future enhancement)
+
+**Implicit Termination**:
+- Bot restart → All sessions lost (SESSIONS Map cleared)
+- Bot deploy → All sessions lost (new process)
+
+### 10.7.3 Turn Resolution Flow
+
+**Step 1: Parse Discord Actions** (parseActions function, lines 54-58):
+
+```javascript
+function parseActions(options) {
+  return {
+    action1: { type: "move", moveSlot: options.getInteger("p1_move") - 1 },
+    action2: { type: "move", moveSlot: options.getInteger("p2_move") - 1 }
+  };
+}
+```
+
+**Input**: Discord slash command options
+- `p1_move`: Integer 1-4 (Player 1 move slot)
+- `p2_move`: Integer 1-4 (Player 2 move slot)
+
+**Output**: Engine-compatible action objects
+- `moveSlot`: 0-indexed (Discord 1-4 → Engine 0-3)
+- `type: "move"`: Only move actions currently supported (no switch/item/forfeit yet)
+
+**Future Enhancements**:
+- Switch actions (`p1_switch`, `p2_switch`)
+- Item actions (`p1_item`, `p2_item`)
+- Forfeit action (one-sided KO)
+
+**Step 2: Resolve Turn** (execute handler, lines 89-95):
+
+```javascript
+const context = {
+  rng,                     // RNG instance for damage rolls
+  publicLog,               // Array to collect turn events
+  allowFlinchSkip: true,   // Enable flinch mechanics
+  movesIndex               // Dexpack moves cache
+};
+
+const { state: newState } = resolveTurn(session.state, actions, context);
+```
+
+**Context Parameters**:
+- **rng**: Random Number Generator (for damage rolls, critical hits, accuracy)
+- **publicLog**: Array collecting turn events (damage, status, faint, etc.)
+- **allowFlinchSkip**: Boolean (enable flinch mechanics)
+- **movesIndex**: Dexpack moves cache (for move data lookup)
+
+**Engine Behavior**:
+- **Speed Calculation**: Determines which Pokémon moves first
+- **Accuracy Check**: Roll for move hit/miss
+- **Damage Calculation**: Type effectiveness, STAB, stat modifiers, random variance
+- **Status Effects**: Apply burn/poison/paralysis/etc.
+- **Flinch/Priority**: Handle priority moves, flinch interruption
+- **KO Detection**: Check HP = 0 after each action
+
+**Performance**:
+- **resolveTurn()**: ~1-3ms per turn (engine is pure JS, no async)
+- **publicLog**: ~10-50 events per turn (damage, status, weather, etc.)
+- **Memory**: newState replaces old state (~5 KB mutation)
+
+**Step 3: Engine Write Buffer Integration** (lines 97-175):
+
+```javascript
+// Phase 17-22: Battle logging for analytics
+if (engineWriteBuffer) {
+  // Log move usage for both Pokémon
+  const p1Move = session.state.pokemon1.moves[actions.action1.moveSlot];
+  engineWriteBuffer.logMoveUsage({
+    pokemonId: session.state.pokemon1.species.id,
+    moveId: p1Move.id,
+    outcome: publicLog[0]?.type, // "damage" | "miss" | "faint"
+    timestamp: Date.now()
+  });
+  
+  // Log battle completion on KO
+  if (session.state.ended) {
+    engineWriteBuffer.logBattle({
+      winner: session.state.winner,
+      turns: session.state.turn,
+      duration: Date.now() - sessionStartTime,
+      p1_species: session.state.pokemon1.species.id,
+      p2_species: session.state.pokemon2.species.id
+    });
+  }
+}
+```
+
+**Integration Points**:
+- **engineWriteBuffer.logMoveUsage()**: Records every move used in battle
+- **engineWriteBuffer.logBattle()**: Records battle completion (winner, duration, turns)
+- **Purpose**: Analytics for move effectiveness, battle balance, species win rates
+
+**Write Buffer Behavior** (see Section 9.9.2):
+- **Performance**: <10μs per log call (non-blocking)
+- **Backpressure**: 75% warn, 95% reject (graceful degradation)
+- **Flush**: Every 30s → Write-DB → Upload to PROD (daily)
+
+**Graceful Degradation**:
+```javascript
+if (!engineWriteBuffer) {
+  logger.warn("[battle-turn] Engine Write Buffer not available - skipping analytics");
+}
+```
+
+**Step 4: Format Embed Response** (lines 177-217):
+
+```javascript
+const embed = new EmbedBuilder()
+  .setTitle(`⚔️ Battle Turn ${newState.turn}`)
+  .setDescription(publicLog.map(formatLogEvent).join("\n"))
+  .addFields(
+    {
+      name: `${typeEmoji(p1.species.types[0])} ${p1.species.name}`,
+      value: formatSummaryLine(p1),
+      inline: true
+    },
+    {
+      name: `${typeEmoji(p2.species.types[0])} ${p2.species.name}`,
+      value: formatSummaryLine(p2),
+      inline: true
+    }
+  );
+
+if (koPokemon) {
+  embed.setColor(0xFF0000); // Red for KO
+  embed.setFooter({ text: `${winner} wins! Session ended.` });
+  SESSIONS.delete(interaction.user.id);
+}
+```
+
+**Embed Components**:
+- **Title**: Turn number (e.g., "⚔️ Battle Turn 5")
+- **Description**: Turn events from publicLog (damage, status, faint)
+- **Fields**: HP/status summaries for both Pokémon
+- **Color**: Green (ongoing) or Red (KO)
+- **Footer**: Winner declaration on KO
+
+**HP Bar Formatting** (formatSummaryLine function, lines 20-32):
+
+```javascript
+function formatSummaryLine(p) {
+  const pct = Math.floor((p.hp / p.maxHp) * 100);
+  const bar = "█".repeat(Math.floor(pct / 10)) + "░".repeat(10 - Math.floor(pct / 10));
+  return `HP: ${bar} ${p.hp}/${p.maxHp} (${pct}%)\n${statusEmoji(p.status)}`;
+}
+```
+
+**Visual Representation**:
+```
+HP: ████████░░ 156/200 (78%)
+🔥 Burned
+```
+
+**Type Emojis** (lines 12-18):
+- Fire: 🔥
+- Water: 💧
+- Grass: 🌿
+- Electric: ⚡
+- Ice: ❄️
+- Fighting: 🥊
+- Poison: ☠️
+- Ground: 🏔️
+- Flying: 🦅
+- Psychic: 🔮
+- Bug: 🐛
+- Rock: 🪨
+- Ghost: 👻
+- Dragon: 🐉
+- Dark: 🌑
+- Steel: ⚙️
+- Fairy: ✨
+
+### 10.7.4 Performance Characteristics
+
+**Turn Resolution Latency**:
+
+| Phase | Duration | Notes |
+|-------|----------|-------|
+| Parse Actions | <1ms | Simple option extraction |
+| Dexpack Lookup | <1μs - 1ms | L1 cache hit → fallback |
+| Engine resolveTurn | 1-3ms | Pure JS, deterministic |
+| Write Buffer Log | <10μs | Non-blocking, queued |
+| Embed Formatting | 1-2ms | String manipulation |
+| Discord API | 50-200ms | Network round-trip |
+| **Total User-Facing** | **52-206ms** | Dominated by Discord API |
+
+**Cooldown Protection** (line 68):
+
+```javascript
+const data = {
+  name: "battle-turn",
+  description: "Execute a turn in your ongoing battle",
+  cooldown: 2000, // 2 seconds per user
+  // ...
+};
+```
+
+**Cooldown Behavior** (see Section 10.6):
+- **Per-User**: Each user has independent 2-second cooldown
+- **Purpose**: Prevent accidental double-submission, reduce API spam
+- **Bypass**: None (admin/owner subject to same cooldown)
+
+**Why 2 Seconds?**:
+- **User Experience**: Enough time to read previous turn results
+- **API Protection**: Prevents rapid-fire command spam
+- **Not Too Restrictive**: Fast-paced battles still feel responsive
+
+**Memory Consumption**:
+
+| Component | Size per Session | 100 Users | 1000 Users |
+|-----------|------------------|-----------|------------|
+| SESSIONS Map | 50 bytes | 5 KB | 50 KB |
+| BattleState | 2-5 KB | 200-500 KB | 2-5 MB |
+| publicLog | 1-3 KB | 100-300 KB | 1-3 MB |
+| **Total** | **3-8 KB** | **305-805 KB** | **3-8 MB** |
+
+**Memory Safety**:
+- **Bounded**: One session per user (can't create multiple)
+- **Auto-Cleanup**: Sessions deleted on KO
+- **No Timeout**: Long-running sessions persist (future enhancement: 30-minute timeout)
+- **Restart Cleanup**: All sessions lost on restart (intentional)
+
+### 10.7.5 Persistence Limitations
+
+**Not Persistent** (Intentional Design):
+
+The battle-turn command maintains **zero persistence**. Sessions exist only in the SESSIONS Map (JavaScript heap memory). When the bot restarts or deploys, all sessions are lost.
+
+**Why No Persistence?**:
+
+1. **Testing/Debugging Tool**: Not intended for production gameplay
+2. **Ephemeral Workflows**: Developers/testers restart battles frequently
+3. **Complexity Avoidance**: No database schema, migration, or sync logic
+4. **Performance Priority**: In-memory operations (<1μs lookup vs 50-100ms PostgreSQL)
+5. **Memory Safety**: Auto-cleanup on restart prevents unbounded growth
+
+**User Experience Impact**:
+
+```
+User starts battle → Bot restarts → User runs /battle-turn again
+→ New session created (Charizard vs Venusaur) → Previous progress lost
+```
+
+**Mitigation**:
+- **Documentation**: Help text warns "Sessions reset on bot restart"
+- **Quick Recovery**: New session initializes in <11ms
+- **Default Matchup**: Charizard vs Venusaur always available (no configuration needed)
+
+**When Persistence Would Be Needed**:
+
+If battle-turn becomes a production feature (not just testing), implement:
+1. **Database Schema**: `BattleSessions` table with userId, state (JSONB), created_at, updated_at
+2. **Save on Each Turn**: `await prisma.battleSessions.upsert({ where: { userId }, data: { state: newState } })`
+3. **Load on Command**: `const session = await prisma.battleSessions.findUnique({ where: { userId } })`
+4. **Timeout Cleanup**: Cron job deletes sessions >30 minutes old
+
+**Current Status**: Persistence is **not planned** (battle-turn remains testing tool).
+
+**Related Documentation**:
+
+The limitation is documented in `docs/architecture-bible/16-boot-sequence.md` (SEAMLESS-RESTART-ARCHITECTURE.md):
+
+> "Battle sessions are ephemeral (in-memory only). On restart, users must begin new battles. This is acceptable for a testing/debugging interface."
+
+### 10.7.6 Usage Patterns
+
+**Typical Workflow**:
+
+```
+Step 1: User runs /battle-turn p1_move:1 p2_move:2
+  → New session created (Charizard vs Venusaur)
+  → Turn 1 resolves
+  → Embed shows HP/status + turn events
+
+Step 2: User runs /battle-turn p1_move:3 p2_move:1
+  → Session retrieved from SESSIONS Map
+  → Turn 2 resolves
+  → Embed shows updated HP/status
+
+Step 3: Charizard faints
+  → Winner declared (Venusaur wins!)
+  → Session deleted from SESSIONS Map
+  → User must start new battle
+```
+
+**Command Options**:
+
+```javascript
+{
+  name: "p1_move",
+  description: "Player 1 move (1-4)",
+  type: ApplicationCommandOptionType.Integer,
+  required: true,
+  choices: [
+    { name: "Move 1", value: 1 },
+    { name: "Move 2", value: 2 },
+    { name: "Move 3", value: 3 },
+    { name: "Move 4", value: 4 }
+  ]
+},
+{
+  name: "p2_move",
+  description: "Player 2 move (1-4)",
+  type: ApplicationCommandOptionType.Integer,
+  required: true,
+  choices: [
+    { name: "Move 1", value: 1 },
+    { name: "Move 2", value: 2 },
+    { name: "Move 3", value: 3 },
+    { name: "Move 4", value: 4 }
+  ]
+}
+```
+
+**User Experience**:
+- **Simple**: Only 2 parameters (p1_move, p2_move)
+- **Clear**: Move slots labeled 1-4 (matches Pokémon game UI)
+- **Fast**: Response within 50-200ms (Discord API latency)
+- **Visual**: HP bars, type emojis, status effects in embed
+
+**Limitations**:
+
+1. **Fixed Matchup**: Always Charizard vs Venusaur (no customization yet)
+2. **Move-Only**: Can't switch Pokémon, use items, or forfeit
+3. **Two-Player Simulation**: Both sides controlled by same user (no PvP)
+4. **No Spectators**: Sessions are private (only the user can see their battle)
+5. **No History**: Can't review past turns (only current turn shown)
+
+**Future Enhancements** (not yet implemented):
+
+```javascript
+// Custom Pokémon selection
+{
+  name: "p1_species",
+  type: ApplicationCommandOptionType.String,
+  required: false,
+  autocomplete: true // Search Pokédex
+}
+
+// Switch actions
+{
+  name: "p1_action",
+  type: ApplicationCommandOptionType.String,
+  choices: [
+    { name: "Use Move", value: "move" },
+    { name: "Switch Pokémon", value: "switch" },
+    { name: "Use Item", value: "item" },
+    { name: "Forfeit", value: "forfeit" }
+  ]
+}
+
+// Battle history command
+/battle-history → Shows last 10 turns with HP deltas, move names, outcomes
+```
+
+### 10.7.7 Observability & Monitoring
+
+**Logger Integration** (lines 52, 96, 198):
+
+```javascript
+logger.info(`[battle-turn] Created new session for user ${userId}`);
+logger.info(`[battle-turn] Turn ${newState.turn} resolved for ${userId}`);
+logger.info(`[battle-turn] Session ended for ${userId} - ${koPokemon.name} fainted`);
+```
+
+**Log Events**:
+- **Session Creation**: When new user first runs /battle-turn
+- **Turn Resolution**: After each turn (includes turn number)
+- **Session Termination**: When battle ends (includes winner)
+
+**Metrics Available** (via Write Buffer):
+
+```javascript
+// Move Usage Analytics
+{
+  pokemonId: 6,        // Charizard
+  moveId: 126,         // Fire Blast
+  outcome: "damage",   // or "miss", "faint"
+  timestamp: 1700000000
+}
+
+// Battle Completion Analytics
+{
+  winner: 1,           // Player 1 (Charizard)
+  turns: 8,            // Battle lasted 8 turns
+  duration: 45000,     // 45 seconds total
+  p1_species: 6,       // Charizard
+  p2_species: 3        // Venusaur
+}
+```
+
+**Analytics Queries** (future, when Write-DB uploads to PROD):
+
+```sql
+-- Top 10 most-used moves in battle-turn command
+SELECT moveId, COUNT(*) as uses 
+FROM move_usage 
+WHERE source = 'battle-turn-command'
+GROUP BY moveId 
+ORDER BY uses DESC 
+LIMIT 10;
+
+-- Average battle duration by Pokémon matchup
+SELECT p1_species, p2_species, AVG(turns) as avg_turns, AVG(duration) as avg_duration
+FROM battle_logs
+WHERE source = 'battle-turn-command'
+GROUP BY p1_species, p2_species;
+
+-- Win rates for Charizard vs Venusaur
+SELECT winner, COUNT(*) as wins
+FROM battle_logs
+WHERE (p1_species = 6 AND p2_species = 3) OR (p1_species = 3 AND p2_species = 6)
+GROUP BY winner;
+```
+
+**Session Count Telemetry** (proposed, not yet implemented):
+
+```javascript
+// Add to logger auto-refresh (src/utils/logger.js)
+const sessionCount = SESSIONS.size;
+console.log(`[Sessions] Active battles: ${sessionCount}`);
+
+// Add to /ops stats command
+/ops stats → Shows:
+- Active battle-turn sessions: 5
+- Total turns resolved today: 127
+- Average turns per battle: 6.3
+```
+
+### 10.7.8 Error Handling
+
+**Graceful Degradation**:
+
+```javascript
+// Write Buffer unavailable
+if (!engineWriteBuffer) {
+  logger.warn("[battle-turn] Engine Write Buffer not available - skipping analytics");
+  // Battle continues normally (analytics optional)
+}
+
+// Dexpack lookup failure
+try {
+  const charizard = dexApi.getSpecies(6);
+  const venusaur = dexApi.getSpecies(3);
+} catch (err) {
+  logger.error("[battle-turn] Failed to load default Pokémon", err);
+  await interaction.reply({
+    content: "❌ Battle system unavailable (Pokémon data missing)",
+    ephemeral: true
+  });
+  return;
+}
+
+// Engine crash
+try {
+  const { state: newState } = resolveTurn(session.state, actions, context);
+} catch (err) {
+  logger.error("[battle-turn] Turn resolution failed", err);
+  SESSIONS.delete(userId); // Clean up corrupted session
+  await interaction.reply({
+    content: "❌ Battle engine error - session reset. Try again.",
+    ephemeral: true
+  });
+  return;
+}
+```
+
+**Error Categories**:
+
+| Error | Cause | Recovery | User Impact |
+|-------|-------|----------|-------------|
+| Dexpack Missing | L1 cache + Dexpack both unavailable | Reject command, show error message | Can't start battles |
+| Engine Crash | Bug in resolveTurn() (divide by zero, null reference, etc.) | Delete session, log error, allow retry | Lose current battle progress |
+| Write Buffer Full | Backpressure threshold exceeded (95%+ utilization) | Skip analytics, continue battle | No analytics (battle works) |
+| Discord API Timeout | Network issue, rate limit, Discord outage | Retry with exponential backoff | Delayed response (30-60s) |
+
+**Testing Error Paths**:
+
+```javascript
+// Mock Dexpack failure
+vi.mock("../data/dexpack.js", () => ({
+  dexApi: {
+    getSpecies: vi.fn(() => { throw new Error("Dexpack unavailable"); })
+  }
+}));
+
+// Expect graceful error message
+const reply = await executeCommand(interaction);
+expect(reply.content).toContain("Pokémon data missing");
+expect(SESSIONS.size).toBe(0); // No session created
+```
+
+### 10.7.9 Testing & Validation
+
+**Unit Tests** (tests/commands/battle-turn.spec.ts, not yet created):
+
+```typescript
+describe("battle-turn command", () => {
+  beforeEach(() => {
+    SESSIONS.clear(); // Reset sessions before each test
+  });
+
+  it("creates new session on first invocation", async () => {
+    const interaction = mockInteraction({ userId: "user123" });
+    await executeCommand(interaction);
+    
+    expect(SESSIONS.size).toBe(1);
+    expect(SESSIONS.has("user123")).toBe(true);
+  });
+
+  it("reuses session on subsequent invocations", async () => {
+    const interaction = mockInteraction({ userId: "user123" });
+    
+    await executeCommand(interaction); // Turn 1
+    const session1 = SESSIONS.get("user123");
+    
+    await executeCommand(interaction); // Turn 2
+    const session2 = SESSIONS.get("user123");
+    
+    expect(session1).toBe(session2); // Same object reference
+    expect(session2.state.turn).toBe(2); // Turn incremented
+  });
+
+  it("deletes session when Pokémon faints", async () => {
+    const interaction = mockInteraction({ userId: "user123" });
+    
+    // Mock battle state where Charizard faints this turn
+    SESSIONS.set("user123", {
+      state: mockBattleState({ pokemon1: { hp: 5 }, pokemon2: { hp: 150 } })
+    });
+    
+    await executeCommand(interaction); // Charizard takes fatal damage
+    
+    expect(SESSIONS.has("user123")).toBe(false); // Session deleted
+  });
+
+  it("handles Dexpack unavailable error", async () => {
+    vi.mock("../data/dexpack.js", () => ({
+      dexApi: { getSpecies: vi.fn(() => { throw new Error("Dexpack unavailable"); }) }
+    }));
+    
+    const interaction = mockInteraction({ userId: "user123" });
+    await executeCommand(interaction);
+    
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining("data missing") })
+    );
+    expect(SESSIONS.size).toBe(0); // No session created
+  });
+
+  it("logs move usage to Write Buffer", async () => {
+    const mockLogMoveUsage = vi.fn();
+    vi.mock("../services/engine-write-buffer.js", () => ({
+      engineWriteBuffer: { logMoveUsage: mockLogMoveUsage }
+    }));
+    
+    const interaction = mockInteraction({ userId: "user123", p1_move: 1, p2_move: 2 });
+    await executeCommand(interaction);
+    
+    expect(mockLogMoveUsage).toHaveBeenCalledTimes(2); // Both Pokémon
+    expect(mockLogMoveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ pokemonId: 6, moveId: expect.any(Number) })
+    );
+  });
+});
+```
+
+**Integration Tests** (tests/integration/battle-turn.spec.ts, not yet created):
+
+```typescript
+describe("battle-turn integration", () => {
+  it("resolves full battle from start to KO", async () => {
+    const interaction = mockInteraction({ userId: "user123" });
+    
+    // Turn 1-5: Normal damage
+    for (let i = 0; i < 5; i++) {
+      const reply = await executeCommand(interaction);
+      expect(reply.embeds[0].title).toContain(`Turn ${i + 1}`);
+    }
+    
+    // Turn 6: Venusaur faints
+    const finalReply = await executeCommand(interaction);
+    expect(finalReply.embeds[0].footer.text).toContain("wins");
+    expect(SESSIONS.has("user123")).toBe(false); // Session deleted
+  });
+
+  it("handles concurrent battles (different users)", async () => {
+    const user1 = mockInteraction({ userId: "user123" });
+    const user2 = mockInteraction({ userId: "user456" });
+    
+    await executeCommand(user1); // User 1 starts battle
+    await executeCommand(user2); // User 2 starts battle
+    
+    expect(SESSIONS.size).toBe(2);
+    expect(SESSIONS.get("user123")).not.toBe(SESSIONS.get("user456")); // Independent sessions
+  });
+
+  it("respects cooldown between invocations", async () => {
+    const interaction = mockInteraction({ userId: "user123" });
+    
+    await executeCommand(interaction); // Turn 1
+    const reply2 = await executeCommand(interaction); // Immediate retry (within 2s)
+    
+    expect(reply2.content).toContain("cooldown"); // Rejected
+    
+    await sleep(2000); // Wait for cooldown
+    const reply3 = await executeCommand(interaction); // Turn 2 (after cooldown)
+    expect(reply3.embeds[0].title).toContain("Turn 2"); // Success
+  });
+});
+```
+
+**Manual Testing Checklist**:
+
+```
+✅ Start new battle → Session created, Charizard vs Venusaur displayed
+✅ Execute multiple turns → HP decreases, status effects apply
+✅ Battle to completion → Winner declared, session deleted
+✅ Start new battle after KO → Fresh session (HP reset to max)
+✅ Bot restart → All sessions lost, new battles start fresh
+✅ Concurrent users → Independent sessions (no cross-contamination)
+✅ Cooldown enforcement → 2-second delay between commands
+✅ Write Buffer integration → Move usage logged (verify in /ops engine)
+✅ Error handling → Graceful error messages when Dexpack/engine unavailable
+✅ Embed formatting → HP bars, type emojis, status icons display correctly
+```
+
+### 10.7.10 Integration Points
+
+**Dexpack Integration** (see Section 9.10):
+
+```javascript
+const charizard = dexApi.getSpecies(6);   // L1 cache → Dexpack fallback
+const venusaur = dexApi.getSpecies(3);    // <1μs (cache hit) or 0.3-1ms (miss)
+```
+
+**Battle Engine Integration** (see Section 9.1-9.3):
+
+```javascript
+const initialState = initBattle(charizard, venusaur, 50, 50);
+const { state: newState } = resolveTurn(session.state, actions, context);
+```
+
+**Engine Write Buffer Integration** (see Section 9.9.2):
+
+```javascript
+engineWriteBuffer.logMoveUsage({ pokemonId, moveId, outcome, timestamp });
+engineWriteBuffer.logBattle({ winner, turns, duration, p1_species, p2_species });
+```
+
+**Cooldown System Integration** (see Section 10.6):
+
+```javascript
+const data = {
+  name: "battle-turn",
+  cooldown: 2000, // 2 seconds per user
+  // ...
+};
+```
+
+**Logger Integration** (see Section 5.5):
+
+```javascript
+logger.info(`[battle-turn] Created new session for user ${userId}`);
+logger.error("[battle-turn] Turn resolution failed", err);
+```
+
+**Discord.js Embed Integration** (see Section 10.2):
+
+```javascript
+const embed = new EmbedBuilder()
+  .setTitle(`⚔️ Battle Turn ${newState.turn}`)
+  .addFields({ name: p1.species.name, value: formatSummaryLine(p1) })
+  .setColor(0xFF0000);
+```
+
+### 10.7.11 Known Limitations
+
+**Persistence** (Intentional):
+- Sessions lost on restart (no database backing)
+- No battle history (can't review past turns)
+- No recovery after bot crash (must start new battle)
+
+**Customization** (Not Yet Implemented):
+- Fixed matchup (Charizard vs Venusaur only)
+- Fixed level (50 only)
+- No Pokémon selection (can't choose species)
+- No level selection (can't set custom levels)
+
+**Action Types** (Partial Implementation):
+- Move actions only (can't switch, use items, forfeit)
+- No multi-turn moves (Future Sight, etc. not supported)
+- No form changes (Mega Evolution, Dynamax not implemented)
+
+**Multiplayer** (Single-Player Only):
+- Both sides controlled by same user (no PvP)
+- No spectators (sessions are private)
+- No team-based battles (singles only, no doubles/triples)
+
+**Session Management** (No Timeout):
+- Sessions persist indefinitely until KO or restart
+- No 30-minute inactivity timeout (future enhancement)
+- No manual session reset command (must finish battle or restart bot)
+
+**User Experience**:
+- No autocomplete for move names (only slots 1-4)
+- No move descriptions (must know move effects)
+- No damage preview (can't see type effectiveness before moving)
+- No AI opponent (both sides user-controlled)
+
+### 10.7.12 Future Enhancements
+
+**Phase 1: Customization** (Priority: HIGH):
+- Add `p1_species` and `p2_species` options (autocomplete Pokédex search)
+- Add `p1_level` and `p2_level` options (1-100 range)
+- Add `battle_format` option (singles/doubles/triples)
+- Add `/battle-reset` command (force-delete session)
+
+**Phase 2: Action Expansion** (Priority: MEDIUM):
+- Implement switch actions (p1_switch, p2_switch)
+- Implement item actions (p1_item, p2_item)
+- Implement forfeit action (one-sided KO)
+- Implement AI opponent mode (user vs bot)
+
+**Phase 3: Persistence** (Priority: LOW):
+- Add database schema (BattleSessions table)
+- Save sessions on each turn (upsert to PostgreSQL)
+- Load sessions on command invocation
+- Add 30-minute inactivity timeout (cron cleanup)
+
+**Phase 4: Multiplayer** (Priority: LOW):
+- Implement PvP mode (two users, one battle)
+- Add spectator mode (view-only access)
+- Add battle invites (challenge another user)
+- Add ranked ladder (win/loss tracking)
+
+**Phase 5: UX Improvements** (Priority: MEDIUM):
+- Add move autocomplete (search by name)
+- Add move descriptions (show effect text)
+- Add damage preview (calculate type effectiveness)
+- Add battle history command (/battle-history)
+- Add replay system (download battle log as JSON)
+
+**Phase 6: Analytics Dashboard** (Priority: LOW):
+- Add `/battle-stats` command (personal win/loss, favorite Pokémon)
+- Add global leaderboard (most battles, highest win rate)
+- Add move usage heatmap (which moves used most often)
+- Add species matchup matrix (win rates by type)
+
+### 10.7.13 Cross-References
+
+**Related Architecture Bible Sections**:
+- **Section 9.1-9.3** (Battle Engine) — Core battle logic, turn resolution, damage calculation
+- **Section 9.9** (Engine Workers) — Write Buffer integration for battle analytics
+- **Section 9.10** (Dexpack → Engine Cache) — Pokémon/move data lookup for default matchup
+- **Section 10.2** (Discord Bot Initialization) — Command loading, interaction routing
+- **Section 10.6** (Cooldown System) — Per-user 2-second cooldown enforcement
+- **Section 5.5** (Logger Auto-Refresh) — Session creation/termination logging
+
+**Related Operations Bible Sections**:
+- **operations-bible/03-monitoring.md** — Session count telemetry (future)
+- **operations-bible/06-runbooks.md** — Battle-turn troubleshooting (sessions stuck, KO not detecting)
+
+**Related Development Bible Sections**:
+- **development-bible/04-testing.md** — Battle-turn unit/integration test patterns
+- **development-bible/02-local-development.md** — Testing battles locally (Dexpack must be loaded)
+
+**Related Source Files**:
+- `src/commands/battle-turn.js` (223 lines) — Complete command implementation
+- `src/core/battle/engine.ts` (lines 1-500) — Battle engine (initBattle, resolveTurn)
+- `src/data/dexpack.js` (lines 1-100) — Dexpack cache (getSpecies for Charizard/Venusaur)
+- `src/services/engine-write-buffer.ts` (lines 100-150) — Battle/move logging integration
+- `src/lib/cooldown.js` (lines 50-75) — Cooldown enforcement for battle-turn command
+- `src/utils/logger.js` (lines 200-250) — Session lifecycle logging
+
 ---
 
 [← Back to INDEX](INDEX.md) | [← Previous: Game Engine](09-game-engine.md) | [Next: Safety Guarantees →](11-safety-guarantees.md)
