@@ -117,9 +117,52 @@ To disable automatic restarts:
 3. Commit change
 4. Manual restarts via `workflow_dispatch` still available
 
+## Health Check Watchdog
+
+In addition to scheduled restarts, a health check watchdog monitors service health:
+
+**Workflow:** `.github/workflows/health-check-watchdog.yml`
+
+**Behavior:**
+- Runs every 5 minutes
+- Pings health endpoint at `http://localhost:3000/health` (via Render Shell API)
+- Records failures in temporary markers
+- Triggers automatic restart after 3 consecutive failures (15 minutes of downtime)
+- Clears failure markers when service becomes healthy
+
+**Failure threshold:**
+- 1st failure: Warning recorded
+- 2nd failure: Warning recorded
+- 3rd failure: **Automatic restart triggered**
+
+**Recovery verification:**
+- Polls service status every 10 seconds (max 5 minutes)
+- Confirms service state is `running` or `available`
+- Clears failure markers after successful recovery
+
+**Manual inspection:**
+```bash
+# Check workflow runs
+https://github.com/Sherbivs/Infinity-Gauntlet/actions/workflows/health-check-watchdog.yml
+
+# View failure history
+# Failure markers stored in workflow artifacts (cleared on recovery)
+```
+
+## Combined Restart Strategy
+
+The system uses multiple restart layers:
+
+1. **Scheduled restarts:** Every 12 hours for memory hygiene
+2. **Health watchdog:** Auto-restart on 3 consecutive health check failures
+3. **Render auto-restart:** Exit code 0 → immediate, others → 30s delay
+4. **Discord webhooks:** Immediate visibility on all lifecycle events
+5. **Health endpoint:** External monitors can detect downtime
+
 ## Notes
 
 - Restart does NOT redeploy code (keeps current deployed version)
 - Restart triggers graceful shutdown (data persistence guaranteed)
 - Application tracks boot count and uptime in lifecycle notifications
 - Health endpoint allows external monitors to detect downtime during restart
+- Multiple restart layers ensure high availability without manual intervention
