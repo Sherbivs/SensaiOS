@@ -1566,6 +1566,36 @@ export async function handleOpsCommand(
     return;
   }
 
+  if (sub === "restarts") {
+    await interaction.deferReply({ ephemeral: true });
+    
+    try {
+      const { getMetricsSummary } = await import("../../services/restart-metrics.js");
+      const summary = getMetricsSummary();
+      
+      const lines: string[] = [];
+      lines.push("🔄 **Restart Metrics Dashboard**");
+      lines.push(`Generated: ${toEasternString(new Date())}`);
+      lines.push("");
+      lines.push(summary);
+      lines.push("");
+      lines.push("*Tracking restart history, crash counts, and uptime metrics*");
+      lines.push("*Data persisted to `/Store/restart-metrics.json`*");
+      
+      const message = lines.join("\n");
+      if (message.length > 2000) {
+        await interaction.editReply({ content: message.substring(0, 1997) + "..." });
+      } else {
+        await interaction.editReply({ content: message });
+      }
+    } catch (err) {
+      log.warn("Restart metrics command failed", { err });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Restart metrics unavailable: ${message}` });
+    }
+    return;
+  }
+
   await interaction.reply({ content: "Unknown /ops command.", ephemeral: true });
 }
 

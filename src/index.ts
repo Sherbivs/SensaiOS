@@ -27,6 +27,7 @@ import { formatBytes } from "./shared/utils/format-utils.js";
 import { getErrorMessage } from "./shared/utils/error-utils.js";
 import { startHealthServer, stopHealthServer } from "./services/health-server.js";
 import { notifyBoot, notifyShutdown, notifyCrash } from "./services/lifecycle-notifier.js";
+import { initializeMetrics, recordShutdown, recordCrash, saveMetrics } from "./services/restart-metrics.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
 // import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
 // Lazy-loaded database recovery (only needed when connection fails)
@@ -878,6 +879,12 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
       error: error instanceof Error ? error.message : String(error),
     });
   });
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // RESTART METRICS: Record Shutdown Event
+  // ══════════════════════════════════════════════════════════════════════════
+  // Record this shutdown in persistent metrics (synchronous, non-blocking)
+  recordShutdown(signal);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PHASE 1: CRITICAL DATA PERSISTENCE (Priority Order - Execute First)
@@ -1131,6 +1138,12 @@ function installSignalHandlers(): void {
       });
     });
     
+    // ══════════════════════════════════════════════════════════════════════════
+    // RESTART METRICS: Record Crash Event
+    // ══════════════════════════════════════════════════════════════════════════
+    // Record this crash in persistent metrics (synchronous, non-blocking)
+    recordCrash(error);
+    
     // Capture error for tracking (CRITICAL severity - system crash)
     try {
       const { errorTracker } = await import("./services/monitoring/error-tracker.js");
@@ -1161,6 +1174,16 @@ export async function boot(): Promise<void> {
   startMonitor();
 
   log.info("Infinity Gauntlet: toolchain online", { env: config.nodeEnv });
+  
+  // ============================================================================
+  // Restart Metrics Initialization (Track restart history)
+  // ============================================================================
+  // Initialize restart metrics FIRST to track this boot event.
+  // Persists to /Store/restart-metrics.json for long-term observability.
+  initializeMetrics();
+  log.info("Restart metrics initialized", {
+    note: "Tracking restart history, crash counts, uptime metrics",
+  });
   
   // ============================================================================
   // Health Check Server (Start EARLY for external monitoring)
