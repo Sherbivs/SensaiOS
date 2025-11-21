@@ -44,15 +44,11 @@ const METRIC_UNAVAILABLE = Object.freeze({
 
 **Node Stats** (Always Available):
 - Uptime: `process.uptime()`
-- Memory (RAM): `process.memoryUsage()` (rss, heapUsed, heapTotal, external)
+- Memory: `process.memoryUsage()` (rss, heapUsed, heapTotal, external)
 - CPU: `process.cpuUsage()` (user, system)
 - PID: `process.pid`
 - Version: `process.version`
-
-**Disk Stats** (Manual via SSH):
-- Persistent Disk: `df -h /Store` (1 GB /Store mount, see docs/RESOURCE-LIMITS-RAM-VS-DISK.md)
-- Usage: Checked manually via `render_disk_usage_windows.ps1`
-- Note: Automatic disk monitoring not yet implemented (see resource-monitor.ts TODOs)
+- Persisted Disk: (PLACEHOLDER FOR FUTURE FULL IMPLMENTATION AND DOCUMENTATION)
 
 **Database Stats** (Conditionally Available):
 - Source: `getDatabaseStats()` from Prisma client or pg-connection fallback

@@ -759,8 +759,8 @@ async function printStats() {
   lines.push(`  Uptime: ${statsCache.node.uptime}`);
   lines.push(`  Process: PID ${statsCache.node.pid} | ${statsCache.node.version}`);
   lines.push('');
-  lines.push('  Memory:');
-  lines.push(`    RSS:      ${statsCache.node.memory.rss.padEnd(12)}`);
+  lines.push('  RAM (Process Memory):');
+  lines.push(`    RSS:      ${statsCache.node.memory.rss.padEnd(12)} ← Total RAM used`);
   lines.push(`    Heap:     ${statsCache.node.memory.heapUsed} / ${statsCache.node.memory.heapTotal}`);
   lines.push(`    External: ${statsCache.node.memory.external}`);
   lines.push('');
@@ -771,13 +771,14 @@ async function printStats() {
   
   // -------------------------------------------------------------------------
   // Cache & Resource Stats - Real-time metrics from resource monitor
+  // NOTE: Cache stats below show DISK usage (persistent /Store), not RAM
   // -------------------------------------------------------------------------
-  lines.push('[CACHE & RESOURCES]');
+  lines.push('[CACHE & RESOURCES - Persistent Disk]');
   lines.push(`  Cache Directory: ${statsCache.cache.cacheDir}`);
   lines.push(`  Cache Size: ${statsCache.cache.cacheSize} / ${statsCache.cache.cacheBudgetMax} (${statsCache.cache.cacheBudgetPercent})`);
   lines.push(`  Cache Free: ${statsCache.cache.approxFree}`);
   lines.push('');
-  lines.push(`  Workspace Limit: ${statsCache.cache.workspaceLimit}`);
+  lines.push(`  Workspace Limit: ${statsCache.cache.workspaceLimit} ← 1 GB persistent disk`);
   lines.push(`  Workspace Free:  ${statsCache.cache.workspaceFree}`);
   lines.push('');
   lines.push(`  Disk Total: ${statsCache.cache.diskTotal}`);
