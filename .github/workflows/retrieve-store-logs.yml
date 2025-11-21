@@ -1,0 +1,139 @@
+name: Retrieve Store Logs
+
+# Purpose: Retrieve log files from /Store directory on production
+# Usage: Manual trigger with log path input
+
+on:
+  workflow_dispatch:
+    inputs:
+      log_path:
+        description: 'Path to log file or directory (e.g., /Store/restart-metrics.json)'
+        required: false
+        default: '/Store/'
+        type: string
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'list'
+        type: choice
+        options:
+          - list
+          - view
+          - download
+
+jobs:
+  retrieve-logs:
+    name: Retrieve Production Logs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Retrieve logs from /Store
+        id: retrieve_logs
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: srv-d3snk2ndiees73cn709g
+          LOG_PATH: ${{ inputs.log_path }}
+          ACTION: ${{ inputs.action }}
+        run: |
+          echo "📂 Retrieving logs from production..."
+          echo "Path: $LOG_PATH"
+          echo "Action: $ACTION"
+          echo ""
+          
+          # Determine command based on action
+          if [ "$ACTION" = "list" ]; then
+            if [[ "$LOG_PATH" == */ ]]; then
+              COMMAND="ls -lah $LOG_PATH"
+            else
+              COMMAND="ls -lah $(dirname $LOG_PATH)"
+            fi
+          else
+            COMMAND="cat $LOG_PATH"
+          fi
+          
+          echo "Executing: $COMMAND"
+          echo ""
+          
+          # Execute via Render Shell API
+          RESPONSE=$(curl -s -X POST "https://api.render.com/v1/services/$SERVICE_ID/shell" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"command\": \"$COMMAND\"}")
+          
+          # Check if response is valid
+          if echo "$RESPONSE" | jq -e . >/dev/null 2>&1; then
+            echo "✅ Command executed successfully"
+            echo ""
+            
+            # Extract output
+            OUTPUT=$(echo "$RESPONSE" | jq -r '.output // empty')
+            STDERR=$(echo "$RESPONSE" | jq -r '.stderr // empty')
+            EXIT_CODE=$(echo "$RESPONSE" | jq -r '.exitCode // 0')
+            
+            if [ -n "$OUTPUT" ]; then
+              echo "📤 Output:"
+              echo "================================"
+              echo "$OUTPUT"
+              echo "================================"
+              
+              # Save to artifact if downloading
+              if [ "$ACTION" = "download" ]; then
+                echo "$OUTPUT" > "store-log-output.txt"
+                echo ""
+                echo "💾 Saved to artifact: store-log-output.txt"
+              fi
+            fi
+            
+            if [ -n "$STDERR" ]; then
+              echo ""
+              echo "⚠️  Errors:"
+              echo "$STDERR"
+            fi
+            
+            echo ""
+            echo "Exit code: $EXIT_CODE"
+            
+            if [ "$EXIT_CODE" != "0" ]; then
+              exit 1
+            fi
+          else
+            echo "❌ API request failed"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+      
+      - name: Upload log file as artifact
+        if: inputs.action == 'download'
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-logs
+          path: store-log-output.txt
+          retention-days: 7
+      
+      - name: Show available logs
+        if: inputs.log_path == '/Store/'
+        run: |
+          echo ""
+          echo "📋 Common Log Locations:"
+          echo ""
+          echo "🔄 Restart Metrics:"
+          echo "   /Store/restart-metrics.json"
+          echo ""
+          echo "🛡️  Security Bot State:"
+          echo "   /Store/security-bot-state/current.json"
+          echo "   /Store/security-bot-state/previous.json"
+          echo "   /Store/security-bot-state/snapshots/"
+          echo ""
+          echo "💾 Runtime Cache:"
+          echo "   /Store/runtime-cache/"
+          echo ""
+          echo "💬 Discord Cache:"
+          echo "   /Store/discord-cache/"
+          echo ""
+          echo "🔧 Database Mirrors:"
+          echo "   /Store/onpremise-dev-primary/"
+          echo ""
