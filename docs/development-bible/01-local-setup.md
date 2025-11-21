@@ -137,17 +137,26 @@ See operations-bible/04-environment-management.md § 4.3 for comprehensive setup
 | **Render: Check Service Status** | Service health matrix | `pwsh -File scripts/render_status.ps1` |
 | **Render: Restart Service** | Restart worker | `pwsh -File scripts/render_restart.ps1 -Service "Infinity-Gauntlet"` |
 
-### Render SSH Access
+### Render SSH Tasks (Windows Wrappers)
 
-⚠️ **SSH Method Changed:** Windows PowerShell SSH tasks deprecated. Use WSL commands directly.
+| Task Name | Description | Command |
+|-----------|-------------|---------|
+| **Render SSH (Windows): Interactive** | Interactive SSH session | `pwsh -File scripts/render_ssh_windows.ps1 -Interactive` |
+| **Render SSH (Windows): Check Disk Usage** | Quick disk check | `pwsh -File scripts/render_disk_usage_windows.ps1` |
+| **Render SSH (Windows): Detailed Disk Usage** | Full /Store breakdown | `pwsh -File scripts/render_disk_usage_windows.ps1 -Detailed` |
+| **Render SSH (Windows): Cleanup Heaps (Dry Run)** | Preview heap cleanup | `pwsh -File scripts/render_cleanup_heaps_windows.ps1 -DryRun` |
+| **Render SSH (Windows): Cleanup Heaps** | Delete old snapshots | `pwsh -File scripts/render_cleanup_heaps_windows.ps1 -Keep 3` |
 
-**WSL SSH Commands:**
+### Direct WSL Commands (Advanced)
+
+**Requirements:** WSL with Render CLI installed (see `scripts/README-RENDER.md`)
+
 ```bash
 # Interactive SSH session
 wsl ssh render-virginia
 
 # Check disk usage
-wsl ssh render-virginia 'df -h'
+wsl ssh render-virginia 'df -h /Store'
 
 # View /Store contents
 wsl ssh render-virginia 'ls -lah /Store/'

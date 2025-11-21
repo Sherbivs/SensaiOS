@@ -197,9 +197,42 @@ npm run render:logs
 
 ## 3.4 SSH Access
 
-⚠️ **SSH Method Changed:** Windows PowerShell SSH scripts deprecated. Use WSL-only access.
+### Method 1: Windows PowerShell Wrappers (Recommended)
 
-### Setup (WSL Required)
+**Easiest method for Windows users:**
+
+```powershell
+# Interactive SSH session
+.\scripts\render_ssh_windows.ps1 -Interactive
+
+# Check disk usage
+.\scripts\render_disk_usage_windows.ps1
+
+# Check disk usage with detailed breakdown
+.\scripts\render_disk_usage_windows.ps1 -Detailed
+
+# Execute remote command
+.\scripts\render_ssh_windows.ps1 -Command "df -h /Store"
+
+# Clean up heap snapshots (dry run)
+.\scripts\render_cleanup_heaps_windows.ps1 -DryRun
+
+# Clean up heap snapshots (keep 3 most recent)
+.\scripts\render_cleanup_heaps_windows.ps1 -Keep 3
+```
+
+**VS Code Tasks:** Use Command Palette (`Ctrl+Shift+P`) → `Tasks: Run Task`:
+- `Render SSH (Windows): Interactive`
+- `Render SSH (Windows): Check Disk Usage`
+- `Render SSH (Windows): Detailed Disk Usage`
+- `Render SSH (Windows): Cleanup Heaps (Dry Run)`
+- `Render SSH (Windows): Cleanup Heaps`
+
+### Method 2: Direct WSL Commands
+
+⚠️ **Advanced users only** - requires WSL setup (see `scripts/README-RENDER.md`)
+
+**Setup (one-time):**
 
 **First-time setup:**
 ```bash
@@ -224,7 +257,25 @@ EOF
 
 ### Common SSH Operations
 
-**Disk Usage Monitoring:**
+**Windows PowerShell (Recommended):**
+```powershell
+# Check /Store disk usage
+.\scripts\render_disk_usage_windows.ps1
+
+# View directory breakdown
+.\scripts\render_disk_usage_windows.ps1 -Detailed
+
+# Count security bot snapshots
+.\scripts\render_ssh_windows.ps1 -Command "ls -lah /Store/security-bot-state/snapshots/ | wc -l"
+
+# Check Node.js processes
+.\scripts\render_ssh_windows.ps1 -Command "ps aux | grep node"
+
+# Check memory usage
+.\scripts\render_ssh_windows.ps1 -Command "free -m"
+```
+
+**Direct WSL:**
 ```bash
 # Check /Store disk usage
 wsl ssh render-virginia 'df -h /Store'
@@ -236,7 +287,7 @@ wsl ssh render-virginia 'du -sh /Store/*'
 wsl ssh render-virginia 'ls -lah /Store/security-bot-state/snapshots/ | wc -l'
 ```
 
-**Process Inspection:**
+**Process Inspection (WSL):**
 ```bash
 # Check Node.js processes
 wsl ssh render-virginia 'ps aux | grep node'
@@ -246,6 +297,17 @@ wsl ssh render-virginia 'free -m'
 ```
 
 **Log Inspection:**
+
+**Windows PowerShell:**
+```powershell
+# View recent logs
+.\scripts\render_ssh_windows.ps1 -Command "tail -100 /var/log/render.log"
+
+# Search for errors
+.\scripts\render_ssh_windows.ps1 -Command "grep ERROR /var/log/render.log"
+```
+
+**Direct WSL:**
 ```bash
 # View recent logs
 wsl ssh render-virginia 'tail -100 /var/log/render.log'
@@ -255,8 +317,11 @@ wsl ssh render-virginia 'grep ERROR /var/log/render.log'
 ```
 
 **Interactive SSH Session:**
-```bash
-# Connect interactively
+```powershell
+# Windows - via wrapper
+.\scripts\render_ssh_windows.ps1 -Interactive
+
+# Direct WSL
 wsl ssh render-virginia
 
 # Or via Render CLI

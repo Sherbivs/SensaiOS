@@ -87,23 +87,54 @@ Complete SSH automation suite for Render services. See operations-bible/03-deplo
 ### Quick SSH Commands
 
 ```powershell
-## SSH Access (WSL Only)
+## SSH Access
 
-**Setup:**
+### Option 1: Windows PowerShell Wrappers (Recommended for Windows)
+
+**Easiest method** - Native PowerShell scripts with familiar syntax:
+
+```powershell
+# Check disk usage
+.\scripts\render_disk_usage_windows.ps1
+
+# Interactive SSH session
+.\scripts\render_ssh_windows.ps1 -Interactive
+
+# Execute single command
+.\scripts\render_ssh_windows.ps1 -Command "df -h /Store"
+
+# Clean up old heap snapshots (preview)
+.\scripts\render_cleanup_heaps_windows.ps1 -DryRun
+```
+
+**VS Code Tasks:** Use Command Palette (`Ctrl+Shift+P`) → `Tasks: Run Task` → `Render SSH (Windows): ...`
+
+### Option 2: Direct WSL Commands (Linux/Advanced Users)
+
+**WSL Setup (one-time):**
 ```bash
-# Install Render CLI (one-time)
+# Install Render CLI
 cd ~
-curl -L https://github.com/render-oss/cli/releases/download/v2.5.0/cli_2.5.0_linux_amd64.zip -o render-cli.zip
-unzip render-cli.zip
-sudo mv cli_v2.5.0 /usr/local/bin/render
+curl -L https://github.com/render-oss/render-cli/releases/download/v2.5.0/render-linux-amd64-v2.5.0.zip -o /tmp/render.zip
+unzip /tmp/render.zip -d /tmp/
+sudo mv /tmp/render /usr/local/bin/
 sudo chmod +x /usr/local/bin/render
 
 # Login (generates ~/.ssh/render_key automatically)
 export RENDER_API_KEY='rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp'
 render login
+
+# Add SSH shortcut to ~/.ssh/config
+cat >> ~/.ssh/config << 'EOF'
+Host render-virginia
+  HostName ssh.virginia.render.com
+  User srv-d3snk2ndiees73cn709g
+  IdentityFile ~/.ssh/render_key
+  StrictHostKeyChecking no
+EOF
 ```
 
-**Usage:**
+**WSL Usage:**
 ```bash
 # Interactive shell
 wsl ssh render-virginia
@@ -115,7 +146,99 @@ wsl ssh render-virginia 'df -h /Store'
 wsl bash -c "export RENDER_API_KEY='rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp' && render ssh srv-d3snk2ndiees73cn709g"
 ```
 
-**Note:** Windows SSH scripts (`render_ssh_*.ps1`) are deprecated - use WSL commands above.
+### Windows Wrapper Scripts
+
+Complete PowerShell wrappers with parameter validation, error checking, and color output:
+
+| Script | Purpose | Example |
+|--------|---------|---------|
+| `render_ssh_windows.ps1` | General SSH access | `.\scripts\render_ssh_windows.ps1 -Interactive` |
+| `render_disk_usage_windows.ps1` | Check /Store disk usage | `.\scripts\render_disk_usage_windows.ps1 -Detailed` |
+| `render_cleanup_heaps_windows.ps1` | Clean heap snapshots | `.\scripts\render_cleanup_heaps_windows.ps1 -Keep 3` |
+
+**Quick Start:**
+```powershell
+# Check disk usage
+.\scripts\render_disk_usage_windows.ps1
+
+# Interactive SSH session
+.\scripts\render_ssh_windows.ps1 -Interactive
+
+# Execute single command
+.\scripts\render_ssh_windows.ps1 -Command "ls -lah /Store/"
+
+# Clean up old heap snapshots (preview)
+.\scripts\render_cleanup_heaps_windows.ps1 -DryRun
+```
+
+**VS Code Tasks:** Use Command Palette (`Ctrl+Shift+P`) → `Tasks: Run Task` → `Render SSH (Windows): ...`
+
+**Features:**
+- ✅ Automatic WSL/Render CLI verification
+- ✅ Parameter validation and defaults  
+- ✅ Better error messages than raw WSL commands
+- ✅ Integrated with VS Code tasks
+- ✅ Familiar PowerShell syntax
+
+**Advanced Usage:**
+```powershell
+# Target different service
+.\scripts\render_ssh_windows.ps1 -ServiceId "srv-abc123" -Command "ls -la"
+
+# Different region
+.\scripts\render_ssh_windows.ps1 -Region "oregon" -Interactive
+
+# Keep more snapshots
+.\scripts\render_cleanup_heaps_windows.ps1 -Keep 5
+```
+
+**Requirements:**
+- WSL installed (`wsl --install`)
+- Render CLI installed in WSL (see Option 2 setup above)
+- SSH config in WSL `~/.ssh/config`
+
+### Legacy SSH Scripts Status
+
+**SSH Scripts Status:**
+
+| Script | Purpose | Example |
+|--------|---------|---------|
+| `render_ssh_windows.ps1` | General SSH access | `.\scripts\render_ssh_windows.ps1 -Interactive` |
+| `render_disk_usage_windows.ps1` | Check /Store disk usage | `.\scripts\render_disk_usage_windows.ps1 -Detailed` |
+| `render_cleanup_heaps_windows.ps1` | Clean heap snapshots | `.\scripts\render_cleanup_heaps_windows.ps1 -DryRun` |
+
+#### VS Code Tasks
+
+Use **Command Palette** (`Ctrl+Shift+P`) → **Tasks: Run Task**:
+- `Render SSH (Windows): Interactive` - Open interactive SSH session
+- `Render SSH (Windows): Check Disk Usage` - Quick disk check
+- `Render SSH (Windows): Detailed Disk Usage` - Full /Store breakdown
+- `Render SSH (Windows): Cleanup Heaps (Dry Run)` - Preview cleanup
+- `Render SSH (Windows): Cleanup Heaps` - Delete old snapshots
+
+#### Requirements
+
+- WSL installed (`wsl --install`)
+- Render CLI installed in WSL (see setup above)
+- SSH config in WSL `~/.ssh/config` with `render-virginia` shortcut
+
+#### How It Works
+
+Windows wrappers automatically:
+1. Verify WSL is available
+2. Check Render CLI is installed in WSL
+3. Check SSH config exists
+4. Execute commands via `wsl ssh render-virginia`
+5. Return results to PowerShell with color formatting
+
+**Benefits:**
+- ✅ Familiar PowerShell syntax
+- ✅ No need to type `wsl` prefix
+- ✅ Parameter validation and defaults
+- ✅ Better error messages
+- ✅ Integrated with VS Code tasks
+
+**Note:** Old Windows SSH scripts (`render_ssh_*.ps1`) without wrappers are deprecated.
 
 # Connect to service (interactive)
 npm run render:ssh-connect
@@ -139,8 +262,9 @@ npm run render:ssh-tunnel -- `
 ```
 
 **SSH Scripts Status:**
-- ⚠️ **DEPRECATED:** All Windows PowerShell SSH scripts (`render_ssh_*.ps1`)
-- ✅ **ACTIVE:** WSL-only SSH via `wsl ssh render-virginia` (see SSH Access section above)
+- ⚠️ **DEPRECATED:** Old SSH scripts (`render_ssh_setup.ps1`, `render_ssh_connect.ps1`, `render_ssh_exec.ps1`)
+- ✅ **ACTIVE:** Windows wrappers (`render_ssh_windows.ps1`, `render_disk_usage_windows.ps1`, `render_cleanup_heaps_windows.ps1`)
+- ✅ **ACTIVE:** Direct WSL commands (`wsl ssh render-virginia`)
 - 📚 **Documentation:** See `ops/RENDER-CREDENTIALS.md` for complete SSH setup and usage
 
 ## VS Code Tasks

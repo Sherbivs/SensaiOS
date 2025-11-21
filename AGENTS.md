@@ -682,11 +682,14 @@ See `docs/engine-db-replication.md` for comprehensive design documentation. See 
 - **Render Platform Credentials:**
   - **API Key:** `rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp` (required for GitHub Actions workflows)
   - **Service ID:** `srv-d3snk2ndiees73cn709g` (main bot worker)
-  - **SSH Command:** `ssh srv-d3snk2ndiees73cn709g@ssh.virginia.render.com`
-  - **SSH Key:** `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHRmJahMqnfxmn+OSaYtWmFcxfdz8i3CPqvhOS+bkWBM render-sherb@SENSAI`
+  - **SSH Access:**
+    - **Windows (Recommended):** `.\scripts\render_ssh_windows.ps1 -Interactive` or VS Code tasks
+    - **Direct WSL:** `wsl ssh render-virginia` or `wsl bash -c "render ssh srv-d3snk2ndiees73cn709g"`
+    - **Quick Operations:** `.\scripts\render_disk_usage_windows.ps1`, `.\scripts\render_cleanup_heaps_windows.ps1`
+  - **SSH Key:** `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH2nGfecHh4dwNrs1brxOvwvUUeG7daOsIim4qSzY7sI` (WSL `~/.ssh/render_key`)
   - **Dashboard Shell:** https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g/shell
   - **Complete Reference:** See `ops/RENDER-CREDENTIALS.md` for all API endpoints, setup instructions, and troubleshooting
-  - **Environment File:** `secrets/Infinity-Gauntlet.env` (RENDER_API_KEY, RENDER_SERVICE_ID, RENDER_SSH_KEY)
+  - **Environment File:** `secrets/Infinity-Gauntlet.env` (RENDER_API_KEY, RENDER_SERVICE_ID)
   - **GitHub Secret:** Add `RENDER_API_KEY` to https://github.com/Sherbivs/Infinity-Gauntlet/settings/secrets/actions
 - **Deployment Command:** Use `pwsh -File "scripts/render_deploy.ps1" -Service "Infinity-Gauntlet"` to deploy the main bot worker to production. The Render API uses the service name "Infinity-Gauntlet" (with capital letters) for the `infinity-gauntlet-bots` worker defined in render.yaml.
   - **Service ID:** srv-d3snk2ndiees73cn709g
