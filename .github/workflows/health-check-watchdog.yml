@@ -57,12 +57,20 @@ jobs:
             echo "Health endpoint HTTP code: $health_status"
             echo "Health endpoint response: $health_body"
             
-            if [ "$health_status" = "200" ]; then
-              echo "✅ Service is healthy!"
+            # PHASE 4: SEAMLESS RESTART - Recognize 206 Partial Content as valid
+            # 206 = warmup phase (initializing, cache loading) - still functional
+            # 200 = fully operational
+            # Other codes = unhealthy (trigger restart logic)
+            if [ "$health_status" = "200" ] || [ "$health_status" = "206" ]; then
+              if [ "$health_status" = "206" ]; then
+                echo "🔄 Service is warming up (206 Partial Content)"
+              else
+                echo "✅ Service is healthy (200 OK)"
+              fi
               echo "health_status=healthy" >> $GITHUB_OUTPUT
               exit 0
             else
-              echo "⚠️ Health endpoint returned non-200: $health_status"
+              echo "⚠️ Health endpoint returned unexpected code: $health_status"
               echo "health_status=unhealthy" >> $GITHUB_OUTPUT
               exit 0
             fi

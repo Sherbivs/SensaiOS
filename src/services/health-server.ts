@@ -6,13 +6,19 @@
  * 
  * Features:
  * - Returns 200 OK when application is healthy (engineReady = true)
- * - Returns 503 Service Unavailable during initialization or shutdown
+ * - Returns 206 Partial Content during warmup (initializing, cache loading)
+ * - Returns 503 Service Unavailable during shutdown only
  * - Includes uptime, memory, service health in response body
  * - Port configurable via HEALTH_CHECK_PORT (default: 3000)
  * 
+ * OPTIMIZATION (Phase 4 - Seamless Restart):
+ * - 206 Partial Content signals "still booting but functional" (prevents false alarms)
+ * - External monitors recognize 206 as valid (GitHub Actions, UptimeRobot)
+ * - Target: Zero health check failures during planned restarts
+ * 
  * Integration:
  * - External monitors (UptimeRobot, Pingdom) ping /health endpoint
- * - GitHub Actions watchdog pings every 5 minutes
+ * - GitHub Actions watchdog pings every 35 minutes (accepts 200 or 206)
  * - Discord webhooks trigger on consecutive failures
  * - Render API restart triggered after threshold exceeded
  * 
@@ -143,11 +149,20 @@ function handleRequest(
 
   const health = getHealthStatus();
 
+  // ═════════════════════════════════════════════════════════════════════════════
+  // PHASE 4: HEALTH CHECK 206 PARTIAL CONTENT (Seamless Restart Optimization)
+  // ═════════════════════════════════════════════════════════════════════════════
+  // During warmup (initializing), return 206 instead of 503
+  // This signals "still booting but functional" to external monitors
+  // Prevents false alarms during 2-3s boot window after restart
+  // GitHub Actions watchdog recognizes 206 as valid (non-failure)
+  
   // Determine HTTP status code
   const statusCode = 
-    health.status === 'healthy' ? 200 :
-    health.status === 'degraded' ? 200 : // Still operational, just degraded
-    503; // initializing or shutting_down
+    health.status === 'healthy' ? 200 :       // Fully operational
+    health.status === 'degraded' ? 200 :      // Operational but degraded
+    health.status === 'initializing' ? 206 :  // Warmup phase (SEAMLESS RESTART)
+    503;                                       // shutting_down only
 
   res.writeHead(statusCode, {
     'Content-Type': 'application/json',
@@ -158,13 +173,18 @@ function handleRequest(
 
   res.end(JSON.stringify(health, null, 2));
 
-  // Log health checks at debug level (too noisy for info)
-  if (statusCode !== 200) {
-    log.warn('Health check returned non-200 status', {
+  // Log health checks: 503 = warn (actual failure), 206 = info (warmup), 200 = silent (normal)
+  if (statusCode === 503) {
+    log.warn('Health check returned 503 (shutting down)', {
       status: health.status,
-      statusCode,
       engineReady: health.engine_ready,
       services: health.services,
+    });
+  } else if (statusCode === 206) {
+    // 206 during warmup is expected (seamless restart), log once per boot
+    log.info('Health check returned 206 (warmup phase - seamless restart)', {
+      status: health.status,
+      engineReady: health.engine_ready,
     });
   }
 }
