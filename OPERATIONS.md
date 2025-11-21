@@ -1,8 +1,10 @@
-# OPERATIONS
+# OPERATIONS — Pokémon Infinity Gauntlet
 
-_Last updated: 2025-11-14T13:30:00Z (UTC) — Rev: 1.6_
+_Last updated: 2025-11-21T12:30:00Z (UTC) — Rev: 1.7_
 
 **Purpose**: Service matrix, rollout checklist, observability, incident recovery for production deployment.
+
+**ARCHITECTURE UPDATE (2025-11-21):** Migrating from DM-based gameplay to private guild channels (homestead-{username}). See `docs/architecture-bible/14-private-channel-architecture.md` for complete specification.
 
 **Cross-References**:
 - See `operations-bible/01-service-matrix.md` for comprehensive worker architecture, scaling roadmap (Phase 10+), monitoring, cost optimization
@@ -21,7 +23,7 @@ _Last updated: 2025-11-14T13:30:00Z (UTC) — Rev: 1.6_
 
 | Render Service | Purpose | Entry Command | Key Env Flags | Health Signals |
 | --- | --- | --- | --- | --- |
-| `infinity-gauntlet` (worker) | Main Discord bot (Pokémon battles, DM features, slash commands). Runs compiled TypeScript from dist/. | `npm start` (→ `node dist/index.js`) | `DATABASE_URL`, `ENABLE_SECURITY_BOT=false`, `ENABLE_POKEMON_BOT=true` | CLI dashboard (`discord` + `database` sections), structured logs tagged `runtime.*`. |
+| `infinity-gauntlet` (worker) | Main Discord bot (Pokémon battles, **homestead channel gameplay**, slash commands). Runs compiled TypeScript from dist/. **Migration in progress:** DM features → private guild channels. | `npm start` (→ `node dist/index.js`) | `DATABASE_URL`, `ENABLE_SECURITY_BOT=false`, `ENABLE_POKEMON_BOT=true` | CLI dashboard (`discord` + `database` sections), structured logs tagged `runtime.*`. |
 | `infinity-gauntlet-security` (worker) | Dedicated security bot (role sweeps, DRIP alerts). | `node security-bot.js` | `ENABLE_SECURITY_BOT=true`, `ENABLE_CONTINUOUS_SWEEP=true`, alert tokens. | CLI security section, `worker.outbox.*`, `security.*`, DRIP alert receipts. |
 | `infinity-gauntlet-outbox` (worker) | Drains `BusMessage` events and uploads payloads to durable storage. | `node dist/worker/outbox.js` | `OUTBOX_MIN/MAX_DELAY_MS`, `OUTBOX_BATCH_SIZE`, `BACKUP_STORAGE_PROVIDER`, `BACKUP_STORAGE_S3_BUCKET`, `BACKUP_STORAGE_S3_REGION`. | `worker.outbox.health`, cache entries `outbox:last-*`, `backupProvider` field. |
 | `infinity-gauntlet-cache` (worker) | Refreshes Pokédex cache on a fixed cadence. | `node dist/worker/cache-refresh.js` | `CACHE_WORKER_INTERVAL_MS`, `CACHE_WORKER_INTERVAL_JITTER_MS`. | `worker.cache.health`, cache metadata timestamps. |

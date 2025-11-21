@@ -6,7 +6,9 @@
 
 **Philosophy**: "The Discord bot is the player interface—responsive, intuitive, and delightful."
 
-**Purpose**: Complete Discord interaction layer with slash commands, DM flows, and button/modal interactions.
+**Purpose**: Complete Discord interaction layer with slash commands, homestead channel flows, and button/modal interactions.
+
+**ARCHITECTURE CHANGE (2025-11-21):** All gameplay now uses **private guild channels (homestead-{username})** instead of DMs. Each user has a dedicated private channel within the Discord guild for all gameplay interactions. See Section 14: Private Channel Architecture for complete specification.
 
 ## 10.1 Command Suite
 
@@ -22,15 +24,17 @@
 - `/ops error [--since] [--limit]` — Error tracker queries
 
 **Player Commands**:
-- `/home` — Open DM home screen (starter selection, party, profile, heal)
-- `/walk` — Encounter wild Pokémon
-- `/battle [user]` — Challenge another player
+- `/home` — Open homestead channel home screen (starter selection, party, profile, heal)
+- `/walk` — Encounter wild Pokémon in homestead channel
+- `/battle [user]` — Challenge another player (notifications sent to homestead channels)
 - `/pokemon [name]` — View Pokémon details
-- `/party` — View/manage party
-- `/profile` — View player profile with pagination
-- `/heal` — Heal party at Pokémon Center
+- `/party` — View/manage party in homestead channel
+- `/profile` — View player profile with pagination in homestead channel
+- `/heal` — Heal party at Pokémon Center in homestead channel
 - `/trade [user]` — Initiate trade (Phase 10+)
 - `/dex` — View Pokédex progress (Phase 10+)
+
+**Note:** All player commands now interact via private homestead channels (homestead-{username}) instead of Discord DMs. Migration from DM-based system in progress (Phase 18).
 
 **Command Registration**:
 

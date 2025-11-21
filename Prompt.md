@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-17T09:15:00Z
-Revision: 3.1
+Timestamp (UTC): 2025-11-21T12:30:00Z
+Revision: 3.2
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -22,9 +22,11 @@ Revision: 3.1
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 - **NEXT Pointer:** Multi-task queue system (3 main + 1 quick/hot task allowed)
-  - **Main Tasks (1/3 active):** DB.NORTHSTAR.ANALYTICS — Build analytics jobs (generate_daily_stats.ts, refresh_leaderboards.ts) with aggregation logic (daily active users, popular species, battle win rates, achievement completion rates), schedule via cron or worker, add export capabilities (CSV, JSON).
+  - **Main Tasks (2/3 active):**
+    1. DB.NORTHSTAR.ANALYTICS — Build analytics jobs (generate_daily_stats.ts, refresh_leaderboards.ts) with aggregation logic (daily active users, popular species, battle win rates, achievement completion rates), schedule via cron or worker, add export capabilities (CSV, JSON).
+    2. ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION — **MAJOR ARCHITECTURE PIVOT**: Migrate from DM-based gameplay to private guild channels. Foundation phase: Create HomesteadChannelManager service, add HomesteadChannel database schema, implement channel creation/permissions/lookup logic, write unit tests.
   - **Quick Task Slot:** Available for bug fixes, documentation updates, or hotfixes (<30 min work)
-- **READY / In-flight:** DB.NORTHSTAR.ANALYTICS is the primary READY task; Phase 15 (Database Northstar Optimization) spans 5 tasks (2/5 complete: Phase 1 migration deployed, Services implemented).
+- **READY / In-flight:** Two parallel streams: DB.NORTHSTAR.ANALYTICS (analytics layer) + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION (gameplay architecture overhaul). Private channel migration is a 6-phase project affecting 10 DM call sites, 4 modules, 6 feature areas.
 
 ## System Highlights
 - **Database:** Production uses unified Render-managed PostgreSQL (`PROD_DATABASE_URL`) for all operations. Optional workstation development via `DATABASE_ONPREMISE_DEV_PRIMARY` (offline fallback). Migrations use direct PostgreSQL mode via `RENDER_DB_EXTERNAL_URL`. See `operations-bible/02-database-operations.md` for complete URL selection logic.
@@ -63,9 +65,10 @@ Revision: 3.1
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: main (a40218e)
-Change: Added anti-stuck enforcement to Patch engine that forces meta-system maintenance when technical debt accumulates. Postflight now checks: 5+ code changes without router updates → force META.ROUTER.SYNC; 10+ changes without Bible docs → force META.BIBLE.CONSOLIDATE; 20+ DONE tasks → force META.TASKLIST.ARCHIVE; Prompt.md >500 lines → force META.PROMPT.COMPRESS. Operating Loop gained mandatory quality gates for router sync, Bible integration, Tasklist cleanup, Prompt compression, TOUCHMAP accuracy. Absolutes expanded with Meta-System Quality Discipline rules. NEXT.yaml header documents forced task mechanism. System now logically cannot get stuck without maintaining high-quality meta-documentation.
-TasklistDiff: ✅ No changes (infrastructure policy update)
+HEAD: pending-local (uncommitted architecture specification)
+Change: MAJOR ARCHITECTURE PIVOT — User requested migration from DM-based gameplay to private guild channels. Created comprehensive 900-line architecture specification (docs/architecture-bible/14-private-channel-architecture.md) covering database schema (HomesteadChannel model), service design (HomesteadChannelManager), channel lifecycle (creation/permissions/cleanup), migration strategy (6-phase hard cutover), error handling, testing, monitoring, deployment. Identified 10 createDM() call sites across 4 DM modules (home, heal, starters) + 6 feature areas (battles, wilds, profiles). Added 6 tasks to Phase 18 (READY → DEPLOYMENT). Updated ops/NEXT.yaml with ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION as 2nd main task (parallel with DB.NORTHSTAR.ANALYTICS). Updated Tasklist.md Rev 2.109, Prompt.md Rev 3.2.
+TasklistDiff: ✅ True (6 new tasks added to Phase 18, 1 task added to NEXT.yaml main_tasks queue)
+
 Tests: N/A (meta-policy update, no runtime code changes)
 ContractMode: ON (Anti-stuck enforcement active)
 NextPointer: Main Tasks (1/3): DB.NORTHSTAR.ANALYTICS (READY) | Quick Task Slot: Available for forced META.* tasks

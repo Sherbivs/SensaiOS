@@ -28,7 +28,7 @@
 
 **Phase 11: Trade System** (December 2025):
 - `/trade [user]` command implementation
-- Trade request flow (DM-based negotiation)
+- Trade request flow (homestead channel-based negotiation via private channels)
 - Trade confirmation UI (button interactions)
 - Trade history tracking (audit log)
 - Database schema updates (`Trade`, `TradeOffer` models)

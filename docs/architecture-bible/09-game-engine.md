@@ -90,9 +90,11 @@ describe("PBSL Oracle", () => {
 
 **Coverage**: 293/294 tests passing (PBSL suite included).
 
-## 9.2 Battle DM Flow
+## 9.2 Battle Channel Flow
 
-**Battle System Integration** — DM-based battle interface with move/switch/forfeit interactions.
+**Battle System Integration** — **Private guild channel-based battle interface** with move/switch/forfeit interactions.
+
+**ARCHITECTURE CHANGE (2025-11-21):** Battles now use homestead channels instead of DMs. Each participant receives battle updates in their private homestead-{username} channel. See `docs/architecture-bible/14-private-channel-architecture.md` for complete migration specification.
 
 **Battle State Diagram**:
 

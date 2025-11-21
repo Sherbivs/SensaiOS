@@ -18,7 +18,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `src/bot/arena/ROUTER.md` — Arena threads and announcer summaries
     - `src/bot/battle/ROUTER.md` — Battle interaction handlers
     - `src/bot/daily/ROUTER.md` — Daily quest claim flow
-    - `src/bot/dm/ROUTER.md` — DM home, heal, and starter flows
+    - `src/bot/dm/ROUTER.md` — **[DEPRECATED]** DM home, heal, and starter flows — **MIGRATING TO src/bot/homestead/** (Phase 18)
     - `src/bot/middleware/ROUTER.md` — Command guardrails and limits
     - `src/bot/ops/ROUTER.md` — `/ops` admin command surface
     - `src/bot/wilds/ROUTER.md` — Walk/catch encounter handlers
@@ -286,7 +286,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - Areas & Key Files:
   - `src/bot/index.ts` — Discord client bootstrap & routing with ready guards
   - `src/bot/commands/**` — Slash command registration (e.g., `/ops`, `/battle`)
-  - `src/bot/dm/**` — DM home (party/box/profile views with pagination), starter selection, healing, drip alerts, daily quests; see `src/bot/dm/ROUTER.md`
+  - `src/bot/dm/**` — **[DEPRECATED]** DM home (party/box/profile views with pagination), starter selection, healing, drip alerts, daily quests; **MIGRATING TO src/bot/homestead/**; see `src/bot/dm/ROUTER.md` for current implementation, Phase 18 for migration plan
   - `src/bot/arena/**` — Arena thread creation and summary helpers; see `src/bot/arena/ROUTER.md`
   - `src/bot/battle/**` — Interaction handlers queuing moves, switches, and forfeits; see `src/bot/battle/ROUTER.md`
   - `src/bot/daily/**` — Daily quest claim logic; see `src/bot/daily/ROUTER.md`

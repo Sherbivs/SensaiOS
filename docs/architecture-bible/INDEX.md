@@ -26,10 +26,11 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 | **11. Safety Guarantees** | [11-safety-guarantees.md](11-safety-guarantees.md) | Memory safety, error isolation, state persistence, disaster recovery |
 | **12. Observability** | [12-observability.md](12-observability.md) | Metrics transparency, calculation methods, monitoring |
 | **13. Performance** | [13-performance.md](13-performance.md) | Optimization roadmap, centralization, benchmarks |
-| **14. Future Roadmap** | [14-future-roadmap.md](14-future-roadmap.md) | Vision, milestones, workstreams, dependencies |
-| **15. Project History** | [15-project-history.md](15-project-history.md) | Major refactorings, Accelerate elimination, dead code cleanup |
-| **16. Boot Sequence** | [16-boot-sequence.md](16-boot-sequence.md) | Startup phases, timing, memory progression, observability, recovery |
-| **17. Service Registry** | [17-service-registry.md](17-service-registry.md) | Dependency injection, lifecycle management, health monitoring, graceful shutdown |
+| **14. Private Channel Architecture** | [14-private-channel-architecture.md](14-private-channel-architecture.md) | Homestead channels, DM migration, service design, lifecycle management |
+| **15. Future Roadmap** | [15-future-roadmap.md](15-future-roadmap.md) | Vision, milestones, workstreams, dependencies |
+| **16. Project History** | [16-project-history.md](16-project-history.md) | Major refactorings, Accelerate elimination, dead code cleanup |
+| **17. Boot Sequence** | [17-boot-sequence.md](17-boot-sequence.md) | Startup phases, timing, memory progression, observability, recovery |
+| **18. Service Registry** | [18-service-registry.md](18-service-registry.md) | Dependency injection, lifecycle management, health monitoring, graceful shutdown |
 
 ---
 
@@ -58,12 +59,13 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 | 2025-11-16 | Template Created | Initial ARCHITECTURE-BIBLE.md template with 14 sections |
 | 2025-11-16 | Phase 1 Start | Consolidation of 37 source documents into unified Bible |
 | 2025-11-17 | Reorganization | Split monolithic Bible into 14 focused section files |
+| 2025-11-21 | Architecture Pivot | Added Section 14: Private Channel Architecture (DM → Guild Channels migration) |
 
 **Consolidation Summary:**
 - Phase 0: 454 → 93 files (79% reduction, 361 files deleted)
 - Phase 1: 93 → 66 files (88% reduction, 388 files deleted total)
 - 28 files consolidated into ARCHITECTURE-BIBLE (Discord Bot, Security Bot, Router System, Game Engine, Error System, Logging, Event Bus, System Overview, Safety Guarantees, Future Roadmap, and 4 remaining sections)
-- Final structure: 17 section files + 1 index = 18 architecture documents
+- Final structure: 18 section files + 1 index = 19 architecture documents (Private Channel Architecture added 2025-11-21)
 
 ---
 
@@ -77,6 +79,7 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 
 ---
 
-**Last Updated:** 2025-11-17  
+**Last Updated:** 2025-11-21  
 **Maintained By:** Database Systems, Core Infrastructure  
 **Review Cadence:** Monthly architectural reviews, updates as needed
+**Recent Update:** Added Private Channel Architecture section (14) for DM-to-channel migration

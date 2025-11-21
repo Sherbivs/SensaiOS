@@ -1,37 +1,47 @@
 # ROUTER
 Title: Discord Bot Layer
-Purpose: Client login, intents, command/interaction routing, DM “home” flows.
+Purpose: Client login, intents, command/interaction routing, private channel "homestead" flows.
 Owned Globs: src/bot/**
-Last Updated (UTC): 2025-11-05T20:10:00Z
+Last Updated (UTC): 2025-11-21T12:45:00Z
+
+**⚠️ MAJOR ARCHITECTURE CHANGE (2025-11-21):**
+- **Migrating from DM-based gameplay to private guild channels (homestead channels)**
+- **Impact:** 10 createDM() call sites, 4 DM modules (home, heal, starters), 6 feature areas
+- **Status:** Architecture specification complete (docs/architecture-bible/14-private-channel-architecture.md), implementation Phase 18 in progress
+- **Current:** DM-based flows operational (src/bot/dm/**)
+- **Target:** Private channel flows (src/bot/homestead/** to be created)
+- **Migration Plan:** 6-phase hard cutover spanning foundation → deployment
 
 Notes:
 - Battle victories persist via `concludeBattleWithVictory`, sharing the announcer flow with forfeits.
-- Wilds controls surface caught Pokémon IDs in DM and thread messaging.
+- Wilds controls surface caught Pokémon IDs in homestead channels (PLANNED: currently DM + thread).
 - Admin `/ops stats` now surfaces recent finished battles (winner/loser, rewards) from persisted results.
 - Admin `/ops stats` accepts optional limit + after filters so staff can audit deeper history without direct DB access.
 - Admin `/ops stats` adds a participant filter (Discord ID or mention) to isolate specific competitor history.
 - Admin `/ops cache` reports hit/miss counters, disk usage, maintenance cadence, and accepts an optional cleanup flag to trigger the cache sweep immediately.
 - Daily quest claim handler awards coins, bumps streaks, and enforces cooldowns via `handleDailyClaim`.
 - Discord bootstrap waits for `clientReady` with error guards so the CLI monitor reflects the bot's online status reliably.
-- TypeScript entry `src/index.ts` now boots the legacy security worker (`main.js` + `dripAlerts.js`) so DripTVDD alert digests and ops DM notifications stay live until the port completes.
-- Security bot auto-reverts unauthorized role and permission changes, DMing DRIP alerts with audit attribution plus `revertStatus` / `revertErrors` metadata while continuing to log authorized assignments.
+- TypeScript entry `src/index.ts` now boots the legacy security worker (`main.js` + `dripAlerts.js`) so DripTVDD alert digests stay live until the port completes.
+- Security bot auto-reverts unauthorized role and permission changes, sending admin alerts with audit attribution plus `revertStatus` / `revertErrors` metadata while continuing to log authorized assignments.
 - Security sweeps respect `ENABLE_CONTINUOUS_SWEEP`; when false the bot defers to the dedicated Render worker and logs the disabled state to the CLI dashboard.
-- DM Home embeds (`dm/home.ts`) render party, box (with pagination), and trainer profile views with button navigation and DM fallbacks when direct messages are disabled.
+- **[CURRENT]** DM Home embeds (`dm/home.ts`) render party, box (with pagination), and trainer profile views with button navigation and DM fallbacks when direct messages are disabled.
+- **[PLANNED]** Homestead channel embeds (`homestead/home.ts`) will render same views in private guild channels with per-user permissions.
 - Trainer profile embeds now live under `profile/embed.ts`, shared by the `/profile` slash command to render Option C hybrid summaries.
 
 Areas:
 - index.ts — client bootstrap and interaction switchboard
-- dm/* — DM flows (starters, heal, home views with pagination); see src/bot/dm/ROUTER.md
+- **dm/** — **[DEPRECATED]** DM flows (starters, heal, home views with pagination); **MIGRATING TO homestead/** (see src/bot/dm/ROUTER.md for current impl, Phase 18 for migration plan)
+- **homestead/** — **[PLANNED]** Private guild channel flows (starters, heal, home views) replacing DM-based gameplay; see docs/architecture-bible/14-private-channel-architecture.md
 - arena/* — Arena thread helpers; see src/bot/arena/ROUTER.md
-- battle/* — Battle interaction handlers; see src/bot/battle/ROUTER.md
+- battle/* — Battle interaction handlers (PLANNED: migrate battle notifications to homestead channels); see src/bot/battle/ROUTER.md
 - daily/* — Daily quest handlers; see src/bot/daily/ROUTER.md
 - middleware/* — Shared guardrails for commands; see src/bot/middleware/ROUTER.md
-- ops/* — `/ops` admin slash commands; see src/bot/ops/ROUTER.md
-- wilds/* — Wild encounter slash/button flows; see src/bot/wilds/ROUTER.md
-- commands/* — slash command handlers
+- ops/* — `/ops` admin slash commands (PLANNED: add `/ops homestead` for channel management); see src/bot/ops/ROUTER.md
+- wilds/* — Wild encounter slash/button flows (PLANNED: migrate spawns to homestead channels); see src/bot/wilds/ROUTER.md
+- commands/* — slash command handlers (PLANNED: migrate home/profile commands to use homestead channels)
 - state/* — Operational state persistence (cumulative stats, timeline, context restoration); see notes below
 - main.js — security bot bootstrap (role sweeps, drip alerts)
-- dripAlerts.js — DM alert digest pipeline (DripTVDD security alerts); ...ent Bus Integration (2025-11-08):** Migrated from in-memory queue to Event Bus for all alert queuing, delivery, and retry. Subscribes to `alert.critical|alert.security` (immediate delivery, priority 20) and `alert.warning|alert.notice` (digest delivery, priority 10). Uses Event Bus replay buffer for digest assembly. Re-emits failed deliveries to `alert.warning` with parentCorrelationId for retry tracking. Tested via Phase 2.3.1-2.3.4 validation (17 unit tests + 6 integration tests passing). See architecture-bible/05-event-bus.md for comprehensive Event Bus design and DripAlertManager integration patterns.
+- dripAlerts.js — Alert digest pipeline (admin security alerts); Event Bus Integration (2025-11-08): Migrated from in-memory queue to Event Bus for all alert queuing, delivery, and retry. Subscribes to `alert.critical|alert.security` (immediate delivery, priority 20) and `alert.warning|alert.notice` (digest delivery, priority 10). Uses Event Bus replay buffer for digest assembly. Re-emits failed deliveries to `alert.warning` with parentCorrelationId for retry tracking. Tested via Phase 2.3.1-2.3.4 validation (17 unit tests + 6 integration tests passing). See architecture-bible/05-event-bus.md for comprehensive Event Bus design and DripAlertManager integration patterns.
 - **bot-error-handler.ts (289 lines)** — Domain-specific error handler for Discord bot operations. Recognizes Discord API errors (DiscordAPIError), rate limits (429), interaction timeouts, command errors, member fetch failures. Enriches errors with bot-specific context (userId, guildId, commandName, interactionType). Classifies severity (CRITICAL for bot crashes, HIGH for command failures, MEDIUM for rate limits, LOW for validation). Suggests recovery actions (reconnect, retry with backoff, increase timeout). Integrates with ErrorTracker for persistence and recovery. Exposes handleBotError(error, context) API called from all bot command/interaction handlers. See architecture-bible/06-error-system.md and development-bible/05-error-handling.md for comprehensive error system documentation.
 
 State Persistence (Added 2025-11-06):

@@ -1,7 +1,9 @@
-# Copilot Instructions — Infinity Gauntlet
+# Copilot Instructions — Pokémon Infinity Gauntlet
 
 ## Project Overview
-Infinity Gauntlet is a Discord-first Pokémon adventure with DM-as-home gameplay, public arena battles, and live-service data pipelines. Production runs on Render with 6 workers + 1 cron job orchestrating encounters, battles, cache refresh, and security monitoring.
+Pokémon Infinity Gauntlet is a Discord-first Pokémon adventure with **private guild channel-based gameplay** (homestead channels), public arena battles, and live-service data pipelines. Production runs on Render with 6 workers + 1 cron job orchestrating encounters, battles, cache refresh, and security monitoring.
+
+**CRITICAL ARCHITECTURE CHANGE (2025-11-21):** Migrating from Discord DMs to private guild channels for all gameplay. Each user gets a dedicated "homestead" channel within the guild. See `docs/architecture-bible/14-private-channel-architecture.md` for complete specification.
 
 ## Critical: Start Here Before Any Work
 
@@ -168,10 +170,13 @@ Meta-only changes still need clear "Why" statements.
 
 ### Discord Bot Layer (`src/bot/**`)
 - **Entry:** `src/bot/index.ts` (client bootstrap + command routing)
-- **DM flows:** `src/bot/dm/**` (home, heal, starters, profile with pagination)
+- **Homestead Channels:** `src/bot/homestead/**` (private guild channel gameplay) — **MIGRATION IN PROGRESS** from deprecated `src/bot/dm/**`
+- **Deprecated DM flows:** `src/bot/dm/**` (home, heal, starters) — **BEING REPLACED by homestead channels**
 - **Battles:** `src/bot/battle/**` (move/switch/forfeit handlers)
 - **Wilds:** `src/bot/wilds/**` (walk, catch, throw, escape)
 - **Admin:** `src/bot/ops/admin.ts` (`/ops` commands with filters)
+
+**CRITICAL MIGRATION (2025-11-21):** All gameplay moving from DMs to private guild channels (homestead-{username}). 10 createDM() call sites being replaced with HomesteadChannelManager. See `docs/architecture-bible/14-private-channel-architecture.md`.
 
 ### Core Engines (`src/core/**`)
 - **Battle:** `src/core/battle/engine.ts` (deterministic damage, status effects)
