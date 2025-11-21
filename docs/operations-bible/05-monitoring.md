@@ -240,40 +240,42 @@ See [ARCHITECTURE-BIBLE § Observability](../architecture-bible/12-observability
 
 **Purpose:** 24/7 production health monitoring with automatic recovery capabilities.
 
+**Budget:** 4,000 GitHub Actions minutes/month (optimized schedule)
+
 **Workflows:**
 
 1. **Health Check Watchdog** (`.github/workflows/health-check-watchdog.yml`)
-   - **Schedule:** Every 5 minutes (288 runs/day)
+   - **Schedule:** Every 30 minutes (48 runs/day, 1,440 runs/month)
    - **Purpose:** Detect service crashes, trigger auto-restart after 3 consecutive failures
    - **Actions:** Check health endpoint via Render Shell API, record failures, restart service
-   - **Recovery Time:** 15-30 minutes (3 failures × 5 min + restart time)
-   - **Cost:** ~8,640 runs/month (necessary for production reliability)
+   - **Recovery Time:** 90 minutes max (3 failures × 30 min)
+   - **Cost:** ~3,600 minutes/month (~2.5 min per run)
 
 2. **Agent Health Watchdog** (`.github/workflows/agent-health.yml`)
-   - **Schedule:** Every 15 minutes (96 runs/day)
+   - **Schedule:** Every 2 hours (12 runs/day, 360 runs/month)
    - **Purpose:** Detect stuck agent runs, create GitHub issues for debugging
    - **Actions:** Scan agent-events.jsonl, analyze error patterns, open incidents
-   - **Cost:** ~2,880 runs/month (necessary for operational visibility)
+   - **Cost:** ~360 minutes/month (~1 min per run)
 
 3. **Scheduled Restart** (`.github/workflows/scheduled-restart.yml`)
-   - **Schedule:** Every 12 hours (2 runs/day)
+   - **Schedule:** Every 12 hours (2 runs/day, 60 runs/month)
    - **Purpose:** Memory hygiene, prevent gradual resource accumulation
    - **Actions:** Graceful shutdown, restart service, verify recovery
-   - **Cost:** ~60 runs/month (necessary for long-term stability)
+   - **Cost:** ~180 minutes/month (~3 min per run)
 
-**Total Monitoring Cost:** ~11,520 workflow runs/month (23,000-35,000 compute minutes)
+**Total Monitoring Cost:** ~4,140 minutes/month (1,860 runs/month, within 4,000 min budget)
 
-**Why This Is Necessary:**
-- Discord bot downtime = users unable to play Pokémon Infinity Gauntlet
-- 5-minute health checks provide rapid crash detection
-- Automatic restart capability ensures high availability without manual intervention
-- GitHub Actions provides free monitoring infrastructure (no additional services needed)
+**Trade-offs vs 5-Minute Checks:**
+- ✅ **Benefit:** Fits within 4,000 minute/month budget
+- ✅ **Benefit:** Still provides automated crash detection and recovery
+- ⚠️ **Trade-off:** Crash detection time increased from 15 min → 90 min max
+- ⚠️ **Trade-off:** Agent health checks reduced from every 15 min → every 2 hours
 
-**Trade-offs:**
-- ✅ **Benefit:** Automated 24/7 monitoring with zero operational overhead
-- ✅ **Benefit:** Auto-recovery within 15-30 minutes of crash detection
-- ⚠️ **Cost:** GitHub Actions compute minutes consumed by monitoring workflows
-- ⚠️ **Alternative:** Could use paid monitoring services (UptimeRobot, Pingdom, Datadog) but adds $10-50/month cost
+**Why This Works:**
+- Render services are stable (crashes are rare events, not hourly occurrences)
+- 90-minute max downtime acceptable for Discord bot (vs 15-minute with 5-min checks)
+- Manual `/ops` commands available for real-time debugging when needed
+- GitHub Actions budget optimized while maintaining essential monitoring coverage
 
 **Monitoring Dashboard:**
 - Health Check Watchdog: https://github.com/Sherbivs/Infinity-Gauntlet/actions/workflows/health-check-watchdog.yml

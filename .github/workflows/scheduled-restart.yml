@@ -7,6 +7,8 @@ name: Scheduled Service Restart
 on:
   schedule:
     # Run every 12 hours: 00:00 UTC and 12:00 UTC
+    # Schedule: 2 runs/day = 60 runs/month
+    # Runtime: ~3 min/run = ~180 minutes/month (within 4000 min/month budget)
     - cron: '0 */12 * * *'
   workflow_dispatch: # Allow manual trigger
 

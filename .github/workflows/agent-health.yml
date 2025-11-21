@@ -1,7 +1,10 @@
 name: agent-health
 on:
   schedule: 
-    - cron: "*/15 * * * *"  # Every 15 minutes - necessary for agent watchdog monitoring
+    # BUDGET OPTIMIZATION (2025-11-21): Reduced from */15 to 0 */2 * * * to fit 4000 min/month budget
+    # Schedule: Every 2 hours = 12 runs/day = 360 runs/month
+    # Runtime: ~1 min/run = ~360 minutes/month
+    - cron: "0 */2 * * *"  # Every 2 hours
   workflow_dispatch:
 jobs:
   watchdog:

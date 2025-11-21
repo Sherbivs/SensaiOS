@@ -6,7 +6,11 @@ name: Health Check Watchdog
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # Every 5 minutes - necessary for production health monitoring
+    # BUDGET OPTIMIZATION (2025-11-21): Reduced from */5 to */30 to fit 4000 min/month budget
+    # Schedule: Every 30 minutes = 48 runs/day = 1,440 runs/month
+    # Runtime: ~2.5 min/run = ~3,600 minutes/month
+    # Trade-off: Crash detection increased from 15min to 90min max (3 failures × 30min)
+    - cron: '*/30 * * * *'  # Every 30 minutes
   workflow_dispatch: # Allow manual trigger
 
 jobs:

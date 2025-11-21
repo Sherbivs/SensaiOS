@@ -9,7 +9,7 @@ GitHub Actions workflow that restarts the Render service every 12 hours via Rend
 
 **Service:** `Infinity-Gauntlet` (ID: `srv-d3snk2ndiees73cn709g`)
 
-**Operational Necessity:** This workflow is part of production monitoring infrastructure. The 60 runs/month (plus health check watchdog 8,640 runs/month) provide automated crash detection and recovery, ensuring Pokémon Infinity Gauntlet remains available 24/7 without manual intervention.
+**Operational Necessity:** This workflow is part of production monitoring infrastructure. The 60 runs/month (plus health check watchdog 1,440 runs/month) provide automated crash detection and recovery within 4,000 GitHub Actions minutes/month budget.
 
 ## Setup Steps
 
@@ -121,19 +121,19 @@ To disable automatic restarts:
 
 ## Health Check Watchdog
 
-**Critical Production Monitoring** — Detects crashes and triggers automatic recovery.
+**Budget-Optimized Production Monitoring** — Detects crashes and triggers automatic recovery within 4,000 min/month budget.
 
 **Workflow:** `.github/workflows/health-check-watchdog.yml`
 
-**Schedule:** Every 5 minutes (288 runs/day, ~8,640 runs/month)
+**Schedule:** Every 30 minutes (48 runs/day, ~1,440 runs/month, ~3,600 minutes/month)
 
-**Operational Necessity:** This high-frequency monitoring is REQUIRED for production reliability. Discord bot downtime means users cannot play Pokémon Infinity Gauntlet. 5-minute intervals ensure crash detection within 15 minutes maximum.
+**Budget Trade-off:** Reduced from 5-minute intervals (8,640 runs/month, 17,280-25,920 minutes) to 30-minute intervals to fit 4,000 minute/month budget. Crash detection time increased from 15 min → 90 min max (acceptable for stable Render services).
 
 **Behavior:**
-- Runs every 5 minutes (necessary for rapid crash detection)
+- Runs every 30 minutes (budget-optimized from 5 minutes)
 - Pings health endpoint at `http://localhost:3000/health` (via Render Shell API)
 - Records failures in temporary markers
-- Triggers automatic restart after 3 consecutive failures (15 minutes of downtime)
+- Triggers automatic restart after 3 consecutive failures (90 minutes of downtime)
 - Clears failure markers when service becomes healthy
 
 **Failure threshold:**
@@ -146,42 +146,43 @@ To disable automatic restarts:
 - Confirms service state is `running` or `available`
 - Clears failure markers after successful recovery
 
-**Why Not Less Frequent?**
-- 10-minute intervals → 30-minute max downtime before recovery
-- 15-minute intervals → 45-minute max downtime before recovery
-- 30-minute intervals → 90-minute max downtime before recovery (UNACCEPTABLE for live game)
+**Why 30 Minutes (Not 5)?**
+- Budget constraint: 4,000 GitHub Actions minutes/month maximum
+- 5-minute intervals: ~17,280-25,920 minutes/month (way over budget)
+- 30-minute intervals: ~3,600 minutes/month (fits budget with room for other workflows)
+- Trade-off: 90-minute max downtime acceptable for stable services
 
-**Cost Trade-off:**
-- ✅ **Benefit:** Auto-recovery within 15-30 minutes, zero manual intervention
-- ⚠️ **Cost:** ~8,640 GitHub Actions workflow runs/month
-- 💡 **Alternative:** Paid monitoring services ($10-50/month) vs free GitHub Actions
-
-**Manual inspection:**
+**Manual Triggering:**
+For urgent health checks between scheduled runs, manually trigger via:
 ```bash
-# Check workflow runs
+# GitHub Actions UI
 https://github.com/Sherbivs/Infinity-Gauntlet/actions/workflows/health-check-watchdog.yml
 
-# View failure history
-# Failure markers stored in workflow artifacts (cleared on recovery)
+# Or use /ops commands in Discord for immediate status
+/ops stats
 ```
 
 ## Combined Restart Strategy
 
-The system uses multiple restart layers for maximum reliability:
+The system uses multiple restart layers for reliability within budget constraints:
 
-1. **Scheduled restarts:** Every 12 hours for memory hygiene (~60 runs/month)
-2. **Health watchdog:** Auto-restart on 3 consecutive health check failures (~8,640 runs/month)
+1. **Scheduled restarts:** Every 12 hours for memory hygiene (~180 minutes/month)
+2. **Health watchdog:** Auto-restart on 3 consecutive health check failures every 30 min (~3,600 minutes/month)
 3. **Render auto-restart:** Exit code 0 → immediate, others → 30s delay
 4. **Discord webhooks:** Immediate visibility on all lifecycle events
 5. **Health endpoint:** External monitors can detect downtime
 
-**Total Monitoring Cost:** ~11,580 GitHub Actions workflow runs/month (23,000-35,000 compute minutes)
+**Total Monitoring Budget:** ~4,140 minutes/month (1,860 workflow runs/month, within 4,000 min limit)
 
-**Why This Cost Is Justified:**
-- Pokémon Infinity Gauntlet is a live-service game requiring 24/7 availability
-- Manual monitoring would require on-call operators (labor cost >> compute cost)
-- Automatic crash detection + recovery provides 99%+ uptime without human intervention
-- GitHub Actions provides free monitoring infrastructure (no additional services needed)
+**Budget Breakdown:**
+- Health watchdog: 1,440 runs × ~2.5 min = ~3,600 minutes (87%)
+- Agent health: 360 runs × ~1 min = ~360 minutes (9%)
+- Scheduled restart: 60 runs × ~3 min = ~180 minutes (4%)
+
+**Trade-offs for Budget Compliance:**
+- Crash detection: 15 min → 90 min max (reduced monitoring frequency)
+- Agent health: 15 min → 2 hours (less frequent stuck run detection)
+- Manual `/ops` commands available for immediate debugging when needed
 
 ## Notes
 
@@ -189,5 +190,5 @@ The system uses multiple restart layers for maximum reliability:
 - Restart triggers graceful shutdown (data persistence guaranteed)
 - Application tracks boot count and uptime in lifecycle notifications
 - Health endpoint allows external monitors to detect downtime during restart
-- Multiple restart layers ensure high availability without manual intervention
-- **Workflow run frequency is operationally necessary** — do not reduce without understanding impact on crash detection time
+- Multiple restart layers ensure high availability within GitHub Actions budget constraints
+- **Workflow frequencies optimized for 4,000 min/month budget** — balances cost vs monitoring coverage
