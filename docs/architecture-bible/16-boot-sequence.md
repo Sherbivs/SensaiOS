@@ -380,7 +380,7 @@ These happen **in parallel** to reduce startup time.
 |-------|----------|------------|-------|
 | Module Imports | ~200ms | 200ms | Discord.js, Prisma, Services |
 | Service Registry | ~150ms | 350ms | 9 services initialized |
-| Database Connect | ~50ms | 400ms | Render PostgreSQL (Oregon) |
+| Database Connect | ~50ms | 400ms | Render PostgreSQL (Virginia) |
 | Engine DB + Bots | ~800ms | 1200ms | Discord API + SQLite load |
 | Engine Workers | ~50ms | 1250ms | Start background workers |
 | Runtime Monitoring | ~10ms | 1260ms | Resource monitor start |

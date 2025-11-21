@@ -9,7 +9,7 @@
 .PARAMETER Command
     Command to execute (required)
 .PARAMETER Region
-    Render region (oregon, ohio, virginia, frankfurt, singapore) - default: oregon
+    Render region (virginia, oregon, frankfurt, singapore) - default: virginia
 .PARAMETER Instance
     Specific instance slug to target
 .PARAMETER Timeout

@@ -15,7 +15,7 @@
 .PARAMETER Type
     Tunnel type: local, remote, or dynamic (SOCKS proxy)
 .PARAMETER Region
-    Render region (default: oregon)
+    Render region (default: virginia)
 .EXAMPLE
     .\render_ssh_tunnel.ps1 -ServiceId "srv-abc123" -LocalPort 5432 -RemotePort 5432 -Type local
 .EXAMPLE

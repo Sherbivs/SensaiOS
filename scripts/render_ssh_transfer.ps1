@@ -13,7 +13,7 @@
 .PARAMETER Direction
     Transfer direction: upload or download
 .PARAMETER Region
-    Render region (default: oregon)
+    Render region (default: virginia)
 .PARAMETER Recursive
     Transfer directories recursively
 .EXAMPLE

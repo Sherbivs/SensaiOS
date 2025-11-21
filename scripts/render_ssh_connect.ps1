@@ -9,7 +9,7 @@
 .PARAMETER Instance
     Specific instance slug to connect to (e.g., d4e5f)
 .PARAMETER Region
-    Render region (oregon, ohio, virginia, frankfurt, singapore) - default: oregon
+    Render region (virginia, oregon, frankfurt, singapore) - default: virginia
 .PARAMETER Command
     Execute a command and exit (non-interactive)
 .EXAMPLE
