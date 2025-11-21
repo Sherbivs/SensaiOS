@@ -125,9 +125,22 @@ node scripts/memory_snapshot.mjs
    cat /Store/heap-snapshot-YYYY-MM-DDTHH-MM-SS-SSSZ.heapsnapshot > snapshot.txt
    ```
 
-**Via Scripts (if SSH enabled):**
+**Via Windows PowerShell Wrapper:**
 ```powershell
-pwsh -File "scripts/render_ssh_exec.ps1" -ServiceId srv-d3snk2ndiees73cn709g -Command "ls -lh /Store/*.heapsnapshot"
+# List heap snapshots
+.\scripts\render_ssh_windows.ps1 -Command "ls -lh /Store/*.heapsnapshot"
+
+# Download specific snapshot
+.\scripts\render_ssh_windows.ps1 -Command "cat /Store/heap-snapshot-YYYY-MM-DDTHH-MM-SS-SSSZ.heapsnapshot" > snapshot.heapsnapshot
+```
+
+**Via Direct WSL:**
+```bash
+# List heap snapshots
+wsl ssh render-virginia 'ls -lh /Store/*.heapsnapshot'
+
+# Download specific snapshot
+wsl ssh render-virginia 'cat /Store/heap-snapshot-YYYY-MM-DDTHH-MM-SS-SSSZ.heapsnapshot' > snapshot.heapsnapshot
 ```
 
 ### Step 2: Load in Chrome DevTools
@@ -443,17 +456,25 @@ node scripts/memory_snapshot.mjs
 
 ### Problem: Cannot download snapshot from Render
 
-**Solution 1 (via Shell):**
-```bash
+**Solution 1 (via Windows PowerShell):**
+```powershell
 # Compress first to reduce size
-gzip /Store/heap-snapshot-*.heapsnapshot
+.\scripts\render_ssh_windows.ps1 -Command "gzip /Store/heap-snapshot-*.heapsnapshot"
+
 # Download compressed file (smaller)
+.\scripts\render_ssh_windows.ps1 -Command "cat /Store/heap-snapshot-*.heapsnapshot.gz" > snapshot.heapsnapshot.gz
 ```
 
-**Solution 2 (via render_ssh_exec):**
-```powershell
-# Copy to accessible location
-pwsh -File "scripts/render_ssh_exec.ps1" -ServiceId srv-d3snk2ndiees73cn709g -Command "cp /Store/heap-snapshot-*.heapsnapshot /tmp/"
+**Solution 2 (via Direct WSL):**
+```bash
+# Compress first to reduce size
+wsl ssh render-virginia 'gzip /Store/heap-snapshot-*.heapsnapshot'
+
+# Download compressed file
+wsl ssh render-virginia 'cat /Store/heap-snapshot-*.heapsnapshot.gz' > snapshot.heapsnapshot.gz
+
+# Decompress locally
+gunzip snapshot.heapsnapshot.gz
 ```
 
 ### Problem: Chrome DevTools crashes loading snapshot

@@ -207,9 +207,16 @@ curl -X POST https://api.render.com/v1/services/srv-d3snk2ndiees73cn709g/shell `
 ```
 
 **VS Code Tasks Using SSH:**
-- `Render SSH: Check Disk Usage` (`scripts/render_ssh_exec.ps1`)
-- `Render SSH: View /Store Contents` (`scripts/render_ssh_exec.ps1`)
-- `Render SSH: Execute Command` (interactive)
+- `Render SSH (Windows): Interactive` - Interactive SSH session
+- `Render SSH (Windows): Check Disk Usage` - Quick disk check
+- `Render SSH (Windows): Detailed Disk Usage` - Full /Store breakdown
+- `Render SSH (Windows): Cleanup Heaps (Dry Run)` - Preview heap cleanup
+- `Render SSH (Windows): Cleanup Heaps` - Delete old snapshots
+
+**Legacy Tasks (Deprecated):**
+- ~~`Render SSH: Setup Keys`~~ → Use WSL Render CLI setup
+- ~~`Render SSH: Connect (Interactive)`~~ → Use `Render SSH (Windows): Interactive`
+- ~~`Render SSH: Execute Command`~~ → Use `render_ssh_windows.ps1 -Command`
 
 ---
 
@@ -289,7 +296,7 @@ gh run view <run-id> --log
 
 ## 🔧 PowerShell Scripts
 
-**Scripts Using RENDER_API_KEY:**
+**Active Scripts Using RENDER_API_KEY:**
 
 | Script | Purpose | API Calls |
 |--------|---------|-----------|
@@ -297,7 +304,21 @@ gh run view <run-id> --log
 | `render_restart.ps1` | Restart service | POST /restart, GET /services/{id} |
 | `render_status.ps1` | Check service status | GET /services (all services) |
 | `render_logs.ps1` | View service logs | GET /logs |
-| `render_ssh_exec.ps1` | Execute shell command | POST /shell |
+
+**Windows SSH Wrappers (WSL-based):**
+
+| Script | Purpose | Backend |
+|--------|---------|---------|
+| `render_ssh_windows.ps1` | General SSH access | WSL Render CLI |
+| `render_disk_usage_windows.ps1` | Disk monitoring | WSL SSH + df |
+| `render_cleanup_heaps_windows.ps1` | Heap cleanup | WSL SSH + rm |
+
+**Deprecated Scripts:**
+- ~~`render_ssh_setup.ps1`~~ - Use WSL Render CLI setup
+- ~~`render_ssh_connect.ps1`~~ - Use `render_ssh_windows.ps1 -Interactive`
+- ~~`render_ssh_exec.ps1`~~ - Use `render_ssh_windows.ps1 -Command`
+- ~~`render_ssh_transfer.ps1`~~ - Use `wsl scp` directly
+- ~~`render_ssh_tunnel.ps1`~~ - Use `wsl ssh -L` directly
 
 **Environment Loading:**
 All scripts load credentials via:

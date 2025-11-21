@@ -85,11 +85,19 @@ battle.attacker.hp = 50
 startCommand: node --inspect=0.0.0.0:9229 dist/index.js
 ```
 
-**SSH Tunnel:**
+**SSH Tunnel (Windows PowerShell):**
 ```powershell
-# Connect to Render service with port forwarding
-pwsh -File scripts/render_ssh_connect.ps1 -ServiceId "srv-d3snk2ndiees73cn709g" -LocalPort 9229 -RemotePort 9229
+# Port forwarding via WSL SSH
+wsl ssh -L 9229:localhost:9229 render-virginia
 ```
+
+**SSH Tunnel (Direct WSL):**
+```bash
+# Connect with port forwarding
+wsl ssh -L 9229:localhost:9229 render-virginia
+```
+
+**Note:** Keep SSH session open while debugging. Press `Ctrl+C` to close tunnel when done.
 
 **Attach VS Code:**
 ```json
