@@ -27,7 +27,7 @@ jobs:
       - name: Check health endpoint via Render Shell
         id: health_check
         env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }} # pragma: allowlist secret
           SERVICE_ID: srv-d3snk2ndiees73cn709g
         run: |
           echo "🏥 Checking health endpoint..."
@@ -110,9 +110,9 @@ jobs:
           rm -rf .health-check-failures
       
       - name: Restart service on critical failure
-        if: env.trigger_restart == 'true'
+        if: env.trigger_restart == 'true' # Set in "Record failure" step
         env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }} # pragma: allowlist secret
           SERVICE_ID: srv-d3snk2ndiees73cn709g
         run: |
           echo "🚨 CRITICAL: Triggering automatic service restart"
@@ -144,9 +144,9 @@ jobs:
           fi
       
       - name: Wait for recovery after restart
-        if: env.trigger_restart == 'true'
+        if: env.trigger_restart == 'true' # Set in "Record failure" step
         env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }} # pragma: allowlist secret
           SERVICE_ID: srv-d3snk2ndiees73cn709g
         run: |
           echo "⏳ Waiting for service to recover..."
