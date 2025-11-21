@@ -10,6 +10,11 @@
 
 ## 1.1 Production Service Topology
 
+**⚠️ RESOURCE LIMITS:** All services run on Render Standard plan:
+- **RAM:** 2 GB (2048 MB) — Volatile process memory, OOM kill at 100%
+- **Persistent Disk:** 1 GB (974 MB) — /Store mount, write failures at 100%
+- **CRITICAL:** These are DIFFERENT resources. See `docs/RESOURCE-LIMITS-RAM-VS-DISK.md` for comprehensive guide.
+
 The Infinity Gauntlet deploys **8 independent Render services**:
 
 | Render Service | Type | Purpose | Entry Command | Key Environment Flags |
@@ -41,7 +46,7 @@ The Infinity Gauntlet deploys **8 independent Render services**:
 **Health Signals:**
 - CLI dashboard (`discord` + `database` sections)
 - Structured logs tagged `runtime.*`
-- Memory usage <600 MB (15-30% of 2 GB limit, Standard plan)
+- **RAM usage** <600 MB (15-30% of **2 GB RAM limit**, Standard plan) — NOT disk usage
 - Latency <100ms for database queries
 
 **Scaling Considerations:** CPU-bound during battle calculations, memory-bound with large guild caches. **Future:** Extract battle engine to dedicated worker pool (Phase 10+).
@@ -63,6 +68,10 @@ The Infinity Gauntlet deploys **8 independent Render services**:
 - State persistence to `/Store/security-bot-state/`
 
 **Persistent Disk:** 1 GB mounted at `/Store` (defined in `render.yaml`) for 7-day state snapshots.
+
+**⚠️ RESOURCE DISTINCTION:** This 1 GB disk is SEPARATE from the 2 GB RAM limit. The security bot uses BOTH:
+- **RAM:** Process memory for runtime caching, event processing (~50-100 MB typical)
+- **Disk:** Persistent state files surviving restarts (current.json, snapshots/*.json)
 
 **See [ARCHITECTURE-BIBLE § Security Bot](../architecture-bible/07-security-bot.md) for comprehensive state persistence documentation.**
 

@@ -16,10 +16,10 @@
 - Voice states (unlimited)
 
 **Impact Before Fix:**
-- Idle bot (no gameplay): 50-200 MB/day memory growth
+- Idle bot (no gameplay): 50-200 MB/day **RAM growth** (process memory, NOT disk)
 - Source: Discord gateway continuously sends events (guild updates, presences, member changes)
-- Without sweeping: Events accumulate in RAM forever
-- After 7 days: +350-1400 MB memory usage from cache alone
+- Without sweeping: Events accumulate in **RAM** forever
+- After 7 days: +350-1400 MB **RAM usage** from cache alone (approaching 2 GB RAM limit)
 
 ## Solution Architecture
 
@@ -90,11 +90,13 @@ setInterval(() => {
 
 ### Memory Baseline (After Configuration)
 
-| Component | Memory Usage | Notes |
+**⚠️ RESOURCE TYPE:** These are **RAM (process memory)** usage estimates, NOT persistent disk usage.
+
+| Component | **RAM Usage** | Notes |
 |-----------|-------------|-------|
-| Message cache | ~5-10 MB | 200 messages × ~25-50 KB/message |
-| Member cache | ~2-5 MB | 200 members × ~10-25 KB/member |
-| Total Discord.js cache | **~7-15 MB** | Stable, never grows |
+| Message cache | ~5-10 MB (RAM) | 200 messages × ~25-50 KB/message |
+| Member cache | ~2-5 MB (RAM) | 200 members × ~10-25 KB/member |
+| Total Discord.js cache | **~7-15 MB (RAM)** | Stable, never grows, part of 2 GB RAM limit |
 
 ### Comparison (Before vs After)
 

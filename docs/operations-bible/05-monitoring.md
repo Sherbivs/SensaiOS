@@ -142,13 +142,16 @@ curl https://infinity-gauntlet-bot.onrender.com/health
 
 ### Health Thresholds
 
-| Metric | Healthy | Warning | Critical |
-|--------|---------|---------|----------|
-| **Memory Usage** | <350 MB | 350-450 MB | >450 MB |
-| **CPU Usage** | <70% | 70-85% | >85% |
-| **Database Latency** | <100ms | 100-200ms | >200ms |
-| **Event Bus Queue** | <50 messages | 50-200 messages | >200 messages |
-| **Cache Staleness** | <10 minutes | 10-30 minutes | >30 minutes |
+**⚠️ RESOURCE TYPES:** RAM (2 GB) and Disk (1 GB) are SEPARATE resources with different monitoring methods. See `docs/RESOURCE-LIMITS-RAM-VS-DISK.md` for complete distinction.
+
+| Metric | Healthy | Warning | Critical | **Resource Type** |
+|--------|---------|---------|----------|-------------------|
+| **RAM Usage** | <350 MB | 350-450 MB | >450 MB | **RAM (2 GB limit)** — process.memoryUsage().rss |
+| **Disk Usage** | <500 MB | 500-750 MB | >900 MB | **Disk (1 GB limit)** — df -h /Store |
+| **CPU Usage** | <70% | 70-85% | >85% | vCPU (1.0) |
+| **Database Latency** | <100ms | 100-200ms | >200ms | Network |
+| **Event Bus Queue** | <50 messages | 50-200 messages | >200 messages | RAM + Database |
+| **Cache Staleness** | <10 minutes | 10-30 minutes | >30 minutes | Time-based |
 
 ## 5.3 Performance Metrics
 
@@ -164,7 +167,8 @@ curl https://infinity-gauntlet-bot.onrender.com/health
 ⏱ Node Runtime
   Status: online
   Uptime: 2h 34m 12s
-  Memory: 342 MB / 2048 MB (16.7%)
+  **RAM:** 342 MB / 2048 MB (16.7%) ← **Process memory (volatile)**
+  **Disk:** (see df -h /Store for persistent disk usage)
   Process: PID 1234, Node v22.16.0
 
 🗄️ Database (PROD)

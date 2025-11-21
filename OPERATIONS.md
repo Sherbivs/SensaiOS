@@ -16,6 +16,9 @@ _Last updated: 2025-11-14T13:30:00Z (UTC) — Rev: 1.6_
 **Referenced By**: README.md (operations reference), AGENTS.md (Production & Render Notes), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (service validation)
 
 ## Service Matrix
+
+**⚠️ RESOURCE LIMITS:** All services run on Render Standard plan with **2 GB RAM (process memory)** + **1 GB persistent disk (/Store)** — different resources, different limits. See `docs/RESOURCE-LIMITS-RAM-VS-DISK.md` for comprehensive guide.
+
 | Render Service | Purpose | Entry Command | Key Env Flags | Health Signals |
 | --- | --- | --- | --- | --- |
 | `infinity-gauntlet` (worker) | Main Discord bot (Pokémon battles, DM features, slash commands). Runs compiled TypeScript from dist/. | `npm start` (→ `node dist/index.js`) | `DATABASE_URL`, `ENABLE_SECURITY_BOT=false`, `ENABLE_POKEMON_BOT=true` | CLI dashboard (`discord` + `database` sections), structured logs tagged `runtime.*`. |
@@ -41,6 +44,9 @@ _Last updated: 2025-11-14T13:30:00Z (UTC) — Rev: 1.6_
 - When migrations add new worker files, run `npm run docs:update-routers` so ops/ROUTER_INDEX.yaml and masterroutetable.md stay authoritative.
 
 ## Disk Monitoring & Maintenance
+
+**⚠️ RESOURCE TYPE:** This section monitors **persistent disk (/Store, 1 GB limit)**, NOT RAM (2 GB process memory). Different resource, different monitoring commands, different failure modes (write failures vs OOM kills). See `docs/RESOURCE-LIMITS-RAM-VS-DISK.md` for complete distinction.
+
 **Production Storage:** The security bot worker has a 1GB persistent disk mounted at `/Store` (defined in `render.yaml`), used primarily for security-bot-state persistence with 7-day snapshot retention.
 
 **SSH Monitoring Commands:**
@@ -82,7 +88,7 @@ See `operations-bible/03-deployment-procedures.md` for comprehensive SSH setup, 
 - **Cache refresh:** `cache.stale_seconds` warns when data is >10 minutes old, alerts past 30 minutes. Check network/API health, rerun `npm run worker:cache` locally, and confirm cache targets in `/ops stats`.
 - **Data pipeline:** `pipeline.stale_seconds` warns after 4 hours with no success, alerts after 8 hours. Review `runWorker` logs, ensure buildData completes, and redeploy if failures persist.
 - Telemetry counters (`refresh.failed`, `pipeline.failed`, `messages.failed`) surface in metrics payloads; triage repeated failures alongside the alert logs and record outcomes in Tasklist/Prompt when they trigger.
-- **Memory safety:** All runtime structures now bounded (writeQueue 10K cap, Discord.js cache sweepers, ops error queue 100 cap). Peak RAM stable at ~300-350 MB (15-17% of 2 GB limit, Standard plan). Monitor for OOM alerts; unbounded growth fixed Nov 2025.
+- **Memory safety:** All runtime structures now bounded (writeQueue 10K cap, Discord.js cache sweepers, ops error queue 100 cap). Peak **RAM** stable at ~300-350 MB (15-17% of **2 GB RAM limit**, Standard plan). Monitor for OOM alerts (RAM exhaustion, NOT disk full); unbounded RAM growth fixed Nov 2025.
 - **State persistence:** Security bot state persists to `/Store/security-bot-state/` with 7-day hourly metrics history, surviving restarts/deploys. Monitor `restartNumber` in logs; failures indicate disk mount issues.
 - **Restart frequency:** Normal production activity generates 3-4 restarts/day during active development (deployments, config changes, health checks). The security bot tracks cumulative restart count in persistent state. SSH investigation (Nov 2025) found 164 restarts over 5 days = 33 restarts/day average, which included intensive development cycles. To monitor restart patterns, use SSH commands:
   ```bash

@@ -1313,8 +1313,8 @@ export async function handleOpsCommand(
       
       lines.push("");
       
-      // Section 3: Resource Limits (Render Standard = 2 GB)
-      const renderLimitMB = 2048;  // 2 GB Standard plan
+      // Section 3: Resource Limits (Render Standard = 2 GB RAM, 1 GB disk)
+      const renderLimitMB = 2048;  // 2 GB RAM Standard plan (NOT disk)
       const warningLimitMB = 1536;  // 75%
       const criticalLimitMB = 1741; // 85%
       const emergencyLimitMB = 1843; // 90%
@@ -1492,7 +1492,10 @@ export async function handleOpsCommand(
       lines.push("");
       
       // Process Memory
-      lines.push("**💾 Process Memory Usage**");
+      lines.push("**💾 Process Memory Usage (RAM)**");
+      lines.push("");
+      lines.push("**⚠️ RESOURCE TYPE:** RAM (2 GB volatile process memory), NOT persistent disk (1 GB /Store)");
+      lines.push("");
       lines.push(`• RSS (Resident Set): ${formatSnapshotBytes(mem.rss)}`);
       lines.push(`• Heap Total: ${formatSnapshotBytes(mem.heapTotal)}`);
       lines.push(`• Heap Used: ${formatSnapshotBytes(mem.heapUsed)}`);
