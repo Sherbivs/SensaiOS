@@ -87,8 +87,35 @@ Complete SSH automation suite for Render services. See operations-bible/03-deplo
 ### Quick SSH Commands
 
 ```powershell
-# Setup SSH keys
-npm run render:ssh-setup
+## SSH Access (WSL Only)
+
+**Setup:**
+```bash
+# Install Render CLI (one-time)
+cd ~
+curl -L https://github.com/render-oss/cli/releases/download/v2.5.0/cli_2.5.0_linux_amd64.zip -o render-cli.zip
+unzip render-cli.zip
+sudo mv cli_v2.5.0 /usr/local/bin/render
+sudo chmod +x /usr/local/bin/render
+
+# Login (generates ~/.ssh/render_key automatically)
+export RENDER_API_KEY='rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp'
+render login
+```
+
+**Usage:**
+```bash
+# Interactive shell
+wsl ssh render-virginia
+
+# Run single command
+wsl ssh render-virginia 'df -h /Store'
+
+# Via Render CLI
+wsl bash -c "export RENDER_API_KEY='rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp' && render ssh srv-d3snk2ndiees73cn709g"
+```
+
+**Note:** Windows SSH scripts (`render_ssh_*.ps1`) are deprecated - use WSL commands above.
 
 # Connect to service (interactive)
 npm run render:ssh-connect
@@ -111,14 +138,10 @@ npm run render:ssh-tunnel -- `
   -Type local
 ```
 
-**Available SSH scripts:**
-- `render_ssh_setup.ps1` - Generate and configure SSH keys
-- `render_ssh_connect.ps1` - Interactive SSH connection
-- `render_ssh_exec.ps1` - Execute commands remotely
-- `render_ssh_transfer.ps1` - File transfer via SCP
-- `render_ssh_tunnel.ps1` - Port forwarding and SOCKS proxy
-
-See operations-bible/03-deployment-procedures.md § 7 for detailed SSH automation usage and examples.
+**SSH Scripts Status:**
+- ⚠️ **DEPRECATED:** All Windows PowerShell SSH scripts (`render_ssh_*.ps1`)
+- ✅ **ACTIVE:** WSL-only SSH via `wsl ssh render-virginia` (see SSH Access section above)
+- 📚 **Documentation:** See `ops/RENDER-CREDENTIALS.md` for complete SSH setup and usage
 
 ## VS Code Tasks
 

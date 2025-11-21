@@ -137,15 +137,23 @@ See operations-bible/04-environment-management.md § 4.3 for comprehensive setup
 | **Render: Check Service Status** | Service health matrix | `pwsh -File scripts/render_status.ps1` |
 | **Render: Restart Service** | Restart worker | `pwsh -File scripts/render_restart.ps1 -Service "Infinity-Gauntlet"` |
 
-### Render SSH Tasks
+### Render SSH Access
 
-| Task Name | Description | Command |
-|-----------|-------------|---------|
-| **Render SSH: Setup Keys** | Generate SSH keys | `pwsh -File scripts/render_ssh_setup.ps1` |
-| **Render SSH: Connect (Interactive)** | Interactive SSH session | `pwsh -File scripts/render_ssh_connect.ps1` |
-| **Render SSH: Connect to Main Bot** | Connect to specific service | `pwsh -File scripts/render_ssh_connect.ps1 -ServiceId "srv-d3snk2ndiees73cn709g"` |
-| **Render SSH: Check Disk Usage** | Remote disk check | `pwsh -File scripts/render_ssh_exec.ps1 -ServiceId "srv-d3snk2ndiees73cn709g" -Command "df -h"` |
-| **Render SSH: View /Store Contents** | View persistent storage | `pwsh -File scripts/render_ssh_exec.ps1 -ServiceId "srv-d3snk2ndiees73cn709g" -Command "ls -lah /Store/"` |
+⚠️ **SSH Method Changed:** Windows PowerShell SSH tasks deprecated. Use WSL commands directly.
+
+**WSL SSH Commands:**
+```bash
+# Interactive SSH session
+wsl ssh render-virginia
+
+# Check disk usage
+wsl ssh render-virginia 'df -h'
+
+# View /Store contents
+wsl ssh render-virginia 'ls -lah /Store/'
+```
+
+See `ops/RENDER-CREDENTIALS.md` and `scripts/README-RENDER.md` for complete SSH setup and usage documentation.
 
 ### Debugging Configuration
 

@@ -128,13 +128,13 @@ Respond to threshold alerts by tailing Render logs (`worker.alert.*`) and, if ne
 - Discord tokens (`POKEMON_BOT_TOKEN`, `SECURITY_BOT_TOKEN`) live in Render secrets; never commit `.env` snapshots.
 - DRIP alert destinations require `ALERT_WEBHOOK_URL`, `ALERT_CHANNEL_ID`, and `ALERT_USER_ID`; security worker will warn loudly if unset.
 - Persistent cache worker depends on `RENDER_API_KEY` + `GITHUB_TOKEN` for refresh jobs.
-- **SSH Access:** Render SSH key stored in `secrets/Infinity-Gauntlet.env` as `RENDER_SSH_KEY`; automated setup via `npm run render:ssh-auto` configures SSH config, known_hosts, ssh-agent service, and environment variables. See `docs/deployment/render-ssh-automation.md` for complete automation guide.
+- **SSH Access:** WSL only - `wsl ssh render-virginia` for interactive shell, `wsl ssh render-virginia 'command'` for one-off commands. Render CLI managed via `render login`. See `ops/RENDER-CREDENTIALS.md` for complete SSH documentation.
 
 ## Quick Commands
 - `npm run worker:outbox` / `worker:cache` / `worker:data-pipeline` for local parity with Render workers.
 - `npm run docs:update-routers` to refresh router metadata after touching routed directories.
 - `npm run docs:update-ledger` to sync Prompt.md and ops/change-ledger.md with recent commits.
-- **SSH Access:** `npm run render:ssh-auto` (automated setup), `npm run render:ssh-connect` (interactive connection), `npm run render:ssh-disk` (check disk usage), `npm run render:ssh-store` (view /Store contents)
+- **SSH Access:** `wsl ssh render-virginia` (interactive), `wsl ssh render-virginia 'df -h /Store'` (check disk), `wsl ssh render-virginia 'ls -lah /Store'` (view contents)
 
 ## Dexpack Build & Guard Workflow
 - `npm run data:dexpack` regenerates the committed `assets/dexpack.v1.json`, `assets/dexpack.v1.json.gz`, and `assets/dexpack.gen.mjs` artifacts using `scripts/build_dexpack.ts`. The builder sources the existing bootstrap datasets, emits typed-array vectors plus perfect-hash tables, and only rewrites the artifacts when content changes.

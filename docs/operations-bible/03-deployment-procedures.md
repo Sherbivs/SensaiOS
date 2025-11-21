@@ -195,88 +195,75 @@ npm run render:logs
 }
 ```
 
-## 3.4 SSH Automation
+## 3.4 SSH Access
 
-### Setup Commands
+⚠️ **SSH Method Changed:** Windows PowerShell SSH scripts deprecated. Use WSL-only access.
 
-```powershell
-# First-time setup (generate keys)
-pwsh -File scripts/render_ssh_setup.ps1
+### Setup (WSL Required)
 
-# Connect interactively
-pwsh -File scripts/render_ssh_connect.ps1
+**First-time setup:**
+```bash
+# Install Render CLI in WSL
+curl -L https://github.com/render-oss/render-cli/releases/download/v2.5.0/render-linux-amd64-v2.5.0.zip -o /tmp/render.zip
+unzip /tmp/render.zip -d /tmp/
+sudo mv /tmp/render /usr/local/bin/
+sudo chmod +x /usr/local/bin/render
 
-# Connect to specific service
-pwsh -File scripts/render_ssh_connect.ps1 -ServiceId "srv-d3snk2ndiees73cn709g"
+# Authenticate (auto-generates SSH key at ~/.ssh/render_key)
+render login
 
-# Execute remote command
-pwsh -File scripts/render_ssh_exec.ps1 -ServiceId "srv-d3snk2ndiees73cn709g" -Command "df -h"
+# Add SSH shortcut to ~/.ssh/config
+cat >> ~/.ssh/config << 'EOF'
+Host render-virginia
+  HostName ssh.virginia.render.com
+  User srv-d3snk2ndiees73cn709g
+  IdentityFile ~/.ssh/render_key
+  StrictHostKeyChecking no
+EOF
 ```
 
 ### Common SSH Operations
 
 **Disk Usage Monitoring:**
-```powershell
+```bash
 # Check /Store disk usage
-pwsh -File scripts/render_ssh_exec.ps1 `
-  -ServiceId "srv-d3snk2ndiees73cn709g" `
-  -Command "df -h /Store"
+wsl ssh render-virginia 'df -h /Store'
 
 # View directory breakdown
-pwsh -File scripts/render_ssh_exec.ps1 `
-  -ServiceId "srv-d3snk2ndiees73cn709g" `
-  -Command "du -sh /Store/*"
+wsl ssh render-virginia 'du -sh /Store/*'
 
 # Count security bot snapshots
-pwsh -File scripts/render_ssh_exec.ps1 `
-  -ServiceId "srv-d3snk2ndiees73cn709g" `
-  -Command "ls -lah /Store/security-bot-state/snapshots/ | wc -l"
+wsl ssh render-virginia 'ls -lah /Store/security-bot-state/snapshots/ | wc -l'
 ```
 
 **Process Inspection:**
-```powershell
+```bash
 # Check Node.js processes
-pwsh -File scripts/render_ssh_exec.ps1 `
-  -ServiceId "srv-d3snk2ndiees73cn709g" `
-  -Command "ps aux | grep node"
+wsl ssh render-virginia 'ps aux | grep node'
 
 # Check memory usage
-pwsh -File scripts/render_ssh_exec.ps1 `
-  -ServiceId "srv-d3snk2ndiees73cn709g" `
-  -Command "free -m"
+wsl ssh render-virginia 'free -m'
 ```
 
 **Log Inspection:**
-```powershell
+```bash
 # View recent logs
-pwsh -File scripts/render_ssh_exec.ps1 `
-  -ServiceId "srv-d3snk2ndiees73cn709g" `
-  -Command "tail -100 /var/log/render.log"
+wsl ssh render-virginia 'tail -100 /var/log/render.log'
 
 # Search for errors
-pwsh -File scripts/render_ssh_exec.ps1 `
-  -ServiceId "srv-d3snk2ndiees73cn709g" `
-  -Command "grep ERROR /var/log/render.log"
+wsl ssh render-virginia 'grep ERROR /var/log/render.log'
 ```
 
-### VS Code Tasks (Quick Access)
+**Interactive SSH Session:**
+```bash
+# Connect interactively
+wsl ssh render-virginia
 
-```json
-// tasks.json
-{
-  "label": "Render SSH: Check Disk Usage",
-  "type": "shell",
-  "command": "pwsh",
-  "args": [
-    "-File",
-    "${workspaceFolder}/scripts/render_ssh_exec.ps1",
-    "-ServiceId",
-    "srv-d3snk2ndiees73cn709g",
-    "-Command",
-    "df -h"
-  ]
-}
+# Or via Render CLI
+wsl render ssh srv-d3snk2ndiees73cn709g
 ```
+
+See `ops/RENDER-CREDENTIALS.md` for complete SSH documentation including additional commands and troubleshooting.
 
 ## 3.5 Disk Resources
 

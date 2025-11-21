@@ -161,9 +161,6 @@ POKEMON_BOT_TOKEN=<same-as-bot-token>
 ```bash
 # API key for deployment automation
 RENDER_API_KEY=rnd_<api-key>
-
-# SSH key for service access
-RENDER_SSH_KEY=ssh-ed25519 AAAAC3Nza... render-sherb@SENSAI
 ```
 
 **Database URLs (Production - Render Managed PostgreSQL):**
