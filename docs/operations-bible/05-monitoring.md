@@ -234,7 +234,51 @@ const METRIC_UNAVAILABLE = Object.freeze({
 
 See [ARCHITECTURE-BIBLE § Observability](../architecture-bible/12-observability.md) for comprehensive metrics documentation.
 
-## 5.4 Alerting
+## 5.4 Automated Monitoring & Recovery
+
+### GitHub Actions Production Monitoring
+
+**Purpose:** 24/7 production health monitoring with automatic recovery capabilities.
+
+**Workflows:**
+
+1. **Health Check Watchdog** (`.github/workflows/health-check-watchdog.yml`)
+   - **Schedule:** Every 5 minutes (288 runs/day)
+   - **Purpose:** Detect service crashes, trigger auto-restart after 3 consecutive failures
+   - **Actions:** Check health endpoint via Render Shell API, record failures, restart service
+   - **Recovery Time:** 15-30 minutes (3 failures × 5 min + restart time)
+   - **Cost:** ~8,640 runs/month (necessary for production reliability)
+
+2. **Agent Health Watchdog** (`.github/workflows/agent-health.yml`)
+   - **Schedule:** Every 15 minutes (96 runs/day)
+   - **Purpose:** Detect stuck agent runs, create GitHub issues for debugging
+   - **Actions:** Scan agent-events.jsonl, analyze error patterns, open incidents
+   - **Cost:** ~2,880 runs/month (necessary for operational visibility)
+
+3. **Scheduled Restart** (`.github/workflows/scheduled-restart.yml`)
+   - **Schedule:** Every 12 hours (2 runs/day)
+   - **Purpose:** Memory hygiene, prevent gradual resource accumulation
+   - **Actions:** Graceful shutdown, restart service, verify recovery
+   - **Cost:** ~60 runs/month (necessary for long-term stability)
+
+**Total Monitoring Cost:** ~11,520 workflow runs/month (23,000-35,000 compute minutes)
+
+**Why This Is Necessary:**
+- Discord bot downtime = users unable to play Pokémon Infinity Gauntlet
+- 5-minute health checks provide rapid crash detection
+- Automatic restart capability ensures high availability without manual intervention
+- GitHub Actions provides free monitoring infrastructure (no additional services needed)
+
+**Trade-offs:**
+- ✅ **Benefit:** Automated 24/7 monitoring with zero operational overhead
+- ✅ **Benefit:** Auto-recovery within 15-30 minutes of crash detection
+- ⚠️ **Cost:** GitHub Actions compute minutes consumed by monitoring workflows
+- ⚠️ **Alternative:** Could use paid monitoring services (UptimeRobot, Pingdom, Datadog) but adds $10-50/month cost
+
+**Monitoring Dashboard:**
+- Health Check Watchdog: https://github.com/Sherbivs/Infinity-Gauntlet/actions/workflows/health-check-watchdog.yml
+- Agent Health: https://github.com/Sherbivs/Infinity-Gauntlet/actions/workflows/agent-health.yml
+- Scheduled Restart: https://github.com/Sherbivs/Infinity-Gauntlet/actions/workflows/scheduled-restart.yml
 
 ### DRIP Alert System
 

@@ -285,23 +285,43 @@ Authorization: Bearer rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp
 
 ## 🤖 GitHub Actions Workflows
 
+**Production Monitoring Infrastructure** — Provides 24/7 automated health checks and crash recovery.
+
 **Workflows Using RENDER_API_KEY:**
 
 1. **Scheduled Restart** (`.github/workflows/scheduled-restart.yml`)
-   - Schedule: `0 */12 * * *` (00:00 UTC and 12:00 UTC)
+   - Schedule: `0 */12 * * *` (00:00 UTC and 12:00 UTC, ~60 runs/month)
    - Actions: POST /restart, poll status, verify health
    - Secret: `secrets.RENDER_API_KEY`
+   - Purpose: Memory hygiene, prevent gradual resource accumulation
 
 2. **Health Check Watchdog** (`.github/workflows/health-check-watchdog.yml`)
-   - Schedule: `*/5 * * * *` (every 5 minutes)
+   - Schedule: `*/5 * * * *` (every 5 minutes, ~8,640 runs/month)
    - Actions: Shell API → curl localhost:3000/health, track failures, restart on threshold
    - Secret: `secrets.RENDER_API_KEY`
+   - Purpose: **CRITICAL** — Detect crashes within 15 minutes, auto-restart failed services
+   - Why 5 minutes?: Balance between rapid crash detection and GitHub Actions compute cost
+
+3. **Agent Health Watchdog** (`.github/workflows/agent-health.yml`)
+   - Schedule: `*/15 * * * *` (every 15 minutes, ~2,880 runs/month)
+   - Actions: Scan agent-events.jsonl for stuck runs, create GitHub issues
+   - Secret: None (uses GITHUB_TOKEN)
+   - Purpose: Operational visibility into agent health, debug stuck runs
+
+**Total Monitoring Cost:** ~11,580 workflow runs/month (23,000-35,000 compute minutes)
+
+**Operational Justification:**
+- Pokémon Infinity Gauntlet requires 24/7 availability (live-service Discord game)
+- 5-minute health checks ensure crash detection ≤15 minutes (3 failures × 5 min)
+- Auto-restart capability eliminates need for manual monitoring (labor cost >> compute cost)
+- GitHub Actions provides free monitoring (no need for paid services like UptimeRobot, Pingdom, Datadog at $10-50/month)
 
 **Workflow Verification:**
 ```powershell
 # Check workflow runs
 gh run list --workflow scheduled-restart.yml --limit 5
 gh run list --workflow health-check-watchdog.yml --limit 5
+gh run list --workflow agent-health.yml --limit 5
 
 # View workflow logs
 gh run view <run-id> --log

@@ -5,9 +5,11 @@ GitHub Actions workflow that restarts the Render service every 12 hours via Rend
 
 **Purpose:** Force periodic restarts for memory hygiene without redeploying code.
 
-**Schedule:** Every 12 hours at 00:00 UTC and 12:00 UTC
+**Schedule:** Every 12 hours at 00:00 UTC and 12:00 UTC (~60 runs/month)
 
 **Service:** `Infinity-Gauntlet` (ID: `srv-d3snk2ndiees73cn709g`)
+
+**Operational Necessity:** This workflow is part of production monitoring infrastructure. The 60 runs/month (plus health check watchdog 8,640 runs/month) provide automated crash detection and recovery, ensuring Pokémon Infinity Gauntlet remains available 24/7 without manual intervention.
 
 ## Setup Steps
 
@@ -119,12 +121,16 @@ To disable automatic restarts:
 
 ## Health Check Watchdog
 
-In addition to scheduled restarts, a health check watchdog monitors service health:
+**Critical Production Monitoring** — Detects crashes and triggers automatic recovery.
 
 **Workflow:** `.github/workflows/health-check-watchdog.yml`
 
+**Schedule:** Every 5 minutes (288 runs/day, ~8,640 runs/month)
+
+**Operational Necessity:** This high-frequency monitoring is REQUIRED for production reliability. Discord bot downtime means users cannot play Pokémon Infinity Gauntlet. 5-minute intervals ensure crash detection within 15 minutes maximum.
+
 **Behavior:**
-- Runs every 5 minutes
+- Runs every 5 minutes (necessary for rapid crash detection)
 - Pings health endpoint at `http://localhost:3000/health` (via Render Shell API)
 - Records failures in temporary markers
 - Triggers automatic restart after 3 consecutive failures (15 minutes of downtime)
@@ -133,12 +139,22 @@ In addition to scheduled restarts, a health check watchdog monitors service heal
 **Failure threshold:**
 - 1st failure: Warning recorded
 - 2nd failure: Warning recorded
-- 3rd failure: **Automatic restart triggered**
+- 3rd failure: **Automatic restart triggered** (prevents extended downtime)
 
 **Recovery verification:**
 - Polls service status every 10 seconds (max 5 minutes)
 - Confirms service state is `running` or `available`
 - Clears failure markers after successful recovery
+
+**Why Not Less Frequent?**
+- 10-minute intervals → 30-minute max downtime before recovery
+- 15-minute intervals → 45-minute max downtime before recovery
+- 30-minute intervals → 90-minute max downtime before recovery (UNACCEPTABLE for live game)
+
+**Cost Trade-off:**
+- ✅ **Benefit:** Auto-recovery within 15-30 minutes, zero manual intervention
+- ⚠️ **Cost:** ~8,640 GitHub Actions workflow runs/month
+- 💡 **Alternative:** Paid monitoring services ($10-50/month) vs free GitHub Actions
 
 **Manual inspection:**
 ```bash
@@ -151,13 +167,21 @@ https://github.com/Sherbivs/Infinity-Gauntlet/actions/workflows/health-check-wat
 
 ## Combined Restart Strategy
 
-The system uses multiple restart layers:
+The system uses multiple restart layers for maximum reliability:
 
-1. **Scheduled restarts:** Every 12 hours for memory hygiene
-2. **Health watchdog:** Auto-restart on 3 consecutive health check failures
+1. **Scheduled restarts:** Every 12 hours for memory hygiene (~60 runs/month)
+2. **Health watchdog:** Auto-restart on 3 consecutive health check failures (~8,640 runs/month)
 3. **Render auto-restart:** Exit code 0 → immediate, others → 30s delay
 4. **Discord webhooks:** Immediate visibility on all lifecycle events
 5. **Health endpoint:** External monitors can detect downtime
+
+**Total Monitoring Cost:** ~11,580 GitHub Actions workflow runs/month (23,000-35,000 compute minutes)
+
+**Why This Cost Is Justified:**
+- Pokémon Infinity Gauntlet is a live-service game requiring 24/7 availability
+- Manual monitoring would require on-call operators (labor cost >> compute cost)
+- Automatic crash detection + recovery provides 99%+ uptime without human intervention
+- GitHub Actions provides free monitoring infrastructure (no additional services needed)
 
 ## Notes
 
@@ -166,3 +190,4 @@ The system uses multiple restart layers:
 - Application tracks boot count and uptime in lifecycle notifications
 - Health endpoint allows external monitors to detect downtime during restart
 - Multiple restart layers ensure high availability without manual intervention
+- **Workflow run frequency is operationally necessary** — do not reduce without understanding impact on crash detection time
