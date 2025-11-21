@@ -150,7 +150,7 @@ function Get-ProcessMemory {
     param([string]$ServiceId)
     
     try {
-        $result = & pwsh -File "scripts/render_ssh_exec.ps1" -ServiceId $ServiceId -Command "ps aux" 2>&1
+        $result = & wsl bash -c "render ssh $ServiceId --command 'ps aux'" 2>&1
         
         if ($LASTEXITCODE -ne 0) {
             return @{
@@ -222,7 +222,7 @@ function Get-ProcessDetails {
     param([string]$ServiceId)
     
     try {
-        $result = & pwsh -File "scripts/render_ssh_exec.ps1" -ServiceId $ServiceId -Command "cat /proc/`$(pgrep node)/status | grep -E 'VmRSS|Threads|FDSize'" 2>&1
+        $result = & wsl bash -c "render ssh $ServiceId --command 'cat /proc/`$(pgrep node)/status | grep -E ""VmRSS|Threads|FDSize""'" 2>&1
         
         if ($LASTEXITCODE -eq 0) {
             # Check output for accuracy violations
