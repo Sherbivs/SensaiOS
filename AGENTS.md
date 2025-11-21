@@ -682,7 +682,9 @@ See `docs/engine-db-replication.md` for comprehensive design documentation. See 
 - **Render Platform Credentials:**
   - **API Key:** `rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp` (required for GitHub Actions workflows)
   - **Service ID:** `srv-d3snk2ndiees73cn709g` (main bot worker)
+  - **SSH Command:** `ssh srv-d3snk2ndiees73cn709g@ssh.virginia.render.com`
   - **SSH Key:** `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHRmJahMqnfxmn+OSaYtWmFcxfdz8i3CPqvhOS+bkWBM render-sherb@SENSAI`
+  - **Dashboard Shell:** https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g/shell
   - **Complete Reference:** See `ops/RENDER-CREDENTIALS.md` for all API endpoints, setup instructions, and troubleshooting
   - **Environment File:** `secrets/Infinity-Gauntlet.env` (RENDER_API_KEY, RENDER_SERVICE_ID, RENDER_SSH_KEY)
   - **GitHub Secret:** Add `RENDER_API_KEY` to https://github.com/Sherbivs/Infinity-Gauntlet/settings/secrets/actions

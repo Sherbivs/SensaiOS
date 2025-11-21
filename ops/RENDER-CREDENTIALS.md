@@ -96,14 +96,45 @@ curl https://api.render.com/v1/services/srv-d3snk2ndiees73cn709g `
 
 ## 🔐 SSH Access
 
-**Purpose:** Execute commands within Render service container for debugging and health checks.
+**Purpose:** Direct terminal access to Render service container for debugging and log inspection.
+
+**SSH Command:**
+```bash
+ssh srv-d3snk2ndiees73cn709g@ssh.virginia.render.com
+```
 
 **SSH Public Key:**
 ```
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHRmJahMqnfxmn+OSaYtWmFcxfdz8i3CPqvhOS+bkWBM render-sherb@SENSAI
 ```
 
-**Usage via Render Shell API:**
+**Dashboard Shell (Recommended):**
+```
+https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g/shell
+```
+
+**Common Commands:**
+```bash
+# List Store directory contents
+ls -lah /Store/
+
+# View restart metrics
+cat /Store/restart-metrics.json | jq .
+
+# View security bot state
+cat /Store/security-bot-state/current.json | jq .
+
+# Check disk usage
+df -h
+
+# View process status
+ps aux
+
+# Check memory usage
+free -h
+```
+
+**Usage via Render Shell API (Starter plan: Not supported - use Dashboard Shell):**
 ```powershell
 # Execute command in service container
 curl -X POST https://api.render.com/v1/services/srv-d3snk2ndiees73cn709g/shell `
