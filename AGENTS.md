@@ -27,11 +27,18 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 **Phase 9 Complete** (2025-11-07): Repository is production-ready, centralized, standardized, and scalable. All quality metrics optimized: zero linter warnings, zero npm vulnerabilities, zero outdated packages, fast tests (6.82s), clean documentation. See `ops/REPO-OPTIMIZATION-REPORT.md` for comprehensive achievements.
 
 **Recent Enhancements (November 2025)**:
-- ✅ **Memory Safety Audit Complete**: 13/13 runtime structures bounded, peak RAM ~300-350 MB (15-17% of 2 GB limit, upgraded from Starter 512 MB on 2025-11-17)
+- ✅ **Memory Safety Audit Complete**: 13/13 runtime structures bounded, peak RAM ~300-350 MB (15-17% of 2 GB RAM limit, upgraded from Starter 512 MB on 2025-11-17)
+- ✅ **Resource Limits Clarification**: Clear distinction between RAM (2 GB volatile memory) and persistent disk (1 GB /Store volume) documented in `docs/RESOURCE-LIMITS-RAM-VS-DISK.md`
 - ✅ **Discord.js Cache Management (2025-11-17)**: Configured cache limits + sweeping to prevent unbounded growth (50-200 MB/day → 0 MB/day on idle bot)
 - ✅ **7-Day State Persistence**: Security bot maintains hourly metrics with full restart continuity (Store/security-bot-state/)
 - ✅ **Event Bus Phase 2.4.3**: IntelligentLogger migration complete with correlation tracking and pattern caching
 - ✅ **Cache Management**: Discord.js automatic sweeping prevents 100+ MB memory leaks
+
+**⚠️ CRITICAL RESOURCE DISTINCTION:**
+- **RAM:** 2 GB (2048 MB) — Process memory, tracked by `process.memoryUsage().rss`, monitored by `resource-monitor.ts`
+- **Disk:** 1 GB (974 MB) — Persistent /Store volume, tracked via `fs.statfsSync()`, manual monitoring
+- **Why It Matters:** Different resources, different limits, different failure modes (OOM kill vs write failures)
+- **Complete Guide:** `docs/RESOURCE-LIMITS-RAM-VS-DISK.md` (375 lines, quick reference card, glossary)
 
 **Cross-References**:
 - See `Patch.md` for contract rules, marker modes, Absolutes (read first before any work)

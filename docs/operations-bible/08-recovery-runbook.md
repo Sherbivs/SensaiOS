@@ -203,13 +203,18 @@ Render will automatically redeploy when `main` branch changes. Monitor deploymen
 - Render logs show "Out of memory" or "Process killed"
 - Frequent restarts with short uptimes (<30 minutes)
 
+**⚠️ CRITICAL:** This is **RAM exhaustion (2 GB process memory)**, NOT disk space issues.
+- OOM kills: Process RSS exceeds 2 GB → Kernel kills process
+- Disk full: /Store exceeds 1 GB → Write failures (different symptom)
+- See `docs/RESOURCE-LIMITS-RAM-VS-DISK.md` for complete distinction
+
 **Diagnosis:**
 ```bash
-# Check memory usage via /ops memory command
+# Check RAM usage via /ops memory command (NOT disk usage)
 /ops memory
 
 # Look for:
-# - RSS > 1.5 GB (approaching 2 GB limit)
+# - RSS > 1.5 GB (approaching 2 GB RAM limit)
 # - Heap usage > 80%
 # - Discord.js cache growth (50-200 MB)
 ```

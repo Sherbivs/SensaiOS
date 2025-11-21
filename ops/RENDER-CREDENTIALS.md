@@ -78,19 +78,34 @@ curl https://api.render.com/v1/services/srv-d3snk2ndiees73cn709g `
 - **Service ID:** `srv-d3snk2ndiees73cn709g`
 - **Type:** Worker (background service, no HTTP routes)
 - **Region:** Virginia
-- **Plan:** Standard (2 GB RAM, upgraded 2025-11-17)
+- **Plan:** Standard (2 GB RAM, 1 vCPU, upgraded 2025-11-17)
 - **Dashboard:** https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g
+
+**Resource Specifications:**
+
+| Resource | Limit | Purpose | Volatile? | Monitoring |
+|----------|-------|---------|-----------|------------|
+| **RAM (Memory)** | 2 GB (2048 MB) | Process memory, caches, heap | ✅ Yes (lost on restart) | `process.memoryUsage().rss` |
+| **Persistent Disk** | 1 GB (974 MB formatted) | /Store directory, state files | ❌ No (survives restarts) | `df -h /Store` |
+| **vCPU** | 1.0 | Compute capacity | N/A | `top` via SSH |
+
+**⚠️ CRITICAL: RAM vs Disk Distinction**
+- **RAM (2 GB):** Volatile process memory tracked by `resource-monitor.ts`
+  - Current: ~356 MB (17%)
+  - Alert thresholds: 75%, 85%, 90%
+  - Failure mode: OOM kill → process crash
+- **Disk (1 GB):** Persistent /Store volume tracked manually
+  - Current: ~83 MB (9%)
+  - No automatic alerts ⚠️
+  - Failure mode: Write failures → data loss
+
+**See:** `docs/RESOURCE-LIMITS-RAM-VS-DISK.md` for comprehensive guide
 
 **Deployment:**
 - **Auto-deploy:** Enabled (git push to `main` triggers deploy)
 - **Build command:** `npm run build`
 - **Start command:** `npm start`
 - **Docker:** Disabled (native Node.js runtime)
-
-**Persistent Storage:**
-- **Mount path:** `/Store`
-- **Size:** 2 GB
-- **Purpose:** State persistence (restart-metrics.json, security-bot-state/, cache/)
 
 ---
 

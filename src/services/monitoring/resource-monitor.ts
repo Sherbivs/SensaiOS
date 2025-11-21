@@ -1,17 +1,29 @@
 /**
  * Resource Monitor — Unified Resource & Memory Management
  * 
+ * ⚠️ IMPORTANT: This module monitors RAM (process memory) ONLY.
+ * It does NOT monitor persistent disk (/Store directory).
+ * 
  * Combines resource tracking with active memory protection:
  * - Periodic health checks (startup + configurable intervals)
  * - Real-time memory guardian (30s polling with automatic pruning)
  * - Resource leak detection and alerting
  * - Integrated with intelligent logger for visibility
  * 
- * Memory Protection Levels (Standard Plan: 2 GB):
+ * Memory Protection Levels (Standard Plan: 2 GB RAM):
  * - NORMAL: <1536MB (75%) - Monitor only
  * - WARNING: 1536-1740MB (75-85%) - Preemptive pruning
  * - CRITICAL: 1741-1842MB (85-90%) - Aggressive pruning
  * - EMERGENCY: 1843-2047MB (90-99%) - Nuclear pruning
+ * 
+ * Resource Types (Render Standard Plan):
+ * - RAM: 2 GB (2048 MB) — Tracked by this module via process.memoryUsage().rss
+ * - Disk: 1 GB (974 MB formatted) — NOT tracked here, see cache systems for disk checks
+ * 
+ * For disk monitoring, see:
+ * - src/services/cache/facade.ts — Uses fs.statfsSync() for disk checks
+ * - src/config/engine-db-config.ts — Defines disk thresholds (75%, 90%)
+ * - docs/RESOURCE-LIMITS-RAM-VS-DISK.md — Complete resource guide
  * 
  * Integration: Called from src/index.ts boot() and gracefulShutdown()
  */
@@ -45,11 +57,27 @@ export interface IPrunableCache {
 // Configuration
 // ============================================================================
 
+// ⚠️ CRITICAL: These thresholds are for RAM (process memory) ONLY.
+// They do NOT apply to persistent disk (/Store directory).
+//
+// RAM Monitoring (2 GB Standard Plan):
+// - Metric: process.memoryUsage().rss (Resident Set Size)
+// - Limit: 2048 MB (2 GB)
+// - Failure: 100% RAM → OUT OF MEMORY (OOM) → Process crash
+//
+// Disk Monitoring (1 GB /Store):
+// - Metric: df -h /Store (filesystem stats)
+// - Limit: 974 MB (formatted size, ~1 GB raw)
+// - Failure: 100% Disk → DISK FULL → All writes fail
+// - Monitoring: NOT implemented here, see cache systems
+//
+// See: docs/RESOURCE-LIMITS-RAM-VS-DISK.md for complete distinction
+
 // Standard thresholds aligned with Render Standard plan (2 GB RAM, 1 vCPU)
 // Upgraded from Starter (512 MB, 0.5 vCPU) on 2025-11-17
 // See: docs/deployment/RESOURCE-MONITOR-STANDARDS.md for complete specification
 const MEMORY_THRESHOLDS = {
-  planLimitMB: 2048,      // 2 GB RAM (Standard plan)
+  planLimitMB: 2048,      // 2 GB RAM (Standard plan) — NOT disk space
   emergencyMB: 1843,      // 90% - Immediate action required
   criticalMB: 1741,       // 85% - Scale or optimize
   warningMB: 1536,        // 75% - Monitor closely

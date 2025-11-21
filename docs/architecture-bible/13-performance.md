@@ -25,7 +25,12 @@
 - **Post-Database:** STARTUP_MEMORY.post_database
 - **Post-Engine Cache:** STARTUP_MEMORY.post_engine_and_bots (20MB → 8MB L1 cache)
 - **Steady-State:** STARTUP_MEMORY.steady_state (final footprint)
-- **Peak RAM Target:** 300-600 MB per service (15-30% of 2 GB limit, Standard plan)
+- **Peak RAM Target:** 300-600 MB per service (15-30% of 2 GB RAM limit, Standard plan)
+
+**⚠️ CRITICAL:** This tracks **RAM (process memory) ONLY**, NOT persistent disk (/Store).
+- **RAM Limit:** 2 GB (2048 MB) — Volatile, lost on restart, tracked by `process.memoryUsage().rss`
+- **Disk Limit:** 1 GB (974 MB) — Persistent, survives restarts, tracked via `fs.statfsSync()`
+- See: `docs/RESOURCE-LIMITS-RAM-VS-DISK.md` for complete distinction
 
 **Profile Creation (OPTIMIZED - 2025-11-09):**
 - **BEFORE:** 150-250ms (4-query chain)

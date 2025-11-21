@@ -30,6 +30,70 @@
 
 ---
 
+## 0. Resource Types: RAM vs Persistent Disk ⚠️ IMPORTANT
+
+**CRITICAL DISTINCTION:** This audit covers **two completely separate resources**:
+
+### 0.1 RAM (Memory) — 2 GB Limit
+
+**What It Is:**
+- Process memory (heap, stack, runtime caches)
+- **Volatile:** Lost on restart
+- **Limit:** 2048 MB (2 GB Standard plan)
+- **Current Usage:** 356 MB (17%)
+- **Monitored By:** `src/services/monitoring/resource-monitor.ts`
+- **Tracking:** `process.memoryUsage().rss`
+
+**What Uses RAM:**
+- Discord.js cache (~100 MB)
+- L1 Cache (~20 MB)
+- Event Bus buffers (~5 MB)
+- Logger buffers (~1 MB)
+- Node.js runtime (~230 MB)
+
+**Failure Mode:**
+- 100% RAM → OUT OF MEMORY (OOM) → **Process crashes**
+- Recovery: Auto-restart, cache pruning, garbage collection
+
+### 0.2 Persistent Disk (/Store) — 1 GB Limit
+
+**What It Is:**
+- Persistent file storage in `/Store` directory
+- **Persistent:** Survives restarts
+- **Limit:** 974 MB (formatted, ~1 GB raw)
+- **Current Usage:** 83 MB (9%)
+- **Monitored By:** Manual (`df -h /Store`)
+- **Tracking:** `fs.statfsSync()` in cache systems
+
+**What Uses Disk:**
+- Heap snapshots (75 MB — 90% of used space)
+- Security bot state (8.2 MB — 10% of used space)
+- Engine Write DB (56 KB)
+- Pokemon cache (20 KB)
+- Other caches (<20 KB)
+
+**Failure Mode:**
+- 100% Disk → DISK FULL → **All writes fail**
+- Recovery: Manual cleanup via SSH, delete old snapshots
+
+### 0.3 Why This Matters
+
+**Different Resources:**
+- ❌ **WRONG:** "356 MB of 974 MB used" → Mixing RAM and disk
+- ✅ **CORRECT:** "356 MB RAM (of 2 GB) + 83 MB disk (of 1 GB)"
+
+**Different Monitoring:**
+- RAM: Automatic via resource-monitor.ts (every 30s)
+- Disk: Manual via SSH (`df -h /Store`)
+
+**Different Alerts:**
+- RAM: 75%, 85%, 90% thresholds → Auto-pruning
+- Disk: ⚠️ NO automatic alerts currently
+
+**See:** `docs/RESOURCE-LIMITS-RAM-VS-DISK.md` for comprehensive guide
+
+---
+
 ## 1. Logging Systems Inventory
 
 ### 1.1 Console Output Logging (Transient)
