@@ -7,12 +7,11 @@ databases:
 services:
   # Discord bot workers and background services
   # NOTE: Main worker (Infinity-Gauntlet) upgraded to Standard plan via dashboard (2025-11-17)
-  # NOTE: render.yaml shows 'region: oregon' but actual deployment is Virginia (SSH endpoint confirms)
   - type: worker
     name: infinity-gauntlet-outbox
     runtime: node
     plan: starter
-    region: oregon
+    region: virginia
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
     rootDirectory: .
@@ -61,7 +60,7 @@ services:
     name: infinity-gauntlet
     runtime: node
     plan: starter
-    region: oregon
+    region: virginia
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
     rootDirectory: .
@@ -123,7 +122,7 @@ services:
     name: infinity-gauntlet-security
     runtime: node
     plan: starter
-    region: oregon
+    region: virginia
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
     rootDirectory: .
@@ -170,7 +169,7 @@ services:
     name: infinity-gauntlet-cache
     runtime: node
     plan: starter
-    region: oregon
+    region: virginia
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
     rootDirectory: .
@@ -214,7 +213,7 @@ services:
     name: infinity-gauntlet-data-pipeline
     runtime: node
     plan: starter
-    region: oregon
+    region: virginia
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
     rootDirectory: .
@@ -261,7 +260,7 @@ services:
     name: pokedex-cache-worker
     runtime: node
     plan: starter
-    region: oregon
+    region: virginia
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
     rootDirectory: .
