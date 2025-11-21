@@ -1,139 +1,115 @@
-name: Retrieve Store Logs
+name: Store Logs - Dashboard Access
 
-# Purpose: Retrieve log files from /Store directory on production
-# Usage: Manual trigger with log path input
+# Purpose: Provide quick access to Render Dashboard Shell for /Store logs
+# Note: Shell API not available on Starter plan - use Dashboard Shell instead
+# Dashboard Shell: https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g/shell
 
 on:
   workflow_dispatch:
     inputs:
       log_path:
-        description: 'Path to log file or directory (e.g., /Store/restart-metrics.json)'
+        description: 'Log path to access (reference only)'
         required: false
         default: '/Store/'
         type: string
-      action:
-        description: 'Action to perform'
-        required: true
-        default: 'list'
-        type: choice
-        options:
-          - list
-          - view
-          - download
 
 jobs:
-  retrieve-logs:
-    name: Retrieve Production Logs
+  dashboard-guide:
+    name: Dashboard Shell Guide
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 2
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
-      - name: Retrieve logs from /Store
-        id: retrieve_logs
+      - name: Display Dashboard Shell Instructions
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           SERVICE_ID: srv-d3snk2ndiees73cn709g
           LOG_PATH: ${{ inputs.log_path }}
-          ACTION: ${{ inputs.action }}
         run: |
-          echo "📂 Retrieving logs from production..."
-          echo "Path: $LOG_PATH"
-          echo "Action: $ACTION"
+          echo "📂 Accessing /Store Logs on Production"
+          echo "======================================"
+          echo ""
+          echo "🌐 Open Render Dashboard Shell:"
+          echo "   👉 https://dashboard.render.com/services/$SERVICE_ID/shell"
+          echo ""
+          echo "📝 Requested Path: $LOG_PATH"
           echo ""
           
-          # Determine command based on action
-          if [ "$ACTION" = "list" ]; then
-            if [[ "$LOG_PATH" == */ ]]; then
-              COMMAND="ls -lah $LOG_PATH"
-            else
-              COMMAND="ls -lah $(dirname $LOG_PATH)"
-            fi
-          else
-            COMMAND="cat $LOG_PATH"
-          fi
-          
-          echo "Executing: $COMMAND"
+          # Provide commands based on path
+          echo "🔧 Commands for Dashboard Shell:"
           echo ""
           
-          # Execute via Render Shell API
-          RESPONSE=$(curl -s -X POST "https://api.render.com/v1/services/$SERVICE_ID/shell" \
-            -H "Authorization: Bearer $RENDER_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{\"command\": \"$COMMAND\"}")
-          
-          # Check if response is valid
-          if echo "$RESPONSE" | jq -e . >/dev/null 2>&1; then
-            echo "✅ Command executed successfully"
+          if [[ "$LOG_PATH" == */ ]]; then
+            echo "   # List directory:"
+            echo "   ls -lah $LOG_PATH"
             echo ""
-            
-            # Extract output
-            OUTPUT=$(echo "$RESPONSE" | jq -r '.output // empty')
-            STDERR=$(echo "$RESPONSE" | jq -r '.stderr // empty')
-            EXIT_CODE=$(echo "$RESPONSE" | jq -r '.exitCode // 0')
-            
-            if [ -n "$OUTPUT" ]; then
-              echo "📤 Output:"
-              echo "================================"
-              echo "$OUTPUT"
-              echo "================================"
-              
-              # Save to artifact if downloading
-              if [ "$ACTION" = "download" ]; then
-                echo "$OUTPUT" > "store-log-output.txt"
-                echo ""
-                echo "💾 Saved to artifact: store-log-output.txt"
-              fi
-            fi
-            
-            if [ -n "$STDERR" ]; then
-              echo ""
-              echo "⚠️  Errors:"
-              echo "$STDERR"
-            fi
-            
-            echo ""
-            echo "Exit code: $EXIT_CODE"
-            
-            if [ "$EXIT_CODE" != "0" ]; then
-              exit 1
-            fi
+            echo "   # With details:"
+            echo "   du -sh $LOG_PATH*"
           else
-            echo "❌ API request failed"
-            echo "Response: $RESPONSE"
-            exit 1
+            echo "   # View entire file:"
+            echo "   cat $LOG_PATH"
+            echo ""
+            echo "   # View last 50 lines:"
+            echo "   tail -n 50 $LOG_PATH"
+            echo ""
+            echo "   # View first 20 lines:"
+            echo "   head -n 20 $LOG_PATH"
+            echo ""
+            echo "   # Search in file:"
+            echo "   grep 'search-term' $LOG_PATH"
+            echo ""
+            echo "   # Pretty print JSON:"
+            echo "   cat $LOG_PATH | jq ."
           fi
-      
-      - name: Upload log file as artifact
-        if: inputs.action == 'download'
-        uses: actions/upload-artifact@v4
-        with:
-          name: store-logs
-          path: store-log-output.txt
-          retention-days: 7
-      
-      - name: Show available logs
-        if: inputs.log_path == '/Store/'
-        run: |
+          
           echo ""
           echo "📋 Common Log Locations:"
           echo ""
-          echo "🔄 Restart Metrics:"
-          echo "   /Store/restart-metrics.json"
+          echo "   🔄 Restart Metrics:"
+          echo "      /Store/restart-metrics.json"
           echo ""
-          echo "🛡️  Security Bot State:"
-          echo "   /Store/security-bot-state/current.json"
-          echo "   /Store/security-bot-state/previous.json"
-          echo "   /Store/security-bot-state/snapshots/"
+          echo "   🛡️  Security Bot State:"
+          echo "      /Store/security-bot-state/current.json"
+          echo "      /Store/security-bot-state/previous.json"
+          echo "      /Store/security-bot-state/snapshots/"
           echo ""
-          echo "💾 Runtime Cache:"
-          echo "   /Store/runtime-cache/"
+          echo "   💾 Runtime Cache:"
+          echo "      /Store/runtime-cache/"
           echo ""
-          echo "💬 Discord Cache:"
-          echo "   /Store/discord-cache/"
+          echo "   💬 Discord Cache:"
+          echo "      /Store/discord-cache/"
           echo ""
-          echo "🔧 Database Mirrors:"
-          echo "   /Store/onpremise-dev-primary/"
+          echo "   📊 Database Mirrors:"
+          echo "      /Store/onpremise-dev-primary/"
           echo ""
+          
+          # Verify service status
+          echo "✅ Verifying service access..."
+          SERVICE_INFO=$(curl -s "https://api.render.com/v1/services/$SERVICE_ID" \
+            -H "Authorization: Bearer $RENDER_API_KEY")
+          
+          if echo "$SERVICE_INFO" | jq -e . >/dev/null 2>&1; then
+            NAME=$(echo "$SERVICE_INFO" | jq -r '.name // "N/A"')
+            STATE=$(echo "$SERVICE_INFO" | jq -r '.serviceDetails.state // "N/A"')
+            REGION=$(echo "$SERVICE_INFO" | jq -r '.serviceDetails.region // "N/A"')
+            
+            echo ""
+            echo "📊 Service Status:"
+            echo "   Name: $NAME"
+            echo "   State: $STATE"
+            echo "   Region: $REGION"
+            echo ""
+            
+            if [ "$STATE" = "live" ]; then
+              echo "✅ Service is LIVE - Dashboard Shell available"
+            else
+              echo "⚠️  Service state: $STATE - Shell may not be accessible"
+            fi
+          else
+            echo "⚠️  Could not verify service status"
+          fi
+          
+          echo ""
+          echo "======================================"
+          echo "📖 Copy the Dashboard Shell URL above and open in browser"
+          echo "🚀 Then run the suggested commands to view your logs"
