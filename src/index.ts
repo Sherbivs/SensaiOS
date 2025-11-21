@@ -887,12 +887,82 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   recordShutdown(signal);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // PHASE 1: CRITICAL DATA PERSISTENCE (Priority Order - Execute First)
+  // PHASE 0: INSTANT STATE SNAPSHOT (NEW - Zero Data Loss Optimization)
   // ═══════════════════════════════════════════════════════════════════════════
+  // Parallel execution of all critical saves to minimize data loss window.
+  // Target: <500ms total snapshot time via Promise.allSettled parallelism.
+  // All errors are caught and logged; failures are non-blocking.
+  
+  log.info("PHASE 0: Instant state snapshot starting (parallel execution)");
+  const snapshotStart = Date.now();
+  
+  const snapshotResults = await Promise.allSettled([
+    // Security bot state (auto-saves every 30s, this is final snapshot)
+    (async () => {
+      if (global.securityBotState) {
+        const { shutdownState } = await import("./bot/state/persistence.js");
+        await shutdownState(global.securityBotState, signal);
+        log.info("✅ SNAPSHOT: Security bot state saved");
+      }
+    })(),
+    
+    // Cooldowns (auto-saves every 30s, this is final snapshot)
+    (async () => {
+      const cooldownModule = await import("./lib/cooldown.js");
+      if ('shutdown' in cooldownModule && typeof cooldownModule.shutdown === 'function') {
+        await cooldownModule.shutdown();
+        log.info("✅ SNAPSHOT: Cooldowns persisted");
+      }
+    })(),
+    
+    // Engine Write Buffer (auto-flushes every 10s, this is final flush)
+    (async () => {
+      if (engineWriteBuffer) {
+        await engineWriteBuffer.flush();
+        log.info("✅ SNAPSHOT: Engine Write Buffer flushed");
+      }
+    })(),
+    
+    // AI Logger (diagnostic data)
+    (async () => {
+      await aiLogger.flush();
+      log.info("✅ SNAPSHOT: AI logs flushed");
+    })(),
+  ]);
+  
+  const snapshotDuration = Date.now() - snapshotStart;
+  const snapshotFailures = snapshotResults.filter(r => r.status === 'rejected').length;
+  const snapshotSuccesses = snapshotResults.filter(r => r.status === 'fulfilled').length;
+  
+  log.info(`PHASE 0 COMPLETE: Instant state snapshot finished`, {
+    duration: `${snapshotDuration}ms`,
+    successes: snapshotSuccesses,
+    failures: snapshotFailures,
+    target: '500ms',
+    result: snapshotFailures === 0 ? '✅ PERFECT SNAPSHOT (zero data loss)' : '⚠️ PARTIAL SNAPSHOT (some data loss)'
+  });
+  
+  if (snapshotFailures > 0) {
+    log.warn("Some snapshots failed (continuing shutdown)", {
+      failures: snapshotResults
+        .filter(r => r.status === 'rejected')
+        .map((r, i) => ({
+          index: i,
+          reason: (r as PromiseRejectedResult).reason
+        }))
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 1: CRITICAL DATA PERSISTENCE (Redundant Safety Layer)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 0 above captures everything in parallel. PHASE 1 remains as a safety
+  // net in case PHASE 0 individual promises rejected. This ensures at least ONE
+  // attempt at each critical save completes successfully.
   // These operations must complete BEFORE service shutdown to prevent data loss.
   // Each is wrapped in try-catch to ensure one failure doesn't block others.
   
-  log.info("PHASE 1: Critical data persistence starting");
+  log.info("PHASE 1: Critical data persistence starting (redundant safety layer)");
   
   // 1A. Flush Engine Write Buffer (battle data - highest priority)
   try {

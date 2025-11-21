@@ -7,7 +7,7 @@ const store = new Map(); // key -> timestamp (ms)
 
 // Configuration
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
-const PERSIST_INTERVAL_MS = 1 * 60 * 1000; // 1 minute (reduced from 5min for Phase 1 optimization)
+const PERSIST_INTERVAL_MS = 30 * 1000; // 30 seconds (reduced from 1min for seamless restart optimization - 50% data loss reduction)
 const MAX_COOLDOWN_AGE_MS = 60 * 60 * 1000; // 1 hour TTL
 const STORAGE_DIR = process.env.RENDER ? '/Store/cooldowns' : path.join(process.cwd(), 'Store', 'cooldowns');
 const STORAGE_FILE = path.join(STORAGE_DIR, 'cooldowns.json');

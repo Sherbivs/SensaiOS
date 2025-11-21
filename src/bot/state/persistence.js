@@ -28,7 +28,7 @@ const SCHEMA_VERSION = '1.1.0';
 const STATE_VERSION = 1;
 const MAX_TIMELINE_EVENTS = 100;
 const SNAPSHOT_RETENTION_DAYS = 7;
-const AUTO_SAVE_INTERVAL_MS = 1 * 60 * 1000; // 1 minute (reduced from 5min for Phase 1 optimization)
+const AUTO_SAVE_INTERVAL_MS = 30 * 1000; // 30 seconds (reduced from 1min for seamless restart optimization - 50% data loss reduction)
 const METRICS_HISTORY_DAYS = 7; // Keep 7 days of hourly metrics
 
 /**
