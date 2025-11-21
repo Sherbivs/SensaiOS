@@ -19,6 +19,8 @@ Single source of truth for Infinity Gauntlet operational procedures, deployment 
 4. **[Environment Management](04-environment-management.md)** — Render access configuration, credentials reference, secret management
 5. **[Monitoring](05-monitoring.md)** — Error dashboard, service health, performance metrics, alerting
 6. **[Optimization History](06-optimization-history.md)** — Repository modernization, Phase 9 optimization, database naming migration, Accelerate elimination
+7. **[Scheduled Restart](07-scheduled-restart.md)** — GitHub Actions workflow, graceful shutdown, memory hygiene automation
+8. **[Recovery Runbook](08-recovery-runbook.md)** — Incident response procedures, rollback workflows, emergency protocols
 
 ---
 
@@ -50,7 +52,7 @@ Single source of truth for Infinity Gauntlet operational procedures, deployment 
 
 ---
 
-**Last Updated**: 2025-11-16  
-**Revision**: 1.0  
-**Total Sections**: 5  
-**Estimated Size**: ~2,500 lines consolidated from 30 source documents
+**Last Updated**: 2025-11-21  
+**Revision**: 1.1  
+**Total Sections**: 8  
+**Estimated Size**: ~3,000 lines consolidated from 30 source documents

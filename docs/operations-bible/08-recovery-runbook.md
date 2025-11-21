@@ -487,7 +487,7 @@ Service is HEALTHY but misbehaving
 
 - **Render Dashboard:** https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g
 - **GitHub Actions:** https://github.com/Sherbivs/Infinity-Gauntlet/actions
-- **Scheduled Restart Docs:** `docs/operations-bible/06-scheduled-restart.md`
+- **Scheduled Restart Docs:** `docs/operations-bible/07-scheduled-restart.md`
 - **Memory Optimization:** `docs/MEMORY-OPTIMIZATION-2025-11-17.md`
 - **Discord Cache Management:** `docs/DISCORD-CACHE-MANAGEMENT.md`
 - **Architecture Overview:** `README.md`
