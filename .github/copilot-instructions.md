@@ -213,7 +213,7 @@ pwsh -File "scripts/render_deploy.ps1" -Service "Infinity-Gauntlet"
 **Service Details:**
 - Name: `Infinity-Gauntlet`
 - ID: `srv-d3snk2ndiees73cn709g`
-- Region: Oregon (render.yaml), SSH: Virginia
+- Region: Virginia
 - Dashboard: https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g
 
 ### Monitoring Commands

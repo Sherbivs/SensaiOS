@@ -30,7 +30,7 @@ The Infinity Gauntlet uses **8 independent Render services** (7 workers + 1 web 
 - Start Command: `npm start` → `tsx src/index.ts`
 - Plan: Standard (1 vCPU, 2 GB RAM, upgraded 2025-11-17)
 - Disk: 2 GB persistent (`/Store`)
-- Region: Oregon (render.yaml), SSH: Virginia
+- Region: Virginia
 
 **Environment**:
 ```yaml
