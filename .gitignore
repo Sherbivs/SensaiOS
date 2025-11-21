@@ -75,6 +75,9 @@ coverage/
 test-results/
 playwright-report/
 *.lcov
+test-output.txt
+ts-prune-output.txt
+pbsl-oracle-report.json
 
 # PostgreSQL binaries & debug symbols (tools directory)
 # Exclude PostgreSQL binaries but keep ROUTER.md meta docs
@@ -113,6 +116,7 @@ Desktop.ini
 *.gz
 *.zip
 *.tar
+render-cli.zip
 
 # Keep data tracked – do NOT ignore /data (except cache subdirectory)
 !data/
