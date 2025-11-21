@@ -6,6 +6,8 @@ databases:
 
 services:
   # Discord bot workers and background services
+  # NOTE: Main worker (Infinity-Gauntlet) upgraded to Standard plan via dashboard (2025-11-17)
+  # Dashboard settings override render.yaml plan specifications
   - type: worker
     name: infinity-gauntlet-outbox
     runtime: node

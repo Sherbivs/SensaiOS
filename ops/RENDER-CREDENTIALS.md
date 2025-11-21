@@ -77,8 +77,9 @@ curl https://api.render.com/v1/services/srv-d3snk2ndiees73cn709g `
 - **Name:** Infinity-Gauntlet
 - **Service ID:** `srv-d3snk2ndiees73cn709g`
 - **Type:** Worker (background service, no HTTP routes)
-- **Region:** Virginia (oregon endpoint)
-- **Plan:** Starter (2 GB RAM, 0.5 vCPU)
+- **Region:** Oregon (defined in render.yaml)
+- **SSH Region:** Virginia (SSH endpoint)
+- **Plan:** Standard (2 GB RAM, upgraded 2025-11-17)
 - **Dashboard:** https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g
 
 **Deployment:**
