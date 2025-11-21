@@ -245,17 +245,17 @@ See [ARCHITECTURE-BIBLE § Observability](../architecture-bible/12-observability
 **Workflows:**
 
 1. **Health Check Watchdog** (`.github/workflows/health-check-watchdog.yml`)
-   - **Schedule:** Every 30 minutes (48 runs/day, 1,440 runs/month)
+   - **Schedule:** Every 35 minutes (41 runs/day, 1,230 runs/month)
    - **Purpose:** Detect service crashes, trigger auto-restart after 3 consecutive failures
    - **Actions:** Check health endpoint via Render Shell API, record failures, restart service
-   - **Recovery Time:** 90 minutes max (3 failures × 30 min)
-   - **Cost:** ~3,600 minutes/month (~2.5 min per run)
+   - **Recovery Time:** 105 minutes max (3 failures × 35 min)
+   - **Cost:** ~3,075 minutes/month (~2.5 min per run)
 
 2. **Agent Health Watchdog** (`.github/workflows/agent-health.yml`)
-   - **Schedule:** Every 2 hours (12 runs/day, 360 runs/month)
+   - **Schedule:** Every hour (24 runs/day, 720 runs/month)
    - **Purpose:** Detect stuck agent runs, create GitHub issues for debugging
    - **Actions:** Scan agent-events.jsonl, analyze error patterns, open incidents
-   - **Cost:** ~360 minutes/month (~1 min per run)
+   - **Cost:** ~720 minutes/month (~1 min per run)
 
 3. **Scheduled Restart** (`.github/workflows/scheduled-restart.yml`)
    - **Schedule:** Every 12 hours (2 runs/day, 60 runs/month)
@@ -263,17 +263,18 @@ See [ARCHITECTURE-BIBLE § Observability](../architecture-bible/12-observability
    - **Actions:** Graceful shutdown, restart service, verify recovery
    - **Cost:** ~180 minutes/month (~3 min per run)
 
-**Total Monitoring Cost:** ~4,140 minutes/month (1,860 runs/month, within 4,000 min budget)
+**Total Monitoring Cost:** ~3,975 minutes/month (2,010 runs/month, within 4,000 min budget)
 
 **Trade-offs vs 5-Minute Checks:**
 - ✅ **Benefit:** Fits within 4,000 minute/month budget
 - ✅ **Benefit:** Still provides automated crash detection and recovery
-- ⚠️ **Trade-off:** Crash detection time increased from 15 min → 90 min max
-- ⚠️ **Trade-off:** Agent health checks reduced from every 15 min → every 2 hours
+- ✅ **Benefit:** Hourly agent health checks (improved from 2-hour intervals)
+- ⚠️ **Trade-off:** Crash detection time increased from 15 min → 105 min max
 
 **Why This Works:**
 - Render services are stable (crashes are rare events, not hourly occurrences)
-- 90-minute max downtime acceptable for Discord bot (vs 15-minute with 5-min checks)
+- 105-minute max downtime acceptable for Discord bot (vs 15-minute with 5-min checks)
+- Hourly agent health monitoring provides better stuck detection than 2-hour intervals
 - Manual `/ops` commands available for real-time debugging when needed
 - GitHub Actions budget optimized while maintaining essential monitoring coverage
 

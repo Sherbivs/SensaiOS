@@ -9,7 +9,7 @@ GitHub Actions workflow that restarts the Render service every 12 hours via Rend
 
 **Service:** `Infinity-Gauntlet` (ID: `srv-d3snk2ndiees73cn709g`)
 
-**Operational Necessity:** This workflow is part of production monitoring infrastructure. The 60 runs/month (plus health check watchdog 1,440 runs/month) provide automated crash detection and recovery within 4,000 GitHub Actions minutes/month budget.
+**Operational Necessity:** This workflow is part of production monitoring infrastructure. The 60 runs/month (plus health check watchdog 1,230 runs/month + agent health 720 runs/month) provide automated crash detection and recovery within 4,000 GitHub Actions minutes/month budget.
 
 ## Setup Steps
 
@@ -125,15 +125,15 @@ To disable automatic restarts:
 
 **Workflow:** `.github/workflows/health-check-watchdog.yml`
 
-**Schedule:** Every 30 minutes (48 runs/day, ~1,440 runs/month, ~3,600 minutes/month)
+**Schedule:** Every 35 minutes (41 runs/day, ~1,230 runs/month, ~3,075 minutes/month)
 
-**Budget Trade-off:** Reduced from 5-minute intervals (8,640 runs/month, 17,280-25,920 minutes) to 30-minute intervals to fit 4,000 minute/month budget. Crash detection time increased from 15 min → 90 min max (acceptable for stable Render services).
+**Budget Trade-off:** Reduced from 5-minute intervals (8,640 runs/month, 17,280-25,920 minutes) to 35-minute intervals to fit 4,000 minute/month budget while allowing agent health to run hourly. Crash detection time increased from 15 min → 105 min max (acceptable for stable Render services).
 
 **Behavior:**
-- Runs every 30 minutes (budget-optimized from 5 minutes)
+- Runs every 35 minutes (budget-optimized from 5 minutes)
 - Pings health endpoint at `http://localhost:3000/health` (via Render Shell API)
 - Records failures in temporary markers
-- Triggers automatic restart after 3 consecutive failures (90 minutes of downtime)
+- Triggers automatic restart after 3 consecutive failures (105 minutes of downtime max)
 - Clears failure markers when service becomes healthy
 
 **Failure threshold:**
@@ -146,11 +146,12 @@ To disable automatic restarts:
 - Confirms service state is `running` or `available`
 - Clears failure markers after successful recovery
 
-**Why 30 Minutes (Not 5)?**
+**Why 35 Minutes (Not 5 or 30)?**
 - Budget constraint: 4,000 GitHub Actions minutes/month maximum
 - 5-minute intervals: ~17,280-25,920 minutes/month (way over budget)
-- 30-minute intervals: ~3,600 minutes/month (fits budget with room for other workflows)
-- Trade-off: 90-minute max downtime acceptable for stable services
+- 30-minute intervals: ~3,600 minutes/month (leaves only 220 min for agent health at 2-hour intervals)
+- 35-minute intervals: ~3,075 minutes/month (allows agent health to run hourly at 720 min/month)
+- Trade-off: 105-minute max downtime acceptable for stable services
 
 **Manual Triggering:**
 For urgent health checks between scheduled runs, manually trigger via:
@@ -167,21 +168,21 @@ https://github.com/Sherbivs/Infinity-Gauntlet/actions/workflows/health-check-wat
 The system uses multiple restart layers for reliability within budget constraints:
 
 1. **Scheduled restarts:** Every 12 hours for memory hygiene (~180 minutes/month)
-2. **Health watchdog:** Auto-restart on 3 consecutive health check failures every 30 min (~3,600 minutes/month)
+2. **Health watchdog:** Auto-restart on 3 consecutive health check failures every 35 min (~3,075 minutes/month)
 3. **Render auto-restart:** Exit code 0 → immediate, others → 30s delay
 4. **Discord webhooks:** Immediate visibility on all lifecycle events
 5. **Health endpoint:** External monitors can detect downtime
 
-**Total Monitoring Budget:** ~4,140 minutes/month (1,860 workflow runs/month, within 4,000 min limit)
+**Total Monitoring Budget:** ~3,975 minutes/month (2,010 workflow runs/month, within 4,000 min limit)
 
 **Budget Breakdown:**
-- Health watchdog: 1,440 runs × ~2.5 min = ~3,600 minutes (87%)
-- Agent health: 360 runs × ~1 min = ~360 minutes (9%)
-- Scheduled restart: 60 runs × ~3 min = ~180 minutes (4%)
+- Health watchdog: 1,230 runs × ~2.5 min = ~3,075 minutes (77%)
+- Agent health: 720 runs × ~1 min = ~720 minutes (18%)
+- Scheduled restart: 60 runs × ~3 min = ~180 minutes (5%)
 
 **Trade-offs for Budget Compliance:**
-- Crash detection: 15 min → 90 min max (reduced monitoring frequency)
-- Agent health: 15 min → 2 hours (less frequent stuck run detection)
+- Crash detection: 15 min → 105 min max (reduced monitoring frequency)
+- Agent health: 15 min → 1 hour (improved from 2-hour intervals)
 - Manual `/ops` commands available for immediate debugging when needed
 
 ## Notes

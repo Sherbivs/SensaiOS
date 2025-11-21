@@ -297,26 +297,27 @@ Authorization: Bearer rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp
    - Cost: ~180 minutes/month (~3 min per run)
 
 2. **Health Check Watchdog** (`.github/workflows/health-check-watchdog.yml`)
-   - Schedule: `*/30 * * * *` (every 30 minutes, 1,440 runs/month)
+   - Schedule: `*/35 * * * *` (every 35 minutes, 1,230 runs/month)
    - Actions: Shell API → curl localhost:3000/health, track failures, restart on threshold
    - Secret: `secrets.RENDER_API_KEY`
-   - Purpose: Detect crashes within 90 minutes, auto-restart failed services
-   - Cost: ~3,600 minutes/month (~2.5 min per run)
+   - Purpose: Detect crashes within 105 minutes, auto-restart failed services
+   - Cost: ~3,075 minutes/month (~2.5 min per run)
 
 3. **Agent Health Watchdog** (`.github/workflows/agent-health.yml`)
-   - Schedule: `0 */2 * * *` (every 2 hours, 360 runs/month)
+   - Schedule: `0 * * * *` (every hour, 720 runs/month)
    - Actions: Scan agent-events.jsonl for stuck runs, create GitHub issues
    - Secret: None (uses GITHUB_TOKEN)
    - Purpose: Operational visibility into agent health, debug stuck runs
-   - Cost: ~360 minutes/month (~1 min per run)
+   - Cost: ~720 minutes/month (~1 min per run)
 
-**Total Monitoring Budget:** ~4,140 minutes/month (1,860 runs/month, within 4,000 min limit)
+**Total Monitoring Budget:** ~3,975 minutes/month (2,010 runs/month, within 4,000 min limit)
 
 **Budget Optimization (2025-11-21):**
 - **Previous:** 5-min health checks (8,640 runs/month) = 17,280-25,920 minutes (over budget)
-- **Optimized:** 30-min health checks (1,440 runs/month) = ~3,600 minutes (fits budget)
-- **Trade-off:** Crash detection time increased from 15 min → 90 min max
-- **Justification:** Stable Render services rarely crash; 90-min detection acceptable for budget compliance
+- **Optimized:** 35-min health checks (1,230 runs/month) = ~3,075 minutes (fits budget)
+- **Improved:** Agent health from 2 hours → 1 hour (720 runs/month = ~720 minutes)
+- **Trade-off:** Crash detection time increased from 15 min → 105 min max
+- **Justification:** Stable Render services rarely crash; 105-min detection acceptable for budget compliance
 
 **Workflow Verification:**
 ```powershell

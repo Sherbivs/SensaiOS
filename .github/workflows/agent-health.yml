@@ -1,10 +1,11 @@
 name: agent-health
 on:
   schedule: 
-    # BUDGET OPTIMIZATION (2025-11-21): Reduced from */15 to 0 */2 * * * to fit 4000 min/month budget
-    # Schedule: Every 2 hours = 12 runs/day = 360 runs/month
-    # Runtime: ~1 min/run = ~360 minutes/month
-    - cron: "0 */2 * * *"  # Every 2 hours
+    # BUDGET OPTIMIZATION (2025-11-21): Every hour to fit 4000 min/month budget
+    # Schedule: Every hour = 24 runs/day = 720 runs/month
+    # Runtime: ~1 min/run = ~720 minutes/month
+    # Balanced with health-check-watchdog at 35min intervals (3,075 min/month)
+    - cron: "0 * * * *"  # Every hour (top of the hour)
   workflow_dispatch:
 jobs:
   watchdog:

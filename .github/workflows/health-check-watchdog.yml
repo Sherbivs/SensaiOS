@@ -6,11 +6,12 @@ name: Health Check Watchdog
 
 on:
   schedule:
-    # BUDGET OPTIMIZATION (2025-11-21): Reduced from */5 to */30 to fit 4000 min/month budget
-    # Schedule: Every 30 minutes = 48 runs/day = 1,440 runs/month
-    # Runtime: ~2.5 min/run = ~3,600 minutes/month
-    # Trade-off: Crash detection increased from 15min to 90min max (3 failures × 30min)
-    - cron: '*/30 * * * *'  # Every 30 minutes
+    # BUDGET OPTIMIZATION (2025-11-21): Every 35 minutes to fit 4000 min/month budget
+    # Schedule: Every 35 minutes = 41 runs/day = 1,230 runs/month
+    # Runtime: ~2.5 min/run = ~3,075 minutes/month
+    # Trade-off: Crash detection increased to 105min max (3 failures × 35min)
+    # Enables: Agent health to run every hour (720 min/month) within budget
+    - cron: '*/35 * * * *'  # Every 35 minutes
   workflow_dispatch: # Allow manual trigger
 
 jobs:
