@@ -21,9 +21,14 @@ const commandLoaderModule = (await import("../command-loader.js")) as CommandLoa
 const { loadCommands } = commandLoaderModule;
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
+
+// ⚠️ DEPRECATED (Phase 18): DM-based gameplay being replaced with private guild channels (homestead-{username})
+// See docs/architecture-bible/14-private-channel-architecture.md for migration specification
+// TODO: Replace with imports from ./homestead/ after Foundation phase complete
 import { handleHeal } from "./dm/heal.js";
 import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./dm/home.js";
 import { openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./dm/starters.js";
+
 import { handleOpsCommand } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleWalk } from "./wilds/walk.js";
