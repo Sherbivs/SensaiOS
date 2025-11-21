@@ -1,10 +1,7 @@
 name: agent-health
 on:
   schedule: 
-    # COST OPTIMIZATION (2025-11-21): Reduced from */15 (every 15min, 96/day) to 0 */2 * * * (every 2hr, 12/day)
-    # Rationale: Agent health checks are for stuck detection, not real-time monitoring. 2-hour intervals sufficient.
-    # Savings: 84 fewer runs/day = 2,520 fewer runs/month = ~87% cost reduction
-    - cron: "0 */2 * * *"
+    - cron: "*/15 * * * *"  # Every 15 minutes - necessary for agent watchdog monitoring
   workflow_dispatch:
 jobs:
   watchdog:
