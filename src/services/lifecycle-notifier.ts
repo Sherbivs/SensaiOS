@@ -122,7 +122,10 @@ function formatTimeSince(ms: number | null): string {
   return `${days}d ago`;
 }
 
-function createBootEmbed(notification: BootNotification) {
+function createBootEmbed(
+  notification: BootNotification,
+  restartContext?: { reason: string; seamless: boolean }
+) {
   const fields = [
     {
       name: '⏱️ Boot Info',
@@ -143,6 +146,15 @@ function createBootEmbed(notification: BootNotification) {
       inline: true,
     },
   ];
+  
+  // PHASE 5: Add restart context field if available
+  if (restartContext) {
+    fields.push({
+      name: restartContext.seamless ? '✨ Seamless Restart' : '🔄 Restart Context',
+      value: restartContext.reason,
+      inline: false,
+    });
+  }
 
   if (notification.services) {
     fields.push({
@@ -296,6 +308,12 @@ async function sendWebhook(payload: Record<string, unknown>): Promise<void> {
 
 /**
  * Send boot notification webhook
+ * 
+ * PHASE 5 (Seamless Restart): Include restart context for user visibility
+ * - Shows restart reason (planned vs crash vs manual)
+ * - Shows time since last shutdown (indicates seamless transition)
+ * - Shows restart count (reliability metric)
+ * - Enables users to understand restart impact
  */
 export async function notifyBoot(): Promise<void> {
   bootCount++;
@@ -324,6 +342,41 @@ export async function notifyBoot(): Promise<void> {
   } catch {
     // Service Registry not ready yet
   }
+  
+  // PHASE 5: Load restart context from persistent metrics
+  let restartContext: { reason: string; seamless: boolean } | undefined;
+  try {
+    const { getMetrics } = await import('./restart-metrics.js');
+    const metrics = getMetrics();
+    
+    if (metrics && metrics.lastShutdownTrigger) {
+      // Determine restart reason (user-friendly message)
+      const trigger = metrics.lastShutdownTrigger;
+      const reason = 
+        trigger === 'SIGTERM' || trigger === 'scheduled' ? 'Planned restart (automated schedule)' :
+        trigger === 'SIGINT' ? 'Manual restart (operator initiated)' :
+        trigger === 'crash' ? '⚠️ Crash recovery (unexpected termination)' :
+        trigger === 'health-check' ? '⚠️ Health check auto-restart' :
+        `Unknown restart (${trigger})`;
+      
+      // Seamless = planned restart with quick turnaround (<30s)
+      const seamless = 
+        (trigger === 'SIGTERM' || trigger === 'scheduled') &&
+        timeSinceLastShutdown !== null &&
+        timeSinceLastShutdown < 30000; // <30s = seamless
+      
+      restartContext = { reason, seamless };
+      
+      log.info('[LifecycleNotifier] Restart context', {
+        reason,
+        seamless,
+        timeSinceShutdown: timeSinceLastShutdown ? `${(timeSinceLastShutdown / 1000).toFixed(1)}s` : 'unknown',
+      });
+    }
+  } catch (error) {
+    // Restart metrics not available (first boot or error)
+    log.warn('[LifecycleNotifier] Restart context unavailable', error);
+  }
 
   const notification: BootNotification = {
     event: 'boot',
@@ -340,7 +393,7 @@ export async function notifyBoot(): Promise<void> {
     },
   };
 
-  await sendWebhook(createBootEmbed(notification));
+  await sendWebhook(createBootEmbed(notification, restartContext));
 }
 
 /**
