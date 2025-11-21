@@ -6,8 +6,11 @@ name: Health Check Watchdog
 
 on:
   schedule:
-    # Run every 5 minutes
-    - cron: '*/5 * * * *'
+    # COST OPTIMIZATION (2025-11-21): Reduced from */5 (every 5min, 288/day, $$$) to */30 (every 30min, 48/day)
+    # Rationale: Render services are stable, 5-minute checks excessive. 30-minute checks sufficient for production monitoring.
+    # Savings: 240 fewer runs/day = 7,200 fewer runs/month = ~93% cost reduction
+    # Trade-off: Max downtime detection delay increases from 15min to 90min (acceptable for stable service)
+    - cron: '*/30 * * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
