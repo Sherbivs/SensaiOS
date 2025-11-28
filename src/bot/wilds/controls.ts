@@ -1,4 +1,4 @@
-import type { User as DiscordUser, ButtonInteraction } from "discord.js";
+import type { User as DiscordUser, ButtonInteraction, Client } from "discord.js";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -18,6 +18,7 @@ import { transaction } from "../../shared/pg-transaction.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import type { PartySlotWithPokemon } from "../../types/db-models.js";
 import type { PoolClient } from "pg";
+import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -82,13 +83,22 @@ export function buildEncounterButtons(encounterId: string) {
   return [row];
 }
 
-export async function openEncounterDM(user: DiscordUser, encounterId: string) {
+export async function openEncounterDM(
+  client: Client,
+  guildId: string,
+  user: DiscordUser, 
+  encounterId: string
+) {
   const enc = await loadEncounter(encounterId);
   if (!enc) return;
-  const dm = await user.createDM();
+  
+  const manager = new HomesteadChannelManager(client, guildId);
+  const result = await manager.getOrCreateChannel(user);
+  const homesteadChannel = result.channel;
+  
   const embed = buildEncounterEmbed(enc);
   const components = buildEncounterButtons(encounterId);
-  await dm.send({ embeds: [embed], components });
+  await homesteadChannel.send({ embeds: [embed], components });
 }
 
 export async function handleEncounterButton(interaction: ButtonInteraction) {

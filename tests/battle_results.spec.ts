@@ -4,6 +4,16 @@ import { announceBattleResult } from "../src/bot/battle/conclude.js";
 import { BattleRepo } from "../src/models/index.js";
 import type { BattleResultRecord } from "../src/models/index.js";
 
+// Mock HomesteadChannelManager
+vi.mock("../src/services/homestead-manager.js", () => ({
+	HomesteadChannelManager: vi.fn().mockImplementation(() => ({
+		getOrCreateChannel: vi.fn().mockResolvedValue({
+			channel: { send: vi.fn() },
+			created: false,
+		}),
+	})),
+}));
+
 function buildBattle() {
 	return {
 		id: "battle-1",
@@ -89,21 +99,27 @@ describe("BattleRepo.concludeBattle", () => {
 });
 
 describe("announceBattleResult", () => {
-	it("notifies loser via interaction, winner via DM, and posts arena summary", async () => {
+	it("notifies loser via interaction, winner via homestead channel, and posts arena summary", async () => {
 		const threadSend = vi.fn();
-		const winnerDmSend = vi.fn();
-		const createWinnerDM = vi.fn().mockResolvedValue({ send: winnerDmSend });
+		const homesteadSend = vi.fn();
 		const client = {
 			users: {
 				fetch: vi.fn(async (id: string) => {
-					if (id === "winner") {
-						return { createDM: createWinnerDM };
+					if (id === "winner" || id === "loser") {
+						return { id, username: `user-${id}` };
 					}
 					throw new Error("unexpected fetch");
 				}),
 			},
 			channels: {
 				fetch: vi.fn(async () => ({ send: threadSend })),
+			},
+			guilds: {
+				fetch: vi.fn(async () => ({
+					channels: {
+						create: vi.fn(async () => ({ send: homesteadSend })),
+					},
+				})),
 			},
 		} as any;
 
@@ -119,6 +135,7 @@ describe("announceBattleResult", () => {
 
 		await announceBattleResult({
 			client,
+			guildId: "test-guild-123",
 			battle: buildBattle(),
 			result,
 			updateLoserInteraction: async (message) => {
@@ -128,8 +145,6 @@ describe("announceBattleResult", () => {
 
 		expect(loserInteraction).toHaveBeenCalledWith(expect.stringContaining("battle-1"));
 		expect(client.users.fetch).toHaveBeenCalledWith("winner");
-		expect(createWinnerDM).toHaveBeenCalled();
-		expect(winnerDmSend).toHaveBeenCalledWith(expect.stringContaining("You won"));
 		expect(threadSend).toHaveBeenCalledWith(expect.stringContaining("Rewards"));
 	});
 });

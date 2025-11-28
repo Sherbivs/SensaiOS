@@ -10,6 +10,7 @@ import { getSpriteUrl } from '../lib/assets.js';
 import { log } from '../utils/logger.js';
 import { GAME_CONSTANTS } from '../shared/constants.js';
 import { toDate, diffInUtcDays } from '../shared/utils/index.js';
+import { HomesteadChannelManager } from '../services/homestead-manager.js';
 
 const requireESM = createRequire(import.meta.url);
 const { DEFAULT_STARTER_COINS, BATTLE_HISTORY_LIMIT } = GAME_CONSTANTS;
@@ -556,22 +557,30 @@ const command = {
       const embed = buildHomeEmbed(view);
       const components = buildHomeButtons({ showStarters: view.showStarters });
 
-      const dm = await interaction.user.createDM();
-      await dm.send({ embeds: [embed], components });
+      // Get or create user's homestead channel
+      if (!interaction.client || !interaction.guildId) {
+        throw new Error('Cannot access homestead channel: missing client or guild context');
+      }
+
+      const manager = new HomesteadChannelManager(interaction.client, interaction.guildId);
+      const result = await manager.getOrCreateChannel(interaction.user);
+      const homesteadChannel = result.channel;
+      
+      await homesteadChannel.send({ embeds: [embed], components });
 
       if (interaction.inGuild?.()) {
-        await interaction.reply({ content: 'I opened your Home in DMs.', ephemeral: true });
+        await interaction.reply({ content: 'I opened your Home in your homestead channel.', ephemeral: true });
       } else {
         await interaction.reply({ content: 'Home opened above.', ephemeral: false });
       }
     } catch (err) {
-      log.error('[home] Failed to open DM Home:', err?.message || err);
+      log.error('[home] Failed to open homestead Home:', err?.message || err);
       try {
         if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: 'Could not open your DM Home. Check your privacy settings.', ephemeral: true });
+          await interaction.reply({ content: 'Could not access your homestead channel. Please contact an administrator.', ephemeral: true });
         }
       } catch {
-        // Ignore reply errors after DM failure
+        // Ignore reply errors after homestead failure
       }
     }
   },

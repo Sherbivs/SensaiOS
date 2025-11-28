@@ -4,6 +4,7 @@ import { SlashCommandBuilder } from 'discord.js';
 import { buildTrainerProfileEmbed } from '../bot/profile/embed.js';
 import { loadTrainerProfile, invalidateTrainerProfile } from '../services/cache/recipes.js';
 import { updateTrainerProfile } from '../models/index.js';
+import { HomesteadChannelManager } from '../services/homestead-manager.js';
 
 const MAX_TAGLINE_LENGTH = 120;
 const MAX_BIO_LENGTH = 600;
@@ -55,7 +56,7 @@ const data = new SlashCommandBuilder()
 
 const cooldownMs = 1000;
 
-async function sendProfileEmbed(interaction, { ackMessage = 'Sent your trainer profile to your DMs.' } = {}) {
+async function sendProfileEmbed(interaction, { ackMessage = 'Sent your trainer profile to your homestead channel.' } = {}) {
   const summary = await loadTrainerProfile(interaction.user.id);
   if (!summary) {
     await interaction.reply({
@@ -68,8 +69,16 @@ async function sendProfileEmbed(interaction, { ackMessage = 'Sent your trainer p
   const embed = buildTrainerProfileEmbed(summary);
 
   try {
-    const dm = await interaction.user.createDM();
-    await dm.send({ embeds: [embed] });
+    // Get or create user's homestead channel
+    if (!interaction.client || !interaction.guildId) {
+      throw new Error('Cannot access homestead channel: missing client or guild context');
+    }
+
+    const manager = new HomesteadChannelManager(interaction.client, interaction.guildId);
+    const result = await manager.getOrCreateChannel(interaction.user);
+    const homesteadChannel = result.channel;
+    
+    await homesteadChannel.send({ embeds: [embed] });
     if (ackMessage) {
       if (interaction.deferred || interaction.replied) {
         await interaction.followUp({ content: ackMessage, ephemeral: true });
@@ -78,7 +87,7 @@ async function sendProfileEmbed(interaction, { ackMessage = 'Sent your trainer p
       }
     }
   } catch (error) {
-    log.warn('[profile] Failed to deliver DM profile view; falling back to ephemeral reply', error);
+    log.warn('[profile] Failed to deliver homestead profile view; falling back to ephemeral reply', error);
     const payload = { embeds: [embed], ephemeral: true, content: ackMessage };
     if (interaction.deferred || interaction.replied) {
       await interaction.followUp(payload);

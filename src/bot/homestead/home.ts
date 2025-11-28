@@ -20,6 +20,7 @@ import {
   evaluateDailyQuestStreak,
 } from "../../models/index.js";
 import { errorTracker } from '../../services/monitoring/index.js';
+import { HomesteadChannelManager } from '../../services/homestead-manager.js';
 
 const BOX_PAGE_SIZE = 10;
 export const BOX_PAGE_PREFIX = "HOME_BOX_PAGE_";
@@ -36,7 +37,7 @@ type ViewRender = {
   meta?: { page?: number; totalPages?: number };
 };
 
-type ResponseMode = "reply" | "update" | "dm";
+type ResponseMode = "reply" | "update" | "homestead";
 
 function safeNumber(value: unknown): number | null {
   if (value === null || value === undefined) {
@@ -281,9 +282,9 @@ async function acknowledge(interaction: InteractionWithUser, content: string) {
       await interaction.reply({ content, ephemeral: true });
     }
   } catch (error) {
-    // Swallow follow-up failures so DM responses still resolve cleanly when the
+    // Swallow follow-up failures so homestead responses still resolve cleanly when the
     // acknowledgement cannot be delivered (e.g., interaction already concluded).
-    log('warn', "[dm-home] Failed to send acknowledgement", { error });
+    log('warn', "[homestead-home] Failed to send acknowledgement", { error });
   }
 }
 
@@ -301,24 +302,33 @@ async function respondWithView(
     return;
   }
 
-  if (mode === "dm") {
+  if (mode === "homestead") {
     try {
-      const dm = await interaction.user.createDM();
-      await dm.send({ embeds, components });
+      // Get or create the user's homestead channel
+      if (!interaction.client || !interaction.guildId) {
+        throw new Error("Cannot create homestead channel: missing client or guild context");
+      }
+
+      const manager = new HomesteadChannelManager(interaction.client, interaction.guildId);
+      const result = await manager.getOrCreateChannel(interaction.user);
+      const homesteadChannel = result.channel;
+
+      await homesteadChannel.send({ embeds, components });
+      
       if (ackContent) {
         await acknowledge(interaction, ackContent);
       }
     } catch (error) {
-      log('warn', "[dm-home] Failed to deliver DM view; falling back to ephemeral reply", { error });
+      log('warn', "[homestead-home] Failed to deliver view to homestead channel; falling back to ephemeral reply", { error });
       
-      // Track DM delivery failure
+      // Track homestead delivery failure
       await errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
         category: 'DISCORD',
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,
-        operation: 'dm:createDM',
+        operation: 'homestead:getOrCreateChannel',
         customData: {
-          view: 'dm-home',
+          view: 'homestead-home',
           fallback: 'ephemeral-reply',
         },
       });
@@ -327,7 +337,7 @@ async function respondWithView(
         embeds,
         components,
         content:
-          "I couldn't send a DM. Please enable DMs from this server and try again — showing the view here instead.",
+          "I couldn't access your homestead channel. Please contact an administrator — showing the view here instead.",
         ephemeral: true,
       };
       if (interaction.deferred || interaction.replied) {
@@ -404,7 +414,7 @@ export {
   openProfileView,
 };
 
-type DMHomeViewExports = {
+type HomesteadHomeViewExports = {
   buildBoxView: typeof buildBoxView;
   buildPartyView: typeof buildPartyView;
   buildProfileView: typeof buildProfileView;
@@ -417,10 +427,10 @@ type DMHomeViewExports = {
 };
 
 declare global {
-  var __dmHomeViews: DMHomeViewExports | undefined;
+  var __homesteadHomeViews: HomesteadHomeViewExports | undefined;
 }
 
-globalThis.__dmHomeViews = {
+globalThis.__homesteadHomeViews = {
   buildBoxView,
   buildPartyView,
   buildProfileView,

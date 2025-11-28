@@ -1,6 +1,16 @@
 import type { ButtonInteraction } from "discord.js";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+// Mock HomesteadChannelManager
+vi.mock("../../src/services/homestead-manager.js", () => ({
+	HomesteadChannelManager: vi.fn().mockImplementation(() => ({
+		getOrCreateChannel: vi.fn().mockResolvedValue({
+			channel: { send: vi.fn() },
+			created: false,
+		}),
+	})),
+}));
+
 const prismaMock = vi.hoisted(() => ({
   prisma: {},
   ensurePrisma: vi.fn(),
@@ -103,11 +113,15 @@ function createInteraction(config: {
     user: { id: config.userId },
     update,
   }));
-  const client = { users: { fetch: vi.fn(async () => ({ createDM: vi.fn() })) } } as any;
+  const client = { 
+    users: { fetch: vi.fn(async (id: string) => ({ id, username: `user-${id}` })) },
+    guilds: { fetch: vi.fn() },
+  } as any;
 
   const interaction = {
     customId: config.customId,
     user: { id: config.userId },
+    guildId: "test-guild-123",
     reply,
     followUp,
     awaitMessageComponent,

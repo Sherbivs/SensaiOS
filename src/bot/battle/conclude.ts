@@ -5,21 +5,27 @@ import type { BattleResultRecord, BattleWithPlayers } from "../../models/index.j
 import { BattleRepo, prisma as prismaClient } from "../../models/index.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 import { buildBattleResultDMMessages, buildBattleResultThreadMessage } from "../arena/summary.js";
+import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 
 type DiscordClientLike = Pick<Client, "users" | "channels">;
 type UpdateLoserInteraction = (content: string) => Promise<void>;
 
 type PrismaLike = PrismaClient;
 
-async function dmParticipant(client: DiscordClientLike, discordId: string, message: string) {
+async function dmParticipant(
+	client: DiscordClientLike, 
+	guildId: string,
+	discordId: string, 
+	message: string
+) {
 	try {
+		const manager = new HomesteadChannelManager(client as Client, guildId);
 		const user: any = await client.users.fetch(discordId);
 		if (!user) return;
-		const dm = await user.createDM?.();
-		if (!dm || typeof dm.send !== "function") return;
-		await dm.send(message);
+		const result = await manager.getOrCreateChannel(user);
+		await result.channel.send(message);
 	} catch {
-		// DM delivery failure is non-fatal; ignore and continue with other notifications.
+		// Homestead delivery failure is non-fatal; ignore and continue with other notifications.
 	}
 }
 
@@ -35,11 +41,12 @@ async function postToArenaThread(client: DiscordClientLike, threadId: string, me
 
 export const announceBattleResult = async (opts: {
         client: DiscordClientLike;
+        guildId: string;
         battle: BattleWithPlayers;
         result: BattleResultRecord;
         updateLoserInteraction?: UpdateLoserInteraction;
 }) => {
-        const { client, battle, result, updateLoserInteraction } = opts;
+        const { client, guildId, battle, result, updateLoserInteraction } = opts;
         const messages = buildBattleResultDMMessages(result);
 
 	let loserNotified = false;
@@ -48,15 +55,15 @@ export const announceBattleResult = async (opts: {
 			await updateLoserInteraction(messages.loser);
 			loserNotified = true;
 		} catch {
-			// Interaction edit failed; fall back to DMs below.
+			// Interaction edit failed; fall back to homestead channels below.
 		}
 	}
 
 	if (!loserNotified) {
-		await dmParticipant(client, result.loser.discordId, messages.loser);
+		await dmParticipant(client, guildId, result.loser.discordId, messages.loser);
 	}
 
-	await dmParticipant(client, result.winner.discordId, messages.winner);
+	await dmParticipant(client, guildId, result.winner.discordId, messages.winner);
 
 	if (battle.arenaThreadId) {
 		const threadMessage = buildBattleResultThreadMessage(result);
@@ -82,6 +89,7 @@ function normalizeFullLog(log: unknown): string[] {
 
 export async function concludeBattleWithVictory(opts: {
 	client: DiscordClientLike;
+	guildId: string;
 	battleId: string;
 	winner: "p1" | "p2";
 	turnCount: number;
@@ -112,6 +120,7 @@ export async function concludeBattleWithVictory(opts: {
 
         await announce({
                 client: opts.client,
+                guildId: opts.guildId,
                 battle,
                 result,
                 updateLoserInteraction: opts.updateLoserInteraction,

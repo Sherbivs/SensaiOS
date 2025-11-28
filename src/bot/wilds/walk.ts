@@ -77,12 +77,15 @@ export async function handleWalk(interaction: ChatInputCommandInteraction) {
     // Link thread to encounter
     await linkEncounterToThread(enc.id, thread.id);
     await thread.send(
-      `A wild Pokémon appears (Lv ${enc.level})! <@${interaction.user.id}> check your DMs for controls.`
+      `A wild Pokémon appears (Lv ${enc.level})! <@${interaction.user.id}> check your homestead channel for controls.`
     );
   }
 
-  // DM controls
-  await openEncounterDM(interaction.user, enc.id);
+  // Send controls to homestead channel
+  if (!interaction.guildId) {
+    throw new Error("Cannot send encounter controls without guildId");
+  }
+  await openEncounterDM(interaction.client, interaction.guildId, interaction.user, enc.id);
 
   // Set a short cooldown (e.g., 30s) for demo
   await setCooldown(interaction.user.id, "walk", 30_000);

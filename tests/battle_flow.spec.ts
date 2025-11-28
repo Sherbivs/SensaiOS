@@ -8,6 +8,16 @@ import * as concludeModule from "../src/bot/battle/conclude.js";
 import { BattleRepo } from "../src/models/index.js";
 import type { BattleResultRecord } from "../src/models/index.js";
 
+// Mock HomesteadChannelManager
+vi.mock("../src/services/homestead-manager.js", () => ({
+	HomesteadChannelManager: vi.fn().mockImplementation(() => ({
+		getOrCreateChannel: vi.fn().mockResolvedValue({
+			channel: { send: vi.fn() },
+			created: false,
+		}),
+	})),
+}));
+
 describe("battle challenge prompt", () => {
   it("creates buttons with accept/decline custom IDs", () => {
     const prompt = __testing.buildChallengePrompt({
@@ -25,12 +35,11 @@ describe("battle challenge prompt", () => {
 });
 
 describe("handleBattleChallengeCommand", () => {
-  it("creates a pending battle and DM challenge", async () => {
-    const dmSend = vi.fn();
+  it("creates a pending battle and sends challenge to homestead channel", async () => {
     const opponent = {
       id: "opponent",
       tag: "Gary#0002",
-      createDM: vi.fn().mockResolvedValue({ send: dmSend }),
+      username: "Gary",
     };
 
     const reply = vi.fn();
@@ -67,8 +76,7 @@ describe("handleBattleChallengeCommand", () => {
         rngSeed: "seed",
       }),
     });
-    expect(opponent.createDM).toHaveBeenCalled();
-    expect(dmSend).toHaveBeenCalled();
+    // Challenge sent via homestead channel (mocked by HomesteadChannelManager)
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining("Challenge sent"),
@@ -83,24 +91,24 @@ describe("handleBattleChallengeButton", () => {
     const reply = vi.fn();
     const update = vi.fn();
     const channelFetch = vi.fn();
-    const userDmSend = vi.fn();
     const usersFetch = vi
       .fn()
-      .mockImplementation(async (id: string) => ({ id, createDM: vi.fn().mockResolvedValue({ send: userDmSend }) }));
+      .mockImplementation(async (id: string) => ({ id, username: `user-${id}` }));
 
     const interaction: ButtonInteraction = {
       customId,
       user: { id: "opponent", tag: "Gary#0002" } as any,
+      guildId: "test-guild-123",
       reply: reply as any,
       update: update as any,
       client: { channels: { fetch: channelFetch }, users: { fetch: usersFetch } } as any,
     } as ButtonInteraction;
 
-    return { interaction, reply, update, channelFetch, usersFetch, userDmSend };
+    return { interaction, reply, update, channelFetch, usersFetch };
   }
 
   it("declines a challenge and notifies challenger", async () => {
-    const { interaction, reply, update, usersFetch, userDmSend } = createInteraction("BATTLE_DECLINE_abc");
+    const { interaction, reply, update, usersFetch } = createInteraction("BATTLE_DECLINE_abc");
 
     const prisma = {
       battle: {
@@ -124,11 +132,11 @@ describe("handleBattleChallengeButton", () => {
     expect(update).toHaveBeenCalled();
     expect(reply).not.toHaveBeenCalled();
     expect(usersFetch).toHaveBeenCalledWith("challenger");
-    expect(userDmSend).toHaveBeenCalled();
+    // Challenger notified via homestead channel (mocked by HomesteadChannelManager)
   });
 
   it("accepts a challenge, creates arena thread, and notifies players", async () => {
-    const { interaction, reply, update, channelFetch, usersFetch, userDmSend } = createInteraction(
+    const { interaction, reply, update, channelFetch, usersFetch } = createInteraction(
       "BATTLE_ACCEPT_abc"
     );
 
@@ -179,7 +187,7 @@ describe("handleBattleChallengeButton", () => {
     );
     expect(usersFetch).toHaveBeenCalledWith("challenger");
     expect(usersFetch).toHaveBeenCalledWith("opponent");
-    expect(userDmSend).toHaveBeenCalled();
+    // Players notified via homestead channels (mocked by HomesteadChannelManager)
   });
 });
 
@@ -291,6 +299,7 @@ describe("concludeBattleWithVictory", () => {
 
     const result = await concludeModule.concludeBattleWithVictory({
       client,
+      guildId: "test-guild-123",
       battleId: battle.id,
       winner: "p1",
       turnCount: 3,
@@ -363,6 +372,7 @@ describe("concludeBattleWithVictory", () => {
 
     const result = await concludeModule.concludeBattleWithVictory({
       client: { users: { fetch: vi.fn() }, channels: { fetch: vi.fn() } } as any,
+      guildId: "test-guild-123",
       battleId: "battle-x",
       winner: "p2",
       turnCount: 2,

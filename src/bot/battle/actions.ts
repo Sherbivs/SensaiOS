@@ -6,11 +6,11 @@ import {
   ButtonBuilder,
   ButtonInteraction,
   ButtonStyle,
+  Client,
   ComponentType,
   EmbedBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuInteraction,
-  User as DiscordUser,
 } from "discord.js";
 
 import {
@@ -27,6 +27,7 @@ import { invalidateBattleState, loadBattleState } from "../../services/cache/rec
 import { getPartyWithSlots } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { errorTracker } from '../../services/monitoring/index.js';
+import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 
 import * as concludeModule from "./conclude.js";
 
@@ -49,24 +50,31 @@ export function buildBattleActionPrompt(battleId: string) {
   return { embed, components: [row] };
 }
 
-export async function openActionDMs(battleId: string, clientUserFetcher: (id: string) => Promise<DiscordUser>) {
+export async function openActionDMs(
+  battleId: string, 
+  client: Client,
+  guildId: string
+) {
   const prisma = prismaClient;
   const battle = await loadBattleState(battleId, { prisma });
   if (!battle) return false;
   const payload = buildBattleActionPrompt(battle.id);
+  
+  const manager = new HomesteadChannelManager(client, guildId);
+  
   try {
-    const u1 = await clientUserFetcher(battle.p1.discordId);
-    const dm1 = await u1.createDM();
-    await dm1.send({ embeds: [payload.embed], components: payload.components });
+    const u1 = await client.users.fetch(battle.p1.discordId);
+    const result1 = await manager.getOrCreateChannel(u1);
+    await result1.channel.send({ embeds: [payload.embed], components: payload.components });
   } catch {
-    // Best-effort DM delivery; ignore individual failures.
+    // Best-effort homestead delivery; ignore individual failures.
   }
   try {
-    const u2 = await clientUserFetcher(battle.p2.discordId);
-    const dm2 = await u2.createDM();
-    await dm2.send({ embeds: [payload.embed], components: payload.components });
+    const u2 = await client.users.fetch(battle.p2.discordId);
+    const result2 = await manager.getOrCreateChannel(u2);
+    await result2.channel.send({ embeds: [payload.embed], components: payload.components });
   } catch {
-    // Best-effort DM delivery; ignore individual failures.
+    // Best-effort homestead delivery; ignore individual failures.
   }
   return true;
 }
@@ -304,9 +312,12 @@ async function maybeAdvanceTurn(
 ) {
   await invalidateBattleState(battleId);
   try {
-    await dispatcher(battleId, (id) => interaction.client.users.fetch(id));
+    if (!interaction.guildId) {
+      throw new Error('Cannot send battle actions: missing guild context');
+    }
+    await dispatcher(battleId, interaction.client, interaction.guildId);
   } catch {
-    // ignore DM failures for now
+    // ignore homestead delivery failures for now
   }
 }
 
@@ -351,8 +362,14 @@ export async function handleBattleActionButton(
     });
     await invalidateBattleState(battle.id);
 
+    // Ensure we have guildId for homestead channel delivery
+    if (!interaction.guildId) {
+      throw new Error("Cannot announce battle result without guildId");
+    }
+
     await concludeModule.announceBattleResult({
       client: interaction.client as any,
+      guildId: interaction.guildId,
       battle,
       result,
       updateLoserInteraction: async (message) => {
@@ -429,9 +446,12 @@ export async function handleBattleActionButton(
       await invalidateBattleState(battle.id);
       if (result.status === "ready") {
         try {
-          await dispatcher(battle.id, (id) => interaction.client.users.fetch(id));
+          if (!interaction.guildId) {
+            throw new Error('Cannot send battle actions: missing guild context');
+          }
+          await dispatcher(battle.id, interaction.client, interaction.guildId);
         } catch {
-          // DM delivery failures are expected (users may have DMs disabled)
+          // Homestead delivery failures are expected (permission/access issues)
           // Don't track these as errors
         }
       }
