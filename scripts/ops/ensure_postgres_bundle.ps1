@@ -55,7 +55,7 @@ function Get-BinCandidates {
     }
 
     $repoRoot = Get-RepoRoot
-    $candidates += (Join-Path $repoRoot "tools/pgsql17/pgsql/bin")
+    $candidates += (Join-Path $repoRoot "tools/pgsql18/pgsql/bin")
 
     $programFiles = [System.Environment]::GetEnvironmentVariable("ProgramFiles")
     if ($programFiles) {
@@ -72,7 +72,7 @@ function Get-BinCandidates {
 
 function Find-ExistingPostgresBin {
     param(
-        [string]$Version = "17"
+        [string]$Version = "18"
     )
 
     foreach ($candidate in Get-BinCandidates -Version $Version) {
@@ -93,7 +93,7 @@ function Find-ExistingPostgresBin {
 
 function Install-PostgresPackage {
     param(
-        [string]$Version = "17"
+        [string]$Version = "18"
     )
 
     $winget = Get-Command winget -ErrorAction SilentlyContinue

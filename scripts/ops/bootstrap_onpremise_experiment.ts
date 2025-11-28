@@ -185,10 +185,10 @@ function findPgBinaries(): PgBinaries {
 
   // Common PostgreSQL installation paths on Windows
   candidates.push(
+    "C:/Program Files/PostgreSQL/18/bin",
     "C:/Program Files/PostgreSQL/17/bin",
     "C:/Program Files/PostgreSQL/16/bin",
     "C:/Program Files/PostgreSQL/15/bin",
-    "C:/Program Files/PostgreSQL/14/bin",
   );
 
   let binDir: string | null = null;
@@ -203,7 +203,7 @@ function findPgBinaries(): PgBinaries {
   if (!binDir) {
     console.error("❌ PostgreSQL binaries not found.");
     console.error("Please set PG_BIN_DIR environment variable to PostgreSQL bin directory.");
-    console.error("Example: C:/Program Files/PostgreSQL/17/bin");
+    console.error("Example: C:/Program Files/PostgreSQL/18/bin");
     process.exit(1);
   }
 

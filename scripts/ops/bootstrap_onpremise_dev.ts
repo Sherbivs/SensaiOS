@@ -175,12 +175,12 @@ function locatePgBinDirectory(): string | undefined {
     candidates.push(envCandidate);
   }
 
-  const repoToolsCandidate = path.join(process.cwd(), "tools", "pgsql17", "pgsql", "bin");
+  const repoToolsCandidate = path.join(process.cwd(), "tools", "pgsql18", "pgsql", "bin");
   candidates.push(repoToolsCandidate);
 
   const programFiles = process.env.ProgramFiles || "C:/Program Files";
   const programFilesX86 = process.env["ProgramFiles(x86)"];
-  const versions = ["17", "16", "15"];
+  const versions = ["18", "17", "16"];
 
   for (const version of versions) {
     candidates.push(path.join(programFiles, "PostgreSQL", version, "bin"));

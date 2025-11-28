@@ -1,10 +1,91 @@
 # Repository Re-Consolidation Plan
 **Date:** 2025-11-25  
+**Last Updated:** 2025-11-28  
 **Goal:** Simplify repository to human-logical organization, remove deprecated code, consolidate documentation to Bibles
 
 ---
 
-## Phase 1: Documentation Consolidation (ACTIVE)
+## Phase 0: PostgreSQL 18 Upgrade (INFRASTRUCTURE PREREQUISITE)
+
+**Status:** IN PROGRESS (Local Complete, Render Pending)  
+**Priority:** HIGH (infrastructure modernization)  
+**Time:** 70 minutes (5-10 min downtime)  
+**Full Plan:** `docs/POSTGRESQL-18-UPGRADE-PLAN.md`  
+**Quick Ref:** `docs/POSTGRESQL-18-QUICK-REF.md`
+
+### Progress Update (2025-11-28)
+
+✅ **Phase 1 Complete: PostgreSQL 18 Tooling Installed**
+- PostgreSQL 18.1-1 installed via winget
+- tools/pgsql17 backed up to tools/pgsql17-backup
+- Scripts updated (bootstrap, sync, ensure_postgres_bundle)
+- PostgreSQL 18 binaries verified at C:/Program Files/PostgreSQL/18/bin
+
+✅ **Phase 2 Complete: ONPREMISE-DEV-PRIMARY Upgraded**
+- Old PostgreSQL 17 database backed up
+- Fresh bootstrap completed with PostgreSQL 18.1
+- Version verified: PostgreSQL 18.1 on x86_64-windows
+- Data integrity confirmed: 1025 species, 0 users (expected)
+- Running on port 55433 (localhost)
+
+⏳ **Phase 3 Pending: Render Database Upgrade**
+- Requires Render Dashboard access
+- Network connectivity to dpg-d3vd8h7diees73et3i3g-a.virginia-postgres.render.com currently unavailable
+- Can be completed independently when network access restored
+
+⏳ **Phase 4 Pending: Documentation Updates**
+- Will update after Render upgrade completes
+
+### Overview
+
+Upgrade all databases from PostgreSQL 17 → 18 to leverage:
+- Improved query planner (faster dex queries)
+- Better parallel query performance (analytics)
+- Enhanced VACUUM efficiency (maintenance)
+- Faster B-tree index scans (Species/Move lookups)
+
+### Scope
+
+1. **Render Production:** infinity-gauntlet-db (Render Dashboard upgrade)
+2. **Workstation:** ONPREMISE-DEV-PRIMARY (fresh bootstrap)
+3. **Testing:** ONPREMISE-DEV-EXPERIMENT (fresh bootstrap)
+4. **Tooling:** tools/pgsql17 → tools/pgsql18
+5. **Scripts:** Update bootstrap/backup scripts
+6. **Docs:** Update version references
+
+### Quick Steps
+
+```powershell
+# 1. Backup everything
+npm run ops:dex-v2-backup -- --env-file secrets/Infinity-Gauntlet.env --label prod-pre-pg18 --output-dir backups/migration-checkpoints
+
+# 2. Install PostgreSQL 18
+winget install --id PostgreSQL.PostgreSQL --version 18.0
+
+# 3. Upgrade local databases
+rm -r -force Store/onpremise-dev-primary
+npm run ops:bootstrap-onpremise-dev
+
+# 4. Upgrade Render DB via dashboard
+# https://dashboard.render.com/d/infinity-gauntlet-db → Settings → Upgrade to PostgreSQL 18
+
+# 5. Update scripts and docs
+# See POSTGRESQL-18-UPGRADE-PLAN.md for details
+```
+
+### Success Criteria
+
+- ✅ All databases show PostgreSQL 18.0
+- ✅ Data integrity verified (counts match)
+- ✅ Services healthy after restart
+- ✅ Scripts updated (pgsql17 → pgsql18)
+- ✅ Documentation updated
+
+**Note:** This phase should be completed BEFORE homestead implementation to ensure infrastructure stability.
+
+---
+
+## Phase 1: Documentation Consolidation
 
 ### Root-Level Docs to Move
 
@@ -154,15 +235,17 @@ docs/
 
 ## Execution Order
 
-1. **Documentation Consolidation** (30 min) - Low risk, high clarity gain
-2. **DM Code Migration** (60 min) - Medium risk, blocks cleanup
-3. **Bible Organization** (45 min) - Low risk, navigation improvement
-4. **Dead Code Removal** (60 min) - Medium risk, size reduction
-5. **Folder Simplification** (90 min) - High risk, requires careful testing
+1. **PostgreSQL 18 Upgrade** (70 min) - Infrastructure prerequisite, minimal risk
+2. **Documentation Consolidation** (30 min) - Low risk, high clarity gain
+3. **DM Code Migration** (4-6 hours) - Medium risk, blocks cleanup
+4. **Bible Organization** (45 min) - Low risk, navigation improvement
+5. **Dead Code Removal** (60 min) - Medium risk, size reduction
+6. **Folder Simplification** (90 min) - High risk, requires careful testing
 
-**Total Estimated Time:** ~4-5 hours (aggressive mode)
+**Total Estimated Time:** ~8-10 hours (including PostgreSQL upgrade)
 
 ---
 
-**Status:** Phase 1 starting - Documentation consolidation
-**Next:** Move 12 root docs to appropriate Bibles, create INDEX.md files
+**Status:** Phase 0 ready - PostgreSQL 18 upgrade prerequisites documented  
+**Next:** Execute Phase 0 (infrastructure upgrade), then continue with documentation consolidation
+
