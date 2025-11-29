@@ -13,7 +13,6 @@ $allGood = $true
 
 Write-Host "1️⃣  CHECKING ANDROID GRADLE PLUGIN VERSION`n" -ForegroundColor Yellow
 
-$agpExpected = "8.13.1"
 $agpFiles = @(
     "build.gradle.kts",
     "app/build.gradle.kts",

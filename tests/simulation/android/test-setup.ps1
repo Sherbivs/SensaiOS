@@ -202,7 +202,7 @@ if ($testsFailed -gt 0) {
     }
     
     try {
-        $nodeVersion = node --version 2>$null
+        $null = node --version 2>$null
     } catch {
         Write-Host "   • Install Node.js from https://nodejs.org/" -ForegroundColor Gray
     }
