@@ -1,12 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!-- Include all shared preferences -->
-    <include domain="sharedpref" path="." />
-    
-    <!-- Include app database -->
-    <include domain="database" path="." />
-    
-    <!-- Exclude temporary cache files -->
-    <exclude domain="file" path="temp/" />
-    <exclude domain="file" path="cache/" />
+    <!-- Exclude specific files or directories from backup -->
+    <!-- Example: <exclude domain="sharedpref" path="device.xml"/> -->
 </full-backup-content>

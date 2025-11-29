@@ -1,20 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Include shared preferences -->
-        <include domain="sharedpref" path="." />
-        
-        <!-- Include app database -->
-        <include domain="database" path="." />
-        
-        <!-- Exclude sensitive data -->
-        <exclude domain="file" path="temp/" />
-        <exclude domain="file" path="cache/" />
+        <!-- Configure cloud backup rules -->
+        <!-- Example: <exclude domain="sharedpref" path="device.xml"/> -->
     </cloud-backup>
-    
     <device-transfer>
-        <!-- Transfer user preferences on device-to-device transfer -->
-        <include domain="sharedpref" path="." />
-        <include domain="database" path="." />
+        <!-- Configure device-to-device transfer rules -->
+        <!-- Example: <exclude domain="sharedpref" path="device.xml"/> -->
     </device-transfer>
 </data-extraction-rules>
