@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Name -->
+    <string name="app_name">Infinity Gauntlet Simulation</string>
+    
+    <!-- Activity Titles -->
+    <string name="main_activity_title">Simulation Tests</string>
+    <string name="chat_ui_title">Chat UI</string>
+    <string name="report_viewer_title">Test Reports</string>
+    
+    <!-- Main Activity -->
+    <string name="run_all_tests">Run All Tests</string>
+    <string name="open_chat_ui">Chat UI</string>
+    <string name="open_reports">Reports</string>
+    <string name="total_tests_label">Total Tests: %d</string>
+    <string name="estimated_duration_label">Estimated Duration: %.1fs</string>
+    
+    <!-- Test Scenario -->
+    <string name="test_count_label">%d tests</string>
+    <string name="duration_label">~%.1fs</string>
+    <string name="run_button">Run</string>
+    <string name="rerun_button">Re-run</string>
+    <string name="running_button">Running</string>
+    <string name="status_ready">Ready</string>
+    <string name="status_running">Running...</string>
+    <string name="status_passed">Passed (%s)</string>
+    <string name="status_failed">Failed (%s)</string>
+    <string name="status_skipped">Skipped</string>
+    
+    <!-- Chat UI -->
+    <string name="channel_homestead">#homestead</string>
+    <string name="channel_arena">#arena</string>
+    <string name="channel_wild_area">#wild-area</string>
+    <string name="message_input_hint">Type a message or command...</string>
+    <string name="send_button">Send</string>
+    <string name="typing_indicator">Bot is typing...</string>
+    
+    <!-- Commands -->
+    <string name="cmd_starter">/starter</string>
+    <string name="cmd_home">/home</string>
+    <string name="cmd_walk">/walk</string>
+    <string name="cmd_heal">/heal</string>
+    <string name="cmd_battle">/battle</string>
+    
+    <!-- Report Viewer -->
+    <string name="format_html">HTML</string>
+    <string name="format_json">JSON</string>
+    <string name="format_text">Text</string>
+    <string name="share_report">Share</string>
+    <string name="export_report">Export</string>
+    <string name="loading_report">Loading report...</string>
+    
+    <!-- Test Results -->
+    <string name="tests_passed">%d Passed</string>
+    <string name="tests_failed">%d Failed</string>
+    <string name="tests_skipped">%d Skipped</string>
+    <string name="pass_rate">%.1f%% Pass Rate</string>
+    <string name="test_duration">Duration: %.2fs</string>
+    
+    <!-- Menu Items -->
+    <string name="menu_settings">Settings</string>
+    <string name="menu_about">About</string>
+    <string name="menu_clear_messages">Clear Messages</string>
+    
+    <!-- Snackbar Messages -->
+    <string name="running_scenario">Running %s...</string>
+    <string name="running_all_tests">Running all 143 tests...</string>
+    <string name="settings_coming_soon">Settings coming soon</string>
+    <string name="about_message">Infinity Gauntlet Simulation v1.0.0</string>
+    <string name="export_coming_soon">Export feature coming soon</string>
+    <string name="no_report_available">No report available to share</string>
+    
+    <!-- Error Messages -->
+    <string name="error_loading_report">Failed to load report</string>
+    <string name="error_parsing_result">Failed to parse result: %s</string>
+    <string name="error_no_scenarios">No scenarios available</string>
+    
+    <!-- Welcome Message -->
+    <string name="welcome_message">Welcome to the Infinity Gauntlet Simulation!\nTry these commands:\n• /starter - Choose your starting Pokémon\n• /home - Return home\n• /walk - Explore the wild\n• /heal - Heal your Pokémon\n• /battle - Start a battle</string>
+    
+    <!-- Content Descriptions (Accessibility) -->
+    <string name="cd_scenario_status">Test scenario status indicator</string>
+    <string name="cd_run_button">Run test scenario</string>
+    <string name="cd_message_avatar">Message sender avatar</string>
+    <string name="cd_send_button">Send message</string>
+    <string name="cd_channel_chip">Select channel</string>
+</resources>
