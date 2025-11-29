@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.infinitygauntlet.simulation"
-        minSdk = 24
+        minSdk = 26  // Required for PostgreSQL JDBC driver (MethodHandle.invoke)
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
@@ -141,5 +141,6 @@ dependencies {
     testImplementation(libs.bundles.testing)
     
     // Android Instrumented Testing
+    androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.bundles.android.testing)
 }

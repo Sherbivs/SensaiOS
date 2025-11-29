@@ -54,7 +54,6 @@ androidx-test-ext-junit = "1.2.1"
 espresso-core = "3.6.1"
 mockito = "5.14.2"
 turbine = "1.1.0"
-compose-ui-test = "1.7.5"
 
 [libraries]
 # Jetpack Compose - BOM (Bill of Materials)
