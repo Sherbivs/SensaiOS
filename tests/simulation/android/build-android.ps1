@@ -106,8 +106,8 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-$duration = (Get-Date) - $startTime
-Write-Host "`n✅ Build successful! (${duration.TotalSeconds:F1}s)" -ForegroundColor Green
+$buildDuration = (Get-Date) - $startTime
+Write-Host "`n✅ Build successful! ($($buildDuration.TotalSeconds.ToString("F1"))s)" -ForegroundColor Green
 
 # Locate the APK
 $apkPath = "app\build\outputs\apk\$($buildType.ToLower())\app-$($buildType.ToLower()).apk"
