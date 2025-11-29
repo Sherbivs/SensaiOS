@@ -1,6 +1,8 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.hilt.android)
 }
 
 android {
@@ -42,49 +44,102 @@ android {
     
     kotlinOptions {
         jvmTarget = "17"
+        
+        // Enable Compose compiler metrics (optional, for debugging)
+        freeCompilerArgs += listOf(
+            "-opt-in=kotlin.RequiresOptIn"
+        )
     }
     
     buildFeatures {
         viewBinding = true
         buildConfig = true
+        compose = true  // Enable Jetpack Compose
+    }
+    
+    composeOptions {
+        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
+    }
+    
+    // Packaging options for Hilt
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
     }
 }
 
 dependencies {
-    // AndroidX Core (Updated)
-    implementation("androidx.core:core-ktx:1.15.0")
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.2.0")
+    // ══════════════════════════════════════════════════════════════
+    // WEEK 1: COMPOSE + HILT FOUNDATION
+    // ══════════════════════════════════════════════════════════════
     
-    // Lifecycle & ViewModel (Updated)
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.8.7")
+    // Jetpack Compose BOM (Bill of Materials)
+    implementation(platform(libs.compose.bom))
     
-    // Navigation (Updated)
-    implementation("androidx.navigation:navigation-fragment-ktx:2.8.5")
-    implementation("androidx.navigation:navigation-ui-ktx:2.8.5")
+    // Compose UI Bundle (Material 3, Navigation, Lifecycle)
+    implementation(libs.bundles.compose)
     
-    // RecyclerView (Updated)
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    // Compose Debugging
+    debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
     
-    // Coroutines (Updated)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    // Accompanist (System UI, Permissions, Animations)
+    implementation(libs.bundles.accompanist)
     
-    // JSON Parsing (Updated)
-    implementation("com.google.code.gson:gson:2.11.0")
+    // Hilt Dependency Injection
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.android.compiler)
+    implementation(libs.hilt.navigation.compose)
     
-    // WebView for HTML reports (Updated)
-    implementation("androidx.webkit:webkit:1.12.1")
+    // ══════════════════════════════════════════════════════════════
+    // WEEK 2: ROOM DATABASE (Prepared)
+    // ══════════════════════════════════════════════════════════════
     
-    // Testing (Updated)
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    implementation(libs.bundles.room)
+    kapt(libs.room.compiler)
     
-    // Local testing (Updated)
-    testImplementation("org.mockito:mockito-core:5.14.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    // ══════════════════════════════════════════════════════════════
+    // WEEK 4: IMAGE LOADING (Prepared)
+    // ══════════════════════════════════════════════════════════════
+    
+    implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
+    
+    // ══════════════════════════════════════════════════════════════
+    // WEEK 7: CHARTS (Prepared)
+    // ══════════════════════════════════════════════════════════════
+    
+    implementation(libs.vico.compose)
+    implementation(libs.vico.compose.m3)
+    
+    // ══════════════════════════════════════════════════════════════
+    // LEGACY SUPPORT (Transition Period)
+    // ══════════════════════════════════════════════════════════════
+    
+    // AndroidX Core (Still needed for ViewBinding transition)
+    implementation(libs.core.ktx)
+    implementation(libs.appcompat)
+    implementation(libs.lifecycle.runtime.ktx)
+    implementation(libs.material)
+    
+    // Coroutines
+    implementation(libs.coroutines.core)
+    implementation(libs.coroutines.android)
+    
+    // JSON Parsing
+    implementation(libs.gson)
+    
+    // WebView (for reports)
+    implementation(libs.webkit)
+    
+    // ══════════════════════════════════════════════════════════════
+    // TESTING
+    // ══════════════════════════════════════════════════════════════
+    
+    // Unit Testing
+    testImplementation(libs.bundles.testing)
+    
+    // Android Instrumented Testing
+    androidTestImplementation(libs.bundles.android.testing)
 }
