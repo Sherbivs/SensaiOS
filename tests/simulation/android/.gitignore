@@ -74,3 +74,9 @@ lint/tmp/
 
 # Android Profiling
 *.hprof
+
+# ==========================================
+# SECURITY: Never commit hardcoded credentials
+# ==========================================
+**/AppConfig.kt
+SECURITY_NOTICE.md
