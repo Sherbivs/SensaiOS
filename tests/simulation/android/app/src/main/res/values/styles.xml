@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- BASE APP STYLE - Root style for all Widget.App.* styles            -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Base Widget.App Style (required by Android resource linking) -->
+    <style name="Widget.App" parent="android:Widget" />
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
     <!-- CARD STYLES - Material Card Variants                                -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     
