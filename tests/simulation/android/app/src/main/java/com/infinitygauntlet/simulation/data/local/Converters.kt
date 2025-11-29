@@ -40,25 +40,8 @@ class Converters {
     }
     
     /**
-     * Convert comma-separated string to List<String>
-     * Used for typing users
-     */
-    @TypeConverter
-    fun fromStringList(value: String?): List<String>? {
-        return value?.split(",")?.filter { it.isNotBlank() }
-    }
-    
-    /**
-     * Convert List<String> to comma-separated string
-     */
-    @TypeConverter
-    fun toStringList(list: List<String>?): String? {
-        return list?.joinToString(",")
-    }
-    
-    /**
      * Convert JSON array string to List<String>
-     * Alternative approach for lists
+     * Used for arrays of strings (tags, categories, etc.)
      */
     @TypeConverter
     fun fromJsonStringList(value: String?): List<String>? {
@@ -78,17 +61,4 @@ class Converters {
     fun toJsonStringList(list: List<String>?): String? {
         return list?.let { gson.toJson(it) }
     }
-    
-    /**
-     * Convert Long timestamp to Long (no-op, for consistency)
-     * Room handles Long natively, but explicit converter for documentation
-     */
-    @TypeConverter
-    fun fromTimestamp(value: Long?): Long? = value
-    
-    /**
-     * Convert Long to Long timestamp (no-op, for consistency)
-     */
-    @TypeConverter
-    fun toTimestamp(timestamp: Long?): Long? = timestamp
 }

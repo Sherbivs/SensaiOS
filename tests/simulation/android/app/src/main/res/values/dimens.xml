@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SPACING - Material Design 3 Spacing Scale                           -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Extra Small Spacing -->
+    <dimen name="spacing_xs">4dp</dimen>
+    
+    <!-- Small Spacing -->
+    <dimen name="spacing_s">8dp</dimen>
+    
+    <!-- Medium Spacing (Base) -->
+    <dimen name="spacing_m">16dp</dimen>
+    
+    <!-- Large Spacing -->
+    <dimen name="spacing_l">24dp</dimen>
+    
+    <!-- Extra Large Spacing -->
+    <dimen name="spacing_xl">32dp</dimen>
+    
+    <!-- Extra Extra Large Spacing -->
+    <dimen name="spacing_xxl">48dp</dimen>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- PADDING - Component Padding Values                                  -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Card Padding -->
+    <dimen name="card_padding">16dp</dimen>
+    <dimen name="card_padding_compact">12dp</dimen>
+    <dimen name="card_padding_expanded">20dp</dimen>
+    
+    <!-- Screen Padding -->
+    <dimen name="screen_padding_horizontal">16dp</dimen>
+    <dimen name="screen_padding_vertical">16dp</dimen>
+    
+    <!-- List Item Padding -->
+    <dimen name="list_item_padding_horizontal">16dp</dimen>
+    <dimen name="list_item_padding_vertical">12dp</dimen>
+    
+    <!-- Button Padding -->
+    <dimen name="button_padding_horizontal">24dp</dimen>
+    <dimen name="button_padding_vertical">10dp</dimen>
+    
+    <!-- Dialog Padding -->
+    <dimen name="dialog_padding">24dp</dimen>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- MARGINS - Component Margin Values                                   -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Card Margins -->
+    <dimen name="card_margin">8dp</dimen>
+    <dimen name="card_margin_horizontal">8dp</dimen>
+    <dimen name="card_margin_vertical">8dp</dimen>
+    
+    <!-- Section Margins -->
+    <dimen name="section_margin_top">24dp</dimen>
+    <dimen name="section_margin_bottom">16dp</dimen>
+    
+    <!-- Item Spacing -->
+    <dimen name="item_spacing">8dp</dimen>
+    <dimen name="item_spacing_large">16dp</dimen>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SIZES - Fixed Component Sizes                                       -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Icon Sizes -->
+    <dimen name="icon_size_small">16dp</dimen>
+    <dimen name="icon_size_medium">24dp</dimen>
+    <dimen name="icon_size_large">32dp</dimen>
+    <dimen name="icon_size_xlarge">48dp</dimen>
+    
+    <!-- Avatar Sizes -->
+    <dimen name="avatar_size_small">32dp</dimen>
+    <dimen name="avatar_size_medium">48dp</dimen>
+    <dimen name="avatar_size_large">64dp</dimen>
+    
+    <!-- Button Sizes -->
+    <dimen name="button_height">48dp</dimen>
+    <dimen name="button_height_small">36dp</dimen>
+    <dimen name="button_height_large">56dp</dimen>
+    <dimen name="button_min_width">64dp</dimen>
+    
+    <!-- FAB Sizes -->
+    <dimen name="fab_size_normal">56dp</dimen>
+    <dimen name="fab_size_mini">40dp</dimen>
+    <dimen name="fab_margin">16dp</dimen>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- ELEVATION - Material Design Elevation Scale                         -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Card Elevation -->
+    <dimen name="elevation_card">2dp</dimen>
+    <dimen name="elevation_card_raised">4dp</dimen>
+    
+    <!-- Dialog Elevation -->
+    <dimen name="elevation_dialog">8dp</dimen>
+    
+    <!-- FAB Elevation -->
+    <dimen name="elevation_fab">6dp</dimen>
+    
+    <!-- AppBar Elevation -->
+    <dimen name="elevation_appbar">4dp</dimen>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CORNER RADIUS - Component Corner Radii                              -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Card Corner Radius -->
+    <dimen name="corner_radius_small">4dp</dimen>
+    <dimen name="corner_radius_medium">8dp</dimen>
+    <dimen name="corner_radius_large">12dp</dimen>
+    <dimen name="corner_radius_xlarge">16dp</dimen>
+    
+    <!-- Button Corner Radius -->
+    <dimen name="button_corner_radius">20dp</dimen>
+    
+    <!-- Chip Corner Radius -->
+    <dimen name="chip_corner_radius">16dp</dimen>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STROKE - Border and Outline Widths                                  -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Border Widths -->
+    <dimen name="stroke_width_thin">1dp</dimen>
+    <dimen name="stroke_width_medium">2dp</dimen>
+    <dimen name="stroke_width_thick">4dp</dimen>
+    
+    <!-- Divider Height -->
+    <dimen name="divider_height">1dp</dimen>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TEXT SIZES - Typography Scale (Supplemental)                        -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Note: Primary text sizes come from Material Design 3 theme          -->
+    
+    <!-- Caption Text -->
+    <dimen name="text_size_caption">12sp</dimen>
+    
+    <!-- Overline Text -->
+    <dimen name="text_size_overline">10sp</dimen>
+    
+    <!-- Monospace (for code/stack traces) -->
+    <dimen name="text_size_monospace">11sp</dimen>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- LIST & RECYCLERVIEW - List Component Dimensions                     -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- List Item Heights -->
+    <dimen name="list_item_height_single_line">56dp</dimen>
+    <dimen name="list_item_height_two_line">72dp</dimen>
+    <dimen name="list_item_height_three_line">88dp</dimen>
+    
+    <!-- List Item Min Height -->
+    <dimen name="list_item_min_height">48dp</dimen>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- PROGRESS INDICATORS - Progress Component Dimensions                 -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Progress Bar Height -->
+    <dimen name="progress_bar_height">4dp</dimen>
+    <dimen name="progress_bar_height_medium">8dp</dimen>
+    <dimen name="progress_bar_height_large">12dp</dimen>
+    
+    <!-- Circular Progress Size -->
+    <dimen name="progress_circular_size">48dp</dimen>
+    <dimen name="progress_circular_size_small">24dp</dimen>
+    <dimen name="progress_circular_size_large">64dp</dimen>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TOOLBAR & APPBAR - Toolbar Dimensions                               -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Toolbar Height -->
+    <dimen name="toolbar_height">56dp</dimen>
+    <dimen name="toolbar_height_extended">128dp</dimen>
+    
+    <!-- Toolbar Padding -->
+    <dimen name="toolbar_padding_horizontal">16dp</dimen>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- BOTTOM NAVIGATION - Bottom Nav Dimensions                           -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Bottom Navigation Height -->
+    <dimen name="bottom_nav_height">56dp</dimen>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TEST-SPECIFIC - Custom Test UI Dimensions                           -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Test Status Icon Size -->
+    <dimen name="test_status_icon_size">32dp</dimen>
+    
+    <!-- Test Card Height -->
+    <dimen name="test_card_min_height">80dp</dimen>
+    
+    <!-- Chat Message Max Width -->
+    <dimen name="chat_message_max_width">280dp</dimen>
+    
+    <!-- Chat Avatar Size -->
+    <dimen name="chat_avatar_size">40dp</dimen>
+    
+    <!-- Report Viewer Padding -->
+    <dimen name="report_viewer_padding">16dp</dimen>
+    
+</resources>

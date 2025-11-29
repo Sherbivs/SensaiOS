@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt.android)
 }
@@ -55,10 +56,6 @@ android {
         viewBinding = true
         buildConfig = true
         compose = true  // Enable Jetpack Compose
-    }
-    
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
     }
     
     // Packaging options for Hilt
@@ -132,6 +129,9 @@ dependencies {
     
     // WebView (for reports)
     implementation(libs.webkit)
+    
+    // PostgreSQL JDBC Driver (for database connectivity)
+    implementation("org.postgresql:postgresql:42.7.1")
     
     // ══════════════════════════════════════════════════════════════
     // TESTING

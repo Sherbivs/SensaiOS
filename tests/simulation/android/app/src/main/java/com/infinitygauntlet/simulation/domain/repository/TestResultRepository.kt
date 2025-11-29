@@ -44,6 +44,13 @@ interface TestResultRepository {
     fun getResultsByStatus(status: ResultStatus): Flow<List<TestResult>>
     
     /**
+     * Get a single result by ID
+     * 
+     * @param resultId Result ID
+     */
+    suspend fun getResultById(resultId: Long): TestResult?
+    
+    /**
      * Get latest result for a scenario
      * 
      * @param scenarioId Scenario ID

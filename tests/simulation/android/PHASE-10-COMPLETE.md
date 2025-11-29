@@ -30,9 +30,10 @@
 - `ChatMessageAdapter.kt` (90 lines)
 
 #### Phase 5: Data Models ✅
-- `TestScenario.kt` (90 lines)
-- `TestResult.kt` (80 lines)
-- `ChatMessage.kt` (100 lines)
+- `TestScenario.kt` (94 lines)
+- `TestResult.kt` (81 lines)
+- `ChatMessage.kt` (101 lines)
+- `TestSummary.kt` (558 lines) - Complete aggregation model
 
 #### Phase 6: ViewModels ✅
 - `TestViewModel.kt` (150 lines)

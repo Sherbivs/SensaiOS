@@ -32,32 +32,30 @@ import com.infinitygauntlet.simulation.domain.models.MessageType
  */
 fun ChatMessageEntity.toDomain(replyToContent: String? = null): ChatMessage {
     // Parse reactions JSON to Map
-    val reactionsMap = reactions?.let { json ->
+    val reactionsMap: Map<String, Int> = reactions?.let { json ->
         try {
-            com.google.gson.Gson().fromJson(
-                json,
-                object : com.google.gson.reflect.TypeToken<Map<String, Int>>() {}.type
-            ) ?: emptyMap()
+            val type = object : com.google.gson.reflect.TypeToken<Map<String, Int>>() {}.type
+            com.google.gson.Gson().fromJson<Map<String, Int>>(json, type) ?: emptyMap()
         } catch (e: Exception) {
             emptyMap()
         }
     } ?: emptyMap()
     
     return ChatMessage(
-        id = id,
+        id = id.toString(),
         channelId = channelId,
         content = content,
         authorType = AuthorType.fromString(authorType),
         authorName = authorName,
-        authorAvatar = authorAvatar,
+        authorAvatar = null, // Entity doesn't store avatar
         messageType = MessageType.fromString(messageType),
         timestamp = timestamp,
-        replyToId = replyToId,
+        replyToId = replyToId?.toString(),
         replyToContent = replyToContent,
         attachmentUrl = attachmentUrl,
         reactions = reactionsMap,
         isEdited = isEdited,
-        editedAt = editedAt
+        editedAt = editedAt ?: 0
     )
 }
 
@@ -77,19 +75,18 @@ fun ChatMessage.toEntity(): ChatMessageEntity {
     }
     
     return ChatMessageEntity(
-        id = id,
+        id = id.toLongOrNull() ?: 0,
         channelId = channelId,
         content = content,
         authorType = authorType.name.lowercase(),
         authorName = authorName,
-        authorAvatar = authorAvatar,
         messageType = messageType.name.lowercase(),
         timestamp = timestamp,
-        replyToId = replyToId,
+        replyToId = replyToId?.toLongOrNull(),
         attachmentUrl = attachmentUrl,
         reactions = reactionsJson,
         isEdited = isEdited,
-        editedAt = editedAt
+        editedAt = if (editedAt > 0) editedAt else null
     )
 }
 

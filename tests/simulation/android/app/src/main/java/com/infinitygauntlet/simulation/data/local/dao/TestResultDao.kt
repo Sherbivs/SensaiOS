@@ -62,6 +62,14 @@ interface TestResultDao {
     fun getResultsByStatus(status: String): Flow<List<TestResultEntity>>
     
     /**
+     * Get a single result by ID
+     * 
+     * @param resultId Result ID
+     */
+    @Query("SELECT * FROM test_results WHERE id = :resultId")
+    suspend fun getById(resultId: Long): TestResultEntity?
+    
+    /**
      * Get latest result for a scenario
      * 
      * @param scenarioId Scenario ID

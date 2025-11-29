@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinity Gauntlet - Test Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        header .timestamp {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .stat-card .label {
+            color: #666;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .stat-card.passed .value { color: #4CAF50; }
+        .stat-card.failed .value { color: #F44336; }
+        .stat-card.skipped .value { color: #FF9800; }
+        .stat-card.total .value { color: #2196F3; }
+        
+        .pass-rate {
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .pass-rate-bar {
+            height: 40px;
+            background: #e0e0e0;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            margin: 20px 0;
+        }
+        
+        .pass-rate-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50 0%, #8BC34A 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2em;
+            transition: width 0.5s ease;
+        }
+        
+        .results-section {
+            padding: 30px;
+        }
+        
+        .results-section h2 {
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .test-result {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-left: 4px solid #ccc;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: box-shadow 0.2s;
+        }
+        
+        .test-result:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .test-result.passed { border-left-color: #4CAF50; }
+        .test-result.failed { border-left-color: #F44336; }
+        .test-result.skipped { border-left-color: #FF9800; }
+        
+        .test-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .test-name {
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        
+        .test-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .test-status.passed {
+            background: #C8E6C9;
+            color: #2E7D32;
+        }
+        
+        .test-status.failed {
+            background: #FFCDD2;
+            color: #C62828;
+        }
+        
+        .test-status.skipped {
+            background: #FFE0B2;
+            color: #E65100;
+        }
+        
+        .test-metadata {
+            display: flex;
+            gap: 20px;
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .test-category {
+            background: #E3F2FD;
+            color: #1565C0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+        
+        .error-message {
+            background: #FFF3E0;
+            border-left: 3px solid #F44336;
+            padding: 10px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            border-radius: 4px;
+        }
+        
+        footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+            }
+            
+            .test-result {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 Infinity Gauntlet Test Report</h1>
+            <p class="timestamp">Generated: November 29, 2025 at 3:45 PM</p>
+        </header>
+        
+        <div class="summary">
+            <div class="stat-card total">
+                <div class="label">Total Tests</div>
+                <div class="value">100</div>
+            </div>
+            <div class="stat-card passed">
+                <div class="label">Passed</div>
+                <div class="value">87</div>
+            </div>
+            <div class="stat-card failed">
+                <div class="label">Failed</div>
+                <div class="value">8</div>
+            </div>
+            <div class="stat-card skipped">
+                <div class="label">Skipped</div>
+                <div class="value">5</div>
+            </div>
+        </div>
+        
+        <div class="pass-rate">
+            <h3>Pass Rate</h3>
+            <div class="pass-rate-bar">
+                <div class="pass-rate-fill" style="width: 87%;">87%</div>
+            </div>
+            <p>87 out of 100 tests passed • Duration: 15m 32s</p>
+        </div>
+        
+        <div class="results-section">
+            <h2>📋 Test Results</h2>
+            
+            <!-- Passed Test -->
+            <div class="test-result passed">
+                <div class="test-header">
+                    <div class="test-name">User Registration Flow</div>
+                    <div class="test-status passed">✓ Passed</div>
+                </div>
+                <div class="test-metadata">
+                    <span class="test-category">ONBOARDING</span>
+                    <span>⏱️ Duration: 0.45s</span>
+                    <span>🕐 Completed: 3:32 PM</span>
+                </div>
+                <p>Successfully completed all registration steps with valid credentials.</p>
+            </div>
+            
+            <!-- Failed Test -->
+            <div class="test-result failed">
+                <div class="test-header">
+                    <div class="test-name">AI Pokemon Switching</div>
+                    <div class="test-status failed">✗ Failed</div>
+                </div>
+                <div class="test-metadata">
+                    <span class="test-category">AI</span>
+                    <span>⏱️ Duration: 2.13s</span>
+                    <span>🕐 Completed: 3:38 PM</span>
+                </div>
+                <p>AI failed to switch when health dropped below threshold (30%).</p>
+                <div class="error-message">
+                    <strong>AssertionError:</strong> Expected AI to switch Pokemon when health &lt; 30%<br>
+                    Actual: AI did not switch (health: 28%, type disadvantage: 2.0x)<br>
+                    Location: AIStrategyTest.kt:142
+                </div>
+            </div>
+            
+            <!-- Passed Test -->
+            <div class="test-result passed">
+                <div class="test-header">
+                    <div class="test-name">Starter Pokemon Selection</div>
+                    <div class="test-status passed">✓ Passed</div>
+                </div>
+                <div class="test-metadata">
+                    <span class="test-category">ONBOARDING</span>
+                    <span>⏱️ Duration: 0.68s</span>
+                    <span>🕐 Completed: 3:33 PM</span>
+                </div>
+                <p>Successfully selected Charmander as starter and verified party initialization.</p>
+            </div>
+            
+            <!-- Passed Test -->
+            <div class="test-result passed">
+                <div class="test-header">
+                    <div class="test-name">Basic Wild Pokemon Encounter</div>
+                    <div class="test-status passed">✓ Passed</div>
+                </div>
+                <div class="test-metadata">
+                    <span class="test-category">WILD_ENCOUNTER</span>
+                    <span>⏱️ Duration: 0.32s</span>
+                    <span>🕐 Completed: 3:34 PM</span>
+                </div>
+                <p>Encountered Pidgey (level 5) with correct stats and moveset.</p>
+            </div>
+            
+            <!-- Skipped Test -->
+            <div class="test-result skipped">
+                <div class="test-header">
+                    <div class="test-name">Concurrent User Simulation</div>
+                    <div class="test-status skipped">⊘ Skipped</div>
+                </div>
+                <div class="test-metadata">
+                    <span class="test-category">STRESS</span>
+                    <span>⏱️ Duration: 0.00s</span>
+                    <span>🕐 Skipped at: 3:35 PM</span>
+                </div>
+                <p>Skipped due to missing prerequisite: Database connection unavailable.</p>
+            </div>
+            
+            <!-- Passed Test -->
+            <div class="test-result passed">
+                <div class="test-header">
+                    <div class="test-name">Catch Wild Pokemon</div>
+                    <div class="test-status passed">✓ Passed</div>
+                </div>
+                <div class="test-metadata">
+                    <span class="test-category">WILD_ENCOUNTER</span>
+                    <span>⏱️ Duration: 0.89s</span>
+                    <span>🕐 Completed: 3:36 PM</span>
+                </div>
+                <p>Successfully caught Rattata using regular Pokeball (3 shakes, catch rate: 67%).</p>
+            </div>
+            
+            <!-- Passed Test -->
+            <div class="test-result passed">
+                <div class="test-header">
+                    <div class="test-name">Basic Battle Flow</div>
+                    <div class="test-status passed">✓ Passed</div>
+                </div>
+                <div class="test-metadata">
+                    <span class="test-category">BATTLE</span>
+                    <span>⏱️ Duration: 1.78s</span>
+                    <span>🕐 Completed: 3:37 PM</span>
+                </div>
+                <p>Completed battle with correct turn order, damage calculation, and HP updates.</p>
+            </div>
+            
+            <!-- Failed Test -->
+            <div class="test-result failed">
+                <div class="test-header">
+                    <div class="test-name">Type Effectiveness Testing</div>
+                    <div class="test-status failed">✗ Failed</div>
+                </div>
+                <div class="test-metadata">
+                    <span class="test-category">BATTLE</span>
+                    <span>⏱️ Duration: 1.45s</span>
+                    <span>🕐 Completed: 3:39 PM</span>
+                </div>
+                <p>Type effectiveness multiplier incorrect for Grass vs Water matchup.</p>
+                <div class="error-message">
+                    <strong>AssertionError:</strong> Expected damage multiplier 2.0x (super effective)<br>
+                    Actual: 1.5x (calculated damage: 30 HP, expected: 40 HP)<br>
+                    Move: Vine Whip (Grass) vs Squirtle (Water)<br>
+                    Location: TypeChartTest.kt:87
+                </div>
+            </div>
+            
+            <!-- Passed Test -->
+            <div class="test-result passed">
+                <div class="test-header">
+                    <div class="test-name">AI Move Selection</div>
+                    <div class="test-status passed">✓ Passed</div>
+                </div>
+                <div class="test-metadata">
+                    <span class="test-category">AI</span>
+                    <span>⏱️ Duration: 1.12s</span>
+                    <span>🕐 Completed: 3:40 PM</span>
+                </div>
+                <p>AI selected super effective move 8 out of 10 turns (80% strategic accuracy).</p>
+            </div>
+        </div>
+        
+        <footer>
+            <p><strong>Infinity Gauntlet Android Simulation</strong></p>
+            <p>Report generated by ReportGeneratorService v1.0.0</p>
+            <p>© 2025 Infinity Gauntlet Project</p>
+        </footer>
+    </div>
+</body>
+</html>

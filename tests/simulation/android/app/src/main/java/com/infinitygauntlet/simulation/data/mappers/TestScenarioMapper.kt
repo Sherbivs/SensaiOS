@@ -34,7 +34,7 @@ fun TestScenarioEntity.toDomain(): TestScenario {
         testCount = testCount,
         estimatedDuration = estimatedDuration,
         status = TestStatus.fromString(status),
-        lastRunTimestamp = lastRunTimestamp,
+        lastRunTimestamp = lastRunTimestamp ?: 0,
         successCount = successCount,
         failureCount = failureCount,
         createdAt = createdAt,

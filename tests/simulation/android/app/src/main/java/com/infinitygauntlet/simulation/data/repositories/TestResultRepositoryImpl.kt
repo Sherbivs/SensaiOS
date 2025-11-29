@@ -49,6 +49,11 @@ class TestResultRepositoryImpl @Inject constructor(
         }
     }
     
+    override suspend fun getResultById(resultId: Long): TestResult? {
+        val entity = dao.getById(resultId)
+        return entity?.toDomain()
+    }
+    
     override suspend fun getLatestResult(scenarioId: Long): TestResult? {
         val entity = dao.getLatestResult(scenarioId)
         return entity?.toDomain()

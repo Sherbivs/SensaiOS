@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/mainActivity">
+
+    <!-- Main Activity - Test Scenario List -->
+    <activity
+        android:id="@+id/mainActivity"
+        android:name="com.infinitygauntlet.simulation.MainActivity"
+        android:label="@string/app_name"
+        tools:layout="@layout/activity_main">
+        
+        <action
+            android:id="@+id/action_main_to_chat"
+            app:destination="@id/chatUIActivity"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
+        
+        <action
+            android:id="@+id/action_main_to_report"
+            app:destination="@id/reportViewerActivity"
+            app:enterAnim="@android:anim/fade_in"
+            app:exitAnim="@android:anim/fade_out"
+            app:popEnterAnim="@android:anim/fade_in"
+            app:popExitAnim="@android:anim/fade_out" />
+        
+        <action
+            android:id="@+id/action_main_to_results"
+            app:destination="@id/testResultsFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right" />
+    </activity>
+
+    <!-- Chat UI Activity - Discord-style Chat -->
+    <activity
+        android:id="@+id/chatUIActivity"
+        android:name="com.infinitygauntlet.simulation.ChatUIActivity"
+        android:label="@string/chat_title"
+        tools:layout="@layout/activity_chat">
+        
+        <argument
+            android:name="channelId"
+            android:defaultValue="@null"
+            app:argType="string"
+            app:nullable="true" />
+        
+        <argument
+            android:name="channelName"
+            android:defaultValue="General"
+            app:argType="string" />
+    </activity>
+
+    <!-- Report Viewer Activity - HTML/JSON/CSV Reports -->
+    <activity
+        android:id="@+id/reportViewerActivity"
+        android:name="com.infinitygauntlet.simulation.ReportViewerActivity"
+        android:label="@string/report_viewer_title"
+        tools:layout="@layout/activity_report">
+        
+        <argument
+            android:name="reportId"
+            android:defaultValue="@null"
+            app:argType="string"
+            app:nullable="true" />
+        
+        <argument
+            android:name="reportFormat"
+            android:defaultValue="HTML"
+            app:argType="string" />
+    </activity>
+
+    <!-- Test Results Fragment (Bottom Sheet) -->
+    <fragment
+        android:id="@+id/testResultsFragment"
+        android:name="com.infinitygauntlet.simulation.fragments.TestResultsFragment"
+        android:label="@string/test_results_title"
+        tools:layout="@layout/fragment_test_results">
+        
+        <argument
+            android:name="testResults"
+            app:argType="com.infinitygauntlet.simulation.models.TestResult[]" />
+        
+        <argument
+            android:name="showSummary"
+            android:defaultValue="true"
+            app:argType="boolean" />
+    </fragment>
+
+    <!-- Global Actions -->
+    <action
+        android:id="@+id/action_global_to_main"
+        app:destination="@id/mainActivity"
+        app:launchSingleTop="true"
+        app:popUpTo="@id/nav_graph"
+        app:popUpToInclusive="true" />
+    
+    <action
+        android:id="@+id/action_global_to_chat"
+        app:destination="@id/chatUIActivity"
+        app:enterAnim="@android:anim/slide_in_left"
+        app:exitAnim="@android:anim/slide_out_right" />
+
+</navigation>
