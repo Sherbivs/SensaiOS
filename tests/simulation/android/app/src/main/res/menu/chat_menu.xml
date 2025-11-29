@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- Search Messages -->
+    <item
+        android:id="@+id/action_search_messages"
+        android:title="@string/menu_search_messages"
+        android:icon="@drawable/ic_search"
+        app:showAsAction="ifRoom|collapseActionView"
+        app:actionViewClass="androidx.appcompat.widget.SearchView" />
+
+    <!-- Channel List -->
+    <item
+        android:id="@+id/action_channels"
+        android:title="@string/menu_channels"
+        android:icon="@drawable/ic_chat"
+        app:showAsAction="ifRoom" />
+
+    <!-- Export Chat -->
+    <item
+        android:id="@+id/action_export_chat"
+        android:title="@string/menu_export_chat"
+        android:icon="@drawable/ic_download"
+        app:showAsAction="never" />
+
+    <!-- Clear Messages -->
+    <item
+        android:id="@+id/action_clear_messages"
+        android:title="@string/menu_clear_messages"
+        android:icon="@drawable/ic_close"
+        app:showAsAction="never" />
+
+    <!-- Chat Settings -->
+    <item
+        android:id="@+id/action_chat_settings"
+        android:title="@string/menu_chat_settings"
+        android:icon="@drawable/ic_settings"
+        app:showAsAction="never">
+        
+        <menu>
+            <item
+                android:id="@+id/setting_notifications"
+                android:title="@string/setting_notifications"
+                android:checkable="true"
+                android:checked="true" />
+            
+            <item
+                android:id="@+id/setting_typing_indicator"
+                android:title="@string/setting_typing_indicator"
+                android:checkable="true"
+                android:checked="true" />
+            
+            <item
+                android:id="@+id/setting_timestamps"
+                android:title="@string/setting_timestamps"
+                android:checkable="true"
+                android:checked="true" />
+        </menu>
+    </item>
+
+    <!-- Help -->
+    <item
+        android:id="@+id/action_help"
+        android:title="@string/menu_help"
+        android:icon="@drawable/ic_help_circle"
+        app:showAsAction="never" />
+
+</menu>

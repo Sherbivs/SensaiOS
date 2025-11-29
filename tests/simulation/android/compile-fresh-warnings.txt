@@ -1,0 +1,45 @@
+> Task :clean UP-TO-DATE
+> Task :app:clean
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:dataBindingMergeDependencyArtifactsDebug
+> Task :app:generateDebugResValues
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:processDebugNavigationResources
+> Task :app:generateDebugBuildConfig
+> Task :app:checkDebugAarMetadata
+> Task :app:compileDebugNavigationResources
+> Task :app:mapDebugSourceSetPaths
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeDebugResources
+> Task :app:dataBindingGenBaseClassesDebug
+> Task :app:processDebugResources
+
+> Task :app:kaptGenerateStubsDebugKotlin
+w: Kapt currently doesn't support language version 2.0+. Falling back to 1.9.
+
+> Task :app:kaptDebugKotlin
+C:\Users\sherb\OneDrive\Documents\github\Infinity-Gauntlet\tests\simulation\android\app\build\tmp\kapt3\stubs\debug\com\infinitygauntlet\simulation\data\local\AppDatabase.java:31: warning: Schema export directory was not provided to the annotation processor so Room cannot export the schema. You can either provide `room.schemaLocation` annotation processor argument by applying the Room Gradle plugin (id 'androidx.room') OR set exportSchema to false.
+public abstract class AppDatabase extends androidx.room.RoomDatabase {
+                ^
+
+> Task :app:compileDebugKotlin
+w: file:///C:/Users/sherb/OneDrive/Documents/github/Infinity-Gauntlet/tests/simulation/android/app/src/main/java/com/infinitygauntlet/simulation/presentation/chat/ChatViewModel.kt:111:18 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///C:/Users/sherb/OneDrive/Documents/github/Infinity-Gauntlet/tests/simulation/android/app/src/main/java/com/infinitygauntlet/simulation/ui/components/Icons.kt:15:48 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///C:/Users/sherb/OneDrive/Documents/github/Infinity-Gauntlet/tests/simulation/android/app/src/main/java/com/infinitygauntlet/simulation/ui/components/Icons.kt:48:43 'val Icons.Filled.Sort: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Sort.
+w: file:///C:/Users/sherb/OneDrive/Documents/github/Infinity-Gauntlet/tests/simulation/android/app/src/main/java/com/infinitygauntlet/simulation/ui/components/Icons.kt:61:46 'val Icons.Filled.Message: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Message.
+w: file:///C:/Users/sherb/OneDrive/Documents/github/Infinity-Gauntlet/tests/simulation/android/app/src/main/java/com/infinitygauntlet/simulation/ui/components/Icons.kt:81:44 'val Icons.Filled.Login: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Login.
+w: file:///C:/Users/sherb/OneDrive/Documents/github/Infinity-Gauntlet/tests/simulation/android/app/src/main/java/com/infinitygauntlet/simulation/ui/components/Icons.kt:82:45 'val Icons.Filled.Logout: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Logout.
+w: file:///C:/Users/sherb/OneDrive/Documents/github/Infinity-Gauntlet/tests/simulation/android/app/src/main/java/com/infinitygauntlet/simulation/ui/components/Icons.kt:120:43 'val Icons.Filled.Help: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Help.
+w: file:///C:/Users/sherb/OneDrive/Documents/github/Infinity-Gauntlet/tests/simulation/android/app/src/main/java/com/infinitygauntlet/simulation/ui/components/Icons.kt:121:50 'val Icons.Filled.HelpOutline: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.HelpOutline.
+w: file:///C:/Users/sherb/OneDrive/Documents/github/Infinity-Gauntlet/tests/simulation/android/app/src/main/java/com/infinitygauntlet/simulation/ui/theme/Theme.kt:66:20 'var statusBarColor: Int' is deprecated. Deprecated in Java.
+
+BUILD SUCCESSFUL in 31s
+23 actionable tasks: 22 executed, 1 up-to-date
