@@ -55,6 +55,7 @@ import { initializeState, shutdownState, startAutoSave, stopAutoSave } from './s
 import { recordSweep, recordMemberFetchTimeout } from './state/stats.js';
 import { getRecentActivitySummary } from './state/timeline.js';
 import { initializeRoleArchive, recordRoleChange, getRoleStatistics, shutdownRoleArchive } from './state/roleArchive.js';
+import { acquireLock, shutdownDistributedLock, getLockStatistics } from '../services/distributed-lock.js';
 
 // Extract constants from centralized constants
 const { DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS, MEMBER_STATS_REFRESH_INTERVAL_MS } = TIME_CONSTANTS;
@@ -1274,6 +1275,19 @@ function reportOperationalStats(where = 'startup') {
       topModifiedRoles: roleStats.rolesModified.slice(0, 5).map(r => `${r.roleName} (${r.changeCount})`).join(', ')
     });
   }
+  
+  // Log distributed lock statistics
+  const lockStats = getLockStatistics();
+  log('info', '=== Distributed Lock Statistics ===', {
+    backend: lockStats.redisAvailable ? 'Redis' : 'In-Memory Fallback',
+    totalAcquired: lockStats.totalAcquired,
+    totalReleased: lockStats.totalReleased,
+    totalFailed: lockStats.totalFailed,
+    fallbackCount: lockStats.totalFallback,
+    currentLocks: lockStats.currentLocks,
+    inMemoryLocksCount: lockStats.inMemoryLocksCount,
+    lastError: lockStats.lastError ? `${lockStats.lastError.message} (${lockStats.lastError.timestamp})` : 'none'
+  });
 }
 
 const ACTIVITY_LABELS = Object.freeze({
@@ -2295,22 +2309,37 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
     return;
   }
 
-  // Cache: skip if we recently assigned this member
-  const cacheKey = `assign:${member.guild.id}:${member.id}:${role.id}`;
-  const cached = cache.readCache(cacheKey);
-  if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
-    report('Assignment Skipped (Cache)', {
+  // CRITICAL FIX: Distributed lock to prevent race conditions
+  const lockKey = `assign:${member.guild.id}:${member.id}:${role.id}`;
+  const lock = await acquireLock(lockKey, 5000);
+  
+  if (!lock) {
+    log('warn', 'Concurrent role assignment detected - skipping (protected by distributed lock)', {
       origin,
       guild: guildSummary,
       member: memberSummary,
       role: describeRole(role),
-      cachedAt: new Date(cached.timestamp).toISOString(),
-      ttlHours: CACHE_TTL_HOURS
-    }, 'detail');
+      reason: 'lock_acquisition_failed'
+    });
     return;
   }
 
   try {
+    // Cache: skip if we recently assigned this member (double-check inside lock)
+    const cacheKey = lockKey;
+    const cached = cache.readCache(cacheKey);
+    if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
+      report('Assignment Skipped (Cache)', {
+        origin,
+        guild: guildSummary,
+        member: memberSummary,
+        role: describeRole(role),
+        cachedAt: new Date(cached.timestamp).toISOString(),
+        ttlHours: CACHE_TTL_HOURS
+      }, 'detail');
+      return;
+    }
+
     await member.roles.add(role);
     report('Assignment Success', {
       origin,
@@ -2336,6 +2365,9 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
       role: describeRole(role),
       hint,
     }, error), 'error');
+  } finally {
+    // CRITICAL: Always release lock to prevent deadlock
+    await lock.release();
   }
 }
 
@@ -2400,27 +2432,43 @@ async function assignTrainerRoleToNewMember(member) {
     return;
   }
 
-  // Cache check: skip if we recently assigned this member
-  const cacheKey = `assign:${member.guild.id}:${member.id}:${role.id}`;
-  const cached = cache.readCache(cacheKey);
-  if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
-    report('New Member Assignment Skipped (Cache)', {
+  // CRITICAL FIX: Distributed lock to prevent race conditions
+  // Multiple concurrent guildMemberAdd events could fire before cache is written
+  const lockKey = `assign:${member.guild.id}:${member.id}:${role.id}`;
+  const lock = await acquireLock(lockKey, 5000); // 5-second TTL
+  
+  if (!lock) {
+    log('warn', 'Concurrent role assignment detected - skipping (protected by distributed lock)', {
       origin,
       guild: guildSummary,
       member: memberSummary,
       role: describeRole(role),
-      cachedAt: new Date(cached.timestamp).toISOString(),
-      ttlHours: CACHE_TTL_HOURS
-    }, 'detail');
+      reason: 'lock_acquisition_failed'
+    });
     return;
   }
 
-  // Log the member's existing roles for debugging
-  const existingRoles = member.roles.cache
-    .filter(r => r.id !== member.guild.roles.everyone.id)
-    .map(describeRole);
-
   try {
+    // Cache check: skip if we recently assigned this member (double-check inside lock)
+    const cacheKey = lockKey; // Same key used for lock and cache
+    const cached = cache.readCache(cacheKey);
+    if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
+      report('New Member Assignment Skipped (Cache)', {
+        origin,
+        guild: guildSummary,
+        member: memberSummary,
+        role: describeRole(role),
+        cachedAt: new Date(cached.timestamp).toISOString(),
+        ttlHours: CACHE_TTL_HOURS
+      }, 'detail');
+      return;
+    }
+
+    // Log the member's existing roles for debugging
+    const existingRoles = member.roles.cache
+      .filter(r => r.id !== member.guild.roles.everyone.id)
+      .map(describeRole);
+
     await member.roles.add(role);
     
     // Record role change in archive (500-entry cold storage)
@@ -2468,6 +2516,9 @@ async function assignTrainerRoleToNewMember(member) {
       existingRoles: existingRoles.length ? existingRoles.join(', ') : 'none',
       hint,
     }, error), 'error');
+  } finally {
+    // CRITICAL: Always release lock to prevent deadlock
+    await lock.release();
   }
 }
 
@@ -3409,6 +3460,8 @@ if (entryHref && import.meta.url === entryHref) {
     }
     // Persist role archive on shutdown
     await shutdownRoleArchive();
+    // Close Redis connection gracefully
+    await shutdownDistributedLock();
     log('info', '[State] Shutdown complete');
     process.exit(0);
   }
