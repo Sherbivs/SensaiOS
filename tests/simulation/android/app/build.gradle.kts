@@ -46,14 +46,14 @@ android {
     
     kotlinOptions {
         jvmTarget = "17"
-        
+        languageVersion = "1.9"  // KAPT requires Kotlin 1.9
+        apiVersion = "1.9"        // Match language version
+
         // Enable Compose compiler metrics (optional, for debugging)
         freeCompilerArgs += listOf(
             "-opt-in=kotlin.RequiresOptIn"
         )
-    }
-    
-    buildFeatures {
+    }    buildFeatures {
         viewBinding = true
         buildConfig = true
         compose = true  // Enable Jetpack Compose
