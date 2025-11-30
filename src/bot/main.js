@@ -299,6 +299,19 @@ function isGuildMembersTimeout(error) {
   return message.includes(GUILD_MEMBERS_TIMEOUT_FRAGMENT);
 }
 
+/**
+ * Ensure guild members are fetched and cached
+ * 
+ * CRITICAL ARCHITECTURE: Always forces fresh fetch from Discord API
+ * - Pre-existing cache is STRICTLY for statistics and reasoning only
+ * - Processing decisions MUST use fresh member data (force: true)
+ * - Prevents stale cache from causing members to be missed during sweeps
+ * - Handles GuildMembersTimeout with auto-incrementing timeout and paginated fallback
+ * 
+ * @param {Guild} guild - Discord guild to fetch members from
+ * @param {Object} options - Fetch configuration
+ * @returns {Promise<Collection>} Fresh guild members collection
+ */
 async function ensureGuildMembersCached(guild, options = {}) {
   const {
     origin = 'unspecified',
@@ -318,7 +331,9 @@ async function ensureGuildMembersCached(guild, options = {}) {
   while (chunkAttempts < Math.max(1, chunkRetries)) {
     chunkAttempts += 1;
     try {
-      await guild.members.fetch({ time: chunkTimeoutMs });
+      // CRITICAL FIX: Force fresh fetch from Discord API (bypass cache)
+      // Cache is strictly for statistics/reasoning, NOT for processing decisions
+      await guild.members.fetch({ time: chunkTimeoutMs, force: true });
       chunkSucceeded = true;
       break;
     } catch (error) {
@@ -388,7 +403,9 @@ async function ensureGuildMembersCached(guild, options = {}) {
       pageOptions.after = after;
     }
 
-    const batch = await guild.members.fetch(pageOptions);
+    // CRITICAL FIX: Force fresh fetch from Discord API (bypass cache)
+    // Ensures paginated fallback also gets live member data
+    const batch = await guild.members.fetch({ ...pageOptions, force: true });
     if (batch.size === 0) {
       break;
     }
@@ -1040,7 +1057,8 @@ async function evaluateExecutorAuthorization(guild, executor) {
     let ownerMember = guild.members.cache.get(executor.id) || null;
     if (!ownerMember) {
       try {
-        ownerMember = await guild.members.fetch(executor.id);
+        // CRITICAL FIX: Force fresh fetch for owner verification
+        ownerMember = await guild.members.fetch({ user: executor.id, force: true });
       } catch (error) {
         log('warn', 'Failed to resolve guild owner during authorization check', mergeLogError({
           guild: describeGuild(guild),
@@ -1054,7 +1072,8 @@ async function evaluateExecutorAuthorization(guild, executor) {
   let member = guild.members.cache.get(executor.id) || null;
   if (!member) {
     try {
-      member = await guild.members.fetch(executor.id);
+      // CRITICAL FIX: Force fresh fetch for permission verification
+      member = await guild.members.fetch({ user: executor.id, force: true });
     } catch (error) {
       log('warn', 'Failed to resolve executor member for authorization', mergeLogError({
         guild: describeGuild(guild),
@@ -2057,7 +2076,8 @@ async function reportGuildRoles(guild) {
   const guildSummary = describeGuild(guild);
 
   try {
-    const roles = await guild.roles.fetch();
+    // Force fresh role data for accurate reporting
+    const roles = await guild.roles.fetch({ force: true });
     if (!roles || roles.size === 0) {
       report('Roles Empty', { guild: guildSummary });
       return;
@@ -2091,7 +2111,8 @@ async function validateGuildRoles(guild) {
 
   let roles;
   try {
-    roles = await guild.roles.fetch();
+    // Force fresh role data for accurate validation
+    roles = await guild.roles.fetch({ force: true });
   } catch (error) {
     log('error', 'Unable to fetch guild roles for validation', mergeLogError({
       guild: guildSummary,
@@ -2140,7 +2161,8 @@ async function fixGuildRoles(guild) {
 
   let roles;
   try {
-    roles = await guild.roles.fetch();
+    // Force fresh role data for accurate remediation
+    roles = await guild.roles.fetch({ force: true });
   } catch (error) {
     log('error', 'Unable to fetch guild roles for remediation', mergeLogError({
       guild: guildSummary,
@@ -2459,6 +2481,8 @@ async function sweepGuild(guild, origin) {
 
   try {
     try {
+      // CRITICAL: Force fresh member fetch from Discord API (not stale cache)
+      // ensureGuildMembersCached now includes force: true for all fetch operations
       await ensureGuildMembersCached(guild, { origin: `sweep:${origin}` });
       report('Members Fetched', {
         guild: guildSummary,
@@ -2488,6 +2512,8 @@ async function sweepGuild(guild, origin) {
       return;
     }
 
+    // ARCHITECTURE NOTE: guild.members.cache now contains FRESH data from Discord API
+    // Pre-existing cache was replaced with live member data during ensureGuildMembersCached
     const toAssign = guild.members.cache.filter(member => {
       // Skip bots
       if (member.user.bot) return false;
@@ -2691,7 +2717,8 @@ async function runCliDebugDump() {
     const guildSummary = describeGuild(guild);
 
     try {
-      await guild.roles.fetch();
+      // Force fresh role data for CLI debugging
+      await guild.roles.fetch({ force: true });
     } catch (error) {
       report('CLI Debug Roles Fetch Error', mergeReportError({
         guild: guildSummary,

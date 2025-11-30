@@ -146,7 +146,8 @@ export class HomesteadChannelManager {
    */
   private async verifyChannel(channelId: string): Promise<TextChannel | null> {
     try {
-      const channel = await this.guild.channels.fetch(channelId);
+      // Force fresh channel data to ensure accurate state verification
+      const channel = await this.guild.channels.fetch(channelId, { force: true });
       if (channel && channel.isTextBased() && channel.type === ChannelType.GuildText) {
         return channel as TextChannel;
       }
@@ -293,8 +294,8 @@ export class HomesteadChannelManager {
 
     for (const homestead of inactiveHomesteads) {
       try {
-        // Delete Discord channel
-        const channel = await this.guild.channels.fetch(homestead.channelId).catch(() => null);
+        // Delete Discord channel (force fresh data to ensure it exists before deletion)
+        const channel = await this.guild.channels.fetch(homestead.channelId, { force: true }).catch(() => null);
         if (channel) {
           await channel.delete(`Inactive for ${daysInactive} days`);
         }
@@ -358,8 +359,8 @@ export class HomesteadChannelManager {
     }
 
     try {
-      // Delete Discord channel
-      const channel = await this.guild.channels.fetch(homestead.channelId).catch(() => null);
+      // Delete Discord channel (force fresh data to ensure it exists before deletion)
+      const channel = await this.guild.channels.fetch(homestead.channelId, { force: true }).catch(() => null);
       if (channel) {
         await channel.delete('Homestead deleted by user or admin');
       }

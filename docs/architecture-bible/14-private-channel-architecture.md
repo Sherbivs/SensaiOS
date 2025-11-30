@@ -303,7 +303,8 @@ client.on('channelDelete', async (channel) => {
 // Daily cleanup task
 async function cleanupOrphanedChannels(guildId: string) {
   const guild = await client.guilds.fetch(guildId);
-  const members = await guild.members.fetch();
+  // Force fresh member list to ensure accurate cleanup decisions
+  const members = await guild.members.fetch({ force: true });
   
   const channels = await db.homesteadChannel.findMany({ where: { guildId } });
   for (const mapping of channels) {
