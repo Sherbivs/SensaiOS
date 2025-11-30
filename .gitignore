@@ -13,6 +13,7 @@ build/
 .env
 .env.*
 !.env.example
+!.env.docker
 secrets/*
 !secrets/*.example
 !secrets/README.md

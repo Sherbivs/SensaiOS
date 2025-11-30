@@ -16,13 +16,13 @@
 
 ### Week 1: Critical Fixes (Days 1-7)
 - [x] Day 1-2: Environment Setup & Planning
-- [ ] Day 3-5: Fix #1 - Race Condition Protection (Distributed Lock)
-- [ ] Day 6-7: Fix #2 - Archive Integrity (HMAC Signatures)
+- [x] Day 3-5: Fix #1 - Race Condition Protection (Distributed Lock)
+- [x] Day 6-7: Fix #2 - Archive Integrity (HMAC Signatures)
 
 ### Week 2: High-Severity Fixes (Days 8-14)
-- [ ] Day 8-10: Fix #3 - Sweep Rate Limiting (DoS Protection)
-- [ ] Day 11-12: Fix #4 - Permission Enforcement (Strict Validation)
-- [ ] Day 13-14: Fix #5 - Cache Invalidation Strategy
+- [x] Day 8-10: Fix #3 - Sweep Rate Limiting (DoS Protection)
+- [x] Day 11-12: Fix #4 - Permission Enforcement (Strict Validation)
+- [x] Day 13-14: Fix #5 - Cache Invalidation Strategy
 
 ### Week 3: Architecture Optimization (Days 15-21)
 - [x] Day 15-17: Fix #6 - Unified Role Assignment Logic (DRY)

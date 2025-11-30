@@ -1,0 +1,48 @@
+# Prometheus Configuration for Integration Testing
+# Week 4 Day 22: Integration Testing Infrastructure
+
+global:
+  scrape_interval: 15s      # Scrape targets every 15 seconds
+  evaluation_interval: 15s  # Evaluate rules every 15 seconds
+  scrape_timeout: 10s       # Timeout after 10 seconds
+
+# Alertmanager configuration (optional for Week 4 Day 23-24)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  # - "alert_rules.yml"
+
+# Scrape configuration for Discord Security Bot
+scrape_configs:
+  # Discord Security Bot - Main metrics endpoint
+  - job_name: 'discord-security-bot'
+    
+    # Windows Docker Desktop: Use host.docker.internal to reach host
+    # Linux Docker: Use 172.17.0.1 (Docker bridge IP)
+    # Production: Use actual hostname/IP
+    static_configs:
+      - targets: ['host.docker.internal:9090']
+        labels:
+          environment: 'integration-test'
+          instance: 'local-dev'
+    
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: '/metrics'
+    
+    # Optional: Add authentication if metrics endpoint requires it
+    # basic_auth:
+    #   username: 'admin'
+    #   password: 'secret'
+
+  # Optional: Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          environment: 'integration-test'

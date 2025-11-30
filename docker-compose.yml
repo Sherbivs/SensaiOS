@@ -1,0 +1,218 @@
+# ==========================================
+# Pokémon Infinity Gauntlet - Docker Compose
+# ==========================================
+# Local development environment with PostgreSQL + Discord bot + Workers
+# Architecture: Multi-container setup mirroring Render production
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: infinity-gauntlet-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: infinity_gauntlet
+      POSTGRES_USER: gauntlet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localdev123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gauntlet -d infinity_gauntlet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - infinity-gauntlet
+
+  # Main Discord Bot Worker
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: infinity-gauntlet-bot
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database connection
+      DATABASE_URL: postgresql://gauntlet:${POSTGRES_PASSWORD:-localdev123}@postgres:5432/infinity_gauntlet
+      PROD_DATABASE_URL: postgresql://gauntlet:${POSTGRES_PASSWORD:-localdev123}@postgres:5432/infinity_gauntlet
+      
+      # Discord credentials (set in .env file)
+      BOT_TOKEN: ${BOT_TOKEN}
+      POKEMON_BOT_TOKEN: ${POKEMON_BOT_TOKEN}
+      SECURITY_BOT_TOKEN: ${SECURITY_BOT_TOKEN}
+      
+      # Service configuration
+      NODE_ENV: development
+      SERVICE_NAME: discord-bot
+      LOG_FORMAT: cli
+      LOG_BUFFER_ENABLED: "true"
+      LOG_BUFFER_INTERVAL: "10000"
+      LOG_BUFFER_BYPASS_CRITICAL: "true"
+      
+      # Health check
+      HEALTH_CHECK_PORT: 3000
+      HEALTH_CHECK_HOST: 0.0.0.0
+      
+      # Feature flags
+      ENABLE_POKEMON_BOT: "true"
+      ENABLE_SECURITY_BOT: "false"
+      ENABLE_DB_AUTO_SYNC: "false"
+      
+      # Battle configuration
+      BATTLE_CHANNEL_NAME: pokemon-battles
+      DISABLE_SNAPSHOT_PRECHECK: "true"
+      
+      # Timezone
+      TZ: America/New_York
+    ports:
+      - "3000:3000"
+    volumes:
+      - bot_store:/app/Store
+      - ./data:/app/data:ro
+      - ./assets:/app/assets:ro
+    networks:
+      - infinity-gauntlet
+    command: >
+      sh -c "npx prisma db push --accept-data-loss && node dist/index.js"
+
+  # Outbox Worker (Async message delivery)
+  # DISABLED FOR LOCAL DEVELOPMENT - Workers run inside main bot process
+  # outbox:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: infinity-gauntlet-outbox
+  #   restart: unless-stopped
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_URL: postgresql://gauntlet:${POSTGRES_PASSWORD:-localdev123}@postgres:5432/infinity_gauntlet
+  #     PROD_DATABASE_URL: postgresql://gauntlet:${POSTGRES_PASSWORD:-localdev123}@postgres:5432/infinity_gauntlet
+  #     NODE_ENV: development
+  #     SERVICE_NAME: outbox-worker
+  #     LOG_FORMAT: json
+  #     LOG_BUFFER_ENABLED: "true"
+  #     OUTBOX_MIN_DELAY_MS: "250"
+  #     OUTBOX_MAX_DELAY_MS: "1500"
+  #     OUTBOX_HEALTH_INTERVAL: "20"
+  #     OUTBOX_BATCH_SIZE: "100"
+  #     TZ: America/New_York
+  #   volumes:
+  #     - outbox_store:/app/Store
+  #   networks:
+  #     - infinity-gauntlet
+  #   command: ["node", "dist/worker/outbox.js"]
+
+  # Cache Refresh Worker
+  # DISABLED FOR LOCAL DEVELOPMENT - Workers run inside main bot process
+  # cache:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: infinity-gauntlet-cache
+  #   restart: unless-stopped
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_URL: postgresql://gauntlet:${POSTGRES_PASSWORD:-localdev123}@postgres:5432/infinity_gauntlet
+  #     PROD_DATABASE_URL: postgresql://gauntlet:${POSTGRES_PASSWORD:-localdev123}@postgres:5432/infinity_gauntlet
+  #     NODE_ENV: development
+  #     SERVICE_NAME: cache-worker
+  #     LOG_FORMAT: json
+  #     LOG_BUFFER_ENABLED: "true"
+  #     CACHE_WORKER_INTERVAL_MS: "3600000"
+  #     CACHE_WORKER_INTERVAL_JITTER_MS: "0"
+  #     TZ: America/New_York
+  #   volumes:
+  #     - cache_store:/app/Store
+  #   networks:
+  #     - infinity-gauntlet
+  #   command: ["node", "dist/worker/cache-refresh.js"]
+
+  # Data Pipeline Worker
+  # DISABLED FOR LOCAL DEVELOPMENT - Workers run inside main bot process
+  # data-pipeline:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: infinity-gauntlet-data-pipeline
+  #   restart: unless-stopped
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_URL: postgresql://gauntlet:${POSTGRES_PASSWORD:-localdev123}@postgres:5432/infinity_gauntlet
+  #     PROD_DATABASE_URL: postgresql://gauntlet:${POSTGRES_PASSWORD:-localdev123}@postgres:5432/infinity_gauntlet
+  #     NODE_ENV: development
+  #     SERVICE_NAME: data-pipeline-worker
+  #     LOG_FORMAT: json
+  #     LOG_BUFFER_ENABLED: "true"
+  #     DATA_PIPELINE_INTERVAL_MS: "86400000"
+  #     DATA_PIPELINE_INTERVAL_JITTER_MS: "900000"
+  #     DATA_PIPELINE_RUN_ON_BOOT: "false"
+  #     TZ: America/New_York
+  #   volumes:
+  #     - pipeline_store:/app/Store
+  #   networks:
+  #     - infinity-gauntlet
+  #   command: ["node", "dist/worker/data-pipeline.js"]
+
+  # Security Bot (Optional - enable via environment)
+  security:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: infinity-gauntlet-security
+    restart: unless-stopped
+    profiles:
+      - security
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SECURITY_BOT_TOKEN: ${SECURITY_BOT_TOKEN}
+      NODE_ENV: development
+      SERVICE_NAME: security-bot
+      LOG_FORMAT: json
+      LOG_BUFFER_ENABLED: "true"
+      ENABLE_SECURITY_BOT: "true"
+      ENABLE_CONTINUOUS_SWEEP: "true"
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      ALERT_CHANNEL_ID: ${ALERT_CHANNEL_ID:-}
+      ALERT_USER_ID: ${ALERT_USER_ID:-}
+      ROLE_NAME: Trainer
+      DISABLE_SNAPSHOT_PRECHECK: "true"
+      TZ: America/New_York
+    volumes:
+      - security_store:/app/Store
+    networks:
+      - infinity-gauntlet
+    command: ["node", "security-bot.js"]
+
+networks:
+  infinity-gauntlet:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  bot_store:
+    driver: local
+  outbox_store:
+    driver: local
+  cache_store:
+    driver: local
+  pipeline_store:
+    driver: local
+  security_store:
+    driver: local
