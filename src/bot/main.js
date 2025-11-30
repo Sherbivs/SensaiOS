@@ -2462,17 +2462,9 @@ async function sweepGuild(guild, origin) {
       return;
     }
 
-    const toAssign = guild.members.cache.filter(member => hasNoAssignableRoles(member));
-    candidates = toAssign.size;
-    if (toAssign.size === 0) {
-      report('Sweep No-Op', {
-        origin,
-        guild: guildSummary
-      });
-      sweepOutcome = 'no candidates';
-      return;
-    }
-
+    // Find members needing Trainer role:
+    // 1. Members with NO assignable roles (original logic)
+    // 2. Members who have OTHER roles but are MISSING Trainer role (NEW - catches members who joined before the fix)
     const role = findRole(guild);
     if (!role) {
       report('Role Missing', {
@@ -2482,6 +2474,39 @@ async function sweepGuild(guild, origin) {
         roleId: ROLE_ID || 'resolved at runtime'
       }, 'warn');
       sweepOutcome = 'role missing';
+      return;
+    }
+
+    const toAssign = guild.members.cache.filter(member => {
+      // Skip bots
+      if (member.user.bot) return false;
+      
+      // Case 1: Members with no assignable roles (original logic)
+      if (hasNoAssignableRoles(member)) return true;
+      
+      // Case 2: Members who have other roles but are missing Trainer role (NEW FIX)
+      // This catches members who joined before the guildMemberAdd fix was deployed
+      const hasTrainerRole = member.roles.cache.has(role.id);
+      if (!hasTrainerRole) {
+        // Log for visibility - these are members who were missed before the fix
+        log('info', `Found member missing Trainer role despite having other roles`, {
+          member: describeMember(member),
+          existingRoles: member.roles.cache.filter(r => r.id !== member.guild.id).map(r => r.name).join(', ') || 'none',
+          guild: guildSummary
+        });
+        return true;
+      }
+      
+      return false;
+    });
+    
+    candidates = toAssign.size;
+    if (toAssign.size === 0) {
+      report('Sweep No-Op', {
+        origin,
+        guild: guildSummary
+      });
+      sweepOutcome = 'no candidates';
       return;
     }
 
