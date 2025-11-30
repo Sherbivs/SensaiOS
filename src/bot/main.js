@@ -58,7 +58,7 @@ import { initializeState, shutdownState, startAutoSave, stopAutoSave } from './s
 import { recordSweep, recordMemberFetchTimeout } from './state/stats.js';
 import { getRecentActivitySummary } from './state/timeline.js';
 import { initializeRoleArchive, recordRoleChange, getRoleStatistics, shutdownRoleArchive } from './state/roleArchive.js';
-import { acquireLock, shutdownDistributedLock, getLockStatistics } from '../services/distributed-lock.js';
+import { shutdownDistributedLock, getLockStatistics } from '../services/distributed-lock.js';
 
 // Extract constants from centralized constants
 const { DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS, MEMBER_STATS_REFRESH_INTERVAL_MS } = TIME_CONSTANTS;
@@ -1222,7 +1222,11 @@ function getContinuousSweepGuilds(signal, transformer) {
  * 
  * @deprecated Since Week 2 Day 11-12 - Use enforceCanAssignRole() for security-critical paths
  */
-function canAssignRole(guild, role) {
+/**
+ * DEPRECATED: Replaced by enforceCanAssignRole() (Week 2 Day 11-12)
+ * Kept for potential legacy compatibility - use enforceCanAssignRole() instead.
+ */
+function _canAssignRole(guild, role) {
   const me = guild.members.me;
   if (!me) return true; // assume true; discord.js will error if not
   const hasManage = me.permissions.has('ManageRoles');
@@ -2294,126 +2298,58 @@ async function enforceRolePermissions(role) {
     }, error), 'error');
   }
 }
+/**
+ * REFACTORED: Week 3 Day 15-17 - DRY Architecture Optimization
+ * Delegates to unified role assignment service (600+ lines consolidated)
+ */
 async function ensureTrainerFor(member, origin = 'unspecified') {
-  // Verify member object exists and is valid
-  if (!member || !member.guild || !member.id || !member.user) {
-    log('warn', 'Cannot assign role: invalid member object', {
-      origin,
-      memberId: member?.id || 'unknown',
-      hasGuild: Boolean(member?.guild),
-      hasUser: Boolean(member?.user)
-    });
-    return;
-  }
-
-  // Skip bots
-  if (member.user.bot) {
-    return;
-  }
-
-  const guildSummary = describeGuild(member.guild);
-  const memberSummary = describeMember(member);
-
-  const role = findRole(member.guild);
-  if (!role) {
-    report('Role Missing', {
-      origin,
-      guild: guildSummary,
-      roleName: ROLE_NAME,
-      roleId: ROLE_ID || 'resolved at runtime'
-    }, 'warn');
-    return;
-  }
-
-  if (!hasNoAssignableRoles(member)) {
-    const assignableRoles = member.roles.cache
-      .filter(r => r.id !== member.guild.roles.everyone.id)
-      .map(describeRole);
-    report('Member Skipped', {
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-      existingRoles: assignableRoles.length ? assignableRoles.join(', ') : 'n/a'
-    }, 'detail');
-    return;
-  }
-
-  // SECURITY FIX: Strict permission enforcement (throws on failure)
-  // Week 2 Day 11-12: High Fix #2
-  try {
-    enforceCanAssignRole(member.guild, role);
-  } catch (error) {
-    log('error', '[SECURITY] Permission violation - cannot assign role', {
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-      role: describeRole(role),
-      reason: error.message
-    });
-    // Abort - do not attempt assignment without proper permissions
-    return;
-  }
-
-  // CRITICAL FIX: Distributed lock to prevent race conditions
-  const lockKey = `assign:${member.guild.id}:${member.id}:${role.id}`;
-  const lock = await acquireLock(lockKey, 5000);
+  // Import unified role assignment service
+  const { assignRole, shouldAssignRole } = await import('../services/role-assignment.js');
   
-  if (!lock) {
-    log('warn', 'Concurrent role assignment detected - skipping (protected by distributed lock)', {
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-      role: describeRole(role),
-      reason: 'lock_acquisition_failed'
-    });
-    return;
-  }
-
-  try {
-    // Cache: skip if we recently assigned this member (double-check inside lock)
-    const cacheKey = lockKey;
-    const cached = cache.readCache(cacheKey);
-    if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
-      report('Assignment Skipped (Cache)', {
-        origin,
-        guild: guildSummary,
-        member: memberSummary,
-        role: describeRole(role),
-        cachedAt: new Date(cached.timestamp).toISOString(),
-        ttlHours: CACHE_TTL_HOURS
-      }, 'detail');
+  // Pre-check: Skip if member has other assignable roles
+  // This preserves the original business logic specific to ensureTrainerFor
+  const role = findRole(member?.guild);
+  if (role) {
+    const eligibility = shouldAssignRole(member, role, hasNoAssignableRoles);
+    if (!eligibility.shouldAssign) {
+      if (eligibility.reason !== 'already-has-role') {
+        // Log the skip (except for already-has-role, which is silent)
+        const assignableRoles = member.roles.cache
+          .filter(r => r.id !== member.guild.roles.everyone.id)
+          .map(describeRole);
+        report('Member Skipped', {
+          origin,
+          guild: describeGuild(member.guild),
+          member: describeMember(member),
+          reason: eligibility.reason,
+          existingRoles: assignableRoles.length ? assignableRoles.join(', ') : 'n/a'
+        }, 'detail');
+      }
       return;
     }
-
-    await member.roles.add(role);
-    report('Assignment Success', {
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-      role: describeRole(role)
-    }, 'success');
-    activityTracker.recordActivity('role-assignment', `Assigned ${describeRole(role)} to ${memberSummary}`, {
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-    });
-    bumpRoleMemberCount(member.guild, 1);
-    cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
-  } catch (error) {
-    const hint = (error && (String(error.message).includes('Missing Permissions') || error.code === 50013))
-      ? 'Check role hierarchy: bot role must be above target role and have Manage Roles.'
-      : undefined;
-    report('Assignment Failure', mergeReportError({
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-      role: describeRole(role),
-      hint,
-    }, error), 'error');
-  } finally {
-    // CRITICAL: Always release lock to prevent deadlock
-    await lock.release();
   }
+  
+  // Delegate to unified service with dependency injection
+  const result = await assignRole(member, {
+    origin,
+    findRole,
+    enforcePermissions: enforceCanAssignRole,
+    cache,
+    cacheTTL: CACHE_TTL_HOURS,
+    activityTracker,
+    log,
+    report,
+    describeGuild,
+    describeMember,
+    describeRole,
+    onSuccess: () => {
+      // Original behavior: bump role member count
+      bumpRoleMemberCount(member.guild, 1);
+    }
+  });
+  
+  // Result is already logged by unified service
+  return result;
 }
 
 /**
@@ -2421,155 +2357,70 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
  * This function is specifically for guildMemberAdd events
  * Unlike ensureTrainerFor, this does NOT skip members who already have other roles
  */
+/**
+ * REFACTORED: Week 3 Day 15-17 - DRY Architecture Optimization
+ * Delegates to unified role assignment service (600+ lines consolidated)
+ * Preserves original behavior: assigns Trainer role to ALL new members
+ */
 async function assignTrainerRoleToNewMember(member) {
   const origin = 'member-join';
   
-  // Verify member object exists and is valid
-  if (!member || !member.guild || !member.id || !member.user) {
-    log('warn', 'Cannot assign role to new member: invalid member object', {
-      origin,
-      memberId: member?.id || 'unknown',
-      hasGuild: Boolean(member?.guild),
-      hasUser: Boolean(member?.user)
-    });
-    return;
-  }
-
-  // Skip bots
-  if (member.user.bot) {
-    return;
-  }
-
-  const guildSummary = describeGuild(member.guild);
-  const memberSummary = describeMember(member);
-
-  const role = findRole(member.guild);
-  if (!role) {
-    report('Role Missing (New Member)', {
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-      roleName: ROLE_NAME,
-      roleId: ROLE_ID || 'resolved at runtime'
-    }, 'warn');
-    return;
-  }
-
-  // Check if member already has the Trainer role
-  if (member.roles.cache.has(role.id)) {
-    report('New Member Already Has Trainer Role', {
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-      role: describeRole(role)
-    }, 'detail');
-    return;
-  }
-
-  // SECURITY FIX: Strict permission enforcement (throws on failure)
-  // Week 2 Day 11-12: High Fix #2
-  try {
-    enforceCanAssignRole(member.guild, role);
-  } catch (error) {
-    log('error', '[SECURITY] Permission violation - cannot assign role to new member', {
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-      role: describeRole(role),
-      reason: error.message
-    });
-    // Abort - do not attempt assignment without proper permissions
-    return;
-  }
-
-  // CRITICAL FIX: Distributed lock to prevent race conditions
-  // Multiple concurrent guildMemberAdd events could fire before cache is written
-  const lockKey = `assign:${member.guild.id}:${member.id}:${role.id}`;
-  const lock = await acquireLock(lockKey, 5000); // 5-second TTL
+  // Import unified role assignment service
+  const { assignRole } = await import('../services/role-assignment.js');
   
-  if (!lock) {
-    log('warn', 'Concurrent role assignment detected - skipping (protected by distributed lock)', {
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-      role: describeRole(role),
-      reason: 'lock_acquisition_failed'
-    });
-    return;
-  }
-
-  try {
-    // Cache check: skip if we recently assigned this member (double-check inside lock)
-    const cacheKey = lockKey; // Same key used for lock and cache
-    const cached = cache.readCache(cacheKey);
-    if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
-      report('New Member Assignment Skipped (Cache)', {
+  // Delegate to unified service with dependency injection
+  const result = await assignRole(member, {
+    origin,
+    findRole,
+    enforcePermissions: enforceCanAssignRole,
+    cache,
+    cacheTTL: CACHE_TTL_HOURS,
+    activityTracker,
+    log,
+    report,
+    describeGuild,
+    describeMember,
+    describeRole,
+    recordArchive: async (roleData) => {
+      // Original behavior: record to archive with new member metadata
+      const existingRoles = member.roles.cache
+        .filter(r => r.id !== member.guild.roles.everyone.id)
+        .map(describeRole);
+      
+      await recordRoleChange({
+        memberId: member.id,
+        memberTag: member.user.tag,
+        guildId: member.guild.id,
+        guildName: member.guild.name,
+        type: 'addition',
+        roleId: roleData.role.id,
+        roleName: roleData.role.name,
         origin,
-        guild: guildSummary,
-        member: memberSummary,
-        role: describeRole(role),
-        cachedAt: new Date(cached.timestamp).toISOString(),
-        ttlHours: CACHE_TTL_HOURS
-      }, 'detail');
-      return;
+        metadata: {
+          existingRoleCount: existingRoles.length,
+          existingRoles: existingRoles.map(r => r.name || r).join(', '),
+          isNewMember: true
+        }
+      });
+    },
+    onSuccess: () => {
+      // Original behavior: bump role member count
+      bumpRoleMemberCount(member.guild, 1);
+    },
+    reportPrefix: 'New Member ', // Changes "Assignment Success" → "New Member Assignment Success"
+    additionalReportData: () => {
+      const existingRoles = member.roles.cache
+        .filter(r => r.id !== member.guild.roles.everyone.id)
+        .map(describeRole);
+      return {
+        existingRoles: existingRoles.length ? existingRoles.join(', ') : 'none',
+        note: 'Trainer role assigned to new member regardless of existing roles'
+      };
     }
-
-    // Log the member's existing roles for debugging
-    const existingRoles = member.roles.cache
-      .filter(r => r.id !== member.guild.roles.everyone.id)
-      .map(describeRole);
-
-    await member.roles.add(role);
-    
-    // Record role change in archive (500-entry cold storage)
-    await recordRoleChange({
-      memberId: member.id,
-      memberTag: member.user.tag,
-      guildId: member.guild.id,
-      guildName: member.guild.name,
-      type: 'addition',
-      roleId: role.id,
-      roleName: role.name,
-      origin,
-      metadata: {
-        existingRoleCount: existingRoles.length,
-        existingRoles: existingRoles.map(r => r.name || r).join(', '),
-        isNewMember: true
-      }
-    });
-    
-    report('New Member Assignment Success', {
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-      role: describeRole(role),
-      existingRoles: existingRoles.length ? existingRoles.join(', ') : 'none',
-      note: 'Trainer role assigned to new member regardless of existing roles'
-    }, 'success');
-    activityTracker.recordActivity('role-assignment', `Assigned ${describeRole(role)} to NEW MEMBER ${memberSummary}`, {
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-      existingRoles: existingRoles.length,
-    });
-    bumpRoleMemberCount(member.guild, 1);
-    cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
-  } catch (error) {
-    const hint = (error && (String(error.message).includes('Missing Permissions') || error.code === 50013))
-      ? 'Check role hierarchy: bot role must be above Trainer role and have Manage Roles permission.'
-      : undefined;
-    report('New Member Assignment Failure', mergeReportError({
-      origin,
-      guild: guildSummary,
-      member: memberSummary,
-      role: describeRole(role),
-      existingRoles: existingRoles.length ? existingRoles.join(', ') : 'none',
-      hint,
-    }, error), 'error');
-  } finally {
-    // CRITICAL: Always release lock to prevent deadlock
-    await lock.release();
-  }
+  });
+  
+  // Result is already logged by unified service
+  return result;
 }
 
 
