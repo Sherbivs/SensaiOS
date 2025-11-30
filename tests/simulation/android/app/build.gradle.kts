@@ -53,7 +53,9 @@ android {
         freeCompilerArgs += listOf(
             "-opt-in=kotlin.RequiresOptIn"
         )
-    }    buildFeatures {
+    }
+
+    buildFeatures {
         viewBinding = true
         buildConfig = true
         compose = true  // Enable Jetpack Compose
