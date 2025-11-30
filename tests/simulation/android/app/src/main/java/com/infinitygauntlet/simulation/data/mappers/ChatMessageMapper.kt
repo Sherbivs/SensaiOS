@@ -15,6 +15,11 @@ import com.infinitygauntlet.simulation.domain.models.MessageType
  * 
  * Note: Reactions are stored as JSON string in entity, parsed to Map in domain.
  * 
+ * KAPT COMPATIBILITY FIX (2025-11-29 - SECOND ATTEMPT):
+ * Removed ALL TypeToken usage to avoid KAPT "Could not load module" error.
+ * Using direct Map::class.java casting instead.
+ * Anonymous object expressions (even at file-level) cause KAPT module loading failures.
+ * 
  * Usage:
  * ```
  * val entity = ChatMessageEntity(...)
@@ -34,8 +39,9 @@ fun ChatMessageEntity.toDomain(replyToContent: String? = null): ChatMessage {
     // Parse reactions JSON to Map
     val reactionsMap: Map<String, Int> = reactions?.let { json ->
         try {
-            val type = object : com.google.gson.reflect.TypeToken<Map<String, Int>>() {}.type
-            com.google.gson.Gson().fromJson<Map<String, Int>>(json, type) ?: emptyMap()
+            // Using fromJson with explicit class instead of TypeToken
+            @Suppress("UNCHECKED_CAST")
+            com.google.gson.Gson().fromJson(json, Map::class.java) as? Map<String, Int> ?: emptyMap()
         } catch (e: Exception) {
             emptyMap()
         }

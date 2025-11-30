@@ -160,7 +160,7 @@ fun List<TestResult>.skipped(): List<TestResult> = filterByStatus("skipped")
 /**
  * Calculate pass rate for test results.
  */
-fun List<TestResult>.passRate: Double {
+val List<TestResult>.passRate: Double get() = run {
     if (isEmpty()) return 0.0
     val passedCount = count { it.status == ResultStatus.PASSED }
     return (passedCount.toDouble() / size) * 100.0

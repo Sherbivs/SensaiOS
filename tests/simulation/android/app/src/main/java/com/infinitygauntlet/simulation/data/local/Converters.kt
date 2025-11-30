@@ -2,20 +2,20 @@ package com.infinitygauntlet.simulation.data.local
 
 import androidx.room.TypeConverter
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 
 /**
  * Type Converters for Room Database
  * 
  * Week 2: Phase 2.1 - Room Database
- * 
+ * UPGRADED: KSP Migration (2025-12-20) - Cleaned up duplicate methods
+ *
  * Provides conversion between complex types and database-storable primitives.
  * Used by Room to store lists, JSON objects, and other non-primitive types.
  */
 class Converters {
-    
+
     private val gson = Gson()
-    
+
     /**
      * Convert JSON string to Map<String, Int>
      * Used for reactions (emoji -> count)
@@ -23,14 +23,14 @@ class Converters {
     @TypeConverter
     fun fromReactionsJson(value: String?): Map<String, Int>? {
         if (value == null) return null
-        val type = object : TypeToken<Map<String, Int>>() {}.type
         return try {
-            gson.fromJson(value, type)
+            @Suppress("UNCHECKED_CAST")
+            gson.fromJson(value, Map::class.java) as? Map<String, Int>
         } catch (e: Exception) {
             null
         }
     }
-    
+
     /**
      * Convert Map<String, Int> to JSON string
      */
@@ -38,7 +38,7 @@ class Converters {
     fun toReactionsJson(reactions: Map<String, Int>?): String? {
         return reactions?.let { gson.toJson(it) }
     }
-    
+
     /**
      * Convert JSON array string to List<String>
      * Used for arrays of strings (tags, categories, etc.)
@@ -46,14 +46,14 @@ class Converters {
     @TypeConverter
     fun fromJsonStringList(value: String?): List<String>? {
         if (value == null) return null
-        val type = object : TypeToken<List<String>>() {}.type
         return try {
-            gson.fromJson(value, type)
+            @Suppress("UNCHECKED_CAST")
+            gson.fromJson(value, List::class.java) as? List<String>
         } catch (e: Exception) {
             null
         }
     }
-    
+
     /**
      * Convert List<String> to JSON array string
      */

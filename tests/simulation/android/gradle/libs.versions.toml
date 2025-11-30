@@ -1,15 +1,16 @@
 # Gradle Version Catalog
 # Week 1: Foundation Dependencies
 # Generated: 2025-11-29
+# UPGRADED: KSP Migration (2025-12-20)
 
 [versions]
 # Build Tools
 agp = "8.13.1"
-kotlin = "2.0.21"
+kotlin = "2.0.21"  # Upgraded for KSP migration - stable release
+ksp = "2.0.21-1.0.28"  # KSP version matching Kotlin 2.0.21
 
 # Jetpack Compose (Week 1 - Phase 1.1)
 compose-bom = "2024.11.00"
-compose-compiler = "1.5.15"
 compose-activity = "1.9.3"
 compose-navigation = "2.8.4"
 compose-lifecycle = "2.8.7"
@@ -138,7 +139,7 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
-kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 room = { id = "androidx.room", version.ref = "room" }
 
 [bundles]

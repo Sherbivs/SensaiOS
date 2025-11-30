@@ -13,7 +13,7 @@ package com.infinitygauntlet.simulation.presentation.common
  * Usage:
  * ```kotlin
  * sealed class TestScreenState : UiState<List<TestScenario>> {
- *     data object Loading : TestScreenState()
+ *     object Loading : TestScreenState()
  *     data class Success(override val data: List<TestScenario>) : TestScreenState()
  *     data class Error(override val message: String) : TestScreenState()
  * }
@@ -24,12 +24,12 @@ sealed interface UiState<out T> {
     /**
      * Initial state - no data loaded yet
      */
-    data object Initial : UiState<Nothing>
+    object Initial : UiState<Nothing>
     
     /**
      * Loading state - data is being fetched/processed
      */
-    data object Loading : UiState<Nothing>
+    object Loading : UiState<Nothing>
     
     /**
      * Success state - data loaded successfully
