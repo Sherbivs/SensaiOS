@@ -26,6 +26,9 @@ import {
   BACKFILL_INTERVAL_SECONDS,
   ROLE_REMEDIATION_INTERVAL_SECONDS,
   CACHE_TTL_HOURS,
+  MAX_SWEEP_CANDIDATES,
+  SWEEP_ANOMALY_THRESHOLD,
+  SWEEP_ANOMALY_CRITICAL,
   ENABLE_CONTINUOUS_SWEEP,
   OPS_REPORT_INTERVAL_SECONDS,
   STANDARD_ENFORCE_ALL,
@@ -2597,6 +2600,45 @@ async function sweepGuild(guild, origin) {
       return;
     }
 
+    // SECURITY: DoS Protection (Week 2 Day 8-10 - Backend Architect)
+    // Cap sweep candidates to prevent resource exhaustion
+    let cappedCandidates = toAssign.size;
+    let wasThrottled = false;
+    
+    if (toAssign.size > MAX_SWEEP_CANDIDATES) {
+      cappedCandidates = MAX_SWEEP_CANDIDATES;
+      wasThrottled = true;
+      report('Sweep Throttled (DoS Protection)', {
+        origin,
+        guild: guildSummary,
+        totalCandidates: toAssign.size,
+        cappedTo: MAX_SWEEP_CANDIDATES,
+        droppedCandidates: toAssign.size - MAX_SWEEP_CANDIDATES
+      }, 'warn');
+    }
+    
+    // SECURITY: Anomaly Detection - Alert on suspicious sweep volumes
+    if (toAssign.size >= SWEEP_ANOMALY_CRITICAL) {
+      report('CRITICAL: Mass Role Removal Detected', {
+        origin,
+        guild: guildSummary,
+        candidateCount: toAssign.size,
+        threshold: SWEEP_ANOMALY_CRITICAL,
+        possibleAttack: 'Mass role removal or bot configuration error',
+        action: `Capped to ${MAX_SWEEP_CANDIDATES} assignments`
+      }, 'error');
+      // TODO: Send Drip critical alert once Drip integration available
+    } else if (toAssign.size >= SWEEP_ANOMALY_THRESHOLD) {
+      report('WARNING: Anomalous Sweep Volume', {
+        origin,
+        guild: guildSummary,
+        candidateCount: toAssign.size,
+        threshold: SWEEP_ANOMALY_THRESHOLD,
+        action: wasThrottled ? `Capped to ${MAX_SWEEP_CANDIDATES}` : 'Processing normally'
+      }, 'warn');
+      // TODO: Send Drip warning alert once Drip integration available
+    }
+
     // Pre-check hierarchy/permissions
     canAssignRole(guild, role);
 
@@ -2604,12 +2646,15 @@ async function sweepGuild(guild, origin) {
       origin,
       guild: guildSummary,
       totalCandidates: toAssign.size,
+      cappedCandidates: cappedCandidates,
+      wasThrottled: wasThrottled,
       role: describeRole(role),
       concurrency: BACKFILL_CONCURRENCY,
       delayMsBetweenBatches: BACKFILL_DELAY_MS
     });
 
-    const members = Array.from(toAssign.values());
+    // Apply DoS protection cap
+    const members = Array.from(toAssign.values()).slice(0, cappedCandidates);
 
     for (let i = 0; i < members.length; i += BACKFILL_CONCURRENCY) {
       const batch = members.slice(i, i + BACKFILL_CONCURRENCY);
