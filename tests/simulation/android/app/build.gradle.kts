@@ -66,6 +66,12 @@ android {
     }
 }
 
+// KAPT configuration
+kapt {
+    correctErrorTypes = true
+    useBuildCache = true
+}
+
 dependencies {
     // ══════════════════════════════════════════════════════════════
     // WEEK 1: COMPOSE + HILT FOUNDATION
@@ -90,11 +96,12 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     
     // ══════════════════════════════════════════════════════════════
-    // WEEK 2: ROOM DATABASE (Prepared)
+    // WEEK 2: ROOM DATABASE (Prepared - Currently Unused)
     // ══════════════════════════════════════════════════════════════
-    
-    implementation(libs.bundles.room)
-    kapt(libs.room.compiler)
+    // NOTE: Room dependencies commented out - project uses external PostgreSQL
+    // Uncomment if/when Room local cache is needed
+    // implementation(libs.bundles.room)
+    // kapt(libs.room.compiler)
     
     // ══════════════════════════════════════════════════════════════
     // WEEK 4: IMAGE LOADING (Prepared)
