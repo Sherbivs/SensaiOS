@@ -10,7 +10,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.infinitygauntlet.simulation.R
-import com.infinitygauntlet.simulation.models.TestScenario
+import com.infinitygauntlet.simulation.domain.models.TestScenario
 
 /**
  * RecyclerView Adapter for TestScenario list

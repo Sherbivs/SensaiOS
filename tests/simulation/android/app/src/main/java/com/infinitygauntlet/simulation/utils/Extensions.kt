@@ -5,8 +5,8 @@ import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
-import com.infinitygauntlet.simulation.models.TestResult
-import com.infinitygauntlet.simulation.models.TestScenario
+import com.infinitygauntlet.simulation.domain.models.TestResult
+import com.infinitygauntlet.simulation.domain.models.TestScenario
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -160,9 +160,9 @@ fun List<TestResult>.skipped(): List<TestResult> = filterByStatus("skipped")
 /**
  * Calculate pass rate for test results.
  */
-fun List<TestResult>.passRate(): Double {
+fun List<TestResult>.passRate: Double {
     if (isEmpty()) return 0.0
-    val passedCount = count { it.status == "passed" }
+    val passedCount = count { it.status == ResultStatus.PASSED }
     return (passedCount.toDouble() / size) * 100.0
 }
 
@@ -170,7 +170,7 @@ fun List<TestResult>.passRate(): Double {
  * Calculate total duration of test results.
  */
 fun List<TestResult>.totalDuration(): Long {
-    return sumOf { it.durationMs }
+    return sumOf { it.durationMs.toLong() }
 }
 
 /**
@@ -381,7 +381,7 @@ fun TestResult.isRunning(): Boolean = status == "running"
 /**
  * Get duration in seconds.
  */
-fun TestResult.getDurationSeconds(): Double = durationMs / 1000.0
+fun TestResult.formatDuration(): Double = durationMs / 1000.0
 
 /**
  * Check if test scenario has high pass rate (>= 80%).
@@ -398,8 +398,8 @@ fun TestScenario.isLongRunning(): Boolean = expectedDurationMs > 5000
  */
 fun TestScenario.isCritical(): Boolean {
     return category in listOf(
-        TestScenario.TestCategory.ONBOARDING,
-        TestScenario.TestCategory.BATTLE_SYSTEM
+        TestScenario."ONBOARDING",
+        TestScenario."BATTLE_SYSTEM"
     )
 }
 

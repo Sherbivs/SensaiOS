@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import com.infinitygauntlet.simulation.models.TestResult
+import com.infinitygauntlet.simulation.domain.models.TestResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

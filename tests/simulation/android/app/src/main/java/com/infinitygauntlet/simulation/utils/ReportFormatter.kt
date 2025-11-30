@@ -4,8 +4,8 @@ import android.graphics.Color
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
-import com.infinitygauntlet.simulation.models.TestResult
-import com.infinitygauntlet.simulation.models.TestSummary
+import com.infinitygauntlet.simulation.domain.models.TestResult
+// TestSummary removed - no longer needed
 import java.text.SimpleDateFormat
 import java.util.*
 

@@ -11,7 +11,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import com.infinitygauntlet.simulation.R
-import com.infinitygauntlet.simulation.models.ChatMessage
+import com.infinitygauntlet.simulation.domain.models.ChatMessage
 
 /**
  * RecyclerView Adapter for ChatMessage list

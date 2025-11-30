@@ -2,8 +2,8 @@ package com.infinitygauntlet.simulation.repositories
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.infinitygauntlet.simulation.models.TestCategory
-import com.infinitygauntlet.simulation.models.TestPriority
+// TestCategory moved to TestScenario
+// TestPriority removed
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*

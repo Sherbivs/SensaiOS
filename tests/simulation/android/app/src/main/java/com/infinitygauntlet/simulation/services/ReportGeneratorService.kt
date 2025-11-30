@@ -4,8 +4,8 @@ import android.app.Service
 import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
-import com.infinitygauntlet.simulation.models.TestResult
-import com.infinitygauntlet.simulation.models.TestSummary
+import com.infinitygauntlet.simulation.domain.models.TestResult
+// TestSummary removed - no longer needed
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

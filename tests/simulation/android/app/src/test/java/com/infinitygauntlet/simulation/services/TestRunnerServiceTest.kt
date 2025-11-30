@@ -3,7 +3,7 @@ package com.infinitygauntlet.simulation.services
 import android.app.NotificationManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.infinitygauntlet.simulation.models.*
+import com.infinitygauntlet.simulation.domain.models.*
 import com.infinitygauntlet.simulation.repositories.TestScenarioRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

@@ -1,7 +1,7 @@
 package com.infinitygauntlet.simulation.viewmodels
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
-import com.infinitygauntlet.simulation.models.*
+import com.infinitygauntlet.simulation.domain.models.*
 import com.infinitygauntlet.simulation.repositories.TestScenarioRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

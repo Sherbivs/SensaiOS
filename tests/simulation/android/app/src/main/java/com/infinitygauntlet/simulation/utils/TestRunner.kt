@@ -1,7 +1,7 @@
 package com.infinitygauntlet.simulation.utils
 
-import com.infinitygauntlet.simulation.models.TestResult
-import com.infinitygauntlet.simulation.models.TestScenario
+import com.infinitygauntlet.simulation.domain.models.TestResult
+import com.infinitygauntlet.simulation.domain.models.TestScenario
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,7 +63,7 @@ class TestRunner {
                 _currentTest.value = scenario.name
                 _progress.value = _progress.value.copy(
                     completedTests = index,
-                    currentTestName = scenario.name
+                    currentscenarioName = scenario.name
                 )
                 
                 val result = runSingleTest(scenario, config)
@@ -72,8 +72,8 @@ class TestRunner {
                 // Update progress
                 _progress.value = _progress.value.copy(
                     completedTests = index + 1,
-                    passedTests = results.count { it.status == "passed" },
-                    failedTests = results.count { it.status == "failed" }
+                    passedTests = results.count { it.status == ResultStatus.PASSED },
+                    failedTests = results.count { it.status == ResultStatus.FAILED }
                 )
             }
         } finally {
@@ -171,11 +171,11 @@ class TestRunner {
             withTimeout(config.timeoutMs) {
                 // Simulate test execution
                 when (scenario.category) {
-                    TestScenario.TestCategory.ONBOARDING -> executeOnboardingTest(scenario)
-                    TestScenario.TestCategory.WILD_ENCOUNTERS -> executeWildEncounterTest(scenario)
-                    TestScenario.TestCategory.BATTLE_SYSTEM -> executeBattleTest(scenario)
-                    TestScenario.TestCategory.AI_VALIDATION -> executeAITest(scenario)
-                    TestScenario.TestCategory.STRESS_TEST -> executeStressTest(scenario)
+                    TestScenario."ONBOARDING" -> executeOnboardingTest(scenario)
+                    TestScenario."WILD_ENCOUNTERS" -> executeWildEncounterTest(scenario)
+                    TestScenario."BATTLE_SYSTEM" -> executeBattleTest(scenario)
+                    TestScenario."AI_VALIDATION" -> executeAITest(scenario)
+                    TestScenario."STRESS_TEST" -> executeStressTest(scenario)
                 }
                 
                 // Simulate test duration
@@ -184,13 +184,12 @@ class TestRunner {
                 // Determine outcome based on scenario pass rate
                 val passed = Random.nextDouble() < (scenario.passRate / 100.0)
                 
-                TestResult(
-                    id = UUID.randomUUID().toString(),
-                    testName = scenario.name,
+                TestResult(scenarioId = UUID.randomUUID().toString(),
+                    scenarioName = scenario.name,
                     status = if (passed) "passed" else "failed",
                     durationMs = System.currentTimeMillis() - startTime,
-                    timestamp = startTime,
-                    failureReason = if (!passed) {
+                    executionTimestamp = startTime,
+                    errorMessage = if (!passed) {
                         TestResult.TestFailure(
                             message = "Test assertion failed: Expected success, got failure",
                             stackTrace = generateStackTrace(scenario),
@@ -255,13 +254,12 @@ class TestRunner {
         timeoutMs: Long,
         startTime: Long
     ): TestResult {
-        return TestResult(
-            id = UUID.randomUUID().toString(),
-            testName = scenario.name,
-            status = "failed",
+        return TestResult(scenarioId = UUID.randomUUID().toString(),
+            scenarioName = scenario.name,
+            status = ResultStatus.FAILED,
             durationMs = System.currentTimeMillis() - startTime,
-            timestamp = startTime,
-            failureReason = TestResult.TestFailure(
+            executionTimestamp = startTime,
+            errorMessage = TestResult.TestFailure(
                 message = "Test timed out after ${timeoutMs}ms",
                 stackTrace = "at TestRunner.executeTest()\nat kotlinx.coroutines.withTimeout()",
                 line = 0,
@@ -278,13 +276,12 @@ class TestRunner {
         exception: Exception,
         startTime: Long = System.currentTimeMillis()
     ): TestResult {
-        return TestResult(
-            id = UUID.randomUUID().toString(),
-            testName = scenario.name,
-            status = "failed",
+        return TestResult(scenarioId = UUID.randomUUID().toString(),
+            scenarioName = scenario.name,
+            status = ResultStatus.FAILED,
             durationMs = System.currentTimeMillis() - startTime,
-            timestamp = startTime,
-            failureReason = TestResult.TestFailure(
+            executionTimestamp = startTime,
+            errorMessage = TestResult.TestFailure(
                 message = exception.message ?: "Unknown error",
                 stackTrace = exception.stackTraceToString(),
                 line = 0,

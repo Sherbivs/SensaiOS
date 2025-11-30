@@ -4,7 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.infinitygauntlet.simulation.models.ChatMessage
+import com.infinitygauntlet.simulation.domain.models.ChatMessage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

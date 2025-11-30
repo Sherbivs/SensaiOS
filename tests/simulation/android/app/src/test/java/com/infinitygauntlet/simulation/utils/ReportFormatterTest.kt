@@ -1,7 +1,7 @@
 package com.infinitygauntlet.simulation.utils
 
 import android.text.SpannableString
-import com.infinitygauntlet.simulation.models.*
+import com.infinitygauntlet.simulation.domain.models.*
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test

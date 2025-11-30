@@ -2,8 +2,8 @@ package com.infinitygauntlet.simulation.repositories
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.infinitygauntlet.simulation.models.TestResult
-import com.infinitygauntlet.simulation.models.TestStatus
+import com.infinitygauntlet.simulation.domain.models.TestResult
+import com.infinitygauntlet.simulation.domain.models.TestStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*

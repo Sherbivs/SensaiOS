@@ -8,7 +8,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.chip.Chip
 import com.infinitygauntlet.simulation.adapters.ChatMessageAdapter
-import com.infinitygauntlet.simulation.models.ChatMessage
+import com.infinitygauntlet.simulation.domain.models.ChatMessage
 import com.infinitygauntlet.simulation.viewmodels.ChatViewModel
 
 /**

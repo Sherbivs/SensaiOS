@@ -10,7 +10,8 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.infinitygauntlet.simulation.R
-import com.infinitygauntlet.simulation.models.TestResult
+import com.infinitygauntlet.simulation.domain.models.TestResult
+import com.infinitygauntlet.simulation.domain.models.ResultStatus
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -51,27 +52,18 @@ class TestResultAdapter(
          * @param result The test result to display
          */
         fun bind(result: TestResult) {
-            // Set test name
-            testNameText.text = result.testName
+            // Set test name (scenarioName in domain model)
+            testNameText.text = result.scenarioName
 
-            // Set duration with formatting
-            val durationSeconds = result.getDurationSeconds()
-            durationText.text = when {
-                durationSeconds < 1.0 -> "%.0f ms".format(result.durationMs)
-                durationSeconds < 60.0 -> "%.2f s".format(durationSeconds)
-                else -> {
-                    val minutes = (durationSeconds / 60).toInt()
-                    val seconds = (durationSeconds % 60).toInt()
-                    "${minutes}m ${seconds}s"
-                }
-            }
+            // Set duration with formatting (using domain model's formatDuration)
+            durationText.text = result.formatDuration()
 
-            // Set timestamp
-            timestampText.text = dateFormat.format(Date(result.timestamp))
+            // Set timestamp (using domain model's formatExecutionTime)
+            timestampText.text = result.formatExecutionTime()
 
-            // Set status-specific styling
+            // Set status-specific styling (enum-based)
             when (result.status) {
-                "passed" -> {
+                ResultStatus.PASSED -> {
                     statusIcon.setImageResource(R.drawable.ic_check_circle)
                     statusIcon.setColorFilter(
                         ContextCompat.getColor(itemView.context, R.color.test_passed)
@@ -81,7 +73,7 @@ class TestResultAdapter(
                     )
                     failureDetailsContainer.visibility = View.GONE
                 }
-                "failed" -> {
+                ResultStatus.FAILED -> {
                     statusIcon.setImageResource(R.drawable.ic_error)
                     statusIcon.setColorFilter(
                         ContextCompat.getColor(itemView.context, R.color.test_failed)
@@ -90,16 +82,16 @@ class TestResultAdapter(
                         ContextCompat.getColor(itemView.context, R.color.test_failed)
                     )
                     
-                    // Show failure details if available
-                    if (result.failureReason != null) {
+                    // Show failure details if available (errorMessage in domain model)
+                    if (result.errorMessage != null) {
                         failureDetailsContainer.visibility = View.VISIBLE
-                        errorMessageText.text = result.failureReason.message
-                        stackTraceText.text = result.failureReason.stackTrace
+                        errorMessageText.text = result.errorMessage
+                        stackTraceText.text = result.errorMessage // Domain model has only errorMessage
                     } else {
                         failureDetailsContainer.visibility = View.GONE
                     }
                 }
-                "skipped" -> {
+                ResultStatus.SKIPPED -> {
                     statusIcon.setImageResource(R.drawable.ic_skip_next)
                     statusIcon.setColorFilter(
                         ContextCompat.getColor(itemView.context, R.color.test_skipped)
@@ -109,7 +101,7 @@ class TestResultAdapter(
                     )
                     failureDetailsContainer.visibility = View.GONE
                 }
-                "running" -> {
+                ResultStatus.ERROR -> {
                     statusIcon.setImageResource(R.drawable.ic_play_circle)
                     statusIcon.setColorFilter(
                         ContextCompat.getColor(itemView.context, R.color.test_running)
@@ -155,9 +147,8 @@ class TestResultAdapter(
      */
     private class ResultDiffCallback : DiffUtil.ItemCallback<TestResult>() {
         override fun areItemsTheSame(oldItem: TestResult, newItem: TestResult): Boolean {
-            // Results are the same if they have the same test name and timestamp
-            return oldItem.testName == newItem.testName && 
-                   oldItem.timestamp == newItem.timestamp
+            // Results are the same if they have the same ID (domain model uses Long id)
+            return oldItem.id == newItem.id
         }
 
         override fun areContentsTheSame(oldItem: TestResult, newItem: TestResult): Boolean {
@@ -188,10 +179,10 @@ class TestResultAdapter(
     /**
      * Filter results by status.
      * 
-     * @param status The status to filter by ("passed", "failed", "skipped", "running")
-     * @return A new adapter with filtered results
+     * @param status The status to filter by (ResultStatus enum)
+     * @return A new list with filtered results
      */
-    fun filterByStatus(status: String): List<TestResult> {
+    fun filterByStatus(status: ResultStatus): List<TestResult> {
         return currentList.filter { it.status == status }
     }
 
@@ -206,15 +197,15 @@ class TestResultAdapter(
             "passed" to 0,
             "failed" to 0,
             "skipped" to 0,
-            "running" to 0
+            "error" to 0
         )
         
         currentList.forEach { result ->
             when (result.status) {
-                "passed" -> stats["passed"] = stats["passed"]!! + 1
-                "failed" -> stats["failed"] = stats["failed"]!! + 1
-                "skipped" -> stats["skipped"] = stats["skipped"]!! + 1
-                "running" -> stats["running"] = stats["running"]!! + 1
+                ResultStatus.PASSED -> stats["passed"] = stats["passed"]!! + 1
+                ResultStatus.FAILED -> stats["failed"] = stats["failed"]!! + 1
+                ResultStatus.SKIPPED -> stats["skipped"] = stats["skipped"]!! + 1
+                ResultStatus.ERROR -> stats["error"] = stats["error"]!! + 1
             }
         }
         
@@ -228,7 +219,7 @@ class TestResultAdapter(
      */
     fun getPassRate(): Double {
         if (currentList.isEmpty()) return 0.0
-        val passed = currentList.count { it.status == "passed" }
+        val passed = currentList.count { it.status == ResultStatus.PASSED }
         return (passed.toDouble() / currentList.size) * 100.0
     }
 
@@ -251,16 +242,16 @@ class TestResultAdapter(
     }
 
     /**
-     * Sort results by status (failed first, then skipped, then passed).
+     * Sort results by status (failed first, then error, then skipped, then passed).
      * 
      * @return A new list of results sorted by status priority
      */
     fun sortByStatus(): List<TestResult> {
         val priorityMap = mapOf(
-            "failed" to 0,
-            "running" to 1,
-            "skipped" to 2,
-            "passed" to 3
+            ResultStatus.FAILED to 0,
+            ResultStatus.ERROR to 1,
+            ResultStatus.SKIPPED to 2,
+            ResultStatus.PASSED to 3
         )
         return currentList.sortedBy { priorityMap[it.status] ?: 999 }
     }

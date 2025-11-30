@@ -8,9 +8,9 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.infinitygauntlet.simulation.R
-import com.infinitygauntlet.simulation.models.TestResult
-import com.infinitygauntlet.simulation.models.TestScenario
-import com.infinitygauntlet.simulation.models.TestSummary
+import com.infinitygauntlet.simulation.domain.models.TestResult
+import com.infinitygauntlet.simulation.domain.models.TestScenario
+// TestSummary removed - no longer needed
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -124,7 +124,7 @@ class TestRunnerService : Service() {
         _currentProgress.value = TestProgress(
             totalTests = scenarios.size,
             completedTests = 0,
-            currentTestName = ""
+            currentscenarioName = ""
         )
         
         currentJob = serviceScope.launch {
@@ -153,7 +153,7 @@ class TestRunnerService : Service() {
             // Update progress
             _currentProgress.value = _currentProgress.value.copy(
                 completedTests = index,
-                currentTestName = scenario.name
+                currentscenarioName = scenario.name
             )
             
             // Update notification
@@ -175,7 +175,7 @@ class TestRunnerService : Service() {
         // All tests complete
         _currentProgress.value = _currentProgress.value.copy(
             completedTests = scenarios.size,
-            currentTestName = "Complete"
+            currentscenarioName = "Complete"
         )
         
         val summary = TestSummary.fromResults(results, "android-service")
@@ -213,13 +213,12 @@ class TestRunnerService : Service() {
                 // Determine outcome (simulate based on scenario properties)
                 val passed = Random().nextDouble() < (scenario.passRate / 100.0)
                 
-                TestResult(
-                    id = UUID.randomUUID().toString(),
-                    testName = scenario.name,
+                TestResult(scenarioId = UUID.randomUUID().toString(),
+                    scenarioName = scenario.name,
                     status = if (passed) "passed" else "failed",
                     durationMs = System.currentTimeMillis() - startTime,
-                    timestamp = startTime,
-                    failureReason = if (!passed) {
+                    executionTimestamp = startTime,
+                    errorMessage = if (!passed) {
                         TestResult.TestFailure(
                             message = "Simulated failure for ${scenario.name}",
                             stackTrace = "at TestRunner.execute()\nat TestScenario.run()",
@@ -229,13 +228,12 @@ class TestRunnerService : Service() {
                     } else null
                 )
             } catch (e: Exception) {
-                TestResult(
-                    id = UUID.randomUUID().toString(),
-                    testName = scenario.name,
-                    status = "failed",
+                TestResult(scenarioId = UUID.randomUUID().toString(),
+                    scenarioName = scenario.name,
+                    status = ResultStatus.FAILED,
                     durationMs = System.currentTimeMillis() - startTime,
-                    timestamp = startTime,
-                    failureReason = TestResult.TestFailure(
+                    executionTimestamp = startTime,
+                    errorMessage = TestResult.TestFailure(
                         message = e.message ?: "Unknown error",
                         stackTrace = e.stackTraceToString(),
                         line = 0,

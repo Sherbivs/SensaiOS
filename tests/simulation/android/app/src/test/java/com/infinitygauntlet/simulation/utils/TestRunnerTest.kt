@@ -1,6 +1,6 @@
 package com.infinitygauntlet.simulation.utils
 
-import com.infinitygauntlet.simulation.models.*
+import com.infinitygauntlet.simulation.domain.models.*
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Before
