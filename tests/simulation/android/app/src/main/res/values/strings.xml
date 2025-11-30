@@ -88,6 +88,30 @@
     <string name="setting_timestamps">Timestamps</string>
     <string name="menu_help">Help</string>
     
+    <!-- Filter Options -->
+    <string name="filter_onboarding">Onboarding</string>
+    <string name="filter_wild_encounter">Wild Encounter</string>
+    <string name="filter_battle">Battle</string>
+    <string name="filter_ai">AI</string>
+    <string name="filter_stress">Stress</string>
+    
+    <!-- Sort Options -->
+    <string name="menu_sort">Sort</string>
+    <string name="sort_name_asc">Name (A-Z)</string>
+    <string name="sort_name_desc">Name (Z-A)</string>
+    <string name="sort_priority_high">Priority (High First)</string>
+    <string name="sort_duration_short">Duration (Short First)</string>
+    <string name="sort_duration_long">Duration (Long First)</string>
+    
+    <!-- Navigation Menu Items -->
+    <string name="menu_chat">Chat</string>
+    <string name="menu_reports">Reports</string>
+    <string name="menu_run_all_tests">Run All Tests</string>
+    
+    <!-- Navigation Titles -->
+    <string name="chat_title">Chat</string>
+    <string name="test_results_title">Test Results</string>
+    
     <!-- Snackbar Messages -->
     <string name="running_scenario">Running %s...</string>
     <string name="running_all_tests">Running all 143 tests...</string>
