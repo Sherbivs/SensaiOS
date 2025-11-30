@@ -2321,6 +2321,121 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
   }
 }
 
+/**
+ * CRITICAL: Assign Trainer role to new members REGARDLESS of their existing roles
+ * This function is specifically for guildMemberAdd events
+ * Unlike ensureTrainerFor, this does NOT skip members who already have other roles
+ */
+async function assignTrainerRoleToNewMember(member) {
+  const origin = 'member-join';
+  
+  // Verify member object exists and is valid
+  if (!member || !member.guild || !member.id || !member.user) {
+    log('warn', 'Cannot assign role to new member: invalid member object', {
+      origin,
+      memberId: member?.id || 'unknown',
+      hasGuild: Boolean(member?.guild),
+      hasUser: Boolean(member?.user)
+    });
+    return;
+  }
+
+  // Skip bots
+  if (member.user.bot) {
+    return;
+  }
+
+  const guildSummary = describeGuild(member.guild);
+  const memberSummary = describeMember(member);
+
+  const role = findRole(member.guild);
+  if (!role) {
+    report('Role Missing (New Member)', {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      roleName: ROLE_NAME,
+      roleId: ROLE_ID || 'resolved at runtime'
+    }, 'warn');
+    return;
+  }
+
+  // Check if member already has the Trainer role
+  if (member.roles.cache.has(role.id)) {
+    report('New Member Already Has Trainer Role', {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      role: describeRole(role)
+    }, 'detail');
+    return;
+  }
+
+  // Pre-check hierarchy/permissions
+  if (!canAssignRole(member.guild, role)) {
+    log('warn', 'Cannot assign role to new member: bot lacks permission or role is above bot in hierarchy', {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      role: describeRole(role)
+    });
+    return;
+  }
+
+  // Cache check: skip if we recently assigned this member
+  const cacheKey = `assign:${member.guild.id}:${member.id}:${role.id}`;
+  const cached = cache.readCache(cacheKey);
+  if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
+    report('New Member Assignment Skipped (Cache)', {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      role: describeRole(role),
+      cachedAt: new Date(cached.timestamp).toISOString(),
+      ttlHours: CACHE_TTL_HOURS
+    }, 'detail');
+    return;
+  }
+
+  // Log the member's existing roles for debugging
+  const existingRoles = member.roles.cache
+    .filter(r => r.id !== member.guild.roles.everyone.id)
+    .map(describeRole);
+
+  try {
+    await member.roles.add(role);
+    report('New Member Assignment Success', {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      role: describeRole(role),
+      existingRoles: existingRoles.length ? existingRoles.join(', ') : 'none',
+      note: 'Trainer role assigned to new member regardless of existing roles'
+    }, 'success');
+    activityTracker.recordActivity('role-assignment', `Assigned ${describeRole(role)} to NEW MEMBER ${memberSummary}`, {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      existingRoles: existingRoles.length,
+    });
+    bumpRoleMemberCount(member.guild, 1);
+    cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
+  } catch (error) {
+    const hint = (error && (String(error.message).includes('Missing Permissions') || error.code === 50013))
+      ? 'Check role hierarchy: bot role must be above Trainer role and have Manage Roles permission.'
+      : undefined;
+    report('New Member Assignment Failure', mergeReportError({
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      role: describeRole(role),
+      existingRoles: existingRoles.length ? existingRoles.join(', ') : 'none',
+      hint,
+    }, error), 'error');
+  }
+}
+
+
 async function sweepGuild(guild, origin) {
   const guildSummary = describeGuild(guild);
   cliStatus.setPhase(`Sweeping ${guild.name} (${origin})`);
@@ -2979,7 +3094,9 @@ client.on('guildMemberAdd', async (member) => {
     member: memberSummary
   });
 
-  await ensureTrainerFor(member, 'member-join');
+  // CRITICAL FIX: Always process new members for Trainer role assignment
+  // Don't use ensureTrainerFor which skips members with existing roles
+  await assignTrainerRoleToNewMember(member);
 });
 
 // Heal members who lose all assignable roles (drop to @everyone only)
