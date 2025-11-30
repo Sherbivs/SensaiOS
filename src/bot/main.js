@@ -54,6 +54,7 @@ import { buildRestartSummary } from './state/context.js';
 import { initializeState, shutdownState, startAutoSave, stopAutoSave } from './state/persistence.js';
 import { recordSweep, recordMemberFetchTimeout } from './state/stats.js';
 import { getRecentActivitySummary } from './state/timeline.js';
+import { initializeRoleArchive, recordRoleChange, getRoleStatistics, shutdownRoleArchive } from './state/roleArchive.js';
 
 // Extract constants from centralized constants
 const { DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS, MEMBER_STATS_REFRESH_INTERVAL_MS } = TIME_CONSTANTS;
@@ -1235,6 +1236,9 @@ function reportOperationalStats(where = 'startup') {
   const budget = hasBudget ? cache.getCacheBudget() : { approxBytes: 0, maxAllowedBytes: 0, percent: cache && cache.MAX_CACHE_PERCENT ? cache.MAX_CACHE_PERCENT : 0.25 };
   const cacheSize = (cache && typeof cache.getCacheSize === 'function') ? cache.getCacheSize() : 0;
   const mem = process.memoryUsage();
+  
+  // Get role archive statistics
+  const roleStats = getRoleStatistics();
 
   log('info', '=== Cache & Resource Report ===', {
     at: where,
@@ -1256,6 +1260,20 @@ function reportOperationalStats(where = 'startup') {
     backfillDelayMs: BACKFILL_DELAY_MS,
     cacheTtlHours: CACHE_TTL_HOURS,
   });
+  
+  // Log role archive statistics
+  if (roleStats) {
+    log('info', '=== Role Archive Statistics ===', {
+      totalChanges: roleStats.totalChanges,
+      additions: roleStats.additionCount,
+      removals: roleStats.removalCount,
+      uniqueMembers: roleStats.uniqueMemberCount,
+      archiveSize: roleStats.archiveSize,
+      archiveCapacity: roleStats.archiveCapacity,
+      utilizationPercent: Math.round((roleStats.archiveSize / roleStats.archiveCapacity) * 100),
+      topModifiedRoles: roleStats.rolesModified.slice(0, 5).map(r => `${r.roleName} (${r.changeCount})`).join(', ')
+    });
+  }
 }
 
 const ACTIVITY_LABELS = Object.freeze({
@@ -2404,6 +2422,24 @@ async function assignTrainerRoleToNewMember(member) {
 
   try {
     await member.roles.add(role);
+    
+    // Record role change in archive (500-entry cold storage)
+    await recordRoleChange({
+      memberId: member.id,
+      memberTag: member.user.tag,
+      guildId: member.guild.id,
+      guildName: member.guild.name,
+      type: 'addition',
+      roleId: role.id,
+      roleName: role.name,
+      origin,
+      metadata: {
+        existingRoleCount: existingRoles.length,
+        existingRoles: existingRoles.map(r => r.name || r).join(', '),
+        isNewMember: true
+      }
+    });
+    
     report('New Member Assignment Success', {
       origin,
       guild: guildSummary,
@@ -2796,6 +2832,9 @@ client.once(Events.ClientReady, async () => {
   try {
     botState = await initializeState();
     autoSaveInterval = startAutoSave(botState);
+    
+    // Initialize role change archive (500-entry cold storage)
+    await initializeRoleArchive();
     
     // Expose state to global for cross-module telemetry (e.g., logger.js)
     global.securityBotState = botState;
@@ -3368,6 +3407,8 @@ if (entryHref && import.meta.url === entryHref) {
     if (botState) {
       await shutdownState(botState, signal);
     }
+    // Persist role archive on shutdown
+    await shutdownRoleArchive();
     log('info', '[State] Shutdown complete');
     process.exit(0);
   }
