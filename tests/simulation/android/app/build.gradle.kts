@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt.android)
+    id("kotlin-parcelize")  // Required for @Parcelize annotation
 }
 
 android {
@@ -96,12 +97,11 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     
     // ══════════════════════════════════════════════════════════════
-    // WEEK 2: ROOM DATABASE (Prepared - Currently Unused)
+    // WEEK 2: ROOM DATABASE (Local Cache)
     // ══════════════════════════════════════════════════════════════
-    // NOTE: Room dependencies commented out - project uses external PostgreSQL
-    // Uncomment if/when Room local cache is needed
-    // implementation(libs.bundles.room)
-    // kapt(libs.room.compiler)
+    // Room for local caching of test results, chat messages, etc.
+    implementation(libs.bundles.room)
+    kapt(libs.room.compiler)
     
     // ══════════════════════════════════════════════════════════════
     // WEEK 4: IMAGE LOADING (Prepared)
