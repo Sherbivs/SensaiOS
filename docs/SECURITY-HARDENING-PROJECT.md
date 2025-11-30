@@ -387,6 +387,134 @@ try {
 
 ---
 
+### **Week 2, Day 13-14: High Fix #3 - Cache Invalidation Strategy**
+**Team Lead:** Backend Architect  
+**Status:** ✅ COMPLETE  
+**Commit:** *(pending)*  
+**Test Coverage:** 18/18 passing (100%)
+
+**Security Issue:** Stale cache entries prevented re-assignment when Trainer role was manually removed.
+
+**Vulnerability Analysis:**
+- **Old Behavior:** Cache persisted `{ assigned: true }` after manual role removal
+- **Impact:** Bot skipped re-assignment due to stale cache hit, users couldn't rejoin
+- **Risk Scenarios:**
+  1. Admin manually removes role via Discord UI → cache stays stale
+  2. User tries to get role again → bot: "You already have it" (but they don't)
+  3. Role removed by security bot reversion → cache not invalidated
+  4. Testing role assignment flows → cache prevents testing
+
+**Implementation:**
+```javascript
+// Enhanced guildMemberUpdate event handler
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+  try {
+    // SECURITY FIX: Cache Invalidation Strategy (Week 2 Day 13-14: High Fix #3)
+    const trainerRole = findRole(newMember.guild);
+    if (trainerRole) {
+      const hadRole = oldMember.roles.cache.has(trainerRole.id);
+      const hasRole = newMember.roles.cache.has(trainerRole.id);
+      
+      // Detect role removal - invalidate cache immediately
+      if (hadRole && !hasRole) {
+        const cacheKey = `assign:${newMember.guild.id}:${newMember.id}:${trainerRole.id}`;
+        
+        try {
+          cache.deleteCache(cacheKey);
+          
+          log('info', '[CACHE] Invalidated assignment cache after manual role removal', {
+            origin: 'guildMemberUpdate',
+            guild: describeGuild(newMember.guild),
+            member: describeMember(newMember),
+            role: describeRole(trainerRole),
+            reason: 'Manual removal detected'
+          });
+          
+          // Track cache invalidation for audit trail
+          activityTracker.recordActivity(
+            'cache-invalidation',
+            `Invalidated cache for ${newMember.user.tag} in ${newMember.guild.name}`,
+            {
+              guild: describeGuild(newMember.guild),
+              member: describeMember(newMember),
+              role: describeRole(trainerRole),
+              origin: 'manual-removal'
+            }
+          );
+        } catch (error) {
+          log('error', '[CACHE] Failed to invalidate cache after role removal', mergeLogError({
+            guild: describeGuild(newMember.guild),
+            member: describeMember(newMember),
+            role: describeRole(trainerRole)
+          }, error));
+        }
+      }
+    }
+    
+    // Continue with existing alerting and healing logic
+    const result = await maybeAlertRoleAssignments(oldMember, newMember);
+    if (!result?.unauthorized && hasNoAssignableRoles(newMember)) {
+      await ensureTrainerFor(newMember, 'member-update');
+    }
+  } catch (err) {
+    report('Member Update Heal Error', mergeReportError({
+      guild: describeGuild(newMember.guild),
+      member: describeMember(newMember),
+    }, err), 'error');
+  }
+});
+```
+
+**Security Benefits:**
+- **No Stale Cache:** Manual role removals immediately reflected in cache
+- **Correct Re-assignment:** Users can rejoin and get role without cache blocking
+- **Audit Trail:** All invalidations logged with guild/member/role context
+- **Error Resilience:** Cache failures don't crash bot (graceful degradation)
+- **Selective Invalidation:** Only invalidates on Trainer role removal (not other roles)
+
+**Cache Invalidation Workflow:**
+
+| Step | Action | Cache State | Bot Behavior |
+|------|--------|-------------|--------------|
+| 1. Initial | User has Trainer role | `{ assigned: true, timestamp: ... }` | Skip assignment (cache hit) |
+| 2. Removal | Admin removes role via Discord | Cache invalidated → `null` | Detection triggered ✅ |
+| 3. Re-request | User asks for role again | `null` (cache cleared) | Process assignment ✅ |
+| 4. Re-assigned | Bot assigns role | `{ assigned: true, timestamp: ... }` | Cache written |
+
+**Testing:** 18 comprehensive test cases covering:
+- Role removal detection (4 tests): Removal, addition, no change scenarios
+- Cache key construction (2 tests): Format validation, multi-guild consistency
+- Cache deletion behavior (3 tests): Call tracking, selective invalidation
+- Error handling (3 tests): Delete failures, missing role, error objects
+- Edge cases (3 tests): Multiple roles, rapid cycles, other role removals
+- Security impact (3 tests): Stale cache prevention, re-assignment workflow, audit trail
+
+**Technical Decisions:**
+- Detect removal via `oldMember.roles.cache.has() && !newMember.roles.cache.has()`: Simple, reliable
+- Invalidate immediately: No delay, prevents race conditions
+- Log at INFO level: Normal operation, not an error condition
+- Activity tracking: Provides audit trail for all invalidations
+- Graceful error handling: Cache failures logged but don't crash bot
+- Selective detection: Only Trainer role triggers invalidation (performance optimization)
+
+**Before/After Comparison:**
+
+| Scenario | Before (No Invalidation) | After (With Invalidation) |
+|----------|--------------------------|----------------------------|
+| Admin removes role | Cache stays: `{ assigned: true }` | Cache cleared: `null` |
+| User requests role | Bot: "Cache hit, skip" ❌ | Bot: "No cache, process" ✅ |
+| Bot behavior | Silent failure (user confused) | Correct re-assignment |
+| Audit trail | No log of cache state | Invalidation logged |
+| Error visibility | Hidden (cache hit) | Explicit (cache miss) |
+
+**Next Steps:**
+1. Monitor production logs for cache invalidation frequency
+2. Add metrics: `cache_invalidations_total{reason="manual-removal"}`
+3. Consider TTL-based cache expiration as additional safety layer
+4. Add invalidation on bot shutdown (cleanup stale entries)
+
+---
+
 ## Risk Register
 
 | Risk | Status | Mitigation |

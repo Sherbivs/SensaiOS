@@ -3329,6 +3329,50 @@ client.on('guildMemberAdd', async (member) => {
 // Heal members who lose all assignable roles (drop to @everyone only)
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   try {
+    // SECURITY FIX: Cache Invalidation Strategy (Week 2 Day 13-14: High Fix #3)
+    // Detect Trainer role removal and invalidate stale cache immediately
+    const trainerRole = findRole(newMember.guild);
+    if (trainerRole) {
+      const hadRole = oldMember.roles.cache.has(trainerRole.id);
+      const hasRole = newMember.roles.cache.has(trainerRole.id);
+      
+      // Role was removed - invalidate assignment cache
+      if (hadRole && !hasRole) {
+        const cacheKey = `assign:${newMember.guild.id}:${newMember.id}:${trainerRole.id}`;
+        
+        try {
+          cache.deleteCache(cacheKey);
+          
+          log('info', '[CACHE] Invalidated assignment cache after manual role removal', {
+            origin: 'guildMemberUpdate',
+            guild: describeGuild(newMember.guild),
+            member: describeMember(newMember),
+            role: describeRole(trainerRole),
+            reason: 'Manual removal detected'
+          });
+          
+          // Track cache invalidation activity
+          activityTracker.recordActivity(
+            'cache-invalidation',
+            `Invalidated cache for ${newMember.user.tag} in ${newMember.guild.name}`,
+            {
+              guild: describeGuild(newMember.guild),
+              member: describeMember(newMember),
+              role: describeRole(trainerRole),
+              origin: 'manual-removal'
+            }
+          );
+        } catch (error) {
+          log('error', '[CACHE] Failed to invalidate cache after role removal', mergeLogError({
+            guild: describeGuild(newMember.guild),
+            member: describeMember(newMember),
+            role: describeRole(trainerRole)
+          }, error));
+        }
+      }
+    }
+    
+    // Continue with existing role assignment alerting and healing
     const result = await maybeAlertRoleAssignments(oldMember, newMember);
     if (!result?.unauthorized && hasNoAssignableRoles(newMember)) {
       await ensureTrainerFor(newMember, 'member-update');
