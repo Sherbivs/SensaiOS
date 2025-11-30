@@ -1214,6 +1214,14 @@ function getContinuousSweepGuilds(signal, transformer) {
   }
 }
 
+/**
+ * DEPRECATED: Use enforceCanAssignRole() instead for strict permission enforcement.
+ * 
+ * Soft permission check - returns false instead of throwing.
+ * Kept for backwards compatibility but should not be used in new code.
+ * 
+ * @deprecated Since Week 2 Day 11-12 - Use enforceCanAssignRole() for security-critical paths
+ */
 function canAssignRole(guild, role) {
   const me = guild.members.me;
   if (!me) return true; // assume true; discord.js will error if not
@@ -1230,6 +1238,55 @@ function canAssignRole(guild, role) {
     }, 'warn');
   }
   return hasManage && above;
+}
+
+/**
+ * SECURITY FIX: Strict permission enforcement - throws on failure instead of returning false.
+ * Week 2 Day 11-12: High Fix #2 - Prevents silent permission failures.
+ * 
+ * @param {Guild} guild - Discord guild
+ * @param {Role} role - Target role to assign
+ * @throws {Error} If bot lacks MANAGE_ROLES permission
+ * @throws {Error} If target role is at/above bot's highest role
+ * @throws {Error} If role is not editable (managed/integrated)
+ * @returns {boolean} True if all checks pass
+ */
+function enforceCanAssignRole(guild, role) {
+  const me = guild.members.me;
+  
+  // Guild member check
+  if (!me) {
+    throw new Error(`Bot is not a member of guild "${guild.name}" (ID: ${guild.id})`);
+  }
+  
+  // MANAGE_ROLES permission check
+  const hasManage = me.permissions.has('ManageRoles');
+  if (!hasManage) {
+    throw new Error(
+      `Bot lacks MANAGE_ROLES permission in guild "${guild.name}" (ID: ${guild.id}). ` +
+      `Bot highest role: "${me.roles.highest.name}" (position ${me.roles.highest.position}).`
+    );
+  }
+  
+  // Role hierarchy check
+  const above = me.roles.highest.position > role.position;
+  if (!above) {
+    throw new Error(
+      `Role "${role.name}" (position ${role.position}) is at/above bot's highest role ` +
+      `"${me.roles.highest.name}" (position ${me.roles.highest.position}) in guild "${guild.name}". ` +
+      `Bot cannot manage roles at same or higher position.`
+    );
+  }
+  
+  // Editability check (managed/integrated roles)
+  if (!role.editable) {
+    throw new Error(
+      `Role "${role.name}" (ID: ${role.id}) is not editable by bot in guild "${guild.name}". ` +
+      `This usually indicates a managed/integrated role (e.g., Nitro booster, bot role).`
+    );
+  }
+  
+  return true;
 }
 
 // ----- Operational reporting -----
@@ -2103,25 +2160,19 @@ async function fixGuildRoles(guild) {
       continue;
     }
 
-    // Verify bot can manage this role (hierarchy + permissions check)
-    if (!canAssignRole(guild, role)) {
-      log('warn', 'Cannot modify role: bot lacks ManageRoles permission or role is above bot in hierarchy', {
+    // SECURITY FIX: Strict permission enforcement (throws on failure)
+    // Week 2 Day 11-12: High Fix #2
+    try {
+      enforceCanAssignRole(guild, role);
+    } catch (error) {
+      log('error', '[SECURITY] Permission violation - cannot modify role', {
         guild: guildSummary,
         role: describeRole(role),
         missing: analysis.missing.join(', ') || 'none',
-        extra: analysis.extra.join(', ') || 'none'
+        extra: analysis.extra.join(', ') || 'none',
+        reason: error.message
       });
-      continue;
-    }
-
-    // Verify role is manageable (Discord.js built-in check)
-    if (!role.editable) {
-      log('warn', 'Cannot modify role: role is not editable by bot', {
-        guild: guildSummary,
-        role: describeRole(role),
-        missing: analysis.missing.join(', ') || 'none',
-        extra: analysis.extra.join(', ') || 'none'
-      });
+      // Skip role - do not attempt modification without proper permissions
       continue;
     }
 
@@ -2193,13 +2244,17 @@ async function enforceRolePermissions(role) {
     return;
   }
 
-  // Verify bot can manage this role (hierarchy + permissions check)
-  if (!canAssignRole(role.guild, role)) {
-    log('warn', 'Cannot enforce permissions: bot lacks ManageRoles permission or role is above bot in hierarchy', {
+  // SECURITY FIX: Strict permission enforcement (throws on failure)
+  // Week 2 Day 11-12: High Fix #2
+  try {
+    enforceCanAssignRole(role.guild, role);
+  } catch (error) {
+    log('error', '[SECURITY] Permission violation - cannot enforce role permissions', {
       guild: guildSummary,
       role: describeRole(role),
       missing: analysis.missing.join(', ') || 'none',
-      extra: analysis.extra.join(', ') || 'none'
+      extra: analysis.extra.join(', ') || 'none',
+      reason: error.message
     });
     await sendSecurityAlert('Cannot enforce role permissions (permission/hierarchy issue)', {
       guild: guildSummary,
@@ -2207,27 +2262,9 @@ async function enforceRolePermissions(role) {
       policy: analysis.policy,
       missing: analysis.missing,
       extra: analysis.extra,
-      reason: 'Bot lacks ManageRoles or role is above bot in hierarchy'
+      reason: error.message
     });
-    return;
-  }
-
-  // Verify role is manageable (Discord.js built-in check)
-  if (!role.editable) {
-    log('warn', 'Cannot enforce permissions: role is not editable by bot', {
-      guild: guildSummary,
-      role: describeRole(role),
-      missing: analysis.missing.join(', ') || 'none',
-      extra: analysis.extra.join(', ') || 'none'
-    });
-    await sendSecurityAlert('Cannot enforce role permissions (role not editable)', {
-      guild: guildSummary,
-      role: describeRole(role),
-      policy: analysis.policy,
-      missing: analysis.missing,
-      extra: analysis.extra,
-      reason: 'Role is not editable by bot'
-    });
+    // Abort - do not attempt modification without proper permissions
     return;
   }
 
@@ -2301,14 +2338,19 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
     return;
   }
 
-  // Pre-check hierarchy/permissions
-  if (!canAssignRole(member.guild, role)) {
-    log('warn', 'Cannot assign role: bot lacks permission or role is above bot in hierarchy', {
+  // SECURITY FIX: Strict permission enforcement (throws on failure)
+  // Week 2 Day 11-12: High Fix #2
+  try {
+    enforceCanAssignRole(member.guild, role);
+  } catch (error) {
+    log('error', '[SECURITY] Permission violation - cannot assign role', {
       origin,
       guild: guildSummary,
       member: memberSummary,
-      role: describeRole(role)
+      role: describeRole(role),
+      reason: error.message
     });
+    // Abort - do not attempt assignment without proper permissions
     return;
   }
 
@@ -2424,14 +2466,19 @@ async function assignTrainerRoleToNewMember(member) {
     return;
   }
 
-  // Pre-check hierarchy/permissions
-  if (!canAssignRole(member.guild, role)) {
-    log('warn', 'Cannot assign role to new member: bot lacks permission or role is above bot in hierarchy', {
+  // SECURITY FIX: Strict permission enforcement (throws on failure)
+  // Week 2 Day 11-12: High Fix #2
+  try {
+    enforceCanAssignRole(member.guild, role);
+  } catch (error) {
+    log('error', '[SECURITY] Permission violation - cannot assign role to new member', {
       origin,
       guild: guildSummary,
       member: memberSummary,
-      role: describeRole(role)
+      role: describeRole(role),
+      reason: error.message
     });
+    // Abort - do not attempt assignment without proper permissions
     return;
   }
 
@@ -2639,8 +2686,28 @@ async function sweepGuild(guild, origin) {
       // TODO: Send Drip warning alert once Drip integration available
     }
 
-    // Pre-check hierarchy/permissions
-    canAssignRole(guild, role);
+    // SECURITY FIX: Strict permission enforcement (throws on failure)
+    // Week 2 Day 11-12: High Fix #2 - Abort entire sweep on permission failure
+    try {
+      enforceCanAssignRole(guild, role);
+    } catch (error) {
+      log('error', '[SECURITY] Permission violation - aborting sweep', {
+        origin,
+        guild: guildSummary,
+        role: describeRole(role),
+        candidatesAborted: toAssign.size,
+        reason: error.message
+      });
+      report('Sweep Aborted (Permission Violation)', {
+        origin,
+        guild: guildSummary,
+        role: describeRole(role),
+        candidatesAborted: toAssign.size,
+        reason: error.message
+      }, 'error');
+      // Abort sweep - do not process any members without proper permissions
+      return;
+    }
 
     report('Assignment Plan', {
       origin,

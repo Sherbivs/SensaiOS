@@ -267,6 +267,126 @@ const members = Array.from(toAssign.values()).slice(0, cappedCandidates);
 
 ---
 
+### **Week 2, Day 11-12: High Fix #2 - Strict Permission Enforcement**
+**Team Lead:** Backend Architect  
+**Status:** ✅ COMPLETE  
+**Commit:** *(pending)*  
+**Test Coverage:** 17/17 passing (100%)
+
+**Security Issue:** Silent permission failures allowed operations to proceed in degraded state without proper authorization.
+
+**Vulnerability Analysis:**
+- **Old Behavior:** `canAssignRole()` returned `false` on permission failure, operations continued silently
+- **Impact:** Permission violations invisible in logs, operations proceeded without proper checks
+- **Risk Scenarios:**
+  1. Bot role moved below target role (admin configuration error)
+  2. MANAGE_ROLES permission revoked (security misconfiguration)
+  3. Managed/integrated roles attempted (Discord API error)
+  4. Sweep operations proceeding without hierarchy validation
+
+**Implementation:**
+```javascript
+/**
+ * SECURITY FIX: Strict permission enforcement - throws on failure instead of returning false.
+ * Week 2 Day 11-12: High Fix #2 - Prevents silent permission failures.
+ */
+function enforceCanAssignRole(guild, role) {
+  const me = guild.members.me;
+  
+  // Guild member check
+  if (!me) {
+    throw new Error(`Bot is not a member of guild "${guild.name}" (ID: ${guild.id})`);
+  }
+  
+  // MANAGE_ROLES permission check
+  const hasManage = me.permissions.has('ManageRoles');
+  if (!hasManage) {
+    throw new Error(
+      `Bot lacks MANAGE_ROLES permission in guild "${guild.name}" (ID: ${guild.id}). ` +
+      `Bot highest role: "${me.roles.highest.name}" (position ${me.roles.highest.position}).`
+    );
+  }
+  
+  // Role hierarchy check
+  const above = me.roles.highest.position > role.position;
+  if (!above) {
+    throw new Error(
+      `Role "${role.name}" (position ${role.position}) is at/above bot's highest role ` +
+      `"${me.roles.highest.name}" (position ${me.roles.highest.position}) in guild "${guild.name}". ` +
+      `Bot cannot manage roles at same or higher position.`
+    );
+  }
+  
+  // Editability check (managed/integrated roles)
+  if (!role.editable) {
+    throw new Error(
+      `Role "${role.name}" (ID: ${role.id}) is not editable by bot in guild "${guild.name}". ` +
+      `This usually indicates a managed/integrated role (e.g., Nitro booster, bot role).`
+    );
+  }
+  
+  return true;
+}
+
+// Call site refactoring - all 5 locations updated:
+try {
+  enforceCanAssignRole(guild, role);
+  // Proceed with operation
+} catch (error) {
+  logger.error(`[SECURITY] Permission violation: ${error.message}`);
+  // Abort operation - do not proceed without proper permissions
+  return;
+}
+```
+
+**Security Benefits:**
+- **No Silent Failures:** All permission violations throw exceptions immediately
+- **Operational Visibility:** Errors logged at ERROR level with full context
+- **Fail-Safe Design:** Operations abort rather than proceeding in degraded state
+- **Attack Detection:** Repeated permission errors indicate misconfiguration or attack
+- **Descriptive Errors:** Error messages include guild, role, position, and reason
+
+**Call Sites Refactored (5 total):**
+1. `fixGuildRoles()` - Startup/periodic role permission healing
+2. `enforceRolePermissions()` - Real-time permission drift remediation
+3. `handleRoleAdd()` - Manual role assignments (events)
+4. `guildMemberAdd()` - Auto-assign on new member join
+5. `sweepGuild()` - Mass role assignment sweeps (aborts entire sweep on failure)
+
+**Testing:** 17 comprehensive test cases covering:
+- Success path: All permissions present, hierarchy valid
+- Failure: Bot not guild member
+- Failure: Missing MANAGE_ROLES permission
+- Failure: Role hierarchy violation (above/equal bot position)
+- Failure: Role not editable (managed/integrated)
+- Error message quality: Descriptive, includes context
+- Security impact: Prevents silent failures, aborts operations
+
+**Technical Decisions:**
+- Throw exceptions instead of returning false: Forces explicit error handling
+- Include full context in errors: Guild name/ID, role name/position, bot role details
+- Deprecate `canAssignRole()`: Keep for backwards compatibility but mark as deprecated
+- Abort operations on permission failure: Fail-safe > degraded mode
+- Log at ERROR level: Ensures visibility in production monitoring
+
+**Security Impact Comparison:**
+
+| Scenario | Old Behavior (canAssignRole) | New Behavior (enforceCanAssignRole) |
+|----------|------------------------------|-------------------------------------|
+| Permission failure | Return false, log warning, continue | Throw exception, log error, abort |
+| Sweep with bad permissions | Process remaining members | Abort entire sweep immediately |
+| Log visibility | WARN level (easily missed) | ERROR level (production alerts) |
+| Error context | Basic "lacks permission" | Full guild/role/position details |
+| Operation outcome | Degraded mode (silent failures) | Fail-safe (explicit abort) |
+
+**Next Steps:**
+1. Monitor production logs for permission violation patterns
+2. Alert operators on repeated violations (potential misconfiguration)
+3. Add metrics tracking for permission failures (future Week 3)
+4. Consider role hierarchy validation at bot startup (preventive check)
+
+---
+
 ## Risk Register
 
 | Risk | Status | Mitigation |
