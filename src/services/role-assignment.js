@@ -13,9 +13,14 @@
  * - Permission enforcement (strict validation)
  * - Cache management (TTL-based deduplication)
  * - Activity tracking (audit trail)
+ * 
+ * Observability (Week 3 Day 20-21):
+ * - Prometheus metrics instrumentation
+ * - Role assignment counters and duration histograms
  */
 
 import { acquireLock, releaseLock } from './distributed-lock.js';
+import { recordRoleAssignment, recordRoleAssignmentDuration } from './prometheus-metrics.js';
 
 /**
  * Unified role assignment function with comprehensive error handling
@@ -38,6 +43,8 @@ import { acquireLock, releaseLock } from './distributed-lock.js';
  * @returns {Promise<Object>} Assignment result { success, reason, cached, locked }
  */
 export async function assignRole(member, options) {
+  const startTime = Date.now(); // Track duration for Prometheus histogram
+  
   const {
     origin = 'unspecified',
     role: providedRole = null,
@@ -62,6 +69,11 @@ export async function assignRole(member, options) {
       hasGuild: Boolean(member?.guild),
       hasUser: Boolean(member?.user)
     });
+    
+    // Record failed assignment (Week 3 Day 20-21)
+    recordRoleAssignment(origin, member?.guild?.id || 'unknown', member?.guild?.name || 'unknown', 'failed-invalid-member');
+    recordRoleAssignmentDuration(origin, 'failed', (Date.now() - startTime) / 1000);
+    
     return { success: false, reason: 'invalid-member' };
   }
 
@@ -81,6 +93,11 @@ export async function assignRole(member, options) {
       guild: guildSummary,
       member: memberSummary
     }, 'warn');
+    
+    // Record failed assignment (Week 3 Day 20-21)
+    recordRoleAssignment(origin, member.guild.id, member.guild.name, 'failed-role-not-found');
+    recordRoleAssignmentDuration(origin, 'failed', (Date.now() - startTime) / 1000);
+    
     return { success: false, reason: 'role-not-found' };
   }
 
@@ -99,6 +116,11 @@ export async function assignRole(member, options) {
       role: describeRole(role),
       reason: error.message
     });
+    
+    // Record failed assignment (Week 3 Day 20-21)
+    recordRoleAssignment(origin, member.guild.id, member.guild.name, 'failed-permission-denied');
+    recordRoleAssignmentDuration(origin, 'failed', (Date.now() - startTime) / 1000);
+    
     return { success: false, reason: 'permission-denied', error };
   }
 
@@ -167,10 +189,14 @@ export async function assignRole(member, options) {
     // Step 12: Cache Write
     cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
     
+    // Step 13: Prometheus Metrics (Week 3 Day 20-21)
+    recordRoleAssignment(origin, member.guild.id, member.guild.name, 'success');
+    recordRoleAssignmentDuration(origin, 'success', (Date.now() - startTime) / 1000);
+    
     return { success: true, reason: 'assigned', cached: false, locked: true };
     
   } catch (error) {
-    // Step 13: Error Handling
+    // Step 14: Error Handling
     report('Assignment Error', {
       origin,
       guild: guildSummary,
@@ -188,10 +214,14 @@ export async function assignRole(member, options) {
       stack: error.stack
     });
     
+    // Record failed assignment (Week 3 Day 20-21)
+    recordRoleAssignment(origin, member.guild.id, member.guild.name, 'failed-error');
+    recordRoleAssignmentDuration(origin, 'failed', (Date.now() - startTime) / 1000);
+    
     return { success: false, reason: 'assignment-error', error, locked: true };
     
   } finally {
-    // Step 14: Lock Release (Always)
+    // Step 15: Lock Release (Always)
     await releaseLock(lock);
   }
 }

@@ -1,5 +1,6 @@
 import { log } from '../../utils/logger.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
+import { updateTimeWindowedMetrics } from '../../services/prometheus-metrics.js';
 /**
  * @file State Persistence Module
  * @description Manages security bot operational state across restarts
@@ -580,6 +581,13 @@ export function startAutoSave(state) {
   const interval = setInterval(async () => {
     log('info', '[State] Auto-saving state...');
     await saveState(state);
+    
+    // Update Prometheus time-windowed metrics (Week 3 Day 20-21)
+    try {
+      updateTimeWindowedMetrics(state);
+    } catch (error) {
+      log('error', '[Metrics] Failed to update time-windowed metrics', { error: error.message });
+    }
   }, AUTO_SAVE_INTERVAL_MS);
   
   log('info', '[State] Auto-save enabled', { intervalSeconds: AUTO_SAVE_INTERVAL_MS / 1000 });

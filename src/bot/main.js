@@ -49,6 +49,8 @@ import cache from '../services/cache.js';
 import activityTracker from '../utils/activityTracker.js';
 import cliStatus from '../utils/cliStatus.js';
 import { installFatalErrorHandlers } from '../utils/fatalErrorGuard.js';
+import { startMetricsServer, stopMetricsServer } from '../services/metrics-server.js';
+import { recordCacheInvalidation, recordPermissionViolation } from '../services/prometheus-metrics.js';
 import { log as baseLog, report } from '../utils/logger.js';
 import opsNotifier from '../utils/opsNotifier.js';
 
@@ -1930,6 +1932,13 @@ async function maybeAlertRoleAssignments(oldMember, newMember) {
   };
 
   if (!authorization.authorized) {
+    // Record permission violation metric (Week 3 Day 20-21)
+    recordPermissionViolation(
+      'unauthorized-role-change',
+      newMember.guild.id,
+      newMember.guild.name
+    );
+
     const revertOutcome = await revertMemberRoles(newMember, {
       rolesToRemove: addedRoles,
       rolesToAdd: removedRoles,
@@ -1946,6 +1955,13 @@ async function maybeAlertRoleAssignments(oldMember, newMember) {
 
     if (!revertOutcome.success && Array.isArray(revertOutcome.errors) && revertOutcome.errors.length) {
       meta.revertErrors = revertOutcome.errors;
+      
+      // Record revert failure metric (Week 3 Day 20-21)
+      recordPermissionViolation(
+        'revert-failure',
+        newMember.guild.id,
+        newMember.guild.name
+      );
     }
     if (Array.isArray(revertOutcome.added) && revertOutcome.added.length) {
       meta.reappliedRoleIds = revertOutcome.added;
@@ -2253,6 +2269,13 @@ async function enforceRolePermissions(role) {
   try {
     enforceCanAssignRole(role.guild, role);
   } catch (error) {
+    // Record permission violation metric (Week 3 Day 20-21)
+    recordPermissionViolation(
+      'permission-denied',
+      role.guild.id,
+      role.guild.name
+    );
+
     log('error', '[SECURITY] Permission violation - cannot enforce role permissions', {
       guild: guildSummary,
       role: describeRole(role),
@@ -2940,6 +2963,34 @@ client.once(Events.ClientReady, async () => {
   await refreshMemberStats('ready');
   await notifyServiceRestart();
   scheduleDailySummaryReports();
+  
+  // Start Prometheus metrics server (Week 3 Day 20-21)
+  try {
+    const metricsPort = process.env.METRICS_PORT ? parseInt(process.env.METRICS_PORT, 10) : 9090;
+    const metricsServerInfo = await startMetricsServer({
+      port: metricsPort,
+      host: '0.0.0.0',
+      path: '/metrics',
+      metricsOptions: {
+        prefix: 'security_bot_',
+        includeDefaultMetrics: true
+      }
+    });
+    
+    log('success', 'Prometheus metrics server started', {
+      url: metricsServerInfo.url,
+      port: metricsServerInfo.port,
+      endpoints: ['/metrics', '/health', '/']
+    });
+  } catch (error) {
+    log('error', 'Failed to start Prometheus metrics server', mergeLogError({
+      errorType: error?.constructor?.name || typeof error,
+      errorMessage: getErrorMessage(error),
+      port: process.env.METRICS_PORT || 9090
+    }, error));
+    // Non-fatal: bot continues without metrics endpoint
+  }
+  
   if (dripAlertManager) {
     dripAlertManager.start();
   }
@@ -3202,6 +3253,9 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
             reason: 'Manual removal detected'
           });
           
+          // Record cache invalidation metric (Week 3 Day 20-21)
+          recordCacheInvalidation('manual-removal', newMember.guild.id, newMember.guild.name);
+          
           // Track cache invalidation activity
           activityTracker.recordActivity(
             'cache-invalidation',
@@ -3459,6 +3513,15 @@ if (entryHref && import.meta.url === entryHref) {
   // Graceful shutdown hooks for state persistence
   async function handleShutdown(signal) {
     log('info', '[State] Received signal, saving state before exit', { signal });
+    
+    // Stop Prometheus metrics server
+    try {
+      await stopMetricsServer();
+      log('info', '[Metrics] Prometheus metrics server stopped');
+    } catch (error) {
+      log('error', '[Metrics] Error stopping metrics server', { error: getErrorMessage(error) });
+    }
+    
     if (autoSaveInterval) {
       stopAutoSave(autoSaveInterval);
     }
