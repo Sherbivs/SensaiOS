@@ -312,7 +312,7 @@ async function checkPermissionDrift(guild, roleArchive) {
     }
     
     // Fetch current roles (force: true for fresh data)
-    await guild.roles.fetch(undefined, { force: true });
+    await guild.roles.fetch({ force: true });
     
     // Compare current permissions with archived permissions
     for (const [roleId, archived] of rolePermissions.entries()) {
