@@ -26,6 +26,13 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { log } from '../../utils/logger.js';
+import { 
+  generateSecurityBaselines, 
+  loadSecurityBaselines, 
+  saveSecurityBaselines,
+  shouldRefreshBaselines 
+} from './securityBaselines.js';
+import { detectSecurityThreats, calculateCurrentActivity } from './threatDetector.js';
 
 // Persistent storage location
 const ARCHIVE_DIR = process.env.RENDER 
@@ -90,6 +97,7 @@ let roleArchiveCache = {
     rolesModified: new Map(), // role -> count
     lastUpdate: null
   },
+  securityBaselines: null, // Cached baselines for threat detection (Phase 1)
   initialized: false
 };
 
@@ -208,6 +216,54 @@ export async function initializeRoleArchive() {
     }
     
     roleArchiveCache.initialized = true;
+    
+    // PHASE 1 INTEGRATION: Generate security baselines from archive history
+    // Load existing baselines or generate new ones
+    try {
+      let baselines = await loadSecurityBaselines();
+      
+      if (!baselines || shouldRefreshBaselines(baselines)) {
+        // Generate new baselines from archive data
+        if (roleArchiveCache.changes.length > 0) {
+          log('info', '[RoleArchive] Generating security baselines from archive history', {
+            changeCount: roleArchiveCache.changes.length
+          });
+          
+          baselines = generateSecurityBaselines(roleArchiveCache);
+          
+          // Save baselines for future use
+          const saved = await saveSecurityBaselines(baselines);
+          
+          if (saved) {
+            log('info', '[RoleArchive] ✅ Security baselines generated and saved', {
+              confidence: baselines.confidence.toFixed(2),
+              dataPoints: baselines.metadata.dataPoints,
+              peakHours: baselines.temporal.peakHours.join(', ')
+            });
+          }
+        } else {
+          log('warn', '[RoleArchive] Cannot generate baselines yet - no archive data available');
+        }
+      } else {
+        log('info', '[RoleArchive] ✅ Loaded existing security baselines', {
+          confidence: baselines.confidence.toFixed(2),
+          age: Math.round((Date.now() - new Date(baselines.metadata.generatedAt).getTime()) / (1000 * 60 * 60)) + 'h',
+          peakHours: baselines.temporal.peakHours.join(', ')
+        });
+      }
+      
+      // Store baselines in cache for threat detection
+      roleArchiveCache.securityBaselines = baselines;
+      
+    } catch (baselineErr) {
+      log('error', '[RoleArchive] Failed to initialize security baselines', { 
+        error: baselineErr.message,
+        stack: baselineErr.stack 
+      });
+      // Non-fatal - security bot can still function without baselines
+      // Threat detection will be disabled until baselines are available
+    }
+    
     return true;
   } catch (err) {
     log('error', '[RoleArchive] Initialization failed', { error: err.message, stack: err.stack });
@@ -285,6 +341,72 @@ export async function recordRoleChange(event) {
     origin: event.origin,
     archiveSize: roleArchiveCache.changes.length
   });
+  
+  // PHASE 2 INTEGRATION: Threat detection on every role change
+  // Run asynchronously to avoid blocking the main flow
+  if (roleArchiveCache.securityBaselines) {
+    // Use setImmediate to avoid blocking the event handler
+    setImmediate(async () => {
+      try {
+        // Get recent changes for activity analysis (last 100 changes or 1 hour)
+        const oneHourAgo = Date.now() - (60 * 60 * 1000);
+        const recentChanges = roleArchiveCache.changes.filter(change => {
+          const changeTime = new Date(change.timestamp).getTime();
+          return changeTime > oneHourAgo;
+        });
+        
+        // Calculate current activity metrics
+        const currentActivity = calculateCurrentActivity(recentChanges);
+        
+        // Detect security threats
+        const assessment = detectSecurityThreats(
+          currentActivity, 
+          roleArchiveCache.securityBaselines
+        );
+        
+        // Handle detected threats
+        if (assessment.hasThreats) {
+          log('warn', `[RoleArchive] 🚨 ${assessment.threatCount} security threat(s) detected`, {
+            maxSeverity: assessment.maxSeverity,
+            baselineConfidence: assessment.baselineConfidence.toFixed(2)
+          });
+          
+          // Log each threat with details
+          for (const threat of assessment.threats) {
+            const severityEmoji = threat.severity === 'CRITICAL' ? '🔴' : 
+                                  threat.severity === 'HIGH' ? '🟠' : '🟡';
+            
+            log('warn', `[RoleArchive] ${severityEmoji} ${threat.type}: ${threat.description}`, {
+              severity: threat.severity,
+              confidence: threat.confidence.toFixed(2),
+              evidence: threat.evidence,
+              mitreAttack: threat.mitreAttack,
+              recommendedAction: threat.recommendedAction
+            });
+            
+            // TODO Task 11: Integrate with Drip alerts
+            // For now, just log the threat. Drip integration will handle:
+            // - CRITICAL → Emergency DM + auto-revert
+            // - HIGH → Alert DM + admin notification
+            // - MEDIUM → Log for review
+            
+            // TODO Task 2 (Backend Architect): Implement auto-revert logic
+            // For CRITICAL threats with AUTO_REVERT action:
+            // 1. Fetch the role change from event
+            // 2. Revert it (remove if added, add if removed)
+            // 3. Log the auto-revert action
+            // 4. Alert admins about the revert
+          }
+        }
+      } catch (threatErr) {
+        log('error', '[RoleArchive] Failed to detect threats', {
+          error: threatErr.message,
+          stack: threatErr.stack
+        });
+        // Non-fatal - don't crash the security bot on threat detection errors
+      }
+    });
+  }
   
   return changeRecord;
 }
@@ -451,6 +573,65 @@ export function exportArchive() {
     statistics: getRoleStatistics(),
     exportedAt: new Date().toISOString()
   };
+}
+
+/**
+ * Refresh security baselines (called by daily cron job)
+ * Regenerates baselines from current archive data
+ * @returns {Promise<boolean>} Success status
+ */
+export async function refreshSecurityBaselines() {
+  try {
+    if (!roleArchiveCache.initialized) {
+      log('warn', '[RoleArchive] Cannot refresh baselines - archive not initialized');
+      return false;
+    }
+    
+    if (roleArchiveCache.changes.length === 0) {
+      log('warn', '[RoleArchive] Cannot refresh baselines - no archive data available');
+      return false;
+    }
+    
+    log('info', '[RoleArchive] Refreshing security baselines', {
+      changeCount: roleArchiveCache.changes.length
+    });
+    
+    // Generate new baselines
+    const baselines = generateSecurityBaselines(roleArchiveCache);
+    
+    // Save to disk
+    const saved = await saveSecurityBaselines(baselines);
+    
+    if (saved) {
+      // Update cache
+      roleArchiveCache.securityBaselines = baselines;
+      
+      log('info', '[RoleArchive] ✅ Security baselines refreshed successfully', {
+        confidence: baselines.confidence.toFixed(2),
+        dataPoints: baselines.metadata.dataPoints,
+        peakHours: baselines.temporal.peakHours.join(', '),
+        computationTimeMs: baselines.metadata.computationTimeMs
+      });
+      
+      return true;
+    }
+    
+    return false;
+  } catch (err) {
+    log('error', '[RoleArchive] Failed to refresh security baselines', {
+      error: err.message,
+      stack: err.stack
+    });
+    return false;
+  }
+}
+
+/**
+ * Get current security baselines (for /ops security command)
+ * @returns {Object|null} Current baselines or null if not available
+ */
+export function getSecurityBaselines() {
+  return roleArchiveCache.securityBaselines;
 }
 
 /**

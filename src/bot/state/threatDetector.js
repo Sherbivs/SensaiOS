@@ -40,7 +40,7 @@ import { log } from '../../utils/logger.js';
  */
 export function detectSecurityThreats(currentActivity, baselines) {
   const threats = [];
-  const currentHour = new Date().getHours();
+  const currentHour = currentActivity.currentHour ?? new Date().getHours();
   
   // Skip detection if baseline confidence too low
   if (baselines.confidenceLevel < 0.5) {
@@ -82,7 +82,7 @@ export function detectSecurityThreats(currentActivity, baselines) {
       baselines.expectedOrigins.length > 0 && 
       !baselines.expectedOrigins.includes(currentActivity.origin)) {
     threats.push({
-      type: 'unknown_change_origin',
+      type: 'unusual_origin',
       severity: 'HIGH',
       confidence: 0.80,
       description: `Role change from unexpected origin: ${currentActivity.origin}`,
@@ -120,7 +120,7 @@ export function detectSecurityThreats(currentActivity, baselines) {
   // THREAT 4: Off-Hours Activity (Unauthorized Access)
   if (baselines.peakActivityHours.length > 0 &&
       !baselines.peakActivityHours.includes(currentHour) && 
-      currentActivity.changesInLastHour > (baselines.averageChangesPerHour * 3)) {
+      currentActivity.changesInLastHour >= (baselines.averageChangesPerHour * 3)) {
     threats.push({
       type: 'off_hours_activity',
       severity: 'MEDIUM',
@@ -193,9 +193,11 @@ export function detectSecurityThreats(currentActivity, baselines) {
  * 
  * @param {Array} recentChanges - Recent role changes (last hour)
  * @param {Object} _roleArchive - Full role archive for context (reserved for future use)
+ * @param {Object} [options] - Optional configuration
+ * @param {number} [options.mockCurrentHour] - Override hour for testing (0-23)
  * @returns {Object} Current activity metrics
  */
-export function calculateCurrentActivity(recentChanges, _roleArchive) {
+export function calculateCurrentActivity(recentChanges, _roleArchive, options = {}) {
   const now = Date.now();
   const fiveMinutesAgo = now - (5 * 60 * 1000);
   const oneHourAgo = now - (60 * 60 * 1000);
@@ -242,6 +244,9 @@ export function calculateCurrentActivity(recentChanges, _roleArchive) {
     maxChangesPerMemberInLastHour,
     suspectMemberId,
     origin,
+    currentHour: options.mockCurrentHour ?? (lastHour.length > 0 
+      ? new Date(lastHour[lastHour.length - 1].timestamp).getHours()
+      : new Date().getHours()),
     timestamp: new Date().toISOString()
   };
 }

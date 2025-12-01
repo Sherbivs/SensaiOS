@@ -199,7 +199,13 @@ export function generateSecurityBaselines(roleArchive) {
     baselines.changesByOrigin[origin] = (baselines.changesByOrigin[origin] || 0) + 1;
   }
   
-  baselines.expectedOrigins = Object.keys(baselines.changesByOrigin);
+  // Filter expected origins: only include sources representing ≥2% of changes
+  // This excludes rare/anomalous sources from the whitelist
+  const totalChanges = roleArchive.changes.length;
+  const minOccurrences = Math.max(1, Math.ceil(totalChanges * 0.02)); // 2% threshold, minimum 1
+  baselines.expectedOrigins = Object.entries(baselines.changesByOrigin)
+    .filter(([, count]) => count >= minOccurrences)
+    .map(([origin]) => origin);
   
   // Record computation time
   baselines.computationTimeMs = Date.now() - startTime;

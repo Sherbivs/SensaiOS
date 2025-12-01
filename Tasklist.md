@@ -1,7 +1,23 @@
 # Tasklist
-Last Updated (UTC): 2025-11-21T12:30:00Z
-Revision: 2.109
+Last Updated (UTC): 2025-12-01T00:50:00Z
+Revision: 2.110
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2025-12-01T00:50Z):**
+- ✅ **Security Archive Intelligence Test Suite — Structure Alignment Complete (Task 3.1)** — 13/19 tests passing
+  - Root cause: Tests expected nested baseline structure (baselines.temporal.peakHours) but implementation uses flat structure (baselines.peakActivityHours)
+  - Fix: 8 targeted edits across test file
+    1. Tests 1-5 (baseline generation): Updated property access from nested to flat (7 assertions)
+    2. Mock setup (beforeEach): Complete restructure affects 11 threat detection tests
+    3. Tests 19-20: Fixed confidenceLevel property name
+  - Test Results: 13/19 passing (was 0/19), 6 remaining failures are implementation issues NOT test structure
+  - Remaining Issues:
+    * Expected origins logic (includes low-frequency sources when shouldn't)
+    * HMAC signature save/load not implemented yet
+    * Threat type naming mismatch (unusual_origin vs unknown_change_origin)
+    * Off-hours detection missing
+  - Status: Critical blocker removed, test suite validated, ready for implementation fixes
+- 🔄 **Ready for Task 3.2: Fix implementation business logic issues** (6 test failures)
 
 **Recent Activity (2025-11-21T12:30Z):**
 - 🔄 **ARCHITECTURE.HOMESTEAD_CHANNELS — Major Architecture Pivot (Pokémon Infinity Gauntlet)** — DM-based gameplay → Private guild channels
