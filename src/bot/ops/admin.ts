@@ -69,6 +69,19 @@ async function getStateModules() {
   }
 }
 
+// Import security metrics modules (Phase 4 - Security Intelligence)
+let securityMetricsModule: any = null;
+async function getSecurityMetricsModule() {
+  if (securityMetricsModule) return securityMetricsModule;
+  try {
+    securityMetricsModule = await import("../state/securityMetrics.js");
+    return securityMetricsModule;
+  } catch (err) {
+    log.debug("Security metrics module not available", { err });
+    return null;
+  }
+}
+
 type BasicStats = {
   users?: number | null;
   encountersActive?: number | null;
@@ -768,6 +781,241 @@ function formatWorkerStatus(worker: { name: string; isRunning: boolean; lastRunT
   const statusIcon = worker.isRunning ? "🔄" : "⏸️";
   const errorIcon = worker.errorCount > 0 ? " ⚠️" : "";
   return `${statusIcon} ${worker.successCount} runs, ${worker.errorCount} errors${errorIcon}, last: ${formatTimestamp(worker.lastRunTime)}`;
+}
+
+// ============================================================================
+// SECURITY METRICS FORMATTERS (Phase 4 - Security Intelligence)
+// ============================================================================
+
+/**
+ * Format security score dashboard report
+ */
+function formatSecurityScoreReport(metrics: any): string {
+  const lines: string[] = [];
+  const { score, trends } = metrics;
+
+  lines.push("🛡️ **Security Score Dashboard**");
+  lines.push(`Generated: ${toEasternString(new Date())}`);
+  lines.push("");
+
+  // Overall Score
+  const gradeEmoji = score.grade === 'A+' ? '🟢' : score.grade === 'B+' ? '🟡' : score.grade === 'C+' ? '🟠' : '🔴';
+  lines.push(`**Overall Security Score: ${score.overall}/100 ${gradeEmoji}**`);
+  lines.push(`**Grade: ${score.grade}**`);
+  lines.push("");
+
+  // Component Breakdown
+  lines.push("**Component Scores:**");
+  if (score.components.baselineQuality !== undefined) {
+    lines.push(`• Baseline Quality: ${score.components.baselineQuality}/100`);
+  }
+  if (score.components.threatActivity !== undefined) {
+    lines.push(`• Threat Activity: ${score.components.threatActivity}/100`);
+  }
+  if (score.components.archiveHealth !== undefined) {
+    lines.push(`• Archive Health: ${score.components.archiveHealth}/100`);
+  }
+  if (score.components.responseEffectiveness !== undefined) {
+    lines.push(`• Response Effectiveness: ${score.components.responseEffectiveness}/100`);
+  }
+  if (score.components.uptime !== undefined) {
+    lines.push(`• Uptime: ${score.components.uptime}/100`);
+  }
+  lines.push("");
+
+  // Threat Trend Summary
+  lines.push("**Threat Trends:**");
+  const trendEmoji = trends.trend === 'improving' ? '📉' : trends.trend === 'degrading' ? '📈' : '➡️';
+  lines.push(`• Trend: ${trends.trend} ${trendEmoji}`);
+  if (trends.windows['24h']) {
+    lines.push(`• Last 24h: ${trends.windows['24h'].count} threats (weighted: ${trends.windows['24h'].weightedCount})`);
+  }
+  if (trends.windows['7d']) {
+    lines.push(`• Last 7d: ${trends.windows['7d'].count} threats (weighted: ${trends.windows['7d'].weightedCount})`);
+  }
+  lines.push("");
+
+  lines.push("*Use `/ops security report:threats` for detailed threat analysis*");
+  lines.push("*Use `/ops security report:recommendations` for action items*");
+
+  return lines.join("\n");
+}
+
+/**
+ * Format threat trends report
+ */
+function formatThreatTrendsReport(trends: any, window: string): string {
+  const lines: string[] = [];
+
+  lines.push("⚠️ **Threat Trend Analysis**");
+  lines.push(`Generated: ${toEasternString(new Date())}`);
+  lines.push("");
+
+  // Overall Trend
+  const trendEmoji = trends.trend === 'improving' ? '📉' : trends.trend === 'degrading' ? '📈' : '➡️';
+  lines.push(`**Overall Trend: ${trends.trend} ${trendEmoji}**`);
+  lines.push("");
+
+  // Window-specific data
+  const validWindows = ['24h', '7d', '30d'];
+  const targetWindow = validWindows.includes(window) ? window : '24h';
+  
+  if (trends.windows[targetWindow]) {
+    const windowData = trends.windows[targetWindow];
+    lines.push(`**${targetWindow.toUpperCase()} Threat Summary:**`);
+    lines.push(`• Total Threats: ${windowData.count}`);
+    lines.push(`• Weighted Count: ${windowData.weightedCount}`);
+    lines.push("");
+
+    lines.push("**Severity Distribution:**");
+    lines.push(`• 🔴 CRITICAL: ${windowData.severity.CRITICAL || 0}`);
+    lines.push(`• 🟠 HIGH: ${windowData.severity.HIGH || 0}`);
+    lines.push(`• 🟡 MEDIUM: ${windowData.severity.MEDIUM || 0}`);
+    lines.push(`• 🟢 LOW: ${windowData.severity.LOW || 0}`);
+    lines.push("");
+  }
+
+  // All Windows Comparison
+  lines.push("**All Time Windows:**");
+  for (const [label, duration] of [['24h', trends.windows['24h']], ['7d', trends.windows['7d']], ['30d', trends.windows['30d']]]) {
+    if (duration) {
+      lines.push(`• ${label}: ${duration.count} threats (weighted: ${duration.weightedCount})`);
+    }
+  }
+  lines.push("");
+
+  lines.push("*Weighted count uses severity multipliers: CRITICAL ×10, HIGH ×5, MEDIUM ×2, LOW ×1*");
+  lines.push("*Use `/ops security report:score` for overall security posture*");
+
+  return lines.join("\n");
+}
+
+/**
+ * Format recommendations report
+ */
+function formatRecommendationsReport(recommendations: any[], score: any): string {
+  const lines: string[] = [];
+
+  lines.push("📋 **Security Recommendations**");
+  lines.push(`Generated: ${toEasternString(new Date())}`);
+  lines.push(`Current Score: ${score.overall}/100 (${score.grade})`);
+  lines.push("");
+
+  if (recommendations.length === 0) {
+    lines.push("✅ **No recommendations at this time.**");
+    lines.push("Your security posture is healthy. Continue monitoring.");
+    return lines.join("\n");
+  }
+
+  // Group by priority
+  const critical = recommendations.filter(r => r.priority === 'critical');
+  const high = recommendations.filter(r => r.priority === 'high');
+  const medium = recommendations.filter(r => r.priority === 'medium');
+  const low = recommendations.filter(r => r.priority === 'low');
+
+  if (critical.length > 0) {
+    lines.push(`**🔴 CRITICAL (${critical.length})**`);
+    critical.forEach((rec, i) => {
+      lines.push(`${i + 1}. **${rec.title}**`);
+      lines.push(`   ${rec.description}`);
+      lines.push(`   *Action:* ${rec.action}`);
+      lines.push("");
+    });
+  }
+
+  if (high.length > 0) {
+    lines.push(`**🟠 HIGH (${high.length})**`);
+    high.slice(0, 3).forEach((rec, i) => {
+      lines.push(`${i + 1}. **${rec.title}**`);
+      lines.push(`   ${rec.description}`);
+      lines.push(`   *Action:* ${rec.action}`);
+      lines.push("");
+    });
+    if (high.length > 3) {
+      lines.push(`*...and ${high.length - 3} more high priority items*`);
+      lines.push("");
+    }
+  }
+
+  if (medium.length > 0) {
+    lines.push(`**🟡 MEDIUM (${medium.length})**`);
+    medium.slice(0, 2).forEach((rec, i) => {
+      lines.push(`${i + 1}. **${rec.title}** - ${rec.description}`);
+    });
+    if (medium.length > 2) {
+      lines.push(`*...and ${medium.length - 2} more medium priority items*`);
+    }
+    lines.push("");
+  }
+
+  if (low.length > 0) {
+    lines.push(`**🟢 LOW (${low.length})** - See full report for details`);
+    lines.push("");
+  }
+
+  lines.push("*Recommendations are generated based on baseline quality, threat activity, and archive health*");
+
+  // Truncate if too long
+  const message = lines.join("\n");
+  if (message.length > 1900) {
+    return message.substring(0, 1897) + "...";
+  }
+  return message;
+}
+
+/**
+ * Format baseline details report
+ */
+function formatBaselineReport(baselines: any): string {
+  const lines: string[] = [];
+
+  lines.push("📊 **Security Baselines**");
+  lines.push(`Generated: ${toEasternString(new Date())}`);
+  lines.push("");
+
+  // Confidence
+  const confidencePercent = Math.round((baselines.confidence || 0) * 100);
+  const confidenceEmoji = confidencePercent >= 75 ? '🟢' : confidencePercent >= 50 ? '🟡' : '🔴';
+  lines.push(`**Confidence: ${confidencePercent}% ${confidenceEmoji}**`);
+  lines.push(`Data Points: ${baselines.dataPoints || 0} archive entries`);
+  lines.push("");
+
+  // Peak Hours
+  if (baselines.peakHours && baselines.peakHours.length > 0) {
+    lines.push("**Peak Activity Hours (UTC):**");
+    lines.push(`• ${baselines.peakHours.join(', ')}`);
+    lines.push("");
+  }
+
+  // Change Thresholds
+  if (baselines.rapidChangeThreshold) {
+    lines.push("**Rapid Change Threshold:**");
+    lines.push(`• ${baselines.rapidChangeThreshold} changes/hour (95th percentile)`);
+    lines.push("");
+  }
+
+  // Expected Origins
+  if (baselines.expectedOrigins && baselines.expectedOrigins.length > 0) {
+    lines.push("**Expected Origins (Whitelist):**");
+    baselines.expectedOrigins.slice(0, 5).forEach((origin: string) => {
+      lines.push(`• ${origin}`);
+    });
+    if (baselines.expectedOrigins.length > 5) {
+      lines.push(`• ...and ${baselines.expectedOrigins.length - 5} more`);
+    }
+    lines.push("");
+  }
+
+  // Average Activity
+  if (baselines.avgChangesPerHour !== undefined) {
+    lines.push(`**Average Activity:** ${baselines.avgChangesPerHour.toFixed(2)} changes/hour`);
+    lines.push("");
+  }
+
+  lines.push("*Baselines are generated from role change archive and used for threat detection*");
+  lines.push("*Higher confidence = more accurate threat detection*");
+
+  return lines.join("\n");
 }
 
 export async function handleOpsCommand(
@@ -1595,6 +1843,71 @@ export async function handleOpsCommand(
       log.warn("Restart metrics command failed", { err });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `Restart metrics unavailable: ${message}` });
+    }
+    return;
+  }
+
+  if (sub === "security") {
+    await interaction.deferReply({ ephemeral: true });
+    
+    try {
+      const securityMetrics = await getSecurityMetricsModule();
+      if (!securityMetrics) {
+        await interaction.editReply({ content: "Security metrics module not available." });
+        return;
+      }
+
+      // Get security bot state from global context
+      const securityBotState = (global as any).securityBotState;
+      if (!securityBotState) {
+        await interaction.editReply({ 
+          content: "⚠️ Security bot state not available. Security bot may not be running or not yet initialized." 
+        });
+        return;
+      }
+
+      // Determine which security report to show
+      const reportType = interaction.options?.getString?.("report") ?? "score";
+
+      if (reportType === "score") {
+        // Show security score dashboard
+        const metrics = securityMetrics.getSecurityMetrics(securityBotState);
+        const report = formatSecurityScoreReport(metrics);
+        await interaction.editReply({ content: report });
+      } else if (reportType === "threats") {
+        // Show threat trend analysis
+        const window = interaction.options?.getString?.("window") ?? "24h";
+        const trends = securityMetrics.analyzeThreatTrends(securityBotState);
+        const report = formatThreatTrendsReport(trends, window);
+        await interaction.editReply({ content: report });
+      } else if (reportType === "recommendations") {
+        // Show actionable recommendations
+        const score = securityMetrics.calculateSecurityScore(securityBotState);
+        const trends = securityMetrics.analyzeThreatTrends(securityBotState);
+        const recommendations = securityMetrics.generateRecommendations(securityBotState, score, trends);
+        const report = formatRecommendationsReport(recommendations, score);
+        await interaction.editReply({ content: report });
+      } else if (reportType === "baseline") {
+        // Show baseline details
+        if (!securityBotState.security?.baselines) {
+          await interaction.editReply({ content: "❌ No security baselines available. Wait for bot startup or accumulate ≥50 archive entries." });
+          return;
+        }
+        const report = formatBaselineReport(securityBotState.security.baselines);
+        await interaction.editReply({ content: report });
+      } else {
+        await interaction.editReply({ content: `Unknown report type: ${reportType}` });
+      }
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'WORKER', // Security bot is a worker service
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops security',
+        operation: 'handleSecurityCommand',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Security metrics unavailable: ${message}` });
     }
     return;
   }

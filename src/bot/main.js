@@ -61,6 +61,8 @@ import { recordSweep, recordMemberFetchTimeout } from './state/stats.js';
 import { getRecentActivitySummary } from './state/timeline.js';
 import { initializeRoleArchive, recordRoleChange, getRoleStatistics, shutdownRoleArchive } from './state/roleArchive.js';
 import { shutdownDistributedLock, getLockStatistics } from '../services/distributed-lock.js';
+import { generateSecurityBaselines } from './state/securityBaselines.js';
+import { detectSecurityThreats, calculateCurrentActivity } from './state/threatDetector.js';
 
 // Extract constants from centralized constants
 const { DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS, MEMBER_STATS_REFRESH_INTERVAL_MS } = TIME_CONSTANTS;
@@ -2698,6 +2700,86 @@ async function sweepGuild(guild, origin) {
         const rolesChecked = guild.roles.cache.size;
         const changesDetected = success + failed;
         recordSweep(botState, guild.id, describeGuild(guild), rolesChecked, changesDetected);
+        
+        // SECURITY INTELLIGENCE: Detect threats after sweep
+        if (botState.security && botState.security.baselines) {
+          try {
+            const archiveStats = await getRoleStatistics();
+            if (archiveStats && archiveStats.recentChanges && archiveStats.recentChanges.length > 0) {
+              // Calculate current activity from recent changes
+              const activity = calculateCurrentActivity(archiveStats.recentChanges, null);
+              
+              // Detect security threats
+              const assessment = detectSecurityThreats(activity, botState.security.baselines);
+              
+              if (assessment.hasThreats) {
+                // Log threats with evidence
+                log('warn', '[Security Intelligence] ⚠️ Security threats detected', {
+                  threatCount: assessment.threatCount,
+                  maxSeverity: assessment.maxSeverity === 3 ? 'CRITICAL' : 
+                                assessment.maxSeverity === 2 ? 'HIGH' :
+                                assessment.maxSeverity === 1 ? 'MEDIUM' : 'LOW',
+                  types: assessment.threats.map(t => t.type),
+                  guild: guildSummary
+                });
+                
+                // Store in threat history (7-day rolling window)
+                if (!botState.security.threats) {
+                  botState.security.threats = [];
+                }
+                if (!botState.security.threatHistory) {
+                  botState.security.threatHistory = [];
+                }
+                
+                // Add to current threats
+                botState.security.threats = assessment.threats.map(threat => ({
+                  ...threat,
+                  detectedAt: new Date().toISOString(),
+                  guildId: guild.id,
+                  guildName: guild.name,
+                  sweepOrigin: origin
+                }));
+                
+                // Add to history with timestamp
+                botState.security.threatHistory.push({
+                  timestamp: new Date().toISOString(),
+                  guildId: guild.id,
+                  guildName: guild.name,
+                  sweepOrigin: origin,
+                  threatCount: assessment.threatCount,
+                  maxSeverity: assessment.maxSeverity,
+                  threats: assessment.threats
+                });
+                
+                // Prune history to 7 days
+                const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+                botState.security.threatHistory = botState.security.threatHistory.filter(
+                  entry => new Date(entry.timestamp).getTime() > sevenDaysAgo
+                );
+                
+                // Log each threat with details
+                assessment.threats.forEach(threat => {
+                  log('warn', `[Security Intelligence] ${threat.severity} Threat: ${threat.type}`, {
+                    confidence: threat.confidence,
+                    mitreAttack: threat.mitreAttack,
+                    evidence: threat.evidence,
+                    recommendedAction: threat.recommendedAction
+                  });
+                });
+              } else {
+                log('detail', '[Security Intelligence] No threats detected', {
+                  guild: guildSummary,
+                  baselineConfidence: botState.security.baselines.confidenceLevel
+                });
+              }
+            }
+          } catch (error) {
+            log('warn', '[Security Intelligence] Threat detection failed', {
+              error: getErrorMessage(error),
+              guild: guildSummary
+            });
+          }
+        }
       } catch (error) {
         log('warn', 'Failed to record sweep in state', mergeLogError({ guild: guildSummary }, error));
       }
@@ -2899,6 +2981,55 @@ client.once(Events.ClientReady, async () => {
     
     // Initialize role change archive (500-entry cold storage)
     await initializeRoleArchive();
+    
+    // SECURITY INTELLIGENCE: Generate security baselines from archive
+    log('info', '[Security Intelligence] Generating baselines from archive...');
+    const roleArchive = {
+      changes: [], // Will be populated by getRoleStatistics()
+      statistics: {}
+    };
+    try {
+      const archiveStats = await getRoleStatistics();
+      if (archiveStats && archiveStats.recentChanges) {
+        roleArchive.changes = archiveStats.recentChanges;
+        roleArchive.statistics = {
+          totalChanges: archiveStats.totalCount || 0,
+          oldestChange: archiveStats.oldestTimestamp,
+          newestChange: archiveStats.newestTimestamp
+        };
+        
+        // Generate baselines for threat detection
+        const baselines = generateSecurityBaselines(roleArchive);
+        
+        // Store in bot state for persistence
+        if (!botState.security) {
+          botState.security = {
+            baselines: null,
+            threats: [],
+            lastBaselineRefresh: null,
+            threatHistory: [] // 7-day rolling window
+          };
+        }
+        botState.security.baselines = baselines;
+        botState.security.lastBaselineRefresh = new Date().toISOString();
+        
+        log('success', '[Security Intelligence] Baselines generated', {
+          confidence: baselines.confidenceLevel,
+          dataPoints: baselines.dataPointCount,
+          peakHours: baselines.peakActivityHours,
+          avgChangesPerHour: baselines.averageChangesPerHour
+        });
+      } else {
+        log('warn', '[Security Intelligence] Insufficient archive data for baselines', {
+          archiveSize: archiveStats?.totalCount || 0,
+          required: 50
+        });
+      }
+    } catch (error) {
+      log('error', '[Security Intelligence] Failed to generate baselines', {
+        error: getErrorMessage(error)
+      });
+    }
     
     // Expose state to global for cross-module telemetry (e.g., logger.js)
     global.securityBotState = botState;
