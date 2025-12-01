@@ -1280,36 +1280,6 @@ function getContinuousSweepGuilds(signal, transformer) {
 }
 
 /**
- * DEPRECATED: Use enforceCanAssignRole() instead for strict permission enforcement.
- * 
- * Soft permission check - returns false instead of throwing.
- * Kept for backwards compatibility but should not be used in new code.
- * 
- * @deprecated Since Week 2 Day 11-12 - Use enforceCanAssignRole() for security-critical paths
- */
-/**
- * DEPRECATED: Replaced by enforceCanAssignRole() (Week 2 Day 11-12)
- * Kept for potential legacy compatibility - use enforceCanAssignRole() instead.
- */
-function _canAssignRole(guild, role) {
-  const me = guild.members.me;
-  if (!me) return true; // assume true; discord.js will error if not
-  const hasManage = me.permissions.has('ManageRoles');
-  const above = me.roles.highest.position > role.position;
-  if (!hasManage || !above) {
-    report('Permission Check', {
-      guild: describeGuild(guild),
-      botHighestRole: me.roles.highest ? describeRole(me.roles.highest) : 'unknown',
-      targetRole: describeRole(role),
-      hasManageRoles: hasManage,
-      botAboveTarget: above,
-      hint: 'Ensure bot role is above target and has Manage Roles.'
-    }, 'warn');
-  }
-  return hasManage && above;
-}
-
-/**
  * SECURITY FIX: Strict permission enforcement - throws on failure instead of returning false.
  * Week 2 Day 11-12: High Fix #2 - Prevents silent permission failures.
  * 
