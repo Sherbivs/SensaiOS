@@ -251,17 +251,6 @@ export function calculateCurrentActivity(recentChanges, _roleArchive, options = 
   };
 }
 
-/**
- * Get severity color for display
- * @param {string} severity - Threat severity level
- * @returns {string} Emoji/color indicator
- */
-export function getSeverityIndicator(severity) {
-  switch (severity) {
-    case 'CRITICAL': return '🔴';
-    case 'HIGH': return '🟠';
-    case 'MEDIUM': return '🟡';
-    case 'LOW': return '🔵';
-    default: return '⚪';
-  }
-}
+// ✅ getSeverityIndicator moved to shared/utils/severity-utils.ts (centralized)
+// Re-export for backward compatibility
+export { getSeverityIndicator } from '../../shared/utils/severity-utils.js';

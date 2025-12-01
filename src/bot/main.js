@@ -63,6 +63,8 @@ import { initializeRoleArchive, recordRoleChange, getRoleStatistics, shutdownRol
 import { shutdownDistributedLock, getLockStatistics } from '../services/distributed-lock.js';
 import { generateSecurityBaselines } from './state/securityBaselines.js';
 import { detectSecurityThreats, calculateCurrentActivity } from './state/threatDetector.js';
+import { initializeEventBus, cleanupEventBus, emitSecurityEvent, emitAlert } from './eventbus-integration.js';
+import { initializeAlertDispatcher, cleanupAlertDispatcher } from './alert-dispatcher.js';
 
 // Extract constants from centralized constants
 const { DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS, MEMBER_STATS_REFRESH_INTERVAL_MS } = TIME_CONSTANTS;
@@ -2627,7 +2629,23 @@ async function sweepGuild(guild, origin) {
         possibleAttack: 'Mass role removal or bot configuration error',
         action: `Capped to ${MAX_SWEEP_CANDIDATES} assignments`
       }, 'error');
-      // TODO: Send Drip critical alert once Drip integration available
+      
+      // Emit critical alert for anomalous sweep volume (EventBus Phase 2)
+      try {
+        emitAlert('critical', 'Anomalous sweep volume detected (CRITICAL)', {
+          origin,
+          guildId: guild.id,
+          guildName: guild.name,
+          candidateCount: toAssign.size,
+          threshold: SWEEP_ANOMALY_CRITICAL,
+          possibleAttack: 'Mass role removal or bot configuration error',
+          action: `Capped to ${MAX_SWEEP_CANDIDATES} assignments`,
+        });
+      } catch (error) {
+        log('warn', '[EventBus] Failed to emit critical anomaly alert', {
+          error: getErrorMessage(error),
+        });
+      }
     } else if (toAssign.size >= SWEEP_ANOMALY_THRESHOLD) {
       report('WARNING: Anomalous Sweep Volume', {
         origin,
@@ -2636,7 +2654,22 @@ async function sweepGuild(guild, origin) {
         threshold: SWEEP_ANOMALY_THRESHOLD,
         action: wasThrottled ? `Capped to ${MAX_SWEEP_CANDIDATES}` : 'Processing normally'
       }, 'warn');
-      // TODO: Send Drip warning alert once Drip integration available
+      
+      // Emit warning alert for anomalous sweep volume (EventBus Phase 2)
+      try {
+        emitAlert('medium', 'Anomalous sweep volume detected (WARNING)', {
+          origin,
+          guildId: guild.id,
+          guildName: guild.name,
+          candidateCount: toAssign.size,
+          threshold: SWEEP_ANOMALY_THRESHOLD,
+          action: wasThrottled ? `Capped to ${MAX_SWEEP_CANDIDATES}` : 'Processing normally',
+        });
+      } catch (error) {
+        log('warn', '[EventBus] Failed to emit warning anomaly alert', {
+          error: getErrorMessage(error),
+        });
+      }
     }
 
     // SECURITY FIX: Strict permission enforcement (throws on failure)
@@ -2692,7 +2725,7 @@ async function sweepGuild(guild, origin) {
             return;
           }
 
-          await member.roles.add(role);
+          await member.roles.add(role.id);
           success += 1;
           report('Assignment Success', {
             origin,
@@ -2773,6 +2806,34 @@ async function sweepGuild(guild, origin) {
                   types: assessment.threats.map(t => t.type),
                   guild: guildSummary
                 });
+                
+                // Emit threat.detected event with critical/high alert (EventBus Phase 1)
+                try {
+                  const severityLevel = assessment.maxSeverity === 3 ? 'critical' : 
+                                        assessment.maxSeverity === 2 ? 'high' : 'medium';
+                  emitSecurityEvent('threat.detected', {
+                    guildId: guild.id,
+                    guildName: guild.name,
+                    threatCount: assessment.threatCount,
+                    maxSeverity: severityLevel,
+                    threats: assessment.threats,
+                  });
+                  
+                  // Emit alert for critical/high severity threats
+                  if (assessment.maxSeverity >= 2) {
+                    emitAlert(severityLevel, `Security threats detected in ${guild.name}`, {
+                      guildId: guild.id,
+                      guildName: guild.name,
+                      threatCount: assessment.threatCount,
+                      types: assessment.threats.map(t => t.type),
+                    });
+                  }
+                } catch (error) {
+                  // Non-critical: EventBus emit failure shouldn't block threat handling
+                  log('warn', '[EventBus] Failed to emit threat detection events', {
+                    error: getErrorMessage(error),
+                  });
+                }
                 
                 // Store in threat history (7-day rolling window)
                 if (!botState.security.threats) {
@@ -3070,6 +3131,22 @@ client.once(Events.ClientReady, async () => {
           peakHours: baselines.peakActivityHours,
           avgChangesPerHour: baselines.averageChangesPerHour
         });
+        
+        // Emit baseline.generated event (EventBus Phase 1)
+        try {
+          emitSecurityEvent('baseline.generated', {
+            confidence: baselines.confidenceLevel,
+            dataPoints: baselines.dataPointCount,
+            peakHours: baselines.peakActivityHours,
+            avgChangesPerHour: baselines.averageChangesPerHour,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (error) {
+          // Non-critical: EventBus emit failure shouldn't block bot startup
+          log('warn', '[EventBus] Failed to emit baseline.generated event', {
+            error: getErrorMessage(error),
+          });
+        }
       } else {
         log('warn', '[Security Intelligence] Insufficient archive data for baselines', {
           archiveSize: archiveStats?.totalCount || 0,
@@ -3090,6 +3167,37 @@ client.once(Events.ClientReady, async () => {
       restartNumber: botState.cumulative.restartCount,
       guildsMonitored: Object.keys(botState.guilds).length,
     });
+    
+    // Initialize EventBus subscriptions for centralized logging (Phase 1)
+    try {
+      const subscriptionIds = initializeEventBus(log);
+      log('success', '[EventBus] Integration initialized', {
+        subscriptions: subscriptionIds.length,
+        phase: 'Phase 1 (Non-Breaking)',
+      });
+      
+      // Initialize Alert Dispatcher (Phase 2) - routes EventBus alerts → Drip DM
+      if (dripAlertManager) {
+        try {
+          initializeAlertDispatcher(dripAlertManager, log);
+          log('success', '[AlertDispatcher] Centralized alert routing initialized', {
+            phase: 'Phase 2 (Drip Integration)',
+          });
+        } catch (error) {
+          log('error', '[AlertDispatcher] Failed to initialize', {
+            error: getErrorMessage(error),
+          });
+        }
+      } else {
+        log('warn', '[AlertDispatcher] Skipped (dripAlertManager not available)', {
+          phase: 'Phase 2 (Drip Integration)',
+        });
+      }
+    } catch (error) {
+      log('error', '[EventBus] Failed to initialize subscriptions', {
+        error: getErrorMessage(error),
+      });
+    }
   } catch (error) {
     log('error', 'State persistence initialization failed', mergeLogError({
       errorType: error?.constructor?.name || typeof error,
@@ -3732,6 +3840,22 @@ if (entryHref && import.meta.url === entryHref) {
       log('info', '[Metrics] Prometheus metrics server stopped');
     } catch (error) {
       log('error', '[Metrics] Error stopping metrics server', { error: getErrorMessage(error) });
+    }
+    
+    // Cleanup EventBus subscriptions
+    try {
+      cleanupEventBus();
+      log('info', '[EventBus] Subscriptions cleaned up');
+    } catch (error) {
+      log('error', '[EventBus] Error during cleanup', { error: getErrorMessage(error) });
+    }
+    
+    // Cleanup Alert Dispatcher
+    try {
+      cleanupAlertDispatcher();
+      log('info', '[AlertDispatcher] Cleaned up');
+    } catch (error) {
+      log('error', '[AlertDispatcher] Error during cleanup', { error: getErrorMessage(error) });
     }
     
     if (autoSaveInterval) {

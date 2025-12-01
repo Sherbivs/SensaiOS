@@ -26,6 +26,7 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { log } from '../../utils/logger.js';
+import { emitAlert } from '../eventbus-integration.js';
 import { 
   generateSecurityBaselines, 
   loadSecurityBaselines, 
@@ -168,8 +169,19 @@ export async function initializeRoleArchive() {
             // Start with fresh archive
           }
           
-          // TODO: Integrate with Drip alert system once available
-          // await sendDripAlert({ type: 'critical', message: 'Role archive tampering detected' });
+          // Emit critical alert for archive tampering (EventBus Phase 2)
+          try {
+            emitAlert('critical', 'Role archive tampering detected', {
+              file: ARCHIVE_FILE,
+              signatureExpected: archived.signature,
+              signatureActual: expectedSignature,
+              action: 'Restored from backup',
+            });
+          } catch (error) {
+            log('warn', '[EventBus] Failed to emit archive tampering alert', {
+              error: error.message,
+            });
+          }
           
         } else {
           // Signature valid - load data
@@ -384,11 +396,9 @@ export async function recordRoleChange(event) {
               recommendedAction: threat.recommendedAction
             });
             
-            // TODO Task 11: Integrate with Drip alerts
-            // For now, just log the threat. Drip integration will handle:
-            // - CRITICAL → Emergency DM + auto-revert
-            // - HIGH → Alert DM + admin notification
-            // - MEDIUM → Log for review
+            // ✅ Alert integration complete via EventBus (Phase 2)
+            // Drip alerts route through: emitAlert() → EventBus → alert-dispatcher → dripAlertManager
+            // Severity mapping: CRITICAL/HIGH/MEDIUM → Emergency/Alert/Warning DMs
             
             // TODO Task 2 (Backend Architect): Implement auto-revert logic
             // For CRITICAL threats with AUTO_REVERT action:

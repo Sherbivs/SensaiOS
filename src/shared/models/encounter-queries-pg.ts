@@ -19,7 +19,7 @@
  */
 
 import { Pool } from "pg";
-import { getProdDb } from "../pg-connection.js";
+import { getPool } from "./pool-helper.js";
 import { buildSelect } from "../pg-query.js";
 import type { Encounter } from "../../types/db-models.js";
 
@@ -28,18 +28,7 @@ import type { Encounter } from "../../types/db-models.js";
  */
 export type EncounterState = "Idle" | "Spawned" | "Caught" | "Fled" | "Fainted" | "Expired";
 
-/**
- * Get database pool (defaults to PROD for gameplay)
- * @param pool - Optional pool override for testing
- */
-function getPool(pool?: Pool): Pool {
-  if (pool) return pool;
-  const prodPool = getProdDb();
-  if (!prodPool) {
-    throw new Error("PROD database pool not initialized. Call initializeConnection() first.");
-  }
-  return prodPool;
-}
+// ✅ getPool moved to shared/models/pool-helper.ts (centralized)
 
 /**
  * Revive Date fields from database query result

@@ -13,7 +13,7 @@
  */
 
 import { Pool } from "pg";
-import { getProdDb } from "../pg-connection.js";
+import { getPool } from "./pool-helper.js";
 import { buildSelect, buildCount } from "../pg-query.js";
 import type { User, Party, PartySlot, PokemonInstance } from "../../types/db-models.js";
 
@@ -48,18 +48,7 @@ export type UserWithParty = User & {
   parties: PartyWithSlots[];
 };
 
-/**
- * Get database pool (defaults to PROD for gameplay)
- * @param pool - Optional pool override for testing
- */
-function getPool(pool?: Pool): Pool {
-  if (pool) return pool;
-  const prodPool = getProdDb();
-  if (!prodPool) {
-    throw new Error("PROD database pool not initialized. Call initializeConnection() first.");
-  }
-  return prodPool;
-}
+// ✅ getPool moved to shared/models/pool-helper.ts (centralized)
 
 /**
  * Get minimal user data by Discord ID

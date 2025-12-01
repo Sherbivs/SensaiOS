@@ -13,7 +13,7 @@
  * 
  * Integration with:
  * - threatDetector.js → Receives threat assessments
- * - integrityVerifier.js → Performs integrity checks
+ * - Performs inline integrity checks (deleted roles, permission drift, missing assignments)
  * - dripAlerts.js → Sends admin notifications
  * - roleArchive.js → Gets historical context
  * 
@@ -25,6 +25,7 @@
 
 import { log } from '../../utils/logger.js';
 import { getErrorMessage } from '../../shared/utils/index.js';
+import { emitAlert } from '../eventbus-integration.js';
 
 /**
  * Respond to detected security threats with appropriate actions
@@ -488,18 +489,42 @@ async function sendAdminAlert(guild, threat, severity, dryRun = false) {
     };
   }
   
-  // TODO: Integrate with Drip alert system
-  // const dripAlerts = createDripAlertManager();
-  // await dripAlerts.sendAlert(alertMessage);
-  
-  log('warn', '[ThreatResponse] Admin alert logged (Drip integration pending)', alertMessage);
-  
-  return {
-    success: true,
-    dryRun: false,
-    alertSent: false,
-    note: 'Drip integration pending'
-  };
+  // Emit alert via EventBus (Phase 2 - replaces Drip TODO)
+  try {
+    const severity = alertMessage.severity === 'CRITICAL' ? 'critical' : 
+                     alertMessage.severity === 'HIGH' ? 'high' : 'medium';
+    
+    emitAlert(severity, alertMessage.message || 'Security threat detected', {
+      threatType: alertMessage.threatType,
+      evidence: alertMessage.evidence,
+      recommendedAction: alertMessage.recommendedAction,
+      guildId: alertMessage.guildId,
+      guildName: alertMessage.guildName,
+    });
+    
+    log('success', '[ThreatResponse] Alert sent via EventBus', {
+      severity,
+      threatType: alertMessage.threatType,
+    });
+    
+    return {
+      success: true,
+      dryRun: false,
+      alertSent: true,
+    };
+  } catch (error) {
+    log('error', '[ThreatResponse] Failed to send alert via EventBus', {
+      error: getErrorMessage(error),
+      alertMessage,
+    });
+    
+    return {
+      success: false,
+      dryRun: false,
+      alertSent: false,
+      error: getErrorMessage(error),
+    };
+  }
 }
 
 /**
@@ -518,18 +543,6 @@ function getSeverityLevel(severity) {
   return levels[severity] || 0;
 }
 
-/**
- * Get severity indicator emoji
- * 
- * @param {string} severity - Severity string
- * @returns {string} Emoji indicator
- */
-export function getSeverityIndicator(severity) {
-  const indicators = {
-    'CRITICAL': '🔴',
-    'HIGH': '🟠',
-    'MEDIUM': '🟡',
-    'LOW': '🔵'
-  };
-  return indicators[severity] || '⚪';
-}
+// ✅ getSeverityIndicator moved to shared/utils/severity-utils.ts (centralized)
+// Re-export for backward compatibility
+export { getSeverityIndicator } from '../../shared/utils/severity-utils.js';

@@ -19,8 +19,8 @@
  * Migration Phase: 9 (Party/Pokemon queries)
  */
 
-import type { Pool, PoolClient } from "pg";
-import { getProdDb } from "../pg-connection.js";
+import type { Pool } from "pg";
+import { getPool } from "./pool-helper.js";
 import { buildSelect, buildInsert, buildUpdate, buildCount } from "../pg-query.js";
 import type { Party, PartySlot, PokemonInstance } from "../../types/db-models.js";
 
@@ -179,15 +179,7 @@ function revivePartyWithSlots(rows: any[]): PartyWithSlots | null {
   };
 }
 
-/**
- * Get pool with fallback to PROD
- */
-function getPool(pool?: Pool | PoolClient): Pool | PoolClient {
-  if (pool) return pool;
-  const prodPool = getProdDb();
-  if (!prodPool) throw new Error("No PROD database pool available");
-  return prodPool;
-}
+// ✅ getPool moved to shared/models/pool-helper.ts (centralized with PoolClient support)
 
 // ============================================================================
 // Party Read Operations

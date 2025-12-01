@@ -21,7 +21,7 @@
  */
 
 import type { Pool } from "pg";
-import { getProdDb } from "../pg-connection.js";
+import { getPool } from "./pool-helper.js";
 import { buildInsert, buildUpdate, buildCount } from "../pg-query.js";
 import type { Battle } from "../../types/db-models.js";
 
@@ -61,15 +61,7 @@ function reviveBattle(row: any): Battle {
   };
 }
 
-/**
- * Get pool with fallback to PROD
- */
-function getPool(pool?: Pool): Pool {
-  if (pool) return pool;
-  const prodPool = getProdDb();
-  if (!prodPool) throw new Error("No PROD database pool available");
-  return prodPool;
-}
+// ✅ getPool moved to shared/models/pool-helper.ts (centralized)
 
 // ============================================================================
 // Read Operations

@@ -81,9 +81,18 @@ export function formatDuration(ms: number): string {
 
 /**
  * Format uptime in milliseconds to human-readable string (compact variant).
+ * Includes days support for long-running processes.
  * 
  * @param ms - Uptime in milliseconds
- * @returns Compact uptime string (e.g., "2m 34s", "45s")
+ * @returns Compact uptime string (e.g., "2d 5h", "2h 34m", "2m 34s", "45s")
+ * 
+ * @example
+ * ```typescript
+ * formatUptime(172800000) // "2d 0h"
+ * formatUptime(7380000) // "2h 3m"
+ * formatUptime(154000) // "2m 34s"
+ * formatUptime(45000) // "45s"
+ * ```
  */
 export function formatUptime(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return '0s';
@@ -91,7 +100,11 @@ export function formatUptime(ms: number): string {
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
 
+  if (days > 0) {
+    return `${days}d ${hours % 24}h`;
+  }
   if (hours > 0) {
     return `${hours}h ${minutes % 60}m`;
   }
