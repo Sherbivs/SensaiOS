@@ -1,0 +1,352 @@
+# Prometheus Alerting Rules
+# Security Intelligence System v1.0.0
+
+groups:
+  # Critical Security Alerts
+  - name: security_critical
+    interval: 30s
+    rules:
+      # Critical Threat Detected
+      - alert: CriticalThreatDetected
+        expr: security_threats_detected_total{severity="CRITICAL"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          notify: oncall
+        annotations:
+          summary: "🚨 Critical security threat detected"
+          description: "{{ $value }} critical threats detected in the last minute. Immediate investigation required."
+          runbook: "https://docs.example.com/runbooks/critical-threat"
+          action: "Check /ops security command for details, review threat patterns, verify threat response actions executed"
+
+      # Integrity Check Failed
+      - alert: IntegrityCheckFailed
+        expr: security_integrity_checks_failed_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          notify: oncall
+        annotations:
+          summary: "🚨 Integrity check failed"
+          description: "{{ $value }} integrity checks failed. Configuration drift or unauthorized changes detected."
+          runbook: "https://docs.example.com/runbooks/integrity-failure"
+          action: "Check integrity verifier logs, review recent role changes, verify auto-healing executed"
+
+      # Multiple Failed Response Actions
+      - alert: ResponseActionFailures
+        expr: rate(security_response_actions_total{status="failed"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          category: security
+          notify: oncall
+        annotations:
+          summary: "🚨 Multiple response actions failing"
+          description: "Response action failure rate: {{ $value }} per second. Automated responses may not be executing."
+          runbook: "https://docs.example.com/runbooks/response-failures"
+          action: "Check threat response logs, verify bot permissions, check Discord API status"
+
+      # Archive Signature Verification Failed
+      - alert: ArchiveSignatureInvalid
+        expr: security_archive_signature_verified == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: security
+          notify: oncall
+        annotations:
+          summary: "🚨 Archive signature verification failed"
+          description: "Archive integrity compromised. HMAC signature verification failing."
+          runbook: "https://docs.example.com/runbooks/archive-integrity"
+          action: "Check HMAC secret configuration, verify archive not tampered, restore from backup if needed"
+
+  # High Priority Security Alerts
+  - name: security_high
+    interval: 1m
+    rules:
+      # High Threat Rate
+      - alert: HighThreatRate
+        expr: rate(security_threats_detected_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          notify: team
+        annotations:
+          summary: "⚠️ High threat detection rate"
+          description: "Threat rate: {{ $value }} per second (sustained for 5+ minutes). Possible attack in progress."
+          runbook: "https://docs.example.com/runbooks/high-threat-rate"
+          action: "Review threat patterns, check for coordinated attacks, verify threat responses executed"
+
+      # High Anomaly Score
+      - alert: HighAnomalyScore
+        expr: security_member_anomaly_score > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          notify: team
+        annotations:
+          summary: "⚠️ High member anomaly score"
+          description: "Member {{ $labels.member_id }} has anomaly score {{ $value }} (threshold: 0.8). Unusual behavior detected."
+          runbook: "https://docs.example.com/runbooks/anomaly-detection"
+          action: "Review member's recent activity, check behavioral baseline, verify account not compromised"
+
+      # Low Security Score
+      - alert: LowSecurityScore
+        expr: security_score < 50
+        for: 10m
+        labels:
+          severity: warning
+          category: security
+          notify: team
+        annotations:
+          summary: "⚠️ Low security score"
+          description: "Security score: {{ $value }} (sustained below 50 for 10+ minutes). Multiple security issues detected."
+          runbook: "https://docs.example.com/runbooks/low-security-score"
+          action: "Check /ops security for breakdown, review recent threats, verify integrity checks passing"
+
+      # Coordinated Attack Detected
+      - alert: CoordinatedAttackDetected
+        expr: security_coordinated_attacks_detected_total > 0
+        for: 2m
+        labels:
+          severity: warning
+          category: security
+          notify: team
+        annotations:
+          summary: "⚠️ Coordinated attack detected"
+          description: "{{ $value }} coordinated attacks detected. Multiple members acting suspiciously."
+          runbook: "https://docs.example.com/runbooks/coordinated-attack"
+          action: "Review attack indicators, identify participating members, escalate to admins"
+
+  # Performance Alerts
+  - name: performance
+    interval: 1m
+    rules:
+      # Baseline Generation Slow
+      - alert: BaselineGenerationSlow
+        expr: performance_function_duration_ms{function="baseline_generation"} > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+          notify: team
+        annotations:
+          summary: "⚠️ Baseline generation slow"
+          description: "Baseline generation: {{ $value }}ms (target: <100ms, sustained for 5+ minutes)."
+          runbook: "https://docs.example.com/runbooks/performance-degradation"
+          action: "Enable performance optimizations (caching, early exit), prune archive if too large, check memory usage"
+
+      # Threat Detection Slow
+      - alert: ThreatDetectionSlow
+        expr: performance_function_duration_ms{function="threat_detection"} > 50
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+          notify: team
+        annotations:
+          summary: "⚠️ Threat detection slow"
+          description: "Threat detection: {{ $value }}ms (target: <50ms, sustained for 5+ minutes)."
+          runbook: "https://docs.example.com/runbooks/performance-degradation"
+          action: "Enable bloom filter, batch processing, skip unchanged members optimization"
+
+      # Metrics Calculation Slow
+      - alert: MetricsCalculationSlow
+        expr: performance_function_duration_ms{function="metrics_calculation"} > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+          notify: team
+        annotations:
+          summary: "⚠️ Metrics calculation slow"
+          description: "Metrics calculation: {{ $value }}ms (target: <10ms, sustained for 5+ minutes)."
+          runbook: "https://docs.example.com/runbooks/performance-degradation"
+          action: "Enable incremental updates, dirty flags optimization, check metrics queue size"
+
+      # Low Cache Hit Rate
+      - alert: LowCacheHitRate
+        expr: performance_cache_hit_rate < 0.5
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+          notify: team
+        annotations:
+          summary: "⚠️ Low cache hit rate"
+          description: "Cache hit rate: {{ $value }} (target: >0.8, sustained for 10+ minutes). Cache may be ineffective."
+          runbook: "https://docs.example.com/runbooks/cache-optimization"
+          action: "Check cache TTL settings, verify cache enabled, review cache invalidation logic"
+
+  # System Health Alerts
+  - name: system_health
+    interval: 1m
+    rules:
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: system_health_memory_heap_used_bytes / 1024 / 1024 > 50
+        for: 10m
+        labels:
+          severity: warning
+          category: system
+          notify: team
+        annotations:
+          summary: "⚠️ High memory usage"
+          description: "Heap usage: {{ $value }} MB (target: <50 MB, sustained for 10+ minutes)."
+          runbook: "https://docs.example.com/runbooks/high-memory"
+          action: "Enable memory optimization (force GC, clear old samples), check for memory leaks, prune archive"
+
+      # Memory Leak Suspected
+      - alert: MemoryLeakSuspected
+        expr: rate(system_health_memory_heap_used_bytes[30m]) > 1024 * 1024
+        for: 30m
+        labels:
+          severity: warning
+          category: system
+          notify: team
+        annotations:
+          summary: "⚠️ Memory leak suspected"
+          description: "Memory growth rate: {{ $value }} bytes/sec (sustained for 30+ minutes). Possible memory leak."
+          runbook: "https://docs.example.com/runbooks/memory-leak"
+          action: "Run memory leak detection test, review recent code changes, check for unbounded data structures"
+
+      # Bot Offline
+      - alert: BotOffline
+        expr: up{job="security-bot"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: system
+          notify: oncall
+        annotations:
+          summary: "🚨 Security bot is offline"
+          description: "Bot has been offline for 2+ minutes. Security monitoring disabled."
+          runbook: "https://docs.example.com/runbooks/bot-offline"
+          action: "Check PM2 status (pm2 list), review bot logs (pm2 logs), restart if needed (pm2 restart security-bot-production)"
+
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: rate(system_health_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+          notify: team
+        annotations:
+          summary: "⚠️ High error rate"
+          description: "Error rate: {{ $value }} per second (sustained for 5+ minutes)."
+          runbook: "https://docs.example.com/runbooks/high-error-rate"
+          action: "Check bot logs for errors, review error types, verify Discord API status"
+
+      # Restart Loop
+      - alert: BotRestartLoop
+        expr: changes(system_health_uptime_seconds[15m]) > 3
+        for: 5m
+        labels:
+          severity: critical
+          category: system
+          notify: oncall
+        annotations:
+          summary: "🚨 Bot in restart loop"
+          description: "Bot restarted {{ $value }} times in last 15 minutes. Critical stability issue."
+          runbook: "https://docs.example.com/runbooks/restart-loop"
+          action: "Check for fatal errors in logs, review recent deployments, consider rollback"
+
+  # Operational Alerts
+  - name: operational
+    interval: 5m
+    rules:
+      # Baseline Outdated
+      - alert: BaselineOutdated
+        expr: (time() - security_baseline_last_updated_timestamp) > 7200
+        for: 10m
+        labels:
+          severity: warning
+          category: operational
+          notify: team
+        annotations:
+          summary: "⚠️ Security baseline outdated"
+          description: "Baseline last updated {{ $value }}s ago (>2 hours). May not reflect current patterns."
+          runbook: "https://docs.example.com/runbooks/baseline-outdated"
+          action: "Check automatic sweep schedule, verify archive loading successfully, force baseline refresh if needed"
+
+      # Archive Not Growing
+      - alert: ArchiveNotGrowing
+        expr: changes(security_archive_changes_total[24h]) == 0
+        for: 24h
+        labels:
+          severity: info
+          category: operational
+          notify: team
+        annotations:
+          summary: "ℹ️ Archive not growing"
+          description: "No new archive entries in 24 hours. Server may be inactive or archiving disabled."
+          runbook: "https://docs.example.com/runbooks/archive-not-growing"
+          action: "Check if server active, verify archiving enabled, review role change activity"
+
+      # No Sweeps Running
+      - alert: NoSweepsRunning
+        expr: (time() - security_sweep_last_completed_timestamp) > 600
+        for: 10m
+        labels:
+          severity: warning
+          category: operational
+          notify: team
+        annotations:
+          summary: "⚠️ No automatic sweeps running"
+          description: "Last sweep completed {{ $value }}s ago (>10 minutes). Sweeps may have stopped."
+          runbook: "https://docs.example.com/runbooks/sweeps-not-running"
+          action: "Check sweep scheduler, verify bot permissions, review error logs for sweep failures"
+
+      # Prometheus Metrics Stale
+      - alert: PrometheusMetricsStale
+        expr: (time() - prometheus_metrics_last_scraped_timestamp) > 120
+        for: 5m
+        labels:
+          severity: warning
+          category: operational
+          notify: team
+        annotations:
+          summary: "⚠️ Prometheus metrics stale"
+          description: "Metrics last scraped {{ $value }}s ago (>2 minutes). Monitoring may be broken."
+          runbook: "https://docs.example.com/runbooks/metrics-stale"
+          action: "Check Prometheus scrape configuration, verify /metrics endpoint responding, check bot connectivity"
+
+# Alert Routing Configuration
+# Configure in Alertmanager (alertmanager.yml)
+# 
+# route:
+#   receiver: 'team-slack'
+#   group_by: ['alertname', 'category']
+#   group_wait: 30s
+#   group_interval: 5m
+#   repeat_interval: 4h
+#   routes:
+#     - match:
+#         severity: critical
+#       receiver: 'oncall-pagerduty'
+#       group_wait: 10s
+#       repeat_interval: 30m
+#     - match:
+#         severity: warning
+#       receiver: 'team-slack'
+#     - match:
+#         severity: info
+#       receiver: 'team-slack'
+# 
+# receivers:
+#   - name: 'team-slack'
+#     slack_configs:
+#       - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+#         channel: '#security-intelligence'
+#         title: '{{ .GroupLabels.alertname }}'
+#         text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}\n{{ .Annotations.action }}{{ end }}'
+# 
+#   - name: 'oncall-pagerduty'
+#     pagerduty_configs:
+#       - service_key: 'YOUR_PAGERDUTY_SERVICE_KEY'
+#         description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'

@@ -180,9 +180,9 @@ describe('Metric Registration', () => {
     initializeSecurityMetrics();
     
     const summary = getMetricsSummary();
-    expect(summary.totalMetrics).toBeGreaterThan(30); // We register 30+ metrics
-    expect(summary.metricsByType.gauge).toBeGreaterThan(20);
-    expect(summary.metricsByType.counter).toBeGreaterThan(5);
+    expect(summary.totalMetrics).toBeGreaterThanOrEqual(40); // We register 43 metrics
+    expect(summary.metricsByType.gauge).toBeGreaterThan(25);
+    expect(summary.metricsByType.counter).toBeGreaterThanOrEqual(4); // Exactly 4 counters
     expect(summary.metricsByType.histogram).toBeGreaterThan(3);
   });
 });

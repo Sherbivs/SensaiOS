@@ -270,10 +270,9 @@ export function initializeSecurityMetrics() {
  * 
  * @param {Object} securityBotState - Security bot state object
  * @param {Object} securityMetrics - Security metrics module (optional)
- * @param {Object} behavioralAnalysis - Behavioral analysis module (optional)
  * @returns {boolean} Success status
  */
-export function collectSecurityMetrics(securityBotState, securityMetrics = null, behavioralAnalysis = null) {
+export function collectSecurityMetrics(securityBotState, securityMetrics = null) {
   try {
     if (!securityBotState) {
       log('warn', '[PrometheusExporter] No security bot state available');
@@ -396,7 +395,7 @@ export function collectSecurityMetrics(securityBotState, securityMetrics = null,
     }
 
     // Behavioral Analysis
-    if (behavioralAnalysis && securityBotState.memberBaselines) {
+    if (securityBotState.memberBaselines) {
       const baselines = securityBotState.memberBaselines || {};
       setGauge('behavioral_member_baselines_count', Object.keys(baselines).length);
     }
@@ -531,12 +530,11 @@ export function exportPrometheusMetrics() {
  * @param {Object} res - HTTP response
  * @param {Object} securityBotState - Security bot state
  * @param {Object} securityMetrics - Security metrics module (optional)
- * @param {Object} behavioralAnalysis - Behavioral analysis module (optional)
  */
-export function handleMetricsRequest(req, res, securityBotState, securityMetrics = null, behavioralAnalysis = null) {
+export function handleMetricsRequest(req, res, securityBotState, securityMetrics = null) {
   try {
     // Collect latest metrics
-    collectSecurityMetrics(securityBotState, securityMetrics, behavioralAnalysis);
+    collectSecurityMetrics(securityBotState, securityMetrics);
 
     // Export in Prometheus format
     const metricsText = exportPrometheusMetrics();

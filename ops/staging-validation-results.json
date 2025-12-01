@@ -1,0 +1,165 @@
+{
+  "timestamp": "2025-12-01T15:40:50.667Z",
+  "results": {
+    "moduleAvailability": [
+      {
+        "name": "securityBaselines",
+        "status": "PASS",
+        "size": 11888
+      },
+      {
+        "name": "threatDetector",
+        "status": "PASS",
+        "size": 10287
+      },
+      {
+        "name": "integrityVerifier",
+        "status": "PASS",
+        "size": 14734
+      },
+      {
+        "name": "threatResponse",
+        "status": "PASS",
+        "size": 16150
+      },
+      {
+        "name": "securityMetrics",
+        "status": "PASS",
+        "size": 22993
+      },
+      {
+        "name": "behavioralAnalysis",
+        "status": "PASS",
+        "size": 29367
+      },
+      {
+        "name": "prometheusExporter",
+        "status": "PASS",
+        "size": 22753
+      },
+      {
+        "name": "performanceOptimizer",
+        "status": "PASS",
+        "size": 19138
+      }
+    ],
+    "performanceBenchmarks": [
+      {
+        "name": "Baseline Generation",
+        "duration": 0,
+        "target": 100,
+        "status": "PASS"
+      },
+      {
+        "name": "Threat Detection",
+        "duration": 0,
+        "target": 50,
+        "status": "PASS"
+      },
+      {
+        "name": "Metrics Calculation",
+        "duration": 0,
+        "target": 10,
+        "status": "PASS"
+      },
+      {
+        "name": "End-to-End Pipeline",
+        "duration": 56,
+        "target": 200,
+        "status": "PASS"
+      }
+    ],
+    "integrationTests": [
+      {
+        "name": "Module Imports",
+        "status": "PASS"
+      },
+      {
+        "name": "Archive Integrity",
+        "status": "PASS",
+        "changes": 70
+      },
+      {
+        "name": "Prometheus Endpoint",
+        "status": "PASS"
+      },
+      {
+        "name": "Discord Commands",
+        "status": "PASS"
+      }
+    ],
+    "loadTests": [
+      {
+        "name": "Concurrent Baseline Generation",
+        "concurrency": 10,
+        "duration": 59,
+        "avgDuration": 6,
+        "status": "PASS"
+      },
+      {
+        "name": "Burst Threat Detection",
+        "burstSize": 100,
+        "duration": 0,
+        "throughput": null,
+        "status": "PASS"
+      },
+      {
+        "name": "Sustained Metrics Updates",
+        "updates": 1000,
+        "duration": 0,
+        "avgDuration": 0,
+        "status": "PASS"
+      }
+    ],
+    "securityValidation": [
+      {
+        "name": "HMAC Secret",
+        "status": "FAIL",
+        "reason": "Not configured"
+      },
+      {
+        "name": "Rate Limiting",
+        "status": "PASS"
+      },
+      {
+        "name": "Permission Checks",
+        "status": "PASS"
+      },
+      {
+        "name": "Signature Verification",
+        "status": "PASS"
+      }
+    ],
+    "memoryProfile": [
+      {
+        "name": "Initial Memory",
+        "heapUsed": 5,
+        "heapTotal": 8,
+        "status": "PASS"
+      },
+      {
+        "name": "Memory After Operations",
+        "heapUsed": 5,
+        "heapTotal": 8,
+        "target": 50,
+        "status": "PASS"
+      },
+      {
+        "name": "Memory Leak Detection",
+        "avgGrowth": 0,
+        "status": "PASS"
+      }
+    ],
+    "overall": {
+      "passed": 25,
+      "failed": 1,
+      "warnings": 0
+    }
+  },
+  "summary": {
+    "passed": 25,
+    "failed": 1,
+    "warnings": 0,
+    "total": 26
+  }
+}
