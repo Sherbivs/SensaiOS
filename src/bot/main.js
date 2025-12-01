@@ -77,55 +77,87 @@ const TIMEOUT_CONFIG_FILE = process.env.RENDER
   ? '/Store/guild-member-timeout-config.json'
   : './Store/guild-member-timeout-config.json';
 
-// Load timeout from persistent config
-function loadTimeoutConfig() {
-  try {
-    baseLog('info', `[timeout-config] Loading from: ${TIMEOUT_CONFIG_FILE}`, {}, { debugMode: CLI_DEBUG_MODE });
-    
-    if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
-      const data = fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8');
-      const config = JSON.parse(data);
-      if (config.timeoutMs && typeof config.timeoutMs === 'number') {
-        const clamped = Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, config.timeoutMs));
-        baseLog('info', `[timeout-config] Loaded from disk`, {
-          timeoutMs: clamped,
-          adjustments: config.adjustments || 0,
-          lastAdjusted: config.lastAdjusted || 'never',
-          lastReason: config.reason || 'unknown',
-          file: TIMEOUT_CONFIG_FILE
-        }, { debugMode: CLI_DEBUG_MODE });
-        return clamped;
-      }
-    } else {
-      baseLog('info', `[timeout-config] File does not exist, using default: ${DEFAULT_TIMEOUT_MS}ms`, {
-        file: TIMEOUT_CONFIG_FILE
-      }, { debugMode: CLI_DEBUG_MODE });
-    }
-  } catch (err) {
-    baseLog('warn', '[timeout-config] Failed to load, using default', { 
-      error: err.message,
-      file: TIMEOUT_CONFIG_FILE,
-      default: DEFAULT_TIMEOUT_MS
-    }, { debugMode: CLI_DEBUG_MODE });
+// In-memory cache for timeout config (avoid blocking file I/O)
+let timeoutConfigCache = null;
+let timeoutConfigLoadPromise = null;
+
+// Load timeout from persistent config (async to avoid blocking event loop)
+async function loadTimeoutConfig() {
+  // Return cached value if available
+  if (timeoutConfigCache !== null) {
+    return timeoutConfigCache;
   }
-  return DEFAULT_TIMEOUT_MS;
+  
+  // Return in-flight promise if already loading
+  if (timeoutConfigLoadPromise) {
+    return timeoutConfigLoadPromise;
+  }
+  
+  // Start async load
+  timeoutConfigLoadPromise = (async () => {
+    try {
+      baseLog('info', `[timeout-config] Loading from: ${TIMEOUT_CONFIG_FILE}`, {}, { debugMode: CLI_DEBUG_MODE });
+      
+      const fsPromises = (await import('node:fs/promises')).default;
+      
+      try {
+        const data = await fsPromises.readFile(TIMEOUT_CONFIG_FILE, 'utf8');
+        const config = JSON.parse(data);
+        if (config.timeoutMs && typeof config.timeoutMs === 'number') {
+          const clamped = Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, config.timeoutMs));
+          timeoutConfigCache = clamped;
+          baseLog('info', `[timeout-config] Loaded from disk`, {
+            timeoutMs: clamped,
+            adjustments: config.adjustments || 0,
+            lastAdjusted: config.lastAdjusted || 'never',
+            lastReason: config.reason || 'unknown',
+            file: TIMEOUT_CONFIG_FILE
+          }, { debugMode: CLI_DEBUG_MODE });
+          return clamped;
+        }
+      } catch (err) {
+        if (err.code === 'ENOENT') {
+          baseLog('info', `[timeout-config] File does not exist, using default: ${DEFAULT_TIMEOUT_MS}ms`, {
+            file: TIMEOUT_CONFIG_FILE
+          }, { debugMode: CLI_DEBUG_MODE });
+        } else {
+          throw err;
+        }
+      }
+    } catch (err) {
+      baseLog('warn', '[timeout-config] Failed to load, using default', { 
+        error: err.message,
+        file: TIMEOUT_CONFIG_FILE,
+        default: DEFAULT_TIMEOUT_MS
+      }, { debugMode: CLI_DEBUG_MODE });
+    } finally {
+      timeoutConfigLoadPromise = null;
+    }
+    
+    timeoutConfigCache = DEFAULT_TIMEOUT_MS;
+    return DEFAULT_TIMEOUT_MS;
+  })();
+  
+  return timeoutConfigLoadPromise;
 }
 
-// Save timeout to persistent config
-function saveTimeoutConfig(timeoutMs, reason = 'manual') {
+// Save timeout to persistent config (async to avoid blocking event loop)
+async function saveTimeoutConfig(timeoutMs, reason = 'manual') {
   try {
+    const fsPromises = (await import('node:fs/promises')).default;
+    
     const dir = path.dirname(TIMEOUT_CONFIG_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    await fsPromises.mkdir(dir, { recursive: true });
     
     let adjustments = 0;
     try {
-      if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
-        const existing = JSON.parse(fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8'));
-        adjustments = (existing.adjustments || 0) + 1;
+      const data = await fsPromises.readFile(TIMEOUT_CONFIG_FILE, 'utf8');
+      const existing = JSON.parse(data);
+      adjustments = (existing.adjustments || 0) + 1;
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        baseLog('warn', '[timeout-config] Could not load existing adjustments count', { error: err.message });
       }
-    } catch {
       // Ignore history loading errors
     }
     
@@ -139,13 +171,15 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
     
     // Load history if exists
     try {
-      if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
-        const existing = JSON.parse(fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8'));
-        if (Array.isArray(existing.history)) {
-          config.history = existing.history.slice(-10); // Keep last 10
-        }
+      const data = await fsPromises.readFile(TIMEOUT_CONFIG_FILE, 'utf8');
+      const existing = JSON.parse(data);
+      if (Array.isArray(existing.history)) {
+        config.history = existing.history.slice(-10); // Keep last 10
       }
-    } catch {
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        baseLog('warn', '[timeout-config] Could not load existing history', { error: err.message });
+      }
       // Ignore history loading errors
     }
     
@@ -155,10 +189,13 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
       reason,
     });
     
-    fs.writeFileSync(TIMEOUT_CONFIG_FILE, JSON.stringify(config, null, 2));
+    await fsPromises.writeFile(TIMEOUT_CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
+    
+    // Update cache
+    timeoutConfigCache = timeoutMs;
     
     // Verify write succeeded
-    const verification = fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8');
+    const verification = await fsPromises.readFile(TIMEOUT_CONFIG_FILE, 'utf8');
     const verified = JSON.parse(verification);
     
     baseLog('info', '[timeout-config] Saved', { 
@@ -167,7 +204,7 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
       adjustments,
       file: TIMEOUT_CONFIG_FILE,
       verified: verified.timeoutMs === timeoutMs,
-      fileExists: fs.existsSync(TIMEOUT_CONFIG_FILE)
+      cached: true
     });
   } catch (err) {
     baseLog('error', '[timeout-config] Failed to save', { 
@@ -178,7 +215,7 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
   }
 }
 
-// Auto-increment timeout on error
+// Auto-increment timeout on error (fire-and-forget async save to avoid blocking)
 function incrementTimeout(currentTimeout, reason = 'timeout_error') {
   const newTimeout = Math.min(MAX_TIMEOUT_MS, currentTimeout + TIMEOUT_INCREMENT_MS);
   if (newTimeout > currentTimeout) {
@@ -188,15 +225,18 @@ function incrementTimeout(currentTimeout, reason = 'timeout_error') {
       increment: TIMEOUT_INCREMENT_MS, 
       reason 
     });
-    saveTimeoutConfig(newTimeout, reason);
+    // Fire-and-forget save (non-blocking)
+    saveTimeoutConfig(newTimeout, reason).catch(err => {
+      baseLog('error', '[timeout-config] Failed to save timeout increment', { error: err.message });
+    });
     return newTimeout;
   }
   baseLog('info', '[timeout-config] Already at maximum', { max: MAX_TIMEOUT_MS });
   return currentTimeout;
 }
 
-// Initialize timeout from config
-let GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = loadTimeoutConfig();
+// Initialize timeout from config (deferred - will load async in startSecurityBot)
+let GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = DEFAULT_TIMEOUT_MS;
 
 const GUILD_MEMBER_FETCH_PAGE_LIMIT = 1_000;
 const GUILD_MEMBER_FETCH_MAX_PAGES = 200;
@@ -1524,18 +1564,29 @@ async function notifyServiceRestart() {
       message += `\n• Permission changes detected: ${summary.totalPermissionChanges}`;
       message += `\n• Successful reverts: ${summary.successfulReverts}`;
       
-      // Add timeout configuration status
+      // Add timeout configuration status (use cached value to avoid blocking I/O)
       try {
-        const timeoutConfigPath = process.env.RENDER
-          ? '/Store/guild-member-timeout-config.json'
-          : './Store/guild-member-timeout-config.json';
-        if (fs.existsSync(timeoutConfigPath)) {
-          const timeoutConfig = JSON.parse(fs.readFileSync(timeoutConfigPath, 'utf8'));
-          const timeoutSeconds = (timeoutConfig.timeoutMs / 1000).toFixed(1);
+        if (timeoutConfigCache !== null) {
+          const timeoutSeconds = (timeoutConfigCache / 1000).toFixed(1);
           message += `\n\n⚙️ **Configuration**`;
-          message += `\n• Member fetch timeout: ${timeoutSeconds}s (${timeoutConfig.adjustments || 0} auto-adjustments)`;
-          if (timeoutConfig.adjustments > 0) {
-            message += `\n• Last adjusted: ${timeoutConfig.lastAdjusted ? toEasternString(new Date(timeoutConfig.lastAdjusted)) : 'unknown'}`;
+          message += `\n• Member fetch timeout: ${timeoutSeconds}s (from cache)`;
+        } else {
+          // Async load if cache not available
+          const fsPromises = (await import('node:fs/promises')).default;
+          const timeoutConfigPath = process.env.RENDER
+            ? '/Store/guild-member-timeout-config.json'
+            : './Store/guild-member-timeout-config.json';
+          try {
+            const data = await fsPromises.readFile(timeoutConfigPath, 'utf8');
+            const timeoutConfig = JSON.parse(data);
+            const timeoutSeconds = (timeoutConfig.timeoutMs / 1000).toFixed(1);
+            message += `\n\n⚙️ **Configuration**`;
+            message += `\n• Member fetch timeout: ${timeoutSeconds}s (${timeoutConfig.adjustments || 0} auto-adjustments)`;
+            if (timeoutConfig.adjustments > 0) {
+              message += `\n• Last adjusted: ${timeoutConfig.lastAdjusted ? toEasternString(new Date(timeoutConfig.lastAdjusted)) : 'unknown'}`;
+            }
+          } catch {
+            // Skip timeout config if unavailable (file not found or parse error)
           }
         }
       } catch {
@@ -3628,7 +3679,10 @@ function normalizeToken(rawToken) {
   return value.startsWith('Bot ') ? value.slice(4).trim() : value;
 }
 
-function startSecurityBot({ token: tokenOverride } = {}) {
+async function startSecurityBot({ token: tokenOverride } = {}) {
+  // Load timeout config from disk (async, non-blocking)
+  GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = await loadTimeoutConfig();
+  
   const envPath = path.resolve(process.cwd(), '.env');
   const rawToken = tokenOverride !== undefined ? tokenOverride : BOT_TOKEN;
   const token = normalizeToken(rawToken);
