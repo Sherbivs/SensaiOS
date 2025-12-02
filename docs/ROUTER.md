@@ -2,25 +2,28 @@
 Title: Documentation Library — Bible System
 Purpose: Comprehensive architecture, operations, and development guides in modular Bible format.
 Owned Globs: docs/**
-Last Updated (UTC): 2025-11-17T01:00:00Z
+Last Updated (UTC): 2025-12-02T00:00:00Z
 
 Notes:
 - **PHASE 1 COMPLETE (2025-11-17)**: ALL documentation centralized into 3 modular Bible subdirectories.
 - **PHASE 2 COMPLETE (2025-11-17)**: ops/ historical reports archived to docs/historical-archive/ (13 files).
-- 454 → 31 current files (93.2% reduction) + 13 historical archive files = 44 total documentation files.
+- **PROJECTS SYSTEM ESTABLISHED (2025-12-02)**: Bible-centric staged workflow system with AI integrity validation (docs/projects/).
+- 454 → 31 current files (93.2% reduction) + 5 projects system files + 13 historical archive files = 49 total documentation files.
 - Reference guides cross-linked from Patch/Prompt/Tasklist for contract updates and recovery playbooks.
 - Keep new guides ASCII-only and reference them from masterroutetable.md or ops/ROUTER.yaml when added.
 - **Bible System**: All operational knowledge consolidated into architecture-bible/, operations-bible/, development-bible/.
+- **Projects System**: Work-in-progress documentation staged in projects/ with 100% accuracy validation before Bible integration.
 - **Historical Archive**: Detailed reports, migration records, optimization analyses preserved in historical-archive/.
 
 Directory Structure (FINAL):
 - **architecture-bible/** - System architecture Bible (16 files: INDEX + 15 sections including project history, ~4,500 lines)
 - **operations-bible/** - Operations & deployment Bible (7 files: INDEX + 6 sections including optimization history, ~3,500 lines)
 - **development-bible/** - Development practices Bible (8 files: INDEX + 7 sections, ~1,538 lines)
+- **projects/** - Work-in-progress documentation staging area (5 files: README + ROUTER + .templates + pending-validation + archive, ~750 lines) [NEW 2025-12-02]
 - **historical-archive/** - Detailed historical reports (14 files: INDEX + 13 archived reports, ~170 KB)
 - **ARCHIVE/** - Obsolete technical documentation (6 files from Accelerate-era)
 
-**Total: 31 current + 13 historical = 44 markdown files**
+**Total: 31 current + 5 projects system + 13 historical = 49 markdown files**
 
 ## Bible Navigation
 
@@ -73,6 +76,25 @@ Directory Structure (FINAL):
 | **6. Console Tooling** | 06-console-tooling.md | Output standards (output-formatter.ts), formatting helpers, ESLint enforcement |
 | **7. Utilities** | 07-utilities.md | DateTime helpers (UTC standardization), timezone best practices, admin implementation patterns |
 
+### Projects Staging Area (projects/) [NEW 2025-12-02]
+**Work-in-progress documentation** — Staged workflow for project documentation before Bible integration.
+
+| Document | Purpose |
+|----------|---------|
+| **README.md** | Complete staged workflow system (400+ lines: philosophy, 4-stage workflow, AI integrity check, quality gates, success criteria) |
+| **ROUTER.md** | Navigation and purpose documentation (100+ lines: integration points, workflow summary, quality gates) |
+| **.templates/PROJECT-README.md** | Project documentation template (150+ lines: 10 sections, 7-item validation checklist) |
+| **pending-validation/README.md** | Validation queue guide (30+ lines: 7 accuracy checks, 4-step process) |
+| **archive/README.md** | Completed projects archive (40+ lines: archive format, 5 "why archive" reasons) |
+
+**Workflow:** Document as you build → AI integrity validation (100% accuracy) → Bible integration → Archive
+
+**Purpose:** Prevent Bible pollution during active development. All work-in-progress documentation stays in projects/ until accuracy validated.
+
+**Integration:** After validation, updates flow to Architecture Bible, Operations Bible, or Development Bible. Project folder then archived.
+
+**See:** docs/projects/README.md for complete staged workflow documentation (4 stages, integrity requirements, quality gates)
+
 ### Historical Archive (historical-archive/)
 **14 files** — Detailed historical reports, migration records, optimization analyses preserved for institutional knowledge.
 
@@ -102,15 +124,16 @@ Directory Structure (FINAL):
 
 ### Critical Documents
 - **Resource Limits**: RESOURCE-LIMITS-RAM-VS-DISK.md [CRITICAL - RAM (2 GB) vs Disk (1 GB) distinction]
-- **Database URL Selection**: operations-bible/02-database-operations.md § 2.1 [ABSOLUTE - Violations cause production failures]
+- **Database URL Selection**: docs/operations-bible/database-operations-runbook-comprehensive.md § 2.1 (Database URL Selection) [ABSOLUTE - Violations cause production failures, 25 pages comprehensive guide]
+- **Bible-Centric Workflow**: docs/projects/README.md [NEW - Staged documentation system preventing Bible pollution, 100% accuracy requirement]
 - **Worker Scaling Roadmap**: architecture-bible/03-worker-architecture.md § 3.3 (Phase 10+ cost optimization)
 - **PBSL Manifesto**: architecture-bible/09-game-engine.md § 9.1 (Deterministic battle testing)
 - **Render Path Mapping**: operations-bible/03-deployment-procedures.md § 3.2 (Expected nested structure)
 - **Security Bot State**: architecture-bible/07-security-bot.md § 7.2 (7-day retention, cumulative stats)
 
 ### Operations Quick Refs
-- **Service Matrix**: operations-bible/01-service-matrix.md (8 Render services, deployment targets)
-- **Database CLI**: operations-bible/02-database-operations.md § 2.7 (npm run db:cli commands)
+- **Service Matrix**: docs/architecture-bible/complete-system-architecture.md § 2 (Service Topology) — 8 Render services, resource allocation, communication flow, health checks (30 pages comprehensive guide)
+- **Database CLI**: docs/operations-bible/database-operations-runbook-comprehensive.md § 2.7 (Database CLI Commands) — npm run db:cli operations with complete examples
 - **SSH Automation**: operations-bible/03-deployment-procedures.md § 3.4 (Render SSH suite)
 - **Environment Setup**: operations-bible/04-environment-management.md § 4.1 (AI env configuration)
 - **Monitoring Commands**: operations-bible/05-monitoring.md § 5.3 (/ops commands reference)
@@ -130,10 +153,12 @@ Directory Structure (FINAL):
 - Patch.md → architecture-bible/11-safety-guarantees.md (Error boundaries)
 - Prompt.md → architecture-bible/08-router-system.md (Meta-router design)
 - Tasklist.md → architecture-bible/14-future-roadmap.md (Phase 10+ planning)
-- ops/NEXT.yaml → operations-bible/01-service-matrix.md (Deployment context)
+- ops/NEXT.yaml → docs/architecture-bible/complete-system-architecture.md § 2 (Service Topology) — Deployment context
+- Agents.md → docs/projects/README.md (Bible-centric documentation system) [NEW]
+- .github/copilot-instructions.md → docs/projects/README.md (AI workflow enforcement) [NEW]
 
 ### From Code
-- src/shared/prisma.ts → operations-bible/02-database-operations.md § 2.2 (Database clients)
+- src/shared/prisma.ts → docs/operations-bible/database-operations-runbook-comprehensive.md § 2.2 (Database Clients & Connection Management) — Prisma client initialization
 - src/bot/main.js → architecture-bible/07-security-bot.md (Security bot entry)
 - src/utils/logger.js → architecture-bible/05-logging-architecture.md (IntelligentLogger)
 - scripts/render_deploy.ps1 → operations-bible/03-deployment-procedures.md § 3.1 (Deployment)
@@ -146,6 +171,7 @@ Directory Structure (FINAL):
 - When adding new architecture: Update architecture-bible/14-future-roadmap.md first
 - When changing operations: Update operations-bible/ relevant section + this ROUTER
 - When adding dev tooling: Update development-bible/ relevant section + quick ref
+- **When documenting new projects: Create docs/projects/{name}/ → validate 100% accuracy → integrate to Bible → archive** [NEW]
 
 **File Naming:**
 - Bible sections: `NN-kebab-case-title.md` (NN = 01-14)

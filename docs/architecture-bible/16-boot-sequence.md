@@ -638,8 +638,8 @@ const client = new Client({
 - **[11-safety-guarantees.md](11-safety-guarantees.md)** — Fail-fast database validation
 
 ### Related Operations Documentation
-- **[operations-bible/01-service-matrix.md](../operations-bible/01-service-matrix.md)** — Render service start commands
-- **[operations-bible/02-database-operations.md](../operations-bible/02-database-operations.md)** — Database bootstrap procedures
+- **[architecture-bible/complete-system-architecture.md](complete-system-architecture.md)** § 2 (Service Topology) — Render service start commands, 8 services with health checks
+- **[operations-bible/database-operations-runbook-comprehensive.md](../operations-bible/database-operations-runbook-comprehensive.md)** (25 pages) § 2.1 (Database URL Selection) — Database bootstrap procedures
 - **[operations-bible/05-monitoring.md](../operations-bible/05-monitoring.md)** — Boot performance monitoring
 
 ### Related Development Documentation
@@ -1691,7 +1691,7 @@ See `docs/SEAMLESS-RESTART-ARCHITECTURE.md` for comprehensive roadmap.
 - **Section 17** (Service Registry) — Service Registry shutdown in Phase 2 (reverse initialization order)
 
 **Related Operations Bible Sections**:
-- **operations-bible/01-service-matrix.md** — Render auto-restart behavior, exit codes, health checks
+- **architecture-bible/complete-system-architecture.md** § 2 (Service Topology) — Render auto-restart behavior, exit codes, health checks for 8 services
 - **operations-bible/05-monitoring.md** — Restart metrics, downtime tracking, alerting
 
 **Related Development Bible Sections**:
@@ -1733,7 +1733,7 @@ See `docs/SEAMLESS-RESTART-ARCHITECTURE.md` for comprehensive roadmap.
 - **[07-security-bot.md](07-security-bot.md)** — Security bot state persistence on shutdown
 
 #### Related Operations Documentation
-- **[operations-bible/01-service-matrix.md](../operations-bible/01-service-matrix.md)** — Render restart behavior, exit codes
+- **[architecture-bible/complete-system-architecture.md](complete-system-architecture.md)** § 2 (Service Topology) — Render restart behavior, exit codes, service orchestration
 - **[operations-bible/05-monitoring.md](../operations-bible/05-monitoring.md)** — Shutdown metrics monitoring
 
 #### Related Development Documentation

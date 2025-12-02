@@ -1,3 +1,28 @@
+/**
+ * AI Log System Integrations - Observability Connectors
+ * 
+ * ⚠️ **DEPRECATED** — This file is being replaced by native logger.ts integrations.
+ * 
+ * **Replacement:** Use logger.ts with built-in observability hooks
+ * 
+ * **Migration Path:**
+ * 1. Error Tracker: logger.error() automatically integrates with error tracking
+ * 2. Console Logger: logger.ts replaces console.* (no mirroring needed)
+ * 3. Resource Monitor: logger.info('system', 'metrics') for resource logging
+ * 4. Database: Database workers use logger.ts natively (no integration needed)
+ * 5. Discord: Bot commands use logger.info('bot', 'interaction') directly
+ * 
+ * **Why Deprecated:**
+ * - OLD: Hook/intercept pattern to mirror logs (complex, fragile, monkey-patching)
+ * - NEW: Direct logger.ts usage everywhere (simple, type-safe, standard)
+ * - Logger.ts provides unified observability without integration layer
+ * - No need for "AI logs" separate from standard logs (TimescaleDB stores all)
+ * 
+ * **Removal Timeline:** After 100% logger.ts adoption (Task 9 Phase 5 complete)
+ * 
+ * @module services/ai/ai-log-integrations
+ * @deprecated Use src/shared/logger.ts with native integrations instead
+ */
 /* eslint-disable no-console */
 import * as aiLogger from './ai-log-writer.js';
 

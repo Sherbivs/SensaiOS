@@ -47,6 +47,14 @@ import * as engineReadDb from '../../services/database/engine-read-db.js';
 import * as engineWriteDb from '../../services/database/engine-write-db.js';
 import { getEngineWorkersStatus } from "../../workers/engine-workers.js";
 
+// Database worker modules (Task 11)
+import {
+  getProdPostgresWorker,
+  getTimescaleDBWorker,
+  getEngineReadWorker,
+  getEngineWriteWorker,
+} from '../../workers/database/index.js';
+
 // Error Detection modules (Phase 9-12)
 import { errorTracker, type ErrorSeverity, type ErrorCategory } from '../../services/monitoring/index.js';
 
@@ -1092,6 +1100,70 @@ export async function handleOpsCommand(
     return;
   }
 
+  if (sub === "database") {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const workerName = interaction.options?.getString?.("worker") ?? null;
+      const report = await formatDatabaseWorkerStats(workerName);
+      await interaction.editReply({ content: report });
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'WORKER',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops database',
+        operation: 'formatDatabaseWorkerStats',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Database worker stats unavailable: ${message}` });
+    }
+    return;
+  }
+
+  if (sub === "workers") {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const detailed = Boolean(interaction.options?.getBoolean?.("detailed"));
+      const report = await formatAllWorkersStatus(detailed);
+      await interaction.editReply({ content: report });
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'WORKER',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops workers',
+        operation: 'formatAllWorkersStatus',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Worker status unavailable: ${message}` });
+    }
+    return;
+  }
+
+  if (sub === "logs") {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const level = interaction.options?.getString?.("level") ?? null;
+      const category = interaction.options?.getString?.("category") ?? null;
+      const limit = interaction.options?.getInteger?.("limit") ?? 20;
+      const since = interaction.options?.getString?.("since") ?? '1h';
+      
+      const report = await formatLogEntries({ level, category, limit, since });
+      await interaction.editReply({ content: report });
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'DATABASE',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops logs',
+        operation: 'formatLogEntries',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Log query failed: ${message}` });
+    }
+    return;
+  }
+
   if (sub === "stats") {
     await interaction.deferReply({ ephemeral: true });
     const rawLimit = interaction.options?.getInteger?.("limit") ?? null;
@@ -1913,6 +1985,245 @@ export async function handleOpsCommand(
   }
 
   await interaction.reply({ content: "Unknown /ops command.", ephemeral: true });
+}
+
+// =============================================================================
+// Task 11: Database Worker Stats Formatters (Option A - Simple & Type-Safe)
+// =============================================================================
+
+/**
+ * Format database worker statistics for /ops database command.
+ * Simple implementation using correct WorkerMetrics/WorkerHealth types.
+ * 
+ * @param workerName - Optional specific worker to show ("prod", "timescale", "engine-read", "engine-write")
+ * @returns Formatted Discord message string
+ */
+async function formatDatabaseWorkerStats(workerName: string | null): Promise<string> {
+  const lines: string[] = [];
+  lines.push("📊 **Database Workers Status**");
+  lines.push(`Generated: ${toEasternString(new Date())}`);
+  lines.push("");
+  
+  // Define workers with correct types
+  const workers = [
+    { id: 'prod', name: 'PROD PostgreSQL', instance: getProdPostgresWorker() },
+    { id: 'timescale', name: 'TimescaleDB', instance: getTimescaleDBWorker() },
+    { id: 'engine-read', name: 'Engine Read-DB', instance: getEngineReadWorker() },
+    { id: 'engine-write', name: 'Engine Write-DB', instance: getEngineWriteWorker() },
+  ];
+  
+  // Filter to specific worker if requested
+  const filteredWorkers = workerName 
+    ? workers.filter(w => w.id === workerName)
+    : workers;
+  
+  if (filteredWorkers.length === 0) {
+    return `❌ Unknown worker: ${workerName}. Valid options: prod, timescale, engine-read, engine-write`;
+  }
+  
+  // Format each worker
+  for (const worker of filteredWorkers) {
+    const health = await worker.instance.healthCheck();
+    const metrics = worker.instance.getMetrics();
+    
+    // Status icon based on WorkerHealthStatus
+    const statusIcon = health.status === 'healthy' ? '🟢' 
+      : health.status === 'degraded' ? '🟡' 
+      : '🔴';
+    
+    lines.push(`${statusIcon} **${worker.name}** — ${health.status.toUpperCase()}`);
+    lines.push(`├─ Operations: ${metrics.operationCount} total`);
+    lines.push(`├─ Success: ${metrics.successCount} (${((metrics.successCount / metrics.operationCount) * 100 || 0).toFixed(1)}%)`);
+    lines.push(`├─ Failures: ${metrics.failureCount}`);
+    lines.push(`├─ Avg Latency: ${metrics.avgLatencyMs.toFixed(1)}ms`);
+    lines.push(`├─ Peak Latency: ${metrics.peakLatencyMs.toFixed(1)}ms`);
+    lines.push(`├─ Error Rate: ${(metrics.errorRate * 100).toFixed(2)}%`);
+    
+    if (health.lastError) {
+      lines.push(`└─ ⚠️ Last Error: ${health.lastError}`);
+    } else {
+      lines.push(`└─ ✅ No recent errors`);
+    }
+    
+    lines.push("");
+  }
+  
+  return lines.join("\n");
+}
+
+/**
+ * Format all workers status for /ops workers command.
+ * 
+ * @param detailed - Show detailed metrics for each worker
+ * @returns Formatted Discord message string
+ */
+async function formatAllWorkersStatus(detailed: boolean): Promise<string> {
+  const lines: string[] = [];
+  lines.push("⚙️ **All Workers Status**");
+  lines.push(`Generated: ${toEasternString(new Date())}`);
+  lines.push("");
+  
+  lines.push("**Database Workers (4):**");
+  
+  const workers = [
+    { name: 'PROD PostgreSQL', instance: getProdPostgresWorker() },
+    { name: 'TimescaleDB', instance: getTimescaleDBWorker() },
+    { name: 'Engine Read-DB', instance: getEngineReadWorker() },
+    { name: 'Engine Write-DB', instance: getEngineWriteWorker() },
+  ];
+  
+  for (const worker of workers) {
+    const health = await worker.instance.healthCheck();
+    const metrics = worker.instance.getMetrics();
+    
+    const icon = health.status === 'healthy' ? '🟢' 
+      : health.status === 'degraded' ? '🟡' 
+      : '🔴';
+    
+    lines.push(`${icon} **${worker.name}**`);
+    
+    if (detailed) {
+      lines.push(`   ├─ Status: ${health.status}`);
+      lines.push(`   ├─ Operations: ${metrics.operationCount} (${metrics.successCount} success)`);
+      lines.push(`   ├─ Latency: ${metrics.avgLatencyMs.toFixed(1)}ms avg, ${metrics.peakLatencyMs.toFixed(1)}ms peak`);
+      lines.push(`   └─ Error Rate: ${(metrics.errorRate * 100).toFixed(2)}%`);
+    } else {
+      lines.push(`   └─ ${metrics.operationCount} ops, ${metrics.successCount} success, ${(metrics.errorRate * 100).toFixed(1)}% errors`);
+    }
+  }
+  
+  lines.push("");
+  lines.push("*Use `/ops database` for detailed worker metrics*");
+  
+  return lines.join("\n");
+}
+
+/**
+ * Format log entries from TimescaleDB for /ops logs command.
+ * 
+ * @param options - Query options (level, category, limit, since)
+ * @returns Formatted Discord message string
+ */
+async function formatLogEntries(options: {
+  level: string | null;
+  category: string | null;
+  limit: number;
+  since: string;
+}): Promise<string> {
+  const lines: string[] = [];
+  lines.push("📜 **TimescaleDB Logs**");
+  lines.push(`Generated: ${toEasternString(new Date())}`);
+  lines.push("");
+  
+  // Parse duration
+  const durationMs = parseDuration(options.since);
+  const sinceDate = new Date(Date.now() - durationMs);
+  
+  // Build query filters
+  const filters: string[] = ['timestamp >= $1'];
+  const params: any[] = [sinceDate];
+  let paramIndex = 2;
+  
+  if (options.level) {
+    filters.push(`level = $${paramIndex++}`);
+    params.push(options.level);
+  }
+  
+  if (options.category) {
+    filters.push(`category = $${paramIndex++}`);
+    params.push(options.category);
+  }
+  
+  const whereClause = `WHERE ${filters.join(' AND ')}`;
+  
+  // Build query
+  const query = `
+    SELECT timestamp, level, category, message, correlation_id
+    FROM log_entries
+    ${whereClause}
+    ORDER BY timestamp DESC
+    LIMIT $${paramIndex}
+  `;
+  params.push(options.limit);
+  
+  // Execute query
+  const timescaleWorker = getTimescaleDBWorker();
+  const rows = await timescaleWorker.query<{
+    timestamp: string;
+    level: string;
+    category: string;
+    message: string;
+    correlation_id: string | null;
+  }>(query, params);
+  
+  // Format filters
+  const filterParts: string[] = [];
+  if (options.level) filterParts.push(`Level: ${options.level.toUpperCase()}`);
+  if (options.category) filterParts.push(`Category: ${options.category}`);
+  filterParts.push(`Since: ${options.since}`);
+  
+  lines.push(`**Filters:** ${filterParts.join(" | ")} | Limit: ${options.limit}`);
+  lines.push(`**Results:** ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}`);
+  lines.push("");
+  
+  if (rows.length === 0) {
+    lines.push("*No log entries found matching filters*");
+    return lines.join("\n");
+  }
+  
+  // Format each log entry (max 10 for Discord message limits)
+  const displayRows = rows.slice(0, 10);
+  for (const row of displayRows) {
+    const timestamp = new Date(row.timestamp);
+    const levelIcon = getLevelIcon(row.level);
+    const timeAgo = formatTimeSince(timestamp);
+    
+    lines.push(`${levelIcon} **[${row.category}]** ${timeAgo}`);
+    const message = row.message.substring(0, 100);
+    lines.push(`   ${message}${row.message.length > 100 ? '...' : ''}`);
+  }
+  
+  if (rows.length > 10) {
+    lines.push("");
+    lines.push(`*Showing first 10 of ${rows.length} entries*`);
+  }
+  
+  const message = lines.join("\n");
+  return message.length > 2000 ? message.substring(0, 1997) + "..." : message;
+}
+
+/**
+ * Parse time duration string (e.g., "1h", "24h", "7d") to milliseconds.
+ */
+function parseDuration(duration: string): number {
+  const match = duration.match(/^(\d+)([smhd])$/);
+  if (!match) {
+    throw new Error(`Invalid duration format: ${duration}. Use format like "1h", "24h", "7d"`);
+  }
+  
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+  
+  switch (unit) {
+    case 's': return value * 1000;
+    case 'm': return value * 60 * 1000;
+    case 'h': return value * 60 * 60 * 1000;
+    case 'd': return value * 24 * 60 * 60 * 1000;
+    default: throw new Error(`Unknown duration unit: ${unit}`);
+  }
+}
+
+/**
+ * Get emoji icon for log level.
+ */
+function getLevelIcon(level: string): string {
+  switch (level.toLowerCase()) {
+    case 'error': return '🔴';
+    case 'warn': return '🟡';
+    case 'info': return '🔵';
+    case 'debug': return '⚪';
+    default: return '⚫';
+  }
 }
 
 // Helper function to format time since

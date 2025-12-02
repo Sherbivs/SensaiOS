@@ -204,7 +204,7 @@ ThreadManager: 100, // Enable with limit
 ## Related Documentation
 
 - **Memory Optimization Report:** `docs/MEMORY-OPTIMIZATION-2025-11-17.md`
-- **Operations Bible:** `docs/operations-bible/02-runtime-operations.md`
+- **Operations Bible:** `docs/operations-bible/03-memory-management.md` — Comprehensive memory management guide
 - **Agents Guide:** `Agents.md` (Memory Management section)
 
 ## Cross-References

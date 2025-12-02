@@ -1,3 +1,28 @@
+/**
+ * AI Log Analyzer - Self-Learning System
+ * 
+ * ⚠️ **DEPRECATED** — This file is being replaced by TimescaleDB continuous aggregates + SQL analytics.
+ * 
+ * **Replacement:** Use TimescaleDB views + aggregation functions for pattern detection
+ * 
+ * **Migration Path:**
+ * 1. Pattern detection: TimescaleDB materialized views with GROUP BY + window functions
+ * 2. Correlation analysis: SQL JOINs on correlation_id + parent_correlation_id
+ * 3. Performance profiling: TimescaleDB continuous aggregates (avg/max/percentile)
+ * 4. Anomaly detection: SQL statistical functions (stddev, outlier detection)
+ * 5. Self-learning: Update thresholds via parameterized SQL queries
+ * 
+ * **Why Deprecated:**
+ * - OLD: File-based NDJSON parsing, in-memory analysis, manual pattern detection (slow, limited)
+ * - NEW: TimescaleDB SQL queries with native time-series functions (fast, scalable, standard)
+ * - TimescaleDB provides built-in analytics better than custom JavaScript parsers
+ * - Real-time insights via continuous aggregates (no batch processing needed)
+ * 
+ * **Removal Timeline:** After 100% logger.ts adoption + TimescaleDB analytics (Task 9 Phase 5)
+ * 
+ * @module services/ai/ai-log-analyzer
+ * @deprecated Use TimescaleDB continuous aggregates and SQL analytics instead
+ */
 /* eslint-disable no-console */
 import fs from 'node:fs/promises';
 import { createReadStream } from 'node:fs';

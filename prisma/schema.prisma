@@ -587,3 +587,28 @@ model ErrorAlert {
   @@index([sentAt(sort: Desc)])
   @@map("ErrorAlert")
 }
+
+// ============================================================================
+// Analytics & Logging (TimescaleDB Hypertables)
+// ============================================================================
+
+/// Log entries hypertable for Event Bus persistence
+model LogEntry {
+  id            BigInt   @id @default(autoincrement())
+  timestamp     DateTime @db.Timestamptz
+  level         String
+  category      String
+  message       String?
+  metadata      Json?
+  correlationId String?  @map("correlation_id") @db.Uuid
+  serviceName   String?  @map("service_name")
+  userId        String?  @map("user_id")
+  traceContext  String?  @map("trace_context")
+
+  @@index([level, timestamp(sort: Desc)])
+  @@index([category, timestamp(sort: Desc)])
+  @@index([correlationId])
+  @@index([userId, timestamp(sort: Desc)])
+  @@index([serviceName, timestamp(sort: Desc)])
+  @@map("log_entries")
+}

@@ -1761,7 +1761,7 @@ Each task has:
     **Canonical Naming Applied:**
     - Used ONPREMISE-DEV-PRIMARY (not "PRIMARY LOCAL")
     - Used ONPREMISE-DEV-EXPERIMENT (not "EXPERIMENTAL")
-    - Per Patch.md Absolutes (line 32-33) and operations-bible/02-database-operations.md
+    - Per Patch.md Absolutes (line 29-30) and docs/operations-bible/database-operations-runbook-comprehensive.md § 2.2 (Database Terminology)
     
     **Deployment Status:**
     - ✅ Schema migration applied to ONPREMISE-DEV-PRIMARY
@@ -2303,7 +2303,7 @@ Each task has:
     - Update `src/bot/homestead/ROUTER.md` (new router for homestead modules)
     - Update `src/services/ROUTER.md` (add HomesteadChannelManager)
     - Update `docs/architecture-bible/02-discord-bot-layer.md` (architecture change documentation)
-    - Update `docs/operations-bible/01-service-matrix.md` (new service)
+    - Update `docs/architecture-bible/complete-system-architecture.md` § 2 (Service Topology) — new homestead channel architecture
     - Update `README.md` (mention private channel architecture)
     - Create user announcement: `docs/announcements/homestead-channel-migration.md`
     - Mark `src/bot/dm/ROUTER.md` as deprecated

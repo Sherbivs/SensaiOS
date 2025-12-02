@@ -1,0 +1,267 @@
+{
+  "dashboard": {
+    "title": "Pokémon Infinity Gauntlet - TimescaleDB Analytics",
+    "tags": ["timescaledb", "postgresql", "analytics", "discord-bot"],
+    "timezone": "utc",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "30m", "1h"],
+      "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "7d", "30d"]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Log Volume by Level (Last 24 Hours)",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "rawSql": "SELECT bucket AS time, level, SUM(log_count) AS value FROM logs_hourly WHERE $__timeFilter(bucket) GROUP BY bucket, level ORDER BY bucket ASC",
+          "format": "time_series",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "custom": {"lineWidth": 2, "fillOpacity": 20, "spanNulls": true, "showPoints": "never"},
+            "unit": "short"
+          },
+          "overrides": [
+            {"matcher": {"id": "byName", "options": "error"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "warn"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "info"}, "properties": [{"id": "color", "value": {"fixedColor": "blue", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "debug"}, "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]}
+          ]
+        },
+        "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}}
+      },
+      {
+        "id": 2,
+        "title": "Error Rate by Service (Last 24 Hours)",
+        "type": "timeseries",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "rawSql": "SELECT bucket AS time, service_name, error_rate_percent AS value FROM error_rate_hourly WHERE $__timeFilter(bucket) AND service_name IS NOT NULL ORDER BY bucket ASC",
+          "format": "time_series",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 0, "spanNulls": true, "showPoints": "auto"}, "unit": "percent", "max": 100}
+        },
+        "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "max", "mean"]}, "tooltip": {"mode": "multi", "sort": "desc"}}
+      },
+      {
+        "id": 3,
+        "title": "Battle Completion Rate (Last 30 Days)",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 8, "w": 6, "h": 4},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "rawSql": "WITH totals AS (SELECT outcome, SUM(battle_count) AS battles FROM battles_daily WHERE bucket >= NOW() - INTERVAL '30 days' GROUP BY outcome) SELECT (SELECT battles FROM totals WHERE outcome = 'WIN')::FLOAT / (SELECT SUM(battles) FROM totals) * 100 AS \"Completion Rate\"",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "red"}, {"value": 70, "color": "yellow"}, {"value": 85, "color": "green"}]},
+            "unit": "percent"
+          }
+        },
+        "options": {"graphMode": "none", "colorMode": "value", "justifyMode": "center", "textMode": "value_and_name"}
+      },
+      {
+        "id": 4,
+        "title": "Average Battle Duration (30 Days)",
+        "type": "stat",
+        "gridPos": {"x": 6, "y": 8, "w": 6, "h": 4},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "rawSql": "SELECT AVG(avg_duration_seconds) AS \"Avg Duration\", PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY avg_duration_seconds) AS \"Median Duration\" FROM battles_daily WHERE bucket >= NOW() - INTERVAL '30 days'",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 300, "color": "yellow"}, {"value": 600, "color": "red"}]},
+            "unit": "s",
+            "decimals": 1
+          }
+        },
+        "options": {"graphMode": "area", "colorMode": "value", "justifyMode": "center", "textMode": "value_and_name"}
+      },
+      {
+        "id": 5,
+        "title": "Top 10 Pokémon by Usage (Last 7 Days)",
+        "type": "barchart",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "rawSql": "SELECT pokemon_species AS metric, SUM(usage_count) AS \"Usage Count\", AVG(win_rate)::NUMERIC(5,2) AS \"Win Rate\" FROM pokemon_usage_weekly WHERE bucket >= NOW() - INTERVAL '7 days' GROUP BY pokemon_species ORDER BY SUM(usage_count) DESC LIMIT 10",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+        "options": {"orientation": "horizontal", "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}}
+      },
+      {
+        "id": 6,
+        "title": "Security Events Timeline (Last 7 Days)",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "rawSql": "SELECT bucket AS time, event_type, SUM(event_count) AS value FROM security_events_daily WHERE $__timeFilter(bucket) GROUP BY bucket, event_type ORDER BY bucket ASC",
+          "format": "time_series",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 30, "spanNulls": false, "showPoints": "never", "stacking": {"mode": "normal"}}, "unit": "short"}
+        },
+        "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}}
+      },
+      {
+        "id": 7,
+        "title": "Security Events by Severity (Last 7 Days)",
+        "type": "piechart",
+        "gridPos": {"x": 12, "y": 16, "w": 6, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "rawSql": "SELECT severity, SUM(event_count) AS value FROM security_events_daily WHERE bucket >= NOW() - INTERVAL '7 days' GROUP BY severity ORDER BY SUM(event_count) DESC",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {"color": {"mode": "palette-classic"}, "unit": "short"},
+          "overrides": [
+            {"matcher": {"id": "byName", "options": "critical"}, "properties": [{"id": "color", "value": {"fixedColor": "dark-red", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "high"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "medium"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]},
+            {"matcher": {"id": "byName", "options": "low"}, "properties": [{"id": "color", "value": {"fixedColor": "yellow", "mode": "fixed"}}]}
+          ]
+        },
+        "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"]}, "pieType": "donut"}
+      },
+      {
+        "id": 8,
+        "title": "Unique Users per Hour (Last 24 Hours)",
+        "type": "timeseries",
+        "gridPos": {"x": 18, "y": 16, "w": 6, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "rawSql": "SELECT bucket AS time, SUM(unique_users) AS value FROM logs_hourly WHERE $__timeFilter(bucket) GROUP BY bucket ORDER BY bucket ASC",
+          "format": "time_series",
+          "refId": "A"
+        }],
+        "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 50, "spanNulls": true, "showPoints": "auto", "gradientMode": "opacity"}, "unit": "short"}},
+        "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": false}, "tooltip": {"mode": "single"}}
+      },
+      {
+        "id": 9,
+        "title": "Database Storage Usage",
+        "type": "gauge",
+        "gridPos": {"x": 0, "y": 24, "w": 4, "h": 4},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "rawSql": "SELECT pg_database_size(current_database())::BIGINT / (1024 * 1024) AS value",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 700, "color": "yellow"}, {"value": 850, "color": "red"}]},
+            "unit": "mbytes",
+            "max": 1000,
+            "min": 0
+          }
+        },
+        "options": {"showThresholdLabels": true, "showThresholdMarkers": true}
+      },
+      {
+        "id": 10,
+        "title": "Hypertable Row Counts",
+        "type": "stat",
+        "gridPos": {"x": 4, "y": 24, "w": 8, "h": 4},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "rawSql": "SELECT 'log_entries' AS metric, COUNT(*)::BIGINT AS value FROM log_entries UNION ALL SELECT 'battle_analytics', COUNT(*)::BIGINT FROM battle_analytics UNION ALL SELECT 'security_events', COUNT(*)::BIGINT FROM security_events UNION ALL SELECT 'event_history', COUNT(*)::BIGINT FROM event_history",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 100000, "color": "yellow"}, {"value": 1000000, "color": "red"}]},
+            "unit": "short"
+          }
+        },
+        "options": {"graphMode": "none", "colorMode": "background", "justifyMode": "auto", "textMode": "value_and_name", "orientation": "horizontal"}
+      },
+      {
+        "id": 11,
+        "title": "Materialized View Refresh Status",
+        "type": "table",
+        "gridPos": {"x": 12, "y": 24, "w": 12, "h": 4},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "rawSql": "SELECT matviewname AS \"View\", ispopulated AS \"Populated\", pg_size_pretty(pg_total_relation_size('public.' || matviewname)) AS \"Size\" FROM pg_matviews WHERE schemaname = 'public' ORDER BY matviewname",
+          "format": "table",
+          "refId": "A"
+        }],
+        "options": {"showHeader": true, "sortBy": []},
+        "fieldConfig": {
+          "overrides": [{
+            "matcher": {"id": "byName", "options": "Populated"},
+            "properties": [
+              {"id": "custom.cellOptions", "value": {"type": "color-background"}},
+              {"id": "mappings", "value": [
+                {"type": "value", "options": {"t": {"color": "green", "text": "✓ Yes"}}},
+                {"type": "value", "options": {"f": {"color": "red", "text": "✗ No"}}}
+              ]}
+            ]
+          }]
+        }
+      }
+    ],
+    "annotations": {
+      "list": [{
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "enable": true,
+        "iconColor": "rgba(255, 96, 96, 1)",
+        "name": "Deployments",
+        "rawQuery": "SELECT timestamp AS time, message AS text, 'deployment' AS tags FROM log_entries WHERE category = 'deployment' AND $__timeFilter(timestamp) ORDER BY timestamp ASC"
+      }]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "service",
+          "type": "query",
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "query": "SELECT DISTINCT service_name FROM log_entries WHERE service_name IS NOT NULL ORDER BY service_name",
+          "multi": true,
+          "includeAll": true,
+          "refresh": 1
+        },
+        {
+          "name": "level",
+          "type": "query",
+          "datasource": {"type": "postgres", "uid": "postgres"},
+          "query": "SELECT DISTINCT level FROM log_entries ORDER BY level",
+          "multi": true,
+          "includeAll": true,
+          "refresh": 1
+        }
+      ]
+    }
+  }
+}

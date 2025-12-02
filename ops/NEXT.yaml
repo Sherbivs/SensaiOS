@@ -4,10 +4,16 @@
 # Main tasks: Full implementation work requiring multiple commits.
 # Quick/hot tasks: Bug fixes, documentation updates, or hotfixes (< 30 min work).
 #
+# SPECIALIST TEAM COORDINATION (Team-Based AI Workflow):
+# Each task must include:
+# - specialists_required: [ai_coding (lead), documentation, architecture, ...] - Auto-detected from work type
+# - specialist_signoffs: {specialist: pending|approved|concerns} - Quality gates tracking
+# See Patch.md § "Specialist Team Coordination" for detection rules, 5-phase workflow, quality gates.
+#
 # META-SYSTEM HEALTH ENFORCEMENT (Anti-Stuck Rules):
 # The quick_task slot can be FORCE-ASSIGNED by Postflight checks to prevent technical debt:
-# - META.ROUTER.SYNC: 5+ code changes without router updates
-# - META.BIBLE.CONSOLIDATE: 10+ changes without Bible documentation
+# - META.ROUTER.SYNC: 5+ code changes without router updates (Documentation Specialist escalation)
+# - META.BIBLE.CONSOLIDATE: 10+ changes without Bible documentation (Architecture/Documentation Specialist escalation)
 # - META.TASKLIST.ARCHIVE: 20+ DONE tasks accumulating
 # - META.PROMPT.COMPRESS: Prompt.md >500 lines
 # These forced tasks MUST complete before resuming main work (prevents system decay).
@@ -30,6 +36,16 @@ main_tasks:
       - scripts/analytics/refresh_leaderboards.ts
       - docs/query-optimization-guide.md
       - data/README.md
+    specialists_required:
+      - ai_coding (lead)
+      - database
+      - architecture
+      - performance
+    specialist_signoffs:
+      ai_coding: pending
+      database: pending
+      architecture: pending
+      performance: pending
     priority: 1
     started_utc: 2025-11-13T03:10:00Z
 
@@ -41,6 +57,18 @@ main_tasks:
       - prisma/migrations/*_add_homestead_channel/*
       - tests/services/homestead-channel-manager.spec.ts
       - docs/architecture-bible/14-private-channel-architecture.md
+    specialists_required:
+      - ai_coding (lead)
+      - architecture
+      - database
+      - documentation
+      - testing
+    specialist_signoffs:
+      ai_coding: pending
+      architecture: pending
+      database: pending
+      documentation: pending
+      testing: pending
     priority: 2
     started_utc: 2025-11-21T12:30:00Z
 
@@ -49,6 +77,8 @@ quick_task:
   task_id: null
   reason: "Available for bug fixes, documentation, or hotfixes"
   files_hint: []
+  specialists_required: []
+  specialist_signoffs: {}
   priority: 0
   started_utc: null
 
@@ -60,7 +90,7 @@ files_hint:
   - scripts/analytics/refresh_leaderboards.ts
 
 queue: []
-timestamp_utc: 2025-11-21T12:30:00Z
+timestamp_utc: 2025-12-02T18:45:00Z
 router_version: 2
-last_notes_read_utc: 2025-11-21T12:30:00Z
-note: "Updated to multi-task queue system: 3 main tasks + 1 quick/hot task allowed. Currently: 2 main tasks active (DB.NORTHSTAR.ANALYTICS + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION), quick task slot available. MAJOR ARCHITECTURE PIVOT: Migrating from DM-based gameplay to private guild channels (homestead channels). Complete architecture specification created (900+ lines), 6-phase implementation plan, database schema designed. Foundation phase (service + DB) added to queue for parallel work."
+last_notes_read_utc: 2025-12-02T18:45:00Z
+note: "✅ AI SPECIALIST TEAM SYSTEM INTEGRATED (Phase 2 Complete): Enhanced Patch.md with specialist coordination section (8 specialists, detection rules, 5-phase workflow, quality gates), updated ops/NEXT.yaml with specialists_required and specialist_signoffs fields, enhanced PATCHSET echo format with specialist tracking. All tasks now include specialist metadata: DB.NORTHSTAR.ANALYTICS (4 specialists: AI Coding lead, Database, Architecture, Performance), ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION (5 specialists: AI Coding lead, Architecture, Database, Documentation, Testing). Multi-task queue system: 3 main tasks + 1 quick/hot task allowed. Currently: 2 main tasks active with specialist assignments, quick task slot available. MAJOR ARCHITECTURE PIVOT: Migrating from DM-based gameplay to private guild channels (homestead channels). Complete architecture specification created (900+ lines), 6-phase implementation plan, database schema designed. Foundation phase (service + DB) added to queue for parallel work. Next: Phase 3 (AI guidance updates - Agents.md, copilot-instructions.md)."

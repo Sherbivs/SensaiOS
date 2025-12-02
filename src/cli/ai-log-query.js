@@ -1,5 +1,34 @@
 #!/usr/bin/env node
 
+/**
+ * AI Log Query CLI - Log Search & Analysis Tool
+ * 
+ * ⚠️ **DEPRECATED** — This CLI tool will be replaced by SQL queries against TimescaleDB.
+ * 
+ * **Replacement:** psql queries against log_entries hypertable + TimescaleDB views
+ * 
+ * **Migration Path:**
+ * 1. query → SELECT * FROM log_entries WHERE message LIKE '%search%'
+ * 2. analyze → TimescaleDB continuous aggregates + window functions
+ * 3. patterns → GROUP BY error_type + COUNT(*) queries
+ * 4. performance → percentile_cont() aggregates on duration column
+ * 5. correlations → JOIN ON correlation_id / parent_correlation_id
+ * 6. insights → SQL queries + external analytics tools (Grafana, etc.)
+ * 7. stats → SELECT COUNT(*), component, operation FROM log_entries GROUP BY ...
+ * 
+ * **Why Deprecated:**
+ * - OLD: CLI parsing NDJSON files (slow, limited query capabilities)
+ * - NEW: SQL queries against TimescaleDB (fast, flexible, standard SQL)
+ * - TimescaleDB provides better query language than custom CLI filters
+ * - Grafana dashboards replace CLI analytics (visual, real-time, shareable)
+ * 
+ * **Priority:** LOW - CLI tool used for debugging only (not production-critical)
+ * **Removal Timeline:** After Grafana dashboards deployed (Task 11 complete)
+ * 
+ * @module cli/ai-log-query
+ * @deprecated Use psql or Grafana to query TimescaleDB log_entries instead
+ */
+
 /* eslint-disable no-console */
 import { program } from 'commander';
 import * as aiLogAnalyzer from '../services/ai-log-analyzer.js';

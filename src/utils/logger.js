@@ -1,3 +1,27 @@
+/**
+ * Legacy Logger System - Console Telemetry
+ * 
+ * ⚠️ **DEPRECATED** — This file is being replaced by the standardized logging system.
+ * 
+ * **Replacement:** Use `src/shared/logger.ts` with LOGGING-STANDARD.md vocabulary
+ * 
+ * **Migration Path:**
+ * 1. Replace logger.js functions with logger.info/error/warn from src/shared/logger.ts
+ * 2. Replace printStats() with logger telemetry (built-in database stats)
+ * 3. Replace printSection() with logger.info() calls with structured context
+ * 4. Auto-refresh handled by logger.ts (no manual intervals needed)
+ * 
+ * **Why Deprecated:**
+ * - OLD: Console-based telemetry, manual stats refresh, no persistence (ephemeral)
+ * - NEW: TimescaleDB persistence, correlation tracking, type-safe vocabulary
+ * - NEW approach integrates with Worker Manager for unified observability
+ * 
+ * **Removal Timeline:** After 100% logger.ts adoption (Task 9 Phase 5 complete)
+ * 
+ * @module utils/logger
+ * @deprecated Use src/shared/logger.ts instead
+ */
+
 import fs from 'node:fs';
 import path from 'node:path';
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';

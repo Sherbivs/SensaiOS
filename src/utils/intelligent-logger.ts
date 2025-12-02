@@ -1,6 +1,26 @@
 /**
  * Intelligent Logging System - Core Logger
  * 
+ * ⚠️ **DEPRECATED** — This file is being replaced by the standardized logging system.
+ * 
+ * **Replacement:** Use `src/shared/logger.ts` with LOGGING-STANDARD.md vocabulary
+ * 
+ * **Migration Path:**
+ * 1. Replace IntelligentLogger instances with getLogger() from src/shared/logger.ts
+ * 2. Map old categories to new components (BATTLE → battle, DATABASE → database.prod)
+ * 3. Use standardized operations from LOGGING-STANDARD.md
+ * 4. Correlation tracking via logger.child({ correlationId })
+ * 
+ * **Why Deprecated:**
+ * - OLD: Custom categorization, 7MB circular buffer, pattern detection (complex, non-standard)
+ * - NEW: Standardized vocabulary, type-safe, TimescaleDB ingestion, correlation tracking
+ * - NEW approach integrates with TimescaleDBWorker for persistence
+ * 
+ * **Removal Timeline:** After 100% logger.ts adoption (Task 9 Phase 5 complete)
+ * 
+ * ---
+ * 
+ * Original description:
  * AI-optimized logging with:
  * - Auto-categorization and context enrichment
  * - 7MB circular buffer with priority-based retention
@@ -12,6 +32,7 @@
  * These are intentional meta-logging statements and should not be replaced.
  * 
  * @module utils/intelligent-logger
+ * @deprecated Use src/shared/logger.ts instead
  */
 /* eslint-disable no-console */
 

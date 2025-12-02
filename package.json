@@ -49,6 +49,8 @@
     "monitor:memory:24h": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/monitor_memory_24h.ps1",
     "migrate:console-logs": "node scripts/migrate_console_logs.mjs",
     "migrate:console-logs:dry-run": "node scripts/migrate_console_logs.mjs --dry-run",
+    "migrate:logs": "tsx scripts/migrate-logs-to-database.ts",
+    "migrate:logs:dry-run": "tsx scripts/migrate-logs-to-database.ts --dry-run",
     "verify:metrics": "node scripts/verify-metrics-accuracy.mjs --all",
     "verify:metrics:staged": "node scripts/verify-metrics-accuracy.mjs --staged",
     "setup:git-hooks": "node scripts/setup-git-hooks.mjs",

@@ -63,6 +63,71 @@ const data = new SlashCommandBuilder()
   )
   .addSubcommand((sub) =>
     sub
+      .setName('database')
+      .setDescription('View database worker status and metrics')
+      .addStringOption((opt) =>
+        opt
+          .setName('worker')
+          .setDescription('Show specific worker details')
+          .setRequired(false)
+          .addChoices(
+            { name: 'PROD PostgreSQL', value: 'prod' },
+            { name: 'TimescaleDB', value: 'timescale' },
+            { name: 'Engine Read', value: 'engine-read' },
+            { name: 'Engine Write', value: 'engine-write' }
+          )
+      )
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName('workers')
+      .setDescription('View all worker health checks and uptime')
+      .addBooleanOption((opt) =>
+        opt
+          .setName('detailed')
+          .setDescription('Show detailed worker metrics')
+          .setRequired(false)
+      )
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName('logs')
+      .setDescription('Query TimescaleDB log entries')
+      .addStringOption((opt) =>
+        opt
+          .setName('level')
+          .setDescription('Filter by log level')
+          .setRequired(false)
+          .addChoices(
+            { name: 'ERROR', value: 'error' },
+            { name: 'WARN', value: 'warn' },
+            { name: 'INFO', value: 'info' },
+            { name: 'DEBUG', value: 'debug' }
+          )
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName('category')
+          .setDescription('Filter by category (e.g., database, bot, battle)')
+          .setRequired(false)
+      )
+      .addIntegerOption((opt) =>
+        opt
+          .setName('limit')
+          .setDescription('Maximum number of entries (1-50, default 20)')
+          .setMinValue(1)
+          .setMaxValue(50)
+          .setRequired(false)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName('since')
+          .setDescription('Time period (e.g., 1h, 6h, 24h, 7d)')
+          .setRequired(false)
+      )
+  )
+  .addSubcommand((sub) =>
+    sub
       .setName('state')
       .setDescription('View security bot operational state and history')
       .addBooleanOption((opt) =>

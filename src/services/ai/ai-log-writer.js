@@ -1,3 +1,26 @@
+/**
+ * AI-Optimized Hard Logging System - NDJSON Writer
+ * 
+ * ⚠️ **DEPRECATED** — This file is being replaced by the standardized logging system.
+ * 
+ * **Replacement:** Use `src/shared/logger.ts` + TimescaleDB for AI-queryable logs
+ * 
+ * **Migration Path:**
+ * 1. Replace aiLogWriter.write() with logger.info/error/warn()
+ * 2. TimescaleDB provides SQL-queryable logs (better than NDJSON parsing)
+ * 3. Correlation IDs + context natively supported by logger.ts
+ * 4. Retention/rotation handled by TimescaleDB policies (automatic)
+ * 
+ * **Why Deprecated:**
+ * - OLD: NDJSON files in /Store/ai-logs/, manual rotation/compression, file-based queries
+ * - NEW: TimescaleDB hypertable with SQL queries, automatic retention, built-in compression
+ * - TimescaleDB provides better AI analysis capabilities (JOIN, aggregations, time-series)
+ * 
+ * **Removal Timeline:** After 100% logger.ts adoption (Task 9 Phase 5 complete)
+ * 
+ * @module services/ai/ai-log-writer
+ * @deprecated Use src/shared/logger.ts with TimescaleDB ingestion instead
+ */
 /* eslint-disable no-console */
 import fs from 'node:fs/promises';
 import path from 'node:path';

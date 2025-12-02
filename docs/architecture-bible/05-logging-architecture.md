@@ -1113,7 +1113,7 @@ async function performGracefulShutdown(reason: string, exitCode: number) {
 - **Section 17** (Service Registry) — Service health checks, degraded state detection
 
 **Related Operations Bible Sections**:
-- **operations-bible/02-database-operations.md** — Database URL selection logic, connection telemetry, heartbeat monitoring
+- **operations-bible/database-operations-runbook-comprehensive.md** (25 pages) — Database URL selection logic § 2.1, connection telemetry, heartbeat monitoring § 2.3
 - **operations-bible/03-monitoring.md** — Resource monitor architecture, memory guardian, cache pruning
 
 **Related Development Bible Sections**:

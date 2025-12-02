@@ -1,8 +1,21 @@
 /**
  * @file Prometheus Metrics HTTP Server
  * @description Standalone HTTP server exposing /metrics endpoint for Prometheus scraping
+ * 
+ * ⚠️ **DEPRECATED** — This file may be replaced by TimescaleDB metrics aggregation.
+ * 
+ * **Potential Replacement:** TimescaleDB continuous aggregates + Grafana dashboards
+ * 
+ * **Migration Consideration:**
+ * - If Prometheus scraping is still needed: Keep this file, integrate with logger.ts metrics
+ * - If moving to Grafana + TimescaleDB: Replace with SQL views + continuous aggregates
+ * - Current usage: Exposes /metrics endpoint for external scraping (may still be needed)
+ * 
+ * **Decision Pending:** Keep or deprecate based on monitoring strategy (Task 11 - /ops commands)
+ * 
  * @module services/metrics-server
  * @since Week 3 Day 20-21 (Security Hardening Project)
+ * @status Under review for deprecation
  */
 
 import express from 'express';

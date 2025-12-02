@@ -7,13 +7,19 @@ _Last updated: 2025-11-21T12:30:00Z (UTC) — Rev: 1.7_
 **ARCHITECTURE UPDATE (2025-11-21):** Migrating from DM-based gameplay to private guild channels (homestead-{username}). See `docs/architecture-bible/14-private-channel-architecture.md` for complete specification.
 
 **Cross-References**:
-- See `operations-bible/01-service-matrix.md` for comprehensive worker architecture, scaling roadmap (Phase 10+), monitoring, cost optimization
-- See `operations-bible/02-database-operations.md` for schema, role, helper context
+- **📚 TASK 12 COMPREHENSIVE GUIDES (AUTHORITATIVE):**
+  * `docs/operations-bible/worker-troubleshooting-comprehensive.md` (22 pages) → ALL worker failure scenarios, recovery procedures, health check diagnostics
+  * `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) → Complete database ops, live game architecture, master-mirror-staging pipeline
+  * `docs/operations-bible/ops-commands-reference-comprehensive.md` (28 pages) → ALL /ops commands documented with examples, error codes
+  * `docs/architecture-bible/complete-system-architecture.md` (30 pages) → Service topology, dependency graphs, data flows, performance SLA
+- See `docs/architecture-bible/complete-system-architecture.md` § 2 for comprehensive worker architecture, service matrix details, dependency graphs, staggered startup timeline
 - See `architecture-bible/08-database-architecture.md` for query optimization, alerting thresholds, performance metrics
 - See `docs/event-tracking-schema.md` for event tracking patterns
 - See `AGENTS.md` for router navigation, database URL selection
 - See `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` for deployment procedures
 - See `render.yaml` for service definitions
+
+**🔥 DOCUMENTATION MAINTENANCE REQUIREMENT:** When changing service architecture, worker behavior, or database operations, UPDATE corresponding Bible sections in SAME commit. Documentation drift causes production failures.
 
 **Referenced By**: README.md (operations reference), AGENTS.md (Production & Render Notes), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (service validation)
 
@@ -104,7 +110,7 @@ See `operations-bible/03-deployment-procedures.md` for comprehensive SSH setup, 
   ls -lt /Store/security-bot-state/snapshots/ | head -20
   ```
   **Thresholds for investigation:** >10 restarts/hour sustained over 4+ hours (indicates crash loop), restart count regressing to 0 (state persistence failure, disk mount issue).
-- For deeper schema, role, and helper context, see `operations-bible/02-database-operations.md`.
+- For deeper schema, role, and helper context, see `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) — Complete database operations, schema architecture, live game real-time requirements, master-mirror-staging pipeline.
 
 ### Durable Event Bus Sink
 - **Providers:** Set `BACKUP_STORAGE_PROVIDER` to `s3` (Render/production) or `local` (developer dry runs). Leaving it unset defaults to `none`, which logs a warning and skips uploads—use only for emergency disablement.

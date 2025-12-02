@@ -1,7 +1,7 @@
-# Canonical AI routing map — single source of “where to look / where to write”.
+# Canonical AI routing map — single source of "where to look / where to write".
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-11-06T04:45:00Z
+updated_utc: 2025-12-02T00:00:00Z
 
 meta_files:
   - Patch.md
@@ -137,6 +137,8 @@ categories:
     - data/cache/ROUTER.md
   - assets/ROUTER.md
     - docs/ROUTER.md
+    - docs/projects/ROUTER.md
+    - docs/projects/development/ROUTER.md
     - playbooks/ROUTER.md
     - prisma/ROUTER.md
     - prisma/migrations/ROUTER.md
@@ -164,8 +166,10 @@ categories:
     - src/bot/battle/ROUTER.md
     - src/bot/daily/ROUTER.md
     - src/bot/dm/ROUTER.md
+    - src/bot/homestead/ROUTER.md
     - src/bot/middleware/ROUTER.md
     - src/bot/ops/ROUTER.md
+    - src/bot/profile/ROUTER.md
     - src/bot/wilds/ROUTER.md
     - src/cache/ROUTER.md
     - src/commands/ROUTER.md

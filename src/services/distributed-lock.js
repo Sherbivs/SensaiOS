@@ -3,6 +3,9 @@
  * @description Redis-backed distributed locking for race condition protection
  * @module services/distributed-lock
  * 
+ * ⚠️ **NOTE:** This file uses legacy `log()` from utils/logger.js (deprecated).
+ * **TODO:** Migrate to `logger.ts` after Phase 5 complete (low priority - functional code).
+ * 
  * CRITICAL SECURITY FIX:
  * Prevents race conditions in role assignments when multiple concurrent events fire
  * 

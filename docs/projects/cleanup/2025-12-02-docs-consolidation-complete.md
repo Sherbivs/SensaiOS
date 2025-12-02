@@ -111,6 +111,10 @@ Comprehensive system design documentation:
 - Resource limits
 - Service registry
 
+**📚 Task 12 Comprehensive Guides (AUTHORITATIVE):**
+- **complete-system-architecture.md** (30 pages) — Service topology, dependency graphs, data flows, 10 detailed diagrams
+- See `docs/architecture-bible/INDEX.md` for complete navigation
+
 ### Operations Bible (13 files)
 Production operations and procedures:
 - Service matrix
@@ -126,6 +130,13 @@ Production operations and procedures:
 - Database audit
 - Logging storage
 
+**📚 Task 12 Comprehensive Guides (AUTHORITATIVE):**
+- **worker-troubleshooting-comprehensive.md** (22 pages) — ALL worker failure scenarios with recovery procedures
+- **database-operations-runbook-comprehensive.md** (25 pages) — Complete database ops, live game architecture, master-mirror-staging pipeline
+- **ops-commands-reference-comprehensive.md** (28 pages) — Complete /ops commands reference with 50+ parameter combinations
+- **Total: 105+ pages** professional-grade operational and architectural documentation
+- See `docs/operations-bible/INDEX.md` for complete navigation
+
 ### Development Bible (9 files)
 Developer workflow and patterns:
 - Local setup
@@ -136,6 +147,8 @@ Developer workflow and patterns:
 - Console tooling
 - Utilities
 - Profiling
+
+**📚 See `docs/development-bible/INDEX.md` for complete navigation**
 
 ### Router System (82 files)
 Navigation manifests preserved across all directories - critical for codebase navigation.

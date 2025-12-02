@@ -165,6 +165,14 @@ Location: `docs/operations-bible/`
 - 10-database-audit.md
 - 11-logging-storage.md
 
+**📚 Task 12 Comprehensive Guides (December 2025):**
+- **worker-troubleshooting-comprehensive.md** (22 pages) — ALL worker failure scenarios with recovery procedures
+- **database-operations-runbook-comprehensive.md** (25 pages) — Complete database ops, live game architecture, master-mirror-staging pipeline
+- **ops-commands-reference-comprehensive.md** (28 pages) — Complete /ops commands reference with 50+ parameter combinations
+- **complete-system-architecture.md** (30 pages, in architecture-bible/) — Service topology, dependency graphs, data flows, 10 detailed diagrams
+- **Total: 105+ pages** professional-grade operational and architectural documentation (AUTHORITATIVE)
+- **Note:** These comprehensive guides supersede fragmented older references (01-service-matrix.md, 02-database-operations.md)
+
 ### Development Bible (8 files)
 Location: `docs/development-bible/`
 - INDEX.md

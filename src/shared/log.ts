@@ -1,3 +1,27 @@
+/**
+ * Minimal Structured Logger - JSON Lines Output
+ * 
+ * ⚠️ **DEPRECATED** — This file is being replaced by the standardized logging system.
+ * 
+ * **Replacement:** Use `src/shared/logger.ts` with LOGGING-STANDARD.md vocabulary
+ * 
+ * **Migration Path:**
+ * 1. Replace log.debug/info/warn/error with logger.debug/info/warn/error
+ * 2. Use standardized components + operations instead of free-form messages
+ * 3. Buffering handled by logger.ts (intelligent deduplication + aggregation)
+ * 4. Context enrichment via logger.child({ correlationId, component })
+ * 
+ * **Why Deprecated:**
+ * - OLD: JSON lines to console, minimal buffering, no persistence
+ * - NEW: TimescaleDB persistence, correlation tracking, type-safe vocabulary
+ * - NEW approach provides query capabilities via TimescaleDB views
+ * 
+ * **Removal Timeline:** After 100% logger.ts adoption (Task 9 Phase 5 complete)
+ * 
+ * @module shared/log
+ * @deprecated Use src/shared/logger.ts instead
+ */
+
 // Minimal structured logger without external deps.
 // Outputs JSON lines with timestamp, level, message, and optional context.
 // Now includes optional buffering to reduce console noise.

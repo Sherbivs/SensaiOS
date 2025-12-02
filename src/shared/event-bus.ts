@@ -1,6 +1,30 @@
 /**
  * Event Bus - Unified Event Routing System (Layer 2)
  * 
+ * ⚠️ **DEPRECATED** — This file's event routing is being replaced by direct logger.ts calls.
+ * 
+ * **Replacement:** Use `src/shared/logger.ts` with correlation tracking (no Event Bus needed)
+ * 
+ * **Migration Path:**
+ * 1. Replace EventBus.emit() with logger.info/error/warn() calls
+ * 2. Correlation IDs via logger.child({ correlationId })
+ * 3. Cross-system tracing via parentCorrelationId in context
+ * 4. Pattern matching unnecessary (TimescaleDB queries handle filtering)
+ * 
+ * **Why Deprecated:**
+ * - OLD: In-memory event bus with subscriptions, replay buffer, backpressure (complex)
+ * - NEW: Direct logger.ts → TimescaleDB (simpler, persistent, queryable)
+ * - Event Bus was Layer 2 abstraction that added complexity without clear benefit
+ * - Correlation tracking built into logger.ts (native support)
+ * 
+ * **Removal Timeline:** After 100% logger.ts adoption (Task 9 Phase 5 complete)
+ * 
+ * NOTE: Keep this file if needed for backwards compatibility during migration.
+ * Some systems may still emit events via EventBus.emit() temporarily.
+ * 
+ * ---
+ * 
+ * Original description:
  * Provides centralized event distribution with:
  * - Correlation IDs for cross-system tracing
  * - Pattern-based subscriptions (exact, wildcard, multi-level)
@@ -15,6 +39,7 @@
  * 4. BusMessage (PostgreSQL async message queue)
  * 
  * @module shared/event-bus
+ * @deprecated Use src/shared/logger.ts with correlation tracking instead
  */
 /* eslint-disable no-console */
 

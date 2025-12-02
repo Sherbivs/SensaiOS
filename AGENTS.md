@@ -26,7 +26,13 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 
 **Phase 9 Complete** (2025-11-07): Repository is production-ready, centralized, standardized, and scalable. All quality metrics optimized: zero linter warnings, zero npm vulnerabilities, zero outdated packages, fast tests (6.82s), clean documentation. See `ops/REPO-OPTIMIZATION-REPORT.md` for comprehensive achievements.
 
-**Recent Enhancements (November 2025)**:
+**Recent Enhancements (November-December 2025)**:
+- ✅ **Comprehensive Documentation Project (Task 12, December 2025)**: **105+ pages** of professional-grade operational and architectural documentation created:
+  * **Worker Troubleshooting Guide** (22 pages) — ALL failure scenarios, recovery procedures, diagnostic workflows
+  * **Database Operations Runbook** (25 pages) — Master-mirror-staging pipeline, live game real-time requirements (<1μs cache, <50μs writes)
+  * **/ops Commands Reference** (28 pages) — Complete reference for all 9 administrative commands with 50+ parameter combinations
+  * **Complete System Architecture** (30 pages) — 10 detailed diagrams covering service topology, dependency graphs, data flows, error handling
+  * **📚 CRITICAL: Read Recent Documentation** — These comprehensive guides are AUTHORITATIVE for database operations, worker management, system architecture, and troubleshooting
 - ✅ **Private Channel Architecture (2025-11-21)**: **MAJOR ARCHITECTURE PIVOT** — Migrating from Discord DMs to private guild channels for all gameplay. Each user gets a dedicated "homestead" channel (homestead-{username}) within the Discord guild. Eliminates DM delivery failures, enables guild admin moderation, provides audit trail. 6-phase migration affecting 10 call sites, 4 modules, 6 feature areas. Complete 900-line architecture specification created. Foundation phase READY for implementation.
 - ✅ **Memory Safety Audit Complete**: 13/13 runtime structures bounded, peak RAM ~300-350 MB (15-17% of 2 GB RAM limit, upgraded from Starter 512 MB on 2025-11-17)
 - ✅ **Resource Limits Clarification**: Clear distinction between RAM (2 GB volatile memory) and persistent disk (1 GB /Store volume) documented in `docs/RESOURCE-LIMITS-RAM-VS-DISK.md`
@@ -54,12 +60,29 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - See `Tasklist.md` for backlog (READY queue, dependencies, acceptance criteria)
 - See `README.md` for getting started guide, architecture snapshot, Phase 9 achievements
 - See `OPERATIONS.md` for service matrix, rollout checklist, observability
+- **📚 See `docs/operations-bible/` for AUTHORITATIVE operational documentation:**
+  * `worker-troubleshooting-comprehensive.md` (22 pages) — ALL worker failure scenarios with recovery procedures
+  * `database-operations-runbook-comprehensive.md` (25 pages) — Complete database ops, live game architecture, master-mirror-staging pipeline
+  * `ops-commands-reference-comprehensive.md` (28 pages) — Complete /ops commands reference with 50+ parameter combinations
+- **📚 See `docs/architecture-bible/` for AUTHORITATIVE architecture documentation:**
+  * `complete-system-architecture.md` (30 pages) — System topology, dependency graphs, data flows, 10 detailed diagrams
+  * `14-private-channel-architecture.md` — **CRITICAL private channel migration** (DM → Guild Channels, 6-phase plan, 900+ lines)
+  * `17-service-registry.md` — Service Registry deep dive (740 lines, dependency injection, health monitoring)
+- **📚 See `docs/projects/` for WORK-IN-PROGRESS documentation:**
+  * `README.md` — **Bible-centric documentation system** (staged workflow, 100% accuracy requirement)
+  * Active projects document as they build, Bible integration after AI integrity validation
+  * **CRITICAL:** Never edit Bible directly during development — use projects/ staging area first
 - See `docs/workers.md` for worker architecture, scaling roadmap (Phase 10+), cost optimization
 - See `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` for deployment readiness validation
-- See `operations-bible/02-database-operations.md` for CRITICAL database URL selection logic (Absolute requirement)
 - See `docs/OPTIMIZATION-BIBLE.md` for comprehensive system optimization roadmap (startup, console logging, profile creation, runtime weight, queries, cache)
 - See `docs/engine-db-persistence-opportunities.md` for Engine DB disk persistence migration (sql.js → better-sqlite3, 78% memory reduction)
-- See `docs/architecture-bible/14-private-channel-architecture.md` for **CRITICAL private channel migration** (DM → Guild Channels, 6-phase plan, 900+ lines)
+
+**🔥 CRITICAL REQUIREMENT — Documentation Maintenance:**
+- **When modifying architecture/operations:** UPDATE corresponding Bible sections in SAME commit
+- **When discovering outdated references:** Document in Tasklist.md for systematic cleanup
+- **Long-term project (est. 1 year):** Replace ALL deprecated references across entire codebase
+- **Goal:** After completion, everything should look brand new with consistent, accurate documentation
+- **Bible drift causes production failures** — Keep documentation synchronized with implementation
 
 **Referenced By**: README.md (operations guide), Patch.md (Absolutes), ops/NEXT.yaml (guidance references), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (architecture reference)
 
@@ -77,11 +100,18 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 
 ## Orientation Flow
 - **START HERE:** Read `Patch.md` completely before ANY work. Understand marker modes, Absolutes, and the multi-task queue system (3 main + 1 quick/hot task). This is MANDATORY for errors/optimization/upgrades.
+- **📚 READ RECENT DOCUMENTATION (Task 12, December 2025):** Review comprehensive operational and architectural guides before making changes:
+  * `docs/operations-bible/worker-troubleshooting-comprehensive.md` (22 pages) — ALL worker failure scenarios
+  * `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) — Complete database ops + live game architecture
+  * `docs/operations-bible/ops-commands-reference-comprehensive.md` (28 pages) — ALL /ops administrative commands
+  * `docs/architecture-bible/complete-system-architecture.md` (30 pages) — System topology with 10 detailed diagrams
+  * **These documents are AUTHORITATIVE** — Read before implementing database, worker, or monitoring features
 - Review `ops/NEXT.yaml` to see active task queue and quick task slot availability.
 - Review `Prompt.md` for the current timestamp, revision, recent repo changes, and PATCHSET echo so you know what happened last.
 - Use `masterroutetable.md` alongside `ops/ROUTER.yaml` to map directories to their routers before touching code or docs.
 - Consult `README.md` and domain-specific docs under `docs/` for architecture, operations, and safety context; follow links from the router manifests when deeper knowledge is required.
 - `Tasklist.md` captures backlog intent, but only act after verifying readiness in `Patch.md`/`Prompt.md` and aligning with `ops/NEXT.yaml`.
+- **🔥 WHEN CHANGING ARCHITECTURE/OPERATIONS:** Update corresponding Bible sections in SAME commit to prevent documentation drift
 
 ---
 
@@ -97,7 +127,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - `README.md` (Router & Meta Index section) — Cross-links routers, contract files, and meta tooling for external automation.
 - `ops/DB_BOOTSTRAP.md` — Staging Postgres bootstrap runbook covering migrate deploy vs. db push safety.
   - Expect `PROD_DATABASE_URL` (Render-managed PostgreSQL) to be configured. Runtime services use PROD_DATABASE_URL for all operations including gameplay and migrations.
-- `operations-bible/02-database-operations.md` — **CRITICAL:** Canonical database URL selection logic. Production requires `PROD_DATABASE_URL` (direct PostgreSQL - Render managed database). Non-compliance causes production failures. Read this before any database operation.
+- `docs/operations-bible/database-operations-runbook-comprehensive.md` — **CRITICAL (25 pages):** Canonical database URL selection logic, live game architecture (<1μs cache, <50μs writes), master-mirror-staging pipeline. Production requires `PROD_DATABASE_URL` (direct PostgreSQL - Render managed database). Non-compliance causes production failures. Read this before any database operation.
 
 ## How to Run Locally
 - **Install:** `npm install`
@@ -131,7 +161,7 @@ Reference: `docs/ai-env-setup.md` describes the secure loading order and availab
 
 ## Database URL Selection (CRITICAL - Read Before Any Database Operation)
 
-**As of 2025-11-08**, production uses **unified Render-managed PostgreSQL**. See `operations-bible/02-database-operations.md` for complete documentation.
+**As of 2025-11-08**, production uses **unified Render-managed PostgreSQL**. See `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) for complete documentation.
 
 **The Architecture:**
 - **PRODUCTION (Render)**: Single managed database (infinity-gauntlet-db) accessed via PROD_DATABASE_URL
@@ -353,7 +383,7 @@ console.log(`PROD: ${stats.prod.status} | LOCAL: ${stats.onPremiseDev.status}`);
 | Offline development | `onPremiseDevPrisma` | Fallback when Render database unreachable |
 | Stats/observability | All via `getDatabaseStats()` | Simultaneous visibility |
 
-See `operations-bible/02-database-operations.md` for comprehensive database architecture documentation including `TripleDatabaseStats` type definitions, heartbeat tracking, workstation gameplay setup, and replication flows.
+See `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) for comprehensive database architecture documentation including `TripleDatabaseStats` type definitions, heartbeat tracking, workstation gameplay setup, and replication flows.
 
 ## State Persistence (Security Bot)
 
@@ -677,6 +707,336 @@ See `docs/engine-db-replication.md` for comprehensive design documentation. See 
 - When in doubt, consult `ops/TOUCHMAP.yaml` for file ownership and escalation paths.
 - Cache/storage routers now cross-link end-to-end: `src/services/cache/ROUTER.md`, `src/shared/cache/ROUTER.md`, and `Store/ROUTER.md` describe recipes, backends, and persisted namespaces respectively.
 - Pair the runbook (`ops/DB_BOOTSTRAP.md`) with `scripts/bootstrap_staging_db.ps1` before touching staging migrations; the script reads the active `IG_ENV_FILE` (defaulting to `C:/Users/sherb/OneDrive/Documents/Key/Dev/.env`), runs `prisma migrate deploy`, and points back to the runbook if baseline tables or connection strings (pooled vs. direct) are missing.
+
+## Documentation System & Bible Integrity
+
+**The Bible is the single source of truth.** Architecture, Operations, and Development Bibles contain AUTHORITATIVE documentation that must be 100% accurate at all times.
+
+### Bible-Centric Staged Workflow
+
+**Problem:** Editing Bible directly during active development risks inaccuracy, stale references, and documentation drift.
+
+**Solution:** Staged documentation system with AI integrity validation before Bible integration.
+
+### Workflow Stages
+
+1. **Project Initialization**: Create `docs/projects/{project-name}/` with subfolders:
+   - `architecture/` — Design decisions, diagrams, integration points
+   - `implementation/` — Phase notes, gotchas, lessons learned
+   - `testing/` — Test plans, validation results
+   - `bible-integration/` — Accuracy checklist, proposed Bible changes
+
+2. **Active Development**: Document as you build (no pressure for perfection)
+   - Capture architecture decisions in real-time
+   - Track implementation challenges and workarounds
+   - Document edge cases and failure modes discovered
+   - Record performance measurements and benchmarks
+
+3. **Project Completion**: Prepare Bible integration
+   - Consolidate findings into `bible-integration/proposed-changes.md`
+   - Run AI integrity check against actual codebase
+   - Verify 100% accuracy (no speculation, no stale references)
+   - Create structured Bible update proposals with exact text and code references
+
+4. **Bible Integration**: Validated updates only
+   - AI confirms all code references exist in codebase
+   - Verify architecture diagrams match actual system topology
+   - Confirm performance claims backed by measurements
+   - Update Bible sections with verified information
+   - Archive project folder to `docs/projects/archive/{project-name}/`
+
+### Integrity Requirements (100% Accuracy)
+
+**Before ANY Bible update, validate:**
+- ✅ **Code Accuracy:** All code snippets/paths verified in current codebase
+- ✅ **Architecture Accuracy:** All diagrams match actual implementation
+- ✅ **Performance Accuracy:** All metrics backed by actual measurements
+- ✅ **Integration Accuracy:** All described integrations exist and function
+- ✅ **Version Accuracy:** Schema versions, migration counts current
+- ✅ **Cross-Reference Accuracy:** All internal doc links resolve
+- ✅ **No Speculation:** Zero future/planned features as current reality
+
+**CRITICAL:** If accuracy check fails, documentation stays in `docs/projects/pending-validation/` until corrected. Bible pollution is NEVER acceptable.
+
+### Bible Structure
+
+- **Architecture Bible** (`docs/architecture-bible/`) — 17 sections, 105+ pages (system design)
+- **Operations Bible** (`docs/operations-bible/`) — 12+ sections, 75+ pages (operational procedures)
+- **Development Bible** (`docs/development-bible/`) — 7 sections (development workflows)
+
+### Project Documentation
+
+- **Active Projects:** `docs/projects/{project-name}/` (work in progress)
+- **Templates:** `docs/projects/.templates/` (project README templates)
+- **System Guide:** `docs/projects/README.md` (complete staged workflow documentation)
+
+### Automation (Future)
+
+```powershell
+# Create new project with structure
+npm run docs:new-project --name "feature-name" --category "architecture|operations|development"
+
+# Validate before Bible integration
+npm run docs:validate-bible-integration --project {project-name}
+```
+
+**See `docs/projects/README.md` for complete staged workflow documentation, templates, and validation procedures.**
+
+### Project Completion Report Guidelines
+
+**CRITICAL:** All project completion reports must follow timestamp-based naming and proper organization.
+
+#### Naming Convention
+**Format:** `YYYY-MM-DD-{descriptive-project-name}.md`
+
+**Examples:**
+- `2025-12-02-docs-root-cleanup.md` — Documentation cleanup completion
+- `2025-12-15-worker-scaling-implementation.md` — Worker scaling project
+- `2025-01-10-cache-optimization-results.md` — Cache optimization report
+
+**Benefits:**
+- **Chronological Sorting:** Files naturally sort by date
+- **Clear Context:** Instant date visibility
+- **Historical Tracking:** Easy to find reports by timeframe
+- **Git Alignment:** History matches timestamps
+- **Team Coordination:** Clear project timeline
+
+#### Report Locations
+- **Cleanup Reports:** `docs/projects/cleanup/`
+- **Architecture Reports:** `docs/projects/architecture/`
+- **Operations Reports:** `docs/projects/operations/`
+- **Development Reports:** `docs/projects/development/`
+
+**Rule:** Keep in `projects/{type}/` — NOT in docs root
+
+#### Phase Tracking
+Update parent folder `README.md` with phase entries:
+
+```markdown
+### Phase N: {Name} (YYYY-MM-DD)
+- **Status:** ✅ COMPLETE
+- **Report:** {timestamp-filename}.md
+- **Results:** {Key metrics}
+- **Impact:** {What changed}
+```
+
+#### Key Organizational Principles
+1. **Docs Root Discipline:** Navigation files ONLY (ROUTER.md, system summaries)
+2. **Project Reports:** Always in `projects/{type}/` with timestamps
+3. **Chronological Organization:** `YYYY-MM-DD` prefix for natural sorting
+4. **Phase Documentation:** Track in folder READMEs with detailed results
+5. **Clear Structure:** Easy to find, maintain, and extend
+
+#### CRITICAL: Category Folder Creation Rule
+
+**When a completion report has no matching category folder:**
+
+❌ **NEVER** leave report in docs root  
+✅ **ALWAYS** create the appropriate category folder first
+
+**Required Actions:**
+1. Create `docs/projects/{category}/` folder (e.g., development/, operations/, architecture/)
+2. Create comprehensive `README.md` in the new folder:
+   - Folder purpose and scope
+   - Active projects section with phase tracking
+   - Guidelines and quality standards
+   - Cross-references to related documentation
+3. Move completion report to new folder with timestamp naming
+4. Update `docs/projects/README.md` to list new folder
+
+**Example Enforcement (2025-12-02):**
+```
+Found: docs/BIBLE-CENTRIC-SYSTEM-COMPLETE.md (completion report)
+Issue: No development/ folder exists
+Action: 
+  1. Created docs/projects/development/
+  2. Created comprehensive README.md
+  3. Moved to 2025-12-02-bible-system-complete.md
+  4. Updated projects/README.md
+Result: ✅ 100% compliance with organizational principles
+```
+
+**This is MANDATORY.** Never bypass folder creation — always establish proper infrastructure before moving files.
+
+**See `docs/projects/README.md` for complete completion report template and guidelines.**
+
+---
+
+## AI Specialist Team System (Team-Based AI Workflow)
+
+**PURPOSE:** Every prompt automatically assembles a team of specialized AI agents, each with domain expertise, ensuring comprehensive problem-solving from multiple perspectives.
+
+**INTEGRATION STATUS:** ✅ Fully integrated into Patch.md, ops/NEXT.yaml, Prompt.md (Phase 2 complete, 2025-12-02)
+
+### Team Structure
+
+**Core Specialists (Always Active):**
+- **AI Coding Specialist (Team Lead)** — Orchestrates team, coordinates workflow, ensures quality, final approval
+- **Documentation Specialist** — Reviews documentation structure, enforces naming conventions, maintains Bible accuracy
+- **Architecture Specialist** — Reviews architectural changes, identifies integration impacts, validates technical approaches
+
+**Domain Specialists (Invoked as Needed):**
+- **Database Specialist** — Database operations, migrations, performance optimization, data integrity
+- **Testing Specialist** — Test coverage, quality assurance, validation, acceptance criteria verification
+- **Security Specialist** — Security review, vulnerability detection, best practices, access control validation
+- **Performance Specialist** — Performance optimization, resource management, efficiency analysis
+- **DevOps Specialist** — Deployment, infrastructure, CI/CD, monitoring setup
+
+### Automatic Detection Rules (Specialist Referral Matrix)
+
+| Work Type | Required Specialists | Trigger Patterns |
+|-----------|---------------------|------------------|
+| **Documentation** | Documentation, AI Coding | `docs/`, `README.md`, `.md` files, "document", "organize" |
+| **Database** | Database, Architecture, AI Coding | `prisma/`, `schema.prisma`, "migration", "database", SQL files |
+| **Testing** | Testing, AI Coding | `tests/`, `.test.ts`, `.spec.ts`, "test", "coverage" |
+| **Security** | Security, Architecture, AI Coding | "auth", "permission", "security", "credential", "secret" |
+| **Performance** | Performance, Architecture, AI Coding | "optimize", "performance", "cache", "memory", "speed" |
+| **Deployment** | DevOps, Architecture, AI Coding | `render.yaml`, `Dockerfile`, "deploy", "CI/CD", `.github/workflows/` |
+| **Architecture** | Architecture, AI Coding | "design", "architecture", "system", "integration", "API" |
+| **Cleanup** | Documentation, AI Coding | "cleanup", "organize", "refactor", "consolidate" |
+
+### 5-Phase Workflow Protocol
+
+**Phase 1: Analysis (AI Coding Specialist)**
+1. Receive prompt from user
+2. Analyze work type using detection rules
+3. Identify required specialists from referral matrix
+4. Assemble team with role assignments
+5. Brief team on objectives and context
+
+**Phase 2: Planning (Team Collaboration)**
+1. Each specialist reviews work from their domain perspective
+2. Identify concerns (risks, conflicts, dependencies)
+3. Propose solutions with specialist expertise
+4. Coordinate approach across specialists
+5. Document plan with team consensus
+
+**Phase 3: Execution (Coordinated Implementation)**
+1. AI Coding Specialist implements changes
+2. Specialists monitor for domain concerns
+3. Real-time feedback during implementation
+4. Adjustments as needed based on specialist input
+
+**Phase 4: Verification (Multi-Perspective QA)**
+1. Each specialist validates deliverable from domain
+2. Documentation Specialist checks docs, naming, cross-references
+3. Architecture Specialist validates design consistency
+4. Testing Specialist checks coverage
+5. Security/Performance/DevOps as needed
+
+**Phase 5: Handoff (Knowledge Transfer)**
+1. Team consolidates lessons learned
+2. Update Bible (Architecture/Operations/Development)
+3. Capture patterns for future work
+4. Document in PATCHSET echo with specialist signoffs
+
+### Quality Gates (Required for Task Completion)
+
+- ✅ **Documentation Specialist:** All `.md` files, naming conventions, cross-references verified
+- ✅ **Architecture Specialist:** System design changes, integration points, API modifications validated
+- ✅ **Database Specialist:** Schema changes, migrations, data integrity approved
+- ✅ **Testing Specialist:** Test coverage, acceptance criteria validation complete
+- ✅ **Security Specialist:** Auth/permission changes, credential handling reviewed
+- ✅ **Performance Specialist:** Optimization claims, resource usage validated
+- ✅ **DevOps Specialist:** Deployment changes, infrastructure updates approved
+- ✅ **AI Coding Specialist (Lead):** Final approval after all domain signoffs
+
+### Task Metadata (ops/NEXT.yaml Structure)
+
+```yaml
+main_tasks:
+  - id: T15.1
+    title: "Task title"
+    specialists_required:
+      - ai_coding (lead)
+      - documentation
+      - architecture
+    specialist_signoffs:
+      ai_coding: pending|approved|concerns
+      documentation: pending|approved|concerns
+      architecture: pending|approved|concerns
+```
+
+### PATCHSET Echo Format (Prompt.md)
+
+Every PATCHSET echo now includes:
+- **Specialists Involved:** [List with roles: "AI Coding (Lead), Documentation, Architecture"]
+- **Coordination Notes:** [Key decisions from team discussion, concerns raised, solutions agreed]
+- **Quality Gates Passed:** [Specialist signoffs: "Documentation ✅, Architecture ✅, AI Coding ✅"]
+
+### Coordination Patterns
+
+**Pattern 1: Sequential Review**
+- **When:** Independent specialist domains (docs → architecture → testing)
+- **Flow:** Each specialist reviews in sequence, adds findings, passes to next
+
+**Pattern 2: Parallel Review**
+- **When:** Independent concerns (security + performance analysis)
+- **Flow:** Specialists review simultaneously, consolidate findings
+
+**Pattern 3: Collaborative Resolution**
+- **When:** Conflicting requirements (performance vs maintainability)
+- **Flow:** Team discussion, trade-off analysis, consensus decision
+
+**Pattern 4: Lead-Verify**
+- **When:** Rapid iteration (AI Coding implements → Specialist verifies)
+- **Flow:** Quick feedback loop, domain expertise on demand
+
+### Real-World Example: Documentation Cleanup (2025-12-02)
+
+**Specialists Involved:**
+- AI Coding Specialist (Lead) — Orchestrated cleanup
+- Documentation Specialist — Caught organizational violations (BIBLE-CENTRIC-SYSTEM-COMPLETE.md in wrong location)
+- Architecture Specialist — Reviewed folder structure design
+
+**Workflow:**
+- Phase 1: AI Coding analyzed user request → identified cleanup task
+- Phase 2: Documentation Specialist proposed naming conventions
+- Phase 3: Team executed file moves, folder creation, README updates
+- Phase 4: Documentation Specialist verified compliance
+- Phase 5: AI Coding delivered summary to user
+
+**Quality Gates Passed:**
+- ✅ Documentation Specialist: Naming conventions applied
+- ✅ Documentation Specialist: Folder structure optimal
+- ✅ Documentation Specialist: Cross-references updated
+- ✅ AI Coding Specialist: All files properly organized
+
+**Result:** 100% compliance with organizational principles
+
+### Integration Points
+
+- **Patch.md § "Specialist Team Coordination"** — Complete workflow protocols (94 lines)
+- **ops/NEXT.yaml** — Task metadata with `specialists_required` and `specialist_signoffs` fields
+- **Prompt.md § "Embedded PATCHSET Echo"** — Enhanced format with specialist tracking
+- **Tasklist.md** — Outcome notes include specialist signoffs
+
+### Success Metrics
+
+**Team Coordination Quality:**
+- ✅ Every task has appropriate specialists identified
+- ✅ Multi-perspective analysis on all major changes
+- ✅ Quality gates passed before completion
+- ✅ Documentation reviewed by Documentation Specialist
+- ✅ Architecture validated by Architecture Specialist
+
+**Process Efficiency:**
+- ✅ Specialist referral automated (detection rules)
+- ✅ Coordination overhead minimal (<10% time)
+- ✅ Clear handoff protocols followed
+- ✅ Team notes captured for learning
+
+**Quality Improvements:**
+- ✅ Fewer bugs caught in review (caught earlier by specialists)
+- ✅ Better documentation (Documentation Specialist review)
+- ✅ Stronger architecture (Architecture Specialist guidance)
+- ✅ Higher test coverage (Testing Specialist enforcement)
+
+**See:** `docs/projects/development/AI-SPECIALIST-TEAM-SYSTEM.md` for comprehensive design document (25.8 KB) covering team structure, detection rules, workflow protocols, implementation plan.
+
+**See:** `docs/projects/development/2025-12-02-ai-specialist-team-integration.md` for Phase 2 completion report documenting Patch.md, ops/NEXT.yaml, and Prompt.md integration.
+
+---
 
 ## Refresh Policy for Materialized Views
 - Only the owner role or a `SECURITY DEFINER` function refreshes DB matviews.

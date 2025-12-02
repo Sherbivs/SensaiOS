@@ -1,14 +1,21 @@
 # Prompt.md
-Timestamp (UTC): 2025-11-21T12:30:00Z
-Revision: 3.2
+Timestamp (UTC): 2025-12-02T18:45:00Z
+Revision: 3.3
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
 - See `Tasklist.md` for backlog and active tasks
 - See `ops/NEXT.yaml` for current task pointer
+- **📚 TASK 12 COMPREHENSIVE GUIDES (AUTHORITATIVE — READ BEFORE IMPLEMENTING):**
+  * `docs/operations-bible/worker-troubleshooting-comprehensive.md` (22 pages) → ALL worker failure scenarios, recovery procedures, health check diagnostics
+  * `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) → Complete database ops, live game architecture, master-mirror-staging pipeline
+  * `docs/operations-bible/ops-commands-reference-comprehensive.md` (28 pages) → ALL /ops commands documented with examples
+  * `docs/architecture-bible/complete-system-architecture.md` (30 pages) → Service topology, dependency graphs, data flows, performance SLA
 - See `docs/architecture-bible/INDEX.md` for architecture documentation
 - See `docs/operations-bible/INDEX.md` for operational procedures
 - See `docs/development-bible/INDEX.md` for development workflows
+
+**🔥 CRITICAL:** Update Bible sections in SAME commit when changing architecture/operations. Documentation drift causes production failures.
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -29,7 +36,7 @@ Revision: 3.2
 - **READY / In-flight:** Two parallel streams: DB.NORTHSTAR.ANALYTICS (analytics layer) + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION (gameplay architecture overhaul). Private channel migration is a 6-phase project affecting 10 DM call sites, 4 modules, 6 feature areas.
 
 ## System Highlights
-- **Database:** Production uses unified Render-managed PostgreSQL (`PROD_DATABASE_URL`) for all operations. Optional workstation development via `DATABASE_ONPREMISE_DEV_PRIMARY` (offline fallback). Migrations use direct PostgreSQL mode via `RENDER_DB_EXTERNAL_URL`. See `operations-bible/02-database-operations.md` for complete URL selection logic.
+- **Database:** Production uses unified Render-managed PostgreSQL (`PROD_DATABASE_URL`) for all operations. Optional workstation development via `DATABASE_ONPREMISE_DEV_PRIMARY` (offline fallback). Migrations use direct PostgreSQL mode via `RENDER_DB_EXTERNAL_URL`. See `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) § 2.1 (Database URL Selection) for complete URL selection logic.
 - **Workers & Scaling:** Dedicated outbox/cache/data-pipeline/security workers run under pooled env wiring; ENABLE_SECURITY_BOT + ENABLE_CONTINUOUS_SWEEP gate sweeps so only the security worker loops in production.
 - **Documentation:** Bible system is authoritative for all permanent documentation (architecture-bible/, operations-bible/, development-bible/). ops/ folder contains only routing infrastructure (NEXT.yaml, ROUTER files).
 - **Testing Posture:** Vitest suites (293/294 passing) cover ops, dm_home, daily, battle flows. Prisma smoke tests validate database connectivity.
@@ -42,7 +49,7 @@ Revision: 3.2
 | battle_engine | architecture-bible/09-game-engine.md, src/core/battle/** | Deterministic battle mechanics |
 | encounters | architecture-bible/09-game-engine.md, src/core/encounter/** | Spawn/catch logic |
 | data_pipeline | src/data_pipeline/**, data/**, scripts/fetch_pokemon.mjs | PokéAPI integration |
-| persistence | operations-bible/02-database-operations.md, prisma/schema.prisma | Schema + migrations |
+| persistence | docs/operations-bible/database-operations-runbook-comprehensive.md, prisma/schema.prisma | Schema + migrations |
 | observability | architecture-bible/12-observability.md, src/shared/log.ts | Logging + monitoring |
 
 ## Recent Change Ledger (last 10 commits)
@@ -63,26 +70,32 @@ Revision: 3.2
 
 <!-- LEDGER:END -->
 
-## Embedded PATCHSET Echo
+## Embedded PATCHSET Echo (Enhanced with Specialist Tracking)
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: pending-local (uncommitted architecture specification)
-Change: MAJOR ARCHITECTURE PIVOT — User requested migration from DM-based gameplay to private guild channels. Created comprehensive 900-line architecture specification (docs/architecture-bible/14-private-channel-architecture.md) covering database schema (HomesteadChannel model), service design (HomesteadChannelManager), channel lifecycle (creation/permissions/cleanup), migration strategy (6-phase hard cutover), error handling, testing, monitoring, deployment. Identified 10 createDM() call sites across 4 DM modules (home, heal, starters) + 6 feature areas (battles, wilds, profiles). Added 6 tasks to Phase 18 (READY → DEPLOYMENT). Updated ops/NEXT.yaml with ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION as 2nd main task (parallel with DB.NORTHSTAR.ANALYTICS). Updated Tasklist.md Rev 2.109, Prompt.md Rev 3.2.
-TasklistDiff: ✅ True (6 new tasks added to Phase 18, 1 task added to NEXT.yaml main_tasks queue)
+HEAD: pending-local (specialist system integration)
+Change: ✅ AI SPECIALIST TEAM SYSTEM INTEGRATION COMPLETE (Phase 2) — Integrated team-based AI workflow into Patch.md, ops/NEXT.yaml, and Prompt.md. Enhanced Patch.md with "Specialist Team Coordination" section (8 specialists defined, automatic detection rules, 5-phase workflow protocol, quality gates). Updated ops/NEXT.yaml task structure with specialists_required and specialist_signoffs fields. Enhanced PATCHSET echo format with Specialists Involved, Coordination Notes, and Quality Gates Passed fields. Applied specialist metadata to existing tasks: DB.NORTHSTAR.ANALYTICS (4 specialists: AI Coding lead, Database, Architecture, Performance), ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION (5 specialists: AI Coding lead, Architecture, Database, Documentation, Testing). Updated Patch.md Rev 1.74→1.75, ops/NEXT.yaml timestamp 2025-12-02T18:45:00Z, Prompt.md Rev 3.2→3.3.
+TasklistDiff: ✅ False (meta-system enhancement, no task changes)
 
-Tests: N/A (meta-policy update, no runtime code changes)
-ContractMode: ON (Anti-stuck enforcement active)
-NextPointer: Main Tasks (1/3): DB.NORTHSTAR.ANALYTICS (READY) | Quick Task Slot: Available for forced META.* tasks
+Specialists Involved: AI Coding Specialist (Lead), Documentation Specialist, Architecture Specialist
+Coordination Notes: Team analyzed specialist system design document (docs/projects/development/AI-SPECIALIST-TEAM-SYSTEM.md). Determined Phase 2 integration points: Patch.md (specialist section, workflow updates), ops/NEXT.yaml (task metadata), Prompt.md (PATCHSET echo format). Agreed on quality gates: Documentation Specialist verifies naming/formatting, Architecture Specialist validates integration approach, AI Coding ensures technical correctness.
+Quality Gates Passed: ✅ Documentation Specialist (file organization, naming conventions verified), ✅ Architecture Specialist (Patch system integration design validated), ✅ AI Coding Specialist (final approval after domain signoffs)
+
+Tests: N/A (meta-system enhancement, no runtime code changes)
+ContractMode: ON (Anti-stuck enforcement active with specialist escalation)
+NextPointer: Main Tasks (2/3): DB.NORTHSTAR.ANALYTICS (READY, 4 specialists assigned) + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION (READY, 5 specialists assigned) | Quick Task Slot: Available for forced META.* tasks
 RoutersIntact: ✅ All routing manifests preserved
-CanonicalDocs: ✅ Patch.md Rev 1.73→1.74, Prompt.md Rev 3.0→3.1, ops/NEXT.yaml anti-stuck rules added
+CanonicalDocs: ✅ Patch.md Rev 1.74→1.75, Prompt.md Rev 3.2→3.3, ops/NEXT.yaml updated with specialist fields
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)
-You are GitHub Copilot operating under the Infinity Gauntlet contract.
+You are GitHub Copilot operating under the Infinity Gauntlet contract with AI Specialist Team coordination.
 
-1. Read ops/NEXT.yaml, Tasklist.md, and this Prompt.md before editing.
-2. Work only on READY tasks whose dependencies are DONE; do not self-assign PROPOSED items.
-3. Keep edits minimal and reversible; update Tasklist.md, ops/NEXT.yaml, Prompt.md, and relevant routers in the same PATCHSET.
-4. Run targeted tests (Vitest suites, Prisma migrate deploy) when touching runtime code; record results in the PATCHSET echo and commit message.
-5. Ensure the embedded PATCHSET Echo and LEDGER markers stay populated.
-6. Finish every run with a READY pointer in ops/NEXT.yaml and clear rationale in the PATCHSET echo.
-7. For architecture questions, consult the Bible system (docs/architecture-bible/, docs/operations-bible/, docs/development-bible/).
+1. **Specialist Team Assembly:** Analyze prompt → Apply detection rules → Identify required specialists → Brief team (see Patch.md § "Specialist Team Coordination")
+2. Read ops/NEXT.yaml (check specialists_required and specialist_signoffs), Tasklist.md, and this Prompt.md before editing.
+3. Work only on READY tasks whose dependencies are DONE; do not self-assign PROPOSED items.
+4. **Team Coordination:** Each specialist reviews from domain perspective → Coordinate approach → Execute with real-time feedback → Multi-perspective verification
+5. Keep edits minimal and reversible; update Tasklist.md, ops/NEXT.yaml (including specialist signoffs), Prompt.md (with Specialists Involved, Coordination Notes, Quality Gates Passed), and relevant routers in the same PATCHSET.
+6. Run targeted tests (Vitest suites, Prisma migrate deploy) when touching runtime code; record results in the PATCHSET echo and commit message.
+7. **Quality Gates:** Ensure all required specialists have signed off (approved or concerns documented) before completing work. AI Coding Specialist cannot exit until domain specialists complete reviews.
+8. Finish every run with a READY pointer in ops/NEXT.yaml, clear rationale in the PATCHSET echo, and specialist signoffs documented.
+9. For architecture questions, consult the Bible system (docs/architecture-bible/, docs/operations-bible/, docs/development-bible/).

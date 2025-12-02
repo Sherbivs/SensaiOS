@@ -498,6 +498,504 @@ Read-only Pokémon reference data refreshed by data pipeline:
 - § 2.7 (On-Premise Setup) — Local database mirroring
 - § 2.Y (Bootstrap Procedures) — Schema initialization workflows
 
+## 2.11 Analytics Tables (TimescaleDB)
+
+**Status:** POC Ready (2025-11) — Time-series hypertables for log aggregation and business intelligence
+
+**Architecture:** TimescaleDB extension on Render PostgreSQL (zero infrastructure change)
+
+### Hypertables
+
+**Purpose:** Queryable historical data for dashboards, debugging, and analytics. Replaces fragmented file-based logs with unified SQL interface.
+
+#### log_entries (30-day retention)
+
+System-wide structured logs aggregated from Event Bus:
+
+```sql
+CREATE TABLE log_entries (
+  time TIMESTAMPTZ NOT NULL,
+  correlation_id UUID NOT NULL,
+  parent_correlation_id UUID,
+  level VARCHAR(10) NOT NULL,            -- info, warn, error, fatal
+  service VARCHAR(50) NOT NULL,          -- infinity-gauntlet-bot, security, etc.
+  message TEXT NOT NULL,
+  context JSONB,
+  stack_trace TEXT,
+  user_id VARCHAR(50),
+  guild_id VARCHAR(50),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Convert to hypertable (partitioned by time)
+SELECT create_hypertable('log_entries', 'time', chunk_time_interval => INTERVAL '1 day');
+
+-- Indexes for common queries
+CREATE INDEX idx_log_entries_correlation_id ON log_entries (correlation_id);
+CREATE INDEX idx_log_entries_level_time ON log_entries (level, time DESC);
+CREATE INDEX idx_log_entries_service_time ON log_entries (service, time DESC);
+CREATE INDEX idx_log_entries_user_id ON log_entries (user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX idx_log_entries_guild_id ON log_entries (guild_id) WHERE guild_id IS NOT NULL;
+CREATE INDEX idx_log_entries_context_gin ON log_entries USING GIN (context jsonb_path_ops);
+
+-- Retention policy (30 days)
+SELECT add_retention_policy('log_entries', INTERVAL '30 days');
+
+-- Compression policy (compress chunks older than 7 days)
+ALTER TABLE log_entries SET (
+  timescaledb.compress,
+  timescaledb.compress_segmentby = 'service,level',
+  timescaledb.compress_orderby = 'time DESC'
+);
+SELECT add_compression_policy('log_entries', INTERVAL '7 days');
+```
+
+**Query Examples:**
+
+```sql
+-- Error rate by service (last 24 hours)
+SELECT 
+  service,
+  COUNT(*) FILTER (WHERE level = 'error') AS errors,
+  COUNT(*) AS total,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE level = 'error') / COUNT(*), 2) AS error_rate_pct
+FROM log_entries
+WHERE time > NOW() - INTERVAL '24 hours'
+GROUP BY service
+ORDER BY error_rate_pct DESC;
+
+-- Trace correlation ID across services
+SELECT time, service, level, message, context
+FROM log_entries
+WHERE correlation_id = '550e8400-e29b-41d4-a716-446655440000'
+ORDER BY time;
+
+-- Top 10 errors by frequency (last 7 days)
+SELECT 
+  message,
+  COUNT(*) AS occurrences,
+  MAX(time) AS last_seen
+FROM log_entries
+WHERE level = 'error' AND time > NOW() - INTERVAL '7 days'
+GROUP BY message
+ORDER BY occurrences DESC
+LIMIT 10;
+```
+
+**Storage:** ~50 MB/month (~1000 logs/day × 1.5 KB avg × 30 days)
+
+---
+
+#### event_history (90-day retention)
+
+High-level user actions for funnel analysis and retention tracking:
+
+```sql
+CREATE TABLE event_history (
+  time TIMESTAMPTZ NOT NULL,
+  correlation_id UUID NOT NULL,
+  event_type VARCHAR(50) NOT NULL,       -- battle.started, encounter.success, profile.created
+  user_id VARCHAR(50) NOT NULL,
+  guild_id VARCHAR(50),
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+SELECT create_hypertable('event_history', 'time', chunk_time_interval => INTERVAL '1 day');
+
+CREATE INDEX idx_event_history_user_id_time ON event_history (user_id, time DESC);
+CREATE INDEX idx_event_history_event_type_time ON event_history (event_type, time DESC);
+CREATE INDEX idx_event_history_guild_id ON event_history (guild_id) WHERE guild_id IS NOT NULL;
+CREATE INDEX idx_event_history_metadata_gin ON event_history USING GIN (metadata jsonb_path_ops);
+
+SELECT add_retention_policy('event_history', INTERVAL '90 days');
+
+ALTER TABLE event_history SET (
+  timescaledb.compress,
+  timescaledb.compress_segmentby = 'event_type,user_id',
+  timescaledb.compress_orderby = 'time DESC'
+);
+SELECT add_compression_policy('event_history', INTERVAL '30 days');
+```
+
+**Query Examples:**
+
+```sql
+-- Daily Active Users (DAU)
+SELECT 
+  time_bucket('1 day', time) AS day,
+  COUNT(DISTINCT user_id) AS dau
+FROM event_history
+WHERE time > NOW() - INTERVAL '30 days'
+GROUP BY day
+ORDER BY day;
+
+-- User retention (7-day cohort)
+WITH first_seen AS (
+  SELECT user_id, MIN(time)::DATE AS signup_date
+  FROM event_history
+  GROUP BY user_id
+)
+SELECT 
+  signup_date,
+  COUNT(DISTINCT fs.user_id) AS signups,
+  COUNT(DISTINCT eh.user_id) FILTER (WHERE eh.time::DATE BETWEEN signup_date + INTERVAL '7 days' AND signup_date + INTERVAL '14 days') AS retained_7d
+FROM first_seen fs
+LEFT JOIN event_history eh ON fs.user_id = eh.user_id
+WHERE signup_date > NOW() - INTERVAL '90 days'
+GROUP BY signup_date
+ORDER BY signup_date;
+
+-- Conversion funnel (encounter → catch)
+WITH encounters AS (
+  SELECT user_id, time
+  FROM event_history
+  WHERE event_type = 'encounter.wild' AND time > NOW() - INTERVAL '7 days'
+),
+catches AS (
+  SELECT user_id, time
+  FROM event_history
+  WHERE event_type = 'encounter.catch.success' AND time > NOW() - INTERVAL '7 days'
+)
+SELECT 
+  COUNT(DISTINCT e.user_id) AS encountered,
+  COUNT(DISTINCT c.user_id) AS caught,
+  ROUND(100.0 * COUNT(DISTINCT c.user_id) / NULLIF(COUNT(DISTINCT e.user_id), 0), 2) AS conversion_rate_pct
+FROM encounters e
+LEFT JOIN catches c ON e.user_id = c.user_id AND c.time > e.time AND c.time < e.time + INTERVAL '5 minutes';
+```
+
+**Storage:** ~60 MB/month (~1500 events/day × 1.2 KB avg × 90 days)
+
+---
+
+#### security_events (infinite retention)
+
+Audit log for permission changes, alerts, and security incidents:
+
+```sql
+CREATE TABLE security_events (
+  time TIMESTAMPTZ NOT NULL,
+  correlation_id UUID NOT NULL,
+  event_type VARCHAR(50) NOT NULL,       -- permission.change, alert.critical, sweep.completed
+  guild_id VARCHAR(50) NOT NULL,
+  actor_id VARCHAR(50),                  -- Who performed the action
+  target_id VARCHAR(50),                 -- Who/what was affected
+  severity VARCHAR(20) NOT NULL,         -- critical, warning, notice
+  details JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+SELECT create_hypertable('security_events', 'time', chunk_time_interval => INTERVAL '7 days');
+
+CREATE INDEX idx_security_events_guild_id_time ON security_events (guild_id, time DESC);
+CREATE INDEX idx_security_events_event_type_time ON security_events (event_type, time DESC);
+CREATE INDEX idx_security_events_severity_time ON security_events (severity, time DESC);
+CREATE INDEX idx_security_events_actor_id ON security_events (actor_id) WHERE actor_id IS NOT NULL;
+CREATE INDEX idx_security_events_details_gin ON security_events USING GIN (details jsonb_path_ops);
+
+-- NO retention policy (audit log kept indefinitely)
+
+ALTER TABLE security_events SET (
+  timescaledb.compress,
+  timescaledb.compress_segmentby = 'guild_id,severity',
+  timescaledb.compress_orderby = 'time DESC'
+);
+SELECT add_compression_policy('security_events', INTERVAL '90 days');
+```
+
+**Query Examples:**
+
+```sql
+-- Alert frequency by severity (last 30 days)
+SELECT 
+  severity,
+  COUNT(*) AS alerts,
+  ROUND(AVG(EXTRACT(EPOCH FROM time - LAG(time) OVER (PARTITION BY severity ORDER BY time))), 2) AS avg_seconds_between
+FROM security_events
+WHERE time > NOW() - INTERVAL '30 days' AND event_type LIKE 'alert.%'
+GROUP BY severity
+ORDER BY alerts DESC;
+
+-- Permission changes by guild
+SELECT 
+  guild_id,
+  COUNT(*) AS changes,
+  COUNT(DISTINCT actor_id) AS unique_actors,
+  MAX(time) AS last_change
+FROM security_events
+WHERE event_type = 'permission.change' AND time > NOW() - INTERVAL '90 days'
+GROUP BY guild_id
+ORDER BY changes DESC;
+
+-- Audit trail for specific user
+SELECT time, event_type, severity, guild_id, details
+FROM security_events
+WHERE actor_id = '123456789012345678'
+ORDER BY time DESC
+LIMIT 50;
+```
+
+**Storage:** ~30 MB/month (~500 events/day × 1.8 KB avg × infinite retention, compressed after 90 days)
+
+---
+
+#### battle_analytics (180-day retention)
+
+Game balance insights: Pokémon usage, move effectiveness, battle duration:
+
+```sql
+CREATE TABLE battle_analytics (
+  time TIMESTAMPTZ NOT NULL,
+  correlation_id UUID NOT NULL,
+  battle_id VARCHAR(50) NOT NULL,
+  pokemon_species_id SMALLINT NOT NULL,
+  move_id SMALLINT,
+  outcome VARCHAR(20),                   -- win, loss, draw, forfeit
+  damage_dealt INTEGER DEFAULT 0,
+  turns_survived INTEGER DEFAULT 0,
+  duration_seconds INTEGER,
+  user_id VARCHAR(50),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+SELECT create_hypertable('battle_analytics', 'time', chunk_time_interval => INTERVAL '7 days');
+
+CREATE INDEX idx_battle_analytics_species_time ON battle_analytics (pokemon_species_id, time DESC);
+CREATE INDEX idx_battle_analytics_move_id ON battle_analytics (move_id) WHERE move_id IS NOT NULL;
+CREATE INDEX idx_battle_analytics_outcome_time ON battle_analytics (outcome, time DESC);
+CREATE INDEX idx_battle_analytics_user_id ON battle_analytics (user_id) WHERE user_id IS NOT NULL;
+
+SELECT add_retention_policy('battle_analytics', INTERVAL '180 days');
+
+ALTER TABLE battle_analytics SET (
+  timescaledb.compress,
+  timescaledb.compress_segmentby = 'pokemon_species_id,outcome',
+  timescaledb.compress_orderby = 'time DESC'
+);
+SELECT add_compression_policy('battle_analytics', INTERVAL '30 days');
+```
+
+**Query Examples:**
+
+```sql
+-- Top 20 Pokémon by win rate (last 30 days, min 50 battles)
+SELECT 
+  s.name AS pokemon,
+  COUNT(*) AS battles,
+  COUNT(*) FILTER (WHERE ba.outcome = 'win') AS wins,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE ba.outcome = 'win') / COUNT(*), 2) AS win_rate_pct,
+  ROUND(AVG(ba.damage_dealt), 0) AS avg_damage,
+  ROUND(AVG(ba.turns_survived), 1) AS avg_turns
+FROM battle_analytics ba
+JOIN "Species" s ON ba.pokemon_species_id = s.id
+WHERE ba.time > NOW() - INTERVAL '30 days'
+GROUP BY s.name
+HAVING COUNT(*) >= 50
+ORDER BY win_rate_pct DESC
+LIMIT 20;
+
+-- Move effectiveness (damage per use)
+SELECT 
+  m.name AS move,
+  COUNT(*) AS uses,
+  ROUND(AVG(ba.damage_dealt), 0) AS avg_damage,
+  MAX(ba.damage_dealt) AS max_damage
+FROM battle_analytics ba
+JOIN "Move" m ON ba.move_id = m.id
+WHERE ba.time > NOW() - INTERVAL '30 days' AND ba.move_id IS NOT NULL
+GROUP BY m.name
+ORDER BY avg_damage DESC
+LIMIT 20;
+
+-- Battle duration trends (P50, P95, P99)
+SELECT 
+  time_bucket('1 day', time) AS day,
+  COUNT(*) AS battles,
+  ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY duration_seconds), 0) AS p50_seconds,
+  ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_seconds), 0) AS p95_seconds,
+  ROUND(PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY duration_seconds), 0) AS p99_seconds
+FROM battle_analytics
+WHERE time > NOW() - INTERVAL '30 days' AND duration_seconds IS NOT NULL
+GROUP BY day
+ORDER BY day;
+```
+
+**Storage:** ~54 MB/month (~1000 battles/day × 1.8 KB avg × 180 days)
+
+---
+
+### Continuous Aggregates
+
+Pre-aggregated rollups for fast dashboard queries:
+
+#### logs_hourly
+
+```sql
+CREATE MATERIALIZED VIEW logs_hourly
+WITH (timescaledb.continuous) AS
+SELECT 
+  time_bucket('1 hour', time) AS hour,
+  service,
+  level,
+  COUNT(*) AS log_count,
+  COUNT(DISTINCT correlation_id) AS unique_correlations
+FROM log_entries
+GROUP BY hour, service, level;
+
+-- Refresh policy (hourly, 2-hour lag)
+SELECT add_continuous_aggregate_policy('logs_hourly',
+  start_offset => INTERVAL '3 hours',
+  end_offset => INTERVAL '1 hour',
+  schedule_interval => INTERVAL '1 hour');
+```
+
+**Query:** Fast dashboard "logs per hour" chart
+
+---
+
+#### battles_daily
+
+```sql
+CREATE MATERIALIZED VIEW battles_daily
+WITH (timescaledb.continuous) AS
+SELECT 
+  time_bucket('1 day', time) AS day,
+  pokemon_species_id,
+  COUNT(*) AS battles,
+  COUNT(*) FILTER (WHERE outcome = 'win') AS wins,
+  ROUND(AVG(duration_seconds), 0) AS avg_duration
+FROM battle_analytics
+GROUP BY day, pokemon_species_id;
+
+SELECT add_continuous_aggregate_policy('battles_daily',
+  start_offset => INTERVAL '3 days',
+  end_offset => INTERVAL '1 day',
+  schedule_interval => INTERVAL '1 day');
+```
+
+**Query:** Fast Pokémon usage trends over time
+
+---
+
+#### pokemon_usage_weekly
+
+```sql
+CREATE MATERIALIZED VIEW pokemon_usage_weekly
+WITH (timescaledb.continuous) AS
+SELECT 
+  time_bucket('1 week', time) AS week,
+  pokemon_species_id,
+  COUNT(DISTINCT user_id) AS unique_users,
+  COUNT(*) AS total_battles
+FROM battle_analytics
+GROUP BY week, pokemon_species_id;
+
+SELECT add_continuous_aggregate_policy('pokemon_usage_weekly',
+  start_offset => INTERVAL '2 weeks',
+  end_offset => INTERVAL '1 week',
+  schedule_interval => INTERVAL '1 week');
+```
+
+**Query:** Fast Pokémon popularity leaderboard
+
+---
+
+### Storage Estimates
+
+| Table | Daily Ingestion | Retention | Uncompressed | Compressed | Compression Ratio |
+|-------|----------------|-----------|--------------|------------|-------------------|
+| **log_entries** | 1.5 MB | 30 days | 45 MB | 13 MB | 3.5:1 |
+| **event_history** | 1.8 MB | 90 days | 162 MB | 40 MB | 4:1 |
+| **security_events** | 0.9 MB | Infinite | 27 MB/month | 7 MB/month | 3.8:1 |
+| **battle_analytics** | 1.8 MB | 180 days | 324 MB | 70 MB | 4.6:1 |
+| **Continuous Aggregates** | N/A | N/A | 15 MB | 4 MB | 3.8:1 |
+| **Total** | ~6 MB/day | Mixed | **573 MB** | **134 MB** | **4.3:1** |
+
+**Growth Rate:** +194 MB/month uncompressed, +45 MB/month compressed (after 30-day mark when retention kicks in)
+
+**12-Month Projection:** +540 MB compressed (fits within 876 MB available on 1 GB /Store volume)
+
+---
+
+### TimescaleDB Operations
+
+**Install Extension:**
+
+```sql
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+```
+
+**Check Compression Status:**
+
+```sql
+SELECT 
+  hypertable_name,
+  total_chunks,
+  number_compressed_chunks,
+  pg_size_pretty(before_compression_total_bytes) AS before,
+  pg_size_pretty(after_compression_total_bytes) AS after,
+  ROUND(100.0 * (1 - after_compression_total_bytes::NUMERIC / NULLIF(before_compression_total_bytes, 0)), 2) AS compression_pct
+FROM timescaledb_information.hypertable_compression_stats;
+```
+
+**Force Compression (Manual):**
+
+```sql
+SELECT compress_chunk(show_chunks('log_entries', older_than => INTERVAL '7 days'));
+```
+
+**Check Retention Execution:**
+
+```sql
+SELECT * FROM timescaledb_information.job_stats
+WHERE job_id IN (
+  SELECT job_id FROM timescaledb_information.jobs
+  WHERE proc_name = 'policy_retention'
+)
+ORDER BY last_run_started_at DESC;
+```
+
+**Hypertable Health:**
+
+```sql
+SELECT 
+  hypertable_schema,
+  hypertable_name,
+  num_chunks,
+  num_dimensions,
+  compression_enabled,
+  replication_factor
+FROM timescaledb_information.hypertables;
+```
+
+---
+
+### Integration with Engine DB (Phase 17-22)
+
+**Relationship:** Engine Write-DB (`src/services/engine-write-db.ts`) buffers battle analytics in SQLite, then uploads to `battle_analytics` hypertable via validation pipeline.
+
+**Data Flow:**
+
+```
+Battle Turn → Engine Write Buffer (in-memory) 
+  → Write-DB SQLite (WAL-backed) 
+  → Validator (quality check ≥95%) 
+  → Upload to PostgreSQL battle_analytics 
+  → TimescaleDB compression (after 30 days)
+```
+
+**Validation Rules (from Phase 19):**
+- Non-null required fields (pokemon_species_id, outcome, battle_id)
+- Valid foreign keys (Species.id exists)
+- Reasonable ranges (damage_dealt ≥0, turns_survived ≥0, duration_seconds 10-3600)
+- Quality threshold: ≥95% rows pass validation
+
+**See Also:**
+- § 2.10 (Schema Architecture) — Core Prisma entities
+- [operations-bible/12-analytics-queries.md](12-analytics-queries.md) — Sample analytics queries
+- [architecture-bible/17-engine-db-replication.md](../architecture-bible/17-engine-db-replication.md) — Engine DB → PostgreSQL upload pipeline
+
 ---
 
 [← Back to INDEX](INDEX.md) | [← Previous: Service Matrix](01-service-matrix.md) | [Next: Deployment Procedures →](03-deployment-procedures.md)

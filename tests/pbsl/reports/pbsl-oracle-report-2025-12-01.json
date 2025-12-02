@@ -1,0 +1,204 @@
+{
+  "generatedAt": "2025-12-01T22:27:08.998Z",
+  "fixtures": [
+    {
+      "fixtureId": "pkmn-engine-basic-turn",
+      "file": "basic-turn.json",
+      "status": "passed",
+      "actual": {
+        "turn": 1,
+        "rngState": {
+          "seed": 1337,
+          "counter": 0
+        },
+        "participants": [
+          {
+            "id": "trainer-1",
+            "hp": 78,
+            "speed": 50,
+            "name": "Bulby"
+          },
+          {
+            "id": "trainer-2",
+            "hp": 82,
+            "speed": 40,
+            "name": "Charm"
+          }
+        ],
+        "audit": [
+          {
+            "phase": "PREPARE",
+            "action": "battle:initialized",
+            "context": {
+              "seed": 1337,
+              "provenance": {
+                "project": "pkmn/engine sample battle",
+                "repository": "https://github.com/pkmn/engine",
+                "commit": "7f8d5e2b3c0a1f4d6b7e8c9a0d1e2f3b4c5d6e7f",
+                "license": "MIT"
+              }
+            }
+          },
+          {
+            "phase": "TURN_START",
+            "action": "turn:start",
+            "context": {
+              "turn": 1,
+              "provenance": {
+                "project": "pkmn/engine sample battle",
+                "repository": "https://github.com/pkmn/engine",
+                "commit": "7f8d5e2b3c0a1f4d6b7e8c9a0d1e2f3b4c5d6e7f",
+                "license": "MIT"
+              }
+            }
+          },
+          {
+            "phase": "RESOLVE_ACTIONS",
+            "action": "action:resolved",
+            "context": {
+              "actorId": "trainer-1",
+              "targetId": "trainer-2",
+              "moveId": "TACKLE",
+              "damage": 18,
+              "remainingHp": 82,
+              "provenance": {
+                "project": "pkmn/engine sample battle",
+                "repository": "https://github.com/pkmn/engine",
+                "commit": "7f8d5e2b3c0a1f4d6b7e8c9a0d1e2f3b4c5d6e7f",
+                "license": "MIT"
+              }
+            }
+          },
+          {
+            "phase": "RESOLVE_ACTIONS",
+            "action": "action:resolved",
+            "context": {
+              "actorId": "trainer-2",
+              "targetId": "trainer-1",
+              "moveId": "EMBER",
+              "damage": 22,
+              "remainingHp": 78,
+              "provenance": {
+                "project": "pkmn/engine sample battle",
+                "repository": "https://github.com/pkmn/engine",
+                "commit": "7f8d5e2b3c0a1f4d6b7e8c9a0d1e2f3b4c5d6e7f",
+                "license": "MIT"
+              }
+            }
+          },
+          {
+            "phase": "TURN_END",
+            "action": "turn:complete",
+            "context": {
+              "turn": 1,
+              "rngCounter": 0,
+              "provenance": {
+                "project": "pkmn/engine sample battle",
+                "repository": "https://github.com/pkmn/engine",
+                "commit": "7f8d5e2b3c0a1f4d6b7e8c9a0d1e2f3b4c5d6e7f",
+                "license": "MIT"
+              }
+            }
+          }
+        ]
+      },
+      "expected": {
+        "turn": 1,
+        "rngState": {
+          "seed": 1337,
+          "counter": 0
+        },
+        "participants": [
+          {
+            "id": "trainer-1",
+            "name": "Bulby",
+            "hp": 78,
+            "speed": 50
+          },
+          {
+            "id": "trainer-2",
+            "name": "Charm",
+            "hp": 82,
+            "speed": 40
+          }
+        ],
+        "audit": [
+          {
+            "phase": "PREPARE",
+            "action": "battle:initialized",
+            "context": {
+              "seed": 1337,
+              "provenance": {
+                "project": "pkmn/engine sample battle",
+                "repository": "https://github.com/pkmn/engine",
+                "commit": "7f8d5e2b3c0a1f4d6b7e8c9a0d1e2f3b4c5d6e7f",
+                "license": "MIT"
+              }
+            }
+          },
+          {
+            "phase": "TURN_START",
+            "action": "turn:start",
+            "context": {
+              "turn": 1,
+              "provenance": {
+                "project": "pkmn/engine sample battle",
+                "repository": "https://github.com/pkmn/engine",
+                "commit": "7f8d5e2b3c0a1f4d6b7e8c9a0d1e2f3b4c5d6e7f",
+                "license": "MIT"
+              }
+            }
+          },
+          {
+            "phase": "RESOLVE_ACTIONS",
+            "action": "action:resolved",
+            "context": {
+              "actorId": "trainer-1",
+              "targetId": "trainer-2",
+              "moveId": "TACKLE",
+              "damage": 18,
+              "remainingHp": 82,
+              "provenance": {
+                "project": "pkmn/engine sample battle",
+                "repository": "https://github.com/pkmn/engine",
+                "commit": "7f8d5e2b3c0a1f4d6b7e8c9a0d1e2f3b4c5d6e7f",
+                "license": "MIT"
+              }
+            }
+          },
+          {
+            "phase": "RESOLVE_ACTIONS",
+            "action": "action:resolved",
+            "context": {
+              "actorId": "trainer-2",
+              "targetId": "trainer-1",
+              "moveId": "EMBER",
+              "damage": 22,
+              "remainingHp": 78,
+              "provenance": {
+                "project": "pkmn/engine sample battle",
+                "repository": "https://github.com/pkmn/engine",
+                "commit": "7f8d5e2b3c0a1f4d6b7e8c9a0d1e2f3b4c5d6e7f",
+                "license": "MIT"
+              }
+            }
+          },
+          {
+            "phase": "TURN_END",
+            "action": "turn:complete",
+            "context": {
+              "turn": 1,
+              "rngCounter": 0,
+              "provenance": {
+                "project": "pkmn/engine sample battle",
+                "repository": "https://github.com/pkmn/engine",
+                "commit": "7f8d5e2b3c0a1f4d6b7e8c9a0d1e2f3b4c5d6e7f",
+                "license": "MIT"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

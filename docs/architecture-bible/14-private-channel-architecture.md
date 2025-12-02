@@ -6,7 +6,7 @@
 **Version:** 1.0  
 **Cross-References:**
 - See `src/bot/dm/ROUTER.md` for current DM-based implementation (to be migrated)
-- See `operations-bible/02-database-operations.md` for database persistence patterns
+- See `docs/operations-bible/database-operations-runbook-comprehensive.md` § 4 (Schema Architecture) for database persistence patterns
 - See `architecture-bible/02-discord-bot-layer.md` for Discord interaction patterns
 
 ---
@@ -691,7 +691,7 @@ model GuildSettings {
 - [ ] Create `src/bot/homestead/ROUTER.md`
 - [ ] Update `src/services/ROUTER.md` (add channel manager)
 - [ ] Update `docs/architecture-bible/02-discord-bot-layer.md` (architecture change)
-- [ ] Update `docs/operations-bible/01-service-matrix.md` (new service)
+- [ ] Update `docs/architecture-bible/complete-system-architecture.md` § 2 (Service Topology) — new homestead channel management service
 - [ ] Update `README.md` (mention private channels)
 - [ ] Create migration announcement: `docs/announcements/homestead-channel-migration.md`
 
@@ -717,7 +717,7 @@ model GuildSettings {
 ### 15.2 Internal Documentation
 
 - `src/bot/dm/ROUTER.md` — Current DM implementation
-- `operations-bible/02-database-operations.md` — Database patterns
+- `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) — Database patterns § 4 (Schema Architecture), persistence § 2.3 (Connection Management)
 - `architecture-bible/02-discord-bot-layer.md` — Bot layer architecture
 - `docs/RESOURCE-LIMITS-RAM-VS-DISK.md` — Resource constraints
 

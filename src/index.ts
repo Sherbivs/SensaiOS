@@ -55,6 +55,7 @@ import type { EngineWriteBuffer } from "./services/cache/engine-write-buffer.js"
 import type { ErrorTracker } from "./services/monitoring/error-tracker.js";
 import { startEngineWorkers, stopEngineWorkers, type EngineWorkersStatus } from "./workers/engine-workers.js";
 import { errorLearningWorker } from "./workers/error-learning-worker.js";
+import { startLogIngestionWorker, stopLogIngestionWorker } from "./workers/log-ingestion-worker.js";
 import * as aiLogger from "./services/ai/ai-log-writer.js";
 import * as aiLogAnalyzer from "./services/ai/ai-log-analyzer.js";
 import * as aiLogIntegrations from "./services/ai/ai-log-integrations.js";
@@ -1052,6 +1053,14 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.error("Error stopping error learning worker", error);
   }
   
+  // Stop log ingestion worker
+  try {
+    log.info("Stopping log ingestion worker");
+    await stopLogIngestionWorker();
+  } catch (error) {
+    log.error("Error stopping log ingestion worker", error);
+  }
+  
   // Stop unified resource monitoring (includes memory guardian)
   try {
     log.info("Stopping resource monitor (includes memory guardian)");
@@ -1538,6 +1547,10 @@ export async function boot(): Promise<void> {
         // Start error learning worker (hourly analysis)
         await errorLearningWorker.start();
         log.info("Error learning worker started");
+        
+        // Start log ingestion worker (Event Bus → TimescaleDB pipeline)
+        await startLogIngestionWorker();
+        log.info("Log ingestion worker started (Event Bus → log_entries hypertable)");
         
         // Initialize AI Logging System (hard logs to /Store/ai-logs/)
         await aiLogger.initialize();
