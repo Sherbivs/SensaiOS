@@ -711,6 +711,54 @@ export class ErrorTracker {
       }, null, 2));
     }
   }
+
+  /**
+   * Cleanup old error reports and emergency logs to free disk space.
+   * Called automatically on ENOSPC or manually via /ops maintenance.
+   * 
+   * Retention: Keep last 24h of reports, delete older files.
+   */
+  async cleanupOldReports(maxAgeMs = 24 * 60 * 60 * 1000): Promise<{ deleted: number; freed: number }> {
+    const dirs = [
+      path.join(process.cwd(), 'Store', 'error-reports'),
+      path.join(process.cwd(), 'Store', 'emergency-error-logs'),
+    ];
+    
+    let deleted = 0;
+    let freed = 0;
+    const now = Date.now();
+    
+    for (const dir of dirs) {
+      try {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isFile()) continue;
+          const filepath = path.join(dir, entry.name);
+          try {
+            const stats = await fs.stat(filepath);
+            if (now - stats.mtime.getTime() > maxAgeMs) {
+              freed += stats.size;
+              await fs.unlink(filepath);
+              deleted++;
+            }
+          } catch {
+            // Skip files we can't stat/delete
+          }
+        }
+      } catch {
+        // Directory doesn't exist or not accessible
+      }
+    }
+    
+    if (deleted > 0) {
+      log('info', '[ErrorTracker] Cleaned up old error reports', { 
+        deleted, 
+        freedMB: (freed / (1024 * 1024)).toFixed(2) 
+      });
+    }
+    
+    return { deleted, freed };
+  }
 }
 
 // Singleton instance

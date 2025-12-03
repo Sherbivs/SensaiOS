@@ -2098,8 +2098,11 @@ function findRole(guild) {
 }
 
 async function fetchGuildRolesFresh(guild) {
-  // Avoid passing options as the roleId (which causes Discord API 50035).
-  return guild.roles.fetch(undefined, { force: true });
+  // Discord.js 14.24+: Call fetch() with no arguments to fetch all roles.
+  // Previously used (undefined, { force: true }) which Discord API rejects as invalid snowflake.
+  // Force fresh data by clearing cache first, then fetching.
+  guild.roles.cache.clear();
+  return guild.roles.fetch();
 }
 
 async function reportGuildRoles(guild) {
