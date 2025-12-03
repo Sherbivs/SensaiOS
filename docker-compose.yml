@@ -80,8 +80,7 @@ services:
       - ./assets:/app/assets:ro
     networks:
       - infinity-gauntlet
-    command: >
-      sh -c "npx prisma db push --accept-data-loss && node dist/index.js"
+    command: ["node", "dist/index.js"]
 
   # Outbox Worker (Async message delivery)
   # DISABLED FOR LOCAL DEVELOPMENT - Workers run inside main bot process

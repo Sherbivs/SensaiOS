@@ -21,6 +21,10 @@ RUN apk add --no-cache \
 # Copy ALL source files first (needed for postinstall build)
 COPY . .
 
+# Provide dummy DATABASE_URL for Prisma generate during build
+# (Prisma only needs URL format for code generation, not actual connection)
+ENV PROD_DATABASE_URL=postgresql://build:build@localhost:5432/build
+
 # Install dependencies (including dev dependencies for build)
 # Postinstall will generate Prisma client and build TypeScript
 RUN npm ci --include=dev
@@ -51,7 +55,9 @@ RUN npm ci --omit=dev --ignore-scripts
 
 # Copy Prisma schema and generate client
 COPY prisma ./prisma/
-RUN npx prisma generate
+COPY prisma.config.ts ./
+# Provide dummy DATABASE_URL for Prisma generate (not used for connection)
+RUN PROD_DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy npx prisma generate
 
 # Copy built application from builder stage
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist

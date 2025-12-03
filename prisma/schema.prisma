@@ -158,7 +158,8 @@ model Species {
   mons           PokemonInstance[]
   encounters     Encounter[]
 
-  @@index([slug])
+  // Note: @unique on slug already creates an index (Species_slug_key)
+  // Removed redundant @@index([slug]) - see migration 20251203043000
 }
 
 /// ---- Classification / Junctions ----
@@ -328,7 +329,8 @@ model Party {
   trainer Trainer? @relation(fields: [trainerId], references: [id], onDelete: SetNull)
 
   @@unique([ownerId])
-  @@index([ownerId])
+  // Note: @@unique on ownerId already creates an index (Party_ownerId_key)
+  // Removed redundant @@index([ownerId]) - see migration 20251203043000
   @@index([trainerId])
 }
 
