@@ -1,22 +1,17 @@
 /**
- * Log Ingestion Worker Stub
- *
- * Functionality migrated to src/shared/logger.ts + timescaledb-worker.ts.
- * This stub maintains API compatibility for index.ts imports.
- *
+ * Log Ingestion Worker - Thin Re-export from Consolidated Hub
+ * 
+ * All logic lives in src/shared/legacy-stubs.ts
+ * This file exists only for import path compatibility.
+ * 
  * @module workers/log-ingestion-worker
  */
 
-/**
- * Start log ingestion worker (no-op stub)
- */
-export async function startLogIngestionWorker(): Promise<void> {
-  // Functionality migrated to logger.ts + timescaledb-worker.ts
-}
+export {
+  logIngestionStubs
+} from '../shared/legacy-stubs.js';
 
-/**
- * Stop log ingestion worker (no-op stub)
- */
-export async function stopLogIngestionWorker(): Promise<void> {
-  // Functionality migrated to logger.ts + timescaledb-worker.ts
-}
+import { logIngestionStubs } from '../shared/legacy-stubs.js';
+
+export const startLogIngestionWorker = logIngestionStubs.startLogIngestionWorker;
+export const stopLogIngestionWorker = logIngestionStubs.stopLogIngestionWorker;

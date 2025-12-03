@@ -1,18 +1,18 @@
 /**
- * AI Log Analyzer Stub - Compatibility Layer
+ * AI Log Analyzer - Thin Re-export from Consolidated Hub
  * 
- * Functionality migrated to TimescaleDB continuous aggregates.
- * This stub maintains API compatibility for index.ts imports.
+ * All logic lives in src/shared/legacy-stubs.ts
+ * This file exists only for import path compatibility.
  * 
  * @module services/ai/ai-log-analyzer
  */
 
-export async function initialize() {}
-export async function shutdown() {}
-export function analyze() { return { patterns: [], anomalies: [], recommendations: [] }; }
-export function getRecentErrors() { return []; }
-export function getPerformanceMetrics() { return {}; }
+import { aiAnalyzerStubs } from '../../shared/legacy-stubs.js';
 
-export default {
-  initialize, shutdown, analyze, getRecentErrors, getPerformanceMetrics,
-};
+export const initialize = aiAnalyzerStubs.initialize;
+export const shutdown = aiAnalyzerStubs.shutdown;
+export const analyze = aiAnalyzerStubs.analyze;
+export const getRecentErrors = aiAnalyzerStubs.getRecentErrors;
+export const getPerformanceMetrics = aiAnalyzerStubs.getPerformanceMetrics;
+
+export default aiAnalyzerStubs;

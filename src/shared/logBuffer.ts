@@ -158,9 +158,15 @@ export class LogBuffer {
     const entries = Array.from(this.buffer.values());
     
     // Sort by: level (error first), then by first seen time
-    const levelOrder: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
+    // Handle all possible legacy log levels
+    const levelOrder: Record<string, number> = { 
+      fatal: 0, critical: 0, error: 0, 
+      warn: 1, 
+      notice: 2, info: 2, success: 2, 
+      debug: 3, detail: 3, trace: 3 
+    };
     entries.sort((a, b) => {
-      const levelDiff = levelOrder[a.level] - levelOrder[b.level];
+      const levelDiff = (levelOrder[a.level] ?? 2) - (levelOrder[b.level] ?? 2);
       if (levelDiff !== 0) return levelDiff;
       return a.firstSeen - b.firstSeen;
     });
