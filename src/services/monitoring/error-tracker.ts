@@ -646,8 +646,20 @@ export class ErrorTracker {
       const filename = `error-${shortFingerprint}-${timestamp}.md`;
       const filepath = path.join(reportsDir, filename);
       
-      await fs.writeFile(filepath, report, 'utf-8');
-      log('error', `   📊 AI Report: ${filepath}`);
+      try {
+        await fs.writeFile(filepath, report, 'utf-8');
+        log('error', `   📊 AI Report: ${filepath}`);
+      } catch (writeError: any) {
+        if (writeError?.code === 'ENOSPC') {
+          // Disk full - cleanup old reports and retry once
+          log('warn', '[ErrorTracker] Disk full, cleaning up old reports...');
+          await this.cleanupOldReports(6 * 60 * 60 * 1000); // 6h retention during cleanup
+          await fs.writeFile(filepath, report, 'utf-8');
+          log('error', `   📊 AI Report (after cleanup): ${filepath}`);
+        } else {
+          throw writeError;
+        }
+      }
     } catch (reportError) {
       // Report generation failed - not critical
       log('warn', '[ErrorTracker] AI report generation failed: ' + String(reportError));
