@@ -1,4 +1,19 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+/**
+ * Prisma Client Module — Prisma 7 with Driver Adapters
+ *
+ * UNIFIED ARCHITECTURE: Single production database (Render-managed PostgreSQL)
+ * - prisma: PRIMARY client connected to PROD_DATABASE_URL (unified Render database)
+ * - onPremiseDevPrisma: OPTIONAL client for offline workstation development (DATABASE_ONPREMISE_DEV_PRIMARY)
+ * - onPremiseExperimentPrisma: OPTIONAL client for migration testing (DATABASE_ONPREMISE_DEV_EXPERIMENT)
+ *
+ * Prisma 7 Changes:
+ * - Uses @prisma/adapter-pg driver adapter for PostgreSQL
+ * - Imports from generated client at ../generated/prisma/client.js
+ * - No more auto-loading of .env (explicit dotenv import required)
+ */
+import "dotenv/config";
+import { PrismaClient, Prisma } from "../generated/prisma/client.js";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
@@ -235,26 +250,23 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
   process.env.DATABASE_URL = candidate.url;
   process.env.DATABASE_CONNECTION_SOURCE = candidate.source;
 
-  // 2-NODE CLUSTER: Direct PostgreSQL connections only
-  const PrismaCtor = PrismaClient;
+  // Prisma 7: Create driver adapter for PostgreSQL
+  const adapter = new PrismaPg({ connectionString: candidate.url });
+
   const logLevels = nodeEnv === "development" ? ["warn", "error"] : ["error"];
 
   // OPTIMIZATION: Query performance monitoring (Phase 5.1)
   // Enable query event logging to detect slow queries (>100ms) and N+1 patterns
   const baseOptions = {
+    adapter,
     log: [
       ...logLevels.map(level => ({ emit: "stdout" as const, level: level as any })),
       { emit: "event" as const, level: "query" as any }, // Query performance instrumentation
     ],
-    datasources: {
-      db: {
-        url: candidate.url,
-      },
-    },
   };
 
-  const baseClient = new PrismaCtor(baseOptions as Prisma.PrismaClientOptions) as PrismaClient;
-  let client = baseClient;
+  const baseClient = new PrismaClient(baseOptions);
+  const client = baseClient;
   
   // Attach query performance monitoring handler
   // Logs warnings for slow queries (>100ms) to help identify N+1 patterns and optimization targets
@@ -271,9 +283,6 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
       });
     }
   });
-
-  // 2-NODE CLUSTER: Always use library engine for direct connections
-  delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
 
   globalPrisma.prisma = client;
   lastPrismaTransport = "direct";
@@ -538,24 +547,18 @@ async function initializeOnPremiseDevClient(): Promise<void> {
   }
   
   try {
-    // 2-NODE CLUSTER: Always use direct PostgreSQL connections
+    // Prisma 7: Use driver adapter for PostgreSQL
     onPremiseDevTransport = "direct";
     
-    // PRISMA INTERNAL REQUIREMENT: Temporarily set DATABASE_URL for PrismaClient constructor
-    // Prisma requires process.env.DATABASE_URL at instantiation time, even though we use direct URLs
-    const originalDatabaseUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = onPremiseDevUrl;
+    // Create driver adapter for this database URL
+    const adapter = new PrismaPg({ connectionString: onPremiseDevUrl });
     
     const baseOptions = {
-      log: ["error"] as any,
+      adapter,
+      log: ["error"] as Array<"error">,
     };
     
     onPremiseDevPrismaClient = new PrismaClient(baseOptions);
-    
-    // Restore original DATABASE_URL after Prisma client creation
-    if (originalDatabaseUrl) {
-      process.env.DATABASE_URL = originalDatabaseUrl;
-    }
     
     onPremiseDevPrisma = onPremiseDevPrismaClient;
     
@@ -633,24 +636,18 @@ async function initializeOnPremiseExperimentClient(): Promise<void> {
   }
   
   try {
-    // 2-NODE CLUSTER: Always use direct PostgreSQL connections
+    // Prisma 7: Use driver adapter for PostgreSQL
     onPremiseExperimentTransport = "direct";
     
-    // PRISMA INTERNAL REQUIREMENT: Temporarily set DATABASE_URL for PrismaClient constructor
-    // Prisma requires process.env.DATABASE_URL at instantiation time, even though we use direct URLs
-    const originalDatabaseUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = onPremiseExperimentUrl;
+    // Create driver adapter for this database URL
+    const adapter = new PrismaPg({ connectionString: onPremiseExperimentUrl });
     
     const baseOptions = {
-      log: ["error"] as any,
+      adapter,
+      log: ["error"] as Array<"error">,
     };
     
     onPremiseExperimentPrismaClient = new PrismaClient(baseOptions);
-    
-    // Restore original DATABASE_URL after Prisma client creation
-    if (originalDatabaseUrl) {
-      process.env.DATABASE_URL = originalDatabaseUrl;
-    }
     
     onPremiseExperimentPrisma = onPremiseExperimentPrismaClient;
     
