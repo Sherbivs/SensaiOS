@@ -1,10 +1,14 @@
 // Ensures PokemonInstance and Encounter rows reference seeded species entries.
-import { Prisma, PrismaClient } from "@prisma/client";
+import "dotenv/config";
+import { Prisma, PrismaClient } from "../../src/generated/prisma/client.js";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { seedDex } from "./seed_reference.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-const prisma = new PrismaClient();
+// Prisma 7: Create client with driver adapter
+const adapter = new PrismaPg({ connectionString: process.env.PROD_DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
 const __filename = fileURLToPath(import.meta.url);
 
 type CliOptions = {

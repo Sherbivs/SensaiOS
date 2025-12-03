@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "../../generated/prisma/client.js";
 import type { Client } from "discord.js";
 
 import type { BattleResultRecord, BattleWithPlayers } from "../../models/index.js";

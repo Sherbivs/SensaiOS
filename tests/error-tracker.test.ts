@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { errorTracker } from '../src/services/monitoring/error-tracker.js';
 import { createMockErrorLog, mockPrismaWithErrorLog, mockLogger } from './shared/index.js';
-import type { ErrorLog } from '@prisma/client';
+import type { ErrorLog } from '../src/generated/prisma/client.js';
 
 // Mock Prisma
 vi.mock('../src/shared/prisma.js', () => ({

@@ -1,10 +1,12 @@
+import "dotenv/config";
 import { spawn } from "node:child_process";
 import https from "node:https";
 import { setTimeout as delay } from "node:timers/promises";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client.js";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { stripQuotes } from "../src/shared/utils/format-utils.js";
 import { getErrorMessage } from "../src/shared/utils/error-utils.js";
 
@@ -606,15 +608,13 @@ async function withPrismaClient<T>(
     throw new Error(`Missing DATABASE_URL for ${label} environment (NODE_ENV=${process.env.NODE_ENV})`);
   }
 
-  // UNIFIED ARCHITECTURE: Always use direct PostgreSQL connections (library engine)
+  // UNIFIED ARCHITECTURE: Always use direct PostgreSQL connections via driver adapter
   const originalEngine = process.env.PRISMA_CLIENT_ENGINE_TYPE;
   delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
 
-  const client = new PrismaClient({
-    datasources: {
-      db: { url },
-    },
-  });
+  // Prisma 7: Create client with driver adapter
+  const adapter = new PrismaPg({ connectionString: url });
+  const client = new PrismaClient({ adapter });
 
   try {
     return await callback(client);

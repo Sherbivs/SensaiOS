@@ -19,7 +19,7 @@ import { toEasternLogFormat } from '../../shared/datetime.js';
 import { EventBus } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
 import { log } from '../../utils/logger.js';
-import type { ErrorLog } from '@prisma/client';
+import type { ErrorLog } from '../../generated/prisma/client.js';
 import {
   parseStackTrace,
   enrichStackFramesWithSource,

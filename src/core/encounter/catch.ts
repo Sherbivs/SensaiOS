@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "../../generated/prisma/client.js";
 
 import { prisma as prismaClient, UserRepo } from "../../models/index.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";

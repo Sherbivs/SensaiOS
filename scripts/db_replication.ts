@@ -1,8 +1,10 @@
+import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import * as dotenv from "dotenv";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client.js";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { getVersion, compareVersions } from "../src/services/db-replication/version.js";
 import { verifySchemaIntegrity, verifyDataIntegrity } from "../src/services/db-replication/integrity.js";
 import { syncDevToProd, syncProdToLocal } from "../src/services/db-replication/sync.js";
@@ -124,8 +126,12 @@ async function getClients(): Promise<{ devPrisma: PrismaClient | null; prodPrism
 
   // Note: devPrisma maintained for backward compatibility but will be null in unified architecture
   const devPrisma = null;
-  const prodPrisma = new PrismaClient({ datasources: { db: { url: prodUrl } } });
-  const localPrisma = localUrl ? new PrismaClient({ datasources: { db: { url: localUrl } } }) : null;
+  // Prisma 7: Create clients with driver adapters
+  const prodAdapter = new PrismaPg({ connectionString: prodUrl });
+  const prodPrisma = new PrismaClient({ adapter: prodAdapter });
+  const localPrisma = localUrl 
+    ? new PrismaClient({ adapter: new PrismaPg({ connectionString: localUrl }) }) 
+    : null;
 
   return { devPrisma, prodPrisma, localPrisma };
 }
