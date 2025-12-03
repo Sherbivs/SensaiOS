@@ -1,5 +1,7 @@
 // @ts-nocheck - This script depends on unimplemented db-replication services (Phase 16+)
 // TODO: Remove this directive when src/services/db-replication/* modules are implemented
+/* eslint-disable no-console, @typescript-eslint/no-unused-vars */
+// ^ Console statements are intentional for CLI script output; unused vars from partial implementation
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";

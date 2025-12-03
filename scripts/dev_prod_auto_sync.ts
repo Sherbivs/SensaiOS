@@ -890,8 +890,8 @@ async function main(): Promise<void> {
     log("unified.architecture.detected", {
       message: "PROD_DATABASE_URL identical across environments - unified database mode, auto-sync disabled",
       databaseUrl: sanitizeWebhook(devDbUrl),
+      status: "auto-sync not needed",
     });
-    console.log("✅ Unified architecture detected - all URLs point to same database. Auto-sync not needed.");
     return; // Exit gracefully - no sync required
   }
   
