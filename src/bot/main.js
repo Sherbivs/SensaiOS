@@ -237,6 +237,27 @@ function incrementTimeout(currentTimeout, reason = 'timeout_error') {
   return currentTimeout;
 }
 
+// Decay timeout on success (slow recovery, prevents timeout from growing forever)
+function decayTimeout(currentTimeout, reason = 'fetch_success') {
+  // Only decay if above minimum + some buffer
+  const decayThreshold = MIN_TIMEOUT_MS + TIMEOUT_INCREMENT_MS * 4; // 31000ms
+  if (currentTimeout > decayThreshold) {
+    const decayAmount = Math.floor(TIMEOUT_INCREMENT_MS / 2); // Decay slower than growth (125ms)
+    const newTimeout = Math.max(MIN_TIMEOUT_MS, currentTimeout - decayAmount);
+    // Log at debug level to reduce noise (success is the common case)
+    baseLog('info', '[timeout-config] Decay on success', { 
+      from: currentTimeout, 
+      to: newTimeout, 
+      decay: decayAmount, 
+      reason 
+    }, { debugMode: true }); // Only show in debug mode
+    // Fire-and-forget save
+    saveTimeoutConfig(newTimeout, reason).catch(() => {});
+    return newTimeout;
+  }
+  return currentTimeout;
+}
+
 // Initialize timeout from config (deferred - will load async in startSecurityBot)
 let GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = DEFAULT_TIMEOUT_MS;
 
@@ -2521,6 +2542,8 @@ async function sweepGuild(guild, origin) {
         guild: guildSummary,
         cachedMembers: guild.members.cache.size
       });
+      // Decay timeout on successful fetch (gradual recovery from elevated timeouts)
+      GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = decayTimeout(GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS, `successful fetch in ${guild.name}`);
     } catch (error) {
       report('Members Fetch Error', mergeReportError({
         origin,

@@ -67,10 +67,10 @@ export const TIME_CONSTANTS = Object.freeze({
   /** Default locale for formatting */
   DEFAULT_LOCALE: 'en-US',
 
-  /** Timeout constraints */
-  DEFAULT_TIMEOUT_MS: 120_000,
-  MIN_TIMEOUT_MS: 60_000,
-  MAX_TIMEOUT_MS: 300_000,
+  /** Timeout constraints for guild member fetching */
+  DEFAULT_TIMEOUT_MS: 60_000,   // 60s default (reduced from 120s)
+  MIN_TIMEOUT_MS: 30_000,       // 30s minimum (reduced from 60s)
+  MAX_TIMEOUT_MS: 90_000,       // 90s max (reduced from 300s - 5min was excessive)
 
   /** Minimum delay between digest operations */
   MIN_DIGEST_DELAY_MS: 60_000,
