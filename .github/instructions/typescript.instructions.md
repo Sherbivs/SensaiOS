@@ -10,15 +10,30 @@ applyTo: 'src/**/*.ts'
 // Always use .js extension for local imports (ESM compatibility)
 import { prisma } from "../shared/prisma.js";
 import { logger } from "../utils/logger.js";
-import type { User } from "@prisma/client";
+
+// Prisma 7: Import types from generated client (NOT @prisma/client)
+import type { User, Battle, Trainer } from "../generated/prisma/client.js";
+import { Prisma, PrismaClient } from "../generated/prisma/client.js";
 
 // Use type imports where appropriate
 import type { ButtonInteraction, ChatInputCommandInteraction } from "discord.js";
 ```
 
+### Prisma 7 Client Patterns
+```typescript
+// Driver adapter required for all PrismaClient instantiation
+import { PrismaClient } from "../generated/prisma/client.js";
+import { PrismaPg } from "@prisma/adapter-pg";
+
+// Create adapter with connection string
+const adapter = new PrismaPg({ connectionString: process.env.PROD_DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
+```
+
 ### File Organization
 - **Entry points:** `index.ts` in each major directory
 - **Types:** Collocate with implementation or in `types/` subdirectory
+- **Generated:** Prisma client at `src/generated/prisma/`
 - **Constants:** Export from dedicated `constants.ts` files
 - **Utilities:** Place in `utils/` with clear single-purpose files
 
