@@ -1726,22 +1726,52 @@ export async function boot(): Promise<void> {
       });
       
       // Capture heap snapshot to disk (production only, to avoid local pollution)
+      // LIMIT: Keep max 3 snapshots to prevent disk from filling up (~90MB total)
       if (process.env.RENDER) {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `startup-heap-${timestamp}.heapsnapshot`;
         const storeDir = '/Store';
-        const filepath = path.join(storeDir, filename);
+        const MAX_HEAP_SNAPSHOTS = 3;
         
         try {
           fs.mkdirSync(storeDir, { recursive: true });
-          const snapshotPath = v8.writeHeapSnapshot(filepath);
-          const snapshotSize = fs.statSync(snapshotPath).size;
           
-          log.info("📸 Startup heap snapshot captured", {
-            filename,
-            size_mb: Math.round(snapshotSize / 1024 / 1024),
-            location: storeDir,
-          });
+          // Check disk space first (skip if < 100MB available)
+          const stats = fs.statfsSync(storeDir);
+          const availableMB = (stats.bfree * stats.bsize) / (1024 * 1024);
+          
+          if (availableMB < 100) {
+            log.warn("⚠️ Skipping heap snapshot - low disk space", { availableMB: Math.round(availableMB) });
+          } else {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `startup-heap-${timestamp}.heapsnapshot`;
+            const filepath = path.join(storeDir, filename);
+            
+            const snapshotPath = v8.writeHeapSnapshot(filepath);
+            const snapshotSize = fs.statSync(snapshotPath).size;
+            
+            log.info("📸 Startup heap snapshot captured", {
+              filename,
+              size_mb: Math.round(snapshotSize / 1024 / 1024),
+              location: storeDir,
+            });
+            
+            // Cleanup old snapshots (keep only MAX_HEAP_SNAPSHOTS most recent)
+            const files = fs.readdirSync(storeDir)
+              .filter(f => f.startsWith('startup-heap-') && f.endsWith('.heapsnapshot'))
+              .sort()
+              .reverse(); // newest first
+            
+            if (files.length > MAX_HEAP_SNAPSHOTS) {
+              const toDelete = files.slice(MAX_HEAP_SNAPSHOTS);
+              for (const file of toDelete) {
+                try {
+                  fs.unlinkSync(path.join(storeDir, file));
+                  log.info("🗑️ Deleted old heap snapshot", { file });
+                } catch (delErr) {
+                  log.warn("Failed to delete old heap snapshot", { file, error: getErrorMessage(delErr) });
+                }
+              }
+            }
+          }
         } catch (fsErr) {
           log.warn("Failed to write startup heap snapshot", { error: getErrorMessage(fsErr) });
         }
