@@ -3,7 +3,21 @@ applyTo: 'prisma/**'
 ---
 # Database & Prisma Instructions — Pokémon Infinity Gauntlet
 
-## Database Architecture (CRITICAL)
+## Prisma 7 Architecture (CRITICAL - Updated 2025-06-20)
+
+### Driver Adapter Pattern (NEW in Prisma 7)
+Prisma 7 requires driver adapters for database connections. We use `@prisma/adapter-pg`:
+
+```typescript
+// Prisma 7 client creation with PrismaPg adapter
+import { PrismaClient } from "../generated/prisma/client.js";
+import { PrismaPg } from "@prisma/adapter-pg";
+
+function createClient(connectionString: string): PrismaClient {
+  const adapter = new PrismaPg({ connectionString });
+  return new PrismaClient({ adapter });
+}
+```
 
 ### Three-Database System
 ```typescript
@@ -22,6 +36,16 @@ if (onPremiseDevPrisma) {
 if (onPremiseExperimentPrisma) {
   const experimentUsers = await onPremiseExperimentPrisma.user.findMany();
 }
+```
+
+### Generated Client Location
+```typescript
+// ✅ CORRECT: Import from generated client (Prisma 7)
+import { PrismaClient } from "../generated/prisma/client.js";
+import type { User, Pokemon, Battle } from "../generated/prisma/client.js";
+
+// ❌ WRONG: Old @prisma/client import (Prisma 6 pattern)
+import { PrismaClient } from "@prisma/client";
 ```
 
 ### Canonical Database Naming (ABSOLUTE - Never Violate)

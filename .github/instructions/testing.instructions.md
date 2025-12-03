@@ -71,11 +71,12 @@ describe("BattleEngine", () => {
 });
 ```
 
-### Mocking Prisma
+### Mocking Prisma (Prisma 7)
 ```typescript
 import { vi } from "vitest";
 import { prisma } from "../src/shared/prisma.js";
 
+// Mock the shared prisma module
 vi.mock("../src/shared/prisma.js", () => ({
   prisma: {
     user: {
@@ -85,6 +86,12 @@ vi.mock("../src/shared/prisma.js", () => ({
     },
     $transaction: vi.fn((fn) => fn(prisma))
   }
+}));
+
+// Mock types from generated client (Prisma 7)
+vi.mock("../src/generated/prisma/client.js", () => ({
+  PrismaClient: vi.fn(),
+  Prisma: {}
 }));
 
 // In test
