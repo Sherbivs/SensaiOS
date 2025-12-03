@@ -14,7 +14,7 @@
  * @version 1.0.0
  */
 
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "../generated/prisma/client.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES & INTERFACES

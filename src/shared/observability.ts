@@ -25,7 +25,7 @@
  * @version 1.0.0
  */
 
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "../generated/prisma/client.js";
 import { getLogger } from "./logger.js";
 import { initConsoleRenderer, startConsoleRenderer, stopConsoleRenderer, getRendererStats } from "./console-renderer.js";
 import { startMetricsCollection, stopMetricsCollection, getCollectionStats, forceCollect, setCollectionInterval, type CollectionStats } from "./metrics-collector.js";

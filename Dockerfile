@@ -3,9 +3,18 @@
 # ==========================================
 # Multi-stage build for Node.js Discord bot application
 # Architecture: Discord.js bot + PostgreSQL + Workers
+#
+# SECURITY: Updated 2025-12-03
+# - Base image: node:22-alpine (latest LTS with security patches)
+# - npm overrides: cross-spawn@7.0.6, glob@11.0.3, brace-expansion@2.0.2
+# - Alpine packages updated via apk upgrade
+# - CVE-2024-21538, CVE-2025-64756, CVE-2025-5889 mitigated
 
 # Stage 1: Build Stage
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
+
+# Update Alpine packages for security patches (busybox CVEs)
+RUN apk update && apk upgrade --no-cache
 
 # Set working directory
 WORKDIR /app
@@ -33,7 +42,10 @@ RUN npm ci --include=dev
 RUN test -f dist/index.js || (echo "ERROR: Build failed - dist/index.js not found" && exit 1)
 
 # Stage 2: Production Stage
-FROM node:20-alpine
+FROM node:22-alpine
+
+# Update Alpine packages for security patches
+RUN apk update && apk upgrade --no-cache
 
 # Install runtime dependencies
 RUN apk add --no-cache \
