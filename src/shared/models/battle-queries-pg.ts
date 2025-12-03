@@ -258,7 +258,7 @@ export async function concludeBattle(
   loserReward: number,
   pool?: Pool
 ): Promise<Battle> {
-  const db = getPool(pool);
+  const db = getPool(pool) as Pool;
   
   // Use transaction for atomic updates
   const client = await db.connect();

@@ -636,7 +636,7 @@ try {
 2. **Phase 2 — Discord Bot Layer** (Ready)
    - `src/bot/index.ts` — Command execution errors
    - `src/bot/battle/**` — Battle engine errors
-   - `src/bot/dm/**` — DM flow errors
+   - `src/bot/homestead/**` — Homestead channel flow errors (migrated from dm/ 2025-06-15)
    - Context: `{ service: 'bot', operation: '<command>', userId, guildId }`
 
 3. **Phase 3 — Core Engines** (Ready)

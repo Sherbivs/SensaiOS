@@ -1,9 +1,33 @@
-# Copilot Instructions — Pokémon Infinity Gauntlet
+# ⚠️ DEPRECATED — THIS FILE IS NOT READ BY VS CODE COPILOT
+
+> **IMPORTANT:** VS Code Copilot does NOT read this file. The actual instructions are in:
+> - `.github/instructions/copilot-instructions.instructions.md` — Core instructions (applyTo: **)
+> - `.github/instructions/typescript.instructions.md` — TypeScript patterns
+> - `.github/instructions/database.instructions.md` — Database/Prisma patterns
+> - `.github/instructions/testing.instructions.md` — Testing patterns
+> - `.github/prompts/IG.prompt.md` — Agent mode prompt
+> - `.github/chatmodes/gpt.chatmode.md` — Chat personality
+>
+> **This file is kept for reference only.** Updates should go to the proper instruction files.
+>
+> See `.github/ROUTER.md` for the complete VS Code Copilot configuration structure.
+
+---
+
+# Copilot Instructions — Pokémon Infinity Gauntlet (REFERENCE ONLY)
 
 ## Project Overview
 Pokémon Infinity Gauntlet is a Discord-first Pokémon adventure with **private guild channel-based gameplay** (homestead channels), public arena battles, and live-service data pipelines. Production runs on Render with 6 workers + 1 cron job orchestrating encounters, battles, cache refresh, and security monitoring.
 
 **CRITICAL ARCHITECTURE CHANGE (2025-11-21):** Migrating from Discord DMs to private guild channels for all gameplay. Each user gets a dedicated "homestead" channel within the guild. See `docs/architecture-bible/14-private-channel-architecture.md` for complete specification.
+
+## 📖 TERMINOLOGY ENFORCEMENT (2025-12-02)
+**ALL code, documentation, comments, and logs MUST use standardized terminology.**
+- **Full Schema:** `Agents.md` § "STANDARDIZED TERMINOLOGY SCHEMA"
+- **Database Terms:** CLOUD-PROD-MASTER, ONPREMISE-DEV-PRIMARY, ONPREMISE-DEV-EXPERIMENT (see Database Naming section below)
+- **Channel Terms:** Homestead Channel, Public Field Channel, Arena Thread
+- **Engine Terms:** PBSL, Dexpack, Engine Read-DB, Engine Write-DB, L1 Cache
+- **Enforcement:** Code review, AI assistants, documentation standards
 
 ## Critical: Start Here Before Any Work
 
@@ -125,18 +149,22 @@ Result: ✅ 100% compliance with organizational principles
 **Every prompt automatically assembles a team of specialized AI agents** for comprehensive problem-solving.
 
 **Team Structure:**
-- **Core (Always Active):** AI Coding (Lead), Documentation, Architecture
+- **Dynamic Lead Assignment:** Lead is assigned based on PRIMARY work type (see detection rules below)
+- **Core (Always Active):** AI Coding, Documentation, Architecture
 - **Domain (As Needed):** Database, Testing, Security, Performance, DevOps
 
-**Detection Rules (Automatic Specialist Assembly):**
-- Documentation: `docs/`, `.md` files, "document", "organize"
-- Database: `prisma/`, `schema.prisma`, "migration", SQL files
-- Testing: `tests/`, `.test.ts`, "test", "coverage"
-- Security: "auth", "permission", "security", "credential"
-- Performance: "optimize", "cache", "memory", "speed"
-- Deployment: `render.yaml`, `Dockerfile`, CI/CD files
-- Architecture: "design", "system", "integration", "API"
-- Cleanup: "cleanup", "organize", "refactor"
+**Detection Rules (Automatic Specialist Assembly + Lead Assignment):**
+| Work Type | Lead | Triggers |
+|-----------|------|----------|
+| Documentation | Documentation | `docs/`, `.md` files, "document", "organize" |
+| Database | Database | `prisma/`, `schema.prisma`, "migration", SQL files |
+| Testing | Testing | `tests/`, `.test.ts`, "test", "coverage" |
+| Security | Security | "auth", "permission", "security", "credential" |
+| Performance | Performance | "optimize", "cache", "memory", "speed" |
+| Deployment | DevOps | `render.yaml`, `Dockerfile`, CI/CD files |
+| Architecture | Architecture | "design", "system", "integration", "API" |
+| Cleanup | Documentation | "cleanup", "organize", "refactor" |
+| Code Implementation | AI Coding | General coding, bug fixes, features |
 
 **5-Phase Workflow:**
 1. **Analysis** — Identify specialists → Assemble team → Brief objectives
@@ -293,7 +321,16 @@ Every code change MUST update routers in same commit:
 - **ONPREMISE-DEV-PRIMARY** (`DATABASE_ONPREMISE_DEV_PRIMARY`) — Workstation development
 - **ONPREMISE-DEV-EXPERIMENT** (`DATABASE_ONPREMISE_DEV_EXPERIMENT`) — Migration testing
 
-**NEVER use:** "local", "LOCAL", "PRIMARY LOCAL", "EXPERIMENTAL", "DEV_DATABASE_URL" (deprecated)
+**Prisma Clients:** `prisma`, `onPremiseDevPrisma`, `onPremiseExperimentPrisma`
+**CLI Targets:** `cloud-prod`, `onpremise-dev`, `onpremise-experiment`
+
+**🚫 NEVER use as database identifiers:** "LOCAL", "PRIMARY LOCAL", "EXPERIMENTAL" (standalone), "DEV_DATABASE_URL"
+
+**✅ VALID descriptive usage:** "local development", "local setup", "local testing" (adjective describing workstation context)
+
+**Key Distinction:** Database **identifiers** require canonical terms; descriptive **English** may use "local" naturally.
+
+**📖 COMPLETE TERMINOLOGY SCHEMA:** See `Agents.md` § "STANDARDIZED TERMINOLOGY SCHEMA" for full reference including services, channels, game engine terms, and enforcement mechanism.
 
 ### Commit Message Format
 ```
@@ -317,13 +354,12 @@ Meta-only changes still need clear "Why" statements.
 
 ### Discord Bot Layer (`src/bot/**`)
 - **Entry:** `src/bot/index.ts` (client bootstrap + command routing)
-- **Homestead Channels:** `src/bot/homestead/**` (private guild channel gameplay) — **MIGRATION IN PROGRESS** from deprecated `src/bot/dm/**`
-- **Deprecated DM flows:** `src/bot/dm/**` (home, heal, starters) — **BEING REPLACED by homestead channels**
+- **Homestead Channels:** `src/bot/homestead/**` (private guild channel gameplay) — **✅ ACTIVE**
 - **Battles:** `src/bot/battle/**` (move/switch/forfeit handlers)
 - **Wilds:** `src/bot/wilds/**` (walk, catch, throw, escape)
 - **Admin:** `src/bot/ops/admin.ts` (`/ops` commands with filters)
 
-**CRITICAL MIGRATION (2025-11-21):** All gameplay moving from DMs to private guild channels (homestead-{username}). 10 createDM() call sites being replaced with HomesteadChannelManager. See `docs/architecture-bible/14-private-channel-architecture.md`.
+**✅ HOMESTEAD MIGRATION COMPLETE (2025-06-15):** All gameplay uses private guild channels (homestead-{username}). DM modules removed. See `docs/architecture-bible/18-private-channel-architecture.md`.
 
 ### Core Engines (`src/core/**`)
 - **Battle:** `src/core/battle/engine.ts` (deterministic damage, status effects)

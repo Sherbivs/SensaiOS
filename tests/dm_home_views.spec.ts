@@ -5,7 +5,7 @@ import {
   buildBoxView,
   buildPartyView,
   buildProfileView,
-} from '../src/bot/dm/home.js';
+} from '../src/bot/homestead/home.js';
 import type { TrainerHomeSnapshot, TrainerHomePokemon } from '../src/models/index.js';
 
 function createPokemon(overrides: Partial<TrainerHomePokemon> = {}): TrainerHomePokemon {
@@ -62,8 +62,10 @@ describe('DM Home view builders', () => {
     expect(firstField?.value).toContain('✨');
 
     const navRow = render.components[0].toJSON();
-    expect(navRow.components?.[0]?.custom_id).toBe('HOME_PARTY');
-    expect(navRow.components?.[1]?.custom_id).toBe('HOME_BOX');
+    // Type assertion for button components with custom_id
+    const navButtons = navRow.components as Array<{ custom_id?: string }>;
+    expect(navButtons[0]?.custom_id).toBe('HOME_PARTY');
+    expect(navButtons[1]?.custom_id).toBe('HOME_BOX');
   });
 
   test('box view paginates stored Pokémon', () => {
@@ -81,7 +83,9 @@ describe('DM Home view builders', () => {
     const embed = render.embed.toJSON();
     expect(embed.footer?.text).toContain('Page 1 of');
     const paginationRow = render.components.find((row, idx) => idx === 1)?.toJSON();
-    expect(paginationRow?.components?.[1]?.custom_id).toBe(`${BOX_PAGE_PREFIX}2`);
+    // Type assertion for button components with custom_id
+    const paginationButtons = paginationRow?.components as Array<{ custom_id?: string }> | undefined;
+    expect(paginationButtons?.[1]?.custom_id).toBe(`${BOX_PAGE_PREFIX}2`);
   });
 
   test('profile view surfaces coins and quest state', () => {

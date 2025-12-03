@@ -18,8 +18,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `src/bot/arena/ROUTER.md` — Arena threads and announcer summaries
     - `src/bot/battle/ROUTER.md` — Battle interaction handlers
     - `src/bot/daily/ROUTER.md` — Daily quest claim flow
-    - `src/bot/dm/ROUTER.md` — DM home, heal, and starter flows (DEPRECATED - migrating to homestead)
-    - `src/bot/homestead/ROUTER.md` — Private guild channel gameplay flows (starters, heal, home views)
+    - `src/bot/homestead/ROUTER.md` — Private guild channel gameplay flows (starters, heal, home views) - **✅ ACTIVE**
     - `src/bot/middleware/ROUTER.md` — Command guardrails and limits
     - `src/bot/ops/ROUTER.md` — `/ops` admin command surface
     - `src/bot/profile/ROUTER.md` — Trainer profile embeds (Option C hybrid summaries)
@@ -288,13 +287,13 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - Last Task ID: T10.SCALE.WORKERS
 
 ### Discord Bot Layer (`src/bot/ROUTER.md`)
-- Purpose: Discord client bootstrap, slash commands, DM flows, arena threads, admin ops.
+- Purpose: Discord client bootstrap, slash commands, homestead channels, arena threads, admin ops.
 - Owned Globs: `src/bot/**`
-- Last Updated: 2025-11-02T00:30:00Z
+- Last Updated: 2025-06-15T20:00:00Z
 - Areas & Key Files:
   - `src/bot/index.ts` — Discord client bootstrap & routing with ready guards
   - `src/bot/commands/**` — Slash command registration (e.g., `/ops`, `/battle`)
-  - `src/bot/dm/**` — DM home (party/box/profile views with pagination), starter selection, healing, drip alerts, daily quests; see `src/bot/dm/ROUTER.md`
+  - `src/bot/homestead/**` — Private guild channels for gameplay (party/box/profile views, starter selection, healing); see `src/bot/homestead/ROUTER.md` — **✅ ACTIVE**
   - `src/bot/arena/**` — Arena thread creation and summary helpers; see `src/bot/arena/ROUTER.md`
   - `src/bot/battle/**` — Interaction handlers queuing moves, switches, and forfeits; see `src/bot/battle/ROUTER.md`
   - `src/bot/daily/**` — Daily quest claim logic; see `src/bot/daily/ROUTER.md`
@@ -304,8 +303,8 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - `src/bot/main.js` — legacy security bot (role sweeps, DripTVDD alert digest)
   - `src/bot/dripAlerts.js` — DM alert scheduler/dispatcher backing security alerts
 - Notes:
+  - 2025-06-15: Homestead channel migration COMPLETE (src/bot/dm/ removed, all flows use HomesteadChannelManager)
   - 2025-10-27: DRIP security alerts now fire on role assignments with audit-log attribution and CLI telemetry.
-  - 2025-11-02: DM Home embeds handle party, storage, and profile views with navigation plus safe fallbacks when DMs are disabled.
 
 ### Core Game Engines (`src/core/ROUTER.md`)
 - Purpose: Deterministic battle and encounter mechanics.

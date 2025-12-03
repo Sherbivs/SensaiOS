@@ -41,12 +41,12 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - ✅ **Event Bus Phase 2.4.3**: IntelligentLogger migration complete with correlation tracking and pattern caching
 - ✅ **Cache Management**: Discord.js automatic sweeping prevents 100+ MB memory leaks
 
-**⚠️ CRITICAL ARCHITECTURE CHANGE (2025-11-21):**
+**✅ HOMESTEAD CHANNEL MIGRATION COMPLETE (2025-06-15):**
 - **GAMEPLAY PLATFORM:** Private guild channels (homestead-{username}) — NOT Discord DMs
-- **MIGRATION STATUS:** Architecture specified (900+ lines), 6-phase plan created, Foundation phase READY
-- **AFFECTED FEATURES:** Home views, healing, starters, battle notifications, wild encounters, profiles (10 call sites total)
-- **DEPRECATION:** src/bot/dm/ modules marked for removal after migration validation
-- **COMPLETE SPECIFICATION:** `docs/architecture-bible/14-private-channel-architecture.md`
+- **MIGRATION STATUS:** ✅ COMPLETE — All 10 createDM() call sites migrated, src/bot/dm/ deleted
+- **IMPLEMENTATION:** `src/bot/homestead/` (home.ts, heal.ts, starters.ts)
+- **SERVICE LAYER:** `src/services/homestead-manager.ts` (HomesteadChannelManager)
+- **SPECIFICATION:** `docs/architecture-bible/18-private-channel-architecture.md`
 
 **⚠️ CRITICAL RESOURCE DISTINCTION:**
 - **RAM:** 2 GB (2048 MB) — Process memory, tracked by `process.memoryUsage().rss`, monitored by `resource-monitor.ts`
@@ -66,7 +66,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
   * `ops-commands-reference-comprehensive.md` (28 pages) — Complete /ops commands reference with 50+ parameter combinations
 - **📚 See `docs/architecture-bible/` for AUTHORITATIVE architecture documentation:**
   * `complete-system-architecture.md` (30 pages) — System topology, dependency graphs, data flows, 10 detailed diagrams
-  * `14-private-channel-architecture.md` — **CRITICAL private channel migration** (DM → Guild Channels, 6-phase plan, 900+ lines)
+  * `18-private-channel-architecture.md` — Homestead channel architecture (DM → Guild Channels, ✅ COMPLETE)
   * `17-service-registry.md` — Service Registry deep dive (740 lines, dependency injection, health monitoring)
 - **📚 See `docs/projects/` for WORK-IN-PROGRESS documentation:**
   * `README.md` — **Bible-centric documentation system** (staged workflow, 100% accuracy requirement)
@@ -384,6 +384,139 @@ console.log(`PROD: ${stats.prod.status} | LOCAL: ${stats.onPremiseDev.status}`);
 | Stats/observability | All via `getDatabaseStats()` | Simultaneous visibility |
 
 See `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) for comprehensive database architecture documentation including `TripleDatabaseStats` type definitions, heartbeat tracking, workstation gameplay setup, and replication flows.
+
+---
+
+## 📖 STANDARDIZED TERMINOLOGY SCHEMA (STRICTLY ENFORCED)
+
+**Effective:** 2025-12-02 | **Authority:** Patch.md Absolutes | **Scope:** ALL code, documentation, comments, logs
+
+This terminology schema is **STRICTLY ENFORCED** throughout the entire codebase. All contributors (human and AI) MUST use these exact terms. Deviations will be flagged in code review and must be corrected before merge.
+
+### Database Terminology (CANONICAL)
+
+| Canonical Term | Environment Variable | Prisma Client | CLI Target | Description |
+|----------------|---------------------|---------------|------------|-------------|
+| **CLOUD-PROD-MASTER** | `PROD_DATABASE_URL` | `prisma` | `cloud-prod` | Production database (Render-managed PostgreSQL) |
+| **ONPREMISE-DEV-PRIMARY** | `DATABASE_ONPREMISE_DEV_PRIMARY` | `onPremiseDevPrisma` | `onpremise-dev` | Workstation development database (offline) |
+| **ONPREMISE-DEV-EXPERIMENT** | `DATABASE_ONPREMISE_DEV_EXPERIMENT` | `onPremiseExperimentPrisma` | `onpremise-experiment` | Migration testing database (isolated) |
+
+**🚫 BANNED Database Identifiers (NEVER use as names/targets/identifiers):**
+- ❌ `LOCAL` / `local` (as database identifier)
+- ❌ `PRIMARY LOCAL` / `primary local`
+- ❌ `EXPERIMENTAL` / `experimental` (standalone, without ONPREMISE-DEV- prefix)
+- ❌ `DEV_DATABASE_URL` (deprecated environment variable)
+- ❌ `LOCAL_DATABASE_URL` (never existed, don't create)
+
+**✅ VALID Descriptive Usage (adjective describing context):**
+- ✅ "local development" — Describes workstation/offline development context
+- ✅ "local setup" — Section name for workstation configuration
+- ✅ "local testing" — Testing methodology on workstation
+- ✅ "local machine" — Hardware reference
+- ✅ "local secrets" — Workstation-stored credentials
+
+**Key Distinction:** Database **identifiers** (names, targets, env vars) require canonical terms. Descriptive **English** (section names, process descriptions) may use "local" naturally as an adjective.
+
+### Service & Worker Terminology
+
+| Canonical Term | Render Service Name | Purpose |
+|----------------|-------------------|---------|
+| **Main Bot Worker** | `Infinity-Gauntlet` | Discord bot + auto-sync |
+| **Health Check Service** | `infinity-gauntlet-bot` | HTTP health endpoints |
+| **Outbox Worker** | `infinity-gauntlet-outbox` | Event bus message delivery |
+| **Cache Worker** | `infinity-gauntlet-cache` | Runtime cache maintenance |
+| **Data Pipeline Worker** | `infinity-gauntlet-data-pipeline` | Reference data updates |
+| **Security Worker** | `infinity-gauntlet-security` | Permission guardrails, monitoring |
+| **Pokedex Cache Worker** | `pokedex-cache-worker` | External data sync |
+| **Pokedex Failsafe Cron** | `pokedex-cache-failsafe` | Weekly fallback refresh |
+
+### Channel Architecture Terminology
+
+| Canonical Term | Pattern | Description |
+|----------------|---------|-------------|
+| **Homestead Channel** | `homestead-{username}` | Private guild channel for player gameplay |
+| **Public Field Channel** | `field-{area}` | Shared exploration/encounter channels |
+| **Arena Thread** | `arena-{battle-id}` | Battle spectator broadcast threads |
+
+**🚫 BANNED Channel Terms:**
+- ❌ "DM gameplay" (deprecated architecture)
+- ❌ "private DM" for gameplay (use "homestead channel")
+
+### Pokemon Game Engine Terminology
+
+| Canonical Term | Abbreviation | Description |
+|----------------|-------------|-------------|
+| **PBSL** | — | Pokémon Battle Snapshot Language (deterministic testing) |
+| **Dexpack** | — | Compiled Pokemon reference data package |
+| **Engine Read-DB** | — | SQLite database for fast Pokemon lookups |
+| **Engine Write-DB** | — | SQLite database for battle outcome persistence |
+| **L1 Cache** | — | In-memory cache layer (20 MB max) |
+
+### Resource Terminology
+
+| Canonical Term | Value | Description |
+|----------------|-------|-------------|
+| **RAM Limit** | 2 GB (2048 MB) | Process memory limit (Render Standard plan) |
+| **Disk Limit** | 1 GB (974 MB) | Persistent /Store volume |
+| **Peak RAM** | ~300-350 MB | Typical runtime memory usage |
+
+### Documentation Terminology
+
+| Canonical Term | Location | Description |
+|----------------|----------|-------------|
+| **Architecture Bible** | `docs/architecture-bible/` | System design documentation (AUTHORITATIVE) |
+| **Operations Bible** | `docs/operations-bible/` | Deployment & monitoring documentation (AUTHORITATIVE) |
+| **Development Bible** | `docs/development-bible/` | Local setup & testing documentation (AUTHORITATIVE) |
+| **Projects Staging** | `docs/projects/` | Work-in-progress documentation (NOT authoritative until validated) |
+
+### Code Comment Standards
+
+**Database References in Code:**
+```typescript
+// ✅ CORRECT: Using canonical terms
+// Connect to CLOUD-PROD-MASTER for gameplay operations
+const users = await prisma.user.findMany();
+
+// ✅ CORRECT: Using canonical terms for fallback
+// Fallback to ONPREMISE-DEV-PRIMARY when CLOUD-PROD-MASTER unavailable
+if (onPremiseDevPrisma) { /* ... */ }
+
+// ❌ WRONG: Using banned identifier
+// Connect to LOCAL database  <-- BANNED
+// Use local DB for testing   <-- BANNED as identifier
+```
+
+**Descriptive Context (ALLOWED):**
+```typescript
+// ✅ CORRECT: "local" as adjective describing development context
+// Set up local development environment
+// Run local tests before pushing
+
+// ✅ CORRECT: Describing workstation context
+// Bootstrap local workstation database (ONPREMISE-DEV-PRIMARY)
+```
+
+### Enforcement Mechanism
+
+1. **Code Review:** All PRs checked for terminology compliance
+2. **AI Assistants:** Copilot, chat modes, agents use canonical terms only
+3. **Linting:** Future ESLint rule for banned terms in identifiers
+4. **Documentation:** Bible sections use canonical terms exclusively
+5. **Audit Reports:** Terminology scans use context-aware detection (not substring matching)
+
+### Schema Updates
+
+**To update this schema:**
+1. Propose change in Tasklist.md with justification
+2. Update Patch.md Absolutes (canonical source)
+3. Update this section in Agents.md
+4. Update `.github/copilot-instructions.md`
+5. Update `.github/chatmodes/gpt.chatmode.md`
+6. Document in Prompt.md PATCHSET echo
+
+**Last Updated:** 2025-12-02 — Initial schema creation, database terminology clarified
+
+---
 
 ## State Persistence (Security Bot)
 
@@ -870,8 +1003,10 @@ Result: ✅ 100% compliance with organizational principles
 
 ### Team Structure
 
+**Dynamic Lead Assignment:** Lead is assigned based on PRIMARY work type (see detection rules). Lead orchestrates team, ensures quality gates pass, provides final approval.
+
 **Core Specialists (Always Active):**
-- **AI Coding Specialist (Team Lead)** — Orchestrates team, coordinates workflow, ensures quality, final approval
+- **AI Coding Specialist** — Code implementation, technical coordination, quality assurance
 - **Documentation Specialist** — Reviews documentation structure, enforces naming conventions, maintains Bible accuracy
 - **Architecture Specialist** — Reviews architectural changes, identifies integration impacts, validates technical approaches
 
@@ -882,37 +1017,40 @@ Result: ✅ 100% compliance with organizational principles
 - **Performance Specialist** — Performance optimization, resource management, efficiency analysis
 - **DevOps Specialist** — Deployment, infrastructure, CI/CD, monitoring setup
 
-### Automatic Detection Rules (Specialist Referral Matrix)
+### Automatic Detection Rules (Specialist Referral + Lead Assignment)
 
-| Work Type | Required Specialists | Trigger Patterns |
-|-----------|---------------------|------------------|
-| **Documentation** | Documentation, AI Coding | `docs/`, `README.md`, `.md` files, "document", "organize" |
-| **Database** | Database, Architecture, AI Coding | `prisma/`, `schema.prisma`, "migration", "database", SQL files |
-| **Testing** | Testing, AI Coding | `tests/`, `.test.ts`, `.spec.ts`, "test", "coverage" |
-| **Security** | Security, Architecture, AI Coding | "auth", "permission", "security", "credential", "secret" |
-| **Performance** | Performance, Architecture, AI Coding | "optimize", "performance", "cache", "memory", "speed" |
-| **Deployment** | DevOps, Architecture, AI Coding | `render.yaml`, `Dockerfile`, "deploy", "CI/CD", `.github/workflows/` |
-| **Architecture** | Architecture, AI Coding | "design", "architecture", "system", "integration", "API" |
-| **Cleanup** | Documentation, AI Coding | "cleanup", "organize", "refactor", "consolidate" |
+| Work Type | Lead | Supporting Specialists | Trigger Patterns |
+|-----------|------|------------------------|------------------|
+| **Documentation** | Documentation | Architecture, AI Coding | `docs/`, `README.md`, `.md` files, "document", "organize" |
+| **Database** | Database | Architecture, AI Coding | `prisma/`, `schema.prisma`, "migration", "database", SQL files |
+| **Testing** | Testing | AI Coding, Architecture | `tests/`, `.test.ts`, `.spec.ts`, "test", "coverage" |
+| **Security** | Security | Architecture, AI Coding | "auth", "permission", "security", "credential", "secret" |
+| **Performance** | Performance | Architecture, AI Coding | "optimize", "performance", "cache", "memory", "speed" |
+| **Deployment** | DevOps | Architecture, AI Coding | `render.yaml`, `Dockerfile`, "deploy", "CI/CD", `.github/workflows/` |
+| **Architecture** | Architecture | AI Coding, Documentation | "design", "architecture", "system", "integration", "API" |
+| **Cleanup** | Documentation | AI Coding, Architecture | "cleanup", "organize", "refactor", "consolidate" |
+| **Code Implementation** | AI Coding | Architecture, Testing | General coding, bug fixes, feature implementation |
 
 ### 5-Phase Workflow Protocol
 
-**Phase 1: Analysis (AI Coding Specialist)**
+**Phase 1: Analysis (Determine Lead)**
 1. Receive prompt from user
 2. Analyze work type using detection rules
-3. Identify required specialists from referral matrix
-4. Assemble team with role assignments
-5. Brief team on objectives and context
+3. **Assign lead specialist based on PRIMARY work type**
+4. Identify supporting specialists from referral matrix
+5. Assemble team with lead + supporting roles
+6. Brief team on objectives and context
 
 **Phase 2: Planning (Team Collaboration)**
-1. Each specialist reviews work from their domain perspective
-2. Identify concerns (risks, conflicts, dependencies)
-3. Propose solutions with specialist expertise
-4. Coordinate approach across specialists
-5. Document plan with team consensus
+1. Lead specialist coordinates planning session
+2. Each specialist reviews work from their domain perspective
+3. Identify concerns (risks, conflicts, dependencies)
+4. Propose solutions with specialist expertise
+5. Coordinate approach across specialists
+6. Document plan with team consensus
 
 **Phase 3: Execution (Coordinated Implementation)**
-1. AI Coding Specialist implements changes
+1. Lead specialist drives implementation strategy
 2. Specialists monitor for domain concerns
 3. Real-time feedback during implementation
 4. Adjustments as needed based on specialist input
@@ -939,7 +1077,7 @@ Result: ✅ 100% compliance with organizational principles
 - ✅ **Security Specialist:** Auth/permission changes, credential handling reviewed
 - ✅ **Performance Specialist:** Optimization claims, resource usage validated
 - ✅ **DevOps Specialist:** Deployment changes, infrastructure updates approved
-- ✅ **AI Coding Specialist (Lead):** Final approval after all domain signoffs
+- ✅ **Lead Specialist:** Final approval after all domain signoffs (lead is dynamically assigned)
 
 ### Task Metadata (ops/NEXT.yaml Structure)
 
@@ -947,20 +1085,21 @@ Result: ✅ 100% compliance with organizational principles
 main_tasks:
   - id: T15.1
     title: "Task title"
+    lead_specialist: documentation  # Dynamically assigned based on work type
     specialists_required:
-      - ai_coding (lead)
-      - documentation
+      - documentation (lead)
       - architecture
+      - ai_coding
     specialist_signoffs:
-      ai_coding: pending|approved|concerns
       documentation: pending|approved|concerns
       architecture: pending|approved|concerns
+      ai_coding: pending|approved|concerns
 ```
 
 ### PATCHSET Echo Format (Prompt.md)
 
 Every PATCHSET echo now includes:
-- **Specialists Involved:** [List with roles: "AI Coding (Lead), Documentation, Architecture"]
+- **Specialists Involved:** [List with roles, lead marked: "Documentation (Lead), Architecture, AI Coding"]
 - **Coordination Notes:** [Key decisions from team discussion, concerns raised, solutions agreed]
 - **Quality Gates Passed:** [Specialist signoffs: "Documentation ✅, Architecture ✅, AI Coding ✅"]
 
@@ -984,22 +1123,24 @@ Every PATCHSET echo now includes:
 
 ### Real-World Example: Documentation Cleanup (2025-12-02)
 
+**Work Type Detection:** "cleanup", "organize", "docs/" → **Documentation Specialist assigned as Lead**
+
 **Specialists Involved:**
-- AI Coding Specialist (Lead) — Orchestrated cleanup
-- Documentation Specialist — Caught organizational violations (BIBLE-CENTRIC-SYSTEM-COMPLETE.md in wrong location)
-- Architecture Specialist — Reviewed folder structure design
+- Documentation Specialist (Lead) — Drove organizational strategy, orchestrated cleanup
+- AI Coding Specialist — Implemented file moves and code changes
+- Architecture Specialist — Reviewed folder structure design, validated cross-references
 
 **Workflow:**
-- Phase 1: AI Coding analyzed user request → identified cleanup task
-- Phase 2: Documentation Specialist proposed naming conventions
-- Phase 3: Team executed file moves, folder creation, README updates
+- Phase 1: Analyzed user request → identified cleanup task → assigned Documentation as lead
+- Phase 2: Documentation Specialist proposed naming conventions, folder structure
+- Phase 3: Team executed file moves, folder creation, README updates (AI Coding implemented)
 - Phase 4: Documentation Specialist verified compliance
-- Phase 5: AI Coding delivered summary to user
+- Phase 5: Documentation Specialist approved final deliverable
 
 **Quality Gates Passed:**
-- ✅ Documentation Specialist: Naming conventions applied
-- ✅ Documentation Specialist: Folder structure optimal
-- ✅ Documentation Specialist: Cross-references updated
+- ✅ Documentation Specialist (Lead): Naming conventions applied
+- ✅ Documentation Specialist (Lead): Folder structure optimal
+- ✅ Architecture Specialist: Cross-references validated
 - ✅ AI Coding Specialist: All files properly organized
 
 **Result:** 100% compliance with organizational principles

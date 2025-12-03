@@ -12,7 +12,7 @@ import { describe, it, expect } from 'vitest';
 
 describe('Engine Cache - API Contract', () => {
   it('should export required functions', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     
     expect(typeof module.engineCache.getPokemon).toBe('function');
     expect(typeof module.engineCache.getPokemonByName).toBe('function');
@@ -22,7 +22,7 @@ describe('Engine Cache - API Contract', () => {
   });
 
   it('should return CacheStats with required fields', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const stats = module.engineCache.getStats();
 
     expect(stats).toBeDefined();
@@ -37,28 +37,28 @@ describe('Engine Cache - API Contract', () => {
 
 describe('Engine Cache - Null Safety', () => {
   it('should return null for non-existent Pokemon ID', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const result = module.engineCache.getPokemon(999999);
     
     expect(result).toBeNull();
   });
 
   it('should return null for non-existent Pokemon name', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const result = module.engineCache.getPokemonByName('NonExistentPokemon');
     
     expect(result).toBeNull();
   });
 
   it('should return null for non-existent move ID', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const result = module.engineCache.getMove(999999);
     
     expect(result).toBeNull();
   });
 
   it('should return 1.0 (neutral) for unregistered type matchups', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     // Use very high type IDs that definitely don't exist
     const result = module.engineCache.getTypeEffectiveness(9999, 9999);
     
@@ -68,7 +68,7 @@ describe('Engine Cache - Null Safety', () => {
 
 describe('Engine Cache - Performance', () => {
   it('should achieve fast read latency (<10μs target for empty cache)', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     
     // Warm up
     module.engineCache.getPokemon(999999);
@@ -91,7 +91,7 @@ describe('Engine Cache - Performance', () => {
   });
 
   it('should handle concurrent reads efficiently', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     
     // Act - Simulate concurrent battle lookups
     const promises = Array.from({ length: 100 }, (_, i) => {
@@ -112,7 +112,7 @@ describe('Engine Cache - Performance', () => {
 
 describe('Engine Cache - Statistics Tracking', () => {
   it('should track cache hits and misses', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     
     // Get initial stats
     const initialStats = module.engineCache.getStats();
@@ -132,7 +132,7 @@ describe('Engine Cache - Statistics Tracking', () => {
   });
 
   it('should report memory usage', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const stats = module.engineCache.getStats();
 
     // Memory usage should be non-negative
@@ -145,7 +145,7 @@ describe('Engine Cache - Statistics Tracking', () => {
   });
 
   it('should report entry counts', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const stats = module.engineCache.getStats();
 
     // Counts should be non-negative integers
@@ -160,28 +160,28 @@ describe('Engine Cache - Statistics Tracking', () => {
 
 describe('Engine Cache - Edge Cases', () => {
   it('should handle negative Pokemon IDs gracefully', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const result = module.engineCache.getPokemon(-1);
     
     expect(result).toBeNull();
   });
 
   it('should handle zero Pokemon ID gracefully', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const result = module.engineCache.getPokemon(0);
     
     expect(result).toBeNull();
   });
 
   it('should handle empty string Pokemon name', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const result = module.engineCache.getPokemonByName('');
     
     expect(result).toBeNull();
   });
 
   it('should handle negative type IDs for type effectiveness', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const result = module.engineCache.getTypeEffectiveness(-1, -1);
     
     // Should return neutral (1.0) for invalid types
@@ -189,7 +189,7 @@ describe('Engine Cache - Edge Cases', () => {
   });
 
   it('should be case-insensitive for Pokemon names', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     
     // All these should behave consistently (all misses or all hits)
     const result1 = module.engineCache.getPokemonByName('pikachu');
@@ -212,7 +212,7 @@ describe('Engine Cache - Edge Cases', () => {
 
 describe('Engine Cache - LRU Eviction Policy', () => {
   it('should track lastAccessed timestamp on cache hits', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     
     // Get a Pokemon if exists
     const pokemon = module.engineCache.getPokemon(1);
@@ -226,7 +226,7 @@ describe('Engine Cache - LRU Eviction Policy', () => {
   });
 
   it('should report eviction count in stats', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const stats = module.engineCache.getStats();
 
     // Eviction count should be tracked
@@ -235,7 +235,7 @@ describe('Engine Cache - LRU Eviction Policy', () => {
   });
 
   it('should report cache miss with fallback count in stats', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const stats = module.engineCache.getStats();
 
     // Cache miss with fallback count should be tracked
@@ -244,7 +244,7 @@ describe('Engine Cache - LRU Eviction Policy', () => {
   });
 
   it('should calculate hit rate correctly', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const stats = module.engineCache.getStats();
 
     // Hit rate should be a percentage (0-100)
@@ -260,7 +260,7 @@ describe('Engine Cache - LRU Eviction Policy', () => {
   });
 
   it('should maintain reduced memory footprint with LRU', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const stats = module.engineCache.getStats();
 
     // With LRU eviction (maxPokemonEntries=500, maxMoveEntries=200):
@@ -276,7 +276,7 @@ describe('Engine Cache - LRU Eviction Policy', () => {
   });
 
   it('should not exceed maxPokemonEntries after eviction', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const stats = module.engineCache.getStats();
 
     // LRU should limit Pokemon count to maxPokemonEntries (500)
@@ -285,7 +285,7 @@ describe('Engine Cache - LRU Eviction Policy', () => {
   });
 
   it('should not exceed maxMoveEntries after eviction', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const stats = module.engineCache.getStats();
 
     // LRU should limit Move count to maxMoveEntries (200)
@@ -296,7 +296,7 @@ describe('Engine Cache - LRU Eviction Policy', () => {
 
 describe('Engine Cache - Read-DB Fallback', () => {
   it('should handle cache miss with Read-DB fallback gracefully', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     
     // Try to get a Pokemon that might not be in L1 cache
     // If it exists in Read-DB, it should be fetched and promoted to L1
@@ -317,7 +317,7 @@ describe('Engine Cache - Read-DB Fallback', () => {
   });
 
   it('should maintain hit rate above 95% target (when sufficient operations)', async () => {
-    const module = await import('../../src/services/engine-cache.js');
+    const module = await import('../../src/services/cache/engine-cache.js');
     const stats = module.engineCache.getStats();
 
     const totalOps = stats.hitCount + stats.missCount;

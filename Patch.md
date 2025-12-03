@@ -27,7 +27,8 @@ Read this file completely before beginning any task. Follow it literally. Before
 - Never delete or rename router manifests (`ROUTER.md`, `ROUTER.yaml`).
 - Ensure `.gitignore` preserves meta documentation for AI navigation (ROUTER.md, README.md in all directories) while excluding sensitive files (secrets/*.env, Store/db/, tools/pgsql*/ binaries).
 - **All database operations must use environment-aware URL selection** (see `docs/operations-bible/database-operations-runbook-comprehensive.md` § 2.1 Database URL Selection): All environments use `PROD_DATABASE_URL` (Render managed PostgreSQL); Migrations use `PROD_DATABASE_URL` or `RENDER_DB_EXTERNAL_URL` (direct PostgreSQL); Local development falls back to `DATABASE_ONPREMISE_DEV_PRIMARY` (workstation offline mode). Non-compliance causes production failures.
-- **Database naming MUST use canonical terms:** CLOUD-PROD-MASTER (`PROD_DATABASE_URL`), ONPREMISE-DEV-PRIMARY (`DATABASE_ONPREMISE_DEV_PRIMARY`), ONPREMISE-DEV-EXPERIMENT (`DATABASE_ONPREMISE_DEV_EXPERIMENT`). NEVER use ambiguous terms: local, LOCAL, PRIMARY LOCAL, EXPERIMENTAL, experiment, DEV_DATABASE_URL (deprecated). Prisma clients: `prisma`, `onPremiseDevPrisma`, `onPremiseExperimentPrisma`. CLI targets: `cloud-prod`, `onpremise-dev`, `onpremise-experiment`. See `docs/operations-bible/database-operations-runbook-comprehensive.md` § 2.2 (Database Terminology) for complete specification.
+- **Database naming MUST use canonical terms:** CLOUD-PROD-MASTER (`PROD_DATABASE_URL`), ONPREMISE-DEV-PRIMARY (`DATABASE_ONPREMISE_DEV_PRIMARY`), ONPREMISE-DEV-EXPERIMENT (`DATABASE_ONPREMISE_DEV_EXPERIMENT`). **NEVER use as database identifiers:** "LOCAL", "PRIMARY LOCAL", "EXPERIMENTAL" (standalone), "DEV_DATABASE_URL" (deprecated env var). **Valid descriptive usage:** "local development", "local setup", "local testing" (adjective describing workstation/offline contexts is ALLOWED). **Distinction:** Database identifiers (names, targets, env vars) require canonical terms; descriptive English (section names, process descriptions) may use "local" naturally. Prisma clients: `prisma`, `onPremiseDevPrisma`, `onPremiseExperimentPrisma`. CLI targets: `cloud-prod`, `onpremise-dev`, `onpremise-experiment`. See `docs/operations-bible/database-operations-runbook-comprehensive.md` § 2.2 (Database Terminology) for complete specification.
+- **Standardized Terminology Schema (STRICTLY ENFORCED):** ALL code, documentation, comments, and logs MUST use standardized terminology defined in `Agents.md` § "STANDARDIZED TERMINOLOGY SCHEMA". Includes database terms, service/worker terms, channel architecture terms, game engine terms, and documentation terms. Schema updates require synchronization across Patch.md, Agents.md, copilot-instructions.md, and gpt.chatmode.md.
 - **Meta-System Quality Discipline (Anti-Stuck Rules):**
   - Code changes MUST update routers when adding/moving/changing file purposes (failure accumulates technical debt)
   - Architectural knowledge MUST flow into Bible system (architecture-bible/, operations-bible/, development-bible/) not scattered .md files
@@ -44,10 +45,11 @@ Read this file completely before beginning any task. Follow it literally. Before
 **PURPOSE:** Every prompt automatically assembles a team of specialized AI agents, each with domain expertise, ensuring comprehensive problem-solving from multiple perspectives.
 
 **TEAM STRUCTURE:**
+- **Dynamic Lead Assignment:** The lead specialist is assigned based on the PRIMARY work type (see detection rules below). The lead orchestrates team coordination, ensures quality gates pass, and provides final approval.
 - **Core Specialists (Always Active):**
-  * AI Coding Specialist (Team Lead) — Orchestrates team, coordinates workflow, ensures quality
-  * Documentation Specialist — Reviews documentation structure, enforces naming conventions, maintains Bible accuracy
-  * Architecture Specialist — Reviews architectural changes, identifies integration impacts, validates technical approaches
+  * AI Coding Specialist — Code implementation, technical coordination, quality assurance
+  * Documentation Specialist — Documentation structure, naming conventions, Bible accuracy
+  * Architecture Specialist — Architectural changes, integration impacts, technical validation
 - **Domain Specialists (Invoked as Needed):**
   * Database Specialist — Database operations, migrations, performance (triggered by `prisma/`, schema changes, SQL files)
   * Testing Specialist — Test coverage, quality assurance, validation (triggered by `tests/`, `.test.ts`, `.spec.ts`)
@@ -55,17 +57,18 @@ Read this file completely before beginning any task. Follow it literally. Before
   * Performance Specialist — Performance optimization, resource management (triggered by "optimize", "performance", "cache")
   * DevOps Specialist — Deployment, infrastructure, CI/CD (triggered by `render.yaml`, `Dockerfile`, `.github/workflows/`)
 
-**AUTOMATIC DETECTION RULES:**
-| Work Type | Required Specialists | Trigger Patterns |
-|-----------|---------------------|------------------|
-| Documentation | Documentation, AI Coding | `docs/`, `README.md`, `.md` files, "document", "organize" |
-| Database | Database, Architecture, AI Coding | `prisma/`, `schema.prisma`, "migration", "database", SQL files |
-| Testing | Testing, AI Coding | `tests/`, `.test.ts`, `.spec.ts`, "test", "coverage" |
-| Security | Security, Architecture, AI Coding | "auth", "permission", "security", "credential", "secret" |
-| Performance | Performance, Architecture, AI Coding | "optimize", "performance", "cache", "memory", "speed" |
-| Deployment | DevOps, Architecture, AI Coding | `render.yaml`, `Dockerfile`, "deploy", "CI/CD", `.github/workflows/` |
-| Architecture | Architecture, AI Coding | "design", "architecture", "system", "integration", "API" |
-| Cleanup | Documentation, AI Coding | "cleanup", "organize", "refactor", "consolidate" |
+**AUTOMATIC DETECTION RULES (Including Dynamic Lead Assignment):**
+| Work Type | Lead Specialist | Supporting Specialists | Trigger Patterns |
+|-----------|-----------------|------------------------|------------------|
+| Documentation | Documentation | Architecture, AI Coding | `docs/`, `README.md`, `.md` files, "document", "organize" |
+| Database | Database | Architecture, AI Coding | `prisma/`, `schema.prisma`, "migration", "database", SQL files |
+| Testing | Testing | AI Coding, Architecture | `tests/`, `.test.ts`, `.spec.ts`, "test", "coverage" |
+| Security | Security | Architecture, AI Coding | "auth", "permission", "security", "credential", "secret" |
+| Performance | Performance | Architecture, AI Coding | "optimize", "performance", "cache", "memory", "speed" |
+| Deployment | DevOps | Architecture, AI Coding | `render.yaml`, `Dockerfile`, "deploy", "CI/CD", `.github/workflows/` |
+| Architecture | Architecture | AI Coding, Documentation | "design", "architecture", "system", "integration", "API" |
+| Cleanup | Documentation | AI Coding, Architecture | "cleanup", "organize", "refactor", "consolidate" |
+| Code Implementation | AI Coding | Architecture, Testing | General coding, bug fixes, feature implementation |
 
 **5-PHASE WORKFLOW PROTOCOL:**
 1. **Analysis (AI Coding Specialist):** Receive prompt → Analyze work type → Identify required specialists → Assemble team → Brief objectives
@@ -82,25 +85,26 @@ Read this file completely before beginning any task. Follow it literally. Before
 - ✅ Security Specialist signoff on auth/permission changes, credential handling
 - ✅ Performance Specialist signoff on optimization claims, resource usage
 - ✅ DevOps Specialist signoff on deployment changes, infrastructure updates
-- ✅ AI Coding Specialist (Lead) final approval after all domain signoffs
+- ✅ Lead Specialist final approval after all domain signoffs (lead is dynamically assigned based on work type)
 
 **TASK METADATA (ops/NEXT.yaml Enhancement):**
 ```yaml
 main_tasks:
   - id: T15.1
     title: "Task title"
+    lead_specialist: documentation  # Dynamically assigned based on work type
     specialists_required:
-      - ai_coding (lead)
-      - documentation
+      - documentation (lead)
       - architecture
+      - ai_coding
     specialist_signoffs:
-      ai_coding: pending|approved|concerns
       documentation: pending|approved|concerns
       architecture: pending|approved|concerns
+      ai_coding: pending|approved|concerns
 ```
 
 **PATCHSET ECHO ENHANCEMENT (Add to Prompt.md):**
-- **Specialists Involved:** [List with roles: "AI Coding (Lead), Documentation, Architecture"]
+- **Specialists Involved:** [List with roles, lead marked: "Documentation (Lead), Architecture, AI Coding"]
 - **Coordination Notes:** [Key decisions from team discussion, concerns raised, solutions agreed]
 - **Quality Gates Passed:** [Specialist signoffs: "Documentation ✅, Architecture ✅, AI Coding ✅"]
 
@@ -108,7 +112,14 @@ main_tasks:
 - **Sequential Review:** Independent domains (docs → architecture → testing) — Each specialist reviews in sequence, adds findings, passes to next
 - **Parallel Review:** Independent concerns (security + performance) — Specialists review simultaneously, consolidate findings
 - **Collaborative Resolution:** Conflicting requirements (performance vs maintainability) — Team discussion, trade-off analysis, consensus decision
-- **Lead-Verify:** Rapid iteration (AI Coding implements → Specialist verifies) — Quick feedback loop, domain expertise on demand
+- **Lead-Verify:** Rapid iteration (Lead implements → Specialist verifies) — Quick feedback loop, domain expertise on demand
+
+**LEAD ASSIGNMENT LOGIC:**
+1. Analyze the PRIMARY work type from prompt/task description
+2. Match against detection rules table above
+3. Assign lead specialist for that work type
+4. Remaining specialists become supporting team
+5. If work type is ambiguous or mixed, use Architecture as lead (most cross-cutting concerns)
 
 **See:** `docs/projects/development/AI-SPECIALIST-TEAM-SYSTEM.md` for comprehensive team structure, detection rules, workflow protocols, and implementation plan.
 
@@ -122,13 +133,14 @@ main_tasks:
 
 ## Operating Loop (Contract Mode with Specialist Coordination)
 1. **Team Analysis & Planning (Multi-Perspective Design)**
-   - **AI Coding Specialist (Lead):** Analyze prompt → Identify work type using detection rules → Assemble required specialists
+   - **Analyze Work Type:** Examine prompt → Identify PRIMARY work type using detection rules → Assign lead specialist dynamically
+   - **Team Assembly:** Lead specialist coordinates, supporting specialists assembled based on work type
    - **Team Planning:** Each specialist reviews from domain perspective → Identify concerns/risks → Propose solutions → Coordinate approach → Document plan with team consensus
    - Select up to 3 main tasks from READY queue (respect dependency order) for parallel work. Honor `ops/TOUCHMAP.yaml`.
    - Quick/hot tasks (bug fixes, docs, hotfixes < 30min) can be added as a 4th concurrent task.
 2. **Coordinated Execution (Monitored Implementation)**
-   - **AI Coding Specialist:** Implement changes using PATCHSET from the clipboard (see "Legacy Layout Bridge")
-   - **Specialists:** Monitor for domain concerns → Real-time feedback → Adjustments as needed
+   - **Lead Specialist:** Drives implementation, coordinates team, uses PATCHSET from the clipboard (see "Legacy Layout Bridge")
+   - **Supporting Specialists:** Monitor for domain concerns → Real-time feedback → Adjustments as needed
    - Run targeted tests whenever tooling is available; if not, state why in the echo and commit message.
 3. **Multi-Perspective Verification (Quality Gates)**
    - **Each specialist validates deliverable from domain:**
@@ -139,7 +151,7 @@ main_tasks:
      * Security Specialist: Reviews auth/permission changes, credential handling
      * Performance Specialist: Validates optimization claims, resource usage
      * DevOps Specialist: Reviews deployment changes, infrastructure updates
-   - **AI Coding Specialist:** Final approval after all domain signoffs
+   - **Lead Specialist:** Final approval after all domain signoffs
    - Record specialist signoffs in `ops/NEXT.yaml` task metadata: `specialist_signoffs.{specialist}: approved|concerns`
 4. **Update State (With Specialist Tracking)**
    - Mark completed tasks `DONE` in `Tasklist.md` with concise outcome notes including specialist signoffs

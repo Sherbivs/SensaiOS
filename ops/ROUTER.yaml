@@ -165,11 +165,11 @@ categories:
     - src/bot/arena/ROUTER.md
     - src/bot/battle/ROUTER.md
     - src/bot/daily/ROUTER.md
-    - src/bot/dm/ROUTER.md
     - src/bot/homestead/ROUTER.md
     - src/bot/middleware/ROUTER.md
     - src/bot/ops/ROUTER.md
     - src/bot/profile/ROUTER.md
+    - src/bot/state/ROUTER.md
     - src/bot/wilds/ROUTER.md
     - src/cache/ROUTER.md
     - src/commands/ROUTER.md
@@ -197,6 +197,8 @@ categories:
     - src/types/ROUTER.md
     - src/utils/ROUTER.md
     - src/worker/ROUTER.md
+    - src/workers/ROUTER.md
+    - src/workers/database/ROUTER.md
     - discord-pokemon-bot/ROUTER.md
     - discord-pokemon-bot/battles/ROUTER.md
     - discord-pokemon-bot/data/ROUTER.md

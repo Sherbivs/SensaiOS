@@ -70,20 +70,22 @@ This folder contains projects focused on development workflows, infrastructure, 
 - Cross-referenced to Patch.md for complete protocols
 
 **Team Structure:**
-- **Core Specialists (Always):** AI Coding (Lead), Documentation, Architecture
+- **Dynamic Lead Assignment:** Lead is assigned based on PRIMARY work type (see detection rules below)
+- **Core Specialists (Always):** AI Coding, Documentation, Architecture
 - **Domain Specialists (As Needed):** Database, Testing, Security, Performance, DevOps
 
-**Detection Rules:**
-| Work Type | Trigger Patterns |
-|-----------|------------------|
-| Documentation | `docs/`, `.md` files, "document", "organize" |
-| Database | `prisma/`, `schema.prisma`, "migration", SQL files |
-| Testing | `tests/`, `.test.ts`, "test", "coverage" |
-| Security | "auth", "permission", "security", "credential" |
-| Performance | "optimize", "cache", "memory", "speed" |
-| Deployment | `render.yaml`, `Dockerfile`, `.github/workflows/` |
-| Architecture | "design", "system", "integration", "API" |
-| Cleanup | "cleanup", "organize", "refactor" |
+**Detection Rules (Including Lead Assignment):**
+| Work Type | Lead | Trigger Patterns |
+|-----------|------|------------------|
+| Documentation | Documentation | `docs/`, `.md` files, "document", "organize" |
+| Database | Database | `prisma/`, `schema.prisma`, "migration", SQL files |
+| Testing | Testing | `tests/`, `.test.ts`, "test", "coverage" |
+| Security | Security | "auth", "permission", "security", "credential" |
+| Performance | Performance | "optimize", "cache", "memory", "speed" |
+| Deployment | DevOps | `render.yaml`, `Dockerfile`, `.github/workflows/` |
+| Architecture | Architecture | "design", "system", "integration", "API" |
+| Cleanup | Documentation | "cleanup", "organize", "refactor" |
+| Code Implementation | AI Coding | General coding, bug fixes, features |
 
 **Integration Points:**
 - Patch.md § "Specialist Team Coordination" (comprehensive protocols)

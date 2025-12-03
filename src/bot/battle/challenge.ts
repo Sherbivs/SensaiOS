@@ -157,18 +157,20 @@ export async function handleBattleChallengeCommand(
 
   const challenge = buildChallengePrompt(interaction.user, battle.id);
   try {
-    const dm = await opponent.createDM();
-    await dm.send({ embeds: [challenge.embed], components: challenge.components });
+    // Use homestead channel instead of deprecated DM delivery
+    const manager = new HomesteadChannelManager(interaction.client, interaction.guildId);
+    const result = await manager.getOrCreateChannel(opponent);
+    await result.channel.send({ embeds: [challenge.embed], components: challenge.components });
   } catch {
     await interaction.reply({
-      content: `Could not deliver the challenge DM to ${opponent.tag}.`,
+      content: `Could not deliver the challenge to ${opponent.tag}'s homestead channel.`,
       ephemeral: true,
     });
     return;
   }
 
   await interaction.reply({
-    content: `Challenge sent to ${opponent.tag}. They will receive a DM with Accept/Decline buttons.`,
+    content: `Challenge sent to ${opponent.tag}. They will receive a notification in their homestead channel.`,
     ephemeral: true,
   });
 }

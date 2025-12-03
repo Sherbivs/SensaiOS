@@ -1,11 +1,12 @@
 # Private Channel Architecture — Discord Guild Homestead Design
 
-**Status:** Architecture specification (implementation planned)  
+**Status:** ✅ MIGRATION COMPLETE (June 2025)  
 **Created:** 2025-11-21  
-**Last Updated:** 2025-11-21  
-**Version:** 1.0  
+**Last Updated:** 2025-06-15  
+**Version:** 2.0  
 **Cross-References:**
-- See `src/bot/dm/ROUTER.md` for current DM-based implementation (to be migrated)
+- See `src/bot/homestead/` for current homestead implementation (DM modules removed)
+- See `src/services/homestead-manager.ts` for HomesteadChannelManager implementation
 - See `docs/operations-bible/database-operations-runbook-comprehensive.md` § 4 (Schema Architecture) for database persistence patterns
 - See `architecture-bible/02-discord-bot-layer.md` for Discord interaction patterns
 

@@ -179,6 +179,68 @@ Build a Discord fan-club bot (Render-hosted, Dockerized) where private channels 
 - **Database CLI**: `npm run db:cli -- status` for connection info
 - **AI Environment**: `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist`
 
+### Database Naming Schema (Updated 2025-12-02)
+**Canonical Database Identifiers (REQUIRED):**
+- `CLOUD-PROD-MASTER` → `PROD_DATABASE_URL` (Render-managed PostgreSQL)
+- `ONPREMISE-DEV-PRIMARY` → `DATABASE_ONPREMISE_DEV_PRIMARY` (workstation offline)
+- `ONPREMISE-DEV-EXPERIMENT` → `DATABASE_ONPREMISE_DEV_EXPERIMENT` (migration testing)
+
+**Prisma Clients:** `prisma`, `onPremiseDevPrisma`, `onPremiseExperimentPrisma`
+**CLI Targets:** `cloud-prod`, `onpremise-dev`, `onpremise-experiment`
+
+**NEVER use as database identifiers:** "LOCAL", "PRIMARY LOCAL", "EXPERIMENTAL" (standalone), "DEV_DATABASE_URL"
+
+**Valid descriptive usage (ALLOWED):** "local development", "local setup", "local testing" — adjective describing workstation/offline contexts
+
+**Key Distinction:** Database identifiers (names, targets, env vars) require canonical terms; descriptive English (section names, process descriptions) may use "local" naturally.
+
+### 📖 STANDARDIZED TERMINOLOGY SCHEMA (STRICTLY ENFORCED)
+
+**Authority:** Patch.md Absolutes | **Full Reference:** `Agents.md` § "STANDARDIZED TERMINOLOGY SCHEMA"
+
+This terminology schema is **STRICTLY ENFORCED** throughout the entire codebase. All code, documentation, comments, and logs MUST use these exact terms.
+
+#### Service & Worker Terms
+| Canonical Term | Render Service | Purpose |
+|----------------|---------------|---------|
+| **Main Bot Worker** | `Infinity-Gauntlet` | Discord bot + auto-sync |
+| **Health Check Service** | `infinity-gauntlet-bot` | HTTP health endpoints |
+| **Outbox Worker** | `infinity-gauntlet-outbox` | Event bus delivery |
+| **Cache Worker** | `infinity-gauntlet-cache` | Cache maintenance |
+| **Security Worker** | `infinity-gauntlet-security` | Permission guardrails |
+
+#### Channel Architecture Terms
+| Canonical Term | Pattern | Description |
+|----------------|---------|-------------|
+| **Homestead Channel** | `homestead-{username}` | Private guild channel for gameplay |
+| **Public Field Channel** | `field-{area}` | Shared exploration channels |
+| **Arena Thread** | `arena-{battle-id}` | Battle spectator threads |
+
+**🚫 BANNED:** "DM gameplay" (deprecated) — Use "homestead channel"
+
+#### Game Engine Terms
+| Canonical Term | Description |
+|----------------|-------------|
+| **PBSL** | Pokémon Battle Snapshot Language |
+| **Dexpack** | Compiled Pokemon reference data |
+| **Engine Read-DB** | SQLite for fast lookups |
+| **Engine Write-DB** | SQLite for battle persistence |
+| **L1 Cache** | In-memory cache (20 MB max) |
+
+#### Documentation Terms
+| Canonical Term | Location |
+|----------------|----------|
+| **Architecture Bible** | `docs/architecture-bible/` (AUTHORITATIVE) |
+| **Operations Bible** | `docs/operations-bible/` (AUTHORITATIVE) |
+| **Development Bible** | `docs/development-bible/` (AUTHORITATIVE) |
+| **Projects Staging** | `docs/projects/` (NOT authoritative until validated) |
+
+#### Enforcement
+- **Code Review:** All PRs checked for terminology compliance
+- **AI Assistants:** Use canonical terms exclusively
+- **Documentation:** Bible sections use canonical terms only
+- **Updates:** Schema changes require Patch.md + Agents.md + copilot-instructions.md + chatmode.md sync
+
 ### Pokemon Game Engine Specifics
 
 #### PBSL (Pokémon Battle Snapshot Language)
@@ -287,4 +349,6 @@ Build a Discord fan-club bot (Render-hosted, Dockerized) where private channels 
 
 ---
 
-*This chat mode is optimized for Pokemon Infinity Gauntlet development with Claude Sonnet 4.5, emphasizing Patch engine compliance, private channel architecture migration, and comprehensive system design with 105+ pages of authoritative documentation.*
+*This chat mode is optimized for Pokemon Infinity Gauntlet development with Claude Sonnet 4.5, emphasizing Patch engine compliance, private channel architecture migration, standardized terminology enforcement, and comprehensive system design with 105+ pages of authoritative documentation.*
+
+*Last Updated: 2025-12-02 — Standardized Terminology Schema added (strictly enforced across all code/docs)*

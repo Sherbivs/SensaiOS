@@ -2,7 +2,7 @@
 
 **Date:** 2025-12-02  
 **Status:** 🚧 IN DEVELOPMENT  
-**Lead:** AI Coding Specialist  
+**Lead:** Dynamically Assigned Based on Work Type  
 **Purpose:** Establish standardized team-based AI workflow with automatic specialist coordination
 
 ---
@@ -11,7 +11,7 @@
 
 Design and implement a **team-based AI system** where every prompt automatically assembles a team of specialized AI agents, each with domain expertise. This mirrors successful human team dynamics and ensures comprehensive problem-solving from multiple perspectives.
 
-**Key Innovation:** Automatic specialist referral based on prompt analysis, work type detection, and domain requirements.
+**Key Innovation:** Automatic specialist referral based on prompt analysis, work type detection, and domain requirements. **Lead is dynamically assigned based on PRIMARY work type**, not fixed to AI Coding.
 
 ---
 
@@ -35,18 +35,39 @@ Design and implement a **team-based AI system** where every prompt automatically
 
 ## Team Structure
 
+### Dynamic Lead Assignment
+
+**CRITICAL:** The lead specialist is NOT fixed. It is dynamically assigned based on the PRIMARY work type:
+
+| Work Type | Lead Specialist | Supporting Specialists |
+|-----------|-----------------|------------------------|
+| Documentation | Documentation | Architecture, AI Coding |
+| Database | Database | Architecture, AI Coding |
+| Testing | Testing | AI Coding, Architecture |
+| Security | Security | Architecture, AI Coding |
+| Performance | Performance | Architecture, AI Coding |
+| Deployment | DevOps | Architecture, AI Coding |
+| Architecture | Architecture | AI Coding, Documentation |
+| Cleanup | Documentation | AI Coding, Architecture |
+| Code Implementation | AI Coding | Architecture, Testing |
+
+**Lead Responsibilities:**
+- Orchestrate team coordination
+- Drive implementation strategy
+- Ensure quality gates pass
+- Provide final approval
+
 ### Core Specialists (Always Active)
 
-#### 1. AI Coding Specialist (Team Lead)
-**Role:** Orchestrates team, coordinates workflow, ensures quality
+#### 1. AI Coding Specialist
+**Role:** Code implementation, technical coordination, quality assurance
 **Responsibilities:**
-- Analyze incoming prompts
-- Identify required specialists
-- Coordinate team activities
-- Ensure deliverable completeness
-- Final quality verification
+- Implement code changes
+- Coordinate technical execution
+- Ensure code quality
+- Final technical verification
 
-**When Active:** Every prompt (team lead role)
+**When Lead:** General coding, bug fixes, feature implementation
 
 #### 2. Documentation Specialist
 **Role:** Ensures documentation quality, organization, and completeness
@@ -57,12 +78,11 @@ Design and implement a **team-based AI system** where every prompt automatically
 - Maintain Bible accuracy
 - Ensure README completeness
 
-**When Active:**
+**When Lead:**
 - Documentation creation/updates
 - File organization tasks
-- README generation
 - Bible integration
-- Cross-reference updates
+- Cleanup/consolidation projects
 
 #### 3. Architecture Specialist
 **Role:** System design, integration points, technical decisions
@@ -73,12 +93,12 @@ Design and implement a **team-based AI system** where every prompt automatically
 - Validate technical approaches
 - Document architecture decisions
 
-**When Active:**
+**When Lead:**
 - System design changes
-- Database schema modifications
 - API design/changes
 - Service architecture updates
 - Integration point changes
+- Mixed/ambiguous work types
 
 ### Domain Specialists (Invoked as Needed)
 
@@ -91,12 +111,11 @@ Design and implement a **team-based AI system** where every prompt automatically
 - Check data integrity
 - Document database patterns
 
-**When Active:**
+**When Lead:**
 - Database schema changes
 - Migration creation/execution
 - Query optimization
 - Data integrity issues
-- Replication setup
 
 #### 5. Testing Specialist
 **Role:** Test coverage, quality assurance, validation
