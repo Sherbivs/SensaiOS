@@ -158,16 +158,3 @@ export const DISCORD_CONSTANTS = Object.freeze({
   /** Timeout adjustments */
   TIMEOUT_INCREMENT_MS: 250
 });
-
-// ============================================================================
-// BACKWARDS COMPATIBILITY EXPORTS
-// ============================================================================
-
-/** @deprecated Use GAME_CONSTANTS.DEFAULT_STARTER_COINS */
-export const DEFAULT_STARTER_COINS = GAME_CONSTANTS.DEFAULT_STARTER_COINS;
-
-/** @deprecated Use TIME_CONSTANTS.DEFAULT_TIME_ZONE */
-export const DEFAULT_TIME_ZONE = TIME_CONSTANTS.DEFAULT_TIME_ZONE;
-
-/** @deprecated Use MONITORING_CONSTANTS.MAX_RECENT_ERRORS */
-export const MAX_RECENT_ERRORS = MONITORING_CONSTANTS.MAX_RECENT_ERRORS;

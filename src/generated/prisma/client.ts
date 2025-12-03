@@ -197,5 +197,18 @@ export type ErrorAlert = Prisma.ErrorAlertModel
 /**
  * Model LogEntry
  * Log entries hypertable for Event Bus persistence
+ * Enhanced with component, operation, and duration tracking (2025-12-03)
  */
 export type LogEntry = Prisma.LogEntryModel
+/**
+ * Model WorkerMetrics
+ * Worker performance metrics hypertable
+ * Collected every 15 seconds by metrics-collector.ts
+ */
+export type WorkerMetrics = Prisma.WorkerMetricsModel
+/**
+ * Model ConsoleOutput
+ * Console outputs capture for structured logging
+ * Captured by console-interceptor.ts
+ */
+export type ConsoleOutput = Prisma.ConsoleOutputModel

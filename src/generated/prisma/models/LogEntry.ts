@@ -15,6 +15,7 @@ import type * as Prisma from "../internal/prismaNamespace.js"
 /**
  * Model LogEntry
  * Log entries hypertable for Event Bus persistence
+ * Enhanced with component, operation, and duration tracking (2025-12-03)
  */
 export type LogEntryModel = runtime.Types.Result.DefaultSelection<Prisma.$LogEntryPayload>
 
@@ -28,10 +29,12 @@ export type AggregateLogEntry = {
 
 export type LogEntryAvgAggregateOutputType = {
   id: number | null
+  durationMs: number | null
 }
 
 export type LogEntrySumAggregateOutputType = {
   id: bigint | null
+  durationMs: number | null
 }
 
 export type LogEntryMinAggregateOutputType = {
@@ -44,6 +47,9 @@ export type LogEntryMinAggregateOutputType = {
   serviceName: string | null
   userId: string | null
   traceContext: string | null
+  component: string | null
+  operation: string | null
+  durationMs: number | null
 }
 
 export type LogEntryMaxAggregateOutputType = {
@@ -56,6 +62,9 @@ export type LogEntryMaxAggregateOutputType = {
   serviceName: string | null
   userId: string | null
   traceContext: string | null
+  component: string | null
+  operation: string | null
+  durationMs: number | null
 }
 
 export type LogEntryCountAggregateOutputType = {
@@ -69,16 +78,21 @@ export type LogEntryCountAggregateOutputType = {
   serviceName: number
   userId: number
   traceContext: number
+  component: number
+  operation: number
+  durationMs: number
   _all: number
 }
 
 
 export type LogEntryAvgAggregateInputType = {
   id?: true
+  durationMs?: true
 }
 
 export type LogEntrySumAggregateInputType = {
   id?: true
+  durationMs?: true
 }
 
 export type LogEntryMinAggregateInputType = {
@@ -91,6 +105,9 @@ export type LogEntryMinAggregateInputType = {
   serviceName?: true
   userId?: true
   traceContext?: true
+  component?: true
+  operation?: true
+  durationMs?: true
 }
 
 export type LogEntryMaxAggregateInputType = {
@@ -103,6 +120,9 @@ export type LogEntryMaxAggregateInputType = {
   serviceName?: true
   userId?: true
   traceContext?: true
+  component?: true
+  operation?: true
+  durationMs?: true
 }
 
 export type LogEntryCountAggregateInputType = {
@@ -116,6 +136,9 @@ export type LogEntryCountAggregateInputType = {
   serviceName?: true
   userId?: true
   traceContext?: true
+  component?: true
+  operation?: true
+  durationMs?: true
   _all?: true
 }
 
@@ -216,6 +239,9 @@ export type LogEntryGroupByOutputType = {
   serviceName: string | null
   userId: string | null
   traceContext: string | null
+  component: string | null
+  operation: string | null
+  durationMs: number | null
   _count: LogEntryCountAggregateOutputType | null
   _avg: LogEntryAvgAggregateOutputType | null
   _sum: LogEntrySumAggregateOutputType | null
@@ -252,6 +278,9 @@ export type LogEntryWhereInput = {
   serviceName?: Prisma.StringNullableFilter<"LogEntry"> | string | null
   userId?: Prisma.StringNullableFilter<"LogEntry"> | string | null
   traceContext?: Prisma.StringNullableFilter<"LogEntry"> | string | null
+  component?: Prisma.StringNullableFilter<"LogEntry"> | string | null
+  operation?: Prisma.StringNullableFilter<"LogEntry"> | string | null
+  durationMs?: Prisma.IntNullableFilter<"LogEntry"> | number | null
 }
 
 export type LogEntryOrderByWithRelationInput = {
@@ -265,6 +294,9 @@ export type LogEntryOrderByWithRelationInput = {
   serviceName?: Prisma.SortOrderInput | Prisma.SortOrder
   userId?: Prisma.SortOrderInput | Prisma.SortOrder
   traceContext?: Prisma.SortOrderInput | Prisma.SortOrder
+  component?: Prisma.SortOrderInput | Prisma.SortOrder
+  operation?: Prisma.SortOrderInput | Prisma.SortOrder
+  durationMs?: Prisma.SortOrderInput | Prisma.SortOrder
 }
 
 export type LogEntryWhereUniqueInput = Prisma.AtLeast<{
@@ -281,6 +313,9 @@ export type LogEntryWhereUniqueInput = Prisma.AtLeast<{
   serviceName?: Prisma.StringNullableFilter<"LogEntry"> | string | null
   userId?: Prisma.StringNullableFilter<"LogEntry"> | string | null
   traceContext?: Prisma.StringNullableFilter<"LogEntry"> | string | null
+  component?: Prisma.StringNullableFilter<"LogEntry"> | string | null
+  operation?: Prisma.StringNullableFilter<"LogEntry"> | string | null
+  durationMs?: Prisma.IntNullableFilter<"LogEntry"> | number | null
 }, "id">
 
 export type LogEntryOrderByWithAggregationInput = {
@@ -294,6 +329,9 @@ export type LogEntryOrderByWithAggregationInput = {
   serviceName?: Prisma.SortOrderInput | Prisma.SortOrder
   userId?: Prisma.SortOrderInput | Prisma.SortOrder
   traceContext?: Prisma.SortOrderInput | Prisma.SortOrder
+  component?: Prisma.SortOrderInput | Prisma.SortOrder
+  operation?: Prisma.SortOrderInput | Prisma.SortOrder
+  durationMs?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.LogEntryCountOrderByAggregateInput
   _avg?: Prisma.LogEntryAvgOrderByAggregateInput
   _max?: Prisma.LogEntryMaxOrderByAggregateInput
@@ -315,6 +353,9 @@ export type LogEntryScalarWhereWithAggregatesInput = {
   serviceName?: Prisma.StringNullableWithAggregatesFilter<"LogEntry"> | string | null
   userId?: Prisma.StringNullableWithAggregatesFilter<"LogEntry"> | string | null
   traceContext?: Prisma.StringNullableWithAggregatesFilter<"LogEntry"> | string | null
+  component?: Prisma.StringNullableWithAggregatesFilter<"LogEntry"> | string | null
+  operation?: Prisma.StringNullableWithAggregatesFilter<"LogEntry"> | string | null
+  durationMs?: Prisma.IntNullableWithAggregatesFilter<"LogEntry"> | number | null
 }
 
 export type LogEntryCreateInput = {
@@ -328,6 +369,9 @@ export type LogEntryCreateInput = {
   serviceName?: string | null
   userId?: string | null
   traceContext?: string | null
+  component?: string | null
+  operation?: string | null
+  durationMs?: number | null
 }
 
 export type LogEntryUncheckedCreateInput = {
@@ -341,6 +385,9 @@ export type LogEntryUncheckedCreateInput = {
   serviceName?: string | null
   userId?: string | null
   traceContext?: string | null
+  component?: string | null
+  operation?: string | null
+  durationMs?: number | null
 }
 
 export type LogEntryUpdateInput = {
@@ -354,6 +401,9 @@ export type LogEntryUpdateInput = {
   serviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   traceContext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  component?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  durationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type LogEntryUncheckedUpdateInput = {
@@ -367,6 +417,9 @@ export type LogEntryUncheckedUpdateInput = {
   serviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   traceContext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  component?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  durationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type LogEntryCreateManyInput = {
@@ -380,6 +433,9 @@ export type LogEntryCreateManyInput = {
   serviceName?: string | null
   userId?: string | null
   traceContext?: string | null
+  component?: string | null
+  operation?: string | null
+  durationMs?: number | null
 }
 
 export type LogEntryUpdateManyMutationInput = {
@@ -393,6 +449,9 @@ export type LogEntryUpdateManyMutationInput = {
   serviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   traceContext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  component?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  durationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type LogEntryUncheckedUpdateManyInput = {
@@ -406,6 +465,9 @@ export type LogEntryUncheckedUpdateManyInput = {
   serviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   traceContext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  component?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  durationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type LogEntryCountOrderByAggregateInput = {
@@ -419,10 +481,14 @@ export type LogEntryCountOrderByAggregateInput = {
   serviceName?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   traceContext?: Prisma.SortOrder
+  component?: Prisma.SortOrder
+  operation?: Prisma.SortOrder
+  durationMs?: Prisma.SortOrder
 }
 
 export type LogEntryAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  durationMs?: Prisma.SortOrder
 }
 
 export type LogEntryMaxOrderByAggregateInput = {
@@ -435,6 +501,9 @@ export type LogEntryMaxOrderByAggregateInput = {
   serviceName?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   traceContext?: Prisma.SortOrder
+  component?: Prisma.SortOrder
+  operation?: Prisma.SortOrder
+  durationMs?: Prisma.SortOrder
 }
 
 export type LogEntryMinOrderByAggregateInput = {
@@ -447,10 +516,14 @@ export type LogEntryMinOrderByAggregateInput = {
   serviceName?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   traceContext?: Prisma.SortOrder
+  component?: Prisma.SortOrder
+  operation?: Prisma.SortOrder
+  durationMs?: Prisma.SortOrder
 }
 
 export type LogEntrySumOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  durationMs?: Prisma.SortOrder
 }
 
 
@@ -466,6 +539,9 @@ export type LogEntrySelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   serviceName?: boolean
   userId?: boolean
   traceContext?: boolean
+  component?: boolean
+  operation?: boolean
+  durationMs?: boolean
 }, ExtArgs["result"]["logEntry"]>
 
 export type LogEntrySelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -479,6 +555,9 @@ export type LogEntrySelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   serviceName?: boolean
   userId?: boolean
   traceContext?: boolean
+  component?: boolean
+  operation?: boolean
+  durationMs?: boolean
 }, ExtArgs["result"]["logEntry"]>
 
 export type LogEntrySelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -492,6 +571,9 @@ export type LogEntrySelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   serviceName?: boolean
   userId?: boolean
   traceContext?: boolean
+  component?: boolean
+  operation?: boolean
+  durationMs?: boolean
 }, ExtArgs["result"]["logEntry"]>
 
 export type LogEntrySelectScalar = {
@@ -505,9 +587,12 @@ export type LogEntrySelectScalar = {
   serviceName?: boolean
   userId?: boolean
   traceContext?: boolean
+  component?: boolean
+  operation?: boolean
+  durationMs?: boolean
 }
 
-export type LogEntryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "timestamp" | "level" | "category" | "message" | "metadata" | "correlationId" | "serviceName" | "userId" | "traceContext", ExtArgs["result"]["logEntry"]>
+export type LogEntryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "timestamp" | "level" | "category" | "message" | "metadata" | "correlationId" | "serviceName" | "userId" | "traceContext" | "component" | "operation" | "durationMs", ExtArgs["result"]["logEntry"]>
 
 export type $LogEntryPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "LogEntry"
@@ -523,6 +608,18 @@ export type $LogEntryPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     serviceName: string | null
     userId: string | null
     traceContext: string | null
+    /**
+     * High-level component: bot, battle, encounter, database, cache, worker
+     */
+    component: string | null
+    /**
+     * Specific operation: initialize, start, stop, query, insert, flush
+     */
+    operation: string | null
+    /**
+     * Operation duration in milliseconds
+     */
+    durationMs: number | null
   }, ExtArgs["result"]["logEntry"]>
   composites: {}
 }
@@ -956,6 +1053,9 @@ export interface LogEntryFieldRefs {
   readonly serviceName: Prisma.FieldRef<"LogEntry", 'String'>
   readonly userId: Prisma.FieldRef<"LogEntry", 'String'>
   readonly traceContext: Prisma.FieldRef<"LogEntry", 'String'>
+  readonly component: Prisma.FieldRef<"LogEntry", 'String'>
+  readonly operation: Prisma.FieldRef<"LogEntry", 'String'>
+  readonly durationMs: Prisma.FieldRef<"LogEntry", 'Int'>
 }
     
 

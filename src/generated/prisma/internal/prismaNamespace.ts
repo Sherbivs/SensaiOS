@@ -415,7 +415,9 @@ export const ModelName = {
   DbSyncState: 'DbSyncState',
   ErrorLog: 'ErrorLog',
   ErrorAlert: 'ErrorAlert',
-  LogEntry: 'LogEntry'
+  LogEntry: 'LogEntry',
+  WorkerMetrics: 'WorkerMetrics',
+  ConsoleOutput: 'ConsoleOutput'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -431,7 +433,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "tenant" | "trainer" | "dexPack" | "trainerSettings" | "type" | "ability" | "item" | "move" | "species" | "speciesType" | "speciesAbility" | "speciesLearnset" | "evolutionStep" | "typeChart" | "nameVariant" | "user" | "homesteadChannel" | "pokemonInstance" | "party" | "partySlot" | "inventory" | "encounter" | "battle" | "cooldown" | "busMessage" | "busIdemToken" | "auditLog" | "dbVersion" | "dbSyncState" | "errorLog" | "errorAlert" | "logEntry"
+    modelProps: "tenant" | "trainer" | "dexPack" | "trainerSettings" | "type" | "ability" | "item" | "move" | "species" | "speciesType" | "speciesAbility" | "speciesLearnset" | "evolutionStep" | "typeChart" | "nameVariant" | "user" | "homesteadChannel" | "pokemonInstance" | "party" | "partySlot" | "inventory" | "encounter" | "battle" | "cooldown" | "busMessage" | "busIdemToken" | "auditLog" | "dbVersion" | "dbSyncState" | "errorLog" | "errorAlert" | "logEntry" | "workerMetrics" | "consoleOutput"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -2803,6 +2805,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    WorkerMetrics: {
+      payload: Prisma.$WorkerMetricsPayload<ExtArgs>
+      fields: Prisma.WorkerMetricsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.WorkerMetricsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerMetricsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.WorkerMetricsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerMetricsPayload>
+        }
+        findFirst: {
+          args: Prisma.WorkerMetricsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerMetricsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.WorkerMetricsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerMetricsPayload>
+        }
+        findMany: {
+          args: Prisma.WorkerMetricsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerMetricsPayload>[]
+        }
+        create: {
+          args: Prisma.WorkerMetricsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerMetricsPayload>
+        }
+        createMany: {
+          args: Prisma.WorkerMetricsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.WorkerMetricsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerMetricsPayload>[]
+        }
+        delete: {
+          args: Prisma.WorkerMetricsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerMetricsPayload>
+        }
+        update: {
+          args: Prisma.WorkerMetricsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerMetricsPayload>
+        }
+        deleteMany: {
+          args: Prisma.WorkerMetricsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.WorkerMetricsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.WorkerMetricsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerMetricsPayload>[]
+        }
+        upsert: {
+          args: Prisma.WorkerMetricsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerMetricsPayload>
+        }
+        aggregate: {
+          args: Prisma.WorkerMetricsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateWorkerMetrics>
+        }
+        groupBy: {
+          args: Prisma.WorkerMetricsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WorkerMetricsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.WorkerMetricsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WorkerMetricsCountAggregateOutputType> | number
+        }
+      }
+    }
+    ConsoleOutput: {
+      payload: Prisma.$ConsoleOutputPayload<ExtArgs>
+      fields: Prisma.ConsoleOutputFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ConsoleOutputFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConsoleOutputPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ConsoleOutputFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConsoleOutputPayload>
+        }
+        findFirst: {
+          args: Prisma.ConsoleOutputFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConsoleOutputPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ConsoleOutputFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConsoleOutputPayload>
+        }
+        findMany: {
+          args: Prisma.ConsoleOutputFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConsoleOutputPayload>[]
+        }
+        create: {
+          args: Prisma.ConsoleOutputCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConsoleOutputPayload>
+        }
+        createMany: {
+          args: Prisma.ConsoleOutputCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ConsoleOutputCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConsoleOutputPayload>[]
+        }
+        delete: {
+          args: Prisma.ConsoleOutputDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConsoleOutputPayload>
+        }
+        update: {
+          args: Prisma.ConsoleOutputUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConsoleOutputPayload>
+        }
+        deleteMany: {
+          args: Prisma.ConsoleOutputDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ConsoleOutputUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ConsoleOutputUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConsoleOutputPayload>[]
+        }
+        upsert: {
+          args: Prisma.ConsoleOutputUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConsoleOutputPayload>
+        }
+        aggregate: {
+          args: Prisma.ConsoleOutputAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateConsoleOutput>
+        }
+        groupBy: {
+          args: Prisma.ConsoleOutputGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ConsoleOutputGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ConsoleOutputCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ConsoleOutputCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -3275,10 +3425,52 @@ export const LogEntryScalarFieldEnum = {
   correlationId: 'correlationId',
   serviceName: 'serviceName',
   userId: 'userId',
-  traceContext: 'traceContext'
+  traceContext: 'traceContext',
+  component: 'component',
+  operation: 'operation',
+  durationMs: 'durationMs'
 } as const
 
 export type LogEntryScalarFieldEnum = (typeof LogEntryScalarFieldEnum)[keyof typeof LogEntryScalarFieldEnum]
+
+
+export const WorkerMetricsScalarFieldEnum = {
+  id: 'id',
+  timestamp: 'timestamp',
+  workerId: 'workerId',
+  workerName: 'workerName',
+  operationCount: 'operationCount',
+  successCount: 'successCount',
+  failureCount: 'failureCount',
+  avgLatencyMs: 'avgLatencyMs',
+  peakLatencyMs: 'peakLatencyMs',
+  throughput: 'throughput',
+  bufferSize: 'bufferSize',
+  bufferUtilizationPct: 'bufferUtilizationPct',
+  flushCount: 'flushCount',
+  backpressureEvents: 'backpressureEvents',
+  memoryUsedBytes: 'memoryUsedBytes',
+  cpuPercent: 'cpuPercent',
+  healthStatus: 'healthStatus',
+  lastError: 'lastError'
+} as const
+
+export type WorkerMetricsScalarFieldEnum = (typeof WorkerMetricsScalarFieldEnum)[keyof typeof WorkerMetricsScalarFieldEnum]
+
+
+export const ConsoleOutputScalarFieldEnum = {
+  id: 'id',
+  timestamp: 'timestamp',
+  serviceName: 'serviceName',
+  outputType: 'outputType',
+  outputLevel: 'outputLevel',
+  rawOutput: 'rawOutput',
+  parsedData: 'parsedData',
+  correlationId: 'correlationId',
+  sessionId: 'sessionId'
+} as const
+
+export type ConsoleOutputScalarFieldEnum = (typeof ConsoleOutputScalarFieldEnum)[keyof typeof ConsoleOutputScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -3606,6 +3798,8 @@ export type GlobalOmitConfig = {
   errorLog?: Prisma.ErrorLogOmit
   errorAlert?: Prisma.ErrorAlertOmit
   logEntry?: Prisma.LogEntryOmit
+  workerMetrics?: Prisma.WorkerMetricsOmit
+  consoleOutput?: Prisma.ConsoleOutputOmit
 }
 
 /* Types for Logging */

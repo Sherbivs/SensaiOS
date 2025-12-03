@@ -1,45 +1,35 @@
 /**
  * Event Bus - Unified Event Routing System (Layer 2)
  * 
- * ⚠️ **DEPRECATED** — This file's event routing is being replaced by direct logger.ts calls.
+ * **STATUS:** Active (Future Migration Planned)
  * 
- * **Replacement:** Use `src/shared/logger.ts` with correlation tracking (no Event Bus needed)
+ * This pub-sub system is currently in active use by:
+ * - DripAlertManager (src/bot/dripAlerts.js)
+ * - Alert Dispatcher (src/bot/alert-dispatcher.js)
+ * - EventBus Integration (src/bot/eventbus-integration.js)
+ * - Memory Measurement (src/utils/memory-measurement.ts)
+ * - Index initialization (src/index.ts)
  * 
- * **Migration Path:**
- * 1. Replace EventBus.emit() with logger.info/error/warn() calls
- * 2. Correlation IDs via logger.child({ correlationId })
- * 3. Cross-system tracing via parentCorrelationId in context
- * 4. Pattern matching unnecessary (TimescaleDB queries handle filtering)
- * 
- * **Why Deprecated:**
- * - OLD: In-memory event bus with subscriptions, replay buffer, backpressure (complex)
- * - NEW: Direct logger.ts → TimescaleDB (simpler, persistent, queryable)
- * - Event Bus was Layer 2 abstraction that added complexity without clear benefit
- * - Correlation tracking built into logger.ts (native support)
- * 
- * **Removal Timeline:** After 100% logger.ts adoption (Task 9 Phase 5 complete)
- * 
- * NOTE: Keep this file if needed for backwards compatibility during migration.
- * Some systems may still emit events via EventBus.emit() temporarily.
+ * **Future Migration:**
+ * When logger.ts correlation tracking is fully adopted, EventBus emit() calls
+ * can be replaced with direct logger calls. Until then, this system provides
+ * the alert routing infrastructure.
  * 
  * ---
  * 
- * Original description:
- * Provides centralized event distribution with:
+ * Features:
  * - Correlation IDs for cross-system tracing
  * - Pattern-based subscriptions (exact, wildcard, multi-level)
  * - Event replay buffer (last 100 events)
  * - Backpressure control (per-subscriber queue limits)
  * - Statistics tracking (events emitted, handler invocations, latency)
  * 
- * Replaces 4 fragmented event systems:
- * 1. EventTracker (user event batching)
- * 2. ErrorTracker live stream (real-time error broadcasting)
- * 3. DripAlertManager (in-memory alert queue)
- * 4. BusMessage (PostgreSQL async message queue)
+ * Provides centralized distribution for:
+ * - Alert routing (DripAlertManager)
+ * - Error broadcasting (ErrorTracker)
+ * - Cross-system event correlation
  * 
  * @module shared/event-bus
- * @deprecated Use src/shared/logger.ts with correlation tracking instead
  */
 /* eslint-disable no-console */
 

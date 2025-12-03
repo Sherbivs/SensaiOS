@@ -596,6 +596,7 @@ model ErrorAlert {
 // ============================================================================
 
 /// Log entries hypertable for Event Bus persistence
+/// Enhanced with component, operation, and duration tracking (2025-12-03)
 model LogEntry {
   id            BigInt   @id @default(autoincrement())
   timestamp     DateTime @db.Timestamptz
@@ -607,11 +608,81 @@ model LogEntry {
   serviceName   String?  @map("service_name")
   userId        String?  @map("user_id")
   traceContext  String?  @map("trace_context")
+  
+  // New fields for unified ingestion (2025-12-03)
+  component     String?  /// High-level component: bot, battle, encounter, database, cache, worker
+  operation     String?  /// Specific operation: initialize, start, stop, query, insert, flush
+  durationMs    Int?     @map("duration_ms") /// Operation duration in milliseconds
 
   @@index([level, timestamp(sort: Desc)])
   @@index([category, timestamp(sort: Desc)])
   @@index([correlationId])
   @@index([userId, timestamp(sort: Desc)])
   @@index([serviceName, timestamp(sort: Desc)])
+  @@index([component, timestamp(sort: Desc)])
+  @@index([operation, timestamp(sort: Desc)])
+  @@index([level, component, timestamp(sort: Desc)])
   @@map("log_entries")
+}
+
+/// Worker performance metrics hypertable
+/// Collected every 15 seconds by metrics-collector.ts
+model WorkerMetrics {
+  id                    BigInt   @id @default(autoincrement())
+  timestamp             DateTime @default(now()) @db.Timestamptz
+  
+  // Worker identification
+  workerId              String   @map("worker_id")
+  workerName            String   @map("worker_name")
+  
+  // Performance metrics
+  operationCount        BigInt   @default(0) @map("operation_count")
+  successCount          BigInt   @default(0) @map("success_count")
+  failureCount          BigInt   @default(0) @map("failure_count")
+  avgLatencyMs          Float?   @map("avg_latency_ms")
+  peakLatencyMs         Float?   @map("peak_latency_ms")
+  throughput            Float?   /// ops/sec
+  
+  // Buffer metrics (for buffered workers)
+  bufferSize            Int?     @map("buffer_size")
+  bufferUtilizationPct  Float?   @map("buffer_utilization_pct")
+  flushCount            Int?     @map("flush_count")
+  backpressureEvents    Int?     @map("backpressure_events")
+  
+  // Resource metrics
+  memoryUsedBytes       BigInt?  @map("memory_used_bytes")
+  cpuPercent            Float?   @map("cpu_percent")
+  
+  // Health status
+  healthStatus          String?  @map("health_status") /// healthy, degraded, unhealthy
+  lastError             String?  @map("last_error")
+
+  @@index([workerId, timestamp(sort: Desc)])
+  @@index([healthStatus, timestamp(sort: Desc)])
+  @@map("worker_metrics")
+}
+
+/// Console outputs capture for structured logging
+/// Captured by console-interceptor.ts
+model ConsoleOutput {
+  id              BigInt   @id @default(autoincrement())
+  timestamp       DateTime @default(now()) @db.Timestamptz
+  
+  // Output identification
+  serviceName     String   @map("service_name") /// 'infinity-gauntlet', 'security-bot', etc.
+  outputType      String   @map("output_type") /// 'telemetry', 'stats', 'section', 'banner'
+  outputLevel     String   @default("info") @map("output_level") /// 'debug', 'info', 'warn', 'error'
+  
+  // Content
+  rawOutput       String   @map("raw_output") @db.Text
+  parsedData      Json?    @map("parsed_data")
+  
+  // Metadata
+  correlationId   String?  @map("correlation_id") @db.Uuid
+  sessionId       String?  @map("session_id") /// Render session/deploy ID
+
+  @@index([serviceName, timestamp(sort: Desc)])
+  @@index([outputType, timestamp(sort: Desc)])
+  @@index([outputLevel, timestamp(sort: Desc)])
+  @@map("console_outputs")
 }

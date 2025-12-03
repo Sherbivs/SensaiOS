@@ -1,272 +1,138 @@
 /**
- * Minimal Structured Logger - JSON Lines Output
+ * Legacy Structured Logger Shim — Compatibility Layer
  * 
- * ⚠️ **DEPRECATED** — This file is being replaced by the standardized logging system.
+ * PURPOSE: Provide backwards-compatible API for files using log.info/warn/error
+ * while delegating to the new standardized logger system.
  * 
- * **Replacement:** Use `src/shared/logger.ts` with LOGGING-STANDARD.md vocabulary
- * 
- * **Migration Path:**
- * 1. Replace log.debug/info/warn/error with logger.debug/info/warn/error
- * 2. Use standardized components + operations instead of free-form messages
- * 3. Buffering handled by logger.ts (intelligent deduplication + aggregation)
- * 4. Context enrichment via logger.child({ correlationId, component })
- * 
- * **Why Deprecated:**
- * - OLD: JSON lines to console, minimal buffering, no persistence
- * - NEW: TimescaleDB persistence, correlation tracking, type-safe vocabulary
- * - NEW approach provides query capabilities via TimescaleDB views
- * 
- * **Removal Timeline:** After 100% logger.ts adoption (Task 9 Phase 5 complete)
+ * This is a THIN WRAPPER, not deprecated code. All actual logging logic
+ * lives in src/shared/logger.ts which implements DB-First architecture.
  * 
  * @module shared/log
- * @deprecated Use src/shared/logger.ts instead
  */
 
-// Minimal structured logger without external deps.
-// Outputs JSON lines with timestamp, level, message, and optional context.
-// Now includes optional buffering to reduce console noise.
+import { getLogger, type LogLevel as NewLogLevel, type LogContext } from './logger.js';
 
-import { config } from "./config.js";
-import { safeError } from "./utils/error-utils.js";
-import { getLogBuffer, type BufferedLogEntry } from "./logBuffer.js";
-
-type CliLogLevel = "success" | "info" | "detail" | "warn" | "error";
-type CliLogOptions = { debugMode?: boolean };
-
-export type LogLevel = "debug" | "info" | "warn" | "error";
-
-type AnyObj = Record<string, unknown> | undefined;
-
-type CliLogFn = (
-  level: CliLogLevel,
-  message: string,
-  context?: unknown,
-  options?: CliLogOptions
-) => void;
-
-type InterruptFn = (writer: () => void) => void;
-
-const levelOrder: Record<LogLevel, number> = {
-  debug: 10,
-  info: 20,
-  warn: 30,
-  error: 40,
-};
-
-const CLI_LEVEL_MAP: Record<LogLevel, CliLogLevel> = {
-  debug: "detail",
-  info: "info",
-  warn: "warn",
-  error: "error",
-};
-
-function envLevel(): LogLevel {
-  const raw = (process.env.LOG_LEVEL || "").toLowerCase();
-  if (raw === "debug" || raw === "info" || raw === "warn" || raw === "error") {
-    return raw;
-  }
-  // Default more verbose in development/test, quieter in production.
-  return config.nodeEnv === "production" ? "info" : "debug";
-}
-
-let currentLevel: LogLevel = envLevel();
-
-function enabled(level: LogLevel): boolean {
-  return levelOrder[level] >= levelOrder[currentLevel];
-}
-
-function nowIso(): string {
-  return new Date().toISOString();
-}
-
-function buildCliContext(record: Record<string, unknown>, level: LogLevel): Record<string, unknown> {
-  const context: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(record)) {
-    if (key === "t" || key === "level" || key === "msg") {
-      continue;
-    }
-    if (value === undefined) {
-      continue;
-    }
-    if (key === "err" && level === "error") {
-      context.error = value;
-      continue;
-    }
-    context[key] = value;
-  }
-  return context;
-}
-
-function formatRecord(level: LogLevel, msg: string, err?: unknown, meta?: AnyObj): Record<string, unknown> {
-  const base: Record<string, unknown> = { t: nowIso(), level, msg, env: config.nodeEnv };
-  if (meta && typeof meta === "object") {
-    Object.assign(base, meta);
-  }
-  if (level === "error") {
-    base.err = safeError(err);
-  }
-  return base;
-}
-
-const logFormat = (process.env.LOG_FORMAT || "both").toLowerCase();
-const isTty = Boolean(process.stdout?.isTTY && process.stderr?.isTTY);
-
-let cliLogImpl: CliLogFn | null = null;
-let interruptConsoleOutput: InterruptFn | null = null;
-let cliLoggerLoading = false;
-let cliLoggerLoaded = false;
+// Re-export types for compatibility
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
- * Lazy-load CLI logger to avoid circular dependency deadlock.
- * The top-level await was causing module initialization to hang because:
- * index.ts → log.ts (await import logger.js) → logger.js → resource-monitor.ts → intelligent-logger.ts → event-bus.ts
- * This creates a circular dependency where the await never resolves.
- * 
- * Solution: Load logger.js lazily on first use instead of at module load time.
+ * Buffered log entry type for compatibility
  */
-async function ensureCliLoggerLoaded(): Promise<void> {
-  if (cliLoggerLoaded || cliLoggerLoading) return;
-  cliLoggerLoading = true;
+export interface BufferedLogEntry {
+  level: LogLevel;
+  message: string;
+  context?: Record<string, unknown>;
+  count: number;
+  firstSeen: number;
+  lastSeen: number;
+}
+
+/**
+ * Map old levels to new logger levels
+ */
+function _mapLevel(level: LogLevel): NewLogLevel {
+  return level === 'debug' ? 'debug' : level;
+}
+
+/**
+ * Infer component from context
+ */
+function inferComponent(context?: Record<string, unknown>): string {
+  if (!context) return 'app';
+  if (context.component) return String(context.component);
+  if (context.service) return String(context.service);
+  if (context.worker) return `worker.${context.worker}`;
+  return 'app';
+}
+
+/**
+ * Infer operation from message
+ */
+function inferOperation(msg: string): string {
+  const lower = msg.toLowerCase();
+  if (lower.includes('start')) return 'start';
+  if (lower.includes('stop')) return 'stop';
+  if (lower.includes('init')) return 'initialize';
+  if (lower.includes('connect')) return 'connect';
+  if (lower.includes('error') || lower.includes('fail')) return 'error';
+  return 'operation';
+}
+
+/**
+ * Build context for new logger
+ */
+function buildContext(meta?: Record<string, unknown>, err?: unknown): LogContext | undefined {
+  const ctx: LogContext = {};
   
-  try {
-    // Lazy dynamic import of CLI logger module
-    const loggerModule: any = await import("../utils/logger.js");
-    cliLogImpl = loggerModule.log ?? loggerModule.default?.log ?? null;
-    
-    // Lazy dynamic import of CLI status helper
-    const cliStatusModule: any = await import("../utils/cliStatus.js");
-    interruptConsoleOutput =
-      cliStatusModule.interruptConsoleOutput ?? cliStatusModule.default?.interruptConsoleOutput ?? null;
-    
-    cliLoggerLoaded = true;
-  } catch {
-    // Fallback to JSON-only logging if CLI logger unavailable
-    cliLogImpl = null;
-    interruptConsoleOutput = null;
-    cliLoggerLoaded = true;
+  if (meta) {
+    ctx.metadata = { ...meta };
+    delete ctx.metadata.component;
+    delete ctx.metadata.service;
+    delete ctx.metadata.worker;
   }
-}
-
-const cliEnabled = Boolean(cliLogImpl) && (logFormat === "cli" || logFormat === "both" || (logFormat === "auto" && isTty));
-const jsonEnabled =
-  logFormat === "json" ||
-  logFormat === "both" ||
-  (logFormat === "auto" && (!cliEnabled || !cliLogImpl));
-
-const cliDebugMode = config.nodeEnv !== "production";
-
-/**
- * Emit a log entry - checks if buffering is enabled first
- */
-function emit(level: LogLevel, msg: string, err?: unknown, meta?: AnyObj): void {
-  if (!enabled(level)) return;
-
-  // Lazy-load CLI logger on first use
-  if (!cliLoggerLoaded && !cliLoggerLoading) {
-    ensureCliLoggerLoaded().catch(() => {
-      // Silently fall back to JSON-only logging
-    });
+  
+  if (err && err instanceof Error) {
+    ctx.error = {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    };
   }
-
-  // Check if we should buffer this log
-  const buffer = getLogBuffer();
-  if (buffer && level !== "error") {
-    // Buffer non-error logs (errors always bypass for immediate visibility)
-    const context = meta ? { ...meta } : {};
-    if (err) {
-      context.err = safeError(err);
-    }
-    buffer.add(level, msg, context);
-    return;
-  }
-
-  // Immediate output (no buffering or error log)
-  emitImmediate(level, msg, err, meta);
+  
+  return Object.keys(ctx).length > 0 ? ctx : undefined;
 }
 
 /**
- * Emit a log entry immediately (bypasses buffer)
+ * Flush buffered logs (no-op - new logger handles buffering internally)
  */
-function emitImmediate(level: LogLevel, msg: string, err?: unknown, meta?: AnyObj): void {
-  const record = formatRecord(level, msg, err, meta);
-
-  if (cliEnabled && cliLogImpl) {
-    const context = buildCliContext(record, level);
-    try {
-      const payload = Object.keys(context).length > 0 ? context : undefined;
-      cliLogImpl(CLI_LEVEL_MAP[level], msg, payload, { debugMode: cliDebugMode });
-    } catch {
-      // If CLI logging fails we still want to emit the JSON line below.
-    }
-  }
-
-  if (jsonEnabled) {
-    const line = JSON.stringify(record);
-    if (interruptConsoleOutput) {
-      interruptConsoleOutput(() => {
-         
-        console.log(line);
-      });
-    } else {
-       
-      console.log(line);
-    }
-  }
+export function flushBufferedLogs(_entries: BufferedLogEntry[]): void {
+  // No-op: New logger handles buffering via ConsoleRenderer
 }
 
 /**
- * Flush buffered logs (called by logBuffer)
+ * Structured log object with debug/info/warn/error methods
  */
-export function flushBufferedLogs(entries: BufferedLogEntry[]): void {
-  if (entries.length === 0) return;
-
-  // Emit a summary header if multiple entries
-  if (entries.length > 1) {
-    const totalMessages = entries.reduce((sum, e) => sum + e.count, 0);
-    emitImmediate("info", `📦 Log buffer flush: ${entries.length} unique messages, ${totalMessages} total`);
-  }
-
-  // Emit each buffered entry
-  for (const entry of entries) {
-    const meta = entry.context ? { ...entry.context } : {};
-    
-    // Add metadata about buffering
-    if (entry.count > 1) {
-      meta._buffered = {
-        count: entry.count,
-        firstSeen: new Date(entry.firstSeen).toISOString(),
-        lastSeen: new Date(entry.lastSeen).toISOString(),
-        durationMs: entry.lastSeen - entry.firstSeen,
-      };
-    }
-
-    emitImmediate(entry.level, entry.message, undefined, meta);
-  }
-}
-
 export const log = {
-  setLevel(level: LogLevel) {
-    currentLevel = level;
+  setLevel(_level: LogLevel): void {
+    // Level is controlled by new logger via environment
   },
 
-  debug(msg: string, meta?: AnyObj) {
-    emit("debug", msg, undefined, meta);
+  debug(msg: string, meta?: Record<string, unknown>): void {
+    const logger = getLogger();
+    const component = inferComponent(meta);
+    const operation = inferOperation(msg);
+    logger.debug(component, operation, msg, buildContext(meta));
   },
 
-  info(msg: string, meta?: AnyObj) {
-    emit("info", msg, undefined, meta);
+  info(msg: string, meta?: Record<string, unknown>): void {
+    const logger = getLogger();
+    const component = inferComponent(meta);
+    const operation = inferOperation(msg);
+    logger.info(component, operation, msg, buildContext(meta));
   },
 
-  warn(msg: string, meta?: AnyObj) {
-    emit("warn", msg, undefined, meta);
+  warn(msg: string, meta?: Record<string, unknown>): void {
+    const logger = getLogger();
+    const component = inferComponent(meta);
+    const operation = inferOperation(msg);
+    logger.warn(component, operation, msg, buildContext(meta));
   },
 
-  error(msg: string, err?: unknown, meta?: AnyObj) {
-    emit("error", msg, err, meta);
+  error(msg: string, err?: unknown, meta?: Record<string, unknown>): void {
+    const logger = getLogger();
+    const component = inferComponent(meta);
+    const operation = inferOperation(msg);
+    logger.error(component, operation, msg, buildContext(meta, err));
   },
 
-  // For unit tests: produce the object without writing it
-  _format(level: LogLevel, msg: string, err?: unknown, meta?: AnyObj) {
-    return { ...formatRecord(level, msg, err, meta), t: "<iso>" };
+  // For unit tests: produce formatted object
+  _format(level: LogLevel, msg: string, err?: unknown, meta?: Record<string, unknown>) {
+    return { 
+      t: '<iso>', 
+      level, 
+      msg, 
+      ...(meta || {}),
+      ...(err ? { err: { message: String(err) } } : {}),
+    };
   },
 };

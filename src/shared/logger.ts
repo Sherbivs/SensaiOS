@@ -1,23 +1,32 @@
 /* eslint-disable no-console */
 /**
- * Standardized Logger — Canonical Logging Interface
+ * Standardized Logger — DB-First Logging System
  * 
- * Purpose:
- * - Enforce standardized logging vocabulary across entire codebase
- * - Send structured log entries to TimescaleDB in real-time
- * - Support correlation tracking for distributed tracing
- * - Provide type-safe API with compile-time validation
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ARCHITECTURE: Database-First Logging
+ * ═══════════════════════════════════════════════════════════════════════════
  * 
- * Architecture:
- * - Validates component/operation against LOGGING-STANDARD.md
- * - Buffers entries via TimescaleDBWorker (batched writes)
- * - Falls back to console if database unavailable
- * - Zero external dependencies (pure TypeScript)
+ * ALL logs are written to the database FIRST. Console output in production
+ * is handled by the ConsoleRenderer which polls the database and outputs
+ * to Render's built-in console.
  * 
- * Integration:
- * - Replaces all console.log, old logger calls
- * - Used by: ALL application code
- * - Schema: docs/standards/LOGGING-STANDARD.md
+ * Data Flow:
+ *   1. Application calls logger.info/warn/error/debug
+ *   2. Logger writes to TimescaleDB (log_entries table) 
+ *   3. ConsoleRenderer polls database for new entries
+ *   4. Renderer outputs to Render console (stdout/stderr)
+ * 
+ * Why DB-First?
+ *   - Single source of truth (database = authoritative)
+ *   - Console is just a VIEW of database state
+ *   - Survives restarts, deployments
+ *   - Queryable history
+ *   - Consistent across all services
+ * 
+ * Console Modes:
+ *   - PRODUCTION: Console output DISABLED here (ConsoleRenderer handles it)
+ *   - DEVELOPMENT: Console output ENABLED (immediate feedback)
+ *   - FALLBACK: If DB unavailable, falls back to console
  * 
  * @module shared/logger
  */
@@ -176,6 +185,15 @@ export interface Logger {
   
   /** Enable/disable console output (fallback) */
   setConsoleOutput(enabled: boolean): void;
+  
+  /** 
+   * Enable DB-first mode (production)
+   * When enabled, logger writes to DB only; ConsoleRenderer handles console output
+   */
+  setDbFirstMode(enabled: boolean): void;
+  
+  /** Check if DB-first mode is enabled */
+  isDbFirstMode(): boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -185,6 +203,7 @@ export interface Logger {
 class StandardizedLogger implements Logger {
   private level: LogLevel = 'info';
   private consoleOutput = true;
+  private dbFirstMode = false; // DB-first mode (console via ConsoleRenderer)
   private timescaleWorker: any = null; // Lazy-loaded to avoid circular deps
   
   /**
@@ -243,7 +262,27 @@ class StandardizedLogger implements Logger {
   }
   
   /**
+   * Enable DB-first mode (production)
+   * When enabled, logger writes to DB only; ConsoleRenderer handles console output
+   */
+  setDbFirstMode(enabled: boolean): void {
+    this.dbFirstMode = enabled;
+  }
+  
+  /**
+   * Check if DB-first mode is enabled
+   */
+  isDbFirstMode(): boolean {
+    return this.dbFirstMode;
+  }
+  
+  /**
    * Core logging function (private)
+   * 
+   * DB-First Architecture:
+   * - In production (dbFirstMode=true): Write to DB only, ConsoleRenderer handles display
+   * - In development: Write to DB AND console (immediate feedback)
+   * - On DB failure: Always fallback to console (safety)
    */
   private log(
     level: LogLevel,
@@ -267,16 +306,17 @@ class StandardizedLogger implements Logger {
     };
     
     // Send to TimescaleDB (async, non-blocking)
+    // This is the PRIMARY destination - database is source of truth
     this.sendToDatabase(entry).catch(err => {
-      // Fallback to console if database fails
-      if (this.consoleOutput) {
-        console.error('[Logger] Failed to send to database:', err);
-        this.logToConsole(entry);
-      }
+      // DB write failed - ALWAYS fallback to console (safety)
+      console.error('[Logger] Database write failed, falling back to console:', err);
+      this.logToConsole(entry);
     });
     
-    // Always output to console (for development/debugging)
-    if (this.consoleOutput) {
+    // Console output logic:
+    // - dbFirstMode=true (production): Don't output here, ConsoleRenderer handles it
+    // - dbFirstMode=false (development): Output immediately for feedback
+    if (this.consoleOutput && !this.dbFirstMode) {
       this.logToConsole(entry);
     }
   }
@@ -378,21 +418,35 @@ let loggerInstance: Logger | null = null;
 
 /**
  * Get singleton logger instance
+ * 
+ * Production (DB-First Mode):
+ *   - Console output disabled here
+ *   - ConsoleRenderer polls DB and outputs to Render console
+ *   - All logs flow: App → Logger → DB → ConsoleRenderer → Console
+ * 
+ * Development:
+ *   - Console output enabled for immediate feedback
+ *   - Logs flow: App → Logger → DB + Console (parallel)
  */
 export function getLogger(): Logger {
   if (!loggerInstance) {
-    loggerInstance = new StandardizedLogger();
+    const instance = new StandardizedLogger();
     
     // Set log level from environment variable
     const envLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
     if (envLevel && ['error', 'warn', 'info', 'debug'].includes(envLevel)) {
-      loggerInstance.setLevel(envLevel);
+      instance.setLevel(envLevel);
     }
     
-    // Disable console output in production (rely on database only)
+    // Production: Enable DB-first mode (ConsoleRenderer handles console output)
+    // Console output is still available as fallback if DB fails
     if (process.env.NODE_ENV === 'production') {
-      loggerInstance.setConsoleOutput(false);
+      instance.setDbFirstMode(true);
+      // Keep console enabled for fallback, but dbFirstMode prevents normal console output
+      instance.setConsoleOutput(true);
     }
+    
+    loggerInstance = instance;
   }
   
   return loggerInstance;

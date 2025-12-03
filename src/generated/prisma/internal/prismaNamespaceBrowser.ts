@@ -82,7 +82,9 @@ export const ModelName = {
   DbSyncState: 'DbSyncState',
   ErrorLog: 'ErrorLog',
   ErrorAlert: 'ErrorAlert',
-  LogEntry: 'LogEntry'
+  LogEntry: 'LogEntry',
+  WorkerMetrics: 'WorkerMetrics',
+  ConsoleOutput: 'ConsoleOutput'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -534,10 +536,52 @@ export const LogEntryScalarFieldEnum = {
   correlationId: 'correlationId',
   serviceName: 'serviceName',
   userId: 'userId',
-  traceContext: 'traceContext'
+  traceContext: 'traceContext',
+  component: 'component',
+  operation: 'operation',
+  durationMs: 'durationMs'
 } as const
 
 export type LogEntryScalarFieldEnum = (typeof LogEntryScalarFieldEnum)[keyof typeof LogEntryScalarFieldEnum]
+
+
+export const WorkerMetricsScalarFieldEnum = {
+  id: 'id',
+  timestamp: 'timestamp',
+  workerId: 'workerId',
+  workerName: 'workerName',
+  operationCount: 'operationCount',
+  successCount: 'successCount',
+  failureCount: 'failureCount',
+  avgLatencyMs: 'avgLatencyMs',
+  peakLatencyMs: 'peakLatencyMs',
+  throughput: 'throughput',
+  bufferSize: 'bufferSize',
+  bufferUtilizationPct: 'bufferUtilizationPct',
+  flushCount: 'flushCount',
+  backpressureEvents: 'backpressureEvents',
+  memoryUsedBytes: 'memoryUsedBytes',
+  cpuPercent: 'cpuPercent',
+  healthStatus: 'healthStatus',
+  lastError: 'lastError'
+} as const
+
+export type WorkerMetricsScalarFieldEnum = (typeof WorkerMetricsScalarFieldEnum)[keyof typeof WorkerMetricsScalarFieldEnum]
+
+
+export const ConsoleOutputScalarFieldEnum = {
+  id: 'id',
+  timestamp: 'timestamp',
+  serviceName: 'serviceName',
+  outputType: 'outputType',
+  outputLevel: 'outputLevel',
+  rawOutput: 'rawOutput',
+  parsedData: 'parsedData',
+  correlationId: 'correlationId',
+  sessionId: 'sessionId'
+} as const
+
+export type ConsoleOutputScalarFieldEnum = (typeof ConsoleOutputScalarFieldEnum)[keyof typeof ConsoleOutputScalarFieldEnum]
 
 
 export const SortOrder = {
