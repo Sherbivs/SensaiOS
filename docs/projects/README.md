@@ -112,6 +112,13 @@ Before ANY Bible integration, run this validation:
     * `2025-12-02-bible-system-complete.md` — Phase 1: Bible-centric documentation system
   - **Purpose:** System improvements, workflow enhancements, infrastructure projects
 
+- **architect-gui/** — Infinity-G-Architect visual GUI editor (DEFERRED)
+  - `README.md` — Full planning document with architecture, tech stack, phases
+  - `TASKS.md` — 18 tasks across 5 phases (~142 hours estimated)
+  - **Status:** 📋 PLANNING (awaiting Phase 17-18 completion)
+  - **Target Start:** 2025-02-01 (after homestead deployment)
+  - **Purpose:** Visual architecture editor with Git integration
+
 ### Pending Bible Integration
 - *(Projects awaiting validation and Bible merge)*
 
