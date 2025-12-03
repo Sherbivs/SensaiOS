@@ -142,21 +142,35 @@ async function loadStateFile(filePath) {
  * Save state to JSON file
  */
 async function saveStateFile(filePath, state) {
+  const json = JSON.stringify(state, null, 2);
+
   try {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
-    const json = JSON.stringify(state, null, 2);
     await fs.writeFile(filePath, json, 'utf8');
     return true;
   } catch (error) {
-    log('error', '[State] Error saving file', { filePath, error: error.message });
+    let lastError = error;
+
+    if (error.code === 'ENOSPC') {
+      log('warn', '[State] Disk full when saving; pruning snapshots then retrying', { filePath });
+      try {
+        await pruneSnapshots();
+        await fs.writeFile(filePath, json, 'utf8');
+        return true;
+      } catch (retryError) {
+        lastError = retryError;
+      }
+    }
+
+    log('error', '[State] Error saving file', { filePath, error: lastError.message, code: lastError.code });
     
     // Track save failures (disk full, permissions, etc.)
     await errorTracker.captureError(
-      error instanceof Error ? error : new Error(String(error)),
+      lastError instanceof Error ? lastError : new Error(String(lastError)),
       {
         category: 'WORKER',
         operation: 'state:saveFile',
-        customData: { filePath, errorCode: error.code },
+        customData: { filePath, errorCode: lastError.code, retried: error.code === 'ENOSPC' },
       }
     );
     

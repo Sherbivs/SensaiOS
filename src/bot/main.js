@@ -2097,12 +2097,17 @@ function findRole(guild) {
   return guild.roles.cache.find(r => r.name.toLowerCase() === target) || null;
 }
 
+async function fetchGuildRolesFresh(guild) {
+  // Avoid passing options as the roleId (which causes Discord API 50035).
+  return guild.roles.fetch(undefined, { force: true });
+}
+
 async function reportGuildRoles(guild) {
   const guildSummary = describeGuild(guild);
 
   try {
     // Force fresh role data for accurate reporting
-    const roles = await guild.roles.fetch({ force: true });
+    const roles = await fetchGuildRolesFresh(guild);
     if (!roles || roles.size === 0) {
       report('Roles Empty', { guild: guildSummary });
       return;
@@ -2137,7 +2142,7 @@ async function validateGuildRoles(guild) {
   let roles;
   try {
     // Force fresh role data for accurate validation
-    roles = await guild.roles.fetch({ force: true });
+    roles = await fetchGuildRolesFresh(guild);
   } catch (error) {
     log('error', 'Unable to fetch guild roles for validation', mergeLogError({
       guild: guildSummary,
@@ -2187,7 +2192,7 @@ async function fixGuildRoles(guild) {
   let roles;
   try {
     // Force fresh role data for accurate remediation
-    roles = await guild.roles.fetch({ force: true });
+    roles = await fetchGuildRolesFresh(guild);
   } catch (error) {
     log('error', 'Unable to fetch guild roles for remediation', mergeLogError({
       guild: guildSummary,
@@ -2882,7 +2887,7 @@ async function runCliDebugDump() {
 
     try {
       // Force fresh role data for CLI debugging
-      await guild.roles.fetch({ force: true });
+      await fetchGuildRolesFresh(guild);
     } catch (error) {
       report('CLI Debug Roles Fetch Error', mergeReportError({
         guild: guildSummary,

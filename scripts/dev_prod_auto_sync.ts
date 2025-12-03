@@ -781,16 +781,17 @@ async function runConsolidation(
   });
 
   // PROD is always the source of truth - run first
-  await runPhase("prod", config.prodEnvPath, prodVars, config.dryRun);
+  // Note: prodEnvPath and devEnvPath are validated at startup via loadEnvVars
+  await runPhase("prod", config.prodEnvPath!, prodVars, config.dryRun);
   const prodCounts = await captureCounts("prod", prodVars);
 
   if (config.enforceProdMaster) {
     // Force DEV to match PROD
     log("enforce.strategy", { target: "dev", source: "prod", mode: "master_enforcement" });
-    await enforceProdMaster("dev", config.devEnvPath, devVars, prodVars, config.dryRun);
+    await enforceProdMaster("dev", config.devEnvPath!, devVars, prodVars, config.dryRun);
   } else {
     // Legacy bidirectional mode
-    await runPhase("dev", config.devEnvPath, devVars, config.dryRun);
+    await runPhase("dev", config.devEnvPath!, devVars, config.dryRun);
   }
 
   const devCounts = await captureCounts("dev", devVars);

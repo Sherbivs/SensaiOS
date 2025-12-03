@@ -60,7 +60,12 @@ async function loadCommands() {
         }
         break;
       }
-      log.warn(`[command-loader] Failed to load ${f}:`, message || err);
+      log('warn', '[command-loader] Failed to load command', {
+        file: f,
+        message: message || err,
+        code: err?.code,
+        stack: err?.stack,
+      });
     }
   }
   return commands;

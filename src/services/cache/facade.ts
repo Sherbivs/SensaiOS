@@ -589,15 +589,36 @@ function resolveRuntimeRoot(): string {
 }
 
 function ensureDirSync(dir: string): boolean {
-  try {
+  const testWrite = () => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
     const probe = path.join(dir, ".write-test");
     fs.writeFileSync(probe, String(Date.now()));
     fs.unlinkSync(probe);
+  };
+
+  try {
+    testWrite();
     return true;
   } catch (err) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code === "ENOSPC") {
+      // Disk full for this cache root: clear existing cache files then retry once.
+      try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const target = path.join(dir, entry.name);
+          fs.rmSync(target, { recursive: true, force: true });
+        }
+        testWrite();
+        log.warn("cache.dir.recovered", { dir, strategy: "purged-after-enospc" });
+        return true;
+      } catch (retryErr) {
+        log.warn("cache.dir.enospc", { dir, err: (retryErr as Error)?.message ?? retryErr });
+      }
+    }
+
     // Track cache write failure (fire-and-forget to avoid blocking)
     errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
       category: 'CACHE',
