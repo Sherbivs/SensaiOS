@@ -1,28 +1,43 @@
 /**
- * AI Log Writer - Thin Re-export from Consolidated Hub
+ * AI Log Writer Stub - Compatibility Layer
  * 
- * All logic lives in src/shared/legacy-stubs.ts
- * This file exists only for import path compatibility.
+ * Functionality migrated to src/shared/logger.ts + TimescaleDB.
+ * This stub maintains API compatibility for index.ts imports.
  * 
  * @module services/ai/ai-log-writer
  */
 
-import { aiLoggerStubs } from '../../shared/legacy-stubs.js';
+export const CONFIG = {
+  categories: {
+    SYSTEM: 'system',
+    DATABASE: 'database',
+    DISCORD: 'discord',
+    GAME_ENGINE: 'game-engine',
+    SECURITY: 'security',
+    PERFORMANCE: 'performance',
+    ERROR: 'error',
+    RESOURCE: 'resource',
+    USER_ACTION: 'user-action',
+    INTEGRATION: 'integration',
+  },
+};
 
-export const CONFIG = aiLoggerStubs.CONFIG;
-export const initialize = aiLoggerStubs.initialize;
-export const shutdown = aiLoggerStubs.shutdown;
-export const log = aiLoggerStubs.log;
-export const trace = aiLoggerStubs.trace;
-export const debug = aiLoggerStubs.debug;
-export const info = aiLoggerStubs.info;
-export const notice = aiLoggerStubs.notice;
-export const warn = aiLoggerStubs.warn;
-export const error = aiLoggerStubs.error;
-export const critical = aiLoggerStubs.critical;
-export const fatal = aiLoggerStubs.fatal;
-export const flush = aiLoggerStubs.flush;
-export const getStats = aiLoggerStubs.getStats;
-export const generateCorrelationId = aiLoggerStubs.generateCorrelationId;
+export async function initialize(_options) {}
+export async function shutdown() {}
+export function log(_category, _message, _options) {}
+export function trace(_category, _message, _options) {}
+export function debug(_category, _message, _options) {}
+export function info(_category, _message, _options) {}
+export function notice(_category, _message, _options) {}
+export function warn(_category, _message, _options) {}
+export function error(_category, _message, _options) {}
+export function critical(_category, _message, _options) {}
+export function fatal(_category, _message, _options) {}
+export async function flush() {}
+export function getStats() { return { logsWritten: 0, currentFile: null }; }
+export function generateCorrelationId() { return `stub_${Date.now()}`; }
 
-export default aiLoggerStubs;
+export default {
+  initialize, shutdown, log, trace, debug, info, notice, warn, error,
+  critical, fatal, flush, getStats, generateCorrelationId, CONFIG,
+};
