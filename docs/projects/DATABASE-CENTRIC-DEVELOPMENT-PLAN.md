@@ -7803,6 +7803,1030 @@ export async function getTableBloat(): Promise<{
 
 ---
 
+### ⚡ Part 2: Performance Specialist Analysis
+
+**Specialist:** Performance Specialist  
+**Focus:** Connection pooling, caching strategies, read replicas, query optimization, latency reduction  
+**Goal:** Achieve <1μs cache lookups, <50μs database writes, zero blocking operations
+
+#### 2.1 Connection Pooling Strategy
+
+```typescript
+// ===== FILE: src/shared/database/connection-pool.ts =====
+
+/**
+ * Connection pooling configuration and management.
+ * 
+ * @description
+ * Connection pooling is CRITICAL for database performance:
+ * - Without pooling: Each query opens/closes connection (~50ms overhead)
+ * - With pooling: Connections reused (~0.1ms overhead)
+ * 
+ * Strategy:
+ * 1. Primary pool: Prisma's built-in connection pool
+ * 2. External pool: PgBouncer for transaction-level pooling (future)
+ * 3. Read replicas: Separate pool for read-heavy operations (future)
+ */
+
+import { PrismaClient } from "@prisma/client";
+
+/**
+ * Pool configuration optimized for Render deployment.
+ * 
+ * Render Standard: 2GB RAM, 100 max connections
+ * Workers: 8 services sharing pool
+ * Target: ~12 connections per service
+ */
+export const POOL_CONFIG = {
+  // Connection limits
+  connectionLimit: 12,           // Per service
+  poolTimeout: 10,              // Seconds to wait for connection
+  idleTimeout: 300,             // Close idle connections after 5 min
+  
+  // Query timeouts
+  queryTimeout: 30000,          // 30s max query time
+  transactionTimeout: 60000,    // 60s max transaction time
+  
+  // Health check
+  healthCheckInterval: 30000,   // Check every 30s
+  healthCheckQuery: "SELECT 1",
+} as const;
+
+/**
+ * Creates a Prisma client with optimal pooling configuration.
+ */
+export function createPrismaClient(): PrismaClient {
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
+    log: [
+      { level: "query", emit: "event" },
+      { level: "error", emit: "stdout" },
+      { level: "warn", emit: "stdout" },
+    ],
+  });
+}
+
+/**
+ * Connection pool metrics for monitoring.
+ */
+export interface PoolMetrics {
+  totalConnections: number;
+  activeConnections: number;
+  idleConnections: number;
+  waitingRequests: number;
+  avgAcquireTime: number;
+}
+
+/**
+ * Pool health check result.
+ */
+export interface PoolHealthCheck {
+  healthy: boolean;
+  latency: number;
+  message?: string;
+}
+
+/**
+ * Performs pool health check.
+ */
+export async function checkPoolHealth(
+  prisma: PrismaClient
+): Promise<PoolHealthCheck> {
+  const start = performance.now();
+  
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    const latency = performance.now() - start;
+    
+    return {
+      healthy: latency < 100, // < 100ms is healthy
+      latency,
+    };
+  } catch (error) {
+    return {
+      healthy: false,
+      latency: performance.now() - start,
+      message: (error as Error).message,
+    };
+  }
+}
+
+/**
+ * PgBouncer configuration for external pooling (future).
+ * 
+ * Benefits:
+ * - Connection multiplexing
+ * - Transaction-level pooling
+ * - Supports more clients than max_connections
+ * - Zero-downtime failover
+ */
+export const PGBOUNCER_CONFIG = `
+; ===== FILE: pgbouncer.ini =====
+[databases]
+infinity_gauntlet = host=localhost port=5432 dbname=infinity_gauntlet
+
+[pgbouncer]
+; Pool mode: transaction (best for web apps)
+pool_mode = transaction
+
+; Connection limits
+max_client_conn = 1000
+default_pool_size = 20
+min_pool_size = 5
+reserve_pool_size = 5
+
+; Timeouts
+server_connect_timeout = 15
+server_idle_timeout = 600
+client_idle_timeout = 0
+
+; Logging
+log_connections = 0
+log_disconnections = 0
+log_pooler_errors = 1
+
+; Admin
+admin_users = postgres
+stats_users = stats
+
+; Listen
+listen_addr = 127.0.0.1
+listen_port = 6432
+`;
+```
+
+#### 2.2 Multi-Layer Caching Strategy
+
+```typescript
+// ===== FILE: src/shared/cache/cache-strategy.ts =====
+
+/**
+ * Multi-layer caching strategy for maximum performance.
+ * 
+ * @description
+ * Layer 1 (L1): In-memory Map - <1μs reads
+ * Layer 2 (L2): Redis/SQLite - <1ms reads
+ * Layer 3 (L3): PostgreSQL - <50ms reads
+ * 
+ * Cache-aside pattern with write-through for consistency.
+ */
+
+import { logger } from "@shared/utils/logger.js";
+
+/**
+ * Cache layer interface.
+ */
+export interface CacheLayer<T> {
+  get(key: string): Promise<T | null>;
+  set(key: string, value: T, ttl?: number): Promise<void>;
+  delete(key: string): Promise<void>;
+  clear(): Promise<void>;
+  stats(): CacheStats;
+}
+
+export interface CacheStats {
+  hits: number;
+  misses: number;
+  size: number;
+  memoryUsage: number;
+}
+
+/**
+ * L1 Cache: In-memory with LRU eviction.
+ * 
+ * @description
+ * Ultra-fast but volatile. Best for:
+ * - Frequently accessed data
+ * - Data that can be rebuilt from L2/L3
+ * - Session-scoped data
+ * 
+ * Performance: <1μs read/write
+ */
+export class L1MemoryCache<T> implements CacheLayer<T> {
+  private cache = new Map<string, { value: T; expires: number }>();
+  private maxSize: number;
+  private hits = 0;
+  private misses = 0;
+
+  constructor(options: { maxSize?: number } = {}) {
+    this.maxSize = options.maxSize ?? 10000;
+  }
+
+  async get(key: string): Promise<T | null> {
+    const entry = this.cache.get(key);
+    
+    if (!entry) {
+      this.misses++;
+      return null;
+    }
+
+    if (entry.expires && entry.expires < Date.now()) {
+      this.cache.delete(key);
+      this.misses++;
+      return null;
+    }
+
+    this.hits++;
+    return entry.value;
+  }
+
+  async set(key: string, value: T, ttlSeconds = 300): Promise<void> {
+    // LRU eviction if at capacity
+    if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey) this.cache.delete(firstKey);
+    }
+
+    this.cache.set(key, {
+      value,
+      expires: Date.now() + ttlSeconds * 1000,
+    });
+  }
+
+  async delete(key: string): Promise<void> {
+    this.cache.delete(key);
+  }
+
+  async clear(): Promise<void> {
+    this.cache.clear();
+    this.hits = 0;
+    this.misses = 0;
+  }
+
+  stats(): CacheStats {
+    return {
+      hits: this.hits,
+      misses: this.misses,
+      size: this.cache.size,
+      memoryUsage: this.estimateMemoryUsage(),
+    };
+  }
+
+  private estimateMemoryUsage(): number {
+    // Rough estimate: ~1KB per entry
+    return this.cache.size * 1024;
+  }
+}
+
+/**
+ * L2 Cache: SQLite for persistence.
+ * 
+ * @description
+ * Fast local persistence. Best for:
+ * - Data that survives restarts
+ * - Larger datasets
+ * - Offline capability
+ * 
+ * Performance: <1ms read, <5ms write
+ */
+export class L2SqliteCache<T> implements CacheLayer<T> {
+  private db: any; // better-sqlite3 instance
+  private hits = 0;
+  private misses = 0;
+
+  constructor(dbPath: string) {
+    // Initialize SQLite database
+    // Implementation uses better-sqlite3 for sync operations
+  }
+
+  async get(key: string): Promise<T | null> {
+    // SELECT value, expires FROM cache WHERE key = ?
+    // Check expiration, return parsed JSON
+    return null;
+  }
+
+  async set(key: string, value: T, ttlSeconds = 3600): Promise<void> {
+    // INSERT OR REPLACE INTO cache (key, value, expires) VALUES (?, ?, ?)
+  }
+
+  async delete(key: string): Promise<void> {
+    // DELETE FROM cache WHERE key = ?
+  }
+
+  async clear(): Promise<void> {
+    // DELETE FROM cache
+  }
+
+  stats(): CacheStats {
+    return { hits: this.hits, misses: this.misses, size: 0, memoryUsage: 0 };
+  }
+}
+
+/**
+ * Multi-layer cache orchestrator.
+ * 
+ * @description
+ * Coordinates L1, L2, L3 caches with:
+ * - Read-through: L1 miss → L2 miss → L3 → populate L1/L2
+ * - Write-through: Write to all layers
+ * - Invalidation: Clear from all layers
+ */
+export class MultiLayerCache<T> {
+  constructor(
+    private l1: CacheLayer<T>,
+    private l2: CacheLayer<T>,
+    private l3Loader: (key: string) => Promise<T | null>
+  ) {}
+
+  /**
+   * Get with read-through.
+   */
+  async get(key: string): Promise<T | null> {
+    // Try L1
+    let value = await this.l1.get(key);
+    if (value !== null) {
+      return value;
+    }
+
+    // Try L2
+    value = await this.l2.get(key);
+    if (value !== null) {
+      // Populate L1
+      await this.l1.set(key, value, 300);
+      return value;
+    }
+
+    // Load from L3 (database)
+    value = await this.l3Loader(key);
+    if (value !== null) {
+      // Populate L1 and L2
+      await Promise.all([
+        this.l1.set(key, value, 300),
+        this.l2.set(key, value, 3600),
+      ]);
+    }
+
+    return value;
+  }
+
+  /**
+   * Set with write-through.
+   */
+  async set(key: string, value: T): Promise<void> {
+    await Promise.all([
+      this.l1.set(key, value, 300),
+      this.l2.set(key, value, 3600),
+    ]);
+  }
+
+  /**
+   * Invalidate across all layers.
+   */
+  async invalidate(key: string): Promise<void> {
+    await Promise.all([
+      this.l1.delete(key),
+      this.l2.delete(key),
+    ]);
+  }
+
+  /**
+   * Get combined stats.
+   */
+  stats(): { l1: CacheStats; l2: CacheStats } {
+    return {
+      l1: this.l1.stats(),
+      l2: this.l2.stats(),
+    };
+  }
+}
+
+/**
+ * Cache key patterns for consistency.
+ */
+export const CACHE_KEYS = {
+  // User data
+  user: (id: string) => `user:${id}`,
+  userByDiscord: (discordId: string) => `user:discord:${discordId}`,
+  
+  // Pokemon data
+  pokemon: (id: string) => `pokemon:${id}`,
+  pokemonByTrainer: (trainerId: string) => `pokemon:trainer:${trainerId}`,
+  party: (trainerId: string) => `party:${trainerId}`,
+  
+  // Static data
+  species: (id: number) => `species:${id}`,
+  move: (id: number) => `move:${id}`,
+  typeChart: () => "type:chart",
+  
+  // Battle data
+  battle: (id: string) => `battle:${id}`,
+  activeBattles: () => "battles:active",
+  
+  // Computed/aggregate
+  leaderboard: (type: string) => `leaderboard:${type}`,
+  dailyStats: (date: string) => `stats:daily:${date}`,
+} as const;
+
+/**
+ * Cache TTL configuration by data type.
+ */
+export const CACHE_TTL = {
+  // User data: Short TTL, frequent changes
+  user: 60,           // 1 minute
+  party: 30,          // 30 seconds
+  
+  // Pokemon data: Medium TTL
+  pokemon: 300,       // 5 minutes
+  
+  // Static data: Long TTL
+  species: 86400,     // 24 hours
+  move: 86400,        // 24 hours
+  typeChart: 86400,   // 24 hours
+  
+  // Battle data: Very short TTL
+  battle: 10,         // 10 seconds
+  activeBattles: 5,   // 5 seconds
+  
+  // Computed: Medium TTL
+  leaderboard: 300,   // 5 minutes
+  dailyStats: 3600,   // 1 hour
+} as const;
+```
+
+#### 2.3 Read Replica Planning
+
+```typescript
+// ===== FILE: src/shared/database/read-replica.ts =====
+
+/**
+ * Read replica strategy for scaling read-heavy workloads.
+ * 
+ * @description
+ * Current: Single primary database
+ * Future: Primary + N read replicas for horizontal scaling
+ * 
+ * Read replicas handle:
+ * - Leaderboard queries
+ * - Search operations
+ * - Analytics/reporting
+ * - Pokedex lookups
+ * 
+ * Primary handles:
+ * - All writes (battles, catches, trades)
+ * - Transactional reads (battle state)
+ */
+
+import { PrismaClient } from "@prisma/client";
+
+/**
+ * Database routing configuration.
+ */
+export interface DatabaseRoutingConfig {
+  primary: {
+    url: string;
+    maxConnections: number;
+  };
+  replicas: {
+    url: string;
+    maxConnections: number;
+    weight: number; // For load balancing
+  }[];
+  routing: {
+    readFromReplica: boolean;
+    replicaLagThreshold: number; // Max acceptable lag in ms
+  };
+}
+
+/**
+ * Query router for primary/replica selection.
+ */
+export class QueryRouter {
+  private primary: PrismaClient;
+  private replicas: PrismaClient[] = [];
+  private currentReplicaIndex = 0;
+
+  constructor(config: DatabaseRoutingConfig) {
+    this.primary = new PrismaClient({
+      datasources: { db: { url: config.primary.url } },
+    });
+
+    for (const replica of config.replicas) {
+      this.replicas.push(new PrismaClient({
+        datasources: { db: { url: replica.url } },
+      }));
+    }
+  }
+
+  /**
+   * Get client for write operations (always primary).
+   */
+  getWriteClient(): PrismaClient {
+    return this.primary;
+  }
+
+  /**
+   * Get client for read operations (primary or replica).
+   */
+  getReadClient(options: { requireFresh?: boolean } = {}): PrismaClient {
+    // If fresh data required or no replicas, use primary
+    if (options.requireFresh || this.replicas.length === 0) {
+      return this.primary;
+    }
+
+    // Round-robin replica selection
+    const replica = this.replicas[this.currentReplicaIndex];
+    this.currentReplicaIndex = (this.currentReplicaIndex + 1) % this.replicas.length;
+    return replica;
+  }
+
+  /**
+   * Execute read query with automatic routing.
+   */
+  async read<T>(
+    operation: (client: PrismaClient) => Promise<T>,
+    options: { requireFresh?: boolean } = {}
+  ): Promise<T> {
+    const client = this.getReadClient(options);
+    return operation(client);
+  }
+
+  /**
+   * Execute write query (always on primary).
+   */
+  async write<T>(
+    operation: (client: PrismaClient) => Promise<T>
+  ): Promise<T> {
+    return operation(this.primary);
+  }
+
+  /**
+   * Execute transaction (always on primary).
+   */
+  async transaction<T>(
+    operation: (tx: PrismaClient) => Promise<T>
+  ): Promise<T> {
+    return this.primary.$transaction(operation);
+  }
+}
+
+/**
+ * Decorator for read operations that can use replicas.
+ * 
+ * @example
+ * class PokemonService {
+ *   @ReadFromReplica()
+ *   async getPokedex() { ... }
+ *   
+ *   @ReadFromReplica({ requireFresh: true })
+ *   async getBattleState() { ... }
+ * }
+ */
+export function ReadFromReplica(options: { requireFresh?: boolean } = {}) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ) {
+    const originalMethod = descriptor.value;
+    
+    descriptor.value = async function (this: any, ...args: any[]) {
+      const router = this.queryRouter as QueryRouter;
+      const client = router.getReadClient(options);
+      
+      // Inject client into method context
+      return originalMethod.apply({ ...this, prisma: client }, args);
+    };
+    
+    return descriptor;
+  };
+}
+
+/**
+ * Operations that should always use primary (fresh data required).
+ */
+export const FRESH_READ_OPERATIONS = [
+  "getBattleState",
+  "getActiveBattle",
+  "getPartyForBattle",
+  "getEncounterState",
+  "getTradeState",
+] as const;
+
+/**
+ * Operations safe for replica reads (can tolerate slight lag).
+ */
+export const REPLICA_SAFE_OPERATIONS = [
+  "getPokedex",
+  "getLeaderboard",
+  "searchPokemon",
+  "getPlayerStats",
+  "getSpeciesInfo",
+  "getMoveInfo",
+  "getTypeChart",
+] as const;
+```
+
+#### 2.4 Query Performance Optimization
+
+```typescript
+// ===== FILE: src/shared/database/query-optimizer.ts =====
+
+/**
+ * Query performance optimization utilities.
+ * 
+ * @description
+ * Tools for identifying and fixing slow queries:
+ * - Query analysis with EXPLAIN ANALYZE
+ * - Index recommendations
+ * - Query rewriting suggestions
+ */
+
+import { prisma } from "@shared/prisma.js";
+import { logger } from "@shared/utils/logger.js";
+
+/**
+ * Query execution plan analysis.
+ */
+export interface QueryPlan {
+  query: string;
+  plan: any;
+  executionTime: number;
+  planningTime: number;
+  recommendations: string[];
+}
+
+/**
+ * Analyzes query execution plan.
+ */
+export async function analyzeQuery(query: string): Promise<QueryPlan> {
+  const result = await prisma.$queryRawUnsafe<any[]>(
+    `EXPLAIN (ANALYZE, COSTS, VERBOSE, BUFFERS, FORMAT JSON) ${query}`
+  );
+
+  const plan = result[0]["QUERY PLAN"][0];
+  const recommendations: string[] = [];
+
+  // Analyze plan for issues
+  analyzeNodeRecursive(plan.Plan, recommendations);
+
+  return {
+    query,
+    plan: plan.Plan,
+    executionTime: plan["Execution Time"],
+    planningTime: plan["Planning Time"],
+    recommendations,
+  };
+}
+
+/**
+ * Recursively analyzes plan nodes for optimization opportunities.
+ */
+function analyzeNodeRecursive(node: any, recommendations: string[]): void {
+  // Check for sequential scans on large tables
+  if (node["Node Type"] === "Seq Scan" && node["Actual Rows"] > 1000) {
+    recommendations.push(
+      `Sequential scan on ${node["Relation Name"]} returned ${node["Actual Rows"]} rows. ` +
+      `Consider adding index on filter columns.`
+    );
+  }
+
+  // Check for nested loop with high row counts
+  if (node["Node Type"] === "Nested Loop" && node["Actual Rows"] > 10000) {
+    recommendations.push(
+      `Nested loop join produced ${node["Actual Rows"]} rows. ` +
+      `Consider hash join or adding indexes.`
+    );
+  }
+
+  // Check for sorts without index
+  if (node["Node Type"] === "Sort" && node["Sort Method"]?.includes("external")) {
+    recommendations.push(
+      `External sort detected (spilling to disk). ` +
+      `Consider adding index to avoid sort or increasing work_mem.`
+    );
+  }
+
+  // Check for hash aggregates with high memory
+  if (node["Node Type"] === "HashAggregate" && node["Peak Memory Usage"] > 10000) {
+    recommendations.push(
+      `Hash aggregate using ${node["Peak Memory Usage"]}kB. ` +
+      `Consider increasing work_mem or restructuring query.`
+    );
+  }
+
+  // Recurse into child nodes
+  if (node.Plans) {
+    for (const child of node.Plans) {
+      analyzeNodeRecursive(child, recommendations);
+    }
+  }
+}
+
+/**
+ * Query rewriter for common optimizations.
+ */
+export const QUERY_REWRITES = {
+  /**
+   * Replace COUNT(*) with estimate for large tables.
+   */
+  useCountEstimate: (tableName: string) => `
+    SELECT reltuples::bigint AS count
+    FROM pg_class
+    WHERE relname = '${tableName}'
+  `,
+
+  /**
+   * Replace IN with EXISTS for better performance.
+   */
+  inToExists: (originalQuery: string) => {
+    // Pattern: WHERE column IN (SELECT ...)
+    // Rewrite: WHERE EXISTS (SELECT 1 FROM ... WHERE ...)
+    return originalQuery; // Would need actual implementation
+  },
+
+  /**
+   * Add covering columns to avoid table lookup.
+   */
+  suggestCoveringIndex: (columns: string[], includeColumns: string[]) => {
+    return `CREATE INDEX idx_covering ON table(${columns.join(", ")}) ` +
+           `INCLUDE (${includeColumns.join(", ")})`;
+  },
+};
+
+/**
+ * Performance profiler for tracking query times.
+ */
+export class QueryProfiler {
+  private queries: Map<string, {
+    count: number;
+    totalTime: number;
+    maxTime: number;
+    avgTime: number;
+  }> = new Map();
+
+  /**
+   * Records query execution time.
+   */
+  record(query: string, timeMs: number): void {
+    const normalized = this.normalizeQuery(query);
+    const existing = this.queries.get(normalized) || {
+      count: 0,
+      totalTime: 0,
+      maxTime: 0,
+      avgTime: 0,
+    };
+
+    existing.count++;
+    existing.totalTime += timeMs;
+    existing.maxTime = Math.max(existing.maxTime, timeMs);
+    existing.avgTime = existing.totalTime / existing.count;
+
+    this.queries.set(normalized, existing);
+  }
+
+  /**
+   * Gets slowest queries.
+   */
+  getSlowest(limit = 10): Array<{
+    query: string;
+    count: number;
+    avgTime: number;
+    maxTime: number;
+  }> {
+    return Array.from(this.queries.entries())
+      .map(([query, stats]) => ({ query, ...stats }))
+      .sort((a, b) => b.avgTime - a.avgTime)
+      .slice(0, limit);
+  }
+
+  /**
+   * Normalizes query for grouping.
+   */
+  private normalizeQuery(query: string): string {
+    return query
+      .replace(/\s+/g, " ")
+      .replace(/'[^']*'/g, "?")
+      .replace(/\d+/g, "?")
+      .trim()
+      .substring(0, 200);
+  }
+}
+
+/**
+ * Prisma middleware for query profiling.
+ */
+export function createQueryProfilingMiddleware(profiler: QueryProfiler) {
+  return async (params: any, next: any) => {
+    const start = performance.now();
+    const result = await next(params);
+    const duration = performance.now() - start;
+
+    const query = `${params.model}.${params.action}`;
+    profiler.record(query, duration);
+
+    if (duration > 100) {
+      logger.warn(
+        { query, duration, args: params.args },
+        "Slow query detected"
+      );
+    }
+
+    return result;
+  };
+}
+```
+
+#### 2.5 Latency Targets & SLOs
+
+```typescript
+// ===== FILE: src/shared/database/slo.ts =====
+
+/**
+ * Service Level Objectives for database operations.
+ * 
+ * @description
+ * Defines latency targets and availability requirements.
+ * All database operations must meet these SLOs.
+ */
+
+/**
+ * Latency SLOs by operation type.
+ */
+export const LATENCY_SLOS = {
+  // Cache operations (L1 in-memory)
+  cacheRead: {
+    p50: 0.001,    // 1μs
+    p95: 0.01,     // 10μs
+    p99: 0.1,      // 100μs
+    max: 1,        // 1ms
+  },
+  
+  // Cache write
+  cacheWrite: {
+    p50: 0.001,    // 1μs
+    p95: 0.01,     // 10μs
+    p99: 0.1,      // 100μs
+    max: 1,        // 1ms
+  },
+  
+  // Database read (with cache miss)
+  dbRead: {
+    p50: 5,        // 5ms
+    p95: 20,       // 20ms
+    p99: 50,       // 50ms
+    max: 100,      // 100ms
+  },
+  
+  // Database write
+  dbWrite: {
+    p50: 10,       // 10ms
+    p95: 30,       // 30ms
+    p99: 50,       // 50ms
+    max: 100,      // 100ms
+  },
+  
+  // Transaction (multi-statement)
+  dbTransaction: {
+    p50: 20,       // 20ms
+    p95: 50,       // 50ms
+    p99: 100,      // 100ms
+    max: 500,      // 500ms
+  },
+  
+  // Complex query (joins, aggregates)
+  dbComplexQuery: {
+    p50: 50,       // 50ms
+    p95: 200,      // 200ms
+    p99: 500,      // 500ms
+    max: 1000,     // 1s
+  },
+} as const;
+
+/**
+ * Availability SLOs.
+ */
+export const AVAILABILITY_SLOS = {
+  // Database must be available 99.9% of time
+  database: 0.999,
+  
+  // Cache can have slightly lower availability
+  cache: 0.99,
+  
+  // Read replicas can have lower availability
+  replica: 0.99,
+} as const;
+
+/**
+ * Throughput SLOs (requests per second).
+ */
+export const THROUGHPUT_SLOS = {
+  // Read operations
+  dbReads: 1000,      // 1000 reads/sec sustained
+  cacheReads: 10000,  // 10000 cache reads/sec
+  
+  // Write operations
+  dbWrites: 500,      // 500 writes/sec sustained
+  cacheWrites: 5000,  // 5000 cache writes/sec
+  
+  // Peak handling
+  peakMultiplier: 3,  // Handle 3x sustained for bursts
+} as const;
+
+/**
+ * SLO monitoring and alerting.
+ */
+export class SLOMonitor {
+  private measurements: Map<string, number[]> = new Map();
+
+  /**
+   * Records a measurement.
+   */
+  record(operation: keyof typeof LATENCY_SLOS, latencyMs: number): void {
+    const key = operation;
+    if (!this.measurements.has(key)) {
+      this.measurements.set(key, []);
+    }
+    
+    const measurements = this.measurements.get(key)!;
+    measurements.push(latencyMs);
+    
+    // Keep last 1000 measurements
+    if (measurements.length > 1000) {
+      measurements.shift();
+    }
+  }
+
+  /**
+   * Calculates percentile from measurements.
+   */
+  getPercentile(operation: keyof typeof LATENCY_SLOS, percentile: number): number {
+    const measurements = this.measurements.get(operation) || [];
+    if (measurements.length === 0) return 0;
+    
+    const sorted = [...measurements].sort((a, b) => a - b);
+    const index = Math.ceil((percentile / 100) * sorted.length) - 1;
+    return sorted[Math.max(0, index)];
+  }
+
+  /**
+   * Checks if operation is meeting SLOs.
+   */
+  checkSLO(operation: keyof typeof LATENCY_SLOS): {
+    meeting: boolean;
+    violations: string[];
+  } {
+    const slo = LATENCY_SLOS[operation];
+    const violations: string[] = [];
+
+    const p50 = this.getPercentile(operation, 50);
+    const p95 = this.getPercentile(operation, 95);
+    const p99 = this.getPercentile(operation, 99);
+
+    if (p50 > slo.p50) violations.push(`p50: ${p50}ms > ${slo.p50}ms`);
+    if (p95 > slo.p95) violations.push(`p95: ${p95}ms > ${slo.p95}ms`);
+    if (p99 > slo.p99) violations.push(`p99: ${p99}ms > ${slo.p99}ms`);
+
+    return {
+      meeting: violations.length === 0,
+      violations,
+    };
+  }
+
+  /**
+   * Gets full SLO report.
+   */
+  getReport(): Record<string, {
+    p50: number;
+    p95: number;
+    p99: number;
+    meeting: boolean;
+  }> {
+    const report: Record<string, any> = {};
+
+    for (const operation of Object.keys(LATENCY_SLOS)) {
+      const op = operation as keyof typeof LATENCY_SLOS;
+      const check = this.checkSLO(op);
+      
+      report[operation] = {
+        p50: this.getPercentile(op, 50),
+        p95: this.getPercentile(op, 95),
+        p99: this.getPercentile(op, 99),
+        meeting: check.meeting,
+      };
+    }
+
+    return report;
+  }
+}
+```
+
+#### Performance Specialist Recommendations
+
+| Area | Recommendation | Priority | Impact |
+|------|---------------|----------|--------|
+| **Pooling** | Configure Prisma pool to 12 connections/service | P0 | Prevents connection exhaustion |
+| **L1 Cache** | Deploy in-memory cache for hot data | P0 | <1μs reads for 80% of queries |
+| **L2 Cache** | Add SQLite for persistence + larger capacity | P1 | Survives restarts |
+| **Query Profiling** | Deploy profiling middleware | P1 | Identifies slow queries |
+| **SLO Monitoring** | Track p50/p95/p99 latencies | P1 | Proactive performance management |
+| **Read Replicas** | Plan for future horizontal scaling | P3 | 10x read capacity |
+
+---
+
 ## Change Log
 
 | Date | Change |
@@ -7817,3 +8841,4 @@ export async function getTableBloat(): Promise<{
 | 2025-12-03 | Added Agile Review Session #3 Part 4-6 (Quality Enforcement, Knowledge Transfer, Master Checklist) |
 | 2025-12-03 | FINAL REVIEW COMPLETE — Architecture ready for implementation |
 | 2025-12-03 | Added Specialist Deep Dive Part 1: Database Specialist (PostgreSQL tuning, TimescaleDB, indexes, query patterns, health monitoring) |
+| 2025-12-03 | Added Specialist Deep Dive Part 2: Performance Specialist (connection pooling, multi-layer caching, read replicas, query optimization, SLOs) |
