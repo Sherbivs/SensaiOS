@@ -6701,6 +6701,1108 @@ After three comprehensive reviews, the architecture is designed for:
 
 ---
 
+## Specialist Deep Dive Series: Database at the Heart
+
+> **Purpose:** Each specialist team dives deep into their domain to centralize databases at the heart of the application, enhance systems around them, and plan future optimizations.
+> 
+> **Series Format:** 7 parts, each focusing on one specialist's domain expertise
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    DATABASE-CENTRIC SPECIALIST SERIES                        │
+│                                                                              │
+│                         ┌─────────────────┐                                  │
+│                         │   PostgreSQL    │                                  │
+│                         │   TimescaleDB   │                                  │
+│                         │   (THE HEART)   │                                  │
+│                         └────────┬────────┘                                  │
+│                                  │                                           │
+│        ┌─────────────────────────┼─────────────────────────┐                 │
+│        │                         │                         │                 │
+│        ▼                         ▼                         ▼                 │
+│  ┌──────────┐             ┌──────────┐             ┌──────────┐             │
+│  │ Database │             │  Perf    │             │ Security │             │
+│  │Specialist│             │Specialist│             │Specialist│             │
+│  │  Part 1  │             │  Part 2  │             │  Part 3  │             │
+│  └──────────┘             └──────────┘             └──────────┘             │
+│        │                         │                         │                 │
+│        ▼                         ▼                         ▼                 │
+│  ┌──────────┐             ┌──────────┐             ┌──────────┐             │
+│  │  Arch    │             │  DevOps  │             │ Testing  │             │
+│  │Specialist│             │Specialist│             │Specialist│             │
+│  │  Part 4  │             │  Part 5  │             │  Part 6  │             │
+│  └──────────┘             └──────────┘             └──────────┘             │
+│        │                         │                         │                 │
+│        └─────────────────────────┼─────────────────────────┘                 │
+│                                  ▼                                           │
+│                         ┌─────────────────┐                                  │
+│                         │  Future Roadmap │                                  │
+│                         │     Part 7      │                                  │
+│                         └─────────────────┘                                  │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🗄️ Part 1: Database Specialist Deep Dive
+
+**Specialist:** Database Specialist  
+**Focus:** PostgreSQL optimization, TimescaleDB tuning, query performance, schema design excellence  
+**Goal:** Make the database the most robust, performant, and maintainable component
+
+#### 1.1 PostgreSQL Configuration Optimization
+
+```sql
+-- ===== FILE: prisma/postgres-tuning.sql =====
+-- Production PostgreSQL tuning for Pokemon Infinity Gauntlet
+-- Apply via: psql $DATABASE_URL -f prisma/postgres-tuning.sql
+
+-- ============================================
+-- MEMORY CONFIGURATION
+-- ============================================
+
+-- Shared buffers: 25% of RAM (Render Standard: 2GB RAM → 512MB)
+ALTER SYSTEM SET shared_buffers = '512MB';
+
+-- Effective cache size: 75% of RAM (helps query planner)
+ALTER SYSTEM SET effective_cache_size = '1536MB';
+
+-- Work mem: For complex sorts/joins (per operation)
+-- Conservative: total connections * work_mem < RAM
+ALTER SYSTEM SET work_mem = '16MB';
+
+-- Maintenance work mem: For VACUUM, CREATE INDEX
+ALTER SYSTEM SET maintenance_work_mem = '128MB';
+
+-- ============================================
+-- WRITE-AHEAD LOG (WAL)
+-- ============================================
+
+-- WAL level for replication readiness
+ALTER SYSTEM SET wal_level = 'replica';
+
+-- Checkpoint settings for consistent write performance
+ALTER SYSTEM SET checkpoint_completion_target = 0.9;
+ALTER SYSTEM SET checkpoint_timeout = '10min';
+
+-- WAL buffers: 3% of shared_buffers
+ALTER SYSTEM SET wal_buffers = '16MB';
+
+-- ============================================
+-- QUERY PLANNER
+-- ============================================
+
+-- Random page cost: Lower for SSDs (Render uses SSDs)
+ALTER SYSTEM SET random_page_cost = 1.1;
+
+-- Effective IO concurrency: Higher for SSDs
+ALTER SYSTEM SET effective_io_concurrency = 200;
+
+-- Enable parallel query execution
+ALTER SYSTEM SET max_parallel_workers_per_gather = 2;
+ALTER SYSTEM SET max_parallel_workers = 4;
+
+-- ============================================
+-- CONNECTION MANAGEMENT
+-- ============================================
+
+-- Max connections (Render manages this, but document target)
+-- Target: 100 connections with pgBouncer pooling
+ALTER SYSTEM SET max_connections = 100;
+
+-- Statement timeout: Prevent runaway queries
+ALTER SYSTEM SET statement_timeout = '30s';
+
+-- Lock timeout: Prevent deadlocks from holding too long
+ALTER SYSTEM SET lock_timeout = '10s';
+
+-- Idle transaction timeout: Close abandoned transactions
+ALTER SYSTEM SET idle_in_transaction_session_timeout = '60s';
+
+-- ============================================
+-- LOGGING FOR DIAGNOSTICS
+-- ============================================
+
+-- Log slow queries (> 1 second)
+ALTER SYSTEM SET log_min_duration_statement = 1000;
+
+-- Log lock waits
+ALTER SYSTEM SET log_lock_waits = on;
+
+-- Log temp file usage (indicates need for more work_mem)
+ALTER SYSTEM SET log_temp_files = 0;
+
+-- ============================================
+-- AUTOVACUUM TUNING
+-- ============================================
+
+-- More aggressive autovacuum for high-write tables
+ALTER SYSTEM SET autovacuum_vacuum_scale_factor = 0.1;
+ALTER SYSTEM SET autovacuum_analyze_scale_factor = 0.05;
+
+-- More autovacuum workers for parallel cleanup
+ALTER SYSTEM SET autovacuum_max_workers = 4;
+
+-- Reduce autovacuum delay for faster cleanup
+ALTER SYSTEM SET autovacuum_vacuum_cost_delay = '2ms';
+
+-- Reload configuration
+SELECT pg_reload_conf();
+```
+
+#### 1.2 TimescaleDB Hypertable Optimization
+
+```sql
+-- ===== FILE: prisma/timescale-optimization.sql =====
+-- TimescaleDB optimization for time-series data
+-- Focus: Battle logs, metrics, audit trails
+
+-- ============================================
+-- HYPERTABLE CONFIGURATION
+-- ============================================
+
+-- Battle logs hypertable with optimal chunk size
+-- Chunk interval: 1 day (balances query perf vs chunk count)
+SELECT create_hypertable(
+  'BattleLog',
+  'timestamp',
+  chunk_time_interval => INTERVAL '1 day',
+  if_not_exists => TRUE
+);
+
+-- Metrics hypertable with shorter chunks for faster queries
+SELECT create_hypertable(
+  'SystemMetric', 
+  'timestamp',
+  chunk_time_interval => INTERVAL '1 hour',
+  if_not_exists => TRUE
+);
+
+-- Audit log hypertable
+SELECT create_hypertable(
+  'AuditLog',
+  'timestamp', 
+  chunk_time_interval => INTERVAL '1 day',
+  if_not_exists => TRUE
+);
+
+-- ============================================
+-- COMPRESSION POLICIES
+-- ============================================
+
+-- Enable compression on battle logs after 7 days
+-- Compression ratio: typically 90-95% space savings
+ALTER TABLE "BattleLog" SET (
+  timescaledb.compress,
+  timescaledb.compress_segmentby = 'battle_id',
+  timescaledb.compress_orderby = 'timestamp DESC'
+);
+
+SELECT add_compression_policy(
+  'BattleLog',
+  INTERVAL '7 days',
+  if_not_exists => TRUE
+);
+
+-- Compress metrics after 1 day (high volume, query recent only)
+ALTER TABLE "SystemMetric" SET (
+  timescaledb.compress,
+  timescaledb.compress_segmentby = 'metric_name',
+  timescaledb.compress_orderby = 'timestamp DESC'
+);
+
+SELECT add_compression_policy(
+  'SystemMetric',
+  INTERVAL '1 day',
+  if_not_exists => TRUE
+);
+
+-- Compress audit logs after 30 days
+ALTER TABLE "AuditLog" SET (
+  timescaledb.compress,
+  timescaledb.compress_segmentby = 'user_id',
+  timescaledb.compress_orderby = 'timestamp DESC'
+);
+
+SELECT add_compression_policy(
+  'AuditLog',
+  INTERVAL '30 days',
+  if_not_exists => TRUE
+);
+
+-- ============================================
+-- RETENTION POLICIES
+-- ============================================
+
+-- Drop battle log chunks older than 90 days
+SELECT add_retention_policy(
+  'BattleLog',
+  INTERVAL '90 days',
+  if_not_exists => TRUE
+);
+
+-- Drop metrics older than 30 days
+SELECT add_retention_policy(
+  'SystemMetric',
+  INTERVAL '30 days',
+  if_not_exists => TRUE
+);
+
+-- Keep audit logs for 1 year (compliance)
+SELECT add_retention_policy(
+  'AuditLog',
+  INTERVAL '365 days',
+  if_not_exists => TRUE
+);
+
+-- ============================================
+-- CONTINUOUS AGGREGATES
+-- ============================================
+
+-- Hourly battle statistics (pre-computed rollups)
+CREATE MATERIALIZED VIEW battle_stats_hourly
+WITH (timescaledb.continuous) AS
+SELECT
+  time_bucket('1 hour', timestamp) AS bucket,
+  COUNT(*) AS total_battles,
+  COUNT(DISTINCT winner_id) AS unique_winners,
+  AVG(duration_seconds) AS avg_duration,
+  COUNT(*) FILTER (WHERE forfeit = true) AS forfeits
+FROM "BattleLog"
+GROUP BY bucket
+WITH NO DATA;
+
+-- Refresh policy: Update hourly aggregates every 30 minutes
+SELECT add_continuous_aggregate_policy(
+  'battle_stats_hourly',
+  start_offset => INTERVAL '3 hours',
+  end_offset => INTERVAL '1 hour',
+  schedule_interval => INTERVAL '30 minutes',
+  if_not_exists => TRUE
+);
+
+-- Daily player activity rollups
+CREATE MATERIALIZED VIEW player_activity_daily
+WITH (timescaledb.continuous) AS
+SELECT
+  time_bucket('1 day', timestamp) AS bucket,
+  user_id,
+  COUNT(*) AS actions,
+  COUNT(DISTINCT action_type) AS unique_actions
+FROM "AuditLog"
+GROUP BY bucket, user_id
+WITH NO DATA;
+
+SELECT add_continuous_aggregate_policy(
+  'player_activity_daily',
+  start_offset => INTERVAL '3 days',
+  end_offset => INTERVAL '1 day',
+  schedule_interval => INTERVAL '1 hour',
+  if_not_exists => TRUE
+);
+
+-- ============================================
+-- CHUNK MANAGEMENT UTILITIES
+-- ============================================
+
+-- View chunk information
+CREATE OR REPLACE VIEW chunk_info AS
+SELECT
+  hypertable_name,
+  chunk_name,
+  range_start,
+  range_end,
+  is_compressed,
+  pg_size_pretty(total_bytes) AS size
+FROM timescaledb_information.chunks
+ORDER BY hypertable_name, range_start DESC;
+
+-- Manual compression for specific time range
+CREATE OR REPLACE FUNCTION compress_chunks_in_range(
+  p_table TEXT,
+  p_start TIMESTAMPTZ,
+  p_end TIMESTAMPTZ
+) RETURNS INTEGER AS $$
+DECLARE
+  chunk_count INTEGER := 0;
+  chunk_record RECORD;
+BEGIN
+  FOR chunk_record IN
+    SELECT chunk_name
+    FROM timescaledb_information.chunks
+    WHERE hypertable_name = p_table
+      AND range_start >= p_start
+      AND range_end <= p_end
+      AND NOT is_compressed
+  LOOP
+    PERFORM compress_chunk(chunk_record.chunk_name);
+    chunk_count := chunk_count + 1;
+  END LOOP;
+  
+  RETURN chunk_count;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+#### 1.3 Advanced Indexing Strategy
+
+```sql
+-- ===== FILE: prisma/indexes-optimization.sql =====
+-- Advanced indexing for query performance
+-- Strategy: Cover common queries, use partial indexes, maintain balance
+
+-- ============================================
+-- USER LOOKUP INDEXES
+-- ============================================
+
+-- Primary user lookup by Discord ID (most common)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_discord_id 
+ON "User"(discord_id);
+
+-- Active users only (partial index for smaller size)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_active 
+ON "User"(discord_id) 
+WHERE is_active = true;
+
+-- User search by username (case-insensitive)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_username_lower 
+ON "User"(LOWER(username));
+
+-- ============================================
+-- POKEMON/MONSTER INDEXES
+-- ============================================
+
+-- Pokemon by trainer (for party/storage queries)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_pokemon_trainer 
+ON "Pokemon"(trainer_id);
+
+-- Pokemon by species (for Pokedex queries)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_pokemon_species 
+ON "Pokemon"(species_id);
+
+-- Pokemon in party (partial index, small subset)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_pokemon_in_party 
+ON "Pokemon"(trainer_id, party_position) 
+WHERE party_position IS NOT NULL;
+
+-- Composite index for storage box queries
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_pokemon_storage 
+ON "Pokemon"(trainer_id, storage_box, storage_position) 
+WHERE storage_box IS NOT NULL;
+
+-- ============================================
+-- BATTLE INDEXES
+-- ============================================
+
+-- Active battles (partial index)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_battle_active 
+ON "Battle"(created_at DESC) 
+WHERE status = 'ACTIVE';
+
+-- Battles by participant
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_battle_challenger 
+ON "Battle"(challenger_id, created_at DESC);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_battle_defender 
+ON "Battle"(defender_id, created_at DESC);
+
+-- Composite for "my battles" query
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_battle_participant 
+ON "Battle"(challenger_id, defender_id, status, created_at DESC);
+
+-- ============================================
+-- ENCOUNTER INDEXES
+-- ============================================
+
+-- Recent encounters by user
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_encounter_user_recent 
+ON "Encounter"(user_id, created_at DESC);
+
+-- Active encounters only
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_encounter_active 
+ON "Encounter"(user_id) 
+WHERE status = 'ACTIVE';
+
+-- Encounters by area (for spawn queries)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_encounter_area 
+ON "Encounter"(area_id, created_at DESC);
+
+-- ============================================
+-- TIMESCALEDB-SPECIFIC INDEXES
+-- ============================================
+
+-- Battle log lookup by battle ID (across chunks)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_battlelog_battle 
+ON "BattleLog"(battle_id, timestamp DESC);
+
+-- Audit log by user (for user history)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_auditlog_user 
+ON "AuditLog"(user_id, timestamp DESC);
+
+-- Metrics by name for dashboard queries
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_metric_name 
+ON "SystemMetric"(metric_name, timestamp DESC);
+
+-- ============================================
+-- COVERING INDEXES (Include columns)
+-- ============================================
+
+-- User lookup with commonly needed fields (index-only scan)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_lookup_covering 
+ON "User"(discord_id) 
+INCLUDE (username, is_active, created_at);
+
+-- Pokemon list with display fields
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_pokemon_list_covering 
+ON "Pokemon"(trainer_id, party_position) 
+INCLUDE (species_id, nickname, level, current_hp);
+
+-- ============================================
+-- INDEX MAINTENANCE
+-- ============================================
+
+-- View index usage statistics
+CREATE OR REPLACE VIEW index_usage_stats AS
+SELECT
+  schemaname,
+  tablename,
+  indexname,
+  idx_scan AS times_used,
+  idx_tup_read AS rows_read,
+  idx_tup_fetch AS rows_fetched,
+  pg_size_pretty(pg_relation_size(indexrelid)) AS size
+FROM pg_stat_user_indexes
+ORDER BY idx_scan DESC;
+
+-- Find unused indexes (candidates for removal)
+CREATE OR REPLACE VIEW unused_indexes AS
+SELECT
+  schemaname,
+  tablename,
+  indexname,
+  pg_size_pretty(pg_relation_size(indexrelid)) AS size
+FROM pg_stat_user_indexes
+WHERE idx_scan = 0
+  AND indexrelname NOT LIKE 'pg_%'
+  AND indexrelname NOT LIKE '%_pkey'
+ORDER BY pg_relation_size(indexrelid) DESC;
+
+-- Find duplicate indexes
+CREATE OR REPLACE VIEW duplicate_indexes AS
+SELECT
+  a.indexrelid::regclass AS index1,
+  b.indexrelid::regclass AS index2,
+  a.indrelid::regclass AS table_name
+FROM pg_index a
+JOIN pg_index b ON a.indrelid = b.indrelid
+  AND a.indexrelid < b.indexrelid
+  AND a.indkey = b.indkey;
+```
+
+#### 1.4 Query Optimization Patterns
+
+```typescript
+// ===== FILE: src/shared/database/query-patterns.ts =====
+
+/**
+ * Database query optimization patterns.
+ * 
+ * @description
+ * Standardized query patterns that leverage indexes,
+ * minimize round trips, and optimize for common use cases.
+ */
+
+import { Prisma } from "@prisma/client";
+
+/**
+ * Pagination cursor pattern (faster than offset).
+ * 
+ * @description
+ * Cursor-based pagination is O(1) vs O(n) for offset.
+ * Always use for lists that can grow large.
+ * 
+ * @example
+ * const { items, nextCursor } = await paginateWithCursor(
+ *   prisma.pokemon,
+ *   { trainerId: "123" },
+ *   { cursor: lastId, take: 20 }
+ * );
+ */
+export interface CursorPaginationOptions {
+  cursor?: string;
+  take?: number;
+  orderBy?: string;
+  orderDirection?: "asc" | "desc";
+}
+
+export interface CursorPaginationResult<T> {
+  items: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export async function paginateWithCursor<T extends { id: string }>(
+  model: any,
+  where: Record<string, any>,
+  options: CursorPaginationOptions = {}
+): Promise<CursorPaginationResult<T>> {
+  const { cursor, take = 20, orderBy = "id", orderDirection = "desc" } = options;
+  
+  const items = await model.findMany({
+    where,
+    take: take + 1, // Fetch one extra to check for more
+    cursor: cursor ? { id: cursor } : undefined,
+    skip: cursor ? 1 : 0, // Skip the cursor item
+    orderBy: { [orderBy]: orderDirection },
+  });
+
+  const hasMore = items.length > take;
+  if (hasMore) items.pop(); // Remove the extra item
+
+  return {
+    items,
+    nextCursor: hasMore ? items[items.length - 1]?.id : null,
+    hasMore,
+  };
+}
+
+/**
+ * Batch loading pattern (N+1 prevention).
+ * 
+ * @description
+ * Load related data in batches instead of per-item queries.
+ * Uses DataLoader pattern internally.
+ * 
+ * @example
+ * const pokemonWithMoves = await batchLoadRelated(
+ *   pokemon,
+ *   "moves",
+ *   (ids) => prisma.move.findMany({ where: { pokemonId: { in: ids } } })
+ * );
+ */
+export async function batchLoadRelated<T extends { id: string }, R>(
+  items: T[],
+  relationKey: string,
+  loader: (ids: string[]) => Promise<R[]>,
+  foreignKey: keyof R = "pokemonId" as keyof R
+): Promise<(T & { [K in typeof relationKey]: R[] })[]> {
+  const ids = items.map((item) => item.id);
+  const related = await loader(ids);
+  
+  // Group related items by foreign key
+  const grouped = new Map<string, R[]>();
+  for (const item of related) {
+    const key = String(item[foreignKey]);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(item);
+  }
+  
+  // Attach to original items
+  return items.map((item) => ({
+    ...item,
+    [relationKey]: grouped.get(item.id) || [],
+  })) as any;
+}
+
+/**
+ * Selective field loading (reduce transfer size).
+ * 
+ * @description
+ * Only select fields that will be used.
+ * Reduces memory and network overhead.
+ * 
+ * @example
+ * const users = await selectFields(prisma.user, {
+ *   where: { isActive: true },
+ *   fields: ["id", "username", "discordId"],
+ * });
+ */
+export interface SelectiveQueryOptions<T> {
+  where?: Record<string, any>;
+  fields: (keyof T)[];
+  take?: number;
+  orderBy?: Record<string, "asc" | "desc">;
+}
+
+export function buildSelectiveQuery<T>(
+  options: SelectiveQueryOptions<T>
+): Prisma.UserFindManyArgs {
+  const select: Record<string, boolean> = {};
+  for (const field of options.fields) {
+    select[field as string] = true;
+  }
+  
+  return {
+    where: options.where,
+    select,
+    take: options.take,
+    orderBy: options.orderBy,
+  };
+}
+
+/**
+ * Upsert pattern for idempotent operations.
+ * 
+ * @description
+ * Create or update in a single atomic operation.
+ * Prevents race conditions and duplicate handling.
+ * 
+ * @example
+ * const trainer = await upsertByUniqueKey(prisma.trainer, {
+ *   where: { odiscordId: "123" },
+ *   create: { discordId: "123", username: "Ash" },
+ *   update: { username: "Ash" },
+ * });
+ */
+export async function upsertByUniqueKey<T>(
+  model: any,
+  options: {
+    where: Record<string, any>;
+    create: Record<string, any>;
+    update: Record<string, any>;
+  }
+): Promise<T> {
+  return model.upsert(options);
+}
+
+/**
+ * Transaction wrapper with retry.
+ * 
+ * @description
+ * Wraps operations in a transaction with automatic retry
+ * on serialization failures (common in high-concurrency).
+ * 
+ * @example
+ * const result = await transactionWithRetry(prisma, async (tx) => {
+ *   const user = await tx.user.update(...);
+ *   const pokemon = await tx.pokemon.create(...);
+ *   return { user, pokemon };
+ * });
+ */
+export async function transactionWithRetry<T>(
+  prisma: any,
+  operation: (tx: any) => Promise<T>,
+  maxRetries = 3
+): Promise<T> {
+  let lastError: Error | undefined;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await prisma.$transaction(operation, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        timeout: 10000,
+      });
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Retry on serialization failure
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2034"
+      ) {
+        const delay = Math.pow(2, attempt) * 100; // Exponential backoff
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      
+      throw error;
+    }
+  }
+  
+  throw lastError;
+}
+
+/**
+ * Bulk insert pattern (batch writes).
+ * 
+ * @description
+ * Insert many records efficiently in batches.
+ * Prevents memory issues with large datasets.
+ * 
+ * @example
+ * await bulkInsert(prisma.battleLog, logs, { batchSize: 100 });
+ */
+export async function bulkInsert<T>(
+  model: any,
+  data: T[],
+  options: { batchSize?: number; skipDuplicates?: boolean } = {}
+): Promise<number> {
+  const { batchSize = 100, skipDuplicates = false } = options;
+  let inserted = 0;
+  
+  for (let i = 0; i < data.length; i += batchSize) {
+    const batch = data.slice(i, i + batchSize);
+    const result = await model.createMany({
+      data: batch,
+      skipDuplicates,
+    });
+    inserted += result.count;
+  }
+  
+  return inserted;
+}
+
+/**
+ * Count with estimate for large tables.
+ * 
+ * @description
+ * Exact COUNT(*) is slow on large tables.
+ * Use estimate for UI display, exact for critical operations.
+ * 
+ * @example
+ * const estimate = await estimateCount("Pokemon");
+ * // Returns ~1000000 in milliseconds vs minutes for exact count
+ */
+export async function estimateCount(
+  prisma: any,
+  tableName: string
+): Promise<number> {
+  const result = await prisma.$queryRaw<[{ estimate: bigint }]>`
+    SELECT reltuples::bigint AS estimate
+    FROM pg_class
+    WHERE relname = ${tableName}
+  `;
+  
+  return Number(result[0]?.estimate || 0);
+}
+```
+
+#### 1.5 Database Health Monitoring
+
+```typescript
+// ===== FILE: src/shared/database/health-monitor.ts =====
+
+/**
+ * Database health monitoring and diagnostics.
+ * 
+ * @description
+ * Continuous monitoring of database health indicators:
+ * - Connection pool status
+ * - Query performance
+ * - Lock contention
+ * - Replication lag
+ * - Storage usage
+ */
+
+import { prisma } from "@shared/prisma.js";
+import { logger } from "@shared/utils/logger.js";
+
+export interface DatabaseHealth {
+  status: "healthy" | "degraded" | "critical";
+  metrics: DatabaseMetrics;
+  alerts: DatabaseAlert[];
+  timestamp: string;
+}
+
+export interface DatabaseMetrics {
+  connections: {
+    active: number;
+    idle: number;
+    max: number;
+    utilization: number;
+  };
+  performance: {
+    avgQueryTime: number;
+    slowQueries: number;
+    cacheHitRatio: number;
+  };
+  storage: {
+    totalSize: string;
+    tablesSize: string;
+    indexesSize: string;
+    utilizationPercent: number;
+  };
+  locks: {
+    waiting: number;
+    blocking: number;
+  };
+  replication?: {
+    lag: number;
+    status: string;
+  };
+}
+
+export interface DatabaseAlert {
+  level: "warning" | "critical";
+  message: string;
+  metric: string;
+  value: number;
+  threshold: number;
+}
+
+// Thresholds for health checks
+const THRESHOLDS = {
+  connectionUtilization: { warning: 70, critical: 90 },
+  cacheHitRatio: { warning: 90, critical: 80 },
+  slowQueryCount: { warning: 10, critical: 50 },
+  avgQueryTime: { warning: 100, critical: 500 }, // milliseconds
+  lockWaiting: { warning: 5, critical: 20 },
+  storageUtilization: { warning: 70, critical: 85 },
+  replicationLag: { warning: 5000, critical: 30000 }, // milliseconds
+};
+
+/**
+ * Performs comprehensive database health check.
+ */
+export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
+  const metrics = await collectDatabaseMetrics();
+  const alerts = evaluateThresholds(metrics);
+  
+  const status = alerts.some((a) => a.level === "critical")
+    ? "critical"
+    : alerts.some((a) => a.level === "warning")
+    ? "degraded"
+    : "healthy";
+
+  const health: DatabaseHealth = {
+    status,
+    metrics,
+    alerts,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Log critical alerts
+  if (status === "critical") {
+    logger.error({ health }, "Database health critical");
+  } else if (status === "degraded") {
+    logger.warn({ health }, "Database health degraded");
+  }
+
+  return health;
+}
+
+/**
+ * Collects database metrics from pg_stat views.
+ */
+async function collectDatabaseMetrics(): Promise<DatabaseMetrics> {
+  // Connection stats
+  const connectionStats = await prisma.$queryRaw<[{
+    active: bigint;
+    idle: bigint;
+    max: bigint;
+  }]>`
+    SELECT 
+      COUNT(*) FILTER (WHERE state = 'active') AS active,
+      COUNT(*) FILTER (WHERE state = 'idle') AS idle,
+      (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') AS max
+    FROM pg_stat_activity
+    WHERE datname = current_database()
+  `;
+
+  // Performance stats
+  const perfStats = await prisma.$queryRaw<[{
+    avg_time: number;
+    slow_count: bigint;
+    hit_ratio: number;
+  }]>`
+    SELECT 
+      COALESCE(AVG(mean_exec_time), 0) AS avg_time,
+      COUNT(*) FILTER (WHERE mean_exec_time > 1000) AS slow_count,
+      COALESCE(
+        (SELECT 
+          CASE WHEN (blks_hit + blks_read) > 0 
+          THEN blks_hit::float / (blks_hit + blks_read) * 100 
+          ELSE 100 END
+        FROM pg_stat_database WHERE datname = current_database()),
+        100
+      ) AS hit_ratio
+    FROM pg_stat_statements
+    WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
+  `;
+
+  // Storage stats
+  const storageStats = await prisma.$queryRaw<[{
+    total_size: string;
+    tables_size: string;
+    indexes_size: string;
+  }]>`
+    SELECT 
+      pg_size_pretty(pg_database_size(current_database())) AS total_size,
+      pg_size_pretty(
+        (SELECT SUM(pg_table_size(relid)) FROM pg_stat_user_tables)
+      ) AS tables_size,
+      pg_size_pretty(
+        (SELECT SUM(pg_indexes_size(relid)) FROM pg_stat_user_tables)
+      ) AS indexes_size
+  `;
+
+  // Lock stats
+  const lockStats = await prisma.$queryRaw<[{
+    waiting: bigint;
+    blocking: bigint;
+  }]>`
+    SELECT 
+      COUNT(*) FILTER (WHERE NOT granted) AS waiting,
+      COUNT(DISTINCT pid) FILTER (WHERE granted AND pid IN (
+        SELECT blocking_pid FROM pg_blocking_pids(pid) WHERE NOT granted
+      )) AS blocking
+    FROM pg_locks
+    WHERE database = (SELECT oid FROM pg_database WHERE datname = current_database())
+  `;
+
+  const conn = connectionStats[0];
+  const perf = perfStats[0];
+  const storage = storageStats[0];
+  const locks = lockStats[0];
+
+  return {
+    connections: {
+      active: Number(conn.active),
+      idle: Number(conn.idle),
+      max: Number(conn.max),
+      utilization: (Number(conn.active) + Number(conn.idle)) / Number(conn.max) * 100,
+    },
+    performance: {
+      avgQueryTime: perf.avg_time,
+      slowQueries: Number(perf.slow_count),
+      cacheHitRatio: perf.hit_ratio,
+    },
+    storage: {
+      totalSize: storage.total_size,
+      tablesSize: storage.tables_size,
+      indexesSize: storage.indexes_size,
+      utilizationPercent: 0, // Would need disk quota info
+    },
+    locks: {
+      waiting: Number(locks.waiting),
+      blocking: Number(locks.blocking),
+    },
+  };
+}
+
+/**
+ * Evaluates metrics against thresholds.
+ */
+function evaluateThresholds(metrics: DatabaseMetrics): DatabaseAlert[] {
+  const alerts: DatabaseAlert[] = [];
+
+  // Connection utilization
+  if (metrics.connections.utilization >= THRESHOLDS.connectionUtilization.critical) {
+    alerts.push({
+      level: "critical",
+      message: "Connection pool nearly exhausted",
+      metric: "connectionUtilization",
+      value: metrics.connections.utilization,
+      threshold: THRESHOLDS.connectionUtilization.critical,
+    });
+  } else if (metrics.connections.utilization >= THRESHOLDS.connectionUtilization.warning) {
+    alerts.push({
+      level: "warning",
+      message: "Connection pool utilization high",
+      metric: "connectionUtilization",
+      value: metrics.connections.utilization,
+      threshold: THRESHOLDS.connectionUtilization.warning,
+    });
+  }
+
+  // Cache hit ratio (lower is worse)
+  if (metrics.performance.cacheHitRatio <= THRESHOLDS.cacheHitRatio.critical) {
+    alerts.push({
+      level: "critical",
+      message: "Cache hit ratio critically low",
+      metric: "cacheHitRatio",
+      value: metrics.performance.cacheHitRatio,
+      threshold: THRESHOLDS.cacheHitRatio.critical,
+    });
+  } else if (metrics.performance.cacheHitRatio <= THRESHOLDS.cacheHitRatio.warning) {
+    alerts.push({
+      level: "warning",
+      message: "Cache hit ratio below optimal",
+      metric: "cacheHitRatio",
+      value: metrics.performance.cacheHitRatio,
+      threshold: THRESHOLDS.cacheHitRatio.warning,
+    });
+  }
+
+  // Slow queries
+  if (metrics.performance.slowQueries >= THRESHOLDS.slowQueryCount.critical) {
+    alerts.push({
+      level: "critical",
+      message: "Many slow queries detected",
+      metric: "slowQueries",
+      value: metrics.performance.slowQueries,
+      threshold: THRESHOLDS.slowQueryCount.critical,
+    });
+  }
+
+  // Lock contention
+  if (metrics.locks.waiting >= THRESHOLDS.lockWaiting.critical) {
+    alerts.push({
+      level: "critical",
+      message: "High lock contention detected",
+      metric: "lockWaiting",
+      value: metrics.locks.waiting,
+      threshold: THRESHOLDS.lockWaiting.critical,
+    });
+  }
+
+  return alerts;
+}
+
+/**
+ * Gets slow query log for analysis.
+ */
+export async function getSlowQueries(limit = 20): Promise<{
+  query: string;
+  calls: number;
+  totalTime: number;
+  avgTime: number;
+  rows: number;
+}[]> {
+  return prisma.$queryRaw`
+    SELECT 
+      query,
+      calls,
+      total_exec_time AS "totalTime",
+      mean_exec_time AS "avgTime",
+      rows
+    FROM pg_stat_statements
+    WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
+      AND mean_exec_time > 100  -- > 100ms
+    ORDER BY mean_exec_time DESC
+    LIMIT ${limit}
+  `;
+}
+
+/**
+ * Gets table bloat information.
+ */
+export async function getTableBloat(): Promise<{
+  tableName: string;
+  deadTuples: number;
+  liveTuples: number;
+  bloatRatio: number;
+}[]> {
+  return prisma.$queryRaw`
+    SELECT 
+      relname AS "tableName",
+      n_dead_tup AS "deadTuples",
+      n_live_tup AS "liveTuples",
+      CASE WHEN n_live_tup > 0 
+        THEN (n_dead_tup::float / n_live_tup * 100)
+        ELSE 0 
+      END AS "bloatRatio"
+    FROM pg_stat_user_tables
+    WHERE n_dead_tup > 1000
+    ORDER BY n_dead_tup DESC
+    LIMIT 20
+  `;
+}
+```
+
+#### Database Specialist Recommendations
+
+| Area | Recommendation | Priority | Impact |
+|------|---------------|----------|--------|
+| **Config** | Apply postgres-tuning.sql to production | P0 | 20-50% query improvement |
+| **TimescaleDB** | Enable compression policies | P0 | 90% storage reduction |
+| **Indexes** | Create covering indexes for hot queries | P1 | 10x faster lookups |
+| **Queries** | Use cursor pagination everywhere | P1 | O(1) vs O(n) pagination |
+| **Monitoring** | Deploy health monitor worker | P1 | Proactive issue detection |
+| **Maintenance** | Schedule VACUUM ANALYZE weekly | P2 | Prevent bloat |
+
+---
+
 ## Change Log
 
 | Date | Change |
@@ -6714,3 +7816,4 @@ After three comprehensive reviews, the architecture is designed for:
 | 2025-12-03 | Added Agile Review Session #3 Part 1-3 (Resilience, Versioning, Doc Automation) |
 | 2025-12-03 | Added Agile Review Session #3 Part 4-6 (Quality Enforcement, Knowledge Transfer, Master Checklist) |
 | 2025-12-03 | FINAL REVIEW COMPLETE — Architecture ready for implementation |
+| 2025-12-03 | Added Specialist Deep Dive Part 1: Database Specialist (PostgreSQL tuning, TimescaleDB, indexes, query patterns, health monitoring) |
