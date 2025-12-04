@@ -573,11 +573,228 @@ Store/
 
 ---
 
+## Recommendations by Specialist Team
+
+Based on this audit, here are actionable recommendations for each specialist team:
+
+### 🗄️ Database Specialist
+
+**Immediate Actions:**
+1. **Verify TimescaleDB Retention Jobs**
+   ```sql
+   -- Check if retention policy is active
+   SELECT * FROM timescaledb_information.jobs WHERE proc_name = 'policy_retention';
+   
+   -- If missing, add 30-day retention
+   SELECT add_retention_policy('log_entries', INTERVAL '30 days');
+   SELECT add_retention_policy('worker_metrics', INTERVAL '30 days');
+   SELECT add_retention_policy('console_outputs', INTERVAL '30 days');
+   ```
+
+2. **Add BusIdemToken Cleanup Job**
+   - Currently no scheduled cleanup for idempotency tokens
+   - Add daily job: `DELETE FROM "BusIdemToken" WHERE "createdAt" < NOW() - INTERVAL '24 hours'`
+
+3. **Create Missing Indexes**
+   - `ErrorLog.lastSeen` — for recent error queries
+   - `BusMessage.status, createdAt` — for queue polling
+   - `Encounter.createdAt` — for stale encounter cleanup
+
+**Schema Improvements:**
+- Add `BattleOutcome` table for win/loss analytics (currently not tracked)
+- Add `CatchAttempt` table for catch rate analysis
+- Consider partitioning `Encounter` table (high churn)
+
+---
+
+### 🏗️ Architecture Specialist
+
+**Storage Tier Optimization:**
+1. **Eliminate Redundant File Logs**
+   - TimescaleDB already stores 30 days of logs
+   - File-based `Store/logs/` is redundant for queryable data
+   - Keep only: emergency fallback + compressed archives >30 days
+
+2. **SQLite Write-DB Usage Review**
+   - Currently underutilized (only offline dev mode)
+   - Consider: battle replay storage, local analytics cache
+
+3. **Event Bus Migration Path**
+   | Phase | Current | Target | Benefit |
+   |-------|---------|--------|---------|
+   | 1 | PostgreSQL queue | PostgreSQL | ✅ Done |
+   | 2 | PostgreSQL queue | Redis Streams | 10x latency reduction |
+   | 3 | Redis Streams | AWS SQS | Managed scaling |
+
+**Memory Architecture:**
+- L1 Cache (20 MB) is well-sized for current reference data
+- Monitor: If Species/Moves grow significantly, increase budget or add LRU eviction
+
+---
+
+### 🔒 Security Specialist
+
+**State Persistence:**
+1. **Security Bot State Location** — Keep in JSON files (correct decision)
+   - No DB dependency during security sweeps
+   - Fast restart recovery
+   - Recommendation: Add integrity checksums to state files
+
+2. **Audit Log Enhancements:**
+   ```prisma
+   model AuditLog {
+     // Add these fields:
+     ipAddress     String?   // For admin action tracking
+     userAgent     String?   // Client identification
+     sessionId     String?   // Session correlation
+     riskScore     Int?      // Automated risk assessment
+   }
+   ```
+
+3. **Add Security-Specific Tables:**
+   - `PermissionChange` — Track all role/permission modifications
+   - `LoginAttempt` — Authentication audit trail (future Discord OAuth)
+   - `RateLimitViolation` — Track abuse patterns
+
+---
+
+### 📊 Performance Specialist
+
+**Query Optimization:**
+1. **Hot Path Caching**
+   - Species lookups: ✅ L1 Cache (<1μs)
+   - Move lookups: ✅ L1 Cache (<1μs)
+   - Type effectiveness: ✅ L1 Cache (<1μs)
+   - **Missing:** Trainer profile caching (add to L1 with 5-min TTL)
+
+2. **Write Coalescing Improvements:**
+   | Operation | Current | Target | Method |
+   |-----------|---------|--------|--------|
+   | Log writes | 100/flush | 500/flush | Increase batch size |
+   | Metrics | 15s interval | 30s interval | Reduce frequency |
+   | Encounters | Immediate | Batched | Add write buffer |
+
+3. **TimescaleDB Performance:**
+   - Enable compression on chunks older than 7 days
+   - Create continuous aggregates for common queries
+   ```sql
+   CREATE MATERIALIZED VIEW logs_hourly_continuous
+   WITH (timescaledb.continuous) AS
+   SELECT time_bucket('1 hour', timestamp) AS bucket,
+          level, category, COUNT(*)
+   FROM log_entries
+   GROUP BY bucket, level, category;
+   ```
+
+---
+
+### 🧪 Testing Specialist
+
+**Test Data Management:**
+1. **Database Fixtures Location**
+   - Store in: `Store/test/` (already exists)
+   - Use SQLite for isolated test runs
+   - Never use PROD database for tests
+
+2. **Test Coverage Gaps (Data Layer):**
+   - [ ] TimescaleDB chunk retention behavior
+   - [ ] Error fingerprint deduplication
+   - [ ] BusMessage exactly-once delivery
+   - [ ] Write buffer flush under backpressure
+   - [ ] Emergency log fallback when DB unavailable
+
+3. **Performance Benchmarks to Add:**
+   ```typescript
+   // tests/benchmarks/data-layer.bench.ts
+   - L1 cache lookup latency (target: <1μs)
+   - PostgreSQL write latency (target: <50ms)
+   - Write buffer flush throughput (target: 1000/sec)
+   - Error deduplication overhead (target: <5ms)
+   ```
+
+---
+
+### 🚀 DevOps Specialist
+
+**Monitoring Additions:**
+1. **Add `/ops disk` Command**
+   ```typescript
+   // Show Store/ usage by directory
+   /ops disk
+   // Output:
+   // logs/: 487 MB (24%)
+   // security-bot-state/: 12 MB (0.6%)
+   // error-reports/: 45 MB (2.2%)
+   // Total: 544 MB / 2048 MB (26.5%)
+   ```
+
+2. **Alerting Thresholds:**
+   | Metric | Warning | Critical | Action |
+   |--------|---------|----------|--------|
+   | Disk usage | 70% | 85% | Cleanup old files |
+   | DB size | 400 MB | 450 MB | Review retention |
+   | Error rate | 50/hour | 200/hour | Page on-call |
+   | Queue depth | 1000 | 5000 | Scale workers |
+
+3. **Backup Strategy:**
+   - PostgreSQL: Render automated (daily)
+   - Security state: Add to git-ignored backup script
+   - SQLite write-db: Ephemeral (no backup needed)
+
+4. **Render Service Disk Allocation Review:**
+   | Service | Current | Recommended |
+   |---------|---------|-------------|
+   | Main Bot | 2 GB | 2 GB ✅ |
+   | Security Worker | 2 GB | 1 GB (reduce) |
+   | Cache Worker | 2 GB | 512 MB (reduce) |
+   | Outbox Worker | 2 GB | 512 MB (reduce) |
+
+---
+
+### 📝 Documentation Specialist
+
+**Documentation Gaps to Fill:**
+1. **Missing Runbooks:**
+   - [ ] TimescaleDB chunk management
+   - [ ] Emergency log recovery procedure
+   - [ ] Write buffer troubleshooting
+   - [ ] Storage capacity planning guide
+
+2. **Schema Documentation:**
+   - Add `prisma/README.md` with table purpose overview
+   - Document all JSON field schemas (contextData, metadata, etc.)
+   - Create ER diagram for game state tables
+
+3. **Update Architecture Bible:**
+   - Add this audit to `docs/architecture-bible/` as Section 19
+   - Cross-reference from database operations runbook
+   - Update service topology diagram with storage tiers
+
+---
+
+## Implementation Priority Matrix
+
+| Task | Specialist | Effort | Impact | Priority |
+|------|------------|--------|--------|----------|
+| Verify TimescaleDB retention | Database | 30 min | High | 🔴 P0 |
+| Add BusIdemToken cleanup | Database | 1 hour | Medium | 🔴 P0 |
+| Add `/ops disk` command | DevOps | 2 hours | High | 🟡 P1 |
+| Remove redundant file logs | Architecture | 4 hours | Medium | 🟡 P1 |
+| Add Trainer caching | Performance | 2 hours | Medium | 🟡 P1 |
+| Security audit fields | Security | 3 hours | Medium | 🟡 P1 |
+| Data layer test coverage | Testing | 8 hours | High | 🟢 P2 |
+| Schema documentation | Documentation | 4 hours | Medium | 🟢 P2 |
+| Reduce worker disk allocation | DevOps | 1 hour | Low | 🟢 P2 |
+| Redis queue migration | Architecture | 16 hours | High | 🔵 P3 |
+
+---
+
 ## Change Log
 
 | Date | Change |
 |------|--------|
 | 2025-12-03 | Initial comprehensive audit created |
+| 2025-12-03 | Added specialist team recommendations |
 
 ---
 
