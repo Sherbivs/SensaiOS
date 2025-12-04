@@ -12576,3 +12576,1343 @@ services:
 | **CI/CD** | Automated migration testing | P1 | Deploy safety |
 | **Alerts** | Configure PagerDuty integration | P1 | Incident response |
 | **IaC** | Version all infrastructure in git | P2 | Reproducibility |
+
+---
+
+## Specialist Deep Dive Part 6: Testing Specialist Validation
+
+> **Focus:** Database testing patterns, fixture management, migration testing, integration testing strategies
+> **Objective:** Ensure database operations are thoroughly tested with high confidence and fast feedback
+
+### 6.1 Database Testing Strategy
+
+#### Testing Pyramid for Database Operations
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    DATABASE TESTING PYRAMID                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│                            ┌─────────┐                                      │
+│                            │  E2E    │  ← Full stack with real DB           │
+│                            │ Tests   │    (Slow, 2-5% of tests)             │
+│                           ─┴─────────┴─                                     │
+│                          /             \                                    │
+│                        ┌─────────────────┐                                  │
+│                        │  Integration    │  ← Repository + real DB          │
+│                        │    Tests        │    (Medium, 15-25% of tests)     │
+│                       ─┴─────────────────┴─                                 │
+│                      /                     \                                │
+│                    ┌─────────────────────────┐                              │
+│                    │      Unit Tests         │  ← Logic with mocked DB      │
+│                    │  (Repository methods)   │    (Fast, 70-80% of tests)   │
+│                   ─┴─────────────────────────┴─                             │
+│                  /                             \                            │
+│                ┌─────────────────────────────────┐                          │
+│                │        Schema Tests             │  ← Migration validation  │
+│                │ (Prisma validate, type safety)  │    (Build-time)          │
+│                └─────────────────────────────────┘                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 6.2 Test Database Management
+
+#### Isolated Test Database Factory
+
+```typescript
+// tests/utils/test-database.ts
+import { PrismaClient } from '@prisma/client';
+import { execSync } from 'child_process';
+import { randomUUID } from 'crypto';
+
+interface TestDatabaseConfig {
+  schema: string;
+  migrate: boolean;
+  seed?: () => Promise<void>;
+}
+
+/**
+ * Factory for creating isolated test databases
+ * Each test suite gets its own schema for complete isolation
+ */
+export class TestDatabaseFactory {
+  private static instances: Map<string, PrismaClient> = new Map();
+  private static baseUrl: string = process.env.TEST_DATABASE_URL!;
+
+  /**
+   * Create an isolated test database with unique schema
+   */
+  static async create(config: TestDatabaseConfig = { 
+    schema: `test_${randomUUID().slice(0, 8)}`,
+    migrate: true 
+  }): Promise<PrismaClient> {
+    const schemaName = config.schema;
+    
+    // Create new schema for isolation
+    const adminClient = new PrismaClient({
+      datasources: { db: { url: this.baseUrl } }
+    });
+
+    try {
+      // Create isolated schema
+      await adminClient.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
+      await adminClient.$executeRawUnsafe(`SET search_path TO "${schemaName}"`);
+    } finally {
+      await adminClient.$disconnect();
+    }
+
+    // Create client with schema-specific URL
+    const schemaUrl = `${this.baseUrl}?schema=${schemaName}`;
+    const client = new PrismaClient({
+      datasources: { db: { url: schemaUrl } }
+    });
+
+    // Run migrations if needed
+    if (config.migrate) {
+      process.env.DATABASE_URL = schemaUrl;
+      execSync('npx prisma migrate deploy', { stdio: 'pipe' });
+    }
+
+    // Run seed if provided
+    if (config.seed) {
+      await config.seed();
+    }
+
+    this.instances.set(schemaName, client);
+    return client;
+  }
+
+  /**
+   * Clean up test database
+   */
+  static async destroy(schemaName: string): Promise<void> {
+    const client = this.instances.get(schemaName);
+    if (client) {
+      await client.$disconnect();
+      this.instances.delete(schemaName);
+    }
+
+    // Drop the schema
+    const adminClient = new PrismaClient({
+      datasources: { db: { url: this.baseUrl } }
+    });
+
+    try {
+      await adminClient.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
+    } finally {
+      await adminClient.$disconnect();
+    }
+  }
+
+  /**
+   * Clean all test schemas (for CI cleanup)
+   */
+  static async destroyAll(): Promise<void> {
+    const adminClient = new PrismaClient({
+      datasources: { db: { url: this.baseUrl } }
+    });
+
+    try {
+      const schemas = await adminClient.$queryRaw<{ schema_name: string }[]>`
+        SELECT schema_name FROM information_schema.schemata 
+        WHERE schema_name LIKE 'test_%'
+      `;
+
+      for (const { schema_name } of schemas) {
+        await adminClient.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema_name}" CASCADE`);
+      }
+    } finally {
+      await adminClient.$disconnect();
+    }
+
+    // Clear all instances
+    for (const client of this.instances.values()) {
+      await client.$disconnect();
+    }
+    this.instances.clear();
+  }
+}
+
+/**
+ * Test database context for Vitest
+ */
+export interface TestContext {
+  prisma: PrismaClient;
+  schemaName: string;
+}
+
+/**
+ * Setup hook for Vitest
+ */
+export function setupTestDatabase() {
+  let ctx: TestContext;
+
+  beforeAll(async () => {
+    const schemaName = `test_${randomUUID().slice(0, 8)}`;
+    const prisma = await TestDatabaseFactory.create({ schema: schemaName, migrate: true });
+    ctx = { prisma, schemaName };
+  });
+
+  afterAll(async () => {
+    if (ctx) {
+      await TestDatabaseFactory.destroy(ctx.schemaName);
+    }
+  });
+
+  beforeEach(async () => {
+    // Clean tables between tests (maintain schema)
+    await cleanAllTables(ctx.prisma);
+  });
+
+  return () => ctx;
+}
+
+/**
+ * Truncate all tables while preserving schema
+ */
+async function cleanAllTables(prisma: PrismaClient): Promise<void> {
+  const tables = await prisma.$queryRaw<{ tablename: string }[]>`
+    SELECT tablename FROM pg_tables 
+    WHERE schemaname = current_schema()
+    AND tablename NOT LIKE '_prisma_%'
+  `;
+
+  // Disable FK checks, truncate, re-enable
+  await prisma.$executeRaw`SET session_replication_role = 'replica'`;
+  
+  for (const { tablename } of tables) {
+    await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${tablename}" CASCADE`);
+  }
+  
+  await prisma.$executeRaw`SET session_replication_role = 'origin'`;
+}
+```
+
+### 6.3 Fixture Management System
+
+#### Type-Safe Test Fixtures
+
+```typescript
+// tests/fixtures/index.ts
+import { PrismaClient, User, Pokemon, Battle, Move } from '@prisma/client';
+import { faker } from '@faker-js/faker';
+
+/**
+ * Base fixture builder with fluent API
+ */
+abstract class FixtureBuilder<T, CreateInput> {
+  protected data: Partial<CreateInput> = {};
+  protected prisma: PrismaClient;
+
+  constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
+  }
+
+  abstract build(): Promise<T>;
+  abstract buildMany(count: number): Promise<T[]>;
+}
+
+/**
+ * User fixture builder
+ */
+export class UserFixture extends FixtureBuilder<User, Prisma.UserCreateInput> {
+  withDiscordId(id: string): this {
+    this.data.discordId = id;
+    return this;
+  }
+
+  withUsername(username: string): this {
+    this.data.username = username;
+    return this;
+  }
+
+  withLevel(level: number): this {
+    this.data.level = level;
+    return this;
+  }
+
+  withCurrency(amount: number): this {
+    this.data.currency = amount;
+    return this;
+  }
+
+  asVeteran(): this {
+    return this.withLevel(50).withCurrency(100000);
+  }
+
+  asNewbie(): this {
+    return this.withLevel(1).withCurrency(1000);
+  }
+
+  async build(): Promise<User> {
+    return this.prisma.user.create({
+      data: {
+        discordId: this.data.discordId ?? faker.string.uuid(),
+        username: this.data.username ?? faker.internet.userName(),
+        level: this.data.level ?? 1,
+        currency: this.data.currency ?? 1000,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+  }
+
+  async buildMany(count: number): Promise<User[]> {
+    const users: User[] = [];
+    for (let i = 0; i < count; i++) {
+      users.push(await this.build());
+      // Reset data for next iteration
+      this.data = {};
+    }
+    return users;
+  }
+}
+
+/**
+ * Pokemon fixture builder
+ */
+export class PokemonFixture extends FixtureBuilder<Pokemon, Prisma.PokemonCreateInput> {
+  private ownerIdValue?: string;
+
+  withOwner(ownerId: string): this {
+    this.ownerIdValue = ownerId;
+    return this;
+  }
+
+  withSpecies(speciesId: number): this {
+    this.data.speciesId = speciesId;
+    return this;
+  }
+
+  withLevel(level: number): this {
+    this.data.level = level;
+    return this;
+  }
+
+  withNickname(nickname: string): this {
+    this.data.nickname = nickname;
+    return this;
+  }
+
+  asStarter(): this {
+    return this.withLevel(5).withSpecies(faker.helpers.arrayElement([1, 4, 7])); // Bulbasaur, Charmander, Squirtle
+  }
+
+  asLegendary(): this {
+    return this.withLevel(70).withSpecies(faker.helpers.arrayElement([144, 145, 146, 150]));
+  }
+
+  asBattleReady(): this {
+    return this.withLevel(50);
+  }
+
+  async build(): Promise<Pokemon> {
+    if (!this.ownerIdValue) {
+      throw new Error('Pokemon must have an owner. Use .withOwner() first.');
+    }
+
+    return this.prisma.pokemon.create({
+      data: {
+        speciesId: this.data.speciesId ?? faker.number.int({ min: 1, max: 151 }),
+        level: this.data.level ?? faker.number.int({ min: 1, max: 100 }),
+        nickname: this.data.nickname ?? null,
+        hp: this.data.hp ?? faker.number.int({ min: 20, max: 200 }),
+        attack: faker.number.int({ min: 20, max: 150 }),
+        defense: faker.number.int({ min: 20, max: 150 }),
+        speed: faker.number.int({ min: 20, max: 150 }),
+        owner: { connect: { id: this.ownerIdValue } },
+        createdAt: new Date()
+      }
+    });
+  }
+
+  async buildMany(count: number): Promise<Pokemon[]> {
+    const pokemon: Pokemon[] = [];
+    for (let i = 0; i < count; i++) {
+      pokemon.push(await this.build());
+    }
+    return pokemon;
+  }
+}
+
+/**
+ * Battle fixture builder
+ */
+export class BattleFixture extends FixtureBuilder<Battle, Prisma.BattleCreateInput> {
+  private player1Id?: string;
+  private player2Id?: string;
+  private pokemon1Id?: string;
+  private pokemon2Id?: string;
+
+  withPlayers(player1Id: string, player2Id: string): this {
+    this.player1Id = player1Id;
+    this.player2Id = player2Id;
+    return this;
+  }
+
+  withPokemon(pokemon1Id: string, pokemon2Id: string): this {
+    this.pokemon1Id = pokemon1Id;
+    this.pokemon2Id = pokemon2Id;
+    return this;
+  }
+
+  asOngoing(): this {
+    this.data.status = 'ONGOING';
+    return this;
+  }
+
+  asCompleted(winnerId?: string): this {
+    this.data.status = 'COMPLETED';
+    this.data.winnerId = winnerId;
+    return this;
+  }
+
+  async build(): Promise<Battle> {
+    if (!this.player1Id || !this.player2Id) {
+      throw new Error('Battle requires two players. Use .withPlayers() first.');
+    }
+
+    return this.prisma.battle.create({
+      data: {
+        player1: { connect: { id: this.player1Id } },
+        player2: { connect: { id: this.player2Id } },
+        pokemon1: this.pokemon1Id ? { connect: { id: this.pokemon1Id } } : undefined,
+        pokemon2: this.pokemon2Id ? { connect: { id: this.pokemon2Id } } : undefined,
+        status: this.data.status ?? 'ONGOING',
+        winnerId: this.data.winnerId,
+        startedAt: new Date(),
+        turnNumber: 0
+      }
+    });
+  }
+
+  async buildMany(count: number): Promise<Battle[]> {
+    const battles: Battle[] = [];
+    for (let i = 0; i < count; i++) {
+      battles.push(await this.build());
+    }
+    return battles;
+  }
+}
+
+/**
+ * Fixture factory - main entry point
+ */
+export class FixtureFactory {
+  constructor(private prisma: PrismaClient) {}
+
+  user(): UserFixture {
+    return new UserFixture(this.prisma);
+  }
+
+  pokemon(): PokemonFixture {
+    return new PokemonFixture(this.prisma);
+  }
+
+  battle(): BattleFixture {
+    return new BattleFixture(this.prisma);
+  }
+
+  /**
+   * Create a complete battle scenario
+   */
+  async battleScenario(): Promise<{
+    player1: User;
+    player2: User;
+    pokemon1: Pokemon;
+    pokemon2: Pokemon;
+    battle: Battle;
+  }> {
+    const player1 = await this.user().asVeteran().build();
+    const player2 = await this.user().asVeteran().build();
+    
+    const pokemon1 = await this.pokemon()
+      .withOwner(player1.id)
+      .asBattleReady()
+      .build();
+    
+    const pokemon2 = await this.pokemon()
+      .withOwner(player2.id)
+      .asBattleReady()
+      .build();
+
+    const battle = await this.battle()
+      .withPlayers(player1.id, player2.id)
+      .withPokemon(pokemon1.id, pokemon2.id)
+      .asOngoing()
+      .build();
+
+    return { player1, player2, pokemon1, pokemon2, battle };
+  }
+
+  /**
+   * Create a user with a full party
+   */
+  async userWithParty(partySize: number = 6): Promise<{
+    user: User;
+    party: Pokemon[];
+  }> {
+    const user = await this.user().build();
+    const party = await this.pokemon()
+      .withOwner(user.id)
+      .asBattleReady()
+      .buildMany(Math.min(partySize, 6));
+
+    return { user, party };
+  }
+}
+
+// Export factory creator
+export function createFixtures(prisma: PrismaClient): FixtureFactory {
+  return new FixtureFactory(prisma);
+}
+```
+
+### 6.4 Repository Testing Patterns
+
+#### Unit Tests with Mocked Database
+
+```typescript
+// tests/unit/repositories/user-repository.test.ts
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { UserRepository } from '../../../src/repositories/user-repository';
+import { PrismaClient } from '@prisma/client';
+import { mockDeep, DeepMockProxy } from 'vitest-mock-extended';
+
+describe('UserRepository', () => {
+  let prisma: DeepMockProxy<PrismaClient>;
+  let repository: UserRepository;
+
+  beforeEach(() => {
+    prisma = mockDeep<PrismaClient>();
+    repository = new UserRepository(prisma);
+  });
+
+  describe('findByDiscordId', () => {
+    it('returns user when found', async () => {
+      const mockUser = {
+        id: 'user-1',
+        discordId: 'discord-123',
+        username: 'TestUser',
+        level: 10,
+        currency: 5000,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+
+      const result = await repository.findByDiscordId('discord-123');
+
+      expect(result).toEqual(mockUser);
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { discordId: 'discord-123' }
+      });
+    });
+
+    it('returns null when user not found', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      const result = await repository.findByDiscordId('nonexistent');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('createUser', () => {
+    it('creates user with default values', async () => {
+      const input = { discordId: 'new-user', username: 'NewUser' };
+      const expectedUser = {
+        ...input,
+        id: 'generated-id',
+        level: 1,
+        currency: 1000,
+        createdAt: expect.any(Date),
+        updatedAt: expect.any(Date)
+      };
+
+      prisma.user.create.mockResolvedValue(expectedUser as any);
+
+      const result = await repository.createUser(input);
+
+      expect(result.level).toBe(1);
+      expect(result.currency).toBe(1000);
+    });
+
+    it('throws on duplicate discordId', async () => {
+      prisma.user.create.mockRejectedValue(
+        new Error('Unique constraint failed on the fields: (`discordId`)')
+      );
+
+      await expect(
+        repository.createUser({ discordId: 'existing', username: 'Test' })
+      ).rejects.toThrow('Unique constraint failed');
+    });
+  });
+
+  describe('updateCurrency', () => {
+    it('increases currency correctly', async () => {
+      const userId = 'user-1';
+      const currentUser = { id: userId, currency: 1000 };
+      const updatedUser = { ...currentUser, currency: 1500 };
+
+      prisma.user.update.mockResolvedValue(updatedUser as any);
+
+      const result = await repository.updateCurrency(userId, 500);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: userId },
+        data: { currency: { increment: 500 } }
+      });
+      expect(result.currency).toBe(1500);
+    });
+
+    it('prevents negative currency', async () => {
+      const userId = 'user-1';
+
+      // Mock the check for current balance
+      prisma.user.findUnique.mockResolvedValue({ currency: 100 } as any);
+
+      await expect(
+        repository.updateCurrency(userId, -500)
+      ).rejects.toThrow('Insufficient funds');
+    });
+  });
+});
+```
+
+#### Integration Tests with Real Database
+
+```typescript
+// tests/integration/repositories/user-repository.integration.test.ts
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { PrismaClient } from '@prisma/client';
+import { UserRepository } from '../../../src/repositories/user-repository';
+import { TestDatabaseFactory, setupTestDatabase } from '../../utils/test-database';
+import { createFixtures, FixtureFactory } from '../../fixtures';
+
+describe('UserRepository Integration', () => {
+  const getContext = setupTestDatabase();
+  let repository: UserRepository;
+  let fixtures: FixtureFactory;
+
+  beforeAll(() => {
+    const ctx = getContext();
+    repository = new UserRepository(ctx.prisma);
+    fixtures = createFixtures(ctx.prisma);
+  });
+
+  describe('findByDiscordId', () => {
+    it('returns user with all relations', async () => {
+      // Create user with pokemon
+      const { user, party } = await fixtures.userWithParty(3);
+
+      const result = await repository.findByDiscordIdWithPokemon(user.discordId);
+
+      expect(result).not.toBeNull();
+      expect(result!.pokemon).toHaveLength(3);
+      expect(result!.pokemon[0]).toHaveProperty('speciesId');
+    });
+
+    it('handles concurrent lookups correctly', async () => {
+      const user = await fixtures.user().build();
+
+      // Simulate concurrent access
+      const results = await Promise.all([
+        repository.findByDiscordId(user.discordId),
+        repository.findByDiscordId(user.discordId),
+        repository.findByDiscordId(user.discordId)
+      ]);
+
+      expect(results.every(r => r?.id === user.id)).toBe(true);
+    });
+  });
+
+  describe('transaction handling', () => {
+    it('rolls back on failure', async () => {
+      const user = await fixtures.user().withCurrency(100).build();
+
+      await expect(
+        repository.transferCurrency(user.id, 'nonexistent-user', 50)
+      ).rejects.toThrow();
+
+      // Verify original balance unchanged
+      const updatedUser = await repository.findById(user.id);
+      expect(updatedUser!.currency).toBe(100);
+    });
+
+    it('commits on success', async () => {
+      const sender = await fixtures.user().withCurrency(1000).build();
+      const receiver = await fixtures.user().withCurrency(500).build();
+
+      await repository.transferCurrency(sender.id, receiver.id, 300);
+
+      const [updatedSender, updatedReceiver] = await Promise.all([
+        repository.findById(sender.id),
+        repository.findById(receiver.id)
+      ]);
+
+      expect(updatedSender!.currency).toBe(700);
+      expect(updatedReceiver!.currency).toBe(800);
+    });
+  });
+
+  describe('query performance', () => {
+    it('uses index for discordId lookup', async () => {
+      // Create many users
+      await fixtures.user().buildMany(100);
+      const targetUser = await fixtures.user().withDiscordId('target-discord-id').build();
+
+      const start = performance.now();
+      await repository.findByDiscordId('target-discord-id');
+      const duration = performance.now() - start;
+
+      // Index lookup should be fast even with many records
+      expect(duration).toBeLessThan(50); // 50ms threshold
+    });
+
+    it('efficiently loads user with party', async () => {
+      const { user } = await fixtures.userWithParty(6);
+
+      const start = performance.now();
+      const result = await repository.findByDiscordIdWithPokemon(user.discordId);
+      const duration = performance.now() - start;
+
+      expect(result!.pokemon).toHaveLength(6);
+      expect(duration).toBeLessThan(100); // Single query with include
+    });
+  });
+});
+```
+
+### 6.5 Migration Testing Framework
+
+#### Migration Test Runner
+
+```typescript
+// tests/migrations/migration-tester.ts
+import { PrismaClient } from '@prisma/client';
+import { execSync } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
+
+interface MigrationTestResult {
+  migrationName: string;
+  upSuccess: boolean;
+  downSuccess: boolean;
+  dataIntegrity: boolean;
+  duration: number;
+  errors: string[];
+}
+
+interface DataSnapshot {
+  tableName: string;
+  rowCount: number;
+  sampleData?: unknown[];
+}
+
+export class MigrationTester {
+  private prisma: PrismaClient;
+  private migrationsDir: string;
+
+  constructor(databaseUrl: string) {
+    this.prisma = new PrismaClient({
+      datasources: { db: { url: databaseUrl } }
+    });
+    this.migrationsDir = path.join(process.cwd(), 'prisma/migrations');
+  }
+
+  /**
+   * Test a specific migration's up and down operations
+   */
+  async testMigration(migrationName: string): Promise<MigrationTestResult> {
+    const errors: string[] = [];
+    const startTime = Date.now();
+    let upSuccess = false;
+    let downSuccess = false;
+    let dataIntegrity = true;
+
+    try {
+      // Step 1: Take data snapshot before migration
+      const preSnapshot = await this.takeSnapshot();
+
+      // Step 2: Run UP migration
+      console.log(`Testing UP migration: ${migrationName}`);
+      try {
+        execSync(`npx prisma migrate resolve --applied ${migrationName}`, {
+          stdio: 'pipe',
+          env: { ...process.env, DATABASE_URL: this.getDatabaseUrl() }
+        });
+        upSuccess = true;
+      } catch (error) {
+        errors.push(`UP failed: ${(error as Error).message}`);
+      }
+
+      // Step 3: Verify schema after UP
+      if (upSuccess) {
+        const schemaValid = await this.validateSchema();
+        if (!schemaValid) {
+          errors.push('Schema validation failed after UP');
+          dataIntegrity = false;
+        }
+      }
+
+      // Step 4: Run DOWN migration (rollback)
+      console.log(`Testing DOWN migration: ${migrationName}`);
+      const rollbackPath = path.join(
+        this.migrationsDir, 
+        migrationName, 
+        'rollback.sql'
+      );
+
+      if (fs.existsSync(rollbackPath)) {
+        try {
+          const rollbackSql = fs.readFileSync(rollbackPath, 'utf-8');
+          await this.prisma.$executeRawUnsafe(rollbackSql);
+          downSuccess = true;
+        } catch (error) {
+          errors.push(`DOWN failed: ${(error as Error).message}`);
+        }
+      } else {
+        errors.push('No rollback.sql found');
+      }
+
+      // Step 5: Verify data integrity after rollback
+      if (downSuccess) {
+        const postSnapshot = await this.takeSnapshot();
+        dataIntegrity = this.compareSnapshots(preSnapshot, postSnapshot);
+        if (!dataIntegrity) {
+          errors.push('Data integrity check failed after rollback');
+        }
+      }
+
+    } catch (error) {
+      errors.push(`Unexpected error: ${(error as Error).message}`);
+    }
+
+    return {
+      migrationName,
+      upSuccess,
+      downSuccess,
+      dataIntegrity,
+      duration: Date.now() - startTime,
+      errors
+    };
+  }
+
+  /**
+   * Test all pending migrations
+   */
+  async testAllPending(): Promise<MigrationTestResult[]> {
+    const results: MigrationTestResult[] = [];
+    
+    // Get list of pending migrations
+    const output = execSync('npx prisma migrate status', { encoding: 'utf-8' });
+    const pendingMatch = output.match(/(\d+) migrations? have not yet been applied/);
+    
+    if (!pendingMatch) {
+      console.log('No pending migrations to test');
+      return results;
+    }
+
+    // Get migration directories sorted by timestamp
+    const migrations = fs.readdirSync(this.migrationsDir)
+      .filter(dir => fs.statSync(path.join(this.migrationsDir, dir)).isDirectory())
+      .sort();
+
+    for (const migration of migrations) {
+      const result = await this.testMigration(migration);
+      results.push(result);
+
+      // Stop on first failure
+      if (!result.upSuccess || !result.dataIntegrity) {
+        console.error(`Migration test failed: ${migration}`);
+        break;
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Take snapshot of current database state
+   */
+  private async takeSnapshot(): Promise<DataSnapshot[]> {
+    const tables = await this.prisma.$queryRaw<{ tablename: string }[]>`
+      SELECT tablename FROM pg_tables 
+      WHERE schemaname = 'public' 
+      AND tablename NOT LIKE '_prisma_%'
+    `;
+
+    const snapshots: DataSnapshot[] = [];
+
+    for (const { tablename } of tables) {
+      const countResult = await this.prisma.$queryRawUnsafe<{ count: bigint }[]>(
+        `SELECT count(*) as count FROM "${tablename}"`
+      );
+      
+      snapshots.push({
+        tableName: tablename,
+        rowCount: Number(countResult[0]?.count || 0)
+      });
+    }
+
+    return snapshots;
+  }
+
+  /**
+   * Compare two snapshots for data integrity
+   */
+  private compareSnapshots(before: DataSnapshot[], after: DataSnapshot[]): boolean {
+    const beforeMap = new Map(before.map(s => [s.tableName, s.rowCount]));
+    
+    for (const snapshot of after) {
+      const beforeCount = beforeMap.get(snapshot.tableName);
+      if (beforeCount !== snapshot.rowCount) {
+        console.error(
+          `Row count mismatch for ${snapshot.tableName}: ` +
+          `before=${beforeCount}, after=${snapshot.rowCount}`
+        );
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Validate schema matches Prisma schema
+   */
+  private async validateSchema(): Promise<boolean> {
+    try {
+      execSync('npx prisma validate', { stdio: 'pipe' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private getDatabaseUrl(): string {
+    return process.env.TEST_DATABASE_URL!;
+  }
+
+  async disconnect(): Promise<void> {
+    await this.prisma.$disconnect();
+  }
+}
+
+// Test runner script
+export async function runMigrationTests(): Promise<void> {
+  const tester = new MigrationTester(process.env.TEST_DATABASE_URL!);
+
+  try {
+    console.log('='.repeat(60));
+    console.log('MIGRATION TESTS');
+    console.log('='.repeat(60));
+
+    const results = await tester.testAllPending();
+
+    console.log('\nRESULTS:');
+    console.log('-'.repeat(60));
+
+    let allPassed = true;
+
+    for (const result of results) {
+      const status = result.upSuccess && result.downSuccess && result.dataIntegrity
+        ? '✅ PASS'
+        : '❌ FAIL';
+      
+      console.log(`${status} ${result.migrationName} (${result.duration}ms)`);
+      
+      if (result.errors.length > 0) {
+        allPassed = false;
+        for (const error of result.errors) {
+          console.log(`   ⚠️ ${error}`);
+        }
+      }
+    }
+
+    console.log('-'.repeat(60));
+    
+    if (allPassed) {
+      console.log('✅ All migration tests passed');
+    } else {
+      console.log('❌ Some migration tests failed');
+      process.exit(1);
+    }
+
+  } finally {
+    await tester.disconnect();
+  }
+}
+```
+
+### 6.6 Query Performance Testing
+
+#### Query Benchmark Framework
+
+```typescript
+// tests/benchmarks/query-benchmark.ts
+import { PrismaClient } from '@prisma/client';
+import { performance } from 'perf_hooks';
+
+interface BenchmarkResult {
+  name: string;
+  avgMs: number;
+  minMs: number;
+  maxMs: number;
+  p50Ms: number;
+  p95Ms: number;
+  p99Ms: number;
+  iterations: number;
+  rowsAffected?: number;
+}
+
+interface BenchmarkConfig {
+  warmupIterations: number;
+  iterations: number;
+  timeout: number;
+}
+
+export class QueryBenchmark {
+  private prisma: PrismaClient;
+  private config: BenchmarkConfig;
+
+  constructor(
+    prisma: PrismaClient,
+    config: BenchmarkConfig = {
+      warmupIterations: 10,
+      iterations: 100,
+      timeout: 30000
+    }
+  ) {
+    this.prisma = prisma;
+    this.config = config;
+  }
+
+  /**
+   * Benchmark a query function
+   */
+  async benchmark<T>(
+    name: string,
+    queryFn: () => Promise<T>,
+    getRowCount?: (result: T) => number
+  ): Promise<BenchmarkResult> {
+    const durations: number[] = [];
+
+    // Warmup
+    console.log(`Warming up: ${name}`);
+    for (let i = 0; i < this.config.warmupIterations; i++) {
+      await queryFn();
+    }
+
+    // Actual benchmark
+    console.log(`Benchmarking: ${name}`);
+    let lastResult: T | undefined;
+
+    for (let i = 0; i < this.config.iterations; i++) {
+      const start = performance.now();
+      lastResult = await queryFn();
+      const duration = performance.now() - start;
+      durations.push(duration);
+    }
+
+    // Calculate statistics
+    durations.sort((a, b) => a - b);
+    const sum = durations.reduce((a, b) => a + b, 0);
+
+    return {
+      name,
+      avgMs: sum / durations.length,
+      minMs: durations[0],
+      maxMs: durations[durations.length - 1],
+      p50Ms: this.percentile(durations, 50),
+      p95Ms: this.percentile(durations, 95),
+      p99Ms: this.percentile(durations, 99),
+      iterations: this.config.iterations,
+      rowsAffected: lastResult && getRowCount ? getRowCount(lastResult) : undefined
+    };
+  }
+
+  private percentile(sorted: number[], p: number): number {
+    const index = Math.ceil((p / 100) * sorted.length) - 1;
+    return sorted[Math.max(0, index)];
+  }
+
+  /**
+   * Format results as table
+   */
+  static formatResults(results: BenchmarkResult[]): string {
+    const headers = ['Query', 'Avg', 'Min', 'Max', 'p50', 'p95', 'p99', 'Rows'];
+    const rows = results.map(r => [
+      r.name.substring(0, 30),
+      `${r.avgMs.toFixed(2)}ms`,
+      `${r.minMs.toFixed(2)}ms`,
+      `${r.maxMs.toFixed(2)}ms`,
+      `${r.p50Ms.toFixed(2)}ms`,
+      `${r.p95Ms.toFixed(2)}ms`,
+      `${r.p99Ms.toFixed(2)}ms`,
+      r.rowsAffected?.toString() || 'N/A'
+    ]);
+
+    // Calculate column widths
+    const widths = headers.map((h, i) => 
+      Math.max(h.length, ...rows.map(r => r[i].length))
+    );
+
+    // Format table
+    const separator = '+' + widths.map(w => '-'.repeat(w + 2)).join('+') + '+';
+    const headerRow = '| ' + headers.map((h, i) => h.padEnd(widths[i])).join(' | ') + ' |';
+    const dataRows = rows.map(
+      row => '| ' + row.map((cell, i) => cell.padEnd(widths[i])).join(' | ') + ' |'
+    );
+
+    return [separator, headerRow, separator, ...dataRows, separator].join('\n');
+  }
+}
+
+// Example benchmark suite
+export async function runQueryBenchmarks(prisma: PrismaClient): Promise<void> {
+  const benchmark = new QueryBenchmark(prisma);
+  const results: BenchmarkResult[] = [];
+
+  // Benchmark 1: Simple lookup by ID
+  results.push(await benchmark.benchmark(
+    'User lookup by discordId',
+    async () => prisma.user.findUnique({ where: { discordId: 'test-user' } })
+  ));
+
+  // Benchmark 2: Lookup with relations
+  results.push(await benchmark.benchmark(
+    'User with Pokemon (include)',
+    async () => prisma.user.findUnique({
+      where: { discordId: 'test-user' },
+      include: { pokemon: true }
+    }),
+    (result) => result?.pokemon.length || 0
+  ));
+
+  // Benchmark 3: List with pagination
+  results.push(await benchmark.benchmark(
+    'Users list (first 20)',
+    async () => prisma.user.findMany({ take: 20 }),
+    (result) => result.length
+  ));
+
+  // Benchmark 4: Complex aggregation
+  results.push(await benchmark.benchmark(
+    'Battle stats aggregation',
+    async () => prisma.battle.groupBy({
+      by: ['status'],
+      _count: true
+    }),
+    (result) => result.length
+  ));
+
+  // Benchmark 5: Full-text search (if available)
+  results.push(await benchmark.benchmark(
+    'Pokemon search by name',
+    async () => prisma.pokemon.findMany({
+      where: { nickname: { contains: 'test', mode: 'insensitive' } },
+      take: 10
+    }),
+    (result) => result.length
+  ));
+
+  // Print results
+  console.log('\n' + QueryBenchmark.formatResults(results));
+
+  // Check against SLOs
+  console.log('\nSLO Compliance:');
+  for (const result of results) {
+    const p95Ok = result.p95Ms < 100;
+    const p99Ok = result.p99Ms < 500;
+    console.log(
+      `${p95Ok && p99Ok ? '✅' : '❌'} ${result.name}: ` +
+      `p95=${result.p95Ms.toFixed(2)}ms (<100ms), p99=${result.p99Ms.toFixed(2)}ms (<500ms)`
+    );
+  }
+}
+```
+
+### 6.7 Data Integrity Testing
+
+#### Integrity Constraint Tests
+
+```typescript
+// tests/integration/data-integrity.test.ts
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { PrismaClient } from '@prisma/client';
+import { setupTestDatabase } from '../utils/test-database';
+import { createFixtures } from '../fixtures';
+
+describe('Data Integrity', () => {
+  const getContext = setupTestDatabase();
+  let prisma: PrismaClient;
+
+  beforeAll(() => {
+    prisma = getContext().prisma;
+  });
+
+  describe('Foreign Key Constraints', () => {
+    it('prevents orphaned Pokemon', async () => {
+      const fixtures = createFixtures(prisma);
+      const user = await fixtures.user().build();
+      const pokemon = await fixtures.pokemon().withOwner(user.id).build();
+
+      // Deleting user should fail due to FK constraint
+      await expect(
+        prisma.user.delete({ where: { id: user.id } })
+      ).rejects.toThrow();
+
+      // Pokemon still exists
+      const pokemonExists = await prisma.pokemon.findUnique({ 
+        where: { id: pokemon.id } 
+      });
+      expect(pokemonExists).not.toBeNull();
+    });
+
+    it('cascades battle deletion to moves', async () => {
+      const fixtures = createFixtures(prisma);
+      const { battle } = await fixtures.battleScenario();
+      
+      // Create battle moves
+      await prisma.battleMove.createMany({
+        data: [
+          { battleId: battle.id, turn: 1, moveId: 1, userId: battle.player1Id },
+          { battleId: battle.id, turn: 1, moveId: 2, userId: battle.player2Id }
+        ]
+      });
+
+      // Delete battle
+      await prisma.battle.delete({ where: { id: battle.id } });
+
+      // Battle moves should be gone (cascade)
+      const moves = await prisma.battleMove.findMany({
+        where: { battleId: battle.id }
+      });
+      expect(moves).toHaveLength(0);
+    });
+  });
+
+  describe('Unique Constraints', () => {
+    it('prevents duplicate discordIds', async () => {
+      const fixtures = createFixtures(prisma);
+      await fixtures.user().withDiscordId('unique-test').build();
+
+      await expect(
+        fixtures.user().withDiscordId('unique-test').build()
+      ).rejects.toThrow(/Unique constraint/);
+    });
+
+    it('prevents duplicate party slots', async () => {
+      const fixtures = createFixtures(prisma);
+      const { user, party } = await fixtures.userWithParty(1);
+      const pokemon = party[0];
+
+      // Try to add same pokemon to party slot twice
+      await prisma.partySlot.create({
+        data: { userId: user.id, pokemonId: pokemon.id, slot: 1 }
+      });
+
+      await expect(
+        prisma.partySlot.create({
+          data: { userId: user.id, pokemonId: pokemon.id, slot: 1 }
+        })
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('Check Constraints', () => {
+    it('enforces positive currency', async () => {
+      const fixtures = createFixtures(prisma);
+      
+      await expect(
+        fixtures.user().withCurrency(-100).build()
+      ).rejects.toThrow();
+    });
+
+    it('enforces valid Pokemon levels (1-100)', async () => {
+      const fixtures = createFixtures(prisma);
+      const user = await fixtures.user().build();
+
+      await expect(
+        fixtures.pokemon().withOwner(user.id).withLevel(0).build()
+      ).rejects.toThrow();
+
+      await expect(
+        fixtures.pokemon().withOwner(user.id).withLevel(101).build()
+      ).rejects.toThrow();
+    });
+
+    it('enforces party size limit', async () => {
+      const fixtures = createFixtures(prisma);
+      const user = await fixtures.user().build();
+
+      // Create 6 pokemon in party (max)
+      for (let i = 1; i <= 6; i++) {
+        const pokemon = await fixtures.pokemon().withOwner(user.id).build();
+        await prisma.partySlot.create({
+          data: { userId: user.id, pokemonId: pokemon.id, slot: i }
+        });
+      }
+
+      // 7th should fail
+      const pokemon7 = await fixtures.pokemon().withOwner(user.id).build();
+      await expect(
+        prisma.partySlot.create({
+          data: { userId: user.id, pokemonId: pokemon7.id, slot: 7 }
+        })
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('Trigger Validations', () => {
+    it('audit log captures user creation', async () => {
+      const fixtures = createFixtures(prisma);
+      const user = await fixtures.user().withUsername('AuditTest').build();
+
+      const auditLog = await prisma.auditLog.findFirst({
+        where: {
+          tableName: 'User',
+          operation: 'INSERT',
+          recordId: user.id
+        }
+      });
+
+      expect(auditLog).not.toBeNull();
+      expect(auditLog!.newData).toMatchObject({ username: 'AuditTest' });
+    });
+
+    it('updated_at auto-updates on modification', async () => {
+      const fixtures = createFixtures(prisma);
+      const user = await fixtures.user().build();
+      const originalUpdatedAt = user.updatedAt;
+
+      // Wait a bit
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Update user
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { level: user.level + 1 }
+      });
+
+      const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
+      expect(updatedUser!.updatedAt.getTime()).toBeGreaterThan(originalUpdatedAt.getTime());
+    });
+  });
+});
+```
+
+#### Testing Specialist Recommendations
+
+| Area | Recommendation | Priority | Impact |
+|------|---------------|----------|--------|
+| **Isolation** | Use schema-per-test for true isolation | P0 | Test reliability |
+| **Fixtures** | Implement type-safe fixture builders | P0 | Test maintainability |
+| **Migration Tests** | Test up/down for every migration | P1 | Deploy confidence |
+| **Performance** | Benchmark critical queries | P1 | SLO compliance |
+| **Integrity** | Test all constraint types | P1 | Data quality |
+| **Coverage** | 80%+ coverage on repositories | P2 | Bug prevention |
