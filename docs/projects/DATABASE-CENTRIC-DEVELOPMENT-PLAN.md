@@ -894,6 +894,842 @@ const encounters = await prisma.encounter.findMany({
 
 ---
 
+---
+
+## Agile Review & Refinement
+
+> **Sprint Planning Session:** December 3, 2025  
+> **Participants:** All Specialist Teams  
+> **Format:** Each team reviews blueprint, identifies risks/flaws, proposes improvements
+
+---
+
+### 🗄️ Database Specialist Review
+
+**Blueprint Assessment:** ✅ Solid foundation with some gaps
+
+#### Identified Flaws & Risks
+
+| ID | Flaw/Risk | Severity | Impact |
+|----|-----------|----------|--------|
+| DB-1 | Missing `VACUUM` automation | Medium | Table bloat over time |
+| DB-2 | No deadlock detection strategy | High | Transaction failures under load |
+| DB-3 | TimescaleDB compression not specified for all hypertables | Medium | Storage costs |
+| DB-4 | Connection pool numbers are estimates, not measured | Medium | Over/under provisioning |
+| DB-5 | No strategy for handling long-running queries | High | Connection exhaustion |
+
+#### Proposed Improvements
+
+```sql
+-- DB-1 FIX: Add autovacuum tuning
+ALTER TABLE log_entries SET (
+  autovacuum_vacuum_scale_factor = 0.05,  -- Vacuum at 5% dead tuples (vs 20% default)
+  autovacuum_analyze_scale_factor = 0.02
+);
+
+-- DB-5 FIX: Add statement timeout
+ALTER DATABASE infinity_gauntlet SET statement_timeout = '30s';
+
+-- Add query cancellation for runaway queries
+CREATE OR REPLACE FUNCTION cancel_long_queries() RETURNS void AS $$
+BEGIN
+  PERFORM pg_cancel_backend(pid) 
+  FROM pg_stat_activity 
+  WHERE state = 'active' 
+    AND query_start < NOW() - INTERVAL '30 seconds'
+    AND query NOT LIKE '%pg_stat%';
+END;
+$$ LANGUAGE plpgsql;
+```
+
+#### Story Point Estimates
+
+| Task | Points | Sprint | Dependencies |
+|------|--------|--------|--------------|
+| 1.1 Schema Integrity Verification | 2 | 1 | None |
+| 1.2 TimescaleDB Configuration | 3 | 1 | None |
+| 1.3 Connection Pool Optimization | 5 | 1 | Load testing |
+| 1.4 New Tables Creation | 8 | 1-2 | Schema review |
+| NEW: Autovacuum tuning | 2 | 1 | None |
+| NEW: Deadlock monitoring | 3 | 2 | Alerting |
+| **Total** | **23** | | |
+
+#### Acceptance Criteria Refinements
+
+```gherkin
+# Original: "All tables have primary keys"
+# Refined:
+Given the database schema
+When I query pg_constraint for primary keys
+Then every table in public schema should have exactly one primary key
+And no table should use composite primary keys > 3 columns
+And all primary keys should be indexed
+
+# NEW acceptance criteria:
+Given a production workload
+When connection pool is at 80% capacity
+Then new connections should queue (not fail)
+And queue depth should be monitored
+And alert fires if queue exceeds 10 connections for 30s
+```
+
+---
+
+### 🏗️ Architecture Specialist Review
+
+**Blueprint Assessment:** ⚠️ Good patterns, missing failure modes
+
+#### Identified Flaws & Risks
+
+| ID | Flaw/Risk | Severity | Impact |
+|----|-----------|----------|--------|
+| ARCH-1 | Service layer has no circuit breaker for DB failures | Critical | Cascading failures |
+| ARCH-2 | Cache invalidation is synchronous (blocks writes) | Medium | Write latency |
+| ARCH-3 | Repository pattern adds complexity without clear benefit yet | Low | Overengineering |
+| ARCH-4 | No retry strategy defined for transient DB errors | High | User-facing errors |
+| ARCH-5 | Write optimizer lacks backpressure handling | Medium | Memory growth |
+
+#### Proposed Improvements
+
+```typescript
+// ARCH-1 FIX: Add circuit breaker to service layer
+import CircuitBreaker from 'opossum';
+
+const dbCircuitBreaker = new CircuitBreaker(
+  async (fn: () => Promise<any>) => fn(),
+  {
+    timeout: 5000,        // 5s timeout
+    errorThresholdPercentage: 50,
+    resetTimeout: 30000,  // 30s before retry
+    volumeThreshold: 10   // Min requests before tripping
+  }
+);
+
+// ARCH-2 FIX: Async cache invalidation
+async updateTrainer(userId: string, data: Partial<Trainer>): Promise<Trainer> {
+  const trainer = await this.prisma.trainer.update({ where: { discordId: userId }, data });
+  
+  // Fire-and-forget invalidation (don't block the response)
+  setImmediate(() => {
+    this.cache.delete(`trainer:${userId}`);
+    this.eventBus.emit('cache.invalidated', { key: `trainer:${userId}` });
+  });
+  
+  return trainer;
+}
+
+// ARCH-4 FIX: Retry strategy with exponential backoff
+const retryConfig = {
+  maxRetries: 3,
+  baseDelayMs: 100,
+  maxDelayMs: 2000,
+  retryableErrors: [
+    'ECONNRESET',
+    'ETIMEDOUT', 
+    'P1001',  // Prisma: Can't reach database
+    'P1002',  // Prisma: Connection timed out
+    '40001',  // PostgreSQL: Serialization failure (retry safe)
+  ]
+};
+```
+
+#### Revised Data Flow (with failure handling)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     RESILIENT DATA FLOW                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Request ──► Rate Limiter ──► Circuit Breaker ──► Service Layer        │
+│                                      │                                  │
+│                                      ▼                                  │
+│                              ┌──────────────┐                          │
+│                              │    Retry     │                          │
+│                              │   Strategy   │                          │
+│                              └──────┬───────┘                          │
+│                                     │                                   │
+│              ┌──────────────────────┼──────────────────────┐           │
+│              ▼                      ▼                      ▼           │
+│        ┌──────────┐          ┌──────────┐          ┌──────────┐       │
+│        │ L1 Cache │◄────────►│ Database │◄────────►│  Fallback │       │
+│        │  (read)  │          │ (source) │          │  (stale)  │       │
+│        └──────────┘          └──────────┘          └──────────┘       │
+│                                                                         │
+│  On DB failure: Serve stale cache + emit degraded event + queue write  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Story Point Estimates
+
+| Task | Points | Sprint | Dependencies |
+|------|--------|--------|--------------|
+| 1.5 Data Flow Mapping | 3 | 1 | None |
+| 1.6 Service Layer Standardization | 8 | 1-2 | None |
+| 1.7 Repository Pattern | 5 | 2 | 1.6 |
+| NEW: Circuit breaker implementation | 5 | 1 | None |
+| NEW: Retry strategy | 3 | 1 | None |
+| NEW: Async cache invalidation | 2 | 1 | None |
+| **Total** | **26** | | |
+
+#### Acceptance Criteria Refinements
+
+```gherkin
+# NEW: Circuit breaker behavior
+Given the database is unavailable
+When a service method is called
+Then the circuit breaker should trip after 5 failures
+And subsequent calls should fail fast (< 10ms)
+And the system should attempt reset after 30 seconds
+And degraded mode should serve stale cache where available
+
+# NEW: Retry behavior  
+Given a transient database error (connection reset)
+When a query fails
+Then the system should retry up to 3 times
+And use exponential backoff (100ms, 200ms, 400ms)
+And log each retry attempt
+And give up gracefully with user-friendly error
+```
+
+---
+
+### 📊 Performance Specialist Review
+
+**Blueprint Assessment:** ⚠️ Missing baseline measurements, optimistic targets
+
+#### Identified Flaws & Risks
+
+| ID | Flaw/Risk | Severity | Impact |
+|----|-----------|----------|--------|
+| PERF-1 | Query targets are aspirational, not measured | High | False confidence |
+| PERF-2 | Cache warming blocks startup (could take 30s+) | Medium | Slow deploys |
+| PERF-3 | Write optimizer 100ms flush is too aggressive for low-traffic | Low | Wasted cycles |
+| PERF-4 | No mention of query plan caching | Medium | Repeated planning overhead |
+| PERF-5 | Batch sizes are arbitrary (100 entries) | Medium | Suboptimal throughput |
+
+#### Proposed Improvements
+
+```typescript
+// PERF-2 FIX: Non-blocking cache warm with progressive loading
+async function warmCachesProgressive(): Promise<void> {
+  // Critical path: Load immediately (blocks startup)
+  await warmTypeChart();     // 324 entries, ~50ms
+  
+  // Defer non-critical to background
+  setImmediate(async () => {
+    await warmSpecies();     // 1025 entries, ~500ms
+    await warmMoves();       // 919 entries, ~400ms
+    await warmAbilities();   // 367 entries, ~200ms
+    log('info', 'Background cache warming complete');
+  });
+  
+  // Start accepting requests immediately
+  log('info', 'Critical caches ready, background warming in progress');
+}
+
+// PERF-3 FIX: Adaptive flush interval based on queue depth
+class AdaptiveWriteOptimizer {
+  private getFlushInterval(): number {
+    const queueSize = this.pendingWrites.size;
+    
+    if (queueSize > 500) return 50;    // High load: flush fast
+    if (queueSize > 100) return 100;   // Medium load
+    if (queueSize > 10) return 500;    // Low load
+    return 2000;                        // Very low: conserve resources
+  }
+}
+
+// PERF-5 FIX: Optimal batch size calculation
+function calculateOptimalBatchSize(avgRowSize: number): number {
+  const targetBatchBytes = 64 * 1024;  // 64KB per batch (PostgreSQL sweet spot)
+  const maxBatchSize = 1000;
+  const minBatchSize = 10;
+  
+  const calculated = Math.floor(targetBatchBytes / avgRowSize);
+  return Math.max(minBatchSize, Math.min(maxBatchSize, calculated));
+}
+```
+
+#### Revised Performance Targets (Measured Baseline Required)
+
+| Query | Baseline (TBD) | Target | Stretch Goal |
+|-------|----------------|--------|--------------|
+| Get Trainer by Discord ID | ❓ Measure first | Baseline - 50% | <2ms |
+| Get Party with Pokémon | ❓ Measure first | Baseline - 50% | <5ms |
+| Active Encounters by Guild | ❓ Measure first | Baseline - 50% | <5ms |
+| Recent Errors (24h) | ❓ Measure first | Baseline - 50% | <10ms |
+
+**ACTION REQUIRED:** Run baseline measurements before setting targets
+
+```sql
+-- Performance baseline script
+\timing on
+
+-- Test 1: Trainer lookup
+EXPLAIN (ANALYZE, BUFFERS) 
+SELECT * FROM "Trainer" WHERE discord_id = '123456789012345678';
+
+-- Test 2: Party with Pokemon
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT t.*, p.*, ps.*, pi.*
+FROM "Trainer" t
+JOIN "Party" p ON p.trainer_id = t.id
+JOIN "PartySlot" ps ON ps.party_id = p.id  
+JOIN "PokemonInstance" pi ON pi.id = ps.pokemon_id
+WHERE t.discord_id = '123456789012345678';
+
+-- Test 3: Encounter lookup
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM "Encounter" 
+WHERE guild_id = '987654321098765432' AND status = 'active';
+```
+
+#### Story Point Estimates
+
+| Task | Points | Sprint | Dependencies |
+|------|--------|--------|--------------|
+| 1.8 Query Performance Baseline | 3 | 1 | Production data |
+| 1.9 Cache Warming Strategy | 5 | 1 | None |
+| 1.10 Write Optimization | 8 | 2 | 1.8 baseline |
+| NEW: Run baseline measurements | 2 | 1 | Prod access |
+| NEW: Adaptive flush intervals | 3 | 2 | 1.10 |
+| NEW: Query plan analysis | 3 | 2 | 1.8 |
+| **Total** | **24** | | |
+
+---
+
+### 🔒 Security Specialist Review
+
+**Blueprint Assessment:** ⚠️ Good basics, missing threat model
+
+#### Identified Flaws & Risks
+
+| ID | Flaw/Risk | Severity | Impact |
+|----|-----------|----------|--------|
+| SEC-1 | No row-level security (RLS) mentioned | Medium | Data leakage between tenants |
+| SEC-2 | AuditLog has no tamper protection | High | Audit trail integrity |
+| SEC-3 | Sanitization happens at storage, not input | Medium | Delayed detection |
+| SEC-4 | No mention of secrets rotation strategy | Medium | Credential compromise |
+| SEC-5 | Database roles defined but not enforced in code | High | Privilege escalation |
+
+#### Proposed Improvements
+
+```sql
+-- SEC-1 FIX: Row-level security for multi-tenant safety
+ALTER TABLE "PokemonInstance" ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY pokemon_owner_policy ON "PokemonInstance"
+  FOR ALL
+  USING (trainer_id = current_setting('app.current_trainer_id')::uuid);
+
+-- SEC-2 FIX: Audit log tamper protection with hash chain
+ALTER TABLE "AuditLog" ADD COLUMN prev_hash VARCHAR(64);
+ALTER TABLE "AuditLog" ADD COLUMN row_hash VARCHAR(64);
+
+CREATE OR REPLACE FUNCTION audit_hash_chain() RETURNS TRIGGER AS $$
+DECLARE
+  prev_record RECORD;
+BEGIN
+  SELECT row_hash INTO prev_record FROM "AuditLog" 
+  ORDER BY timestamp DESC LIMIT 1;
+  
+  NEW.prev_hash := COALESCE(prev_record.row_hash, 'GENESIS');
+  NEW.row_hash := encode(sha256(
+    (NEW.id || NEW.timestamp || NEW.actor_id || NEW.action || NEW.prev_hash)::bytea
+  ), 'hex');
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER audit_hash_chain_trigger
+  BEFORE INSERT ON "AuditLog"
+  FOR EACH ROW EXECUTE FUNCTION audit_hash_chain();
+```
+
+```typescript
+// SEC-3 FIX: Input sanitization at entry point
+import { z } from 'zod';
+
+const TrainerInputSchema = z.object({
+  name: z.string()
+    .min(1).max(32)
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Invalid characters')
+    .transform(s => s.trim()),
+  discordId: z.string()
+    .regex(/^\d{17,19}$/, 'Invalid Discord ID'),
+});
+
+// Validate at command handler entry
+export async function handleSetName(interaction: CommandInteraction) {
+  const result = TrainerInputSchema.safeParse({
+    name: interaction.options.getString('name'),
+    discordId: interaction.user.id,
+  });
+  
+  if (!result.success) {
+    return interaction.reply({ content: 'Invalid input', ephemeral: true });
+  }
+  
+  // Safe to proceed with result.data
+}
+
+// SEC-5 FIX: Enforce DB roles in connection selection
+function getPrismaClient(context: RequestContext): PrismaClient {
+  const role = determineRole(context);
+  
+  switch (role) {
+    case 'analytics':
+      return analyticsClient;  // Read-only role
+    case 'game':
+      return gameClient;       // Game write role
+    case 'audit':
+      return auditClient;      // Audit write role
+    default:
+      throw new Error('Unknown role');
+  }
+}
+```
+
+#### Story Point Estimates
+
+| Task | Points | Sprint | Dependencies |
+|------|--------|--------|--------------|
+| 1.11 Database Access Control | 5 | 1 | None |
+| 1.12 Sensitive Data Protection | 3 | 1 | None |
+| 1.13 Query Injection Prevention | 2 | 1 | Code review |
+| NEW: Row-level security | 8 | 2 | Schema review |
+| NEW: Audit tamper protection | 5 | 2 | None |
+| NEW: Input validation layer | 5 | 1 | None |
+| **Total** | **28** | | |
+
+---
+
+### 🧪 Testing Specialist Review
+
+**Blueprint Assessment:** ⚠️ Good test types, missing test data strategy
+
+#### Identified Flaws & Risks
+
+| ID | Flaw/Risk | Severity | Impact |
+|----|-----------|----------|--------|
+| TEST-1 | Test DB setup creates fresh DB every time (slow) | Medium | CI time |
+| TEST-2 | No strategy for testing with realistic data volumes | High | Performance bugs escape |
+| TEST-3 | Integrity tests don't cover all foreign keys | Medium | Missed constraints |
+| TEST-4 | No chaos/fault injection testing planned | Medium | Unknown failure modes |
+| TEST-5 | Performance tests have no baseline comparison | High | Regressions missed |
+
+#### Proposed Improvements
+
+```typescript
+// TEST-1 FIX: Template database for fast test setup
+// tests/setup/fast-database.ts
+export async function setupTestDatabase(): Promise<PrismaClient> {
+  const testId = process.env.VITEST_WORKER_ID || '1';
+  const testDbName = `ig_test_${testId}`;
+  
+  // Use template database (pre-migrated, pre-seeded)
+  await sql`CREATE DATABASE ${testDbName} TEMPLATE ig_test_template`;
+  
+  return new PrismaClient({
+    datasources: { db: { url: `postgresql://test:test@localhost:5433/${testDbName}` } }
+  });
+}
+
+// Cleanup after test file
+afterAll(async () => {
+  await prisma.$disconnect();
+  await sql`DROP DATABASE IF EXISTS ${testDbName}`;
+});
+
+// TEST-2 FIX: Realistic data volume testing
+describe('Realistic Volume Tests', () => {
+  beforeAll(async () => {
+    // Generate 10,000 trainers with realistic distribution
+    await seedRealisticData({
+      trainers: 10_000,
+      pokemonPerTrainer: { min: 1, max: 50, median: 6 },
+      battlesPerTrainer: { min: 0, max: 100, median: 10 },
+    });
+  });
+  
+  it('should handle trainer lookup at scale', async () => {
+    const randomTrainerId = await getRandomTrainerId();
+    
+    const start = performance.now();
+    await prisma.trainer.findUnique({
+      where: { discordId: randomTrainerId },
+      include: { party: true }
+    });
+    const duration = performance.now() - start;
+    
+    expect(duration).toBeLessThan(10); // Still fast at scale
+  });
+});
+
+// TEST-4 FIX: Chaos testing
+describe('Chaos Tests', () => {
+  it('should handle database disconnect gracefully', async () => {
+    // Simulate connection drop
+    await prisma.$disconnect();
+    
+    const result = await trainerService.getTrainer('123');
+    
+    // Should return cached data or graceful error
+    expect(result).toBeDefined(); // Cached fallback
+    // OR
+    expect(result.error).toBe('SERVICE_DEGRADED');
+  });
+  
+  it('should handle slow queries without timeout cascade', async () => {
+    // Inject artificial latency
+    await prisma.$executeRaw`SELECT pg_sleep(5)`;
+    
+    // Other queries should still work
+    const trainer = await prisma.trainer.findFirst();
+    expect(trainer).toBeDefined();
+  });
+});
+```
+
+#### Test Coverage Matrix
+
+| Layer | Unit | Integration | E2E | Chaos | Performance |
+|-------|:----:|:-----------:|:---:|:-----:|:-----------:|
+| Repository | ✅ | ✅ | - | - | ✅ |
+| Service | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Cache | ✅ | ✅ | - | ✅ | ✅ |
+| Database | - | ✅ | - | ✅ | ✅ |
+
+#### Story Point Estimates
+
+| Task | Points | Sprint | Dependencies |
+|------|--------|--------|--------------|
+| 1.14 Database Test Infrastructure | 5 | 1 | None |
+| 1.15 Query Performance Tests | 3 | 1 | 1.14 |
+| 1.16 Data Integrity Tests | 5 | 1 | 1.14 |
+| NEW: Template database setup | 3 | 1 | None |
+| NEW: Realistic volume tests | 5 | 2 | Seed scripts |
+| NEW: Chaos testing suite | 8 | 2 | Circuit breaker |
+| **Total** | **29** | | |
+
+---
+
+### 🚀 DevOps Specialist Review
+
+**Blueprint Assessment:** ⚠️ Good monitoring, missing operational runbooks
+
+#### Identified Flaws & Risks
+
+| ID | Flaw/Risk | Severity | Impact |
+|----|-----------|----------|--------|
+| OPS-1 | No runbook for database failover | Critical | Extended downtime |
+| OPS-2 | Backup verification is manual | Medium | Undetected failures |
+| OPS-3 | Migration safety doesn't handle large tables | High | Locking issues |
+| OPS-4 | No strategy for schema drift detection | Medium | Env inconsistency |
+| OPS-5 | Alert thresholds are arbitrary | Medium | Alert fatigue |
+
+#### Proposed Improvements
+
+```yaml
+# OPS-1 FIX: Database failover runbook
+# ops/runbooks/database-failover.md
+
+## Database Failover Procedure
+
+### Detection
+- Alert: `database_connection_failures > 5 in 1m`
+- Verify: `pg_isready -h <host> -p 5432`
+
+### Immediate Actions (< 5 min)
+1. [ ] Confirm outage scope (single service or all?)
+2. [ ] Check Render status page
+3. [ ] Notify team in #incidents channel
+4. [ ] Enable maintenance mode: `/ops maintenance on`
+
+### Recovery (if Render-managed)
+1. [ ] Monitor Render auto-recovery (usually < 5 min)
+2. [ ] If > 10 min: Create Render support ticket
+3. [ ] If > 30 min: Initiate manual failover to read replica
+
+### Post-Incident
+1. [ ] Verify all services reconnected
+2. [ ] Check for data consistency
+3. [ ] Review error logs for cascade failures
+4. [ ] Create incident report
+```
+
+```typescript
+// OPS-2 FIX: Automated backup verification
+// scripts/verify-backups-automated.ts
+import { CronJob } from 'cron';
+
+const backupVerificationJob = new CronJob('0 6 * * *', async () => {
+  // Run daily at 6 AM
+  const latestBackup = await getLatestBackup();
+  
+  // 1. Check backup exists and is recent
+  if (!latestBackup || latestBackup.age > 24 * 60 * 60 * 1000) {
+    await alert('CRITICAL', 'Backup missing or stale');
+    return;
+  }
+  
+  // 2. Test restore to temporary database
+  const testResult = await testRestore(latestBackup);
+  
+  if (!testResult.success) {
+    await alert('CRITICAL', `Backup restore failed: ${testResult.error}`);
+    return;
+  }
+  
+  // 3. Verify data integrity
+  const integrityResult = await verifyBackupIntegrity(testResult.database);
+  
+  if (integrityResult.issues.length > 0) {
+    await alert('WARNING', `Backup integrity issues: ${integrityResult.issues}`);
+  }
+  
+  // 4. Log success
+  await prisma.auditLog.create({
+    data: {
+      actorId: 'system',
+      actorType: 'system',
+      action: 'backup_verified',
+      resource: 'database',
+      metadata: { backup: latestBackup.name, ...integrityResult }
+    }
+  });
+});
+
+// OPS-3 FIX: Large table migration strategy
+async function safeLargeTableMigration(migration: () => Promise<void>): Promise<void> {
+  // 1. Check table size
+  const tableSize = await getTableSize('target_table');
+  
+  if (tableSize > 1_000_000) { // > 1M rows
+    // Use pt-online-schema-change pattern
+    await executeWithOnlineSchemaChange(migration);
+  } else {
+    // Standard migration is safe
+    await migration();
+  }
+}
+```
+
+#### Refined Alert Thresholds (Evidence-Based)
+
+| Metric | Current | Refined | Rationale |
+|--------|---------|---------|-----------|
+| Connection pool | 25/32 (78%) | 28/35 (80%) | Add headroom |
+| Query latency p95 | 50ms | Dynamic (2x baseline) | Baseline-relative |
+| Error rate | 50/hour | 5% of request rate | Percentage-based |
+| Disk usage | 70% | 60% + growth trend | Predictive |
+
+#### Story Point Estimates
+
+| Task | Points | Sprint | Dependencies |
+|------|--------|--------|--------------|
+| 1.17 Database Monitoring Dashboard | 5 | 1 | None |
+| 1.18 Automated Backup Verification | 5 | 1 | None |
+| 1.19 Database Migration Safety | 8 | 2 | Testing |
+| NEW: Failover runbook | 3 | 1 | None |
+| NEW: Online schema change tooling | 8 | 2 | None |
+| NEW: Evidence-based alerting | 5 | 2 | Baseline data |
+| **Total** | **34** | | |
+
+---
+
+### 📝 Documentation Specialist Review
+
+**Blueprint Assessment:** ✅ Well-structured, needs templates
+
+#### Identified Flaws & Risks
+
+| ID | Flaw/Risk | Severity | Impact |
+|----|-----------|----------|--------|
+| DOC-1 | No template for adding new tables | Low | Inconsistent docs |
+| DOC-2 | Query cookbook examples don't show failure cases | Medium | Incomplete guidance |
+| DOC-3 | No changelog automation | Low | Manual tracking |
+| DOC-4 | Schema docs will drift from actual schema | Medium | Outdated docs |
+| DOC-5 | No decision log for architectural choices | Medium | Lost context |
+
+#### Proposed Improvements
+
+```markdown
+<!-- DOC-1 FIX: New table documentation template -->
+<!-- prisma/templates/NEW-TABLE-TEMPLATE.md -->
+
+# Table: [TableName]
+
+## Purpose
+[One sentence description of what this table stores and why]
+
+## Schema
+| Field | Type | Description | Constraints |
+|-------|------|-------------|-------------|
+| id | UUID | Primary key | Auto-generated |
+| ... | ... | ... | ... |
+
+## Relationships
+- `fieldName` → ParentTable (cardinality, required/optional)
+
+## Indexes
+- `fieldName` — [Query pattern this supports]
+
+## Business Rules
+- [Rule 1]
+- [Rule 2]
+
+## Example Queries
+```sql
+-- Common query 1
+SELECT ...
+```
+
+## Lifecycle
+- Created: [When/how records are created]
+- Updated: [When/how records are updated]  
+- Deleted: [Retention policy, cascade behavior]
+
+## Migration History
+- 2025-XX-XX: Created
+- ...
+```
+
+```typescript
+// DOC-4 FIX: Automated schema documentation sync
+// scripts/sync-schema-docs.ts
+import { getDMMF } from '@prisma/internals';
+
+async function syncSchemaDocs(): Promise<void> {
+  const dmmf = await getDMMF({ datamodelPath: 'prisma/schema.prisma' });
+  
+  for (const model of dmmf.datamodel.models) {
+    const docPath = `prisma/docs/${model.name}.md`;
+    const existingDoc = await readFile(docPath).catch(() => null);
+    
+    if (!existingDoc) {
+      // Generate skeleton doc
+      await generateSkeletonDoc(model, docPath);
+      console.log(`Created: ${docPath}`);
+    } else {
+      // Verify schema matches doc
+      const drift = detectDrift(model, existingDoc);
+      if (drift.length > 0) {
+        console.warn(`DRIFT DETECTED in ${docPath}:`, drift);
+      }
+    }
+  }
+}
+
+// DOC-5 FIX: Architecture Decision Record template
+// docs/decisions/TEMPLATE.md
+/*
+# ADR-XXX: [Title]
+
+## Status
+[Proposed | Accepted | Deprecated | Superseded]
+
+## Context
+[What is the issue that we're seeing that is motivating this decision?]
+
+## Decision
+[What is the change that we're proposing?]
+
+## Consequences
+[What becomes easier or harder as a result?]
+
+## Alternatives Considered
+[What other options were evaluated?]
+*/
+```
+
+#### Story Point Estimates
+
+| Task | Points | Sprint | Dependencies |
+|------|--------|--------|--------------|
+| 1.20 Schema Documentation | 5 | 1 | None |
+| 1.21 Query Cookbook | 3 | 1 | None |
+| NEW: Documentation templates | 2 | 1 | None |
+| NEW: Schema drift detection | 3 | 2 | CI pipeline |
+| NEW: ADR system setup | 2 | 1 | None |
+| **Total** | **15** | | |
+
+---
+
+### 📊 Sprint Planning Summary
+
+#### Total Story Points by Team
+
+| Team | Sprint 1 | Sprint 2 | Total |
+|------|----------|----------|-------|
+| 🗄️ Database | 12 | 11 | 23 |
+| 🏗️ Architecture | 18 | 8 | 26 |
+| 📊 Performance | 10 | 14 | 24 |
+| 🔒 Security | 10 | 18 | 28 |
+| 🧪 Testing | 13 | 16 | 29 |
+| 🚀 DevOps | 13 | 21 | 34 |
+| 📝 Documentation | 10 | 5 | 15 |
+| **Total** | **86** | **93** | **179** |
+
+#### Sprint 1 Focus (Foundational)
+
+**Theme:** Establish baselines and safety nets
+
+| Priority | Tasks |
+|----------|-------|
+| P0 | Run performance baselines (PERF) |
+| P0 | Circuit breaker implementation (ARCH) |
+| P0 | Failover runbook (OPS) |
+| P1 | Schema verification (DB) |
+| P1 | Input validation layer (SEC) |
+| P1 | Test infrastructure (TEST) |
+| P1 | Schema documentation (DOC) |
+
+#### Sprint 2 Focus (Enhancement)
+
+**Theme:** Optimize and harden
+
+| Priority | Tasks |
+|----------|-------|
+| P0 | New tables creation (DB) |
+| P0 | Row-level security (SEC) |
+| P1 | Write optimization (PERF) |
+| P1 | Chaos testing (TEST) |
+| P1 | Online schema change (OPS) |
+| P2 | Repository pattern (ARCH) |
+
+#### Risk Register
+
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| Baseline measurements delayed | Medium | High | Parallel track with estimates |
+| Circuit breaker adds latency | Low | Medium | Benchmark before deploy |
+| RLS breaks existing queries | Medium | High | Thorough testing, gradual rollout |
+| Schema drift in prod | Medium | Medium | CI check before deploy |
+| Backup restore fails | Low | Critical | Monthly restore drills |
+
+#### Definition of Done (Refined)
+
+```gherkin
+Given a task is claimed
+When the implementation is complete
+Then:
+  - [ ] Code is reviewed and approved
+  - [ ] Unit tests pass (>80% coverage for new code)
+  - [ ] Integration tests pass
+  - [ ] Performance doesn't regress (vs baseline)
+  - [ ] Security review completed (for data changes)
+  - [ ] Documentation updated
+  - [ ] Schema docs match implementation
+  - [ ] ADR created (for architectural decisions)
+  - [ ] Runbook updated (for operational changes)
+  - [ ] Demo recorded or screenshot taken
+```
+
+---
+
 ## Phase 2: Database Enhancement (Next Sprint)
 
 ### Planned Improvements
