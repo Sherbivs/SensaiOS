@@ -13916,3 +13916,1033 @@ describe('Data Integrity', () => {
 | **Performance** | Benchmark critical queries | P1 | SLO compliance |
 | **Integrity** | Test all constraint types | P1 | Data quality |
 | **Coverage** | 80%+ coverage on repositories | P2 | Bug prevention |
+
+---
+
+## Specialist Deep Dive Part 7: Future Optimization Roadmap
+
+> **Focus:** Phase 2-3 planning, scaling strategies, technology evaluation, implementation priorities
+> **Objective:** Provide a clear path forward for database evolution as the application grows
+
+### 7.1 Database Evolution Roadmap
+
+#### Phase Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    DATABASE EVOLUTION PHASES                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  PHASE 1: FOUNDATION (Current - Q1 2025)                              ║ │
+│  ║  ┌─────────────────────────────────────────────────────────────────┐  ║ │
+│  ║  │ • Single PostgreSQL + TimescaleDB                               │  ║ │
+│  ║  │ • Basic connection pooling (PgBouncer)                          │  ║ │
+│  ║  │ • L1 memory cache                                               │  ║ │
+│  ║  │ • Core schema with audit logging                                │  ║ │
+│  ║  │ • Basic RLS policies                                            │  ║ │
+│  ║  └─────────────────────────────────────────────────────────────────┘  ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                   │                                        │
+│                                   ▼                                        │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  PHASE 2: OPTIMIZATION (Q2-Q3 2025)                                   ║ │
+│  ║  ┌─────────────────────────────────────────────────────────────────┐  ║ │
+│  ║  │ • Read replicas for analytics                                   │  ║ │
+│  ║  │ • Redis caching layer                                           │  ║ │
+│  ║  │ • Query optimization & materialized views                       │  ║ │
+│  ║  │ • Advanced monitoring & alerting                                │  ║ │
+│  ║  │ • Automated backup verification                                 │  ║ │
+│  ║  └─────────────────────────────────────────────────────────────────┘  ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                   │                                        │
+│                                   ▼                                        │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  PHASE 3: SCALE (Q4 2025 - Q1 2026)                                   ║ │
+│  ║  ┌─────────────────────────────────────────────────────────────────┐  ║ │
+│  ║  │ • Horizontal sharding (if needed)                               │  ║ │
+│  ║  │ • Multi-region deployment                                       │  ║ │
+│  ║  │ • Event-driven architecture                                     │  ║ │
+│  ║  │ • Advanced CQRS implementation                                  │  ║ │
+│  ║  │ • Machine learning integration                                  │  ║ │
+│  ║  └─────────────────────────────────────────────────────────────────┘  ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.2 Phase 2: Optimization Details
+
+#### 7.2.1 Read Replicas Strategy
+
+```typescript
+// src/config/database-topology.ts
+interface DatabaseTopology {
+  primary: DatabaseNode;
+  readReplicas: ReadReplicaNode[];
+  analytics: AnalyticsNode;
+}
+
+interface DatabaseNode {
+  url: string;
+  role: 'primary' | 'read-replica' | 'analytics';
+  region: string;
+  maxConnections: number;
+  priority: number;
+}
+
+interface ReadReplicaNode extends DatabaseNode {
+  role: 'read-replica';
+  lagThresholdMs: number;
+  healthCheckInterval: number;
+}
+
+/**
+ * Phase 2 Topology Configuration
+ */
+export const PHASE_2_TOPOLOGY: DatabaseTopology = {
+  primary: {
+    url: process.env.PRIMARY_DATABASE_URL!,
+    role: 'primary',
+    region: 'us-east-1',
+    maxConnections: 100,
+    priority: 1
+  },
+  readReplicas: [
+    {
+      url: process.env.READ_REPLICA_1_URL!,
+      role: 'read-replica',
+      region: 'us-east-1',
+      maxConnections: 50,
+      priority: 2,
+      lagThresholdMs: 1000, // 1 second max lag
+      healthCheckInterval: 5000
+    },
+    {
+      url: process.env.READ_REPLICA_2_URL!,
+      role: 'read-replica',
+      region: 'us-west-2',
+      maxConnections: 50,
+      priority: 3,
+      lagThresholdMs: 2000, // 2 seconds for cross-region
+      healthCheckInterval: 5000
+    }
+  ],
+  analytics: {
+    url: process.env.ANALYTICS_DATABASE_URL!,
+    role: 'analytics',
+    region: 'us-east-1',
+    maxConnections: 20,
+    priority: 10
+  }
+};
+
+/**
+ * Read replica router with lag awareness
+ */
+export class ReadReplicaRouter {
+  private replicas: Map<string, ReplicaHealth> = new Map();
+  
+  async selectReplica(query: QueryContext): Promise<string> {
+    // Check if query requires strong consistency
+    if (query.requiresConsistency) {
+      return PHASE_2_TOPOLOGY.primary.url;
+    }
+
+    // Get healthy replicas
+    const healthy = Array.from(this.replicas.entries())
+      .filter(([_, health]) => health.isHealthy && health.lagMs < health.threshold)
+      .sort((a, b) => a[1].lagMs - b[1].lagMs);
+
+    if (healthy.length === 0) {
+      // Fallback to primary
+      return PHASE_2_TOPOLOGY.primary.url;
+    }
+
+    // Round-robin among healthy replicas
+    return this.roundRobin(healthy.map(([url]) => url));
+  }
+
+  private roundRobin(urls: string[]): string {
+    // Simple round-robin selection
+    const index = this.counter++ % urls.length;
+    return urls[index];
+  }
+
+  private counter = 0;
+}
+```
+
+#### 7.2.2 Redis Caching Layer
+
+```typescript
+// src/services/cache/redis-cache.ts
+import Redis from 'ioredis';
+
+interface CacheConfig {
+  redis: {
+    host: string;
+    port: number;
+    password?: string;
+    db: number;
+    keyPrefix: string;
+  };
+  ttl: {
+    default: number;
+    user: number;
+    pokemon: number;
+    battle: number;
+    leaderboard: number;
+  };
+}
+
+/**
+ * Phase 2 Redis Cache Implementation
+ */
+export class RedisCacheService {
+  private redis: Redis;
+  private config: CacheConfig;
+  private metrics: CacheMetrics;
+
+  constructor(config: CacheConfig) {
+    this.config = config;
+    this.redis = new Redis({
+      host: config.redis.host,
+      port: config.redis.port,
+      password: config.redis.password,
+      db: config.redis.db,
+      keyPrefix: config.redis.keyPrefix,
+      retryStrategy: (times) => Math.min(times * 50, 2000),
+      lazyConnect: true
+    });
+    this.metrics = new CacheMetrics();
+  }
+
+  /**
+   * Cache-aside pattern with automatic refresh
+   */
+  async getOrSet<T>(
+    key: string,
+    fetcher: () => Promise<T>,
+    options: { ttl?: number; tags?: string[] } = {}
+  ): Promise<T> {
+    const startTime = performance.now();
+
+    // Try cache first
+    const cached = await this.get<T>(key);
+    if (cached !== null) {
+      this.metrics.recordHit(key, performance.now() - startTime);
+      return cached;
+    }
+
+    // Cache miss - fetch from source
+    this.metrics.recordMiss(key);
+    const value = await fetcher();
+
+    // Store in cache
+    const ttl = options.ttl ?? this.config.ttl.default;
+    await this.set(key, value, ttl);
+
+    // Track tags for invalidation
+    if (options.tags) {
+      await this.addToTags(key, options.tags);
+    }
+
+    return value;
+  }
+
+  /**
+   * Get with type safety
+   */
+  async get<T>(key: string): Promise<T | null> {
+    const data = await this.redis.get(key);
+    if (!data) return null;
+    
+    try {
+      return JSON.parse(data) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Set with TTL
+   */
+  async set<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
+    await this.redis.setex(key, ttlSeconds, JSON.stringify(value));
+  }
+
+  /**
+   * Invalidate by key pattern
+   */
+  async invalidatePattern(pattern: string): Promise<number> {
+    const keys = await this.redis.keys(pattern);
+    if (keys.length === 0) return 0;
+    
+    const pipeline = this.redis.pipeline();
+    keys.forEach(key => pipeline.del(key));
+    await pipeline.exec();
+    
+    return keys.length;
+  }
+
+  /**
+   * Invalidate by tag
+   */
+  async invalidateTag(tag: string): Promise<number> {
+    const tagKey = `tag:${tag}`;
+    const keys = await this.redis.smembers(tagKey);
+    
+    if (keys.length === 0) return 0;
+    
+    const pipeline = this.redis.pipeline();
+    keys.forEach(key => pipeline.del(key));
+    pipeline.del(tagKey);
+    await pipeline.exec();
+    
+    return keys.length;
+  }
+
+  /**
+   * Add key to tags for grouped invalidation
+   */
+  private async addToTags(key: string, tags: string[]): Promise<void> {
+    const pipeline = this.redis.pipeline();
+    tags.forEach(tag => pipeline.sadd(`tag:${tag}`, key));
+    await pipeline.exec();
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getStats(): CacheStatistics {
+    return this.metrics.getStats();
+  }
+}
+
+/**
+ * Cache key builders for consistency
+ */
+export const CacheKeys = {
+  user: (discordId: string) => `user:${discordId}`,
+  userPokemon: (userId: string) => `user:${userId}:pokemon`,
+  pokemon: (id: string) => `pokemon:${id}`,
+  battle: (id: string) => `battle:${id}`,
+  leaderboard: (type: string, page: number) => `leaderboard:${type}:${page}`,
+  species: (id: number) => `species:${id}`,
+  move: (id: number) => `move:${id}`,
+  
+  // Patterns for invalidation
+  patterns: {
+    userAll: (discordId: string) => `user:${discordId}*`,
+    battleAll: (id: string) => `battle:${id}*`,
+    leaderboardAll: () => 'leaderboard:*'
+  }
+};
+
+/**
+ * Cache invalidation events
+ */
+export const CacheInvalidationRules = {
+  'user.updated': (userId: string) => [
+    CacheKeys.user(userId),
+    CacheKeys.userPokemon(userId)
+  ],
+  'pokemon.caught': (userId: string) => [
+    CacheKeys.userPokemon(userId)
+  ],
+  'battle.completed': (battleId: string, player1Id: string, player2Id: string) => [
+    CacheKeys.battle(battleId),
+    CacheKeys.userPokemon(player1Id),
+    CacheKeys.userPokemon(player2Id),
+    ...CacheKeys.patterns.leaderboardAll() // Invalidate all leaderboards
+  ]
+};
+```
+
+#### 7.2.3 Query Optimization Initiatives
+
+```typescript
+// src/services/database/query-optimizer.ts
+interface OptimizationOpportunity {
+  query: string;
+  currentCost: number;
+  suggestedIndex?: string;
+  suggestedRewrite?: string;
+  estimatedImprovement: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+/**
+ * Query optimization analyzer for Phase 2
+ */
+export class QueryOptimizer {
+  private prisma: PrismaClient;
+
+  constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
+  }
+
+  /**
+   * Analyze query plan and suggest optimizations
+   */
+  async analyzeQuery(sql: string): Promise<OptimizationOpportunity[]> {
+    const opportunities: OptimizationOpportunity[] = [];
+
+    // Get query plan
+    const plan = await this.prisma.$queryRawUnsafe<any[]>(
+      `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${sql}`
+    );
+
+    const planData = plan[0]['QUERY PLAN'][0];
+    const totalCost = planData['Total Cost'];
+    const actualTime = planData['Actual Total Time'];
+
+    // Check for sequential scans on large tables
+    if (this.hasSequentialScan(planData) && totalCost > 1000) {
+      const tables = this.extractTablesFromPlan(planData);
+      for (const table of tables) {
+        opportunities.push({
+          query: sql,
+          currentCost: totalCost,
+          suggestedIndex: `CREATE INDEX idx_${table}_... ON "${table}" (...)`,
+          estimatedImprovement: '10x-100x',
+          priority: 'high'
+        });
+      }
+    }
+
+    // Check for high buffer usage (cache misses)
+    const bufferStats = planData['Shared Read Blocks'] || 0;
+    if (bufferStats > 1000) {
+      opportunities.push({
+        query: sql,
+        currentCost: totalCost,
+        suggestedRewrite: 'Consider adding to L1 cache or materialized view',
+        estimatedImprovement: '5x-20x',
+        priority: 'medium'
+      });
+    }
+
+    // Check for nested loops with high row estimates
+    if (this.hasExpensiveNestedLoop(planData)) {
+      opportunities.push({
+        query: sql,
+        currentCost: totalCost,
+        suggestedRewrite: 'Consider JOIN optimization or query restructuring',
+        estimatedImprovement: '2x-10x',
+        priority: 'medium'
+      });
+    }
+
+    return opportunities;
+  }
+
+  /**
+   * Generate missing indexes report
+   */
+  async generateMissingIndexesReport(): Promise<string> {
+    const result = await this.prisma.$queryRaw<any[]>`
+      SELECT 
+        schemaname,
+        relname as table_name,
+        seq_scan,
+        idx_scan,
+        n_live_tup as row_count,
+        CASE 
+          WHEN idx_scan = 0 THEN 'NO_INDEX_USAGE'
+          WHEN seq_scan > idx_scan * 10 THEN 'HIGH_SEQ_SCAN'
+          ELSE 'OK'
+        END as status
+      FROM pg_stat_user_tables
+      WHERE n_live_tup > 1000
+      ORDER BY seq_scan DESC
+      LIMIT 20
+    `;
+
+    let report = '# Missing Indexes Report\n\n';
+    report += '| Table | Rows | Seq Scans | Idx Scans | Status |\n';
+    report += '|-------|------|-----------|-----------|--------|\n';
+
+    for (const row of result) {
+      const status = row.status === 'OK' ? '✅' : '⚠️';
+      report += `| ${row.table_name} | ${row.row_count} | ${row.seq_scan} | ${row.idx_scan} | ${status} ${row.status} |\n`;
+    }
+
+    return report;
+  }
+
+  private hasSequentialScan(plan: any): boolean {
+    const nodeType = plan['Node Type'];
+    if (nodeType === 'Seq Scan') return true;
+    
+    const plans = plan['Plans'] || [];
+    return plans.some((p: any) => this.hasSequentialScan(p));
+  }
+
+  private hasExpensiveNestedLoop(plan: any): boolean {
+    const nodeType = plan['Node Type'];
+    const rows = plan['Plan Rows'] || 0;
+    
+    if (nodeType === 'Nested Loop' && rows > 10000) return true;
+    
+    const plans = plan['Plans'] || [];
+    return plans.some((p: any) => this.hasExpensiveNestedLoop(p));
+  }
+
+  private extractTablesFromPlan(plan: any): string[] {
+    const tables: string[] = [];
+    const relation = plan['Relation Name'];
+    if (relation) tables.push(relation);
+    
+    const plans = plan['Plans'] || [];
+    for (const p of plans) {
+      tables.push(...this.extractTablesFromPlan(p));
+    }
+    
+    return [...new Set(tables)];
+  }
+}
+
+/**
+ * Materialized views for Phase 2
+ */
+export const PHASE_2_MATERIALIZED_VIEWS = [
+  {
+    name: 'mv_user_stats',
+    definition: `
+      CREATE MATERIALIZED VIEW mv_user_stats AS
+      SELECT 
+        u.id,
+        u.discord_id,
+        u.username,
+        COUNT(DISTINCT p.id) as pokemon_count,
+        COUNT(DISTINCT b.id) as battles_fought,
+        COUNT(DISTINCT CASE WHEN b.winner_id = u.id THEN b.id END) as battles_won,
+        COALESCE(MAX(p.level), 0) as highest_level_pokemon
+      FROM "User" u
+      LEFT JOIN "Pokemon" p ON p.owner_id = u.id
+      LEFT JOIN "Battle" b ON b.player1_id = u.id OR b.player2_id = u.id
+      GROUP BY u.id
+    `,
+    refreshInterval: '5 minutes',
+    indexes: ['CREATE INDEX ON mv_user_stats (battles_won DESC)']
+  },
+  {
+    name: 'mv_daily_activity',
+    definition: `
+      CREATE MATERIALIZED VIEW mv_daily_activity AS
+      SELECT 
+        date_trunc('day', created_at) as day,
+        COUNT(*) FILTER (WHERE type = 'battle') as battles,
+        COUNT(*) FILTER (WHERE type = 'catch') as catches,
+        COUNT(DISTINCT user_id) as active_users
+      FROM "ActivityLog"
+      WHERE created_at > NOW() - INTERVAL '30 days'
+      GROUP BY date_trunc('day', created_at)
+    `,
+    refreshInterval: '1 hour',
+    indexes: ['CREATE INDEX ON mv_daily_activity (day DESC)']
+  }
+];
+```
+
+### 7.3 Phase 3: Scale Architecture
+
+#### 7.3.1 Horizontal Sharding Strategy
+
+```typescript
+// src/config/sharding-strategy.ts
+interface ShardConfig {
+  shardKey: string;
+  shardCount: number;
+  shards: ShardDefinition[];
+  routingStrategy: 'hash' | 'range' | 'lookup';
+}
+
+interface ShardDefinition {
+  id: number;
+  host: string;
+  port: number;
+  database: string;
+  rangeStart?: string;
+  rangeEnd?: string;
+}
+
+/**
+ * Phase 3 Sharding Configuration
+ * Shard by user_id for even distribution
+ */
+export const SHARDING_CONFIG: ShardConfig = {
+  shardKey: 'user_id',
+  shardCount: 4,
+  routingStrategy: 'hash',
+  shards: [
+    { id: 0, host: 'shard-0.db.render.com', port: 5432, database: 'ig_shard_0' },
+    { id: 1, host: 'shard-1.db.render.com', port: 5432, database: 'ig_shard_1' },
+    { id: 2, host: 'shard-2.db.render.com', port: 5432, database: 'ig_shard_2' },
+    { id: 3, host: 'shard-3.db.render.com', port: 5432, database: 'ig_shard_3' }
+  ]
+};
+
+/**
+ * Shard router for Phase 3
+ */
+export class ShardRouter {
+  private config: ShardConfig;
+  private connections: Map<number, PrismaClient> = new Map();
+
+  constructor(config: ShardConfig) {
+    this.config = config;
+    this.initializeConnections();
+  }
+
+  /**
+   * Get shard for a given user
+   */
+  getShardForUser(userId: string): number {
+    if (this.config.routingStrategy === 'hash') {
+      return this.hashRoute(userId);
+    }
+    throw new Error(`Unsupported routing strategy: ${this.config.routingStrategy}`);
+  }
+
+  /**
+   * Get Prisma client for shard
+   */
+  getClientForShard(shardId: number): PrismaClient {
+    const client = this.connections.get(shardId);
+    if (!client) {
+      throw new Error(`No connection for shard ${shardId}`);
+    }
+    return client;
+  }
+
+  /**
+   * Get client for user operations
+   */
+  getClientForUser(userId: string): PrismaClient {
+    const shardId = this.getShardForUser(userId);
+    return this.getClientForShard(shardId);
+  }
+
+  /**
+   * Execute cross-shard query (fan-out)
+   */
+  async executeAcrossShards<T>(
+    queryFn: (client: PrismaClient) => Promise<T[]>
+  ): Promise<T[]> {
+    const results = await Promise.all(
+      Array.from(this.connections.values()).map(client => queryFn(client))
+    );
+    return results.flat();
+  }
+
+  private hashRoute(key: string): number {
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+      const char = key.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash) % this.config.shardCount;
+  }
+
+  private initializeConnections(): void {
+    for (const shard of this.config.shards) {
+      const url = `postgresql://user:pass@${shard.host}:${shard.port}/${shard.database}`;
+      this.connections.set(shard.id, new PrismaClient({
+        datasources: { db: { url } }
+      }));
+    }
+  }
+}
+
+/**
+ * Sharding-aware repository base class
+ */
+export abstract class ShardedRepository<T> {
+  protected router: ShardRouter;
+
+  constructor(router: ShardRouter) {
+    this.router = router;
+  }
+
+  protected getClient(userId: string): PrismaClient {
+    return this.router.getClientForUser(userId);
+  }
+
+  /**
+   * Cross-shard aggregation with merge
+   */
+  protected async aggregateAcrossShards<R>(
+    queryFn: (client: PrismaClient) => Promise<R[]>,
+    mergeFn: (results: R[][]) => R[]
+  ): Promise<R[]> {
+    const shardResults = await Promise.all(
+      Array.from({ length: 4 }, (_, i) => 
+        queryFn(this.router.getClientForShard(i))
+      )
+    );
+    return mergeFn(shardResults);
+  }
+}
+```
+
+#### 7.3.2 Multi-Region Deployment
+
+```yaml
+# render.multi-region.yaml
+# Phase 3: Multi-region configuration
+
+regions:
+  primary:
+    name: us-east-1
+    role: primary
+    services:
+      - type: database
+        name: ig-db-primary
+        plan: pro
+        highAvailability: true
+        
+  replicas:
+    - name: us-west-2
+      role: read-replica
+      services:
+        - type: database
+          name: ig-db-west
+          plan: standard
+          replicaOf: ig-db-primary
+          
+    - name: eu-west-1
+      role: read-replica
+      services:
+        - type: database
+          name: ig-db-eu
+          plan: standard
+          replicaOf: ig-db-primary
+
+# Edge routing configuration
+edgeRouting:
+  enabled: true
+  rules:
+    - pattern: "/api/read/*"
+      strategy: nearest-replica
+    - pattern: "/api/write/*"
+      strategy: primary-only
+    - pattern: "/api/battle/*"
+      strategy: primary-only  # Strong consistency for battles
+```
+
+#### 7.3.3 Event-Driven Architecture
+
+```typescript
+// src/services/events/database-events.ts
+import { EventEmitter } from 'events';
+
+interface DatabaseEvent {
+  type: string;
+  entity: string;
+  entityId: string;
+  data: Record<string, unknown>;
+  timestamp: Date;
+  userId?: string;
+}
+
+/**
+ * Phase 3 Event-Driven Database Integration
+ */
+export class DatabaseEventPublisher {
+  private emitter: EventEmitter;
+  private messageQueue: MessageQueue; // Redis/SQS/etc.
+
+  constructor(messageQueue: MessageQueue) {
+    this.emitter = new EventEmitter();
+    this.messageQueue = messageQueue;
+  }
+
+  /**
+   * Publish database change event
+   */
+  async publish(event: DatabaseEvent): Promise<void> {
+    // Local event for same-process subscribers
+    this.emitter.emit(event.type, event);
+
+    // Queue for cross-service subscribers
+    await this.messageQueue.publish(`db.${event.entity}.${event.type}`, event);
+
+    // Metrics
+    this.recordEventMetric(event);
+  }
+
+  /**
+   * Subscribe to database events
+   */
+  subscribe(pattern: string, handler: (event: DatabaseEvent) => Promise<void>): void {
+    this.emitter.on(pattern, handler);
+    this.messageQueue.subscribe(`db.${pattern}`, handler);
+  }
+
+  private recordEventMetric(event: DatabaseEvent): void {
+    // Prometheus metrics
+    databaseEventsCounter.inc({
+      type: event.type,
+      entity: event.entity
+    });
+  }
+}
+
+/**
+ * Event sourced aggregate for battles
+ */
+export class BattleEventStore {
+  private events: Map<string, BattleEvent[]> = new Map();
+  
+  /**
+   * Append event to battle stream
+   */
+  async append(battleId: string, event: BattleEvent): Promise<void> {
+    // Store in TimescaleDB for time-series analysis
+    await prisma.battleEvent.create({
+      data: {
+        battleId,
+        eventType: event.type,
+        eventData: event.data,
+        timestamp: event.timestamp,
+        sequence: await this.getNextSequence(battleId)
+      }
+    });
+
+    // Update in-memory projection
+    const events = this.events.get(battleId) || [];
+    events.push(event);
+    this.events.set(battleId, events);
+  }
+
+  /**
+   * Rebuild battle state from events
+   */
+  async rebuild(battleId: string): Promise<BattleState> {
+    const events = await prisma.battleEvent.findMany({
+      where: { battleId },
+      orderBy: { sequence: 'asc' }
+    });
+
+    let state = BattleState.initial();
+    for (const event of events) {
+      state = state.apply(event);
+    }
+
+    return state;
+  }
+
+  /**
+   * Get battle state at specific point in time
+   */
+  async getStateAt(battleId: string, timestamp: Date): Promise<BattleState> {
+    const events = await prisma.battleEvent.findMany({
+      where: { 
+        battleId,
+        timestamp: { lte: timestamp }
+      },
+      orderBy: { sequence: 'asc' }
+    });
+
+    let state = BattleState.initial();
+    for (const event of events) {
+      state = state.apply(event);
+    }
+
+    return state;
+  }
+
+  private async getNextSequence(battleId: string): Promise<number> {
+    const result = await prisma.battleEvent.aggregate({
+      where: { battleId },
+      _max: { sequence: true }
+    });
+    return (result._max.sequence || 0) + 1;
+  }
+}
+```
+
+### 7.4 Implementation Priority Matrix
+
+#### Priority Scoring Framework
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    IMPLEMENTATION PRIORITY MATRIX                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  IMPACT                                                                     │
+│    ▲                                                                        │
+│    │                                                                        │
+│  H │  ┌─────────────┐    ┌─────────────┐                                   │
+│  I │  │   DO NOW    │    │   PLAN      │                                   │
+│  G │  │ Connection  │    │ Read        │                                   │
+│  H │  │ Pooling     │    │ Replicas    │                                   │
+│    │  │ Basic Cache │    │ Sharding    │                                   │
+│    │  │ Indexes     │    │             │                                   │
+│    │  └─────────────┘    └─────────────┘                                   │
+│    │                                                                        │
+│  M │  ┌─────────────┐    ┌─────────────┐                                   │
+│  E │  │  SCHEDULE   │    │   DEFER     │                                   │
+│  D │  │ Redis Cache │    │ Multi-      │                                   │
+│    │  │ Mat. Views  │    │ Region      │                                   │
+│    │  │ Monitoring  │    │ ML Integ.   │                                   │
+│    │  └─────────────┘    └─────────────┘                                   │
+│    │                                                                        │
+│  L │                                                                        │
+│  O │                                                                        │
+│  W │                                                                        │
+│    └──────────────────────────────────────────────────────────────────▶     │
+│         LOW                   MEDIUM                  HIGH      EFFORT      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Detailed Priority List
+
+| Priority | Initiative | Phase | Effort | Impact | Dependencies | Target Date |
+|----------|-----------|-------|--------|--------|--------------|-------------|
+| **P0** | Connection pooling (PgBouncer) | 1 | 2 days | High | None | Week 1 |
+| **P0** | Basic indexes for hot queries | 1 | 1 day | High | None | Week 1 |
+| **P0** | L1 memory cache enhancement | 1 | 3 days | High | None | Week 2 |
+| **P1** | RLS policies implementation | 1 | 5 days | High | Schema updates | Week 3 |
+| **P1** | Audit logging triggers | 1 | 3 days | Medium | RLS | Week 4 |
+| **P1** | Query profiling integration | 1 | 2 days | Medium | None | Week 4 |
+| **P2** | Redis caching layer | 2 | 1 week | High | Redis setup | Month 2 |
+| **P2** | Materialized views | 2 | 3 days | Medium | Query analysis | Month 2 |
+| **P2** | Read replicas setup | 2 | 1 week | High | Render config | Month 3 |
+| **P2** | Advanced monitoring | 2 | 1 week | Medium | Prometheus | Month 3 |
+| **P3** | Event sourcing (battles) | 2 | 2 weeks | High | Architecture | Month 4 |
+| **P3** | CQRS implementation | 2 | 2 weeks | High | Event sourcing | Month 5 |
+| **P4** | Horizontal sharding | 3 | 1 month | High | Scale trigger | Month 8+ |
+| **P4** | Multi-region | 3 | 2 weeks | Medium | Sharding | Month 10+ |
+
+### 7.5 Success Metrics & KPIs
+
+#### Database Health Dashboard Metrics
+
+```typescript
+// src/monitoring/database-kpis.ts
+interface DatabaseKPIs {
+  // Performance
+  queryP95LatencyMs: number;    // Target: <100ms
+  queryP99LatencyMs: number;    // Target: <500ms
+  cacheHitRate: number;         // Target: >95%
+  connectionUtilization: number; // Target: <80%
+  
+  // Reliability
+  uptime: number;               // Target: 99.9%
+  backupSuccessRate: number;    // Target: 100%
+  replicationLagMs: number;     // Target: <1000ms
+  
+  // Scale
+  rowsPerSecond: number;        // Writes per second
+  activeConnections: number;    // Current connections
+  databaseSizeGB: number;       // Total size
+  
+  // Quality
+  slowQueryCount: number;       // Queries >100ms in last hour
+  deadlockCount: number;        // Deadlocks in last hour
+  constraintViolations: number; // Failed constraints
+}
+
+export const KPI_TARGETS: Partial<DatabaseKPIs> = {
+  queryP95LatencyMs: 100,
+  queryP99LatencyMs: 500,
+  cacheHitRate: 0.95,
+  connectionUtilization: 0.8,
+  uptime: 0.999,
+  backupSuccessRate: 1.0,
+  replicationLagMs: 1000
+};
+```
+
+### 7.6 Final Consolidated Recommendations
+
+#### Executive Summary
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│              SPECIALIST TEAM CONSOLIDATED RECOMMENDATIONS                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  IMMEDIATE ACTIONS (Week 1-2)                                         ║ │
+│  ╠═══════════════════════════════════════════════════════════════════════╣ │
+│  ║  □ Implement PgBouncer connection pooling                             ║ │
+│  ║  □ Add missing indexes for User.discordId, Pokemon.ownerId            ║ │
+│  ║  □ Enable query logging for slow query detection                      ║ │
+│  ║  □ Set up basic Prometheus metrics endpoint                           ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                                                             │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  SHORT-TERM (Month 1)                                                 ║ │
+│  ╠═══════════════════════════════════════════════════════════════════════╣ │
+│  ║  □ Implement Row-Level Security policies                              ║ │
+│  ║  □ Create audit logging triggers                                      ║ │
+│  ║  □ Build test database factory and fixtures                           ║ │
+│  ║  □ Set up automated backup verification                               ║ │
+│  ║  □ Create disaster recovery runbook                                   ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                                                             │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  MEDIUM-TERM (Months 2-3)                                             ║ │
+│  ╠═══════════════════════════════════════════════════════════════════════╣ │
+│  ║  □ Deploy Redis caching layer                                         ║ │
+│  ║  □ Implement repository pattern consistently                          ║ │
+│  ║  □ Create materialized views for analytics                            ║ │
+│  ║  □ Add read replica for heavy queries                                 ║ │
+│  ║  □ Implement comprehensive CI/CD for database changes                 ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                                                             │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  LONG-TERM (Months 4-6+)                                              ║ │
+│  ╠═══════════════════════════════════════════════════════════════════════╣ │
+│  ║  □ Event sourcing for battle system                                   ║ │
+│  ║  □ Full CQRS implementation                                           ║ │
+│  ║  □ Evaluate sharding needs based on growth                            ║ │
+│  ║  □ Multi-region deployment planning                                   ║ │
+│  ║  □ Machine learning integration for analytics                         ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Specialist Sign-offs
+
+| Specialist | Domain | Approval | Key Contribution |
+|------------|--------|----------|------------------|
+| **Database Specialist** | PostgreSQL, TimescaleDB | ✅ Approved | Query optimization, indexing, partitioning |
+| **Performance Specialist** | Caching, Pooling | ✅ Approved | Connection management, multi-tier cache |
+| **Security Specialist** | RLS, Encryption | ✅ Approved | Access control, audit logging, encryption |
+| **Architecture Specialist** | CQRS, Event Sourcing | ✅ Approved | Repository pattern, domain modeling |
+| **DevOps Specialist** | Backup, DR, CI/CD | ✅ Approved | Automation, monitoring, infrastructure |
+| **Testing Specialist** | Integration, Performance | ✅ Approved | Test patterns, fixtures, benchmarks |
+
+---
+
+## Change Log
+
+| Date | Change |
+|------|--------|
+| 2025-12-03 | Initial database-centric development plan created |
+| 2025-12-03 | Added Agile Review Session #1 (flaws, improvements, sprint planning) |
+| 2025-12-03 | Added Agile Review Session #2 Part 1-2 (Code Conventions, Self-Documentation) |
+| 2025-12-03 | Added Agile Review Session #2 Part 3-4 (Templates, Base Classes) |
+| 2025-12-03 | Added Agile Review Session #2 Part 5-6 (AI Navigation, Scalability) |
+| 2025-12-03 | Added Agile Review Session #2 Part 7 (Implementation Roadmap, Priority Matrix) |
+| 2025-12-03 | Added Agile Review Session #3 Part 1-3 (Resilience, Versioning, Doc Automation) |
+| 2025-12-03 | Added Agile Review Session #3 Part 4-6 (Quality Enforcement, Knowledge Transfer, Master Checklist) |
+| 2025-12-03 | FINAL REVIEW COMPLETE — Architecture ready for implementation |
+| 2025-12-03 | Added Specialist Deep Dive Part 1: Database Specialist (PostgreSQL tuning, TimescaleDB, indexes, query patterns, health monitoring) |
+| 2025-12-03 | Added Specialist Deep Dive Part 2: Performance Specialist (connection pooling, multi-layer caching, read replicas, query optimization, SLOs) |
+| 2025-12-03 | Added Specialist Deep Dive Part 3: Security Specialist (RLS policies, encryption, audit logging, SQL injection prevention, access control) |
+| 2025-12-03 | Added Specialist Deep Dive Part 4: Architecture Specialist (CQRS, event sourcing, data flow optimization, domain-driven design) |
+| 2025-12-03 | Added Specialist Deep Dive Part 5: DevOps Specialist (backup strategies, disaster recovery, monitoring, CI/CD pipeline) |
+| 2025-12-03 | Added Specialist Deep Dive Part 6: Testing Specialist (database testing patterns, fixtures, migration testing, performance benchmarks) |
+| 2025-12-03 | Added Specialist Deep Dive Part 7: Future Optimization Roadmap (Phase 2-3 planning, scaling strategies, consolidated recommendations) |
+| 2025-12-03 | **SPECIALIST DEEP DIVE SERIES COMPLETE** — All 7 parts documented with implementation-ready code examples |
