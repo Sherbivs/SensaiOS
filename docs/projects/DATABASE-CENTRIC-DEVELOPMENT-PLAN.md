@@ -11117,3 +11117,1462 @@ export class Trainer {
 | 2025-12-03 | Added Specialist Deep Dive Part 2: Performance Specialist (connection pooling, multi-layer caching, read replicas, query optimization, SLOs) |
 | 2025-12-03 | Added Specialist Deep Dive Part 3: Security Specialist (RLS policies, encryption, audit logging, SQL injection prevention, access control) |
 | 2025-12-03 | Added Specialist Deep Dive Part 4: Architecture Specialist (CQRS, event sourcing, data flow optimization, domain-driven design) |
+| 2025-12-03 | Added Specialist Deep Dive Part 5: DevOps Specialist (backup strategies, disaster recovery, monitoring, CI/CD pipeline) |
+
+---
+
+## Specialist Deep Dive Part 5: DevOps Specialist Infrastructure
+
+> **Focus:** Database backup strategies, disaster recovery, monitoring infrastructure, CI/CD pipeline integration
+> **Objective:** Ensure production databases are resilient, recoverable, and continuously monitored
+
+### 5.1 Backup Strategy Architecture
+
+#### Backup Types and Schedule
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       BACKUP STRATEGY MATRIX                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐      │
+│  │  CONTINUOUS WAL  │    │   DAILY FULL     │    │  WEEKLY ARCHIVE  │      │
+│  │   ARCHIVING      │    │    BACKUPS       │    │    BACKUPS       │      │
+│  ├──────────────────┤    ├──────────────────┤    ├──────────────────┤      │
+│  │ • Point-in-time  │    │ • pg_dump full   │    │ • Cold storage   │      │
+│  │ • 5-min RPO      │    │ • Compressed     │    │ • 90-day retain  │      │
+│  │ • 24hr retention │    │ • Encrypted      │    │ • Compliance     │      │
+│  │ • Cloud storage  │    │ • Verified       │    │ • Disaster DR    │      │
+│  └──────────────────┘    └──────────────────┘    └──────────────────┘      │
+│           │                       │                       │                │
+│           └───────────────────────┼───────────────────────┘                │
+│                                   │                                        │
+│                     ┌─────────────▼─────────────┐                          │
+│                     │    BACKUP ORCHESTRATOR    │                          │
+│                     │  • Schedule management    │                          │
+│                     │  • Verification           │                          │
+│                     │  • Alert on failure       │                          │
+│                     │  • Retention enforcement  │                          │
+│                     └───────────────────────────┘                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Backup Implementation
+
+```typescript
+// src/services/backup/backup-manager.ts
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { createWriteStream } from 'fs';
+import { pipeline } from 'stream/promises';
+import { createGzip } from 'zlib';
+import crypto from 'crypto';
+
+const execAsync = promisify(exec);
+
+interface BackupConfig {
+  databaseUrl: string;
+  backupDir: string;
+  encryptionKey: string;
+  retentionDays: {
+    wal: number;
+    daily: number;
+    weekly: number;
+  };
+  s3Bucket?: string;
+  s3Region?: string;
+}
+
+interface BackupResult {
+  success: boolean;
+  filename: string;
+  size: number;
+  checksum: string;
+  duration: number;
+  type: 'full' | 'incremental' | 'wal';
+  timestamp: Date;
+  uploadedToCloud: boolean;
+}
+
+export class BackupManager {
+  private config: BackupConfig;
+  private metrics: BackupMetrics;
+
+  constructor(config: BackupConfig) {
+    this.config = config;
+    this.metrics = new BackupMetrics();
+  }
+
+  /**
+   * Perform full database backup with compression and encryption
+   */
+  async fullBackup(): Promise<BackupResult> {
+    const startTime = Date.now();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `backup-full-${timestamp}.sql.gz.enc`;
+    const filepath = `${this.config.backupDir}/${filename}`;
+
+    try {
+      // Step 1: Create pg_dump
+      console.log('[Backup] Starting full backup...');
+      
+      const dumpCommand = this.buildDumpCommand();
+      const tempFile = `${this.config.backupDir}/temp-${timestamp}.sql`;
+      
+      await execAsync(`${dumpCommand} > ${tempFile}`);
+
+      // Step 2: Compress and encrypt
+      await this.compressAndEncrypt(tempFile, filepath);
+
+      // Step 3: Calculate checksum
+      const checksum = await this.calculateChecksum(filepath);
+
+      // Step 4: Get file size
+      const stats = await fs.stat(filepath);
+
+      // Step 5: Upload to cloud storage
+      let uploadedToCloud = false;
+      if (this.config.s3Bucket) {
+        uploadedToCloud = await this.uploadToS3(filepath, filename);
+      }
+
+      // Step 6: Cleanup temp file
+      await fs.unlink(tempFile);
+
+      // Step 7: Record metrics
+      const duration = Date.now() - startTime;
+      this.metrics.recordBackup('full', duration, stats.size, true);
+
+      const result: BackupResult = {
+        success: true,
+        filename,
+        size: stats.size,
+        checksum,
+        duration,
+        type: 'full',
+        timestamp: new Date(),
+        uploadedToCloud
+      };
+
+      // Step 8: Log to database
+      await this.logBackup(result);
+
+      console.log(`[Backup] Full backup completed: ${filename} (${this.formatSize(stats.size)})`);
+      return result;
+
+    } catch (error) {
+      this.metrics.recordBackup('full', Date.now() - startTime, 0, false);
+      console.error('[Backup] Full backup failed:', error);
+      await this.alertBackupFailure('full', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Build pg_dump command with appropriate options
+   */
+  private buildDumpCommand(): string {
+    const url = new URL(this.config.databaseUrl);
+    
+    return [
+      'pg_dump',
+      `--host=${url.hostname}`,
+      `--port=${url.port || 5432}`,
+      `--username=${url.username}`,
+      `--dbname=${url.pathname.slice(1)}`,
+      '--format=custom',      // Custom format for pg_restore
+      '--no-owner',           // Don't output owner commands
+      '--no-acl',             // Don't output ACL commands
+      '--verbose',            // Verbose mode
+      '--lock-wait-timeout=60000', // Wait up to 60s for locks
+      '--jobs=4',             // Parallel dump with 4 jobs
+    ].join(' ');
+  }
+
+  /**
+   * Compress with gzip and encrypt with AES-256
+   */
+  private async compressAndEncrypt(inputPath: string, outputPath: string): Promise<void> {
+    const key = crypto.scryptSync(this.config.encryptionKey, 'backup-salt', 32);
+    const iv = crypto.randomBytes(16);
+    
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+    const gzip = createGzip({ level: 9 });
+    
+    const input = createReadStream(inputPath);
+    const output = createWriteStream(outputPath);
+
+    // Write IV as header
+    output.write(iv);
+
+    await pipeline(input, gzip, cipher, output);
+  }
+
+  /**
+   * Calculate SHA-256 checksum for verification
+   */
+  private async calculateChecksum(filepath: string): Promise<string> {
+    const hash = crypto.createHash('sha256');
+    const stream = createReadStream(filepath);
+    
+    for await (const chunk of stream) {
+      hash.update(chunk);
+    }
+    
+    return hash.digest('hex');
+  }
+
+  /**
+   * Upload backup to S3 with multipart upload for large files
+   */
+  private async uploadToS3(filepath: string, filename: string): Promise<boolean> {
+    if (!this.config.s3Bucket) return false;
+
+    try {
+      const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+      const { Upload } = await import('@aws-sdk/lib-storage');
+      
+      const client = new S3Client({ region: this.config.s3Region || 'us-east-1' });
+      const fileStream = createReadStream(filepath);
+      
+      const upload = new Upload({
+        client,
+        params: {
+          Bucket: this.config.s3Bucket,
+          Key: `backups/${filename}`,
+          Body: fileStream,
+          StorageClass: 'STANDARD_IA', // Infrequent access for cost savings
+          ServerSideEncryption: 'AES256'
+        },
+        queueSize: 4,
+        partSize: 10 * 1024 * 1024, // 10MB parts
+      });
+
+      upload.on('httpUploadProgress', (progress) => {
+        console.log(`[Backup] Upload progress: ${progress.loaded}/${progress.total}`);
+      });
+
+      await upload.done();
+      console.log(`[Backup] Uploaded to S3: ${filename}`);
+      return true;
+
+    } catch (error) {
+      console.error('[Backup] S3 upload failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Verify backup integrity by attempting partial restore
+   */
+  async verifyBackup(filename: string): Promise<boolean> {
+    const filepath = `${this.config.backupDir}/${filename}`;
+    
+    try {
+      // Step 1: Verify checksum
+      const stored = await this.getStoredChecksum(filename);
+      const calculated = await this.calculateChecksum(filepath);
+      
+      if (stored !== calculated) {
+        console.error('[Backup] Checksum mismatch!');
+        return false;
+      }
+
+      // Step 2: Decrypt and decompress header
+      const decrypted = await this.decryptFile(filepath);
+      
+      // Step 3: Verify pg_dump header
+      const isValidDump = decrypted.slice(0, 5).toString() === 'PGDMP';
+      
+      if (!isValidDump) {
+        console.error('[Backup] Invalid dump format!');
+        return false;
+      }
+
+      console.log(`[Backup] Verified: ${filename}`);
+      return true;
+
+    } catch (error) {
+      console.error('[Backup] Verification failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Clean up old backups based on retention policy
+   */
+  async enforceRetention(): Promise<{ deleted: string[], retained: string[] }> {
+    const deleted: string[] = [];
+    const retained: string[] = [];
+    
+    const files = await fs.readdir(this.config.backupDir);
+    const now = Date.now();
+
+    for (const file of files) {
+      const stats = await fs.stat(`${this.config.backupDir}/${file}`);
+      const ageInDays = (now - stats.mtimeMs) / (1000 * 60 * 60 * 24);
+
+      let retentionDays: number;
+      if (file.includes('wal')) {
+        retentionDays = this.config.retentionDays.wal;
+      } else if (file.includes('weekly')) {
+        retentionDays = this.config.retentionDays.weekly;
+      } else {
+        retentionDays = this.config.retentionDays.daily;
+      }
+
+      if (ageInDays > retentionDays) {
+        await fs.unlink(`${this.config.backupDir}/${file}`);
+        deleted.push(file);
+        console.log(`[Backup] Deleted old backup: ${file} (${Math.floor(ageInDays)} days old)`);
+      } else {
+        retained.push(file);
+      }
+    }
+
+    return { deleted, retained };
+  }
+
+  private formatSize(bytes: number): string {
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = bytes;
+    let unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+    return `${size.toFixed(2)} ${units[unitIndex]}`;
+  }
+}
+```
+
+### 5.2 Disaster Recovery Plan
+
+#### Recovery Point Objective (RPO) & Recovery Time Objective (RTO)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    DISASTER RECOVERY OBJECTIVES                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  TIER 1: CRITICAL DATA (Game State, User Accounts)                         │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  RPO: 5 minutes    │    RTO: 15 minutes                             │   │
+│  │  Strategy: WAL streaming + Hot standby                              │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  TIER 2: IMPORTANT DATA (Battle Logs, Analytics)                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  RPO: 1 hour       │    RTO: 1 hour                                 │   │
+│  │  Strategy: Hourly incremental + Point-in-time recovery              │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  TIER 3: REFERENCE DATA (Pokemon, Moves, Types)                            │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  RPO: 24 hours     │    RTO: 4 hours                                │   │
+│  │  Strategy: Daily full backups + Seed scripts                        │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Disaster Recovery Runbook
+
+```typescript
+// src/services/backup/disaster-recovery.ts
+interface RecoveryScenario {
+  name: string;
+  description: string;
+  triggers: string[];
+  steps: RecoveryStep[];
+  estimatedTime: number; // minutes
+  dataLossRisk: 'none' | 'minimal' | 'moderate' | 'significant';
+}
+
+interface RecoveryStep {
+  order: number;
+  action: string;
+  command?: string;
+  verification: string;
+  rollbackCommand?: string;
+}
+
+export const RECOVERY_SCENARIOS: RecoveryScenario[] = [
+  {
+    name: 'Database Corruption',
+    description: 'Database files corrupted, need full restore',
+    triggers: ['PANIC errors in logs', 'Checksum failures', 'Unreadable tables'],
+    estimatedTime: 30,
+    dataLossRisk: 'minimal',
+    steps: [
+      {
+        order: 1,
+        action: 'Stop all database connections',
+        command: 'pg_ctl stop -m fast',
+        verification: 'Verify no active connections',
+        rollbackCommand: 'pg_ctl start'
+      },
+      {
+        order: 2,
+        action: 'Create current state backup (if possible)',
+        command: 'pg_basebackup -D /backup/emergency',
+        verification: 'Check backup directory created'
+      },
+      {
+        order: 3,
+        action: 'Restore from latest verified backup',
+        command: 'pg_restore -d postgres -C latest_backup.dump',
+        verification: 'Check restore log for errors'
+      },
+      {
+        order: 4,
+        action: 'Apply WAL logs for point-in-time recovery',
+        command: 'pg_ctl start -o "-c recovery_target_time=\'2024-01-15 10:00:00\'"',
+        verification: 'Verify recovery completed in logs'
+      },
+      {
+        order: 5,
+        action: 'Verify data integrity',
+        command: 'npm run db:cli -- verify-integrity',
+        verification: 'All integrity checks pass'
+      },
+      {
+        order: 6,
+        action: 'Resume application services',
+        command: 'render services resume',
+        verification: 'Health checks passing'
+      }
+    ]
+  },
+  {
+    name: 'Accidental Data Deletion',
+    description: 'Critical table data accidentally deleted',
+    triggers: ['User reports missing data', 'Monitoring alerts on row counts'],
+    estimatedTime: 15,
+    dataLossRisk: 'none',
+    steps: [
+      {
+        order: 1,
+        action: 'Identify deletion scope and timestamp',
+        command: 'SELECT * FROM audit_logs WHERE table_name = $1 AND operation = \'DELETE\'',
+        verification: 'Deletion timestamp identified'
+      },
+      {
+        order: 2,
+        action: 'Create recovery point',
+        command: 'pg_dump -t affected_table > recovery_point.sql',
+        verification: 'Current state preserved'
+      },
+      {
+        order: 3,
+        action: 'Restore from audit trail or backup',
+        command: 'npm run db:cli -- restore-from-audit --table $TABLE --before $TIMESTAMP',
+        verification: 'Row counts restored'
+      },
+      {
+        order: 4,
+        action: 'Verify restored data',
+        command: 'npm run db:cli -- verify-table $TABLE',
+        verification: 'Data integrity verified'
+      }
+    ]
+  },
+  {
+    name: 'Render Region Outage',
+    description: 'Complete Render region failure',
+    triggers: ['All services unreachable', 'Render status page shows outage'],
+    estimatedTime: 60,
+    dataLossRisk: 'minimal',
+    steps: [
+      {
+        order: 1,
+        action: 'Confirm outage scope',
+        command: 'curl https://status.render.com/api/v2/status.json',
+        verification: 'Region outage confirmed'
+      },
+      {
+        order: 2,
+        action: 'Download latest backup from S3',
+        command: 'aws s3 cp s3://infinity-gauntlet-backups/latest.dump ./recovery/',
+        verification: 'Backup downloaded successfully'
+      },
+      {
+        order: 3,
+        action: 'Provision new database in alternate region',
+        command: 'render database create --region oregon --name ig-db-recovery',
+        verification: 'New database provisioned'
+      },
+      {
+        order: 4,
+        action: 'Restore backup to new database',
+        command: 'pg_restore -d $NEW_DATABASE_URL ./recovery/latest.dump',
+        verification: 'Restore completed'
+      },
+      {
+        order: 5,
+        action: 'Update DNS and service environment',
+        command: 'render env set DATABASE_URL=$NEW_DATABASE_URL',
+        verification: 'Environment updated'
+      },
+      {
+        order: 6,
+        action: 'Deploy services to new region',
+        command: 'render deploy --region oregon',
+        verification: 'Services healthy in new region'
+      }
+    ]
+  }
+];
+
+export class DisasterRecoveryManager {
+  private activeRecovery: RecoveryScenario | null = null;
+  private stepProgress: Map<number, 'pending' | 'running' | 'completed' | 'failed'> = new Map();
+
+  async executeRecovery(scenarioName: string, params?: Record<string, string>): Promise<boolean> {
+    const scenario = RECOVERY_SCENARIOS.find(s => s.name === scenarioName);
+    if (!scenario) {
+      throw new Error(`Unknown recovery scenario: ${scenarioName}`);
+    }
+
+    console.log(`[DR] Starting recovery: ${scenario.name}`);
+    console.log(`[DR] Estimated time: ${scenario.estimatedTime} minutes`);
+    console.log(`[DR] Data loss risk: ${scenario.dataLossRisk}`);
+
+    this.activeRecovery = scenario;
+    
+    for (const step of scenario.steps) {
+      this.stepProgress.set(step.order, 'running');
+      console.log(`[DR] Step ${step.order}: ${step.action}`);
+
+      try {
+        if (step.command) {
+          const command = this.interpolateCommand(step.command, params);
+          await this.executeCommand(command);
+        }
+
+        // Manual verification prompt for critical steps
+        console.log(`[DR] Verification required: ${step.verification}`);
+        
+        this.stepProgress.set(step.order, 'completed');
+        console.log(`[DR] Step ${step.order} completed`);
+
+      } catch (error) {
+        this.stepProgress.set(step.order, 'failed');
+        console.error(`[DR] Step ${step.order} failed:`, error);
+
+        if (step.rollbackCommand) {
+          console.log(`[DR] Attempting rollback: ${step.rollbackCommand}`);
+          await this.executeCommand(step.rollbackCommand);
+        }
+
+        return false;
+      }
+    }
+
+    console.log(`[DR] Recovery completed successfully: ${scenario.name}`);
+    this.activeRecovery = null;
+    return true;
+  }
+
+  private interpolateCommand(command: string, params?: Record<string, string>): string {
+    if (!params) return command;
+    let result = command;
+    for (const [key, value] of Object.entries(params)) {
+      result = result.replace(new RegExp(`\\$${key}`, 'g'), value);
+    }
+    return result;
+  }
+
+  private async executeCommand(command: string): Promise<void> {
+    const { stdout, stderr } = await execAsync(command);
+    if (stdout) console.log(stdout);
+    if (stderr) console.error(stderr);
+  }
+}
+```
+
+### 5.3 Database Monitoring Infrastructure
+
+#### Monitoring Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     DATABASE MONITORING STACK                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    METRICS COLLECTION                                │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │   │
+│  │  │ pg_stat_*    │  │ Connection   │  │ Query        │               │   │
+│  │  │ Views        │  │ Pool Stats   │  │ Performance  │               │   │
+│  │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘               │   │
+│  │         │                 │                 │                        │   │
+│  │         └─────────────────┼─────────────────┘                        │   │
+│  │                           │                                          │   │
+│  │                    ┌──────▼──────┐                                   │   │
+│  │                    │ Prometheus  │                                   │   │
+│  │                    │ Time Series │                                   │   │
+│  │                    └──────┬──────┘                                   │   │
+│  │                           │                                          │   │
+│  └───────────────────────────┼──────────────────────────────────────────┘   │
+│                              │                                              │
+│  ┌───────────────────────────▼──────────────────────────────────────────┐   │
+│  │                      VISUALIZATION                                   │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │   │
+│  │  │ Grafana      │  │ Alert        │  │ SLA          │               │   │
+│  │  │ Dashboards   │  │ Manager      │  │ Reports      │               │   │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘               │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Prometheus Metrics Exporter
+
+```typescript
+// src/services/monitoring/database-metrics-exporter.ts
+import { Registry, Gauge, Histogram, Counter } from 'prom-client';
+
+export class DatabaseMetricsExporter {
+  private registry: Registry;
+  private metrics: {
+    // Connection metrics
+    connectionPoolSize: Gauge;
+    connectionPoolActive: Gauge;
+    connectionPoolIdle: Gauge;
+    connectionWaitTime: Histogram;
+    
+    // Query metrics
+    queryDuration: Histogram;
+    queryCount: Counter;
+    slowQueryCount: Counter;
+    
+    // Database metrics
+    databaseSize: Gauge;
+    tableRowCounts: Gauge;
+    indexHitRatio: Gauge;
+    cacheHitRatio: Gauge;
+    
+    // Replication metrics
+    replicationLag: Gauge;
+    walSize: Gauge;
+    
+    // Lock metrics
+    lockWaitCount: Gauge;
+    deadlockCount: Counter;
+  };
+
+  constructor() {
+    this.registry = new Registry();
+    this.initializeMetrics();
+  }
+
+  private initializeMetrics() {
+    this.metrics = {
+      // Connection Pool Metrics
+      connectionPoolSize: new Gauge({
+        name: 'pg_connection_pool_size',
+        help: 'Total connection pool size',
+        labelNames: ['pool'],
+        registers: [this.registry]
+      }),
+      
+      connectionPoolActive: new Gauge({
+        name: 'pg_connection_pool_active',
+        help: 'Active connections in pool',
+        labelNames: ['pool'],
+        registers: [this.registry]
+      }),
+      
+      connectionPoolIdle: new Gauge({
+        name: 'pg_connection_pool_idle',
+        help: 'Idle connections in pool',
+        labelNames: ['pool'],
+        registers: [this.registry]
+      }),
+      
+      connectionWaitTime: new Histogram({
+        name: 'pg_connection_wait_seconds',
+        help: 'Time spent waiting for connection',
+        buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5],
+        registers: [this.registry]
+      }),
+
+      // Query Metrics
+      queryDuration: new Histogram({
+        name: 'pg_query_duration_seconds',
+        help: 'Query execution duration',
+        labelNames: ['operation', 'table'],
+        buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10],
+        registers: [this.registry]
+      }),
+      
+      queryCount: new Counter({
+        name: 'pg_query_total',
+        help: 'Total queries executed',
+        labelNames: ['operation', 'table'],
+        registers: [this.registry]
+      }),
+      
+      slowQueryCount: new Counter({
+        name: 'pg_slow_query_total',
+        help: 'Total slow queries (>100ms)',
+        labelNames: ['table'],
+        registers: [this.registry]
+      }),
+
+      // Database Metrics
+      databaseSize: new Gauge({
+        name: 'pg_database_size_bytes',
+        help: 'Database size in bytes',
+        labelNames: ['database'],
+        registers: [this.registry]
+      }),
+      
+      tableRowCounts: new Gauge({
+        name: 'pg_table_rows',
+        help: 'Estimated row count per table',
+        labelNames: ['table'],
+        registers: [this.registry]
+      }),
+      
+      indexHitRatio: new Gauge({
+        name: 'pg_index_hit_ratio',
+        help: 'Index hit ratio (0-1)',
+        labelNames: ['table'],
+        registers: [this.registry]
+      }),
+      
+      cacheHitRatio: new Gauge({
+        name: 'pg_cache_hit_ratio',
+        help: 'Buffer cache hit ratio (0-1)',
+        registers: [this.registry]
+      }),
+
+      // Replication Metrics
+      replicationLag: new Gauge({
+        name: 'pg_replication_lag_seconds',
+        help: 'Replication lag in seconds',
+        labelNames: ['replica'],
+        registers: [this.registry]
+      }),
+      
+      walSize: new Gauge({
+        name: 'pg_wal_size_bytes',
+        help: 'WAL directory size',
+        registers: [this.registry]
+      }),
+
+      // Lock Metrics
+      lockWaitCount: new Gauge({
+        name: 'pg_lock_wait_count',
+        help: 'Number of queries waiting for locks',
+        registers: [this.registry]
+      }),
+      
+      deadlockCount: new Counter({
+        name: 'pg_deadlock_total',
+        help: 'Total deadlocks detected',
+        registers: [this.registry]
+      })
+    };
+  }
+
+  /**
+   * Collect all metrics from database
+   */
+  async collectMetrics(): Promise<void> {
+    await Promise.all([
+      this.collectConnectionMetrics(),
+      this.collectDatabaseMetrics(),
+      this.collectTableMetrics(),
+      this.collectLockMetrics()
+    ]);
+  }
+
+  private async collectConnectionMetrics(): Promise<void> {
+    const result = await prisma.$queryRaw<{
+      total: number;
+      active: number;
+      idle: number;
+    }[]>`
+      SELECT 
+        count(*) as total,
+        count(*) FILTER (WHERE state = 'active') as active,
+        count(*) FILTER (WHERE state = 'idle') as idle
+      FROM pg_stat_activity
+      WHERE datname = current_database()
+    `;
+
+    if (result[0]) {
+      this.metrics.connectionPoolSize.set({ pool: 'main' }, Number(result[0].total));
+      this.metrics.connectionPoolActive.set({ pool: 'main' }, Number(result[0].active));
+      this.metrics.connectionPoolIdle.set({ pool: 'main' }, Number(result[0].idle));
+    }
+  }
+
+  private async collectDatabaseMetrics(): Promise<void> {
+    // Database size
+    const sizeResult = await prisma.$queryRaw<{ size: bigint }[]>`
+      SELECT pg_database_size(current_database()) as size
+    `;
+    if (sizeResult[0]) {
+      this.metrics.databaseSize.set(
+        { database: 'infinity_gauntlet' },
+        Number(sizeResult[0].size)
+      );
+    }
+
+    // Cache hit ratio
+    const cacheResult = await prisma.$queryRaw<{ ratio: number }[]>`
+      SELECT 
+        CASE WHEN blks_hit + blks_read = 0 THEN 0
+        ELSE blks_hit::float / (blks_hit + blks_read)
+        END as ratio
+      FROM pg_stat_database
+      WHERE datname = current_database()
+    `;
+    if (cacheResult[0]) {
+      this.metrics.cacheHitRatio.set(cacheResult[0].ratio);
+    }
+  }
+
+  private async collectTableMetrics(): Promise<void> {
+    const tableStats = await prisma.$queryRaw<{
+      table_name: string;
+      row_count: bigint;
+      index_hit_ratio: number;
+    }[]>`
+      SELECT 
+        relname as table_name,
+        n_live_tup as row_count,
+        CASE WHEN idx_scan + seq_scan = 0 THEN 0
+        ELSE idx_scan::float / (idx_scan + seq_scan)
+        END as index_hit_ratio
+      FROM pg_stat_user_tables
+      ORDER BY n_live_tup DESC
+      LIMIT 50
+    `;
+
+    for (const stat of tableStats) {
+      this.metrics.tableRowCounts.set({ table: stat.table_name }, Number(stat.row_count));
+      this.metrics.indexHitRatio.set({ table: stat.table_name }, stat.index_hit_ratio);
+    }
+  }
+
+  private async collectLockMetrics(): Promise<void> {
+    const lockResult = await prisma.$queryRaw<{ waiting: number }[]>`
+      SELECT count(*) as waiting
+      FROM pg_locks
+      WHERE NOT granted
+    `;
+    if (lockResult[0]) {
+      this.metrics.lockWaitCount.set(Number(lockResult[0].waiting));
+    }
+  }
+
+  /**
+   * Record query timing
+   */
+  recordQuery(operation: string, table: string, durationMs: number): void {
+    const durationSec = durationMs / 1000;
+    this.metrics.queryDuration.observe({ operation, table }, durationSec);
+    this.metrics.queryCount.inc({ operation, table });
+    
+    if (durationMs > 100) {
+      this.metrics.slowQueryCount.inc({ table });
+    }
+  }
+
+  /**
+   * Get metrics in Prometheus format
+   */
+  async getMetrics(): Promise<string> {
+    await this.collectMetrics();
+    return this.registry.metrics();
+  }
+}
+```
+
+#### Alert Rules Configuration
+
+```yaml
+# ops/prometheus-database-alerts.yml
+groups:
+  - name: database-alerts
+    rules:
+      # Connection pool exhaustion
+      - alert: ConnectionPoolExhausted
+        expr: pg_connection_pool_active / pg_connection_pool_size > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Connection pool near exhaustion"
+          description: "{{ $value | humanizePercentage }} of connections in use"
+
+      # High query latency
+      - alert: HighQueryLatency
+        expr: histogram_quantile(0.95, pg_query_duration_seconds_bucket) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "95th percentile query latency > 1s"
+          description: "p95 latency: {{ $value | humanizeDuration }}"
+
+      # Low cache hit ratio
+      - alert: LowCacheHitRatio
+        expr: pg_cache_hit_ratio < 0.9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Buffer cache hit ratio below 90%"
+          description: "Current ratio: {{ $value | humanizePercentage }}"
+
+      # Database size growing rapidly
+      - alert: DatabaseGrowthRate
+        expr: rate(pg_database_size_bytes[1h]) > 10485760  # 10MB/hour
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database growing faster than 10MB/hour"
+          description: "Growth rate: {{ $value | humanize }}/hour"
+
+      # Lock contention
+      - alert: HighLockContention
+        expr: pg_lock_wait_count > 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High lock contention detected"
+          description: "{{ $value }} queries waiting for locks"
+
+      # Deadlocks detected
+      - alert: DeadlocksDetected
+        expr: increase(pg_deadlock_total[5m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Deadlocks detected"
+          description: "{{ $value }} deadlocks in last 5 minutes"
+
+      # Backup age
+      - alert: BackupStale
+        expr: time() - pg_backup_last_success_timestamp > 86400  # 24 hours
+        labels:
+          severity: critical
+        annotations:
+          summary: "No successful backup in 24 hours"
+          description: "Last backup: {{ $value | humanizeTimestamp }}"
+
+      # Replication lag
+      - alert: ReplicationLag
+        expr: pg_replication_lag_seconds > 60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Replication lag exceeds 1 minute"
+          description: "Current lag: {{ $value | humanizeDuration }}"
+```
+
+### 5.4 CI/CD Pipeline Integration
+
+#### Database Migration Pipeline
+
+```yaml
+# .github/workflows/database-ci.yml
+name: Database CI/CD
+
+on:
+  push:
+    paths:
+      - 'prisma/**'
+      - 'src/services/database/**'
+  pull_request:
+    paths:
+      - 'prisma/**'
+      - 'src/services/database/**'
+
+env:
+  DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+
+jobs:
+  schema-validation:
+    name: Schema Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Validate Prisma schema
+        run: npx prisma validate
+      
+      - name: Check for schema drift
+        run: npx prisma db push --accept-data-loss --force-reset
+        continue-on-error: true
+      
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+  migration-safety:
+    name: Migration Safety Check
+    runs-on: ubuntu-latest
+    needs: schema-validation
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Check for dangerous operations
+        run: |
+          # Check for DROP TABLE/COLUMN in migrations
+          if grep -r "DROP TABLE\|DROP COLUMN" prisma/migrations/; then
+            echo "⚠️ WARNING: Dangerous operations detected in migrations"
+            echo "::warning::Migrations contain DROP statements - review required"
+          fi
+      
+      - name: Verify migration reversibility
+        run: |
+          # Check that each migration has corresponding rollback
+          for dir in prisma/migrations/*/; do
+            if [ ! -f "${dir}rollback.sql" ]; then
+              echo "⚠️ Missing rollback for: $dir"
+            fi
+          done
+      
+      - name: Check migration naming
+        run: |
+          # Verify migration names follow convention
+          for dir in prisma/migrations/*/; do
+            name=$(basename "$dir")
+            if ! [[ $name =~ ^[0-9]{14}_ ]]; then
+              echo "❌ Invalid migration name: $name"
+              exit 1
+            fi
+          done
+
+  migration-test:
+    name: Migration Test
+    runs-on: ubuntu-latest
+    needs: migration-safety
+    services:
+      postgres:
+        image: timescale/timescaledb:latest-pg15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: infinity_gauntlet_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/infinity_gauntlet_test
+      
+      - name: Verify schema state
+        run: npx prisma db pull --force
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/infinity_gauntlet_test
+      
+      - name: Run seed (if exists)
+        run: |
+          if [ -f prisma/seed.ts ]; then
+            npx prisma db seed
+          fi
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/infinity_gauntlet_test
+
+  database-tests:
+    name: Database Integration Tests
+    runs-on: ubuntu-latest
+    needs: migration-test
+    services:
+      postgres:
+        image: timescale/timescaledb:latest-pg15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: infinity_gauntlet_test
+        ports:
+          - 5432:5432
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/infinity_gauntlet_test
+      
+      - name: Run database tests
+        run: npm run test:database
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/infinity_gauntlet_test
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: database-tests
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy migrations to staging
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache": false}' \
+            "https://api.render.com/v1/services/${{ secrets.STAGING_SERVICE_ID }}/deploys"
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: database-tests
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create database backup before deploy
+        run: |
+          echo "Creating pre-deployment backup..."
+          # Trigger backup via API
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            "${{ secrets.BACKUP_WEBHOOK_URL }}"
+      
+      - name: Wait for backup completion
+        run: sleep 60
+      
+      - name: Deploy migrations to production
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache": false}' \
+            "https://api.render.com/v1/services/${{ secrets.PROD_SERVICE_ID }}/deploys"
+      
+      - name: Verify deployment health
+        run: |
+          sleep 120  # Wait for deployment
+          response=$(curl -s ${{ secrets.HEALTH_CHECK_URL }})
+          if [[ $(echo $response | jq -r '.database') != "healthy" ]]; then
+            echo "❌ Database health check failed!"
+            exit 1
+          fi
+```
+
+#### Pre-Deployment Checklist Automation
+
+```typescript
+// scripts/pre-deployment-check.ts
+import { PrismaClient } from '@prisma/client';
+import { execSync } from 'child_process';
+
+interface CheckResult {
+  check: string;
+  passed: boolean;
+  details: string;
+  severity: 'blocker' | 'warning' | 'info';
+}
+
+async function runPreDeploymentChecks(): Promise<CheckResult[]> {
+  const results: CheckResult[] = [];
+  const prisma = new PrismaClient();
+
+  try {
+    // Check 1: Pending migrations
+    console.log('Checking for pending migrations...');
+    const migrationStatus = execSync('npx prisma migrate status', { encoding: 'utf-8' });
+    const hasPending = migrationStatus.includes('migrations have not yet been applied');
+    results.push({
+      check: 'Pending Migrations',
+      passed: !hasPending,
+      details: hasPending ? 'Migrations need to be applied' : 'All migrations applied',
+      severity: hasPending ? 'blocker' : 'info'
+    });
+
+    // Check 2: Database connectivity
+    console.log('Testing database connectivity...');
+    const connectStart = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    const connectTime = Date.now() - connectStart;
+    results.push({
+      check: 'Database Connectivity',
+      passed: connectTime < 1000,
+      details: `Connection time: ${connectTime}ms`,
+      severity: connectTime > 1000 ? 'warning' : 'info'
+    });
+
+    // Check 3: Active connections
+    console.log('Checking active connections...');
+    const connections = await prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT count(*) as count FROM pg_stat_activity 
+      WHERE datname = current_database()
+    `;
+    const connCount = Number(connections[0]?.count || 0);
+    results.push({
+      check: 'Connection Count',
+      passed: connCount < 90, // Assuming 100 max
+      details: `${connCount} active connections`,
+      severity: connCount >= 90 ? 'blocker' : 'info'
+    });
+
+    // Check 4: Database size
+    console.log('Checking database size...');
+    const sizeResult = await prisma.$queryRaw<{ size: string }[]>`
+      SELECT pg_size_pretty(pg_database_size(current_database())) as size
+    `;
+    results.push({
+      check: 'Database Size',
+      passed: true,
+      details: `Current size: ${sizeResult[0]?.size}`,
+      severity: 'info'
+    });
+
+    // Check 5: Long-running queries
+    console.log('Checking for long-running queries...');
+    const longQueries = await prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT count(*) as count FROM pg_stat_activity
+      WHERE state = 'active' 
+      AND query_start < NOW() - INTERVAL '5 minutes'
+    `;
+    const longCount = Number(longQueries[0]?.count || 0);
+    results.push({
+      check: 'Long-Running Queries',
+      passed: longCount === 0,
+      details: longCount > 0 ? `${longCount} queries running > 5 min` : 'No long queries',
+      severity: longCount > 0 ? 'warning' : 'info'
+    });
+
+    // Check 6: Lock contention
+    console.log('Checking for lock contention...');
+    const locks = await prisma.$queryRaw<{ waiting: bigint }[]>`
+      SELECT count(*) as waiting FROM pg_locks WHERE NOT granted
+    `;
+    const lockCount = Number(locks[0]?.waiting || 0);
+    results.push({
+      check: 'Lock Contention',
+      passed: lockCount < 5,
+      details: `${lockCount} queries waiting for locks`,
+      severity: lockCount >= 5 ? 'blocker' : 'info'
+    });
+
+    // Check 7: Recent backups
+    console.log('Checking backup status...');
+    // This would check your backup tracking table
+    results.push({
+      check: 'Backup Status',
+      passed: true, // Would query backup_logs table
+      details: 'Last backup: [check backup_logs]',
+      severity: 'info'
+    });
+
+    // Check 8: Replication status (if applicable)
+    console.log('Checking replication status...');
+    const replication = await prisma.$queryRaw<{ state: string }[]>`
+      SELECT state FROM pg_stat_replication LIMIT 1
+    `.catch(() => []);
+    
+    if (replication.length > 0) {
+      results.push({
+        check: 'Replication Status',
+        passed: replication[0]?.state === 'streaming',
+        details: `State: ${replication[0]?.state || 'N/A'}`,
+        severity: replication[0]?.state !== 'streaming' ? 'warning' : 'info'
+      });
+    }
+
+  } finally {
+    await prisma.$disconnect();
+  }
+
+  return results;
+}
+
+async function main() {
+  console.log('='.repeat(60));
+  console.log('PRE-DEPLOYMENT DATABASE CHECKS');
+  console.log('='.repeat(60));
+
+  const results = await runPreDeploymentChecks();
+  
+  console.log('\nRESULTS:');
+  console.log('-'.repeat(60));
+
+  let hasBlockers = false;
+  let hasWarnings = false;
+
+  for (const result of results) {
+    const status = result.passed ? '✅' : (result.severity === 'blocker' ? '❌' : '⚠️');
+    console.log(`${status} ${result.check}: ${result.details}`);
+    
+    if (!result.passed && result.severity === 'blocker') hasBlockers = true;
+    if (!result.passed && result.severity === 'warning') hasWarnings = true;
+  }
+
+  console.log('-'.repeat(60));
+  
+  if (hasBlockers) {
+    console.log('\n❌ DEPLOYMENT BLOCKED: Fix blocker issues before deploying');
+    process.exit(1);
+  } else if (hasWarnings) {
+    console.log('\n⚠️ DEPLOYMENT WARNING: Review warnings before proceeding');
+    process.exit(0);
+  } else {
+    console.log('\n✅ ALL CHECKS PASSED: Safe to deploy');
+    process.exit(0);
+  }
+}
+
+main().catch(console.error);
+```
+
+### 5.5 Infrastructure as Code
+
+#### Render Blueprint Configuration
+
+```yaml
+# render.yaml - Database infrastructure
+databases:
+  - name: infinity-gauntlet-db
+    region: virginia
+    plan: standard
+    postgresMajorVersion: "15"
+    ipAllowList:
+      - source: 0.0.0.0/0  # Restrict in production
+        description: All IPs (use VPC in production)
+    highAvailabilityEnabled: true  # For production
+    pointInTimeRecoveryEnabled: true
+    readReplicas:
+      - name: infinity-gauntlet-db-replica-1
+        region: virginia
+
+envVarGroups:
+  - name: database-config
+    envVars:
+      - key: DATABASE_POOL_SIZE
+        value: "20"
+      - key: DATABASE_IDLE_TIMEOUT
+        value: "60000"
+      - key: DATABASE_CONNECT_TIMEOUT
+        value: "10000"
+      - key: PRISMA_QUERY_LOG_THRESHOLD_MS
+        value: "100"
+      - key: DATABASE_SSL_MODE
+        value: "require"
+
+services:
+  # Database migration job
+  - type: job
+    name: db-migrate
+    runtime: docker
+    region: virginia
+    plan: starter
+    dockerfilePath: ./Dockerfile.migrate
+    schedule: ""  # Run manually or on deploy
+    envVars:
+      - fromGroup: database-config
+      - key: DATABASE_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
+
+  # Database backup cron
+  - type: cron
+    name: db-backup
+    runtime: docker
+    region: virginia
+    plan: starter
+    dockerfilePath: ./Dockerfile.backup
+    schedule: "0 */6 * * *"  # Every 6 hours
+    envVars:
+      - fromGroup: database-config
+      - key: DATABASE_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
+      - key: BACKUP_S3_BUCKET
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+
+  # Database metrics exporter
+  - type: web
+    name: db-metrics
+    runtime: docker
+    region: virginia
+    plan: starter
+    dockerfilePath: ./Dockerfile.metrics
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: database-config
+      - key: DATABASE_URL
+        fromDatabase:
+          name: infinity-gauntlet-db
+          property: connectionString
+```
+
+#### DevOps Specialist Recommendations
+
+| Area | Recommendation | Priority | Impact |
+|------|---------------|----------|--------|
+| **Backups** | Implement 3-2-1 backup strategy | P0 | Data protection |
+| **Recovery** | Test DR procedures monthly | P0 | Recovery confidence |
+| **Monitoring** | Deploy Prometheus + Grafana stack | P1 | Visibility |
+| **CI/CD** | Automated migration testing | P1 | Deploy safety |
+| **Alerts** | Configure PagerDuty integration | P1 | Incident response |
+| **IaC** | Version all infrastructure in git | P2 | Reproducibility |
