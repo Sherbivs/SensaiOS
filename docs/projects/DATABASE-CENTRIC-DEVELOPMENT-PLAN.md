@@ -8827,6 +8827,1105 @@ export class SLOMonitor {
 
 ---
 
+### 🔐 Part 3: Security Specialist Hardening
+
+**Specialist:** Security Specialist  
+**Focus:** Row-Level Security, encryption, audit logging, access control, vulnerability prevention  
+**Goal:** Defense-in-depth security with zero-trust database access
+
+#### 3.1 Row-Level Security (RLS) Policies
+
+```sql
+-- ===== FILE: prisma/rls-policies.sql =====
+-- Row-Level Security policies for tenant isolation and access control
+-- Ensures users can only access their own data
+
+-- ============================================
+-- ENABLE RLS ON TABLES
+-- ============================================
+
+-- User data: Users can only see themselves (admins see all)
+ALTER TABLE "User" ENABLE ROW LEVEL SECURITY;
+
+-- Pokemon: Users can only see their own Pokemon
+ALTER TABLE "Pokemon" ENABLE ROW LEVEL SECURITY;
+
+-- Battles: Participants and spectators can see battles
+ALTER TABLE "Battle" ENABLE ROW LEVEL SECURITY;
+
+-- Party: Users can only see their own party
+ALTER TABLE "Party" ENABLE ROW LEVEL SECURITY;
+
+-- Inventory: Users can only see their own items
+ALTER TABLE "Inventory" ENABLE ROW LEVEL SECURITY;
+
+-- ============================================
+-- APPLICATION ROLE SETUP
+-- ============================================
+
+-- Create application role for runtime queries
+CREATE ROLE app_user;
+GRANT USAGE ON SCHEMA public TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
+
+-- Create admin role for administrative operations
+CREATE ROLE app_admin;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO app_admin;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app_admin;
+
+-- ============================================
+-- USER TABLE POLICIES
+-- ============================================
+
+-- Users can read their own data
+CREATE POLICY user_select_own ON "User"
+  FOR SELECT
+  TO app_user
+  USING (
+    id = current_setting('app.current_user_id', true)::text
+    OR current_setting('app.is_admin', true)::boolean = true
+  );
+
+-- Users can update their own data
+CREATE POLICY user_update_own ON "User"
+  FOR UPDATE
+  TO app_user
+  USING (id = current_setting('app.current_user_id', true)::text)
+  WITH CHECK (id = current_setting('app.current_user_id', true)::text);
+
+-- Only system can create users
+CREATE POLICY user_insert ON "User"
+  FOR INSERT
+  TO app_user
+  WITH CHECK (current_setting('app.is_system', true)::boolean = true);
+
+-- ============================================
+-- POKEMON TABLE POLICIES
+-- ============================================
+
+-- Users can see their own Pokemon
+CREATE POLICY pokemon_select_own ON "Pokemon"
+  FOR SELECT
+  TO app_user
+  USING (
+    trainer_id = current_setting('app.current_user_id', true)::text
+    OR current_setting('app.is_admin', true)::boolean = true
+  );
+
+-- Users can update their own Pokemon
+CREATE POLICY pokemon_update_own ON "Pokemon"
+  FOR UPDATE
+  TO app_user
+  USING (trainer_id = current_setting('app.current_user_id', true)::text)
+  WITH CHECK (trainer_id = current_setting('app.current_user_id', true)::text);
+
+-- System can create Pokemon (catches, starters, trades)
+CREATE POLICY pokemon_insert ON "Pokemon"
+  FOR INSERT
+  TO app_user
+  WITH CHECK (
+    current_setting('app.is_system', true)::boolean = true
+    OR trainer_id = current_setting('app.current_user_id', true)::text
+  );
+
+-- ============================================
+-- BATTLE TABLE POLICIES
+-- ============================================
+
+-- Participants can see their battles
+CREATE POLICY battle_select_participant ON "Battle"
+  FOR SELECT
+  TO app_user
+  USING (
+    challenger_id = current_setting('app.current_user_id', true)::text
+    OR defender_id = current_setting('app.current_user_id', true)::text
+    OR status = 'COMPLETED'  -- Completed battles are public
+    OR current_setting('app.is_admin', true)::boolean = true
+  );
+
+-- Only system can create/update battles
+CREATE POLICY battle_modify ON "Battle"
+  FOR ALL
+  TO app_user
+  USING (current_setting('app.is_system', true)::boolean = true)
+  WITH CHECK (current_setting('app.is_system', true)::boolean = true);
+
+-- ============================================
+-- AUDIT LOG POLICIES (Read-only for users)
+-- ============================================
+
+ALTER TABLE "AuditLog" ENABLE ROW LEVEL SECURITY;
+
+-- Users can see their own audit logs
+CREATE POLICY audit_select_own ON "AuditLog"
+  FOR SELECT
+  TO app_user
+  USING (
+    user_id = current_setting('app.current_user_id', true)::text
+    OR current_setting('app.is_admin', true)::boolean = true
+  );
+
+-- Only system can write audit logs
+CREATE POLICY audit_insert ON "AuditLog"
+  FOR INSERT
+  TO app_user
+  WITH CHECK (current_setting('app.is_system', true)::boolean = true);
+
+-- ============================================
+-- HELPER FUNCTIONS FOR CONTEXT
+-- ============================================
+
+-- Set current user context for RLS
+CREATE OR REPLACE FUNCTION set_user_context(
+  p_user_id TEXT,
+  p_is_admin BOOLEAN DEFAULT FALSE,
+  p_is_system BOOLEAN DEFAULT FALSE
+) RETURNS VOID AS $$
+BEGIN
+  PERFORM set_config('app.current_user_id', p_user_id, true);
+  PERFORM set_config('app.is_admin', p_is_admin::text, true);
+  PERFORM set_config('app.is_system', p_is_system::text, true);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Clear user context
+CREATE OR REPLACE FUNCTION clear_user_context() RETURNS VOID AS $$
+BEGIN
+  PERFORM set_config('app.current_user_id', '', true);
+  PERFORM set_config('app.is_admin', 'false', true);
+  PERFORM set_config('app.is_system', 'false', true);
+END;
+$$ LANGUAGE plpgsql;
+```
+
+#### 3.2 Encryption Strategy
+
+```typescript
+// ===== FILE: src/shared/security/encryption.ts =====
+
+/**
+ * Data encryption utilities for sensitive information.
+ * 
+ * @description
+ * Encryption strategy:
+ * - At-rest: PostgreSQL TDE (Transparent Data Encryption) via Render
+ * - In-transit: TLS 1.3 for all connections
+ * - Application-level: AES-256-GCM for sensitive fields
+ * 
+ * Sensitive fields encrypted:
+ * - User email (if stored)
+ * - OAuth tokens (if stored)
+ * - Payment info (future)
+ */
+
+import { createCipheriv, createDecipheriv, randomBytes, scrypt } from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(scrypt);
+
+/**
+ * Encryption configuration.
+ */
+export interface EncryptionConfig {
+  algorithm: "aes-256-gcm";
+  keyLength: 32;
+  ivLength: 16;
+  authTagLength: 16;
+  saltLength: 32;
+}
+
+const CONFIG: EncryptionConfig = {
+  algorithm: "aes-256-gcm",
+  keyLength: 32,
+  ivLength: 16,
+  authTagLength: 16,
+  saltLength: 32,
+};
+
+/**
+ * Encrypted data format.
+ */
+export interface EncryptedData {
+  ciphertext: string;  // Base64 encoded
+  iv: string;          // Base64 encoded
+  authTag: string;     // Base64 encoded
+  salt: string;        // Base64 encoded (for key derivation)
+}
+
+/**
+ * Derives encryption key from master key using scrypt.
+ */
+async function deriveKey(masterKey: string, salt: Buffer): Promise<Buffer> {
+  return (await scryptAsync(masterKey, salt, CONFIG.keyLength)) as Buffer;
+}
+
+/**
+ * Encrypts sensitive data.
+ * 
+ * @example
+ * const encrypted = await encrypt("sensitive-data", process.env.ENCRYPTION_KEY);
+ * // Store encrypted in database
+ */
+export async function encrypt(
+  plaintext: string,
+  masterKey: string
+): Promise<EncryptedData> {
+  const salt = randomBytes(CONFIG.saltLength);
+  const iv = randomBytes(CONFIG.ivLength);
+  const key = await deriveKey(masterKey, salt);
+
+  const cipher = createCipheriv(CONFIG.algorithm, key, iv, {
+    authTagLength: CONFIG.authTagLength,
+  });
+
+  let ciphertext = cipher.update(plaintext, "utf8", "base64");
+  ciphertext += cipher.final("base64");
+
+  return {
+    ciphertext,
+    iv: iv.toString("base64"),
+    authTag: cipher.getAuthTag().toString("base64"),
+    salt: salt.toString("base64"),
+  };
+}
+
+/**
+ * Decrypts encrypted data.
+ * 
+ * @example
+ * const plaintext = await decrypt(encryptedData, process.env.ENCRYPTION_KEY);
+ */
+export async function decrypt(
+  encrypted: EncryptedData,
+  masterKey: string
+): Promise<string> {
+  const salt = Buffer.from(encrypted.salt, "base64");
+  const iv = Buffer.from(encrypted.iv, "base64");
+  const authTag = Buffer.from(encrypted.authTag, "base64");
+  const key = await deriveKey(masterKey, salt);
+
+  const decipher = createDecipheriv(CONFIG.algorithm, key, iv, {
+    authTagLength: CONFIG.authTagLength,
+  });
+  decipher.setAuthTag(authTag);
+
+  let plaintext = decipher.update(encrypted.ciphertext, "base64", "utf8");
+  plaintext += decipher.final("utf8");
+
+  return plaintext;
+}
+
+/**
+ * Prisma middleware for automatic field encryption.
+ */
+export function createEncryptionMiddleware(
+  encryptedFields: Map<string, string[]>, // model -> fields
+  masterKey: string
+) {
+  return async (params: any, next: any) => {
+    const fields = encryptedFields.get(params.model);
+    
+    if (fields && params.args?.data) {
+      // Encrypt on create/update
+      if (params.action === "create" || params.action === "update") {
+        for (const field of fields) {
+          if (params.args.data[field]) {
+            params.args.data[field] = JSON.stringify(
+              await encrypt(params.args.data[field], masterKey)
+            );
+          }
+        }
+      }
+    }
+
+    const result = await next(params);
+
+    // Decrypt on read
+    if (fields && result) {
+      const decryptField = async (obj: any) => {
+        for (const field of fields) {
+          if (obj[field]) {
+            try {
+              const encrypted = JSON.parse(obj[field]) as EncryptedData;
+              obj[field] = await decrypt(encrypted, masterKey);
+            } catch {
+              // Field not encrypted or invalid format
+            }
+          }
+        }
+      };
+
+      if (Array.isArray(result)) {
+        await Promise.all(result.map(decryptField));
+      } else {
+        await decryptField(result);
+      }
+    }
+
+    return result;
+  };
+}
+
+/**
+ * Hash sensitive data for lookups (one-way).
+ * 
+ * @example
+ * const hashedEmail = await hashForLookup(email, process.env.HASH_KEY);
+ * // Can search by hash without decrypting
+ */
+export async function hashForLookup(
+  value: string,
+  key: string
+): Promise<string> {
+  const salt = Buffer.from(key, "utf8");
+  const hash = (await scryptAsync(value.toLowerCase(), salt, 32)) as Buffer;
+  return hash.toString("base64");
+}
+```
+
+#### 3.3 Comprehensive Audit Logging
+
+```typescript
+// ===== FILE: src/shared/security/audit-logger.ts =====
+
+/**
+ * Comprehensive audit logging for security and compliance.
+ * 
+ * @description
+ * Logs all security-relevant events to TimescaleDB hypertable.
+ * Supports:
+ * - User actions (login, logout, profile changes)
+ * - Data access (reads of sensitive data)
+ * - Data modifications (creates, updates, deletes)
+ * - Administrative actions
+ * - Security events (failed auth, permission denied)
+ */
+
+import { prisma } from "@shared/prisma.js";
+import { logger } from "@shared/utils/logger.js";
+
+/**
+ * Audit event types.
+ */
+export type AuditEventType =
+  // Authentication
+  | "AUTH_LOGIN"
+  | "AUTH_LOGOUT"
+  | "AUTH_FAILED"
+  | "AUTH_TOKEN_REFRESH"
+  
+  // User actions
+  | "USER_CREATE"
+  | "USER_UPDATE"
+  | "USER_DELETE"
+  | "USER_SETTINGS_CHANGE"
+  
+  // Pokemon actions
+  | "POKEMON_CATCH"
+  | "POKEMON_RELEASE"
+  | "POKEMON_TRADE"
+  | "POKEMON_EVOLVE"
+  
+  // Battle actions
+  | "BATTLE_START"
+  | "BATTLE_MOVE"
+  | "BATTLE_END"
+  | "BATTLE_FORFEIT"
+  
+  // Administrative
+  | "ADMIN_USER_BAN"
+  | "ADMIN_USER_UNBAN"
+  | "ADMIN_ROLE_CHANGE"
+  | "ADMIN_CONFIG_CHANGE"
+  
+  // Security events
+  | "SECURITY_PERMISSION_DENIED"
+  | "SECURITY_RATE_LIMIT"
+  | "SECURITY_SUSPICIOUS_ACTIVITY"
+  | "SECURITY_DATA_EXPORT";
+
+/**
+ * Audit severity levels.
+ */
+export type AuditSeverity = "INFO" | "WARNING" | "CRITICAL";
+
+/**
+ * Audit log entry.
+ */
+export interface AuditEntry {
+  eventType: AuditEventType;
+  severity: AuditSeverity;
+  userId?: string;
+  targetId?: string;
+  targetType?: string;
+  action: string;
+  details?: Record<string, any>;
+  ipAddress?: string;
+  userAgent?: string;
+  guildId?: string;
+  channelId?: string;
+}
+
+/**
+ * Creates audit log entry.
+ */
+export async function createAuditLog(entry: AuditEntry): Promise<void> {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        timestamp: new Date(),
+        eventType: entry.eventType,
+        severity: entry.severity,
+        userId: entry.userId,
+        targetId: entry.targetId,
+        targetType: entry.targetType,
+        action: entry.action,
+        details: entry.details ? JSON.stringify(entry.details) : null,
+        ipAddress: entry.ipAddress,
+        userAgent: entry.userAgent,
+        guildId: entry.guildId,
+        channelId: entry.channelId,
+      },
+    });
+  } catch (error) {
+    // Audit logging should never fail silently in production
+    logger.error({ error, entry }, "Failed to create audit log");
+    
+    // In production, consider sending to backup logging system
+    if (process.env.NODE_ENV === "production") {
+      // sendToBackupAuditSystem(entry);
+    }
+  }
+}
+
+/**
+ * Audit logger with fluent API.
+ * 
+ * @example
+ * await audit
+ *   .user(userId)
+ *   .action("POKEMON_CATCH")
+ *   .target("pokemon", pokemonId)
+ *   .details({ species: "Pikachu", level: 5 })
+ *   .log();
+ */
+export class AuditLogger {
+  private entry: Partial<AuditEntry> = {};
+
+  user(userId: string): this {
+    this.entry.userId = userId;
+    return this;
+  }
+
+  action(eventType: AuditEventType): this {
+    this.entry.eventType = eventType;
+    return this;
+  }
+
+  target(type: string, id: string): this {
+    this.entry.targetType = type;
+    this.entry.targetId = id;
+    return this;
+  }
+
+  details(data: Record<string, any>): this {
+    this.entry.details = data;
+    return this;
+  }
+
+  context(ctx: { guildId?: string; channelId?: string }): this {
+    this.entry.guildId = ctx.guildId;
+    this.entry.channelId = ctx.channelId;
+    return this;
+  }
+
+  severity(level: AuditSeverity): this {
+    this.entry.severity = level;
+    return this;
+  }
+
+  async log(): Promise<void> {
+    if (!this.entry.eventType) {
+      throw new Error("Audit log requires eventType");
+    }
+
+    await createAuditLog({
+      eventType: this.entry.eventType,
+      severity: this.entry.severity ?? "INFO",
+      action: this.entry.eventType,
+      ...this.entry,
+    } as AuditEntry);
+
+    // Reset for reuse
+    this.entry = {};
+  }
+}
+
+/**
+ * Factory function for creating audit logger.
+ */
+export function audit(): AuditLogger {
+  return new AuditLogger();
+}
+
+/**
+ * Prisma middleware for automatic data change auditing.
+ */
+export function createAuditMiddleware(
+  auditedModels: string[] = ["User", "Pokemon", "Battle"]
+) {
+  return async (params: any, next: any) => {
+    const shouldAudit = auditedModels.includes(params.model);
+    
+    if (!shouldAudit) {
+      return next(params);
+    }
+
+    // Get before state for updates/deletes
+    let beforeState: any;
+    if (params.action === "update" || params.action === "delete") {
+      beforeState = await params.model.findUnique({
+        where: params.args.where,
+      });
+    }
+
+    const result = await next(params);
+
+    // Log the change
+    const eventType = mapActionToEventType(params.model, params.action);
+    if (eventType) {
+      await createAuditLog({
+        eventType,
+        severity: "INFO",
+        action: `${params.model}.${params.action}`,
+        targetType: params.model,
+        targetId: result?.id || params.args?.where?.id,
+        userId: params.args?.data?.userId || beforeState?.userId,
+        details: {
+          action: params.action,
+          before: beforeState,
+          after: result,
+          args: sanitizeArgs(params.args),
+        },
+      });
+    }
+
+    return result;
+  };
+}
+
+/**
+ * Maps Prisma action to audit event type.
+ */
+function mapActionToEventType(
+  model: string,
+  action: string
+): AuditEventType | null {
+  const mapping: Record<string, Record<string, AuditEventType>> = {
+    User: {
+      create: "USER_CREATE",
+      update: "USER_UPDATE",
+      delete: "USER_DELETE",
+    },
+    Pokemon: {
+      create: "POKEMON_CATCH",
+      delete: "POKEMON_RELEASE",
+    },
+    Battle: {
+      create: "BATTLE_START",
+      update: "BATTLE_MOVE",
+    },
+  };
+
+  return mapping[model]?.[action] ?? null;
+}
+
+/**
+ * Removes sensitive data from audit args.
+ */
+function sanitizeArgs(args: any): any {
+  if (!args) return args;
+  
+  const sanitized = { ...args };
+  const sensitiveFields = ["password", "token", "secret", "key"];
+  
+  for (const field of sensitiveFields) {
+    if (sanitized.data?.[field]) {
+      sanitized.data[field] = "[REDACTED]";
+    }
+  }
+  
+  return sanitized;
+}
+
+/**
+ * Query audit logs with filtering.
+ */
+export async function queryAuditLogs(filters: {
+  userId?: string;
+  eventType?: AuditEventType;
+  severity?: AuditSeverity;
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
+}): Promise<any[]> {
+  return prisma.auditLog.findMany({
+    where: {
+      userId: filters.userId,
+      eventType: filters.eventType,
+      severity: filters.severity,
+      timestamp: {
+        gte: filters.startDate,
+        lte: filters.endDate,
+      },
+    },
+    orderBy: { timestamp: "desc" },
+    take: filters.limit ?? 100,
+  });
+}
+```
+
+#### 3.4 SQL Injection Prevention
+
+```typescript
+// ===== FILE: src/shared/security/sql-safety.ts =====
+
+/**
+ * SQL injection prevention utilities.
+ * 
+ * @description
+ * Defense layers:
+ * 1. Prisma ORM (parameterized queries by default)
+ * 2. Input validation before reaching database
+ * 3. Allowlist patterns for dynamic queries
+ * 4. Query analysis for suspicious patterns
+ */
+
+import { logger } from "@shared/utils/logger.js";
+
+/**
+ * SQL injection patterns to detect.
+ */
+const SQL_INJECTION_PATTERNS = [
+  /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|ALTER|CREATE|TRUNCATE)\b)/gi,
+  /(--|#|\/\*|\*\/)/g,
+  /(\bOR\b\s+\d+\s*=\s*\d+)/gi,
+  /(\bAND\b\s+\d+\s*=\s*\d+)/gi,
+  /(;\s*(SELECT|INSERT|UPDATE|DELETE|DROP))/gi,
+  /(\bEXEC\b|\bEXECUTE\b)/gi,
+  /(\bxp_)/gi,
+  /(CHAR\s*\()/gi,
+  /(CONCAT\s*\()/gi,
+  /(\bSLEEP\s*\()/gi,
+  /(\bBENCHMARK\s*\()/gi,
+  /(LOAD_FILE\s*\()/gi,
+  /(INTO\s+(OUT|DUMP)FILE)/gi,
+];
+
+/**
+ * Checks input for SQL injection patterns.
+ */
+export function containsSqlInjection(input: string): boolean {
+  for (const pattern of SQL_INJECTION_PATTERNS) {
+    if (pattern.test(input)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Sanitizes user input for safe database use.
+ * 
+ * @description
+ * This is a SECONDARY defense. Prisma's parameterized queries
+ * are the PRIMARY defense. This catches edge cases.
+ */
+export function sanitizeInput(input: string): string {
+  if (typeof input !== "string") {
+    return String(input);
+  }
+
+  // Remove null bytes
+  let sanitized = input.replace(/\0/g, "");
+  
+  // Escape single quotes (for display, not queries)
+  sanitized = sanitized.replace(/'/g, "''");
+  
+  // Remove control characters
+  sanitized = sanitized.replace(/[\x00-\x1F\x7F]/g, "");
+  
+  return sanitized;
+}
+
+/**
+ * Validates input against SQL injection and logs suspicious activity.
+ */
+export function validateInput(
+  input: string,
+  context: { userId?: string; field: string }
+): { valid: boolean; sanitized: string } {
+  if (containsSqlInjection(input)) {
+    logger.warn(
+      {
+        userId: context.userId,
+        field: context.field,
+        input: input.substring(0, 100),
+      },
+      "SQL injection attempt detected"
+    );
+    
+    return {
+      valid: false,
+      sanitized: sanitizeInput(input),
+    };
+  }
+
+  return {
+    valid: true,
+    sanitized: sanitizeInput(input),
+  };
+}
+
+/**
+ * Safe dynamic column selection (allowlist approach).
+ */
+export class SafeColumnSelector {
+  private allowedColumns: Set<string>;
+
+  constructor(allowedColumns: string[]) {
+    this.allowedColumns = new Set(allowedColumns);
+  }
+
+  /**
+   * Validates column name against allowlist.
+   */
+  validate(column: string): boolean {
+    return this.allowedColumns.has(column);
+  }
+
+  /**
+   * Gets validated columns from user input.
+   */
+  getValidColumns(requestedColumns: string[]): string[] {
+    return requestedColumns.filter((col) => this.validate(col));
+  }
+
+  /**
+   * Builds safe ORDER BY clause.
+   */
+  buildOrderBy(
+    column: string,
+    direction: "asc" | "desc" = "asc"
+  ): { [key: string]: "asc" | "desc" } | null {
+    if (!this.validate(column)) {
+      return null;
+    }
+    return { [column]: direction };
+  }
+}
+
+/**
+ * Pre-defined column selectors for common models.
+ */
+export const COLUMN_SELECTORS = {
+  user: new SafeColumnSelector([
+    "id",
+    "username",
+    "discordId",
+    "createdAt",
+    "updatedAt",
+    "isActive",
+  ]),
+  
+  pokemon: new SafeColumnSelector([
+    "id",
+    "nickname",
+    "speciesId",
+    "level",
+    "currentHp",
+    "trainerId",
+    "createdAt",
+  ]),
+  
+  battle: new SafeColumnSelector([
+    "id",
+    "status",
+    "challengerId",
+    "defenderId",
+    "winnerId",
+    "createdAt",
+    "endedAt",
+  ]),
+};
+
+/**
+ * Prisma middleware for input validation.
+ */
+export function createInputValidationMiddleware() {
+  return async (params: any, next: any) => {
+    // Validate string inputs in where clauses
+    if (params.args?.where) {
+      validateWhereClause(params.args.where, params.model);
+    }
+    
+    // Validate string inputs in data
+    if (params.args?.data) {
+      validateDataClause(params.args.data, params.model);
+    }
+
+    return next(params);
+  };
+}
+
+function validateWhereClause(where: any, model: string): void {
+  for (const [key, value] of Object.entries(where)) {
+    if (typeof value === "string") {
+      const result = validateInput(value, { field: `${model}.${key}` });
+      if (!result.valid) {
+        throw new Error(`Invalid input for ${model}.${key}`);
+      }
+    }
+  }
+}
+
+function validateDataClause(data: any, model: string): void {
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof value === "string") {
+      const result = validateInput(value, { field: `${model}.${key}` });
+      if (!result.valid) {
+        throw new Error(`Invalid input for ${model}.${key}`);
+      }
+    }
+  }
+}
+```
+
+#### 3.5 Access Control Matrix
+
+```typescript
+// ===== FILE: src/shared/security/access-control.ts =====
+
+/**
+ * Access control matrix for database operations.
+ * 
+ * @description
+ * Defines who can do what to which data.
+ * Enforced at application layer (RLS is backup).
+ */
+
+/**
+ * User roles.
+ */
+export type UserRole = "USER" | "MODERATOR" | "ADMIN" | "SYSTEM";
+
+/**
+ * Resource types.
+ */
+export type ResourceType =
+  | "USER"
+  | "POKEMON"
+  | "BATTLE"
+  | "PARTY"
+  | "INVENTORY"
+  | "AUDIT_LOG"
+  | "SYSTEM_CONFIG";
+
+/**
+ * Operation types.
+ */
+export type Operation = "CREATE" | "READ" | "UPDATE" | "DELETE" | "LIST";
+
+/**
+ * Access rule definition.
+ */
+export interface AccessRule {
+  resource: ResourceType;
+  operation: Operation;
+  condition: "NONE" | "OWN" | "PARTICIPANT" | "ANY";
+}
+
+/**
+ * Access control matrix.
+ */
+const ACCESS_MATRIX: Record<UserRole, AccessRule[]> = {
+  USER: [
+    // Users can CRUD their own data
+    { resource: "USER", operation: "READ", condition: "OWN" },
+    { resource: "USER", operation: "UPDATE", condition: "OWN" },
+    
+    // Users can CRUD their own Pokemon
+    { resource: "POKEMON", operation: "CREATE", condition: "OWN" },
+    { resource: "POKEMON", operation: "READ", condition: "OWN" },
+    { resource: "POKEMON", operation: "UPDATE", condition: "OWN" },
+    { resource: "POKEMON", operation: "DELETE", condition: "OWN" },
+    { resource: "POKEMON", operation: "LIST", condition: "OWN" },
+    
+    // Users can participate in battles
+    { resource: "BATTLE", operation: "CREATE", condition: "PARTICIPANT" },
+    { resource: "BATTLE", operation: "READ", condition: "PARTICIPANT" },
+    { resource: "BATTLE", operation: "UPDATE", condition: "PARTICIPANT" },
+    
+    // Users can manage their party and inventory
+    { resource: "PARTY", operation: "READ", condition: "OWN" },
+    { resource: "PARTY", operation: "UPDATE", condition: "OWN" },
+    { resource: "INVENTORY", operation: "READ", condition: "OWN" },
+    { resource: "INVENTORY", operation: "UPDATE", condition: "OWN" },
+    
+    // Users can read their own audit logs
+    { resource: "AUDIT_LOG", operation: "READ", condition: "OWN" },
+  ],
+
+  MODERATOR: [
+    // Moderators can read all user data
+    { resource: "USER", operation: "READ", condition: "ANY" },
+    { resource: "USER", operation: "LIST", condition: "ANY" },
+    
+    // Moderators can read all Pokemon
+    { resource: "POKEMON", operation: "READ", condition: "ANY" },
+    { resource: "POKEMON", operation: "LIST", condition: "ANY" },
+    
+    // Moderators can read and end battles
+    { resource: "BATTLE", operation: "READ", condition: "ANY" },
+    { resource: "BATTLE", operation: "UPDATE", condition: "ANY" },
+    
+    // Moderators can read audit logs
+    { resource: "AUDIT_LOG", operation: "READ", condition: "ANY" },
+    { resource: "AUDIT_LOG", operation: "LIST", condition: "ANY" },
+  ],
+
+  ADMIN: [
+    // Admins can do anything except delete system config
+    { resource: "USER", operation: "CREATE", condition: "ANY" },
+    { resource: "USER", operation: "READ", condition: "ANY" },
+    { resource: "USER", operation: "UPDATE", condition: "ANY" },
+    { resource: "USER", operation: "DELETE", condition: "ANY" },
+    { resource: "USER", operation: "LIST", condition: "ANY" },
+    
+    { resource: "POKEMON", operation: "CREATE", condition: "ANY" },
+    { resource: "POKEMON", operation: "READ", condition: "ANY" },
+    { resource: "POKEMON", operation: "UPDATE", condition: "ANY" },
+    { resource: "POKEMON", operation: "DELETE", condition: "ANY" },
+    { resource: "POKEMON", operation: "LIST", condition: "ANY" },
+    
+    { resource: "SYSTEM_CONFIG", operation: "READ", condition: "ANY" },
+    { resource: "SYSTEM_CONFIG", operation: "UPDATE", condition: "ANY" },
+  ],
+
+  SYSTEM: [
+    // System has full access to everything
+    { resource: "USER", operation: "CREATE", condition: "ANY" },
+    { resource: "USER", operation: "READ", condition: "ANY" },
+    { resource: "USER", operation: "UPDATE", condition: "ANY" },
+    { resource: "USER", operation: "DELETE", condition: "ANY" },
+    { resource: "POKEMON", operation: "CREATE", condition: "ANY" },
+    { resource: "POKEMON", operation: "READ", condition: "ANY" },
+    { resource: "POKEMON", operation: "UPDATE", condition: "ANY" },
+    { resource: "POKEMON", operation: "DELETE", condition: "ANY" },
+    { resource: "BATTLE", operation: "CREATE", condition: "ANY" },
+    { resource: "BATTLE", operation: "READ", condition: "ANY" },
+    { resource: "BATTLE", operation: "UPDATE", condition: "ANY" },
+    { resource: "BATTLE", operation: "DELETE", condition: "ANY" },
+    { resource: "AUDIT_LOG", operation: "CREATE", condition: "ANY" },
+    { resource: "SYSTEM_CONFIG", operation: "CREATE", condition: "ANY" },
+    { resource: "SYSTEM_CONFIG", operation: "UPDATE", condition: "ANY" },
+    { resource: "SYSTEM_CONFIG", operation: "DELETE", condition: "ANY" },
+  ],
+};
+
+/**
+ * Checks if user has permission for operation.
+ */
+export function hasPermission(
+  role: UserRole,
+  resource: ResourceType,
+  operation: Operation,
+  context: {
+    userId: string;
+    resourceOwnerId?: string;
+    participantIds?: string[];
+  }
+): boolean {
+  const rules = ACCESS_MATRIX[role];
+  
+  const matchingRule = rules.find(
+    (rule) => rule.resource === resource && rule.operation === operation
+  );
+
+  if (!matchingRule) {
+    return false;
+  }
+
+  switch (matchingRule.condition) {
+    case "NONE":
+      return false;
+    case "ANY":
+      return true;
+    case "OWN":
+      return context.userId === context.resourceOwnerId;
+    case "PARTICIPANT":
+      return context.participantIds?.includes(context.userId) ?? false;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Permission check decorator.
+ * 
+ * @example
+ * @RequirePermission("POKEMON", "UPDATE", "OWN")
+ * async updatePokemon(userId: string, pokemonId: string, data: any) {
+ *   // Only executes if user owns the Pokemon
+ * }
+ */
+export function RequirePermission(
+  resource: ResourceType,
+  operation: Operation,
+  condition: "OWN" | "PARTICIPANT" | "ANY"
+) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ) {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (this: any, ...args: any[]) {
+      const context = this.securityContext;
+      
+      if (!context) {
+        throw new Error("Security context required");
+      }
+
+      if (!hasPermission(context.role, resource, operation, context)) {
+        throw new Error(
+          `Permission denied: ${context.role} cannot ${operation} ${resource}`
+        );
+      }
+
+      return originalMethod.apply(this, args);
+    };
+
+    return descriptor;
+  };
+}
+```
+
+#### Security Specialist Recommendations
+
+| Area | Recommendation | Priority | Impact |
+|------|---------------|----------|--------|
+| **RLS** | Enable RLS on all user-data tables | P0 | Defense-in-depth isolation |
+| **Encryption** | Encrypt sensitive fields (emails, tokens) | P0 | Data breach protection |
+| **Audit Logging** | Deploy comprehensive audit system | P1 | Compliance + forensics |
+| **SQL Injection** | Add input validation middleware | P1 | Attack prevention |
+| **Access Control** | Implement permission decorators | P1 | Consistent authorization |
+| **Key Rotation** | Plan encryption key rotation | P2 | Long-term security |
+
+---
+
 ## Change Log
 
 | Date | Change |
@@ -8842,3 +9941,4 @@ export class SLOMonitor {
 | 2025-12-03 | FINAL REVIEW COMPLETE — Architecture ready for implementation |
 | 2025-12-03 | Added Specialist Deep Dive Part 1: Database Specialist (PostgreSQL tuning, TimescaleDB, indexes, query patterns, health monitoring) |
 | 2025-12-03 | Added Specialist Deep Dive Part 2: Performance Specialist (connection pooling, multi-layer caching, read replicas, query optimization, SLOs) |
+| 2025-12-03 | Added Specialist Deep Dive Part 3: Security Specialist (RLS policies, encryption, audit logging, SQL injection prevention, access control) |
