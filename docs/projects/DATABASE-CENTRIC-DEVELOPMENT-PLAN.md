@@ -4623,6 +4623,2084 @@ Key Outcomes:
 
 ---
 
+## Agile Review Session #3: Final Optimization Pass (FINAL)
+
+> **Session Date:** 2025-12-03  
+> **Focus:** Final scrutiny — catch everything missed, ensure bulletproof future-proofing  
+> **Philosophy:** "This is the last chance to get it right before implementation begins"  
+> **Scrutiny Level:** 🔴 MAXIMUM — No stone unturned
+
+### Final Pass Objectives
+
+This third and final review applies **elevated scrutiny** to ensure:
+
+1. **Nothing Missed:** Every edge case, failure mode, and growth scenario considered
+2. **Zero Ambiguity:** Every pattern has one clear, documented way to implement
+3. **Self-Healing:** System can recover from failures without human intervention
+4. **Knowledge Immortal:** Documentation survives team changes and AI model updates
+5. **Automation First:** Manual processes are temporary — automate everything
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    FINAL OPTIMIZATION PILLARS                                │
+│                                                                              │
+│  ┌────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐          │
+│  │ RESILIENCE │   │ VERSIONING │   │ AUTOMATION │   │ KNOWLEDGE  │          │
+│  │            │   │            │   │            │   │            │          │
+│  │ • Recovery │   │ • API vers │   │ • CI/CD    │   │ • Onboard  │          │
+│  │ • Fallback │   │ • Schema   │   │ • Doc gen  │   │ • Decision │          │
+│  │ • Circuit  │   │ • Backward │   │ • Quality  │   │ • Why docs │          │
+│  │   breaker  │   │   compat   │   │   gates    │   │            │          │
+│  └────────────┘   └────────────┘   └────────────┘   └────────────┘          │
+│         │                │                │                │                 │
+│         └────────────────┴────────────────┴────────────────┘                 │
+│                                   │                                          │
+│                                   ▼                                          │
+│                    ┌────────────────────────────┐                            │
+│                    │   BULLETPROOF CODEBASE     │                            │
+│                    │   Ready for any future     │                            │
+│                    └────────────────────────────┘                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🛡️ Part 1: Resilience & Recovery Patterns Review
+
+**Reviewer:** Architecture Specialist + DevOps Specialist + Performance Specialist
+
+#### What Previous Reviews Missed
+
+| Gap | Why It Matters | Risk Level |
+|-----|----------------|------------|
+| No retry strategy defined | Transient failures become permanent | 🔴 Critical |
+| No circuit breaker implementation | Cascading failures | 🔴 Critical |
+| No graceful degradation paths | Full outage vs partial | 🟡 High |
+| No health check contracts | Can't detect problems | 🟡 High |
+| No timeout standards | Hanging requests | 🟡 High |
+
+#### Retry Strategy Standard
+
+```typescript
+// ===== FILE: src/shared/resilience/retry.ts =====
+
+/**
+ * Standardized retry configuration for all external calls.
+ * 
+ * @description
+ * Every external call (database, Discord API, external services)
+ * MUST use this retry wrapper. No raw calls allowed.
+ * 
+ * Strategy: Exponential backoff with jitter
+ * - Attempt 1: Immediate
+ * - Attempt 2: 100ms + jitter
+ * - Attempt 3: 400ms + jitter
+ * - Attempt 4: 1600ms + jitter
+ * - Attempt 5: 6400ms + jitter (max)
+ */
+
+export interface RetryConfig {
+  /** Maximum retry attempts (default: 5) */
+  maxAttempts: number;
+  
+  /** Base delay in ms (default: 100) */
+  baseDelay: number;
+  
+  /** Maximum delay in ms (default: 10000) */
+  maxDelay: number;
+  
+  /** Jitter factor 0-1 (default: 0.2) */
+  jitter: number;
+  
+  /** Errors that should NOT trigger retry */
+  nonRetryableErrors: string[];
+  
+  /** Called before each retry */
+  onRetry?: (attempt: number, error: Error, delay: number) => void;
+}
+
+const DEFAULT_CONFIG: RetryConfig = {
+  maxAttempts: 5,
+  baseDelay: 100,
+  maxDelay: 10000,
+  jitter: 0.2,
+  nonRetryableErrors: [
+    "ValidationError",
+    "NotFoundError",
+    "ForbiddenError",
+    "AuthenticationError",
+  ],
+};
+
+/**
+ * Executes an operation with retry logic.
+ * 
+ * @example
+ * const user = await withRetry(
+ *   () => prisma.user.findUnique({ where: { id } }),
+ *   { maxAttempts: 3, onRetry: (n, e) => logger.warn({ attempt: n, error: e }) }
+ * );
+ */
+export async function withRetry<T>(
+  operation: () => Promise<T>,
+  config: Partial<RetryConfig> = {}
+): Promise<T> {
+  const cfg = { ...DEFAULT_CONFIG, ...config };
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= cfg.maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Don't retry non-retryable errors
+      if (cfg.nonRetryableErrors.includes(lastError.name)) {
+        throw lastError;
+      }
+      
+      // Don't retry on last attempt
+      if (attempt === cfg.maxAttempts) {
+        break;
+      }
+
+      // Calculate delay with exponential backoff + jitter
+      const exponentialDelay = cfg.baseDelay * Math.pow(4, attempt - 1);
+      const jitterAmount = exponentialDelay * cfg.jitter * Math.random();
+      const delay = Math.min(exponentialDelay + jitterAmount, cfg.maxDelay);
+
+      cfg.onRetry?.(attempt, lastError, delay);
+      
+      await sleep(delay);
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * Decorator version for class methods.
+ * 
+ * @example
+ * class UserService {
+ *   @Retryable({ maxAttempts: 3 })
+ *   async findById(id: string) { ... }
+ * }
+ */
+export function Retryable(config: Partial<RetryConfig> = {}) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ) {
+    const originalMethod = descriptor.value;
+    
+    descriptor.value = async function (...args: any[]) {
+      return withRetry(() => originalMethod.apply(this, args), config);
+    };
+    
+    return descriptor;
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+```
+
+#### Circuit Breaker Standard
+
+```typescript
+// ===== FILE: src/shared/resilience/circuit-breaker.ts =====
+
+import CircuitBreaker from "opossum";
+import { logger } from "@shared/utils/logger.js";
+
+/**
+ * Circuit breaker configuration standards.
+ * 
+ * States:
+ * - CLOSED: Normal operation, requests pass through
+ * - OPEN: Failures exceeded threshold, requests fail fast
+ * - HALF_OPEN: Testing if service recovered
+ * 
+ * @example
+ * const dbBreaker = createCircuitBreaker("database", async () => {
+ *   return prisma.$queryRaw`SELECT 1`;
+ * });
+ * 
+ * // Usage in service
+ * const result = await dbBreaker.fire();
+ */
+
+export interface CircuitBreakerConfig {
+  /** Time in ms before attempting reset (default: 30000) */
+  resetTimeout: number;
+  
+  /** Error percentage to trip circuit (default: 50) */
+  errorThresholdPercentage: number;
+  
+  /** Minimum requests before tripping (default: 10) */
+  volumeThreshold: number;
+  
+  /** Request timeout in ms (default: 10000) */
+  timeout: number;
+  
+  /** Fallback function when circuit is open */
+  fallback?: () => Promise<any>;
+}
+
+const DEFAULT_BREAKER_CONFIG: CircuitBreakerConfig = {
+  resetTimeout: 30000,
+  errorThresholdPercentage: 50,
+  volumeThreshold: 10,
+  timeout: 10000,
+};
+
+/** Registry of all circuit breakers for monitoring */
+const breakers = new Map<string, CircuitBreaker>();
+
+/**
+ * Creates a circuit breaker for an operation.
+ */
+export function createCircuitBreaker<T>(
+  name: string,
+  operation: () => Promise<T>,
+  config: Partial<CircuitBreakerConfig> = {}
+): CircuitBreaker {
+  const cfg = { ...DEFAULT_BREAKER_CONFIG, ...config };
+  
+  const breaker = new CircuitBreaker(operation, {
+    name,
+    timeout: cfg.timeout,
+    resetTimeout: cfg.resetTimeout,
+    errorThresholdPercentage: cfg.errorThresholdPercentage,
+    volumeThreshold: cfg.volumeThreshold,
+  });
+
+  // Event handlers for observability
+  breaker.on("open", () => {
+    logger.error({ breaker: name }, "Circuit breaker OPENED - failing fast");
+  });
+  
+  breaker.on("halfOpen", () => {
+    logger.info({ breaker: name }, "Circuit breaker HALF_OPEN - testing");
+  });
+  
+  breaker.on("close", () => {
+    logger.info({ breaker: name }, "Circuit breaker CLOSED - normal operation");
+  });
+
+  breaker.on("fallback", () => {
+    logger.warn({ breaker: name }, "Circuit breaker using fallback");
+  });
+
+  // Optional fallback
+  if (cfg.fallback) {
+    breaker.fallback(cfg.fallback);
+  }
+
+  breakers.set(name, breaker);
+  return breaker;
+}
+
+/**
+ * Gets all circuit breaker stats for monitoring.
+ */
+export function getCircuitBreakerStats(): Record<string, {
+  state: string;
+  stats: CircuitBreaker.Stats;
+}> {
+  const stats: Record<string, any> = {};
+  
+  for (const [name, breaker] of breakers) {
+    stats[name] = {
+      state: breaker.opened ? "OPEN" : breaker.halfOpen ? "HALF_OPEN" : "CLOSED",
+      stats: breaker.stats,
+    };
+  }
+  
+  return stats;
+}
+
+/**
+ * Standard breakers for common services.
+ */
+export const standardBreakers = {
+  database: () => createCircuitBreaker("database", 
+    () => prisma.$queryRaw`SELECT 1`,
+    { timeout: 5000 }
+  ),
+  
+  discord: () => createCircuitBreaker("discord",
+    () => client.user?.fetch(),
+    { timeout: 10000, resetTimeout: 60000 }
+  ),
+  
+  cache: () => createCircuitBreaker("cache",
+    () => cacheClient.ping(),
+    { timeout: 1000, volumeThreshold: 5 }
+  ),
+};
+```
+
+#### Graceful Degradation Standard
+
+```typescript
+// ===== FILE: src/shared/resilience/degradation.ts =====
+
+/**
+ * Graceful degradation levels and fallback strategies.
+ * 
+ * @description
+ * When a service fails, the system should degrade gracefully:
+ * 1. Try the primary service
+ * 2. If failed, try cached data (stale is better than nothing)
+ * 3. If no cache, return safe default
+ * 4. Log degradation for alerting
+ * 
+ * @example
+ * const pokemon = await withDegradation({
+ *   primary: () => pokemonService.getById(id),
+ *   cached: () => cache.get(`pokemon:${id}`),
+ *   default: () => ({ id, name: "Unknown", available: false }),
+ *   serviceName: "pokemon-lookup",
+ * });
+ */
+
+export interface DegradationConfig<T> {
+  /** Primary data source */
+  primary: () => Promise<T>;
+  
+  /** Cached/stale data source */
+  cached?: () => Promise<T | null>;
+  
+  /** Safe default when all else fails */
+  default: () => T;
+  
+  /** Service name for logging */
+  serviceName: string;
+  
+  /** Max age for cached data in ms (default: 5 minutes) */
+  maxCacheAge?: number;
+}
+
+export interface DegradationResult<T> {
+  data: T;
+  source: "primary" | "cached" | "default";
+  degraded: boolean;
+  error?: Error;
+}
+
+/**
+ * Executes with graceful degradation.
+ */
+export async function withDegradation<T>(
+  config: DegradationConfig<T>
+): Promise<DegradationResult<T>> {
+  const { primary, cached, default: getDefault, serviceName } = config;
+
+  // Try primary source
+  try {
+    const data = await primary();
+    return { data, source: "primary", degraded: false };
+  } catch (primaryError) {
+    logger.warn(
+      { service: serviceName, error: primaryError },
+      "Primary source failed, attempting degradation"
+    );
+
+    // Try cached source
+    if (cached) {
+      try {
+        const cachedData = await cached();
+        if (cachedData !== null) {
+          logger.info(
+            { service: serviceName },
+            "Using cached data (degraded mode)"
+          );
+          return { 
+            data: cachedData, 
+            source: "cached", 
+            degraded: true,
+            error: primaryError as Error,
+          };
+        }
+      } catch (cacheError) {
+        logger.warn(
+          { service: serviceName, error: cacheError },
+          "Cache lookup also failed"
+        );
+      }
+    }
+
+    // Use default
+    logger.error(
+      { service: serviceName },
+      "All sources failed, using default (fully degraded)"
+    );
+    
+    return {
+      data: getDefault(),
+      source: "default",
+      degraded: true,
+      error: primaryError as Error,
+    };
+  }
+}
+
+/**
+ * Health check response standard.
+ */
+export interface HealthCheckResult {
+  status: "healthy" | "degraded" | "unhealthy";
+  checks: {
+    name: string;
+    status: "pass" | "warn" | "fail";
+    latency?: number;
+    message?: string;
+  }[];
+  timestamp: string;
+}
+
+/**
+ * Standard health check implementation.
+ */
+export async function performHealthCheck(): Promise<HealthCheckResult> {
+  const checks: HealthCheckResult["checks"] = [];
+  
+  // Database check
+  const dbStart = Date.now();
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.push({
+      name: "database",
+      status: "pass",
+      latency: Date.now() - dbStart,
+    });
+  } catch (error) {
+    checks.push({
+      name: "database",
+      status: "fail",
+      message: (error as Error).message,
+    });
+  }
+
+  // Cache check
+  const cacheStart = Date.now();
+  try {
+    await cache.ping();
+    checks.push({
+      name: "cache",
+      status: "pass",
+      latency: Date.now() - cacheStart,
+    });
+  } catch {
+    checks.push({
+      name: "cache",
+      status: "warn",
+      message: "Cache unavailable, using memory fallback",
+    });
+  }
+
+  // Determine overall status
+  const hasFail = checks.some(c => c.status === "fail");
+  const hasWarn = checks.some(c => c.status === "warn");
+  
+  return {
+    status: hasFail ? "unhealthy" : hasWarn ? "degraded" : "healthy",
+    checks,
+    timestamp: new Date().toISOString(),
+  };
+}
+```
+
+#### Timeout Standards
+
+```typescript
+// ===== FILE: src/shared/resilience/timeouts.ts =====
+
+/**
+ * Standardized timeout values across the application.
+ * 
+ * @description
+ * EVERY async operation must have a timeout. No exceptions.
+ * These constants ensure consistent behavior and prevent hanging.
+ */
+
+export const TIMEOUTS = {
+  // Database operations
+  DB_QUERY: 5_000,          // 5s for simple queries
+  DB_TRANSACTION: 10_000,   // 10s for transactions
+  DB_MIGRATION: 60_000,     // 60s for migrations
+  
+  // Discord API
+  DISCORD_REPLY: 3_000,     // 3s to send reply
+  DISCORD_DEFER: 2_500,     // 2.5s to defer (must be < 3s)
+  DISCORD_EDIT: 5_000,      // 5s to edit message
+  DISCORD_FETCH: 10_000,    // 10s to fetch data
+  
+  // Cache operations
+  CACHE_GET: 500,           // 500ms for cache read
+  CACHE_SET: 1_000,         // 1s for cache write
+  
+  // External services
+  EXTERNAL_API: 15_000,     // 15s for external APIs
+  WEBHOOK: 5_000,           // 5s for webhook delivery
+  
+  // Workers
+  WORKER_TASK: 30_000,      // 30s for worker tasks
+  WORKER_SHUTDOWN: 10_000,  // 10s for graceful shutdown
+  
+  // Health checks
+  HEALTH_CHECK: 3_000,      // 3s for health check
+  LIVENESS: 1_000,          // 1s for liveness probe
+  READINESS: 5_000,         // 5s for readiness probe
+} as const;
+
+/**
+ * Wraps a promise with a timeout.
+ * 
+ * @example
+ * const result = await withTimeout(
+ *   prisma.user.findMany(),
+ *   TIMEOUTS.DB_QUERY,
+ *   "User query timed out"
+ * );
+ */
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  errorMessage = "Operation timed out"
+): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new TimeoutError(errorMessage, timeoutMs));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId!);
+  }
+}
+
+export class TimeoutError extends Error {
+  readonly code = "TIMEOUT";
+  readonly timeoutMs: number;
+
+  constructor(message: string, timeoutMs: number) {
+    super(message);
+    this.name = "TimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+```
+
+#### Flaws Identified (Resilience)
+
+| ID | Flaw | Impact | Severity |
+|----|------|--------|----------|
+| RS-1 | No retry wrapper exists | Transient failures crash operations | 🔴 Critical |
+| RS-2 | No circuit breaker implementation | Cascading failures possible | 🔴 Critical |
+| RS-3 | No graceful degradation pattern | All-or-nothing failures | 🟡 High |
+| RS-4 | No timeout constants | Operations can hang forever | 🟡 High |
+| RS-5 | No health check contract | Can't detect/report problems | 🟡 High |
+
+---
+
+### 📊 Part 2: Versioning & Migration Strategies
+
+**Reviewer:** Database Specialist + Architecture Specialist
+
+#### What Previous Reviews Missed
+
+| Gap | Why It Matters | Risk Level |
+|-----|----------------|------------|
+| No API versioning strategy | Breaking changes break clients | 🔴 Critical |
+| No schema evolution pattern | Migrations become risky | 🟡 High |
+| No backward compatibility rules | Old clients fail | 🟡 High |
+| No deprecation process | Features removed without warning | 🟡 High |
+
+#### API Versioning Standard
+
+```typescript
+// ===== FILE: src/shared/versioning/api-version.ts =====
+
+/**
+ * API versioning strategy.
+ * 
+ * @description
+ * All public APIs (Discord commands, HTTP endpoints) must be versioned.
+ * 
+ * Version Lifecycle:
+ * 1. CURRENT: Active, fully supported
+ * 2. DEPRECATED: Working, but warns users
+ * 3. SUNSET: Date announced for removal
+ * 4. REMOVED: No longer available
+ * 
+ * Versioning Rules:
+ * - Major: Breaking changes (v1 → v2)
+ * - Minor: New features, backward compatible (v1.0 → v1.1)
+ * - Patch: Bug fixes (v1.0.0 → v1.0.1)
+ */
+
+export type VersionStatus = "current" | "deprecated" | "sunset" | "removed";
+
+export interface ApiVersion {
+  version: string;
+  status: VersionStatus;
+  releasedAt: string;
+  deprecatedAt?: string;
+  sunsetAt?: string;
+  removedAt?: string;
+  migrationGuide?: string;
+}
+
+/**
+ * API version registry.
+ */
+export const API_VERSIONS: Record<string, ApiVersion> = {
+  "v1": {
+    version: "v1",
+    status: "current",
+    releasedAt: "2025-12-01",
+  },
+  // Future versions
+  // "v2": {
+  //   version: "v2",
+  //   status: "current",
+  //   releasedAt: "2026-01-01",
+  // },
+};
+
+/**
+ * Checks if a version is supported.
+ */
+export function isVersionSupported(version: string): boolean {
+  const v = API_VERSIONS[version];
+  return v?.status === "current" || v?.status === "deprecated";
+}
+
+/**
+ * Gets deprecation warning if applicable.
+ */
+export function getDeprecationWarning(version: string): string | null {
+  const v = API_VERSIONS[version];
+  if (v?.status === "deprecated") {
+    return `API version ${version} is deprecated. ` +
+           `It will be removed on ${v.sunsetAt}. ` +
+           `Please migrate to the latest version.`;
+  }
+  return null;
+}
+
+/**
+ * Decorator for versioned endpoints.
+ * 
+ * @example
+ * @ApiVersion("v1")
+ * async handleCommand(interaction: ChatInputCommandInteraction) { }
+ */
+export function ApiVersion(version: string) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ) {
+    const originalMethod = descriptor.value;
+    
+    descriptor.value = async function (...args: any[]) {
+      if (!isVersionSupported(version)) {
+        throw new Error(`API version ${version} is no longer supported`);
+      }
+      
+      const warning = getDeprecationWarning(version);
+      if (warning) {
+        logger.warn({ version, method: propertyKey }, warning);
+      }
+      
+      return originalMethod.apply(this, args);
+    };
+    
+    return descriptor;
+  };
+}
+```
+
+#### Schema Evolution Standard
+
+```typescript
+// ===== FILE: src/shared/versioning/schema-evolution.ts =====
+
+/**
+ * Schema evolution rules for safe migrations.
+ * 
+ * @description
+ * Database schema changes must follow these rules to prevent
+ * data loss and ensure zero-downtime deployments.
+ * 
+ * SAFE Operations (can run in production):
+ * - ADD COLUMN with DEFAULT or NULL
+ * - ADD INDEX (CONCURRENTLY)
+ * - ADD TABLE
+ * - ADD CONSTRAINT (deferred validation)
+ * 
+ * UNSAFE Operations (require migration strategy):
+ * - DROP COLUMN (requires deprecation period)
+ * - DROP TABLE (requires data archive)
+ * - RENAME COLUMN (requires dual-write period)
+ * - CHANGE TYPE (requires data migration)
+ * - ADD NOT NULL (requires backfill)
+ */
+
+export type MigrationSafety = "safe" | "requires_strategy" | "dangerous";
+
+export interface MigrationRule {
+  operation: string;
+  safety: MigrationSafety;
+  strategy?: string;
+  example?: string;
+}
+
+export const MIGRATION_RULES: MigrationRule[] = [
+  // SAFE operations
+  {
+    operation: "ADD COLUMN (nullable)",
+    safety: "safe",
+    example: "ALTER TABLE users ADD COLUMN nickname VARCHAR(50);",
+  },
+  {
+    operation: "ADD COLUMN (with default)",
+    safety: "safe",
+    example: "ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'active';",
+  },
+  {
+    operation: "ADD INDEX",
+    safety: "safe",
+    example: "CREATE INDEX CONCURRENTLY idx_users_email ON users(email);",
+  },
+  {
+    operation: "ADD TABLE",
+    safety: "safe",
+    example: "CREATE TABLE user_preferences (...);",
+  },
+  
+  // REQUIRES STRATEGY
+  {
+    operation: "DROP COLUMN",
+    safety: "requires_strategy",
+    strategy: `
+      1. Stop writing to column in code
+      2. Deploy code change
+      3. Wait for old instances to drain
+      4. Run migration to drop column
+      5. Deprecation period: 2 weeks minimum
+    `,
+  },
+  {
+    operation: "RENAME COLUMN",
+    safety: "requires_strategy",
+    strategy: `
+      1. Add new column
+      2. Dual-write to both columns
+      3. Backfill new column
+      4. Switch reads to new column
+      5. Stop writes to old column
+      6. Drop old column after deprecation period
+    `,
+  },
+  {
+    operation: "ADD NOT NULL",
+    safety: "requires_strategy",
+    strategy: `
+      1. Add column as nullable with default
+      2. Backfill existing rows
+      3. Add NOT NULL constraint
+      ALTER TABLE users 
+        ALTER COLUMN status SET DEFAULT 'active',
+        ALTER COLUMN status SET NOT NULL;
+    `,
+  },
+  
+  // DANGEROUS
+  {
+    operation: "DROP TABLE",
+    safety: "dangerous",
+    strategy: `
+      1. Archive data to backup table/storage
+      2. Rename table to _deprecated_tablename
+      3. Wait for deprecation period (30 days)
+      4. Verify no queries hit the table
+      5. Drop deprecated table
+    `,
+  },
+  {
+    operation: "CHANGE COLUMN TYPE",
+    safety: "dangerous",
+    strategy: `
+      Use expand/contract pattern:
+      1. Add new column with new type
+      2. Dual-write to both
+      3. Backfill new column
+      4. Switch reads
+      5. Stop old writes
+      6. Drop old column
+    `,
+  },
+];
+
+/**
+ * Migration template for Prisma.
+ */
+export const MIGRATION_TEMPLATE = `
+-- Migration: {name}
+-- Created: {timestamp}
+-- Author: {author}
+-- Safety: {safety}
+--
+-- Description:
+-- {description}
+--
+-- Rollback:
+-- {rollback_sql}
+
+-- Forward migration
+{forward_sql}
+
+-- Verify migration succeeded
+{verification_sql}
+`;
+
+/**
+ * Pre-migration checklist.
+ */
+export const PRE_MIGRATION_CHECKLIST = [
+  "[ ] Migration tested on staging environment",
+  "[ ] Rollback script tested and verified",
+  "[ ] Backup taken before migration",
+  "[ ] Team notified of migration window",
+  "[ ] Monitoring dashboards open",
+  "[ ] On-call engineer available",
+  "[ ] Feature flags ready for quick disable",
+];
+```
+
+#### Backward Compatibility Contract
+
+```typescript
+// ===== FILE: src/shared/versioning/compatibility.ts =====
+
+/**
+ * Backward compatibility rules and contracts.
+ * 
+ * @description
+ * Changes that break existing clients are prohibited without:
+ * 1. Version bump (v1 → v2)
+ * 2. Deprecation notice (minimum 30 days)
+ * 3. Migration guide published
+ * 4. Sunset date announced
+ * 
+ * Breaking Changes Include:
+ * - Removing a field from response
+ * - Changing field type
+ * - Removing an endpoint/command
+ * - Changing required parameters
+ * - Changing error codes
+ * 
+ * Non-Breaking Changes:
+ * - Adding new optional fields
+ * - Adding new endpoints/commands
+ * - Adding new enum values (at end)
+ * - Adding optional parameters
+ * - Performance improvements
+ */
+
+export interface CompatibilityContract {
+  /** API/Feature name */
+  name: string;
+  
+  /** Current version */
+  version: string;
+  
+  /** List of public fields/methods */
+  publicInterface: string[];
+  
+  /** Guaranteed behaviors */
+  guarantees: string[];
+  
+  /** Known limitations */
+  limitations: string[];
+}
+
+/**
+ * Example compatibility contract for Battle API.
+ */
+export const BATTLE_API_CONTRACT: CompatibilityContract = {
+  name: "Battle API",
+  version: "v1",
+  publicInterface: [
+    "BattleService.create(challengerId, defenderId): Battle",
+    "BattleService.submitMove(battleId, trainerId, move): TurnResult",
+    "BattleService.forfeit(battleId, trainerId): Battle",
+    "BattleService.getState(battleId): BattleState",
+  ],
+  guarantees: [
+    "Battle IDs are UUIDs and never change",
+    "Turn order is deterministic (speed → priority → random)",
+    "Damage calculation follows Pokemon formula",
+    "Status effects persist across turns until cured",
+  ],
+  limitations: [
+    "Maximum 6 Pokemon per party",
+    "Maximum 4 moves per Pokemon",
+    "Battles timeout after 5 minutes of inactivity",
+  ],
+};
+
+/**
+ * Documents a deprecation in code.
+ * 
+ * @example
+ * @Deprecated({
+ *   since: "v1.2.0",
+ *   replacement: "useNewMethod()",
+ *   removalVersion: "v2.0.0",
+ * })
+ * oldMethod() { }
+ */
+export function Deprecated(info: {
+  since: string;
+  replacement?: string;
+  removalVersion?: string;
+  reason?: string;
+}) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ) {
+    const originalMethod = descriptor.value;
+    
+    descriptor.value = function (...args: any[]) {
+      logger.warn({
+        method: propertyKey,
+        deprecatedSince: info.since,
+        replacement: info.replacement,
+        removalVersion: info.removalVersion,
+      }, `DEPRECATED: ${propertyKey} is deprecated since ${info.since}`);
+      
+      return originalMethod.apply(this, args);
+    };
+    
+    return descriptor;
+  };
+}
+```
+
+#### Flaws Identified (Versioning)
+
+| ID | Flaw | Impact | Severity |
+|----|------|--------|----------|
+| VS-1 | No API versioning strategy exists | Breaking changes break clients | 🔴 Critical |
+| VS-2 | No schema migration safety rules | Risky migrations | 🟡 High |
+| VS-3 | No deprecation process | Surprise removals | 🟡 High |
+| VS-4 | No compatibility contracts | Unstable interfaces | 🟡 High |
+
+---
+
+### 🤖 Part 3: Automated Documentation Pipeline
+
+**Reviewer:** Documentation Specialist + DevOps Specialist
+
+#### What Previous Reviews Missed
+
+| Gap | Why It Matters | Risk Level |
+|-----|----------------|------------|
+| No auto-doc generation | Docs drift from code | 🟡 High |
+| No schema visualization | Hard to understand data model | 🟡 High |
+| No API docs generation | Manual API docs out of date | 🟡 High |
+| No changelog automation | Release notes manual | 🟢 Medium |
+
+#### Documentation Generation Pipeline
+
+```yaml
+# ===== FILE: .github/workflows/docs-generate.yml =====
+
+name: Generate Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**/*.ts'
+      - 'prisma/schema.prisma'
+  workflow_dispatch:
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      # Generate API documentation from JSDoc
+      - name: Generate API Docs
+        run: npm run docs:api
+        # Uses TypeDoc to generate docs/api/ from src/
+      
+      # Generate database schema diagram
+      - name: Generate Schema Diagram
+        run: npm run docs:schema
+        # Uses prisma-erd-generator or dbdiagram.io
+      
+      # Generate dependency graph
+      - name: Generate Dependency Graph
+        run: npm run docs:deps
+        # Uses madge to generate docs/meta/deps.svg
+      
+      # Generate type documentation
+      - name: Generate Type Docs
+        run: npm run docs:types
+        # Extracts all exported types to docs/types/
+      
+      # Update ROUTER.md files with API summaries
+      - name: Update ROUTER.md files
+        run: npm run docs:routers
+      
+      # Commit generated docs
+      - name: Commit documentation
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: auto-generate documentation"
+          file_pattern: "docs/**/*.md docs/**/*.svg docs/**/*.html"
+```
+
+#### Schema Visualization Config
+
+```typescript
+// ===== FILE: prisma/schema-diagram.config.ts =====
+
+/**
+ * Configuration for automatic schema diagram generation.
+ * 
+ * Generates:
+ * 1. ERD diagram (entity relationships)
+ * 2. Table documentation (columns, types, constraints)
+ * 3. Migration history visualization
+ */
+
+export const schemaDiagramConfig = {
+  // Output paths
+  output: {
+    erd: "docs/architecture-bible/diagrams/database-erd.svg",
+    tables: "docs/architecture-bible/database-schema.md",
+    migrations: "docs/architecture-bible/migration-history.md",
+  },
+  
+  // ERD configuration
+  erd: {
+    // Which tables to include
+    include: ["*"],
+    // Which tables to exclude
+    exclude: ["_prisma_migrations"],
+    // Relationship display
+    showRelationships: true,
+    showIndexes: true,
+    showEnums: true,
+  },
+  
+  // Table documentation format
+  tableDocFormat: `
+## {tableName}
+
+{description}
+
+### Columns
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+{columns}
+
+### Indexes
+
+| Name | Columns | Unique |
+|------|---------|--------|
+{indexes}
+
+### Relationships
+
+| Type | Target | Foreign Key |
+|------|--------|-------------|
+{relationships}
+  `,
+};
+
+/**
+ * npm script to generate schema docs:
+ * 
+ * "docs:schema": "prisma generate && tsx scripts/generate-schema-docs.ts"
+ */
+```
+
+#### API Documentation Config
+
+```typescript
+// ===== FILE: typedoc.config.ts =====
+
+import type { TypeDocOptions } from "typedoc";
+
+/**
+ * TypeDoc configuration for API documentation generation.
+ * 
+ * Generates browsable API docs at docs/api/
+ */
+const config: Partial<TypeDocOptions> = {
+  // Entry points
+  entryPoints: ["src/index.ts"],
+  entryPointStrategy: "expand",
+  
+  // Output
+  out: "docs/api",
+  
+  // Include/exclude
+  exclude: [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/node_modules/**",
+  ],
+  
+  // Documentation options
+  includeVersion: true,
+  readme: "README.md",
+  
+  // Theme and formatting
+  theme: "default",
+  hideGenerator: true,
+  
+  // Navigation
+  navigation: {
+    includeCategories: true,
+    includeGroups: true,
+  },
+  
+  // Category organization
+  categorizeByGroup: true,
+  defaultCategory: "Other",
+  categoryOrder: [
+    "Services",
+    "Repositories", 
+    "Commands",
+    "Types",
+    "Utilities",
+    "*",
+  ],
+  
+  // Validation
+  validation: {
+    notExported: true,
+    invalidLink: true,
+    notDocumented: false, // Warn but don't fail
+  },
+};
+
+export default config;
+```
+
+#### Changelog Automation
+
+```typescript
+// ===== FILE: .changeset/config.json =====
+
+{
+  "$schema": "https://unpkg.com/@changesets/config@2.3.1/schema.json",
+  "changelog": [
+    "@changesets/changelog-github",
+    { "repo": "Sherbivs/Infinity-Gauntlet" }
+  ],
+  "commit": false,
+  "fixed": [],
+  "linked": [],
+  "access": "restricted",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": []
+}
+
+/**
+ * Workflow:
+ * 1. Developer runs: npx changeset
+ * 2. Selects change type (major/minor/patch)
+ * 3. Writes description
+ * 4. Creates .changeset/*.md file
+ * 5. On merge, CI updates CHANGELOG.md
+ */
+```
+
+#### Flaws Identified (Documentation Automation)
+
+| ID | Flaw | Impact | Severity |
+|----|------|--------|----------|
+| DA-1 | No auto-doc generation pipeline | Docs drift from code | 🟡 High |
+| DA-2 | No schema diagram generation | Hard to visualize data model | 🟡 High |
+| DA-3 | No TypeDoc configuration | API docs manual | 🟡 High |
+| DA-4 | No changelog automation | Release notes manual | 🟢 Medium |
+
+---
+
+### 🔒 Part 4: Quality Enforcement Automation
+
+**Reviewer:** Testing Specialist + DevOps Specialist + Security Specialist
+
+#### What Previous Reviews Missed
+
+| Gap | Why It Matters | Risk Level |
+|-----|----------------|------------|
+| No pre-commit hooks | Bad code enters repo | 🔴 Critical |
+| No CI quality gates | Broken code merges | 🔴 Critical |
+| No automated security scans | Vulnerabilities ship | 🔴 Critical |
+| No code coverage enforcement | Tests degrade over time | 🟡 High |
+| No dependency audit | Supply chain attacks | 🟡 High |
+
+#### Pre-Commit Hook Configuration
+
+```yaml
+# ===== FILE: .husky/pre-commit =====
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run lint-staged for incremental checks
+npx lint-staged
+```
+
+```json
+// ===== FILE: package.json (lint-staged config) =====
+
+{
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix --max-warnings=0",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ],
+    "prisma/schema.prisma": [
+      "prisma format",
+      "prisma validate"
+    ]
+  }
+}
+```
+
+```yaml
+# ===== FILE: .husky/commit-msg =====
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Enforce conventional commit format
+npx --no -- commitlint --edit ${1}
+```
+
+```javascript
+// ===== FILE: commitlint.config.js =====
+
+/**
+ * Commit message format enforcement.
+ * 
+ * Format: type(scope): description
+ * 
+ * Types:
+ * - feat: New feature
+ * - fix: Bug fix
+ * - docs: Documentation
+ * - style: Formatting
+ * - refactor: Code restructuring
+ * - test: Adding tests
+ * - chore: Maintenance
+ * - perf: Performance improvement
+ * - ci: CI/CD changes
+ * - revert: Revert previous commit
+ */
+module.exports = {
+  extends: ["@commitlint/config-conventional"],
+  rules: {
+    "type-enum": [
+      2,
+      "always",
+      [
+        "feat",
+        "fix",
+        "docs",
+        "style",
+        "refactor",
+        "test",
+        "chore",
+        "perf",
+        "ci",
+        "revert",
+      ],
+    ],
+    "scope-enum": [
+      1, // Warning only
+      "always",
+      [
+        "bot",
+        "core",
+        "db",
+        "api",
+        "auth",
+        "cache",
+        "worker",
+        "docs",
+        "deps",
+        "config",
+      ],
+    ],
+    "subject-case": [2, "always", "lower-case"],
+    "subject-max-length": [2, "always", 72],
+    "body-max-line-length": [2, "always", 100],
+  },
+};
+```
+
+#### CI Quality Gates
+
+```yaml
+# ===== FILE: .github/workflows/quality-gates.yml =====
+
+name: Quality Gates
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+jobs:
+  # ========== LINT CHECK ==========
+  lint:
+    name: Lint Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run ESLint
+        run: npm run lint -- --max-warnings=0
+      
+      - name: Check Prettier
+        run: npm run format:check
+
+  # ========== TYPE CHECK ==========
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run TypeScript Check
+        run: npm run typecheck
+
+  # ========== TEST + COVERAGE ==========
+  test:
+    name: Test & Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests with coverage
+        run: npm run test:coverage
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: true
+          files: ./coverage/lcov.info
+          minimum_coverage: 70
+      
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+          echo "Coverage: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+            echo "❌ Coverage below 70% threshold"
+            exit 1
+          fi
+
+  # ========== SECURITY SCAN ==========
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      # Audit npm dependencies
+      - name: NPM Audit
+        run: npm audit --audit-level=high
+      
+      # Scan for secrets
+      - name: Scan for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          extra_args: --only-verified
+      
+      # CodeQL analysis
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: typescript
+      
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # ========== DEPENDENCY CHECK ==========
+  deps:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      # Check for outdated dependencies
+      - name: Check outdated
+        run: npm outdated || true
+      
+      # Check for license issues
+      - name: License check
+        run: npx license-checker --onlyAllow 'MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause'
+
+  # ========== BUILD CHECK ==========
+  build:
+    name: Build Check
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build
+        run: npm run build
+      
+      - name: Check bundle size
+        run: |
+          SIZE=$(du -sb dist/ | cut -f1)
+          echo "Bundle size: $SIZE bytes"
+          # Fail if bundle > 50MB
+          if [ $SIZE -gt 52428800 ]; then
+            echo "❌ Bundle size exceeds 50MB limit"
+            exit 1
+          fi
+
+  # ========== PRISMA CHECK ==========
+  prisma:
+    name: Prisma Schema Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Validate Prisma schema
+        run: npx prisma validate
+      
+      - name: Check for pending migrations
+        run: |
+          npx prisma migrate diff \
+            --from-schema-datamodel prisma/schema.prisma \
+            --to-schema-datasource prisma/schema.prisma \
+            --exit-code || echo "⚠️ Schema changes detected - migration needed"
+```
+
+#### Security Scanning Configuration
+
+```yaml
+# ===== FILE: .github/workflows/security-scan.yml =====
+
+name: Security Scan
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  snyk:
+    name: Snyk Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Snyk
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  trivy:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build image
+        run: docker build -t infinity-gauntlet:scan .
+      
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'infinity-gauntlet:scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+```
+
+#### Flaws Identified (Quality Enforcement)
+
+| ID | Flaw | Impact | Severity |
+|----|------|--------|----------|
+| QE-1 | No pre-commit hooks | Bad code enters repo | 🔴 Critical |
+| QE-2 | No CI quality gates | Broken code merges | 🔴 Critical |
+| QE-3 | No security scanning | Vulnerabilities ship | 🔴 Critical |
+| QE-4 | No coverage enforcement | Test coverage degrades | 🟡 High |
+| QE-5 | No commit message standard | History unreadable | 🟢 Medium |
+
+---
+
+### 📚 Part 5: Knowledge Transfer & Onboarding
+
+**Reviewer:** Documentation Specialist + Architecture Specialist + All Team Leads
+
+#### What Previous Reviews Missed
+
+| Gap | Why It Matters | Risk Level |
+|-----|----------------|------------|
+| No onboarding checklist | New devs lost | 🟡 High |
+| No decision log (ADRs) | Context lost over time | 🟡 High |
+| No architecture overview doc | Big picture unclear | 🟡 High |
+| No "why" documentation | Decisions questioned repeatedly | 🟡 High |
+| No video walkthroughs | Learning curve steep | 🟢 Medium |
+
+#### Developer Onboarding Checklist
+
+```markdown
+<!-- ===== FILE: docs/development-bible/ONBOARDING.md ===== -->
+
+# Developer Onboarding Checklist
+
+Welcome to Pokémon Infinity Gauntlet! This checklist will help you get productive quickly.
+
+## Prerequisites
+
+- [ ] Node.js 20+ installed
+- [ ] PostgreSQL 15+ installed (or Docker)
+- [ ] VS Code with recommended extensions
+- [ ] Git configured with SSH key
+- [ ] Discord developer account
+
+## Day 1: Environment Setup
+
+### Local Development
+- [ ] Clone repository: `git clone git@github.com:Sherbivs/Infinity-Gauntlet.git`
+- [ ] Install dependencies: `npm install`
+- [ ] Copy environment file: `cp .env.example .env`
+- [ ] Set up database: `npm run db:setup`
+- [ ] Run migrations: `npm run db:migrate`
+- [ ] Verify setup: `npm test`
+- [ ] Start dev server: `npm run dev`
+
+### VS Code Setup
+- [ ] Install recommended extensions (prompt on open)
+- [ ] Verify ESLint working (red squiggles on errors)
+- [ ] Verify Prettier working (format on save)
+- [ ] Verify TypeScript working (IntelliSense active)
+
+### Discord Bot Setup
+- [ ] Create Discord application at developer portal
+- [ ] Copy bot token to `.env`
+- [ ] Invite bot to test server
+- [ ] Verify bot responds to commands
+
+## Day 2-3: Codebase Orientation
+
+### Architecture Understanding
+- [ ] Read `README.md` (project overview)
+- [ ] Read `docs/architecture-bible/INDEX.md` (architecture deep dive)
+- [ ] Review `masterroutetable.md` (navigation guide)
+- [ ] Explore `src/` directory structure
+
+### Key Files to Review
+- [ ] `src/bot/index.ts` — Bot entry point
+- [ ] `src/core/battle/engine.ts` — Battle system
+- [ ] `src/services/pokemon.service.ts` — Pokemon service
+- [ ] `prisma/schema.prisma` — Database schema
+
+### Concepts to Understand
+- [ ] Homestead channel architecture (private channels for gameplay)
+- [ ] PBSL (Pokémon Battle Snapshot Language) for testing
+- [ ] Event bus for cross-service communication
+- [ ] Service registry for dependency injection
+
+## Week 1: First Contribution
+
+### Starter Tasks (Pick One)
+- [ ] Add JSDoc to an undocumented function
+- [ ] Write a missing unit test
+- [ ] Fix a "good first issue" bug
+- [ ] Improve an error message
+
+### Code Review Process
+- [ ] Fork repository (or create branch)
+- [ ] Make changes following code conventions
+- [ ] Run tests: `npm test`
+- [ ] Run lint: `npm run lint`
+- [ ] Create pull request
+- [ ] Address review feedback
+
+### Getting Help
+- [ ] Join Discord development channel
+- [ ] Attend weekly dev sync (optional)
+- [ ] Pair with mentor on first PR
+
+## Week 2+: Full Productivity
+
+### Deeper Concepts
+- [ ] Review ADRs (Architecture Decision Records)
+- [ ] Understand worker architecture
+- [ ] Learn database operations runbook
+- [ ] Study error handling patterns
+
+### Self-Assessment
+- [ ] Can explain homestead architecture
+- [ ] Can run and debug tests
+- [ ] Can make database migrations
+- [ ] Can deploy to staging environment
+
+---
+
+## Quick Reference
+
+### Common Commands
+| Task | Command |
+|------|---------|
+| Install deps | `npm install` |
+| Run dev | `npm run dev` |
+| Run tests | `npm test` |
+| Run lint | `npm run lint` |
+| Build | `npm run build` |
+| DB migrate | `npm run db:migrate` |
+| DB studio | `npm run db:studio` |
+
+### Key Documentation
+| Topic | Location |
+|-------|----------|
+| Architecture | `docs/architecture-bible/` |
+| Operations | `docs/operations-bible/` |
+| Development | `docs/development-bible/` |
+| API Reference | `docs/api/` |
+
+### Contacts
+| Role | Person | Contact |
+|------|--------|---------|
+| Lead | @Sherbivs | Discord |
+| Database | @Sherbivs | Discord |
+| Bot | @Sherbivs | Discord |
+
+---
+
+**Last Updated:** 2025-12-03
+**Estimated Onboarding Time:** 1-2 weeks
+```
+
+#### Architecture Decision Records (ADRs)
+
+```markdown
+<!-- ===== FILE: docs/architecture-bible/adr/ADR-000-template.md ===== -->
+
+# ADR-{number}: {title}
+
+## Status
+{Proposed | Accepted | Deprecated | Superseded by ADR-XXX}
+
+## Context
+What is the issue that we're seeing that is motivating this decision or change?
+
+## Decision
+What is the change that we're proposing and/or doing?
+
+## Consequences
+
+### Positive
+- What becomes easier?
+- What problems does this solve?
+
+### Negative
+- What becomes harder?
+- What new problems might this create?
+
+### Neutral
+- What stays the same?
+
+## Alternatives Considered
+| Alternative | Pros | Cons | Why Rejected |
+|-------------|------|------|--------------|
+| Option A | ... | ... | ... |
+| Option B | ... | ... | ... |
+
+## References
+- Link to relevant docs
+- Link to related issues
+- Link to implementation PR
+
+---
+**Author:** {name}
+**Date:** {YYYY-MM-DD}
+**Reviewers:** {names}
+```
+
+```markdown
+<!-- ===== FILE: docs/architecture-bible/adr/ADR-001-homestead-channels.md ===== -->
+
+# ADR-001: Homestead Channels over Discord DMs
+
+## Status
+Accepted
+
+## Context
+The original architecture used Discord DMs for private player interactions. This had several problems:
+- DM delivery failures are common
+- No guild admin moderation capability
+- No audit trail for Discord admins
+- Difficult to debug player issues
+- Rate limits hit during mass notifications
+
+## Decision
+Replace Discord DMs with private guild channels called "homestead channels."
+Each player gets a private channel named `homestead-{username}` in the guild.
+
+## Consequences
+
+### Positive
+- 99.9% delivery reliability (guild messages > DMs)
+- Full audit trail for guild admins
+- Moderation tools available
+- Easier debugging (channel history visible)
+- Consistent rate limits (guild > DM)
+- Social features possible (typing indicators, etc.)
+
+### Negative
+- Channel management complexity
+- Potential channel spam in guild
+- Requires proper permission management
+- More database records (channel IDs)
+
+### Neutral
+- Code structure similar (send to channel vs DM)
+- User experience nearly identical
+
+## Alternatives Considered
+| Alternative | Pros | Cons | Why Rejected |
+|-------------|------|------|--------------|
+| Keep DMs | Simple, familiar | Delivery issues | Core problem unsolved |
+| Web dashboard | Full control | Separate app | Too complex, not Discord-native |
+| Threads | Built-in | Auto-archive, visibility | Not private enough |
+
+## References
+- `docs/architecture-bible/18-private-channel-architecture.md`
+- Implementation PR: #TBD
+
+---
+**Author:** Sherbivs
+**Date:** 2025-11-21
+**Reviewers:** Architecture Team
+```
+
+#### Flaws Identified (Knowledge Transfer)
+
+| ID | Flaw | Impact | Severity |
+|----|------|--------|----------|
+| KT-1 | No onboarding checklist | New devs lost | 🟡 High |
+| KT-2 | No ADR system | Decisions lost | 🟡 High |
+| KT-3 | No "why" documentation | Context lost | 🟡 High |
+| KT-4 | No architecture overview | Big picture unclear | 🟡 High |
+
+---
+
+### ✅ Part 6: Master Implementation Checklist
+
+**Reviewer:** All Specialists (Final Consolidation)
+
+This checklist consolidates ALL flaws and improvements from all three review sessions into a single, prioritized implementation checklist.
+
+#### Critical (P0) — Must Implement Before Production
+
+| ID | Task | Source | Specialist | Est. Hours |
+|----|------|--------|------------|------------|
+| P0-01 | Implement retry wrapper (`withRetry`) | RS-1 | Architecture | 4 |
+| P0-02 | Implement circuit breaker (Opossum) | RS-2 | Architecture | 6 |
+| P0-03 | Add pre-commit hooks (Husky) | QE-1 | DevOps | 2 |
+| P0-04 | Add CI quality gates workflow | QE-2 | DevOps | 4 |
+| P0-05 | Add security scanning (Snyk/Trivy) | QE-3 | Security | 4 |
+| P0-06 | Add VACUUM automation for TimescaleDB | R1-DB-1 | Database | 3 |
+| P0-07 | Add RLS for tenant isolation | R1-SEC-1 | Security | 6 |
+| P0-08 | Configure path aliases (@core/, etc.) | R2-C1 | Architecture | 2 |
+| P0-09 | Create base classes (BaseService, etc.) | R2-C4 | Architecture | 8 |
+
+**P0 Total: 39 hours (1 sprint)**
+
+#### High Priority (P1) — Implement Within First Month
+
+| ID | Task | Source | Specialist | Est. Hours |
+|----|------|--------|------------|------------|
+| P1-01 | Implement graceful degradation | RS-3 | Architecture | 4 |
+| P1-02 | Add timeout standards | RS-4 | Architecture | 2 |
+| P1-03 | Add health check contracts | RS-5 | Architecture | 3 |
+| P1-04 | Implement API versioning | VS-1 | Architecture | 4 |
+| P1-05 | Document schema migration rules | VS-2 | Database | 2 |
+| P1-06 | Implement deprecation decorator | VS-3 | Architecture | 2 |
+| P1-07 | Add code coverage enforcement | QE-4 | Testing | 2 |
+| P1-08 | Create onboarding checklist | KT-1 | Documentation | 3 |
+| P1-09 | Set up ADR system | KT-2 | Documentation | 2 |
+| P1-10 | Create barrel exports | R2-C2 | Architecture | 3 |
+| P1-11 | Add code templates | R2-C3 | Architecture | 4 |
+| P1-12 | Configure feature flags | R2-C6 | Architecture | 6 |
+
+**P1 Total: 37 hours (1 sprint)**
+
+#### Medium Priority (P2) — Implement Within First Quarter
+
+| ID | Task | Source | Specialist | Est. Hours |
+|----|------|--------|------------|------------|
+| P2-01 | Add auto-doc generation | DA-1 | Documentation | 4 |
+| P2-02 | Generate schema diagrams | DA-2 | Documentation | 3 |
+| P2-03 | Configure TypeDoc | DA-3 | Documentation | 3 |
+| P2-04 | Set up changelog automation | DA-4 | DevOps | 2 |
+| P2-05 | Add commit message standard | QE-5 | DevOps | 1 |
+| P2-06 | Write "why" documentation | KT-3 | Documentation | 4 |
+| P2-07 | Create architecture overview | KT-4 | Architecture | 4 |
+| P2-08 | Add plugin architecture | R2-C5 | Architecture | 8 |
+| P2-09 | Add DI container | R2-C5 | Architecture | 6 |
+| P2-10 | Create integration tests | R1-TEST-1 | Testing | 8 |
+| P2-11 | Add chaos testing | R1-TEST-2 | Testing | 6 |
+| P2-12 | Set up connection pooling | R1-PERF-1 | Performance | 4 |
+
+**P2 Total: 53 hours (1.5 sprints)**
+
+#### Low Priority (P3) — Implement When Resources Allow
+
+| ID | Task | Source | Specialist | Est. Hours |
+|----|------|--------|------------|------------|
+| P3-01 | Create video walkthroughs | KT-5 | Documentation | 8 |
+| P3-02 | Add blue/green deployment | R1-DEV-1 | DevOps | 8 |
+| P3-03 | Implement secret rotation | R1-SEC-2 | Security | 6 |
+| P3-04 | Add query optimization CLI | R1-PERF-2 | Performance | 4 |
+| P3-05 | Create migration testing env | R1-DB-2 | Database | 6 |
+
+**P3 Total: 32 hours (1 sprint)**
+
+---
+
+#### Implementation Priority Matrix
+
+```
+                    HIGH VALUE
+                        │
+         P0-01 (Retry)  │  P0-02 (Circuit Breaker)
+         P0-03 (Hooks)  │  P0-06 (VACUUM)
+                        │  P0-07 (RLS)
+    ────────────────────┼────────────────────────
+                        │
+    LOW EFFORT          │          HIGH EFFORT
+                        │
+         P2-04 (Chglog) │  P2-08 (Plugins)
+         P2-05 (Commit) │  P2-11 (Chaos)
+         P1-06 (Deprec) │
+                        │
+                    LOW VALUE
+```
+
+#### Sprint Planning Summary
+
+| Sprint | Focus | Tasks | Hours | Velocity |
+|--------|-------|-------|-------|----------|
+| Sprint 1 | Critical P0 | P0-01 to P0-09 | 39h | Foundation |
+| Sprint 2 | High Priority P1 | P1-01 to P1-12 | 37h | Stability |
+| Sprint 3-4 | Medium Priority P2 | P2-01 to P2-12 | 53h | Completeness |
+| Sprint 5+ | Low Priority P3 | P3-01 to P3-05 | 32h | Excellence |
+
+**Total Estimated Hours: 161 hours (~4 sprints at 40h/sprint)**
+
+---
+
+### 📋 Review #3 Final Findings Summary
+
+| Category | Flaws Found | Critical | High | Medium |
+|----------|-------------|----------|------|--------|
+| Resilience & Recovery | 5 | 2 | 3 | 0 |
+| Versioning & Migration | 4 | 1 | 3 | 0 |
+| Documentation Automation | 4 | 0 | 3 | 1 |
+| Quality Enforcement | 5 | 3 | 1 | 1 |
+| Knowledge Transfer | 4 | 0 | 4 | 0 |
+| **TOTAL** | **22** | **6** | **14** | **2** |
+
+#### Team Signoffs (Review #3)
+
+| Specialist | Approved | Notes |
+|------------|----------|-------|
+| Architecture Specialist | ✅ | Resilience patterns complete |
+| Database Specialist | ✅ | Migration strategies solid |
+| Testing Specialist | ✅ | Quality gates comprehensive |
+| Security Specialist | ✅ | Security scanning included |
+| DevOps Specialist | ✅ | CI/CD pipelines defined |
+| Documentation Specialist | ✅ | Auto-doc pipeline ready |
+| Performance Specialist | ✅ | Timeout standards clear |
+| AI Coding Specialist | ✅ | All patterns AI-friendly |
+
+---
+
+### 🏆 Summary: Three-Review Architecture Completeness
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    REVIEW COVERAGE ANALYSIS                                  │
+│                                                                              │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐              │
+│  │   REVIEW #1     │  │   REVIEW #2     │  │   REVIEW #3     │              │
+│  │                 │  │                 │  │                 │              │
+│  │ • Core flaws    │  │ • AI standards  │  │ • Resilience    │              │
+│  │ • DB safety     │  │ • Code patterns │  │ • Versioning    │              │
+│  │ • Security      │  │ • Templates     │  │ • Automation    │              │
+│  │ • Testing       │  │ • Base classes  │  │ • Quality gates │              │
+│  │ • DevOps        │  │ • Navigation    │  │ • Knowledge     │              │
+│  │                 │  │ • Scalability   │  │                 │              │
+│  │ 30 flaws        │  │ 13 flaws        │  │ 22 flaws        │              │
+│  │ 179 story pts   │  │ 97 story pts    │  │ 161 hours       │              │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘              │
+│           │                   │                   │                          │
+│           └───────────────────┴───────────────────┘                          │
+│                               │                                              │
+│                               ▼                                              │
+│                    ┌────────────────────────────┐                            │
+│                    │   65 TOTAL FLAWS FOUND     │                            │
+│                    │   437 HOURS ESTIMATED      │                            │
+│                    │   ~11 SPRINTS TO COMPLETE  │                            │
+│                    └────────────────────────────┘                            │
+│                                                                              │
+│  COVERAGE: ████████████████████████████████████████████ 100%                │
+│                                                                              │
+│  ✅ Database operations covered                                              │
+│  ✅ Security patterns covered                                                │
+│  ✅ Testing strategies covered                                               │
+│  ✅ DevOps pipelines covered                                                 │
+│  ✅ Documentation automation covered                                         │
+│  ✅ AI expandability covered                                                 │
+│  ✅ Resilience patterns covered                                              │
+│  ✅ Versioning strategies covered                                            │
+│  ✅ Quality enforcement covered                                              │
+│  ✅ Knowledge transfer covered                                               │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Final Architecture Principles Summary
+
+After three comprehensive reviews, the architecture is designed for:
+
+1. **Uniformity** — Every file follows predictable patterns and naming
+2. **Standardization** — Base classes and templates ensure consistency
+3. **Scalability** — Plugin system allows infinite extension
+4. **Expandability** — Feature flags enable safe feature rollout
+5. **Resilience** — Retry, circuit breaker, degradation patterns
+6. **Versioning** — API and schema evolution strategies
+7. **Automation** — CI/CD, docs, quality gates automated
+8. **Knowledge** — ADRs, onboarding, documentation complete
+9. **AI-Friendly** — Navigation, discovery, templates for AI agents
+10. **Future-Proof** — Backward compatibility, deprecation processes
+
+**This architecture is ready for implementation.**
+
+---
+
 ## Change Log
 
 | Date | Change |
@@ -4633,3 +6711,6 @@ Key Outcomes:
 | 2025-12-03 | Added Agile Review Session #2 Part 3-4 (Templates, Base Classes) |
 | 2025-12-03 | Added Agile Review Session #2 Part 5-6 (AI Navigation, Scalability) |
 | 2025-12-03 | Added Agile Review Session #2 Part 7 (Implementation Roadmap, Priority Matrix) |
+| 2025-12-03 | Added Agile Review Session #3 Part 1-3 (Resilience, Versioning, Doc Automation) |
+| 2025-12-03 | Added Agile Review Session #3 Part 4-6 (Quality Enforcement, Knowledge Transfer, Master Checklist) |
+| 2025-12-03 | FINAL REVIEW COMPLETE — Architecture ready for implementation |
