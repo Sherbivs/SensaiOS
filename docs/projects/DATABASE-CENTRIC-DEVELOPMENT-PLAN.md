@@ -9926,6 +9926,1180 @@ export function RequirePermission(
 
 ---
 
+### 🏗️ Part 4: Architecture Specialist Integration
+
+**Specialist:** Architecture Specialist  
+**Focus:** CQRS patterns, event sourcing, data flow optimization, domain-driven design  
+**Goal:** Design data architecture that scales with game complexity
+
+#### 4.1 CQRS Pattern Implementation
+
+```typescript
+// ===== FILE: src/shared/architecture/cqrs.ts =====
+
+/**
+ * Command Query Responsibility Segregation (CQRS) implementation.
+ * 
+ * @description
+ * Separates read and write operations for:
+ * - Optimized read models (denormalized, cached)
+ * - Consistent write models (normalized, transactional)
+ * - Independent scaling of reads vs writes
+ * 
+ * Pokemon Infinity Gauntlet Use Cases:
+ * - Writes: Battle actions, catches, trades (low volume, high consistency)
+ * - Reads: Pokedex, leaderboards, profiles (high volume, eventual consistency OK)
+ */
+
+import { EventEmitter } from "events";
+import { prisma } from "@shared/prisma.js";
+import { logger } from "@shared/utils/logger.js";
+
+// ============================================
+// COMMAND SIDE (Writes)
+// ============================================
+
+/**
+ * Base command interface.
+ */
+export interface Command<TPayload = any> {
+  type: string;
+  payload: TPayload;
+  metadata: CommandMetadata;
+}
+
+export interface CommandMetadata {
+  commandId: string;
+  userId: string;
+  timestamp: Date;
+  correlationId?: string;
+}
+
+/**
+ * Command handler interface.
+ */
+export interface CommandHandler<TCommand extends Command, TResult = void> {
+  readonly commandType: string;
+  execute(command: TCommand): Promise<TResult>;
+  validate?(command: TCommand): Promise<void>;
+}
+
+/**
+ * Command bus for routing commands to handlers.
+ */
+export class CommandBus {
+  private handlers = new Map<string, CommandHandler<any, any>>();
+  private eventEmitter = new EventEmitter();
+
+  /**
+   * Registers a command handler.
+   */
+  register<TCommand extends Command>(
+    handler: CommandHandler<TCommand, any>
+  ): void {
+    if (this.handlers.has(handler.commandType)) {
+      throw new Error(`Handler for ${handler.commandType} already registered`);
+    }
+    this.handlers.set(handler.commandType, handler);
+    logger.info({ commandType: handler.commandType }, "Command handler registered");
+  }
+
+  /**
+   * Dispatches a command to its handler.
+   */
+  async dispatch<TResult>(command: Command): Promise<TResult> {
+    const handler = this.handlers.get(command.type);
+    
+    if (!handler) {
+      throw new Error(`No handler registered for command: ${command.type}`);
+    }
+
+    try {
+      // Validate
+      if (handler.validate) {
+        await handler.validate(command);
+      }
+
+      // Execute
+      const result = await handler.execute(command);
+
+      // Emit success event
+      this.eventEmitter.emit("command:executed", {
+        command,
+        result,
+        success: true,
+      });
+
+      return result;
+    } catch (error) {
+      // Emit failure event
+      this.eventEmitter.emit("command:failed", {
+        command,
+        error,
+        success: false,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Subscribes to command events.
+   */
+  on(event: "command:executed" | "command:failed", listener: Function): void {
+    this.eventEmitter.on(event, listener as any);
+  }
+}
+
+// ============================================
+// QUERY SIDE (Reads)
+// ============================================
+
+/**
+ * Base query interface.
+ */
+export interface Query<TParams = any> {
+  type: string;
+  params: TParams;
+}
+
+/**
+ * Query handler interface.
+ */
+export interface QueryHandler<TQuery extends Query, TResult> {
+  readonly queryType: string;
+  execute(query: TQuery): Promise<TResult>;
+}
+
+/**
+ * Query bus for routing queries to handlers.
+ */
+export class QueryBus {
+  private handlers = new Map<string, QueryHandler<any, any>>();
+
+  /**
+   * Registers a query handler.
+   */
+  register<TQuery extends Query>(handler: QueryHandler<TQuery, any>): void {
+    this.handlers.set(handler.queryType, handler);
+    logger.info({ queryType: handler.queryType }, "Query handler registered");
+  }
+
+  /**
+   * Dispatches a query to its handler.
+   */
+  async dispatch<TResult>(query: Query): Promise<TResult> {
+    const handler = this.handlers.get(query.type);
+    
+    if (!handler) {
+      throw new Error(`No handler registered for query: ${query.type}`);
+    }
+
+    return handler.execute(query);
+  }
+}
+
+// ============================================
+// POKEMON COMMANDS
+// ============================================
+
+/**
+ * Catch Pokemon command.
+ */
+export interface CatchPokemonCommand extends Command<{
+  speciesId: number;
+  level: number;
+  encounterId: string;
+}> {
+  type: "pokemon:catch";
+}
+
+/**
+ * Catch Pokemon command handler.
+ */
+export class CatchPokemonHandler implements CommandHandler<CatchPokemonCommand, { pokemonId: string }> {
+  readonly commandType = "pokemon:catch";
+
+  async validate(command: CatchPokemonCommand): Promise<void> {
+    // Validate encounter exists and is active
+    const encounter = await prisma.encounter.findUnique({
+      where: { id: command.payload.encounterId },
+    });
+
+    if (!encounter || encounter.status !== "ACTIVE") {
+      throw new Error("Invalid encounter");
+    }
+
+    if (encounter.userId !== command.metadata.userId) {
+      throw new Error("Encounter belongs to another user");
+    }
+  }
+
+  async execute(command: CatchPokemonCommand): Promise<{ pokemonId: string }> {
+    // Transaction: Create Pokemon + Update Encounter + Create Audit Log
+    const result = await prisma.$transaction(async (tx) => {
+      // Create the Pokemon
+      const pokemon = await tx.pokemon.create({
+        data: {
+          speciesId: command.payload.speciesId,
+          level: command.payload.level,
+          trainerId: command.metadata.userId,
+          encounterId: command.payload.encounterId,
+        },
+      });
+
+      // Complete the encounter
+      await tx.encounter.update({
+        where: { id: command.payload.encounterId },
+        data: { status: "CAUGHT", caughtPokemonId: pokemon.id },
+      });
+
+      // Audit log
+      await tx.auditLog.create({
+        data: {
+          timestamp: new Date(),
+          eventType: "POKEMON_CATCH",
+          severity: "INFO",
+          userId: command.metadata.userId,
+          targetId: pokemon.id,
+          targetType: "Pokemon",
+          action: "catch",
+          details: JSON.stringify(command.payload),
+        },
+      });
+
+      return pokemon;
+    });
+
+    return { pokemonId: result.id };
+  }
+}
+
+// ============================================
+// POKEMON QUERIES
+// ============================================
+
+/**
+ * Get party query.
+ */
+export interface GetPartyQuery extends Query<{ trainerId: string }> {
+  type: "pokemon:getParty";
+}
+
+/**
+ * Get party query handler (optimized read model).
+ */
+export class GetPartyHandler implements QueryHandler<GetPartyQuery, any[]> {
+  readonly queryType = "pokemon:getParty";
+
+  async execute(query: GetPartyQuery): Promise<any[]> {
+    // Read from denormalized/cached party view
+    return prisma.pokemon.findMany({
+      where: {
+        trainerId: query.params.trainerId,
+        partyPosition: { not: null },
+      },
+      orderBy: { partyPosition: "asc" },
+      select: {
+        id: true,
+        nickname: true,
+        speciesId: true,
+        level: true,
+        currentHp: true,
+        maxHp: true,
+        partyPosition: true,
+        // Include computed fields from denormalized view
+      },
+    });
+  }
+}
+
+// ============================================
+// FACTORY
+// ============================================
+
+/**
+ * Creates configured CQRS buses.
+ */
+export function createCQRS() {
+  const commandBus = new CommandBus();
+  const queryBus = new QueryBus();
+
+  // Register command handlers
+  commandBus.register(new CatchPokemonHandler());
+  // commandBus.register(new ReleasePokemonHandler());
+  // commandBus.register(new TradePokemonHandler());
+  // commandBus.register(new StartBattleHandler());
+  // commandBus.register(new ExecuteMoveHandler());
+
+  // Register query handlers
+  queryBus.register(new GetPartyHandler());
+  // queryBus.register(new GetPokedexHandler());
+  // queryBus.register(new GetLeaderboardHandler());
+  // queryBus.register(new GetBattleStateHandler());
+
+  return { commandBus, queryBus };
+}
+```
+
+#### 4.2 Event Sourcing Foundation
+
+```typescript
+// ===== FILE: src/shared/architecture/event-sourcing.ts =====
+
+/**
+ * Event sourcing foundation for audit trail and replay capability.
+ * 
+ * @description
+ * Event sourcing stores all state changes as events:
+ * - Complete audit trail (who did what, when)
+ * - Replay capability (rebuild state from events)
+ * - Temporal queries (what was state at time T?)
+ * 
+ * Used for:
+ * - Battle logs (complete replay of battles)
+ * - Trade history (dispute resolution)
+ * - Security events (incident investigation)
+ */
+
+import { prisma } from "@shared/prisma.js";
+
+/**
+ * Domain event interface.
+ */
+export interface DomainEvent<TPayload = any> {
+  eventId: string;
+  eventType: string;
+  aggregateId: string;
+  aggregateType: string;
+  payload: TPayload;
+  metadata: EventMetadata;
+  version: number;
+  timestamp: Date;
+}
+
+export interface EventMetadata {
+  userId: string;
+  correlationId: string;
+  causationId?: string;
+  guildId?: string;
+  channelId?: string;
+}
+
+/**
+ * Event store interface.
+ */
+export interface EventStore {
+  append(event: DomainEvent): Promise<void>;
+  getEvents(aggregateId: string, fromVersion?: number): Promise<DomainEvent[]>;
+  getEventsByType(eventType: string, since?: Date): Promise<DomainEvent[]>;
+}
+
+/**
+ * PostgreSQL-backed event store using TimescaleDB.
+ */
+export class PostgresEventStore implements EventStore {
+  /**
+   * Appends event to store.
+   */
+  async append(event: DomainEvent): Promise<void> {
+    await prisma.domainEvent.create({
+      data: {
+        eventId: event.eventId,
+        eventType: event.eventType,
+        aggregateId: event.aggregateId,
+        aggregateType: event.aggregateType,
+        payload: JSON.stringify(event.payload),
+        metadata: JSON.stringify(event.metadata),
+        version: event.version,
+        timestamp: event.timestamp,
+      },
+    });
+  }
+
+  /**
+   * Gets events for an aggregate.
+   */
+  async getEvents(
+    aggregateId: string,
+    fromVersion = 0
+  ): Promise<DomainEvent[]> {
+    const events = await prisma.domainEvent.findMany({
+      where: {
+        aggregateId,
+        version: { gte: fromVersion },
+      },
+      orderBy: { version: "asc" },
+    });
+
+    return events.map((e) => ({
+      eventId: e.eventId,
+      eventType: e.eventType,
+      aggregateId: e.aggregateId,
+      aggregateType: e.aggregateType,
+      payload: JSON.parse(e.payload as string),
+      metadata: JSON.parse(e.metadata as string),
+      version: e.version,
+      timestamp: e.timestamp,
+    }));
+  }
+
+  /**
+   * Gets events by type (for projections).
+   */
+  async getEventsByType(
+    eventType: string,
+    since?: Date
+  ): Promise<DomainEvent[]> {
+    const events = await prisma.domainEvent.findMany({
+      where: {
+        eventType,
+        timestamp: since ? { gte: since } : undefined,
+      },
+      orderBy: { timestamp: "asc" },
+    });
+
+    return events.map((e) => ({
+      eventId: e.eventId,
+      eventType: e.eventType,
+      aggregateId: e.aggregateId,
+      aggregateType: e.aggregateType,
+      payload: JSON.parse(e.payload as string),
+      metadata: JSON.parse(e.metadata as string),
+      version: e.version,
+      timestamp: e.timestamp,
+    }));
+  }
+}
+
+/**
+ * Aggregate root base class.
+ */
+export abstract class AggregateRoot<TState> {
+  protected state: TState;
+  protected uncommittedEvents: DomainEvent[] = [];
+  private version = 0;
+
+  constructor(
+    public readonly id: string,
+    initialState: TState
+  ) {
+    this.state = initialState;
+  }
+
+  /**
+   * Gets current version.
+   */
+  getVersion(): number {
+    return this.version;
+  }
+
+  /**
+   * Gets uncommitted events.
+   */
+  getUncommittedEvents(): DomainEvent[] {
+    return [...this.uncommittedEvents];
+  }
+
+  /**
+   * Clears uncommitted events (after persisting).
+   */
+  clearUncommittedEvents(): void {
+    this.uncommittedEvents = [];
+  }
+
+  /**
+   * Applies an event (updates state).
+   */
+  protected apply(event: DomainEvent): void {
+    this.state = this.evolve(this.state, event);
+    this.version++;
+    this.uncommittedEvents.push(event);
+  }
+
+  /**
+   * Rebuilds state from events.
+   */
+  loadFromHistory(events: DomainEvent[]): void {
+    for (const event of events) {
+      this.state = this.evolve(this.state, event);
+      this.version++;
+    }
+  }
+
+  /**
+   * State evolution function (implemented by subclass).
+   */
+  protected abstract evolve(state: TState, event: DomainEvent): TState;
+}
+
+// ============================================
+// BATTLE AGGREGATE EXAMPLE
+// ============================================
+
+/**
+ * Battle state.
+ */
+export interface BattleState {
+  id: string;
+  status: "PENDING" | "ACTIVE" | "COMPLETED";
+  challengerId: string;
+  defenderId: string;
+  currentTurn: number;
+  challengerPokemon: any[];
+  defenderPokemon: any[];
+  winnerId?: string;
+  logs: any[];
+}
+
+/**
+ * Battle events.
+ */
+export type BattleEvent =
+  | { type: "BattleStarted"; challengerId: string; defenderId: string }
+  | { type: "TurnExecuted"; turn: number; actions: any[] }
+  | { type: "PokemonFainted"; pokemonId: string; trainerId: string }
+  | { type: "BattleEnded"; winnerId: string; reason: string };
+
+/**
+ * Battle aggregate.
+ */
+export class BattleAggregate extends AggregateRoot<BattleState> {
+  /**
+   * Creates a new battle.
+   */
+  static create(
+    id: string,
+    challengerId: string,
+    defenderId: string,
+    metadata: EventMetadata
+  ): BattleAggregate {
+    const battle = new BattleAggregate(id, {
+      id,
+      status: "PENDING",
+      challengerId,
+      defenderId,
+      currentTurn: 0,
+      challengerPokemon: [],
+      defenderPokemon: [],
+      logs: [],
+    });
+
+    battle.apply({
+      eventId: crypto.randomUUID(),
+      eventType: "BattleStarted",
+      aggregateId: id,
+      aggregateType: "Battle",
+      payload: { challengerId, defenderId },
+      metadata,
+      version: 1,
+      timestamp: new Date(),
+    });
+
+    return battle;
+  }
+
+  /**
+   * Executes a turn.
+   */
+  executeTurn(actions: any[], metadata: EventMetadata): void {
+    if (this.state.status !== "ACTIVE") {
+      throw new Error("Battle is not active");
+    }
+
+    this.apply({
+      eventId: crypto.randomUUID(),
+      eventType: "TurnExecuted",
+      aggregateId: this.id,
+      aggregateType: "Battle",
+      payload: { turn: this.state.currentTurn + 1, actions },
+      metadata,
+      version: this.version + 1,
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Ends the battle.
+   */
+  end(winnerId: string, reason: string, metadata: EventMetadata): void {
+    this.apply({
+      eventId: crypto.randomUUID(),
+      eventType: "BattleEnded",
+      aggregateId: this.id,
+      aggregateType: "Battle",
+      payload: { winnerId, reason },
+      metadata,
+      version: this.version + 1,
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Evolves state based on event.
+   */
+  protected evolve(state: BattleState, event: DomainEvent): BattleState {
+    switch (event.eventType) {
+      case "BattleStarted":
+        return {
+          ...state,
+          status: "ACTIVE",
+          challengerId: event.payload.challengerId,
+          defenderId: event.payload.defenderId,
+        };
+
+      case "TurnExecuted":
+        return {
+          ...state,
+          currentTurn: event.payload.turn,
+          logs: [...state.logs, event.payload],
+        };
+
+      case "BattleEnded":
+        return {
+          ...state,
+          status: "COMPLETED",
+          winnerId: event.payload.winnerId,
+        };
+
+      default:
+        return state;
+    }
+  }
+}
+```
+
+#### 4.3 Data Flow Optimization
+
+```typescript
+// ===== FILE: src/shared/architecture/data-flow.ts =====
+
+/**
+ * Optimized data flow patterns for game operations.
+ * 
+ * @description
+ * Data flows optimized for:
+ * - Battle operations: Real-time, consistent, isolated
+ * - Exploration: High-throughput, eventual consistency OK
+ * - Social: Read-heavy, cached aggressively
+ */
+
+import { prisma } from "@shared/prisma.js";
+
+/**
+ * Data flow types.
+ */
+export type DataFlowType =
+  | "BATTLE"      // Real-time, transactional
+  | "EXPLORATION" // High-throughput, idempotent
+  | "SOCIAL"      // Read-heavy, cached
+  | "ADMIN";      // Low-volume, audited
+
+/**
+ * Data flow configuration.
+ */
+export interface DataFlowConfig {
+  type: DataFlowType;
+  consistency: "STRONG" | "EVENTUAL";
+  caching: "NONE" | "READ" | "WRITE_THROUGH";
+  isolation: "READ_COMMITTED" | "REPEATABLE_READ" | "SERIALIZABLE";
+  timeout: number;
+}
+
+/**
+ * Flow configurations by type.
+ */
+export const FLOW_CONFIGS: Record<DataFlowType, DataFlowConfig> = {
+  BATTLE: {
+    type: "BATTLE",
+    consistency: "STRONG",
+    caching: "NONE",
+    isolation: "SERIALIZABLE",
+    timeout: 10000, // 10s max for battle operations
+  },
+  EXPLORATION: {
+    type: "EXPLORATION",
+    consistency: "EVENTUAL",
+    caching: "WRITE_THROUGH",
+    isolation: "READ_COMMITTED",
+    timeout: 5000, // 5s for exploration
+  },
+  SOCIAL: {
+    type: "SOCIAL",
+    consistency: "EVENTUAL",
+    caching: "READ",
+    isolation: "READ_COMMITTED",
+    timeout: 3000, // 3s for social reads
+  },
+  ADMIN: {
+    type: "ADMIN",
+    consistency: "STRONG",
+    caching: "NONE",
+    isolation: "SERIALIZABLE",
+    timeout: 30000, // 30s for admin operations
+  },
+};
+
+/**
+ * Executes operation with appropriate data flow configuration.
+ */
+export async function executeWithFlow<T>(
+  flowType: DataFlowType,
+  operation: () => Promise<T>
+): Promise<T> {
+  const config = FLOW_CONFIGS[flowType];
+
+  // Set transaction timeout
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Operation timeout")), config.timeout)
+  );
+
+  // Execute with configured isolation level
+  if (config.consistency === "STRONG") {
+    return Promise.race([
+      prisma.$transaction(operation as any, {
+        isolationLevel: config.isolation as any,
+        timeout: config.timeout,
+      }),
+      timeoutPromise,
+    ]);
+  } else {
+    return Promise.race([operation(), timeoutPromise]);
+  }
+}
+
+/**
+ * Battle-specific data flow (optimized for real-time PvP).
+ */
+export class BattleDataFlow {
+  /**
+   * Loads battle state with locking.
+   */
+  async loadBattleState(battleId: string): Promise<any> {
+    return executeWithFlow("BATTLE", async () => {
+      // Use SELECT FOR UPDATE to lock the battle row
+      const battle = await prisma.$queryRaw`
+        SELECT * FROM "Battle"
+        WHERE id = ${battleId}
+        FOR UPDATE NOWAIT
+      `;
+      return battle;
+    });
+  }
+
+  /**
+   * Applies battle action atomically.
+   */
+  async applyAction(battleId: string, action: any): Promise<void> {
+    return executeWithFlow("BATTLE", async () => {
+      await prisma.$transaction([
+        // Update battle state
+        prisma.battle.update({
+          where: { id: battleId },
+          data: { /* state changes */ },
+        }),
+        // Log the action
+        prisma.battleLog.create({
+          data: {
+            battleId,
+            timestamp: new Date(),
+            action: JSON.stringify(action),
+          },
+        }),
+      ]);
+    });
+  }
+}
+
+/**
+ * Exploration data flow (optimized for high-throughput encounters).
+ */
+export class ExplorationDataFlow {
+  /**
+   * Generates encounter with idempotency.
+   */
+  async generateEncounter(
+    userId: string,
+    areaId: string,
+    seed: string
+  ): Promise<any> {
+    return executeWithFlow("EXPLORATION", async () => {
+      // Idempotent: Same seed always produces same result
+      const existingEncounter = await prisma.encounter.findFirst({
+        where: { seed },
+      });
+
+      if (existingEncounter) {
+        return existingEncounter;
+      }
+
+      // Generate new encounter
+      return prisma.encounter.create({
+        data: {
+          userId,
+          areaId,
+          seed,
+          speciesId: this.calculateSpecies(seed, areaId),
+          level: this.calculateLevel(seed, areaId),
+          status: "ACTIVE",
+        },
+      });
+    });
+  }
+
+  private calculateSpecies(seed: string, areaId: string): number {
+    // Deterministic species calculation
+    return 1; // Placeholder
+  }
+
+  private calculateLevel(seed: string, areaId: string): number {
+    // Deterministic level calculation
+    return 5; // Placeholder
+  }
+}
+
+/**
+ * Social data flow (optimized for read-heavy operations).
+ */
+export class SocialDataFlow {
+  private cache = new Map<string, { data: any; expires: number }>();
+
+  /**
+   * Gets leaderboard with aggressive caching.
+   */
+  async getLeaderboard(type: string, limit = 100): Promise<any[]> {
+    const cacheKey = `leaderboard:${type}:${limit}`;
+    const cached = this.cache.get(cacheKey);
+
+    if (cached && cached.expires > Date.now()) {
+      return cached.data;
+    }
+
+    const data = await executeWithFlow("SOCIAL", () =>
+      prisma.user.findMany({
+        orderBy: { /* ranking field */ },
+        take: limit,
+        select: {
+          id: true,
+          username: true,
+          // ranking fields
+        },
+      })
+    );
+
+    // Cache for 5 minutes
+    this.cache.set(cacheKey, {
+      data,
+      expires: Date.now() + 5 * 60 * 1000,
+    });
+
+    return data;
+  }
+
+  /**
+   * Gets player profile with caching.
+   */
+  async getProfile(userId: string): Promise<any> {
+    const cacheKey = `profile:${userId}`;
+    const cached = this.cache.get(cacheKey);
+
+    if (cached && cached.expires > Date.now()) {
+      return cached.data;
+    }
+
+    const data = await executeWithFlow("SOCIAL", () =>
+      prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          pokemon: { where: { partyPosition: { not: null } } },
+          _count: { select: { pokemon: true, battles: true } },
+        },
+      })
+    );
+
+    // Cache for 1 minute
+    this.cache.set(cacheKey, {
+      data,
+      expires: Date.now() + 60 * 1000,
+    });
+
+    return data;
+  }
+}
+```
+
+#### 4.4 Domain-Driven Design Models
+
+```typescript
+// ===== FILE: src/shared/architecture/domain-models.ts =====
+
+/**
+ * Domain-driven design models for Pokemon Infinity Gauntlet.
+ * 
+ * @description
+ * Bounded contexts:
+ * - Trainer Context: User identity, profile, progression
+ * - Pokemon Context: Monsters, stats, moves, abilities
+ * - Battle Context: Fights, turns, outcomes
+ * - Exploration Context: Encounters, catches, areas
+ * - Social Context: Trades, leaderboards, guilds
+ */
+
+// ============================================
+// VALUE OBJECTS
+// ============================================
+
+/**
+ * Pokemon Stats value object (immutable).
+ */
+export class PokemonStats {
+  constructor(
+    public readonly hp: number,
+    public readonly attack: number,
+    public readonly defense: number,
+    public readonly specialAttack: number,
+    public readonly specialDefense: number,
+    public readonly speed: number
+  ) {
+    Object.freeze(this);
+  }
+
+  /**
+   * Calculates total stats.
+   */
+  get total(): number {
+    return (
+      this.hp +
+      this.attack +
+      this.defense +
+      this.specialAttack +
+      this.specialDefense +
+      this.speed
+    );
+  }
+
+  /**
+   * Creates stats with modifications.
+   */
+  withModifier(modifier: Partial<Record<keyof PokemonStats, number>>): PokemonStats {
+    return new PokemonStats(
+      this.hp + (modifier.hp ?? 0),
+      this.attack + (modifier.attack ?? 0),
+      this.defense + (modifier.defense ?? 0),
+      this.specialAttack + (modifier.specialAttack ?? 0),
+      this.specialDefense + (modifier.specialDefense ?? 0),
+      this.speed + (modifier.speed ?? 0)
+    );
+  }
+}
+
+/**
+ * Type effectiveness value object.
+ */
+export class TypeEffectiveness {
+  private static chart: Map<string, Map<string, number>> = new Map();
+
+  static getMultiplier(attackType: string, defenseTypes: string[]): number {
+    let multiplier = 1;
+    for (const defType of defenseTypes) {
+      const typeRow = this.chart.get(attackType);
+      multiplier *= typeRow?.get(defType) ?? 1;
+    }
+    return multiplier;
+  }
+
+  static isSuper(attackType: string, defenseTypes: string[]): boolean {
+    return this.getMultiplier(attackType, defenseTypes) > 1;
+  }
+
+  static isNotVery(attackType: string, defenseTypes: string[]): boolean {
+    const mult = this.getMultiplier(attackType, defenseTypes);
+    return mult > 0 && mult < 1;
+  }
+
+  static isImmune(attackType: string, defenseTypes: string[]): boolean {
+    return this.getMultiplier(attackType, defenseTypes) === 0;
+  }
+}
+
+// ============================================
+// ENTITIES
+// ============================================
+
+/**
+ * Pokemon entity.
+ */
+export class Pokemon {
+  constructor(
+    public readonly id: string,
+    public readonly speciesId: number,
+    public readonly trainerId: string,
+    private _nickname: string | null,
+    private _level: number,
+    private _currentHp: number,
+    private _stats: PokemonStats,
+    private _moves: string[],
+    private _experience: number
+  ) {}
+
+  // Getters
+  get nickname(): string | null { return this._nickname; }
+  get level(): number { return this._level; }
+  get currentHp(): number { return this._currentHp; }
+  get stats(): PokemonStats { return this._stats; }
+  get moves(): string[] { return [...this._moves]; }
+  get experience(): number { return this._experience; }
+  get isFainted(): boolean { return this._currentHp <= 0; }
+
+  /**
+   * Takes damage.
+   */
+  takeDamage(amount: number): void {
+    this._currentHp = Math.max(0, this._currentHp - amount);
+  }
+
+  /**
+   * Heals HP.
+   */
+  heal(amount: number): void {
+    this._currentHp = Math.min(this._stats.hp, this._currentHp + amount);
+  }
+
+  /**
+   * Fully heals.
+   */
+  fullHeal(): void {
+    this._currentHp = this._stats.hp;
+  }
+
+  /**
+   * Gains experience.
+   */
+  gainExperience(amount: number): { leveledUp: boolean; newLevel: number } {
+    this._experience += amount;
+    
+    const levelThreshold = this.calculateLevelThreshold(this._level + 1);
+    if (this._experience >= levelThreshold) {
+      this._level++;
+      this.recalculateStats();
+      return { leveledUp: true, newLevel: this._level };
+    }
+    
+    return { leveledUp: false, newLevel: this._level };
+  }
+
+  /**
+   * Sets nickname.
+   */
+  setNickname(nickname: string | null): void {
+    this._nickname = nickname;
+  }
+
+  private calculateLevelThreshold(level: number): number {
+    // Standard Pokemon experience formula
+    return Math.pow(level, 3);
+  }
+
+  private recalculateStats(): void {
+    // Recalculate stats based on new level
+    // (implementation depends on stat formula)
+  }
+}
+
+// ============================================
+// AGGREGATE ROOTS
+// ============================================
+
+/**
+ * Trainer aggregate root.
+ */
+export class Trainer {
+  private _party: Pokemon[] = [];
+  private _storage: Map<string, Pokemon[]> = new Map();
+
+  constructor(
+    public readonly id: string,
+    public readonly discordId: string,
+    private _username: string
+  ) {}
+
+  get username(): string { return this._username; }
+  get party(): readonly Pokemon[] { return this._party; }
+
+  /**
+   * Adds Pokemon to party.
+   */
+  addToParty(pokemon: Pokemon): { success: boolean; reason?: string } {
+    if (this._party.length >= 6) {
+      return { success: false, reason: "Party is full" };
+    }
+
+    if (pokemon.trainerId !== this.id) {
+      return { success: false, reason: "Pokemon belongs to another trainer" };
+    }
+
+    this._party.push(pokemon);
+    return { success: true };
+  }
+
+  /**
+   * Removes Pokemon from party.
+   */
+  removeFromParty(pokemonId: string): Pokemon | null {
+    const index = this._party.findIndex(p => p.id === pokemonId);
+    if (index === -1) return null;
+
+    const [pokemon] = this._party.splice(index, 1);
+    return pokemon;
+  }
+
+  /**
+   * Swaps party positions.
+   */
+  swapPartyPositions(index1: number, index2: number): void {
+    if (index1 < 0 || index1 >= this._party.length) return;
+    if (index2 < 0 || index2 >= this._party.length) return;
+
+    [this._party[index1], this._party[index2]] = 
+    [this._party[index2], this._party[index1]];
+  }
+
+  /**
+   * Moves Pokemon to storage.
+   */
+  moveToStorage(pokemonId: string, boxId: string): boolean {
+    const pokemon = this.removeFromParty(pokemonId);
+    if (!pokemon) return false;
+
+    if (!this._storage.has(boxId)) {
+      this._storage.set(boxId, []);
+    }
+
+    const box = this._storage.get(boxId)!;
+    if (box.length >= 30) {
+      // Box full, return to party
+      this._party.push(pokemon);
+      return false;
+    }
+
+    box.push(pokemon);
+    return true;
+  }
+}
+```
+
+#### Architecture Specialist Recommendations
+
+| Area | Recommendation | Priority | Impact |
+|------|---------------|----------|--------|
+| **CQRS** | Implement command/query separation | P1 | Clear read/write boundaries |
+| **Event Sourcing** | Apply to battle system | P1 | Complete audit trail + replay |
+| **Data Flow** | Use flow types for all operations | P1 | Appropriate consistency per use case |
+| **Domain Models** | Implement value objects | P2 | Immutable, testable domain logic |
+| **Aggregates** | Define aggregate boundaries | P2 | Transactional consistency |
+| **Read Models** | Create denormalized views | P3 | Faster reads |
+
+---
+
 ## Change Log
 
 | Date | Change |
@@ -9942,3 +11116,4 @@ export function RequirePermission(
 | 2025-12-03 | Added Specialist Deep Dive Part 1: Database Specialist (PostgreSQL tuning, TimescaleDB, indexes, query patterns, health monitoring) |
 | 2025-12-03 | Added Specialist Deep Dive Part 2: Performance Specialist (connection pooling, multi-layer caching, read replicas, query optimization, SLOs) |
 | 2025-12-03 | Added Specialist Deep Dive Part 3: Security Specialist (RLS policies, encryption, audit logging, SQL injection prevention, access control) |
+| 2025-12-03 | Added Specialist Deep Dive Part 4: Architecture Specialist (CQRS, event sourcing, data flow optimization, domain-driven design) |
