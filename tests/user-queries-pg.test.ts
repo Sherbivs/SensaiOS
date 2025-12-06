@@ -26,7 +26,7 @@ describe("User Queries: PostgreSQL Implementation Tests", () => {
   let pool: Pool;
   
   // Test data IDs (assuming these exist in the database)
-  const TEST_DISCORD_ID = "398910451420348448"; // DripTVDD's Discord ID
+  const TEST_DISCORD_ID = "563220840708177927"; // DripTVDD's Discord ID
 
   beforeAll(async () => {
     // Initialize pg connection

@@ -63,6 +63,7 @@
     "test:watch": "vitest",
     "test:pbsl": "vitest run tests/pbsl",
     "test:error-integration": "tsx scripts/test-error-integration.ts",
+    "test:init-ceo": "tsx scripts/init-driptvdd-test.ts",
     "test:sim": "node tests/simulation/test-runner.ts",
     "test:sim:parallel": "node tests/simulation/test-runner.ts --parallel",
     "test:sim:core": "node tests/simulation/test-runner.ts --category=core",

@@ -34,7 +34,7 @@ export const PROJECT_LEADERSHIP = Object.freeze({
      * This is the ONLY value that should be used for authentication.
      * Discord IDs are unique, permanent, and cannot be spoofed.
      */
-    discordId: '398910451420348448',
+    discordId: '563220840708177927',
     
     /** Role in the project */
     role: 'Creator & CEO',
@@ -47,13 +47,13 @@ export const PROJECT_LEADERSHIP = Object.freeze({
    * Verify if a Discord ID matches the project CEO
    * Use this for all admin authentication checks
    */
-  isCEO: (discordId: string): boolean => discordId === '398910451420348448',
+  isCEO: (discordId: string): boolean => discordId === '563220840708177927',
   
   /**
    * List of all leadership Discord IDs (for future expansion)
    * Currently only CEO, but structured for adding trusted admins later
    */
-  leadershipIds: Object.freeze(['398910451420348448'] as const)
+  leadershipIds: Object.freeze(['563220840708177927'] as const)
 });
 
 // ============================================================================
