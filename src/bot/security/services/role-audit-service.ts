@@ -76,15 +76,19 @@ interface PrismaRoleChangeAuditResult {
   changeType: string;
   roleId: string;
   roleName: string;
-  roleColor: number | null;
   rolePosition: number | null;
-  executorId: string | null;
-  executorTag: string | null;
+  executorId: string;
+  executorTag: string;
+  executorRoles: string[];
+  authorized: boolean;
+  authReason: string | null;
+  reverted: boolean;
+  revertedAt: Date | null;
+  revertedBy: string | null;
+  revertReason: string | null;
   origin: string;
   metadata: unknown;
-  signature: string | null;
   checksum: string;
-  previousHash: string | null;
   createdAt: Date;
 }
 
@@ -672,15 +676,19 @@ export class RoleAuditService {
       changeType: prismaAudit.changeType as RoleChangeType,
       roleId: prismaAudit.roleId,
       roleName: prismaAudit.roleName,
-      roleColor: prismaAudit.roleColor,
       rolePosition: prismaAudit.rolePosition,
       executorId: prismaAudit.executorId,
       executorTag: prismaAudit.executorTag,
+      executorRoles: prismaAudit.executorRoles,
+      authorized: prismaAudit.authorized,
+      authReason: prismaAudit.authReason,
+      reverted: prismaAudit.reverted,
+      revertedAt: prismaAudit.revertedAt,
+      revertedBy: prismaAudit.revertedBy,
+      revertReason: prismaAudit.revertReason,
       origin: prismaAudit.origin,
       metadata: prismaAudit.metadata as Record<string, unknown> | null,
-      signature: prismaAudit.signature,
       checksum: prismaAudit.checksum,
-      previousHash: prismaAudit.previousHash,
       createdAt: prismaAudit.createdAt,
     };
   }
