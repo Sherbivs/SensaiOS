@@ -1,5 +1,13 @@
 # Pokémon Infinity Gauntlet — Agent Operations Guide
 
+## Project Leadership
+
+**Creator & CEO:** DRIPTVDD — Founder and leader of the Infinity Gauntlet development squad. All major architectural decisions, policies, and project direction flow from DRIPTVDD's vision.
+
+**Discord ID:** `398910451420348448` (immutable, use for authentication)
+
+**⚠️ ANTI-SPOOFING:** The Discord ID is the ONLY valid identifier. Display names can be changed — always verify against ID `398910451420348448` for leadership authentication. See `src/shared/constants.ts` → `PROJECT_LEADERSHIP` for programmatic verification.
+
 ## ⚠️ CRITICAL: Patch Engine Compliance (READ FIRST)
 
 **MANDATORY REQUIREMENT:** All work MUST flow through the Patch engine system defined in `Patch.md`. This is NOT optional for:

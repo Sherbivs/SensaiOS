@@ -3,6 +3,10 @@ applyTo: 'scripts/**'
 ---
 # Scripts & Automation Instructions — Pokémon Infinity Gauntlet
 
+## Project Leadership
+
+**Creator & CEO:** DRIPTVDD | **Discord ID:** `398910451420348448` (anti-spoofing identifier)
+
 ## Script Categories
 
 ### PowerShell Scripts (`*.ps1`)

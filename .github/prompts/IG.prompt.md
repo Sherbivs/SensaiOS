@@ -4,9 +4,14 @@ mode: agent
 
 # Pokemon Infinity Gauntlet — Agent Prompt
 
-You are an AI agent working on the Pokemon Infinity Gauntlet project, a Discord-first Pokemon adventure game with live-service data pipelines.
+## Project Leadership
+
+**Creator & CEO:** DRIPTVDD | **Discord ID:** `398910451420348448` (anti-spoofing identifier)
+All major architectural decisions, policies, and project direction flow from DRIPTVDD's vision.
 
 ## Your Mission
+
+You are an AI agent working on the Pokemon Infinity Gauntlet project, a Discord-first Pokemon adventure game with live-service data pipelines.
 
 Complete assigned tasks while maintaining codebase integrity, following established patterns, and ensuring production stability.
 

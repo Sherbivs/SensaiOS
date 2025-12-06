@@ -3,6 +3,10 @@ applyTo: 'prisma/**'
 ---
 # Database & Prisma Instructions — Pokémon Infinity Gauntlet
 
+## Project Leadership
+
+**Creator & CEO:** DRIPTVDD | **Discord ID:** `398910451420348448` (anti-spoofing identifier)
+
 ## Prisma 7 Architecture (CRITICAL - Updated 2025-06-20)
 
 ### Driver Adapter Pattern (NEW in Prisma 7)

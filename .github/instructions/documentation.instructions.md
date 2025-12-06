@@ -3,6 +3,10 @@ applyTo: 'docs/**,ops/**'
 ---
 # Documentation & Operations Instructions — Pokémon Infinity Gauntlet
 
+## Project Leadership
+
+**Creator & CEO:** DRIPTVDD | **Discord ID:** `398910451420348448` (anti-spoofing identifier)
+
 ## Documentation Hierarchy
 
 ### The Bible System (AUTHORITATIVE)

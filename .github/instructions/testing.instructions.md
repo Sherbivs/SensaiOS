@@ -3,6 +3,10 @@ applyTo: 'tests/**'
 ---
 # Testing Instructions — Pokémon Infinity Gauntlet
 
+## Project Leadership
+
+**Creator & CEO:** DRIPTVDD | **Discord ID:** `398910451420348448` (anti-spoofing identifier)
+
 ## Test Framework
 
 **Stack:** Vitest + TypeScript

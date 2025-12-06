@@ -16,6 +16,12 @@
 
 # Copilot Instructions — Pokémon Infinity Gauntlet (REFERENCE ONLY)
 
+## Project Leadership
+
+**Creator & CEO:** DRIPTVDD — Founder and leader of the Infinity Gauntlet development squad. All major architectural decisions, policies, and project direction flow from DRIPTVDD's vision.
+
+**Discord ID:** `398910451420348448` (immutable anti-spoofing identifier)
+
 ## Project Overview
 Pokémon Infinity Gauntlet is a Discord-first Pokémon adventure with **private guild channel-based gameplay** (homestead channels), public arena battles, and live-service data pipelines. Production runs on Render with 6 workers + 1 cron job orchestrating encounters, battles, cache refresh, and security monitoring.
 

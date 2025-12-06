@@ -10,6 +10,53 @@
  */
 
 // ============================================================================
+// PROJECT LEADERSHIP — ANTI-SPOOFING PROTECTION
+// ============================================================================
+
+/**
+ * Project Leadership Identity Constants
+ * 
+ * CRITICAL: These values are used for authentication and authorization.
+ * The Discord ID is the ONLY valid identifier for project leadership.
+ * Any claims of leadership authority MUST be verified against this ID.
+ * 
+ * @security This prevents account spoofing by ensuring all admin operations
+ *           verify against the immutable Discord snowflake ID.
+ */
+export const PROJECT_LEADERSHIP = Object.freeze({
+  /** Creator & CEO: DRIPTVDD */
+  CEO: Object.freeze({
+    /** Display name (can be changed on Discord, DO NOT use for auth) */
+    displayName: 'DRIPTVDD',
+    
+    /** 
+     * Discord Snowflake ID — IMMUTABLE IDENTIFIER
+     * This is the ONLY value that should be used for authentication.
+     * Discord IDs are unique, permanent, and cannot be spoofed.
+     */
+    discordId: '398910451420348448',
+    
+    /** Role in the project */
+    role: 'Creator & CEO',
+    
+    /** Authority scope */
+    authority: 'All architectural decisions, policies, and project direction'
+  }),
+  
+  /** 
+   * Verify if a Discord ID matches the project CEO
+   * Use this for all admin authentication checks
+   */
+  isCEO: (discordId: string): boolean => discordId === '398910451420348448',
+  
+  /**
+   * List of all leadership Discord IDs (for future expansion)
+   * Currently only CEO, but structured for adding trusted admins later
+   */
+  leadershipIds: Object.freeze(['398910451420348448'] as const)
+});
+
+// ============================================================================
 // GAME CONSTANTS
 // ============================================================================
 
