@@ -3926,6 +3926,14 @@ if (entryHref && import.meta.url === entryHref) {
       log('error', '[AlertDispatcher] Error during cleanup', { error: getErrorMessage(error) });
     }
     
+    // Cleanup Security DB Subscriber
+    try {
+      cleanupSecurityDbSubscriber();
+      log('info', '[SecurityDbSubscriber] Cleaned up');
+    } catch (error) {
+      log('error', '[SecurityDbSubscriber] Error during cleanup', { error: getErrorMessage(error) });
+    }
+    
     if (autoSaveInterval) {
       stopAutoSave(autoSaveInterval);
     }
