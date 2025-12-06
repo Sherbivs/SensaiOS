@@ -207,6 +207,37 @@ const data = new SlashCommandBuilder()
           )
       )
   )
+  .addSubcommand((sub) =>
+    sub
+      .setName('alert')
+      .setDescription('View alert throttle statistics and manage DM alert delivery')
+      .addStringOption((opt) =>
+        opt
+          .setName('action')
+          .setDescription('Action to perform')
+          .setRequired(false)
+          .addChoices(
+            { name: 'View Statistics', value: 'stats' },
+            { name: 'View Cooldowns', value: 'cooldowns' },
+            { name: 'View Recent Alerts', value: 'history' },
+            { name: 'Flush Batched Alerts', value: 'flush' },
+            { name: 'Clear All Cooldowns', value: 'clear' }
+          )
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName('severity')
+          .setDescription('Filter by severity (for history) or target severity (for clear)')
+          .setRequired(false)
+          .addChoices(
+            { name: 'Restart', value: 'restart' },
+            { name: 'Critical', value: 'critical' },
+            { name: 'Security', value: 'security' },
+            { name: 'Warning', value: 'warning' },
+            { name: 'Notice', value: 'notice' }
+          )
+      )
+  )
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .setDMPermission(false);
 

@@ -95,6 +95,73 @@ export const TIME_CONSTANTS = Object.freeze({
 });
 
 // ============================================================================
+// ALERT STRATEGY CONSTANTS
+// ============================================================================
+
+export const ALERT_STRATEGY_CONSTANTS = Object.freeze({
+  /**
+   * Cooldown periods for different alert types (milliseconds)
+   * Prevents alert spam while ensuring important notifications get through
+   */
+  
+  /** Restart alerts: Only one per hour (prevents rapid restart spam) */
+  RESTART_ALERT_COOLDOWN_MS: 60 * 60 * 1000, // 1 hour
+  
+  /** Critical alerts: 5-minute cooldown between same type */
+  CRITICAL_ALERT_COOLDOWN_MS: 5 * 60 * 1000, // 5 minutes
+  
+  /** Security alerts: 2-minute cooldown (higher priority) */
+  SECURITY_ALERT_COOLDOWN_MS: 2 * 60 * 1000, // 2 minutes
+  
+  /** Warning alerts: 15-minute cooldown (batch into digests) */
+  WARNING_ALERT_COOLDOWN_MS: 15 * 60 * 1000, // 15 minutes
+  
+  /** Notice alerts: 30-minute cooldown (low priority) */
+  NOTICE_ALERT_COOLDOWN_MS: 30 * 60 * 1000, // 30 minutes
+  
+  /**
+   * Digest batching configuration
+   */
+  
+  /** Minimum time between digest deliveries */
+  DIGEST_MIN_INTERVAL_MS: 30 * 60 * 1000, // 30 minutes
+  
+  /** Maximum alerts to batch before forcing immediate digest */
+  DIGEST_BATCH_THRESHOLD: 10,
+  
+  /** Time window to accumulate similar alerts */
+  DIGEST_BATCH_WINDOW_MS: 5 * 60 * 1000, // 5 minutes
+  
+  /**
+   * Alert suppression rules
+   */
+  
+  /** Max alerts per hour (across all types) to prevent DM flood */
+  MAX_ALERTS_PER_HOUR: 20,
+  
+  /** Max critical alerts per hour before auto-batching */
+  MAX_CRITICAL_PER_HOUR: 10,
+  
+  /** Duplicate detection window */
+  DUPLICATE_DETECTION_WINDOW_MS: 10 * 60 * 1000, // 10 minutes
+  
+  /**
+   * Alert priority weights (higher = more urgent)
+   */
+  PRIORITY_CRITICAL: 100,
+  PRIORITY_SECURITY: 90,
+  PRIORITY_WARNING: 50,
+  PRIORITY_NOTICE: 10,
+  
+  /**
+   * Quiet hours configuration (prevent non-critical alerts during sleep)
+   * Note: Actual hours configured via environment variables
+   */
+  DEFAULT_QUIET_HOURS_START: 23, // 11 PM
+  DEFAULT_QUIET_HOURS_END: 7,    // 7 AM
+});
+
+// ============================================================================
 // CACHE CONSTANTS
 // ============================================================================
 

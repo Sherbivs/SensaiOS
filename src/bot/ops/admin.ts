@@ -58,6 +58,9 @@ import {
 // Error Detection modules (Phase 9-12)
 import { errorTracker, type ErrorSeverity, type ErrorCategory } from '../../services/monitoring/index.js';
 
+// Alert Throttle modules (Strategic DM Alerts)
+import { alertThrottle, type AlertSeverity } from '../../services/alert-throttle.js';
+
 // Import state persistence modules (optional - bot/state may be in JS)
 let stateModules: any = null;
 async function getStateModules() {
@@ -2466,6 +2469,166 @@ export async function handleOpsCommand(
       });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `Dev mode status unavailable: ${message}` });
+    }
+    return;
+  }
+
+  // /ops alert - View alert throttle statistics and manage DM alert delivery
+  if (sub === "alert") {
+    await interaction.deferReply({ ephemeral: true });
+    
+    try {
+      const action = interaction.options?.getString?.("action") ?? "stats";
+      const severityFilter = interaction.options?.getString?.("severity") as AlertSeverity | null;
+      
+      const lines: string[] = [];
+      lines.push("📬 **Alert Throttle Dashboard**");
+      lines.push(`Generated: ${toEasternString(new Date())}`);
+      lines.push("");
+      
+      if (action === "stats") {
+        // Show comprehensive statistics
+        const stats = alertThrottle.getStatistics();
+        
+        lines.push("**📊 Overall Statistics**");
+        lines.push(`• Total Alerts Received: ${stats.totalReceived}`);
+        lines.push(`• Total Alerts Delivered: ${stats.totalDelivered}`);
+        lines.push(`• Alerts Suppressed: ${stats.totalSuppressed}`);
+        lines.push(`• Alerts Batched: ${stats.totalBatched}`);
+        lines.push(`• Delivery Rate: ${stats.totalReceived > 0 ? ((stats.totalDelivered / stats.totalReceived) * 100).toFixed(1) : 0}%`);
+        lines.push("");
+        
+        lines.push("**📈 By Severity**");
+        const severities: AlertSeverity[] = ['critical', 'security', 'restart', 'warning', 'notice'];
+        for (const sev of severities) {
+          const count = stats.alertsBySeverity[sev] || 0;
+          const emoji = sev === 'critical' ? '🔴' : sev === 'security' ? '🟠' : sev === 'restart' ? '🔵' : sev === 'warning' ? '🟡' : '⚪';
+          lines.push(`${emoji} ${sev}: ${count}`);
+        }
+        lines.push("");
+        
+        lines.push("**⏱️ Rate Limiting**");
+        lines.push(`• Hourly Count: ${stats.alertsThisHour}/20`);
+        lines.push(`• Batch Size: ${stats.currentBatchSize}`);
+        lines.push(`• Uptime: ${formatDurationCompact(stats.uptimeMs)}`);
+        lines.push("");
+        
+        lines.push("**🗂️ Active Cooldowns**");
+        const cooldownStatus = alertThrottle.getCooldownStatus();
+        const activeCooldowns = Object.entries(cooldownStatus)
+          .filter(([_, status]) => status.active)
+          .map(([sev, status]) => ({ severity: sev as AlertSeverity, ...status }));
+        
+        if (activeCooldowns.length === 0) {
+          lines.push("• None active");
+        } else {
+          for (const cd of activeCooldowns.slice(0, 5)) {
+            const remainingMins = Math.ceil(cd.remainingMs / 60000);
+            const emoji = cd.severity === 'critical' ? '🔴' : cd.severity === 'security' ? '🟠' : cd.severity === 'restart' ? '🔵' : cd.severity === 'warning' ? '🟡' : '⚪';
+            lines.push(`${emoji} ${cd.severity}: ${remainingMins}m remaining`);
+          }
+          if (activeCooldowns.length > 5) {
+            lines.push(`• ...and ${activeCooldowns.length - 5} more`);
+          }
+        }
+        
+      } else if (action === "cooldowns") {
+        // Show detailed cooldown status
+        const cooldownStatus = alertThrottle.getCooldownStatus();
+        const cooldownEntries = Object.entries(cooldownStatus)
+          .map(([sev, status]) => ({ severity: sev as AlertSeverity, ...status }));
+        
+        lines.push("**⏱️ Cooldown Status**");
+        lines.push("");
+        
+        for (const cd of cooldownEntries) {
+          const emoji = cd.severity === 'critical' ? '🔴' : cd.severity === 'security' ? '🟠' : cd.severity === 'restart' ? '🔵' : cd.severity === 'warning' ? '🟡' : '⚪';
+          if (cd.active) {
+            const remainingMins = Math.ceil(cd.remainingMs / 60000);
+            lines.push(`${emoji} **${cd.severity}**: 🔒 Active (${remainingMins}m remaining)`);
+          } else {
+            lines.push(`${emoji} **${cd.severity}**: ✅ Ready`);
+          }
+        }
+        
+      } else if (action === "history") {
+        // Show recent alerts
+        const recentAlerts = alertThrottle.getRecentAlerts(20);
+        const filteredAlerts = severityFilter 
+          ? recentAlerts.filter(a => a.severity === severityFilter)
+          : recentAlerts;
+        
+        lines.push(`**📜 Recent Alerts${severityFilter ? ` (${severityFilter})` : ''}**`);
+        lines.push("");
+        
+        if (filteredAlerts.length === 0) {
+          lines.push("*No recent alerts*");
+        } else {
+          for (const alert of filteredAlerts.slice(0, 10)) {
+            const emoji = alert.severity === 'critical' ? '🔴' : alert.severity === 'security' ? '🟠' : alert.severity === 'restart' ? '🔵' : alert.severity === 'warning' ? '🟡' : '⚪';
+            const statusIcon = alert.delivered ? '✅' : '❌';
+            const timeAgo = formatTimeSince(new Date(alert.timestamp));
+            lines.push(`${emoji} ${statusIcon} \`${alert.title.substring(0, 30)}\` — ${timeAgo}`);
+            if (!alert.delivered && alert.suppressReason) {
+              lines.push(`   └─ Suppressed: ${alert.suppressReason}`);
+            }
+          }
+          if (filteredAlerts.length > 10) {
+            lines.push(`*...and ${filteredAlerts.length - 10} more alerts in history*`);
+          }
+        }
+        
+      } else if (action === "flush") {
+        // Flush any batched alerts
+        const flushed = alertThrottle.flushBatch();
+        
+        lines.push("**🚿 Batch Flush**");
+        lines.push("");
+        lines.push(`Flushed ${flushed.length} batched alerts for immediate delivery.`);
+        if (flushed.length === 0) {
+          lines.push("*No alerts were batched.*");
+        } else {
+          for (const alert of flushed.slice(0, 5)) {
+            lines.push(`• ${alert.severity}: ${alert.title.substring(0, 40)}`);
+          }
+        }
+        
+      } else if (action === "clear") {
+        // Clear cooldowns
+        if (severityFilter) {
+          alertThrottle.clearCooldown(severityFilter);
+          lines.push(`**🧹 Cooldown Cleared**`);
+          lines.push("");
+          lines.push(`Cleared cooldown for severity: **${severityFilter}**`);
+        } else {
+          // Clear all cooldowns
+          const severities: AlertSeverity[] = ['critical', 'security', 'restart', 'warning', 'notice'];
+          for (const sev of severities) {
+            alertThrottle.clearCooldown(sev);
+          }
+          lines.push("**🧹 All Cooldowns Cleared**");
+          lines.push("");
+          lines.push("All alert cooldowns have been reset.");
+        }
+        lines.push("");
+        lines.push("*Next alerts will be delivered immediately.*");
+      }
+      
+      lines.push("");
+      lines.push("*Use `/ops alert action:stats|cooldowns|history|flush|clear`*");
+      
+      const message = lines.join("\n");
+      await interaction.editReply({ content: message.length > 2000 ? message.substring(0, 1997) + "..." : message });
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'CONFIG',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops alert',
+        operation: 'handleAlertCommand',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Alert dashboard unavailable: ${message}` });
     }
     return;
   }

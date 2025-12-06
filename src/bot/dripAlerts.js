@@ -2,6 +2,7 @@ import { msUntilNextZonedTime, formatInTimeZone, toEasternLogFormat } from '../s
 import { EventBus } from '../shared/event-bus.js';
 import { getErrorMessage } from '../shared/utils/index.js';
 import { TIME_CONSTANTS } from '../shared/constants.js';
+import { alertThrottle } from '../services/alert-throttle.js';
 
 const { DEFAULT_TIME_ZONE, MIN_DIGEST_DELAY_MS, MS_PER_DAY } = TIME_CONSTANTS;
 const SEVERITY = Object.freeze({
@@ -9,6 +10,7 @@ const SEVERITY = Object.freeze({
   security: 'security',
   warning: 'warning',
   notice: 'notice',
+  restart: 'restart', // New: Restart-specific severity
 });
 
 const SEVERITY_ICON = Object.freeze({
@@ -16,6 +18,7 @@ const SEVERITY_ICON = Object.freeze({
   [SEVERITY.security]: '🚨',
   [SEVERITY.warning]: '⚠️',
   [SEVERITY.notice]: 'ℹ️',
+  [SEVERITY.restart]: '🔄', // Restart icon
 });
 
 const FALLBACK_DIGEST_DELAY_MS = 60 * 60 * 1000; // 1 hour safety delay
@@ -344,6 +347,45 @@ function createDripAlertManager({
   async function recordAlert(severity, title, meta = {}) {
     const normalizedSeverity = SEVERITY[severity] ? severity : SEVERITY.warning;
     const normalizedMeta = normalizeMeta(meta);
+    
+    // =========================================================================
+    // Strategic Alert Throttling (Phase: DM Alert Strategy 2025-12-06)
+    // =========================================================================
+    // Check if alert should be delivered, batched, or suppressed
+    const throttleDecision = alertThrottle.shouldDeliver(normalizedSeverity, title, meta);
+    
+    if (!throttleDecision.allow) {
+      logContext('info', 'Alert throttled by strategy service', {
+        severity: normalizedSeverity,
+        title,
+        reason: throttleDecision.reason,
+        cooldownRemainingMs: throttleDecision.cooldownRemainingMs,
+        shouldBatch: throttleDecision.shouldBatch,
+      });
+      
+      // If should batch, add to pending digest
+      if (throttleDecision.shouldBatch) {
+        const batchId = alertThrottle.addToBatch(normalizedSeverity, title, meta);
+        record('drip-alert-batched', title, {
+          severity: normalizedSeverity,
+          batchId,
+          reason: throttleDecision.reason,
+        });
+        
+        // Check if batch should be flushed immediately
+        if (alertThrottle.shouldFlushBatch()) {
+          logContext('info', 'Alert batch threshold reached, triggering digest', {
+            batchSize: alertThrottle.getBatchSize(),
+          });
+          // Trigger digest flush
+          await flushDigest();
+        }
+      }
+      
+      return false; // Alert suppressed or batched
+    }
+    // =========================================================================
+    
     const entry = {
       severity: normalizedSeverity,
       title,
@@ -365,8 +407,16 @@ function createDripAlertManager({
     });
 
     // Phase 2.3.3: All alerts handled by Event Bus subscribers
-    if (normalizedSeverity === SEVERITY.critical || normalizedSeverity === SEVERITY.security) {
-      return deliverImmediate(entry, correlationId);
+    // Immediate delivery for critical, security, and restart alerts
+    if (normalizedSeverity === SEVERITY.critical || 
+        normalizedSeverity === SEVERITY.security ||
+        normalizedSeverity === SEVERITY.restart) {
+      const success = await deliverImmediate(entry, correlationId);
+      
+      // Record delivery in throttle service for cooldown tracking
+      alertThrottle.recordDelivery(normalizedSeverity, title, success, meta);
+      
+      return success;
     }
 
     // Digest alerts (warning/notice) are queued via Event Bus subscription handler
@@ -376,6 +426,42 @@ function createDripAlertManager({
       correlationId,
     });
     return true;
+  }
+  
+  /**
+   * Send a restart notification with strategic throttling
+   * Uses dedicated 'restart' severity with longer cooldown (1 hour default)
+   */
+  async function recordRestartAlert(title, meta = {}) {
+    return recordAlert('restart', title, meta);
+  }
+  
+  /**
+   * Get alert throttle statistics for /ops command
+   */
+  function getThrottleStatistics() {
+    return alertThrottle.getStatistics();
+  }
+  
+  /**
+   * Get cooldown status for all severities
+   */
+  function getCooldownStatus() {
+    return alertThrottle.getCooldownStatus();
+  }
+  
+  /**
+   * Force clear cooldown for admin override
+   */
+  function clearCooldown(severity) {
+    return alertThrottle.clearCooldown(severity);
+  }
+  
+  /**
+   * Get recent alert history
+   */
+  function getRecentAlerts(limit = 10) {
+    return alertThrottle.getRecentAlerts(limit);
   }
 
   function start() {
@@ -391,9 +477,9 @@ function createDripAlertManager({
     // Phase 2.3.2: Subscribe to Event Bus for alert delivery
     const bus = EventBus.getInstance();
     
-    // Subscribe to immediate alerts (critical + security) - high priority
+    // Subscribe to immediate alerts (critical + security + restart) - high priority
     subscriptions.immediate = bus.subscribe(
-      'alert.critical|alert.security',
+      'alert.critical|alert.security|alert.restart',
       async (event) => {
         // Phase 2.3.3: Handle immediate delivery via Event Bus
         const { severity, title, meta, timestamp, recipient: _eventRecipient } = event.payload;
@@ -458,6 +544,11 @@ function createDripAlertManager({
     stop,
     flushDigest,
     recordAlert,
+    recordRestartAlert,      // Strategic restart notifications
+    getThrottleStatistics,   // For /ops alert stats
+    getCooldownStatus,       // For /ops alert cooldowns
+    clearCooldown,           // Admin cooldown override
+    getRecentAlerts,         // For /ops alert history
     constants: SEVERITY,
   };
 }

@@ -1530,10 +1530,49 @@ async function scheduleDailySummaryReports() {
   }, safeDelay);
 }
 
+/**
+ * Notify admin of service restart with strategic throttling
+ * 
+ * Strategic Alert Rules (2025-12-06):
+ * - Restart alerts have 1-hour cooldown to prevent spam during rapid restarts
+ * - Uses dedicated 'restart' severity for tracking
+ * - Throttle service prevents duplicate notifications
+ * - Suppressed restarts still logged but no DM sent
+ */
 async function notifyServiceRestart() {
   if (!RESTART_DM_RECIPIENT) {
     return;
   }
+  
+  // Check if restart alert should be sent (strategic throttling)
+  const alertTitle = 'Security Monitor - System Restart';
+  let throttleDecision = null;
+  
+  if (dripAlertManager && typeof dripAlertManager.getThrottleStatistics === 'function') {
+    // Import throttle service for decision
+    try {
+      const { alertThrottle } = await import('../services/alert-throttle.js');
+      throttleDecision = alertThrottle.shouldDeliver('restart', alertTitle, {
+        guilds: client.guilds.cache.size,
+        recipient: RESTART_DM_RECIPIENT,
+      });
+      
+      if (!throttleDecision.allow) {
+        log('info', 'Restart DM suppressed by strategic throttling', {
+          reason: throttleDecision.reason,
+          cooldownRemainingMs: throttleDecision.cooldownRemainingMs,
+          guilds: client.guilds.cache.size,
+        });
+        return; // Suppressed - don't send DM
+      }
+    } catch (err) {
+      // Throttle service unavailable, proceed with notification
+      log('debug', 'Alert throttle service unavailable, proceeding with restart DM', {
+        error: err?.message,
+      });
+    }
+  }
+  
   try {
     const { toEasternString } = await import('../shared/datetime.js');
     const user = await resolveAlertUser(RESTART_DM_RECIPIENT);
@@ -1721,6 +1760,18 @@ async function notifyServiceRestart() {
     
     await user.send(message);
     log('info', 'Restart notification delivered', { target: describeUser(user) });
+    
+    // Record successful delivery with throttle service for cooldown tracking
+    try {
+      const { alertThrottle } = await import('../services/alert-throttle.js');
+      alertThrottle.recordDelivery('restart', alertTitle, true, {
+        guilds: client.guilds.cache.size,
+        recipient: RESTART_DM_RECIPIENT,
+      });
+    } catch (err) {
+      // Non-critical - throttle tracking failure doesn't affect notification
+      log('debug', 'Failed to record restart delivery in throttle service', { error: err?.message });
+    }
   } catch (error) {
     log('error', 'Restart notification failed', mergeLogError({
       recipient: RESTART_DM_RECIPIENT,
