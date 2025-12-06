@@ -191,6 +191,22 @@ const data = new SlashCommandBuilder()
           .setRequired(false)
       )
   )
+  .addSubcommand((sub) =>
+    sub
+      .setName('devmode')
+      .setDescription('View/toggle development restricted access mode')
+      .addStringOption((opt) =>
+        opt
+          .setName('action')
+          .setDescription('Action to perform')
+          .setRequired(false)
+          .addChoices(
+            { name: 'View Status', value: 'status' },
+            { name: 'Enable Restricted Mode', value: 'enable' },
+            { name: 'Disable Restricted Mode', value: 'disable' }
+          )
+      )
+  )
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .setDMPermission(false);
 

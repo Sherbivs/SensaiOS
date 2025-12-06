@@ -212,3 +212,76 @@ export type WorkerMetrics = Prisma.WorkerMetricsModel
  * Captured by console-interceptor.ts
  */
 export type ConsoleOutput = Prisma.ConsoleOutputModel
+/**
+ * Model SecurityEvent
+ * Core security event tracking — immutable audit trail
+ * @description Central security event log with HMAC integrity verification
+ * @research R6 (SOC 2 Compliance) - Immutable audit log with hash chain
+ */
+export type SecurityEvent = Prisma.SecurityEventModel
+/**
+ * Model RoleChangeAudit
+ * Role change audit trail — detailed tracking of every role modification
+ * @description Replaces roleArchive.js JSON storage with database persistence
+ */
+export type RoleChangeAudit = Prisma.RoleChangeAuditModel
+/**
+ * Model ThreatDetection
+ * Threat detection history — forensics and incident response
+ * @description Real-time threat detection with MITRE ATT&CK mapping
+ */
+export type ThreatDetection = Prisma.ThreatDetectionModel
+/**
+ * Model SecurityBaseline
+ * Security baselines — per-guild behavioral patterns
+ * @description Replaces securityBaselines.js with database persistence
+ */
+export type SecurityBaseline = Prisma.SecurityBaselineModel
+/**
+ * Model PermissionSnapshot
+ * Permission snapshots — point-in-time role permission capture
+ * @description Cross-reference validation for 4-layer integrity
+ */
+export type PermissionSnapshot = Prisma.PermissionSnapshotModel
+/**
+ * Model AdminRoleRequest
+ * Admin role management requests — workflow tracking
+ * @description DRIP alert integration for all role changes
+ */
+export type AdminRoleRequest = Prisma.AdminRoleRequestModel
+/**
+ * Model IntegrityCheck
+ * Integrity verification log — track all validation runs
+ * @description Multi-touchpoint integrity validation tracking
+ */
+export type IntegrityCheck = Prisma.IntegrityCheckModel
+/**
+ * Model DiscordGuild
+ * Discord guild metadata — central registry of monitored guilds
+ * @description Captures guild state for baseline computation and forensics
+ */
+export type DiscordGuild = Prisma.DiscordGuildModel
+/**
+ * Model DiscordMember
+ * Discord member information — the data pool of member profiles
+ * @description Captures member state for security analysis and cross-reference
+ */
+export type DiscordMember = Prisma.DiscordMemberModel
+/**
+ * Model DiscordRole
+ * Discord role registry — tracks all roles across monitored guilds
+ * @description Role state capture for permission analysis and drift detection
+ */
+export type DiscordRole = Prisma.DiscordRoleModel
+/**
+ * Model MemberRoleHistory
+ * Member role history — tracks every role assignment/removal
+ * @description Historical record for forensics and pattern detection
+ */
+export type MemberRoleHistory = Prisma.MemberRoleHistoryModel
+/**
+ * Model DataPoolSyncStatus
+ * Data pool sync status — tracks when entities were last synchronized
+ * @description Enables incremental sync and freshness monitoring
+ */
+export type DataPoolSyncStatus = Prisma.DataPoolSyncStatusModel

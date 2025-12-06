@@ -278,32 +278,69 @@ export const FEATURE_FLAG_DEFINITIONS: readonly FeatureFlagDefinition[] = [
     tags: ["experimental", "ml"],
   },
   {
-    id: "experimental.dev_mode",
-    name: "Development Mode",
-    description: "Restrict gameplay to whitelisted users only (pre-release testing)",
+    id: "experimental.dev_restricted_access",
+    name: "Development Restricted Access",
+    description: "Restrict bot access to allowed users only (for pre-release testing). Set DEV_ALLOWED_USER_IDS env var.",
     category: "experimental",
     defaultValue: false,
-    envVar: "FF_DEV_MODE",
+    envVar: "FF_DEV_RESTRICTED_ACCESS",
     runtimeToggleable: true,
     guildOverrideable: false,
     addedAt: "2025-12-06",
     removalTarget: "2026-01-01",
-    tags: ["development", "testing", "whitelist"],
-  },
-  {
-    id: "experimental.dev_mode_whitelist",
-    name: "Dev Mode User Whitelist",
-    description: "Comma-separated Discord user IDs or usernames allowed in dev mode",
-    category: "experimental",
-    defaultValue: false,
-    envVar: "FF_DEV_MODE_WHITELIST",
-    runtimeToggleable: true,
-    guildOverrideable: false,
-    addedAt: "2025-12-06",
-    removalTarget: "2026-01-01",
-    tags: ["development", "testing", "whitelist"],
+    tags: ["development", "access-control", "pre-release"],
   },
 ] as const;
+
+// ============================================================================
+// Development Mode Access Control
+// ============================================================================
+
+/**
+ * Allowed user IDs for development/pre-release mode.
+ * Set via DEV_ALLOWED_USER_IDS environment variable (comma-separated).
+ * Default includes DripTVDD's user ID.
+ */
+export const DEV_ALLOWED_USER_IDS: readonly string[] = (() => {
+  const envValue = process.env.DEV_ALLOWED_USER_IDS;
+  if (envValue) {
+    return envValue.split(",").map(id => id.trim()).filter(Boolean);
+  }
+  // Default: DripTVDD only
+  return ["243759220057571328"]; // DripTVDD's Discord user ID
+})();
+
+/**
+ * Check if a user is allowed access during development mode.
+ * Returns true if:
+ * - dev_restricted_access flag is disabled (normal mode)
+ * - user ID is in the allowed list
+ * - user ID is not provided (allows system operations)
+ */
+export function isUserAllowedInDevMode(userId?: string): boolean {
+  const flags = FeatureFlagsManager.getInstance();
+  flags.initialize(); // Safe to call multiple times
+  
+  // If restricted access is disabled, everyone is allowed
+  if (!flags.isEnabled("experimental.dev_restricted_access")) {
+    return true;
+  }
+  
+  // If no user ID provided, allow (system operations)
+  if (!userId) {
+    return true;
+  }
+  
+  // Check if user is in allowed list
+  return DEV_ALLOWED_USER_IDS.includes(userId);
+}
+
+/**
+ * Get the development mode access denied message.
+ */
+export function getDevModeAccessDeniedMessage(): string {
+  return "🔒 **Development Mode Active**\n\nThis bot is currently in pre-release testing mode and access is restricted to authorized testers.\n\nPlease check back later when public access is enabled!";
+}
 
 /**
  * Type-safe flag ID type

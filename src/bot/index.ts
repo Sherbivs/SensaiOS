@@ -33,6 +33,9 @@ import { handleOpsCommand } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleWalk } from "./wilds/walk.js";
 
+// Development mode access control
+import { isUserAllowedInDevMode, getDevModeAccessDeniedMessage } from "../shared/feature-flags.js";
+
 
 export type BotStartOptions = {
 	token?: string;
@@ -114,6 +117,20 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 
 	client.on("interactionCreate", async (interaction: Interaction) => {
 		try {
+				// DEV MODE ACCESS CHECK: Restrict access during pre-release testing
+				// Enable via FF_DEV_RESTRICTED_ACCESS=true, configure allowed users via DEV_ALLOWED_USER_IDS
+				// Ops commands always allowed for admins to manage the bot
+				const isOpsCommand = interaction.isChatInputCommand() && interaction.commandName === "ops";
+				if (!isOpsCommand && !isUserAllowedInDevMode(interaction.user?.id)) {
+					if (interaction.isRepliable()) {
+						await interaction.reply({
+							content: getDevModeAccessDeniedMessage(),
+							ephemeral: true,
+						});
+					}
+					return;
+				}
+
 				if (interaction.isChatInputCommand()) {
 					// Lazy-load commands on first interaction
 					const loadedCommands = await ensureCommandsLoaded();

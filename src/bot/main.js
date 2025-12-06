@@ -65,6 +65,11 @@ import { generateSecurityBaselines } from './state/securityBaselines.js';
 import { detectSecurityThreats, calculateCurrentActivity } from './state/threatDetector.js';
 import { initializeEventBus, cleanupEventBus, emitSecurityEvent, emitAlert } from './eventbus-integration.js';
 import { initializeAlertDispatcher, cleanupAlertDispatcher } from './alert-dispatcher.js';
+import { initializeSecurityDbSubscriber, cleanupSecurityDbSubscriber } from './security-db-subscriber.js';
+
+// Sprint 5.0: Data Pool Service for Discord entity capture (database persistence)
+import { getDataPoolService } from '../services/data-pool/index.js';
+import { prisma } from '../shared/prisma.js';
 
 // Extract constants from centralized constants
 const { DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS, MEMBER_STATS_REFRESH_INTERVAL_MS } = TIME_CONSTANTS;
@@ -3194,6 +3199,20 @@ client.once(Events.ClientReady, async () => {
           phase: 'Phase 2 (Drip Integration)',
         });
       }
+      
+      // Sprint 5.0: Initialize Security DB Subscriber - persists events to database
+      try {
+        const dbSubIds = initializeSecurityDbSubscriber(log);
+        log('success', '[SecurityDbSubscriber] Database persistence initialized', {
+          phase: 'Sprint 5.0 (Critical Gap)',
+          subscriptions: dbSubIds.length,
+        });
+      } catch (error) {
+        log('error', '[SecurityDbSubscriber] Failed to initialize', {
+          error: getErrorMessage(error),
+        });
+        // Non-fatal: bot continues without database persistence
+      }
     } catch (error) {
       log('error', '[EventBus] Failed to initialize subscriptions', {
         error: getErrorMessage(error),
@@ -3307,6 +3326,35 @@ client.once(Events.ClientReady, async () => {
       port: process.env.METRICS_PORT || 9090
     }, error));
     // Non-fatal: bot continues without metrics endpoint
+  }
+  
+  // Sprint 5.0: Initialize Data Pool Service for Discord entity capture
+  // This is CRITICAL - captures guild/member/role data to security database
+  let dataPoolService = null;
+  try {
+    dataPoolService = getDataPoolService(prisma);
+    await dataPoolService.initialize();
+    
+    // Perform full sync of all guilds to database
+    const syncResult = await dataPoolService.fullSync(client);
+    
+    log('success', '[DataPoolService] Discord entity sync complete', {
+      guilds: syncResult.guilds,
+      membersSynced: syncResult.members.synced,
+      membersFailed: syncResult.members.failed,
+      rolesSynced: syncResult.roles.synced,
+      rolesFailed: syncResult.roles.failed,
+      durationMs: syncResult.duration,
+    });
+    
+    // Expose to global for monitoring via /ops status
+    global.dataPoolService = dataPoolService;
+  } catch (error) {
+    log('error', '[DataPoolService] Failed to initialize', mergeLogError({
+      errorType: error?.constructor?.name || typeof error,
+      errorMessage: getErrorMessage(error),
+    }, error));
+    // Non-fatal: bot continues without data pool (but security analysis is degraded)
   }
   
   if (dripAlertManager) {
@@ -3549,6 +3597,24 @@ client.on('guildMemberAdd', async (member) => {
 // Heal members who lose all assignable roles (drop to @everyone only)
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   try {
+    // Sprint 5.0: Track role changes in Data Pool for forensics
+    if (global.dataPoolService) {
+      try {
+        await global.dataPoolService.trackRoleChanges(
+          oldMember,
+          newMember,
+          'guildMemberUpdate'
+        );
+      } catch (dpError) {
+        // Non-blocking: Don't fail the member update handler
+        log('warn', '[DataPoolService] Failed to track role change', {
+          member: newMember.user.tag,
+          guild: newMember.guild.name,
+          error: getErrorMessage(dpError),
+        });
+      }
+    }
+    
     // SECURITY FIX: Cache Invalidation Strategy (Week 2 Day 13-14: High Fix #3)
     // Detect Trainer role removal and invalidate stale cache immediately
     const trainerRole = findRole(newMember.guild);

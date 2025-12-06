@@ -1026,6 +1026,113 @@ function formatBaselineReport(baselines: any): string {
   return lines.join("\n");
 }
 
+/**
+ * Format security database statistics (Sprint 5.0)
+ * Shows row counts for all security-related tables including the new Data Pool tables.
+ */
+async function formatSecurityDatabaseReport(): Promise<string> {
+  const lines: string[] = [];
+  
+  lines.push("🗃️ **Security Database Statistics**");
+  lines.push(`Generated: ${toEasternString(new Date())}`);
+  lines.push("");
+  
+  try {
+    const pool = getProdDb();
+    if (!pool) {
+      lines.push("❌ Database connection not available");
+      return lines.join("\n");
+    }
+    
+    // Query counts for all security tables
+    const queries = [
+      // Sprint 5.0: Data Pool tables
+      { name: 'discord_guilds', label: 'Discord Guilds' },
+      { name: 'discord_members', label: 'Discord Members' },
+      { name: 'discord_roles', label: 'Discord Roles' },
+      { name: 'member_role_history', label: 'Role History' },
+      { name: 'data_pool_sync_status', label: 'Sync Status' },
+      // Existing security tables
+      { name: 'security_events', label: 'Security Events' },
+      { name: 'audit_log', label: 'Audit Log' },
+      { name: 'integrity_checks', label: 'Integrity Checks' },
+      { name: 'threat_detections', label: 'Threat Detections' },
+    ];
+    
+    lines.push("**📊 Data Pool Tables (Sprint 5.0):**");
+    
+    for (const query of queries) {
+      try {
+        const result = await pool.query(`SELECT COUNT(*) as count FROM "${query.name}"`);
+        const count = parseInt(result.rows[0]?.count ?? '0', 10);
+        const emoji = count > 0 ? '✅' : '⚪';
+        lines.push(`${emoji} ${query.label}: ${count.toLocaleString()}`);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        if (errorMsg.includes('does not exist')) {
+          lines.push(`⚠️ ${query.label}: table not created`);
+        } else {
+          lines.push(`❌ ${query.label}: error - ${errorMsg.substring(0, 50)}`);
+        }
+      }
+    }
+    
+    lines.push("");
+    
+    // Get Data Pool sync status if available
+    try {
+      const syncResult = await pool.query(`
+        SELECT id, entities_synced, entities_failed, last_full_sync_at, consecutive_errors
+        FROM data_pool_sync_status
+        ORDER BY id
+      `);
+      
+      if (syncResult.rows.length > 0) {
+        lines.push("**🔄 Sync Status:**");
+        for (const row of syncResult.rows) {
+          const lastSync = row.last_full_sync_at 
+            ? formatTimestamp(new Date(row.last_full_sync_at)) 
+            : 'never';
+          const errorIndicator = row.consecutive_errors > 0 ? `⚠️ (${row.consecutive_errors} errors)` : '';
+          lines.push(`• ${row.id}: ${row.entities_synced} synced, ${row.entities_failed} failed - last: ${lastSync} ${errorIndicator}`);
+        }
+        lines.push("");
+      }
+    } catch {
+      // Sync status table may not exist
+    }
+    
+    // Get recent role history if available
+    try {
+      const historyResult = await pool.query(`
+        SELECT COUNT(*) as count, MAX(changed_at) as last_change
+        FROM member_role_history
+        WHERE changed_at > NOW() - INTERVAL '24 hours'
+      `);
+      
+      if (historyResult.rows[0]?.count > 0) {
+        lines.push("**📜 Recent Role Activity (24h):**");
+        lines.push(`• Changes recorded: ${historyResult.rows[0].count}`);
+        if (historyResult.rows[0].last_change) {
+          lines.push(`• Last change: ${formatTimestamp(new Date(historyResult.rows[0].last_change))}`);
+        }
+        lines.push("");
+      }
+    } catch {
+      // History table may not exist
+    }
+    
+    lines.push("*Use `/ops security report:score` for security score analysis*");
+    lines.push("*Data Pool captures Discord entities for forensics & analysis*");
+    
+  } catch (err) {
+    const message = getErrorMessage(err);
+    lines.push(`❌ Error querying database: ${message}`);
+  }
+  
+  return lines.join("\n");
+}
+
 export async function handleOpsCommand(
   interaction: ChatInputCommandInteraction,
   deps: OpsCommandDeps = {}
@@ -1967,6 +2074,10 @@ export async function handleOpsCommand(
         }
         const report = formatBaselineReport(securityBotState.security.baselines);
         await interaction.editReply({ content: report });
+      } else if (reportType === "database") {
+        // Sprint 5.0: Show security database statistics
+        const report = await formatSecurityDatabaseReport();
+        await interaction.editReply({ content: report });
       } else {
         await interaction.editReply({ content: `Unknown report type: ${reportType}` });
       }
@@ -1980,6 +2091,91 @@ export async function handleOpsCommand(
       });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `Security metrics unavailable: ${message}` });
+    }
+    return;
+  }
+
+  // /ops devmode - View/toggle development restricted access mode
+  if (sub === "devmode") {
+    await interaction.deferReply({ ephemeral: true });
+    
+    try {
+      const { FeatureFlagsManager, DEV_ALLOWED_USER_IDS } = await import("../../shared/feature-flags.js");
+      const flags = FeatureFlagsManager.getInstance();
+      flags.initialize();
+      
+      const action = interaction.options?.getString?.("action") ?? "status";
+      const isEnabled = flags.isEnabled("experimental.dev_restricted_access");
+      
+      const lines: string[] = [];
+      lines.push("🔒 **Development Mode Access Control**");
+      lines.push(`Generated: ${toEasternString(new Date())}`);
+      lines.push("");
+      
+      if (action === "enable") {
+        if (!flags.setEnabled("experimental.dev_restricted_access", true)) {
+          // If runtime toggle fails, show how to enable via env
+          lines.push("⚠️ **Cannot toggle at runtime.**");
+          lines.push("");
+          lines.push("Set environment variable:");
+          lines.push("```");
+          lines.push("FF_DEV_RESTRICTED_ACCESS=true");
+          lines.push("```");
+          lines.push("Then restart the bot.");
+        } else {
+          lines.push("✅ **Development mode ENABLED**");
+          lines.push("");
+          lines.push("Only allowed users can now use the bot.");
+        }
+      } else if (action === "disable") {
+        if (!flags.setEnabled("experimental.dev_restricted_access", false)) {
+          lines.push("⚠️ **Cannot toggle at runtime.**");
+          lines.push("");
+          lines.push("Remove or set to false:");
+          lines.push("```");
+          lines.push("FF_DEV_RESTRICTED_ACCESS=false");
+          lines.push("```");
+          lines.push("Then restart the bot.");
+        } else {
+          lines.push("✅ **Development mode DISABLED**");
+          lines.push("");
+          lines.push("All users can now use the bot.");
+        }
+      } else {
+        // status
+        lines.push(`**Status:** ${isEnabled ? "🔴 RESTRICTED (Dev Mode ON)" : "🟢 PUBLIC (Dev Mode OFF)"}`);
+        lines.push("");
+        lines.push("**Allowed Users (when enabled):**");
+        if (DEV_ALLOWED_USER_IDS.length === 0) {
+          lines.push("• None configured");
+        } else {
+          for (const userId of DEV_ALLOWED_USER_IDS) {
+            lines.push(`• <@${userId}> (\`${userId}\`)`);
+          }
+        }
+        lines.push("");
+        lines.push("**Configuration:**");
+        lines.push(`• Feature Flag: \`experimental.dev_restricted_access\``);
+        lines.push(`• Env Var: \`FF_DEV_RESTRICTED_ACCESS\``);
+        lines.push(`• Allowed Users Env: \`DEV_ALLOWED_USER_IDS\` (comma-separated)`);
+        lines.push("");
+        lines.push("**Actions:**");
+        lines.push("• `/ops devmode action:enable` — Restrict to allowed users only");
+        lines.push("• `/ops devmode action:disable` — Allow all users");
+      }
+      
+      const message = lines.join("\n");
+      await interaction.editReply({ content: message });
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'CONFIG',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops devmode',
+        operation: 'handleDevmodeCommand',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Dev mode status unavailable: ${message}` });
     }
     return;
   }

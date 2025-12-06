@@ -53,3 +53,40 @@ export const BusPriority = {
 } as const
 
 export type BusPriority = (typeof BusPriority)[keyof typeof BusPriority]
+
+
+export const SecuritySeverity = {
+  CRITICAL: 'CRITICAL',
+  HIGH: 'HIGH',
+  MEDIUM: 'MEDIUM',
+  LOW: 'LOW',
+  INFO: 'INFO'
+} as const
+
+export type SecuritySeverity = (typeof SecuritySeverity)[keyof typeof SecuritySeverity]
+
+
+export const ThreatType = {
+  RAPID_ROLE_CHANGES: 'RAPID_ROLE_CHANGES',
+  UNUSUAL_ORIGIN: 'UNUSUAL_ORIGIN',
+  MASS_ROLE_REMOVAL: 'MASS_ROLE_REMOVAL',
+  OFF_HOURS_ACTIVITY: 'OFF_HOURS_ACTIVITY',
+  SINGLE_MEMBER_ANOMALY: 'SINGLE_MEMBER_ANOMALY',
+  PRIVILEGE_ESCALATION: 'PRIVILEGE_ESCALATION',
+  UNAUTHORIZED_CHANGE: 'UNAUTHORIZED_CHANGE',
+  BOT_DETECTED_CHANGE: 'BOT_DETECTED_CHANGE'
+} as const
+
+export type ThreatType = (typeof ThreatType)[keyof typeof ThreatType]
+
+
+export const AdminRequestStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  EXECUTED: 'EXECUTED',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED'
+} as const
+
+export type AdminRequestStatus = (typeof AdminRequestStatus)[keyof typeof AdminRequestStatus]

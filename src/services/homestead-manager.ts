@@ -22,13 +22,6 @@ const HOMESTEAD_CATEGORY_NAME = process.env.HOMESTEAD_CATEGORY_NAME || 'Homestea
 const HOMESTEAD_CHANNEL_PREFIX = 'homestead-';
 const CHANNEL_CLEANUP_DAYS = parseInt(process.env.HOMESTEAD_CLEANUP_DAYS || '90', 10);
 
-// Development Mode Configuration
-const DEV_MODE_ENABLED = process.env.FF_DEV_MODE === 'true';
-const DEV_MODE_WHITELIST = (process.env.FF_DEV_MODE_WHITELIST || 'DRIPTVDD')
-  .split(',')
-  .map(s => s.trim().toLowerCase())
-  .filter(Boolean);
-
 // ============================================================================
 // Types
 // ============================================================================
@@ -46,63 +39,6 @@ export interface ChannelCreationResult {
   channel: TextChannel;
   isNew: boolean;
   homesteadRecord: HomesteadChannel;
-}
-
-/**
- * Result when user is not whitelisted in dev mode
- */
-export interface DevModeBlockedResult {
-  blocked: true;
-  reason: string;
-}
-
-/**
- * Check if user is whitelisted in development mode
- * 
- * @param user Discord user
- * @returns true if user can access gameplay
- */
-export function isUserWhitelisted(user: User): boolean {
-  // If dev mode is disabled, everyone is allowed
-  if (!DEV_MODE_ENABLED) {
-    return true;
-  }
-
-  // Check by username (case-insensitive)
-  const usernameLower = user.username.toLowerCase();
-  if (DEV_MODE_WHITELIST.includes(usernameLower)) {
-    return true;
-  }
-
-  // Check by Discord user ID
-  if (DEV_MODE_WHITELIST.includes(user.id)) {
-    return true;
-  }
-
-  // Check by displayName if different from username
-  const displayNameLower = user.displayName?.toLowerCase();
-  if (displayNameLower && DEV_MODE_WHITELIST.includes(displayNameLower)) {
-    return true;
-  }
-
-  log.info('[HomesteadManager] User blocked by dev mode whitelist', {
-    userId: user.id,
-    username: user.username,
-    devModeEnabled: DEV_MODE_ENABLED,
-    whitelist: DEV_MODE_WHITELIST,
-  });
-
-  return false;
-}
-
-/**
- * Get development mode status
- */
-export function getDevModeStatus(): { enabled: boolean; whitelist: string[] } {
-  return {
-    enabled: DEV_MODE_ENABLED,
-    whitelist: DEV_MODE_WHITELIST,
-  };
 }
 
 // ============================================================================
@@ -126,26 +62,16 @@ export class HomesteadChannelManager {
    * Get or create homestead channel for user
    * 
    * Flow:
-   * 1. Check if user is whitelisted (dev mode)
-   * 2. Check database for existing mapping
-   * 3. If exists, verify channel still exists in Discord
-   * 4. If not exists, create new channel with permissions
-   * 5. Update lastAccessedAt timestamp
-   * 6. Return channel reference
+   * 1. Check database for existing mapping
+   * 2. If exists, verify channel still exists in Discord
+   * 3. If not exists, create new channel with permissions
+   * 4. Update lastAccessedAt timestamp
+   * 5. Return channel reference
    * 
    * @param user Discord user object
-   * @returns Channel and metadata, or null if user blocked by dev mode
-   * @throws Error if user not whitelisted in dev mode
+   * @returns Channel and metadata
    */
   async getOrCreateChannel(user: User): Promise<ChannelCreationResult> {
-    // Step 0: Check dev mode whitelist
-    if (!isUserWhitelisted(user)) {
-      throw new Error(
-        `Development mode is active. Only whitelisted users can access gameplay. ` +
-        `Current whitelist: ${DEV_MODE_WHITELIST.join(', ')}`
-      );
-    }
-
     const userId = user.id;
     const guildId = this.guild.id;
 
