@@ -13,6 +13,25 @@ function recordTiming(label: string, startTime: bigint) {
 // Capture module import time
 const MODULE_IMPORT_START = process.hrtime.bigint();
 
+// ============================================================================
+// OS-LEVEL ERROR INTERCEPTION (Must be first to capture all errors)
+// ============================================================================
+import { initializeOSErrorInterceptor } from "./services/monitoring/os-error-interceptor.js";
+
+// Initialize OS error interception BEFORE any other modules load
+// This captures uncaughtException, unhandledRejection, memory warnings, etc.
+initializeOSErrorInterceptor({
+  captureUncaughtExceptions: true,
+  captureUnhandledRejections: true,
+  captureWarnings: true,
+  monitorMemory: true,
+  memoryCheckIntervalMs: 30000, // Check every 30 seconds
+  memoryWarningThreshold: 75,   // Alert at 75% heap usage
+  memoryCriticalThreshold: 90,  // Critical at 90% heap usage
+  monitorEventEmitters: true,
+  trackExitCodes: true,
+});
+
 import { Prisma } from "./generated/prisma/client.js";
 import { Events, DiscordAPIError, type Client } from "discord.js";
 

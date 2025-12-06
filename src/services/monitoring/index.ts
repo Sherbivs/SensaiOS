@@ -45,6 +45,24 @@ export type { ErrorTracker, ErrorCategory, ErrorSeverity, ErrorContext } from '.
 export { errorAlertingService } from './error-alerting-service.js';
 export type { ErrorAlertingStats } from './error-alerting-service.js';
 
+// Extended Error Taxonomy (26 categories for OS-level error classification)
+export {
+  detectErrorCategory,
+  detectErrorSeverity,
+  getErrorCategoryInfo,
+  getAllErrorCategories,
+  type ExtendedErrorCategory,
+  type ExtendedErrorSeverity,
+  type ErrorCategoryMetadata,
+} from './error-taxonomy.js';
+
+// OS-Level Error Interceptor (captures process-level errors)
+export {
+  osErrorInterceptor,
+  initializeOSErrorInterceptor,
+  getOSInterceptorStats,
+} from './os-error-interceptor.js';
+
 // Error Learning (namespace export to avoid name collisions)
 export * as errorLearning from './error-learning.js';
 
