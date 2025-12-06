@@ -1,8 +1,8 @@
 # ROUTER
 Title: Error Monitoring & Resource Management Services
-Purpose: Error tracking, pattern learning, resource monitoring, resource lifecycle management with centralized observability.
+Purpose: Error tracking, alerting, pattern learning, resource monitoring, resource lifecycle management with centralized observability.
 Owned Globs: src/services/monitoring/**
-Last Updated (UTC): 2025-11-16T00:00:00Z
+Last Updated (UTC): 2025-12-06T00:00:00Z
 
 ## Architecture Overview
 
@@ -19,36 +19,38 @@ Last Updated (UTC): 2025-11-16T00:00:00Z
 │  Single-import access to all services   │
 └──────────────┬──────────────────────────┘
                │
-      ┌────────┴────────┐
-      ▼                 ▼
-┌──────────┐      ┌──────────┐
-│ TRACKING │      │MANAGEMENT│
-│  LAYER   │      │  LAYER   │
-└─────┬────┘      └────┬─────┘
-      │                │
-      │ reads from     │ uses
-      ▼                ▼
-┌──────────┐      ┌──────────┐
-│ANALYTICS │      │MONITORING│
-│  LAYER   │      │  LAYER   │
-└──────────┘      └──────────┘
+      ┌────────┴────────┬────────┐
+      ▼                 ▼        ▼
+┌──────────┐      ┌──────────┐  ┌──────────┐
+│ TRACKING │      │MANAGEMENT│  │ ALERTING │
+│  LAYER   │      │  LAYER   │  │  LAYER   │
+└─────┬────┘      └────┬─────┘  └────┬─────┘
+      │                │             │
+      │ reads from     │ uses        │ subscribes to
+      ▼                ▼             ▼
+┌──────────┐      ┌──────────┐  ┌──────────┐
+│ANALYTICS │      │MONITORING│  │ EVENTBUS │
+│  LAYER   │      │  LAYER   │  │  error.* │
+└──────────┘      └──────────┘  └──────────┘
 ```
 
 **Service Dependencies:**
 - `resource-manager.ts` ← Foundation (no dependencies)
 - `resource-monitor.ts` ← Uses resource-manager
-- `error-tracker.ts` ← Uses resource-manager (optional)
+- `error-tracker.ts` ← Uses resource-manager (optional), emits to EventBus
+- `error-alerting-service.ts` ← **NEW** Subscribes to EventBus error.critical, error.high
 - `error-learning.ts` ← Reads from error-tracker's database
 - `monitoring-utils.ts` ← Shared by all (performance-optimized helpers)
 
 Notes:
+- **NEW (2025-12-06): `error-alerting-service.ts` (400 lines)** — Auto-alert system for CRITICAL/HIGH severity errors. Subscribes to EventBus `error.critical` and `error.high` topics. CRITICAL errors trigger immediate DM to DripTVDD (Discord ID: 1049161859555643433). HIGH errors are batched every 5 minutes to prevent spam. Rate limiting (max 5 alerts per fingerprint per 10 minutes). Creates ErrorAlert database records for audit trail. Acknowledgement workflow via `/ops errors report:alerts`.
 - **NEW: `monitoring-utils.ts` (350 lines)** — Performance-optimized shared utilities: ID generation with cache (10x faster), fingerprint generation with LRU cache (90% hit rate), memory/format utilities (delegates to `shared/utils/format-utils.ts` for formatBytes, formatTimestamp to eliminate duplication), statistical functions (percentile, average, stddev), threshold checking (fast-path optimization), deduplication/grouping, rate limiting. All hot paths optimized for <1ms overhead.
-- `error-tracker.ts` (640 lines) — Core error tracking service: creates/updates ErrorLog entries in PostgreSQL, generates fingerprints using monitoring-utils (cached SHA-256), tracks occurrence counts, recovery attempts, learning metadata. Integrates with Event Bus for correlation tracking. **Performance:** Uses cached fingerprinting for 10x faster duplicate detection.
+- `error-tracker.ts` (640 lines) — Core error tracking service: creates/updates ErrorLog entries in PostgreSQL, generates fingerprints using monitoring-utils (cached SHA-256), tracks occurrence counts, recovery attempts, learning metadata. Integrates with Event Bus for correlation tracking. Emits to `error.<severity>` topics for alerting. **Performance:** Uses cached fingerprinting for 10x faster duplicate detection.
 - `error-learning.ts` (450 lines) — Pattern learning from error history: analyzes recent errors, identifies frequent patterns, suggests recovery strategies, updates knowledge base. Consumed by error-recovery.ts for intelligent retry logic. Uses monitoring-utils for statistical analysis.
 - `resource-monitor.ts` (900 lines) — **HIGH-LEVEL** resource monitoring + memory guardian: runs periodic health checks (12h default), memory guardian polling (30s), analyzes stats from resource-manager, memory pressure detection (NORMAL/WARNING/CRITICAL/EMERGENCY), coordinated cache pruning, GC triggering. Integrates with logger auto-refresh for live stats display. **Performance:** Uses monitoring-utils for threshold checks and metric calculations.
 - `resource-manager.ts` (1080 lines) — **LOW-LEVEL** resource lifecycle management: tracks timers (interval/timeout), event listeners, database connections, disk caches, disk buffers, disk logs. Enforces per-owner limits (timers: 20, listeners: 30, connections: 10). Provides centralized cleanup on process exit. **Performance:** Uses monitoring-utils cached ID generation (<1ms registration overhead, 10x faster than before).
-- `index.ts` (70 lines) — Barrel exports with comprehensive type exports. Provides single-import access: `import { resourceManager, resourceMonitor, errorTracker, monitoring-utils } from './monitoring'`.
-- Integration: Bot layer uses barrel exports (`from '../../services/monitoring'`). Admin commands expose monitoring stats via `/ops` command suite.
+- `index.ts` (75 lines) — Barrel exports with comprehensive type exports. Provides single-import access: `import { resourceManager, resourceMonitor, errorTracker, errorAlertingService } from './monitoring'`.
+- Integration: Bot layer uses barrel exports (`from '../../services/monitoring'`). Admin commands expose monitoring stats via `/ops errors` command suite.
 
 ## Performance Improvements (2025-11-16)
 

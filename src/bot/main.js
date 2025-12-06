@@ -59,6 +59,7 @@ import { buildRestartSummary } from './state/context.js';
 import { initializeState, shutdownState, startAutoSave, stopAutoSave } from './state/persistence.js';
 import { recordSweep, recordMemberFetchTimeout } from './state/stats.js';
 import { getRecentActivitySummary } from './state/timeline.js';
+import { errorTracker } from '../services/monitoring/error-tracker.js';
 import { initializeRoleArchive, recordRoleChange, getRoleStatistics, shutdownRoleArchive } from './state/roleArchive.js';
 import { shutdownDistributedLock, getLockStatistics } from '../services/distributed-lock.js';
 import { generateSecurityBaselines } from './state/securityBaselines.js';
@@ -3943,6 +3944,27 @@ if (entryHref && import.meta.url === entryHref) {
   process.on('SIGINT', () => handleShutdown('SIGINT'));
   process.on('uncaughtException', async (error) => {
     log('error', '[State] Uncaught exception, saving state', { error });
+    
+    // CRITICAL: Capture to error database before exit
+    // This ensures zero false negatives - every crash is tracked
+    try {
+      await errorTracker.captureError(error, {
+        operation: 'uncaughtException',
+        severity: 'CRITICAL',
+        category: 'UNKNOWN',
+        service: 'security-bot',
+        customData: {
+          signal: 'uncaughtException',
+          botState: botState ? 'exists' : 'null',
+        },
+      });
+      log('info', '[ErrorTracker] Captured uncaughtException to database');
+    } catch (captureError) {
+      log('error', '[ErrorTracker] Failed to capture uncaughtException', { 
+        captureError: getErrorMessage(captureError) 
+      });
+    }
+    
     if (autoSaveInterval) {
       stopAutoSave(autoSaveInterval);
     }

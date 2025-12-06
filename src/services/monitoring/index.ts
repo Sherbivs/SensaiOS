@@ -41,6 +41,10 @@ export type {
 export { errorTracker } from './error-tracker.js';
 export type { ErrorTracker, ErrorCategory, ErrorSeverity, ErrorContext } from './error-tracker.js';
 
+// Error Alerting (auto-DM on CRITICAL/HIGH errors)
+export { errorAlertingService } from './error-alerting-service.js';
+export type { ErrorAlertingStats } from './error-alerting-service.js';
+
 // Error Learning (namespace export to avoid name collisions)
 export * as errorLearning from './error-learning.js';
 

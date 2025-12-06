@@ -1133,6 +1133,243 @@ async function formatSecurityDatabaseReport(): Promise<string> {
   return lines.join("\n");
 }
 
+// ============================================================================
+// ERROR DATABASE FORMATTERS (Error Tracking System)
+// ============================================================================
+
+/**
+ * Format error statistics report
+ */
+function formatErrorStatsReport(stats: {
+  totalUnique: number;
+  totalOccurrences: number;
+  bySeverity: Record<string, number>;
+  byCategory: Record<string, number>;
+  criticalErrors: number;
+  errorRate: number;
+}): string {
+  const lines: string[] = [];
+  
+  lines.push("📊 **Error Statistics (Last 24h)**");
+  lines.push(`Generated: ${toEasternString(new Date())}`);
+  lines.push("═".repeat(35));
+  lines.push("");
+  
+  lines.push(`**Total Unique Errors:** ${stats.totalUnique}`);
+  lines.push(`**Total Occurrences:** ${stats.totalOccurrences}`);
+  lines.push(`**Error Rate:** ${stats.errorRate.toFixed(2)}/hour`);
+  lines.push("");
+  
+  // Severity breakdown with emojis
+  lines.push("**By Severity:**");
+  const severityEmojis: Record<string, string> = {
+    CRITICAL: '🔴',
+    HIGH: '🟠',
+    MEDIUM: '🟡',
+    LOW: '🟢',
+  };
+  for (const [severity, count] of Object.entries(stats.bySeverity)) {
+    if (count > 0) {
+      const emoji = severityEmojis[severity] || '⚪';
+      lines.push(`  ${emoji} ${severity}: ${count}`);
+    }
+  }
+  lines.push("");
+  
+  // Category breakdown
+  lines.push("**By Category:**");
+  for (const [category, count] of Object.entries(stats.byCategory)) {
+    if (count > 0) {
+      lines.push(`  • ${category}: ${count}`);
+    }
+  }
+  lines.push("");
+  
+  if (stats.criticalErrors > 0) {
+    lines.push(`⚠️ **${stats.criticalErrors} CRITICAL errors require attention!**`);
+    lines.push("");
+  }
+  
+  lines.push("*Use `/ops errors report:list` to see recent errors*");
+  lines.push("*Use `/ops errors report:top` to see most frequent errors*");
+  
+  return lines.join("\n");
+}
+
+/**
+ * Format error list report
+ */
+function formatErrorListReport(
+  errors: Array<{
+    errorId: string;
+    fingerprint: string;
+    category: string;
+    severity: string;
+    errorName: string;
+    errorMessage: string;
+    occurrenceCount: number;
+    lastSeen: Date;
+  }>,
+  filters: { severity?: ErrorSeverity; category?: ErrorCategory }
+): string {
+  const lines: string[] = [];
+  
+  const filterStr = Object.entries(filters)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `${k}:${v}`)
+    .join(', ') || 'none';
+  
+  lines.push("📋 **Recent Errors**");
+  lines.push(`Filters: ${filterStr}`);
+  lines.push(`Generated: ${toEasternString(new Date())}`);
+  lines.push("═".repeat(35));
+  lines.push("");
+  
+  if (errors.length === 0) {
+    lines.push("✅ No errors found matching the filters.");
+    return lines.join("\n");
+  }
+  
+  const severityEmojis: Record<string, string> = {
+    CRITICAL: '🔴',
+    HIGH: '🟠',
+    MEDIUM: '🟡',
+    LOW: '🟢',
+  };
+  
+  for (const error of errors) {
+    const emoji = severityEmojis[error.severity] || '⚪';
+    const shortFingerprint = error.fingerprint.substring(0, 8);
+    const truncatedMessage = error.errorMessage.length > 60 
+      ? error.errorMessage.substring(0, 60) + '...' 
+      : error.errorMessage;
+    
+    lines.push(`${emoji} **${error.errorName}** (${error.category})`);
+    lines.push(`   ${truncatedMessage}`);
+    lines.push(`   Count: ${error.occurrenceCount} | Last: ${formatTimestamp(error.lastSeen)} | \`${shortFingerprint}...\``);
+    lines.push("");
+  }
+  
+  lines.push("*Use fingerprint to query specific error details*");
+  
+  return lines.join("\n");
+}
+
+/**
+ * Format top errors report (by occurrence count)
+ */
+function formatTopErrorsReport(
+  errors: Array<{
+    errorId: string;
+    fingerprint: string;
+    category: string;
+    severity: string;
+    errorName: string;
+    errorMessage: string;
+    occurrenceCount: number;
+    firstSeen: Date;
+    lastSeen: Date;
+  }>
+): string {
+  const lines: string[] = [];
+  
+  lines.push("🔝 **Top Errors by Occurrence**");
+  lines.push(`Generated: ${toEasternString(new Date())}`);
+  lines.push("═".repeat(35));
+  lines.push("");
+  
+  if (errors.length === 0) {
+    lines.push("✅ No errors in the database.");
+    return lines.join("\n");
+  }
+  
+  const severityEmojis: Record<string, string> = {
+    CRITICAL: '🔴',
+    HIGH: '🟠',
+    MEDIUM: '🟡',
+    LOW: '🟢',
+  };
+  
+  let rank = 1;
+  for (const error of errors) {
+    const emoji = severityEmojis[error.severity] || '⚪';
+    const shortFingerprint = error.fingerprint.substring(0, 8);
+    
+    lines.push(`**#${rank}** ${emoji} ${error.errorName} (${error.category})`);
+    lines.push(`   Occurrences: **${error.occurrenceCount}**`);
+    lines.push(`   First: ${formatTimestamp(error.firstSeen)} | Last: ${formatTimestamp(error.lastSeen)}`);
+    lines.push(`   Fingerprint: \`${shortFingerprint}...\``);
+    lines.push("");
+    rank++;
+  }
+  
+  return lines.join("\n");
+}
+
+/**
+ * Format error alerts report
+ */
+function formatErrorAlertsReport(
+  alerts: Array<{
+    alertId: string;
+    alertType: string;
+    sentAt: Date;
+    acknowledged: boolean;
+    error: {
+      errorName: string;
+      errorMessage: string;
+      severity: string;
+      category: string;
+      fingerprint: string;
+    };
+  }>,
+  stats: {
+    initialized: boolean;
+    criticalAlertsSent: number;
+    highAlertsSent: number;
+    alertsRateLimited: number;
+    lastAlertSentAt: string | null;
+    batchQueueSize: number;
+  }
+): string {
+  const lines: string[] = [];
+  
+  lines.push("🔔 **Error Alerts Dashboard**");
+  lines.push(`Generated: ${toEasternString(new Date())}`);
+  lines.push("═".repeat(35));
+  lines.push("");
+  
+  // Alert service stats
+  lines.push("**Alert Service Status:**");
+  lines.push(`• Status: ${stats.initialized ? '✅ Active' : '❌ Not Initialized'}`);
+  lines.push(`• CRITICAL Alerts Sent: ${stats.criticalAlertsSent}`);
+  lines.push(`• HIGH Alerts Sent: ${stats.highAlertsSent}`);
+  lines.push(`• Rate Limited: ${stats.alertsRateLimited}`);
+  lines.push(`• Pending Batch: ${stats.batchQueueSize}`);
+  if (stats.lastAlertSentAt) {
+    lines.push(`• Last Alert: ${formatTimestamp(new Date(stats.lastAlertSentAt))}`);
+  }
+  lines.push("");
+  
+  // Pending alerts
+  const pending = alerts.filter(a => !a.acknowledged);
+  if (pending.length > 0) {
+    lines.push(`**Pending Alerts (${pending.length}):**`);
+    for (const alert of pending.slice(0, 5)) {
+      const shortFingerprint = alert.error.fingerprint.substring(0, 8);
+      lines.push(`• ${alert.error.errorName} (${alert.error.severity})`);
+      lines.push(`  Sent: ${formatTimestamp(alert.sentAt)} | \`${shortFingerprint}...\``);
+    }
+    if (pending.length > 5) {
+      lines.push(`  ...and ${pending.length - 5} more`);
+    }
+  } else {
+    lines.push("✅ **No pending alerts**");
+  }
+  
+  return lines.join("\n");
+}
+
 export async function handleOpsCommand(
   interaction: ChatInputCommandInteraction,
   deps: OpsCommandDeps = {}
@@ -2091,6 +2328,59 @@ export async function handleOpsCommand(
       });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `Security metrics unavailable: ${message}` });
+    }
+    return;
+  }
+
+  // /ops errors - Query error database
+  if (sub === "errors") {
+    await interaction.deferReply({ ephemeral: true });
+    
+    try {
+      const reportType = interaction.options?.getString?.("report") ?? "stats";
+      const severity = interaction.options?.getString?.("severity") as ErrorSeverity | null ?? null;
+      const category = interaction.options?.getString?.("category") as ErrorCategory | null ?? null;
+      const limit = interaction.options?.getInteger?.("limit") ?? 10;
+      
+      if (reportType === "stats") {
+        // Show error statistics for last 24h
+        const stats = await errorTracker.getErrorStats();
+        const report = formatErrorStatsReport(stats);
+        await interaction.editReply({ content: report });
+      } else if (reportType === "list") {
+        // List recent errors with optional filters
+        const filters: { severity?: ErrorSeverity; category?: ErrorCategory } = {};
+        if (severity) filters.severity = severity;
+        if (category) filters.category = category;
+        
+        const errors = await errorTracker.getRecentErrors(limit, filters);
+        const report = formatErrorListReport(errors, filters);
+        await interaction.editReply({ content: report });
+      } else if (reportType === "top") {
+        // Show top errors by occurrence count
+        const errors = await errorTracker.getTopErrors(limit);
+        const report = formatTopErrorsReport(errors);
+        await interaction.editReply({ content: report });
+      } else if (reportType === "alerts") {
+        // Show pending (unacknowledged) alerts
+        const { errorAlertingService } = await import("../../services/monitoring/error-alerting-service.js");
+        const alerts = await errorAlertingService.getPendingAlerts(limit);
+        const alertStats = errorAlertingService.getStats();
+        const report = formatErrorAlertsReport(alerts, alertStats);
+        await interaction.editReply({ content: report });
+      } else {
+        await interaction.editReply({ content: `Unknown report type: ${reportType}` });
+      }
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'DATABASE',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops errors',
+        operation: 'handleErrorsCommand',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Error database query failed: ${message}` });
     }
     return;
   }
