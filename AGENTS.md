@@ -1194,33 +1194,48 @@ Every PATCHSET echo now includes:
 - **Database CLI**: All DB operations funnel through `npm run db:cli` for status, counts, and queries. Load `IG_ENV_FILE` first; production skips repo `.env` unless `IG_ALLOW_REPO_ENV=1`.
 
 ## Production & Render Notes
+
+### ⚠️ RENDER ACCESS POLICY (2025-12-06) — ABSOLUTE RULE
+
+**SSH-ONLY ACCESS TO RENDER.** Render API calls are PROHIBITED to minimize costs.
+
+| ✅ ALLOWED | ❌ PROHIBITED |
+|------------|---------------|
+| SSH via `render ssh` or `wsl ssh` | REST API (`api.render.com`) |
+| Render Dashboard (manual operations) | Scripts using `RENDER_API_KEY` |
+| Render CLI SSH commands | `Invoke-RestMethod` to Render |
+
+**Enforcement:** API-based scripts archived at `scripts/archive/render-api-deprecated/`
+
+### Service Configuration
 - `render.yaml` defines 8 services: web service, 6 workers, 1 cron job
 - **See `docs/workers.md` for comprehensive worker architecture, scaling roadmap, and Phase 10+ opportunities**
-- **Render Platform Credentials:**
-  - **API Key:** `rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp` (required for GitHub Actions workflows)
-  - **Service ID:** `srv-d3snk2ndiees73cn709g` (main bot worker)
-  - **SSH Access:**
-    - **Windows (Recommended):** `.\scripts\render_ssh_windows.ps1 -Interactive` or VS Code tasks
-    - **Direct WSL:** `wsl ssh render-virginia` or `wsl bash -c "render ssh srv-d3snk2ndiees73cn709g"`
-    - **Quick Operations:** `.\scripts\render_disk_usage_windows.ps1`, `.\scripts\render_cleanup_heaps_windows.ps1`
-  - **SSH Key:** `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH2nGfecHh4dwNrs1brxOvwvUUeG7daOsIim4qSzY7sI` (WSL `~/.ssh/render_key`)
-  - **Dashboard Shell:** https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g/shell
-  - **Complete Reference:** See `ops/RENDER-CREDENTIALS.md` for all API endpoints, setup instructions, and troubleshooting
-  - **Environment File:** `secrets/Infinity-Gauntlet.env` (RENDER_API_KEY, RENDER_SERVICE_ID)
-  - **GitHub Secret:** Add `RENDER_API_KEY` to https://github.com/Sherbivs/Infinity-Gauntlet/settings/secrets/actions
-- **Deployment Command:** Use `pwsh -File "scripts/render_deploy.ps1" -Service "Infinity-Gauntlet"` to deploy the main bot worker to production. The Render API uses the service name "Infinity-Gauntlet" (with capital letters) for the `infinity-gauntlet-bots` worker defined in render.yaml.
-  - **Service ID:** srv-d3snk2ndiees73cn709g
-  - **Region:** Virginia
-  - **Dashboard:** https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g
-- Current workers:
-  - `infinity-gauntlet-bot` (web) - HTTP health checks & webhooks
-- `Infinity-Gauntlet` (worker) - Main Discord bot + auto-sync [**Deploy:** `Infinity-Gauntlet` | **ID:** srv-d3snk2ndiees73cn709g]
-  - `infinity-gauntlet-outbox` (worker) - Async message delivery
-  - `infinity-gauntlet-cache` (worker) - Runtime cache maintenance
-  - `infinity-gauntlet-data-pipeline` (worker) - Reference data updates
-  - `infinity-gauntlet-security` (worker) - Permission guardrails with persistent state
-  - `pokedex-cache-worker` (worker) - External data sync to GitHub
-  - `pokedex-cache-failsafe` (cron) - Weekly fallback refresh
+- **Service ID:** `srv-d3snk2ndiees73cn709g` (main bot worker)
+- **SSH Access:**
+  - **Windows (Recommended):** `.\scripts\render_ssh_windows.ps1 -Interactive` or VS Code tasks
+  - **Direct WSL:** `wsl ssh render-virginia` or `wsl bash -c "render ssh srv-d3snk2ndiees73cn709g"`
+  - **Quick Operations:** `.\scripts\render_disk_usage_windows.ps1`, `.\scripts\render_cleanup_heaps_windows.ps1`
+- **SSH Key:** `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH2nGfecHh4dwNrs1brxOvwvUUeG7daOsIim4qSzY7sI` (WSL `~/.ssh/render_key`)
+- **Dashboard:** https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g
+- **Complete Reference:** See `ops/RENDER-CREDENTIALS.md` for SSH setup and troubleshooting
+
+### Deployment (Use Dashboard)
+- **Auto-deploy:** Push to `main` branch triggers automatic deployment
+- **Manual Deploy:** Use Dashboard → Manual Deploy button
+- **Restart:** Use Dashboard → Restart button
+- **Region:** Virginia
+
+### Current Workers
+- `infinity-gauntlet-bot` (web) - HTTP health checks & webhooks
+- `Infinity-Gauntlet` (worker) - Main Discord bot + auto-sync [**ID:** srv-d3snk2ndiees73cn709g]
+- `infinity-gauntlet-outbox` (worker) - Async message delivery
+- `infinity-gauntlet-cache` (worker) - Runtime cache maintenance
+- `infinity-gauntlet-data-pipeline` (worker) - Reference data updates
+- `infinity-gauntlet-security` (worker) - Permission guardrails with persistent state
+- `pokedex-cache-worker` (worker) - External data sync to GitHub
+- `pokedex-cache-failsafe` (cron) - Weekly fallback refresh
+
+### Database & Monitoring
 - The environment expects managed database URLs. See `src/env/ensure-db-url.ts` and `README.md` for override logic.
 - Render Postgres storage quotas: 0.5 GB (prod), 1.0 GB (dev). Monitor with `npm run db:cli -- query "SELECT pg_size_pretty(pg_database_size(current_database()))";"`
 - Security bot alert routing lives in `src/bot/main.js` and `src/bot/dripAlerts.js`

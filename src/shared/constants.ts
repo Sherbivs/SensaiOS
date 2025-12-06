@@ -225,3 +225,56 @@ export const DISCORD_CONSTANTS = Object.freeze({
   /** Timeout adjustments */
   TIMEOUT_INCREMENT_MS: 250
 });
+
+// ============================================================================
+// RENDER ACCESS POLICY (2025-12-06)
+// ============================================================================
+// ⚠️ ABSOLUTE RULE: SSH-ONLY ACCESS TO RENDER
+// Render API calls are PROHIBITED to minimize costs.
+// All remote access MUST use SSH.
+// ============================================================================
+
+export const RENDER_ACCESS_POLICY = Object.freeze({
+  /**
+   * POLICY ENFORCEMENT DATE: 2025-12-06
+   * 
+   * Render REST API is PROHIBITED for cost control.
+   * All remote access must use SSH (free).
+   */
+  
+  /** SSH is the ONLY allowed remote access method */
+  ALLOWED_ACCESS_METHOD: 'SSH_ONLY' as const,
+  
+  /** Render API is explicitly prohibited */
+  API_ACCESS_PROHIBITED: true,
+  
+  /** Service ID for SSH access */
+  PRIMARY_SERVICE_ID: 'srv-d3snk2ndiees73cn709g',
+  
+  /** SSH host for Virginia region */
+  SSH_HOST: 'ssh.virginia.render.com',
+  
+  /** Full SSH address */
+  SSH_ADDRESS: 'srv-d3snk2ndiees73cn709g@ssh.virginia.render.com',
+  
+  /** Allowed operations via SSH */
+  ALLOWED_OPERATIONS: Object.freeze([
+    'interactive-shell',  // render ssh / wsl ssh
+    'disk-usage',         // df, du commands
+    'log-viewing',        // tail, cat logs
+    'process-monitoring', // ps, top
+    'file-operations',    // ls, cat, rm for Store/
+  ] as const),
+  
+  /** Operations requiring Dashboard (no API) */
+  DASHBOARD_ONLY_OPERATIONS: Object.freeze([
+    'deploy',             // Use Dashboard "Manual Deploy"
+    'restart',            // Use Dashboard restart button
+    'scale',              // Use Dashboard scaling settings
+    'env-vars',           // Use Dashboard environment tab
+    'logs-streaming',     // Use Dashboard logs tab
+  ] as const),
+  
+  /** Deprecation notice for old scripts */
+  DEPRECATED_SCRIPTS_LOCATION: 'scripts/archive/render-api-deprecated/',
+});

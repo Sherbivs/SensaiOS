@@ -88,6 +88,18 @@ Production safety: Repo .env stays EMPTY. Local secrets always from external fil
 
 ## Production and Render
 
+### ⚠️ RENDER ACCESS POLICY (2025-12-06) — ABSOLUTE RULE
+
+**SSH-ONLY ACCESS TO RENDER.** Render API calls are PROHIBITED to minimize costs.
+
+| ✅ ALLOWED | ❌ PROHIBITED |
+|------------|---------------|
+| SSH via `render ssh` or `wsl ssh` | REST API (`api.render.com`) |
+| Render Dashboard (manual operations) | Scripts using `RENDER_API_KEY` |
+| Render CLI SSH commands | `Invoke-RestMethod` to Render |
+
+**Enforcement:** API-based scripts archived at `scripts/archive/render-api-deprecated/`
+
 ### Render Service Matrix
 - infinity-gauntlet-bot (web) — HTTP health checks
 - Infinity-Gauntlet (worker) — Main Discord bot + auto-sync
@@ -97,6 +109,15 @@ Production safety: Repo .env stays EMPTY. Local secrets always from external fil
 - infinity-gauntlet-security (worker) — Permission guardrails
 - pokedex-cache-worker (worker) — External data sync
 - pokedex-cache-failsafe (cron) — Weekly fallback refresh
+
+### SSH Access (Allowed)
+- **Interactive:** `render ssh srv-d3snk2ndiees73cn709g`
+- **Disk Usage:** `scripts/render_disk_usage_windows.ps1`
+- **Cleanup:** `scripts/render_cleanup_heaps_windows.ps1`
+
+### Operations via Dashboard (For Deploy/Restart)
+- **Dashboard:** https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g
+- Use Dashboard for: Deploy, Restart, Scale, Environment Variables
 
 ## Common Pitfalls
 
