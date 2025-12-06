@@ -277,6 +277,32 @@ export const FEATURE_FLAG_DEFINITIONS: readonly FeatureFlagDefinition[] = [
     removalTarget: "2026-06-01",
     tags: ["experimental", "ml"],
   },
+  {
+    id: "experimental.dev_mode",
+    name: "Development Mode",
+    description: "Restrict gameplay to whitelisted users only (pre-release testing)",
+    category: "experimental",
+    defaultValue: false,
+    envVar: "FF_DEV_MODE",
+    runtimeToggleable: true,
+    guildOverrideable: false,
+    addedAt: "2025-12-06",
+    removalTarget: "2026-01-01",
+    tags: ["development", "testing", "whitelist"],
+  },
+  {
+    id: "experimental.dev_mode_whitelist",
+    name: "Dev Mode User Whitelist",
+    description: "Comma-separated Discord user IDs or usernames allowed in dev mode",
+    category: "experimental",
+    defaultValue: false,
+    envVar: "FF_DEV_MODE_WHITELIST",
+    runtimeToggleable: true,
+    guildOverrideable: false,
+    addedAt: "2025-12-06",
+    removalTarget: "2026-01-01",
+    tags: ["development", "testing", "whitelist"],
+  },
 ] as const;
 
 /**

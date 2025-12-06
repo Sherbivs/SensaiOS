@@ -111,6 +111,11 @@ services:
         value: "true"
       - key: ENABLE_SECURITY_BOT
         value: "false"
+      # Development Mode: Restrict gameplay to whitelisted users only
+      - key: FF_DEV_MODE
+        value: "true"
+      - key: FF_DEV_MODE_WHITELIST
+        value: "DRIPTVDD"
       - key: ENABLE_DB_AUTO_SYNC
         value: "false"
       - key: BATTLE_CHANNEL_NAME
