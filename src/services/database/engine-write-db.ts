@@ -109,7 +109,7 @@ let db: Database | null = null;
 let isInitialized = false;
 let autoSaveInterval: NodeJS.Timeout | null = null;
 let isDirty = false; // Tracks if database has uncommitted changes
-let lastSaveTime = 0; // Unix timestamp of last save
+let _lastSaveTime = 0; // Unix timestamp of last save (prefixed for future use)
 
 // ============================================================================
 // Initialization
@@ -577,7 +577,7 @@ export async function saveToFile(force = false): Promise<void> {
     await fsPromises.writeFile(EngineDbConfig.writeDbPath, buffer);
 
     isDirty = false; // Mark as clean
-    lastSaveTime = Date.now();
+    _lastSaveTime = Date.now();
 
     log('info', 'engine-write-db: Saved to disk', {
       sizeBytes: buffer.length
@@ -964,7 +964,7 @@ export async function close(): Promise<void> {
   SQL = null;
   isInitialized = false;
   isDirty = false;
-  lastSaveTime = 0;
+  _lastSaveTime = 0;
 
   log('info', 'engine-write-db: Connection closed');
 }

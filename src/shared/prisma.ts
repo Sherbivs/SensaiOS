@@ -18,6 +18,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
 import { delayWithJitter, getErrorMessage } from "./utils/index.js";
+import { getPoolConfig, buildPooledConnectionUrl, logPoolHealth, getCurrentServiceName } from "../config/database-pool-config.js";
 
 export type PrismaHeartbeatEvent = {
   ok: boolean;
@@ -135,6 +136,9 @@ async function performHeartbeat(state: HeartbeatState, options: Required<Heartbe
         latencyMs: Number(latencyMs.toFixed(2)),
       });
     }
+    
+    // P0-001: Log pool health on successful heartbeat
+    logPoolHealth();
 
     state.consecutiveFailures = 0;
     const event: PrismaHeartbeatEvent = {
@@ -247,11 +251,16 @@ function validateDatabaseUrl(url: string): void {
 
 function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClient {
   validateDatabaseUrl(candidate.url);
-  process.env.DATABASE_URL = candidate.url;
+  
+  // P0-001: Apply pool configuration to connection URL
+  const poolConfig = getPoolConfig();
+  const pooledUrl = buildPooledConnectionUrl(candidate.url);
+  
+  process.env.DATABASE_URL = pooledUrl;
   process.env.DATABASE_CONNECTION_SOURCE = candidate.source;
 
-  // Prisma 7: Create driver adapter for PostgreSQL
-  const adapter = new PrismaPg({ connectionString: candidate.url });
+  // Prisma 7: Create driver adapter for PostgreSQL with pooled URL
+  const adapter = new PrismaPg({ connectionString: pooledUrl });
 
   const logLevels = nodeEnv === "development" ? ["warn", "error"] : ["error"];
 
@@ -267,6 +276,14 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
 
   const baseClient = new PrismaClient(baseOptions);
   const client = baseClient;
+  
+  // Log pool configuration applied
+  log.info('Prisma client created with pool config', {
+    service: getCurrentServiceName(),
+    maxConnections: poolConfig.max,
+    minConnections: poolConfig.min,
+    idleTimeoutMs: poolConfig.idleTimeoutMs,
+  });
   
   // Attach query performance monitoring handler
   // Logs warnings for slow queries (>100ms) to help identify N+1 patterns and optimization targets

@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 
 describe('Engine Write Buffer - API Contract', () => {
   it('should export required functions', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     
     expect(typeof module.engineWriteBuffer.logBattle).toBe('function');
     expect(typeof module.engineWriteBuffer.logMoveUsage).toBe('function');
@@ -19,7 +19,7 @@ describe('Engine Write Buffer - API Contract', () => {
   });
 
   it('should return BufferStats with required fields', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     const stats = module.engineWriteBuffer.getStats();
 
     expect(stats).toBeDefined();
@@ -37,7 +37,7 @@ describe('Engine Write Buffer - API Contract', () => {
 
 describe('Engine Write Buffer - Performance', () => {
   it('should achieve <10μs push latency for battle logs', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     
     // Arrange
     const sampleBattleLog = {
@@ -71,7 +71,7 @@ describe('Engine Write Buffer - Performance', () => {
   });
 
   it('should achieve <10μs push latency for move usage logs', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     
     // Arrange
     const sampleMoveUsage = {
@@ -105,7 +105,7 @@ describe('Engine Write Buffer - Performance', () => {
   });
 
   it('should handle concurrent pushes efficiently', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     
     // Act - Simulate concurrent battle logging
     const promises = Array.from({ length: 100 }, (_, i) => {
@@ -143,7 +143,7 @@ describe('Engine Write Buffer - Performance', () => {
 
 describe('Engine Write Buffer - Queue Management', () => {
   it('should track queue sizes accurately', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     
     // Get initial stats
     const initialStats = module.engineWriteBuffer.getStats();
@@ -178,7 +178,7 @@ describe('Engine Write Buffer - Queue Management', () => {
   });
 
   it('should track total logged counts', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     
     // Get initial stats
     const initialStats = module.engineWriteBuffer.getStats();
@@ -203,7 +203,7 @@ describe('Engine Write Buffer - Queue Management', () => {
   });
 
   it('should report max queue size', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     const stats = module.engineWriteBuffer.getStats();
 
     // Max queue size should be configured (default 10000)
@@ -214,7 +214,7 @@ describe('Engine Write Buffer - Queue Management', () => {
 
 describe('Engine Write Buffer - Flush Operations', () => {
   it('should flush without errors', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     
     // Add some entries
     module.engineWriteBuffer.logBattle({
@@ -232,7 +232,7 @@ describe('Engine Write Buffer - Flush Operations', () => {
   });
 
   it('should update last flush time after flush', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     
     // Get stats before flush
     const statsBefore = module.engineWriteBuffer.getStats();
@@ -258,7 +258,7 @@ describe('Engine Write Buffer - Flush Operations', () => {
   });
 
   it('should handle empty queue flush gracefully', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     
     // Flush empty queues should not throw
     await expect(module.engineWriteBuffer.flush()).resolves.not.toThrow();
@@ -267,7 +267,7 @@ describe('Engine Write Buffer - Flush Operations', () => {
 
 describe('Engine Write Buffer - Edge Cases', () => {
   it('should handle rapid consecutive pushes', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     
     // Push many entries rapidly
     for (let i = 0; i < 100; i++) {
@@ -290,7 +290,7 @@ describe('Engine Write Buffer - Edge Cases', () => {
   });
 
   it('should handle anomaly logging', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     
     const initialStats = module.engineWriteBuffer.getStats();
     
@@ -311,7 +311,7 @@ describe('Engine Write Buffer - Edge Cases', () => {
   });
 
   it('should handle timestamps correctly', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     
     const now = new Date();
     
@@ -333,7 +333,7 @@ describe('Engine Write Buffer - Edge Cases', () => {
 
 describe('Engine Write Buffer - Backpressure', () => {
   it('should report queue utilization', async () => {
-    const module = await import('../../src/services/engine-write-buffer.js');
+    const module = await import('../../src/services/cache/engine-write-buffer.js');
     const stats = module.engineWriteBuffer.getStats();
 
     // Utilization should be calculable

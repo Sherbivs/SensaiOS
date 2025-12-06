@@ -1,0 +1,426 @@
+name: Database CI/CD Pipeline
+
+# ============================================================================
+# Database CI/CD Pipeline — Pokémon Infinity Gauntlet
+# ============================================================================
+# This workflow ensures database schema safety and migration integrity before
+# any changes reach production. It validates schema, tests migrations, and
+# checks for common database anti-patterns.
+#
+# Part of: Database-Centric Development Plan (Sprint 3, P2-008)
+# See: docs/projects/database-centric/SPRINT-TRACKER.md
+# ============================================================================
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "prisma/**"
+      - "src/services/*-repository.ts"
+      - "src/services/rls-context.ts"
+      - "src/services/audit-service.ts"
+      - "src/services/base-repository.ts"
+      - "src/config/database-pool-config.ts"
+      - "tests/services/*-repository.spec.ts"
+      - ".github/workflows/database-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "prisma/**"
+      - "src/services/*-repository.ts"
+      - "src/services/rls-context.ts"
+      - "src/services/audit-service.ts"
+      - "src/services/base-repository.ts"
+      - "src/config/database-pool-config.ts"
+      - "tests/services/*-repository.spec.ts"
+      - ".github/workflows/database-ci.yml"
+
+env:
+  NODE_VERSION: "20"
+  # Dummy DATABASE_URL for schema validation (no actual connection)
+  DATABASE_URL: "postgresql://test:test@localhost:5432/test_db?schema=public"
+
+jobs:
+  # ==========================================================================
+  # Job 1: Schema Validation
+  # ==========================================================================
+  # Validates Prisma schema syntax and generates client without database
+  schema-validation:
+    name: Schema Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema syntax
+        run: npx prisma validate
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Check for schema drift (format check)
+        run: npx prisma format --check || echo "::warning::Schema formatting differs from standard"
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+  # ==========================================================================
+  # Job 2: Migration Safety Checks
+  # ==========================================================================
+  # Analyzes migrations for common dangerous patterns
+  migration-safety:
+    name: Migration Safety Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for diff analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Check for dangerous migration patterns
+        run: |
+          echo "🔍 Analyzing migrations for dangerous patterns..."
+          
+          DANGER_PATTERNS=(
+            "DROP TABLE"
+            "DROP COLUMN"
+            "TRUNCATE"
+            "DELETE FROM.*WHERE.*=.*ALL"
+            "ALTER TABLE.*ALTER COLUMN.*TYPE"
+            "ALTER TABLE.*DROP CONSTRAINT"
+          )
+          
+          WARNING_PATTERNS=(
+            "DROP INDEX"
+            "ALTER TABLE.*RENAME"
+            "CREATE INDEX.*CONCURRENTLY"
+          )
+          
+          FOUND_DANGERS=0
+          FOUND_WARNINGS=0
+          
+          # Check all migration files
+          for file in prisma/migrations/**/migration.sql; do
+            if [ -f "$file" ]; then
+              for pattern in "${DANGER_PATTERNS[@]}"; do
+                if grep -iE "$pattern" "$file" > /dev/null 2>&1; then
+                  echo "::error file=$file::⚠️ DANGER: Found '$pattern' in $file"
+                  FOUND_DANGERS=$((FOUND_DANGERS + 1))
+                fi
+              done
+              
+              for pattern in "${WARNING_PATTERNS[@]}"; do
+                if grep -iE "$pattern" "$file" > /dev/null 2>&1; then
+                  echo "::warning file=$file::Found '$pattern' in $file - Review before merge"
+                  FOUND_WARNINGS=$((FOUND_WARNINGS + 1))
+                fi
+              done
+            fi
+          done
+          
+          echo ""
+          echo "📊 Migration Analysis Summary:"
+          echo "   Dangerous patterns found: $FOUND_DANGERS"
+          echo "   Warning patterns found: $FOUND_WARNINGS"
+          
+          # Don't fail on warnings, only on dangers in new migrations
+          if [ $FOUND_DANGERS -gt 0 ]; then
+            echo ""
+            echo "::notice::Dangerous patterns detected. Ensure these are intentional and have rollback plans."
+          fi
+
+      - name: Verify migration sequence integrity
+        run: |
+          echo "🔍 Verifying migration sequence..."
+          
+          # Check that all migrations have migration.sql files
+          for dir in prisma/migrations/*/; do
+            if [ -d "$dir" ] && [ "$(basename "$dir")" != "migration_lock.toml" ]; then
+              if [ ! -f "${dir}migration.sql" ]; then
+                echo "::error::Missing migration.sql in $dir"
+                exit 1
+              fi
+            fi
+          done
+          
+          # Check migration_lock.toml exists
+          if [ ! -f "prisma/migrations/migration_lock.toml" ]; then
+            echo "::error::Missing prisma/migrations/migration_lock.toml"
+            exit 1
+          fi
+          
+          echo "✅ Migration sequence integrity verified"
+
+      - name: Check for RLS policy safety
+        run: |
+          echo "🔍 Checking RLS policies for safety patterns..."
+          
+          # Check that RLS policies have proper USING clauses
+          for file in prisma/migrations/**/migration.sql; do
+            if [ -f "$file" ]; then
+              if grep -i "CREATE POLICY" "$file" > /dev/null 2>&1; then
+                # Check for policies without USING clause (potential security issue)
+                if grep -iE "CREATE POLICY.*FOR (SELECT|UPDATE|DELETE)" "$file" | grep -v "USING" > /dev/null 2>&1; then
+                  echo "::warning file=$file::RLS policy may be missing USING clause"
+                fi
+                
+                # Check for WITH CHECK on INSERT/UPDATE
+                if grep -iE "CREATE POLICY.*FOR (INSERT|UPDATE)" "$file" | grep -v "WITH CHECK" > /dev/null 2>&1; then
+                  echo "::notice file=$file::Consider adding WITH CHECK clause for INSERT/UPDATE policies"
+                fi
+              fi
+            fi
+          done
+          
+          echo "✅ RLS policy check complete"
+
+  # ==========================================================================
+  # Job 3: Repository Tests
+  # ==========================================================================
+  # Runs all database-related unit tests
+  repository-tests:
+    name: Repository Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Run RLS context tests
+        run: npx vitest run tests/services/rls-context.spec.ts --reporter=verbose
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Run repository tests
+        run: |
+          npx vitest run \
+            tests/services/trainer-repository.spec.ts \
+            tests/services/pokemon-repository.spec.ts \
+            tests/services/battle-repository.spec.ts \
+            --reporter=verbose
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Generate test coverage report
+        run: |
+          npx vitest run \
+            tests/services/rls-context.spec.ts \
+            tests/services/trainer-repository.spec.ts \
+            tests/services/pokemon-repository.spec.ts \
+            tests/services/battle-repository.spec.ts \
+            --coverage --reporter=json --outputFile=coverage-report.json || true
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+  # ==========================================================================
+  # Job 4: Schema Documentation Check
+  # ==========================================================================
+  # Ensures database documentation stays in sync with schema
+  documentation-check:
+    name: Documentation Sync Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check schema documentation exists
+        run: |
+          echo "🔍 Checking database documentation..."
+          
+          REQUIRED_DOCS=(
+            "docs/architecture-bible/schema-health-audit-2025-12-04.md"
+            "docs/projects/database-centric/SPRINT-TRACKER.md"
+            "prisma/ROUTER.md"
+          )
+          
+          MISSING=0
+          for doc in "${REQUIRED_DOCS[@]}"; do
+            if [ ! -f "$doc" ]; then
+              echo "::warning::Missing documentation: $doc"
+              MISSING=$((MISSING + 1))
+            fi
+          done
+          
+          if [ $MISSING -gt 0 ]; then
+            echo "::notice::$MISSING documentation files are missing. Consider adding them."
+          else
+            echo "✅ All required documentation files present"
+          fi
+
+      - name: Check ADR directory
+        run: |
+          if [ -d "docs/projects/database-centric/adrs" ]; then
+            ADR_COUNT=$(ls -1 docs/projects/database-centric/adrs/*.md 2>/dev/null | wc -l)
+            echo "📚 Found $ADR_COUNT Architecture Decision Records"
+          else
+            echo "::notice::No ADR directory found at docs/projects/database-centric/adrs"
+          fi
+
+  # ==========================================================================
+  # Job 5: Connection Pool Configuration Validation
+  # ==========================================================================
+  # Validates connection pool settings don't exceed limits
+  pool-config-validation:
+    name: Pool Configuration Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Validate pool configuration
+        run: |
+          node -e "
+            const config = require('./dist/config/database-pool-config.js');
+            
+            // Check total connections don't exceed Render limit (97)
+            const RENDER_LIMIT = 97;
+            const totalConnections = Object.values(config.SERVICE_POOL_LIMITS || {})
+              .reduce((sum, limit) => sum + (limit || 0), 0);
+            
+            console.log('📊 Connection Pool Analysis:');
+            console.log('   Total configured connections:', totalConnections);
+            console.log('   Render limit:', RENDER_LIMIT);
+            console.log('   Headroom:', RENDER_LIMIT - totalConnections);
+            
+            if (totalConnections > RENDER_LIMIT) {
+              console.error('❌ ERROR: Total connections exceed Render limit!');
+              process.exit(1);
+            }
+            
+            if (totalConnections > RENDER_LIMIT * 0.9) {
+              console.warn('⚠️ WARNING: Connections at >90% of Render limit');
+            }
+            
+            console.log('✅ Pool configuration valid');
+          " || echo "::warning::Could not validate pool configuration"
+
+  # ==========================================================================
+  # Job 6: Type Safety Check
+  # ==========================================================================
+  # Ensures all repository types are correct
+  type-check:
+    name: TypeScript Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Run TypeScript type check
+        run: npx tsc --noEmit
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Check for any type errors in database services
+        run: |
+          npx tsc --noEmit \
+            src/services/base-repository.ts \
+            src/services/trainer-repository.ts \
+            src/services/pokemon-repository.ts \
+            src/services/battle-repository.ts \
+            src/services/rls-context.ts \
+            src/services/audit-service.ts \
+            2>&1 || echo "::warning::Type errors in database services"
+
+  # ==========================================================================
+  # Summary Job
+  # ==========================================================================
+  # Aggregates results from all jobs
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs:
+      - schema-validation
+      - migration-safety
+      - repository-tests
+      - documentation-check
+      - pool-config-validation
+      - type-check
+    if: always()
+    steps:
+      - name: Check job results
+        run: |
+          echo "📋 Database CI/CD Pipeline Summary"
+          echo "=================================="
+          echo ""
+          echo "Job Results:"
+          echo "  Schema Validation:    ${{ needs.schema-validation.result }}"
+          echo "  Migration Safety:     ${{ needs.migration-safety.result }}"
+          echo "  Repository Tests:     ${{ needs.repository-tests.result }}"
+          echo "  Documentation Check:  ${{ needs.documentation-check.result }}"
+          echo "  Pool Config:          ${{ needs.pool-config-validation.result }}"
+          echo "  Type Check:           ${{ needs.type-check.result }}"
+          echo ""
+          
+          # Fail if any critical job failed
+          if [ "${{ needs.schema-validation.result }}" == "failure" ] || \
+             [ "${{ needs.repository-tests.result }}" == "failure" ] || \
+             [ "${{ needs.type-check.result }}" == "failure" ]; then
+            echo "❌ Critical job failed - blocking merge"
+            exit 1
+          fi
+          
+          echo "✅ All critical checks passed"

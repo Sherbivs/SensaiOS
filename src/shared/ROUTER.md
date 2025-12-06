@@ -1,11 +1,12 @@
 # ROUTER
 Title: Shared Runtime & Utilities
-Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, constants, and shared data access layers.
+Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, constants, feature flags, and shared data access layers.
 Owned Globs: src/shared/**
-Last Updated (UTC): 2025-12-04 (DB-First observability system: console-renderer, log-aggregator, system-health-monitor, observability)
+Last Updated (UTC): 2025-12-05 (Feature flags system: type-safe flags, runtime toggle, observability integration)
 
 Notes:
 - `constants.ts` — **NEW** Centralized application constants organized into 4 groups (GAME_CONSTANTS, TIME_CONSTANTS, CACHE_CONSTANTS, MONITORING_CONSTANTS). Eliminates duplicate constant definitions across codebase. Provides backwards-compatible individual exports (`DEFAULT_STARTER_COINS`, `DEFAULT_TIME_ZONE`, etc.) marked with `@deprecated` tags.
+- `feature-flags.ts` — **NEW 2025-12-05** Type-safe feature flag system for gradual rollout. Supports: flag definitions with metadata, runtime toggling, guild overrides, percentage rollouts, subscription to changes. Security flags: `security-db-queries`, `security-db-writes`, `security-db-baseline`, `security-db-alerts`, `security-db-full`. API: `featureFlags.isEnabled()`, `featureFlags.setEnabled()`, `featureFlags.onFlagChange()`, `featureFlags.getAllFlags()`, `isSecurityDatabaseEnabled()` convenience function.
 - `config.ts` now exposes `loadConfig()` that promotes Render's `DATABASE_INTERNAL_URL`, forbids localhost hosts in production, and surfaces cache/runtime settings for the 2-node direct PostgreSQL cluster.
 - `config.ts` also reads `DATABASE_LOCAL_URL` or `Store/db/local-url.txt` when present so Prisma can fall back to the Store-hosted Postgres mirror when remote datasources fail.
 - `prisma.ts` initializes **dual Prisma clients** (`prisma` for PROD local node, `devPrisma` for DEV master), validates URLs early, connects both on startup, and shares `$connect()` across importers. Exports `getDatabaseStats()` returning `DualDatabaseStats` with separate telemetry for DEV and PROD connections including source, transport, latency, and status.
@@ -19,6 +20,7 @@ Notes:
 
 Areas:
 - constants.ts — **NEW** Centralized application constants (game settings, timeouts, cache limits, monitoring thresholds) organized into 4 groups with backwards-compatible exports
+- **feature-flags.ts (~295 lines)** — **NEW 2025-12-05** Type-safe feature flag system for gradual rollout. Supports flag definitions with metadata, runtime toggling, guild overrides, percentage rollouts, change subscriptions. Pre-defined security flags for database transformation: `security-db-queries`, `security-db-writes`, `security-db-baseline`, `security-db-alerts`, `security-db-full`. API: `featureFlags.initialize()`, `featureFlags.isEnabled(flagId, context?)`, `featureFlags.setEnabled(flagId, enabled, guildId?)`, `featureFlags.onFlagChange(listener)`, `featureFlags.getAllFlags()`, `isSecurityDatabaseEnabled()`.
 - datetime.js — **ENHANCED** (2025-11-16) Eastern Time (EST/EDT) timezone utilities. Single source of truth for all timestamp formatting. Exports: `toEasternString()`, `toEasternTime()`, `toEasternDate()`, `toEasternLogFormat()` (high-precision console logging), `formatInTimeZone()` (generic timezone support), `msUntilNextZonedTime()` (scheduling helper, migrated from deprecated src/utils/timezone.js). Used by: bot/dripAlerts.js (digest scheduling), models/index.ts (timestamp formatting), utils/cliStatus.js (console output), services/monitoring/error-tracker.ts (error timestamps).
 - config.ts — runtime/env loader
 - prisma.ts — Dual Prisma client singleton (PROD `prisma` + DEV `devPrisma`), ensures both connections, exports `getDatabaseStats(): DualDatabaseStats`
@@ -35,8 +37,10 @@ Areas:
 - **log-aggregator.ts (~385 lines)** — **NEW 2025-12-04** Intelligent backend "super brain" for log analytics. Pattern detection (normalizes messages, detects repeated errors), correlation grouping (tracks correlationId chains), error spike detection (compares current vs baseline rates), performance trend analysis (p50/p95/p99 latency tracking), anomaly detection (auto-generates alerts). API: `initLogAggregator(prisma, options)`, `runAggregation()`, `getPatterns()`, `getCorrelations()`, `getAnomalies()`, `getPerformanceTrends()`.
 - **system-health-monitor.ts (~380 lines)** — **NEW 2025-12-04** Real-time health scoring and alerting system. Calculates component health scores (0-100) based on error rate, latency, success rate, throughput. Tracks trends (improving/stable/degrading), generates alerts with cooldown, runs health checks (database, memory). API: `initHealthMonitor(prisma, options)`, `startHealthMonitor()`, `stopHealthMonitor()`, `getSystemHealth()`, `getComponentHealth(name)`, `forceHealthCycle()`, `acknowledgeAlert()`.
 - **observability.ts (~205 lines)** — **NEW 2025-12-04** Unified initialization module for DB-First observability system. Single entry point to initialize, start, and shutdown all observability components (ConsoleRenderer, MetricsCollector, LogAggregator, HealthMonitor). Feature flags for selective component enablement. API: `initializeObservability(prisma, config)`, `startObservability()`, `shutdownObservability()`, `getObservabilityStatus()`, `getObservabilityConfig()`, `runAggregationNow()`.
+- **rate-limiter.ts (~620 lines)** — **NEW 2025-01-XX** RFC 6585 compliant rate limiting. Token bucket algorithm with sliding window alternative. API: `RateLimiter` class, `CompositeRateLimiter`, `SlidingWindowLimiter`, `createRateLimiter()`, `RateLimitPresets` (STANDARD_API, AUTH_ATTEMPTS, DISCORD_COMMAND, etc.), `createRateLimitHeaders()`. Features: automatic cleanup, burst control, retry-after headers.
 
 Subrouters:
 - src/shared/cache/ROUTER.md — Cache backend implementations.
+- src/shared/crypto/ROUTER.md — **NEW 2025-01-XX** Cryptographic utilities with timing-attack prevention (CWE-208). Exports timing-safe comparisons, HMAC operations, token validation.
 - src/shared/storage/ROUTER.md — Storage adapter catalog.
 - src/shared/utils/ROUTER.md — Shared utility functions catalog.

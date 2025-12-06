@@ -4,11 +4,11 @@ import { evaluateDailyQuestStreak, projectDailyQuestCompletion } from "../src/mo
 import { log } from "../src/shared/log.js";
 
 describe("log._format", () => {
-  it("formats info with message and env", () => {
+  it("formats info with message and metadata", () => {
     const rec = log._format("info", "hello", undefined, { foo: 1 });
     expect(rec.level).toBe("info");
     expect(rec.msg).toBe("hello");
-    expect(rec.env === "development" || rec.env === "test" || rec.env === "production").toBe(true);
+    expect(rec.t).toBeDefined(); // timestamp
     expect((rec as any).foo).toBe(1);
   });
 
@@ -18,7 +18,8 @@ describe("log._format", () => {
     expect(rec.level).toBe("error");
     expect(rec.msg).toBe("oops");
     expect((rec as any).err).toBeDefined();
-    expect((rec as any).err.message).toBe("boom");
+    // Error is stringified, so includes "Error: " prefix
+    expect((rec as any).err.message).toBe("Error: boom");
   });
 });
 

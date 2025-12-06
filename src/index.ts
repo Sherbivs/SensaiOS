@@ -26,6 +26,7 @@ import { EventBus } from "./shared/event-bus.js";
 import { formatBytes } from "./shared/utils/format-utils.js";
 import { getErrorMessage } from "./shared/utils/error-utils.js";
 import { startHealthServer, stopHealthServer } from "./services/health-server.js";
+import { startMetricsCollection, stopMetricsCollection } from "./services/database-metrics.js";
 import { notifyBoot, notifyShutdown, notifyCrash } from "./services/lifecycle-notifier.js";
 import { initializeMetrics, recordShutdown, recordCrash } from "./services/restart-metrics.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
@@ -1160,6 +1161,9 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.error("Error stopping health server", error);
   }
 
+  // Stop database metrics collection
+  stopMetricsCollection();
+
   // Flush and destroy log buffer before exit
   destroyLogBuffer();
 
@@ -1275,6 +1279,10 @@ export async function boot(): Promise<void> {
   log.info("Health check server started (early boot)", {
     note: "External monitors can now detect downtime via /health endpoint",
   });
+  
+  // Start database metrics collection for Prometheus
+  startMetricsCollection();
+  log.info("Database metrics collection started (Prometheus /metrics integration)");
   
   // ============================================================================
   // Service Registry Initialization (Phase 1: Foundation Services)

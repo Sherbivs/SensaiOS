@@ -38,9 +38,13 @@ function resolveTurn(state, actionA, actionB, ctx) {
   // Controlled by ctx.allowFlinchSkip (default true).
   function handleFlinch(combatant, key) {
     if (ctx.allowFlinchSkip !== false && combatant?.volatile?.flinched) {
-      const msg = `⚡ ${combatant.name} flinched and couldn’t move!`;
+      const msg = `⚡ ${combatant.name} flinched and couldn't move!`;
       log.push(msg);
-      try { publicLog.push(msg); } catch (_) {}
+      try { 
+        publicLog.push(msg); 
+      } catch {
+        // Intentionally silent - publicLog may not exist in all contexts
+      }
       combatant.volatile.flinched = false;
       // Instead of nulling the whole action (which our helpers expect to be an object),
       // set it to a no-op to keep resolution safe.

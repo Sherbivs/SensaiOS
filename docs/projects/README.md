@@ -2,6 +2,27 @@
 
 **Purpose:** Staging area for project documentation before Bible integration. Ensures 100% accuracy through systematic validation.
 
+**Last Updated:** 2025-12-04T03:30:00Z
+
+---
+
+## 🚀 ACTIVE PROJECT: Database-Centric Development Plan
+
+**Location:** [`database-centric/`](./database-centric/README.md)  
+**Status:** Sprint 1 COMPLETE ✅ | Sprint 2 READY 🔜  
+**Started:** 2025-12-04
+
+**Quick Links:**
+| Document | Purpose |
+|----------|---------|
+| [README.md](./database-centric/README.md) | Project hub & navigation |
+| [SPRINT-TRACKER.md](./database-centric/SPRINT-TRACKER.md) | Current sprint checklist |
+| [DELIVERABLES.md](./database-centric/DELIVERABLES.md) | Files created/modified |
+| [COMMENCEMENT-PLAN.md](./database-centric/COMMENCEMENT-PLAN.md) | Execution roadmap |
+| [MASTER-PLAN.md](./database-centric/MASTER-PLAN.md) | Full specification (13K lines) |
+
+**Sprint 1 Complete:** 7/7 P0 tasks done (~1,110 lines added)
+
 ---
 
 ## 📚 Bible-Centric Documentation System
@@ -112,19 +133,38 @@ Before ANY Bible integration, run this validation:
     * `2025-12-02-bible-system-complete.md` — Phase 1: Bible-centric documentation system
   - **Purpose:** System improvements, workflow enhancements, infrastructure projects
 
+- **database-centric/** — 🚀 **ACTIVE** Database-Centric Development Plan
+  - [README.md](./database-centric/README.md) — Project hub with navigation
+  - [SPRINT-TRACKER.md](./database-centric/SPRINT-TRACKER.md) — Current sprint checklist
+  - [DELIVERABLES.md](./database-centric/DELIVERABLES.md) — Files created/modified
+  - [MASTER-PLAN.md](./database-centric/MASTER-PLAN.md) — Full specification (13,032 lines)
+  - [COMMENCEMENT-PLAN.md](./database-centric/COMMENCEMENT-PLAN.md) — Execution roadmap (971 lines)
+  - `sprints/` — Sprint completion reports
+  - `architecture/` — Design notes
+  - `implementation/` — Gotchas and workarounds
+  - **Status:** Sprint 1 ✅ COMPLETE (7/7 P0 tasks)
+  - **Progress:** ~1,110 lines added, 4 new files, 4 modified files
+
 - **architect-gui/** — Infinity-G-Architect visual GUI editor (DEFERRED)
   - `README.md` — Full planning document with architecture, tech stack, phases
   - `TASKS.md` — 18 tasks across 5 phases (~142 hours estimated)
-  - **Status:** 📋 PLANNING (awaiting Phase 17-18 completion)
-  - **Target Start:** 2025-02-01 (after homestead deployment)
+  - **Status:** 📋 PLANNING (awaiting database-centric completion)
+  - **Target Start:** After Database-Centric project completes
   - **Purpose:** Visual architecture editor with Git integration
 
 ### Pending Bible Integration
-- *(Projects awaiting validation and Bible merge)*
+- **database-centric/** — After all sprints complete, integrate pool config, metrics, architecture patterns to Bible
 
 ### Archived Projects
 - *(Completed projects, documentation merged to Bible)*
 - See `docs/projects/archive/` for historical project documentation
+
+### Legacy Root Files (To Be Cleaned)
+The following files in `docs/projects/` root should be moved to appropriate project folders:
+- `DATABASE-CENTRIC-DEVELOPMENT-PLAN.md` → Copied to `database-centric/MASTER-PLAN.md` ✅
+- `COMMENCEMENT-PLAN.md` → Copied to `database-centric/COMMENCEMENT-PLAN.md` ✅
+- `DATA-STORAGE-AUDIT.md` → Move to `database/` or `archive/`
+- `DISCORD-TESTING-READINESS-AUDIT.md` → Move to appropriate project or `archive/`
 
 ---
 

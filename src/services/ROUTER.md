@@ -1,15 +1,24 @@
 # ROUTER
 Title: Service Layer Helpers
-Purpose: Organized service layer providing cache management, database operations, error monitoring, resource management, and AI logging.
+Purpose: Organized service layer providing cache management, database operations, error monitoring, resource management, AI logging, and database-centric repository pattern.
 Owned Globs: src/services/**
-Last Updated (UTC): 2025-11-16T00:00:00Z
+Last Updated (UTC): 2025-12-04T05:30:00Z
 
 Notes:
+- **Database-Centric Development Plan (2025-12-04):** Added repository pattern services at root level: RLS context, base repository, domain repositories (Trainer, Pokemon, Battle), and audit service. Sprint 2 deliverables totaling ~3,970 lines of new TypeScript code.
 - **Phase 5 Consolidation (2025-11-16):** Services organized into 4 domain subdirectories with barrel exports. Deleted duplicate resource-manager.ts and legacy resource-monitor.js from root (now in monitoring/).
 - **Subdirectories:** `cache/` (5 files), `database/` (3 files), `monitoring/` (5 files), `ai/` (4 files).
 - **Barrel Exports:** Each subdirectory exports via `index.ts` with namespace exports to avoid naming collisions.
 - **Import Pattern:** Bot layer uses barrel exports (e.g., `from '../../services/monitoring'`).
 - **Legacy Root Files:** 3 active services remain at root level: pokemonService.js (Pokemon cache), cache.js (security bot cache), home-bundle-pg.ts (cooldown queries).
+
+**Database-Centric Repository Services (Sprint 2, 2025-12-04):**
+- **rls-context.ts (346 lines)** — Row-Level Security context management for PostgreSQL session variables. Sets `app.current_user_id`, `app.discord_user_id`, `app.admin_bypass` for RLS policy evaluation. Exposes `RlsUserContext` interface, `setUserContext()`, `clearUserContext()`, `setAdminBypass()`, `withRlsContext()` (auto-cleanup wrapper), `getCurrentContext()` API. Used by all repository services to enforce data isolation.
+- **base-repository.ts (716 lines)** — Generic repository pattern foundation with transaction support and query composition. Exports `BaseRepository<T>` (generic CRUD + filtering/sorting/pagination), `SoftDeleteRepository<T>` (soft delete mixin), `TransactionContext<T>`, `UnitOfWork` (transaction management), `RepositoryFactory`. Type-safe filtering with operators (eq, ne, gt, lt, gte, lte, contains, startsWith, endsWith, in, notIn). Re-exports `RlsUserContext` type.
+- **trainer-repository.ts (666 lines)** — Domain-specific Trainer repository with party management. `TrainerRepository` class with RLS context injection. Key methods: `findByDiscordId()`, `findByUserId()`, `getActiveParty()`, `setPartySlots()`, `swapPartySlots()`, `addToParty()`, `removeFromParty()`, `getStats()`, `getLeaderboard()`, `addCoins()`, `spendCoins()`. Schema-aware: Trainer (id, tenantId, userId, nickname), User (discordId, coins), Party (ownerId), PartySlot (slot 0-5).
+- **pokemon-repository.ts (923 lines)** — Domain-specific Pokemon Instance repository with box/party management. `PokemonRepository` class. Key methods: `findById()`, `findByOwnerId()`, `create()`, `getBoxPokemon()`, `getBoxPokemonPaginated()`, `swapBoxSlots()`, `updateHp()`, `setStatus()`, `heal()`, `healAll()`, `addExperience()`, `levelUp()`, `getMoves()`, `setMoves()`, `restorePP()`, `getStats()`, `getPokedex()`, `getShiny()`, `transfer()`, `releaseMany()`. Exports `StatSpread`, `MoveSlot`, `PokemonWithSpecies`, `PokemonStats` types.
+- **battle-repository.ts (730 lines)** — Domain-specific Battle repository with state machine management. `BattleRepository` class. State machine: Pending → Active → Finished|Aborted. Key methods: `findById()`, `findByIdWithUsers()`, `findByArenaThread()`, `create()`, `startBattle()`, `finishBattle()`, `abortBattle()`, `forfeitBattle()`, `appendCompactLog()`, `appendFullLog()`, `findByUserId()`, `findActiveBattle()`, `hasActiveBattle()`, `getStats()`, `getRecentBattles()`, `getHeadToHead()`, `countByState()`, `cleanupAborted()`. Exports `BattleState`, `BattleResult`, `CompactLogEntry`, `FullLogEntry`, `BattleStats` types.
+- **audit-service.ts (591 lines)** — TypeScript audit logging service for tracking data changes. `AuditService` class with `AuditUserContext` (extends RlsUserContext with tenantId/userId). Key methods: `log()`, `logCreate()`, `logUpdate()`, `logDelete()`, `logBatch()`, `getEntityHistory()`, `getUserActivity()`, `query()`, `getRecent()`, `count()`, `computeDiff()`, `getEntryDiff()`. Features: sensitive field sanitization, error isolation, batch logging, diff computation. Factory functions: `createAuditService()`, `createAuditServiceFromRls()`, `withAudit()` HOF. Uses existing `AuditLog` model.
 
 **Service Subdirectories:**
 - **cache/** (4 files + ROUTER.md) — Runtime cache facade, engine L1 cache, write buffer, namespace recipes. See `src/services/cache/ROUTER.md`.
