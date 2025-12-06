@@ -354,6 +354,11 @@ export class TimescaleDBWorker
    * Batches events for performance (100 events per flush).
    */
   async ingestLogs(events: LogEvent[]): Promise<void> {
+    // Skip if worker not initialized (during early startup, logs go to console fallback)
+    if (!this.isInitialized || !this.client) {
+      return;
+    }
+    
     return this.executeOperation('ingest-logs', async () => {
       if (events.length === 0) {
         return;
