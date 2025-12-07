@@ -17,6 +17,11 @@ import { Client, User, EmbedBuilder, TextChannel } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
 import { log } from '../utils/logger.js';
 import { HomesteadChannelManager } from './homestead-manager.js';
+import { 
+  resolveDiscordUser, 
+  hasDiscordIdentity,
+  type DiscordUserIdentity 
+} from './discord-identity.js';
 
 // ============================================================================
 // Types & Interfaces
@@ -332,6 +337,9 @@ export class PlayerCheckpointService {
     // Test 5: Active battle state (shouldn't have orphaned battles)
     results.push(await this.testActiveBattles(user));
     
+    // Test 6: Discord identity in security database
+    results.push(await this.testDiscordIdentity(user));
+    
     // Calculate overall status
     const failCount = results.filter(r => r.status === 'fail').length;
     const warnCount = results.filter(r => r.status === 'warn').length;
@@ -635,6 +643,75 @@ export class PlayerCheckpointService {
       message: 'No stuck battles found',
       canAutoHeal: false,
     };
+  }
+  
+  /**
+   * Test Discord identity exists in security database
+   * 
+   * The security bot maintains a comprehensive registry of guild members
+   * with usernames, display names, and roles. This test verifies the player's
+   * Discord identity is tracked in that canonical data source.
+   */
+  private async testDiscordIdentity(user: {
+    id: string;
+    discordId: string;
+  }): Promise<DiagnosticResult> {
+    try {
+      // Check if user exists in security database
+      const identityExists = await hasDiscordIdentity(user.discordId, this.guildId);
+      
+      if (!identityExists) {
+        return {
+          testName: 'discord_identity',
+          status: 'warn',
+          message: 'User not found in security database (awaiting next security sweep)',
+          canAutoHeal: false,
+        };
+      }
+      
+      // Get full identity for validation
+      const identity = await resolveDiscordUser(user.discordId, this.guildId);
+      
+      if (!identity) {
+        return {
+          testName: 'discord_identity',
+          status: 'warn',
+          message: 'Discord identity lookup returned null unexpectedly',
+          canAutoHeal: false,
+        };
+      }
+      
+      // Verify the Discord ID matches what we have in User table
+      if (identity.discordUserId !== user.discordId) {
+        return {
+          testName: 'discord_identity',
+          status: 'fail',
+          message: `Discord ID mismatch: User.discordId=${user.discordId} vs SecurityDB=${identity.discordUserId}`,
+          canAutoHeal: false,  // This requires manual investigation
+        };
+      }
+      
+      return {
+        testName: 'discord_identity',
+        status: 'pass',
+        message: `Discord identity verified: @${identity.username}${identity.displayName ? ` (${identity.displayName})` : ''}`,
+        canAutoHeal: false,
+      };
+      
+    } catch (error) {
+      log.warn('[PlayerCheckpoint] Discord identity test failed', {
+        userId: user.id,
+        discordId: user.discordId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      
+      return {
+        testName: 'discord_identity',
+        status: 'warn',
+        message: 'Failed to query Discord identity (security database may be unavailable)',
+        canAutoHeal: false,
+      };
+    }
   }
   
   // --------------------------------------------------------------------------
