@@ -52,6 +52,38 @@ import type { User, Pokemon, Battle } from "../generated/prisma/client.js";
 import { PrismaClient } from "@prisma/client";
 ```
 
+### JSON Type Handling (Prisma 7.x)
+
+Prisma 7.x has strict `InputJsonValue` typing. Use our utility helpers for domain types:
+
+```typescript
+import { toJsonValue, fromJsonValue } from '../shared/json-types.js';
+
+// ✅ Writing to JSON fields
+const pokemon = await prisma.pokemonInstance.create({
+  data: {
+    ivsJson: toJsonValue(stats),     // StatSpread → InputJsonValue
+    movesJson: toJsonValue(moves),   // MoveSlot[] → InputJsonValue
+  }
+});
+
+// ✅ Reading from JSON fields  
+const moves = fromJsonValue<MoveSlot[]>(pokemon.movesJson) ?? [];
+
+// ✅ Nullable JSON with DbNull fallback
+beforeJson: entry.beforeJson ? toJsonValue(entry.beforeJson) : Prisma.DbNull,
+
+// ✅ Filtering non-null JSON (NOT { not: null })
+where: { resultJson: { not: Prisma.JsonNull } }
+```
+
+**Domain Types That Need Conversion:**
+- `StatSpread` → `ivsJson`, `evsJson`
+- `MoveSlot[]` → `movesJson`
+- `BattleResult` → `resultJson`
+- `CompactLogEntry[]` → `logCompact`
+- `Record<string, unknown>` → `beforeJson`, `afterJson`
+
 ### Canonical Database Naming (ABSOLUTE - Never Violate)
 
 | Canonical Name | Environment Variable | Prisma Client | Purpose |

@@ -404,6 +404,85 @@ const trainersWithParty = await prisma.trainer.findMany({
 
 ---
 
+## 6.5. Prisma Imports & JSON Types
+
+> **CRITICAL:** This project uses a custom Prisma output path. Wrong imports will fail on Render.
+
+### Import Patterns
+
+```typescript
+// ✅ CORRECT: Import from generated path
+import { PrismaClient, Prisma, type User } from '../generated/prisma/client.js';
+import type { Battle, PokemonInstance } from '../generated/prisma/client.js';
+
+// ✅ CORRECT: Import prisma instance from shared
+import { prisma } from '../shared/prisma.js';
+
+// ❌ WRONG: Will fail on Render (fresh install, no default output)
+import { PrismaClient } from '@prisma/client';  // BLOCKED BY ESLINT
+```
+
+### Path Calculation
+
+| Source Directory | Import Path |
+|------------------|-------------|
+| `src/services/` | `../generated/prisma/client.js` |
+| `src/bot/commands/` | `../../generated/prisma/client.js` |
+| `src/bot/security/services/` | `../../../generated/prisma/client.js` |
+| `tests/services/` | `../../src/generated/prisma/client.js` |
+
+### JSON Type Conversion (Prisma 7.x)
+
+Prisma 7.x has strict typing for JSON fields. Use our utility helpers:
+
+```typescript
+import { toJsonValue, fromJsonValue } from '../shared/json-types.js';
+
+// ✅ Writing JSON fields
+const pokemon = await prisma.pokemonInstance.create({
+  data: {
+    ivsJson: toJsonValue(stats),     // StatSpread → InputJsonValue
+    movesJson: toJsonValue(moves),   // MoveSlot[] → InputJsonValue
+  }
+});
+
+// ✅ Reading JSON fields
+const moves = fromJsonValue<MoveSlot[]>(pokemon.movesJson) ?? [];
+
+// ✅ Nullable JSON with fallback
+await prisma.auditLog.create({
+  data: {
+    beforeJson: entry.beforeJson ? toJsonValue(entry.beforeJson) : Prisma.DbNull,
+  }
+});
+
+// ✅ Filtering non-null JSON
+const finishedBattles = await prisma.battle.findMany({
+  where: {
+    resultJson: { not: Prisma.JsonNull },  // NOT { not: null }
+  }
+});
+```
+
+### Common Domain Types
+
+| Domain Type | Used In | Prisma Field |
+|-------------|---------|--------------|
+| `StatSpread` | pokemon-repository | `ivsJson`, `evsJson` |
+| `MoveSlot[]` | pokemon-repository | `movesJson` |
+| `BattleResult` | battle-repository | `resultJson` |
+| `CompactLogEntry[]` | battle-repository | `logCompact` |
+| `FullLogEntry[]` | battle-repository | `logFull` |
+| `Record<string, unknown>` | audit-service | `beforeJson`, `afterJson` |
+
+### Why This Matters
+
+1. **Build Failures:** `@prisma/client` imports fail on Render (no default output)
+2. **Type Errors:** Domain interfaces don't satisfy `InputJsonValue` structure
+3. **Runtime Safety:** These are compile-time type fixes, not runtime behavior changes
+
+---
+
 ## 7. Testing Database Code
 
 ### Unit Testing with Mocks
