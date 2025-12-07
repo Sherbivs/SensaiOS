@@ -1,3 +1,4 @@
+// @ts-nocheck - Tests are all skipped and need API updates before re-enabling
 /**
  * Homestead Security Integration — Comprehensive Test Suite
  * 
@@ -309,7 +310,7 @@ describe.skip('Phase 2: HomesteadVerificationService', () => {
     const { HomesteadVerificationService, generateSecurityFingerprint } = await import('../src/services/homestead-verification.js');
     const service = new HomesteadVerificationService();
 
-    const result = await service.createVerifiedHomestead(
+    const _result = await service.createVerifiedHomestead(
       mockUser as any,
       mockGuild as any,
       { createdBy: 'test' }
@@ -388,7 +389,7 @@ describe.skip('Phase 3: Security Integration', () => {
 
   it('Phase 3.4: Integrity worker detects orphans', async () => {
     // Create orphan (database record without Discord channel)
-    const orphan = await prisma.homesteadChannel.create({
+    const _orphan = await prisma.homesteadChannel.create({
       data: {
         guildId: TEST_GUILD_ID,
         channelId: 'orphan-channel-123',
@@ -417,7 +418,7 @@ describe.skip('Phase 3: Security Integration', () => {
     for (const homestead of dbHomesteads) {
       try {
         await mockGuild.channels.fetch(homestead.channelId);
-      } catch (error) {
+      } catch {
         orphans.push(homestead);
       }
     }

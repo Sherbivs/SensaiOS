@@ -22,7 +22,7 @@ import {
   createRoleEvent,
   createThreatEvent,
   type EventBusLogger,
-  type SecurityEvent,
+  type SecurityEvent as _SecurityEvent,
   type EventHandler,
   type AuthEventPayload,
   type RoleEventPayload,

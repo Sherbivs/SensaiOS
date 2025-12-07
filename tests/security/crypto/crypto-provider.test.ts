@@ -44,9 +44,9 @@ import {
   deriveKey,
   // Types
   type ICryptoProvider,
-  type HashAlgorithm,
-  type HmacAlgorithm,
-  type EncryptionAlgorithm,
+  type HashAlgorithm as _HashAlgorithm,
+  type HmacAlgorithm as _HmacAlgorithm,
+  type EncryptionAlgorithm as _EncryptionAlgorithm,
 } from "../../../src/shared/crypto/index.js";
 
 // ============================================================================

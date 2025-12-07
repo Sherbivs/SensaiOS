@@ -568,10 +568,10 @@ describe('Executable Docs: Circuit Breaker', () => {
       // Partial failures
       try {
         await breaker.execute(async () => { throw new Error('fail'); });
-      } catch (e) {}
+      } catch { /* expected */ }
       try {
         await breaker.execute(async () => { throw new Error('fail'); });
-      } catch (e) {}
+      } catch { /* expected */ }
       
       expect(breaker.failures).toBe(2);
       
