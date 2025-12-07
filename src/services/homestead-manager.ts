@@ -72,18 +72,43 @@ export class HomesteadChannelManager {
    * Get or create homestead channel for user
    * 
    * Flow:
-   * 1. Check database for existing mapping
-   * 2. If exists, verify channel still exists in Discord
-   * 3. If not exists, create new channel with permissions
-   * 4. Update lastAccessedAt timestamp
-   * 5. Return channel reference
+   * 1. Look up or create internal User record from Discord ID
+   * 2. Check database for existing homestead mapping
+   * 3. If exists, verify channel still exists in Discord
+   * 4. If not exists, create new channel with permissions
+   * 5. Update lastAccessedAt timestamp
+   * 6. Return channel reference
    * 
    * @param user Discord user object
    * @returns Channel and metadata
    */
   async getOrCreateChannel(user: User): Promise<ChannelCreationResult> {
-    const userId = user.id;
+    const discordId = user.id;
     const guildId = this.guild.id;
+
+    // Step 0: Resolve internal User ID from Discord ID
+    // The HomesteadChannel.userId foreign key references User.id, not Discord ID
+    let dbUser = await prisma.user.findUnique({
+      where: { discordId },
+    });
+
+    if (!dbUser) {
+      // Auto-create user record for new players
+      // This handles the onboarding case where user runs /home before any other command
+      log.info('[HomesteadManager] Creating new User record for Discord user', {
+        discordId,
+        username: user.username,
+      });
+      
+      dbUser = await prisma.user.create({
+        data: {
+          discordId,
+          // Other fields will use schema defaults
+        },
+      });
+    }
+
+    const userId = dbUser.id; // Internal User ID (UUID/CUID), not Discord ID
 
     // Step 1: Check database for existing homestead
     let homesteadRecord = await prisma.homesteadChannel.findUnique({
