@@ -61,6 +61,10 @@ import { errorTracker, type ErrorSeverity, type ErrorCategory } from '../../serv
 // Alert Throttle modules (Strategic DM Alerts)
 import { alertThrottle, type AlertSeverity } from '../../services/alert-throttle.js';
 
+// Identity Consolidation modules (Phase 3 - Discord Identity Service)
+import { resolvePlayer, type ResolvedPlayer } from '../../services/player-resolver.js';
+import { resolveDiscordUser, type DiscordUserIdentity } from '../../services/discord-identity.js';
+
 // Import state persistence modules (optional - bot/state may be in JS)
 let stateModules: any = null;
 async function getStateModules() {
@@ -1373,6 +1377,113 @@ function formatErrorAlertsReport(
   return lines.join("\n");
 }
 
+/**
+ * Format comprehensive player profile report
+ * Uses Identity Consolidation system (discord-identity.ts + player-resolver.ts)
+ * 
+ * @param player - Resolved player from PlayerResolver
+ * @param identity - Discord identity from security DB (optional)
+ * @param detailed - Whether to show extended game state
+ */
+function formatPlayerProfileReport(
+  player: ResolvedPlayer | null,
+  identity: DiscordUserIdentity | null,
+  detailed: boolean = false
+): string {
+  const lines: string[] = [];
+  
+  lines.push("**📋 Player Profile Report**");
+  lines.push("*Identity Consolidation System (Phase 3)*");
+  lines.push("");
+  
+  // === Discord Identity Section ===
+  lines.push("**🎮 Discord Identity** *(from security DB)*");
+  if (identity) {
+    lines.push(`• Username: \`${identity.username}\``);
+    lines.push(`• Display Name: ${identity.displayName || 'N/A'}`);
+    lines.push(`• Discord ID: \`${identity.discordUserId}\``);
+    lines.push(`• Guild ID: \`${identity.guildId}\``);
+    
+    // Risk assessment
+    const riskScore = identity.riskScore ?? 0;
+    const riskEmoji = riskScore < 0.3 ? '🟢' : riskScore < 0.7 ? '🟡' : '🔴';
+    lines.push(`• Risk Score: ${riskEmoji} ${(riskScore * 100).toFixed(1)}%`);
+    
+    // Roles (top 5)
+    if (identity.roles.length > 0) {
+      const rolesDisplay = identity.roles.slice(0, 5).join(', ');
+      const moreRoles = identity.roles.length > 5 ? ` (+${identity.roles.length - 5} more)` : '';
+      lines.push(`• Roles: ${rolesDisplay}${moreRoles}`);
+    } else {
+      lines.push(`• Roles: None`);
+    }
+    
+    // Flags
+    const flags: string[] = [];
+    if (identity.isAdministrator) flags.push('👑 Administrator');
+    if (identity.isOwner) flags.push('🏆 Owner');
+    if (identity.isBot) flags.push('🤖 Bot');
+    if (flags.length > 0) {
+      lines.push(`• Flags: ${flags.join(', ')}`);
+    }
+    
+    // Timestamps
+    if (identity.joinedAt) {
+      lines.push(`• Joined Server: ${formatTimestamp(identity.joinedAt)}`);
+    }
+    if (identity.lastActivityAt) {
+      lines.push(`• Last Seen: ${formatTimestamp(identity.lastActivityAt)}`);
+    }
+  } else {
+    lines.push(`• ⚠️ No identity record in security DB`);
+    lines.push(`• User may not have interacted with the bot yet`);
+  }
+  lines.push("");
+  
+  // === Game State Section ===
+  lines.push("**🎲 Game State** *(from User table)*");
+  if (player) {
+    lines.push(`• Internal ID: \`${player.id}\``);
+    lines.push(`• Coins: 💰 ${player.coins.toLocaleString()}`);
+    lines.push(`• Account Created: ${formatTimestamp(player.createdAt)}`);
+    if (player.lastActiveAt) {
+      lines.push(`• Last Activity: ${formatTimestamp(player.lastActiveAt)}`);
+    }
+    
+    // Homestead status
+    lines.push("");
+    lines.push("**🏠 Homestead Channel**");
+    if (player.homesteadChannelId) {
+      lines.push(`• Channel ID: \`${player.homesteadChannelId}\``);
+      lines.push(`• Status: ✅ Active`);
+    } else {
+      lines.push(`• Status: ⚠️ Not created yet`);
+    }
+    
+    // Detailed game state (optional)
+    if (detailed) {
+      lines.push("");
+      lines.push("**📊 Extended Details** *(--detailed)*");
+      lines.push(`• Discord ID Match: ${player.discordId === identity?.discordUserId ? '✅ Verified' : '⚠️ Check needed'}`);
+      if (player.username !== identity?.username) {
+        lines.push(`• Username Drift: User table has \`${player.username}\`, security DB has \`${identity?.username || 'N/A'}\``);
+      }
+    }
+  } else {
+    lines.push(`• ⚠️ No game account found`);
+    lines.push(`• User has not started playing yet`);
+  }
+  lines.push("");
+  
+  // === Data Source Summary ===
+  lines.push("**📦 Data Sources**");
+  lines.push(`• Discord Identity: ${identity ? '✅' : '❌'} discord_members table`);
+  lines.push(`• Game State: ${player ? '✅' : '❌'} User table`);
+  lines.push(`• Resolver: PlayerResolver + DiscordIdentityService`);
+  
+  return lines.join("\n");
+}
+
 export async function handleOpsCommand(
   interaction: ChatInputCommandInteraction,
   deps: OpsCommandDeps = {}
@@ -1507,6 +1618,40 @@ export async function handleOpsCommand(
       });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `Log query failed: ${message}` });
+    }
+    return;
+  }
+
+  if (sub === "player") {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const targetUser = interaction.options.getUser("user", true);
+      const detailed = Boolean(interaction.options?.getBoolean?.("detailed"));
+      const guildId = interaction.guildId;
+      
+      if (!guildId) {
+        await interaction.editReply({ content: "This command must be used in a guild." });
+        return;
+      }
+      
+      // Resolve player using new identity consolidation system
+      const [player, identity] = await Promise.all([
+        resolvePlayer(targetUser.id, guildId),
+        resolveDiscordUser(targetUser.id, guildId),
+      ]);
+      
+      const report = formatPlayerProfileReport(player, identity, detailed);
+      await interaction.editReply({ content: report });
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'DISCORD',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops player',
+        operation: 'formatPlayerProfileReport',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Player profile lookup failed: ${message}` });
     }
     return;
   }

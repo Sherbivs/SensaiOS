@@ -238,6 +238,23 @@ const data = new SlashCommandBuilder()
           )
       )
   )
+  .addSubcommand((sub) =>
+    sub
+      .setName('player')
+      .setDescription('View comprehensive player profile (identity + game state + homestead)')
+      .addUserOption((opt) =>
+        opt
+          .setName('user')
+          .setDescription('Discord user to inspect')
+          .setRequired(true)
+      )
+      .addBooleanOption((opt) =>
+        opt
+          .setName('detailed')
+          .setDescription('Show extended game state details')
+          .setRequired(false)
+      )
+  )
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .setDMPermission(false);
 
