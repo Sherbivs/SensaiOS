@@ -45,6 +45,10 @@ import { setupHomesteadDeletionHandler } from "../services/player-checkpoint.js"
 // Proactively verifies each player's homestead at a steady pace
 import { startAllHomesteadMonitors, stopAllHomesteadMonitors } from "../services/homestead-player-monitor.js";
 
+// Startup bootstrap for deleted/pending homesteads
+// Ensures no player is locked out after channel deletion
+import { bootstrapAllHomesteads } from "../services/homestead-manager.js";
+
 // Development mode access control
 import { isUserAllowedInDevMode, getDevModeAccessDeniedMessage } from "../shared/feature-flags.js";
 
@@ -132,6 +136,25 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                 // 2. Forced healing of any data integrity issues
                 // 3. Automatic channel recreation with recovery status message
                 setupHomesteadDeletionHandler(client);
+                
+                // STARTUP BOOTSTRAP: Recover deleted/pending homesteads immediately
+                // This ensures no player is locked out if their channel was deleted
+                // while the bot was offline. Creates channels BEFORE monitors start.
+                bootstrapAllHomesteads(client).then(results => {
+                        const totalRecovered = results.reduce((sum, r) => sum + r.recovered, 0);
+                        const totalFailed = results.reduce((sum, r) => sum + r.failed, 0);
+                        if (totalRecovered > 0 || totalFailed > 0) {
+                                log.info("Homestead bootstrap complete", {
+                                        guilds: results.length,
+                                        recovered: totalRecovered,
+                                        failed: totalFailed,
+                                });
+                        }
+                }).catch(err => {
+                        log.error("Failed to bootstrap homesteads", {
+                                error: err instanceof Error ? err.message : String(err),
+                        });
+                });
                 
                 // Start background homestead integrity monitors for all guilds
                 // Checks each player's homestead at a steady pace (~1/second)

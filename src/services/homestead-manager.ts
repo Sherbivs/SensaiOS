@@ -7,6 +7,10 @@
  * 
  * Architecture: docs/architecture-bible/14-private-channel-architecture.md
  * 
+ * CRITICAL: This module bridges Discord IDs to internal User.id for homestead lookup.
+ * The homestead_channels table uses internal User.id (e.g., "driptvdd-founder-001"),
+ * NOT Discord snowflake IDs. All lookups must go through ensureUser() first.
+ * 
  * @module homestead-manager
  */
 
@@ -14,6 +18,7 @@ import { Client, Guild, TextChannel, ChannelType, PermissionFlagsBits, User } fr
 import { prisma } from '../shared/prisma.js';
 import { log } from '../utils/logger.js';
 import { resolveDiscordUser } from './discord-identity.js';
+import { ensureUser } from '../shared/models/user-queries-pg.js';
 
 // Lazy import to avoid circular dependency
 let checkpointServiceModule: typeof import('./player-checkpoint.js') | null = null;
@@ -73,36 +78,52 @@ export class HomesteadChannelManager {
    * Get or create homestead channel for user
    * 
    * Flow:
-   * 1. Check database for existing mapping
-   * 2. If exists, verify channel still exists in Discord
-   * 3. If not exists, create new channel with permissions
-   * 4. Update lastAccessedAt timestamp
-   * 5. Return channel reference
+   * 1. Resolve Discord ID to internal User.id (creates User if needed)
+   * 2. Check database for existing homestead mapping using internal User.id
+   * 3. If exists, verify channel still exists in Discord
+   * 4. If not exists, create new channel with permissions
+   * 5. Update lastAccessedAt timestamp
+   * 6. Return channel reference
+   * 
+   * CRITICAL: homestead_channels.userId references User.id (internal), NOT Discord ID.
+   * Must call ensureUser() first to get or create the internal User record.
    * 
    * @param user Discord user object
    * @returns Channel and metadata
    */
   async getOrCreateChannel(user: User): Promise<ChannelCreationResult> {
-    const userId = user.id;
+    const discordId = user.id; // Discord snowflake ID
     const guildId = this.guild.id;
 
-    // Step 1: Check database for existing homestead
+    // Step 1: Resolve Discord ID to internal User.id
+    // This creates the User record if it doesn't exist
+    const internalUser = await ensureUser(discordId);
+    const internalUserId = internalUser.id; // e.g., "driptvdd-founder-001" or CUID
+
+    log.info('[HomesteadManager] Resolved Discord user to internal ID', {
+      discordId,
+      internalUserId,
+      username: user.username,
+    });
+
+    // Step 2: Check database for existing homestead using internal User.id
     let homesteadRecord = await prisma.homesteadChannel.findUnique({
-      where: { userId },
+      where: { userId: internalUserId },
     });
 
     let channel: TextChannel | null = null;
     let isNew = false;
     let wasRecovered = false;
 
-    // Step 2: If record exists, verify Discord channel
+    // Step 3: If record exists, verify Discord channel
     if (homesteadRecord) {
       channel = await this.verifyChannel(homesteadRecord.channelId);
       
       if (!channel) {
         // Channel deleted in Discord but still in DB - RECOVERY FLOW
         log.warn('[HomesteadManager] Channel deleted in Discord, initiating recovery', {
-          userId,
+          discordId,
+          internalUserId,
           oldChannelId: homesteadRecord.channelId,
         });
         
@@ -112,7 +133,7 @@ export class HomesteadChannelManager {
         
         // Update database with new channel ID
         homesteadRecord = await prisma.homesteadChannel.update({
-          where: { userId },
+          where: { userId: internalUserId },
           data: {
             channelId: channel.id,
             lastAccessedAt: new Date(),
@@ -122,27 +143,28 @@ export class HomesteadChannelManager {
       } else {
         // Channel exists, just update access time
         homesteadRecord = await prisma.homesteadChannel.update({
-          where: { userId },
+          where: { userId: internalUserId },
           data: { lastAccessedAt: new Date() },
         });
       }
     } else {
-      // Step 3: No record exists, create new channel + database entry
+      // Step 4: No record exists, create new channel + database entry
       channel = await this.createDiscordChannel(user);
       isNew = true;
 
       homesteadRecord = await prisma.homesteadChannel.create({
         data: {
-          userId,
+          userId: internalUserId, // CRITICAL: Use internal User.id, NOT Discord ID
           guildId,
           channelId: channel.id,
         },
       });
 
       // Enrich log with canonical identity from security DB
-      const identityContext = await this.getIdentityContext(userId);
+      const identityContext = await this.getIdentityContext(discordId);
       log.info('[HomesteadManager] Created new homestead', {
-        userId,
+        discordId,
+        internalUserId,
         username: user.username,
         channelId: channel.id,
         channelName: channel.name,
@@ -150,12 +172,13 @@ export class HomesteadChannelManager {
       });
     }
 
-    // Step 4: If channel was recovered from deletion, run diagnostics & send recovery message
+    // Step 5: If channel was recovered from deletion, run diagnostics & send recovery message
     if (wasRecovered && channel) {
       // Fire and forget - don't block the main flow
       this.runRecoveryDiagnostics(user, channel).catch(error => {
         log.error('[HomesteadManager] Recovery diagnostics failed (non-fatal)', {
-          userId,
+          discordId,
+          internalUserId,
           error: error instanceof Error ? error.message : String(error),
         });
       });
@@ -533,4 +556,212 @@ export function getHomesteadManager(client: Client, guildId: string): HomesteadC
  */
 export function clearManagerCache(): void {
   managerInstances.clear();
+}
+
+// ============================================================================
+// Startup Bootstrap — Recover Deleted/Pending Homesteads
+// ============================================================================
+
+export interface BootstrapResult {
+  guildId: string;
+  total: number;
+  recovered: number;
+  failed: number;
+  skipped: number;
+  errors: Array<{ userId: string; error: string }>;
+}
+
+/**
+ * Bootstrap deleted/pending homesteads on startup
+ * 
+ * Called from ClientReady event to ensure all players have working homestead channels.
+ * Without this, players whose channels were deleted would be locked out until they
+ * run a command that triggers getOrCreateChannel().
+ * 
+ * This proactive recovery ensures:
+ * 1. Players can always receive messages in their homestead
+ * 2. The bot can send notifications, battle results, etc.
+ * 3. No player is ever permanently locked out
+ * 
+ * @param client Discord client
+ * @param guildId Guild to bootstrap
+ */
+export async function bootstrapDeletedHomesteads(
+  client: Client,
+  guildId: string
+): Promise<BootstrapResult> {
+  const result: BootstrapResult = {
+    guildId,
+    total: 0,
+    recovered: 0,
+    failed: 0,
+    skipped: 0,
+    errors: [],
+  };
+
+  try {
+    // Find all homesteads that need recovery
+    const deletedHomesteads = await prisma.homesteadChannel.findMany({
+      where: {
+        guildId,
+        OR: [
+          { status: 'deleted' },
+          { status: 'pending-creation' },
+          { channelId: 'pending-creation' },
+        ],
+      },
+      include: {
+        user: true, // Get the User record for Discord ID lookup
+      },
+    });
+
+    result.total = deletedHomesteads.length;
+
+    if (deletedHomesteads.length === 0) {
+      log.info('[HomesteadManager] No deleted homesteads to bootstrap', { guildId });
+      return result;
+    }
+
+    log.info('[HomesteadManager] Bootstrapping deleted homesteads', {
+      guildId,
+      count: deletedHomesteads.length,
+    });
+
+    const manager = getHomesteadManager(client, guildId);
+    const guild = client.guilds.cache.get(guildId);
+
+    if (!guild) {
+      log.error('[HomesteadManager] Guild not found for bootstrap', { guildId });
+      result.failed = result.total;
+      return result;
+    }
+
+    for (const homestead of deletedHomesteads) {
+      try {
+        // Get Discord user from the User record's discordId
+        const discordId = homestead.user.discordId;
+        
+        if (!discordId) {
+          log.warn('[HomesteadManager] User has no Discord ID, skipping', {
+            userId: homestead.userId,
+          });
+          result.skipped++;
+          continue;
+        }
+
+        // Fetch Discord user
+        const discordUser = await client.users.fetch(discordId);
+        
+        if (!discordUser) {
+          log.warn('[HomesteadManager] Discord user not found, skipping', {
+            userId: homestead.userId,
+            discordId,
+          });
+          result.skipped++;
+          continue;
+        }
+
+        // Create the channel
+        const channelResult = await manager.getOrCreateChannel(discordUser);
+        
+        log.info('[HomesteadManager] Recovered homestead on startup', {
+          userId: homestead.userId,
+          discordId,
+          channelId: channelResult.channel.id,
+          wasNew: channelResult.isNew,
+        });
+        
+        result.recovered++;
+
+        // Send welcome back message
+        try {
+          await channelResult.channel.send({
+            content: `🏠 **Welcome back!** Your homestead channel has been restored.\n\n` +
+                     `Your Pokémon and progress are safe. Use the buttons below to continue your adventure!`,
+          });
+        } catch (msgError) {
+          // Non-fatal - channel was created, message just failed
+          log.warn('[HomesteadManager] Failed to send welcome message', {
+            channelId: channelResult.channel.id,
+            error: msgError instanceof Error ? msgError.message : String(msgError),
+          });
+        }
+
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        log.error('[HomesteadManager] Failed to bootstrap homestead', {
+          userId: homestead.userId,
+          error: errorMsg,
+        });
+        result.failed++;
+        result.errors.push({ userId: homestead.userId, error: errorMsg });
+      }
+    }
+
+    log.info('[HomesteadManager] Bootstrap complete', {
+      guildId,
+      total: result.total,
+      recovered: result.recovered,
+      failed: result.failed,
+      skipped: result.skipped,
+    });
+
+    return result;
+
+  } catch (error) {
+    log.error('[HomesteadManager] Bootstrap failed', {
+      guildId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+/**
+ * Bootstrap all guilds the bot is in
+ * Call this from ClientReady event
+ */
+export async function bootstrapAllHomesteads(client: Client): Promise<BootstrapResult[]> {
+  const results: BootstrapResult[] = [];
+
+  // Get all guilds with homesteads
+  const guilds = await prisma.homesteadChannel.findMany({
+    select: { guildId: true },
+    distinct: ['guildId'],
+  });
+
+  log.info('[HomesteadManager] Starting bootstrap for all guilds', {
+    guildCount: guilds.length,
+  });
+
+  for (const { guildId } of guilds) {
+    try {
+      const result = await bootstrapDeletedHomesteads(client, guildId);
+      results.push(result);
+    } catch (error) {
+      log.error('[HomesteadManager] Guild bootstrap failed', {
+        guildId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      results.push({
+        guildId,
+        total: 0,
+        recovered: 0,
+        failed: 1,
+        skipped: 0,
+        errors: [{ userId: 'GUILD_ERROR', error: String(error) }],
+      });
+    }
+  }
+
+  const totalRecovered = results.reduce((sum, r) => sum + r.recovered, 0);
+  const totalFailed = results.reduce((sum, r) => sum + r.failed, 0);
+
+  log.info('[HomesteadManager] All guilds bootstrapped', {
+    guilds: results.length,
+    totalRecovered,
+    totalFailed,
+  });
+
+  return results;
 }
