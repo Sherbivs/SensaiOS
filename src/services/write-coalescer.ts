@@ -19,7 +19,7 @@
  * @module services/write-coalescer
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../generated/prisma/client.js';
 import { Counter, Gauge, Histogram, register } from 'prom-client';
 import { log } from '../utils/logger.js';
 

@@ -11,7 +11,7 @@
  * @security Data Integrity, CWE-840 (Business Logic Errors)
  */
 
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "../../../generated/prisma/client.js";
 
 // ============================================================================
 // Types & Interfaces

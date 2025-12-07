@@ -16,8 +16,8 @@
  * @created 2025-12-04
  */
 
-import type { PrismaClient } from "@prisma/client";
-import type { Trainer, Party, PartySlot, PokemonInstance, User, Prisma } from "@prisma/client";
+import type { PrismaClient } from "../generated/prisma/client.js";
+import type { Trainer, Party, PartySlot, PokemonInstance, User, Prisma } from "../generated/prisma/client.js";
 import { setUserContext, clearUserContext, type RlsUserContext } from "./rls-context.js";
 
 // ============================================================================

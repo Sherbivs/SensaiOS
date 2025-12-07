@@ -9,7 +9,7 @@
  * @created 2025-12-04
  */
 
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "../generated/prisma/client.js";
 
 /**
  * User context for RLS policies

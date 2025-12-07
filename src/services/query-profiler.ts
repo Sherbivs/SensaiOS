@@ -18,7 +18,7 @@
  * @module services/query-profiler
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../generated/prisma/client.js';
 import { log } from '../utils/logger.js';
 import { Counter, Histogram, Gauge, register } from 'prom-client';
 

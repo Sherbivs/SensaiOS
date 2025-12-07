@@ -16,7 +16,7 @@
  * @task P1-002 Audit Logging
  */
 
-import { PrismaClient, Prisma, AuditLog } from '@prisma/client';
+import { PrismaClient, Prisma, type AuditLog } from '../generated/prisma/client.js';
 import type { RlsUserContext } from './rls-context.js';
 import { IntelligentLogger } from '../utils/intelligent-logger.js';
 

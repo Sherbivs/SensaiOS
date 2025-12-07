@@ -23,7 +23,7 @@
  */
 
 import * as crypto from 'crypto';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '../../../generated/prisma/client.js';
 import { SecuritySeverity, ThreatType, RoleChangeType } from '../types/database-models.js';
 
 // ============================================================================

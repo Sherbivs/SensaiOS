@@ -16,7 +16,7 @@
  * @see src/services/base-repository.ts - Base repository pattern
  */
 
-import type { PrismaClient, PokemonInstance, Species, Prisma } from "@prisma/client";
+import type { PrismaClient, PokemonInstance, Species, Prisma } from "../generated/prisma/client.js";
 import type { RlsUserContext } from "./rls-context.js";
 import { setUserContext, clearUserContext } from "./rls-context.js";
 

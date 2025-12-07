@@ -13,7 +13,7 @@
  * @security Data Integrity, CWE-754 (Improper Check)
  */
 
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "../../../generated/prisma/client.js";
 
 // ============================================================================
 // Types & Interfaces

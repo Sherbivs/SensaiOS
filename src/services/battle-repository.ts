@@ -13,7 +13,7 @@
  * @see src/services/rls-context.ts - RLS context management
  */
 
-import { PrismaClient, Prisma, type Battle, type User } from "@prisma/client";
+import { PrismaClient, Prisma, type Battle, type User } from "../generated/prisma/client.js";
 import type { RlsUserContext } from "./rls-context.js";
 import { setUserContext, clearUserContext } from "./rls-context.js";
 

@@ -12,7 +12,7 @@
  * @security CWE-79 (XSS), CWE-20 (Input Validation), CWE-294 (Replay Attacks)
  */
 
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "../../../generated/prisma/client.js";
 
 // ============================================================================
 // Types & Interfaces
