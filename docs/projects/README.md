@@ -133,6 +133,18 @@ Before ANY Bible integration, run this validation:
     * `2025-12-02-bible-system-complete.md` — Phase 1: Bible-centric documentation system
   - **Purpose:** System improvements, workflow enhancements, infrastructure projects
 
+- **database/** — Database-related projects and audits
+  - **Completion Reports:**
+    * `2025-12-07-id-standardization-audit.md` — Database ID format audit ✅ RESOLVED
+  - **Purpose:** Database schema, migrations, ID standardization
+
+- **identity/** — Identity resolution and consolidation projects
+  - [README.md](./identity/README.md) — Project overview
+  - **Completion Reports:**
+    * `2025-12-08-identity-consolidation-complete.md` — Identity Consolidation System ✅ COMPLETE
+  - **Purpose:** Unified player identity resolution, Discord identity services
+  - **Key Deliverables:** discord-identity.ts (687 lines), player-resolver.ts (420 lines)
+
 - **database-centric/** — 🚀 **ACTIVE** Database-Centric Development Plan
   - [README.md](./database-centric/README.md) — Project hub with navigation
   - [SPRINT-TRACKER.md](./database-centric/SPRINT-TRACKER.md) — Current sprint checklist
