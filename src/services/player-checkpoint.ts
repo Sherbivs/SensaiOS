@@ -859,21 +859,23 @@ export class PlayerCheckpointService {
 // ============================================================================
 
 /**
- * Set up the channelDelete event handler for AUTOMATIC recovery
+ * Set up the channelDelete event handler for IMMEDIATE recovery
+ * Call this during bot initialization
  * 
- * When a homestead channel is deleted:
- * 1. Detect it via Discord channelDelete event
- * 2. Mark the DB record as 'deleted' 
- * 3. AUTOMATICALLY recreate the channel (no user command needed)
- * 4. Run full diagnostics and healing
- * 5. Notify the user in their new homestead with recovery status
+ * VS Code Copilot-style behavior: When user deletes their homestead channel
+ * (intentionally or accidentally), the system IMMEDIATELY:
+ * 1. Detects the deletion via Discord event
+ * 2. Runs full diagnostics on player state
+ * 3. Recreates the channel automatically
+ * 4. Sends recovery status embed to the new channel
  * 
- * Call this during bot initialization.
+ * User experience: Delete channel → instant recreation with recovery message
+ * No waiting for next interaction required.
  */
 export function setupHomesteadDeletionHandler(client: Client): void {
   client.on('channelDelete', async (channel) => {
     // Only handle guild text channels
-    if (!channel.isTextBased() || !('guild' in channel)) return;
+    if (channel.type !== 0) return; // 0 = GuildText
     
     // Check if this was a homestead channel
     const homestead = await prisma.homesteadChannel.findUnique({
@@ -883,117 +885,87 @@ export function setupHomesteadDeletionHandler(client: Client): void {
     
     if (!homestead) return; // Not a homestead channel
     
-    const guildId = 'guild' in channel ? channel.guild.id : homestead.guildId;
-    
-    log.info('[PlayerCheckpoint] Homestead channel deleted, initiating AUTOMATIC recovery', {
+    const startTime = Date.now();
+    log.info('[PlayerCheckpoint] 🔄 Homestead deletion detected - IMMEDIATE RECOVERY INITIATED', {
       channelId: channel.id,
       userId: homestead.userId,
       discordId: homestead.user.discordId,
-      guildId,
+      channelName: 'name' in channel ? channel.name : 'unknown',
     });
     
-    // Mark the DB record as deleted (keep for audit trail)
-    await prisma.homesteadChannel.update({
-      where: { id: homestead.id },
-      data: { status: 'deleted' }
-    });
-    
-    // ========================================================================
-    // AUTOMATIC RECOVERY: Recreate homestead without user command
-    // ========================================================================
     try {
-      // Fetch the Discord user object
-      const discordUser = await client.users.fetch(homestead.user.discordId);
+      // Step 1: Mark the DB record as deleted (audit trail)
+      await prisma.homesteadChannel.update({
+        where: { id: homestead.id },
+        data: { status: 'deleted' }
+      });
       
-      // Get the guild
-      const guild = client.guilds.cache.get(guildId);
-      if (!guild) {
-        log.error('[PlayerCheckpoint] Cannot auto-recover: Guild not found', { guildId });
+      // Step 2: Fetch the Discord user for channel recreation
+      const discordUser = await client.users.fetch(homestead.user.discordId);
+      if (!discordUser) {
+        log.error('[PlayerCheckpoint] Cannot fetch Discord user for recovery', {
+          discordId: homestead.user.discordId,
+        });
         return;
       }
       
-      // Create new homestead channel
-      const manager = new HomesteadChannelManager(client, guildId);
-      const { channel: newChannel } = await manager.getOrCreateChannel(discordUser);
+      // Step 3: Get guild for channel creation
+      const guild = client.guilds.cache.get(homestead.guildId);
+      if (!guild) {
+        log.error('[PlayerCheckpoint] Cannot find guild for recovery', {
+          guildId: homestead.guildId,
+        });
+        return;
+      }
       
-      log.info('[PlayerCheckpoint] Auto-created new homestead channel', {
-        userId: homestead.userId,
-        discordId: homestead.user.discordId,
-        newChannelId: newChannel.id,
-      });
-      
-      // Run full recovery diagnostics
-      const checkpointService = new PlayerCheckpointService(client, guildId);
-      const { report, recoveryMessage } = await checkpointService.handleHomesteadDeletion(
+      // Step 4: Create checkpoint service and run full recovery
+      const checkpointService = new PlayerCheckpointService(client, homestead.guildId);
+      const { report, newHomestead, recoveryMessage } = await checkpointService.handleHomesteadDeletion(
         homestead.userId,
         discordUser
       );
       
-      // Send recovery status to the new channel
-      await newChannel.send({ embeds: [recoveryMessage] });
-      
-      // Also send a welcome-back message with channel link hint
-      const welcomeBack = new EmbedBuilder()
-        .setTitle('🏠 Your Homestead Has Been Restored!')
-        .setColor(0x00FF00)
-        .setDescription(
-          `Your homestead channel was deleted, but don't worry — I've automatically ` +
-          `recreated it and recovered your game state!\n\n` +
-          `**Your Pokémon, items, and progress are safe.** ✨\n\n` +
-          `This is your new homestead. Everything works just like before.`
-        )
-        .addFields({
-          name: 'Recovery Status',
-          value: report.overallStatus === 'healthy' 
-            ? '✅ All systems nominal' 
-            : `⚠️ ${report.overallStatus} — see details above`,
-          inline: true,
-        })
-        .setTimestamp()
-        .setFooter({ text: 'Infinity Gauntlet Auto-Recovery' });
-      
-      await newChannel.send({ embeds: [welcomeBack] });
-      
-      log.info('[PlayerCheckpoint] Automatic homestead recovery complete', {
-        userId: homestead.userId,
-        discordId: homestead.user.discordId,
-        newChannelId: newChannel.id,
-        recoveryStatus: report.overallStatus,
-      });
+      // Step 5: Send recovery message to the NEW channel
+      if (newHomestead) {
+        await newHomestead.send({ embeds: [recoveryMessage] });
+        
+        const recoveryTimeMs = Date.now() - startTime;
+        log.info('[PlayerCheckpoint] ✅ IMMEDIATE RECOVERY COMPLETE', {
+          userId: homestead.userId,
+          discordId: homestead.user.discordId,
+          oldChannelId: channel.id,
+          newChannelId: newHomestead.id,
+          recoveryTimeMs,
+          diagnosticStatus: report.overallStatus,
+          healingSuccessful: report.healingSuccessful,
+        });
+      }
       
     } catch (error) {
-      log.error('[PlayerCheckpoint] Automatic homestead recovery FAILED', {
+      log.error('[PlayerCheckpoint] ❌ IMMEDIATE RECOVERY FAILED', {
         userId: homestead.userId,
         discordId: homestead.user.discordId,
         error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
       });
       
-      // Try to DM the user as fallback notification
+      // Fallback: Try to DM the user about the failure
       try {
         const discordUser = await client.users.fetch(homestead.user.discordId);
         await discordUser.send({
-          embeds: [
-            new EmbedBuilder()
-              .setTitle('⚠️ Homestead Recovery Issue')
-              .setColor(0xFFFF00)
-              .setDescription(
-                `Your homestead channel was deleted, but I had trouble automatically ` +
-                `recreating it. Don't worry — your game data is safe!\n\n` +
-                `**To restore your homestead**, just run \`/home\` in any channel on the server.`
-              )
-              .setTimestamp()
-          ]
+          content: '⚠️ Your homestead channel was deleted but automatic recovery failed. ' +
+                   'Please use `/home` or any game command to manually trigger recovery. ' +
+                   'Your game data is safe!'
         });
-      } catch (dmError) {
+      } catch {
         log.warn('[PlayerCheckpoint] Could not DM user about recovery failure', {
           discordId: homestead.user.discordId,
-          error: dmError instanceof Error ? dmError.message : String(dmError),
         });
       }
     }
   });
   
-  log.info('[PlayerCheckpoint] Homestead deletion handler registered (AUTOMATIC recovery enabled)');
+  log.info('[PlayerCheckpoint] ✅ Homestead deletion handler registered (IMMEDIATE RECOVERY MODE)');
 }
 
 // ============================================================================
