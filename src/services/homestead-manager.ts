@@ -13,6 +13,7 @@
 import { Client, Guild, TextChannel, ChannelType, PermissionFlagsBits, User } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
 import { log } from '../utils/logger.js';
+import { resolveDiscordUser } from './discord-identity.js';
 
 // Lazy import to avoid circular dependency
 let checkpointServiceModule: typeof import('./player-checkpoint.js') | null = null;
@@ -72,43 +73,18 @@ export class HomesteadChannelManager {
    * Get or create homestead channel for user
    * 
    * Flow:
-   * 1. Look up or create internal User record from Discord ID
-   * 2. Check database for existing homestead mapping
-   * 3. If exists, verify channel still exists in Discord
-   * 4. If not exists, create new channel with permissions
-   * 5. Update lastAccessedAt timestamp
-   * 6. Return channel reference
+   * 1. Check database for existing mapping
+   * 2. If exists, verify channel still exists in Discord
+   * 3. If not exists, create new channel with permissions
+   * 4. Update lastAccessedAt timestamp
+   * 5. Return channel reference
    * 
    * @param user Discord user object
    * @returns Channel and metadata
    */
   async getOrCreateChannel(user: User): Promise<ChannelCreationResult> {
-    const discordId = user.id;
+    const userId = user.id;
     const guildId = this.guild.id;
-
-    // Step 0: Resolve internal User ID from Discord ID
-    // The HomesteadChannel.userId foreign key references User.id, not Discord ID
-    let dbUser = await prisma.user.findUnique({
-      where: { discordId },
-    });
-
-    if (!dbUser) {
-      // Auto-create user record for new players
-      // This handles the onboarding case where user runs /home before any other command
-      log.info('[HomesteadManager] Creating new User record for Discord user', {
-        discordId,
-        username: user.username,
-      });
-      
-      dbUser = await prisma.user.create({
-        data: {
-          discordId,
-          // Other fields will use schema defaults
-        },
-      });
-    }
-
-    const userId = dbUser.id; // Internal User ID (UUID/CUID), not Discord ID
 
     // Step 1: Check database for existing homestead
     let homesteadRecord = await prisma.homesteadChannel.findUnique({
@@ -163,11 +139,14 @@ export class HomesteadChannelManager {
         },
       });
 
+      // Enrich log with canonical identity from security DB
+      const identityContext = await this.getIdentityContext(userId);
       log.info('[HomesteadManager] Created new homestead', {
         userId,
         username: user.username,
         channelId: channel.id,
         channelName: channel.name,
+        ...identityContext,
       });
     }
 
@@ -297,11 +276,14 @@ export class HomesteadChannelManager {
       ],
     });
 
+    // Enrich log with canonical identity from security DB
+    const identityContext = await this.getIdentityContext(user.id);
     log.info('[HomesteadManager] Created Discord channel', {
       userId: user.id,
       channelId: channel.id,
       channelName: channel.name,
       categoryId: category.id,
+      ...identityContext,
     });
 
     return channel;
@@ -342,6 +324,30 @@ export class HomesteadChannelManager {
     });
 
     return category;
+  }
+
+  /**
+   * Enrich log context with canonical identity from security DB
+   * Used to add displayName, roles, riskScore to log entries
+   * 
+   * @param discordId Discord user ID
+   * @returns Identity context for logging (empty object if not found)
+   */
+  private async getIdentityContext(discordId: string): Promise<Record<string, unknown>> {
+    try {
+      const identity = await resolveDiscordUser(discordId, this.guild.id);
+      if (identity) {
+        return {
+          canonicalUsername: identity.username,
+          displayName: identity.displayName,
+          roles: identity.roles.slice(0, 3), // Top 3 roles for brevity
+          riskScore: identity.riskScore,
+        };
+      }
+    } catch {
+      // Identity lookup failed, not critical
+    }
+    return {};
   }
 
   /**

@@ -20,7 +20,6 @@ import { HomesteadChannelManager } from './homestead-manager.js';
 import { 
   resolveDiscordUser, 
   hasDiscordIdentity,
-  type DiscordUserIdentity 
 } from './discord-identity.js';
 
 // ============================================================================
@@ -121,7 +120,7 @@ export interface PlayerDiagnosticReport {
 const CHECKPOINT_VERSION = 1;
 const CHECKPOINT_TTL_DAYS = 30; // Keep checkpoints for 30 days
 const MAX_CHECKPOINTS_PER_USER = 10; // Rolling buffer of recent checkpoints
-const PERIODIC_CHECKPOINT_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+const _PERIODIC_CHECKPOINT_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes (reserved for future periodic checkpoints)
 
 // In-memory checkpoint cache (for fast recovery within session)
 // In production, this would be backed by Redis or similar
