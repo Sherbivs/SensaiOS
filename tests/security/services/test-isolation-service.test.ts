@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../../../src/generated/prisma/client.js";
 import {
   TestIsolationService,
   createTestIsolationService,
