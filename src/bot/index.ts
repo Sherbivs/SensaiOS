@@ -37,6 +37,10 @@ import { handleOpsCommand } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleWalk } from "./wilds/walk.js";
 
+// Player checkpoint & recovery system (VS Code-style state recovery)
+// Triggers diagnostics and forced healing when homestead is deleted
+import { setupHomesteadDeletionHandler } from "../services/player-checkpoint.js";
+
 // Development mode access control
 import { isUserAllowedInDevMode, getDevModeAccessDeniedMessage } from "../shared/feature-flags.js";
 
@@ -117,6 +121,13 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                         user: client.user?.tag,
                         lazyCommands: true,  // Commands will load on first interaction
                 });
+                
+                // Register homestead deletion handler for VS Code-style recovery
+                // When user deletes their homestead channel, triggers:
+                // 1. Full diagnostic tests on player state
+                // 2. Forced healing of any data integrity issues
+                // 3. Automatic channel recreation with recovery status message
+                setupHomesteadDeletionHandler(client);
         });
 
 	client.on("interactionCreate", async (interaction: Interaction) => {

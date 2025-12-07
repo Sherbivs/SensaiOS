@@ -14,6 +14,16 @@ import { Client, Guild, TextChannel, ChannelType, PermissionFlagsBits, User } fr
 import { prisma } from '../shared/prisma.js';
 import { log } from '../utils/logger.js';
 
+// Lazy import to avoid circular dependency
+let checkpointServiceModule: typeof import('./player-checkpoint.js') | null = null;
+
+async function getCheckpointService() {
+  if (!checkpointServiceModule) {
+    checkpointServiceModule = await import('./player-checkpoint.js');
+  }
+  return checkpointServiceModule;
+}
+
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -82,18 +92,20 @@ export class HomesteadChannelManager {
 
     let channel: TextChannel | null = null;
     let isNew = false;
+    let wasRecovered = false;
 
     // Step 2: If record exists, verify Discord channel
     if (homesteadRecord) {
       channel = await this.verifyChannel(homesteadRecord.channelId);
       
       if (!channel) {
-        // Channel deleted in Discord but still in DB - recreate
-        log.warn('[HomesteadManager] Channel deleted in Discord, recreating', {
+        // Channel deleted in Discord but still in DB - RECOVERY FLOW
+        log.warn('[HomesteadManager] Channel deleted in Discord, initiating recovery', {
           userId,
           oldChannelId: homesteadRecord.channelId,
         });
         
+        wasRecovered = true;
         channel = await this.createDiscordChannel(user);
         isNew = true;
         
@@ -103,6 +115,7 @@ export class HomesteadChannelManager {
           data: {
             channelId: channel.id,
             lastAccessedAt: new Date(),
+            status: 'active', // Reset status from 'deleted' if applicable
           },
         });
       } else {
@@ -133,11 +146,64 @@ export class HomesteadChannelManager {
       });
     }
 
+    // Step 4: If channel was recovered from deletion, run diagnostics & send recovery message
+    if (wasRecovered && channel) {
+      // Fire and forget - don't block the main flow
+      this.runRecoveryDiagnostics(user, channel).catch(error => {
+        log.error('[HomesteadManager] Recovery diagnostics failed (non-fatal)', {
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+
     return {
       channel,
       isNew,
       homesteadRecord,
     };
+  }
+
+  /**
+   * Run recovery diagnostics and send status message to user
+   * Called when a deleted homestead is recreated
+   */
+  private async runRecoveryDiagnostics(user: User, channel: TextChannel): Promise<void> {
+    try {
+      const { PlayerCheckpointService } = await getCheckpointService();
+      const checkpointService = new PlayerCheckpointService(this.client, this.guild.id);
+      
+      // Look up the user's internal ID from Discord ID
+      const dbUser = await prisma.user.findUnique({
+        where: { discordId: user.id }
+      });
+      
+      if (!dbUser) {
+        // New user, no recovery needed
+        return;
+      }
+      
+      // Run full recovery flow
+      const { report, recoveryMessage } = await checkpointService.handleHomesteadDeletion(
+        dbUser.id, 
+        user
+      );
+      
+      // Send recovery status to the new channel
+      await channel.send({ embeds: [recoveryMessage] });
+      
+      log.info('[HomesteadManager] Recovery diagnostics complete', {
+        userId: dbUser.id,
+        discordId: user.id,
+        status: report.overallStatus,
+        healingSuccessful: report.healingSuccessful,
+      });
+    } catch (error) {
+      log.error('[HomesteadManager] Recovery diagnostics error', {
+        discordId: user.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   /**
