@@ -19,6 +19,7 @@
 import type { PrismaClient, PokemonInstance, Species, Prisma } from "../generated/prisma/client.js";
 import type { RlsUserContext } from "./rls-context.js";
 import { setUserContext, clearUserContext } from "./rls-context.js";
+import { toJsonValue, fromJsonValue } from "../shared/json-types.js";
 
 // =============================================================================
 // Type Definitions
@@ -293,9 +294,9 @@ export class PokemonRepository {
           level: data.level ?? 1,
           exp: data.exp ?? 0,
           nature: data.nature,
-          ivsJson: data.ivs,
-          evsJson: data.evs ?? DEFAULT_EVS,
-          movesJson: data.moves,
+          ivsJson: toJsonValue(data.ivs),
+          evsJson: toJsonValue(data.evs ?? DEFAULT_EVS),
+          movesJson: toJsonValue(data.moves),
           hp: data.hp,
           maxHp: data.maxHp,
           isShiny: data.isShiny ?? false,
@@ -306,7 +307,7 @@ export class PokemonRepository {
         },
         include: { species: true },
       });
-    });
+    }) as Promise<PokemonWithSpecies>;
   }
 
   /**
@@ -319,9 +320,9 @@ export class PokemonRepository {
       if (data.level !== undefined) updateData.level = data.level;
       if (data.exp !== undefined) updateData.exp = data.exp;
       if (data.nature !== undefined) updateData.nature = data.nature;
-      if (data.ivs !== undefined) updateData.ivsJson = data.ivs;
-      if (data.evs !== undefined) updateData.evsJson = data.evs;
-      if (data.moves !== undefined) updateData.movesJson = data.moves;
+      if (data.ivs !== undefined) updateData.ivsJson = toJsonValue(data.ivs);
+      if (data.evs !== undefined) updateData.evsJson = toJsonValue(data.evs);
+      if (data.moves !== undefined) updateData.movesJson = toJsonValue(data.moves);
       if (data.hp !== undefined) updateData.hp = data.hp;
       if (data.maxHp !== undefined) updateData.maxHp = data.maxHp;
       if (data.status !== undefined) updateData.status = data.status;
@@ -338,7 +339,7 @@ export class PokemonRepository {
         data: updateData,
         include: { species: true },
       });
-    });
+    }) as Promise<PokemonWithSpecies>;
   }
 
   /**
@@ -679,7 +680,7 @@ export class PokemonRepository {
         throw new Error(`Pokemon ${id} not found`);
       }
 
-      return pokemon.movesJson as MoveSlot[];
+      return fromJsonValue<MoveSlot[]>(pokemon.movesJson) ?? [];
     });
   }
 
@@ -694,9 +695,9 @@ export class PokemonRepository {
 
       return this.prisma.pokemonInstance.update({
         where: { id },
-        data: { movesJson: moves },
+        data: { movesJson: toJsonValue(moves) },
         include: { species: true },
-      });
+      }) as Promise<PokemonWithSpecies>;
     });
   }
 
@@ -714,7 +715,7 @@ export class PokemonRepository {
         throw new Error(`Pokemon ${id} not found`);
       }
 
-      const moves = pokemon.movesJson as MoveSlot[];
+      const moves = fromJsonValue<MoveSlot[]>(pokemon.movesJson) ?? [];
       const restoredMoves = moves.map((move) => ({
         ...move,
         pp: move.maxPP,
@@ -722,9 +723,9 @@ export class PokemonRepository {
 
       return this.prisma.pokemonInstance.update({
         where: { id },
-        data: { movesJson: restoredMoves },
+        data: { movesJson: toJsonValue(restoredMoves) },
         include: { species: true },
-      });
+      }) as Promise<PokemonWithSpecies>;
     });
   }
 

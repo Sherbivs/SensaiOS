@@ -171,7 +171,7 @@ export class HomesteadVerificationService {
           guildId: guild.id,
           guildName: guild.name,
           userId: user.id,
-          username: user.username,
+          discordId: user.discordId,  // User model has discordId, not username
           count: recentCreations,
           threshold: RATE_LIMIT_THRESHOLD,
           timeWindow: '5min',

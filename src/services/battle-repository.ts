@@ -16,6 +16,7 @@
 import { PrismaClient, Prisma, type Battle, type User } from "../generated/prisma/client.js";
 import type { RlsUserContext } from "./rls-context.js";
 import { setUserContext, clearUserContext } from "./rls-context.js";
+import { toJsonValue } from "../shared/json-types.js";
 
 // =============================================================================
 // Type Definitions
@@ -250,9 +251,9 @@ export class BattleRepository {
       const updateData: Prisma.BattleUpdateInput = {};
 
       if (data.state !== undefined) updateData.state = data.state;
-      if (data.logCompact !== undefined) updateData.logCompact = data.logCompact as Prisma.InputJsonValue;
-      if (data.logFull !== undefined) updateData.logFull = data.logFull as Prisma.InputJsonValue;
-      if (data.resultJson !== undefined) updateData.resultJson = data.resultJson as Prisma.InputJsonValue;
+      if (data.logCompact !== undefined) updateData.logCompact = toJsonValue(data.logCompact);
+      if (data.logFull !== undefined) updateData.logFull = toJsonValue(data.logFull);
+      if (data.resultJson !== undefined) updateData.resultJson = toJsonValue(data.resultJson);
       if (data.endedAt !== undefined) updateData.endedAt = data.endedAt;
       if (data.arenaThreadId !== undefined) updateData.arenaThreadId = data.arenaThreadId;
 
@@ -323,7 +324,7 @@ export class BattleRepository {
         where: { id },
         data: {
           state: "Finished",
-          resultJson: result as Prisma.InputJsonValue,
+          resultJson: toJsonValue(result),
           endedAt: new Date(),
         },
       });
@@ -361,7 +362,7 @@ export class BattleRepository {
         where: { id },
         data: {
           state: "Aborted",
-          resultJson: result as Prisma.InputJsonValue,
+          resultJson: toJsonValue(result),
           endedAt: new Date(),
         },
       });
@@ -401,7 +402,7 @@ export class BattleRepository {
         where: { id },
         data: {
           state: "Finished",
-          resultJson: result as Prisma.InputJsonValue,
+          resultJson: toJsonValue(result),
           endedAt: new Date(),
         },
       });
@@ -431,7 +432,7 @@ export class BattleRepository {
 
       return this.prisma.battle.update({
         where: { id },
-        data: { logCompact: updatedLog as Prisma.InputJsonValue },
+        data: { logCompact: toJsonValue(updatedLog) },
       });
     });
   }
@@ -455,7 +456,7 @@ export class BattleRepository {
 
       return this.prisma.battle.update({
         where: { id },
-        data: { logFull: updatedLog as Prisma.InputJsonValue },
+        data: { logFull: toJsonValue(updatedLog) },
       });
     });
   }
@@ -644,7 +645,7 @@ export class BattleRepository {
         where: {
           OR: [{ p1Id: userId }, { p2Id: userId }],
           state: "Finished",
-          resultJson: { not: null },
+          resultJson: { not: Prisma.JsonNull },
         },
         select: {
           p1Id: true,
@@ -736,7 +737,7 @@ export class BattleRepository {
       const battles = await this.prisma.battle.findMany({
         where: {
           state: "Finished",
-          resultJson: { not: null },
+          resultJson: { not: Prisma.JsonNull },
           OR: [
             { p1Id: user1Id, p2Id: user2Id },
             { p1Id: user2Id, p2Id: user1Id },

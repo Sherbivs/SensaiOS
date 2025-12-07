@@ -528,11 +528,15 @@ export class TrainerRepository {
           where: {
             OR: [{ trainer1Id: trainerId }, { trainer2Id: trainerId }],
           },
-          select: { winnerId: true },
+          select: { resultJson: true },
         }),
       ]);
 
-      const battlesWon = battles.filter((b: { winnerId: string | null }) => b.winnerId === trainerId).length;
+      // Parse resultJson to extract winnerId (Battle schema stores result in JSON, not as column)
+      const battlesWon = battles.filter((b) => {
+        const result = b.resultJson as { winnerId?: string | null } | null;
+        return result?.winnerId === trainerId;
+      }).length;
 
       const partyPokemon = await this.getActiveParty(trainerId);
       const partyStrength = partyPokemon.reduce((sum, p) => sum + p.level, 0);

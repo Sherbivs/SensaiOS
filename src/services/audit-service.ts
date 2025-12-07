@@ -19,6 +19,7 @@
 import { PrismaClient, Prisma, type AuditLog } from '../generated/prisma/client.js';
 import type { RlsUserContext } from './rls-context.js';
 import { IntelligentLogger } from '../utils/intelligent-logger.js';
+import { toJsonValue } from '../shared/json-types.js';
 
 const logger = new IntelligentLogger();
 
@@ -176,8 +177,8 @@ export class AuditService {
           action: entry.action,
           entityType: entry.entityType,
           entityId: entry.entityId ?? null,
-          beforeJson: entry.beforeJson ?? Prisma.DbNull,
-          afterJson: entry.afterJson ?? Prisma.DbNull,
+          beforeJson: entry.beforeJson ? toJsonValue(entry.beforeJson) : Prisma.DbNull,
+          afterJson: entry.afterJson ? toJsonValue(entry.afterJson) : Prisma.DbNull,
           at: new Date(),
         },
       });
@@ -251,8 +252,8 @@ export class AuditService {
           action: entry.action,
           entityType: entry.entityType,
           entityId: entry.entityId ?? null,
-          beforeJson: entry.beforeJson ?? Prisma.DbNull,
-          afterJson: entry.afterJson ?? Prisma.DbNull,
+          beforeJson: entry.beforeJson ? toJsonValue(entry.beforeJson) : Prisma.DbNull,
+          afterJson: entry.afterJson ? toJsonValue(entry.afterJson) : Prisma.DbNull,
           at: new Date(),
         })),
       });
