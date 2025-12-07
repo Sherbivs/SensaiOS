@@ -2633,7 +2633,318 @@ export async function handleOpsCommand(
     return;
   }
 
+  // /ops homestead:integrity - Display latest integrity report for a guild
+  if (group === "homestead" && sub === "integrity") {
+    await interaction.deferReply({ ephemeral: true });
+    
+    try {
+      const guildId = interaction.options.getString("guild_id", true);
+      const report = await getLatestIntegrityReport(guildId);
+      
+      if (!report) {
+        await interaction.editReply({ 
+          content: `No integrity reports found for guild \`${guildId}\`.\n\n*Integrity checks run hourly. First report will be available after the next scheduled run.*` 
+        });
+        return;
+      }
+      
+      const lines: string[] = [];
+      lines.push("🔍 **Homestead Integrity Report**");
+      lines.push(`Guild ID: \`${report.guildId}\``);
+      lines.push(`Report Time: ${toEasternString(report.timestamp)}`);
+      lines.push("");
+      
+      lines.push("**📊 Summary**");
+      lines.push(`• Total Homesteads: ${report.totalHomesteads}`);
+      lines.push(`• Verified: ${report.verified} ✅`);
+      lines.push(`• Unverified: ${report.unverified} ⚠️`);
+      lines.push(`• Orphans (DB only): ${report.orphans} 🗑️`);
+      lines.push(`• Ghosts (Discord only): ${report.ghosts} 👻`);
+      
+      const issueRate = report.totalHomesteads > 0 
+        ? ((report.orphans + report.ghosts) / report.totalHomesteads * 100).toFixed(1)
+        : '0.0';
+      const issueStatus = parseFloat(issueRate) > 5 ? '🔴' : parseFloat(issueRate) > 2 ? '🟡' : '🟢';
+      lines.push(`• Issue Rate: ${issueStatus} ${issueRate}%`);
+      lines.push("");
+      
+      if (report.orphans > 0) {
+        lines.push("**🗑️ Orphaned Channels (Database only)**");
+        for (const orphan of report.orphanList.slice(0, 5)) {
+          const createdDate = new Date(orphan.createdAt).toLocaleDateString();
+          lines.push(`• User ID: \`${orphan.userId}\` | Channel: \`${orphan.channelId}\` | Created: ${createdDate}`);
+        }
+        if (report.orphanList.length > 5) {
+          lines.push(`*...and ${report.orphanList.length - 5} more orphans*`);
+        }
+        lines.push("");
+      }
+      
+      if (report.ghosts > 0) {
+        lines.push("**👻 Ghost Channels (Discord only)**");
+        for (const ghost of report.ghostList.slice(0, 5)) {
+          const createdDate = new Date(ghost.createdAt).toLocaleDateString();
+          lines.push(`• Name: \`${ghost.name}\` | ID: \`${ghost.id}\` | Created: ${createdDate}`);
+        }
+        if (report.ghostList.length > 5) {
+          lines.push(`*...and ${report.ghostList.length - 5} more ghosts*`);
+        }
+        lines.push("");
+      }
+      
+      lines.push("**📁 Report File**");
+      lines.push(`\`Store/homestead-integrity/${guildId}-${report.timestamp.toISOString().replace(/[:.]/g, '-')}.json\``);
+      lines.push("");
+      lines.push("*Use `/ops homestead:cleanup` to mark orphans as deleted*");
+      
+      const message = lines.join("\n");
+      await interaction.editReply({ content: message.length > 2000 ? message.substring(0, 1997) + "..." : message });
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'HOMESTEAD',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops homestead:integrity',
+        operation: 'getLatestIntegrityReport',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Integrity report unavailable: ${message}` });
+    }
+    return;
+  }
+
+  // /ops homestead:cleanup - Mark orphaned homesteads as deleted
+  if (group === "homestead" && sub === "cleanup") {
+    await interaction.deferReply({ ephemeral: true });
+    
+    try {
+      const guildId = interaction.options.getString("guild_id", true);
+      const dryRun = interaction.options.getBoolean("dry_run") ?? false;
+      
+      const result = await cleanupOrphanedHomesteads(guildId, dryRun);
+      
+      const lines: string[] = [];
+      lines.push(dryRun ? "🧪 **Homestead Cleanup (Dry Run)**" : "🧹 **Homestead Cleanup (Executed)**");
+      lines.push(`Guild ID: \`${guildId}\``);
+      lines.push("");
+      
+      if (result.orphansFound === 0) {
+        lines.push("✅ No orphaned homesteads found!");
+        lines.push("");
+        lines.push("*All homestead channels are properly synchronized.*");
+      } else {
+        lines.push("**📊 Results**");
+        lines.push(`• Orphans Found: ${result.orphansFound}`);
+        
+        if (dryRun) {
+          lines.push(`• Would Mark as Deleted: ${result.orphansFound}`);
+          lines.push("");
+          lines.push("**🗑️ Orphans to Clean**");
+          for (const orphan of result.orphans.slice(0, 10)) {
+            lines.push(`• User: <@${orphan.userId}> | Channel: \`${orphan.channelId}\``);
+          }
+          if (result.orphans.length > 10) {
+            lines.push(`*...and ${result.orphans.length - 10} more*`);
+          }
+          lines.push("");
+          lines.push("*Run with `dry_run:False` to execute cleanup*");
+        } else {
+          lines.push(`• Marked as Deleted: ${result.markedDeleted} ✅`);
+          lines.push(`• Failed: ${result.failed} ❌`);
+          lines.push("");
+          
+          if (result.markedDeleted > 0) {
+            lines.push("**✅ Cleaned Orphans**");
+            for (const orphan of result.orphans.slice(0, 5)) {
+              lines.push(`• User: <@${orphan.userId}> | Status: \`deleted\``);
+            }
+            if (result.markedDeleted > 5) {
+              lines.push(`*...and ${result.markedDeleted - 5} more*`);
+            }
+            lines.push("");
+          }
+          
+          if (result.failed > 0 && result.errors.length > 0) {
+            lines.push("**❌ Errors**");
+            for (const error of result.errors.slice(0, 3)) {
+              lines.push(`• ${error}`);
+            }
+            if (result.errors.length > 3) {
+              lines.push(`*...and ${result.errors.length - 3} more errors*`);
+            }
+            lines.push("");
+          }
+          
+          lines.push("*Cleanup logged to ImmutableAuditService*");
+        }
+      }
+      
+      const message = lines.join("\n");
+      await interaction.editReply({ content: message.length > 2000 ? message.substring(0, 1997) + "..." : message });
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'HOMESTEAD',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops homestead:cleanup',
+        operation: 'cleanupOrphanedHomesteads',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Cleanup failed: ${message}` });
+    }
+    return;
+  }
+
   await interaction.reply({ content: "Unknown /ops command.", ephemeral: true });
+}
+
+// =============================================================================
+// Homestead Operations (Phase 4.1)
+// =============================================================================
+
+interface IntegrityReport {
+  timestamp: Date;
+  guildId: string;
+  totalHomesteads: number;
+  verified: number;
+  unverified: number;
+  orphans: number;
+  ghosts: number;
+  orphanList: Array<{ id: string; userId: string; channelId: string; createdAt: Date }>;
+  ghostList: Array<{ id: string; name: string; createdAt: Date }>;
+}
+
+interface CleanupResult {
+  orphansFound: number;
+  markedDeleted: number;
+  failed: number;
+  orphans: Array<{ id: string; userId: string; channelId: string }>;
+  errors: string[];
+}
+
+/**
+ * Get the latest integrity report for a guild from Store/homestead-integrity/
+ */
+async function getLatestIntegrityReport(guildId: string): Promise<IntegrityReport | null> {
+  const fs = await import('fs/promises');
+  const path = await import('path');
+  
+  const reportsDir = process.env.RENDER 
+    ? '/Store/homestead-integrity'
+    : path.join(process.cwd(), 'Store', 'homestead-integrity');
+  
+  try {
+    const files = await fs.readdir(reportsDir);
+    const guildFiles = files
+      .filter(f => f.startsWith(`${guildId}-`) && f.endsWith('.json'))
+      .sort()
+      .reverse();
+    
+    if (guildFiles.length === 0) {
+      return null;
+    }
+    
+    const latestFile = path.join(reportsDir, guildFiles[0]);
+    const content = await fs.readFile(latestFile, 'utf-8');
+    const report = JSON.parse(content);
+    
+    // Parse ISO date strings to Date objects
+    report.timestamp = new Date(report.timestamp);
+    report.orphanList = report.orphanList.map((o: any) => ({
+      ...o,
+      createdAt: new Date(o.createdAt)
+    }));
+    report.ghostList = report.ghostList.map((g: any) => ({
+      ...g,
+      createdAt: new Date(g.createdAt)
+    }));
+    
+    return report;
+  } catch (err) {
+    log.error('Failed to read integrity report', { guildId, error: getErrorMessage(err) });
+    return null;
+  }
+}
+
+/**
+ * Mark orphaned homesteads as deleted in the database
+ */
+async function cleanupOrphanedHomesteads(guildId: string, dryRun: boolean): Promise<CleanupResult> {
+  const { prisma } = await import('../../shared/prisma.js');
+  const { ImmutableAuditService } = await import('../../bot/security/services/immutable-audit-service.js');
+  
+  const result: CleanupResult = {
+    orphansFound: 0,
+    markedDeleted: 0,
+    failed: 0,
+    orphans: [],
+    errors: [],
+  };
+  
+  try {
+    // Get latest integrity report
+    const report = await getLatestIntegrityReport(guildId);
+    
+    if (!report || report.orphans === 0) {
+      return result;
+    }
+    
+    result.orphansFound = report.orphans;
+    result.orphans = report.orphanList.map(o => ({
+      id: o.id,
+      userId: o.userId,
+      channelId: o.channelId,
+    }));
+    
+    if (dryRun) {
+      return result;
+    }
+    
+    // Initialize audit service
+    const auditService = new ImmutableAuditService({
+      hmacSecret: process.env.AUDIT_HMAC_SECRET || 'default-secret-please-change-in-production',
+      chainId: 'homestead-operations',
+    });
+    await auditService.initialize();
+    
+    // Mark each orphan as deleted
+    for (const orphan of report.orphanList) {
+      try {
+        await prisma.homesteadChannel.update({
+          where: { id: orphan.id },
+          data: {
+            status: 'deleted',
+            lastAccessedAt: new Date(),
+          },
+        });
+        
+        // Log to audit service
+        await auditService.append({
+          action: 'homestead.orphaned.cleanup',
+          actor: 'ops-admin-command',
+          target: orphan.userId,
+          timestamp: new Date(),
+          metadata: {
+            orphanId: orphan.id,
+            guildId,
+            channelId: orphan.channelId,
+            cleanupReason: 'Discord channel not found',
+            previousStatus: 'active',
+            newStatus: 'deleted',
+          },
+        });
+        
+        result.markedDeleted++;
+      } catch (err) {
+        result.failed++;
+        result.errors.push(`User ${orphan.userId}: ${getErrorMessage(err)}`);
+      }
+    }
+    
+    return result;
+  } catch (err) {
+    throw new Error(`Cleanup failed: ${getErrorMessage(err)}`);
+  }
 }
 
 // =============================================================================

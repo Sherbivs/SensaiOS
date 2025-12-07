@@ -16,6 +16,7 @@ describe("database connection preference", () => {
   const trackedEnvKeys = [
     "DATABASE_CONNECTION_STATE_DIR",
     "DATABASE_CONNECTION_MODE",
+    "PROD_DATABASE_URL",
     "RENDER_DB_EXTERNAL_URL",
     "RENDER_DB_INTERNAL_URL",
     "DATABASE_ONPREMISE_DEV_PRIMARY",
@@ -32,6 +33,8 @@ describe("database connection preference", () => {
     process.env.DATABASE_CONNECTION_STATE_DIR = tempDir;
     process.env.NODE_ENV = "development";
     process.env.DATABASE_CONNECTION_MODE = "auto";
+    // Delete PROD_DATABASE_URL to test external source priority
+    delete process.env.PROD_DATABASE_URL;
     process.env.RENDER_DB_EXTERNAL_URL = "postgresql://external.example/db";
     process.env.RENDER_DB_INTERNAL_URL = "postgresql://internal.example/db";
     delete process.env.DATABASE_ONPREMISE_DEV_PRIMARY;

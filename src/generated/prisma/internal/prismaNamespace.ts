@@ -4084,6 +4084,11 @@ export const HomesteadChannelScalarFieldEnum = {
   guildId: 'guildId',
   channelId: 'channelId',
   createdAt: 'createdAt',
+  verifiedAt: 'verifiedAt',
+  createdBy: 'createdBy',
+  securityFingerprint: 'securityFingerprint',
+  lastHealthCheck: 'lastHealthCheck',
+  status: 'status',
   lastAccessedAt: 'lastAccessedAt'
 } as const
 

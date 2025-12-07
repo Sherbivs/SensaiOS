@@ -30,6 +30,11 @@ export type HomesteadChannelMinAggregateOutputType = {
   guildId: string | null
   channelId: string | null
   createdAt: Date | null
+  verifiedAt: Date | null
+  createdBy: string | null
+  securityFingerprint: string | null
+  lastHealthCheck: Date | null
+  status: string | null
   lastAccessedAt: Date | null
 }
 
@@ -39,6 +44,11 @@ export type HomesteadChannelMaxAggregateOutputType = {
   guildId: string | null
   channelId: string | null
   createdAt: Date | null
+  verifiedAt: Date | null
+  createdBy: string | null
+  securityFingerprint: string | null
+  lastHealthCheck: Date | null
+  status: string | null
   lastAccessedAt: Date | null
 }
 
@@ -48,6 +58,11 @@ export type HomesteadChannelCountAggregateOutputType = {
   guildId: number
   channelId: number
   createdAt: number
+  verifiedAt: number
+  createdBy: number
+  securityFingerprint: number
+  lastHealthCheck: number
+  status: number
   lastAccessedAt: number
   _all: number
 }
@@ -59,6 +74,11 @@ export type HomesteadChannelMinAggregateInputType = {
   guildId?: true
   channelId?: true
   createdAt?: true
+  verifiedAt?: true
+  createdBy?: true
+  securityFingerprint?: true
+  lastHealthCheck?: true
+  status?: true
   lastAccessedAt?: true
 }
 
@@ -68,6 +88,11 @@ export type HomesteadChannelMaxAggregateInputType = {
   guildId?: true
   channelId?: true
   createdAt?: true
+  verifiedAt?: true
+  createdBy?: true
+  securityFingerprint?: true
+  lastHealthCheck?: true
+  status?: true
   lastAccessedAt?: true
 }
 
@@ -77,6 +102,11 @@ export type HomesteadChannelCountAggregateInputType = {
   guildId?: true
   channelId?: true
   createdAt?: true
+  verifiedAt?: true
+  createdBy?: true
+  securityFingerprint?: true
+  lastHealthCheck?: true
+  status?: true
   lastAccessedAt?: true
   _all?: true
 }
@@ -159,6 +189,11 @@ export type HomesteadChannelGroupByOutputType = {
   guildId: string
   channelId: string
   createdAt: Date
+  verifiedAt: Date | null
+  createdBy: string
+  securityFingerprint: string | null
+  lastHealthCheck: Date | null
+  status: string
   lastAccessedAt: Date
   _count: HomesteadChannelCountAggregateOutputType | null
   _min: HomesteadChannelMinAggregateOutputType | null
@@ -189,6 +224,11 @@ export type HomesteadChannelWhereInput = {
   guildId?: Prisma.StringFilter<"HomesteadChannel"> | string
   channelId?: Prisma.StringFilter<"HomesteadChannel"> | string
   createdAt?: Prisma.DateTimeFilter<"HomesteadChannel"> | Date | string
+  verifiedAt?: Prisma.DateTimeNullableFilter<"HomesteadChannel"> | Date | string | null
+  createdBy?: Prisma.StringFilter<"HomesteadChannel"> | string
+  securityFingerprint?: Prisma.StringNullableFilter<"HomesteadChannel"> | string | null
+  lastHealthCheck?: Prisma.DateTimeNullableFilter<"HomesteadChannel"> | Date | string | null
+  status?: Prisma.StringFilter<"HomesteadChannel"> | string
   lastAccessedAt?: Prisma.DateTimeFilter<"HomesteadChannel"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
 }
@@ -199,6 +239,11 @@ export type HomesteadChannelOrderByWithRelationInput = {
   guildId?: Prisma.SortOrder
   channelId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  verifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  createdBy?: Prisma.SortOrder
+  securityFingerprint?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastHealthCheck?: Prisma.SortOrderInput | Prisma.SortOrder
+  status?: Prisma.SortOrder
   lastAccessedAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
 }
@@ -212,6 +257,11 @@ export type HomesteadChannelWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.HomesteadChannelWhereInput | Prisma.HomesteadChannelWhereInput[]
   guildId?: Prisma.StringFilter<"HomesteadChannel"> | string
   createdAt?: Prisma.DateTimeFilter<"HomesteadChannel"> | Date | string
+  verifiedAt?: Prisma.DateTimeNullableFilter<"HomesteadChannel"> | Date | string | null
+  createdBy?: Prisma.StringFilter<"HomesteadChannel"> | string
+  securityFingerprint?: Prisma.StringNullableFilter<"HomesteadChannel"> | string | null
+  lastHealthCheck?: Prisma.DateTimeNullableFilter<"HomesteadChannel"> | Date | string | null
+  status?: Prisma.StringFilter<"HomesteadChannel"> | string
   lastAccessedAt?: Prisma.DateTimeFilter<"HomesteadChannel"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
 }, "id" | "userId" | "channelId">
@@ -222,6 +272,11 @@ export type HomesteadChannelOrderByWithAggregationInput = {
   guildId?: Prisma.SortOrder
   channelId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  verifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  createdBy?: Prisma.SortOrder
+  securityFingerprint?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastHealthCheck?: Prisma.SortOrderInput | Prisma.SortOrder
+  status?: Prisma.SortOrder
   lastAccessedAt?: Prisma.SortOrder
   _count?: Prisma.HomesteadChannelCountOrderByAggregateInput
   _max?: Prisma.HomesteadChannelMaxOrderByAggregateInput
@@ -237,6 +292,11 @@ export type HomesteadChannelScalarWhereWithAggregatesInput = {
   guildId?: Prisma.StringWithAggregatesFilter<"HomesteadChannel"> | string
   channelId?: Prisma.StringWithAggregatesFilter<"HomesteadChannel"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"HomesteadChannel"> | Date | string
+  verifiedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"HomesteadChannel"> | Date | string | null
+  createdBy?: Prisma.StringWithAggregatesFilter<"HomesteadChannel"> | string
+  securityFingerprint?: Prisma.StringNullableWithAggregatesFilter<"HomesteadChannel"> | string | null
+  lastHealthCheck?: Prisma.DateTimeNullableWithAggregatesFilter<"HomesteadChannel"> | Date | string | null
+  status?: Prisma.StringWithAggregatesFilter<"HomesteadChannel"> | string
   lastAccessedAt?: Prisma.DateTimeWithAggregatesFilter<"HomesteadChannel"> | Date | string
 }
 
@@ -245,6 +305,11 @@ export type HomesteadChannelCreateInput = {
   guildId: string
   channelId: string
   createdAt?: Date | string
+  verifiedAt?: Date | string | null
+  createdBy?: string
+  securityFingerprint?: string | null
+  lastHealthCheck?: Date | string | null
+  status?: string
   lastAccessedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutHomesteadChannelsInput
 }
@@ -255,6 +320,11 @@ export type HomesteadChannelUncheckedCreateInput = {
   guildId: string
   channelId: string
   createdAt?: Date | string
+  verifiedAt?: Date | string | null
+  createdBy?: string
+  securityFingerprint?: string | null
+  lastHealthCheck?: Date | string | null
+  status?: string
   lastAccessedAt?: Date | string
 }
 
@@ -263,6 +333,11 @@ export type HomesteadChannelUpdateInput = {
   guildId?: Prisma.StringFieldUpdateOperationsInput | string
   channelId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  securityFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastHealthCheck?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
   lastAccessedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutHomesteadChannelsNestedInput
 }
@@ -273,6 +348,11 @@ export type HomesteadChannelUncheckedUpdateInput = {
   guildId?: Prisma.StringFieldUpdateOperationsInput | string
   channelId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  securityFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastHealthCheck?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
   lastAccessedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -282,6 +362,11 @@ export type HomesteadChannelCreateManyInput = {
   guildId: string
   channelId: string
   createdAt?: Date | string
+  verifiedAt?: Date | string | null
+  createdBy?: string
+  securityFingerprint?: string | null
+  lastHealthCheck?: Date | string | null
+  status?: string
   lastAccessedAt?: Date | string
 }
 
@@ -290,6 +375,11 @@ export type HomesteadChannelUpdateManyMutationInput = {
   guildId?: Prisma.StringFieldUpdateOperationsInput | string
   channelId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  securityFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastHealthCheck?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
   lastAccessedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -299,6 +389,11 @@ export type HomesteadChannelUncheckedUpdateManyInput = {
   guildId?: Prisma.StringFieldUpdateOperationsInput | string
   channelId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  securityFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastHealthCheck?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
   lastAccessedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -318,6 +413,11 @@ export type HomesteadChannelCountOrderByAggregateInput = {
   guildId?: Prisma.SortOrder
   channelId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  verifiedAt?: Prisma.SortOrder
+  createdBy?: Prisma.SortOrder
+  securityFingerprint?: Prisma.SortOrder
+  lastHealthCheck?: Prisma.SortOrder
+  status?: Prisma.SortOrder
   lastAccessedAt?: Prisma.SortOrder
 }
 
@@ -327,6 +427,11 @@ export type HomesteadChannelMaxOrderByAggregateInput = {
   guildId?: Prisma.SortOrder
   channelId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  verifiedAt?: Prisma.SortOrder
+  createdBy?: Prisma.SortOrder
+  securityFingerprint?: Prisma.SortOrder
+  lastHealthCheck?: Prisma.SortOrder
+  status?: Prisma.SortOrder
   lastAccessedAt?: Prisma.SortOrder
 }
 
@@ -336,6 +441,11 @@ export type HomesteadChannelMinOrderByAggregateInput = {
   guildId?: Prisma.SortOrder
   channelId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  verifiedAt?: Prisma.SortOrder
+  createdBy?: Prisma.SortOrder
+  securityFingerprint?: Prisma.SortOrder
+  lastHealthCheck?: Prisma.SortOrder
+  status?: Prisma.SortOrder
   lastAccessedAt?: Prisma.SortOrder
 }
 
@@ -386,6 +496,11 @@ export type HomesteadChannelCreateWithoutUserInput = {
   guildId: string
   channelId: string
   createdAt?: Date | string
+  verifiedAt?: Date | string | null
+  createdBy?: string
+  securityFingerprint?: string | null
+  lastHealthCheck?: Date | string | null
+  status?: string
   lastAccessedAt?: Date | string
 }
 
@@ -394,6 +509,11 @@ export type HomesteadChannelUncheckedCreateWithoutUserInput = {
   guildId: string
   channelId: string
   createdAt?: Date | string
+  verifiedAt?: Date | string | null
+  createdBy?: string
+  securityFingerprint?: string | null
+  lastHealthCheck?: Date | string | null
+  status?: string
   lastAccessedAt?: Date | string
 }
 
@@ -432,6 +552,11 @@ export type HomesteadChannelScalarWhereInput = {
   guildId?: Prisma.StringFilter<"HomesteadChannel"> | string
   channelId?: Prisma.StringFilter<"HomesteadChannel"> | string
   createdAt?: Prisma.DateTimeFilter<"HomesteadChannel"> | Date | string
+  verifiedAt?: Prisma.DateTimeNullableFilter<"HomesteadChannel"> | Date | string | null
+  createdBy?: Prisma.StringFilter<"HomesteadChannel"> | string
+  securityFingerprint?: Prisma.StringNullableFilter<"HomesteadChannel"> | string | null
+  lastHealthCheck?: Prisma.DateTimeNullableFilter<"HomesteadChannel"> | Date | string | null
+  status?: Prisma.StringFilter<"HomesteadChannel"> | string
   lastAccessedAt?: Prisma.DateTimeFilter<"HomesteadChannel"> | Date | string
 }
 
@@ -440,6 +565,11 @@ export type HomesteadChannelCreateManyUserInput = {
   guildId: string
   channelId: string
   createdAt?: Date | string
+  verifiedAt?: Date | string | null
+  createdBy?: string
+  securityFingerprint?: string | null
+  lastHealthCheck?: Date | string | null
+  status?: string
   lastAccessedAt?: Date | string
 }
 
@@ -448,6 +578,11 @@ export type HomesteadChannelUpdateWithoutUserInput = {
   guildId?: Prisma.StringFieldUpdateOperationsInput | string
   channelId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  securityFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastHealthCheck?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
   lastAccessedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -456,6 +591,11 @@ export type HomesteadChannelUncheckedUpdateWithoutUserInput = {
   guildId?: Prisma.StringFieldUpdateOperationsInput | string
   channelId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  securityFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastHealthCheck?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
   lastAccessedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -464,6 +604,11 @@ export type HomesteadChannelUncheckedUpdateManyWithoutUserInput = {
   guildId?: Prisma.StringFieldUpdateOperationsInput | string
   channelId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  verifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  securityFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastHealthCheck?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
   lastAccessedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -475,6 +620,11 @@ export type HomesteadChannelSelect<ExtArgs extends runtime.Types.Extensions.Inte
   guildId?: boolean
   channelId?: boolean
   createdAt?: boolean
+  verifiedAt?: boolean
+  createdBy?: boolean
+  securityFingerprint?: boolean
+  lastHealthCheck?: boolean
+  status?: boolean
   lastAccessedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["homesteadChannel"]>
@@ -485,6 +635,11 @@ export type HomesteadChannelSelectCreateManyAndReturn<ExtArgs extends runtime.Ty
   guildId?: boolean
   channelId?: boolean
   createdAt?: boolean
+  verifiedAt?: boolean
+  createdBy?: boolean
+  securityFingerprint?: boolean
+  lastHealthCheck?: boolean
+  status?: boolean
   lastAccessedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["homesteadChannel"]>
@@ -495,6 +650,11 @@ export type HomesteadChannelSelectUpdateManyAndReturn<ExtArgs extends runtime.Ty
   guildId?: boolean
   channelId?: boolean
   createdAt?: boolean
+  verifiedAt?: boolean
+  createdBy?: boolean
+  securityFingerprint?: boolean
+  lastHealthCheck?: boolean
+  status?: boolean
   lastAccessedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["homesteadChannel"]>
@@ -505,10 +665,15 @@ export type HomesteadChannelSelectScalar = {
   guildId?: boolean
   channelId?: boolean
   createdAt?: boolean
+  verifiedAt?: boolean
+  createdBy?: boolean
+  securityFingerprint?: boolean
+  lastHealthCheck?: boolean
+  status?: boolean
   lastAccessedAt?: boolean
 }
 
-export type HomesteadChannelOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "guildId" | "channelId" | "createdAt" | "lastAccessedAt", ExtArgs["result"]["homesteadChannel"]>
+export type HomesteadChannelOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "guildId" | "channelId" | "createdAt" | "verifiedAt" | "createdBy" | "securityFingerprint" | "lastHealthCheck" | "status" | "lastAccessedAt", ExtArgs["result"]["homesteadChannel"]>
 export type HomesteadChannelInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
@@ -530,6 +695,11 @@ export type $HomesteadChannelPayload<ExtArgs extends runtime.Types.Extensions.In
     guildId: string
     channelId: string
     createdAt: Date
+    verifiedAt: Date | null
+    createdBy: string
+    securityFingerprint: string | null
+    lastHealthCheck: Date | null
+    status: string
     lastAccessedAt: Date
   }, ExtArgs["result"]["homesteadChannel"]>
   composites: {}
@@ -960,6 +1130,11 @@ export interface HomesteadChannelFieldRefs {
   readonly guildId: Prisma.FieldRef<"HomesteadChannel", 'String'>
   readonly channelId: Prisma.FieldRef<"HomesteadChannel", 'String'>
   readonly createdAt: Prisma.FieldRef<"HomesteadChannel", 'DateTime'>
+  readonly verifiedAt: Prisma.FieldRef<"HomesteadChannel", 'DateTime'>
+  readonly createdBy: Prisma.FieldRef<"HomesteadChannel", 'String'>
+  readonly securityFingerprint: Prisma.FieldRef<"HomesteadChannel", 'String'>
+  readonly lastHealthCheck: Prisma.FieldRef<"HomesteadChannel", 'DateTime'>
+  readonly status: Prisma.FieldRef<"HomesteadChannel", 'String'>
   readonly lastAccessedAt: Prisma.FieldRef<"HomesteadChannel", 'DateTime'>
 }
     

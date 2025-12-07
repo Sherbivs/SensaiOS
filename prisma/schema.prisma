@@ -267,17 +267,24 @@ model User {
 
 /// ---- Homestead Channel (Private Guild Channel per User) ----
 model HomesteadChannel {
-  id             String   @id @default(cuid())
-  userId         String   @unique
-  guildId        String
-  channelId      String   @unique
-  createdAt      DateTime @default(now())
-  lastAccessedAt DateTime @updatedAt
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  guildId             String
+  channelId           String    @unique
+  createdAt           DateTime  @default(now())
+  verifiedAt          DateTime? // NULL until Discord verification succeeds
+  createdBy           String    @default("user") // "user", "admin", "bot-auto-onboard"
+  securityFingerprint String?   // HMAC-SHA256(userId|guildId|channelId|createdAt)
+  lastHealthCheck     DateTime? // Last periodic integrity check
+  status              String    @default("active") // "active", "suspended", "orphaned", "deleted"
+  lastAccessedAt      DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([guildId])
   @@index([channelId])
+  @@index([status]) // Query by status for cleanup operations
+  @@index([verifiedAt]) // Find unverified channels
   @@map("homestead_channels")
 }
 

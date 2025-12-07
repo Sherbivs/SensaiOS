@@ -3559,6 +3559,186 @@ client.on(Events.GuildDelete, () => {
   updateMonitoringPhase();
 });
 
+// Phase 3.3: Homestead Channel Permission Monitoring
+// Detects and auto-reverts unauthorized permission changes on homestead channels
+client.on(Events.ChannelUpdate, async (oldChannel, newChannel) => {
+  try {
+    // Only monitor text channels (homesteads are GuildText)
+    if (newChannel.type !== 0) return; // 0 = GuildText
+    
+    // Check if this is a homestead channel (query database)
+    const homestead = await prisma.homesteadChannel.findUnique({
+      where: { channelId: newChannel.id },
+      select: { 
+        id: true,
+        channelId: true,
+        userId: true,
+        guildId: true,
+        status: true,
+        securityFingerprint: true
+      }
+    });
+    
+    // Not a homestead or inactive - skip
+    if (!homestead || homestead.status !== 'active') return;
+    
+    // Get expected permissions (match creation logic from homestead-verification.ts)
+    const expectedPermissions = [
+      {
+        id: newChannel.guild.id, // @everyone
+        type: 'role',
+        deny: ['ViewChannel']
+      },
+      {
+        id: homestead.userId, // User
+        type: 'member',
+        allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory', 'AttachFiles', 'EmbedLinks']
+      },
+      {
+        id: client.user.id, // Bot
+        type: 'member',
+        allow: ['ViewChannel', 'SendMessages', 'ManageMessages', 'EmbedLinks']
+      }
+    ];
+    
+    // Get actual permissions from Discord
+    const actualPermissions = newChannel.permissionOverwrites.cache.map(overwrite => ({
+      id: overwrite.id,
+      type: overwrite.type === 0 ? 'role' : 'member',
+      allow: overwrite.allow.toArray(),
+      deny: overwrite.deny.toArray()
+    }));
+    
+    // Compare permissions (detect drift)
+    const permissionsMatch = compareHomesteadPermissions(expectedPermissions, actualPermissions);
+    
+    if (!permissionsMatch) {
+      // Emit permission.drift.detected event to EventBus
+      try {
+        emitSecurityEvent('permission.drift.detected', {
+          type: 'homestead-permission-drift',
+          severity: 'HIGH',
+          channelId: newChannel.id,
+          channelName: newChannel.name,
+          userId: homestead.userId,
+          guildId: newChannel.guild.id,
+          guildName: newChannel.guild.name,
+          securityFingerprint: homestead.securityFingerprint,
+          timestamp: new Date().toISOString(),
+          expectedPermissions,
+          actualPermissions,
+          mitreAttack: 'T1098.001', // Account Manipulation: Additional Cloud Credentials
+          mitreDescription: 'Adversaries may add adversary-controlled credentials to a cloud account',
+          recommendedAction: 'AUTO_REVERT + AUDIT_LOG_REVIEW',
+          context: {
+            homesteadId: homestead.id,
+            affectedChannel: newChannel.name,
+            potentialImpact: 'Unauthorized access, data exfiltration, privacy breach'
+          }
+        }, {
+          emitter: 'homestead-permission-monitor',
+          priority: 'high'
+        });
+      } catch (emitErr) {
+        // Log EventBus failure but don't block reversion
+        process.stderr.write(`[HomesteadMonitor] Failed to emit permission.drift event: ${emitErr.message}\n`);
+      }
+      
+      // Auto-revert permissions (restore expected state)
+      try {
+        await newChannel.edit({
+          permissionOverwrites: [
+            {
+              id: newChannel.guild.id,
+              deny: [PermissionsBitField.Flags.ViewChannel]
+            },
+            {
+              id: homestead.userId,
+              allow: [
+                PermissionsBitField.Flags.ViewChannel,
+                PermissionsBitField.Flags.SendMessages,
+                PermissionsBitField.Flags.ReadMessageHistory,
+                PermissionsBitField.Flags.AttachFiles,
+                PermissionsBitField.Flags.EmbedLinks
+              ]
+            },
+            {
+              id: client.user.id,
+              allow: [
+                PermissionsBitField.Flags.ViewChannel,
+                PermissionsBitField.Flags.SendMessages,
+                PermissionsBitField.Flags.ManageMessages,
+                PermissionsBitField.Flags.EmbedLinks
+              ]
+            }
+          ]
+        });
+        
+        // Log successful reversion
+        baseLog(`[HomesteadMonitor] Auto-reverted permission drift on channel ${newChannel.name} (${newChannel.id})`);
+      } catch (revertErr) {
+        // Log reversion failure (critical - manual intervention needed)
+        process.stderr.write(`[HomesteadMonitor] CRITICAL: Failed to revert permissions on ${newChannel.id}: ${revertErr.message}\n`);
+        
+        // Emit critical alert for manual review
+        try {
+          emitAlert('HOMESTEAD_REVERT_FAILED', {
+            severity: 'CRITICAL',
+            channelId: newChannel.id,
+            channelName: newChannel.name,
+            guildId: newChannel.guild.id,
+            error: revertErr.message,
+            timestamp: new Date().toISOString()
+          });
+        } catch (alertErr) {
+          // Final fallback - stderr only
+          process.stderr.write(`[HomesteadMonitor] Failed to emit critical alert: ${alertErr.message}\n`);
+        }
+      }
+    }
+  } catch (err) {
+    // Log monitoring errors but don't crash bot
+    process.stderr.write(`[HomesteadMonitor] Error monitoring channel ${newChannel?.id}: ${err.message}\n`);
+  }
+});
+
+/**
+ * Compares expected vs actual homestead permissions.
+ * Returns true if permissions match, false if drift detected.
+ */
+function compareHomesteadPermissions(expected, actual) {
+  // Must have exactly 3 permission overwrites (everyone, user, bot)
+  if (actual.length !== expected.length) return false;
+  
+  // Check each expected permission exists in actual
+  for (const exp of expected) {
+    const act = actual.find(a => a.id === exp.id && a.type === exp.type);
+    if (!act) return false; // Missing permission overwrite
+    
+    // Compare allow arrays (must match exactly)
+    if (exp.allow) {
+      const expAllow = new Set(exp.allow);
+      const actAllow = new Set(act.allow);
+      if (expAllow.size !== actAllow.size) return false;
+      for (const perm of expAllow) {
+        if (!actAllow.has(perm)) return false;
+      }
+    }
+    
+    // Compare deny arrays (must match exactly)
+    if (exp.deny) {
+      const expDeny = new Set(exp.deny);
+      const actDeny = new Set(act.deny);
+      if (expDeny.size !== actDeny.size) return false;
+      for (const perm of expDeny) {
+        if (!actDeny.has(perm)) return false;
+      }
+    }
+  }
+  
+  return true; // All permissions match
+}
+
 async function handleRolePermissionUpdate(oldRole, newRole) {
   if (!oldRole || !newRole) {
     return { changed: false };

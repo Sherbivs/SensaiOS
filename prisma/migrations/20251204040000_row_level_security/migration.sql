@@ -386,14 +386,14 @@ COMMENT ON POLICY encounter_delete_own ON "Encounter" IS 'Users can only DELETE 
 ALTER TABLE "Battle" ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can see battles they participate in
--- Note: trainerId1 and trainerId2 are Trainer IDs, need to join to User
+-- Note: trainer1Id and trainer2Id are Trainer IDs, need to join to User
 CREATE POLICY battle_select_participant ON "Battle"
   FOR SELECT
   USING (
     is_admin_bypass() OR
     EXISTS (
       SELECT 1 FROM "Trainer" t
-      WHERE (t.id = "Battle"."trainerId1" OR t.id = "Battle"."trainerId2")
+      WHERE (t.id = "Battle"."trainer1Id" OR t.id = "Battle"."trainer2Id")
       AND t."userId" = current_internal_user_id()
     )
   );
@@ -405,7 +405,7 @@ CREATE POLICY battle_update_participant ON "Battle"
     is_admin_bypass() OR
     EXISTS (
       SELECT 1 FROM "Trainer" t
-      WHERE (t.id = "Battle"."trainerId1" OR t.id = "Battle"."trainerId2")
+      WHERE (t.id = "Battle"."trainer1Id" OR t.id = "Battle"."trainer2Id")
       AND t."userId" = current_internal_user_id()
     )
   );
@@ -417,7 +417,7 @@ CREATE POLICY battle_insert_participant ON "Battle"
     is_admin_bypass() OR
     EXISTS (
       SELECT 1 FROM "Trainer" t
-      WHERE t.id = "Battle"."trainerId1"
+      WHERE t.id = "Battle"."trainer1Id"
       AND t."userId" = current_internal_user_id()
     )
   );
@@ -436,11 +436,11 @@ COMMENT ON POLICY battle_delete_admin ON "Battle" IS 'Only admins can DELETE bat
 -- 9. HOMESTEAD CHANNEL TABLE RLS
 -- ============================================================================
 
--- Enable RLS on HomesteadChannel table
-ALTER TABLE "HomesteadChannel" ENABLE ROW LEVEL SECURITY;
+-- Enable RLS on homestead_channels table
+ALTER TABLE "homestead_channels" ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can see their own homestead channel
-CREATE POLICY homestead_select_own ON "HomesteadChannel"
+CREATE POLICY homestead_select_own ON "homestead_channels"
   FOR SELECT
   USING (
     is_admin_bypass() OR
@@ -448,7 +448,7 @@ CREATE POLICY homestead_select_own ON "HomesteadChannel"
   );
 
 -- Policy: Users can update their own homestead channel
-CREATE POLICY homestead_update_own ON "HomesteadChannel"
+CREATE POLICY homestead_update_own ON "homestead_channels"
   FOR UPDATE
   USING (
     is_admin_bypass() OR
@@ -456,7 +456,7 @@ CREATE POLICY homestead_update_own ON "HomesteadChannel"
   );
 
 -- Policy: Users can have their homestead channel created
-CREATE POLICY homestead_insert_own ON "HomesteadChannel"
+CREATE POLICY homestead_insert_own ON "homestead_channels"
   FOR INSERT
   WITH CHECK (
     is_admin_bypass() OR
@@ -464,17 +464,17 @@ CREATE POLICY homestead_insert_own ON "HomesteadChannel"
   );
 
 -- Policy: Users can delete their own homestead channel
-CREATE POLICY homestead_delete_own ON "HomesteadChannel"
+CREATE POLICY homestead_delete_own ON "homestead_channels"
   FOR DELETE
   USING (
     is_admin_bypass() OR
     "userId" = current_internal_user_id()
   );
 
-COMMENT ON POLICY homestead_select_own ON "HomesteadChannel" IS 'Users can only SELECT their own homestead';
-COMMENT ON POLICY homestead_update_own ON "HomesteadChannel" IS 'Users can only UPDATE their own homestead';
-COMMENT ON POLICY homestead_insert_own ON "HomesteadChannel" IS 'Users can only INSERT their own homestead';
-COMMENT ON POLICY homestead_delete_own ON "HomesteadChannel" IS 'Users can only DELETE their own homestead';
+COMMENT ON POLICY homestead_select_own ON "homestead_channels" IS 'Users can only SELECT their own homestead';
+COMMENT ON POLICY homestead_update_own ON "homestead_channels" IS 'Users can only UPDATE their own homestead';
+COMMENT ON POLICY homestead_insert_own ON "homestead_channels" IS 'Users can only INSERT their own homestead';
+COMMENT ON POLICY homestead_delete_own ON "homestead_channels" IS 'Users can only DELETE their own homestead';
 
 -- ============================================================================
 -- 10. TRAINER SETTINGS TABLE RLS

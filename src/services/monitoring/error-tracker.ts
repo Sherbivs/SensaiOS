@@ -62,6 +62,7 @@ export type ErrorCategory =
   | 'WORKER'
   | 'CONFIG'
   | 'CACHE'
+  | 'HOMESTEAD'
   | 'UNKNOWN';
 
 export type ErrorSeverity = 
@@ -412,6 +413,7 @@ export class ErrorTracker {
         WORKER: 0,
         CONFIG: 0,
         CACHE: 0,
+        HOMESTEAD: 0,
         UNKNOWN: 0,
       },
       criticalErrors: 0,

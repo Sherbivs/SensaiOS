@@ -27,7 +27,11 @@ import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./bat
 // See docs/architecture-bible/14-private-channel-architecture.md
 import { handleHeal } from "./homestead/heal.js";
 import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./homestead/home.js";
-import { openStartersHomestead, handleStarterPick, STARTER_OPTIONS } from "./homestead/starters.js";
+// Legacy starters kept for backward compatibility with existing STARTER_PICK_ buttons
+import { handleStarterPick, STARTER_OPTIONS } from "./homestead/starters.js";
+// New open starter selection (any Pokemon except forbidden categories)
+// See docs/architecture-bible/19-starter-selection-flow.md
+import { startOpenStarterFlow } from "./homestead/open-starter-selection.js";
 
 import { handleOpsCommand } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
@@ -148,8 +152,10 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 							await interaction.reply({ content: "This command must be used in a server.", ephemeral: true });
 							return;
 						}
-						await openStartersHomestead(client, interaction.guildId, interaction.user);
-						await interaction.reply({ content: "I opened your Starters in your homestead channel.", ephemeral: true });
+						// Use the new open starter selection flow (any Pokemon except forbidden)
+						// Falls back to legacy Kanto starters if openStarterFlow fails
+						await startOpenStarterFlow(client, interaction.guildId, interaction.user);
+						await interaction.reply({ content: "✨ I've opened the Starter Selection in your homestead channel!", ephemeral: true });
 						return;
 					}
 					if (interaction.commandName === "heal") {
@@ -210,13 +216,23 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                                                 case "HOME_PROFILE":
                                                         await openProfileView(interaction);
                                                         break;
+						case "HOME_INVENTORY":
+							await interaction.reply({ content: "🎒 **Inventory** — Coming soon! This will show your items, Poké Balls, and other gear.", ephemeral: true });
+							break;
+						case "HOME_POKEDEX":
+							await interaction.reply({ content: "📘 **Pokédex** — Coming soon! This will show your collection progress and Pokémon data.", ephemeral: true });
+							break;
+						case "HOME_SETTINGS":
+							await interaction.reply({ content: "⚙️ **Settings** — Coming soon! This will let you customize your experience.", ephemeral: true });
+							break;
                                                 case "HOME_STARTERS":
 							if (!interaction.guildId) {
 								await interaction.reply({ content: "This command must be used in a server.", ephemeral: true });
 								break;
 							}
-							await openStartersHomestead(client, interaction.guildId, interaction.user);
-							await interaction.reply({ content: "I opened your Starters in your homestead channel.", ephemeral: true });
+							// Use the new open starter selection flow (any Pokemon except forbidden)
+							await startOpenStarterFlow(client, interaction.guildId, interaction.user);
+							await interaction.reply({ content: "✨ I've opened the Starter Selection in your homestead channel!", ephemeral: true });
 							break;
                                                 default:
                                                         if (id.startsWith(BOX_PAGE_PREFIX) && interaction.isButton()) {
