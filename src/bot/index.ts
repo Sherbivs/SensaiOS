@@ -41,6 +41,10 @@ import { handleWalk } from "./wilds/walk.js";
 // Triggers diagnostics and forced healing when homestead is deleted
 import { setupHomesteadDeletionHandler } from "../services/player-checkpoint.js";
 
+// Background homestead integrity monitor (continuous per-player checking)
+// Proactively verifies each player's homestead at a steady pace
+import { startAllHomesteadMonitors, stopAllHomesteadMonitors } from "../services/homestead-player-monitor.js";
+
 // Development mode access control
 import { isUserAllowedInDevMode, getDevModeAccessDeniedMessage } from "../shared/feature-flags.js";
 
@@ -128,6 +132,15 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                 // 2. Forced healing of any data integrity issues
                 // 3. Automatic channel recreation with recovery status message
                 setupHomesteadDeletionHandler(client);
+                
+                // Start background homestead integrity monitors for all guilds
+                // Checks each player's homestead at a steady pace (~1/second)
+                // Proactively recreates missing channels before users notice
+                startAllHomesteadMonitors(client).catch(err => {
+                        log.error("Failed to start homestead monitors", {
+                                error: err instanceof Error ? err.message : String(err),
+                        });
+                });
         });
 
 	client.on("interactionCreate", async (interaction: Interaction) => {
@@ -316,12 +329,12 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                 }
         }, 3600_000); // 1 hour
 
-        // Cleanup on shutdown
-        const cleanup = () => {
-                clearInterval(cacheMonitorInterval);
-        };
-        process.once("SIGTERM", cleanup);
-        process.once("SIGINT", cleanup);
-
-        return client;
+	// Cleanup on shutdown
+	const cleanup = () => {
+		clearInterval(cacheMonitorInterval);
+		// Stop background homestead integrity monitors
+		stopAllHomesteadMonitors();
+	};
+	process.once("SIGTERM", cleanup);
+	process.once("SIGINT", cleanup);        return client;
 }
