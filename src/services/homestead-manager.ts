@@ -754,6 +754,8 @@ export async function bootstrapDeletedHomesteads(
 export async function bootstrapAllHomesteads(client: Client): Promise<BootstrapResult[]> {
   const results: BootstrapResult[] = [];
 
+  log.info('[HomesteadManager] bootstrapAllHomesteads starting...');
+
   // Get all guilds with homesteads
   const guilds = await prisma.homesteadChannel.findMany({
     select: { guildId: true },
@@ -762,11 +764,21 @@ export async function bootstrapAllHomesteads(client: Client): Promise<BootstrapR
 
   log.info('[HomesteadManager] Starting bootstrap for all guilds', {
     guildCount: guilds.length,
+    guildIds: guilds.map(g => g.guildId),
   });
 
   for (const { guildId } of guilds) {
+    log.info('[HomesteadManager] Processing guild for bootstrap', { guildId });
     try {
       const result = await bootstrapDeletedHomesteads(client, guildId);
+      log.info('[HomesteadManager] Guild bootstrap result', { 
+        guildId, 
+        total: result.total, 
+        recovered: result.recovered, 
+        failed: result.failed,
+        skipped: result.skipped,
+        errorCount: result.errors.length,
+      });
       results.push(result);
     } catch (error) {
       log.error('[HomesteadManager] Guild bootstrap failed', {
