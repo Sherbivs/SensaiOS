@@ -637,13 +637,23 @@ export async function bootstrapDeletedHomesteads(
     });
 
     // CRITICAL: Use fetch() not cache.get() - cache may be empty on startup
-    const guild = await client.guilds.fetch(guildId).catch(() => null);
+    log.info('[HomesteadManager] Attempting to fetch guild for bootstrap', { guildId });
+    const guild = await client.guilds.fetch(guildId).catch((err) => {
+      log.error('[HomesteadManager] Failed to fetch guild', { 
+        guildId, 
+        error: err instanceof Error ? err.message : String(err),
+        errorStack: err instanceof Error ? err.stack : undefined,
+      });
+      return null;
+    });
 
     if (!guild) {
       log.error('[HomesteadManager] Guild not found for bootstrap', { guildId });
       result.failed = result.total;
       return result;
     }
+
+    log.info('[HomesteadManager] Successfully fetched guild', { guildId, guildName: guild.name });
 
     // Create manager with fetched guild
     const manager = new HomesteadChannelManager(client, guildId, guild);
@@ -662,7 +672,15 @@ export async function bootstrapDeletedHomesteads(
         }
 
         // Fetch Discord user
-        const discordUser = await client.users.fetch(discordId);
+        log.info('[HomesteadManager] Fetching Discord user for bootstrap', { discordId, userId: homestead.userId });
+        const discordUser = await client.users.fetch(discordId).catch((err) => {
+          log.error('[HomesteadManager] Failed to fetch Discord user', {
+            discordId,
+            userId: homestead.userId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return null;
+        });
         
         if (!discordUser) {
           log.warn('[HomesteadManager] Discord user not found, skipping', {
