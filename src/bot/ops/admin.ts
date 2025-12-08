@@ -2940,6 +2940,59 @@ export async function handleOpsCommand(
     return;
   }
 
+  // /ops homestead:bootstrap - Manually trigger homestead bootstrap for deleted/pending channels
+  if (group === "homestead" && sub === "bootstrap") {
+    await interaction.deferReply({ ephemeral: true });
+    
+    try {
+      const guildId = interaction.options.getString("guild_id") ?? interaction.guildId;
+      
+      if (!guildId) {
+        await interaction.editReply({ content: "No guild_id provided and not in a guild context." });
+        return;
+      }
+
+      const { bootstrapDeletedHomesteads } = await import("../../services/homestead-manager.js");
+      
+      const result = await bootstrapDeletedHomesteads(interaction.client, guildId);
+      
+      const lines: string[] = [];
+      lines.push("🏠 **Homestead Bootstrap Complete**");
+      lines.push(`Guild ID: \`${guildId}\``);
+      lines.push("");
+      lines.push("**📊 Results**");
+      lines.push(`• Total Deleted/Pending: ${result.total}`);
+      lines.push(`• Recovered: ${result.recovered} ✅`);
+      lines.push(`• Skipped: ${result.skipped} ⏭️`);
+      lines.push(`• Failed: ${result.failed} ❌`);
+      
+      if (result.errors.length > 0) {
+        lines.push("");
+        lines.push("**❌ Errors**");
+        for (const error of result.errors.slice(0, 5)) {
+          lines.push(`• User \`${error.userId}\`: ${error.error}`);
+        }
+        if (result.errors.length > 5) {
+          lines.push(`*...and ${result.errors.length - 5} more errors*`);
+        }
+      }
+      
+      const message = lines.join("\n");
+      await interaction.editReply({ content: message.length > 2000 ? message.substring(0, 1997) + "..." : message });
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'HOMESTEAD',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops homestead:bootstrap',
+        operation: 'bootstrapDeletedHomesteads',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Bootstrap failed: ${message}` });
+    }
+    return;
+  }
+
   await interaction.reply({ content: "Unknown /ops command.", ephemeral: true });
 }
 
