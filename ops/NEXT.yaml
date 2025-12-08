@@ -100,8 +100,40 @@ main_tasks:
       - Database size and table row gauges
       - Heartbeat latency histogram
 
-# Quick/hot task slot - empty, ready for meta-system health tasks
-quick_task: null
+# Quick/hot task slot - INVESTIGATION TASK ACTIVE
+quick_task:
+  task_id: HOTFIX.HOMESTEAD_BOOTSTRAP_TIMING
+  title: "Investigate homestead bootstrap race condition"
+  reason: "Bootstrap fails silently on startup - investigating race between bootDiscord() ClientReady and initPrisma()"
+  started_utc: 2025-12-08T00:00:00Z
+  lead_specialist: architecture
+  specialists_required:
+    - architecture (lead)
+    - database
+    - ai_coding
+  specialist_signoffs:
+    architecture: in-progress
+    database: pending
+    ai_coding: pending
+  files_hint:
+    - src/services/homestead-manager.ts
+    - src/bot/index.ts
+    - src/index.ts
+  investigation_hypotheses:
+    - "H1 (HIGH): bootDiscord() triggers ClientReady → bootstrap runs BEFORE initPrisma() completes"
+    - "H2 (HIGH): PostgreSQL connection pool not ready when Prisma queries execute"
+    - "H3 (MEDIUM): Promise never resolves (hangs) or throws before .then() handler"
+  diagnostic_changes:
+    - "Added [DIAGNOSTIC] logging at bootstrapAllHomesteads() entry (BEFORE any await)"
+    - "Added [DIAGNOSTIC] logging at ClientReady event fire time"
+    - "Added [DIAGNOSTIC] logging at bootDiscord() completion"
+    - "Added [DIAGNOSTIC] logging at initPrisma() start/complete"
+    - "Added [DIAGNOSTIC] logging at parallel initialization start/complete"
+  next_steps:
+    - "Deploy to production with diagnostic logging"
+    - "Analyze log timestamps to verify race condition hypothesis"
+    - "Determine if ClientReady fires before initPrisma() completes"
+    - "Decide on fix approach (sequential init vs explicit dependency check)"
 
 # Completed P0 tasks (Sprint 1)
 completed_tasks:

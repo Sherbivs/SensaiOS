@@ -72,19 +72,28 @@ Revision: 3.3
 
 ## Embedded PATCHSET Echo (Enhanced with Specialist Tracking)
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: pending-local (specialist system integration)
-Change: ✅ AI SPECIALIST TEAM SYSTEM INTEGRATION COMPLETE (Phase 2) — Integrated team-based AI workflow into Patch.md, ops/NEXT.yaml, and Prompt.md. Enhanced Patch.md with "Specialist Team Coordination" section (8 specialists defined, automatic detection rules, 5-phase workflow protocol, quality gates). Updated ops/NEXT.yaml task structure with specialists_required and specialist_signoffs fields. Enhanced PATCHSET echo format with Specialists Involved, Coordination Notes, and Quality Gates Passed fields. Applied specialist metadata to existing tasks: DB.NORTHSTAR.ANALYTICS (4 specialists: AI Coding lead, Database, Architecture, Performance), ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION (5 specialists: AI Coding lead, Architecture, Database, Documentation, Testing). Updated Patch.md Rev 1.74→1.75, ops/NEXT.yaml timestamp 2025-12-02T18:45:00Z, Prompt.md Rev 3.2→3.3.
-TasklistDiff: ✅ False (meta-system enhancement, no task changes)
+HEAD: pending-commit (homestead-bootstrap-timing-investigation)
+Change: 🔍 HOMESTEAD BOOTSTRAP RACE CONDITION INVESTIGATION — Added comprehensive diagnostic logging to track startup timing and identify race condition between bootDiscord() ClientReady event and initPrisma() completion. Five [DIAGNOSTIC] log points added: (1) bootstrapAllHomesteads() entry point (BEFORE any await), (2) ClientReady event fire time, (3) bootDiscord() completion, (4) initPrisma() start/complete, (5) parallel initialization start/complete. All use log.error() level to ensure visibility in production logs. Investigation prompted by persistent silent bootstrap failures despite correct code logic. Hypotheses: bootDiscord() triggers ClientReady → bootstrap runs BEFORE database initialization completes, causing Prisma queries to fail silently.
 
-Specialists Involved: AI Coding Specialist (Lead), Documentation Specialist, Architecture Specialist
-Coordination Notes: Team analyzed specialist system design document (docs/projects/development/AI-SPECIALIST-TEAM-SYSTEM.md). Determined Phase 2 integration points: Patch.md (specialist section, workflow updates), ops/NEXT.yaml (task metadata), Prompt.md (PATCHSET echo format). Agreed on quality gates: Documentation Specialist verifies naming/formatting, Architecture Specialist validates integration approach, AI Coding ensures technical correctness.
-Quality Gates Passed: ✅ Documentation Specialist (file organization, naming conventions verified), ✅ Architecture Specialist (Patch system integration design validated), ✅ AI Coding Specialist (final approval after domain signoffs)
+Files Modified:
+- src/services/homestead-manager.ts:754 — Added synchronous entry logging with timestamp tracking
+- src/bot/index.ts:125 — Added ClientReady event fire time tracking
+- src/bot/index.ts:335 — Added bootDiscord() completion time tracking
+- src/index.ts:1338 — Added initPrisma() start/complete time tracking
+- src/index.ts:1618 — Added parallel initialization complete time tracking
+- ops/NEXT.yaml — Created quick_task: HOTFIX.HOMESTEAD_BOOTSTRAP_TIMING
 
-Tests: N/A (meta-system enhancement, no runtime code changes)
-ContractMode: ON (Anti-stuck enforcement active with specialist escalation)
-NextPointer: Main Tasks (2/3): DB.NORTHSTAR.ANALYTICS (READY, 4 specialists assigned) + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION (READY, 5 specialists assigned) | Quick Task Slot: Available for forced META.* tasks
+TasklistDiff: ✅ False (investigation task, no backlog changes)
+
+Specialists Involved: Architecture Specialist (Lead), Database Specialist, AI Coding Specialist
+Coordination Notes: Team analyzed 10 hypotheses from specialist meeting. Prioritized top 3: (H1) Race condition between ClientReady and initPrisma, (H2) PostgreSQL pool not initialized, (H3) Promise hangs. Architecture Specialist designed diagnostic strategy: add synchronous logging at 5 critical points to measure timing windows. Database Specialist confirmed PostgreSQL pool must be ready before queries. AI Coding Specialist implemented error-level logging for production visibility.
+Quality Gates Passed: ⏳ Architecture Specialist (in-progress - awaiting deployment + log analysis), ⏳ Database Specialist (pending review), ⏳ AI Coding Specialist (code complete, awaiting verification)
+
+Tests: N/A (diagnostic logging only, no functional changes)
+ContractMode: ON (Quick task slot activated for investigation)
+NextPointer: Quick Task: HOTFIX.HOMESTEAD_BOOTSTRAP_TIMING (in-progress) | Main Tasks (2/3): DB.NORTHSTAR.ANALYTICS + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION (on hold during investigation)
 RoutersIntact: ✅ All routing manifests preserved
-CanonicalDocs: ✅ Patch.md Rev 1.74→1.75, Prompt.md Rev 3.2→3.3, ops/NEXT.yaml updated with specialist fields
+CanonicalDocs: ✅ ops/NEXT.yaml updated with investigation task metadata
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

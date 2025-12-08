@@ -1335,7 +1335,25 @@ export async function boot(): Promise<void> {
   const dbStart = process.hrtime.bigint();
   setSection("database", { title: "Database", status: "connecting", metrics: [] });
   try {
+    // DIAGNOSTIC: Track Prisma initialization timing
+    const initPrismaStart = Date.now();
+    log.error('[DIAGNOSTIC] initPrisma() starting', {
+      timestamp: new Date().toISOString(),
+      epochMs: initPrismaStart,
+      note: 'Database initialization begins - MUST complete before bootstrap queries',
+    });
+    
     await initPrisma();
+    
+    // DIAGNOSTIC: Track when Prisma is ready
+    const initPrismaComplete = Date.now();
+    log.error('[DIAGNOSTIC] initPrisma() complete', {
+      timestamp: new Date().toISOString(),
+      epochMs: initPrismaComplete,
+      durationMs: initPrismaComplete - initPrismaStart,
+      note: 'Database ready - safe to run queries now',
+    });
+    
     await prisma.$queryRaw(Prisma.sql`SELECT 1`);
     const dbDurationMs = Number(process.hrtime.bigint() - dbStart) / 1_000_000;
     prismaConnectDurationMs = dbDurationMs;
@@ -1598,6 +1616,14 @@ export async function boot(): Promise<void> {
     // Discord Bot (main bot)
     bootDiscord()
   ]);
+  
+  // DIAGNOSTIC: Track when parallel initialization completes
+  const parallelInitComplete = Date.now();
+  log.error('[DIAGNOSTIC] Parallel initialization complete', {
+    timestamp: new Date().toISOString(),
+    epochMs: parallelInitComplete,
+    note: 'ALL components ready - but ClientReady/bootstrap may have run already',
+  });
   
   // Record parallel initialization completion
   recordTiming("engine_and_bots_init", ENGINE_AND_BOTS_START);

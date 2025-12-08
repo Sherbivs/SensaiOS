@@ -752,6 +752,17 @@ export async function bootstrapDeletedHomesteads(
  * Call this from ClientReady event
  */
 export async function bootstrapAllHomesteads(client: Client): Promise<BootstrapResult[]> {
+  // DIAGNOSTIC: Immediate log BEFORE any await to verify function is called and timing
+  const bootstrapStartTime = Date.now();
+  const timestamp = new Date().toISOString();
+  
+  // Use error level to ensure visibility in all log configurations
+  log.error('[DIAGNOSTIC] bootstrapAllHomesteads ENTRY', {
+    timestamp,
+    epochMs: bootstrapStartTime,
+    note: 'Synchronous entry point - if you see this, function was called',
+  });
+  
   const results: BootstrapResult[] = [];
 
   log.info('[HomesteadManager] bootstrapAllHomesteads starting...');

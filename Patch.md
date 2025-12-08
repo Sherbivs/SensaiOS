@@ -249,6 +249,171 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 # _Patch Clipboard Scratch Area (leave empty when not in use)_
 # 
 <<<PATCHSET START>>>
+TASK: HOTFIX.HOMESTEAD_BOOTSTRAP_TIMING
+LEAD: Architecture Specialist
+TEAM: Architecture (lead), Database, AI Coding
+STATUS: Investigation phase - diagnostic logging implemented
+
+OBJECTIVE:
+Investigate why homestead channel bootstrap fails silently on startup despite correct code logic.
+Add comprehensive diagnostic logging to identify race condition between bootDiscord() ClientReady event 
+and initPrisma() database initialization completion.
+
+HYPOTHESIS:
+Race condition exists where bootDiscord() triggers ClientReady event → bootstrap runs BEFORE 
+initPrisma() completes → Prisma queries fail silently with uninitialized connection pool.
+
+FILES MODIFIED:
+
+FILE: src/services/homestead-manager.ts
+LOCATION: Line 754 (bootstrapAllHomesteads function entry)
+CHANGE: Added synchronous diagnostic logging BEFORE any await
+PURPOSE: Verify function is called and measure timing relative to database initialization
+CODE:
+- export async function bootstrapAllHomesteads(client: Client): Promise<BootstrapResult[]> {
+-   const results: BootstrapResult[] = [];
++ export async function bootstrapAllHomesteads(client: Client): Promise<BootstrapResult[]> {
++   // DIAGNOSTIC: Immediate log BEFORE any await to verify function is called and timing
++   const bootstrapStartTime = Date.now();
++   const timestamp = new Date().toISOString();
++   
++   // Use error level to ensure visibility in all log configurations
++   log.error('[DIAGNOSTIC] bootstrapAllHomesteads ENTRY', {
++     timestamp,
++     epochMs: bootstrapStartTime,
++     note: 'Synchronous entry point - if you see this, function was called',
++   });
++   
++   const results: BootstrapResult[] = [];
+
+FILE: src/bot/index.ts
+LOCATION: Line 125 (ClientReady event handler)
+CHANGE: Added ClientReady event fire time tracking
+PURPOSE: Measure when Discord client becomes ready and bootstrap is triggered
+CODE:
+  client.once(Events.ClientReady, () => {
++   // DIAGNOSTIC: Track when ClientReady fires
++   const clientReadyTime = Date.now();
++   log.error('[DIAGNOSTIC] ClientReady event fired', {
++     timestamp: new Date().toISOString(),
++     epochMs: clientReadyTime,
++     user: client.user?.tag,
++     note: 'This fires during client.login(), check timing vs initPrisma()',
++   });
++   
+    log.info("Discord bot is ready", {
+
+FILE: src/bot/index.ts
+LOCATION: Line 335 (bootDiscord completion point)
+CHANGE: Added bootDiscord() completion time tracking
+PURPOSE: Measure when bootDiscord() returns to index.ts Promise.all
+CODE:
+  await Promise.all([client.login(token), readyPromise]);
+  
++ // DIAGNOSTIC: Track when bootDiscord() completes (after login + ClientReady)
++ const bootDiscordCompleteTime = Date.now();
++ log.error('[DIAGNOSTIC] bootDiscord() completing', {
++   timestamp: new Date().toISOString(),
++   epochMs: bootDiscordCompleteTime,
++   note: 'Function returns after login + ClientReady, but bootstrap runs async',
++ });
+
+FILE: src/index.ts
+LOCATION: Line 1338 (initPrisma call site)
+CHANGE: Added initPrisma() start/complete timing
+PURPOSE: Measure database initialization duration and confirm when queries can safely execute
+CODE:
+  try {
++   // DIAGNOSTIC: Track Prisma initialization timing
++   const initPrismaStart = Date.now();
++   log.error('[DIAGNOSTIC] initPrisma() starting', {
++     timestamp: new Date().toISOString(),
++     epochMs: initPrismaStart,
++     note: 'Database initialization begins - MUST complete before bootstrap queries',
++   });
++   
+    await initPrisma();
++   
++   // DIAGNOSTIC: Track when Prisma is ready
++   const initPrismaComplete = Date.now();
++   log.error('[DIAGNOSTIC] initPrisma() complete', {
++     timestamp: new Date().toISOString(),
++     epochMs: initPrismaComplete,
++     durationMs: initPrismaComplete - initPrismaStart,
++     note: 'Database ready - safe to run queries now',
++   });
+
+FILE: src/index.ts
+LOCATION: Line 1618 (parallel initialization complete)
+CHANGE: Added parallel initialization completion tracking
+PURPOSE: Measure when all components ready and verify if bootstrap already ran
+CODE:
+  await Promise.all([
+    engineInit(),
+    ENABLE_SECURITY_BOT ? bootSecurityBot() : Promise.resolve(null),
+    bootDiscord()
+  ]);
+  
++ // DIAGNOSTIC: Track when parallel initialization completes
++ const parallelInitComplete = Date.now();
++ log.error('[DIAGNOSTIC] Parallel initialization complete', {
++   timestamp: new Date().toISOString(),
++   epochMs: parallelInitComplete,
++   note: 'ALL components ready - but ClientReady/bootstrap may have run already',
++ });
+
+FILE: ops/NEXT.yaml
+CHANGE: Created quick_task investigation entry
+PURPOSE: Document investigation in task queue
+CODE:
+- quick_task: null
++ quick_task:
++   task_id: HOTFIX.HOMESTEAD_BOOTSTRAP_TIMING
++   title: "Investigate homestead bootstrap race condition"
++   reason: "Bootstrap fails silently on startup - investigating race between bootDiscord() ClientReady and initPrisma()"
++   started_utc: 2025-12-08T00:00:00Z
++   lead_specialist: architecture
++   specialists_required:
++     - architecture (lead)
++     - database
++     - ai_coding
+
+FILE: Prompt.md
+CHANGE: Updated PATCHSET echo with investigation details
+PURPOSE: Document investigation progress and specialist coordination
+
+TASKLIST UPDATE:
+No changes to Tasklist.md - investigation task tracked in ops/NEXT.yaml quick_task slot only.
+
+SPECIALIST COORDINATION:
+- Architecture Specialist (Lead): Designed 5-point diagnostic strategy, coordinating investigation
+- Database Specialist: Confirmed PostgreSQL pool must be ready before queries, pending log review
+- AI Coding Specialist: Implemented error-level logging for production visibility, code complete
+
+QUALITY GATES:
+- Architecture Specialist: ⏳ In-progress (awaiting deployment + log analysis)
+- Database Specialist: ⏳ Pending review
+- AI Coding Specialist: ⏳ Code complete, awaiting verification
+
+EXPECTED LOG SEQUENCE (If Race Condition Confirmed):
+[DIAGNOSTIC] initPrisma() starting           (T=1000ms)
+[DIAGNOSTIC] ClientReady event fired         (T=1100ms) ❌ TOO EARLY
+[DIAGNOSTIC] bootstrapAllHomesteads ENTRY    (T=1105ms) ❌ BEFORE DB READY
+[DIAGNOSTIC] initPrisma() complete           (T=1200ms) ✅ DB NOW READY (too late)
+[DIAGNOSTIC] bootDiscord() completing        (T=1205ms)
+[DIAGNOSTIC] Parallel initialization complete (T=1210ms)
+
+NEXT STEPS:
+1. Commit diagnostic changes
+2. Deploy to production (Render)
+3. Monitor logs for [DIAGNOSTIC] entries
+4. Correlate epochMs timestamps
+5. Confirm race condition hypothesis
+6. Design fix based on findings
+
+TESTING:
+Not applicable - diagnostic logging only, no functional changes.
+Zero build errors, ESLint compliant.
 
 <<<PATCHSET END>>>
 

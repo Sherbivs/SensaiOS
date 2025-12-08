@@ -125,6 +125,15 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
         const readyPromise = once(client, Events.ClientReady);
 
         client.once(Events.ClientReady, () => {
+                // DIAGNOSTIC: Track when ClientReady fires
+                const clientReadyTime = Date.now();
+                log.error('[DIAGNOSTIC] ClientReady event fired', {
+                        timestamp: new Date().toISOString(),
+                        epochMs: clientReadyTime,
+                        user: client.user?.tag,
+                        note: 'This fires during client.login(), check timing vs initPrisma()',
+                });
+                
                 log.info("Discord bot is ready", {
                         user: client.user?.tag,
                         lazyCommands: true,  // Commands will load on first interaction
@@ -323,6 +332,14 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 	});
 
         await Promise.all([client.login(token), readyPromise]);
+
+        // DIAGNOSTIC: Track when bootDiscord() completes (after login + ClientReady)
+        const bootDiscordCompleteTime = Date.now();
+        log.error('[DIAGNOSTIC] bootDiscord() completing', {
+                timestamp: new Date().toISOString(),
+                epochMs: bootDiscordCompleteTime,
+                note: 'Function returns after login + ClientReady, but bootstrap runs async',
+        });
 
         // MEMORY OPTIMIZATION (2025-11-17): Cache hygiene monitoring
         // Automatic sweepers (configured in Client options) handle cleanup.
