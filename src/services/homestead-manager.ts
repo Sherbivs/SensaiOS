@@ -65,11 +65,20 @@ export class HomesteadChannelManager {
   private client: Client;
   private guild: Guild;
 
-  constructor(client: Client, guildId: string) {
+  /**
+   * Create HomesteadChannelManager
+   * @param client Discord client
+   * @param guildId Guild ID to manage
+   * @param prefetchedGuild Optional pre-fetched guild (for bootstrap where cache may be empty)
+   */
+  constructor(client: Client, guildId: string, prefetchedGuild?: Guild) {
     this.client = client;
-    const guild = client.guilds.cache.get(guildId);
+    
+    // Use pre-fetched guild if provided (for startup bootstrap)
+    // Otherwise fall back to cache (for runtime operations)
+    const guild = prefetchedGuild ?? client.guilds.cache.get(guildId);
     if (!guild) {
-      throw new Error(`Guild ${guildId} not found in client cache`);
+      throw new Error(`Guild ${guildId} not found - use prefetchedGuild parameter during startup`);
     }
     this.guild = guild;
   }
@@ -627,14 +636,17 @@ export async function bootstrapDeletedHomesteads(
       count: deletedHomesteads.length,
     });
 
-    const manager = getHomesteadManager(client, guildId);
-    const guild = client.guilds.cache.get(guildId);
+    // CRITICAL: Use fetch() not cache.get() - cache may be empty on startup
+    const guild = await client.guilds.fetch(guildId).catch(() => null);
 
     if (!guild) {
       log.error('[HomesteadManager] Guild not found for bootstrap', { guildId });
       result.failed = result.total;
       return result;
     }
+
+    // Create manager with fetched guild
+    const manager = new HomesteadChannelManager(client, guildId, guild);
 
     for (const homestead of deletedHomesteads) {
       try {
