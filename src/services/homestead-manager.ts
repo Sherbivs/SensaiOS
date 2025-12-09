@@ -767,15 +767,17 @@ export async function bootstrapAllHomesteads(client: Client): Promise<BootstrapR
 
   log.info('[HomesteadManager] bootstrapAllHomesteads starting...');
 
-  // Get all guilds with homesteads
-  const guilds = await prisma.homesteadChannel.findMany({
-    select: { guildId: true },
-    distinct: ['guildId'],
-  });
+  // FIX: Get all guilds from Discord client, not from database
+  // The database may be empty, but the bot is still in guilds
+  const guilds = Array.from(client.guilds.cache.values()).map(guild => ({
+    guildId: guild.id,
+    guildName: guild.name,
+  }));
 
   log.info('[HomesteadManager] Starting bootstrap for all guilds', {
     guildCount: guilds.length,
     guildIds: guilds.map(g => g.guildId),
+    guildNames: guilds.map(g => g.guildName),
   });
 
   for (const { guildId } of guilds) {
