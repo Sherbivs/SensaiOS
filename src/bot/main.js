@@ -3826,6 +3826,40 @@ client.on('guildMemberAdd', async (member) => {
   await assignTrainerRoleToNewMember(member);
 });
 
+// HOTFIX: Grace Period Tracking for Authorized Role Removals (2025-12-11)
+// Prevents infinite healing loop when admins intentionally remove Trainer role
+// Map<userId, { timestamp, executor, reason, roleId }>
+const authorizedRoleRemovalGracePeriods = new Map();
+const GRACE_PERIOD_DURATION_MS = 60_000; // 60 seconds
+
+/**
+ * Helper: Clean up expired grace period entries to prevent memory leaks
+ * Removes entries older than GRACE_PERIOD_DURATION_MS
+ */
+function cleanupExpiredGracePeriods() {
+  const now = Date.now();
+  const expiredKeys = [];
+  
+  for (const [userId, entry] of authorizedRoleRemovalGracePeriods.entries()) {
+    if (now - entry.timestamp > GRACE_PERIOD_DURATION_MS) {
+      expiredKeys.push(userId);
+    }
+  }
+  
+  if (expiredKeys.length > 0) {
+    for (const key of expiredKeys) {
+      authorizedRoleRemovalGracePeriods.delete(key);
+    }
+    log('debug', '[GRACE_PERIOD] Cleaned up expired grace period entries', {
+      expiredCount: expiredKeys.length,
+      remainingCount: authorizedRoleRemovalGracePeriods.size,
+    });
+  }
+}
+
+// Clean up grace periods every 30 seconds
+setInterval(cleanupExpiredGracePeriods, 30_000);
+
 // Heal members who lose all assignable roles (drop to @everyone only)
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   try {
@@ -3893,8 +3927,67 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
       }
     }
     
+    // HOTFIX: Check grace period BEFORE healing logic (2025-12-11)
+    // If this user has an active grace period (authorized removal within last 60s), skip healing
+    const gracePeriod = authorizedRoleRemovalGracePeriods.get(newMember.id);
+    if (gracePeriod) {
+      const elapsed = Date.now() - gracePeriod.timestamp;
+      if (elapsed < GRACE_PERIOD_DURATION_MS) {
+        log('info', '[GRACE_PERIOD] Skipping healing during active grace period', {
+          guild: describeGuild(newMember.guild),
+          member: describeMember(newMember),
+          gracePeriodElapsed: `${Math.floor(elapsed / 1000)}s`,
+          gracePeriodRemaining: `${Math.floor((GRACE_PERIOD_DURATION_MS - elapsed) / 1000)}s`,
+          authorizedBy: gracePeriod.executor?.tag || 'unknown',
+          reason: gracePeriod.reason,
+        });
+        return; // Skip healing - respect admin's intentional removal
+      } else {
+        // Grace period expired - remove and allow healing to proceed
+        authorizedRoleRemovalGracePeriods.delete(newMember.id);
+        log('info', '[GRACE_PERIOD] Grace period expired, resuming healing', {
+          guild: describeGuild(newMember.guild),
+          member: describeMember(newMember),
+        });
+      }
+    }
+    
     // Continue with existing role assignment alerting and healing
     const result = await maybeAlertRoleAssignments(oldMember, newMember);
+    
+    // HOTFIX: Check if Trainer role was removed and action was authorized (2025-12-11)
+    // If so, set grace period to prevent immediate healing loop
+    if (result && result.changed && !result.unauthorized && trainerRole) {
+      const hadRole = oldMember.roles.cache.has(trainerRole.id);
+      const hasRole = newMember.roles.cache.has(trainerRole.id);
+      
+      if (hadRole && !hasRole) {
+        // Trainer role was removed by authorized admin - set 60-second grace period
+        const auditEntry = await lookupRoleAuditEntry(newMember.guild, newMember.id, {
+          removedRoleIds: [trainerRole.id],
+        });
+        const executor = auditEntry?.executor ?? null;
+        
+        authorizedRoleRemovalGracePeriods.set(newMember.id, {
+          timestamp: Date.now(),
+          executor,
+          reason: result.authorization || 'authorized',
+          roleId: trainerRole.id,
+        });
+        
+        log('info', '[GRACE_PERIOD] Set grace period for authorized Trainer role removal', {
+          guild: describeGuild(newMember.guild),
+          member: describeMember(newMember),
+          duration: `${GRACE_PERIOD_DURATION_MS / 1000}s`,
+          authorizedBy: executor?.tag || 'unknown',
+          reason: result.authorization || 'authorized',
+        });
+        
+        return; // Skip healing immediately after authorized removal
+      }
+    }
+    
+    // Proceed with healing if needed (and not in grace period)
     if (!result?.unauthorized && hasNoAssignableRoles(newMember)) {
       await ensureTrainerFor(newMember, 'member-update');
     }

@@ -22,7 +22,7 @@
  *   1. Enable Developer Mode in Discord Settings → Advanced
  *   2. Right-click your username → Copy User ID
  * 
- * @security Only DRIPTVDD (Discord ID: 398910451420348448) should be initialized
+ * @security Only DRIPTVDD (Discord ID: 563220840708177927) should be initialized
  *           for production. CLI override is for testing only.
  */
 
@@ -42,7 +42,7 @@ const { Pool } = pg;
 
 // Discord ID can be overridden via command line: npx tsx scripts/init-driptvdd-test.ts <discord_id>
 const CLI_DISCORD_ID = process.argv[2];
-const DRIPTVDD_DISCORD_ID = CLI_DISCORD_ID || PROJECT_LEADERSHIP.CEO.discordId; // 398910451420348448
+const DRIPTVDD_DISCORD_ID = CLI_DISCORD_ID || PROJECT_LEADERSHIP.CEO.discordId; // 563220840708177927
 const BOT_TOKEN = process.env.BOT_TOKEN || process.env.DISCORD_TOKEN;
 
 // Guild ID can be provided via env or auto-detected from bot's first guild

@@ -22,7 +22,7 @@ import { createHmac as _createHmac } from 'crypto';
 
 // ===== TEST SUITE CONFIGURATION =====
 
-const TEST_GUILD_ID = '398910451420348448'; // DRIPTVDD's Discord ID (used as test guild)
+const TEST_GUILD_ID = '1100976155579912222'; // Black Infinity Gauntlet guild ID
 const TEST_USER_ID = 'test-user-123456789';
 const TEST_USERNAME = 'testuser';
 const _TEST_HMAC_KEY = 'test-secret-key-for-homestead-fingerprints';

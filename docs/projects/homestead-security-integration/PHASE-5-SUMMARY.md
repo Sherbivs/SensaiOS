@@ -60,7 +60,7 @@ async function createTestHomestead(overrides): Promise<HomesteadChannel>
 - **Test Isolation:** Each test runs independently
 
 ### Test Configuration
-- Test Guild: `398910451420348448` (DRIPTVDD's Discord ID)
+- Test Guild: `1100976155579912222` (Black Infinity Gauntlet guild ID)
 - Test User: `test-user-123456789`
 - HMAC Key: `test-secret-key-for-homestead-fingerprints`
 

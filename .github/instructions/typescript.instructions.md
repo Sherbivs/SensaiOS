@@ -5,7 +5,7 @@ applyTo: 'src/**/*.ts'
 
 ## Project Leadership
 
-**Creator & CEO:** DRIPTVDD | **Discord ID:** `398910451420348448` (anti-spoofing identifier)
+**Creator & CEO:** DRIPTVDD | **Discord ID:** `563220840708177927` (anti-spoofing identifier)
 
 ## TypeScript Standards
 

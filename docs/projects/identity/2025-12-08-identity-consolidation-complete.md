@@ -232,9 +232,9 @@ import { playerResolver } from "../services/player-resolver.js";
 
 // Resolve multiple players efficiently
 const players = await playerResolver.resolveBatch([
-  "398910451420348448",
-  "563220840708177927",
-  "926689645759189022"
+  "563220840708177927",  // DRIPTVDD
+  "926689645759189022",  // drip_kit1
+  "712718125354844240"   // another user
 ]);
 
 for (const player of players) {

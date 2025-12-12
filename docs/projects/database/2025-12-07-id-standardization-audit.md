@@ -60,8 +60,7 @@ Multiple ID format inconsistencies were discovered across the database. **All cr
 ```
 id                                    | discordId            | coins
 --------------------------------------|----------------------|------
-42ff0918-60a7-448e-9318-0efbc3f9a2fa | 563220840708177927   | 0
-driptvdd-founder-001                  | 398910451420348448   | 1000   ← DRIPTVDD (founder)
+driptvdd-founder-001                  | 563220840708177927   | 1000   ← DRIPTVDD (founder) ✅ CORRECTED
 ```
 
 ### Homestead Channels (1 record)
@@ -87,7 +86,7 @@ id (CUID)                              | guild_id              | discord_user_id
 (internal)                             | 1100976155579912222  | 926689645759189022    | drip_kit1
 ```
 
-**Note:** The `discord_user_id` `563220840708177927` in `discord_members` is a different Discord account than DRIPTVDD's primary account (`398910451420348448`). This is correct behavior — the security bot tracks all Discord members independently from game accounts.
+**Note:** The `discord_user_id` `563220840708177927` in `discord_members` is DRIPTVDD's correct Discord ID, which now matches the `discordId` in the `User` table (corrected 2025-12-09). The security bot tracks all Discord members independently from game accounts.
 
 ---
 
@@ -95,7 +94,7 @@ id (CUID)                              | guild_id              | discord_user_id
 
 | Entity Type | Field Name | Format | Example | Validation |
 |-------------|------------|--------|---------|------------|
-| Discord User ID | `discordId` | Snowflake (string) | `398910451420348448` | 17-19 digits |
+| Discord User ID | `discordId` | Snowflake (string) | `563220840708177927` | 17-19 digits |
 | Discord Guild ID | `guildId` | Snowflake (string) | `1100976155579912222` | 17-19 digits |
 | Discord Channel ID | `channelId` | Snowflake (string) | `1234567890123456789` | 17-19 digits |
 | Discord Role ID | `roleId` | Snowflake (string) | `1234567890123456789` | 17-19 digits |

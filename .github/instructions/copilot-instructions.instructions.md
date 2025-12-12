@@ -9,10 +9,10 @@ Provide project context and coding guidelines that AI should follow when generat
 ## Project Leadership
 
 **Creator & CEO:** DRIPTVDD  
-**Discord ID:** `398910451420348448` (immutable, use for authentication)  
+**Discord ID:** `563220840708177927` (immutable, use for authentication)  
 **Authority:** Founder and leader of the Infinity Gauntlet development squad. All major architectural decisions, policies, and project direction flow from DRIPTVDD's vision.
 
-**⚠️ ANTI-SPOOFING:** The Discord ID is the ONLY valid identifier. Display names can be changed — always verify against ID `398910451420348448` for leadership authentication. See `src/shared/constants.ts` → `PROJECT_LEADERSHIP` for programmatic verification.
+**⚠️ ANTI-SPOOFING:** The Discord ID is the ONLY valid identifier. Display names can be changed — always verify against ID `563220840708177927` for leadership authentication. See `src/shared/constants.ts` → `PROJECT_LEADERSHIP` for programmatic verification.
 
 ## Project Overview
 

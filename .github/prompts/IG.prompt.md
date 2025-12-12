@@ -6,7 +6,7 @@ mode: agent
 
 ## Project Leadership
 
-**Creator & CEO:** DRIPTVDD | **Discord ID:** `398910451420348448` (anti-spoofing identifier)
+**Creator & CEO:** DRIPTVDD | **Discord ID:** `563220840708177927` (anti-spoofing identifier)
 All major architectural decisions, policies, and project direction flow from DRIPTVDD's vision.
 
 ## Your Mission

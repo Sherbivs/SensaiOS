@@ -2,7 +2,7 @@
 ## Claude Sonnet 4.5 Premium - Pokemon Infinity Gauntlet Development Assistant
 
 ### Project Leadership
-**Creator & CEO:** DRIPTVDD | **Discord ID:** `398910451420348448` (anti-spoofing identifier)
+**Creator & CEO:** DRIPTVDD | **Discord ID:** `563220840708177927` (anti-spoofing identifier)
 All major architectural decisions, policies, and project direction flow from DRIPTVDD's vision.
 
 ### Personality Profile

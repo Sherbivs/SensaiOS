@@ -1,0 +1,306 @@
+# HOTFIX PLAN: Grace Period for Authorized Role Removals
+# Date: 2025-12-11
+# Severity: CRITICAL - Production bot disabled due to infinite healing loop
+# Issue ID: Race condition in guildMemberUpdate handler
+
+## ROOT CAUSE ANALYSIS
+
+### Problem Summary
+When an admin removes the Trainer role from a user:
+1. guildMemberUpdate event fires → Discord.js detects role change
+2. Authorization check passes (admin action recognized) ✅
+3. Cache invalidation occurs after authorized change
+4. Healing logic (ensureTrainerFor) executes IMMEDIATELY
+5. Bot sees user has no roles after cache invalidation
+6. Bot re-adds Trainer role automatically
+7. Loop repeats infinitely (cache invalidation → healing → revert)
+
+### Technical Mechanism
+- **File:** src/bot/main.js
+- **Location:** Lines 3829-3898 (guildMemberUpdate event handler)
+- **Root Cause:** NO grace period tracking between cache invalidation and healing logic
+- **Authorization:** Works correctly via evaluateExecutorAuthorization (lines 1117-1165)
+  - Bot: authorized (reason: 'security-bot')
+  - Guild Owner: authorized (reason: 'guild-owner')
+  - Administrator: authorized (reason: 'administrator') - Checks PermissionsBitField.Flags.Administrator
+  - Others: unauthorized → immediate revert
+
+### Secondary Issue
+Alert duplication across 3 independent paths:
+- dripAlertManager.recordAlert: 10 calls
+- activityTracker.recordActivity: 9 calls
+- report function: 49 calls
+
+**Note:** Secondary issue NOT addressed in this hotfix. Will be resolved separately via centralized alerting facade.
+
+## IMPLEMENTATION STRATEGY
+
+### Grace Period Solution
+**Approach:** Add 60-second grace period Map tracking authorized Trainer role removals
+
+**Data Structure:**
+```javascript
+const authorizedRoleRemovalGracePeriods = new Map();
+// Map<userId, { timestamp, executor, reason, roleId }>
+```
+
+**Logic Flow:**
+1. Before healing: Check if user has active grace period (<60 seconds elapsed)
+2. If grace period active: Skip healing, respect admin's intentional removal
+3. If grace period expired: Remove from Map, allow healing to proceed
+4. After authorized removal detected: Set 60-second grace period entry
+
+**Memory Management:**
+- Auto-cleanup every 30 seconds via setInterval
+- Removes expired entries (>60 seconds old)
+- Prevents memory leaks from abandoned grace periods
+
+## AFFECTED FILES
+
+### Primary Changes
+- **src/bot/main.js** (Lines 3829-3950 modified)
+  - Added authorizedRoleRemovalGracePeriods Map (line 3829)
+  - Added GRACE_PERIOD_DURATION_MS constant (60 seconds)
+  - Added cleanupExpiredGracePeriods() helper function
+  - Added setInterval cleanup (every 30 seconds)
+  - Modified guildMemberUpdate handler:
+    - Check grace period BEFORE healing logic
+    - Skip healing if within 60-second window
+    - Set grace period AFTER authorized Trainer role removal detected
+    - Log grace period activity (set, check, expire)
+
+### No Changes Required
+- **Authorization logic** (lines 1117-1165) - Already correct ✅
+- **maybeAlertRoleAssignments** (lines 1986-2150) - No modification needed ✅
+- **ensureTrainerFor** - Healing logic unchanged ✅
+
+## TESTING PROCEDURES
+
+### Local Testing (npm run dev)
+**Test Scenario 1: New Member Join**
+1. Start bot with `npm run dev`
+2. New user joins Discord server
+3. **Expected:** User receives Trainer role automatically
+4. **Verify:** No grace period set (join !== removal)
+
+**Test Scenario 2: Admin Removes Trainer Role (Grace Period Active)**
+1. Admin removes Trainer role from test user
+2. **Expected:** Grace period set for 60 seconds
+3. **Expected:** Bot logs "[GRACE_PERIOD] Set grace period for authorized Trainer role removal"
+4. **Expected:** Bot does NOT re-add role immediately
+5. Wait 30 seconds
+6. **Expected:** Bot still respects grace period (logs "[GRACE_PERIOD] Skipping healing during active grace period")
+
+**Test Scenario 3: Grace Period Expires (Healing Resumes)**
+1. Continue from Test Scenario 2
+2. Wait 61 seconds total (past 60-second grace period)
+3. **Expected:** Grace period expires and is removed from Map
+4. **Expected:** Bot logs "[GRACE_PERIOD] Grace period expired, resuming healing"
+5. **Expected:** Bot re-adds Trainer role (healing resumes)
+
+**Test Scenario 4: Unauthorized Role Removal (Immediate Revert)**
+1. Non-admin user removes Trainer role (or simulate unauthorized removal)
+2. **Expected:** NO grace period set (unauthorized action)
+3. **Expected:** Immediate role revert by security bot
+4. **Expected:** Security alert sent to admin
+
+**Test Scenario 5: Multiple Users (Isolation)**
+1. Admin removes role from User A (grace period active)
+2. Admin removes role from User B (grace period active)
+3. **Expected:** Both users have independent grace periods
+4. **Expected:** No cross-contamination between users
+
+### Production Validation
+**Phase 1: Deploy + Monitor (First 2 Hours)**
+- Deploy to production
+- Monitor bot logs for "[GRACE_PERIOD]" messages
+- Verify no role assignment loops occur
+- Check admin can remove roles without bot re-adding
+
+**Phase 2: Extended Monitoring (24-48 Hours)**
+- Monitor for any unexpected healing behavior
+- Verify new member joins still receive Trainer role
+- Verify unauthorized removals still trigger immediate revert
+- Check grace period cleanup runs every 30 seconds (no memory leaks)
+
+**Phase 3: Production Acceptance (After 48 Hours)**
+- Confirm zero role assignment loops
+- Confirm admin role removals respected for 60 seconds
+- Confirm healing resumes after grace period expiration
+- Confirm no memory leaks (grace period Map size stable)
+
+## ROLLBACK PROCEDURES
+
+### Immediate Rollback (If Critical Issue Detected)
+**Trigger Conditions:**
+- Grace period prevents legitimate healing (bot fails to auto-assign new members)
+- Memory leak detected (grace period Map grows unbounded)
+- Authorization bypass discovered (unauthorized users set grace periods)
+
+**Rollback Steps:**
+1. Git revert commit with grace period implementation
+2. Re-deploy previous working version to production
+3. Restart bot service
+4. Verify bot functionality restored
+5. Document rollback reason and failure mode
+
+**Rollback Command:**
+```bash
+git revert HEAD
+git push origin main
+# Trigger Render auto-deploy OR manual deploy via Dashboard
+```
+
+### Partial Rollback (Disable Grace Period Feature)
+If grace period logic is problematic but bot otherwise functional:
+1. Comment out grace period check before healing
+2. Keep cleanup mechanism (harmless)
+3. Deploy modified version
+4. Investigate root cause of grace period failure
+
+## DEPLOYMENT CHECKLIST
+
+### Pre-Deployment
+- [x] Root cause definitively identified (race condition confirmed)
+- [x] Grace period implementation complete (src/bot/main.js modified)
+- [x] Cleanup mechanism implemented (30-second setInterval)
+- [x] HOTFIX_PLAN.yaml documentation created
+- [ ] Local testing completed (all 5 test scenarios pass)
+- [ ] Code review completed (verification of authorization integration)
+- [ ] Backup of current production code taken (git commit before merge)
+
+### Deployment
+- [ ] Commit changes with descriptive message: "HOTFIX: Add 60-second grace period for authorized role removals (fixes infinite healing loop)"
+- [ ] Push to main branch
+- [ ] Trigger Render deployment (auto-deploy OR manual via Dashboard)
+- [ ] Monitor deployment logs for errors
+- [ ] Verify bot comes online after deployment
+
+### Post-Deployment
+- [ ] Monitor bot logs for "[GRACE_PERIOD]" messages (verify feature active)
+- [ ] Test admin role removal (verify grace period set)
+- [ ] Test new member join (verify auto-assignment still works)
+- [ ] Monitor for 2 hours (Phase 1 validation)
+- [ ] Monitor for 24-48 hours (Phase 2 extended validation)
+- [ ] Declare production acceptance after 48 hours (Phase 3)
+
+## MONITORING & OBSERVABILITY
+
+### Log Messages to Monitor
+```
+[GRACE_PERIOD] Set grace period for authorized Trainer role removal
+[GRACE_PERIOD] Skipping healing during active grace period
+[GRACE_PERIOD] Grace period expired, resuming healing
+[GRACE_PERIOD] Cleaned up expired grace period entries
+```
+
+### Metrics to Track
+- Grace periods set per hour (should be low, only when admins remove roles)
+- Grace period cleanups per hour (every 30 seconds = 120/hour expected)
+- Healing operations skipped due to grace period
+- Healing operations executed after grace period expiration
+- Map size (authorizedRoleRemovalGracePeriods.size) - should stay <10 normally
+
+### Alert Conditions
+- **CRITICAL:** Map size >100 (possible memory leak)
+- **CRITICAL:** Grace period prevents new member role assignment (authorization bypass)
+- **WARNING:** Grace period duration >90 seconds (expired entries not cleaning up)
+- **NOTICE:** >10 grace periods set within 1 hour (unusual admin activity)
+
+## KNOWN LIMITATIONS
+
+### Grace Period Only Applies to Trainer Role
+- Current implementation tracks Trainer role specifically
+- Other assignable roles not covered by grace period
+- **Rationale:** Trainer role is the only auto-assigned role; others are manual admin assignments
+
+### 60-Second Duration Fixed
+- Grace period duration is hardcoded (GRACE_PERIOD_DURATION_MS = 60_000)
+- Not configurable via environment variable
+- **Future Enhancement:** Make duration configurable if needed
+
+### No Persistent State
+- Grace periods stored in-memory Map (not database)
+- Bot restart clears all active grace periods
+- **Impact:** If bot restarts during grace period, healing will resume immediately
+- **Rationale:** 60-second window is short enough that restart race condition is acceptable
+
+### Authorization Check Happens Before Grace Period
+- maybeAlertRoleAssignments evaluates authorization
+- Grace period set AFTER authorization passes
+- **Implication:** Unauthorized removals never set grace period (by design)
+
+## SUCCESS CRITERIA
+
+### Primary Objective (MUST ACHIEVE)
+✅ **No role assignment loops after admin removes Trainer role**
+- Admin can remove role without bot immediately re-adding
+- Bot respects admin action for 60 seconds
+- Healing resumes after grace period expires
+
+### Secondary Objectives
+✅ **New members still receive Trainer role automatically**
+- guildMemberAdd handler unchanged
+- assignTrainerRoleToNewMember still executes
+
+✅ **Unauthorized removals still trigger immediate revert**
+- Authorization logic unchanged
+- Security bot still protects against permission violations
+
+✅ **No memory leaks**
+- Cleanup mechanism removes expired grace periods
+- Map size stays bounded (<10 entries normally)
+
+✅ **Observable and debuggable**
+- Clear log messages at each grace period operation
+- Log includes elapsed time, remaining time, executor
+
+## FUTURE ENHANCEMENTS (Post-Hotfix)
+
+### Alert Deduplication (Not in This Hotfix)
+**Issue:** 3 independent alert paths cause duplicate notifications
+- dripAlertManager: 10 calls
+- activityTracker: 9 calls
+- report: 49 calls
+
+**Solution:** Centralized alerting facade with fingerprinting
+- Create AlertService with deduplication Map
+- Generate alert fingerprints (hash: event type + userId + roleId + timestamp window)
+- Track recent alerts (5-minute sliding window)
+- Replace direct alert calls with AlertService
+
+**Priority:** HIGH (quality of life improvement)
+**Estimated Effort:** 2-3 hours implementation + testing
+
+### Configurable Grace Period Duration
+**Enhancement:** Make grace period duration environment variable
+- Add GRACE_PERIOD_DURATION_MS to .env
+- Default: 60000 (60 seconds)
+- Allow admins to tune based on server needs
+
+**Priority:** LOW (60 seconds works for most servers)
+**Estimated Effort:** 15 minutes
+
+### Persistent Grace Period State
+**Enhancement:** Store grace periods in database or Redis
+- Survives bot restarts
+- Maintains grace period across deploys
+- More complex but more robust
+
+**Priority:** LOW (60-second window makes restart race condition rare)
+**Estimated Effort:** 2-3 hours implementation + testing
+
+---
+
+## APPROVAL & SIGN-OFF
+
+**Prepared By:** AI Specialist Team (Documentation Specialist Lead)
+**Date:** 2025-12-11
+**Approval Status:** ✅ READY FOR DEPLOYMENT
+
+**Next Actions:**
+1. User approval of HOTFIX_PLAN.yaml
+2. Local testing execution (5 test scenarios)
+3. Code review (verify authorization integration)
+4. Production deployment
+5. 48-hour monitoring period

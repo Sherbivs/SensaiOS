@@ -394,11 +394,11 @@ interface AuditEntry {
   "chainId": "homestead-operations",
   "timestamp": "2025-12-06T17:30:00.000Z",
   "action": "homestead.created",
-  "actor": "398910451420348448",
+  "actor": "563220840708177927",
   "target": "1234567890123456789",
   "metadata": {
-    "guildId": "123456789012345678",
-    "userId": "398910451420348448",
+    "guildId": "1100976155579912222",
+    "userId": "563220840708177927",
     "channelId": "1234567890123456789",
     "createdBy": "user"
   },
@@ -618,7 +618,7 @@ Store/homestead-integrity/{guildId}-{timestamp}.json
   "orphanList": [
     {
       "id": "rec_orphan_1",
-      "userId": "398910451420348448",
+      "userId": "563220840708177927",
       "channelId": "1234567890123456789",
       "createdAt": "2025-12-01T10:00:00.000Z"
     }
@@ -645,7 +645,7 @@ Store/homestead-integrity/{guildId}-{timestamp}.json
 
 **Alert Channels:**
 1. EventBus: `homestead.integrity.critical-issues`
-2. DM to DRIPTVDD (Discord ID: `398910451420348448`)
+2. DM to DRIPTVDD (Discord ID: `563220840708177927`)
 3. Error tracking system (if integrated)
 
 **Alert Message:**
@@ -689,7 +689,7 @@ Report: Store/homestead-integrity/{guildId}-{timestamp}.json
    • Issue Rate: 2.0% 🟢
 
 🚨 Orphaned Channels (Top 5):
-   1. User: 398910451420348448 | Channel: 1234567890123456789 | Created: 2025-12-01 10:00 AM EST
+   1. User: 563220840708177927 | Channel: 1234567890123456789 | Created: 2025-12-01 10:00 AM EST
    2. User: 123456789012345678 | Channel: 9876543210987654321 | Created: 2025-12-02 02:30 PM EST
 
 👻 Ghost Channels (Top 5):
@@ -721,7 +721,7 @@ Report: Store/homestead-integrity/{guildId}-{timestamp}.json
    • Would Mark Deleted: 2
 
 🚨 Orphans to cleanup:
-   1. User: 398910451420348448 | Channel: 1234567890123456789
+   1. User: 563220840708177927 | Channel: 1234567890123456789
    2. User: 123456789012345678 | Channel: 9876543210987654321
 
 ℹ️  Run with dry_run:False to apply changes
@@ -737,7 +737,7 @@ Report: Store/homestead-integrity/{guildId}-{timestamp}.json
    • Failed: 0
 
 🚨 Cleaned orphans:
-   1. User: 398910451420348448 | Channel: 1234567890123456789 | ✅ Deleted
+   1. User: 563220840708177927 | Channel: 1234567890123456789 | ✅ Deleted
    2. User: 123456789012345678 | Channel: 9876543210987654321 | ✅ Deleted
 
 📝 All cleanup actions logged to ImmutableAuditService
@@ -805,8 +805,8 @@ await auditService.append({
   "timestamp": "2025-12-06T17:30:00.000Z",
   "service": "homestead-verification",
   "action": "homestead.created",
-  "userId": "398910451420348448",
-  "guildId": "123456789012345678",
+  "userId": "563220840708177927",
+  "guildId": "1100976155579912222",
   "channelId": "1234567890123456789",
   "duration": 1250,
   "status": "success"

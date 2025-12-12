@@ -110,7 +110,7 @@ export interface BatchLookupResult<T> {
  * const identity = DiscordIdentityService.getInstance();
  * 
  * // Look up a user by Discord ID
- * const user = await identity.getUserByDiscordId('398910451420348448', guildId);
+ * const user = await identity.getUserByDiscordId('563220840708177927', guildId);
  * console.log(user?.username); // 'driptvdd'
  * 
  * // Look up a guild
@@ -157,7 +157,7 @@ export class DiscordIdentityService {
   /**
    * Get a user by their Discord snowflake ID
    * 
-   * @param discordUserId - Discord user snowflake (e.g., '398910451420348448')
+   * @param discordUserId - Discord user snowflake (e.g., '563220840708177927')
    * @param guildId - Guild to scope the lookup (required for multi-guild bots)
    * @returns User identity or null if not found
    */
@@ -656,7 +656,7 @@ export function getDiscordIdentityService(): DiscordIdentityService {
  * Convenience function for quick lookups.
  * 
  * @example
- * const user = await resolveDiscordUser('398910451420348448', guildId);
+ * const user = await resolveDiscordUser('563220840708177927', guildId);
  * console.log(user?.username); // 'driptvdd'
  */
 export async function resolveDiscordUser(
