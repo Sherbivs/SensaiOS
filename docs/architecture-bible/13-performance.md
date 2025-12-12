@@ -1803,7 +1803,7 @@ describe("pokemonService integration", () => {
 
 **Related Operations Bible Sections**:
 - **[operations-bible/03-monitoring.md](../operations-bible/03-monitoring.md)** — PokéAPI Cache observability
-- **[architecture-bible/complete-system-architecture.md](complete-system-architecture.md)** § 2 (Service Topology) — Worker topology, service matrix, 8 Render services including dedicated cache worker
+- **[operations-bible/01-service-matrix.md](../operations-bible/01-service-matrix.md)** — Worker topology (no dedicated Pokemon Service worker)
 
 **Related Development Bible Sections**:
 - **[development-bible/02-local-development.md](../development-bible/02-local-development.md)** — Offline development with stale cache

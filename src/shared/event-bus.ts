@@ -1,33 +1,18 @@
 /**
  * Event Bus - Unified Event Routing System (Layer 2)
  * 
- * **STATUS:** Active (Future Migration Planned)
- * 
- * This pub-sub system is currently in active use by:
- * - DripAlertManager (src/bot/dripAlerts.js)
- * - Alert Dispatcher (src/bot/alert-dispatcher.js)
- * - EventBus Integration (src/bot/eventbus-integration.js)
- * - Memory Measurement (src/utils/memory-measurement.ts)
- * - Index initialization (src/index.ts)
- * 
- * **Future Migration:**
- * When logger.ts correlation tracking is fully adopted, EventBus emit() calls
- * can be replaced with direct logger calls. Until then, this system provides
- * the alert routing infrastructure.
- * 
- * ---
- * 
- * Features:
+ * Provides centralized event distribution with:
  * - Correlation IDs for cross-system tracing
  * - Pattern-based subscriptions (exact, wildcard, multi-level)
  * - Event replay buffer (last 100 events)
  * - Backpressure control (per-subscriber queue limits)
  * - Statistics tracking (events emitted, handler invocations, latency)
  * 
- * Provides centralized distribution for:
- * - Alert routing (DripAlertManager)
- * - Error broadcasting (ErrorTracker)
- * - Cross-system event correlation
+ * Replaces 4 fragmented event systems:
+ * 1. EventTracker (user event batching)
+ * 2. ErrorTracker live stream (real-time error broadcasting)
+ * 3. DripAlertManager (in-memory alert queue)
+ * 4. BusMessage (PostgreSQL async message queue)
  * 
  * @module shared/event-bus
  */

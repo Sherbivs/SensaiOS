@@ -242,7 +242,7 @@ cat package.json | grep -i accelerate
 **Related Documentation:**
 - → `operations-bible/06-optimization-history.md` — Repository optimization achievements
 - → `development-bible/08-project-phases.md` — Phase 9 planning and execution details
-- → `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) — Current unified managed PostgreSQL architecture § 2.1 (Database URL Selection)
+- → `operations-bible/02-database-operations.md` — Current 2-node cluster architecture
 
 **Historical Archive:**
 - → `docs/ARCHIVE/` — Preserved Accelerate-era documentation

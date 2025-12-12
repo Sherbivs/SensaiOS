@@ -327,8 +327,8 @@ async function getAdminRecipients(client: Client): Promise<User[]> {
     const owner = await guild.fetchOwner();
     recipients.add(owner.user);
     
-    // Administrators (fetch with fresh data for accurate permissions)
-    const members = await guild.members.fetch({ force: true });
+    // Administrators
+    const members = await guild.members.fetch();
     for (const member of members.values()) {
       if (member.permissions.has("Administrator")) {
         recipients.add(member.user);
