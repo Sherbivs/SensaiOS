@@ -24,36 +24,17 @@ async function importCommand(filePath) {
 }
 
 async function loadCommands() {
-  // Path resolution strategy:
-  // 1. dist/commands (production compiled output)
-  // 2. src/commands (development source - for tsx/ts-node)
-  // 3. commands/ (legacy fallback - adjacent to command-loader.js)
-  //
-  // On Render: cwd is /opt/render/project/src (repo root)
-  //   - dist/commands contains compiled JS (CORRECT for production)
-  //   - src/commands contains source JS/TS (WRONG - imports won't resolve)
-  const distPath = path.join(process.cwd(), 'dist', 'commands');
+  // In development: cwd is project root, commands at src/commands
+  // In production (Render): cwd is /opt/render/project/src, commands at commands/ (sibling to command-loader.js)
+  // Solution: Check if src/commands exists first (dev), otherwise use commands/ (prod)
   const devPath = path.join(process.cwd(), 'src', 'commands');
-  const legacyPath = path.join(process.cwd(), 'commands');
-  
-  // Prefer dist/ in production, src/ in development
-  let dir;
-  if (process.env.NODE_ENV === 'production' && fs.existsSync(distPath)) {
-    dir = distPath;
-  } else if (fs.existsSync(devPath)) {
-    dir = devPath;
-  } else if (fs.existsSync(distPath)) {
-    dir = distPath;
-  } else {
-    dir = legacyPath;
-  }
+  const prodPath = path.join(process.cwd(), 'commands');
+  const dir = fs.existsSync(devPath) ? devPath : prodPath;
   
   if (!fs.existsSync(dir)) {
     log('warn', `[command-loader] Commands directory not found at ${dir}`);
     return new Map();
   }
-  
-  log('info', `[command-loader] Loading commands from ${dir}`);
   
   const files = fs.readdirSync(dir).filter((f) => f.endsWith('.js'));
   const commands = new Map();
@@ -79,12 +60,7 @@ async function loadCommands() {
         }
         break;
       }
-      log('warn', '[command-loader] Failed to load command', {
-        file: f,
-        message: message || err,
-        code: err?.code,
-        stack: err?.stack,
-      });
+      log.warn(`[command-loader] Failed to load ${f}:`, message || err);
     }
   }
   return commands;

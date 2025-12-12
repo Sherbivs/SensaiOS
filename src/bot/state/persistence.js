@@ -1,6 +1,5 @@
 import { log } from '../../utils/logger.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
-import { updateTimeWindowedMetrics } from '../../services/prometheus-metrics.js';
 /**
  * @file State Persistence Module
  * @description Manages security bot operational state across restarts
@@ -142,35 +141,21 @@ async function loadStateFile(filePath) {
  * Save state to JSON file
  */
 async function saveStateFile(filePath, state) {
-  const json = JSON.stringify(state, null, 2);
-
   try {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
+    const json = JSON.stringify(state, null, 2);
     await fs.writeFile(filePath, json, 'utf8');
     return true;
   } catch (error) {
-    let lastError = error;
-
-    if (error.code === 'ENOSPC') {
-      log('warn', '[State] Disk full when saving; pruning snapshots then retrying', { filePath });
-      try {
-        await pruneSnapshots();
-        await fs.writeFile(filePath, json, 'utf8');
-        return true;
-      } catch (retryError) {
-        lastError = retryError;
-      }
-    }
-
-    log('error', '[State] Error saving file', { filePath, error: lastError.message, code: lastError.code });
+    log('error', '[State] Error saving file', { filePath, error: error.message });
     
     // Track save failures (disk full, permissions, etc.)
     await errorTracker.captureError(
-      lastError instanceof Error ? lastError : new Error(String(lastError)),
+      error instanceof Error ? error : new Error(String(error)),
       {
         category: 'WORKER',
         operation: 'state:saveFile',
-        customData: { filePath, errorCode: lastError.code, retried: error.code === 'ENOSPC' },
+        customData: { filePath, errorCode: error.code },
       }
     );
     
@@ -595,13 +580,6 @@ export function startAutoSave(state) {
   const interval = setInterval(async () => {
     log('info', '[State] Auto-saving state...');
     await saveState(state);
-    
-    // Update Prometheus time-windowed metrics (Week 3 Day 20-21)
-    try {
-      updateTimeWindowedMetrics(state);
-    } catch (error) {
-      log('error', '[Metrics] Failed to update time-windowed metrics', { error: error.message });
-    }
   }, AUTO_SAVE_INTERVAL_MS);
   
   log('info', '[State] Auto-save enabled', { intervalSeconds: AUTO_SAVE_INTERVAL_MS / 1000 });

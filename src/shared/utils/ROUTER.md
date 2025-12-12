@@ -2,7 +2,7 @@
 Title: Shared Utilities
 Purpose: Common utility functions used across the entire application
 Owned Globs: src/shared/utils/**
-Last Updated (UTC): 2025-12-01T00:00:00Z
+Last Updated (UTC): 2025-11-16T06:00:00Z
 
 **Consolidation Campaign Complete (2025-11-16) — Phases 1-21:**
 - ✅ **Phase 1-6**: Created barrel export `index.ts` + utility consolidation (-86 lines)
@@ -21,15 +21,6 @@ Last Updated (UTC): 2025-12-01T00:00:00Z
 - ✅ **Phase 20**: TYPE_COLORS constant consolidation (moved from src/lib/type-colors.js to GAME_CONSTANTS.TYPE_COLORS in shared/constants.ts, updated 3 commands: dex.js, move.js, weak.js)
 - ✅ **Phase 21**: Time conversion constants (added MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND, SECONDS_PER_DAY to TIME_CONSTANTS, replaced MILLIS_IN_DAY in dripAlerts.js)
 - ✅ **Total Impact**: -220 lines duplicate code eliminated, 28 files migrated, 7 infrastructure files created, 2 deprecated files removed
-- ✅ **Quality**: 0 build errors, full TypeScript type safety, comprehensive documentation
-
-**Root-to-Leaf Consolidation (2025-12-01) — Phases 22-24:**
-- ✅ **Phase 22**: Severity indicator utilities (`severity-utils.ts`, -27 lines, 2 files: threatDetector.js, threatResponse.js)
-- ✅ **Phase 23**: Enhanced formatUptime with days support (`format-utils.ts`, -30 lines, 2 files: lifecycle-notifier.ts, restart-metrics.ts)
-- ✅ **Phase 24**: Pool resolution helpers (`src/shared/models/pool-helper.ts`, -40 lines, 4 files: battle-queries-pg.ts, encounter-queries-pg.ts, party-queries-pg.ts, user-queries-pg.ts)
-- ✅ **Specialized Variants Analyzed**: formatDuration (3 implementations reviewed, determined intentionally specialized: general-purpose, startup timing, microsecond-precision)
-- ✅ **Total Impact (Phases 22-24)**: -97 lines duplicate code eliminated, 7 files migrated, 2 infrastructure files created (1 utility + 1 model)
-- ✅ **Combined Total Impact (All Phases)**: -317 lines duplicate code eliminated, 35 files migrated, 9 infrastructure files created
 - ✅ **Quality**: 0 build errors, full TypeScript type safety, comprehensive documentation
 
 **Usage Pattern:**
@@ -85,29 +76,6 @@ Key Files:
   - `formatError(err)` — Format error with stack trace (NOT DIRECTLY USED - via services)
   - `safeError(err)` — Serialize error safely (shared log module)
 - Type: `ErrorMeta` — {name, message, stack, code} (exported for type safety)
-
-**`severity-utils.ts` (95 lines) [NEW - Root-to-Leaf Phase 22, 2025-12-01]**
-- Purpose: Security threat severity level utilities
-- Key Functions:
-  - `getSeverityIndicator(severity)` — Returns emoji indicators (🔴 CRITICAL, 🟠 HIGH, 🟡 MEDIUM, 🔵 LOW, ⚪ default)
-  - `getSeverityPriority(severity)` — Numeric priorities for sorting (4=CRITICAL, 3=HIGH, 2=MEDIUM, 1=LOW, 0=default)
-  - `getSeverityLabel(severity)` — Formatted label with emoji (e.g., "🔴 CRITICAL")
-  - `isValidSeverity(severity)` — Type guard validation
-- Type: `SeverityLevel` — 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' (exported for type safety)
-- Eliminated Duplicates:
-  - `src/bot/state/threatDetector.js` (lines 256-269) — 14 lines
-  - `src/bot/state/threatResponse.js` (lines 548-561) — 13 lines
-- Usage Example:
-  ```typescript
-  import { getSeverityIndicator, getSeverityPriority, isValidSeverity } from '../shared/utils/index.js';
-  
-  if (isValidSeverity(level)) {
-    const indicator = getSeverityIndicator(level);  // 🔴 for CRITICAL
-    const priority = getSeverityPriority(level);    // 4 for CRITICAL
-    console.log(`${indicator} Alert priority: ${priority}`);
-  }
-  ```
-- Pattern: Re-exports from security bot modules maintain backward compatibility
 
 **`async-utils.ts` (32 lines)**
 - Purpose: Promise-based async helpers
@@ -229,8 +197,7 @@ Key Files:
 
 **Medium Usage (5-10 references):**
 - `delay` — 4 duplicates eliminated (engine-workers.ts), now used in workers for staggered startup
-- `formatUptime` — **4 duplicates eliminated** (logger.js, bot/state/stats.js, lifecycle-notifier.ts, restart-metrics.ts) [ENHANCED with days support 2025-12-01]
-- `getSeverityIndicator` — **2 duplicates eliminated** (threatDetector.js, threatResponse.js) [NEW 2025-12-01]
+- `formatUptime` — 2 duplicates eliminated (logger.js, bot/state/stats.js)
 - `truncate` — Used in CLI tools and ops notifier
 - `startOfUtcDay` — 2 duplicates eliminated (home.js, models/index.ts)
 - `diffInUtcDays` — 1 duplicate eliminated (models/index.ts)

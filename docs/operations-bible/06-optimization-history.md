@@ -155,7 +155,7 @@ Created comprehensive validation to prevent regression:
 
 **Related Documentation:**
 - → `architecture-bible/15-project-history.md` — Project history with migration summaries
-- → `docs/operations-bible/database-operations-runbook-comprehensive.md` § 2.2 (Database Terminology) — Current canonical naming schema (25 pages)
+- → `operations-bible/02-database-operations.md` — Current canonical naming schema
 - → `development-bible/INDEX.md` — Development practices navigation
 - → `docs/historical-archive/INDEX.md` — Complete archive catalog
 

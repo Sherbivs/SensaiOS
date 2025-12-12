@@ -29,7 +29,7 @@ Key Files:
 - ops/ROUTER.yaml — canonical path map
 - ops/ROUTER_INDEX.yaml — router-of-routers (generated)
 - OPERATIONS.md — operational runbook documenting worker matrix and rollouts
-- docs/operations-bible/database-operations-runbook-comprehensive.md — canonical database architecture (25 pages), grants, maintenance guide, live game requirements
+- operations-bible/02-database-operations.md — canonical database architecture, grants, and maintenance guide
 - masterroutetable.md — text-first router map for hotfix navigation when automation is unavailable
 
 Subrouters:

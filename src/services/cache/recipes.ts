@@ -1,4 +1,4 @@
-import type { PrismaClient, Encounter } from "../../generated/prisma/client.js";
+import type { PrismaClient, Encounter } from "@prisma/client";
 
 import {
   prisma as prismaClient,

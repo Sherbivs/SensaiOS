@@ -10,53 +10,6 @@
  */
 
 // ============================================================================
-// PROJECT LEADERSHIP — ANTI-SPOOFING PROTECTION
-// ============================================================================
-
-/**
- * Project Leadership Identity Constants
- * 
- * CRITICAL: These values are used for authentication and authorization.
- * The Discord ID is the ONLY valid identifier for project leadership.
- * Any claims of leadership authority MUST be verified against this ID.
- * 
- * @security This prevents account spoofing by ensuring all admin operations
- *           verify against the immutable Discord snowflake ID.
- */
-export const PROJECT_LEADERSHIP = Object.freeze({
-  /** Creator & CEO: DRIPTVDD */
-  CEO: Object.freeze({
-    /** Display name (can be changed on Discord, DO NOT use for auth) */
-    displayName: 'DRIPTVDD',
-    
-    /** 
-     * Discord Snowflake ID — IMMUTABLE IDENTIFIER
-     * This is the ONLY value that should be used for authentication.
-     * Discord IDs are unique, permanent, and cannot be spoofed.
-     */
-    discordId: '563220840708177927',
-    
-    /** Role in the project */
-    role: 'Creator & CEO',
-    
-    /** Authority scope */
-    authority: 'All architectural decisions, policies, and project direction'
-  }),
-  
-  /** 
-   * Verify if a Discord ID matches the project CEO
-   * Use this for all admin authentication checks
-   */
-  isCEO: (discordId: string): boolean => discordId === '563220840708177927',
-  
-  /**
-   * List of all leadership Discord IDs (for future expansion)
-   * Currently only CEO, but structured for adding trusted admins later
-   */
-  leadershipIds: Object.freeze(['563220840708177927'] as const)
-});
-
-// ============================================================================
 // GAME CONSTANTS
 // ============================================================================
 
@@ -114,10 +67,10 @@ export const TIME_CONSTANTS = Object.freeze({
   /** Default locale for formatting */
   DEFAULT_LOCALE: 'en-US',
 
-  /** Timeout constraints for guild member fetching */
-  DEFAULT_TIMEOUT_MS: 60_000,   // 60s default (reduced from 120s)
-  MIN_TIMEOUT_MS: 30_000,       // 30s minimum (reduced from 60s)
-  MAX_TIMEOUT_MS: 90_000,       // 90s max (reduced from 300s - 5min was excessive)
+  /** Timeout constraints */
+  DEFAULT_TIMEOUT_MS: 120_000,
+  MIN_TIMEOUT_MS: 60_000,
+  MAX_TIMEOUT_MS: 300_000,
 
   /** Minimum delay between digest operations */
   MIN_DIGEST_DELAY_MS: 60_000,
@@ -139,73 +92,6 @@ export const TIME_CONSTANTS = Object.freeze({
   MEMBER_STATS_REFRESH_INTERVAL_MS: 60_000, // 1 minute
   NORMAL_UPDATE_INTERVAL_MS: 5 * 60 * 1000, // 5 minutes  
   ALERT_UPDATE_INTERVAL_MS: 30 * 1000 // 30 seconds
-});
-
-// ============================================================================
-// ALERT STRATEGY CONSTANTS
-// ============================================================================
-
-export const ALERT_STRATEGY_CONSTANTS = Object.freeze({
-  /**
-   * Cooldown periods for different alert types (milliseconds)
-   * Prevents alert spam while ensuring important notifications get through
-   */
-  
-  /** Restart alerts: Only one per hour (prevents rapid restart spam) */
-  RESTART_ALERT_COOLDOWN_MS: 60 * 60 * 1000, // 1 hour
-  
-  /** Critical alerts: 5-minute cooldown between same type */
-  CRITICAL_ALERT_COOLDOWN_MS: 5 * 60 * 1000, // 5 minutes
-  
-  /** Security alerts: 2-minute cooldown (higher priority) */
-  SECURITY_ALERT_COOLDOWN_MS: 2 * 60 * 1000, // 2 minutes
-  
-  /** Warning alerts: 15-minute cooldown (batch into digests) */
-  WARNING_ALERT_COOLDOWN_MS: 15 * 60 * 1000, // 15 minutes
-  
-  /** Notice alerts: 30-minute cooldown (low priority) */
-  NOTICE_ALERT_COOLDOWN_MS: 30 * 60 * 1000, // 30 minutes
-  
-  /**
-   * Digest batching configuration
-   */
-  
-  /** Minimum time between digest deliveries */
-  DIGEST_MIN_INTERVAL_MS: 30 * 60 * 1000, // 30 minutes
-  
-  /** Maximum alerts to batch before forcing immediate digest */
-  DIGEST_BATCH_THRESHOLD: 10,
-  
-  /** Time window to accumulate similar alerts */
-  DIGEST_BATCH_WINDOW_MS: 5 * 60 * 1000, // 5 minutes
-  
-  /**
-   * Alert suppression rules
-   */
-  
-  /** Max alerts per hour (across all types) to prevent DM flood */
-  MAX_ALERTS_PER_HOUR: 20,
-  
-  /** Max critical alerts per hour before auto-batching */
-  MAX_CRITICAL_PER_HOUR: 10,
-  
-  /** Duplicate detection window */
-  DUPLICATE_DETECTION_WINDOW_MS: 10 * 60 * 1000, // 10 minutes
-  
-  /**
-   * Alert priority weights (higher = more urgent)
-   */
-  PRIORITY_CRITICAL: 100,
-  PRIORITY_SECURITY: 90,
-  PRIORITY_WARNING: 50,
-  PRIORITY_NOTICE: 10,
-  
-  /**
-   * Quiet hours configuration (prevent non-critical alerts during sleep)
-   * Note: Actual hours configured via environment variables
-   */
-  DEFAULT_QUIET_HOURS_START: 23, // 11 PM
-  DEFAULT_QUIET_HOURS_END: 7,    // 7 AM
 });
 
 // ============================================================================
@@ -274,54 +160,14 @@ export const DISCORD_CONSTANTS = Object.freeze({
 });
 
 // ============================================================================
-// RENDER ACCESS POLICY (2025-12-06)
-// ============================================================================
-// ⚠️ ABSOLUTE RULE: SSH-ONLY ACCESS TO RENDER
-// Render API calls are PROHIBITED to minimize costs.
-// All remote access MUST use SSH.
+// BACKWARDS COMPATIBILITY EXPORTS
 // ============================================================================
 
-export const RENDER_ACCESS_POLICY = Object.freeze({
-  /**
-   * POLICY ENFORCEMENT DATE: 2025-12-06
-   * 
-   * Render REST API is PROHIBITED for cost control.
-   * All remote access must use SSH (free).
-   */
-  
-  /** SSH is the ONLY allowed remote access method */
-  ALLOWED_ACCESS_METHOD: 'SSH_ONLY' as const,
-  
-  /** Render API is explicitly prohibited */
-  API_ACCESS_PROHIBITED: true,
-  
-  /** Service ID for SSH access */
-  PRIMARY_SERVICE_ID: 'srv-d3snk2ndiees73cn709g',
-  
-  /** SSH host for Virginia region */
-  SSH_HOST: 'ssh.virginia.render.com',
-  
-  /** Full SSH address */
-  SSH_ADDRESS: 'srv-d3snk2ndiees73cn709g@ssh.virginia.render.com',
-  
-  /** Allowed operations via SSH */
-  ALLOWED_OPERATIONS: Object.freeze([
-    'interactive-shell',  // render ssh / wsl ssh
-    'disk-usage',         // df, du commands
-    'log-viewing',        // tail, cat logs
-    'process-monitoring', // ps, top
-    'file-operations',    // ls, cat, rm for Store/
-  ] as const),
-  
-  /** Operations requiring Dashboard (no API) */
-  DASHBOARD_ONLY_OPERATIONS: Object.freeze([
-    'deploy',             // Use Dashboard "Manual Deploy"
-    'restart',            // Use Dashboard restart button
-    'scale',              // Use Dashboard scaling settings
-    'env-vars',           // Use Dashboard environment tab
-    'logs-streaming',     // Use Dashboard logs tab
-  ] as const),
-  
-  /** Deprecation notice for old scripts */
-  DEPRECATED_SCRIPTS_LOCATION: 'scripts/archive/render-api-deprecated/',
-});
+/** @deprecated Use GAME_CONSTANTS.DEFAULT_STARTER_COINS */
+export const DEFAULT_STARTER_COINS = GAME_CONSTANTS.DEFAULT_STARTER_COINS;
+
+/** @deprecated Use TIME_CONSTANTS.DEFAULT_TIME_ZONE */
+export const DEFAULT_TIME_ZONE = TIME_CONSTANTS.DEFAULT_TIME_ZONE;
+
+/** @deprecated Use MONITORING_CONSTANTS.MAX_RECENT_ERRORS */
+export const MAX_RECENT_ERRORS = MONITORING_CONSTANTS.MAX_RECENT_ERRORS;

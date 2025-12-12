@@ -6,37 +6,7 @@ import { getErrorMessage } from "../shared/utils/error-utils.js";
 
 const RESTART_DELAY_MS = 30_000;
 
-/**
- * Check if we're running in unified database architecture (single database for all envs).
- * In this mode, auto-sync is not needed and should be completely disabled.
- */
-function isUnifiedArchitecture(): boolean {
-  // In unified architecture, PROD_DATABASE_URL is the only database
-  // and there's no separate DEV database to sync with
-  const prodUrl = process.env.PROD_DATABASE_URL || process.env.DATABASE_URL;
-  const devEnvPath = process.env.DEV_ENV_PATH;
-  const prodEnvPath = process.env.PROD_ENV_PATH;
-  
-  // If no separate env file paths are configured, we're in unified mode
-  // (production uses process.env directly, not separate files)
-  if (!devEnvPath && !prodEnvPath && prodUrl) {
-    return true;
-  }
-  
-  return false;
-}
-
 export function startAutoSyncSupervisor(): () => void {
-  // OPTIMIZATION: Skip auto-sync entirely in unified architecture
-  // This prevents spawning processes every 30s that immediately exit
-  if (isUnifiedArchitecture()) {
-    log.info("⏭️ Auto-sync supervisor disabled (unified database architecture)", {
-      reason: "Single database mode - no DEV/PROD sync needed",
-      prodUrl: process.env.PROD_DATABASE_URL ? "configured" : "missing",
-    });
-    return () => {}; // No-op shutdown function
-  }
-
   const scriptPath = path.resolve(process.cwd(), "scripts", "dev_prod_auto_sync.ts");
   let child: ChildProcess | null = null;
   let restartTimer: NodeJS.Timeout | null = null;

@@ -1,0 +1,230 @@
+# Canonical AI routing map — single source of "where to look / where to write".
+# All paths are repo-relative. Case-sensitive.
+version: 1
+updated_utc: 2025-12-02T00:00:00Z
+
+meta_files:
+  - Patch.md
+  - Tasklist.md
+  - Prompt.md
+  - Agents.md
+  - ops/ROUTER.yaml
+  - ops/NEXT.yaml
+  - ops/TOUCHMAP.yaml
+  - ops/CRITICAL.md
+  - ops/PATCH_POLICY_BACKUP.md
+  - ops/change-ledger.md
+
+inbox:
+  # Fast notes the human can edit; AI must read first if newer than NEXT.last_notes_read_utc
+  path: ops/INBOX/notes.md
+
+entrypoints:
+  node_start: dist/index.js
+  ts_entry: src/index.ts
+  tsconfig: tsconfig.json
+  package: package.json
+
+categories:
+  contract:
+    - Patch.md
+    - ops/CRITICAL.md
+  tasks:
+    - Tasklist.md
+    - ops/NEXT.yaml
+    - ops/TOUCHMAP.yaml
+  prompt:
+    - Prompt.md
+  ledger:
+    - ops/change-ledger.md
+  infra_docs:
+    - RULESET.md
+    - DATA-SCHEMA.md
+    - OPERATIONS.md
+    - ops/POKEMON_CACHE.md
+    - ops/DB_BOOTSTRAP.md
+    - ops/DB_IMPORT_PRISMA_POSTGRES.md
+    - docs/architecture-bible/INDEX.md
+    - docs/operations-bible/INDEX.md
+    - docs/development-bible/INDEX.md
+    - docs/ROUTER.md
+  documentation_library:
+    - docs/**
+  error_monitoring:
+    services:
+      - src/services/error-tracker.ts
+      - src/services/error-learning.ts
+      - src/services/error-alerting.ts
+      - src/services/error-recovery.ts
+    handlers:
+      - src/bot/bot-error-handler.ts
+      - src/core/engine-error-handler.ts
+      - src/workers/worker-error-handler.ts
+      - src/services/service-error-handler.ts
+    tests:
+      - tests/error-tracker.test.ts
+      - tests/error-learning.test.ts
+      - tests/error-alerting.test.ts
+      - tests/error-recovery.test.ts
+    documentation:
+      - docs/architecture-bible/06-error-system.md
+      - docs/development-bible/05-error-handling.md
+    commands:
+      - /ops errors --severity <critical|high|medium|low>
+      - /ops errors --category <validation|network|database|discord|engine|worker|config|unknown>
+      - /ops errors --since <24h|7d|30d>
+      - /ops errors --top <N>
+      - /ops errors --fingerprint <hash>
+    dashboard_filters:
+      severity: [critical, high, medium, low]
+      category: [validation, network, database, discord, engine, worker, config, unknown]
+      timeRange: [1h, 24h, 7d, 30d]
+    alert_channels:
+      critical_dm: DripTVDD (Discord ID: 275798742065938432)
+      error_storm_threshold: 10 # errors per minute
+      rate_limit_window: 300000 # 5 minutes in ms
+    recovery_strategies:
+      - exponential-backoff-retry
+      - rate-limit-queue
+      - increase-timeout
+      - rebuild-cache
+      - restart-worker
+      - reconnect-database
+      - clear-corrupted-state
+    learning_schedules:
+      pattern_detection: hourly
+      knowledge_base_update: hourly
+      correlation_analysis: hourly
+      impact_prediction: on-demand
+  data_assets:
+    - data/**
+    - assets/**
+  playbooks:
+    - playbooks/**
+  prisma_schema:
+    - prisma/**
+  router_runtime:
+    - router/**
+  secrets_templates:
+    - secrets/**
+    - .db-state/**
+    - secrets/prisma-accelerate.env.example (template; real Accelerate secrets now live at C:/Users/sherb/OneDrive/Documents/Key/Prod/.env)
+  sync_layer:
+    - sync-layer/**
+  tooling_bins:
+    - tools/**
+  ci_workflows:
+    - .github/**
+  code_core:
+    - src/**
+    - tests/**
+  ops_scripts:
+    - scripts/**
+    - scripts/bootstrap_staging_db.ps1
+    - scripts/restore_prisma_postgres.ps1
+    - scripts/ops/ensure_postgres_bundle.ps1
+    - scripts/ops/auto_bootstrap_local_db.ps1
+  router_docs:
+    - ops/ROUTER.md
+    - ops/INBOX/ROUTER.md
+    - ops/ROUTER_INDEX.yaml
+    - masterroutetable.md
+    - .github/ROUTER.md
+    - .github/workflows/ROUTER.md
+    - .db-state/ROUTER.md
+    - data/ROUTER.md
+    - data/bootstrap/ROUTER.md
+    - data/cache/ROUTER.md
+  - assets/ROUTER.md
+    - docs/ROUTER.md
+    - docs/projects/ROUTER.md
+    - docs/projects/development/ROUTER.md
+    - playbooks/ROUTER.md
+    - prisma/ROUTER.md
+    - prisma/migrations/ROUTER.md
+    - prisma/migrations/202510280500_scaling_indexes/ROUTER.md
+    - prisma/migrations/202510290930_dex_reference_spine/ROUTER.md
+    - prisma/migrations/202511010900_schema_constraints/ROUTER.md
+  - router/ROUTER.md
+  - Store/ROUTER.md
+  - Store/db/ROUTER.md
+    - secrets/ROUTER.md
+    - sync-layer/ROUTER.md
+    - sync-layer/discord/hooks/ROUTER.md
+    - sync-layer/worker/schema/ROUTER.md
+    - tools/ROUTER.md
+    - tools/pgsql17/ROUTER.md
+    - tools/pgsql17/pgsql/ROUTER.md
+    - tools/pgsql17/pgsql/bin/ROUTER.md
+    - scripts/ROUTER.md
+    - scripts/dex/ROUTER.md
+    - scripts/guards/ROUTER.md
+    - scripts/ops/ROUTER.md
+    - src/ROUTER.md
+    - src/bot/ROUTER.md
+    - src/bot/arena/ROUTER.md
+    - src/bot/battle/ROUTER.md
+    - src/bot/daily/ROUTER.md
+    - src/bot/homestead/ROUTER.md
+    - src/bot/middleware/ROUTER.md
+    - src/bot/ops/ROUTER.md
+    - src/bot/profile/ROUTER.md
+    - src/bot/state/ROUTER.md
+    - src/bot/wilds/ROUTER.md
+    - src/cache/ROUTER.md
+    - src/commands/ROUTER.md
+    - src/config/ROUTER.md
+    - src/core/ROUTER.md
+    - src/core/battle/ROUTER.md
+    - src/core/encounter/ROUTER.md
+    - src/core/pbsl/ROUTER.md
+    - src/core/pbsl/battle/ROUTER.md
+    - src/core/pbsl/data/ROUTER.md
+    - src/core/pbsl/encounter/ROUTER.md
+    - src/dex/ROUTER.md
+  - src/data/ROUTER.md
+    - src/data_pipeline/ROUTER.md
+    - src/data_pipeline/schema/ROUTER.md
+    - src/engine/ROUTER.md
+    - src/env/ROUTER.md
+    - src/lib/ROUTER.md
+    - src/models/ROUTER.md
+    - src/services/ROUTER.md
+    - src/services/cache/ROUTER.md
+    - src/shared/ROUTER.md
+    - src/shared/cache/ROUTER.md
+    - src/shared/storage/ROUTER.md
+    - src/types/ROUTER.md
+    - src/utils/ROUTER.md
+    - src/worker/ROUTER.md
+    - src/workers/ROUTER.md
+    - src/workers/database/ROUTER.md
+    - discord-pokemon-bot/ROUTER.md
+    - discord-pokemon-bot/battles/ROUTER.md
+    - discord-pokemon-bot/data/ROUTER.md
+    - discord-pokemon-bot/scripts/ROUTER.md
+    - discord-pokemon-bot/utils/ROUTER.md
+    - tests/ROUTER.md
+  - tests/battle/ROUTER.md
+  - tests/pbsl/ROUTER.md
+  - tests/pbsl/fixtures/ROUTER.md
+    - scripts/guard_*.sh
+
+router_contract:
+  docs_update_command: "npm run docs:update-routers"
+  generated_outputs_read_only:
+    - ops/ROUTER_INDEX.yaml
+    - masterroutetable.md
+  guard_script: scripts/guard_router_docs.sh
+  # 2025-11-01: scripts/guard_routing.sh now fails hard when NEXT/TOUCHMAP coverage is incomplete; update ops/TOUCHMAP.yaml before rerunning.
+
+# Always-allowed meta writes (headers/timestamps/Last Repo Changes only):
+meta_write_whitelist:
+  - Patch.md
+  - Tasklist.md
+  - Prompt.md
+  - ops/NEXT.yaml
+  - ops/ROUTER.yaml
+  - ops/TOUCHMAP.yaml
+  - ops/HOTFIX.md
+  - ops/HOTFIX_PLAN.yaml

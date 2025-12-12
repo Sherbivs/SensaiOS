@@ -1,14 +1,8 @@
-// @ts-nocheck - This script depends on unimplemented db-replication services (Phase 16+)
-// TODO: Remove this directive when src/services/db-replication/* modules are implemented
-/* eslint-disable no-console, @typescript-eslint/no-unused-vars */
-// ^ Console statements are intentional for CLI script output; unused vars from partial implementation
-import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import * as dotenv from "dotenv";
-import { PrismaClient } from "../src/generated/prisma/client.js";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
 import { getVersion, compareVersions } from "../src/services/db-replication/version.js";
 import { verifySchemaIntegrity, verifyDataIntegrity } from "../src/services/db-replication/integrity.js";
 import { syncDevToProd, syncProdToLocal } from "../src/services/db-replication/sync.js";
@@ -130,12 +124,8 @@ async function getClients(): Promise<{ devPrisma: PrismaClient | null; prodPrism
 
   // Note: devPrisma maintained for backward compatibility but will be null in unified architecture
   const devPrisma = null;
-  // Prisma 7: Create clients with driver adapters
-  const prodAdapter = new PrismaPg({ connectionString: prodUrl });
-  const prodPrisma = new PrismaClient({ adapter: prodAdapter });
-  const localPrisma = localUrl 
-    ? new PrismaClient({ adapter: new PrismaPg({ connectionString: localUrl }) }) 
-    : null;
+  const prodPrisma = new PrismaClient({ datasources: { db: { url: prodUrl } } });
+  const localPrisma = localUrl ? new PrismaClient({ datasources: { db: { url: localUrl } } }) : null;
 
   return { devPrisma, prodPrisma, localPrisma };
 }

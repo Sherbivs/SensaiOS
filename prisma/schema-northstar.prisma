@@ -1,0 +1,704 @@
+// Northstar Schema for Infinity Gauntlet — Optimized for performance and user profiles
+// This is a DRAFT schema for review. Do not deploy without testing.
+// See docs/schema-northstar-optimization.md for rationale and migration strategy.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("RENDER_DB_INTERNAL_URL")
+}
+
+/// ---- Dex Reference Enums ----
+enum MoveCategory {
+  physical
+  special
+  status
+}
+
+enum LearnMethod {
+  level
+  machine
+  tutor
+  egg
+}
+
+enum EventCategory {
+  gameplay
+  engagement
+  economy
+  social
+  system
+  admin
+}
+
+enum EventSeverity {
+  info
+  warning
+  error
+  critical
+}
+
+/// ---- Tenant & Trainer Core ----
+model Tenant {
+  id        String   @id
+  createdAt DateTime @default(now())
+
+  trainers        Trainer[]
+  auditLog        AuditLog[]
+  PokemonInstance PokemonInstance[]
+  Encounter       Encounter[]
+  Battle          Battle[]
+}
+
+model Trainer {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  nickname  String?
+  createdAt DateTime @default(now())
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  settings    TrainerSettings?
+  mons        PokemonInstance[]
+  encounters  Encounter[]
+  battlesAsP1 Battle[]          @relation("BattleTrainer1")
+  battlesAsP2 Battle[]          @relation("BattleTrainer2")
+  parties     Party[]
+  inventory   Inventory[]
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+}
+
+model DexPack {
+  packHash  String   @id
+  schemaVer Int      @db.SmallInt
+  gen       Int      @db.SmallInt
+  signedAt  DateTime
+  metaJson  Json
+
+  trainerSettings TrainerSettings[]
+  mons            PokemonInstance[]
+  encounters      Encounter[]
+  battles         Battle[]
+  items           Item[]
+}
+
+model TrainerSettings {
+  trainerId  String   @id
+  activePack String
+  prefsJson  Json
+  updatedAt  DateTime @default(now())
+
+  trainer   Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  activeDex DexPack @relation(fields: [activePack], references: [packHash], onDelete: Restrict)
+}
+
+/// ---- Core Dex Tables ----
+model Type {
+  id   Int    @id @db.SmallInt
+  slug String @unique
+  name String
+
+  moves        Move[]        @relation("MoveType")
+  atk          TypeChart[]   @relation("AtkType")
+  def          TypeChart[]   @relation("DefType")
+  speciesTypes SpeciesType[]
+}
+
+model Ability {
+  id   Int     @id @db.SmallInt
+  slug String  @unique
+  name String
+  desc String?
+
+  speciesAbilities SpeciesAbility[]
+}
+
+model Item {
+  id       Int     @id @db.SmallInt
+  slug     String  @unique
+  name     String
+  kind     String
+  meta     Json?
+  packHash String?
+
+  learnsetUsages    SpeciesLearnset[] @relation("LearnsetMachine")
+  evolutionTriggers EvolutionStep[]   @relation("EvolutionItem")
+  dexPack           DexPack?          @relation(fields: [packHash], references: [packHash], onDelete: SetNull)
+  Inventory         Inventory[]
+}
+
+model Move {
+  id       Int          @id @db.SmallInt
+  slug     String       @unique
+  name     String
+  typeId   Int          @db.SmallInt
+  type     Type         @relation("MoveType", fields: [typeId], references: [id])
+  power    Int?         @db.SmallInt
+  accuracy Int?         @db.SmallInt
+  pp       Int          @db.SmallInt
+  priority Int          @default(0) @db.SmallInt
+  category MoveCategory
+  meta     Json?
+
+  learnset SpeciesLearnset[]
+
+  @@index([typeId])
+}
+
+model Species {
+  id          Int    @id @db.SmallInt
+  slug        String @unique
+  name        String
+  baseHp      Int    @db.SmallInt
+  baseAtk     Int    @db.SmallInt
+  baseDef     Int    @db.SmallInt
+  baseSpAtk   Int    @db.SmallInt
+  baseSpDef   Int    @db.SmallInt
+  baseSpe     Int    @db.SmallInt
+  growth      String
+  captureRate Int    @db.SmallInt
+  maleRate    Int?   @db.SmallInt
+  hatchSteps  Int?   @db.SmallInt
+  meta        Json?
+
+  types          SpeciesType[]
+  abilities      SpeciesAbility[]
+  learnset       SpeciesLearnset[]
+  evolutionsFrom EvolutionStep[]   @relation("EvoFrom")
+  evolutionsTo   EvolutionStep[]   @relation("EvoTo")
+  mons           PokemonInstance[]
+  encounters     Encounter[]
+  userFavorites  User[]
+
+  @@index([slug])
+}
+
+/// ---- Classification / Junctions ----
+model SpeciesType {
+  speciesId Int @db.SmallInt
+  typeId    Int @db.SmallInt
+  slot      Int @db.SmallInt
+
+  species Species @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  type    Type    @relation(fields: [typeId], references: [id], onDelete: Restrict)
+
+  @@id([speciesId, slot])
+  @@index([typeId])
+}
+
+model SpeciesAbility {
+  speciesId Int @db.SmallInt
+  abilityId Int @db.SmallInt
+  slot      Int @db.SmallInt
+
+  species Species @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  ability Ability @relation(fields: [abilityId], references: [id], onDelete: Restrict)
+
+  @@id([speciesId, slot])
+  @@index([abilityId])
+}
+
+model SpeciesLearnset {
+  speciesId Int         @db.SmallInt
+  moveId    Int         @db.SmallInt
+  method    LearnMethod
+  level     Int         @default(0) @db.SmallInt
+  machineId Int?        @db.SmallInt
+
+  species Species @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  move    Move    @relation(fields: [moveId], references: [id], onDelete: Cascade)
+  machine Item?   @relation("LearnsetMachine", fields: [machineId], references: [id], onDelete: Restrict)
+
+  @@id([speciesId, moveId, method, level])
+  @@index([moveId])
+  @@index([method, level])
+}
+
+model EvolutionStep {
+  fromId  Int    @db.SmallInt
+  toId    Int    @db.SmallInt
+  trigger String
+  level   Int?   @db.SmallInt
+  itemId  Int?   @db.SmallInt
+  meta    Json?
+
+  from Species @relation("EvoFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   Species @relation("EvoTo", fields: [toId], references: [id], onDelete: Cascade)
+  item Item?   @relation("EvolutionItem", fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@id([fromId, toId])
+  @@index([toId])
+}
+
+model TypeChart {
+  atkTypeId Int @db.SmallInt
+  defTypeId Int @db.SmallInt
+  mult      Int @db.SmallInt
+
+  atkType Type @relation("AtkType", fields: [atkTypeId], references: [id], onDelete: Cascade)
+  defType Type @relation("DefType", fields: [defTypeId], references: [id], onDelete: Cascade)
+
+  @@id([atkTypeId, defTypeId])
+  @@index([defTypeId])
+}
+
+model NameVariant {
+  id         String @id @default(cuid())
+  kind       String
+  refIntId   Int    @db.SmallInt
+  locale     String
+  nameType   String
+  value      String
+  normalized String
+
+  @@index([kind, refIntId])
+  @@index([locale, normalized])
+}
+
+/// ---- Enhanced User & Profile System ----
+model User {
+  id         String   @id @default(cuid())
+  discordId  String   @unique
+  platformId String?  @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Basic profile (consolidated from TrainerProfile)
+  nickname   String?
+  tagline    String?
+  bio        String?
+  avatarUrl  String?
+
+  // Game economy
+  coins        Int @default(0)
+  premiumCoins Int @default(0)
+
+  // Preferences & settings
+  settingsJson      Json? // UI prefs, notifications
+  profileVisibility String  @default("public") // public|friends|private
+  showStats         Boolean @default(true)
+  showAchievements  Boolean @default(true)
+
+  // Denormalized statistics (for fast leaderboard queries)
+  totalBattles    Int @default(0)
+  totalWins       Int @default(0)
+  totalCatches    Int @default(0)
+  totalEncounters Int @default(0)
+
+  // Favorite species
+  favoriteSpeciesId Int?     @db.SmallInt
+  favoriteSpecies   Species? @relation(fields: [favoriteSpeciesId], references: [id], onDelete: SetNull)
+
+  // Streaks & engagement
+  dailyQuestStreak        Int       @default(0)
+  dailyQuestLastCompleted DateTime?
+  dailyQuestLastReset     DateTime?
+
+  // Activity tracking
+  lastLoginAt    DateTime?
+  lastActivityAt DateTime?
+
+  // Relations
+  profile      UserProfile?
+  events       UserEvent[]
+  achievements UserAchievement[]
+  parties      Party[]
+  pokemon      PokemonInstance[]
+  encounters   Encounter[]
+  battlesP1    Battle[]          @relation("BattlesAsP1")
+  battlesP2    Battle[]          @relation("BattlesAsP2")
+  cooldowns    Cooldown[]
+  trainers     Trainer[]
+
+  @@index([discordId])
+  @@index([lastActivityAt])
+  @@index([totalBattles, totalWins]) // Leaderboard: battles won
+  @@index([totalCatches]) // Leaderboard: catches
+  @@index([dailyQuestStreak]) // Leaderboard: streaks
+  @@index([favoriteSpeciesId])
+}
+
+model UserProfile {
+  userId String @id
+
+  // Extended profile fields
+  timezone      String?
+  language      String  @default("en")
+  favoriteColor String?
+
+  // Achievement display (array of achievement IDs)
+  displayBadges Json?
+
+  // Social
+  friendCode String? @unique
+  discord    String?
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([friendCode])
+}
+
+/// ---- Event Tracking System ----
+model UserEvent {
+  id       String        @id @default(cuid())
+  userId   String
+  category EventCategory
+  // Event types: "battle.won", "battle.lost", "pokemon.caught", "pokemon.evolved",
+  // "login", "achievement.unlocked", "coins.earned", "item.used", etc.
+  eventType String
+  severity  EventSeverity @default(info)
+
+  // Event payload (structured JSON with type-specific data)
+  data Json?
+
+  // Session context
+  sessionId String?
+  ipAddress String? // Hashed for privacy
+  userAgent String?
+
+  // Entity associations (polymorphic)
+  relatedEntityType String? // "Battle", "PokemonInstance", "Achievement", etc.
+  relatedEntityId   String?
+
+  // Timestamps
+  occurredAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  // Privacy & retention
+  isPII       Boolean   @default(false)
+  retainUntil DateTime? // Auto-delete after retention period
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([category, eventType, occurredAt])
+  @@index([sessionId])
+  @@index([retainUntil]) // Cleanup queries
+  @@index([userId, category, occurredAt(sort: Desc)]) // User timeline by category
+}
+
+/// ---- Achievement System ----
+model Achievement {
+  id          Int     @id @db.SmallInt
+  slug        String  @unique
+  name        String
+  description String
+  category    String // "battles", "catching", "exploration", "social", etc.
+
+  // Requirements (flexible JSON schema)
+  // Example: {type: "battle_wins", count: 100}
+  // Example: {type: "catch_species", speciesId: 25, count: 10}
+  criteria Json
+
+  // Rewards
+  coinReward Int     @default(0)
+  badgeIcon  String?
+
+  // Metadata
+  rarity    String  @default("common") // common|rare|epic|legendary
+  isSecret  Boolean @default(false) // Hidden until unlocked
+  sortOrder Int     @default(0)
+
+  userAchievements UserAchievement[]
+
+  @@index([category, sortOrder])
+}
+
+model UserAchievement {
+  userId        String
+  achievementId Int    @db.SmallInt
+
+  // Progress tracking
+  progress    Int      @default(0)
+  isCompleted Boolean  @default(false)
+  completedAt DateTime?
+
+  // Metadata
+  firstSeenAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@id([userId, achievementId])
+  @@index([userId, isCompleted])
+  @@index([achievementId, isCompleted])
+}
+
+/// ---- Analytics & Reporting ----
+model DailyStats {
+  date DateTime @id @db.Date
+
+  // User metrics
+  activeUsers Int @default(0)
+  newUsers    Int @default(0)
+
+  // Gameplay metrics
+  battlesTotal    Int @default(0)
+  catchesTotal    Int @default(0)
+  encountersTotal Int @default(0)
+
+  // Economy metrics
+  coinsEarned Int @default(0)
+  coinsSpent  Int @default(0)
+
+  // Engagement
+  dailyQuestsCompleted Int @default(0)
+  achievementsUnlocked Int @default(0)
+
+  // Performance
+  avgLatencyMs Float?
+  errorCount   Int    @default(0)
+
+  // Metadata
+  computedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([date(sort: Desc)])
+}
+
+model Leaderboard {
+  id       String @id @default(cuid())
+  category String // "battles_won", "pokemon_caught", "daily_streak", etc.
+  period   String // "alltime", "monthly", "weekly"
+
+  // Rankings (JSON array for fast reads)
+  // Format: [{userId, rank, value, username, avatarUrl}, ...]
+  rankings Json
+
+  // Metadata
+  generatedAt DateTime @default(now())
+  expiresAt   DateTime
+
+  @@unique([category, period])
+  @@index([category, expiresAt])
+}
+
+/// ---- Game Entities ----
+model PokemonInstance {
+  id         String      @id @default(cuid())
+  owner      User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId    String
+  speciesId  Int         @db.SmallInt
+  species    Species     @relation(fields: [speciesId], references: [id], onDelete: Restrict)
+  form       String? // e.g., "alolan", "galarian"
+  level      Int         @default(1)
+  exp        Int         @default(0)
+  nature     String?
+  ivsJson    Json // {hp, atk, def, spa, spd, spe}
+  evsJson    Json // same shape
+  movesJson  Json // array of {id, pp, maxPP}
+  status     String? // major status (burn, para, etc.)
+  hp         Int
+  maxHp      Int
+  isShiny    Boolean     @default(false)
+  nickname   String?
+  boxSlot    Int?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  tenantId   String?
+  trainerId  String?
+  packHash   String?
+  partySlots PartySlot[]
+
+  tenant  Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  trainer Trainer? @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+  dexPack DexPack? @relation(fields: [packHash], references: [packHash], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@index([speciesId])
+  @@index([trainerId])
+  @@index([tenantId])
+  @@index([speciesId, createdAt(sort: Desc)]) // Species popularity
+}
+
+model Party {
+  id        String      @id @default(cuid())
+  owner     User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId   String
+  trainerId String?
+  slots     PartySlot[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  trainer Trainer? @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+
+  @@unique([ownerId])
+  @@index([ownerId])
+  @@index([trainerId])
+}
+
+model PartySlot {
+  id        String          @id @default(cuid())
+  party     Party           @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  partyId   String
+  slot      Int
+  pokemon   PokemonInstance @relation(fields: [pokemonId], references: [id], onDelete: Cascade)
+  pokemonId String
+  updatedAt DateTime        @updatedAt
+
+  @@unique([partyId, slot])
+  @@unique([pokemonId])
+  @@index([partyId])
+}
+
+model Inventory {
+  trainerId String
+  itemId    Int    @db.SmallInt
+  qty       Int    @default(0)
+
+  trainer Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  item    Item    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@id([trainerId, itemId])
+  @@index([itemId])
+}
+
+model Encounter {
+  id              String    @id @default(cuid())
+  owner           User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId         String
+  speciesId       Int       @db.SmallInt
+  species         Species   @relation(fields: [speciesId], references: [id], onDelete: Restrict)
+  level           Int
+  state           String // Idle|Spawned|Caught|Fled|Fainted|Expired
+  threadChannelId String?
+  startedAt       DateTime  @default(now())
+  expiresAt       DateTime?
+  dataJson        Json?
+  tenantId        String?
+  trainerId       String?
+  packHash        String?
+
+  tenant  Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  trainer Trainer? @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+  dexPack DexPack? @relation(fields: [packHash], references: [packHash], onDelete: SetNull)
+
+  @@index([ownerId, state])
+  @@index([state, startedAt])
+  @@index([threadChannelId])
+  @@index([expiresAt])
+  @@index([tenantId, startedAt])
+  @@index([ownerId, startedAt(sort: Desc)]) // Active encounters
+}
+
+model Battle {
+  id            String    @id @default(cuid())
+  p1            User      @relation("BattlesAsP1", fields: [p1Id], references: [id])
+  p1Id          String
+  p2            User      @relation("BattlesAsP2", fields: [p2Id], references: [id])
+  p2Id          String
+  arenaThreadId String?
+  state         String // Pending|Active|Finished|Aborted
+  rngSeed       String
+  ruleset       String
+  logCompact    Json?
+  logFull       Json?
+  resultJson    Json?
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  updatedAt     DateTime  @updatedAt
+  tenantId      String?
+  packHash      String?
+  trainer1Id    String?
+  trainer2Id    String?
+
+  tenant   Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  dexPack  DexPack? @relation(fields: [packHash], references: [packHash], onDelete: SetNull)
+  trainer1 Trainer? @relation("BattleTrainer1", fields: [trainer1Id], references: [id], onDelete: SetNull)
+  trainer2 Trainer? @relation("BattleTrainer2", fields: [trainer2Id], references: [id], onDelete: SetNull)
+
+  @@index([state, endedAt])
+  @@index([p1Id, state, endedAt(sort: Desc)]) // Battle history
+  @@index([p2Id, state, endedAt(sort: Desc)]) // Battle history
+  @@index([arenaThreadId])
+  @@index([tenantId, state, endedAt])
+}
+
+model Cooldown {
+  id        String   @id @default(cuid())
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId   String
+  kind      String // e.g., "walk", "battle", etc.
+  readyAt   DateTime
+  metaJson  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ownerId, kind])
+  @@index([ownerId, readyAt])
+}
+
+/// ---- Message Bus & Queue ----
+enum BusKind {
+  event
+  command
+}
+
+enum BusStatus {
+  pending
+  processing
+  done
+  error
+}
+
+enum BusPriority {
+  high
+  normal
+  low
+}
+
+model BusMessage {
+  id             String      @id @default(cuid())
+  kind           BusKind     @default(event)
+  topic          String
+  priority       BusPriority @default(normal)
+  shardKey       String?
+  idempotencyKey String
+  payload        Json
+  createdAt      DateTime    @default(now())
+  availableAt    DateTime    @default(now())
+  status         BusStatus   @default(pending)
+  attempts       Int         @default(0)
+  error          String?
+  processedAt    DateTime?
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([topic, idempotencyKey])
+  @@index([status, availableAt, priority])
+  @@index([topic, status, availableAt])
+  @@index([shardKey, status])
+}
+
+model BusIdemToken {
+  key       String   @id
+  createdAt DateTime @default(now())
+  ttl       Int      @default(604800)
+}
+
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  tenantId    String?
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String?
+  beforeJson  Json?
+  afterJson   Json?
+  at          DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, at])
+}

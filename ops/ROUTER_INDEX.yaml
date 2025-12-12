@@ -1,5 +1,5 @@
 version: 1
-generated_utc: "2025-12-02T22:10:30Z"
+generated_utc: "2025-11-16T18:19:06Z"
 routers:
   - path: ".db-state/"
     router_file: ".db-state/ROUTER.md"
@@ -26,6 +26,16 @@ routers:
     title: "Discord Cache Namespace"
     purpose: "File-based cache persisted by the security bot for Discord audit data."
     last_updated_utc: "2025-11-01T15:34:00Z"
+  - path: "Store/onpremise-dev-primary/"
+    router_file: "Store/onpremise-dev-primary/ROUTER.md"
+    title: "Local Postgres Fallback Artifacts"
+    purpose: "Hosts the local Postgres cluster, snapshots, metadata, and connection string produced by the offline fallback bootstrapper."
+    last_updated_utc: "2025-11-06T04:45:00Z"
+  - path: "Store/runtime-cache/"
+    router_file: "Store/runtime-cache/ROUTER.md"
+    title: "Runtime Cache Namespace"
+    purpose: "Worker cache persisted between runs for general application state."
+    last_updated_utc: "2025-11-01T15:35:00Z"
   - path: "assets/"
     router_file: "assets/ROUTER.md"
     title: "Generated Assets"
@@ -73,19 +83,59 @@ routers:
     last_updated_utc: "2025-11-01T15:47:00Z"
   - path: "docs/"
     router_file: "docs/ROUTER.md"
-    title: "Documentation Library — Bible System"
-    purpose: "Comprehensive architecture, operations, and development guides in modular Bible format."
-    last_updated_utc: "2025-12-02T00:00:00Z"
-  - path: "docs/projects/"
-    router_file: "docs/projects/ROUTER.md"
-    title: "Project Documentation Staging Area"
-    purpose: "Work-in-progress documentation before Bible integration (100% accuracy controlled experiment)"
-    last_updated_utc: "2025-12-02T00:00:00Z"
-  - path: "docs/projects/development/"
-    router_file: "docs/projects/development/ROUTER.md"
-    title: "Development Projects Documentation"
-    purpose: "Completed and active development projects (AI systems, Bible infrastructure, testing frameworks)"
-    last_updated_utc: "2025-12-02T00:00:00Z"
+    title: "Documentation Library"
+    purpose: "Architecture, safety, and operational guides referenced across the meta-router."
+    last_updated_utc: "2025-11-14T12:45:00Z"
+  - path: "docs/architecture/"
+    router_file: "docs/architecture/ROUTER.md"
+    title: "Architecture Documentation"
+    purpose: "System architecture, operations, roadmap, and meta-routing guides."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/console-output/"
+    router_file: "docs/console-output/ROUTER.md"
+    title: "Console Output Documentation"
+    purpose: "Console output standardization, formatting standards, and implementation reports."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/database/"
+    router_file: "docs/database/ROUTER.md"
+    title: "Database Documentation"
+    purpose: "Database architecture, replication, clustering, migration, and optimization."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/deployment/"
+    router_file: "docs/deployment/ROUTER.md"
+    title: "Deployment Documentation"
+    purpose: "Render deployment, workers, mount paths, and infrastructure."
+    last_updated_utc: "2025-11-14T12:45:00Z"
+  - path: "docs/environment/"
+    router_file: "docs/environment/ROUTER.md"
+    title: "Environment Setup Documentation"
+    purpose: "Environment configuration, AI agent setup, and workstation gameplay."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/error-system/"
+    router_file: "docs/error-system/ROUTER.md"
+    title: "Error System Documentation"
+    purpose: "Error detection, tracking, learning, alerting, and recovery documentation."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/game-engine/"
+    router_file: "docs/game-engine/ROUTER.md"
+    title: "Game Engine Documentation"
+    purpose: "Battle engine, encounter system, PBSL, event tracking, and engine database."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/northstar/"
+    router_file: "docs/northstar/ROUTER.md"
+    title: "Northstar Methodology Documentation"
+    purpose: "Northstar schema consolidation methodology and implementation phases."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "docs/task-reports/"
+    router_file: "docs/task-reports/ROUTER.md"
+    title: "Task Reports Documentation"
+    purpose: "Task completion summaries and phase reports for major implementations."
+    last_updated_utc: "2025-11-10T00:00:00Z"
+  - path: "ops/INBOX/"
+    router_file: "ops/INBOX/ROUTER.md"
+    title: "Ops Inbox"
+    purpose: "Fast-notes staging area for operators to flag priorities before they reach Tasklist."
+    last_updated_utc: "2025-11-01T17:30:00Z"
   - path: "ops/"
     router_file: "ops/ROUTER.md"
     title: "Ops & Governance"
@@ -174,8 +224,8 @@ routers:
   - path: "src/bot/"
     router_file: "src/bot/ROUTER.md"
     title: "Discord Bot Layer"
-    purpose: "Client login, intents, command/interaction routing, homestead channel gameplay flows."
-    last_updated_utc: "2025-11-28T00:00:00Z"
+    purpose: "Client login, intents, command/interaction routing, DM “home” flows."
+    last_updated_utc: "2025-11-05T20:10:00Z"
   - path: "src/bot/arena/"
     router_file: "src/bot/arena/ROUTER.md"
     title: "Arena Threads & Summaries"
@@ -191,11 +241,11 @@ routers:
     title: "Daily Quest Flow"
     purpose: "Handles the daily quest claim interaction, streak tracking, and reward messaging."
     last_updated_utc: "2025-11-01T19:30:00Z"
-  - path: "src/bot/homestead/"
-    router_file: "src/bot/homestead/ROUTER.md"
-    title: "Homestead — Private Guild Channel Gameplay"
-    purpose: "Manages private guild channel-based gameplay (replaces deprecated DM flows)"
-    last_updated_utc: "2025-11-28T18:00:00Z"
+  - path: "src/bot/dm/"
+    router_file: "src/bot/dm/ROUTER.md"
+    title: "DM Home & Support Flows"
+    purpose: "Renders DM embeds for party/box/profile views and wires heal/starter interactions."
+    last_updated_utc: "2025-11-01T19:30:00Z"
   - path: "src/bot/middleware/"
     router_file: "src/bot/middleware/ROUTER.md"
     title: "Discord Middleware Guards"
@@ -216,6 +266,11 @@ routers:
     title: "Wild Encounter Controls"
     purpose: "Handles walk/encounter flows, catch prompts, and encounter state transitions."
     last_updated_utc: "2025-11-01T19:30:00Z"
+  - path: "src/cache/"
+    router_file: "src/cache/ROUTER.md"
+    title: "Legacy Cache Builders"
+    purpose: "Scripts that build and publish cached Pokemon data via git mirrors."
+    last_updated_utc: "2025-10-30T00:47:00Z"
   - path: "src/commands/"
     router_file: "src/commands/ROUTER.md"
     title: "Legacy Slash Command Handlers"
@@ -329,28 +384,18 @@ routers:
   - path: "src/shared/"
     router_file: "src/shared/ROUTER.md"
     title: "Shared Runtime & Utilities"
-    purpose: "Centralized runtime config, Prisma bootstrap, logging, caching, constants, and shared data access layers."
-    last_updated_utc: "2025-11-XX (constants consolidation complete)"
+    purpose: "Centralized runtime config, Prisma bootstrap, logging, caching, and shared data access layers."
+    last_updated_utc: "2025-11-06T14:30:00Z"
   - path: "src/shared/cache/"
     router_file: "src/shared/cache/ROUTER.md"
     title: "Shared Cache Backends"
     purpose: "Reusable cache primitives consumed by services and workers."
     last_updated_utc: "2025-11-01T17:30:00Z"
-  - path: "src/shared/models/"
-    router_file: "src/shared/models/ROUTER.md"
-    title: "Database Query Models"
-    purpose: "PostgreSQL query modules providing raw SQL alternatives to Prisma ORM patterns"
-    last_updated_utc: "2025-12-01T00:00:00Z"
   - path: "src/shared/storage/"
     router_file: "src/shared/storage/ROUTER.md"
     title: "Shared Storage Integrations"
     purpose: "Storage adapters and sinks shared across workers and backup flows."
     last_updated_utc: "2025-11-01T17:30:00Z"
-  - path: "src/shared/utils/"
-    router_file: "src/shared/utils/ROUTER.md"
-    title: "Shared Utilities"
-    purpose: "Common utility functions used across the entire application"
-    last_updated_utc: "2025-12-01T00:00:00Z"
   - path: "src/types/"
     router_file: "src/types/ROUTER.md"
     title: "Ambient Type Declarations"
@@ -365,7 +410,7 @@ routers:
     router_file: "src/workers/ROUTER.md"
     title: "Background Workers"
     purpose: "Long-running background tasks for cache refresh, data sync, validation, and maintenance."
-    last_updated_utc: "2025-11-16T00:00:00Z"
+    last_updated_utc: "2025-11-09T00:00:00Z"
   - path: "tests/"
     router_file: "tests/ROUTER.md"
     title: "Test Suite"

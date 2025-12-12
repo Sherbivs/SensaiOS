@@ -1,7 +1,5 @@
 // Seeds Prisma dex reference tables using the bootstrap JSON artifacts.
-import "dotenv/config";
-import { Prisma, PrismaClient } from "../../src/generated/prisma/client.js";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -420,9 +418,7 @@ export type SeedOptions = {
 };
 
 export async function seedDex(options: SeedOptions = {}) {
-  // Prisma 7: Create client with driver adapter
-  const adapter = new PrismaPg({ connectionString: process.env.PROD_DATABASE_URL! });
-  const prisma = new PrismaClient({ adapter });
+  const prisma = new PrismaClient();
   try {
   const dexAll = await loadJSON<DexEntry[]>(path.join("bootstrap", "dex.min.json"));
   const pokemonDoc = await loadJSON<{ pokemon: PokemonEntry[] }>("pokemon.json");

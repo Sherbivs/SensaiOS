@@ -19,7 +19,7 @@ import { toEasternLogFormat } from '../../shared/datetime.js';
 import { EventBus } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
 import { log } from '../../utils/logger.js';
-import type { ErrorLog } from '../../generated/prisma/client.js';
+import type { ErrorLog } from '@prisma/client';
 import {
   parseStackTrace,
   enrichStackFramesWithSource,
@@ -62,7 +62,6 @@ export type ErrorCategory =
   | 'WORKER'
   | 'CONFIG'
   | 'CACHE'
-  | 'HOMESTEAD'
   | 'UNKNOWN';
 
 export type ErrorSeverity = 
@@ -413,7 +412,6 @@ export class ErrorTracker {
         WORKER: 0,
         CONFIG: 0,
         CACHE: 0,
-        HOMESTEAD: 0,
         UNKNOWN: 0,
       },
       criticalErrors: 0,
@@ -648,20 +646,8 @@ export class ErrorTracker {
       const filename = `error-${shortFingerprint}-${timestamp}.md`;
       const filepath = path.join(reportsDir, filename);
       
-      try {
-        await fs.writeFile(filepath, report, 'utf-8');
-        log('error', `   📊 AI Report: ${filepath}`);
-      } catch (writeError: any) {
-        if (writeError?.code === 'ENOSPC') {
-          // Disk full - cleanup old reports and retry once
-          log('warn', '[ErrorTracker] Disk full, cleaning up old reports...');
-          await this.cleanupOldReports(6 * 60 * 60 * 1000); // 6h retention during cleanup
-          await fs.writeFile(filepath, report, 'utf-8');
-          log('error', `   📊 AI Report (after cleanup): ${filepath}`);
-        } else {
-          throw writeError;
-        }
-      }
+      await fs.writeFile(filepath, report, 'utf-8');
+      log('error', `   📊 AI Report: ${filepath}`);
     } catch (reportError) {
       // Report generation failed - not critical
       log('warn', '[ErrorTracker] AI report generation failed: ' + String(reportError));
@@ -724,54 +710,6 @@ export class ErrorTracker {
         context,
       }, null, 2));
     }
-  }
-
-  /**
-   * Cleanup old error reports and emergency logs to free disk space.
-   * Called automatically on ENOSPC or manually via /ops maintenance.
-   * 
-   * Retention: Keep last 24h of reports, delete older files.
-   */
-  async cleanupOldReports(maxAgeMs = 24 * 60 * 60 * 1000): Promise<{ deleted: number; freed: number }> {
-    const dirs = [
-      path.join(process.cwd(), 'Store', 'error-reports'),
-      path.join(process.cwd(), 'Store', 'emergency-error-logs'),
-    ];
-    
-    let deleted = 0;
-    let freed = 0;
-    const now = Date.now();
-    
-    for (const dir of dirs) {
-      try {
-        const entries = await fs.readdir(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (!entry.isFile()) continue;
-          const filepath = path.join(dir, entry.name);
-          try {
-            const stats = await fs.stat(filepath);
-            if (now - stats.mtime.getTime() > maxAgeMs) {
-              freed += stats.size;
-              await fs.unlink(filepath);
-              deleted++;
-            }
-          } catch {
-            // Skip files we can't stat/delete
-          }
-        }
-      } catch {
-        // Directory doesn't exist or not accessible
-      }
-    }
-    
-    if (deleted > 0) {
-      log('info', '[ErrorTracker] Cleaned up old error reports', { 
-        deleted, 
-        freedMB: (freed / (1024 * 1024)).toFixed(2) 
-      });
-    }
-    
-    return { deleted, freed };
   }
 }
 

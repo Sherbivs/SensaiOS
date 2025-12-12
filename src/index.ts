@@ -13,26 +13,7 @@ function recordTiming(label: string, startTime: bigint) {
 // Capture module import time
 const MODULE_IMPORT_START = process.hrtime.bigint();
 
-// ============================================================================
-// OS-LEVEL ERROR INTERCEPTION (Must be first to capture all errors)
-// ============================================================================
-import { initializeOSErrorInterceptor } from "./services/monitoring/os-error-interceptor.js";
-
-// Initialize OS error interception BEFORE any other modules load
-// This captures uncaughtException, unhandledRejection, memory warnings, etc.
-initializeOSErrorInterceptor({
-  captureUncaughtExceptions: true,
-  captureUnhandledRejections: true,
-  captureWarnings: true,
-  monitorMemory: true,
-  memoryCheckIntervalMs: 30000, // Check every 30 seconds
-  memoryWarningThreshold: 75,   // Alert at 75% heap usage
-  memoryCriticalThreshold: 90,  // Critical at 90% heap usage
-  monitorEventEmitters: true,
-  trackExitCodes: true,
-});
-
-import { Prisma } from "./generated/prisma/client.js";
+import { Prisma } from "@prisma/client";
 import { Events, DiscordAPIError, type Client } from "discord.js";
 
 import { bootDiscord } from "./bot/index.js";
@@ -45,7 +26,6 @@ import { EventBus } from "./shared/event-bus.js";
 import { formatBytes } from "./shared/utils/format-utils.js";
 import { getErrorMessage } from "./shared/utils/error-utils.js";
 import { startHealthServer, stopHealthServer } from "./services/health-server.js";
-import { startMetricsCollection, stopMetricsCollection } from "./services/database-metrics.js";
 import { notifyBoot, notifyShutdown, notifyCrash } from "./services/lifecycle-notifier.js";
 import { initializeMetrics, recordShutdown, recordCrash } from "./services/restart-metrics.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
@@ -75,7 +55,6 @@ import type { EngineWriteBuffer } from "./services/cache/engine-write-buffer.js"
 import type { ErrorTracker } from "./services/monitoring/error-tracker.js";
 import { startEngineWorkers, stopEngineWorkers, type EngineWorkersStatus } from "./workers/engine-workers.js";
 import { errorLearningWorker } from "./workers/error-learning-worker.js";
-import { startLogIngestionWorker, stopLogIngestionWorker } from "./workers/log-ingestion-worker.js";
 import * as aiLogger from "./services/ai/ai-log-writer.js";
 import * as aiLogAnalyzer from "./services/ai/ai-log-analyzer.js";
 import * as aiLogIntegrations from "./services/ai/ai-log-integrations.js";
@@ -152,11 +131,13 @@ type CacheSnapshot = {
 };
 
 const MONITOR_REFRESH_INTERVAL_MS = 5 * 60 * 1_000;
+const AUTO_RESTART_INTERVAL_MS = 12 * 60 * 60 * 1_000; // 12 hours in milliseconds
 
 let monitorActive = false;
 let shuttingDown = false;
 let signalsInstalled = false;
 let activeClient: Client | null = null;
+let autoRestartTimer: NodeJS.Timeout | null = null;
 let securityClient: Client | null = null;
 let stopPrismaHeartbeatTask: (() => void) | null = null;
 let detachPrismaHeartbeatListener: (() => void) | null = null;
@@ -848,6 +829,30 @@ async function bootSecurityBot(): Promise<Client | null> {
   }
 }
 
+/**
+ * Schedule automatic restart after 12 hours of uptime.
+ * This helps maintain system health by periodically clearing memory and resetting connections.
+ */
+function scheduleAutoRestart(): void {
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer);
+  }
+  
+  const restartTime = new Date(Date.now() + AUTO_RESTART_INTERVAL_MS);
+  log.info("⏰ Scheduled automatic restart", {
+    interval_hours: 12,
+    scheduled_time: restartTime.toISOString(),
+  });
+  
+  autoRestartTimer = setTimeout(() => {
+    log.info("🔄 Initiating scheduled 12-hour restart");
+    void gracefulShutdown("scheduled-restart");
+  }, AUTO_RESTART_INTERVAL_MS);
+  
+  // Prevent the timer from keeping the process alive during shutdown
+  autoRestartTimer.unref();
+}
+
 async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   if (shuttingDown) {
     return;
@@ -858,6 +863,12 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   
   // Calculate uptime for shutdown notification
   const uptimeMs = process.uptime() * 1000;
+  
+  // Cancel auto-restart timer if it exists
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer);
+    autoRestartTimer = null;
+  }
   
   // ══════════════════════════════════════════════════════════════════════════
   // LIFECYCLE WEBHOOK: Shutdown Notification
@@ -1041,14 +1052,6 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.error("Error stopping error learning worker", error);
   }
   
-  // Stop log ingestion worker
-  try {
-    log.info("Stopping log ingestion worker");
-    await stopLogIngestionWorker();
-  } catch (error) {
-    log.error("Error stopping log ingestion worker", error);
-  }
-  
   // Stop unified resource monitoring (includes memory guardian)
   try {
     log.info("Stopping resource monitor (includes memory guardian)");
@@ -1147,9 +1150,6 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   } catch (error) {
     log.error("Error stopping health server", error);
   }
-
-  // Stop database metrics collection
-  stopMetricsCollection();
 
   // Flush and destroy log buffer before exit
   destroyLogBuffer();
@@ -1267,10 +1267,6 @@ export async function boot(): Promise<void> {
     note: "External monitors can now detect downtime via /health endpoint",
   });
   
-  // Start database metrics collection for Prometheus
-  startMetricsCollection();
-  log.info("Database metrics collection started (Prometheus /metrics integration)");
-  
   // ============================================================================
   // Service Registry Initialization (Phase 1: Foundation Services)
   // ============================================================================
@@ -1335,25 +1331,7 @@ export async function boot(): Promise<void> {
   const dbStart = process.hrtime.bigint();
   setSection("database", { title: "Database", status: "connecting", metrics: [] });
   try {
-    // DIAGNOSTIC: Track Prisma initialization timing
-    const initPrismaStart = Date.now();
-    log.error('[DIAGNOSTIC] initPrisma() starting', {
-      timestamp: new Date().toISOString(),
-      epochMs: initPrismaStart,
-      note: 'Database initialization begins - MUST complete before bootstrap queries',
-    });
-    
     await initPrisma();
-    
-    // DIAGNOSTIC: Track when Prisma is ready
-    const initPrismaComplete = Date.now();
-    log.error('[DIAGNOSTIC] initPrisma() complete', {
-      timestamp: new Date().toISOString(),
-      epochMs: initPrismaComplete,
-      durationMs: initPrismaComplete - initPrismaStart,
-      note: 'Database ready - safe to run queries now',
-    });
-    
     await prisma.$queryRaw(Prisma.sql`SELECT 1`);
     const dbDurationMs = Number(process.hrtime.bigint() - dbStart) / 1_000_000;
     prismaConnectDurationMs = dbDurationMs;
@@ -1561,10 +1539,6 @@ export async function boot(): Promise<void> {
         await errorLearningWorker.start();
         log.info("Error learning worker started");
         
-        // Start log ingestion worker (Event Bus → TimescaleDB pipeline)
-        await startLogIngestionWorker();
-        log.info("Log ingestion worker started (Event Bus → log_entries hypertable)");
-        
         // Initialize AI Logging System (hard logs to /Store/ai-logs/)
         await aiLogger.initialize();
         await aiLogAnalyzer.initialize();
@@ -1616,14 +1590,6 @@ export async function boot(): Promise<void> {
     // Discord Bot (main bot)
     bootDiscord()
   ]);
-  
-  // DIAGNOSTIC: Track when parallel initialization completes
-  const parallelInitComplete = Date.now();
-  log.error('[DIAGNOSTIC] Parallel initialization complete', {
-    timestamp: new Date().toISOString(),
-    epochMs: parallelInitComplete,
-    note: 'ALL components ready - but ClientReady/bootstrap may have run already',
-  });
   
   // Record parallel initialization completion
   recordTiming("engine_and_bots_init", ENGINE_AND_BOTS_START);
@@ -1747,52 +1713,22 @@ export async function boot(): Promise<void> {
       });
       
       // Capture heap snapshot to disk (production only, to avoid local pollution)
-      // LIMIT: Keep max 3 snapshots to prevent disk from filling up (~90MB total)
       if (process.env.RENDER) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `startup-heap-${timestamp}.heapsnapshot`;
         const storeDir = '/Store';
-        const MAX_HEAP_SNAPSHOTS = 3;
+        const filepath = path.join(storeDir, filename);
         
         try {
           fs.mkdirSync(storeDir, { recursive: true });
+          const snapshotPath = v8.writeHeapSnapshot(filepath);
+          const snapshotSize = fs.statSync(snapshotPath).size;
           
-          // Check disk space first (skip if < 100MB available)
-          const stats = fs.statfsSync(storeDir);
-          const availableMB = (stats.bfree * stats.bsize) / (1024 * 1024);
-          
-          if (availableMB < 100) {
-            log.warn("⚠️ Skipping heap snapshot - low disk space", { availableMB: Math.round(availableMB) });
-          } else {
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const filename = `startup-heap-${timestamp}.heapsnapshot`;
-            const filepath = path.join(storeDir, filename);
-            
-            const snapshotPath = v8.writeHeapSnapshot(filepath);
-            const snapshotSize = fs.statSync(snapshotPath).size;
-            
-            log.info("📸 Startup heap snapshot captured", {
-              filename,
-              size_mb: Math.round(snapshotSize / 1024 / 1024),
-              location: storeDir,
-            });
-            
-            // Cleanup old snapshots (keep only MAX_HEAP_SNAPSHOTS most recent)
-            const files = fs.readdirSync(storeDir)
-              .filter(f => f.startsWith('startup-heap-') && f.endsWith('.heapsnapshot'))
-              .sort()
-              .reverse(); // newest first
-            
-            if (files.length > MAX_HEAP_SNAPSHOTS) {
-              const toDelete = files.slice(MAX_HEAP_SNAPSHOTS);
-              for (const file of toDelete) {
-                try {
-                  fs.unlinkSync(path.join(storeDir, file));
-                  log.info("🗑️ Deleted old heap snapshot", { file });
-                } catch (delErr) {
-                  log.warn("Failed to delete old heap snapshot", { file, error: getErrorMessage(delErr) });
-                }
-              }
-            }
-          }
+          log.info("📸 Startup heap snapshot captured", {
+            filename,
+            size_mb: Math.round(snapshotSize / 1024 / 1024),
+            location: storeDir,
+          });
         } catch (fsErr) {
           log.warn("Failed to write startup heap snapshot", { error: getErrorMessage(fsErr) });
         }
@@ -1801,9 +1737,12 @@ export async function boot(): Promise<void> {
       log.warn("Memory profiling failed", { error: getErrorMessage(memErr) });
     }
     
-    // NOTE: Auto-restart removed (2025-12-06) - Render's paid service handles restarts automatically
-    // Resource monitor continues to track memory/health without triggering restarts
-    log.info("✅ Boot complete - Render manages service lifecycle");
+    // Schedule automatic restart every 12 hours (production only)
+    if (process.env.RENDER) {
+      scheduleAutoRestart();
+    } else {
+      log.info("⏰ Auto-restart disabled in local development");
+    }
   } catch (error) {
     const message = getErrorMessage(error);
     

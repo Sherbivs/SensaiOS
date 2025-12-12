@@ -209,7 +209,7 @@ export function buildTimelineEmbedFields(state, limit = 10) {
     }];
   }
   
-  const fields = events.map((event, _index) => {
+  const fields = events.map((event, index) => {
     const icon = getEventIcon(event.type);
     const relativeTime = getRelativeTime(event.timestamp);
     let description = '';

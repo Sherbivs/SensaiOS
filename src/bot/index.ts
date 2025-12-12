@@ -22,35 +22,16 @@ const { loadCommands } = commandLoaderModule;
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
 
-// Homestead channel imports (private guild channel gameplay)
-// Migration from DM-based gameplay complete as of Phase 18
-// See docs/architecture-bible/14-private-channel-architecture.md
-import { handleHeal } from "./homestead/heal.js";
-import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./homestead/home.js";
-// Legacy starters kept for backward compatibility with existing STARTER_PICK_ buttons
-import { handleStarterPick, STARTER_OPTIONS } from "./homestead/starters.js";
-// New open starter selection (any Pokemon except forbidden categories)
-// See docs/architecture-bible/19-starter-selection-flow.md
-import { startOpenStarterFlow } from "./homestead/open-starter-selection.js";
+// ⚠️ DEPRECATED (Phase 18): DM-based gameplay being replaced with private guild channels (homestead-{username})
+// See docs/architecture-bible/14-private-channel-architecture.md for migration specification
+// TODO: Replace with imports from ./homestead/ after Foundation phase complete
+import { handleHeal } from "./dm/heal.js";
+import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./dm/home.js";
+import { openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./dm/starters.js";
 
 import { handleOpsCommand } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleWalk } from "./wilds/walk.js";
-
-// Player checkpoint & recovery system (VS Code-style state recovery)
-// Triggers diagnostics and forced healing when homestead is deleted
-import { setupHomesteadDeletionHandler } from "../services/player-checkpoint.js";
-
-// Background homestead integrity monitor (continuous per-player checking)
-// Proactively verifies each player's homestead at a steady pace
-import { startAllHomesteadMonitors, stopAllHomesteadMonitors } from "../services/homestead-player-monitor.js";
-
-// Startup bootstrap for deleted/pending homesteads
-// Ensures no player is locked out after channel deletion
-import { bootstrapAllHomesteads } from "../services/homestead-manager.js";
-
-// Development mode access control
-import { isUserAllowedInDevMode, getDevModeAccessDeniedMessage } from "../shared/feature-flags.js";
 
 
 export type BotStartOptions = {
@@ -125,72 +106,14 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
         const readyPromise = once(client, Events.ClientReady);
 
         client.once(Events.ClientReady, () => {
-                // DIAGNOSTIC: Track when ClientReady fires
-                const clientReadyTime = Date.now();
-                log.error('[DIAGNOSTIC] ClientReady event fired', {
-                        timestamp: new Date().toISOString(),
-                        epochMs: clientReadyTime,
-                        user: client.user?.tag,
-                        note: 'This fires during client.login(), check timing vs initPrisma()',
-                });
-                
                 log.info("Discord bot is ready", {
                         user: client.user?.tag,
                         lazyCommands: true,  // Commands will load on first interaction
-                });
-                
-                // Register homestead deletion handler for VS Code-style recovery
-                // When user deletes their homestead channel, triggers:
-                // 1. Full diagnostic tests on player state
-                // 2. Forced healing of any data integrity issues
-                // 3. Automatic channel recreation with recovery status message
-                setupHomesteadDeletionHandler(client);
-                
-                // STARTUP BOOTSTRAP: Recover deleted/pending homesteads immediately
-                // This ensures no player is locked out if their channel was deleted
-                // while the bot was offline. Creates channels BEFORE monitors start.
-                bootstrapAllHomesteads(client).then(results => {
-                        const totalRecovered = results.reduce((sum, r) => sum + r.recovered, 0);
-                        const totalFailed = results.reduce((sum, r) => sum + r.failed, 0);
-                        if (totalRecovered > 0 || totalFailed > 0) {
-                                log.info("Homestead bootstrap complete", {
-                                        guilds: results.length,
-                                        recovered: totalRecovered,
-                                        failed: totalFailed,
-                                });
-                        }
-                }).catch(err => {
-                        log.error("Failed to bootstrap homesteads", {
-                                error: err instanceof Error ? err.message : String(err),
-                        });
-                });
-                
-                // Start background homestead integrity monitors for all guilds
-                // Checks each player's homestead at a steady pace (~1/second)
-                // Proactively recreates missing channels before users notice
-                startAllHomesteadMonitors(client).catch(err => {
-                        log.error("Failed to start homestead monitors", {
-                                error: err instanceof Error ? err.message : String(err),
-                        });
                 });
         });
 
 	client.on("interactionCreate", async (interaction: Interaction) => {
 		try {
-				// DEV MODE ACCESS CHECK: Restrict access during pre-release testing
-				// Enable via FF_DEV_RESTRICTED_ACCESS=true, configure allowed users via DEV_ALLOWED_USER_IDS
-				// Ops commands always allowed for admins to manage the bot
-				const isOpsCommand = interaction.isChatInputCommand() && interaction.commandName === "ops";
-				if (!isOpsCommand && !isUserAllowedInDevMode(interaction.user?.id)) {
-					if (interaction.isRepliable()) {
-						await interaction.reply({
-							content: getDevModeAccessDeniedMessage(),
-							ephemeral: true,
-						});
-					}
-					return;
-				}
-
 				if (interaction.isChatInputCommand()) {
 					// Lazy-load commands on first interaction
 					const loadedCommands = await ensureCommandsLoaded();
@@ -202,16 +125,10 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 						});
 						return;
 					}
-					// Small wiring for known commands to homestead channel flows
+					// Small wiring for known commands to DM flows
 					if (interaction.commandName === "starter") {
-						if (!interaction.guildId) {
-							await interaction.reply({ content: "This command must be used in a server.", ephemeral: true });
-							return;
-						}
-						// Use the new open starter selection flow (any Pokemon except forbidden)
-						// Falls back to legacy Kanto starters if openStarterFlow fails
-						await startOpenStarterFlow(client, interaction.guildId, interaction.user);
-						await interaction.reply({ content: "✨ I've opened the Starter Selection in your homestead channel!", ephemeral: true });
+						await openStartersDM(interaction.user);
+						await interaction.reply({ content: "I opened your Starters in DMs.", ephemeral: true });
 						return;
 					}
 					if (interaction.commandName === "heal") {
@@ -272,23 +189,9 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                                                 case "HOME_PROFILE":
                                                         await openProfileView(interaction);
                                                         break;
-						case "HOME_INVENTORY":
-							await interaction.reply({ content: "🎒 **Inventory** — Coming soon! This will show your items, Poké Balls, and other gear.", ephemeral: true });
-							break;
-						case "HOME_POKEDEX":
-							await interaction.reply({ content: "📘 **Pokédex** — Coming soon! This will show your collection progress and Pokémon data.", ephemeral: true });
-							break;
-						case "HOME_SETTINGS":
-							await interaction.reply({ content: "⚙️ **Settings** — Coming soon! This will let you customize your experience.", ephemeral: true });
-							break;
                                                 case "HOME_STARTERS":
-							if (!interaction.guildId) {
-								await interaction.reply({ content: "This command must be used in a server.", ephemeral: true });
-								break;
-							}
-							// Use the new open starter selection flow (any Pokemon except forbidden)
-							await startOpenStarterFlow(client, interaction.guildId, interaction.user);
-							await interaction.reply({ content: "✨ I've opened the Starter Selection in your homestead channel!", ephemeral: true });
+							await openStartersDM(interaction.user);
+							await interaction.reply({ content: "I opened your Starters in DMs.", ephemeral: true });
 							break;
                                                 default:
                                                         if (id.startsWith(BOX_PAGE_PREFIX) && interaction.isButton()) {
@@ -333,14 +236,6 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 
         await Promise.all([client.login(token), readyPromise]);
 
-        // DIAGNOSTIC: Track when bootDiscord() completes (after login + ClientReady)
-        const bootDiscordCompleteTime = Date.now();
-        log.error('[DIAGNOSTIC] bootDiscord() completing', {
-                timestamp: new Date().toISOString(),
-                epochMs: bootDiscordCompleteTime,
-                note: 'Function returns after login + ClientReady, but bootstrap runs async',
-        });
-
         // MEMORY OPTIMIZATION (2025-11-17): Cache hygiene monitoring
         // Automatic sweepers (configured in Client options) handle cleanup.
         // Log cache stats periodically to verify sweeping is working.
@@ -369,12 +264,12 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                 }
         }, 3600_000); // 1 hour
 
-	// Cleanup on shutdown
-	const cleanup = () => {
-		clearInterval(cacheMonitorInterval);
-		// Stop background homestead integrity monitors
-		stopAllHomesteadMonitors();
-	};
-	process.once("SIGTERM", cleanup);
-	process.once("SIGINT", cleanup);        return client;
+        // Cleanup on shutdown
+        const cleanup = () => {
+                clearInterval(cacheMonitorInterval);
+        };
+        process.once("SIGTERM", cleanup);
+        process.once("SIGINT", cleanup);
+
+        return client;
 }

@@ -1,4 +1,4 @@
-// Logger import removed - log function is provided via installFatalErrorHandlers parameter
+import { log } from '../utils/logger.js';
 import util from 'node:util';
 
 let handlersInstalled = false;
@@ -46,9 +46,8 @@ function installFatalErrorHandlers({
     ? log
     : (level, message, context) => {
         if (level === 'error') {
-          // Fallback to console when no log function provided
           // eslint-disable-next-line no-console
-          console.error(message, context);
+          log.error(message, context);
         }
       };
 

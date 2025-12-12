@@ -108,8 +108,6 @@ let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null;
 let db: Database | null = null;
 let isInitialized = false;
 let autoSaveInterval: NodeJS.Timeout | null = null;
-let isDirty = false; // Tracks if database has uncommitted changes
-let _lastSaveTime = 0; // Unix timestamp of last save (prefixed for future use)
 
 // ============================================================================
 // Initialization
@@ -304,7 +302,6 @@ export async function insertBattleLogs(entries: BattleLogEntry[]): Promise<void>
     }
 
     stmt.free();
-    isDirty = true; // Mark for save
 
     log('info', 'engine-write-db: Inserted battle logs', {
       count: entries.length
@@ -356,7 +353,6 @@ export async function insertMoveUsage(entries: MoveUsageEntry[]): Promise<void> 
     }
 
     stmt.free();
-    isDirty = true; // Mark for save
 
     log('info', 'engine-write-db: Inserted move usage', {
       count: entries.length
@@ -405,7 +401,6 @@ export async function insertAnomalies(entries: AnomalyEntry[]): Promise<void> {
     }
 
     stmt.free();
-    isDirty = true; // Mark for save
 
     log('info', 'engine-write-db: Inserted anomalies', {
       count: entries.length
@@ -555,29 +550,16 @@ export async function replayWAL(): Promise<void> {
 
 /**
  * Save database to disk (sql.js operates in-memory, must explicitly persist).
- * 
- * OPTIMIZATION: Only writes to disk if database has uncommitted changes (isDirty).
- * This prevents unnecessary I/O every 10s when no battles are running.
- * 
- * @param force - If true, saves even if not dirty (used during shutdown)
  */
-export async function saveToFile(force = false): Promise<void> {
+export async function saveToFile(): Promise<void> {
   if (!db) {
     return;
-  }
-
-  // Skip save if no changes and not forced
-  if (!isDirty && !force) {
-    return; // No changes since last save
   }
 
   try {
     const data = db.export();
     const buffer = Buffer.from(data);
     await fsPromises.writeFile(EngineDbConfig.writeDbPath, buffer);
-
-    isDirty = false; // Mark as clean
-    _lastSaveTime = Date.now();
 
     log('info', 'engine-write-db: Saved to disk', {
       sizeBytes: buffer.length
@@ -853,8 +835,7 @@ export async function pruneOldEntries(): Promise<void> {
 
     log('info', 'engine-write-db: Pruning complete');
 
-    // Save after pruning (force because VACUUM changes file)
-    isDirty = true;
+    // Save after pruning
     await saveToFile();
 
   } catch (error) {
@@ -954,8 +935,8 @@ export async function close(): Promise<void> {
   stopAutoSave();
 
   if (db) {
-    // Final save before closing (force even if not dirty)
-    await saveToFile(true);
+    // Final save before closing
+    await saveToFile();
     
     db.close();
     db = null;
@@ -963,8 +944,6 @@ export async function close(): Promise<void> {
 
   SQL = null;
   isInitialized = false;
-  isDirty = false;
-  _lastSaveTime = 0;
 
   log('info', 'engine-write-db: Connection closed');
 }

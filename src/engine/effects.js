@@ -21,11 +21,7 @@ import path from 'node:path';
 let LOCAL_EFFECTS = {};
 const LOCAL_PATH = path.join(process.cwd(), 'data', 'effects.json');
 if (fs.existsSync(LOCAL_PATH)) {
-  try { 
-    LOCAL_EFFECTS = JSON.parse(fs.readFileSync(LOCAL_PATH, 'utf8')); 
-  } catch {
-    // Intentionally silent - effects.json is optional
-  }
+  try { LOCAL_EFFECTS = JSON.parse(fs.readFileSync(LOCAL_PATH, 'utf8')); } catch (_) {}
 }
 
 // ---- Runtime-extensible declarative rules ----

@@ -1,4 +1,4 @@
-import type { Prisma } from "../../generated/prisma/client.js";
+import type { Prisma } from "@prisma/client";
 
 import { prisma as prismaClient, UserRepo } from "../../models/index.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
@@ -113,7 +113,7 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
   });
 
   // Try to assign to party if slot is available
-  const party = await getPartyWithSlots(user.id);
+  const party = await getPartyWithSlots(prisma, user.id);
   if (!party) {
     // Create party if it doesn't exist
     const newParty = await prisma.party.create({ data: { ownerId: user.id } });

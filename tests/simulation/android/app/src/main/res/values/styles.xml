@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- BASE APP STYLE - Root style for all Widget.App.* styles            -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Base Widget.App Style (required by Android resource linking) -->
+    <style name="Widget.App" parent="android:Widget" />
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CARD STYLES - Material Card Variants                                -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Base Card Style -->
+    <style name="Widget.App.Card" parent="Widget.Material3.CardView.Elevated">
+        <item name="cardElevation">@dimen/elevation_card</item>
+        <item name="cardCornerRadius">@dimen/corner_radius_medium</item>
+        <item name="contentPadding">@dimen/card_padding</item>
+        <item name="strokeWidth">@dimen/stroke_width_thin</item>
+        <item name="strokeColor">?attr/colorOutline</item>
+    </style>
+    
+    <!-- Compact Card (less padding) -->
+    <style name="Widget.App.Card.Compact" parent="Widget.App.Card">
+        <item name="contentPadding">@dimen/card_padding_compact</item>
+    </style>
+    
+    <!-- Test Result Card -->
+    <style name="Widget.App.Card.TestResult" parent="Widget.App.Card">
+        <item name="android:layout_margin">@dimen/card_margin</item>
+        <item name="cardElevation">@dimen/elevation_card</item>
+    </style>
+    
+    <!-- Chat Message Card -->
+    <style name="Widget.App.Card.ChatMessage" parent="Widget.App.Card.Compact">
+        <item name="cardCornerRadius">@dimen/corner_radius_large</item>
+    </style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- BUTTON STYLES - Button Variants                                     -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Primary Action Button -->
+    <style name="Widget.App.Button.Primary" parent="Widget.Material3.Button">
+        <item name="cornerRadius">@dimen/button_corner_radius</item>
+        <item name="android:minHeight">@dimen/button_height</item>
+        <item name="android:paddingStart">@dimen/button_padding_horizontal</item>
+        <item name="android:paddingEnd">@dimen/button_padding_horizontal</item>
+    </style>
+    
+    <!-- Secondary Action Button -->
+    <style name="Widget.App.Button.Secondary" parent="Widget.Material3.Button.TonalButton">
+        <item name="cornerRadius">@dimen/button_corner_radius</item>
+        <item name="android:minHeight">@dimen/button_height</item>
+    </style>
+    
+    <!-- Text Button -->
+    <style name="Widget.App.Button.Text" parent="Widget.Material3.Button.TextButton">
+        <item name="cornerRadius">@dimen/button_corner_radius</item>
+    </style>
+    
+    <!-- Danger Button (for destructive actions) -->
+    <style name="Widget.App.Button.Danger" parent="Widget.Material3.Button">
+        <item name="backgroundTint">?attr/colorError</item>
+        <item name="android:textColor">?attr/colorOnError</item>
+        <item name="cornerRadius">@dimen/button_corner_radius</item>
+    </style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TEXT STYLES - Typography Variants                                   -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Screen Title -->
+    <style name="TextAppearance.App.Headline" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+    
+    <!-- Section Title -->
+    <style name="TextAppearance.App.Title" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+    
+    <!-- Card Title -->
+    <style name="TextAppearance.App.CardTitle" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+    
+    <!-- Body Text -->
+    <style name="TextAppearance.App.Body" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+    
+    <!-- Secondary Text -->
+    <style name="TextAppearance.App.BodySecondary" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+    
+    <!-- Caption Text -->
+    <style name="TextAppearance.App.Caption" parent="TextAppearance.Material3.LabelSmall">
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+        <item name="android:textSize">@dimen/text_size_caption</item>
+    </style>
+    
+    <!-- Monospace (for code/logs) -->
+    <style name="TextAppearance.App.Monospace" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textSize">@dimen/text_size_monospace</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+    
+    <!-- Error Text -->
+    <style name="TextAppearance.App.Error" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textColor">?attr/colorError</item>
+    </style>
+    
+    <!-- Success Text -->
+    <style name="TextAppearance.App.Success" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textColor">@color/test_passed</item>
+    </style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STATUS TEXT STYLES - Test Status Colors                             -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Passed Status -->
+    <style name="TextAppearance.App.Status.Passed" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/test_passed</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    
+    <!-- Failed Status -->
+    <style name="TextAppearance.App.Status.Failed" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/test_failed</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    
+    <!-- Skipped Status -->
+    <style name="TextAppearance.App.Status.Skipped" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/test_skipped</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    
+    <!-- Running Status -->
+    <style name="TextAppearance.App.Status.Running" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/test_running</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- DIVIDER STYLES - Visual Separators                                  -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Standard Divider -->
+    <style name="Widget.App.Divider" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">@dimen/divider_height</item>
+        <item name="android:background">?attr/colorOutline</item>
+    </style>
+    
+    <!-- Vertical Divider -->
+    <style name="Widget.App.Divider.Vertical" parent="Widget.App.Divider">
+        <item name="android:layout_width">@dimen/divider_height</item>
+        <item name="android:layout_height">match_parent</item>
+    </style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TOOLBAR STYLES - AppBar Variants                                    -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Standard Toolbar -->
+    <style name="Widget.App.Toolbar" parent="Widget.Material3.Toolbar">
+        <item name="android:elevation">@dimen/elevation_appbar</item>
+        <item name="titleTextAppearance">@style/TextAppearance.App.Title</item>
+    </style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- PROGRESS INDICATOR STYLES - Progress Components                     -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Linear Progress (Determinate) -->
+    <style name="Widget.App.ProgressBar.Linear" parent="Widget.Material3.LinearProgressIndicator">
+        <item name="trackThickness">@dimen/progress_bar_height_medium</item>
+        <item name="trackCornerRadius">@dimen/corner_radius_small</item>
+        <item name="indicatorColor">?attr/colorPrimary</item>
+        <item name="trackColor">?attr/colorSurfaceVariant</item>
+    </style>
+    
+    <!-- Circular Progress -->
+    <style name="Widget.App.ProgressBar.Circular" parent="Widget.Material3.CircularProgressIndicator">
+        <item name="indicatorSize">@dimen/progress_circular_size</item>
+        <item name="indicatorColor">?attr/colorPrimary</item>
+        <item name="trackColor">?attr/colorSurfaceVariant</item>
+    </style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- FAB STYLES - Floating Action Button                                 -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Standard FAB -->
+    <style name="Widget.App.FAB" parent="Widget.Material3.FloatingActionButton.Primary">
+        <item name="android:layout_margin">@dimen/fab_margin</item>
+        <item name="elevation">@dimen/elevation_fab</item>
+    </style>
+    
+    <!-- Extended FAB -->
+    <style name="Widget.App.FAB.Extended" parent="Widget.Material3.ExtendedFloatingActionButton.Primary">
+        <item name="android:layout_margin">@dimen/fab_margin</item>
+        <item name="elevation">@dimen/elevation_fab</item>
+    </style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CHIP STYLES - Chip Variants                                         -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Filter Chip -->
+    <style name="Widget.App.Chip.Filter" parent="Widget.Material3.Chip.Filter">
+        <item name="chipCornerRadius">@dimen/chip_corner_radius</item>
+    </style>
+    
+    <!-- Action Chip -->
+    <style name="Widget.App.Chip.Action" parent="Widget.Material3.Chip.Assist">
+        <item name="chipCornerRadius">@dimen/chip_corner_radius</item>
+    </style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- DIALOG STYLES - Dialog Variants                                     -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Standard Dialog -->
+    <style name="ThemeOverlay.App.Dialog" parent="ThemeOverlay.Material3.Dialog">
+        <item name="dialogCornerRadius">@dimen/corner_radius_large</item>
+    </style>
+    
+    <!-- Alert Dialog -->
+    <style name="ThemeOverlay.App.AlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="dialogCornerRadius">@dimen/corner_radius_large</item>
+    </style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- LIST ITEM STYLES - RecyclerView Items                               -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Standard List Item Container -->
+    <style name="Widget.App.ListItem">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">@dimen/list_item_min_height</item>
+        <item name="android:paddingStart">@dimen/list_item_padding_horizontal</item>
+        <item name="android:paddingEnd">@dimen/list_item_padding_horizontal</item>
+        <item name="android:paddingTop">@dimen/list_item_padding_vertical</item>
+        <item name="android:paddingBottom">@dimen/list_item_padding_vertical</item>
+        <item name="android:background">?attr/selectableItemBackground</item>
+    </style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- BOTTOM SHEET STYLES - Bottom Sheet Variants                         -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Standard Bottom Sheet -->
+    <style name="ThemeOverlay.App.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/Widget.App.BottomSheet</item>
+    </style>
+    
+    <style name="Widget.App.BottomSheet" parent="Widget.Material3.BottomSheet">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.App.BottomSheet</item>
+    </style>
+    
+    <style name="ShapeAppearance.App.BottomSheet" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">@dimen/corner_radius_xlarge</item>
+        <item name="cornerSizeTopRight">@dimen/corner_radius_xlarge</item>
+    </style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TEST-SPECIFIC STYLES - Custom Test UI Styles                        -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Test Status Icon -->
+    <style name="Widget.App.TestStatusIcon">
+        <item name="android:layout_width">@dimen/test_status_icon_size</item>
+        <item name="android:layout_height">@dimen/test_status_icon_size</item>
+        <item name="tint">?attr/colorPrimary</item>
+    </style>
+    
+    <!-- Failure Details Container -->
+    <style name="Widget.App.FailureContainer">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">?attr/colorErrorContainer</item>
+        <item name="android:padding">@dimen/card_padding_compact</item>
+        <item name="android:layout_marginTop">@dimen/spacing_m</item>
+    </style>
+    
+    <!-- Chat Bubble (User) -->
+    <style name="Widget.App.ChatBubble.User" parent="Widget.App.Card.ChatMessage">
+        <item name="cardBackgroundColor">?attr/colorPrimaryContainer</item>
+        <item name="android:layout_gravity">end</item>
+    </style>
+    
+    <!-- Chat Bubble (Bot) -->
+    <style name="Widget.App.ChatBubble.Bot" parent="Widget.App.Card.ChatMessage">
+        <item name="cardBackgroundColor">?attr/colorSecondaryContainer</item>
+        <item name="android:layout_gravity">start</item>
+    </style>
+    
+    <!-- Report Section -->
+    <style name="Widget.App.ReportSection">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">@dimen/section_margin_top</item>
+        <item name="android:layout_marginBottom">@dimen/section_margin_bottom</item>
+    </style>
+    
+</resources>

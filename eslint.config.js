@@ -38,15 +38,6 @@ export default [
       // Console usage prevention (optimization initiative)
       'no-console': 'error', // No console.* allowed - use log() API from logger.js
       
-      // CRITICAL: Prevent @prisma/client imports (use generated path instead)
-      // See: docs/projects/prisma-import-standardization/README.md
-      'no-restricted-imports': ['error', {
-        patterns: [{
-          group: ['@prisma/client'],
-          message: 'Import from "../generated/prisma/client.js" instead. Project uses custom Prisma output path.'
-        }]
-      }],
-      
       // TypeScript ESLint rules
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',

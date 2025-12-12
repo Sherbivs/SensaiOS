@@ -10,6 +10,7 @@ import {
   configureCacheFacade,
   evict,
   getOrHydrate,
+  peek,
   resetCacheMetrics,
   runCacheMaintenanceNow,
   stopCacheMaintenanceScheduler,
@@ -104,7 +105,9 @@ describe("cache facade", () => {
 
     await evict(baseOptions);
 
-    // After eviction, hydrate should be called again (verifies eviction worked)
+    const peeked = await peek(baseOptions);
+    expect(peeked).toBeNull();
+
     const rehydrated = await getOrHydrate(baseOptions, hydrate);
     expect(rehydrated).toEqual({ round: 6 });
     expect(hydrate).toHaveBeenCalledTimes(2);

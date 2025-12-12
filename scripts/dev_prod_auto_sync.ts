@@ -1,12 +1,10 @@
-import "dotenv/config";
 import { spawn } from "node:child_process";
 import https from "node:https";
 import { setTimeout as delay } from "node:timers/promises";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { PrismaClient } from "../src/generated/prisma/client.js";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
 import { stripQuotes } from "../src/shared/utils/format-utils.js";
 import { getErrorMessage } from "../src/shared/utils/error-utils.js";
 
@@ -608,13 +606,15 @@ async function withPrismaClient<T>(
     throw new Error(`Missing DATABASE_URL for ${label} environment (NODE_ENV=${process.env.NODE_ENV})`);
   }
 
-  // UNIFIED ARCHITECTURE: Always use direct PostgreSQL connections via driver adapter
+  // UNIFIED ARCHITECTURE: Always use direct PostgreSQL connections (library engine)
   const originalEngine = process.env.PRISMA_CLIENT_ENGINE_TYPE;
   delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
 
-  // Prisma 7: Create client with driver adapter
-  const adapter = new PrismaPg({ connectionString: url });
-  const client = new PrismaClient({ adapter });
+  const client = new PrismaClient({
+    datasources: {
+      db: { url },
+    },
+  });
 
   try {
     return await callback(client);
@@ -781,17 +781,16 @@ async function runConsolidation(
   });
 
   // PROD is always the source of truth - run first
-  // Note: prodEnvPath and devEnvPath are validated at startup via loadEnvVars
-  await runPhase("prod", config.prodEnvPath!, prodVars, config.dryRun);
+  await runPhase("prod", config.prodEnvPath, prodVars, config.dryRun);
   const prodCounts = await captureCounts("prod", prodVars);
 
   if (config.enforceProdMaster) {
     // Force DEV to match PROD
     log("enforce.strategy", { target: "dev", source: "prod", mode: "master_enforcement" });
-    await enforceProdMaster("dev", config.devEnvPath!, devVars, prodVars, config.dryRun);
+    await enforceProdMaster("dev", config.devEnvPath, devVars, prodVars, config.dryRun);
   } else {
     // Legacy bidirectional mode
-    await runPhase("dev", config.devEnvPath!, devVars, config.dryRun);
+    await runPhase("dev", config.devEnvPath, devVars, config.dryRun);
   }
 
   const devCounts = await captureCounts("dev", devVars);
@@ -890,8 +889,8 @@ async function main(): Promise<void> {
     log("unified.architecture.detected", {
       message: "PROD_DATABASE_URL identical across environments - unified database mode, auto-sync disabled",
       databaseUrl: sanitizeWebhook(devDbUrl),
-      status: "auto-sync not needed",
     });
+    console.log("✅ Unified architecture detected - all URLs point to same database. Auto-sync not needed.");
     return; // Exit gracefully - no sync required
   }
   

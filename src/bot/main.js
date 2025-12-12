@@ -26,9 +26,6 @@ import {
   BACKFILL_INTERVAL_SECONDS,
   ROLE_REMEDIATION_INTERVAL_SECONDS,
   CACHE_TTL_HOURS,
-  MAX_SWEEP_CANDIDATES,
-  SWEEP_ANOMALY_THRESHOLD,
-  SWEEP_ANOMALY_CRITICAL,
   ENABLE_CONTINUOUS_SWEEP,
   OPS_REPORT_INTERVAL_SECONDS,
   STANDARD_ENFORCE_ALL,
@@ -49,8 +46,6 @@ import cache from '../services/cache.js';
 import activityTracker from '../utils/activityTracker.js';
 import cliStatus from '../utils/cliStatus.js';
 import { installFatalErrorHandlers } from '../utils/fatalErrorGuard.js';
-import { startMetricsServer, stopMetricsServer } from '../services/metrics-server.js';
-import { recordCacheInvalidation, recordPermissionViolation } from '../services/prometheus-metrics.js';
 import { log as baseLog, report } from '../utils/logger.js';
 import opsNotifier from '../utils/opsNotifier.js';
 
@@ -59,18 +54,6 @@ import { buildRestartSummary } from './state/context.js';
 import { initializeState, shutdownState, startAutoSave, stopAutoSave } from './state/persistence.js';
 import { recordSweep, recordMemberFetchTimeout } from './state/stats.js';
 import { getRecentActivitySummary } from './state/timeline.js';
-import { errorTracker } from '../services/monitoring/error-tracker.js';
-import { initializeRoleArchive, recordRoleChange, getRoleStatistics, shutdownRoleArchive } from './state/roleArchive.js';
-import { shutdownDistributedLock, getLockStatistics } from '../services/distributed-lock.js';
-import { generateSecurityBaselines } from './state/securityBaselines.js';
-import { detectSecurityThreats, calculateCurrentActivity } from './state/threatDetector.js';
-import { initializeEventBus, cleanupEventBus, emitSecurityEvent, emitAlert } from './eventbus-integration.js';
-import { initializeAlertDispatcher, cleanupAlertDispatcher } from './alert-dispatcher.js';
-import { initializeSecurityDbSubscriber, cleanupSecurityDbSubscriber } from './security-db-subscriber.js';
-
-// Sprint 5.0: Data Pool Service for Discord entity capture (database persistence)
-import { getDataPoolService } from '../services/data-pool/index.js';
-import { prisma } from '../shared/prisma.js';
 
 // Extract constants from centralized constants
 const { DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS, MEMBER_STATS_REFRESH_INTERVAL_MS } = TIME_CONSTANTS;
@@ -85,87 +68,55 @@ const TIMEOUT_CONFIG_FILE = process.env.RENDER
   ? '/Store/guild-member-timeout-config.json'
   : './Store/guild-member-timeout-config.json';
 
-// In-memory cache for timeout config (avoid blocking file I/O)
-let timeoutConfigCache = null;
-let timeoutConfigLoadPromise = null;
-
-// Load timeout from persistent config (async to avoid blocking event loop)
-async function loadTimeoutConfig() {
-  // Return cached value if available
-  if (timeoutConfigCache !== null) {
-    return timeoutConfigCache;
-  }
-  
-  // Return in-flight promise if already loading
-  if (timeoutConfigLoadPromise) {
-    return timeoutConfigLoadPromise;
-  }
-  
-  // Start async load
-  timeoutConfigLoadPromise = (async () => {
-    try {
-      baseLog('info', `[timeout-config] Loading from: ${TIMEOUT_CONFIG_FILE}`, {}, { debugMode: CLI_DEBUG_MODE });
-      
-      const fsPromises = (await import('node:fs/promises')).default;
-      
-      try {
-        const data = await fsPromises.readFile(TIMEOUT_CONFIG_FILE, 'utf8');
-        const config = JSON.parse(data);
-        if (config.timeoutMs && typeof config.timeoutMs === 'number') {
-          const clamped = Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, config.timeoutMs));
-          timeoutConfigCache = clamped;
-          baseLog('info', `[timeout-config] Loaded from disk`, {
-            timeoutMs: clamped,
-            adjustments: config.adjustments || 0,
-            lastAdjusted: config.lastAdjusted || 'never',
-            lastReason: config.reason || 'unknown',
-            file: TIMEOUT_CONFIG_FILE
-          }, { debugMode: CLI_DEBUG_MODE });
-          return clamped;
-        }
-      } catch (err) {
-        if (err.code === 'ENOENT') {
-          baseLog('info', `[timeout-config] File does not exist, using default: ${DEFAULT_TIMEOUT_MS}ms`, {
-            file: TIMEOUT_CONFIG_FILE
-          }, { debugMode: CLI_DEBUG_MODE });
-        } else {
-          throw err;
-        }
-      }
-    } catch (err) {
-      baseLog('warn', '[timeout-config] Failed to load, using default', { 
-        error: err.message,
-        file: TIMEOUT_CONFIG_FILE,
-        default: DEFAULT_TIMEOUT_MS
-      }, { debugMode: CLI_DEBUG_MODE });
-    } finally {
-      timeoutConfigLoadPromise = null;
-    }
+// Load timeout from persistent config
+function loadTimeoutConfig() {
+  try {
+    baseLog('info', `[timeout-config] Loading from: ${TIMEOUT_CONFIG_FILE}`, {}, { debugMode: CLI_DEBUG_MODE });
     
-    timeoutConfigCache = DEFAULT_TIMEOUT_MS;
-    return DEFAULT_TIMEOUT_MS;
-  })();
-  
-  return timeoutConfigLoadPromise;
+    if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
+      const data = fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8');
+      const config = JSON.parse(data);
+      if (config.timeoutMs && typeof config.timeoutMs === 'number') {
+        const clamped = Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, config.timeoutMs));
+        baseLog('info', `[timeout-config] Loaded from disk`, {
+          timeoutMs: clamped,
+          adjustments: config.adjustments || 0,
+          lastAdjusted: config.lastAdjusted || 'never',
+          lastReason: config.reason || 'unknown',
+          file: TIMEOUT_CONFIG_FILE
+        }, { debugMode: CLI_DEBUG_MODE });
+        return clamped;
+      }
+    } else {
+      baseLog('info', `[timeout-config] File does not exist, using default: ${DEFAULT_TIMEOUT_MS}ms`, {
+        file: TIMEOUT_CONFIG_FILE
+      }, { debugMode: CLI_DEBUG_MODE });
+    }
+  } catch (err) {
+    baseLog('warn', '[timeout-config] Failed to load, using default', { 
+      error: err.message,
+      file: TIMEOUT_CONFIG_FILE,
+      default: DEFAULT_TIMEOUT_MS
+    }, { debugMode: CLI_DEBUG_MODE });
+  }
+  return DEFAULT_TIMEOUT_MS;
 }
 
-// Save timeout to persistent config (async to avoid blocking event loop)
-async function saveTimeoutConfig(timeoutMs, reason = 'manual') {
+// Save timeout to persistent config
+function saveTimeoutConfig(timeoutMs, reason = 'manual') {
   try {
-    const fsPromises = (await import('node:fs/promises')).default;
-    
     const dir = path.dirname(TIMEOUT_CONFIG_FILE);
-    await fsPromises.mkdir(dir, { recursive: true });
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     
     let adjustments = 0;
     try {
-      const data = await fsPromises.readFile(TIMEOUT_CONFIG_FILE, 'utf8');
-      const existing = JSON.parse(data);
-      adjustments = (existing.adjustments || 0) + 1;
-    } catch (err) {
-      if (err.code !== 'ENOENT') {
-        baseLog('warn', '[timeout-config] Could not load existing adjustments count', { error: err.message });
+      if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
+        const existing = JSON.parse(fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8'));
+        adjustments = (existing.adjustments || 0) + 1;
       }
+    } catch {
       // Ignore history loading errors
     }
     
@@ -179,15 +130,13 @@ async function saveTimeoutConfig(timeoutMs, reason = 'manual') {
     
     // Load history if exists
     try {
-      const data = await fsPromises.readFile(TIMEOUT_CONFIG_FILE, 'utf8');
-      const existing = JSON.parse(data);
-      if (Array.isArray(existing.history)) {
-        config.history = existing.history.slice(-10); // Keep last 10
+      if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
+        const existing = JSON.parse(fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8'));
+        if (Array.isArray(existing.history)) {
+          config.history = existing.history.slice(-10); // Keep last 10
+        }
       }
-    } catch (err) {
-      if (err.code !== 'ENOENT') {
-        baseLog('warn', '[timeout-config] Could not load existing history', { error: err.message });
-      }
+    } catch {
       // Ignore history loading errors
     }
     
@@ -197,13 +146,10 @@ async function saveTimeoutConfig(timeoutMs, reason = 'manual') {
       reason,
     });
     
-    await fsPromises.writeFile(TIMEOUT_CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
-    
-    // Update cache
-    timeoutConfigCache = timeoutMs;
+    fs.writeFileSync(TIMEOUT_CONFIG_FILE, JSON.stringify(config, null, 2));
     
     // Verify write succeeded
-    const verification = await fsPromises.readFile(TIMEOUT_CONFIG_FILE, 'utf8');
+    const verification = fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8');
     const verified = JSON.parse(verification);
     
     baseLog('info', '[timeout-config] Saved', { 
@@ -212,7 +158,7 @@ async function saveTimeoutConfig(timeoutMs, reason = 'manual') {
       adjustments,
       file: TIMEOUT_CONFIG_FILE,
       verified: verified.timeoutMs === timeoutMs,
-      cached: true
+      fileExists: fs.existsSync(TIMEOUT_CONFIG_FILE)
     });
   } catch (err) {
     baseLog('error', '[timeout-config] Failed to save', { 
@@ -223,7 +169,7 @@ async function saveTimeoutConfig(timeoutMs, reason = 'manual') {
   }
 }
 
-// Auto-increment timeout on error (fire-and-forget async save to avoid blocking)
+// Auto-increment timeout on error
 function incrementTimeout(currentTimeout, reason = 'timeout_error') {
   const newTimeout = Math.min(MAX_TIMEOUT_MS, currentTimeout + TIMEOUT_INCREMENT_MS);
   if (newTimeout > currentTimeout) {
@@ -233,39 +179,15 @@ function incrementTimeout(currentTimeout, reason = 'timeout_error') {
       increment: TIMEOUT_INCREMENT_MS, 
       reason 
     });
-    // Fire-and-forget save (non-blocking)
-    saveTimeoutConfig(newTimeout, reason).catch(err => {
-      baseLog('error', '[timeout-config] Failed to save timeout increment', { error: err.message });
-    });
+    saveTimeoutConfig(newTimeout, reason);
     return newTimeout;
   }
   baseLog('info', '[timeout-config] Already at maximum', { max: MAX_TIMEOUT_MS });
   return currentTimeout;
 }
 
-// Decay timeout on success (slow recovery, prevents timeout from growing forever)
-function decayTimeout(currentTimeout, reason = 'fetch_success') {
-  // Only decay if above minimum + some buffer
-  const decayThreshold = MIN_TIMEOUT_MS + TIMEOUT_INCREMENT_MS * 4; // 31000ms
-  if (currentTimeout > decayThreshold) {
-    const decayAmount = Math.floor(TIMEOUT_INCREMENT_MS / 2); // Decay slower than growth (125ms)
-    const newTimeout = Math.max(MIN_TIMEOUT_MS, currentTimeout - decayAmount);
-    // Log at debug level to reduce noise (success is the common case)
-    baseLog('info', '[timeout-config] Decay on success', { 
-      from: currentTimeout, 
-      to: newTimeout, 
-      decay: decayAmount, 
-      reason 
-    }, { debugMode: true }); // Only show in debug mode
-    // Fire-and-forget save
-    saveTimeoutConfig(newTimeout, reason).catch(() => {});
-    return newTimeout;
-  }
-  return currentTimeout;
-}
-
-// Initialize timeout from config (deferred - will load async in startSecurityBot)
-let GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = DEFAULT_TIMEOUT_MS;
+// Initialize timeout from config
+let GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = loadTimeoutConfig();
 
 const GUILD_MEMBER_FETCH_PAGE_LIMIT = 1_000;
 const GUILD_MEMBER_FETCH_MAX_PAGES = 200;
@@ -370,19 +292,6 @@ function isGuildMembersTimeout(error) {
   return message.includes(GUILD_MEMBERS_TIMEOUT_FRAGMENT);
 }
 
-/**
- * Ensure guild members are fetched and cached
- * 
- * CRITICAL ARCHITECTURE: Always forces fresh fetch from Discord API
- * - Pre-existing cache is STRICTLY for statistics and reasoning only
- * - Processing decisions MUST use fresh member data (force: true)
- * - Prevents stale cache from causing members to be missed during sweeps
- * - Handles GuildMembersTimeout with auto-incrementing timeout and paginated fallback
- * 
- * @param {Guild} guild - Discord guild to fetch members from
- * @param {Object} options - Fetch configuration
- * @returns {Promise<Collection>} Fresh guild members collection
- */
 async function ensureGuildMembersCached(guild, options = {}) {
   const {
     origin = 'unspecified',
@@ -402,9 +311,7 @@ async function ensureGuildMembersCached(guild, options = {}) {
   while (chunkAttempts < Math.max(1, chunkRetries)) {
     chunkAttempts += 1;
     try {
-      // CRITICAL FIX: Force fresh fetch from Discord API (bypass cache)
-      // Cache is strictly for statistics/reasoning, NOT for processing decisions
-      await guild.members.fetch({ time: chunkTimeoutMs, force: true });
+      await guild.members.fetch({ time: chunkTimeoutMs });
       chunkSucceeded = true;
       break;
     } catch (error) {
@@ -474,9 +381,7 @@ async function ensureGuildMembersCached(guild, options = {}) {
       pageOptions.after = after;
     }
 
-    // CRITICAL FIX: Force fresh fetch from Discord API (bypass cache)
-    // Ensures paginated fallback also gets live member data
-    const batch = await guild.members.fetch({ ...pageOptions, force: true });
+    const batch = await guild.members.fetch(pageOptions);
     if (batch.size === 0) {
       break;
     }
@@ -1128,8 +1033,7 @@ async function evaluateExecutorAuthorization(guild, executor) {
     let ownerMember = guild.members.cache.get(executor.id) || null;
     if (!ownerMember) {
       try {
-        // CRITICAL FIX: Force fresh fetch for owner verification
-        ownerMember = await guild.members.fetch({ user: executor.id, force: true });
+        ownerMember = await guild.members.fetch(executor.id);
       } catch (error) {
         log('warn', 'Failed to resolve guild owner during authorization check', mergeLogError({
           guild: describeGuild(guild),
@@ -1143,8 +1047,7 @@ async function evaluateExecutorAuthorization(guild, executor) {
   let member = guild.members.cache.get(executor.id) || null;
   if (!member) {
     try {
-      // CRITICAL FIX: Force fresh fetch for permission verification
-      member = await guild.members.fetch({ user: executor.id, force: true });
+      member = await guild.members.fetch(executor.id);
     } catch (error) {
       log('warn', 'Failed to resolve executor member for authorization', mergeLogError({
         guild: describeGuild(guild),
@@ -1306,53 +1209,22 @@ function getContinuousSweepGuilds(signal, transformer) {
   }
 }
 
-/**
- * SECURITY FIX: Strict permission enforcement - throws on failure instead of returning false.
- * Week 2 Day 11-12: High Fix #2 - Prevents silent permission failures.
- * 
- * @param {Guild} guild - Discord guild
- * @param {Role} role - Target role to assign
- * @throws {Error} If bot lacks MANAGE_ROLES permission
- * @throws {Error} If target role is at/above bot's highest role
- * @throws {Error} If role is not editable (managed/integrated)
- * @returns {boolean} True if all checks pass
- */
-function enforceCanAssignRole(guild, role) {
+function canAssignRole(guild, role) {
   const me = guild.members.me;
-  
-  // Guild member check
-  if (!me) {
-    throw new Error(`Bot is not a member of guild "${guild.name}" (ID: ${guild.id})`);
-  }
-  
-  // MANAGE_ROLES permission check
+  if (!me) return true; // assume true; discord.js will error if not
   const hasManage = me.permissions.has('ManageRoles');
-  if (!hasManage) {
-    throw new Error(
-      `Bot lacks MANAGE_ROLES permission in guild "${guild.name}" (ID: ${guild.id}). ` +
-      `Bot highest role: "${me.roles.highest.name}" (position ${me.roles.highest.position}).`
-    );
-  }
-  
-  // Role hierarchy check
   const above = me.roles.highest.position > role.position;
-  if (!above) {
-    throw new Error(
-      `Role "${role.name}" (position ${role.position}) is at/above bot's highest role ` +
-      `"${me.roles.highest.name}" (position ${me.roles.highest.position}) in guild "${guild.name}". ` +
-      `Bot cannot manage roles at same or higher position.`
-    );
+  if (!hasManage || !above) {
+    report('Permission Check', {
+      guild: describeGuild(guild),
+      botHighestRole: me.roles.highest ? describeRole(me.roles.highest) : 'unknown',
+      targetRole: describeRole(role),
+      hasManageRoles: hasManage,
+      botAboveTarget: above,
+      hint: 'Ensure bot role is above target and has Manage Roles.'
+    }, 'warn');
   }
-  
-  // Editability check (managed/integrated roles)
-  if (!role.editable) {
-    throw new Error(
-      `Role "${role.name}" (ID: ${role.id}) is not editable by bot in guild "${guild.name}". ` +
-      `This usually indicates a managed/integrated role (e.g., Nitro booster, bot role).`
-    );
-  }
-  
-  return true;
+  return hasManage && above;
 }
 
 // ----- Operational reporting -----
@@ -1363,9 +1235,6 @@ function reportOperationalStats(where = 'startup') {
   const budget = hasBudget ? cache.getCacheBudget() : { approxBytes: 0, maxAllowedBytes: 0, percent: cache && cache.MAX_CACHE_PERCENT ? cache.MAX_CACHE_PERCENT : 0.25 };
   const cacheSize = (cache && typeof cache.getCacheSize === 'function') ? cache.getCacheSize() : 0;
   const mem = process.memoryUsage();
-  
-  // Get role archive statistics
-  const roleStats = getRoleStatistics();
 
   log('info', '=== Cache & Resource Report ===', {
     at: where,
@@ -1386,33 +1255,6 @@ function reportOperationalStats(where = 'startup') {
     backfillConcurrency: BACKFILL_CONCURRENCY,
     backfillDelayMs: BACKFILL_DELAY_MS,
     cacheTtlHours: CACHE_TTL_HOURS,
-  });
-  
-  // Log role archive statistics
-  if (roleStats) {
-    log('info', '=== Role Archive Statistics ===', {
-      totalChanges: roleStats.totalChanges,
-      additions: roleStats.additionCount,
-      removals: roleStats.removalCount,
-      uniqueMembers: roleStats.uniqueMemberCount,
-      archiveSize: roleStats.archiveSize,
-      archiveCapacity: roleStats.archiveCapacity,
-      utilizationPercent: Math.round((roleStats.archiveSize / roleStats.archiveCapacity) * 100),
-      topModifiedRoles: roleStats.rolesModified.slice(0, 5).map(r => `${r.roleName} (${r.changeCount})`).join(', ')
-    });
-  }
-  
-  // Log distributed lock statistics
-  const lockStats = getLockStatistics();
-  log('info', '=== Distributed Lock Statistics ===', {
-    backend: lockStats.redisAvailable ? 'Redis' : 'In-Memory Fallback',
-    totalAcquired: lockStats.totalAcquired,
-    totalReleased: lockStats.totalReleased,
-    totalFailed: lockStats.totalFailed,
-    fallbackCount: lockStats.totalFallback,
-    currentLocks: lockStats.currentLocks,
-    inMemoryLocksCount: lockStats.inMemoryLocksCount,
-    lastError: lockStats.lastError ? `${lockStats.lastError.message} (${lockStats.lastError.timestamp})` : 'none'
   });
 }
 
@@ -1530,49 +1372,10 @@ async function scheduleDailySummaryReports() {
   }, safeDelay);
 }
 
-/**
- * Notify admin of service restart with strategic throttling
- * 
- * Strategic Alert Rules (2025-12-06):
- * - Restart alerts have 1-hour cooldown to prevent spam during rapid restarts
- * - Uses dedicated 'restart' severity for tracking
- * - Throttle service prevents duplicate notifications
- * - Suppressed restarts still logged but no DM sent
- */
 async function notifyServiceRestart() {
   if (!RESTART_DM_RECIPIENT) {
     return;
   }
-  
-  // Check if restart alert should be sent (strategic throttling)
-  const alertTitle = 'Security Monitor - System Restart';
-  let throttleDecision = null;
-  
-  if (dripAlertManager && typeof dripAlertManager.getThrottleStatistics === 'function') {
-    // Import throttle service for decision
-    try {
-      const { alertThrottle } = await import('../services/alert-throttle.js');
-      throttleDecision = alertThrottle.shouldDeliver('restart', alertTitle, {
-        guilds: client.guilds.cache.size,
-        recipient: RESTART_DM_RECIPIENT,
-      });
-      
-      if (!throttleDecision.allow) {
-        log('info', 'Restart DM suppressed by strategic throttling', {
-          reason: throttleDecision.reason,
-          cooldownRemainingMs: throttleDecision.cooldownRemainingMs,
-          guilds: client.guilds.cache.size,
-        });
-        return; // Suppressed - don't send DM
-      }
-    } catch (err) {
-      // Throttle service unavailable, proceed with notification
-      log('debug', 'Alert throttle service unavailable, proceeding with restart DM', {
-        error: err?.message,
-      });
-    }
-  }
-  
   try {
     const { toEasternString } = await import('../shared/datetime.js');
     const user = await resolveAlertUser(RESTART_DM_RECIPIENT);
@@ -1602,29 +1405,18 @@ async function notifyServiceRestart() {
       message += `\n• Permission changes detected: ${summary.totalPermissionChanges}`;
       message += `\n• Successful reverts: ${summary.successfulReverts}`;
       
-      // Add timeout configuration status (use cached value to avoid blocking I/O)
+      // Add timeout configuration status
       try {
-        if (timeoutConfigCache !== null) {
-          const timeoutSeconds = (timeoutConfigCache / 1000).toFixed(1);
+        const timeoutConfigPath = process.env.RENDER
+          ? '/Store/guild-member-timeout-config.json'
+          : './Store/guild-member-timeout-config.json';
+        if (fs.existsSync(timeoutConfigPath)) {
+          const timeoutConfig = JSON.parse(fs.readFileSync(timeoutConfigPath, 'utf8'));
+          const timeoutSeconds = (timeoutConfig.timeoutMs / 1000).toFixed(1);
           message += `\n\n⚙️ **Configuration**`;
-          message += `\n• Member fetch timeout: ${timeoutSeconds}s (from cache)`;
-        } else {
-          // Async load if cache not available
-          const fsPromises = (await import('node:fs/promises')).default;
-          const timeoutConfigPath = process.env.RENDER
-            ? '/Store/guild-member-timeout-config.json'
-            : './Store/guild-member-timeout-config.json';
-          try {
-            const data = await fsPromises.readFile(timeoutConfigPath, 'utf8');
-            const timeoutConfig = JSON.parse(data);
-            const timeoutSeconds = (timeoutConfig.timeoutMs / 1000).toFixed(1);
-            message += `\n\n⚙️ **Configuration**`;
-            message += `\n• Member fetch timeout: ${timeoutSeconds}s (${timeoutConfig.adjustments || 0} auto-adjustments)`;
-            if (timeoutConfig.adjustments > 0) {
-              message += `\n• Last adjusted: ${timeoutConfig.lastAdjusted ? toEasternString(new Date(timeoutConfig.lastAdjusted)) : 'unknown'}`;
-            }
-          } catch {
-            // Skip timeout config if unavailable (file not found or parse error)
+          message += `\n• Member fetch timeout: ${timeoutSeconds}s (${timeoutConfig.adjustments || 0} auto-adjustments)`;
+          if (timeoutConfig.adjustments > 0) {
+            message += `\n• Last adjusted: ${timeoutConfig.lastAdjusted ? toEasternString(new Date(timeoutConfig.lastAdjusted)) : 'unknown'}`;
           }
         }
       } catch {
@@ -1760,18 +1552,6 @@ async function notifyServiceRestart() {
     
     await user.send(message);
     log('info', 'Restart notification delivered', { target: describeUser(user) });
-    
-    // Record successful delivery with throttle service for cooldown tracking
-    try {
-      const { alertThrottle } = await import('../services/alert-throttle.js');
-      alertThrottle.recordDelivery('restart', alertTitle, true, {
-        guilds: client.guilds.cache.size,
-        recipient: RESTART_DM_RECIPIENT,
-      });
-    } catch (err) {
-      // Non-critical - throttle tracking failure doesn't affect notification
-      log('debug', 'Failed to record restart delivery in throttle service', { error: err?.message });
-    }
   } catch (error) {
     log('error', 'Restart notification failed', mergeLogError({
       recipient: RESTART_DM_RECIPIENT,
@@ -2054,13 +1834,6 @@ async function maybeAlertRoleAssignments(oldMember, newMember) {
   };
 
   if (!authorization.authorized) {
-    // Record permission violation metric (Week 3 Day 20-21)
-    recordPermissionViolation(
-      'unauthorized-role-change',
-      newMember.guild.id,
-      newMember.guild.name
-    );
-
     const revertOutcome = await revertMemberRoles(newMember, {
       rolesToRemove: addedRoles,
       rolesToAdd: removedRoles,
@@ -2077,13 +1850,6 @@ async function maybeAlertRoleAssignments(oldMember, newMember) {
 
     if (!revertOutcome.success && Array.isArray(revertOutcome.errors) && revertOutcome.errors.length) {
       meta.revertErrors = revertOutcome.errors;
-      
-      // Record revert failure metric (Week 3 Day 20-21)
-      recordPermissionViolation(
-        'revert-failure',
-        newMember.guild.id,
-        newMember.guild.name
-      );
     }
     if (Array.isArray(revertOutcome.added) && revertOutcome.added.length) {
       meta.reappliedRoleIds = revertOutcome.added;
@@ -2175,20 +1941,11 @@ function findRole(guild) {
   return guild.roles.cache.find(r => r.name.toLowerCase() === target) || null;
 }
 
-async function fetchGuildRolesFresh(guild) {
-  // Discord.js 14.24+: Call fetch() with no arguments to fetch all roles.
-  // Previously used (undefined, { force: true }) which Discord API rejects as invalid snowflake.
-  // Force fresh data by clearing cache first, then fetching.
-  guild.roles.cache.clear();
-  return guild.roles.fetch();
-}
-
 async function reportGuildRoles(guild) {
   const guildSummary = describeGuild(guild);
 
   try {
-    // Force fresh role data for accurate reporting
-    const roles = await fetchGuildRolesFresh(guild);
+    const roles = await guild.roles.fetch();
     if (!roles || roles.size === 0) {
       report('Roles Empty', { guild: guildSummary });
       return;
@@ -2222,8 +1979,7 @@ async function validateGuildRoles(guild) {
 
   let roles;
   try {
-    // Force fresh role data for accurate validation
-    roles = await fetchGuildRolesFresh(guild);
+    roles = await guild.roles.fetch();
   } catch (error) {
     log('error', 'Unable to fetch guild roles for validation', mergeLogError({
       guild: guildSummary,
@@ -2272,8 +2028,7 @@ async function fixGuildRoles(guild) {
 
   let roles;
   try {
-    // Force fresh role data for accurate remediation
-    roles = await fetchGuildRolesFresh(guild);
+    roles = await guild.roles.fetch();
   } catch (error) {
     log('error', 'Unable to fetch guild roles for remediation', mergeLogError({
       guild: guildSummary,
@@ -2313,19 +2068,25 @@ async function fixGuildRoles(guild) {
       continue;
     }
 
-    // SECURITY FIX: Strict permission enforcement (throws on failure)
-    // Week 2 Day 11-12: High Fix #2
-    try {
-      enforceCanAssignRole(guild, role);
-    } catch (error) {
-      log('error', '[SECURITY] Permission violation - cannot modify role', {
+    // Verify bot can manage this role (hierarchy + permissions check)
+    if (!canAssignRole(guild, role)) {
+      log('warn', 'Cannot modify role: bot lacks ManageRoles permission or role is above bot in hierarchy', {
         guild: guildSummary,
         role: describeRole(role),
         missing: analysis.missing.join(', ') || 'none',
-        extra: analysis.extra.join(', ') || 'none',
-        reason: error.message
+        extra: analysis.extra.join(', ') || 'none'
       });
-      // Skip role - do not attempt modification without proper permissions
+      continue;
+    }
+
+    // Verify role is manageable (Discord.js built-in check)
+    if (!role.editable) {
+      log('warn', 'Cannot modify role: role is not editable by bot', {
+        guild: guildSummary,
+        role: describeRole(role),
+        missing: analysis.missing.join(', ') || 'none',
+        extra: analysis.extra.join(', ') || 'none'
+      });
       continue;
     }
 
@@ -2397,24 +2158,13 @@ async function enforceRolePermissions(role) {
     return;
   }
 
-  // SECURITY FIX: Strict permission enforcement (throws on failure)
-  // Week 2 Day 11-12: High Fix #2
-  try {
-    enforceCanAssignRole(role.guild, role);
-  } catch (error) {
-    // Record permission violation metric (Week 3 Day 20-21)
-    recordPermissionViolation(
-      'permission-denied',
-      role.guild.id,
-      role.guild.name
-    );
-
-    log('error', '[SECURITY] Permission violation - cannot enforce role permissions', {
+  // Verify bot can manage this role (hierarchy + permissions check)
+  if (!canAssignRole(role.guild, role)) {
+    log('warn', 'Cannot enforce permissions: bot lacks ManageRoles permission or role is above bot in hierarchy', {
       guild: guildSummary,
       role: describeRole(role),
       missing: analysis.missing.join(', ') || 'none',
-      extra: analysis.extra.join(', ') || 'none',
-      reason: error.message
+      extra: analysis.extra.join(', ') || 'none'
     });
     await sendSecurityAlert('Cannot enforce role permissions (permission/hierarchy issue)', {
       guild: guildSummary,
@@ -2422,9 +2172,27 @@ async function enforceRolePermissions(role) {
       policy: analysis.policy,
       missing: analysis.missing,
       extra: analysis.extra,
-      reason: error.message
+      reason: 'Bot lacks ManageRoles or role is above bot in hierarchy'
     });
-    // Abort - do not attempt modification without proper permissions
+    return;
+  }
+
+  // Verify role is manageable (Discord.js built-in check)
+  if (!role.editable) {
+    log('warn', 'Cannot enforce permissions: role is not editable by bot', {
+      guild: guildSummary,
+      role: describeRole(role),
+      missing: analysis.missing.join(', ') || 'none',
+      extra: analysis.extra.join(', ') || 'none'
+    });
+    await sendSecurityAlert('Cannot enforce role permissions (role not editable)', {
+      guild: guildSummary,
+      role: describeRole(role),
+      policy: analysis.policy,
+      missing: analysis.missing,
+      extra: analysis.extra,
+      reason: 'Role is not editable by bot'
+    });
     return;
   }
 
@@ -2454,131 +2222,104 @@ async function enforceRolePermissions(role) {
     }, error), 'error');
   }
 }
-/**
- * REFACTORED: Week 3 Day 15-17 - DRY Architecture Optimization
- * Delegates to unified role assignment service (600+ lines consolidated)
- */
 async function ensureTrainerFor(member, origin = 'unspecified') {
-  // Import unified role assignment service
-  const { assignRole, shouldAssignRole } = await import('../services/role-assignment.js');
-  
-  // Pre-check: Skip if member has other assignable roles
-  // This preserves the original business logic specific to ensureTrainerFor
-  const role = findRole(member?.guild);
-  if (role) {
-    const eligibility = shouldAssignRole(member, role, hasNoAssignableRoles);
-    if (!eligibility.shouldAssign) {
-      if (eligibility.reason !== 'already-has-role') {
-        // Log the skip (except for already-has-role, which is silent)
-        const assignableRoles = member.roles.cache
-          .filter(r => r.id !== member.guild.roles.everyone.id)
-          .map(describeRole);
-        report('Member Skipped', {
-          origin,
-          guild: describeGuild(member.guild),
-          member: describeMember(member),
-          reason: eligibility.reason,
-          existingRoles: assignableRoles.length ? assignableRoles.join(', ') : 'n/a'
-        }, 'detail');
-      }
-      return;
-    }
+  // Verify member object exists and is valid
+  if (!member || !member.guild || !member.id || !member.user) {
+    log('warn', 'Cannot assign role: invalid member object', {
+      origin,
+      memberId: member?.id || 'unknown',
+      hasGuild: Boolean(member?.guild),
+      hasUser: Boolean(member?.user)
+    });
+    return;
   }
-  
-  // Delegate to unified service with dependency injection
-  const result = await assignRole(member, {
-    origin,
-    findRole,
-    enforcePermissions: enforceCanAssignRole,
-    cache,
-    cacheTTL: CACHE_TTL_HOURS,
-    activityTracker,
-    log,
-    report,
-    describeGuild,
-    describeMember,
-    describeRole,
-    onSuccess: () => {
-      // Original behavior: bump role member count
-      bumpRoleMemberCount(member.guild, 1);
-    }
-  });
-  
-  // Result is already logged by unified service
-  return result;
-}
 
-/**
- * CRITICAL: Assign Trainer role to new members REGARDLESS of their existing roles
- * This function is specifically for guildMemberAdd events
- * Unlike ensureTrainerFor, this does NOT skip members who already have other roles
- */
-/**
- * REFACTORED: Week 3 Day 15-17 - DRY Architecture Optimization
- * Delegates to unified role assignment service (600+ lines consolidated)
- * Preserves original behavior: assigns Trainer role to ALL new members
- */
-async function assignTrainerRoleToNewMember(member) {
-  const origin = 'member-join';
-  
-  // Import unified role assignment service
-  const { assignRole } = await import('../services/role-assignment.js');
-  
-  // Delegate to unified service with dependency injection
-  const result = await assignRole(member, {
-    origin,
-    findRole,
-    enforcePermissions: enforceCanAssignRole,
-    cache,
-    cacheTTL: CACHE_TTL_HOURS,
-    activityTracker,
-    log,
-    report,
-    describeGuild,
-    describeMember,
-    describeRole,
-    recordArchive: async (roleData) => {
-      // Original behavior: record to archive with new member metadata
-      const existingRoles = member.roles.cache
-        .filter(r => r.id !== member.guild.roles.everyone.id)
-        .map(describeRole);
-      
-      await recordRoleChange({
-        memberId: member.id,
-        memberTag: member.user.tag,
-        guildId: member.guild.id,
-        guildName: member.guild.name,
-        type: 'addition',
-        roleId: roleData.role.id,
-        roleName: roleData.role.name,
-        origin,
-        metadata: {
-          existingRoleCount: existingRoles.length,
-          existingRoles: existingRoles.map(r => r.name || r).join(', '),
-          isNewMember: true
-        }
-      });
-    },
-    onSuccess: () => {
-      // Original behavior: bump role member count
-      bumpRoleMemberCount(member.guild, 1);
-    },
-    reportPrefix: 'New Member ', // Changes "Assignment Success" → "New Member Assignment Success"
-    additionalReportData: () => {
-      const existingRoles = member.roles.cache
-        .filter(r => r.id !== member.guild.roles.everyone.id)
-        .map(describeRole);
-      return {
-        existingRoles: existingRoles.length ? existingRoles.join(', ') : 'none',
-        note: 'Trainer role assigned to new member regardless of existing roles'
-      };
-    }
-  });
-  
-  // Result is already logged by unified service
-  return result;
-}
+  // Skip bots
+  if (member.user.bot) {
+    return;
+  }
 
+  const guildSummary = describeGuild(member.guild);
+  const memberSummary = describeMember(member);
+
+  const role = findRole(member.guild);
+  if (!role) {
+    report('Role Missing', {
+      origin,
+      guild: guildSummary,
+      roleName: ROLE_NAME,
+      roleId: ROLE_ID || 'resolved at runtime'
+    }, 'warn');
+    return;
+  }
+
+  if (!hasNoAssignableRoles(member)) {
+    const assignableRoles = member.roles.cache
+      .filter(r => r.id !== member.guild.roles.everyone.id)
+      .map(describeRole);
+    report('Member Skipped', {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      existingRoles: assignableRoles.length ? assignableRoles.join(', ') : 'n/a'
+    }, 'detail');
+    return;
+  }
+
+  // Pre-check hierarchy/permissions
+  if (!canAssignRole(member.guild, role)) {
+    log('warn', 'Cannot assign role: bot lacks permission or role is above bot in hierarchy', {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      role: describeRole(role)
+    });
+    return;
+  }
+
+  // Cache: skip if we recently assigned this member
+  const cacheKey = `assign:${member.guild.id}:${member.id}:${role.id}`;
+  const cached = cache.readCache(cacheKey);
+  if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
+    report('Assignment Skipped (Cache)', {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      role: describeRole(role),
+      cachedAt: new Date(cached.timestamp).toISOString(),
+      ttlHours: CACHE_TTL_HOURS
+    }, 'detail');
+    return;
+  }
+
+  try {
+    await member.roles.add(role);
+    report('Assignment Success', {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      role: describeRole(role)
+    }, 'success');
+    activityTracker.recordActivity('role-assignment', `Assigned ${describeRole(role)} to ${memberSummary}`, {
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+    });
+    bumpRoleMemberCount(member.guild, 1);
+    cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
+  } catch (error) {
+    const hint = (error && (String(error.message).includes('Missing Permissions') || error.code === 50013))
+      ? 'Check role hierarchy: bot role must be above target role and have Manage Roles.'
+      : undefined;
+    report('Assignment Failure', mergeReportError({
+      origin,
+      guild: guildSummary,
+      member: memberSummary,
+      role: describeRole(role),
+      hint,
+    }, error), 'error');
+  }
+}
 
 async function sweepGuild(guild, origin) {
   const guildSummary = describeGuild(guild);
@@ -2592,15 +2333,11 @@ async function sweepGuild(guild, origin) {
 
   try {
     try {
-      // CRITICAL: Force fresh member fetch from Discord API (not stale cache)
-      // ensureGuildMembersCached now includes force: true for all fetch operations
       await ensureGuildMembersCached(guild, { origin: `sweep:${origin}` });
       report('Members Fetched', {
         guild: guildSummary,
         cachedMembers: guild.members.cache.size
       });
-      // Decay timeout on successful fetch (gradual recovery from elevated timeouts)
-      GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = decayTimeout(GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS, `successful fetch in ${guild.name}`);
     } catch (error) {
       report('Members Fetch Error', mergeReportError({
         origin,
@@ -2610,9 +2347,17 @@ async function sweepGuild(guild, origin) {
       return;
     }
 
-    // Find members needing Trainer role:
-    // 1. Members with NO assignable roles (original logic)
-    // 2. Members who have OTHER roles but are MISSING Trainer role (NEW - catches members who joined before the fix)
+    const toAssign = guild.members.cache.filter(member => hasNoAssignableRoles(member));
+    candidates = toAssign.size;
+    if (toAssign.size === 0) {
+      report('Sweep No-Op', {
+        origin,
+        guild: guildSummary
+      });
+      sweepOutcome = 'no candidates';
+      return;
+    }
+
     const role = findRole(guild);
     if (!role) {
       report('Role Missing', {
@@ -2625,147 +2370,19 @@ async function sweepGuild(guild, origin) {
       return;
     }
 
-    // ARCHITECTURE NOTE: guild.members.cache now contains FRESH data from Discord API
-    // Pre-existing cache was replaced with live member data during ensureGuildMembersCached
-    const toAssign = guild.members.cache.filter(member => {
-      // Skip bots
-      if (member.user.bot) return false;
-      
-      // Case 1: Members with no assignable roles (original logic)
-      if (hasNoAssignableRoles(member)) return true;
-      
-      // Case 2: Members who have other roles but are missing Trainer role (NEW FIX)
-      // This catches members who joined before the guildMemberAdd fix was deployed
-      const hasTrainerRole = member.roles.cache.has(role.id);
-      if (!hasTrainerRole) {
-        // Log for visibility - these are members who were missed before the fix
-        log('info', `Found member missing Trainer role despite having other roles`, {
-          member: describeMember(member),
-          existingRoles: member.roles.cache.filter(r => r.id !== member.guild.id).map(r => r.name).join(', ') || 'none',
-          guild: guildSummary
-        });
-        return true;
-      }
-      
-      return false;
-    });
-    
-    candidates = toAssign.size;
-    if (toAssign.size === 0) {
-      report('Sweep No-Op', {
-        origin,
-        guild: guildSummary
-      });
-      sweepOutcome = 'no candidates';
-      return;
-    }
-
-    // SECURITY: DoS Protection (Week 2 Day 8-10 - Backend Architect)
-    // Cap sweep candidates to prevent resource exhaustion
-    let cappedCandidates = toAssign.size;
-    let wasThrottled = false;
-    
-    if (toAssign.size > MAX_SWEEP_CANDIDATES) {
-      cappedCandidates = MAX_SWEEP_CANDIDATES;
-      wasThrottled = true;
-      report('Sweep Throttled (DoS Protection)', {
-        origin,
-        guild: guildSummary,
-        totalCandidates: toAssign.size,
-        cappedTo: MAX_SWEEP_CANDIDATES,
-        droppedCandidates: toAssign.size - MAX_SWEEP_CANDIDATES
-      }, 'warn');
-    }
-    
-    // SECURITY: Anomaly Detection - Alert on suspicious sweep volumes
-    if (toAssign.size >= SWEEP_ANOMALY_CRITICAL) {
-      report('CRITICAL: Mass Role Removal Detected', {
-        origin,
-        guild: guildSummary,
-        candidateCount: toAssign.size,
-        threshold: SWEEP_ANOMALY_CRITICAL,
-        possibleAttack: 'Mass role removal or bot configuration error',
-        action: `Capped to ${MAX_SWEEP_CANDIDATES} assignments`
-      }, 'error');
-      
-      // Emit critical alert for anomalous sweep volume (EventBus Phase 2)
-      try {
-        emitAlert('critical', 'Anomalous sweep volume detected (CRITICAL)', {
-          origin,
-          guildId: guild.id,
-          guildName: guild.name,
-          candidateCount: toAssign.size,
-          threshold: SWEEP_ANOMALY_CRITICAL,
-          possibleAttack: 'Mass role removal or bot configuration error',
-          action: `Capped to ${MAX_SWEEP_CANDIDATES} assignments`,
-        });
-      } catch (error) {
-        log('warn', '[EventBus] Failed to emit critical anomaly alert', {
-          error: getErrorMessage(error),
-        });
-      }
-    } else if (toAssign.size >= SWEEP_ANOMALY_THRESHOLD) {
-      report('WARNING: Anomalous Sweep Volume', {
-        origin,
-        guild: guildSummary,
-        candidateCount: toAssign.size,
-        threshold: SWEEP_ANOMALY_THRESHOLD,
-        action: wasThrottled ? `Capped to ${MAX_SWEEP_CANDIDATES}` : 'Processing normally'
-      }, 'warn');
-      
-      // Emit warning alert for anomalous sweep volume (EventBus Phase 2)
-      try {
-        emitAlert('medium', 'Anomalous sweep volume detected (WARNING)', {
-          origin,
-          guildId: guild.id,
-          guildName: guild.name,
-          candidateCount: toAssign.size,
-          threshold: SWEEP_ANOMALY_THRESHOLD,
-          action: wasThrottled ? `Capped to ${MAX_SWEEP_CANDIDATES}` : 'Processing normally',
-        });
-      } catch (error) {
-        log('warn', '[EventBus] Failed to emit warning anomaly alert', {
-          error: getErrorMessage(error),
-        });
-      }
-    }
-
-    // SECURITY FIX: Strict permission enforcement (throws on failure)
-    // Week 2 Day 11-12: High Fix #2 - Abort entire sweep on permission failure
-    try {
-      enforceCanAssignRole(guild, role);
-    } catch (error) {
-      log('error', '[SECURITY] Permission violation - aborting sweep', {
-        origin,
-        guild: guildSummary,
-        role: describeRole(role),
-        candidatesAborted: toAssign.size,
-        reason: error.message
-      });
-      report('Sweep Aborted (Permission Violation)', {
-        origin,
-        guild: guildSummary,
-        role: describeRole(role),
-        candidatesAborted: toAssign.size,
-        reason: error.message
-      }, 'error');
-      // Abort sweep - do not process any members without proper permissions
-      return;
-    }
+    // Pre-check hierarchy/permissions
+    canAssignRole(guild, role);
 
     report('Assignment Plan', {
       origin,
       guild: guildSummary,
       totalCandidates: toAssign.size,
-      cappedCandidates: cappedCandidates,
-      wasThrottled: wasThrottled,
       role: describeRole(role),
       concurrency: BACKFILL_CONCURRENCY,
       delayMsBetweenBatches: BACKFILL_DELAY_MS
     });
 
-    // Apply DoS protection cap
-    const members = Array.from(toAssign.values()).slice(0, cappedCandidates);
+    const members = Array.from(toAssign.values());
 
     for (let i = 0; i < members.length; i += BACKFILL_CONCURRENCY) {
       const batch = members.slice(i, i + BACKFILL_CONCURRENCY);
@@ -2783,7 +2400,7 @@ async function sweepGuild(guild, origin) {
             return;
           }
 
-          await member.roles.add(role.id);
+          await member.roles.add(role);
           success += 1;
           report('Assignment Success', {
             origin,
@@ -2842,114 +2459,6 @@ async function sweepGuild(guild, origin) {
         const rolesChecked = guild.roles.cache.size;
         const changesDetected = success + failed;
         recordSweep(botState, guild.id, describeGuild(guild), rolesChecked, changesDetected);
-        
-        // SECURITY INTELLIGENCE: Detect threats after sweep
-        if (botState.security && botState.security.baselines) {
-          try {
-            const archiveStats = await getRoleStatistics();
-            if (archiveStats && archiveStats.recentChanges && archiveStats.recentChanges.length > 0) {
-              // Calculate current activity from recent changes
-              const activity = calculateCurrentActivity(archiveStats.recentChanges, null);
-              
-              // Detect security threats
-              const assessment = detectSecurityThreats(activity, botState.security.baselines);
-              
-              if (assessment.hasThreats) {
-                // Log threats with evidence
-                log('warn', '[Security Intelligence] ⚠️ Security threats detected', {
-                  threatCount: assessment.threatCount,
-                  maxSeverity: assessment.maxSeverity === 3 ? 'CRITICAL' : 
-                                assessment.maxSeverity === 2 ? 'HIGH' :
-                                assessment.maxSeverity === 1 ? 'MEDIUM' : 'LOW',
-                  types: assessment.threats.map(t => t.type),
-                  guild: guildSummary
-                });
-                
-                // Emit threat.detected event with critical/high alert (EventBus Phase 1)
-                try {
-                  const severityLevel = assessment.maxSeverity === 3 ? 'critical' : 
-                                        assessment.maxSeverity === 2 ? 'high' : 'medium';
-                  emitSecurityEvent('threat.detected', {
-                    guildId: guild.id,
-                    guildName: guild.name,
-                    threatCount: assessment.threatCount,
-                    maxSeverity: severityLevel,
-                    threats: assessment.threats,
-                  });
-                  
-                  // Emit alert for critical/high severity threats
-                  if (assessment.maxSeverity >= 2) {
-                    emitAlert(severityLevel, `Security threats detected in ${guild.name}`, {
-                      guildId: guild.id,
-                      guildName: guild.name,
-                      threatCount: assessment.threatCount,
-                      types: assessment.threats.map(t => t.type),
-                    });
-                  }
-                } catch (error) {
-                  // Non-critical: EventBus emit failure shouldn't block threat handling
-                  log('warn', '[EventBus] Failed to emit threat detection events', {
-                    error: getErrorMessage(error),
-                  });
-                }
-                
-                // Store in threat history (7-day rolling window)
-                if (!botState.security.threats) {
-                  botState.security.threats = [];
-                }
-                if (!botState.security.threatHistory) {
-                  botState.security.threatHistory = [];
-                }
-                
-                // Add to current threats
-                botState.security.threats = assessment.threats.map(threat => ({
-                  ...threat,
-                  detectedAt: new Date().toISOString(),
-                  guildId: guild.id,
-                  guildName: guild.name,
-                  sweepOrigin: origin
-                }));
-                
-                // Add to history with timestamp
-                botState.security.threatHistory.push({
-                  timestamp: new Date().toISOString(),
-                  guildId: guild.id,
-                  guildName: guild.name,
-                  sweepOrigin: origin,
-                  threatCount: assessment.threatCount,
-                  maxSeverity: assessment.maxSeverity,
-                  threats: assessment.threats
-                });
-                
-                // Prune history to 7 days
-                const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-                botState.security.threatHistory = botState.security.threatHistory.filter(
-                  entry => new Date(entry.timestamp).getTime() > sevenDaysAgo
-                );
-                
-                // Log each threat with details
-                assessment.threats.forEach(threat => {
-                  log('warn', `[Security Intelligence] ${threat.severity} Threat: ${threat.type}`, {
-                    confidence: threat.confidence,
-                    mitreAttack: threat.mitreAttack,
-                    evidence: threat.evidence,
-                    recommendedAction: threat.recommendedAction
-                  });
-                });
-              } else {
-                log('detail', '[Security Intelligence] No threats detected', {
-                  guild: guildSummary,
-                  baselineConfidence: botState.security.baselines.confidenceLevel
-                });
-              }
-            }
-          } catch (error) {
-            log('warn', '[Security Intelligence] Threat detection failed', {
-              error: getErrorMessage(error),
-              guild: guildSummary
-            });
-          }
-        }
       } catch (error) {
         log('warn', 'Failed to record sweep in state', mergeLogError({ guild: guildSummary }, error));
       }
@@ -2969,8 +2478,7 @@ async function runCliDebugDump() {
     const guildSummary = describeGuild(guild);
 
     try {
-      // Force fresh role data for CLI debugging
-      await fetchGuildRolesFresh(guild);
+      await guild.roles.fetch();
     } catch (error) {
       report('CLI Debug Roles Fetch Error', mergeReportError({
         guild: guildSummary,
@@ -3149,74 +2657,6 @@ client.once(Events.ClientReady, async () => {
     botState = await initializeState();
     autoSaveInterval = startAutoSave(botState);
     
-    // Initialize role change archive (500-entry cold storage)
-    await initializeRoleArchive();
-    
-    // SECURITY INTELLIGENCE: Generate security baselines from archive
-    log('info', '[Security Intelligence] Generating baselines from archive...');
-    const roleArchive = {
-      changes: [], // Will be populated by getRoleStatistics()
-      statistics: {}
-    };
-    try {
-      const archiveStats = await getRoleStatistics();
-      if (archiveStats && archiveStats.recentChanges) {
-        roleArchive.changes = archiveStats.recentChanges;
-        roleArchive.statistics = {
-          totalChanges: archiveStats.totalCount || 0,
-          oldestChange: archiveStats.oldestTimestamp,
-          newestChange: archiveStats.newestTimestamp
-        };
-        
-        // Generate baselines for threat detection
-        const baselines = generateSecurityBaselines(roleArchive);
-        
-        // Store in bot state for persistence
-        if (!botState.security) {
-          botState.security = {
-            baselines: null,
-            threats: [],
-            lastBaselineRefresh: null,
-            threatHistory: [] // 7-day rolling window
-          };
-        }
-        botState.security.baselines = baselines;
-        botState.security.lastBaselineRefresh = new Date().toISOString();
-        
-        log('success', '[Security Intelligence] Baselines generated', {
-          confidence: baselines.confidenceLevel,
-          dataPoints: baselines.dataPointCount,
-          peakHours: baselines.peakActivityHours,
-          avgChangesPerHour: baselines.averageChangesPerHour
-        });
-        
-        // Emit baseline.generated event (EventBus Phase 1)
-        try {
-          emitSecurityEvent('baseline.generated', {
-            confidence: baselines.confidenceLevel,
-            dataPoints: baselines.dataPointCount,
-            peakHours: baselines.peakActivityHours,
-            avgChangesPerHour: baselines.averageChangesPerHour,
-            timestamp: new Date().toISOString(),
-          });
-        } catch (error) {
-          // Non-critical: EventBus emit failure shouldn't block bot startup
-          log('warn', '[EventBus] Failed to emit baseline.generated event', {
-            error: getErrorMessage(error),
-          });
-        }
-      } else {
-        log('warn', '[Security Intelligence] Insufficient archive data for baselines', {
-          archiveSize: archiveStats?.totalCount || 0,
-          required: 50
-        });
-      }
-    } catch (error) {
-      log('error', '[Security Intelligence] Failed to generate baselines', {
-        error: getErrorMessage(error)
-      });
-    }
-    
     // Expose state to global for cross-module telemetry (e.g., logger.js)
     global.securityBotState = botState;
     global.securityBotClient = client;
@@ -3225,51 +2665,6 @@ client.once(Events.ClientReady, async () => {
       restartNumber: botState.cumulative.restartCount,
       guildsMonitored: Object.keys(botState.guilds).length,
     });
-    
-    // Initialize EventBus subscriptions for centralized logging (Phase 1)
-    try {
-      const subscriptionIds = initializeEventBus(log);
-      log('success', '[EventBus] Integration initialized', {
-        subscriptions: subscriptionIds.length,
-        phase: 'Phase 1 (Non-Breaking)',
-      });
-      
-      // Initialize Alert Dispatcher (Phase 2) - routes EventBus alerts → Drip DM
-      if (dripAlertManager) {
-        try {
-          initializeAlertDispatcher(dripAlertManager, log);
-          log('success', '[AlertDispatcher] Centralized alert routing initialized', {
-            phase: 'Phase 2 (Drip Integration)',
-          });
-        } catch (error) {
-          log('error', '[AlertDispatcher] Failed to initialize', {
-            error: getErrorMessage(error),
-          });
-        }
-      } else {
-        log('warn', '[AlertDispatcher] Skipped (dripAlertManager not available)', {
-          phase: 'Phase 2 (Drip Integration)',
-        });
-      }
-      
-      // Sprint 5.0: Initialize Security DB Subscriber - persists events to database
-      try {
-        const dbSubIds = initializeSecurityDbSubscriber(log);
-        log('success', '[SecurityDbSubscriber] Database persistence initialized', {
-          phase: 'Sprint 5.0 (Critical Gap)',
-          subscriptions: dbSubIds.length,
-        });
-      } catch (error) {
-        log('error', '[SecurityDbSubscriber] Failed to initialize', {
-          error: getErrorMessage(error),
-        });
-        // Non-fatal: bot continues without database persistence
-      }
-    } catch (error) {
-      log('error', '[EventBus] Failed to initialize subscriptions', {
-        error: getErrorMessage(error),
-      });
-    }
   } catch (error) {
     log('error', 'State persistence initialization failed', mergeLogError({
       errorType: error?.constructor?.name || typeof error,
@@ -3352,63 +2747,6 @@ client.once(Events.ClientReady, async () => {
   await refreshMemberStats('ready');
   await notifyServiceRestart();
   scheduleDailySummaryReports();
-  
-  // Start Prometheus metrics server (Week 3 Day 20-21)
-  try {
-    const metricsPort = process.env.METRICS_PORT ? parseInt(process.env.METRICS_PORT, 10) : 9090;
-    const metricsServerInfo = await startMetricsServer({
-      port: metricsPort,
-      host: '0.0.0.0',
-      path: '/metrics',
-      metricsOptions: {
-        prefix: 'security_bot_',
-        includeDefaultMetrics: true
-      }
-    });
-    
-    log('success', 'Prometheus metrics server started', {
-      url: metricsServerInfo.url,
-      port: metricsServerInfo.port,
-      endpoints: ['/metrics', '/health', '/']
-    });
-  } catch (error) {
-    log('error', 'Failed to start Prometheus metrics server', mergeLogError({
-      errorType: error?.constructor?.name || typeof error,
-      errorMessage: getErrorMessage(error),
-      port: process.env.METRICS_PORT || 9090
-    }, error));
-    // Non-fatal: bot continues without metrics endpoint
-  }
-  
-  // Sprint 5.0: Initialize Data Pool Service for Discord entity capture
-  // This is CRITICAL - captures guild/member/role data to security database
-  let dataPoolService = null;
-  try {
-    dataPoolService = getDataPoolService(prisma);
-    await dataPoolService.initialize();
-    
-    // Perform full sync of all guilds to database
-    const syncResult = await dataPoolService.fullSync(client);
-    
-    log('success', '[DataPoolService] Discord entity sync complete', {
-      guilds: syncResult.guilds,
-      membersSynced: syncResult.members.synced,
-      membersFailed: syncResult.members.failed,
-      rolesSynced: syncResult.roles.synced,
-      rolesFailed: syncResult.roles.failed,
-      durationMs: syncResult.duration,
-    });
-    
-    // Expose to global for monitoring via /ops status
-    global.dataPoolService = dataPoolService;
-  } catch (error) {
-    log('error', '[DataPoolService] Failed to initialize', mergeLogError({
-      errorType: error?.constructor?.name || typeof error,
-      errorMessage: getErrorMessage(error),
-    }, error));
-    // Non-fatal: bot continues without data pool (but security analysis is degraded)
-  }
-  
   if (dripAlertManager) {
     dripAlertManager.start();
   }
@@ -3559,186 +2897,6 @@ client.on(Events.GuildDelete, () => {
   updateMonitoringPhase();
 });
 
-// Phase 3.3: Homestead Channel Permission Monitoring
-// Detects and auto-reverts unauthorized permission changes on homestead channels
-client.on(Events.ChannelUpdate, async (oldChannel, newChannel) => {
-  try {
-    // Only monitor text channels (homesteads are GuildText)
-    if (newChannel.type !== 0) return; // 0 = GuildText
-    
-    // Check if this is a homestead channel (query database)
-    const homestead = await prisma.homesteadChannel.findUnique({
-      where: { channelId: newChannel.id },
-      select: { 
-        id: true,
-        channelId: true,
-        userId: true,
-        guildId: true,
-        status: true,
-        securityFingerprint: true
-      }
-    });
-    
-    // Not a homestead or inactive - skip
-    if (!homestead || homestead.status !== 'active') return;
-    
-    // Get expected permissions (match creation logic from homestead-verification.ts)
-    const expectedPermissions = [
-      {
-        id: newChannel.guild.id, // @everyone
-        type: 'role',
-        deny: ['ViewChannel']
-      },
-      {
-        id: homestead.userId, // User
-        type: 'member',
-        allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory', 'AttachFiles', 'EmbedLinks']
-      },
-      {
-        id: client.user.id, // Bot
-        type: 'member',
-        allow: ['ViewChannel', 'SendMessages', 'ManageMessages', 'EmbedLinks']
-      }
-    ];
-    
-    // Get actual permissions from Discord
-    const actualPermissions = newChannel.permissionOverwrites.cache.map(overwrite => ({
-      id: overwrite.id,
-      type: overwrite.type === 0 ? 'role' : 'member',
-      allow: overwrite.allow.toArray(),
-      deny: overwrite.deny.toArray()
-    }));
-    
-    // Compare permissions (detect drift)
-    const permissionsMatch = compareHomesteadPermissions(expectedPermissions, actualPermissions);
-    
-    if (!permissionsMatch) {
-      // Emit permission.drift.detected event to EventBus
-      try {
-        emitSecurityEvent('permission.drift.detected', {
-          type: 'homestead-permission-drift',
-          severity: 'HIGH',
-          channelId: newChannel.id,
-          channelName: newChannel.name,
-          userId: homestead.userId,
-          guildId: newChannel.guild.id,
-          guildName: newChannel.guild.name,
-          securityFingerprint: homestead.securityFingerprint,
-          timestamp: new Date().toISOString(),
-          expectedPermissions,
-          actualPermissions,
-          mitreAttack: 'T1098.001', // Account Manipulation: Additional Cloud Credentials
-          mitreDescription: 'Adversaries may add adversary-controlled credentials to a cloud account',
-          recommendedAction: 'AUTO_REVERT + AUDIT_LOG_REVIEW',
-          context: {
-            homesteadId: homestead.id,
-            affectedChannel: newChannel.name,
-            potentialImpact: 'Unauthorized access, data exfiltration, privacy breach'
-          }
-        }, {
-          emitter: 'homestead-permission-monitor',
-          priority: 'high'
-        });
-      } catch (emitErr) {
-        // Log EventBus failure but don't block reversion
-        process.stderr.write(`[HomesteadMonitor] Failed to emit permission.drift event: ${emitErr.message}\n`);
-      }
-      
-      // Auto-revert permissions (restore expected state)
-      try {
-        await newChannel.edit({
-          permissionOverwrites: [
-            {
-              id: newChannel.guild.id,
-              deny: [PermissionsBitField.Flags.ViewChannel]
-            },
-            {
-              id: homestead.userId,
-              allow: [
-                PermissionsBitField.Flags.ViewChannel,
-                PermissionsBitField.Flags.SendMessages,
-                PermissionsBitField.Flags.ReadMessageHistory,
-                PermissionsBitField.Flags.AttachFiles,
-                PermissionsBitField.Flags.EmbedLinks
-              ]
-            },
-            {
-              id: client.user.id,
-              allow: [
-                PermissionsBitField.Flags.ViewChannel,
-                PermissionsBitField.Flags.SendMessages,
-                PermissionsBitField.Flags.ManageMessages,
-                PermissionsBitField.Flags.EmbedLinks
-              ]
-            }
-          ]
-        });
-        
-        // Log successful reversion
-        baseLog(`[HomesteadMonitor] Auto-reverted permission drift on channel ${newChannel.name} (${newChannel.id})`);
-      } catch (revertErr) {
-        // Log reversion failure (critical - manual intervention needed)
-        process.stderr.write(`[HomesteadMonitor] CRITICAL: Failed to revert permissions on ${newChannel.id}: ${revertErr.message}\n`);
-        
-        // Emit critical alert for manual review
-        try {
-          emitAlert('HOMESTEAD_REVERT_FAILED', {
-            severity: 'CRITICAL',
-            channelId: newChannel.id,
-            channelName: newChannel.name,
-            guildId: newChannel.guild.id,
-            error: revertErr.message,
-            timestamp: new Date().toISOString()
-          });
-        } catch (alertErr) {
-          // Final fallback - stderr only
-          process.stderr.write(`[HomesteadMonitor] Failed to emit critical alert: ${alertErr.message}\n`);
-        }
-      }
-    }
-  } catch (err) {
-    // Log monitoring errors but don't crash bot
-    process.stderr.write(`[HomesteadMonitor] Error monitoring channel ${newChannel?.id}: ${err.message}\n`);
-  }
-});
-
-/**
- * Compares expected vs actual homestead permissions.
- * Returns true if permissions match, false if drift detected.
- */
-function compareHomesteadPermissions(expected, actual) {
-  // Must have exactly 3 permission overwrites (everyone, user, bot)
-  if (actual.length !== expected.length) return false;
-  
-  // Check each expected permission exists in actual
-  for (const exp of expected) {
-    const act = actual.find(a => a.id === exp.id && a.type === exp.type);
-    if (!act) return false; // Missing permission overwrite
-    
-    // Compare allow arrays (must match exactly)
-    if (exp.allow) {
-      const expAllow = new Set(exp.allow);
-      const actAllow = new Set(act.allow);
-      if (expAllow.size !== actAllow.size) return false;
-      for (const perm of expAllow) {
-        if (!actAllow.has(perm)) return false;
-      }
-    }
-    
-    // Compare deny arrays (must match exactly)
-    if (exp.deny) {
-      const expDeny = new Set(exp.deny);
-      const actDeny = new Set(act.deny);
-      if (expDeny.size !== actDeny.size) return false;
-      for (const perm of expDeny) {
-        if (!actDeny.has(perm)) return false;
-      }
-    }
-  }
-  
-  return true; // All permissions match
-}
-
 async function handleRolePermissionUpdate(oldRole, newRole) {
   if (!oldRole || !newRole) {
     return { changed: false };
@@ -3821,173 +2979,13 @@ client.on('guildMemberAdd', async (member) => {
     member: memberSummary
   });
 
-  // CRITICAL FIX: Always process new members for Trainer role assignment
-  // Don't use ensureTrainerFor which skips members with existing roles
-  await assignTrainerRoleToNewMember(member);
+  await ensureTrainerFor(member, 'member-join');
 });
-
-// HOTFIX: Grace Period Tracking for Authorized Role Removals (2025-12-11)
-// Prevents infinite healing loop when admins intentionally remove Trainer role
-// Map<userId, { timestamp, executor, reason, roleId }>
-const authorizedRoleRemovalGracePeriods = new Map();
-const GRACE_PERIOD_DURATION_MS = 60_000; // 60 seconds
-
-/**
- * Helper: Clean up expired grace period entries to prevent memory leaks
- * Removes entries older than GRACE_PERIOD_DURATION_MS
- */
-function cleanupExpiredGracePeriods() {
-  const now = Date.now();
-  const expiredKeys = [];
-  
-  for (const [userId, entry] of authorizedRoleRemovalGracePeriods.entries()) {
-    if (now - entry.timestamp > GRACE_PERIOD_DURATION_MS) {
-      expiredKeys.push(userId);
-    }
-  }
-  
-  if (expiredKeys.length > 0) {
-    for (const key of expiredKeys) {
-      authorizedRoleRemovalGracePeriods.delete(key);
-    }
-    log('debug', '[GRACE_PERIOD] Cleaned up expired grace period entries', {
-      expiredCount: expiredKeys.length,
-      remainingCount: authorizedRoleRemovalGracePeriods.size,
-    });
-  }
-}
-
-// Clean up grace periods every 30 seconds
-setInterval(cleanupExpiredGracePeriods, 30_000);
 
 // Heal members who lose all assignable roles (drop to @everyone only)
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   try {
-    // Sprint 5.0: Track role changes in Data Pool for forensics
-    if (global.dataPoolService) {
-      try {
-        await global.dataPoolService.trackRoleChanges(
-          oldMember,
-          newMember,
-          'guildMemberUpdate'
-        );
-      } catch (dpError) {
-        // Non-blocking: Don't fail the member update handler
-        log('warn', '[DataPoolService] Failed to track role change', {
-          member: newMember.user.tag,
-          guild: newMember.guild.name,
-          error: getErrorMessage(dpError),
-        });
-      }
-    }
-    
-    // SECURITY FIX: Cache Invalidation Strategy (Week 2 Day 13-14: High Fix #3)
-    // Detect Trainer role removal and invalidate stale cache immediately
-    const trainerRole = findRole(newMember.guild);
-    if (trainerRole) {
-      const hadRole = oldMember.roles.cache.has(trainerRole.id);
-      const hasRole = newMember.roles.cache.has(trainerRole.id);
-      
-      // Role was removed - invalidate assignment cache
-      if (hadRole && !hasRole) {
-        const cacheKey = `assign:${newMember.guild.id}:${newMember.id}:${trainerRole.id}`;
-        
-        try {
-          cache.deleteCache(cacheKey);
-          
-          log('info', '[CACHE] Invalidated assignment cache after manual role removal', {
-            origin: 'guildMemberUpdate',
-            guild: describeGuild(newMember.guild),
-            member: describeMember(newMember),
-            role: describeRole(trainerRole),
-            reason: 'Manual removal detected'
-          });
-          
-          // Record cache invalidation metric (Week 3 Day 20-21)
-          recordCacheInvalidation('manual-removal', newMember.guild.id, newMember.guild.name);
-          
-          // Track cache invalidation activity
-          activityTracker.recordActivity(
-            'cache-invalidation',
-            `Invalidated cache for ${newMember.user.tag} in ${newMember.guild.name}`,
-            {
-              guild: describeGuild(newMember.guild),
-              member: describeMember(newMember),
-              role: describeRole(trainerRole),
-              origin: 'manual-removal'
-            }
-          );
-        } catch (error) {
-          log('error', '[CACHE] Failed to invalidate cache after role removal', mergeLogError({
-            guild: describeGuild(newMember.guild),
-            member: describeMember(newMember),
-            role: describeRole(trainerRole)
-          }, error));
-        }
-      }
-    }
-    
-    // HOTFIX: Check grace period BEFORE healing logic (2025-12-11)
-    // If this user has an active grace period (authorized removal within last 60s), skip healing
-    const gracePeriod = authorizedRoleRemovalGracePeriods.get(newMember.id);
-    if (gracePeriod) {
-      const elapsed = Date.now() - gracePeriod.timestamp;
-      if (elapsed < GRACE_PERIOD_DURATION_MS) {
-        log('info', '[GRACE_PERIOD] Skipping healing during active grace period', {
-          guild: describeGuild(newMember.guild),
-          member: describeMember(newMember),
-          gracePeriodElapsed: `${Math.floor(elapsed / 1000)}s`,
-          gracePeriodRemaining: `${Math.floor((GRACE_PERIOD_DURATION_MS - elapsed) / 1000)}s`,
-          authorizedBy: gracePeriod.executor?.tag || 'unknown',
-          reason: gracePeriod.reason,
-        });
-        return; // Skip healing - respect admin's intentional removal
-      } else {
-        // Grace period expired - remove and allow healing to proceed
-        authorizedRoleRemovalGracePeriods.delete(newMember.id);
-        log('info', '[GRACE_PERIOD] Grace period expired, resuming healing', {
-          guild: describeGuild(newMember.guild),
-          member: describeMember(newMember),
-        });
-      }
-    }
-    
-    // Continue with existing role assignment alerting and healing
     const result = await maybeAlertRoleAssignments(oldMember, newMember);
-    
-    // HOTFIX: Check if Trainer role was removed and action was authorized (2025-12-11)
-    // If so, set grace period to prevent immediate healing loop
-    if (result && result.changed && !result.unauthorized && trainerRole) {
-      const hadRole = oldMember.roles.cache.has(trainerRole.id);
-      const hasRole = newMember.roles.cache.has(trainerRole.id);
-      
-      if (hadRole && !hasRole) {
-        // Trainer role was removed by authorized admin - set 60-second grace period
-        const auditEntry = await lookupRoleAuditEntry(newMember.guild, newMember.id, {
-          removedRoleIds: [trainerRole.id],
-        });
-        const executor = auditEntry?.executor ?? null;
-        
-        authorizedRoleRemovalGracePeriods.set(newMember.id, {
-          timestamp: Date.now(),
-          executor,
-          reason: result.authorization || 'authorized',
-          roleId: trainerRole.id,
-        });
-        
-        log('info', '[GRACE_PERIOD] Set grace period for authorized Trainer role removal', {
-          guild: describeGuild(newMember.guild),
-          member: describeMember(newMember),
-          duration: `${GRACE_PERIOD_DURATION_MS / 1000}s`,
-          authorizedBy: executor?.tag || 'unknown',
-          reason: result.authorization || 'authorized',
-        });
-        
-        return; // Skip healing immediately after authorized removal
-      }
-    }
-    
-    // Proceed with healing if needed (and not in grace period)
     if (!result?.unauthorized && hasNoAssignableRoles(newMember)) {
       await ensureTrainerFor(newMember, 'member-update');
     }
@@ -4179,10 +3177,7 @@ function normalizeToken(rawToken) {
   return value.startsWith('Bot ') ? value.slice(4).trim() : value;
 }
 
-async function startSecurityBot({ token: tokenOverride } = {}) {
-  // Load timeout config from disk (async, non-blocking)
-  GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = await loadTimeoutConfig();
-  
+function startSecurityBot({ token: tokenOverride } = {}) {
   const envPath = path.resolve(process.cwd(), '.env');
   const rawToken = tokenOverride !== undefined ? tokenOverride : BOT_TOKEN;
   const token = normalizeToken(rawToken);
@@ -4225,49 +3220,12 @@ if (entryHref && import.meta.url === entryHref) {
   // Graceful shutdown hooks for state persistence
   async function handleShutdown(signal) {
     log('info', '[State] Received signal, saving state before exit', { signal });
-    
-    // Stop Prometheus metrics server
-    try {
-      await stopMetricsServer();
-      log('info', '[Metrics] Prometheus metrics server stopped');
-    } catch (error) {
-      log('error', '[Metrics] Error stopping metrics server', { error: getErrorMessage(error) });
-    }
-    
-    // Cleanup EventBus subscriptions
-    try {
-      cleanupEventBus();
-      log('info', '[EventBus] Subscriptions cleaned up');
-    } catch (error) {
-      log('error', '[EventBus] Error during cleanup', { error: getErrorMessage(error) });
-    }
-    
-    // Cleanup Alert Dispatcher
-    try {
-      cleanupAlertDispatcher();
-      log('info', '[AlertDispatcher] Cleaned up');
-    } catch (error) {
-      log('error', '[AlertDispatcher] Error during cleanup', { error: getErrorMessage(error) });
-    }
-    
-    // Cleanup Security DB Subscriber
-    try {
-      cleanupSecurityDbSubscriber();
-      log('info', '[SecurityDbSubscriber] Cleaned up');
-    } catch (error) {
-      log('error', '[SecurityDbSubscriber] Error during cleanup', { error: getErrorMessage(error) });
-    }
-    
     if (autoSaveInterval) {
       stopAutoSave(autoSaveInterval);
     }
     if (botState) {
       await shutdownState(botState, signal);
     }
-    // Persist role archive on shutdown
-    await shutdownRoleArchive();
-    // Close Redis connection gracefully
-    await shutdownDistributedLock();
     log('info', '[State] Shutdown complete');
     process.exit(0);
   }
@@ -4276,27 +3234,6 @@ if (entryHref && import.meta.url === entryHref) {
   process.on('SIGINT', () => handleShutdown('SIGINT'));
   process.on('uncaughtException', async (error) => {
     log('error', '[State] Uncaught exception, saving state', { error });
-    
-    // CRITICAL: Capture to error database before exit
-    // This ensures zero false negatives - every crash is tracked
-    try {
-      await errorTracker.captureError(error, {
-        operation: 'uncaughtException',
-        severity: 'CRITICAL',
-        category: 'UNKNOWN',
-        service: 'security-bot',
-        customData: {
-          signal: 'uncaughtException',
-          botState: botState ? 'exists' : 'null',
-        },
-      });
-      log('info', '[ErrorTracker] Captured uncaughtException to database');
-    } catch (captureError) {
-      log('error', '[ErrorTracker] Failed to capture uncaughtException', { 
-        captureError: getErrorMessage(captureError) 
-      });
-    }
-    
     if (autoSaveInterval) {
       stopAutoSave(autoSaveInterval);
     }

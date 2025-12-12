@@ -1,52 +1,17 @@
 # Render Platform Credentials Reference
 
-**Last Updated:** 2025-12-06  
-**Purpose:** Centralized reference for Render platform access (SSH-only policy enforced).
+**Last Updated:** 2025-11-20  
+**Purpose:** Centralized reference for Render platform credentials used by AI agents and automation workflows.
 
 ---
 
-## ⚠️ CRITICAL: SSH-ONLY ACCESS POLICY (2025-12-06)
-
-**Render API calls are PROHIBITED to minimize costs.** All remote access MUST use SSH.
-
-### What's Allowed
-
-| ✅ ALLOWED | Purpose |
-|------------|---------|
-| `render ssh srv-d3snk2ndiees73cn709g` | Interactive shell via Render CLI |
-| `wsl ssh render-virginia` | SSH via WSL |
-| `scripts/render_ssh_windows.ps1` | Windows SSH wrapper |
-| `scripts/render_disk_usage_windows.ps1` | Disk usage via SSH |
-| `scripts/render_cleanup_heaps_windows.ps1` | Cleanup via SSH |
-| Render Dashboard | Manual deploys, restarts, logs |
-
-### What's Prohibited
-
-| ❌ PROHIBITED | Reason |
-|---------------|--------|
-| `api.render.com/*` endpoints | Incurs API costs |
-| `RENDER_API_KEY` for REST calls | Incurs API costs |
-| `Invoke-RestMethod` to Render | Incurs API costs |
-| GitHub Actions using Render API | Incurs API costs |
-
-### Archived Scripts (Do Not Use)
-
-API-based scripts have been moved to `scripts/archive/render-api-deprecated/`:
-- `render_deploy.ps1` → Use Dashboard "Manual Deploy"
-- `render_restart.ps1` → Use Dashboard restart button
-- `render_status.ps1` → Use `render services` via CLI
-- `render_logs.ps1` → Use `render logs` via CLI or Dashboard
-- `render_deploys.ps1` → Use Dashboard
-- All `render_*_job.ps1` scripts → Use Dashboard
-
----
-
-## 🔒 Security Notice
+## ⚠️ Security Notice
 
 This file contains **references** to credentials stored in `secrets/Infinity-Gauntlet.env`. Never commit actual secrets to git.
 
 **Secure Storage Locations:**
 - Local: `secrets/Infinity-Gauntlet.env` (gitignored)
+- GitHub: Repository secrets (https://github.com/Sherbivs/Infinity-Gauntlet/settings/secrets/actions)
 - Render: Environment variables (https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g/env-vars)
 
 ---
@@ -57,30 +22,52 @@ This file contains **references** to credentials stored in `secrets/Infinity-Gau
 
 **Value:** `rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp`
 
-**⚠️ API KEY DEPRECATED (2025-12-06):**
+**Required For:**
+- `.github/workflows/scheduled-restart.yml` (12-hour scheduled restarts)
+- `.github/workflows/health-check-watchdog.yml` (5-minute health checks)
+- `scripts/render_deploy.ps1` (VS Code deployment task)
+- `scripts/render_restart.ps1` (VS Code restart task)
+- `scripts/render_status.ps1` (VS Code status check)
+- `scripts/render_logs.ps1` (VS Code log viewer)
 
-API usage has been discontinued to minimize costs. The API key is retained for emergency use only.
+**Environment Variable Names:**
+- GitHub Actions: `secrets.RENDER_API_KEY`
+- Local scripts: `$env:RENDER_API_KEY` (loaded from `secrets/Infinity-Gauntlet.env`)
+- Render services: Not needed (services use internal auth)
 
-**Archived Scripts (formerly required API):**
-- ~~`.github/workflows/scheduled-restart.yml`~~ (DELETED - Render auto-restarts)
-- ~~`.github/workflows/health-check-watchdog.yml`~~ (DELETED - Render monitoring)
-- `scripts/archive/render-api-deprecated/render_deploy.ps1`
-- `scripts/archive/render-api-deprecated/render_restart.ps1`
-- `scripts/archive/render-api-deprecated/render_status.ps1`
-- `scripts/archive/render-api-deprecated/render_logs.ps1`
+**API Permissions:**
+- Read: Service status, logs, deployment history
+- Write: Trigger deploys, restart services, update environment variables
 
-**Emergency Use Only:**
+**Setup Instructions:**
+
+1. **GitHub Actions Secret** (CRITICAL - Required for workflows to function):
+   ```
+   Navigate to: https://github.com/Sherbivs/Infinity-Gauntlet/settings/secrets/actions
+   Click: "New repository secret"
+   Name: RENDER_API_KEY
+   Value: rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp
+   Click: "Add secret"
+   ```
+
+2. **Local Environment** (Already configured in `secrets/Infinity-Gauntlet.env`):
+   ```powershell
+   # Load environment file
+   pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist
+   
+   # Verify
+   echo $env:RENDER_API_KEY
+   # Should output: rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp
+   ```
+
+**Testing:**
 ```powershell
-# ONLY for emergencies when Dashboard/SSH unavailable
+# Test API access
 curl https://api.render.com/v1/services/srv-d3snk2ndiees73cn709g `
   -H "Authorization: Bearer rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp"
-```
 
-**Standard Operations (Use Instead):**
-- Deploy: Render Dashboard → Manual Deploy
-- Restart: Render Dashboard → Restart button
-- Status: `render services` via Render CLI
-- Logs: Render Dashboard → Logs tab
+# Should return service details (name, type, region, state)
+```
 
 ---
 
@@ -248,12 +235,7 @@ curl -X POST https://api.render.com/v1/services/srv-d3snk2ndiees73cn709g/shell `
 
 ---
 
-## 🌐 API Endpoints Reference (DEPRECATED)
-
-**⚠️ DO NOT USE - API calls incur costs. Use SSH/Dashboard instead.**
-
-<details>
-<summary>Archived API Reference (Emergency Use Only)</summary>
+## 🌐 API Endpoints Reference
 
 **Base URL:** `https://api.render.com/v1`
 
@@ -299,32 +281,69 @@ Authorization: Bearer rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp
 - 600 requests per minute (10 per second)
 - Restart endpoint: Max 1 per minute per service
 
-</details>
-
 ---
 
-## 🤖 GitHub Actions Workflows (DEPRECATED)
+## 🤖 GitHub Actions Workflows
 
-**⚠️ ALL RENDER API WORKFLOWS DELETED (2025-12-06)**
+**Production Monitoring Infrastructure** — Provides 24/7 automated health checks and crash recovery within 4,000 min/month budget.
 
-GitHub Actions minutes are a paid resource. Render's Standard plan includes automatic restarts and monitoring, making these workflows unnecessary.
+**Workflows Using RENDER_API_KEY:**
 
-**Deleted Workflows:**
-- ~~`.github/workflows/scheduled-restart.yml`~~ — Render auto-restarts on crash
-- ~~`.github/workflows/health-check-watchdog.yml`~~ — Render monitors service health
+1. **Scheduled Restart** (`.github/workflows/scheduled-restart.yml`)
+   - Schedule: `0 */12 * * *` (00:00 UTC and 12:00 UTC, 60 runs/month)
+   - Actions: POST /restart, poll status, verify health
+   - Secret: `secrets.RENDER_API_KEY`
+   - Purpose: Memory hygiene, prevent gradual resource accumulation
+   - Cost: ~180 minutes/month (~3 min per run)
 
-**Remaining Workflows (No API Usage):**
-- `.github/workflows/agent-health.yml` — Uses GITHUB_TOKEN only (no Render API)
+2. **Health Check Watchdog** (`.github/workflows/health-check-watchdog.yml`)
+   - Schedule: `*/35 * * * *` (every 35 minutes, 1,230 runs/month)
+   - Actions: Shell API → curl localhost:3000/health, track failures, restart on threshold
+   - Secret: `secrets.RENDER_API_KEY`
+   - Purpose: Detect crashes within 105 minutes, auto-restart failed services
+   - Cost: ~3,075 minutes/month (~2.5 min per run)
 
-**Cost Savings:**
-- Previous: ~4,000 minutes/month on Render API calls
-- Current: 0 minutes/month (SSH is free)
+3. **Agent Health Watchdog** (`.github/workflows/agent-health.yml`)
+   - Schedule: `0 * * * *` (every hour, 720 runs/month)
+   - Actions: Scan agent-events.jsonl for stuck runs, create GitHub issues
+   - Secret: None (uses GITHUB_TOKEN)
+   - Purpose: Operational visibility into agent health, debug stuck runs
+   - Cost: ~720 minutes/month (~1 min per run)
+
+**Total Monitoring Budget:** ~3,975 minutes/month (2,010 runs/month, within 4,000 min limit)
+
+**Budget Optimization (2025-11-21):**
+- **Previous:** 5-min health checks (8,640 runs/month) = 17,280-25,920 minutes (over budget)
+- **Optimized:** 35-min health checks (1,230 runs/month) = ~3,075 minutes (fits budget)
+- **Improved:** Agent health from 2 hours → 1 hour (720 runs/month = ~720 minutes)
+- **Trade-off:** Crash detection time increased from 15 min → 105 min max
+- **Justification:** Stable Render services rarely crash; 105-min detection acceptable for budget compliance
+
+**Workflow Verification:**
+```powershell
+# Check workflow runs
+gh run list --workflow scheduled-restart.yml --limit 5
+gh run list --workflow health-check-watchdog.yml --limit 5
+gh run list --workflow agent-health.yml --limit 5
+
+# View workflow logs
+gh run view <run-id> --log
+```
 
 ---
 
 ## 🔧 PowerShell Scripts
 
-### Active Scripts (SSH-Based)
+**Active Scripts Using RENDER_API_KEY:**
+
+| Script | Purpose | API Calls |
+|--------|---------|-----------|
+| `render_deploy.ps1` | Trigger manual deployment | POST /deploys, GET /deploys/{id} |
+| `render_restart.ps1` | Restart service | POST /restart, GET /services/{id} |
+| `render_status.ps1` | Check service status | GET /services (all services) |
+| `render_logs.ps1` | View service logs | GET /logs |
+
+**Windows SSH Wrappers (WSL-based):**
 
 | Script | Purpose | Backend |
 |--------|---------|---------|
@@ -332,67 +351,82 @@ GitHub Actions minutes are a paid resource. Render's Standard plan includes auto
 | `render_disk_usage_windows.ps1` | Disk monitoring | WSL SSH + df |
 | `render_cleanup_heaps_windows.ps1` | Heap cleanup | WSL SSH + rm |
 
-### Archived Scripts (API-Based — Do Not Use)
+**Deprecated Scripts:**
+- ~~`render_ssh_setup.ps1`~~ - Use WSL Render CLI setup
+- ~~`render_ssh_connect.ps1`~~ - Use `render_ssh_windows.ps1 -Interactive`
+- ~~`render_ssh_exec.ps1`~~ - Use `render_ssh_windows.ps1 -Command`
+- ~~`render_ssh_transfer.ps1`~~ - Use `wsl scp` directly
+- ~~`render_ssh_tunnel.ps1`~~ - Use `wsl ssh -L` directly
 
-Scripts moved to `scripts/archive/render-api-deprecated/`:
-
-| Script | Former Purpose | Use Instead |
-|--------|----------------|-------------|
-| `render_deploy.ps1` | Trigger deployment | Dashboard: Manual Deploy |
-| `render_restart.ps1` | Restart service | Dashboard: Restart button |
-| `render_status.ps1` | Check status | `render services` via CLI |
-| `render_logs.ps1` | View logs | Dashboard: Logs tab |
-| `render_deploys.ps1` | List deployments | Dashboard: Deploys tab |
-
-**See:** `scripts/archive/render-api-deprecated/DEPRECATED.md` for full archive manifest.
+**Environment Loading:**
+All scripts load credentials via:
+```powershell
+# Load from consolidated environment file
+$env:IG_ENV_FILE = "secrets/Infinity-Gauntlet.env"
+pwsh -File scripts/setup_ai_env.ps1 -EnvFile $env:IG_ENV_FILE
+```
 
 ---
 
 ## 🔍 Troubleshooting
 
-### Problem: SSH connection fails
+### Problem: "401 Unauthorized" API responses
 
-**Cause:** Render CLI not authenticated or SSH key not configured
-
-**Solutions:**
-1. Verify Render CLI is installed:
-   ```powershell
-   render --version
-   # Should output: render version 1.1.0
-   ```
-
-2. Login to Render CLI:
-   ```powershell
-   render login
-   # Opens browser for authentication
-   ```
-
-3. Verify SSH works:
-   ```powershell
-   .\scripts\render_ssh_windows.ps1 -Command "echo hello"
-   ```
-
-### Problem: "Permission denied" on SSH
-
-**Cause:** SSH key not added to Render account
-
-**Solution:**
-1. Check SSH key in WSL: `cat ~/.ssh/render_key.pub`
-2. Add to Render: https://dashboard.render.com/u/settings#ssh-public-keys
-3. Test: `wsl ssh render-virginia`
-
-### Problem: Service is down
+**Cause:** RENDER_API_KEY missing or invalid
 
 **Solutions:**
-1. Check status via Dashboard: https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g
-2. View logs in Dashboard → Logs tab
-3. Restart via Dashboard → Restart button
+1. Verify environment variable is loaded:
+   ```powershell
+   echo $env:RENDER_API_KEY
+   # Should output: rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp
+   ```
 
-### Problem: Need to deploy
+2. Reload environment file:
+   ```powershell
+   pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist
+   ```
+
+3. Verify GitHub secret exists:
+   - Navigate to: https://github.com/Sherbivs/Infinity-Gauntlet/settings/secrets/actions
+   - Confirm `RENDER_API_KEY` is listed
+   - Value should be: `rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp`
+
+4. Test API key directly:
+   ```powershell
+   curl https://api.render.com/v1/services/srv-d3snk2ndiees73cn709g `
+     -H "Authorization: Bearer rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp"
+   ```
+
+### Problem: GitHub Actions workflows fail with "Context access might be invalid"
+
+**Cause:** RENDER_API_KEY secret not configured in GitHub repository
 
 **Solution:**
-1. Push to `main` branch (auto-deploy enabled)
-2. Or use Dashboard → Manual Deploy
+1. Add secret via GitHub UI (see Setup Instructions above)
+2. Or via GitHub CLI:
+   ```powershell
+   gh secret set RENDER_API_KEY --body "rnd_c5ddKBupx4Z0HGWvPIU92NICsZkp"
+   ```
+
+### Problem: Shell API commands timeout
+
+**Cause:** Service is down or unresponsive
+
+**Solution:**
+1. Check service status:
+   ```powershell
+   pwsh -File scripts/render_status.ps1
+   ```
+
+2. Check service logs:
+   ```powershell
+   pwsh -File scripts/render_logs.ps1 -Service Infinity-Gauntlet -Tail
+   ```
+
+3. Restart service:
+   ```powershell
+   pwsh -File scripts/render_restart.ps1 -Service Infinity-Gauntlet
+   ```
 
 ---
 
@@ -427,4 +461,4 @@ Scripts moved to `scripts/archive/render-api-deprecated/`:
 
 ---
 
-**End of Credentials Reference** | **Version:** 2.0 (SSH-Only) | **Last Updated:** 2025-12-06
+**End of Credentials Reference** | **Version:** 1.0 | **Last Updated:** 2025-11-20

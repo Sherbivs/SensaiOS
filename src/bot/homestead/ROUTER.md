@@ -2,47 +2,43 @@
 Title: Homestead — Private Guild Channel Gameplay
 Purpose: Manages private guild channel-based gameplay (replaces deprecated DM flows)
 Owned Globs: src/bot/homestead/**
-Last Updated (UTC): 2025-06-15T07:18:00Z
+Last Updated (UTC): 2025-11-28T18:00:00Z
 
 Notes:
-- **MIGRATION STATUS:** ✅ COMPLETE (src/bot/dm/ deleted, all flows migrated)
+- **MIGRATION STATUS:** In Progress (from src/bot/dm/ → src/bot/homestead/)
 - **Architecture:** Each user gets a private guild channel (homestead-{username})
 - **Service Layer:** Uses HomesteadChannelManager (src/services/homestead-manager.ts)
 - **Database:** HomesteadChannel model tracks user → channel mappings
-- **NEW (2025-06-15):** Open starter selection system - choose any Pokémon (except forbidden)
 - **Cross-References:**
-  - See docs/architecture-bible/18-private-channel-architecture.md for complete specification
-  - See docs/architecture-bible/19-starter-selection-flow.md for open starter flow
+  - See docs/architecture-bible/14-private-channel-architecture.md for complete specification
   - See src/services/homestead-manager.ts for channel management service
+  - See src/bot/dm/ROUTER.md for deprecated DM-based implementation (to be removed)
 
 Areas:
-- home.ts — Party/box/profile views in homestead channels
-- heal.ts — Pokémon healing in homestead channels
-- starters.ts — Legacy Kanto starter selection (button-based, kept for backward compatibility)
-- open-starter-selection.ts — **NEW** Open starter selection (text-based, any Pokémon except forbidden)
+- home.ts — Party/box/profile views in homestead channels (migrated from dm/home.ts)
+- heal.ts — Pokémon healing in homestead channels (migrated from dm/heal.ts)
+- starters.ts — Starter selection in homestead channels (migrated from dm/starters.ts)
 - ROUTER.md — This navigation document
 
 Integration Points:
-- Commands: /home, /profile, /starter use homestead channels
-- Starter Selection: /starter command triggers open-starter-selection.ts flow
-- Battles: Battle notifications sent to homestead (challenge.ts, actions.ts, conclude.ts)
-- Wilds: Wild encounter notifications sent to homestead (controls.ts)
+- Commands: /home, /profile (will use homestead channels)
+- Battles: Battle notifications sent to homestead (not DMs)
+- Wilds: Wild encounter notifications sent to homestead (not DMs)
 - Service: HomesteadChannelManager handles channel creation, permissions, cleanup
-- Validation: Uses src/core/starter-validation.ts for forbidden Pokémon checks
 
-Migration Completed:
+Migration Progress:
 - [x] Database schema (HomesteadChannel model)
 - [x] Service layer (HomesteadChannelManager)
 - [x] Directory structure created
-- [x] home.ts migrated
-- [x] heal.ts migrated
-- [x] starters.ts migrated
-- [x] Updated all createDM() call sites (10 → 0)
-- [x] Deprecated dm/ directory deleted
-- [x] Tests updated
-- [x] **NEW:** Open starter selection flow (2025-06-15)
+- [ ] home.ts migration (Task 2)
+- [ ] heal.ts migration (Task 3)
+- [ ] starters.ts migration (Task 4)
+- [ ] Update 10 createDM() call sites (Task 5)
+- [ ] Update test mocks (Task 6)
+- [ ] Manual testing (Task 7)
+- [ ] Remove deprecated dm/ directory (Task 8)
 
 ---
 
-**Last Change:** Added open-starter-selection.ts with text-based starter flow (2025-06-15)
-**Status:** Active and production-ready
+**Last Change:** Directory created, ROUTER.md documentation added (2025-11-28)
+**Next Steps:** Migrate home.ts from dm/ to homestead/ (Task 2)

@@ -1,39 +1,9 @@
-# ⚠️ DEPRECATED — THIS FILE IS NOT READ BY VS CODE COPILOT
-
-> **IMPORTANT:** VS Code Copilot does NOT read this file. The actual instructions are in:
-> - `.github/instructions/copilot-instructions.instructions.md` — Core instructions (applyTo: **)
-> - `.github/instructions/typescript.instructions.md` — TypeScript patterns
-> - `.github/instructions/database.instructions.md` — Database/Prisma patterns
-> - `.github/instructions/testing.instructions.md` — Testing patterns
-> - `.github/prompts/IG.prompt.md` — Agent mode prompt
-> - `.github/chatmodes/gpt.chatmode.md` — Chat personality
->
-> **This file is kept for reference only.** Updates should go to the proper instruction files.
->
-> See `.github/ROUTER.md` for the complete VS Code Copilot configuration structure.
-
----
-
-# Copilot Instructions — Pokémon Infinity Gauntlet (REFERENCE ONLY)
-
-## Project Leadership
-
-**Creator & CEO:** DRIPTVDD — Founder and leader of the Infinity Gauntlet development squad. All major architectural decisions, policies, and project direction flow from DRIPTVDD's vision.
-
-**Discord ID:** `563220840708177927` (immutable anti-spoofing identifier)
+# Copilot Instructions — Pokémon Infinity Gauntlet
 
 ## Project Overview
 Pokémon Infinity Gauntlet is a Discord-first Pokémon adventure with **private guild channel-based gameplay** (homestead channels), public arena battles, and live-service data pipelines. Production runs on Render with 6 workers + 1 cron job orchestrating encounters, battles, cache refresh, and security monitoring.
 
 **CRITICAL ARCHITECTURE CHANGE (2025-11-21):** Migrating from Discord DMs to private guild channels for all gameplay. Each user gets a dedicated "homestead" channel within the guild. See `docs/architecture-bible/14-private-channel-architecture.md` for complete specification.
-
-## 📖 TERMINOLOGY ENFORCEMENT (2025-12-02)
-**ALL code, documentation, comments, and logs MUST use standardized terminology.**
-- **Full Schema:** `Agents.md` § "STANDARDIZED TERMINOLOGY SCHEMA"
-- **Database Terms:** CLOUD-PROD-MASTER, ONPREMISE-DEV-PRIMARY, ONPREMISE-DEV-EXPERIMENT (see Database Naming section below)
-- **Channel Terms:** Homestead Channel, Public Field Channel, Arena Thread
-- **Engine Terms:** PBSL, Dexpack, Engine Read-DB, Engine Write-DB, L1 Cache
-- **Enforcement:** Code review, AI assistants, documentation standards
 
 ## Critical: Start Here Before Any Work
 
@@ -43,157 +13,6 @@ Pokémon Infinity Gauntlet is a Discord-first Pokémon adventure with **private 
 3. **`Tasklist.md`** — Active backlog with READY queue, dependencies, acceptance criteria
 4. **`ops/NEXT.yaml`** — Current task pointer (must point to READY task)
 5. **`Agents.md`** — Comprehensive operations guide covering database setup, worker architecture, deployment procedures
-6. **📚 Recent Documentation (Task 12 Series - December 2025):**
-   - `docs/operations-bible/worker-troubleshooting-comprehensive.md` (22 pages) — ALL worker failure scenarios
-   - `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) — Complete database ops + live game architecture
-   - `docs/operations-bible/ops-commands-reference-comprehensive.md` (28 pages) — ALL /ops commands documented
-   - `docs/architecture-bible/complete-system-architecture.md` (30 pages) — System architecture with detailed diagrams
-   - **CRITICAL:** These are AUTHORITATIVE. Read before implementing database, worker, or monitoring features.
-7. **📖 Bible Update Requirement:** When changing architecture/operations, UPDATE corresponding bible sections. Documentation drift causes production failures.
-8. **📚 Projects Staging Area:** When building new features, document in `docs/projects/{project-name}/` FIRST. Integrate to Bible ONLY after AI integrity validation (100% accuracy requirement). See `docs/projects/README.md` for staged workflow.
-
-### Documentation System (Bible-Centric Workflow)
-
-**The Bible is TRUTH.** Architecture, Operations, and Development Bibles are AUTHORITATIVE — must be 100% accurate at all times.
-
-**CRITICAL WORKFLOW:**
-1. **During Development:** Document in `docs/projects/{project-name}/` (architecture/, implementation/, testing/, bible-integration/)
-2. **Before Bible Integration:** Run AI integrity check (verify code references, performance claims, architecture diagrams)
-3. **After Validation:** Update Bible sections with verified information only
-4. **Never:** Edit Bible directly during active development (prevents inaccuracy, stale references, speculation)
-
-**Integrity Requirements:**
-- ✅ All code references exist in actual codebase
-- ✅ Architecture diagrams match actual system topology
-- ✅ Performance metrics backed by measurements
-- ✅ Zero speculation (no "will implement" or "planned" features)
-- ❌ REJECT: Bible update without integrity validation
-- ❌ REJECT: Stale code references in Bible
-
-**See `docs/projects/README.md` for complete staged workflow, templates, and validation procedures.**
-
-### Project Completion Report Guidelines
-
-**CRITICAL:** All project completion reports must follow timestamp-based naming and proper organization.
-
-#### Naming Convention
-**Format:** `YYYY-MM-DD-{descriptive-project-name}.md`
-
-**Examples:**
-- `2025-12-02-docs-root-cleanup.md` — Documentation cleanup completion
-- `2025-12-15-worker-scaling-implementation.md` — Worker scaling project
-- `2025-01-10-cache-optimization-results.md` — Cache optimization report
-
-**Benefits:**
-- **Chronological Sorting:** Files naturally sort by date
-- **Clear Context:** Instant date visibility
-- **Historical Tracking:** Easy to find reports by timeframe
-- **Git Alignment:** History matches timestamps
-- **Team Coordination:** Clear project timeline
-
-#### Report Locations
-- **Cleanup Reports:** `docs/projects/cleanup/`
-- **Architecture Reports:** `docs/projects/architecture/`
-- **Operations Reports:** `docs/projects/operations/`
-- **Development Reports:** `docs/projects/development/`
-
-**Rule:** Keep in `projects/{type}/` — NOT in docs root
-
-#### Phase Tracking
-Update parent folder `README.md` with phase entries:
-
-```markdown
-### Phase N: {Name} (YYYY-MM-DD)
-- **Status:** ✅ COMPLETE
-- **Report:** {timestamp-filename}.md
-- **Results:** {Key metrics}
-- **Impact:** {What changed}
-```
-
-#### Key Organizational Principles
-1. **Docs Root Discipline:** Navigation files ONLY (ROUTER.md, system summaries)
-2. **Project Reports:** Always in `projects/{type}/` with timestamps
-3. **Chronological Organization:** `YYYY-MM-DD` prefix for natural sorting
-4. **Phase Documentation:** Track in folder READMEs with detailed results
-5. **Clear Structure:** Easy to find, maintain, and extend
-
-#### CRITICAL: Category Folder Creation Rule
-
-**When a completion report has no matching category folder:**
-
-❌ **NEVER** leave report in docs root  
-✅ **ALWAYS** create the appropriate category folder first
-
-**Required Actions:**
-1. Create `docs/projects/{category}/` folder (e.g., development/, operations/, architecture/)
-2. Create comprehensive `README.md` in the new folder:
-   - Folder purpose and scope
-   - Active projects section with phase tracking
-   - Guidelines and quality standards
-   - Cross-references to related documentation
-3. Move completion report to new folder with timestamp naming
-4. Update `docs/projects/README.md` to list new folder
-
-**Example Enforcement (2025-12-02):**
-```
-Found: docs/BIBLE-CENTRIC-SYSTEM-COMPLETE.md (completion report)
-Issue: No development/ folder exists
-Action: 
-  1. Created docs/projects/development/
-  2. Created comprehensive README.md
-  3. Moved to 2025-12-02-bible-system-complete.md
-  4. Updated projects/README.md
-Result: ✅ 100% compliance with organizational principles
-```
-
-**This is MANDATORY.** Never bypass folder creation — always establish proper infrastructure before moving files.
-
-**See `docs/projects/README.md` for complete completion report template and guidelines.**
-
-### AI Specialist Team System (Team-Based Workflow)
-
-**Every prompt automatically assembles a team of specialized AI agents** for comprehensive problem-solving.
-
-**Team Structure:**
-- **Dynamic Lead Assignment:** Lead is assigned based on PRIMARY work type (see detection rules below)
-- **Core (Always Active):** AI Coding, Documentation, Architecture
-- **Domain (As Needed):** Database, Testing, Security, Performance, DevOps
-
-**Detection Rules (Automatic Specialist Assembly + Lead Assignment):**
-| Work Type | Lead | Triggers |
-|-----------|------|----------|
-| Documentation | Documentation | `docs/`, `.md` files, "document", "organize" |
-| Database | Database | `prisma/`, `schema.prisma`, "migration", SQL files |
-| Testing | Testing | `tests/`, `.test.ts`, "test", "coverage" |
-| Security | Security | "auth", "permission", "security", "credential" |
-| Performance | Performance | "optimize", "cache", "memory", "speed" |
-| Deployment | DevOps | `render.yaml`, `Dockerfile`, CI/CD files |
-| Architecture | Architecture | "design", "system", "integration", "API" |
-| Cleanup | Documentation | "cleanup", "organize", "refactor" |
-| Code Implementation | AI Coding | General coding, bug fixes, features |
-
-**5-Phase Workflow:**
-1. **Analysis** — Identify specialists → Assemble team → Brief objectives
-2. **Planning** — Multi-perspective review → Coordinate approach → Document plan
-3. **Execution** — Coordinated implementation → Real-time feedback
-4. **Verification** — Domain-specific validation → Quality gates
-5. **Handoff** — Consolidate lessons → Update Bible → Document patterns
-
-**Quality Gates (Required Before Completion):**
-- ✅ Documentation Specialist: `.md` files, naming, cross-references
-- ✅ Architecture Specialist: System design, integration points
-- ✅ Database Specialist: Schema changes, migrations, data integrity
-- ✅ Testing Specialist: Coverage, acceptance criteria
-- ✅ Security/Performance/DevOps: As needed
-- ✅ AI Coding Specialist: Final approval after domain signoffs
-
-**Coordination Patterns:**
-- Sequential: Independent domains (docs → architecture → testing)
-- Parallel: Independent concerns (security + performance)
-- Collaborative: Conflicting requirements (team discussion)
-- Lead-Verify: Rapid iteration (implement → verify)
-
-**See Patch.md § "Specialist Team Coordination" for complete protocols.**
 
 ### Router Navigation System
 - **`ops/ROUTER.yaml`** — Router-of-routers manifest. Start here to locate any subsystem
@@ -229,12 +48,12 @@ if (onPremiseExperimentPrisma) {
 ```
 
 **Environment Variable Priority:**
-1. `PROD_DATABASE_URL` → PRIMARY production database (Render managed) — **MASTER DATABASE**
+1. `PROD_DATABASE_URL` → PRIMARY production database (Render managed)
 2. `RENDER_DB_EXTERNAL_URL` → Direct PostgreSQL access (external)
 3. `DATABASE_ONPREMISE_DEV_PRIMARY` → Workstation mirror (offline mode)
 4. `DATABASE_ONPREMISE_DEV_EXPERIMENT` → Migration testing cluster
 
-**📚 AUTHORITATIVE SOURCE:** `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages, Task 12.2) — Complete database URL selection logic, live game architecture, master-mirror-staging pipeline.
+**See `operations-bible/02-database-operations.md` for complete URL selection logic.**
 
 ### State Persistence (Security Bot)
 Security bot maintains 7-day state history in `Store/security-bot-state/`:
@@ -327,16 +146,7 @@ Every code change MUST update routers in same commit:
 - **ONPREMISE-DEV-PRIMARY** (`DATABASE_ONPREMISE_DEV_PRIMARY`) — Workstation development
 - **ONPREMISE-DEV-EXPERIMENT** (`DATABASE_ONPREMISE_DEV_EXPERIMENT`) — Migration testing
 
-**Prisma Clients:** `prisma`, `onPremiseDevPrisma`, `onPremiseExperimentPrisma`
-**CLI Targets:** `cloud-prod`, `onpremise-dev`, `onpremise-experiment`
-
-**🚫 NEVER use as database identifiers:** "LOCAL", "PRIMARY LOCAL", "EXPERIMENTAL" (standalone), "DEV_DATABASE_URL"
-
-**✅ VALID descriptive usage:** "local development", "local setup", "local testing" (adjective describing workstation context)
-
-**Key Distinction:** Database **identifiers** require canonical terms; descriptive **English** may use "local" naturally.
-
-**📖 COMPLETE TERMINOLOGY SCHEMA:** See `Agents.md` § "STANDARDIZED TERMINOLOGY SCHEMA" for full reference including services, channels, game engine terms, and enforcement mechanism.
+**NEVER use:** "local", "LOCAL", "PRIMARY LOCAL", "EXPERIMENTAL", "DEV_DATABASE_URL" (deprecated)
 
 ### Commit Message Format
 ```
@@ -360,12 +170,13 @@ Meta-only changes still need clear "Why" statements.
 
 ### Discord Bot Layer (`src/bot/**`)
 - **Entry:** `src/bot/index.ts` (client bootstrap + command routing)
-- **Homestead Channels:** `src/bot/homestead/**` (private guild channel gameplay) — **✅ ACTIVE**
+- **Homestead Channels:** `src/bot/homestead/**` (private guild channel gameplay) — **MIGRATION IN PROGRESS** from deprecated `src/bot/dm/**`
+- **Deprecated DM flows:** `src/bot/dm/**` (home, heal, starters) — **BEING REPLACED by homestead channels**
 - **Battles:** `src/bot/battle/**` (move/switch/forfeit handlers)
 - **Wilds:** `src/bot/wilds/**` (walk, catch, throw, escape)
 - **Admin:** `src/bot/ops/admin.ts` (`/ops` commands with filters)
 
-**✅ HOMESTEAD MIGRATION COMPLETE (2025-06-15):** All gameplay uses private guild channels (homestead-{username}). DM modules removed. See `docs/architecture-bible/18-private-channel-architecture.md`.
+**CRITICAL MIGRATION (2025-11-21):** All gameplay moving from DMs to private guild channels (homestead-{username}). 10 createDM() call sites being replaced with HomesteadChannelManager. See `docs/architecture-bible/14-private-channel-architecture.md`.
 
 ### Core Engines (`src/core/**`)
 - **Battle:** `src/core/battle/engine.ts` (deterministic damage, status effects)
@@ -519,19 +330,12 @@ Areas:
 
 ## Quick Reference Links
 
-### Core Documentation
 - **Architecture:** `README.md` → comprehensive system overview
 - **Architecture Bible:** `docs/architecture-bible/INDEX.md` → 15 sections (system design, database, workers, game engine, etc.)
 - **Operations Bible:** `docs/operations-bible/INDEX.md` → 6 sections (service matrix, deployment, monitoring, database operations)
 - **Development Bible:** `docs/development-bible/INDEX.md` → 7 sections (local setup, testing, debugging, utilities)
-
-### Authoritative Comprehensive Guides (Task 12 Series)
-- **Worker Troubleshooting:** `docs/operations-bible/worker-troubleshooting-comprehensive.md` (22 pages) → ALL worker failure scenarios, recovery procedures
-- **Database Operations:** `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) → Complete database ops, live game architecture, master-mirror-staging pipeline
-- **Ops Commands:** `docs/operations-bible/ops-commands-reference-comprehensive.md` (28 pages) → ALL /ops commands documented with examples
-- **System Architecture:** `docs/architecture-bible/complete-system-architecture.md` (30 pages) → Service topology, dependency graphs, data flows, performance SLA
-
-### Specialized Guides
+- **Database Guide:** `docs/operations-bible/02-database-operations.md` → URL selection logic, schema architecture
+- **Schema Architecture:** `docs/operations-bible/02-database-operations.md` § 2.10 → Entities, dex spine, indexes
 - **Game Rules:** `docs/architecture-bible/09-game-engine.md` § 9.10 → MVP mechanics, status effects, item pool
 - **Worker Scaling:** `docs/architecture-bible/03-worker-architecture.md` → Phase 10+ roadmap
 - **Error System:** `docs/architecture-bible/06-error-system.md` → Comprehensive error handling

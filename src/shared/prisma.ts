@@ -1,24 +1,8 @@
-/**
- * Prisma Client Module — Prisma 7 with Driver Adapters
- *
- * UNIFIED ARCHITECTURE: Single production database (Render-managed PostgreSQL)
- * - prisma: PRIMARY client connected to PROD_DATABASE_URL (unified Render database)
- * - onPremiseDevPrisma: OPTIONAL client for offline workstation development (DATABASE_ONPREMISE_DEV_PRIMARY)
- * - onPremiseExperimentPrisma: OPTIONAL client for migration testing (DATABASE_ONPREMISE_DEV_EXPERIMENT)
- *
- * Prisma 7 Changes:
- * - Uses @prisma/adapter-pg driver adapter for PostgreSQL
- * - Imports from generated client at ../generated/prisma/client.js
- * - No more auto-loading of .env (explicit dotenv import required)
- */
-import "dotenv/config";
-import { PrismaClient, Prisma } from "../generated/prisma/client.js";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
 import { delayWithJitter, getErrorMessage } from "./utils/index.js";
-import { getPoolConfig, buildPooledConnectionUrl, logPoolHealth, getCurrentServiceName } from "../config/database-pool-config.js";
 
 export type PrismaHeartbeatEvent = {
   ok: boolean;
@@ -136,9 +120,6 @@ async function performHeartbeat(state: HeartbeatState, options: Required<Heartbe
         latencyMs: Number(latencyMs.toFixed(2)),
       });
     }
-    
-    // P0-001: Log pool health on successful heartbeat
-    logPoolHealth();
 
     state.consecutiveFailures = 0;
     const event: PrismaHeartbeatEvent = {
@@ -251,39 +232,29 @@ function validateDatabaseUrl(url: string): void {
 
 function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClient {
   validateDatabaseUrl(candidate.url);
-  
-  // P0-001: Apply pool configuration to connection URL
-  const poolConfig = getPoolConfig();
-  const pooledUrl = buildPooledConnectionUrl(candidate.url);
-  
-  process.env.DATABASE_URL = pooledUrl;
+  process.env.DATABASE_URL = candidate.url;
   process.env.DATABASE_CONNECTION_SOURCE = candidate.source;
 
-  // Prisma 7: Create driver adapter for PostgreSQL with pooled URL
-  const adapter = new PrismaPg({ connectionString: pooledUrl });
-
+  // 2-NODE CLUSTER: Direct PostgreSQL connections only
+  const PrismaCtor = PrismaClient;
   const logLevels = nodeEnv === "development" ? ["warn", "error"] : ["error"];
 
   // OPTIMIZATION: Query performance monitoring (Phase 5.1)
   // Enable query event logging to detect slow queries (>100ms) and N+1 patterns
   const baseOptions = {
-    adapter,
     log: [
       ...logLevels.map(level => ({ emit: "stdout" as const, level: level as any })),
       { emit: "event" as const, level: "query" as any }, // Query performance instrumentation
     ],
+    datasources: {
+      db: {
+        url: candidate.url,
+      },
+    },
   };
 
-  const baseClient = new PrismaClient(baseOptions);
-  const client = baseClient;
-  
-  // Log pool configuration applied
-  log.info('Prisma client created with pool config', {
-    service: getCurrentServiceName(),
-    maxConnections: poolConfig.max,
-    minConnections: poolConfig.min,
-    idleTimeoutMs: poolConfig.idleTimeoutMs,
-  });
+  const baseClient = new PrismaCtor(baseOptions as Prisma.PrismaClientOptions) as PrismaClient;
+  let client = baseClient;
   
   // Attach query performance monitoring handler
   // Logs warnings for slow queries (>100ms) to help identify N+1 patterns and optimization targets
@@ -300,6 +271,9 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
       });
     }
   });
+
+  // 2-NODE CLUSTER: Always use library engine for direct connections
+  delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
 
   globalPrisma.prisma = client;
   lastPrismaTransport = "direct";
@@ -564,18 +538,24 @@ async function initializeOnPremiseDevClient(): Promise<void> {
   }
   
   try {
-    // Prisma 7: Use driver adapter for PostgreSQL
+    // 2-NODE CLUSTER: Always use direct PostgreSQL connections
     onPremiseDevTransport = "direct";
     
-    // Create driver adapter for this database URL
-    const adapter = new PrismaPg({ connectionString: onPremiseDevUrl });
+    // PRISMA INTERNAL REQUIREMENT: Temporarily set DATABASE_URL for PrismaClient constructor
+    // Prisma requires process.env.DATABASE_URL at instantiation time, even though we use direct URLs
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = onPremiseDevUrl;
     
     const baseOptions = {
-      adapter,
-      log: ["error"] as Array<"error">,
+      log: ["error"] as any,
     };
     
     onPremiseDevPrismaClient = new PrismaClient(baseOptions);
+    
+    // Restore original DATABASE_URL after Prisma client creation
+    if (originalDatabaseUrl) {
+      process.env.DATABASE_URL = originalDatabaseUrl;
+    }
     
     onPremiseDevPrisma = onPremiseDevPrismaClient;
     
@@ -653,18 +633,24 @@ async function initializeOnPremiseExperimentClient(): Promise<void> {
   }
   
   try {
-    // Prisma 7: Use driver adapter for PostgreSQL
+    // 2-NODE CLUSTER: Always use direct PostgreSQL connections
     onPremiseExperimentTransport = "direct";
     
-    // Create driver adapter for this database URL
-    const adapter = new PrismaPg({ connectionString: onPremiseExperimentUrl });
+    // PRISMA INTERNAL REQUIREMENT: Temporarily set DATABASE_URL for PrismaClient constructor
+    // Prisma requires process.env.DATABASE_URL at instantiation time, even though we use direct URLs
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = onPremiseExperimentUrl;
     
     const baseOptions = {
-      adapter,
-      log: ["error"] as Array<"error">,
+      log: ["error"] as any,
     };
     
     onPremiseExperimentPrismaClient = new PrismaClient(baseOptions);
+    
+    // Restore original DATABASE_URL after Prisma client creation
+    if (originalDatabaseUrl) {
+      process.env.DATABASE_URL = originalDatabaseUrl;
+    }
     
     onPremiseExperimentPrisma = onPremiseExperimentPrismaClient;
     

@@ -16,7 +16,7 @@
  */
 
 import { vi } from 'vitest';
-import type { ErrorLog } from '../../src/generated/prisma/client.js';
+import type { ErrorLog } from '@prisma/client';
 
 /**
  * Create a complete ErrorLog object with sensible defaults

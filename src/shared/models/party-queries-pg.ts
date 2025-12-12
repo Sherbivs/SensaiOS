@@ -4,8 +4,8 @@
  * Purpose: Raw pg queries for Party, PartySlot, and PokemonInstance operations
  * Migration: Replaces Prisma patterns from:
  *   - src/shared/models/party-queries.ts
- *   - src/bot/homestead/starters.ts (formerly src/bot/dm/starters.ts)
- *   - src/bot/homestead/heal.ts (formerly src/bot/dm/heal.ts)
+ *   - src/bot/dm/starters.ts
+ *   - src/bot/dm/heal.ts
  *   - src/core/encounter/catch.ts
  * 
  * Patterns Covered:
@@ -19,8 +19,8 @@
  * Migration Phase: 9 (Party/Pokemon queries)
  */
 
-import type { Pool } from "pg";
-import { getPool } from "./pool-helper.js";
+import type { Pool, PoolClient } from "pg";
+import { getProdDb } from "../pg-connection.js";
 import { buildSelect, buildInsert, buildUpdate, buildCount } from "../pg-query.js";
 import type { Party, PartySlot, PokemonInstance } from "../../types/db-models.js";
 
@@ -179,7 +179,15 @@ function revivePartyWithSlots(rows: any[]): PartyWithSlots | null {
   };
 }
 
-// ✅ getPool moved to shared/models/pool-helper.ts (centralized with PoolClient support)
+/**
+ * Get pool with fallback to PROD
+ */
+function getPool(pool?: Pool | PoolClient): Pool | PoolClient {
+  if (pool) return pool;
+  const prodPool = getProdDb();
+  if (!prodPool) throw new Error("No PROD database pool available");
+  return prodPool;
+}
 
 // ============================================================================
 // Party Read Operations

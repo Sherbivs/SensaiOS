@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { errorLearning } from '../src/services/monitoring/error-learning.js';
-import type { ErrorLog } from '../src/generated/prisma/client.js';
+import type { ErrorLog } from '@prisma/client';
 import { createMockErrorLog, mockPrismaWithErrorLog, mockLogger } from './shared/index.js';
 
 // Mock Prisma

@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2025-12-02T00:00:00Z
+Last Updated (UTC): 2025-11-09T00:00:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -18,15 +18,12 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `src/bot/arena/ROUTER.md` — Arena threads and announcer summaries
     - `src/bot/battle/ROUTER.md` — Battle interaction handlers
     - `src/bot/daily/ROUTER.md` — Daily quest claim flow
-    - `src/bot/homestead/ROUTER.md` — Private guild channel gameplay flows (starters, heal, home views) - **✅ ACTIVE**
+    - `src/bot/dm/ROUTER.md` — DM home, heal, and starter flows
     - `src/bot/middleware/ROUTER.md` — Command guardrails and limits
     - `src/bot/ops/ROUTER.md` — `/ops` admin command surface
-    - `src/bot/profile/ROUTER.md` — Trainer profile embeds (Option C hybrid summaries)
     - `src/bot/wilds/ROUTER.md` — Walk/catch encounter handlers
   - `docs/ROUTER.md` — Documentation Library
     - `docs/dex-v2-design.md` — High-availability dex upgrade blueprint plus day-one database plan and rollout playbook
-    - `docs/projects/ROUTER.md` — Project documentation staging area (work-in-progress before Bible integration)
-      - `docs/projects/development/ROUTER.md` — Development projects (AI systems, Bible infrastructure, testing frameworks)
   - `src/core/ROUTER.md` — Core Game Engines
     - `src/core/battle/ROUTER.md` — Deterministic battle engine internals
     - `src/core/encounter/ROUTER.md` — Encounter spawn and catch logic
@@ -133,20 +130,16 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 ### Documentation Library (`docs/ROUTER.md`)
 - Purpose: Centralized Bible-based documentation system with Architecture, Operations, and Development guides.
 - Owned Globs: `docs/**`
-- Last Updated: 2025-12-02T00:00:00Z
+- Last Updated: 2025-11-16T00:00:00Z
 - Bible Structure:
-  - `docs/architecture-bible/` (22 files) — System overview, infrastructure, database, services, game engine, Discord bot, future roadmap
-  - `docs/operations-bible/` (17 files) — Service matrix, database operations, deployment, environment, monitoring
-  - `docs/development-bible/` (9 files) — Local setup, testing, debugging, performance, error handling, console tooling, utilities
-  - `docs/projects/` (5 files) — **NEW** Work-in-progress documentation staging area with AI integrity validation (100% accuracy requirement before Bible integration)
-    - `docs/projects/development/` — Development projects (AI Specialist Team System, Bible-centric workflow)
+  - `docs/architecture-bible/` (15 files) — System overview, infrastructure, database, services, game engine, Discord bot, future roadmap
+  - `docs/operations-bible/` (6 files) — Service matrix, database operations, deployment, environment, monitoring
+  - `docs/development-bible/` (8 files) — Local setup, testing, debugging, performance, error handling, console tooling, utilities
   - `docs/ROUTER.md` — Comprehensive navigation hub with Bible tables, quick refs, cross-references
 - Notes:
-  - 2025-12-02: **Projects staging system established** — Bible-centric workflow prevents documentation drift (4-stage workflow: document → validate → integrate → archive)
   - 2025-11-16: Documentation centralized into Bible system (93.4% reduction, 454 → 30 files)
   - All operational directories (architecture/, database/, deployment/, environment/, error-system/, game-engine/, console-output/, specs/) consolidated into Bible sections
   - See docs/ROUTER.md for comprehensive navigation tables and quick reference index
-  - See docs/projects/README.md for staged documentation workflow (prevents Bible pollution during active development)
 
 ### Prisma Migrations (`prisma/migrations/ROUTER.md`)
 - Purpose: Timestamped Prisma migration bundles plus `migration_lock.toml` state.
@@ -287,13 +280,13 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 - Last Task ID: T10.SCALE.WORKERS
 
 ### Discord Bot Layer (`src/bot/ROUTER.md`)
-- Purpose: Discord client bootstrap, slash commands, homestead channels, arena threads, admin ops.
+- Purpose: Discord client bootstrap, slash commands, DM flows, arena threads, admin ops.
 - Owned Globs: `src/bot/**`
-- Last Updated: 2025-06-15T20:00:00Z
+- Last Updated: 2025-11-02T00:30:00Z
 - Areas & Key Files:
   - `src/bot/index.ts` — Discord client bootstrap & routing with ready guards
   - `src/bot/commands/**` — Slash command registration (e.g., `/ops`, `/battle`)
-  - `src/bot/homestead/**` — Private guild channels for gameplay (party/box/profile views, starter selection, healing); see `src/bot/homestead/ROUTER.md` — **✅ ACTIVE**
+  - `src/bot/dm/**` — DM home (party/box/profile views with pagination), starter selection, healing, drip alerts, daily quests; see `src/bot/dm/ROUTER.md`
   - `src/bot/arena/**` — Arena thread creation and summary helpers; see `src/bot/arena/ROUTER.md`
   - `src/bot/battle/**` — Interaction handlers queuing moves, switches, and forfeits; see `src/bot/battle/ROUTER.md`
   - `src/bot/daily/**` — Daily quest claim logic; see `src/bot/daily/ROUTER.md`
@@ -303,8 +296,8 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
   - `src/bot/main.js` — legacy security bot (role sweeps, DripTVDD alert digest)
   - `src/bot/dripAlerts.js` — DM alert scheduler/dispatcher backing security alerts
 - Notes:
-  - 2025-06-15: Homestead channel migration COMPLETE (src/bot/dm/ removed, all flows use HomesteadChannelManager)
   - 2025-10-27: DRIP security alerts now fire on role assignments with audit-log attribution and CLI telemetry.
+  - 2025-11-02: DM Home embeds handle party, storage, and profile views with navigation plus safe fallbacks when DMs are disabled.
 
 ### Core Game Engines (`src/core/ROUTER.md`)
 - Purpose: Deterministic battle and encounter mechanics.

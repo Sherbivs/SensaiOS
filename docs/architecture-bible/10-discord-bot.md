@@ -919,7 +919,7 @@ Interaction Event → Route by Type → [Command | Button | Modal | SelectMenu] 
 **Button Interaction Example**:
 
 ```typescript
-// src/bot/homestead/home.ts (migrated from dm/ - 2025-06-15)
+// src/bot/dm/home.ts
 export async function showHome(interaction: Interaction) {
   const buttons = new ActionRowBuilder<ButtonBuilder>()
     .addComponents(
@@ -969,7 +969,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 **Modal Interaction Example**:
 
 ```typescript
-// src/bot/homestead/nickname.ts (migrated from dm/ - 2025-06-15)
+// src/bot/dm/nickname.ts
 export async function showNicknameModal(interaction: ButtonInteraction, pokemonId: string) {
   const modal = new ModalBuilder()
     .setCustomId(`nickname:${pokemonId}`)
@@ -1132,12 +1132,10 @@ src/bot/ROUTER.md                   → Code navigation for Discord bot layer
 
 **Key Integration Points**:
 - `src/bot/commands/` — Slash command definitions
-- `src/bot/homestead/` — Homestead channel handlers (home, heal, starters, profile) — **ACTIVE**
+- `src/bot/dm/` — DM flow handlers (home, heal, starters, profile)
 - `src/bot/battle/` — Battle interaction handlers (move, switch, forfeit)
 - `src/bot/wilds/` — Wild encounter handlers (catch, throw, escape)
 - `src/bot/ops/` — Admin command handlers
-
-> **Note:** The `src/bot/dm/` directory was removed on 2025-06-15 as part of the homestead migration. All DM-style gameplay now uses private guild channels via `HomesteadChannelManager`. See `docs/architecture-bible/18-private-channel-architecture.md`.
 
 ## 10.6 Cooldown System Runtime
 

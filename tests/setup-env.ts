@@ -1,12 +1,3 @@
-/**
- * Global Test Environment Setup
- * 
- * Sets placeholder values to prevent accidental database connections during unit tests.
- * 
- * NOTE: Database integration tests use tests/setup-database.ts instead.
- * Use: npm run test:database (for database integration tests)
- */
-
 if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = 'test';
 }

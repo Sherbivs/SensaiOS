@@ -358,12 +358,3 @@ export function recordDatabaseConnectionSuccess(source: DatabaseUrlSource): void
     };
   }
 }
-
-/**
- * Reset config cache for testing purposes.
- * This allows tests to reinitialize config with different environment variables.
- * @internal Only use in test files
- */
-export function resetConfigCacheForTests(): void {
-  cachedConfig = null;
-}

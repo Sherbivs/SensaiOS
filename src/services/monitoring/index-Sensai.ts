@@ -1,0 +1,95 @@
+/**
+ * Monitoring Services Barrel Export
+ * 
+ * Centralized exports for all monitoring-related services:
+ * - errorTracker: Error logging and tracking system
+ * - errorLearning: Pattern detection and error analysis
+ * - resourceMonitor: Resource monitoring with memory guardian
+ * - resourceManager: Resource lifecycle management and cleanup
+ * 
+ * Service Dependencies:
+ * - resource-manager: Foundation service (no dependencies)
+ * - resource-monitor: Standalone monitoring
+ * - error-tracker: Depends on resource-manager
+ * - error-learning: Depends on error-tracker
+ * 
+ * Usage:
+ * ```typescript
+ * import { errorTracker, resourceManager } from '../services/monitoring';
+ * import * as errorLearning from '../services/monitoring/error-learning';
+ * 
+ * await errorTracker.captureError(error, { category: 'DATABASE', severity: 'HIGH' });
+ * ```
+ */
+
+// Resource Management (default export + types)
+export { resourceManager } from './resource-manager.js';
+export type { 
+  ResourceStats, 
+  ResourceType, 
+  ResourceHandle,
+  TimerHandle,
+  ListenerHandle,
+  ConnectionHandle,
+  DiskCacheHandle,
+  DiskBufferHandle,
+  DiskLogHandle,
+  ResourceLimits
+} from './resource-manager.js';
+
+// Error Tracking (default export + types)
+export { errorTracker } from './error-tracker.js';
+export type { ErrorTracker, ErrorCategory, ErrorSeverity, ErrorContext } from './error-tracker.js';
+
+// Error Alerting (auto-DM on CRITICAL/HIGH errors)
+export { errorAlertingService } from './error-alerting-service.js';
+export type { ErrorAlertingStats } from './error-alerting-service.js';
+
+// Extended Error Taxonomy (26 categories for OS-level error classification)
+export {
+  detectErrorCategory,
+  detectErrorSeverity,
+  getErrorCategoryInfo,
+  getAllErrorCategories,
+  type ExtendedErrorCategory,
+  type ExtendedErrorSeverity,
+  type ErrorCategoryMetadata,
+} from './error-taxonomy.js';
+
+// OS-Level Error Interceptor (captures process-level errors)
+export {
+  osErrorInterceptor,
+  initializeOSErrorInterceptor,
+  getOSInterceptorStats,
+} from './os-error-interceptor.js';
+
+// Error Learning (namespace export to avoid name collisions)
+export * as errorLearning from './error-learning.js';
+
+// Resource Monitoring (default export + types)
+export { resourceMonitor, startResourceMonitoring, stopResourceMonitoring, getResourceHealth } from './resource-monitor.js';
+export type { IPrunableCache, MemoryPressureLevel } from './resource-monitor.js';
+
+// Shared Utilities (performance-optimized helpers)
+export {
+  generateResourceId,
+  generateFingerprint,
+  formatTimestamp,
+  calculateAge,
+  calculateAgeHours,
+  formatBytes,
+  calculateMemoryPercent,
+  calculatePercentile,
+  calculateAverage,
+  calculateStdDev,
+  checkThreshold,
+  deduplicateBy,
+  groupBy,
+  RateLimiter,
+  clearAllCaches,
+  getCacheStats,
+} from './monitoring-utils.js';
+export type {
+  ThresholdResult,
+  CacheStats,
+} from './monitoring-utils.js';
