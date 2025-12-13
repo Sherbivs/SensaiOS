@@ -75,9 +75,9 @@ export class HomesteadChannelManager {
     const userId = user.id;
     const guildId = this.guild.id;
 
-    // Step 1: Check database for existing homestead
-    let homesteadRecord = await prisma.homesteadChannel.findUnique({
-      where: { userId },
+    // Step 1: Check database for existing homestead in THIS guild (multi-guild support)
+    let homesteadRecord = await prisma.homesteadChannel.findFirst({
+      where: { userId, guildId },  // Scoped to this guild for multi-guild support
     });
 
     let channel: TextChannel | null = null;
@@ -91,24 +91,26 @@ export class HomesteadChannelManager {
         // Channel deleted in Discord but still in DB - recreate
         log.warn('[HomesteadManager] Channel deleted in Discord, recreating', {
           userId,
+          guildId,
           oldChannelId: homesteadRecord.channelId,
         });
         
         channel = await this.createDiscordChannel(user);
         isNew = true;
         
-        // Update database with new channel ID
+        // Update database with new channel ID (use record ID for update)
         homesteadRecord = await prisma.homesteadChannel.update({
-          where: { userId },
+          where: { id: homesteadRecord.id },
           data: {
             channelId: channel.id,
             lastAccessedAt: new Date(),
+            // status: 'active',  // TODO: Enable after Prisma migration
           },
         });
       } else {
         // Channel exists, just update access time
         homesteadRecord = await prisma.homesteadChannel.update({
-          where: { userId },
+          where: { id: homesteadRecord.id },
           data: { lastAccessedAt: new Date() },
         });
       }
@@ -330,12 +332,13 @@ export class HomesteadChannelManager {
   }
 
   /**
-   * Get homestead channel for user (without creating)
+   * Get homestead channel for user in THIS guild (without creating)
    * Returns null if doesn't exist
    */
   async getChannel(userId: string): Promise<TextChannel | null> {
-    const homestead = await prisma.homesteadChannel.findUnique({
-      where: { userId },
+    const guildId = this.guild.id;
+    const homestead = await prisma.homesteadChannel.findFirst({
+      where: { userId, guildId },  // Scoped to this guild
     });
 
     if (!homestead) {
@@ -346,11 +349,12 @@ export class HomesteadChannelManager {
   }
 
   /**
-   * Delete homestead channel and database record
+   * Delete homestead channel and database record for THIS guild
    */
   async deleteChannel(userId: string): Promise<boolean> {
-    const homestead = await prisma.homesteadChannel.findUnique({
-      where: { userId },
+    const guildId = this.guild.id;
+    const homestead = await prisma.homesteadChannel.findFirst({
+      where: { userId, guildId },  // Scoped to this guild
     });
 
     if (!homestead) {
@@ -371,6 +375,7 @@ export class HomesteadChannelManager {
 
       log.info('[HomesteadManager] Deleted homestead', {
         userId,
+        guildId,
         channelId: homestead.channelId,
       });
 
@@ -378,6 +383,7 @@ export class HomesteadChannelManager {
     } catch (error) {
       log.error('[HomesteadManager] Failed to delete homestead', {
         userId,
+        guildId,
         error: error instanceof Error ? error.message : String(error),
       });
       return false;
@@ -385,27 +391,218 @@ export class HomesteadChannelManager {
   }
 
   /**
-   * Get statistics about homestead channels
+   * Get statistics about homestead channels in THIS guild
    */
   async getStats() {
+    const guildId = this.guild.id;
+    
+    // Total channels in this guild
     const total = await prisma.homesteadChannel.count({
-      where: { guildId: this.guild.id },
+      where: { guildId },
     });
 
+    // Active in last 7 days
     const recentlyActive = await prisma.homesteadChannel.count({
       where: {
-        guildId: this.guild.id,
+        guildId,
         lastAccessedAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        },
+      },
+    });
+
+    // Active in last 24 hours
+    const activeToday = await prisma.homesteadChannel.count({
+      where: {
+        guildId,
+        lastAccessedAt: {
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
+      },
+    });
+
+    // Inactive (no access in 30+ days)
+    const inactive = await prisma.homesteadChannel.count({
+      where: {
+        guildId,
+        lastAccessedAt: {
+          lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        },
+      },
+    });
+
+    // Channels needing cleanup (90+ days inactive)
+    const needingCleanup = await prisma.homesteadChannel.count({
+      where: {
+        guildId,
+        lastAccessedAt: {
+          lt: new Date(Date.now() - CHANNEL_CLEANUP_DAYS * 24 * 60 * 60 * 1000),
         },
       },
     });
 
     return {
+      guildId,
+      guildName: this.guild.name,
       total,
+      activeToday,
       recentlyActive,
-      guildId: this.guild.id,
+      inactive,
+      needingCleanup,
+      cleanupDays: CHANNEL_CLEANUP_DAYS,
+      timestamp: new Date().toISOString(),
     };
+  }
+
+  // ============================================================================
+  // Bulk Operations
+  // ============================================================================
+
+  /**
+   * List all homesteads in this guild
+   * @param options Filter options
+   */
+  async listHomesteads(options: {
+    status?: string;
+    activeWithinDays?: number;
+    limit?: number;
+    offset?: number;
+  } = {}) {
+    const { status, activeWithinDays, limit = 100, offset = 0 } = options;
+    const guildId = this.guild.id;
+
+    const where: Record<string, unknown> = { guildId };
+    
+    if (status) {
+      where.status = status;
+    }
+    
+    if (activeWithinDays !== undefined) {
+      where.lastAccessedAt = {
+        gte: new Date(Date.now() - activeWithinDays * 24 * 60 * 60 * 1000),
+      };
+    }
+
+    const homesteads = await prisma.homesteadChannel.findMany({
+      where,
+      include: { user: { select: { id: true, discordId: true } } },
+      orderBy: { lastAccessedAt: 'desc' },
+      take: limit,
+      skip: offset,
+    });
+
+    return homesteads;
+  }
+
+  /**
+   * Bulk suspend homesteads (mark as suspended without deleting)
+   * @param userIds List of user IDs to suspend
+   * @param reason Suspension reason
+   */
+  async bulkSuspend(userIds: string[], reason: string): Promise<{ suspended: number; errors: string[] }> {
+    const guildId = this.guild.id;
+    const errors: string[] = [];
+    let suspended = 0;
+
+    for (const userId of userIds) {
+      try {
+        const homestead = await prisma.homesteadChannel.findFirst({
+          where: { userId, guildId },
+        });
+
+        if (homestead) {
+          // Update status to suspended
+          await prisma.homesteadChannel.update({
+            where: { id: homestead.id },
+            data: { 
+              // status: 'suspended',  // TODO: Enable after Prisma migration
+            },
+          });
+
+          // Remove user's channel permissions (they can see but not send)
+          const channel = await this.guild.channels.fetch(homestead.channelId).catch(() => null);
+          if (channel && channel.type === ChannelType.GuildText) {
+            await channel.permissionOverwrites.edit(userId, {
+              SendMessages: false,
+            });
+          }
+
+          suspended++;
+          log.info('[HomesteadManager] Suspended homestead', { userId, guildId, reason });
+        }
+      } catch (error) {
+        errors.push(`Failed to suspend ${userId}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    return { suspended, errors };
+  }
+
+  /**
+   * Bulk delete homesteads
+   * @param userIds List of user IDs to delete
+   */
+  async bulkDelete(userIds: string[]): Promise<{ deleted: number; errors: string[] }> {
+    const errors: string[] = [];
+    let deleted = 0;
+
+    for (const userId of userIds) {
+      try {
+        const success = await this.deleteChannel(userId);
+        if (success) {
+          deleted++;
+        }
+      } catch (error) {
+        errors.push(`Failed to delete ${userId}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    return { deleted, errors };
+  }
+
+  /**
+   * Health check: Verify all homesteads have valid Discord channels
+   * @returns Report of orphaned records
+   */
+  async healthCheck(): Promise<{ healthy: number; orphaned: string[]; repaired: number }> {
+    const guildId = this.guild.id;
+    const homesteads = await prisma.homesteadChannel.findMany({
+      where: { guildId },
+    });
+
+    const orphaned: string[] = [];
+    let healthy = 0;
+    let repaired = 0;
+
+    for (const homestead of homesteads) {
+      const channel = await this.verifyChannel(homestead.channelId);
+      
+      if (channel) {
+        healthy++;
+        // Update health check timestamp (TODO: enable after migration)
+        // await prisma.homesteadChannel.update({
+        //   where: { id: homestead.id },
+        //   data: { lastHealthCheck: new Date() },
+        // });
+      } else {
+        // Channel is orphaned (deleted in Discord)
+        orphaned.push(homestead.userId);
+        
+        // Auto-repair: Delete orphaned record
+        await prisma.homesteadChannel.delete({
+          where: { id: homestead.id },
+        });
+        repaired++;
+        
+        log.warn('[HomesteadManager] Removed orphaned homestead record', {
+          userId: homestead.userId,
+          guildId,
+          channelId: homestead.channelId,
+        });
+      }
+    }
+
+    return { healthy, orphaned, repaired };
   }
 }
 

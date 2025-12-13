@@ -264,18 +264,28 @@ model User {
 }
 
 /// ---- Homestead Channel (Private Guild Channel per User) ----
+/// Enhanced schema supporting multi-guild, admin visibility, and operational metadata
 model HomesteadChannel {
-  id             String   @id @default(cuid())
-  userId         String   @unique
-  guildId        String
-  channelId      String   @unique
-  createdAt      DateTime @default(now())
-  lastAccessedAt DateTime @updatedAt
-
+  id                  String    @id @default(cuid())
+  userId              String                           // User can have multiple homesteads (one per guild)
+  guildId             String                           // Discord guild this homestead belongs to
+  channelId           String    @unique               // Discord channel snowflake
+  createdAt           DateTime  @default(now())
+  lastAccessedAt      DateTime  @updatedAt
+  
+  // Operational metadata (Phase 2 enhancements)
+  status              String    @default("active")     // active | suspended | archived
+  createdBy           String    @default("system")     // system | admin | migration
+  securityFingerprint String?                          // SHA-256 hash of creation context
+  lastHealthCheck     DateTime?                        // Last verification timestamp
+  
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([guildId])
-  @@index([channelId])
+  @@unique([userId, guildId])   // One homestead per user per guild (multi-guild support)
+  @@index([guildId])            // Fast guild-wide queries
+  @@index([channelId])          // Fast channel → user lookup
+  @@index([status])             // Filter by status
+  @@index([lastHealthCheck])    // Find channels needing health check
   @@map("homestead_channels")
 }
 
