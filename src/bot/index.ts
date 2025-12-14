@@ -22,12 +22,11 @@ const { loadCommands } = commandLoaderModule;
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
 
-// ⚠️ DEPRECATED (Phase 18): DM-based gameplay being replaced with private guild channels (homestead-{username})
-// See docs/architecture-bible/14-private-channel-architecture.md for migration specification
-// TODO: Replace with imports from ./homestead/ after Foundation phase complete
-import { handleHeal } from "./dm/heal.js";
-import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./dm/home.js";
-import { openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./dm/starters.js";
+// Homestead modules (private guild channel-based gameplay)
+// See docs/architecture-bible/14-private-channel-architecture.md
+import { handleHeal } from "./homestead/heal.js";
+import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./homestead/home.js";
+import { openStartersHomestead as openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./homestead/starters.js";
 
 import { handleOpsCommand } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
@@ -125,10 +124,14 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 						});
 						return;
 					}
-					// Small wiring for known commands to DM flows
+					// Small wiring for known commands to homestead flows
 					if (interaction.commandName === "starter") {
-						await openStartersDM(interaction.user);
-						await interaction.reply({ content: "I opened your Starters in DMs.", ephemeral: true });
+						if (interaction.guildId) {
+							await openStartersDM(client, interaction.guildId, interaction.user);
+							await interaction.reply({ content: "I sent your Starters to your homestead channel.", ephemeral: true });
+						} else {
+							await interaction.reply({ content: "This command must be used in a server.", ephemeral: true });
+						}
 						return;
 					}
 					if (interaction.commandName === "heal") {
@@ -190,8 +193,12 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                                                         await openProfileView(interaction);
                                                         break;
                                                 case "HOME_STARTERS":
-							await openStartersDM(interaction.user);
-							await interaction.reply({ content: "I opened your Starters in DMs.", ephemeral: true });
+							if (interaction.guildId) {
+								await openStartersDM(client, interaction.guildId, interaction.user);
+								await interaction.reply({ content: "I sent your Starters to your homestead channel.", ephemeral: true });
+							} else {
+								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+							}
 							break;
                                                 default:
                                                         if (id.startsWith(BOX_PAGE_PREFIX) && interaction.isButton()) {

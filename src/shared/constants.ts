@@ -160,6 +160,40 @@ export const DISCORD_CONSTANTS = Object.freeze({
 });
 
 // ============================================================================
+// ALERT STRATEGY CONSTANTS
+// ============================================================================
+
+export const ALERT_STRATEGY_CONSTANTS = Object.freeze({
+  /** Cooldown periods by severity (milliseconds) */
+  RESTART_ALERT_COOLDOWN_MS: 5 * 60 * 1000,      // 5 minutes - allow restart alerts frequently
+  CRITICAL_ALERT_COOLDOWN_MS: 15 * 60 * 1000,    // 15 minutes between critical alerts
+  SECURITY_ALERT_COOLDOWN_MS: 30 * 60 * 1000,    // 30 minutes between security alerts
+  WARNING_ALERT_COOLDOWN_MS: 60 * 60 * 1000,     // 1 hour between warnings
+  NOTICE_ALERT_COOLDOWN_MS: 4 * 60 * 60 * 1000,  // 4 hours between notices
+
+  /** Digest/batch configuration */
+  DIGEST_MIN_INTERVAL_MS: 30 * 60 * 1000,        // Minimum 30 minutes between digests
+  DIGEST_BATCH_THRESHOLD: 5,                      // Batch after 5 pending alerts
+
+  /** Duplicate detection */
+  DUPLICATE_DETECTION_WINDOW_MS: 60 * 60 * 1000, // 1 hour window for duplicate detection
+
+  /** Rate limiting */
+  MAX_ALERTS_PER_HOUR: 20,                        // Maximum total alerts per hour
+  MAX_CRITICAL_PER_HOUR: 10,                      // Maximum critical alerts per hour
+
+  /** Priority values (higher = more urgent) */
+  PRIORITY_CRITICAL: 100,
+  PRIORITY_SECURITY: 80,
+  PRIORITY_WARNING: 50,
+  PRIORITY_NOTICE: 20,
+
+  /** Quiet hours defaults */
+  DEFAULT_QUIET_HOURS_START: 22,                  // 10 PM
+  DEFAULT_QUIET_HOURS_END: 8,                     // 8 AM
+});
+
+// ============================================================================
 // BACKWARDS COMPATIBILITY EXPORTS
 // ============================================================================
 
