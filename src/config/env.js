@@ -210,6 +210,11 @@ const HOMESTEAD_HMAC_KEY = (process.env.HOMESTEAD_HMAC_KEY || 'dev-hmac-key-chan
 // Admin access control
 const ADMIN_USER_IDS = toList(process.env.ADMIN_USER_IDS);
 
+// DoS Protection - Sweep rate limiting (security/dos-protection tests)
+const MAX_SWEEP_CANDIDATES = toNumber(process.env.MAX_SWEEP_CANDIDATES, 100);
+const SWEEP_ANOMALY_THRESHOLD = toNumber(process.env.SWEEP_ANOMALY_THRESHOLD, 500);
+const SWEEP_ANOMALY_CRITICAL = toNumber(process.env.SWEEP_ANOMALY_CRITICAL, 1000);
+
 // Reporting recipients and cadence
 const RESTART_DM_RECIPIENT = (process.env.RESTART_DM_RECIPIENT || 'DripTVDD').trim();
 const SUMMARY_REPORT_RECIPIENT = (process.env.SUMMARY_REPORT_RECIPIENT || RESTART_DM_RECIPIENT).trim();
@@ -281,6 +286,10 @@ export {
   HOMESTEAD_MIN_RECHECK_MS,
   HOMESTEAD_HMAC_KEY,
   ADMIN_USER_IDS,
+  // DoS Protection constants
+  MAX_SWEEP_CANDIDATES,
+  SWEEP_ANOMALY_THRESHOLD,
+  SWEEP_ANOMALY_CRITICAL,
 };
 
 export default {
@@ -344,4 +353,8 @@ export default {
   HOMESTEAD_MIN_RECHECK_MS,
   HOMESTEAD_HMAC_KEY,
   ADMIN_USER_IDS,
+  // DoS Protection constants
+  MAX_SWEEP_CANDIDATES,
+  SWEEP_ANOMALY_THRESHOLD,
+  SWEEP_ANOMALY_CRITICAL,
 };
