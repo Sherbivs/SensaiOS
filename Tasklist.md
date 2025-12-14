@@ -1,9 +1,22 @@
 # Tasklist
-Last Updated (UTC): 2025-11-21T12:30:00Z
-Revision: 2.109
+Last Updated (UTC): 2025-12-14T00:00:00Z
+Revision: 2.110
 <!-- # TASKLIST UPDATE -->
 
-**Recent Activity (2025-11-21T12:30Z):**
+**Recent Activity (2025-12-14T00:00Z):**
+- 🗑️ **ADMINISTRATIVE CLEANUP** — Archived stale tasks per admin directive (30+ days old)
+  - DB.NORTHSTAR.ANALYTICS (READY → ARCHIVED, started 2025-11-13, 31 days stale)
+  - DB.NORTHSTAR.SERVICES (IN_PROGRESS → ARCHIVED, started 2025-11-08, 36 days stale)
+  - ARCHITECTURE.HOMESTEAD_CHANNELS.* (READY/PROPOSED → ARCHIVED, started 2025-11-21, 23 days stale)
+  - META.STRESS_REMEDIATION.REVIEW (quick task → ARCHIVED, completed)
+- ✅ **Schema Alignment Complete** — Prisma schema aligned with database (commit c8329208)
+  - Added TimescaleDB models (LogEntry, BattleAnalytics, WorkerMetrics, SecurityEvent, etc.)
+  - Fixed DiscordGuild/DiscordMember to match database columns
+  - Updated bot imports to use homestead modules
+  - TypeScript build passing (0 errors)
+- 📋 **Queue Status:** EMPTY — Ready for fresh priorities
+
+**Recent Activity (2025-11-21T12:30Z):****
 - 🔄 **ARCHITECTURE.HOMESTEAD_CHANNELS — Major Architecture Pivot (Pokémon Infinity Gauntlet)** — DM-based gameplay → Private guild channels
   - User request: Replace Discord DM homesteads with private guild channels for gameplay
   - Game: **Pokémon Infinity Gauntlet** — Discord-first Pokémon adventure
@@ -1758,7 +1771,7 @@ Each task has:
 
 - id: DB.NORTHSTAR.ANALYTICS
   title: Build analytics jobs and reporting layer
-  status: READY
+  status: ARCHIVED
   depends_on: [DB.NORTHSTAR.PHASE2]
   acceptance_criteria:
     - Create analytics jobs: scripts/analytics/generate_daily_stats.ts (aggregates daily metrics), refresh_leaderboards.ts (updates rankings).
@@ -2124,7 +2137,7 @@ Each task has:
 
 - id: DB.NORTHSTAR.SERVICES
   title: Build EventTracker and ProfileService with caching integration
-  status: IN_PROGRESS
+  status: ARCHIVED
   depends_on: [DB.REPLICATION.TESTING]
   acceptance_criteria:
     - Create EventTracker service with batch processing (max 100 events, 5s delay), PII handling (SHA-256 IP hashing), retention policies by category/severity.
@@ -2196,7 +2209,7 @@ Each task has:
 
 - id: ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION
   title: Create HomesteadChannelManager service and database schema
-  status: READY
+  status: ARCHIVED
   depends_on: []
   acceptance_criteria:
     - Create `src/services/homestead-channel-manager.ts` with core methods (getOrCreateChannel, createChannel, getChannelByUserId, getUserByChannelId, deleteChannel)
@@ -2215,7 +2228,7 @@ Each task has:
 
 - id: ARCHITECTURE.HOMESTEAD_CHANNELS.DM_MIGRATION
   title: Migrate DM modules (home, heal, starters) to channel-based architecture
-  status: PROPOSED
+  status: ARCHIVED
   depends_on: [ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION]
   acceptance_criteria:
     - Migrate `src/bot/dm/home.ts` → `src/bot/homestead/home.ts` (replace all createDM() calls with getOrCreateChannel(), line 306)
@@ -2234,7 +2247,7 @@ Each task has:
 
 - id: ARCHITECTURE.HOMESTEAD_CHANNELS.FEATURE_INTEGRATION
   title: Update battle/wild encounter features to use homestead channels
-  status: PROPOSED
+  status: ARCHIVED
   depends_on: [ARCHITECTURE.HOMESTEAD_CHANNELS.DM_MIGRATION]
   acceptance_criteria:
     - Update `src/bot/battle/challenge.ts` lines 97, 154 (replace createDM() with getOrCreateChannel())
@@ -2256,7 +2269,7 @@ Each task has:
 
 - id: ARCHITECTURE.HOMESTEAD_CHANNELS.LIFECYCLE
   title: Implement channel lifecycle management (cleanup, event handlers)
-  status: PROPOSED
+  status: ARCHIVED
   depends_on: [ARCHITECTURE.HOMESTEAD_CHANNELS.FEATURE_INTEGRATION]
   acceptance_criteria:
     - Add Discord event handler for `channelDelete` (detect homestead deletion, remove database mapping)
@@ -2278,7 +2291,7 @@ Each task has:
 
 - id: ARCHITECTURE.HOMESTEAD_CHANNELS.TESTING
   title: Comprehensive testing and documentation updates
-  status: PROPOSED
+  status: ARCHIVED
   depends_on: [ARCHITECTURE.HOMESTEAD_CHANNELS.LIFECYCLE]
   acceptance_criteria:
     - Write unit tests for HomesteadChannelManager (80%+ coverage target)
@@ -2299,7 +2312,7 @@ Each task has:
 
 - id: ARCHITECTURE.HOMESTEAD_CHANNELS.DEPLOYMENT
   title: Production deployment and monitoring
-  status: PROPOSED
+  status: ARCHIVED
   depends_on: [ARCHITECTURE.HOMESTEAD_CHANNELS.TESTING]
   acceptance_criteria:
     - Deploy database migration to PROD: `npx prisma migrate deploy`
