@@ -10,7 +10,7 @@
  * @see https://www.prisma.io/docs/orm/reference/prisma-config-reference
  */
 import "dotenv/config";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
 
 export default defineConfig({
   // Main schema file location
@@ -25,6 +25,6 @@ export default defineConfig({
   // Database connection configuration
   // Uses PROD_DATABASE_URL as primary (matches existing architecture)
   datasource: {
-    url: env("PROD_DATABASE_URL"),
+    url: process.env.PROD_DATABASE_URL!,
   },
 });
