@@ -1,0 +1,9 @@
+{
+  "backup_file": "backups/pre-timescale-poc/infinity-gauntlet-db-20251201_230300.dump",
+  "timestamp": "20251201_230300",
+  "restore_tested": false,
+  "retention_days": 90,
+  "backup_size_mb": 0.83,
+  "database_url": "RENDER_DB_EXTERNAL_URL",
+  "purpose": "Pre-TimescaleDB POC deployment"
+}

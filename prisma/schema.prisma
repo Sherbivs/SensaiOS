@@ -1,5 +1,5 @@
 // Prisma schema for Infinity Gauntlet — MVP entities
-// Database URL configured in prisma.config.ts (Prisma 7+)
+// Note: Connection URL now configured in prisma.config.ts (Prisma 7+)
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-3.0.x"]

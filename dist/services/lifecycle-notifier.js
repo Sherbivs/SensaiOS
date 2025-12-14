@@ -1,0 +1,366 @@
+/**
+ * Lifecycle Event Notifier
+ *
+ * Purpose: Send Discord webhook notifications on boot/shutdown/crash events.
+ * Strategy: Immediate visibility when service goes down - don't wait for external monitors.
+ *
+ * Features:
+ * - Sends webhook on successful boot completion
+ * - Sends webhook on graceful shutdown (with shutdown trigger)
+ * - Sends webhook on uncaught exceptions (crash alerts)
+ * - Includes restart count, uptime, memory usage, service health
+ * - Respects LIFECYCLE_WEBHOOK_URL env var (optional feature)
+ *
+ * Integration:
+ * - Called at end of boot() after Discord client ready
+ * - Called in gracefulShutdown() before exit
+ * - Called in uncaughtException handler before crash
+ *
+ * @module lifecycle-notifier
+ */
+import { log } from '../utils/logger.js';
+import { ServiceRegistry } from '../shared/service-registry.js';
+import { formatUptime } from '../shared/utils/format-utils.js';
+// ============================================================================
+// Configuration
+// ============================================================================
+const WEBHOOK_URL = process.env.LIFECYCLE_WEBHOOK_URL ?? '';
+const WEBHOOK_ENABLED = Boolean(WEBHOOK_URL);
+// Persistent state (survives module reloads, tracks restarts)
+let bootCount = 0;
+let lastBootTime = null;
+let lastShutdownTime = null;
+let crashCount = 0;
+// ============================================================================
+// Discord Webhook Formatting
+// ============================================================================
+// ✅ formatUptime moved to shared/utils/format-utils.ts (centralized with days support)
+function formatTimeSince(ms) {
+    if (ms === null)
+        return 'never';
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60)
+        return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60)
+        return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24)
+        return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+}
+function createBootEmbed(notification, restartContext) {
+    const fields = [
+        {
+            name: '⏱️ Boot Info',
+            value: [
+                `Boot #${notification.bootCount}`,
+                `Last boot: ${formatTimeSince(notification.timeSinceLastBoot)}`,
+                `Last shutdown: ${formatTimeSince(notification.timeSinceLastShutdown)}`,
+            ].join('\n'),
+            inline: true,
+        },
+        {
+            name: '💾 Memory',
+            value: [
+                `RSS: ${notification.memory.rss_mb} MB`,
+                `Heap Used: ${notification.memory.heap_used_mb} MB`,
+                `Heap Total: ${notification.memory.heap_total_mb} MB`,
+            ].join('\n'),
+            inline: true,
+        },
+    ];
+    // PHASE 5: Add restart context field if available
+    if (restartContext) {
+        fields.push({
+            name: restartContext.seamless ? '✨ Seamless Restart' : '🔄 Restart Context',
+            value: restartContext.reason,
+            inline: false,
+        });
+    }
+    if (notification.services) {
+        fields.push({
+            name: '⚙️ Services',
+            value: [
+                `✅ Healthy: ${notification.services.healthy}`,
+                `⚠️ Degraded: ${notification.services.degraded}`,
+                `❌ Error: ${notification.services.error}`,
+                `Total: ${notification.services.total}`,
+            ].join('\n'),
+            inline: true,
+        });
+    }
+    fields.push({
+        name: '🌍 Environment',
+        value: [
+            `Node: ${notification.environment.node_version}`,
+            `Service: ${notification.environment.service_name}`,
+            `Region: ${notification.environment.region}`,
+        ].join('\n'),
+        inline: false,
+    });
+    return {
+        embeds: [
+            {
+                title: '🚀 Application Started',
+                description: `Infinity Gauntlet bot is now online and ready.`,
+                color: 0x00ff00, // Green
+                fields,
+                timestamp: new Date(notification.timestamp).toISOString(),
+            },
+        ],
+    };
+}
+function createShutdownEmbed(notification) {
+    return {
+        embeds: [
+            {
+                title: '🛑 Application Shutdown',
+                description: `Infinity Gauntlet bot is shutting down gracefully.`,
+                color: 0xffa500, // Orange
+                fields: [
+                    {
+                        name: '⚙️ Shutdown Info',
+                        value: [
+                            `Trigger: \`${notification.trigger}\``,
+                            `Uptime: ${notification.uptime_human}`,
+                        ].join('\n'),
+                        inline: false,
+                    },
+                    {
+                        name: '💾 Memory',
+                        value: [
+                            `RSS: ${notification.memory.rss_mb} MB`,
+                            `Heap Used: ${notification.memory.heap_used_mb} MB`,
+                        ].join('\n'),
+                        inline: true,
+                    },
+                    {
+                        name: '🌍 Environment',
+                        value: `Service: ${notification.environment.service_name}`,
+                        inline: true,
+                    },
+                ],
+                timestamp: new Date(notification.timestamp).toISOString(),
+            },
+        ],
+    };
+}
+function createCrashEmbed(notification) {
+    return {
+        embeds: [
+            {
+                title: '💥 Application Crash',
+                description: `Infinity Gauntlet bot encountered a fatal error and is restarting.`,
+                color: 0xff0000, // Red
+                fields: [
+                    {
+                        name: '❌ Error Info',
+                        value: [
+                            `Crash #${notification.crashCount}`,
+                            `Name: \`${notification.errorName}\``,
+                            `Message: ${notification.errorMessage}`,
+                        ].join('\n'),
+                        inline: false,
+                    },
+                    {
+                        name: '📜 Stack Trace',
+                        value: `\`\`\`\n${notification.errorStack.substring(0, 1000)}\n\`\`\``,
+                        inline: false,
+                    },
+                    {
+                        name: '💾 Memory',
+                        value: [
+                            `RSS: ${notification.memory.rss_mb} MB`,
+                            `Heap Used: ${notification.memory.heap_used_mb} MB`,
+                        ].join('\n'),
+                        inline: true,
+                    },
+                    {
+                        name: '🌍 Environment',
+                        value: `Service: ${notification.environment.service_name}`,
+                        inline: true,
+                    },
+                ],
+                timestamp: new Date(notification.timestamp).toISOString(),
+            },
+        ],
+    };
+}
+// ============================================================================
+// Webhook Sender
+// ============================================================================
+async function sendWebhook(payload) {
+    if (!WEBHOOK_ENABLED) {
+        return;
+    }
+    try {
+        const response = await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            throw new Error(`Webhook returned ${response.status}: ${response.statusText}`);
+        }
+        log.info('Lifecycle webhook sent successfully', {
+            event: payload.embeds?.[0]?.title ?? 'unknown',
+        });
+    }
+    catch (error) {
+        log.error('Failed to send lifecycle webhook', {
+            error: error instanceof Error ? error.message : String(error),
+        });
+    }
+}
+// ============================================================================
+// Public API
+// ============================================================================
+/**
+ * Send boot notification webhook
+ *
+ * PHASE 5 (Seamless Restart): Include restart context for user visibility
+ * - Shows restart reason (planned vs crash vs manual)
+ * - Shows time since last shutdown (indicates seamless transition)
+ * - Shows restart count (reliability metric)
+ * - Enables users to understand restart impact
+ */
+export async function notifyBoot() {
+    bootCount++;
+    const now = Date.now();
+    const timeSinceLastBoot = lastBootTime ? now - lastBootTime : null;
+    const timeSinceLastShutdown = lastShutdownTime ? now - lastShutdownTime : null;
+    lastBootTime = now;
+    const memUsage = process.memoryUsage();
+    const memory = {
+        rss_mb: Math.round(memUsage.rss / 1024 / 1024),
+        heap_used_mb: Math.round(memUsage.heapUsed / 1024 / 1024),
+        heap_total_mb: Math.round(memUsage.heapTotal / 1024 / 1024),
+    };
+    let services;
+    try {
+        const registry = ServiceRegistry.getInstance();
+        const registryStatus = registry.getStatus();
+        services = {
+            healthy: registryStatus.healthyCount,
+            degraded: registryStatus.degradedCount,
+            error: registryStatus.errorCount,
+            total: registryStatus.serviceCount,
+        };
+    }
+    catch {
+        // Service Registry not ready yet
+    }
+    // PHASE 5: Load restart context from persistent metrics
+    let restartContext;
+    try {
+        const { getMetrics } = await import('./restart-metrics.js');
+        const metrics = getMetrics();
+        if (metrics && metrics.lastShutdownTrigger) {
+            // Determine restart reason (user-friendly message)
+            const trigger = metrics.lastShutdownTrigger;
+            const reason = trigger === 'SIGTERM' || trigger === 'scheduled' ? 'Planned restart (automated schedule)' :
+                trigger === 'SIGINT' ? 'Manual restart (operator initiated)' :
+                    trigger === 'crash' ? '⚠️ Crash recovery (unexpected termination)' :
+                        trigger === 'health-check' ? '⚠️ Health check auto-restart' :
+                            `Unknown restart (${trigger})`;
+            // Seamless = planned restart with quick turnaround (<30s)
+            const seamless = (trigger === 'SIGTERM' || trigger === 'scheduled') &&
+                timeSinceLastShutdown !== null &&
+                timeSinceLastShutdown < 30000; // <30s = seamless
+            restartContext = { reason, seamless };
+            log.info('[LifecycleNotifier] Restart context', {
+                reason,
+                seamless,
+                timeSinceShutdown: timeSinceLastShutdown ? `${(timeSinceLastShutdown / 1000).toFixed(1)}s` : 'unknown',
+            });
+        }
+    }
+    catch (error) {
+        // Restart metrics not available (first boot or error)
+        log.warn('[LifecycleNotifier] Restart context unavailable', error);
+    }
+    const notification = {
+        event: 'boot',
+        timestamp: now,
+        bootCount,
+        timeSinceLastBoot,
+        timeSinceLastShutdown,
+        memory,
+        services,
+        environment: {
+            node_version: process.version,
+            service_name: process.env.SERVICE_NAME || 'infinity-gauntlet',
+            region: process.env.RENDER_REGION || 'unknown',
+        },
+    };
+    await sendWebhook(createBootEmbed(notification, restartContext));
+}
+/**
+ * Send shutdown notification webhook
+ */
+export async function notifyShutdown(trigger, uptimeMs) {
+    const now = Date.now();
+    lastShutdownTime = now;
+    const memUsage = process.memoryUsage();
+    const notification = {
+        event: 'shutdown',
+        timestamp: now,
+        trigger,
+        uptime_ms: uptimeMs,
+        uptime_human: formatUptime(uptimeMs),
+        memory: {
+            rss_mb: Math.round(memUsage.rss / 1024 / 1024),
+            heap_used_mb: Math.round(memUsage.heapUsed / 1024 / 1024),
+        },
+        environment: {
+            service_name: process.env.SERVICE_NAME || 'infinity-gauntlet',
+        },
+    };
+    await sendWebhook(createShutdownEmbed(notification));
+}
+/**
+ * Send crash notification webhook
+ */
+export async function notifyCrash(error) {
+    crashCount++;
+    const now = Date.now();
+    const memUsage = process.memoryUsage();
+    const notification = {
+        event: 'crash',
+        timestamp: now,
+        crashCount,
+        errorName: error.name,
+        errorMessage: error.message,
+        errorStack: error.stack || 'No stack trace available',
+        memory: {
+            rss_mb: Math.round(memUsage.rss / 1024 / 1024),
+            heap_used_mb: Math.round(memUsage.heapUsed / 1024 / 1024),
+        },
+        environment: {
+            service_name: process.env.SERVICE_NAME || 'infinity-gauntlet',
+        },
+    };
+    await sendWebhook(createCrashEmbed(notification));
+}
+/**
+ * Check if lifecycle webhooks are enabled
+ */
+export function isLifecycleWebhookEnabled() {
+    return WEBHOOK_ENABLED;
+}
+/**
+ * Get lifecycle statistics (for observability)
+ */
+export function getLifecycleStats() {
+    return {
+        bootCount,
+        lastBootTime,
+        lastShutdownTime,
+        crashCount,
+        webhookEnabled: WEBHOOK_ENABLED,
+    };
+}

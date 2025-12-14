@@ -1,0 +1,20 @@
+{
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "files.associations": {
+    "*.yaml": "yaml",
+    "render.yaml": "yaml"
+  },
+  "files.exclude": {
+    "**/.git": true,
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/dist": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.next": true,
+    "**/Store": true
+  },
+  "java.configuration.updateBuildConfiguration": "automatic"
+}
