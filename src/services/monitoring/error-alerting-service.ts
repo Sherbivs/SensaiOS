@@ -13,6 +13,7 @@
  */
 
 import { Client, EmbedBuilder } from 'discord.js';
+import { EMBED_COLORS } from '../../bot/shared/embed-colors.js';
 import { EventBus, type BusEvent } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
 import { log } from '../../utils/logger.js';
@@ -255,7 +256,7 @@ export class ErrorAlertingService {
     const user = await this.discordClient.users.fetch(DRIP_TVDD_ID);
     
     const embed = new EmbedBuilder()
-      .setColor(0xFF0000) // Red
+      .setColor(EMBED_COLORS.CRITICAL)
       .setTitle('🚨 CRITICAL ERROR')
       .setDescription(`**${event.errorName}**: ${event.errorMessage.substring(0, 200)}`)
       .addFields(
@@ -299,7 +300,7 @@ export class ErrorAlertingService {
     const user = await this.discordClient.users.fetch(DRIP_TVDD_ID);
     
     const embed = new EmbedBuilder()
-      .setColor(0xFFA500) // Orange
+      .setColor(EMBED_COLORS.WARNING)
       .setTitle(`⚠️ HIGH Severity Errors (${batch.length})`)
       .setDescription('The following errors occurred in the last 5 minutes:')
       .setTimestamp();

@@ -26,6 +26,7 @@ import {
   Client,
 } from "discord.js";
 
+import { EMBED_COLORS } from "../shared/embed-colors.js";
 import {
   validateStarterSelection,
   getRejectionMessage,
@@ -65,7 +66,7 @@ export function buildWelcomeEmbed(): EmbedBuilder {
       "Your adventure begins here in your **Homestead Channel** — your personal Pokémon hub.\n\n" +
       "Choose any Pokémon to start your journey! Simply **type the name** of the Pokémon you want as your starter."
     )
-    .setColor(0x00C853)
+    .setColor(EMBED_COLORS.STARTER)
     .addFields(
       {
         name: "📋 Starter Rules",
@@ -102,7 +103,7 @@ export function buildErrorEmbed(reason: string, attemptedName?: string): EmbedBu
   return new EmbedBuilder()
     .setTitle("❌ Invalid Selection")
     .setDescription(reason)
-    .setColor(0xFF5252)
+    .setColor(EMBED_COLORS.ERROR)
     .addFields({
       name: "Try Again",
       value: attemptedName 
@@ -126,7 +127,7 @@ export function buildConfirmationEmbed(speciesName: string, speciesId: number): 
       `**${capitalizedName}** is now your official starter Pokémon!\n\n` +
       "Your adventure in the Infinite Gauntlet begins now."
     )
-    .setColor(0x00E676)
+    .setColor(EMBED_COLORS.SUCCESS)
     .addFields(
       {
         name: "📊 Your Starter",
@@ -161,7 +162,7 @@ export function buildRulesEmbed(): EmbedBuilder {
       "Your **Homestead Channel** (this DM) is your personal Pokémon hub. " +
       "Think of it as your in-game home or Main Menu."
     )
-    .setColor(0x2196F3)
+    .setColor(EMBED_COLORS.INFO)
     .addFields(
       {
         name: "🏠 Homestead (This Channel)",

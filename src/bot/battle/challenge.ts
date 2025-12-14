@@ -10,6 +10,7 @@ import {
   User as DiscordUser,
 } from "discord.js";
 
+import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 import { createArenaThread, type ArenaThreadContext } from "../arena/thread.js";
 import { canChallengeBattle } from "../middleware/limits.js";
@@ -44,7 +45,7 @@ function buildChallengePrompt(challenger: DiscordUser, battleId: string): Challe
   const embed = new EmbedBuilder()
     .setTitle("Battle Challenge")
     .setDescription(`${challenger} has challenged you to a battle.`)
-    .setColor(0xff9800)
+    .setColor(EMBED_COLORS.BATTLE)
     .addFields(
       { name: "Challenger", value: `${challenger.tag}`, inline: true },
       { name: "What next?", value: "Accept to open an Arena thread or decline politely.", inline: false }

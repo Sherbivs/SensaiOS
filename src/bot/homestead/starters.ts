@@ -17,6 +17,7 @@ import {
   Client,
 } from "discord.js";
 
+import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
@@ -34,7 +35,7 @@ export function buildStartersEmbed() {
   const embed = new EmbedBuilder()
     .setTitle("Choose your starter")
     .setDescription("Pick one of the classic starters. This is a one-time choice.")
-    .setColor(0x00c853);
+    .setColor(EMBED_COLORS.STARTER);
 
   embed.addFields(
     STARTER_OPTIONS.map((s) => ({

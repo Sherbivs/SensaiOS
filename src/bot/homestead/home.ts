@@ -11,6 +11,7 @@ import {
   RepliableInteraction,
 } from "discord.js";
 
+import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { getSpriteUrl } from "../../lib/assets.js";
 import {
   DMHomeRepo,
@@ -121,7 +122,7 @@ function formatPartyEntry(slot: TrainerPartySlot): string {
 function buildPartyView(snapshot: TrainerHomeSnapshot): ViewRender {
   const embed = new EmbedBuilder()
     .setTitle("Party Overview")
-    .setColor(0x4caf50)
+    .setColor(EMBED_COLORS.SUCCESS)
     .setDescription("Your active party slots.");
 
   const hasMembers = snapshot.party.some((slot) => slot.pokemon);
@@ -178,7 +179,7 @@ function buildBoxView(snapshot: TrainerHomeSnapshot, page = 1): ViewRender {
 
   const embed = new EmbedBuilder()
     .setTitle("Storage Box")
-    .setColor(0x1e88e5)
+    .setColor(EMBED_COLORS.INFO)
     .setDescription(`Stored Pokémon: ${total}`)
     .setFooter({ text: `Page ${currentPage} of ${totalPages}` });
 
@@ -219,7 +220,7 @@ function formatReadyLabel(date: Date | string | null | undefined, now: Date): st
 function buildProfileView(snapshot: TrainerHomeSnapshot, now = new Date()): ViewRender {
   const embed = new EmbedBuilder()
     .setTitle("Trainer Profile")
-    .setColor(0xffb74d)
+    .setColor(EMBED_COLORS.WARNING)
     .setDescription(`Trainer: <@${snapshot.user.discordId}>`);
 
   const partyCount = snapshot.party.filter((slot) => Boolean(slot.pokemon)).length;

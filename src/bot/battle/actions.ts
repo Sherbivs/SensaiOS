@@ -13,6 +13,7 @@ import {
   StringSelectMenuInteraction,
 } from "discord.js";
 
+import { EMBED_COLORS } from "../shared/embed-colors.js";
 import {
   listLegalMoves,
   listSwitchOptions,
@@ -39,7 +40,7 @@ export function buildBattleActionPrompt(battleId: string) {
   const embed = new EmbedBuilder()
     .setTitle("Your Move")
     .setDescription("Choose an action for this turn.")
-    .setColor(0x2196f3);
+    .setColor(EMBED_COLORS.INFO);
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId(`${MOVE_PREFIX}${battleId}`).setLabel("Move").setStyle(ButtonStyle.Primary),

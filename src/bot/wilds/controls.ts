@@ -9,6 +9,7 @@ import {
   StringSelectMenuInteraction,
 } from "discord.js";
 
+import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { attemptCatch, runFromEncounter } from "../../core/encounter/catch.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
 import { getPartyWithSlots, updatePartySlotPosition } from "../../shared/models/party-queries-pg.js";
@@ -70,7 +71,7 @@ export function buildEncounterEmbed(enc: { speciesId: number; level: number }) {
   const embed = new EmbedBuilder()
     .setTitle(`A wild Pokémon appeared!`)
     .setDescription(`Species #${enc.speciesId} • Lv ${enc.level}`)
-    .setColor(0x4caf50);
+    .setColor(EMBED_COLORS.SUCCESS);
   return embed;
 }
 
