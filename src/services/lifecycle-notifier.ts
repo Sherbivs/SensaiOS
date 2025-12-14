@@ -21,6 +21,7 @@
 
 import { log } from '../utils/logger.js';
 import { ServiceRegistry } from '../shared/service-registry.js';
+import { SERVICE_NAME } from '../config/env.js';
 
 // ============================================================================
 // Configuration
@@ -388,7 +389,7 @@ export async function notifyBoot(): Promise<void> {
     services,
     environment: {
       node_version: process.version,
-      service_name: process.env.SERVICE_NAME || 'infinity-gauntlet',
+      service_name: SERVICE_NAME,
       region: process.env.RENDER_REGION || 'unknown',
     },
   };
@@ -415,7 +416,7 @@ export async function notifyShutdown(trigger: string, uptimeMs: number): Promise
       heap_used_mb: Math.round(memUsage.heapUsed / 1024 / 1024),
     },
     environment: {
-      service_name: process.env.SERVICE_NAME || 'infinity-gauntlet',
+      service_name: SERVICE_NAME,
     },
   };
 
@@ -442,7 +443,7 @@ export async function notifyCrash(error: Error): Promise<void> {
       heap_used_mb: Math.round(memUsage.heapUsed / 1024 / 1024),
     },
     environment: {
-      service_name: process.env.SERVICE_NAME || 'infinity-gauntlet',
+      service_name: SERVICE_NAME,
     },
   };
 

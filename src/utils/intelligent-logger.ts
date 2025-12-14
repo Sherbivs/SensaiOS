@@ -22,6 +22,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { LiveErrorEvent } from '../services/monitoring/error-tracker.js';
 import { EventBus, type BusEvent } from '../shared/event-bus.js';
+import { LOG_LEVEL } from '../config/env.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -463,7 +464,7 @@ class IntelligentLogger {
   
   constructor() {
     this.buffer = new CircularBuffer();
-    this.minLevel = this.parseLogLevel(process.env.LOG_LEVEL || 'info');
+    this.minLevel = this.parseLogLevel(LOG_LEVEL);
     this.serviceName = this.detectServiceName();
     
     // Start write interval (flush every 5 seconds)
