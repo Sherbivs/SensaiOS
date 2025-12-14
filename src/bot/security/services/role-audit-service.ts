@@ -47,6 +47,7 @@ import {
   timingSafeHexCompare,
   sha256,
 } from '../../../shared/crypto/timing-safe.js';
+import { daysAgo } from '../../../shared/utils/date-utils.js';
 
 // Alias functions for semantic clarity
 const computeHmac = (secret: string, data: string): string => generateHmac(data, secret);
@@ -541,7 +542,7 @@ export class RoleAuditService {
       this.prisma.roleChangeAudit.count({
         where: {
           ...where,
-          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          createdAt: { gte: daysAgo(1) },
         },
       }),
 
@@ -549,7 +550,7 @@ export class RoleAuditService {
       this.prisma.roleChangeAudit.count({
         where: {
           ...where,
-          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          createdAt: { gte: daysAgo(7) },
         },
       }),
     ]);

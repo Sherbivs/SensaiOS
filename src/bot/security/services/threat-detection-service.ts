@@ -46,6 +46,7 @@ import {
   ThreatType,
   SecuritySeverity,
 } from '../types/database-models.js';
+import { daysAgo } from '../../../shared/utils/date-utils.js';
 
 // Type assertion for Prisma client with ThreatDetection model
 // NOTE: After running `prisma generate`, this type assertion can be removed.
@@ -651,7 +652,7 @@ export class ThreatDetectionService {
       this.prisma.threatDetection.count({
         where: {
           ...where,
-          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          createdAt: { gte: daysAgo(1) },
         },
       }),
 
@@ -659,7 +660,7 @@ export class ThreatDetectionService {
       this.prisma.threatDetection.count({
         where: {
           ...where,
-          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          createdAt: { gte: daysAgo(7) },
         },
       }),
 

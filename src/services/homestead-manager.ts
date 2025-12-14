@@ -14,6 +14,7 @@ import { Client, Guild, TextChannel, ChannelType, PermissionFlagsBits, User } fr
 import { prisma } from '../shared/prisma.js';
 import { log } from '../utils/logger.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { daysAgo } from '../shared/utils/date-utils.js';
 
 // ============================================================================
 // Configuration
@@ -407,7 +408,7 @@ export class HomesteadChannelManager {
       where: {
         guildId,
         lastAccessedAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          gte: daysAgo(7),
         },
       },
     });
@@ -417,7 +418,7 @@ export class HomesteadChannelManager {
       where: {
         guildId,
         lastAccessedAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          gte: daysAgo(1),
         },
       },
     });
@@ -427,7 +428,7 @@ export class HomesteadChannelManager {
       where: {
         guildId,
         lastAccessedAt: {
-          lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          lt: daysAgo(30),
         },
       },
     });
@@ -437,7 +438,7 @@ export class HomesteadChannelManager {
       where: {
         guildId,
         lastAccessedAt: {
-          lt: new Date(Date.now() - CHANNEL_CLEANUP_DAYS * 24 * 60 * 60 * 1000),
+          lt: daysAgo(CHANNEL_CLEANUP_DAYS),
         },
       },
     });
