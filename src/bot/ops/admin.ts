@@ -5,6 +5,7 @@ import type { BusStatus } from "../../types/db-models.js";
 import { toEasternString } from "../../shared/datetime.js";
 import { formatBytes, formatBytesShort, formatDurationCompact, formatTimestamp } from "../../shared/utils/format-utils.js";
 import { getErrorMessage } from "../../shared/utils/error-utils.js";
+import { ADMIN_USER_IDS } from "../../config/env.js";
 
 import {
   collectCacheMetrics,
@@ -158,12 +159,8 @@ export function isAdmin(interaction: ChatInputCommandInteraction): boolean {
     const member = interaction.member as GuildMember | null;
     if (member && member.permissions?.has?.("Administrator" as any)) return true;
 
-    // 2) Fallback: ADMIN_USER_IDS comma-separated env var
-    const allowList = (process.env.ADMIN_USER_IDS || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (allowList.length && allowList.includes(interaction.user.id)) return true;
+    // 2) Fallback: ADMIN_USER_IDS from centralized config
+    if (ADMIN_USER_IDS.length && ADMIN_USER_IDS.includes(interaction.user.id)) return true;
   } catch {
     // Permission lookup failed; default to non-admin.
   }

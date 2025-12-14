@@ -29,13 +29,14 @@ import http from 'node:http';
 import { HEALTH_CHECK_PATH, HEALTH_CHECK_TIMEOUT_MS } from '../config/engine-db-config.js';
 import { log } from '../utils/logger.js';
 import { ServiceRegistry } from '../shared/service-registry.js';
+import { HEALTH_CHECK_PORT, HEALTH_CHECK_HOST } from '../config/env.js';
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const PORT = parseInt(process.env.HEALTH_CHECK_PORT ?? '3000', 10);
-const HOST = process.env.HEALTH_CHECK_HOST ?? '0.0.0.0';
+const PORT = HEALTH_CHECK_PORT;
+const HOST = HEALTH_CHECK_HOST;
 
 // ============================================================================
 // Health Server State

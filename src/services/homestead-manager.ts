@@ -15,14 +15,13 @@ import { prisma } from '../shared/prisma.js';
 import { log } from '../utils/logger.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { daysAgo } from '../shared/utils/date-utils.js';
+import { HOMESTEAD_CATEGORY_NAME, HOMESTEAD_CLEANUP_DAYS } from '../config/env.js';
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const HOMESTEAD_CATEGORY_NAME = process.env.HOMESTEAD_CATEGORY_NAME || 'Homesteads';
 const HOMESTEAD_CHANNEL_PREFIX = 'homestead-';
-const CHANNEL_CLEANUP_DAYS = parseInt(process.env.HOMESTEAD_CLEANUP_DAYS || '90', 10);
 
 // ============================================================================
 // Types
@@ -279,7 +278,7 @@ export class HomesteadChannelManager {
    * @param daysInactive Number of days since last access
    * @returns Number of channels cleaned up
    */
-  async cleanupInactiveChannels(daysInactive: number = CHANNEL_CLEANUP_DAYS): Promise<number> {
+  async cleanupInactiveChannels(daysInactive: number = HOMESTEAD_CLEANUP_DAYS): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysInactive);
 
@@ -438,7 +437,7 @@ export class HomesteadChannelManager {
       where: {
         guildId,
         lastAccessedAt: {
-          lt: daysAgo(CHANNEL_CLEANUP_DAYS),
+          lt: daysAgo(HOMESTEAD_CLEANUP_DAYS),
         },
       },
     });
@@ -451,7 +450,7 @@ export class HomesteadChannelManager {
       recentlyActive,
       inactive,
       needingCleanup,
-      cleanupDays: CHANNEL_CLEANUP_DAYS,
+      cleanupDays: HOMESTEAD_CLEANUP_DAYS,
       timestamp: new Date().toISOString(),
     };
   }

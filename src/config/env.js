@@ -187,6 +187,29 @@ const STANDARD_ALL_PERMS_ROLES = new Set(toList(process.env.STANDARD_ALL_PERMS_R
 
 const DEX_V2_ENABLED = toBool(process.env.DEX_V2_ENABLED);
 
+// Logging configuration (centralized)
+const LOG_LEVEL = (process.env.LOG_LEVEL || 'info').toLowerCase();
+const LOG_FORMAT = (process.env.LOG_FORMAT || 'both').toLowerCase();
+const SERVICE_NAME = (process.env.SERVICE_NAME || process.env.RENDER_SERVICE_NAME || 'infinity-gauntlet').trim();
+
+// Health check server
+const HEALTH_CHECK_PORT = toNumber(process.env.HEALTH_CHECK_PORT, 3000);
+const HEALTH_CHECK_HOST = (process.env.HEALTH_CHECK_HOST || '0.0.0.0').trim();
+const HEALTH_CHECK_TIMEOUT_MS = toNumber(process.env.HEALTH_CHECK_TIMEOUT_MS, 5000);
+
+// Resource monitoring
+const RESOURCE_MONITOR_INTERVAL_MS = toNumber(process.env.RESOURCE_MONITOR_INTERVAL_MS, 43200000); // 12 hours default
+
+// Homestead channel configuration
+const HOMESTEAD_CATEGORY_NAME = (process.env.HOMESTEAD_CATEGORY_NAME || 'Homesteads').trim();
+const HOMESTEAD_CLEANUP_DAYS = toNumber(process.env.HOMESTEAD_CLEANUP_DAYS, 90);
+const HOMESTEAD_CHECK_INTERVAL_MS = toNumber(process.env.HOMESTEAD_CHECK_INTERVAL_MS, 1000);
+const HOMESTEAD_MIN_RECHECK_MS = toNumber(process.env.HOMESTEAD_MIN_RECHECK_MS, 60 * 60 * 1000); // 1 hour default
+const HOMESTEAD_HMAC_KEY = (process.env.HOMESTEAD_HMAC_KEY || 'dev-hmac-key-change-in-production').trim();
+
+// Admin access control
+const ADMIN_USER_IDS = toList(process.env.ADMIN_USER_IDS);
+
 // Reporting recipients and cadence
 const RESTART_DM_RECIPIENT = (process.env.RESTART_DM_RECIPIENT || 'DripTVDD').trim();
 const SUMMARY_REPORT_RECIPIENT = (process.env.SUMMARY_REPORT_RECIPIENT || RESTART_DM_RECIPIENT).trim();
@@ -244,6 +267,20 @@ export {
   DRIP_ALERT_HOUR,
   DRIP_ALERT_MINUTE,
   DRIP_ALERT_TIMEZONE,
+  // Phase 2.5C: Centralized environment variables (added 2024-12)
+  LOG_LEVEL,
+  LOG_FORMAT,
+  SERVICE_NAME,
+  HEALTH_CHECK_PORT,
+  HEALTH_CHECK_HOST,
+  HEALTH_CHECK_TIMEOUT_MS,
+  RESOURCE_MONITOR_INTERVAL_MS,
+  HOMESTEAD_CATEGORY_NAME,
+  HOMESTEAD_CLEANUP_DAYS,
+  HOMESTEAD_CHECK_INTERVAL_MS,
+  HOMESTEAD_MIN_RECHECK_MS,
+  HOMESTEAD_HMAC_KEY,
+  ADMIN_USER_IDS,
 };
 
 export default {
@@ -293,4 +330,18 @@ export default {
   DRIP_ALERT_HOUR,
   DRIP_ALERT_MINUTE,
   DRIP_ALERT_TIMEZONE,
+  // Phase 2.5C: Centralized environment variables (added 2024-12)
+  LOG_LEVEL,
+  LOG_FORMAT,
+  SERVICE_NAME,
+  HEALTH_CHECK_PORT,
+  HEALTH_CHECK_HOST,
+  HEALTH_CHECK_TIMEOUT_MS,
+  RESOURCE_MONITOR_INTERVAL_MS,
+  HOMESTEAD_CATEGORY_NAME,
+  HOMESTEAD_CLEANUP_DAYS,
+  HOMESTEAD_CHECK_INTERVAL_MS,
+  HOMESTEAD_MIN_RECHECK_MS,
+  HOMESTEAD_HMAC_KEY,
+  ADMIN_USER_IDS,
 };

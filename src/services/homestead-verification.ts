@@ -30,6 +30,7 @@ import { createHmac } from 'crypto';
 import type { User, HomesteadChannel } from '../generated/prisma/client.js';
 import { ImmutableAuditService } from '../bot/security/services/immutable-audit-service.js';
 import { EventBus } from '../shared/event-bus.js';
+import { HOMESTEAD_HMAC_KEY } from '../config/env.js';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -99,7 +100,7 @@ export class HomesteadVerificationService {
     auditService?: ImmutableAuditService
   ) {
     // Use environment variable or default (for development only)
-    this.hmacKey = hmacKey || process.env.HOMESTEAD_HMAC_KEY || 'dev-hmac-key-change-in-production';
+    this.hmacKey = hmacKey || HOMESTEAD_HMAC_KEY;
     
     if (this.hmacKey === 'dev-hmac-key-change-in-production' && process.env.NODE_ENV === 'production') {
       throw new Error('HOMESTEAD_HMAC_KEY environment variable required in production');

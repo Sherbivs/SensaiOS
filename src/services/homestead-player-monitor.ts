@@ -28,6 +28,7 @@ import { prisma } from '../shared/prisma.js';
 import { log } from '../utils/logger.js';
 import { HomesteadChannelManager } from './homestead-manager.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { HOMESTEAD_CHECK_INTERVAL_MS, HOMESTEAD_MIN_RECHECK_MS } from '../config/env.js';
 
 // ============================================================================
 // Configuration
@@ -38,16 +39,13 @@ import { getErrorMessage } from '../shared/utils/error-utils.js';
  * 1000ms = 1 player/second = 3600 players/hour
  * Adjust based on player count and Discord API limits
  */
-const CHECK_INTERVAL_MS = parseInt(process.env.HOMESTEAD_CHECK_INTERVAL_MS || '1000', 10);
+const CHECK_INTERVAL_MS = HOMESTEAD_CHECK_INTERVAL_MS;
 
 /**
  * Minimum time between rechecking the same player (in milliseconds)
  * Default: 1 hour - players won't be rechecked more than once per hour
  */
-const MIN_RECHECK_INTERVAL_MS = parseInt(
-  process.env.HOMESTEAD_MIN_RECHECK_MS || String(60 * 60 * 1000), 
-  10
-);
+const MIN_RECHECK_INTERVAL_MS = HOMESTEAD_MIN_RECHECK_MS;
 
 /**
  * Batch size for fetching players to check

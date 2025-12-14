@@ -33,6 +33,7 @@ import { getErrorMessage } from '../../shared/utils/error-utils.js';
 import logger from '../../utils/intelligent-logger.js';
 import { EventBus } from '../../shared/event-bus.js';
 import type { ResourceStats } from './resource-manager.js';
+import { RESOURCE_MONITOR_INTERVAL_MS } from '../../config/env.js';
 
 // ============================================================================
 // Types
@@ -98,7 +99,7 @@ const MONITOR_CONFIG = {
   // Health check interval: Can be configured via environment
   // Default: 12 hours (twice daily)
   // Optimization phase: 5 minutes (set RESOURCE_MONITOR_INTERVAL_MS=300000)
-  intervalMs: parseInt(process.env.RESOURCE_MONITOR_INTERVAL_MS || '43200000', 10), // 12 hours default
+  intervalMs: RESOURCE_MONITOR_INTERVAL_MS,
   
   // Memory guardian polling: Active memory protection
   // Runs every 30 seconds to catch spikes before OOM
