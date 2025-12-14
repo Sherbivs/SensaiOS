@@ -46,11 +46,14 @@ main_tasks:
 
 # Quick/hot task slot (1 concurrent quick task allowed)
 quick_task:
-  task_id: null
-  reason: "Available for bug fixes, documentation, or hotfixes"
-  files_hint: []
-  priority: 0
-  started_utc: null
+  task_id: META.STRESS_REMEDIATION.REVIEW
+  reason: "Stress Remediation Meeting outcomes - review incomplete investigations and update task priorities"
+  files_hint:
+    - ops/STRESS-REMEDIATION-MEETING-2025-12-13.md
+    - Tasklist.md
+    - Prompt.md
+  priority: 1
+  started_utc: 2025-12-13T00:00:00Z
 
 # Legacy fields (maintained for backward compatibility)
 next_task_id: DB.NORTHSTAR.ANALYTICS
@@ -60,7 +63,7 @@ files_hint:
   - scripts/analytics/refresh_leaderboards.ts
 
 queue: []
-timestamp_utc: 2025-11-21T12:30:00Z
+timestamp_utc: 2025-12-13T00:00:00Z
 router_version: 2
-last_notes_read_utc: 2025-11-21T12:30:00Z
-note: "Updated to multi-task queue system: 3 main tasks + 1 quick/hot task allowed. Currently: 2 main tasks active (DB.NORTHSTAR.ANALYTICS + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION), quick task slot available. MAJOR ARCHITECTURE PIVOT: Migrating from DM-based gameplay to private guild channels (homestead channels). Complete architecture specification created (900+ lines), 6-phase implementation plan, database schema designed. Foundation phase (service + DB) added to queue for parallel work."
+last_notes_read_utc: 2025-12-13T00:00:00Z
+note: "STRESS REMEDIATION MEETING (2025-12-13): Comprehensive review of incomplete investigations completed. Key findings: 1) DB.NORTHSTAR.SERVICES test failures (6/25, mock data alignment), 2) Homestead channels ready for implementation, 3) Prisma migration drift (workaround active), 4) VS Code MSSQL false positives (cosmetic). Meeting document: ops/STRESS-REMEDIATION-MEETING-2025-12-13.md. Immediate actions: Fix NORTHSTAR test failures, complete observability integration. System health: 🟢 HEALTHY - no blocked tasks."
