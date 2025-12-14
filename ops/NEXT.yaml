@@ -22,48 +22,19 @@ guidance_when_none: |
 auto_promote_if_empty: true
 
 # Main task queue (up to 3 concurrent tasks)
-main_tasks:
-  - task_id: DB.NORTHSTAR.ANALYTICS
-    reason: "Analytics jobs + reporting layer - aggregation logic for DAU, species popularity, battle win rates"
-    files_hint:
-      - scripts/analytics/generate_daily_stats.ts
-      - scripts/analytics/refresh_leaderboards.ts
-      - docs/query-optimization-guide.md
-      - data/README.md
-    priority: 1
-    started_utc: 2025-11-13T03:10:00Z
-
-  - task_id: ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION
-    reason: "MAJOR ARCHITECTURE PIVOT: DM-based gameplay → Private guild channels. Foundation phase: service + database schema"
-    files_hint:
-      - src/services/homestead-channel-manager.ts
-      - prisma/schema.prisma
-      - prisma/migrations/*_add_homestead_channel/*
-      - tests/services/homestead-channel-manager.spec.ts
-      - docs/architecture-bible/14-private-channel-architecture.md
-    priority: 2
-    started_utc: 2025-11-21T12:30:00Z
+# CLEARED 2025-12-14: Stale tasks (30+ days old) archived per admin directive
+main_tasks: []
 
 # Quick/hot task slot (1 concurrent quick task allowed)
-quick_task:
-  task_id: META.STRESS_REMEDIATION.REVIEW
-  reason: "Stress Remediation Meeting outcomes - review incomplete investigations and update task priorities"
-  files_hint:
-    - ops/STRESS-REMEDIATION-MEETING-2025-12-13.md
-    - Tasklist.md
-    - Prompt.md
-  priority: 1
-  started_utc: 2025-12-13T00:00:00Z
+quick_task: null
 
 # Legacy fields (maintained for backward compatibility)
-next_task_id: DB.NORTHSTAR.ANALYTICS
-reason: "Primary task: Analytics jobs + reporting layer"
-files_hint:
-  - scripts/analytics/generate_daily_stats.ts
-  - scripts/analytics/refresh_leaderboards.ts
+next_task_id: null
+reason: "Queue cleared - awaiting new task assignment"
+files_hint: []
 
 queue: []
-timestamp_utc: 2025-12-13T00:00:00Z
+timestamp_utc: 2025-12-14T00:00:00Z
 router_version: 2
-last_notes_read_utc: 2025-12-13T00:00:00Z
-note: "STRESS REMEDIATION MEETING (2025-12-13): Comprehensive review of incomplete investigations completed. Key findings: 1) DB.NORTHSTAR.SERVICES test failures (6/25, mock data alignment), 2) Homestead channels ready for implementation, 3) Prisma migration drift (workaround active), 4) VS Code MSSQL false positives (cosmetic). Meeting document: ops/STRESS-REMEDIATION-MEETING-2025-12-13.md. Immediate actions: Fix NORTHSTAR test failures, complete observability integration. System health: 🟢 HEALTHY - no blocked tasks."
+last_notes_read_utc: 2025-12-14T00:00:00Z
+note: "ADMINISTRATIVE CLEANUP (2025-12-14): Cleared stale tasks per admin directive. DB.NORTHSTAR.ANALYTICS (started 2025-11-13, 31 days), HOMESTEAD_CHANNELS.FOUNDATION (started 2025-11-21, 23 days), DB.NORTHSTAR.SERVICES (started 2025-11-08, 36 days) - all archived. Schema alignment completed (c8329208). Build passing. Queue empty - ready for fresh priorities."
