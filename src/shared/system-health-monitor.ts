@@ -15,6 +15,7 @@
 
 import type { PrismaClient } from "../generated/prisma/client.js";
 import { getLogger } from "./logger.js";
+import { getErrorMessage } from "./utils/error-utils.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES & INTERFACES
@@ -487,7 +488,7 @@ async function runHealthChecks(): Promise<HealthCheckResult[]> {
       name: "database",
       status: "fail",
       duration: Date.now() - dbStart,
-      details: error instanceof Error ? error.message : "Unknown error",
+      details: getErrorMessage(error),
     });
   }
   
@@ -603,7 +604,7 @@ export function startHealthMonitor(): void {
   runHealthCycle().catch((err) => {
     const logger = getLogger();
     logger.error("system-health-monitor", "error", "Health cycle failed", {
-      error: { name: "HealthCycleError", message: err instanceof Error ? err.message : String(err) },
+      error: { name: "HealthCycleError", message: getErrorMessage(err) },
     });
   });
   
@@ -611,7 +612,7 @@ export function startHealthMonitor(): void {
     runHealthCycle().catch((err) => {
       const logger = getLogger();
       logger.error("system-health-monitor", "error", "Health cycle failed", {
-        error: { name: "HealthCycleError", message: err instanceof Error ? err.message : String(err) },
+        error: { name: "HealthCycleError", message: getErrorMessage(err) },
       });
     });
   }, config.checkIntervalMs);

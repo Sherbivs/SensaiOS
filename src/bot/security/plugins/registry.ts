@@ -34,6 +34,7 @@ import type {
   ThreatDetectedEvent,
 } from "./types.js";
 import { DEFAULT_PLUGIN_CONFIG, PluginPriority } from "./types.js";
+import { getErrorMessage } from "../../../shared/utils/error-utils.js";
 
 // ============================================================================
 // Plugin Registry Implementation
@@ -192,9 +193,7 @@ export class PluginRegistry extends EventEmitter {
         await plugin.initialize(this.context);
       } catch (error) {
         throw new Error(
-          `Failed to initialize plugin '${id}': ${
-            error instanceof Error ? error.message : String(error)
-          }`
+          `Failed to initialize plugin '${id}': ${getErrorMessage(error)}`
         );
       }
     }
@@ -321,8 +320,7 @@ export class PluginRegistry extends EventEmitter {
         } catch (error) {
           errors.push({
             filePath,
-            message:
-              error instanceof Error ? error.message : "Unknown error",
+            message: getErrorMessage(error),
             code: "STAT_ERROR",
           });
         }
@@ -330,10 +328,7 @@ export class PluginRegistry extends EventEmitter {
     } catch (error) {
       errors.push({
         filePath: pluginDir,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to read plugin directory",
+        message: getErrorMessage(error),
         code: "READDIR_ERROR",
       });
     }
@@ -391,9 +386,7 @@ export class PluginRegistry extends EventEmitter {
       await this.register(plugin, filePath);
     } catch (error) {
       throw new Error(
-        `Failed to load plugin from ${filePath}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
+        `Failed to load plugin from ${filePath}: ${getErrorMessage(error)}`
       );
     }
   }

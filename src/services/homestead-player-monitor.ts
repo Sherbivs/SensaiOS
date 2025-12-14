@@ -27,6 +27,7 @@ import { Client } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
 import { log } from '../utils/logger.js';
 import { HomesteadChannelManager } from './homestead-manager.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 // ============================================================================
 // Configuration
@@ -327,7 +328,7 @@ export class HomesteadPlayerMonitor {
     } catch (error) {
       log.error('[HomesteadMonitor] Check cycle error', {
         guildId: this.guildId,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       this.stats.consecutiveErrors++;
     }
@@ -414,14 +415,14 @@ export class HomesteadPlayerMonitor {
         log.error('[HomesteadMonitor] Failed to recreate channel', {
           userId,
           discordId: homestead.user.discordId,
-          error: recreateError instanceof Error ? recreateError.message : String(recreateError),
+          error: getErrorMessage(recreateError),
         });
         
         return {
           userId,
           discordId: homestead.user.discordId,
           status: 'error',
-          details: `Recreation failed: ${recreateError instanceof Error ? recreateError.message : String(recreateError)}`,
+          details: `Recreation failed: ${getErrorMessage(recreateError)}`,
         };
       }
       
@@ -430,7 +431,7 @@ export class HomesteadPlayerMonitor {
         userId,
         discordId: 'unknown',
         status: 'error',
-        details: error instanceof Error ? error.message : String(error),
+        details: getErrorMessage(error),
       };
     }
   }

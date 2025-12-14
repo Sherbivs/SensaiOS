@@ -13,6 +13,7 @@
 import { Client, Guild, TextChannel, ChannelType, PermissionFlagsBits, User } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
 import { log } from '../utils/logger.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 // ============================================================================
 // Configuration
@@ -157,7 +158,7 @@ export class HomesteadChannelManager {
       // Channel not found or permission error
       log.warn('[HomesteadManager] Channel verification failed', {
         channelId,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return null;
     }
@@ -316,7 +317,7 @@ export class HomesteadChannelManager {
       } catch (error) {
         log.error('[HomesteadManager] Failed to clean up channel', {
           homesteadId: homestead.id,
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
       }
     }
@@ -384,7 +385,7 @@ export class HomesteadChannelManager {
       log.error('[HomesteadManager] Failed to delete homestead', {
         userId,
         guildId,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return false;
     }
@@ -531,7 +532,7 @@ export class HomesteadChannelManager {
           log.info('[HomesteadManager] Suspended homestead', { userId, guildId, reason });
         }
       } catch (error) {
-        errors.push(`Failed to suspend ${userId}: ${error instanceof Error ? error.message : String(error)}`);
+        errors.push(`Failed to suspend ${userId}: ${getErrorMessage(error)}`);
       }
     }
 
@@ -553,7 +554,7 @@ export class HomesteadChannelManager {
           deleted++;
         }
       } catch (error) {
-        errors.push(`Failed to delete ${userId}: ${error instanceof Error ? error.message : String(error)}`);
+        errors.push(`Failed to delete ${userId}: ${getErrorMessage(error)}`);
       }
     }
 

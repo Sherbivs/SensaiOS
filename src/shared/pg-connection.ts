@@ -321,20 +321,10 @@ export async function initializeConnection(): Promise<void> {
   connection = new PostgresConnection();
   await connection.initialize(dbConfig);
 
-  // Register shutdown handlers
-  process.on('SIGTERM', async () => {
-    log.info('');
-    log.info('[SIGNAL] SIGTERM received');
-    await connection?.shutdown();
-    process.exit(0);
-  });
-
-  process.on('SIGINT', async () => {
-    log.info('');
-    log.info('[SIGNAL] SIGINT received');
-    await connection?.shutdown();
-    process.exit(0);
-  });
+  // NOTE: Signal handlers removed - pg-connection shutdown is handled by ServiceRegistry
+  // via the centralized shutdown sequence in src/shared/service-registry.ts.
+  // If pg-connection needs cleanup, call getConnection().shutdown() directly or
+  // register it as a service in service-factories.ts.
 }
 
 /**

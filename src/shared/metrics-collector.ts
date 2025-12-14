@@ -19,6 +19,8 @@
  * @module shared/metrics-collector
  */
 
+import { getErrorMessage } from './utils/error-utils.js';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -148,7 +150,7 @@ async function collectWorkerMetrics(
 
     return await Promise.race([collectionPromise, timeoutPromise]);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = getErrorMessage(error);
     return {
       workerId,
       workerName: workerId,
@@ -225,7 +227,7 @@ async function collectAndStoreMetrics(): Promise<void> {
           });
         } catch (insertError) {
           // Log but don't fail entire collection
-          const msg = insertError instanceof Error ? insertError.message : String(insertError);
+          const msg = getErrorMessage(insertError);
           console.error(`[MetricsCollector] Failed to store metrics for ${metrics.workerId}:`, msg);
         }
       }
@@ -240,7 +242,7 @@ async function collectAndStoreMetrics(): Promise<void> {
     }
   } catch (error) {
     errorCount++;
-    lastError = error instanceof Error ? error.message : String(error);
+    lastError = getErrorMessage(error);
     console.error('[MetricsCollector] Collection failed:', lastError);
   } finally {
     isCollecting = false;

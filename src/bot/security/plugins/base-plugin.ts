@@ -21,6 +21,7 @@ import type {
 } from "./types.js";
 
 import { IntelligentLogger } from "../../../utils/intelligent-logger.js";
+import { getErrorMessage } from "../../../shared/utils/error-utils.js";
 
 // Centralized logger instance for all security plugins
 const pluginLogger = new IntelligentLogger();
@@ -194,7 +195,7 @@ export abstract class BaseSecurityPlugin implements SecurityPlugin {
       executionTimeMs?: number;
     } = {}
   ): PluginResponse {
-    const errorMessage = error instanceof Error ? error.message : error;
+    const errorMessage = getErrorMessage(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
 
     return {

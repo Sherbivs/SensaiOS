@@ -977,13 +977,8 @@ export { IntelligentLogger };
 // Export singleton instance for normal use
 export const logger = new IntelligentLogger();
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  await logger.shutdown();
-});
-
-process.on('SIGINT', async () => {
-  await logger.shutdown();
-});
+// NOTE: Signal handlers removed - logger shutdown is handled by ServiceRegistry
+// via the centralized shutdown sequence in src/shared/service-registry.ts.
+// The logger's shutdown() method can be called directly if needed.
 
 export default logger;

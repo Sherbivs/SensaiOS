@@ -31,6 +31,7 @@ import { initConsoleRenderer, startConsoleRenderer, stopConsoleRenderer, getRend
 import { startMetricsCollection, stopMetricsCollection, getCollectionStats, forceCollect, setCollectionInterval, type CollectionStats } from "./metrics-collector.js";
 import { initLogAggregator, runAggregation, getAggregatorConfig, type AggregationStats } from "./log-aggregator.js";
 import { initHealthMonitor, startHealthMonitor, stopHealthMonitor, getSystemHealth, getMonitorConfig, type SystemHealth } from "./system-health-monitor.js";
+import { getErrorMessage } from "./utils/error-utils.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -251,7 +252,7 @@ export function startObservability(): void {
         logger.error("observability", "aggregation", "Aggregation failed", {
           error: {
             name: "AggregationError",
-            message: err instanceof Error ? err.message : String(err),
+            message: getErrorMessage(err),
           },
         });
       }

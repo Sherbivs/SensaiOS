@@ -34,6 +34,7 @@ import { HomesteadVerificationService } from '../services/homestead-verification
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import type { IntegrityReport } from '../services/homestead-verification.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 // ============================================================================
 // CONFIGURATION
@@ -148,7 +149,7 @@ async function cleanupOldReports(): Promise<void> {
       }
     }
   } catch (err) {
-    process.stderr.write(`[HomesteadIntegrity] Cleanup error: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.stderr.write(`[HomesteadIntegrity] Cleanup error: ${getErrorMessage(err)}\n`);
   }
 }
 
@@ -216,7 +217,7 @@ export async function runHomesteadIntegrityCheck(client: Client): Promise<void> 
         // Log guild-specific error but continue checking other guilds
         process.stderr.write(
           `[HomesteadIntegrity] Error checking guild ${guildId}: ` +
-          `${guildErr instanceof Error ? guildErr.message : String(guildErr)}\n`
+          `${getErrorMessage(guildErr)}\n`
         );
       }
     }
@@ -235,7 +236,7 @@ export async function runHomesteadIntegrityCheck(client: Client): Promise<void> 
 
   } catch (err) {
     process.stderr.write(
-      `[HomesteadIntegrity] Fatal error: ${err instanceof Error ? err.message : String(err)}\n`
+      `[HomesteadIntegrity] Fatal error: ${getErrorMessage(err)}\n`
     );
     throw err;
   }
@@ -280,7 +281,7 @@ async function main(): Promise<void> {
 
   } catch (err) {
     process.stderr.write(
-      `[HomesteadIntegrity] Worker failed: ${err instanceof Error ? err.message : String(err)}\n`
+      `[HomesteadIntegrity] Worker failed: ${getErrorMessage(err)}\n`
     );
     await client.destroy();
     process.exit(1);

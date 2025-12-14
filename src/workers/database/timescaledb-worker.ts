@@ -39,6 +39,7 @@ import type {
 } from './types.js';
 import { BaseDatabaseWorker } from './base-worker.js';
 import { HybridWriteBufferStrategy } from './strategies.js';
+import { getErrorMessage } from '../../shared/utils/error-utils.js';
 
 // ============================================================================
 // Type Definitions
@@ -213,7 +214,7 @@ export class TimescaleDBWorker
       await this.flush();
     } catch (error) {
       this.log(
-        `Background flush failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Background flush failed: ${getErrorMessage(error)}`,
         'error'
       );
     }

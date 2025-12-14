@@ -52,7 +52,14 @@ export {
   toDateOrNow,
   startOfUtcDay,
   diffInUtcDays,
-  cloneDate
+  cloneDate,
+  daysAgo,
+  hoursAgo,
+  minutesAgo,
+  daysFromNow,
+  hoursFromNow,
+  isOlderThanDays,
+  isOlderThanHours,
 } from './date-utils.js';
 
 // File Utilities
