@@ -13,12 +13,12 @@
 |----------|--------|-----------|-------------|----------|
 | **ButtonBuilder** | ✅ **SINGULARITY** | 8 | `button-utils.ts` | DONE |
 | **HomesteadChannel Queries** | ✅ **BOUNDED** | 25 | 4 services + tests | DONE |
-| **EmbedBuilder** | ⚠️ **DISTRIBUTED** | 16 | 10 files | Medium |
-| **Embed Colors** | ✅ **CENTRALIZED** | 1 exception | `home.js` hardcoded | Low |
-| **Date.now() Patterns** | ⚠️ **DISTRIBUTED** | 100+ | Widespread | Medium |
+| **EmbedBuilder** | ✅ **SINGULARITY** | 13+4 | `embed-builders.ts` | DONE |
+| **Embed Colors** | ✅ **CENTRALIZED** | All | `embed-colors.ts` | DONE |
+| **Date.now() Patterns** | ⚠️ **DISTRIBUTED** | 100+ | Widespread | Sprint 2 |
 | **Environment Config** | ✅ **CENTRALIZED** | 100+ refs | `env.js` canonical | DONE |
-| **interaction.reply()** | ⚠️ **DISTRIBUTED** | 100+ | Commands/handlers | Low |
-| **Error Handling (catch)** | ⚠️ **DISTRIBUTED** | 150+ | Widespread | Medium |
+| **interaction.reply()** | ⚠️ **DISTRIBUTED** | 100+ | Commands/handlers | Sprint 3 |
+| **Error Handling (catch)** | ⚠️ **DISTRIBUTED** | 150+ | Widespread | Sprint 4 |
 
 ---
 
@@ -82,42 +82,57 @@ HomesteadRepository.findStaleChannels(maxAgeHours)
 
 ---
 
-## Category 3: EmbedBuilder — ⚠️ DISTRIBUTED
+## Category 3: EmbedBuilder — ✅ SINGULARITY ACHIEVED (Sprint 1)
 
-### Current Distribution (16 instances in src/)
-```
-src/bot/homestead/open-starter-selection.ts: 4
-src/bot/homestead/home.ts: 3
-src/services/monitoring/error-alerting-service.ts: 2
-src/bot/wilds/controls.ts: 1
-src/bot/homestead/starters.ts: 1
-src/bot/battle/actions.ts: 1
-src/bot/battle/challenge.ts: 1
-src/commands/home.js: 1
-src/services/player-checkpoint.ts: 1
-src/bot/profile/embed.ts: 1
-```
+### Sprint 1 Complete (December 15, 2025)
+**Canonical Location:** `src/bot/shared/embed-builders.ts`  
+**Factory Functions:** 13 domain-specific builders  
+**Lines of Code:** 530+  
 
-### Recommendation: Phase 2 Migration
-Create domain-specific embed builders in `src/bot/shared/embed-builders.ts`:
+### Migration Results
+| Metric | Before | After |
+|--------|--------|-------|
+| **Total instances** | 16 | 4 (bounded) |
+| **Files with EmbedBuilder** | 10 | 3 |
+| **Canonical factories** | 0 | 13 |
+| **Colors standardized** | partial | 100% |
 
-```typescript
-// Proposed API
-export function homeEmbed(trainer: TrainerData): EmbedBuilder;
-export function starterEmbed(starters: StarterOption[]): EmbedBuilder;
-export function battleEmbed(battle: BattleState): EmbedBuilder;
-export function encounterEmbed(encounter: EncounterData): EmbedBuilder;
-export function profileEmbed(profile: ProfileData): EmbedBuilder;
-export function errorEmbed(message: string): EmbedBuilder;
-```
+### Available Factory Functions
+| Function | Domain | Migrated From |
+|----------|--------|---------------|
+| `homeEmbed()` | Home | home.js |
+| `starterWelcomeEmbed()` | Starter | open-starter-selection.ts |
+| `starterErrorEmbed()` | Starter | open-starter-selection.ts |
+| `starterConfirmationEmbed()` | Starter | open-starter-selection.ts |
+| `starterRulesEmbed()` | Starter | open-starter-selection.ts |
+| `starterSelectEmbed()` | Starter | starters.ts |
+| `battleChallengeEmbed()` | Battle | challenge.ts |
+| `battleActionEmbed()` | Battle | actions.ts |
+| `encounterEmbed()` | Wilds | controls.ts |
+| `criticalAlertEmbed()` | System | error-alerting-service.ts |
+| `batchedAlertEmbed()` | System | error-alerting-service.ts |
+| `errorEmbed()` | Utility | NEW |
+| `successEmbed()` | Utility | NEW |
+| `infoEmbed()` | Utility | NEW |
+| `warningEmbed()` | Utility | NEW |
 
-**Priority:** Medium  
-**Effort:** 4-6 hours  
-**Dependencies:** None
+### Bounded Instances (Intentional)
+| File | Count | Reason |
+|------|-------|--------|
+| `home.ts` | 3 | Complex view builders (party/box/profile nav) |
+| `player-checkpoint.ts` | 1 | Recovery embed with many conditional fields |
+
+These use `EMBED_COLORS` constants and follow established patterns.
+
+### New Colors Added to embed-colors.ts
+- `HOME: 0x35a7ff` — Home/menu embeds
+- `SHINY: 0xffd700` — Shiny encounters
+- `ENCOUNTER: 0x009688` — Wild Pokemon
+- `PROFILE: 0x00bcd4` — Profile display
 
 ---
 
-## Category 4: Embed Colors — ✅ CENTRALIZED (1 exception)
+## Category 4: Embed Colors — ✅ CENTRALIZED (Fixed)
 
 ### Centralized System
 ```typescript
