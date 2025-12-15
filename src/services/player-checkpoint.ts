@@ -22,6 +22,7 @@ import {
   resolveDiscordUser, 
   hasDiscordIdentity,
 } from './discord-identity.js';
+import { hoursAgo } from '../shared/utils/date-utils.js';
 
 // ============================================================================
 // Types & Interfaces
@@ -612,7 +613,7 @@ export class PlayerCheckpointService {
         ],
         state: 'Active',
         startedAt: {
-          lt: new Date(Date.now() - 60 * 60 * 1000) // Older than 1 hour
+          lt: hoursAgo(1) // Older than 1 hour
         }
       }
     });

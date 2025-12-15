@@ -35,6 +35,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import type { IntegrityReport } from '../services/homestead-verification.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { daysAgo } from '../shared/utils/date-utils.js';
 
 // ============================================================================
 // CONFIGURATION
@@ -135,7 +136,7 @@ async function saveIntegrityReport(report: IntegrityReport): Promise<string> {
 async function cleanupOldReports(): Promise<void> {
   try {
     const files = await fs.readdir(INTEGRITY_REPORT_DIR);
-    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    const cutoffTime = daysAgo(30).getTime();
 
     for (const file of files) {
       if (!file.endsWith('.json')) continue;
@@ -143,7 +144,7 @@ async function cleanupOldReports(): Promise<void> {
       const filepath = join(INTEGRITY_REPORT_DIR, file);
       const stats = await fs.stat(filepath);
 
-      if (stats.mtimeMs < thirtyDaysAgo) {
+      if (stats.mtimeMs < cutoffTime) {
         await fs.unlink(filepath);
         process.stdout.write(`[HomesteadIntegrity] Deleted old report: ${file}\n`);
       }

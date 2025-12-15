@@ -16,6 +16,7 @@
 import type { PrismaClient } from "../generated/prisma/client.js";
 import { getLogger } from "./logger.js";
 import { getErrorMessage } from "./utils/error-utils.js";
+import { minutesAgo } from "./utils/date-utils.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES & INTERFACES
@@ -338,7 +339,7 @@ async function collectComponentMetrics(component: string, windowMinutes: number 
 async function getActiveComponents(): Promise<string[]> {
   if (!prisma) return [];
   
-  const since = new Date(Date.now() - 5 * 60 * 1000); // Last 5 minutes
+  const since = minutesAgo(5); // Last 5 minutes
   
   try {
     const components = await prisma.$queryRaw<Array<{ component: string }>>`

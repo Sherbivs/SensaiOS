@@ -15,6 +15,8 @@
  * @see ADR-002-event-sourcing.md for event sourcing integration
  */
 
+import { daysAgo, hoursAgo } from '../../../shared/utils/date-utils.js';
+
 // ============================================================================
 // Types and Interfaces
 // ============================================================================
@@ -657,7 +659,7 @@ WITH NO DATA;
     }
 
     const startTime = Date.now();
-    const start = windowStart ?? new Date(Date.now() - 24 * 60 * 60 * 1000); // Default: last 24 hours
+    const start = windowStart ?? hoursAgo(24); // Default: last 24 hours
     const end = windowEnd ?? new Date();
 
     this.log('info', `Refreshing aggregate: ${aggregateName} [${start.toISOString()} - ${end.toISOString()}]`);
@@ -1068,7 +1070,7 @@ WHERE bucket >= '${from.toISOString()}' AND bucket <= '${to.toISOString()}'
       totalRows,
       sizeBytes,
       sizeHuman,
-      oldestData: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+      oldestData: daysAgo(30), // 30 days ago
       newestData: new Date(),
       lastRefresh,
       avgQueryTimeMs,

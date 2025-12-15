@@ -3,7 +3,7 @@
 **Audit Type:** Comprehensive Code Duplication Analysis  
 **Scope:** Full Application (`src/`, `tests/`, `tools/`)  
 **Lead:** Architectural Specialist + DevOps Sr. Lead  
-**Status:** Phase 1 Complete (Ongoing Project)
+**Status:** Sprint 2 Complete (Ongoing Project)
 
 ---
 
@@ -15,7 +15,7 @@
 | **HomesteadChannel Queries** | ✅ **BOUNDED** | 25 | 4 services + tests | DONE |
 | **EmbedBuilder** | ✅ **SINGULARITY** | 13+4 | `embed-builders.ts` | DONE |
 | **Embed Colors** | ✅ **CENTRALIZED** | All | `embed-colors.ts` | DONE |
-| **Date.now() Patterns** | ⚠️ **DISTRIBUTED** | 100+ | Widespread | Sprint 2 |
+| **Date.now() Patterns** | ✅ **SINGULARITY** | 9 migrated | `date-utils.ts` | DONE |
 | **Environment Config** | ✅ **CENTRALIZED** | 100+ refs | `env.js` canonical | DONE |
 | **interaction.reply()** | ⚠️ **DISTRIBUTED** | 100+ | Commands/handlers | Sprint 3 |
 | **Error Handling (catch)** | ⚠️ **DISTRIBUTED** | 150+ | Widespread | Sprint 4 |
@@ -170,34 +170,50 @@ import { EMBED_COLORS } from '../bot/shared/embed-colors.js';
 
 ---
 
-## Category 5: Date.now() Patterns — ⚠️ DISTRIBUTED
+## Category 5: Date.now() Patterns — ✅ SINGULARITY ACHIEVED (Sprint 2)
 
-### Current State
-**100+ instances** across the codebase, including:
-- Performance timing (`const startTime = Date.now()`)
-- Relative date calculations (`new Date(Date.now() - X * 24 * 60 * 60 * 1000)`)
-- ID generation (`${Date.now()}_${randomId}`)
-- Cache timestamps
+### Sprint 2 Complete (December 15, 2025)
+**Canonical Location:** `src/shared/utils/date-utils.ts` (already existed!)  
+**Format Utilities:** `src/shared/utils/format-utils.ts`  
 
-### Utilities Already Created (ops/DUPLICATION-REPORT.md)
+### Discovery: Utilities Already Existed!
+The canonical utilities were already created but not fully adopted:
 ```typescript
-// src/shared/utils/time.ts (proposed)
-export const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-export const hoursAgo = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000);
-export const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60 * 1000);
-export const formatDuration = (ms: number) => { /* ... */ };
-export const measure = <T>(fn: () => T): { result: T; durationMs: number };
+// src/shared/utils/date-utils.ts (EXISTING)
+export function daysAgo(days: number): Date;
+export function hoursAgo(hours: number): Date;
+export function minutesAgo(minutes: number): Date;
+export function daysFromNow(days: number): Date;
+export function hoursFromNow(hours: number): Date;
+export function isOlderThanDays(date: Date, days: number): boolean;
+export function isOlderThanHours(date: Date, hours: number): boolean;
 ```
 
-### DevOps Recommendation
-**Phase 3 Project:** Create centralized time utilities and migrate progressively:
-1. Week 1: Create `src/shared/utils/time.ts` with comprehensive API
-2. Week 2: Migrate services (`homestead-*`, `resource-monitor`, `health-server`)
-3. Week 3: Migrate tests
-4. Week 4: Migrate tools
+### Migration Results
+| Metric | Before | After |
+|--------|--------|-------|
+| **Inline date math patterns** | 9 | 0 |
+| **Files migrated** | 6 | 6 |
+| **Functions adopted** | partial | 100% |
 
-**Priority:** Medium  
-**Effort:** 8-12 hours (incremental)
+### Files Migrated
+| File | Instances | Migration |
+|------|-----------|-----------|
+| `continuous-aggregates-service.ts` | 2 | `daysAgo(30)`, `hoursAgo(24)` |
+| `test-isolation-service.ts` | 3 | `daysAgo(30)` x3 |
+| `system-health-monitor.ts` | 1 | `minutesAgo(5)` |
+| `player-checkpoint.ts` | 1 | `hoursAgo(1)` |
+| `role-audit-service.ts` | 1 | `minutesAgo(5)` |
+| `homestead-integrity.ts` | 1 | `daysAgo(30)` |
+
+### Remaining Patterns (Intentional Boundaries)
+The remaining `Date.now()` patterns fall into categories that DON'T need migration:
+- **Performance timing:** `startTime = Date.now()` (direct subtraction is clearer)
+- **Timestamps:** `new Date()` for current time
+- **ID generation:** Unique identifiers with Date.now()
+
+### DevOps Recommendation
+**NO FURTHER ACTION NEEDED** — All date-based cutoff/threshold calculations now use canonical utilities.
 
 ---
 

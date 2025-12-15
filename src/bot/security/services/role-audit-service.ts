@@ -47,7 +47,7 @@ import {
   timingSafeHexCompare,
   sha256,
 } from '../../../shared/crypto/timing-safe.js';
-import { daysAgo } from '../../../shared/utils/date-utils.js';
+import { daysAgo, minutesAgo } from '../../../shared/utils/date-utils.js';
 
 // Alias functions for semantic clarity
 const computeHmac = (secret: string, data: string): string => generateHmac(data, secret);
@@ -448,10 +448,9 @@ export class RoleAuditService {
     metadata?: { isUnauthorized?: boolean; changeType?: RoleChangeType }
   ): Promise<AnomalyResult> {
     // Check for rapid role changes
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const recentChanges = await this.queryAudits({
       memberId,
-      after: fiveMinutesAgo,
+      after: minutesAgo(5),
       limit: 10,
     });
 

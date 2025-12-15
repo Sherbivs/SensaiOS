@@ -25,6 +25,7 @@
 import * as crypto from 'crypto';
 import type { PrismaClient } from '../../../generated/prisma/client.js';
 import { SecuritySeverity, ThreatType, RoleChangeType } from '../types/database-models.js';
+import { daysAgo } from '../../../shared/utils/date-utils.js';
 
 // ============================================================================
 // Types & Interfaces
@@ -384,7 +385,7 @@ export class TestIsolationService {
     const guildId = options.guildId ?? this.generateGuildId();
     const eventTypes = options.eventTypes ?? ['ROLE_CHANGE', 'PERMISSION_CHANGE', 'SUSPICIOUS_ACTIVITY', 'LOGIN_ATTEMPT'];
     const dateRange = options.dateRange ?? {
-      start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      start: daysAgo(30),
       end: new Date(),
     };
 
@@ -454,7 +455,7 @@ export class TestIsolationService {
     const changeTypes = options.changeTypes ?? Object.values(RoleChangeType);
     const userIds = options.userIds ?? [this.generateUserId(), this.generateUserId(), this.generateUserId()];
     const dateRange = options.dateRange ?? {
-      start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      start: daysAgo(30),
       end: new Date(),
     };
 
@@ -516,7 +517,7 @@ export class TestIsolationService {
     const threatTypes = options.threatTypes ?? Object.values(ThreatType);
     const includeResolved = options.includeResolved ?? true;
     const dateRange = options.dateRange ?? {
-      start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      start: daysAgo(30),
       end: new Date(),
     };
 
