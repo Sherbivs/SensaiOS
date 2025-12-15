@@ -16,6 +16,7 @@ import { log } from '../utils/logger.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { daysAgo } from '../shared/utils/date-utils.js';
 import { HOMESTEAD_CATEGORY_NAME, HOMESTEAD_CLEANUP_DAYS } from '../config/env.js';
+import { homesteadRepository } from './homestead-repository.js';
 
 // ============================================================================
 // Configuration
@@ -77,9 +78,7 @@ export class HomesteadChannelManager {
     const guildId = this.guild.id;
 
     // Step 1: Check database for existing homestead in THIS guild (multi-guild support)
-    let homesteadRecord = await prisma.homesteadChannel.findFirst({
-      where: { userId, guildId },  // Scoped to this guild for multi-guild support
-    });
+    let homesteadRecord = await homesteadRepository.findByUserAndGuild(userId, guildId);
 
     let channel: TextChannel | null = null;
     let isNew = false;
@@ -338,9 +337,7 @@ export class HomesteadChannelManager {
    */
   async getChannel(userId: string): Promise<TextChannel | null> {
     const guildId = this.guild.id;
-    const homestead = await prisma.homesteadChannel.findFirst({
-      where: { userId, guildId },  // Scoped to this guild
-    });
+    const homestead = await homesteadRepository.findByUserAndGuild(userId, guildId);
 
     if (!homestead) {
       return null;
@@ -354,9 +351,7 @@ export class HomesteadChannelManager {
    */
   async deleteChannel(userId: string): Promise<boolean> {
     const guildId = this.guild.id;
-    const homestead = await prisma.homesteadChannel.findFirst({
-      where: { userId, guildId },  // Scoped to this guild
-    });
+    const homestead = await homesteadRepository.findByUserAndGuild(userId, guildId);
 
     if (!homestead) {
       return false;
@@ -507,9 +502,7 @@ export class HomesteadChannelManager {
 
     for (const userId of userIds) {
       try {
-        const homestead = await prisma.homesteadChannel.findFirst({
-          where: { userId, guildId },
-        });
+        const homestead = await homesteadRepository.findByUserAndGuild(userId, guildId);
 
         if (homestead) {
           // Update status to suspended
