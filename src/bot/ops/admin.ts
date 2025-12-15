@@ -6,6 +6,7 @@ import { toEasternString } from "../../shared/datetime.js";
 import { formatBytes, formatBytesShort, formatDurationCompact, formatTimestamp } from "../../shared/utils/format-utils.js";
 import { getErrorMessage } from "../../shared/utils/error-utils.js";
 import { ADMIN_USER_IDS } from "../../config/env.js";
+import { replyError } from "../shared/response-helpers.js";
 
 import {
   collectCacheMetrics,
@@ -772,7 +773,7 @@ export async function handleOpsCommand(
   deps: OpsCommandDeps = {}
 ) {
   if (!isAdmin(interaction)) {
-    await interaction.reply({ content: "Admin only.", ephemeral: true });
+    await replyError(interaction, "Admin only.");
     return;
   }
 
@@ -1596,7 +1597,7 @@ export async function handleOpsCommand(
     return;
   }
 
-  await interaction.reply({ content: "Unknown /ops command.", ephemeral: true });
+  await replyError(interaction, "Unknown /ops command.");
 }
 
 // Helper function to format time since
