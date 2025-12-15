@@ -5,6 +5,7 @@ import { linkEncounterToThread } from "../../shared/models/encounter-queries-pg.
 import { findCooldownByUserAndKind, createCooldown, updateCooldownReadyAt } from "../../services/home-bundle-pg.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { canStartWalk } from "../middleware/limits.js";
+import { replyError, replyInfo, deferReply, editReply } from "../shared/response-helpers.js";
 
 import { openEncounterDM } from "./controls.js";
 
@@ -27,20 +28,20 @@ async function setCooldown(discordId: string, kind: string, ms: number) {
 
 export async function handleWalk(interaction: ChatInputCommandInteraction) {
   if (!interaction.inGuild()) {
-    await interaction.reply({ content: "Use /walk in a server's #wilds channel.", ephemeral: true });
+    await replyError(interaction, "Use /walk in a server's #wilds channel.");
     return;
   }
 
   const channel = interaction.channel as GuildTextBasedChannel | null;
   if (!channel) {
-    await interaction.reply({ content: "Cannot determine channel.", ephemeral: true });
+    await replyError(interaction, "Cannot determine channel.");
     return;
   }
 
   // Enforce #wilds channel by name (simple heuristic)
   const name = (channel as any).name?.toLowerCase?.() ?? "";
   if (!name.includes("wild")) {
-    await interaction.reply({ content: "Please use /walk in the #wilds channel.", ephemeral: true });
+    await replyError(interaction, "Please use /walk in the #wilds channel.");
     return;
   }
 
@@ -49,19 +50,19 @@ export async function handleWalk(interaction: ChatInputCommandInteraction) {
   const readyAt = await getCooldownReadyAt(interaction.user.id, "walk");
   if (readyAt && readyAt.getTime() > now) {
     const secs = Math.ceil((readyAt.getTime() - now) / 1000);
-    await interaction.reply({ content: `You can /walk again in ${secs}s.`, ephemeral: true });
+    await replyInfo(interaction, `You can /walk again in ${secs}s.`);
     return;
   }
 
   // Limit: one active encounter per user
   const allowed = await canStartWalk(interaction.user.id);
   if (!allowed.ok) {
-    await interaction.reply({ content: "You already have an active encounter. Finish it first.", ephemeral: true });
+    await replyError(interaction, "You already have an active encounter. Finish it first.");
     return;
   }
 
   // Acknowledge early
-  await interaction.deferReply({ ephemeral: true });
+  await deferReply(interaction, true);
 
   // Spawn encounter in DB
   const enc = await spawnEncounterForUser({ discordId: interaction.user.id });
@@ -90,5 +91,5 @@ export async function handleWalk(interaction: ChatInputCommandInteraction) {
   // Set a short cooldown (e.g., 30s) for demo
   await setCooldown(interaction.user.id, "walk", 30_000);
 
-  await interaction.editReply({ content: `Your encounter is live${thread ? ` in thread ${thread.name}` : ''}. Good luck!` });
+  await editReply(interaction, `Your encounter is live${thread ? ` in thread ${thread.name}` : ''}. Good luck!`);
 }

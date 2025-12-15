@@ -10,6 +10,7 @@ import {
 
 import { battleChallengeEmbed } from "../shared/embed-builders.js";
 import { challengeResponseButtons } from "../shared/button-utils.js";
+import { replyError, replySuccess } from "../shared/response-helpers.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 import { createArenaThread, type ArenaThreadContext } from "../arena/thread.js";
 import { canChallengeBattle } from "../middleware/limits.js";
@@ -99,16 +100,13 @@ export async function handleBattleChallengeCommand(
   opts: CommandOpts = {}
 ) {
   if (!interaction.inGuild() || !interaction.channel) {
-    await interaction.reply({
-      content: "Run this command inside a server channel so I can open the Arena thread there.",
-      ephemeral: true,
-    });
+    await replyError(interaction, "Run this command inside a server channel so I can open the Arena thread there.");
     return;
   }
 
   const opponent = interaction.options.getUser("opponent", true);
   if (opponent.id === interaction.user.id) {
-    await interaction.reply({ content: "You cannot challenge yourself.", ephemeral: true });
+    await replyError(interaction, "You cannot challenge yourself.");
     return;
   }
 
@@ -121,7 +119,7 @@ export async function handleBattleChallengeCommand(
         : lim.reason === "OPPONENT_BUSY"
         ? `${opponent.tag} already has an active or pending battle.`
         : "Cannot start this battle right now.";
-    await interaction.reply({ content: msg, ephemeral: true });
+    await replyError(interaction, msg);
     return;
   }
 
@@ -147,17 +145,11 @@ export async function handleBattleChallengeCommand(
     const dm = await opponent.createDM();
     await dm.send({ embeds: [challenge.embed], components: challenge.components });
   } catch {
-    await interaction.reply({
-      content: `Could not deliver the challenge DM to ${opponent.tag}.`,
-      ephemeral: true,
-    });
+    await replyError(interaction, `Could not deliver the challenge DM to ${opponent.tag}.`);
     return;
   }
 
-  await interaction.reply({
-    content: `Challenge sent to ${opponent.tag}. They will receive a DM with Accept/Decline buttons.`,
-    ephemeral: true,
-  });
+  await replySuccess(interaction, `Challenge sent to ${opponent.tag}. They will receive a DM with Accept/Decline buttons.`);
 }
 
 export async function handleBattleChallengeButton(
@@ -171,17 +163,17 @@ export async function handleBattleChallengeButton(
 
   const battle = await loadBattleState(parsed.battleId);
   if (!battle) {
-    await interaction.reply({ content: "This challenge no longer exists.", ephemeral: true });
+    await replyError(interaction, "This challenge no longer exists.");
     return;
   }
 
   if (interaction.user.id !== battle.p2.discordId) {
-    await interaction.reply({ content: "Only the challenged trainer can respond.", ephemeral: true });
+    await replyError(interaction, "Only the challenged trainer can respond.");
     return;
   }
 
   if (battle.state !== "Pending") {
-    await interaction.reply({ content: `This challenge is already ${battle.state}.`, ephemeral: true });
+    await replyError(interaction, `This challenge is already ${battle.state}.`);
     return;
   }
 
@@ -205,10 +197,7 @@ export async function handleBattleChallengeButton(
   }
 
   if (!metadata.challengeChannelId) {
-    await interaction.reply({
-      content: "Unable to create an Arena thread (missing channel).",
-      ephemeral: true,
-    });
+    await replyError(interaction, "Unable to create an Arena thread (missing channel).");
     return;
   }
 
@@ -217,7 +206,7 @@ export async function handleBattleChallengeButton(
     | null;
 
   if (!channel) {
-    await interaction.reply({ content: "Arena channel is unavailable.", ephemeral: true });
+    await replyError(interaction, "Arena channel is unavailable.");
     return;
   }
 
@@ -230,10 +219,7 @@ export async function handleBattleChallengeButton(
   const thread = await creator(channel, arenaCtx);
 
   if (!thread) {
-    await interaction.reply({
-      content: "Failed to create Arena thread. Please try again later.",
-      ephemeral: true,
-    });
+    await replyError(interaction, "Failed to create Arena thread. Please try again later.");
     return;
   }
 
