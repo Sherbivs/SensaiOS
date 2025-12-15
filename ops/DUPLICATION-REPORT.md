@@ -16,11 +16,11 @@
 | Date.now() calculations | 50+ instances | Low | Low | ✅ **DONE** (Phase 1C created, 2.5B migrated) |
 | Signal Handlers | 6 instances | Low | Low | ✅ **DONE** (Phase 2) |
 | Environment Access | 30+ instances | Medium | Low | ✅ **DONE** (Phase 2.5C) |
-| Prisma Queries | 50+ instances | Medium | Medium | ⏳ PENDING |
-| Discord Button Builders | 9 instances | Low | Low | ⏳ PENDING |
+| Prisma Queries | 50+ instances | Medium | Medium | ✅ **PARTIAL** (Phase 2.8 - HomesteadRepository) |
+| Discord Button Builders | 9 instances | Low | Low | ✅ **DONE** (Phase 2.9) |
 | Dual Query Implementations | 6 file pairs | **High** | **High** | ⏳ PENDING (Phase 3) |
 
-**Completion Status:** Phase 1-2.8 Complete (5/8 categories + repository pattern) | Phase 3+ Pending
+**Completion Status:** Phase 1-2.9 Complete (6/8 categories + 3 new abstractions) | Phase 3 Pending
 
 ---
 
@@ -293,9 +293,9 @@ export const hoursAgo = (hours: number) => new Date(Date.now() - hours * 60 * 60
 | Estimated lines of duplication | 2,500+ |
 | Already-existing utilities underused | 3 (`getErrorMessage`, `delay`, config) |
 | High-priority consolidation targets | 2 (query layer, error handling) |
-| **Patterns eliminated (Phase 1-2.8)** | **~170 instances** |
-| **Lines reduced** | **~420 lines** |
-| **New abstractions created** | **2 (date-utils, homestead-repository)** |
+| **Patterns eliminated (Phase 1-2.9)** | **~185 instances** |
+| **Lines reduced** | **~455 lines** |
+| **New abstractions created** | **3 (date-utils, homestead-repository, button-utils)** |
 
 ---
 
@@ -311,13 +311,20 @@ export const hoursAgo = (hours: number) => new Date(Date.now() - hours * 60 * 60
 - Migrated 4 query patterns in `homestead-manager.ts` to use repository
 - Remaining consumers: `homestead-player-monitor.ts` (3), `homestead-verification.ts` (3), `homestead-integrity.ts` (1), `player-checkpoint.ts` (1)
 
+**Phase 2.9: Button Builder Consolidation ✅** (Commit 1f7beebe)
+- Created `src/bot/shared/button-utils.ts` (275 lines)
+- Factory functions: `primaryButton()`, `secondaryButton()`, `dangerButton()`, `activeButton()`, `navButton()`
+- Row builders: `confirmCancelRow()`, `acceptDeclineRow()`, `tripleActionRow()`, `paginationRow()`
+- Domain-specific: `encounterButtons()`, `battleActionButtons()`, `challengeButtons()`, `homeNavButtons()`, `healButtonRow()`
+- Migrated 3 files: `controls.ts`, `actions.ts`, `home.ts`
+- ~35 lines reduced, consistent button styling enforced
+
 **Build Status:** TypeScript compiles clean (0 errors)  
-**Test Status:** 72 files pass, 24 fail (pre-existing issues unrelated to consolidation)  
-**Files Modified (Phase 2.8):** 2 | **New Abstraction Created:** HomesteadRepository (472 lines)
+**Files Modified (Phase 2.9):** 4 | **New Abstraction Created:** button-utils.ts (275 lines)
 
 ---
 
-### 2025-12-14: Phase 2.5A-C & 2.6 Complete
+### 2025-12-14: Phase 2.8 Complete
 
 **Phase 2.5A: EMBED_COLORS Migration ✅** (Commit d14eb327)
 - Migrated 14 embed color instances across 8 files to use `EMBED_COLORS` constant
@@ -386,8 +393,8 @@ export const hoursAgo = (hours: number) => new Date(Date.now() - hours * 60 * 60
 - ✅ EMBED_COLORS migration complete (14 instances migrated)
 - ✅ Date utilities migration complete (12 instances migrated)
 - ✅ Environment config centralization complete (16 exports, 8 files)
-- ⏳ Create HomesteadRepository pattern (10+ query sites)
-- ⏳ Extract common Discord button builders (9 instances)
+- ✅ HomesteadRepository pattern complete (472 lines, 9 queries migrated)
+- ✅ Button builder consolidation complete (275 lines, 3 files migrated)
 
 **Architectural Decision Record (ADR) - Pending:**
 - Document Prisma-first strategy decision
