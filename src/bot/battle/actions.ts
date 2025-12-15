@@ -12,6 +12,7 @@ import {
 
 import { battleActionEmbed } from "../shared/embed-builders.js";
 import { tripleActionRow } from "../shared/button-utils.js";
+import { replyError, followUpEphemeral } from "../shared/response-helpers.js";
 import {
   listLegalMoves,
   listSwitchOptions,
@@ -332,17 +333,17 @@ export async function handleBattleActionButton(
   // Note: loadBattleState still uses Prisma via cache layer - deferred to cache migration task
   const battle = await loadBattleState(parsed.battleId, { prisma: prismaClient });
   if (!battle) {
-    await interaction.reply({ content: "This battle no longer exists.", ephemeral: true });
+    await replyError(interaction, "This battle no longer exists.");
     return;
   }
   if (battle.state !== "Active") {
-    await interaction.reply({ content: `Battle is ${battle.state}.`, ephemeral: true });
+    await replyError(interaction, `Battle is ${battle.state}.`);
     return;
   }
 
   const identified = identifyPlayer(battle, interaction);
   if (!identified) {
-    await interaction.reply({ content: "You are not a participant in this battle.", ephemeral: true });
+    await replyError(interaction, "You are not a participant in this battle.");
     return;
   }
 
@@ -380,7 +381,7 @@ export async function handleBattleActionButton(
 
   const participant = await loadParticipantState(pool, identified.player);
   if (!participant) {
-    await interaction.reply({ content: "No available party members to act.", ephemeral: true });
+    await replyError(interaction, "No available party members to act.");
     return;
   }
 
@@ -393,7 +394,7 @@ export async function handleBattleActionButton(
   if (parsed.kind === "move") {
     const moves = listLegalMoves(battle.id, identified.key);
     if (moves.length === 0) {
-      await interaction.reply({ content: "No moves available for your active Pokémon.", ephemeral: true });
+      await replyError(interaction, "No moves available for your active Pokémon.");
       return;
     }
     const choice = await promptMove({ interaction, battleId: battle.id, active: participant.active, moves });
@@ -417,10 +418,7 @@ export async function handleBattleActionButton(
           moveId: choice,
         },
       });
-      await interaction.followUp({
-        content: "That move can't be used right now.",
-        ephemeral: true,
-      });
+      await followUpEphemeral(interaction, "That move can't be used right now.");
     }
     return;
   }
@@ -428,7 +426,7 @@ export async function handleBattleActionButton(
   if (parsed.kind === "switch") {
     const options = listSwitchOptions(battle.id, identified.key);
     if (options.length === 0) {
-      await interaction.reply({ content: "No healthy Pokémon available to switch in.", ephemeral: true });
+      await replyError(interaction, "No healthy Pokémon available to switch in.");
       return;
     }
     const choice = await promptSwitch({

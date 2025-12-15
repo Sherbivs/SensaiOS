@@ -241,32 +241,54 @@ src/services/*, src/bot/*
 
 ---
 
-## Category 7: interaction.reply() Patterns — ⚠️ DISTRIBUTED
+## Category 7: interaction.reply() Patterns — 🔄 IN PROGRESS (Sprint 3)
 
-### Current State
-**100+ instances** of `interaction.reply()`, `interaction.editReply()`, `interaction.followUp()`
+### Sprint 3 Started (December 15, 2025)
+**Canonical Location:** `src/bot/shared/response-helpers.ts`  
+**Functions Created:** 12 response helpers  
+**Lines of Code:** 350+  
 
-### Pattern Observed
-```typescript
-// Common patterns (scattered across commands)
-await interaction.reply({ content: "Message", ephemeral: true });
-await interaction.editReply({ content: "Updated" });
-await interaction.followUp({ content: "Additional" });
-```
+### Response Helper API
+| Function | Purpose | Pattern Replaced |
+|----------|---------|-----------------|
+| `replyError()` | Ephemeral error text | `{ content, ephemeral: true }` |
+| `replySuccess()` | Ephemeral success text | `{ content, ephemeral: true }` |
+| `replyInfo()` | Ephemeral info text | `{ content, ephemeral: true }` |
+| `replyWithEmbed()` | Embed + components | `{ embeds, components }` |
+| `replyWithEmbeds()` | Multiple embeds | `{ embeds, components }` |
+| `editReply()` | Modify existing reply | `editReply({ content })` |
+| `editReplyWithEmbed()` | Modify with embed | `editReply({ embeds })` |
+| `followUpEphemeral()` | Follow-up message | `followUp({ content, ephemeral })` |
+| `safeReply()` | Handle already-replied | Try reply → fallback edit |
+| `safeReplyWithEmbed()` | Safe embed reply | Try reply → fallback edit |
+| `deferReply()` | Defer for long ops | `deferReply({ ephemeral })` |
+| `deferAndReply()` | Defer + closure | Returns completion function |
 
-### Recommendation: Phase 4 Abstraction
-Consider creating response helpers:
+### Migration Progress
+| File | Patterns | Status |
+|------|----------|--------|
+| `walk.ts` | 5 | ✅ Migrated |
+| `challenge.ts` | 9 | ✅ Migrated |
+| `actions.ts` | 6 | ✅ Migrated |
+| `controls.ts` | 8 | ✅ Migrated |
+| **Total** | **28** | **Migrated** |
+| Remaining | ~27 | Sprint 3 continues |
 
-```typescript
-// src/bot/shared/response-utils.ts (proposed)
-export function ephemeralReply(interaction: RepliableInteraction, content: string);
-export function publicReply(interaction: RepliableInteraction, content: string);
-export function embedReply(interaction: RepliableInteraction, embed: EmbedBuilder);
-export function safeReply(interaction: RepliableInteraction, options: ReplyOptions);
-```
+### Files Remaining for Migration
+- `src/bot/homestead/home.ts` — 3 patterns
+- `src/bot/homestead/heal.ts` — 2 patterns
+- `src/bot/homestead/starters.ts` — 3 patterns
+- `src/bot/daily/claim.ts` — 3 patterns
+- `src/bot/ops/admin.ts` — 2 patterns
+- `src/bot/index.ts` — 8 patterns
+- `src/bot/error-handler.ts` — 2 patterns
+- Other scattered patterns
 
-**Priority:** Low (functional as-is)  
-**Effort:** 6-8 hours
+### DevOps Recommendation
+**CONTINUE SPRINT 3** — Response helpers created and proven. Remaining migration is mechanical (find/replace with semantic helpers).
+
+**Priority:** Medium  
+**Remaining Effort:** 4-6 hours
 
 ---
 

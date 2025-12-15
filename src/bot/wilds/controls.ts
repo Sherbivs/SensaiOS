@@ -8,6 +8,7 @@ import {
 
 import { encounterEmbed } from "../shared/embed-builders.js";
 import { encounterButtons } from "../shared/button-utils.js";
+import { replyError, replyInfo } from "../shared/response-helpers.js";
 import { attemptCatch, runFromEncounter } from "../../core/encounter/catch.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
 import { getPartyWithSlots, updatePartySlotPosition } from "../../shared/models/party-queries-pg.js";
@@ -102,12 +103,12 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
   // Verify encounter belongs to the user
   const enc = await loadEncounter(encounterId);
   if (!enc) {
-    await interaction.reply({ content: "This encounter no longer exists.", ephemeral });
+    await replyError(interaction, "This encounter no longer exists.");
     return;
   }
   const user = await getUserBasic(interaction.user.id);
   if (!user || user.id !== enc.ownerId) {
-    await interaction.reply({ content: "This is not your encounter.", ephemeral });
+    await replyError(interaction, "This is not your encounter.");
     return;
   }
 
@@ -128,14 +129,14 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
     const res = await attemptCatch({ discordId: interaction.user.id, encounterId });
     if (res.ok && res.caught) {
       const messages = composeCatchSuccessMessages(interaction.user.id, res.pokemonId);
-      await interaction.reply({ content: messages.dm, ephemeral });
+      await replyInfo(interaction, messages.dm);
       await notifyThread(messages.thread);
     } else if (res.ok) {
-      await interaction.reply({ content: `Oh no! It broke free. Try again.`, ephemeral });
+      await replyInfo(interaction, `Oh no! It broke free. Try again.`);
       await notifyThread(`Poké Ball shook… and broke! <@${interaction.user.id}> can try again.`);
     } else {
       const reason = res.reason || "error";
-      await interaction.reply({ content: `Cannot throw a ball: ${reason}.`, ephemeral });
+      await replyError(interaction, `Cannot throw a ball: ${reason}.`);
     }
     return;
   }
@@ -143,10 +144,10 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
   if (action === "RUN") {
     const res = await runFromEncounter({ discordId: interaction.user.id, encounterId });
     if (res.ok) {
-      await interaction.reply({ content: `You fled from the encounter.`, ephemeral });
+      await replyInfo(interaction, `You fled from the encounter.`);
       await notifyThread(`<@${interaction.user.id}> fled from the encounter.`);
     } else {
-      await interaction.reply({ content: `Cannot run right now.`, ephemeral });
+      await replyError(interaction, `Cannot run right now.`);
     }
     return;
   }
@@ -156,7 +157,7 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
     const slots = party?.slots ?? [];
     const healthySlots = slots.filter((slot) => slot.pokemon && slot.pokemon.hp > 0);
     if (healthySlots.length < 2) {
-      await interaction.reply({ content: `You need at least two healthy party members to swap.`, ephemeral });
+      await replyError(interaction, `You need at least two healthy party members to swap.`);
       return;
     }
 
