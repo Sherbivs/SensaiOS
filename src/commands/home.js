@@ -1,9 +1,6 @@
 import {
   SlashCommandBuilder,
   EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
 } from 'discord.js';
 import { createRequire } from 'node:module';
 import { getSpriteUrl } from '../lib/assets.js';
@@ -11,6 +8,7 @@ import { log } from '../utils/logger.js';
 import { GAME_CONSTANTS } from '../shared/constants.js';
 import { toDate, diffInUtcDays } from '../shared/utils/index.js';
 import { HomesteadChannelManager } from '../services/homestead-manager.js';
+import { homeMenuButtons } from '../bot/shared/button-utils.js';
 
 const requireESM = createRequire(import.meta.url);
 const { DEFAULT_STARTER_COINS, BATTLE_HISTORY_LIMIT } = GAME_CONSTANTS;
@@ -398,18 +396,7 @@ function buildHomeEmbed({ coins = 0, nextDaily = 'Ready now', party = [], battle
 }
 
 function buildHomeButtons({ showStarters = true } = {}) {
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('HOME_HEAL').setLabel('Heal').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('HOME_PARTY').setLabel('Party').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('HOME_BOX').setLabel('Box').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('HOME_PROFILE').setLabel('Profile').setStyle(ButtonStyle.Secondary),
-  );
-  if (showStarters) {
-    row.addComponents(
-      new ButtonBuilder().setCustomId('HOME_STARTERS').setLabel('Starters').setStyle(ButtonStyle.Success),
-    );
-  }
-  return [row];
+  return homeMenuButtons(showStarters);
 }
 
 function summarizeBattleForTrainer(battle, trainerDiscordId) {

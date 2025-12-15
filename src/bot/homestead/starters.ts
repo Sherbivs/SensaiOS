@@ -8,9 +8,6 @@
  */
 
 import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   EmbedBuilder,
   User as DiscordUser,
   RepliableInteraction,
@@ -18,6 +15,7 @@ import {
 } from "discord.js";
 
 import { EMBED_COLORS } from "../shared/embed-colors.js";
+import { starterChoiceButtons } from "../shared/button-utils.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
@@ -49,15 +47,11 @@ export function buildStartersEmbed() {
 }
 
 export function buildStartersButtons() {
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    ...STARTER_OPTIONS.map((s) =>
-      new ButtonBuilder()
-        .setCustomId(`STARTER_PICK_${s.speciesId}`)
-        .setLabel(s.name)
-        .setStyle(ButtonStyle.Success)
-    )
-  );
-  return [row];
+  const starters = STARTER_OPTIONS.map((s) => ({
+    id: s.speciesId,
+    label: s.name,
+  }));
+  return [starterChoiceButtons(starters)];
 }
 
 /**

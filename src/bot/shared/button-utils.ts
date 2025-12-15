@@ -26,6 +26,8 @@ export const BUTTON_STYLES = {
   DANGER: ButtonStyle.Danger,
   /** Active/selected state in navigation */
   ACTIVE: ButtonStyle.Success,
+  /** Success/confirm action (Accept, Choose) - green but NOT disabled */
+  SUCCESS: ButtonStyle.Success,
 } as const;
 
 // =============================================================================
@@ -75,6 +77,17 @@ export function activeButton(customId: string, label: string): ButtonBuilder {
     .setLabel(label)
     .setStyle(BUTTON_STYLES.ACTIVE)
     .setDisabled(true);
+}
+
+/**
+ * Create a success button (green, enabled)
+ * Used for positive actions: Accept, Choose, Confirm
+ */
+export function successButton(customId: string, label: string): ButtonBuilder {
+  return new ButtonBuilder()
+    .setCustomId(customId)
+    .setLabel(label)
+    .setStyle(BUTTON_STYLES.SUCCESS);
 }
 
 /**
@@ -273,4 +286,76 @@ export function starterButtons(
     row.addComponents(primaryButton(`${prefix}${id}`, `Choose #${id}`));
   }
   return row;
+}
+
+/**
+ * Build starter selection buttons with custom labels
+ * @param starters - Array of { id, label } pairs
+ * @param prefix - Custom ID prefix (default: "STARTER_PICK_")
+ */
+export function starterChoiceButtons(
+  starters: Array<{ id: string | number; label: string }>,
+  prefix = "STARTER_PICK_"
+): ActionRowBuilder<ButtonBuilder> {
+  const row = new ActionRowBuilder<ButtonBuilder>();
+  for (const s of starters) {
+    row.addComponents(successButton(`${prefix}${s.id}`, s.label));
+  }
+  return row;
+}
+
+/**
+ * Build home menu buttons (legacy JS pattern)
+ * @param showStarters - Whether to show the starters button
+ */
+export function homeMenuButtons(
+  showStarters = true
+): ActionRowBuilder<ButtonBuilder>[] {
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    primaryButton("HOME_HEAL", "Heal"),
+    secondaryButton("HOME_PARTY", "Party"),
+    secondaryButton("HOME_BOX", "Box"),
+    secondaryButton("HOME_PROFILE", "Profile")
+  );
+  if (showStarters) {
+    row.addComponents(successButton("HOME_STARTERS", "Starters"));
+  }
+  return [row];
+}
+
+/**
+ * Build enhanced home menu buttons (TypeScript pattern)
+ * Two-row layout with emoji labels
+ */
+export function homeMenuButtonsEnhanced(): ActionRowBuilder<ButtonBuilder>[] {
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    successButton("HOME_HEAL", "🏥 Pokémon Center"),
+    primaryButton("HOME_PARTY", "🎒 Party"),
+    primaryButton("HOME_BOX", "📦 Storage")
+  );
+
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    secondaryButton("HOME_INVENTORY", "🎒 Inventory"),
+    secondaryButton("HOME_POKEDEX", "📘 Pokédex"),
+    secondaryButton("HOME_SETTINGS", "⚙️ Settings")
+  );
+
+  return [row1, row2];
+}
+
+/**
+ * Build challenge accept/decline buttons with custom prefixes
+ * @param battleId - The battle ID to embed in custom IDs
+ * @param acceptPrefix - Prefix for accept button (default: "BATTLE_ACCEPT_")
+ * @param declinePrefix - Prefix for decline button (default: "BATTLE_DECLINE_")
+ */
+export function challengeResponseButtons(
+  battleId: string,
+  acceptPrefix = "BATTLE_ACCEPT_",
+  declinePrefix = "BATTLE_DECLINE_"
+): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    successButton(`${acceptPrefix}${battleId}`, "Accept Challenge"),
+    secondaryButton(`${declinePrefix}${battleId}`, "Decline")
+  );
 }

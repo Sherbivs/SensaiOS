@@ -16,9 +16,6 @@
  */
 
 import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   EmbedBuilder,
   Message,
   TextChannel,
@@ -27,6 +24,7 @@ import {
 } from "discord.js";
 
 import { EMBED_COLORS } from "../shared/embed-colors.js";
+import { homeMenuButtonsEnhanced } from "../shared/button-utils.js";
 import {
   validateStarterSelection,
   getRejectionMessage,
@@ -197,38 +195,8 @@ export function buildRulesEmbed(): EmbedBuilder {
 /**
  * Build the main menu buttons
  */
-export function buildMainMenuButtons(): ActionRowBuilder<ButtonBuilder>[] {
-  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId("HOME_HEAL")
-      .setLabel("🏥 Pokémon Center")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId("HOME_PARTY")
-      .setLabel("🎒 Party")
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId("HOME_BOX")
-      .setLabel("📦 Storage")
-      .setStyle(ButtonStyle.Primary),
-  );
-  
-  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId("HOME_INVENTORY")
-      .setLabel("🎒 Inventory")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("HOME_POKEDEX")
-      .setLabel("📘 Pokédex")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("HOME_SETTINGS")
-      .setLabel("⚙️ Settings")
-      .setStyle(ButtonStyle.Secondary),
-  );
-  
-  return [row1, row2];
+export function buildMainMenuButtons() {
+  return homeMenuButtonsEnhanced();
 }
 
 // ============================================================================

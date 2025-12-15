@@ -4,13 +4,13 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonInteraction,
-  ButtonStyle,
   ChatInputCommandInteraction,
   EmbedBuilder,
   User as DiscordUser,
 } from "discord.js";
 
 import { EMBED_COLORS } from "../shared/embed-colors.js";
+import { challengeResponseButtons } from "../shared/button-utils.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 import { createArenaThread, type ArenaThreadContext } from "../arena/thread.js";
 import { canChallengeBattle } from "../middleware/limits.js";
@@ -51,16 +51,7 @@ function buildChallengePrompt(challenger: DiscordUser, battleId: string): Challe
       { name: "What next?", value: "Accept to open an Arena thread or decline politely.", inline: false }
     );
 
-  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${ACCEPT_PREFIX}${battleId}`)
-      .setLabel("Accept Challenge")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(`${DECLINE_PREFIX}${battleId}`)
-      .setLabel("Decline")
-      .setStyle(ButtonStyle.Secondary)
-  );
+  const buttons = challengeResponseButtons(battleId, ACCEPT_PREFIX, DECLINE_PREFIX);
 
   return { embed, components: [buttons] };
 }
