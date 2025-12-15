@@ -17,6 +17,7 @@ import type {
   ActionRowBuilder,
   ButtonBuilder,
   StringSelectMenuBuilder,
+  CommandInteraction,
 } from 'discord.js';
 
 // ============================================================================
@@ -25,8 +26,9 @@ import type {
 
 /**
  * Any interaction that can be replied to (Button, Command, SelectMenu, etc.)
+ * Includes both RepliableInteraction union and base CommandInteraction
  */
-type AnyRepliableInteraction = RepliableInteraction;
+type AnyRepliableInteraction = RepliableInteraction | CommandInteraction;
 
 /**
  * Options for ephemeral text replies
@@ -321,6 +323,47 @@ export async function safeReplyWithEmbed(
         ephemeral: options?.ephemeral ?? false,
         fetchReply: options?.fetchReply ?? false,
       });
+      return { success: true, replied: true, edited: false };
+    }
+  } catch (err) {
+    return {
+      success: false,
+      replied: false,
+      edited: false,
+      error: err instanceof Error ? err : new Error(String(err)),
+    };
+  }
+}
+
+/**
+ * Safely reply with full payload options, handling already-replied state.
+ * Use this when you need complex payloads with embeds, components, content, etc.
+ * 
+ * @param interaction - The interaction to respond to
+ * @param payload - The full InteractionReplyOptions payload
+ * @returns SafeReplyResult indicating success/failure state
+ * 
+ * @example
+ * await safeReplyWithPayload(interaction, {
+ *   embeds: [embed],
+ *   components: [row],
+ *   content: "Additional context",
+ *   ephemeral: true,
+ * });
+ */
+export async function safeReplyWithPayload(
+  interaction: AnyRepliableInteraction,
+  payload: InteractionReplyOptions
+): Promise<SafeReplyResult> {
+  try {
+    if (interaction.replied || interaction.deferred) {
+      // For editReply, we need to extract only valid properties
+      // (excludes ephemeral, flags, etc. which aren't valid for edit)
+      const { content, embeds, components, files, allowedMentions } = payload;
+      await interaction.editReply({ content, embeds, components, files, allowedMentions });
+      return { success: true, replied: false, edited: true };
+    } else {
+      await interaction.reply(payload);
       return { success: true, replied: true, edited: false };
     }
   } catch (err) {

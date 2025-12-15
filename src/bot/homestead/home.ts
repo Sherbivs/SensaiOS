@@ -12,6 +12,7 @@ import {
 
 import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { navButton, primaryButton, paginationRow } from "../shared/button-utils.js";
+import { safeReply, safeReplyWithPayload } from "../shared/response-helpers.js";
 import { getSpriteUrl } from "../../lib/assets.js";
 import {
   DMHomeRepo,
@@ -253,16 +254,11 @@ async function fetchSnapshot(discordId: string): Promise<TrainerHomeSnapshot> {
 }
 
 async function acknowledge(interaction: InteractionWithUser, content: string) {
-  try {
-    if (interaction.deferred || interaction.replied) {
-      await interaction.followUp({ content, ephemeral: true });
-    } else {
-      await interaction.reply({ content, ephemeral: true });
-    }
-  } catch (error) {
+  const result = await safeReply(interaction, content, { ephemeral: true });
+  if (!result.success) {
     // Swallow follow-up failures so homestead responses still resolve cleanly when the
     // acknowledgement cannot be delivered (e.g., interaction already concluded).
-    log('warn', "[homestead-home] Failed to send acknowledgement", { error });
+    log('warn', "[homestead-home] Failed to send acknowledgement", { error: result.error });
   }
 }
 
@@ -318,21 +314,13 @@ async function respondWithView(
           "I couldn't access your homestead channel. Please contact an administrator — showing the view here instead.",
         ephemeral: true,
       };
-      if (interaction.deferred || interaction.replied) {
-        await interaction.followUp(fallback);
-      } else {
-        await interaction.reply(fallback);
-      }
+      await safeReplyWithPayload(interaction, fallback);
     }
     return;
   }
 
   const finalPayload = { embeds, components, ephemeral: true } satisfies InteractionReplyOptions;
-  if (interaction.deferred || interaction.replied) {
-    await interaction.followUp(finalPayload);
-  } else {
-    await interaction.reply(finalPayload);
-  }
+  await safeReplyWithPayload(interaction, finalPayload);
 }
 
 type OpenViewOptions = {

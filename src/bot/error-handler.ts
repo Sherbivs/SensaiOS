@@ -9,6 +9,7 @@
 import { DiscordAPIError, CommandInteraction, Interaction, Message } from 'discord.js';
 import { errorTracker, type ErrorContext } from '../services/monitoring/index.js';
 import { log } from '../utils/logger.js';
+import { safeReply } from './shared/response-helpers.js';
 
 /// ---- Discord Error Types ----
 
@@ -302,12 +303,9 @@ export class BotErrorHandler {
       
       const errorMessage = '⚠️ An error occurred while executing this command. This has been logged and will be investigated.';
       
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: errorMessage, ephemeral: true });
-      } else if (interaction.deferred) {
-        await interaction.editReply({ content: errorMessage });
-      } else {
-        await interaction.followUp({ content: errorMessage, ephemeral: true });
+      const result = await safeReply(interaction, errorMessage, { ephemeral: true });
+      if (!result.success) {
+        log('error', '[BotErrorHandler] Failed to notify user of error: ' + String(result.error));
       }
     } catch (notifyError) {
       // Failed to notify user - log but don't throw
