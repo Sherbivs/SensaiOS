@@ -29,6 +29,7 @@ import { log } from '../utils/logger.js';
 import { HomesteadChannelManager } from './homestead-manager.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { HOMESTEAD_CHECK_INTERVAL_MS, HOMESTEAD_MIN_RECHECK_MS } from '../config/env.js';
+import { homesteadRepository } from './homestead-repository.js';
 
 // ============================================================================
 // Configuration
@@ -346,6 +347,7 @@ export class HomesteadPlayerMonitor {
   private async checkSinglePlayer(userId: string): Promise<PlayerCheckResult> {
     try {
       // Get player's homestead record with user relation
+      // Using prisma directly for proper typing with include
       const homestead = await prisma.homesteadChannel.findFirst({
         where: { userId, guildId: this.guildId },
         include: { user: true }
@@ -371,11 +373,8 @@ export class HomesteadPlayerMonitor {
         channelExists = false;
       }
       
-      // Update lastHealthCheck regardless of result
-      await prisma.homesteadChannel.update({
-        where: { id: homestead.id },
-        data: { lastHealthCheck: new Date() }
-      });
+      // Update lastHealthCheck regardless of result using repository
+      await homesteadRepository.touchHealthCheck(homestead.id);
       
       if (channelExists) {
         return {
@@ -464,18 +463,14 @@ export function getHomesteadMonitor(
  * Call this on bot ready
  */
 export async function startAllHomesteadMonitors(client: Client): Promise<void> {
-  // Get all guilds with homesteads
-  const guilds = await prisma.homesteadChannel.findMany({
-    select: { guildId: true },
-    distinct: ['guildId'],
-    where: { status: 'active' }
-  });
+  // Get all guilds with active homesteads using repository
+  const guildIds = await homesteadRepository.findActiveGuildIds();
   
   log.info('[HomesteadMonitor] Starting monitors for all guilds', {
-    guildCount: guilds.length,
+    guildCount: guildIds.length,
   });
   
-  for (const { guildId } of guilds) {
+  for (const guildId of guildIds) {
     const monitor = getHomesteadMonitor(client, guildId);
     monitor.start();
   }

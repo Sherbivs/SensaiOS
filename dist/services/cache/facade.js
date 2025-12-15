@@ -1,6 +1,18 @@
 /**
  * Runtime cache facade that fronts the on-disk cache with an in-memory LRU layer.
  *
+ * ⚠️ IMPORTANT: This module manages BOTH resources:
+ * - RAM: In-memory LRU cache (5 MB hot layer, part of 2 GB RAM limit)
+ * - Disk: On-disk persistence (/Store/runtime-cache, part of 1 GB disk limit)
+ *
+ * Resource Tracking:
+ * - RAM usage: Tracked via in-memory map size (DEFAULT_MAX_MEMORY_BYTES = 5 MB)
+ * - Disk usage: Checked via fs.statfsSync() before writes (WORKSPACE_LIMIT_BYTES = 1 GB)
+ *
+ * This is one of the few modules that bridges both resource types.
+ * For RAM-only monitoring, see: src/services/monitoring/resource-monitor.ts
+ * For complete resource guide, see: docs/RESOURCE-LIMITS-RAM-VS-DISK.md
+ *
  * Entries are organized by namespace and optional shard. Values live on disk under
  * `/Store/runtime-cache/<namespace>/<shard?>` so they persist beyond process restarts,
  * while the in-memory layer serves hot paths and enforces RAM limits separately.
@@ -569,6 +581,9 @@ async function cleanExpiredFiles() {
     }
 }
 function calculateMaintenanceBudget() {
+    // ⚠️ DISK SPACE CHECK: This function monitors /Store persistent disk (1 GB limit)
+    // It does NOT monitor RAM. This is separate from process.memoryUsage() checks.
+    // See: docs/RESOURCE-LIMITS-RAM-VS-DISK.md for complete resource distinction
     const { free } = getDiskStats(config.rootDir);
     const approx = approxFreeBytes(config.rootDir, free);
     const maxAllowedBytes = Math.min(Math.floor(approx * MAX_CACHE_PERCENT), Math.floor(WORKSPACE_LIMIT_BYTES * MAX_CACHE_PERCENT));
@@ -578,6 +593,9 @@ function calculateMaintenanceBudget() {
     };
 }
 function getDiskStats(dir) {
+    // ⚠️ DISK MONITORING: Uses fs.statfsSync() to check /Store filesystem
+    // This tracks persistent disk (1 GB limit), NOT RAM (2 GB limit)
+    // For RAM monitoring, see: src/services/monitoring/resource-monitor.ts
     try {
         const stats = fs.statfsSync(dir);
         const free = Number(stats.bavail) * Number(stats.bsize);

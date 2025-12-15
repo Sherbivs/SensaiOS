@@ -1,18 +1,18 @@
 import { BattleRepo, prisma as prismaClient } from "../../models/index.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 import { buildBattleResultDMMessages, buildBattleResultThreadMessage } from "../arena/summary.js";
-async function dmParticipant(client, discordId, message) {
+import { HomesteadChannelManager } from "../../services/homestead-manager.js";
+async function dmParticipant(client, guildId, discordId, message) {
     try {
+        const manager = new HomesteadChannelManager(client, guildId);
         const user = await client.users.fetch(discordId);
         if (!user)
             return;
-        const dm = await user.createDM?.();
-        if (!dm || typeof dm.send !== "function")
-            return;
-        await dm.send(message);
+        const result = await manager.getOrCreateChannel(user);
+        await result.channel.send(message);
     }
     catch {
-        // DM delivery failure is non-fatal; ignore and continue with other notifications.
+        // Homestead delivery failure is non-fatal; ignore and continue with other notifications.
     }
 }
 async function postToArenaThread(client, threadId, message) {
@@ -27,7 +27,7 @@ async function postToArenaThread(client, threadId, message) {
     }
 }
 export const announceBattleResult = async (opts) => {
-    const { client, battle, result, updateLoserInteraction } = opts;
+    const { client, guildId, battle, result, updateLoserInteraction } = opts;
     const messages = buildBattleResultDMMessages(result);
     let loserNotified = false;
     if (updateLoserInteraction) {
@@ -36,13 +36,13 @@ export const announceBattleResult = async (opts) => {
             loserNotified = true;
         }
         catch {
-            // Interaction edit failed; fall back to DMs below.
+            // Interaction edit failed; fall back to homestead channels below.
         }
     }
     if (!loserNotified) {
-        await dmParticipant(client, result.loser.discordId, messages.loser);
+        await dmParticipant(client, guildId, result.loser.discordId, messages.loser);
     }
-    await dmParticipant(client, result.winner.discordId, messages.winner);
+    await dmParticipant(client, guildId, result.winner.discordId, messages.winner);
     if (battle.arenaThreadId) {
         const threadMessage = buildBattleResultThreadMessage(result);
         await postToArenaThread(client, battle.arenaThreadId, threadMessage);
@@ -83,6 +83,7 @@ export async function concludeBattleWithVictory(opts) {
     const { announceBattleResult: announce } = await import("./conclude.js");
     await announce({
         client: opts.client,
+        guildId: opts.guildId,
         battle,
         result,
         updateLoserInteraction: opts.updateLoserInteraction,

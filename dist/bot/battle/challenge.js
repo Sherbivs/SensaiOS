@@ -5,6 +5,7 @@ import { createArenaThread } from "../arena/thread.js";
 import { canChallengeBattle } from "../middleware/limits.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { createBattle, updateBattleStateAndEnd, activateBattle } from "../../shared/models/battle-queries-pg.js";
+import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { openActionDMs } from "./actions.js";
 const ACCEPT_PREFIX = "BATTLE_ACCEPT_";
 const DECLINE_PREFIX = "BATTLE_DECLINE_";
@@ -49,12 +50,16 @@ function parseCustomId(customId) {
 }
 async function notifyUser(discordId, message, interaction) {
     try {
+        if (!interaction.guildId) {
+            throw new Error('Cannot notify user: missing guild context');
+        }
+        const manager = new HomesteadChannelManager(interaction.client, interaction.guildId);
         const user = await interaction.client.users.fetch(discordId);
-        const dm = await user.createDM();
-        await dm.send(message);
+        const result = await manager.getOrCreateChannel(user);
+        await result.channel.send(message);
     }
     catch {
-        // Ignore DM failures silently; a later task can improve reliability/reporting.
+        // Ignore homestead delivery failures silently; a later task can improve reliability/reporting.
     }
 }
 export async function handleBattleChallengeCommand(interaction, opts = {}) {
@@ -175,11 +180,14 @@ export async function handleBattleChallengeButton(interaction, opts = {}) {
     });
     await notifyUser(battle.p1.discordId, `${interaction.user.tag} accepted your battle challenge. Arena thread: <#${thread.id}>`, interaction);
     await notifyUser(battle.p2.discordId, `You accepted the battle challenge from <@${battle.p1.discordId}>. Join the Arena thread: <#${thread.id}>`, interaction);
-    // Send action menus to both players in DM
+    // Send action menus to both players in their homestead channels
     try {
-        await openActionDMs(battle.id, (id) => interaction.client.users.fetch(id));
+        if (!interaction.guildId) {
+            throw new Error('Cannot send battle actions: missing guild context');
+        }
+        await openActionDMs(battle.id, interaction.client, interaction.guildId);
     }
     catch {
-        // DM dispatch is best effort; log improvements in future work.
+        // Homestead dispatch is best effort; log improvements in future work.
     }
 }

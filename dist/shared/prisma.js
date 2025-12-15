@@ -342,6 +342,7 @@ const initialCandidate = bootstrapConfig.databaseCandidates[0] ?? {
     source: bootstrapConfig.databaseUrlSource,
 };
 validateDatabaseUrl(initialCandidate.url);
+// Initialize primary client using candidate-based approach
 prismaClient = createClient(initialCandidate, bootstrapConfig.nodeEnv);
 prisma = prismaClient;
 activeCandidate = initialCandidate;

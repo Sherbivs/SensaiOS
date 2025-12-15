@@ -6,6 +6,7 @@ import { getUserBasic } from "../../shared/models/user-queries-pg.js";
 import { updateEncounterData } from "../../shared/models/encounter-queries-pg.js";
 import { transaction } from "../../shared/pg-transaction.js";
 import { getProdDb } from "../../shared/pg-connection.js";
+import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 function isJsonObject(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -58,14 +59,16 @@ export function buildEncounterButtons(encounterId) {
     const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`ENCOUNTER_THROW_${encounterId}`).setLabel("Throw Poké Ball").setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId(`ENCOUNTER_SWAP_${encounterId}`).setLabel("Swap Lead").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId(`ENCOUNTER_RUN_${encounterId}`).setLabel("Run").setStyle(ButtonStyle.Danger));
     return [row];
 }
-export async function openEncounterDM(user, encounterId) {
+export async function openEncounterDM(client, guildId, user, encounterId) {
     const enc = await loadEncounter(encounterId);
     if (!enc)
         return;
-    const dm = await user.createDM();
+    const manager = new HomesteadChannelManager(client, guildId);
+    const result = await manager.getOrCreateChannel(user);
+    const homesteadChannel = result.channel;
     const embed = buildEncounterEmbed(enc);
     const components = buildEncounterButtons(encounterId);
-    await dm.send({ embeds: [embed], components });
+    await homesteadChannel.send({ embeds: [embed], components });
 }
 export async function handleEncounterButton(interaction) {
     const id = interaction.customId;

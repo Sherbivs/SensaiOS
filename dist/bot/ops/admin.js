@@ -1115,8 +1115,8 @@ export async function handleOpsCommand(interaction, deps = {}) {
                 lines.push(`• Heap: ${deltaHeap >= 0 ? '+' : ''}${formatMB(deltaHeap)} MB`);
             }
             lines.push("");
-            // Section 3: Resource Limits (Render Standard = 2 GB)
-            const renderLimitMB = 2048; // 2 GB Standard plan
+            // Section 3: Resource Limits (Render Standard = 2 GB RAM, 1 GB disk)
+            const renderLimitMB = 2048; // 2 GB RAM Standard plan (NOT disk)
             const warningLimitMB = 1536; // 75%
             const criticalLimitMB = 1741; // 85%
             const emergencyLimitMB = 1843; // 90%
@@ -1287,7 +1287,10 @@ export async function handleOpsCommand(interaction, deps = {}) {
             lines.push(`Timestamp: ${new Date().toISOString()}`);
             lines.push("");
             // Process Memory
-            lines.push("**💾 Process Memory Usage**");
+            lines.push("**💾 Process Memory Usage (RAM)**");
+            lines.push("");
+            lines.push("**⚠️ RESOURCE TYPE:** RAM (2 GB volatile process memory), NOT persistent disk (1 GB /Store)");
+            lines.push("");
             lines.push(`• RSS (Resident Set): ${formatSnapshotBytes(mem.rss)}`);
             lines.push(`• Heap Total: ${formatSnapshotBytes(mem.heapTotal)}`);
             lines.push(`• Heap Used: ${formatSnapshotBytes(mem.heapUsed)}`);
@@ -1353,6 +1356,34 @@ export async function handleOpsCommand(interaction, deps = {}) {
             log.warn("Snapshot command failed", { err });
             const message = getErrorMessage(err);
             await interaction.editReply({ content: `Heap snapshot unavailable: ${message}` });
+        }
+        return;
+    }
+    if (sub === "restarts") {
+        await interaction.deferReply({ ephemeral: true });
+        try {
+            const { getMetricsSummary } = await import("../../services/restart-metrics.js");
+            const summary = getMetricsSummary();
+            const lines = [];
+            lines.push("🔄 **Restart Metrics Dashboard**");
+            lines.push(`Generated: ${toEasternString(new Date())}`);
+            lines.push("");
+            lines.push(summary);
+            lines.push("");
+            lines.push("*Tracking restart history, crash counts, and uptime metrics*");
+            lines.push("*Data persisted to `/Store/restart-metrics.json`*");
+            const message = lines.join("\n");
+            if (message.length > 2000) {
+                await interaction.editReply({ content: message.substring(0, 1997) + "..." });
+            }
+            else {
+                await interaction.editReply({ content: message });
+            }
+        }
+        catch (err) {
+            log.warn("Restart metrics command failed", { err });
+            const message = getErrorMessage(err);
+            await interaction.editReply({ content: `Restart metrics unavailable: ${message}` });
         }
         return;
     }

@@ -6,6 +6,7 @@ import { invalidateBattleState, loadBattleState } from "../../services/cache/rec
 import { getPartyWithSlots } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { errorTracker } from '../../services/monitoring/index.js';
+import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import * as concludeModule from "./conclude.js";
 export const MOVE_PREFIX = "BATTLE_MOVE_";
 export const SWITCH_PREFIX = "BATTLE_SWITCH_";
@@ -18,27 +19,28 @@ export function buildBattleActionPrompt(battleId) {
     const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`${MOVE_PREFIX}${battleId}`).setLabel("Move").setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId(`${SWITCH_PREFIX}${battleId}`).setLabel("Switch").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId(`${FORFEIT_PREFIX}${battleId}`).setLabel("Forfeit").setStyle(ButtonStyle.Danger));
     return { embed, components: [row] };
 }
-export async function openActionDMs(battleId, clientUserFetcher) {
+export async function openActionDMs(battleId, client, guildId) {
     const prisma = prismaClient;
     const battle = await loadBattleState(battleId, { prisma });
     if (!battle)
         return false;
     const payload = buildBattleActionPrompt(battle.id);
+    const manager = new HomesteadChannelManager(client, guildId);
     try {
-        const u1 = await clientUserFetcher(battle.p1.discordId);
-        const dm1 = await u1.createDM();
-        await dm1.send({ embeds: [payload.embed], components: payload.components });
+        const u1 = await client.users.fetch(battle.p1.discordId);
+        const result1 = await manager.getOrCreateChannel(u1);
+        await result1.channel.send({ embeds: [payload.embed], components: payload.components });
     }
     catch {
-        // Best-effort DM delivery; ignore individual failures.
+        // Best-effort homestead delivery; ignore individual failures.
     }
     try {
-        const u2 = await clientUserFetcher(battle.p2.discordId);
-        const dm2 = await u2.createDM();
-        await dm2.send({ embeds: [payload.embed], components: payload.components });
+        const u2 = await client.users.fetch(battle.p2.discordId);
+        const result2 = await manager.getOrCreateChannel(u2);
+        await result2.channel.send({ embeds: [payload.embed], components: payload.components });
     }
     catch {
-        // Best-effort DM delivery; ignore individual failures.
+        // Best-effort homestead delivery; ignore individual failures.
     }
     return true;
 }
@@ -232,10 +234,13 @@ async function loadParticipantState(pool, player) {
 async function maybeAdvanceTurn(battleId, interaction, dispatcher) {
     await invalidateBattleState(battleId);
     try {
-        await dispatcher(battleId, (id) => interaction.client.users.fetch(id));
+        if (!interaction.guildId) {
+            throw new Error('Cannot send battle actions: missing guild context');
+        }
+        await dispatcher(battleId, interaction.client, interaction.guildId);
     }
     catch {
-        // ignore DM failures for now
+        // ignore homestead delivery failures for now
     }
 }
 export async function handleBattleActionButton(interaction, opts = {}) {
@@ -273,8 +278,13 @@ export async function handleBattleActionButton(interaction, opts = {}) {
             reason: "forfeit",
         });
         await invalidateBattleState(battle.id);
+        // Ensure we have guildId for homestead channel delivery
+        if (!interaction.guildId) {
+            throw new Error("Cannot announce battle result without guildId");
+        }
         await concludeModule.announceBattleResult({
             client: interaction.client,
+            guildId: interaction.guildId,
             battle,
             result,
             updateLoserInteraction: async (message) => {
@@ -347,10 +357,13 @@ export async function handleBattleActionButton(interaction, opts = {}) {
             await invalidateBattleState(battle.id);
             if (result.status === "ready") {
                 try {
-                    await dispatcher(battle.id, (id) => interaction.client.users.fetch(id));
+                    if (!interaction.guildId) {
+                        throw new Error('Cannot send battle actions: missing guild context');
+                    }
+                    await dispatcher(battle.id, interaction.client, interaction.guildId);
                 }
                 catch {
-                    // DM delivery failures are expected (users may have DMs disabled)
+                    // Homestead delivery failures are expected (permission/access issues)
                     // Don't track these as errors
                 }
             }

@@ -276,9 +276,9 @@ export class HomesteadPlayerMonitor {
      */
     async checkSinglePlayer(userId) {
         try {
-            // Get player's homestead record
-            const homestead = await prisma.homesteadChannel.findUnique({
-                where: { userId },
+            // Get player's homestead record with user relation
+            const homestead = await prisma.homesteadChannel.findFirst({
+                where: { userId, guildId: this.guildId },
                 include: { user: true }
             });
             if (!homestead) {

@@ -278,18 +278,10 @@ export class HomesteadChannelManager {
    * @returns Number of channels cleaned up
    */
   async cleanupInactiveChannels(daysInactive: number = HOMESTEAD_CLEANUP_DAYS): Promise<number> {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysInactive);
+    const guildId = this.guild.id;
 
-    // Find inactive homesteads
-    const inactiveHomesteads = await prisma.homesteadChannel.findMany({
-      where: {
-        guildId: this.guild.id,
-        lastAccessedAt: {
-          lt: cutoffDate,
-        },
-      },
-    });
+    // Find inactive homesteads using repository
+    const inactiveHomesteads = await homesteadRepository.findInactive(guildId, daysInactive);
 
     let cleanedCount = 0;
 
@@ -301,10 +293,8 @@ export class HomesteadChannelManager {
           await channel.delete(`Inactive for ${daysInactive} days`);
         }
 
-        // Delete database record
-        await prisma.homesteadChannel.delete({
-          where: { id: homestead.id },
-        });
+        // Delete database record using repository
+        await homesteadRepository.delete(homestead.id);
 
         cleanedCount++;
 
@@ -560,9 +550,7 @@ export class HomesteadChannelManager {
    */
   async healthCheck(): Promise<{ healthy: number; orphaned: string[]; repaired: number }> {
     const guildId = this.guild.id;
-    const homesteads = await prisma.homesteadChannel.findMany({
-      where: { guildId },
-    });
+    const homesteads = await homesteadRepository.findByGuild(guildId);
 
     const orphaned: string[] = [];
     let healthy = 0;
@@ -574,18 +562,13 @@ export class HomesteadChannelManager {
       if (channel) {
         healthy++;
         // Update health check timestamp (TODO: enable after migration)
-        // await prisma.homesteadChannel.update({
-        //   where: { id: homestead.id },
-        //   data: { lastHealthCheck: new Date() },
-        // });
+        // await homesteadRepository.touchHealthCheck(homestead.id);
       } else {
         // Channel is orphaned (deleted in Discord)
         orphaned.push(homestead.userId);
         
-        // Auto-repair: Delete orphaned record
-        await prisma.homesteadChannel.delete({
-          where: { id: homestead.id },
-        });
+        // Auto-repair: Delete orphaned record using repository
+        await homesteadRepository.delete(homestead.id);
         repaired++;
         
         log.warn('[HomesteadManager] Removed orphaned homestead record', {
