@@ -2,12 +2,11 @@ import type { User as DiscordUser, ButtonInteraction, Client } from "discord.js"
 import {
   ActionRowBuilder,
   ComponentType,
-  EmbedBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuInteraction,
 } from "discord.js";
 
-import { EMBED_COLORS } from "../shared/embed-colors.js";
+import { encounterEmbed } from "../shared/embed-builders.js";
 import { encounterButtons } from "../shared/button-utils.js";
 import { attemptCatch, runFromEncounter } from "../../core/encounter/catch.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
@@ -67,11 +66,7 @@ export function composeCatchSuccessMessages(discordId: string, pokemonId?: strin
 }
 
 export function buildEncounterEmbed(enc: { speciesId: number; level: number }) {
-  const embed = new EmbedBuilder()
-    .setTitle(`A wild Pokémon appeared!`)
-    .setDescription(`Species #${enc.speciesId} • Lv ${enc.level}`)
-    .setColor(EMBED_COLORS.SUCCESS);
-  return embed;
+  return encounterEmbed({ speciesId: enc.speciesId, level: enc.level });
 }
 
 export function buildEncounterButtons(encounterId: string) {

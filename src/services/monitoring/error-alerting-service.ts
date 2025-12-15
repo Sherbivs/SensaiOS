@@ -12,8 +12,8 @@
  * @module services/monitoring/error-alerting-service
  */
 
-import { Client, EmbedBuilder } from 'discord.js';
-import { EMBED_COLORS } from '../../bot/shared/embed-colors.js';
+import { Client } from 'discord.js';
+import { criticalAlertEmbed, batchedAlertEmbed } from '../../bot/shared/embed-builders.js';
 import { EventBus, type BusEvent } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
 import { log } from '../../utils/logger.js';
@@ -255,36 +255,15 @@ export class ErrorAlertingService {
     
     const user = await this.discordClient.users.fetch(DRIP_TVDD_ID);
     
-    const embed = new EmbedBuilder()
-      .setColor(EMBED_COLORS.CRITICAL)
-      .setTitle('🚨 CRITICAL ERROR')
-      .setDescription(`**${event.errorName}**: ${event.errorMessage.substring(0, 200)}`)
-      .addFields(
-        { name: '📂 Category', value: event.category, inline: true },
-        { name: '⏰ Time', value: event.timestamp, inline: true },
-        { name: '🔑 Fingerprint', value: `\`${event.fingerprint.substring(0, 12)}...\``, inline: true },
-      )
-      .setTimestamp();
-    
-    // Add source location if available
-    if (event.sourceLocation) {
-      embed.addFields({
-        name: '📍 Location',
-        value: `\`${event.sourceLocation.file}:${event.sourceLocation.line}\``,
-        inline: false,
-      });
-    }
-    
-    // Add call chain if available
-    if (event.callChain && event.callChain.length > 0) {
-      embed.addFields({
-        name: '🔗 Call Chain',
-        value: `\`${event.callChain.slice(0, 3).join(' → ')}\``,
-        inline: false,
-      });
-    }
-    
-    embed.setFooter({ text: 'Use /ops errors detail <fingerprint> for full details' });
+    const embed = criticalAlertEmbed({
+      errorName: event.errorName,
+      errorMessage: event.errorMessage,
+      category: event.category,
+      timestamp: event.timestamp,
+      fingerprint: event.fingerprint,
+      sourceLocation: event.sourceLocation,
+      callChain: event.callChain,
+    });
     
     await user.send({ embeds: [embed] });
   }
@@ -299,31 +278,14 @@ export class ErrorAlertingService {
     
     const user = await this.discordClient.users.fetch(DRIP_TVDD_ID);
     
-    const embed = new EmbedBuilder()
-      .setColor(EMBED_COLORS.WARNING)
-      .setTitle(`⚠️ HIGH Severity Errors (${batch.length})`)
-      .setDescription('The following errors occurred in the last 5 minutes:')
-      .setTimestamp();
+    const items = batch.map(item => ({
+      errorName: item.event.errorName,
+      errorMessage: item.event.errorMessage,
+      category: item.event.category,
+      fingerprint: item.event.fingerprint,
+    }));
     
-    // Add up to 10 errors as fields
-    for (const item of batch.slice(0, 10)) {
-      const event = item.event;
-      embed.addFields({
-        name: `${event.errorName} (${event.category})`,
-        value: `${event.errorMessage.substring(0, 100)}...\n\`${event.fingerprint.substring(0, 8)}...\``,
-        inline: false,
-      });
-    }
-    
-    if (batch.length > 10) {
-      embed.addFields({
-        name: '...',
-        value: `And ${batch.length - 10} more errors`,
-        inline: false,
-      });
-    }
-    
-    embed.setFooter({ text: 'Use /ops errors list severity:HIGH for full list' });
+    const embed = batchedAlertEmbed(items);
     
     await user.send({ embeds: [embed] });
   }

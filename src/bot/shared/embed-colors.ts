@@ -50,6 +50,18 @@ export const EMBED_COLORS = {
 
   /** Light Green - Starter selection (0x00C853 Material Green A400) */
   STARTER: 0x00c853,
+
+  /** Sky Blue - Home/menu embeds (0x35A7FF) */
+  HOME: 0x35a7ff,
+
+  /** Gold - Shiny encounters (0xFFD700 Gold) */
+  SHINY: 0xffd700,
+
+  /** Teal - Encounter/wild pokemon (0x009688 Material Teal 500) */
+  ENCOUNTER: 0x009688,
+
+  /** Cyan - Profile display (0x00BCD4 Material Cyan 500) */
+  PROFILE: 0x00bcd4,
 } as const;
 
 /**

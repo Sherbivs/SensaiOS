@@ -6,12 +6,11 @@ import {
   ButtonInteraction,
   Client,
   ComponentType,
-  EmbedBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuInteraction,
 } from "discord.js";
 
-import { EMBED_COLORS } from "../shared/embed-colors.js";
+import { battleActionEmbed } from "../shared/embed-builders.js";
 import { tripleActionRow } from "../shared/button-utils.js";
 import {
   listLegalMoves,
@@ -36,10 +35,7 @@ export const SWITCH_PREFIX = "BATTLE_SWITCH_";
 export const FORFEIT_PREFIX = "BATTLE_FORFEIT_";
 
 export function buildBattleActionPrompt(battleId: string) {
-  const embed = new EmbedBuilder()
-    .setTitle("Your Move")
-    .setDescription("Choose an action for this turn.")
-    .setColor(EMBED_COLORS.INFO);
+  const embed = battleActionEmbed();
 
   const row = tripleActionRow(
     `${MOVE_PREFIX}${battleId}`,

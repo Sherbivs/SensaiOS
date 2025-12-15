@@ -5,11 +5,10 @@ import {
   ButtonBuilder,
   ButtonInteraction,
   ChatInputCommandInteraction,
-  EmbedBuilder,
   User as DiscordUser,
 } from "discord.js";
 
-import { EMBED_COLORS } from "../shared/embed-colors.js";
+import { battleChallengeEmbed } from "../shared/embed-builders.js";
 import { challengeResponseButtons } from "../shared/button-utils.js";
 import { invalidateBattleState, loadBattleState } from "../../services/cache/recipes.js";
 import { createArenaThread, type ArenaThreadContext } from "../arena/thread.js";
@@ -37,19 +36,15 @@ type ButtonHandlerOpts = {
 };
 
 type ChallengePrompt = {
-  embed: EmbedBuilder;
+  embed: ReturnType<typeof battleChallengeEmbed>;
   components: ActionRowBuilder<ButtonBuilder>[];
 };
 
 function buildChallengePrompt(challenger: DiscordUser, battleId: string): ChallengePrompt {
-  const embed = new EmbedBuilder()
-    .setTitle("Battle Challenge")
-    .setDescription(`${challenger} has challenged you to a battle.`)
-    .setColor(EMBED_COLORS.BATTLE)
-    .addFields(
-      { name: "Challenger", value: `${challenger.tag}`, inline: true },
-      { name: "What next?", value: "Accept to open an Arena thread or decline politely.", inline: false }
-    );
+  const embed = battleChallengeEmbed({
+    challengerTag: challenger.tag,
+    challengerMention: `${challenger}`,
+  });
 
   const buttons = challengeResponseButtons(battleId, ACCEPT_PREFIX, DECLINE_PREFIX);
 

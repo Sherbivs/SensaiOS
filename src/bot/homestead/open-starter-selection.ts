@@ -16,14 +16,18 @@
  */
 
 import {
-  EmbedBuilder,
   Message,
   TextChannel,
   User as DiscordUser,
   Client,
 } from "discord.js";
 
-import { EMBED_COLORS } from "../shared/embed-colors.js";
+import { 
+  starterWelcomeEmbed, 
+  starterErrorEmbed, 
+  starterConfirmationEmbed, 
+  starterRulesEmbed 
+} from "../shared/embed-builders.js";
 import { homeMenuButtonsEnhanced } from "../shared/button-utils.js";
 import {
   validateStarterSelection,
@@ -55,141 +59,31 @@ export type OpenStarterResult =
 /**
  * Build the welcome embed shown when starter selection begins
  */
-export function buildWelcomeEmbed(): EmbedBuilder {
+export function buildWelcomeEmbed() {
   const counts = getForbiddenCounts();
-  
-  return new EmbedBuilder()
-    .setTitle("🎮 Welcome to Pokémon Infinite Gauntlet!")
-    .setDescription(
-      "Your adventure begins here in your **Homestead Channel** — your personal Pokémon hub.\n\n" +
-      "Choose any Pokémon to start your journey! Simply **type the name** of the Pokémon you want as your starter."
-    )
-    .setColor(EMBED_COLORS.STARTER)
-    .addFields(
-      {
-        name: "📋 Starter Rules",
-        value: 
-          "You can choose almost any Pokémon, but these are **not allowed**:\n" +
-          "• ❌ Regional starters (Bulbasaur, Charmander, etc.)\n" +
-          "• ❌ Legendary Pokémon\n" +
-          "• ❌ Mythical Pokémon\n" +
-          "• ❌ Pseudo-legendary final forms (Tyranitar, Dragonite, etc.)\n\n" +
-          "✅ Earlier evolutions like **Pupitar** or **Dratini** are allowed!",
-        inline: false,
-      },
-      {
-        name: "💡 Examples of Valid Starters",
-        value: 
-          "Pikachu • Eevee • Riolu • Scyther • Heracross\n" +
-          "Pupitar • Dratini • Ralts • Larvitar • Happiny\n" +
-          "Growlithe • Vulpix • Abra • Machop • Geodude",
-        inline: false,
-      },
-      {
-        name: "📝 How to Choose",
-        value: "**Type the name of your desired Pokémon** in this channel to select it as your starter.",
-        inline: false,
-      }
-    )
-    .setFooter({ text: `${counts.total} Pokémon are restricted • You have 5 minutes to choose` });
+  return starterWelcomeEmbed(counts as { total: number });
 }
 
 /**
  * Build error embed for invalid selection
  */
-export function buildErrorEmbed(reason: string, attemptedName?: string): EmbedBuilder {
-  return new EmbedBuilder()
-    .setTitle("❌ Invalid Selection")
-    .setDescription(reason)
-    .setColor(EMBED_COLORS.ERROR)
-    .addFields({
-      name: "Try Again",
-      value: attemptedName 
-        ? `"${attemptedName}" cannot be your starter. Type another Pokémon name!`
-        : "Type a valid Pokémon name to continue.",
-      inline: false,
-    })
-    .setFooter({ text: "Type a Pokémon name or wait for timeout" });
+export function buildErrorEmbed(reason: string, attemptedName?: string) {
+  return starterErrorEmbed(reason, attemptedName);
 }
 
 /**
  * Build confirmation embed when starter is successfully chosen
  */
-export function buildConfirmationEmbed(speciesName: string, speciesId: number): EmbedBuilder {
-  const capitalizedName = speciesName.charAt(0).toUpperCase() + speciesName.slice(1);
+export function buildConfirmationEmbed(speciesName: string, speciesId: number) {
   const spriteUrl = getSpriteUrl(speciesId, 'official') || getSpriteUrl(speciesId, 'default');
-  
-  const embed = new EmbedBuilder()
-    .setTitle(`🎉 You chose ${capitalizedName}!`)
-    .setDescription(
-      `**${capitalizedName}** is now your official starter Pokémon!\n\n` +
-      "Your adventure in the Infinite Gauntlet begins now."
-    )
-    .setColor(EMBED_COLORS.SUCCESS)
-    .addFields(
-      {
-        name: "📊 Your Starter",
-        value: `• **Species:** ${capitalizedName}\n• **Level:** 5\n• **Added to Party:** Slot 1`,
-        inline: true,
-      },
-      {
-        name: "🎯 Next Steps",
-        value: 
-          "• Visit **public field channels** to explore\n" +
-          "• Use `/walk` to encounter wild Pokémon\n" +
-          "• Challenge others to battles!",
-        inline: true,
-      }
-    )
-    .setFooter({ text: "Welcome to Pokémon Infinite Gauntlet!" });
-    
-  if (spriteUrl) {
-    embed.setThumbnail(spriteUrl);
-  }
-  
-  return embed;
+  return starterConfirmationEmbed(speciesName, spriteUrl);
 }
 
 /**
  * Build the rules/how-to-play embed shown after starter confirmation
  */
-export function buildRulesEmbed(): EmbedBuilder {
-  return new EmbedBuilder()
-    .setTitle("📖 How to Play")
-    .setDescription(
-      "Your **Homestead Channel** (this DM) is your personal Pokémon hub. " +
-      "Think of it as your in-game home or Main Menu."
-    )
-    .setColor(EMBED_COLORS.INFO)
-    .addFields(
-      {
-        name: "🏠 Homestead (This Channel)",
-        value:
-          "• **Pokémon Center** — Heal your party instantly\n" +
-          "• **Party/Storage** — Manage your team\n" +
-          "• **Inventory** — Use items\n" +
-          "• **Pokédex** — Track discoveries\n" +
-          "• **Settings** — Customize your experience",
-        inline: false,
-      },
-      {
-        name: "🌍 Public Field Channels",
-        value:
-          "• Use `/walk`, `/search`, `/fish` to find wild Pokémon\n" +
-          "• Different areas have different encounters\n" +
-          "• Time & weather affect spawns!",
-        inline: false,
-      },
-      {
-        name: "⚔️ Battles",
-        value:
-          "• Challenge players from your Homestead\n" +
-          "• Battles happen in public **Arena Threads**\n" +
-          "• Spectators can watch live!",
-        inline: false,
-      }
-    )
-    .setFooter({ text: "Use the buttons below to navigate your Homestead" });
+export function buildRulesEmbed() {
+  return starterRulesEmbed();
 }
 
 /**

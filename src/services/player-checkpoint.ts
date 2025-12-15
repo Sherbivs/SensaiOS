@@ -14,6 +14,7 @@
  */
 
 import { Client, User, EmbedBuilder, TextChannel } from 'discord.js';
+import { EMBED_COLORS } from '../bot/shared/embed-colors.js';
 import { prisma } from '../shared/prisma.js';
 import { log } from '../utils/logger.js';
 import { HomesteadChannelManager } from './homestead-manager.js';
@@ -847,8 +848,8 @@ export class PlayerCheckpointService {
     
     const embed = new EmbedBuilder()
       .setTitle('🔄 Game State Recovery Complete')
-      .setColor(report.overallStatus === 'healthy' ? 0x00FF00 : 
-                report.overallStatus === 'degraded' ? 0xFFFF00 : 0xFF0000)
+      .setColor(report.overallStatus === 'healthy' ? EMBED_COLORS.SUCCESS : 
+                report.overallStatus === 'degraded' ? EMBED_COLORS.WARNING : EMBED_COLORS.ERROR)
       .setTimestamp();
     
     // Status summary

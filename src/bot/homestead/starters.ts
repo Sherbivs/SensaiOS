@@ -8,13 +8,12 @@
  */
 
 import {
-  EmbedBuilder,
   User as DiscordUser,
   RepliableInteraction,
   Client,
 } from "discord.js";
 
-import { EMBED_COLORS } from "../shared/embed-colors.js";
+import { starterSelectEmbed } from "../shared/embed-builders.js";
 import { starterChoiceButtons } from "../shared/button-utils.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
@@ -30,20 +29,7 @@ export const STARTER_OPTIONS = [
 ];
 
 export function buildStartersEmbed() {
-  const embed = new EmbedBuilder()
-    .setTitle("Choose your starter")
-    .setDescription("Pick one of the classic starters. This is a one-time choice.")
-    .setColor(EMBED_COLORS.STARTER);
-
-  embed.addFields(
-    STARTER_OPTIONS.map((s) => ({
-      name: `${s.name}`,
-      value: `Level 5 • Classic starter`,
-      inline: true,
-    }))
-  );
-
-  return embed;
+  return starterSelectEmbed(STARTER_OPTIONS);
 }
 
 export function buildStartersButtons() {

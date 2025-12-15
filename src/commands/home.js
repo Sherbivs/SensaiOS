@@ -1,6 +1,5 @@
 import {
   SlashCommandBuilder,
-  EmbedBuilder,
 } from 'discord.js';
 import { createRequire } from 'node:module';
 import { getSpriteUrl } from '../lib/assets.js';
@@ -9,6 +8,7 @@ import { GAME_CONSTANTS } from '../shared/constants.js';
 import { toDate, diffInUtcDays } from '../shared/utils/index.js';
 import { HomesteadChannelManager } from '../services/homestead-manager.js';
 import { homeMenuButtons } from '../bot/shared/button-utils.js';
+import { homeEmbed } from '../bot/shared/embed-builders.js';
 
 const requireESM = createRequire(import.meta.url);
 const { DEFAULT_STARTER_COINS, BATTLE_HISTORY_LIMIT } = GAME_CONSTANTS;
@@ -354,11 +354,6 @@ async function loadTrainerWithBootstrap(prisma, discordId) {
 }
 
 function buildHomeEmbed({ coins = 0, nextDaily = 'Ready now', party = [], battleHistory = [], dailyQuest = null }) {
-  const embed = new EmbedBuilder()
-    .setTitle('Your Pokémon Home')
-    .setDescription(`Coins: ${coins} • Next Daily: ${nextDaily}`)
-    .setColor(0x35a7ff);
-
   const hasPokemon = party.some((member) => member.speciesId);
   const lines = [];
 
@@ -371,28 +366,25 @@ function buildHomeEmbed({ coins = 0, nextDaily = 'Ready now', party = [], battle
       const label = `#${index + 1} ${member.name}${shiny} — ${hpLabel}`;
       lines.push(`${label}${sprite ? `\n${sprite}` : ''}`);
     });
-  } else {
-    lines.push('No party yet. Use /starter to choose your first Pokémon.');
   }
-
 
   const questValue = dailyQuest?.fieldValue && dailyQuest.fieldValue.trim().length > 0
     ? dailyQuest.fieldValue
-    : "Complete today's quest to begin your streak.";
-  embed.addFields({ name: 'Daily Quest', value: questValue });
+    : undefined;
 
   const historyEntries = normalizeBattleHistory(battleHistory);
-  if (historyEntries.length > 0) {
-    const historyLines = historyEntries.map((entry) => formatBattleHistoryEntry(entry)).filter(Boolean);
-    embed.addFields({ name: 'Battle History', value: historyLines.join('\n') });
-  } else {
-    embed.addFields({
-      name: 'Battle History',
-      value: 'No finished battles yet. Try the Arena to start your record!',
-    });
-  }
-  embed.addFields({ name: 'Party', value: lines.join('\n') });
-  return embed;
+  const historyLines = historyEntries.length > 0
+    ? historyEntries.map((entry) => formatBattleHistoryEntry(entry)).filter(Boolean)
+    : undefined;
+
+  return homeEmbed({
+    username: 'Trainer',
+    coins,
+    nextDaily,
+    partyLines: lines.length > 0 ? lines : undefined,
+    dailyQuestValue: questValue,
+    battleHistoryLines: historyLines,
+  });
 }
 
 function buildHomeButtons({ showStarters = true } = {}) {
