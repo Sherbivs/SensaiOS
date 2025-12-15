@@ -3,7 +3,6 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonInteraction,
-  ButtonStyle,
   ChatInputCommandInteraction,
   EmbedBuilder,
   InteractionReplyOptions,
@@ -12,6 +11,7 @@ import {
 } from "discord.js";
 
 import { EMBED_COLORS } from "../shared/embed-colors.js";
+import { navButton, primaryButton, paginationRow } from "../shared/button-utils.js";
 import { getSpriteUrl } from "../../lib/assets.js";
 import {
   DMHomeRepo,
@@ -73,28 +73,16 @@ function formatStatus(mon: TrainerHomePokemon | null): string | null {
 function buildNavRow(active: ViewKey): ActionRowBuilder<ButtonBuilder> {
   const row = new ActionRowBuilder<ButtonBuilder>();
   row.addComponents(
-    new ButtonBuilder()
-      .setCustomId("HOME_PARTY")
-      .setLabel("Party")
-      .setStyle(active === "party" ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setDisabled(active === "party"),
-    new ButtonBuilder()
-      .setCustomId("HOME_BOX")
-      .setLabel("Box")
-      .setStyle(active === "box" ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setDisabled(active === "box"),
-    new ButtonBuilder()
-      .setCustomId("HOME_PROFILE")
-      .setLabel("Profile")
-      .setStyle(active === "profile" ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setDisabled(active === "profile")
+    navButton("HOME_PARTY", "Party", active === "party"),
+    navButton("HOME_BOX", "Box", active === "box"),
+    navButton("HOME_PROFILE", "Profile", active === "profile")
   );
   return row;
 }
 
 function buildHealRow(): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId("HOME_HEAL").setLabel("Heal").setStyle(ButtonStyle.Primary)
+    primaryButton("HOME_HEAL", "Heal")
   );
 }
 
@@ -156,18 +144,7 @@ function formatBoxEntry(mon: TrainerHomePokemon, absoluteIndex: number): string 
 function buildBoxPaginationRow(page: number, totalPages: number): ActionRowBuilder<ButtonBuilder> {
   const prevId = `${BOX_PAGE_PREFIX}${Math.max(1, page - 1)}`;
   const nextId = `${BOX_PAGE_PREFIX}${Math.min(totalPages, page + 1)}`;
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(prevId)
-      .setLabel("Prev")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(page <= 1),
-    new ButtonBuilder()
-      .setCustomId(nextId)
-      .setLabel("Next")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(page >= totalPages)
-  );
+  return paginationRow(prevId, nextId, page > 1, page < totalPages);
 }
 
 function buildBoxView(snapshot: TrainerHomeSnapshot, page = 1): ViewRender {

@@ -1,8 +1,6 @@
 import type { User as DiscordUser, ButtonInteraction, Client } from "discord.js";
 import {
   ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   ComponentType,
   EmbedBuilder,
   StringSelectMenuBuilder,
@@ -10,6 +8,7 @@ import {
 } from "discord.js";
 
 import { EMBED_COLORS } from "../shared/embed-colors.js";
+import { encounterButtons } from "../shared/button-utils.js";
 import { attemptCatch, runFromEncounter } from "../../core/encounter/catch.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
 import { getPartyWithSlots, updatePartySlotPosition } from "../../shared/models/party-queries-pg.js";
@@ -76,12 +75,7 @@ export function buildEncounterEmbed(enc: { speciesId: number; level: number }) {
 }
 
 export function buildEncounterButtons(encounterId: string) {
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId(`ENCOUNTER_THROW_${encounterId}`).setLabel("Throw Poké Ball").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`ENCOUNTER_SWAP_${encounterId}`).setLabel("Swap Lead").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(`ENCOUNTER_RUN_${encounterId}`).setLabel("Run").setStyle(ButtonStyle.Danger)
-  );
-  return [row];
+  return encounterButtons(encounterId);
 }
 
 export async function openEncounterDM(

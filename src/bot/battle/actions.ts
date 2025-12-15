@@ -3,9 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import {
   ActionRowBuilder,
-  ButtonBuilder,
   ButtonInteraction,
-  ButtonStyle,
   Client,
   ComponentType,
   EmbedBuilder,
@@ -14,6 +12,7 @@ import {
 } from "discord.js";
 
 import { EMBED_COLORS } from "../shared/embed-colors.js";
+import { tripleActionRow } from "../shared/button-utils.js";
 import {
   listLegalMoves,
   listSwitchOptions,
@@ -42,10 +41,13 @@ export function buildBattleActionPrompt(battleId: string) {
     .setDescription("Choose an action for this turn.")
     .setColor(EMBED_COLORS.INFO);
 
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId(`${MOVE_PREFIX}${battleId}`).setLabel("Move").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`${SWITCH_PREFIX}${battleId}`).setLabel("Switch").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(`${FORFEIT_PREFIX}${battleId}`).setLabel("Forfeit").setStyle(ButtonStyle.Danger)
+  const row = tripleActionRow(
+    `${MOVE_PREFIX}${battleId}`,
+    "Move",
+    `${SWITCH_PREFIX}${battleId}`,
+    "Switch",
+    `${FORFEIT_PREFIX}${battleId}`,
+    "Forfeit"
   );
 
   return { embed, components: [row] };
