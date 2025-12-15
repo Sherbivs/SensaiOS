@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-12-13T00:00:00Z
-Revision: 3.3
+Timestamp (UTC): 2025-12-15T00:00:00Z
+Revision: 3.4
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -48,32 +48,46 @@ Revision: 3.3
 ## Recent Change Ledger (last 10 commits)
 <!-- LEDGER:BEGIN -->
 
-**Generated:** 2025-11-17T08:50:00Z  |  **Branch:** main
+**Generated:** 2025-12-15T00:00:00Z  |  **Branch:** main
 
-- **a40218e** — 2025-11-17 — Sherbivs — Remove obsolete files and logs from ops/ directory
-- **fec4aeb** — 2025-11-17 — Sherbivs — [Documentation Consolidation] Archive ops/ historical reports
-- **90c292c** — 2025-11-17 — Sherbivs — [Phase 2 Cleanup] Remove phantom documentation references
-- **4478f12** — 2025-11-17 — Sherbivs — [Phase 2 COMPLETE] Router System Audit: 21 files synchronized
-- **b1008b5** — 2025-11-17 — Sherbivs — [Phase 2] Router System Audit - Part 2: Bible reference migration
-- **c5bac4b** — 2025-11-17 — Sherbivs — [Phase 2] Router System Audit - Part 1: Core routing manifests
-- **b1a480f** — 2025-11-17 — Sherbivs — [Phase 1 ULTIMATE] Documentation centralization: 454 → 30 files (93.4%)
-- **2b4bc7a** — 2025-11-17 — Sherbivs — [Phase 1] Update docs/ROUTER.md - Bible-only structure
-- **f507b19** — 2025-11-17 — Sherbivs — [Phase 1] Delete remaining operational subdirectories (35 files)
-- **f940ed1** — 2025-11-17 — Sherbivs — [Phase 1 COMPLETE] Documentation reorganization: 454 → 66 files
+- **17b61d8** — 2025-12-15 — Sherbivs — docs: update DUPLICATION-REPORT with Phase 2.9 button-utils progress
+- **1f7beebe** — 2025-12-15 — Sherbivs — feat(Phase 2.9): create button-utils and migrate 3 files
+- **8ff24f81** — 2025-12-15 — Sherbivs — refactor(Phase 2.8): migrate remaining consumers to HomesteadRepository
+- **1394d424** — 2025-12-15 — Sherbivs — docs: update DUPLICATION-REPORT with Phase 2.8 progress
+- **bf0575a6** — 2025-12-15 — Sherbivs — refactor(Phase 2.8): migrate homestead-manager to use HomesteadRepository
+- **fa07534c** — 2025-12-15 — Sherbivs — feat(Phase 2.8): create HomesteadRepository pattern
+- **0385f07a** — 2025-12-15 — Sherbivs — docs: update DUPLICATION-REPORT with Phase 2.5A-C progress
+- **b7f3ce96** — 2025-12-15 — Sherbivs — fix(tests): add DoS protection constants to env.js
+- **eaf16a93** — 2025-12-15 — Sherbivs — refactor(Phase 2.5C): migrate LOG_LEVEL and SERVICE_NAME
+- **88970f3d** — 2025-12-15 — Sherbivs — refactor(Phase 2.5C): migrate environment config to centralized env.js
 
 <!-- LEDGER:END -->
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: pending-local (stress remediation meeting)
-Change: STRESS REMEDIATION MEETING conducted (2025-12-13). Created comprehensive review document (ops/STRESS-REMEDIATION-MEETING-2025-12-13.md) consolidating all incomplete investigations, gaps, and remediation priorities. Key findings: (1) DB.NORTHSTAR.SERVICES IN_PROGRESS for 35 days with 6/25 test failures (mock data alignment, retention calculation issues) - HIGH priority fix needed, (2) ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION READY for implementation (6-phase migration plan), (3) 87 placeholder tests in db-replication suite awaiting real validation, (4) Prisma migration drift (P3006 shadow database errors) - manual SQL workaround active, (5) VS Code MSSQL extension false positives on PostgreSQL files - cosmetic issue. System health assessment: 🟢 HEALTHY with 0 BLOCKED tasks, 1 IN_PROGRESS, 1 READY, 5 PROPOSED. Prior fix: Resolved duplicate Prisma client declarations in src/shared/prisma.ts (commit aa31aa5). Updated ops/NEXT.yaml timestamp and note with meeting outcomes, added META.STRESS_REMEDIATION.REVIEW to quick_task slot.
-TasklistDiff: ✅ False (no task status changes, meeting documentation only)
+HEAD: 17b61d8b (duplication consolidation session)
+Change: CODE DUPLICATION CONSOLIDATION (2025-12-15). Major session eliminating 200+ duplication patterns identified in ops/DUPLICATION-REPORT.md. Completed Phases 2.5A-C, 2.6-2.9:
+- **Phase 2.5A**: EMBED_COLORS migration (14 instances, 8 files)
+- **Phase 2.5B**: Date utilities using daysAgo() (12 instances, 6 files)
+- **Phase 2.5C**: Environment config centralization (16 exports, 8 files)
+- **Phase 2.6**: Test fix for DoS protection constants
+- **Phase 2.8**: HomesteadRepository creation (472 lines, 9 queries consolidated from 3 files)
+- **Phase 2.9**: Button utilities (275 lines, 13 button patterns from 3 files)
 
-Tests: N/A (meta-policy update, no runtime code changes)
+New abstractions created:
+- `src/services/homestead-repository.ts` (472 lines) — Centralized HomesteadChannel query layer
+- `src/bot/shared/button-utils.ts` (275 lines) — Discord button builder factory functions
+
+Total: ~185 patterns eliminated, ~455 lines reduced, 7/8 categories complete (87.5%)
+Phase 3 (Query Layer ADR) deferred as low priority — Prisma designated canonical ORM per user decision.
+
+TasklistDiff: ✅ False (duplication work tracked in DUPLICATION-REPORT.md, not Tasklist.md)
+
+Tests: ✅ Build passes (tsc --noEmit), Lint clean (3 warnings in generated files only)
 ContractMode: ON (Patch Engine active)
-NextPointer: Main Tasks (2/3): DB.NORTHSTAR.ANALYTICS + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION | Quick Task: META.STRESS_REMEDIATION.REVIEW (meeting follow-up)
+NextPointer: Main Tasks (2/3): DB.NORTHSTAR.ANALYTICS + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION | Quick Task: Available
 RoutersIntact: ✅ All routing manifests preserved
-CanonicalDocs: ✅ Prompt.md Rev 3.2→3.3, ops/NEXT.yaml timestamp updated to 2025-12-13
+CanonicalDocs: ✅ Prompt.md Rev 3.3→3.4, DUPLICATION-REPORT.md updated through Phase 2.9
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)
