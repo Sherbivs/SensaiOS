@@ -37,13 +37,48 @@ The legacy `utils/logger.js` (1152 lines) is imported by **20+ files** including
 | Phase | Action | Status | Commit |
 |-------|--------|--------|--------|
 | 6.1 | Console cluster → `src/shared/console/` (organize) | ✅ COMPLETE | `9aa9e84b` |
-| 6.2 | Legacy Metrics elimination (DELETE JS, use TS) | ⏳ IN PROGRESS | — |
+| 6.2a | **Logger TS migration** (30 TS files → shared/logger.ts) | ✅ COMPLETE | `ec2c80a0` |
+| 6.2b | Metrics elimination (DELETE prometheus-metrics.js) | ⏳ IN PROGRESS | — |
 | 6.3 | Legacy Alerts elimination (DELETE JS, use TS) | ⏳ PENDING | — |
 | 6.4 | Database cluster consolidation | ⏳ PENDING | — |
 | 6.5 | Logging legacy elimination (DELETE JS, use TS) | ⏳ PENDING | — |
 | 6.6 | Engine JS → TS migration | ⏳ PENDING | — |
 | 6.7 | Bot JS → TS migration | ⏳ PENDING | — |
 | 6.8 | Remaining JS cleanup | ⏳ PENDING | — |
+
+---
+
+## ✅ PHASE 6.2a: Logger TypeScript Migration (COMPLETE)
+
+**Problem:** 31 TypeScript files imported `log` from legacy `utils/logger.js`
+**Solution:** Added legacy-compatible `log()` API to `shared/logger.ts`, migrated all imports
+
+### Changes Made:
+- Added `log`, `log.info`, `log.warn`, `log.error`, `log.success`, `log.detail` exports to `shared/logger.ts`
+- Migrated 30 TypeScript files to import from `shared/logger.js` instead of `utils/logger.js`
+- Fixed relative import paths for nested directories (bot/daily, services/cache, etc.)
+
+### Remaining Dependency:
+- `index.ts` still imports `startAutoRefresh` from `utils/logger.js` (stats dashboard feature)
+- 20+ legacy JS files still depend on `utils/logger.js` (blocked by JS→TS conversion)
+
+### Migrated Files (30):
+```
+bot/daily/claim.ts
+bot/error-handler.ts
+bot/homestead/home.ts, open-starter-selection.ts, starters.ts
+services/batch-processor.ts, connection-health-monitor.ts, database-metrics.ts
+services/discord-identity.ts, health-server.ts, homestead-manager.ts
+services/homestead-player-monitor.ts, lifecycle-notifier.ts, player-checkpoint.ts
+services/player-resolver.ts, query-cache.ts, query-profiler.ts
+services/restart-metrics.ts, write-coalescer.ts
+services/cache/engine-cache.ts, engine-write-buffer.ts
+services/database/engine-read-db.ts, engine-write-db.ts
+services/monitoring/error-alerting-service.ts, error-tracker.ts
+services/monitoring/os-error-interceptor.ts, resource-manager.ts
+shared/service-registry.ts
+workers/engine-workers.ts, error-learning-worker.ts
+```
 
 ---
 
