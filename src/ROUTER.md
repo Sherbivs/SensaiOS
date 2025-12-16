@@ -26,6 +26,7 @@ Subdomains:
 - src/config - Legacy environment shim (CommonJS callers)
 - src/dex - DEX v2 binary runtime loaders and metrics helpers
 - src/core - game engines (battle, encounter, data)
+- src/errors - Application error hierarchy (base, database, game-engine, discord, validation)
 - src/data - Dexpack loader + helper facade for committed assets
 - src/data_pipeline - reference data ingestion and schema validation
 - src/engine - event bus + battle primitives (legacy math helpers)
