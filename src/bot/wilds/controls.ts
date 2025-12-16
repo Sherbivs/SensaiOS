@@ -1,4 +1,5 @@
 import type { User as DiscordUser, ButtonInteraction, Client } from "discord.js";
+import type { Prisma } from "@prisma/client";
 import {
   ActionRowBuilder,
   ComponentType,
@@ -216,7 +217,7 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
         if (!freshLead || freshLead.id === picked.id) {
           baseData.activePartySlotId = picked.id;
           baseData.activePokemonId = picked.pokemonId;
-          await updateEncounterData(enc.id, baseData, client as any);
+          await updateEncounterData(enc.id, baseData as Prisma.JsonValue, client as any);
           return { kind: "already-lead" as const, chosen: picked, previous: freshLead ?? null };
         }
 
@@ -228,7 +229,7 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
         
         baseData.activePartySlotId = picked.id;
         baseData.activePokemonId = picked.pokemonId;
-        await updateEncounterData(enc.id, baseData, client as any);
+        await updateEncounterData(enc.id, baseData as Prisma.JsonValue, client as any);
         
         const swapped = { ...picked, slot: 1 } as PartySlotWithPokemon;
         return { kind: "swapped" as const, chosen: swapped, previous: freshLead ?? null };

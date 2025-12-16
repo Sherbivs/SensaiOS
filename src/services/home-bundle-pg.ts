@@ -21,23 +21,29 @@
  */
 
 import type { PoolClient } from "pg";
+import type { Prisma } from "@prisma/client";
 import { getProdDb } from "../shared/pg-connection.js";
 import type { Cooldown } from "../types/db-models.js";
+import type { CooldownRow } from "../types/database-rows.js";
+import { pgTimestampToDateRequired } from "../types/database-rows.js";
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
 
 /**
- * Revival helper: Convert Date-like strings to Date objects
+ * Revival helper: Convert Date-like strings to Date objects for Cooldown
  */
-function reviveDates(row: any): any {
-  if (!row) return row;
-  const copy = { ...row };
-  if (copy.readyAt && typeof copy.readyAt === "string") copy.readyAt = new Date(copy.readyAt);
-  if (copy.createdAt && typeof copy.createdAt === "string") copy.createdAt = new Date(copy.createdAt);
-  if (copy.updatedAt && typeof copy.updatedAt === "string") copy.updatedAt = new Date(copy.updatedAt);
-  return copy;
+function reviveCooldown(row: CooldownRow): Cooldown {
+  return {
+    id: row.id,
+    ownerId: row.ownerId,
+    kind: row.kind,
+    readyAt: pgTimestampToDateRequired(row.readyAt),
+    metaJson: row.metaJson,
+    createdAt: pgTimestampToDateRequired(row.createdAt),
+    updatedAt: pgTimestampToDateRequired(row.updatedAt),
+  };
 }
 
 // ============================================================================
@@ -57,8 +63,8 @@ export async function findCooldownByUserAndKind(
 ): Promise<Cooldown | null> {
   const pool = client ?? getProdDb();
   const sql = `SELECT * FROM "Cooldown" WHERE "ownerId" = $1 AND kind = $2`;
-  const result = await pool.query(sql, [userId, kind]);
-  return result.rows.length > 0 ? reviveDates(result.rows[0]) : null;
+  const result = await pool.query<CooldownRow>(sql, [userId, kind]);
+  return result.rows.length > 0 ? reviveCooldown(result.rows[0]) : null;
 }
 
 /**
@@ -73,7 +79,7 @@ export async function createCooldown(
   userId: string,
   kind: string,
   readyAt: Date,
-  metaJson: any = null,
+  metaJson: Prisma.JsonValue | null = null,
   client?: PoolClient,
 ): Promise<Cooldown> {
   const pool = client ?? getProdDb();
@@ -82,8 +88,8 @@ export async function createCooldown(
     VALUES ($1, $2, $3, $4, NOW(), NOW())
     RETURNING *
   `;
-  const result = await pool.query(sql, [userId, kind, readyAt, metaJson ? JSON.stringify(metaJson) : null]);
-  return reviveDates(result.rows[0]);
+  const result = await pool.query<CooldownRow>(sql, [userId, kind, readyAt, metaJson ? JSON.stringify(metaJson) : null]);
+  return reviveCooldown(result.rows[0]);
 }
 
 /**
@@ -104,7 +110,7 @@ export async function updateCooldownReadyAt(
     WHERE id = $1
     RETURNING *
   `;
-  const result = await pool.query(sql, [cooldownId, readyAt]);
+  const result = await pool.query<CooldownRow>(sql, [cooldownId, readyAt]);
   if (result.rows.length === 0) throw new Error(`Cooldown not found: ${cooldownId}`);
-  return reviveDates(result.rows[0]);
+  return reviveCooldown(result.rows[0]);
 }

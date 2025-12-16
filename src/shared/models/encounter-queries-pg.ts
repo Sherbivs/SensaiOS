@@ -19,6 +19,7 @@
  */
 
 import { Pool } from "pg";
+import type { Prisma } from "@prisma/client";
 import { getProdDb } from "../pg-connection.js";
 import { buildSelect } from "../pg-query.js";
 import type { Encounter } from "../../types/db-models.js";
@@ -142,7 +143,7 @@ export async function findEncountersForUser(
   const db = getPool(pool);
   
   const whereConditions: string[] = ['"ownerId" = $1'];
-  const values: any[] = [userId];
+  const values: (string | number | EncounterState)[] = [userId];
   
   if (state) {
     whereConditions.push('"state" = $2');
@@ -237,7 +238,7 @@ export async function createEncounter(
     speciesId: number;
     level: number;
     state?: EncounterState;
-    dataJson?: any;
+    dataJson?: Prisma.JsonValue;
     expiresAt?: Date;
     threadChannelId?: string | null;
   },
@@ -336,7 +337,7 @@ export async function updateEncounterState(
  */
 export async function updateEncounterData(
   encounterId: string,
-  dataJson: any,
+  dataJson: Prisma.JsonValue,
   pool?: Pool
 ): Promise<Encounter | null> {
   const db = getPool(pool);
@@ -374,7 +375,7 @@ export async function updateEncounterData(
 export async function updateEncounterStateAndData(
   encounterId: string,
   state: EncounterState,
-  dataJson: any,
+  dataJson: Prisma.JsonValue,
   pool?: Pool
 ): Promise<Encounter | null> {
   const db = getPool(pool);

@@ -21,9 +21,12 @@
  */
 
 import type { Pool } from "pg";
+import type { Prisma } from "@prisma/client";
 import { getProdDb } from "../pg-connection.js";
 import { buildInsert, buildUpdate, buildCount } from "../pg-query.js";
 import type { Battle } from "../../types/db-models.js";
+import type { BattleRow } from "../../types/database-rows.js";
+import { pgTimestampToDateRequired, pgTimestampToDate } from "../../types/database-rows.js";
 
 // ============================================================================
 // Type Definitions
@@ -52,12 +55,25 @@ export interface BattleResultJson {
  * Convert Date fields from database string results
  * Required for: startedAt, endedAt, updatedAt
  */
-function reviveBattle(row: any): Battle {
+function reviveBattle(row: BattleRow): Battle {
   return {
-    ...row,
-    startedAt: row.startedAt ? new Date(row.startedAt) : new Date(),
-    endedAt: row.endedAt ? new Date(row.endedAt) : null,
-    updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
+    id: row.id,
+    p1Id: row.p1Id,
+    p2Id: row.p2Id,
+    arenaThreadId: row.arenaThreadId,
+    state: row.state,
+    rngSeed: row.rngSeed,
+    ruleset: row.ruleset,
+    logCompact: row.logCompact,
+    logFull: row.logFull,
+    resultJson: row.resultJson,
+    startedAt: pgTimestampToDateRequired(row.startedAt),
+    endedAt: pgTimestampToDate(row.endedAt),
+    updatedAt: pgTimestampToDateRequired(row.updatedAt),
+    tenantId: row.tenantId,
+    packHash: row.packHash,
+    trainer1Id: row.trainer1Id,
+    trainer2Id: row.trainer2Id,
   };
 }
 
@@ -148,7 +164,7 @@ export async function createBattle(
     state: string;
     rngSeed: string;
     ruleset: string;
-    logCompact?: any;
+    logCompact?: Prisma.JsonValue | null;
     arenaThreadId?: string | null;
   },
   pool?: Pool
@@ -261,7 +277,7 @@ export async function concludeBattle(
   loserId: string,
   resultJson: BattleResultJson,
   logFull: string[] | null,
-  logCompact: any,
+  logCompact: Prisma.JsonValue | null,
   winnerReward: number,
   loserReward: number,
   pool?: Pool

@@ -26,6 +26,8 @@
 import type { Pool, PoolClient } from "pg";
 import { getProdDb } from "../pg-connection.js";
 import type { BusMessage, BusStatus } from "../../types/db-models.js";
+import type { BusMessageRow } from "../../types/database-rows.js";
+import { pgTimestampToDateRequired, pgTimestampToDate } from "../../types/database-rows.js";
 
 // ============================================================================
 // Type Definitions
@@ -39,14 +41,23 @@ import type { BusMessage, BusStatus } from "../../types/db-models.js";
 /**
  * Revival helper: Convert Date-like strings to Date objects
  */
-function reviveDates(row: any): any {
-  if (!row) return row;
-  const copy = { ...row };
-  if (copy.createdAt && typeof copy.createdAt === "string") copy.createdAt = new Date(copy.createdAt);
-  if (copy.availableAt && typeof copy.availableAt === "string") copy.availableAt = new Date(copy.availableAt);
-  if (copy.processedAt && typeof copy.processedAt === "string") copy.processedAt = new Date(copy.processedAt);
-  if (copy.updatedAt && typeof copy.updatedAt === "string") copy.updatedAt = new Date(copy.updatedAt);
-  return copy;
+function reviveDates(row: BusMessageRow): BusMessage {
+  return {
+    id: row.id,
+    kind: row.kind as BusMessage["kind"],
+    topic: row.topic,
+    priority: row.priority as BusMessage["priority"],
+    shardKey: row.shardKey,
+    idempotencyKey: row.idempotencyKey,
+    payload: row.payload,
+    createdAt: pgTimestampToDateRequired(row.createdAt),
+    availableAt: pgTimestampToDateRequired(row.availableAt),
+    status: row.status as BusStatus,
+    attempts: row.attempts,
+    error: row.error,
+    processedAt: pgTimestampToDate(row.processedAt),
+    updatedAt: pgTimestampToDateRequired(row.updatedAt),
+  };
 }
 
 // ============================================================================

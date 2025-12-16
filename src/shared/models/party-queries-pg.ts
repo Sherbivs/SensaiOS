@@ -23,6 +23,8 @@ import type { Pool, PoolClient } from "pg";
 import { getProdDb } from "../pg-connection.js";
 import { buildSelect, buildInsert, buildUpdate, buildCount } from "../pg-query.js";
 import type { Party, PartySlot, PokemonInstance } from "../../types/db-models.js";
+import type { PartyRow, PartySlotRow, PokemonInstanceRow, PartyWithSlotsRow } from "../../types/database-rows.js";
+import { pgTimestampToDateRequired } from "../../types/database-rows.js";
 
 // ============================================================================
 // Type Definitions
@@ -94,39 +96,62 @@ export interface Move {
  * Convert Date fields from database string results
  * Required for: createdAt, updatedAt
  */
-function reviveParty(row: any): Party {
+function reviveParty(row: PartyRow): Party {
   return {
-    ...row,
-    createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
-    updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
+    id: row.id,
+    ownerId: row.ownerId,
+    trainerId: row.trainerId,
+    createdAt: pgTimestampToDateRequired(row.createdAt),
+    updatedAt: pgTimestampToDateRequired(row.updatedAt),
   };
 }
 
 /**
  * Convert Date fields for PartySlot
  */
-function revivePartySlot(row: any): PartySlot {
+function revivePartySlot(row: PartySlotRow): PartySlot {
   return {
-    ...row,
-    updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
+    id: row.id,
+    partyId: row.partyId,
+    pokemonId: row.pokemonId,
+    slot: row.slot,
+    updatedAt: pgTimestampToDateRequired(row.updatedAt),
   };
 }
 
 /**
  * Convert Date fields for PokemonInstance
  */
-function revivePokemon(row: any): PokemonInstance {
+function revivePokemon(row: PokemonInstanceRow): PokemonInstance {
   return {
-    ...row,
-    createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
-    updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
+    id: row.id,
+    ownerId: row.ownerId,
+    speciesId: row.speciesId,
+    form: row.form,
+    level: row.level,
+    exp: row.exp,
+    nature: row.nature,
+    ivsJson: row.ivsJson,
+    evsJson: row.evsJson,
+    movesJson: row.movesJson,
+    status: row.status,
+    hp: row.hp,
+    maxHp: row.maxHp,
+    isShiny: row.isShiny,
+    nickname: row.nickname,
+    boxSlot: row.boxSlot,
+    createdAt: pgTimestampToDateRequired(row.createdAt),
+    updatedAt: pgTimestampToDateRequired(row.updatedAt),
+    tenantId: row.tenantId,
+    trainerId: row.trainerId,
+    packHash: row.packHash,
   };
 }
 
 /**
  * Convert PartyWithSlots Date fields (party + slots + pokemon)
  */
-function revivePartyWithSlots(rows: any[]): PartyWithSlots | null {
+function revivePartyWithSlots(rows: PartyWithSlotsRow[]): PartyWithSlots | null {
   if (rows.length === 0) return null;
   
   const firstRow = rows[0];
@@ -142,27 +167,27 @@ function revivePartyWithSlots(rows: any[]): PartyWithSlots | null {
     .filter(row => row.slot_id !== null) // Filter out parties with no slots
     .map(row => ({
       ...revivePartySlot({
-        id: row.slot_id,
-        partyId: row.slot_partyId,
-        slot: row.slot_slot,
-        pokemonId: row.slot_pokemonId,
+        id: row.slot_id!,
+        partyId: row.slot_partyId!,
+        slot: row.slot_slot!,
+        pokemonId: row.slot_pokemonId!,
         updatedAt: row.slot_updatedAt,
       }),
       pokemon: revivePokemon({
-        id: row.pokemon_id,
-        ownerId: row.pokemon_ownerId,
-        speciesId: row.pokemon_speciesId,
+        id: row.pokemon_id!,
+        ownerId: row.pokemon_ownerId!,
+        speciesId: row.pokemon_speciesId!,
         form: row.pokemon_form,
-        level: row.pokemon_level,
-        exp: row.pokemon_exp,
+        level: row.pokemon_level!,
+        exp: row.pokemon_exp!,
         nature: row.pokemon_nature,
         ivsJson: row.pokemon_ivsJson,
         evsJson: row.pokemon_evsJson,
         movesJson: row.pokemon_movesJson,
         status: row.pokemon_status,
-        hp: row.pokemon_hp,
-        maxHp: row.pokemon_maxHp,
-        isShiny: row.pokemon_isShiny,
+        hp: row.pokemon_hp!,
+        maxHp: row.pokemon_maxHp!,
+        isShiny: row.pokemon_isShiny!,
         nickname: row.pokemon_nickname,
         boxSlot: row.pokemon_boxSlot,
         createdAt: row.pokemon_createdAt,
