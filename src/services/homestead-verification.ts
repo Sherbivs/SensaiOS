@@ -31,6 +31,7 @@ import type { User, HomesteadChannel } from '../generated/prisma/client.js';
 import { ImmutableAuditService } from '../bot/security/services/immutable-audit-service.js';
 import { EventBus } from '../shared/event-bus.js';
 import { HOMESTEAD_HMAC_KEY } from '../config/env.js';
+import { USER_PERMISSIONS, EVERYONE_DENY } from './homestead-permissions.js';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -239,17 +240,11 @@ export class HomesteadVerificationService {
       permissionOverwrites: [
         {
           id: guild.id, // @everyone
-          deny: [PermissionFlagsBits.ViewChannel],
+          deny: [...EVERYONE_DENY],
         },
         {
           id: user.id, // User
-          allow: [
-            PermissionFlagsBits.ViewChannel,
-            PermissionFlagsBits.SendMessages,
-            PermissionFlagsBits.ReadMessageHistory,
-            PermissionFlagsBits.AttachFiles,
-            PermissionFlagsBits.EmbedLinks,
-          ],
+          allow: [...USER_PERMISSIONS],
         },
         {
           id: this.discordClient.user!.id, // Bot

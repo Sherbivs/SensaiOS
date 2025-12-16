@@ -17,6 +17,7 @@ import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { daysAgo } from '../shared/utils/date-utils.js';
 import { HOMESTEAD_CATEGORY_NAME, HOMESTEAD_CLEANUP_DAYS } from '../config/env.js';
 import { homesteadRepository } from './homestead-repository.js';
+import { USER_PERMISSIONS, BOT_PERMISSIONS, EVERYONE_DENY } from './homestead-permissions.js';
 
 // ============================================================================
 // Configuration
@@ -181,28 +182,15 @@ export class HomesteadChannelManager {
       permissionOverwrites: [
         {
           id: this.guild.id, // @everyone role
-          deny: [PermissionFlagsBits.ViewChannel],
+          deny: [...EVERYONE_DENY],
         },
         {
           id: user.id, // User-specific allow
-          allow: [
-            PermissionFlagsBits.ViewChannel,
-            PermissionFlagsBits.SendMessages,
-            PermissionFlagsBits.ReadMessageHistory,
-            PermissionFlagsBits.AttachFiles,
-            PermissionFlagsBits.EmbedLinks,
-          ],
+          allow: [...USER_PERMISSIONS],
         },
         {
           id: this.client.user!.id, // Bot-specific allow
-          allow: [
-            PermissionFlagsBits.ViewChannel,
-            PermissionFlagsBits.SendMessages,
-            PermissionFlagsBits.ReadMessageHistory,
-            PermissionFlagsBits.ManageMessages,
-            PermissionFlagsBits.AttachFiles,
-            PermissionFlagsBits.EmbedLinks,
-          ],
+          allow: [...BOT_PERMISSIONS],
         },
       ],
     });
