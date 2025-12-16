@@ -226,7 +226,7 @@ async function flushBuffer(): Promise<void> {
   
   try {
     // Lazy-load TimescaleDB worker to avoid circular dependencies
-    const { getTimescaleDBWorker } = await import('../workers/database/index.js');
+    const { getTimescaleDBWorker } = await import('../../workers/database/index.js');
     const worker = getTimescaleDBWorker();
     
     // Batch insert entries

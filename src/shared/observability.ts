@@ -27,7 +27,7 @@
 
 import type { PrismaClient } from "../generated/prisma/client.js";
 import { getLogger } from "./logger.js";
-import { initConsoleRenderer, startConsoleRenderer, stopConsoleRenderer, getRendererStats } from "./console-renderer.js";
+import { initConsoleRenderer, startConsoleRenderer, stopConsoleRenderer, getRendererStats } from "./console/index.js";
 import { startMetricsCollection, stopMetricsCollection, getCollectionStats, forceCollect, setCollectionInterval, type CollectionStats } from "./metrics-collector.js";
 import { initLogAggregator, runAggregation, getAggregatorConfig, type AggregationStats } from "./log-aggregator.js";
 import { initHealthMonitor, startHealthMonitor, stopHealthMonitor, getSystemHealth, getMonitorConfig, type SystemHealth } from "./system-health-monitor.js";

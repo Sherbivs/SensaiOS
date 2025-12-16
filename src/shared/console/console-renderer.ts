@@ -15,7 +15,7 @@
 /* eslint-disable no-console */
 // This file is explicitly for console output - it's the ONLY place console.log is allowed in production
 
-import type { PrismaClient } from "../generated/prisma/client.js";
+import type { PrismaClient } from "../../generated/prisma/client.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES & INTERFACES
