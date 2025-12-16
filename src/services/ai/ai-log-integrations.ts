@@ -1,36 +1,223 @@
 /* eslint-disable no-console */
-import * as aiLogger from './ai-log-writer.js';
+/**
+ * AI Log System Integrations
+ * @module services/ai/ai-log-integrations
+ * 
+ * Purpose: Connect AI logging system with existing observability systems
+ * 
+ * Integrations:
+ *   - Error Tracker: Log all detected errors with full context
+ *   - Console Logger: Mirror important console logs to AI logs
+ *   - Resource Monitor: Log resource metrics and health checks
+ *   - Database: Log queries, connections, and performance
+ *   - Discord: Log API interactions and rate limits
+ *   - Game Engine: Log battles, spawns, and calculations
+ *   - Security Bot: Log permission sweeps and alerts
+ *   - User Actions: Log commands and interactions
+ */
 
-// ============================================================================
-// AI LOG SYSTEM INTEGRATIONS
-// ============================================================================
-// Purpose: Connect AI logging system with existing observability systems
-// Integrations:
-//   - Error Tracker: Log all detected errors with full context
-//   - Console Logger: Mirror important console logs to AI logs
-//   - Resource Monitor: Log resource metrics and health checks
-//   - Database: Log queries, connections, and performance
-//   - Discord: Log API interactions and rate limits
-// ============================================================================
+import * as aiLogger from './ai-log-writer.js';
+import type { LogLevel as AILogLevel, LogCategory } from './ai-log-writer.js';
+import type { Client } from 'discord.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ErrorTrackerContext {
+  severity?: string;
+  category?: string;
+  feature?: string;
+  userId?: string;
+  guildId?: string;
+  recoverable?: boolean;
+  correlationId?: string;
+}
+
+interface ErrorTrackerResult {
+  errorId?: string;
+}
+
+// Loose interface for ErrorTracker compatibility
+interface ErrorTracker {
+  trackError?: (error: Error, context?: ErrorTrackerContext) => Promise<ErrorTrackerResult | undefined>;
+}
+
+type LogLevel = 'success' | 'info' | 'warn' | 'detail' | 'error';
+
+interface LoggerContext {
+  category?: string;
+  [key: string]: unknown;
+}
+
+interface Logger {
+  log: (level: LogLevel, message: string, context?: LoggerContext, options?: Record<string, unknown>) => void;
+  report?: (title: string, meta?: Record<string, unknown>, level?: string) => void;
+  [key: string]: unknown;
+}
+
+interface HealthCheckResult {
+  status: 'healthy' | 'unhealthy' | 'degraded';
+  metrics?: Record<string, unknown>;
+  warnings?: string[];
+  errors?: string[];
+}
+
+interface ResourceMonitor {
+  performHealthCheck?: () => Promise<HealthCheckResult>;
+  [key: string]: unknown;
+}
+
+interface MemoryLeak {
+  type: string;
+  id?: string;
+  size?: number;
+  age?: number;
+  stackTrace?: string[];
+}
+
+interface ResourceMetadata {
+  size?: number;
+  critical?: boolean;
+  [key: string]: unknown;
+}
+
+interface TrackedResource {
+  id?: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+interface ResourceManager {
+  detectLeaks?: () => MemoryLeak[] | null;
+  track?: (type: string, resource: TrackedResource, metadata?: ResourceMetadata) => unknown;
+  [key: string]: unknown;
+}
+
+// Loose interface for database stats
+interface DatabaseStats {
+  status: string;
+  latency?: number | null;
+  connections?: number;
+  source?: string;
+  transport?: string;
+  [key: string]: unknown;
+}
+
+// Accepts any object with getDatabaseStats method
+interface ConnectionMonitor {
+  getDatabaseStats: () => Record<string, unknown>;
+}
+
+interface BattleParticipant {
+  userId: string;
+  pokemonId: string | number;
+  level: number;
+  [key: string]: unknown;
+}
+
+interface BattleOptions {
+  mode?: string;
+  correlationId?: string;
+  guildId?: string;
+  state?: Record<string, unknown>;
+}
+
+interface BattleResult {
+  winner: string;
+  turns: number;
+  outcome: string;
+  complexity?: number;
+  [key: string]: unknown;
+}
+
+interface SpawnedPokemon {
+  id: string | number;
+  species: string;
+  level: number;
+  rarity: string;
+  shiny: boolean;
+  [key: string]: unknown;
+}
+
+interface SpawnOptions {
+  guildId?: string;
+}
+
+interface SweepResults {
+  guildsChecked: number;
+  changesMade: number;
+  failures: number;
+}
+
+interface PermissionChange {
+  guildId: string;
+  roleId: string;
+  permission: string;
+  previousState?: unknown;
+  currentState?: unknown;
+}
+
+interface RevertData {
+  guildId: string;
+  roleId: string;
+  permission: string;
+}
+
+interface DiscordUser {
+  id: string;
+  tag: string;
+}
+
+interface DiscordGuild {
+  id: string;
+  name: string;
+}
+
+interface CommandOptions {
+  correlationId?: string;
+}
+
+interface WorkerConfig {
+  name?: string;
+  type?: string;
+}
+
+interface ServicesConfig {
+  errorTracker?: unknown;
+  logger?: Logger | Partial<Logger> | null;
+  resourceMonitor?: ResourceMonitor | null;
+  resourceManager?: ResourceManager | null;
+  databaseMonitor?: ConnectionMonitor | null;
+  prisma?: unknown;
+  discordClient?: Client;
+  workerConfig?: WorkerConfig;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Configuration
+// ─────────────────────────────────────────────────────────────────────────────
 
 const { CONFIG } = aiLogger;
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Error Tracker Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Hook into error-tracker to log all tracked errors.
- * @param {object} errorTracker - ErrorTracker instance
  */
-export function integrateErrorTracker(errorTracker) {
+export function integrateErrorTracker(errorTracker: ErrorTracker): void {
   if (!errorTracker) return;
   
   // Intercept trackError method
   const originalTrackError = errorTracker.trackError?.bind(errorTracker);
   
   if (originalTrackError) {
-    errorTracker.trackError = async function(error, context = {}) {
+    errorTracker.trackError = async function(
+      error: Error, 
+      context: ErrorTrackerContext = {}
+    ): Promise<ErrorTrackerResult | undefined> {
       // Call original method
       const result = await originalTrackError(error, context);
       
@@ -47,7 +234,7 @@ export function integrateErrorTracker(errorTracker) {
           recoverable: context.recoverable,
         },
         correlationId: context.correlationId,
-        tags: ['error-tracker', context.category, context.severity].filter(Boolean),
+        tags: ['error-tracker', context.category, context.severity].filter(Boolean) as string[],
       });
       
       return result;
@@ -57,27 +244,31 @@ export function integrateErrorTracker(errorTracker) {
   console.log('[ai-log-integrations] Error Tracker integrated');
 }
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Console Logger Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Hook into console logger to mirror important logs to AI system.
- * @param {object} logger - Logger instance
  */
-export function integrateConsoleLogger(logger) {
+export function integrateConsoleLogger(logger: Logger): void {
   if (!logger || !logger.log) return;
   
   const originalLog = logger.log.bind(logger);
   const originalReport = logger.report?.bind(logger);
   
   // Intercept log method
-  logger.log = function(level, message, context, options = {}) {
+  logger.log = function(
+    level: LogLevel, 
+    message: string, 
+    context?: LoggerContext, 
+    options: Record<string, unknown> = {}
+  ): void {
     // Call original
     originalLog(level, message, context, options);
     
     // Map console levels to AI levels
-    const levelMap = {
+    const levelMap: Record<LogLevel, AILogLevel> = {
       success: 'INFO',
       info: 'INFO',
       warn: 'WARN',
@@ -85,10 +276,10 @@ export function integrateConsoleLogger(logger) {
       error: 'ERROR',
     };
     
-    const aiLevel = levelMap[level] || 'INFO';
+    const aiLevel: AILogLevel = levelMap[level] || 'INFO';
     
     // Determine category from context
-    const category = context?.category || CONFIG.categories.SYSTEM;
+    const category = (context?.category || CONFIG.categories.SYSTEM) as LogCategory;
     
     // Log to AI system
     aiLogger.log(aiLevel, category, message, {
@@ -99,12 +290,16 @@ export function integrateConsoleLogger(logger) {
   
   // Intercept report method
   if (originalReport) {
-    logger.report = function(title, meta = {}, level = 'info') {
+    logger.report = function(
+      title: string, 
+      meta: Record<string, unknown> = {}, 
+      level: string = 'info'
+    ): void {
       // Call original
       originalReport(title, meta, level);
       
       // Log to AI system
-      const aiLevel = level === 'error' ? 'ERROR' : level === 'warn' ? 'WARN' : 'NOTICE';
+      const aiLevel: AILogLevel = level === 'error' ? 'ERROR' : level === 'warn' ? 'WARN' : 'NOTICE';
       
       aiLogger.log(aiLevel, CONFIG.categories.SYSTEM, title, {
         data: meta,
@@ -116,22 +311,21 @@ export function integrateConsoleLogger(logger) {
   console.log('[ai-log-integrations] Console Logger integrated');
 }
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Resource Monitor Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Hook into resource monitor to log health checks and metrics.
- * @param {object} resourceMonitor - ResourceMonitor instance
  */
-export function integrateResourceMonitor(resourceMonitor) {
+export function integrateResourceMonitor(resourceMonitor: ResourceMonitor): void {
   if (!resourceMonitor) return;
   
   // Log health checks
   const originalHealthCheck = resourceMonitor.performHealthCheck?.bind(resourceMonitor);
   
   if (originalHealthCheck) {
-    resourceMonitor.performHealthCheck = async function() {
+    resourceMonitor.performHealthCheck = async function(): Promise<HealthCheckResult> {
       const start = performance.now();
       const result = await originalHealthCheck();
       const duration = performance.now() - start;
@@ -160,9 +354,9 @@ export function integrateResourceMonitor(resourceMonitor) {
   console.log('[ai-log-integrations] Resource Monitor integrated');
 }
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Database Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Hook into Prisma to log queries and connections.
@@ -170,10 +364,8 @@ export function integrateResourceMonitor(resourceMonitor) {
  * requires using the extended client. This integration logs connection events
  * and errors, but detailed query logging would require refactoring to use
  * the extended client throughout the application.
- * 
- * @param {object} prisma - Prisma client instance
  */
-export function integratePrisma(prisma) {
+export function integratePrisma(prisma: unknown): void {
   if (!prisma) {
     console.log('[ai-log-integrations] Prisma integration skipped (no client provided)');
     return;
@@ -194,40 +386,40 @@ export function integratePrisma(prisma) {
     console.log('[ai-log-integrations] Note: Query-level logging requires $extends() refactor');
   } catch (error) {
     aiLogger.error(CONFIG.categories.DATABASE, 'Failed to integrate Prisma', {
-      error,
+      error: error instanceof Error ? error : new Error(String(error)),
       tags: ['prisma', 'integration-error'],
     });
     console.error('[ai-log-integrations] Prisma integration failed:', error);
   }
 }
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Discord Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Hook into Discord client to log API interactions.
- * @param {object} client - Discord.js Client instance
  */
-export function integrateDiscordClient(client) {
+export function integrateDiscordClient(client: Client): void {
   if (!client) return;
   
-  // Log rate limits
-  client.on('rateLimit', (rateLimitData) => {
+  // Log rate limits (note: RateLimitData structure varies by discord.js version)
+  client.rest.on('rateLimited', (rateLimitData) => {
     aiLogger.warn(CONFIG.categories.DISCORD, 'Rate limit hit', {
       data: {
-        timeout: rateLimitData.timeout,
+        timeToReset: rateLimitData.timeToReset,
         limit: rateLimitData.limit,
         method: rateLimitData.method,
-        path: rateLimitData.path,
+        url: rateLimitData.url,
         route: rateLimitData.route,
+        global: rateLimitData.global,
       },
       tags: ['discord', 'rate-limit'],
     });
   });
   
   // Log API errors
-  client.on('error', (error) => {
+  client.on('error', (error: Error) => {
     aiLogger.error(CONFIG.categories.DISCORD, 'Discord client error', {
       error,
       tags: ['discord', 'client-error'],
@@ -235,7 +427,7 @@ export function integrateDiscordClient(client) {
   });
   
   // Log warnings
-  client.on('warn', (warning) => {
+  client.on('warn', (warning: string) => {
     aiLogger.warn(CONFIG.categories.DISCORD, `Discord warning: ${warning}`, {
       tags: ['discord', 'warning'],
     });
@@ -254,7 +446,7 @@ export function integrateDiscordClient(client) {
   });
   
   // Log reconnect events
-  client.on('shardReconnecting', (id) => {
+  client.on('shardReconnecting', (id: number) => {
     aiLogger.warn(CONFIG.categories.DISCORD, `Shard ${id} reconnecting`, {
       data: { shardId: id },
       tags: ['discord', 'reconnect'],
@@ -264,9 +456,9 @@ export function integrateDiscordClient(client) {
   console.log('[ai-log-integrations] Discord Client integrated');
 }
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Game Engine Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Log game engine events (battles, calculations, etc.).
@@ -275,7 +467,11 @@ export const gameEngine = {
   /**
    * Log battle start.
    */
-  logBattleStart(battleId, participants, options = {}) {
+  logBattleStart(
+    battleId: string, 
+    participants: BattleParticipant[], 
+    options: BattleOptions = {}
+  ): void {
     aiLogger.info(CONFIG.categories.GAME_ENGINE, 'Battle started', {
       data: {
         battleId,
@@ -296,7 +492,12 @@ export const gameEngine = {
   /**
    * Log battle end.
    */
-  logBattleEnd(battleId, result, duration, options = {}) {
+  logBattleEnd(
+    battleId: string, 
+    result: BattleResult, 
+    duration: number, 
+    options: BattleOptions = {}
+  ): void {
     aiLogger.info(CONFIG.categories.GAME_ENGINE, 'Battle ended', {
       data: {
         battleId,
@@ -325,7 +526,11 @@ export const gameEngine = {
   /**
    * Log battle error.
    */
-  logBattleError(battleId, error, options = {}) {
+  logBattleError(
+    battleId: string, 
+    error: Error, 
+    options: BattleOptions = {}
+  ): void {
     aiLogger.error(CONFIG.categories.GAME_ENGINE, 'Battle error', {
       error,
       data: {
@@ -340,7 +545,10 @@ export const gameEngine = {
   /**
    * Log Pokemon spawn.
    */
-  logPokemonSpawn(pokemon, options = {}) {
+  logPokemonSpawn(
+    pokemon: SpawnedPokemon, 
+    options: SpawnOptions = {}
+  ): void {
     aiLogger.debug(CONFIG.categories.GAME_ENGINE, 'Pokemon spawned', {
       data: {
         pokemonId: pokemon.id,
@@ -355,9 +563,9 @@ export const gameEngine = {
   },
 };
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Security Bot Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Log security bot events.
@@ -366,7 +574,7 @@ export const securityBot = {
   /**
    * Log permission sweep.
    */
-  logSweep(results, duration) {
+  logSweep(results: SweepResults, duration: number): void {
     const level = results.changesMade > 0 ? 'NOTICE' : 'DEBUG';
     
     aiLogger.log(level, CONFIG.categories.SECURITY, 'Permission sweep completed', {
@@ -383,7 +591,7 @@ export const securityBot = {
   /**
    * Log unauthorized permission change.
    */
-  logUnauthorizedChange(change) {
+  logUnauthorizedChange(change: PermissionChange): void {
     aiLogger.warn(CONFIG.categories.SECURITY, 'Unauthorized permission detected', {
       data: {
         guildId: change.guildId,
@@ -400,7 +608,7 @@ export const securityBot = {
   /**
    * Log permission revert.
    */
-  logRevert(revert, success) {
+  logRevert(revert: RevertData, success: boolean): void {
     const level = success ? 'INFO' : 'ERROR';
     
     aiLogger.log(level, CONFIG.categories.SECURITY, `Permission ${success ? 'reverted' : 'revert failed'}`, {
@@ -416,9 +624,9 @@ export const securityBot = {
   },
 };
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // User Action Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Log user-initiated actions.
@@ -427,7 +635,13 @@ export const userActions = {
   /**
    * Log command execution.
    */
-  logCommand(command, user, guild, args, options = {}) {
+  logCommand(
+    command: string, 
+    user: DiscordUser, 
+    guild: DiscordGuild | null, 
+    args: unknown,
+    options: CommandOptions = {}
+  ): void {
     aiLogger.notice(CONFIG.categories.USER_ACTION, `Command: ${command}`, {
       data: {
         command,
@@ -451,7 +665,13 @@ export const userActions = {
   /**
    * Log command error.
    */
-  logCommandError(command, error, user, guild, options = {}) {
+  logCommandError(
+    command: string, 
+    error: Error, 
+    user: DiscordUser, 
+    guild: DiscordGuild | null,
+    options: CommandOptions = {}
+  ): void {
     aiLogger.error(CONFIG.categories.USER_ACTION, `Command failed: ${command}`, {
       error,
       data: {
@@ -473,22 +693,21 @@ export const userActions = {
   },
 };
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Resource Manager Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Hook into resource-manager for leak detection and tracking.
- * @param {object} resourceManager - ResourceManager instance
  */
-export function integrateResourceManager(resourceManager) {
+export function integrateResourceManager(resourceManager: ResourceManager): void {
   if (!resourceManager) return;
   
   // Log leak detections
   const originalDetectLeaks = resourceManager.detectLeaks?.bind(resourceManager);
   
   if (originalDetectLeaks) {
-    resourceManager.detectLeaks = function() {
+    resourceManager.detectLeaks = function(): MemoryLeak[] | null {
       const result = originalDetectLeaks();
       
       if (result && result.length > 0) {
@@ -515,11 +734,15 @@ export function integrateResourceManager(resourceManager) {
   const originalTrack = resourceManager.track?.bind(resourceManager);
   
   if (originalTrack) {
-    resourceManager.track = function(type, resource, metadata = {}) {
+    resourceManager.track = function(
+      type: string, 
+      resource: TrackedResource, 
+      metadata: ResourceMetadata = {}
+    ): unknown {
       const result = originalTrack(type, resource, metadata);
       
       // Log high-value resources only
-      if (metadata.size > 1024 * 1024 || metadata.critical) {
+      if ((metadata.size && metadata.size > 1024 * 1024) || metadata.critical) {
         aiLogger.debug(CONFIG.categories.RESOURCE, `Tracking ${type} resource`, {
           data: {
             type,
@@ -538,15 +761,14 @@ export function integrateResourceManager(resourceManager) {
   console.log('[ai-log-integrations] Resource Manager integrated');
 }
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Database Connection Monitoring
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Monitor database connection health and operations.
- * @param {object} connectionMonitor - Connection monitor with getDatabaseStats
  */
-export function integrateDatabaseMonitor(connectionMonitor) {
+export function integrateDatabaseMonitor(connectionMonitor: ConnectionMonitor): void {
   if (!connectionMonitor || !connectionMonitor.getDatabaseStats) return;
   
   // Periodically log database stats
@@ -555,7 +777,8 @@ export function integrateDatabaseMonitor(connectionMonitor) {
       const stats = connectionMonitor.getDatabaseStats();
       
       // Log each database's health
-      for (const [dbName, dbStats] of Object.entries(stats)) {
+      for (const [dbName, rawStats] of Object.entries(stats)) {
+        const dbStats = rawStats as DatabaseStats;
         if (dbStats.status === 'error' || dbStats.status === 'degraded') {
           aiLogger.warn(CONFIG.categories.DATABASE, `Database ${dbName} health issue`, {
             data: {
@@ -566,27 +789,28 @@ export function integrateDatabaseMonitor(connectionMonitor) {
               source: dbStats.source,
               transport: dbStats.transport,
             },
-            tags: ['database', 'health', dbName, dbStats.status],
+            tags: ['database', 'health', dbName, String(dbStats.status)],
           });
         }
       }
     } catch (error) {
-      aiLogger.debug(CONFIG.categories.SYSTEM, 'Database stats collection failed', { error });
+      aiLogger.debug(CONFIG.categories.SYSTEM, 'Database stats collection failed', { 
+        error: error instanceof Error ? error : new Error(String(error)) 
+      });
     }
   }, 60 * 1000); // Every minute
   
   console.log('[ai-log-integrations] Database Monitor integrated');
 }
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Worker Process Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Log worker process lifecycle and metrics.
- * @param {object} workerConfig - Worker configuration with name and type
  */
-export function integrateWorkerProcess(workerConfig = {}) {
+export function integrateWorkerProcess(workerConfig: WorkerConfig = {}): void {
   const workerName = workerConfig.name || process.env.RENDER_SERVICE_NAME || 'unknown-worker';
   const workerType = workerConfig.type || process.env.RENDER_SERVICE_TYPE || 'unknown';
   
@@ -605,7 +829,7 @@ export function integrateWorkerProcess(workerConfig = {}) {
   });
   
   // Log uncaught errors
-  process.on('uncaughtException', (error) => {
+  process.on('uncaughtException', (error: Error) => {
     aiLogger.fatal(CONFIG.categories.ERROR, `Uncaught exception in ${workerName}`, {
       error,
       data: { workerName, workerType },
@@ -613,10 +837,10 @@ export function integrateWorkerProcess(workerConfig = {}) {
     });
   });
   
-  process.on('unhandledRejection', (reason, promise) => {
+  process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
     aiLogger.critical(CONFIG.categories.ERROR, `Unhandled rejection in ${workerName}`, {
       error: reason instanceof Error ? reason : new Error(String(reason)),
-      data: { workerName, workerType, promise: promise.toString() },
+      data: { workerName, workerType, promise: String(promise) },
       tags: ['worker', 'critical', 'unhandled-rejection', workerName],
     });
   });
@@ -649,16 +873,14 @@ export function integrateWorkerProcess(workerConfig = {}) {
   console.log(`[ai-log-integrations] Worker process integrated: ${workerName}`);
 }
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Auto-Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Automatically integrate with all available systems.
- * @param {object} services - Services to integrate
- * @returns {Promise<void>}
  */
-export async function integrateAll(services = {}) {
+export async function integrateAll(services: ServicesConfig = {}): Promise<void> {
   const {
     errorTracker,
     logger,
@@ -670,8 +892,12 @@ export async function integrateAll(services = {}) {
     workerConfig,
   } = services;
   
-  if (errorTracker) integrateErrorTracker(errorTracker);
-  if (logger) integrateConsoleLogger(logger);
+  if (errorTracker && typeof errorTracker === 'object' && 'trackError' in errorTracker) {
+    integrateErrorTracker(errorTracker as ErrorTracker);
+  }
+  if (logger && typeof logger === 'object' && 'log' in logger && typeof (logger as Logger).log === 'function') {
+    integrateConsoleLogger(logger as Logger);
+  }
   if (resourceMonitor) integrateResourceMonitor(resourceMonitor);
   if (resourceManager) integrateResourceManager(resourceManager);
   if (databaseMonitor) integrateDatabaseMonitor(databaseMonitor);
@@ -681,6 +907,10 @@ export async function integrateAll(services = {}) {
   
   console.log('[ai-log-integrations] All integrations complete');
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Default Export
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default {
   integrateErrorTracker,

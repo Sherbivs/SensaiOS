@@ -1,28 +1,179 @@
 /* eslint-disable no-console */
+/**
+ * AI-Optimized Hard Logging System
+ * @module services/ai/ai-log-writer
+ * 
+ * Purpose: Create structured, machine-readable logs for AI analysis
+ * Storage: /Store/ai-logs/ (persistent disk)
+ * Format: Newline-delimited JSON (NDJSON) for streaming analysis
+ * Rotation: Auto-rotate by size (10MB) and time (24 hours)
+ * Compression: Auto-compress old logs to save space
+ * Features: Correlation IDs, stack traces, context capture, error codes
+ */
+
 import fs from 'node:fs/promises';
+import { createReadStream, createWriteStream, WriteStream } from 'node:fs';
 import path from 'node:path';
-import { createWriteStream } from 'node:fs';
 import { createGzip } from 'node:zlib';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 
-// ============================================================================
-// AI-OPTIMIZED HARD LOGGING SYSTEM
-// ============================================================================
-// Purpose: Create structured, machine-readable logs for AI analysis
-// Storage: /Store/ai-logs/ (persistent disk)
-// Format: Newline-delimited JSON (NDJSON) for streaming analysis
-// Rotation: Auto-rotate by size (10MB) and time (24 hours)
-// Compression: Auto-compress old logs to save space
-// Features: Correlation IDs, stack traces, context capture, error codes
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ============================================================================
+export type LogLevel = 
+  | 'TRACE'
+  | 'DEBUG'
+  | 'INFO'
+  | 'NOTICE'
+  | 'WARN'
+  | 'ERROR'
+  | 'CRITICAL'
+  | 'FATAL';
+
+export type LogCategory =
+  | 'system'
+  | 'database'
+  | 'discord'
+  | 'game-engine'
+  | 'security'
+  | 'performance'
+  | 'error'
+  | 'resource'
+  | 'user-action'
+  | 'integration'
+  | 'general';
+
+interface LogLevels {
+  TRACE: number;
+  DEBUG: number;
+  INFO: number;
+  NOTICE: number;
+  WARN: number;
+  ERROR: number;
+  CRITICAL: number;
+  FATAL: number;
+}
+
+interface LogCategories {
+  SYSTEM: 'system';
+  DATABASE: 'database';
+  DISCORD: 'discord';
+  GAME_ENGINE: 'game-engine';
+  SECURITY: 'security';
+  PERFORMANCE: 'performance';
+  ERROR: 'error';
+  RESOURCE: 'resource';
+  USER_ACTION: 'user-action';
+  INTEGRATION: 'integration';
+}
+
+interface RotationConfig {
+  maxSize: number;
+  maxAge: number;
+  maxFiles: number;
+  compressAfter: number;
+}
+
+export interface LogConfig {
+  baseDir: string;
+  levels: LogLevels;
+  rotation: RotationConfig;
+  categories: LogCategories;
+  minLevel: string;
+  autoFlush: boolean;
+  flushInterval: number;
+}
+
+interface ExecutionContext {
+  function: string;
+  file: string;
+  line: number | null;
+  column: number | null;
+  stack: string[];
+}
+
+interface ErrorMetadata {
+  name: string;
+  message: string;
+  code: string | null;
+  syscall: string | null;
+  errno: number | null;
+  stack: string[];
+  cause: ErrorMetadata | null;
+}
+
+interface ProcessInfo {
+  pid: number;
+  uptime: number;
+  memory: NodeJS.MemoryUsage;
+  hostname: string;
+}
+
+export interface LogEntry {
+  timestamp: string;
+  timestampMs: number;
+  level: LogLevel;
+  category: LogCategory;
+  correlationId: string;
+  message: string;
+  context: {
+    file: string;
+    line: number | null;
+    function: string;
+    stack: string[];
+  };
+  process: ProcessInfo;
+  data: Record<string, unknown>;
+  tags: string[];
+  error?: ErrorMetadata;
+  user?: { userId: string };
+  guild?: { guildId: string };
+}
+
+interface LogFileMetadata {
+  _type: 'log_file_metadata';
+  version: string;
+  created: string;
+  category: string;
+  pid: number;
+  hostname: string;
+  nodeVersion: string;
+}
+
+export interface LogOptions {
+  data?: Record<string, unknown>;
+  error?: Error | null;
+  correlationId?: string | null;
+  userId?: string | null;
+  guildId?: string | null;
+  tags?: string | string[];
+  context?: ExecutionContext | null;
+}
+
+export interface LogStats {
+  logsWritten: number;
+  bytesWritten: number;
+  errorsEncountered: number;
+  rotationsPerformed: number;
+  compressionsPerformed: number;
+  flushesPerformed: number;
+  startTime: number;
+  uptime: number;
+  currentLogFile: string | null;
+  currentLogSize: number;
+  bufferSize: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Configuration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
-const CONFIG = {
+export const CONFIG: LogConfig = {
   // Storage paths
-  baseDir: process.env.IS_RENDER ? '/Store/ai-logs' : path.resolve(process.cwd(), 'Store/ai-logs'),
+  baseDir: process.env.IS_RENDER 
+    ? '/Store/ai-logs' 
+    : path.resolve(process.cwd(), 'Store/ai-logs'),
   
   // Log levels with priority
   levels: {
@@ -46,16 +197,16 @@ const CONFIG = {
   
   // Categories for log organization
   categories: {
-    SYSTEM: 'system',           // System-level events (startup, shutdown, config)
-    DATABASE: 'database',       // Database operations (queries, connections, migrations)
-    DISCORD: 'discord',         // Discord API interactions
-    GAME_ENGINE: 'game-engine', // Game engine operations (battles, calculations)
-    SECURITY: 'security',       // Security events (auth, permissions, threats)
-    PERFORMANCE: 'performance', // Performance metrics and profiling
-    ERROR: 'error',             // Error tracking and recovery
-    RESOURCE: 'resource',       // Resource management (memory, CPU, connections)
-    USER_ACTION: 'user-action', // User-initiated actions
-    INTEGRATION: 'integration', // External integrations (APIs, webhooks)
+    SYSTEM: 'system',
+    DATABASE: 'database',
+    DISCORD: 'discord',
+    GAME_ENGINE: 'game-engine',
+    SECURITY: 'security',
+    PERFORMANCE: 'performance',
+    ERROR: 'error',
+    RESOURCE: 'resource',
+    USER_ACTION: 'user-action',
+    INTEGRATION: 'integration',
   },
   
   // Minimum log level to write (configurable)
@@ -66,17 +217,17 @@ const CONFIG = {
   flushInterval: 5000, // Flush every 5 seconds
 };
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // State Management
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
-let currentLogStream = null;
-let currentLogFile = null;
+let currentLogStream: WriteStream | null = null;
+let currentLogFile: string | null = null;
 let currentLogSize = 0;
 let currentLogStartTime = Date.now();
-let flushInterval = null;
+let flushInterval: ReturnType<typeof setInterval> | null = null;
 let isShuttingDown = false;
-let logBuffer = [];
+const logBuffer: LogEntry[] = [];
 let correlationIdCounter = 0;
 
 // Statistics for self-monitoring
@@ -90,16 +241,15 @@ const stats = {
   startTime: Date.now(),
 };
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Utility Functions
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Generate correlation ID for tracking related log entries.
  * Format: {timestamp}-{counter}-{random}
- * @returns {string} Correlation ID
  */
-function generateCorrelationId() {
+export function generateCorrelationId(): string {
   const timestamp = Date.now().toString(36);
   const counter = (correlationIdCounter++).toString(36).padStart(4, '0');
   const random = Math.random().toString(36).substring(2, 6);
@@ -108,14 +258,12 @@ function generateCorrelationId() {
 
 /**
  * Capture current execution context (stack trace, file, line).
- * @param {number} stackDepth - How many levels up to capture (default: 3)
- * @returns {object} Context object with file, line, function, stack
  */
-function captureContext(stackDepth = 3) {
+function captureContext(stackDepth = 3): ExecutionContext {
   const err = new Error();
   Error.captureStackTrace(err);
   
-  const stack = err.stack.split('\n').slice(2); // Skip Error and captureContext lines
+  const stack = err.stack?.split('\n').slice(2) || []; // Skip Error and captureContext lines
   const relevantStack = stack.slice(0, stackDepth);
   
   // Parse first stack frame for file/line info
@@ -133,20 +281,20 @@ function captureContext(stackDepth = 3) {
 
 /**
  * Extract error metadata for AI analysis.
- * @param {Error} error - Error object
- * @returns {object} Error metadata
  */
-function extractErrorMetadata(error) {
+function extractErrorMetadata(error: unknown): ErrorMetadata | null {
   if (!error || !(error instanceof Error)) {
     return null;
   }
   
+  const nodeError = error as NodeJS.ErrnoException;
+  
   return {
     name: error.name,
     message: error.message,
-    code: error.code || null,
-    syscall: error.syscall || null,
-    errno: error.errno || null,
+    code: nodeError.code || null,
+    syscall: nodeError.syscall || null,
+    errno: nodeError.errno ?? null,
     stack: error.stack?.split('\n').map(line => line.trim()) || [],
     cause: error.cause ? extractErrorMetadata(error.cause) : null,
   };
@@ -154,10 +302,8 @@ function extractErrorMetadata(error) {
 
 /**
  * Sanitize sensitive data from log entries.
- * @param {any} value - Value to sanitize
- * @returns {any} Sanitized value
  */
-function sanitize(value) {
+function sanitize(value: unknown): unknown {
   if (typeof value === 'string') {
     // Redact tokens, passwords, API keys
     return value
@@ -171,8 +317,8 @@ function sanitize(value) {
   }
   
   if (value && typeof value === 'object') {
-    const sanitized = {};
-    for (const [key, val] of Object.entries(value)) {
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
       if (/token|password|apikey|api_key|secret/i.test(key)) {
         sanitized[key] = '<redacted>';
       } else {
@@ -185,15 +331,14 @@ function sanitize(value) {
   return value;
 }
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // File Management
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Ensure log directory exists.
- * @returns {Promise<void>}
  */
-async function ensureLogDirectory() {
+async function ensureLogDirectory(): Promise<void> {
   try {
     await fs.mkdir(CONFIG.baseDir, { recursive: true });
     await fs.mkdir(path.join(CONFIG.baseDir, 'compressed'), { recursive: true });
@@ -205,20 +350,16 @@ async function ensureLogDirectory() {
 
 /**
  * Generate log filename based on timestamp and category.
- * @param {string} category - Log category
- * @returns {string} Filename
  */
-function generateLogFilename(category = 'general') {
+function generateLogFilename(category = 'general'): string {
   const timestamp = getFilesafeTimestamp();
   return `${category}-${timestamp}.ndjson`;
 }
 
 /**
  * Open new log file for writing.
- * @param {string} category - Log category
- * @returns {Promise<void>}
  */
-async function openLogFile(category = 'general') {
+async function openLogFile(category = 'general'): Promise<void> {
   // Close existing stream
   if (currentLogStream) {
     await closeLogFile();
@@ -233,7 +374,7 @@ async function openLogFile(category = 'general') {
   currentLogStartTime = Date.now();
   
   // Write metadata header
-  const metadata = {
+  const metadata: LogFileMetadata = {
     _type: 'log_file_metadata',
     version: '1.0.0',
     created: new Date().toISOString(),
@@ -248,13 +389,13 @@ async function openLogFile(category = 'general') {
 
 /**
  * Close current log file.
- * @returns {Promise<void>}
  */
-async function closeLogFile() {
+async function closeLogFile(): Promise<void> {
   if (!currentLogStream) return;
   
   return new Promise((resolve, reject) => {
-    currentLogStream.end(() => {
+    const stream = currentLogStream!;
+    stream.end(() => {
       currentLogStream = null;
       currentLogFile = null;
       resolve();
@@ -267,9 +408,8 @@ async function closeLogFile() {
 
 /**
  * Check if log rotation is needed.
- * @returns {boolean} True if rotation needed
  */
-function needsRotation() {
+function needsRotation(): boolean {
   // Rotate if file too large
   if (currentLogSize >= CONFIG.rotation.maxSize) {
     return true;
@@ -286,10 +426,8 @@ function needsRotation() {
 
 /**
  * Rotate log files (close current, open new).
- * @param {string} category - Log category
- * @returns {Promise<void>}
  */
-async function rotateLogFile(category = 'general') {
+async function rotateLogFile(category = 'general'): Promise<void> {
   await closeLogFile();
   await openLogFile(category);
   stats.rotationsPerformed++;
@@ -297,16 +435,15 @@ async function rotateLogFile(category = 'general') {
 
 /**
  * Compress old log files.
- * @returns {Promise<void>}
  */
-async function compressOldLogs() {
+async function compressOldLogs(): Promise<void> {
   try {
     const files = await fs.readdir(CONFIG.baseDir);
     const now = Date.now();
     
     for (const file of files) {
       if (!file.endsWith('.ndjson')) continue;
-      if (file === path.basename(currentLogFile)) continue; // Skip current file
+      if (currentLogFile && file === path.basename(currentLogFile)) continue; // Skip current file
       
       const filepath = path.join(CONFIG.baseDir, file);
       const stat = await fs.stat(filepath);
@@ -316,8 +453,8 @@ async function compressOldLogs() {
       if (age >= CONFIG.rotation.compressAfter) {
         const compressedPath = path.join(CONFIG.baseDir, 'compressed', `${file}.gz`);
         
-        await new Promise((resolve, reject) => {
-          const readStream = fs.createReadStream(filepath);
+        await new Promise<void>((resolve, reject) => {
+          const readStream = createReadStream(filepath);
           const writeStream = createWriteStream(compressedPath);
           const gzip = createGzip();
           
@@ -340,9 +477,8 @@ async function compressOldLogs() {
 
 /**
  * Clean up old compressed logs (keep only maxFiles).
- * @returns {Promise<void>}
  */
-async function cleanupOldLogs() {
+async function cleanupOldLogs(): Promise<void> {
   try {
     const compressedDir = path.join(CONFIG.baseDir, 'compressed');
     const files = await fs.readdir(compressedDir);
@@ -369,16 +505,14 @@ async function cleanupOldLogs() {
   }
 }
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Log Writing
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Write log entry to file.
- * @param {object} entry - Log entry object
- * @returns {Promise<void>}
  */
-async function writeLogEntry(entry) {
+async function writeLogEntry(entry: LogEntry): Promise<void> {
   if (isShuttingDown) return;
   
   try {
@@ -397,7 +531,7 @@ async function writeLogEntry(entry) {
     const bytes = Buffer.byteLength(line);
     
     // Write to stream
-    const written = currentLogStream.write(line);
+    const written = currentLogStream!.write(line);
     
     currentLogSize += bytes;
     stats.logsWritten++;
@@ -405,7 +539,7 @@ async function writeLogEntry(entry) {
     
     // Handle backpressure
     if (!written) {
-      await new Promise(resolve => currentLogStream.once('drain', resolve));
+      await new Promise<void>(resolve => currentLogStream!.once('drain', resolve));
     }
   } catch (error) {
     stats.errorsEncountered++;
@@ -415,9 +549,8 @@ async function writeLogEntry(entry) {
 
 /**
  * Flush buffered log entries to disk.
- * @returns {Promise<void>}
  */
-async function flush() {
+export async function flush(): Promise<void> {
   if (logBuffer.length === 0) return;
   
   const entries = logBuffer.splice(0, logBuffer.length);
@@ -431,28 +564,37 @@ async function flush() {
 
 /**
  * Create structured log entry.
- * @param {object} params - Log parameters
- * @returns {object} Structured log entry
  */
-function createLogEntry({
-  level,
-  category,
-  message,
-  data = {},
-  error = null,
-  correlationId = null,
-  userId = null,
-  guildId = null,
-  tags = [],
-  context = null,
-}) {
+function createLogEntry(params: {
+  level: LogLevel;
+  category: LogCategory;
+  message: string;
+  data?: Record<string, unknown>;
+  error?: Error | null;
+  correlationId?: string | null;
+  userId?: string | null;
+  guildId?: string | null;
+  tags?: string | string[];
+  context?: ExecutionContext | null;
+}): LogEntry {
+  const {
+    level,
+    category,
+    message,
+    data = {},
+    error = null,
+    correlationId = null,
+    userId = null,
+    guildId = null,
+    tags = [],
+    context = null,
+  } = params;
+  
   // Auto-capture context if not provided
-  if (!context) {
-    context = captureContext(4); // Skip createLogEntry + log() + caller
-  }
+  const ctx = context || captureContext(4); // Skip createLogEntry + log() + caller
   
   // Base entry
-  const entry = {
+  const entry: LogEntry = {
     // Metadata
     timestamp: new Date().toISOString(),
     timestampMs: Date.now(),
@@ -465,10 +607,10 @@ function createLogEntry({
     
     // Context
     context: {
-      file: context.file,
-      line: context.line,
-      function: context.function,
-      stack: context.stack,
+      file: ctx.file,
+      line: ctx.line,
+      function: ctx.function,
+      stack: ctx.stack,
     },
     
     // Process info
@@ -480,7 +622,7 @@ function createLogEntry({
     },
     
     // Data payload (sanitized)
-    data: sanitize(data),
+    data: sanitize(data) as Record<string, unknown>,
     
     // Tags for filtering
     tags: Array.isArray(tags) ? tags : [tags],
@@ -488,7 +630,10 @@ function createLogEntry({
   
   // Add error metadata if present
   if (error) {
-    entry.error = extractErrorMetadata(error);
+    const errorMeta = extractErrorMetadata(error);
+    if (errorMeta) {
+      entry.error = errorMeta;
+    }
   }
   
   // Add user context if present
@@ -503,22 +648,23 @@ function createLogEntry({
   return entry;
 }
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Public API
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Log a message at specified level.
- * @param {string} level - Log level (TRACE, DEBUG, INFO, etc.)
- * @param {string} category - Log category
- * @param {string} message - Log message
- * @param {object} options - Additional options
- * @returns {string} Correlation ID for this log entry
+ * @returns Correlation ID for this log entry or null if filtered
  */
-function log(level, category, message, options = {}) {
+export function log(
+  level: LogLevel, 
+  category: LogCategory, 
+  message: string, 
+  options: LogOptions = {}
+): string | null {
   // Check minimum level
   const levelPriority = CONFIG.levels[level] || CONFIG.levels.INFO;
-  const minPriority = CONFIG.levels[CONFIG.minLevel] || CONFIG.levels.INFO;
+  const minPriority = CONFIG.levels[CONFIG.minLevel as LogLevel] || CONFIG.levels.INFO;
   
   if (levelPriority < minPriority) {
     return null; // Skip logs below minimum level
@@ -545,20 +691,34 @@ function log(level, category, message, options = {}) {
 /**
  * Convenience methods for each log level.
  */
-const trace = (category, message, options) => log('TRACE', category, message, options);
-const debug = (category, message, options) => log('DEBUG', category, message, options);
-const info = (category, message, options) => log('INFO', category, message, options);
-const notice = (category, message, options) => log('NOTICE', category, message, options);
-const warn = (category, message, options) => log('WARN', category, message, options);
-const error = (category, message, options) => log('ERROR', category, message, options);
-const critical = (category, message, options) => log('CRITICAL', category, message, options);
-const fatal = (category, message, options) => log('FATAL', category, message, options);
+export const trace = (category: LogCategory, message: string, options?: LogOptions): string | null => 
+  log('TRACE', category, message, options);
+
+export const debug = (category: LogCategory, message: string, options?: LogOptions): string | null => 
+  log('DEBUG', category, message, options);
+
+export const info = (category: LogCategory, message: string, options?: LogOptions): string | null => 
+  log('INFO', category, message, options);
+
+export const notice = (category: LogCategory, message: string, options?: LogOptions): string | null => 
+  log('NOTICE', category, message, options);
+
+export const warn = (category: LogCategory, message: string, options?: LogOptions): string | null => 
+  log('WARN', category, message, options);
+
+export const error = (category: LogCategory, message: string, options?: LogOptions): string | null => 
+  log('ERROR', category, message, options);
+
+export const critical = (category: LogCategory, message: string, options?: LogOptions): string | null => 
+  log('CRITICAL', category, message, options);
+
+export const fatal = (category: LogCategory, message: string, options?: LogOptions): string | null => 
+  log('FATAL', category, message, options);
 
 /**
  * Initialize the AI log writer.
- * @returns {Promise<void>}
  */
-async function initialize() {
+export async function initialize(): Promise<void> {
   try {
     await ensureLogDirectory();
     await openLogFile('general');
@@ -595,17 +755,16 @@ async function initialize() {
     });
     
     console.log('[ai-log-writer] Initialized successfully');
-  } catch (error) {
-    console.error('[ai-log-writer] Initialization failed:', error);
-    throw error;
+  } catch (err) {
+    console.error('[ai-log-writer] Initialization failed:', err);
+    throw err;
   }
 }
 
 /**
  * Shutdown the AI log writer gracefully.
- * @returns {Promise<void>}
  */
-async function shutdown() {
+export async function shutdown(): Promise<void> {
   isShuttingDown = true;
   
   // Stop auto-flush
@@ -640,9 +799,8 @@ async function shutdown() {
 
 /**
  * Get current statistics.
- * @returns {object} Statistics object
  */
-function getStats() {
+export function getStats(): LogStats {
   return {
     ...stats,
     uptime: Math.floor((Date.now() - stats.startTime) / 1000),
@@ -652,27 +810,9 @@ function getStats() {
   };
 }
 
-// ============================================================================
-// Exports
-// ============================================================================
-
-export {
-  initialize,
-  shutdown,
-  log,
-  trace,
-  debug,
-  info,
-  notice,
-  warn,
-  error,
-  critical,
-  fatal,
-  flush,
-  getStats,
-  generateCorrelationId,
-  CONFIG,
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// Default Export
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default {
   initialize,
