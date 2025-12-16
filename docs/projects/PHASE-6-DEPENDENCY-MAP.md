@@ -1,22 +1,34 @@
 # Phase 6: Complete Dependency Map
 
-**Created:** 2025-12-18  
-**Purpose:** Document all file dependencies discovered during deep scanning  
+**Created:** 2025-12-16  
+**Revised:** 2025-12-16 (Corrected mindset: Legacy JS = technical debt)  
+**Purpose:** Document all file dependencies for legacy elimination & consolidation  
 **Status:** Pre-execution analysis complete
+
+---
+
+## 🚨 CRITICAL MINDSET
+
+**Legacy JS files (67 total) are TECHNICAL DEBT, not "production code".**
+
+This document maps dependencies to enable safe elimination of legacy JS files.
 
 ---
 
 ## Executive Summary
 
-Comprehensive file scanning completed across all 3 target directories:
-- **src/shared/** — 24 root files + 5 subdirectories (cache/, storage/, utils/, models/, crypto/)
-- **src/services/** — 26 root files + 5 subdirectories (ai/, cache/, database/, monitoring/, data-pool/)
-- **src/utils/** — 12 files (to be migrated or removed)
+### Technical Debt Overview
+- **67 legacy JS files** (~20% of src/)
+- **259 TypeScript files** (modern)
+- **Target:** 0 JS files, ~300 TS files
 
-**Also Documented for Cross-Reference:**
-- **src/config/** — 8 files (well-organized, configuration module)
-- **src/workers/** — 7 files + database/ subdirectory (worker orchestration)
-- **src/errors/** — 6 files (Phase 2 error hierarchy, well-organized)
+### Scanned Areas:
+- **src/shared/** — 24 root files + 5 subdirectories
+- **src/services/** — 26 root files + 5 subdirectories  
+- **src/utils/** — 12 files (**6 are legacy JS → DELETE/MIGRATE**)
+- **src/bot/** — Multiple files (**12 are legacy JS → MIGRATE**)
+- **src/engine/** — 8 files (**ALL are legacy JS → MIGRATE**)
+- **src/commands/** — 7 files (**ALL are legacy JS → MIGRATE**)
 
 **Total Files Analyzed:** 80+ files, 27,500+ lines of code
 
