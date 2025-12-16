@@ -1,22 +1,35 @@
-import { log } from '../../utils/logger.js';
-import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 /**
- * @file State Persistence Module
- * @description Manages security bot operational state across restarts
+ * State Persistence Module
+ * Manages security bot operational state across restarts
  * @module bot/state/persistence
  */
 
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { log } from '../../utils/logger.js';
+import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 import { errorTracker } from '../../services/monitoring/index.js';
+import type { 
+  SecurityBotState, 
+  CumulativeStats, 
+  MetricsHistory, 
+  HourlyMetrics,
+  HourlyMetric,
+  MetricsSummary, 
+  GuildState, 
+  RuntimeState, 
+  TimelineEvent,
+  StateMetadata 
+} from './types.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Configuration
+// ─────────────────────────────────────────────────────────────────────────────
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Resolve state directory relative to project root
-// On Render with persistent disk mounted at /Store
-// Locally falls back to Store/ in project directory
 const STATE_DIR = process.env.RENDER 
   ? '/Store/security-bot-state'
   : path.resolve(__dirname, '../../../Store/security-bot-state');
@@ -28,20 +41,47 @@ const SCHEMA_VERSION = '1.1.0';
 const STATE_VERSION = 1;
 const MAX_TIMELINE_EVENTS = 100;
 const SNAPSHOT_RETENTION_DAYS = 7;
-const AUTO_SAVE_INTERVAL_MS = 30 * 1000; // 30 seconds (reduced from 1min for seamless restart optimization - 50% data loss reduction)
-const METRICS_HISTORY_DAYS = 7; // Keep 7 days of hourly metrics
+const AUTO_SAVE_INTERVAL_MS = 30 * 1000;
+const METRICS_HISTORY_DAYS = 7;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type MetricsEventType = 
+  | 'sweep' 
+  | 'alert' 
+  | 'permission_change' 
+  | 'permission_revert' 
+  | 'revert_failure' 
+  | 'error' 
+  | 'member_fetch_timeout' 
+  | 'restart';
+
+interface CumulativeStatsUpdates {
+  [key: string]: number;
+}
+
+interface GuildStateUpdates extends Partial<GuildState> {
+  name?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Default State
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Default empty state structure
  */
-function createDefaultState() {
+function createDefaultState(): SecurityBotState {
+  const now = new Date().toISOString();
   return {
     version: STATE_VERSION,
     schemaVersion: SCHEMA_VERSION,
     metadata: {
-      lastSaved: new Date().toISOString(),
-      lastRestart: new Date().toISOString(),
-      processStartTime: new Date().toISOString(),
+      lastSaved: now,
+      lastRestart: now,
+      processStartTime: now,
       hostname: process.env.RENDER_SERVICE_NAME || 'local',
       nodeVersion: process.version,
       botVersion: '2.0.0'
@@ -55,20 +95,17 @@ function createDefaultState() {
       permissionChangesReverted: 0,
       revertFailures: 0,
       guildCount: 0,
-      firstStartTime: new Date().toISOString()
+      firstStartTime: now
     },
-    // ENHANCED: 7-day comprehensive metrics history (hourly granularity)
     metricsHistory: {
-      // Array of hourly metric snapshots: { timestamp, sweeps, alerts, changes, reverts, failures }
       hourly: [],
-      // Retention: Automatically pruned to keep only last 7 days (168 hours)
-      lastPruned: new Date().toISOString()
+      lastPruned: now
     },
     timeline: [],
     guilds: {},
     runtime: {
       currentUptime: 0,
-      currentRestartTime: new Date().toISOString(),
+      currentRestartTime: now,
       databaseStatus: {
         dev: 'unknown',
         prod: 'unknown'
@@ -78,34 +115,41 @@ function createDefaultState() {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Validation & Migration
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Validate state structure
  */
-function validateState(state) {
+function validateState(state: unknown): state is SecurityBotState {
   if (!state || typeof state !== 'object') return false;
-  if (!state.version || !state.schemaVersion) return false;
-  if (!state.metadata || !state.cumulative || !state.timeline || !state.guilds || !state.runtime) return false;
+  const s = state as Record<string, unknown>;
+  if (!s.version || !s.schemaVersion) return false;
+  if (!s.metadata || !s.cumulative || !s.timeline || !s.guilds || !s.runtime) return false;
   return true;
 }
 
 /**
  * Migrate state from older schema versions
  */
-function migrateState(state) {
-  // Currently only version 1 exists
+function migrateState(state: SecurityBotState): SecurityBotState {
   if (state.version === STATE_VERSION) {
     return state;
   }
 
-  // Future migrations would go here
   log('warn', '[State] Unknown state version', { version: state.version });
   return state;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// File Operations
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Load state from JSON file
  */
-async function loadStateFile(filePath) {
+async function loadStateFile(filePath: string): Promise<SecurityBotState | null> {
   try {
     const data = await fs.readFile(filePath, 'utf8');
     const state = JSON.parse(data);
@@ -116,14 +160,13 @@ async function loadStateFile(filePath) {
     }
     
     return migrateState(state);
-  } catch (error) {
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException;
     if (error.code === 'ENOENT') {
-      // File doesn't exist yet
       return null;
     }
     log('error', '[State] Error loading file', { filePath, error: error.message });
     
-    // Track non-ENOENT errors (corruption, parse failures, etc.)
     errorTracker.captureError(
       error instanceof Error ? error : new Error(String(error)),
       {
@@ -131,7 +174,7 @@ async function loadStateFile(filePath) {
         operation: 'state:loadFile',
         customData: { filePath, errorCode: error.code },
       }
-    ).catch(() => {}); // Fire-and-forget (sync function context)
+    ).catch(() => {});
     
     return null;
   }
@@ -140,16 +183,16 @@ async function loadStateFile(filePath) {
 /**
  * Save state to JSON file
  */
-async function saveStateFile(filePath, state) {
+async function saveStateFile(filePath: string, state: SecurityBotState): Promise<boolean> {
   try {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     const json = JSON.stringify(state, null, 2);
     await fs.writeFile(filePath, json, 'utf8');
     return true;
-  } catch (error) {
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException;
     log('error', '[State] Error saving file', { filePath, error: error.message });
     
-    // Track save failures (disk full, permissions, etc.)
     await errorTracker.captureError(
       error instanceof Error ? error : new Error(String(error)),
       {
@@ -163,17 +206,22 @@ async function saveStateFile(filePath, state) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Snapshots
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Create timestamped snapshot
  */
-async function createSnapshot(state) {
+async function createSnapshot(state: SecurityBotState): Promise<string | null> {
   try {
     await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
     const timestamp = getFilesafeTimestamp();
     const snapshotPath = path.join(SNAPSHOTS_DIR, `${timestamp}.json`);
     await saveStateFile(snapshotPath, state);
     return snapshotPath;
-  } catch (error) {
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
     log('error', '[State] Error creating snapshot', { error: error.message });
     return null;
   }
@@ -182,9 +230,8 @@ async function createSnapshot(state) {
 /**
  * Prune old snapshots
  */
-async function pruneSnapshots() {
+async function pruneSnapshots(): Promise<void> {
   try {
-    // Ensure snapshots directory exists before trying to read it
     await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
     
     const files = await fs.readdir(SNAPSHOTS_DIR);
@@ -208,27 +255,29 @@ async function pruneSnapshots() {
     if (pruned > 0) {
       log('info', '[State] Pruned old snapshots', { count: pruned });
     }
-  } catch (error) {
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
     log('error', '[State] Error pruning snapshots', { error: error.message });
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Core State Operations
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Load current state with fallback chain
  */
-export async function loadState() {
+export async function loadState(): Promise<SecurityBotState> {
   log('info', '[State] Loading operational state...');
   
-  // Try current.json first
   let state = await loadStateFile(CURRENT_STATE_PATH);
   
-  // Fall back to previous.json
   if (!state) {
     log('info', '[State] current.json not found, trying previous.json...');
     state = await loadStateFile(PREVIOUS_STATE_PATH);
   }
   
-  // Fall back to default
   if (!state) {
     log('info', '[State] No previous state found, initializing fresh state');
     state = createDefaultState();
@@ -242,7 +291,7 @@ export async function loadState() {
 /**
  * Save current state
  */
-export async function saveState(state) {
+export async function saveState(state: SecurityBotState): Promise<boolean> {
   state.metadata.lastSaved = new Date().toISOString();
   const success = await saveStateFile(CURRENT_STATE_PATH, state);
   
@@ -256,22 +305,21 @@ export async function saveState(state) {
 /**
  * Initialize state on startup
  */
-export async function initializeState() {
+export async function initializeState(): Promise<SecurityBotState> {
   log('info', '[State] Initializing state persistence...');
   log('info', '[State] STATE_DIR', { path: STATE_DIR });
   log('info', '[State] Working directory', { cwd: process.cwd() });
   log('info', '[State] Module location', { dirname: __dirname });
   
-  // Verify state directory exists and is writable
   try {
     await fs.mkdir(STATE_DIR, { recursive: true });
     await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
     log('info', '[State] State directory verified/created');
-  } catch (error) {
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException;
     log('error', '[State] CRITICAL: Cannot create state directory', { error: error.message });
     log('error', '[State] State persistence will be degraded (in-memory only)');
     
-    // Track critical directory creation failures
     await errorTracker.captureError(
       error instanceof Error ? error : new Error(String(error)),
       {
@@ -287,29 +335,26 @@ export async function initializeState() {
     );
   }
   
-  // Load previous state
   const previousState = await loadState();
   
-  // Back up current.json to previous.json
   if (await loadStateFile(CURRENT_STATE_PATH)) {
     await fs.copyFile(CURRENT_STATE_PATH, PREVIOUS_STATE_PATH).catch(() => {});
   }
   
-  // Create new runtime state
   const now = new Date().toISOString();
   const previousRestartTime = previousState.metadata?.lastRestart || now;
   const previousUptime = previousState.runtime?.currentUptime || 0;
   
-  const state = {
+  const state: SecurityBotState = {
     ...previousState,
     metadata: {
       ...previousState.metadata,
-      previousRestart: previousRestartTime, // Preserve previous restart time for continuity reporting
+      previousRestart: previousRestartTime,
       lastRestart: now,
       processStartTime: now,
       hostname: process.env.RENDER_SERVICE_NAME || 'local',
       nodeVersion: process.version
-    },
+    } as StateMetadata,
     cumulative: {
       ...previousState.cumulative,
       restartCount: (previousState.cumulative.restartCount || 0) + 1,
@@ -326,7 +371,6 @@ export async function initializeState() {
     }
   };
   
-  // Add restart event to timeline
   state.timeline = [
     {
       timestamp: now,
@@ -335,14 +379,12 @@ export async function initializeState() {
         reason: 'manual',
         previousUptime: previousState.runtime?.currentUptime || 0
       }
-    },
+    } as TimelineEvent,
     ...previousState.timeline
   ].slice(0, MAX_TIMELINE_EVENTS);
   
-  // ENHANCED: Record restart in hourly metrics history
   recordMetricsEvent(state, 'restart', 1);
   
-  // Save initial state
   await saveState(state);
   await createSnapshot(state);
   await pruneSnapshots();
@@ -351,34 +393,50 @@ export async function initializeState() {
   return state;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Timeline Events
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Add event to timeline
  */
-export function addTimelineEvent(state, event) {
+export function addTimelineEvent(state: SecurityBotState, event: Omit<TimelineEvent, 'timestamp'>): void {
   state.timeline = [
     {
       timestamp: new Date().toISOString(),
       ...event
-    },
+    } as TimelineEvent,
     ...state.timeline
   ].slice(0, MAX_TIMELINE_EVENTS);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Cumulative Stats
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Update cumulative stats
  */
-export function updateCumulativeStats(state, updates) {
+export function updateCumulativeStats(state: SecurityBotState, updates: CumulativeStatsUpdates): void {
   for (const [key, value] of Object.entries(updates)) {
-    if (typeof value === 'number') {
-      state.cumulative[key] = (state.cumulative[key] || 0) + value;
+    if (typeof value === 'number' && key in state.cumulative) {
+      const statKey = key as keyof CumulativeStats;
+      const currentValue = state.cumulative[statKey];
+      if (typeof currentValue === 'number') {
+        (state.cumulative as Record<keyof CumulativeStats, string | number>)[statKey] = currentValue + value;
+      }
     }
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Guild State
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Update guild state
  */
-export function updateGuildState(state, guildId, updates) {
+export function updateGuildState(state: SecurityBotState, guildId: string, updates: GuildStateUpdates): void {
   if (!state.guilds[guildId]) {
     state.guilds[guildId] = {
       id: guildId,
@@ -397,22 +455,34 @@ export function updateGuildState(state, guildId, updates) {
   state.guilds[guildId].lastActivity = new Date().toISOString();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Runtime State
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Update runtime state
  */
-export function updateRuntimeState(state, updates) {
+export function updateRuntimeState(state: SecurityBotState, updates: Partial<RuntimeState>): void {
   Object.assign(state.runtime, updates);
   state.runtime.currentUptime = Date.now() - new Date(state.metadata.processStartTime).getTime();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Metrics History
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Get or create current hour's metrics bucket
  */
-function getCurrentHourMetrics(state) {
+function getCurrentHourMetrics(state: SecurityBotState): HourlyMetrics {
   const now = new Date();
-  const hourTimestamp = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours()).toISOString();
+  const hourTimestamp = new Date(
+    now.getFullYear(), 
+    now.getMonth(), 
+    now.getDate(), 
+    now.getHours()
+  ).toISOString();
   
-  // Ensure metricsHistory exists (migration support)
   if (!state.metricsHistory) {
     state.metricsHistory = {
       hourly: [],
@@ -420,15 +490,16 @@ function getCurrentHourMetrics(state) {
     };
   }
   
-  // Find existing bucket for current hour
   let hourMetrics = state.metricsHistory.hourly.find(m => m.timestamp === hourTimestamp);
   
   if (!hourMetrics) {
-    // Create new bucket for this hour
     hourMetrics = {
       timestamp: hourTimestamp,
       sweeps: 0,
       alerts: 0,
+      changes: 0,
+      reverts: 0,
+      failures: 0,
       permissionChanges: 0,
       permissionReverts: 0,
       revertFailures: 0,
@@ -438,8 +509,9 @@ function getCurrentHourMetrics(state) {
     };
     state.metricsHistory.hourly.push(hourMetrics);
     
-    // Keep array sorted by timestamp (newest first)
-    state.metricsHistory.hourly.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    state.metricsHistory.hourly.sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
   }
   
   return hourMetrics;
@@ -448,7 +520,7 @@ function getCurrentHourMetrics(state) {
 /**
  * Prune metrics history older than retention period
  */
-function pruneMetricsHistory(state) {
+function pruneMetricsHistory(state: SecurityBotState): void {
   if (!state.metricsHistory) return;
   
   const now = Date.now();
@@ -472,7 +544,7 @@ function pruneMetricsHistory(state) {
 /**
  * Record metrics event (updates both cumulative and hourly history)
  */
-export function recordMetricsEvent(state, eventType, count = 1) {
+export function recordMetricsEvent(state: SecurityBotState, eventType: MetricsEventType, count: number = 1): void {
   const hourMetrics = getCurrentHourMetrics(state);
   
   switch (eventType) {
@@ -498,11 +570,10 @@ export function recordMetricsEvent(state, eventType, count = 1) {
       hourMetrics.memberFetchTimeouts += count;
       break;
     case 'restart':
-      hourMetrics.restarts += count;
+      hourMetrics.restarts = (hourMetrics.restarts ?? 0) + count;
       break;
   }
   
-  // Prune old metrics every hour (check on each event for simplicity)
   const lastPruned = new Date(state.metricsHistory.lastPruned).getTime();
   const hoursSinceLastPrune = (Date.now() - lastPruned) / (60 * 60 * 1000);
   if (hoursSinceLastPrune >= 1) {
@@ -513,8 +584,8 @@ export function recordMetricsEvent(state, eventType, count = 1) {
 /**
  * Get metrics summary for a time range
  */
-export function getMetricsSummary(state, hoursBack = 24) {
-  if (!state.metricsHistory || !state.metricsHistory.hourly) {
+export function getMetricsSummary(state: SecurityBotState, hoursBack: number = 24): MetricsSummary {
+  if (!state.metricsHistory?.hourly) {
     return {
       sweeps: 0,
       alerts: 0,
@@ -533,7 +604,7 @@ export function getMetricsSummary(state, hoursBack = 24) {
     return new Date(m.timestamp).getTime() >= cutoffTime;
   });
   
-  const summary = {
+  const summary: MetricsSummary = {
     sweeps: 0,
     alerts: 0,
     permissionChanges: 0,
@@ -553,7 +624,7 @@ export function getMetricsSummary(state, hoursBack = 24) {
     summary.revertFailures += m.revertFailures;
     summary.errors += m.errors;
     summary.memberFetchTimeouts += m.memberFetchTimeouts;
-    summary.restarts += m.restarts;
+    summary.restarts += m.restarts ?? 0;
   }
   
   return summary;
@@ -562,21 +633,25 @@ export function getMetricsSummary(state, hoursBack = 24) {
 /**
  * Get hourly metrics trend for charts/graphs
  */
-export function getMetricsTrend(state, hoursBack = 168) {
-  if (!state.metricsHistory || !state.metricsHistory.hourly) {
+export function getMetricsTrend(state: SecurityBotState, hoursBack: number = 168): HourlyMetrics[] {
+  if (!state.metricsHistory?.hourly) {
     return [];
   }
   
   const cutoffTime = Date.now() - (hoursBack * 60 * 60 * 1000);
   return state.metricsHistory.hourly
     .filter(m => new Date(m.timestamp).getTime() >= cutoffTime)
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); // Oldest to newest for charts
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auto-Save
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Start auto-save interval
  */
-export function startAutoSave(state) {
+export function startAutoSave(state: SecurityBotState): NodeJS.Timeout {
   const interval = setInterval(async () => {
     log('info', '[State] Auto-saving state...');
     await saveState(state);
@@ -589,20 +664,23 @@ export function startAutoSave(state) {
 /**
  * Stop auto-save interval
  */
-export function stopAutoSave(interval) {
+export function stopAutoSave(interval: NodeJS.Timeout | null): void {
   if (interval) {
     clearInterval(interval);
     log('info', '[State] Auto-save stopped');
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Shutdown
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Graceful shutdown - save final state
  */
-export async function shutdownState(state, reason = 'manual') {
+export async function shutdownState(state: SecurityBotState, reason: string = 'manual'): Promise<void> {
   log('info', '[State] Shutting down', { reason });
   
-  // Add shutdown event
   addTimelineEvent(state, {
     type: 'shutdown',
     details: {
@@ -611,10 +689,8 @@ export async function shutdownState(state, reason = 'manual') {
     }
   });
   
-  // Update final stats
   updateRuntimeState(state, {});
   
-  // Save final state
   await saveState(state);
   await createSnapshot(state);
   

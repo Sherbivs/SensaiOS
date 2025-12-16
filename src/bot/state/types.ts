@@ -42,10 +42,37 @@ export interface HourlyMetric {
   reverts: number;
   failures: number;
   restarts?: number;
+  permissionChanges?: number;
+  permissionReverts?: number;
+  revertFailures?: number;
+  errors?: number;
+  memberFetchTimeouts?: number;
+}
+
+// Extended hourly metrics for detailed tracking
+export interface HourlyMetrics extends HourlyMetric {
+  permissionChanges: number;
+  permissionReverts: number;
+  revertFailures: number;
+  errors: number;
+  memberFetchTimeouts: number;
+}
+
+// Summary of metrics over a period
+export interface MetricsSummary {
+  sweeps: number;
+  alerts: number;
+  permissionChanges: number;
+  permissionReverts: number;
+  revertFailures: number;
+  errors: number;
+  memberFetchTimeouts: number;
+  restarts: number;
+  hoursWithData: number;
 }
 
 export interface MetricsHistory {
-  hourly: HourlyMetric[];
+  hourly: HourlyMetrics[];
   lastPruned: string;
 }
 

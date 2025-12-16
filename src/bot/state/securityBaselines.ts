@@ -1,6 +1,6 @@
 /**
- * @file Security Baselines Module
- * @description Generates behavioral baselines from role archive for threat detection
+ * Security Baselines Module
+ * Generates behavioral baselines from role archive for threat detection
  * @module bot/state/securityBaselines
  * 
  * IMPLEMENTATION: Archive Intelligence System - Phase 1
@@ -23,27 +23,70 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { log } from '../../utils/logger.js';
+import type { SecurityBaselines, RoleChange } from './threatDetector.js';
 
-// Storage configuration
+// ─────────────────────────────────────────────────────────────────────────────
+// Configuration
+// ─────────────────────────────────────────────────────────────────────────────
+
 const BASELINE_DIR = process.env.RENDER 
   ? '/Store/security-bot-state'
   : './Store/security-bot-state';
 const BASELINE_FILE = path.join(BASELINE_DIR, 'baselines.json');
 
-// HMAC security
 const HMAC_ALGORITHM = 'sha256';
 const HMAC_SECRET = process.env.ARCHIVE_HMAC_SECRET || 'default-dev-secret-CHANGE-IN-PRODUCTION';
 
-// Baseline configuration
-const MIN_DATA_POINTS = 200;  // Minimum changes for high confidence
-const CONFIDENCE_THRESHOLD = 0.7;  // Minimum confidence for threat detection
+const MIN_DATA_POINTS = 200;
+const CONFIDENCE_THRESHOLD = 0.7;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ActiveRole {
+  roleId: string;
+  roleName: string;
+  changeCount: number;
+}
+
+export interface FullSecurityBaselines extends SecurityBaselines {
+  averageChangesPerDay: number;
+  trainerRoleAdditionsPerDay: number;
+  mostActiveRoles: ActiveRole[];
+  averageChangesPerMember: number;
+  changesByOrigin: Record<string, number>;
+  computedAt: string;
+  dataPointCount: number;
+  computationTimeMs: number;
+}
+
+interface RoleArchiveChange extends RoleChange {
+  roleId?: string;
+  roleName?: string;
+}
+
+interface RoleArchive {
+  changes: RoleArchiveChange[];
+}
+
+interface BaselineFileData {
+  baselines: FullSecurityBaselines;
+  metadata: {
+    savedAt: string;
+    schemaVersion: string;
+  };
+  signature?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HMAC Security
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Generate HMAC-SHA256 signature for baseline data
- * @param {string} data - JSON stringified baseline data
- * @returns {string} Hex-encoded signature
  */
-function generateSignature(data) {
+function generateSignature(data: string): string {
   return crypto.createHmac(HMAC_ALGORITHM, HMAC_SECRET)
     .update(data)
     .digest('hex');
@@ -51,11 +94,8 @@ function generateSignature(data) {
 
 /**
  * Verify baseline signature
- * @param {string} data - JSON stringified baseline data
- * @param {string} signature - Expected signature
- * @returns {boolean} True if valid
  */
-function verifySignature(data, signature) {
+function verifySignature(data: string, signature: string): boolean {
   try {
     const expectedSignature = generateSignature(data);
     return crypto.timingSafeEqual(
@@ -63,19 +103,48 @@ function verifySignature(data, signature) {
       Buffer.from(expectedSignature, 'hex')
     );
   } catch (err) {
-    log('warn', '[SecurityBaselines] Signature verification failed', { error: err.message });
+    const error = err instanceof Error ? err : new Error(String(err));
+    log('warn', '[SecurityBaselines] Signature verification failed', { error: error.message });
     return false;
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Empty Baselines
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Create empty baseline structure
+ */
+function createEmptyBaselines(): FullSecurityBaselines {
+  return {
+    averageChangesPerHour: 0,
+    averageChangesPerDay: 0,
+    peakActivityHours: [],
+    trainerRoleAdditionsPerDay: 0,
+    trainerRoleRemovalsPerDay: 0,
+    mostActiveRoles: [],
+    averageChangesPerMember: 0,
+    maxChangesPerMember: 0,
+    rapidChangeThreshold: 5,
+    changesByOrigin: {},
+    expectedOrigins: [],
+    computedAt: new Date().toISOString(),
+    dataPointCount: 0,
+    confidenceLevel: 0,
+    computationTimeMs: 0
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Baseline Generation
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Generate security baselines from role archive
  * Analyzes last 500 role changes to establish normal patterns
- * 
- * @param {Object} roleArchive - Role archive data from roleArchive.js
- * @returns {Object} Security baselines with confidence scoring
  */
-export function generateSecurityBaselines(roleArchive) {
+export function generateSecurityBaselines(roleArchive: RoleArchive): FullSecurityBaselines {
   const startTime = Date.now();
   
   if (!roleArchive || !roleArchive.changes || roleArchive.changes.length === 0) {
@@ -83,39 +152,39 @@ export function generateSecurityBaselines(roleArchive) {
     return createEmptyBaselines();
   }
   
-  const baselines = {
+  const baselines: FullSecurityBaselines = {
     // Temporal patterns
     averageChangesPerHour: 0,
     averageChangesPerDay: 0,
-    peakActivityHours: [],  // Top 3 hours by activity
+    peakActivityHours: [],
     
     // Role-specific patterns
     trainerRoleAdditionsPerDay: 0,
     trainerRoleRemovalsPerDay: 0,
-    mostActiveRoles: [],  // Top 5 roles by change frequency
+    mostActiveRoles: [],
     
     // Member-specific patterns
     averageChangesPerMember: 0,
     maxChangesPerMember: 0,
-    rapidChangeThreshold: 0,  // 95th percentile
+    rapidChangeThreshold: 0,
     
     // Origin patterns
-    changesByOrigin: {},  // { 'member-join': 120, 'sweep': 30, ... }
-    expectedOrigins: [],  // Whitelist of normal sources
+    changesByOrigin: {},
+    expectedOrigins: [],
     
     // Metadata
     computedAt: new Date().toISOString(),
     dataPointCount: roleArchive.changes.length,
-    confidenceLevel: 0,  // 0-1 scale
+    confidenceLevel: 0,
     computationTimeMs: 0
   };
   
-  // Calculate confidence level (need 200+ data points for high confidence)
+  // Calculate confidence level
   baselines.confidenceLevel = Math.min(roleArchive.changes.length / MIN_DATA_POINTS, 1.0);
   
   // === TEMPORAL ANALYSIS ===
-  const hourlyBuckets = new Map();  // hour -> count
-  const dailyBuckets = new Map();   // date -> count
+  const hourlyBuckets = new Map<number, number>();
+  const dailyBuckets = new Map<string, number>();
   
   for (const change of roleArchive.changes) {
     const timestamp = new Date(change.timestamp);
@@ -126,7 +195,7 @@ export function generateSecurityBaselines(roleArchive) {
     dailyBuckets.set(day, (dailyBuckets.get(day) || 0) + 1);
   }
   
-  // Average changes per hour (across all 24 hours)
+  // Average changes per hour
   if (hourlyBuckets.size > 0) {
     baselines.averageChangesPerHour = 
       Array.from(hourlyBuckets.values()).reduce((a, b) => a + b, 0) / hourlyBuckets.size;
@@ -138,9 +207,9 @@ export function generateSecurityBaselines(roleArchive) {
       Array.from(dailyBuckets.values()).reduce((a, b) => a + b, 0) / dailyBuckets.size;
   }
   
-  // Peak activity hours (top 3 hours)
+  // Peak activity hours (top 3)
   baselines.peakActivityHours = Array.from(hourlyBuckets.entries())
-    .sort((a, b) => b[1] - a[1])  // Sort by count descending
+    .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([hour]) => hour);
   
@@ -157,8 +226,8 @@ export function generateSecurityBaselines(roleArchive) {
       trainerChanges.filter(c => c.type === 'removal').length / dailyBuckets.size;
   }
   
-  // Most active roles (top 5 by change count)
-  const roleFrequency = new Map();
+  // Most active roles (top 5)
+  const roleFrequency = new Map<string, number>();
   for (const change of roleArchive.changes) {
     const key = `${change.roleId}:${change.roleName}`;
     roleFrequency.set(key, (roleFrequency.get(key) || 0) + 1);
@@ -173,7 +242,7 @@ export function generateSecurityBaselines(roleArchive) {
     .slice(0, 5);
   
   // === MEMBER-SPECIFIC PATTERNS ===
-  const memberChangeCounts = new Map();  // memberId -> count
+  const memberChangeCounts = new Map<string, number>();
   for (const change of roleArchive.changes) {
     memberChangeCounts.set(change.memberId, 
       (memberChangeCounts.get(change.memberId) || 0) + 1
@@ -190,7 +259,7 @@ export function generateSecurityBaselines(roleArchive) {
     // Rapid change threshold (95th percentile)
     changeCounts.sort((a, b) => a - b);
     const p95Index = Math.floor(changeCounts.length * 0.95);
-    baselines.rapidChangeThreshold = changeCounts[p95Index] || 5;  // Default to 5
+    baselines.rapidChangeThreshold = changeCounts[p95Index] || 5;
   }
   
   // === ORIGIN PATTERNS ===
@@ -199,10 +268,9 @@ export function generateSecurityBaselines(roleArchive) {
     baselines.changesByOrigin[origin] = (baselines.changesByOrigin[origin] || 0) + 1;
   }
   
-  // Filter expected origins: only include sources representing ≥2% of changes
-  // This excludes rare/anomalous sources from the whitelist
+  // Filter expected origins: ≥2% of changes
   const totalChanges = roleArchive.changes.length;
-  const minOccurrences = Math.max(1, Math.ceil(totalChanges * 0.02)); // 2% threshold, minimum 1
+  const minOccurrences = Math.max(1, Math.ceil(totalChanges * 0.02));
   baselines.expectedOrigins = Object.entries(baselines.changesByOrigin)
     .filter(([, count]) => count >= minOccurrences)
     .map(([origin]) => origin);
@@ -221,14 +289,17 @@ export function generateSecurityBaselines(roleArchive) {
   return baselines;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Persistence
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Load baselines from disk with signature verification
- * @returns {Promise<Object|null>} Baselines or null if not found/invalid
  */
-export async function loadSecurityBaselines() {
+export async function loadSecurityBaselines(): Promise<FullSecurityBaselines | null> {
   try {
     const fileContent = await fs.readFile(BASELINE_FILE, 'utf8');
-    const data = JSON.parse(fileContent);
+    const data = JSON.parse(fileContent) as BaselineFileData;
     
     // Verify HMAC signature
     if (data.signature) {
@@ -253,27 +324,26 @@ export async function loadSecurityBaselines() {
       return data.baselines || null;
     }
   } catch (err) {
-    if (err.code === 'ENOENT') {
+    const error = err as NodeJS.ErrnoException;
+    if (error.code === 'ENOENT') {
       log('detail', '[SecurityBaselines] No baseline file found (first run)');
       return null;
     }
     
-    log('error', '[SecurityBaselines] Failed to load baselines', { error: err.message });
+    log('error', '[SecurityBaselines] Failed to load baselines', { error: error.message });
     return null;
   }
 }
 
 /**
  * Save baselines to disk with HMAC signature
- * @param {Object} baselines - Baseline data to save
- * @returns {Promise<boolean>} Success status
  */
-export async function saveSecurityBaselines(baselines) {
+export async function saveSecurityBaselines(baselines: FullSecurityBaselines): Promise<boolean> {
   try {
     // Ensure directory exists
     await fs.mkdir(BASELINE_DIR, { recursive: true });
     
-    const data = {
+    const data: Omit<BaselineFileData, 'signature'> = {
       baselines,
       metadata: {
         savedAt: new Date().toISOString(),
@@ -285,7 +355,7 @@ export async function saveSecurityBaselines(baselines) {
     const dataString = JSON.stringify(data);
     const signature = generateSignature(dataString);
     
-    const signedData = {
+    const signedData: BaselineFileData = {
       ...data,
       signature
     };
@@ -301,22 +371,21 @@ export async function saveSecurityBaselines(baselines) {
     
     return true;
   } catch (err) {
-    log('error', '[SecurityBaselines] Failed to save baselines', { error: err.message });
+    const error = err instanceof Error ? err : new Error(String(err));
+    log('error', '[SecurityBaselines] Failed to save baselines', { error: error.message });
     return false;
   }
 }
 
 /**
  * Check if baselines need refresh
- * @param {Object|null} baselines - Current baselines
- * @returns {boolean} True if refresh needed
  */
-export function shouldRefreshBaselines(baselines) {
+export function shouldRefreshBaselines(baselines: FullSecurityBaselines | null): boolean {
   if (!baselines) return true;
   
   // Refresh if older than 24 hours
   const ageMs = Date.now() - new Date(baselines.computedAt).getTime();
-  const maxAgeMs = 24 * 60 * 60 * 1000;  // 24 hours
+  const maxAgeMs = 24 * 60 * 60 * 1000;
   
   if (ageMs > maxAgeMs) {
     log('detail', '[SecurityBaselines] Baselines expired (>24h), refresh needed');
@@ -330,28 +399,4 @@ export function shouldRefreshBaselines(baselines) {
   }
   
   return false;
-}
-
-/**
- * Create empty baseline structure
- * @private
- */
-function createEmptyBaselines() {
-  return {
-    averageChangesPerHour: 0,
-    averageChangesPerDay: 0,
-    peakActivityHours: [],
-    trainerRoleAdditionsPerDay: 0,
-    trainerRoleRemovalsPerDay: 0,
-    mostActiveRoles: [],
-    averageChangesPerMember: 0,
-    maxChangesPerMember: 0,
-    rapidChangeThreshold: 5,  // Safe default
-    changesByOrigin: {},
-    expectedOrigins: [],
-    computedAt: new Date().toISOString(),
-    dataPointCount: 0,
-    confidenceLevel: 0,
-    computationTimeMs: 0
-  };
 }

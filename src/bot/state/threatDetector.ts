@@ -1,6 +1,6 @@
 /**
- * @file Threat Detection Engine
- * @description Detects security threats by comparing current activity to baselines
+ * Threat Detection Engine
+ * Detects security threats by comparing current activity to baselines
  * @module bot/state/threatDetector
  * 
  * IMPLEMENTATION: Archive Intelligence System - Phase 2
@@ -24,22 +24,81 @@
 
 import { log } from '../../utils/logger.js';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ThreatSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+
+export interface ThreatEvidence {
+  [key: string]: unknown;
+}
+
+export interface SecurityThreat {
+  type: string;
+  severity: ThreatSeverity;
+  confidence: number;
+  description: string;
+  evidence: ThreatEvidence;
+  recommendedAction: string;
+  mitreAttack: string;
+  detectedAt: string;
+}
+
+export interface ThreatAssessment {
+  hasThreats: boolean;
+  threatCount: number;
+  maxSeverity: number;
+  threats: SecurityThreat[];
+  assessmentTime: string;
+  baselineConfidence: number;
+  reason?: string;
+}
+
+export interface CurrentActivity {
+  changesInLast5Minutes: number;
+  changesInLastHour: number;
+  removalsInLastHour: number;
+  maxChangesPerMemberInLastHour: number;
+  suspectMemberId: string | null;
+  origin: string;
+  currentHour?: number;
+  timestamp: string;
+}
+
+export interface SecurityBaselines {
+  confidenceLevel: number;
+  rapidChangeThreshold: number;
+  expectedOrigins: string[];
+  trainerRoleRemovalsPerDay: number;
+  peakActivityHours: number[];
+  averageChangesPerHour: number;
+  maxChangesPerMember: number;
+}
+
+export interface RoleChange {
+  timestamp: string;
+  type: 'addition' | 'removal';
+  memberId: string;
+  origin?: string;
+}
+
+export interface CalculateActivityOptions {
+  mockCurrentHour?: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Threat Detection
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Detect security threats by comparing current activity to baselines
- * 
- * @param {Object} currentActivity - Current activity metrics
- * @param {number} currentActivity.changesInLast5Minutes - Recent change count
- * @param {number} currentActivity.removalsInLastHour - Recent removal count
- * @param {number} currentActivity.changesInLastHour - Hourly change count
- * @param {string} currentActivity.origin - Source of changes
- * @param {number} currentActivity.maxChangesPerMemberInLastHour - Max per member
- * @param {string} currentActivity.suspectMemberId - Member with max changes
- * 
- * @param {Object} baselines - Security baselines from generateSecurityBaselines()
- * @returns {Object} Threat assessment with detected threats
  */
-export function detectSecurityThreats(currentActivity, baselines) {
-  const threats = [];
+export function detectSecurityThreats(
+  currentActivity: CurrentActivity,
+  baselines: SecurityBaselines
+): ThreatAssessment {
+  const threats: SecurityThreat[] = [];
   const currentHour = currentActivity.currentHour ?? new Date().getHours();
   
   // Skip detection if baseline confidence too low
@@ -187,17 +246,19 @@ export function detectSecurityThreats(currentActivity, baselines) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Activity Calculation
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Calculate current activity metrics from recent changes
  * Used to feed into detectSecurityThreats()
- * 
- * @param {Array} recentChanges - Recent role changes (last hour)
- * @param {Object} _roleArchive - Full role archive for context (reserved for future use)
- * @param {Object} [options] - Optional configuration
- * @param {number} [options.mockCurrentHour] - Override hour for testing (0-23)
- * @returns {Object} Current activity metrics
  */
-export function calculateCurrentActivity(recentChanges, _roleArchive, options = {}) {
+export function calculateCurrentActivity(
+  recentChanges: RoleChange[],
+  _roleArchive: unknown,
+  options: CalculateActivityOptions = {}
+): CurrentActivity {
   const now = Date.now();
   const fiveMinutesAgo = now - (5 * 60 * 1000);
   const oneHourAgo = now - (60 * 60 * 1000);
@@ -215,7 +276,7 @@ export function calculateCurrentActivity(recentChanges, _roleArchive, options = 
   const removalsInLastHour = lastHour.filter(c => c.type === 'removal').length;
   
   // Find member with most changes in last hour
-  const memberChangeCounts = new Map();
+  const memberChangeCounts = new Map<string, number>();
   for (const change of lastHour) {
     memberChangeCounts.set(change.memberId, 
       (memberChangeCounts.get(change.memberId) || 0) + 1
@@ -223,7 +284,7 @@ export function calculateCurrentActivity(recentChanges, _roleArchive, options = 
   }
   
   let maxChangesPerMemberInLastHour = 0;
-  let suspectMemberId = null;
+  let suspectMemberId: string | null = null;
   
   for (const [memberId, count] of memberChangeCounts.entries()) {
     if (count > maxChangesPerMemberInLastHour) {
@@ -234,8 +295,8 @@ export function calculateCurrentActivity(recentChanges, _roleArchive, options = 
   
   // Get most recent origin (assume all recent changes from same origin)
   const origin = last5Minutes.length > 0 
-    ? last5Minutes[last5Minutes.length - 1].origin 
-    : (lastHour.length > 0 ? lastHour[lastHour.length - 1].origin : 'unknown');
+    ? (last5Minutes[last5Minutes.length - 1].origin ?? 'unknown')
+    : (lastHour.length > 0 ? (lastHour[lastHour.length - 1].origin ?? 'unknown') : 'unknown');
   
   return {
     changesInLast5Minutes: last5Minutes.length,
@@ -250,7 +311,3 @@ export function calculateCurrentActivity(recentChanges, _roleArchive, options = 
     timestamp: new Date().toISOString()
   };
 }
-
-// ✅ getSeverityIndicator moved to shared/utils/severity-utils.ts (centralized)
-// Re-export for backward compatibility
-export { getSeverityIndicator } from '../../shared/utils/severity-utils.js';

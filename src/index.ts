@@ -149,8 +149,8 @@ let engineWorkersRunning = false;
 // Declare global.engineReady for battle engine readiness check
 declare global {
   var engineReady: boolean;
-  var securityBotState: unknown; // Security bot state from bot/state/persistence.js (JavaScript)
-  var securityBotClient: unknown; // Discord client for security bot (JavaScript)
+  var securityBotState: import("./bot/state/types.js").SecurityBotState | null; // Security bot state from bot/state/persistence.ts
+  var securityBotClient: import("discord.js").Client | null; // Discord client for security bot
 }
 global.engineReady = false;
 
