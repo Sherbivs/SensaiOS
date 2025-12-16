@@ -1,6 +1,16 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+/**
+ * /ops Command
+ * 
+ * Admin operations and stats command.
+ * Registration only - actual handling wired in src/bot/index.ts to TS implementation.
+ * 
+ * @module commands/ops
+ * @since Phase 6.2 (2025-12-16) - Converted from JS
+ */
 
-// Registration only; handling is wired in src/bot/index.ts to the TS implementation
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import type { Command } from './types.js';
+
 const data = new SlashCommandBuilder()
   .setName('ops')
   .setDescription('Admin operations and stats')
@@ -129,13 +139,15 @@ const data = new SlashCommandBuilder()
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .setDMPermission(false);
 
-const cooldownMs = 500;
+const command: Command = {
+  data,
+  cooldownMs: 500,
+  async execute(interaction) {
+    // Actual handling occurs in bot/index.ts to call the TS implementation.
+    await interaction.reply({ content: 'Routing /ops to runtime…', ephemeral: true });
+  }
+};
 
-async function execute(interaction) {
-  // Actual handling occurs in bot/index.ts to call the TS implementation.
-  await interaction.reply({ content: 'Routing /ops to runtime…', ephemeral: true });
-}
-
-export { data, cooldownMs, execute };
-
-export default { data, cooldownMs, execute };
+export const { cooldownMs, execute } = command;
+export { data };
+export default command;

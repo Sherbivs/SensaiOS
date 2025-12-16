@@ -1,6 +1,15 @@
-import { log } from '../utils/logger.js';
-import { SlashCommandBuilder } from 'discord.js';
+/**
+ * /profile Command
+ * 
+ * View or manage your trainer profile.
+ * 
+ * @module commands/profile
+ * @since Phase 6.2 (2025-12-16) - Converted from JS
+ */
 
+import { SlashCommandBuilder, type ChatInputCommandInteraction, type TextChannel } from 'discord.js';
+import type { Command } from './types.js';
+import { log } from '../shared/logger.js';
 import { buildTrainerProfileEmbed } from '../bot/profile/embed.js';
 import { loadTrainerProfile, invalidateTrainerProfile } from '../services/cache/recipes.js';
 import { updateTrainerProfile } from '../models/index.js';
@@ -54,9 +63,17 @@ const data = new SlashCommandBuilder()
       )
   );
 
-const cooldownMs = 1000;
+interface SendProfileOptions {
+  ackMessage?: string;
+}
 
-async function sendProfileEmbed(interaction, { ackMessage = 'Sent your trainer profile to your homestead channel.' } = {}) {
+/**
+ * Send profile embed to user's homestead channel
+ */
+async function sendProfileEmbed(
+  interaction: ChatInputCommandInteraction,
+  { ackMessage = 'Sent your trainer profile to your homestead channel.' }: SendProfileOptions = {}
+): Promise<void> {
   const summary = await loadTrainerProfile(interaction.user.id);
   if (!summary) {
     await interaction.reply({
@@ -76,7 +93,7 @@ async function sendProfileEmbed(interaction, { ackMessage = 'Sent your trainer p
 
     const manager = new HomesteadChannelManager(interaction.client, interaction.guildId);
     const result = await manager.getOrCreateChannel(interaction.user);
-    const homesteadChannel = result.channel;
+    const homesteadChannel = result.channel as TextChannel;
     
     await homesteadChannel.send({ embeds: [embed] });
     if (ackMessage) {
@@ -87,7 +104,8 @@ async function sendProfileEmbed(interaction, { ackMessage = 'Sent your trainer p
       }
     }
   } catch (error) {
-    log.warn('[profile] Failed to deliver homestead profile view; falling back to ephemeral reply', error);
+    const err = error as Error;
+    log.warn('[profile] Failed to deliver homestead profile view; falling back to ephemeral reply', err);
     const payload = { embeds: [embed], ephemeral: true, content: ackMessage };
     if (interaction.deferred || interaction.replied) {
       await interaction.followUp(payload);
@@ -97,12 +115,15 @@ async function sendProfileEmbed(interaction, { ackMessage = 'Sent your trainer p
   }
 }
 
-async function handleEdit(interaction) {
+/**
+ * Handle profile edit subcommand
+ */
+async function handleEdit(interaction: ChatInputCommandInteraction): Promise<void> {
   const tagline = interaction.options.getString('tagline');
   const bio = interaction.options.getString('bio');
   const favoriteSpecies = interaction.options.getInteger('favorite_species');
 
-  const updates = {};
+  const updates: Record<string, string | number | null> = {};
   if (typeof tagline === 'string') updates.tagline = tagline;
   if (typeof bio === 'string') updates.bio = bio;
   if (typeof favoriteSpecies === 'number') updates.favoriteSpeciesId = favoriteSpecies;
@@ -117,21 +138,25 @@ async function handleEdit(interaction) {
     await invalidateTrainerProfile(interaction.user.id);
     await sendProfileEmbed(interaction, { ackMessage: 'Profile updated — sent the latest version to your DMs.' });
   } catch (error) {
-    if (error?.name === 'TrainerProfileUnknownSpecies') {
+    const err = error as Error & { name?: string };
+    if (err?.name === 'TrainerProfileUnknownSpecies') {
       await interaction.reply({
         content: 'I could not find that species ID. Double-check the Pokédex number and try again.',
         ephemeral: true,
       });
       return;
     }
-    log.error('[profile] Failed to update trainer profile:', error?.message || error);
+    log.error('[profile] Failed to update trainer profile:', err?.message || err);
     await interaction.reply({ content: 'Failed to update your profile. Please try again later.', ephemeral: true });
   }
 }
 
-async function handleClear(interaction) {
+/**
+ * Handle profile clear subcommand
+ */
+async function handleClear(interaction: ChatInputCommandInteraction): Promise<void> {
   const field = interaction.options.getString('field', true);
-  const updates = {};
+  const updates: Record<string, null> = {};
   if (field === 'tagline') updates.tagline = null;
   if (field === 'bio') updates.bio = null;
   if (field === 'favorite_species') updates.favoriteSpeciesId = null;
@@ -141,27 +166,32 @@ async function handleClear(interaction) {
     await invalidateTrainerProfile(interaction.user.id);
     await sendProfileEmbed(interaction, { ackMessage: 'Cleared that field and sent your updated profile to DMs.' });
   } catch (error) {
-    log.error('[profile] Failed to clear field:', error?.message || error);
+    const err = error as Error;
+    log.error('[profile] Failed to clear field:', err?.message || err);
     await interaction.reply({ content: 'Failed to clear that field. Please try again later.', ephemeral: true });
   }
 }
 
-async function execute(interaction) {
-  const sub = interaction.options.getSubcommand?.(false) ?? 'view';
+const command: Command = {
+  data,
+  cooldownMs: 1000,
+  async execute(interaction) {
+    const sub = interaction.options.getSubcommand(false) ?? 'view';
 
-  if (sub === 'edit') {
-    await handleEdit(interaction);
-    return;
+    if (sub === 'edit') {
+      await handleEdit(interaction);
+      return;
+    }
+
+    if (sub === 'clear') {
+      await handleClear(interaction);
+      return;
+    }
+
+    await sendProfileEmbed(interaction);
   }
+};
 
-  if (sub === 'clear') {
-    await handleClear(interaction);
-    return;
-  }
-
-  await sendProfileEmbed(interaction);
-}
-
-export { data, cooldownMs, execute };
-
-export default { data, cooldownMs, execute };
+export const { cooldownMs, execute } = command;
+export { data };
+export default command;
