@@ -98,6 +98,26 @@ interface L1Cache {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Helper Functions
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Parse a raw SQLite row into a typed Pokemon object.
+ * Handles JSON field parsing with safe defaults.
+ */
+function parsePokemonRow(row: Record<string, unknown>): Pokemon {
+  return {
+    id: row.id as number,
+    name: row.name as string,
+    types: JSON.parse((row.types as string) || '[]'),
+    baseStats: JSON.parse((row.baseStats as string) || '{}'),
+    abilities: JSON.parse((row.abilities as string) || '[]'),
+    moves: row.moves ? JSON.parse(row.moves as string) : undefined,
+    evolutions: row.evolutions ? JSON.parse(row.evolutions as string) : undefined,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Engine Read-DB Worker Implementation
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -325,18 +345,10 @@ export class EngineReadWorker extends BaseDatabaseWorker implements QueryableWor
       // L1 miss - query SQLite
       this.cache.missCount++;
       const sql = 'SELECT * FROM pokemon WHERE id = ?';
-      const row = await this.queryOne<Pokemon>(sql, [id]);
+      const row = await this.queryOne<Record<string, unknown>>(sql, [id]);
       
       if (row) {
-        // Parse JSON fields
-        const pokemon: Pokemon = {
-          ...row,
-          types: JSON.parse((row.types as unknown as string) || '[]'),
-          baseStats: JSON.parse((row.baseStats as unknown as string) || '{}'),
-          abilities: JSON.parse((row.abilities as unknown as string) || '[]'),
-          moves: row.moves ? JSON.parse(row.moves as unknown as string) : undefined,
-          evolutions: row.evolutions ? JSON.parse(row.evolutions as unknown as string) : undefined,
-        };
+        const pokemon = parsePokemonRow(row);
 
         // Update L1 cache
         this.cache.pokemon.set(id, pokemon);
@@ -366,17 +378,10 @@ export class EngineReadWorker extends BaseDatabaseWorker implements QueryableWor
       // L1 miss - query SQLite
       this.cache.missCount++;
       const sql = 'SELECT * FROM pokemon WHERE LOWER(name) = ?';
-      const row = await this.queryOne<Pokemon>(sql, [normalizedName]);
+      const row = await this.queryOne<Record<string, unknown>>(sql, [normalizedName]);
 
       if (row) {
-        const pokemon: Pokemon = {
-          ...row,
-          types: JSON.parse((row.types as unknown as string) || '[]'),
-          baseStats: JSON.parse((row.baseStats as unknown as string) || '{}'),
-          abilities: JSON.parse((row.abilities as unknown as string) || '[]'),
-          moves: row.moves ? JSON.parse(row.moves as unknown as string) : undefined,
-          evolutions: row.evolutions ? JSON.parse(row.evolutions as unknown as string) : undefined,
-        };
+        const pokemon = parsePokemonRow(row);
 
         // Update L1 cache
         this.cache.pokemon.set(pokemon.id, pokemon);
@@ -465,16 +470,9 @@ export class EngineReadWorker extends BaseDatabaseWorker implements QueryableWor
       }
 
       // Load all Pokémon
-      const pokemonRows = await this.query<Pokemon>('SELECT * FROM pokemon');
+      const pokemonRows = await this.query<Record<string, unknown>>('SELECT * FROM pokemon');
       for (const row of pokemonRows) {
-        const pokemon: Pokemon = {
-          ...row,
-          types: JSON.parse((row.types as unknown as string) || '[]'),
-          baseStats: JSON.parse((row.baseStats as unknown as string) || '{}'),
-          abilities: JSON.parse((row.abilities as unknown as string) || '[]'),
-          moves: row.moves ? JSON.parse(row.moves as unknown as string) : undefined,
-          evolutions: row.evolutions ? JSON.parse(row.evolutions as unknown as string) : undefined,
-        };
+        const pokemon = parsePokemonRow(row);
         this.cache.pokemon.set(pokemon.id, pokemon);
         this.cache.pokemonByName.set(pokemon.name.toLowerCase(), pokemon);
       }
