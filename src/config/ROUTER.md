@@ -2,16 +2,45 @@
 Title: Configuration Modules
 Purpose: Environment config and centralized settings for services.
 Owned Globs: src/config/**
-Last Updated (UTC): 2025-11-09T00:00:00Z
+Last Updated (UTC): 2025-12-16T00:00:00Z
 
 Notes:
+- **Phase 3 (Architecture Perfection):** Introduced Zod-validated configuration system.
 - Still referenced by CommonJS surfaces that have not migrated to `src/shared/config.ts`.
 - Keep typings (`env.d.ts`) aligned with the real config loader to avoid drift.
 - **Engine DB Config (Phase 17-22)** provides centralized configuration for all Engine DB services with environment-aware defaults and validation.
 
 Key Files:
-- env.js - Legacy environment bootstrap for CommonJS modules.
-- env.d.ts - Ambient type definitions consumed by remaining TypeScript callers.
+- **index.ts** — Main barrel export for configuration module (NEW - Phase 3).
+- **schema.ts** — Zod validation schemas for all configuration domains (NEW - Phase 3).
+- **loader.ts** — Type-safe configuration loader with caching (NEW - Phase 3).
+- env.js — Legacy environment bootstrap for CommonJS modules.
+- env.d.ts — Ambient type definitions consumed by remaining TypeScript callers.
+- database-pool-config.ts — Service-specific database pool configurations.
+- engine-db-config.ts — Engine DB runtime configuration.
+
+**Configuration Domains (Phase 3):**
+- **EnvironmentConfig** — Node environment, Render detection, store path.
+- **DatabaseConfig** — Database URLs, connection mode, heartbeat settings.
+- **DiscordConfig** — Bot tokens, alert channels, admin user IDs.
+- **WorkerConfig** — Worker intervals, concurrency, feature flags.
+- **MonitoringConfig** — Logging, health checks, resource monitoring.
+- **HomesteadConfig** — Private channel settings, cleanup thresholds.
+- **SecurityConfig** — HMAC secrets, DoS protection thresholds.
+- **FeatureFlags** — Feature toggles (dexV2, roleAudit, etc.).
+- **NotificationConfig** — Alert recipients, schedules, webhooks.
+
+**Usage:**
+```typescript
+import { loadAppConfig, getDatabaseConfig, isProduction } from '../config/index.js';
+
+// Load all config at startup
+const config = loadAppConfig();
+
+// Or access specific domains
+const dbConfig = getDatabaseConfig();
+if (isProduction()) { /* production logic */ }
+```
 
 **Engine DB Config (Phase 17-22):**
 - **engine-db-config.ts (558 lines)** — Centralized configuration for Engine DB runtime:
