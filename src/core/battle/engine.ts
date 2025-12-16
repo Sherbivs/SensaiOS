@@ -40,7 +40,7 @@ interface BattleEngineModule {
   ): BattleResolution;
 }
 
-const engineModule = engine as BattleEngineModule;
+const engineModule = engine as unknown as BattleEngineModule;
 
 export interface RNG {
   next: () => number; // [0,1)

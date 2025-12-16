@@ -9,7 +9,7 @@
 
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import type { Command } from './types.js';
-import { baseDamage } from '../engine/calc.js';
+import { calcSimpleDamage } from '../engine/calc.js';
 import { derivedStats } from '../engine/stats.js';
 
 const data = new SlashCommandBuilder()
@@ -59,7 +59,7 @@ const command: Command = {
     const defDerived = derivedStats({ defense: def }, level);
 
     // Calculate base damage (no modifiers)
-    const dmg = baseDamage(power, atkDerived.attack ?? atk, defDerived.defense ?? def, level);
+    const dmg = calcSimpleDamage(power, atkDerived.attack ?? atk, defDerived.defense ?? def, level);
     
     // Calculate min/max with damage roll (85-100%)
     const minDmg = Math.floor(dmg * 0.85);
