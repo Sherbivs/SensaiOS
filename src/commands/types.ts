@@ -8,10 +8,21 @@
  */
 
 import type { 
+  AutocompleteInteraction,
   ChatInputCommandInteraction,
   SlashCommandBuilder,
-  SlashCommandSubcommandsOnlyBuilder 
+  SlashCommandSubcommandsOnlyBuilder,
+  SlashCommandOptionsOnlyBuilder
 } from 'discord.js';
+
+/**
+ * Any valid slash command builder type
+ */
+export type SlashCommandData = 
+  | SlashCommandBuilder 
+  | SlashCommandSubcommandsOnlyBuilder 
+  | SlashCommandOptionsOnlyBuilder
+  | Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup">;
 
 /**
  * Command execution function signature
@@ -21,18 +32,28 @@ export type CommandExecute = (
 ) => Promise<void>;
 
 /**
+ * Autocomplete handler function signature
+ */
+export type AutocompleteHandler = (
+  interaction: AutocompleteInteraction
+) => Promise<void>;
+
+/**
  * Standard command module structure
  * All command files should export this shape.
  */
 export interface Command {
   /** SlashCommandBuilder data for registration */
-  data: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder | Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup">;
+  data: SlashCommandData;
   
   /** Cooldown in milliseconds (default: 1000) */
   cooldownMs?: number;
   
   /** Command execution handler */
   execute: CommandExecute;
+  
+  /** Optional autocomplete handler for commands with autocomplete options */
+  autocomplete?: AutocompleteHandler;
 }
 
 /**
