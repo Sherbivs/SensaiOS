@@ -13,6 +13,7 @@
 export {
   formatBytes,
   formatBytesShort,
+  bytesToMB,
   formatDuration,
   formatUptime,
   formatDurationCompact,

@@ -23,7 +23,7 @@ import { initPrisma, prisma } from "./models/index.js";
 import { ServiceRegistry } from "./shared/service-registry.js";
 import { getAllServiceConfigs } from "./shared/service-factories.js";
 import { EventBus } from "./shared/event-bus.js";
-import { formatBytes } from "./shared/utils/format-utils.js";
+import { formatBytes, bytesToMB } from "./shared/utils/format-utils.js";
 import { getErrorMessage } from "./shared/utils/error-utils.js";
 import { startHealthServer, stopHealthServer } from "./services/health-server.js";
 import { notifyBoot, notifyShutdown, notifyCrash } from "./services/lifecycle-notifier.js";
@@ -80,8 +80,6 @@ recordMemory("initial");
  * Calculate memory progression deltas from startup phases
  */
 function calculateMemoryProgression(memory: { [key: string]: NodeJS.MemoryUsage }) {
-  const formatMB = (bytes: number) => Math.round(bytes / 1024 / 1024);
-  
   const phases = [
     { name: "Module Imports", from: "initial", to: "post_database" },
     { name: "Database Connection", from: "post_database", to: "pre_engine_and_bots" },
@@ -102,12 +100,12 @@ function calculateMemoryProgression(memory: { [key: string]: NodeJS.MemoryUsage 
       
       progression.phases.push({
         name: phase.name,
-        rss_delta_mb: formatMB(rssDelta),
-        heap_delta_mb: formatMB(heapDelta),
-        external_delta_mb: formatMB(externalDelta),
+        rss_delta_mb: bytesToMB(rssDelta),
+        heap_delta_mb: bytesToMB(heapDelta),
+        external_delta_mb: bytesToMB(externalDelta),
       });
       
-      progression.total_growth_mb += formatMB(rssDelta);
+      progression.total_growth_mb += bytesToMB(rssDelta);
     }
   }
   
@@ -1657,12 +1655,12 @@ export async function boot(): Promise<void> {
         engine_and_bots_init: STARTUP_TIMINGS.engine_and_bots_init,
       },
       memory: {
-        initial_rss_mb: Math.round(STARTUP_MEMORY.initial.rss / 1024 / 1024),
-        post_database_rss_mb: Math.round(STARTUP_MEMORY.post_database.rss / 1024 / 1024),
-        post_engine_rss_mb: Math.round(STARTUP_MEMORY.post_engine_and_bots.rss / 1024 / 1024),
-        steady_state_rss_mb: Math.round(STARTUP_MEMORY.steady_state.rss / 1024 / 1024),
-        heap_used_mb: Math.round(STARTUP_MEMORY.steady_state.heapUsed / 1024 / 1024),
-        heap_total_mb: Math.round(STARTUP_MEMORY.steady_state.heapTotal / 1024 / 1024),
+        initial_rss_mb: bytesToMB(STARTUP_MEMORY.initial.rss),
+        post_database_rss_mb: bytesToMB(STARTUP_MEMORY.post_database.rss),
+        post_engine_rss_mb: bytesToMB(STARTUP_MEMORY.post_engine_and_bots.rss),
+        steady_state_rss_mb: bytesToMB(STARTUP_MEMORY.steady_state.rss),
+        heap_used_mb: bytesToMB(STARTUP_MEMORY.steady_state.heapUsed),
+        heap_total_mb: bytesToMB(STARTUP_MEMORY.steady_state.heapTotal),
       }
     });
     
@@ -1692,22 +1690,22 @@ export async function boot(): Promise<void> {
       // Log comprehensive memory breakdown
       log.info("🔬 Post-Startup Memory Analysis", {
         process: {
-          rss_mb: Math.round(mem.rss / 1024 / 1024),
-          heap_total_mb: Math.round(mem.heapTotal / 1024 / 1024),
-          heap_used_mb: Math.round(mem.heapUsed / 1024 / 1024),
-          external_mb: Math.round(mem.external / 1024 / 1024),
-          array_buffers_mb: Math.round(mem.arrayBuffers / 1024 / 1024),
+          rss_mb: bytesToMB(mem.rss),
+          heap_total_mb: bytesToMB(mem.heapTotal),
+          heap_used_mb: bytesToMB(mem.heapUsed),
+          external_mb: bytesToMB(mem.external),
+          array_buffers_mb: bytesToMB(mem.arrayBuffers),
         },
         v8_heap: {
-          total_heap_mb: Math.round(heapStats.total_heap_size / 1024 / 1024),
-          used_heap_mb: Math.round(heapStats.used_heap_size / 1024 / 1024),
-          heap_limit_mb: Math.round(heapStats.heap_size_limit / 1024 / 1024),
-          malloced_mb: Math.round(heapStats.malloced_memory / 1024 / 1024),
-          external_mb: Math.round(heapStats.external_memory / 1024 / 1024),
+          total_heap_mb: bytesToMB(heapStats.total_heap_size),
+          used_heap_mb: bytesToMB(heapStats.used_heap_size),
+          heap_limit_mb: bytesToMB(heapStats.heap_size_limit),
+          malloced_mb: bytesToMB(heapStats.malloced_memory),
+          external_mb: bytesToMB(heapStats.external_memory),
         },
         analysis: {
-          accounted_for_mb: Math.round((mem.heapTotal + mem.external) / 1024 / 1024),
-          mystery_allocation_mb: Math.round((mem.rss - mem.heapTotal - mem.external) / 1024 / 1024),
+          accounted_for_mb: bytesToMB(mem.heapTotal + mem.external),
+          mystery_allocation_mb: bytesToMB(mem.rss - mem.heapTotal - mem.external),
           heap_utilization_percent: ((mem.heapUsed / mem.heapTotal) * 100).toFixed(1),
         }
       });
@@ -1726,7 +1724,7 @@ export async function boot(): Promise<void> {
           
           log.info("📸 Startup heap snapshot captured", {
             filename,
-            size_mb: Math.round(snapshotSize / 1024 / 1024),
+            size_mb: bytesToMB(snapshotSize),
             location: storeDir,
           });
         } catch (fsErr) {

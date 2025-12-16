@@ -25,6 +25,7 @@ import { errorTracker, type ErrorContext } from './error-tracker.js';
 import { detectErrorCategory, detectErrorSeverity, type ExtendedErrorCategory, type ExtendedErrorSeverity } from './error-taxonomy.js';
 import { log } from '../../utils/logger.js';
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
+import { bytesToMB } from '../../shared/utils/format-utils.js';
 
 // ============================================================================
 // TYPES
@@ -421,10 +422,10 @@ class OSErrorInterceptor {
             service: 'os-interceptor',
             customData: {
               usedHeapPercent: usedPercent,
-              usedHeapMB: Math.round(heapStats.used_heap_size / 1024 / 1024),
-              totalHeapMB: Math.round(heapStats.total_heap_size / 1024 / 1024),
-              heapLimitMB: Math.round(heapStats.heap_size_limit / 1024 / 1024),
-              externalMB: Math.round(heapStats.external_memory / 1024 / 1024),
+              usedHeapMB: bytesToMB(heapStats.used_heap_size),
+              totalHeapMB: bytesToMB(heapStats.total_heap_size),
+              heapLimitMB: bytesToMB(heapStats.heap_size_limit),
+              externalMB: bytesToMB(heapStats.external_memory),
             },
           });
         } catch {
@@ -433,8 +434,8 @@ class OSErrorInterceptor {
         
         log('error', '[OSErrorInterceptor] CRITICAL heap usage', {
           usedPercent: usedPercent.toFixed(1),
-          usedMB: Math.round(heapStats.used_heap_size / 1024 / 1024),
-          limitMB: Math.round(heapStats.heap_size_limit / 1024 / 1024),
+          usedMB: bytesToMB(heapStats.used_heap_size),
+          limitMB: bytesToMB(heapStats.heap_size_limit),
         });
         
       } else if (usedPercent >= this.config.memoryWarningThreshold) {
@@ -451,8 +452,8 @@ class OSErrorInterceptor {
             service: 'os-interceptor',
             customData: {
               usedHeapPercent: usedPercent,
-              usedHeapMB: Math.round(heapStats.used_heap_size / 1024 / 1024),
-              heapLimitMB: Math.round(heapStats.heap_size_limit / 1024 / 1024),
+              usedHeapMB: bytesToMB(heapStats.used_heap_size),
+              heapLimitMB: bytesToMB(heapStats.heap_size_limit),
             },
           });
         } catch {
