@@ -1,20 +1,95 @@
+/**
+ * CLI Status Display - Ops Monitor Dashboard
+ * @module utils/cliStatus
+ * 
+ * Provides a real-time status display for the Infinity Gauntlet CLI:
+ *   - Phase and guild count tracking
+ *   - Section-based telemetry display
+ *   - Activity tracking integration
+ *   - Alert/error monitoring
+ *   - TTY and non-TTY output modes
+ */
+
 import os from 'node:os';
 import readline from 'node:readline';
 
-import activityTracker from './activityTracker.js';
-import opsNotifier from './opsNotifier.js';
+import activityTracker, { type ActivityStats, type ActivityEntry } from './activityTracker.js';
+import opsNotifier, { type ErrorEntry as OpsErrorEntry } from './opsNotifier.js';
 import { toEasternLogFormat } from '../shared/datetime.js';
 import { formatDuration, formatTimestamp } from '../shared/utils/index.js';
 import { TIME_CONSTANTS } from '../shared/constants.js';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface SectionData {
+  id: string;
+  title: string;
+  status: string;
+  metrics: Array<[string, unknown] | Record<string, unknown> | string>;
+}
+
+interface SectionInput {
+  title?: string;
+  status?: string;
+  metrics?: Array<[string, unknown] | Record<string, unknown> | string> | Record<string, unknown>;
+}
+
+interface CapacityInsight {
+  rating: 'nominal' | 'guarded' | 'critical';
+  detail: string;
+  alerts: number;
+  pendingEvents: number;
+  guildCount: number;
+}
+
+interface DisplayState {
+  startedAt: Date;
+  phase: string;
+  guildCount: number;
+  sections: Map<string, SectionData>;
+  activityStats: ActivityStats | null;
+  recentActivities: ActivityEntry[];
+  recentErrors: OpsErrorEntry[];
+  lastUpdatedAt: Date | null;
+  lastRenderAt: Date | null;
+}
+
+interface PrimarySectionDef {
+  id: string;
+  title: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
 const { NORMAL_UPDATE_INTERVAL_MS, ALERT_UPDATE_INTERVAL_MS } = TIME_CONSTANTS;
 const HEADER = 'Infinity Gauntlet Ops Monitor';
 
-const initialErrors = typeof opsNotifier?.getRecentErrors === 'function'
+const PRIMARY_SECTIONS: PrimarySectionDef[] = [
+  { id: 'security', title: 'Security Bot' },
+  { id: 'database', title: 'Database' },
+  { id: 'pokedex', title: 'PokéAPI Cache' },
+  { id: 'discord', title: 'Discord Bot' },
+  { id: 'cache', title: 'Runtime Cache' },
+];
+
+const SIMPLE_MODE = !(process.stdout?.isTTY && process.stderr?.isTTY);
+const SIMPLE_VERBOSE_MODE = ['1', 'true', 'yes', 'verbose', 'default', 'legacy', 'full']
+  .includes(String(process.env.CLI_STATUS_VERBOSE ?? process.env.CLI_STATUS_SIMPLE ?? '').toLowerCase());
+const QUIET_SIMPLE_MODE = SIMPLE_MODE && !SIMPLE_VERBOSE_MODE;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
+
+const initialErrors: OpsErrorEntry[] = typeof opsNotifier?.getRecentErrors === 'function'
   ? opsNotifier.getRecentErrors()
   : [];
 
-const state = {
+const state: DisplayState = {
   startedAt: new Date(),
   phase: 'Booting',
   guildCount: 0,
@@ -26,35 +101,25 @@ const state = {
   lastRenderAt: null,
 };
 
-const PRIMARY_SECTIONS = [
-  { id: 'security', title: 'Security Bot' },
-  { id: 'database', title: 'Database' },
-  { id: 'pokedex', title: 'PokéAPI Cache' },
-  { id: 'discord', title: 'Discord Bot' },
-  { id: 'cache', title: 'Runtime Cache' },
-];
-
-const SIMPLE_MODE = !(process.stdout && process.stdout.isTTY && process.stderr && process.stderr.isTTY);
-const SIMPLE_VERBOSE_MODE = ['1', 'true', 'yes', 'verbose', 'default', 'legacy', 'full']
-  .includes(String(process.env.CLI_STATUS_VERBOSE ?? process.env.CLI_STATUS_SIMPLE ?? '').toLowerCase());
-const QUIET_SIMPLE_MODE = SIMPLE_MODE && !SIMPLE_VERBOSE_MODE;
-
-let intervalHandle = null;
-let unsubscribe = null;
-let unsubscribeErrors = null;
-let _lastOutputWasDot = false; // Track if last output was a dot (for console formatting) - currently unused but referenced
+let intervalHandle: ReturnType<typeof setInterval> | null = null;
+let unsubscribe: (() => void) | null = null;
+let unsubscribeErrors: (() => void) | null = null;
+let _lastOutputWasDot = false;
 let lastRenderLines = 0;
 let isRendering = false;
 let displayActive = false;
 let lastSimpleRender = '';
 let currentIntervalMs = NORMAL_UPDATE_INTERVAL_MS;
 
-function noteUpdate() {
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+function noteUpdate(): void {
   state.lastUpdatedAt = new Date();
 }
 
-function _describeInterval(ms) {
-  // Reserved for future use
+function _describeInterval(ms: number): string {
   if (!Number.isFinite(ms) || ms <= 0) {
     return 'n/a';
   }
@@ -71,15 +136,12 @@ function _describeInterval(ms) {
   return `${ms}ms`;
 }
 
-// formatDuration now imported from shared/utils/format-utils.js (centralized)
-// formatTimestamp now imported from shared/utils/format-utils.js (centralized)
-
-function toMetricRows(metrics = []) {
+function toMetricRows(metrics: Array<[string, unknown] | Record<string, unknown> | string> = []): string[] {
   if (!Array.isArray(metrics) || metrics.length === 0) {
     return [];
   }
   return metrics
-    .map((entry) => {
+    .map((entry): string | null => {
       if (!entry) {
         return null;
       }
@@ -100,11 +162,11 @@ function toMetricRows(metrics = []) {
       }
       return `  • ${String(entry)}`;
     })
-    .filter(Boolean)
+    .filter((line): line is string => line !== null)
     .flatMap((line) => line.split(/\r?\n/));
 }
 
-function formatCategoryBlock(title, rows = []) {
+function formatCategoryBlock(title: string, rows: string[] = []): string[] {
   const label = title || 'Section';
   if (!Array.isArray(rows) || rows.length === 0) {
     return [`${label}: No data available`];
@@ -130,8 +192,8 @@ function formatCategoryBlock(title, rows = []) {
   return block;
 }
 
-function computeCapacityInsight() {
-  const statuses = [];
+function computeCapacityInsight(): CapacityInsight {
+  const statuses: string[] = [];
   for (const section of state.sections.values()) {
     if (!section) {
       continue;
@@ -143,8 +205,8 @@ function computeCapacityInsight() {
   const alerts = Array.isArray(state.recentErrors) ? state.recentErrors.length : 0;
   const pendingEvents = state.activityStats?.pendingEvents ?? 0;
 
-  let rating = 'nominal';
-  const drivers = [];
+  let rating: 'nominal' | 'guarded' | 'critical' = 'nominal';
+  const drivers: string[] = [];
 
   if (alerts > 0) {
     rating = 'critical';
@@ -181,7 +243,7 @@ function computeCapacityInsight() {
   };
 }
 
-function buildSectionBlock(sectionId, fallbackTitle) {
+function buildSectionBlock(sectionId: string, fallbackTitle?: string): string[] {
   const section = state.sections.get(sectionId);
   const title = section?.title || fallbackTitle || sectionId || 'Section';
   if (!section) {
@@ -202,9 +264,9 @@ function buildSectionBlock(sectionId, fallbackTitle) {
   return formatCategoryBlock(title, rows);
 }
 
-function buildSectionBlocks() {
-  const blocks = [];
-  const seen = new Set();
+function buildSectionBlocks(): string[][] {
+  const blocks: string[][] = [];
+  const seen = new Set<string>();
   for (const { id, title } of PRIMARY_SECTIONS) {
     blocks.push(buildSectionBlock(id, title));
     seen.add(id);
@@ -218,7 +280,7 @@ function buildSectionBlocks() {
   return blocks;
 }
 
-function formatLifetimeCounts(counts = {}) {
+function formatLifetimeCounts(counts: Record<string, number> = {}): string[] {
   const entries = Object.entries(counts || {});
   if (entries.length === 0) {
     return [];
@@ -228,12 +290,12 @@ function formatLifetimeCounts(counts = {}) {
   return topEntries.map(([type, count]) => `  • ${type}: ${count}`);
 }
 
-function formatActivityMeta(activity) {
+function formatActivityMeta(activity: ActivityEntry | null): string {
   if (!activity || typeof activity !== 'object') {
     return '';
   }
   const meta = activity.meta && typeof activity.meta === 'object' ? activity.meta : {};
-  const details = [];
+  const details: string[] = [];
   if (meta.guild) {
     details.push(String(meta.guild));
   }
@@ -252,27 +314,27 @@ function formatActivityMeta(activity) {
   return details.join(' • ');
 }
 
-function formatRecentActivities() {
+function formatRecentActivities(): string[] {
   if (!Array.isArray(state.recentActivities) || state.recentActivities.length === 0) {
     return [];
   }
   const entries = state.recentActivities.slice(-10).reverse();
   return entries.map((activity) => {
-    const summary = activity && activity.summary ? activity.summary : activity?.type || 'activity';
-    let timestampValue = activity ? activity.timestamp : null;
+    const summary = activity?.summary ? activity.summary : activity?.type || 'activity';
+    let timestampValue: Date | null = activity?.timestamp ?? null;
     if (timestampValue && !(timestampValue instanceof Date)) {
       const parsed = new Date(timestampValue);
       timestampValue = Number.isNaN(parsed.getTime()) ? null : parsed;
     }
     const timestamp = timestampValue ? formatTimestamp(timestampValue) : 'unknown';
-    const type = activity && activity.type ? ` [${activity.type}]` : '';
+    const type = activity?.type ? ` [${activity.type}]` : '';
     const meta = formatActivityMeta(activity);
     const suffix = meta ? ` — ${meta}` : '';
     return `  • ${summary}${type} (${timestamp})${suffix}`;
   });
 }
 
-function buildActivityBlock() {
+function buildActivityBlock(): string[] {
   if (!state.activityStats) {
     return [];
   }
@@ -298,20 +360,21 @@ function buildActivityBlock() {
   return formatCategoryBlock('Activity', rows);
 }
 
-function buildAlertsBlock() {
+function buildAlertsBlock(): string[] {
   if (!Array.isArray(state.recentErrors) || state.recentErrors.length === 0) {
     return [];
   }
   const latest = state.recentErrors.slice(-5).reverse();
   const rows = [`Active alerts: ${state.recentErrors.length}`];
   for (const entry of latest) {
-    let timestampValue = entry ? entry.timestamp : null;
-    if (timestampValue && !(timestampValue instanceof Date)) {
-      const parsed = new Date(timestampValue);
-      timestampValue = Number.isNaN(parsed.getTime()) ? null : parsed;
+    let timestampValue: Date | null = entry?.timestamp 
+      ? (entry.timestamp instanceof Date ? entry.timestamp : new Date(entry.timestamp))
+      : null;
+    if (timestampValue && Number.isNaN(timestampValue.getTime())) {
+      timestampValue = null;
     }
     const when = timestampValue ? formatTimestamp(timestampValue) : 'unknown';
-    const details = [];
+    const details: string[] = [];
     if (entry?.detail) {
       details.push(entry.detail);
     }
@@ -325,9 +388,9 @@ function buildAlertsBlock() {
   return formatCategoryBlock('Alerts', rows);
 }
 
-function buildDisplayLines() {
+function buildDisplayLines(): string[] {
   const now = new Date();
-  const uptime = formatDuration(now - state.startedAt);
+  const uptime = formatDuration(now.getTime() - state.startedAt.getTime());
   const capacity = computeCapacityInsight();
   const phase = state.phase || 'unknown';
   const guilds = state.guildCount ?? 0;
@@ -364,7 +427,7 @@ function buildDisplayLines() {
   return lines;
 }
 
-function clearDisplay() {
+function clearDisplay(): void {
   if (SIMPLE_MODE || lastRenderLines === 0) {
     return;
   }
@@ -373,22 +436,21 @@ function clearDisplay() {
   lastRenderLines = 0;
 }
 
-// Compose a condensed single-line snapshot for Render logs when no TTY is present.
-function summarizeTimestamp(value) {
+function summarizeTimestamp(value: Date | null | undefined): string {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
     return 'never';
   }
   return formatTimestamp(value).replace(/\s+/g, '_');
 }
 
-function buildQuietSummary() {
+function buildQuietSummary(): string | null {
   const dbSection = state.sections.get('database');
   if (!dbSection) {
     return null;
   }
 
-  const metrics = new Map();
-  const looseNotes = [];
+  const metrics = new Map<string, unknown>();
+  const looseNotes: string[] = [];
 
   for (const entry of dbSection.metrics ?? []) {
     if (!entry) {
@@ -400,8 +462,8 @@ function buildQuietSummary() {
         looseNotes.push(String(value));
         continue;
       }
-      if (label !== undefined && label !== null && !metrics.has(label)) {
-        metrics.set(label, value);
+      if (label !== undefined && label !== null && !metrics.has(String(label))) {
+        metrics.set(String(label), value);
       }
       continue;
     }
@@ -416,9 +478,9 @@ function buildQuietSummary() {
     looseNotes.push(String(entry));
   }
 
-  const normalizeValue = (value) => String(value ?? 'unknown').replace(/\s+/g, '_');
+  const normalizeValue = (value: unknown): string => String(value ?? 'unknown').replace(/\s+/g, '_');
 
-  const segments = [];
+  const segments: string[] = [];
   const phase = state.phase || 'unknown';
   const status = dbSection.status || 'pending';
   segments.push(`phase=${normalizeValue(phase)}`);
@@ -451,7 +513,11 @@ function buildQuietSummary() {
     segments.push(`refreshed=${summarizeTimestamp(state.lastUpdatedAt)}`);
   }
 
-  const pickMetric = (key, label, formatter) => {
+  const pickMetric = (
+    key: string, 
+    label: string, 
+    formatter?: (value: unknown) => string
+  ): void => {
     if (!metrics.has(key)) {
       return;
     }
@@ -504,13 +570,13 @@ function buildQuietSummary() {
   return segments.join(' | ');
 }
 
-function desiredInterval() {
+function desiredInterval(): number {
   return Array.isArray(state.recentErrors) && state.recentErrors.length > 0
     ? ALERT_UPDATE_INTERVAL_MS
     : NORMAL_UPDATE_INTERVAL_MS;
 }
 
-function configureRenderInterval() {
+function configureRenderInterval(): void {
   if (SIMPLE_MODE && QUIET_SIMPLE_MODE) {
     if (intervalHandle) {
       clearInterval(intervalHandle);
@@ -535,7 +601,7 @@ function configureRenderInterval() {
   currentIntervalMs = target;
 }
 
-function render() {
+function render(): void {
   if (!displayActive || isRendering) {
     return;
   }
@@ -578,7 +644,7 @@ function render() {
   }
 }
 
-function handleActivityUpdate(stats) {
+function handleActivityUpdate(stats: ActivityStats): void {
   state.activityStats = stats;
   if (typeof activityTracker.getPendingActivities === 'function') {
     try {
@@ -593,7 +659,7 @@ function handleActivityUpdate(stats) {
   }
 }
 
-function handleOpsErrorUpdate() {
+function handleOpsErrorUpdate(): void {
   if (typeof opsNotifier?.getRecentErrors !== 'function') {
     return;
   }
@@ -605,7 +671,14 @@ function handleOpsErrorUpdate() {
   }
 }
 
-function startStatusDisplay() {
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Start the status display.
+ */
+export function startStatusDisplay(): void {
   if (displayActive) {
     return;
   }
@@ -635,7 +708,10 @@ function startStatusDisplay() {
   configureRenderInterval();
 }
 
-function stopStatusDisplay() {
+/**
+ * Stop the status display.
+ */
+export function stopStatusDisplay(): void {
   if (intervalHandle) {
     clearInterval(intervalHandle);
     intervalHandle = null;
@@ -669,7 +745,10 @@ function stopStatusDisplay() {
   lastRenderLines = 0;
 }
 
-function setPhase(value) {
+/**
+ * Set the current phase label.
+ */
+export function setPhase(value: string): void {
   const nextPhase = value || state.phase;
   if (!nextPhase || state.phase === nextPhase) {
     return;
@@ -681,7 +760,10 @@ function setPhase(value) {
   }
 }
 
-function setGuildCount(value) {
+/**
+ * Set the guild count.
+ */
+export function setGuildCount(value: number): void {
   let changed = false;
   if (typeof value === 'number' && Number.isFinite(value)) {
     const nextCount = Math.max(0, Math.round(value));
@@ -696,26 +778,28 @@ function setGuildCount(value) {
   }
 }
 
-function normalizeSection(sectionId, data) {
+function normalizeSection(sectionId: string, data: SectionInput): SectionData | null {
   if (!data || typeof data !== 'object') {
     return null;
   }
-  const normalized = {
+  const normalized: SectionData = {
     id: sectionId,
     title: data.title || sectionId,
     status: data.status || 'pending',
+    metrics: [],
   };
   if (Array.isArray(data.metrics)) {
-    normalized.metrics = data.metrics;
+    normalized.metrics = data.metrics as SectionData['metrics'];
   } else if (data.metrics && typeof data.metrics === 'object') {
     normalized.metrics = Object.entries(data.metrics);
-  } else {
-    normalized.metrics = [];
   }
   return normalized;
 }
 
-function setSection(sectionId, data) {
+/**
+ * Set or clear a section's data.
+ */
+export function setSection(sectionId: string, data: SectionInput | null): void {
   if (!sectionId) {
     return;
   }
@@ -733,7 +817,10 @@ function setSection(sectionId, data) {
   }
 }
 
-function interruptConsoleOutput(writeFn) {
+/**
+ * Interrupt console output to write something, then re-render.
+ */
+export function interruptConsoleOutput(writeFn: () => void): void {
   if (typeof writeFn !== 'function') {
     return;
   }
@@ -758,14 +845,9 @@ function interruptConsoleOutput(writeFn) {
   render();
 }
 
-export {
-  startStatusDisplay,
-  stopStatusDisplay,
-  setPhase,
-  setGuildCount,
-  setSection,
-  interruptConsoleOutput,
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// Default Export
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default {
   startStatusDisplay,

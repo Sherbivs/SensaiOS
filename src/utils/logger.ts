@@ -1,33 +1,157 @@
+/**
+ * Logger - Centralized Logging with Stats Display
+ * @module utils/logger
+ * 
+ * Provides a comprehensive logging system with:
+ *   - Structured log levels (info, warn, error, success, detail)
+ *   - Automatic stats collection and display
+ *   - Database, security bot, and error tracking integration
+ *   - Change detection to avoid duplicate output
+ */
+
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
 import { formatBytes, formatUptime, extractDatabaseName } from '../shared/utils/index.js';
+import { TIME_CONSTANTS } from '../shared/constants.js';
 
-// Import error tracker for integration
-let errorTracker = null;
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Lazy-load error tracker to avoid circular dependencies.
- * Error tracker may not be available during early startup phases.
- */
-async function getErrorTracker() {
-  if (errorTracker) return errorTracker;
-  
-  try {
-    const errorTrackerModule = await import('../services/monitoring/error-tracker.js');
-    errorTracker = errorTrackerModule.errorTracker;
-    return errorTracker;
-  } catch {
-    // Error tracker not available (early startup or testing environment)
-    return null;
-  }
+type LogLevel = 'info' | 'warn' | 'error' | 'success' | 'detail';
+
+interface NodeStats {
+  uptime: string;
+  memory: {
+    rss: string;
+    heapUsed: string;
+    heapTotal: string;
+    external: string;
+  };
+  cpu: {
+    user: string;
+    system: string;
+  };
+  pid: number;
+  version: string;
 }
 
-// ============================================================================
-// Constants & Configuration
-// ============================================================================
+interface CacheStats {
+  cacheDir: string;
+  cacheSize: string;
+  cacheBudgetMax: string;
+  cacheBudgetPercent: string;
+  approxFree: string;
+  workspaceLimit: string;
+  workspaceFree: string;
+  diskTotal: string;
+  diskFree: string;
+}
 
-const LOG_LABEL = Object.freeze({
+interface DatabaseMetric {
+  status: string;
+  latency: number | null;
+  latencyReason: string | null;
+  source?: string | null;
+  sourceReason?: string | null;
+  entries?: number | null;
+  entriesReason?: string | null;
+}
+
+interface DatabaseStats {
+  master: DatabaseMetric;
+  engineRead: DatabaseMetric;
+  engineWrite: DatabaseMetric;
+  onPremiseDev: DatabaseMetric;
+  onPremiseExperiment: DatabaseMetric;
+}
+
+interface SecurityBotStats {
+  status: string;
+  guilds: number;
+  lastSweep: string;
+  assignments: number;
+  failures: number;
+  source?: string;
+  statusReason?: string;
+}
+
+interface ErrorEntry {
+  severity: string;
+  category: string;
+  name: string;
+  message: string;
+  count: number;
+  lastSeen: Date | string;
+  impactedFeatures?: string[];
+  recoveryAttempts?: number;
+  recoverySuccesses?: number;
+}
+
+interface ErrorSummary {
+  totalUnique: number;
+  totalOccurrences: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+  errorRate: number;
+  topCategories: Record<string, number>;
+}
+
+interface ErrorStats {
+  status: string;
+  statusReason?: string;
+  recentErrors: ErrorEntry[];
+  summary: ErrorSummary | null;
+}
+
+interface StatsCache {
+  node: NodeStats | null;
+  cache: CacheStats | null;
+  databases: DatabaseStats | null;
+  security: SecurityBotStats | null;
+  errors: ErrorStats | null;
+  lastRefresh: number;
+}
+
+interface ServiceInfo {
+  isSecurityBot: boolean;
+  isMainBot: boolean;
+  isWorker: boolean;
+  isWeb: boolean;
+  serviceName: string;
+}
+
+interface ErrorTracker {
+  captureError: (error: Error, context: Record<string, unknown>) => Promise<void>;
+  getErrorStats: (since: Date) => Promise<{
+    totalErrors: number;
+    totalOccurrences: number;
+    bySeverity: Record<string, number>;
+    byCategory: Record<string, number>;
+    errorRate: number;
+  }>;
+  getRecentErrors: (limit: number, filters: { since: Date }) => Promise<ErrorEntry[]>;
+}
+
+type DatabaseStatsProvider = () => {
+  prod: { status: string; latency?: number | null; source?: string | null };
+  onPremiseDev: { status: string; latency?: number | null; source?: string | null };
+  onPremiseExperiment?: { status: string; latency?: number | null; source?: string | null };
+  error?: boolean;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const LOG_LABEL: Readonly<Record<LogLevel | string, string>> = Object.freeze({
   success: 'SUCCESS',
   info: 'INFO',
   warn: 'WARN',
@@ -36,173 +160,193 @@ const LOG_LABEL = Object.freeze({
 });
 
 const REFRESH_INTERVAL_MS = 15_000;
-const _STATS_CHANGE_THRESHOLD = 0.1; // Reserved for future use
-const LATENCY_CHANGE_THRESHOLD_MS = 5; // 5ms change triggers re-print
+const LATENCY_CHANGE_THRESHOLD_MS = 5;
 
-// Metric unavailability reasons (for transparency)
 const METRIC_UNAVAILABLE = Object.freeze({
-  NOT_QUERIED_YET: 'not-queried-yet',      // Provider not initialized
-  INITIALIZING: 'initializing',             // Provider loading
-  NO_PROVIDER: 'no-provider',               // No stats provider available
-  QUERY_FAILED: 'query-failed',             // Stats query threw error
-  NOT_CONNECTED: 'not-connected',           // Database not connected
-  DISABLED: 'disabled',                     // Feature disabled
-  NOT_APPLICABLE: 'n/a',                    // Not relevant to this service
+  NOT_QUERIED_YET: 'not-queried-yet',
+  INITIALIZING: 'initializing',
+  NO_PROVIDER: 'no-provider',
+  QUERY_FAILED: 'query-failed',
+  NOT_CONNECTED: 'not-connected',
+  DISABLED: 'disabled',
+  NOT_APPLICABLE: 'n/a',
 });
 
-// ============================================================================
-// Database Stats Provider (Deferred Initialization)
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
 
-let getDatabaseStats = null;
+let errorTracker: ErrorTracker | null = null;
+let getDatabaseStats: DatabaseStatsProvider | null = null;
 let databaseStatsProvider = 'none';
 let databaseStatsInitialized = false;
 
-/**
- * Initialize database stats provider asynchronously.
- * This is called once during the first stats collection to avoid top-level await.
- */
-async function initializeDatabaseStatsProvider() {
-  if (databaseStatsInitialized) return;
-  databaseStatsInitialized = true;
-  
-  try {
-    // Try Prisma first (primary database client)
-    const prismaModule = await import('../shared/prisma.js');
-    if (typeof prismaModule.getDatabaseStats === 'function') {
-      getDatabaseStats = prismaModule.getDatabaseStats;
-      databaseStatsProvider = 'prisma';
-      console.info('[logger] Database stats provider: Prisma (primary)');
-      return;
-    }
-  } catch {
-    // Prisma not available, try fallback
-  }
-  
-  try {
-    // Fallback to pg-connection if Prisma unavailable
-    const pgModule = await import('../shared/pg-connection.js');
-    if (typeof pgModule.getDatabaseStats === 'function') {
-      getDatabaseStats = pgModule.getDatabaseStats;
-      databaseStatsProvider = 'pg-connection';
-      console.info('[logger] Database stats provider: pg-connection (fallback)');
-      return;
-    }
-  } catch {
-    // Both providers unavailable
-  }
-  
-  // If we get here, no provider is available
-  console.warn('[logger] Database stats unavailable - both Prisma and pg-connection failed to load');
-}
-
-// ============================================================================
-// Service Detection
-// ============================================================================
-
-/**
- * Detect which Render service this process is running in.
- * Used to conditionally show/hide service-specific stats.
- */
-function detectServiceType() {
-  const serviceName = process.env.RENDER_SERVICE_NAME || process.env.SERVICE_NAME || '';
-  return {
-    isSecurityBot: serviceName.includes('security'),
-    isMainBot: serviceName.includes('bots') && !serviceName.includes('security'),
-    isWorker: serviceName.includes('worker') || serviceName.includes('cache') || serviceName.includes('data-pipeline'),
-    isWeb: serviceName.includes('web'),  // Removed reference to deleted 'infinity-gauntlet-bot' web service
-    serviceName: serviceName || 'unknown',
-  };
-}
-
-// ============================================================================
-// State Management
-// ============================================================================
-
-let logIntervalHandle = null;
+let logIntervalHandle: ReturnType<typeof setInterval> | null = null;
 let lastLogTime = 0;
-let previousStats = null; // Track previous stats for change detection
-let statsCache = {
+let previousStats: StatsCache | null = null;
+
+const statsCache: StatsCache = {
   node: null,
+  cache: null,
   databases: null,
   security: null,
   errors: null,
   lastRefresh: 0,
 };
 
-// ============================================================================
-// Utility Functions
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
+// Global Declarations for Security Bot State
+// ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Format bytes into human-readable string.
- * @param {number} bytes - Number of bytes
- * @returns {string} Formatted string (e.g., "154.02 MB")
- */
-// formatBytes now imported from shared/utils/format-utils.js (centralized)
-
-/**
- * Format milliseconds into human-readable uptime.
- * @param {number} ms - Milliseconds
- * @returns {string} Formatted uptime (e.g., "2m 34s")
- */
-// formatUptime now imported from shared/utils/format-utils.js (centralized)
-
-/**
- * Extract database name from connection string for observability.
- * @param {string} connectionString - Database URL
- * @returns {string|null} Database name or null if unparseable
- */
-// extractDatabaseName now imported from shared/utils/url-utils.js (centralized)
-
-/**
- * Check if stats have changed significantly (for deduplication).
- * @param {object} current - Current stats
- * @param {object} previous - Previous stats (shallow reference comparison only)
- * @returns {boolean} True if significant change detected
- * 
- * MEMORY OPTIMIZATION: Only checks specific fields instead of deep cloning entire stats object.
- * This prevents 1-2 MB allocations every 15 seconds (stats object is ~1-2 MB serialized).
- */
-function hasSignificantChange(current, previous) {
-  if (!previous) return true; // First run
+declare global {
+  // eslint-disable-next-line no-var
+  var securityBotState: {
+    stats?: {
+      totalSweeps?: number;
+      totalPermissionChanges?: number;
+      totalAlerts?: number;
+    };
+    timeline?: Array<{
+      type: string;
+      timestamp: string | number;
+    }>;
+  } | undefined;
   
-  // Check database status changes (updated for new structure)
+  // eslint-disable-next-line no-var
+  var securityBotClient: {
+    guilds?: { cache?: { size: number } };
+    isReady?: () => boolean;
+  } | undefined;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lazy Loaders
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function getErrorTracker(): Promise<ErrorTracker | null> {
+  if (errorTracker) return errorTracker;
+  
+  try {
+    const errorTrackerModule = await import('../services/monitoring/error-tracker.js');
+    errorTracker = errorTrackerModule.errorTracker as unknown as ErrorTracker;
+    return errorTracker;
+  } catch {
+    return null;
+  }
+}
+
+async function initializeDatabaseStatsProvider(): Promise<void> {
+  if (databaseStatsInitialized) return;
+  databaseStatsInitialized = true;
+  
+  try {
+    const prismaModule = await import('../shared/prisma.js');
+    if (typeof prismaModule.getDatabaseStats === 'function') {
+      getDatabaseStats = prismaModule.getDatabaseStats as DatabaseStatsProvider;
+      databaseStatsProvider = 'prisma';
+      // eslint-disable-next-line no-console
+      console.info('[logger] Database stats provider: Prisma (primary)');
+      return;
+    }
+  } catch {
+    // Prisma not available
+  }
+  
+  try {
+    const pgModule = await import('../shared/pg-connection.js') as unknown as { getDatabaseStats?: DatabaseStatsProvider };
+    if (typeof pgModule.getDatabaseStats === 'function') {
+      getDatabaseStats = pgModule.getDatabaseStats;
+      databaseStatsProvider = 'pg-connection';
+      // eslint-disable-next-line no-console
+      console.info('[logger] Database stats provider: pg-connection (fallback)');
+      return;
+    }
+  } catch {
+    // pg-connection not available
+  }
+  
+  // eslint-disable-next-line no-console
+  console.warn('[logger] Database stats unavailable - both Prisma and pg-connection failed to load');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Service Detection
+// ─────────────────────────────────────────────────────────────────────────────
+
+function detectServiceType(): ServiceInfo {
+  const serviceName = process.env.RENDER_SERVICE_NAME || process.env.SERVICE_NAME || '';
+  return {
+    isSecurityBot: serviceName.includes('security'),
+    isMainBot: serviceName.includes('bots') && !serviceName.includes('security'),
+    isWorker: serviceName.includes('worker') || serviceName.includes('cache') || serviceName.includes('data-pipeline'),
+    isWeb: serviceName.includes('web'),
+    serviceName: serviceName || 'unknown',
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utility Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+function hasSignificantChange(current: StatsCache, previous: StatsCache | null): boolean {
+  if (!previous) return true;
+  
   if (current.databases?.master?.status !== previous.databases?.master?.status) return true;
   if (current.databases?.engineRead?.status !== previous.databases?.engineRead?.status) return true;
   if (current.databases?.engineWrite?.status !== previous.databases?.engineWrite?.status) return true;
   
-  // Check latency changes (>5ms difference)
-  const currentMasterLatency = parseFloat(current.databases?.master?.latency) || 0;
-  const previousMasterLatency = parseFloat(previous.databases?.master?.latency) || 0;
+  const currentMasterLatency = current.databases?.master?.latency ?? 0;
+  const previousMasterLatency = previous.databases?.master?.latency ?? 0;
   if (Math.abs(currentMasterLatency - previousMasterLatency) > LATENCY_CHANGE_THRESHOLD_MS) return true;
   
-  // Check security bot status changes
   if (current.security?.status !== previous.security?.status) return true;
   
-  // Check memory changes (>50MB difference to avoid noise)
-  const currentRss = current.node?.memory?.rss || 0;
-  const previousRss = previous.node?.memory?.rss || 0;
-  if (Math.abs(currentRss - previousRss) > 50 * 1024 * 1024) return true; // 50 MB threshold
+  const currentRss = parseFloat(current.node?.memory?.rss ?? '0') || 0;
+  const previousRss = parseFloat(previous.node?.memory?.rss ?? '0') || 0;
+  if (Math.abs(currentRss - previousRss) > 50 * 1024 * 1024) return true;
   
   return false;
 }
 
-// ============================================================================
-// Stats Collection Functions
-// ============================================================================
+function formatMetric(
+  value: unknown,
+  reason: string | null | undefined,
+  formatter?: ((val: number) => string) | null
+): string {
+  if (value === null || value === undefined) {
+    return `<unavailable: ${reason || 'unknown'}>`;
+  }
+  
+  if (formatter && typeof value === 'number') {
+    try {
+      return formatter(value);
+    } catch {
+      return '<unavailable: formatter-error>';
+    }
+  }
+  
+  return String(value);
+}
 
-/**
- * Collect Node.js process statistics.
- * @returns {object} Node stats (uptime, memory, CPU, PID, version)
- */
+function formatTimeSince(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+  
+  if (diffDay > 0) return `${diffDay}d`;
+  if (diffHour > 0) return `${diffHour}h`;
+  if (diffMin > 0) return `${diffMin}m`;
+  return `${diffSec}s`;
+}
 
-/**
- * Collect Node.js process statistics.
- * @returns {object} Node stats (uptime, memory, CPU, PID, version)
- */
-function collectNodeStats() {
-  // Get real-time metrics from resource monitor
+// ─────────────────────────────────────────────────────────────────────────────
+// Stats Collection
+// ─────────────────────────────────────────────────────────────────────────────
+
+function collectNodeStats(): NodeStats {
   const resourceMetrics = resourceMonitor.getMetrics();
   
   return {
@@ -222,11 +366,7 @@ function collectNodeStats() {
   };
 }
 
-/**
- * Collect cache and resource usage statistics from resource monitor.
- * @returns {object} Cache and resource stats
- */
-function collectCacheStats() {
+function collectCacheStats(): CacheStats {
   const resourceMetrics = resourceMonitor.getMetrics();
   
   return {
@@ -242,19 +382,12 @@ function collectCacheStats() {
   };
 }
 
-/**
- * Collect database connection statistics with health checks.
- * Initializes the database stats provider on first call.
- * Returns metrics with explicit unavailability reasons when data cannot be queried.
- * @returns {Promise<object>} Database stats for MASTER (PROD), LOCAL (Engine DBs), ONPREMISE-DEV, ONPREMISE-EXPERIMENT
- */
-async function collectDatabaseStats() {
-  // Initialize provider on first call (deferred loading to avoid top-level await)
+async function collectDatabaseStats(): Promise<DatabaseStats> {
   if (!databaseStatsInitialized) {
     await initializeDatabaseStatsProvider();
   }
   
-  const defaultReturn = {
+  const defaultReturn: DatabaseStats = {
     master: {
       status: METRIC_UNAVAILABLE.INITIALIZING,
       latency: null,
@@ -292,12 +425,10 @@ async function collectDatabaseStats() {
     },
   };
   
-  // Provider not loaded yet or unavailable
   if (typeof getDatabaseStats !== 'function') {
     const reason = databaseStatsProvider === 'none' 
       ? METRIC_UNAVAILABLE.NO_PROVIDER 
       : METRIC_UNAVAILABLE.INITIALIZING;
-      
     defaultReturn.master.status = reason;
     defaultReturn.master.latencyReason = reason;
     defaultReturn.master.sourceReason = reason;
@@ -307,7 +438,6 @@ async function collectDatabaseStats() {
   try {
     const stats = getDatabaseStats();
     
-    // Connection not initialized yet
     if (!stats || stats.error) {
       defaultReturn.master.status = METRIC_UNAVAILABLE.NOT_CONNECTED;
       defaultReturn.master.latencyReason = METRIC_UNAVAILABLE.NOT_CONNECTED;
@@ -315,44 +445,36 @@ async function collectDatabaseStats() {
       return defaultReturn;
     }
     
-    // Format MASTER stats (PROD - unified Render database - PRIMARY for all operations)
-    const masterLatency = stats.prod.latency !== null && stats.prod.latency !== undefined
-      ? stats.prod.latency
-      : null;
+    const masterLatency = stats.prod.latency ?? null;
     const masterLatencyReason = masterLatency === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null;
-    
-    const masterSource = stats.prod.source || null;
+    const masterSource = stats.prod.source ?? null;
     const masterSourceReason = masterSource === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null;
     
-    // Format ONPREMISE-DEV stats (optional workstation development)
-    const onPremiseDevLatency = stats.onPremiseDev.latency !== null && stats.onPremiseDev.latency !== undefined
-      ? stats.onPremiseDev.latency
-      : null;
+    const onPremiseDevLatency = stats.onPremiseDev.latency ?? null;
     const onPremiseDevLatencyReason = stats.onPremiseDev.status === 'disabled' 
       ? METRIC_UNAVAILABLE.DISABLED 
       : (onPremiseDevLatency === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
-    
-    const onPremiseDevSource = stats.onPremiseDev.source || null;
+    const onPremiseDevSource = stats.onPremiseDev.source ?? null;
     const onPremiseDevSourceReason = stats.onPremiseDev.status === 'disabled'
       ? METRIC_UNAVAILABLE.DISABLED
       : (onPremiseDevSource === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
     
-    // Format ONPREMISE-EXPERIMENT stats (optional workstation testing)
-    const onPremiseExperimentLatency = stats.onPremiseExperiment?.latency !== null && stats.onPremiseExperiment?.latency !== undefined
-      ? stats.onPremiseExperiment.latency
-      : null;
+    const onPremiseExperimentLatency = stats.onPremiseExperiment?.latency ?? null;
     const onPremiseExperimentLatencyReason = stats.onPremiseExperiment?.status === 'disabled' 
       ? METRIC_UNAVAILABLE.DISABLED 
       : (onPremiseExperimentLatency === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
-    
-    const onPremiseExperimentSource = stats.onPremiseExperiment?.source || null;
+    const onPremiseExperimentSource = stats.onPremiseExperiment?.source ?? null;
     const onPremiseExperimentSourceReason = stats.onPremiseExperiment?.status === 'disabled'
       ? METRIC_UNAVAILABLE.DISABLED
       : (onPremiseExperimentSource === null ? METRIC_UNAVAILABLE.NOT_QUERIED_YET : null);
     
-    // Collect Engine DB stats (SQLite databases on persistent disk)
-    let engineReadStats = { status: 'n/a', latency: null, entries: null };
-    let engineWriteStats = { status: 'n/a', latency: null, entries: null };
+    // Collect Engine DB stats
+    let engineReadStats: { status?: string; latency?: number | null; pokemonCount?: number | null } = { 
+      status: 'n/a', latency: null, pokemonCount: null 
+    };
+    let engineWriteStats: { status?: string; latency?: number | null; battleLogCount?: number | null } = { 
+      status: 'n/a', latency: null, battleLogCount: null 
+    };
     
     try {
       const engineReadDb = await import('../services/database/engine-read-db.js');
@@ -360,7 +482,7 @@ async function collectDatabaseStats() {
         engineReadStats = engineReadDb.getStats();
       }
     } catch {
-      // Engine Read-DB not available (expected in non-production environments)
+      // Engine Read-DB not available
     }
     
     try {
@@ -369,7 +491,7 @@ async function collectDatabaseStats() {
         engineWriteStats = engineWriteDb.getStats();
       }
     } catch {
-      // Engine Write-DB not available (expected in non-production environments)
+      // Engine Write-DB not available
     }
     
     return {
@@ -382,16 +504,16 @@ async function collectDatabaseStats() {
       },
       engineRead: {
         status: engineReadStats.status || 'n/a',
-        latency: engineReadStats.latency || null,
+        latency: engineReadStats.latency ?? null,
         latencyReason: engineReadStats.latency ? null : METRIC_UNAVAILABLE.NOT_APPLICABLE,
-        entries: engineReadStats.pokemonCount || null,
+        entries: engineReadStats.pokemonCount ?? null,
         entriesReason: engineReadStats.pokemonCount ? null : METRIC_UNAVAILABLE.NOT_APPLICABLE,
       },
       engineWrite: {
         status: engineWriteStats.status || 'n/a',
-        latency: engineWriteStats.latency || null,
+        latency: engineWriteStats.latency ?? null,
         latencyReason: engineWriteStats.latency ? null : METRIC_UNAVAILABLE.NOT_APPLICABLE,
-        entries: engineWriteStats.battleLogCount || null,
+        entries: engineWriteStats.battleLogCount ?? null,
         entriesReason: engineWriteStats.battleLogCount ? null : METRIC_UNAVAILABLE.NOT_APPLICABLE,
       },
       onPremiseDev: {
@@ -410,26 +532,25 @@ async function collectDatabaseStats() {
       },
     };
   } catch (error) {
-    // Catch-all for unexpected errors during stats collection
-    console.warn('[logger] Error collecting database stats:', error.message);
+    // eslint-disable-next-line no-console
+    console.warn('[logger] Error collecting database stats:', (error as Error).message);
     
-    // Track error in error tracker for visibility
     getErrorTracker()
       .then(tracker => {
         if (tracker) {
-          tracker.captureError(error, {
+          tracker.captureError(error as Error, {
             service: 'logger',
             operation: 'collectDatabaseStats',
             category: 'DATABASE',
             severity: 'MEDIUM',
           }).catch(trackErr => {
-            // Error tracker itself failed - just log it
-            console.warn('[logger] Failed to track database stats error:', trackErr.message);
+            // eslint-disable-next-line no-console
+            console.warn('[logger] Failed to track database stats error:', (trackErr as Error).message);
           });
         }
       })
       .catch(() => {
-        // Error tracker not available - continue without tracking
+        // Error tracker not available
       });
     
     defaultReturn.master.status = METRIC_UNAVAILABLE.QUERY_FAILED;
@@ -445,48 +566,35 @@ async function collectDatabaseStats() {
   }
 }
 
-/**
- * Collect security bot statistics.
- * Returns null if security bot is not applicable to this service.
- * @returns {object|null} Security bot stats or null if not applicable
- */
-function collectSecurityBotStats() {
+function collectSecurityBotStats(): SecurityBotStats | null {
   const serviceInfo = detectServiceType();
   
-  // Check if we're running INSIDE the security bot process
   if (typeof global.securityBotState === 'object' && global.securityBotState) {
     const botState = global.securityBotState;
     const client = global.securityBotClient;
     
-    // Collect runtime stats from client
-    const guildCount = client?.guilds?.cache?.size || 0;
-    const isReady = client?.isReady?.() || false;
+    const guildCount = client?.guilds?.cache?.size ?? 0;
+    const isReady = client?.isReady?.() ?? false;
     
-    // Collect state-based stats if available
     if (botState.stats) {
-      const _totalSweeps = botState.stats.totalSweeps || 0; // Reserved for future use
       const totalPermissionChanges = botState.stats.totalPermissionChanges || 0;
       const totalAlerts = botState.stats.totalAlerts || 0;
       
-      // Get last sweep time from timeline
       let lastSweepTime = 'never';
-      // Note: botState.timeline is an array directly, not botState.timeline.events
       if (Array.isArray(botState.timeline) && botState.timeline.length > 0) {
         const sweepEvents = botState.timeline
           .filter(e => e.type === 'sweep')
           .sort((a, b) => {
-            // Handle both ISO string and numeric timestamps
-            const tsA = typeof a.timestamp === 'string' ? new Date(a.timestamp).getTime() : a.timestamp;
-            const tsB = typeof b.timestamp === 'string' ? new Date(b.timestamp).getTime() : b.timestamp;
+            const tsA = typeof a.timestamp === 'string' ? new Date(a.timestamp).getTime() : Number(a.timestamp);
+            const tsB = typeof b.timestamp === 'string' ? new Date(b.timestamp).getTime() : Number(b.timestamp);
             return tsB - tsA;
           });
         
         if (sweepEvents.length > 0) {
           const lastSweep = sweepEvents[0];
-          // Convert ISO string to timestamp if needed
           const lastSweepTs = typeof lastSweep.timestamp === 'string' 
             ? new Date(lastSweep.timestamp).getTime() 
-            : lastSweep.timestamp;
+            : Number(lastSweep.timestamp);
           const elapsed = Date.now() - lastSweepTs;
           if (elapsed < 60000) {
             lastSweepTime = `${Math.round(elapsed / 1000)}s ago`;
@@ -507,7 +615,6 @@ function collectSecurityBotStats() {
       };
     }
     
-    // Fallback: basic stats from client only
     return {
       status: isReady ? 'online' : 'connecting',
       guilds: guildCount,
@@ -517,9 +624,7 @@ function collectSecurityBotStats() {
     };
   }
   
-  // Check if this service SHOULD run security bot
   if (serviceInfo.isSecurityBot) {
-    // Expected to run but not initialized yet
     return {
       status: 'loading',
       guilds: 0,
@@ -529,25 +634,27 @@ function collectSecurityBotStats() {
     };
   }
   
-  // Try to read state from persisted file (cross-worker visibility)
+  // Try to read from persisted state file
   try {
     const stateFile = process.env.IS_RENDER
       ? '/Store/security-bot-state/current.json'
       : path.resolve(__dirname, '../../Store/security-bot-state/current.json');
     
     if (fs.existsSync(stateFile)) {
-      const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+      const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8')) as {
+        cumulative?: { guildCount?: number; permissionChangesReverted?: number; revertFailures?: number };
+        timeline?: Array<{ type: string; timestamp: string | number }>;
+      };
       const cumulative = stateData.cumulative || {};
       const timeline = stateData.timeline || [];
       
-      // Get last sweep time from timeline
       let lastSweepTime = 'n/a';
       if (Array.isArray(timeline) && timeline.length > 0) {
         const sweepEvents = timeline
           .filter(e => e.type === 'sweep')
           .sort((a, b) => {
-            const tsA = typeof a.timestamp === 'string' ? new Date(a.timestamp).getTime() : a.timestamp;
-            const tsB = typeof b.timestamp === 'string' ? new Date(b.timestamp).getTime() : b.timestamp;
+            const tsA = typeof a.timestamp === 'string' ? new Date(a.timestamp).getTime() : Number(a.timestamp);
+            const tsB = typeof b.timestamp === 'string' ? new Date(b.timestamp).getTime() : Number(b.timestamp);
             return tsB - tsA;
           });
         
@@ -555,7 +662,7 @@ function collectSecurityBotStats() {
           const lastSweep = sweepEvents[0];
           const lastSweepTs = typeof lastSweep.timestamp === 'string' 
             ? new Date(lastSweep.timestamp).getTime() 
-            : lastSweep.timestamp;
+            : Number(lastSweep.timestamp);
           const elapsed = Date.now() - lastSweepTs;
           if (elapsed < 60000) {
             lastSweepTime = `${Math.round(elapsed / 1000)}s ago`;
@@ -577,29 +684,18 @@ function collectSecurityBotStats() {
       };
     }
   } catch {
-    // File read failed, silently continue
+    // File read failed
   }
   
-  // Security bot not applicable to this service - hide section
   return null;
 }
 
-// ============================================================================
-// Error Stats Collection (Error Detection System Integration)
-// ============================================================================
-
-/**
- * Collect error statistics from ErrorTracker service.
- * Returns last 10 unique errors with occurrence counts and metadata.
- * @returns {Promise<object>} Error statistics or unavailability status
- */
-async function collectErrorStats() {
+async function collectErrorStats(): Promise<ErrorStats> {
   try {
-    // Dynamic import to avoid circular dependency
     const errorTrackerModule = await import('../services/monitoring/error-tracker.js');
-    const { errorTracker } = errorTrackerModule;
+    const tracker = errorTrackerModule.errorTracker as unknown as ErrorTracker | undefined;
     
-    if (!errorTracker) {
+    if (!tracker) {
       return {
         status: METRIC_UNAVAILABLE.NO_PROVIDER,
         recentErrors: [],
@@ -607,14 +703,9 @@ async function collectErrorStats() {
       };
     }
     
-    // Get stats for last hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const stats = await errorTracker.getErrorStats(oneHourAgo);
-    
-    // Get top 10 recent errors (limit as first param, filters as second)
-    const topErrors = await errorTracker.getRecentErrors(10, {
-      since: oneHourAgo,
-    });
+    const stats = await tracker.getErrorStats(oneHourAgo);
+    const topErrors = await tracker.getRecentErrors(10, { since: oneHourAgo });
     
     return {
       status: 'ready',
@@ -631,9 +722,9 @@ async function collectErrorStats() {
       recentErrors: topErrors.map(err => ({
         severity: err.severity,
         category: err.category,
-        name: err.errorName,
-        message: err.errorMessage,
-        count: err.occurrenceCount,
+        name: err.name,
+        message: err.message,
+        count: err.count,
         lastSeen: err.lastSeen,
         impactedFeatures: err.impactedFeatures || [],
         recoveryAttempts: err.recoveryAttempts,
@@ -642,119 +733,53 @@ async function collectErrorStats() {
     };
     
   } catch (error) {
-    // ErrorTracker not available or query failed
     return {
       status: METRIC_UNAVAILABLE.QUERY_FAILED,
-      statusReason: error.message,
+      statusReason: (error as Error).message,
       recentErrors: [],
       summary: null,
     };
   }
 }
 
-// ============================================================================
-// Stats Display Functions
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
+// Stats Display
+// ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Refresh cached stats if refresh interval has elapsed.
- * @returns {Promise<void>}
- */
-async function refreshStats() {
+async function refreshStats(): Promise<void> {
   const now = Date.now();
   if (now - statsCache.lastRefresh < REFRESH_INTERVAL_MS) {
     return;
   }
   
   statsCache.node = collectNodeStats();
-  statsCache.cache = collectCacheStats(); // NEW: Cache & resource metrics
-  statsCache.databases = await collectDatabaseStats(); // Now async
+  statsCache.cache = collectCacheStats();
+  statsCache.databases = await collectDatabaseStats();
   statsCache.security = collectSecurityBotStats();
-  statsCache.errors = await collectErrorStats(); // Now includes error monitoring
+  statsCache.errors = await collectErrorStats();
   statsCache.lastRefresh = now;
 }
 
-/**
- * Format a metric value with explicit unavailability reason when null.
- * @param {any} value - The metric value
- * @param {string|null} reason - The unavailability reason (from METRIC_UNAVAILABLE)
- * @param {function} formatter - Optional formatter for non-null values
- * @returns {string} Formatted string declaring why metric is unavailable if null
- */
-function formatMetric(value, reason, formatter = null) {
-  if (value === null || value === undefined) {
-    // Explicitly declare why metric cannot be queried
-    return `<unavailable: ${reason || 'unknown'}>`;
-  }
-  
-  // Apply formatter with error handling
-  if (formatter) {
-    try {
-      return formatter(value);
-    } catch {
-      // Formatter failed (e.g., trying to call .toFixed() on non-number)
-      return `<unavailable: formatter-error>`;
-    }
-  }
-  
-  return String(value);
-}
-
-/**
- * Format time elapsed since a given date into human-readable string.
- * @param {Date} date - The past date
- * @returns {string} Formatted time (e.g., "2m", "1h", "3d")
- */
-function formatTimeSince(date) {
-  const now = new Date();
-  const diffMs = now - date;
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
-  
-  if (diffDay > 0) return `${diffDay}d`;
-  if (diffHour > 0) return `${diffHour}h`;
-  if (diffMin > 0) return `${diffMin}m`;
-  return `${diffSec}s`;
-}
-
-/**
- * Print comprehensive stats to console.
- * Uses change detection to avoid spamming identical output.
- * ALL metrics are either queried live or explicitly declared unavailable with reason.
- * @returns {Promise<void>}
- */
-async function printStats() {
+async function printStats(): Promise<void> {
   await refreshStats();
   
-  // Skip printing if stats not ready
-  if (!statsCache.databases || !statsCache.node || !statsCache.security || !statsCache.cache) {
+  if (!statsCache.databases || !statsCache.node || !statsCache.cache) {
     return;
   }
   
-  // Skip printing if no significant changes detected
   if (!hasSignificantChange(statsCache, previousStats)) {
     return;
   }
   
-  // MEMORY OPTIMIZATION: Store shallow reference only (not deep clone)
-  // We only check specific fields in hasSignificantChange(), so we don't need
-  // a full deep clone that allocates 1-2 MB every 15 seconds.
-  // Previous behavior: deepClone(statsCache) = 1-2 MB allocation every 15 seconds = ~5 MB/min
-  // New behavior: shallow reference = 0 allocation, just pointer swap
-  previousStats = statsCache;
+  previousStats = { ...statsCache };
   
-  const lines = [];
+  const lines: string[] = [];
   
-  // Top border
   lines.push('');
   lines.push('─────────────────────────────────────────────────────────────────────────');
   lines.push('');
   
-  // -------------------------------------------------------------------------
-  // Node Stats - All metrics queried from Node.js runtime (process.memoryUsage, process.cpuUsage, process.uptime)
-  // -------------------------------------------------------------------------
+  // Node Stats
   lines.push('[NODE]');
   lines.push(`  Uptime: ${statsCache.node.uptime}`);
   lines.push(`  Process: PID ${statsCache.node.pid} | ${statsCache.node.version}`);
@@ -769,10 +794,7 @@ async function printStats() {
   lines.push(`    System: ${statsCache.node.cpu.system}`);
   lines.push('');
   
-  // -------------------------------------------------------------------------
-  // Cache & Resource Stats - Real-time metrics from resource monitor
-  // NOTE: Cache stats below show DISK usage (persistent /Store), not RAM
-  // -------------------------------------------------------------------------
+  // Cache Stats
   lines.push('[CACHE & RESOURCES - Persistent Disk]');
   lines.push(`  Cache Directory: ${statsCache.cache.cacheDir}`);
   lines.push(`  Cache Size: ${statsCache.cache.cacheSize} / ${statsCache.cache.cacheBudgetMax} (${statsCache.cache.cacheBudgetPercent})`);
@@ -785,15 +807,9 @@ async function printStats() {
   lines.push(`  Disk Free:  ${statsCache.cache.diskFree}`);
   lines.push('');
   
-  // -------------------------------------------------------------------------
-  // Database Stats - Metrics queried from getDatabaseStats() or declared unavailable
-  // MASTER = Production PostgreSQL (Render managed - single source of truth)
-  // LOCAL = Engine DBs on persistent disk (Read-DB + Write-DB for game engine)
-  // ONPREMISE = Workstation development/testing databases (not visible in production)
-  // -------------------------------------------------------------------------
+  // Database Stats
   lines.push('[DATABASE]');
   
-  // MASTER database (PROD PostgreSQL - single source of truth)
   const masterStatus = statsCache.databases.master.status.toUpperCase().padEnd(12);
   const masterLatency = formatMetric(
     statsCache.databases.master.latency,
@@ -806,7 +822,6 @@ async function printStats() {
   );
   lines.push(`  MASTER = ${masterStatus}  Latency: ${masterLatency.padEnd(30)}  Database: ${masterSource}`);
   
-  // LOCAL databases (Engine DBs on persistent disk - production perspective)
   const engineReadStatus = statsCache.databases.engineRead.status.toUpperCase().padEnd(12);
   const engineReadLatency = formatMetric(
     statsCache.databases.engineRead.latency,
@@ -831,10 +846,8 @@ async function printStats() {
   );
   lines.push(`  LOCAL-W = ${engineWriteStatus}  Latency: ${engineWriteLatency.padEnd(30)}  Battles: ${engineWriteEntries}`);
   
-  // ONPREMISE databases (workstation development/testing - NOT production visible)
   const serviceInfo = detectServiceType();
   if (!serviceInfo.isWeb && !serviceInfo.isWorker) {
-    // Only show ONPREMISE databases on workstation (not in Render production)
     const onPremiseDevStatus = statsCache.databases.onPremiseDev.status.toUpperCase().padEnd(12);
     const onPremiseDevLatency = formatMetric(
       statsCache.databases.onPremiseDev.latency,
@@ -862,9 +875,7 @@ async function printStats() {
   
   lines.push('');
   
-  // -------------------------------------------------------------------------
-  // Security Bot Stats (only if applicable to this service) - Metrics queried from global.securityBotState or declared unavailable
-  // -------------------------------------------------------------------------
+  // Security Bot Stats
   if (statsCache.security !== null) {
     lines.push('[SECURITY BOT]');
     const secStatus = String(statsCache.security.status).toUpperCase();
@@ -872,7 +883,6 @@ async function printStats() {
     lines.push(`  Status: ${secStatus}${source}`);
     
     if (secStatus === 'ONLINE') {
-      // All metrics queried from global.securityBotState or persisted file
       const stateSource = statsCache.security.source === 'persisted-state' ? 'persisted state file' : 'botState.timeline';
       lines.push(`  Guilds: ${statsCache.security.guilds} (queried from ${statsCache.security.source === 'persisted-state' ? 'state.cumulative' : 'client.guilds.cache.size'})`);
       lines.push(`  Last Sweep: ${statsCache.security.lastSweep} (queried from ${stateSource})`);
@@ -880,7 +890,7 @@ async function printStats() {
       lines.push(`  Lifetime Statistics (queried from ${statsCache.security.source === 'persisted-state' ? 'state.cumulative' : 'botState.stats'}):`);
       lines.push(`    Assignments: ${statsCache.security.assignments}`);
       lines.push(`    Failures:    ${statsCache.security.failures}`);
-    } else if (secStatus === 'LOADING' || secStatus === 'INITIALIZING' || secStatus === 'CONNECTING') {
+    } else if (['LOADING', 'INITIALIZING', 'CONNECTING'].includes(secStatus)) {
       lines.push('  <unavailable: bot-initializing>');
     } else {
       lines.push(`  <unavailable: ${statsCache.security.statusReason || 'unknown'}>`);
@@ -889,21 +899,17 @@ async function printStats() {
     lines.push('');
   }
   
-  // -------------------------------------------------------------------------
-  // Error Monitoring Stats (from ErrorTracker service) - Last hour error tracking
-  // -------------------------------------------------------------------------
+  // Error Monitoring Stats
   if (statsCache.errors) {
     lines.push('[ERROR MONITORING] (Last Hour)');
     
     if (statsCache.errors.status === 'ready' && statsCache.errors.summary) {
       const summary = statsCache.errors.summary;
       
-      // Summary line with severity breakdown
       lines.push(`  🚨 CRITICAL: ${summary.criticalCount} unique | ⚠️  HIGH: ${summary.highCount} unique | 📊 MEDIUM: ${summary.mediumCount} unique | 📝 LOW: ${summary.lowCount} unique`);
       lines.push(`  Total: ${summary.totalUnique} unique errors | ${summary.totalOccurrences} occurrences | Rate: ${summary.errorRate.toFixed(2)}/min`);
       lines.push('');
       
-      // Top errors (up to 5)
       if (statsCache.errors.recentErrors.length > 0) {
         lines.push('  Top Recent Errors:');
         const topErrors = statsCache.errors.recentErrors.slice(0, 5);
@@ -911,7 +917,7 @@ async function printStats() {
         topErrors.forEach(err => {
           const icon = err.severity === 'CRITICAL' ? '❌' : err.severity === 'HIGH' ? '⚠️ ' : err.severity === 'MEDIUM' ? '📊' : '📝';
           const timeSince = formatTimeSince(new Date(err.lastSeen));
-          const recoveryInfo = err.recoveryAttempts > 0 
+          const recoveryInfo = (err.recoveryAttempts ?? 0) > 0 
             ? ` | Recovery: ${err.recoverySuccesses}/${err.recoveryAttempts}`
             : '';
           
@@ -927,7 +933,6 @@ async function printStats() {
       
       lines.push('');
       
-      // Top categories (show top 3)
       const topCategories = Object.entries(summary.topCategories)
         .sort(([, a], [, b]) => b - a)
         .slice(0, 3);
@@ -948,43 +953,32 @@ async function printStats() {
     lines.push('');
   }
   
-  // Bottom border
   lines.push('─────────────────────────────────────────────────────────────────────────');
   lines.push('');
   
+  // eslint-disable-next-line no-console
   console.log(lines.join('\n'));
 }
 
-/**
- * Get formatted stats as string (for programmatic use).
- * ALL metrics are either queried live or explicitly declared unavailable with reason.
- * @returns {Promise<string>} Formatted stats with explicit unavailability declarations
- */
-async function getFormattedStats() {
+async function getFormattedStats(): Promise<string> {
   await refreshStats();
   
-  // Return empty string if stats not ready
   if (!statsCache.databases || !statsCache.node) {
     return '';
   }
   
-  const lines = [];
+  const lines: string[] = [];
   
-  // Node Stats - All metrics queried from Node.js runtime
-  lines.push(`[NODE]`);
+  lines.push('[NODE]');
   lines.push(`  Uptime: ${statsCache.node.uptime}`);
   lines.push(`  Process: PID ${statsCache.node.pid} | ${statsCache.node.version}`);
-  lines.push(``);
+  lines.push('');
   lines.push(`  Memory: RSS ${statsCache.node.memory.rss} | Heap ${statsCache.node.memory.heapUsed}/${statsCache.node.memory.heapTotal} | External ${statsCache.node.memory.external}`);
   lines.push(`  CPU: User ${statsCache.node.cpu.user} | System ${statsCache.node.cpu.system}`);
   lines.push('');
   
-  // Database Stats - Metrics queried from getDatabaseStats() or declared unavailable
-  // MASTER = Production PostgreSQL (Render managed - single source of truth)
-  // LOCAL = Engine DBs on persistent disk (Read-DB + Write-DB)
-  lines.push(`[DATABASE]`);
+  lines.push('[DATABASE]');
   
-  // MASTER (PROD PostgreSQL)
   const masterLatency = formatMetric(
     statsCache.databases.master.latency,
     statsCache.databases.master.latencyReason,
@@ -996,7 +990,6 @@ async function getFormattedStats() {
   );
   lines.push(`  MASTER → ${statsCache.databases.master.status} | Latency: ${masterLatency} | ${masterSource}`);
   
-  // LOCAL-R (Engine Read-DB)
   const engineReadLatency = formatMetric(
     statsCache.databases.engineRead.latency,
     statsCache.databases.engineRead.latencyReason,
@@ -1008,7 +1001,6 @@ async function getFormattedStats() {
   );
   lines.push(`  LOCAL-R → ${statsCache.databases.engineRead.status} | Latency: ${engineReadLatency} | Pokemon: ${engineReadEntries}`);
   
-  // LOCAL-W (Engine Write-DB)
   const engineWriteLatency = formatMetric(
     statsCache.databases.engineWrite.latency,
     statsCache.databases.engineWrite.latencyReason,
@@ -1023,128 +1015,110 @@ async function getFormattedStats() {
   return lines.join('\n');
 }
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Logging Functions
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Log a message with context and automatic stats refresh.
- * @param {string} level - Log level (info, warn, error, success, detail)
- * @param {string} message - Log message
- * @param {object} context - Optional context object to display
- */
-function log(level, message, context) {
+function log(level: LogLevel | string, message: string, context?: Record<string, unknown>): void {
   const label = LOG_LABEL[level] || LOG_LABEL.info;
   
+  // eslint-disable-next-line no-console
   console.log(`[${label}] ${message}`);
   
   if (context && typeof context === 'object') {
     const keys = Object.keys(context);
     if (keys.length > 0) {
       for (const key of keys) {
+        // eslint-disable-next-line no-console
         console.log(`  ${key}: ${JSON.stringify(context[key])}`);
       }
     }
   }
   
-  // Print stats on interval (fire-and-forget)
   const now = Date.now();
   if (now - lastLogTime >= REFRESH_INTERVAL_MS) {
-    printStats().catch(err => console.warn('[logger] Stats print failed:', err.message));
+    printStats().catch(err => {
+      // eslint-disable-next-line no-console
+      console.warn('[logger] Stats print failed:', (err as Error).message);
+    });
     lastLogTime = now;
   }
 }
 
-// Convenience helpers (maintain compatibility with log.warn / log.error usage)
-log.info = (message, context, options) => log('info', message, context, options);
-log.warn = (message, context, options) => log('warn', message, context, options);
-log.error = (message, context, options) => log('error', message, context, options);
-log.success = (message, context, options) => log('success', message, context, options);
-log.detail = (message, context, options) => log('detail', message, context, options);
+// Convenience helpers
+log.info = (message: string, context?: Record<string, unknown>): void => log('info', message, context);
+log.warn = (message: string, context?: Record<string, unknown>): void => log('warn', message, context);
+log.error = (message: string, context?: Record<string, unknown>): void => log('error', message, context);
+log.success = (message: string, context?: Record<string, unknown>): void => log('success', message, context);
+log.detail = (message: string, context?: Record<string, unknown>): void => log('detail', message, context);
 
-/**
- * Report a structured event with metadata.
- * @param {string} title - Report title
- * @param {object} meta - Metadata key-value pairs
- * @param {string} level - Log level (default: 'info')
- */
-function report(title, meta = {}, level = 'info') {
+function report(title: string, meta: Record<string, unknown> = {}, level: LogLevel | string = 'info'): void {
   const label = LOG_LABEL[level] || LOG_LABEL.info;
   
+  // eslint-disable-next-line no-console
   console.log('');
+  // eslint-disable-next-line no-console
   console.log(`[${label}] ═══ ${title} ═══`);
   
   if (meta && typeof meta === 'object') {
     const entries = Object.entries(meta);
     if (entries.length > 0) {
       for (const [key, value] of entries) {
+        // eslint-disable-next-line no-console
         console.log(`  ${key}: ${value}`);
       }
     }
   }
   
+  // eslint-disable-next-line no-console
   console.log('');
   
-  // Print stats on interval (fire-and-forget)
   const now = Date.now();
   if (now - lastLogTime >= REFRESH_INTERVAL_MS) {
-    printStats().catch(err => console.warn('[logger] Stats print failed:', err.message));
+    printStats().catch(err => {
+      // eslint-disable-next-line no-console
+      console.warn('[logger] Stats print failed:', (err as Error).message);
+    });
     lastLogTime = now;
   }
 }
 
-// ============================================================================
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Auto-Refresh Management
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Start automatic stats refresh on interval.
- * Stats will be printed every REFRESH_INTERVAL_MS if significant changes detected.
- */
-function startAutoRefresh() {
+function startAutoRefresh(): void {
   if (logIntervalHandle) return;
   
-  // Initial stats collection and print (fire-and-forget)
   refreshStats()
     .then(() => printStats())
-    .catch(err => console.warn('[logger] Initial stats failed:', err.message));
+    .catch(err => {
+      // eslint-disable-next-line no-console
+      console.warn('[logger] Initial stats failed:', (err as Error).message);
+    });
   
-  // Set up interval with error handling
   logIntervalHandle = setInterval(() => {
-    printStats().catch(err => console.warn('[logger] Stats refresh failed:', err.message));
+    printStats().catch(err => {
+      // eslint-disable-next-line no-console
+      console.warn('[logger] Stats refresh failed:', (err as Error).message);
+    });
   }, REFRESH_INTERVAL_MS);
   
-  // Allow process to exit even if interval is active
   if (logIntervalHandle.unref) {
     logIntervalHandle.unref();
   }
 }
 
-/**
- * Stop automatic stats refresh.
- */
-function stopAutoRefresh() {
+function stopAutoRefresh(): void {
   if (logIntervalHandle) {
     clearInterval(logIntervalHandle);
     logIntervalHandle = null;
   }
 }
 
-// ============================================================================
-// Initialization
-// ============================================================================
-
-// NOTE: Auto-refresh is NOT started on module load to avoid race condition
-// where logger tries to import error-tracker before Service Registry initializes.
-// Call startAutoRefresh() explicitly from src/index.ts after registry.initializeAll().
-//
-// Previously: startAutoRefresh() called here caused "degraded" warnings for
-// error-tracker, engine-cache, engine-write-buffer during first 10-20 seconds.
-
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Exports
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 export { LOG_LABEL, log, report, startAutoRefresh, stopAutoRefresh, getFormattedStats };
 
