@@ -285,12 +285,14 @@ async function collectComponentMetrics(component: string, windowMinutes: number 
       error_count: bigint;
       avg_duration: number;
       p95_duration: number;
+      last_error_at: Date | null;
     }>>`
       SELECT 
         COUNT(*) as total_count,
         COUNT(*) FILTER (WHERE level = 'error') as error_count,
         COALESCE(AVG("durationMs"), 0) as avg_duration,
-        COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY "durationMs"), 0) as p95_duration
+        COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY "durationMs"), 0) as p95_duration,
+        MAX(timestamp) FILTER (WHERE level = 'error') as last_error_at
       FROM log_entries
       WHERE timestamp > ${since}
         AND component = ${component}
@@ -312,13 +314,18 @@ async function collectComponentMetrics(component: string, windowMinutes: number 
     const errors = Number(row.error_count);
     const successCount = total - errors;
     
+    // Calculate uptime as minutes since last error (or full window if no errors)
+    const uptimeMinutes = row.last_error_at 
+      ? Math.round((Date.now() - new Date(row.last_error_at).getTime()) / 60000)
+      : windowMinutes;
+    
     return {
       errorRate: errors / windowMinutes,
       avgLatencyMs: row.avg_duration || 0,
       p95LatencyMs: row.p95_duration || 0,
       successRate: total > 0 ? successCount / total : 1,
       throughput: total / windowMinutes,
-      uptime: 0, // TODO: Track uptime from last error
+      uptime: uptimeMinutes,
     };
     
   } catch {

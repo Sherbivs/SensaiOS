@@ -312,6 +312,7 @@ export class PlayerResolver {
   /**
    * Resolve multiple players at once
    * More efficient than individual calls for leaderboards, etc.
+   * Uses parallel resolution with the existing resolve method.
    */
   async resolveBatch(
     discordIds: string[],
@@ -319,10 +320,23 @@ export class PlayerResolver {
   ): Promise<Map<string, ResolvedPlayer>> {
     const results = new Map<string, ResolvedPlayer>();
     
-    // TODO: Implement batch optimization with parallel queries
-    // For now, sequential resolution
-    for (const discordId of discordIds) {
+    if (discordIds.length === 0) {
+      return results;
+    }
+    
+    // De-duplicate input
+    const uniqueIds = [...new Set(discordIds)];
+    
+    // Parallel resolution using the existing resolve method (which handles caching)
+    const resolutionPromises = uniqueIds.map(async (discordId) => {
       const player = await this.resolve(discordId, options);
+      return { discordId, player };
+    });
+    
+    const resolutions = await Promise.all(resolutionPromises);
+    
+    // Build result map
+    for (const { discordId, player } of resolutions) {
       if (player) {
         results.set(discordId, player);
       }

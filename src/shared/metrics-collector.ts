@@ -85,7 +85,8 @@ let workersTracked: string[] = [];
  */
 async function collectWorkerMetrics(
   workerId: string,
-  worker: unknown
+  worker: unknown,
+  workerCount: number = 1
 ): Promise<WorkerMetricsEntry | null> {
   const timeoutPromise = new Promise<null>((resolve) => {
     setTimeout(() => resolve(null), COLLECTION_TIMEOUT_MS);
@@ -141,8 +142,9 @@ async function collectWorkerMetrics(
         bufferUtilizationPct: bufferStats?.utilizationPercent ?? null,
         flushCount: bufferStats?.flushCount ?? null,
         backpressureEvents: bufferStats?.backpressureEventCount ?? null,
-        memoryUsedBytes: null, // TODO: Add memory tracking per worker
-        cpuPercent: null, // TODO: Add CPU tracking
+        // Process-level memory (workers share process, so this is approximate per-worker allocation)
+        memoryUsedBytes: BigInt(Math.round(process.memoryUsage().heapUsed / workerCount)),
+        cpuPercent: null, // CPU tracking requires external monitoring (Prometheus/Grafana)
         healthStatus: health.status,
         lastError: health.lastError,
       };
@@ -195,10 +197,11 @@ async function collectAndStoreMetrics(): Promise<void> {
     // Get all registered workers
     const workers = manager.getWorkers();
     workersTracked = Object.keys(workers);
+    const workerCount = workersTracked.length || 1;
 
     // Collect metrics from each worker in parallel
     const metricsPromises = Object.entries(workers).map(
-      ([workerId, worker]) => collectWorkerMetrics(workerId, worker)
+      ([workerId, worker]) => collectWorkerMetrics(workerId, worker, workerCount)
     );
 
     const metricsResults = await Promise.all(metricsPromises);
