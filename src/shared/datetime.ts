@@ -1,0 +1,264 @@
+/**
+ * Datetime Utilities - Eastern Time (EST/EDT)
+ *
+ * **CRITICAL: This is the SINGLE SOURCE OF TRUTH for all timestamp formatting
+ * across the entire application.**
+ *
+ * All timestamps displayed to users or written to logs should use functions from
+ * this module to ensure consistent timezone handling. The application uses
+ * Eastern Time (America/New_York) as the standard timezone for all displays.
+ *
+ * **Timestamp Categories:**
+ * 1. **User-Facing Displays** (Discord messages, notifications, summaries):
+ *    → Use toEasternString(), toEasternTime(), toEasternDate()
+ *
+ * 2. **Console Logging** (monitoring output, debug statements):
+ *    → Use toEasternLogFormat() for high-precision timestamps
+ *
+ * 3. **State Persistence** (JSON files, database records, Event Bus metadata):
+ *    → Use Date.toISOString() for UTC format (portability)
+ *
+ * **DO NOT use these directly in application code:**
+ * - ❌ new Date().toLocaleString() → Use toEasternString()
+ * - ❌ new Date().toLocaleDateString() → Use toEasternDate()
+ * - ❌ new Date().toLocaleTimeString() → Use toEasternTime()
+ * - ❌ Intl.DateTimeFormat without timezone → Use formatInTimeZone()
+ *
+ * @module shared/datetime
+ */
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const EASTERN_TIMEZONE = 'America/New_York';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export type DateInput = Date | number | string;
+
+interface ZonedParts {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+}
+
+// ============================================================================
+// Public API
+// ============================================================================
+
+/**
+ * Format a date to EST/EDT locale string
+ * @param date - Date object, timestamp, or ISO string
+ * @param options - Intl.DateTimeFormat options (defaults to date + time)
+ * @returns Formatted date string in Eastern Time
+ */
+export function toEasternString(
+  date: DateInput,
+  options: Intl.DateTimeFormatOptions = {}
+): string {
+  const dateObj = date instanceof Date ? date : new Date(date);
+
+  const defaultOptions: Intl.DateTimeFormatOptions = {
+    timeZone: EASTERN_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  };
+
+  return dateObj.toLocaleString('en-US', { ...defaultOptions, ...options });
+}
+
+/**
+ * Format a date to EST/EDT time only (no date)
+ * @param date - Date object, timestamp, or ISO string
+ * @returns Formatted time string in Eastern Time (e.g., "8:21:32 PM")
+ */
+export function toEasternTime(date: DateInput): string {
+  return toEasternString(date, {
+    year: undefined,
+    month: undefined,
+    day: undefined,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+}
+
+/**
+ * Format a date to EST/EDT date only (no time)
+ * @param date - Date object, timestamp, or ISO string
+ * @returns Formatted date string in Eastern Time (e.g., "11/12/2025")
+ */
+export function toEasternDate(date: DateInput): string {
+  return toEasternString(date, {
+    hour: undefined,
+    minute: undefined,
+    second: undefined,
+    hour12: undefined,
+  });
+}
+
+/**
+ * Get timezone abbreviation (EST or EDT) for a given date
+ * @param date - Date object, timestamp, or ISO string
+ * @returns Timezone abbreviation ('EST' or 'EDT')
+ */
+export function getEasternTimezoneAbbr(date: DateInput = new Date()): string {
+  const dateObj = date instanceof Date ? date : new Date(date);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: EASTERN_TIMEZONE,
+    timeZoneName: 'short',
+  });
+
+  const parts = formatter.formatToParts(dateObj);
+  const timeZonePart = parts.find((part) => part.type === 'timeZoneName');
+  return timeZonePart ? timeZonePart.value : 'EST';
+}
+
+/**
+ * Generic timezone formatting function
+ * Use this for custom timezone formatting needs, but prefer toEasternString()
+ * for standard Eastern Time displays.
+ *
+ * @param date - Date to format
+ * @param timeZone - IANA timezone identifier (e.g., 'America/New_York')
+ * @param options - Formatting options
+ * @returns Formatted date string in specified timezone
+ */
+export function formatInTimeZone(
+  date: DateInput,
+  timeZone: string,
+  options: Intl.DateTimeFormatOptions = {}
+): string {
+  const dateObj = date instanceof Date ? date : new Date(date);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    ...options,
+  });
+  return formatter.format(dateObj);
+}
+
+/**
+ * Format date/time for console logging with milliseconds
+ * Provides high-precision timestamps for debugging and monitoring.
+ *
+ * @param date - Date to format (defaults to now)
+ * @returns Formatted string like "11/12/2025, 8:21:32.456 PM EST"
+ */
+export function toEasternLogFormat(date: DateInput = new Date()): string {
+  const dateObj = date instanceof Date ? date : new Date(date);
+  const baseFormat = toEasternString(dateObj);
+  const ms = dateObj.getMilliseconds().toString().padStart(3, '0');
+  const abbr = getEasternTimezoneAbbr(dateObj);
+  return `${baseFormat}.${ms} ${abbr}`;
+}
+
+/**
+ * Calculate milliseconds until next occurrence of hour:minute in given timezone
+ * Used for scheduling operations at specific times in a timezone (e.g., daily digests).
+ *
+ * @param hour - Target hour (0-23)
+ * @param minute - Target minute (0-59)
+ * @param timeZone - IANA timezone identifier (defaults to Eastern)
+ * @returns Milliseconds until target time
+ *
+ * @example
+ * // Schedule something for 9:00 AM EST tomorrow
+ * const msUntil9AM = msUntilNextZonedTime(9, 0);
+ * setTimeout(task, msUntil9AM);
+ */
+export function msUntilNextZonedTime(
+  hour: number,
+  minute: number,
+  timeZone: string = EASTERN_TIMEZONE
+): number {
+  const now = new Date();
+  const nowParts = getZonedParts(now, timeZone);
+
+  const targetToday = partsToUtcMs({
+    ...nowParts,
+    hour,
+    minute,
+    second: 0,
+  });
+
+  if (targetToday > now.getTime()) {
+    return targetToday - now.getTime();
+  }
+
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowParts = getZonedParts(tomorrow, timeZone);
+
+  const targetTomorrow = partsToUtcMs({
+    ...tomorrowParts,
+    hour,
+    minute,
+    second: 0,
+  });
+
+  return targetTomorrow - now.getTime();
+}
+
+// ============================================================================
+// Internal helpers
+// ============================================================================
+
+function getZonedParts(date: Date, timeZone: string): ZonedParts {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+
+  const parts = formatter.formatToParts(date);
+  const bag: Record<string, string> = Object.create(null);
+
+  for (const part of parts) {
+    if (part.type === 'literal') continue;
+    bag[part.type] = part.value;
+  }
+
+  return {
+    year: Number(bag.year),
+    month: Number(bag.month),
+    day: Number(bag.day),
+    hour: Number(bag.hour),
+    minute: Number(bag.minute),
+    second: Number(bag.second),
+  };
+}
+
+function partsToUtcMs(parts: ZonedParts): number {
+  const { year, month, day, hour, minute, second } = parts;
+  return Date.UTC(year, month - 1, day, hour, minute, second || 0, 0);
+}
+
+// ============================================================================
+// Default export
+// ============================================================================
+
+export default {
+  toEasternString,
+  toEasternTime,
+  toEasternDate,
+  getEasternTimezoneAbbr,
+  formatInTimeZone,
+  toEasternLogFormat,
+  msUntilNextZonedTime,
+};

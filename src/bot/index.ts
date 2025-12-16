@@ -4,21 +4,7 @@ import { Client, GatewayIntentBits, Partials, Interaction, Events, Options } fro
 
 import { prisma } from "../models/index.js";
 import { log } from "../shared/log.js";
-
-type CommandDefinition = {
-	execute: (...args: unknown[]) => Promise<unknown> | unknown;
-	data?: { name?: string };
-	[key: string]: unknown;
-};
-
-type CommandCollection = Map<string, CommandDefinition>;
-
-type CommandLoaderModule = {
-	loadCommands: (...args: unknown[]) => Promise<CommandCollection>;
-};
-
-const commandLoaderModule = (await import("../command-loader.js")) as CommandLoaderModule;
-const { loadCommands } = commandLoaderModule;
+import { loadCommands, type Command, type CommandMap } from "../command-loader.js";
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
 
@@ -90,9 +76,9 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 	// OPTIMIZATION: Lazy-load commands on first interaction (saves ~500-1000ms on startup)
 	// BEFORE: const commands = await loadCommands(); (blocking, loads 50+ command modules upfront)
 	// AFTER: Load on-demand when first interaction arrives (non-blocking startup)
-	let commands: CommandCollection | null = null;
+	let commands: CommandMap | null = null;
 	
-	async function ensureCommandsLoaded(): Promise<CommandCollection> {
+	async function ensureCommandsLoaded(): Promise<CommandMap> {
 		if (!commands) {
 			const loadStart = process.hrtime.bigint();
 			commands = await loadCommands();
