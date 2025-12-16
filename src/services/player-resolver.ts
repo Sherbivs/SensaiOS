@@ -18,7 +18,7 @@
 import { User as DiscordUser, GuildMember } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { 
   resolveDiscordUser, 
   hasDiscordIdentity,
@@ -516,3 +516,4 @@ export async function resolvePlayerContext(
 export async function playerExists(discordId: string): Promise<boolean> {
   return PlayerResolver.getInstance().exists(discordId);
 }
+

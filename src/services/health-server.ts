@@ -27,7 +27,7 @@
 
 import http from 'node:http';
 import { HEALTH_CHECK_PATH, HEALTH_CHECK_TIMEOUT_MS } from '../config/engine-db-config.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { ServiceRegistry } from '../shared/service-registry.js';
 import { HEALTH_CHECK_PORT, HEALTH_CHECK_HOST } from '../config/env.js';
 import { bytesToMB } from '../shared/utils/format-utils.js';
@@ -276,3 +276,4 @@ export function resetStartTime(): void {
 export function getServer(): http.Server | null {
   return server;
 }
+

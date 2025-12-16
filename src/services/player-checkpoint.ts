@@ -17,7 +17,7 @@ import { Client, User, EmbedBuilder, TextChannel } from 'discord.js';
 import { EMBED_COLORS } from '../bot/shared/embed-colors.js';
 import { prisma } from '../shared/prisma.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { HomesteadChannelManager } from './homestead-manager.js';
 import { 
   resolveDiscordUser, 
@@ -1060,3 +1060,4 @@ export function createCheckpointService(
 ): PlayerCheckpointService {
   return new PlayerCheckpointService(client, guildId);
 }
+

@@ -19,7 +19,7 @@
  * @since 2025-12-04
  */
 
-import { log } from "../utils/logger.js";
+import { log } from "../shared/logger.js";
 import { getErrorMessage } from "../shared/utils/error-utils.js";
 import { delay } from "../shared/utils/async-utils.js";
 import type { AuditUserContext } from "./audit-service.js";

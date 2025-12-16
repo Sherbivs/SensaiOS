@@ -12,7 +12,7 @@
 
 import { Client, Guild, TextChannel, ChannelType, PermissionFlagsBits, User } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { daysAgo } from '../shared/utils/date-utils.js';
 import { HOMESTEAD_CATEGORY_NAME, HOMESTEAD_CLEANUP_DAYS } from '../config/env.js';
@@ -598,3 +598,4 @@ export function getHomesteadManager(client: Client, guildId: string): HomesteadC
 export function clearManagerCache(): void {
   managerInstances.clear();
 }
+

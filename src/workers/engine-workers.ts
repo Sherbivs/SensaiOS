@@ -26,7 +26,7 @@ import { EngineDbConfig } from '../config/engine-db-config.js';
 import { engineCache } from '../services/cache/engine-cache.js';
 import { engineWriteBuffer } from '../services/cache/engine-write-buffer.js';
 import { workerErrorHandler } from './worker-error-handler.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { getErrorMessage, delay } from '../shared/utils/index.js';
 
 // ============================================================================
@@ -900,3 +900,4 @@ export function getEngineWorkersStatus(): EngineWorkersStatus {
     maintenance: engineMaintenanceWorker.getStatus(),
   };
 }
+

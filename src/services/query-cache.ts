@@ -20,7 +20,7 @@
  */
 
 import { Counter, Gauge, Histogram, register } from 'prom-client';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 
 // ============================================================================
 // Type Definitions
@@ -631,3 +631,4 @@ export default {
   invalidateCache,
   cachedQuery,
 };
+

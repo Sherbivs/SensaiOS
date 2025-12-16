@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { dirname } from "path";
-import { log } from "../utils/logger.js";
+import { log } from "../shared/logger.js";
 
 /**
  * Restart Metrics - Persistent State Tracking
@@ -398,3 +398,4 @@ function formatTimestamp(iso: string): string {
     return `${Math.floor(diffMinutes / 1440)}d ago`;
   }
 }
+

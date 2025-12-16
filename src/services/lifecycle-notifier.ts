@@ -19,7 +19,7 @@
  * @module lifecycle-notifier
  */
 
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { bytesToMB } from '../shared/utils/format-utils.js';
 import { ServiceRegistry } from '../shared/service-registry.js';
@@ -471,3 +471,4 @@ export function getLifecycleStats() {
     webhookEnabled: WEBHOOK_ENABLED,
   };
 }
+

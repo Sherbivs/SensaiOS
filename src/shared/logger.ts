@@ -524,3 +524,66 @@ export async function measureOperation<T>(
     throw error;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Legacy-Compatible API (for migration from utils/logger.js)
+// ═══════════════════════════════════════════════════════════════════════════
+// 
+// This section provides backward-compatible log() function to enable gradual
+// migration from the legacy utils/logger.js without breaking existing code.
+// 
+// Once all consumers are migrated to the modern Logger interface, this
+// compatibility layer can be removed.
+// 
+// Usage: import { log } from '../shared/logger.ts';
+//        log('info', 'Message here', { optional: 'context' });
+//        log.warn('Warning message');
+//        log.error('Error message', { details: 'here' });
+// ═══════════════════════════════════════════════════════════════════════════
+
+type LegacyLogLevel = 'success' | 'info' | 'warn' | 'detail' | 'error';
+
+const LOG_LABEL: Record<LegacyLogLevel, string> = {
+  success: 'SUCCESS',
+  info: 'INFO',
+  warn: 'WARN',
+  detail: 'DETAIL',
+  error: 'ERROR',
+};
+
+/**
+ * Legacy-compatible log function (from utils/logger.js)
+ * 
+ * @deprecated Use getLogger() for new code. This exists only for migration.
+ * 
+ * @param level - Log level (info, warn, error, success, detail)
+ * @param message - Log message
+ * @param context - Optional context (any value accepted for legacy compat)
+ */
+function logLegacy(level: LegacyLogLevel | string, message: string, context?: unknown): void {
+  const label = LOG_LABEL[level as LegacyLogLevel] || LOG_LABEL.info;
+  
+  console.log(`[${label}] ${message}`);
+  
+  if (context && typeof context === 'object') {
+    const keys = Object.keys(context as Record<string, unknown>);
+    if (keys.length > 0) {
+      for (const key of keys) {
+        console.log(`  ${key}: ${JSON.stringify((context as Record<string, unknown>)[key])}`);
+      }
+    }
+  }
+}
+
+// Attach convenience methods for log.info(), log.warn(), etc.
+logLegacy.info = (message: string, context?: unknown) => logLegacy('info', message, context);
+logLegacy.warn = (message: string, context?: unknown) => logLegacy('warn', message, context);
+logLegacy.error = (message: string, context?: unknown) => logLegacy('error', message, context);
+logLegacy.success = (message: string, context?: unknown) => logLegacy('success', message, context);
+logLegacy.detail = (message: string, context?: unknown) => logLegacy('detail', message, context);
+
+/**
+ * Legacy-compatible log export
+ * @deprecated Use getLogger() for new code
+ */
+export const log = logLegacy;

@@ -19,7 +19,7 @@
  */
 
 import { PrismaClient } from '../generated/prisma/client.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { Counter, Histogram, Gauge, register } from 'prom-client';
 
 // ============================================================================
@@ -618,3 +618,4 @@ export default {
   getTopSlowQueries,
   getIndexRecommendations,
 };
+

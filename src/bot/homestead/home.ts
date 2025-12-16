@@ -1,4 +1,4 @@
-import { log } from '../../utils/logger.js';
+import { log } from "../../shared/logger.js";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -407,3 +407,4 @@ globalThis.__homesteadHomeViews = {
   openProfileView,
   BOX_PAGE_PREFIX,
 };
+

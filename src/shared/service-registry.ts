@@ -14,7 +14,7 @@
  * @module shared/service-registry
  */
 
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { getErrorMessage } from './utils/error-utils.js';
 
 // ============================================================================
@@ -746,3 +746,4 @@ export class ServiceRegistry {
 // ============================================================================
 
 // ServiceRegistry class is the primary export - used throughout src/index.ts
+

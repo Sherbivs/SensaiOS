@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction, TimestampStyles, time } from "discord.js";
-import { log } from '../../utils/logger.js';
+import { log } from "../../shared/logger.js";
 
 import { prisma as prismaClient, recordDailyQuestCompletion } from "../../models/index.js";
 import { claimDailyQuestReward } from "../../services/cache/recipes.js";
@@ -66,3 +66,4 @@ export async function handleDailyClaim(
     await interaction.reply({ content: "Daily quest claim failed. Please try again later.", ephemeral: true }).catch(() => undefined);
   }
 }
+

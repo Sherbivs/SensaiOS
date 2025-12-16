@@ -17,7 +17,7 @@
  */
 
 import { errorLearning } from '../services/monitoring/error-learning.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { getErrorMessage } from '../shared/utils/index.js';
 
 // ============================================================================
@@ -175,3 +175,4 @@ export class ErrorLearningWorker {
 // ============================================================================
 
 export const errorLearningWorker = new ErrorLearningWorker();
+

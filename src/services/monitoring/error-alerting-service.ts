@@ -17,7 +17,7 @@ import { criticalAlertEmbed, batchedAlertEmbed } from '../../bot/shared/embed-bu
 import { EventBus, type BusEvent } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
-import { log } from '../../utils/logger.js';
+import { log } from "../../shared/logger.js";
 import type { LiveErrorEvent } from './error-tracker.js';
 
 // ---- Configuration ----
@@ -422,3 +422,4 @@ export class ErrorAlertingService {
 
 // Singleton export
 export const errorAlertingService = ErrorAlertingService.getInstance();
+

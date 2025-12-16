@@ -23,7 +23,7 @@ import process from 'node:process';
 import v8 from 'node:v8';
 import { errorTracker, type ErrorContext } from './error-tracker.js';
 import { detectErrorCategory, detectErrorSeverity, type ExtendedErrorCategory, type ExtendedErrorSeverity } from './error-taxonomy.js';
-import { log } from '../../utils/logger.js';
+import { log } from "../../shared/logger.js";
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
 import { bytesToMB } from '../../shared/utils/format-utils.js';
 
@@ -637,3 +637,4 @@ export function initializeOSErrorInterceptor(config?: Partial<OSInterceptorConfi
 export function getOSInterceptorStats(): OSInterceptorStats {
   return osErrorInterceptor.getStats();
 }
+

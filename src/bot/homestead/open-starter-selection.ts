@@ -39,7 +39,7 @@ import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
-import { log } from "../../utils/logger.js";
+import { log } from "../../shared/logger.js";
 import { getSpriteUrl } from "../../lib/assets.js";
 
 // ============================================================================
@@ -320,3 +320,4 @@ export async function startOpenStarterFlow(
     return { error: true, message: "Failed to initialize starter selection." };
   }
 }
+

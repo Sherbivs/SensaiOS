@@ -18,7 +18,7 @@
  * @module services/connection-health-monitor
  */
 
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { 
   getPoolConfig, 
   getPoolMetrics, 
@@ -565,3 +565,4 @@ export default {
   stopConnectionHealthMonitoring,
   getConnectionHealthReport,
 };
+

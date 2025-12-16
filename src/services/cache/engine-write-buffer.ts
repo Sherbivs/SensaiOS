@@ -24,7 +24,7 @@
  */
 
 import { EngineDbConfig } from '../../config/engine-db-config.js';
-import { log } from '../../utils/logger.js';
+import { log } from "../../shared/logger.js";
 import { errorTracker } from '../monitoring/error-tracker.js';
 
 // ============================================================================
@@ -533,3 +533,4 @@ export class EngineWriteBuffer {
  * ```
  */
 export const engineWriteBuffer = new EngineWriteBuffer();
+

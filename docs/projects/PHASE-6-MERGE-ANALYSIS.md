@@ -18,6 +18,20 @@ The codebase has **67 legacy JS files** (~20% of src/) that should be:
 
 ---
 
+## ⚠️ DEPENDENCY DEPTH DISCOVERY
+
+**Deep scanning revealed cascading dependencies:**
+
+The legacy `utils/logger.js` (1152 lines) is imported by **20+ files** including:
+- TypeScript files (`*.ts`) that should use `shared/logger.ts`
+- Other legacy JS files creating dependency chains
+
+**This means we cannot delete legacy files piecemeal.**
+
+**Strategy:** Bottom-up migration — fix imports first, then delete legacy files.
+
+---
+
 ## Execution Progress
 
 | Phase | Action | Status | Commit |

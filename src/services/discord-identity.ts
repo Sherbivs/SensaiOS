@@ -15,7 +15,7 @@
 
 import { prisma } from "../shared/prisma.js";
 import { getErrorMessage } from "../shared/utils/error-utils.js";
-import { log } from "../utils/logger.js";
+import { log } from "../shared/logger.js";
 
 // ============================================================================
 // Types & Interfaces
@@ -685,3 +685,4 @@ export async function hasDiscordIdentity(
 ): Promise<boolean> {
   return DiscordIdentityService.getInstance().userExists(discordUserId, guildId);
 }
+

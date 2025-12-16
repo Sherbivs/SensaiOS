@@ -21,7 +21,7 @@
 
 import { PrismaClient } from '../generated/prisma/client.js';
 import { Counter, Gauge, Histogram, register } from 'prom-client';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { delay } from '../shared/utils/async-utils.js';
 
 // ============================================================================
@@ -626,3 +626,4 @@ export default {
   createActivityLogConfig,
   createStatsUpdateConfig,
 };
+

@@ -18,7 +18,7 @@ import path from 'node:path';
 import { toEasternLogFormat } from '../../shared/datetime.js';
 import { EventBus } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
-import { log } from '../../utils/logger.js';
+import { log } from "../../shared/logger.js";
 import { daysAgo } from '../../shared/utils/date-utils.js';
 import type { ErrorLog } from '@prisma/client';
 import {
@@ -716,3 +716,4 @@ export class ErrorTracker {
 
 // Singleton instance
 export const errorTracker = new ErrorTracker();
+

@@ -25,7 +25,7 @@
 
 import { Client } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { HomesteadChannelManager } from './homestead-manager.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { HOMESTEAD_CHECK_INTERVAL_MS, HOMESTEAD_MIN_RECHECK_MS } from '../config/env.js';
@@ -503,3 +503,4 @@ export function getAllMonitorStats(): Record<string, ReturnType<HomesteadPlayerM
   
   return stats;
 }
+
