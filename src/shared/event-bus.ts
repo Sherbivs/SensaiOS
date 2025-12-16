@@ -3,6 +3,7 @@
  * 
  * Provides centralized event distribution with:
  * - Correlation IDs for cross-system tracing
+ * - Type-safe event payloads (via EventTopicMap)
  * - Pattern-based subscriptions (exact, wildcard, multi-level)
  * - Event replay buffer (last 100 events)
  * - Backpressure control (per-subscriber queue limits)
@@ -20,6 +21,12 @@
 
 import { randomUUID } from 'crypto';
 import { getErrorMessage } from './utils/error-utils.js';
+import type { 
+  EventTopic, 
+  EventPayload, 
+  AnyEventPayload,
+  EventTopicMap,
+} from './event-types.js';
 
 // NOTE: Event Bus uses console.log for internal logging to avoid circular dependency
 // with logger.js during early initialization. The intelligent-logger subscribes to
@@ -29,16 +36,22 @@ import { getErrorMessage } from './utils/error-utils.js';
 /// ---- Type Definitions ----
 
 /**
- * Core event structure
+ * Core event structure with typed payload
+ * Generic defaults to unknown for custom/untyped events
  */
-export interface BusEvent {
+export interface BusEvent<T = unknown> {
   correlationId: string;         // UUID for cross-system tracing
   topic: string;                 // Dot-separated (battle.started, error.critical)
-  payload: any;                  // Event-specific data
+  payload: T;                    // Event-specific data (typed)
   timestamp: Date;               // Emission time
   emitter?: string;              // Service that emitted (optional)
   parentCorrelationId?: string;  // For event chains (optional)
 }
+
+/**
+ * Typed event for known topics
+ */
+export type TypedBusEvent<T extends EventTopic> = BusEvent<EventPayload<T>>;
 
 /**
  * Emission options
@@ -50,9 +63,14 @@ export interface EmitOptions {
 }
 
 /**
- * Event handler function
+ * Event handler function (generic, defaults to unknown)
  */
-export type EventHandler = (event: BusEvent) => void | Promise<void>;
+export type EventHandler<T = unknown> = (event: BusEvent<T>) => void | Promise<void>;
+
+/**
+ * Typed event handler for known topics
+ */
+export type TypedEventHandler<T extends EventTopic> = EventHandler<EventPayload<T>>;
 
 /**
  * Subscription options
@@ -260,15 +278,15 @@ class EventReplayBuffer {
 /**
  * Internal subscription state
  */
-class Subscription {
+class Subscription<T = unknown> {
   readonly id: SubscriptionId;
   readonly pattern: string;
-  readonly handler: EventHandler;
+  readonly handler: EventHandler<T>;
   readonly priority: number;
   readonly maxQueueSize: number;
   readonly async: boolean;
   
-  private queue: BusEvent[] = [];
+  private queue: BusEvent<T>[] = [];
   private processing = false;
   private stats = {
     successfulInvocations: 0,
@@ -279,7 +297,7 @@ class Subscription {
   
   constructor(
     pattern: string,
-    handler: EventHandler,
+    handler: EventHandler<T>,
     options: SubscribeOptions = {}
   ) {
     this.id = randomUUID();
@@ -294,7 +312,7 @@ class Subscription {
    * Enqueue event for processing
    * @returns true if enqueued, false if dropped (backpressure)
    */
-  enqueue(event: BusEvent): boolean {
+  enqueue(event: BusEvent<T>): boolean {
     // Backpressure: Drop oldest if queue full
     if (this.queue.length >= this.maxQueueSize) {
       this.queue.shift(); // Drop oldest
@@ -395,7 +413,8 @@ class Subscription {
 export class EventBus {
   private static instance: EventBus | null = null;
   
-  private subscriptions = new Map<SubscriptionId, Subscription>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private subscriptions = new Map<SubscriptionId, Subscription<any>>();
   private replayBuffer: EventReplayBuffer;
   private stats = {
     eventsEmitted: 0,
@@ -435,9 +454,16 @@ export class EventBus {
   }
   
   /**
-   * Emit event to all matching subscribers
+   * Emit event to all matching subscribers (typed for known topics)
    * @returns Correlation ID for tracing
    */
+  emit<T extends EventTopic>(topic: T, payload: EventPayload<T>, options?: EmitOptions): CorrelationId;
+  /**
+   * Emit event with custom topic (untyped - for extensibility)
+   * @returns Correlation ID for tracing
+   */
+  emit(topic: string, payload: object, options?: EmitOptions): CorrelationId;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   emit(topic: string, payload: any, options: EmitOptions = {}): CorrelationId {
     // Generate correlation ID
     const correlationId = options.parentCorrelationId
@@ -490,14 +516,31 @@ export class EventBus {
   /**
    * Emit event synchronously (no async subscribers)
    */
+  emitSync<T extends EventTopic>(topic: T, payload: EventPayload<T>): void;
+  emitSync(topic: string, payload: object): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   emitSync(topic: string, payload: any): void {
     this.emit(topic, payload, {});
   }
   
   /**
-   * Subscribe to event pattern
+   * Subscribe to typed event topic
    * @returns Subscription ID for unsubscribing
    */
+  subscribe<T extends EventTopic>(
+    topic: T,
+    handler: TypedEventHandler<T>,
+    options?: SubscribeOptions
+  ): SubscriptionId;
+  /**
+   * Subscribe to event pattern (wildcard supported, for custom events)
+   * @returns Subscription ID for unsubscribing
+   */
+  subscribe(
+    pattern: string,
+    handler: EventHandler,
+    options?: SubscribeOptions
+  ): SubscriptionId;
   subscribe(
     pattern: string,
     handler: EventHandler,
@@ -659,3 +702,31 @@ export class EventBus {
     console.info('[EventBus] Shutdown complete');
   }
 }
+
+// ============================================================================
+// Re-export Event Types
+// ============================================================================
+
+export type {
+  EventTopic,
+  EventPayload,
+  AnyEventPayload,
+  EventTopicMap,
+  // Individual payload types
+  ErrorEventPayload,
+  ThreatDetectedPayload,
+  HomesteadCreatedPayload,
+  HomesteadDeletedPayload,
+  BattleStartedPayload,
+  BattleEndedPayload,
+  BattleTurnPayload,
+  CacheMaintenancePayload,
+  CacheAccessPayload,
+  WorkerStartedPayload,
+  WorkerStoppedPayload,
+  WorkerErrorPayload,
+  SystemStartupPayload,
+  SystemShutdownPayload,
+  SystemHealthPayload,
+  AlertPayload,
+} from './event-types.js';

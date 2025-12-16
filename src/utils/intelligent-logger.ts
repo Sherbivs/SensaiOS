@@ -877,8 +877,8 @@ class IntelligentLogger {
       
       // Subscribe to all error events via Event Bus
       this.errorBusSubscriptionId = bus.subscribe('error.**', (event: BusEvent) => {
-        // Extract error event from bus payload
-        const errorEvent: LiveErrorEvent = event.payload;
+        // Extract error event from bus payload (cast from unknown)
+        const errorEvent = event.payload as LiveErrorEvent;
         
         // Log error with enhanced context from error tracker
         const message = `[ERROR-TRACKER] ${errorEvent.errorName}: ${errorEvent.errorMessage}`;
