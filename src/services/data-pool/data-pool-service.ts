@@ -58,6 +58,7 @@
 
 import type { Guild, GuildMember, Role, Client } from 'discord.js';
 import type { PrismaClient } from '../../generated/prisma/client.js';
+import { getErrorMessage } from '../../shared/utils/error-utils.js';
 
 // ============================================================================
 // TYPES
@@ -247,7 +248,7 @@ export class DataPoolService {
           synced++;
         } catch (error) {
           failed++;
-          errors.push(`Member ${memberId}: ${error instanceof Error ? error.message : String(error)}`);
+          errors.push(`Member ${memberId}: ${getErrorMessage(error)}`);
         }
       }
 
@@ -268,7 +269,7 @@ export class DataPoolService {
         success: false,
         synced,
         failed: failed + 1,
-        errors: [...errors, error instanceof Error ? error.message : String(error)],
+        errors: [...errors, getErrorMessage(error)],
         duration: Date.now() - startTime,
       };
     }
@@ -396,7 +397,7 @@ export class DataPoolService {
           synced++;
         } catch (error) {
           failed++;
-          errors.push(`Role ${roleId}: ${error instanceof Error ? error.message : String(error)}`);
+          errors.push(`Role ${roleId}: ${getErrorMessage(error)}`);
         }
       }
 
@@ -417,7 +418,7 @@ export class DataPoolService {
         success: false,
         synced,
         failed: failed + 1,
-        errors: [...errors, error instanceof Error ? error.message : String(error)],
+        errors: [...errors, getErrorMessage(error)],
         duration: Date.now() - startTime,
       };
     }
@@ -745,7 +746,7 @@ export class DataPoolService {
     entityType: 'guilds' | 'members' | 'roles',
     error: unknown
   ): Promise<void> {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = getErrorMessage(error);
 
     await this.prisma.$executeRaw`
       UPDATE data_pool_sync_status

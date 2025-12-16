@@ -26,6 +26,7 @@
 
 import * as crypto from 'crypto';
 import type { PrismaClient } from '../../../generated/prisma/client.js';
+import { getErrorMessage } from '../../../shared/utils/error-utils.js';
 
 // ============================================================================
 // Types & Interfaces
@@ -479,7 +480,7 @@ export class RetentionPolicyService {
         dryRun: false,
       };
     } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error));
+      errors.push(getErrorMessage(error));
       return {
         category,
         deletedCount: 0,

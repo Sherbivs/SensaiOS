@@ -32,6 +32,7 @@ import { ImmutableAuditService } from '../bot/security/services/immutable-audit-
 import { EventBus } from '../shared/event-bus.js';
 import { HOMESTEAD_HMAC_KEY } from '../config/env.js';
 import { USER_PERMISSIONS, EVERYONE_DENY } from './homestead-permissions.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -346,7 +347,7 @@ export class HomesteadVerificationService {
       });
     } catch (err) {
       // Log error but don't fail verification
-      process.stderr.write(`[HomesteadVerification] Failed to log verification: ${err instanceof Error ? err.message : String(err)}\n`);
+      process.stderr.write(`[HomesteadVerification] Failed to log verification: ${getErrorMessage(err)}\n`);
     }
   }
 
@@ -393,7 +394,7 @@ export class HomesteadVerificationService {
     } catch (err) {
       // Log error but don't fail creation (audit is supplementary)
       // Using process.stderr to avoid eslint console restrictions
-      process.stderr.write(`[HomesteadVerification] Failed to log to audit service: ${err instanceof Error ? err.message : String(err)}\n`);
+      process.stderr.write(`[HomesteadVerification] Failed to log to audit service: ${getErrorMessage(err)}\n`);
     }
 
     // Emit event to EventBus for downstream processing
@@ -413,7 +414,7 @@ export class HomesteadVerificationService {
       });
     } catch (err) {
       // Log error but don't fail creation
-      process.stderr.write(`[HomesteadVerification] Failed to emit event: ${err instanceof Error ? err.message : String(err)}\n`);
+      process.stderr.write(`[HomesteadVerification] Failed to emit event: ${getErrorMessage(err)}\n`);
     }
   }
 
@@ -458,10 +459,10 @@ export class HomesteadVerificationService {
           });
         } catch (auditErr) {
           // Log error but don't fail rollback
-          process.stderr.write(`[HomesteadVerification] Failed to log orphan: ${auditErr instanceof Error ? auditErr.message : String(auditErr)}\n`);
+          process.stderr.write(`[HomesteadVerification] Failed to log orphan: ${getErrorMessage(auditErr)}\n`);
         }
       } catch (err) {
-        errors.push(new Error(`Failed to mark record as orphaned: ${err instanceof Error ? err.message : String(err)}`));
+        errors.push(new Error(`Failed to mark record as orphaned: ${getErrorMessage(err)}`));
       }
     }
 
@@ -470,7 +471,7 @@ export class HomesteadVerificationService {
       try {
         await channel.delete('Homestead creation failed, rolling back');
       } catch (err) {
-        errors.push(new Error(`Failed to delete Discord channel: ${err instanceof Error ? err.message : String(err)}`));
+        errors.push(new Error(`Failed to delete Discord channel: ${getErrorMessage(err)}`));
       }
     }
 

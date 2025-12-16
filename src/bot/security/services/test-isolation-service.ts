@@ -24,6 +24,7 @@
 
 import * as crypto from 'crypto';
 import type { PrismaClient } from '../../../generated/prisma/client.js';
+import { getErrorMessage } from '../../../shared/utils/error-utils.js';
 import { SecuritySeverity, ThreatType, RoleChangeType } from '../types/database-models.js';
 import { daysAgo } from '../../../shared/utils/date-utils.js';
 
@@ -319,7 +320,7 @@ export class TestIsolationService {
           tablesCleared.add(table);
         }
       } catch (error) {
-        errors.push(`Failed to cleanup ${table}: ${error instanceof Error ? error.message : String(error)}`);
+        errors.push(`Failed to cleanup ${table}: ${getErrorMessage(error)}`);
       }
     }
 
@@ -358,7 +359,7 @@ export class TestIsolationService {
           tablesCleared.push(table);
         }
       } catch (error) {
-        errors.push(`Failed to cleanup ${table}: ${error instanceof Error ? error.message : String(error)}`);
+        errors.push(`Failed to cleanup ${table}: ${getErrorMessage(error)}`);
       }
     }
 

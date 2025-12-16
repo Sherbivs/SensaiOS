@@ -16,6 +16,7 @@
 import { Client, User, EmbedBuilder, TextChannel } from 'discord.js';
 import { EMBED_COLORS } from '../bot/shared/embed-colors.js';
 import { prisma } from '../shared/prisma.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { log } from '../utils/logger.js';
 import { HomesteadChannelManager } from './homestead-manager.js';
 import { 
@@ -703,7 +704,7 @@ export class PlayerCheckpointService {
       log.warn('[PlayerCheckpoint] Discord identity test failed', {
         userId: user.id,
         discordId: user.discordId,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       
       return {
@@ -757,7 +758,7 @@ export class PlayerCheckpointService {
         log.error('[PlayerCheckpoint] Failed to heal issue', {
           userId: report.userId,
           testName: issue.testName,
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
       }
     }
@@ -798,7 +799,7 @@ export class PlayerCheckpointService {
     } catch (error) {
       log.warn('[PlayerCheckpoint] Could not create checkpoint', {
         userId,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
     
@@ -824,7 +825,7 @@ export class PlayerCheckpointService {
     } catch (error) {
       log.error('[PlayerCheckpoint] Failed to recreate homestead', {
         userId,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
     
@@ -1023,7 +1024,7 @@ export function setupHomesteadDeletionHandler(client: Client): void {
       log.error('[PlayerCheckpoint] ❌ IMMEDIATE RECOVERY FAILED', {
         userId: homestead.userId,
         discordId: homestead.user.discordId,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
       

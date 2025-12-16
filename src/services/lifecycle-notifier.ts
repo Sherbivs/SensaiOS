@@ -20,6 +20,7 @@
  */
 
 import { log } from '../utils/logger.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { ServiceRegistry } from '../shared/service-registry.js';
 import { SERVICE_NAME } from '../config/env.js';
 
@@ -298,7 +299,7 @@ async function sendWebhook(payload: Record<string, unknown>): Promise<void> {
     });
   } catch (error) {
     log.error('Failed to send lifecycle webhook', {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
   }
 }

@@ -20,6 +20,7 @@
  */
 
 import { log } from "../utils/logger.js";
+import { getErrorMessage } from "../shared/utils/error-utils.js";
 import type { AuditUserContext } from "./audit-service.js";
 import crypto from "crypto";
 
@@ -785,7 +786,7 @@ export class BatchProcessor {
       if (job.config.enableAudit) {
         log.info(`[BatchProcessor:Audit] FAIL BatchJob ${jobId}`, {
           status: "failed",
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
           progress: job.progress.percentComplete,
           actor: job.config.userContext.discordId ?? job.config.userContext.userId,
         });

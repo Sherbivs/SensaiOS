@@ -876,7 +876,7 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
   // Send Discord webhook BEFORE shutdown (fire-and-forget, non-blocking)
   notifyShutdown(signal, uptimeMs).catch((error) => {
     log.warn("Lifecycle webhook failed (non-critical)", {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
   });
   
@@ -1204,7 +1204,7 @@ function installSignalHandlers(): void {
     // Send Discord webhook IMMEDIATELY on crash (fire-and-forget, non-blocking)
     notifyCrash(error).catch((webhookError) => {
       log.warn("Lifecycle webhook failed (non-critical)", {
-        error: webhookError instanceof Error ? webhookError.message : String(webhookError),
+        error: getErrorMessage(webhookError),
       });
     });
     
@@ -1676,7 +1676,7 @@ export async function boot(): Promise<void> {
     // Send Discord webhook with boot status (fire-and-forget, non-blocking)
     notifyBoot().catch((error) => {
       log.warn("Lifecycle webhook failed (non-critical)", {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     });
     

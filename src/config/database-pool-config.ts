@@ -24,6 +24,7 @@
  */
 
 import { log } from '../shared/log.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 // ============================================================================
 // Service Identification
@@ -232,7 +233,7 @@ export function buildPooledConnectionUrl(baseUrl: string): string {
     return url.toString();
   } catch (error) {
     log.warn('database-pool: Failed to parse connection URL, using base URL', {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
     return baseUrl;
   }

@@ -27,6 +27,7 @@ import type {
 } from "../types.js";
 import { PluginPriority } from "../types.js";
 import { BaseSecurityPlugin } from "../base-plugin.js";
+import { getErrorMessage } from '../../../../shared/utils/error-utils.js';
 
 // ===========================================================================
 // Types
@@ -225,8 +226,7 @@ export class RoleMonitorPlugin extends BaseSecurityPlugin {
         executionTimeMs: Date.now() - startTime,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.log("error", "Error processing role change", {
         error: errorMessage,
         roleId: event.role.id,
@@ -290,8 +290,7 @@ export class RoleMonitorPlugin extends BaseSecurityPlugin {
         executionTimeMs: Date.now() - startTime,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
 
       return {
         success: false,

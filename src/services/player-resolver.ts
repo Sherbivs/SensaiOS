@@ -17,6 +17,7 @@
 
 import { User as DiscordUser, GuildMember } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { log } from '../utils/logger.js';
 import { 
   resolveDiscordUser, 
@@ -250,7 +251,7 @@ export class PlayerResolver {
       log.error('[PlayerResolver] Resolution failed', {
         discordId,
         guildId: options.guildId,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return null;
     }

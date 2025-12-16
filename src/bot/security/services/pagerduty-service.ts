@@ -49,6 +49,8 @@
  * ```
  */
 
+import { getErrorMessage } from '../../../shared/utils/error-utils.js';
+
 // ============================================================================
 // Types and Interfaces
 // ============================================================================
@@ -679,7 +681,7 @@ export class PagerDutyService {
    * Handle failed API call.
    */
   private onFailure(record: AlertRecord, error: unknown): void {
-    record.lastError = error instanceof Error ? error.message : String(error);
+    record.lastError = getErrorMessage(error);
     this.stats.totalErrors++;
     this.circuitBreakerFailures++;
 
