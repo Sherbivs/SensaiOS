@@ -1,15 +1,24 @@
 /**
- * @file Operational Context Restoration
- * @description Restores guild monitoring state and resumes operations after restart
+ * Operational Context Restoration
+ * Restores guild monitoring state and resumes operations after restart
  * @module bot/state/context
  */
 
 import { formatDuration } from '../../shared/utils/format-utils.js';
+import type {
+  SecurityBotState,
+  GuildState,
+  GuildContext,
+  GuildNeedingSweep,
+  MonitoringStatus,
+  RestartSummary,
+  RecoveryRecommendation,
+} from './types.js';
 
 /**
  * Restore guild monitoring context from state
  */
-export function restoreGuildContext(state, guildId) {
+export function restoreGuildContext(state: SecurityBotState, guildId: string): GuildContext {
   const guildState = state.guilds[guildId];
   
   if (!guildState) {
@@ -34,7 +43,7 @@ export function restoreGuildContext(state, guildId) {
 /**
  * Get time since last sweep for a guild
  */
-export function getTimeSinceLastSweep(state, guildId) {
+export function getTimeSinceLastSweep(state: SecurityBotState, guildId: string): number | null {
   const guildState = state.guilds[guildId];
   
   if (!guildState || !guildState.lastSweep) {
@@ -49,7 +58,11 @@ export function getTimeSinceLastSweep(state, guildId) {
 /**
  * Check if sweep is overdue for a guild
  */
-export function isSweepOverdue(state, guildId, sweepIntervalMs = 5 * 60 * 1000) {
+export function isSweepOverdue(
+  state: SecurityBotState, 
+  guildId: string, 
+  sweepIntervalMs: number = 5 * 60 * 1000
+): boolean {
   const timeSinceLast = getTimeSinceLastSweep(state, guildId);
   
   if (timeSinceLast === null) {
@@ -62,10 +75,13 @@ export function isSweepOverdue(state, guildId, sweepIntervalMs = 5 * 60 * 1000) 
 /**
  * Get guilds that need immediate sweep after restart
  */
-export function getGuildsNeedingSweep(state, sweepIntervalMs = 5 * 60 * 1000) {
+export function getGuildsNeedingSweep(
+  state: SecurityBotState, 
+  sweepIntervalMs: number = 5 * 60 * 1000
+): GuildNeedingSweep[] {
   return Object.values(state.guilds)
-    .filter(guild => guild.monitoring && isSweepOverdue(state, guild.id, sweepIntervalMs))
-    .map(guild => ({
+    .filter((guild: GuildState) => guild.monitoring && isSweepOverdue(state, guild.id, sweepIntervalMs))
+    .map((guild: GuildState) => ({
       id: guild.id,
       name: guild.name,
       timeSinceLastSweep: getTimeSinceLastSweep(state, guild.id)
@@ -75,7 +91,11 @@ export function getGuildsNeedingSweep(state, sweepIntervalMs = 5 * 60 * 1000) {
 /**
  * Initialize guild in state if not exists
  */
-export function initializeGuild(state, guildId, guildName) {
+export function initializeGuild(
+  state: SecurityBotState, 
+  guildId: string, 
+  guildName: string
+): boolean {
   if (!state.guilds[guildId]) {
     state.guilds[guildId] = {
       id: guildId,
@@ -104,7 +124,7 @@ export function initializeGuild(state, guildId, guildName) {
 /**
  * Enable monitoring for a guild
  */
-export function enableGuildMonitoring(state, guildId) {
+export function enableGuildMonitoring(state: SecurityBotState, guildId: string): void {
   if (state.guilds[guildId]) {
     state.guilds[guildId].monitoring = true;
     state.guilds[guildId].lastActivity = new Date().toISOString();
@@ -114,7 +134,7 @@ export function enableGuildMonitoring(state, guildId) {
 /**
  * Disable monitoring for a guild
  */
-export function disableGuildMonitoring(state, guildId) {
+export function disableGuildMonitoring(state: SecurityBotState, guildId: string): void {
   if (state.guilds[guildId]) {
     state.guilds[guildId].monitoring = false;
     state.guilds[guildId].lastActivity = new Date().toISOString();
@@ -124,8 +144,8 @@ export function disableGuildMonitoring(state, guildId) {
 /**
  * Get monitoring status for all guilds
  */
-export function getMonitoringStatus(state) {
-  return Object.values(state.guilds).map(guild => ({
+export function getMonitoringStatus(state: SecurityBotState): MonitoringStatus[] {
+  return Object.values(state.guilds).map((guild: GuildState) => ({
     id: guild.id,
     name: guild.name,
     monitoring: guild.monitoring,
@@ -138,7 +158,7 @@ export function getMonitoringStatus(state) {
 /**
  * Build restart summary showing continuity
  */
-export function buildRestartSummary(state) {
+export function buildRestartSummary(state: SecurityBotState): RestartSummary {
   // Calculate time since previous restart (not current restart)
   const previousRestartTime = state.metadata.previousRestart 
     ? new Date(state.metadata.previousRestart).getTime()
@@ -146,7 +166,7 @@ export function buildRestartSummary(state) {
   const currentRestartTime = new Date(state.metadata.lastRestart).getTime();
   const timeSinceRestart = currentRestartTime - previousRestartTime;
   
-  const summary = {
+  const summary: RestartSummary = {
     restartNumber: state.cumulative.restartCount,
     timeSinceLastRestart: formatDuration(timeSinceRestart),
     totalUptime: formatDuration(state.cumulative.totalUptime),
@@ -164,15 +184,10 @@ export function buildRestartSummary(state) {
 }
 
 /**
- * Format duration helper - now imported from centralized format-utils.js
- */
-// function formatDuration removed - using centralized version
-
-/**
  * Get recovery recommendations after restart
  */
-export function getRecoveryRecommendations(state) {
-  const recommendations = [];
+export function getRecoveryRecommendations(state: SecurityBotState): RecoveryRecommendation[] {
+  const recommendations: RecoveryRecommendation[] = [];
   
   // Check for overdue sweeps
   const overdueGuilds = getGuildsNeedingSweep(state);

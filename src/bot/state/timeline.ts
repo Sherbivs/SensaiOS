@@ -1,0 +1,320 @@
+/**
+ * Activity Timeline Tracker
+ * Manages rolling timeline of bot events for display and analysis
+ * @module bot/state/timeline
+ */
+
+import { toEasternString } from '../../shared/datetime.js';
+import { formatDuration } from '../../shared/utils/format-utils.js';
+import type {
+  SecurityBotState,
+  TimelineEvent,
+  TimelineEventType,
+  TimelineSummary,
+  SweepDetails,
+  PermissionChangeDetails,
+  AlertDetails,
+  RestartDetails,
+  ShutdownDetails,
+  ErrorDetails,
+  MemberFetchTimeoutDetails,
+} from './types.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Event Formatting
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Format timeline event for human-readable display
+ */
+export function formatTimelineEvent(event: TimelineEvent): string {
+  const timestamp = toEasternString(new Date(event.timestamp), {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: undefined,
+  });
+  
+  switch (event.type) {
+    case 'sweep': {
+      const details = event.details as SweepDetails;
+      return `[${timestamp}] Sweep: ${event.guildName} - ${details.rolesChecked} roles checked, ${details.changesDetected} changes detected`;
+    }
+    
+    case 'permission_change': {
+      const details = event.details as PermissionChangeDetails;
+      return `[${timestamp}] Permission Change: ${event.guildName} - ${details.userName} (${details.action}) ${details.reverted ? `[REVERTED: ${details.revertStatus}]` : '[NOT REVERTED]'}`;
+    }
+    
+    case 'alert': {
+      const details = event.details as AlertDetails;
+      return `[${timestamp}] Alert: Sent to ${details.recipient} - ${details.reason} ${details.delivered ? '✓' : '✗'}`;
+    }
+    
+    case 'restart': {
+      const details = event.details as RestartDetails;
+      return `[${timestamp}] Restart: ${details.reason} (previous uptime: ${formatDuration(details.previousUptime)})`;
+    }
+    
+    case 'shutdown': {
+      const details = event.details as ShutdownDetails;
+      return `[${timestamp}] Shutdown: ${details.reason} (uptime: ${formatDuration(details.uptime)})`;
+    }
+    
+    case 'error': {
+      const details = event.details as ErrorDetails;
+      return `[${timestamp}] Error: ${details.message}`;
+    }
+    
+    case 'member_fetch_timeout': {
+      const details = event.details as MemberFetchTimeoutDetails;
+      const status = details.isFinal ? '⚠️ FINAL' : `retry ${details.attempt}/${details.maxRetries}`;
+      return `[${timestamp}] Member Fetch Timeout: ${event.guildName} (${details.origin}) [${status}]`;
+    }
+    
+    default:
+      return `[${timestamp}] ${event.type}: ${JSON.stringify(event.details)}`;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Event Queries
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Get timeline events filtered by type
+ */
+export function getEventsByType(
+  state: SecurityBotState, 
+  eventType: TimelineEventType, 
+  limit: number = 50
+): TimelineEvent[] {
+  return state.timeline
+    .filter(event => event.type === eventType)
+    .slice(0, limit);
+}
+
+/**
+ * Get timeline events for specific guild
+ */
+export function getEventsByGuild(
+  state: SecurityBotState, 
+  guildId: string, 
+  limit: number = 50
+): TimelineEvent[] {
+  return state.timeline
+    .filter(event => event.guildId === guildId)
+    .slice(0, limit);
+}
+
+/**
+ * Get timeline events within time range
+ */
+export function getEventsByTimeRange(
+  state: SecurityBotState, 
+  startTime: string | Date, 
+  endTime: string | Date = new Date()
+): TimelineEvent[] {
+  const start = new Date(startTime).getTime();
+  const end = new Date(endTime).getTime();
+  
+  return state.timeline.filter(event => {
+    const eventTime = new Date(event.timestamp).getTime();
+    return eventTime >= start && eventTime <= end;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Timeline Summary
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface InternalTimelineSummary {
+  totalEvents: number;
+  eventTypes: Record<string, number>;
+  firstEvent: string | null;
+  lastEvent: string | null;
+  timeSpan: number;
+}
+
+/**
+ * Get timeline summary statistics
+ */
+export function getTimelineSummary(state: SecurityBotState): InternalTimelineSummary {
+  const typeCounts: Record<string, number> = {};
+  
+  for (const event of state.timeline) {
+    typeCounts[event.type] = (typeCounts[event.type] || 0) + 1;
+  }
+  
+  const firstEvent = state.timeline[state.timeline.length - 1];
+  const lastEvent = state.timeline[0];
+  
+  return {
+    totalEvents: state.timeline.length,
+    eventTypes: typeCounts,
+    firstEvent: firstEvent ? firstEvent.timestamp : null,
+    lastEvent: lastEvent ? lastEvent.timestamp : null,
+    timeSpan: firstEvent && lastEvent 
+      ? new Date(lastEvent.timestamp).getTime() - new Date(firstEvent.timestamp).getTime()
+      : 0
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Display Formatting
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Get formatted timeline for display (Discord embed-friendly)
+ */
+export function getFormattedTimeline(state: SecurityBotState, limit: number = 10): string[] {
+  const events = state.timeline.slice(0, limit);
+  
+  if (events.length === 0) {
+    return ['No recent activity'];
+  }
+  
+  return events.map(formatTimelineEvent);
+}
+
+/**
+ * Get relative time string (e.g., "2 hours ago")
+ */
+function getRelativeTime(timestamp: string): string {
+  const now = Date.now();
+  const then = new Date(timestamp).getTime();
+  const diff = now - then;
+  
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  
+  if (days > 0) {
+    return `${days}d ago`;
+  } else if (hours > 0) {
+    return `${hours}h ago`;
+  } else if (minutes > 0) {
+    return `${minutes}m ago`;
+  } else {
+    return `${seconds}s ago`;
+  }
+}
+
+/**
+ * Get recent activity summary for restart DM
+ */
+export function getRecentActivitySummary(state: SecurityBotState, limit: number = 5): string {
+  const events = state.timeline.slice(0, limit);
+  
+  if (events.length === 0) {
+    return 'No recent activity before restart';
+  }
+  
+  const lines = events.map(event => {
+    const relativeTime = getRelativeTime(event.timestamp);
+    
+    switch (event.type) {
+      case 'sweep':
+        return `• ${relativeTime}: Swept ${event.guildName}`;
+      case 'permission_change':
+        return `• ${relativeTime}: Reverted unauthorized change in ${event.guildName}`;
+      case 'alert': {
+        const details = event.details as AlertDetails;
+        return `• ${relativeTime}: Alert sent to ${details.recipient}`;
+      }
+      case 'error': {
+        const details = event.details as ErrorDetails;
+        return `• ${relativeTime}: Error - ${details.message}`;
+      }
+      case 'member_fetch_timeout':
+        return `• ${relativeTime}: Member fetch timeout in ${event.guildName}`;
+      default:
+        return `• ${relativeTime}: ${event.type}`;
+    }
+  });
+  
+  return lines.join('\n');
+}
+
+/**
+ * Get event icon emoji for display
+ */
+export function getEventIcon(eventType: TimelineEventType): string {
+  const icons: Record<TimelineEventType, string> = {
+    sweep: '🔍',
+    permission_change: '⚠️',
+    alert: '📢',
+    restart: '🔄',
+    shutdown: '⏹️',
+    error: '❌',
+    member_fetch_timeout: '⏱️'
+  };
+  
+  return icons[eventType] || '📝';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Discord Embed Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface EmbedField {
+  name: string;
+  value: string;
+  inline: boolean;
+}
+
+/**
+ * Build Discord embed fields for timeline
+ */
+export function buildTimelineEmbedFields(state: SecurityBotState, limit: number = 10): EmbedField[] {
+  const events = state.timeline.slice(0, limit);
+  
+  if (events.length === 0) {
+    return [{
+      name: 'Recent Activity',
+      value: 'No events recorded yet',
+      inline: false
+    }];
+  }
+  
+  const fields: EmbedField[] = events.map((event) => {
+    const icon = getEventIcon(event.type);
+    const relativeTime = getRelativeTime(event.timestamp);
+    let description = '';
+    
+    switch (event.type) {
+      case 'sweep': {
+        const details = event.details as SweepDetails;
+        description = `${event.guildName} - ${details.rolesChecked} roles, ${details.changesDetected} changes`;
+        break;
+      }
+      case 'permission_change': {
+        const details = event.details as PermissionChangeDetails;
+        description = `${event.guildName} - ${details.userName} [${details.revertStatus}]`;
+        break;
+      }
+      case 'alert': {
+        const details = event.details as AlertDetails;
+        description = `To ${details.recipient} - ${details.reason}`;
+        break;
+      }
+      case 'restart': {
+        const details = event.details as RestartDetails;
+        description = `${details.reason}`;
+        break;
+      }
+      default:
+        description = JSON.stringify(event.details).substring(0, 100);
+    }
+    
+    return {
+      name: `${icon} ${event.type} (${relativeTime})`,
+      value: description,
+      inline: false
+    };
+  });
+  
+  return fields;
+}
