@@ -501,7 +501,7 @@ async function handleSecuritySweep(
     // Simulate sweep execution
     const startTime = Date.now();
     // Simulated delay
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await delay();
     const duration = Date.now() - startTime;
 
     const results = {

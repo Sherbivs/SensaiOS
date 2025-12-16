@@ -13,6 +13,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { delay } from '../shared/index.js';
 import { prisma, getDatabaseStats } from '../../src/shared/prisma.js';
 
 describe('Database Reporting Accuracy', () => {
@@ -39,7 +40,7 @@ describe('Database Reporting Accuracy', () => {
       const latency1 = stats1.prod.latency;
       
       // Wait briefly
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await delay();
       
       // Take second sample
       const stats2 = getDatabaseStats();
@@ -125,7 +126,7 @@ describe('Database Reporting Accuracy', () => {
           timings.push(duration);
           
           // Brief delay between queries
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await delay();
         }
         
         // All timings should be > 0 (measured)
@@ -175,7 +176,7 @@ describe('Database Reporting Accuracy', () => {
         const count1 = Number(result1[0].count);
         
         // Brief delay
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await delay();
         
         // Query again
         const result2 = await prisma.$queryRaw<[{ count: bigint }]>`
@@ -226,7 +227,7 @@ describe('Database Reporting Accuracy', () => {
       // Collect 5 samples over 500ms
       for (let i = 0; i < 5; i++) {
         samples.push(getDatabaseStats());
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await delay();
       }
       
       // Extract latencies

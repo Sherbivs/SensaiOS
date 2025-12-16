@@ -20,6 +20,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { delay } from './shared/index.js';
 import { createHmac } from 'crypto';
 
 // Create dedicated Prisma client for database tests
@@ -439,7 +440,7 @@ describe('Phase 3: Data Integrity Checks', () => {
     const originalCheckTime = homestead.lastHealthCheck;
 
     // Simulate health check update (Phase 3.3)
-    await new Promise((resolve) => setTimeout(resolve, 10)); // Small delay
+    await delay(); // Small delay
 
     const updatedHomestead = await prisma.homesteadChannel.update({
       where: { id: homestead.id },

@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { delay } from '../shared/index.js';
 import { acquireLock, getLockStatistics, shutdownDistributedLock } from '../../src/services/distributed-lock.js';
 
 describe('Distributed Lock - Race Condition Protection', () => {
@@ -73,7 +74,7 @@ describe('Distributed Lock - Race Condition Protection', () => {
       expect(lock1).not.toBeNull();
       
       // Wait for lock to expire
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await delay();
       
       // Should be able to acquire again
       const lock2 = await acquireLock('test:lock:ttl', 100);
@@ -178,7 +179,7 @@ describe('Distributed Lock - Race Condition Protection', () => {
       expect(lock).not.toBeNull();
       
       // Wait for TTL to expire
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await delay();
       
       // Release should succeed (or return false) without error
       const result = await lock.release();
@@ -276,7 +277,7 @@ describe('Distributed Lock - Race Condition Protection', () => {
         
         try {
           // Simulate Discord API call
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await delay();
           roleAddCalled++;
           return { success: true, reason: 'assigned' };
         } finally {

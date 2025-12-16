@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { delay } from './shared/index.js';
 import { EventBus } from '../src/shared/event-bus.js';
 import { createDripAlertManager } from '../src/bot/dripAlerts.js';
 
@@ -56,7 +57,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       await manager.recordAlert('critical', 'Test Critical Alert', { testMeta: true });
       
       // Give Event Bus time to process
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Verify immediate delivery
       expect(mockUser.send).toHaveBeenCalledOnce();
@@ -81,7 +82,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       await manager.recordAlert('security', 'Unauthorized Access Detected', { ip: '192.168.1.1' });
       
       // Give Event Bus time to process
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Verify immediate delivery
       expect(mockUser.send).toHaveBeenCalledOnce();
@@ -106,7 +107,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       await manager.recordAlert('warning', 'Rate Limit Approaching', { current: 80, limit: 100 });
       
       // Give Event Bus time to process
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Verify NOT delivered immediately (digest only)
       expect(mockUser.send).not.toHaveBeenCalled();
@@ -134,7 +135,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       await manager.recordAlert('notice', 'Cache Refreshed', { entries: 1000 });
       
       // Give Event Bus time to process
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Verify NOT delivered immediately (digest only)
       expect(mockUser.send).not.toHaveBeenCalled();
@@ -166,7 +167,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       await manager.recordAlert('warning', 'Warning 2', {});
       
       // Give Event Bus time to process
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Verify alerts in replay buffer
       const replayEvents = bus.getReplayBuffer();
@@ -202,7 +203,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       await manager.recordAlert('critical', 'Critical Alert', {});
       
       // Give Event Bus time to process
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Clear immediate delivery call
       mockUser.send.mockClear();
@@ -233,7 +234,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       await manager.recordAlert('critical', 'Test Failure', {});
       
       // Give Event Bus time to process
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Verify delivery attempted and failed
       expect(mockUser.send).toHaveBeenCalledOnce();
@@ -264,7 +265,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       await manager.recordAlert('critical', 'Test Missing Recipient', {});
       
       // Give Event Bus time to process
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Verify re-emission as alert.warning in replay buffer
       const replayEvents = bus.getReplayBuffer();
@@ -347,7 +348,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       await manager.recordAlert('critical', 'Test Correlation', {});
       
       // Give Event Bus time to process
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Verify delivery with correlation ID in message
       expect(mockUser.send).toHaveBeenCalledOnce();
@@ -371,7 +372,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       await manager.recordAlert('critical', 'Test Correlation Failure', {});
       
       // Give Event Bus time to process
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Verify retry event has parentCorrelationId
       const replayEvents = bus.getReplayBuffer();

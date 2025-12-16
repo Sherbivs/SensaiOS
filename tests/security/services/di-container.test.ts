@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { delay } from '../../shared/index.js';
 import {
   DIContainer,
   createDIContainer,
@@ -574,7 +575,7 @@ describe('DIContainer', () => {
   describe('Async Resolution', () => {
     it('should resolve async factory function', async () => {
       container.register('async', async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await delay();
         return createMockService('async');
       });
 
@@ -585,7 +586,7 @@ describe('DIContainer', () => {
     it('should cache async singleton after resolution', async () => {
       let counter = 0;
       container.registerSingleton('asyncSingleton', async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await delay();
         return createMockService(`async-${++counter}`);
       });
 
@@ -656,7 +657,7 @@ describe('DIContainer', () => {
     it('should handle async health check', async () => {
       container.register('asyncHealth', () => createMockService('asyncHealth'), {
         healthCheck: async () => {
-          await new Promise((resolve) => setTimeout(resolve, 10));
+          await delay();
           return ServiceHealth.HEALTHY;
         },
       });

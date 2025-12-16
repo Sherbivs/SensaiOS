@@ -13,6 +13,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EventBus, type BusEvent } from '../src/shared/event-bus.js';
+import { delay } from './shared/index.js';
 
 describe('EventBus', () => {
   let bus: EventBus;
@@ -50,7 +51,7 @@ describe('EventBus', () => {
       bus.emit('test.topic', { foo: 'bar', num: 42 });
 
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events).toHaveLength(1);
       expect(events[0].payload).toEqual({ foo: 'bar', num: 42 });
@@ -66,7 +67,7 @@ describe('EventBus', () => {
       bus.emit('test.topic', {});
       const afterEmit = new Date();
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events).toHaveLength(1);
       expect(events[0].timestamp).toBeInstanceOf(Date);
@@ -82,7 +83,7 @@ describe('EventBus', () => {
 
       bus.emit('test.topic', {}, { emitter: 'test-service' });
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events).toHaveLength(1);
       expect(events[0].emitter).toBe('test-service');
@@ -97,7 +98,7 @@ describe('EventBus', () => {
       const parentId = 'parent-uuid';
       const correlationId = bus.emit('test.topic', {}, { parentCorrelationId: parentId });
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(correlationId).toContain(parentId);
       expect(events).toHaveLength(1);
@@ -115,7 +116,7 @@ describe('EventBus', () => {
 
       bus.emit('test.topic', { foo: 'bar' });
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events1).toHaveLength(1);
       expect(events2).toHaveLength(1);
@@ -138,7 +139,7 @@ describe('EventBus', () => {
       bus.emit('battle.ended', {});
       bus.emit('error.critical', {});
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events).toHaveLength(1);
       expect(events[0].topic).toBe('battle.started');
@@ -155,7 +156,7 @@ describe('EventBus', () => {
       bus.emit('error.critical', {});
       bus.emit('battle.turn.1', {}); // Should NOT match (too deep)
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events).toHaveLength(2);
       expect(events.map(e => e.topic)).toEqual(['battle.started', 'battle.ended']);
@@ -172,7 +173,7 @@ describe('EventBus', () => {
       bus.emit('battle.turn.2.move.1', {});
       bus.emit('error.critical', {}); // Should NOT match
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events).toHaveLength(3);
       expect(events.map(e => e.topic)).toEqual([
@@ -192,7 +193,7 @@ describe('EventBus', () => {
       bus.emit('error.critical', {});
       bus.emit('user.login', {});
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events).toHaveLength(3);
     });
@@ -207,7 +208,7 @@ describe('EventBus', () => {
       bus.emit('error.critical', {});
       bus.emit('user.profile.update', {});
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events).toHaveLength(3);
     });
@@ -223,7 +224,7 @@ describe('EventBus', () => {
       bus.emit('error.critical', {});
       bus.emit('user.login', {});
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(battleEvents).toHaveLength(1);
       expect(errorEvents).toHaveLength(1);
@@ -248,13 +249,13 @@ describe('EventBus', () => {
       });
 
       bus.emit('test.topic', { before: true });
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       const removed = bus.unsubscribe(subscriptionId);
       expect(removed).toBe(true);
 
       bus.emit('test.topic', { after: true });
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events).toHaveLength(1);
       expect(events[0].payload.before).toBe(true);
@@ -273,13 +274,13 @@ describe('EventBus', () => {
       bus.subscribe('test.topic', (event) => { events2.push(event); });
 
       bus.emit('test.topic', { before: true });
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       const count = bus.unsubscribeAll();
       expect(count).toBe(2);
 
       bus.emit('test.topic', { after: true });
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events1).toHaveLength(1);
       expect(events2).toHaveLength(1);
@@ -294,14 +295,14 @@ describe('EventBus', () => {
 
       bus.emit('battle.started', {});
       bus.emit('error.critical', {});
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       const count = bus.unsubscribeAll('battle.started');
       expect(count).toBe(1);
 
       bus.emit('battle.started', {});
       bus.emit('error.critical', {});
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events1).toHaveLength(1); // Only 1 event (before unsubscribe)
       expect(events2).toHaveLength(2); // 2 events (still subscribed)
@@ -315,7 +316,7 @@ describe('EventBus', () => {
       bus.subscribe('test.topic', () => { executionOrder.push(2); }, { priority: 2 });
 
       bus.emit('test.topic', {});
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(executionOrder).toEqual([3, 2, 1]); // Highest priority first
     });
@@ -351,7 +352,7 @@ describe('EventBus', () => {
       bus.emit('test.topic', { id: 1 });
 
       // Wait 100ms to ensure timestamp difference
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await delay(100);
       const t2 = new Date();
 
       bus.emit('test.topic', { id: 2 });
@@ -390,7 +391,7 @@ describe('EventBus', () => {
 
       // Slow handler (100ms per event)
       bus.subscribe('test.topic', async (event) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await delay(100);
         events.push(event);
       }, { maxQueueSize: 10 });
 
@@ -400,7 +401,7 @@ describe('EventBus', () => {
       }
 
       // Wait for processing
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      await delay(2500);
 
       // Only first 10 events should be processed (queue limit)
       expect(events.length).toBeLessThanOrEqual(20);
@@ -414,7 +415,7 @@ describe('EventBus', () => {
 
       // Slow handler
       bus.subscribe('test.topic', async (event) => {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await delay(50);
         events.push(event);
       }, { maxQueueSize: 5 });
 
@@ -424,7 +425,7 @@ describe('EventBus', () => {
       }
 
       // Wait for processing
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await delay(600);
 
       // Some events should be dropped
       expect(events.length).toBeLessThanOrEqual(10);
@@ -432,7 +433,7 @@ describe('EventBus', () => {
 
     it('should track backpressure in statistics', async () => {
       bus.subscribe('test.topic', async () => {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await delay(100);
       }, { maxQueueSize: 5 });
 
       // Emit 20 events rapidly (exceeds queue limit)
@@ -440,7 +441,7 @@ describe('EventBus', () => {
         bus.emit('test.topic', {});
       }
 
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await delay(100);
 
       const stats = bus.getStats();
       expect(stats.backpressureEvents).toBeGreaterThan(0);
@@ -477,7 +478,7 @@ describe('EventBus', () => {
       bus.emit('test.topic', {});
       bus.emit('test.topic', {});
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       const stats = bus.getStats();
       expect(stats.totalHandlerInvocations).toBeGreaterThanOrEqual(2);
@@ -489,7 +490,7 @@ describe('EventBus', () => {
       });
 
       bus.emit('test.topic', {});
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       const stats = bus.getStats();
       expect(stats.failedHandlerInvocations).toBe(1);
@@ -532,7 +533,7 @@ describe('EventBus', () => {
       const events: BusEvent[] = [];
 
       bus.subscribe('test.topic', async (event) => {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await delay(50);
         events.push(event);
       });
 
@@ -580,7 +581,7 @@ describe('EventBus', () => {
       });
 
       bus.emit('test.topic', {});
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       expect(events1).toHaveLength(1);
     });
@@ -592,7 +593,7 @@ describe('EventBus', () => {
 
       bus.emit('test.topic', {});
       bus.emit('test.topic', {});
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
 
       const stats = bus.getStats();
       expect(stats.failedHandlerInvocations).toBe(2);
@@ -616,7 +617,7 @@ describe('EventBus', () => {
       EventBus.resetInstance();
       
       // Wait for reset to complete
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay(50);
       
       const instance2 = EventBus.getInstance();
       expect(instance2).not.toBe(instance1);

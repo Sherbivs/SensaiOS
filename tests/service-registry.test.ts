@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { delay } from './shared/index.js';
 import { ServiceRegistry, type ServiceConfig } from '../src/shared/service-registry.js';
 
 describe('ServiceRegistry', () => {
@@ -133,7 +134,7 @@ describe('ServiceRegistry', () => {
 
     it('should initialize async service', async () => {
       const factory = vi.fn(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await delay();
         return { value: 'async' };
       });
 
@@ -351,7 +352,7 @@ describe('ServiceRegistry', () => {
       await registry.initializeAll();
 
       // Wait for first health check
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await delay();
 
       expect(healthCheck).toHaveBeenCalled();
 
@@ -381,7 +382,7 @@ describe('ServiceRegistry', () => {
       expect(registry.getHealth('degrading-service')!.status).toBe('healthy');
 
       // Wait for second check (fails after 50ms interval)
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await delay();
       expect(registry.getHealth('degrading-service')!.status).toBe('degraded');
     });
 
@@ -405,11 +406,11 @@ describe('ServiceRegistry', () => {
       expect(registry.getHealth('recovering-service')!.status).toBe('healthy');
 
       // Wait for second check (fails - degraded)
-      await new Promise((resolve) => setTimeout(resolve, 75));
+      await delay();
       expect(registry.getHealth('recovering-service')!.status).toBe('degraded');
 
       // Wait for third check (passes - recovered)
-      await new Promise((resolve) => setTimeout(resolve, 75));
+      await delay();
       expect(registry.getHealth('recovering-service')!.status).toBe('healthy');
     });
 
@@ -488,7 +489,7 @@ describe('ServiceRegistry', () => {
 
     it('should handle async shutdown', async () => {
       const shutdownHandler = vi.fn(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await delay();
       });
 
       registry.register({
@@ -555,7 +556,7 @@ describe('ServiceRegistry', () => {
       await registry.initializeAll();
       
       // Wait a tiny bit to ensure measurable uptime
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await delay();
 
       const stats = registry.getStats('test-service');
       expect(stats).toBeTruthy();
@@ -575,7 +576,7 @@ describe('ServiceRegistry', () => {
       await registry.initializeAll();
 
       // Wait for a few health checks (increased wait time for reliability)
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await delay();
 
       const stats = registry.getStats('monitored-service');
       expect(stats!.healthCheckCount).toBeGreaterThan(0);

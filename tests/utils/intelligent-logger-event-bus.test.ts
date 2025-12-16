@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { delay } from '../shared/index.js';
 import { EventBus, type BusEvent } from '../../src/shared/event-bus.js';
 import { IntelligentLogger } from '../../src/utils/intelligent-logger.js';
 
@@ -20,7 +21,7 @@ describe('IntelligentLogger Event Bus Integration - Phase 2.4.3', () => {
   let originalLogLevel: string | undefined;
 
   // Helper to wait for Event Bus async processing
-  const waitForEventBus = () => new Promise(resolve => setTimeout(resolve, 50));
+  const waitForEventBus = () => delay(50);
 
   beforeEach(() => {
     // Save and set LOG_LEVEL to trace to capture all log levels
@@ -68,7 +69,7 @@ describe('IntelligentLogger Event Bus Integration - Phase 2.4.3', () => {
     // First test in suite experiences timing issues - this test absorbs the problem
     it('should initialize Event Bus processing', async () => {
       logger.info('Warmup message');
-      await new Promise(resolve => setTimeout(resolve, 100)); // Extra time for first event
+      await delay(); // Extra time for first event
       // No assertions - just priming the Event Bus
       expect(true).toBe(true);
     });

@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { delay } from './shared/index.js';
 import { EventBus } from '../src/shared/event-bus.js';
 import type { BusEvent } from '../src/shared/event-bus.js';
 import type { LiveErrorEvent } from '../src/services/error-tracker.js';
@@ -149,7 +150,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       bus.emit('error.low', createMockErrorPayload('LOW'));
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       expect(events).toHaveLength(4);
       expect(events[0].topic).toBe('error.critical');
@@ -172,7 +173,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       bus.emit('error.medium', createMockErrorPayload('MEDIUM'));
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Should only receive critical errors
       expect(criticalEvents).toHaveLength(2);
@@ -246,7 +247,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       bus.emit('error.medium', createMockErrorPayload('MEDIUM'));
       
       // Wait 100ms to ensure timestamp difference
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await delay();
       
       const t2 = new Date();
       
@@ -291,7 +292,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       
       // Slow handler (100ms per event)
       bus.subscribe('error.medium', async (event) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await delay();
         processedEvents.push(event);
       }, {
         maxQueueSize: 10, // Small queue for testing
@@ -303,7 +304,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       }
       
       // Wait for processing
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      await delay();
       
       // Should have dropped some events (queue limit 10)
       expect(processedEvents.length).toBeLessThanOrEqual(20);
@@ -316,7 +317,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       const processedEvents: BusEvent[] = [];
       
       bus.subscribe('error.medium', async (event) => {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await delay();
         processedEvents.push(event);
       }, {
         maxQueueSize: 5,
@@ -331,7 +332,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       }
       
       // Wait for processing
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await delay();
       
       // Should have processed some events (drop-oldest strategy)
       expect(processedEvents.length).toBeGreaterThan(0);
@@ -344,7 +345,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       
       // Create slow subscriber
       bus.subscribe('error.medium', async (_event) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await delay();
       }, {
         maxQueueSize: 5,
       });
@@ -355,7 +356,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       }
       
       // Wait briefly
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await delay();
       
       const stats = bus.getStats();
       expect(stats.backpressureEvents).toBeGreaterThan(0);
@@ -380,7 +381,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       }
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // All correlation IDs should be unique
       expect(correlationIds.size).toBe(10);
@@ -514,7 +515,7 @@ describe('ErrorTracker Event Bus Integration', () => {
       const processedEvents: BusEvent[] = [];
       
       bus.subscribe('error.medium', async (event) => {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await delay();
         processedEvents.push(event);
       });
       

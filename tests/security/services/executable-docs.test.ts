@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { delay } from '../../shared/index.js';
 import * as crypto from 'crypto';
 
 // ============================================================================
@@ -530,7 +531,7 @@ describe('Executable Docs: Circuit Breaker', () => {
       expect(breaker.state).toBe('OPEN');
       
       // Wait for reset timeout
-      await new Promise(r => setTimeout(r, 20));
+      await delay();
       
       // Next call should transition to HALF_OPEN
       try {
@@ -554,7 +555,7 @@ describe('Executable Docs: Circuit Breaker', () => {
       }
       
       // Wait for reset timeout
-      await new Promise(r => setTimeout(r, 20));
+      await delay();
       
       // Success should close the circuit
       await breaker.execute(async () => 'success');

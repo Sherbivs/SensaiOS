@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { delay } from './shared/index.js';
 import { EventBus } from '../src/shared/event-bus.js';
 import type { BusEvent } from '../src/shared/event-bus.js';
 import { createDripAlertManager } from '../src/bot/dripAlerts.js';
@@ -73,7 +74,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.1', () => {
       await alertManager.recordAlert('critical', 'Test critical alert', { test: true });
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       expect(events).toHaveLength(1);
       expect(events[0].topic).toBe('alert.critical');
@@ -100,7 +101,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.1', () => {
       await alertManager.recordAlert('security', 'Test security alert', { test: true });
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       expect(events).toHaveLength(1);
       expect(events[0].topic).toBe('alert.security');
@@ -125,7 +126,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.1', () => {
       await alertManager.recordAlert('warning', 'Test warning alert', { test: true });
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       expect(events).toHaveLength(1);
       expect(events[0].topic).toBe('alert.warning');
@@ -150,7 +151,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.1', () => {
       await alertManager.recordAlert('notice', 'Test notice alert', { test: true });
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       expect(events).toHaveLength(1);
       expect(events[0].topic).toBe('alert.notice');
@@ -177,7 +178,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.1', () => {
       await alertManager.recordAlert('notice', 'Alert 3');
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       expect(events).toHaveLength(3);
       
@@ -211,7 +212,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.1', () => {
       await alertManager.recordAlert('critical', 'Test with metadata', testMeta);
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       expect(events).toHaveLength(1);
       expect(events[0].payload.meta).toBeTruthy();
@@ -237,7 +238,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.1', () => {
       await alertManager.recordAlert('critical', 'Immediate alert test');
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await delay();
       
       // Verify Discord DM was sent (existing behavior)
       expect(mockUser.send).toHaveBeenCalledTimes(1);
@@ -258,7 +259,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.1', () => {
       await alertManager.recordAlert('warning', 'Digest alert test');
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Verify Discord DM was NOT sent immediately (existing behavior)
       expect(mockUser.send).not.toHaveBeenCalled();
@@ -293,7 +294,7 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.1', () => {
       await alertManager.recordAlert('notice', 'Notice alert');
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       expect(events).toHaveLength(4);
       expect(events.map(e => e.topic).sort()).toEqual([

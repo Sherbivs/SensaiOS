@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { delay } from '../shared/index.js';
 
 describe('Engine Write Buffer - API Contract', () => {
   it('should export required functions', async () => {
@@ -239,7 +240,7 @@ describe('Engine Write Buffer - Flush Operations', () => {
     const lastFlushBefore = statsBefore.lastFlushTime;
 
     // Wait a bit to ensure different timestamp
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await delay();
 
     // Flush
     await module.engineWriteBuffer.flush();

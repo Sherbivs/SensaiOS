@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { delay } from '../../shared/index.js';
 import {
   PrometheusMetricsService,
   createPrometheusMetricsService,
@@ -286,7 +287,7 @@ describe("PrometheusMetricsService", () => {
       const result = await service.timeHistogram(
         "security_operation_duration_seconds",
         async () => {
-          await new Promise(resolve => setTimeout(resolve, 10));
+          await delay();
           return "done";
         },
         { operation: "async_test" }

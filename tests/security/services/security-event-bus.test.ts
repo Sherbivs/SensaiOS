@@ -13,6 +13,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { delay } from '../../shared/index.js';
 import {
   SecurityEventBus,
   createSecurityEventBus,
@@ -407,7 +408,7 @@ describe("SecurityEventBus", () => {
     it("should handle async handlers", async () => {
       let completed = false;
       const handler: EventHandler = async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await delay();
         completed = true;
       };
 
@@ -424,7 +425,7 @@ describe("SecurityEventBus", () => {
       });
 
       const slowHandler: EventHandler = async () => {
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        await delay();
       };
 
       timeoutBus.subscribe(SecurityChannel.AUTH, "login", slowHandler);

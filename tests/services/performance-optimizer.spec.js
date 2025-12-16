@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import { delay } from '../shared/index.js';
 import {
   profileFunction,
   profileAsyncFunction,
@@ -87,7 +88,7 @@ describe('Performance Optimizer - Profiling', () => {
 
   it('should profile asynchronous function execution', async () => {
     const asyncFn = async () => {
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await delay();
       return 'done';
     };
 
@@ -143,7 +144,7 @@ describe('Performance Optimizer - Caching', () => {
     cache.set('key1', 'value1', 50); // 50ms TTL
     expect(cache.get('key1')).toBe('value1');
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await delay();
     expect(cache.get('key1')).toBeNull();
   });
 
@@ -245,7 +246,7 @@ describe('Performance Optimizer - Caching', () => {
     expect(memoized(5)).toBe(10);
     expect(callCount).toBe(1);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await delay();
 
     // Cache expired, should call function again
     expect(memoized(5)).toBe(10);
@@ -273,7 +274,7 @@ describe('Performance Optimizer - Batch Processing', () => {
     processor.add(2);
     processor.add(3);
 
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await delay();
     expect(processed).toEqual([1, 2, 3]);
   });
 
@@ -293,7 +294,7 @@ describe('Performance Optimizer - Batch Processing', () => {
     processor.add(3);
     processor.add(4);
 
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await delay();
     expect(batches.length).toBeGreaterThanOrEqual(2);
     expect(batches.flat()).toEqual([1, 2, 3, 4]);
   });
@@ -329,7 +330,7 @@ describe('Performance Optimizer - Batch Processing', () => {
     expect(() => processor.add(1)).not.toThrow();
     expect(() => processor.add(2)).not.toThrow();
 
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await delay();
     // Should not crash, errors handled internally
   });
 });
@@ -458,7 +459,7 @@ describe('Performance Optimizer - Baseline Generation', () => {
       cacheTTL: 50
     });
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await delay();
 
     const result = optimizeBaselineGeneration(roleArchive, {
       cacheEnabled: true,
@@ -752,7 +753,7 @@ describe('Performance Optimizer - End-to-End', () => {
     // Process individually
     const start1 = performance.now();
     for (let i = 0; i < 100; i++) {
-      await new Promise(resolve => setTimeout(resolve, 1));
+      await delay();
       processedIndividually.push(i);
     }
     const duration1 = performance.now() - start1;
@@ -760,7 +761,7 @@ describe('Performance Optimizer - End-to-End', () => {
     // Process in batches
     const processor = createBatchProcessor(
       async (batch) => {
-        await new Promise(resolve => setTimeout(resolve, 1));
+        await delay();
         processedBatched.push(...batch);
       },
       { batchSize: 10, delay: 5 }

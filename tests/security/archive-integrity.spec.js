@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { delay } from '../shared/index.js';
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
@@ -317,7 +318,7 @@ describe('Archive Integrity (HMAC Signatures)', () => {
     });
     
     // Give persist async operation time to complete
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await delay();
     
     // Read file and verify signature exists
     const fileContent = await fs.readFile(TEST_ARCHIVE_FILE, 'utf8');
@@ -364,7 +365,7 @@ describe('Archive Integrity (HMAC Signatures)', () => {
     });
     
     // Wait for async persist
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await delay();
     
     // Verify backup file exists
     const backupExists = await fs.access(TEST_BACKUP_FILE)
@@ -494,7 +495,7 @@ describe('Archive Integrity (HMAC Signatures)', () => {
     });
     
     // Wait for persist
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await delay();
     
     const statsBeforeReload = getRoleStatistics();
     
@@ -533,7 +534,7 @@ describe('Archive Integrity (HMAC Signatures)', () => {
     await Promise.all(promises);
     
     // Wait for all persist operations
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await delay();
     
     // Reload and verify integrity
     await shutdownRoleArchive();

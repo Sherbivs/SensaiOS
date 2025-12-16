@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { delay } from '../shared/index.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -131,12 +132,12 @@ describe('Engine Write-DB Stress Test', () => {
       const initialMtime = initialStat.mtimeMs;
       
       // Wait a moment to ensure different mtime if written
-      await new Promise(r => setTimeout(r, 100));
+      await delay();
       
       // Call saveToFile multiple times without any inserts
       for (let i = 0; i < 5; i++) {
         await saveToFile(); // Should skip (isDirty = false)
-        await new Promise(r => setTimeout(r, 20));
+        await delay();
       }
       
       // Check file modification time hasn't changed
@@ -154,7 +155,7 @@ describe('Engine Write-DB Stress Test', () => {
       await saveToFile(true);
       
       // Get modification time after init
-      await new Promise(r => setTimeout(r, 100));
+      await delay();
       const postInitStat = await fs.stat(testDbPath);
       const postInitMtime = postInitStat.mtimeMs;
       
@@ -163,7 +164,7 @@ describe('Engine Write-DB Stress Test', () => {
       await insertBattleLogs([battle]);
       
       // Wait a moment
-      await new Promise(r => setTimeout(r, 100));
+      await delay();
       
       // Save should write because isDirty = true
       await saveToFile();
@@ -182,11 +183,11 @@ describe('Engine Write-DB Stress Test', () => {
       await saveToFile(true);
       
       // Wait and get baseline
-      await new Promise(r => setTimeout(r, 100));
+      await delay();
       const baseline = await fs.stat(testDbPath);
       
       // Wait a moment
-      await new Promise(r => setTimeout(r, 100));
+      await delay();
       
       // Force save even though nothing changed
       await saveToFile(true);
@@ -314,7 +315,7 @@ describe('Engine Write-DB Stress Test', () => {
         }
         
         // Wait a bit
-        await new Promise(r => setTimeout(r, 20));
+        await delay();
         
         // Save
         await saveToFile();

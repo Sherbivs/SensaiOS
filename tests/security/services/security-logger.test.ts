@@ -22,6 +22,8 @@
  * @since 2025-01-XX
  */
 
+import { delay } from '../../shared/index.js';
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   SecurityLogger,
@@ -532,7 +534,7 @@ describe('SecurityLogger', () => {
 
     it('should log successful operation with withTiming', async () => {
       await logger.withTiming('Operation completed', async () => {
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await delay();
         return 'result';
       });
 

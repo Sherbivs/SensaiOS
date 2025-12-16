@@ -79,6 +79,9 @@ export {
   createMultiTableSchema,
 } from './fixtures.js';
 
+// Async utilities (re-exported from shared for test convenience)
+export { delay, delayWithJitter } from '../../src/shared/utils/async-utils.js';
+
 // Custom assertions
 export {
   // Pokémon

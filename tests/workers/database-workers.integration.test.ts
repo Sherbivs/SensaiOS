@@ -23,6 +23,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { delay } from '../shared/index.js';
 import { ProdPostgresWorker } from '../../src/workers/database/prod-postgres-worker.js';
 import { TimescaleDBWorker } from '../../src/workers/database/timescaledb-worker.js';
 import type { LogEvent } from '../../src/workers/database/timescaledb-worker.js';
@@ -168,7 +169,7 @@ describe('Database Workers Integration - Task 10', () => {
   describe('TimescaleDB Worker', () => {
     beforeEach(async () => {
       // Give time for previous test cleanup to complete
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await delay();
       timescaleWorker = new TimescaleDBWorker(testConfig);
     });
 
@@ -179,7 +180,7 @@ describe('Database Workers Integration - Task 10', () => {
           // Stop the worker (stops write buffer timer)
           await timescaleWorker.stop(15000);
           // Aggressive delay to ensure all timers cleared
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await delay();
           // Nullify reference
           timescaleWorker = null as any;
         } catch (error) {
@@ -382,11 +383,11 @@ describe('Database Workers Integration - Task 10', () => {
       // Coordinated shutdown with increased timeouts and delays
       try {
         if (engineWriteWorker) await engineWriteWorker.stop(10000);
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await delay();
         if (engineReadWorker) await engineReadWorker.stop(10000);
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await delay();
         if (timescaleWorker) await timescaleWorker.stop(10000);
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await delay();
         if (prodWorker) await prodWorker.stop(10000);
       } catch (error) {
         console.error('Coordinated afterEach cleanup error:', error);

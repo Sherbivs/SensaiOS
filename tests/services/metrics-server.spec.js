@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { delay } from '../shared/index.js';
 import {
   startMetricsServer,
   stopMetricsServer,
@@ -306,7 +307,7 @@ describe('Metrics Server', () => {
       expect(isMetricsServerRunning()).toBe(false);
       
       // Wait a moment
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await delay();
       
       // Start again
       serverInfo = await startMetricsServer({ port: 9100 });

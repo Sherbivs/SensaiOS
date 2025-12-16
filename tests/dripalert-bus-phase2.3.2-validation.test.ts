@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { delay } from './shared/index.js';
 import { EventBus } from '../src/shared/event-bus.js';
 import { createDripAlertManager } from '../src/bot/dripAlerts.js';
 
@@ -207,7 +208,7 @@ describe('DripAlertManager Event Bus Subscriptions - Phase 2.3.2', () => {
       await alertManager.recordAlert('critical', 'Backward compat test');
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await delay();
       
       // Verify Discord DM was sent (existing behavior)
       expect(mockUser.send).toHaveBeenCalledTimes(1);
@@ -229,7 +230,7 @@ describe('DripAlertManager Event Bus Subscriptions - Phase 2.3.2', () => {
       await alertManager.recordAlert('warning', 'Digest backward compat test');
       
       // Wait for async processing
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await delay();
       
       // Verify Discord DM was NOT sent immediately (existing behavior)
       expect(mockUser.send).not.toHaveBeenCalled();
