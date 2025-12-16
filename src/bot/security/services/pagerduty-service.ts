@@ -50,6 +50,7 @@
  */
 
 import { getErrorMessage } from '../../../shared/utils/error-utils.js';
+import { delay as asyncDelay } from '../../../shared/utils/async-utils.js';
 
 // ============================================================================
 // Types and Interfaces
@@ -656,7 +657,7 @@ export class PagerDutyService {
         this.stats.totalRetries++;
 
         if (attempt < this.config.maxRetries) {
-          await this.sleep(delay);
+          await asyncDelay(delay);
           delay = Math.min(delay * 2, this.config.maxRetryDelayMs);
         }
       }
@@ -699,13 +700,6 @@ export class PagerDutyService {
     while (this.alertHistory.length > this.config.historyRetention) {
       this.alertHistory.shift();
     }
-  }
-
-  /**
-   * Sleep helper for retry delays.
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 

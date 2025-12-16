@@ -21,6 +21,7 @@
 
 import { log } from "../utils/logger.js";
 import { getErrorMessage } from "../shared/utils/error-utils.js";
+import { delay } from "../shared/utils/async-utils.js";
 import type { AuditUserContext } from "./audit-service.js";
 import crypto from "crypto";
 
@@ -740,7 +741,7 @@ export class BatchProcessor {
         
         // Delay between chunk batches
         if (chunkIndex + concurrency < chunks.length && chunkDelay > 0) {
-          await this.sleep(chunkDelay);
+          await delay(chunkDelay);
         }
       }
       
@@ -853,7 +854,7 @@ export class BatchProcessor {
           
           if (attempt < job.config.maxRetries) {
             // Exponential backoff
-            await this.sleep(Math.min(1000 * Math.pow(2, attempt - 1), 10000));
+            await delay(Math.min(1000 * Math.pow(2, attempt - 1), 10000));
           }
         }
       }
@@ -925,10 +926,6 @@ export class BatchProcessor {
       chunks.push(array.slice(i, i + size));
     }
     return chunks;
-  }
-  
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
   
   private timeout(ms: number, signal: AbortSignal): Promise<never> {

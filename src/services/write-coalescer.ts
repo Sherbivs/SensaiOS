@@ -22,6 +22,7 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import { Counter, Gauge, Histogram, register } from 'prom-client';
 import { log } from '../utils/logger.js';
+import { delay } from '../shared/utils/async-utils.js';
 
 // ============================================================================
 // Type Definitions
@@ -484,7 +485,7 @@ export class WriteCoalescer {
         
         if (attempt < this.config.maxRetries - 1) {
           // Wait before retry with exponential backoff
-          await this.sleep(this.config.retryDelayMs * Math.pow(2, attempt));
+          await delay(this.config.retryDelayMs * Math.pow(2, attempt));
         }
       }
     }
@@ -501,13 +502,6 @@ export class WriteCoalescer {
       total += queue.size;
     }
     return total;
-  }
-
-  /**
-   * Sleep helper
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 

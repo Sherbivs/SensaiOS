@@ -16,6 +16,7 @@
  */
 
 import { daysAgo, hoursAgo } from '../../../shared/utils/date-utils.js';
+import { delay } from '../../../shared/utils/async-utils.js';
 
 // ============================================================================
 // Types and Interfaces
@@ -1139,7 +1140,7 @@ WHERE bucket >= '${from.toISOString()}' AND bucket <= '${to.toISOString()}'
   }
 
   private async simulateExecution(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return delay(ms);
   }
 
   /**

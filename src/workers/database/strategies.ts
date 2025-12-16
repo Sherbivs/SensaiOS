@@ -7,6 +7,7 @@
  * @module workers/database/strategies
  */
 
+import { delay } from '../../shared/utils/async-utils.js';
 import type {
   CacheConfig,
   CacheStats,
@@ -527,7 +528,7 @@ export class CircuitBreakerStrategy implements ErrorRecoveryStrategy {
         
         if (attempt < this.config.maxRetries) {
           // Wait before retry (exponential backoff)
-          await this.sleep(delayMs);
+          await delay(delayMs);
           delayMs = Math.min(
             delayMs * this.config.backoffMultiplier,
             this.config.maxRetryDelayMs
@@ -603,9 +604,5 @@ export class CircuitBreakerStrategy implements ErrorRecoveryStrategy {
         this.logger?.('[CircuitBreaker] State changed: OPEN → HALF-OPEN (attempting recovery)', 'info');
       }
     }, this.config.circuitBreakerResetMs);
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }

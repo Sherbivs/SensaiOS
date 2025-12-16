@@ -27,6 +27,7 @@
 import * as crypto from 'crypto';
 import type { PrismaClient } from '../../../generated/prisma/client.js';
 import { getErrorMessage } from '../../../shared/utils/error-utils.js';
+import { delay } from '../../../shared/utils/async-utils.js';
 
 // ============================================================================
 // Types & Interfaces
@@ -460,7 +461,7 @@ export class RetentionPolicyService {
 
         // Rate limiting between batches
         if (deletedCount < actualDeleteCount) {
-          await this.delay(this.config.batchDelayMs);
+          await delay(this.config.batchDelayMs);
         }
       }
 
@@ -811,13 +812,6 @@ export class RetentionPolicyService {
       .createHmac('sha256', this.config.hmacSecret)
       .update(data)
       .digest('hex');
-  }
-
-  /**
-   * Delay helper for rate limiting
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 
