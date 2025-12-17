@@ -21,7 +21,6 @@
  */
 
 import { EventBus, type BusEvent } from "../shared/event-bus.js";
-// @ts-expect-error - dripAlerts.js is not yet TypeScript
 import { DRIP_ALERT_SEVERITY } from "./dripAlerts.js";
 import { getErrorMessage } from "../shared/utils/index.js";
 
