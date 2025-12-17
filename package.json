@@ -3,6 +3,9 @@
   "version": "0.1.1",
   "private": true,
   "type": "module",
+  "overrides": {
+    "effect": "3.19.12"
+  },
   "scripts": {
     "build:ci": "npm run prebuild",
     "postinstall": "npx prisma generate && echo 'Running postinstall TypeScript build...' && npm run build:ts && echo 'postinstall build complete'",
