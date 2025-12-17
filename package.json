@@ -152,7 +152,6 @@
     ]
   },
   "overrides": {
-    "effect": "3.19.12",
-    "@prisma/config>effect": "3.19.12"
+    "effect": "3.19.12"
   }
 }
