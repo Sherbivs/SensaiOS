@@ -75,7 +75,7 @@ export function buildErrorEmbed(reason: string, attemptedName?: string) {
  * Build confirmation embed when starter is successfully chosen
  */
 export function buildConfirmationEmbed(speciesName: string, speciesId: number) {
-  const spriteUrl = getSpriteUrl(speciesId, 'official') || getSpriteUrl(speciesId, 'default');
+  const spriteUrl = getSpriteUrl(speciesId, 'artwork') || getSpriteUrl(speciesId, 'sprite');
   return starterConfirmationEmbed(speciesName, spriteUrl);
 }
 

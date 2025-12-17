@@ -420,7 +420,7 @@ async function getPrisma(): Promise<PrismaClient | null> {
     }
     return prismaSingleton;
   } catch (err) {
-    log.error('[home] Failed to initialise Prisma client:', (err as Error)?.message || err);
+    log.error('[home] Failed to initialise Prisma client:', { error: (err as Error)?.message || String(err) });
     return null;
   }
 }
@@ -506,7 +506,7 @@ async function loadRecentBattleHistory(
       })
       .filter((x): x is BattleHistoryEntry => x !== null);
   } catch (err) {
-    log.error(`[home] Failed to load battle history for ${trainer?.discordId ?? 'unknown'}:`, (err as Error)?.message || err);
+    log.error(`[home] Failed to load battle history for ${trainer?.discordId ?? 'unknown'}:`, { error: (err as Error)?.message || String(err) });
     return [];
   }
 }
@@ -661,7 +661,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
           trainerForView = freshness?.trainer ?? trainer;
           questState = freshness?.state ?? null;
         } catch (err) {
-          log.warn('[home] Failed to refresh quest streak state:', (err as Error)?.message || err);
+          log.warn('[home] Failed to refresh quest streak state:', { error: (err as Error)?.message || String(err) });
         }
       }
 
@@ -677,7 +677,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
       }
     }
   } catch (err) {
-    log.error('[home] Failed to load trainer data:', (err as Error)?.message || err);
+    log.error('[home] Failed to load trainer data:', { error: (err as Error)?.message || String(err) });
   }
 
   try {
@@ -701,7 +701,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
       await interaction.reply({ content: 'Home opened above.', ephemeral: false });
     }
   } catch (err) {
-    log.error('[home] Failed to open homestead Home:', (err as Error)?.message || err);
+    log.error('[home] Failed to open homestead Home:', { error: (err as Error)?.message || String(err) });
     try {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ content: 'Could not access your homestead channel. Please contact an administrator.', ephemeral: true });

@@ -247,7 +247,7 @@ async function sendAdminAlert(
   };
   
   if (dryRun) {
-    log('info', '[ThreatResponse] [DRY RUN] Would send admin alert', alertMessage);
+    log('info', '[ThreatResponse] [DRY RUN] Would send admin alert', { ...alertMessage });
     return {
       threat: threat.type,
       success: true,

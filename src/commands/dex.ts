@@ -72,7 +72,8 @@ const command: Command = {
 
     // Extract stats with multiple fallback keys
     const statsSource = mon.stats || mon.base_stats || mon.baseStats || {};
-    const statEntries = Object.entries(statsSource as Record<string, number>);
+    const statEntries = Object.entries(statsSource as unknown as Record<string, number | null>)
+      .filter((entry): entry is [string, number] => entry[1] !== null);
     const statLines = statEntries
       .map(([k, v]) => `${String(k).replace('-', ' ')}: **${v}**`)
       .join('  •  ');

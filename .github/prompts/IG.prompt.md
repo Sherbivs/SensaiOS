@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: agent
 ---
 
 # Pokemon Infinity Gauntlet — Agent Prompt

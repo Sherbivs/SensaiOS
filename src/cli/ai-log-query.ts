@@ -81,7 +81,7 @@ interface LogEntry {
 }
 
 /** Query filters */
-interface QueryFilters {
+interface _QueryFilters {
   category?: string;
   level?: string;
   since?: Date | null;

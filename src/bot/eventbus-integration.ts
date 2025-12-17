@@ -22,7 +22,6 @@ import {
   EventBus,
   type BusEvent,
   type CorrelationId,
-  type SubscriberInfo,
 } from "../shared/event-bus.js";
 import { getErrorMessage } from "../shared/utils/index.js";
 

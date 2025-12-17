@@ -154,7 +154,6 @@ export function initializeSecurityDbSubscriber(logFn?: LogFunction): string[] {
 
   // Initialize SecurityEventService
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     securityEventService = new SecurityEventService(prisma as any);
     log("info", "[SecurityDbSubscriber] SecurityEventService initialized");
   } catch (error) {

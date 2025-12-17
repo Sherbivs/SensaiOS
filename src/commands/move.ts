@@ -67,20 +67,29 @@ const command: Command = {
       return;
     }
 
-    const typeName = String(move.type || '').toLowerCase();
+    // Type helpers for index signature accessed properties
+    const moveType = typeof move.type === 'string' ? move.type : '';
+    const moveClass = typeof move.class === 'string' ? move.class : (typeof move.category === 'string' ? move.category : '');
+    const movePower = typeof move.power === 'number' ? String(move.power) : '—';
+    const moveAccuracy = typeof move.accuracy === 'number' ? `${move.accuracy}%` : '—';
+    const movePP = typeof move.pp === 'number' ? String(move.pp) : '—';
+    const movePriority = typeof move.priority === 'number' ? String(move.priority) : '0';
+    const moveEffect = typeof move.effect === 'string' ? move.effect : (typeof move.short_effect === 'string' ? move.short_effect : '—');
+
+    const typeName = moveType.toLowerCase();
     const color = (TYPE_COLORS as Record<string, number>)[typeName] ?? 0x2F3136;
 
     const embed = new EmbedBuilder()
-      .setTitle(move.name)
+      .setTitle(typeof move.name === 'string' ? move.name : query)
       .setColor(color)
       .addFields(
-        { name: 'Type', value: move.type || '—', inline: true },
-        { name: 'Class', value: move.class || move.category || '—', inline: true },
-        { name: 'Power', value: String(move.power ?? '—'), inline: true },
-        { name: 'Accuracy', value: move.accuracy != null ? `${move.accuracy}%` : '—', inline: true },
-        { name: 'PP', value: String(move.pp ?? '—'), inline: true },
-        { name: 'Priority', value: String(move.priority ?? 0), inline: true },
-        { name: 'Effect', value: move.effect || move.short_effect || '—', inline: false },
+        { name: 'Type', value: moveType || '—', inline: true },
+        { name: 'Class', value: moveClass || '—', inline: true },
+        { name: 'Power', value: movePower, inline: true },
+        { name: 'Accuracy', value: moveAccuracy, inline: true },
+        { name: 'PP', value: movePP, inline: true },
+        { name: 'Priority', value: movePriority, inline: true },
+        { name: 'Effect', value: moveEffect, inline: false },
       );
 
     await interaction.reply({ embeds: [embed] });

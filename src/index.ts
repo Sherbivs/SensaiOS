@@ -147,10 +147,10 @@ let stopAutoSyncSupervisor: (() => void) | null = null;
 let engineWorkersRunning = false;
 
 // Declare global.engineReady for battle engine readiness check
+// Note: securityBotState and securityBotClient are declared in src/utils/logger.ts
+// with looser types for telemetry compatibility. We assign the actual types at runtime.
 declare global {
   var engineReady: boolean;
-  var securityBotState: import("./bot/state/types.js").SecurityBotState | null; // Security bot state from bot/state/persistence.ts
-  var securityBotClient: import("discord.js").Client | null; // Discord client for security bot
 }
 global.engineReady = false;
 
@@ -899,7 +899,8 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     (async () => {
       if (global.securityBotState) {
         const { shutdownState } = await import("./bot/state/persistence.js");
-        await shutdownState(global.securityBotState, signal);
+        type SecurityBotState = import("./bot/state/types.js").SecurityBotState;
+        await shutdownState(global.securityBotState as SecurityBotState, signal);
         log.info("✅ SNAPSHOT: Security bot state saved");
       }
     })(),
@@ -979,7 +980,8 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     const securityBotState = global.securityBotState;
     if (securityBotState) {
       const { shutdownState } = await import("./bot/state/persistence.js");
-      await shutdownState(securityBotState, signal);
+      type SecurityBotState = import("./bot/state/types.js").SecurityBotState;
+      await shutdownState(securityBotState as SecurityBotState, signal);
       log.info("Security bot state saved successfully");
     }
   } catch (error) {
