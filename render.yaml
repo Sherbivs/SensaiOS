@@ -23,6 +23,8 @@ services:
         mountPath: /Store
         sizeGB: 2
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.1"
       # Unified architecture: Single Render-managed PostgreSQL database
       - key: DATABASE_URL
         fromDatabase:
@@ -74,6 +76,8 @@ services:
         mountPath: /Store
         sizeGB: 2
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.1"
       # Unified architecture: Single Render-managed PostgreSQL database
       - key: DATABASE_URL
         fromDatabase:
@@ -134,6 +138,8 @@ services:
         mountPath: /Store
         sizeGB: 1
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.1"
       - key: TZ
         value: America/New_York
       - key: NODE_ENV
@@ -181,6 +187,8 @@ services:
         mountPath: /Store
         sizeGB: 2
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.1"
       # Unified architecture: Single Render-managed PostgreSQL database
       - key: DATABASE_URL
         fromDatabase:
@@ -225,6 +233,8 @@ services:
         mountPath: /Store
         sizeGB: 2
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.1"
       # Unified architecture: Single Render-managed PostgreSQL database
       - key: DATABASE_URL
         fromDatabase:
@@ -272,6 +282,8 @@ services:
         mountPath: /Store
         sizeGB: 1
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.1"
       # Unified architecture: Single Render-managed PostgreSQL database
       - key: PROD_DATABASE_URL
         fromDatabase:
@@ -326,6 +338,8 @@ services:
     startCommand: "node scripts/refresh_cache_gh_only.mjs"
     schedule: "0 0 * * 4"
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.1"
       # Unified architecture: Single Render-managed PostgreSQL database
       - key: PROD_DATABASE_URL
         fromDatabase:
