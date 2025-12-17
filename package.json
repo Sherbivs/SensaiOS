@@ -152,6 +152,7 @@
     ]
   },
   "overrides": {
-    "effect": "3.19.12"
+    "effect": "3.19.12",
+    "fast-check": "3.22.0"
   }
 }
