@@ -24,7 +24,7 @@ services:
         sizeGB: 2
     envVars:
       - key: NODE_VERSION
-        value: "20.18.1"
+        value: "20.19.0"
       # Unified architecture: Single Render-managed PostgreSQL database
       - key: DATABASE_URL
         fromDatabase:
@@ -77,7 +77,7 @@ services:
         sizeGB: 2
     envVars:
       - key: NODE_VERSION
-        value: "20.18.1"
+        value: "20.19.0"
       # Unified architecture: Single Render-managed PostgreSQL database
       - key: DATABASE_URL
         fromDatabase:
@@ -139,7 +139,7 @@ services:
         sizeGB: 1
     envVars:
       - key: NODE_VERSION
-        value: "20.18.1"
+        value: "20.19.0"
       - key: TZ
         value: America/New_York
       - key: NODE_ENV
@@ -188,7 +188,7 @@ services:
         sizeGB: 2
     envVars:
       - key: NODE_VERSION
-        value: "20.18.1"
+        value: "20.19.0"
       # Unified architecture: Single Render-managed PostgreSQL database
       - key: DATABASE_URL
         fromDatabase:
@@ -234,7 +234,7 @@ services:
         sizeGB: 2
     envVars:
       - key: NODE_VERSION
-        value: "20.18.1"
+        value: "20.19.0"
       # Unified architecture: Single Render-managed PostgreSQL database
       - key: DATABASE_URL
         fromDatabase:
@@ -283,7 +283,7 @@ services:
         sizeGB: 1
     envVars:
       - key: NODE_VERSION
-        value: "20.18.1"
+        value: "20.19.0"
       # Unified architecture: Single Render-managed PostgreSQL database
       - key: PROD_DATABASE_URL
         fromDatabase:
@@ -339,7 +339,7 @@ services:
     schedule: "0 0 * * 4"
     envVars:
       - key: NODE_VERSION
-        value: "20.18.1"
+        value: "20.19.0"
       # Unified architecture: Single Render-managed PostgreSQL database
       - key: PROD_DATABASE_URL
         fromDatabase:
