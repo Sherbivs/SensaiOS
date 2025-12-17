@@ -32,6 +32,8 @@ import { prisma } from '../shared/prisma.js';
 import { HomesteadVerificationService } from '../services/homestead-verification.js';
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { daysAgo } from '../shared/utils/date-utils.js';
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
@@ -92,20 +94,20 @@ async function saveIntegrityReport(report) {
 async function cleanupOldReports() {
     try {
         const files = await fs.readdir(INTEGRITY_REPORT_DIR);
-        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        const cutoffTime = daysAgo(30).getTime();
         for (const file of files) {
             if (!file.endsWith('.json'))
                 continue;
             const filepath = join(INTEGRITY_REPORT_DIR, file);
             const stats = await fs.stat(filepath);
-            if (stats.mtimeMs < thirtyDaysAgo) {
+            if (stats.mtimeMs < cutoffTime) {
                 await fs.unlink(filepath);
                 process.stdout.write(`[HomesteadIntegrity] Deleted old report: ${file}\n`);
             }
         }
     }
     catch (err) {
-        process.stderr.write(`[HomesteadIntegrity] Cleanup error: ${err instanceof Error ? err.message : String(err)}\n`);
+        process.stderr.write(`[HomesteadIntegrity] Cleanup error: ${getErrorMessage(err)}\n`);
     }
 }
 // ============================================================================
@@ -159,7 +161,7 @@ export async function runHomesteadIntegrityCheck(client) {
             catch (guildErr) {
                 // Log guild-specific error but continue checking other guilds
                 process.stderr.write(`[HomesteadIntegrity] Error checking guild ${guildId}: ` +
-                    `${guildErr instanceof Error ? guildErr.message : String(guildErr)}\n`);
+                    `${getErrorMessage(guildErr)}\n`);
             }
         }
         // Cleanup old reports
@@ -172,7 +174,7 @@ export async function runHomesteadIntegrityCheck(client) {
             `  Alerts Emitted: ${totalAlertsEmitted}\n`);
     }
     catch (err) {
-        process.stderr.write(`[HomesteadIntegrity] Fatal error: ${err instanceof Error ? err.message : String(err)}\n`);
+        process.stderr.write(`[HomesteadIntegrity] Fatal error: ${getErrorMessage(err)}\n`);
         throw err;
     }
 }
@@ -208,7 +210,7 @@ async function main() {
         process.exit(0);
     }
     catch (err) {
-        process.stderr.write(`[HomesteadIntegrity] Worker failed: ${err instanceof Error ? err.message : String(err)}\n`);
+        process.stderr.write(`[HomesteadIntegrity] Worker failed: ${getErrorMessage(err)}\n`);
         await client.destroy();
         process.exit(1);
     }

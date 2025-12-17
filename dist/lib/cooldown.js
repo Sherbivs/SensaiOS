@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { log } from '../utils/logger.js';
+// ============================================================================
+// Module State
+// ============================================================================
 // In-memory cooldowns; suitable for a single running instance
 const store = new Map(); // key -> timestamp (ms)
 // Configuration
@@ -11,14 +14,21 @@ const STORAGE_DIR = process.env.RENDER ? '/Store/cooldowns' : path.join(process.
 const STORAGE_FILE = path.join(STORAGE_DIR, 'cooldowns.json');
 let cleanupTimer = null;
 let persistTimer = null;
+// ============================================================================
+// Internal Helpers
+// ============================================================================
 function keyFor(userId, commandName) {
     return `${userId}:${commandName}`;
 }
+// ============================================================================
+// Exported Functions
+// ============================================================================
 /**
+ * Check if user is on cooldown for command, and set new cooldown if not.
  * Returns { ok: boolean, waitMs: number }
  * If on cooldown, ok=false and waitMs=remaining.
  */
-function checkAndSet(userId, commandName, cooldownMs = 2000) {
+export function checkAndSet(userId, commandName, cooldownMs = 2000) {
     const now = Date.now();
     const key = keyFor(userId, commandName);
     const until = store.get(key) || 0;
@@ -31,7 +41,7 @@ function checkAndSet(userId, commandName, cooldownMs = 2000) {
  * Remove expired cooldown entries (older than MAX_COOLDOWN_AGE_MS).
  * Called periodically to prevent unbounded memory growth.
  */
-function cleanup() {
+export function cleanup() {
     const now = Date.now();
     const threshold = now - MAX_COOLDOWN_AGE_MS;
     let removed = 0;
@@ -49,7 +59,7 @@ function cleanup() {
  * Persist cooldown state to disk for recovery after restarts.
  * Only saves entries that are still valid (not expired).
  */
-async function persist() {
+export async function persist() {
     try {
         const now = Date.now();
         const threshold = now - MAX_COOLDOWN_AGE_MS;
@@ -80,7 +90,7 @@ async function persist() {
  * Load cooldown state from disk on startup.
  * Filters out expired entries during load.
  */
-function load() {
+export function load() {
     try {
         if (!fs.existsSync(STORAGE_FILE)) {
             log('info', 'cooldown: No persisted state found (first startup)');
@@ -110,19 +120,19 @@ function load() {
 /**
  * Start periodic cleanup and persistence timers.
  */
-function startMaintenance() {
+export function startMaintenance() {
     if (cleanupTimer || persistTimer) {
         log('warn', 'cooldown: Maintenance already running');
         return;
     }
     cleanupTimer = setInterval(cleanup, CLEANUP_INTERVAL_MS);
-    persistTimer = setInterval(persist, PERSIST_INTERVAL_MS);
+    persistTimer = setInterval(() => void persist(), PERSIST_INTERVAL_MS);
     log('info', 'cooldown: Started maintenance (cleanup: 10m, persist: 5m)');
 }
 /**
  * Stop periodic timers and save final state.
  */
-async function stopMaintenance() {
+export async function stopMaintenance() {
     if (cleanupTimer) {
         clearInterval(cleanupTimer);
         cleanupTimer = null;
@@ -138,7 +148,7 @@ async function stopMaintenance() {
 /**
  * Get current statistics for monitoring.
  */
-function getStats() {
+export function getStats() {
     const now = Date.now();
     const threshold = now - MAX_COOLDOWN_AGE_MS;
     let active = 0;
@@ -160,16 +170,25 @@ function getStats() {
         persistIntervalSec: PERSIST_INTERVAL_MS / 1000,
     };
 }
+// ============================================================================
+// Module Initialization
+// ============================================================================
 // Load persisted state on startup
 load();
 // Start maintenance timers
 startMaintenance();
 // Graceful shutdown handlers
-process.on('SIGTERM', async () => {
-    await stopMaintenance();
-});
-process.on('SIGINT', async () => {
-    await stopMaintenance();
-});
-export { checkAndSet, cleanup, persist, load, startMaintenance, stopMaintenance, getStats };
-export default { checkAndSet, cleanup, persist, load, startMaintenance, stopMaintenance, getStats };
+process.on('SIGTERM', () => void stopMaintenance());
+process.on('SIGINT', () => void stopMaintenance());
+// ============================================================================
+// Default Export
+// ============================================================================
+export default {
+    checkAndSet,
+    cleanup,
+    persist,
+    load,
+    startMaintenance,
+    stopMaintenance,
+    getStats,
+};

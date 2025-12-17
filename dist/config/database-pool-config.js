@@ -23,6 +23,7 @@
  * @module config/database-pool-config
  */
 import { log } from '../shared/log.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 // ============================================================================
 // Service Identification
 // ============================================================================
@@ -170,7 +171,7 @@ export function buildPooledConnectionUrl(baseUrl) {
     }
     catch (error) {
         log.warn('database-pool: Failed to parse connection URL, using base URL', {
-            error: error instanceof Error ? error.message : String(error),
+            error: getErrorMessage(error),
         });
         return baseUrl;
     }

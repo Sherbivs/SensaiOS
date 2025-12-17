@@ -91,3 +91,80 @@ export function diffInUtcDays(a, b) {
 export function cloneDate(value) {
     return value instanceof Date ? new Date(value.getTime()) : null;
 }
+// ============================================================================
+// Relative Time Functions
+// ============================================================================
+const MS_PER_SECOND = 1000;
+const MS_PER_MINUTE = 60 * MS_PER_SECOND;
+const MS_PER_HOUR = 60 * MS_PER_MINUTE;
+const MS_PER_DAY = 24 * MS_PER_HOUR;
+/**
+ * Get a Date object representing N days ago
+ * Replaces: `new Date(Date.now() - days * 24 * 60 * 60 * 1000)`
+ *
+ * @param days - Number of days ago
+ * @returns Date object for that time
+ *
+ * @example
+ * const weekAgo = daysAgo(7);
+ * const monthAgo = daysAgo(30);
+ */
+export function daysAgo(days) {
+    return new Date(Date.now() - days * MS_PER_DAY);
+}
+/**
+ * Get a Date object representing N hours ago
+ *
+ * @param hours - Number of hours ago
+ * @returns Date object for that time
+ */
+export function hoursAgo(hours) {
+    return new Date(Date.now() - hours * MS_PER_HOUR);
+}
+/**
+ * Get a Date object representing N minutes ago
+ *
+ * @param minutes - Number of minutes ago
+ * @returns Date object for that time
+ */
+export function minutesAgo(minutes) {
+    return new Date(Date.now() - minutes * MS_PER_MINUTE);
+}
+/**
+ * Get a Date object representing N days in the future
+ *
+ * @param days - Number of days ahead
+ * @returns Date object for that time
+ */
+export function daysFromNow(days) {
+    return new Date(Date.now() + days * MS_PER_DAY);
+}
+/**
+ * Get a Date object representing N hours in the future
+ *
+ * @param hours - Number of hours ahead
+ * @returns Date object for that time
+ */
+export function hoursFromNow(hours) {
+    return new Date(Date.now() + hours * MS_PER_HOUR);
+}
+/**
+ * Check if a date is older than N days
+ *
+ * @param date - Date to check
+ * @param days - Number of days threshold
+ * @returns true if date is older than threshold
+ */
+export function isOlderThanDays(date, days) {
+    return date.getTime() < Date.now() - days * MS_PER_DAY;
+}
+/**
+ * Check if a date is older than N hours
+ *
+ * @param date - Date to check
+ * @param hours - Number of hours threshold
+ * @returns true if date is older than threshold
+ */
+export function isOlderThanHours(date, hours) {
+    return date.getTime() < Date.now() - hours * MS_PER_HOUR;
+}

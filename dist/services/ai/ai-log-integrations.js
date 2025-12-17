@@ -1,23 +1,30 @@
 /* eslint-disable no-console */
+/**
+ * AI Log System Integrations
+ * @module services/ai/ai-log-integrations
+ *
+ * Purpose: Connect AI logging system with existing observability systems
+ *
+ * Integrations:
+ *   - Error Tracker: Log all detected errors with full context
+ *   - Console Logger: Mirror important console logs to AI logs
+ *   - Resource Monitor: Log resource metrics and health checks
+ *   - Database: Log queries, connections, and performance
+ *   - Discord: Log API interactions and rate limits
+ *   - Game Engine: Log battles, spawns, and calculations
+ *   - Security Bot: Log permission sweeps and alerts
+ *   - User Actions: Log commands and interactions
+ */
 import * as aiLogger from './ai-log-writer.js';
-// ============================================================================
-// AI LOG SYSTEM INTEGRATIONS
-// ============================================================================
-// Purpose: Connect AI logging system with existing observability systems
-// Integrations:
-//   - Error Tracker: Log all detected errors with full context
-//   - Console Logger: Mirror important console logs to AI logs
-//   - Resource Monitor: Log resource metrics and health checks
-//   - Database: Log queries, connections, and performance
-//   - Discord: Log API interactions and rate limits
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
+// Configuration
+// ─────────────────────────────────────────────────────────────────────────────
 const { CONFIG } = aiLogger;
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Error Tracker Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Hook into error-tracker to log all tracked errors.
- * @param {object} errorTracker - ErrorTracker instance
  */
 export function integrateErrorTracker(errorTracker) {
     if (!errorTracker)
@@ -48,12 +55,11 @@ export function integrateErrorTracker(errorTracker) {
     }
     console.log('[ai-log-integrations] Error Tracker integrated');
 }
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Console Logger Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Hook into console logger to mirror important logs to AI system.
- * @param {object} logger - Logger instance
  */
 export function integrateConsoleLogger(logger) {
     if (!logger || !logger.log)
@@ -74,7 +80,7 @@ export function integrateConsoleLogger(logger) {
         };
         const aiLevel = levelMap[level] || 'INFO';
         // Determine category from context
-        const category = context?.category || CONFIG.categories.SYSTEM;
+        const category = (context?.category || CONFIG.categories.SYSTEM);
         // Log to AI system
         aiLogger.log(aiLevel, category, message, {
             data: context,
@@ -96,12 +102,11 @@ export function integrateConsoleLogger(logger) {
     }
     console.log('[ai-log-integrations] Console Logger integrated');
 }
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Resource Monitor Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Hook into resource monitor to log health checks and metrics.
- * @param {object} resourceMonitor - ResourceMonitor instance
  */
 export function integrateResourceMonitor(resourceMonitor) {
     if (!resourceMonitor)
@@ -129,17 +134,15 @@ export function integrateResourceMonitor(resourceMonitor) {
     }
     console.log('[ai-log-integrations] Resource Monitor integrated');
 }
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Database Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Hook into Prisma to log queries and connections.
  * NOTE: Prisma v6 removed $use() middleware. Query logging via $extends()
  * requires using the extended client. This integration logs connection events
  * and errors, but detailed query logging would require refactoring to use
  * the extended client throughout the application.
- *
- * @param {object} prisma - Prisma client instance
  */
 export function integratePrisma(prisma) {
     if (!prisma) {
@@ -161,31 +164,31 @@ export function integratePrisma(prisma) {
     }
     catch (error) {
         aiLogger.error(CONFIG.categories.DATABASE, 'Failed to integrate Prisma', {
-            error,
+            error: error instanceof Error ? error : new Error(String(error)),
             tags: ['prisma', 'integration-error'],
         });
         console.error('[ai-log-integrations] Prisma integration failed:', error);
     }
 }
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Discord Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Hook into Discord client to log API interactions.
- * @param {object} client - Discord.js Client instance
  */
 export function integrateDiscordClient(client) {
     if (!client)
         return;
-    // Log rate limits
-    client.on('rateLimit', (rateLimitData) => {
+    // Log rate limits (note: RateLimitData structure varies by discord.js version)
+    client.rest.on('rateLimited', (rateLimitData) => {
         aiLogger.warn(CONFIG.categories.DISCORD, 'Rate limit hit', {
             data: {
-                timeout: rateLimitData.timeout,
+                timeToReset: rateLimitData.timeToReset,
                 limit: rateLimitData.limit,
                 method: rateLimitData.method,
-                path: rateLimitData.path,
+                url: rateLimitData.url,
                 route: rateLimitData.route,
+                global: rateLimitData.global,
             },
             tags: ['discord', 'rate-limit'],
         });
@@ -223,9 +226,9 @@ export function integrateDiscordClient(client) {
     });
     console.log('[ai-log-integrations] Discord Client integrated');
 }
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Game Engine Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Log game engine events (battles, calculations, etc.).
  */
@@ -308,9 +311,9 @@ export const gameEngine = {
         });
     },
 };
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Security Bot Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Log security bot events.
  */
@@ -363,9 +366,9 @@ export const securityBot = {
         });
     },
 };
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // User Action Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Log user-initiated actions.
  */
@@ -417,12 +420,11 @@ export const userActions = {
         });
     },
 };
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Resource Manager Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Hook into resource-manager for leak detection and tracking.
- * @param {object} resourceManager - ResourceManager instance
  */
 export function integrateResourceManager(resourceManager) {
     if (!resourceManager)
@@ -456,7 +458,7 @@ export function integrateResourceManager(resourceManager) {
         resourceManager.track = function (type, resource, metadata = {}) {
             const result = originalTrack(type, resource, metadata);
             // Log high-value resources only
-            if (metadata.size > 1024 * 1024 || metadata.critical) {
+            if ((metadata.size && metadata.size > 1024 * 1024) || metadata.critical) {
                 aiLogger.debug(CONFIG.categories.RESOURCE, `Tracking ${type} resource`, {
                     data: {
                         type,
@@ -472,12 +474,11 @@ export function integrateResourceManager(resourceManager) {
     }
     console.log('[ai-log-integrations] Resource Manager integrated');
 }
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Database Connection Monitoring
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Monitor database connection health and operations.
- * @param {object} connectionMonitor - Connection monitor with getDatabaseStats
  */
 export function integrateDatabaseMonitor(connectionMonitor) {
     if (!connectionMonitor || !connectionMonitor.getDatabaseStats)
@@ -487,7 +488,8 @@ export function integrateDatabaseMonitor(connectionMonitor) {
         try {
             const stats = connectionMonitor.getDatabaseStats();
             // Log each database's health
-            for (const [dbName, dbStats] of Object.entries(stats)) {
+            for (const [dbName, rawStats] of Object.entries(stats)) {
+                const dbStats = rawStats;
                 if (dbStats.status === 'error' || dbStats.status === 'degraded') {
                     aiLogger.warn(CONFIG.categories.DATABASE, `Database ${dbName} health issue`, {
                         data: {
@@ -498,23 +500,24 @@ export function integrateDatabaseMonitor(connectionMonitor) {
                             source: dbStats.source,
                             transport: dbStats.transport,
                         },
-                        tags: ['database', 'health', dbName, dbStats.status],
+                        tags: ['database', 'health', dbName, String(dbStats.status)],
                     });
                 }
             }
         }
         catch (error) {
-            aiLogger.debug(CONFIG.categories.SYSTEM, 'Database stats collection failed', { error });
+            aiLogger.debug(CONFIG.categories.SYSTEM, 'Database stats collection failed', {
+                error: error instanceof Error ? error : new Error(String(error))
+            });
         }
     }, 60 * 1000); // Every minute
     console.log('[ai-log-integrations] Database Monitor integrated');
 }
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Worker Process Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Log worker process lifecycle and metrics.
- * @param {object} workerConfig - Worker configuration with name and type
  */
 export function integrateWorkerProcess(workerConfig = {}) {
     const workerName = workerConfig.name || process.env.RENDER_SERVICE_NAME || 'unknown-worker';
@@ -543,7 +546,7 @@ export function integrateWorkerProcess(workerConfig = {}) {
     process.on('unhandledRejection', (reason, promise) => {
         aiLogger.critical(CONFIG.categories.ERROR, `Unhandled rejection in ${workerName}`, {
             error: reason instanceof Error ? reason : new Error(String(reason)),
-            data: { workerName, workerType, promise: promise.toString() },
+            data: { workerName, workerType, promise: String(promise) },
             tags: ['worker', 'critical', 'unhandled-rejection', workerName],
         });
     });
@@ -572,20 +575,20 @@ export function integrateWorkerProcess(workerConfig = {}) {
     }, 5 * 60 * 1000); // Every 5 minutes
     console.log(`[ai-log-integrations] Worker process integrated: ${workerName}`);
 }
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Auto-Integration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Automatically integrate with all available systems.
- * @param {object} services - Services to integrate
- * @returns {Promise<void>}
  */
 export async function integrateAll(services = {}) {
     const { errorTracker, logger, resourceMonitor, resourceManager, databaseMonitor, prisma, discordClient, workerConfig, } = services;
-    if (errorTracker)
+    if (errorTracker && typeof errorTracker === 'object' && 'trackError' in errorTracker) {
         integrateErrorTracker(errorTracker);
-    if (logger)
+    }
+    if (logger && typeof logger === 'object' && 'log' in logger && typeof logger.log === 'function') {
         integrateConsoleLogger(logger);
+    }
     if (resourceMonitor)
         integrateResourceMonitor(resourceMonitor);
     if (resourceManager)
@@ -600,6 +603,9 @@ export async function integrateAll(services = {}) {
         integrateWorkerProcess(workerConfig);
     console.log('[ai-log-integrations] All integrations complete');
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Default Export
+// ─────────────────────────────────────────────────────────────────────────────
 export default {
     integrateErrorTracker,
     integrateConsoleLogger,

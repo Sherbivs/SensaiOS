@@ -18,7 +18,7 @@
  */
 import { Counter, Gauge, Histogram, register } from 'prom-client';
 import { getPoolConfig, getPoolMetrics, isPoolHealthy, getCurrentServiceName } from '../config/database-pool-config.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 // ============================================================================
 // Metric Definitions
 // ============================================================================

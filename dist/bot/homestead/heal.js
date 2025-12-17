@@ -8,6 +8,7 @@
  */
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, healPokemon } from "../../shared/models/party-queries-pg.js";
+import { replyInfo } from "../shared/response-helpers.js";
 export async function healPartyForUser(discordId) {
     const user = await ensureUser(discordId);
     // Find user's first party with all slots and pokemon in one query
@@ -31,15 +32,9 @@ export async function handleHeal(interaction) {
     const discordId = interaction.user.id;
     const res = await healPartyForUser(discordId);
     if (res.healed === 0) {
-        await interaction.reply({
-            content: "You don't have a party to heal yet. Use /starter to pick one!",
-            ephemeral: true,
-        });
+        await replyInfo(interaction, "You don't have a party to heal yet. Use /starter to pick one!");
     }
     else {
-        await interaction.reply({
-            content: `Healed your party (restored ${res.healed} Pokémon).`,
-            ephemeral: true,
-        });
+        await replyInfo(interaction, `Healed your party (restored ${res.healed} Pokémon).`);
     }
 }

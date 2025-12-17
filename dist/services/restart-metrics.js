@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { dirname } from "path";
-import { log } from "../utils/logger.js";
+import { log } from "../shared/logger.js";
 // -----------------------------------------------------------------------------
 // Configuration
 // -----------------------------------------------------------------------------

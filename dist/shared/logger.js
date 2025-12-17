@@ -309,3 +309,42 @@ export async function measureOperation(component, operation, description, fn, co
         throw error;
     }
 }
+const LOG_LABEL = {
+    success: 'SUCCESS',
+    info: 'INFO',
+    warn: 'WARN',
+    detail: 'DETAIL',
+    error: 'ERROR',
+};
+/**
+ * Legacy-compatible log function (from utils/logger.js)
+ *
+ * @deprecated Use getLogger() for new code. This exists only for migration.
+ *
+ * @param level - Log level (info, warn, error, success, detail)
+ * @param message - Log message
+ * @param context - Optional context (any value accepted for legacy compat)
+ */
+function logLegacy(level, message, context) {
+    const label = LOG_LABEL[level] || LOG_LABEL.info;
+    console.log(`[${label}] ${message}`);
+    if (context && typeof context === 'object') {
+        const keys = Object.keys(context);
+        if (keys.length > 0) {
+            for (const key of keys) {
+                console.log(`  ${key}: ${JSON.stringify(context[key])}`);
+            }
+        }
+    }
+}
+// Attach convenience methods for log.info(), log.warn(), etc.
+logLegacy.info = (message, context) => logLegacy('info', message, context);
+logLegacy.warn = (message, context) => logLegacy('warn', message, context);
+logLegacy.error = (message, context) => logLegacy('error', message, context);
+logLegacy.success = (message, context) => logLegacy('success', message, context);
+logLegacy.detail = (message, context) => logLegacy('detail', message, context);
+/**
+ * Legacy-compatible log export
+ * @deprecated Use getLogger() for new code
+ */
+export const log = logLegacy;

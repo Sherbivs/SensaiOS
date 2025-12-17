@@ -23,6 +23,7 @@
  * - src/types/db-models.ts (BusMessage, BusIdemToken models)
  */
 import { getProdDb } from "../pg-connection.js";
+import { pgTimestampToDateRequired, pgTimestampToDate } from "../../types/database-rows.js";
 // ============================================================================
 // Type Definitions
 // ============================================================================
@@ -34,18 +35,22 @@ import { getProdDb } from "../pg-connection.js";
  * Revival helper: Convert Date-like strings to Date objects
  */
 function reviveDates(row) {
-    if (!row)
-        return row;
-    const copy = { ...row };
-    if (copy.createdAt && typeof copy.createdAt === "string")
-        copy.createdAt = new Date(copy.createdAt);
-    if (copy.availableAt && typeof copy.availableAt === "string")
-        copy.availableAt = new Date(copy.availableAt);
-    if (copy.processedAt && typeof copy.processedAt === "string")
-        copy.processedAt = new Date(copy.processedAt);
-    if (copy.updatedAt && typeof copy.updatedAt === "string")
-        copy.updatedAt = new Date(copy.updatedAt);
-    return copy;
+    return {
+        id: row.id,
+        kind: row.kind,
+        topic: row.topic,
+        priority: row.priority,
+        shardKey: row.shardKey,
+        idempotencyKey: row.idempotencyKey,
+        payload: row.payload,
+        createdAt: pgTimestampToDateRequired(row.createdAt),
+        availableAt: pgTimestampToDateRequired(row.availableAt),
+        status: row.status,
+        attempts: row.attempts,
+        error: row.error,
+        processedAt: pgTimestampToDate(row.processedAt),
+        updatedAt: pgTimestampToDateRequired(row.updatedAt),
+    };
 }
 // ============================================================================
 // Read Operations

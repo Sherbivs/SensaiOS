@@ -1,7 +1,22 @@
-import { log } from '../utils/logger.js';
+/**
+ * Fatal Error Guard - Global Exception Handling
+ * @module utils/fatalErrorGuard
+ *
+ * Provides global handlers for unhandled promise rejections and
+ * uncaught exceptions, ensuring proper logging and graceful shutdown.
+ */
 import util from 'node:util';
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
 let handlersInstalled = false;
 let exitScheduled = false;
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal Functions
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Convert any input into an Error object.
+ */
 function asError(input) {
     if (input instanceof Error) {
         return input;
@@ -20,6 +35,9 @@ function asError(input) {
     }
     return new Error(String(input));
 }
+/**
+ * Schedule a process exit (only once).
+ */
 function scheduleExit(exitProcess) {
     if (!exitProcess || exitScheduled) {
         return;
@@ -29,18 +47,24 @@ function scheduleExit(exitProcess) {
         exitProcess(1);
     });
 }
-function installFatalErrorHandlers({ log, report, exitProcess = (code) => process.exit(code), } = {}) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Install global handlers for unhandled rejections and uncaught exceptions.
+ * Only installs once; subsequent calls are no-ops.
+ */
+export function installFatalErrorHandlers(options = {}) {
     if (handlersInstalled) {
         return;
     }
     handlersInstalled = true;
+    const { log, report, exitProcess = (code) => process.exit(code), } = options;
     const logFn = typeof log === 'function'
         ? log
-        : (level, message, context) => {
-            if (level === 'error') {
-                // eslint-disable-next-line no-console
-                log.error(message, context);
-            }
+        : (_level, message, context) => {
+            // eslint-disable-next-line no-console
+            console.error(message, context);
         };
     const reportFn = typeof report === 'function' ? report : null;
     function handleFatal(eventName, errorLike, extra = {}) {
@@ -70,5 +94,7 @@ function installFatalErrorHandlers({ log, report, exitProcess = (code) => proces
         handleFatal('Uncaught Exception', error);
     });
 }
-export { installFatalErrorHandlers };
+// ─────────────────────────────────────────────────────────────────────────────
+// Default Export
+// ─────────────────────────────────────────────────────────────────────────────
 export default { installFatalErrorHandlers };

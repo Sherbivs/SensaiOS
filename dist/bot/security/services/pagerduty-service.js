@@ -48,6 +48,8 @@
  * await pagerduty.resolve('dedup-key-123', 'False positive - authorized admin action');
  * ```
  */
+import { getErrorMessage } from '../../../shared/utils/error-utils.js';
+import { delay as asyncDelay } from '../../../shared/utils/async-utils.js';
 // ============================================================================
 // Constants
 // ============================================================================
@@ -427,7 +429,7 @@ export class PagerDutyService {
                 record.retryCount++;
                 this.stats.totalRetries++;
                 if (attempt < this.config.maxRetries) {
-                    await this.sleep(delay);
+                    await asyncDelay(delay);
                     delay = Math.min(delay * 2, this.config.maxRetryDelayMs);
                 }
             }
@@ -450,7 +452,7 @@ export class PagerDutyService {
      * Handle failed API call.
      */
     onFailure(record, error) {
-        record.lastError = error instanceof Error ? error.message : String(error);
+        record.lastError = getErrorMessage(error);
         this.stats.totalErrors++;
         this.circuitBreakerFailures++;
         if (this.circuitBreakerFailures >= this.config.circuitBreakerThreshold) {
@@ -466,12 +468,6 @@ export class PagerDutyService {
         while (this.alertHistory.length > this.config.historyRetention) {
             this.alertHistory.shift();
         }
-    }
-    /**
-     * Sleep helper for retry delays.
-     */
-    sleep(ms) {
-        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 }
 // ============================================================================

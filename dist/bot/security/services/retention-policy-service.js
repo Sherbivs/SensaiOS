@@ -24,6 +24,8 @@
  * @since 2025-12-05
  */
 import * as crypto from 'crypto';
+import { getErrorMessage } from '../../../shared/utils/error-utils.js';
+import { delay } from '../../../shared/utils/async-utils.js';
 // ============================================================================
 // Constants
 // ============================================================================
@@ -238,7 +240,7 @@ export class RetentionPolicyService {
                 deletedCount += deleted;
                 // Rate limiting between batches
                 if (deletedCount < actualDeleteCount) {
-                    await this.delay(this.config.batchDelayMs);
+                    await delay(this.config.batchDelayMs);
                 }
             }
             // Create audit record
@@ -257,7 +259,7 @@ export class RetentionPolicyService {
             };
         }
         catch (error) {
-            errors.push(error instanceof Error ? error.message : String(error));
+            errors.push(getErrorMessage(error));
             return {
                 category,
                 deletedCount: 0,
@@ -526,12 +528,6 @@ export class RetentionPolicyService {
             .createHmac('sha256', this.config.hmacSecret)
             .update(data)
             .digest('hex');
-    }
-    /**
-     * Delay helper for rate limiting
-     */
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 // ============================================================================

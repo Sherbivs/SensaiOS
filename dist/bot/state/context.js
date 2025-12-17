@@ -1,6 +1,6 @@
 /**
- * @file Operational Context Restoration
- * @description Restores guild monitoring state and resumes operations after restart
+ * Operational Context Restoration
+ * Restores guild monitoring state and resumes operations after restart
  * @module bot/state/context
  */
 import { formatDuration } from '../../shared/utils/format-utils.js';
@@ -53,8 +53,8 @@ export function isSweepOverdue(state, guildId, sweepIntervalMs = 5 * 60 * 1000) 
  */
 export function getGuildsNeedingSweep(state, sweepIntervalMs = 5 * 60 * 1000) {
     return Object.values(state.guilds)
-        .filter(guild => guild.monitoring && isSweepOverdue(state, guild.id, sweepIntervalMs))
-        .map(guild => ({
+        .filter((guild) => guild.monitoring && isSweepOverdue(state, guild.id, sweepIntervalMs))
+        .map((guild) => ({
         id: guild.id,
         name: guild.name,
         timeSinceLastSweep: getTimeSinceLastSweep(state, guild.id)
@@ -106,7 +106,7 @@ export function disableGuildMonitoring(state, guildId) {
  * Get monitoring status for all guilds
  */
 export function getMonitoringStatus(state) {
-    return Object.values(state.guilds).map(guild => ({
+    return Object.values(state.guilds).map((guild) => ({
         id: guild.id,
         name: guild.name,
         monitoring: guild.monitoring,
@@ -140,10 +140,6 @@ export function buildRestartSummary(state) {
     };
     return summary;
 }
-/**
- * Format duration helper - now imported from centralized format-utils.js
- */
-// function formatDuration removed - using centralized version
 /**
  * Get recovery recommendations after restart
  */

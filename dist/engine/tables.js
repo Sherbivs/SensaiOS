@@ -2,6 +2,9 @@
  * Table-driven starter set for abilities & items.
  * Keep effects simple and deterministic; add hooks as needed.
  */
+// ─────────────────────────────────────────────────────────────────────────────
+// Ability Definitions
+// ─────────────────────────────────────────────────────────────────────────────
 export const ABILITIES = {
     // Immune to Ground; no extra hooks needed
     'levitate': {
@@ -41,6 +44,9 @@ export const ABILITIES = {
         }
     }
 };
+// ─────────────────────────────────────────────────────────────────────────────
+// Item Definitions
+// ─────────────────────────────────────────────────────────────────────────────
 export const ITEMS = {
     // +50% Special Attack (applied in effectiveStat)
     'choice-specs': {
@@ -63,3 +69,4 @@ export const ITEMS = {
         }
     }
 };
+export { ABILITIES as default };

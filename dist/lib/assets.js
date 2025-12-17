@@ -1,6 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { log } from '../utils/logger.js';
+// ============================================================================
+// Module State
+// ============================================================================
 const MANIFEST_PATH = path.join(process.cwd(), 'dist', 'assets', 'manifest.json');
 let manifest = { sprites: {}, version_group: 'latest' };
 try {
@@ -10,15 +13,23 @@ try {
 }
 catch (err) {
     // Keep a safe default; commands should handle undefined URLs gracefully
-    log.warn('[assets] Failed to read manifest:', err?.message || err);
+    log.warn('[assets] Failed to read manifest', { error: err?.message ?? String(err) });
 }
-function getSpriteUrl(idOrName, style = 'artwork') {
-    const sprites = manifest && manifest.sprites ? manifest.sprites : {};
+// ============================================================================
+// Exported Functions
+// ============================================================================
+/**
+ * Get sprite URL for a Pokemon by ID or name
+ */
+export function getSpriteUrl(idOrName, style = 'artwork') {
+    const sprites = manifest?.sprites ?? {};
     let entry = null;
+    // Try direct lookup by key
     if (sprites[idOrName]) {
         entry = sprites[idOrName];
     }
     else {
+        // Search by name (case-insensitive)
         const nameLower = String(idOrName).toLowerCase();
         for (const v of Object.values(sprites)) {
             if (String(v.name).toLowerCase() === nameLower) {
@@ -34,4 +45,4 @@ function getSpriteUrl(idOrName, style = 'artwork') {
     }
     return entry.cdnArt || entry.devArt || entry.preferred || null;
 }
-export { getSpriteUrl, manifest };
+export { manifest };

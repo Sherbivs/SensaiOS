@@ -18,6 +18,7 @@
  *
  * @module shared/metrics-collector
  */
+import { getErrorMessage } from './utils/error-utils.js';
 // ============================================================================
 // Constants
 // ============================================================================
@@ -41,7 +42,7 @@ let workersTracked = [];
 /**
  * Collect metrics from a single worker with timeout
  */
-async function collectWorkerMetrics(workerId, worker) {
+async function collectWorkerMetrics(workerId, worker, workerCount = 1) {
     const timeoutPromise = new Promise((resolve) => {
         setTimeout(() => resolve(null), COLLECTION_TIMEOUT_MS);
     });
@@ -68,8 +69,9 @@ async function collectWorkerMetrics(workerId, worker) {
                 bufferUtilizationPct: bufferStats?.utilizationPercent ?? null,
                 flushCount: bufferStats?.flushCount ?? null,
                 backpressureEvents: bufferStats?.backpressureEventCount ?? null,
-                memoryUsedBytes: null, // TODO: Add memory tracking per worker
-                cpuPercent: null, // TODO: Add CPU tracking
+                // Process-level memory (workers share process, so this is approximate per-worker allocation)
+                memoryUsedBytes: BigInt(Math.round(process.memoryUsage().heapUsed / workerCount)),
+                cpuPercent: null, // CPU tracking requires external monitoring (Prometheus/Grafana)
                 healthStatus: health.status,
                 lastError: health.lastError,
             };
@@ -77,7 +79,7 @@ async function collectWorkerMetrics(workerId, worker) {
         return await Promise.race([collectionPromise, timeoutPromise]);
     }
     catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         return {
             workerId,
             workerName: workerId,
@@ -117,8 +119,9 @@ async function collectAndStoreMetrics() {
         // Get all registered workers
         const workers = manager.getWorkers();
         workersTracked = Object.keys(workers);
+        const workerCount = workersTracked.length || 1;
         // Collect metrics from each worker in parallel
-        const metricsPromises = Object.entries(workers).map(([workerId, worker]) => collectWorkerMetrics(workerId, worker));
+        const metricsPromises = Object.entries(workers).map(([workerId, worker]) => collectWorkerMetrics(workerId, worker, workerCount));
         const metricsResults = await Promise.all(metricsPromises);
         // Store non-null results in database
         for (const metrics of metricsResults) {
@@ -145,7 +148,7 @@ async function collectAndStoreMetrics() {
                 }
                 catch (insertError) {
                     // Log but don't fail entire collection
-                    const msg = insertError instanceof Error ? insertError.message : String(insertError);
+                    const msg = getErrorMessage(insertError);
                     console.error(`[MetricsCollector] Failed to store metrics for ${metrics.workerId}:`, msg);
                 }
             }
@@ -159,7 +162,7 @@ async function collectAndStoreMetrics() {
     }
     catch (error) {
         errorCount++;
-        lastError = error instanceof Error ? error.message : String(error);
+        lastError = getErrorMessage(error);
         console.error('[MetricsCollector] Collection failed:', lastError);
     }
     finally {

@@ -13,7 +13,8 @@
  * @see discord_guilds — Guild metadata synced by security bot
  */
 import { prisma } from "../shared/prisma.js";
-import { log } from "../utils/logger.js";
+import { getErrorMessage } from "../shared/utils/error-utils.js";
+import { log } from "../shared/logger.js";
 // ============================================================================
 // Discord Identity Service Class
 // ============================================================================
@@ -101,7 +102,7 @@ export class DiscordIdentityService {
             log.error('[DiscordIdentity] Failed to fetch user', {
                 discordUserId,
                 guildId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             return null;
         }
@@ -140,7 +141,7 @@ export class DiscordIdentityService {
             log.error('[DiscordIdentity] Failed to fetch user by username', {
                 username,
                 guildId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             return null;
         }
@@ -199,7 +200,7 @@ export class DiscordIdentityService {
                 log.error('[DiscordIdentity] Batch user lookup failed', {
                     guildId,
                     count: toFetch.length,
-                    error: error instanceof Error ? error.message : String(error),
+                    error: getErrorMessage(error),
                 });
                 // All unfetched IDs are considered not found
                 notFound.push(...toFetch);
@@ -234,7 +235,7 @@ export class DiscordIdentityService {
             log.error('[DiscordIdentity] User search failed', {
                 query,
                 guildId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             return [];
         }
@@ -259,7 +260,7 @@ export class DiscordIdentityService {
         catch (error) {
             log.error('[DiscordIdentity] Admin lookup failed', {
                 guildId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             return [];
         }
@@ -280,7 +281,7 @@ export class DiscordIdentityService {
         catch (error) {
             log.error('[DiscordIdentity] Owner lookup failed', {
                 guildId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             return null;
         }
@@ -318,7 +319,7 @@ export class DiscordIdentityService {
         catch (error) {
             log.error('[DiscordIdentity] Failed to fetch guild', {
                 guildId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             return null;
         }
@@ -335,7 +336,7 @@ export class DiscordIdentityService {
         }
         catch (error) {
             log.error('[DiscordIdentity] Failed to fetch all guilds', {
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             return [];
         }
@@ -352,7 +353,7 @@ export class DiscordIdentityService {
         catch (error) {
             log.error('[DiscordIdentity] Failed to count guild members', {
                 guildId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             return 0;
         }

@@ -18,7 +18,9 @@
  * @module services/batch-processor
  * @since 2025-12-04
  */
-import { log } from "../utils/logger.js";
+import { log } from "../shared/logger.js";
+import { getErrorMessage } from "../shared/utils/error-utils.js";
+import { delay } from "../shared/utils/async-utils.js";
 import crypto from "crypto";
 // Global metrics state
 let metrics = {
@@ -453,7 +455,7 @@ export class BatchProcessor {
                 }
                 // Delay between chunk batches
                 if (chunkIndex + concurrency < chunks.length && chunkDelay > 0) {
-                    await this.sleep(chunkDelay);
+                    await delay(chunkDelay);
                 }
             }
             // Job complete
@@ -492,7 +494,7 @@ export class BatchProcessor {
             if (job.config.enableAudit) {
                 log.info(`[BatchProcessor:Audit] FAIL BatchJob ${jobId}`, {
                     status: "failed",
-                    error: error instanceof Error ? error.message : String(error),
+                    error: getErrorMessage(error),
                     progress: job.progress.percentComplete,
                     actor: job.config.userContext.discordId ?? job.config.userContext.userId,
                 });
@@ -545,7 +547,7 @@ export class BatchProcessor {
                     lastError = error instanceof Error ? error : new Error(String(error));
                     if (attempt < job.config.maxRetries) {
                         // Exponential backoff
-                        await this.sleep(Math.min(1000 * Math.pow(2, attempt - 1), 10000));
+                        await delay(Math.min(1000 * Math.pow(2, attempt - 1), 10000));
                     }
                 }
             }
@@ -609,9 +611,6 @@ export class BatchProcessor {
             chunks.push(array.slice(i, i + size));
         }
         return chunks;
-    }
-    sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
     }
     timeout(ms, signal) {
         return new Promise((_, reject) => {

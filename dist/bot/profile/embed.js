@@ -1,4 +1,5 @@
 import { EmbedBuilder } from "discord.js";
+import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { getSpriteUrl } from "../../lib/assets.js";
 function asDiscordTimestamp(input, style = "R") {
     if (!input)
@@ -46,7 +47,7 @@ export function buildTrainerProfileEmbed(summary, opts = {}) {
     const now = opts.now instanceof Date ? opts.now : new Date();
     const embed = new EmbedBuilder()
         .setTitle("Trainer Profile")
-        .setColor(0xffb74d)
+        .setColor(EMBED_COLORS.WARNING)
         .setDescription(summary.profile.tagline && summary.profile.tagline.length
         ? summary.profile.tagline
         : `Trainer: <@${summary.user.discordId}>`);

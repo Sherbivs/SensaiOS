@@ -1,5 +1,18 @@
+/**
+ * Activity Tracker - Event Recording and Subscription System
+ * @module utils/activityTracker
+ *
+ * Provides a centralized activity tracking system that:
+ *   - Records activities with type, summary, and metadata
+ *   - Maintains a queue of pending activities
+ *   - Tracks lifetime event counts per type
+ *   - Notifies subscribers of changes
+ */
 import { log } from './logger.js';
 import { toDate, cloneDate } from '../shared/utils/index.js';
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
 const subscribers = new Set();
 const pendingActivities = [];
 const lifetimeCounts = new Map();
@@ -7,6 +20,9 @@ let totalEvents = 0;
 let lastActivityAt = null;
 let lastSummaryAt = null;
 let sequence = 0;
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal Functions
+// ─────────────────────────────────────────────────────────────────────────────
 function notify() {
     const snapshot = getStats();
     for (const handler of subscribers) {
@@ -21,7 +37,13 @@ function notify() {
         }
     }
 }
-function recordActivity(type, summary, meta = {}) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Record a new activity event.
+ */
+export function recordActivity(type, summary, meta = {}) {
     const timestamp = new Date();
     const entry = {
         id: `${Date.now()}-${sequence++}`,
@@ -37,12 +59,18 @@ function recordActivity(type, summary, meta = {}) {
     notify();
     return entry;
 }
-function drainActivities() {
+/**
+ * Drain all pending activities from the queue.
+ */
+export function drainActivities() {
     const drained = pendingActivities.splice(0, pendingActivities.length);
     notify();
     return drained;
 }
-function requeueActivities(entries = []) {
+/**
+ * Requeue activities back into the pending queue (sorted by timestamp).
+ */
+export function requeueActivities(entries = []) {
     if (!Array.isArray(entries) || entries.length === 0) {
         return;
     }
@@ -51,29 +79,39 @@ function requeueActivities(entries = []) {
             entry.timestamp = new Date();
         }
         else {
-            entry.timestamp = toDate(entry.timestamp);
+            entry.timestamp = toDate(entry.timestamp) ?? new Date();
         }
     }
     pendingActivities.unshift(...entries);
-    pendingActivities.sort((a, b) => a.timestamp - b.timestamp);
+    pendingActivities.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
     notify();
 }
-function getPendingActivities() {
+/**
+ * Get a copy of all pending activities.
+ */
+export function getPendingActivities() {
     return pendingActivities.map((activity) => ({
         ...activity,
         timestamp: cloneDate(activity.timestamp),
     }));
 }
-function getStats() {
+/**
+ * Get current activity statistics.
+ */
+export function getStats() {
     return {
         totalEvents,
         pendingEvents: pendingActivities.length,
         lifetimeCounts: Object.fromEntries(lifetimeCounts.entries()),
-        lastActivityAt: cloneDate(lastActivityAt),
-        lastSummaryAt: cloneDate(lastSummaryAt),
+        lastActivityAt: lastActivityAt ? cloneDate(lastActivityAt) : null,
+        lastSummaryAt: lastSummaryAt ? cloneDate(lastSummaryAt) : null,
     };
 }
-function subscribe(handler) {
+/**
+ * Subscribe to activity changes.
+ * Returns an unsubscribe function.
+ */
+export function subscribe(handler) {
     if (typeof handler !== 'function') {
         return () => { };
     }
@@ -91,11 +129,16 @@ function subscribe(handler) {
         subscribers.delete(handler);
     };
 }
-function markSummarySent(at = new Date()) {
+/**
+ * Mark that a summary was sent at a given time.
+ */
+export function markSummarySent(at = new Date()) {
     lastSummaryAt = toDate(at);
     notify();
 }
-export { recordActivity, drainActivities, requeueActivities, getPendingActivities, getStats, subscribe, markSummarySent, };
+// ─────────────────────────────────────────────────────────────────────────────
+// Default Export
+// ─────────────────────────────────────────────────────────────────────────────
 export default {
     recordActivity,
     drainActivities,

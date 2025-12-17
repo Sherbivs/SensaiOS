@@ -1,11 +1,20 @@
-/** Standard stage multipliers for non-accuracy/evasion stats */
+/**
+ * Battle stat calculations
+ * Standard stage multipliers and derived stats from base stats.
+ */
+/**
+ * Standard stage multipliers for non-accuracy/evasion stats
+ * @param n Stage modifier (-6 to +6)
+ */
 function stageMultiplier(n) {
     // n in [-6..+6]
     if (n >= 0)
         return (2 + n) / 2;
     return 2 / (2 - n);
 }
-/** Very simple derived stats from base only (no IVs/EVs/nature) for a deterministic skeleton */
+/**
+ * Very simple derived stats from base only (no IVs/EVs/nature) for a deterministic skeleton
+ */
 function derivedStats(base, level) {
     const safe = (k) => Number(base?.[k] ?? 1);
     const hpBase = safe('hp');

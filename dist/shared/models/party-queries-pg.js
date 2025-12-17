@@ -20,6 +20,7 @@
  */
 import { getProdDb } from "../pg-connection.js";
 import { buildSelect, buildInsert, buildUpdate, buildCount } from "../pg-query.js";
+import { pgTimestampToDateRequired } from "../../types/database-rows.js";
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -29,9 +30,11 @@ import { buildSelect, buildInsert, buildUpdate, buildCount } from "../pg-query.j
  */
 function reviveParty(row) {
     return {
-        ...row,
-        createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
-        updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
+        id: row.id,
+        ownerId: row.ownerId,
+        trainerId: row.trainerId,
+        createdAt: pgTimestampToDateRequired(row.createdAt),
+        updatedAt: pgTimestampToDateRequired(row.updatedAt),
     };
 }
 /**
@@ -39,8 +42,11 @@ function reviveParty(row) {
  */
 function revivePartySlot(row) {
     return {
-        ...row,
-        updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
+        id: row.id,
+        partyId: row.partyId,
+        pokemonId: row.pokemonId,
+        slot: row.slot,
+        updatedAt: pgTimestampToDateRequired(row.updatedAt),
     };
 }
 /**
@@ -48,9 +54,27 @@ function revivePartySlot(row) {
  */
 function revivePokemon(row) {
     return {
-        ...row,
-        createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
-        updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
+        id: row.id,
+        ownerId: row.ownerId,
+        speciesId: row.speciesId,
+        form: row.form,
+        level: row.level,
+        exp: row.exp,
+        nature: row.nature,
+        ivsJson: row.ivsJson,
+        evsJson: row.evsJson,
+        movesJson: row.movesJson,
+        status: row.status,
+        hp: row.hp,
+        maxHp: row.maxHp,
+        isShiny: row.isShiny,
+        nickname: row.nickname,
+        boxSlot: row.boxSlot,
+        createdAt: pgTimestampToDateRequired(row.createdAt),
+        updatedAt: pgTimestampToDateRequired(row.updatedAt),
+        tenantId: row.tenantId,
+        trainerId: row.trainerId,
+        packHash: row.packHash,
     };
 }
 /**

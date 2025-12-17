@@ -2,8 +2,7 @@ import { once } from "node:events";
 import { Client, GatewayIntentBits, Partials, Events, Options } from "discord.js";
 import { prisma } from "../models/index.js";
 import { log } from "../shared/log.js";
-const commandLoaderModule = (await import("../command-loader.js"));
-const { loadCommands } = commandLoaderModule;
+import { loadCommands } from "../command-loader.js";
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
 // Homestead modules (private guild channel-based gameplay)

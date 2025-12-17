@@ -19,7 +19,8 @@
  * @module services/write-coalescer
  */
 import { Counter, Gauge, Histogram, register } from 'prom-client';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
+import { delay } from '../shared/utils/async-utils.js';
 const DEFAULT_CONFIG = {
     maxPendingWrites: 1000,
     defaultFlushIntervalMs: 5000, // 5 seconds
@@ -332,7 +333,7 @@ export class WriteCoalescer {
                 lastError = error instanceof Error ? error : new Error(String(error));
                 if (attempt < this.config.maxRetries - 1) {
                     // Wait before retry with exponential backoff
-                    await this.sleep(this.config.retryDelayMs * Math.pow(2, attempt));
+                    await delay(this.config.retryDelayMs * Math.pow(2, attempt));
                 }
             }
         }
@@ -347,12 +348,6 @@ export class WriteCoalescer {
             total += queue.size;
         }
         return total;
-    }
-    /**
-     * Sleep helper
-     */
-    sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 // ============================================================================

@@ -264,6 +264,40 @@ async function ensureTrainerProfile(discordId, client = prisma) {
     }));
     return { user, profile };
 }
+/**
+ * Update trainer profile fields
+ * @throws Error with name 'TrainerProfileUnknownSpecies' if species ID doesn't exist
+ */
+export async function updateTrainerProfile(discordId, updates, client = prisma) {
+    const user = await UserRepo.upsertByDiscordId(discordId, client);
+    // Validate species ID if provided
+    if (updates.favoriteSpeciesId !== undefined && updates.favoriteSpeciesId !== null) {
+        const species = await client.species.findUnique({
+            where: { id: updates.favoriteSpeciesId },
+            select: { id: true },
+        });
+        if (!species) {
+            const err = new Error(`Species with ID ${updates.favoriteSpeciesId} not found`);
+            err.name = 'TrainerProfileUnknownSpecies';
+            throw err;
+        }
+    }
+    const delegate = getTrainerProfileDelegate(client);
+    await delegate.upsert({
+        where: { userId: user.id },
+        update: {
+            ...(updates.tagline !== undefined && { tagline: updates.tagline }),
+            ...(updates.bio !== undefined && { bio: updates.bio }),
+            ...(updates.favoriteSpeciesId !== undefined && { favoriteSpeciesId: updates.favoriteSpeciesId }),
+        },
+        create: {
+            userId: user.id,
+            tagline: updates.tagline ?? null,
+            bio: updates.bio ?? null,
+            favoriteSpeciesId: updates.favoriteSpeciesId ?? null,
+        },
+    });
+}
 async function fetchTrainerPokemon(client, userId) {
     const records = await client.pokemonInstance.findMany({
         where: { ownerId: userId },

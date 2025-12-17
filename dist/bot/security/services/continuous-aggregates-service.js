@@ -14,6 +14,8 @@
  * @see ADR-001-timescaledb-selection.md for TimescaleDB architecture decision
  * @see ADR-002-event-sourcing.md for event sourcing integration
  */
+import { daysAgo, hoursAgo } from '../../../shared/utils/date-utils.js';
+import { delay } from '../../../shared/utils/async-utils.js';
 // ============================================================================
 // Error Classes
 // ============================================================================
@@ -409,7 +411,7 @@ WITH NO DATA;
             throw new AggregateNotFoundError(aggregateName);
         }
         const startTime = Date.now();
-        const start = windowStart ?? new Date(Date.now() - 24 * 60 * 60 * 1000); // Default: last 24 hours
+        const start = windowStart ?? hoursAgo(24); // Default: last 24 hours
         const end = windowEnd ?? new Date();
         this.log('info', `Refreshing aggregate: ${aggregateName} [${start.toISOString()} - ${end.toISOString()}]`);
         this.notify({
@@ -743,7 +745,7 @@ WHERE bucket >= '${from.toISOString()}' AND bucket <= '${to.toISOString()}'
             totalRows,
             sizeBytes,
             sizeHuman,
-            oldestData: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+            oldestData: daysAgo(30), // 30 days ago
             newestData: new Date(),
             lastRefresh,
             avgQueryTimeMs,
@@ -795,7 +797,7 @@ WHERE bucket >= '${from.toISOString()}' AND bucket <= '${to.toISOString()}'
         return `${size.toFixed(2)} ${units[unitIndex]}`;
     }
     async simulateExecution(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+        return delay(ms);
     }
     /**
      * Clear all tracking data (for testing)

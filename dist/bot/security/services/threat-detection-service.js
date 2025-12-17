@@ -38,6 +38,7 @@
  * ```
  */
 import { ThreatType, SecuritySeverity, } from '../types/database-models.js';
+import { daysAgo } from '../../../shared/utils/date-utils.js';
 /**
  * MITRE ATT&CK mapping for threat types.
  */
@@ -453,14 +454,14 @@ export class ThreatDetectionService {
             this.prisma.threatDetection.count({
                 where: {
                     ...where,
-                    createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+                    createdAt: { gte: daysAgo(1) },
                 },
             }),
             // Last 7 days
             this.prisma.threatDetection.count({
                 where: {
                     ...where,
-                    createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+                    createdAt: { gte: daysAgo(7) },
                 },
             }),
             // Average confidence (using raw aggregation)

@@ -11,13 +11,16 @@
  */
 import { ChannelType, PermissionFlagsBits } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
+import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { daysAgo } from '../shared/utils/date-utils.js';
+import { HOMESTEAD_CATEGORY_NAME, HOMESTEAD_CLEANUP_DAYS } from '../config/env.js';
+import { homesteadRepository } from './homestead-repository.js';
+import { USER_PERMISSIONS, BOT_PERMISSIONS, EVERYONE_DENY } from './homestead-permissions.js';
 // ============================================================================
 // Configuration
 // ============================================================================
-const HOMESTEAD_CATEGORY_NAME = process.env.HOMESTEAD_CATEGORY_NAME || 'Homesteads';
 const HOMESTEAD_CHANNEL_PREFIX = 'homestead-';
-const CHANNEL_CLEANUP_DAYS = parseInt(process.env.HOMESTEAD_CLEANUP_DAYS || '90', 10);
 // ============================================================================
 // Core Manager Class
 // ============================================================================
@@ -49,9 +52,7 @@ export class HomesteadChannelManager {
         const userId = user.id;
         const guildId = this.guild.id;
         // Step 1: Check database for existing homestead in THIS guild (multi-guild support)
-        let homesteadRecord = await prisma.homesteadChannel.findFirst({
-            where: { userId, guildId }, // Scoped to this guild for multi-guild support
-        });
+        let homesteadRecord = await homesteadRepository.findByUserAndGuild(userId, guildId);
         let channel = null;
         let isNew = false;
         // Step 2: If record exists, verify Discord channel
@@ -124,7 +125,7 @@ export class HomesteadChannelManager {
             // Channel not found or permission error
             log.warn('[HomesteadManager] Channel verification failed', {
                 channelId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             return null;
         }
@@ -145,28 +146,15 @@ export class HomesteadChannelManager {
             permissionOverwrites: [
                 {
                     id: this.guild.id, // @everyone role
-                    deny: [PermissionFlagsBits.ViewChannel],
+                    deny: [...EVERYONE_DENY],
                 },
                 {
                     id: user.id, // User-specific allow
-                    allow: [
-                        PermissionFlagsBits.ViewChannel,
-                        PermissionFlagsBits.SendMessages,
-                        PermissionFlagsBits.ReadMessageHistory,
-                        PermissionFlagsBits.AttachFiles,
-                        PermissionFlagsBits.EmbedLinks,
-                    ],
+                    allow: [...USER_PERMISSIONS],
                 },
                 {
                     id: this.client.user.id, // Bot-specific allow
-                    allow: [
-                        PermissionFlagsBits.ViewChannel,
-                        PermissionFlagsBits.SendMessages,
-                        PermissionFlagsBits.ReadMessageHistory,
-                        PermissionFlagsBits.ManageMessages,
-                        PermissionFlagsBits.AttachFiles,
-                        PermissionFlagsBits.EmbedLinks,
-                    ],
+                    allow: [...BOT_PERMISSIONS],
                 },
             ],
         });
@@ -228,18 +216,10 @@ export class HomesteadChannelManager {
      * @param daysInactive Number of days since last access
      * @returns Number of channels cleaned up
      */
-    async cleanupInactiveChannels(daysInactive = CHANNEL_CLEANUP_DAYS) {
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - daysInactive);
-        // Find inactive homesteads
-        const inactiveHomesteads = await prisma.homesteadChannel.findMany({
-            where: {
-                guildId: this.guild.id,
-                lastAccessedAt: {
-                    lt: cutoffDate,
-                },
-            },
-        });
+    async cleanupInactiveChannels(daysInactive = HOMESTEAD_CLEANUP_DAYS) {
+        const guildId = this.guild.id;
+        // Find inactive homesteads using repository
+        const inactiveHomesteads = await homesteadRepository.findInactive(guildId, daysInactive);
         let cleanedCount = 0;
         for (const homestead of inactiveHomesteads) {
             try {
@@ -248,10 +228,8 @@ export class HomesteadChannelManager {
                 if (channel) {
                     await channel.delete(`Inactive for ${daysInactive} days`);
                 }
-                // Delete database record
-                await prisma.homesteadChannel.delete({
-                    where: { id: homestead.id },
-                });
+                // Delete database record using repository
+                await homesteadRepository.delete(homestead.id);
                 cleanedCount++;
                 log.info('[HomesteadManager] Cleaned up inactive channel', {
                     userId: homestead.userId,
@@ -262,7 +240,7 @@ export class HomesteadChannelManager {
             catch (error) {
                 log.error('[HomesteadManager] Failed to clean up channel', {
                     homesteadId: homestead.id,
-                    error: error instanceof Error ? error.message : String(error),
+                    error: getErrorMessage(error),
                 });
             }
         }
@@ -280,9 +258,7 @@ export class HomesteadChannelManager {
      */
     async getChannel(userId) {
         const guildId = this.guild.id;
-        const homestead = await prisma.homesteadChannel.findFirst({
-            where: { userId, guildId }, // Scoped to this guild
-        });
+        const homestead = await homesteadRepository.findByUserAndGuild(userId, guildId);
         if (!homestead) {
             return null;
         }
@@ -293,9 +269,7 @@ export class HomesteadChannelManager {
      */
     async deleteChannel(userId) {
         const guildId = this.guild.id;
-        const homestead = await prisma.homesteadChannel.findFirst({
-            where: { userId, guildId }, // Scoped to this guild
-        });
+        const homestead = await homesteadRepository.findByUserAndGuild(userId, guildId);
         if (!homestead) {
             return false;
         }
@@ -320,7 +294,7 @@ export class HomesteadChannelManager {
             log.error('[HomesteadManager] Failed to delete homestead', {
                 userId,
                 guildId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             return false;
         }
@@ -339,7 +313,7 @@ export class HomesteadChannelManager {
             where: {
                 guildId,
                 lastAccessedAt: {
-                    gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+                    gte: daysAgo(7),
                 },
             },
         });
@@ -348,7 +322,7 @@ export class HomesteadChannelManager {
             where: {
                 guildId,
                 lastAccessedAt: {
-                    gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+                    gte: daysAgo(1),
                 },
             },
         });
@@ -357,7 +331,7 @@ export class HomesteadChannelManager {
             where: {
                 guildId,
                 lastAccessedAt: {
-                    lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+                    lt: daysAgo(30),
                 },
             },
         });
@@ -366,7 +340,7 @@ export class HomesteadChannelManager {
             where: {
                 guildId,
                 lastAccessedAt: {
-                    lt: new Date(Date.now() - CHANNEL_CLEANUP_DAYS * 24 * 60 * 60 * 1000),
+                    lt: daysAgo(HOMESTEAD_CLEANUP_DAYS),
                 },
             },
         });
@@ -378,7 +352,7 @@ export class HomesteadChannelManager {
             recentlyActive,
             inactive,
             needingCleanup,
-            cleanupDays: CHANNEL_CLEANUP_DAYS,
+            cleanupDays: HOMESTEAD_CLEANUP_DAYS,
             timestamp: new Date().toISOString(),
         };
     }
@@ -421,9 +395,7 @@ export class HomesteadChannelManager {
         let suspended = 0;
         for (const userId of userIds) {
             try {
-                const homestead = await prisma.homesteadChannel.findFirst({
-                    where: { userId, guildId },
-                });
+                const homestead = await homesteadRepository.findByUserAndGuild(userId, guildId);
                 if (homestead) {
                     // Update status to suspended
                     await prisma.homesteadChannel.update({
@@ -444,7 +416,7 @@ export class HomesteadChannelManager {
                 }
             }
             catch (error) {
-                errors.push(`Failed to suspend ${userId}: ${error instanceof Error ? error.message : String(error)}`);
+                errors.push(`Failed to suspend ${userId}: ${getErrorMessage(error)}`);
             }
         }
         return { suspended, errors };
@@ -464,7 +436,7 @@ export class HomesteadChannelManager {
                 }
             }
             catch (error) {
-                errors.push(`Failed to delete ${userId}: ${error instanceof Error ? error.message : String(error)}`);
+                errors.push(`Failed to delete ${userId}: ${getErrorMessage(error)}`);
             }
         }
         return { deleted, errors };
@@ -475,9 +447,7 @@ export class HomesteadChannelManager {
      */
     async healthCheck() {
         const guildId = this.guild.id;
-        const homesteads = await prisma.homesteadChannel.findMany({
-            where: { guildId },
-        });
+        const homesteads = await homesteadRepository.findByGuild(guildId);
         const orphaned = [];
         let healthy = 0;
         let repaired = 0;
@@ -486,18 +456,13 @@ export class HomesteadChannelManager {
             if (channel) {
                 healthy++;
                 // Update health check timestamp (TODO: enable after migration)
-                // await prisma.homesteadChannel.update({
-                //   where: { id: homestead.id },
-                //   data: { lastHealthCheck: new Date() },
-                // });
+                // await homesteadRepository.touchHealthCheck(homestead.id);
             }
             else {
                 // Channel is orphaned (deleted in Discord)
                 orphaned.push(homestead.userId);
-                // Auto-repair: Delete orphaned record
-                await prisma.homesteadChannel.delete({
-                    where: { id: homestead.id },
-                });
+                // Auto-repair: Delete orphaned record using repository
+                await homesteadRepository.delete(homestead.id);
                 repaired++;
                 log.warn('[HomesteadManager] Removed orphaned homestead record', {
                     userId: homestead.userId,

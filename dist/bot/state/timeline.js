@@ -1,10 +1,13 @@
 /**
- * @file Activity Timeline Tracker
- * @description Manages rolling timeline of bot events for display and analysis
+ * Activity Timeline Tracker
+ * Manages rolling timeline of bot events for display and analysis
  * @module bot/state/timeline
  */
 import { toEasternString } from '../../shared/datetime.js';
 import { formatDuration } from '../../shared/utils/format-utils.js';
+// ─────────────────────────────────────────────────────────────────────────────
+// Event Formatting
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Format timeline event for human-readable display
  */
@@ -17,31 +20,42 @@ export function formatTimelineEvent(event) {
         second: undefined,
     });
     switch (event.type) {
-        case 'sweep':
-            return `[${timestamp}] Sweep: ${event.guildName} - ${event.details.rolesChecked} roles checked, ${event.details.changesDetected} changes detected`;
-        case 'permission_change':
-            return `[${timestamp}] Permission Change: ${event.guildName} - ${event.details.userName} (${event.details.action}) ${event.details.reverted ? `[REVERTED: ${event.details.revertStatus}]` : '[NOT REVERTED]'}`;
-        case 'alert':
-            return `[${timestamp}] Alert: Sent to ${event.details.recipient} - ${event.details.reason} ${event.details.delivered ? '✓' : '✗'}`;
-        case 'restart':
-            return `[${timestamp}] Restart: ${event.details.reason} (previous uptime: ${formatDuration(event.details.previousUptime)})`;
-        case 'shutdown':
-            return `[${timestamp}] Shutdown: ${event.details.reason} (uptime: ${formatDuration(event.details.uptime)})`;
-        case 'error':
-            return `[${timestamp}] Error: ${event.details.message}`;
+        case 'sweep': {
+            const details = event.details;
+            return `[${timestamp}] Sweep: ${event.guildName} - ${details.rolesChecked} roles checked, ${details.changesDetected} changes detected`;
+        }
+        case 'permission_change': {
+            const details = event.details;
+            return `[${timestamp}] Permission Change: ${event.guildName} - ${details.userName} (${details.action}) ${details.reverted ? `[REVERTED: ${details.revertStatus}]` : '[NOT REVERTED]'}`;
+        }
+        case 'alert': {
+            const details = event.details;
+            return `[${timestamp}] Alert: Sent to ${details.recipient} - ${details.reason} ${details.delivered ? '✓' : '✗'}`;
+        }
+        case 'restart': {
+            const details = event.details;
+            return `[${timestamp}] Restart: ${details.reason} (previous uptime: ${formatDuration(details.previousUptime)})`;
+        }
+        case 'shutdown': {
+            const details = event.details;
+            return `[${timestamp}] Shutdown: ${details.reason} (uptime: ${formatDuration(details.uptime)})`;
+        }
+        case 'error': {
+            const details = event.details;
+            return `[${timestamp}] Error: ${details.message}`;
+        }
         case 'member_fetch_timeout': {
-            const status = event.details.isFinal ? '⚠️ FINAL' : `retry ${event.details.attempt}/${event.details.maxRetries}`;
-            return `[${timestamp}] Member Fetch Timeout: ${event.guildName} (${event.details.origin}) [${status}]`;
+            const details = event.details;
+            const status = details.isFinal ? '⚠️ FINAL' : `retry ${details.attempt}/${details.maxRetries}`;
+            return `[${timestamp}] Member Fetch Timeout: ${event.guildName} (${details.origin}) [${status}]`;
         }
         default:
             return `[${timestamp}] ${event.type}: ${JSON.stringify(event.details)}`;
     }
 }
-/**
- * Format duration in milliseconds to human-readable string
- * Now imported from centralized format-utils.js
- */
-// function formatDuration removed - using centralized version
+// ─────────────────────────────────────────────────────────────────────────────
+// Event Queries
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Get timeline events filtered by type
  */
@@ -89,6 +103,9 @@ export function getTimelineSummary(state) {
             : 0
     };
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Display Formatting
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Get formatted timeline for display (Discord embed-friendly)
  */
@@ -98,33 +115,6 @@ export function getFormattedTimeline(state, limit = 10) {
         return ['No recent activity'];
     }
     return events.map(formatTimelineEvent);
-}
-/**
- * Get recent activity summary for restart DM
- */
-export function getRecentActivitySummary(state, limit = 5) {
-    const events = state.timeline.slice(0, limit);
-    if (events.length === 0) {
-        return 'No recent activity before restart';
-    }
-    const lines = events.map(event => {
-        const relativeTime = getRelativeTime(event.timestamp);
-        switch (event.type) {
-            case 'sweep':
-                return `• ${relativeTime}: Swept ${event.guildName}`;
-            case 'permission_change':
-                return `• ${relativeTime}: Reverted unauthorized change in ${event.guildName}`;
-            case 'alert':
-                return `• ${relativeTime}: Alert sent to ${event.details.recipient}`;
-            case 'error':
-                return `• ${relativeTime}: Error - ${event.details.message}`;
-            case 'member_fetch_timeout':
-                return `• ${relativeTime}: Member fetch timeout in ${event.guildName}`;
-            default:
-                return `• ${relativeTime}: ${event.type}`;
-        }
-    });
-    return lines.join('\n');
 }
 /**
  * Get relative time string (e.g., "2 hours ago")
@@ -149,6 +139,37 @@ function getRelativeTime(timestamp) {
     else {
         return `${seconds}s ago`;
     }
+}
+/**
+ * Get recent activity summary for restart DM
+ */
+export function getRecentActivitySummary(state, limit = 5) {
+    const events = state.timeline.slice(0, limit);
+    if (events.length === 0) {
+        return 'No recent activity before restart';
+    }
+    const lines = events.map(event => {
+        const relativeTime = getRelativeTime(event.timestamp);
+        switch (event.type) {
+            case 'sweep':
+                return `• ${relativeTime}: Swept ${event.guildName}`;
+            case 'permission_change':
+                return `• ${relativeTime}: Reverted unauthorized change in ${event.guildName}`;
+            case 'alert': {
+                const details = event.details;
+                return `• ${relativeTime}: Alert sent to ${details.recipient}`;
+            }
+            case 'error': {
+                const details = event.details;
+                return `• ${relativeTime}: Error - ${details.message}`;
+            }
+            case 'member_fetch_timeout':
+                return `• ${relativeTime}: Member fetch timeout in ${event.guildName}`;
+            default:
+                return `• ${relativeTime}: ${event.type}`;
+        }
+    });
+    return lines.join('\n');
 }
 /**
  * Get event icon emoji for display
@@ -177,23 +198,31 @@ export function buildTimelineEmbedFields(state, limit = 10) {
                 inline: false
             }];
     }
-    const fields = events.map((event, index) => {
+    const fields = events.map((event) => {
         const icon = getEventIcon(event.type);
         const relativeTime = getRelativeTime(event.timestamp);
         let description = '';
         switch (event.type) {
-            case 'sweep':
-                description = `${event.guildName} - ${event.details.rolesChecked} roles, ${event.details.changesDetected} changes`;
+            case 'sweep': {
+                const details = event.details;
+                description = `${event.guildName} - ${details.rolesChecked} roles, ${details.changesDetected} changes`;
                 break;
-            case 'permission_change':
-                description = `${event.guildName} - ${event.details.userName} [${event.details.revertStatus}]`;
+            }
+            case 'permission_change': {
+                const details = event.details;
+                description = `${event.guildName} - ${details.userName} [${details.revertStatus}]`;
                 break;
-            case 'alert':
-                description = `To ${event.details.recipient} - ${event.details.reason}`;
+            }
+            case 'alert': {
+                const details = event.details;
+                description = `To ${details.recipient} - ${details.reason}`;
                 break;
-            case 'restart':
-                description = `${event.details.reason}`;
+            }
+            case 'restart': {
+                const details = event.details;
+                description = `${details.reason}`;
                 break;
+            }
             default:
                 description = JSON.stringify(event.details).substring(0, 100);
         }

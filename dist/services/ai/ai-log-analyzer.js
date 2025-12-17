@@ -1,59 +1,61 @@
 /* eslint-disable no-console */
+/**
+ * AI Log Analyzer - Self-Learning System
+ * @module services/ai/ai-log-analyzer
+ *
+ * Features:
+ *   - Pattern detection (error patterns, performance patterns, user behavior)
+ *   - Correlation analysis (find related errors, cascade failures)
+ *   - Performance profiling (slow queries, memory leaks, bottlenecks)
+ *   - Anomaly detection (unusual patterns, spikes, degradation)
+ *   - Self-learning (improve detection over time, adapt thresholds)
+ *   - Insights generation (actionable recommendations for AI)
+ */
 import fs from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { createGunzip } from 'node:zlib';
 import path from 'node:path';
 import readline from 'node:readline';
-// ============================================================================
-// AI LOG ANALYZER - SELF-LEARNING SYSTEM
-// ============================================================================
-// Purpose: Analyze structured logs for patterns, insights, and self-learning
-// Features:
-//   - Pattern detection (error patterns, performance patterns, user behavior)
-//   - Correlation analysis (find related errors, cascade failures)
-//   - Performance profiling (slow queries, memory leaks, bottlenecks)
-//   - Anomaly detection (unusual patterns, spikes, degradation)
-//   - Self-learning (improve detection over time, adapt thresholds)
-//   - Insights generation (actionable recommendations for AI)
-// ============================================================================
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Configuration
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 const CONFIG = {
-    baseDir: process.env.IS_RENDER ? '/Store/ai-logs' : path.resolve(process.cwd(), 'Store/ai-logs'),
-    analysisDir: process.env.IS_RENDER ? '/Store/ai-logs/analysis' : path.resolve(process.cwd(), 'Store/ai-logs/analysis'),
+    baseDir: process.env.IS_RENDER
+        ? '/Store/ai-logs'
+        : path.resolve(process.cwd(), 'Store/ai-logs'),
+    analysisDir: process.env.IS_RENDER
+        ? '/Store/ai-logs/analysis'
+        : path.resolve(process.cwd(), 'Store/ai-logs/analysis'),
     // Pattern detection settings
     patterns: {
-        minOccurrences: 3, // Minimum occurrences to consider a pattern
-        timeWindow: 60 * 60 * 1000, // 1 hour time window for pattern detection
-        similarityThreshold: 0.7, // 70% similarity to group errors
+        minOccurrences: 3,
+        timeWindow: 60 * 60 * 1000, // 1 hour
+        similarityThreshold: 0.7,
     },
     // Anomaly detection settings
     anomaly: {
-        baselineWindow: 24 * 60 * 60 * 1000, // 24 hours baseline
-        deviationThreshold: 2.0, // 2 standard deviations
+        baselineWindow: 24 * 60 * 60 * 1000, // 24 hours
+        deviationThreshold: 2.0,
     },
     // Learning settings
     learning: {
-        enableAutoUpdate: true, // Auto-update patterns and thresholds
-        minDataPoints: 100, // Minimum data points before learning
-        adaptationRate: 0.1, // How quickly to adapt (0.0 - 1.0)
+        enableAutoUpdate: true,
+        minDataPoints: 100,
+        adaptationRate: 0.1,
     },
 };
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // State Management
-// ============================================================================
-// In-memory knowledge base (persisted to disk)
+// ─────────────────────────────────────────────────────────────────────────────
 const knowledgeBase = {
-    errorPatterns: new Map(), // Known error patterns
-    performanceBaselines: new Map(), // Performance baselines by operation
-    userBehaviorPatterns: new Map(), // User behavior patterns
-    correlations: new Map(), // Correlated events
-    anomalies: [], // Detected anomalies
-    insights: [], // Generated insights
+    errorPatterns: new Map(),
+    performanceBaselines: new Map(),
+    userBehaviorPatterns: new Map(),
+    correlations: new Map(),
+    anomalies: [],
+    insights: [],
     lastUpdate: Date.now(),
 };
-// Statistics
 const stats = {
     logsAnalyzed: 0,
     patternsDetected: 0,
@@ -62,13 +64,11 @@ const stats = {
     correlationsFound: 0,
     learningUpdates: 0,
 };
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Log Reading
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Read log entries from a file (supports both .ndjson and .ndjson.gz).
- * @param {string} filepath - Path to log file
- * @returns {AsyncGenerator<object>} Stream of log entries
  */
 async function* readLogFile(filepath) {
     const isCompressed = filepath.endsWith('.gz');
@@ -91,15 +91,13 @@ async function* readLogFile(filepath) {
             stats.logsAnalyzed++;
         }
         catch (error) {
-            console.warn('[ai-log-analyzer] Failed to parse log entry:', error.message);
+            const err = error instanceof Error ? error : new Error(String(error));
+            console.warn('[ai-log-analyzer] Failed to parse log entry:', err.message);
         }
     }
 }
 /**
  * Read all log files in directory (including compressed).
- * @param {string} dirPath - Directory path
- * @param {object} options - Query options
- * @returns {AsyncGenerator<object>} Stream of log entries
  */
 async function* readAllLogs(dirPath = CONFIG.baseDir, options = {}) {
     const { category = null, level = null, since = null, until = null, tags = [], limit = null, } = options;
@@ -160,18 +158,15 @@ async function* readAllLogs(dirPath = CONFIG.baseDir, options = {}) {
             }
         }
     }
-    catch {
+    catch (error) {
         console.error('[ai-log-analyzer] Failed to read logs:', error);
     }
 }
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Pattern Detection
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
- * Calculate similarity between two error messages using Levenshtein distance.
- * @param {string} str1 - First string
- * @param {string} str2 - Second string
- * @returns {number} Similarity score (0.0 - 1.0)
+ * Calculate similarity between two strings using Levenshtein distance.
  */
 function calculateSimilarity(str1, str2) {
     const len1 = str1.length;
@@ -184,43 +179,35 @@ function calculateSimilarity(str1, str2) {
     for (let i = 1; i <= len1; i++) {
         for (let j = 1; j <= len2; j++) {
             const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-            matrix[i][j] = Math.min(matrix[i - 1][j] + 1, // deletion
-            matrix[i][j - 1] + 1, // insertion
-            matrix[i - 1][j - 1] + cost // substitution
-            );
+            matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
         }
     }
     const maxLen = Math.max(len1, len2);
-    return 1 - (matrix[len1][len2] / maxLen);
+    return maxLen === 0 ? 1 : 1 - (matrix[len1][len2] / maxLen);
 }
 /**
  * Detect error patterns in logs.
- * @param {object} options - Analysis options
- * @returns {Promise<Array>} Detected patterns
  */
-async function detectErrorPatterns(options = {}) {
+export async function detectErrorPatterns(options = {}) {
     const { since = new Date(Date.now() - CONFIG.patterns.timeWindow) } = options;
     const errors = [];
-    // Collect all error-level logs
     for await (const entry of readAllLogs(CONFIG.baseDir, {
         level: 'ERROR',
         since,
     })) {
         errors.push(entry);
     }
-    // Group similar errors
     const groups = [];
     for (const error of errors) {
         const errorMessage = error.message || '';
         const errorName = error.error?.name || 'UnknownError';
-        // Find existing group with similar error
         let foundGroup = null;
         for (const group of groups) {
             const representative = group.errors[0];
             const repMessage = representative.message || '';
             const repName = representative.error?.name || 'UnknownError';
-            // Check name match and message similarity
-            if (errorName === repName && calculateSimilarity(errorMessage, repMessage) >= CONFIG.patterns.similarityThreshold) {
+            if (errorName === repName &&
+                calculateSimilarity(errorMessage, repMessage) >= CONFIG.patterns.similarityThreshold) {
                 foundGroup = group;
                 break;
             }
@@ -238,11 +225,10 @@ async function detectErrorPatterns(options = {}) {
                 count: 1,
                 firstSeen: error.timestamp,
                 lastSeen: error.timestamp,
-                files: [error.context?.file].filter(Boolean),
+                files: [error.context?.file].filter((f) => Boolean(f)),
             });
         }
     }
-    // Filter groups that meet minimum occurrences
     const patterns = groups
         .filter(g => g.count >= CONFIG.patterns.minOccurrences)
         .sort((a, b) => b.count - a.count);
@@ -280,13 +266,10 @@ async function detectErrorPatterns(options = {}) {
 }
 /**
  * Detect performance patterns (slow operations, bottlenecks).
- * @param {object} options - Analysis options
- * @returns {Promise<Array>} Detected patterns
  */
-async function detectPerformancePatterns(options = {}) {
+export async function detectPerformancePatterns(options = {}) {
     const { since = new Date(Date.now() - CONFIG.patterns.timeWindow) } = options;
     const operations = new Map();
-    // Collect performance-related logs
     for await (const entry of readAllLogs(CONFIG.baseDir, {
         category: 'performance',
         since,
@@ -302,16 +285,16 @@ async function detectPerformancePatterns(options = {}) {
             file: entry.context?.file,
         });
     }
-    // Analyze each operation
     const patterns = [];
     for (const [operation, measurements] of operations.entries()) {
         if (measurements.length < CONFIG.patterns.minOccurrences)
             continue;
         const durations = measurements.map(m => m.duration);
+        const sortedDurations = [...durations].sort((a, b) => a - b);
         const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
         const max = Math.max(...durations);
         const min = Math.min(...durations);
-        const p95 = durations.sort((a, b) => a - b)[Math.floor(durations.length * 0.95)];
+        const p95 = sortedDurations[Math.floor(sortedDurations.length * 0.95)];
         patterns.push({
             operation,
             count: measurements.length,
@@ -319,14 +302,15 @@ async function detectPerformancePatterns(options = {}) {
             min,
             max,
             p95,
-            files: [...new Set(measurements.map(m => m.file))].filter(Boolean),
+            files: [...new Set(measurements.map(m => m.file).filter((f) => Boolean(f)))],
         });
         // Update baseline
         const baseline = knowledgeBase.performanceBaselines.get(operation);
         if (baseline) {
-            // Adapt baseline with new measurements
-            baseline.avg = baseline.avg * (1 - CONFIG.learning.adaptationRate) + avg * CONFIG.learning.adaptationRate;
-            baseline.p95 = baseline.p95 * (1 - CONFIG.learning.adaptationRate) + p95 * CONFIG.learning.adaptationRate;
+            baseline.avg = baseline.avg * (1 - CONFIG.learning.adaptationRate) +
+                avg * CONFIG.learning.adaptationRate;
+            baseline.p95 = baseline.p95 * (1 - CONFIG.learning.adaptationRate) +
+                p95 * CONFIG.learning.adaptationRate;
             baseline.measurements += measurements.length;
             baseline.lastUpdate = Date.now();
         }
@@ -343,18 +327,12 @@ async function detectPerformancePatterns(options = {}) {
     }
     return patterns;
 }
-// ============================================================================
-// Correlation Analysis
-// ============================================================================
 /**
  * Find correlated events (events that happen together).
- * @param {object} options - Analysis options
- * @returns {Promise<Array>} Correlated event pairs
  */
-async function findCorrelations(options = {}) {
+export async function findCorrelations(options = {}) {
     const { since = new Date(Date.now() - CONFIG.patterns.timeWindow), timeWindow = 60000 } = options;
     const events = [];
-    // Collect all events
     for await (const entry of readAllLogs(CONFIG.baseDir, { since })) {
         events.push({
             timestamp: new Date(entry.timestamp).getTime(),
@@ -364,18 +342,14 @@ async function findCorrelations(options = {}) {
             correlationId: entry.correlationId,
         });
     }
-    // Sort by timestamp
     events.sort((a, b) => a.timestamp - b.timestamp);
     const correlations = new Map();
-    // Find events that occur within time window
     for (let i = 0; i < events.length; i++) {
         for (let j = i + 1; j < events.length; j++) {
             const event1 = events[i];
             const event2 = events[j];
-            // Stop if too far apart
             if (event2.timestamp - event1.timestamp > timeWindow)
                 break;
-            // Skip same category
             if (event1.category === event2.category)
                 continue;
             const key = `${event1.category}:${event1.level}→${event2.category}:${event2.level}`;
@@ -394,11 +368,9 @@ async function findCorrelations(options = {}) {
             corr.avgTimeDelta = corr.timeDeltaSum / corr.count;
         }
     }
-    // Filter significant correlations
     const significantCorrelations = Array.from(correlations.values())
         .filter(c => c.count >= CONFIG.patterns.minOccurrences)
         .sort((a, b) => b.count - a.count);
-    // Update knowledge base
     for (const corr of significantCorrelations) {
         const key = `${corr.event1}→${corr.event2}`;
         knowledgeBase.correlations.set(key, {
@@ -409,18 +381,12 @@ async function findCorrelations(options = {}) {
     stats.correlationsFound += significantCorrelations.length;
     return significantCorrelations;
 }
-// ============================================================================
-// Anomaly Detection
-// ============================================================================
 /**
  * Detect anomalies in log patterns.
- * @param {object} options - Analysis options
- * @returns {Promise<Array>} Detected anomalies
  */
-async function detectAnomalies(options = {}) {
+export async function detectAnomalies(options = {}) {
     const { since = new Date(Date.now() - CONFIG.anomaly.baselineWindow) } = options;
     const hourlyBuckets = new Map();
-    // Bucket logs by hour
     for await (const entry of readAllLogs(CONFIG.baseDir, { since })) {
         const hour = Math.floor(new Date(entry.timestamp).getTime() / (60 * 60 * 1000));
         const key = `${hour}:${entry.level}`;
@@ -433,7 +399,6 @@ async function detectAnomalies(options = {}) {
         }
         hourlyBuckets.get(key).count++;
     }
-    // Group by level
     const byLevel = new Map();
     for (const bucket of hourlyBuckets.values()) {
         if (!byLevel.has(bucket.level)) {
@@ -441,11 +406,10 @@ async function detectAnomalies(options = {}) {
         }
         byLevel.get(bucket.level).push(bucket.count);
     }
-    // Detect anomalies (values outside 2 standard deviations)
     const anomalies = [];
     for (const [level, counts] of byLevel.entries()) {
         if (counts.length < 24)
-            continue; // Need at least 24 hours of data
+            continue;
         const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
         const variance = counts.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / counts.length;
         const stdDev = Math.sqrt(variance);
@@ -457,13 +421,12 @@ async function detectAnomalies(options = {}) {
                     count: counts[i],
                     baseline: avg,
                     threshold,
-                    deviation: (counts[i] - avg) / stdDev,
+                    deviation: stdDev > 0 ? (counts[i] - avg) / stdDev : 0,
                     hour: i,
                 });
             }
         }
     }
-    // Store anomalies
     knowledgeBase.anomalies.push(...anomalies.map(a => ({
         ...a,
         detectedAt: Date.now(),
@@ -471,14 +434,13 @@ async function detectAnomalies(options = {}) {
     stats.anomaliesDetected += anomalies.length;
     return anomalies;
 }
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Insights Generation
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Generate actionable insights from analysis.
- * @returns {Promise<Array>} Generated insights
  */
-async function generateInsights() {
+export async function generateInsights() {
     const insights = [];
     // Insight 1: Recurring errors
     for (const [_key, pattern] of knowledgeBase.errorPatterns.entries()) {
@@ -496,7 +458,7 @@ async function generateInsights() {
     }
     // Insight 2: Performance bottlenecks
     for (const [operation, baseline] of knowledgeBase.performanceBaselines.entries()) {
-        if (baseline.p95 > 1000) { // >1 second
+        if (baseline.p95 > 1000) {
             insights.push({
                 type: 'performance_bottleneck',
                 severity: 'medium',
@@ -521,18 +483,16 @@ async function generateInsights() {
         }
     }
     // Insight 4: Anomalies
-    const recentAnomalies = knowledgeBase.anomalies.filter(a => Date.now() - a.detectedAt < 60 * 60 * 1000);
-    if (recentAnomalies.length > 0) {
-        for (const anomaly of recentAnomalies) {
-            insights.push({
-                type: 'anomaly',
-                severity: 'medium',
-                title: `Anomaly detected: ${anomaly.level} logs spike`,
-                description: `${anomaly.level} log count (${anomaly.count}) is ${anomaly.deviation.toFixed(1)}σ above baseline (${anomaly.baseline.toFixed(0)})`,
-                recommendation: `Investigate recent changes that may have caused increased ${anomaly.level} logs. Check for new error conditions or configuration changes.`,
-                data: anomaly,
-            });
-        }
+    const recentAnomalies = knowledgeBase.anomalies.filter(a => a.detectedAt && Date.now() - a.detectedAt < 60 * 60 * 1000);
+    for (const anomaly of recentAnomalies) {
+        insights.push({
+            type: 'anomaly',
+            severity: 'medium',
+            title: `Anomaly detected: ${anomaly.level} logs spike`,
+            description: `${anomaly.level} log count (${anomaly.count}) is ${anomaly.deviation.toFixed(1)}σ above baseline (${anomaly.baseline.toFixed(0)})`,
+            recommendation: `Investigate recent changes that may have caused increased ${anomaly.level} logs. Check for new error conditions or configuration changes.`,
+            data: anomaly,
+        });
     }
     // Store insights
     for (const insight of insights) {
@@ -543,25 +503,23 @@ async function generateInsights() {
     stats.insightsGenerated += insights.length;
     return insights;
 }
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Persistence
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Save knowledge base to disk.
- * @returns {Promise<void>}
  */
-async function saveKnowledgeBase() {
+export async function saveKnowledgeBase() {
     try {
         await fs.mkdir(CONFIG.analysisDir, { recursive: true });
         const filepath = path.join(CONFIG.analysisDir, 'knowledge-base.json');
-        // Convert Maps to objects for JSON serialization
         const serializable = {
             errorPatterns: Array.from(knowledgeBase.errorPatterns.entries()),
             performanceBaselines: Array.from(knowledgeBase.performanceBaselines.entries()),
             userBehaviorPatterns: Array.from(knowledgeBase.userBehaviorPatterns.entries()),
             correlations: Array.from(knowledgeBase.correlations.entries()),
-            anomalies: knowledgeBase.anomalies.slice(-100), // Keep last 100
-            insights: knowledgeBase.insights.slice(-100), // Keep last 100
+            anomalies: knowledgeBase.anomalies.slice(-100),
+            insights: knowledgeBase.insights.slice(-100),
             lastUpdate: Date.now(),
             stats: { ...stats },
         };
@@ -574,14 +532,12 @@ async function saveKnowledgeBase() {
 }
 /**
  * Load knowledge base from disk.
- * @returns {Promise<void>}
  */
-async function loadKnowledgeBase() {
+export async function loadKnowledgeBase() {
     try {
         const filepath = path.join(CONFIG.analysisDir, 'knowledge-base.json');
         const data = await fs.readFile(filepath, 'utf8');
         const parsed = JSON.parse(data);
-        // Restore Maps
         knowledgeBase.errorPatterns = new Map(parsed.errorPatterns);
         knowledgeBase.performanceBaselines = new Map(parsed.performanceBaselines);
         knowledgeBase.userBehaviorPatterns = new Map(parsed.userBehaviorPatterns);
@@ -593,19 +549,16 @@ async function loadKnowledgeBase() {
         console.log('[ai-log-analyzer] Knowledge base loaded');
     }
     catch {
-        // File doesn't exist yet, start fresh
         console.log('[ai-log-analyzer] Starting with fresh knowledge base');
     }
 }
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 // Public API
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Run full analysis pipeline.
- * @param {object} options - Analysis options
- * @returns {Promise<object>} Analysis results
  */
-async function analyze(options = {}) {
+export async function analyze(options = {}) {
     console.log('[ai-log-analyzer] Starting analysis...');
     const results = {
         errorPatterns: await detectErrorPatterns(options),
@@ -615,7 +568,6 @@ async function analyze(options = {}) {
         insights: await generateInsights(),
         stats: { ...stats },
     };
-    // Save updated knowledge base
     if (CONFIG.learning.enableAutoUpdate) {
         await saveKnowledgeBase();
         stats.learningUpdates++;
@@ -625,19 +577,16 @@ async function analyze(options = {}) {
 }
 /**
  * Query logs with filters.
- * @param {object} filters - Query filters
- * @returns {AsyncGenerator<object>} Matching log entries
  */
-async function* query(filters = {}) {
+export async function* query(filters = {}) {
     for await (const entry of readAllLogs(CONFIG.baseDir, filters)) {
         yield entry;
     }
 }
 /**
  * Get knowledge base summary.
- * @returns {object} Summary of learned patterns
  */
-function getKnowledgeSummary() {
+export function getKnowledgeSummary() {
     return {
         errorPatterns: knowledgeBase.errorPatterns.size,
         performanceBaselines: knowledgeBase.performanceBaselines.size,
@@ -650,24 +599,21 @@ function getKnowledgeSummary() {
 }
 /**
  * Initialize analyzer.
- * @returns {Promise<void>}
  */
-async function initialize() {
+export async function initialize() {
     await loadKnowledgeBase();
     console.log('[ai-log-analyzer] Initialized');
 }
 /**
  * Shutdown analyzer.
- * @returns {Promise<void>}
  */
-async function shutdown() {
+export async function shutdown() {
     await saveKnowledgeBase();
     console.log('[ai-log-analyzer] Shutdown complete');
 }
-// ============================================================================
-// Exports
-// ============================================================================
-export { initialize, shutdown, analyze, query, detectErrorPatterns, detectPerformancePatterns, findCorrelations, detectAnomalies, generateInsights, getKnowledgeSummary, saveKnowledgeBase, loadKnowledgeBase, };
+// ─────────────────────────────────────────────────────────────────────────────
+// Default Export
+// ─────────────────────────────────────────────────────────────────────────────
 export default {
     initialize,
     shutdown,

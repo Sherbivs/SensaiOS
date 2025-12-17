@@ -20,6 +20,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { EventBus } from '../shared/event-bus.js';
+import { LOG_LEVEL } from '../config/env.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // ============================================================================
@@ -298,7 +299,7 @@ class IntelligentLogger {
     errorBusSubscriptionId; // MEMORY LEAK FIX: Store Event Bus subscription ID
     constructor() {
         this.buffer = new CircularBuffer();
-        this.minLevel = this.parseLogLevel(process.env.LOG_LEVEL || 'info');
+        this.minLevel = this.parseLogLevel(LOG_LEVEL);
         this.serviceName = this.detectServiceName();
         // Start write interval (flush every 5 seconds)
         this.writeInterval = setInterval(() => {
@@ -672,7 +673,7 @@ class IntelligentLogger {
             const bus = EventBus.getInstance();
             // Subscribe to all error events via Event Bus
             this.errorBusSubscriptionId = bus.subscribe('error.**', (event) => {
-                // Extract error event from bus payload
+                // Extract error event from bus payload (cast from unknown)
                 const errorEvent = event.payload;
                 // Log error with enhanced context from error tracker
                 const message = `[ERROR-TRACKER] ${errorEvent.errorName}: ${errorEvent.errorMessage}`;
@@ -757,11 +758,7 @@ class ScopedLogger {
 export { IntelligentLogger };
 // Export singleton instance for normal use
 export const logger = new IntelligentLogger();
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-    await logger.shutdown();
-});
-process.on('SIGINT', async () => {
-    await logger.shutdown();
-});
+// NOTE: Signal handlers removed - logger shutdown is handled by ServiceRegistry
+// via the centralized shutdown sequence in src/shared/service-registry.ts.
+// The logger's shutdown() method can be called directly if needed.
 export default logger;

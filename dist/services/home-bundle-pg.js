@@ -20,23 +20,23 @@
  * - src/shared/models/encounter-queries-pg.ts (Encounter operations)
  */
 import { getProdDb } from "../shared/pg-connection.js";
+import { pgTimestampToDateRequired } from "../types/database-rows.js";
 // ============================================================================
 // Helper Functions
 // ============================================================================
 /**
- * Revival helper: Convert Date-like strings to Date objects
+ * Revival helper: Convert Date-like strings to Date objects for Cooldown
  */
-function reviveDates(row) {
-    if (!row)
-        return row;
-    const copy = { ...row };
-    if (copy.readyAt && typeof copy.readyAt === "string")
-        copy.readyAt = new Date(copy.readyAt);
-    if (copy.createdAt && typeof copy.createdAt === "string")
-        copy.createdAt = new Date(copy.createdAt);
-    if (copy.updatedAt && typeof copy.updatedAt === "string")
-        copy.updatedAt = new Date(copy.updatedAt);
-    return copy;
+function reviveCooldown(row) {
+    return {
+        id: row.id,
+        ownerId: row.ownerId,
+        kind: row.kind,
+        readyAt: pgTimestampToDateRequired(row.readyAt),
+        metaJson: row.metaJson,
+        createdAt: pgTimestampToDateRequired(row.createdAt),
+        updatedAt: pgTimestampToDateRequired(row.updatedAt),
+    };
 }
 // ============================================================================
 // Cooldown Queries
@@ -51,7 +51,7 @@ export async function findCooldownByUserAndKind(userId, kind, client) {
     const pool = client ?? getProdDb();
     const sql = `SELECT * FROM "Cooldown" WHERE "ownerId" = $1 AND kind = $2`;
     const result = await pool.query(sql, [userId, kind]);
-    return result.rows.length > 0 ? reviveDates(result.rows[0]) : null;
+    return result.rows.length > 0 ? reviveCooldown(result.rows[0]) : null;
 }
 /**
  * Create cooldown for user
@@ -69,7 +69,7 @@ export async function createCooldown(userId, kind, readyAt, metaJson = null, cli
     RETURNING *
   `;
     const result = await pool.query(sql, [userId, kind, readyAt, metaJson ? JSON.stringify(metaJson) : null]);
-    return reviveDates(result.rows[0]);
+    return reviveCooldown(result.rows[0]);
 }
 /**
  * Update cooldown readyAt timestamp
@@ -88,5 +88,5 @@ export async function updateCooldownReadyAt(cooldownId, readyAt, client) {
     const result = await pool.query(sql, [cooldownId, readyAt]);
     if (result.rows.length === 0)
         throw new Error(`Cooldown not found: ${cooldownId}`);
-    return reviveDates(result.rows[0]);
+    return reviveCooldown(result.rows[0]);
 }

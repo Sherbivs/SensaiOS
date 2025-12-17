@@ -31,6 +31,7 @@ import { resourceManager } from './resource-manager.js';
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
 import logger from '../../utils/intelligent-logger.js';
 import { EventBus } from '../../shared/event-bus.js';
+import { RESOURCE_MONITOR_INTERVAL_MS } from '../../config/env.js';
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -72,7 +73,7 @@ const MONITOR_CONFIG = {
     // Health check interval: Can be configured via environment
     // Default: 12 hours (twice daily)
     // Optimization phase: 5 minutes (set RESOURCE_MONITOR_INTERVAL_MS=300000)
-    intervalMs: parseInt(process.env.RESOURCE_MONITOR_INTERVAL_MS || '43200000', 10), // 12 hours default
+    intervalMs: RESOURCE_MONITOR_INTERVAL_MS,
     // Memory guardian polling: Active memory protection
     // Runs every 30 seconds to catch spikes before OOM
     memoryGuardianIntervalMs: 30000, // 30 seconds
@@ -821,9 +822,51 @@ class ResourceMonitor {
     getMetrics() {
         const mem = process.memoryUsage();
         const cpuUsage = process.cpuUsage();
-        // Cache/disk metrics (placeholder values - real implementation would query filesystem)
-        // These prevent toFixed() errors in logger.js collectCacheStats()
-        const cacheSize = 0; // TODO: Query actual cache size from /Store
+        // Cache/disk metrics (query actual cache size when possible)
+        let cacheSize = 0;
+        const cacheDir = process.env.RENDER ? '/Store' : process.cwd() + '/Store';
+        try {
+            // Use synchronous fs operations for this sync method
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const fs = require('node:fs');
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const path = require('node:path');
+            // Check if Store directory exists
+            if (fs.existsSync(cacheDir)) {
+                // Get directory size by walking files (limited depth for performance)
+                const getDirectorySize = (dir, depth = 0) => {
+                    if (depth > 2)
+                        return 0; // Limit recursion depth
+                    let size = 0;
+                    try {
+                        const entries = fs.readdirSync(dir, { withFileTypes: true });
+                        for (const entry of entries.slice(0, 100)) { // Limit entries per directory
+                            const fullPath = path.join(dir, entry.name);
+                            try {
+                                if (entry.isFile()) {
+                                    size += fs.statSync(fullPath).size;
+                                }
+                                else if (entry.isDirectory() && !entry.name.startsWith('.')) {
+                                    size += getDirectorySize(fullPath, depth + 1);
+                                }
+                            }
+                            catch {
+                                // Skip inaccessible files
+                            }
+                        }
+                    }
+                    catch {
+                        // Directory not readable
+                    }
+                    return size;
+                };
+                cacheSize = getDirectorySize(cacheDir);
+            }
+        }
+        catch {
+            // Filesystem access failed, use placeholder
+            cacheSize = 0;
+        }
         const cacheBudgetMax = 100 * 1024 * 1024; // 100 MB default budget
         const cacheBudgetPercent = cacheBudgetMax > 0 ? (cacheSize / cacheBudgetMax) * 100 : 0;
         const workspaceLimit = 1024 * 1024 * 1024; // 1 GB workspace limit (Render default)

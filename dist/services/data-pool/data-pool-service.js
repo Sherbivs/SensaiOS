@@ -53,6 +53,7 @@
  * });
  * ```
  */
+import { getErrorMessage } from '../../shared/utils/error-utils.js';
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -191,7 +192,7 @@ export class DataPoolService {
                 }
                 catch (error) {
                     failed++;
-                    errors.push(`Member ${memberId}: ${error instanceof Error ? error.message : String(error)}`);
+                    errors.push(`Member ${memberId}: ${getErrorMessage(error)}`);
                 }
             }
             // Update sync status
@@ -211,7 +212,7 @@ export class DataPoolService {
                 success: false,
                 synced,
                 failed: failed + 1,
-                errors: [...errors, error instanceof Error ? error.message : String(error)],
+                errors: [...errors, getErrorMessage(error)],
                 duration: Date.now() - startTime,
             };
         }
@@ -336,7 +337,7 @@ export class DataPoolService {
                 }
                 catch (error) {
                     failed++;
-                    errors.push(`Role ${roleId}: ${error instanceof Error ? error.message : String(error)}`);
+                    errors.push(`Role ${roleId}: ${getErrorMessage(error)}`);
                 }
             }
             // Update sync status
@@ -356,7 +357,7 @@ export class DataPoolService {
                 success: false,
                 synced,
                 failed: failed + 1,
-                errors: [...errors, error instanceof Error ? error.message : String(error)],
+                errors: [...errors, getErrorMessage(error)],
                 duration: Date.now() - startTime,
             };
         }
@@ -598,7 +599,7 @@ export class DataPoolService {
      * Record a sync error.
      */
     async recordSyncError(entityType, error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         await this.prisma.$executeRaw `
       UPDATE data_pool_sync_status
       SET

@@ -23,7 +23,7 @@
  * @module services/engine-write-buffer
  */
 import { EngineDbConfig } from '../../config/engine-db-config.js';
-import { log } from '../../utils/logger.js';
+import { log } from "../../shared/logger.js";
 import { errorTracker } from '../monitoring/error-tracker.js';
 // ============================================================================
 // Engine Write Buffer Class

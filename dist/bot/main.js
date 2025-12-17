@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import https from 'node:https';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { Client, GatewayIntentBits, Partials, Events, Collection, LimitedCollection, AuditLogEvent, PermissionsBitField } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, Events, Collection, LimitedCollection, AuditLogEvent, PermissionsBitField, } from 'discord.js';
 import { loadCommands } from '../command-loader.js';
 import { toEasternString, toEasternDate, toEasternTime } from '../shared/datetime.js';
 import { formatBytes, formatDuration, getErrorMessage, normalizeString } from '../shared/utils/index.js';
@@ -20,6 +20,8 @@ import { buildRestartSummary } from './state/context.js';
 import { initializeState, shutdownState, startAutoSave, stopAutoSave } from './state/persistence.js';
 import { recordSweep, recordMemberFetchTimeout } from './state/stats.js';
 import { getRecentActivitySummary } from './state/timeline.js';
+// Global state is set via global.securityBotState and global.securityBotClient for telemetry
+// These globals are declared in src/utils/logger.ts with compatible types
 // Extract constants from centralized constants
 const { DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS, MEMBER_STATS_REFRESH_INTERVAL_MS } = TIME_CONSTANTS;
 const { MAX_OPS_ERROR_QUEUE_SIZE } = MONITORING_CONSTANTS;
@@ -34,7 +36,7 @@ const TIMEOUT_CONFIG_FILE = process.env.RENDER
 // Load timeout from persistent config
 function loadTimeoutConfig() {
     try {
-        baseLog('info', `[timeout-config] Loading from: ${TIMEOUT_CONFIG_FILE}`, {}, { debugMode: CLI_DEBUG_MODE });
+        baseLog('info', `[timeout-config] Loading from: ${TIMEOUT_CONFIG_FILE}`);
         if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
             const data = fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8');
             const config = JSON.parse(data);
@@ -46,22 +48,22 @@ function loadTimeoutConfig() {
                     lastAdjusted: config.lastAdjusted || 'never',
                     lastReason: config.reason || 'unknown',
                     file: TIMEOUT_CONFIG_FILE
-                }, { debugMode: CLI_DEBUG_MODE });
+                });
                 return clamped;
             }
         }
         else {
             baseLog('info', `[timeout-config] File does not exist, using default: ${DEFAULT_TIMEOUT_MS}ms`, {
                 file: TIMEOUT_CONFIG_FILE
-            }, { debugMode: CLI_DEBUG_MODE });
+            });
         }
     }
     catch (err) {
         baseLog('warn', '[timeout-config] Failed to load, using default', {
-            error: err.message,
+            error: getErrorMessage(err),
             file: TIMEOUT_CONFIG_FILE,
             default: DEFAULT_TIMEOUT_MS
-        }, { debugMode: CLI_DEBUG_MODE });
+        });
     }
     return DEFAULT_TIMEOUT_MS;
 }
@@ -121,9 +123,9 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
     }
     catch (err) {
         baseLog('error', '[timeout-config] Failed to save', {
-            error: err.message,
+            error: getErrorMessage(err),
             file: TIMEOUT_CONFIG_FILE,
-            stack: err.stack
+            stack: err instanceof Error ? err.stack : undefined
         });
     }
 }
@@ -153,7 +155,12 @@ cache.cleanOldCache();
 cliStatus.startStatusDisplay();
 cliStatus.setPhase('Booting');
 cliStatus.setGuildCount(0);
-const log = (level, message, context) => baseLog(level, message, context, { debugMode: CLI_DEBUG_MODE });
+/** Debug mode logging wrapper - 4th arg (debugMode options) is ignored by baseLog but kept for compatibility */
+const log = (level, message, context) => {
+    // Note: debugMode option was previously passed but baseLog only takes 3 args
+    // If CLI_DEBUG_MODE is needed, conditionally enhance logging here
+    baseLog(level, message, context);
+};
 installFatalErrorHandlers({ log, report });
 const client = new Client({
     intents: [
@@ -227,24 +234,26 @@ const client = new Client({
 // Load slash commands (optional; safe if none present)
 let commands = null;
 try {
-    commands = await loadCommands();
-    if (commands && commands.size > 0) {
-        // Attach to client for convenience
+    const loadedCommands = await loadCommands();
+    if (loadedCommands && loadedCommands.size > 0) {
+        // Attach to client for convenience - cast to SlashCommand type
+        commands = loadedCommands;
         client.commands = new Collection([...commands.entries()]);
     }
 }
 catch (err) {
-    log('warn', '[commands] loader failed', { error: err?.message || err });
+    log('warn', '[commands] loader failed', { error: getErrorMessage(err) });
 }
 const GUILD_MEMBERS_TIMEOUT_FRAGMENT = "Members didn't arrive in time.";
 function isGuildMembersTimeout(error) {
     if (!error)
         return false;
-    const code = error.code || error.name;
+    const errorObj = error;
+    const code = errorObj.code || errorObj.name;
     if (code === 'GuildMembersTimeout') {
         return true;
     }
-    const message = typeof error.message === 'string' ? error.message : String(error);
+    const message = typeof errorObj.message === 'string' ? errorObj.message : String(error);
     return message.includes(GUILD_MEMBERS_TIMEOUT_FRAGMENT);
 }
 async function ensureGuildMembersCached(guild, options = {}) {
@@ -287,7 +296,7 @@ async function ensureGuildMembersCached(guild, options = {}) {
                 }
                 catch (err) {
                     // Don't fail the sweep if state recording fails
-                    log('debug', 'Failed to record member fetch timeout in state', { err: err?.message });
+                    log('debug', 'Failed to record member fetch timeout in state', { err: getErrorMessage(err) });
                 }
             }
             if (chunkAttempts >= chunkRetries) {
@@ -368,13 +377,15 @@ let dripAlertManager = null;
 let botState = null;
 let autoSaveInterval = null;
 const describeRole = (role) => `${role.name} (#${role.id})`;
-const describeMember = (member) => `${member.user.tag} (#${member.id})`;
+const describeMember = (member) => `${member.user?.tag ?? member.displayName ?? 'unknown'} (#${member.id})`;
 const describeGuild = (guild) => `${guild.name} (#${guild.id})`;
 const describeUser = (user) => {
     if (!user)
         return 'unknown user';
-    const tag = user.tag || user.username || 'unknown';
-    return `${tag} (#${user.id})`;
+    // Handle GuildMember by getting its user
+    const actualUser = 'user' in user ? user.user : user;
+    const tag = actualUser.tag || actualUser.username || 'unknown';
+    return `${tag} (#${actualUser.id})`;
 };
 const securityCliState = {
     status: 'Booting',
@@ -397,7 +408,7 @@ const securityCliState = {
 const continuousSweepState = {
     running: false,
     abortController: null,
-    loopPromise: null,
+    loopPromise: undefined,
 };
 const pendingOpsErrorQueue = [];
 // MEMORY FIX (2025-11-18): Bound deliveredOpsErrorIds to prevent unbounded growth
@@ -481,8 +492,8 @@ async function refreshMemberStats(reason = 'unspecified') {
                     roleCount = guild.members.cache.filter((member) => member.roles.cache.has(role.id)).size;
                     complete = true;
                 }
-                else if (typeof role.memberCount === 'number') {
-                    roleCount = role.memberCount;
+                else if (role.memberCount != null) {
+                    roleCount = role.memberCount ?? 0;
                     complete = true;
                 }
                 else if (memberCount > 0 && memberCount <= 1000) {
@@ -579,7 +590,7 @@ function updateSecurityCliSection(overrides = {}) {
         const origin = securityCliState.lastSweepOrigin || 'unspecified';
         metrics.push(['last sweep', `${target} via ${origin}`]);
         metrics.push(['sweep finished', describeMomentForCli(securityCliState.lastSweepCompletedAt)]);
-        if (Number.isFinite(securityCliState.lastSweepDurationMs)) {
+        if (Number.isFinite(securityCliState.lastSweepDurationMs) && securityCliState.lastSweepDurationMs !== null) {
             metrics.push(['sweep duration', formatDuration(securityCliState.lastSweepDurationMs)]);
         }
         const parts = [];
@@ -668,7 +679,7 @@ function beginSecuritySweep(guild, origin) {
 }
 function completeSecuritySweep({ startedAt, assigned = 0, failed = 0, candidates = 0, reason = 'completed' }) {
     const completedAt = new Date();
-    const durationMs = startedAt instanceof Date ? completedAt - startedAt : null;
+    const durationMs = startedAt instanceof Date ? completedAt.getTime() - startedAt.getTime() : null;
     updateSecurityCliSection({
         lastSweepCompletedAt: completedAt,
         lastSweepDurationMs: durationMs,
@@ -868,7 +879,7 @@ async function deliverOpsErrors() {
 if (opsNotifier && typeof opsNotifier.subscribe === 'function') {
     opsNotifier.subscribe(queueOpsError);
     if (typeof opsNotifier.getRecentErrors === 'function') {
-        opsNotifier.getRecentErrors().forEach(queueOpsError);
+        opsNotifier.getRecentErrors().forEach((e) => queueOpsError(e));
     }
 }
 updateSecurityCliSection();
@@ -889,12 +900,13 @@ function mergeLogError(base, error) {
 }
 function mergeReportError(base, error) {
     if (error instanceof Error) {
+        const errorWithCode = error;
         const details = {
             ...base,
             errorMessage: error.message,
         };
-        if (error.code !== undefined) {
-            details.errorCode = error.code;
+        if (errorWithCode.code !== undefined) {
+            details.errorCode = errorWithCode.code;
         }
         if (error.stack) {
             details.errorStack = error.stack;
@@ -922,7 +934,7 @@ function extractAuditRoleIds(change) {
     }
     return candidates
         .map((item) => (item && typeof item.id === 'string' ? item.id : null))
-        .filter(Boolean);
+        .filter((id) => id !== null);
 }
 async function evaluateExecutorAuthorization(guild, executor) {
     if (!guild || !executor) {
@@ -989,7 +1001,7 @@ async function revertMemberRoles(member, { rolesToRemove = [], rolesToAdd = [], 
                 return role;
             return role.id || null;
         })
-            .filter(Boolean);
+            .filter((id) => id !== null);
     };
     const removeIds = normalize(rolesToRemove);
     const addIds = normalize(rolesToAdd);
@@ -1033,7 +1045,7 @@ async function revertMemberRoles(member, { rolesToRemove = [], rolesToAdd = [], 
         }
     }
     if (errors.length === 0) {
-        return { success: true, removed: removeIds, added: addIds };
+        return { success: true, removed: removeIds, added: addIds, errors: [] };
     }
     return {
         success: false,
@@ -1087,13 +1099,13 @@ function getContinuousSweepGuilds(signal, transformer) {
             return base;
         }
         if (Array.isArray(transformed)) {
-            return transformed.filter(Boolean);
+            return transformed.filter((g) => Boolean(g));
         }
         if (transformed instanceof Collection) {
-            return Array.from(transformed.values()).filter(Boolean);
+            return Array.from(transformed.values()).filter((g) => Boolean(g));
         }
         if (typeof transformed[Symbol.iterator] === 'function') {
-            return Array.from(transformed).filter(Boolean);
+            return Array.from(transformed).filter((g) => Boolean(g));
         }
         return base;
     }
@@ -1122,8 +1134,6 @@ function canAssignRole(guild, role) {
     }
     return hasManage && above;
 }
-// ----- Operational reporting -----
-// formatBytes now imported from shared/utils/format-utils.js (centralized)
 function reportOperationalStats(where = 'startup') {
     const hasBudget = cache && typeof cache.getCacheBudget === 'function';
     const budget = hasBudget ? cache.getCacheBudget() : { approxBytes: 0, maxAllowedBytes: 0, percent: cache && cache.MAX_CACHE_PERCENT ? cache.MAX_CACHE_PERCENT : 0.25 };
@@ -1303,8 +1313,8 @@ async function notifyServiceRestart() {
             // Add guild-level health summary
             if (botState.guilds && Object.keys(botState.guilds).length > 0) {
                 const guildsList = Object.values(botState.guilds);
-                const activeGuilds = guildsList.filter(g => g.monitoring);
-                const recentSweeps = guildsList.filter(g => {
+                const activeGuilds = guildsList.filter((g) => g.monitoring);
+                const recentSweeps = guildsList.filter((g) => {
                     if (!g.lastSweep)
                         return false;
                     const lastSweepTime = new Date(g.lastSweep).getTime();
@@ -1331,12 +1341,12 @@ async function notifyServiceRestart() {
             // Add error summary if any errors recorded
             if (botState.timeline && Array.isArray(botState.timeline)) {
                 const recentErrors = botState.timeline
-                    .filter(e => e.type === 'error')
+                    .filter((e) => e.type === 'error')
                     .slice(0, 3);
                 if (recentErrors.length > 0) {
                     message += `\n\n⚠️ **Recent Errors** (last ${recentErrors.length})`;
                     for (const error of recentErrors) {
-                        const timeAgo = Math.round((Date.now() - new Date(error.timestamp).getTime()) / 1000 / 60);
+                        const timeAgo = Math.round((Date.now() - new Date(error.timestamp || 0).getTime()) / 1000 / 60);
                         message += `\n• ${timeAgo}m ago: ${error.details?.error || 'Unknown error'}`;
                     }
                 }
@@ -1395,16 +1405,8 @@ async function notifyServiceRestart() {
                 }
                 if (stats) {
                     message += `\n\n${stats}`;
-                    // Update bot state with current database status (legacy - keep for compatibility)
-                    if (botState && stats.includes('MASTER')) {
-                        const masterMatch = stats.match(/MASTER.*?→\s*(\w+)/);
-                        if (masterMatch) {
-                            // Legacy field update - record MASTER status
-                            if (botState.databases) {
-                                botState.databases.master = { status: masterMatch[1], lastCheck: Date.now() };
-                            }
-                        }
-                    }
+                    // Note: Legacy database status tracking removed - now using state/types.ts DatabaseStatus
+                    // The SecurityBotState.runtime.databaseStatus field is the canonical location
                 }
             }
         }
@@ -1514,12 +1516,12 @@ function analyzeRolePermissions(role) {
         return { policy: 'unmanaged', expected: null, current, missing: [], extra: [] };
     }
     if (desired.expected === 'ALL') {
-        return { policy: 'all', expected: 'ALL', current, missing: [], extra: [] };
+        return { policy: 'all', expected: 'all', current, missing: [], extra: [] };
     }
-    const expected = desired.expected;
-    const missing = expected.filter(p => !current.includes(p));
-    const extra = current.filter(p => !expected.includes(p));
-    return { policy: desired.policy, expected, current, missing, extra, seeded: desired.seeded === true };
+    const expected = Array.isArray(desired.expected) ? desired.expected : [];
+    const missing = expected.filter((p) => !current.includes(p));
+    const extra = current.filter((p) => !expected.includes(p));
+    return { policy: desired.policy, expected, current, missing, extra };
 }
 function hasNoAssignableRoles(member) {
     // members always have @everyone; size === 1 means no additional roles
@@ -1657,6 +1659,7 @@ async function maybeAlertRoleAssignments(oldMember, newMember) {
         removedRoleIds: removedRoles.map((role) => role.id),
     });
     const executor = auditEntry?.executor ?? null;
+    // evaluateExecutorAuthorization accepts User | GuildMember | null
     const authorization = await evaluateExecutorAuthorization(guild, executor);
     const executorSummary = executor ? describeUser(executor) : 'unknown user';
     const previousRoles = listRoleSummaries(oldRoles);
@@ -1713,8 +1716,11 @@ async function maybeAlertRoleAssignments(oldMember, newMember) {
     // Check if this is a new member join (member created recently and receiving first role)
     const memberAge = Date.now() - (newMember.joinedTimestamp || 0);
     const isNewMember = memberAge < 60_000; // Joined within last minute
-    const isFirstRole = oldRoles.size === 0 && addedRoles.length > 0;
-    let title, severity, alertType, summary;
+    const isFirstRole = (oldRoles?.size ?? 0) === 0 && addedRoles.length > 0;
+    let title;
+    let severity;
+    let alertType;
+    let summary;
     if (isNewMember && isFirstRole) {
         // New member joining and receiving standard permissions
         title = `👋 New member joined: ${newMember.user.tag}`;
@@ -1907,8 +1913,10 @@ async function fixGuildRoles(guild) {
             });
             continue;
         }
+        // Ensure expected permissions are valid array
+        const targetPermissions = Array.isArray(analysis.expected) ? analysis.expected : [];
         try {
-            await role.setPermissions(analysis.expected);
+            await role.setPermissions(targetPermissions);
             report('Role Permissions Updated', {
                 guild: guildSummary,
                 role: describeRole(role),
@@ -2009,8 +2017,10 @@ async function enforceRolePermissions(role) {
         });
         return;
     }
+    // Ensure expected permissions are valid array
+    const targetPermissions = Array.isArray(analysis.expected) ? analysis.expected : [];
     try {
-        await role.setPermissions(analysis.expected);
+        await role.setPermissions(targetPermissions);
         report('Role Permissions Healed', {
             guild: guildSummary,
             role: describeRole(role)
@@ -2065,7 +2075,7 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
     }
     if (!hasNoAssignableRoles(member)) {
         const assignableRoles = member.roles.cache
-            .filter(r => r.id !== member.guild.roles.everyone.id)
+            .filter((r) => r.id !== member.guild.roles.everyone.id)
             .map(describeRole);
         report('Member Skipped', {
             origin,
@@ -2088,7 +2098,7 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
     // Cache: skip if we recently assigned this member
     const cacheKey = `assign:${member.guild.id}:${member.id}:${role.id}`;
     const cached = cache.readCache(cacheKey);
-    if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
+    if (cached && cached.assigned && cached.timestamp && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
         report('Assignment Skipped (Cache)', {
             origin,
             guild: guildSummary,
@@ -2116,7 +2126,8 @@ async function ensureTrainerFor(member, origin = 'unspecified') {
         cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
     }
     catch (error) {
-        const hint = (error && (String(error.message).includes('Missing Permissions') || error.code === 50013))
+        const err = error;
+        const hint = (err && (String(err.message).includes('Missing Permissions') || err.code === 50013))
             ? 'Check role hierarchy: bot role must be above target role and have Manage Roles.'
             : undefined;
         report('Assignment Failure', mergeReportError({
@@ -2191,7 +2202,7 @@ async function sweepGuild(guild, origin) {
                 try {
                     const cacheKey = `assign:${guild.id}:${member.id}:${role.id}`;
                     const cached = cache.readCache(cacheKey);
-                    if (cached && cached.assigned && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
+                    if (cached && cached.assigned && cached.timestamp && Date.now() - cached.timestamp < CACHE_TTL_HOURS * 3600 * 1000) {
                         report('Assignment Skipped (Cache)', {
                             origin,
                             guild: guildSummary,
@@ -2395,7 +2406,7 @@ function startContinuousSweepLoop(transformer) {
             report('Continuous Sweep Cycle Complete', {
                 cycleStarted: cycleStarted.toISOString(),
                 cycleCompleted: cycleCompleted.toISOString(),
-                durationMs: cycleCompleted - cycleStarted,
+                durationMs: cycleCompleted.getTime() - cycleStarted.getTime(),
                 guildsVisited: guilds.length,
                 cacheRefreshed: true,
                 idleDelayMs,
@@ -2422,7 +2433,7 @@ function startContinuousSweepLoop(transformer) {
     }).finally(() => {
         continuousSweepState.running = false;
         continuousSweepState.abortController = null;
-        continuousSweepState.loopPromise = null;
+        continuousSweepState.loopPromise = undefined;
     });
     return continuousSweepState.loopPromise;
 }
@@ -2465,8 +2476,14 @@ client.once(Events.ClientReady, async () => {
                 sweepCount: 0,
                 alertCount: 0,
                 permissionChangesDetected: 0,
-                successfulReverts: 0,
-                failedReverts: 0
+                permissionChangesReverted: 0,
+                revertFailures: 0,
+                guildCount: 0,
+                firstStartTime: now
+            },
+            metricsHistory: {
+                hourly: [],
+                lastPruned: now
             },
             runtime: {
                 currentUptime: 0,
@@ -2477,16 +2494,11 @@ client.once(Events.ClientReady, async () => {
             timeline: [{
                     timestamp: now,
                     type: 'restart',
+                    guildId: undefined,
+                    guildName: undefined,
                     details: { reason: 'fallback state (persistence unavailable)', previousUptime: 0 }
                 }],
-            guilds: {},
-            stats: {
-                totalSweeps: 0,
-                totalAlerts: 0,
-                totalPermissionChanges: 0,
-                successfulReverts: 0,
-                failedReverts: 0
-            }
+            guilds: {}
         };
         // Expose fallback state to globals
         global.securityBotState = botState;
@@ -2498,20 +2510,20 @@ client.once(Events.ClientReady, async () => {
     }
     if (CLI_DEBUG_MODE) {
         log('info', 'CLI debug mode active', {
-            userTag: client.user.tag,
-            userId: client.user.id
+            userTag: client.user?.tag ?? 'Unknown',
+            userId: client.user?.id ?? 'Unknown'
         });
         await runCliDebugDump();
         return;
     }
     log('success', 'Your service is live💦', {
-        connectedAs: client.user.tag,
-        userId: client.user.id,
+        connectedAs: client.user?.tag ?? 'Unknown',
+        userId: client.user?.id ?? 'Unknown',
     });
     if (commands && commands.size) {
         log('info', 'Slash commands loaded', { count: commands.size });
     }
-    updateSecurityCliSection({ status: `Ready as ${client.user.tag}` });
+    updateSecurityCliSection({ status: `Ready as ${client.user?.tag ?? 'Unknown'}` });
     updateMonitoringPhase();
     await refreshMemberStats('ready');
     await notifyServiceRestart();
@@ -2647,10 +2659,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     catch (err) {
         log('error', '[commands] handler error', { error: err });
-        if (interaction.deferred || interaction.replied) {
-            return interaction.editReply({ content: 'Something went wrong.' });
+        if (interaction.isRepliable()) {
+            if (interaction.deferred || interaction.replied) {
+                return interaction.editReply({ content: 'Something went wrong.' });
+            }
+            return interaction.reply({ content: 'Something went wrong.', ephemeral: true });
         }
-        return interaction.reply({ content: 'Something went wrong.', ephemeral: true });
     }
 });
 client.on(Events.GuildCreate, () => {
@@ -2674,6 +2688,7 @@ async function handleRolePermissionUpdate(oldRole, newRole) {
     const guild = newRole.guild;
     const auditEntry = await lookupRolePermissionAuditEntry(guild, newRole.id);
     const executor = auditEntry?.executor ?? null;
+    // PartialUser has same id/tag/username properties we need, safe to cast
     const authorization = await evaluateExecutorAuthorization(guild, executor);
     const executorSummary = executor ? describeUser(executor) : 'unknown user';
     if (authorization.authorized) {
@@ -2820,7 +2835,7 @@ async function resolveAlertUser(spec) {
 dripAlertManager = createDripAlertManager({
     recipient: DRIP_ALERT_RECIPIENT,
     resolveAlertUser,
-    describeUser,
+    describeUser: describeUser,
     log,
     recordActivity: (type, summary, meta) => activityTracker.recordActivity(type, summary, meta),
     timeZone: DRIP_ALERT_TIMEZONE,
@@ -2882,7 +2897,7 @@ async function sendSecurityAlert(title, meta = {}) {
         if (ALERT_CHANNEL_ID) {
             try {
                 const ch = await client.channels.fetch(ALERT_CHANNEL_ID);
-                if (ch && typeof ch.send === 'function') {
+                if (ch && ch.isTextBased() && 'send' in ch) {
                     await ch.send(`${text}\n${'```'}json\n${JSON.stringify(body, null, 2)}\n${'```'}`);
                 }
             }

@@ -23,8 +23,11 @@
  * @module homestead-player-monitor
  */
 import { prisma } from '../shared/prisma.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { HomesteadChannelManager } from './homestead-manager.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { HOMESTEAD_CHECK_INTERVAL_MS, HOMESTEAD_MIN_RECHECK_MS } from '../config/env.js';
+import { homesteadRepository } from './homestead-repository.js';
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -33,12 +36,12 @@ import { HomesteadChannelManager } from './homestead-manager.js';
  * 1000ms = 1 player/second = 3600 players/hour
  * Adjust based on player count and Discord API limits
  */
-const CHECK_INTERVAL_MS = parseInt(process.env.HOMESTEAD_CHECK_INTERVAL_MS || '1000', 10);
+const CHECK_INTERVAL_MS = HOMESTEAD_CHECK_INTERVAL_MS;
 /**
  * Minimum time between rechecking the same player (in milliseconds)
  * Default: 1 hour - players won't be rechecked more than once per hour
  */
-const MIN_RECHECK_INTERVAL_MS = parseInt(process.env.HOMESTEAD_MIN_RECHECK_MS || String(60 * 60 * 1000), 10);
+const MIN_RECHECK_INTERVAL_MS = HOMESTEAD_MIN_RECHECK_MS;
 /**
  * Batch size for fetching players to check
  * Fetch in batches to reduce DB queries
@@ -260,7 +263,7 @@ export class HomesteadPlayerMonitor {
         catch (error) {
             log.error('[HomesteadMonitor] Check cycle error', {
                 guildId: this.guildId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             this.stats.consecutiveErrors++;
         }
@@ -277,6 +280,7 @@ export class HomesteadPlayerMonitor {
     async checkSinglePlayer(userId) {
         try {
             // Get player's homestead record with user relation
+            // Using prisma directly for proper typing with include
             const homestead = await prisma.homesteadChannel.findFirst({
                 where: { userId, guildId: this.guildId },
                 include: { user: true }
@@ -300,11 +304,8 @@ export class HomesteadPlayerMonitor {
                 // Channel fetch failed - treat as missing
                 channelExists = false;
             }
-            // Update lastHealthCheck regardless of result
-            await prisma.homesteadChannel.update({
-                where: { id: homestead.id },
-                data: { lastHealthCheck: new Date() }
-            });
+            // Update lastHealthCheck regardless of result using repository
+            await homesteadRepository.touchHealthCheck(homestead.id);
             if (channelExists) {
                 return {
                     userId,
@@ -337,13 +338,13 @@ export class HomesteadPlayerMonitor {
                 log.error('[HomesteadMonitor] Failed to recreate channel', {
                     userId,
                     discordId: homestead.user.discordId,
-                    error: recreateError instanceof Error ? recreateError.message : String(recreateError),
+                    error: getErrorMessage(recreateError),
                 });
                 return {
                     userId,
                     discordId: homestead.user.discordId,
                     status: 'error',
-                    details: `Recreation failed: ${recreateError instanceof Error ? recreateError.message : String(recreateError)}`,
+                    details: `Recreation failed: ${getErrorMessage(recreateError)}`,
                 };
             }
         }
@@ -352,7 +353,7 @@ export class HomesteadPlayerMonitor {
                 userId,
                 discordId: 'unknown',
                 status: 'error',
-                details: error instanceof Error ? error.message : String(error),
+                details: getErrorMessage(error),
             };
         }
     }
@@ -378,16 +379,12 @@ export function getHomesteadMonitor(client, guildId) {
  * Call this on bot ready
  */
 export async function startAllHomesteadMonitors(client) {
-    // Get all guilds with homesteads
-    const guilds = await prisma.homesteadChannel.findMany({
-        select: { guildId: true },
-        distinct: ['guildId'],
-        where: { status: 'active' }
-    });
+    // Get all guilds with active homesteads using repository
+    const guildIds = await homesteadRepository.findActiveGuildIds();
     log.info('[HomesteadMonitor] Starting monitors for all guilds', {
-        guildCount: guilds.length,
+        guildCount: guildIds.length,
     });
-    for (const { guildId } of guilds) {
+    for (const guildId of guildIds) {
         const monitor = getHomesteadMonitor(client, guildId);
         monitor.start();
     }

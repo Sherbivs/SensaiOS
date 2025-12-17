@@ -17,7 +17,8 @@ import path from 'node:path';
 import { toEasternLogFormat } from '../../shared/datetime.js';
 import { EventBus } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
-import { log } from '../../utils/logger.js';
+import { log } from "../../shared/logger.js";
+import { daysAgo } from '../../shared/utils/date-utils.js';
 import { parseStackTrace, enrichStackFramesWithSource, captureErrorContextSnapshot, formatErrorReportForAI, } from '../../utils/stack-trace-parser.js';
 /// ---- Error Fingerprinting ----
 /**
@@ -250,7 +251,7 @@ export class ErrorTracker {
      * Get error statistics for a time period
      */
     async getErrorStats(since) {
-        const sinceDate = since ?? new Date(Date.now() - 24 * 60 * 60 * 1000); // Default: last 24h
+        const sinceDate = since ?? daysAgo(1); // Default: last 24h
         const errors = await prisma.errorLog.findMany({
             where: {
                 lastSeen: { gte: sinceDate },

@@ -1,16 +1,25 @@
+/**
+ * /daily Command
+ *
+ * Claim your daily reward.
+ *
+ * @module commands/daily
+ * @since Phase 6.2 (2025-12-16) - Converted from JS
+ */
 import { SlashCommandBuilder } from 'discord.js';
-
 const data = new SlashCommandBuilder()
-  .setName('daily')
-  .setDescription('Daily quest utilities')
-  .addSubcommand((sub) => sub.setName('claim').setDescription('Claim your daily quest reward'));
-
-const cooldownMs = 1000;
-
-async function execute(interaction) {
-  await interaction.reply({ content: 'Use `/daily claim` to claim your daily reward.', ephemeral: true });
-}
-
-export { data, cooldownMs, execute };
-
-export default { data, cooldownMs, execute };
+    .setName('daily')
+    .setDescription('Claim your daily reward');
+const command = {
+    data,
+    cooldownMs: 1000,
+    async execute(interaction) {
+        await interaction.reply({
+            content: 'Daily rewards are available in your homestead channel. Use /home to access it.',
+            ephemeral: true
+        });
+    }
+};
+export const { cooldownMs, execute } = command;
+export { data };
+export default command;

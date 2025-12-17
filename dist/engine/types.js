@@ -2,6 +2,9 @@
  * Minimal shapes for a deterministic battle engine.
  * Real games add items, abilities, weather, status, field effects, etc.
  */
+// ─────────────────────────────────────────────────────────────────────────────
+// Factory Functions
+// ─────────────────────────────────────────────────────────────────────────────
 function newPokemonRuntime(p, level = 50) {
     return {
         id: p.id,
@@ -26,12 +29,12 @@ function newBattleState(a, b) {
         a,
         b,
         turn: 1,
-        weather: null, // later: 'rain'|'sun'|'sand'|'hail' etc.
+        weather: null,
     };
     state.state = state;
     return state;
 }
 function newAction(which, moveName) {
-    return { who: which, move: String(moveName).toLowerCase() }; // which = 'a'|'b'
+    return { who: which, move: String(moveName).toLowerCase() };
 }
 export { newPokemonRuntime, newBattleState, newAction };

@@ -1,5 +1,8 @@
 import { log } from '../utils/logger.js';
 import { getDexpack, getSpecies as lookupSpecies, getMove as lookupMove, suggestSpecies, getSpeciesBaseStats, getSpeciesMatchups, } from '../data/dexpack.js';
+// ============================================================================
+// Module State
+// ============================================================================
 const DEFAULT_META = { version_group: 'latest' };
 let disabled = false;
 let meta = { ...DEFAULT_META };
@@ -8,6 +11,9 @@ let moves = {};
 let speciesCache = new Map();
 let moveByName = new Map();
 let typeChart = {};
+// ============================================================================
+// Internal Helpers
+// ============================================================================
 function toLegacyStats(baseStats = {}) {
     return {
         hp: baseStats.hp ?? null,
@@ -136,7 +142,7 @@ function initialise() {
         }
         dex = orderedIds
             .map((id) => speciesCache.get(Number(id)))
-            .filter(Boolean);
+            .filter((s) => s !== undefined);
         moves = pack.moves;
         moveByName = buildMoveIndex(pack.moves);
         meta = {
@@ -151,11 +157,18 @@ function initialise() {
     }
     catch (err) {
         disabled = true;
-        log.warn('⚠️  dex-api: Failed to load dexpack:', err?.message || err);
+        log.warn('⚠️  dex-api: Failed to load dexpack', { error: err?.message ?? String(err) });
     }
 }
+// Initialize on module load
 initialise();
-function getPokemon(query) {
+// ============================================================================
+// Exported Functions
+// ============================================================================
+/**
+ * Get Pokemon by ID or name
+ */
+export function getPokemon(query) {
     if (disabled)
         return null;
     if (typeof query === 'number' && Number.isFinite(query)) {
@@ -171,7 +184,10 @@ function getPokemon(query) {
     speciesCache.set(hydrated.id, hydrated);
     return hydrated;
 }
-function getMove(name) {
+/**
+ * Get Move by name
+ */
+export function getMove(name) {
     if (disabled || !name)
         return null;
     const doc = lookupMove(name);
@@ -182,11 +198,17 @@ function getMove(name) {
         return null;
     return moveByName.get(key) || moveByName.get(key.replace(/\s+/g, '-')) || null;
 }
-function suggestPokemon(prefix, limit = 25) {
+/**
+ * Suggest Pokemon names by prefix
+ */
+export function suggestPokemon(prefix, limit = 25) {
     if (disabled)
         return [];
     return suggestSpecies(prefix, limit);
 }
-export { getPokemon, getMove, suggestPokemon, meta, dex, moves, disabled };
+// ============================================================================
+// Exports
+// ============================================================================
+export { meta, dex, moves, disabled };
 const api = { getPokemon, getMove, suggestPokemon, meta, dex, moves, disabled };
 export default api;

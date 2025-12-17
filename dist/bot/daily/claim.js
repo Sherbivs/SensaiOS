@@ -1,5 +1,5 @@
 import { TimestampStyles, time } from "discord.js";
-import { log } from '../../utils/logger.js';
+import { log } from "../../shared/logger.js";
 import { prisma as prismaClient, recordDailyQuestCompletion } from "../../models/index.js";
 import { claimDailyQuestReward } from "../../services/cache/recipes.js";
 import { errorTracker } from '../../services/monitoring/index.js';

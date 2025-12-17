@@ -18,8 +18,11 @@
  *
  * @module lifecycle-notifier
  */
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
+import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { bytesToMB } from '../shared/utils/format-utils.js';
 import { ServiceRegistry } from '../shared/service-registry.js';
+import { SERVICE_NAME } from '../config/env.js';
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -223,7 +226,7 @@ async function sendWebhook(payload) {
     }
     catch (error) {
         log.error('Failed to send lifecycle webhook', {
-            error: error instanceof Error ? error.message : String(error),
+            error: getErrorMessage(error),
         });
     }
 }
@@ -247,9 +250,9 @@ export async function notifyBoot() {
     lastBootTime = now;
     const memUsage = process.memoryUsage();
     const memory = {
-        rss_mb: Math.round(memUsage.rss / 1024 / 1024),
-        heap_used_mb: Math.round(memUsage.heapUsed / 1024 / 1024),
-        heap_total_mb: Math.round(memUsage.heapTotal / 1024 / 1024),
+        rss_mb: bytesToMB(memUsage.rss),
+        heap_used_mb: bytesToMB(memUsage.heapUsed),
+        heap_total_mb: bytesToMB(memUsage.heapTotal),
     };
     let services;
     try {
@@ -304,7 +307,7 @@ export async function notifyBoot() {
         services,
         environment: {
             node_version: process.version,
-            service_name: process.env.SERVICE_NAME || 'infinity-gauntlet',
+            service_name: SERVICE_NAME,
             region: process.env.RENDER_REGION || 'unknown',
         },
     };
@@ -324,11 +327,11 @@ export async function notifyShutdown(trigger, uptimeMs) {
         uptime_ms: uptimeMs,
         uptime_human: formatUptime(uptimeMs),
         memory: {
-            rss_mb: Math.round(memUsage.rss / 1024 / 1024),
-            heap_used_mb: Math.round(memUsage.heapUsed / 1024 / 1024),
+            rss_mb: bytesToMB(memUsage.rss),
+            heap_used_mb: bytesToMB(memUsage.heapUsed),
         },
         environment: {
-            service_name: process.env.SERVICE_NAME || 'infinity-gauntlet',
+            service_name: SERVICE_NAME,
         },
     };
     await sendWebhook(createShutdownEmbed(notification));
@@ -348,11 +351,11 @@ export async function notifyCrash(error) {
         errorMessage: error.message,
         errorStack: error.stack || 'No stack trace available',
         memory: {
-            rss_mb: Math.round(memUsage.rss / 1024 / 1024),
-            heap_used_mb: Math.round(memUsage.heapUsed / 1024 / 1024),
+            rss_mb: bytesToMB(memUsage.rss),
+            heap_used_mb: bytesToMB(memUsage.heapUsed),
         },
         environment: {
-            service_name: process.env.SERVICE_NAME || 'infinity-gauntlet',
+            service_name: SERVICE_NAME,
         },
     };
     await sendWebhook(createCrashEmbed(notification));

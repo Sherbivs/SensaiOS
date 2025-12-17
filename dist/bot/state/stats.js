@@ -1,11 +1,15 @@
 /**
- * @file Runtime Stats Collector
- * @description Tracks and updates cumulative statistics across bot restarts
+ * Runtime Stats Collector
+ * Tracks and updates cumulative statistics across bot restarts
  * @module bot/state/stats
  */
 import { updateCumulativeStats, updateRuntimeState, recordMetricsEvent } from './persistence.js';
+import { formatDuration } from '../../shared/utils/format-utils.js';
 // Re-export metrics functions
 export { getMetricsSummary, getMetricsTrend } from './persistence.js';
+// ─────────────────────────────────────────────────────────────────────────────
+// Sweep Recording
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Record a role sweep completion
  */
@@ -14,7 +18,7 @@ export function recordSweep(state, guildId, guildName, rolesChecked, changesDete
     updateCumulativeStats(state, {
         sweepCount: 1
     });
-    // ENHANCED: Record in hourly metrics history for trend analysis
+    // Record in hourly metrics history for trend analysis
     recordMetricsEvent(state, 'sweep', 1);
     // Update guild-specific stats
     if (!state.guilds[guildId]) {
@@ -33,20 +37,21 @@ export function recordSweep(state, guildId, guildName, rolesChecked, changesDete
     state.guilds[guildId].lastSweep = new Date().toISOString();
     state.guilds[guildId].lastActivity = new Date().toISOString();
     // Add to timeline
-    state.timeline = [
-        {
-            timestamp: new Date().toISOString(),
-            type: 'sweep',
-            guildId,
-            guildName,
-            details: {
-                rolesChecked,
-                changesDetected
-            }
-        },
-        ...state.timeline
-    ].slice(0, 100);
+    const newEvent = {
+        timestamp: new Date().toISOString(),
+        type: 'sweep',
+        guildId,
+        guildName,
+        details: {
+            rolesChecked,
+            changesDetected
+        }
+    };
+    state.timeline = [newEvent, ...state.timeline].slice(0, 100);
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Permission Change Recording
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Record permission change detection and revert
  */
@@ -57,7 +62,7 @@ export function recordPermissionChange(state, guildId, guildName, userId, userNa
         permissionChangesReverted: reverted ? 1 : 0,
         revertFailures: reverted && revertStatus !== 'success' ? 1 : 0
     });
-    // ENHANCED: Record in hourly metrics history for trend analysis
+    // Record in hourly metrics history for trend analysis
     recordMetricsEvent(state, 'permission_change', 1);
     if (reverted) {
         recordMetricsEvent(state, 'permission_revert', 1);
@@ -81,23 +86,24 @@ export function recordPermissionChange(state, guildId, guildName, userId, userNa
     state.guilds[guildId].permissionChanges = (state.guilds[guildId].permissionChanges || 0) + 1;
     state.guilds[guildId].lastActivity = new Date().toISOString();
     // Add to timeline
-    state.timeline = [
-        {
-            timestamp: new Date().toISOString(),
-            type: 'permission_change',
-            guildId,
-            guildName,
-            details: {
-                userId,
-                userName,
-                action,
-                reverted,
-                revertStatus: reverted ? revertStatus : 'not_attempted'
-            }
-        },
-        ...state.timeline
-    ].slice(0, 100);
+    const newEvent = {
+        timestamp: new Date().toISOString(),
+        type: 'permission_change',
+        guildId,
+        guildName,
+        details: {
+            userId,
+            userName,
+            action,
+            reverted,
+            revertStatus: reverted ? revertStatus : 'not_attempted'
+        }
+    };
+    state.timeline = [newEvent, ...state.timeline].slice(0, 100);
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Alert Recording
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Record alert sent to administrator
  */
@@ -106,7 +112,7 @@ export function recordAlert(state, guildId, recipient, reason, delivered) {
     updateCumulativeStats(state, {
         alertCount: 1
     });
-    // ENHANCED: Record in hourly metrics history for trend analysis
+    // Record in hourly metrics history for trend analysis
     recordMetricsEvent(state, 'alert', 1);
     // Update guild-specific stats
     if (state.guilds[guildId]) {
@@ -114,68 +120,69 @@ export function recordAlert(state, guildId, recipient, reason, delivered) {
         state.guilds[guildId].lastActivity = new Date().toISOString();
     }
     // Add to timeline
-    state.timeline = [
-        {
-            timestamp: new Date().toISOString(),
-            type: 'alert',
-            guildId,
-            details: {
-                recipient,
-                reason,
-                delivered
-            }
-        },
-        ...state.timeline
-    ].slice(0, 100);
+    const newEvent = {
+        timestamp: new Date().toISOString(),
+        type: 'alert',
+        guildId,
+        details: {
+            recipient,
+            reason,
+            delivered
+        }
+    };
+    state.timeline = [newEvent, ...state.timeline].slice(0, 100);
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Error Recording
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Record error event
  */
 export function recordError(state, message, stack = null, context = {}) {
-    // ENHANCED: Record in hourly metrics history for trend analysis
+    // Record in hourly metrics history for trend analysis
     recordMetricsEvent(state, 'error', 1);
     // Add to timeline
-    state.timeline = [
-        {
-            timestamp: new Date().toISOString(),
-            type: 'error',
-            details: {
-                message,
-                stack: stack ? stack.substring(0, 500) : null,
-                ...context
-            }
-        },
-        ...state.timeline
-    ].slice(0, 100);
+    const newEvent = {
+        timestamp: new Date().toISOString(),
+        type: 'error',
+        details: {
+            message,
+            stack: stack ? stack.substring(0, 500) : undefined,
+            ...context
+        }
+    };
+    state.timeline = [newEvent, ...state.timeline].slice(0, 100);
 }
 /**
  * Record member fetch timeout (for monitoring chronic issues)
  */
 export function recordMemberFetchTimeout(state, guildId, guildName, origin, attempt, maxRetries) {
-    // ENHANCED: Record in hourly metrics history for trend analysis
+    // Record in hourly metrics history for trend analysis
     recordMetricsEvent(state, 'member_fetch_timeout', 1);
     // Track in guild state if this is a recurring issue
-    if (state.guilds[guildId]) {
-        state.guilds[guildId].memberFetchTimeouts = (state.guilds[guildId].memberFetchTimeouts || 0) + 1;
-        state.guilds[guildId].lastMemberFetchTimeout = new Date().toISOString();
+    const guildState = state.guilds[guildId];
+    if (guildState) {
+        guildState.memberFetchTimeouts = (guildState.memberFetchTimeouts || 0) + 1;
+        guildState.lastMemberFetchTimeout = new Date().toISOString();
     }
     // Add to timeline
-    state.timeline = [
-        {
-            timestamp: new Date().toISOString(),
-            type: 'member_fetch_timeout',
-            guildId,
-            guildName,
-            details: {
-                origin,
-                attempt,
-                maxRetries,
-                isFinal: attempt >= maxRetries
-            }
-        },
-        ...state.timeline
-    ].slice(0, 100);
+    const newEvent = {
+        timestamp: new Date().toISOString(),
+        type: 'member_fetch_timeout',
+        guildId,
+        guildName,
+        details: {
+            origin,
+            attempt,
+            maxRetries,
+            isFinal: attempt >= maxRetries
+        }
+    };
+    state.timeline = [newEvent, ...state.timeline].slice(0, 100);
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Database Status
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Update database connection status
  */
@@ -195,11 +202,14 @@ export function updateActiveSweeps(state, guildIds) {
         activeSweepIntervals: guildIds
     });
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Uptime Utilities
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Get formatted uptime string (delegates to shared utility)
  */
 export function formatUptime(milliseconds) {
-    return sharedFormatUptime(milliseconds);
+    return formatDuration(milliseconds);
 }
 /**
  * Get time since last restart
@@ -245,7 +255,7 @@ export function getGuildStats(state, guildId) {
  * Get all guilds summary
  */
 export function getAllGuildsSummary(state) {
-    return Object.values(state.guilds).map(guild => ({
+    return Object.values(state.guilds).map((guild) => ({
         id: guild.id,
         name: guild.name,
         sweepCount: guild.sweepCount,

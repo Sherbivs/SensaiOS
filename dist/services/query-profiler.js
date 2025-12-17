@@ -17,7 +17,7 @@
  *
  * @module services/query-profiler
  */
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { Counter, Histogram, Gauge, register } from 'prom-client';
 const DEFAULT_CONFIG = {
     slowQueryThresholdMs: 100,

@@ -16,7 +16,7 @@
  * @module workers/error-learning-worker
  */
 import { errorLearning } from '../services/monitoring/error-learning.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { getErrorMessage } from '../shared/utils/index.js';
 // ============================================================================
 // Error Learning Worker

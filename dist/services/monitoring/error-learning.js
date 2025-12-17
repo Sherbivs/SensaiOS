@@ -17,6 +17,7 @@
  */
 import { prisma } from '../../models/index.js';
 import { log } from '../../shared/log.js';
+import { daysAgo } from '../../shared/utils/date-utils.js';
 // ============================================================================
 // Error Learning Service
 // ============================================================================
@@ -84,7 +85,7 @@ export class ErrorLearningService {
      */
     async detectCorrelations(windowMinutes = 5, minOccurrences = 3) {
         try {
-            const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Last 7 days
+            const startDate = daysAgo(7); // Last 7 days
             const windowMs = windowMinutes * 60 * 1000;
             // Get all errors sorted by time
             const errors = await prisma.errorLog.findMany({

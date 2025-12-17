@@ -13,7 +13,7 @@
  *
  * @module shared/service-registry
  */
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { getErrorMessage } from './utils/error-utils.js';
 // ============================================================================
 // Service Registry Class

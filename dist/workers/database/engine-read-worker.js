@@ -28,6 +28,24 @@
  */
 import { BaseDatabaseWorker } from './base-worker.js';
 // ═══════════════════════════════════════════════════════════════════════════
+// Helper Functions
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Parse a raw SQLite row into a typed Pokemon object.
+ * Handles JSON field parsing with safe defaults.
+ */
+function parsePokemonRow(row) {
+    return {
+        id: row.id,
+        name: row.name,
+        types: JSON.parse(row.types || '[]'),
+        baseStats: JSON.parse(row.baseStats || '{}'),
+        abilities: JSON.parse(row.abilities || '[]'),
+        moves: row.moves ? JSON.parse(row.moves) : undefined,
+        evolutions: row.evolutions ? JSON.parse(row.evolutions) : undefined,
+    };
+}
+// ═══════════════════════════════════════════════════════════════════════════
 // Engine Read-DB Worker Implementation
 // ═══════════════════════════════════════════════════════════════════════════
 /**
@@ -220,15 +238,7 @@ export class EngineReadWorker extends BaseDatabaseWorker {
             const sql = 'SELECT * FROM pokemon WHERE id = ?';
             const row = await this.queryOne(sql, [id]);
             if (row) {
-                // Parse JSON fields
-                const pokemon = {
-                    ...row,
-                    types: JSON.parse(row.types || '[]'),
-                    baseStats: JSON.parse(row.baseStats || '{}'),
-                    abilities: JSON.parse(row.abilities || '[]'),
-                    moves: row.moves ? JSON.parse(row.moves) : undefined,
-                    evolutions: row.evolutions ? JSON.parse(row.evolutions) : undefined,
-                };
+                const pokemon = parsePokemonRow(row);
                 // Update L1 cache
                 this.cache.pokemon.set(id, pokemon);
                 this.cache.pokemonByName.set(pokemon.name.toLowerCase(), pokemon);
@@ -254,14 +264,7 @@ export class EngineReadWorker extends BaseDatabaseWorker {
             const sql = 'SELECT * FROM pokemon WHERE LOWER(name) = ?';
             const row = await this.queryOne(sql, [normalizedName]);
             if (row) {
-                const pokemon = {
-                    ...row,
-                    types: JSON.parse(row.types || '[]'),
-                    baseStats: JSON.parse(row.baseStats || '{}'),
-                    abilities: JSON.parse(row.abilities || '[]'),
-                    moves: row.moves ? JSON.parse(row.moves) : undefined,
-                    evolutions: row.evolutions ? JSON.parse(row.evolutions) : undefined,
-                };
+                const pokemon = parsePokemonRow(row);
                 // Update L1 cache
                 this.cache.pokemon.set(pokemon.id, pokemon);
                 this.cache.pokemonByName.set(normalizedName, pokemon);
@@ -337,14 +340,7 @@ export class EngineReadWorker extends BaseDatabaseWorker {
             // Load all Pokémon
             const pokemonRows = await this.query('SELECT * FROM pokemon');
             for (const row of pokemonRows) {
-                const pokemon = {
-                    ...row,
-                    types: JSON.parse(row.types || '[]'),
-                    baseStats: JSON.parse(row.baseStats || '{}'),
-                    abilities: JSON.parse(row.abilities || '[]'),
-                    moves: row.moves ? JSON.parse(row.moves) : undefined,
-                    evolutions: row.evolutions ? JSON.parse(row.evolutions) : undefined,
-                };
+                const pokemon = parsePokemonRow(row);
                 this.cache.pokemon.set(pokemon.id, pokemon);
                 this.cache.pokemonByName.set(pokemon.name.toLowerCase(), pokemon);
             }

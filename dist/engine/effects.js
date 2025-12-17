@@ -1,5 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
 /**
  * Effects registry:
  * - Accuracy rolls using move.accuracy (%). Null/undefined accuracy = always hit.
@@ -15,27 +13,28 @@ import path from 'node:path';
  * - applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx)
  *     -> Drain, recoil, flinch (post-hit)
  */
-// Local fallback: data/effects.json (optional)
+import fs from 'node:fs';
+import path from 'node:path';
+// ─────────────────────────────────────────────────────────────────────────────
+// Local Effect Loading
+// ─────────────────────────────────────────────────────────────────────────────
 let LOCAL_EFFECTS = {};
 const LOCAL_PATH = path.join(process.cwd(), 'data', 'effects.json');
 if (fs.existsSync(LOCAL_PATH)) {
     try {
         LOCAL_EFFECTS = JSON.parse(fs.readFileSync(LOCAL_PATH, 'utf8'));
     }
-    catch (_) { }
+    catch { /* ignore */ }
 }
-// ---- Runtime-extensible declarative rules ----
-// Built-in starter rules; add/override at runtime via registerEffectRule().
+// ─────────────────────────────────────────────────────────────────────────────
+// Runtime-extensible declarative rules
+// ─────────────────────────────────────────────────────────────────────────────
 const EFFECT_RULES = {
     // Fixed-damage classics:
     'dragon-rage': { fixedDamage: { value: 40 } },
     'sonic-boom': { fixedDamage: { value: 20 } },
     'night-shade': { fixedDamage: { levelBased: true } },
     'seismic-toss': { fixedDamage: { levelBased: true } },
-    // Multi-hit defaults are derived from move.meta when available.
-    // Add entries here to override probabilities or define rules when meta is absent.
-    // Example override if meta lacks it:
-    // 'double-edge': { recoil: { percent: 33 } },
 };
 function normaliseRuleKey(name) {
     const key = String(name || '').toLowerCase();
@@ -48,6 +47,9 @@ function registerEffectRule(name, rule) {
     EFFECT_RULES[key] = value;
     EFFECT_RULES[dashed] = value;
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// RNG Utilities
+// ─────────────────────────────────────────────────────────────────────────────
 function rand(ctx) {
     return ctx?.rng?.next ? ctx.rng.next() : Math.random();
 }
@@ -57,7 +59,10 @@ function pct(probPct, ctx) {
     const p = Math.max(0, Math.min(100, Number(probPct)));
     return rand(ctx) < (p / 100);
 }
-function checkAccuracy(attacker, defender, move, ctx = {}) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Accuracy Check
+// ─────────────────────────────────────────────────────────────────────────────
+function checkAccuracy(_attacker, _defender, move, ctx = {}) {
     // If move has no accuracy listed (e.g., Swift) -> always hit in this skeleton
     if (move.accuracy == null)
         return { ok: true };
@@ -69,7 +74,9 @@ function checkAccuracy(attacker, defender, move, ctx = {}) {
     const hit = roll < (acc / 100);
     return { ok: hit, reason: hit ? undefined : `roll=${roll.toFixed(3)}>acc=${(acc / 100).toFixed(3)}` };
 }
-// Map PokéAPI ailment => engine status code
+// ─────────────────────────────────────────────────────────────────────────────
+// Status Application
+// ─────────────────────────────────────────────────────────────────────────────
 const AILMENT_TO_STATUS = {
     burn: 'brn',
     paralysis: 'par',
@@ -95,14 +102,14 @@ function pickEffectSource(move, ctx) {
         return 'local';
     return null;
 }
-function applySecondaryEffects(attacker, defender, move, ctx = {}) {
+function applySecondaryEffects(_attacker, defender, move, ctx = {}) {
     const src = pickEffectSource(move, ctx);
     if (!src)
         return; // no known configured effects
     if (src === 'pokeapi') {
-        // Use meta.ailment & meta.ailment_chance if present
         const meta = move.meta || {};
-        const ailment = meta.ailment?.name || meta.ailment || null;
+        const ailmentRaw = meta.ailment;
+        const ailment = typeof ailmentRaw === 'object' && ailmentRaw !== null ? ailmentRaw.name : ailmentRaw;
         const chance = meta.ailment_chance ?? move.effect_chance ?? null;
         const status = (ailment && AILMENT_TO_STATUS[ailment]) || null;
         if (!status || !chance)
@@ -122,7 +129,6 @@ function applySecondaryEffects(attacker, defender, move, ctx = {}) {
         const rule = LOCAL_EFFECTS[key] || LOCAL_EFFECTS[normalized];
         if (!rule)
             return;
-        // rule example: { "status": "par", "chance": 100 } or array of {status, chance}
         const rules = Array.isArray(rule) ? rule : [rule];
         for (const r of rules) {
             const status = String(r.status || '').toLowerCase();
@@ -130,24 +136,24 @@ function applySecondaryEffects(attacker, defender, move, ctx = {}) {
             if (!status)
                 continue;
             if (defender.status)
-                continue; // don't overwrite
+                continue;
             if (pct(chance, ctx)) {
                 defender.status = status;
                 ctx.log?.push?.(`${defender.name} is ${status.toUpperCase()}!`);
-                // one effect per hit
                 break;
             }
         }
     }
 }
-// -------------------- Advanced effects --------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// Advanced Effects
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * computeTotalDamage: wraps a single-hit damage number (perHitDamage) and:
  *  - applies fixed-damage overrides (Dragon Rage, Night Shade, Seismic Toss)
  *  - aggregates multi-hit (min_hits/max_hits from PokéAPI meta or EFFECT_RULES)
- * Returns { total, hits, perHit } where perHit is the array of dealt values for transparency.
  */
-function computeTotalDamage(attacker, defender, move, perHitDamage, ctx = {}) {
+function computeTotalDamage(attacker, _defender, move, perHitDamage, ctx = {}) {
     const { key, dashed } = normaliseRuleKey(move?.name);
     const rule = EFFECT_RULES[key] || EFFECT_RULES[dashed] || {};
     const meta = move.meta || {};
@@ -163,7 +169,6 @@ function computeTotalDamage(attacker, defender, move, perHitDamage, ctx = {}) {
     let maxH = meta.max_hits != null ? meta.max_hits : null;
     let hits = 1;
     if (minH != null && maxH != null && maxH >= minH && maxH > 1) {
-        // If a custom chance table exists in EFFECT_RULES, use it; else uniform RNG on [min,max].
         const table = rule.multiHit?.chanceTable || null;
         if (table && Array.isArray(table) && table.length === (maxH - minH + 1)) {
             const r = rand(ctx);
@@ -178,7 +183,6 @@ function computeTotalDamage(attacker, defender, move, perHitDamage, ctx = {}) {
             hits = chosen;
         }
         else {
-            // Uniform fallback
             const r = rand(ctx);
             hits = minH + Math.floor(r * (maxH - minH + 1));
         }
@@ -203,16 +207,16 @@ function computeTotalDamage(attacker, defender, move, perHitDamage, ctx = {}) {
         }
     }
     // Aggregate hits
-    hits = Math.max(1, Math.min(10, Math.floor(hits))); // clamp defensively
+    hits = Math.max(1, Math.min(10, Math.floor(hits)));
     const perHit = new Array(hits).fill(Math.max(0, perHitDamage));
     const total = perHit.reduce((a, b) => a + b, 0);
     return { total, hits, perHit, fixed: false };
 }
 /**
  * applyAdvancedAfterDamage:
- *  - Drain: heal attacker for a percent of damage dealt (PokéAPI meta.drain or EFFECT_RULES)
- *  - Recoil: damage attacker for a percent of damage dealt (meta.recoil or EFFECT_RULES)
- *  - Flinch: set defender.volatile.flinched based on chance (meta.flinch_chance or EFFECT_RULES)
+ *  - Drain: heal attacker for a percent of damage dealt
+ *  - Recoil: damage attacker for a percent of damage dealt
+ *  - Flinch: set defender.volatile.flinched based on chance
  */
 function applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx = {}) {
     const { key, dashed } = normaliseRuleKey(move?.name);
@@ -220,7 +224,6 @@ function applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx = {}) {
     const meta = move.meta || {};
     const log = ctx.log || [];
     // 1) Drain
-    // PokéAPI meta: drain is positive percent of damage converted to HP.
     let drainPct = null;
     if (typeof meta.drain === 'number' && meta.drain > 0)
         drainPct = meta.drain;
@@ -245,7 +248,6 @@ function applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx = {}) {
         log.push(`${attacker.name} is hurt by recoil (${recoil}).`);
     }
     // 3) Flinch
-    // PokéAPI meta: flinch_chance (percent) if present
     let flinchChance = null;
     if (typeof meta.flinch_chance === 'number' && meta.flinch_chance > 0)
         flinchChance = meta.flinch_chance;

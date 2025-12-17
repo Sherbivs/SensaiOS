@@ -21,6 +21,7 @@
  */
 import { getProdDb } from "../pg-connection.js";
 import { buildInsert, buildUpdate, buildCount } from "../pg-query.js";
+import { pgTimestampToDateRequired, pgTimestampToDate } from "../../types/database-rows.js";
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -30,10 +31,23 @@ import { buildInsert, buildUpdate, buildCount } from "../pg-query.js";
  */
 function reviveBattle(row) {
     return {
-        ...row,
-        startedAt: row.startedAt ? new Date(row.startedAt) : new Date(),
-        endedAt: row.endedAt ? new Date(row.endedAt) : null,
-        updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
+        id: row.id,
+        p1Id: row.p1Id,
+        p2Id: row.p2Id,
+        arenaThreadId: row.arenaThreadId,
+        state: row.state,
+        rngSeed: row.rngSeed,
+        ruleset: row.ruleset,
+        logCompact: row.logCompact,
+        logFull: row.logFull,
+        resultJson: row.resultJson,
+        startedAt: pgTimestampToDateRequired(row.startedAt),
+        endedAt: pgTimestampToDate(row.endedAt),
+        updatedAt: pgTimestampToDateRequired(row.updatedAt),
+        tenantId: row.tenantId,
+        packHash: row.packHash,
+        trainer1Id: row.trainer1Id,
+        trainer2Id: row.trainer2Id,
     };
 }
 /**

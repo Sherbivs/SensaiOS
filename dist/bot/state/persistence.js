@@ -1,19 +1,19 @@
-import { log } from '../../utils/logger.js';
-import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 /**
- * @file State Persistence Module
- * @description Manages security bot operational state across restarts
+ * State Persistence Module
+ * Manages security bot operational state across restarts
  * @module bot/state/persistence
  */
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { log } from '../../utils/logger.js';
+import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 import { errorTracker } from '../../services/monitoring/index.js';
+// ─────────────────────────────────────────────────────────────────────────────
+// Configuration
+// ─────────────────────────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Resolve state directory relative to project root
-// On Render with persistent disk mounted at /Store
-// Locally falls back to Store/ in project directory
 const STATE_DIR = process.env.RENDER
     ? '/Store/security-bot-state'
     : path.resolve(__dirname, '../../../Store/security-bot-state');
@@ -24,19 +24,23 @@ const SCHEMA_VERSION = '1.1.0';
 const STATE_VERSION = 1;
 const MAX_TIMELINE_EVENTS = 100;
 const SNAPSHOT_RETENTION_DAYS = 7;
-const AUTO_SAVE_INTERVAL_MS = 30 * 1000; // 30 seconds (reduced from 1min for seamless restart optimization - 50% data loss reduction)
-const METRICS_HISTORY_DAYS = 7; // Keep 7 days of hourly metrics
+const AUTO_SAVE_INTERVAL_MS = 30 * 1000;
+const METRICS_HISTORY_DAYS = 7;
+// ─────────────────────────────────────────────────────────────────────────────
+// Default State
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Default empty state structure
  */
 function createDefaultState() {
+    const now = new Date().toISOString();
     return {
         version: STATE_VERSION,
         schemaVersion: SCHEMA_VERSION,
         metadata: {
-            lastSaved: new Date().toISOString(),
-            lastRestart: new Date().toISOString(),
-            processStartTime: new Date().toISOString(),
+            lastSaved: now,
+            lastRestart: now,
+            processStartTime: now,
             hostname: process.env.RENDER_SERVICE_NAME || 'local',
             nodeVersion: process.version,
             botVersion: '2.0.0'
@@ -50,20 +54,17 @@ function createDefaultState() {
             permissionChangesReverted: 0,
             revertFailures: 0,
             guildCount: 0,
-            firstStartTime: new Date().toISOString()
+            firstStartTime: now
         },
-        // ENHANCED: 7-day comprehensive metrics history (hourly granularity)
         metricsHistory: {
-            // Array of hourly metric snapshots: { timestamp, sweeps, alerts, changes, reverts, failures }
             hourly: [],
-            // Retention: Automatically pruned to keep only last 7 days (168 hours)
-            lastPruned: new Date().toISOString()
+            lastPruned: now
         },
         timeline: [],
         guilds: {},
         runtime: {
             currentUptime: 0,
-            currentRestartTime: new Date().toISOString(),
+            currentRestartTime: now,
             databaseStatus: {
                 dev: 'unknown',
                 prod: 'unknown'
@@ -72,15 +73,19 @@ function createDefaultState() {
         }
     };
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Validation & Migration
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Validate state structure
  */
 function validateState(state) {
     if (!state || typeof state !== 'object')
         return false;
-    if (!state.version || !state.schemaVersion)
+    const s = state;
+    if (!s.version || !s.schemaVersion)
         return false;
-    if (!state.metadata || !state.cumulative || !state.timeline || !state.guilds || !state.runtime)
+    if (!s.metadata || !s.cumulative || !s.timeline || !s.guilds || !s.runtime)
         return false;
     return true;
 }
@@ -88,14 +93,15 @@ function validateState(state) {
  * Migrate state from older schema versions
  */
 function migrateState(state) {
-    // Currently only version 1 exists
     if (state.version === STATE_VERSION) {
         return state;
     }
-    // Future migrations would go here
     log('warn', '[State] Unknown state version', { version: state.version });
     return state;
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// File Operations
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Load state from JSON file
  */
@@ -109,18 +115,17 @@ async function loadStateFile(filePath) {
         }
         return migrateState(state);
     }
-    catch (error) {
+    catch (err) {
+        const error = err;
         if (error.code === 'ENOENT') {
-            // File doesn't exist yet
             return null;
         }
         log('error', '[State] Error loading file', { filePath, error: error.message });
-        // Track non-ENOENT errors (corruption, parse failures, etc.)
         errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
             category: 'WORKER',
             operation: 'state:loadFile',
             customData: { filePath, errorCode: error.code },
-        }).catch(() => { }); // Fire-and-forget (sync function context)
+        }).catch(() => { });
         return null;
     }
 }
@@ -134,9 +139,9 @@ async function saveStateFile(filePath, state) {
         await fs.writeFile(filePath, json, 'utf8');
         return true;
     }
-    catch (error) {
+    catch (err) {
+        const error = err;
         log('error', '[State] Error saving file', { filePath, error: error.message });
-        // Track save failures (disk full, permissions, etc.)
         await errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
             category: 'WORKER',
             operation: 'state:saveFile',
@@ -145,6 +150,9 @@ async function saveStateFile(filePath, state) {
         return false;
     }
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Snapshots
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Create timestamped snapshot
  */
@@ -156,7 +164,8 @@ async function createSnapshot(state) {
         await saveStateFile(snapshotPath, state);
         return snapshotPath;
     }
-    catch (error) {
+    catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
         log('error', '[State] Error creating snapshot', { error: error.message });
         return null;
     }
@@ -166,7 +175,6 @@ async function createSnapshot(state) {
  */
 async function pruneSnapshots() {
     try {
-        // Ensure snapshots directory exists before trying to read it
         await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
         const files = await fs.readdir(SNAPSHOTS_DIR);
         const now = Date.now();
@@ -187,23 +195,24 @@ async function pruneSnapshots() {
             log('info', '[State] Pruned old snapshots', { count: pruned });
         }
     }
-    catch (error) {
+    catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
         log('error', '[State] Error pruning snapshots', { error: error.message });
     }
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Core State Operations
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Load current state with fallback chain
  */
 export async function loadState() {
     log('info', '[State] Loading operational state...');
-    // Try current.json first
     let state = await loadStateFile(CURRENT_STATE_PATH);
-    // Fall back to previous.json
     if (!state) {
         log('info', '[State] current.json not found, trying previous.json...');
         state = await loadStateFile(PREVIOUS_STATE_PATH);
     }
-    // Fall back to default
     if (!state) {
         log('info', '[State] No previous state found, initializing fresh state');
         state = createDefaultState();
@@ -232,16 +241,15 @@ export async function initializeState() {
     log('info', '[State] STATE_DIR', { path: STATE_DIR });
     log('info', '[State] Working directory', { cwd: process.cwd() });
     log('info', '[State] Module location', { dirname: __dirname });
-    // Verify state directory exists and is writable
     try {
         await fs.mkdir(STATE_DIR, { recursive: true });
         await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
         log('info', '[State] State directory verified/created');
     }
-    catch (error) {
+    catch (err) {
+        const error = err;
         log('error', '[State] CRITICAL: Cannot create state directory', { error: error.message });
         log('error', '[State] State persistence will be degraded (in-memory only)');
-        // Track critical directory creation failures
         await errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
             category: 'WORKER',
             severity: 'CRITICAL',
@@ -253,13 +261,10 @@ export async function initializeState() {
             },
         });
     }
-    // Load previous state
     const previousState = await loadState();
-    // Back up current.json to previous.json
     if (await loadStateFile(CURRENT_STATE_PATH)) {
         await fs.copyFile(CURRENT_STATE_PATH, PREVIOUS_STATE_PATH).catch(() => { });
     }
-    // Create new runtime state
     const now = new Date().toISOString();
     const previousRestartTime = previousState.metadata?.lastRestart || now;
     const previousUptime = previousState.runtime?.currentUptime || 0;
@@ -267,7 +272,7 @@ export async function initializeState() {
         ...previousState,
         metadata: {
             ...previousState.metadata,
-            previousRestart: previousRestartTime, // Preserve previous restart time for continuity reporting
+            previousRestart: previousRestartTime,
             lastRestart: now,
             processStartTime: now,
             hostname: process.env.RENDER_SERVICE_NAME || 'local',
@@ -288,7 +293,6 @@ export async function initializeState() {
             activeSweepIntervals: []
         }
     };
-    // Add restart event to timeline
     state.timeline = [
         {
             timestamp: now,
@@ -300,15 +304,16 @@ export async function initializeState() {
         },
         ...previousState.timeline
     ].slice(0, MAX_TIMELINE_EVENTS);
-    // ENHANCED: Record restart in hourly metrics history
     recordMetricsEvent(state, 'restart', 1);
-    // Save initial state
     await saveState(state);
     await createSnapshot(state);
     await pruneSnapshots();
     log('info', '[State] Initialized', { restartNumber: state.cumulative.restartCount });
     return state;
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Timeline Events
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Add event to timeline
  */
@@ -321,16 +326,26 @@ export function addTimelineEvent(state, event) {
         ...state.timeline
     ].slice(0, MAX_TIMELINE_EVENTS);
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Cumulative Stats
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Update cumulative stats
  */
 export function updateCumulativeStats(state, updates) {
     for (const [key, value] of Object.entries(updates)) {
-        if (typeof value === 'number') {
-            state.cumulative[key] = (state.cumulative[key] || 0) + value;
+        if (typeof value === 'number' && key in state.cumulative) {
+            const statKey = key;
+            const currentValue = state.cumulative[statKey];
+            if (typeof currentValue === 'number') {
+                state.cumulative[statKey] = currentValue + value;
+            }
         }
     }
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Guild State
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Update guild state
  */
@@ -351,6 +366,9 @@ export function updateGuildState(state, guildId, updates) {
     Object.assign(state.guilds[guildId], updates);
     state.guilds[guildId].lastActivity = new Date().toISOString();
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Runtime State
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Update runtime state
  */
@@ -358,27 +376,30 @@ export function updateRuntimeState(state, updates) {
     Object.assign(state.runtime, updates);
     state.runtime.currentUptime = Date.now() - new Date(state.metadata.processStartTime).getTime();
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Metrics History
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Get or create current hour's metrics bucket
  */
 function getCurrentHourMetrics(state) {
     const now = new Date();
     const hourTimestamp = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours()).toISOString();
-    // Ensure metricsHistory exists (migration support)
     if (!state.metricsHistory) {
         state.metricsHistory = {
             hourly: [],
             lastPruned: new Date().toISOString()
         };
     }
-    // Find existing bucket for current hour
     let hourMetrics = state.metricsHistory.hourly.find(m => m.timestamp === hourTimestamp);
     if (!hourMetrics) {
-        // Create new bucket for this hour
         hourMetrics = {
             timestamp: hourTimestamp,
             sweeps: 0,
             alerts: 0,
+            changes: 0,
+            reverts: 0,
+            failures: 0,
             permissionChanges: 0,
             permissionReverts: 0,
             revertFailures: 0,
@@ -387,7 +408,6 @@ function getCurrentHourMetrics(state) {
             restarts: 0
         };
         state.metricsHistory.hourly.push(hourMetrics);
-        // Keep array sorted by timestamp (newest first)
         state.metricsHistory.hourly.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     }
     return hourMetrics;
@@ -440,10 +460,9 @@ export function recordMetricsEvent(state, eventType, count = 1) {
             hourMetrics.memberFetchTimeouts += count;
             break;
         case 'restart':
-            hourMetrics.restarts += count;
+            hourMetrics.restarts = (hourMetrics.restarts ?? 0) + count;
             break;
     }
-    // Prune old metrics every hour (check on each event for simplicity)
     const lastPruned = new Date(state.metricsHistory.lastPruned).getTime();
     const hoursSinceLastPrune = (Date.now() - lastPruned) / (60 * 60 * 1000);
     if (hoursSinceLastPrune >= 1) {
@@ -454,7 +473,7 @@ export function recordMetricsEvent(state, eventType, count = 1) {
  * Get metrics summary for a time range
  */
 export function getMetricsSummary(state, hoursBack = 24) {
-    if (!state.metricsHistory || !state.metricsHistory.hourly) {
+    if (!state.metricsHistory?.hourly) {
         return {
             sweeps: 0,
             alerts: 0,
@@ -490,7 +509,7 @@ export function getMetricsSummary(state, hoursBack = 24) {
         summary.revertFailures += m.revertFailures;
         summary.errors += m.errors;
         summary.memberFetchTimeouts += m.memberFetchTimeouts;
-        summary.restarts += m.restarts;
+        summary.restarts += m.restarts ?? 0;
     }
     return summary;
 }
@@ -498,14 +517,17 @@ export function getMetricsSummary(state, hoursBack = 24) {
  * Get hourly metrics trend for charts/graphs
  */
 export function getMetricsTrend(state, hoursBack = 168) {
-    if (!state.metricsHistory || !state.metricsHistory.hourly) {
+    if (!state.metricsHistory?.hourly) {
         return [];
     }
     const cutoffTime = Date.now() - (hoursBack * 60 * 60 * 1000);
     return state.metricsHistory.hourly
         .filter(m => new Date(m.timestamp).getTime() >= cutoffTime)
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); // Oldest to newest for charts
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Auto-Save
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Start auto-save interval
  */
@@ -526,12 +548,14 @@ export function stopAutoSave(interval) {
         log('info', '[State] Auto-save stopped');
     }
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Shutdown
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Graceful shutdown - save final state
  */
 export async function shutdownState(state, reason = 'manual') {
     log('info', '[State] Shutting down', { reason });
-    // Add shutdown event
     addTimelineEvent(state, {
         type: 'shutdown',
         details: {
@@ -539,9 +563,7 @@ export async function shutdownState(state, reason = 'manual') {
             uptime: state.runtime.currentUptime
         }
     });
-    // Update final stats
     updateRuntimeState(state, {});
-    // Save final state
     await saveState(state);
     await createSnapshot(state);
     log('info', '[State] Shutdown complete');

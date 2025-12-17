@@ -6,12 +6,14 @@
  *
  * @module homestead/starters
  */
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, } from "discord.js";
+import { starterSelectEmbed } from "../shared/embed-builders.js";
+import { starterChoiceButtons } from "../shared/button-utils.js";
+import { replyInfo } from "../shared/response-helpers.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
-import { log } from "../../utils/logger.js";
+import { log } from "../../shared/logger.js";
 // Kanto starters (species IDs per National Dex)
 export const STARTER_OPTIONS = [
     { speciesId: 1, name: "Bulbasaur" },
@@ -19,23 +21,14 @@ export const STARTER_OPTIONS = [
     { speciesId: 7, name: "Squirtle" },
 ];
 export function buildStartersEmbed() {
-    const embed = new EmbedBuilder()
-        .setTitle("Choose your starter")
-        .setDescription("Pick one of the classic starters. This is a one-time choice.")
-        .setColor(0x00c853);
-    embed.addFields(STARTER_OPTIONS.map((s) => ({
-        name: `${s.name}`,
-        value: `Level 5 • Classic starter`,
-        inline: true,
-    })));
-    return embed;
+    return starterSelectEmbed(STARTER_OPTIONS);
 }
 export function buildStartersButtons() {
-    const row = new ActionRowBuilder().addComponents(...STARTER_OPTIONS.map((s) => new ButtonBuilder()
-        .setCustomId(`STARTER_PICK_${s.speciesId}`)
-        .setLabel(s.name)
-        .setStyle(ButtonStyle.Success)));
-    return [row];
+    const starters = STARTER_OPTIONS.map((s) => ({
+        id: s.speciesId,
+        label: s.name,
+    }));
+    return [starterChoiceButtons(starters)];
 }
 /**
  * Open starters selection in user's homestead channel
@@ -132,21 +125,12 @@ export async function handleStarterPick(interaction, speciesId) {
     const discordId = interaction.user.id;
     const res = await createStarterAndAssignParty({ discordId, speciesId });
     if ("alreadyHasStarter" in res && res.alreadyHasStarter) {
-        await interaction.reply({
-            content: "You already have a Pokémon. Starter can only be chosen once.",
-            ephemeral: true,
-        });
+        await replyInfo(interaction, "You already have a Pokémon. Starter can only be chosen once.");
         return;
     }
     if (res.partyFull) {
-        await interaction.reply({
-            content: "You received your starter! Your party is full, so it was placed in your box.",
-            ephemeral: true,
-        });
+        await replyInfo(interaction, "You received your starter! Your party is full, so it was placed in your box.");
         return;
     }
-    await interaction.reply({
-        content: `You received your starter! Welcome to the world of Pokémon.`,
-        ephemeral: true,
-    });
+    await replyInfo(interaction, `You received your starter! Welcome to the world of Pokémon.`);
 }

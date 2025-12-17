@@ -25,10 +25,11 @@
  * @version 1.0.0
  */
 import { getLogger } from "./logger.js";
-import { initConsoleRenderer, startConsoleRenderer, stopConsoleRenderer, getRendererStats } from "./console-renderer.js";
+import { initConsoleRenderer, startConsoleRenderer, stopConsoleRenderer, getRendererStats } from "./console/index.js";
 import { startMetricsCollection, stopMetricsCollection, getCollectionStats, forceCollect, setCollectionInterval } from "./metrics-collector.js";
 import { initLogAggregator, runAggregation, getAggregatorConfig } from "./log-aggregator.js";
 import { initHealthMonitor, startHealthMonitor, stopHealthMonitor, getSystemHealth, getMonitorConfig } from "./system-health-monitor.js";
+import { getErrorMessage } from "./utils/error-utils.js";
 // ═══════════════════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -170,7 +171,7 @@ export function startObservability() {
                 logger.error("observability", "aggregation", "Aggregation failed", {
                     error: {
                         name: "AggregationError",
-                        message: err instanceof Error ? err.message : String(err),
+                        message: getErrorMessage(err),
                     },
                 });
             }

@@ -46,6 +46,26 @@ export function formatBytesShort(bytes) {
     return `${(bytes / Math.pow(1024, i)).toFixed(2)}${units[i]}`;
 }
 /**
+ * Convert bytes to megabytes (rounded integer).
+ * Commonly used for memory logging where exact values aren't needed.
+ *
+ * @param bytes - Number of bytes to convert
+ * @returns Megabytes as rounded integer
+ *
+ * @example
+ * ```typescript
+ * bytesToMB(1048576) // 1
+ * bytesToMB(1572864) // 2 (1.5 MB rounds up)
+ * bytesToMB(524288) // 1 (0.5 MB rounds up)
+ * bytesToMB(0) // 0
+ * ```
+ */
+export function bytesToMB(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0)
+        return 0;
+    return Math.round(bytes / 1024 / 1024);
+}
+/**
  * Format milliseconds into human-readable duration string.
  *
  * @param ms - Milliseconds to format

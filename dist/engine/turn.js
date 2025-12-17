@@ -1,13 +1,22 @@
+/**
+ * Battle turn resolution engine
+ * Resolves one simultaneous turn with two chosen actions.
+ * Ordering: higher move priority, then effective speed, then coinflip.
+ */
 import { baseDamage, effectiveStat, afterDealtDamage } from './calc.js';
 import { checkAccuracy, applySecondaryEffects } from './effects.js';
+// ─────────────────────────────────────────────────────────────────────────────
+// Turn Resolution
+// ─────────────────────────────────────────────────────────────────────────────
 /**
  * Resolves one simultaneous turn with two chosen actions.
  * Ordering: higher move priority, then effective speed, then coinflip.
  * Returns nextState and a tiny log for debugging/UX.
  */
 function resolveTurn(state, actionA, actionB, ctx) {
-    const { movesIndex } = ctx; // movesIndex: name -> move
-    const a = state.a, b = state.b;
+    const { movesIndex } = ctx;
+    const a = state.a;
+    const b = state.b;
     function moveOf(action) {
         const key = String(action.move || '').toLowerCase();
         const mv = movesIndex[key] || movesIndex[action.move] || null;
@@ -24,27 +33,23 @@ function resolveTurn(state, actionA, actionB, ctx) {
     }
     // Prepare logs
     const log = [];
-    ctx = ctx || {};
-    ctx.log = ctx.log || log;
+    const ctxWithLog = { ...ctx, log };
     const publicLog = ctx.publicLog || [];
     // --- Flinch enforcement (public + internal logging) ---
-    // If a combatant was flinched, skip their move this round.
-    // Controlled by ctx.allowFlinchSkip (default true).
     function handleFlinch(combatant, key) {
         if (ctx.allowFlinchSkip !== false && combatant?.volatile?.flinched) {
-            const msg = `⚡ ${combatant.name} flinched and couldn’t move!`;
+            const msg = `⚡ ${combatant.name} flinched and couldn't move!`;
             log.push(msg);
             try {
                 publicLog.push(msg);
             }
-            catch (_) { }
+            catch { /* ignore */ }
             combatant.volatile.flinched = false;
-            // Instead of nulling the whole action (which our helpers expect to be an object),
-            // set it to a no-op to keep resolution safe.
+            // Set to no-op to keep resolution safe
             if (key === 'a')
-                actionA = { move: '' };
+                actionA = { who: 'a', move: '' };
             else if (key === 'b')
-                actionB = { move: '' };
+                actionB = { who: 'b', move: '' };
         }
     }
     handleFlinch(a, 'a');
@@ -55,7 +60,9 @@ function resolveTurn(state, actionA, actionB, ctx) {
     const pa = priorityOf(mvA);
     const pb = priorityOf(mvB);
     let order = [['a', mvA, actionA], ['b', mvB, actionB]];
-    function swap() { order = [order[1], order[0]]; }
+    function swap() {
+        order = [order[1], order[0]];
+    }
     if (pa !== pb) {
         if (pb > pa)
             swap();
@@ -79,18 +86,18 @@ function resolveTurn(state, actionA, actionB, ctx) {
             return;
         }
         // Accuracy gate
-        const hit = checkAccuracy(attacker, defender, mv, ctx);
+        const hit = checkAccuracy(attacker, defender, mv, ctxWithLog);
         if (!hit.ok) {
             log.push(`${attacker.name}'s ${mv.name} missed${hit.reason ? ' (' + hit.reason + ')' : ''}.`);
             return;
         }
-        const dmg = baseDamage(attacker, defender, mv, ctx);
+        const dmg = baseDamage(attacker, defender, mv, ctxWithLog);
         const before = defender.hp;
         defender.hp = Math.max(0, defender.hp - dmg);
         log.push(`${attacker.name} uses ${mv.name} -> ${defender.name} takes ${dmg} (${before}→${defender.hp})`);
-        afterDealtDamage(attacker, defender, mv, dmg, ctx);
+        afterDealtDamage(attacker, defender, mv, dmg, ctxWithLog);
         // Apply secondary effects after a successful hit
-        applySecondaryEffects(attacker, defender, mv, ctx);
+        applySecondaryEffects(attacker, defender, mv, ctxWithLog);
     }
     for (const [who, mv] of order) {
         if (state.a.hp <= 0 || state.b.hp <= 0)
@@ -99,9 +106,7 @@ function resolveTurn(state, actionA, actionB, ctx) {
     }
     // Advance turn counter
     state.turn += 1;
-    // Expose the mutated state on the battle container for legacy helpers/tests that
-    // expect a `.state` reference after resolution. This keeps backwards compatibility
-    // with earlier call sites that don't use the return value.
+    // Expose the mutated state on the battle container for legacy helpers/tests
     state.state = state;
     return { state, log };
 }

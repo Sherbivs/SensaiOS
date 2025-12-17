@@ -1,6 +1,8 @@
 import { toEasternString } from "../../shared/datetime.js";
 import { formatBytes, formatBytesShort, formatDurationCompact, formatTimestamp } from "../../shared/utils/format-utils.js";
 import { getErrorMessage } from "../../shared/utils/error-utils.js";
+import { ADMIN_USER_IDS } from "../../config/env.js";
+import { replyError } from "../shared/response-helpers.js";
 import { collectCacheMetrics, runCacheMaintenanceNow, startCacheMaintenanceScheduler, } from "../../services/cache/facade.js";
 import { cache } from "../../shared/cache/memory.js";
 import { config } from "../../shared/config.js";
@@ -77,12 +79,8 @@ export function isAdmin(interaction) {
         const member = interaction.member;
         if (member && member.permissions?.has?.("Administrator"))
             return true;
-        // 2) Fallback: ADMIN_USER_IDS comma-separated env var
-        const allowList = (process.env.ADMIN_USER_IDS || "")
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean);
-        if (allowList.length && allowList.includes(interaction.user.id))
+        // 2) Fallback: ADMIN_USER_IDS from centralized config
+        if (ADMIN_USER_IDS.length && ADMIN_USER_IDS.includes(interaction.user.id))
             return true;
     }
     catch {
@@ -620,7 +618,7 @@ function formatWorkerStatus(worker) {
 }
 export async function handleOpsCommand(interaction, deps = {}) {
     if (!isAdmin(interaction)) {
-        await interaction.reply({ content: "Admin only.", ephemeral: true });
+        await replyError(interaction, "Admin only.");
         return;
     }
     const sub = interaction.options?.getSubcommand?.(false);
@@ -1387,7 +1385,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
         }
         return;
     }
-    await interaction.reply({ content: "Unknown /ops command.", ephemeral: true });
+    await replyError(interaction, "Unknown /ops command.");
 }
 // Helper function to format time since
 function formatTimeSince(date) {

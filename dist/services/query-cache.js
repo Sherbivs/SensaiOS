@@ -19,7 +19,7 @@
  * @module services/query-cache
  */
 import { Counter, Gauge, Histogram, register } from 'prom-client';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 const DEFAULT_CONFIG = {
     maxEntries: 1000,
     maxSizeBytes: 50 * 1024 * 1024, // 50MB

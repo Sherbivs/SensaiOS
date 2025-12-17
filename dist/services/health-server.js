@@ -26,13 +26,15 @@
  */
 import http from 'node:http';
 import { HEALTH_CHECK_PATH, HEALTH_CHECK_TIMEOUT_MS } from '../config/engine-db-config.js';
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { ServiceRegistry } from '../shared/service-registry.js';
+import { HEALTH_CHECK_PORT, HEALTH_CHECK_HOST } from '../config/env.js';
+import { bytesToMB } from '../shared/utils/format-utils.js';
 // ============================================================================
 // Configuration
 // ============================================================================
-const PORT = parseInt(process.env.HEALTH_CHECK_PORT ?? '3000', 10);
-const HOST = process.env.HEALTH_CHECK_HOST ?? '0.0.0.0';
+const PORT = HEALTH_CHECK_PORT;
+const HOST = HEALTH_CHECK_HOST;
 // ============================================================================
 // Health Server State
 // ============================================================================
@@ -51,10 +53,10 @@ function getHealthStatus() {
                 `${uptimeSeconds}s`;
     const memUsage = process.memoryUsage();
     const memory = {
-        rss_mb: Math.round(memUsage.rss / 1024 / 1024),
-        heap_used_mb: Math.round(memUsage.heapUsed / 1024 / 1024),
-        heap_total_mb: Math.round(memUsage.heapTotal / 1024 / 1024),
-        external_mb: Math.round(memUsage.external / 1024 / 1024),
+        rss_mb: bytesToMB(memUsage.rss),
+        heap_used_mb: bytesToMB(memUsage.heapUsed),
+        heap_total_mb: bytesToMB(memUsage.heapTotal),
+        external_mb: bytesToMB(memUsage.external),
     };
     const engineReady = global.engineReady ?? false;
     // Check Service Registry health

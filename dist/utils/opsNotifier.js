@@ -1,11 +1,29 @@
+/**
+ * Ops Notifier - Error Recording and Notification System
+ * @module utils/opsNotifier
+ *
+ * Provides a centralized system for recording operational errors
+ * and notifying subscribers. Features:
+ *   - Error deduplication and limiting
+ *   - Context sanitization and summarization
+ *   - Subscriber-based notification pattern
+ */
 import { log } from '../utils/logger.js';
 import { truncate } from '../shared/utils/index.js';
 import { MONITORING_CONSTANTS } from '../shared/constants.js';
-'use strict';
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
 const { MAX_RECENT_ERRORS } = MONITORING_CONSTANTS;
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
 const recentErrors = [];
 const subscribers = new Set();
 let sequence = 0;
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal Functions
+// ─────────────────────────────────────────────────────────────────────────────
 function cloneValue(value) {
     if (value === null || value === undefined) {
         return value;
@@ -47,14 +65,15 @@ function previewValue(value) {
         return `[${parts.join(', ')}${suffix}]`;
     }
     if (typeof value === 'object') {
-        if (typeof value.message === 'string') {
-            return truncate(value.message.trim());
+        const obj = value;
+        if (typeof obj.message === 'string') {
+            return truncate(obj.message.trim());
         }
-        const entries = Object.entries(value).slice(0, 3);
+        const entries = Object.entries(obj).slice(0, 3);
         const formatted = entries
             .map(([key, val]) => `${key}: ${previewValue(val)}`)
             .filter(Boolean);
-        const suffix = Object.keys(value).length > 3 ? ', …' : '';
+        const suffix = Object.keys(obj).length > 3 ? ', …' : '';
         return `{${formatted.join(', ')}${suffix}}`;
     }
     return truncate(String(value));
@@ -73,22 +92,24 @@ function summariseContext(context) {
         return truncate(details.join(' | '));
     }
     if (typeof context === 'object') {
-        if (context.error) {
-            const err = context.error;
+        const obj = context;
+        if (obj.error) {
+            const err = obj.error;
             if (typeof err === 'string') {
                 return truncate(err.trim());
             }
             if (err && typeof err === 'object') {
-                if (typeof err.message === 'string') {
-                    return truncate(err.message.trim());
+                const errObj = err;
+                if (typeof errObj.message === 'string') {
+                    return truncate(errObj.message.trim());
                 }
-                if (typeof err.stack === 'string') {
-                    const [firstLine] = err.stack.split(/\r?\n/);
+                if (typeof errObj.stack === 'string') {
+                    const [firstLine] = errObj.stack.split(/\r?\n/);
                     return truncate(firstLine.trim());
                 }
             }
         }
-        const entries = Object.entries(context)
+        const entries = Object.entries(obj)
             .filter(([key]) => !key.startsWith('opsNotify'))
             .filter(([key]) => key !== 'stack');
         if (entries.length === 0) {
@@ -124,8 +145,9 @@ function sanitizeContext(context) {
     if (Array.isArray(context)) {
         return context.map((item) => sanitizeContext(item));
     }
+    const obj = context;
     const output = {};
-    for (const [key, value] of Object.entries(context)) {
+    for (const [key, value] of Object.entries(obj)) {
         if (key === 'opsNotificationSource' || key === 'opsNotifySkip') {
             continue;
         }
@@ -133,18 +155,26 @@ function sanitizeContext(context) {
     }
     return output;
 }
-function recordError({ id: providedId, message, context, timestamp, level = 'error', source, skipAlert = false, } = {}) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Record an error for ops notification.
+ */
+export function recordError(options = {}) {
+    const { id: providedId, message, context, timestamp, level = 'error', source, skipAlert = false, } = options;
     const normalizedMessage = message ? String(message) : 'Unknown error';
     const entryTimestamp = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
     let derivedSource = source || null;
     let derivedSkip = Boolean(skipAlert);
-    let workingContext = context;
+    const workingContext = context;
     if (workingContext && typeof workingContext === 'object') {
-        if (!derivedSource && typeof workingContext.opsNotificationSource === 'string') {
-            derivedSource = workingContext.opsNotificationSource;
+        const ctx = workingContext;
+        if (!derivedSource && typeof ctx.opsNotificationSource === 'string') {
+            derivedSource = ctx.opsNotificationSource;
         }
-        if (!derivedSkip && Object.prototype.hasOwnProperty.call(workingContext, 'opsNotifySkip')) {
-            derivedSkip = Boolean(workingContext.opsNotifySkip);
+        if (!derivedSkip && Object.prototype.hasOwnProperty.call(ctx, 'opsNotifySkip')) {
+            derivedSkip = Boolean(ctx.opsNotifySkip);
         }
     }
     const sanitizedContext = sanitizeContext(workingContext);
@@ -178,14 +208,21 @@ function recordError({ id: providedId, message, context, timestamp, level = 'err
     }
     return entry;
 }
-function getRecentErrors() {
+/**
+ * Get a copy of all recent errors.
+ */
+export function getRecentErrors() {
     return recentErrors.map((entry) => ({
         ...entry,
         timestamp: new Date(entry.timestamp.getTime()),
         context: safeCloneContext(entry.context),
     }));
 }
-function subscribe(handler) {
+/**
+ * Subscribe to error notifications.
+ * @returns Unsubscribe function
+ */
+export function subscribe(handler) {
     if (typeof handler !== 'function') {
         return () => { };
     }
@@ -194,7 +231,6 @@ function subscribe(handler) {
         subscribers.delete(handler);
     };
 }
-export { recordError, getRecentErrors, subscribe, };
 export default {
     recordError,
     getRecentErrors,

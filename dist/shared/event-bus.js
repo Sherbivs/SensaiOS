@@ -3,6 +3,7 @@
  *
  * Provides centralized event distribution with:
  * - Correlation IDs for cross-system tracing
+ * - Type-safe event payloads (via EventTopicMap)
  * - Pattern-based subscriptions (exact, wildcard, multi-level)
  * - Event replay buffer (last 100 events)
  * - Backpressure control (per-subscriber queue limits)
@@ -279,6 +280,7 @@ class Subscription {
  */
 export class EventBus {
     static instance = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     subscriptions = new Map();
     replayBuffer;
     stats = {
@@ -314,10 +316,7 @@ export class EventBus {
         // Clear pattern cache on reset
         patternCache.clear();
     }
-    /**
-     * Emit event to all matching subscribers
-     * @returns Correlation ID for tracing
-     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     emit(topic, payload, options = {}) {
         // Generate correlation ID
         const correlationId = options.parentCorrelationId
@@ -359,16 +358,10 @@ export class EventBus {
         }
         return correlationId;
     }
-    /**
-     * Emit event synchronously (no async subscribers)
-     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     emitSync(topic, payload) {
         this.emit(topic, payload, {});
     }
-    /**
-     * Subscribe to event pattern
-     * @returns Subscription ID for unsubscribing
-     */
     subscribe(pattern, handler, options = {}) {
         const subscription = new Subscription(pattern, handler, options);
         this.subscriptions.set(subscription.id, subscription);

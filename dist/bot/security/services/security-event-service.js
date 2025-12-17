@@ -35,6 +35,7 @@
  */
 import { SecuritySeverity, } from '../types/database-models.js';
 import { generateHmac, timingSafeHexCompare, sha256, } from '../../../shared/crypto/timing-safe.js';
+import { daysAgo } from '../../../shared/utils/date-utils.js';
 // Alias functions to match service semantics
 const computeHmac = (secret, data) => generateHmac(data, secret);
 const timingSafeEqual = timingSafeHexCompare;
@@ -413,14 +414,14 @@ export class SecurityEventService {
             this.prisma.securityEvent.count({
                 where: {
                     ...where,
-                    createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+                    createdAt: { gte: daysAgo(1) },
                 },
             }),
             // Last 7 days
             this.prisma.securityEvent.count({
                 where: {
                     ...where,
-                    createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+                    createdAt: { gte: daysAgo(7) },
                 },
             }),
         ]);

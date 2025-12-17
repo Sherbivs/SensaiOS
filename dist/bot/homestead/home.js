@@ -1,5 +1,8 @@
-import { log } from '../../utils/logger.js';
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, } from "discord.js";
+import { log } from "../../shared/logger.js";
+import { ActionRowBuilder, EmbedBuilder, } from "discord.js";
+import { EMBED_COLORS } from "../shared/embed-colors.js";
+import { navButton, primaryButton, paginationRow } from "../shared/button-utils.js";
+import { safeReply, safeReplyWithPayload } from "../shared/response-helpers.js";
 import { getSpriteUrl } from "../../lib/assets.js";
 import { DMHomeRepo, evaluateDailyQuestStreak, } from "../../models/index.js";
 import { errorTracker } from '../../services/monitoring/index.js';
@@ -38,23 +41,11 @@ function formatStatus(mon) {
 }
 function buildNavRow(active) {
     const row = new ActionRowBuilder();
-    row.addComponents(new ButtonBuilder()
-        .setCustomId("HOME_PARTY")
-        .setLabel("Party")
-        .setStyle(active === "party" ? ButtonStyle.Success : ButtonStyle.Secondary)
-        .setDisabled(active === "party"), new ButtonBuilder()
-        .setCustomId("HOME_BOX")
-        .setLabel("Box")
-        .setStyle(active === "box" ? ButtonStyle.Success : ButtonStyle.Secondary)
-        .setDisabled(active === "box"), new ButtonBuilder()
-        .setCustomId("HOME_PROFILE")
-        .setLabel("Profile")
-        .setStyle(active === "profile" ? ButtonStyle.Success : ButtonStyle.Secondary)
-        .setDisabled(active === "profile"));
+    row.addComponents(navButton("HOME_PARTY", "Party", active === "party"), navButton("HOME_BOX", "Box", active === "box"), navButton("HOME_PROFILE", "Profile", active === "profile"));
     return row;
 }
 function buildHealRow() {
-    return new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("HOME_HEAL").setLabel("Heal").setStyle(ButtonStyle.Primary));
+    return new ActionRowBuilder().addComponents(primaryButton("HOME_HEAL", "Heal"));
 }
 function formatPartyEntry(slot) {
     const mon = slot.pokemon;
@@ -79,7 +70,7 @@ function formatPartyEntry(slot) {
 function buildPartyView(snapshot) {
     const embed = new EmbedBuilder()
         .setTitle("Party Overview")
-        .setColor(0x4caf50)
+        .setColor(EMBED_COLORS.SUCCESS)
         .setDescription("Your active party slots.");
     const hasMembers = snapshot.party.some((slot) => slot.pokemon);
     if (!snapshot.party.length || !hasMembers) {
@@ -109,15 +100,7 @@ function formatBoxEntry(mon, absoluteIndex) {
 function buildBoxPaginationRow(page, totalPages) {
     const prevId = `${BOX_PAGE_PREFIX}${Math.max(1, page - 1)}`;
     const nextId = `${BOX_PAGE_PREFIX}${Math.min(totalPages, page + 1)}`;
-    return new ActionRowBuilder().addComponents(new ButtonBuilder()
-        .setCustomId(prevId)
-        .setLabel("Prev")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(page <= 1), new ButtonBuilder()
-        .setCustomId(nextId)
-        .setLabel("Next")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(page >= totalPages));
+    return paginationRow(prevId, nextId, page > 1, page < totalPages);
 }
 function buildBoxView(snapshot, page = 1) {
     const total = snapshot.box.length;
@@ -127,7 +110,7 @@ function buildBoxView(snapshot, page = 1) {
     const items = snapshot.box.slice(start, start + BOX_PAGE_SIZE);
     const embed = new EmbedBuilder()
         .setTitle("Storage Box")
-        .setColor(0x1e88e5)
+        .setColor(EMBED_COLORS.INFO)
         .setDescription(`Stored Pokémon: ${total}`)
         .setFooter({ text: `Page ${currentPage} of ${totalPages}` });
     if (!items.length) {
@@ -168,7 +151,7 @@ function formatReadyLabel(date, now) {
 function buildProfileView(snapshot, now = new Date()) {
     const embed = new EmbedBuilder()
         .setTitle("Trainer Profile")
-        .setColor(0xffb74d)
+        .setColor(EMBED_COLORS.WARNING)
         .setDescription(`Trainer: <@${snapshot.user.discordId}>`);
     const partyCount = snapshot.party.filter((slot) => Boolean(slot.pokemon)).length;
     const boxCount = snapshot.box.length;
@@ -212,18 +195,11 @@ async function fetchSnapshot(discordId) {
     return DMHomeRepo.loadTrainerHomeSnapshot(discordId);
 }
 async function acknowledge(interaction, content) {
-    try {
-        if (interaction.deferred || interaction.replied) {
-            await interaction.followUp({ content, ephemeral: true });
-        }
-        else {
-            await interaction.reply({ content, ephemeral: true });
-        }
-    }
-    catch (error) {
+    const result = await safeReply(interaction, content, { ephemeral: true });
+    if (!result.success) {
         // Swallow follow-up failures so homestead responses still resolve cleanly when the
         // acknowledgement cannot be delivered (e.g., interaction already concluded).
-        log('warn', "[homestead-home] Failed to send acknowledgement", { error });
+        log('warn', "[homestead-home] Failed to send acknowledgement", { error: result.error });
     }
 }
 async function respondWithView(interaction, render, mode, ackContent) {
@@ -266,22 +242,12 @@ async function respondWithView(interaction, render, mode, ackContent) {
                 content: "I couldn't access your homestead channel. Please contact an administrator — showing the view here instead.",
                 ephemeral: true,
             };
-            if (interaction.deferred || interaction.replied) {
-                await interaction.followUp(fallback);
-            }
-            else {
-                await interaction.reply(fallback);
-            }
+            await safeReplyWithPayload(interaction, fallback);
         }
         return;
     }
     const finalPayload = { embeds, components, ephemeral: true };
-    if (interaction.deferred || interaction.replied) {
-        await interaction.followUp(finalPayload);
-    }
-    else {
-        await interaction.reply(finalPayload);
-    }
+    await safeReplyWithPayload(interaction, finalPayload);
 }
 function resolveResponseMode(interaction, options) {
     if (options.respond) {

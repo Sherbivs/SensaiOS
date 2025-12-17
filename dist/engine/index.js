@@ -1,3 +1,7 @@
+/**
+ * Battle Engine Index
+ * Main entry point for the deterministic Pokémon battle engine.
+ */
 import { getDexpack, getSpecies as lookupSpecies, getSpeciesBaseStats, getSpeciesMatchups } from '../data/dexpack.js';
 import { newPokemonRuntime, newBattleState, newAction } from './types.js';
 import { derivedStats } from './stats.js';
@@ -97,6 +101,9 @@ const TYPE_DEFENSE_CHART = Object.freeze({
 const ALL_ATTACK_TYPES = Object.freeze(Array.from(new Set(Object.values(TYPE_DEFENSE_CHART)
     .flatMap((chart) => [...chart.doubleFrom, ...chart.halfFrom, ...chart.zeroFrom])
     .filter(Boolean))));
+// ─────────────────────────────────────────────────────────────────────────────
+// Type Utilities
+// ─────────────────────────────────────────────────────────────────────────────
 function normaliseTypes(types) {
     if (!Array.isArray(types))
         return [];
@@ -207,10 +214,10 @@ function hydrateDexEntry(doc) {
 }
 function normalizeMoveEntry(doc) {
     const move = { ...doc };
-    const category = typeof move.category === 'string' ? move.category.toLowerCase() : null;
+    const category = typeof move.class === 'string' ? move.class.toLowerCase() : null;
     const legacyClass = typeof move.class === 'string' ? move.class.toLowerCase() : null;
     move.category = category ?? legacyClass ?? null;
-    const resolvedClass = legacyClass ?? (move.category === 'physical' || move.category === 'special' || move.category === 'status' ? move.category : null);
+    const resolvedClass = legacyClass ?? (category === 'physical' || category === 'special' || category === 'status' ? category : null);
     if (resolvedClass) {
         move.class = resolvedClass;
     }

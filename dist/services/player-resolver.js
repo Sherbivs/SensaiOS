@@ -15,7 +15,8 @@
  * @see homestead-manager — Channel management
  */
 import { prisma } from '../shared/prisma.js';
-import { log } from '../utils/logger.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { log } from "../shared/logger.js";
 import { resolveDiscordUser, hasDiscordIdentity } from './discord-identity.js';
 // ============================================================================
 // Player Resolver Service
@@ -139,7 +140,7 @@ export class PlayerResolver {
             log.error('[PlayerResolver] Resolution failed', {
                 discordId,
                 guildId: options.guildId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             return null;
         }
@@ -184,13 +185,23 @@ export class PlayerResolver {
     /**
      * Resolve multiple players at once
      * More efficient than individual calls for leaderboards, etc.
+     * Uses parallel resolution with the existing resolve method.
      */
     async resolveBatch(discordIds, options) {
         const results = new Map();
-        // TODO: Implement batch optimization with parallel queries
-        // For now, sequential resolution
-        for (const discordId of discordIds) {
+        if (discordIds.length === 0) {
+            return results;
+        }
+        // De-duplicate input
+        const uniqueIds = [...new Set(discordIds)];
+        // Parallel resolution using the existing resolve method (which handles caching)
+        const resolutionPromises = uniqueIds.map(async (discordId) => {
             const player = await this.resolve(discordId, options);
+            return { discordId, player };
+        });
+        const resolutions = await Promise.all(resolutionPromises);
+        // Build result map
+        for (const { discordId, player } of resolutions) {
             if (player) {
                 results.set(discordId, player);
             }

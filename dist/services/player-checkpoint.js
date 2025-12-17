@@ -13,10 +13,13 @@
  * @module player-checkpoint
  */
 import { EmbedBuilder } from 'discord.js';
+import { EMBED_COLORS } from '../bot/shared/embed-colors.js';
 import { prisma } from '../shared/prisma.js';
-import { log } from '../utils/logger.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { log } from "../shared/logger.js";
 import { HomesteadChannelManager } from './homestead-manager.js';
 import { resolveDiscordUser, hasDiscordIdentity, } from './discord-identity.js';
+import { hoursAgo } from '../shared/utils/date-utils.js';
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -441,7 +444,7 @@ export class PlayerCheckpointService {
                 ],
                 state: 'Active',
                 startedAt: {
-                    lt: new Date(Date.now() - 60 * 60 * 1000) // Older than 1 hour
+                    lt: hoursAgo(1) // Older than 1 hour
                 }
             }
         });
@@ -520,7 +523,7 @@ export class PlayerCheckpointService {
             log.warn('[PlayerCheckpoint] Discord identity test failed', {
                 userId: user.id,
                 discordId: user.discordId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
             return {
                 testName: 'discord_identity',
@@ -564,7 +567,7 @@ export class PlayerCheckpointService {
                 log.error('[PlayerCheckpoint] Failed to heal issue', {
                     userId: report.userId,
                     testName: issue.testName,
-                    error: error instanceof Error ? error.message : String(error),
+                    error: getErrorMessage(error),
                 });
             }
         }
@@ -595,7 +598,7 @@ export class PlayerCheckpointService {
         catch (error) {
             log.warn('[PlayerCheckpoint] Could not create checkpoint', {
                 userId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
         }
         // Step 2: Run full diagnostics
@@ -618,7 +621,7 @@ export class PlayerCheckpointService {
         catch (error) {
             log.error('[PlayerCheckpoint] Failed to recreate homestead', {
                 userId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
             });
         }
         // Step 5: Build recovery summary embed
@@ -636,8 +639,8 @@ export class PlayerCheckpointService {
         };
         const embed = new EmbedBuilder()
             .setTitle('🔄 Game State Recovery Complete')
-            .setColor(report.overallStatus === 'healthy' ? 0x00FF00 :
-            report.overallStatus === 'degraded' ? 0xFFFF00 : 0xFF0000)
+            .setColor(report.overallStatus === 'healthy' ? EMBED_COLORS.SUCCESS :
+            report.overallStatus === 'degraded' ? EMBED_COLORS.WARNING : EMBED_COLORS.ERROR)
             .setTimestamp();
         // Status summary
         embed.addFields({
@@ -786,7 +789,7 @@ export function setupHomesteadDeletionHandler(client) {
             log.error('[PlayerCheckpoint] ❌ IMMEDIATE RECOVERY FAILED', {
                 userId: homestead.userId,
                 discordId: homestead.user.discordId,
-                error: error instanceof Error ? error.message : String(error),
+                error: getErrorMessage(error),
                 stack: error instanceof Error ? error.stack : undefined,
             });
             // Fallback: Try to DM the user about the failure

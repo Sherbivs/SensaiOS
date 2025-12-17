@@ -6,6 +6,7 @@
  *
  * @module workers/database/strategies
  */
+import { delay } from '../../shared/utils/async-utils.js';
 // ============================================================================
 // LRU Cache Strategy
 // ============================================================================
@@ -322,7 +323,7 @@ export class CircuitBreakerStrategy {
                 lastError = error;
                 if (attempt < this.config.maxRetries) {
                     // Wait before retry (exponential backoff)
-                    await this.sleep(delayMs);
+                    await delay(delayMs);
                     delayMs = Math.min(delayMs * this.config.backoffMultiplier, this.config.maxRetryDelayMs);
                 }
             }
@@ -382,8 +383,5 @@ export class CircuitBreakerStrategy {
                 this.logger?.('[CircuitBreaker] State changed: OPEN → HALF-OPEN (attempting recovery)', 'info');
             }
         }, this.config.circuitBreakerResetMs);
-    }
-    sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }

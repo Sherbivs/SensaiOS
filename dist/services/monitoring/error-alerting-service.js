@@ -11,10 +11,11 @@
  *
  * @module services/monitoring/error-alerting-service
  */
-import { EmbedBuilder } from 'discord.js';
+import { criticalAlertEmbed, batchedAlertEmbed } from '../../bot/shared/embed-builders.js';
 import { EventBus } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
-import { log } from '../../utils/logger.js';
+import { getErrorMessage } from '../../shared/utils/error-utils.js';
+import { log } from "../../shared/logger.js";
 // ---- Configuration ----
 /** DripTVDD Discord User ID - receives all CRITICAL alerts */
 const DRIP_TVDD_ID = '1049161859555643433';
@@ -118,7 +119,7 @@ export class ErrorAlertingService {
         }
         catch (err) {
             log('error', '[ErrorAlerting] Failed to send CRITICAL alert', {
-                error: err instanceof Error ? err.message : String(err),
+                error: getErrorMessage(err),
                 fingerprint: fingerprint.substring(0, 8),
             });
         }
@@ -168,7 +169,7 @@ export class ErrorAlertingService {
         }
         catch (err) {
             log('error', '[ErrorAlerting] Failed to send batched alert', {
-                error: err instanceof Error ? err.message : String(err),
+                error: getErrorMessage(err),
                 count: batch.length,
             });
             // Put errors back in queue for retry (max 1 retry)
@@ -187,29 +188,15 @@ export class ErrorAlertingService {
             throw new Error('Discord client not initialized');
         }
         const user = await this.discordClient.users.fetch(DRIP_TVDD_ID);
-        const embed = new EmbedBuilder()
-            .setColor(0xFF0000) // Red
-            .setTitle('🚨 CRITICAL ERROR')
-            .setDescription(`**${event.errorName}**: ${event.errorMessage.substring(0, 200)}`)
-            .addFields({ name: '📂 Category', value: event.category, inline: true }, { name: '⏰ Time', value: event.timestamp, inline: true }, { name: '🔑 Fingerprint', value: `\`${event.fingerprint.substring(0, 12)}...\``, inline: true })
-            .setTimestamp();
-        // Add source location if available
-        if (event.sourceLocation) {
-            embed.addFields({
-                name: '📍 Location',
-                value: `\`${event.sourceLocation.file}:${event.sourceLocation.line}\``,
-                inline: false,
-            });
-        }
-        // Add call chain if available
-        if (event.callChain && event.callChain.length > 0) {
-            embed.addFields({
-                name: '🔗 Call Chain',
-                value: `\`${event.callChain.slice(0, 3).join(' → ')}\``,
-                inline: false,
-            });
-        }
-        embed.setFooter({ text: 'Use /ops errors detail <fingerprint> for full details' });
+        const embed = criticalAlertEmbed({
+            errorName: event.errorName,
+            errorMessage: event.errorMessage,
+            category: event.category,
+            timestamp: event.timestamp,
+            fingerprint: event.fingerprint,
+            sourceLocation: event.sourceLocation,
+            callChain: event.callChain,
+        });
         await user.send({ embeds: [embed] });
     }
     /**
@@ -220,28 +207,13 @@ export class ErrorAlertingService {
             throw new Error('Discord client not initialized');
         }
         const user = await this.discordClient.users.fetch(DRIP_TVDD_ID);
-        const embed = new EmbedBuilder()
-            .setColor(0xFFA500) // Orange
-            .setTitle(`⚠️ HIGH Severity Errors (${batch.length})`)
-            .setDescription('The following errors occurred in the last 5 minutes:')
-            .setTimestamp();
-        // Add up to 10 errors as fields
-        for (const item of batch.slice(0, 10)) {
-            const event = item.event;
-            embed.addFields({
-                name: `${event.errorName} (${event.category})`,
-                value: `${event.errorMessage.substring(0, 100)}...\n\`${event.fingerprint.substring(0, 8)}...\``,
-                inline: false,
-            });
-        }
-        if (batch.length > 10) {
-            embed.addFields({
-                name: '...',
-                value: `And ${batch.length - 10} more errors`,
-                inline: false,
-            });
-        }
-        embed.setFooter({ text: 'Use /ops errors list severity:HIGH for full list' });
+        const items = batch.map(item => ({
+            errorName: item.event.errorName,
+            errorMessage: item.event.errorMessage,
+            category: item.event.category,
+            fingerprint: item.event.fingerprint,
+        }));
+        const embed = batchedAlertEmbed(items);
         await user.send({ embeds: [embed] });
     }
     /**
@@ -271,7 +243,7 @@ export class ErrorAlertingService {
         }
         catch (err) {
             log('error', '[ErrorAlerting] Failed to create alert record', {
-                error: err instanceof Error ? err.message : String(err),
+                error: getErrorMessage(err),
             });
         }
     }

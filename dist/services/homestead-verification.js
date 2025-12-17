@@ -28,6 +28,9 @@ import { prisma } from '../shared/prisma.js';
 import { createHmac } from 'crypto';
 import { ImmutableAuditService } from '../bot/security/services/immutable-audit-service.js';
 import { EventBus } from '../shared/event-bus.js';
+import { HOMESTEAD_HMAC_KEY } from '../config/env.js';
+import { USER_PERMISSIONS, EVERYONE_DENY } from './homestead-permissions.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 // ============================================================================
 // HOMESTEAD VERIFICATION SERVICE
 // ============================================================================
@@ -39,7 +42,7 @@ export class HomesteadVerificationService {
     constructor(discordClient, hmacKey, auditService) {
         this.discordClient = discordClient;
         // Use environment variable or default (for development only)
-        this.hmacKey = hmacKey || process.env.HOMESTEAD_HMAC_KEY || 'dev-hmac-key-change-in-production';
+        this.hmacKey = hmacKey || HOMESTEAD_HMAC_KEY;
         if (this.hmacKey === 'dev-hmac-key-change-in-production' && process.env.NODE_ENV === 'production') {
             throw new Error('HOMESTEAD_HMAC_KEY environment variable required in production');
         }
@@ -150,17 +153,11 @@ export class HomesteadVerificationService {
             permissionOverwrites: [
                 {
                     id: guild.id, // @everyone
-                    deny: [PermissionFlagsBits.ViewChannel],
+                    deny: [...EVERYONE_DENY],
                 },
                 {
                     id: user.id, // User
-                    allow: [
-                        PermissionFlagsBits.ViewChannel,
-                        PermissionFlagsBits.SendMessages,
-                        PermissionFlagsBits.ReadMessageHistory,
-                        PermissionFlagsBits.AttachFiles,
-                        PermissionFlagsBits.EmbedLinks,
-                    ],
+                    allow: [...USER_PERMISSIONS],
                 },
                 {
                     id: this.discordClient.user.id, // Bot
@@ -239,7 +236,7 @@ export class HomesteadVerificationService {
         }
         catch (err) {
             // Log error but don't fail verification
-            process.stderr.write(`[HomesteadVerification] Failed to log verification: ${err instanceof Error ? err.message : String(err)}\n`);
+            process.stderr.write(`[HomesteadVerification] Failed to log verification: ${getErrorMessage(err)}\n`);
         }
     }
     // ==========================================================================
@@ -279,7 +276,7 @@ export class HomesteadVerificationService {
         catch (err) {
             // Log error but don't fail creation (audit is supplementary)
             // Using process.stderr to avoid eslint console restrictions
-            process.stderr.write(`[HomesteadVerification] Failed to log to audit service: ${err instanceof Error ? err.message : String(err)}\n`);
+            process.stderr.write(`[HomesteadVerification] Failed to log to audit service: ${getErrorMessage(err)}\n`);
         }
         // Emit event to EventBus for downstream processing
         try {
@@ -299,7 +296,7 @@ export class HomesteadVerificationService {
         }
         catch (err) {
             // Log error but don't fail creation
-            process.stderr.write(`[HomesteadVerification] Failed to emit event: ${err instanceof Error ? err.message : String(err)}\n`);
+            process.stderr.write(`[HomesteadVerification] Failed to emit event: ${getErrorMessage(err)}\n`);
         }
     }
     // ==========================================================================
@@ -337,11 +334,11 @@ export class HomesteadVerificationService {
                 }
                 catch (auditErr) {
                     // Log error but don't fail rollback
-                    process.stderr.write(`[HomesteadVerification] Failed to log orphan: ${auditErr instanceof Error ? auditErr.message : String(auditErr)}\n`);
+                    process.stderr.write(`[HomesteadVerification] Failed to log orphan: ${getErrorMessage(auditErr)}\n`);
                 }
             }
             catch (err) {
-                errors.push(new Error(`Failed to mark record as orphaned: ${err instanceof Error ? err.message : String(err)}`));
+                errors.push(new Error(`Failed to mark record as orphaned: ${getErrorMessage(err)}`));
             }
         }
         // If Discord channel exists, delete it
@@ -350,7 +347,7 @@ export class HomesteadVerificationService {
                 await channel.delete('Homestead creation failed, rolling back');
             }
             catch (err) {
-                errors.push(new Error(`Failed to delete Discord channel: ${err instanceof Error ? err.message : String(err)}`));
+                errors.push(new Error(`Failed to delete Discord channel: ${getErrorMessage(err)}`));
             }
         }
         return {

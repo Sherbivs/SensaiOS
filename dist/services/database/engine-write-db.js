@@ -31,7 +31,7 @@ import crypto from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { EngineDbConfig } from '../../config/engine-db-config.js';
-import { log } from '../../utils/logger.js';
+import { log } from "../../shared/logger.js";
 import { getTableCount, getCount } from './sql-utils.js';
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);

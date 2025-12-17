@@ -17,7 +17,7 @@
  *
  * @module services/connection-health-monitor
  */
-import { log } from '../utils/logger.js';
+import { log } from "../shared/logger.js";
 import { getPoolConfig, getPoolMetrics, getCurrentServiceName } from '../config/database-pool-config.js';
 import { Counter, Gauge, register } from 'prom-client';
 const DEFAULT_CONFIG = {

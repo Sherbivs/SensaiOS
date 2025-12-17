@@ -14,14 +14,15 @@
  *
  * @module homestead/open-starter-selection
  */
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, } from "discord.js";
+import { starterWelcomeEmbed, starterErrorEmbed, starterConfirmationEmbed, starterRulesEmbed } from "../shared/embed-builders.js";
+import { homeMenuButtonsEnhanced } from "../shared/button-utils.js";
 import { validateStarterSelection, getRejectionMessage, getForbiddenCounts, } from "../../core/starter-validation.js";
 import { getPokemon } from "../../lib/dex-api.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
-import { log } from "../../utils/logger.js";
+import { log } from "../../shared/logger.js";
 import { getSpriteUrl } from "../../lib/assets.js";
 // ============================================================================
 // MESSAGE TEMPLATES
@@ -31,135 +32,32 @@ import { getSpriteUrl } from "../../lib/assets.js";
  */
 export function buildWelcomeEmbed() {
     const counts = getForbiddenCounts();
-    return new EmbedBuilder()
-        .setTitle("🎮 Welcome to Pokémon Infinite Gauntlet!")
-        .setDescription("Your adventure begins here in your **Homestead Channel** — your personal Pokémon hub.\n\n" +
-        "Choose any Pokémon to start your journey! Simply **type the name** of the Pokémon you want as your starter.")
-        .setColor(0x00C853)
-        .addFields({
-        name: "📋 Starter Rules",
-        value: "You can choose almost any Pokémon, but these are **not allowed**:\n" +
-            "• ❌ Regional starters (Bulbasaur, Charmander, etc.)\n" +
-            "• ❌ Legendary Pokémon\n" +
-            "• ❌ Mythical Pokémon\n" +
-            "• ❌ Pseudo-legendary final forms (Tyranitar, Dragonite, etc.)\n\n" +
-            "✅ Earlier evolutions like **Pupitar** or **Dratini** are allowed!",
-        inline: false,
-    }, {
-        name: "💡 Examples of Valid Starters",
-        value: "Pikachu • Eevee • Riolu • Scyther • Heracross\n" +
-            "Pupitar • Dratini • Ralts • Larvitar • Happiny\n" +
-            "Growlithe • Vulpix • Abra • Machop • Geodude",
-        inline: false,
-    }, {
-        name: "📝 How to Choose",
-        value: "**Type the name of your desired Pokémon** in this channel to select it as your starter.",
-        inline: false,
-    })
-        .setFooter({ text: `${counts.total} Pokémon are restricted • You have 5 minutes to choose` });
+    return starterWelcomeEmbed(counts);
 }
 /**
  * Build error embed for invalid selection
  */
 export function buildErrorEmbed(reason, attemptedName) {
-    return new EmbedBuilder()
-        .setTitle("❌ Invalid Selection")
-        .setDescription(reason)
-        .setColor(0xFF5252)
-        .addFields({
-        name: "Try Again",
-        value: attemptedName
-            ? `"${attemptedName}" cannot be your starter. Type another Pokémon name!`
-            : "Type a valid Pokémon name to continue.",
-        inline: false,
-    })
-        .setFooter({ text: "Type a Pokémon name or wait for timeout" });
+    return starterErrorEmbed(reason, attemptedName);
 }
 /**
  * Build confirmation embed when starter is successfully chosen
  */
 export function buildConfirmationEmbed(speciesName, speciesId) {
-    const capitalizedName = speciesName.charAt(0).toUpperCase() + speciesName.slice(1);
-    const spriteUrl = getSpriteUrl(speciesId, 'official') || getSpriteUrl(speciesId, 'default');
-    const embed = new EmbedBuilder()
-        .setTitle(`🎉 You chose ${capitalizedName}!`)
-        .setDescription(`**${capitalizedName}** is now your official starter Pokémon!\n\n` +
-        "Your adventure in the Infinite Gauntlet begins now.")
-        .setColor(0x00E676)
-        .addFields({
-        name: "📊 Your Starter",
-        value: `• **Species:** ${capitalizedName}\n• **Level:** 5\n• **Added to Party:** Slot 1`,
-        inline: true,
-    }, {
-        name: "🎯 Next Steps",
-        value: "• Visit **public field channels** to explore\n" +
-            "• Use `/walk` to encounter wild Pokémon\n" +
-            "• Challenge others to battles!",
-        inline: true,
-    })
-        .setFooter({ text: "Welcome to Pokémon Infinite Gauntlet!" });
-    if (spriteUrl) {
-        embed.setThumbnail(spriteUrl);
-    }
-    return embed;
+    const spriteUrl = getSpriteUrl(speciesId, 'artwork') || getSpriteUrl(speciesId, 'sprite');
+    return starterConfirmationEmbed(speciesName, spriteUrl);
 }
 /**
  * Build the rules/how-to-play embed shown after starter confirmation
  */
 export function buildRulesEmbed() {
-    return new EmbedBuilder()
-        .setTitle("📖 How to Play")
-        .setDescription("Your **Homestead Channel** (this DM) is your personal Pokémon hub. " +
-        "Think of it as your in-game home or Main Menu.")
-        .setColor(0x2196F3)
-        .addFields({
-        name: "🏠 Homestead (This Channel)",
-        value: "• **Pokémon Center** — Heal your party instantly\n" +
-            "• **Party/Storage** — Manage your team\n" +
-            "• **Inventory** — Use items\n" +
-            "• **Pokédex** — Track discoveries\n" +
-            "• **Settings** — Customize your experience",
-        inline: false,
-    }, {
-        name: "🌍 Public Field Channels",
-        value: "• Use `/walk`, `/search`, `/fish` to find wild Pokémon\n" +
-            "• Different areas have different encounters\n" +
-            "• Time & weather affect spawns!",
-        inline: false,
-    }, {
-        name: "⚔️ Battles",
-        value: "• Challenge players from your Homestead\n" +
-            "• Battles happen in public **Arena Threads**\n" +
-            "• Spectators can watch live!",
-        inline: false,
-    })
-        .setFooter({ text: "Use the buttons below to navigate your Homestead" });
+    return starterRulesEmbed();
 }
 /**
  * Build the main menu buttons
  */
 export function buildMainMenuButtons() {
-    const row1 = new ActionRowBuilder().addComponents(new ButtonBuilder()
-        .setCustomId("HOME_HEAL")
-        .setLabel("🏥 Pokémon Center")
-        .setStyle(ButtonStyle.Success), new ButtonBuilder()
-        .setCustomId("HOME_PARTY")
-        .setLabel("🎒 Party")
-        .setStyle(ButtonStyle.Primary), new ButtonBuilder()
-        .setCustomId("HOME_BOX")
-        .setLabel("📦 Storage")
-        .setStyle(ButtonStyle.Primary));
-    const row2 = new ActionRowBuilder().addComponents(new ButtonBuilder()
-        .setCustomId("HOME_INVENTORY")
-        .setLabel("🎒 Inventory")
-        .setStyle(ButtonStyle.Secondary), new ButtonBuilder()
-        .setCustomId("HOME_POKEDEX")
-        .setLabel("📘 Pokédex")
-        .setStyle(ButtonStyle.Secondary), new ButtonBuilder()
-        .setCustomId("HOME_SETTINGS")
-        .setLabel("⚙️ Settings")
-        .setStyle(ButtonStyle.Secondary));
-    return [row1, row2];
+    return homeMenuButtonsEnhanced();
 }
 // ============================================================================
 // CORE LOGIC

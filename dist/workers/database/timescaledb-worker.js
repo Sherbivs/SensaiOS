@@ -30,6 +30,7 @@
  */
 import { BaseDatabaseWorker } from './base-worker.js';
 import { HybridWriteBufferStrategy } from './strategies.js';
+import { getErrorMessage } from '../../shared/utils/error-utils.js';
 /**
  * Materialized view names for refresh operations
  */
@@ -138,7 +139,7 @@ export class TimescaleDBWorker extends BaseDatabaseWorker {
             await this.flush();
         }
         catch (error) {
-            this.log(`Background flush failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
+            this.log(`Background flush failed: ${getErrorMessage(error)}`, 'error');
         }
     }
     // ============================================================================

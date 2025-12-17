@@ -37,6 +37,7 @@
  */
 import { RoleChangeType, } from '../types/database-models.js';
 import { generateHmac, timingSafeHexCompare, sha256, } from '../../../shared/crypto/timing-safe.js';
+import { daysAgo, minutesAgo } from '../../../shared/utils/date-utils.js';
 // Alias functions for semantic clarity
 const computeHmac = (secret, data) => generateHmac(data, secret);
 const timingSafeEqual = timingSafeHexCompare;
@@ -272,10 +273,9 @@ export class RoleAuditService {
      */
     async detectAnomaly(memberId, metadata) {
         // Check for rapid role changes
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
         const recentChanges = await this.queryAudits({
             memberId,
-            after: fiveMinutesAgo,
+            after: minutesAgo(5),
             limit: 10,
         });
         if (recentChanges.length >= 5) {
@@ -347,14 +347,14 @@ export class RoleAuditService {
             this.prisma.roleChangeAudit.count({
                 where: {
                     ...where,
-                    createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+                    createdAt: { gte: daysAgo(1) },
                 },
             }),
             // Last 7 days
             this.prisma.roleChangeAudit.count({
                 where: {
                     ...where,
-                    createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+                    createdAt: { gte: daysAgo(7) },
                 },
             }),
         ]);

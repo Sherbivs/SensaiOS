@@ -1,45 +1,62 @@
-import { SlashCommandBuilder } from 'discord.js';
-import { baseDamage } from '../engine/calc.js';
+/**
+ * /calc Command
+ *
+ * Damage calculator for battle planning.
+ *
+ * @module commands/calc
+ * @since Phase 6.2 (2025-12-16) - Converted from JS
+ */
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { calcSimpleDamage } from '../engine/calc.js';
 import { derivedStats } from '../engine/stats.js';
-import dexApi from '../lib/dex-api.js';
-
-const { getPokemon, getMove, disabled } = dexApi;
-
-const command = {
-  data: new SlashCommandBuilder()
+const data = new SlashCommandBuilder()
     .setName('calc')
-    .setDescription('Preview damage: attacker uses move on defender (level 50)')
-    .addStringOption((o) => o.setName('attacker').setDescription('Pokémon').setRequired(true))
-    .addStringOption((o) => o.setName('move').setDescription('Move name').setRequired(true))
-    .addStringOption((o) => o.setName('defender').setDescription('Pokémon').setRequired(true))
-    .setDMPermission(false),
-  cooldownMs: 1500,
-  async execute(interaction) {
-    if (disabled) {
-      return interaction.reply({ content: 'Dex data is not available on this deployment.', ephemeral: true });
+    .setDescription('Damage calculator (preview)')
+    .addIntegerOption((opt) => opt
+    .setName('power')
+    .setDescription('Move base power')
+    .setRequired(true)
+    .setMinValue(1)
+    .setMaxValue(250))
+    .addIntegerOption((opt) => opt
+    .setName('atk')
+    .setDescription('Attacker\'s attack stat')
+    .setRequired(true)
+    .setMinValue(1))
+    .addIntegerOption((opt) => opt
+    .setName('def')
+    .setDescription('Defender\'s defense stat')
+    .setRequired(true)
+    .setMinValue(1))
+    .addIntegerOption((opt) => opt
+    .setName('level')
+    .setDescription('Attacker\'s level (default: 50)')
+    .setMinValue(1)
+    .setMaxValue(100));
+const command = {
+    data,
+    cooldownMs: 1000,
+    async execute(interaction) {
+        const power = interaction.options.getInteger('power', true);
+        const atk = interaction.options.getInteger('atk', true);
+        const def = interaction.options.getInteger('def', true);
+        const level = interaction.options.getInteger('level') ?? 50;
+        // Get derived stats at level
+        const atkDerived = derivedStats({ attack: atk }, level);
+        const defDerived = derivedStats({ defense: def }, level);
+        // Calculate base damage (no modifiers)
+        const dmg = calcSimpleDamage(power, atkDerived.attack ?? atk, defDerived.defense ?? def, level);
+        // Calculate min/max with damage roll (85-100%)
+        const minDmg = Math.floor(dmg * 0.85);
+        const maxDmg = dmg;
+        const embed = new EmbedBuilder()
+            .setTitle('Damage Calculator')
+            .setColor(0xFF6B6B)
+            .addFields({ name: 'Move Power', value: String(power), inline: true }, { name: 'Attack', value: String(atk), inline: true }, { name: 'Defense', value: String(def), inline: true }, { name: 'Level', value: String(level), inline: true }, { name: 'Damage Range', value: `${minDmg} – ${maxDmg}`, inline: true })
+            .setFooter({ text: 'Base damage only. Does not include STAB, type effectiveness, or crits.' });
+        await interaction.reply({ embeds: [embed] });
     }
-
-    const attackerName = interaction.options.getString('attacker');
-    const defenderName = interaction.options.getString('defender');
-    const moveName = interaction.options.getString('move');
-
-    const A = /^\d+$/.test(attackerName) ? getPokemon(Number(attackerName)) : getPokemon(attackerName);
-    const D = /^\d+$/.test(defenderName) ? getPokemon(Number(defenderName)) : getPokemon(defenderName);
-    const mv = getMove(moveName);
-
-    if (!A || !D || !mv) {
-      return interaction.reply({ content: 'Unknown attacker, defender, or move.', ephemeral: true });
-    }
-
-    const ar = { name: A.name, level: 50, types: A.types, derived: derivedStats(A.stats, 50), stages: {}, matchups: A.matchups };
-    const dr = { name: D.name, level: 50, types: D.types, derived: derivedStats(D.stats, 50), stages: {}, matchups: D.matchups };
-
-    const dmg = baseDamage(ar, dr, mv);
-    const hp = Math.max(1, dr.derived.hp);
-    const pct = ((dmg / hp) * 100).toFixed(1);
-
-    return interaction.reply(`${A.name} uses ${mv.name} on ${D.name} → ${dmg} dmg (~${pct}% of HP)`);
-  },
 };
-
+export const { cooldownMs, execute } = command;
+export { data };
 export default command;

@@ -1,13 +1,19 @@
+/**
+ * Battle damage calculation engine
+ * Handles stat calculations, type effectiveness, abilities, items, and damage formulas.
+ */
 import { stageMultiplier } from './stats.js';
 import { ABILITIES, ITEMS } from './tables.js';
 import { computeTotalDamage, applyAdvancedAfterDamage } from './effects.js';
-/** Helpers to read ability/item config */
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 const A = (p) => (p?.ability ? ABILITIES[p.ability] : null);
 const I = (p) => (p?.item ? ITEMS[p.item] : null);
-function pickOffensiveStat(attacker, move) {
+function pickOffensiveStat(_attacker, move) {
     return move.class === 'special' ? 'special-attack' : 'attack';
 }
-function pickDefensiveStat(defender, move) {
+function pickDefensiveStat(_defender, move) {
     return move.class === 'special' ? 'special-defense' : 'defense';
 }
 /** Is the mon currently statused with any major status? */
@@ -17,7 +23,9 @@ function hasAnyStatus(p) {
 /** Effective stat with stages, status, ability & item modifiers. */
 function effectiveStat(p, statKey, opts = {}) {
     const forMoveClass = opts.forMoveClass || null;
-    let val = Math.max(1, Math.floor(p.derived[statKey] * stageMultiplier(p.stages[statKey] || 0)));
+    const derived = p.derived;
+    const stages = p.stages;
+    let val = Math.max(1, Math.floor(derived[statKey] * stageMultiplier(stages[statKey] || 0)));
     // Status: Burn halves PHYSICAL Attack (unless Guts ignores it)
     const abl = A(p);
     const ignoreBurn = !!abl?.ignoreBurnHalving;
@@ -41,11 +49,14 @@ function effectiveStat(p, statKey, opts = {}) {
     }
     return Math.max(1, val);
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Damage Modifiers
+// ─────────────────────────────────────────────────────────────────────────────
 function stab(attacker, move) {
-    return attacker.types.includes(move.type) ? 1.5 : 1.0;
+    return attacker.types.includes(move.type || '') ? 1.5 : 1.0;
 }
 function typeEffectiveness(defender, move) {
-    const m = defender.matchups?.[move.type];
+    const m = defender.matchups?.[move.type || ''];
     return m === 0 || m === 0.25 || m === 0.5 || m === 1 || m === 2 || m === 4 ? m : 1;
 }
 function weatherPowerMod(weather, moveType) {
@@ -69,8 +80,8 @@ function weatherPowerMod(weather, moveType) {
 function abilityImmunity(defender, moveType, ctx) {
     const abl = A(defender);
     const immuneList = abl?.immunity?.types || [];
-    if (immuneList.includes(moveType)) {
-        if (typeof abl.immunity.onImmune === 'function') {
+    if (moveType && immuneList.includes(moveType)) {
+        if (typeof abl?.immunity?.onImmune === 'function') {
             abl.immunity.onImmune(defender, ctx);
         }
         return true;
@@ -94,14 +105,17 @@ function itemDamageMod(attacker) {
     return itm?.damageMultiplier || 1;
 }
 /** Modern crit: 1.5×, seeded RNG if provided in ctx. */
-function critMultiplier(ctx, attacker) {
+function critMultiplier(ctx, _attacker) {
     const CRIT_MOD = 1.5;
     if (ctx?.critOverride)
-        return ctx.critOverride(attacker) ? CRIT_MOD : 1;
+        return ctx.critOverride(_attacker) ? CRIT_MOD : 1;
     const chance = ctx?.critChance ?? 1 / 24;
     const roll = ctx?.rng?.next ? ctx.rng.next() : Math.random();
     return roll < chance ? CRIT_MOD : 1;
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Base Damage Calculation
+// ─────────────────────────────────────────────────────────────────────────────
 function baseDamage(attacker, defender, move, ctx = {}) {
     if (!move)
         return 0;
@@ -123,7 +137,7 @@ function baseDamage(attacker, defender, move, ctx = {}) {
         if (eff === 0)
             return 0;
         const mod = stab(attacker, move) *
-            weatherPowerMod(ctx.weather, move.type) *
+            weatherPowerMod(ctx.weather ?? null, move.type) *
             attackerAbilityDamageMod(attacker, move.type) *
             itemDamageMod(attacker) *
             eff *
@@ -133,6 +147,9 @@ function baseDamage(attacker, defender, move, ctx = {}) {
     const totals = computeTotalDamage(attacker, defender, move, perHit, ctx);
     return Math.max(0, totals.total);
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// After-Damage Hooks
+// ─────────────────────────────────────────────────────────────────────────────
 /** After-damage hooks (e.g., Life Orb recoil). */
 function afterDealtDamage(attacker, defender, move, dealt, ctx = {}) {
     const itm = I(attacker);
@@ -141,5 +158,13 @@ function afterDealtDamage(attacker, defender, move, dealt, ctx = {}) {
     // Advanced post-hit layer: drain, recoil (meta/registry), flinch
     applyAdvancedAfterDamage(attacker, defender, move, dealt, ctx);
 }
-export { baseDamage, effectiveStat, stab, typeEffectiveness, afterDealtDamage };
-export default { baseDamage, effectiveStat, stab, typeEffectiveness, afterDealtDamage };
+/**
+ * Simple damage calculation for basic calculator.
+ * This is a pure function that doesn't require PokemonRuntime objects.
+ */
+function calcSimpleDamage(power, attack, defense, level) {
+    const term = Math.floor((Math.floor((2 * level) / 5) + 2) * power * attack / Math.max(1, defense));
+    return Math.floor(Math.floor(term / 50) + 2);
+}
+export { baseDamage, effectiveStat, stab, typeEffectiveness, afterDealtDamage, calcSimpleDamage };
+export default { baseDamage, effectiveStat, stab, typeEffectiveness, afterDealtDamage, calcSimpleDamage };

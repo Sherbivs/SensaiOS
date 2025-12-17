@@ -22,7 +22,7 @@
  * @module services/engine-cache
  */
 import { EngineDbConfig } from '../../config/engine-db-config.js';
-import { log } from '../../utils/logger.js';
+import { log } from "../../shared/logger.js";
 import { errorTracker } from '../monitoring/error-tracker.js';
 import * as readDb from '../database/engine-read-db.js';
 // ============================================================================

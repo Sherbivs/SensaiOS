@@ -8,6 +8,7 @@
  * @version 1.0.0
  */
 import { IntelligentLogger } from "../../../utils/intelligent-logger.js";
+import { getErrorMessage } from "../../../shared/utils/error-utils.js";
 // Centralized logger instance for all security plugins
 const pluginLogger = new IntelligentLogger();
 /**
@@ -125,7 +126,7 @@ export class BaseSecurityPlugin {
      * Build a failure response
      */
     failureResponse(error, options = {}) {
-        const errorMessage = error instanceof Error ? error.message : error;
+        const errorMessage = getErrorMessage(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
         return {
             success: false,
