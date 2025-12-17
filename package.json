@@ -152,9 +152,7 @@
     ]
   },
   "overrides": {
-    "effect": {
-      "fast-check": "3.23.2"
-    },
-    "fast-check": "3.23.2"
+    "effect": "3.19.12",
+    "@prisma/config>effect": "3.19.12"
   }
 }
