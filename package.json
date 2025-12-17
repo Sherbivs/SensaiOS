@@ -96,7 +96,7 @@
     "ai-logs:patterns": "node src/cli/ai-log-query.js patterns",
     "ai-logs:insights": "node src/cli/ai-log-query.js insights",
     "ai-logs:stats": "node src/cli/ai-log-query.js stats",
-    "prepare": "husky"
+    "prepare": "node -e \"if(process.env.CI||process.env.RENDER)process.exit(0);require('child_process').execSync('husky',{stdio:'inherit'})\""
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
