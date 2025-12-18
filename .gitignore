@@ -116,7 +116,16 @@ Desktop.ini
 *.gz
 *.zip
 *.tar
+
+# Temporary/generated files
 render-cli.zip
+deploy_status.json
+service_status.json
+pbsl-oracle-report.json
+console.sql
+db_workflow_check.sql
+test-api.js
+*-Sensai.gitignore
 
 # Keep data tracked – do NOT ignore /data (except cache subdirectory)
 !data/
