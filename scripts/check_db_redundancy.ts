@@ -1,5 +1,5 @@
 import { pathToFileURL } from "node:url";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client.js";
 // @ts-ignore Runtime import resolves against pg/esm entry; types are provided via @types/pg.
 import { Client as PgClient } from "pg";
 import { formatStatus, formatKeyValueList } from "../src/utils/output-formatter.js";

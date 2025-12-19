@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import * as dotenv from "dotenv";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client.js";
 import { getVersion, compareVersions } from "../src/services/db-replication/version.js";
 import { verifySchemaIntegrity, verifyDataIntegrity } from "../src/services/db-replication/integrity.js";
 import { syncDevToProd, syncProdToLocal } from "../src/services/db-replication/sync.js";

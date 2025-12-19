@@ -1,9 +1,21 @@
 // Refreshes SpeciesSheet and downstream caches after dex seeding.
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "../../src/generated/prisma/client.js";
+import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-const prisma = new PrismaClient();
+function createPrismaClient(): PrismaClient {
+  const databaseUrl = process.env.PROD_DATABASE_URL || process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("PROD_DATABASE_URL or DATABASE_URL must be set");
+  }
+  const pool = new pg.Pool({ connectionString: databaseUrl });
+  const adapter = new PrismaPg(pool);
+  return new PrismaClient({ adapter });
+}
+
+const prisma = createPrismaClient();
 const __filename = fileURLToPath(import.meta.url);
 
 function isPermissionDeniedError(error: unknown): error is Prisma.PrismaClientKnownRequestError {

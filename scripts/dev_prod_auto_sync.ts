@@ -4,7 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client.js";
 import { stripQuotes } from "../src/shared/utils/format-utils.js";
 import { getErrorMessage } from "../src/shared/utils/error-utils.js";
 
