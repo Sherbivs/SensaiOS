@@ -22,11 +22,11 @@ Revision: 3.7
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 - **NEXT Pointer:** Multi-task queue system (3 main + 1 quick/hot task allowed)
-  - **Main Tasks (2/3 active):**
+  - **Main Tasks (1/3 active):**
     1. DB.NORTHSTAR.ANALYTICS — Build analytics jobs (generate_daily_stats.ts, refresh_leaderboards.ts) with aggregation logic (daily active users, popular species, battle win rates, achievement completion rates), schedule via cron or worker, add export capabilities (CSV, JSON).
-    2. ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION — **MAJOR ARCHITECTURE PIVOT**: Migrate from DM-based gameplay to private guild channels. Foundation phase: Create HomesteadChannelManager service, add HomesteadChannel database schema, implement channel creation/permissions/lookup logic, write unit tests.
+  - **Completed (2025-06-15):** ARCHITECTURE.HOMESTEAD_CHANNELS — All 6 phases complete. src/bot/dm/ DELETED, homestead channels fully operational.
   - **Quick Task Slot:** Available for bug fixes, documentation updates, or hotfixes (<30 min work)
-- **READY / In-flight:** Two parallel streams: DB.NORTHSTAR.ANALYTICS (analytics layer) + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION (gameplay architecture overhaul). Private channel migration is a 6-phase project affecting 10 DM call sites, 4 modules, 6 feature areas.
+- **READY / In-flight:** DB.NORTHSTAR.ANALYTICS (analytics layer). Homestead migration COMPLETE — see `docs/architecture-bible/18-private-channel-architecture.md`.
 
 ## System Highlights
 - **Database:** Production uses unified Render-managed PostgreSQL (`PROD_DATABASE_URL`) for all operations. Optional workstation development via `DATABASE_ONPREMISE_DEV_PRIMARY` (offline fallback). Migrations use direct PostgreSQL mode via `RENDER_DB_EXTERNAL_URL`. See `operations-bible/02-database-operations.md` for complete URL selection logic.
@@ -48,18 +48,18 @@ Revision: 3.7
 ## Recent Change Ledger (last 10 commits)
 <!-- LEDGER:BEGIN -->
 
-**Generated:** 2025-12-15T00:00:00Z  |  **Branch:** main
+**Generated:** 2025-12-18T14:30:00Z  |  **Branch:** main
 
-- **17b61d8** — 2025-12-15 — Sherbivs — docs: update DUPLICATION-REPORT with Phase 2.9 button-utils progress
-- **1f7beebe** — 2025-12-15 — Sherbivs — feat(Phase 2.9): create button-utils and migrate 3 files
-- **8ff24f81** — 2025-12-15 — Sherbivs — refactor(Phase 2.8): migrate remaining consumers to HomesteadRepository
-- **1394d424** — 2025-12-15 — Sherbivs — docs: update DUPLICATION-REPORT with Phase 2.8 progress
-- **bf0575a6** — 2025-12-15 — Sherbivs — refactor(Phase 2.8): migrate homestead-manager to use HomesteadRepository
-- **fa07534c** — 2025-12-15 — Sherbivs — feat(Phase 2.8): create HomesteadRepository pattern
-- **0385f07a** — 2025-12-15 — Sherbivs — docs: update DUPLICATION-REPORT with Phase 2.5A-C progress
-- **b7f3ce96** — 2025-12-15 — Sherbivs — fix(tests): add DoS protection constants to env.js
-- **eaf16a93** — 2025-12-15 — Sherbivs — refactor(Phase 2.5C): migrate LOG_LEVEL and SERVICE_NAME
-- **88970f3d** — 2025-12-15 — Sherbivs — refactor(Phase 2.5C): migrate environment config to centralized env.js
+- **c7e5d5a1** — 2025-12-18 — Sherbivs — [Meta] Update Prompt.md PATCHSET echo with final commit reference
+- **bf6e5738** — 2025-12-18 — Sherbivs — [Meta] Comprehensive documentation remediation — Bible renumbering, stale DM removal
+- **077075f9** — 2025-12-18 — Sherbivs — docs: comprehensive Prisma 7 documentation remediation
+- **bc6251de** — 2025-12-18 — Sherbivs — fix: set engineType to "library" for direct PostgreSQL (Prisma 7)
+- **f144ad2a** — 2025-12-18 — Sherbivs — fix: remove datasources option from PrismaClient (Prisma 7 breaking change)
+- **68859489** — 2025-12-17 — Sherbivs — chore: clean up root directory - remove temp files, update gitignore
+- **cdfa16b8** — 2025-12-17 — Sherbivs — chore: remove node_modules from git tracking
+- **176f419a** — 2025-12-17 — Sherbivs — fix: restore prisma.config.ts (Prisma 7 requirement)
+- **f8fac4c2** — 2025-12-17 — Sherbivs — fix: override fast-check to 3.22.0 (case-sensitivity bug)
+- **5b8c1874** — 2025-12-17 — Sherbivs — fix: fix npm override syntax for effect 3.19.12
 
 <!-- LEDGER:END -->
 

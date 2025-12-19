@@ -258,16 +258,21 @@ Update parent folder README.md with phase entries:
 - `11-data-pipeline.md` — Data ingestion pipeline
 - `12-observability.md` — Monitoring, metrics, alerting
 - `13-performance.md` — Performance optimization
-- `14-private-channel-architecture.md` — Homestead channel system
+- `14-future-roadmap.md` — Future development plans
 - `15-project-history.md` — Historical evolution
 - `16-boot-sequence.md` — Startup lifecycle
 - `17-service-registry.md` — Dependency injection system
+- `18-private-channel-architecture.md` — Homestead channel system (✅ COMPLETE)
+- `19-seamless-restart.md` — Zero-downtime restart patterns
+- `20-resource-limits.md` — Memory/disk resource management
+- `21-engine-cache.md` — Engine cache layer
+- `22-starter-selection-flow.md` — Starter Pokémon selection
 - `complete-system-architecture.md` — **30 pages comprehensive overview**
 
 ### Operations Bible (`docs/operations-bible/`)
-**Authoritative operational procedures** — 12 sections, 75+ pages
+**Authoritative operational procedures** — 13 sections + 9 comprehensive guides
 - `01-service-matrix.md` — Render service topology
-- `02-database-operations.md` — Database procedures (DEPRECATED - see comprehensive guide)
+- `02-database-operations.md` — Database procedures (canonical)
 - `03-deployment-procedures.md` — Deployment workflows
 - `04-environment-management.md` — Environment configuration
 - `05-monitoring.md` — Observability procedures
