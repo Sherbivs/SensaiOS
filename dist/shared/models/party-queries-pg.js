@@ -4,8 +4,8 @@
  * Purpose: Raw pg queries for Party, PartySlot, and PokemonInstance operations
  * Migration: Replaces Prisma patterns from:
  *   - src/shared/models/party-queries.ts
- *   - src/bot/dm/starters.ts
- *   - src/bot/dm/heal.ts
+ *   - src/bot/homestead/starters.ts
+ *   - src/bot/homestead/heal.ts
  *   - src/core/encounter/catch.ts
  *
  * Patterns Covered:

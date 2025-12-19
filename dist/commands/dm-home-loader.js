@@ -6,7 +6,7 @@
  *
  * @module commands/dm-home-loader
  * @since Phase 6.2 (2025-12-16) - Converted from JS
- * @deprecated Migrating to HomesteadChannelManager - see architecture-bible/14-private-channel-architecture.md
+ * @deprecated Migrating to HomesteadChannelManager - see architecture-bible/18-private-channel-architecture.md
  */
 const CANDIDATE_PATHS = [
     '../bot/dm/home.js',

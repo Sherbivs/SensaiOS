@@ -6,7 +6,7 @@ import { loadCommands } from "../command-loader.js";
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
 // Homestead modules (private guild channel-based gameplay)
-// See docs/architecture-bible/14-private-channel-architecture.md
+// See docs/architecture-bible/18-private-channel-architecture.md
 import { handleHeal } from "./homestead/heal.js";
 import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./homestead/home.js";
 import { openStartersHomestead as openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./homestead/starters.js";

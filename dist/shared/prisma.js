@@ -181,16 +181,12 @@ function createClient(candidate, nodeEnv) {
     const logLevels = nodeEnv === "development" ? ["warn", "error"] : ["error"];
     // OPTIMIZATION: Query performance monitoring (Phase 5.1)
     // Enable query event logging to detect slow queries (>100ms) and N+1 patterns
+    // NOTE: Prisma 7 removed 'datasources' option - URL is now configured via prisma.config.ts
     const baseOptions = {
         log: [
             ...logLevels.map(level => ({ emit: "stdout", level: level })),
             { emit: "event", level: "query" }, // Query performance instrumentation
         ],
-        datasources: {
-            db: {
-                url: candidate.url,
-            },
-        },
     };
     const baseClient = new PrismaCtor(baseOptions);
     let client = baseClient;
