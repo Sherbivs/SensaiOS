@@ -2,6 +2,10 @@
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-3.0.x"]
+  // Prisma 7: Must explicitly set engineType for direct PostgreSQL connections
+  // "library" uses the native query engine (default pre-Prisma 7)
+  // "client" requires Accelerate or driver adapter - NOT for direct connections
+  engineType    = "library"
 }
 
 // Prisma 7+: URL configured in prisma.config.ts
