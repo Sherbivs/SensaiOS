@@ -161,6 +161,41 @@ function selectDatabaseUrl(envVars: Record<string, string>): string {
 
 **Contract Status:** This is an **Absolute** requirement in `Patch.md`. Violations cause production failures and must be fixed immediately.
 
+### Prisma 7 Configuration [UPDATED 2025-12-18]
+
+**Current Version:** Prisma 7.1.0
+
+**Schema Configuration** (`prisma/schema.prisma`):
+```prisma
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  engineType    = "library"  // REQUIRED for direct PostgreSQL
+}
+
+datasource db {
+  provider = "postgresql"
+  // URL configured via prisma.config.ts
+}
+```
+
+**Breaking Changes (Prisma 6 → 7):**
+- `engineType = "library"` — **REQUIRED** (Prisma 7 defaults to "client" which needs Accelerate)
+- Database URL — Moved from schema.prisma to `prisma.config.ts`
+- `datasources` option — **REMOVED** from PrismaClient constructor
+
+**npm Overrides Required:**
+```json
+{
+  "overrides": {
+    "effect": "3.19.12",
+    "fast-check": "3.22.0"
+  }
+}
+```
+
+**Documentation:** See `operations-bible/02-database-operations.md` § 2.7 for complete migration checklist.
+
 ### Database Connection Architecture (Runtime)
 
 **As of 2025-11-08**, the runtime maintains **single production Prisma client + optional LOCAL client**:

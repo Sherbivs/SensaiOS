@@ -15,23 +15,27 @@ applyTo: 'src/**/*.ts'
 import { prisma } from "../shared/prisma.js";
 import { logger } from "../utils/logger.js";
 
-// Prisma 7: Import types from generated client (NOT @prisma/client)
-import type { User, Battle, Trainer } from "../generated/prisma/client.js";
-import { Prisma, PrismaClient } from "../generated/prisma/client.js";
+// Prisma 7: Import from @prisma/client (standard location)
+import type { User, Battle, Trainer } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 // Use type imports where appropriate
 import type { ButtonInteraction, ChatInputCommandInteraction } from "discord.js";
 ```
 
-### Prisma 7 Client Patterns
+### Prisma 7 Client Patterns (UPDATED 2025-12-18)
 ```typescript
-// Driver adapter required for all PrismaClient instantiation
-import { PrismaClient } from "../generated/prisma/client.js";
-import { PrismaPg } from "@prisma/adapter-pg";
+// Prisma 7 with engineType = "library" for direct PostgreSQL connections
+// URL configured via prisma.config.ts (NOT in constructor)
+import { PrismaClient } from "@prisma/client";
 
-// Create adapter with connection string
-const adapter = new PrismaPg({ connectionString: process.env.PROD_DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+// ❌ WRONG: Prisma 7 removed datasources option
+// const prisma = new PrismaClient({ datasources: { db: { url: "..." } } });
+
+// ✅ CORRECT: Simple constructor, URL from environment/config
+const prisma = new PrismaClient({
+  log: [{ emit: "stdout", level: "error" }]
+});
 ```
 
 ### File Organization

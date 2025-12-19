@@ -71,6 +71,32 @@ if (onPremiseExperimentPrisma) {
 
 **Called From**: `src/index.ts` Phase 2 (Database Connection) — after Service Registry, before Engine/Bots
 
+**Prisma Version**: 7.1.0 (as of 2025-12-18)
+
+### Prisma 7 Critical Configuration
+
+**Schema Requirements** (`prisma/schema.prisma`):
+
+```prisma
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  engineType    = "library"  // REQUIRED: Direct PostgreSQL connections
+}
+
+datasource db {
+  provider = "postgresql"
+  // URL configured via prisma.config.ts (NOT here)
+}
+```
+
+**Breaking Changes:**
+- `engineType = "library"` — **REQUIRED** for direct PostgreSQL (Prisma 7 defaults to "client" which needs Accelerate)
+- Database URL — Moved from schema.prisma to `prisma.config.ts`
+- `datasources` option — **REMOVED** from PrismaClient constructor
+
+**See Also:** [Operations Bible § 2.7](../operations-bible/02-database-operations.md#27-prisma-7-configuration-updated-2025-12-18) for complete migration checklist.
+
 ### 2.2.1 Initialization Flow
 
 **Entry Point** (`src/index.ts` Phase 2):

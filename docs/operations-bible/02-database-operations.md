@@ -401,6 +401,178 @@ npm run db:cli -- query "EXPLAIN ANALYZE SELECT * FROM \"Species\" WHERE \"gener
 
 ---
 
+## 2.7 Prisma 7 Configuration [UPDATED 2025-12-18]
+
+### Breaking Changes from Prisma 6
+
+| Change | Prisma 6 | Prisma 7 | Required Fix |
+|--------|----------|----------|--------------|
+| **Engine Type** | Auto-detected | Defaults to `"client"` | Add `engineType = "library"` to schema.prisma |
+| **URL Config** | In schema.prisma `datasource.url` | In `prisma.config.ts` | Create config file, remove `url` from schema |
+| **datasources option** | Supported in constructor | **REMOVED** | Remove from PrismaClient constructor |
+| **Generated Location** | `node_modules/@prisma/client` | Default: `node_modules/.prisma/client` | Use default or configure `output` |
+| **CJS Support** | Full | ESM-first | Use ESM imports, fix `effect`/`fast-check` overrides |
+
+### Schema Configuration (Required)
+
+**`prisma/schema.prisma`:**
+
+```prisma
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  engineType    = "library"  // REQUIRED for direct PostgreSQL connections
+}
+
+datasource db {
+  provider = "postgresql"
+  // NO url field - configured via prisma.config.ts
+}
+```
+
+**Key Points:**
+- `engineType = "library"` — Uses native query engine for direct PostgreSQL
+- `binaryTargets` — Include `debian-openssl-3.0.x` for Render deployment
+- URL removed from schema — Moved to `prisma.config.ts`
+
+### Environment Configuration (Required)
+
+**`prisma.config.ts`:**
+
+```typescript
+import path from "path";
+import type { PrismaConfig } from "prisma";
+
+export default {
+  earlyAccess: true,
+  schema: path.join(__dirname, "prisma/schema.prisma"),
+
+  migrate: {
+    async resolveUrl(params) {
+      return (
+        process.env.PROD_DATABASE_URL ??
+        process.env.RENDER_DB_EXTERNAL_URL ??
+        process.env.DATABASE_ONPREMISE_DEV_PRIMARY ??
+        "postgresql://localhost:5432/default"
+      );
+    },
+  },
+} satisfies PrismaConfig;
+```
+
+### Client Initialization (Updated)
+
+**✅ CORRECT (Prisma 7):**
+
+```typescript
+import { PrismaClient } from "@prisma/client";
+
+// Simple constructor - URL from environment/config
+const prisma = new PrismaClient({
+  log: [{ emit: "stdout", level: "error" }]
+});
+```
+
+**❌ WRONG (Breaks in Prisma 7):**
+
+```typescript
+// datasources option was REMOVED in Prisma 7
+const prisma = new PrismaClient({
+  datasources: {
+    db: { url: process.env.PROD_DATABASE_URL }  // ❌ RUNTIME ERROR
+  }
+});
+```
+
+### Engine Types Explained
+
+| Engine Type | Use Case | Driver | Performance |
+|-------------|----------|--------|-------------|
+| `"library"` | Direct PostgreSQL (our setup) | Native binary | Fastest |
+| `"client"` | Accelerate/Edge (requires adapter) | Driver adapter | Cloud optimized |
+| `"binary"` | Legacy compatibility | Separate process | Slowest |
+
+**We use `"library"`** because:
+- Direct connection to Render PostgreSQL (no Accelerate)
+- Best performance for server-side applications
+- Matches our production architecture
+
+### Common Errors & Fixes
+
+**Error: `Using engine type "client" requires either "adapter" or "accelerateUrl"`**
+
+```
+PrismaClientConstructorValidationError: 
+Using engine type "client" requires either "adapter" or "accelerateUrl" 
+to be provided to PrismaClient constructor.
+```
+
+**Cause:** Prisma 7 defaults `engineType` to `"client"` which requires Accelerate or driver adapter.
+
+**Fix:** Add `engineType = "library"` to generator block in `schema.prisma`.
+
+---
+
+**Error: `Unknown argument 'datasources'`**
+
+```
+PrismaClientInitializationError:
+Unknown argument `datasources`. Did you mean `log`?
+```
+
+**Cause:** Prisma 7 removed `datasources` option from PrismaClient constructor.
+
+**Fix:** Remove `datasources` from constructor, configure URL via `prisma.config.ts`.
+
+---
+
+**Error: `effect` or `fast-check` CJS compatibility issues**
+
+```
+TypeError: Cannot read properties of undefined (reading 'cause')
+```
+
+**Cause:** Prisma 7 uses ESM-first dependencies that have CJS compatibility issues.
+
+**Fix:** Add overrides to `package.json`:
+
+```json
+{
+  "overrides": {
+    "effect": "3.19.12",
+    "fast-check": "3.22.0"
+  }
+}
+```
+
+### Migration Checklist (Prisma 6 → 7)
+
+1. **Update schema.prisma:**
+   - Add `engineType = "library"` to generator block
+   - Remove `url` from datasource block
+
+2. **Create prisma.config.ts:**
+   - Configure database URL resolution
+   - Use fallback chain for multiple environments
+
+3. **Update PrismaClient usage:**
+   - Remove `datasources` option from all constructors
+   - URL now comes from environment, not constructor
+
+4. **Add package.json overrides:**
+   - `effect@3.19.12`, `fast-check@3.22.0`
+   - Required for CJS compatibility
+
+5. **Regenerate Prisma client:**
+   - Run `npx prisma generate`
+   - Verify `node_modules/.prisma/client` created
+
+6. **Test deployment:**
+   - Run `npm ci && npm run prebuild` locally
+   - Deploy to Render and verify startup
+
+---
+
 ## 2.10 Schema Architecture
 
 ### Persistent Entities

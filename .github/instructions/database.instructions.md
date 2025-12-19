@@ -7,23 +7,85 @@ applyTo: 'prisma/**'
 
 **Creator & CEO:** DRIPTVDD | **Discord ID:** `563220840708177927` (anti-spoofing identifier)
 
-## Prisma 7 Architecture (CRITICAL - Updated 2025-06-20)
+## Prisma 7 Architecture (CRITICAL - Updated 2025-12-18)
 
-### Driver Adapter Pattern (NEW in Prisma 7)
-Prisma 7 requires driver adapters for database connections. We use `@prisma/adapter-pg`:
+### Engine Type Configuration (Prisma 7 Breaking Change)
 
-```typescript
-// Prisma 7 client creation with PrismaPg adapter
-import { PrismaClient } from "../generated/prisma/client.js";
-import { PrismaPg } from "@prisma/adapter-pg";
+Prisma 7 introduced a breaking change to engine type selection. For direct PostgreSQL connections (our architecture), you MUST explicitly set `engineType = "library"` in the schema:
 
-function createClient(connectionString: string): PrismaClient {
-  const adapter = new PrismaPg({ connectionString });
-  return new PrismaClient({ adapter });
+```prisma
+// prisma/schema.prisma
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  // Prisma 7: Must explicitly set engineType for direct PostgreSQL connections
+  // "library" uses the native query engine (default pre-Prisma 7)
+  // "client" requires Accelerate or driver adapter - NOT for direct connections
+  engineType    = "library"
+}
+
+// Prisma 7+: URL configured in prisma.config.ts (NOT in schema.prisma)
+datasource db {
+  provider = "postgresql"
 }
 ```
 
+**⚠️ CRITICAL:** Without `engineType = "library"`, Prisma 7 defaults to `"client"` which requires Accelerate or a driver adapter and will crash with:
+```
+PrismaClientConstructorValidationError: Using engine type "client" requires either "adapter" or "accelerateUrl" to be provided to PrismaClient constructor.
+```
+
+### Database URL Configuration (Prisma 7)
+
+Prisma 7 removed URL configuration from `schema.prisma`. Use `prisma.config.ts`:
+
+```typescript
+// prisma.config.ts (root directory)
+import "dotenv/config";
+import { defineConfig } from "prisma/config";
+
+const databaseUrl = 
+  process.env.PROD_DATABASE_URL || 
+  process.env.DATABASE_URL || 
+  process.env.RENDER_DB_EXTERNAL_URL ||
+  "postgresql://placeholder:placeholder@localhost:5432/placeholder";
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: {
+    path: "prisma/migrations",
+    seed: "npx tsx prisma/seed.ts",
+  },
+  datasource: {
+    url: databaseUrl,
+  },
+});
+```
+
+### PrismaClient Constructor (Prisma 7 Breaking Change)
+
+Prisma 7 removed the `datasources` option from PrismaClient constructor:
+
+```typescript
+// ❌ WRONG (Prisma 6 pattern - WILL CRASH in Prisma 7)
+const client = new PrismaClient({
+  datasources: {
+    db: { url: process.env.DATABASE_URL }
+  }
+});
+
+// ✅ CORRECT (Prisma 7 pattern)
+// URL configured via prisma.config.ts and process.env.DATABASE_URL
+const client = new PrismaClient({
+  log: [
+    { emit: "stdout", level: "error" },
+    { emit: "event", level: "query" }
+  ]
+});
+```
+
 ### Three-Database System
+
 ```typescript
 // THREE Prisma clients initialized on startup:
 import { prisma, onPremiseDevPrisma, onPremiseExperimentPrisma } from "./shared/prisma.js";
@@ -42,14 +104,12 @@ if (onPremiseExperimentPrisma) {
 }
 ```
 
-### Generated Client Location
-```typescript
-// ✅ CORRECT: Import from generated client (Prisma 7)
-import { PrismaClient } from "../generated/prisma/client.js";
-import type { User, Pokemon, Battle } from "../generated/prisma/client.js";
+### Client Import Location
 
-// ❌ WRONG: Old @prisma/client import (Prisma 6 pattern)
-import { PrismaClient } from "@prisma/client";
+```typescript
+// ✅ CORRECT: Import from @prisma/client (standard location)
+import { PrismaClient, Prisma } from "@prisma/client";
+import type { User, Pokemon, Battle } from "@prisma/client";
 ```
 
 ### JSON Type Handling (Prisma 7.x)
@@ -93,6 +153,15 @@ where: { resultJson: { not: Prisma.JsonNull } }
 | **ONPREMISE-DEV-EXPERIMENT** | `DATABASE_ONPREMISE_DEV_EXPERIMENT` | `onPremiseExperimentPrisma` | Migration testing |
 
 **🚫 BANNED identifiers:** "LOCAL", "PRIMARY LOCAL", "EXPERIMENTAL" (standalone), "DEV_DATABASE_URL"
+
+## Prisma 7 Breaking Changes Summary
+
+| Change | Prisma 6 | Prisma 7 | Fix |
+|--------|----------|----------|-----|
+| **Engine Type** | Auto-detected | Defaults to "client" | Add `engineType = "library"` |
+| **URL Config** | In schema.prisma | In prisma.config.ts | Create config file |
+| **datasources option** | Supported | REMOVED | Remove from constructor |
+| **Generator output** | Optional | Required for non-default | Explicit if needed |
 
 ## Schema Change Workflow
 
@@ -205,6 +274,26 @@ await prisma.pokemon.updateMany({
 - **Database writes:** <50μs (game state, battles)
 - **Cache refresh:** <1s (hourly background task)
 
+## Common Prisma 7 Errors
+
+### Error: "Using engine type 'client' requires adapter or accelerateUrl"
+**Cause:** Missing `engineType = "library"` in generator block
+**Fix:** Add to `prisma/schema.prisma`:
+```prisma
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+```
+
+### Error: "Unknown property datasources provided to PrismaClient constructor"
+**Cause:** Using deprecated Prisma 6 `datasources` option
+**Fix:** Remove `datasources` from PrismaClient constructor. Configure URL via `prisma.config.ts`.
+
+### Error: "Cannot find module '../generated/prisma/client.js'"
+**Cause:** Custom output path configured but client not regenerated
+**Fix:** Run `npx prisma generate` after schema changes.
+
 ## Common Mistakes to Avoid
 
 1. **Hardcoding connection strings** — Always use environment variables
@@ -212,6 +301,7 @@ await prisma.pokemon.updateMany({
 3. **Forgetting indexes** — Check query plans for full table scans
 4. **Not handling null** — Prisma returns `null` for missing records
 5. **Leaking connections** — Always close clients in shutdown handlers
+6. **Using Prisma 6 patterns** — Check breaking changes above
 
 ## Reference Documentation
 
@@ -219,3 +309,5 @@ await prisma.pokemon.updateMany({
 - **Schema Reference:** `prisma/schema.prisma`
 - **Migration History:** `prisma/migrations/`
 - **CLI Tool:** `npm run db:cli -- help`
+- **Prisma 7 Upgrade Guide:** https://www.prisma.io/docs/orm/more/upgrade-guides/upgrading-versions/upgrading-to-prisma-7
+

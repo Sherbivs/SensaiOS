@@ -34,7 +34,7 @@ reason: "Queue cleared - awaiting new task assignment"
 files_hint: []
 
 queue: []
-timestamp_utc: 2025-12-14T00:00:00Z
+timestamp_utc: 2025-12-18T00:00:00Z
 router_version: 2
-last_notes_read_utc: 2025-12-14T00:00:00Z
-note: "ADMINISTRATIVE CLEANUP (2025-12-14): Cleared stale tasks per admin directive. DB.NORTHSTAR.ANALYTICS (started 2025-11-13, 31 days), HOMESTEAD_CHANNELS.FOUNDATION (started 2025-11-21, 23 days), DB.NORTHSTAR.SERVICES (started 2025-11-08, 36 days) - all archived. Schema alignment completed (c8329208). Build passing. Queue empty - ready for fresh priorities."
+last_notes_read_utc: 2025-12-18T00:00:00Z
+note: "PRISMA 7 DOCUMENTATION REMEDIATION (2025-12-18): Fixed engineType='library' requirement in schema.prisma (bc6251de). Comprehensive documentation update: database.instructions.md (rewritten), typescript.instructions.md (fixed imports), Operations Bible § 2.7 (new section), Architecture Bible § 2.2 (Prisma 7 config), Agents.md (Prisma 7 section), Prompt.md Rev 3.5. Queue empty - ready for fresh priorities."

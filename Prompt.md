@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-12-15T00:00:00Z
-Revision: 3.4
+Timestamp (UTC): 2025-12-18T00:00:00Z
+Revision: 3.5
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -65,29 +65,31 @@ Revision: 3.4
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: 17b61d8b (duplication consolidation session)
-Change: CODE DUPLICATION CONSOLIDATION (2025-12-15). Major session eliminating 200+ duplication patterns identified in ops/DUPLICATION-REPORT.md. Completed Phases 2.5A-C, 2.6-2.9:
-- **Phase 2.5A**: EMBED_COLORS migration (14 instances, 8 files)
-- **Phase 2.5B**: Date utilities using daysAgo() (12 instances, 6 files)
-- **Phase 2.5C**: Environment config centralization (16 exports, 8 files)
-- **Phase 2.6**: Test fix for DoS protection constants
-- **Phase 2.8**: HomesteadRepository creation (472 lines, 9 queries consolidated from 3 files)
-- **Phase 2.9**: Button utilities (275 lines, 13 button patterns from 3 files)
+HEAD: bc6251de (Prisma 7 engineType fix) + documentation remediation (uncommitted)
+Change: PRISMA 7 DOCUMENTATION REMEDIATION (2025-12-18). Comprehensive update of all meta-systems after Prisma 7 migration:
 
-New abstractions created:
-- `src/services/homestead-repository.ts` (472 lines) — Centralized HomesteadChannel query layer
-- `src/bot/shared/button-utils.ts` (275 lines) — Discord button builder factory functions
+**Root Cause**: Prisma 7 defaults `engineType = "client"` (requires Accelerate), but we use direct PostgreSQL. Added `engineType = "library"` to schema.prisma generator block.
 
-Total: ~185 patterns eliminated, ~455 lines reduced, 7/8 categories complete (87.5%)
-Phase 3 (Query Layer ADR) deferred as low priority — Prisma designated canonical ORM per user decision.
+**Documentation Updated (6 files)**:
+1. `.github/instructions/database.instructions.md` — **REWRITTEN** with correct Prisma 7 patterns (removed incorrect @prisma/adapter-pg driver adapter documentation)
+2. `.github/instructions/typescript.instructions.md` — Fixed import patterns, removed adapter-pg references
+3. `docs/operations-bible/02-database-operations.md` — Added new § 2.7 "Prisma 7 Configuration" (150+ lines)
+4. `docs/architecture-bible/02-database-architecture.md` — Added Prisma 7 critical configuration section
+5. `Agents.md` — Added Prisma 7 Configuration section with breaking changes table
+6. `Prompt.md` — Updated PATCHSET echo (this file)
 
-TasklistDiff: ✅ False (duplication work tracked in DUPLICATION-REPORT.md, not Tasklist.md)
+**Breaking Changes Documented**:
+| Change | Prisma 6 | Prisma 7 | Fix |
+| engineType | Auto-detected | Defaults to "client" | Add `engineType = "library"` |
+| URL Config | In schema.prisma | In prisma.config.ts | Create config file |
+| datasources | Supported | **REMOVED** | Remove from constructor |
 
-Tests: ✅ Build passes (tsc --noEmit), Lint clean (3 warnings in generated files only)
+TasklistDiff: ✅ False (documentation remediation, no task status changes)
+Tests: ✅ Prisma client regenerated, build passes locally
 ContractMode: ON (Patch Engine active)
 NextPointer: Main Tasks (2/3): DB.NORTHSTAR.ANALYTICS + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION | Quick Task: Available
 RoutersIntact: ✅ All routing manifests preserved
-CanonicalDocs: ✅ Prompt.md Rev 3.3→3.4, DUPLICATION-REPORT.md updated through Phase 2.9
+CanonicalDocs: ✅ Prompt.md Rev 3.4→3.5, Bible system updated with Prisma 7 sections
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)
