@@ -1040,8 +1040,22 @@ class ResourceMonitor {
     const cacheBudgetMax = 100 * 1024 * 1024; // 100 MB default budget
     const cacheBudgetPercent = cacheBudgetMax > 0 ? (cacheSize / cacheBudgetMax) * 100 : 0;
     const workspaceLimit = 1024 * 1024 * 1024; // 1 GB workspace limit (Render default)
-    const diskTotal = 10 * 1024 * 1024 * 1024; // 10 GB disk total (Render persistent disk)
-    const diskFree = diskTotal - cacheSize; // Approximate free space
+    
+    // Get ACTUAL disk stats from filesystem instead of hardcoded values
+    let diskTotal = 1024 * 1024 * 1024; // 1 GB fallback (Render /Store size)
+    let diskFree = workspaceLimit - cacheSize; // Fallback calculation
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('node:fs') as typeof import('node:fs');
+      // Use statfsSync for actual filesystem stats (Node 18.15+)
+      if (typeof fs.statfsSync === 'function') {
+        const stats = fs.statfsSync(cacheDir);
+        diskTotal = stats.blocks * stats.bsize;
+        diskFree = stats.bfree * stats.bsize;
+      }
+    } catch {
+      // statfsSync not available or failed, use fallback
+    }
     
     return {
       uptime: process.uptime(),
