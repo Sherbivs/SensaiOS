@@ -312,10 +312,10 @@ This terminology schema is **STRICTLY ENFORCED** throughout the entire codebase.
 - **Bible drift causes production failures** — Keep documentation synchronized
 
 #### Navigation Guidelines for Documentation
-- **Architecture Bible**: `docs/architecture-bible/INDEX.md` — 18 sections covering complete system design
-- **Operations Bible**: `docs/operations-bible/INDEX.md` — 8 sections covering deployment and monitoring
-- **Development Bible**: `docs/development-bible/INDEX.md` — 7 sections covering local setup and testing
-- **Critical Reading**: Database URL selection (§ 2.1), Render path structure (§ 3.1), Private channel architecture (§ 14)
+- **Architecture Bible**: `docs/architecture-bible/INDEX.md` — 22 sections covering complete system design
+- **Operations Bible**: `docs/operations-bible/INDEX.md` — 13 sections + 9 guides covering deployment and monitoring
+- **Development Bible**: `docs/development-bible/INDEX.md` — 9 sections covering local setup, testing, profiling, database onboarding
+- **Critical Reading**: Database URL selection (§ 2.1), Render path structure (§ 3.1), Private channel architecture (§ 18)
 - **Quick Reference**: Service matrix, CLI commands, deployment procedures
 
 ### Specialized Deliverables & Technical Specifications

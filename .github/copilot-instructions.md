@@ -332,7 +332,7 @@ Areas:
 - **Architecture:** `README.md` → comprehensive system overview
 - **Architecture Bible:** `docs/architecture-bible/INDEX.md` → 22 sections (system design, database, workers, game engine, etc.)
 - **Operations Bible:** `docs/operations-bible/INDEX.md` → 13 sections + 9 guides (service matrix, deployment, monitoring, database operations)
-- **Development Bible:** `docs/development-bible/INDEX.md` → 7 sections (local setup, testing, debugging, utilities)
+- **Development Bible:** `docs/development-bible/INDEX.md` → 9 sections (local setup, testing, debugging, profiling, database onboarding)
 - **Database Guide:** `docs/operations-bible/02-database-operations.md` → URL selection logic, schema architecture, Prisma 7 configuration
 - **Schema Architecture:** `docs/operations-bible/02-database-operations.md` § 2.10 → Entities, dex spine, indexes
 - **Game Rules:** `docs/architecture-bible/09-game-engine.md` § 9.10 → MVP mechanics, status effects, item pool

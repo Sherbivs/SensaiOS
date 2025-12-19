@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-12-18T14:00:00Z
-Revision: 3.7
+Timestamp (UTC): 2025-12-18T15:30:00Z
+Revision: 3.8
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
@@ -8,7 +8,7 @@ Revision: 3.7
 - See `ops/NEXT.yaml` for current task pointer
 - See `docs/architecture-bible/INDEX.md` for architecture documentation (22 sections)
 - See `docs/operations-bible/INDEX.md` for operational procedures (13 sections + 9 guides)
-- See `docs/development-bible/INDEX.md` for development workflows
+- See `docs/development-bible/INDEX.md` for development workflows (9 sections)
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -65,54 +65,44 @@ Revision: 3.7
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: bf6e5738 (Meta: Comprehensive documentation remediation)
-Change: COMPREHENSIVE DOCUMENTATION REMEDIATION COMPLETE (2025-12-18)
+HEAD: UNCOMMITTED (Patch Engine Initialize — Deep Accuracy Audit)
+Change: BIBLE SECTION COUNT ACCURACY AUDIT COMPLETE (2025-12-18)
 
-**Commit bf6e5738 Summary**: Full-system Bible cleanup, sequential renumbering, stale DM purge
+**Session Summary**: Deep accuracy verification of all documentation systems
 
-**24 Files Changed (231 insertions, 2531 deletions)**:
+**Critical Discovery: README.md Corruption**
+- README.md was overwritten with Render CLI content at commit f9aeaac2
+- Restored from commit 76813777 and comprehensively updated for current state
+- Now accurately documents: homestead architecture, Prisma 7, Bible system
 
-Architecture Bible (22 sections):
-- Renumbered to sequential 01-22
-- Deleted duplicates: 14-19 (relocated to correct positions)
-- Created 22-starter-selection-flow.md
-- Rewrote INDEX.md with accurate listing
-- 18-private-channel-architecture.md: Status IMPLEMENTED ✅
+**Development Bible Count Fix (7 → 9)**:
+- docs/development-bible/INDEX.md: Added sections 08-09, updated counts
+- 08-profiling.md (554 lines): Memory profiling, heap snapshots, /ops snapshot
+- 09-database-onboarding.md (848 lines): Repository pattern, RLS, transactions
 
-Operations Bible (13 sections + 9 guides):
-- Deleted 03-memory-management.md duplicate
-- Rewrote INDEX.md (13 core + 9 comprehensive guides)
+**Files Updated (10 files)**:
+1. README.md — RECREATED with current architecture (homestead, Prisma 7, 22/13+9/9)
+2. docs/ROUTER.md — Development Bible: 7 → 9 sections
+3. docs/development-bible/INDEX.md — Added sections 8-9
+4. docs/projects/README.md — Architecture: 15 → 22, Development: 7 → 9
+5. docs/projects/ROUTER.md — Architecture: 17 → 22, Development: 7 → 9
+6. .github/copilot-instructions.md — Development: 7 → 9
+7. .github/copilot-instructions-Sensai.md — All Bible counts corrected
+8. .github/instructions/documentation.instructions.md — Development: 7 → 9
+9. .github/agents/research-gpt.agent.md — All Bible counts corrected
+10. .github/prompts/IG.prompt.md — All Bible counts corrected
 
-Stale DM References Purged:
-- masterroutetable.md, ops/ROUTER.yaml: dm/ → homestead/
-- tests/dm_home_views.spec.ts: Fixed import path
-- src/shared/models/party-queries-pg.ts: Fixed comments
+**Bible System (VERIFIED ACCURATE)**:
+- Architecture Bible: 22 sections (01-22) ✅
+- Operations Bible: 13 sections + 9 guides ✅
+- Development Bible: 9 sections (01-09) ✅
 
-AI .github Instructions:
-- documentation.instructions.md: 15/6/7 → 22/13/7
-- copilot-instructions.md: Migration complete, doc refs 14→18
-- testing.instructions.md: Updated patterns
-
-Source Code Doc Refs (14→18):
-- src/services/homestead-manager.ts
-- src/commands/dm-home-loader.ts
-- src/bot/index.ts
-- OPERATIONS.md
-- docs/architecture-bible/09-game-engine.md
-- src/bot/ROUTER.md
-- Agents.md
-
-**HOMESTEAD MIGRATION: COMPLETE (2025-06-15)**
-- src/bot/dm/ directory DELETED
-- src/bot/homestead/ is CANONICAL entry point
-- See 18-private-channel-architecture.md for specification
-
-TasklistDiff: ❌ False (documentation remediation, no task status changes)
-Tests: ✅ dm_home_views.spec.ts import path fixed
+TasklistDiff: ❌ False (documentation audit, no task status changes)
+Tests: N/A (documentation only)
 ContractMode: ON (Patch Engine active)
 NextPointer: Main Tasks (2/3): DB.NORTHSTAR.ANALYTICS + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION | Quick Task: Available
 RoutersIntact: ✅ All routing manifests updated
-CanonicalDocs: ✅ Prompt.md Rev 3.6→3.7, Bible INDEXes rewritten
+CanonicalDocs: ✅ Prompt.md Rev 3.7→3.8, README.md restored and updated
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

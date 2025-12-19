@@ -15,7 +15,7 @@ Notes:
 Directory Structure (CURRENT):
 - **architecture-bible/** — System architecture Bible (22 sections + INDEX)
 - **operations-bible/** — Operations & deployment Bible (13 sections + 9 comprehensive guides + INDEX)
-- **development-bible/** — Development practices Bible (7 sections + INDEX)
+- **development-bible/** — Development practices Bible (9 sections + INDEX)
 - **archive/** — Obsolete technical documentation (Accelerate-era files)
 
 ## Bible Navigation
@@ -76,7 +76,7 @@ Directory Structure (CURRENT):
 - And 6 additional specialized guides
 
 ### Development Bible (development-bible/)
-**7 sections** — Development workflows, testing, debugging, and implementation guides.
+**9 sections** — Development workflows, testing, debugging, and implementation guides.
 
 | Section | File | Coverage |
 |---------|------|----------|
@@ -88,6 +88,8 @@ Directory Structure (CURRENT):
 | **05** | 05-error-handling.md | Error boundaries, recovery workflows |
 | **06** | 06-console-tooling.md | Output standards, formatting helpers |
 | **07** | 07-utilities.md | DateTime helpers, admin patterns |
+| **08** | 08-profiling.md | Heap snapshots, memory profiling |
+| **09** | 09-database-onboarding.md | Repository pattern, transactions |
 
 ---
 
