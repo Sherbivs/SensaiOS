@@ -31,12 +31,20 @@ npm test -- --watch
 ```
 tests/
 ├── battle/           # Battle engine tests
-├── data/             # Data pipeline tests
-├── dm/               # DM flow tests
-├── ops/              # Ops command tests
-├── pbsl/             # PBSL oracle tests (deterministic)
+├── core/             # Core engine tests
+├── data/             # Data pipeline tests (moved to root level)
+├── db-replication/   # Database replication tests
+├── engine-db/        # Engine database tests
+├── homestead/        # Homestead channel tests (dm_home*.spec.ts, homestead-*.spec.ts)
 ├── integration/      # Cross-system tests
-└── utils/            # Utility function tests
+├── ops/              # Ops command tests (ops.spec.ts, ops_stats.spec.ts)
+├── pbsl/             # PBSL oracle tests (deterministic)
+├── security/         # Security tests
+├── services/         # Service layer tests
+├── shared/           # Shared utility tests
+├── simulation/       # Simulation tests
+├── utils/            # Utility function tests
+└── workers/          # Worker tests
 ```
 
 ### File Naming

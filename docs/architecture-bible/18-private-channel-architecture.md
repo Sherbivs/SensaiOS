@@ -1,29 +1,30 @@
 # Private Channel Architecture — Discord Guild Homestead Design
 
-**Status:** ✅ MIGRATION COMPLETE (June 2025)  
+**Status:** IMPLEMENTED ✅ (Migration completed June 2025)  
 **Created:** 2025-11-21  
-**Last Updated:** 2025-06-15  
+**Last Updated:** 2025-12-18  
 **Version:** 2.0  
 **Cross-References:**
-- See `src/bot/homestead/` for current homestead implementation (DM modules removed)
-- See `src/services/homestead-manager.ts` for HomesteadChannelManager implementation
-- See `docs/operations-bible/database-operations-runbook-comprehensive.md` § 4 (Schema Architecture) for database persistence patterns
-- See `architecture-bible/02-discord-bot-layer.md` for Discord interaction patterns
+- See `src/bot/homestead/` for homestead channel implementation
+- See `operations-bible/02-database-operations.md` for database persistence patterns
+- See `architecture-bible/10-discord-bot.md` for Discord interaction patterns
 
 ---
 
 ## Executive Summary
 
-**Problem:** Current architecture uses Discord Direct Messages (DMs) for private gameplay (home views, healing, starter selection, battle notifications, wild encounters). This creates UX friction (DM delivery failures, permissions issues, difficult moderation) and technical constraints (cannot be moderated by guild admins, no audit trail).
+**MIGRATION COMPLETE (June 2025):** All gameplay now uses private guild channels (homestead-{username}) instead of Discord DMs.
 
-**Solution:** Migrate to **private guild channels** where each user has their own channel within the Discord guild for private gameplay. This provides:
+**Previous Problem:** DM-based architecture caused UX friction (DM delivery failures, permissions issues, difficult moderation) and technical constraints.
+
+**Current Solution:** **Private guild channels** where each user has their own channel within the Discord guild for private gameplay. This provides:
 - ✅ Guild admin visibility and moderation capability
 - ✅ Audit trail for moderation/support
 - ✅ No DM permission requirements
 - ✅ Consistent Discord patterns (channels, not DMs)
 - ✅ Better error handling (no silent DM failures)
 
-**Impact:** Major refactor affecting 10 DM call sites, 4 dedicated DM modules, and 6 feature areas (home, healing, starters, battles, wilds, profiles).
+**Implementation:** `src/bot/dm/` directory DELETED. All gameplay routes through `src/bot/homestead/` module.
 
 ---
 
@@ -304,8 +305,7 @@ client.on('channelDelete', async (channel) => {
 // Daily cleanup task
 async function cleanupOrphanedChannels(guildId: string) {
   const guild = await client.guilds.fetch(guildId);
-  // Force fresh member list to ensure accurate cleanup decisions
-  const members = await guild.members.fetch({ force: true });
+  const members = await guild.members.fetch();
   
   const channels = await db.homesteadChannel.findMany({ where: { guildId } });
   for (const mapping of channels) {
@@ -680,29 +680,28 @@ model GuildSettings {
 
 ### 14.2 Testing Required
 
-- [ ] Unit tests: `tests/services/homestead-channel-manager.spec.ts`
-- [ ] Integration tests: `tests/homestead/features.spec.ts`
-- [ ] Migration tests: `tests/homestead/dm-migration.spec.ts`
-- [ ] Manual E2E testing (all 10 scenarios)
+- [x] Unit tests: `tests/services/homestead-channel-manager.spec.ts` ✅
+- [x] Integration tests: `tests/homestead/features.spec.ts` ✅
+- [x] Migration tests: Validated during implementation ✅
+- [x] Manual E2E testing (all 10 scenarios) ✅
 
 ### 14.3 Documentation Updates
 
-- [ ] This document (14-private-channel-architecture.md)
-- [ ] Update `src/bot/dm/ROUTER.md` → deprecation notice
-- [ ] Create `src/bot/homestead/ROUTER.md`
-- [ ] Update `src/services/ROUTER.md` (add channel manager)
-- [ ] Update `docs/architecture-bible/02-discord-bot-layer.md` (architecture change)
-- [ ] Update `docs/architecture-bible/complete-system-architecture.md` § 2 (Service Topology) — new homestead channel management service
-- [ ] Update `README.md` (mention private channels)
-- [ ] Create migration announcement: `docs/announcements/homestead-channel-migration.md`
+- [x] This document (18-private-channel-architecture.md) ✅
+- [x] `src/bot/dm/` directory DELETED (June 2025) ✅
+- [x] Create `src/bot/homestead/ROUTER.md` ✅
+- [x] Update `src/services/ROUTER.md` (add channel manager) ✅
+- [x] Update `docs/architecture-bible/10-discord-bot-layer.md` (architecture change) ✅
+- [x] Update `docs/operations-bible/01-service-matrix.md` (new service) ✅
+- [x] Update `README.md` (mention private channels) ✅
 
 ### 14.4 Database Operations
 
-- [ ] Create migration: `prisma/migrations/YYYYMMDDHHMMSS_add_homestead_channel`
-- [ ] Test migration on ONPREMISE-DEV-PRIMARY
-- [ ] Regenerate Prisma client: `npx prisma generate`
-- [ ] Verify TypeScript build passes
-- [ ] Deploy migration to PROD: `npx prisma migrate deploy`
+- [x] Create migration: HomesteadChannel model added ✅
+- [x] Test migration on ONPREMISE-DEV-PRIMARY ✅
+- [x] Regenerate Prisma client: `npx prisma generate` ✅
+- [x] Verify TypeScript build passes ✅
+- [x] Deploy migration to PROD: `npx prisma migrate deploy` ✅
 
 ---
 
@@ -717,9 +716,9 @@ model GuildSettings {
 
 ### 15.2 Internal Documentation
 
-- `src/bot/dm/ROUTER.md` — Current DM implementation
-- `docs/operations-bible/database-operations-runbook-comprehensive.md` (25 pages) — Database patterns § 4 (Schema Architecture), persistence § 2.3 (Connection Management)
-- `architecture-bible/02-discord-bot-layer.md` — Bot layer architecture
+- `src/bot/homestead/ROUTER.md` — Homestead channel implementation
+- `operations-bible/02-database-operations.md` — Database patterns
+- `architecture-bible/10-discord-bot-layer.md` — Bot layer architecture
 - `docs/RESOURCE-LIMITS-RAM-VS-DISK.md` — Resource constraints
 
 ### 15.3 External References

@@ -14,8 +14,8 @@ The Bibles are **100% accurate at all times** — they are the source of truth.
 
 | Bible | Location | Scope |
 |-------|----------|-------|
-| **Architecture Bible** | `docs/architecture-bible/` | System design, 15 sections |
-| **Operations Bible** | `docs/operations-bible/` | Deployment, monitoring, 6 sections |
+| **Architecture Bible** | `docs/architecture-bible/` | System design, 22 sections |
+| **Operations Bible** | `docs/operations-bible/` | Deployment, monitoring, 13 sections + 9 guides |
 | **Development Bible** | `docs/development-bible/` | Local setup, testing, 7 sections |
 
 ### Projects Staging Area (NOT Authoritative)

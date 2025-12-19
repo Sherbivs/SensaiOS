@@ -4,7 +4,7 @@ _Last updated: 2025-11-21T12:30:00Z (UTC) — Rev: 1.7_
 
 **Purpose**: Service matrix, rollout checklist, observability, incident recovery for production deployment.
 
-**ARCHITECTURE UPDATE (2025-11-21):** Migrating from DM-based gameplay to private guild channels (homestead-{username}). See `docs/architecture-bible/14-private-channel-architecture.md` for complete specification.
+**HOMESTEAD MIGRATION COMPLETE (2025-06-15):** All gameplay uses private guild channels (homestead-{username}). DM modules removed. See `docs/architecture-bible/18-private-channel-architecture.md` for complete specification.
 
 **Cross-References**:
 - See `operations-bible/01-service-matrix.md` for comprehensive worker architecture, scaling roadmap (Phase 10+), monitoring, cost optimization

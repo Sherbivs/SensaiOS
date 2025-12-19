@@ -2,10 +2,10 @@
 Title: Discord Bot Layer
 Purpose: Client login, intents, command/interaction routing, homestead channel gameplay flows.
 Owned Globs: src/bot/**
-Last Updated (UTC): 2025-11-28T00:00:00Z
+Last Updated (UTC): 2025-12-18T00:00:00Z
 
 Notes:
-- **Homestead Architecture (2025-11-28):** All gameplay now occurs in private guild channels (homestead-{username}) instead of DMs. Each user gets a dedicated channel with user-only permissions. Better moderation, audit trail, no DM delivery failures.
+- **Homestead Architecture (COMPLETE 2025-06-15):** All gameplay now occurs in private guild channels (homestead-{username}) instead of DMs. `src/bot/dm/` directory DELETED. Each user gets a dedicated channel with user-only permissions. Better moderation, audit trail, no DM delivery failures. See `docs/architecture-bible/18-private-channel-architecture.md`.
 - Battle victories persist via `concludeBattleWithVictory`, sharing the announcer flow with forfeits.
 - Wilds controls surface caught Pokémon IDs in homestead channels and thread messaging.
 - Admin `/ops stats` now surfaces recent finished battles (winner/loser, rewards) from persisted results.

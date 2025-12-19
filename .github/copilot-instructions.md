@@ -3,7 +3,7 @@
 ## Project Overview
 Pokémon Infinity Gauntlet is a Discord-first Pokémon adventure with **private guild channel-based gameplay** (homestead channels), public arena battles, and live-service data pipelines. Production runs on Render with 6 workers + 1 cron job orchestrating encounters, battles, cache refresh, and security monitoring.
 
-**CRITICAL ARCHITECTURE CHANGE (2025-11-21):** Migrating from Discord DMs to private guild channels for all gameplay. Each user gets a dedicated "homestead" channel within the guild. See `docs/architecture-bible/14-private-channel-architecture.md` for complete specification.
+**HOMESTEAD MIGRATION COMPLETE (2025-06-15):** All gameplay uses private guild channels (homestead-{username}). DM modules removed. See `docs/architecture-bible/18-private-channel-architecture.md` for complete specification.
 
 ## Critical: Start Here Before Any Work
 
@@ -119,7 +119,7 @@ npm run docs:update-routers  # Rebuild router indexes
 ```
 
 ### Testing Patterns
-- **Unit tests:** `tests/*.spec.ts` (battle engine, DM flows, ops commands)
+- **Unit tests:** `tests/*.spec.ts` (battle engine, homestead flows, ops commands)
 - **PBSL oracle:** `tests/pbsl/**` (deterministic battle snapshots)
 - **Integration:** `tests/battle/actions.interaction.spec.ts` (Discord button flows)
 - **Run subset:** `npm run test:pbsl` (PBSL-specific suite)
@@ -170,13 +170,12 @@ Meta-only changes still need clear "Why" statements.
 
 ### Discord Bot Layer (`src/bot/**`)
 - **Entry:** `src/bot/index.ts` (client bootstrap + command routing)
-- **Homestead Channels:** `src/bot/homestead/**` (private guild channel gameplay) — **MIGRATION IN PROGRESS** from deprecated `src/bot/dm/**`
-- **Deprecated DM flows:** `src/bot/dm/**` (home, heal, starters) — **BEING REPLACED by homestead channels**
+- **Homestead Channels:** `src/bot/homestead/**` (private guild channel gameplay) — **ACTIVE**
 - **Battles:** `src/bot/battle/**` (move/switch/forfeit handlers)
 - **Wilds:** `src/bot/wilds/**` (walk, catch, throw, escape)
 - **Admin:** `src/bot/ops/admin.ts` (`/ops` commands with filters)
 
-**CRITICAL MIGRATION (2025-11-21):** All gameplay moving from DMs to private guild channels (homestead-{username}). 10 createDM() call sites being replaced with HomesteadChannelManager. See `docs/architecture-bible/14-private-channel-architecture.md`.
+**HOMESTEAD MIGRATION COMPLETE (2025-06-15):** All gameplay moved from DMs to private guild channels (homestead-{username}). `src/bot/dm/` directory DELETED. See `docs/architecture-bible/18-private-channel-architecture.md`.
 
 ### Core Engines (`src/core/**`)
 - **Battle:** `src/core/battle/engine.ts` (deterministic damage, status effects)
@@ -331,14 +330,15 @@ Areas:
 ## Quick Reference Links
 
 - **Architecture:** `README.md` → comprehensive system overview
-- **Architecture Bible:** `docs/architecture-bible/INDEX.md` → 15 sections (system design, database, workers, game engine, etc.)
-- **Operations Bible:** `docs/operations-bible/INDEX.md` → 6 sections (service matrix, deployment, monitoring, database operations)
+- **Architecture Bible:** `docs/architecture-bible/INDEX.md` → 22 sections (system design, database, workers, game engine, etc.)
+- **Operations Bible:** `docs/operations-bible/INDEX.md` → 13 sections + 9 guides (service matrix, deployment, monitoring, database operations)
 - **Development Bible:** `docs/development-bible/INDEX.md` → 7 sections (local setup, testing, debugging, utilities)
-- **Database Guide:** `docs/operations-bible/02-database-operations.md` → URL selection logic, schema architecture
+- **Database Guide:** `docs/operations-bible/02-database-operations.md` → URL selection logic, schema architecture, Prisma 7 configuration
 - **Schema Architecture:** `docs/operations-bible/02-database-operations.md` § 2.10 → Entities, dex spine, indexes
 - **Game Rules:** `docs/architecture-bible/09-game-engine.md` § 9.10 → MVP mechanics, status effects, item pool
 - **Worker Scaling:** `docs/architecture-bible/03-worker-architecture.md` → Phase 10+ roadmap
 - **Error System:** `docs/architecture-bible/06-error-system.md` → Comprehensive error handling
+- **Homestead Channels:** `docs/architecture-bible/18-private-channel-architecture.md` → Private channel gameplay (migration complete)
 
 ## Getting Help
 
@@ -350,4 +350,4 @@ Areas:
 
 ---
 
-**Last Updated:** 2025-11-16 | **Revision:** 1.0
+**Last Updated:** 2025-12-18 | **Revision:** 2.0

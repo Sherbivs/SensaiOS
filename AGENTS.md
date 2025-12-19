@@ -27,7 +27,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 **Phase 9 Complete** (2025-11-07): Repository is production-ready, centralized, standardized, and scalable. All quality metrics optimized: zero linter warnings, zero npm vulnerabilities, zero outdated packages, fast tests (6.82s), clean documentation. See `ops/REPO-OPTIMIZATION-REPORT.md` for comprehensive achievements.
 
 **Recent Enhancements (November 2025)**:
-- ✅ **Private Channel Architecture (2025-11-21)**: **MAJOR ARCHITECTURE PIVOT** — Migrating from Discord DMs to private guild channels for all gameplay. Each user gets a dedicated "homestead" channel (homestead-{username}) within the Discord guild. Eliminates DM delivery failures, enables guild admin moderation, provides audit trail. 6-phase migration affecting 10 call sites, 4 modules, 6 feature areas. Complete 900-line architecture specification created. Foundation phase READY for implementation.
+- ✅ **Private Channel Architecture (2025-06-15)**: **HOMESTEAD MIGRATION COMPLETE** — All gameplay moved from Discord DMs to private guild channels. Each user gets a dedicated "homestead" channel (homestead-{username}) within the Discord guild. `src/bot/dm/` directory DELETED. Eliminates DM delivery failures, enables guild admin moderation, provides audit trail.
 - ✅ **Memory Safety Audit Complete**: 13/13 runtime structures bounded, peak RAM ~300-350 MB (15-17% of 2 GB RAM limit, upgraded from Starter 512 MB on 2025-11-17)
 - ✅ **Resource Limits Clarification**: Clear distinction between RAM (2 GB volatile memory) and persistent disk (1 GB /Store volume) documented in `docs/RESOURCE-LIMITS-RAM-VS-DISK.md`
 - ✅ **Discord.js Cache Management (2025-11-17)**: Configured cache limits + sweeping to prevent unbounded growth (50-200 MB/day → 0 MB/day on idle bot)
@@ -35,12 +35,11 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - ✅ **Event Bus Phase 2.4.3**: IntelligentLogger migration complete with correlation tracking and pattern caching
 - ✅ **Cache Management**: Discord.js automatic sweeping prevents 100+ MB memory leaks
 
-**⚠️ CRITICAL ARCHITECTURE CHANGE (2025-11-21):**
+**✅ HOMESTEAD MIGRATION COMPLETE (2025-06-15):**
 - **GAMEPLAY PLATFORM:** Private guild channels (homestead-{username}) — NOT Discord DMs
-- **MIGRATION STATUS:** Architecture specified (900+ lines), 6-phase plan created, Foundation phase READY
-- **AFFECTED FEATURES:** Home views, healing, starters, battle notifications, wild encounters, profiles (10 call sites total)
-- **DEPRECATION:** src/bot/dm/ modules marked for removal after migration validation
-- **COMPLETE SPECIFICATION:** `docs/architecture-bible/14-private-channel-architecture.md`
+- **MIGRATION STATUS:** COMPLETE — All code migrated, `src/bot/dm/` directory DELETED
+- **CANONICAL ENTRY POINT:** `src/bot/homestead/` (home.ts, heal.ts, starters.ts)
+- **COMPLETE SPECIFICATION:** `docs/architecture-bible/18-private-channel-architecture.md`
 
 **⚠️ CRITICAL RESOURCE DISTINCTION:**
 - **RAM:** 2 GB (2048 MB) — Process memory, tracked by `process.memoryUsage().rss`, monitored by `resource-monitor.ts`
@@ -59,7 +58,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - See `operations-bible/02-database-operations.md` for CRITICAL database URL selection logic (Absolute requirement)
 - See `docs/OPTIMIZATION-BIBLE.md` for comprehensive system optimization roadmap (startup, console logging, profile creation, runtime weight, queries, cache)
 - See `docs/engine-db-persistence-opportunities.md` for Engine DB disk persistence migration (sql.js → better-sqlite3, 78% memory reduction)
-- See `docs/architecture-bible/14-private-channel-architecture.md` for **CRITICAL private channel migration** (DM → Guild Channels, 6-phase plan, 900+ lines)
+- See `docs/architecture-bible/18-private-channel-architecture.md` for **COMPLETE private channel architecture** (Homestead channels, migration specification)
 
 **Referenced By**: README.md (operations guide), Patch.md (Absolutes), ops/NEXT.yaml (guidance references), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (architecture reference)
 

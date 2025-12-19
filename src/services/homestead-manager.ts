@@ -5,7 +5,7 @@
  * Replaces DM-based gameplay with guild channels for better moderation,
  * audit trail, and Discord UX consistency.
  * 
- * Architecture: docs/architecture-bible/14-private-channel-architecture.md
+ * Architecture: docs/architecture-bible/18-private-channel-architecture.md
  * 
  * @module homestead-manager
  */

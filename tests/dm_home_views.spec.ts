@@ -5,7 +5,7 @@ import {
   buildBoxView,
   buildPartyView,
   buildProfileView,
-} from '../src/bot/dm/home.js';
+} from '../src/bot/homestead/home.js';
 import type { TrainerHomeSnapshot, TrainerHomePokemon } from '../src/models/index.js';
 
 function createPokemon(overrides: Partial<TrainerHomePokemon> = {}): TrainerHomePokemon {

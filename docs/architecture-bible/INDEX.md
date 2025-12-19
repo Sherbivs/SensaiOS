@@ -1,11 +1,11 @@
 # ARCHITECTURE BIBLE — INDEX
 
 **Centralized System Architecture Documentation**  
-**Created:** 2025-11-16 | **Reorganized:** 2025-11-17 | **Status:** PRODUCTION
+**Created:** 2025-11-16 | **Last Updated:** 2025-12-18 | **Status:** PRODUCTION
 
 ## Purpose
 
-Single source of truth for Infinity Gauntlet architectural design, component relationships, safety guarantees, and technical decisions. Originally consolidated from 37 source documents, now organized into 14 focused sections for maintainability.
+Single source of truth for Infinity Gauntlet architectural design, component relationships, safety guarantees, and technical decisions. Originally consolidated from 37 source documents, now organized into 22 focused sections for maintainability.
 
 ---
 
@@ -14,7 +14,7 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 | Section | File | Topics |
 |---------|------|--------|
 | **1. System Overview** | [01-system-overview.md](01-system-overview.md) | Architecture snapshot, technology stack, service topology, quality metrics |
-| **2. Database Architecture** | [02-database-architecture.md](02-database-architecture.md) | Database systems, replication, URL selection, multi-client runtime |
+| **2. Database Architecture** | [02-database-architecture.md](02-database-architecture.md) | Prisma 7 configuration, multi-client runtime, URL selection, replication |
 | **3. Worker Architecture** | [03-worker-architecture.md](03-worker-architecture.md) | Worker topology, scaling roadmap, cross-worker state management |
 | **4. Event Bus** | [04-event-bus.md](04-event-bus.md) | Pub-sub system, correlation tracking, pattern matching, backpressure |
 | **5. Logging Architecture** | [05-logging-architecture.md](05-logging-architecture.md) | Intelligent logging, buffer design, AI integration, scaling |
@@ -22,33 +22,60 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 | **7. Security Bot** | [07-security-bot.md](07-security-bot.md) | State persistence, 7-day history, restart DMs, monitoring |
 | **8. Router System** | [08-router-system.md](08-router-system.md) | Meta-router design, routing discipline, navigation patterns |
 | **9. Game Engine** | [09-game-engine.md](09-game-engine.md) | PBSL manifesto, battle flow, cache safety, DB replication, event tracking, Dex V2 |
-| **10. Discord Bot** | [10-discord-bot.md](10-discord-bot.md) | Command suite, DM commands, admin commands, documentation index |
+| **10. Discord Bot** | [10-discord-bot.md](10-discord-bot.md) | Command suite, homestead channels, admin commands, documentation index |
 | **11. Safety Guarantees** | [11-safety-guarantees.md](11-safety-guarantees.md) | Memory safety, error isolation, state persistence, disaster recovery |
 | **12. Observability** | [12-observability.md](12-observability.md) | Metrics transparency, calculation methods, monitoring |
 | **13. Performance** | [13-performance.md](13-performance.md) | Optimization roadmap, centralization, benchmarks |
-| **14. Private Channel Architecture** | [14-private-channel-architecture.md](14-private-channel-architecture.md) | Homestead channels, DM migration, service design, lifecycle management |
-| **15. Future Roadmap** | [15-future-roadmap.md](15-future-roadmap.md) | Vision, milestones, workstreams, dependencies |
-| **16. Project History** | [16-project-history.md](16-project-history.md) | Major refactorings, Accelerate elimination, dead code cleanup |
-| **17. Boot Sequence** | [17-boot-sequence.md](17-boot-sequence.md) | Startup phases, timing, memory progression, observability, recovery |
-| **18. Service Registry** | [18-service-registry.md](18-service-registry.md) | Dependency injection, lifecycle management, health monitoring, graceful shutdown |
+| **14. Future Roadmap** | [14-future-roadmap.md](14-future-roadmap.md) | Vision, milestones, workstreams, dependencies |
+| **15. Project History** | [15-project-history.md](15-project-history.md) | Major refactorings, Accelerate elimination, dead code cleanup |
+| **16. Boot Sequence** | [16-boot-sequence.md](16-boot-sequence.md) | Startup phases, timing, memory progression, observability, recovery |
+| **17. Service Registry** | [17-service-registry.md](17-service-registry.md) | Dependency injection, lifecycle management, health monitoring, graceful shutdown |
+| **18. Private Channel Architecture** | [18-private-channel-architecture.md](18-private-channel-architecture.md) | Homestead channels, guild-based gameplay, service design, lifecycle management |
+| **19. Seamless Restart** | [19-seamless-restart.md](19-seamless-restart.md) | Zero-downtime restarts, state preservation, recovery patterns |
+| **20. Resource Limits** | [20-resource-limits.md](20-resource-limits.md) | RAM vs disk distinction, memory budgets, scaling thresholds |
+| **21. Security Database** | [21-security-database.md](21-security-database.md) | Security event logging, permission tracking, audit trails |
+| **22. Starter Selection Flow** | [22-starter-selection-flow.md](22-starter-selection-flow.md) | New player onboarding, starter Pokemon selection, homestead initialization |
+
+### Supplementary Documents
+| File | Purpose |
+|------|---------|
+| [complete-system-architecture.md](complete-system-architecture.md) | 30-page comprehensive system reference |
+| [schema-health-audit-2025-12-04.md](schema-health-audit-2025-12-04.md) | Database schema health assessment |
+
+---
+
+## Key Architectural Changes (2025)
+
+### Homestead Channel Migration (June 2025)
+**COMPLETE:** All gameplay migrated from Discord DMs to private guild channels (homestead-{username}).
+
+- `src/bot/dm/` directory **DELETED** — All DM code removed
+- `src/bot/homestead/` is now the canonical gameplay entry point
+- See Section 18 for complete architecture specification
+
+### Prisma 7 Migration (December 2025)
+**COMPLETE:** Upgraded from Prisma 6 to Prisma 7.1.0.
+
+- `engineType = "library"` required in schema.prisma
+- Database URL moved to `prisma.config.ts`
+- `datasources` option removed from PrismaClient constructor
+- See Section 2 and [Operations Bible § 2.7](../operations-bible/02-database-operations.md#27-prisma-7-configuration-updated-2025-12-18) for details
 
 ---
 
 ## Cross-References
 
 ### Operational Bibles
-- **OPERATIONS-BIBLE** — Database operations, deployment procedures, service matrix
-- **DEVELOPMENT-BIBLE** — Local setup, testing, debugging, console tooling
+- **[OPERATIONS-BIBLE](../operations-bible/INDEX.md)** — Database operations, deployment procedures, service matrix
+- **[DEVELOPMENT-BIBLE](../development-bible/INDEX.md)** — Local setup, testing, debugging, console tooling
 
 ### Primary Documentation
-- **Agents.md** — Comprehensive operations guide
-- **README.md** — Getting started, project overview
-- **OPERATIONS.md** — Service matrix, deployment procedures
+- **[Agents.md](../../Agents.md)** — Comprehensive operations guide
+- **[README.md](../../README.md)** — Getting started, project overview
 
 ### Router Manifests
-- **ops/ROUTER.yaml** — Router-of-routers manifest
-- **masterroutetable.md** — Human-readable router index
-- **docs/ROUTER.md** — Documentation routing
+- **[ops/ROUTER.yaml](../../ops/ROUTER.yaml)** — Router-of-routers manifest
+- **[masterroutetable.md](../../masterroutetable.md)** — Human-readable router index
 
 ---
 
@@ -56,16 +83,9 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 
 | Date | Event | Details |
 |------|-------|---------|
-| 2025-11-16 | Template Created | Initial ARCHITECTURE-BIBLE.md template with 14 sections |
-| 2025-11-16 | Phase 1 Start | Consolidation of 37 source documents into unified Bible |
-| 2025-11-17 | Reorganization | Split monolithic Bible into 14 focused section files |
-| 2025-11-21 | Architecture Pivot | Added Section 14: Private Channel Architecture (DM → Guild Channels migration) |
-
-**Consolidation Summary:**
-- Phase 0: 454 → 93 files (79% reduction, 361 files deleted)
-- Phase 1: 93 → 66 files (88% reduction, 388 files deleted total)
-- 28 files consolidated into ARCHITECTURE-BIBLE (Discord Bot, Security Bot, Router System, Game Engine, Error System, Logging, Event Bus, System Overview, Safety Guarantees, Future Roadmap, and 4 remaining sections)
-- Final structure: 18 section files + 1 index = 19 architecture documents (Private Channel Architecture added 2025-11-21)
+| 2025-11-16 | Initial Creation | 14 sections consolidated from 37 source documents |
+| 2025-11-21 | Architecture Pivot | Added Private Channel Architecture (DM → Guild Channels) |
+| 2025-12-18 | Reorganization | Renumbered to 22 sections, removed duplicates, updated for Prisma 7 |
 
 ---
 
@@ -79,7 +99,6 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 
 ---
 
-**Last Updated:** 2025-11-21  
-**Maintained By:** Database Systems, Core Infrastructure  
-**Review Cadence:** Monthly architectural reviews, updates as needed
-**Recent Update:** Added Private Channel Architecture section (14) for DM-to-channel migration
+**Last Updated:** 2025-12-18  
+**Maintained By:** Core Infrastructure Team  
+**Review Cadence:** Monthly architectural reviews

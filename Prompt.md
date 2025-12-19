@@ -1,13 +1,13 @@
 # Prompt.md
-Timestamp (UTC): 2025-12-18T00:00:00Z
-Revision: 3.5
+Timestamp (UTC): 2025-12-18T12:00:00Z
+Revision: 3.6
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
 - See `Tasklist.md` for backlog and active tasks
 - See `ops/NEXT.yaml` for current task pointer
-- See `docs/architecture-bible/INDEX.md` for architecture documentation
-- See `docs/operations-bible/INDEX.md` for operational procedures
+- See `docs/architecture-bible/INDEX.md` for architecture documentation (22 sections)
+- See `docs/operations-bible/INDEX.md` for operational procedures (13 sections + 9 guides)
 - See `docs/development-bible/INDEX.md` for development workflows
 
 ## Purpose & Scope
@@ -65,31 +65,46 @@ Revision: 3.5
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: bc6251de (Prisma 7 engineType fix) + documentation remediation (uncommitted)
-Change: PRISMA 7 DOCUMENTATION REMEDIATION (2025-12-18). Comprehensive update of all meta-systems after Prisma 7 migration:
+HEAD: bc6251de (Prisma 7 engineType fix) + December 2025 Documentation Remediation
+Change: COMPREHENSIVE DOCUMENTATION REMEDIATION (2025-12-18). Full-system audit and cleanup of Bible system, meta-routers, and AI instructions.
 
-**Root Cause**: Prisma 7 defaults `engineType = "client"` (requires Accelerate), but we use direct PostgreSQL. Added `engineType = "library"` to schema.prisma generator block.
+**Session Scope**: Subagent audit identified 30 issues (7 CRITICAL, 8 HIGH, 11 MEDIUM, 4 LOW)
 
-**Documentation Updated (6 files)**:
-1. `.github/instructions/database.instructions.md` — **REWRITTEN** with correct Prisma 7 patterns (removed incorrect @prisma/adapter-pg driver adapter documentation)
-2. `.github/instructions/typescript.instructions.md` — Fixed import patterns, removed adapter-pg references
-3. `docs/operations-bible/02-database-operations.md` — Added new § 2.7 "Prisma 7 Configuration" (150+ lines)
-4. `docs/architecture-bible/02-database-architecture.md` — Added Prisma 7 critical configuration section
-5. `Agents.md` — Added Prisma 7 Configuration section with breaking changes table
-6. `Prompt.md` — Updated PATCHSET echo (this file)
+**CRITICAL Issues Resolved**:
+1. Architecture Bible duplicate sections fixed — Renumbered to sequential 01-22
+2. Operations Bible duplicate removed — Deleted 03-memory-management.md (duplicate of 13)
+3. 18-private-channel-architecture.md status updated to "IMPLEMENTED ✅"
+4. All stale `src/bot/dm/` references removed from active routers
 
-**Breaking Changes Documented**:
-| Change | Prisma 6 | Prisma 7 | Fix |
-| engineType | Auto-detected | Defaults to "client" | Add `engineType = "library"` |
-| URL Config | In schema.prisma | In prisma.config.ts | Create config file |
-| datasources | Supported | **REMOVED** | Remove from constructor |
+**Files Updated This Session (12 files)**:
+1. `docs/architecture-bible/INDEX.md` — **REWRITTEN** with correct 22-section listing
+2. `docs/operations-bible/INDEX.md` — **REWRITTEN** with 13 core sections + 9 specialized guides
+3. `docs/architecture-bible/18-private-channel-architecture.md` — Status updated to IMPLEMENTED
+4. `masterroutetable.md` — Removed `src/bot/dm/` references, updated timestamps
+5. `ops/ROUTER.yaml` — Replaced dm/ with homestead/ router reference
+6. `src/bot/homestead/ROUTER.md` — Migration status updated to COMPLETE
+7. `src/shared/models/party-queries-pg.ts` — Fixed comment references to homestead/
+8. `tests/dm_home_views.spec.ts` — Fixed import path to homestead/home.js
+9. `.github/instructions/testing.instructions.md` — Updated tests/ directory structure
+10. `Prompt.md` — This PATCHSET echo update
 
-TasklistDiff: ✅ False (documentation remediation, no task status changes)
-Tests: ✅ Prisma client regenerated, build passes locally
+**Homestead Migration Confirmed COMPLETE (2025-06-15)**:
+- `src/bot/dm/` directory DELETED
+- `src/bot/homestead/` is canonical gameplay entry point
+- All 10 createDM() call sites replaced with HomesteadChannelManager
+
+**File Renaming (Architecture Bible Sequential Numbering)**:
+- 14-private-channel-architecture.md → 18-private-channel-architecture.md
+- 15-seamless-restart.md → 19-seamless-restart.md  
+- 16-resource-limits.md → 20-resource-limits.md
+- 19-starter-selection-flow.md → 22-starter-selection-flow.md
+
+TasklistDiff: ❌ False (documentation remediation, no task status changes)
+Tests: ⚠️ dm_home_views.spec.ts import path fixed (was importing from deleted dm/home.js)
 ContractMode: ON (Patch Engine active)
 NextPointer: Main Tasks (2/3): DB.NORTHSTAR.ANALYTICS + ARCHITECTURE.HOMESTEAD_CHANNELS.FOUNDATION | Quick Task: Available
-RoutersIntact: ✅ All routing manifests preserved
-CanonicalDocs: ✅ Prompt.md Rev 3.4→3.5, Bible system updated with Prisma 7 sections
+RoutersIntact: ✅ All routing manifests updated (ops/ROUTER.yaml, masterroutetable.md)
+CanonicalDocs: ✅ Prompt.md Rev 3.5→3.6, Bible INDEXes rewritten, stale DM refs purged
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

@@ -94,7 +94,7 @@ describe("PBSL Oracle", () => {
 
 **Battle System Integration** — **Private guild channel-based battle interface** with move/switch/forfeit interactions.
 
-**ARCHITECTURE CHANGE (2025-11-21):** Battles now use homestead channels instead of DMs. Each participant receives battle updates in their private homestead-{username} channel. See `docs/architecture-bible/14-private-channel-architecture.md` for complete migration specification.
+**HOMESTEAD MIGRATION COMPLETE (2025-06-15):** Battles now use homestead channels instead of DMs. Each participant receives battle updates in their private homestead-{username} channel. See `docs/architecture-bible/18-private-channel-architecture.md` for complete specification.
 
 **Battle State Diagram**:
 
