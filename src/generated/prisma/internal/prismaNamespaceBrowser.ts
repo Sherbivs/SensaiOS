@@ -68,6 +68,8 @@ export const ModelName = {
   NameVariant: 'NameVariant',
   User: 'User',
   HomesteadChannel: 'HomesteadChannel',
+  DiscordGuild: 'DiscordGuild',
+  DiscordMember: 'DiscordMember',
   PokemonInstance: 'PokemonInstance',
   Party: 'Party',
   PartySlot: 'PartySlot',
@@ -80,23 +82,17 @@ export const ModelName = {
   AuditLog: 'AuditLog',
   DbVersion: 'DbVersion',
   DbSyncState: 'DbSyncState',
+  LogEntry: 'LogEntry',
   ErrorLog: 'ErrorLog',
   ErrorAlert: 'ErrorAlert',
-  LogEntry: 'LogEntry',
-  WorkerMetrics: 'WorkerMetrics',
+  BattleAnalytics: 'BattleAnalytics',
   ConsoleOutput: 'ConsoleOutput',
-  SecurityEvent: 'SecurityEvent',
-  RoleChangeAudit: 'RoleChangeAudit',
-  ThreatDetection: 'ThreatDetection',
-  SecurityBaseline: 'SecurityBaseline',
-  PermissionSnapshot: 'PermissionSnapshot',
-  AdminRoleRequest: 'AdminRoleRequest',
-  IntegrityCheck: 'IntegrityCheck',
-  DiscordGuild: 'DiscordGuild',
-  DiscordMember: 'DiscordMember',
+  DataPoolSyncStatus: 'DataPoolSyncStatus',
   DiscordRole: 'DiscordRole',
+  EventHistory: 'EventHistory',
   MemberRoleHistory: 'MemberRoleHistory',
-  DataPoolSyncStatus: 'DataPoolSyncStatus'
+  SecurityEvent: 'SecurityEvent',
+  WorkerMetrics: 'WorkerMetrics'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -307,15 +303,61 @@ export const HomesteadChannelScalarFieldEnum = {
   guildId: 'guildId',
   channelId: 'channelId',
   createdAt: 'createdAt',
-  verifiedAt: 'verifiedAt',
+  lastAccessedAt: 'lastAccessedAt',
+  status: 'status',
   createdBy: 'createdBy',
   securityFingerprint: 'securityFingerprint',
   lastHealthCheck: 'lastHealthCheck',
-  status: 'status',
-  lastAccessedAt: 'lastAccessedAt'
+  verifiedAt: 'verifiedAt'
 } as const
 
 export type HomesteadChannelScalarFieldEnum = (typeof HomesteadChannelScalarFieldEnum)[keyof typeof HomesteadChannelScalarFieldEnum]
+
+
+export const DiscordGuildScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  ownerId: 'ownerId',
+  icon: 'icon',
+  memberCount: 'memberCount',
+  roleCount: 'roleCount',
+  channelCount: 'channelCount',
+  monitoringEnabled: 'monitoringEnabled',
+  lastSweepAt: 'lastSweepAt',
+  sweepCount: 'sweepCount',
+  firstSeenAt: 'firstSeenAt',
+  lastUpdatedAt: 'lastUpdatedAt'
+} as const
+
+export type DiscordGuildScalarFieldEnum = (typeof DiscordGuildScalarFieldEnum)[keyof typeof DiscordGuildScalarFieldEnum]
+
+
+export const DiscordMemberScalarFieldEnum = {
+  id: 'id',
+  discordUserId: 'discordUserId',
+  guildId: 'guildId',
+  username: 'username',
+  discriminator: 'discriminator',
+  displayName: 'displayName',
+  avatar: 'avatar',
+  bot: 'bot',
+  roles: 'roles',
+  joinedAt: 'joinedAt',
+  premiumSince: 'premiumSince',
+  pending: 'pending',
+  communicationDisabledUntil: 'communicationDisabledUntil',
+  roleCount: 'roleCount',
+  highestRolePosition: 'highestRolePosition',
+  isAdministrator: 'isAdministrator',
+  isOwner: 'isOwner',
+  lastActivityAt: 'lastActivityAt',
+  securityFlags: 'securityFlags',
+  riskScore: 'riskScore',
+  firstSeenAt: 'firstSeenAt',
+  lastUpdatedAt: 'lastUpdatedAt'
+} as const
+
+export type DiscordMemberScalarFieldEnum = (typeof DiscordMemberScalarFieldEnum)[keyof typeof DiscordMemberScalarFieldEnum]
 
 
 export const PokemonInstanceScalarFieldEnum = {
@@ -503,6 +545,25 @@ export const DbSyncStateScalarFieldEnum = {
 export type DbSyncStateScalarFieldEnum = (typeof DbSyncStateScalarFieldEnum)[keyof typeof DbSyncStateScalarFieldEnum]
 
 
+export const LogEntryScalarFieldEnum = {
+  id: 'id',
+  timestamp: 'timestamp',
+  level: 'level',
+  category: 'category',
+  message: 'message',
+  metadata: 'metadata',
+  correlationId: 'correlationId',
+  serviceName: 'serviceName',
+  userId: 'userId',
+  traceContext: 'traceContext',
+  component: 'component',
+  operation: 'operation',
+  durationMs: 'durationMs'
+} as const
+
+export type LogEntryScalarFieldEnum = (typeof LogEntryScalarFieldEnum)[keyof typeof LogEntryScalarFieldEnum]
+
+
 export const ErrorLogScalarFieldEnum = {
   errorId: 'errorId',
   fingerprint: 'fingerprint',
@@ -543,47 +604,21 @@ export const ErrorAlertScalarFieldEnum = {
 export type ErrorAlertScalarFieldEnum = (typeof ErrorAlertScalarFieldEnum)[keyof typeof ErrorAlertScalarFieldEnum]
 
 
-export const LogEntryScalarFieldEnum = {
+export const BattleAnalyticsScalarFieldEnum = {
   id: 'id',
   timestamp: 'timestamp',
-  level: 'level',
-  category: 'category',
-  message: 'message',
-  metadata: 'metadata',
-  correlationId: 'correlationId',
-  serviceName: 'serviceName',
-  userId: 'userId',
-  traceContext: 'traceContext',
-  component: 'component',
-  operation: 'operation',
-  durationMs: 'durationMs'
+  battleId: 'battleId',
+  trainerId: 'trainerId',
+  opponentId: 'opponentId',
+  outcome: 'outcome',
+  durationSeconds: 'durationSeconds',
+  turns: 'turns',
+  partyComposition: 'partyComposition',
+  moveUsage: 'moveUsage',
+  correlationId: 'correlationId'
 } as const
 
-export type LogEntryScalarFieldEnum = (typeof LogEntryScalarFieldEnum)[keyof typeof LogEntryScalarFieldEnum]
-
-
-export const WorkerMetricsScalarFieldEnum = {
-  id: 'id',
-  timestamp: 'timestamp',
-  workerId: 'workerId',
-  workerName: 'workerName',
-  operationCount: 'operationCount',
-  successCount: 'successCount',
-  failureCount: 'failureCount',
-  avgLatencyMs: 'avgLatencyMs',
-  peakLatencyMs: 'peakLatencyMs',
-  throughput: 'throughput',
-  bufferSize: 'bufferSize',
-  bufferUtilizationPct: 'bufferUtilizationPct',
-  flushCount: 'flushCount',
-  backpressureEvents: 'backpressureEvents',
-  memoryUsedBytes: 'memoryUsedBytes',
-  cpuPercent: 'cpuPercent',
-  healthStatus: 'healthStatus',
-  lastError: 'lastError'
-} as const
-
-export type WorkerMetricsScalarFieldEnum = (typeof WorkerMetricsScalarFieldEnum)[keyof typeof WorkerMetricsScalarFieldEnum]
+export type BattleAnalyticsScalarFieldEnum = (typeof BattleAnalyticsScalarFieldEnum)[keyof typeof BattleAnalyticsScalarFieldEnum]
 
 
 export const ConsoleOutputScalarFieldEnum = {
@@ -599,6 +634,76 @@ export const ConsoleOutputScalarFieldEnum = {
 } as const
 
 export type ConsoleOutputScalarFieldEnum = (typeof ConsoleOutputScalarFieldEnum)[keyof typeof ConsoleOutputScalarFieldEnum]
+
+
+export const DataPoolSyncStatusScalarFieldEnum = {
+  id: 'id',
+  lastFullSyncAt: 'lastFullSyncAt',
+  lastIncrementalAt: 'lastIncrementalAt',
+  totalEntities: 'totalEntities',
+  entitiesSynced: 'entitiesSynced',
+  entitiesFailed: 'entitiesFailed',
+  lastError: 'lastError',
+  lastErrorAt: 'lastErrorAt',
+  consecutiveErrors: 'consecutiveErrors',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DataPoolSyncStatusScalarFieldEnum = (typeof DataPoolSyncStatusScalarFieldEnum)[keyof typeof DataPoolSyncStatusScalarFieldEnum]
+
+
+export const DiscordRoleScalarFieldEnum = {
+  id: 'id',
+  discordRoleId: 'discordRoleId',
+  guildId: 'guildId',
+  name: 'name',
+  color: 'color',
+  hoist: 'hoist',
+  position: 'position',
+  permissions: 'permissions',
+  mentionable: 'mentionable',
+  managed: 'managed',
+  isAdmin: 'isAdmin',
+  isDangerous: 'isDangerous',
+  memberCount: 'memberCount',
+  firstSeenAt: 'firstSeenAt',
+  lastUpdatedAt: 'lastUpdatedAt'
+} as const
+
+export type DiscordRoleScalarFieldEnum = (typeof DiscordRoleScalarFieldEnum)[keyof typeof DiscordRoleScalarFieldEnum]
+
+
+export const EventHistoryScalarFieldEnum = {
+  id: 'id',
+  timestamp: 'timestamp',
+  topic: 'topic',
+  payload: 'payload',
+  correlationId: 'correlationId',
+  parentCorrelationId: 'parentCorrelationId',
+  emitter: 'emitter'
+} as const
+
+export type EventHistoryScalarFieldEnum = (typeof EventHistoryScalarFieldEnum)[keyof typeof EventHistoryScalarFieldEnum]
+
+
+export const MemberRoleHistoryScalarFieldEnum = {
+  id: 'id',
+  discordUserId: 'discordUserId',
+  guildId: 'guildId',
+  memberTag: 'memberTag',
+  discordRoleId: 'discordRoleId',
+  roleName: 'roleName',
+  action: 'action',
+  executorId: 'executorId',
+  executorTag: 'executorTag',
+  source: 'source',
+  previousRoles: 'previousRoles',
+  newRoles: 'newRoles',
+  changedAt: 'changedAt'
+} as const
+
+export type MemberRoleHistoryScalarFieldEnum = (typeof MemberRoleHistoryScalarFieldEnum)[keyof typeof MemberRoleHistoryScalarFieldEnum]
 
 
 export const SecurityEventScalarFieldEnum = {
@@ -624,251 +729,28 @@ export const SecurityEventScalarFieldEnum = {
 export type SecurityEventScalarFieldEnum = (typeof SecurityEventScalarFieldEnum)[keyof typeof SecurityEventScalarFieldEnum]
 
 
-export const RoleChangeAuditScalarFieldEnum = {
+export const WorkerMetricsScalarFieldEnum = {
   id: 'id',
-  guildId: 'guildId',
-  guildName: 'guildName',
-  memberId: 'memberId',
-  memberTag: 'memberTag',
-  changeType: 'changeType',
-  roleId: 'roleId',
-  roleName: 'roleName',
-  rolePosition: 'rolePosition',
-  executorId: 'executorId',
-  executorTag: 'executorTag',
-  executorRoles: 'executorRoles',
-  authorized: 'authorized',
-  authReason: 'authReason',
-  reverted: 'reverted',
-  revertedAt: 'revertedAt',
-  revertedBy: 'revertedBy',
-  revertReason: 'revertReason',
-  origin: 'origin',
-  checksum: 'checksum',
-  metadata: 'metadata',
-  createdAt: 'createdAt'
+  timestamp: 'timestamp',
+  workerId: 'workerId',
+  workerName: 'workerName',
+  operationCount: 'operationCount',
+  successCount: 'successCount',
+  failureCount: 'failureCount',
+  avgLatencyMs: 'avgLatencyMs',
+  peakLatencyMs: 'peakLatencyMs',
+  throughput: 'throughput',
+  bufferSize: 'bufferSize',
+  bufferUtilizationPct: 'bufferUtilizationPct',
+  flushCount: 'flushCount',
+  backpressureEvents: 'backpressureEvents',
+  memoryUsedBytes: 'memoryUsedBytes',
+  cpuPercent: 'cpuPercent',
+  healthStatus: 'healthStatus',
+  lastError: 'lastError'
 } as const
 
-export type RoleChangeAuditScalarFieldEnum = (typeof RoleChangeAuditScalarFieldEnum)[keyof typeof RoleChangeAuditScalarFieldEnum]
-
-
-export const ThreatDetectionScalarFieldEnum = {
-  id: 'id',
-  threatType: 'threatType',
-  severity: 'severity',
-  confidence: 'confidence',
-  guildId: 'guildId',
-  guildName: 'guildName',
-  description: 'description',
-  evidence: 'evidence',
-  triggeringEntryId: 'triggeringEntryId',
-  mitreAttack: 'mitreAttack',
-  mitreTactic: 'mitreTactic',
-  recommendedAction: 'recommendedAction',
-  autoMitigated: 'autoMitigated',
-  mitigationAction: 'mitigationAction',
-  resolved: 'resolved',
-  resolvedBy: 'resolvedBy',
-  resolvedAt: 'resolvedAt',
-  resolutionNotes: 'resolutionNotes',
-  falsePositive: 'falsePositive',
-  createdAt: 'createdAt'
-} as const
-
-export type ThreatDetectionScalarFieldEnum = (typeof ThreatDetectionScalarFieldEnum)[keyof typeof ThreatDetectionScalarFieldEnum]
-
-
-export const SecurityBaselineScalarFieldEnum = {
-  id: 'id',
-  guildId: 'guildId',
-  guildName: 'guildName',
-  averageChangesPerHour: 'averageChangesPerHour',
-  averageChangesPerDay: 'averageChangesPerDay',
-  peakActivityHours: 'peakActivityHours',
-  rapidChangeThreshold: 'rapidChangeThreshold',
-  maxChangesPerMember: 'maxChangesPerMember',
-  expectedOrigins: 'expectedOrigins',
-  confidenceLevel: 'confidenceLevel',
-  dataPointCount: 'dataPointCount',
-  computedAt: 'computedAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type SecurityBaselineScalarFieldEnum = (typeof SecurityBaselineScalarFieldEnum)[keyof typeof SecurityBaselineScalarFieldEnum]
-
-
-export const PermissionSnapshotScalarFieldEnum = {
-  id: 'id',
-  guildId: 'guildId',
-  guildName: 'guildName',
-  roleId: 'roleId',
-  roleName: 'roleName',
-  permissions: 'permissions',
-  position: 'position',
-  color: 'color',
-  hoist: 'hoist',
-  mentionable: 'mentionable',
-  signature: 'signature',
-  capturedAt: 'capturedAt'
-} as const
-
-export type PermissionSnapshotScalarFieldEnum = (typeof PermissionSnapshotScalarFieldEnum)[keyof typeof PermissionSnapshotScalarFieldEnum]
-
-
-export const AdminRoleRequestScalarFieldEnum = {
-  id: 'id',
-  guildId: 'guildId',
-  guildName: 'guildName',
-  requesterId: 'requesterId',
-  requesterTag: 'requesterTag',
-  requesterRoles: 'requesterRoles',
-  targetMemberId: 'targetMemberId',
-  targetMemberTag: 'targetMemberTag',
-  roleId: 'roleId',
-  roleName: 'roleName',
-  rolePosition: 'rolePosition',
-  action: 'action',
-  reason: 'reason',
-  status: 'status',
-  requiresApproval: 'requiresApproval',
-  approvedBy: 'approvedBy',
-  approvedAt: 'approvedAt',
-  rejectedBy: 'rejectedBy',
-  rejectedAt: 'rejectedAt',
-  rejectionReason: 'rejectionReason',
-  executedAt: 'executedAt',
-  executionResult: 'executionResult',
-  executionError: 'executionError',
-  dripAlertSent: 'dripAlertSent',
-  dripAlertId: 'dripAlertId',
-  dripAlertSentAt: 'dripAlertSentAt',
-  metadata: 'metadata',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type AdminRoleRequestScalarFieldEnum = (typeof AdminRoleRequestScalarFieldEnum)[keyof typeof AdminRoleRequestScalarFieldEnum]
-
-
-export const IntegrityCheckScalarFieldEnum = {
-  id: 'id',
-  checkType: 'checkType',
-  guildId: 'guildId',
-  passed: 'passed',
-  totalChecked: 'totalChecked',
-  failedCount: 'failedCount',
-  failedItems: 'failedItems',
-  durationMs: 'durationMs',
-  triggeredBy: 'triggeredBy',
-  correlationId: 'correlationId',
-  startedAt: 'startedAt',
-  completedAt: 'completedAt'
-} as const
-
-export type IntegrityCheckScalarFieldEnum = (typeof IntegrityCheckScalarFieldEnum)[keyof typeof IntegrityCheckScalarFieldEnum]
-
-
-export const DiscordGuildScalarFieldEnum = {
-  id: 'id',
-  name: 'name',
-  ownerId: 'ownerId',
-  icon: 'icon',
-  memberCount: 'memberCount',
-  roleCount: 'roleCount',
-  channelCount: 'channelCount',
-  monitoringEnabled: 'monitoringEnabled',
-  lastSweepAt: 'lastSweepAt',
-  sweepCount: 'sweepCount',
-  firstSeenAt: 'firstSeenAt',
-  lastUpdatedAt: 'lastUpdatedAt'
-} as const
-
-export type DiscordGuildScalarFieldEnum = (typeof DiscordGuildScalarFieldEnum)[keyof typeof DiscordGuildScalarFieldEnum]
-
-
-export const DiscordMemberScalarFieldEnum = {
-  id: 'id',
-  discordUserId: 'discordUserId',
-  guildId: 'guildId',
-  username: 'username',
-  discriminator: 'discriminator',
-  displayName: 'displayName',
-  avatar: 'avatar',
-  bot: 'bot',
-  roles: 'roles',
-  joinedAt: 'joinedAt',
-  premiumSince: 'premiumSince',
-  pending: 'pending',
-  communicationDisabledUntil: 'communicationDisabledUntil',
-  roleCount: 'roleCount',
-  highestRolePosition: 'highestRolePosition',
-  isAdministrator: 'isAdministrator',
-  isOwner: 'isOwner',
-  lastActivityAt: 'lastActivityAt',
-  securityFlags: 'securityFlags',
-  riskScore: 'riskScore',
-  firstSeenAt: 'firstSeenAt',
-  lastUpdatedAt: 'lastUpdatedAt'
-} as const
-
-export type DiscordMemberScalarFieldEnum = (typeof DiscordMemberScalarFieldEnum)[keyof typeof DiscordMemberScalarFieldEnum]
-
-
-export const DiscordRoleScalarFieldEnum = {
-  id: 'id',
-  discordRoleId: 'discordRoleId',
-  guildId: 'guildId',
-  name: 'name',
-  color: 'color',
-  hoist: 'hoist',
-  position: 'position',
-  permissions: 'permissions',
-  mentionable: 'mentionable',
-  managed: 'managed',
-  isAdmin: 'isAdmin',
-  isDangerous: 'isDangerous',
-  memberCount: 'memberCount',
-  firstSeenAt: 'firstSeenAt',
-  lastUpdatedAt: 'lastUpdatedAt'
-} as const
-
-export type DiscordRoleScalarFieldEnum = (typeof DiscordRoleScalarFieldEnum)[keyof typeof DiscordRoleScalarFieldEnum]
-
-
-export const MemberRoleHistoryScalarFieldEnum = {
-  id: 'id',
-  discordUserId: 'discordUserId',
-  guildId: 'guildId',
-  memberTag: 'memberTag',
-  discordRoleId: 'discordRoleId',
-  roleName: 'roleName',
-  action: 'action',
-  executorId: 'executorId',
-  executorTag: 'executorTag',
-  source: 'source',
-  previousRoles: 'previousRoles',
-  newRoles: 'newRoles',
-  changedAt: 'changedAt'
-} as const
-
-export type MemberRoleHistoryScalarFieldEnum = (typeof MemberRoleHistoryScalarFieldEnum)[keyof typeof MemberRoleHistoryScalarFieldEnum]
-
-
-export const DataPoolSyncStatusScalarFieldEnum = {
-  id: 'id',
-  lastFullSyncAt: 'lastFullSyncAt',
-  lastIncrementalAt: 'lastIncrementalAt',
-  totalEntities: 'totalEntities',
-  entitiesSynced: 'entitiesSynced',
-  entitiesFailed: 'entitiesFailed',
-  lastError: 'lastError',
-  lastErrorAt: 'lastErrorAt',
-  consecutiveErrors: 'consecutiveErrors',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type DataPoolSyncStatusScalarFieldEnum = (typeof DataPoolSyncStatusScalarFieldEnum)[keyof typeof DataPoolSyncStatusScalarFieldEnum]
+export type WorkerMetricsScalarFieldEnum = (typeof WorkerMetricsScalarFieldEnum)[keyof typeof WorkerMetricsScalarFieldEnum]
 
 
 export const SortOrder = {

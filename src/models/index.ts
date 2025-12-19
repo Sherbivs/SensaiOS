@@ -1,7 +1,7 @@
 // Prisma dual client architecture (PROD + DEV) and repository helpers
 
-import { Prisma } from "@prisma/client";
-import type { Battle, Cooldown, PrismaClient, User as PrismaUser } from "@prisma/client";
+import { Prisma } from '../generated/prisma/client.js';
+import type { Battle, Cooldown, PrismaClient, User as PrismaUser } from '../generated/prisma/client.js';
 import { toEasternString } from "../shared/datetime.js";
 import { ensurePrisma, prisma } from "../shared/prisma.js";
 import { clamp, toDate, diffInUtcDays } from "../shared/utils/index.js";

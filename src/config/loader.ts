@@ -18,7 +18,6 @@
  * @module config/loader
  */
 
-import { getErrorMessage } from '../shared/utils/error-utils.js';
 import {
   AppConfigSchema,
   DatabaseConfigSchema,
@@ -276,6 +275,7 @@ export function loadAppConfig(options?: {
   }
 
   // In non-production, log warnings but return partial config with defaults
+  // eslint-disable-next-line no-console -- Logger may not be initialized during config loading
   console.warn(`[config] Validation warnings:\n${errorMessage}`);
 
   // Fall back to individual domain parsing with defaults

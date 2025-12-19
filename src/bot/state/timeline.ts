@@ -10,7 +10,6 @@ import type {
   SecurityBotState,
   TimelineEvent,
   TimelineEventType,
-  TimelineSummary,
   SweepDetails,
   PermissionChangeDetails,
   AlertDetails,

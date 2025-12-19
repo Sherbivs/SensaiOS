@@ -9,7 +9,6 @@ import { formatDuration } from '../../shared/utils/format-utils.js';
 import type {
   SecurityBotState,
   GuildState,
-  CumulativeStatsUpdate,
   MetricEventType,
   DatabaseStatus,
   TimelineEvent,

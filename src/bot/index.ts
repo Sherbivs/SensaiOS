@@ -4,7 +4,7 @@ import { Client, GatewayIntentBits, Partials, Interaction, Events, Options } fro
 
 import { prisma } from "../models/index.js";
 import { log } from "../shared/log.js";
-import { loadCommands, type Command, type CommandMap } from "../command-loader.js";
+import { loadCommands, type CommandMap } from "../command-loader.js";
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
 

@@ -21,7 +21,7 @@
  */
 
 import type { PoolClient } from "pg";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from '../generated/prisma/client.js';
 import { getProdDb } from "../shared/pg-connection.js";
 import type { Cooldown } from "../types/db-models.js";
 import type { CooldownRow } from "../types/database-rows.js";

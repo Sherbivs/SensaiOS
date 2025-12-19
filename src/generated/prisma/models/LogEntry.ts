@@ -14,8 +14,9 @@ import type * as Prisma from "../internal/prismaNamespace.js"
 
 /**
  * Model LogEntry
- * Log entries hypertable for Event Bus persistence
- * Enhanced with component, operation, and duration tracking (2025-12-03)
+ * ---- Log Ingestion System (TimescaleDB Hypertable) ----
+ * Centralized log storage for Event Bus logs, service logs, and monitoring data
+ * Note: This is a TimescaleDB hypertable with composite primary key
  */
 export type LogEntryModel = runtime.Types.Result.DefaultSelection<Prisma.$LogEntryPayload>
 
@@ -300,10 +301,11 @@ export type LogEntryOrderByWithRelationInput = {
 }
 
 export type LogEntryWhereUniqueInput = Prisma.AtLeast<{
-  id?: bigint | number
+  id_timestamp?: Prisma.LogEntryIdTimestampCompoundUniqueInput
   AND?: Prisma.LogEntryWhereInput | Prisma.LogEntryWhereInput[]
   OR?: Prisma.LogEntryWhereInput[]
   NOT?: Prisma.LogEntryWhereInput | Prisma.LogEntryWhereInput[]
+  id?: Prisma.BigIntFilter<"LogEntry"> | bigint | number
   timestamp?: Prisma.DateTimeFilter<"LogEntry"> | Date | string
   level?: Prisma.StringFilter<"LogEntry"> | string
   category?: Prisma.StringFilter<"LogEntry"> | string
@@ -316,7 +318,7 @@ export type LogEntryWhereUniqueInput = Prisma.AtLeast<{
   component?: Prisma.StringNullableFilter<"LogEntry"> | string | null
   operation?: Prisma.StringNullableFilter<"LogEntry"> | string | null
   durationMs?: Prisma.IntNullableFilter<"LogEntry"> | number | null
-}, "id">
+}, "id_timestamp">
 
 export type LogEntryOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -470,6 +472,11 @@ export type LogEntryUncheckedUpdateManyInput = {
   durationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
+export type LogEntryIdTimestampCompoundUniqueInput = {
+  id: bigint | number
+  timestamp: Date | string
+}
+
 export type LogEntryCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   timestamp?: Prisma.SortOrder
@@ -608,17 +615,8 @@ export type $LogEntryPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     serviceName: string | null
     userId: string | null
     traceContext: string | null
-    /**
-     * High-level component: bot, battle, encounter, database, cache, worker
-     */
     component: string | null
-    /**
-     * Specific operation: initialize, start, stop, query, insert, flush
-     */
     operation: string | null
-    /**
-     * Operation duration in milliseconds
-     */
     durationMs: number | null
   }, ExtArgs["result"]["logEntry"]>
   composites: {}

@@ -14,8 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace.js"
 
 /**
  * Model MemberRoleHistory
- * Member role history — tracks every role assignment/removal
- * @description Historical record for forensics and pattern detection
+ * 
  */
 export type MemberRoleHistoryModel = runtime.Types.Result.DefaultSelection<Prisma.$MemberRoleHistoryPayload>
 
@@ -607,32 +606,14 @@ export type $MemberRoleHistoryPayload<ExtArgs extends runtime.Types.Extensions.I
     id: bigint
     discordUserId: string
     guildId: string
-    /**
-     * username#discriminator at time of change
-     */
     memberTag: string
     discordRoleId: string
     roleName: string
-    /**
-     * "added" or "removed"
-     */
     action: string
-    /**
-     * Who made the change (null = API/bot)
-     */
     executorId: string | null
     executorTag: string | null
-    /**
-     * "security-sweep", "manual", "member-join", "reaction-role", "api"
-     */
     source: string
-    /**
-     * Roles before change
-     */
     previousRoles: string[]
-    /**
-     * Roles after change
-     */
     newRoles: string[]
     changedAt: Date
   }, ExtArgs["result"]["memberRoleHistory"]>

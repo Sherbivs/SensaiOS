@@ -14,9 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace.js"
 
 /**
  * Model SecurityEvent
- * Core security event tracking — immutable audit trail
- * @description Central security event log with HMAC integrity verification
- * @research R6 (SOC 2 Compliance) - Immutable audit log with hash chain
+ * 
  */
 export type SecurityEventModel = runtime.Types.Result.DefaultSelection<Prisma.$SecurityEventPayload>
 
@@ -39,7 +37,7 @@ export type SecurityEventSumAggregateOutputType = {
 export type SecurityEventMinAggregateOutputType = {
   id: bigint | null
   eventType: string | null
-  severity: $Enums.SecuritySeverity | null
+  severity: string | null
   guildId: string | null
   guildName: string | null
   memberId: string | null
@@ -58,7 +56,7 @@ export type SecurityEventMinAggregateOutputType = {
 export type SecurityEventMaxAggregateOutputType = {
   id: bigint | null
   eventType: string | null
-  severity: $Enums.SecuritySeverity | null
+  severity: string | null
   guildId: string | null
   guildName: string | null
   memberId: string | null
@@ -252,7 +250,7 @@ export type SecurityEventGroupByArgs<ExtArgs extends runtime.Types.Extensions.In
 export type SecurityEventGroupByOutputType = {
   id: bigint
   eventType: string
-  severity: $Enums.SecuritySeverity
+  severity: string
   guildId: string
   guildName: string
   memberId: string | null
@@ -295,7 +293,7 @@ export type SecurityEventWhereInput = {
   NOT?: Prisma.SecurityEventWhereInput | Prisma.SecurityEventWhereInput[]
   id?: Prisma.BigIntFilter<"SecurityEvent"> | bigint | number
   eventType?: Prisma.StringFilter<"SecurityEvent"> | string
-  severity?: Prisma.EnumSecuritySeverityFilter<"SecurityEvent"> | $Enums.SecuritySeverity
+  severity?: Prisma.StringFilter<"SecurityEvent"> | string
   guildId?: Prisma.StringFilter<"SecurityEvent"> | string
   guildName?: Prisma.StringFilter<"SecurityEvent"> | string
   memberId?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
@@ -338,7 +336,7 @@ export type SecurityEventWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.SecurityEventWhereInput[]
   NOT?: Prisma.SecurityEventWhereInput | Prisma.SecurityEventWhereInput[]
   eventType?: Prisma.StringFilter<"SecurityEvent"> | string
-  severity?: Prisma.EnumSecuritySeverityFilter<"SecurityEvent"> | $Enums.SecuritySeverity
+  severity?: Prisma.StringFilter<"SecurityEvent"> | string
   guildId?: Prisma.StringFilter<"SecurityEvent"> | string
   guildName?: Prisma.StringFilter<"SecurityEvent"> | string
   memberId?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
@@ -386,7 +384,7 @@ export type SecurityEventScalarWhereWithAggregatesInput = {
   NOT?: Prisma.SecurityEventScalarWhereWithAggregatesInput | Prisma.SecurityEventScalarWhereWithAggregatesInput[]
   id?: Prisma.BigIntWithAggregatesFilter<"SecurityEvent"> | bigint | number
   eventType?: Prisma.StringWithAggregatesFilter<"SecurityEvent"> | string
-  severity?: Prisma.EnumSecuritySeverityWithAggregatesFilter<"SecurityEvent"> | $Enums.SecuritySeverity
+  severity?: Prisma.StringWithAggregatesFilter<"SecurityEvent"> | string
   guildId?: Prisma.StringWithAggregatesFilter<"SecurityEvent"> | string
   guildName?: Prisma.StringWithAggregatesFilter<"SecurityEvent"> | string
   memberId?: Prisma.StringNullableWithAggregatesFilter<"SecurityEvent"> | string | null
@@ -406,7 +404,7 @@ export type SecurityEventScalarWhereWithAggregatesInput = {
 export type SecurityEventCreateInput = {
   id?: bigint | number
   eventType: string
-  severity?: $Enums.SecuritySeverity
+  severity: string
   guildId: string
   guildName: string
   memberId?: string | null
@@ -426,7 +424,7 @@ export type SecurityEventCreateInput = {
 export type SecurityEventUncheckedCreateInput = {
   id?: bigint | number
   eventType: string
-  severity?: $Enums.SecuritySeverity
+  severity: string
   guildId: string
   guildName: string
   memberId?: string | null
@@ -446,7 +444,7 @@ export type SecurityEventUncheckedCreateInput = {
 export type SecurityEventUpdateInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   eventType?: Prisma.StringFieldUpdateOperationsInput | string
-  severity?: Prisma.EnumSecuritySeverityFieldUpdateOperationsInput | $Enums.SecuritySeverity
+  severity?: Prisma.StringFieldUpdateOperationsInput | string
   guildId?: Prisma.StringFieldUpdateOperationsInput | string
   guildName?: Prisma.StringFieldUpdateOperationsInput | string
   memberId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -466,7 +464,7 @@ export type SecurityEventUpdateInput = {
 export type SecurityEventUncheckedUpdateInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   eventType?: Prisma.StringFieldUpdateOperationsInput | string
-  severity?: Prisma.EnumSecuritySeverityFieldUpdateOperationsInput | $Enums.SecuritySeverity
+  severity?: Prisma.StringFieldUpdateOperationsInput | string
   guildId?: Prisma.StringFieldUpdateOperationsInput | string
   guildName?: Prisma.StringFieldUpdateOperationsInput | string
   memberId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -486,7 +484,7 @@ export type SecurityEventUncheckedUpdateInput = {
 export type SecurityEventCreateManyInput = {
   id?: bigint | number
   eventType: string
-  severity?: $Enums.SecuritySeverity
+  severity: string
   guildId: string
   guildName: string
   memberId?: string | null
@@ -506,7 +504,7 @@ export type SecurityEventCreateManyInput = {
 export type SecurityEventUpdateManyMutationInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   eventType?: Prisma.StringFieldUpdateOperationsInput | string
-  severity?: Prisma.EnumSecuritySeverityFieldUpdateOperationsInput | $Enums.SecuritySeverity
+  severity?: Prisma.StringFieldUpdateOperationsInput | string
   guildId?: Prisma.StringFieldUpdateOperationsInput | string
   guildName?: Prisma.StringFieldUpdateOperationsInput | string
   memberId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -526,7 +524,7 @@ export type SecurityEventUpdateManyMutationInput = {
 export type SecurityEventUncheckedUpdateManyInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   eventType?: Prisma.StringFieldUpdateOperationsInput | string
-  severity?: Prisma.EnumSecuritySeverityFieldUpdateOperationsInput | $Enums.SecuritySeverity
+  severity?: Prisma.StringFieldUpdateOperationsInput | string
   guildId?: Prisma.StringFieldUpdateOperationsInput | string
   guildName?: Prisma.StringFieldUpdateOperationsInput | string
   memberId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -607,10 +605,6 @@ export type SecurityEventMinOrderByAggregateInput = {
 
 export type SecurityEventSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
-}
-
-export type EnumSecuritySeverityFieldUpdateOperationsInput = {
-  set?: $Enums.SecuritySeverity
 }
 
 
@@ -702,11 +696,8 @@ export type $SecurityEventPayload<ExtArgs extends runtime.Types.Extensions.Inter
   objects: {}
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: bigint
-    /**
-     * role-change, threat-detected, permission-violation, sweep, startup, shutdown
-     */
     eventType: string
-    severity: $Enums.SecuritySeverity
+    severity: string
     guildId: string
     guildName: string
     memberId: string | null
@@ -715,25 +706,10 @@ export type $SecurityEventPayload<ExtArgs extends runtime.Types.Extensions.Inter
     roleName: string | null
     executorId: string | null
     executorTag: string | null
-    /**
-     * security-bot-sweep, admin-manual, member-join, role-reaction, api-direct
-     */
     origin: string
-    /**
-     * Additional event-specific data
-     */
     metadata: runtime.JsonValue | null
-    /**
-     * HMAC-SHA256 signature of event data
-     */
     signature: string | null
-    /**
-     * Row checksum for tampering detection
-     */
     checksum: string
-    /**
-     * Hash chain link to previous event
-     */
     previousHash: string | null
     createdAt: Date
   }, ExtArgs["result"]["securityEvent"]>
@@ -1161,7 +1137,7 @@ export interface Prisma__SecurityEventClient<T, Null = never, ExtArgs extends ru
 export interface SecurityEventFieldRefs {
   readonly id: Prisma.FieldRef<"SecurityEvent", 'BigInt'>
   readonly eventType: Prisma.FieldRef<"SecurityEvent", 'String'>
-  readonly severity: Prisma.FieldRef<"SecurityEvent", 'SecuritySeverity'>
+  readonly severity: Prisma.FieldRef<"SecurityEvent", 'String'>
   readonly guildId: Prisma.FieldRef<"SecurityEvent", 'String'>
   readonly guildName: Prisma.FieldRef<"SecurityEvent", 'String'>
   readonly memberId: Prisma.FieldRef<"SecurityEvent", 'String'>

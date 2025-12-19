@@ -15,7 +15,6 @@ import { fileURLToPath } from 'node:url';
 
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
 import { formatBytes, formatUptime, extractDatabaseName } from '../shared/utils/index.js';
-import { TIME_CONSTANTS } from '../shared/constants.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -199,7 +198,7 @@ const statsCache: StatsCache = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var securityBotState: {
     stats?: {
       totalSweeps?: number;
@@ -212,7 +211,7 @@ declare global {
     }>;
   } | undefined;
   
-  // eslint-disable-next-line no-var
+   
   var securityBotClient: {
     guilds?: { cache?: { size: number } };
     isReady?: () => boolean;

@@ -14,7 +14,7 @@ import { HomesteadChannelManager } from '../services/homestead-manager.js';
 import { homeMenuButtons } from '../bot/shared/button-utils.js';
 import { homeEmbed } from '../bot/shared/embed-builders.js';
 import type { Command } from './types.js';
-import type { PrismaClient, User, Party, Cooldown, PokemonInstance } from '@prisma/client';
+import type { PrismaClient, User, Party, Cooldown, PokemonInstance } from '../generated/prisma/client.js';
 
 const requireESM = createRequire(import.meta.url);
 const { DEFAULT_STARTER_COINS, BATTLE_HISTORY_LIMIT } = GAME_CONSTANTS;

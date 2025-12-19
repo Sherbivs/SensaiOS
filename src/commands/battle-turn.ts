@@ -78,7 +78,7 @@ interface BattleSession {
 
 declare global {
   // Declared in src/index.ts - indicates Engine DB is initialized
-  // eslint-disable-next-line no-var
+   
   var engineReady: boolean;
 }
 

@@ -10,7 +10,7 @@ function recordTiming(label, startTime) {
 }
 // Capture module import time
 const MODULE_IMPORT_START = process.hrtime.bigint();
-import { Prisma } from "@prisma/client";
+import { Prisma } from './generated/prisma/client.js';
 import { Events } from "discord.js";
 import { bootDiscord } from "./bot/index.js";
 import { botErrorHandler } from "./bot/error-handler.js";

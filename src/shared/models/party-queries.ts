@@ -7,7 +7,7 @@
  * Performance: Reduces 3 sequential queries to 1 joined query (10-20ms improvement)
  */
 
-import { PrismaClient, Party, PartySlot, PokemonInstance } from "@prisma/client";
+import { PrismaClient, Party, PartySlot, PokemonInstance } from '../../generated/prisma/client.js';
 
 /**
  * Standard include pattern for party with slots and Pokemon

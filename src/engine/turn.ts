@@ -7,7 +7,7 @@
 import { baseDamage, effectiveStat, afterDealtDamage } from './calc.js';
 import { checkAccuracy, applySecondaryEffects } from './effects.js';
 import type { BattleState, BattleAction, PokemonRuntime } from './types.js';
-import type { MoveData, EffectContext } from './effects.js';
+import type { MoveData } from './effects.js';
 import type { CalcContext } from './calc.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

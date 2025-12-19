@@ -14,8 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace.js"
 
 /**
  * Model ConsoleOutput
- * Console outputs capture for structured logging
- * Captured by console-interceptor.ts
+ * 
  */
 export type ConsoleOutputModel = runtime.Types.Result.DefaultSelection<Prisma.$ConsoleOutputPayload>
 
@@ -260,10 +259,11 @@ export type ConsoleOutputOrderByWithRelationInput = {
 }
 
 export type ConsoleOutputWhereUniqueInput = Prisma.AtLeast<{
-  id?: bigint | number
+  id_timestamp?: Prisma.ConsoleOutputIdTimestampCompoundUniqueInput
   AND?: Prisma.ConsoleOutputWhereInput | Prisma.ConsoleOutputWhereInput[]
   OR?: Prisma.ConsoleOutputWhereInput[]
   NOT?: Prisma.ConsoleOutputWhereInput | Prisma.ConsoleOutputWhereInput[]
+  id?: Prisma.BigIntFilter<"ConsoleOutput"> | bigint | number
   timestamp?: Prisma.DateTimeFilter<"ConsoleOutput"> | Date | string
   serviceName?: Prisma.StringFilter<"ConsoleOutput"> | string
   outputType?: Prisma.StringFilter<"ConsoleOutput"> | string
@@ -272,7 +272,7 @@ export type ConsoleOutputWhereUniqueInput = Prisma.AtLeast<{
   parsedData?: Prisma.JsonNullableFilter<"ConsoleOutput">
   correlationId?: Prisma.UuidNullableFilter<"ConsoleOutput"> | string | null
   sessionId?: Prisma.StringNullableFilter<"ConsoleOutput"> | string | null
-}, "id">
+}, "id_timestamp">
 
 export type ConsoleOutputOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -390,6 +390,11 @@ export type ConsoleOutputUncheckedUpdateManyInput = {
   sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
+export type ConsoleOutputIdTimestampCompoundUniqueInput = {
+  id: bigint | number
+  timestamp: Date | string
+}
+
 export type ConsoleOutputCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   timestamp?: Prisma.SortOrder
@@ -490,24 +495,12 @@ export type $ConsoleOutputPayload<ExtArgs extends runtime.Types.Extensions.Inter
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: bigint
     timestamp: Date
-    /**
-     * 'infinity-gauntlet', 'security-bot', etc.
-     */
     serviceName: string
-    /**
-     * 'telemetry', 'stats', 'section', 'banner'
-     */
     outputType: string
-    /**
-     * 'debug', 'info', 'warn', 'error'
-     */
     outputLevel: string
     rawOutput: string
     parsedData: runtime.JsonValue | null
     correlationId: string | null
-    /**
-     * Render session/deploy ID
-     */
     sessionId: string | null
   }, ExtArgs["result"]["consoleOutput"]>
   composites: {}

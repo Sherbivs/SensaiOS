@@ -1,14 +1,14 @@
 // Prisma schema for Infinity Gauntlet — MVP entities
+// Prisma 7 Configuration: Uses driver adapters (no Rust engine)
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
-// Database URL configured via environment variables
-// Priority: PROD_DATABASE_URL → DATABASE_URL → RENDER_DB_EXTERNAL_URL
+// Database URL configured via prisma.config.ts for CLI operations
+// Runtime connections use @prisma/adapter-pg in src/shared/prisma.ts
 datasource db {
   provider = "postgresql"
-  url      = env("PROD_DATABASE_URL")
 }
 
 /// ---- Dex Reference Enums ----
@@ -796,16 +796,27 @@ model MemberRoleHistory {
 }
 
 model SecurityEvent {
-  id            BigInt   @default(autoincrement())
-  timestamp     DateTime @db.Timestamptz(6)
-  eventType     String   @map("event_type")
-  severity      String
-  guildId       String   @map("guild_id")
-  userId        String?  @map("user_id")
-  details       Json?
-  correlationId String?  @map("correlation_id") @db.Uuid
+  id           BigInt   @id @default(autoincrement())
+  eventType    String   @map("event_type")
+  severity     String
+  guildId      String   @map("guild_id")
+  guildName    String   @map("guild_name")
+  memberId     String?  @map("member_id")
+  memberTag    String?  @map("member_tag")
+  roleId       String?  @map("role_id")
+  roleName     String?  @map("role_name")
+  executorId   String?  @map("executor_id")
+  executorTag  String?  @map("executor_tag")
+  origin       String
+  metadata     Json?
+  signature    String?
+  checksum     String
+  previousHash String?  @map("previous_hash")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  @@id([id, timestamp])
+  @@index([guildId, createdAt(sort: Desc)], map: "idx_security_events_guild_time")
+  @@index([eventType], map: "idx_security_events_type")
+  @@index([severity], map: "idx_security_events_severity")
   @@map("security_events")
 }
 

@@ -1,6 +1,6 @@
 import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
 import type { Pool } from "pg";
-import type { PrismaClient, Prisma } from "@prisma/client";
+import type { PrismaClient, Prisma } from '../../generated/prisma/client.js';
 import type { BusStatus } from "../../types/db-models.js";
 import { toEasternString } from "../../shared/datetime.js";
 import { formatBytes, formatBytesShort, formatDurationCompact, formatTimestamp } from "../../shared/utils/format-utils.js";

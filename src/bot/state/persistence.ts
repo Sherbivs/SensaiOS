@@ -13,9 +13,7 @@ import { errorTracker } from '../../services/monitoring/index.js';
 import type { 
   SecurityBotState, 
   CumulativeStats, 
-  MetricsHistory, 
   HourlyMetrics,
-  HourlyMetric,
   MetricsSummary, 
   GuildState, 
   RuntimeState, 

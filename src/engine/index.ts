@@ -8,7 +8,7 @@ import { newPokemonRuntime, newBattleState, newAction } from './types.js';
 import { derivedStats } from './stats.js';
 import { resolveTurn } from './turn.js';
 import type { PokemonRuntime, BattleState, BattleAction, Matchups, PokemonInput } from './types.js';
-import type { BaseStats, DerivedStats } from './stats.js';
+import type { BaseStats } from './stats.js';
 import type { MoveData } from './effects.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,13 +1,18 @@
-import { defineConfig } from '@prisma/client/runtime/wasm.js';
+import "dotenv/config";
+import { defineConfig, env } from "prisma/config";
 
 export default defineConfig({
-  // Production database (Render-managed PostgreSQL)
-  datasourceUrl: process.env.PROD_DATABASE_URL,
+  // Schema location
+  schema: "prisma/schema.prisma",
   
-  // Optional: Configure connection pooling
-  // datasources: {
-  //   db: {
-  //     url: process.env.PROD_DATABASE_URL,
-  //   },
-  // },
+  // Migration configuration
+  migrations: {
+    path: "prisma/migrations",
+  },
+  
+  // Database connection for CLI operations (migrate, db push, studio)
+  // Runtime uses @prisma/adapter-pg directly in src/shared/prisma.ts
+  datasource: {
+    url: env("PROD_DATABASE_URL"),
+  },
 });

@@ -8,6 +8,10 @@ import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
 
 export default [
+  // Ignore Prisma generated files
+  {
+    ignores: ['src/generated/**'],
+  },
   js.configs.recommended,
   {
     files: ['**/*.ts', '**/*.js'],

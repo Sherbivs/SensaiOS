@@ -26,7 +26,7 @@ export interface HomeViews {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __dmHomeViews: HomeViews | undefined;
 }
 

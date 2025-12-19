@@ -9,8 +9,6 @@ import { register, Counter, Gauge, Histogram, collectDefaultMetrics, Registry } 
 import {
   calculateWindowStats,
   TIME_WINDOWS,
-  type HourlyMetric,
-  type MetricsHistory,
   type SecurityBotState,
   type WindowStats,
 } from './statistics-window.js';
@@ -19,7 +17,8 @@ import {
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface MetricLabels {
+// Reserved for future typed label support
+interface _MetricLabels {
   origin?: string;
   guild_id?: string;
   guild_name?: string;

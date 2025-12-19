@@ -23,9 +23,7 @@ import { randomUUID } from 'crypto';
 import { getErrorMessage } from './utils/error-utils.js';
 import type { 
   EventTopic, 
-  EventPayload, 
-  AnyEventPayload,
-  EventTopicMap,
+  EventPayload,
 } from './event-types.js';
 
 // NOTE: Event Bus uses console.log for internal logging to avoid circular dependency
@@ -413,7 +411,7 @@ class Subscription<T = unknown> {
 export class EventBus {
   private static instance: EventBus | null = null;
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private subscriptions = new Map<SubscriptionId, Subscription<any>>();
   private replayBuffer: EventReplayBuffer;
   private stats = {
@@ -463,7 +461,7 @@ export class EventBus {
    * @returns Correlation ID for tracing
    */
   emit(topic: string, payload: object, options?: EmitOptions): CorrelationId;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   emit(topic: string, payload: any, options: EmitOptions = {}): CorrelationId {
     // Generate correlation ID
     const correlationId = options.parentCorrelationId
@@ -518,7 +516,7 @@ export class EventBus {
    */
   emitSync<T extends EventTopic>(topic: T, payload: EventPayload<T>): void;
   emitSync(topic: string, payload: object): void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   emitSync(topic: string, payload: any): void {
     this.emit(topic, payload, {});
   }

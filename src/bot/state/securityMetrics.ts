@@ -26,7 +26,7 @@
 
 import { existsSync, readFileSync } from 'fs';
 import { log } from '../../utils/logger.js';
-import type { SecurityBotState, GuildState } from './types.js';
+import type { SecurityBotState } from './types.js';
 import type { ThreatSeverity, SecurityThreat } from './threatDetector.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

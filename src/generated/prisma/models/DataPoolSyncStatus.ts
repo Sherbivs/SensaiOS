@@ -14,8 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace.js"
 
 /**
  * Model DataPoolSyncStatus
- * Data pool sync status — tracks when entities were last synchronized
- * @description Enables incremental sync and freshness monitoring
+ * 
  */
 export type DataPoolSyncStatusModel = runtime.Types.Result.DefaultSelection<Prisma.$DataPoolSyncStatusPayload>
 
@@ -564,9 +563,6 @@ export type $DataPoolSyncStatusPayload<ExtArgs extends runtime.Types.Extensions.
   name: "DataPoolSyncStatus"
   objects: {}
   scalars: runtime.Types.Extensions.GetPayloadResult<{
-    /**
-     * Entity type: "guilds", "members", "roles"
-     */
     id: string
     lastFullSyncAt: Date | null
     lastIncrementalAt: Date | null

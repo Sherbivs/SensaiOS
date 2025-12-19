@@ -955,10 +955,6 @@ export type PokemonInstanceUncheckedUpdateManyWithoutOwnerNestedInput = {
   deleteMany?: Prisma.PokemonInstanceScalarWhereInput | Prisma.PokemonInstanceScalarWhereInput[]
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type PokemonInstanceCreateNestedOneWithoutPartySlotsInput = {
   create?: Prisma.XOR<Prisma.PokemonInstanceCreateWithoutPartySlotsInput, Prisma.PokemonInstanceUncheckedCreateWithoutPartySlotsInput>
   connectOrCreate?: Prisma.PokemonInstanceCreateOrConnectWithoutPartySlotsInput

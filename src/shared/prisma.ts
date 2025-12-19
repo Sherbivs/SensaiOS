@@ -1,4 +1,7 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+// Prisma 7: Uses driver adapters (no Rust engine)
+import { PrismaClient, Prisma } from "../generated/prisma/client.js";
+import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
@@ -235,22 +238,24 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
   process.env.DATABASE_URL = candidate.url;
   process.env.DATABASE_CONNECTION_SOURCE = candidate.source;
 
-  // 2-NODE CLUSTER: Direct PostgreSQL connections only
-  const PrismaCtor = PrismaClient;
+  // PRISMA 7: Create pg Pool and use driver adapter
+  const pool = new pg.Pool({ connectionString: candidate.url });
+  const adapter = new PrismaPg(pool);
+  
   const logLevels = nodeEnv === "development" ? ["warn", "error"] : ["error"];
 
   // OPTIMIZATION: Query performance monitoring (Phase 5.1)
   // Enable query event logging to detect slow queries (>100ms) and N+1 patterns
-  // NOTE: Prisma 7 removed 'datasources' option - URL is now configured via prisma.config.ts
   const baseOptions = {
+    adapter,
     log: [
-      ...logLevels.map(level => ({ emit: "stdout" as const, level: level as any })),
-      { emit: "event" as const, level: "query" as any }, // Query performance instrumentation
+      ...logLevels.map(level => ({ emit: "stdout" as const, level: level as Prisma.LogLevel })),
+      { emit: "event" as const, level: "query" as Prisma.LogLevel }, // Query performance instrumentation
     ],
   };
 
-  const baseClient = new PrismaCtor(baseOptions as Prisma.PrismaClientOptions) as PrismaClient;
-  let client = baseClient;
+  const baseClient = new PrismaClient(baseOptions);
+  const client = baseClient;
   
   // Attach query performance monitoring handler
   // Logs warnings for slow queries (>100ms) to help identify N+1 patterns and optimization targets
@@ -267,9 +272,6 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
       });
     }
   });
-
-  // 2-NODE CLUSTER: Always use library engine for direct connections
-  delete process.env.PRISMA_CLIENT_ENGINE_TYPE;
 
   globalPrisma.prisma = client;
   lastPrismaTransport = "direct";
@@ -535,24 +537,18 @@ async function initializeOnPremiseDevClient(): Promise<void> {
   }
   
   try {
-    // 2-NODE CLUSTER: Always use direct PostgreSQL connections
+    // PRISMA 7: Create pg Pool and use driver adapter
     onPremiseDevTransport = "direct";
     
-    // PRISMA INTERNAL REQUIREMENT: Temporarily set DATABASE_URL for PrismaClient constructor
-    // Prisma requires process.env.DATABASE_URL at instantiation time, even though we use direct URLs
-    const originalDatabaseUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = onPremiseDevUrl;
+    const pool = new pg.Pool({ connectionString: onPremiseDevUrl });
+    const adapter = new PrismaPg(pool);
     
     const baseOptions = {
-      log: ["error"] as any,
+      adapter,
+      log: [{ emit: "stdout" as const, level: "error" as Prisma.LogLevel }],
     };
     
     onPremiseDevPrismaClient = new PrismaClient(baseOptions);
-    
-    // Restore original DATABASE_URL after Prisma client creation
-    if (originalDatabaseUrl) {
-      process.env.DATABASE_URL = originalDatabaseUrl;
-    }
     
     onPremiseDevPrisma = onPremiseDevPrismaClient;
     
@@ -630,24 +626,18 @@ async function initializeOnPremiseExperimentClient(): Promise<void> {
   }
   
   try {
-    // 2-NODE CLUSTER: Always use direct PostgreSQL connections
+    // PRISMA 7: Create pg Pool and use driver adapter
     onPremiseExperimentTransport = "direct";
     
-    // PRISMA INTERNAL REQUIREMENT: Temporarily set DATABASE_URL for PrismaClient constructor
-    // Prisma requires process.env.DATABASE_URL at instantiation time, even though we use direct URLs
-    const originalDatabaseUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = onPremiseExperimentUrl;
+    const pool = new pg.Pool({ connectionString: onPremiseExperimentUrl });
+    const adapter = new PrismaPg(pool);
     
     const baseOptions = {
-      log: ["error"] as any,
+      adapter,
+      log: [{ emit: "stdout" as const, level: "error" as Prisma.LogLevel }],
     };
     
     onPremiseExperimentPrismaClient = new PrismaClient(baseOptions);
-    
-    // Restore original DATABASE_URL after Prisma client creation
-    if (originalDatabaseUrl) {
-      process.env.DATABASE_URL = originalDatabaseUrl;
-    }
     
     onPremiseExperimentPrisma = onPremiseExperimentPrismaClient;
     

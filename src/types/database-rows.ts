@@ -17,7 +17,7 @@
  * Note: PostgreSQL timestamps come as Date objects with node-pg defaults
  */
 
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from '../generated/prisma/client.js';
 
 // ============================================================================
 // Common Types

@@ -14,8 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace.js"
 
 /**
  * Model WorkerMetrics
- * Worker performance metrics hypertable
- * Collected every 15 seconds by metrics-collector.ts
+ * 
  */
 export type WorkerMetricsModel = runtime.Types.Result.DefaultSelection<Prisma.$WorkerMetricsPayload>
 
@@ -311,9 +310,9 @@ export type WorkerMetricsGroupByOutputType = {
   timestamp: Date
   workerId: string
   workerName: string
-  operationCount: bigint
-  successCount: bigint
-  failureCount: bigint
+  operationCount: bigint | null
+  successCount: bigint | null
+  failureCount: bigint | null
   avgLatencyMs: number | null
   peakLatencyMs: number | null
   throughput: number | null
@@ -355,9 +354,9 @@ export type WorkerMetricsWhereInput = {
   timestamp?: Prisma.DateTimeFilter<"WorkerMetrics"> | Date | string
   workerId?: Prisma.StringFilter<"WorkerMetrics"> | string
   workerName?: Prisma.StringFilter<"WorkerMetrics"> | string
-  operationCount?: Prisma.BigIntFilter<"WorkerMetrics"> | bigint | number
-  successCount?: Prisma.BigIntFilter<"WorkerMetrics"> | bigint | number
-  failureCount?: Prisma.BigIntFilter<"WorkerMetrics"> | bigint | number
+  operationCount?: Prisma.BigIntNullableFilter<"WorkerMetrics"> | bigint | number | null
+  successCount?: Prisma.BigIntNullableFilter<"WorkerMetrics"> | bigint | number | null
+  failureCount?: Prisma.BigIntNullableFilter<"WorkerMetrics"> | bigint | number | null
   avgLatencyMs?: Prisma.FloatNullableFilter<"WorkerMetrics"> | number | null
   peakLatencyMs?: Prisma.FloatNullableFilter<"WorkerMetrics"> | number | null
   throughput?: Prisma.FloatNullableFilter<"WorkerMetrics"> | number | null
@@ -376,9 +375,9 @@ export type WorkerMetricsOrderByWithRelationInput = {
   timestamp?: Prisma.SortOrder
   workerId?: Prisma.SortOrder
   workerName?: Prisma.SortOrder
-  operationCount?: Prisma.SortOrder
-  successCount?: Prisma.SortOrder
-  failureCount?: Prisma.SortOrder
+  operationCount?: Prisma.SortOrderInput | Prisma.SortOrder
+  successCount?: Prisma.SortOrderInput | Prisma.SortOrder
+  failureCount?: Prisma.SortOrderInput | Prisma.SortOrder
   avgLatencyMs?: Prisma.SortOrderInput | Prisma.SortOrder
   peakLatencyMs?: Prisma.SortOrderInput | Prisma.SortOrder
   throughput?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -393,16 +392,17 @@ export type WorkerMetricsOrderByWithRelationInput = {
 }
 
 export type WorkerMetricsWhereUniqueInput = Prisma.AtLeast<{
-  id?: bigint | number
+  id_timestamp?: Prisma.WorkerMetricsIdTimestampCompoundUniqueInput
   AND?: Prisma.WorkerMetricsWhereInput | Prisma.WorkerMetricsWhereInput[]
   OR?: Prisma.WorkerMetricsWhereInput[]
   NOT?: Prisma.WorkerMetricsWhereInput | Prisma.WorkerMetricsWhereInput[]
+  id?: Prisma.BigIntFilter<"WorkerMetrics"> | bigint | number
   timestamp?: Prisma.DateTimeFilter<"WorkerMetrics"> | Date | string
   workerId?: Prisma.StringFilter<"WorkerMetrics"> | string
   workerName?: Prisma.StringFilter<"WorkerMetrics"> | string
-  operationCount?: Prisma.BigIntFilter<"WorkerMetrics"> | bigint | number
-  successCount?: Prisma.BigIntFilter<"WorkerMetrics"> | bigint | number
-  failureCount?: Prisma.BigIntFilter<"WorkerMetrics"> | bigint | number
+  operationCount?: Prisma.BigIntNullableFilter<"WorkerMetrics"> | bigint | number | null
+  successCount?: Prisma.BigIntNullableFilter<"WorkerMetrics"> | bigint | number | null
+  failureCount?: Prisma.BigIntNullableFilter<"WorkerMetrics"> | bigint | number | null
   avgLatencyMs?: Prisma.FloatNullableFilter<"WorkerMetrics"> | number | null
   peakLatencyMs?: Prisma.FloatNullableFilter<"WorkerMetrics"> | number | null
   throughput?: Prisma.FloatNullableFilter<"WorkerMetrics"> | number | null
@@ -414,16 +414,16 @@ export type WorkerMetricsWhereUniqueInput = Prisma.AtLeast<{
   cpuPercent?: Prisma.FloatNullableFilter<"WorkerMetrics"> | number | null
   healthStatus?: Prisma.StringNullableFilter<"WorkerMetrics"> | string | null
   lastError?: Prisma.StringNullableFilter<"WorkerMetrics"> | string | null
-}, "id">
+}, "id_timestamp">
 
 export type WorkerMetricsOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   timestamp?: Prisma.SortOrder
   workerId?: Prisma.SortOrder
   workerName?: Prisma.SortOrder
-  operationCount?: Prisma.SortOrder
-  successCount?: Prisma.SortOrder
-  failureCount?: Prisma.SortOrder
+  operationCount?: Prisma.SortOrderInput | Prisma.SortOrder
+  successCount?: Prisma.SortOrderInput | Prisma.SortOrder
+  failureCount?: Prisma.SortOrderInput | Prisma.SortOrder
   avgLatencyMs?: Prisma.SortOrderInput | Prisma.SortOrder
   peakLatencyMs?: Prisma.SortOrderInput | Prisma.SortOrder
   throughput?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -450,9 +450,9 @@ export type WorkerMetricsScalarWhereWithAggregatesInput = {
   timestamp?: Prisma.DateTimeWithAggregatesFilter<"WorkerMetrics"> | Date | string
   workerId?: Prisma.StringWithAggregatesFilter<"WorkerMetrics"> | string
   workerName?: Prisma.StringWithAggregatesFilter<"WorkerMetrics"> | string
-  operationCount?: Prisma.BigIntWithAggregatesFilter<"WorkerMetrics"> | bigint | number
-  successCount?: Prisma.BigIntWithAggregatesFilter<"WorkerMetrics"> | bigint | number
-  failureCount?: Prisma.BigIntWithAggregatesFilter<"WorkerMetrics"> | bigint | number
+  operationCount?: Prisma.BigIntNullableWithAggregatesFilter<"WorkerMetrics"> | bigint | number | null
+  successCount?: Prisma.BigIntNullableWithAggregatesFilter<"WorkerMetrics"> | bigint | number | null
+  failureCount?: Prisma.BigIntNullableWithAggregatesFilter<"WorkerMetrics"> | bigint | number | null
   avgLatencyMs?: Prisma.FloatNullableWithAggregatesFilter<"WorkerMetrics"> | number | null
   peakLatencyMs?: Prisma.FloatNullableWithAggregatesFilter<"WorkerMetrics"> | number | null
   throughput?: Prisma.FloatNullableWithAggregatesFilter<"WorkerMetrics"> | number | null
@@ -471,9 +471,9 @@ export type WorkerMetricsCreateInput = {
   timestamp?: Date | string
   workerId: string
   workerName: string
-  operationCount?: bigint | number
-  successCount?: bigint | number
-  failureCount?: bigint | number
+  operationCount?: bigint | number | null
+  successCount?: bigint | number | null
+  failureCount?: bigint | number | null
   avgLatencyMs?: number | null
   peakLatencyMs?: number | null
   throughput?: number | null
@@ -492,9 +492,9 @@ export type WorkerMetricsUncheckedCreateInput = {
   timestamp?: Date | string
   workerId: string
   workerName: string
-  operationCount?: bigint | number
-  successCount?: bigint | number
-  failureCount?: bigint | number
+  operationCount?: bigint | number | null
+  successCount?: bigint | number | null
+  failureCount?: bigint | number | null
   avgLatencyMs?: number | null
   peakLatencyMs?: number | null
   throughput?: number | null
@@ -513,9 +513,9 @@ export type WorkerMetricsUpdateInput = {
   timestamp?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   workerId?: Prisma.StringFieldUpdateOperationsInput | string
   workerName?: Prisma.StringFieldUpdateOperationsInput | string
-  operationCount?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  successCount?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  failureCount?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  operationCount?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  successCount?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  failureCount?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   avgLatencyMs?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   peakLatencyMs?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   throughput?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -534,9 +534,9 @@ export type WorkerMetricsUncheckedUpdateInput = {
   timestamp?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   workerId?: Prisma.StringFieldUpdateOperationsInput | string
   workerName?: Prisma.StringFieldUpdateOperationsInput | string
-  operationCount?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  successCount?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  failureCount?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  operationCount?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  successCount?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  failureCount?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   avgLatencyMs?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   peakLatencyMs?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   throughput?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -555,9 +555,9 @@ export type WorkerMetricsCreateManyInput = {
   timestamp?: Date | string
   workerId: string
   workerName: string
-  operationCount?: bigint | number
-  successCount?: bigint | number
-  failureCount?: bigint | number
+  operationCount?: bigint | number | null
+  successCount?: bigint | number | null
+  failureCount?: bigint | number | null
   avgLatencyMs?: number | null
   peakLatencyMs?: number | null
   throughput?: number | null
@@ -576,9 +576,9 @@ export type WorkerMetricsUpdateManyMutationInput = {
   timestamp?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   workerId?: Prisma.StringFieldUpdateOperationsInput | string
   workerName?: Prisma.StringFieldUpdateOperationsInput | string
-  operationCount?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  successCount?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  failureCount?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  operationCount?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  successCount?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  failureCount?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   avgLatencyMs?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   peakLatencyMs?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   throughput?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -597,9 +597,9 @@ export type WorkerMetricsUncheckedUpdateManyInput = {
   timestamp?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   workerId?: Prisma.StringFieldUpdateOperationsInput | string
   workerName?: Prisma.StringFieldUpdateOperationsInput | string
-  operationCount?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  successCount?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  failureCount?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  operationCount?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  successCount?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  failureCount?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   avgLatencyMs?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   peakLatencyMs?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   throughput?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -611,6 +611,11 @@ export type WorkerMetricsUncheckedUpdateManyInput = {
   cpuPercent?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   healthStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type WorkerMetricsIdTimestampCompoundUniqueInput = {
+  id: bigint | number
+  timestamp: Date | string
 }
 
 export type WorkerMetricsCountOrderByAggregateInput = {
@@ -706,14 +711,6 @@ export type WorkerMetricsSumOrderByAggregateInput = {
   backpressureEvents?: Prisma.SortOrder
   memoryUsedBytes?: Prisma.SortOrder
   cpuPercent?: Prisma.SortOrder
-}
-
-export type NullableFloatFieldUpdateOperationsInput = {
-  set?: number | null
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
 }
 
 export type NullableBigIntFieldUpdateOperationsInput = {
@@ -820,14 +817,11 @@ export type $WorkerMetricsPayload<ExtArgs extends runtime.Types.Extensions.Inter
     timestamp: Date
     workerId: string
     workerName: string
-    operationCount: bigint
-    successCount: bigint
-    failureCount: bigint
+    operationCount: bigint | null
+    successCount: bigint | null
+    failureCount: bigint | null
     avgLatencyMs: number | null
     peakLatencyMs: number | null
-    /**
-     * ops/sec
-     */
     throughput: number | null
     bufferSize: number | null
     bufferUtilizationPct: number | null
@@ -835,9 +829,6 @@ export type $WorkerMetricsPayload<ExtArgs extends runtime.Types.Extensions.Inter
     backpressureEvents: number | null
     memoryUsedBytes: bigint | null
     cpuPercent: number | null
-    /**
-     * healthy, degraded, unhealthy
-     */
     healthStatus: string | null
     lastError: string | null
   }, ExtArgs["result"]["workerMetrics"]>

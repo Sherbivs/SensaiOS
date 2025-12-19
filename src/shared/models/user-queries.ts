@@ -7,7 +7,7 @@
  * Performance: Fetching only needed fields reduces network overhead and serialization
  */
 
-import { PrismaClient, User } from "@prisma/client";
+import { PrismaClient, User } from '../../generated/prisma/client.js';
 import type { PartyWithSlots } from "./party-queries.js";
 import { PARTY_WITH_SLOTS_INCLUDE } from "./party-queries.js";
 

@@ -280,7 +280,6 @@ class Subscription {
  */
 export class EventBus {
     static instance = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     subscriptions = new Map();
     replayBuffer;
     stats = {
@@ -316,7 +315,6 @@ export class EventBus {
         // Clear pattern cache on reset
         patternCache.clear();
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     emit(topic, payload, options = {}) {
         // Generate correlation ID
         const correlationId = options.parentCorrelationId
@@ -358,7 +356,6 @@ export class EventBus {
         }
         return correlationId;
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     emitSync(topic, payload) {
         this.emit(topic, payload, {});
     }

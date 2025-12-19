@@ -14,8 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace.js"
 
 /**
  * Model DiscordMember
- * Discord member information — the data pool of member profiles
- * @description Captures member state for security analysis and cross-reference
+ * 
  */
 export type DiscordMemberModel = runtime.Types.Result.DefaultSelection<Prisma.$DiscordMemberPayload>
 
@@ -353,7 +352,6 @@ export type DiscordMemberWhereInput = {
   riskScore?: Prisma.FloatNullableFilter<"DiscordMember"> | number | null
   firstSeenAt?: Prisma.DateTimeFilter<"DiscordMember"> | Date | string
   lastUpdatedAt?: Prisma.DateTimeFilter<"DiscordMember"> | Date | string
-  guild?: Prisma.XOR<Prisma.DiscordGuildScalarRelationFilter, Prisma.DiscordGuildWhereInput>
 }
 
 export type DiscordMemberOrderByWithRelationInput = {
@@ -379,7 +377,6 @@ export type DiscordMemberOrderByWithRelationInput = {
   riskScore?: Prisma.SortOrderInput | Prisma.SortOrder
   firstSeenAt?: Prisma.SortOrder
   lastUpdatedAt?: Prisma.SortOrder
-  guild?: Prisma.DiscordGuildOrderByWithRelationInput
 }
 
 export type DiscordMemberWhereUniqueInput = Prisma.AtLeast<{
@@ -409,7 +406,6 @@ export type DiscordMemberWhereUniqueInput = Prisma.AtLeast<{
   riskScore?: Prisma.FloatNullableFilter<"DiscordMember"> | number | null
   firstSeenAt?: Prisma.DateTimeFilter<"DiscordMember"> | Date | string
   lastUpdatedAt?: Prisma.DateTimeFilter<"DiscordMember"> | Date | string
-  guild?: Prisma.XOR<Prisma.DiscordGuildScalarRelationFilter, Prisma.DiscordGuildWhereInput>
 }, "id" | "discordUserId_guildId">
 
 export type DiscordMemberOrderByWithAggregationInput = {
@@ -473,6 +469,7 @@ export type DiscordMemberScalarWhereWithAggregatesInput = {
 export type DiscordMemberCreateInput = {
   id?: string
   discordUserId: string
+  guildId: string
   username: string
   discriminator?: string | null
   displayName?: string | null
@@ -492,7 +489,6 @@ export type DiscordMemberCreateInput = {
   riskScore?: number | null
   firstSeenAt?: Date | string
   lastUpdatedAt?: Date | string
-  guild: Prisma.DiscordGuildCreateNestedOneWithoutMembersInput
 }
 
 export type DiscordMemberUncheckedCreateInput = {
@@ -523,6 +519,7 @@ export type DiscordMemberUncheckedCreateInput = {
 export type DiscordMemberUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   discordUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  guildId?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   discriminator?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -542,7 +539,6 @@ export type DiscordMemberUpdateInput = {
   riskScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   firstSeenAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUpdatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  guild?: Prisma.DiscordGuildUpdateOneRequiredWithoutMembersNestedInput
 }
 
 export type DiscordMemberUncheckedUpdateInput = {
@@ -598,6 +594,7 @@ export type DiscordMemberCreateManyInput = {
 export type DiscordMemberUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   discordUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  guildId?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   discriminator?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -644,14 +641,12 @@ export type DiscordMemberUncheckedUpdateManyInput = {
   lastUpdatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
-export type DiscordMemberListRelationFilter = {
-  every?: Prisma.DiscordMemberWhereInput
-  some?: Prisma.DiscordMemberWhereInput
-  none?: Prisma.DiscordMemberWhereInput
-}
-
-export type DiscordMemberOrderByRelationAggregateInput = {
-  _count?: Prisma.SortOrder
+export type StringNullableListFilter<$PrismaModel = never> = {
+  equals?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
+  has?: string | Prisma.StringFieldRefInput<$PrismaModel> | null
+  hasEvery?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
+  hasSome?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
+  isEmpty?: boolean
 }
 
 export type DiscordMemberDiscordUserIdGuildIdCompoundUniqueInput = {
@@ -742,48 +737,6 @@ export type DiscordMemberSumOrderByAggregateInput = {
   riskScore?: Prisma.SortOrder
 }
 
-export type DiscordMemberCreateNestedManyWithoutGuildInput = {
-  create?: Prisma.XOR<Prisma.DiscordMemberCreateWithoutGuildInput, Prisma.DiscordMemberUncheckedCreateWithoutGuildInput> | Prisma.DiscordMemberCreateWithoutGuildInput[] | Prisma.DiscordMemberUncheckedCreateWithoutGuildInput[]
-  connectOrCreate?: Prisma.DiscordMemberCreateOrConnectWithoutGuildInput | Prisma.DiscordMemberCreateOrConnectWithoutGuildInput[]
-  createMany?: Prisma.DiscordMemberCreateManyGuildInputEnvelope
-  connect?: Prisma.DiscordMemberWhereUniqueInput | Prisma.DiscordMemberWhereUniqueInput[]
-}
-
-export type DiscordMemberUncheckedCreateNestedManyWithoutGuildInput = {
-  create?: Prisma.XOR<Prisma.DiscordMemberCreateWithoutGuildInput, Prisma.DiscordMemberUncheckedCreateWithoutGuildInput> | Prisma.DiscordMemberCreateWithoutGuildInput[] | Prisma.DiscordMemberUncheckedCreateWithoutGuildInput[]
-  connectOrCreate?: Prisma.DiscordMemberCreateOrConnectWithoutGuildInput | Prisma.DiscordMemberCreateOrConnectWithoutGuildInput[]
-  createMany?: Prisma.DiscordMemberCreateManyGuildInputEnvelope
-  connect?: Prisma.DiscordMemberWhereUniqueInput | Prisma.DiscordMemberWhereUniqueInput[]
-}
-
-export type DiscordMemberUpdateManyWithoutGuildNestedInput = {
-  create?: Prisma.XOR<Prisma.DiscordMemberCreateWithoutGuildInput, Prisma.DiscordMemberUncheckedCreateWithoutGuildInput> | Prisma.DiscordMemberCreateWithoutGuildInput[] | Prisma.DiscordMemberUncheckedCreateWithoutGuildInput[]
-  connectOrCreate?: Prisma.DiscordMemberCreateOrConnectWithoutGuildInput | Prisma.DiscordMemberCreateOrConnectWithoutGuildInput[]
-  upsert?: Prisma.DiscordMemberUpsertWithWhereUniqueWithoutGuildInput | Prisma.DiscordMemberUpsertWithWhereUniqueWithoutGuildInput[]
-  createMany?: Prisma.DiscordMemberCreateManyGuildInputEnvelope
-  set?: Prisma.DiscordMemberWhereUniqueInput | Prisma.DiscordMemberWhereUniqueInput[]
-  disconnect?: Prisma.DiscordMemberWhereUniqueInput | Prisma.DiscordMemberWhereUniqueInput[]
-  delete?: Prisma.DiscordMemberWhereUniqueInput | Prisma.DiscordMemberWhereUniqueInput[]
-  connect?: Prisma.DiscordMemberWhereUniqueInput | Prisma.DiscordMemberWhereUniqueInput[]
-  update?: Prisma.DiscordMemberUpdateWithWhereUniqueWithoutGuildInput | Prisma.DiscordMemberUpdateWithWhereUniqueWithoutGuildInput[]
-  updateMany?: Prisma.DiscordMemberUpdateManyWithWhereWithoutGuildInput | Prisma.DiscordMemberUpdateManyWithWhereWithoutGuildInput[]
-  deleteMany?: Prisma.DiscordMemberScalarWhereInput | Prisma.DiscordMemberScalarWhereInput[]
-}
-
-export type DiscordMemberUncheckedUpdateManyWithoutGuildNestedInput = {
-  create?: Prisma.XOR<Prisma.DiscordMemberCreateWithoutGuildInput, Prisma.DiscordMemberUncheckedCreateWithoutGuildInput> | Prisma.DiscordMemberCreateWithoutGuildInput[] | Prisma.DiscordMemberUncheckedCreateWithoutGuildInput[]
-  connectOrCreate?: Prisma.DiscordMemberCreateOrConnectWithoutGuildInput | Prisma.DiscordMemberCreateOrConnectWithoutGuildInput[]
-  upsert?: Prisma.DiscordMemberUpsertWithWhereUniqueWithoutGuildInput | Prisma.DiscordMemberUpsertWithWhereUniqueWithoutGuildInput[]
-  createMany?: Prisma.DiscordMemberCreateManyGuildInputEnvelope
-  set?: Prisma.DiscordMemberWhereUniqueInput | Prisma.DiscordMemberWhereUniqueInput[]
-  disconnect?: Prisma.DiscordMemberWhereUniqueInput | Prisma.DiscordMemberWhereUniqueInput[]
-  delete?: Prisma.DiscordMemberWhereUniqueInput | Prisma.DiscordMemberWhereUniqueInput[]
-  connect?: Prisma.DiscordMemberWhereUniqueInput | Prisma.DiscordMemberWhereUniqueInput[]
-  update?: Prisma.DiscordMemberUpdateWithWhereUniqueWithoutGuildInput | Prisma.DiscordMemberUpdateWithWhereUniqueWithoutGuildInput[]
-  updateMany?: Prisma.DiscordMemberUpdateManyWithWhereWithoutGuildInput | Prisma.DiscordMemberUpdateManyWithWhereWithoutGuildInput[]
-  deleteMany?: Prisma.DiscordMemberScalarWhereInput | Prisma.DiscordMemberScalarWhereInput[]
-}
-
 export type DiscordMemberCreaterolesInput = {
   set: string[]
 }
@@ -802,202 +755,12 @@ export type DiscordMemberUpdatesecurityFlagsInput = {
   push?: string | string[]
 }
 
-export type DiscordMemberCreateWithoutGuildInput = {
-  id?: string
-  discordUserId: string
-  username: string
-  discriminator?: string | null
-  displayName?: string | null
-  avatar?: string | null
-  bot?: boolean
-  roles?: Prisma.DiscordMemberCreaterolesInput | string[]
-  joinedAt?: Date | string | null
-  premiumSince?: Date | string | null
-  pending?: boolean
-  communicationDisabledUntil?: Date | string | null
-  roleCount: number
-  highestRolePosition: number
-  isAdministrator?: boolean
-  isOwner?: boolean
-  lastActivityAt?: Date | string | null
-  securityFlags?: Prisma.DiscordMemberCreatesecurityFlagsInput | string[]
-  riskScore?: number | null
-  firstSeenAt?: Date | string
-  lastUpdatedAt?: Date | string
-}
-
-export type DiscordMemberUncheckedCreateWithoutGuildInput = {
-  id?: string
-  discordUserId: string
-  username: string
-  discriminator?: string | null
-  displayName?: string | null
-  avatar?: string | null
-  bot?: boolean
-  roles?: Prisma.DiscordMemberCreaterolesInput | string[]
-  joinedAt?: Date | string | null
-  premiumSince?: Date | string | null
-  pending?: boolean
-  communicationDisabledUntil?: Date | string | null
-  roleCount: number
-  highestRolePosition: number
-  isAdministrator?: boolean
-  isOwner?: boolean
-  lastActivityAt?: Date | string | null
-  securityFlags?: Prisma.DiscordMemberCreatesecurityFlagsInput | string[]
-  riskScore?: number | null
-  firstSeenAt?: Date | string
-  lastUpdatedAt?: Date | string
-}
-
-export type DiscordMemberCreateOrConnectWithoutGuildInput = {
-  where: Prisma.DiscordMemberWhereUniqueInput
-  create: Prisma.XOR<Prisma.DiscordMemberCreateWithoutGuildInput, Prisma.DiscordMemberUncheckedCreateWithoutGuildInput>
-}
-
-export type DiscordMemberCreateManyGuildInputEnvelope = {
-  data: Prisma.DiscordMemberCreateManyGuildInput | Prisma.DiscordMemberCreateManyGuildInput[]
-  skipDuplicates?: boolean
-}
-
-export type DiscordMemberUpsertWithWhereUniqueWithoutGuildInput = {
-  where: Prisma.DiscordMemberWhereUniqueInput
-  update: Prisma.XOR<Prisma.DiscordMemberUpdateWithoutGuildInput, Prisma.DiscordMemberUncheckedUpdateWithoutGuildInput>
-  create: Prisma.XOR<Prisma.DiscordMemberCreateWithoutGuildInput, Prisma.DiscordMemberUncheckedCreateWithoutGuildInput>
-}
-
-export type DiscordMemberUpdateWithWhereUniqueWithoutGuildInput = {
-  where: Prisma.DiscordMemberWhereUniqueInput
-  data: Prisma.XOR<Prisma.DiscordMemberUpdateWithoutGuildInput, Prisma.DiscordMemberUncheckedUpdateWithoutGuildInput>
-}
-
-export type DiscordMemberUpdateManyWithWhereWithoutGuildInput = {
-  where: Prisma.DiscordMemberScalarWhereInput
-  data: Prisma.XOR<Prisma.DiscordMemberUpdateManyMutationInput, Prisma.DiscordMemberUncheckedUpdateManyWithoutGuildInput>
-}
-
-export type DiscordMemberScalarWhereInput = {
-  AND?: Prisma.DiscordMemberScalarWhereInput | Prisma.DiscordMemberScalarWhereInput[]
-  OR?: Prisma.DiscordMemberScalarWhereInput[]
-  NOT?: Prisma.DiscordMemberScalarWhereInput | Prisma.DiscordMemberScalarWhereInput[]
-  id?: Prisma.StringFilter<"DiscordMember"> | string
-  discordUserId?: Prisma.StringFilter<"DiscordMember"> | string
-  guildId?: Prisma.StringFilter<"DiscordMember"> | string
-  username?: Prisma.StringFilter<"DiscordMember"> | string
-  discriminator?: Prisma.StringNullableFilter<"DiscordMember"> | string | null
-  displayName?: Prisma.StringNullableFilter<"DiscordMember"> | string | null
-  avatar?: Prisma.StringNullableFilter<"DiscordMember"> | string | null
-  bot?: Prisma.BoolFilter<"DiscordMember"> | boolean
-  roles?: Prisma.StringNullableListFilter<"DiscordMember">
-  joinedAt?: Prisma.DateTimeNullableFilter<"DiscordMember"> | Date | string | null
-  premiumSince?: Prisma.DateTimeNullableFilter<"DiscordMember"> | Date | string | null
-  pending?: Prisma.BoolFilter<"DiscordMember"> | boolean
-  communicationDisabledUntil?: Prisma.DateTimeNullableFilter<"DiscordMember"> | Date | string | null
-  roleCount?: Prisma.IntFilter<"DiscordMember"> | number
-  highestRolePosition?: Prisma.IntFilter<"DiscordMember"> | number
-  isAdministrator?: Prisma.BoolFilter<"DiscordMember"> | boolean
-  isOwner?: Prisma.BoolFilter<"DiscordMember"> | boolean
-  lastActivityAt?: Prisma.DateTimeNullableFilter<"DiscordMember"> | Date | string | null
-  securityFlags?: Prisma.StringNullableListFilter<"DiscordMember">
-  riskScore?: Prisma.FloatNullableFilter<"DiscordMember"> | number | null
-  firstSeenAt?: Prisma.DateTimeFilter<"DiscordMember"> | Date | string
-  lastUpdatedAt?: Prisma.DateTimeFilter<"DiscordMember"> | Date | string
-}
-
-export type DiscordMemberCreateManyGuildInput = {
-  id?: string
-  discordUserId: string
-  username: string
-  discriminator?: string | null
-  displayName?: string | null
-  avatar?: string | null
-  bot?: boolean
-  roles?: Prisma.DiscordMemberCreaterolesInput | string[]
-  joinedAt?: Date | string | null
-  premiumSince?: Date | string | null
-  pending?: boolean
-  communicationDisabledUntil?: Date | string | null
-  roleCount: number
-  highestRolePosition: number
-  isAdministrator?: boolean
-  isOwner?: boolean
-  lastActivityAt?: Date | string | null
-  securityFlags?: Prisma.DiscordMemberCreatesecurityFlagsInput | string[]
-  riskScore?: number | null
-  firstSeenAt?: Date | string
-  lastUpdatedAt?: Date | string
-}
-
-export type DiscordMemberUpdateWithoutGuildInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  discordUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  discriminator?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  avatar?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  bot?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  roles?: Prisma.DiscordMemberUpdaterolesInput | string[]
-  joinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  premiumSince?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  pending?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  communicationDisabledUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  roleCount?: Prisma.IntFieldUpdateOperationsInput | number
-  highestRolePosition?: Prisma.IntFieldUpdateOperationsInput | number
-  isAdministrator?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  lastActivityAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  securityFlags?: Prisma.DiscordMemberUpdatesecurityFlagsInput | string[]
-  riskScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
-  firstSeenAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  lastUpdatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-}
-
-export type DiscordMemberUncheckedUpdateWithoutGuildInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  discordUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  discriminator?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  avatar?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  bot?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  roles?: Prisma.DiscordMemberUpdaterolesInput | string[]
-  joinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  premiumSince?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  pending?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  communicationDisabledUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  roleCount?: Prisma.IntFieldUpdateOperationsInput | number
-  highestRolePosition?: Prisma.IntFieldUpdateOperationsInput | number
-  isAdministrator?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  lastActivityAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  securityFlags?: Prisma.DiscordMemberUpdatesecurityFlagsInput | string[]
-  riskScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
-  firstSeenAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  lastUpdatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-}
-
-export type DiscordMemberUncheckedUpdateManyWithoutGuildInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  discordUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  discriminator?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  avatar?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  bot?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  roles?: Prisma.DiscordMemberUpdaterolesInput | string[]
-  joinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  premiumSince?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  pending?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  communicationDisabledUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  roleCount?: Prisma.IntFieldUpdateOperationsInput | number
-  highestRolePosition?: Prisma.IntFieldUpdateOperationsInput | number
-  isAdministrator?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  lastActivityAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  securityFlags?: Prisma.DiscordMemberUpdatesecurityFlagsInput | string[]
-  riskScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
-  firstSeenAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  lastUpdatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+export type NullableFloatFieldUpdateOperationsInput = {
+  set?: number | null
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
 }
 
 
@@ -1025,7 +788,6 @@ export type DiscordMemberSelect<ExtArgs extends runtime.Types.Extensions.Interna
   riskScore?: boolean
   firstSeenAt?: boolean
   lastUpdatedAt?: boolean
-  guild?: boolean | Prisma.DiscordGuildDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["discordMember"]>
 
 export type DiscordMemberSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1051,7 +813,6 @@ export type DiscordMemberSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   riskScore?: boolean
   firstSeenAt?: boolean
   lastUpdatedAt?: boolean
-  guild?: boolean | Prisma.DiscordGuildDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["discordMember"]>
 
 export type DiscordMemberSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1077,7 +838,6 @@ export type DiscordMemberSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   riskScore?: boolean
   firstSeenAt?: boolean
   lastUpdatedAt?: boolean
-  guild?: boolean | Prisma.DiscordGuildDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["discordMember"]>
 
 export type DiscordMemberSelectScalar = {
@@ -1106,74 +866,30 @@ export type DiscordMemberSelectScalar = {
 }
 
 export type DiscordMemberOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "discordUserId" | "guildId" | "username" | "discriminator" | "displayName" | "avatar" | "bot" | "roles" | "joinedAt" | "premiumSince" | "pending" | "communicationDisabledUntil" | "roleCount" | "highestRolePosition" | "isAdministrator" | "isOwner" | "lastActivityAt" | "securityFlags" | "riskScore" | "firstSeenAt" | "lastUpdatedAt", ExtArgs["result"]["discordMember"]>
-export type DiscordMemberInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  guild?: boolean | Prisma.DiscordGuildDefaultArgs<ExtArgs>
-}
-export type DiscordMemberIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  guild?: boolean | Prisma.DiscordGuildDefaultArgs<ExtArgs>
-}
-export type DiscordMemberIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  guild?: boolean | Prisma.DiscordGuildDefaultArgs<ExtArgs>
-}
 
 export type $DiscordMemberPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "DiscordMember"
-  objects: {
-    guild: Prisma.$DiscordGuildPayload<ExtArgs>
-  }
+  objects: {}
   scalars: runtime.Types.Extensions.GetPayloadResult<{
-    /**
-     * Internal ID (composite key workaround)
-     */
     id: string
-    /**
-     * Discord user snowflake
-     */
     discordUserId: string
-    /**
-     * Discord guild snowflake
-     */
     guildId: string
     username: string
-    /**
-     * Legacy discriminator (0000 for new system)
-     */
     discriminator: string | null
-    /**
-     * Guild-specific nickname
-     */
     displayName: string | null
     avatar: string | null
     bot: boolean
-    /**
-     * Array of role IDs
-     */
     roles: string[]
     joinedAt: Date | null
-    /**
-     * Nitro boost date
-     */
     premiumSince: Date | null
-    /**
-     * Membership screening pending
-     */
     pending: boolean
-    /**
-     * Timeout
-     */
     communicationDisabledUntil: Date | null
     roleCount: number
     highestRolePosition: number
     isAdministrator: boolean
     isOwner: boolean
     lastActivityAt: Date | null
-    /**
-     * e.g., ["rapid_role_changes", "new_member", "high_privilege"]
-     */
     securityFlags: string[]
-    /**
-     * Computed risk score 0.0-1.0
-     */
     riskScore: number | null
     firstSeenAt: Date
     lastUpdatedAt: Date
@@ -1571,7 +1287,6 @@ readonly fields: DiscordMemberFieldRefs;
  */
 export interface Prisma__DiscordMemberClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  guild<T extends Prisma.DiscordGuildDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DiscordGuildDefaultArgs<ExtArgs>>): Prisma.Prisma__DiscordGuildClient<runtime.Types.Result.GetResult<Prisma.$DiscordGuildPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1640,10 +1355,6 @@ export type DiscordMemberFindUniqueArgs<ExtArgs extends runtime.Types.Extensions
    */
   omit?: Prisma.DiscordMemberOmit<ExtArgs> | null
   /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscordMemberInclude<ExtArgs> | null
-  /**
    * Filter, which DiscordMember to fetch.
    */
   where: Prisma.DiscordMemberWhereUniqueInput
@@ -1662,10 +1373,6 @@ export type DiscordMemberFindUniqueOrThrowArgs<ExtArgs extends runtime.Types.Ext
    */
   omit?: Prisma.DiscordMemberOmit<ExtArgs> | null
   /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscordMemberInclude<ExtArgs> | null
-  /**
    * Filter, which DiscordMember to fetch.
    */
   where: Prisma.DiscordMemberWhereUniqueInput
@@ -1683,10 +1390,6 @@ export type DiscordMemberFindFirstArgs<ExtArgs extends runtime.Types.Extensions.
    * Omit specific fields from the DiscordMember
    */
   omit?: Prisma.DiscordMemberOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscordMemberInclude<ExtArgs> | null
   /**
    * Filter, which DiscordMember to fetch.
    */
@@ -1736,10 +1439,6 @@ export type DiscordMemberFindFirstOrThrowArgs<ExtArgs extends runtime.Types.Exte
    */
   omit?: Prisma.DiscordMemberOmit<ExtArgs> | null
   /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscordMemberInclude<ExtArgs> | null
-  /**
    * Filter, which DiscordMember to fetch.
    */
   where?: Prisma.DiscordMemberWhereInput
@@ -1788,10 +1487,6 @@ export type DiscordMemberFindManyArgs<ExtArgs extends runtime.Types.Extensions.I
    */
   omit?: Prisma.DiscordMemberOmit<ExtArgs> | null
   /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscordMemberInclude<ExtArgs> | null
-  /**
    * Filter, which DiscordMembers to fetch.
    */
   where?: Prisma.DiscordMemberWhereInput
@@ -1835,10 +1530,6 @@ export type DiscordMemberCreateArgs<ExtArgs extends runtime.Types.Extensions.Int
    */
   omit?: Prisma.DiscordMemberOmit<ExtArgs> | null
   /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscordMemberInclude<ExtArgs> | null
-  /**
    * The data needed to create a DiscordMember.
    */
   data: Prisma.XOR<Prisma.DiscordMemberCreateInput, Prisma.DiscordMemberUncheckedCreateInput>
@@ -1872,10 +1563,6 @@ export type DiscordMemberCreateManyAndReturnArgs<ExtArgs extends runtime.Types.E
    */
   data: Prisma.DiscordMemberCreateManyInput | Prisma.DiscordMemberCreateManyInput[]
   skipDuplicates?: boolean
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscordMemberIncludeCreateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1890,10 +1577,6 @@ export type DiscordMemberUpdateArgs<ExtArgs extends runtime.Types.Extensions.Int
    * Omit specific fields from the DiscordMember
    */
   omit?: Prisma.DiscordMemberOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscordMemberInclude<ExtArgs> | null
   /**
    * The data needed to update a DiscordMember.
    */
@@ -1946,10 +1629,6 @@ export type DiscordMemberUpdateManyAndReturnArgs<ExtArgs extends runtime.Types.E
    * Limit how many DiscordMembers to update.
    */
   limit?: number
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscordMemberIncludeUpdateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1964,10 +1643,6 @@ export type DiscordMemberUpsertArgs<ExtArgs extends runtime.Types.Extensions.Int
    * Omit specific fields from the DiscordMember
    */
   omit?: Prisma.DiscordMemberOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscordMemberInclude<ExtArgs> | null
   /**
    * The filter to search for the DiscordMember to update in case it exists.
    */
@@ -1994,10 +1669,6 @@ export type DiscordMemberDeleteArgs<ExtArgs extends runtime.Types.Extensions.Int
    * Omit specific fields from the DiscordMember
    */
   omit?: Prisma.DiscordMemberOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscordMemberInclude<ExtArgs> | null
   /**
    * Filter which DiscordMember to delete.
    */
@@ -2030,8 +1701,4 @@ export type DiscordMemberDefaultArgs<ExtArgs extends runtime.Types.Extensions.In
    * Omit specific fields from the DiscordMember
    */
   omit?: Prisma.DiscordMemberOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscordMemberInclude<ExtArgs> | null
 }
