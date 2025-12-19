@@ -143,6 +143,7 @@ Production safety: Repo .env stays EMPTY. Local secrets always from external fil
 - **Architecture Bible:** docs/architecture-bible/INDEX.md
 - **Operations Bible:** docs/operations-bible/INDEX.md
 - **Development Bible:** docs/development-bible/INDEX.md
+- **Prisma 7 Bible:** docs/prisma-7-bible.md — AI agent playbook for Prisma v7, engine types, Render deployment, game persistence
 
 ### Authoritative Comprehensive Guides
 - **Worker Troubleshooting:** docs/operations-bible/worker-troubleshooting-comprehensive.md (22 pages)
@@ -152,4 +153,4 @@ Production safety: Repo .env stays EMPTY. Local secrets always from external fil
 
 ---
 
-**Last Updated:** 2025-06-15 | **Revision:** 3.0
+**Last Updated:** 2025-12-19 | **Revision:** 3.1

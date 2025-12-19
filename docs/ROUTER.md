@@ -2,9 +2,10 @@
 Title: Documentation Library — Bible System
 Purpose: Comprehensive architecture, operations, and development guides in modular Bible format.
 Owned Globs: docs/**
-Last Updated (UTC): 2025-12-18T14:30:00Z
+Last Updated (UTC): 2025-12-19T01:45:00Z
 
 Notes:
+- **PRISMA 7 BIBLE ADDED (2025-12-19)**: AI agent playbook for Prisma v7 after production failure.
 - **DOCUMENTATION REMEDIATION (2025-12-18)**: Architecture Bible renumbered to 22 sequential sections, Operations Bible cleaned to 13 sections + 9 guides.
 - **HOMESTEAD MIGRATION COMPLETE (2025-06-15)**: All DM-based gameplay migrated to private guild channels. `src/bot/dm/` DELETED.
 - Reference guides cross-linked from Patch/Prompt/Tasklist for contract updates and recovery playbooks.
@@ -16,7 +17,14 @@ Directory Structure (CURRENT):
 - **architecture-bible/** — System architecture Bible (22 sections + INDEX)
 - **operations-bible/** — Operations & deployment Bible (13 sections + 9 comprehensive guides + INDEX)
 - **development-bible/** — Development practices Bible (9 sections + INDEX)
+- **prisma-7-bible.md** — AI agent playbook for Prisma ORM v7 [🔴 CRITICAL]
 - **archive/** — Obsolete technical documentation (Accelerate-era files)
+
+## Standalone Bibles (Root Level)
+
+| File | Coverage | Criticality |
+|------|----------|-------------|
+| **prisma-7-bible.md** | Prisma v7 configuration, engine types, Render deployment, game persistence, transactions | 🔴 **CRITICAL** |
 
 ## Bible Navigation
 
@@ -96,6 +104,7 @@ Directory Structure (CURRENT):
 ## Quick Reference Index
 
 ### Critical Documents
+- **Prisma 7 Bible**: prisma-7-bible.md [🔴 CRITICAL - Engine types, deployment, game persistence]
 - **Resource Limits**: RESOURCE-LIMITS-RAM-VS-DISK.md [CRITICAL - RAM (2 GB) vs Disk (1 GB) distinction]
 - **Database URL Selection**: operations-bible/02-database-operations.md § 2.1 [ABSOLUTE - Violations cause production failures]
 - **Worker Scaling Roadmap**: architecture-bible/03-worker-architecture.md § 3.3 (Phase 10+ cost optimization)

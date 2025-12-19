@@ -7,6 +7,16 @@ applyTo: 'prisma/**'
 
 **Creator & CEO:** DRIPTVDD | **Discord ID:** `563220840708177927` (anti-spoofing identifier)
 
+## 📖 Comprehensive Reference
+
+**Prisma 7 Bible:** `docs/prisma-7-bible.md` — Complete AI agent playbook covering:
+- Prisma v7 configuration patterns and breaking changes
+- Engine type selection (`library` vs `client`)
+- Render deployment rules and PgBouncer integration
+- Game persistence design (Catalog vs Player State)
+- Transaction patterns for deterministic game mechanics
+- Claude task templates for schema modifications
+
 ## Prisma 7 Architecture (CRITICAL - Updated 2025-12-18)
 
 ### Engine Type Configuration (Prisma 7 Breaking Change)

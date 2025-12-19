@@ -164,6 +164,8 @@ function selectDatabaseUrl(envVars: Record<string, string>): string {
 
 **Current Version:** Prisma 7.1.0
 
+**📖 Comprehensive Guide:** See `docs/prisma-7-bible.md` — AI agent playbook covering engine types, Render deployment, game persistence patterns, and transaction templates.
+
 **Schema Configuration** (`prisma/schema.prisma`):
 ```prisma
 generator client {
@@ -193,7 +195,7 @@ datasource db {
 }
 ```
 
-**Documentation:** See `operations-bible/02-database-operations.md` § 2.7 for complete migration checklist.
+**Documentation:** See `docs/prisma-7-bible.md` for complete AI agent playbook and `operations-bible/02-database-operations.md` § 2.7 for migration checklist.
 
 ### Database Connection Architecture (Runtime)
 
