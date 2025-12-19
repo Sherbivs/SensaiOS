@@ -774,7 +774,7 @@ See `docs/engine-db-replication.md` for comprehensive design documentation. See 
   - Works best with the connection retry envs (`PRISMA_CONNECT_MAX_RETRIES`, `PRISMA_CONNECT_RETRY_DELAY_MS`, `PRISMA_CONNECT_MAX_DELAY_MS`) tuned in the external `Key/Dev/.env` secrets file.
 
 ## Data & Cache Pipelines
-- Pokémon data bootstrap lives under `scripts/build-data.js`, `scripts/fetch_pokemon.mjs`, and `data/bootstrap/*`.
+- Pokémon data bootstrap lives under `scripts/build-data.ts`, `scripts/fetch_pokemon.mjs`, and `data/bootstrap/*`.
 - The security bot uses filesystem caching via `src/services/cache.js` (`/Store/discord-cache`).
 - Live game flows share a typed facade in `src/services/cache/facade.ts` that fronts an in-memory LRU and persists slices under `/Store/runtime-cache/<namespace>`; adjust limits with `configureCacheFacade` for tests or workers. See the linked routers for cache recipes (`src/services/cache/ROUTER.md`), shared backends (`src/shared/cache/ROUTER.md`), persistence (`Store/ROUTER.md`), and storage adapters (`src/shared/storage/ROUTER.md`).
 - Runtime cache metrics surface via `/ops cache`; the command reports hit/miss counters, disk usage, and maintenance state, and accepts `cleanup: true` to run an immediate sweep. The scheduler runs automatically (10-minute cadence) and logs results via `cache.maintenance` events.

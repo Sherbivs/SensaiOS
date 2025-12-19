@@ -76,7 +76,7 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/assets ./assets
 COPY --from=builder --chown=nodejs:nodejs /app/data ./data
 COPY --chown=nodejs:nodejs scripts ./scripts
-COPY --chown=nodejs:nodejs security-bot.js ./
+COPY --chown=nodejs:nodejs security-bot.ts ./
 
 # Create Store directory for persistent data
 RUN mkdir -p /app/Store && chown -R nodejs:nodejs /app/Store

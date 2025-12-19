@@ -131,7 +131,7 @@ services:
     branch: main
     rootDirectory: .
     buildCommand: "npm install --include=dev --omit=optional && npm run prebuild"
-    startCommand: "node security-bot.js"
+    startCommand: "npx tsx security-bot.ts"
     autoDeploy: true
     disks:
       - name: security-state

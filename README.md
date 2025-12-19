@@ -51,7 +51,7 @@ The project ships a PBSL scaffold under `src/core/pbsl/**` that implements seede
 - **Wild Encounters:** `/walk` spawns public `#wilds` threads while homestead controls handle throws, swaps, and escapes via `src/bot/wilds/**` plus `src/core/encounter/**` mechanics.
 - **Arena Battles:** `/battle challenge` coordinates arena threads, homestead menus, and announcer summaries; Discord orchestration lives in `src/bot/battle/**`, while resolution flows through `src/core/battle/**`.
 - **Admin Operations:** `/ops` exposes cooldown reset tools, `/ops stats` filtering (limit/after/participant), and `/ops cache` for hit/miss metrics plus optional cleanup so staff validate health without direct DB access.
-- **Persistence & Data:** Prisma 7 schema (`prisma/schema.prisma`) keeps trainer state; cached PokéAPI reference data is refreshed through `scripts/fetch_pokemon.mjs` and `scripts/build-data.js`.
+- **Persistence & Data:** Prisma 7 schema (`prisma/schema.prisma`) keeps trainer state; cached PokéAPI reference data is refreshed through `scripts/fetch_pokemon.mjs` and `scripts/build-data.ts`.
 - **Automation:** Render workers and guard scripts enforce Refresh Vision, router hygiene, contract version gates, and Tasklist coupling to keep the repo deterministic.
 
 ## Documentation Bible System
@@ -146,7 +146,7 @@ interactions are slash-based, so the Message Content intent is not required.
 Reference data is mirrored into `/data` via scripted jobs:
 
 - `scripts/fetch_pokemon.mjs` pulls fresh PokéAPI payloads.
-- `scripts/build-data.js` normalizes and shards JSON for the bot runtime.
+- `scripts/build-data.ts` normalizes and shards JSON for the bot runtime.
 - `scripts/worker.mjs` coordinates refresh jobs when running inside Render.
 - `/ops cache` reports live cache metrics (hit/miss counters, disk usage, sweep cadence) and can trigger a one-off cleanup.
 
@@ -190,7 +190,7 @@ The contract-driven routing system keeps every meta document discoverable:
 
 ## Legacy Bots (Reference Only)
 
-- `security-bot.js` / `src/bot/main.js` retain the original security role-healing logic.
+- `security-bot.ts` / `src/bot/main.js` retain the original security role-healing logic.
 - Legacy message-based prototype was migrated to TypeScript.
 
 They are not part of the TypeScript production path but remain for historical context.

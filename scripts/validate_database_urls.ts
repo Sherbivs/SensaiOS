@@ -1,29 +1,32 @@
-#!/usr/bin/env node
-// validate_database_urls.js - Pre-build validation for database URLs
-//
-// PURPOSE:
-//   Fail build if Accelerate URLs are detected in environment variables.
-//   Ensures Prisma client generates with correct engine type.
-//
-// USAGE:
-//   node scripts/validate_database_urls.js
-//
-// EXIT CODES:
-//   0 - All database URLs valid (direct PostgreSQL)
-//   1 - Invalid URLs detected (Accelerate format)
+#!/usr/bin/env npx tsx
+/* eslint-disable no-console */
+/**
+ * validate_database_urls.ts - Pre-build validation for database URLs
+ *
+ * PURPOSE:
+ *   Fail build if Accelerate URLs are detected in environment variables.
+ *   Ensures Prisma client generates with correct engine type.
+ *
+ * USAGE:
+ *   npx tsx scripts/validate_database_urls.ts
+ *
+ * EXIT CODES:
+ *   0 - All database URLs valid (direct PostgreSQL)
+ *   1 - Invalid URLs detected (Accelerate format)
+ */
 
 const ACCELERATE_PATTERN = /prisma(\+|:\/\/)/i;
 const VALID_PATTERN = /^postgresql:\/\//i;
 
 // Unified architecture: Check environment-specific URLs (PROD primary, optional LOCAL)
 // Uses canonical database naming schema (see docs/database-naming-schema.md)
-const DATABASE_ENV_VARS = [
+const DATABASE_ENV_VARS: readonly string[] = [
   'PROD_DATABASE_URL',                     // CLOUD-PROD-MASTER (Render managed PostgreSQL)
   'RENDER_DB_EXTERNAL_URL',                // Fallback for CLOUD-PROD-MASTER
   'RENDER_DB_INTERNAL_URL',                // Fallback for CLOUD-PROD-MASTER
   'DATABASE_ONPREMISE_DEV_PRIMARY',        // ONPREMISE-DEV-PRIMARY (workstation development)
   'DATABASE_ONPREMISE_DEV_EXPERIMENT',     // ONPREMISE-DEV-EXPERIMENT (migration testing)
-];
+] as const;
 
 let failures = 0;
 let warnings = 0;

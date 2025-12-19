@@ -196,7 +196,7 @@ services:
       - security_store:/app/Store
     networks:
       - infinity-gauntlet
-    command: ["node", "security-bot.js"]
+    command: ["npx", "tsx", "security-bot.ts"]
 
 networks:
   infinity-gauntlet:

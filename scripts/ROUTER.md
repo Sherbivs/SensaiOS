@@ -36,8 +36,12 @@ Notes:
 - All CLI scripts migrated to centralized output-formatter utility (src/utils/output-formatter.ts)
 - ESLint enforcement via scripts-prefer-output-formatter rule
 - 61 comprehensive tests (100% coverage)
-- 11 scripts standardized: db_admin.ts, db_smoke.ts, db_replication.ts, check_db_redundancy.ts, db_bootstrap_backfill.ts, build_dexpack.ts, build-dexpack.ts, build-data.js, fetch_pokemon.mjs, cache_client.mjs, archive_task_history.mjs
+- 11 scripts standardized: db_admin.ts, db_smoke.ts, db_replication.ts, check_db_redundancy.ts, db_bootstrap_backfill.ts, build_dexpack.ts, build-dexpack.ts, build-data.ts, fetch_pokemon.mjs, cache_client.mjs, archive_task_history.mjs
 - See development-bible/06-console-tooling.md for comprehensive guidelines and quick reference patterns
+- 2025-12-18: TypeScript Migration (Phase 1 Complete):
+- Converted 6 CommonJS scripts to TypeScript: validate_database_urls.ts, preflight.ts, ensure-data.ts, build-data.ts, build-assets-manifest.ts, register-commands.ts
+- Updated package.json scripts to use tsx instead of node
+- security-bot.ts migrated from root (already ESM, added types)
 
 Subrouters:
 - scripts/dex/ROUTER.md — Data seeding and cache warmup entrypoints.
