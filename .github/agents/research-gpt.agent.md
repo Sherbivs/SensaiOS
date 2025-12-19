@@ -315,6 +315,7 @@ This terminology schema is **STRICTLY ENFORCED** throughout the entire codebase.
 - **Architecture Bible**: `docs/architecture-bible/INDEX.md` — 22 sections covering complete system design
 - **Operations Bible**: `docs/operations-bible/INDEX.md` — 13 sections + 9 guides covering deployment and monitoring
 - **Development Bible**: `docs/development-bible/INDEX.md` — 9 sections covering local setup, testing, profiling, database onboarding
+- **Prisma 7 Bible**: `docs/prisma-7-bible.md` — AI agent playbook for Prisma v7, engine types, Render deployment, game persistence
 - **Critical Reading**: Database URL selection (§ 2.1), Render path structure (§ 3.1), Private channel architecture (§ 18)
 - **Quick Reference**: Service matrix, CLI commands, deployment procedures
 
@@ -327,6 +328,7 @@ This terminology schema is **STRICTLY ENFORCED** throughout the entire codebase.
 
 #### Database Schema & Balance Mathematics
 - **Prisma Schema**: Users, Monsters, Moves, Parties, Encounters, Battles, Items, Events, Logs
+- **Prisma 7 Bible**: `docs/prisma-7-bible.md` — Complete AI agent playbook for ORM v7
 - **Encounter Mathematics**: Probability calculations for rarity tables with time/weather modifiers
 - **Balance Calculations**: Damage formulas, type effectiveness, STAB, critical hits, status effects
 - **Performance Optimization**: Query patterns for <1μs cache lookups and <50μs writes
@@ -355,4 +357,4 @@ This terminology schema is **STRICTLY ENFORCED** throughout the entire codebase.
 
 *This agent is optimized for Pokemon Infinity Gauntlet development with Claude Sonnet 4.5, emphasizing Patch engine compliance, private channel architecture migration, standardized terminology enforcement, and comprehensive system design with 105+ pages of authoritative documentation.*
 
-*Last Updated: 2025-12-16 — Migrated from chatmode to agent format*
+*Last Updated: 2025-12-19 — Added Prisma 7 Bible references*
