@@ -333,7 +333,12 @@ Areas:
 - **Architecture Bible:** `docs/architecture-bible/INDEX.md` → 22 sections (system design, database, workers, game engine, etc.)
 - **Operations Bible:** `docs/operations-bible/INDEX.md` → 13 sections + 9 guides (service matrix, deployment, monitoring, database operations)
 - **Development Bible:** `docs/development-bible/INDEX.md` → 9 sections (local setup, testing, debugging, profiling, database onboarding)
-- **Prisma 7 Bible:** `docs/prisma-7-bible.md` → AI agent playbook for Prisma v7, engine types, Render deployment, game persistence
+- **Prisma 7 Bible:** `docs/prisma-7-bible.md` → Comprehensive AI agent playbook (1000+ lines) covering:
+  - Emergency production triage playbook
+  - Step-by-step migration guide (Prisma 6 → 7)
+  - Common failure modes with exact fixes
+  - Golden configuration snippets (copy/paste ready)
+  - Engine types (`library` vs `client`), Render deployment, PgBouncer integration
 - **Database Guide:** `docs/operations-bible/02-database-operations.md` → URL selection logic, schema architecture, Prisma 7 configuration
 - **Schema Architecture:** `docs/operations-bible/02-database-operations.md` § 2.10 → Entities, dex spine, indexes
 - **Game Rules:** `docs/architecture-bible/09-game-engine.md` § 9.10 → MVP mechanics, status effects, item pool
@@ -351,4 +356,4 @@ Areas:
 
 ---
 
-**Last Updated:** 2025-12-18 | **Revision:** 2.0
+**Last Updated:** 2025-12-19 | **Revision:** 2.1 — Expanded Prisma 7 Bible integration

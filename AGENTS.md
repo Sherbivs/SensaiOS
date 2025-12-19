@@ -160,11 +160,17 @@ function selectDatabaseUrl(envVars: Record<string, string>): string {
 
 **Contract Status:** This is an **Absolute** requirement in `Patch.md`. Violations cause production failures and must be fixed immediately.
 
-### Prisma 7 Configuration [UPDATED 2025-12-18]
+### Prisma 7 Configuration [UPDATED 2025-12-19]
 
 **Current Version:** Prisma 7.1.0
 
-**📖 Comprehensive Guide:** See `docs/prisma-7-bible.md` — AI agent playbook covering engine types, Render deployment, game persistence patterns, and transaction templates.
+**📖 Comprehensive Guide:** See `docs/prisma-7-bible.md` — Complete AI agent playbook (1000+ lines) covering:
+- **Emergency Triage:** Stop-the-bleeding options, rollback procedures, hotfix patterns
+- **Migration Guide:** Step-by-step Prisma 6 → 7 migration with safety checks
+- **Failure Modes:** 7 documented production errors with exact fixes
+- **Golden Configs:** Copy/paste ready configurations for library engine and adapters
+- **Render Deployment:** Pre-deploy migrations, PgBouncer, two-URL pattern
+- **Game Patterns:** Deterministic RNG, transactions, audit trails
 
 **Schema Configuration** (`prisma/schema.prisma`):
 ```prisma

@@ -9,12 +9,28 @@ applyTo: 'prisma/**'
 
 ## 📖 Comprehensive Reference
 
-**Prisma 7 Bible:** `docs/prisma-7-bible.md` — Complete AI agent playbook covering:
-- Prisma v7 configuration patterns and breaking changes
-- Engine type selection (`library` vs `client`)
-- Render deployment rules and PgBouncer integration
-- Game persistence design (Catalog vs Player State)
+**Prisma 7 Bible:** `docs/prisma-7-bible.md` — Complete AI agent playbook (1000+ lines) covering:
+
+### Emergency & Triage
+- Emergency production triage playbook (stop-the-bleeding options)
+- Common failure modes with exact fixes (7 documented errors)
+- Rollback procedures and hotfix patterns
+
+### Migration & Configuration
+- Step-by-step migration guide (Prisma 6 → 7)
+- Engine type selection (`library` vs `client`) — CRITICAL for direct PostgreSQL
+- Golden configuration snippets (copy/paste ready)
+- `prisma.config.ts` patterns and URL configuration
+
+### Deployment & Operations
+- Render deployment model with pre-deploy migrations
+- PgBouncer integration and connection pooling
+- Two-URL pattern (direct for migrations, pooled for runtime)
+
+### Game Persistence
+- Catalog vs Player State design patterns
 - Transaction patterns for deterministic game mechanics
+- RNG + audit trail patterns for anti-cheat
 - Claude task templates for schema modifications
 
 ## Prisma 7 Architecture (CRITICAL - Updated 2025-12-18)

@@ -17,14 +17,14 @@ Directory Structure (CURRENT):
 - **architecture-bible/** — System architecture Bible (22 sections + INDEX)
 - **operations-bible/** — Operations & deployment Bible (13 sections + 9 comprehensive guides + INDEX)
 - **development-bible/** — Development practices Bible (9 sections + INDEX)
-- **prisma-7-bible.md** — AI agent playbook for Prisma ORM v7 [🔴 CRITICAL]
+- **prisma-7-bible.md** — Comprehensive AI agent playbook (1000+ lines): emergency triage, migration guide, 7 failure modes, golden configs [🔴 CRITICAL]
 - **archive/** — Obsolete technical documentation (Accelerate-era files)
 
 ## Standalone Bibles (Root Level)
 
 | File | Coverage | Criticality |
 |------|----------|-------------|
-| **prisma-7-bible.md** | Prisma v7 configuration, engine types, Render deployment, game persistence, transactions | 🔴 **CRITICAL** |
+| **prisma-7-bible.md** | Emergency triage, Prisma 6→7 migration guide, 7 failure modes with fixes, golden configs, engine types (`library` vs `client`), Render deployment, PgBouncer, game persistence, transactions | 🔴 **CRITICAL** |
 
 ## Bible Navigation
 
@@ -104,7 +104,7 @@ Directory Structure (CURRENT):
 ## Quick Reference Index
 
 ### Critical Documents
-- **Prisma 7 Bible**: prisma-7-bible.md [🔴 CRITICAL - Engine types, deployment, game persistence]
+- **Prisma 7 Bible**: prisma-7-bible.md [🔴 CRITICAL - 1000+ lines: Emergency triage, migration guide, 7 failure modes, golden configs]
 - **Resource Limits**: RESOURCE-LIMITS-RAM-VS-DISK.md [CRITICAL - RAM (2 GB) vs Disk (1 GB) distinction]
 - **Database URL Selection**: operations-bible/02-database-operations.md § 2.1 [ABSOLUTE - Violations cause production failures]
 - **Worker Scaling Roadmap**: architecture-bible/03-worker-architecture.md § 3.3 (Phase 10+ cost optimization)

@@ -143,7 +143,13 @@ Production safety: Repo .env stays EMPTY. Local secrets always from external fil
 - **Architecture Bible:** docs/architecture-bible/INDEX.md
 - **Operations Bible:** docs/operations-bible/INDEX.md
 - **Development Bible:** docs/development-bible/INDEX.md
-- **Prisma 7 Bible:** docs/prisma-7-bible.md — AI agent playbook for Prisma v7, engine types, Render deployment, game persistence
+- **Prisma 7 Bible:** docs/prisma-7-bible.md — Comprehensive AI agent playbook (1000+ lines):
+  - Emergency production triage playbook
+  - Step-by-step migration guide (Prisma 6 → 7)
+  - 7 documented failure modes with exact fixes
+  - Golden configuration snippets (copy/paste ready)
+  - Engine types (`library` vs `client`), Render deployment, PgBouncer
+  - Game persistence patterns and transaction templates
 
 ### Authoritative Comprehensive Guides
 - **Worker Troubleshooting:** docs/operations-bible/worker-troubleshooting-comprehensive.md (22 pages)

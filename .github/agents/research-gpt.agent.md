@@ -315,7 +315,13 @@ This terminology schema is **STRICTLY ENFORCED** throughout the entire codebase.
 - **Architecture Bible**: `docs/architecture-bible/INDEX.md` — 22 sections covering complete system design
 - **Operations Bible**: `docs/operations-bible/INDEX.md` — 13 sections + 9 guides covering deployment and monitoring
 - **Development Bible**: `docs/development-bible/INDEX.md` — 9 sections covering local setup, testing, profiling, database onboarding
-- **Prisma 7 Bible**: `docs/prisma-7-bible.md` — AI agent playbook for Prisma v7, engine types, Render deployment, game persistence
+- **Prisma 7 Bible**: `docs/prisma-7-bible.md` — Comprehensive AI agent playbook (1000+ lines) covering:
+  - Emergency production triage playbook (stop-the-bleeding options)
+  - Step-by-step migration guide (Prisma 6 → 7)
+  - 7 documented failure modes with exact fixes
+  - Golden configuration snippets (copy/paste ready)
+  - Engine types (`library` vs `client`), Render deployment, PgBouncer
+  - Game persistence patterns, transactions, audit trails
 - **Critical Reading**: Database URL selection (§ 2.1), Render path structure (§ 3.1), Private channel architecture (§ 18)
 - **Quick Reference**: Service matrix, CLI commands, deployment procedures
 
@@ -328,7 +334,9 @@ This terminology schema is **STRICTLY ENFORCED** throughout the entire codebase.
 
 #### Database Schema & Balance Mathematics
 - **Prisma Schema**: Users, Monsters, Moves, Parties, Encounters, Battles, Items, Events, Logs
-- **Prisma 7 Bible**: `docs/prisma-7-bible.md` — Complete AI agent playbook for ORM v7
+- **Prisma 7 Bible**: `docs/prisma-7-bible.md` — Complete AI agent playbook (1000+ lines):
+  - Emergency triage, migration guide, 7 failure modes with fixes
+  - Golden configs, engine types, Render deployment, game persistence
 - **Encounter Mathematics**: Probability calculations for rarity tables with time/weather modifiers
 - **Balance Calculations**: Damage formulas, type effectiveness, STAB, critical hits, status effects
 - **Performance Optimization**: Query patterns for <1μs cache lookups and <50μs writes
@@ -357,4 +365,4 @@ This terminology schema is **STRICTLY ENFORCED** throughout the entire codebase.
 
 *This agent is optimized for Pokemon Infinity Gauntlet development with Claude Sonnet 4.5, emphasizing Patch engine compliance, private channel architecture migration, standardized terminology enforcement, and comprehensive system design with 105+ pages of authoritative documentation.*
 
-*Last Updated: 2025-12-19 — Added Prisma 7 Bible references*
+*Last Updated: 2025-12-19 — Expanded Prisma 7 Bible integration (1000+ lines)*
