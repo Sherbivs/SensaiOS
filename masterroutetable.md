@@ -1,7 +1,9 @@
 # Master Router Table
-Last Updated (UTC): 2025-12-18T00:00:00Z
+Last Updated (UTC): 2025-12-18T15:00:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
+
+**HOMESTEAD MIGRATION COMPLETE (2025-06-15):** All DM gameplay migrated to private guild channels. `src/bot/dm/` DELETED.
 
 ## Router-of-Routers
 - `ops/ROUTER_INDEX.yaml` — Generated index of active routers. Start here to locate downstream routers quickly.
