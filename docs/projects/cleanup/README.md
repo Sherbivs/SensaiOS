@@ -152,11 +152,35 @@ This folder contains projects focused on maintaining clean, organized documentat
 
 ## Recent Cleanup Projects
 
+### 2025-12-20: Dead Code Cleanup Meeting #4
+**Files Deleted:** 43 files (32 source + 7 dist + 4 scripts)
+**Lines Removed:** ~36,300
+**Agent Config Created:** `.github/agents/cleanup-agent.agent.md`
+**Documentation:** 2025-12-20-cleanup-meeting-4-report.md
+
+**Consolidated from ops/ (8 files with date-prefixed names):**
+- CLEANUP-MEETING-4-AGENDA.md
+- CLEANUP-MEETING-4-REPORT.md
+- CLEANUP-MEETING-4-TRANSCRIPT.md
+- CONSOLIDATION-MEETING-3-REPORT.md
+- STRESS-REMEDIATION-MEETING-2025-12-13.md
+- SINGULARITY-AUDIT-2025-12-15.md
+- SINGULARITY-REMEDIATION-PLAN.md
+- DUPLICATION-REPORT.md
+
+### 2025-12-15: Singularity Audit
+**Scope:** Repository complexity reduction
+**Documentation:** 2025-12-15-singularity-audit.md, 2025-12-15-singularity-remediation-plan.md
+
+### 2025-12-13: Stress Remediation Meeting
+**Scope:** Performance bottleneck identification
+**Documentation:** 2025-12-13-stress-remediation-meeting.md
+
 ### 2025-12-02: Documentation Root Cleanup
 **Files Moved:** 15 files  
 **Folders Affected:** archive/ (+8), security/ (+6), meta/ (+1)  
 **Root Reduction:** 88% (17 → 2 files)  
-**Documentation:** docs/DOCS-CLEANUP-2025-12-02.md
+**Documentation:** 2025-12-02-docs-root-cleanup.md
 
 ---
 
@@ -174,6 +198,6 @@ This folder contains projects focused on maintaining clean, organized documentat
 
 ---
 
-**Last Updated:** 2025-12-02  
+**Last Updated:** 2025-12-20  
 **Status:** Active (cleanup projects ongoing)  
 **Next:** Use temp/ for future cleanup operations
