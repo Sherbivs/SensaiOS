@@ -9,6 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { log } from '../../utils/logger.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
+import { ensureError } from '../../shared/utils/error-utils.js';
 import { errorTracker } from '../../services/monitoring/index.js';
 import type { 
   SecurityBotState, 
@@ -166,7 +167,7 @@ async function loadStateFile(filePath: string): Promise<SecurityBotState | null>
     log('error', '[State] Error loading file', { filePath, error: error.message });
     
     errorTracker.captureError(
-      error instanceof Error ? error : new Error(String(error)),
+      ensureError(error),
       {
         category: 'WORKER',
         operation: 'state:loadFile',
@@ -192,7 +193,7 @@ async function saveStateFile(filePath: string, state: SecurityBotState): Promise
     log('error', '[State] Error saving file', { filePath, error: error.message });
     
     await errorTracker.captureError(
-      error instanceof Error ? error : new Error(String(error)),
+      ensureError(error),
       {
         category: 'WORKER',
         operation: 'state:saveFile',
@@ -219,7 +220,7 @@ async function createSnapshot(state: SecurityBotState): Promise<string | null> {
     await saveStateFile(snapshotPath, state);
     return snapshotPath;
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('error', '[State] Error creating snapshot', { error: error.message });
     return null;
   }
@@ -254,7 +255,7 @@ async function pruneSnapshots(): Promise<void> {
       log('info', '[State] Pruned old snapshots', { count: pruned });
     }
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('error', '[State] Error pruning snapshots', { error: error.message });
   }
 }
@@ -319,7 +320,7 @@ export async function initializeState(): Promise<SecurityBotState> {
     log('error', '[State] State persistence will be degraded (in-memory only)');
     
     await errorTracker.captureError(
-      error instanceof Error ? error : new Error(String(error)),
+      ensureError(error),
       {
         category: 'WORKER',
         severity: 'CRITICAL',

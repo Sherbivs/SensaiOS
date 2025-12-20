@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { log } from '../../utils/logger.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
+import { ensureError } from '../../shared/utils/error-utils.js';
 import { errorTracker } from '../../services/monitoring/index.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
@@ -121,7 +122,7 @@ async function loadStateFile(filePath) {
             return null;
         }
         log('error', '[State] Error loading file', { filePath, error: error.message });
-        errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
+        errorTracker.captureError(ensureError(error), {
             category: 'WORKER',
             operation: 'state:loadFile',
             customData: { filePath, errorCode: error.code },
@@ -142,7 +143,7 @@ async function saveStateFile(filePath, state) {
     catch (err) {
         const error = err;
         log('error', '[State] Error saving file', { filePath, error: error.message });
-        await errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
+        await errorTracker.captureError(ensureError(error), {
             category: 'WORKER',
             operation: 'state:saveFile',
             customData: { filePath, errorCode: error.code },
@@ -165,7 +166,7 @@ async function createSnapshot(state) {
         return snapshotPath;
     }
     catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
+        const error = ensureError(err);
         log('error', '[State] Error creating snapshot', { error: error.message });
         return null;
     }
@@ -196,7 +197,7 @@ async function pruneSnapshots() {
         }
     }
     catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
+        const error = ensureError(err);
         log('error', '[State] Error pruning snapshots', { error: error.message });
     }
 }
@@ -250,7 +251,7 @@ export async function initializeState() {
         const error = err;
         log('error', '[State] CRITICAL: Cannot create state directory', { error: error.message });
         log('error', '[State] State persistence will be degraded (in-memory only)');
-        await errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
+        await errorTracker.captureError(ensureError(error), {
             category: 'WORKER',
             severity: 'CRITICAL',
             operation: 'state:initializeDirectories',

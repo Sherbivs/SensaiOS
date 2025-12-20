@@ -30,6 +30,7 @@ export {
   formatError,
   getErrorMessage,
   ensureError,
+  getErrorCause,
 } from './error-utils.js';
 
 // Async Utilities

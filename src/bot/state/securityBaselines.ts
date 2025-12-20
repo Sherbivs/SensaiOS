@@ -23,6 +23,7 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { log } from '../../utils/logger.js';
+import { ensureError } from '../../shared/utils/error-utils.js';
 import type { SecurityBaselines, RoleChange } from './threatDetector.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ function verifySignature(data: string, signature: string): boolean {
       Buffer.from(expectedSignature, 'hex')
     );
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('warn', '[SecurityBaselines] Signature verification failed', { error: error.message });
     return false;
   }
@@ -371,7 +372,7 @@ export async function saveSecurityBaselines(baselines: FullSecurityBaselines): P
     
     return true;
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('error', '[SecurityBaselines] Failed to save baselines', { error: error.message });
     return false;
   }

@@ -22,6 +22,7 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { log } from '../../utils/logger.js';
+import { ensureError } from '../../shared/utils/error-utils.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
 // ─────────────────────────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ function verifySignature(data, signature) {
         return crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'));
     }
     catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
+        const error = ensureError(err);
         log('warn', '[SecurityBaselines] Signature verification failed', { error: error.message });
         return false;
     }
@@ -275,7 +276,7 @@ export async function saveSecurityBaselines(baselines) {
         return true;
     }
     catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
+        const error = ensureError(err);
         log('error', '[SecurityBaselines] Failed to save baselines', { error: error.message });
         return false;
     }

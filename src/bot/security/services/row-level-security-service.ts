@@ -76,6 +76,8 @@
  * ```
  */
 
+import { getErrorMessage, getErrorCause } from '../../../shared/utils/error-utils.js';
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -458,9 +460,9 @@ export class RowLevelSecurityService {
     } catch (error) {
       throw new RLSServiceError(
         RLS_ERROR_CODES.CONTEXT_SET_FAILED,
-        `Failed to set guild context: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to set guild context: ${getErrorMessage(error)}`,
         { guildId },
-        error instanceof Error ? error : undefined,
+        getErrorCause(error),
       );
     }
   }
@@ -493,9 +495,9 @@ export class RowLevelSecurityService {
     } catch (error) {
       throw new RLSServiceError(
         RLS_ERROR_CODES.CONTEXT_SET_FAILED,
-        `Failed to set local guild context: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to set local guild context: ${getErrorMessage(error)}`,
         { guildId },
-        error instanceof Error ? error : undefined,
+        getErrorCause(error),
       );
     }
   }
@@ -525,9 +527,9 @@ export class RowLevelSecurityService {
     } catch (error) {
       throw new RLSServiceError(
         RLS_ERROR_CODES.CONTEXT_SET_FAILED,
-        `Failed to set bypass context: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to set bypass context: ${getErrorMessage(error)}`,
         { audit },
-        error instanceof Error ? error : undefined,
+        getErrorCause(error),
       );
     }
   }
@@ -553,9 +555,9 @@ export class RowLevelSecurityService {
     } catch (error) {
       throw new RLSServiceError(
         RLS_ERROR_CODES.CONTEXT_RESET_FAILED,
-        `Failed to reset context: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to reset context: ${getErrorMessage(error)}`,
         {},
-        error instanceof Error ? error : undefined,
+        getErrorCause(error),
       );
     }
   }
@@ -662,7 +664,7 @@ export class RowLevelSecurityService {
         errors.push({
           table,
           code: RLS_ERROR_CODES.ENABLE_FAILED,
-          message: error instanceof Error ? error.message : 'Unknown error',
+          message: getErrorMessage(error),
           recoverable: true,
         });
         
@@ -733,7 +735,7 @@ export class RowLevelSecurityService {
         errors.push({
           table,
           code: RLS_ERROR_CODES.DISABLE_FAILED,
-          message: error instanceof Error ? error.message : 'Unknown error',
+          message: getErrorMessage(error),
           recoverable: true,
         });
         
@@ -794,9 +796,9 @@ export class RowLevelSecurityService {
     } catch (error) {
       throw new RLSServiceError(
         RLS_ERROR_CODES.POLICY_CREATE_FAILED,
-        `Failed to create policy ${policy.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to create policy ${policy.name}: ${getErrorMessage(error)}`,
         { policy },
-        error instanceof Error ? error : undefined,
+        getErrorCause(error),
       );
     }
   }
@@ -822,9 +824,9 @@ export class RowLevelSecurityService {
     } catch (error) {
       throw new RLSServiceError(
         RLS_ERROR_CODES.POLICY_DROP_FAILED,
-        `Failed to drop policy ${policyName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to drop policy ${policyName}: ${getErrorMessage(error)}`,
         { table, policyName },
-        error instanceof Error ? error : undefined,
+        getErrorCause(error),
       );
     }
   }
@@ -875,9 +877,9 @@ export class RowLevelSecurityService {
     } catch (error) {
       throw new RLSServiceError(
         RLS_ERROR_CODES.STATUS_CHECK_FAILED,
-        `Failed to get RLS status: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to get RLS status: ${getErrorMessage(error)}`,
         {},
-        error instanceof Error ? error : undefined,
+        getErrorCause(error),
       );
     }
   }

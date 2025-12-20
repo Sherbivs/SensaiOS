@@ -75,6 +75,7 @@
  * console.log(status.tables); // { security_events: { enabled: true, ... }, ... }
  * ```
  */
+import { getErrorMessage, getErrorCause } from '../../../shared/utils/error-utils.js';
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -257,7 +258,7 @@ export class RowLevelSecurityService {
             this.logger?.debug(`[RLS] Guild context set: ${guildId}`);
         }
         catch (error) {
-            throw new RLSServiceError(RLS_ERROR_CODES.CONTEXT_SET_FAILED, `Failed to set guild context: ${error instanceof Error ? error.message : 'Unknown error'}`, { guildId }, error instanceof Error ? error : undefined);
+            throw new RLSServiceError(RLS_ERROR_CODES.CONTEXT_SET_FAILED, `Failed to set guild context: ${getErrorMessage(error)}`, { guildId }, getErrorCause(error));
         }
     }
     /**
@@ -276,7 +277,7 @@ export class RowLevelSecurityService {
             this.logger?.debug(`[RLS] Local guild context set: ${guildId}`);
         }
         catch (error) {
-            throw new RLSServiceError(RLS_ERROR_CODES.CONTEXT_SET_FAILED, `Failed to set local guild context: ${error instanceof Error ? error.message : 'Unknown error'}`, { guildId }, error instanceof Error ? error : undefined);
+            throw new RLSServiceError(RLS_ERROR_CODES.CONTEXT_SET_FAILED, `Failed to set local guild context: ${getErrorMessage(error)}`, { guildId }, getErrorCause(error));
         }
     }
     /**
@@ -298,7 +299,7 @@ export class RowLevelSecurityService {
             this.logger?.debug('[RLS] Bypass context enabled');
         }
         catch (error) {
-            throw new RLSServiceError(RLS_ERROR_CODES.CONTEXT_SET_FAILED, `Failed to set bypass context: ${error instanceof Error ? error.message : 'Unknown error'}`, { audit }, error instanceof Error ? error : undefined);
+            throw new RLSServiceError(RLS_ERROR_CODES.CONTEXT_SET_FAILED, `Failed to set bypass context: ${getErrorMessage(error)}`, { audit }, getErrorCause(error));
         }
     }
     /**
@@ -315,7 +316,7 @@ export class RowLevelSecurityService {
             this.logger?.debug('[RLS] Context reset');
         }
         catch (error) {
-            throw new RLSServiceError(RLS_ERROR_CODES.CONTEXT_RESET_FAILED, `Failed to reset context: ${error instanceof Error ? error.message : 'Unknown error'}`, {}, error instanceof Error ? error : undefined);
+            throw new RLSServiceError(RLS_ERROR_CODES.CONTEXT_RESET_FAILED, `Failed to reset context: ${getErrorMessage(error)}`, {}, getErrorCause(error));
         }
     }
     /**
@@ -392,7 +393,7 @@ export class RowLevelSecurityService {
                 errors.push({
                     table,
                     code: RLS_ERROR_CODES.ENABLE_FAILED,
-                    message: error instanceof Error ? error.message : 'Unknown error',
+                    message: getErrorMessage(error),
                     recoverable: true,
                 });
                 this.logger?.error(`[RLS] Failed to enable on ${table}:`, error);
@@ -448,7 +449,7 @@ export class RowLevelSecurityService {
                 errors.push({
                     table,
                     code: RLS_ERROR_CODES.DISABLE_FAILED,
-                    message: error instanceof Error ? error.message : 'Unknown error',
+                    message: getErrorMessage(error),
                     recoverable: true,
                 });
                 this.logger?.error(`[RLS] Failed to disable on ${table}:`, error);
@@ -492,7 +493,7 @@ export class RowLevelSecurityService {
             return true;
         }
         catch (error) {
-            throw new RLSServiceError(RLS_ERROR_CODES.POLICY_CREATE_FAILED, `Failed to create policy ${policy.name}: ${error instanceof Error ? error.message : 'Unknown error'}`, { policy }, error instanceof Error ? error : undefined);
+            throw new RLSServiceError(RLS_ERROR_CODES.POLICY_CREATE_FAILED, `Failed to create policy ${policy.name}: ${getErrorMessage(error)}`, { policy }, getErrorCause(error));
         }
     }
     /**
@@ -510,7 +511,7 @@ export class RowLevelSecurityService {
             return true;
         }
         catch (error) {
-            throw new RLSServiceError(RLS_ERROR_CODES.POLICY_DROP_FAILED, `Failed to drop policy ${policyName}: ${error instanceof Error ? error.message : 'Unknown error'}`, { table, policyName }, error instanceof Error ? error : undefined);
+            throw new RLSServiceError(RLS_ERROR_CODES.POLICY_DROP_FAILED, `Failed to drop policy ${policyName}: ${getErrorMessage(error)}`, { table, policyName }, getErrorCause(error));
         }
     }
     // --------------------------------------------------------------------------
@@ -552,7 +553,7 @@ export class RowLevelSecurityService {
             };
         }
         catch (error) {
-            throw new RLSServiceError(RLS_ERROR_CODES.STATUS_CHECK_FAILED, `Failed to get RLS status: ${error instanceof Error ? error.message : 'Unknown error'}`, {}, error instanceof Error ? error : undefined);
+            throw new RLSServiceError(RLS_ERROR_CODES.STATUS_CHECK_FAILED, `Failed to get RLS status: ${getErrorMessage(error)}`, {}, getErrorCause(error));
         }
     }
     /**

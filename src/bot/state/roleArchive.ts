@@ -26,6 +26,7 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { log } from '../../utils/logger.js';
+import { ensureError } from '../../shared/utils/error-utils.js';
 import { emitAlert } from '../eventbus-integration.js';
 import { 
   generateSecurityBaselines, 
@@ -178,7 +179,7 @@ function verifySignature(data: string, signature: string): boolean {
       Buffer.from(expectedSignature, 'hex')
     );
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('warn', '[RoleArchive] Signature verification failed', { error: error.message });
     return false;
   }
@@ -231,7 +232,7 @@ async function persistArchive(): Promise<void> {
       file: ARCHIVE_FILE
     });
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('error', '[RoleArchive] Failed to persist', { error: error.message });
     throw err;
   }
@@ -294,7 +295,7 @@ export async function initializeRoleArchive(): Promise<boolean> {
               log('warn', '[RoleArchive] Backup has no signature (legacy format). Cannot verify integrity.');
             }
           } catch (backupErr) {
-            const error = backupErr instanceof Error ? backupErr : new Error(String(backupErr));
+            const error = ensureError(backupErr);
             log('error', '[RoleArchive] Failed to restore from backup', { error: error.message });
           }
           
@@ -305,7 +306,7 @@ export async function initializeRoleArchive(): Promise<boolean> {
               action: 'Restored from backup',
             });
           } catch (alertError) {
-            const error = alertError instanceof Error ? alertError : new Error(String(alertError));
+            const error = ensureError(alertError);
             log('warn', '[EventBus] Failed to emit archive tampering alert', {
               error: error.message,
             });
@@ -389,7 +390,7 @@ export async function initializeRoleArchive(): Promise<boolean> {
       roleArchiveCache.securityBaselines = baselines;
       
     } catch (baselineErr) {
-      const error = baselineErr instanceof Error ? baselineErr : new Error(String(baselineErr));
+      const error = ensureError(baselineErr);
       log('error', '[RoleArchive] Failed to initialize security baselines', { 
         error: error.message,
         stack: error.stack 
@@ -398,7 +399,7 @@ export async function initializeRoleArchive(): Promise<boolean> {
     
     return true;
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('error', '[RoleArchive] Initialization failed', { error: error.message, stack: error.stack });
     return false;
   }
@@ -454,7 +455,7 @@ export async function recordRoleChange(event: RoleChangeEvent): Promise<RoleChan
   roleArchiveCache.statistics.lastUpdate = timestamp;
   
   persistArchive().catch(err => {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('error', '[RoleArchive] Failed to persist change', { error: error.message });
   });
   
@@ -502,7 +503,7 @@ export async function recordRoleChange(event: RoleChangeEvent): Promise<RoleChan
           }
         }
       } catch (threatErr) {
-        const error = threatErr instanceof Error ? threatErr : new Error(String(threatErr));
+        const error = ensureError(threatErr);
         log('error', '[RoleArchive] Failed to detect threats', {
           error: error.message,
           stack: error.stack
@@ -665,7 +666,7 @@ export async function refreshSecurityBaselines(): Promise<boolean> {
     
     return false;
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('error', '[RoleArchive] Failed to refresh security baselines', {
       error: error.message,
       stack: error.stack

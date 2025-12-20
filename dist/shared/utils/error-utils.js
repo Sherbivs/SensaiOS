@@ -109,3 +109,20 @@ export function getErrorMessage(error) {
 export function ensureError(error) {
     return error instanceof Error ? error : new Error(String(error));
 }
+/**
+ * Get Error instance or undefined if not an Error
+ * Useful for cause parameter in custom Error constructors
+ * @param error - Unknown error value
+ * @returns Error instance if input is Error, undefined otherwise
+ *
+ * @example
+ * ```typescript
+ * throw new CustomError(
+ *   'Operation failed',
+ *   getErrorCause(error) // replaces: error instanceof Error ? error : undefined
+ * );
+ * ```
+ */
+export function getErrorCause(error) {
+    return error instanceof Error ? error : undefined;
+}

@@ -26,6 +26,7 @@
 
 import { existsSync, readFileSync } from 'fs';
 import { log } from '../../utils/logger.js';
+import { ensureError } from '../../shared/utils/error-utils.js';
 import type { SecurityBotState } from './types.js';
 import type { ThreatSeverity, SecurityThreat } from './threatDetector.js';
 
@@ -355,7 +356,7 @@ export function calculateSecurityScore(botState: ExtendedBotState): SecurityScor
       calculatedAt: new Date().toISOString()
     };
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('error', '[SecurityMetrics] Failed to calculate security score', { error: error.message });
     return {
       overall: 0,
@@ -437,7 +438,7 @@ export function analyzeThreatTrends(botState: ExtendedBotState): ThreatTrendAnal
       calculatedAt: new Date().toISOString()
     };
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('error', '[SecurityMetrics] Failed to analyze threat trends', { error: error.message });
     return {
       windows: {},
@@ -590,7 +591,7 @@ export function generateRecommendations(
 
     return recommendations;
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('error', '[SecurityMetrics] Failed to generate recommendations', { error: error.message });
     return [{
       priority: 'critical',
@@ -629,7 +630,7 @@ export function getSecurityMetrics(botState: ExtendedBotState): SecurityMetrics 
       }
     };
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
+    const error = ensureError(err);
     log('error', '[SecurityMetrics] Failed to get security metrics', { error: error.message });
     return {
       score: { 
