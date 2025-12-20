@@ -36,6 +36,7 @@ These guides provide in-depth coverage of complex topics:
 - **[Worker Troubleshooting](worker-troubleshooting-comprehensive.md)** — 22 pages, ALL failure scenarios, recovery procedures
 - **[Database Operations Runbook](database-operations-runbook-comprehensive.md)** — 25 pages, master-mirror-staging pipeline, live game requirements
 - **[/ops Commands Reference](ops-commands-reference-comprehensive.md)** — 28 pages, complete reference for all 9 administrative commands
+- **[Loki Query Suite](loki-query-suite.md)** — 📊 Comprehensive LogQL queries for production monitoring
 - **[Incident Response Playbook](incident-response-playbook.md)** — Emergency protocols, escalation procedures
 - **[Query Optimization Guide](query-optimization-guide.md)** — Database query tuning, index optimization
 - **[Connection Troubleshooting](connection-troubleshooting.md)** — Database connection diagnostics
@@ -63,12 +64,16 @@ Homestead channel deployment and troubleshooting guides:
 ### Production Log Observability (Loki)
 **Canonical method to check production logs:** Local Loki service (localhost:3100)
 
+**Quick Access via CLI:**
 ```powershell
-$now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() * 1000000
-$start = ([DateTimeOffset]::UtcNow.AddHours(-3)).ToUnixTimeMilliseconds() * 1000000
-$r = Invoke-RestMethod "http://localhost:3100/loki/api/v1/query_range?query=%7Bservice%3D%22stats-logger%22%7D&limit=50&start=$start&end=$now"
-$r.data.result | ForEach-Object { $_.values.Count }  # Log count per stream
+.\scripts\loki-query.ps1 stats        # Log statistics by level
+.\scripts\loki-query.ps1 errors       # All errors
+.\scripts\loki-query.ps1 sweeps       # Security bot activity
+.\scripts\loki-query.ps1 labels       # Available labels
+.\scripts\loki-query.ps1 help         # Full command reference
 ```
+
+**Complete Query Suite:** [docs/operations-bible/loki-query-suite.md](loki-query-suite.md)
 
 **Grafana UI:** http://localhost:3000/explore → Query: `{service="stats-logger"}`
 **Architecture:** Render → ngrok tunnel → localhost:3100 (Loki) → Grafana
