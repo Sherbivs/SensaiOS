@@ -54,7 +54,10 @@ param(
     [int]$Limit = 100,
 
     [Parameter()]
-    [switch]$Raw
+    [switch]$Raw,
+
+    [Parameter()]
+    [switch]$Detailed
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -158,7 +161,8 @@ function Invoke-LokiQuery {
         [string]$QueryString,
         [int]$QueryLimit,
         [int]$QueryHours,
-        [switch]$RawOutput
+        [switch]$RawOutput,
+        [switch]$DetailedOutput
     )
 
     $now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() * 1000000
@@ -202,27 +206,49 @@ function Invoke-LokiQuery {
                 $logLine = $entry[1]
 
                 # Try to parse JSON
+                $message = $logLine
+                $dataPayload = $null
                 try {
                     $parsed = $logLine | ConvertFrom-Json -ErrorAction Stop
                     $message = $parsed.message
+                    if ($parsed.data) {
+                        $dataPayload = $parsed.data
+                    }
                 }
                 catch {
-                    $message = $logLine
+                    # Keep original message if not JSON
                 }
 
-                # Truncate long messages
-                if ($message.Length -gt 80) {
-                    $message = $message.Substring(0, 77) + "..."
+                # Truncate long messages for compact view
+                $displayMessage = $message
+                if (-not $DetailedOutput -and $message.Length -gt 70) {
+                    $displayMessage = $message.Substring(0, 67) + "..."
                 }
 
                 Write-Host "  [$timestamp] " -NoNewline -ForegroundColor DarkGray
                 Write-Host "[$($labels.level.ToUpper().PadRight(7))]" -NoNewline -ForegroundColor $levelColor
-                Write-Host " $message" -ForegroundColor White
+                Write-Host " $displayMessage" -ForegroundColor White
+
+                # Show data payload in detailed mode
+                if ($DetailedOutput -and $dataPayload) {
+                    $dataPayload.PSObject.Properties | ForEach-Object {
+                        $value = $_.Value
+                        if ($value -is [string] -and $value.Length -gt 60) {
+                            $value = $value.Substring(0, 57) + "..."
+                        }
+                        Write-Host "             └─ " -NoNewline -ForegroundColor DarkGray
+                        Write-Host "$($_.Name): " -NoNewline -ForegroundColor DarkCyan
+                        Write-Host "$value" -ForegroundColor Gray
+                    }
+                }
             }
         }
 
         Write-Host "─" * 60 -ForegroundColor DarkGray
         Write-Host "  Total entries: $totalEntries" -ForegroundColor DarkGray
+        if (-not $DetailedOutput) {
+            Write-Host "  Tip: Use -Detailed for full data payloads" -ForegroundColor DarkGray
+        }
         Write-Host ""
     }
     catch {
@@ -250,6 +276,7 @@ function Show-Help {
   EXAMPLES:
     .\loki-query.ps1 errors                    # Last hour of errors
     .\loki-query.ps1 security -Hours 6         # 6 hours of security logs
+    .\loki-query.ps1 sweeps -Detailed          # Sweep logs with data payload
     .\loki-query.ps1 -Custom '{level=`"info`"}'  # Custom query
     .\loki-query.ps1 stats -Hours 24           # 24-hour statistics
     .\loki-query.ps1 labels                    # Show all labels
@@ -257,6 +284,7 @@ function Show-Help {
   FLAGS:
     -Hours <n>    Time range in hours (default: 1)
     -Limit <n>    Max entries to return (default: 100)
+    -Detailed     Show full data payloads for each log
     -Raw          Output raw JSON
 " -ForegroundColor White
 }
@@ -296,12 +324,12 @@ if ($Query -eq "stats") {
 
 # Execute query
 if ($Custom) {
-    Invoke-LokiQuery -QueryString $Custom -QueryLimit $Limit -QueryHours $Hours -RawOutput:$Raw
+    Invoke-LokiQuery -QueryString $Custom -QueryLimit $Limit -QueryHours $Hours -RawOutput:$Raw -DetailedOutput:$Detailed
 }
 else {
     $queryString = $Queries[$Query]
     if ($queryString) {
-        Invoke-LokiQuery -QueryString $queryString -QueryLimit $Limit -QueryHours $Hours -RawOutput:$Raw
+        Invoke-LokiQuery -QueryString $queryString -QueryLimit $Limit -QueryHours $Hours -RawOutput:$Raw -DetailedOutput:$Detailed
     }
     else {
         Write-Host "  ❌ Unknown query: $Query" -ForegroundColor Red
