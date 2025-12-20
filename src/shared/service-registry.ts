@@ -14,7 +14,7 @@
  * @module shared/service-registry
  */
 
-import { log } from "../shared/logger.js";
+import { log } from "../shared/logging/index.js";
 import { getErrorMessage } from './utils/error-utils.js';
 
 // ============================================================================

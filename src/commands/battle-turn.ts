@@ -9,7 +9,7 @@
 
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from 'discord.js';
 import type { Command } from './types.js';
-import { log } from '../shared/logger.js';
+import { log } from '../shared/logging/index.js';
 import * as dexApi from '../lib/dex-api.js';
 import { makeRNG } from '../engine/rng.js';
 import engine from '../engine/index.js';

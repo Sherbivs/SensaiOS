@@ -6,7 +6,7 @@
  * @module bot/error-handler
  */
 import { errorTracker } from '../services/monitoring/index.js';
-import { log } from "../shared/logger.js";
+import { log } from "../shared/logging/index.js";
 import { safeReply } from './shared/response-helpers.js';
 /// ---- Bot Error Handler ----
 export class BotErrorHandler {

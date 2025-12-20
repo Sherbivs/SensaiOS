@@ -7,7 +7,7 @@
  * @since Phase 6.2 (2025-12-16) - Converted from JS
  */
 import { SlashCommandBuilder } from 'discord.js';
-import { log } from '../shared/logger.js';
+import { log } from '../shared/logging/index.js';
 import * as dexApi from '../lib/dex-api.js';
 import { makeRNG } from '../engine/rng.js';
 import engine from '../engine/index.js';

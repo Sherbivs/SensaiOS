@@ -15,7 +15,7 @@
 
 import { prisma } from "../shared/prisma.js";
 import { getErrorMessage } from "../shared/utils/error-utils.js";
-import { log } from "../shared/logger.js";
+import { log } from "../shared/logging/index.js";
 
 // ============================================================================
 // Types & Interfaces

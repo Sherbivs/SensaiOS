@@ -14,7 +14,7 @@
 
 import { EventEmitter } from 'node:events';
 import { errorTracker } from './error-tracker.js';
-import { log } from "../../shared/logger.js";
+import { log } from "../../shared/logging/index.js";
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
 import { generateResourceId } from './monitoring-utils.js';
 

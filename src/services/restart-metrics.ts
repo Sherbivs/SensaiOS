@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { dirname } from "path";
-import { log } from "../shared/logger.js";
+import { log } from "../shared/logging/index.js";
 
 /**
  * Restart Metrics - Persistent State Tracking

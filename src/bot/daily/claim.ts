@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction, TimestampStyles, time } from "discord.js";
-import { log } from "../../shared/logger.js";
+import { log } from "../../shared/logging/index.js";
 
 import { prisma as prismaClient, recordDailyQuestCompletion } from "../../models/index.js";
 import { replySuccess, replyInfo, replyError } from "../shared/response-helpers.js";

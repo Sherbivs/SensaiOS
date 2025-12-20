@@ -9,7 +9,7 @@
 
 import { SlashCommandBuilder, type ChatInputCommandInteraction, type TextChannel } from 'discord.js';
 import type { Command } from './types.js';
-import { log } from '../shared/logger.js';
+import { log } from '../shared/logging/index.js';
 import { buildTrainerProfileEmbed } from '../bot/profile/embed.js';
 import { loadTrainerProfile, invalidateTrainerProfile } from '../services/cache/recipes.js';
 import { updateTrainerProfile } from '../models/index.js';

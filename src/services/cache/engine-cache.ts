@@ -23,7 +23,7 @@
  */
 
 import { EngineDbConfig } from '../../config/engine-db-config.js';
-import { log } from "../../shared/logger.js";
+import { log } from "../../shared/logging/index.js";
 import { errorTracker } from '../monitoring/error-tracker.js';
 import type { IPrunableCache } from '../monitoring/resource-monitor.js';
 import * as readDb from '../database/engine-read-db.js';

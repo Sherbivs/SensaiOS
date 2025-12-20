@@ -24,7 +24,7 @@
  */
 
 import { EngineDbConfig } from '../../config/engine-db-config.js';
-import { log } from "../../shared/logger.js";
+import { log } from "../../shared/logging/index.js";
 import { errorTracker } from '../monitoring/error-tracker.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
 

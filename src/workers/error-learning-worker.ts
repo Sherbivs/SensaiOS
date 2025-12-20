@@ -17,7 +17,7 @@
  */
 
 import { errorLearning } from '../services/monitoring/error-learning.js';
-import { log } from "../shared/logger.js";
+import { log } from "../shared/logging/index.js";
 import { getErrorMessage } from '../shared/utils/index.js';
 
 // ============================================================================

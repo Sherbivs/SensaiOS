@@ -20,7 +20,7 @@ import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
-import { log } from "../../shared/logger.js";
+import { log } from "../../shared/logging/index.js";
 
 // Kanto starters (species IDs per National Dex)
 export const STARTER_OPTIONS = [

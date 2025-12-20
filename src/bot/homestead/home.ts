@@ -1,4 +1,4 @@
-import { log } from "../../shared/logger.js";
+import { log } from "../../shared/logging/index.js";
 import {
   ActionRowBuilder,
   ButtonBuilder,

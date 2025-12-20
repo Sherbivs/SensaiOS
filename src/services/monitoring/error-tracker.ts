@@ -18,7 +18,7 @@ import path from 'node:path';
 import { toEasternLogFormat } from '../../shared/datetime.js';
 import { EventBus } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
-import { log } from "../../shared/logger.js";
+import { log } from "../../shared/logging/index.js";
 import { daysAgo } from '../../shared/utils/date-utils.js';
 import type { ErrorLog } from '../../generated/prisma/client.js';
 import {

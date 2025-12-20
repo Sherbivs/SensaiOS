@@ -1,4 +1,4 @@
-import { log } from "../../shared/logger.js";
+import { log } from "../../shared/logging/index.js";
 import { ActionRowBuilder, EmbedBuilder, } from "discord.js";
 import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { navButton, primaryButton, paginationRow } from "../shared/button-utils.js";

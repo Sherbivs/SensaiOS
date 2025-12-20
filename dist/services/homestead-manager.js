@@ -11,7 +11,7 @@
  */
 import { ChannelType, PermissionFlagsBits } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
-import { log } from "../shared/logger.js";
+import { log } from "../shared/logging/index.js";
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { daysAgo } from '../shared/utils/date-utils.js';
 import { HOMESTEAD_CATEGORY_NAME, HOMESTEAD_CLEANUP_DAYS } from '../config/env.js';
