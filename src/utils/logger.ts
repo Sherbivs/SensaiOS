@@ -861,8 +861,12 @@ function printInfinityConsole(): void {
     return value;
   };
 
-  const diskUsedMB = parseDiskMB(statsCache.cache.cacheSize);
+  // Calculate ACTUAL disk usage from filesystem stats (not just /Store contents)
+  // diskTotal - diskFree = actual bytes used on the volume
   const diskTotalMB = parseDiskMB(statsCache.cache.diskTotal) || 1024; // 1 GB default
+  const diskFreeMB = parseDiskMB(statsCache.cache.diskFree) || 0;
+  const diskUsedMB = diskTotalMB - diskFreeMB; // ACTUAL filesystem usage
+  const storeSizeMB = parseDiskMB(statsCache.cache.cacheSize); // Just /Store directory size
 
   // Parse uptime (comes as formatted string like "4h 23m 15s")
   const parseUptimeSeconds = (str: string): number => {
@@ -898,12 +902,40 @@ function printInfinityConsole(): void {
   // eslint-disable-next-line no-console
   console.log('\n' + renderDashboard(config));
   
-  // Forward dashboard summary to Loki
+  // Forward comprehensive dashboard metrics to Loki
   forwardToLoki('info', 'Dashboard rendered', {
+    // Database status
     databases: databases.length,
+    dbCloudProd: statsCache.databases?.master.status,
+    dbCloudProdLatencyMs: statsCache.databases?.master.latency,
+    dbEngineRead: statsCache.databases?.engineRead.status,
+    dbEngineReadEntries: statsCache.databases?.engineRead.entries,
+    dbEngineWrite: statsCache.databases?.engineWrite.status,
+    
+    // Discord status
     discord: config.discord?.status,
-    ramUsedMB,
-    diskUsedMB,
+    discordGuilds: config.discord?.guilds,
+    discordUptimeSec: uptimeSeconds,
+    
+    // RAM metrics (cloud host)
+    ramUsedMB: Math.round(ramUsedMB * 100) / 100,
+    ramTotalMB,
+    ramPercent: Math.round((ramUsedMB / ramTotalMB) * 100),
+    heapUsedMB: parseMemoryMB(statsCache.node?.memory.heapUsed || '0'),
+    heapTotalMB: parseMemoryMB(statsCache.node?.memory.heapTotal || '0'),
+    
+    // Disk metrics (cloud host)  
+    diskUsedMB: Math.round(diskUsedMB * 100) / 100,
+    diskFreeMB: Math.round(diskFreeMB * 100) / 100,
+    diskTotalMB,
+    diskPercent: Math.round((diskUsedMB / diskTotalMB) * 100),
+    storeSizeMB: Math.round(storeSizeMB * 100) / 100, // Just /Store directory
+    
+    // Process info
+    pid: statsCache.node?.pid,
+    nodeVersion: statsCache.node?.version,
+    cpuUser: statsCache.node?.cpu.user,
+    cpuSystem: statsCache.node?.cpu.system,
   });
 }
 
