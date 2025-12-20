@@ -4,7 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 import { loadConfig, recordDatabaseConnectionSuccess } from "./config.js";
 import { log } from "./log.js";
-import { delayWithJitter, getErrorMessage } from "./utils/index.js";
+import { delayWithJitter, getErrorMessage, ensureError } from "./utils/index.js";
 const HEARTBEAT_DEFAULTS = {
     intervalMs: Math.max(Number(process.env.PRISMA_HEARTBEAT_INTERVAL_MS ?? 30_000) || 30_000, 5_000),
     warnThresholdMs: Math.max(Number(process.env.PRISMA_HEARTBEAT_WARN_THRESHOLD_MS ?? 1_000) || 1_000, 100),
@@ -88,7 +88,7 @@ async function performHeartbeat(state, options) {
     }
     catch (rawError) {
         state.consecutiveFailures += 1;
-        const error = rawError instanceof Error ? rawError : new Error(String(rawError));
+        const error = ensureError(rawError);
         const durationMs = Number(process.hrtime.bigint() - start) / 1_000_000;
         const meta = {
             consecutiveFailures: state.consecutiveFailures,
@@ -304,7 +304,7 @@ async function connectAcrossCandidates() {
             return;
         }
         catch (error) {
-            const err = error instanceof Error ? error : new Error(String(error));
+            const err = ensureError(error);
             lastError = err;
             const nextCandidate = candidates[(attempt + 1) % candidates.length]?.source ?? "none";
             log.warn("Prisma connection attempt failed; switching candidate", {
@@ -474,7 +474,7 @@ async function initializeOnPremiseDevClient() {
                     latencyMs: null,
                     slow: false,
                     consecutiveFailures: failures,
-                    error: error instanceof Error ? error : new Error(String(error)),
+                    error: ensureError(error),
                     source: "heartbeat",
                 };
             }
@@ -490,7 +490,7 @@ async function initializeOnPremiseDevClient() {
             latencyMs: null,
             slow: false,
             consecutiveFailures: 1,
-            error: error instanceof Error ? error : new Error(String(error)),
+            error: ensureError(error),
             source: "startup",
         };
     }
@@ -555,7 +555,7 @@ async function initializeOnPremiseExperimentClient() {
                     latencyMs: null,
                     slow: false,
                     consecutiveFailures: failures,
-                    error: error instanceof Error ? error : new Error(String(error)),
+                    error: ensureError(error),
                     source: "heartbeat",
                 };
             }
@@ -571,7 +571,7 @@ async function initializeOnPremiseExperimentClient() {
             latencyMs: null,
             slow: false,
             consecutiveFailures: 1,
-            error: error instanceof Error ? error : new Error(String(error)),
+            error: ensureError(error),
             source: "startup",
         };
     }

@@ -24,7 +24,7 @@ import { ServiceRegistry } from "./shared/service-registry.js";
 import { getAllServiceConfigs } from "./shared/service-factories.js";
 import { EventBus } from "./shared/event-bus.js";
 import { formatBytes, bytesToMB } from "./shared/utils/format-utils.js";
-import { getErrorMessage } from "./shared/utils/error-utils.js";
+import { getErrorMessage, ensureError } from "./shared/utils/error-utils.js";
 import { startHealthServer, stopHealthServer } from "./services/health-server.js";
 import { notifyBoot, notifyShutdown, notifyCrash } from "./services/lifecycle-notifier.js";
 import { initializeMetrics, recordShutdown, recordCrash } from "./services/restart-metrics.js";
@@ -1204,7 +1204,7 @@ function installSignalHandlers(): void {
   }
 
   process.on("unhandledRejection", async (reason) => {
-    const error = reason instanceof Error ? reason : new Error(String(reason));
+    const error = ensureError(reason);
     log.error("Unhandled promise rejection", error);
     
     // Capture error for tracking and learning
@@ -1221,7 +1221,7 @@ function installSignalHandlers(): void {
       });
     } catch (captureError) {
       // Fallback if ErrorTracker fails - already logged above
-      log.error("Failed to capture unhandledRejection", captureError instanceof Error ? captureError : new Error(String(captureError)));
+      log.error("Failed to capture unhandledRejection", ensureError(captureError));
     }
   });
 
@@ -1259,7 +1259,7 @@ function installSignalHandlers(): void {
       });
     } catch (captureError) {
       // Fallback if ErrorTracker fails - already logged above
-      log.error("Failed to capture uncaughtException", captureError instanceof Error ? captureError : new Error(String(captureError)));
+      log.error("Failed to capture uncaughtException", ensureError(captureError));
     }
     
     // Proceed with graceful shutdown
@@ -1418,7 +1418,7 @@ export async function boot(): Promise<void> {
     setPhase("Database recovery");
     log.warn("Database connectivity failed; attempting recovery", {
       error: getErrorMessage(error),
-      stack: error instanceof Error ? error.stack : undefined,
+      stack: ensureError(error).stack,
     });
     
     // Attempt automatic database recovery
@@ -1809,8 +1809,9 @@ export async function boot(): Promise<void> {
     const message = getErrorMessage(error);
     
     // Determine which bot failed based on error message or type
-    const isSecurityError = error instanceof Error && error.message.includes("Security bot");
-    const isDiscordError = error instanceof Error && error.message.includes("Discord bot");
+    const errObj = ensureError(error);
+    const isSecurityError = errObj.message.includes("Security bot");
+    const isDiscordError = errObj.message.includes("Discord bot");
     
     if (isSecurityError) {
       setSection("security", {

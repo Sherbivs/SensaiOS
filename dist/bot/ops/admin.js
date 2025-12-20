@@ -1,6 +1,6 @@
 import { toEasternString } from "../../shared/datetime.js";
 import { formatBytes, formatBytesShort, formatDurationCompact, formatTimestamp } from "../../shared/utils/format-utils.js";
-import { getErrorMessage } from "../../shared/utils/error-utils.js";
+import { getErrorMessage, ensureError } from "../../shared/utils/error-utils.js";
 import { ADMIN_USER_IDS } from "../../config/env.js";
 import { replyError } from "../shared/response-helpers.js";
 import { collectCacheMetrics, runCacheMaintenanceNow, startCacheMaintenanceScheduler, } from "../../services/cache/facade.js";
@@ -804,7 +804,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
             await interaction.editReply({ content: report });
         }
         catch (err) {
-            await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+            await errorTracker.captureError(ensureError(err), {
                 category: 'CACHE',
                 userId: interaction.user.id,
                 guildId: interaction.guildId || undefined,
@@ -823,7 +823,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
             await interaction.editReply({ content: report });
         }
         catch (err) {
-            await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+            await errorTracker.captureError(ensureError(err), {
                 category: 'ENGINE',
                 userId: interaction.user.id,
                 guildId: interaction.guildId || undefined,
@@ -847,7 +847,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
             await interaction.editReply({ content: report });
         }
         catch (err) {
-            await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+            await errorTracker.captureError(ensureError(err), {
                 category: 'ENGINE',
                 userId: interaction.user.id,
                 guildId: interaction.guildId || undefined,
@@ -905,7 +905,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
             }
         }
         catch (err) {
-            await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+            await errorTracker.captureError(ensureError(err), {
                 category: 'ENGINE',
                 userId: interaction.user.id,
                 guildId: interaction.guildId || undefined,
@@ -976,7 +976,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
             }
         }
         catch (err) {
-            await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+            await errorTracker.captureError(ensureError(err), {
                 category: 'DATABASE',
                 userId: interaction.user.id,
                 guildId: interaction.guildId || undefined,
@@ -1111,7 +1111,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
             }
         }
         catch (err) {
-            await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+            await errorTracker.captureError(ensureError(err), {
                 category: 'WORKER',
                 userId: interaction.user.id,
                 guildId: interaction.guildId || undefined,
@@ -1454,7 +1454,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
                 }
             }
             catch (err) {
-                lines.push(`• Discord Cache: n/a (error: ${err instanceof Error ? err.message : 'unknown'})`);
+                lines.push(`• Discord Cache: n/a (error: ${getErrorMessage(err)})`);
             }
             lines.push("");
             // Section 5: Heap Statistics (simplified - v8 module not imported)

@@ -26,7 +26,7 @@ import {
 
 import { loadCommands } from '../command-loader.js';
 import { toEasternString, toEasternDate, toEasternTime } from '../shared/datetime.js';
-import { formatBytes, formatDuration, getErrorMessage, normalizeString } from '../shared/utils/index.js';
+import { formatBytes, formatDuration, getErrorMessage, normalizeString, ensureError } from '../shared/utils/index.js';
 import { TIME_CONSTANTS, MONITORING_CONSTANTS, DISCORD_CONSTANTS } from '../shared/constants.js';
 import {
   CLI_DEBUG_MODE,
@@ -346,7 +346,7 @@ function saveTimeoutConfig(timeoutMs: number, reason = 'manual'): void {
     baseLog('error', '[timeout-config] Failed to save', { 
       error: getErrorMessage(err),
       file: TIMEOUT_CONFIG_FILE,
-      stack: err instanceof Error ? err.stack : undefined
+      stack: ensureError(err).stack
     });
   }
 }
@@ -1176,43 +1176,26 @@ interface ErrorWithCode extends Error {
 }
 
 function mergeLogError(base: Record<string, unknown>, error: unknown): Record<string, unknown> {
-  if (error instanceof Error) {
-    return {
-      ...base,
-      error,
-    };
-  }
-  if (error === undefined || error === null) {
-    return { ...base, error: String(error) };
-  }
+  const err = ensureError(error);
   return {
     ...base,
-    error: String(error),
+    error: err,
   };
 }
 
 function mergeReportError(base: Record<string, unknown>, error: unknown): Record<string, unknown> {
-  if (error instanceof Error) {
-    const errorWithCode = error as ErrorWithCode;
-    const details: Record<string, unknown> = {
-      ...base,
-      errorMessage: error.message,
-    };
-    if (errorWithCode.code !== undefined) {
-      details.errorCode = errorWithCode.code;
-    }
-    if (error.stack) {
-      details.errorStack = error.stack;
-    }
-    return details;
-  }
-  if (error === undefined || error === null) {
-    return { ...base, error: String(error) };
-  }
-  return {
+  const err = ensureError(error) as ErrorWithCode;
+  const details: Record<string, unknown> = {
     ...base,
-    error: String(error),
+    errorMessage: err.message,
   };
+  if (err.code !== undefined) {
+    details.errorCode = err.code;
+  }
+  if (err.stack) {
+    details.errorStack = err.stack;
+  }
+  return details;
 }
 
 interface AuditRoleChange {
@@ -2915,7 +2898,7 @@ client.once(Events.ClientReady, async () => {
     log('error', 'State persistence initialization failed', mergeLogError({
       errorType: error?.constructor?.name || typeof error,
       errorMessage: getErrorMessage(error),
-      errorStack: error instanceof Error ? error.stack : undefined,
+      errorStack: ensureError(error).stack,
     }, error));
     
     // Create minimal fallback state so bot can still function

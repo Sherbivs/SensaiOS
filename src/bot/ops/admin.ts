@@ -4,7 +4,7 @@ import type { PrismaClient, Prisma } from '../../generated/prisma/client.js';
 import type { BusStatus } from "../../types/db-models.js";
 import { toEasternString } from "../../shared/datetime.js";
 import { formatBytes, formatBytesShort, formatDurationCompact, formatTimestamp } from "../../shared/utils/format-utils.js";
-import { getErrorMessage } from "../../shared/utils/error-utils.js";
+import { getErrorMessage, ensureError } from "../../shared/utils/error-utils.js";
 import { ADMIN_USER_IDS } from "../../config/env.js";
 import { replyError } from "../shared/response-helpers.js";
 
@@ -986,7 +986,7 @@ export async function handleOpsCommand(
       const report = formatCacheReport(snapshot, cleanupRequested);
       await interaction.editReply({ content: report });
     } catch (err) {
-      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+      await errorTracker.captureError(ensureError(err), {
         category: 'CACHE',
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,
@@ -1005,7 +1005,7 @@ export async function handleOpsCommand(
       const report = formatEngineDbStats();
       await interaction.editReply({ content: report });
     } catch (err) {
-      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+      await errorTracker.captureError(ensureError(err), {
         category: 'ENGINE',
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,
@@ -1029,7 +1029,7 @@ export async function handleOpsCommand(
       const report = await formatMetricsHistoryReport(minutes);
       await interaction.editReply({ content: report });
     } catch (err) {
-      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+      await errorTracker.captureError(ensureError(err), {
         category: 'ENGINE',
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,
@@ -1089,7 +1089,7 @@ export async function handleOpsCommand(
         });
       }
     } catch (err) {
-      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+      await errorTracker.captureError(ensureError(err), {
         category: 'ENGINE',
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,
@@ -1164,7 +1164,7 @@ export async function handleOpsCommand(
         }
       }
     } catch (err) {
-      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+      await errorTracker.captureError(ensureError(err), {
         category: 'DATABASE',
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,
@@ -1305,7 +1305,7 @@ export async function handleOpsCommand(
         await interaction.editReply({ content: message });
       }
     } catch (err) {
-      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+      await errorTracker.captureError(ensureError(err), {
         category: 'WORKER',
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,
@@ -1678,7 +1678,7 @@ export async function handleOpsCommand(
           lines.push("• Discord Cache: n/a (client not initialized)");
         }
       } catch (err) {
-        lines.push(`• Discord Cache: n/a (error: ${err instanceof Error ? err.message : 'unknown'})`);
+        lines.push(`• Discord Cache: n/a (error: ${getErrorMessage(err)})`);
       }
       
       lines.push("");

@@ -5,7 +5,7 @@ import pg from "pg";
 
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
 import { log } from "./log.js";
-import { delayWithJitter, getErrorMessage } from "./utils/index.js";
+import { delayWithJitter, getErrorMessage, ensureError } from "./utils/index.js";
 
 export type PrismaHeartbeatEvent = {
   ok: boolean;
@@ -136,7 +136,7 @@ async function performHeartbeat(state: HeartbeatState, options: Required<Heartbe
     emitHeartbeat(event);
   } catch (rawError) {
     state.consecutiveFailures += 1;
-    const error = rawError instanceof Error ? rawError : new Error(String(rawError));
+    const error = ensureError(rawError);
     const durationMs = Number(process.hrtime.bigint() - start) / 1_000_000;
     const meta = {
       consecutiveFailures: state.consecutiveFailures,
@@ -385,7 +385,7 @@ async function connectAcrossCandidates(): Promise<void> {
       await attemptCandidateConnection(candidate, attempt);
       return;
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
+      const err = ensureError(error);
       lastError = err;
       const nextCandidate = candidates[(attempt + 1) % candidates.length]?.source ?? "none";
       log.warn("Prisma connection attempt failed; switching candidate", {
@@ -595,7 +595,7 @@ async function initializeOnPremiseDevClient(): Promise<void> {
           latencyMs: null,
           slow: false,
           consecutiveFailures: failures,
-          error: error instanceof Error ? error : new Error(String(error)),
+          error: ensureError(error),
           source: "heartbeat",
         };
       }
@@ -611,7 +611,7 @@ async function initializeOnPremiseDevClient(): Promise<void> {
       latencyMs: null,
       slow: false,
       consecutiveFailures: 1,
-      error: error instanceof Error ? error : new Error(String(error)),
+      error: ensureError(error),
       source: "startup",
     };
   }
@@ -684,7 +684,7 @@ async function initializeOnPremiseExperimentClient(): Promise<void> {
           latencyMs: null,
           slow: false,
           consecutiveFailures: failures,
-          error: error instanceof Error ? error : new Error(String(error)),
+          error: ensureError(error),
           source: "heartbeat",
         };
       }
@@ -700,7 +700,7 @@ async function initializeOnPremiseExperimentClient(): Promise<void> {
       latencyMs: null,
       slow: false,
       consecutiveFailures: 1,
-      error: error instanceof Error ? error : new Error(String(error)),
+      error: ensureError(error),
       source: "startup",
     };
   }

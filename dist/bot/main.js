@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { Client, GatewayIntentBits, Partials, Events, Collection, LimitedCollection, AuditLogEvent, PermissionsBitField, } from 'discord.js';
 import { loadCommands } from '../command-loader.js';
 import { toEasternString, toEasternDate, toEasternTime } from '../shared/datetime.js';
-import { formatBytes, formatDuration, getErrorMessage, normalizeString } from '../shared/utils/index.js';
+import { formatBytes, formatDuration, getErrorMessage, normalizeString, ensureError } from '../shared/utils/index.js';
 import { TIME_CONSTANTS, MONITORING_CONSTANTS, DISCORD_CONSTANTS } from '../shared/constants.js';
 import { CLI_DEBUG_MODE, ROLE_PERMISSIONS_AUDIT, ROLE_PERMISSIONS_REMEDIATE, ROLE_PERMISSION_POLICY, ROLE_PERMISSION_SNAPSHOT_UPDATE, ALERT_WEBHOOK_URL, ALERT_CHANNEL_ID, ALERT_USER_ID, BOT_TOKEN, ROLE_NAME, ROLE_ID, BACKFILL_CONCURRENCY, BACKFILL_DELAY_MS, BACKFILL_INTERVAL_SECONDS, ROLE_REMEDIATION_INTERVAL_SECONDS, CACHE_TTL_HOURS, ENABLE_CONTINUOUS_SWEEP, OPS_REPORT_INTERVAL_SECONDS, STANDARD_ENFORCE_ALL, UNLISTED_PERMISSIONS, STANDARD_EXEMPT_ROLES, STANDARD_ALL_PERMS_ROLES, RESTART_DM_RECIPIENT, SUMMARY_REPORT_RECIPIENT, SUMMARY_REPORT_HOUR, SUMMARY_REPORT_MINUTE, DRIP_ALERT_RECIPIENT, DRIP_ALERT_HOUR, DRIP_ALERT_MINUTE, DRIP_ALERT_TIMEZONE, } from '../config/env.js';
 import { checkAndSet } from '../lib/cooldown.js';
@@ -125,7 +125,7 @@ function saveTimeoutConfig(timeoutMs, reason = 'manual') {
         baseLog('error', '[timeout-config] Failed to save', {
             error: getErrorMessage(err),
             file: TIMEOUT_CONFIG_FILE,
-            stack: err instanceof Error ? err.stack : undefined
+            stack: ensureError(err).stack
         });
     }
 }
@@ -884,42 +884,25 @@ if (opsNotifier && typeof opsNotifier.subscribe === 'function') {
 }
 updateSecurityCliSection();
 function mergeLogError(base, error) {
-    if (error instanceof Error) {
-        return {
-            ...base,
-            error,
-        };
-    }
-    if (error === undefined || error === null) {
-        return { ...base, error: String(error) };
-    }
+    const err = ensureError(error);
     return {
         ...base,
-        error: String(error),
+        error: err,
     };
 }
 function mergeReportError(base, error) {
-    if (error instanceof Error) {
-        const errorWithCode = error;
-        const details = {
-            ...base,
-            errorMessage: error.message,
-        };
-        if (errorWithCode.code !== undefined) {
-            details.errorCode = errorWithCode.code;
-        }
-        if (error.stack) {
-            details.errorStack = error.stack;
-        }
-        return details;
-    }
-    if (error === undefined || error === null) {
-        return { ...base, error: String(error) };
-    }
-    return {
+    const err = ensureError(error);
+    const details = {
         ...base,
-        error: String(error),
+        errorMessage: err.message,
     };
+    if (err.code !== undefined) {
+        details.errorCode = err.code;
+    }
+    if (err.stack) {
+        details.errorStack = err.stack;
+    }
+    return details;
 }
 function extractAuditRoleIds(change) {
     if (!change) {
@@ -2454,7 +2437,7 @@ client.once(Events.ClientReady, async () => {
         log('error', 'State persistence initialization failed', mergeLogError({
             errorType: error?.constructor?.name || typeof error,
             errorMessage: getErrorMessage(error),
-            errorStack: error instanceof Error ? error.stack : undefined,
+            errorStack: ensureError(error).stack,
         }, error));
         // Create minimal fallback state so bot can still function
         const now = new Date().toISOString();

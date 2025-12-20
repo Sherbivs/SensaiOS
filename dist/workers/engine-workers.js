@@ -26,7 +26,7 @@ import { engineCache } from '../services/cache/engine-cache.js';
 import { engineWriteBuffer } from '../services/cache/engine-write-buffer.js';
 import { workerErrorHandler } from './worker-error-handler.js';
 import { log } from "../shared/logger.js";
-import { getErrorMessage, delay } from '../shared/utils/index.js';
+import { getErrorMessage, delay, ensureError } from '../shared/utils/index.js';
 // ============================================================================
 // Worker 1: Cache Refresh Worker
 // ============================================================================
@@ -104,9 +104,7 @@ class CacheRefreshWorker {
                 errorCount: this.status.errorCount
             });
             // Capture error for tracking
-            if (error instanceof Error) {
-                await workerErrorHandler.handleCacheRefreshError(error, 'engine-cache-l1', 'refresh');
-            }
+            await workerErrorHandler.handleCacheRefreshError(ensureError(error), 'engine-cache-l1', 'refresh');
         }
         finally {
             this.status.isRunning = false;
@@ -250,17 +248,15 @@ class WriteBufferFlusher {
                 errorCount: this.status.errorCount
             });
             // Capture error for tracking
-            if (error instanceof Error) {
-                const bufferStats = engineWriteBuffer.getStats();
-                await workerErrorHandler.handleTaskError(error, 'WriteBufferFlusher', 'flush', {
-                    operation: 'buffer-flush',
-                    customData: {
-                        battleLogQueueSize: bufferStats.battleLogQueueSize,
-                        moveUsageQueueSize: bufferStats.moveUsageQueueSize,
-                        anomalyQueueSize: bufferStats.anomalyQueueSize,
-                    },
-                });
-            }
+            const bufferStats = engineWriteBuffer.getStats();
+            await workerErrorHandler.handleTaskError(ensureError(error), 'WriteBufferFlusher', 'flush', {
+                operation: 'buffer-flush',
+                customData: {
+                    battleLogQueueSize: bufferStats.battleLogQueueSize,
+                    moveUsageQueueSize: bufferStats.moveUsageQueueSize,
+                    anomalyQueueSize: bufferStats.anomalyQueueSize,
+                },
+            });
         }
         finally {
             this.status.isRunning = false;
@@ -518,14 +514,12 @@ class WriteDbValidatorWorker {
                 errorCount: this.status.errorCount
             });
             // Capture error for tracking
-            if (error instanceof Error) {
-                await workerErrorHandler.handleTaskError(error, 'WriteDbValidatorWorker', 'validation', {
-                    operation: 'write-db-validation',
-                    customData: {
-                        taskType: 'validation',
-                    },
-                });
-            }
+            await workerErrorHandler.handleTaskError(ensureError(error), 'WriteDbValidatorWorker', 'validation', {
+                operation: 'write-db-validation',
+                customData: {
+                    taskType: 'validation',
+                },
+            });
         }
         finally {
             this.status.isRunning = false;
@@ -642,11 +636,9 @@ class EngineMaintenanceWorker {
                 error: this.status.lastError,
                 errorCount: this.status.errorCount,
             });
-            if (error instanceof Error) {
-                await workerErrorHandler.handleTaskError(error, 'EngineMaintenanceWorker', 'maintenance-cycle', {
-                    operation: 'engine-maintenance',
-                });
-            }
+            await workerErrorHandler.handleTaskError(ensureError(error), 'EngineMaintenanceWorker', 'maintenance-cycle', {
+                operation: 'engine-maintenance',
+            });
         }
         finally {
             this.status.isRunning = false;
