@@ -32,7 +32,7 @@ import { Client, type TextChannel, EmbedBuilder, type ColorResolvable } from 'di
 import { existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, statSync } from 'node:fs';
 import { join as pathJoin } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import logger from '../utils/intelligent-logger.js';
+import { log as logger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import {
   ALERT_DISPATCHER_ENABLED,

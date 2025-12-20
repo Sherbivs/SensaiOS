@@ -20,11 +20,8 @@ import type {
   SecurityPlugin,
 } from "./types.js";
 
-import { IntelligentLogger } from "../../../utils/intelligent-logger.js";
+import { log as pluginLogger } from "../../../shared/logging/index.js";
 import { getErrorMessage } from "../../../shared/utils/error-utils.js";
-
-// Centralized logger instance for all security plugins
-const pluginLogger = new IntelligentLogger();
 
 /**
  * Abstract base class for security plugins

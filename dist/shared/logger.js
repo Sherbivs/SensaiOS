@@ -343,6 +343,7 @@ logLegacy.warn = (message, context) => logLegacy('warn', message, context);
 logLegacy.error = (message, context) => logLegacy('error', message, context);
 logLegacy.success = (message, context) => logLegacy('success', message, context);
 logLegacy.detail = (message, context) => logLegacy('detail', message, context);
+logLegacy.debug = (message, context) => logLegacy('detail', message, context); // Map debug → detail
 /**
  * Legacy-compatible log export
  * @deprecated Use getLogger() for new code

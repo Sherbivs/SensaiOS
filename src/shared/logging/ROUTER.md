@@ -17,21 +17,19 @@ This directory provides the unified logger facade for the Pokemon Infinity Gaunt
 |-------|--------|-------------|
 | Phase 1 | ✅ COMPLETE | Facade created |
 | Phase 2 | ✅ COMPLETE | 41 files migrated (Meeting #9) |
-| Phase 3 | 🔄 IN PROGRESS | Visual overhaul (Meeting #10) |
+| Phase 3 | ✅ COMPLETE | Visual overhaul (Meeting #10) |
+| Phase 4 | ✅ COMPLETE | intelligent-logger.ts DELETED (Meeting #11) |
 
 ## Architecture
 
 ```
 src/shared/logging/
 ├── index.ts              ← Unified facade (exports)
-├── console-renderer.ts   ← "Infinity Console" visual system (NEW)
+├── console-renderer.ts   ← "Infinity Console" visual system
 │
-├── Delegates to:
-│   ├── ../logger.ts          ← DB-first logging (canonical)
-│   └── ../../utils/logger.ts ← Stats display + auto-refresh
-│
-└── NOT included:
-    └── ../../utils/intelligent-logger.ts ← AI analysis (specialized)
+└── Delegates to:
+    ├── ../logger.ts          ← DB-first logging (canonical)
+    └── ../../utils/logger.ts ← Stats display + auto-refresh
 ```
 
 ## Infinity Console Design
@@ -61,15 +59,9 @@ import { log, report, getLogger, ConsoleRenderer } from '../shared/logging/index
 
 ### Legacy (Being migrated)
 ```typescript
-// DEPRECATED: Use shared/logging instead
+// DEPRECATED: Use shared/logging instead — ALL MIGRATED
 import { log } from '../utils/logger.js';        // 0 files (MIGRATED!)
 import { log } from '../shared/logger.js';       // 0 files (MIGRATED!)
-```
-
-### Specialized (Keep separate)
-```typescript
-// For AI-enhanced analysis only
-import logger from '../utils/intelligent-logger.js';  // 4 files
 ```
 
 ## Files
@@ -175,10 +167,10 @@ console.log(formatLogEntry({
 
 - **Meeting #9:** `docs/projects/cleanup/2025-12-20-consolidation-meeting-9-high-level-execution.md`
 - **Meeting #10:** `docs/projects/cleanup/2025-12-20-consolidation-meeting-10-logger-visual-overhaul.md`
+- **Meeting #11:** `docs/projects/cleanup/2025-12-20-consolidation-meeting-11-architecture-analysis.md`
 - **Shared Logger:** `src/shared/logger.ts`
 - **Utils Logger:** `src/utils/logger.ts`
 - **Console Renderer:** `src/shared/logging/console-renderer.ts`
-- **Intelligent Logger:** `src/utils/intelligent-logger.ts` (specialized)
 
 ---
 
@@ -186,4 +178,5 @@ console.log(formatLogEntry({
 - Facade uses re-exports to avoid code duplication
 - All 41 legacy files migrated in Meeting #9
 - Infinity Console visual system added in Meeting #10
+- intelligent-logger.ts DELETED in Meeting #11 (986 lines removed)
 - Build verified after each change

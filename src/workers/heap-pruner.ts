@@ -34,7 +34,7 @@ import { readdirSync, statSync, unlinkSync, existsSync } from 'node:fs';
 import { join as pathJoin } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { EventBus } from '../shared/event-bus.js';
-import logger from '../utils/intelligent-logger.js';
+import { log } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 // ============================================================================
@@ -145,7 +145,7 @@ function discoverSnapshots(): SnapshotFile[] {
   
   try {
     if (!existsSync(CONFIG.storeDir)) {
-      logger.warn('[HeapPruner] Store directory does not exist', {
+      log.warn('[HeapPruner] Store directory does not exist', {
         category: 'SYSTEM',
         data: { storeDir: CONFIG.storeDir },
       });
@@ -175,7 +175,7 @@ function discoverSnapshots(): SnapshotFile[] {
           });
         }
       } catch (error) {
-        logger.warn('[HeapPruner] Failed to stat file', {
+        log.warn('[HeapPruner] Failed to stat file', {
           category: 'SYSTEM',
           data: { file, error: getErrorMessage(error) },
         });
@@ -186,7 +186,7 @@ function discoverSnapshots(): SnapshotFile[] {
     snapshots.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     
   } catch (error) {
-    logger.error('[HeapPruner] Failed to discover snapshots', {
+    log.error('[HeapPruner] Failed to discover snapshots', {
       category: 'SYSTEM',
       data: { storeDir: CONFIG.storeDir, error: getErrorMessage(error) },
     });
@@ -217,7 +217,7 @@ export async function pruneHeapSnapshots(): Promise<PruneResult> {
     const snapshots = discoverSnapshots();
     const maxAgeMs = CONFIG.maxAgeDays * 24 * 60 * 60 * 1000;
     
-    logger.info('[HeapPruner] Starting prune operation', {
+    log.info('[HeapPruner] Starting prune operation', {
       category: 'SYSTEM',
       data: {
         foundCount: snapshots.length,
@@ -249,7 +249,7 @@ export async function pruneHeapSnapshots(): Promise<PruneResult> {
         result.deletedCount++;
         result.deletedBytes += snapshot.sizeBytes;
         
-        logger.info('[HeapPruner] Deleted snapshot', {
+        log.info('[HeapPruner] Deleted snapshot', {
           category: 'SYSTEM',
           data: {
             name: snapshot.name,
@@ -262,7 +262,7 @@ export async function pruneHeapSnapshots(): Promise<PruneResult> {
         result.errors.push(`Failed to delete ${snapshot.name}: ${errorMsg}`);
         result.success = false;
         
-        logger.error('[HeapPruner] Failed to delete snapshot', {
+        log.error('[HeapPruner] Failed to delete snapshot', {
           category: 'SYSTEM',
           data: {
             name: snapshot.name,
@@ -303,7 +303,7 @@ export async function pruneHeapSnapshots(): Promise<PruneResult> {
       },
     }, { emitter: 'heap-pruner' });
     
-    logger.info('[HeapPruner] Prune operation complete', {
+    log.info('[HeapPruner] Prune operation complete', {
       category: 'SYSTEM',
       data: {
         success: result.success,
@@ -337,7 +337,7 @@ export async function pruneHeapSnapshots(): Promise<PruneResult> {
       },
     }, { emitter: 'heap-pruner' });
     
-    logger.error('[HeapPruner] Prune operation failed', {
+    log.error('[HeapPruner] Prune operation failed', {
       category: 'SYSTEM',
       data: { error: getErrorMessage(error) },
     });
@@ -353,18 +353,18 @@ export async function pruneHeapSnapshots(): Promise<PruneResult> {
  */
 export function startHeapPruner(): NodeJS.Timeout | null {
   if (!CONFIG.enabled) {
-    logger.info('[HeapPruner] Disabled via HEAP_SNAPSHOT_ENABLED=false');
+    log.info('[HeapPruner] Disabled via HEAP_SNAPSHOT_ENABLED=false');
     return null;
   }
   
   if (prunerInterval) {
-    logger.warn('[HeapPruner] Already running, skipping start');
+    log.warn('[HeapPruner] Already running, skipping start');
     return prunerInterval;
   }
   
   isRunning = true;
   
-  logger.info('[HeapPruner] Starting worker', {
+  log.info('[HeapPruner] Starting worker', {
     category: 'SYSTEM',
     data: {
       maxCount: CONFIG.maxCount,
@@ -380,7 +380,7 @@ export function startHeapPruner(): NodeJS.Timeout | null {
   if (CONFIG.runOnStartup) {
     setTimeout(async () => {
       if (isRunning) {
-        logger.info('[HeapPruner] Running startup prune');
+        log.info('[HeapPruner] Running startup prune');
         await pruneHeapSnapshots();
       }
     }, CONFIG.startupStaggerMs);
@@ -417,7 +417,7 @@ export function stopHeapPruner(): void {
     clearInterval(prunerInterval);
     prunerInterval = null;
     
-    logger.info('[HeapPruner] Stopped', {
+    log.info('[HeapPruner] Stopped', {
       category: 'SYSTEM',
       data: {
         totalRunCount: stats.totalRunCount,
@@ -469,7 +469,7 @@ export function getHeapPrunerStatus(): HeapPrunerStatus {
  * Force immediate prune (for /ops commands or testing)
  */
 export async function forcePrune(): Promise<PruneResult> {
-  logger.info('[HeapPruner] Force prune requested');
+  log.info('[HeapPruner] Force prune requested');
   return pruneHeapSnapshots();
 }
 

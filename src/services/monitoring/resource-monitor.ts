@@ -30,7 +30,7 @@
 
 import { resourceManager } from './resource-manager.js';
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
-import logger from '../../utils/intelligent-logger.js';
+import { log as logger } from '../../shared/logging/index.js';
 import { EventBus } from '../../shared/event-bus.js';
 import type { ResourceStats } from './resource-manager.js';
 import { RESOURCE_MONITOR_INTERVAL_MS, DISK_WARNING_THRESHOLD, DISK_CRITICAL_THRESHOLD, DISK_EMERGENCY_THRESHOLD } from '../../config/env.js';
@@ -1247,9 +1247,9 @@ class ResourceMonitor {
       this.logHealthCheckResults(trigger, snapshot, executionMs);
 
     } catch (error) {
-      logger.error('[ResourceMonitor] Health check failed', error, {
+      logger.error('[ResourceMonitor] Health check failed', {
         category: 'ERROR',
-        data: { trigger },
+        data: { trigger, error: getErrorMessage(error) },
       });
     }
   }
@@ -1427,9 +1427,9 @@ class ResourceMonitor {
 
     // Log with appropriate level
     if (hasCritical) {
-      logger.error('🔴 [ResourceMonitor] CRITICAL: Resource health check failed', new Error('Resource health critical'), {
+      logger.error('🔴 [ResourceMonitor] CRITICAL: Resource health check failed', {
         category: 'ALERT',
-        data: logData,
+        data: { ...logData, reason: 'Resource health critical' },
       });
     } else if (hasWarning) {
       logger.warn('🟡 [ResourceMonitor] WARNING: Resource health issues detected', {

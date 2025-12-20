@@ -581,6 +581,7 @@ logLegacy.warn = (message: string, context?: unknown) => logLegacy('warn', messa
 logLegacy.error = (message: string, context?: unknown) => logLegacy('error', message, context);
 logLegacy.success = (message: string, context?: unknown) => logLegacy('success', message, context);
 logLegacy.detail = (message: string, context?: unknown) => logLegacy('detail', message, context);
+logLegacy.debug = (message: string, context?: unknown) => logLegacy('detail', message, context); // Map debug → detail
 
 /**
  * Legacy-compatible log export
