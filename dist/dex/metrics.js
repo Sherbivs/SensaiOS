@@ -1,4 +1,5 @@
 import { log } from '../shared/log.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 // ============================================================================
 // Constants
 // ============================================================================
@@ -38,7 +39,7 @@ export function recordDexFallback({ runtime = DEFAULT_RUNTIME, reason, error, co
     log.warn('dex.metrics.fallback', {
         runtime,
         reason,
-        error: error instanceof Error ? error.message : String(error ?? 'unknown'),
+        error: error ? getErrorMessage(error) : 'unknown',
         counts: serializeCounts(counts),
     });
 }

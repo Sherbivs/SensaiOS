@@ -16,6 +16,7 @@
  */
 import RedisModule from 'ioredis';
 import { log } from '../utils/logger.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -127,7 +128,7 @@ function initializeRedis() {
         return redisClient;
     }
     catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = getErrorMessage(err);
         log('error', '[DistributedLock] Failed to initialize Redis', {
             error: message,
             fallback: 'in-memory',
@@ -174,7 +175,7 @@ async function releaseLockInternal(lockKey, lockValue, backend) {
             }
         }
         catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
+            const message = getErrorMessage(err);
             log('error', '[DistributedLock] Failed to release Redis lock', {
                 key: lockKey.replace('lock:', ''),
                 error: message,
@@ -264,7 +265,7 @@ export async function acquireLock(key, ttlMs = 5000) {
             return null;
         }
         catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
+            const message = getErrorMessage(err);
             log('warn', '[DistributedLock] Redis lock failed - falling back to in-memory', {
                 key,
                 error: message,
@@ -329,7 +330,7 @@ export async function shutdownDistributedLock() {
             });
         }
         catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
+            const message = getErrorMessage(err);
             log('warn', '[DistributedLock] Error closing Redis connection', {
                 error: message,
             });

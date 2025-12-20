@@ -11,6 +11,7 @@
 
 import { log } from '../utils/logger.js';
 import { truncate } from '../shared/utils/index.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { MONITORING_CONSTANTS } from '../shared/constants.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -259,11 +260,11 @@ export function recordError(options: RecordErrorOptions = {}): ErrorEntry {
       const result = handler(entry);
       if (result && typeof result.then === 'function') {
         (result as Promise<void>).catch((error: unknown) => {
-          log('error', '[ops-notifier]', { error: error instanceof Error ? error.message : error });
+          log('error', '[ops-notifier]', { error: getErrorMessage(error) });
         });
       }
     } catch (error) {
-      log('error', '[ops-notifier]', { error: error instanceof Error ? error.message : error });
+      log('error', '[ops-notifier]', { error: getErrorMessage(error) });
     }
   }
 

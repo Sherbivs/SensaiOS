@@ -10,6 +10,7 @@
  */
 import { log } from '../utils/logger.js';
 import { truncate } from '../shared/utils/index.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { MONITORING_CONSTANTS } from '../shared/constants.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -198,12 +199,12 @@ export function recordError(options = {}) {
             const result = handler(entry);
             if (result && typeof result.then === 'function') {
                 result.catch((error) => {
-                    log('error', '[ops-notifier]', { error: error instanceof Error ? error.message : error });
+                    log('error', '[ops-notifier]', { error: getErrorMessage(error) });
                 });
             }
         }
         catch (error) {
-            log('error', '[ops-notifier]', { error: error instanceof Error ? error.message : error });
+            log('error', '[ops-notifier]', { error: getErrorMessage(error) });
         }
     }
     return entry;

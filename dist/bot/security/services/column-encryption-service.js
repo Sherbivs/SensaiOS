@@ -41,6 +41,7 @@
  * @since 2025-01-XX
  */
 import crypto from 'crypto';
+import { getErrorMessage } from '../../../shared/utils/error-utils.js';
 // ============================================================================
 // Constants
 // ============================================================================
@@ -178,7 +179,7 @@ export class ColumnEncryptionService {
         }
         catch (error) {
             this.stats.encryptionErrors++;
-            throw new Error(`Field encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            throw new Error(`Field encryption failed: ${getErrorMessage(error)}`);
         }
     }
     /**
@@ -239,7 +240,7 @@ export class ColumnEncryptionService {
         }
         catch (error) {
             this.stats.decryptionErrors++;
-            throw new Error(`Field decryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            throw new Error(`Field decryption failed: ${getErrorMessage(error)}`);
         }
     }
     // ==========================================================================
@@ -339,7 +340,7 @@ export class ColumnEncryptionService {
             catch (error) {
                 failed.push({
                     record,
-                    error: error instanceof Error ? error.message : 'Unknown error',
+                    error: getErrorMessage(error),
                 });
             }
         }
@@ -367,7 +368,7 @@ export class ColumnEncryptionService {
             catch (error) {
                 failed.push({
                     record,
-                    error: error instanceof Error ? error.message : 'Unknown error',
+                    error: getErrorMessage(error),
                 });
             }
         }
