@@ -576,16 +576,11 @@ async function printStats() {
     lines.push(`    User:   ${statsCache.node.cpu.user}`);
     lines.push(`    System: ${statsCache.node.cpu.system}`);
     lines.push('');
-    // Cache Stats
-    lines.push('[CACHE & RESOURCES - Persistent Disk]');
-    lines.push(`  Cache Directory: ${statsCache.cache.cacheDir}`);
-    lines.push(`  Cache Size: ${statsCache.cache.cacheSize} / ${statsCache.cache.cacheBudgetMax} (${statsCache.cache.cacheBudgetPercent})`);
-    lines.push(`  Cache Free: ${statsCache.cache.approxFree}`);
-    lines.push('');
-    lines.push(`  Workspace Limit: ${statsCache.cache.workspaceLimit} ← 1 GB persistent disk`);
-    lines.push(`  Workspace Free:  ${statsCache.cache.workspaceFree}`);
-    lines.push('');
+    // Cache Stats - Simplified to show actual disk values
+    lines.push('[STORAGE - /Store Persistent Disk]');
+    lines.push(`  Directory: ${statsCache.cache.cacheDir}`);
     lines.push(`  Disk Total: ${statsCache.cache.diskTotal}`);
+    lines.push(`  Disk Used:  ${statsCache.cache.cacheSize}`);
     lines.push(`  Disk Free:  ${statsCache.cache.diskFree}`);
     lines.push('');
     // Database Stats
