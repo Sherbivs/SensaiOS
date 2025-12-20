@@ -70,6 +70,43 @@ export {
 } from '../../utils/logger.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Infinity Console — Visual Output System (NEW in Meeting #10)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export {
+  // Dashboard rendering
+  ConsoleRenderer,
+  renderDashboard,
+  renderStatusLine,
+  
+  // Section renderers
+  renderDatabaseSection,
+  renderDiscordSection,
+  renderResourceSection,
+  
+  // Log stream formatting
+  formatLogEntry,
+  logStreamSeparator,
+  progressBar,
+  
+  // Visual components
+  headerBox,
+  sectionBox,
+  
+  // Quick log formatters
+  success,
+  info,
+  warn,
+  error,
+  
+  // Types
+  type SystemStatus,
+  type ResourceMetrics,
+  type LogStreamEntry,
+  type DashboardConfig,
+} from './console-renderer.js';
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Usage Examples
 // ═══════════════════════════════════════════════════════════════════════════
 //
@@ -88,6 +125,11 @@ export {
 //   import { report, startAutoRefresh } from '../shared/logging/index.js';
 //   report();  // Display stats once
 //   startAutoRefresh();  // Start periodic stats updates
+//
+// Infinity Console (visual dashboard):
+//   import { renderDashboard, ConsoleRenderer } from '../shared/logging/index.js';
+//   console.log(renderDashboard({ version: '2.5.0', databases, resources }));
+//   console.log(ConsoleRenderer.success('Operation complete', 'context'));
 //
 // Note: For AI-enhanced analysis, continue using intelligent-logger directly:
 //   import logger from '../utils/intelligent-logger.js';

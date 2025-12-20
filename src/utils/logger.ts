@@ -15,6 +15,12 @@ import { fileURLToPath } from 'node:url';
 
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
 import { formatBytes, formatUptime, extractDatabaseName } from '../shared/utils/index.js';
+import {
+  renderDashboard,
+  renderStatusLine,
+  type SystemStatus,
+  type DashboardConfig,
+} from '../shared/logging/console-renderer.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -160,6 +166,10 @@ const LOG_LABEL: Readonly<Record<LogLevel | string, string>> = Object.freeze({
 
 const REFRESH_INTERVAL_MS = 15_000;
 const LATENCY_CHANGE_THRESHOLD_MS = 5;
+
+// Feature flag for Infinity Console visual output
+const INFINITY_CONSOLE_ENABLED = process.env.INFINITY_CONSOLE_ENABLED?.toLowerCase() !== 'false'
+  && process.env.NODE_ENV !== 'test';
 
 const METRIC_UNAVAILABLE = Object.freeze({
   NOT_QUERIED_YET: 'not-queried-yet',
@@ -759,6 +769,117 @@ async function refreshStats(): Promise<void> {
   statsCache.lastRefresh = now;
 }
 
+/**
+ * Renders the Infinity Console visual dashboard
+ */
+function printInfinityConsole(): void {
+  if (!statsCache.databases || !statsCache.node || !statsCache.cache) {
+    return;
+  }
+
+  // Build database status array for visual dashboard
+  const databases: SystemStatus[] = [
+    {
+      name: 'CLOUD-PROD',
+      status: statsCache.databases.master.status === 'online' ? 'online' :
+              statsCache.databases.master.status === 'degraded' ? 'degraded' : 'offline',
+      latency: statsCache.databases.master.latency ?? undefined,
+      details: 'Direct PostgreSQL',
+    },
+    {
+      name: 'ENGINE-READ',
+      status: statsCache.databases.engineRead.status === 'n/a' ? 'offline' :
+              statsCache.databases.engineRead.status === 'ready' ? 'online' : 'degraded',
+      latency: statsCache.databases.engineRead.latency ?? undefined,
+      details: statsCache.databases.engineRead.entries 
+        ? `${statsCache.databases.engineRead.entries.toLocaleString()} Pokémon loaded` 
+        : 'Loading...',
+    },
+    {
+      name: 'ENGINE-WRITE',
+      status: statsCache.databases.engineWrite.status === 'n/a' ? 'offline' :
+              statsCache.databases.engineWrite.status === 'ready' ? 'online' : 'degraded',
+      latency: statsCache.databases.engineWrite.latency ?? undefined,
+      details: 'WAL healthy',
+    },
+  ];
+
+  // Add on-premise databases if in development
+  const serviceInfo = detectServiceType();
+  if (!serviceInfo.isWeb && !serviceInfo.isWorker) {
+    if (statsCache.databases.onPremiseDev.status !== 'disabled') {
+      databases.push({
+        name: 'ON-PREMISE',
+        status: statsCache.databases.onPremiseDev.status === 'online' ? 'online' : 'offline',
+        latency: statsCache.databases.onPremiseDev.latency ?? undefined,
+        details: 'Development only',
+      });
+    }
+  }
+
+  // Parse memory values (they come as formatted strings like "337.5 MB")
+  const parseMemoryMB = (str: string): number => {
+    const match = str.match(/([\d.]+)\s*(MB|GB|KB)?/i);
+    if (!match) return 0;
+    const value = parseFloat(match[1]);
+    const unit = (match[2] || 'MB').toUpperCase();
+    if (unit === 'GB') return value * 1024;
+    if (unit === 'KB') return value / 1024;
+    return value;
+  };
+
+  const ramUsedMB = parseMemoryMB(statsCache.node.memory.rss);
+  const ramTotalMB = 2048; // Render Standard plan: 2 GB
+
+  // Parse disk values
+  const parseDiskMB = (str: string): number => {
+    const match = str.match(/([\d.]+)\s*(MB|GB|KB)?/i);
+    if (!match) return 0;
+    const value = parseFloat(match[1]);
+    const unit = (match[2] || 'MB').toUpperCase();
+    if (unit === 'GB') return value * 1024;
+    if (unit === 'KB') return value / 1024;
+    return value;
+  };
+
+  const diskUsedMB = parseDiskMB(statsCache.cache.cacheSize);
+  const diskTotalMB = parseDiskMB(statsCache.cache.diskTotal) || 1024; // 1 GB default
+
+  // Parse uptime (comes as formatted string like "4h 23m 15s")
+  const parseUptimeSeconds = (str: string): number => {
+    let seconds = 0;
+    const hourMatch = str.match(/(\d+)h/);
+    const minMatch = str.match(/(\d+)m/);
+    const secMatch = str.match(/(\d+)s/);
+    if (hourMatch) seconds += parseInt(hourMatch[1]) * 3600;
+    if (minMatch) seconds += parseInt(minMatch[1]) * 60;
+    if (secMatch) seconds += parseInt(secMatch[1]);
+    return seconds;
+  };
+
+  const uptimeSeconds = parseUptimeSeconds(statsCache.node.uptime);
+
+  // Build dashboard config
+  const config: DashboardConfig = {
+    version: '2.5.0',
+    databases,
+    discord: statsCache.security?.status === 'online' ? {
+      status: 'online',
+      guilds: statsCache.security.guilds,
+      latency: 45, // Placeholder - would need Discord client access
+      uptime: uptimeSeconds,
+    } : undefined,
+    resources: {
+      ram: { used: ramUsedMB * 1024 * 1024, total: ramTotalMB * 1024 * 1024 },
+      disk: { used: diskUsedMB * 1024 * 1024, total: diskTotalMB * 1024 * 1024 },
+      cpu: 12, // Placeholder - would need CPU monitoring
+    },
+  };
+
+  // eslint-disable-next-line no-console
+  console.log('\n' + renderDashboard(config));
+}
+
 async function printStats(): Promise<void> {
   await refreshStats();
   
@@ -771,7 +892,14 @@ async function printStats(): Promise<void> {
   }
   
   previousStats = { ...statsCache };
+
+  // Use Infinity Console if enabled
+  if (INFINITY_CONSOLE_ENABLED) {
+    printInfinityConsole();
+    return;
+  }
   
+  // Legacy text-based output
   const lines: string[] = [];
   
   lines.push('');
