@@ -2,22 +2,23 @@
 
 **Purpose:** Complete guide for developers working with the Infinity Gauntlet database layer  
 **Prerequisites:** Basic TypeScript, Prisma familiarity  
-**Estimated Reading Time:** 15 minutes
+**Estimated Reading Time:** 10 minutes
+
+> **⚠️ IMPORTANT (2025-12-19):** The generic repository pattern files (`base-repository.ts`, `trainer-repository.ts`, `pokemon-repository.ts`, `battle-repository.ts`) were removed in Meeting #4 of the Dead Code Cleanup initiative. These files were built during the Database-Centric Sprint but never integrated into the runtime. Historical documentation exists in `docs/projects/database-centric/`.
 
 ---
 
 ## Table of Contents
 
 1. [Quick Start Checklist](#1-quick-start-checklist)
-2. [Repository Pattern Overview](#2-repository-pattern-overview)
-3. [Using Domain Repositories](#3-using-domain-repositories)
-4. [Row-Level Security (RLS) Context](#4-row-level-security-rls-context)
-5. [Transaction Management](#5-transaction-management)
+2. [Current Database Patterns](#2-current-database-patterns)
+3. [Using the Prisma Client](#3-using-the-prisma-client)
+4. [Domain Repositories (Active)](#4-domain-repositories-active)
+5. [Row-Level Security (RLS) Context](#5-row-level-security-rls-context)
 6. [Query Patterns & Best Practices](#6-query-patterns--best-practices)
 7. [Testing Database Code](#7-testing-database-code)
-8. [Common Scenarios](#8-common-scenarios)
-9. [Troubleshooting](#9-troubleshooting)
-10. [Quick Reference](#10-quick-reference)
+8. [Troubleshooting](#8-troubleshooting)
+9. [Quick Reference](#9-quick-reference)
 
 ---
 
@@ -31,20 +32,20 @@ Before writing your first database PR:
 - [ ] Run existing tests: `npm test -- tests/services/`
 
 ### Key Files to Review
-- [ ] `src/services/base-repository.ts` — Core repository pattern
-- [ ] `src/services/trainer-repository.ts` — Domain-specific example
+- [ ] `src/shared/prisma.ts` — Prisma client singleton with multi-database support
+- [ ] `src/services/homestead-repository.ts` — Active domain repository example
 - [ ] `src/services/rls-context.ts` — Security context management
 - [ ] `prisma/schema.prisma` — Database schema reference
 
-### Architecture Decisions
-- [ ] Read ADR-002: Repository Pattern Selection (`docs/projects/database-centric/adrs/`)
-- [ ] Read ADR-003: Session-Aware Prisma Client
+### Documentation References
+- [ ] `docs/operations-bible/02-database-operations.md` — Database URL selection, connections
+- [ ] `docs/prisma-7-bible.md` — Comprehensive Prisma 7 guide (emergency triage, migration)
 
 ---
 
-## 2. Repository Pattern Overview
+## 2. Current Database Patterns
 
-We use the **Repository Pattern** to abstract database operations from business logic.
+The codebase uses **three primary database access patterns**:
 
 ### Architecture Layers
 
@@ -53,11 +54,11 @@ We use the **Repository Pattern** to abstract database operations from business 
 │                   Bot Commands / Services                │
 │              (src/bot/, src/services/)                  │
 ├─────────────────────────────────────────────────────────┤
-│                  Domain Repositories                     │
-│   TrainerRepository | PokemonRepository | BattleRepository│
+│              Direct Prisma Queries (Primary)             │
+│         Most operations use prisma.* directly           │
 ├─────────────────────────────────────────────────────────┤
-│                   BaseRepository<T>                      │
-│         Generic CRUD, pagination, transactions          │
+│            Domain Repositories (Where Needed)            │
+│       HomesteadRepository for complex channel ops       │
 ├─────────────────────────────────────────────────────────┤
 │               RLS Context Manager                        │
 │          Session variables, user isolation              │
@@ -69,107 +70,133 @@ We use the **Repository Pattern** to abstract database operations from business 
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Why Repository Pattern?
+### Pattern Selection Guide
 
-| Benefit | Description |
-|---------|-------------|
-| **Testability** | Mock repositories without touching database |
-| **Consistency** | Standardized CRUD, pagination, error handling |
-| **Security** | RLS context automatically applied |
-| **Maintainability** | Domain logic in one place |
-| **Type Safety** | Full TypeScript inference |
+| Use Case | Pattern | When to Use |
+|----------|---------|-------------|
+| **Simple CRUD** | Direct Prisma | Most operations: `prisma.user.findUnique()` |
+| **Complex Domain Logic** | Domain Repository | Multi-step operations, lifecycle management |
+| **Performance-Critical** | Raw PG Queries | Hot paths requiring specific SQL |
+| **Security Context** | RLS Context | User-scoped operations with row-level isolation |
 
 ---
 
-## 3. Using Domain Repositories
+## 3. Using the Prisma Client
+
+### Basic Import
+
+```typescript
+import { prisma } from "../shared/prisma.js";
+
+// Simple query
+const user = await prisma.user.findUnique({
+  where: { discordId: "123456789" }
+});
+
+// With relations
+const userWithPokemon = await prisma.user.findUnique({
+  where: { discordId: "123456789" },
+  include: { pokemon: true, party: true }
+});
+```
+
+### Multi-Database Support
+
+The codebase supports multiple Prisma clients for different environments:
+
+```typescript
+import { prisma, onPremiseDevPrisma, getDatabaseStats } from "../shared/prisma.js";
+
+// Production queries (always available)
+const prodUsers = await prisma.user.findMany();
+
+// Local development (optional, may be null)
+if (onPremiseDevPrisma) {
+  const localUsers = await onPremiseDevPrisma.user.findMany();
+}
+
+// Get telemetry for all databases
+const stats = getDatabaseStats();
+console.log(`PROD: ${stats.prod.status} | LOCAL: ${stats.onPremiseDev.status}`);
+```
+
+---
+
+## 4. Domain Repositories (Active)
 
 ### Available Repositories
 
-| Repository | Model | Key Operations |
-|------------|-------|----------------|
-| `TrainerRepository` | Trainer, TrainerProfile | Party management, coins, leaderboard |
-| `PokemonRepository` | Pokemon | Box management, battle ops, evolution |
-| `BattleRepository` | Battle, BattleLog | State machine, logs, statistics |
+| Repository | Model | Status | Key Operations |
+|------------|-------|--------|----------------|
+| `HomesteadRepository` | HomesteadChannel | **ACTIVE** | Channel lifecycle, health checks, bulk ops |
 
-### Basic Usage
+> **Note:** The generic repository pattern (`TrainerRepository`, `PokemonRepository`, `BattleRepository`, `BaseRepository`) was removed in Meeting #4 (2025-12-19). Use direct Prisma queries for trainer, pokemon, and battle operations.
+
+### Using HomesteadRepository
 
 ```typescript
-import { TrainerRepository } from "../services/trainer-repository.js";
-import { PokemonRepository } from "../services/pokemon-repository.js";
-import { BattleRepository } from "../services/battle-repository.js";
+import { homesteadRepository } from "../services/homestead-repository.js";
+
+// Find by Discord user ID
+const homestead = await homesteadRepository.findByUserId(userId);
+
+// Find by channel ID
+const channel = await homesteadRepository.findByChannelId(channelId);
+
+// Create a new homestead
+const created = await homesteadRepository.create({
+  userId: "discord-user-id",
+  guildId: "guild-id",
+  channelId: "channel-id",
+  status: "active"
+});
+
+// Update homestead status
+await homesteadRepository.updateStatus(homesteadId, "suspended");
+
+// Get inactive homesteads for cleanup
+const inactive = await homesteadRepository.findInactive(30); // 30 days
+```
+
+### Direct Prisma Queries (Recommended for Most Operations)
+
+For trainer, pokemon, and battle operations, use direct Prisma queries:
+
+```typescript
 import { prisma } from "../shared/prisma.js";
 
-// Create repository instances
-const trainerRepo = new TrainerRepository(prisma);
-const pokemonRepo = new PokemonRepository(prisma);
-const battleRepo = new BattleRepository(prisma);
-
 // Find trainer by Discord ID
-const trainer = await trainerRepo.findByDiscordId("123456789");
-
-// Get trainer's party
-const party = await trainerRepo.getParty(trainer.id);
-
-// Get Pokemon by ID with full details
-const pokemon = await pokemonRepo.findByIdWithDetails(pokemonId);
-
-// Create a new battle
-const battle = await battleRepo.createBattle(
-  trainerId1, 
-  trainerId2, 
-  "Wild Encounter"
-);
-```
-
-### CRUD Operations (BaseRepository)
-
-All repositories inherit from `BaseRepository<T>`:
-
-```typescript
-// CREATE
-const trainer = await trainerRepo.create({
-  discordId: "123456789",
-  username: "AshKetchum"
+const trainer = await prisma.user.findUnique({
+  where: { discordId: "123456789" }
 });
 
-// READ
-const found = await trainerRepo.findById(trainerId);
-const all = await trainerRepo.findAll();
-const first = await trainerRepo.findFirst({ username: "Ash" });
-
-// UPDATE
-const updated = await trainerRepo.update(trainerId, { 
-  coins: { increment: 100 } 
+// Get trainer's party with Pokemon details
+const party = await prisma.partySlot.findMany({
+  where: { userId: trainer.id },
+  include: { pokemon: true },
+  orderBy: { slot: "asc" }
 });
 
-// DELETE
-const deleted = await trainerRepo.delete(trainerId);
-
-// SOFT DELETE (if model supports)
-const archived = await trainerRepo.softDelete(trainerId);
-```
-
-### Pagination
-
-```typescript
-// Paginated results
-const page = await trainerRepo.findPaginated({
-  where: { coins: { gte: 100 } },
-  orderBy: { coins: "desc" },
-  page: 1,
-  pageSize: 20
+// Create a new Pokemon
+const pokemon = await prisma.pokemonInstance.create({
+  data: { 
+    userId: trainer.id,
+    speciesId: 25,
+    nickname: "Pikachu",
+    level: 5
+  }
 });
 
-console.log(page.data);       // Trainer[]
-console.log(page.total);      // Total count
-console.log(page.totalPages); // Total pages
-console.log(page.hasNext);    // Boolean
-console.log(page.hasPrev);    // Boolean
+// Update battle status
+await prisma.battle.update({
+  where: { id: battleId },
+  data: { status: "COMPLETED", winnerId }
+});
 ```
 
 ---
 
-## 4. Row-Level Security (RLS) Context
+## 5. Row-Level Security (RLS) Context
 
 ### What is RLS?
 
@@ -249,21 +276,21 @@ async function adminViewUser(adminDiscordId: string, targetTrainerId: string) {
 
 ---
 
-## 5. Transaction Management
+## 6. Transaction Management
 
 ### Simple Transactions
 
 ```typescript
 // Using Prisma's $transaction
 const result = await prisma.$transaction(async (tx) => {
-  const trainer = await tx.trainer.update({
-    where: { id: trainerId },
+  const trainer = await tx.user.update({
+    where: { id visitorId },
     data: { coins: { decrement: 100 } }
   });
   
-  const pokemon = await tx.pokemon.create({
+  const pokemon = await tx.pokemonInstance.create({
     data: { 
-      trainerId,
+      userId: trainerId,
       speciesId: 25,
       nickname: "Pikachu"
     }
@@ -274,43 +301,43 @@ const result = await prisma.$transaction(async (tx) => {
 // Both succeed or both rollback
 ```
 
-### Unit of Work Pattern
+### Interactive Transactions (Complex Operations)
 
-For complex multi-repository transactions:
+For multi-step operations requiring intermediate results:
 
 ```typescript
-import { UnitOfWork } from "../services/base-repository.js";
-
-const uow = new UnitOfWork(prisma);
-
-try {
-  await uow.begin();
-  
-  const trainerRepo = uow.getRepository(TrainerRepository);
-  const pokemonRepo = uow.getRepository(PokemonRepository);
-  
-  // Deduct coins
-  await trainerRepo.adjustCoins(trainerId, -500);
-  
-  // Add Pokemon
-  const pokemon = await pokemonRepo.create({
-    trainerId,
-    speciesId: 150,  // Mewtwo!
-    level: 70
+const result = await prisma.$transaction(async (tx) => {
+  // Step 1: Get current state
+  const party = await tx.partySlot.findMany({
+    where: { userId: trainerId },
+    include: { pokemon: true }
   });
   
-  await uow.commit();
-  return pokemon;
+  // Step 2: Check business rules
+  if (party.length >= 6) {
+    throw new Error("Party is full");
+  }
   
-} catch (error) {
-  await uow.rollback();
-  throw error;
-}
+  // Step 3: Create and assign
+  const pokemon = await tx.pokemonInstance.create({
+    data: { userId: trainerId, speciesId: 25, level: 5 }
+  });
+  
+  await tx.partySlot.create({
+    data: { 
+      userId: trainerId, 
+      pokemonId: pokemon.id, 
+      slot: party.length + 1 
+    }
+  });
+  
+  return pokemon;
+});
 ```
 
 ---
 
-## 6. Query Patterns & Best Practices
+## 7. Query Patterns & Best Practices
 
 ### Filtering
 
@@ -483,22 +510,20 @@ const finishedBattles = await prisma.battle.findMany({
 
 ---
 
-## 7. Testing Database Code
+## 8. Testing Database Code
 
 ### Unit Testing with Mocks
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TrainerRepository } from "../services/trainer-repository.js";
 
-describe("TrainerRepository", () => {
+describe("User Database Operations", () => {
   let mockPrisma: any;
-  let repo: TrainerRepository;
   
   beforeEach(() => {
     // Create mock Prisma client
     mockPrisma = {
-      trainer: {
+      user: {
         findUnique: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
@@ -510,20 +535,17 @@ describe("TrainerRepository", () => {
       $transaction: vi.fn((fn) => fn(mockPrisma)),
       $executeRaw: vi.fn(),
     };
-    
-    repo = new TrainerRepository(mockPrisma);
   });
   
-  it("should find trainer by Discord ID", async () => {
-    const mockTrainer = { id: "1", discordId: "123", username: "Ash" };
-    mockPrisma.trainer.findUnique.mockResolvedValue(mockTrainer);
+  it("should find user by Discord ID", async () => {
+    const mockUser = { id: "1", discordId: "123", username: "Ash" };
+    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
     
-    const result = await repo.findByDiscordId("123");
-    
-    expect(result).toEqual(mockTrainer);
-    expect(mockPrisma.trainer.findUnique).toHaveBeenCalledWith({
+    const result = await mockPrisma.user.findUnique({
       where: { discordId: "123" }
     });
+    
+    expect(result).toEqual(mockUser);
   });
 });
 ```
@@ -531,12 +553,12 @@ describe("TrainerRepository", () => {
 ### Test Factories
 
 ```typescript
-// tests/factories/trainer.factory.ts
-export function createMockTrainer(overrides = {}) {
+// tests/factories/user.factory.ts
+export function createMockUser(overrides = {}) {
   return {
     id: crypto.randomUUID(),
     discordId: `discord_${Date.now()}`,
-    username: "TestTrainer",
+    username: "TestUser",
     coins: 1000,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -545,7 +567,7 @@ export function createMockTrainer(overrides = {}) {
 }
 
 // In tests
-const trainer = createMockTrainer({ coins: 5000 });
+const user = createMockUser({ coins: 5000 });
 ```
 
 ### Integration Testing
@@ -554,33 +576,35 @@ For actual database tests (requires test database):
 
 ```typescript
 import { prisma } from "../shared/prisma.js";
-import { TrainerRepository } from "../services/trainer-repository.js";
 
-describe("TrainerRepository Integration", () => {
-  const repo = new TrainerRepository(prisma);
-  let testTrainerId: string;
+describe("User Integration", () => {
+  let testUserId: string;
   
   beforeEach(async () => {
     // Clean up and create test data
-    await prisma.trainer.deleteMany({ 
+    await prisma.user.deleteMany({ 
       where: { discordId: { startsWith: "test_" } } 
     });
     
-    const trainer = await repo.create({
-      discordId: `test_${Date.now()}`,
-      username: "IntegrationTest"
+    const user = await prisma.user.create({
+      data: {
+        discordId: `test_${Date.now()}`,
+        username: "IntegrationTest"
+      }
     });
-    testTrainerId = trainer.id;
+    testUserId = user.id;
   });
   
   afterAll(async () => {
-    await prisma.trainer.deleteMany({ 
+    await prisma.user.deleteMany({ 
       where: { discordId: { startsWith: "test_" } } 
     });
   });
   
-  it("should create and retrieve trainer", async () => {
-    const found = await repo.findById(testTrainerId);
+  it("should create and retrieve user", async () => {
+    const found = await prisma.user.findUnique({
+      where: { id: testUserId }
+    });
     expect(found).not.toBeNull();
     expect(found?.username).toBe("IntegrationTest");
   });
@@ -589,44 +613,41 @@ describe("TrainerRepository Integration", () => {
 
 ---
 
-## 8. Common Scenarios
+## 9. Common Scenarios
 
 ### Scenario: Player Catches Pokemon
 
 ```typescript
+import { prisma } from "../shared/prisma.js";
+
 async function catchPokemon(
-  trainerId: string, 
+  userId: string, 
   speciesId: number, 
   level: number
-): Promise<Pokemon> {
-  const trainerRepo = new TrainerRepository(prisma);
-  const pokemonRepo = new PokemonRepository(prisma);
-  
+): Promise<PokemonInstance> {
   return await prisma.$transaction(async (tx) => {
     // 1. Create the Pokemon
-    const pokemon = await pokemonRepo.create({
-      trainerId,
-      speciesId,
-      level,
-      currentHp: calculateMaxHp(speciesId, level),
-      isShiny: Math.random() < 0.001
+    const pokemon = await tx.pokemonInstance.create({
+      data: {
+        userId,
+        speciesId,
+        level,
+        currentHp: calculateMaxHp(speciesId, level),
+        isShiny: Math.random() < 0.001
+      }
     });
     
     // 2. Try to add to party (if space)
-    const party = await trainerRepo.getParty(trainerId);
-    if (party.length < 6) {
-      await trainerRepo.addToParty(trainerId, pokemon.id);
-    } else {
-      // Goes to PC box instead
-      await pokemonRepo.setBoxSlot(pokemon.id, 1, findEmptySlot());
-    }
-    
-    // 3. Log to audit
-    await auditService.logCreate("Pokemon", pokemon.id, {
-      trainerId,
-      speciesId,
-      method: "catch"
+    const party = await tx.partySlot.findMany({
+      where: { userId }
     });
+    
+    if (party.length < 6) {
+      await tx.partySlot.create({
+        data: { userId, pokemonId: pokemon.id, slot: party.length + 1 }
+      });
+    }
+    // Otherwise goes to storage automatically
     
     return pokemon;
   });
@@ -641,25 +662,30 @@ async function completeBattle(
   winnerId: string, 
   loserId: string
 ): Promise<void> {
-  const battleRepo = new BattleRepository(prisma);
-  const trainerRepo = new TrainerRepository(prisma);
-  
   await prisma.$transaction(async (tx) => {
     // 1. Update battle status
-    await battleRepo.transitionStatus(battleId, "COMPLETED");
-    await battleRepo.setWinner(battleId, winnerId);
+    await tx.battle.update({
+      where: { id: battleId },
+      data: { 
+        status: "COMPLETED", 
+        winnerId,
+        completedAt: new Date()
+      }
+    });
     
-    // 2. Update trainer stats
-    await trainerRepo.recordBattleResult(winnerId, true);
-    await trainerRepo.recordBattleResult(loserId, false);
+    // 2. Update winner stats
+    await tx.user.update({
+      where: { id: winnerId },
+      data: { 
+        coins: { increment: 100 },
+        wins: { increment: 1 }
+      }
+    });
     
-    // 3. Award coins to winner
-    await trainerRepo.adjustCoins(winnerId, 100);
-    
-    // 4. Log battle completion
-    await battleRepo.addBattleLog(battleId, {
-      action: "BATTLE_COMPLETE",
-      data: { winnerId, loserId }
+    // 3. Update loser stats
+    await tx.user.update({
+      where: { id: loserId },
+      data: { losses: { increment: 1 } }
     });
   });
 }
@@ -677,28 +703,24 @@ async function exportUserData(
     throw new UnauthorizedError("Admin access required");
   }
   
-  return await withAdminContext(prisma, async () => {
-    const trainer = await prisma.trainer.findUnique({
-      where: { discordId: targetDiscordId },
-      include: {
-        profile: true,
-        pokemon: true,
-        party: { include: { pokemon: true } },
-        battlesAsChallenger: { take: 100 },
-        battlesAsDefender: { take: 100 }
-      }
-    });
-    
-    if (!trainer) {
-      throw new NotFoundError("User not found");
+  const user = await prisma.user.findUnique({
+    where: { discordId: targetDiscordId },
+    include: {
+      pokemon: true,
+      party: { include: { pokemon: true } },
+      battles: { take: 100 }
     }
-    
-    return {
-      trainer,
-      exportedAt: new Date(),
-      exportedBy: adminId
-    };
   });
+  
+  if (!user) {
+    throw new NotFoundError("User not found");
+  }
+  
+  return {
+    user,
+    exportedAt: new Date(),
+    exportedBy: adminId
+  };
 }
 ```
 
@@ -770,22 +792,20 @@ const result = await prisma.$queryRaw`
 
 ---
 
-## 10. Quick Reference
+## 11. Quick Reference
 
-### Repository Methods
+### Common Prisma Operations
 
-| Method | Description | Example |
-|--------|-------------|---------|
-| `findById(id)` | Find by primary key | `repo.findById("uuid")` |
-| `findFirst(where)` | First matching record | `repo.findFirst({ active: true })` |
-| `findAll(options)` | All matching records | `repo.findAll({ orderBy: { name: "asc" } })` |
-| `findPaginated(options)` | Paginated results | `repo.findPaginated({ page: 1, pageSize: 20 })` |
-| `create(data)` | Create new record | `repo.create({ name: "Test" })` |
-| `update(id, data)` | Update by ID | `repo.update(id, { name: "New" })` |
-| `delete(id)` | Hard delete | `repo.delete(id)` |
-| `softDelete(id)` | Soft delete | `repo.softDelete(id)` |
-| `count(where)` | Count records | `repo.count({ active: true })` |
-| `exists(where)` | Check existence | `repo.exists({ id })` |
+| Operation | Example |
+|-----------|---------|
+| Find by ID | `prisma.user.findUnique({ where: { id } })` |
+| Find by field | `prisma.user.findFirst({ where: { discordId } })` |
+| Find all | `prisma.user.findMany({ orderBy: { coins: "desc" } })` |
+| Create | `prisma.user.create({ data: { ... } })` |
+| Update | `prisma.user.update({ where: { id }, data: { ... } })` |
+| Delete | `prisma.user.delete({ where: { id } })` |
+| Count | `prisma.user.count({ where: { active: true } })` |
+| Paginate | `prisma.user.findMany({ skip, take, orderBy })` |
 
 ### RLS Context Functions
 
@@ -797,16 +817,14 @@ const result = await prisma.$queryRaw`
 | `withAdminContext(prisma, fn)` | Execute with RLS bypass |
 | `getRlsContext(prisma)` | Get current context |
 
-### Files Reference
+### Key Files Reference
 
 | File | Purpose |
 |------|---------|
-| `src/services/base-repository.ts` | Generic repository base class |
-| `src/services/trainer-repository.ts` | Trainer domain operations |
-| `src/services/pokemon-repository.ts` | Pokemon domain operations |
-| `src/services/battle-repository.ts` | Battle domain operations |
+| `src/shared/prisma.ts` | Prisma client singleton |
+| `src/services/homestead-repository.ts` | Homestead channel operations |
 | `src/services/rls-context.ts` | Row-Level Security context |
-| `src/services/audit-service.ts` | Audit logging |
+| `src/services/home-bundle-pg.ts` | Raw PG query helpers |
 | `prisma/schema.prisma` | Database schema |
 
 ### Commands
@@ -815,7 +833,7 @@ const result = await prisma.$queryRaw`
 # Check database status
 npm run db:cli -- status
 
-# Run repository tests
+# Run tests
 npm test -- tests/services/
 
 # Check migration safety
@@ -835,13 +853,13 @@ npx prisma studio
 
 ## See Also
 
-- **[ADR-002: Repository Pattern](../projects/database-centric/adrs/ADR-002-repository-pattern.md)** — Design decisions
-- **[ADR-003: Session-Aware Client](../projects/database-centric/adrs/ADR-003-session-aware-client.md)** — RLS integration
-- **[Database Operations Runbook](../operations-bible/database-operations-runbook-comprehensive.md)** — Production operations
+- **[Prisma 7 Bible](../prisma-7-bible.md)** — Comprehensive Prisma 7 guide (1000+ lines)
+- **[Database Operations Runbook](../operations-bible/02-database-operations.md)** — Production database operations
 - **[Testing Patterns](02-testing-patterns.md)** — General testing guide
+- **[Historical: Database-Centric Project](../projects/database-centric/)** — Original repository pattern design (archived)
 
 ---
 
-**Last Updated:** 2025-12-04  
-**Author:** Database Specialist + Documentation Specialist  
-**Part of:** Database-Centric Development Plan (Sprint 3, P2-009)
+**Last Updated:** 2025-12-19  
+**Revision:** 2.0 — Updated after Meeting #4 dead code removal  
+**Part of:** Development Bible

@@ -71,6 +71,9 @@ export {
   writeJsonFile,
   readTextFile,
   writeTextFile,
+  buffersEqual,
+  readFileIfExists,
+  writeFileIfChanged,
 } from './file-utils.js';
 
 // Object Utilities

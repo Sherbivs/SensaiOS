@@ -30,6 +30,7 @@ import { log } from "../shared/logger.js";
 import { ServiceRegistry } from '../shared/service-registry.js';
 import { HEALTH_CHECK_PORT, HEALTH_CHECK_HOST } from '../config/env.js';
 import { bytesToMB } from '../shared/utils/format-utils.js';
+import { handleMetricsRequest, isMetricsInitialized } from './prometheus-metrics.js';
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -101,7 +102,31 @@ function getHealthStatus() {
 // ============================================================================
 // HTTP Request Handler
 // ============================================================================
+/** Prometheus metrics endpoint path */
+const METRICS_PATH = '/metrics';
 function handleRequest(req, res) {
+    // ─────────────────────────────────────────────────────────────────────────────
+    // P5: Prometheus /metrics endpoint
+    // ─────────────────────────────────────────────────────────────────────────────
+    if (req.method === 'GET' && req.url === METRICS_PATH) {
+        if (isMetricsInitialized()) {
+            // Delegate to prometheus-metrics handler (async)
+            handleMetricsRequest(res).catch((error) => {
+                log.error('Prometheus metrics request failed', { error: String(error) });
+                res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.end('Internal Server Error');
+            });
+            return;
+        }
+        else {
+            res.writeHead(503, { 'Content-Type': 'text/plain' });
+            res.end('# Metrics not initialized yet\n');
+            return;
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Health check endpoint (original)
+    // ─────────────────────────────────────────────────────────────────────────────
     // Only respond to GET requests on HEALTH_CHECK_PATH
     if (req.method !== 'GET' || req.url !== HEALTH_CHECK_PATH) {
         res.writeHead(404, { 'Content-Type': 'text/plain' });

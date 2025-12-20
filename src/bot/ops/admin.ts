@@ -50,7 +50,13 @@ import * as engineWriteDb from '../../services/database/engine-write-db.js';
 import { getEngineWorkersStatus } from "../../workers/engine-workers.js";
 
 // Error Detection modules (Phase 9-12)
-import { errorTracker, type ErrorSeverity, type ErrorCategory } from '../../services/monitoring/index.js';
+import { errorTracker, resourceMonitor, type ErrorSeverity, type ErrorCategory } from '../../services/monitoring/index.js';
+
+// Prometheus metrics (Phase 3, P5)
+import { getPrometheusStatus } from '../../services/prometheus-metrics.js';
+
+// Alert Dispatcher (Phase 1, P2)
+import { alertDispatcher, type AlertLevel } from '../../services/alert-dispatcher.js';
 
 // Import state persistence modules (optional - bot/state may be in JS)
 let stateModules: any = null;
@@ -705,8 +711,11 @@ function formatEngineDbStats(): string {
       lines.push(`• Move Usage: ${writeDbStats.moveUsageCount}`);
       lines.push(`• Anomalies: ${writeDbStats.anomalyCount}`);
       lines.push(`• WAL Entries: ${writeDbStats.walEntryCount}`);
+      lines.push(`• System Metrics: ${writeDbStats.systemMetricsCount} (7-day retention)`);
       lines.push(`• Size: ${formatBytes(writeDbStats.sizeBytes)}`);
       lines.push(`• Oldest Entry: ${formatDurationCompact(writeDbStats.oldestEntryAge)}`);
+      lines.push(`• Oldest Metrics: ${writeDbStats.oldestMetricsAge > 0 ? formatDurationCompact(writeDbStats.oldestMetricsAge) : "n/a"}`);
+      lines.push(`• Metrics Subscription: ${engineWriteDb.isMetricsSubscribed() ? "✅ active" : "⚠️ inactive"}`);
       lines.push(`• Status: ${writeDbStats.isInitialized ? "initialized" : "not initialized"}`);
       lines.push("");
     } catch (error) {
@@ -738,6 +747,48 @@ function formatEngineDbStats(): string {
   }
   lines.push("");
 
+  // Resource Monitor telemetry (Phase 2, P4)
+  lines.push("**RESOURCE MONITOR**");
+  try {
+    const diskStatus = resourceMonitor.getDiskStatus();
+    const degradedStatus = resourceMonitor.getDegradedStatus();
+    const healthSummary = resourceMonitor.getHealthSummary();
+    
+    // Degraded mode status
+    const degradedIcon = degradedStatus.degradedMode ? "🔴 DEGRADED" : "🟢 NORMAL";
+    lines.push(`• Mode: ${degradedIcon}`);
+    if (degradedStatus.degradedMode) {
+      lines.push(`  ↳ Failures: ${degradedStatus.failures}/${3} (auto-recover attempts at 5x interval)`);
+    }
+    
+    // Metrics emission status
+    const emitIcon = degradedStatus.metricsEmitEnabled ? "✅" : "⏸️";
+    lines.push(`• Metrics Emit: ${emitIcon} ${degradedStatus.metricsEmitEnabled ? "enabled" : "disabled"}`);
+    if (degradedStatus.lastEmitAt) {
+      lines.push(`  ↳ Last emit: ${formatTimestamp(new Date(degradedStatus.lastEmitAt))}`);
+    }
+    
+    // Disk pressure status
+    const diskIcon = 
+      diskStatus.pressureLevel === 'EMERGENCY' ? "🔥" :
+      diskStatus.pressureLevel === 'CRITICAL' ? "🚨" :
+      diskStatus.pressureLevel === 'WARNING' ? "⚠️" : "✅";
+    lines.push(`• Disk Pressure: ${diskIcon} ${diskStatus.pressureLevel}`);
+    if (diskStatus.snapshot) {
+      lines.push(`  ↳ Usage: ${diskStatus.snapshot.percentUsed.toFixed(1)}% (${diskStatus.snapshot.usedMB.toFixed(0)}MB / ${diskStatus.snapshot.totalMB.toFixed(0)}MB)`);
+    }
+    
+    // Health summary
+    lines.push(`• Running: ${healthSummary.isRunning ? "yes" : "no"}`);
+    lines.push(`• Checks Run: ${healthSummary.totalChecksRun}`);
+    if (healthSummary.currentAlerts.length > 0) {
+      lines.push(`• Active Alerts: ${healthSummary.currentAlerts.length}`);
+    }
+  } catch (error) {
+    lines.push(`• Error: ${getErrorMessage(error)}`);
+  }
+  lines.push("");
+
   // Event bus telemetry
   const eventBus = EventBus.getInstance();
   const busStats = eventBus.getStats();
@@ -758,6 +809,22 @@ function formatEngineDbStats(): string {
       .join(" | ");
     lines.push(`• Top Queues: ${summary}`);
   }
+  lines.push("");
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P5: PROMETHEUS METRICS STATUS
+  // ═══════════════════════════════════════════════════════════════════════════
+  lines.push("**PROMETHEUS METRICS**");
+  try {
+    const promStatus = getPrometheusStatus();
+    const statusIcon = promStatus.initialized ? "🟢" : "🔴";
+    lines.push(`• Status: ${statusIcon} ${promStatus.initialized ? "initialized" : "not initialized"}`);
+    lines.push(`• Metrics Count: ${promStatus.metricsCount}`);
+    lines.push(`• EventBus Subs: ${promStatus.subscriptionsActive ? "active" : "inactive"}`);
+    lines.push(`• Endpoint: /metrics`);
+  } catch (error) {
+    lines.push(`• Error: ${getErrorMessage(error)}`);
+  }
   
   return lines.join("\n");
 }
@@ -766,6 +833,115 @@ function formatWorkerStatus(worker: { name: string; isRunning: boolean; lastRunT
   const statusIcon = worker.isRunning ? "🔄" : "⏸️";
   const errorIcon = worker.errorCount > 0 ? " ⚠️" : "";
   return `${statusIcon} ${worker.successCount} runs, ${worker.errorCount} errors${errorIcon}, last: ${formatTimestamp(worker.lastRunTime)}`;
+}
+
+/**
+ * Format historical metrics report for /ops metrics-history command.
+ * 
+ * Phase 3, P6: Historical Metrics Storage
+ * @see docs/projects/metrics-expansion-bible.md § Project 6
+ */
+async function formatMetricsHistoryReport(minutes: number): Promise<string> {
+  const lines: string[] = [];
+  
+  lines.push("**📊 SYSTEM METRICS HISTORY**");
+  lines.push("");
+  
+  try {
+    const result = await engineWriteDb.queryMetricsHistory(minutes);
+    const { entries, summary } = result;
+    
+    if (summary.count === 0) {
+      lines.push(`No metrics recorded in the last ${minutes} minute(s).`);
+      lines.push("");
+      lines.push("Metrics are recorded once per minute. Check that:");
+      lines.push("• Write-DB is initialized (`/ops engine`)");
+      lines.push("• Metrics subscription is active");
+      lines.push("• Resource monitor is emitting snapshots");
+      return lines.join("\n");
+    }
+    
+    // Summary section
+    lines.push(`**Summary (last ${summary.timeRangeMinutes} min)**`);
+    lines.push(`• Samples: ${summary.count}`);
+    lines.push("");
+    
+    // Memory stats
+    lines.push("**Memory**");
+    lines.push(`• Avg RSS: ${summary.avgRssMB} MB`);
+    lines.push(`• Avg Heap Used: ${summary.avgHeapUsedMB} MB`);
+    lines.push(`• Max RSS: ${summary.maxRssMB} MB`);
+    lines.push("");
+    
+    // CPU stats
+    lines.push("**CPU**");
+    lines.push(`• Avg Usage: ${summary.avgCpuPercent}%`);
+    lines.push(`• Max Usage: ${summary.maxCpuPercent}%`);
+    lines.push("");
+    
+    // Disk stats
+    lines.push("**Disk**");
+    lines.push(`• Avg Used: ${summary.avgDiskUsedPercent}%`);
+    lines.push("");
+    
+    // Alert count
+    if (summary.alertCount > 0) {
+      const alertPct = ((summary.alertCount / summary.count) * 100).toFixed(1);
+      lines.push(`**⚠️ Pressure Events: ${summary.alertCount} (${alertPct}% of samples)**`);
+      lines.push("");
+    }
+    
+    // Recent entries (last 5)
+    const recentEntries = entries.slice(0, 5);
+    if (recentEntries.length > 0) {
+      lines.push("**Recent Samples**");
+      for (const entry of recentEntries) {
+        const time = new Date(entry.timestamp * 1000);
+        const timeStr = time.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false 
+        });
+        const rssMB = (entry.rssBytes / 1024 / 1024).toFixed(0);
+        const cpuTotal = (entry.cpuUserPercent + entry.cpuSystemPercent).toFixed(1);
+        const diskPct = entry.diskTotalBytes > 0 
+          ? ((entry.diskUsedBytes / entry.diskTotalBytes) * 100).toFixed(0)
+          : "?";
+        
+        // Pressure indicators
+        const memIcon = entry.memoryPressure > 0 ? getPressureIcon(entry.memoryPressure) : "";
+        const diskIcon = entry.diskPressure > 0 ? getPressureIcon(entry.diskPressure) : "";
+        
+        lines.push(`• ${timeStr} — RSS: ${rssMB}MB ${memIcon} | CPU: ${cpuTotal}% | Disk: ${diskPct}% ${diskIcon}`);
+      }
+      lines.push("");
+    }
+    
+    // Retention info
+    const oldestAge = entries.length > 0
+      ? ((Date.now() / 1000) - entries[entries.length - 1].timestamp) / 3600
+      : 0;
+    if (oldestAge > 0) {
+      lines.push(`_Oldest sample: ${oldestAge.toFixed(1)} hours ago (7-day retention)_`);
+    }
+    
+  } catch (error) {
+    lines.push(`❌ Error querying metrics: ${getErrorMessage(error)}`);
+  }
+  
+  return lines.join("\n");
+}
+
+/**
+ * Get emoji icon for pressure level.
+ */
+function getPressureIcon(level: number): string {
+  switch (level) {
+    case 1: return "⚠️";  // WARNING
+    case 2: return "🚨";  // CRITICAL
+    case 3: return "🔥";  // EMERGENCY
+    default: return "";   // NORMAL
+  }
 }
 
 export async function handleOpsCommand(
@@ -838,6 +1014,90 @@ export async function handleOpsCommand(
       });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `Engine DB stats unavailable: ${message}` });
+    }
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P6: /ops metrics-history — Historical metrics query
+  // @see docs/projects/metrics-expansion-bible.md § Project 6
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (sub === "metrics-history") {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const minutes = interaction.options?.getInteger?.("minutes") ?? 60;
+      const report = await formatMetricsHistoryReport(minutes);
+      await interaction.editReply({ content: report });
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'ENGINE',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops metrics-history',
+        operation: 'formatMetricsHistoryReport',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Metrics history unavailable: ${message}` });
+    }
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P2: /ops test-alert — Test alert routing
+  // @see docs/projects/metrics-expansion-bible.md § Project 2
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (sub === "test-alert") {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const levelOption = interaction.options?.getString?.("level") ?? "WARNING";
+      const level = levelOption as AlertLevel;
+      
+      // Check if alert dispatcher is initialized
+      const status = alertDispatcher.getStatus();
+      if (!status.isRunning) {
+        await interaction.editReply({ 
+          content: `⚠️ Alert Dispatcher not running.\n` +
+            `- Enabled: ${status.enabled}\n` +
+            `- Test Mode: ${status.testMode}\n` +
+            `- In Grace Period: ${status.inGracePeriod}\n` +
+            `Please check bot startup logs.`
+        });
+        return;
+      }
+      
+      const result = await alertDispatcher.sendTestAlert(level);
+      
+      if (result.success) {
+        await interaction.editReply({
+          content: `✅ **Test Alert Sent Successfully**\n` +
+            `\`\`\`\n` +
+            `Level:       ${level}\n` +
+            `Channel ID:  ${status.config.channelId || '(not configured)'}\n` +
+            `Test Mode:   ${status.testMode ? 'Yes (routed to test channel)' : 'No'}\n` +
+            `Admin DM:    ${level === 'CRITICAL' || level === 'EMERGENCY' ? 'Yes' : 'No'}\n` +
+            `\`\`\`\n` +
+            `Check the configured alert channel for the test message.`
+        });
+      } else {
+        await interaction.editReply({
+          content: `⚠️ **Test Alert Sent with Errors**\n` +
+            `\`\`\`\n` +
+            `Level:  ${level}\n` +
+            `Errors: ${result.errors.join(', ') || 'None reported'}\n` +
+            `\`\`\`\n` +
+            `Some routing may have failed. Check logs for details.`
+        });
+      }
+    } catch (err) {
+      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        category: 'ENGINE',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops test-alert',
+        operation: 'sendTestAlert',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Test alert failed: ${message}` });
     }
     return;
   }

@@ -1,13 +1,42 @@
 # Database-Centric Development Plan — Project Hub
 
-**Project Status:** ✅ **COMPLETE**  
+**Project Status:** ⚠️ **ARCHIVED** (Repository pattern services removed)  
 **Started:** 2025-12-04T00:00:00Z  
 **Completed:** 2025-12-04T17:30:00Z  
+**Archived:** 2025-12-19T00:00:00Z  
 **Duration:** ~17.5 hours (accelerated execution)
 
 ---
 
-## 🎉 Project Completion Summary
+## ⚠️ IMPORTANT: Partial Removal Notice (2025-12-19)
+
+**The following files from this project were REMOVED in Meeting #4 of the Dead Code Cleanup initiative:**
+
+| File | Lines | Reason |
+|------|-------|--------|
+| `src/services/base-repository.ts` | 627 | Never extended in production |
+| `src/services/trainer-repository.ts` | 630 | Zero runtime imports |
+| `src/services/pokemon-repository.ts` | 822 | Zero runtime imports |
+| `src/services/battle-repository.ts` | 748 | Zero runtime imports |
+| `src/services/audit-service.ts` | 592 | Zero imports (separate from bot/security/ audits) |
+| `src/services/database-metrics.ts` | 360 | Zero imports |
+| `src/config/database-pool-config.ts` | 322 | Only imported by deleted database-metrics |
+| `tests/services/*-repository.spec.ts` | ~2,454 | Tests for deleted files |
+
+**Total Removed:** ~6,555 lines
+
+**Why:** These services were built during the Database-Centric Sprint but were **never integrated into the Discord bot runtime**. They had zero imports from production code.
+
+**What Remains Active:**
+- `src/services/rls-context.ts` — RLS context management (USED)
+- `src/services/homestead-repository.ts` — Homestead channel operations (USED)
+- Direct Prisma queries — Primary database access pattern
+
+**Documentation:** This project documentation is preserved as historical reference for the design decisions and patterns. Current database guidance is in `docs/development-bible/09-database-onboarding.md`.
+
+---
+
+## 🎉 Project Completion Summary (Historical)
 
 **ALL 22 TASKS COMPLETE** — Database-Centric Development Plan delivered ahead of schedule.
 
@@ -82,13 +111,17 @@
 **Status:** ✅ **COMPLETE** (2025-12-04T17:30Z)  
 **Report:** [sprints/2025-12-04-sprint3-completion.md](./sprints/2025-12-04-sprint3-completion.md)
 
+> ⚠️ **NOTE (2025-12-19):** Sprint 3 services P2-001 through P2-005 were **removed as dead code** during 
+> consolidation meeting #3. These files were never integrated into the runtime and had zero imports.
+> Total: 3,667 lines removed. See `ops/CONSOLIDATION-MEETING-3-REPORT.md` for details.
+
 | Task | Status | Key Deliverable |
 |------|--------|-----------------|
-| P2-001 Write-Behind Cache | ✅ DONE | `write-coalescer.ts` (700+ lines) |
-| P2-002 Query Result Caching | ✅ DONE | `query-cache.ts` (600 lines) |
-| P2-003 Connection Health | ✅ DONE | `connection-health-monitor.ts` (567 lines) |
-| P2-004 Batch Processing | ✅ DONE | `batch-processor.ts` (1280+ lines) |
-| P2-005 Query Profiling | ✅ DONE | `query-profiler.ts` (520 lines) |
+| P2-001 Write-Behind Cache | ~~✅ DONE~~ 🗑️ REMOVED | ~~`write-coalescer.ts` (700+ lines)~~ |
+| P2-002 Query Result Caching | ~~✅ DONE~~ 🗑️ REMOVED | ~~`query-cache.ts` (600 lines)~~ |
+| P2-003 Connection Health | ~~✅ DONE~~ 🗑️ REMOVED | ~~`connection-health-monitor.ts` (567 lines)~~ |
+| P2-004 Batch Processing | ~~✅ DONE~~ 🗑️ REMOVED | ~~`batch-processor.ts` (1280+ lines)~~ |
+| P2-005 Query Profiling | ~~✅ DONE~~ 🗑️ REMOVED | ~~`query-profiler.ts` (520 lines)~~ |
 | P2-006 Prepared Statements | ✅ DONE | `prepared-statement-guide.md` (320 lines) |
 | P2-007 Repository Tests | ✅ DONE | 194 tests passing |
 | P2-008 Database CI/CD | ✅ DONE | `database-ci.yml` + guard script |
@@ -130,22 +163,25 @@ docs/projects/database-centric/
 
 ### New Services Created (Sprint 1-3)
 
-| Service | Lines | Purpose |
-|---------|-------|---------|
-| `database-pool-config.ts` | 342 | Connection pool configuration |
-| `database-metrics.ts` | 368 | Prometheus database metrics |
-| `rls-context.ts` | 346 | Row-Level Security context management |
-| `audit-service.ts` | 660 | Audit logging for data changes |
-| `base-repository.ts` | 716 | Generic repository pattern |
-| `trainer-repository.ts` | 666 | Domain trainer repository |
-| `pokemon-repository.ts` | 923 | Domain Pokemon repository |
-| `battle-repository.ts` | 730 | Domain battle repository |
-| `write-coalescer.ts` | 700+ | Write-behind cache pattern |
-| `query-cache.ts` | 600 | Query result caching |
-| `connection-health-monitor.ts` | 567 | Connection pool health monitoring |
-| `batch-processor.ts` | 1280+ | Enterprise batch processing |
-| `query-profiler.ts` | 520 | Query profiling and optimization |
-| **Total Services** | **~8,400+** | |
+> ⚠️ **NOTE (2025-12-19):** Sprint 3 performance services (write-coalescer, query-cache, 
+> connection-health-monitor, batch-processor, query-profiler) were removed as dead code.
+
+| Service | Lines | Purpose | Status |
+|---------|-------|---------|--------|
+| `database-pool-config.ts` | 342 | Connection pool configuration | ✅ Active |
+| `database-metrics.ts` | 368 | Prometheus database metrics | ✅ Active |
+| `rls-context.ts` | 346 | Row-Level Security context management | ✅ Active |
+| `audit-service.ts` | 660 | Audit logging for data changes | ✅ Active |
+| `base-repository.ts` | 716 | Generic repository pattern | ✅ Active |
+| `trainer-repository.ts` | 666 | Domain trainer repository | ✅ Active |
+| `pokemon-repository.ts` | 923 | Domain Pokemon repository | ✅ Active |
+| `battle-repository.ts` | 730 | Domain battle repository | ✅ Active |
+| ~~`write-coalescer.ts`~~ | ~~700+~~ | ~~Write-behind cache pattern~~ | 🗑️ Removed |
+| ~~`query-cache.ts`~~ | ~~600~~ | ~~Query result caching~~ | 🗑️ Removed |
+| ~~`connection-health-monitor.ts`~~ | ~~567~~ | ~~Connection pool health monitoring~~ | 🗑️ Removed |
+| ~~`batch-processor.ts`~~ | ~~1280+~~ | ~~Enterprise batch processing~~ | 🗑️ Removed |
+| ~~`query-profiler.ts`~~ | ~~520~~ | ~~Query profiling and optimization~~ | 🗑️ Removed |
+| **Total Services (Active)** | **~4,751** | | |
 
 ### Test Suites Created
 

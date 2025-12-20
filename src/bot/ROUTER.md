@@ -2,7 +2,7 @@
 Title: Discord Bot Layer
 Purpose: Client login, intents, command/interaction routing, homestead channel gameplay flows.
 Owned Globs: src/bot/**
-Last Updated (UTC): 2025-12-18T00:00:00Z
+Last Updated (UTC): 2025-12-20T21:00:00Z
 
 Notes:
 - **Homestead Architecture (COMPLETE 2025-06-15):** All gameplay now occurs in private guild channels (homestead-{username}) instead of DMs. `src/bot/dm/` directory DELETED. Each user gets a dedicated channel with user-only permissions. Better moderation, audit trail, no DM delivery failures. See `docs/architecture-bible/18-private-channel-architecture.md`.
@@ -42,3 +42,16 @@ State Persistence (Added 2025-11-06):
 - Integration: main.js initializes state on startup, records events during sweeps/alerts, saves on shutdown (SIGTERM/SIGINT)
 - Admin Interface: `/ops state` command in ops/admin.ts displays cumulative stats, timeline, guild status
 - Documentation: docs/security-bot-state.md covers architecture, schema, integration points
+
+## ⚠️ ARCHIVED (2025-12-20 — Dead Code Cleanup Meeting #4)
+
+The following files were removed as part of dead code cleanup:
+
+- ~~**security-db-subscriber.ts** (352 lines)~~ — EventBus subscriber for database persistence. Sprint 5.0 designed this to wire `security.**` events to `SecurityEventService`, but `initializeSecurityDbSubscriber()` was never called from `main.ts`. The underlying service exists but this integration layer was orphaned.
+
+**Reason:** Dead integration layer — designed but never wired up.
+
+**Restoration (if needed):**
+```bash
+git checkout HEAD~1 -- src/bot/security-db-subscriber.ts
+```

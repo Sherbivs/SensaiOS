@@ -155,11 +155,10 @@ export const ALERT_STRATEGY_CONSTANTS = Object.freeze({
     DEFAULT_QUIET_HOURS_END: 8, // 8 AM
 });
 // ============================================================================
-// BACKWARDS COMPATIBILITY EXPORTS
+// BACKWARDS COMPATIBILITY EXPORTS — REMOVED 2025-12-20
 // ============================================================================
-/** @deprecated Use GAME_CONSTANTS.DEFAULT_STARTER_COINS */
-export const DEFAULT_STARTER_COINS = GAME_CONSTANTS.DEFAULT_STARTER_COINS;
-/** @deprecated Use TIME_CONSTANTS.DEFAULT_TIME_ZONE */
-export const DEFAULT_TIME_ZONE = TIME_CONSTANTS.DEFAULT_TIME_ZONE;
-/** @deprecated Use MONITORING_CONSTANTS.MAX_RECENT_ERRORS */
-export const MAX_RECENT_ERRORS = MONITORING_CONSTANTS.MAX_RECENT_ERRORS;
+// The following deprecated exports were removed in Dead Code Cleanup Meeting #5:
+// - DEFAULT_STARTER_COINS (use GAME_CONSTANTS.DEFAULT_STARTER_COINS)
+// - DEFAULT_TIME_ZONE (use TIME_CONSTANTS.DEFAULT_TIME_ZONE)
+// - MAX_RECENT_ERRORS (use MONITORING_CONSTANTS.MAX_RECENT_ERRORS)
+// All consumers verified to use grouped constants. See cleanup meeting notes.

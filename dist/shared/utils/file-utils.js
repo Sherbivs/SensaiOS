@@ -87,3 +87,59 @@ export function writeTextFile(filePath, content, options = {}) {
     }
     fs.writeFileSync(filePath, content, "utf8");
 }
+/**
+ * Compare two buffers for equality.
+ *
+ * @param a - First buffer
+ * @param b - Second buffer
+ * @returns True if buffers have the same contents
+ */
+export function buffersEqual(a, b) {
+    if (!a && !b)
+        return true;
+    if (!a || !b)
+        return false;
+    if (a.length !== b.length)
+        return false;
+    return a.equals(b);
+}
+/**
+ * Read a file if it exists, returning null if it doesn't.
+ *
+ * @param filePath - Path to read
+ * @returns Buffer contents or null
+ */
+export function readFileIfExists(filePath) {
+    try {
+        if (!fs.existsSync(filePath)) {
+            return null;
+        }
+        return fs.readFileSync(filePath);
+    }
+    catch {
+        return null;
+    }
+}
+/**
+ * Write a file only if its contents would change.
+ * Useful for avoiding unnecessary file writes that trigger watchers.
+ *
+ * @param filePath - Path to write
+ * @param content - Content to write (Buffer or string)
+ * @param options - Options
+ * @returns True if file was written, false if unchanged
+ */
+export function writeFileIfChanged(filePath, content, options = {}) {
+    const { ensureDir: shouldEnsureDir = true } = options;
+    const newBuffer = typeof content === "string" ? Buffer.from(content, "utf8") : content;
+    const existing = readFileIfExists(filePath);
+    if (existing && buffersEqual(existing, newBuffer)) {
+        return false;
+    }
+    if (shouldEnsureDir) {
+        const dir = path.dirname(filePath);
+        ensureDir(dir);
+    }
+    fs.writeFileSync(filePath, newBuffer);
+    return true;
+}

@@ -2,47 +2,30 @@
 Title: Database Query Models
 Purpose: PostgreSQL query modules providing raw SQL alternatives to Prisma ORM patterns
 Owned Globs: src/shared/models/**
-Last Updated (UTC): 2025-12-01T00:00:00Z
+Last Updated (UTC): 2025-12-20T00:00:00Z
 
-**Root-to-Leaf Consolidation Complete (2025-12-01):**
-- ✅ **pool-helper.ts**: Centralized database pool resolution logic (4 duplicates eliminated)
-  - Consolidated from: battle-queries-pg.ts, encounter-queries-pg.ts, party-queries-pg.ts, user-queries-pg.ts
-  - Impact: -40 lines duplicate code, single source of truth for pool fallback logic
-  - Features: TypeScript overloads for Pool and PoolClient support
+**Root-to-Leaf Consolidation Planned (2025-12-01) — NOT IMPLEMENTED:**
+- ⚠️ **pool-helper.ts**: Was planned but never integrated (DELETED 2025-12-20)
+  - Reason: Created as consolidation helper but query modules were never updated to use it
+  - Status: File deleted (55 lines of never-used code)
+  - Future: If pool consolidation needed, create fresh implementation
 
 Notes:
 - All query modules use raw pg queries for performance (5-10ms improvement over Prisma)
 - Maintains type safety via src/types/db-models.ts
 - Leverages query builders from src/shared/pg-query.ts
-- All modules use centralized pool resolution from pool-helper.ts
+- Each query module maintains its own local getPool() function (consolidation not implemented)
 
 Key Files:
 
-**`pool-helper.ts` (NEW - 60 lines) [Root-to-Leaf Consolidation 2025-12-01]**
-- Purpose: Centralized database pool resolution with fallback to PROD
-- Key Functions:
-  - `getPool(pool?: Pool): Pool` — Standard pool resolution
-  - `getPool(pool?: Pool | PoolClient): Pool | PoolClient` — Overload for transaction support
-- Features:
-  - TypeScript function overloads (supports both Pool and PoolClient)
-  - Consistent error messaging across all query modules
-  - Fallback to PROD database for gameplay operations
-  - Optional pool override for testing scenarios
-- Usage Pattern:
-  ```typescript
-  import { getPool } from './pool-helper.js';
-  
-  export async function getUserBasic(discordId: string, pool?: Pool): Promise<UserBasic | null> {
-    const db = getPool(pool);  // Use provided pool or fallback to PROD
-    const result = await db.query('SELECT * FROM "User" WHERE "discordId" = $1', [discordId]);
-    return result.rows[0] || null;
-  }
-  ```
-- Eliminated Duplicates:
-  - `src/shared/models/battle-queries-pg.ts` (line 67) — 8 lines
-  - `src/shared/models/encounter-queries-pg.ts` (line 35) — 10 lines
-  - `src/shared/models/party-queries-pg.ts` (line 185) — 10 lines
-  - `src/shared/models/user-queries-pg.ts` (line 55) — 12 lines
+## ⚠️ ARCHIVED (2025-12-20)
+
+**`pool-helper.ts` — DELETED**
+- Reason: Created as consolidation helper (55 lines) but query modules were never updated to use it
+- Status: File deleted during Dead Code Cleanup Meeting #4
+- Each query module still maintains its own local `getPool()` function
+
+---
 
 **`battle-queries-pg.ts` (458 lines)**
 - Purpose: Raw pg queries for Battle model operations
@@ -59,7 +42,7 @@ Key Files:
   - `createBattle(p1Id, p2Id)` — Create new challenge
   - `startBattle(battleId)` — Transition Pending → Active
   - `concludeBattle(battleId, result)` — Record outcome and rewards
-- Uses: `getPool()` from pool-helper.ts
+- Uses: Local `getPool()` function
 
 **`encounter-queries-pg.ts` (493 lines)**
 - Purpose: Direct pg replacement for Encounter Prisma patterns
@@ -74,7 +57,7 @@ Key Files:
   - `getActiveEncounter(ownerId)` — Find user's active encounter
   - `updateEncounterState(encounterId, newState)` — Transition state
   - `linkThreadToEncounter(encounterId, threadId)` — Discord thread association
-- Uses: `getPool()` from pool-helper.ts
+- Uses: Local `getPool()` function
 
 **`party-queries-pg.ts` (740 lines)**
 - Purpose: Raw pg queries for Party, PartySlot, and PokemonInstance operations
@@ -106,59 +89,20 @@ Key Files:
   - `getUserWithParty(discordId)` — Full profile with Pokemon
   - `createUser(discordId, username)` — Initialize new trainer
   - `updateCoins(userId, amount)` — Add/subtract coins
-- Uses: `getPool()` from pool-helper.ts
+- Uses: Local `getPool()` function
 
-**Other Query Modules (using centralized pool-helper):**
+**Other Query Modules:**
 - `bus-queries-pg.ts` — Event bus message queries
 - `cooldown-queries-pg.ts` — Rate limiting and cooldown tracking
 - `dex-queries-pg.ts` — Pokedex reference data queries
 
-## Consolidation History
+## Usage Notes
 
-**2025-12-01: Root-to-Leaf Consolidation (getPool helpers)**
-
-**Impact:**
-- **Lines Removed**: 40 lines of duplicate pool resolution logic
-- **Files Updated**: 4 query modules (battle, encounter, party, user)
-- **Infrastructure Created**: 1 file (pool-helper.ts with TypeScript overloads)
-- **Quality**: Build verified with 0 errors, full TypeScript type safety
-
-**Before:**
-```typescript
-// Duplicated in 4 files (battle-queries-pg.ts, encounter-queries-pg.ts, etc.)
-function getPool(pool?: Pool): Pool {
-  if (pool) return pool;
-  const prodPool = getProdDb();
-  if (!prodPool) throw new Error("No PROD database pool available");
-  return prodPool;
-}
-```
-
-**After:**
-```typescript
-// Centralized in pool-helper.ts with overloads
-export function getPool(pool?: Pool): Pool;
-export function getPool(pool?: Pool | PoolClient): Pool | PoolClient;
-export function getPool(pool?: Pool | PoolClient): Pool | PoolClient {
-  if (pool) return pool;
-  const prodPool = getProdDb();
-  if (!prodPool) {
-    throw new Error(
-      "PROD database pool not initialized. " +
-      "Call initializeConnection() first or provide a pool override."
-    );
-  }
-  return prodPool;
-}
-```
-
-## Usage Statistics
-
-**Pool Helper:**
-- Used in: 6+ query modules (battle, encounter, party, user, bus, cooldown, dex)
+**Query Modules:**
+- Each module has its own local `getPool()` function for pool resolution
 - Pattern: Every exported query function accepts optional `pool?: Pool` parameter
 - Testing: Pool override enables isolated unit tests without prod database
-- Transactions: party-queries-pg.ts uses PoolClient overload for atomic operations
+- Transactions: party-queries-pg.ts uses PoolClient support for atomic operations
 
 Linked Routers:
 - src/shared/ROUTER.md — Parent router for all shared modules

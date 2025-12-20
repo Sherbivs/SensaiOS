@@ -136,6 +136,46 @@ const data = new SlashCommandBuilder()
           .setRequired(false)
       )
   )
+  .addSubcommand((sub) =>
+    sub
+      .setName('metrics-history')
+      .setDescription('View historical system metrics from Write-DB storage')
+      .addIntegerOption((opt) =>
+        opt
+          .setName('minutes')
+          .setDescription('Time range in minutes (default: 60, max: 10080 = 7 days)')
+          .setMinValue(1)
+          .setMaxValue(10080)
+          .setRequired(false)
+      )
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName('memory')
+      .setDescription('View memory profiling report with startup progression and current state')
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName('restarts')
+      .setDescription('View restart metrics dashboard with crash counts and uptime history')
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName('test-alert')
+      .setDescription('Send a test alert to verify alert routing configuration')
+      .addStringOption((opt) =>
+        opt
+          .setName('level')
+          .setDescription('Alert severity level (default: WARNING)')
+          .setRequired(false)
+          .addChoices(
+            { name: 'INFO', value: 'INFO' },
+            { name: 'WARNING', value: 'WARNING' },
+            { name: 'CRITICAL', value: 'CRITICAL' },
+            { name: 'EMERGENCY', value: 'EMERGENCY' }
+          )
+      )
+  )
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .setDMPermission(false);
 

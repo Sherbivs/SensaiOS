@@ -332,7 +332,12 @@ Areas:
 - **Architecture:** `README.md` → comprehensive system overview
 - **Architecture Bible:** `docs/architecture-bible/INDEX.md` → 22 sections (system design, database, workers, game engine, etc.)
 - **Operations Bible:** `docs/operations-bible/INDEX.md` → 13 sections + 9 guides (service matrix, deployment, monitoring, database operations)
-- **Development Bible:** `docs/development-bible/INDEX.md` → 9 sections (local setup, testing, debugging, profiling, database onboarding)
+- **Development Bible:** `docs/development-bible/INDEX.md` → 10 sections (local setup, testing, debugging, profiling, database onboarding, dead code analysis)
+- **Dead Code Analysis:** `docs/development-bible/10-dead-code-analysis.md` → AI-driven code cleanup methodology:
+  - Evidence tiers (A: proof, B: dynamic, C: heuristic, D: speculative)
+  - Program representations (CFG, SSA, PDG, CPG, call graphs)
+  - Clone detection, stub identification, redundancy scanning
+  - Game-server specific heuristics and safe deletion doctrine
 - **Prisma 7 Bible:** `docs/prisma-7-bible.md` → Comprehensive AI agent playbook (1000+ lines) covering:
   - Emergency production triage playbook
   - Step-by-step migration guide (Prisma 6 → 7)
@@ -356,4 +361,4 @@ Areas:
 
 ---
 
-**Last Updated:** 2025-12-19 | **Revision:** 2.1 — Expanded Prisma 7 Bible integration
+**Last Updated:** 2025-12-20 | **Revision:** 2.2 — Added Dead Code Analysis Bible reference

@@ -123,6 +123,49 @@ export const CACHE_MAINTENANCE_INTERVAL_MS = toNumber(process.env.CACHE_MAINTENA
 export const LOG_BUFFER_INTERVAL_MS = toNumber(process.env.LOG_BUFFER_INTERVAL_MS, 10 * 1000);
 export const LOG_BUFFER_ENABLED = toBool(process.env.LOG_BUFFER_ENABLED, true);
 export const LOG_BUFFER_BYPASS_CRITICAL = toBool(process.env.LOG_BUFFER_BYPASS_CRITICAL, true);
+// ============================================================================
+// Heap Snapshot Pruner Configuration (Phase 1, Project 1)
+// @see docs/projects/metrics-expansion-bible.md § Project 1
+// ============================================================================
+/** Enable/disable heap snapshot pruner worker (default: true) */
+export const HEAP_SNAPSHOT_ENABLED = toBool(process.env.HEAP_SNAPSHOT_ENABLED, true);
+/** Maximum number of heap snapshots to keep (default: 3) */
+export const HEAP_SNAPSHOT_MAX_COUNT = toNumber(process.env.HEAP_SNAPSHOT_MAX_COUNT, 3);
+/** Maximum age of heap snapshots in days before deletion (default: 7) */
+export const HEAP_SNAPSHOT_MAX_AGE_DAYS = toNumber(process.env.HEAP_SNAPSHOT_MAX_AGE_DAYS, 7);
+/** Interval between prune operations in milliseconds (default: 24 hours) */
+export const HEAP_SNAPSHOT_PRUNE_INTERVAL_MS = toNumber(process.env.HEAP_SNAPSHOT_PRUNE_INTERVAL_MS, 24 * 60 * 60 * 1000);
+/** Run prune immediately on startup (default: true) */
+export const HEAP_SNAPSHOT_RUN_ON_STARTUP = toBool(process.env.HEAP_SNAPSHOT_RUN_ON_STARTUP, true);
+// ============================================================================
+// Alert Dispatcher Configuration (Phase 1, Project 2)
+// @see docs/projects/metrics-expansion-bible.md § Project 2
+// ============================================================================
+/** Enable/disable alert dispatcher (default: true) */
+export const ALERT_DISPATCHER_ENABLED = toBool(process.env.ALERT_DISPATCHER_ENABLED, true);
+/** Route alerts to test channel instead of production (default: false) */
+export const ALERT_TEST_MODE = toBool(process.env.ALERT_TEST_MODE, false);
+/** Discord channel ID for test alerts */
+export const ALERT_TEST_CHANNEL_ID = process.env.ALERT_TEST_CHANNEL_ID ?? "";
+/** Cooldown between same-level alerts in milliseconds (default: 1 hour) */
+export const ALERT_COOLDOWN_MS = toNumber(process.env.ALERT_COOLDOWN_MS, 60 * 60 * 1000);
+/** Admin user ID for DM alerts (default: DRIPTVDD) */
+export const ALERT_ADMIN_USER_ID = process.env.ALERT_ADMIN_USER_ID ?? DRIP_USER_ID;
+/** Directory for persisting critical alerts (default: /Store/alerts) */
+export const ALERT_PERSIST_DIR = process.env.ALERT_PERSIST_DIR ??
+    (process.env.RENDER ? '/Store/alerts' : './Store/alerts');
+/** Startup grace period before alerts fire (prevents deploy false positives) */
+export const STARTUP_GRACE_PERIOD_MS = toNumber(process.env.STARTUP_GRACE_PERIOD_MS, 60 * 1000);
+// ============================================================================
+// Disk Alerting Configuration (Phase 1, Project 3)
+// @see docs/projects/metrics-expansion-bible.md § Project 3
+// ============================================================================
+/** Disk usage threshold for WARNING alerts (default: 75%) */
+export const DISK_WARNING_THRESHOLD = parseFloat(process.env.DISK_WARNING_THRESHOLD ?? '0.75');
+/** Disk usage threshold for CRITICAL alerts (default: 85%) */
+export const DISK_CRITICAL_THRESHOLD = parseFloat(process.env.DISK_CRITICAL_THRESHOLD ?? '0.85');
+/** Disk usage threshold for EMERGENCY alerts + auto-remediation (default: 95%) */
+export const DISK_EMERGENCY_THRESHOLD = parseFloat(process.env.DISK_EMERGENCY_THRESHOLD ?? '0.95');
 export const ENABLE_DB_AUTO_SYNC = toBool(process.env.ENABLE_DB_AUTO_SYNC, true);
 export const ENABLE_CONTINUOUS_SWEEP = toBool(process.env.ENABLE_CONTINUOUS_SWEEP, true);
 export const ENABLE_POKEMON_BOT = toBool(process.env.ENABLE_POKEMON_BOT, false);

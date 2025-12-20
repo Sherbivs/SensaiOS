@@ -226,13 +226,11 @@ export const aiIntegrationsStubs = Object.freeze({
     integrateEventBus: () => { },
 });
 // =============================================================================
-// LOG INGESTION WORKER COMPATIBILITY
+// LOG INGESTION WORKER COMPATIBILITY — REMOVED 2025-12-20
 // =============================================================================
-/** Log ingestion worker stub functions (frozen) */
-export const logIngestionStubs = Object.freeze({
-    startLogIngestionWorker: async () => { },
-    stopLogIngestionWorker: async () => { },
-});
+// The logIngestionStubs export was removed in Dead Code Cleanup Meeting #5.
+// The only consumer (log-ingestion-worker.ts) was also deleted.
+// See cleanup meeting notes for details.
 // =============================================================================
 // INTELLIGENT LOGGER CLASS COMPATIBILITY
 // =============================================================================

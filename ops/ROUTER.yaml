@@ -193,11 +193,7 @@ categories:
     - src/types/ROUTER.md
     - src/utils/ROUTER.md
     - src/worker/ROUTER.md
-    - discord-pokemon-bot/ROUTER.md
-    - discord-pokemon-bot/battles/ROUTER.md
-    - discord-pokemon-bot/data/ROUTER.md
-    - discord-pokemon-bot/scripts/ROUTER.md
-    - discord-pokemon-bot/utils/ROUTER.md
+    # NOTE: discord-pokemon-bot/ removed in Dead Code Cleanup Meeting #4 (2025-12-20)
     - tests/ROUTER.md
   - tests/battle/ROUTER.md
   - tests/pbsl/ROUTER.md

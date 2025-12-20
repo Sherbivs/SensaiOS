@@ -1,19 +1,30 @@
 # ROUTER
-Title: Legacy Slash Command Handlers
-Purpose: Command implementations consumed by the Discord bot prior to the TypeScript port.
+Title: Slash Command Handlers
+Purpose: Discord slash command implementations loaded by command-loader.ts
 Owned Globs: src/commands/**
-Last Updated (UTC): 2025-11-03T07:45:00Z
+Last Updated (UTC): 2025-12-20T00:00:00Z
+
+## ⚠️ ARCHIVED (2025-12-20)
+
+**Deleted Files — Dead Code Cleanup Meeting #4:**
+- `dm-home-loader.ts` (87 lines) — Deprecated DM-based loader, referenced deleted `bot/dm/` directory
+- `box.ts` (48 lines) — Used dm-home-loader which always failed
+- `party.ts` (47 lines) — Used dm-home-loader which always failed
+
+**Reason:** These files depended on the deleted `src/bot/dm/` directory (homestead migration). The homestead module now provides box/party views directly via `src/bot/homestead/home.ts`.
+
+---
 
 Notes:
-- These CommonJS handlers remain for backward compatibility while the TypeScript `/bot/commands` surface is finalized.
-- New features should target the TypeScript command set; keep these files stable until deprecation.
-- `dm-home-loader.js` bridges legacy commands to the TypeScript DM Home renderer so `/party`, `/box`, and `/profile` mirror the DM flows.
-- `/profile` now manages Option C hybrid trainer profiles (view, edit, clear) backed by the new TrainerProfile table and shared embed renderer.
+- Commands loaded by `src/command-loader.ts` from this directory
+- New features should use homestead patterns, not legacy DM flows
+- `/profile` manages trainer profiles backed by TrainerProfile table
 
-Representative Commands:
-- ops.js - Administrative `/ops` command logic.
-- battle.js / battle-turn.js - Turn-based battle flows and command entrypoints.
-- home.js / starter.js / daily.js / heal.js - Player onboarding and maintenance commands.
-- dex.js / move.js / weak.js / calc.js - Pokedex lookups and matchup utilities.
-- box.js / party.js / profile.js - Trainer collection and roster management.
-- ping.js / version.js / walk.js - Utility commands (latency check, build version, encounter entry).
+Active Commands:
+- battle.ts / battle-turn.ts — Turn-based battle flows
+- home.ts / starter.ts / daily.ts / heal.ts — Player onboarding and maintenance
+- dex.ts / move.ts / weak.ts / calc.ts — Pokedex lookups and matchup utilities
+- profile.ts — Trainer profile management (view, edit, clear)
+- ping.ts / version.ts / walk.ts — Utility commands (latency, build version, encounters)
+- ops.ts — Administrative `/ops` command logic
+- types.ts — Command type definitions

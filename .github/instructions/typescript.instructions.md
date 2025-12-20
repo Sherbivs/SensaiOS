@@ -294,6 +294,35 @@ function snapshotBattle(battle: Battle): BattleSnapshot {
 }
 ```
 
+## Code Cleanup & Dead Code Detection
+
+When cleaning up TypeScript code, follow the **Dead Code Analysis Bible** (`docs/development-bible/10-dead-code-analysis.md`):
+
+### Evidence Tiers for Dead Code
+- **Tier A (Proof):** CFG/PDG analysis shows unreachable paths — SAFE to delete
+- **Tier B (Strong):** Zero coverage + zero runtime hits over observation period
+- **Tier C (Heuristic):** Pattern matching (TODO/FIXME, commented blocks, stub returns)
+- **Tier D (Speculative):** LLM-only inference without graph evidence — REQUIRES verification
+
+### Red Flags in TypeScript
+```typescript
+// Stub indicators
+function processPayment(): void { /* TODO */ }           // Empty body with TODO
+const handler = () => { throw new Error("Not impl"); }; // Stub throw
+export const DEPRECATED_FLAG = false;                    // Never-true guards
+
+// Dead code patterns
+if (false) { unreachableCode(); }                        // Constant false guard
+return; expensiveOperation();                            // Post-return code
+```
+
+### Safe Deletion Checklist
+1. ✅ No grep matches in codebase (including tests, configs, scripts)
+2. ✅ No dynamic access patterns (`obj[key]`, reflection)
+3. ✅ Export removed from barrel files (`index.ts`)
+4. ✅ Build passes with `npm run build`
+5. ✅ Tests pass with `npm test`
+
 ## Common TypeScript Mistakes to Avoid
 
 1. **Forgetting `.js` extensions** in imports (breaks ESM)

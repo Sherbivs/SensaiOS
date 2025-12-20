@@ -418,7 +418,8 @@ export type RecoveryStatus = "healthy" | "degraded" | "critical";
 
 /**
  * Build recovery complete embed
- * Used in: src/services/player-checkpoint.ts
+ * Note: Originally designed for player-checkpoint.ts (removed in dead code cleanup 2025-12)
+ * Available for future recovery/diagnostic embed use cases
  */
 export interface RecoveryEmbedData {
   overallStatus: RecoveryStatus;

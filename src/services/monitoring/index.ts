@@ -46,7 +46,7 @@ export * as errorLearning from './error-learning.js';
 
 // Resource Monitoring (default export + types)
 export { resourceMonitor, startResourceMonitoring, stopResourceMonitoring, getResourceHealth } from './resource-monitor.js';
-export type { IPrunableCache, MemoryPressureLevel } from './resource-monitor.js';
+export type { IPrunableCache, MemoryPressureLevel, DiskPressureLevel, MetricsSnapshotEvent } from './resource-monitor.js';
 
 // Shared Utilities (performance-optimized helpers)
 export {

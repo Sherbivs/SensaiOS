@@ -39,6 +39,8 @@ import type {
   MoveUsageEntry, 
   AnomalyEntry 
 } from '../cache/engine-write-buffer.js';
+import { EventBus, type BusEvent } from '../../shared/event-bus.js';
+import type { MetricsSnapshotEvent } from '../monitoring/resource-monitor.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -57,6 +59,36 @@ interface WalEntry {
   payload: string; // JSON-encoded entry
   checksum: string; // SHA-256 of payload
   created_at: number; // Unix timestamp
+}
+
+/**
+ * System metrics entry (for historical storage)
+ * 
+ * Phase 3, P6: Historical Metrics Storage
+ * @see docs/projects/metrics-expansion-bible.md § Project 6
+ */
+export interface SystemMetricsEntry {
+  id?: number;
+  timestamp: number;         // Unix timestamp in seconds
+  
+  // Memory metrics (bytes)
+  rssBytes: number;
+  heapUsedBytes: number;
+  heapTotalBytes: number;
+  externalBytes: number;
+  
+  // CPU metrics (percentage)
+  cpuUserPercent: number;
+  cpuSystemPercent: number;
+  
+  // Disk metrics (bytes)
+  diskTotalBytes: number;
+  diskUsedBytes: number;
+  diskFreeBytes: number;
+  
+  // Pressure levels (0=NORMAL, 1=WARNING, 2=CRITICAL, 3=EMERGENCY)
+  memoryPressure: number;
+  diskPressure: number;
 }
 
 /**
@@ -93,11 +125,33 @@ export interface WriteDbStats {
   moveUsageCount: number;
   anomalyCount: number;
   walEntryCount: number;
+  systemMetricsCount: number; // P6: Historical metrics count
   sizeBytes: number;
   oldestEntryAge: number; // Hours
+  oldestMetricsAge: number; // Hours (P6)
   isInitialized: boolean;
   status: string;
   latency: number | null;
+}
+
+/**
+ * System metrics query result (for /ops metrics-history)
+ * 
+ * Phase 3, P6: Historical Metrics Storage
+ */
+export interface MetricsHistoryResult {
+  entries: SystemMetricsEntry[];
+  summary: {
+    count: number;
+    timeRangeMinutes: number;
+    avgRssMB: number;
+    avgHeapUsedMB: number;
+    avgCpuPercent: number;
+    avgDiskUsedPercent: number;
+    maxRssMB: number;
+    maxCpuPercent: number;
+    alertCount: number; // Entries with pressure > NORMAL
+  };
 }
 
 // ============================================================================
@@ -108,6 +162,30 @@ let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null;
 let db: Database | null = null;
 let isInitialized = false;
 let autoSaveInterval: NodeJS.Timeout | null = null;
+
+// ============================================================================
+// P6: Historical Metrics Storage State
+// ============================================================================
+
+/** EventBus subscription ID for metrics.snapshot topic */
+let metricsSubscriptionId: string | null = null;
+
+/** Last metrics insert timestamp (for rate limiting - once per minute max) */
+let lastMetricsInsertTime = 0;
+
+/** Metrics insertion rate limit: 60 seconds (1 sample per minute, ~10,080/week) */
+const METRICS_INSERT_INTERVAL_MS = 60000;
+
+/** Metrics retention period: 7 days in seconds */
+const METRICS_RETENTION_SECONDS = 7 * 24 * 60 * 60;
+
+/** Pressure level constants (for type safety) */
+const PRESSURE_LEVELS = {
+  NORMAL: 0,
+  WARNING: 1,
+  CRITICAL: 2,
+  EMERGENCY: 3,
+} as const;
 
 // ============================================================================
 // Initialization
@@ -166,6 +244,9 @@ export async function initialize(): Promise<void> {
 
     // Start auto-save interval (persist to disk every 30s)
     startAutoSave();
+    
+    // P6: Subscribe to EventBus for metrics storage
+    subscribeToMetricsSnapshot();
 
     isInitialized = true;
 
@@ -174,7 +255,8 @@ export async function initialize(): Promise<void> {
       battleLogCount: stats.battleLogCount,
       moveUsageCount: stats.moveUsageCount,
       anomalyCount: stats.anomalyCount,
-      walEntryCount: stats.walEntryCount
+      walEntryCount: stats.walEntryCount,
+      systemMetricsCount: stats.systemMetricsCount
     });
 
   } catch (error) {
@@ -248,6 +330,39 @@ async function createSchema(): Promise<void> {
     )
   `);
 
+  // =========================================================================
+  // Phase 3, P6: System Metrics Table (Historical Metrics Storage)
+  // @see docs/projects/metrics-expansion-bible.md § Project 6
+  // 
+  // Stores metrics.snapshot events for historical analysis.
+  // Retention: 7 days of per-minute samples (~10,080 rows per week)
+  // =========================================================================
+  db.run(`
+    CREATE TABLE IF NOT EXISTS system_metrics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp INTEGER NOT NULL,
+      
+      -- Memory metrics (bytes)
+      rss_bytes INTEGER NOT NULL,
+      heap_used_bytes INTEGER NOT NULL,
+      heap_total_bytes INTEGER NOT NULL,
+      external_bytes INTEGER NOT NULL,
+      
+      -- CPU metrics (percentage, stored as REAL for precision)
+      cpu_user_percent REAL NOT NULL,
+      cpu_system_percent REAL NOT NULL,
+      
+      -- Disk metrics (bytes)
+      disk_total_bytes INTEGER NOT NULL,
+      disk_used_bytes INTEGER NOT NULL,
+      disk_free_bytes INTEGER NOT NULL,
+      
+      -- Pressure levels (0=NORMAL, 1=WARNING, 2=CRITICAL, 3=EMERGENCY)
+      memory_pressure INTEGER NOT NULL DEFAULT 0,
+      disk_pressure INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
   // Create indexes for fast queries
   db.run('CREATE INDEX IF NOT EXISTS idx_battle_logs_created_at ON battle_logs(created_at)');
   db.run('CREATE INDEX IF NOT EXISTS idx_battle_logs_uploaded_at ON battle_logs(uploaded_at)');
@@ -256,6 +371,9 @@ async function createSchema(): Promise<void> {
   db.run('CREATE INDEX IF NOT EXISTS idx_anomalies_severity ON anomalies(severity)');
   db.run('CREATE INDEX IF NOT EXISTS idx_anomalies_created_at ON anomalies(created_at)');
   db.run('CREATE INDEX IF NOT EXISTS idx_wal_created_at ON write_ahead_log(created_at)');
+  
+  // P6: System metrics index for time-based queries
+  db.run('CREATE INDEX IF NOT EXISTS idx_system_metrics_timestamp ON system_metrics(timestamp)');
 
   log('info', 'engine-write-db: Schema created/verified');
 }
@@ -409,6 +527,363 @@ export async function insertAnomalies(entries: AnomalyEntry[]): Promise<void> {
   } catch (error) {
     log('error', 'engine-write-db: insertAnomalies failed', error);
     throw error;
+  }
+}
+
+// ============================================================================
+// P6: Historical Metrics Storage Operations
+// @see docs/projects/metrics-expansion-bible.md § Project 6
+// ============================================================================
+
+/**
+ * Subscribe to metrics.snapshot EventBus topic for historical storage.
+ * 
+ * Rate-limited to 1 insert per minute to maintain ~10,080 rows/week retention.
+ * Converts MetricsSnapshotEvent to SystemMetricsEntry and stores in SQLite.
+ */
+function subscribeToMetricsSnapshot(): void {
+  try {
+    const eventBus = EventBus.getInstance();
+    
+    metricsSubscriptionId = eventBus.subscribe('metrics.snapshot', async (event: BusEvent<unknown>) => {
+      try {
+        const now = Date.now();
+        
+        // Rate limit: Only insert once per minute
+        if (now - lastMetricsInsertTime < METRICS_INSERT_INTERVAL_MS) {
+          return; // Skip this sample (already have one this minute)
+        }
+        
+        const payload = event.payload as MetricsSnapshotEvent;
+        
+        // Convert MetricsSnapshotEvent to SystemMetricsEntry
+        const entry: SystemMetricsEntry = {
+          timestamp: Math.floor(new Date(payload.timestamp).getTime() / 1000),
+          rssBytes: payload.memory.rss,
+          heapUsedBytes: payload.memory.heapUsed,
+          heapTotalBytes: payload.memory.heapTotal,
+          externalBytes: payload.memory.external,
+          cpuUserPercent: payload.cpu.user,
+          cpuSystemPercent: payload.cpu.system,
+          diskTotalBytes: payload.storage.total,
+          diskUsedBytes: payload.storage.used,
+          diskFreeBytes: payload.storage.free,
+          memoryPressure: pressureLevelToNumber(payload.pressure.memory),
+          diskPressure: pressureLevelToNumber(payload.pressure.disk),
+        };
+        
+        await insertSystemMetrics(entry);
+        lastMetricsInsertTime = now;
+        
+      } catch (error) {
+        log('warn', 'engine-write-db: Failed to store metrics snapshot', error);
+        // Non-fatal - metrics storage failures shouldn't crash the system
+      }
+    });
+    
+    log('info', 'engine-write-db: Subscribed to metrics.snapshot for historical storage');
+    
+  } catch (error) {
+    log('warn', 'engine-write-db: Failed to subscribe to metrics.snapshot', error);
+    // Non-fatal - historical metrics are optional
+  }
+}
+
+/**
+ * Unsubscribe from metrics.snapshot EventBus topic.
+ */
+function unsubscribeFromMetricsSnapshot(): void {
+  if (metricsSubscriptionId) {
+    try {
+      EventBus.getInstance().unsubscribe(metricsSubscriptionId);
+      metricsSubscriptionId = null;
+      log('info', 'engine-write-db: Unsubscribed from metrics.snapshot');
+    } catch (error) {
+      log('warn', 'engine-write-db: Failed to unsubscribe from metrics.snapshot', error);
+    }
+  }
+}
+
+/**
+ * Convert pressure level string to numeric value.
+ */
+function pressureLevelToNumber(level: string): number {
+  switch (level) {
+    case 'NORMAL': return PRESSURE_LEVELS.NORMAL;
+    case 'WARNING': return PRESSURE_LEVELS.WARNING;
+    case 'CRITICAL': return PRESSURE_LEVELS.CRITICAL;
+    case 'EMERGENCY': return PRESSURE_LEVELS.EMERGENCY;
+    default: return PRESSURE_LEVELS.NORMAL;
+  }
+}
+
+/**
+ * Convert numeric pressure level to string.
+ */
+function _pressureLevelToString(level: number): string {
+  switch (level) {
+    case PRESSURE_LEVELS.NORMAL: return 'NORMAL';
+    case PRESSURE_LEVELS.WARNING: return 'WARNING';
+    case PRESSURE_LEVELS.CRITICAL: return 'CRITICAL';
+    case PRESSURE_LEVELS.EMERGENCY: return 'EMERGENCY';
+    default: return 'NORMAL';
+  }
+}
+
+/**
+ * Insert a single system metrics entry.
+ * 
+ * @param entry System metrics entry to insert
+ */
+async function insertSystemMetrics(entry: SystemMetricsEntry): Promise<void> {
+  if (!db) {
+    throw new Error('Write-DB not initialized');
+  }
+  
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO system_metrics (
+        timestamp, rss_bytes, heap_used_bytes, heap_total_bytes, external_bytes,
+        cpu_user_percent, cpu_system_percent,
+        disk_total_bytes, disk_used_bytes, disk_free_bytes,
+        memory_pressure, disk_pressure
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    stmt.run([
+      entry.timestamp,
+      entry.rssBytes,
+      entry.heapUsedBytes,
+      entry.heapTotalBytes,
+      entry.externalBytes,
+      entry.cpuUserPercent,
+      entry.cpuSystemPercent,
+      entry.diskTotalBytes,
+      entry.diskUsedBytes,
+      entry.diskFreeBytes,
+      entry.memoryPressure,
+      entry.diskPressure,
+    ]);
+    
+    stmt.free();
+    
+  } catch (error) {
+    log('error', 'engine-write-db: Failed to insert system metrics', error);
+    throw error;
+  }
+}
+
+/**
+ * Query historical metrics for /ops metrics-history command.
+ * 
+ * @param minutes Number of minutes to look back (default: 60)
+ * @returns Metrics history result with entries and summary
+ */
+export async function queryMetricsHistory(minutes: number = 60): Promise<MetricsHistoryResult> {
+  if (!db) {
+    return {
+      entries: [],
+      summary: {
+        count: 0,
+        timeRangeMinutes: minutes,
+        avgRssMB: 0,
+        avgHeapUsedMB: 0,
+        avgCpuPercent: 0,
+        avgDiskUsedPercent: 0,
+        maxRssMB: 0,
+        maxCpuPercent: 0,
+        alertCount: 0,
+      },
+    };
+  }
+  
+  try {
+    const cutoffTime = Math.floor(Date.now() / 1000) - (minutes * 60);
+    
+    // Query entries within time range
+    const result = db.exec(`
+      SELECT 
+        id, timestamp, 
+        rss_bytes, heap_used_bytes, heap_total_bytes, external_bytes,
+        cpu_user_percent, cpu_system_percent,
+        disk_total_bytes, disk_used_bytes, disk_free_bytes,
+        memory_pressure, disk_pressure
+      FROM system_metrics
+      WHERE timestamp >= ${cutoffTime}
+      ORDER BY timestamp DESC
+      LIMIT 1000
+    `);
+    
+    const entries: SystemMetricsEntry[] = [];
+    
+    if (result && result[0]?.values) {
+      for (const row of result[0].values) {
+        entries.push({
+          id: row[0] as number,
+          timestamp: row[1] as number,
+          rssBytes: row[2] as number,
+          heapUsedBytes: row[3] as number,
+          heapTotalBytes: row[4] as number,
+          externalBytes: row[5] as number,
+          cpuUserPercent: row[6] as number,
+          cpuSystemPercent: row[7] as number,
+          diskTotalBytes: row[8] as number,
+          diskUsedBytes: row[9] as number,
+          diskFreeBytes: row[10] as number,
+          memoryPressure: row[11] as number,
+          diskPressure: row[12] as number,
+        });
+      }
+    }
+    
+    // Calculate summary statistics
+    const summary = calculateMetricsSummary(entries, minutes);
+    
+    return { entries, summary };
+    
+  } catch (error) {
+    log('error', 'engine-write-db: Failed to query metrics history', error);
+    return {
+      entries: [],
+      summary: {
+        count: 0,
+        timeRangeMinutes: minutes,
+        avgRssMB: 0,
+        avgHeapUsedMB: 0,
+        avgCpuPercent: 0,
+        avgDiskUsedPercent: 0,
+        maxRssMB: 0,
+        maxCpuPercent: 0,
+        alertCount: 0,
+      },
+    };
+  }
+}
+
+/**
+ * Calculate summary statistics from metrics entries.
+ */
+function calculateMetricsSummary(entries: SystemMetricsEntry[], timeRangeMinutes: number): MetricsHistoryResult['summary'] {
+  if (entries.length === 0) {
+    return {
+      count: 0,
+      timeRangeMinutes,
+      avgRssMB: 0,
+      avgHeapUsedMB: 0,
+      avgCpuPercent: 0,
+      avgDiskUsedPercent: 0,
+      maxRssMB: 0,
+      maxCpuPercent: 0,
+      alertCount: 0,
+    };
+  }
+  
+  const MB = 1024 * 1024;
+  
+  let totalRss = 0;
+  let totalHeapUsed = 0;
+  let totalCpu = 0;
+  let totalDiskUsedPercent = 0;
+  let maxRss = 0;
+  let maxCpu = 0;
+  let alertCount = 0;
+  
+  for (const entry of entries) {
+    totalRss += entry.rssBytes;
+    totalHeapUsed += entry.heapUsedBytes;
+    totalCpu += entry.cpuUserPercent + entry.cpuSystemPercent;
+    
+    const diskUsedPercent = entry.diskTotalBytes > 0
+      ? (entry.diskUsedBytes / entry.diskTotalBytes) * 100
+      : 0;
+    totalDiskUsedPercent += diskUsedPercent;
+    
+    if (entry.rssBytes > maxRss) maxRss = entry.rssBytes;
+    if (entry.cpuUserPercent + entry.cpuSystemPercent > maxCpu) {
+      maxCpu = entry.cpuUserPercent + entry.cpuSystemPercent;
+    }
+    
+    // Count entries with any pressure > NORMAL
+    if (entry.memoryPressure > PRESSURE_LEVELS.NORMAL || entry.diskPressure > PRESSURE_LEVELS.NORMAL) {
+      alertCount++;
+    }
+  }
+  
+  const count = entries.length;
+  
+  return {
+    count,
+    timeRangeMinutes,
+    avgRssMB: Math.round((totalRss / count / MB) * 10) / 10,
+    avgHeapUsedMB: Math.round((totalHeapUsed / count / MB) * 10) / 10,
+    avgCpuPercent: Math.round((totalCpu / count) * 10) / 10,
+    avgDiskUsedPercent: Math.round((totalDiskUsedPercent / count) * 10) / 10,
+    maxRssMB: Math.round((maxRss / MB) * 10) / 10,
+    maxCpuPercent: Math.round(maxCpu * 10) / 10,
+    alertCount,
+  };
+}
+
+/**
+ * Prune old system metrics (older than 7 days retention).
+ * 
+ * Called by the maintenance worker. Keeps ~10,080 rows (7 days at 1/minute).
+ */
+export async function pruneOldMetrics(): Promise<{ deletedCount: number }> {
+  if (!db) {
+    return { deletedCount: 0 };
+  }
+  
+  try {
+    const cutoffTime = Math.floor(Date.now() / 1000) - METRICS_RETENTION_SECONDS;
+    
+    // Get count before deletion
+    const beforeResult = db.exec(`SELECT COUNT(*) FROM system_metrics WHERE timestamp < ${cutoffTime}`);
+    const deletedCount = (beforeResult[0]?.values[0]?.[0] as number) ?? 0;
+    
+    if (deletedCount > 0) {
+      db.exec(`DELETE FROM system_metrics WHERE timestamp < ${cutoffTime}`);
+      
+      log('info', 'engine-write-db: Pruned old system metrics', {
+        deletedCount,
+        retentionDays: 7,
+        cutoffTime: new Date(cutoffTime * 1000).toISOString(),
+      });
+    }
+    
+    return { deletedCount };
+    
+  } catch (error) {
+    log('error', 'engine-write-db: Failed to prune old metrics', error);
+    return { deletedCount: 0 };
+  }
+}
+
+/**
+ * Get system metrics count (for stats).
+ */
+function getSystemMetricsCount(): number {
+  if (!db) return 0;
+  try {
+    return getTableCount(db, 'system_metrics');
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Get oldest system metrics timestamp (for stats).
+ */
+function getOldestMetricsAge(): number {
+  if (!db) return 0;
+  try {
+    const result = db.exec('SELECT MIN(timestamp) FROM system_metrics');
+    const oldestTimestamp = (result[0]?.values[0]?.[0] as number) ?? 0;
+    return oldestTimestamp > 0
+      ? (Date.now() / 1000 - oldestTimestamp) / 3600 // Convert to hours
+      : 0;
+  } catch {
+    return 0;
   }
 }
 
@@ -858,8 +1333,10 @@ export function getStats(): WriteDbStats {
       moveUsageCount: 0,
       anomalyCount: 0,
       walEntryCount: 0,
+      systemMetricsCount: 0,
       sizeBytes: 0,
       oldestEntryAge: 0,
+      oldestMetricsAge: 0,
       isInitialized: false,
       status: 'offline',
       latency: null,
@@ -881,6 +1358,12 @@ export function getStats(): WriteDbStats {
 
     // Count WAL entries
     const walEntryCount = getTableCount(db, 'write_ahead_log');
+    
+    // P6: Count system metrics
+    const systemMetricsCount = getSystemMetricsCount();
+    
+    // P6: Get oldest metrics age
+    const oldestMetricsAge = getOldestMetricsAge();
 
     // Get oldest entry age
     const oldestResult = db.exec('SELECT MIN(created_at) FROM battle_logs');
@@ -901,8 +1384,10 @@ export function getStats(): WriteDbStats {
       moveUsageCount,
       anomalyCount,
       walEntryCount,
+      systemMetricsCount,
       sizeBytes,
       oldestEntryAge,
+      oldestMetricsAge,
       isInitialized: true,
       status: 'healthy',
       latency,
@@ -915,8 +1400,10 @@ export function getStats(): WriteDbStats {
       moveUsageCount: 0,
       anomalyCount: 0,
       walEntryCount: 0,
+      systemMetricsCount: 0,
       sizeBytes: 0,
       oldestEntryAge: 0,
+      oldestMetricsAge: 0,
       isInitialized: false,
       status: 'error',
       latency: null,
@@ -932,6 +1419,9 @@ export function getStats(): WriteDbStats {
  * Close Write-DB connection gracefully (with final save).
  */
 export async function close(): Promise<void> {
+  // P6: Unsubscribe from metrics EventBus first
+  unsubscribeFromMetricsSnapshot();
+  
   stopAutoSave();
 
   if (db) {
@@ -953,5 +1443,14 @@ export async function close(): Promise<void> {
  */
 export function isReady(): boolean {
   return isInitialized && db !== null;
+}
+
+/**
+ * Check if metrics storage is subscribed.
+ * 
+ * P6: For /ops engine command status display.
+ */
+export function isMetricsSubscribed(): boolean {
+  return metricsSubscriptionId !== null;
 }
 

@@ -589,6 +589,14 @@ class WriteDbValidatorWorker {
         
         log('info', 'engine-workers: WriteDbValidatorWorker pruning complete');
         
+        // Step 4: P6 - Prune old system metrics (7-day retention)
+        const metricsPruneResult = await writeDb.pruneOldMetrics();
+        if (metricsPruneResult.deletedCount > 0) {
+          log('info', 'engine-workers: WriteDbValidatorWorker metrics pruning complete', {
+            deletedCount: metricsPruneResult.deletedCount
+          });
+        }
+        
       } else {
         // Data quality too low - quarantine
         log('warn', 'engine-workers: WriteDbValidatorWorker quality score below threshold - data quarantined', {

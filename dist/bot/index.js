@@ -13,6 +13,7 @@ import { openStartersHomestead as openStartersDM, handleStarterPick, STARTER_OPT
 import { handleOpsCommand } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleWalk } from "./wilds/walk.js";
+import { replyError, replyInfo, replySuccess, safeReply } from "./shared/response-helpers.js";
 /**
  * Boots the Discord bot client and registers a minimal interaction handler.
  * - No Message Content intent required (slash interactions only)
@@ -86,20 +87,17 @@ export async function bootDiscord(opts = {}) {
                 const loadedCommands = await ensureCommandsLoaded();
                 const cmd = loadedCommands.get(interaction.commandName);
                 if (!cmd) {
-                    await interaction.reply({
-                        content: `Unknown command: ${interaction.commandName}`,
-                        ephemeral: true,
-                    });
+                    await replyError(interaction, `Unknown command: ${interaction.commandName}`);
                     return;
                 }
                 // Small wiring for known commands to homestead flows
                 if (interaction.commandName === "starter") {
                     if (interaction.guildId) {
                         await openStartersDM(client, interaction.guildId, interaction.user);
-                        await interaction.reply({ content: "I sent your Starters to your homestead channel.", ephemeral: true });
+                        await replySuccess(interaction, "I sent your Starters to your homestead channel.");
                     }
                     else {
-                        await interaction.reply({ content: "This command must be used in a server.", ephemeral: true });
+                        await replyError(interaction, "This command must be used in a server.");
                     }
                     return;
                 }
@@ -114,7 +112,7 @@ export async function bootDiscord(opts = {}) {
                         await handleDailyClaim(interaction, { prisma });
                     }
                     else {
-                        await interaction.reply({ content: "Unknown daily subcommand. Try `/daily claim`.", ephemeral: true });
+                        await replyInfo(interaction, "Unknown daily subcommand. Try `/daily claim`.");
                     }
                     return;
                 }
@@ -128,7 +126,7 @@ export async function bootDiscord(opts = {}) {
                         await handleBattleChallengeCommand(interaction);
                     }
                     else {
-                        await interaction.reply({ content: "Unknown battle subcommand. Try `/battle challenge @trainer`.", ephemeral: true });
+                        await replyInfo(interaction, "Unknown battle subcommand. Try `/battle challenge @trainer`.");
                     }
                     return;
                 }
@@ -199,12 +197,7 @@ export async function bootDiscord(opts = {}) {
             log.error("Interaction handler error", { err: err?.message || String(err) });
             if (interaction.isRepliable()) {
                 try {
-                    if (interaction.deferred || interaction.replied) {
-                        await interaction.editReply({ content: "Something went wrong." });
-                    }
-                    else {
-                        await interaction.reply({ content: "Something went wrong.", ephemeral: true });
-                    }
+                    await safeReply(interaction, "Something went wrong.");
                 }
                 catch {
                     // Ignore secondary reply errors; the primary failure is already logged.

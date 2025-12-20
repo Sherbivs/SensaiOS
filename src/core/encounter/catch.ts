@@ -2,7 +2,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 
 import { prisma as prismaClient, UserRepo } from "../../models/index.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
-import { getPartyWithSlots } from "../../shared/models/index.js";
+import { getPartyWithSlots } from "../../shared/models/party-queries-pg.js";
 import { clamp } from "../../shared/utils/index.js";
 
 export type BallType = "poke" | "great" | "ultra";
@@ -113,7 +113,7 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
   });
 
   // Try to assign to party if slot is available
-  const party = await getPartyWithSlots(prisma, user.id);
+  const party = await getPartyWithSlots(user.id);
   if (!party) {
     // Create party if it doesn't exist
     const newParty = await prisma.party.create({ data: { ownerId: user.id } });

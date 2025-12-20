@@ -314,7 +314,12 @@ This terminology schema is **STRICTLY ENFORCED** throughout the entire codebase.
 #### Navigation Guidelines for Documentation
 - **Architecture Bible**: `docs/architecture-bible/INDEX.md` — 22 sections covering complete system design
 - **Operations Bible**: `docs/operations-bible/INDEX.md` — 13 sections + 9 guides covering deployment and monitoring
-- **Development Bible**: `docs/development-bible/INDEX.md` — 9 sections covering local setup, testing, profiling, database onboarding
+- **Development Bible**: `docs/development-bible/INDEX.md` — 10 sections covering local setup, testing, profiling, database onboarding, dead code analysis
+- **Dead Code Analysis Bible**: `docs/development-bible/10-dead-code-analysis.md` — AI-driven code cleanup methodology:
+  - Evidence tiers: A (proof via CFG/SSA), B (runtime/coverage), C (heuristic), D (speculative)
+  - Program representations: CST/AST, CFG, SSA, PDG, CPG, call graphs
+  - Clone detection (NiCad, DECKARD, SourcererCC), stub identification
+  - Game-server heuristics, scoring model, safe deletion doctrine
 - **Prisma 7 Bible**: `docs/prisma-7-bible.md` — Comprehensive AI agent playbook (1000+ lines) covering:
   - Emergency production triage playbook (stop-the-bleeding options)
   - Step-by-step migration guide (Prisma 6 → 7)
@@ -365,4 +370,4 @@ This terminology schema is **STRICTLY ENFORCED** throughout the entire codebase.
 
 *This agent is optimized for Pokemon Infinity Gauntlet development with Claude Sonnet 4.5, emphasizing Patch engine compliance, private channel architecture migration, standardized terminology enforcement, and comprehensive system design with 105+ pages of authoritative documentation.*
 
-*Last Updated: 2025-12-19 — Expanded Prisma 7 Bible integration (1000+ lines)*
+*Last Updated: 2025-12-20 — Added Dead Code Analysis Bible for AI-driven code cleanup methodology*

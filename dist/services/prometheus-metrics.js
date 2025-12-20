@@ -3,9 +3,19 @@
  * @module services/prometheus-metrics
  *
  * Exports time-windowed metrics in Prometheus format for production monitoring.
+ *
+ * Metrics Categories:
+ * 1. Security Bot Metrics (original) - role assignments, cache, permission violations
+ * 2. Resource Monitor Metrics (P5) - memory, disk, CPU, uptime gauges
+ * 3. System Event Metrics (P5) - heap pruning, disk alerts, auto-remediation counters
+ *
+ * @see docs/projects/metrics-expansion-bible.md § Project 5
  */
 import { register, Counter, Gauge, Histogram, collectDefaultMetrics } from 'prom-client';
 import { calculateWindowStats, TIME_WINDOWS, } from './statistics-window.js';
+import { EventBus } from '../shared/event-bus.js';
+import { log } from '../shared/log.js';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14,6 +24,13 @@ import { calculateWindowStats, TIME_WINDOWS, } from './statistics-window.js';
  */
 let metricsRegistry = null;
 let metricsInitialized = false;
+/**
+ * EventBus subscription IDs (for cleanup).
+ */
+let metricsSnapshotSubId = null;
+let diskAlertSubId = null;
+let heapPruneSubId = null;
+let autoRemediationSubId = null;
 /**
  * Metric instances (counters, gauges, histograms).
  */
@@ -33,6 +50,22 @@ let metrics = {
     errorsLast24Hours: null,
     sweepRatePerHour: null,
     alertRatePerHour: null,
+    // P5: Resource Monitor gauges
+    memoryRss: null,
+    memoryHeapUsed: null,
+    memoryHeapTotal: null,
+    memoryExternal: null,
+    diskTotal: null,
+    diskUsed: null,
+    diskFree: null,
+    diskUsedPercent: null,
+    cpuUser: null,
+    cpuSystem: null,
+    uptimeSeconds: null,
+    // P5: System Event counters
+    heapSnapshotsPruned: null,
+    diskAlerts: null,
+    autoRemediation: null,
 };
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API
@@ -142,6 +175,90 @@ export function initializeMetrics(options = {}) {
         help: 'Average number of alerts per hour (last 24 hours)',
         registers: [metricsRegistry],
     });
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P5: RESOURCE MONITOR GAUGES (from metrics.snapshot EventBus events)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // @see docs/projects/metrics-expansion-bible.md § Project 5
+    const resourcePrefix = 'ig_'; // Different prefix for resource metrics
+    metrics.memoryRss = new Gauge({
+        name: `${resourcePrefix}memory_rss_bytes`,
+        help: 'Resident Set Size (total process memory) in bytes',
+        registers: [metricsRegistry],
+    });
+    metrics.memoryHeapUsed = new Gauge({
+        name: `${resourcePrefix}memory_heap_used_bytes`,
+        help: 'V8 heap used memory in bytes',
+        registers: [metricsRegistry],
+    });
+    metrics.memoryHeapTotal = new Gauge({
+        name: `${resourcePrefix}memory_heap_total_bytes`,
+        help: 'V8 heap total memory in bytes',
+        registers: [metricsRegistry],
+    });
+    metrics.memoryExternal = new Gauge({
+        name: `${resourcePrefix}memory_external_bytes`,
+        help: 'Memory used by C++ objects bound to V8',
+        registers: [metricsRegistry],
+    });
+    metrics.diskTotal = new Gauge({
+        name: `${resourcePrefix}disk_total_bytes`,
+        help: 'Total disk space in bytes (/Store volume)',
+        registers: [metricsRegistry],
+    });
+    metrics.diskUsed = new Gauge({
+        name: `${resourcePrefix}disk_used_bytes`,
+        help: 'Used disk space in bytes (/Store volume)',
+        registers: [metricsRegistry],
+    });
+    metrics.diskFree = new Gauge({
+        name: `${resourcePrefix}disk_free_bytes`,
+        help: 'Free disk space in bytes (/Store volume)',
+        registers: [metricsRegistry],
+    });
+    metrics.diskUsedPercent = new Gauge({
+        name: `${resourcePrefix}disk_used_percent`,
+        help: 'Disk usage percentage (0-100)',
+        registers: [metricsRegistry],
+    });
+    metrics.cpuUser = new Gauge({
+        name: `${resourcePrefix}cpu_user_percent`,
+        help: 'CPU user time percentage (0-100)',
+        registers: [metricsRegistry],
+    });
+    metrics.cpuSystem = new Gauge({
+        name: `${resourcePrefix}cpu_system_percent`,
+        help: 'CPU system time percentage (0-100)',
+        registers: [metricsRegistry],
+    });
+    metrics.uptimeSeconds = new Gauge({
+        name: `${resourcePrefix}uptime_seconds`,
+        help: 'Process uptime in seconds',
+        registers: [metricsRegistry],
+    });
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P5: SYSTEM EVENT COUNTERS (from EventBus events)
+    // ═══════════════════════════════════════════════════════════════════════════
+    metrics.heapSnapshotsPruned = new Counter({
+        name: `${resourcePrefix}heap_snapshots_pruned_total`,
+        help: 'Total number of heap snapshots pruned',
+        registers: [metricsRegistry],
+    });
+    metrics.diskAlerts = new Counter({
+        name: `${resourcePrefix}disk_alerts_total`,
+        help: 'Total disk pressure alerts by level',
+        labelNames: ['level'],
+        registers: [metricsRegistry],
+    });
+    metrics.autoRemediation = new Counter({
+        name: `${resourcePrefix}auto_remediation_total`,
+        help: 'Total auto-remediation actions by type and success status',
+        labelNames: ['action', 'success'],
+        registers: [metricsRegistry],
+    });
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P5: EVENTBUS SUBSCRIPTIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+    subscribeToResourceEvents();
     metricsInitialized = true;
     return { registry: metricsRegistry, metrics };
 }
@@ -320,6 +437,8 @@ export function resetMetrics() {
  * Shutdown metrics registry.
  */
 export function shutdownMetrics() {
+    // Unsubscribe from EventBus events
+    unsubscribeFromResourceEvents();
     if (metricsRegistry) {
         register.clear();
         metricsRegistry = null;
@@ -340,6 +459,22 @@ export function shutdownMetrics() {
             errorsLast24Hours: null,
             sweepRatePerHour: null,
             alertRatePerHour: null,
+            // P5: Resource Monitor gauges
+            memoryRss: null,
+            memoryHeapUsed: null,
+            memoryHeapTotal: null,
+            memoryExternal: null,
+            diskTotal: null,
+            diskUsed: null,
+            diskFree: null,
+            diskUsedPercent: null,
+            cpuUser: null,
+            cpuSystem: null,
+            uptimeSeconds: null,
+            // P5: System Event counters
+            heapSnapshotsPruned: null,
+            diskAlerts: null,
+            autoRemediation: null,
         };
     }
 }
@@ -360,4 +495,186 @@ export function getRegistry() {
  */
 export function getMetrics() {
     return metrics;
+}
+/**
+ * Subscribe to EventBus events for resource metrics.
+ * Called during initializeMetrics().
+ */
+function subscribeToResourceEvents() {
+    try {
+        const eventBus = EventBus.getInstance();
+        // metrics.snapshot (every 15s from resource-monitor)
+        metricsSnapshotSubId = eventBus.subscribe('metrics.snapshot', (event) => {
+            handleMetricsSnapshot(event.payload);
+        });
+        // alert.disk.* (WARNING, CRITICAL, EMERGENCY)
+        diskAlertSubId = eventBus.subscribe('alert.disk.*', (event) => {
+            handleDiskAlert(event.payload);
+        });
+        // system.prune.heapsnapshot
+        heapPruneSubId = eventBus.subscribe('system.prune.heapsnapshot', (event) => {
+            handleHeapSnapshotPruned(event.payload);
+        });
+        // system.auto-remediation
+        autoRemediationSubId = eventBus.subscribe('system.auto-remediation', (event) => {
+            handleAutoRemediation(event.payload);
+        });
+        log.debug('[prometheus-metrics] EventBus subscriptions active for P5 resource metrics');
+    }
+    catch (error) {
+        log.warn('[prometheus-metrics] Failed to subscribe to EventBus events', {
+            error: getErrorMessage(error),
+        });
+    }
+}
+/**
+ * Unsubscribe from EventBus events (cleanup on shutdown).
+ */
+function unsubscribeFromResourceEvents() {
+    try {
+        const eventBus = EventBus.getInstance();
+        if (metricsSnapshotSubId) {
+            eventBus.unsubscribe(metricsSnapshotSubId);
+            metricsSnapshotSubId = null;
+        }
+        if (diskAlertSubId) {
+            eventBus.unsubscribe(diskAlertSubId);
+            diskAlertSubId = null;
+        }
+        if (heapPruneSubId) {
+            eventBus.unsubscribe(heapPruneSubId);
+            heapPruneSubId = null;
+        }
+        if (autoRemediationSubId) {
+            eventBus.unsubscribe(autoRemediationSubId);
+            autoRemediationSubId = null;
+        }
+        log.debug('[prometheus-metrics] EventBus subscriptions cleaned up');
+    }
+    catch (error) {
+        log.warn('[prometheus-metrics] Failed to unsubscribe from EventBus events', {
+            error: getErrorMessage(error),
+        });
+    }
+}
+/**
+ * Handle metrics.snapshot event - update resource gauges.
+ */
+function handleMetricsSnapshot(payload) {
+    if (!metricsInitialized)
+        return;
+    try {
+        // Memory metrics
+        metrics.memoryRss?.set(payload.memory.rss);
+        metrics.memoryHeapUsed?.set(payload.memory.heapUsed);
+        metrics.memoryHeapTotal?.set(payload.memory.heapTotal);
+        metrics.memoryExternal?.set(payload.memory.external);
+        // Disk metrics
+        metrics.diskTotal?.set(payload.storage.total);
+        metrics.diskUsed?.set(payload.storage.used);
+        metrics.diskFree?.set(payload.storage.free);
+        metrics.diskUsedPercent?.set(payload.storage.usedPercent);
+        // CPU metrics (payload.cpu uses 'user'/'system' not 'userPercent'/'systemPercent')
+        // These are already percentages from resource-monitor
+        metrics.cpuUser?.set(payload.cpu.user);
+        metrics.cpuSystem?.set(payload.cpu.system);
+        // Uptime (from node.uptime, already in seconds)
+        metrics.uptimeSeconds?.set(payload.node.uptime);
+    }
+    catch (error) {
+        log.warn('[prometheus-metrics] Failed to update gauges from metrics.snapshot', {
+            error: getErrorMessage(error),
+        });
+    }
+}
+/**
+ * Handle disk alert event - increment counter with level label.
+ */
+function handleDiskAlert(payload) {
+    if (!metricsInitialized)
+        return;
+    try {
+        const level = payload.level.toLowerCase();
+        metrics.diskAlerts?.inc({ level });
+    }
+    catch (error) {
+        log.warn('[prometheus-metrics] Failed to increment disk alert counter', {
+            error: getErrorMessage(error),
+        });
+    }
+}
+/**
+ * Handle heap snapshot pruned event - increment counter.
+ */
+function handleHeapSnapshotPruned(payload) {
+    if (!metricsInitialized)
+        return;
+    try {
+        const deletedCount = payload.deleted?.length ?? 0;
+        if (deletedCount > 0) {
+            metrics.heapSnapshotsPruned?.inc(deletedCount);
+        }
+    }
+    catch (error) {
+        log.warn('[prometheus-metrics] Failed to increment heap snapshots counter', {
+            error: getErrorMessage(error),
+        });
+    }
+}
+/**
+ * Handle auto-remediation event - increment counter with labels.
+ */
+function handleAutoRemediation(payload) {
+    if (!metricsInitialized)
+        return;
+    try {
+        metrics.autoRemediation?.inc({
+            action: payload.action,
+            success: String(payload.success),
+        });
+    }
+    catch (error) {
+        log.warn('[prometheus-metrics] Failed to increment auto-remediation counter', {
+            error: getErrorMessage(error),
+        });
+    }
+}
+/**
+ * Handle Prometheus metrics HTTP request.
+ * Use this in health-server.ts to add /metrics endpoint.
+ *
+ * @example
+ * ```typescript
+ * import { handleMetricsRequest } from './prometheus-metrics.js';
+ *
+ * // In request handler
+ * if (req.url === '/metrics') {
+ *   return handleMetricsRequest(res);
+ * }
+ * ```
+ */
+export async function handleMetricsRequest(res) {
+    try {
+        const metrics = await getMetricsText();
+        const contentType = getMetricsContentType();
+        res.writeHead(200, {
+            'Content-Type': contentType,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+        });
+        res.end(metrics);
+    }
+    catch (error) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(`# Error: ${getErrorMessage(error)}\n`);
+    }
+}
+/**
+ * Get Prometheus service status for /ops command.
+ */
+export function getPrometheusStatus() {
+    return {
+        initialized: metricsInitialized,
+        metricsCount: metricsRegistry?.getMetricsAsArray().length ?? 0,
+        subscriptionsActive: !!(metricsSnapshotSubId && diskAlertSubId && heapPruneSubId && autoRemediationSubId),
+    };
 }

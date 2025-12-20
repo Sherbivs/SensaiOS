@@ -21,7 +21,7 @@ export { extractDatabaseName, } from './url-utils.js';
 // Date Utilities
 export { toDate, toDateOrNow, startOfUtcDay, diffInUtcDays, cloneDate, daysAgo, hoursAgo, minutesAgo, daysFromNow, hoursFromNow, isOlderThanDays, isOlderThanHours, } from './date-utils.js';
 // File Utilities
-export { fileExists, ensureDir, readJsonFile, writeJsonFile, readTextFile, writeTextFile, } from './file-utils.js';
+export { fileExists, ensureDir, readJsonFile, writeJsonFile, readTextFile, writeTextFile, buffersEqual, readFileIfExists, writeFileIfChanged, } from './file-utils.js';
 // Object Utilities
 export { deepClone, } from './object-utils.js';
 // String Utilities

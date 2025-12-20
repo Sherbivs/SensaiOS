@@ -2,7 +2,7 @@
 Title: Shared Runtime & Utilities
 Purpose: Centralized runtime config, Prisma bootstrap, logging, caching, constants, and shared data access layers.
 Owned Globs: src/shared/**
-Last Updated (UTC): 2025-12-16 (Phase 5: Event Bus typed payloads)
+Last Updated (UTC): 2025-12-20 (Dead Code Cleanup Meeting #4 Continued)
 
 Notes:
 - **Phase 5 (2025-12-16):** Event Bus refactored with typed event payloads. `event-types.ts` defines 17+ payload interfaces (`ErrorEventPayload`, `ThreatDetectedPayload`, `BattleStartedPayload`, etc.) and `EventTopicMap` for compile-time type safety. `BusEvent<T>` now generic. Overloaded `emit()` and `subscribe()` provide type inference for known topics while preserving flexibility for custom events.
@@ -14,8 +14,19 @@ Notes:
 - `outbox.ts` now wraps the event bus helpers so legacy drains can enqueue/claim messages while the new engine comes online.
 - `log.ts` remains the structured logger, consuming the shared runtime config.
 - `worker-runtime.ts` centralizes worker lifecycles (signal handling, repeat helpers) consumed by outbox/cache/data pipeline entries.
-- Storage adapters live under src/shared/storage/ROUTER.md to keep durable sink integrations isolated from command handlers.
 - **Utility Consolidation:** All shared utilities accessible via barrel export at `utils/index.ts`. Eliminates verbose imports and improves discoverability. See `src/shared/utils/ROUTER.md` for complete utility catalog.
+
+**Archived Files (2025-12-20 Dead Code Cleanup Meeting #4):**
+- ~~legacy-stubs.ts (510 lines)~~ — Legacy logging API compatibility hub. **REMOVED** — Zero imports, never wired into application.
+- ~~json-types.ts (94 lines)~~ — Prisma 7 JSON field type conversion utilities. **REMOVED** — Zero imports, never used.
+- ~~observability.ts (383 lines)~~ — DB-First observability orchestrator. **REMOVED** — Phase 6 POC, never integrated.
+- ~~log-aggregator.ts (597 lines)~~ — Log aggregation with pattern detection. **REMOVED** — Phase 6 POC, never integrated.
+- ~~metrics-collector.ts (316 lines)~~ — System metrics collection. **REMOVED** — Phase 6 POC, never integrated.
+- ~~system-health-monitor.ts (673 lines)~~ — Health monitoring subsystem. **REMOVED** — Phase 6 POC, never integrated.
+- ~~console/~~ (1,039 lines) — Console interceptor/renderer for DB-First logging. **REMOVED** — Phase 6 POC, never integrated.
+- ~~log-query-views.ts (586 lines)~~ — Pre-built SQL query views for analytics. **REMOVED** — Zero consumers detected, never wired into /ops commands.
+- ~~rate-limiter.ts (762 lines)~~ — Generic rate limiting service with bucket algorithms. **REMOVED** — Zero external imports, only self-reference in comments.
+- ~~feature-flags.ts (621 lines)~~ — Feature toggle system with context evaluation. **REMOVED** — Zero external imports, only self-reference in JSDoc.
 
 Areas:
 - **event-types.ts (420+ lines)** — **NEW** Typed event payload interfaces for Event Bus. Defines `EventTopicMap` mapping topics to payloads: `ErrorEventPayload` (error.{severity}), `ThreatDetectedPayload` (threat.detected), `HomesteadCreatedPayload` (homestead.created), `BattleStartedPayload/BattleEndedPayload/BattleTurnPayload` (battle.*), `CacheMaintenancePayload/CacheAccessPayload` (cache.*), `WorkerStartedPayload/WorkerStoppedPayload/WorkerErrorPayload` (worker.*), `SystemStartupPayload/SystemShutdownPayload/SystemHealthPayload` (system.*), `AlertPayload` (alert.*). Exports: `EventTopic`, `EventPayload<T>`, `AnyEventPayload`, type guards for known topics.
@@ -32,5 +43,4 @@ Areas:
 
 Subrouters:
 - src/shared/cache/ROUTER.md — Cache backend implementations.
-- src/shared/storage/ROUTER.md — Storage adapter catalog.
 - src/shared/utils/ROUTER.md — Shared utility functions catalog.

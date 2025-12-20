@@ -1,8 +1,8 @@
 # ROUTER
 Title: Error Monitoring & Resource Management Services
-Purpose: Error tracking, pattern learning, resource monitoring, resource lifecycle management with centralized observability.
+Purpose: Error tracking, pattern learning, resource monitoring (RAM + Disk), resource lifecycle management with centralized observability.
 Owned Globs: src/services/monitoring/**
-Last Updated (UTC): 2025-11-16T00:00:00Z
+Last Updated (UTC): 2025-12-19T02:00:00Z
 
 ## Architecture Overview
 
@@ -45,7 +45,12 @@ Notes:
 - **NEW: `monitoring-utils.ts` (350 lines)** — Performance-optimized shared utilities: ID generation with cache (10x faster), fingerprint generation with LRU cache (90% hit rate), memory/format utilities (delegates to `shared/utils/format-utils.ts` for formatBytes, formatTimestamp to eliminate duplication), statistical functions (percentile, average, stddev), threshold checking (fast-path optimization), deduplication/grouping, rate limiting. All hot paths optimized for <1ms overhead.
 - `error-tracker.ts` (640 lines) — Core error tracking service: creates/updates ErrorLog entries in PostgreSQL, generates fingerprints using monitoring-utils (cached SHA-256), tracks occurrence counts, recovery attempts, learning metadata. Integrates with Event Bus for correlation tracking. **Performance:** Uses cached fingerprinting for 10x faster duplicate detection.
 - `error-learning.ts` (450 lines) — Pattern learning from error history: analyzes recent errors, identifies frequent patterns, suggests recovery strategies, updates knowledge base. Consumed by error-recovery.ts for intelligent retry logic. Uses monitoring-utils for statistical analysis.
-- `resource-monitor.ts` (900 lines) — **HIGH-LEVEL** resource monitoring + memory guardian: runs periodic health checks (12h default), memory guardian polling (30s), analyzes stats from resource-manager, memory pressure detection (NORMAL/WARNING/CRITICAL/EMERGENCY), coordinated cache pruning, GC triggering. Integrates with logger auto-refresh for live stats display. **Performance:** Uses monitoring-utils for threshold checks and metric calculations.
+- `resource-monitor.ts` (1700 lines) — **HIGH-LEVEL** resource monitoring + memory guardian + disk monitoring + EventBus metrics emission:
+  - **Health Checks:** Runs periodic health checks (12h default)
+  - **Memory Guardian:** 30s polling with pressure levels NORMAL/WARNING/CRITICAL/EMERGENCY, coordinated cache pruning, GC triggering
+  - **Disk Pressure (Phase 1, P3):** Monitors /Store volume via fs.statfsSync(), thresholds at 75%/85%/95%, auto-remediation via heap-pruner at EMERGENCY. Emits EventBus alerts for Alert Dispatcher routing. Exposes getDiskStatus() API.
+  - **EventBus Metrics (Phase 2, P4):** Emits `metrics.snapshot` event every 15 seconds for downstream consumers (Prometheus, historical storage). Features graceful degradation (degradedMode) after 3 consecutive failures, auto-recovery on success. Exports `MetricsSnapshotEvent` type. Exposes getDegradedStatus() API, setMetricsEmitEnabled(), forceRecoverFromDegradedMode().
+  - **Performance:** Uses monitoring-utils for threshold checks and metric calculations.
 - `resource-manager.ts` (1080 lines) — **LOW-LEVEL** resource lifecycle management: tracks timers (interval/timeout), event listeners, database connections, disk caches, disk buffers, disk logs. Enforces per-owner limits (timers: 20, listeners: 30, connections: 10). Provides centralized cleanup on process exit. **Performance:** Uses monitoring-utils cached ID generation (<1ms registration overhead, 10x faster than before).
 - `index.ts` (70 lines) — Barrel exports with comprehensive type exports. Provides single-import access: `import { resourceManager, resourceMonitor, errorTracker, monitoring-utils } from './monitoring'`.
 - Integration: Bot layer uses barrel exports (`from '../../services/monitoring'`). Admin commands expose monitoring stats via `/ops` command suite.
@@ -69,10 +74,12 @@ Notes:
 - Code duplication: -3 functions (formatBytes, formatTimestamp eliminated)
 
 Linked Routers:
-- src/bot/ops/admin.ts — Admin commands display monitoring stats, error summaries, resource usage.
+- src/bot/ops/admin.ts — Admin commands display monitoring stats, error summaries, resource usage, Prometheus status.
 - src/bot/error-handler.ts — Bot layer error handling uses monitoring barrel exports.
 - src/shared/event-bus.ts — Event Bus integration for correlation tracking and pattern matching.
 - src/shared/service-factories.ts — Service factory uses resource-manager for lifecycle management.
+- src/services/prometheus-metrics.ts — P5 Prometheus Export subscribes to metrics.snapshot events from resource-monitor.
+- src/services/health-server.ts — Exposes /metrics HTTP endpoint via prometheus-metrics.ts handleMetricsRequest().
 - tests/shared/error-tracker-mocks.ts — Centralized test mock factory (8 functions, 200+ lines).
 
 Areas:

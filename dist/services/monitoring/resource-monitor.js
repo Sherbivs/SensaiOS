@@ -31,7 +31,7 @@ import { resourceManager } from './resource-manager.js';
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
 import logger from '../../utils/intelligent-logger.js';
 import { EventBus } from '../../shared/event-bus.js';
-import { RESOURCE_MONITOR_INTERVAL_MS } from '../../config/env.js';
+import { RESOURCE_MONITOR_INTERVAL_MS, DISK_WARNING_THRESHOLD, DISK_CRITICAL_THRESHOLD, DISK_EMERGENCY_THRESHOLD } from '../../config/env.js';
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -68,6 +68,15 @@ const CPU_THRESHOLDS = {
     criticalPercent: 70,
     warningPercent: 50,
     normalMinPercent: 30,
+};
+// Disk thresholds for /Store volume (1 GB persistent disk)
+// Phase 1, Project 3 - See docs/projects/metrics-expansion-bible.md § Project 3
+const DISK_THRESHOLDS = {
+    planLimitMB: 974, // ~1 GB (formatted size on Render)
+    emergencyPercent: DISK_EMERGENCY_THRESHOLD * 100, // Default: 95% - Auto-remediation
+    criticalPercent: DISK_CRITICAL_THRESHOLD * 100, // Default: 85% - Immediate attention
+    warningPercent: DISK_WARNING_THRESHOLD * 100, // Default: 75% - Monitor closely
+    storePath: process.env.RENDER ? '/Store' : 'Store', // Cross-platform path
 };
 const MONITOR_CONFIG = {
     // Health check interval: Can be configured via environment
@@ -110,9 +119,18 @@ const MONITOR_CONFIG = {
 class ResourceMonitor {
     monitorTimer;
     memoryGuardianTimer;
+    metricsEmitTimer; // Phase 2, P4
     snapshots = [];
     lastSnapshot;
     isRunning = false;
+    // Phase 2, P4: EventBus metrics emission state
+    // @see docs/projects/metrics-expansion-bible.md § Project 4
+    degradedMode = false;
+    metricsEmitEnabled = true;
+    lastMetricsEmitAt = 0;
+    metricsEmitFailures = 0;
+    METRICS_EMIT_INTERVAL_MS = 15000; // 15 seconds
+    MAX_EMIT_FAILURES = 3; // Enter degraded mode after 3 consecutive failures
     // Memory guardian state
     registeredCaches = new Map();
     currentPressureLevel = 'NORMAL';
@@ -124,7 +142,11 @@ class ResourceMonitor {
     consecutiveHighPressure = 0;
     // DM alert tracking (prevent spam)
     lastAlertSentAt = new Map();
+    lastDiskAlertSentAt = new Map();
     ALERT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes between alerts of same level
+    // Disk monitoring state (Phase 1, Project 3)
+    currentDiskPressureLevel = 'NORMAL';
+    lastDiskSnapshot;
     // Memory guardian statistics
     totalPrunesTriggered = 0;
     totalBytesFreed = 0;
@@ -148,11 +170,19 @@ class ResourceMonitor {
         this.memoryGuardianTimer = setInterval(() => {
             this.checkMemoryAndAct();
         }, MONITOR_CONFIG.memoryGuardianIntervalMs);
+        // Phase 2, P4: Start metrics emission (15s intervals)
+        // @see docs/projects/metrics-expansion-bible.md § Project 4
+        this.metricsEmitTimer = setInterval(() => {
+            this.emitMetricsSnapshot();
+        }, this.METRICS_EMIT_INTERVAL_MS);
         // Take initial memory snapshot
         this.checkMemoryAndAct();
+        // Emit initial metrics snapshot
+        this.emitMetricsSnapshot();
         // Use .unref() to allow process exit without blocking
         this.monitorTimer.unref?.();
         this.memoryGuardianTimer.unref?.();
+        this.metricsEmitTimer.unref?.();
         // Register with ResourceManager
         try {
             resourceManager.registerInterval('resource-monitor', 'memory-guardian-poll', () => this.checkMemoryAndAct(), MONITOR_CONFIG.memoryGuardianIntervalMs, { critical: true });
@@ -168,6 +198,7 @@ class ResourceMonitor {
             data: {
                 healthCheckIntervalHours: MONITOR_CONFIG.intervalMs / (60 * 60 * 1000),
                 memoryGuardianIntervalSeconds: MONITOR_CONFIG.memoryGuardianIntervalMs / 1000,
+                metricsEmitIntervalSeconds: this.METRICS_EMIT_INTERVAL_MS / 1000,
                 nextHealthCheckAt: new Date(Date.now() + MONITOR_CONFIG.intervalMs).toISOString(),
                 memoryLimits: {
                     normal: `<${MEMORY_THRESHOLDS.warningMB}MB`,
@@ -190,6 +221,11 @@ class ResourceMonitor {
             clearInterval(this.memoryGuardianTimer);
             this.memoryGuardianTimer = undefined;
         }
+        // Phase 2, P4: Stop metrics emission timer
+        if (this.metricsEmitTimer) {
+            clearInterval(this.metricsEmitTimer);
+            this.metricsEmitTimer = undefined;
+        }
         this.isRunning = false;
         logger.info('[ResourceMonitor] Stopped', {
             category: 'SYSTEM',
@@ -200,6 +236,11 @@ class ResourceMonitor {
                     totalPrunesTriggered: this.totalPrunesTriggered,
                     totalBytesFreedMB: (this.totalBytesFreed / 1024 / 1024).toFixed(2),
                     totalGcTriggered: this.totalGcTriggered,
+                },
+                metricsEmitStats: {
+                    degradedMode: this.degradedMode,
+                    failures: this.metricsEmitFailures,
+                    lastEmitAt: this.lastMetricsEmitAt ? new Date(this.lastMetricsEmitAt).toISOString() : null,
                 },
             },
         });
@@ -307,10 +348,409 @@ class ResourceMonitor {
                 this.handleNormalPressure(snapshot);
                 break;
         }
+        // Also check disk pressure (Phase 1, Project 3)
+        await this.checkDiskAndAct();
+    }
+    // ============================================================================
+    // Disk Pressure Monitoring (Phase 1, Project 3)
+    // @see docs/projects/metrics-expansion-bible.md § Project 3
+    // ============================================================================
+    /**
+     * Capture current disk snapshot with pressure level
+     */
+    captureDiskSnapshot() {
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const fs = require('node:fs');
+            const path = DISK_THRESHOLDS.storePath;
+            // Check if path exists
+            if (!fs.existsSync(path)) {
+                return null;
+            }
+            // Get filesystem stats via statfsSync (Node 18.15+)
+            if (typeof fs.statfsSync !== 'function') {
+                return null;
+            }
+            const stats = fs.statfsSync(path);
+            const totalBytes = stats.blocks * stats.bsize;
+            const freeBytes = stats.bfree * stats.bsize;
+            const usedBytes = totalBytes - freeBytes;
+            const totalMB = totalBytes / 1024 / 1024;
+            const freeMB = freeBytes / 1024 / 1024;
+            const usedMB = usedBytes / 1024 / 1024;
+            const percentUsed = (usedBytes / totalBytes) * 100;
+            return {
+                timestamp: new Date(),
+                totalMB,
+                usedMB,
+                freeMB,
+                percentUsed,
+                pressureLevel: this.calculateDiskPressureLevel(percentUsed),
+                path,
+            };
+        }
+        catch {
+            // Disk stats unavailable
+            return null;
+        }
     }
     /**
-     * Handle EMERGENCY pressure (1843-2048 MB) - Nuclear option
+     * Calculate disk pressure level based on usage percentage
      */
+    calculateDiskPressureLevel(percentUsed) {
+        if (percentUsed >= DISK_THRESHOLDS.emergencyPercent)
+            return 'EMERGENCY';
+        if (percentUsed >= DISK_THRESHOLDS.criticalPercent)
+            return 'CRITICAL';
+        if (percentUsed >= DISK_THRESHOLDS.warningPercent)
+            return 'WARNING';
+        return 'NORMAL';
+    }
+    /**
+     * Check disk and take action based on pressure level
+     */
+    async checkDiskAndAct() {
+        const snapshot = this.captureDiskSnapshot();
+        if (!snapshot) {
+            // Disk monitoring unavailable (e.g., no /Store mount)
+            return;
+        }
+        this.lastDiskSnapshot = snapshot;
+        const prevPressure = this.currentDiskPressureLevel;
+        this.currentDiskPressureLevel = snapshot.pressureLevel;
+        // Log if pressure level changed
+        if (prevPressure !== snapshot.pressureLevel) {
+            logger.info('[ResourceMonitor] Disk pressure level changed', {
+                category: 'SYSTEM',
+                data: {
+                    from: prevPressure,
+                    to: snapshot.pressureLevel,
+                    usedMB: `${snapshot.usedMB.toFixed(0)}MB`,
+                    totalMB: `${snapshot.totalMB.toFixed(0)}MB`,
+                    percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
+                    path: snapshot.path,
+                },
+            });
+            // Emit EventBus event for alert dispatcher
+            this.emitDiskPressureEvent(snapshot);
+        }
+        // Take action based on pressure level
+        switch (snapshot.pressureLevel) {
+            case 'EMERGENCY':
+                await this.handleEmergencyDiskPressure(snapshot);
+                break;
+            case 'CRITICAL':
+                await this.handleCriticalDiskPressure(snapshot);
+                break;
+            case 'WARNING':
+                await this.handleWarningDiskPressure(snapshot);
+                break;
+            case 'NORMAL':
+                // No action needed
+                break;
+        }
+    }
+    /**
+     * Emit disk pressure event to EventBus for alert routing
+     */
+    emitDiskPressureEvent(snapshot) {
+        const topic = `alert.disk.${snapshot.pressureLevel.toLowerCase()}`;
+        EventBus.getInstance().emit(topic, {
+            type: 'disk.pressure',
+            level: snapshot.pressureLevel,
+            message: `Disk pressure ${snapshot.pressureLevel}: ${snapshot.percentUsed.toFixed(1)}% used (${snapshot.usedMB.toFixed(0)}MB of ${snapshot.totalMB.toFixed(0)}MB)`,
+            data: {
+                path: snapshot.path,
+                usedMB: snapshot.usedMB,
+                totalMB: snapshot.totalMB,
+                freeMB: snapshot.freeMB,
+                percentUsed: snapshot.percentUsed,
+                threshold: {
+                    warning: DISK_THRESHOLDS.warningPercent,
+                    critical: DISK_THRESHOLDS.criticalPercent,
+                    emergency: DISK_THRESHOLDS.emergencyPercent,
+                },
+            },
+            source: 'resource-monitor',
+            timestamp: snapshot.timestamp.toISOString(),
+        }, { emitter: 'resource-monitor' });
+    }
+    /**
+     * Handle EMERGENCY disk pressure (≥95%) - Auto-remediation
+     */
+    async handleEmergencyDiskPressure(snapshot) {
+        logger.error('[ResourceMonitor] EMERGENCY DISK PRESSURE - Auto-remediation triggered', {
+            category: 'SYSTEM',
+            data: {
+                usedMB: `${snapshot.usedMB.toFixed(0)}MB`,
+                totalMB: `${snapshot.totalMB.toFixed(0)}MB`,
+                percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
+                threshold: `${DISK_THRESHOLDS.emergencyPercent}%`,
+                action: 'Triggering heap snapshot pruner',
+            },
+        });
+        // Send DM alert
+        this.sendDiskAlert('EMERGENCY', snapshot);
+        // Trigger auto-remediation: Call heap snapshot pruner
+        try {
+            const { forcePrune } = await import('../../workers/heap-pruner.js');
+            const result = await forcePrune();
+            logger.info('[ResourceMonitor] Emergency disk remediation completed', {
+                category: 'SYSTEM',
+                data: {
+                    success: result.success,
+                    deletedCount: result.deletedCount,
+                    freedMB: (result.deletedBytes / 1024 / 1024).toFixed(2),
+                    durationMs: result.durationMs.toFixed(2),
+                },
+            });
+            // Emit remediation event
+            EventBus.getInstance().emit('system.remediation.disk', {
+                type: 'disk.remediation',
+                level: 'EMERGENCY',
+                message: `Auto-remediation completed: Deleted ${result.deletedCount} heap snapshots, freed ${(result.deletedBytes / 1024 / 1024).toFixed(2)}MB`,
+                data: {
+                    action: 'heap-snapshot-prune',
+                    deletedCount: result.deletedCount,
+                    freedBytes: result.deletedBytes,
+                    success: result.success,
+                },
+                source: 'resource-monitor',
+                timestamp: new Date().toISOString(),
+            }, { emitter: 'resource-monitor' });
+        }
+        catch (error) {
+            logger.error('[ResourceMonitor] Emergency disk remediation failed', {
+                category: 'SYSTEM',
+                data: { error: getErrorMessage(error) },
+            });
+        }
+    }
+    /**
+     * Handle CRITICAL disk pressure (≥85%) - Immediate attention needed
+     */
+    async handleCriticalDiskPressure(snapshot) {
+        logger.warn('[ResourceMonitor] CRITICAL DISK PRESSURE - Immediate attention required', {
+            category: 'SYSTEM',
+            data: {
+                usedMB: `${snapshot.usedMB.toFixed(0)}MB`,
+                totalMB: `${snapshot.totalMB.toFixed(0)}MB`,
+                percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
+                threshold: `${DISK_THRESHOLDS.criticalPercent}%`,
+            },
+        });
+        // Send DM alert
+        this.sendDiskAlert('CRITICAL', snapshot);
+    }
+    /**
+     * Handle WARNING disk pressure (≥75%) - Monitor closely
+     */
+    async handleWarningDiskPressure(snapshot) {
+        logger.info('[ResourceMonitor] WARNING: Disk pressure elevated', {
+            category: 'SYSTEM',
+            data: {
+                usedMB: `${snapshot.usedMB.toFixed(0)}MB`,
+                totalMB: `${snapshot.totalMB.toFixed(0)}MB`,
+                percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
+                threshold: `${DISK_THRESHOLDS.warningPercent}%`,
+            },
+        });
+        // Send alert via EventBus (no DM for warnings - channel only)
+        // DM not needed for warnings - the alert dispatcher handles channel notifications
+    }
+    /**
+     * Send disk alert DM (rate-limited)
+     */
+    sendDiskAlert(level, snapshot) {
+        // Rate limit alerts
+        const lastSent = this.lastDiskAlertSentAt.get(level) ?? 0;
+        if (Date.now() - lastSent < this.ALERT_COOLDOWN_MS) {
+            return; // Still in cooldown
+        }
+        this.lastDiskAlertSentAt.set(level, Date.now());
+        // Emit alert event for Alert Dispatcher to handle
+        EventBus.getInstance().emit(`alert.disk.${level.toLowerCase()}`, {
+            type: 'disk.alert',
+            level,
+            message: `Disk ${level}: ${snapshot.percentUsed.toFixed(1)}% used on ${snapshot.path}`,
+            data: {
+                path: snapshot.path,
+                usedMB: snapshot.usedMB,
+                totalMB: snapshot.totalMB,
+                freeMB: snapshot.freeMB,
+                percentUsed: snapshot.percentUsed,
+            },
+            source: 'resource-monitor',
+            timestamp: snapshot.timestamp.toISOString(),
+        }, { emitter: 'resource-monitor' });
+    }
+    /**
+     * Get current disk pressure status for observability
+     */
+    getDiskStatus() {
+        return {
+            pressureLevel: this.currentDiskPressureLevel,
+            snapshot: this.lastDiskSnapshot ?? null,
+            thresholds: DISK_THRESHOLDS,
+        };
+    }
+    // ============================================================================
+    // EventBus Metrics Emission (Phase 2, Project 4)
+    // @see docs/projects/metrics-expansion-bible.md § Project 4
+    // ============================================================================
+    /**
+     * Emit metrics snapshot to EventBus for downstream consumers
+     * Called every 15 seconds by metricsEmitTimer
+     *
+     * Features:
+     * - Graceful degradation: Enters degradedMode after 3 consecutive failures
+     * - Auto-recovery: Exits degradedMode on successful emit
+     * - Downstream consumers: Prometheus export, historical storage, Alert Dispatcher
+     */
+    emitMetricsSnapshot() {
+        // Skip if disabled or in degraded mode
+        if (!this.metricsEmitEnabled) {
+            return;
+        }
+        if (this.degradedMode) {
+            // Try to recover periodically (every 5th call = ~75 seconds)
+            if (this.metricsEmitFailures % 5 !== 0) {
+                return;
+            }
+            logger.debug('[ResourceMonitor] Attempting metrics emit recovery from degraded mode', {
+                category: 'SYSTEM',
+                data: { failures: this.metricsEmitFailures },
+            });
+        }
+        try {
+            const metrics = this.getMetrics();
+            const memorySnapshot = this.captureMemorySnapshot();
+            const diskSnapshot = this.captureDiskSnapshot();
+            const event = {
+                timestamp: new Date().toISOString(),
+                node: {
+                    uptime: metrics.uptime,
+                    pid: metrics.pid,
+                    version: metrics.nodeVersion,
+                },
+                memory: {
+                    rss: metrics.rss,
+                    heapUsed: metrics.heapUsed,
+                    heapTotal: metrics.heapTotal,
+                    external: metrics.external,
+                },
+                cpu: {
+                    user: metrics.cpuUser,
+                    system: metrics.cpuSystem,
+                },
+                storage: {
+                    total: metrics.diskTotal,
+                    used: metrics.diskTotal - metrics.diskFree,
+                    free: metrics.diskFree,
+                    usedPercent: ((metrics.diskTotal - metrics.diskFree) / metrics.diskTotal) * 100,
+                    cacheSize: metrics.cacheSize,
+                },
+                pressure: {
+                    memory: memorySnapshot.pressureLevel,
+                    disk: diskSnapshot?.pressureLevel ?? 'NORMAL',
+                },
+            };
+            // Emit to EventBus
+            EventBus.getInstance().emit('metrics.snapshot', event, {
+                emitter: 'resource-monitor',
+            });
+            // Success: Reset failure counter and exit degraded mode
+            this.lastMetricsEmitAt = Date.now();
+            if (this.degradedMode) {
+                logger.info('[ResourceMonitor] Recovered from degraded mode - metrics emission resumed', {
+                    category: 'SYSTEM',
+                    data: { previousFailures: this.metricsEmitFailures },
+                });
+                this.degradedMode = false;
+            }
+            this.metricsEmitFailures = 0;
+        }
+        catch (error) {
+            this.metricsEmitFailures++;
+            // Enter degraded mode after MAX_EMIT_FAILURES consecutive failures
+            if (this.metricsEmitFailures >= this.MAX_EMIT_FAILURES && !this.degradedMode) {
+                this.degradedMode = true;
+                logger.warn('[ResourceMonitor] Entering degraded mode - metrics emission paused', {
+                    category: 'SYSTEM',
+                    data: {
+                        failures: this.metricsEmitFailures,
+                        threshold: this.MAX_EMIT_FAILURES,
+                        error: getErrorMessage(error),
+                    },
+                });
+                // Emit degraded mode alert
+                EventBus.getInstance().emit('alert.system.degraded', {
+                    type: 'system.degraded',
+                    level: 'WARNING',
+                    message: 'ResourceMonitor entered degraded mode - metrics emission paused',
+                    data: {
+                        component: 'resource-monitor',
+                        reason: 'consecutive_emit_failures',
+                        failures: this.metricsEmitFailures,
+                    },
+                    source: 'resource-monitor',
+                    timestamp: new Date().toISOString(),
+                }, { emitter: 'resource-monitor' });
+            }
+            else if (!this.degradedMode) {
+                logger.debug('[ResourceMonitor] Metrics emit failed', {
+                    category: 'SYSTEM',
+                    data: {
+                        failures: this.metricsEmitFailures,
+                        threshold: this.MAX_EMIT_FAILURES,
+                        error: getErrorMessage(error),
+                    },
+                });
+            }
+        }
+    }
+    /**
+     * Get current degraded mode status for observability
+     *
+     * @returns Object with degradedMode flag and related stats
+     */
+    getDegradedStatus() {
+        return {
+            degradedMode: this.degradedMode,
+            metricsEmitEnabled: this.metricsEmitEnabled,
+            failures: this.metricsEmitFailures,
+            lastEmitAt: this.lastMetricsEmitAt,
+        };
+    }
+    /**
+     * Manually enable/disable metrics emission
+     *
+     * @param enabled - Whether to enable metrics emission
+     */
+    setMetricsEmitEnabled(enabled) {
+        this.metricsEmitEnabled = enabled;
+        logger.info(`[ResourceMonitor] Metrics emission ${enabled ? 'enabled' : 'disabled'}`, {
+            category: 'SYSTEM',
+            data: { enabled },
+        });
+    }
+    /**
+     * Force exit from degraded mode (manual recovery)
+     */
+    forceRecoverFromDegradedMode() {
+        if (!this.degradedMode) {
+            return;
+        }
+        logger.info('[ResourceMonitor] Manually recovered from degraded mode', {
+            category: 'SYSTEM',
+            data: { previousFailures: this.metricsEmitFailures },
+        });
+        this.degradedMode = false;
+        this.metricsEmitFailures = 0;
+    }
+    // ============================================================================
+    // Memory Pressure Handlers (existing)
+    // ============================================================================
     async handleEmergencyPressure(snapshot) {
         logger.error('[ResourceMonitor] EMERGENCY MEMORY PRESSURE - Immediate action required', {
             category: 'SYSTEM',

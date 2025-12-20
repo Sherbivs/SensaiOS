@@ -24,6 +24,7 @@ import { getErrorMessage } from "./shared/utils/error-utils.js";
 import { startHealthServer, stopHealthServer } from "./services/health-server.js";
 import { notifyBoot, notifyShutdown, notifyCrash } from "./services/lifecycle-notifier.js";
 import { initializeMetrics, recordShutdown, recordCrash } from "./services/restart-metrics.js";
+import { initializeMetrics as initializePrometheusMetrics, shutdownMetrics as shutdownPrometheusMetrics } from "./services/prometheus-metrics.js";
 // Lazy-loaded auto-sync supervisor (only if ENABLE_DB_AUTO_SYNC=true)
 // import { startAutoSyncSupervisor } from "./runtime/autoSync.js";
 // Lazy-loaded database recovery (only needed when connection fails)
@@ -40,6 +41,8 @@ import { onPrismaHeartbeat, startPrismaHeartbeat, fireProdHeartbeatEvent, getPri
 import cliStatus from "./utils/cliStatus.js";
 import { validateEngineDbConfig } from "./config/engine-db-config.js";
 import { startEngineWorkers, stopEngineWorkers } from "./workers/engine-workers.js";
+import { startHeapPruner, stopHeapPruner, getHeapPrunerStatus } from "./workers/heap-pruner.js";
+import { alertDispatcher } from "./services/alert-dispatcher.js";
 import { errorLearningWorker } from "./workers/error-learning-worker.js";
 import * as aiLogger from "./services/ai/ai-log-writer.js";
 import * as aiLogAnalyzer from "./services/ai/ai-log-analyzer.js";
@@ -896,6 +899,30 @@ async function gracefulShutdown(signal) {
     catch (error) {
         log.error("Error stopping error learning worker", error);
     }
+    // Stop heap snapshot pruner
+    try {
+        log.info("Stopping heap snapshot pruner");
+        stopHeapPruner();
+    }
+    catch (error) {
+        log.error("Error stopping heap snapshot pruner", error);
+    }
+    // Stop alert dispatcher
+    try {
+        log.info("Stopping alert dispatcher");
+        alertDispatcher.stop();
+    }
+    catch (error) {
+        log.error("Error stopping alert dispatcher", error);
+    }
+    // Shutdown Prometheus metrics (unsubscribe from EventBus, clear registry)
+    try {
+        log.info("Shutting down Prometheus metrics");
+        shutdownPrometheusMetrics();
+    }
+    catch (error) {
+        log.error("Error shutting down Prometheus metrics", error);
+    }
     // Stop unified resource monitoring (includes memory guardian)
     try {
         log.info("Stopping resource monitor (includes memory guardian)");
@@ -1097,6 +1124,23 @@ export async function boot() {
     log.info("Health check server started (early boot)", {
         note: "External monitors can now detect downtime via /health endpoint",
     });
+    // ============================================================================
+    // Prometheus Metrics Initialization (P5: Resource Monitoring Export)
+    // ============================================================================
+    // Initialize Prometheus metrics registry with EventBus subscriptions
+    // This enables /metrics endpoint AND activates metrics.snapshot → gauge updates
+    // MUST be initialized BEFORE resource-monitor starts emitting events
+    try {
+        initializePrometheusMetrics({ prefix: 'ig_' });
+        log.info("Prometheus metrics initialized", {
+            note: "EventBus subscriptions active for metrics.snapshot, disk alerts, heap pruning",
+        });
+    }
+    catch (err) {
+        log.warn("Prometheus metrics initialization failed (non-fatal)", {
+            error: getErrorMessage(err)
+        });
+    }
     // ============================================================================
     // Service Registry Initialization (Phase 1: Foundation Services)
     // ============================================================================
@@ -1345,6 +1389,12 @@ export async function boot() {
                 // Start error learning worker (hourly analysis)
                 await errorLearningWorker.start();
                 log.info("Error learning worker started");
+                // Start heap snapshot pruner (Phase 1, Project 1)
+                // @see docs/projects/metrics-expansion-bible.md § Project 1
+                startHeapPruner();
+                log.info("Heap snapshot pruner started", {
+                    config: getHeapPrunerStatus().config,
+                });
                 // Initialize AI Logging System (hard logs to /Store/ai-logs/)
                 await aiLogger.initialize();
                 await aiLogAnalyzer.initialize();
@@ -1407,6 +1457,13 @@ export async function boot() {
         updateDiscordSection(client, "online");
         bindDiscordLifecycle(client);
         setPhase("Online");
+        // Initialize alert dispatcher (Phase 1, Project 2)
+        // @see docs/projects/metrics-expansion-bible.md § Project 2
+        // Must be after Discord client is ready to route alerts to channels/DMs
+        alertDispatcher.initialize(client);
+        log.info("Alert dispatcher initialized", {
+            status: alertDispatcher.getStatus(),
+        });
         // Integrate AI logger with existing systems (after client is ready)
         await aiLogIntegrations.integrateAll({
             errorTracker,

@@ -1,8 +1,8 @@
 # ROUTER
 Title: Service Layer Helpers
-Purpose: Organized service layer providing cache management, database operations, error monitoring, resource management, and AI logging.
+Purpose: Organized service layer providing cache management, database operations, error monitoring, resource management, alert routing, and AI logging.
 Owned Globs: src/services/**
-Last Updated (UTC): 2025-11-16T00:00:00Z
+Last Updated (UTC): 2025-12-20T22:00:00Z
 
 Notes:
 - **Phase 5 Consolidation (2025-11-16):** Services organized into 4 domain subdirectories with barrel exports. Deleted duplicate resource-manager.ts and legacy resource-monitor.js from root (now in monitoring/).
@@ -18,7 +18,7 @@ Notes:
 - **ai/** (3 files + ROUTER.md) — AI logging, analysis, integrations (JavaScript legacy). See `src/services/ai/ROUTER.md`.
 
 **Legacy Root Files:**
-- **pokemonService.js / .d.ts** (589 lines) — Pokemon cache service fetching from PokéAPI. Dynamically imported in src/index.ts. Provides in-memory Pokemon lookup (pokemonById, pokemonByName Maps) with weekly cron refresh (Thursday 12 AM UTC). Exports getPokemonList(), getPokemonById(), getPokemonByName(), getCacheMetadata(), refreshCache(), scheduleCronRefresh() API.
+- **pokemonService.ts** (845 lines) — Pokemon cache service fetching from PokéAPI. Dynamically imported in src/index.ts. Provides in-memory Pokemon lookup (pokemonById, pokemonByName Maps) with weekly cron refresh (Thursday 12 AM UTC). Exports initializePokemonCache(), refreshPokemonCache(), getPokemon(), getAllPokemon(), getCacheMetadata() API. *(Note: pokemonService.d.ts removed 2025-12-20 in Dead Code Cleanup Meeting #5 — orphan declaration file superseded by TypeScript source)*
 - **cache.js** (227 lines) — Legacy filesystem cache for security bot (Discord role healing). Used by src/bot/main.js. Stores guild/role metadata in Store/discord-cache/ with 7-day TTL. Provides ensureDir(), readCache(), writeCache(), pruneCache() API.
 - **home-bundle-pg.ts** (117 lines) — PostgreSQL query helpers for DM home bundles. Used by src/bot/wilds/walk.ts. Provides findCooldownByUserAndKind(), createCooldown(), updateCooldownReadyAt() API for cooldown management.
 
@@ -39,6 +39,16 @@ Notes:
 - **error-alerting.ts (451 lines)** — Real-time error alerting and escalation service. Sends critical error DMs (rate-limited to 1 per fingerprint per 5min), detects error storms (>10 errors/min, rate-limited to 1 DM per 10min), tracks new errors (first occurrence alerts for HIGH/CRITICAL), generates restart summaries (top 5 critical errors from last 24h with recovery rates). Integrates with Discord client for DM delivery to admin (DripTVDD). Exposes initializeAlerting(), alertOnCritical(), alertOnPattern(), alertOnNewError(), getCriticalErrorsSummary() API. Alert history persisted in ErrorAlert table.
 - **error-recovery.ts (634 lines)** — Automated error recovery service implementing 7 strategies: exponential-backoff-retry (network errors, transient failures), rate-limit-queue (Discord 429 errors), increase-timeout (timeout errors, +5s per occurrence), rebuild-cache (cache corruption), restart-worker (worker crashes, max 3 attempts), reconnect-database (connection failures with SELECT 1 test), clear-corrupted-state (state corruption). Tracks recovery attempts in database (recoveryAttempted counter, lastRecoveryStrategy, lastRecoveryOutcome), enforces max retries (default 3), applies exponential backoff (baseDelayMs * 2^attemptNumber, capped at maxDelayMs). Exposes attemptRecovery(), getRecoveryStats(), clearRecoveryState() API.
 
+**Prometheus Metrics Services (Phase 3, P5):**
+- **prometheus-metrics.ts (~930 lines)** — Prometheus metrics export service with EventBus integration (Phase 3, Project 5 of Metrics Expansion Bible). **Dual Metric Sets:** Security Bot metrics (security_bot_* prefix: role assignments, cache invalidations, permission violations, time-windowed gauges) + Resource Monitor metrics (ig_* prefix: memory, disk, CPU, uptime gauges, heap pruning counters, disk alert counters). **EventBus Subscriptions:** metrics.snapshot (every 15s updates gauges), alert.disk.* (increments ig_disk_alerts_total{level}), system.prune.heapsnapshot (increments ig_heap_snapshots_pruned_total), system.auto-remediation (increments ig_auto_remediation_total{action,success}). **Gauge Metrics:** ig_memory_rss_bytes, ig_memory_heap_used_bytes, ig_memory_heap_total_bytes, ig_memory_external_bytes, ig_disk_total_bytes, ig_disk_used_bytes, ig_disk_free_bytes, ig_disk_used_percent, ig_cpu_user_percent, ig_cpu_system_percent, ig_uptime_seconds. **Counter Metrics:** ig_heap_snapshots_pruned_total, ig_disk_alerts_total{level}, ig_auto_remediation_total{action,success}. **HTTP Integration:** handleMetricsRequest() function for health-server.ts integration, exposes /metrics endpoint. **API:** initializeMetrics(), shutdownMetrics(), getMetricsText(), getMetricsContentType(), getPrometheusStatus(), handleMetricsRequest(). See docs/projects/metrics-expansion-bible.md § Project 5.
+- **statistics-window.js** — Time-windowed statistics calculation for 24-hour metrics. Used by prometheus-metrics.ts for security bot metrics. Exposes calculateWindowStats(), TIME_WINDOWS API.
+
+**Health Check Services:**
+- **health-server.ts (280 lines)** — HTTP health check server for external monitoring. Endpoints: /health (200/206/503 based on engine ready state), /metrics (Prometheus metrics via prometheus-metrics.ts handleMetricsRequest). Features: 206 Partial Content during warmup (prevents false alarms), uptime tracking, memory stats, service registry health aggregation. Configuration: HEALTH_CHECK_PORT (default 3000), HEALTH_CHECK_HOST. Exposes startHealthServer(), stopHealthServer() API.
+
+**Alert Routing Services (Phase 1, Project 2):**
+- **alert-dispatcher.ts (~600 lines)** — Centralized alert routing hub for system-wide alerts (Phase 1, Project 2 of Metrics Expansion Bible). Subscribes to EventBus patterns (alert.*, system.remediation.*) and routes alerts to appropriate destinations based on severity. **Routing Logic:** INFO → log only, WARNING → Discord channel, CRITICAL → channel + admin DM + persist, EMERGENCY → channel + admin DM + @here + persist. **Features:** Startup grace period (60s, prevents deploy false positives), severity-based cooldowns (1h default), consecutive alert escalation (after 5 alerts), JSON persistence for audit trail (30-day retention), test mode routing. **Configuration:** ALERT_DISPATCHER_ENABLED, ALERT_CHANNEL_ID, ALERT_TEST_CHANNEL_ID, ALERT_ADMIN_USER_ID, ALERT_COOLDOWN_MS, STARTUP_GRACE_PERIOD_MS. **API:** initialize(client), stop(), getStatus(), sendTestAlert(), sendAlert(). **Events:** system.service.started, system.service.stopped, alert.escalation. **Integration:** Boot sequence after Engine DB workers via src/index.ts, graceful shutdown in gracefulShutdown(). See docs/projects/metrics-expansion-bible.md § Project 2.
+
 Linked Routers:
 - **Subdirectory Routers:**
   - src/services/cache/ROUTER.md — Cache services (facade, engine cache, write buffer, recipes).
@@ -56,3 +66,21 @@ Linked Routers:
   - docs/error-detection-system.md — Comprehensive error detection system documentation (architecture, taxonomy, integration guide).
   - operations-bible/03-deployment-procedures.md — Render deployment procedures and resource management
   - operations-bible/05-monitoring.md — Standardized resource monitoring thresholds aligned with 2 GB Standard plan (upgraded 2025-11-17)
+
+---
+
+## ⚠️ ARCHIVED (2025-12-20) — Dead Code Cleanup Meeting #4
+
+The following files were removed as part of the Dead Code Cleanup Initiative:
+
+| File | Lines | Evidence Tier | Reason |
+|------|-------|---------------|--------|
+| `alert-throttle.ts` | 617 | A | Zero external imports — only self-reference in JSDoc |
+| `rls-context.ts` | 328 | A | Zero external imports — Row-Level Security context never integrated |
+
+**Total Removed from src/services/:** 2 files, ~945 lines
+
+**If Restoration Needed:**
+```bash
+git checkout HEAD~N -- src/services/alert-throttle.ts src/services/rls-context.ts
+```

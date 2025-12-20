@@ -1,11 +1,17 @@
 # ROUTER
 Title: Background Workers
-Purpose: Long-running background tasks for cache refresh, data sync, validation, and maintenance.
+Purpose: Long-running background tasks for cache refresh, data sync, validation, disk maintenance, and alerting.
 Owned Globs: src/workers/**
-Last Updated (UTC): 2025-11-16T00:00:00Z
+Last Updated (UTC): 2025-12-19T00:00:00Z
 
-**Recent Consolidation (2025-11-16):**
-- ✅ Eliminated 4 duplicate `delay()` functions from engine-workers.ts
+**Recent Updates:**
+- ✅ **Heap Snapshot Pruner (2025-12-19):** Phase 1, Project 1 of Metrics Expansion Bible
+  - Automated cleanup of startup heap snapshots
+  - Keeps MAX_COUNT (default: 3) most recent, deletes older than MAX_AGE_DAYS (default: 7)
+  - Runs on 24-hour interval + startup prune
+  - Emits EventBus events for observability
+  - See: docs/projects/metrics-expansion-bible.md § Project 1
+- ✅ Eliminated 4 duplicate `delay()` functions from engine-workers.ts (2025-11-16)
 - ✅ Now imports shared `delay()` from `src/shared/utils/async-utils.ts`
 - ✅ Impact: -20 lines of duplicate code, improved maintainability
 - ✅ Pattern: All workers use shared async utilities instead of private helpers
@@ -17,6 +23,43 @@ Notes:
 - All workers track performance metrics (run count, error count, last run time).
 
 Key Files:
+
+**Heap Snapshot Pruner (Phase 1, Project 1):**
+- **heap-pruner.ts (~400 lines)** — Automated disk space management for heap snapshots:
+  
+  **Purpose:**
+  - Heap snapshots created via v8.writeHeapSnapshot() on startup (~27 MB each)
+  - Pattern: `startup-heap-{ISO-timestamp}.heapsnapshot`
+  - Without pruning: 7 snapshots = 190 MB (22% of 974 MB /Store disk)
+  - With pruning: 3 snapshots = ~80 MB (8% of disk), saves ~110 MB
+  
+  **Configuration:**
+  - `HEAP_SNAPSHOT_ENABLED` — Master switch (default: true)
+  - `HEAP_SNAPSHOT_MAX_COUNT` — Keep N most recent (default: 3)
+  - `HEAP_SNAPSHOT_MAX_AGE_DAYS` — Delete older than N days (default: 7)
+  - `HEAP_SNAPSHOT_PRUNE_INTERVAL_MS` — Interval (default: 24 hours)
+  - `HEAP_SNAPSHOT_RUN_ON_STARTUP` — Run immediately on boot (default: true)
+  
+  **Safety:**
+  - ONLY targets files matching `startup-heap-*.heapsnapshot`
+  - Other files (state.json, cache, etc.) are never touched
+  - Error handling with EventBus failure events
+  
+  **API:**
+  - startHeapPruner() — Start worker with staggered delay
+  - stopHeapPruner() — Stop worker gracefully
+  - getHeapPrunerStatus() — Status for observability
+  - pruneHeapSnapshots() — Core prune logic
+  - forcePrune() — Manual trigger for /ops commands
+  
+  **Events:**
+  - `system.prune.heapsnapshot` — Emitted after each prune (success/failure)
+  - `system.worker.started` — On startup
+  - `system.worker.stopped` — On shutdown
+  
+  **Integration:**
+  - Boot: src/index.ts calls startHeapPruner() after Engine DB workers
+  - Shutdown: src/index.ts calls stopHeapPruner() in gracefulShutdown()
 
 **Engine DB Workers (Phase 17-22):**
 - **engine-workers.ts (655 lines)** — Orchestrates 4 background workers for Engine DB runtime:

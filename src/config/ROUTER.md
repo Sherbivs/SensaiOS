@@ -2,22 +2,34 @@
 Title: Configuration Modules
 Purpose: Environment config and centralized settings for services.
 Owned Globs: src/config/**
-Last Updated (UTC): 2025-12-16T00:00:00Z
+Last Updated (UTC): 2025-12-20T21:00:00Z
 
 Notes:
-- **Phase 3 (Architecture Perfection):** Introduced Zod-validated configuration system.
-- Still referenced by CommonJS surfaces that have not migrated to `src/shared/config.ts`.
+- **env.ts** is the primary configuration module (14+ imports across codebase).
+- **engine-db-config.ts** provides Engine DB service configuration (5 imports).
 - Keep typings (`env.d.ts`) aligned with the real config loader to avoid drift.
 - **Engine DB Config (Phase 17-22)** provides centralized configuration for all Engine DB services with environment-aware defaults and validation.
 
 Key Files:
-- **index.ts** — Main barrel export for configuration module (NEW - Phase 3).
-- **schema.ts** — Zod validation schemas for all configuration domains (NEW - Phase 3).
-- **loader.ts** — Type-safe configuration loader with caching (NEW - Phase 3).
-- env.js — Legacy environment bootstrap for CommonJS modules.
-- env.d.ts — Ambient type definitions consumed by remaining TypeScript callers.
-- database-pool-config.ts — Service-specific database pool configurations.
-- engine-db-config.ts — Engine DB runtime configuration.
+- **env.ts** — Primary environment configuration (14+ imports) — ACTIVE.
+- **env.d.ts** — Ambient type definitions consumed by TypeScript callers — ACTIVE.
+- **engine-db-config.ts** — Engine DB runtime configuration (5 imports) — ACTIVE.
+
+## ⚠️ ARCHIVED (2025-12-20 — Dead Code Cleanup Meeting #4)
+
+The following files were removed as part of dead code cleanup:
+
+- ~~**index.ts** (127 lines)~~ — Barrel export for Zod config system, zero external imports.
+- ~~**schema.ts** (329 lines)~~ — Zod validation schemas, never used outside config/.
+- ~~**loader.ts** (471 lines)~~ — Type-safe config loader with caching, never integrated.
+
+**Reason:** Phase 3 introduced a Zod-based configuration system that was designed but never wired up.
+The codebase uses the simpler `env.ts` pattern instead. Total: **927 lines removed**.
+
+**Restoration (if needed):**
+```bash
+git checkout HEAD~1 -- src/config/index.ts src/config/schema.ts src/config/loader.ts
+```
 
 **Configuration Domains (Phase 3):**
 - **EnvironmentConfig** — Node environment, Render detection, store path.

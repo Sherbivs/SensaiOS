@@ -142,7 +142,12 @@ Production safety: Repo .env stays EMPTY. Local secrets always from external fil
 ### Core Documentation
 - **Architecture Bible:** docs/architecture-bible/INDEX.md
 - **Operations Bible:** docs/operations-bible/INDEX.md
-- **Development Bible:** docs/development-bible/INDEX.md
+- **Development Bible:** docs/development-bible/INDEX.md (10 sections)
+- **Dead Code Analysis:** docs/development-bible/10-dead-code-analysis.md — AI-driven code cleanup:
+  - Evidence tiers (A: proof, B: dynamic, C: heuristic, D: speculative)
+  - Program representations (CFG, SSA, PDG, CPG, call graphs)
+  - Clone detection, stub identification, redundancy scanning
+  - Game-server specific heuristics and safe deletion doctrine
 - **Prisma 7 Bible:** docs/prisma-7-bible.md — Comprehensive AI agent playbook (1000+ lines):
   - Emergency production triage playbook
   - Step-by-step migration guide (Prisma 6 → 7)
@@ -159,4 +164,4 @@ Production safety: Repo .env stays EMPTY. Local secrets always from external fil
 
 ---
 
-**Last Updated:** 2025-12-19 | **Revision:** 3.1
+**Last Updated:** 2025-12-20 | **Revision:** 3.2 — Added Dead Code Analysis Bible reference

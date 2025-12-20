@@ -1,6 +1,7 @@
 import { TimestampStyles, time } from "discord.js";
 import { log } from "../../shared/logger.js";
 import { prisma as prismaClient, recordDailyQuestCompletion } from "../../models/index.js";
+import { replySuccess, replyInfo, replyError } from "../shared/response-helpers.js";
 import { claimDailyQuestReward } from "../../services/cache/recipes.js";
 import { errorTracker } from '../../services/monitoring/index.js';
 export async function handleDailyClaim(interaction, options = {}) {
@@ -22,16 +23,10 @@ export async function handleDailyClaim(interaction, options = {}) {
             const streak = result.streak;
             const streakLine = streak?.streak != null ? `Streak: **${streak.streak}** day${streak.streak === 1 ? "" : "s"}.` : "Streak updated.";
             const balanceLine = `New balance: **${result.balance}** coins.`;
-            await interaction.reply({
-                ephemeral: true,
-                content: `Daily quest claimed! You received **${result.rewardCoins}** coins. ${streakLine} ${balanceLine} Next quest available ${nextStamp}.`,
-            });
+            await replySuccess(interaction, `Daily quest claimed! You received **${result.rewardCoins}** coins. ${streakLine} ${balanceLine} Next quest available ${nextStamp}.`);
             return;
         }
-        await interaction.reply({
-            content: `Daily quest already claimed. Try again ${nextStamp}.`,
-            ephemeral: true,
-        });
+        await replyInfo(interaction, `Daily quest already claimed. Try again ${nextStamp}.`);
     }
     catch (err) {
         log('error', "[daily] Failed to process daily claim", { error: err });
@@ -43,6 +38,6 @@ export async function handleDailyClaim(interaction, options = {}) {
             commandName: 'daily claim',
             operation: 'claimDailyQuestReward',
         });
-        await interaction.reply({ content: "Daily quest claim failed. Please try again later.", ephemeral: true }).catch(() => undefined);
+        await replyError(interaction, "Daily quest claim failed. Please try again later.").catch(() => undefined);
     }
 }

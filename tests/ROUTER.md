@@ -2,7 +2,7 @@
 Title: Test Suite
 Purpose: Vitest coverage for schemas, pipeline, engines, and flows.
 Owned Globs: tests/**
-Last Updated (UTC): 2025-11-09T00:00:00Z
+Last Updated (UTC): 2025-12-20T22:00:00Z
 
 Notes:
 - Added coverage for `concludeBattleWithVictory` alongside existing persistence and announcer tests.
@@ -30,6 +30,30 @@ Notes:
   - `tests/dripalert-bus-phase2.3.2-validation.test.ts` — Event Bus subscription validation (8 tests, 100% passing). Validates subscription creation on start (2 subscriptions: immediate + digest), priority levels (immediate=20, digest=10), topic patterns (alert.critical|alert.security, alert.warning|alert.notice), subscription cleanup on stop.
   - `tests/dripalert-bus-phase2.3.4-integration.test.ts` — End-to-end integration tests (12 tests, 6 passing, 6 WIP). Passing tests: Critical/security immediate delivery via Event Bus subscriptions, warning/notice queuing in replay buffer, digest delivery with multiple alerts, digest skip when empty. WIP tests: Failure retry re-emission, subscription lifecycle, correlation ID propagation (requires test isolation improvements).
   - Total: 29 tests (23 passing, 6 WIP), validates complete Event Bus migration from in-memory queue architecture. See architecture-bible/05-event-bus.md for Event Bus architecture and development-bible/02-testing-guidelines.md for testing patterns.
+
+**⚠️ ARCHIVED TESTS (2025-12-20 Dead Code Cleanup Meeting #4):**
+
+**Source Module Orphans (tests for deleted source files):**
+- ~~tests/services/rls-context.spec.ts (286 lines)~~ — **REMOVED** — Source module `rls-context.ts` deleted.
+- ~~tests/services/statistics-window.spec.js (511 lines)~~ — **REMOVED** — Test file had structural issues.
+- ~~tests/services/events.spec.ts (289 lines)~~ — **REMOVED** — Source directory `src/services/events/` never existed.
+- ~~tests/services/profiles.spec.ts (412 lines)~~ — **REMOVED** — Source directory `src/services/profiles/` never existed.
+
+**Non-Existent Source Module Orphans:**
+- ~~tests/services/performance-optimizer.spec.js (625 lines)~~ — **REMOVED** — References non-existent `performanceOptimizer.js`.
+- ~~tests/services/prometheus-exporter.spec.js (521 lines)~~ — **REMOVED** — References non-existent `prometheusExporter.js`.
+- ~~tests/security/behavioral-analysis.spec.js (510 lines)~~ — **REMOVED** — References non-existent `behavioralAnalysis.js`.
+- ~~tests/security/cache-invalidation.spec.js (406 lines)~~ — **REMOVED** — Pure mock tests with no source imports.
+- ~~tests/security/crypto/crypto-provider.test.ts (560 lines)~~ — **REMOVED** — Source directory `src/bot/security/crypto/` never existed.
+
+**Entire Test Directories Removed:**
+- ~~tests/db-replication/ (7 files, 2,816 lines)~~ — **REMOVED** — Source directory `src/services/db-replication/` never existed.
+  - cli.test.ts (246), end-to-end.test.ts (451), integration.test.ts (192), integrity.test.ts (725), monitoring.test.ts (438), sync.test.ts (312), version.test.ts (452)
+- ~~tests/engine-db/ (3 files, 955 lines)~~ — **REMOVED** — Source modules `engine-cache.ts`, `engine-write-buffer.ts` never existed.
+  - buffer.test.ts (310), cache.test.ts (291), write-db-stress.test.ts (354)
+- ~~tests/shared/backup-sink.spec.ts (61 lines)~~ — **REMOVED** — Source module `backup-sink.ts` never existed.
+
+**Total Orphan Test Lines Removed:** ~7,390 lines
 
 Subrouters:
 - tests/battle/ROUTER.md — Interaction tests for Discord battle prompts.
