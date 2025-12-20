@@ -23,6 +23,26 @@ import {
 } from '../shared/logging/console-renderer.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Loki Integration (Forward console output to Loki)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function forwardToLoki(level: string, message: string, data?: Record<string, unknown>): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { lokiTransport } = require('../shared/logging/loki-transport.js');
+    lokiTransport.push({
+      level,
+      message,
+      timestamp: new Date().toISOString(),
+      service: 'stats-logger',
+      data,
+    });
+  } catch {
+    // Graceful degradation - Loki not available
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -878,6 +898,14 @@ function printInfinityConsole(): void {
 
   // eslint-disable-next-line no-console
   console.log('\n' + renderDashboard(config));
+  
+  // Forward dashboard summary to Loki
+  forwardToLoki('info', 'Dashboard rendered', {
+    databases: databases.length,
+    discord: config.discord?.status,
+    ramUsedMB,
+    diskUsedMB,
+  });
 }
 
 async function printStats(): Promise<void> {
@@ -1147,6 +1175,9 @@ function log(level: LogLevel | string, message: string, context?: Record<string,
   // eslint-disable-next-line no-console
   console.log(`[${label}] ${message}`);
   
+  // Forward to Loki
+  forwardToLoki(level === 'detail' ? 'debug' : level, message, context);
+  
   if (context && typeof context === 'object') {
     const keys = Object.keys(context);
     if (keys.length > 0) {
@@ -1181,6 +1212,9 @@ function report(title: string, meta: Record<string, unknown> = {}, level: LogLev
   console.log('');
   // eslint-disable-next-line no-console
   console.log(`[${label}] ═══ ${title} ═══`);
+  
+  // Forward to Loki
+  forwardToLoki(level, title, meta);
   
   if (meta && typeof meta === 'object') {
     const entries = Object.entries(meta);
