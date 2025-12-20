@@ -31,6 +31,8 @@
  * @module shared/logger
  */
 
+import { lokiTransport } from './logging/loki-transport.js';
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Type Definitions
 // ═══════════════════════════════════════════════════════════════════════════
@@ -383,9 +385,6 @@ class StandardizedLogger implements Logger {
    */
   private forwardToLoki(entry: LogEntry): void {
     try {
-      // Dynamic import for optional Loki transport
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { lokiTransport } = require('./logging/loki-transport.js');
       lokiTransport.push({
         level: entry.level,
         message: entry.message,

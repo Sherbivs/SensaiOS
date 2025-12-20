@@ -21,6 +21,7 @@ import {
   type SystemStatus,
   type DashboardConfig,
 } from '../shared/logging/console-renderer.js';
+import { lokiTransport } from '../shared/logging/loki-transport.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Loki Integration (Forward console output to Loki)
@@ -28,8 +29,6 @@ import {
 
 function forwardToLoki(level: string, message: string, data?: Record<string, unknown>): void {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { lokiTransport } = require('../shared/logging/loki-transport.js');
     lokiTransport.push({
       level,
       message,
