@@ -1,0 +1,60 @@
+# Grafana Loki Local Stack
+# Run: docker-compose -f docker-compose.loki.yml up -d
+# Access: Grafana at http://localhost:3000 (admin/admin)
+
+version: '3.8'
+
+services:
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: infinity-gauntlet-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./ops/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    networks:
+      - loki-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: infinity-gauntlet-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./ops/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./ops/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet.json
+    networks:
+      - loki-network
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:2.9.3
+    container_name: infinity-gauntlet-promtail
+    volumes:
+      - ./ops/promtail-config.yaml:/etc/promtail/config.yaml
+      - promtail-positions:/tmp/positions
+    command: -config.file=/etc/promtail/config.yaml
+    networks:
+      - loki-network
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+networks:
+  loki-network:
+    driver: bridge
+
+volumes:
+  loki-data:
+  grafana-data:
+  promtail-positions:

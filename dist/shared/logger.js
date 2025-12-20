@@ -185,6 +185,40 @@ class StandardizedLogger {
         };
         // Enqueue for batched write (non-blocking)
         await this.timescaleWorker.ingestLogs([logEvent]);
+        // Forward to Loki if enabled
+        this.forwardToLoki(entry);
+    }
+    /**
+     * Forward log entry to Loki transport
+     */
+    forwardToLoki(entry) {
+        try {
+            // Dynamic import for optional Loki transport
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const { lokiTransport } = require('./logging/loki-transport.js');
+            lokiTransport.push({
+                level: entry.level,
+                message: entry.message,
+                timestamp: entry.timestamp.toISOString(),
+                service: entry.component,
+                correlationId: entry.correlationId,
+                data: {
+                    operation: entry.operation,
+                    userId: entry.userId,
+                    guildId: entry.guildId,
+                    channelId: entry.channelId,
+                    durationMs: entry.durationMs,
+                    latencyMs: entry.latencyMs,
+                    errorName: entry.errorName,
+                    errorMessage: entry.errorMessage,
+                    errorCode: entry.errorCode,
+                    metadata: entry.metadata,
+                },
+            });
+        }
+        catch {
+            // Graceful degradation - Loki not available
+        }
     }
     /**
      * Output to console (fallback/development)
