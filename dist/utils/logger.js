@@ -15,6 +15,25 @@ import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
 import { formatBytes, formatUptime, extractDatabaseName } from '../shared/utils/index.js';
 import { renderDashboard, } from '../shared/logging/console-renderer.js';
 // ─────────────────────────────────────────────────────────────────────────────
+// Loki Integration (Forward console output to Loki)
+// ─────────────────────────────────────────────────────────────────────────────
+function forwardToLoki(level, message, data) {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { lokiTransport } = require('../shared/logging/loki-transport.js');
+        lokiTransport.push({
+            level,
+            message,
+            timestamp: new Date().toISOString(),
+            service: 'stats-logger',
+            data,
+        });
+    }
+    catch {
+        // Graceful degradation - Loki not available
+    }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -661,6 +680,13 @@ function printInfinityConsole() {
     };
     // eslint-disable-next-line no-console
     console.log('\n' + renderDashboard(config));
+    // Forward dashboard summary to Loki
+    forwardToLoki('info', 'Dashboard rendered', {
+        databases: databases.length,
+        discord: config.discord?.status,
+        ramUsedMB,
+        diskUsedMB,
+    });
 }
 async function printStats() {
     await refreshStats();
@@ -834,6 +860,8 @@ function log(level, message, context) {
     const label = LOG_LABEL[level] || LOG_LABEL.info;
     // eslint-disable-next-line no-console
     console.log(`[${label}] ${message}`);
+    // Forward to Loki
+    forwardToLoki(level === 'detail' ? 'debug' : level, message, context);
     if (context && typeof context === 'object') {
         const keys = Object.keys(context);
         if (keys.length > 0) {
@@ -864,6 +892,8 @@ function report(title, meta = {}, level = 'info') {
     console.log('');
     // eslint-disable-next-line no-console
     console.log(`[${label}] ═══ ${title} ═══`);
+    // Forward to Loki
+    forwardToLoki(level, title, meta);
     if (meta && typeof meta === 'object') {
         const entries = Object.entries(meta);
         if (entries.length > 0) {
