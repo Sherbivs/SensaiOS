@@ -43,4 +43,5 @@ Areas:
 
 Subrouters:
 - src/shared/cache/ROUTER.md — Cache backend implementations.
+- src/shared/logging/ROUTER.md — **NEW (2025-12-20)** Unified logger facade. Canonical import path for all logging operations. Consolidates `utils/logger.ts` and `shared/logger.ts` under single import. Migration in progress (Phase 1 complete).
 - src/shared/utils/ROUTER.md — Shared utility functions catalog.

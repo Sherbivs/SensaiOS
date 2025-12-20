@@ -22,7 +22,7 @@
  * - T1531: Account Access Removal
  * - T1078: Valid Accounts (compromised)
  */
-import { log } from '../../utils/logger.js';
+import { log } from '../../shared/logging/index.js';
 import { getErrorMessage } from '../../shared/utils/index.js';
 import { emitAlert } from '../eventbus-integration.js';
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { log } from '../utils/logger.js';
+import { log } from '../shared/logging/index.js';
 // ============================================================================
 // Module State
 // ============================================================================

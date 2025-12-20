@@ -21,7 +21,7 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
-import { log } from '../../utils/logger.js';
+import { log } from '../../shared/logging/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration

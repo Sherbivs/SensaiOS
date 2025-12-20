@@ -17,7 +17,7 @@
 
 import RedisModule from 'ioredis';
 import type { Redis as RedisType } from 'ioredis';
-import { log } from '../utils/logger.js';
+import { log } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

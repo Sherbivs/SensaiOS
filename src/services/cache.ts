@@ -13,7 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { log } from '../utils/logger.js';
+import { log } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/index.js';
 import { CACHE_CONSTANTS } from '../shared/constants.js';
 

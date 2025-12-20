@@ -9,7 +9,7 @@
  *   - Notifies subscribers of changes
  */
 
-import { log } from './logger.js';
+import { log } from '../shared/logging/index.js';
 import { toDate, cloneDate, getErrorMessage } from '../shared/utils/index.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

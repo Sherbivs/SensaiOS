@@ -1,4 +1,4 @@
-import { log } from '../utils/logger.js';
+import { log } from '../shared/logging/index.js';
 import {
   getDexpack,
   getSpecies as lookupSpecies,

@@ -13,7 +13,7 @@ import cache from '../services/cache.js';
 import activityTracker from '../utils/activityTracker.js';
 import cliStatus from '../utils/cliStatus.js';
 import { installFatalErrorHandlers } from '../utils/fatalErrorGuard.js';
-import { log as baseLog, report } from '../utils/logger.js';
+import { log as baseLog, report } from '../shared/logging/index.js';
 import opsNotifier from '../utils/opsNotifier.js';
 import { createDripAlertManager, DRIP_ALERT_SEVERITY } from './dripAlerts.js';
 import { buildRestartSummary } from './state/context.js';

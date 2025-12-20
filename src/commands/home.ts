@@ -7,7 +7,7 @@ import {
 } from 'discord.js';
 import { createRequire } from 'node:module';
 import { getSpriteUrl } from '../lib/assets.js';
-import { log } from '../utils/logger.js';
+import { log } from '../shared/logging/index.js';
 import { GAME_CONSTANTS } from '../shared/constants.js';
 import { toDate, diffInUtcDays } from '../shared/utils/index.js';
 import { HomesteadChannelManager } from '../services/homestead-manager.js';

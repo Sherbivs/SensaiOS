@@ -1,4 +1,4 @@
-import { log } from './utils/logger.js';
+import { log } from './shared/logging/index.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';

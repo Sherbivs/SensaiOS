@@ -8,7 +8,7 @@
  */
 
 import { recordDexFallback, recordDexLookup, recordDexLookupMiss, recordDexLoad } from "../dex/metrics.js";
-import { log } from "../utils/logger.js";
+import { log } from "../shared/logging/index.js";
 import { DEX_V2_ENABLED } from "../config/env.js";
 import { resetDexV2Runtime, loadDexV2Runtime, getDexV2Pack, getDexV2FastTables } from "../dex/v2/loader.js";
 import { ensureError, getErrorMessage } from "../shared/utils/error-utils.js";

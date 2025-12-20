@@ -9,7 +9,7 @@
  *   - Subscriber-based notification pattern
  */
 
-import { log } from '../utils/logger.js';
+import { log } from '../shared/logging/index.js';
 import { truncate } from '../shared/utils/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { MONITORING_CONSTANTS } from '../shared/constants.js';

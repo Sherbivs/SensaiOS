@@ -25,7 +25,7 @@
  */
 
 import { existsSync, readFileSync } from 'fs';
-import { log } from '../../utils/logger.js';
+import { log } from '../../shared/logging/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
 import type { SecurityBotState } from './types.js';
 import type { ThreatSeverity, SecurityThreat } from './threatDetector.js';

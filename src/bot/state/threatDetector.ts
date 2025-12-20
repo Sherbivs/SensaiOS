@@ -22,7 +22,7 @@
  * - T1078.001: Default Accounts
  */
 
-import { log } from '../../utils/logger.js';
+import { log } from '../../shared/logging/index.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types

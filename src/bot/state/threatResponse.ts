@@ -24,7 +24,7 @@
  */
 
 import type { Guild, GuildMember, Role } from 'discord.js';
-import { log } from '../../utils/logger.js';
+import { log } from '../../shared/logging/index.js';
 import { getErrorMessage } from '../../shared/utils/index.js';
 import { emitAlert } from '../eventbus-integration.js';
 import type { SecurityThreat, ThreatSeverity, RoleChange } from './threatDetector.js';

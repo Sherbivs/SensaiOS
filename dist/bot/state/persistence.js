@@ -6,7 +6,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { log } from '../../utils/logger.js';
+import { log } from '../../shared/logging/index.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
 import { errorTracker } from '../../services/monitoring/index.js';

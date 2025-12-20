@@ -43,7 +43,7 @@ import { config } from "./shared/config.js";
 import { log } from "./shared/log.js";
 import { setupLogBuffer } from "./shared/logBufferInit.js";
 import { destroyLogBuffer } from "./shared/logBuffer.js";
-import { startAutoRefresh as startLoggerAutoRefresh } from "./utils/logger.js";
+import { startAutoRefresh as startLoggerAutoRefresh } from "./shared/logging/index.js";
 import {
   onPrismaHeartbeat,
   startPrismaHeartbeat,
