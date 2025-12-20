@@ -14,13 +14,12 @@ import { fileURLToPath } from 'node:url';
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
 import { formatBytes, formatUptime, extractDatabaseName } from '../shared/utils/index.js';
 import { renderDashboard, } from '../shared/logging/console-renderer.js';
+import { lokiTransport } from '../shared/logging/loki-transport.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Loki Integration (Forward console output to Loki)
 // ─────────────────────────────────────────────────────────────────────────────
 function forwardToLoki(level, message, data) {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { lokiTransport } = require('../shared/logging/loki-transport.js');
         lokiTransport.push({
             level,
             message,
