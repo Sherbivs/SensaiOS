@@ -4,6 +4,7 @@ import { prisma as prismaClient, recordDailyQuestCompletion } from "../../models
 import { replySuccess, replyInfo, replyError } from "../shared/response-helpers.js";
 import { claimDailyQuestReward } from "../../services/cache/recipes.js";
 import { errorTracker } from '../../services/monitoring/index.js';
+import { ensureError } from "../../shared/utils/error-utils.js";
 export async function handleDailyClaim(interaction, options = {}) {
     const prisma = options.prisma ?? prismaClient;
     const rewardCoins = typeof options.rewardCoins === "number" && options.rewardCoins > 0 ? options.rewardCoins : 100;
@@ -31,7 +32,7 @@ export async function handleDailyClaim(interaction, options = {}) {
     catch (err) {
         log('error', "[daily] Failed to process daily claim", { error: err });
         // Track error with context
-        await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        await errorTracker.captureError(ensureError(err), {
             category: 'DISCORD',
             userId: interaction.user.id,
             guildId: interaction.guildId || undefined,

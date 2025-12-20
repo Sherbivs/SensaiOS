@@ -11,6 +11,7 @@ import { recordDexFallback, recordDexLookup, recordDexLookupMiss, recordDexLoad 
 import { log } from "../utils/logger.js";
 import { DEX_V2_ENABLED } from "../config/env.js";
 import { resetDexV2Runtime, loadDexV2Runtime, getDexV2Pack, getDexV2FastTables } from "../dex/v2/loader.js";
+import { ensureError, getErrorMessage } from "../shared/utils/error-utils.js";
 
 // ============================================================================
 // Type Definitions
@@ -404,11 +405,11 @@ export function loadDexpack(): DexPack {
       recordDexFallback({
         runtime: RUNTIME_SOURCE.V2,
         reason: "load_error",
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: ensureError(error),
       });
       if (!v2RuntimeFailed) {
         log.warn(
-          `[dexpack] failed to load dexpack.v2 runtime, falling back to v1: ${error instanceof Error ? error.message : error}`,
+          `[dexpack] failed to load dexpack.v2 runtime, falling back to v1: ${getErrorMessage(error)}`,
         );
       }
       v2RuntimeFailed = true;

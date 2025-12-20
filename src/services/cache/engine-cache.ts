@@ -27,6 +27,7 @@ import { log } from "../../shared/logger.js";
 import { errorTracker } from '../monitoring/error-tracker.js';
 import type { IPrunableCache } from '../monitoring/resource-monitor.js';
 import * as readDb from '../database/engine-read-db.js';
+import { ensureError } from '../../shared/utils/error-utils.js';
 
 // ============================================================================
 // Type Definitions
@@ -1348,7 +1349,7 @@ export class EngineCache implements IPrunableCache {
       
     } catch (error) {
       // Track checksum failure (fire-and-forget)
-      errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
+      errorTracker.captureError(ensureError(error), {
         category: 'CACHE',
         operation: 'engine-cache:calculateChecksum',
       }).catch(() => {});

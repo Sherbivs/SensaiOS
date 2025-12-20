@@ -20,6 +20,8 @@ import type {
   CommandInteraction,
 } from 'discord.js';
 
+import { ensureError } from "../../shared/utils/error-utils.js";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -290,7 +292,7 @@ export async function safeReply(
       success: false,
       replied: false,
       edited: false,
-      error: err instanceof Error ? err : new Error(String(err)),
+      error: ensureError(err),
     };
   }
 }
@@ -330,7 +332,7 @@ export async function safeReplyWithEmbed(
       success: false,
       replied: false,
       edited: false,
-      error: err instanceof Error ? err : new Error(String(err)),
+      error: ensureError(err),
     };
   }
 }
@@ -371,7 +373,7 @@ export async function safeReplyWithPayload(
       success: false,
       replied: false,
       edited: false,
-      error: err instanceof Error ? err : new Error(String(err)),
+      error: ensureError(err),
     };
   }
 }

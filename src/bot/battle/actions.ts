@@ -28,6 +28,7 @@ import { getPartyWithSlots } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { errorTracker } from '../../services/monitoring/index.js';
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
+import { ensureError } from "../../shared/utils/error-utils.js";
 
 import * as concludeModule from "./conclude.js";
 
@@ -407,7 +408,7 @@ export async function handleBattleActionButton(
         await maybeAdvanceTurn(battle.id, interaction, dispatcher);
       }
     } catch (err) {
-      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+      await errorTracker.captureError(ensureError(err), {
         category: 'ENGINE',
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,
@@ -453,7 +454,7 @@ export async function handleBattleActionButton(
         }
       }
     } catch (err) {
-      await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+      await errorTracker.captureError(ensureError(err), {
         category: 'ENGINE',
         userId: interaction.user.id,
         guildId: interaction.guildId || undefined,

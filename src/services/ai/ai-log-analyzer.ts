@@ -18,6 +18,7 @@ import { createGunzip } from 'node:zlib';
 import path from 'node:path';
 import readline from 'node:readline';
 import type { LogEntry, LogLevel } from './ai-log-writer.js';
+import { ensureError } from '../../shared/utils/error-utils.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -275,7 +276,7 @@ async function* readLogFile(filepath: string): AsyncGenerator<LogEntry> {
       yield entry as LogEntry;
       stats.logsAnalyzed++;
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
+      const err = ensureError(error);
       console.warn('[ai-log-analyzer] Failed to parse log entry:', err.message);
     }
   }

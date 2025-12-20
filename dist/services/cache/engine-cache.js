@@ -25,6 +25,7 @@ import { EngineDbConfig } from '../../config/engine-db-config.js';
 import { log } from "../../shared/logger.js";
 import { errorTracker } from '../monitoring/error-tracker.js';
 import * as readDb from '../database/engine-read-db.js';
+import { ensureError } from '../../shared/utils/error-utils.js';
 // ============================================================================
 // Engine Cache Class
 // ============================================================================
@@ -1106,7 +1107,7 @@ export class EngineCache {
         }
         catch (error) {
             // Track checksum failure (fire-and-forget)
-            errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
+            errorTracker.captureError(ensureError(error), {
                 category: 'CACHE',
                 operation: 'engine-cache:calculateChecksum',
             }).catch(() => { });

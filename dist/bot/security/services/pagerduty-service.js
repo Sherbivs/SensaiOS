@@ -48,7 +48,7 @@
  * await pagerduty.resolve('dedup-key-123', 'False positive - authorized admin action');
  * ```
  */
-import { getErrorMessage } from '../../../shared/utils/error-utils.js';
+import { getErrorMessage, ensureError } from '../../../shared/utils/error-utils.js';
 import { delay as asyncDelay } from '../../../shared/utils/async-utils.js';
 // ============================================================================
 // Constants
@@ -425,7 +425,7 @@ export class PagerDutyService {
                 return;
             }
             catch (error) {
-                lastError = error instanceof Error ? error : new Error(String(error));
+                lastError = ensureError(error);
                 record.retryCount++;
                 this.stats.totalRetries++;
                 if (attempt < this.config.maxRetries) {

@@ -25,6 +25,7 @@
 import { EngineDbConfig } from '../../config/engine-db-config.js';
 import { log } from "../../shared/logger.js";
 import { errorTracker } from '../monitoring/error-tracker.js';
+import { ensureError } from '../../shared/utils/error-utils.js';
 // ============================================================================
 // Engine Write Buffer Class
 // ============================================================================
@@ -231,7 +232,7 @@ export class EngineWriteBuffer {
         }
         catch (error) {
             // Track flush failure
-            await errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
+            await errorTracker.captureError(ensureError(error), {
                 category: 'ENGINE',
                 operation: 'engine-write-buffer:flush',
                 customData: {

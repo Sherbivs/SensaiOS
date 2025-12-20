@@ -7,6 +7,7 @@ import { getSpriteUrl } from "../../lib/assets.js";
 import { DMHomeRepo, evaluateDailyQuestStreak, } from "../../models/index.js";
 import { errorTracker } from '../../services/monitoring/index.js';
 import { HomesteadChannelManager } from '../../services/homestead-manager.js';
+import { ensureError } from "../../shared/utils/error-utils.js";
 const BOX_PAGE_SIZE = 10;
 export const BOX_PAGE_PREFIX = "HOME_BOX_PAGE_";
 function safeNumber(value) {
@@ -226,7 +227,7 @@ async function respondWithView(interaction, render, mode, ackContent) {
         catch (error) {
             log('warn', "[homestead-home] Failed to deliver view to homestead channel; falling back to ephemeral reply", { error });
             // Track homestead delivery failure
-            await errorTracker.captureError(error instanceof Error ? error : new Error(String(error)), {
+            await errorTracker.captureError(ensureError(error), {
                 category: 'DISCORD',
                 userId: interaction.user.id,
                 guildId: interaction.guildId || undefined,

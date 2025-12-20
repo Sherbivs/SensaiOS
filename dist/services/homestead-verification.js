@@ -26,6 +26,7 @@
 import { PermissionFlagsBits, ChannelType } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
 import { createHmac } from 'crypto';
+import { ensureError } from '../shared/utils/error-utils.js';
 import { ImmutableAuditService } from '../bot/security/services/immutable-audit-service.js';
 import { EventBus } from '../shared/event-bus.js';
 import { HOMESTEAD_HMAC_KEY } from '../config/env.js';
@@ -402,7 +403,7 @@ export class HomesteadVerificationService {
             const { success: rollbackSuccess, errors: rollbackErrors } = await this.rollback(currentPhase, channel, record);
             return {
                 success: false,
-                error: error instanceof Error ? error : new Error(String(error)),
+                error: ensureError(error),
                 phase: currentPhase,
                 rollbackSuccess,
                 rollbackErrors: rollbackErrors.length > 0 ? rollbackErrors : undefined,

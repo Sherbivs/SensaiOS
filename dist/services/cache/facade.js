@@ -22,6 +22,7 @@ import fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { log } from "../../shared/log.js";
+import { ensureError } from "../../shared/utils/error-utils.js";
 import * as legacyCacheModule from "../cache.js";
 import { errorTracker } from "../monitoring/error-tracker.js";
 const legacyCache = legacyCacheModule.default || legacyCacheModule;
@@ -200,16 +201,8 @@ function recordDiskRemoval(namespace, kind) {
 function serializeError(err) {
     if (!err)
         return null;
-    if (err instanceof Error) {
-        return { message: err.message, name: err.name };
-    }
-    if (typeof err === "object") {
-        const value = err;
-        const message = typeof value.message === "string" ? value.message : JSON.stringify(value);
-        const name = typeof value.name === "string" ? value.name : undefined;
-        return { message, name };
-    }
-    return { message: String(err) };
+    const error = ensureError(err);
+    return { message: error.message, name: error.name };
 }
 function namespaceFromPath(filePath) {
     const relative = path.relative(config.rootDir, filePath);
@@ -470,7 +463,7 @@ function ensureDirSync(dir) {
     }
     catch (err) {
         // Track cache write failure (fire-and-forget to avoid blocking)
-        errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        errorTracker.captureError(ensureError(err), {
             category: 'CACHE',
             operation: 'cache:ensureDirWritable',
             customData: { dir },
@@ -486,8 +479,9 @@ function buildLogMeta(descriptor, source, err) {
         key: descriptor.key,
         source,
     };
-    if (err instanceof Error) {
-        meta.err = { message: err.message, name: err.name };
+    if (err) {
+        const error = ensureError(err);
+        meta.err = { message: error.message, name: error.name };
     }
     return meta;
 }
@@ -501,7 +495,7 @@ async function executeMaintenance(reason) {
     catch (err) {
         error = serializeError(err);
         // Track maintenance failure
-        await errorTracker.captureError(err instanceof Error ? err : new Error(String(err)), {
+        await errorTracker.captureError(ensureError(err), {
             category: 'CACHE',
             operation: 'cache:maintenance',
             customData: { reason },

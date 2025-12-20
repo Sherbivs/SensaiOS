@@ -31,6 +31,7 @@ import {
   recordRoleAssignment,
   recordRoleAssignmentDuration,
 } from "./prometheus-metrics.js";
+import { ensureError } from "../shared/utils/error-utils.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types & Interfaces
@@ -304,7 +305,7 @@ export async function assignRole(
   try {
     enforcePermissions(member.guild, role);
   } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
+    const err = ensureError(error);
     log("error", "[SECURITY] Permission violation - cannot assign role", {
       origin,
       guild: guildSummary,
@@ -424,7 +425,7 @@ export async function assignRole(
 
     return { success: true, reason: "assigned", cached: false, locked: true };
   } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
+    const err = ensureError(error);
 
     // Step 14: Error Handling
     report(

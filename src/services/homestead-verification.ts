@@ -28,6 +28,7 @@ import { Client, Guild, GuildChannel, TextChannel, PermissionFlagsBits, ChannelT
 import { prisma } from '../shared/prisma.js';
 import { createHmac } from 'crypto';
 import type { User, HomesteadChannel } from '../generated/prisma/client.js';
+import { ensureError } from '../shared/utils/error-utils.js';
 import { ImmutableAuditService } from '../bot/security/services/immutable-audit-service.js';
 import { EventBus } from '../shared/event-bus.js';
 import { HOMESTEAD_HMAC_KEY } from '../config/env.js';
@@ -544,7 +545,7 @@ export class HomesteadVerificationService {
 
       return {
         success: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: ensureError(error),
         phase: currentPhase,
         rollbackSuccess,
         rollbackErrors: rollbackErrors.length > 0 ? rollbackErrors : undefined,

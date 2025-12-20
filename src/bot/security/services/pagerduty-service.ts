@@ -49,7 +49,7 @@
  * ```
  */
 
-import { getErrorMessage } from '../../../shared/utils/error-utils.js';
+import { getErrorMessage, ensureError } from '../../../shared/utils/error-utils.js';
 import { delay as asyncDelay } from '../../../shared/utils/async-utils.js';
 
 // ============================================================================
@@ -652,7 +652,7 @@ export class PagerDutyService {
         this.onSuccess();
         return;
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
+        lastError = ensureError(error);
         record.retryCount++;
         this.stats.totalRetries++;
 

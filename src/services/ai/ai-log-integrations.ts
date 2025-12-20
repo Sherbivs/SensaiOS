@@ -19,6 +19,7 @@
 import * as aiLogger from './ai-log-writer.js';
 import type { LogLevel as AILogLevel, LogCategory } from './ai-log-writer.js';
 import type { Client } from 'discord.js';
+import { ensureError } from "../../shared/utils/error-utils.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -386,7 +387,7 @@ export function integratePrisma(prisma: unknown): void {
     console.log('[ai-log-integrations] Note: Query-level logging requires $extends() refactor');
   } catch (error) {
     aiLogger.error(CONFIG.categories.DATABASE, 'Failed to integrate Prisma', {
-      error: error instanceof Error ? error : new Error(String(error)),
+      error: ensureError(error),
       tags: ['prisma', 'integration-error'],
     });
     console.error('[ai-log-integrations] Prisma integration failed:', error);
@@ -795,7 +796,7 @@ export function integrateDatabaseMonitor(connectionMonitor: ConnectionMonitor): 
       }
     } catch (error) {
       aiLogger.debug(CONFIG.categories.SYSTEM, 'Database stats collection failed', { 
-        error: error instanceof Error ? error : new Error(String(error)) 
+        error: ensureError(error) 
       });
     }
   }, 60 * 1000); // Every minute
@@ -839,7 +840,7 @@ export function integrateWorkerProcess(workerConfig: WorkerConfig = {}): void {
   
   process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
     aiLogger.critical(CONFIG.categories.ERROR, `Unhandled rejection in ${workerName}`, {
-      error: reason instanceof Error ? reason : new Error(String(reason)),
+      error: ensureError(reason),
       data: { workerName, workerType, promise: String(promise) },
       tags: ['worker', 'critical', 'unhandled-rejection', workerName],
     });

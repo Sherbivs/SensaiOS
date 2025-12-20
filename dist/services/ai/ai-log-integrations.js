@@ -16,6 +16,7 @@
  *   - User Actions: Log commands and interactions
  */
 import * as aiLogger from './ai-log-writer.js';
+import { ensureError } from "../../shared/utils/error-utils.js";
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,7 +165,7 @@ export function integratePrisma(prisma) {
     }
     catch (error) {
         aiLogger.error(CONFIG.categories.DATABASE, 'Failed to integrate Prisma', {
-            error: error instanceof Error ? error : new Error(String(error)),
+            error: ensureError(error),
             tags: ['prisma', 'integration-error'],
         });
         console.error('[ai-log-integrations] Prisma integration failed:', error);
@@ -507,7 +508,7 @@ export function integrateDatabaseMonitor(connectionMonitor) {
         }
         catch (error) {
             aiLogger.debug(CONFIG.categories.SYSTEM, 'Database stats collection failed', {
-                error: error instanceof Error ? error : new Error(String(error))
+                error: ensureError(error)
             });
         }
     }, 60 * 1000); // Every minute
@@ -545,7 +546,7 @@ export function integrateWorkerProcess(workerConfig = {}) {
     });
     process.on('unhandledRejection', (reason, promise) => {
         aiLogger.critical(CONFIG.categories.ERROR, `Unhandled rejection in ${workerName}`, {
-            error: reason instanceof Error ? reason : new Error(String(reason)),
+            error: ensureError(reason),
             data: { workerName, workerType, promise: String(promise) },
             tags: ['worker', 'critical', 'unhandled-rejection', workerName],
         });
