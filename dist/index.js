@@ -47,6 +47,7 @@ import { errorLearningWorker } from "./workers/error-learning-worker.js";
 import * as aiLogger from "./services/ai/ai-log-writer.js";
 import * as aiLogAnalyzer from "./services/ai/ai-log-analyzer.js";
 import * as aiLogIntegrations from "./services/ai/ai-log-integrations.js";
+import { startObservabilitySuite, stopObservabilitySuite } from "./observability/index.js";
 // Record module import completion
 recordTiming("module_imports", MODULE_IMPORT_START);
 // Memory profiling
@@ -952,6 +953,15 @@ async function gracefulShutdown(signal) {
     catch (error) {
         log.error("Error during Event Bus shutdown", error);
     }
+    // Shutdown Observability Suite (flush Loki queues, stop workers)
+    try {
+        log.info("Shutting down Observability Suite");
+        await stopObservabilitySuite();
+        log.info("Observability Suite shut down successfully");
+    }
+    catch (error) {
+        log.error("Error during Observability Suite shutdown", error);
+    }
     // Shutdown AI Logging System (flush logs, save analysis state)
     try {
         log.info("Shutting down AI Logging System");
@@ -1139,6 +1149,24 @@ export async function boot() {
     catch (err) {
         log.warn("Prometheus metrics initialization failed (non-fatal)", {
             error: getErrorMessage(err)
+        });
+    }
+    // ============================================================================
+    // Observability Suite Initialization (Event Bus → Loki Pipeline)
+    // ============================================================================
+    // Initialize Observability Hub with Loki backend for centralized log aggregation
+    // Hub subscribes to '**' on Event Bus for passive event capture
+    // Security Bot uses direct ingestion via observabilityHub.ingest()
+    try {
+        await startObservabilitySuite();
+        log.info("Observability Suite initialized", {
+            note: "Loki backend connected, Event Bus subscribed, Security Bot direct ingestion ready",
+        });
+    }
+    catch (err) {
+        log.warn("Observability Suite initialization failed (non-fatal)", {
+            error: getErrorMessage(err),
+            note: "Bot will continue without Loki log aggregation",
         });
     }
     // ============================================================================

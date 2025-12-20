@@ -5,6 +5,7 @@ Owned Globs: src/**
 Last Updated (UTC): 2025-11-03T00:15:00Z
 
 Notes:
+- 2025-12-20: Added `src/observability/**` — Centralized observability suite with Hub and Loki backend (see observability-bible.md).
 - 2025-11-02: Battle engine and Dex API now hydrate from `src/data/dexpack.js` for O(1) lookups instead of ad-hoc JSON parsing.
 - 2025-11-02: `src/dex/**` models the DEX v2 binary runtime; `metrics.js` logs load/fallback/lookup events feeding the new parity and bench suites.
 - 2025-11-03: Alias coverage invariant added—parity spec iterates every v1 alias while guard_dexpack.sh checks both v1 JSON/module and v2 binary outputs.
@@ -33,6 +34,7 @@ Subdomains:
 - src/env - runtime environment validation utilities
 - src/lib - shared CommonJS helpers (assets, dex API, cooldowns)
 - src/models - Prisma access layer and typed helpers
+- src/observability - Observability Suite (Hub + Loki backend) for centralized metrics/logs
 - src/services - service abstractions feeding DM/command flows
 - src/shared - runtime config, Prisma client, logging, cache, event bus compatibility helpers
 - src/runtime - supervisors that wrap automation scripts (e.g., auto-sync loop)

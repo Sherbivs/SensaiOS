@@ -6,6 +6,7 @@
 
 import { updateCumulativeStats, updateRuntimeState, recordMetricsEvent } from './persistence.js';
 import { formatDuration } from '../../shared/utils/format-utils.js';
+import { observabilityHub } from '../../observability/index.js';
 import type {
   SecurityBotState,
   GuildState,
@@ -38,6 +39,15 @@ export function recordSweep(
   
   // Record in hourly metrics history for trend analysis
   recordMetricsEvent(state, 'sweep', 1);
+  
+  // Emit to Observability Hub for Loki ingestion (Security Bot direct path)
+  observabilityHub.ingest('security.sweep.completed', {
+    guildId,
+    guildName,
+    rolesChecked,
+    changesDetected,
+    sweepCount: state.cumulative.sweepCount,
+  }, 'security-bot');
   
   // Update guild-specific stats
   if (!state.guilds[guildId]) {
@@ -105,6 +115,19 @@ export function recordPermissionChange(
     }
   }
   
+  // Emit to Observability Hub for Loki ingestion (Security Bot direct path)
+  observabilityHub.ingest('security.permission.changed', {
+    guildId,
+    guildName,
+    userId,
+    userName,
+    action,
+    reverted,
+    revertStatus: reverted ? revertStatus : 'not_attempted',
+    totalChanges: state.cumulative.permissionChangesDetected,
+    totalReverts: state.cumulative.permissionChangesReverted,
+  }, 'security-bot');
+  
   // Update guild-specific stats
   if (!state.guilds[guildId]) {
     state.guilds[guildId] = {
@@ -162,6 +185,15 @@ export function recordAlert(
   // Record in hourly metrics history for trend analysis
   recordMetricsEvent(state, 'alert', 1);
   
+  // Emit to Observability Hub for Loki ingestion (Security Bot direct path)
+  observabilityHub.ingest('security.alert.sent', {
+    guildId,
+    recipient,
+    reason,
+    delivered,
+    totalAlerts: state.cumulative.alertCount,
+  }, 'security-bot');
+  
   // Update guild-specific stats
   if (state.guilds[guildId]) {
     state.guilds[guildId].alertCount = (state.guilds[guildId].alertCount || 0) + 1;
@@ -198,6 +230,13 @@ export function recordError(
 ): void {
   // Record in hourly metrics history for trend analysis
   recordMetricsEvent(state, 'error' as MetricEventType, 1);
+  
+  // Emit to Observability Hub for Loki ingestion (Security Bot direct path)
+  observabilityHub.ingest('security.error.occurred', {
+    message,
+    stack: stack ? stack.substring(0, 500) : null,
+    ...context,
+  }, 'security-bot');
   
   // Add to timeline
   const newEvent: TimelineEvent = {
@@ -388,4 +427,37 @@ export function getAllGuildsSummary(state: SecurityBotState): GuildSummary[] {
     permissionChanges: guild.permissionChanges,
     lastActivity: guild.lastActivity
   }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lifecycle Events (Observability Hub Direct Ingestion)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Emit Security Bot startup event to Observability Hub
+ */
+export function emitStartup(state: SecurityBotState): void {
+  observabilityHub.ingest('security.lifecycle.startup', {
+    restartCount: state.cumulative.restartCount,
+    processStartTime: state.metadata.processStartTime,
+    lastRestart: state.metadata.lastRestart,
+    guildCount: Object.keys(state.guilds).length,
+  }, 'security-bot');
+}
+
+/**
+ * Emit Security Bot shutdown event to Observability Hub
+ */
+export function emitShutdown(state: SecurityBotState, reason: string = 'graceful'): void {
+  const uptime = Date.now() - new Date(state.metadata.processStartTime).getTime();
+  
+  observabilityHub.ingest('security.lifecycle.shutdown', {
+    reason,
+    uptimeMs: uptime,
+    sweepsCompleted: state.cumulative.sweepCount,
+    alertsSent: state.cumulative.alertCount,
+    permissionChanges: state.cumulative.permissionChangesDetected,
+    revertsAttempted: state.cumulative.permissionChangesReverted,
+    revertFailures: state.cumulative.revertFailures,
+  }, 'security-bot');
 }
