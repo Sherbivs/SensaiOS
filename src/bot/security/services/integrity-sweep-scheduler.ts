@@ -14,6 +14,7 @@
  */
 
 import type { PrismaClient } from "../../../generated/prisma/client.js";
+import { getErrorMessage } from "../../../shared/utils/error-utils.js";
 
 // ============================================================================
 // Types & Interfaces
@@ -663,7 +664,7 @@ export class IntegritySweepScheduler {
       recordsChecked = sweepResult.recordsChecked;
     } catch (err) {
       success = false;
-      error = err instanceof Error ? err.message : "Unknown error";
+      error = getErrorMessage(err);
       this.logger?.error("Sweep execution failed", { sweepId, error });
     }
 

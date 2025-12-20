@@ -12,6 +12,7 @@
  * @module IntegritySweepScheduler
  * @security Data Integrity, CWE-754 (Improper Check)
  */
+import { getErrorMessage } from "../../../shared/utils/error-utils.js";
 /**
  * Types of integrity sweeps
  */
@@ -425,7 +426,7 @@ export class IntegritySweepScheduler {
         }
         catch (err) {
             success = false;
-            error = err instanceof Error ? err.message : "Unknown error";
+            error = getErrorMessage(err);
             this.logger?.error("Sweep execution failed", { sweepId, error });
         }
         const completedAt = new Date();

@@ -10,7 +10,7 @@
  */
 
 import { log } from './logger.js';
-import { toDate, cloneDate } from '../shared/utils/index.js';
+import { toDate, cloneDate, getErrorMessage } from '../shared/utils/index.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -56,7 +56,7 @@ function notify(): void {
     try {
       handler(snapshot);
     } catch (err) {
-      log('error', '[activity-tracker notify]', { error: err instanceof Error ? err.message : err });
+      log('error', '[activity-tracker notify]', { error: getErrorMessage(err) });
       if (err instanceof Error && err.stack) {
         log('error', '[activity-tracker stack]', { stack: err.stack });
       }
@@ -160,7 +160,7 @@ export function subscribe(handler: ActivityHandler): () => void {
   try {
     handler(getStats());
   } catch (err) {
-    log('error', '[activity-tracker subscribe]', { error: err instanceof Error ? err.message : err });
+    log('error', '[activity-tracker subscribe]', { error: getErrorMessage(err) });
     if (err instanceof Error && err.stack) {
       log('error', '[activity-tracker stack]', { stack: err.stack });
     }

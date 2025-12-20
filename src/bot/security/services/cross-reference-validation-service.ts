@@ -12,6 +12,7 @@
  */
 
 import type { PrismaClient } from "../../../generated/prisma/client.js";
+import { getErrorMessage } from "../../../shared/utils/error-utils.js";
 
 // ============================================================================
 // Types & Interfaces
@@ -515,7 +516,7 @@ export class CrossReferenceValidationService {
       };
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+        getErrorMessage(error);
 
       this.logger?.error("Foreign key validation failed", {
         checkName,
@@ -603,7 +604,7 @@ export class CrossReferenceValidationService {
         issuesFound: 0,
         issues: [],
         durationMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(error),
       };
     }
   }
@@ -704,7 +705,7 @@ export class CrossReferenceValidationService {
         issuesFound: 0,
         issues: [],
         durationMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(error),
       };
     }
   }
@@ -789,7 +790,7 @@ export class CrossReferenceValidationService {
         issuesFound: 0,
         issues: [],
         durationMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(error),
       };
     }
   }
@@ -871,7 +872,7 @@ export class CrossReferenceValidationService {
         issuesFound: 0,
         issues: [],
         durationMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(error),
       };
     }
   }
@@ -922,7 +923,7 @@ export class CrossReferenceValidationService {
         issuesFound: 0,
         issues: [],
         durationMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(error),
       };
     }
   }
@@ -950,7 +951,7 @@ export class CrossReferenceValidationService {
           issuesFound: 0,
           issues: [],
           durationMs: 0,
-          error: error instanceof Error ? error.message : "Unknown error",
+          error: getErrorMessage(error),
         });
       }
     }
@@ -995,7 +996,7 @@ export class CrossReferenceValidationService {
         issuesFound: 0,
         issues: [],
         durationMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(error),
       };
     }
   }
@@ -1186,7 +1187,7 @@ export class CrossReferenceValidationService {
         issuesFound: 0,
         issues: [],
         durationMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(error),
       };
     }
   }
@@ -1247,7 +1248,7 @@ export class CrossReferenceValidationService {
         issuesFound: 0,
         issues: [],
         durationMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(error),
       };
     }
   }

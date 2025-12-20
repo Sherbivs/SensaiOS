@@ -115,3 +115,24 @@ export function formatError(err: unknown): string {
 export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+/**
+ * Ensure value is an Error instance
+ * Wraps non-Error values in a new Error
+ * @param error - Unknown error value
+ * @returns Error instance (original if already Error, new Error otherwise)
+ * 
+ * @example
+ * ```typescript
+ * try {
+ *   // risky operation
+ * } catch (err) {
+ *   const error = ensureError(err); // replaces: err instanceof Error ? err : new Error(String(err))
+ *   console.error(error.message);
+ *   console.error(error.stack);
+ * }
+ * ```
+ */
+export function ensureError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}

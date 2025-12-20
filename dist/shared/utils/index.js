@@ -11,7 +11,7 @@
 // Format Utilities
 export { formatBytes, formatBytesShort, bytesToMB, formatDuration, formatUptime, formatDurationCompact, truncate, formatTimestamp, stripQuotes, } from './format-utils.js';
 // Error Utilities
-export { safeError, normalizeError, formatError, getErrorMessage, } from './error-utils.js';
+export { safeError, normalizeError, formatError, getErrorMessage, ensureError, } from './error-utils.js';
 // Async Utilities
 export { delay, delayWithJitter, } from './async-utils.js';
 // Math Utilities

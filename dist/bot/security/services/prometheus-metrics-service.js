@@ -22,6 +22,7 @@
  * @author DevOps Specialist (Sprint 2)
  * @since 2025-12-05
  */
+import { getErrorMessage } from "../../../shared/utils/error-utils.js";
 // ============================================================================
 // Constants
 // ============================================================================
@@ -348,7 +349,7 @@ export class PrometheusMetricsService {
                 components.push({
                     name,
                     status: 'unhealthy',
-                    message: error instanceof Error ? error.message : 'Health check failed',
+                    message: getErrorMessage(error),
                     lastCheck: new Date(),
                 });
                 overallStatus = 'unhealthy';

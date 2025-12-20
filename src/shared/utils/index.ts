@@ -29,6 +29,7 @@ export {
   normalizeError,
   formatError,
   getErrorMessage,
+  ensureError,
 } from './error-utils.js';
 
 // Async Utilities
