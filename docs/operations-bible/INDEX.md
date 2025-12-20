@@ -54,6 +54,25 @@ Homestead channel deployment and troubleshooting guides:
 
 ## Quick Navigation
 
+### 🚨 NO-RESTART POLICY (ABSOLUTE)
+**NEVER restart, stop, redeploy, or take any service offline without EXPLICIT operator permission.**
+- Always ASK FIRST before any service disruption
+- Wait for manual verification from the operator
+- The operator needs time to manually check service state before anything goes offline
+
+### Production Log Observability (Loki)
+**Canonical method to check production logs:** Local Loki service (localhost:3100)
+
+```powershell
+$now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() * 1000000
+$start = ([DateTimeOffset]::UtcNow.AddHours(-3)).ToUnixTimeMilliseconds() * 1000000
+$r = Invoke-RestMethod "http://localhost:3100/loki/api/v1/query_range?query=%7Bservice%3D%22stats-logger%22%7D&limit=50&start=$start&end=$now"
+$r.data.result | ForEach-Object { $_.values.Count }  # Log count per stream
+```
+
+**Grafana UI:** http://localhost:3000/explore → Query: `{service="stats-logger"}`
+**Architecture:** Render → ngrok tunnel → localhost:3100 (Loki) → Grafana
+
 **CRITICAL Operations (Read First)**:
 - **§ 2.1 Database URL Selection** — [ABSOLUTE] Connection string logic (production failures if violated)
 - **§ 2.7 Prisma 7 Configuration** — [CRITICAL] `engineType = "library"` required for direct PostgreSQL
@@ -84,7 +103,7 @@ Homestead channel deployment and troubleshooting guides:
 
 ---
 
-**Last Updated**: 2025-12-18  
-**Revision**: 2.0 (December 2025 Documentation Remediation)  
+**Last Updated**: 2025-12-20  
+**Revision**: 2.1 (December 2025 — Added NO-RESTART policy and Loki observability)  
 **Total Sections**: 13 core + 9 specialized guides  
 **Estimated Size**: ~5,000 lines consolidated from 30+ source documents

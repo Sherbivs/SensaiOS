@@ -174,6 +174,27 @@ Reference data is mirrored into `/data` via scripted jobs:
 
 ## Operational Guardrails & Meta Workflow
 
+### 🚨 NO-RESTART POLICY (ABSOLUTE)
+**NEVER restart, stop, redeploy, or take any service offline without EXPLICIT operator permission.**
+- Always ask first and wait for manual verification
+- The operator needs time to manually check service state before anything goes offline
+- This applies to: Render services, Docker containers, database connections, workers, cron jobs
+
+### Production Log Observability (Loki)
+**Canonical method to check production logs:** Local Loki service (localhost:3100)
+
+```powershell
+# Query production logs
+$now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() * 1000000
+$start = ([DateTimeOffset]::UtcNow.AddHours(-3)).ToUnixTimeMilliseconds() * 1000000
+$r = Invoke-RestMethod "http://localhost:3100/loki/api/v1/query_range?query=%7Bservice%3D%22stats-logger%22%7D&limit=50&start=$start&end=$now"
+$r.data.result | ForEach-Object { $_.values.Count }  # Log count per stream
+```
+
+**Grafana UI:** http://localhost:3000/explore → Query: `{service="stats-logger"}`
+
+### Router & Contract Guardrails
+
 - `scripts/refresh_vision.sh` regenerates router indexes, stamps recovery metadata, and refreshes Prompt.md's change ledger.
 - `scripts/guard_meta.sh` enforces Prompt/Tasklist coupling and checks router hygiene during CI.
 - `ops/RECOVERY.yaml` and `ops/NEXT.yaml` coordinate the next actionable task, ensuring deterministic resumes across workers.

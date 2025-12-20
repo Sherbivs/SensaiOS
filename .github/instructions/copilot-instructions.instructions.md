@@ -127,6 +127,28 @@ Production safety: Repo .env stays EMPTY. Local secrets always from external fil
 - **Dashboard:** https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g
 - Use Dashboard for: Deploy, Restart, Scale, Environment Variables
 
+### 🚨 NO-RESTART POLICY (ABSOLUTE)
+**NEVER restart, stop, redeploy, or take any service offline without EXPLICIT operator permission.**
+- Always ASK FIRST before any service disruption
+- Wait for manual verification from the operator
+- The operator needs time to manually check service state before anything goes offline
+- This applies to: Render services, Docker containers, database connections, workers, cron jobs
+- Violations of this policy are treated as critical incidents
+
+### Production Log Observability (Loki)
+**Canonical method to check production logs:** Local Loki service (localhost:3100)
+
+```powershell
+# Query production logs
+$now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() * 1000000
+$start = ([DateTimeOffset]::UtcNow.AddHours(-3)).ToUnixTimeMilliseconds() * 1000000
+$r = Invoke-RestMethod "http://localhost:3100/loki/api/v1/query_range?query=%7Bservice%3D%22stats-logger%22%7D&limit=50&start=$start&end=$now"
+$r.data.result | ForEach-Object { $_.values.Count }  # Log count per stream
+```
+
+**Grafana UI:** http://localhost:3000/explore → Query: `{service="stats-logger"}`
+**Architecture:** Render → ngrok tunnel → localhost:3100 (Loki) → Grafana
+
 ## Common Pitfalls
 
 1. **Database URLs:** Always use canonical environment variables. Do not hardcode connection strings.
@@ -164,4 +186,4 @@ Production safety: Repo .env stays EMPTY. Local secrets always from external fil
 
 ---
 
-**Last Updated:** 2025-12-20 | **Revision:** 3.2 — Added Dead Code Analysis Bible reference
+**Last Updated:** 2025-12-20 | **Revision:** 3.3 — Added NO-RESTART policy and Loki observability

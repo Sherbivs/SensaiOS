@@ -766,6 +766,34 @@ See `docs/engine-db-replication.md` for comprehensive design documentation. See 
 - Render Postgres storage quotas: 0.5 GB (prod), 1.0 GB (dev). Monitor with `npm run db:cli -- query "SELECT pg_size_pretty(pg_database_size(current_database()))";"`
 - Security bot alert routing lives in `src/bot/main.js` and `src/bot/dripAlerts.js`
 
+### 🚨 NO-RESTART POLICY (ABSOLUTE)
+**NEVER restart, stop, redeploy, or take any service offline without EXPLICIT operator permission.**
+- Always ASK FIRST before any service disruption
+- Wait for manual verification from the operator
+- The operator needs time to manually check service state before anything goes offline
+- This applies to: Render services, Docker containers, database connections, workers, cron jobs
+- Violations of this policy are treated as critical incidents
+
+### Production Log Observability (Loki)
+**Canonical method to check production logs:** Local Loki service
+
+```powershell
+# Check Loki status
+curl.exe -s "http://localhost:3100/ready"
+
+# Query production logs (last 3 hours)
+$now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() * 1000000
+$start = ([DateTimeOffset]::UtcNow.AddHours(-3)).ToUnixTimeMilliseconds() * 1000000
+$r = Invoke-RestMethod "http://localhost:3100/loki/api/v1/query_range?query=%7Bservice%3D%22stats-logger%22%7D&limit=50&start=$start&end=$now"
+$r.data.result | ForEach-Object { $_.values.Count }  # Log count per stream
+
+# View in Grafana UI
+Start-Process "http://localhost:3000/explore"  # Query: {service="stats-logger"}
+```
+
+**Architecture:** Render → ngrok tunnel → localhost:3100 (Loki) → Grafana
+**Labels:** service, level, environment, job
+
 ## Done Criteria (Per Task)
 - Diff, tests, and reviewer checklist passed.
 - Knowledge updated (`docs/` + this guide if behavior changed).
