@@ -2,6 +2,7 @@
  * Shared error handling utilities
  * Centralized helpers for error normalization and formatting
  */
+import { scrubPII } from './pii-scrubber.js';
 /**
  * Safely convert unknown error to serializable object
  * Handles Error instances, objects, and primitives
@@ -54,28 +55,37 @@ export function normalizeError(err) {
 /**
  * Format error for user-friendly display
  * Extracts useful information without exposing stack traces
+ * Automatically scrubs PII from error messages.
  * @param err - Unknown error value
- * @returns Human-readable error message
+ * @returns Human-readable error message (PII-scrubbed)
  */
 export function formatError(err) {
+    let message;
     if (err instanceof Error) {
-        return err.message;
+        message = err.message;
     }
-    if (typeof err === "string") {
-        return err;
+    else if (typeof err === "string") {
+        message = err;
     }
-    if (typeof err === "object" && err !== null) {
+    else if (typeof err === "object" && err !== null) {
         if ("message" in err && typeof err.message === "string") {
-            return err.message;
+            message = err.message;
+        }
+        else {
+            message = "An unknown error occurred";
         }
     }
-    return "An unknown error occurred";
+    else {
+        message = "An unknown error occurred";
+    }
+    return scrubPII(message);
 }
 /**
  * Extract error message string from unknown error
  * Common pattern: safely get error.message or convert to string
+ * Automatically scrubs PII from error messages before returning.
  * @param error - Unknown error value
- * @returns Error message string
+ * @returns Error message string (PII-scrubbed)
  *
  * @example
  * ```typescript
@@ -87,7 +97,8 @@ export function formatError(err) {
  * ```
  */
 export function getErrorMessage(error) {
-    return error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error);
+    return scrubPII(message);
 }
 /**
  * Ensure value is an Error instance

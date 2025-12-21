@@ -1,0 +1,186 @@
+# Grafana Loki Alert Rules
+# Infinity Gauntlet — Log-Based Alerting
+# Version: 1.0.0 | December 21, 2025
+#
+# Import into Grafana:
+# 1. Open http://localhost:3000
+# 2. Go to Alerting → Alert Rules → Import
+# 3. Paste this YAML or upload file
+#
+# Prerequisites:
+# - Loki datasource configured as "Loki"
+# - Discord webhook contact point configured
+
+groups:
+  # ============================================================================
+  # Error Rate Alerts
+  # ============================================================================
+  - name: error_rate_alerts
+    interval: 1m
+    rules:
+      # High Error Rate — 10+ errors in 5 minutes
+      - alert: HighErrorRate
+        expr: |
+          sum(count_over_time({service="stats-logger"} |= "error" [5m])) > 10
+        for: 2m
+        labels:
+          severity: critical
+          service: infinity-gauntlet
+        annotations:
+          summary: "🚨 High error rate detected"
+          description: "{{ $value }} errors logged in the last 5 minutes"
+          dashboard: "http://localhost:3000/explore?orgId=1&left=%7B%22queries%22:%5B%7B%22expr%22:%22%7Bservice%3D%5C%22stats-logger%5C%22%7D%20%7C%3D%20%5C%22error%5C%22%22%7D%5D%7D"
+
+      # Sustained Error Rate — 5+ errors per minute for 10 minutes
+      - alert: SustainedErrorRate
+        expr: |
+          sum(rate({service="stats-logger"} |= "error" [1m])) > 0.083
+        for: 10m
+        labels:
+          severity: warning
+          service: infinity-gauntlet
+        annotations:
+          summary: "⚠️ Sustained error rate"
+          description: "Consistent error rate over 10 minutes: {{ $value }} errors/second"
+
+  # ============================================================================
+  # Service Health Alerts
+  # ============================================================================
+  - name: service_health_alerts
+    interval: 1m
+    rules:
+      # Database Connection Failed
+      - alert: DatabaseConnectionError
+        expr: |
+          count_over_time({service="stats-logger"} |~ "(?i)(database|prisma|postgres).*(error|failed|timeout)" [5m]) > 3
+        for: 2m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "🚨 Database connection errors"
+          description: "Multiple database errors detected: {{ $value }} in 5 minutes"
+
+      # Bot Restart Detected
+      - alert: BotRestarted
+        expr: |
+          count_over_time({service="stats-logger"} |= "Bot started" or |= "ClientReady" [5m]) > 1
+        for: 0m
+        labels:
+          severity: warning
+          service: infinity-gauntlet
+        annotations:
+          summary: "⚠️ Bot restart detected"
+          description: "Bot has restarted {{ $value }} times in the last 5 minutes"
+
+      # Memory Pressure Warning
+      - alert: MemoryPressureWarning
+        expr: |
+          count_over_time({service="stats-logger"} |= "memory pressure" or |= "WARNING" |= "heap" [5m]) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: memory
+        annotations:
+          summary: "⚠️ Memory pressure detected"
+          description: "Memory pressure warnings appearing in logs"
+
+      # Memory Pressure Critical
+      - alert: MemoryPressureCritical
+        expr: |
+          count_over_time({service="stats-logger"} |= "CRITICAL" |= "memory" or |= "EMERGENCY" |= "heap" [5m]) > 1
+        for: 1m
+        labels:
+          severity: critical
+          service: memory
+        annotations:
+          summary: "🚨 Critical memory pressure"
+          description: "Critical memory warnings detected — service may OOM"
+
+  # ============================================================================
+  # Security Alerts
+  # ============================================================================
+  - name: security_alerts
+    interval: 1m
+    rules:
+      # Security Sweep Failures
+      - alert: SecuritySweepFailed
+        expr: |
+          count_over_time({service="stats-logger"} |= "security" |= "failed" or |= "revert" |= "error" [10m]) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: security-bot
+        annotations:
+          summary: "⚠️ Security sweep failures"
+          description: "{{ $value }} security operation failures in 10 minutes"
+
+      # Permission Change Detected
+      - alert: UnauthorizedPermissionChange
+        expr: |
+          count_over_time({service="stats-logger"} |= "permission" |= "changed" |= "unauthorized" [5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: security-bot
+        annotations:
+          summary: "🚨 Unauthorized permission change detected"
+          description: "Security bot detected unauthorized role/permission modification"
+
+  # ============================================================================
+  # Disk & Resource Alerts
+  # ============================================================================
+  - name: resource_alerts
+    interval: 1m
+    rules:
+      # Disk Pressure Warning
+      - alert: DiskPressureWarning
+        expr: |
+          count_over_time({service="stats-logger"} |= "disk" |= "WARNING" or |= "CRITICAL" |= "/Store" [5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: disk
+        annotations:
+          summary: "⚠️ Disk pressure detected"
+          description: "/Store disk usage elevated"
+
+      # Disk Emergency
+      - alert: DiskEmergency
+        expr: |
+          count_over_time({service="stats-logger"} |= "EMERGENCY" |= "disk" [5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: disk
+        annotations:
+          summary: "🚨 Disk emergency"
+          description: "/Store disk critically full — auto-remediation may trigger"
+
+  # ============================================================================
+  # Loki Health Alerts
+  # ============================================================================
+  - name: observability_health
+    interval: 2m
+    rules:
+      # No Logs Received
+      - alert: NoLogsReceived
+        expr: |
+          absent(count_over_time({service="stats-logger"}[10m])) == 1
+        for: 10m
+        labels:
+          severity: warning
+          service: loki
+        annotations:
+          summary: "⚠️ No logs received from Render"
+          description: "Loki hasn't received logs in 10 minutes — check ngrok tunnel"
+
+# ============================================================================
+# Notification Template (for Discord contact point)
+# ============================================================================
+# In Grafana UI → Alerting → Contact points → Discord:
+# - Title: {{ .CommonLabels.alertname }}
+# - Message: {{ .CommonAnnotations.summary }}
+#   {{ .CommonAnnotations.description }}
+#   Severity: {{ .CommonLabels.severity }}
+#   Service: {{ .CommonLabels.service }}

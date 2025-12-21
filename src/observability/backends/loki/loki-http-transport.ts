@@ -8,7 +8,6 @@
  * @module observability/backends/loki/loki-http-transport
  * @since 2025-12-20
  */
-/* eslint-disable no-console */
 
 import type {
   LokiLogEntry,
@@ -35,6 +34,9 @@ export class LokiHttpTransport {
   /** Static labels added to all entries */
   private readonly staticLabels: Record<string, string>;
 
+  /** Auth headers for Grafana Cloud (optional) */
+  private readonly authHeaders: Record<string, string>;
+
   /**
    * Create a new HTTP transport.
    * @param config - Transport configuration
@@ -46,6 +48,25 @@ export class LokiHttpTransport {
       job: LOKI_CONFIG.labels.job,
       environment: LOKI_CONFIG.labels.environment,
     };
+
+    // Build auth headers for Grafana Cloud if credentials provided
+    this.authHeaders = this.buildAuthHeaders(config.username, config.password);
+  }
+
+  // --------------------------------------------------------------------------
+  // Auth Support
+  // --------------------------------------------------------------------------
+
+  /**
+   * Build auth headers for Grafana Cloud.
+   * @private
+   */
+  private buildAuthHeaders(username?: string, password?: string): Record<string, string> {
+    if (!username || !password) {
+      return {};
+    }
+    const auth = Buffer.from(`${username}:${password}`).toString('base64');
+    return { Authorization: `Basic ${auth}` };
   }
 
   // --------------------------------------------------------------------------
@@ -71,6 +92,7 @@ export class LokiHttpTransport {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...this.authHeaders,
         },
         body: JSON.stringify(payload),
         signal: controller.signal,
@@ -102,6 +124,7 @@ export class LokiHttpTransport {
     try {
       const response = await fetch(readyUrl, {
         method: 'GET',
+        headers: this.authHeaders,
         signal: controller.signal,
       });
       return response.ok;

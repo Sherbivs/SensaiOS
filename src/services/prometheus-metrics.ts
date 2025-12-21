@@ -85,6 +85,31 @@ interface MetricsInstances {
   heapSnapshotsPruned: Counter<string> | null;
   diskAlerts: Counter<string> | null;
   autoRemediation: Counter<string> | null;
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // GAME METRICS (battles, encounters, commands)
+  // ═════════════════════════════════════════════════════════════════════════════
+  battlesTotal: Counter<string> | null;
+  battleDuration: Histogram<string> | null;
+  battleTurns: Histogram<string> | null;
+  encountersTotal: Counter<string> | null;
+  catchRate: Gauge<string> | null;
+  commandsTotal: Counter<string> | null;
+  commandLatency: Histogram<string> | null;
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // DATABASE METRICS (queries, latency)
+  // ═════════════════════════════════════════════════════════════════════════════
+  dbQueriesTotal: Counter<string> | null;
+  dbQueryLatency: Histogram<string> | null;
+  dbConnections: Gauge<string> | null;
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // LOKI METRICS (observability pipeline health)
+  // ═════════════════════════════════════════════════════════════════════════════
+  lokiQueueSize: Gauge<string> | null;
+  lokiLogsSent: Counter<string> | null;
+  lokiCircuitState: Gauge<string> | null;
 }
 
 interface InitializeResult {
@@ -150,6 +175,22 @@ let metrics: MetricsInstances = {
   heapSnapshotsPruned: null,
   diskAlerts: null,
   autoRemediation: null,
+  // Game Metrics
+  battlesTotal: null,
+  battleDuration: null,
+  battleTurns: null,
+  encountersTotal: null,
+  catchRate: null,
+  commandsTotal: null,
+  commandLatency: null,
+  // Database Metrics
+  dbQueriesTotal: null,
+  dbQueryLatency: null,
+  dbConnections: null,
+  // Loki Metrics
+  lokiQueueSize: null,
+  lokiLogsSent: null,
+  lokiCircuitState: null,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -382,6 +423,109 @@ export function initializeMetrics(options: InitializeOptions = {}): InitializeRe
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // GAME METRICS (battles, encounters, commands)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  metrics.battlesTotal = new Counter({
+    name: `${resourcePrefix}battles_total`,
+    help: 'Total number of battles',
+    labelNames: ['outcome', 'type'],
+    registers: [metricsRegistry],
+  });
+
+  metrics.battleDuration = new Histogram({
+    name: `${resourcePrefix}battle_duration_seconds`,
+    help: 'Battle duration in seconds',
+    labelNames: ['type'],
+    buckets: [30, 60, 120, 300, 600], // 30s to 10min
+    registers: [metricsRegistry],
+  });
+
+  metrics.battleTurns = new Histogram({
+    name: `${resourcePrefix}battle_turns`,
+    help: 'Number of turns per battle',
+    buckets: [5, 10, 20, 50, 100],
+    registers: [metricsRegistry],
+  });
+
+  metrics.encountersTotal = new Counter({
+    name: `${resourcePrefix}encounters_total`,
+    help: 'Total Pokemon encounters',
+    labelNames: ['rarity', 'area', 'caught'],
+    registers: [metricsRegistry],
+  });
+
+  metrics.catchRate = new Gauge({
+    name: `${resourcePrefix}catch_rate`,
+    help: 'Current catch success rate (rolling 100)',
+    registers: [metricsRegistry],
+  });
+
+  metrics.commandsTotal = new Counter({
+    name: `${resourcePrefix}commands_total`,
+    help: 'Discord commands executed',
+    labelNames: ['command', 'status'],
+    registers: [metricsRegistry],
+  });
+
+  metrics.commandLatency = new Histogram({
+    name: `${resourcePrefix}command_latency_seconds`,
+    help: 'Command execution latency',
+    labelNames: ['command'],
+    buckets: [0.1, 0.5, 1, 2, 5],
+    registers: [metricsRegistry],
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DATABASE METRICS (queries, latency, connections)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  metrics.dbQueriesTotal = new Counter({
+    name: `${resourcePrefix}db_queries_total`,
+    help: 'Database queries executed',
+    labelNames: ['operation', 'table', 'status'],
+    registers: [metricsRegistry],
+  });
+
+  metrics.dbQueryLatency = new Histogram({
+    name: `${resourcePrefix}db_query_latency_seconds`,
+    help: 'Database query latency',
+    labelNames: ['operation'],
+    buckets: [0.001, 0.01, 0.05, 0.1, 0.5, 1],
+    registers: [metricsRegistry],
+  });
+
+  metrics.dbConnections = new Gauge({
+    name: `${resourcePrefix}db_connections`,
+    help: 'Current database connection count',
+    labelNames: ['database'],
+    registers: [metricsRegistry],
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LOKI METRICS (observability pipeline health)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  metrics.lokiQueueSize = new Gauge({
+    name: `${resourcePrefix}loki_queue_size`,
+    help: 'Current Loki queue depth',
+    registers: [metricsRegistry],
+  });
+
+  metrics.lokiLogsSent = new Counter({
+    name: `${resourcePrefix}loki_logs_sent_total`,
+    help: 'Total logs sent to Loki',
+    labelNames: ['status'],
+    registers: [metricsRegistry],
+  });
+
+  metrics.lokiCircuitState = new Gauge({
+    name: `${resourcePrefix}loki_circuit_breaker_state`,
+    help: 'Loki circuit breaker state (0=closed, 1=open, 2=half-open)',
+    registers: [metricsRegistry],
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // P5: EVENTBUS SUBSCRIPTIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -574,6 +718,146 @@ export function updateTimeWindowedMetrics(state: SecurityBotState | null): void 
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Game Metrics Recording Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Record battle completion.
+ * @param outcome - 'win', 'lose', 'draw', 'forfeit'
+ * @param type - 'pvp', 'wild', 'trainer', 'gym'
+ */
+export function recordBattle(outcome: string, type: string): void {
+  if (!metricsInitialized || !metrics.battlesTotal) return;
+  metrics.battlesTotal.inc({ outcome, type });
+}
+
+/**
+ * Record battle duration.
+ * @param type - Battle type
+ * @param durationSeconds - Battle duration in seconds
+ */
+export function recordBattleDuration(type: string, durationSeconds: number): void {
+  if (!metricsInitialized || !metrics.battleDuration) return;
+  metrics.battleDuration.observe({ type }, durationSeconds);
+}
+
+/**
+ * Record battle turn count.
+ * @param turns - Number of turns in the battle
+ */
+export function recordBattleTurns(turns: number): void {
+  if (!metricsInitialized || !metrics.battleTurns) return;
+  metrics.battleTurns.observe(turns);
+}
+
+/**
+ * Record Pokemon encounter.
+ * @param rarity - 'common', 'uncommon', 'rare', 'ultra_rare', 'legendary'
+ * @param area - Encounter area name
+ * @param caught - Whether the Pokemon was caught
+ */
+export function recordEncounter(rarity: string, area: string, caught: boolean): void {
+  if (!metricsInitialized || !metrics.encountersTotal) return;
+  metrics.encountersTotal.inc({ rarity, area, caught: String(caught) });
+}
+
+/**
+ * Update catch rate gauge.
+ * @param rate - Current catch rate (0-100)
+ */
+export function updateCatchRate(rate: number): void {
+  if (!metricsInitialized || !metrics.catchRate) return;
+  metrics.catchRate.set(rate);
+}
+
+/**
+ * Record Discord command execution.
+ * @param command - Command name
+ * @param status - 'success', 'error', 'timeout'
+ */
+export function recordCommand(command: string, status: string): void {
+  if (!metricsInitialized || !metrics.commandsTotal) return;
+  metrics.commandsTotal.inc({ command, status });
+}
+
+/**
+ * Record command execution latency.
+ * @param command - Command name
+ * @param latencySeconds - Execution time in seconds
+ */
+export function recordCommandLatency(command: string, latencySeconds: number): void {
+  if (!metricsInitialized || !metrics.commandLatency) return;
+  metrics.commandLatency.observe({ command }, latencySeconds);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Database Metrics Recording Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Record database query.
+ * @param operation - 'select', 'insert', 'update', 'delete'
+ * @param table - Table name
+ * @param status - 'success', 'error'
+ */
+export function recordDbQuery(operation: string, table: string, status: string): void {
+  if (!metricsInitialized || !metrics.dbQueriesTotal) return;
+  metrics.dbQueriesTotal.inc({ operation, table, status });
+}
+
+/**
+ * Record database query latency.
+ * @param operation - Query operation type
+ * @param latencySeconds - Query execution time in seconds
+ */
+export function recordDbQueryLatency(operation: string, latencySeconds: number): void {
+  if (!metricsInitialized || !metrics.dbQueryLatency) return;
+  metrics.dbQueryLatency.observe({ operation }, latencySeconds);
+}
+
+/**
+ * Update database connection count.
+ * @param database - Database identifier ('prod', 'dev', 'experiment')
+ * @param count - Current connection count
+ */
+export function updateDbConnections(database: string, count: number): void {
+  if (!metricsInitialized || !metrics.dbConnections) return;
+  metrics.dbConnections.set({ database }, count);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Loki Metrics Recording Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Update Loki queue size gauge.
+ * @param size - Current queue depth
+ */
+export function updateLokiQueueSize(size: number): void {
+  if (!metricsInitialized || !metrics.lokiQueueSize) return;
+  metrics.lokiQueueSize.set(size);
+}
+
+/**
+ * Record logs sent to Loki.
+ * @param status - 'success', 'error', 'dropped'
+ * @param count - Number of logs (defaults to 1)
+ */
+export function recordLokiLogsSent(status: string, count: number = 1): void {
+  if (!metricsInitialized || !metrics.lokiLogsSent) return;
+  metrics.lokiLogsSent.inc({ status }, count);
+}
+
+/**
+ * Update Loki circuit breaker state.
+ * @param state - 0=closed (healthy), 1=open (failing), 2=half-open (testing)
+ */
+export function updateLokiCircuitState(state: 0 | 1 | 2): void {
+  if (!metricsInitialized || !metrics.lokiCircuitState) return;
+  metrics.lokiCircuitState.set(state);
+}
+
 /**
  * Get metrics in Prometheus text format.
  */
@@ -655,6 +939,22 @@ export function shutdownMetrics(): void {
       heapSnapshotsPruned: null,
       diskAlerts: null,
       autoRemediation: null,
+      // Game Metrics
+      battlesTotal: null,
+      battleDuration: null,
+      battleTurns: null,
+      encountersTotal: null,
+      catchRate: null,
+      commandsTotal: null,
+      commandLatency: null,
+      // Database Metrics
+      dbQueriesTotal: null,
+      dbQueryLatency: null,
+      dbConnections: null,
+      // Loki Metrics
+      lokiQueueSize: null,
+      lokiLogsSent: null,
+      lokiCircuitState: null,
     };
   }
 }

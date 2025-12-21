@@ -115,6 +115,51 @@ const MONITOR_CONFIG = {
         cpuEmergencyPercent: CPU_THRESHOLDS.emergencyPercent, // 90%
     },
 };
+const diskSizeCache = new Map();
+const DISK_CACHE_TTL_MS = 60_000; // 60 seconds - configurable via env if needed
+/**
+ * Get cached directory size, recalculating only if cache expired.
+ * @param dir Directory to measure
+ * @param calculateFn Function to calculate actual size (injected for testability)
+ * @returns Size in bytes
+ */
+function getCachedDirectorySize(dir, calculateFn) {
+    const cached = diskSizeCache.get(dir);
+    const now = Date.now();
+    // Return cached value if still valid
+    if (cached && (now - cached.calculatedAt) < DISK_CACHE_TTL_MS) {
+        return cached.sizeBytes;
+    }
+    // Cache miss or expired - recalculate
+    const sizeBytes = calculateFn(dir);
+    diskSizeCache.set(dir, {
+        sizeBytes,
+        calculatedAt: now,
+        directory: dir
+    });
+    return sizeBytes;
+}
+/**
+ * Get disk size cache statistics (for /ops diagnostics)
+ */
+export function getDiskSizeCacheStats() {
+    let oldestAgeMs = 0;
+    const now = Date.now();
+    const directories = [];
+    for (const [dir, entry] of diskSizeCache.entries()) {
+        directories.push(dir);
+        const age = now - entry.calculatedAt;
+        if (age > oldestAgeMs)
+            oldestAgeMs = age;
+    }
+    return { entries: diskSizeCache.size, oldestAgeMs, directories };
+}
+/**
+ * Clear disk size cache (for testing or forced refresh)
+ */
+export function clearDiskSizeCache() {
+    diskSizeCache.clear();
+}
 // ============================================================================
 // Resource Monitor Class
 // ============================================================================
@@ -362,18 +407,16 @@ class ResourceMonitor {
      */
     captureDiskSnapshot() {
         try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const fs = require('node:fs');
-            const path = DISK_THRESHOLDS.storePath;
+            const storePath = DISK_THRESHOLDS.storePath;
             // Check if path exists
-            if (!fs.existsSync(path)) {
+            if (!fs.existsSync(storePath)) {
                 return null;
             }
             // Get filesystem stats via statfsSync (Node 18.15+)
             if (typeof fs.statfsSync !== 'function') {
                 return null;
             }
-            const stats = fs.statfsSync(path);
+            const stats = fs.statfsSync(storePath);
             const totalBytes = stats.blocks * stats.bsize;
             const freeBytes = stats.bfree * stats.bsize;
             const usedBytes = totalBytes - freeBytes;
@@ -388,7 +431,7 @@ class ResourceMonitor {
                 freeMB,
                 percentUsed,
                 pressureLevel: this.calculateDiskPressureLevel(percentUsed),
-                path,
+                path: storePath,
             };
         }
         catch {
@@ -1271,7 +1314,8 @@ class ResourceMonitor {
             // Check if Store directory exists
             if (fs.existsSync(cacheDir)) {
                 // Get directory size by walking files (limited depth for performance)
-                const getDirectorySize = (dir, depth = 0) => {
+                // NOW CACHED: Uses getCachedDirectorySize() to reduce I/O from every 15s to every 60s
+                const calculateDirectorySize = (dir, depth = 0) => {
                     if (depth > 2)
                         return 0; // Limit recursion depth
                     let size = 0;
@@ -1284,7 +1328,7 @@ class ResourceMonitor {
                                     size += fs.statSync(fullPath).size;
                                 }
                                 else if (entry.isDirectory() && !entry.name.startsWith('.')) {
-                                    size += getDirectorySize(fullPath, depth + 1);
+                                    size += calculateDirectorySize(fullPath, depth + 1);
                                 }
                             }
                             catch {
@@ -1297,7 +1341,9 @@ class ResourceMonitor {
                     }
                     return size;
                 };
-                cacheSize = getDirectorySize(cacheDir);
+                // Use cached directory size (60-second TTL) to reduce I/O overhead
+                // See: Phase 1.2 Disk Size Caching in Specialist Implementation Plan
+                cacheSize = getCachedDirectorySize(cacheDir, (dir) => calculateDirectorySize(dir, 0));
             }
         }
         catch {

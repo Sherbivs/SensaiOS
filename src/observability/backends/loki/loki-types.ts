@@ -170,4 +170,10 @@ export interface LokiTransportConfig {
 
   /** Request timeout in milliseconds */
   timeoutMs: number;
+
+  /** Grafana Cloud instance ID (optional, for basic auth) */
+  username?: string;
+
+  /** Grafana Cloud API key (optional, for basic auth) */
+  password?: string;
 }

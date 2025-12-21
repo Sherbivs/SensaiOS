@@ -3,6 +3,8 @@
  * Centralized helpers for error normalization and formatting
  */
 
+import { scrubPII } from './pii-scrubber.js';
+
 /**
  * Error metadata type (simplified error representation)
  */
@@ -76,32 +78,36 @@ export function normalizeError(err: unknown): ErrorMeta {
 /**
  * Format error for user-friendly display
  * Extracts useful information without exposing stack traces
+ * Automatically scrubs PII from error messages.
  * @param err - Unknown error value
- * @returns Human-readable error message
+ * @returns Human-readable error message (PII-scrubbed)
  */
 export function formatError(err: unknown): string {
+  let message: string;
+  
   if (err instanceof Error) {
-    return err.message;
-  }
-  
-  if (typeof err === "string") {
-    return err;
-  }
-  
-  if (typeof err === "object" && err !== null) {
+    message = err.message;
+  } else if (typeof err === "string") {
+    message = err;
+  } else if (typeof err === "object" && err !== null) {
     if ("message" in err && typeof (err as any).message === "string") {
-      return (err as any).message;
+      message = (err as any).message;
+    } else {
+      message = "An unknown error occurred";
     }
+  } else {
+    message = "An unknown error occurred";
   }
   
-  return "An unknown error occurred";
+  return scrubPII(message);
 }
 
 /**
  * Extract error message string from unknown error
  * Common pattern: safely get error.message or convert to string
+ * Automatically scrubs PII from error messages before returning.
  * @param error - Unknown error value
- * @returns Error message string
+ * @returns Error message string (PII-scrubbed)
  * 
  * @example
  * ```typescript
@@ -113,7 +119,8 @@ export function formatError(err: unknown): string {
  * ```
  */
 export function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : String(error);
+  return scrubPII(message);
 }
 
 /**
