@@ -863,12 +863,14 @@ function printInfinityConsole(): void {
     return value;
   };
 
-  // Use ACTUAL disk usage from resource monitor (calculated via statfsSync)
-  // diskUsed comes directly from the source - no recalculation needed
+  // Disk usage for Render /Store volume
+  // diskUsed = getDirectorySize('/Store') = actual bytes on the mounted 1 GB volume
+  // diskTotal = 1 GB (Render quota, hardcoded)
+  // diskFree = diskTotal - diskUsed
   const diskTotalMB = parseDiskMB(statsCache.cache.diskTotal) || 1024; // 1 GB default
-  const diskFreeMB = parseDiskMB(statsCache.cache.diskFree) || 0;
-  const diskUsedMB = parseDiskMB(statsCache.cache.diskUsed) || (diskTotalMB - diskFreeMB); // Use direct value or fallback
-  const storeSizeMB = parseDiskMB(statsCache.cache.cacheSize); // Just /Store directory size
+  const diskUsedMB = parseDiskMB(statsCache.cache.diskUsed); // Direct from directory walk
+  const diskFreeMB = diskTotalMB - diskUsedMB; // Calculated from used
+  const storeSizeMB = diskUsedMB; // Same as diskUsed (directory walk of /Store)
 
   // Parse uptime (comes as formatted string like "4h 23m 15s")
   const parseUptimeSeconds = (str: string): number => {
