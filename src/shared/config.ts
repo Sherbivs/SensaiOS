@@ -48,6 +48,14 @@ export type RuntimeConfig = {
 
 let cachedConfig: RuntimeConfig | null = null;
 
+/**
+ * Reset the cached config for tests.
+ * ONLY use in test files to ensure clean state between tests.
+ */
+export function resetConfigCacheForTests(): void {
+  cachedConfig = null;
+}
+
 function coerceNumber(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
   const parsed = Number(value);

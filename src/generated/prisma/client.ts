@@ -213,6 +213,30 @@ export type ErrorLog = Prisma.ErrorLogModel
  */
 export type ErrorAlert = Prisma.ErrorAlertModel
 /**
+ * Model ErrorKnowledge
+ * ErrorKnowledge — Stores learned patterns separately from errors
+ * Patterns expire and refresh via ErrorLearningWorker
+ */
+export type ErrorKnowledge = Prisma.ErrorKnowledgeModel
+/**
+ * Model ErrorResolution
+ * ErrorResolution — Tracks fix attempts and outcomes for learning
+ * Enables "what worked before" queries and success rate calculation
+ */
+export type ErrorResolution = Prisma.ErrorResolutionModel
+/**
+ * Model ErrorDependency
+ * ErrorDependency — Tracks which errors trigger other errors
+ * Enables root cause analysis and cascade prediction
+ */
+export type ErrorDependency = Prisma.ErrorDependencyModel
+/**
+ * Model ErrorCodeContext
+ * ErrorCodeContext — Preserves stack frame details for debugging
+ * Enables "show me where this error occurred" queries
+ */
+export type ErrorCodeContext = Prisma.ErrorCodeContextModel
+/**
  * Model BattleAnalytics
  * 
  */

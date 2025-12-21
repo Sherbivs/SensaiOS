@@ -337,6 +337,10 @@ export type ErrorLogWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"ErrorLog"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ErrorLog"> | Date | string
   alerts?: Prisma.ErrorAlertListRelationFilter
+  resolutions?: Prisma.ErrorResolutionListRelationFilter
+  codeContexts?: Prisma.ErrorCodeContextListRelationFilter
+  parentCascades?: Prisma.ErrorDependencyListRelationFilter
+  childCascades?: Prisma.ErrorDependencyListRelationFilter
 }
 
 export type ErrorLogOrderByWithRelationInput = {
@@ -361,6 +365,10 @@ export type ErrorLogOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   alerts?: Prisma.ErrorAlertOrderByRelationAggregateInput
+  resolutions?: Prisma.ErrorResolutionOrderByRelationAggregateInput
+  codeContexts?: Prisma.ErrorCodeContextOrderByRelationAggregateInput
+  parentCascades?: Prisma.ErrorDependencyOrderByRelationAggregateInput
+  childCascades?: Prisma.ErrorDependencyOrderByRelationAggregateInput
   _relevance?: Prisma.ErrorLogOrderByRelevanceInput
 }
 
@@ -389,6 +397,10 @@ export type ErrorLogWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"ErrorLog"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ErrorLog"> | Date | string
   alerts?: Prisma.ErrorAlertListRelationFilter
+  resolutions?: Prisma.ErrorResolutionListRelationFilter
+  codeContexts?: Prisma.ErrorCodeContextListRelationFilter
+  parentCascades?: Prisma.ErrorDependencyListRelationFilter
+  childCascades?: Prisma.ErrorDependencyListRelationFilter
 }, "errorId" | "fingerprint">
 
 export type ErrorLogOrderByWithAggregationInput = {
@@ -467,6 +479,10 @@ export type ErrorLogCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   alerts?: Prisma.ErrorAlertCreateNestedManyWithoutErrorInput
+  resolutions?: Prisma.ErrorResolutionCreateNestedManyWithoutErrorInput
+  codeContexts?: Prisma.ErrorCodeContextCreateNestedManyWithoutErrorInput
+  parentCascades?: Prisma.ErrorDependencyCreateNestedManyWithoutParentErrorInput
+  childCascades?: Prisma.ErrorDependencyCreateNestedManyWithoutChildErrorInput
 }
 
 export type ErrorLogUncheckedCreateInput = {
@@ -491,6 +507,10 @@ export type ErrorLogUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   alerts?: Prisma.ErrorAlertUncheckedCreateNestedManyWithoutErrorInput
+  resolutions?: Prisma.ErrorResolutionUncheckedCreateNestedManyWithoutErrorInput
+  codeContexts?: Prisma.ErrorCodeContextUncheckedCreateNestedManyWithoutErrorInput
+  parentCascades?: Prisma.ErrorDependencyUncheckedCreateNestedManyWithoutParentErrorInput
+  childCascades?: Prisma.ErrorDependencyUncheckedCreateNestedManyWithoutChildErrorInput
 }
 
 export type ErrorLogUpdateInput = {
@@ -515,6 +535,10 @@ export type ErrorLogUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   alerts?: Prisma.ErrorAlertUpdateManyWithoutErrorNestedInput
+  resolutions?: Prisma.ErrorResolutionUpdateManyWithoutErrorNestedInput
+  codeContexts?: Prisma.ErrorCodeContextUpdateManyWithoutErrorNestedInput
+  parentCascades?: Prisma.ErrorDependencyUpdateManyWithoutParentErrorNestedInput
+  childCascades?: Prisma.ErrorDependencyUpdateManyWithoutChildErrorNestedInput
 }
 
 export type ErrorLogUncheckedUpdateInput = {
@@ -539,6 +563,10 @@ export type ErrorLogUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   alerts?: Prisma.ErrorAlertUncheckedUpdateManyWithoutErrorNestedInput
+  resolutions?: Prisma.ErrorResolutionUncheckedUpdateManyWithoutErrorNestedInput
+  codeContexts?: Prisma.ErrorCodeContextUncheckedUpdateManyWithoutErrorNestedInput
+  parentCascades?: Prisma.ErrorDependencyUncheckedUpdateManyWithoutParentErrorNestedInput
+  childCascades?: Prisma.ErrorDependencyUncheckedUpdateManyWithoutChildErrorNestedInput
 }
 
 export type ErrorLogCreateManyInput = {
@@ -721,6 +749,62 @@ export type ErrorLogUpdateOneRequiredWithoutAlertsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ErrorLogUpdateToOneWithWhereWithoutAlertsInput, Prisma.ErrorLogUpdateWithoutAlertsInput>, Prisma.ErrorLogUncheckedUpdateWithoutAlertsInput>
 }
 
+export type ErrorLogCreateNestedOneWithoutResolutionsInput = {
+  create?: Prisma.XOR<Prisma.ErrorLogCreateWithoutResolutionsInput, Prisma.ErrorLogUncheckedCreateWithoutResolutionsInput>
+  connectOrCreate?: Prisma.ErrorLogCreateOrConnectWithoutResolutionsInput
+  connect?: Prisma.ErrorLogWhereUniqueInput
+}
+
+export type ErrorLogUpdateOneRequiredWithoutResolutionsNestedInput = {
+  create?: Prisma.XOR<Prisma.ErrorLogCreateWithoutResolutionsInput, Prisma.ErrorLogUncheckedCreateWithoutResolutionsInput>
+  connectOrCreate?: Prisma.ErrorLogCreateOrConnectWithoutResolutionsInput
+  upsert?: Prisma.ErrorLogUpsertWithoutResolutionsInput
+  connect?: Prisma.ErrorLogWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ErrorLogUpdateToOneWithWhereWithoutResolutionsInput, Prisma.ErrorLogUpdateWithoutResolutionsInput>, Prisma.ErrorLogUncheckedUpdateWithoutResolutionsInput>
+}
+
+export type ErrorLogCreateNestedOneWithoutParentCascadesInput = {
+  create?: Prisma.XOR<Prisma.ErrorLogCreateWithoutParentCascadesInput, Prisma.ErrorLogUncheckedCreateWithoutParentCascadesInput>
+  connectOrCreate?: Prisma.ErrorLogCreateOrConnectWithoutParentCascadesInput
+  connect?: Prisma.ErrorLogWhereUniqueInput
+}
+
+export type ErrorLogCreateNestedOneWithoutChildCascadesInput = {
+  create?: Prisma.XOR<Prisma.ErrorLogCreateWithoutChildCascadesInput, Prisma.ErrorLogUncheckedCreateWithoutChildCascadesInput>
+  connectOrCreate?: Prisma.ErrorLogCreateOrConnectWithoutChildCascadesInput
+  connect?: Prisma.ErrorLogWhereUniqueInput
+}
+
+export type ErrorLogUpdateOneRequiredWithoutParentCascadesNestedInput = {
+  create?: Prisma.XOR<Prisma.ErrorLogCreateWithoutParentCascadesInput, Prisma.ErrorLogUncheckedCreateWithoutParentCascadesInput>
+  connectOrCreate?: Prisma.ErrorLogCreateOrConnectWithoutParentCascadesInput
+  upsert?: Prisma.ErrorLogUpsertWithoutParentCascadesInput
+  connect?: Prisma.ErrorLogWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ErrorLogUpdateToOneWithWhereWithoutParentCascadesInput, Prisma.ErrorLogUpdateWithoutParentCascadesInput>, Prisma.ErrorLogUncheckedUpdateWithoutParentCascadesInput>
+}
+
+export type ErrorLogUpdateOneRequiredWithoutChildCascadesNestedInput = {
+  create?: Prisma.XOR<Prisma.ErrorLogCreateWithoutChildCascadesInput, Prisma.ErrorLogUncheckedCreateWithoutChildCascadesInput>
+  connectOrCreate?: Prisma.ErrorLogCreateOrConnectWithoutChildCascadesInput
+  upsert?: Prisma.ErrorLogUpsertWithoutChildCascadesInput
+  connect?: Prisma.ErrorLogWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ErrorLogUpdateToOneWithWhereWithoutChildCascadesInput, Prisma.ErrorLogUpdateWithoutChildCascadesInput>, Prisma.ErrorLogUncheckedUpdateWithoutChildCascadesInput>
+}
+
+export type ErrorLogCreateNestedOneWithoutCodeContextsInput = {
+  create?: Prisma.XOR<Prisma.ErrorLogCreateWithoutCodeContextsInput, Prisma.ErrorLogUncheckedCreateWithoutCodeContextsInput>
+  connectOrCreate?: Prisma.ErrorLogCreateOrConnectWithoutCodeContextsInput
+  connect?: Prisma.ErrorLogWhereUniqueInput
+}
+
+export type ErrorLogUpdateOneRequiredWithoutCodeContextsNestedInput = {
+  create?: Prisma.XOR<Prisma.ErrorLogCreateWithoutCodeContextsInput, Prisma.ErrorLogUncheckedCreateWithoutCodeContextsInput>
+  connectOrCreate?: Prisma.ErrorLogCreateOrConnectWithoutCodeContextsInput
+  upsert?: Prisma.ErrorLogUpsertWithoutCodeContextsInput
+  connect?: Prisma.ErrorLogWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ErrorLogUpdateToOneWithWhereWithoutCodeContextsInput, Prisma.ErrorLogUpdateWithoutCodeContextsInput>, Prisma.ErrorLogUncheckedUpdateWithoutCodeContextsInput>
+}
+
 export type ErrorLogCreateWithoutAlertsInput = {
   errorId?: string
   fingerprint: string
@@ -742,6 +826,10 @@ export type ErrorLogCreateWithoutAlertsInput = {
   learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
+  resolutions?: Prisma.ErrorResolutionCreateNestedManyWithoutErrorInput
+  codeContexts?: Prisma.ErrorCodeContextCreateNestedManyWithoutErrorInput
+  parentCascades?: Prisma.ErrorDependencyCreateNestedManyWithoutParentErrorInput
+  childCascades?: Prisma.ErrorDependencyCreateNestedManyWithoutChildErrorInput
 }
 
 export type ErrorLogUncheckedCreateWithoutAlertsInput = {
@@ -765,6 +853,10 @@ export type ErrorLogUncheckedCreateWithoutAlertsInput = {
   learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
+  resolutions?: Prisma.ErrorResolutionUncheckedCreateNestedManyWithoutErrorInput
+  codeContexts?: Prisma.ErrorCodeContextUncheckedCreateNestedManyWithoutErrorInput
+  parentCascades?: Prisma.ErrorDependencyUncheckedCreateNestedManyWithoutParentErrorInput
+  childCascades?: Prisma.ErrorDependencyUncheckedCreateNestedManyWithoutChildErrorInput
 }
 
 export type ErrorLogCreateOrConnectWithoutAlertsInput = {
@@ -804,6 +896,10 @@ export type ErrorLogUpdateWithoutAlertsInput = {
   learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolutions?: Prisma.ErrorResolutionUpdateManyWithoutErrorNestedInput
+  codeContexts?: Prisma.ErrorCodeContextUpdateManyWithoutErrorNestedInput
+  parentCascades?: Prisma.ErrorDependencyUpdateManyWithoutParentErrorNestedInput
+  childCascades?: Prisma.ErrorDependencyUpdateManyWithoutChildErrorNestedInput
 }
 
 export type ErrorLogUncheckedUpdateWithoutAlertsInput = {
@@ -827,6 +923,506 @@ export type ErrorLogUncheckedUpdateWithoutAlertsInput = {
   learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolutions?: Prisma.ErrorResolutionUncheckedUpdateManyWithoutErrorNestedInput
+  codeContexts?: Prisma.ErrorCodeContextUncheckedUpdateManyWithoutErrorNestedInput
+  parentCascades?: Prisma.ErrorDependencyUncheckedUpdateManyWithoutParentErrorNestedInput
+  childCascades?: Prisma.ErrorDependencyUncheckedUpdateManyWithoutChildErrorNestedInput
+}
+
+export type ErrorLogCreateWithoutResolutionsInput = {
+  errorId?: string
+  fingerprint: string
+  category: string
+  severity: string
+  firstSeen?: Date | string
+  lastSeen?: Date | string
+  occurrenceCount?: number
+  errorName: string
+  errorMessage: string
+  stackTrace?: string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: number
+  recoverySuccess?: number
+  lastRecoveryStrategy?: string | null
+  lastRecoveryOutcome?: string | null
+  impactedFeatures?: Prisma.ErrorLogCreateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  alerts?: Prisma.ErrorAlertCreateNestedManyWithoutErrorInput
+  codeContexts?: Prisma.ErrorCodeContextCreateNestedManyWithoutErrorInput
+  parentCascades?: Prisma.ErrorDependencyCreateNestedManyWithoutParentErrorInput
+  childCascades?: Prisma.ErrorDependencyCreateNestedManyWithoutChildErrorInput
+}
+
+export type ErrorLogUncheckedCreateWithoutResolutionsInput = {
+  errorId?: string
+  fingerprint: string
+  category: string
+  severity: string
+  firstSeen?: Date | string
+  lastSeen?: Date | string
+  occurrenceCount?: number
+  errorName: string
+  errorMessage: string
+  stackTrace?: string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: number
+  recoverySuccess?: number
+  lastRecoveryStrategy?: string | null
+  lastRecoveryOutcome?: string | null
+  impactedFeatures?: Prisma.ErrorLogCreateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  alerts?: Prisma.ErrorAlertUncheckedCreateNestedManyWithoutErrorInput
+  codeContexts?: Prisma.ErrorCodeContextUncheckedCreateNestedManyWithoutErrorInput
+  parentCascades?: Prisma.ErrorDependencyUncheckedCreateNestedManyWithoutParentErrorInput
+  childCascades?: Prisma.ErrorDependencyUncheckedCreateNestedManyWithoutChildErrorInput
+}
+
+export type ErrorLogCreateOrConnectWithoutResolutionsInput = {
+  where: Prisma.ErrorLogWhereUniqueInput
+  create: Prisma.XOR<Prisma.ErrorLogCreateWithoutResolutionsInput, Prisma.ErrorLogUncheckedCreateWithoutResolutionsInput>
+}
+
+export type ErrorLogUpsertWithoutResolutionsInput = {
+  update: Prisma.XOR<Prisma.ErrorLogUpdateWithoutResolutionsInput, Prisma.ErrorLogUncheckedUpdateWithoutResolutionsInput>
+  create: Prisma.XOR<Prisma.ErrorLogCreateWithoutResolutionsInput, Prisma.ErrorLogUncheckedCreateWithoutResolutionsInput>
+  where?: Prisma.ErrorLogWhereInput
+}
+
+export type ErrorLogUpdateToOneWithWhereWithoutResolutionsInput = {
+  where?: Prisma.ErrorLogWhereInput
+  data: Prisma.XOR<Prisma.ErrorLogUpdateWithoutResolutionsInput, Prisma.ErrorLogUncheckedUpdateWithoutResolutionsInput>
+}
+
+export type ErrorLogUpdateWithoutResolutionsInput = {
+  errorId?: Prisma.StringFieldUpdateOperationsInput | string
+  fingerprint?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  severity?: Prisma.StringFieldUpdateOperationsInput | string
+  firstSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  occurrenceCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorName?: Prisma.StringFieldUpdateOperationsInput | string
+  errorMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  stackTrace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: Prisma.IntFieldUpdateOperationsInput | number
+  recoverySuccess?: Prisma.IntFieldUpdateOperationsInput | number
+  lastRecoveryStrategy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastRecoveryOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  impactedFeatures?: Prisma.ErrorLogUpdateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alerts?: Prisma.ErrorAlertUpdateManyWithoutErrorNestedInput
+  codeContexts?: Prisma.ErrorCodeContextUpdateManyWithoutErrorNestedInput
+  parentCascades?: Prisma.ErrorDependencyUpdateManyWithoutParentErrorNestedInput
+  childCascades?: Prisma.ErrorDependencyUpdateManyWithoutChildErrorNestedInput
+}
+
+export type ErrorLogUncheckedUpdateWithoutResolutionsInput = {
+  errorId?: Prisma.StringFieldUpdateOperationsInput | string
+  fingerprint?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  severity?: Prisma.StringFieldUpdateOperationsInput | string
+  firstSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  occurrenceCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorName?: Prisma.StringFieldUpdateOperationsInput | string
+  errorMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  stackTrace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: Prisma.IntFieldUpdateOperationsInput | number
+  recoverySuccess?: Prisma.IntFieldUpdateOperationsInput | number
+  lastRecoveryStrategy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastRecoveryOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  impactedFeatures?: Prisma.ErrorLogUpdateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alerts?: Prisma.ErrorAlertUncheckedUpdateManyWithoutErrorNestedInput
+  codeContexts?: Prisma.ErrorCodeContextUncheckedUpdateManyWithoutErrorNestedInput
+  parentCascades?: Prisma.ErrorDependencyUncheckedUpdateManyWithoutParentErrorNestedInput
+  childCascades?: Prisma.ErrorDependencyUncheckedUpdateManyWithoutChildErrorNestedInput
+}
+
+export type ErrorLogCreateWithoutParentCascadesInput = {
+  errorId?: string
+  fingerprint: string
+  category: string
+  severity: string
+  firstSeen?: Date | string
+  lastSeen?: Date | string
+  occurrenceCount?: number
+  errorName: string
+  errorMessage: string
+  stackTrace?: string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: number
+  recoverySuccess?: number
+  lastRecoveryStrategy?: string | null
+  lastRecoveryOutcome?: string | null
+  impactedFeatures?: Prisma.ErrorLogCreateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  alerts?: Prisma.ErrorAlertCreateNestedManyWithoutErrorInput
+  resolutions?: Prisma.ErrorResolutionCreateNestedManyWithoutErrorInput
+  codeContexts?: Prisma.ErrorCodeContextCreateNestedManyWithoutErrorInput
+  childCascades?: Prisma.ErrorDependencyCreateNestedManyWithoutChildErrorInput
+}
+
+export type ErrorLogUncheckedCreateWithoutParentCascadesInput = {
+  errorId?: string
+  fingerprint: string
+  category: string
+  severity: string
+  firstSeen?: Date | string
+  lastSeen?: Date | string
+  occurrenceCount?: number
+  errorName: string
+  errorMessage: string
+  stackTrace?: string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: number
+  recoverySuccess?: number
+  lastRecoveryStrategy?: string | null
+  lastRecoveryOutcome?: string | null
+  impactedFeatures?: Prisma.ErrorLogCreateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  alerts?: Prisma.ErrorAlertUncheckedCreateNestedManyWithoutErrorInput
+  resolutions?: Prisma.ErrorResolutionUncheckedCreateNestedManyWithoutErrorInput
+  codeContexts?: Prisma.ErrorCodeContextUncheckedCreateNestedManyWithoutErrorInput
+  childCascades?: Prisma.ErrorDependencyUncheckedCreateNestedManyWithoutChildErrorInput
+}
+
+export type ErrorLogCreateOrConnectWithoutParentCascadesInput = {
+  where: Prisma.ErrorLogWhereUniqueInput
+  create: Prisma.XOR<Prisma.ErrorLogCreateWithoutParentCascadesInput, Prisma.ErrorLogUncheckedCreateWithoutParentCascadesInput>
+}
+
+export type ErrorLogCreateWithoutChildCascadesInput = {
+  errorId?: string
+  fingerprint: string
+  category: string
+  severity: string
+  firstSeen?: Date | string
+  lastSeen?: Date | string
+  occurrenceCount?: number
+  errorName: string
+  errorMessage: string
+  stackTrace?: string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: number
+  recoverySuccess?: number
+  lastRecoveryStrategy?: string | null
+  lastRecoveryOutcome?: string | null
+  impactedFeatures?: Prisma.ErrorLogCreateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  alerts?: Prisma.ErrorAlertCreateNestedManyWithoutErrorInput
+  resolutions?: Prisma.ErrorResolutionCreateNestedManyWithoutErrorInput
+  codeContexts?: Prisma.ErrorCodeContextCreateNestedManyWithoutErrorInput
+  parentCascades?: Prisma.ErrorDependencyCreateNestedManyWithoutParentErrorInput
+}
+
+export type ErrorLogUncheckedCreateWithoutChildCascadesInput = {
+  errorId?: string
+  fingerprint: string
+  category: string
+  severity: string
+  firstSeen?: Date | string
+  lastSeen?: Date | string
+  occurrenceCount?: number
+  errorName: string
+  errorMessage: string
+  stackTrace?: string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: number
+  recoverySuccess?: number
+  lastRecoveryStrategy?: string | null
+  lastRecoveryOutcome?: string | null
+  impactedFeatures?: Prisma.ErrorLogCreateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  alerts?: Prisma.ErrorAlertUncheckedCreateNestedManyWithoutErrorInput
+  resolutions?: Prisma.ErrorResolutionUncheckedCreateNestedManyWithoutErrorInput
+  codeContexts?: Prisma.ErrorCodeContextUncheckedCreateNestedManyWithoutErrorInput
+  parentCascades?: Prisma.ErrorDependencyUncheckedCreateNestedManyWithoutParentErrorInput
+}
+
+export type ErrorLogCreateOrConnectWithoutChildCascadesInput = {
+  where: Prisma.ErrorLogWhereUniqueInput
+  create: Prisma.XOR<Prisma.ErrorLogCreateWithoutChildCascadesInput, Prisma.ErrorLogUncheckedCreateWithoutChildCascadesInput>
+}
+
+export type ErrorLogUpsertWithoutParentCascadesInput = {
+  update: Prisma.XOR<Prisma.ErrorLogUpdateWithoutParentCascadesInput, Prisma.ErrorLogUncheckedUpdateWithoutParentCascadesInput>
+  create: Prisma.XOR<Prisma.ErrorLogCreateWithoutParentCascadesInput, Prisma.ErrorLogUncheckedCreateWithoutParentCascadesInput>
+  where?: Prisma.ErrorLogWhereInput
+}
+
+export type ErrorLogUpdateToOneWithWhereWithoutParentCascadesInput = {
+  where?: Prisma.ErrorLogWhereInput
+  data: Prisma.XOR<Prisma.ErrorLogUpdateWithoutParentCascadesInput, Prisma.ErrorLogUncheckedUpdateWithoutParentCascadesInput>
+}
+
+export type ErrorLogUpdateWithoutParentCascadesInput = {
+  errorId?: Prisma.StringFieldUpdateOperationsInput | string
+  fingerprint?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  severity?: Prisma.StringFieldUpdateOperationsInput | string
+  firstSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  occurrenceCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorName?: Prisma.StringFieldUpdateOperationsInput | string
+  errorMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  stackTrace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: Prisma.IntFieldUpdateOperationsInput | number
+  recoverySuccess?: Prisma.IntFieldUpdateOperationsInput | number
+  lastRecoveryStrategy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastRecoveryOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  impactedFeatures?: Prisma.ErrorLogUpdateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alerts?: Prisma.ErrorAlertUpdateManyWithoutErrorNestedInput
+  resolutions?: Prisma.ErrorResolutionUpdateManyWithoutErrorNestedInput
+  codeContexts?: Prisma.ErrorCodeContextUpdateManyWithoutErrorNestedInput
+  childCascades?: Prisma.ErrorDependencyUpdateManyWithoutChildErrorNestedInput
+}
+
+export type ErrorLogUncheckedUpdateWithoutParentCascadesInput = {
+  errorId?: Prisma.StringFieldUpdateOperationsInput | string
+  fingerprint?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  severity?: Prisma.StringFieldUpdateOperationsInput | string
+  firstSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  occurrenceCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorName?: Prisma.StringFieldUpdateOperationsInput | string
+  errorMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  stackTrace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: Prisma.IntFieldUpdateOperationsInput | number
+  recoverySuccess?: Prisma.IntFieldUpdateOperationsInput | number
+  lastRecoveryStrategy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastRecoveryOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  impactedFeatures?: Prisma.ErrorLogUpdateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alerts?: Prisma.ErrorAlertUncheckedUpdateManyWithoutErrorNestedInput
+  resolutions?: Prisma.ErrorResolutionUncheckedUpdateManyWithoutErrorNestedInput
+  codeContexts?: Prisma.ErrorCodeContextUncheckedUpdateManyWithoutErrorNestedInput
+  childCascades?: Prisma.ErrorDependencyUncheckedUpdateManyWithoutChildErrorNestedInput
+}
+
+export type ErrorLogUpsertWithoutChildCascadesInput = {
+  update: Prisma.XOR<Prisma.ErrorLogUpdateWithoutChildCascadesInput, Prisma.ErrorLogUncheckedUpdateWithoutChildCascadesInput>
+  create: Prisma.XOR<Prisma.ErrorLogCreateWithoutChildCascadesInput, Prisma.ErrorLogUncheckedCreateWithoutChildCascadesInput>
+  where?: Prisma.ErrorLogWhereInput
+}
+
+export type ErrorLogUpdateToOneWithWhereWithoutChildCascadesInput = {
+  where?: Prisma.ErrorLogWhereInput
+  data: Prisma.XOR<Prisma.ErrorLogUpdateWithoutChildCascadesInput, Prisma.ErrorLogUncheckedUpdateWithoutChildCascadesInput>
+}
+
+export type ErrorLogUpdateWithoutChildCascadesInput = {
+  errorId?: Prisma.StringFieldUpdateOperationsInput | string
+  fingerprint?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  severity?: Prisma.StringFieldUpdateOperationsInput | string
+  firstSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  occurrenceCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorName?: Prisma.StringFieldUpdateOperationsInput | string
+  errorMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  stackTrace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: Prisma.IntFieldUpdateOperationsInput | number
+  recoverySuccess?: Prisma.IntFieldUpdateOperationsInput | number
+  lastRecoveryStrategy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastRecoveryOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  impactedFeatures?: Prisma.ErrorLogUpdateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alerts?: Prisma.ErrorAlertUpdateManyWithoutErrorNestedInput
+  resolutions?: Prisma.ErrorResolutionUpdateManyWithoutErrorNestedInput
+  codeContexts?: Prisma.ErrorCodeContextUpdateManyWithoutErrorNestedInput
+  parentCascades?: Prisma.ErrorDependencyUpdateManyWithoutParentErrorNestedInput
+}
+
+export type ErrorLogUncheckedUpdateWithoutChildCascadesInput = {
+  errorId?: Prisma.StringFieldUpdateOperationsInput | string
+  fingerprint?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  severity?: Prisma.StringFieldUpdateOperationsInput | string
+  firstSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  occurrenceCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorName?: Prisma.StringFieldUpdateOperationsInput | string
+  errorMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  stackTrace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: Prisma.IntFieldUpdateOperationsInput | number
+  recoverySuccess?: Prisma.IntFieldUpdateOperationsInput | number
+  lastRecoveryStrategy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastRecoveryOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  impactedFeatures?: Prisma.ErrorLogUpdateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alerts?: Prisma.ErrorAlertUncheckedUpdateManyWithoutErrorNestedInput
+  resolutions?: Prisma.ErrorResolutionUncheckedUpdateManyWithoutErrorNestedInput
+  codeContexts?: Prisma.ErrorCodeContextUncheckedUpdateManyWithoutErrorNestedInput
+  parentCascades?: Prisma.ErrorDependencyUncheckedUpdateManyWithoutParentErrorNestedInput
+}
+
+export type ErrorLogCreateWithoutCodeContextsInput = {
+  errorId?: string
+  fingerprint: string
+  category: string
+  severity: string
+  firstSeen?: Date | string
+  lastSeen?: Date | string
+  occurrenceCount?: number
+  errorName: string
+  errorMessage: string
+  stackTrace?: string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: number
+  recoverySuccess?: number
+  lastRecoveryStrategy?: string | null
+  lastRecoveryOutcome?: string | null
+  impactedFeatures?: Prisma.ErrorLogCreateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  alerts?: Prisma.ErrorAlertCreateNestedManyWithoutErrorInput
+  resolutions?: Prisma.ErrorResolutionCreateNestedManyWithoutErrorInput
+  parentCascades?: Prisma.ErrorDependencyCreateNestedManyWithoutParentErrorInput
+  childCascades?: Prisma.ErrorDependencyCreateNestedManyWithoutChildErrorInput
+}
+
+export type ErrorLogUncheckedCreateWithoutCodeContextsInput = {
+  errorId?: string
+  fingerprint: string
+  category: string
+  severity: string
+  firstSeen?: Date | string
+  lastSeen?: Date | string
+  occurrenceCount?: number
+  errorName: string
+  errorMessage: string
+  stackTrace?: string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: number
+  recoverySuccess?: number
+  lastRecoveryStrategy?: string | null
+  lastRecoveryOutcome?: string | null
+  impactedFeatures?: Prisma.ErrorLogCreateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  alerts?: Prisma.ErrorAlertUncheckedCreateNestedManyWithoutErrorInput
+  resolutions?: Prisma.ErrorResolutionUncheckedCreateNestedManyWithoutErrorInput
+  parentCascades?: Prisma.ErrorDependencyUncheckedCreateNestedManyWithoutParentErrorInput
+  childCascades?: Prisma.ErrorDependencyUncheckedCreateNestedManyWithoutChildErrorInput
+}
+
+export type ErrorLogCreateOrConnectWithoutCodeContextsInput = {
+  where: Prisma.ErrorLogWhereUniqueInput
+  create: Prisma.XOR<Prisma.ErrorLogCreateWithoutCodeContextsInput, Prisma.ErrorLogUncheckedCreateWithoutCodeContextsInput>
+}
+
+export type ErrorLogUpsertWithoutCodeContextsInput = {
+  update: Prisma.XOR<Prisma.ErrorLogUpdateWithoutCodeContextsInput, Prisma.ErrorLogUncheckedUpdateWithoutCodeContextsInput>
+  create: Prisma.XOR<Prisma.ErrorLogCreateWithoutCodeContextsInput, Prisma.ErrorLogUncheckedCreateWithoutCodeContextsInput>
+  where?: Prisma.ErrorLogWhereInput
+}
+
+export type ErrorLogUpdateToOneWithWhereWithoutCodeContextsInput = {
+  where?: Prisma.ErrorLogWhereInput
+  data: Prisma.XOR<Prisma.ErrorLogUpdateWithoutCodeContextsInput, Prisma.ErrorLogUncheckedUpdateWithoutCodeContextsInput>
+}
+
+export type ErrorLogUpdateWithoutCodeContextsInput = {
+  errorId?: Prisma.StringFieldUpdateOperationsInput | string
+  fingerprint?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  severity?: Prisma.StringFieldUpdateOperationsInput | string
+  firstSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  occurrenceCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorName?: Prisma.StringFieldUpdateOperationsInput | string
+  errorMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  stackTrace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: Prisma.IntFieldUpdateOperationsInput | number
+  recoverySuccess?: Prisma.IntFieldUpdateOperationsInput | number
+  lastRecoveryStrategy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastRecoveryOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  impactedFeatures?: Prisma.ErrorLogUpdateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alerts?: Prisma.ErrorAlertUpdateManyWithoutErrorNestedInput
+  resolutions?: Prisma.ErrorResolutionUpdateManyWithoutErrorNestedInput
+  parentCascades?: Prisma.ErrorDependencyUpdateManyWithoutParentErrorNestedInput
+  childCascades?: Prisma.ErrorDependencyUpdateManyWithoutChildErrorNestedInput
+}
+
+export type ErrorLogUncheckedUpdateWithoutCodeContextsInput = {
+  errorId?: Prisma.StringFieldUpdateOperationsInput | string
+  fingerprint?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  severity?: Prisma.StringFieldUpdateOperationsInput | string
+  firstSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastSeen?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  occurrenceCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorName?: Prisma.StringFieldUpdateOperationsInput | string
+  errorMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  stackTrace?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  recoveryAttempted?: Prisma.IntFieldUpdateOperationsInput | number
+  recoverySuccess?: Prisma.IntFieldUpdateOperationsInput | number
+  lastRecoveryStrategy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastRecoveryOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  impactedFeatures?: Prisma.ErrorLogUpdateimpactedFeaturesInput | string[]
+  estimatedUserImpact?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  alerts?: Prisma.ErrorAlertUncheckedUpdateManyWithoutErrorNestedInput
+  resolutions?: Prisma.ErrorResolutionUncheckedUpdateManyWithoutErrorNestedInput
+  parentCascades?: Prisma.ErrorDependencyUncheckedUpdateManyWithoutParentErrorNestedInput
+  childCascades?: Prisma.ErrorDependencyUncheckedUpdateManyWithoutChildErrorNestedInput
 }
 
 
@@ -836,10 +1432,18 @@ export type ErrorLogUncheckedUpdateWithoutAlertsInput = {
 
 export type ErrorLogCountOutputType = {
   alerts: number
+  resolutions: number
+  codeContexts: number
+  parentCascades: number
+  childCascades: number
 }
 
 export type ErrorLogCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   alerts?: boolean | ErrorLogCountOutputTypeCountAlertsArgs
+  resolutions?: boolean | ErrorLogCountOutputTypeCountResolutionsArgs
+  codeContexts?: boolean | ErrorLogCountOutputTypeCountCodeContextsArgs
+  parentCascades?: boolean | ErrorLogCountOutputTypeCountParentCascadesArgs
+  childCascades?: boolean | ErrorLogCountOutputTypeCountChildCascadesArgs
 }
 
 /**
@@ -857,6 +1461,34 @@ export type ErrorLogCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Ext
  */
 export type ErrorLogCountOutputTypeCountAlertsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.ErrorAlertWhereInput
+}
+
+/**
+ * ErrorLogCountOutputType without action
+ */
+export type ErrorLogCountOutputTypeCountResolutionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ErrorResolutionWhereInput
+}
+
+/**
+ * ErrorLogCountOutputType without action
+ */
+export type ErrorLogCountOutputTypeCountCodeContextsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ErrorCodeContextWhereInput
+}
+
+/**
+ * ErrorLogCountOutputType without action
+ */
+export type ErrorLogCountOutputTypeCountParentCascadesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ErrorDependencyWhereInput
+}
+
+/**
+ * ErrorLogCountOutputType without action
+ */
+export type ErrorLogCountOutputTypeCountChildCascadesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ErrorDependencyWhereInput
 }
 
 
@@ -882,6 +1514,10 @@ export type ErrorLogSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   createdAt?: boolean
   updatedAt?: boolean
   alerts?: boolean | Prisma.ErrorLog$alertsArgs<ExtArgs>
+  resolutions?: boolean | Prisma.ErrorLog$resolutionsArgs<ExtArgs>
+  codeContexts?: boolean | Prisma.ErrorLog$codeContextsArgs<ExtArgs>
+  parentCascades?: boolean | Prisma.ErrorLog$parentCascadesArgs<ExtArgs>
+  childCascades?: boolean | Prisma.ErrorLog$childCascadesArgs<ExtArgs>
   _count?: boolean | Prisma.ErrorLogCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["errorLog"]>
 
@@ -957,6 +1593,10 @@ export type ErrorLogSelectScalar = {
 export type ErrorLogOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"errorId" | "fingerprint" | "category" | "severity" | "firstSeen" | "lastSeen" | "occurrenceCount" | "errorName" | "errorMessage" | "stackTrace" | "contextData" | "recoveryAttempted" | "recoverySuccess" | "lastRecoveryStrategy" | "lastRecoveryOutcome" | "impactedFeatures" | "estimatedUserImpact" | "learningMetadata" | "createdAt" | "updatedAt", ExtArgs["result"]["errorLog"]>
 export type ErrorLogInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   alerts?: boolean | Prisma.ErrorLog$alertsArgs<ExtArgs>
+  resolutions?: boolean | Prisma.ErrorLog$resolutionsArgs<ExtArgs>
+  codeContexts?: boolean | Prisma.ErrorLog$codeContextsArgs<ExtArgs>
+  parentCascades?: boolean | Prisma.ErrorLog$parentCascadesArgs<ExtArgs>
+  childCascades?: boolean | Prisma.ErrorLog$childCascadesArgs<ExtArgs>
   _count?: boolean | Prisma.ErrorLogCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ErrorLogIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -966,6 +1606,10 @@ export type $ErrorLogPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
   name: "ErrorLog"
   objects: {
     alerts: Prisma.$ErrorAlertPayload<ExtArgs>[]
+    resolutions: Prisma.$ErrorResolutionPayload<ExtArgs>[]
+    codeContexts: Prisma.$ErrorCodeContextPayload<ExtArgs>[]
+    parentCascades: Prisma.$ErrorDependencyPayload<ExtArgs>[]
+    childCascades: Prisma.$ErrorDependencyPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     errorId: string
@@ -1383,6 +2027,10 @@ readonly fields: ErrorLogFieldRefs;
 export interface Prisma__ErrorLogClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   alerts<T extends Prisma.ErrorLog$alertsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ErrorLog$alertsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ErrorAlertPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  resolutions<T extends Prisma.ErrorLog$resolutionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ErrorLog$resolutionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ErrorResolutionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  codeContexts<T extends Prisma.ErrorLog$codeContextsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ErrorLog$codeContextsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ErrorCodeContextPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  parentCascades<T extends Prisma.ErrorLog$parentCascadesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ErrorLog$parentCascadesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ErrorDependencyPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  childCascades<T extends Prisma.ErrorLog$childCascadesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ErrorLog$childCascadesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ErrorDependencyPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1841,6 +2489,102 @@ export type ErrorLog$alertsArgs<ExtArgs extends runtime.Types.Extensions.Interna
   take?: number
   skip?: number
   distinct?: Prisma.ErrorAlertScalarFieldEnum | Prisma.ErrorAlertScalarFieldEnum[]
+}
+
+/**
+ * ErrorLog.resolutions
+ */
+export type ErrorLog$resolutionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ErrorResolution
+   */
+  select?: Prisma.ErrorResolutionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ErrorResolution
+   */
+  omit?: Prisma.ErrorResolutionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ErrorResolutionInclude<ExtArgs> | null
+  where?: Prisma.ErrorResolutionWhereInput
+  orderBy?: Prisma.ErrorResolutionOrderByWithRelationInput | Prisma.ErrorResolutionOrderByWithRelationInput[]
+  cursor?: Prisma.ErrorResolutionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ErrorResolutionScalarFieldEnum | Prisma.ErrorResolutionScalarFieldEnum[]
+}
+
+/**
+ * ErrorLog.codeContexts
+ */
+export type ErrorLog$codeContextsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ErrorCodeContext
+   */
+  select?: Prisma.ErrorCodeContextSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ErrorCodeContext
+   */
+  omit?: Prisma.ErrorCodeContextOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ErrorCodeContextInclude<ExtArgs> | null
+  where?: Prisma.ErrorCodeContextWhereInput
+  orderBy?: Prisma.ErrorCodeContextOrderByWithRelationInput | Prisma.ErrorCodeContextOrderByWithRelationInput[]
+  cursor?: Prisma.ErrorCodeContextWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ErrorCodeContextScalarFieldEnum | Prisma.ErrorCodeContextScalarFieldEnum[]
+}
+
+/**
+ * ErrorLog.parentCascades
+ */
+export type ErrorLog$parentCascadesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ErrorDependency
+   */
+  select?: Prisma.ErrorDependencySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ErrorDependency
+   */
+  omit?: Prisma.ErrorDependencyOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ErrorDependencyInclude<ExtArgs> | null
+  where?: Prisma.ErrorDependencyWhereInput
+  orderBy?: Prisma.ErrorDependencyOrderByWithRelationInput | Prisma.ErrorDependencyOrderByWithRelationInput[]
+  cursor?: Prisma.ErrorDependencyWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ErrorDependencyScalarFieldEnum | Prisma.ErrorDependencyScalarFieldEnum[]
+}
+
+/**
+ * ErrorLog.childCascades
+ */
+export type ErrorLog$childCascadesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ErrorDependency
+   */
+  select?: Prisma.ErrorDependencySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ErrorDependency
+   */
+  omit?: Prisma.ErrorDependencyOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ErrorDependencyInclude<ExtArgs> | null
+  where?: Prisma.ErrorDependencyWhereInput
+  orderBy?: Prisma.ErrorDependencyOrderByWithRelationInput | Prisma.ErrorDependencyOrderByWithRelationInput[]
+  cursor?: Prisma.ErrorDependencyWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ErrorDependencyScalarFieldEnum | Prisma.ErrorDependencyScalarFieldEnum[]
 }
 
 /**

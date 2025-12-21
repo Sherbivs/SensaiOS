@@ -85,6 +85,10 @@ export const ModelName = {
   LogEntry: 'LogEntry',
   ErrorLog: 'ErrorLog',
   ErrorAlert: 'ErrorAlert',
+  ErrorKnowledge: 'ErrorKnowledge',
+  ErrorResolution: 'ErrorResolution',
+  ErrorDependency: 'ErrorDependency',
+  ErrorCodeContext: 'ErrorCodeContext',
   BattleAnalytics: 'BattleAnalytics',
   ConsoleOutput: 'ConsoleOutput',
   DataPoolSyncStatus: 'DataPoolSyncStatus',
@@ -604,6 +608,64 @@ export const ErrorAlertScalarFieldEnum = {
 export type ErrorAlertScalarFieldEnum = (typeof ErrorAlertScalarFieldEnum)[keyof typeof ErrorAlertScalarFieldEnum]
 
 
+export const ErrorKnowledgeScalarFieldEnum = {
+  knowledgeId: 'knowledgeId',
+  patternType: 'patternType',
+  patternData: 'patternData',
+  confidence: 'confidence',
+  validUntil: 'validUntil',
+  observedCount: 'observedCount',
+  relatedFingerprints: 'relatedFingerprints',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ErrorKnowledgeScalarFieldEnum = (typeof ErrorKnowledgeScalarFieldEnum)[keyof typeof ErrorKnowledgeScalarFieldEnum]
+
+
+export const ErrorResolutionScalarFieldEnum = {
+  resolutionId: 'resolutionId',
+  errorId: 'errorId',
+  strategy: 'strategy',
+  attempted: 'attempted',
+  durationMs: 'durationMs',
+  outcome: 'outcome',
+  notes: 'notes',
+  contextData: 'contextData',
+  triggeredBy: 'triggeredBy'
+} as const
+
+export type ErrorResolutionScalarFieldEnum = (typeof ErrorResolutionScalarFieldEnum)[keyof typeof ErrorResolutionScalarFieldEnum]
+
+
+export const ErrorDependencyScalarFieldEnum = {
+  dependencyId: 'dependencyId',
+  parentErrorId: 'parentErrorId',
+  childErrorId: 'childErrorId',
+  observedCount: 'observedCount',
+  avgTimeDeltaMs: 'avgTimeDeltaMs',
+  confidence: 'confidence',
+  firstObserved: 'firstObserved',
+  lastObserved: 'lastObserved'
+} as const
+
+export type ErrorDependencyScalarFieldEnum = (typeof ErrorDependencyScalarFieldEnum)[keyof typeof ErrorDependencyScalarFieldEnum]
+
+
+export const ErrorCodeContextScalarFieldEnum = {
+  contextId: 'contextId',
+  errorId: 'errorId',
+  frameIndex: 'frameIndex',
+  filePath: 'filePath',
+  lineNumber: 'lineNumber',
+  columnNumber: 'columnNumber',
+  functionName: 'functionName',
+  codeSnippet: 'codeSnippet'
+} as const
+
+export type ErrorCodeContextScalarFieldEnum = (typeof ErrorCodeContextScalarFieldEnum)[keyof typeof ErrorCodeContextScalarFieldEnum]
+
+
 export const BattleAnalyticsScalarFieldEnum = {
   id: 'id',
   timestamp: 'timestamp',
@@ -1110,6 +1172,47 @@ export const ErrorAlertOrderByRelevanceFieldEnum = {
 } as const
 
 export type ErrorAlertOrderByRelevanceFieldEnum = (typeof ErrorAlertOrderByRelevanceFieldEnum)[keyof typeof ErrorAlertOrderByRelevanceFieldEnum]
+
+
+export const ErrorKnowledgeOrderByRelevanceFieldEnum = {
+  knowledgeId: 'knowledgeId',
+  patternType: 'patternType',
+  relatedFingerprints: 'relatedFingerprints'
+} as const
+
+export type ErrorKnowledgeOrderByRelevanceFieldEnum = (typeof ErrorKnowledgeOrderByRelevanceFieldEnum)[keyof typeof ErrorKnowledgeOrderByRelevanceFieldEnum]
+
+
+export const ErrorResolutionOrderByRelevanceFieldEnum = {
+  resolutionId: 'resolutionId',
+  errorId: 'errorId',
+  strategy: 'strategy',
+  outcome: 'outcome',
+  notes: 'notes',
+  triggeredBy: 'triggeredBy'
+} as const
+
+export type ErrorResolutionOrderByRelevanceFieldEnum = (typeof ErrorResolutionOrderByRelevanceFieldEnum)[keyof typeof ErrorResolutionOrderByRelevanceFieldEnum]
+
+
+export const ErrorDependencyOrderByRelevanceFieldEnum = {
+  dependencyId: 'dependencyId',
+  parentErrorId: 'parentErrorId',
+  childErrorId: 'childErrorId'
+} as const
+
+export type ErrorDependencyOrderByRelevanceFieldEnum = (typeof ErrorDependencyOrderByRelevanceFieldEnum)[keyof typeof ErrorDependencyOrderByRelevanceFieldEnum]
+
+
+export const ErrorCodeContextOrderByRelevanceFieldEnum = {
+  contextId: 'contextId',
+  errorId: 'errorId',
+  filePath: 'filePath',
+  functionName: 'functionName',
+  codeSnippet: 'codeSnippet'
+} as const
+
+export type ErrorCodeContextOrderByRelevanceFieldEnum = (typeof ErrorCodeContextOrderByRelevanceFieldEnum)[keyof typeof ErrorCodeContextOrderByRelevanceFieldEnum]
 
 
 export const BattleAnalyticsOrderByRelevanceFieldEnum = {

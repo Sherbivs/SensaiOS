@@ -418,6 +418,10 @@ export const ModelName = {
   LogEntry: 'LogEntry',
   ErrorLog: 'ErrorLog',
   ErrorAlert: 'ErrorAlert',
+  ErrorKnowledge: 'ErrorKnowledge',
+  ErrorResolution: 'ErrorResolution',
+  ErrorDependency: 'ErrorDependency',
+  ErrorCodeContext: 'ErrorCodeContext',
   BattleAnalytics: 'BattleAnalytics',
   ConsoleOutput: 'ConsoleOutput',
   DataPoolSyncStatus: 'DataPoolSyncStatus',
@@ -441,7 +445,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "tenant" | "trainer" | "dexPack" | "trainerSettings" | "type" | "ability" | "item" | "move" | "species" | "speciesType" | "speciesAbility" | "speciesLearnset" | "evolutionStep" | "typeChart" | "nameVariant" | "user" | "homesteadChannel" | "discordGuild" | "discordMember" | "pokemonInstance" | "party" | "partySlot" | "inventory" | "encounter" | "battle" | "cooldown" | "busMessage" | "busIdemToken" | "auditLog" | "dbVersion" | "dbSyncState" | "logEntry" | "errorLog" | "errorAlert" | "battleAnalytics" | "consoleOutput" | "dataPoolSyncStatus" | "discordRole" | "eventHistory" | "memberRoleHistory" | "securityEvent" | "workerMetrics"
+    modelProps: "tenant" | "trainer" | "dexPack" | "trainerSettings" | "type" | "ability" | "item" | "move" | "species" | "speciesType" | "speciesAbility" | "speciesLearnset" | "evolutionStep" | "typeChart" | "nameVariant" | "user" | "homesteadChannel" | "discordGuild" | "discordMember" | "pokemonInstance" | "party" | "partySlot" | "inventory" | "encounter" | "battle" | "cooldown" | "busMessage" | "busIdemToken" | "auditLog" | "dbVersion" | "dbSyncState" | "logEntry" | "errorLog" | "errorAlert" | "errorKnowledge" | "errorResolution" | "errorDependency" | "errorCodeContext" | "battleAnalytics" | "consoleOutput" | "dataPoolSyncStatus" | "discordRole" | "eventHistory" | "memberRoleHistory" | "securityEvent" | "workerMetrics"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -2961,6 +2965,302 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ErrorKnowledge: {
+      payload: Prisma.$ErrorKnowledgePayload<ExtArgs>
+      fields: Prisma.ErrorKnowledgeFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ErrorKnowledgeFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorKnowledgePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ErrorKnowledgeFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorKnowledgePayload>
+        }
+        findFirst: {
+          args: Prisma.ErrorKnowledgeFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorKnowledgePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ErrorKnowledgeFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorKnowledgePayload>
+        }
+        findMany: {
+          args: Prisma.ErrorKnowledgeFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorKnowledgePayload>[]
+        }
+        create: {
+          args: Prisma.ErrorKnowledgeCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorKnowledgePayload>
+        }
+        createMany: {
+          args: Prisma.ErrorKnowledgeCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ErrorKnowledgeCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorKnowledgePayload>[]
+        }
+        delete: {
+          args: Prisma.ErrorKnowledgeDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorKnowledgePayload>
+        }
+        update: {
+          args: Prisma.ErrorKnowledgeUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorKnowledgePayload>
+        }
+        deleteMany: {
+          args: Prisma.ErrorKnowledgeDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ErrorKnowledgeUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ErrorKnowledgeUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorKnowledgePayload>[]
+        }
+        upsert: {
+          args: Prisma.ErrorKnowledgeUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorKnowledgePayload>
+        }
+        aggregate: {
+          args: Prisma.ErrorKnowledgeAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateErrorKnowledge>
+        }
+        groupBy: {
+          args: Prisma.ErrorKnowledgeGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ErrorKnowledgeGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ErrorKnowledgeCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ErrorKnowledgeCountAggregateOutputType> | number
+        }
+      }
+    }
+    ErrorResolution: {
+      payload: Prisma.$ErrorResolutionPayload<ExtArgs>
+      fields: Prisma.ErrorResolutionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ErrorResolutionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorResolutionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ErrorResolutionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorResolutionPayload>
+        }
+        findFirst: {
+          args: Prisma.ErrorResolutionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorResolutionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ErrorResolutionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorResolutionPayload>
+        }
+        findMany: {
+          args: Prisma.ErrorResolutionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorResolutionPayload>[]
+        }
+        create: {
+          args: Prisma.ErrorResolutionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorResolutionPayload>
+        }
+        createMany: {
+          args: Prisma.ErrorResolutionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ErrorResolutionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorResolutionPayload>[]
+        }
+        delete: {
+          args: Prisma.ErrorResolutionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorResolutionPayload>
+        }
+        update: {
+          args: Prisma.ErrorResolutionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorResolutionPayload>
+        }
+        deleteMany: {
+          args: Prisma.ErrorResolutionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ErrorResolutionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ErrorResolutionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorResolutionPayload>[]
+        }
+        upsert: {
+          args: Prisma.ErrorResolutionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorResolutionPayload>
+        }
+        aggregate: {
+          args: Prisma.ErrorResolutionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateErrorResolution>
+        }
+        groupBy: {
+          args: Prisma.ErrorResolutionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ErrorResolutionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ErrorResolutionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ErrorResolutionCountAggregateOutputType> | number
+        }
+      }
+    }
+    ErrorDependency: {
+      payload: Prisma.$ErrorDependencyPayload<ExtArgs>
+      fields: Prisma.ErrorDependencyFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ErrorDependencyFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorDependencyPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ErrorDependencyFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorDependencyPayload>
+        }
+        findFirst: {
+          args: Prisma.ErrorDependencyFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorDependencyPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ErrorDependencyFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorDependencyPayload>
+        }
+        findMany: {
+          args: Prisma.ErrorDependencyFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorDependencyPayload>[]
+        }
+        create: {
+          args: Prisma.ErrorDependencyCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorDependencyPayload>
+        }
+        createMany: {
+          args: Prisma.ErrorDependencyCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ErrorDependencyCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorDependencyPayload>[]
+        }
+        delete: {
+          args: Prisma.ErrorDependencyDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorDependencyPayload>
+        }
+        update: {
+          args: Prisma.ErrorDependencyUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorDependencyPayload>
+        }
+        deleteMany: {
+          args: Prisma.ErrorDependencyDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ErrorDependencyUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ErrorDependencyUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorDependencyPayload>[]
+        }
+        upsert: {
+          args: Prisma.ErrorDependencyUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorDependencyPayload>
+        }
+        aggregate: {
+          args: Prisma.ErrorDependencyAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateErrorDependency>
+        }
+        groupBy: {
+          args: Prisma.ErrorDependencyGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ErrorDependencyGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ErrorDependencyCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ErrorDependencyCountAggregateOutputType> | number
+        }
+      }
+    }
+    ErrorCodeContext: {
+      payload: Prisma.$ErrorCodeContextPayload<ExtArgs>
+      fields: Prisma.ErrorCodeContextFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ErrorCodeContextFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorCodeContextPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ErrorCodeContextFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorCodeContextPayload>
+        }
+        findFirst: {
+          args: Prisma.ErrorCodeContextFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorCodeContextPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ErrorCodeContextFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorCodeContextPayload>
+        }
+        findMany: {
+          args: Prisma.ErrorCodeContextFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorCodeContextPayload>[]
+        }
+        create: {
+          args: Prisma.ErrorCodeContextCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorCodeContextPayload>
+        }
+        createMany: {
+          args: Prisma.ErrorCodeContextCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ErrorCodeContextCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorCodeContextPayload>[]
+        }
+        delete: {
+          args: Prisma.ErrorCodeContextDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorCodeContextPayload>
+        }
+        update: {
+          args: Prisma.ErrorCodeContextUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorCodeContextPayload>
+        }
+        deleteMany: {
+          args: Prisma.ErrorCodeContextDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ErrorCodeContextUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ErrorCodeContextUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorCodeContextPayload>[]
+        }
+        upsert: {
+          args: Prisma.ErrorCodeContextUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ErrorCodeContextPayload>
+        }
+        aggregate: {
+          args: Prisma.ErrorCodeContextAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateErrorCodeContext>
+        }
+        groupBy: {
+          args: Prisma.ErrorCodeContextGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ErrorCodeContextGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ErrorCodeContextCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ErrorCodeContextCountAggregateOutputType> | number
+        }
+      }
+    }
     BattleAnalytics: {
       payload: Prisma.$BattleAnalyticsPayload<ExtArgs>
       fields: Prisma.BattleAnalyticsFieldRefs
@@ -4085,6 +4385,64 @@ export const ErrorAlertScalarFieldEnum = {
 export type ErrorAlertScalarFieldEnum = (typeof ErrorAlertScalarFieldEnum)[keyof typeof ErrorAlertScalarFieldEnum]
 
 
+export const ErrorKnowledgeScalarFieldEnum = {
+  knowledgeId: 'knowledgeId',
+  patternType: 'patternType',
+  patternData: 'patternData',
+  confidence: 'confidence',
+  validUntil: 'validUntil',
+  observedCount: 'observedCount',
+  relatedFingerprints: 'relatedFingerprints',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ErrorKnowledgeScalarFieldEnum = (typeof ErrorKnowledgeScalarFieldEnum)[keyof typeof ErrorKnowledgeScalarFieldEnum]
+
+
+export const ErrorResolutionScalarFieldEnum = {
+  resolutionId: 'resolutionId',
+  errorId: 'errorId',
+  strategy: 'strategy',
+  attempted: 'attempted',
+  durationMs: 'durationMs',
+  outcome: 'outcome',
+  notes: 'notes',
+  contextData: 'contextData',
+  triggeredBy: 'triggeredBy'
+} as const
+
+export type ErrorResolutionScalarFieldEnum = (typeof ErrorResolutionScalarFieldEnum)[keyof typeof ErrorResolutionScalarFieldEnum]
+
+
+export const ErrorDependencyScalarFieldEnum = {
+  dependencyId: 'dependencyId',
+  parentErrorId: 'parentErrorId',
+  childErrorId: 'childErrorId',
+  observedCount: 'observedCount',
+  avgTimeDeltaMs: 'avgTimeDeltaMs',
+  confidence: 'confidence',
+  firstObserved: 'firstObserved',
+  lastObserved: 'lastObserved'
+} as const
+
+export type ErrorDependencyScalarFieldEnum = (typeof ErrorDependencyScalarFieldEnum)[keyof typeof ErrorDependencyScalarFieldEnum]
+
+
+export const ErrorCodeContextScalarFieldEnum = {
+  contextId: 'contextId',
+  errorId: 'errorId',
+  frameIndex: 'frameIndex',
+  filePath: 'filePath',
+  lineNumber: 'lineNumber',
+  columnNumber: 'columnNumber',
+  functionName: 'functionName',
+  codeSnippet: 'codeSnippet'
+} as const
+
+export type ErrorCodeContextScalarFieldEnum = (typeof ErrorCodeContextScalarFieldEnum)[keyof typeof ErrorCodeContextScalarFieldEnum]
+
+
 export const BattleAnalyticsScalarFieldEnum = {
   id: 'id',
   timestamp: 'timestamp',
@@ -4593,6 +4951,47 @@ export const ErrorAlertOrderByRelevanceFieldEnum = {
 export type ErrorAlertOrderByRelevanceFieldEnum = (typeof ErrorAlertOrderByRelevanceFieldEnum)[keyof typeof ErrorAlertOrderByRelevanceFieldEnum]
 
 
+export const ErrorKnowledgeOrderByRelevanceFieldEnum = {
+  knowledgeId: 'knowledgeId',
+  patternType: 'patternType',
+  relatedFingerprints: 'relatedFingerprints'
+} as const
+
+export type ErrorKnowledgeOrderByRelevanceFieldEnum = (typeof ErrorKnowledgeOrderByRelevanceFieldEnum)[keyof typeof ErrorKnowledgeOrderByRelevanceFieldEnum]
+
+
+export const ErrorResolutionOrderByRelevanceFieldEnum = {
+  resolutionId: 'resolutionId',
+  errorId: 'errorId',
+  strategy: 'strategy',
+  outcome: 'outcome',
+  notes: 'notes',
+  triggeredBy: 'triggeredBy'
+} as const
+
+export type ErrorResolutionOrderByRelevanceFieldEnum = (typeof ErrorResolutionOrderByRelevanceFieldEnum)[keyof typeof ErrorResolutionOrderByRelevanceFieldEnum]
+
+
+export const ErrorDependencyOrderByRelevanceFieldEnum = {
+  dependencyId: 'dependencyId',
+  parentErrorId: 'parentErrorId',
+  childErrorId: 'childErrorId'
+} as const
+
+export type ErrorDependencyOrderByRelevanceFieldEnum = (typeof ErrorDependencyOrderByRelevanceFieldEnum)[keyof typeof ErrorDependencyOrderByRelevanceFieldEnum]
+
+
+export const ErrorCodeContextOrderByRelevanceFieldEnum = {
+  contextId: 'contextId',
+  errorId: 'errorId',
+  filePath: 'filePath',
+  functionName: 'functionName',
+  codeSnippet: 'codeSnippet'
+} as const
+
+export type ErrorCodeContextOrderByRelevanceFieldEnum = (typeof ErrorCodeContextOrderByRelevanceFieldEnum)[keyof typeof ErrorCodeContextOrderByRelevanceFieldEnum]
+
+
 export const BattleAnalyticsOrderByRelevanceFieldEnum = {
   battleId: 'battleId',
   trainerId: 'trainerId',
@@ -4987,6 +5386,10 @@ export type GlobalOmitConfig = {
   logEntry?: Prisma.LogEntryOmit
   errorLog?: Prisma.ErrorLogOmit
   errorAlert?: Prisma.ErrorAlertOmit
+  errorKnowledge?: Prisma.ErrorKnowledgeOmit
+  errorResolution?: Prisma.ErrorResolutionOmit
+  errorDependency?: Prisma.ErrorDependencyOmit
+  errorCodeContext?: Prisma.ErrorCodeContextOmit
   battleAnalytics?: Prisma.BattleAnalyticsOmit
   consoleOutput?: Prisma.ConsoleOutputOmit
   dataPoolSyncStatus?: Prisma.DataPoolSyncStatusOmit

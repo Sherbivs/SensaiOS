@@ -672,7 +672,12 @@ model ErrorLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  alerts ErrorAlert[]
+  // Relations
+  alerts             ErrorAlert[]
+  resolutions        ErrorResolution[]
+  codeContexts       ErrorCodeContext[]
+  parentCascades     ErrorDependency[] @relation("ParentCascade")
+  childCascades      ErrorDependency[] @relation("ChildCascade")
 
   @@index([fingerprint])
   @@index([category])
@@ -697,6 +702,122 @@ model ErrorAlert {
   @@index([errorId])
   @@index([sentAt(sort: Desc)])
   @@map("ErrorAlert")
+}
+
+/// ---- Error Learning System (Phase 1) ----
+/// Specialist Team Design Session — December 21, 2025
+/// Enables ML pattern detection, resolution tracking, and cascade analysis
+
+/// ErrorKnowledge — Stores learned patterns separately from errors
+/// Patterns expire and refresh via ErrorLearningWorker
+model ErrorKnowledge {
+  knowledgeId String   @id @default(uuid())
+  patternType String   // 'TIME_CLUSTER' | 'CORRELATION' | 'CASCADE' | 'RECOVERY'
+  
+  // Pattern data (flexible JSONB for ML features)
+  patternData Json
+  
+  // Confidence and validity
+  confidence   Float    // 0.0 to 1.0
+  validUntil   DateTime // Patterns expire and need refresh
+  observedCount Int     @default(1) // How many times pattern observed
+  
+  // Related errors (optional fingerprints)
+  relatedFingerprints String[] // Fingerprints involved in this pattern
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([patternType, confidence(sort: Desc)])
+  @@index([validUntil])
+  @@index([patternType, validUntil])
+  @@map("ErrorKnowledge")
+}
+
+/// ErrorResolution — Tracks fix attempts and outcomes for learning
+/// Enables "what worked before" queries and success rate calculation
+model ErrorResolution {
+  resolutionId String   @id @default(uuid())
+  errorId      String
+  
+  // Resolution details
+  strategy     String   // 'RETRY' | 'FALLBACK' | 'RESTART' | 'ESCALATE' | 'IGNORE'
+  attempted    DateTime @default(now())
+  durationMs   Int?     // How long the resolution took
+  
+  // Outcome tracking
+  outcome      String   // 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'ESCALATED'
+  
+  // Context and notes
+  notes        String?  @db.Text // AI-generated or human notes
+  contextData  Json?    // Additional context at resolution time
+  
+  // Who/what triggered resolution
+  triggeredBy  String?  // 'AUTO' | 'MANUAL' | userId
+  
+  // Relation to error
+  error ErrorLog @relation(fields: [errorId], references: [errorId], onDelete: Cascade)
+  
+  @@index([errorId, outcome])
+  @@index([strategy, outcome])
+  @@index([attempted(sort: Desc)])
+  @@index([strategy, attempted(sort: Desc)])
+  @@map("ErrorResolution")
+}
+
+/// ErrorDependency — Tracks which errors trigger other errors
+/// Enables root cause analysis and cascade prediction
+model ErrorDependency {
+  dependencyId    String @id @default(uuid())
+  
+  // Parent = root cause, Child = cascaded error
+  parentErrorId   String
+  childErrorId    String
+  
+  // Statistical tracking
+  observedCount   Int    @default(1)  // How many times this cascade observed
+  avgTimeDeltaMs  Float  @default(0)  // Average ms between parent→child
+  confidence      Float  @default(0)  // 0.0 to 1.0 confidence score
+  
+  // Timestamps
+  firstObserved   DateTime @default(now())
+  lastObserved    DateTime @default(now())
+  
+  // Relations
+  parentError ErrorLog @relation("ParentCascade", fields: [parentErrorId], references: [errorId], onDelete: Cascade)
+  childError  ErrorLog @relation("ChildCascade", fields: [childErrorId], references: [errorId], onDelete: Cascade)
+  
+  @@unique([parentErrorId, childErrorId])
+  @@index([parentErrorId])
+  @@index([childErrorId])
+  @@index([confidence(sort: Desc)])
+  @@map("ErrorDependency")
+}
+
+/// ErrorCodeContext — Preserves stack frame details for debugging
+/// Enables "show me where this error occurred" queries
+model ErrorCodeContext {
+  contextId    String @id @default(uuid())
+  errorId      String
+  
+  // Stack frame details
+  frameIndex   Int      // 0 = top of stack
+  filePath     String
+  lineNumber   Int
+  columnNumber Int?
+  functionName String?
+  
+  // Code snippet (5 lines around error)
+  codeSnippet  String?  @db.Text
+  
+  // Relation to error
+  error ErrorLog @relation(fields: [errorId], references: [errorId], onDelete: Cascade)
+  
+  @@index([errorId])
+  @@index([filePath, lineNumber])
+  @@index([functionName])
+  @@map("ErrorCodeContext")
 }
 
 /// ---- TimescaleDB Analytics Tables ----
