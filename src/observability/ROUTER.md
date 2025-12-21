@@ -133,6 +133,6 @@ observabilityHub.ingest('security.sweep.completed', {
 - [Event Bus](../shared/event-bus.ts) — Source of events via '**' subscription
 - [Security Bot State](../bot/state/) — Direct ingestion source
 
----b
+---
 
 **Created:** 2025-12-20 | **Author:** Sherman Bivens
