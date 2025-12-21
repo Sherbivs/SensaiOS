@@ -80,36 +80,19 @@ Each domain has its own ROUTER.md with detailed documentation:
 - [data/ROUTER.md](data/ROUTER.md) — Dexpack building and data validation
 - [ops/ROUTER.md](ops/ROUTER.md) — Migrations, hotfix, archival
 
-## Legacy Scripts (Pending Migration)
-
-The following root-level scripts will be migrated to domain CLIs:
-
-### Guards (→ guard/)
-- `guards/guard_meta.sh` → `guard/cli.ts meta`
-- `guards/guard_routing.sh` → `guard/cli.ts routing`
-- `guards/guard_dexpack.sh` → `guard/cli.ts` (planned)
-
-### Database (→ db/)
-- `db_admin.ts` → `db/cli.ts`
-- `db_smoke.ts` → `db/cli.ts smoke`
-- `db_mirror_checks.ts` → `db/cli.ts diff`
-
-### Data (→ data/)
-- `build_dexpack.ts` → `data/cli.ts dexpack`
-- `build-data.ts` → `data/cli.ts build`
-- `fetch_pokemon.mjs` → `data/cli.ts fetch`
-- `cache_client.mjs` → `data/cli.ts cache`
-
-### Operations (→ ops/)
-- `archive_task_history.mjs` → `ops/cli.ts archive`
-- `ops/*.ps1` → Various ops/cli.ts commands
-
 ## Archive Directory
 
 Legacy and one-time scripts are preserved in `scripts/archive/`:
 
 - `archive/render-api-deprecated/` — Deprecated Render API scripts (SSH-only policy)
-- `archive/one-time-migrations/` — Completed migration scripts
+- `archive/one-time-migrations/` — Completed migration scripts (9 files)
+  - db_bootstrap_backfill.ts, migrate-logs-to-database.ts, migrate_console_logs.mjs
+  - manual_prod_migrate.ps1, init-driptvdd-test.ts, force-create-homestead.ts
+  - validate_staging_deployment.mjs, deploy_production.mjs, detect_deprecated_refs.ps1
+- `archive/bootstrap/` — Staging/production bootstrap scripts (2 files)
+  - bootstrap_prod_node.sh, bootstrap_staging_db.ps1
+- `archive/loki-setup/` — One-time Loki integration scripts (2 files)
+  - ngrok-watchdog.ps1, log-cli.sh
 
 ## Output Formatting
 
@@ -121,6 +104,10 @@ All CLIs use the shared lib/output.ts module:
 
 ## Changelog
 
+- **2025-12-21:** Phase 2 Cleanup — 28 redundant scripts deleted (replaced by CLIs), 13 archived
+  - **Deleted:** render_*.ps1 (11), docker-*.ps1 (3), loki-*.ps1 (4), db_smoke.ts, check_db_redundancy.ts, db_mirror_checks.ts, diagnose-homestead.ts, guard_*.sh (6)
+  - **Archived:** bootstrap scripts (2), one-time migrations (9), loki setup (2)
+  - **package.json:** Removed 15 dead npm scripts, cleaned RENDER-API section
 - **2025-12-21:** Legacy Cleanup — 14 orphan scripts deleted, package.json reorganized
 - **2025-12-21:** Scripts Overhaul Project complete — 8 domains with unified CLIs
 - **2025-12-18:** TypeScript Migration Phase 1 — 6 CommonJS scripts converted
