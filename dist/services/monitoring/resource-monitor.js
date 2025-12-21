@@ -27,6 +27,8 @@
  *
  * Integration: Called from src/index.ts boot() and gracefulShutdown()
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import { resourceManager } from './resource-manager.js';
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
 import { log as logger } from '../../shared/logging/index.js';
@@ -1266,11 +1268,6 @@ class ResourceMonitor {
         let cacheSize = 0;
         const cacheDir = process.env.RENDER ? '/Store' : process.cwd() + '/Store';
         try {
-            // Use synchronous fs operations for this sync method
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const fs = require('node:fs');
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const path = require('node:path');
             // Check if Store directory exists
             if (fs.existsSync(cacheDir)) {
                 // Get directory size by walking files (limited depth for performance)
