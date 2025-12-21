@@ -67,6 +67,7 @@ import cliStatus from '../utils/cliStatus.js';
 import { installFatalErrorHandlers } from '../utils/fatalErrorGuard.js';
 import { log as baseLog, report } from '../shared/logging/index.js';
 import opsNotifier from '../utils/opsNotifier.js';
+import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
 
 import { createDripAlertManager, DRIP_ALERT_SEVERITY, type DripAlertManager, type DescribeUserFunction } from './dripAlerts.js';
 import { buildRestartSummary } from './state/context.js';
@@ -1431,31 +1432,23 @@ function canAssignRole(guild: Guild, role: Role): boolean {
 // ----- Operational reporting -----
 // formatBytes now imported from shared/utils/format-utils.js (centralized)
 
-interface ExtendedCacheBudget {
-  approxBytes: number;
-  maxAllowedBytes: number;
-  percent: number;
-  workspaceLimitBytes?: number;
-  diskFreeBytes?: number;
-  diskTotalBytes?: number;
-}
-
 function reportOperationalStats(where = 'startup'): void {
-  const hasBudget = cache && typeof cache.getCacheBudget === 'function';
-  const budget: ExtendedCacheBudget = hasBudget ? cache.getCacheBudget() : { approxBytes: 0, maxAllowedBytes: 0, percent: cache && cache.MAX_CACHE_PERCENT ? cache.MAX_CACHE_PERCENT : 0.25 };
-  const cacheSize = (cache && typeof cache.getCacheSize === 'function') ? cache.getCacheSize() : 0;
+  // Use resourceMonitor for accurate disk metrics (directory walk, not statfsSync)
+  // Note: cache.getCacheBudget() uses statfsSync which returns container FS, not /Store volume
+  const metrics = resourceMonitor.getMetrics();
   const mem = process.memoryUsage();
 
   log('info', '=== Cache & Resource Report ===', {
     at: where,
-    cacheDir: cache && cache.CACHE_DIR ? cache.CACHE_DIR : 'unknown',
-    cacheSize: formatBytes(cacheSize),
-    cacheBudgetMax: formatBytes(budget.maxAllowedBytes),
-    cacheBudgetPercent: `${Math.round(budget.percent * 100)}% of approx free`,
-    approxFree: formatBytes(budget.approxBytes),
-    workspaceLimit: budget.workspaceLimitBytes ? formatBytes(budget.workspaceLimitBytes) : 'unknown',
-    diskFree: budget.diskFreeBytes ? formatBytes(budget.diskFreeBytes) : 'unknown',
-    diskTotal: budget.diskTotalBytes ? formatBytes(budget.diskTotalBytes) : 'unknown',
+    cacheDir: metrics.cacheDir,
+    cacheSize: formatBytes(metrics.cacheSize),
+    cacheBudgetMax: formatBytes(metrics.cacheBudgetMax),
+    cacheBudgetPercent: `${Math.round(metrics.cacheBudgetPercent * 100)}% of approx free`,
+    approxFree: formatBytes(metrics.approxFree),
+    workspaceLimit: formatBytes(metrics.workspaceLimit),
+    diskFree: formatBytes(metrics.diskFree),
+    diskTotal: formatBytes(metrics.diskTotal),
+    diskUsed: formatBytes(metrics.diskUsed),
     node: process.version,
     pid: process.pid,
     uptimeSec: Math.round(process.uptime()),
