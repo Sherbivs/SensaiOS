@@ -1,56 +1,125 @@
-# ROUTER
-Title: Tooling
-Purpose: Guard scripts and automation entrypoints.
-Owned Globs: scripts/**
-Last Updated (UTC): 2025-11-09T00:00:00Z
+# ROUTER.md — Scripts Domain
 
-Notes:
-- 2025-02-26: Added dexpack guard documentation and touchmap pointer; see guards/guard_dexpack.sh.
-- 2025-11-01: Documented dex (reference data), guards (CI invariants), and ops (operator helpers) sub-routers for quicker discovery.
-- 2025-11-01: guard_routing.sh now unions commit/worktree/untracked changes and trusts META.ROUTER.* tasks when touching ROUTER manifests so routing guard runs clean after the sub-router sweep.
-- 2025-11-01: guard_routing.sh exits non-zero when files fall outside the NEXT touch patterns; keep ops/TOUCHMAP.yaml aligned before running guards.
-- guard_meta.sh enforces READY invariants. Called in CI preflight/postflight.
-- When POSTFLIGHT=1 it hard-fails on missing READY or NONE NEXT to keep merges safe.
-- 2025-10-26: guard_meta detects the marker switch, relaxes contracts in Markerless Mode, and still enforces Absolutes.
-- 2025-10-27: verify_router_links.sh and update_router_index.sh keep router docs synchronised after PBSL oracle additions.
-- 2025-10-28: Documented bootstrap_staging_db.ps1 for staging schema prep and referenced it in ops router metadata.
-- 2025-10-28: update_change_ledger.sh / update_change_ledger_unix.sh now exec the Node helper for consistent ledger generation across shells.
-- 2025-10-29: Added `restore_prisma_postgres.ps1` to automate Prisma Postgres imports and `db_smoke.ts` for Accelerate smoke tests.
-- 2025-10-29: `sync_accelerate_to_render.ps1` ships the Accelerate→Render refresh workflow and `guard_router_docs.sh` enforces generated router docs stay command-generated.
-- 2025-10-29: Introduced `setup_ai_env.ps1` to register `IG_ENV_FILE` for agent/automation runs while keeping secrets outside the repo.
-- 2025-10-29: Added `db_admin.ts` (run via `npm run db:cli`) as the master database control suite for status inspections and ad-hoc queries.
-- 2025-10-30: Added `guard_db_docs.mjs` + CI workflow to fail when DB connection docs drift on Key/Dev, Key/Prod, or Prisma regenerate guidance.
-- 2025-10-30: Added `dev_prod_auto_sync.ts` (`npm run db:auto-sync`) to consolidate on deployment and poll every five minutes for drift before replaying the Dev → Prod → Dev migration/seed cadence.
-- 2025-10-30: Hardened `dev_prod_auto_sync.ts` to inherit env file credentials, force direct migrations, and apply command timeouts.
-- 2025-10-30: Linked `fetch_pokemon.mjs` + `dev_prod_auto_sync.ts`—fetcher now writes `dex-sync-trigger.json` and the auto-sync loop performs `dex_trigger` consolidations when that artifact changes.
-- 2025-11-01: Added database connectivity smoke tests. Removed obsolete Optimize probe script in Wave 4 cleanup (2025-11-07).
-- 2025-11-02: `dev_prod_auto_sync.ts` now dispatches `integrity.alert` payloads to `ALERT_WEBHOOK_URL`, dedupes repeated drifts, and exposes CLI overrides for rehearsals.
-- 2025-11-02: Introduced `guard_auto_sync.sh` (`npm run guard:auto-sync`) to verify env secrets and the dex trigger before automation runs.
-- 2025-11-02: Added `build_dexpack.ts` (`npm run data:dexpack`) and guard wrapper `guards/guard_dexpack.sh` so committed dexpack assets stay deterministic across branches.
-- 2025-11-02: Added `build-dexpack.ts` (`npm run data:dexpack:v2`) to emit the binary slab/manifest for the DEX v2 pipeline alongside the legacy generator.
-- 2025-11-03: Added DEX v2 cutover helpers (`npm run ops:dex-v2-backup`, `npm run ops:simulate-flag`, `npm run ops:dex-v2-alert-dry-run`) for backup, flag scheduling, and alert rehearsals ahead of the PROD canary.
-- 2025-11-04: `db_smoke.ts` now loads IG_ENV_FILE secrets, prefers direct Postgres connections, and exposes `--mode` / `DB_SMOKE_MODE` overrides for testing different connection modes.
-- 2025-11-05: Added `ops:bootstrap-local-db` (see `scripts/ops/bootstrap_local_fallback.ts`) to hydrate the Store-hosted Postgres mirror for offline failover.
-- 2025-11-06: Added `scripts/ops/ensure_postgres_bundle.ps1` and `scripts/ops/auto_bootstrap_local_db.ps1`; run `npm run ops:auto-bootstrap-local-db` to silently install Postgres tooling then refresh the local fallback end-to-end.
-- 2025-11-09: Console Output Standardization (2025-11-09):
-- All CLI scripts migrated to centralized output-formatter utility (src/utils/output-formatter.ts)
-- ESLint enforcement via scripts-prefer-output-formatter rule
-- 61 comprehensive tests (100% coverage)
-- 11 scripts standardized: db_admin.ts, db_smoke.ts, db_replication.ts, check_db_redundancy.ts, db_bootstrap_backfill.ts, build_dexpack.ts, build-dexpack.ts, build-data.ts, fetch_pokemon.mjs, cache_client.mjs, archive_task_history.mjs
-- See development-bible/06-console-tooling.md for comprehensive guidelines and quick reference patterns
-- 2025-12-18: TypeScript Migration (Phase 1 Complete):
-- Converted 6 CommonJS scripts to TypeScript: validate_database_urls.ts, preflight.ts, ensure-data.ts, build-data.ts, build-assets-manifest.ts, register-commands.ts
-- Updated package.json scripts to use tsx instead of node
-- security-bot.ts migrated from root (already ESM, added types)
+**Title:** Scripts & Automation  
+**Purpose:** Unified TypeScript CLI tooling organized by domain  
+**Owned Globs:** `scripts/**`  
+**Last Updated (UTC):** 2025-12-21T00:00:00Z
 
-Subrouters:
-- scripts/dex/ROUTER.md — Data seeding and cache warmup entrypoints.
-- scripts/guards/ROUTER.md — CI and guard rails for repository invariants.
-- scripts/ops/ROUTER.md — Operator-focused migration and recovery helpers.
+---
 
-Output Formatting:
-- All scripts now use src/utils/output-formatter.ts for consistent CLI output
-- ESLint enforces no-console in production (error), scripts (warn), tests (off)
-- 11 functions available: formatBorder, formatSectionHeader, formatKeyValue, formatKeyValueList, formatTable, formatList, formatStatus, formatProgress, formatOutputBlock, formatSeparator, formatSection
-- See docs/console-output-standards.md for comprehensive guidelines
-- See docs/console-output-quick-reference.md for common patterns
+## Overview
+
+The scripts directory has been reorganized into domain-specific subdirectories, each with a unified TypeScript CLI entry point. All CLIs share a common foundation library (`lib/`) for consistent output formatting, error handling, and command-line parsing.
+
+## Domain Architecture
+
+| Domain | Entry Point | Purpose | Commands |
+|--------|-------------|---------|----------|
+| **lib** | `lib/index.ts` | Foundation library | — (exported functions) |
+| **render** | `render/cli.ts` | Render deployment operations | deploy, ssh, logs, status, restart |
+| **observe** | `observe/logs.ts` | Loki log viewing | query, stream, tail, search |
+| **db** | `db/cli.ts` | Database operations | status, query, counts, smoke, diff, migrations |
+| **diagnose** | `diagnose/cli.ts` | Emergency diagnostics | all, env, memory, database, security, homestead, files |
+| **guard** | `guard/cli.ts` | CI guards | all, meta, routing, secrets, schema, size |
+| **docker** | `docker/cli.ts` | Container management | build, run, logs, ps, compose, clean, status |
+| **data** | `data/cli.ts` | Data pipeline | dexpack, cache, fetch, validate, stats, build |
+| **ops** | `ops/cli.ts` | Operations | migrations, hotfix, archive, routers, tasks, clean |
+
+## Quick Reference
+
+```bash
+# Foundation (shared by all domains)
+# No CLI — provides exported utilities
+
+# Render Operations
+npx tsx scripts/render/cli.ts deploy
+npx tsx scripts/render/cli.ts ssh --interactive
+npx tsx scripts/render/cli.ts logs --follow
+
+# Log Observability  
+npx tsx scripts/observe/logs.ts query "error"
+npx tsx scripts/observe/logs.ts tail --service bot
+
+# Database Operations
+npx tsx scripts/db/cli.ts status
+npx tsx scripts/db/cli.ts query "SELECT COUNT(*) FROM \"User\""
+npx tsx scripts/db/cli.ts smoke
+
+# Emergency Diagnostics
+npx tsx scripts/diagnose/cli.ts all
+npx tsx scripts/diagnose/cli.ts memory
+
+# CI Guards
+npx tsx scripts/guard/cli.ts all
+npx tsx scripts/guard/cli.ts meta
+
+# Docker Management
+npx tsx scripts/docker/cli.ts build
+npx tsx scripts/docker/cli.ts compose up --loki
+
+# Data Pipeline
+npx tsx scripts/data/cli.ts dexpack
+npx tsx scripts/data/cli.ts validate
+
+# Operations
+npx tsx scripts/ops/cli.ts migrations status
+npx tsx scripts/ops/cli.ts hotfix start "Fix bug"
+```
+
+## Domain Documentation
+
+Each domain has its own ROUTER.md with detailed documentation:
+
+- [lib/ROUTER.md](lib/ROUTER.md) — Foundation library (output, errors, exec, env, fs, ssh, cli, progress)
+- [render/ROUTER.md](render/ROUTER.md) — Render deployment and SSH operations
+- [observe/ROUTER.md](observe/ROUTER.md) — Loki log querying and streaming
+- [db/ROUTER.md](db/ROUTER.md) — Database status, queries, migrations
+- [diagnose/ROUTER.md](diagnose/ROUTER.md) — Emergency debugging diagnostics
+- [guard/ROUTER.md](guard/ROUTER.md) — CI validation guards
+- [docker/ROUTER.md](docker/ROUTER.md) — Container and compose management
+- [data/ROUTER.md](data/ROUTER.md) — Dexpack building and data validation
+- [ops/ROUTER.md](ops/ROUTER.md) — Migrations, hotfix, archival
+
+## Legacy Scripts (Pending Migration)
+
+The following root-level scripts will be migrated to domain CLIs:
+
+### Guards (→ guard/)
+- `guards/guard_meta.sh` → `guard/cli.ts meta`
+- `guards/guard_routing.sh` → `guard/cli.ts routing`
+- `guards/guard_dexpack.sh` → `guard/cli.ts` (planned)
+
+### Database (→ db/)
+- `db_admin.ts` → `db/cli.ts`
+- `db_smoke.ts` → `db/cli.ts smoke`
+- `db_mirror_checks.ts` → `db/cli.ts diff`
+
+### Data (→ data/)
+- `build_dexpack.ts` → `data/cli.ts dexpack`
+- `build-data.ts` → `data/cli.ts build`
+- `fetch_pokemon.mjs` → `data/cli.ts fetch`
+- `cache_client.mjs` → `data/cli.ts cache`
+
+### Operations (→ ops/)
+- `archive_task_history.mjs` → `ops/cli.ts archive`
+- `ops/*.ps1` → Various ops/cli.ts commands
+
+## Output Formatting
+
+All CLIs use the shared lib/output.ts module:
+- Consistent ANSI colors
+- Formatted sections and key-value pairs
+- Progress bars and spinners
+- Proper exit codes for CI
+
+## Changelog
+
+- **2025-12-21:** Scripts Overhaul Project complete — 11 domains with unified CLIs
+- **2025-12-18:** TypeScript Migration Phase 1 — 6 CommonJS scripts converted
+- **2025-11-09:** Console Output Standardization — 11 scripts using output-formatter
+- **2025-11-06:** Bootstrap local database scripts added
+- **2025-11-02:** Guard scripts for dexpack and auto-sync added
+
+---
+
+*For the complete project plan, see [scripts-overhaul-project.md](../docs/projects/scripts-overhaul-project.md)*
