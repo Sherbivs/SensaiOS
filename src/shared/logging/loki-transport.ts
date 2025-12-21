@@ -191,6 +191,8 @@ class LokiTransport {
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        // ngrok free tier requires this header to bypass interstitial page
+        'ngrok-skip-browser-warning': 'true',
         ...this.authHeaders,
       };
 
