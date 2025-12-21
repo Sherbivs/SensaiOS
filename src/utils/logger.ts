@@ -202,6 +202,59 @@ const METRIC_UNAVAILABLE = Object.freeze({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CPU Usage Tracking (Live Metrics)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CpuSample {
+  usage: NodeJS.CpuUsage;
+  timestamp: number;
+}
+
+let previousCpuSample: CpuSample | null = null;
+let currentCpuPercent = 0;
+
+/**
+ * Calculate live CPU usage percentage based on delta between samples.
+ * process.cpuUsage() returns accumulated microseconds since process start.
+ * To get percentage, we calculate: (cpuDelta / timeDelta) * 100
+ */
+function calculateCpuPercent(): number {
+  const currentUsage = process.cpuUsage();
+  const currentTime = Date.now();
+  
+  if (previousCpuSample === null) {
+    // First sample - can't calculate delta yet
+    previousCpuSample = { usage: currentUsage, timestamp: currentTime };
+    return 0;
+  }
+  
+  // Calculate elapsed time in microseconds (match cpuUsage units)
+  const elapsedMs = currentTime - previousCpuSample.timestamp;
+  if (elapsedMs < 100) {
+    // Too short interval, return cached value
+    return currentCpuPercent;
+  }
+  
+  const elapsedMicros = elapsedMs * 1000;
+  
+  // Calculate CPU time delta (user + system)
+  const userDelta = currentUsage.user - previousCpuSample.usage.user;
+  const systemDelta = currentUsage.system - previousCpuSample.usage.system;
+  const totalDelta = userDelta + systemDelta;
+  
+  // CPU percentage = (cpu time used / wall clock time) * 100
+  // For single-core: max is 100%, for multi-core it could exceed 100%
+  // Clamp to 100% for display purposes
+  const percent = Math.min(100, Math.round((totalDelta / elapsedMicros) * 100));
+  
+  // Update previous sample
+  previousCpuSample = { usage: currentUsage, timestamp: currentTime };
+  currentCpuPercent = percent;
+  
+  return percent;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -885,6 +938,9 @@ function printInfinityConsole(): void {
   };
 
   const uptimeSeconds = parseUptimeSeconds(statsCache.node.uptime);
+  
+  // Calculate live CPU percentage (based on delta since last sample)
+  const cpuPercent = calculateCpuPercent();
 
   // Build dashboard config
   const config: DashboardConfig = {
@@ -899,7 +955,7 @@ function printInfinityConsole(): void {
     resources: {
       ram: { used: ramUsedMB * 1024 * 1024, total: ramTotalMB * 1024 * 1024 },
       disk: { used: diskUsedMB * 1024 * 1024, total: diskTotalMB * 1024 * 1024 },
-      cpu: 12, // Placeholder - would need CPU monitoring
+      cpu: cpuPercent, // Live CPU usage (calculated from process.cpuUsage() delta)
     },
   };
 
@@ -940,6 +996,7 @@ function printInfinityConsole(): void {
     nodeVersion: statsCache.node?.version,
     cpuUser: statsCache.node?.cpu.user,
     cpuSystem: statsCache.node?.cpu.system,
+    cpuPercent, // Live CPU usage percentage
   });
 }
 
