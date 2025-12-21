@@ -301,6 +301,7 @@ export type BusMessageOrderByWithRelationInput = {
   error?: Prisma.SortOrderInput | Prisma.SortOrder
   processedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  _relevance?: Prisma.BusMessageOrderByRelevanceInput
 }
 
 export type BusMessageWhereUniqueInput = Prisma.AtLeast<{
@@ -483,6 +484,12 @@ export type BusMessageUncheckedUpdateManyInput = {
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type BusMessageOrderByRelevanceInput = {
+  fields: Prisma.BusMessageOrderByRelevanceFieldEnum | Prisma.BusMessageOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type BusMessageTopicIdempotencyKeyCompoundUniqueInput = {

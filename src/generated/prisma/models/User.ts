@@ -285,6 +285,7 @@ export type UserOrderByWithRelationInput = {
   cooldowns?: Prisma.CooldownOrderByRelationAggregateInput
   trainers?: Prisma.TrainerOrderByRelationAggregateInput
   homesteadChannels?: Prisma.HomesteadChannelOrderByRelationAggregateInput
+  _relevance?: Prisma.UserOrderByRelevanceInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -471,6 +472,12 @@ export type UserUncheckedUpdateManyInput = {
 export type UserScalarRelationFilter = {
   is?: Prisma.UserWhereInput
   isNot?: Prisma.UserWhereInput
+}
+
+export type UserOrderByRelevanceInput = {
+  fields: Prisma.UserOrderByRelevanceFieldEnum | Prisma.UserOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type UserCountOrderByAggregateInput = {

@@ -297,6 +297,7 @@ export type EncounterOrderByWithRelationInput = {
   tenant?: Prisma.TenantOrderByWithRelationInput
   trainer?: Prisma.TrainerOrderByWithRelationInput
   dexPack?: Prisma.DexPackOrderByWithRelationInput
+  _relevance?: Prisma.EncounterOrderByRelevanceInput
 }
 
 export type EncounterWhereUniqueInput = Prisma.AtLeast<{
@@ -468,6 +469,12 @@ export type EncounterListRelationFilter = {
 
 export type EncounterOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type EncounterOrderByRelevanceInput = {
+  fields: Prisma.EncounterOrderByRelevanceFieldEnum | Prisma.EncounterOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type EncounterCountOrderByAggregateInput = {

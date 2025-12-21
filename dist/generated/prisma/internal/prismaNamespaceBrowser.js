@@ -580,12 +580,270 @@ export const QueryMode = {
     default: 'default',
     insensitive: 'insensitive'
 };
+export const TenantOrderByRelevanceFieldEnum = {
+    id: 'id'
+};
 export const NullsOrder = {
     first: 'first',
     last: 'last'
+};
+export const TrainerOrderByRelevanceFieldEnum = {
+    id: 'id',
+    tenantId: 'tenantId',
+    userId: 'userId',
+    nickname: 'nickname'
 };
 export const JsonNullValueFilter = {
     DbNull: 'DbNull',
     JsonNull: 'JsonNull',
     AnyNull: 'AnyNull'
+};
+export const DexPackOrderByRelevanceFieldEnum = {
+    packHash: 'packHash'
+};
+export const TrainerSettingsOrderByRelevanceFieldEnum = {
+    trainerId: 'trainerId',
+    activePack: 'activePack'
+};
+export const TypeOrderByRelevanceFieldEnum = {
+    slug: 'slug',
+    name: 'name'
+};
+export const AbilityOrderByRelevanceFieldEnum = {
+    slug: 'slug',
+    name: 'name',
+    desc: 'desc'
+};
+export const ItemOrderByRelevanceFieldEnum = {
+    slug: 'slug',
+    name: 'name',
+    kind: 'kind',
+    packHash: 'packHash'
+};
+export const MoveOrderByRelevanceFieldEnum = {
+    slug: 'slug',
+    name: 'name'
+};
+export const SpeciesOrderByRelevanceFieldEnum = {
+    slug: 'slug',
+    name: 'name',
+    growth: 'growth'
+};
+export const EvolutionStepOrderByRelevanceFieldEnum = {
+    trigger: 'trigger'
+};
+export const NameVariantOrderByRelevanceFieldEnum = {
+    id: 'id',
+    kind: 'kind',
+    locale: 'locale',
+    nameType: 'nameType',
+    value: 'value',
+    normalized: 'normalized'
+};
+export const UserOrderByRelevanceFieldEnum = {
+    id: 'id',
+    discordId: 'discordId',
+    platformId: 'platformId'
+};
+export const HomesteadChannelOrderByRelevanceFieldEnum = {
+    id: 'id',
+    userId: 'userId',
+    guildId: 'guildId',
+    channelId: 'channelId',
+    status: 'status',
+    createdBy: 'createdBy',
+    securityFingerprint: 'securityFingerprint'
+};
+export const DiscordGuildOrderByRelevanceFieldEnum = {
+    id: 'id',
+    name: 'name',
+    ownerId: 'ownerId',
+    icon: 'icon'
+};
+export const DiscordMemberOrderByRelevanceFieldEnum = {
+    id: 'id',
+    discordUserId: 'discordUserId',
+    guildId: 'guildId',
+    username: 'username',
+    discriminator: 'discriminator',
+    displayName: 'displayName',
+    avatar: 'avatar',
+    roles: 'roles',
+    securityFlags: 'securityFlags'
+};
+export const PokemonInstanceOrderByRelevanceFieldEnum = {
+    id: 'id',
+    ownerId: 'ownerId',
+    form: 'form',
+    nature: 'nature',
+    status: 'status',
+    nickname: 'nickname',
+    tenantId: 'tenantId',
+    trainerId: 'trainerId',
+    packHash: 'packHash'
+};
+export const PartyOrderByRelevanceFieldEnum = {
+    id: 'id',
+    ownerId: 'ownerId',
+    trainerId: 'trainerId'
+};
+export const PartySlotOrderByRelevanceFieldEnum = {
+    id: 'id',
+    partyId: 'partyId',
+    pokemonId: 'pokemonId'
+};
+export const InventoryOrderByRelevanceFieldEnum = {
+    trainerId: 'trainerId'
+};
+export const EncounterOrderByRelevanceFieldEnum = {
+    id: 'id',
+    ownerId: 'ownerId',
+    state: 'state',
+    threadChannelId: 'threadChannelId',
+    tenantId: 'tenantId',
+    trainerId: 'trainerId',
+    packHash: 'packHash'
+};
+export const BattleOrderByRelevanceFieldEnum = {
+    id: 'id',
+    p1Id: 'p1Id',
+    p2Id: 'p2Id',
+    arenaThreadId: 'arenaThreadId',
+    state: 'state',
+    rngSeed: 'rngSeed',
+    ruleset: 'ruleset',
+    tenantId: 'tenantId',
+    packHash: 'packHash',
+    trainer1Id: 'trainer1Id',
+    trainer2Id: 'trainer2Id'
+};
+export const CooldownOrderByRelevanceFieldEnum = {
+    id: 'id',
+    ownerId: 'ownerId',
+    kind: 'kind'
+};
+export const BusMessageOrderByRelevanceFieldEnum = {
+    id: 'id',
+    topic: 'topic',
+    shardKey: 'shardKey',
+    idempotencyKey: 'idempotencyKey',
+    error: 'error'
+};
+export const BusIdemTokenOrderByRelevanceFieldEnum = {
+    key: 'key'
+};
+export const AuditLogOrderByRelevanceFieldEnum = {
+    tenantId: 'tenantId',
+    actorUserId: 'actorUserId',
+    action: 'action',
+    entityType: 'entityType',
+    entityId: 'entityId'
+};
+export const DbVersionOrderByRelevanceFieldEnum = {
+    versionFingerprint: 'versionFingerprint',
+    lastMigrationName: 'lastMigrationName',
+    syncSource: 'syncSource'
+};
+export const DbSyncStateOrderByRelevanceFieldEnum = {
+    source: 'source',
+    target: 'target',
+    status: 'status',
+    lastError: 'lastError'
+};
+export const LogEntryOrderByRelevanceFieldEnum = {
+    level: 'level',
+    category: 'category',
+    message: 'message',
+    correlationId: 'correlationId',
+    serviceName: 'serviceName',
+    userId: 'userId',
+    traceContext: 'traceContext',
+    component: 'component',
+    operation: 'operation'
+};
+export const ErrorLogOrderByRelevanceFieldEnum = {
+    errorId: 'errorId',
+    fingerprint: 'fingerprint',
+    category: 'category',
+    severity: 'severity',
+    errorName: 'errorName',
+    errorMessage: 'errorMessage',
+    stackTrace: 'stackTrace',
+    lastRecoveryStrategy: 'lastRecoveryStrategy',
+    lastRecoveryOutcome: 'lastRecoveryOutcome',
+    impactedFeatures: 'impactedFeatures'
+};
+export const ErrorAlertOrderByRelevanceFieldEnum = {
+    alertId: 'alertId',
+    errorId: 'errorId',
+    alertType: 'alertType',
+    recipientId: 'recipientId',
+    acknowledgedBy: 'acknowledgedBy'
+};
+export const BattleAnalyticsOrderByRelevanceFieldEnum = {
+    battleId: 'battleId',
+    trainerId: 'trainerId',
+    opponentId: 'opponentId',
+    outcome: 'outcome',
+    correlationId: 'correlationId'
+};
+export const ConsoleOutputOrderByRelevanceFieldEnum = {
+    serviceName: 'serviceName',
+    outputType: 'outputType',
+    outputLevel: 'outputLevel',
+    rawOutput: 'rawOutput',
+    correlationId: 'correlationId',
+    sessionId: 'sessionId'
+};
+export const DataPoolSyncStatusOrderByRelevanceFieldEnum = {
+    id: 'id',
+    lastError: 'lastError'
+};
+export const DiscordRoleOrderByRelevanceFieldEnum = {
+    id: 'id',
+    discordRoleId: 'discordRoleId',
+    guildId: 'guildId',
+    name: 'name',
+    permissions: 'permissions'
+};
+export const EventHistoryOrderByRelevanceFieldEnum = {
+    topic: 'topic',
+    correlationId: 'correlationId',
+    parentCorrelationId: 'parentCorrelationId',
+    emitter: 'emitter'
+};
+export const MemberRoleHistoryOrderByRelevanceFieldEnum = {
+    discordUserId: 'discordUserId',
+    guildId: 'guildId',
+    memberTag: 'memberTag',
+    discordRoleId: 'discordRoleId',
+    roleName: 'roleName',
+    action: 'action',
+    executorId: 'executorId',
+    executorTag: 'executorTag',
+    source: 'source',
+    previousRoles: 'previousRoles',
+    newRoles: 'newRoles'
+};
+export const SecurityEventOrderByRelevanceFieldEnum = {
+    eventType: 'eventType',
+    severity: 'severity',
+    guildId: 'guildId',
+    guildName: 'guildName',
+    memberId: 'memberId',
+    memberTag: 'memberTag',
+    roleId: 'roleId',
+    roleName: 'roleName',
+    executorId: 'executorId',
+    executorTag: 'executorTag',
+    origin: 'origin',
+    signature: 'signature',
+    checksum: 'checksum',
+    previousHash: 'previousHash'
+};
+export const WorkerMetricsOrderByRelevanceFieldEnum = {
+    workerId: 'workerId',
+    workerName: 'workerName',
+    healthStatus: 'healthStatus',
+    lastError: 'lastError'
 };

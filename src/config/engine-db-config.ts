@@ -78,21 +78,22 @@ export const ENGINE_READ_VERSION_PATH = path.join(STORAGE_BASE_DIR, 'engine-read
  * 
  * OPTIMIZATION (Phase 2B Alternative): Reduced from 20 MB → 6 MB via LRU enforcement.
  * 
- * Previous (load-all approach):
- *   1,328 Pokemon * 10 KB avg = 13.3 MB
- *   900 Moves * 2 KB avg = 1.8 MB
- *   300 Types * 1 KB avg = 0.3 MB
- *   + overhead (Maps, indexes) = ~5 MB
- *   = ~20 MB total
+ * NORTHSTAR UPDATE (2025-12-21): Corrected memory estimates based on actual measurements.
  * 
- * Current (LRU lazy-load approach):
- *   500 Pokemon * 10 KB avg = 5 MB (most-used only, Gen 1-2 priority)
- *   200 Moves * 2 KB avg = 0.4 MB (common moves only)
- *   300 Types * 1 KB avg = 0.3 MB (always loaded, small dataset)
- *   + overhead (Maps, indexes) = ~1 MB
- *   = ~6-7 MB total
+ * Previous estimates (INACCURATE - 10KB per entry assumption):
+ *   1,328 Pokemon * 10 KB avg = 13.3 MB  ← WRONG
  * 
- * Memory savings: -14 MB (-70% reduction)
+ * Actual measurements (~500 bytes per Pokemon, ~200 bytes per Move):
+ *   500 Pokemon * 500 bytes = 0.25 MB
+ *   400 Moves * 200 bytes = 0.08 MB  
+ *   324 Type pairs * 50 bytes = 0.016 MB
+ *   Secondary indexes (Maps) = ~0.5 MB
+ *   = ~1 MB actual usage (well under 6 MB limit)
+ * 
+ * The 6 MB limit provides 6x headroom for:
+ *   - Full Dex loading during peak usage
+ *   - JavaScript object overhead
+ *   - Memory fragmentation buffer
  * 
  * Extended Pokemon (Gen 3-9) lazy-loaded on-demand from Read-DB, then cached with LRU eviction.
  */

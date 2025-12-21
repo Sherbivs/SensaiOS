@@ -247,6 +247,7 @@ export type EvolutionStepOrderByWithRelationInput = {
   from?: Prisma.SpeciesOrderByWithRelationInput
   to?: Prisma.SpeciesOrderByWithRelationInput
   item?: Prisma.ItemOrderByWithRelationInput
+  _relevance?: Prisma.EvolutionStepOrderByRelevanceInput
 }
 
 export type EvolutionStepWhereUniqueInput = Prisma.AtLeast<{
@@ -359,6 +360,12 @@ export type EvolutionStepListRelationFilter = {
 
 export type EvolutionStepOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type EvolutionStepOrderByRelevanceInput = {
+  fields: Prisma.EvolutionStepOrderByRelevanceFieldEnum | Prisma.EvolutionStepOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type EvolutionStepFromIdToIdCompoundUniqueInput = {

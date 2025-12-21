@@ -234,14 +234,16 @@ class LokiTransport {
    * Emit Loki metrics to Prometheus (if available)
    */
   private emitMetric(status: 'success' | 'error' | 'dropped', count: number): void {
-    try {
-      // Lazy import to avoid circular dependencies
-      const { recordLokiLogsSent, updateLokiQueueSize } = require('../../services/prometheus-metrics.js');
-      recordLokiLogsSent(status, count);
-      updateLokiQueueSize(this.batch.length + this.priorityBatch.length);
-    } catch {
-      // Prometheus metrics not initialized yet, ignore
-    }
+    // Lazy import to avoid circular dependencies
+    void (async () => {
+      try {
+        const { recordLokiLogsSent, updateLokiQueueSize } = await import('../../services/prometheus-metrics.js');
+        recordLokiLogsSent(status, count);
+        updateLokiQueueSize(this.batch.length + this.priorityBatch.length);
+      } catch {
+        // Prometheus metrics not initialized yet, ignore
+      }
+    })();
   }
 
   /**

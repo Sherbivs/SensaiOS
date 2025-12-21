@@ -388,6 +388,7 @@ export type PokemonInstanceOrderByWithRelationInput = {
   tenant?: Prisma.TenantOrderByWithRelationInput
   trainer?: Prisma.TrainerOrderByWithRelationInput
   dexPack?: Prisma.DexPackOrderByWithRelationInput
+  _relevance?: Prisma.PokemonInstanceOrderByRelevanceInput
 }
 
 export type PokemonInstanceWhereUniqueInput = Prisma.AtLeast<{
@@ -654,6 +655,12 @@ export type PokemonInstanceListRelationFilter = {
 
 export type PokemonInstanceOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type PokemonInstanceOrderByRelevanceInput = {
+  fields: Prisma.PokemonInstanceOrderByRelevanceFieldEnum | Prisma.PokemonInstanceOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type PokemonInstanceCountOrderByAggregateInput = {

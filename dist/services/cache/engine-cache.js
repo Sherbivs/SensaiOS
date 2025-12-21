@@ -48,8 +48,10 @@ export class EngineCache {
     pokemonByName = new Map(); // name → id
     movesByName = new Map(); // name → id
     // LRU Configuration
+    // NORTHSTAR OPTIMIZATION (2025-12-21): Increased move capacity from 200 → 400
+    // Rationale: Battle meta uses ~400 distinct moves; previous limit caused excessive L2 fallbacks
     maxPokemonEntries = 500; // Keep only 500 most-used Pokemon (vs 1025 total)
-    maxMoveEntries = 200; // Keep only 200 most-used moves (vs 900 total)
+    maxMoveEntries = 400; // Keep 400 most-used moves (vs 900 total) — increased from 200
     // State tracking
     isInitialized = false;
     lastRefreshTime = null;

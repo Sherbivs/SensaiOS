@@ -104,7 +104,7 @@ async function checkDeadCode(): Promise<DeadCodeReport> {
     const result: DepcheckResult = JSON.parse(output);
     unusedDependencies = result.dependencies || [];
     unusedDevDependencies = result.devDependencies || [];
-  } catch (error) {
+  } catch (_error) {
     console.warn('   ⚠️ depcheck failed, skipping dependency check');
   }
   

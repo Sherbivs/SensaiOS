@@ -242,6 +242,7 @@ export type NameVariantOrderByWithRelationInput = {
   nameType?: Prisma.SortOrder
   value?: Prisma.SortOrder
   normalized?: Prisma.SortOrder
+  _relevance?: Prisma.NameVariantOrderByRelevanceInput
 }
 
 export type NameVariantWhereUniqueInput = Prisma.AtLeast<{
@@ -353,6 +354,12 @@ export type NameVariantUncheckedUpdateManyInput = {
   nameType?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.StringFieldUpdateOperationsInput | string
   normalized?: Prisma.StringFieldUpdateOperationsInput | string
+}
+
+export type NameVariantOrderByRelevanceInput = {
+  fields: Prisma.NameVariantOrderByRelevanceFieldEnum | Prisma.NameVariantOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type NameVariantCountOrderByAggregateInput = {

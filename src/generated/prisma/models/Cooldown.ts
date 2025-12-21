@@ -206,6 +206,7 @@ export type CooldownOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   owner?: Prisma.UserOrderByWithRelationInput
+  _relevance?: Prisma.CooldownOrderByRelevanceInput
 }
 
 export type CooldownWhereUniqueInput = Prisma.AtLeast<{
@@ -326,6 +327,12 @@ export type CooldownListRelationFilter = {
 
 export type CooldownOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type CooldownOrderByRelevanceInput = {
+  fields: Prisma.CooldownOrderByRelevanceFieldEnum | Prisma.CooldownOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type CooldownOwnerIdKindCompoundUniqueInput = {

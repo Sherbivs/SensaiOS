@@ -217,6 +217,7 @@ export type AbilityOrderByWithRelationInput = {
   name?: Prisma.SortOrder
   desc?: Prisma.SortOrderInput | Prisma.SortOrder
   speciesAbilities?: Prisma.SpeciesAbilityOrderByRelationAggregateInput
+  _relevance?: Prisma.AbilityOrderByRelevanceInput
 }
 
 export type AbilityWhereUniqueInput = Prisma.AtLeast<{
@@ -303,6 +304,12 @@ export type AbilityUncheckedUpdateManyInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   desc?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type AbilityOrderByRelevanceInput = {
+  fields: Prisma.AbilityOrderByRelevanceFieldEnum | Prisma.AbilityOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type AbilityCountOrderByAggregateInput = {

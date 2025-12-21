@@ -278,6 +278,7 @@ export type BattleAnalyticsOrderByWithRelationInput = {
   partyComposition?: Prisma.SortOrderInput | Prisma.SortOrder
   moveUsage?: Prisma.SortOrderInput | Prisma.SortOrder
   correlationId?: Prisma.SortOrderInput | Prisma.SortOrder
+  _relevance?: Prisma.BattleAnalyticsOrderByRelevanceInput
 }
 
 export type BattleAnalyticsWhereUniqueInput = Prisma.AtLeast<{
@@ -430,6 +431,12 @@ export type BattleAnalyticsUncheckedUpdateManyInput = {
   partyComposition?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   moveUsage?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   correlationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type BattleAnalyticsOrderByRelevanceInput = {
+  fields: Prisma.BattleAnalyticsOrderByRelevanceFieldEnum | Prisma.BattleAnalyticsOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type BattleAnalyticsIdTimestampCompoundUniqueInput = {

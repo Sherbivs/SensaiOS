@@ -254,6 +254,7 @@ export type AuditLogOrderByWithRelationInput = {
   afterJson?: Prisma.SortOrderInput | Prisma.SortOrder
   at?: Prisma.SortOrder
   tenant?: Prisma.TenantOrderByWithRelationInput
+  _relevance?: Prisma.AuditLogOrderByRelevanceInput
 }
 
 export type AuditLogWhereUniqueInput = Prisma.AtLeast<{
@@ -395,6 +396,12 @@ export type AuditLogListRelationFilter = {
 
 export type AuditLogOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type AuditLogOrderByRelevanceInput = {
+  fields: Prisma.AuditLogOrderByRelevanceFieldEnum | Prisma.AuditLogOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type AuditLogCountOrderByAggregateInput = {

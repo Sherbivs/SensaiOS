@@ -289,6 +289,7 @@ export type MoveOrderByWithRelationInput = {
   meta?: Prisma.SortOrderInput | Prisma.SortOrder
   type?: Prisma.TypeOrderByWithRelationInput
   learnset?: Prisma.SpeciesLearnsetOrderByRelationAggregateInput
+  _relevance?: Prisma.MoveOrderByRelevanceInput
 }
 
 export type MoveWhereUniqueInput = Prisma.AtLeast<{
@@ -445,6 +446,12 @@ export type MoveListRelationFilter = {
 
 export type MoveOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type MoveOrderByRelevanceInput = {
+  fields: Prisma.MoveOrderByRelevanceFieldEnum | Prisma.MoveOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type MoveCountOrderByAggregateInput = {

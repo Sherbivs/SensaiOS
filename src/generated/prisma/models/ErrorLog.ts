@@ -361,6 +361,7 @@ export type ErrorLogOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   alerts?: Prisma.ErrorAlertOrderByRelationAggregateInput
+  _relevance?: Prisma.ErrorLogOrderByRelevanceInput
 }
 
 export type ErrorLogWhereUniqueInput = Prisma.AtLeast<{
@@ -607,6 +608,12 @@ export type ErrorLogUncheckedUpdateManyInput = {
   learningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ErrorLogOrderByRelevanceInput = {
+  fields: Prisma.ErrorLogOrderByRelevanceFieldEnum | Prisma.ErrorLogOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type ErrorLogCountOrderByAggregateInput = {

@@ -247,6 +247,7 @@ export type HomesteadChannelOrderByWithRelationInput = {
   lastHealthCheck?: Prisma.SortOrderInput | Prisma.SortOrder
   verifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
+  _relevance?: Prisma.HomesteadChannelOrderByRelevanceInput
 }
 
 export type HomesteadChannelWhereUniqueInput = Prisma.AtLeast<{
@@ -407,6 +408,12 @@ export type HomesteadChannelListRelationFilter = {
 
 export type HomesteadChannelOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type HomesteadChannelOrderByRelevanceInput = {
+  fields: Prisma.HomesteadChannelOrderByRelevanceFieldEnum | Prisma.HomesteadChannelOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type HomesteadChannelUserIdGuildIdCompoundUniqueInput = {

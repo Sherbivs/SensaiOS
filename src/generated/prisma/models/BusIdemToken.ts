@@ -206,6 +206,7 @@ export type BusIdemTokenOrderByWithRelationInput = {
   key?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   ttl?: Prisma.SortOrder
+  _relevance?: Prisma.BusIdemTokenOrderByRelevanceInput
 }
 
 export type BusIdemTokenWhereUniqueInput = Prisma.AtLeast<{
@@ -277,6 +278,12 @@ export type BusIdemTokenUncheckedUpdateManyInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ttl?: Prisma.IntFieldUpdateOperationsInput | number
+}
+
+export type BusIdemTokenOrderByRelevanceInput = {
+  fields: Prisma.BusIdemTokenOrderByRelevanceFieldEnum | Prisma.BusIdemTokenOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type BusIdemTokenCountOrderByAggregateInput = {

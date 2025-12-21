@@ -122,8 +122,10 @@ export class EngineCache implements IPrunableCache {
   private movesByName: Map<string, number> = new Map();   // name → id
   
   // LRU Configuration
+  // NORTHSTAR OPTIMIZATION (2025-12-21): Increased move capacity from 200 → 400
+  // Rationale: Battle meta uses ~400 distinct moves; previous limit caused excessive L2 fallbacks
   private readonly maxPokemonEntries: number = 500;  // Keep only 500 most-used Pokemon (vs 1025 total)
-  private readonly maxMoveEntries: number = 200;     // Keep only 200 most-used moves (vs 900 total)
+  private readonly maxMoveEntries: number = 400;     // Keep 400 most-used moves (vs 900 total) — increased from 200
   
   // State tracking
   private isInitialized: boolean = false;

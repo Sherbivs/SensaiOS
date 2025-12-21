@@ -389,6 +389,7 @@ export type WorkerMetricsOrderByWithRelationInput = {
   cpuPercent?: Prisma.SortOrderInput | Prisma.SortOrder
   healthStatus?: Prisma.SortOrderInput | Prisma.SortOrder
   lastError?: Prisma.SortOrderInput | Prisma.SortOrder
+  _relevance?: Prisma.WorkerMetricsOrderByRelevanceInput
 }
 
 export type WorkerMetricsWhereUniqueInput = Prisma.AtLeast<{
@@ -611,6 +612,12 @@ export type WorkerMetricsUncheckedUpdateManyInput = {
   cpuPercent?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   healthStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type WorkerMetricsOrderByRelevanceInput = {
+  fields: Prisma.WorkerMetricsOrderByRelevanceFieldEnum | Prisma.WorkerMetricsOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type WorkerMetricsIdTimestampCompoundUniqueInput = {

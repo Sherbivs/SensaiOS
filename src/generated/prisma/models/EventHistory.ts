@@ -238,6 +238,7 @@ export type EventHistoryOrderByWithRelationInput = {
   correlationId?: Prisma.SortOrder
   parentCorrelationId?: Prisma.SortOrderInput | Prisma.SortOrder
   emitter?: Prisma.SortOrderInput | Prisma.SortOrder
+  _relevance?: Prisma.EventHistoryOrderByRelevanceInput
 }
 
 export type EventHistoryWhereUniqueInput = Prisma.AtLeast<{
@@ -350,6 +351,12 @@ export type EventHistoryUncheckedUpdateManyInput = {
   correlationId?: Prisma.StringFieldUpdateOperationsInput | string
   parentCorrelationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   emitter?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type EventHistoryOrderByRelevanceInput = {
+  fields: Prisma.EventHistoryOrderByRelevanceFieldEnum | Prisma.EventHistoryOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type EventHistoryIdTimestampCompoundUniqueInput = {

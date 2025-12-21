@@ -17,7 +17,7 @@ import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
 import { formatBytes, formatUptime, extractDatabaseName } from '../shared/utils/index.js';
 import {
   renderDashboard,
-  renderStatusLine,
+  renderStatusLine as _renderStatusLine,
   type SystemStatus,
   type DashboardConfig,
 } from '../shared/logging/console-renderer.js';

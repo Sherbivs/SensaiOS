@@ -298,6 +298,7 @@ export type BattleOrderByWithRelationInput = {
   dexPack?: Prisma.DexPackOrderByWithRelationInput
   trainer1?: Prisma.TrainerOrderByWithRelationInput
   trainer2?: Prisma.TrainerOrderByWithRelationInput
+  _relevance?: Prisma.BattleOrderByRelevanceInput
 }
 
 export type BattleWhereUniqueInput = Prisma.AtLeast<{
@@ -517,6 +518,12 @@ export type BattleListRelationFilter = {
 
 export type BattleOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type BattleOrderByRelevanceInput = {
+  fields: Prisma.BattleOrderByRelevanceFieldEnum | Prisma.BattleOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type BattleCountOrderByAggregateInput = {

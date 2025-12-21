@@ -181,6 +181,7 @@ export type TrainerSettingsOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   trainer?: Prisma.TrainerOrderByWithRelationInput
   activeDex?: Prisma.DexPackOrderByWithRelationInput
+  _relevance?: Prisma.TrainerSettingsOrderByRelevanceInput
 }
 
 export type TrainerSettingsWhereUniqueInput = Prisma.AtLeast<{
@@ -275,6 +276,12 @@ export type TrainerSettingsListRelationFilter = {
 
 export type TrainerSettingsOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type TrainerSettingsOrderByRelevanceInput = {
+  fields: Prisma.TrainerSettingsOrderByRelevanceFieldEnum | Prisma.TrainerSettingsOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type TrainerSettingsCountOrderByAggregateInput = {

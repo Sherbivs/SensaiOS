@@ -208,6 +208,7 @@ export type TrainerOrderByWithRelationInput = {
   battlesAsP2?: Prisma.BattleOrderByRelationAggregateInput
   parties?: Prisma.PartyOrderByRelationAggregateInput
   inventory?: Prisma.InventoryOrderByRelationAggregateInput
+  _relevance?: Prisma.TrainerOrderByRelevanceInput
 }
 
 export type TrainerWhereUniqueInput = Prisma.AtLeast<{
@@ -343,6 +344,12 @@ export type TrainerListRelationFilter = {
 
 export type TrainerOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type TrainerOrderByRelevanceInput = {
+  fields: Prisma.TrainerOrderByRelevanceFieldEnum | Prisma.TrainerOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type TrainerTenantIdUserIdCompoundUniqueInput = {

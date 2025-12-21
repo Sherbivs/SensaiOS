@@ -214,6 +214,7 @@ export type TypeOrderByWithRelationInput = {
   atk?: Prisma.TypeChartOrderByRelationAggregateInput
   def?: Prisma.TypeChartOrderByRelationAggregateInput
   speciesTypes?: Prisma.SpeciesTypeOrderByRelationAggregateInput
+  _relevance?: Prisma.TypeOrderByRelevanceInput
 }
 
 export type TypeWhereUniqueInput = Prisma.AtLeast<{
@@ -305,6 +306,12 @@ export type TypeUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+}
+
+export type TypeOrderByRelevanceInput = {
+  fields: Prisma.TypeOrderByRelevanceFieldEnum | Prisma.TypeOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type TypeCountOrderByAggregateInput = {

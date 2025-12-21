@@ -299,6 +299,7 @@ export type DiscordGuildOrderByWithRelationInput = {
   sweepCount?: Prisma.SortOrder
   firstSeenAt?: Prisma.SortOrder
   lastUpdatedAt?: Prisma.SortOrder
+  _relevance?: Prisma.DiscordGuildOrderByRelevanceInput
 }
 
 export type DiscordGuildWhereUniqueInput = Prisma.AtLeast<{
@@ -460,6 +461,12 @@ export type DiscordGuildUncheckedUpdateManyInput = {
   sweepCount?: Prisma.IntFieldUpdateOperationsInput | number
   firstSeenAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUpdatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type DiscordGuildOrderByRelevanceInput = {
+  fields: Prisma.DiscordGuildOrderByRelevanceFieldEnum | Prisma.DiscordGuildOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type DiscordGuildCountOrderByAggregateInput = {

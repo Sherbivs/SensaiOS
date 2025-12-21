@@ -219,6 +219,7 @@ export type ErrorAlertOrderByWithRelationInput = {
   acknowledgedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   acknowledgedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   error?: Prisma.ErrorLogOrderByWithRelationInput
+  _relevance?: Prisma.ErrorAlertOrderByRelevanceInput
 }
 
 export type ErrorAlertWhereUniqueInput = Prisma.AtLeast<{
@@ -348,6 +349,12 @@ export type ErrorAlertListRelationFilter = {
 
 export type ErrorAlertOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type ErrorAlertOrderByRelevanceInput = {
+  fields: Prisma.ErrorAlertOrderByRelevanceFieldEnum | Prisma.ErrorAlertOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type ErrorAlertCountOrderByAggregateInput = {

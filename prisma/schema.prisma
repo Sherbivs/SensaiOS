@@ -1,8 +1,11 @@
 // Prisma schema for Infinity Gauntlet — MVP entities
 // Prisma 7 Configuration: Uses driver adapters (no Rust engine)
+// NORTHSTAR OPTIMIZATION (2025-12-21): Full-text search indexes and optimized generator
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  // OPTIMIZATION: Pre-generate all relation types for faster queries
+  previewFeatures = ["fullTextSearchPostgres"]
 }
 
 // Database URL configured via prisma.config.ts for CLI operations
@@ -56,6 +59,7 @@ model Trainer {
 
   @@unique([tenantId, userId])
   @@index([userId])
+  @@index([tenantId, createdAt(sort: Desc)], map: "idx_trainer_tenant_newest")  // Newest trainers per tenant
 }
 
 model DexPack {
@@ -115,6 +119,8 @@ model Item {
   evolutionTriggers EvolutionStep[]   @relation("EvolutionItem")
   dexPack           DexPack?          @relation(fields: [packHash], references: [packHash], onDelete: SetNull)
   Inventory         Inventory[]
+
+  @@index([kind])  // Item category lookups (balls, potions, berries, etc.)
 }
 
 model Move {
@@ -133,6 +139,8 @@ model Move {
   learnset SpeciesLearnset[]
 
   @@index([typeId])
+  @@index([name])  // Fast move name lookups
+  @@index([category])  // Filter by physical/special/status
 }
 
 model Species {
@@ -160,6 +168,7 @@ model Species {
   encounters     Encounter[]
 
   @@index([slug])
+  @@index([name])  // Fast name lookups for Pokedex search
 }
 
 /// ---- Classification / Junctions ----
@@ -263,6 +272,10 @@ model User {
   dailyQuestLastReset     DateTime?
   trainers                Trainer[]
   homesteadChannels       HomesteadChannel[]
+
+  @@index([dailyQuestStreak(sort: Desc)], map: "idx_user_streak_leaderboard")  // Streak leaderboard
+  @@index([coins(sort: Desc)], map: "idx_user_coins_leaderboard")  // Wealth leaderboard
+  @@index([createdAt(sort: Desc)], map: "idx_user_newest")  // Recent players
 }
 
 /// ---- Homestead Channel (Private Guild Channel per User) ----
@@ -340,6 +353,9 @@ model DiscordMember {
   lastUpdatedAt               DateTime  @default(now()) @map("last_updated_at") @db.Timestamptz(6)
   
   @@unique([discordUserId, guildId])               // One entry per user per guild
+  @@index([guildId], map: "idx_discord_members_guild")  // CRITICAL: Guild sweeps (security bot)
+  @@index([guildId, isAdministrator], map: "idx_discord_members_admin_lookup")  // Admin queries
+  @@index([riskScore(sort: Desc)], map: "idx_discord_members_risk")  // High-risk user detection
   @@map("discord_members")
 }
 
@@ -377,6 +393,9 @@ model PokemonInstance {
   @@index([speciesId])
   @@index([trainerId])
   @@index([tenantId])
+  @@index([ownerId, createdAt(sort: Desc)], map: "idx_pokemon_owner_created")  // Recent Pokemon
+  @@index([ownerId, isShiny], map: "idx_pokemon_owner_shiny")  // Shiny collection
+  @@index([ownerId, level(sort: Desc)], map: "idx_pokemon_owner_level")  // Strongest Pokemon
 }
 
 model Party {
@@ -442,10 +461,11 @@ model Encounter {
   dexPack DexPack? @relation(fields: [packHash], references: [packHash], onDelete: SetNull)
 
   @@index([ownerId, state])
-  @@index([state, startedAt])
+  @@index([state, startedAt(sort: Desc)], map: "idx_encounter_state_time")  // Recent by state
   @@index([threadChannelId])
   @@index([expiresAt])
-  @@index([tenantId, startedAt])
+  @@index([tenantId, startedAt(sort: Desc)], map: "idx_encounter_tenant_time")  // Tenant timeline
+  @@index([ownerId, startedAt(sort: Desc)], map: "idx_encounter_owner_time")  // User timeline
 }
 
 model Battle {
@@ -474,11 +494,11 @@ model Battle {
   trainer1 Trainer? @relation("BattleTrainer1", fields: [trainer1Id], references: [id], onDelete: SetNull)
   trainer2 Trainer? @relation("BattleTrainer2", fields: [trainer2Id], references: [id], onDelete: SetNull)
 
-  @@index([state, endedAt])
-  @@index([p1Id, state, endedAt])
-  @@index([p2Id, state, endedAt])
+  @@index([state, endedAt(sort: Desc)], map: "idx_battle_state_ended")  // Active/recent battles
+  @@index([p1Id, state, endedAt(sort: Desc)], map: "idx_battle_p1_history")  // Player 1 history
+  @@index([p2Id, state, endedAt(sort: Desc)], map: "idx_battle_p2_history")  // Player 2 history
   @@index([arenaThreadId])
-  @@index([tenantId, state, endedAt])
+  @@index([tenantId, state, endedAt(sort: Desc)], map: "idx_battle_tenant_history")  // Tenant history
 }
 
 model Cooldown {
@@ -492,7 +512,8 @@ model Cooldown {
   updatedAt DateTime @updatedAt
 
   @@unique([ownerId, kind])
-  @@index([ownerId, readyAt])
+  @@index([ownerId, readyAt(sort: Asc)], map: "idx_cooldown_owner_ready")  // Next available action
+  @@index([kind, readyAt], map: "idx_cooldown_kind_ready")  // Cooldown type queries
 }
 
 enum BusKind {

@@ -228,6 +228,7 @@ export type PartySlotOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   party?: Prisma.PartyOrderByWithRelationInput
   pokemon?: Prisma.PokemonInstanceOrderByWithRelationInput
+  _relevance?: Prisma.PartySlotOrderByRelevanceInput
 }
 
 export type PartySlotWhereUniqueInput = Prisma.AtLeast<{
@@ -330,6 +331,12 @@ export type PartySlotListRelationFilter = {
 
 export type PartySlotOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type PartySlotOrderByRelevanceInput = {
+  fields: Prisma.PartySlotOrderByRelevanceFieldEnum | Prisma.PartySlotOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type PartySlotPartyIdSlotCompoundUniqueInput = {

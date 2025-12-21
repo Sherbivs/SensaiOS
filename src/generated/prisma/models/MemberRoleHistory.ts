@@ -288,6 +288,7 @@ export type MemberRoleHistoryOrderByWithRelationInput = {
   previousRoles?: Prisma.SortOrder
   newRoles?: Prisma.SortOrder
   changedAt?: Prisma.SortOrder
+  _relevance?: Prisma.MemberRoleHistoryOrderByRelevanceInput
 }
 
 export type MemberRoleHistoryWhereUniqueInput = Prisma.AtLeast<{
@@ -459,6 +460,12 @@ export type MemberRoleHistoryUncheckedUpdateManyInput = {
   previousRoles?: Prisma.MemberRoleHistoryUpdatepreviousRolesInput | string[]
   newRoles?: Prisma.MemberRoleHistoryUpdatenewRolesInput | string[]
   changedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type MemberRoleHistoryOrderByRelevanceInput = {
+  fields: Prisma.MemberRoleHistoryOrderByRelevanceFieldEnum | Prisma.MemberRoleHistoryOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type MemberRoleHistoryCountOrderByAggregateInput = {

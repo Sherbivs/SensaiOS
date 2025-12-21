@@ -269,6 +269,7 @@ export type DbSyncStateOrderByWithRelationInput = {
   lastIntegrityCheck?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  _relevance?: Prisma.DbSyncStateOrderByRelevanceInput
 }
 
 export type DbSyncStateWhereUniqueInput = Prisma.AtLeast<{
@@ -408,6 +409,12 @@ export type DbSyncStateUncheckedUpdateManyInput = {
   lastIntegrityCheck?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type DbSyncStateOrderByRelevanceInput = {
+  fields: Prisma.DbSyncStateOrderByRelevanceFieldEnum | Prisma.DbSyncStateOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type DbSyncStateSourceTargetCompoundUniqueInput = {

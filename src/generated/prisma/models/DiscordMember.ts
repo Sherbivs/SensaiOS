@@ -377,6 +377,7 @@ export type DiscordMemberOrderByWithRelationInput = {
   riskScore?: Prisma.SortOrderInput | Prisma.SortOrder
   firstSeenAt?: Prisma.SortOrder
   lastUpdatedAt?: Prisma.SortOrder
+  _relevance?: Prisma.DiscordMemberOrderByRelevanceInput
 }
 
 export type DiscordMemberWhereUniqueInput = Prisma.AtLeast<{
@@ -647,6 +648,12 @@ export type StringNullableListFilter<$PrismaModel = never> = {
   hasEvery?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
   hasSome?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
   isEmpty?: boolean
+}
+
+export type DiscordMemberOrderByRelevanceInput = {
+  fields: Prisma.DiscordMemberOrderByRelevanceFieldEnum | Prisma.DiscordMemberOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type DiscordMemberDiscordUserIdGuildIdCompoundUniqueInput = {

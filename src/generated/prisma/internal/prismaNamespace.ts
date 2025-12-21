@@ -4265,12 +4265,29 @@ export const QueryMode = {
 export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
 
 
+export const TenantOrderByRelevanceFieldEnum = {
+  id: 'id'
+} as const
+
+export type TenantOrderByRelevanceFieldEnum = (typeof TenantOrderByRelevanceFieldEnum)[keyof typeof TenantOrderByRelevanceFieldEnum]
+
+
 export const NullsOrder = {
   first: 'first',
   last: 'last'
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const TrainerOrderByRelevanceFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  userId: 'userId',
+  nickname: 'nickname'
+} as const
+
+export type TrainerOrderByRelevanceFieldEnum = (typeof TrainerOrderByRelevanceFieldEnum)[keyof typeof TrainerOrderByRelevanceFieldEnum]
 
 
 export const JsonNullValueFilter = {
@@ -4280,6 +4297,399 @@ export const JsonNullValueFilter = {
 } as const
 
 export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
+
+
+export const DexPackOrderByRelevanceFieldEnum = {
+  packHash: 'packHash'
+} as const
+
+export type DexPackOrderByRelevanceFieldEnum = (typeof DexPackOrderByRelevanceFieldEnum)[keyof typeof DexPackOrderByRelevanceFieldEnum]
+
+
+export const TrainerSettingsOrderByRelevanceFieldEnum = {
+  trainerId: 'trainerId',
+  activePack: 'activePack'
+} as const
+
+export type TrainerSettingsOrderByRelevanceFieldEnum = (typeof TrainerSettingsOrderByRelevanceFieldEnum)[keyof typeof TrainerSettingsOrderByRelevanceFieldEnum]
+
+
+export const TypeOrderByRelevanceFieldEnum = {
+  slug: 'slug',
+  name: 'name'
+} as const
+
+export type TypeOrderByRelevanceFieldEnum = (typeof TypeOrderByRelevanceFieldEnum)[keyof typeof TypeOrderByRelevanceFieldEnum]
+
+
+export const AbilityOrderByRelevanceFieldEnum = {
+  slug: 'slug',
+  name: 'name',
+  desc: 'desc'
+} as const
+
+export type AbilityOrderByRelevanceFieldEnum = (typeof AbilityOrderByRelevanceFieldEnum)[keyof typeof AbilityOrderByRelevanceFieldEnum]
+
+
+export const ItemOrderByRelevanceFieldEnum = {
+  slug: 'slug',
+  name: 'name',
+  kind: 'kind',
+  packHash: 'packHash'
+} as const
+
+export type ItemOrderByRelevanceFieldEnum = (typeof ItemOrderByRelevanceFieldEnum)[keyof typeof ItemOrderByRelevanceFieldEnum]
+
+
+export const MoveOrderByRelevanceFieldEnum = {
+  slug: 'slug',
+  name: 'name'
+} as const
+
+export type MoveOrderByRelevanceFieldEnum = (typeof MoveOrderByRelevanceFieldEnum)[keyof typeof MoveOrderByRelevanceFieldEnum]
+
+
+export const SpeciesOrderByRelevanceFieldEnum = {
+  slug: 'slug',
+  name: 'name',
+  growth: 'growth'
+} as const
+
+export type SpeciesOrderByRelevanceFieldEnum = (typeof SpeciesOrderByRelevanceFieldEnum)[keyof typeof SpeciesOrderByRelevanceFieldEnum]
+
+
+export const EvolutionStepOrderByRelevanceFieldEnum = {
+  trigger: 'trigger'
+} as const
+
+export type EvolutionStepOrderByRelevanceFieldEnum = (typeof EvolutionStepOrderByRelevanceFieldEnum)[keyof typeof EvolutionStepOrderByRelevanceFieldEnum]
+
+
+export const NameVariantOrderByRelevanceFieldEnum = {
+  id: 'id',
+  kind: 'kind',
+  locale: 'locale',
+  nameType: 'nameType',
+  value: 'value',
+  normalized: 'normalized'
+} as const
+
+export type NameVariantOrderByRelevanceFieldEnum = (typeof NameVariantOrderByRelevanceFieldEnum)[keyof typeof NameVariantOrderByRelevanceFieldEnum]
+
+
+export const UserOrderByRelevanceFieldEnum = {
+  id: 'id',
+  discordId: 'discordId',
+  platformId: 'platformId'
+} as const
+
+export type UserOrderByRelevanceFieldEnum = (typeof UserOrderByRelevanceFieldEnum)[keyof typeof UserOrderByRelevanceFieldEnum]
+
+
+export const HomesteadChannelOrderByRelevanceFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  guildId: 'guildId',
+  channelId: 'channelId',
+  status: 'status',
+  createdBy: 'createdBy',
+  securityFingerprint: 'securityFingerprint'
+} as const
+
+export type HomesteadChannelOrderByRelevanceFieldEnum = (typeof HomesteadChannelOrderByRelevanceFieldEnum)[keyof typeof HomesteadChannelOrderByRelevanceFieldEnum]
+
+
+export const DiscordGuildOrderByRelevanceFieldEnum = {
+  id: 'id',
+  name: 'name',
+  ownerId: 'ownerId',
+  icon: 'icon'
+} as const
+
+export type DiscordGuildOrderByRelevanceFieldEnum = (typeof DiscordGuildOrderByRelevanceFieldEnum)[keyof typeof DiscordGuildOrderByRelevanceFieldEnum]
+
+
+export const DiscordMemberOrderByRelevanceFieldEnum = {
+  id: 'id',
+  discordUserId: 'discordUserId',
+  guildId: 'guildId',
+  username: 'username',
+  discriminator: 'discriminator',
+  displayName: 'displayName',
+  avatar: 'avatar',
+  roles: 'roles',
+  securityFlags: 'securityFlags'
+} as const
+
+export type DiscordMemberOrderByRelevanceFieldEnum = (typeof DiscordMemberOrderByRelevanceFieldEnum)[keyof typeof DiscordMemberOrderByRelevanceFieldEnum]
+
+
+export const PokemonInstanceOrderByRelevanceFieldEnum = {
+  id: 'id',
+  ownerId: 'ownerId',
+  form: 'form',
+  nature: 'nature',
+  status: 'status',
+  nickname: 'nickname',
+  tenantId: 'tenantId',
+  trainerId: 'trainerId',
+  packHash: 'packHash'
+} as const
+
+export type PokemonInstanceOrderByRelevanceFieldEnum = (typeof PokemonInstanceOrderByRelevanceFieldEnum)[keyof typeof PokemonInstanceOrderByRelevanceFieldEnum]
+
+
+export const PartyOrderByRelevanceFieldEnum = {
+  id: 'id',
+  ownerId: 'ownerId',
+  trainerId: 'trainerId'
+} as const
+
+export type PartyOrderByRelevanceFieldEnum = (typeof PartyOrderByRelevanceFieldEnum)[keyof typeof PartyOrderByRelevanceFieldEnum]
+
+
+export const PartySlotOrderByRelevanceFieldEnum = {
+  id: 'id',
+  partyId: 'partyId',
+  pokemonId: 'pokemonId'
+} as const
+
+export type PartySlotOrderByRelevanceFieldEnum = (typeof PartySlotOrderByRelevanceFieldEnum)[keyof typeof PartySlotOrderByRelevanceFieldEnum]
+
+
+export const InventoryOrderByRelevanceFieldEnum = {
+  trainerId: 'trainerId'
+} as const
+
+export type InventoryOrderByRelevanceFieldEnum = (typeof InventoryOrderByRelevanceFieldEnum)[keyof typeof InventoryOrderByRelevanceFieldEnum]
+
+
+export const EncounterOrderByRelevanceFieldEnum = {
+  id: 'id',
+  ownerId: 'ownerId',
+  state: 'state',
+  threadChannelId: 'threadChannelId',
+  tenantId: 'tenantId',
+  trainerId: 'trainerId',
+  packHash: 'packHash'
+} as const
+
+export type EncounterOrderByRelevanceFieldEnum = (typeof EncounterOrderByRelevanceFieldEnum)[keyof typeof EncounterOrderByRelevanceFieldEnum]
+
+
+export const BattleOrderByRelevanceFieldEnum = {
+  id: 'id',
+  p1Id: 'p1Id',
+  p2Id: 'p2Id',
+  arenaThreadId: 'arenaThreadId',
+  state: 'state',
+  rngSeed: 'rngSeed',
+  ruleset: 'ruleset',
+  tenantId: 'tenantId',
+  packHash: 'packHash',
+  trainer1Id: 'trainer1Id',
+  trainer2Id: 'trainer2Id'
+} as const
+
+export type BattleOrderByRelevanceFieldEnum = (typeof BattleOrderByRelevanceFieldEnum)[keyof typeof BattleOrderByRelevanceFieldEnum]
+
+
+export const CooldownOrderByRelevanceFieldEnum = {
+  id: 'id',
+  ownerId: 'ownerId',
+  kind: 'kind'
+} as const
+
+export type CooldownOrderByRelevanceFieldEnum = (typeof CooldownOrderByRelevanceFieldEnum)[keyof typeof CooldownOrderByRelevanceFieldEnum]
+
+
+export const BusMessageOrderByRelevanceFieldEnum = {
+  id: 'id',
+  topic: 'topic',
+  shardKey: 'shardKey',
+  idempotencyKey: 'idempotencyKey',
+  error: 'error'
+} as const
+
+export type BusMessageOrderByRelevanceFieldEnum = (typeof BusMessageOrderByRelevanceFieldEnum)[keyof typeof BusMessageOrderByRelevanceFieldEnum]
+
+
+export const BusIdemTokenOrderByRelevanceFieldEnum = {
+  key: 'key'
+} as const
+
+export type BusIdemTokenOrderByRelevanceFieldEnum = (typeof BusIdemTokenOrderByRelevanceFieldEnum)[keyof typeof BusIdemTokenOrderByRelevanceFieldEnum]
+
+
+export const AuditLogOrderByRelevanceFieldEnum = {
+  tenantId: 'tenantId',
+  actorUserId: 'actorUserId',
+  action: 'action',
+  entityType: 'entityType',
+  entityId: 'entityId'
+} as const
+
+export type AuditLogOrderByRelevanceFieldEnum = (typeof AuditLogOrderByRelevanceFieldEnum)[keyof typeof AuditLogOrderByRelevanceFieldEnum]
+
+
+export const DbVersionOrderByRelevanceFieldEnum = {
+  versionFingerprint: 'versionFingerprint',
+  lastMigrationName: 'lastMigrationName',
+  syncSource: 'syncSource'
+} as const
+
+export type DbVersionOrderByRelevanceFieldEnum = (typeof DbVersionOrderByRelevanceFieldEnum)[keyof typeof DbVersionOrderByRelevanceFieldEnum]
+
+
+export const DbSyncStateOrderByRelevanceFieldEnum = {
+  source: 'source',
+  target: 'target',
+  status: 'status',
+  lastError: 'lastError'
+} as const
+
+export type DbSyncStateOrderByRelevanceFieldEnum = (typeof DbSyncStateOrderByRelevanceFieldEnum)[keyof typeof DbSyncStateOrderByRelevanceFieldEnum]
+
+
+export const LogEntryOrderByRelevanceFieldEnum = {
+  level: 'level',
+  category: 'category',
+  message: 'message',
+  correlationId: 'correlationId',
+  serviceName: 'serviceName',
+  userId: 'userId',
+  traceContext: 'traceContext',
+  component: 'component',
+  operation: 'operation'
+} as const
+
+export type LogEntryOrderByRelevanceFieldEnum = (typeof LogEntryOrderByRelevanceFieldEnum)[keyof typeof LogEntryOrderByRelevanceFieldEnum]
+
+
+export const ErrorLogOrderByRelevanceFieldEnum = {
+  errorId: 'errorId',
+  fingerprint: 'fingerprint',
+  category: 'category',
+  severity: 'severity',
+  errorName: 'errorName',
+  errorMessage: 'errorMessage',
+  stackTrace: 'stackTrace',
+  lastRecoveryStrategy: 'lastRecoveryStrategy',
+  lastRecoveryOutcome: 'lastRecoveryOutcome',
+  impactedFeatures: 'impactedFeatures'
+} as const
+
+export type ErrorLogOrderByRelevanceFieldEnum = (typeof ErrorLogOrderByRelevanceFieldEnum)[keyof typeof ErrorLogOrderByRelevanceFieldEnum]
+
+
+export const ErrorAlertOrderByRelevanceFieldEnum = {
+  alertId: 'alertId',
+  errorId: 'errorId',
+  alertType: 'alertType',
+  recipientId: 'recipientId',
+  acknowledgedBy: 'acknowledgedBy'
+} as const
+
+export type ErrorAlertOrderByRelevanceFieldEnum = (typeof ErrorAlertOrderByRelevanceFieldEnum)[keyof typeof ErrorAlertOrderByRelevanceFieldEnum]
+
+
+export const BattleAnalyticsOrderByRelevanceFieldEnum = {
+  battleId: 'battleId',
+  trainerId: 'trainerId',
+  opponentId: 'opponentId',
+  outcome: 'outcome',
+  correlationId: 'correlationId'
+} as const
+
+export type BattleAnalyticsOrderByRelevanceFieldEnum = (typeof BattleAnalyticsOrderByRelevanceFieldEnum)[keyof typeof BattleAnalyticsOrderByRelevanceFieldEnum]
+
+
+export const ConsoleOutputOrderByRelevanceFieldEnum = {
+  serviceName: 'serviceName',
+  outputType: 'outputType',
+  outputLevel: 'outputLevel',
+  rawOutput: 'rawOutput',
+  correlationId: 'correlationId',
+  sessionId: 'sessionId'
+} as const
+
+export type ConsoleOutputOrderByRelevanceFieldEnum = (typeof ConsoleOutputOrderByRelevanceFieldEnum)[keyof typeof ConsoleOutputOrderByRelevanceFieldEnum]
+
+
+export const DataPoolSyncStatusOrderByRelevanceFieldEnum = {
+  id: 'id',
+  lastError: 'lastError'
+} as const
+
+export type DataPoolSyncStatusOrderByRelevanceFieldEnum = (typeof DataPoolSyncStatusOrderByRelevanceFieldEnum)[keyof typeof DataPoolSyncStatusOrderByRelevanceFieldEnum]
+
+
+export const DiscordRoleOrderByRelevanceFieldEnum = {
+  id: 'id',
+  discordRoleId: 'discordRoleId',
+  guildId: 'guildId',
+  name: 'name',
+  permissions: 'permissions'
+} as const
+
+export type DiscordRoleOrderByRelevanceFieldEnum = (typeof DiscordRoleOrderByRelevanceFieldEnum)[keyof typeof DiscordRoleOrderByRelevanceFieldEnum]
+
+
+export const EventHistoryOrderByRelevanceFieldEnum = {
+  topic: 'topic',
+  correlationId: 'correlationId',
+  parentCorrelationId: 'parentCorrelationId',
+  emitter: 'emitter'
+} as const
+
+export type EventHistoryOrderByRelevanceFieldEnum = (typeof EventHistoryOrderByRelevanceFieldEnum)[keyof typeof EventHistoryOrderByRelevanceFieldEnum]
+
+
+export const MemberRoleHistoryOrderByRelevanceFieldEnum = {
+  discordUserId: 'discordUserId',
+  guildId: 'guildId',
+  memberTag: 'memberTag',
+  discordRoleId: 'discordRoleId',
+  roleName: 'roleName',
+  action: 'action',
+  executorId: 'executorId',
+  executorTag: 'executorTag',
+  source: 'source',
+  previousRoles: 'previousRoles',
+  newRoles: 'newRoles'
+} as const
+
+export type MemberRoleHistoryOrderByRelevanceFieldEnum = (typeof MemberRoleHistoryOrderByRelevanceFieldEnum)[keyof typeof MemberRoleHistoryOrderByRelevanceFieldEnum]
+
+
+export const SecurityEventOrderByRelevanceFieldEnum = {
+  eventType: 'eventType',
+  severity: 'severity',
+  guildId: 'guildId',
+  guildName: 'guildName',
+  memberId: 'memberId',
+  memberTag: 'memberTag',
+  roleId: 'roleId',
+  roleName: 'roleName',
+  executorId: 'executorId',
+  executorTag: 'executorTag',
+  origin: 'origin',
+  signature: 'signature',
+  checksum: 'checksum',
+  previousHash: 'previousHash'
+} as const
+
+export type SecurityEventOrderByRelevanceFieldEnum = (typeof SecurityEventOrderByRelevanceFieldEnum)[keyof typeof SecurityEventOrderByRelevanceFieldEnum]
+
+
+export const WorkerMetricsOrderByRelevanceFieldEnum = {
+  workerId: 'workerId',
+  workerName: 'workerName',
+  healthStatus: 'healthStatus',
+  lastError: 'lastError'
+} as const
+
+export type WorkerMetricsOrderByRelevanceFieldEnum = (typeof WorkerMetricsOrderByRelevanceFieldEnum)[keyof typeof WorkerMetricsOrderByRelevanceFieldEnum]
 
 
 

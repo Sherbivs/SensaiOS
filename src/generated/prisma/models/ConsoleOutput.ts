@@ -256,6 +256,7 @@ export type ConsoleOutputOrderByWithRelationInput = {
   parsedData?: Prisma.SortOrderInput | Prisma.SortOrder
   correlationId?: Prisma.SortOrderInput | Prisma.SortOrder
   sessionId?: Prisma.SortOrderInput | Prisma.SortOrder
+  _relevance?: Prisma.ConsoleOutputOrderByRelevanceInput
 }
 
 export type ConsoleOutputWhereUniqueInput = Prisma.AtLeast<{
@@ -388,6 +389,12 @@ export type ConsoleOutputUncheckedUpdateManyInput = {
   parsedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   correlationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type ConsoleOutputOrderByRelevanceInput = {
+  fields: Prisma.ConsoleOutputOrderByRelevanceFieldEnum | Prisma.ConsoleOutputOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type ConsoleOutputIdTimestampCompoundUniqueInput = {

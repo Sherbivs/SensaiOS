@@ -322,6 +322,7 @@ export type DiscordRoleOrderByWithRelationInput = {
   memberCount?: Prisma.SortOrder
   firstSeenAt?: Prisma.SortOrder
   lastUpdatedAt?: Prisma.SortOrder
+  _relevance?: Prisma.DiscordRoleOrderByRelevanceInput
 }
 
 export type DiscordRoleWhereUniqueInput = Prisma.AtLeast<{
@@ -514,6 +515,12 @@ export type DiscordRoleUncheckedUpdateManyInput = {
   memberCount?: Prisma.IntFieldUpdateOperationsInput | number
   firstSeenAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUpdatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type DiscordRoleOrderByRelevanceInput = {
+  fields: Prisma.DiscordRoleOrderByRelevanceFieldEnum | Prisma.DiscordRoleOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type DiscordRoleDiscordRoleIdGuildIdCompoundUniqueInput = {

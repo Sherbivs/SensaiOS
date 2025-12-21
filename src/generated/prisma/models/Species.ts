@@ -351,6 +351,7 @@ export type SpeciesOrderByWithRelationInput = {
   evolutionsTo?: Prisma.EvolutionStepOrderByRelationAggregateInput
   mons?: Prisma.PokemonInstanceOrderByRelationAggregateInput
   encounters?: Prisma.EncounterOrderByRelationAggregateInput
+  _relevance?: Prisma.SpeciesOrderByRelevanceInput
 }
 
 export type SpeciesWhereUniqueInput = Prisma.AtLeast<{
@@ -567,6 +568,12 @@ export type SpeciesUncheckedUpdateManyInput = {
   maleRate?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   hatchSteps?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   meta?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+}
+
+export type SpeciesOrderByRelevanceInput = {
+  fields: Prisma.SpeciesOrderByRelevanceFieldEnum | Prisma.SpeciesOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type SpeciesCountOrderByAggregateInput = {

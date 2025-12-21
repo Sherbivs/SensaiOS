@@ -4,12 +4,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buffersEqual, readFileIfExists, writeFileIfChanged } from "../src/shared/utils/file-utils.js";
-import { formatStatus, formatKeyValueList, formatList } from "../src/utils/output-formatter.js";
+import { formatStatus, formatKeyValueList as _formatKeyValueList, formatList } from "../src/utils/output-formatter.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..");
-const BOOTSTRAP_DIR = path.join(ROOT, "data", "bootstrap");
+const _BOOTSTRAP_DIR = path.join(ROOT, "data", "bootstrap");
 const CACHE_DIR = path.join(ROOT, "data", "cache");
 const OUTPUT_DIR = path.join(ROOT, "assets");
 const OUTPUT_JSON = path.join(OUTPUT_DIR, "dexpack.v1.json");

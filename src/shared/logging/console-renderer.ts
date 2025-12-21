@@ -193,7 +193,7 @@ function statusIndicator(status: 'online' | 'offline' | 'degraded'): string {
 /**
  * Gets status text
  */
-function statusText(status: 'online' | 'offline' | 'degraded'): string {
+function _statusText(status: 'online' | 'offline' | 'degraded'): string {
   switch (status) {
     case 'online': return `${STATUS.SUCCESS} Online`;
     case 'offline': return `${STATUS.FAILURE} Offline`;

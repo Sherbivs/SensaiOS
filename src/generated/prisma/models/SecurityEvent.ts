@@ -328,6 +328,7 @@ export type SecurityEventOrderByWithRelationInput = {
   checksum?: Prisma.SortOrder
   previousHash?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  _relevance?: Prisma.SecurityEventOrderByRelevanceInput
 }
 
 export type SecurityEventWhereUniqueInput = Prisma.AtLeast<{
@@ -539,6 +540,12 @@ export type SecurityEventUncheckedUpdateManyInput = {
   checksum?: Prisma.StringFieldUpdateOperationsInput | string
   previousHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type SecurityEventOrderByRelevanceInput = {
+  fields: Prisma.SecurityEventOrderByRelevanceFieldEnum | Prisma.SecurityEventOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type SecurityEventCountOrderByAggregateInput = {

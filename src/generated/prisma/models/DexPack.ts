@@ -234,6 +234,7 @@ export type DexPackOrderByWithRelationInput = {
   encounters?: Prisma.EncounterOrderByRelationAggregateInput
   battles?: Prisma.BattleOrderByRelationAggregateInput
   items?: Prisma.ItemOrderByRelationAggregateInput
+  _relevance?: Prisma.DexPackOrderByRelevanceInput
 }
 
 export type DexPackWhereUniqueInput = Prisma.AtLeast<{
@@ -350,6 +351,12 @@ export type DexPackUncheckedUpdateManyInput = {
   gen?: Prisma.IntFieldUpdateOperationsInput | number
   signedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   metaJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+}
+
+export type DexPackOrderByRelevanceInput = {
+  fields: Prisma.DexPackOrderByRelevanceFieldEnum | Prisma.DexPackOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type DexPackCountOrderByAggregateInput = {

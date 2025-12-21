@@ -196,6 +196,7 @@ export type PartyOrderByWithRelationInput = {
   owner?: Prisma.UserOrderByWithRelationInput
   slots?: Prisma.PartySlotOrderByRelationAggregateInput
   trainer?: Prisma.TrainerOrderByWithRelationInput
+  _relevance?: Prisma.PartyOrderByRelevanceInput
 }
 
 export type PartyWhereUniqueInput = Prisma.AtLeast<{
@@ -300,6 +301,12 @@ export type PartyListRelationFilter = {
 
 export type PartyOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type PartyOrderByRelevanceInput = {
+  fields: Prisma.PartyOrderByRelevanceFieldEnum | Prisma.PartyOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type PartyCountOrderByAggregateInput = {

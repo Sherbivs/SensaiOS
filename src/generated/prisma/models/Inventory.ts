@@ -214,6 +214,7 @@ export type InventoryOrderByWithRelationInput = {
   qty?: Prisma.SortOrder
   trainer?: Prisma.TrainerOrderByWithRelationInput
   item?: Prisma.ItemOrderByWithRelationInput
+  _relevance?: Prisma.InventoryOrderByRelevanceInput
 }
 
 export type InventoryWhereUniqueInput = Prisma.AtLeast<{
@@ -296,6 +297,12 @@ export type InventoryListRelationFilter = {
 
 export type InventoryOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type InventoryOrderByRelevanceInput = {
+  fields: Prisma.InventoryOrderByRelevanceFieldEnum | Prisma.InventoryOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type InventoryTrainerIdItemIdCompoundUniqueInput = {

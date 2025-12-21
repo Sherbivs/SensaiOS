@@ -298,6 +298,7 @@ export type LogEntryOrderByWithRelationInput = {
   component?: Prisma.SortOrderInput | Prisma.SortOrder
   operation?: Prisma.SortOrderInput | Prisma.SortOrder
   durationMs?: Prisma.SortOrderInput | Prisma.SortOrder
+  _relevance?: Prisma.LogEntryOrderByRelevanceInput
 }
 
 export type LogEntryWhereUniqueInput = Prisma.AtLeast<{
@@ -470,6 +471,12 @@ export type LogEntryUncheckedUpdateManyInput = {
   component?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   operation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   durationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+}
+
+export type LogEntryOrderByRelevanceInput = {
+  fields: Prisma.LogEntryOrderByRelevanceFieldEnum | Prisma.LogEntryOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type LogEntryIdTimestampCompoundUniqueInput = {

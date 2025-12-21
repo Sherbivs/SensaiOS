@@ -246,6 +246,7 @@ export type DbVersionOrderByWithRelationInput = {
   lastMigrationAppliedAt?: Prisma.SortOrder
   syncSource?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  _relevance?: Prisma.DbVersionOrderByRelevanceInput
 }
 
 export type DbVersionWhereUniqueInput = Prisma.AtLeast<{
@@ -354,6 +355,12 @@ export type DbVersionUncheckedUpdateManyInput = {
   lastMigrationAppliedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   syncSource?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type DbVersionOrderByRelevanceInput = {
+  fields: Prisma.DbVersionOrderByRelevanceFieldEnum | Prisma.DbVersionOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type DbVersionCountOrderByAggregateInput = {

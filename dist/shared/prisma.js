@@ -179,8 +179,30 @@ function createClient(candidate, nodeEnv) {
     validateDatabaseUrl(candidate.url);
     process.env.DATABASE_URL = candidate.url;
     process.env.DATABASE_CONNECTION_SOURCE = candidate.source;
-    // PRISMA 7: Create pg Pool and use driver adapter
-    const pool = new pg.Pool({ connectionString: candidate.url });
+    // PRISMA 7: Create pg Pool with connection pool configuration
+    // NORTHSTAR OPTIMIZATION (2025-12-21): Fully optimized pool configuration per Operations Specialist
+    const pool = new pg.Pool({
+        connectionString: candidate.url,
+        // Connection pool limits (prevents exhaustion under load)
+        max: 20, // Maximum connections in pool (Render: 103 max, leave headroom)
+        min: 2, // Minimum idle connections
+        idleTimeoutMillis: 30_000, // Close idle connections after 30s
+        connectionTimeoutMillis: 10_000, // Fail fast if can't connect in 10s
+        // Query timeout (prevents runaway queries from blocking workers)
+        statement_timeout: 60_000, // Kill queries after 60s
+        // OPTIMIZATION: Keep connections alive to avoid TCP reconnection overhead
+        keepAlive: true, // Enable TCP keepalive
+        keepAliveInitialDelayMillis: 10_000, // Start keepalive probes after 10s idle
+        // OPTIMIZATION: Allow prepare to cache query plans (faster repeated queries)
+        allowExitOnIdle: false, // Keep pool alive even when idle (for worker longevity)
+    });
+    // Pool event listeners for observability
+    pool.on('error', (err) => {
+        log.error('Postgres pool error', err);
+    });
+    pool.on('connect', () => {
+        log.debug('Postgres pool: new client connected');
+    });
     const adapter = new PrismaPg(pool);
     const logLevels = nodeEnv === "development" ? ["warn", "error"] : ["error"];
     // OPTIMIZATION: Query performance monitoring (Phase 5.1)
@@ -219,24 +241,23 @@ function createClient(candidate, nodeEnv) {
             table = tableMatch[1].toLowerCase();
         }
         // Emit db.query event for metrics instrumentation
-        try {
-            const { EventBus } = require('./event-bus.js');
-            const eventBus = EventBus.getInstance();
-            eventBus.emit({
-                type: 'db.query',
-                timestamp: new Date(),
-                source: 'prisma',
-                data: {
+        void (async () => {
+            try {
+                const { EventBus } = await import('./event-bus.js');
+                const eventBus = EventBus.getInstance();
+                eventBus.emit('db.query', {
+                    timestamp: new Date(),
+                    source: 'prisma',
                     operation,
                     table,
                     status: 'success',
                     durationMs: duration,
-                },
-            });
-        }
-        catch {
-            // Graceful degradation - EventBus not ready
-        }
+                });
+            }
+            catch {
+                // Graceful degradation - EventBus not ready
+            }
+        })();
         if (duration > 100) {
             // Slow query detected
             log.warn('Slow query detected', {

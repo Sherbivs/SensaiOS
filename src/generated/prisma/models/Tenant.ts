@@ -173,6 +173,7 @@ export type TenantOrderByWithRelationInput = {
   PokemonInstance?: Prisma.PokemonInstanceOrderByRelationAggregateInput
   Encounter?: Prisma.EncounterOrderByRelationAggregateInput
   Battle?: Prisma.BattleOrderByRelationAggregateInput
+  _relevance?: Prisma.TenantOrderByRelevanceInput
 }
 
 export type TenantWhereUniqueInput = Prisma.AtLeast<{
@@ -257,6 +258,12 @@ export type TenantUpdateManyMutationInput = {
 export type TenantUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type TenantOrderByRelevanceInput = {
+  fields: Prisma.TenantOrderByRelevanceFieldEnum | Prisma.TenantOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
 }
 
 export type TenantCountOrderByAggregateInput = {

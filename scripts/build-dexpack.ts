@@ -291,7 +291,19 @@ async function writeAccessors(manifest: {
   binary: string;
   counts: { species: number; moves: number };
 }): Promise<boolean> {
-  const source = `${MODULE_HEADER}\nimport path from \"node:path\";\nimport fs from \"node:fs/promises\";\n\nexport const DEX_V2_MANIFEST_HASH = \"${manifest.hash}\";\nexport const DEX_V2_BINARY = \"${manifest.binary}\";\nexport const DEX_V2_COUNTS = Object.freeze({ species: ${manifest.counts.species}, moves: ${manifest.counts.moves} });\n\nexport async function readDexV2Binary(rootDir) {\n  const filePath = path.join(rootDir, \"assets\", DEX_V2_BINARY);\n  return fs.readFile(filePath);\n}\n`;
+  const source = `${MODULE_HEADER}
+import path from "node:path";
+import fs from "node:fs/promises";
+
+export const DEX_V2_MANIFEST_HASH = "${manifest.hash}";
+export const DEX_V2_BINARY = "${manifest.binary}";
+export const DEX_V2_COUNTS = Object.freeze({ species: ${manifest.counts.species}, moves: ${manifest.counts.moves} });
+
+export async function readDexV2Binary(rootDir) {
+  const filePath = path.join(rootDir, "assets", DEX_V2_BINARY);
+  return fs.readFile(filePath);
+}
+`;
   return writeIfChanged(GENERATED_ACCESSORS_PATH, source);
 }
 
