@@ -211,13 +211,34 @@ class LokiTransport {
 
       this.stats.totalPushed += entries.length;
       this.stats.batchesSent++;
+      
+      // Emit success metric
+      this.emitMetric('success', entries.length);
     } catch (err) {
       this.stats.totalFailed += entries.length;
+      
+      // Emit failure metric
+      this.emitMetric('error', entries.length);
+      
       // Graceful degradation - log to console but don't crash
       console.error('[Loki] Failed to send logs:', err instanceof Error ? err.message : String(err));
       
       // Re-add entries to batch for retry (up to batch size limit)
       this.batch = [...entries.slice(-this.batchSize), ...this.batch].slice(0, this.batchSize);
+    }
+  }
+  
+  /**
+   * Emit Loki metrics to Prometheus (if available)
+   */
+  private emitMetric(status: 'success' | 'error' | 'dropped', count: number): void {
+    try {
+      // Lazy import to avoid circular dependencies
+      const { recordLokiLogsSent, updateLokiQueueSize } = require('../../services/prometheus-metrics.js');
+      recordLokiLogsSent(status, count);
+      updateLokiQueueSize(this.batch.length + this.priorityBatch.length);
+    } catch {
+      // Prometheus metrics not initialized yet, ignore
     }
   }
 

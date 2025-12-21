@@ -259,8 +259,46 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
   
   // Attach query performance monitoring handler
   // Logs warnings for slow queries (>100ms) to help identify N+1 patterns and optimization targets
+  // Also tracks metrics for Prometheus
   (baseClient as any).$on('query', (e: any) => {
     const duration = e.duration; // Duration in milliseconds
+    
+    // Extract operation and table from query (best effort)
+    const query = (e.query || '').toLowerCase();
+    let operation = 'unknown';
+    let table = 'unknown';
+    
+    if (query.startsWith('select')) operation = 'select';
+    else if (query.startsWith('insert')) operation = 'insert';
+    else if (query.startsWith('update')) operation = 'update';
+    else if (query.startsWith('delete')) operation = 'delete';
+    else if (query.includes('begin') || query.includes('commit')) operation = 'transaction';
+    
+    // Extract table name (simple regex for common patterns)
+    const tableMatch = query.match(/(?:from|into|update|join)\s+["`]?(\w+)["`]?/i);
+    if (tableMatch) {
+      table = tableMatch[1].toLowerCase();
+    }
+    
+    // Emit db.query event for metrics instrumentation
+    try {
+      const { EventBus } = require('./event-bus.js');
+      const eventBus = EventBus.getInstance();
+      eventBus.emit({
+        type: 'db.query',
+        timestamp: new Date(),
+        source: 'prisma',
+        data: {
+          operation,
+          table,
+          status: 'success',
+          durationMs: duration,
+        },
+      });
+    } catch {
+      // Graceful degradation - EventBus not ready
+    }
+    
     if (duration > 100) {
       // Slow query detected
       log.warn('Slow query detected', {
