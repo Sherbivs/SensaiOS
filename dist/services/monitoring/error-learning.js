@@ -10,6 +10,25 @@
  * Uses historical data from ErrorLog table to build knowledge base and
  * predict impact of future errors.
  *
+ * PHASE 2A INTEGRATION (2025-12-21):
+ * - Now uses ErrorResolution table for strategy effectiveness tracking
+ * - getLearnedStrategies() queries real resolution history
+ * - suggestMitigation() now returns learned strategies first, then generic fallbacks
+ *
+ * PHASE 2B INTEGRATION (2025-12-21):
+ * - Now uses ErrorDependency table for cascade persistence
+ * - persistCascade() saves detected cascades with statistical tracking
+ * - getCascadeRisk() predicts downstream impact from learned cascades
+ * - findRootCause() traces back from child error to root cause
+ * - detectCascades() auto-persists discovered cascades to database
+ *
+ * PHASE 2C INTEGRATION (2025-12-21):
+ * - Now uses ErrorKnowledge table for pattern persistence
+ * - persistTimePattern() saves time-of-day spike patterns
+ * - persistCorrelationPattern() saves error correlation patterns
+ * - getKnowledge() queries learned patterns by type/confidence/fingerprint
+ * - updateKnowledgeBase() auto-persists discovered patterns to database
+ *
  * Referenced By: docs/error-detection-system.md (Learning Engine section)
  *                docs/error-monitoring-logger-integration.md (Next Steps)
  *
@@ -157,14 +176,23 @@ export class ErrorLearningService {
     /**
      * Detect error cascades (single root cause triggers multiple errors).
      * Identifies chains of related errors spreading through the system.
+     * PHASE 2B: Now auto-persists discovered cascades to ErrorDependency table.
      *
      * @param maxDepth - Maximum cascade depth to analyze (default: 3)
+     * @param persistToDb - Whether to save cascades to database (default: true)
      * @returns Detected cascades with root causes
      */
-    async detectCascades(maxDepth = 3) {
+    async detectCascades(maxDepth = 3, persistToDb = true) {
         try {
             // Get correlations first
             const correlations = await this.detectCorrelations(5, 2);
+            // PHASE 2B: Auto-persist cascade relationships to database
+            if (persistToDb && correlations.length > 0) {
+                const persisted = await this.persistCascadesFromCorrelations(correlations);
+                if (persisted > 0) {
+                    log.info(`Auto-persisted ${persisted} cascade relationships to ErrorDependency table`);
+                }
+            }
             // Build cascade chains from correlations
             const cascadeMap = new Map();
             // Find chains: A → B → C
@@ -215,6 +243,537 @@ export class ErrorLearningService {
         }
         catch (error) {
             log.error('Error detecting cascades', error);
+            throw error;
+        }
+    }
+    // ============================================================================
+    // PHASE 2B: ErrorDependency Integration — Cascade Persistence & Prediction
+    // ============================================================================
+    /**
+     * PHASE 2B: Persist a detected cascade relationship to ErrorDependency table.
+     * Updates statistics if relationship already exists (upsert pattern).
+     *
+     * @param parentErrorId - The root cause error ID
+     * @param childErrorId - The cascaded error ID
+     * @param timeDeltaMs - Time between parent and child occurrence
+     * @returns Created or updated dependency record ID
+     */
+    async persistCascade(parentErrorId, childErrorId, timeDeltaMs) {
+        try {
+            // Check if this dependency already exists
+            const existing = await prisma.errorDependency.findFirst({
+                where: {
+                    parentErrorId,
+                    childErrorId,
+                },
+            });
+            if (existing) {
+                // Update existing: increment count, update rolling average, boost confidence
+                const newCount = existing.observedCount + 1;
+                const newAvgTimeDelta = ((existing.avgTimeDeltaMs * existing.observedCount) + timeDeltaMs) / newCount;
+                // Confidence increases with observations: 1→0.2, 3→0.6, 5+→1.0
+                const newConfidence = Math.min(newCount / 5, 1.0);
+                await prisma.errorDependency.update({
+                    where: { dependencyId: existing.dependencyId },
+                    data: {
+                        observedCount: newCount,
+                        avgTimeDeltaMs: newAvgTimeDelta,
+                        confidence: newConfidence,
+                        lastObserved: new Date(),
+                    },
+                });
+                log.debug(`Updated cascade dependency: ${parentErrorId} → ${childErrorId} (count: ${newCount}, conf: ${newConfidence.toFixed(2)})`);
+                return existing.dependencyId;
+            }
+            else {
+                // Create new dependency relationship
+                const newDependency = await prisma.errorDependency.create({
+                    data: {
+                        parentErrorId,
+                        childErrorId,
+                        observedCount: 1,
+                        avgTimeDeltaMs: timeDeltaMs,
+                        confidence: 0.2, // Initial confidence (1 observation)
+                        firstObserved: new Date(),
+                        lastObserved: new Date(),
+                    },
+                });
+                log.info(`Created cascade dependency: ${parentErrorId} → ${childErrorId}`);
+                return newDependency.dependencyId;
+            }
+        }
+        catch (error) {
+            log.error('Error persisting cascade dependency', error);
+            throw error;
+        }
+    }
+    /**
+     * PHASE 2B: Get cascade risk for an error fingerprint.
+     * Predicts downstream impact based on learned cascade patterns.
+     *
+     * @param fingerprint - Error fingerprint to assess
+     * @returns Cascade risk prediction with recommended action
+     */
+    async getCascadeRisk(fingerprint) {
+        try {
+            // Find the error by fingerprint
+            const error = await prisma.errorLog.findFirst({
+                where: { fingerprint },
+                select: { errorId: true },
+            });
+            if (!error) {
+                return {
+                    triggerFingerprint: fingerprint,
+                    predictedChildren: [],
+                    totalRisk: 0,
+                    worstCaseImpact: 1,
+                    recommendation: 'IGNORE',
+                };
+            }
+            // Find all dependencies where this error is the parent
+            const dependencies = await prisma.errorDependency.findMany({
+                where: { parentErrorId: error.errorId },
+                include: {
+                    childError: {
+                        select: { fingerprint: true, errorName: true },
+                    },
+                },
+                orderBy: { confidence: 'desc' },
+            });
+            if (dependencies.length === 0) {
+                return {
+                    triggerFingerprint: fingerprint,
+                    predictedChildren: [],
+                    totalRisk: 0,
+                    worstCaseImpact: 1,
+                    recommendation: 'IGNORE',
+                };
+            }
+            // Build predicted children list
+            const predictedChildren = dependencies.map(dep => ({
+                fingerprint: dep.childError.fingerprint,
+                probability: dep.confidence,
+                expectedDelayMs: dep.avgTimeDeltaMs,
+            }));
+            // Calculate total risk (weighted average of child probabilities)
+            const totalRisk = predictedChildren.reduce((sum, child) => sum + child.probability, 0) / predictedChildren.length;
+            // Worst case = all children trigger + potential second-level cascades
+            const worstCaseImpact = 1 + predictedChildren.length * 2; // Conservative estimate
+            // Determine recommendation based on risk
+            let recommendation;
+            if (totalRisk >= 0.8 && predictedChildren.length >= 3) {
+                recommendation = 'BLOCK'; // High risk, many children
+            }
+            else if (totalRisk >= 0.6 || predictedChildren.length >= 2) {
+                recommendation = 'WARN'; // Medium risk
+            }
+            else if (totalRisk >= 0.3) {
+                recommendation = 'MONITOR'; // Low but notable risk
+            }
+            else {
+                recommendation = 'IGNORE'; // Minimal risk
+            }
+            return {
+                triggerFingerprint: fingerprint,
+                predictedChildren,
+                totalRisk,
+                worstCaseImpact,
+                recommendation,
+            };
+        }
+        catch (error) {
+            log.error('Error calculating cascade risk', error);
+            throw error;
+        }
+    }
+    /**
+     * PHASE 2B: Find root cause by tracing back from a child error.
+     * Walks the ErrorDependency chain to find the original trigger.
+     *
+     * @param childFingerprint - Fingerprint of the error to trace
+     * @param maxDepth - Maximum chain length to trace (default: 5)
+     * @returns Root cause trace with confidence score
+     */
+    async findRootCause(childFingerprint, maxDepth = 5) {
+        try {
+            // Find the error by fingerprint
+            const error = await prisma.errorLog.findFirst({
+                where: { fingerprint: childFingerprint },
+                select: { errorId: true, fingerprint: true },
+            });
+            if (!error) {
+                return null;
+            }
+            // Walk up the dependency chain
+            const chain = [];
+            let currentErrorId = error.errorId;
+            let _currentFingerprint = childFingerprint; // Tracked for debugging but not used in loop logic
+            let depth = 0;
+            let overallConfidence = 1.0;
+            while (depth < maxDepth) {
+                // Find parent dependency (highest confidence)
+                const parentDep = await prisma.errorDependency.findFirst({
+                    where: { childErrorId: currentErrorId },
+                    include: {
+                        parentError: {
+                            select: { errorId: true, fingerprint: true },
+                        },
+                    },
+                    orderBy: { confidence: 'desc' },
+                });
+                if (!parentDep) {
+                    // No parent found — current error is the root cause
+                    break;
+                }
+                // Add to chain
+                chain.push({
+                    fingerprint: parentDep.parentError.fingerprint,
+                    confidence: parentDep.confidence,
+                    timeDeltaMs: parentDep.avgTimeDeltaMs,
+                });
+                // Update confidence (multiplicative)
+                overallConfidence *= parentDep.confidence;
+                // Move up the chain
+                currentErrorId = parentDep.parentErrorId;
+                _currentFingerprint = parentDep.parentError.fingerprint;
+                depth++;
+            }
+            if (chain.length === 0) {
+                // This error IS the root cause (no parents)
+                return {
+                    childFingerprint,
+                    rootCauseFingerprint: childFingerprint,
+                    chainLength: 0,
+                    chain: [],
+                    confidence: 1.0,
+                };
+            }
+            // Root cause is the last item in the chain
+            const rootCause = chain[chain.length - 1];
+            return {
+                childFingerprint,
+                rootCauseFingerprint: rootCause.fingerprint,
+                chainLength: chain.length,
+                chain,
+                confidence: overallConfidence,
+            };
+        }
+        catch (error) {
+            log.error('Error finding root cause', error);
+            throw error;
+        }
+    }
+    /**
+     * PHASE 2B: Auto-persist cascades from correlation data.
+     * Called internally by detectCascades() to save discovered patterns.
+     *
+     * @param correlations - Correlation data from detectCorrelations()
+     * @returns Number of cascade relationships persisted
+     */
+    async persistCascadesFromCorrelations(correlations) {
+        let persistedCount = 0;
+        for (const corr of correlations) {
+            try {
+                // Find parent and child errors by fingerprint
+                const [parentError, childError] = await Promise.all([
+                    prisma.errorLog.findFirst({
+                        where: { fingerprint: corr.primaryFingerprint },
+                        select: { errorId: true },
+                    }),
+                    prisma.errorLog.findFirst({
+                        where: { fingerprint: corr.secondaryFingerprint },
+                        select: { errorId: true },
+                    }),
+                ]);
+                if (parentError && childError) {
+                    await this.persistCascade(parentError.errorId, childError.errorId, corr.timeDeltaMs);
+                    persistedCount++;
+                }
+            }
+            catch (err) {
+                // Log but don't fail entire batch
+                log.warn(`Failed to persist cascade for correlation: ${corr.primaryFingerprint} → ${corr.secondaryFingerprint}`, {
+                    error: err instanceof Error ? err.message : String(err)
+                });
+            }
+        }
+        return persistedCount;
+    }
+    // ============================================================================
+    // PHASE 2C: ErrorKnowledge Integration — Pattern Persistence & Retrieval
+    // ============================================================================
+    /**
+     * PHASE 2C: Persist a time-of-day pattern to ErrorKnowledge table.
+     * Patterns expire after 7 days and need refresh.
+     *
+     * @param pattern - Time pattern to persist
+     * @param fingerprint - Optional related error fingerprint
+     * @returns Created knowledge entry ID
+     */
+    async persistTimePattern(pattern, fingerprint) {
+        try {
+            // Check for existing pattern for same hour
+            const existing = await prisma.errorKnowledge.findFirst({
+                where: {
+                    patternType: 'TIME_CLUSTER',
+                    patternData: {
+                        path: ['hour'],
+                        equals: pattern.hour,
+                    },
+                },
+            });
+            if (existing) {
+                // Update existing pattern
+                const newObservedCount = existing.observedCount + 1;
+                const newConfidence = Math.min((existing.confidence * existing.observedCount + pattern.percentOfTotal) / newObservedCount, 1.0);
+                await prisma.errorKnowledge.update({
+                    where: { knowledgeId: existing.knowledgeId },
+                    data: {
+                        patternData: JSON.parse(JSON.stringify(pattern)),
+                        confidence: newConfidence,
+                        observedCount: newObservedCount,
+                        validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                        relatedFingerprints: fingerprint
+                            ? [...new Set([...existing.relatedFingerprints, fingerprint])]
+                            : existing.relatedFingerprints,
+                    },
+                });
+                log.debug(`Updated time pattern for hour ${pattern.hour} (obs: ${newObservedCount})`);
+                return existing.knowledgeId;
+            }
+            else {
+                // Create new pattern
+                const created = await prisma.errorKnowledge.create({
+                    data: {
+                        patternType: 'TIME_CLUSTER',
+                        patternData: JSON.parse(JSON.stringify(pattern)),
+                        confidence: pattern.isAnomalous ? 0.8 : 0.5, // Higher initial confidence for anomalies
+                        validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                        observedCount: 1,
+                        relatedFingerprints: fingerprint ? [fingerprint] : [],
+                    },
+                });
+                log.info(`Created time pattern for hour ${pattern.hour} (anomalous: ${pattern.isAnomalous})`);
+                return created.knowledgeId;
+            }
+        }
+        catch (error) {
+            log.error('Error persisting time pattern', error);
+            throw error;
+        }
+    }
+    /**
+     * PHASE 2C: Persist a correlation pattern to ErrorKnowledge table.
+     *
+     * @param correlation - Correlation pattern to persist
+     * @returns Created knowledge entry ID
+     */
+    async persistCorrelationPattern(correlation) {
+        try {
+            // Check for existing correlation between these fingerprints
+            const existing = await prisma.errorKnowledge.findFirst({
+                where: {
+                    patternType: 'CORRELATION',
+                    relatedFingerprints: {
+                        hasEvery: [correlation.primaryFingerprint, correlation.secondaryFingerprint],
+                    },
+                },
+            });
+            if (existing) {
+                // Update existing correlation
+                const newObservedCount = existing.observedCount + correlation.occurrences;
+                const newConfidence = Math.min((existing.confidence + correlation.confidence) / 2, 1.0);
+                await prisma.errorKnowledge.update({
+                    where: { knowledgeId: existing.knowledgeId },
+                    data: {
+                        patternData: JSON.parse(JSON.stringify(correlation)),
+                        confidence: newConfidence,
+                        observedCount: newObservedCount,
+                        validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                    },
+                });
+                log.debug(`Updated correlation pattern: ${correlation.primaryFingerprint} → ${correlation.secondaryFingerprint}`);
+                return existing.knowledgeId;
+            }
+            else {
+                // Create new correlation pattern
+                const created = await prisma.errorKnowledge.create({
+                    data: {
+                        patternType: 'CORRELATION',
+                        patternData: JSON.parse(JSON.stringify(correlation)),
+                        confidence: correlation.confidence,
+                        validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                        observedCount: correlation.occurrences,
+                        relatedFingerprints: [correlation.primaryFingerprint, correlation.secondaryFingerprint],
+                    },
+                });
+                log.info(`Created correlation pattern: ${correlation.primaryFingerprint} → ${correlation.secondaryFingerprint}`);
+                return created.knowledgeId;
+            }
+        }
+        catch (error) {
+            log.error('Error persisting correlation pattern', error);
+            throw error;
+        }
+    }
+    /**
+     * PHASE 2C: Persist a cascade pattern to ErrorKnowledge table.
+     *
+     * @param cascade - Cascade pattern to persist
+     * @returns Created knowledge entry ID
+     */
+    async persistCascadePattern(cascade) {
+        try {
+            // Check for existing cascade from this root
+            const existing = await prisma.errorKnowledge.findFirst({
+                where: {
+                    patternType: 'CASCADE',
+                    relatedFingerprints: {
+                        has: cascade.rootCauseFingerprint,
+                    },
+                },
+            });
+            if (existing) {
+                // Update existing cascade
+                const newObservedCount = existing.observedCount + 1;
+                const newConfidence = Math.min((existing.confidence + cascade.confidence) / 2, 1.0);
+                // Merge cascaded errors
+                const existingData = existing.patternData;
+                const mergedCascadedErrors = [
+                    ...new Set([...existingData.cascadedErrors, ...cascade.cascadedErrors])
+                ];
+                await prisma.errorKnowledge.update({
+                    where: { knowledgeId: existing.knowledgeId },
+                    data: {
+                        patternData: JSON.parse(JSON.stringify({
+                            ...cascade,
+                            cascadedErrors: mergedCascadedErrors,
+                        })),
+                        confidence: newConfidence,
+                        observedCount: newObservedCount,
+                        validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                        relatedFingerprints: [cascade.rootCauseFingerprint, ...mergedCascadedErrors],
+                    },
+                });
+                log.debug(`Updated cascade pattern from ${cascade.rootCauseFingerprint} (depth: ${cascade.cascadeDepth})`);
+                return existing.knowledgeId;
+            }
+            else {
+                // Create new cascade pattern
+                const created = await prisma.errorKnowledge.create({
+                    data: {
+                        patternType: 'CASCADE',
+                        patternData: JSON.parse(JSON.stringify(cascade)),
+                        confidence: cascade.confidence,
+                        validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                        observedCount: 1,
+                        relatedFingerprints: [cascade.rootCauseFingerprint, ...cascade.cascadedErrors],
+                    },
+                });
+                log.info(`Created cascade pattern from ${cascade.rootCauseFingerprint} (impact: ${cascade.totalImpact})`);
+                return created.knowledgeId;
+            }
+        }
+        catch (error) {
+            log.error('Error persisting cascade pattern', error);
+            throw error;
+        }
+    }
+    /**
+     * PHASE 2C: Query learned patterns from ErrorKnowledge table.
+     *
+     * @param query - Query options (patternType, minConfidence, fingerprint, includeExpired)
+     * @returns Array of stored knowledge entries
+     */
+    async getKnowledge(query = {}) {
+        try {
+            const whereClause = {};
+            if (query.patternType) {
+                whereClause.patternType = query.patternType;
+            }
+            if (query.minConfidence !== undefined) {
+                whereClause.confidence = { gte: query.minConfidence };
+            }
+            if (query.fingerprint) {
+                whereClause.relatedFingerprints = { has: query.fingerprint };
+            }
+            if (!query.includeExpired) {
+                whereClause.validUntil = { gte: new Date() };
+            }
+            const results = await prisma.errorKnowledge.findMany({
+                where: whereClause,
+                orderBy: [
+                    { confidence: 'desc' },
+                    { observedCount: 'desc' },
+                ],
+            });
+            return results.map(r => ({
+                knowledgeId: r.knowledgeId,
+                patternType: r.patternType,
+                patternData: r.patternData,
+                confidence: r.confidence,
+                validUntil: r.validUntil,
+                observedCount: r.observedCount,
+                relatedFingerprints: r.relatedFingerprints,
+                createdAt: r.createdAt,
+                updatedAt: r.updatedAt,
+            }));
+        }
+        catch (error) {
+            log.error('Error querying knowledge', error);
+            throw error;
+        }
+    }
+    /**
+     * PHASE 2C: Get time patterns that indicate anomalous hours.
+     * Returns hours where error rate is significantly above average.
+     *
+     * @param minConfidence - Minimum confidence threshold (default: 0.6)
+     * @returns Array of anomalous time patterns
+     */
+    async getAnomalousTimePatterns(minConfidence = 0.6) {
+        const knowledge = await this.getKnowledge({
+            patternType: 'TIME_CLUSTER',
+            minConfidence,
+        });
+        return knowledge
+            .map(k => k.patternData)
+            .filter(p => p.isAnomalous);
+    }
+    /**
+     * PHASE 2C: Get high-confidence correlation patterns.
+     * Returns error pairs that frequently occur together.
+     *
+     * @param minConfidence - Minimum confidence threshold (default: 0.7)
+     * @returns Array of correlation patterns
+     */
+    async getHighConfidenceCorrelations(minConfidence = 0.7) {
+        const knowledge = await this.getKnowledge({
+            patternType: 'CORRELATION',
+            minConfidence,
+        });
+        return knowledge.map(k => k.patternData);
+    }
+    /**
+     * PHASE 2C: Cleanup expired knowledge entries.
+     * Called periodically to prune stale patterns.
+     *
+     * @returns Number of entries deleted
+     */
+    async cleanupExpiredKnowledge() {
+        try {
+            const result = await prisma.errorKnowledge.deleteMany({
+                where: {
+                    validUntil: { lt: new Date() },
+                },
+            });
+            if (result.count > 0) {
+                log.info(`Cleaned up ${result.count} expired knowledge entries`);
+            }
+            return result.count;
+        }
+        catch (error) {
+            log.error('Error cleaning up expired knowledge', error);
             throw error;
         }
     }
@@ -309,13 +868,22 @@ export class ErrorLearningService {
      * Suggest mitigation strategies based on historical recovery success rates.
      * Recommends the most effective recovery approach for a given error.
      *
+     * PHASE 2A ENHANCEMENT: Now queries ErrorResolution table first for learned strategies,
+     * then falls back to learningMetadata JSONB, then generic strategies.
+     *
      * @param errorName - Name of the error
      * @param category - Error category
      * @returns Recommended recovery strategies with effectiveness scores
      */
     async suggestMitigation(errorName, category) {
         try {
-            // Find historical errors with recovery attempts
+            // PHASE 2A: First try to get strategies from ErrorResolution table
+            const learnedStrategies = await this.getLearnedStrategiesFromResolutions(errorName, category);
+            if (learnedStrategies.length > 0) {
+                log.info(`[ErrorLearning] Using ${learnedStrategies.length} learned strategies from ErrorResolution`);
+                return learnedStrategies;
+            }
+            // LEGACY FALLBACK: Query learningMetadata JSONB for backwards compatibility
             const historicalErrors = await prisma.errorLog.findMany({
                 where: {
                     OR: [
@@ -335,7 +903,7 @@ export class ErrorLearningService {
                 // No recovery data, return generic strategies
                 return this.getGenericStrategies(category);
             }
-            // Extract recovery strategies from learning metadata
+            // Extract recovery strategies from learning metadata (legacy JSONB path)
             const strategyMap = new Map();
             historicalErrors.forEach(err => {
                 const metadata = err.learningMetadata;
@@ -395,6 +963,108 @@ export class ErrorLearningService {
         catch (error) {
             log.error('Error suggesting mitigation', error);
             throw error;
+        }
+    }
+    /**
+     * PHASE 2A: Get learned strategies from ErrorResolution table.
+     * Queries actual resolution history to determine which strategies work best.
+     *
+     * @param errorName - Name of the error
+     * @param category - Error category
+     * @returns Strategies with learned effectiveness from real resolution data
+     */
+    async getLearnedStrategiesFromResolutions(errorName, category) {
+        try {
+            // Find errors matching name or category
+            const matchingErrors = await prisma.errorLog.findMany({
+                where: {
+                    OR: [
+                        { errorName },
+                        { category },
+                    ],
+                },
+                select: { errorId: true },
+                take: 100,
+            });
+            if (matchingErrors.length === 0) {
+                return [];
+            }
+            // Get all resolutions for these errors
+            const resolutions = await prisma.errorResolution.findMany({
+                where: {
+                    errorId: { in: matchingErrors.map(e => e.errorId) },
+                },
+                select: {
+                    strategy: true,
+                    outcome: true,
+                    durationMs: true,
+                    attempted: true,
+                },
+            });
+            if (resolutions.length === 0) {
+                return [];
+            }
+            // Aggregate by strategy
+            const strategyMap = new Map();
+            for (const r of resolutions) {
+                const isSuccess = r.outcome === 'SUCCESS' || r.outcome === 'PARTIAL';
+                const existing = strategyMap.get(r.strategy);
+                if (existing) {
+                    existing.totalCount++;
+                    if (isSuccess)
+                        existing.successCount++;
+                    existing.totalDurationMs += r.durationMs ?? 0;
+                    if (r.attempted > existing.lastUsed) {
+                        existing.lastUsed = r.attempted;
+                    }
+                }
+                else {
+                    strategyMap.set(r.strategy, {
+                        successCount: isSuccess ? 1 : 0,
+                        totalCount: 1,
+                        totalDurationMs: r.durationMs ?? 0,
+                        lastUsed: r.attempted,
+                    });
+                }
+            }
+            // Build RecoveryStrategy results
+            const strategies = [];
+            for (const [strategyName, data] of strategyMap.entries()) {
+                const successRate = data.successCount / data.totalCount;
+                const averageRecoveryTime = data.totalCount > 0 ? data.totalDurationMs / data.totalCount : 0;
+                let effectiveness;
+                if (successRate >= 0.8 && data.totalCount >= 3) {
+                    effectiveness = 'HIGH';
+                }
+                else if (successRate >= 0.5) {
+                    effectiveness = 'MEDIUM';
+                }
+                else {
+                    effectiveness = 'LOW';
+                }
+                strategies.push({
+                    strategyName,
+                    errorCategory: category,
+                    successRate,
+                    averageRecoveryTime,
+                    applicableCount: data.totalCount,
+                    lastUsed: data.lastUsed,
+                    effectiveness,
+                });
+            }
+            // Sort by effectiveness then success rate
+            return strategies.sort((a, b) => {
+                const effectivenessScore = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+                const aScore = effectivenessScore[a.effectiveness];
+                const bScore = effectivenessScore[b.effectiveness];
+                if (aScore !== bScore)
+                    return bScore - aScore;
+                return b.successRate - a.successRate;
+            });
+        }
+        catch (error) {
+            log.error('[ErrorLearning] Failed to get learned strategies from resolutions', error);
+            return []; // Return empty on error, will fall back to legacy path
         }
     }
     /**
@@ -491,6 +1161,7 @@ export class ErrorLearningService {
     /**
      * Update knowledge base with learning from new errors.
      * Runs periodically to analyze error patterns and update ErrorLog.learningMetadata.
+     * PHASE 2C: Now also persists patterns to ErrorKnowledge table.
      *
      * @param forceUpdate - Force update even if analysis recently completed
      * @returns Number of errors updated with new learning data
@@ -504,9 +1175,46 @@ export class ErrorLearningService {
             this.analysisInProgress = true;
             log.info('Starting error learning knowledge base update');
             // Detect patterns
-            const _timePatterns = await this.detectTimePatterns(null, 7);
+            const timePatterns = await this.detectTimePatterns(null, 7);
             const correlations = await this.detectCorrelations(5, 3);
-            const cascades = await this.detectCascades(3);
+            const cascades = await this.detectCascades(3); // This already persists to ErrorDependency (Phase 2B)
+            // PHASE 2C: Persist patterns to ErrorKnowledge table
+            let persistedPatterns = 0;
+            // Persist anomalous time patterns
+            for (const tp of timePatterns.filter(p => p.isAnomalous)) {
+                try {
+                    await this.persistTimePattern(tp);
+                    persistedPatterns++;
+                }
+                catch (err) {
+                    log.warn('Failed to persist time pattern', { hour: tp.hour, error: err instanceof Error ? err.message : String(err) });
+                }
+            }
+            // Persist high-confidence correlations
+            for (const corr of correlations.filter(c => c.confidence >= 0.5)) {
+                try {
+                    await this.persistCorrelationPattern(corr);
+                    persistedPatterns++;
+                }
+                catch (err) {
+                    log.warn('Failed to persist correlation pattern', { error: err instanceof Error ? err.message : String(err) });
+                }
+            }
+            // Persist cascades to ErrorKnowledge (in addition to ErrorDependency)
+            for (const cascade of cascades.filter(c => c.confidence >= 0.5)) {
+                try {
+                    await this.persistCascadePattern(cascade);
+                    persistedPatterns++;
+                }
+                catch (err) {
+                    log.warn('Failed to persist cascade pattern', { error: err instanceof Error ? err.message : String(err) });
+                }
+            }
+            if (persistedPatterns > 0) {
+                log.info(`Persisted ${persistedPatterns} patterns to ErrorKnowledge table`);
+            }
+            // Cleanup expired knowledge
+            await this.cleanupExpiredKnowledge();
             // Get all unique errors for metadata update
             const errors = await prisma.errorLog.findMany({
                 select: {

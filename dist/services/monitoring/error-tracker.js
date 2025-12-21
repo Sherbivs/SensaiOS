@@ -232,6 +232,10 @@ export class ErrorTracker {
             this.generateAndStoreAIReport(error, parsedStack, enrichedContext, fingerprint).catch((err) => {
                 log('warn', '[ErrorTracker] AI report generation failed: ' + err.message);
             });
+            // PHASE 2D: Persist stack frames for debugging/hotspot detection (async, fire-and-forget)
+            this.persistCodeContext(result.errorId, parsedStack.frames).catch((err) => {
+                log('warn', '[ErrorTracker] Code context persistence failed: ' + err.message);
+            });
             return result.errorId;
         }
         catch (captureError) {
@@ -342,7 +346,7 @@ export class ErrorTracker {
         });
     }
     /**
-     * Record recovery attempt and outcome
+     * Record recovery attempt and outcome (legacy method - use recordResolution for full tracking)
      */
     async recordRecoveryAttempt(errorId, strategy, success) {
         await prisma.errorLog.update({
@@ -354,6 +358,176 @@ export class ErrorTracker {
                 lastRecoveryOutcome: success ? 'success' : 'failed',
             },
         });
+    }
+    /**
+     * Record a resolution attempt with full tracking to ErrorResolution table.
+     * This creates a permanent learning record that enables strategy effectiveness analysis.
+     *
+     * LEARNING INTEGRATION: Creates ErrorResolution record that feeds into:
+     * - getEffectiveStrategies() for ranking strategies by success rate
+     * - suggestMitigation() in ErrorLearning for intelligent recommendations
+     * - Auto-remediation engine for eligible errors
+     *
+     * @param params - Resolution parameters including strategy, outcome, timing
+     * @returns The created ErrorResolution record ID
+     */
+    async recordResolution(params) {
+        const { errorId, strategy, outcome, triggeredBy, durationMs, notes, contextData, } = params;
+        try {
+            // First verify the error exists
+            const error = await prisma.errorLog.findUnique({
+                where: { errorId },
+                select: { errorId: true, fingerprint: true, category: true },
+            });
+            if (!error) {
+                throw new Error(`Error not found: ${errorId}`);
+            }
+            const success = outcome === 'SUCCESS' || outcome === 'PARTIAL';
+            // Create the resolution record
+            const resolution = await prisma.errorResolution.create({
+                data: {
+                    errorId,
+                    strategy,
+                    outcome,
+                    triggeredBy,
+                    durationMs,
+                    notes,
+                    contextData: contextData ? JSON.parse(JSON.stringify(contextData)) : undefined,
+                },
+            });
+            // Also update the ErrorLog counters for backwards compatibility
+            await prisma.errorLog.update({
+                where: { errorId },
+                data: {
+                    recoveryAttempted: { increment: 1 },
+                    recoverySuccess: success ? { increment: 1 } : undefined,
+                    lastRecoveryStrategy: strategy,
+                    lastRecoveryOutcome: success ? 'success' : 'failed',
+                },
+            });
+            log('info', `[ErrorTracker] Resolution recorded: ${strategy} (${outcome}) for ${errorId.substring(0, 8)}...`);
+            return resolution.resolutionId;
+        }
+        catch (error) {
+            log('error', `[ErrorTracker] Failed to record resolution: ${error}`);
+            throw error;
+        }
+    }
+    /**
+     * Get effective strategies for a fingerprint based on ErrorResolution history.
+     * Queries all resolution attempts and calculates success rates, confidence scores.
+     *
+     * LEARNING OUTPUT: Returns strategies ranked by effectiveness:
+     * - successRate: Historical success percentage
+     * - confidence: Based on sample size (more data = higher confidence)
+     * - recommendation: RECOMMENDED (>80% & >5 samples), CONSIDER (>50%), AVOID (<50%)
+     *
+     * @param fingerprint - Error fingerprint to analyze
+     * @returns Strategies sorted by effectiveness (best first)
+     */
+    async getEffectiveStrategies(fingerprint) {
+        try {
+            // Get the error by fingerprint
+            const error = await prisma.errorLog.findUnique({
+                where: { fingerprint },
+                select: { errorId: true, category: true },
+            });
+            if (!error) {
+                return [];
+            }
+            // Get all resolutions for this error
+            const resolutions = await prisma.errorResolution.findMany({
+                where: { errorId: error.errorId },
+                select: {
+                    strategy: true,
+                    outcome: true,
+                    durationMs: true,
+                    attempted: true,
+                },
+            });
+            if (resolutions.length === 0) {
+                // Also check for resolutions from errors with same category
+                const categoryErrors = await prisma.errorLog.findMany({
+                    where: { category: error.category },
+                    select: { errorId: true },
+                    take: 100,
+                });
+                const categoryResolutions = await prisma.errorResolution.findMany({
+                    where: { errorId: { in: categoryErrors.map(e => e.errorId) } },
+                    select: {
+                        strategy: true,
+                        outcome: true,
+                        durationMs: true,
+                        attempted: true,
+                    },
+                });
+                if (categoryResolutions.length === 0) {
+                    return [];
+                }
+                resolutions.push(...categoryResolutions);
+            }
+            // Aggregate by strategy
+            const strategyMap = new Map();
+            for (const r of resolutions) {
+                const isSuccess = r.outcome === 'SUCCESS' || r.outcome === 'PARTIAL';
+                const existing = strategyMap.get(r.strategy);
+                if (existing) {
+                    existing.totalCount++;
+                    if (isSuccess)
+                        existing.successCount++;
+                    existing.totalDurationMs += r.durationMs ?? 0;
+                    if (r.attempted > existing.lastUsed) {
+                        existing.lastUsed = r.attempted;
+                    }
+                }
+                else {
+                    strategyMap.set(r.strategy, {
+                        successCount: isSuccess ? 1 : 0,
+                        totalCount: 1,
+                        totalDurationMs: r.durationMs ?? 0,
+                        lastUsed: r.attempted,
+                    });
+                }
+            }
+            // Calculate effectiveness metrics
+            const strategies = [];
+            for (const [strategy, data] of strategyMap.entries()) {
+                const successRate = data.successCount / data.totalCount;
+                const avgExecutionMs = data.totalCount > 0 ? data.totalDurationMs / data.totalCount : 0;
+                // Confidence based on sample size: 1 sample = 0.2, 5 samples = 1.0
+                const confidence = Math.min(data.totalCount / 5, 1);
+                // Recommendation based on success rate and confidence
+                let recommendation;
+                if (successRate >= 0.8 && data.totalCount >= 5) {
+                    recommendation = 'RECOMMENDED';
+                }
+                else if (successRate >= 0.5) {
+                    recommendation = 'CONSIDER';
+                }
+                else {
+                    recommendation = 'AVOID';
+                }
+                strategies.push({
+                    strategy,
+                    successRate,
+                    avgExecutionMs,
+                    sampleSize: data.totalCount,
+                    lastUsed: data.lastUsed,
+                    confidence,
+                    recommendation,
+                });
+            }
+            // Sort by effectiveness score (success rate * confidence)
+            return strategies.sort((a, b) => {
+                const aScore = a.successRate * a.confidence;
+                const bScore = b.successRate * b.confidence;
+                return bScore - aScore;
+            });
+        }
+        catch (error) {
+            log('error', `[ErrorTracker] Failed to get effective strategies: ${error}`);
+            throw error;
+        }
     }
     /**
      * Update learning metadata for an error
@@ -484,6 +658,220 @@ export class ErrorTracker {
         catch (reportError) {
             // Report generation failed - not critical
             log('warn', '[ErrorTracker] AI report generation failed: ' + String(reportError));
+        }
+    }
+    // ============================================================================
+    // PHASE 2D: ErrorCodeContext Integration — Stack Frame Persistence
+    // ============================================================================
+    /**
+     * PHASE 2D: Persist stack frames to ErrorCodeContext table.
+     * Enables "show me where this error occurred" queries and hotspot detection.
+     *
+     * @param errorId - The error ID to associate frames with
+     * @param frames - Parsed stack frames from stack-trace-parser
+     * @param maxFrames - Maximum frames to persist (default: 10)
+     * @returns Number of frames persisted
+     */
+    async persistCodeContext(errorId, frames, maxFrames = 10) {
+        try {
+            // Filter to user code frames only (skip node_modules and native)
+            const userFrames = frames
+                .filter(f => !f.isNodeModule && !f.isNative && f.filePath)
+                .slice(0, maxFrames);
+            if (userFrames.length === 0) {
+                return 0;
+            }
+            // Batch insert all frames
+            const contextRecords = userFrames.map((frame, index) => ({
+                errorId,
+                frameIndex: index,
+                filePath: frame.relativeFilePath || frame.filePath || '',
+                lineNumber: frame.lineNumber || 0,
+                columnNumber: frame.columnNumber,
+                functionName: frame.functionName,
+                codeSnippet: frame.sourceSnippet
+                    ? `${frame.sourceSnippet.before || ''}\n>>> ${frame.sourceSnippet.errorLine || ''}\n${frame.sourceSnippet.after || ''}`
+                    : null,
+            }));
+            await prisma.errorCodeContext.createMany({
+                data: contextRecords,
+                skipDuplicates: true,
+            });
+            log('info', `[ErrorTracker] Persisted ${contextRecords.length} stack frames for error ${errorId.substring(0, 8)}...`);
+            return contextRecords.length;
+        }
+        catch (error) {
+            log('warn', '[ErrorTracker] Failed to persist code context: ' + (error instanceof Error ? error.message : String(error)));
+            return 0;
+        }
+    }
+    /**
+     * PHASE 2D: Get hotspots — files and lines with most errors.
+     * Identifies error-prone code locations for refactoring priority.
+     *
+     * @param limit - Maximum hotspots to return (default: 20)
+     * @param minOccurrences - Minimum occurrences to qualify (default: 2)
+     * @returns Hotspot locations sorted by error count
+     */
+    async getHotspots(limit = 20, minOccurrences = 2) {
+        try {
+            // Group by file + line number
+            const contexts = await prisma.errorCodeContext.findMany({
+                where: {
+                    frameIndex: 0, // Top of stack only (actual error location)
+                },
+                select: {
+                    filePath: true,
+                    lineNumber: true,
+                    functionName: true,
+                    errorId: true,
+                },
+            });
+            // Aggregate by location
+            const locationMap = new Map();
+            for (const ctx of contexts) {
+                const key = `${ctx.filePath}:${ctx.lineNumber}`;
+                const existing = locationMap.get(key);
+                if (existing) {
+                    existing.errorIds.add(ctx.errorId);
+                    // Keep first function name seen
+                }
+                else {
+                    locationMap.set(key, {
+                        filePath: ctx.filePath,
+                        lineNumber: ctx.lineNumber,
+                        functionName: ctx.functionName,
+                        errorIds: new Set([ctx.errorId]),
+                    });
+                }
+            }
+            // Convert to array and filter by minOccurrences
+            const hotspots = Array.from(locationMap.values())
+                .filter(h => h.errorIds.size >= minOccurrences)
+                .map(h => ({
+                filePath: h.filePath,
+                lineNumber: h.lineNumber,
+                functionName: h.functionName,
+                errorCount: h.errorIds.size,
+                errorIds: Array.from(h.errorIds),
+            }))
+                .sort((a, b) => b.errorCount - a.errorCount)
+                .slice(0, limit);
+            return hotspots;
+        }
+        catch (error) {
+            log('error', '[ErrorTracker] Failed to get hotspots: ' + (error instanceof Error ? error.message : String(error)));
+            throw error;
+        }
+    }
+    /**
+     * PHASE 2D: Get full call chain for an error.
+     * Reconstructs the execution path that led to the error.
+     *
+     * @param errorId - The error ID to get call chain for
+     * @returns Stack frames in order (0 = top of stack)
+     */
+    async getErrorCallChain(errorId) {
+        try {
+            const frames = await prisma.errorCodeContext.findMany({
+                where: { errorId },
+                orderBy: { frameIndex: 'asc' },
+                select: {
+                    frameIndex: true,
+                    filePath: true,
+                    lineNumber: true,
+                    columnNumber: true,
+                    functionName: true,
+                    codeSnippet: true,
+                },
+            });
+            return frames;
+        }
+        catch (error) {
+            log('error', '[ErrorTracker] Failed to get call chain: ' + (error instanceof Error ? error.message : String(error)));
+            throw error;
+        }
+    }
+    /**
+     * PHASE 2D: Get errors by file path.
+     * Find all errors that occurred in a specific file.
+     *
+     * @param filePath - File path to search (partial match supported)
+     * @returns Error IDs and their locations in the file
+     */
+    async getErrorsByFile(filePath) {
+        try {
+            const contexts = await prisma.errorCodeContext.findMany({
+                where: {
+                    filePath: { contains: filePath },
+                },
+                select: {
+                    errorId: true,
+                    lineNumber: true,
+                    functionName: true,
+                    frameIndex: true,
+                },
+                orderBy: [
+                    { lineNumber: 'asc' },
+                    { frameIndex: 'asc' },
+                ],
+            });
+            return contexts;
+        }
+        catch (error) {
+            log('error', '[ErrorTracker] Failed to get errors by file: ' + (error instanceof Error ? error.message : String(error)));
+            throw error;
+        }
+    }
+    /**
+     * PHASE 2D: Get function error statistics.
+     * Find functions that have the most errors.
+     *
+     * @param limit - Maximum functions to return (default: 20)
+     * @returns Functions sorted by error count
+     */
+    async getFunctionErrorStats(limit = 20) {
+        try {
+            const contexts = await prisma.errorCodeContext.findMany({
+                where: {
+                    functionName: { not: null },
+                    frameIndex: 0, // Top of stack only
+                },
+                select: {
+                    functionName: true,
+                    filePath: true,
+                    errorId: true,
+                },
+            });
+            // Aggregate by function name
+            const functionMap = new Map();
+            for (const ctx of contexts) {
+                if (!ctx.functionName)
+                    continue;
+                const existing = functionMap.get(ctx.functionName);
+                if (existing) {
+                    existing.errorIds.add(ctx.errorId);
+                    existing.filePaths.add(ctx.filePath);
+                }
+                else {
+                    functionMap.set(ctx.functionName, {
+                        errorIds: new Set([ctx.errorId]),
+                        filePaths: new Set([ctx.filePath]),
+                    });
+                }
+            }
+            return Array.from(functionMap.entries())
+                .map(([functionName, data]) => ({
+                functionName,
+                errorCount: data.errorIds.size,
+                filePaths: Array.from(data.filePaths),
+            }))
+                .sort((a, b) => b.errorCount - a.errorCount)
+                .slice(0, limit);
+        }
+        catch (error) {
+            log('error', '[ErrorTracker] Failed to get function error stats: ' + (error instanceof Error ? error.message : String(error)));
+            throw error;
         }
     }
     /**

@@ -66,6 +66,7 @@ export function detectSecurityThreats(currentActivity, baselines) {
     }
     // THREAT 2: Unusual Origin (Unauthorized Access Method)
     if (currentActivity.origin &&
+        baselines.expectedOrigins &&
         baselines.expectedOrigins.length > 0 &&
         !baselines.expectedOrigins.includes(currentActivity.origin)) {
         threats.push({
@@ -103,7 +104,8 @@ export function detectSecurityThreats(currentActivity, baselines) {
         });
     }
     // THREAT 4: Off-Hours Activity (Unauthorized Access)
-    if (baselines.peakActivityHours.length > 0 &&
+    if (baselines.peakActivityHours &&
+        baselines.peakActivityHours.length > 0 &&
         !baselines.peakActivityHours.includes(currentHour) &&
         currentActivity.changesInLastHour >= (baselines.averageChangesPerHour * 3)) {
         threats.push({

@@ -4,6 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { normalizeString } from "./utils/index.js";
 let cachedConfig = null;
+/**
+ * Reset the cached config for tests.
+ * ONLY use in test files to ensure clean state between tests.
+ */
+export function resetConfigCacheForTests() {
+    cachedConfig = null;
+}
 function coerceNumber(value, fallback) {
     if (!value)
         return fallback;

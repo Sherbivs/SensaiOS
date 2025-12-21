@@ -73,6 +73,10 @@ export const ModelName = {
     LogEntry: 'LogEntry',
     ErrorLog: 'ErrorLog',
     ErrorAlert: 'ErrorAlert',
+    ErrorKnowledge: 'ErrorKnowledge',
+    ErrorResolution: 'ErrorResolution',
+    ErrorDependency: 'ErrorDependency',
+    ErrorCodeContext: 'ErrorCodeContext',
     BattleAnalytics: 'BattleAnalytics',
     ConsoleOutput: 'ConsoleOutput',
     DataPoolSyncStatus: 'DataPoolSyncStatus',
@@ -448,6 +452,48 @@ export const ErrorAlertScalarFieldEnum = {
     acknowledgedAt: 'acknowledgedAt',
     acknowledgedBy: 'acknowledgedBy'
 };
+export const ErrorKnowledgeScalarFieldEnum = {
+    knowledgeId: 'knowledgeId',
+    patternType: 'patternType',
+    patternData: 'patternData',
+    confidence: 'confidence',
+    validUntil: 'validUntil',
+    observedCount: 'observedCount',
+    relatedFingerprints: 'relatedFingerprints',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+};
+export const ErrorResolutionScalarFieldEnum = {
+    resolutionId: 'resolutionId',
+    errorId: 'errorId',
+    strategy: 'strategy',
+    attempted: 'attempted',
+    durationMs: 'durationMs',
+    outcome: 'outcome',
+    notes: 'notes',
+    contextData: 'contextData',
+    triggeredBy: 'triggeredBy'
+};
+export const ErrorDependencyScalarFieldEnum = {
+    dependencyId: 'dependencyId',
+    parentErrorId: 'parentErrorId',
+    childErrorId: 'childErrorId',
+    observedCount: 'observedCount',
+    avgTimeDeltaMs: 'avgTimeDeltaMs',
+    confidence: 'confidence',
+    firstObserved: 'firstObserved',
+    lastObserved: 'lastObserved'
+};
+export const ErrorCodeContextScalarFieldEnum = {
+    contextId: 'contextId',
+    errorId: 'errorId',
+    frameIndex: 'frameIndex',
+    filePath: 'filePath',
+    lineNumber: 'lineNumber',
+    columnNumber: 'columnNumber',
+    functionName: 'functionName',
+    codeSnippet: 'codeSnippet'
+};
 export const BattleAnalyticsScalarFieldEnum = {
     id: 'id',
     timestamp: 'timestamp',
@@ -779,6 +825,31 @@ export const ErrorAlertOrderByRelevanceFieldEnum = {
     alertType: 'alertType',
     recipientId: 'recipientId',
     acknowledgedBy: 'acknowledgedBy'
+};
+export const ErrorKnowledgeOrderByRelevanceFieldEnum = {
+    knowledgeId: 'knowledgeId',
+    patternType: 'patternType',
+    relatedFingerprints: 'relatedFingerprints'
+};
+export const ErrorResolutionOrderByRelevanceFieldEnum = {
+    resolutionId: 'resolutionId',
+    errorId: 'errorId',
+    strategy: 'strategy',
+    outcome: 'outcome',
+    notes: 'notes',
+    triggeredBy: 'triggeredBy'
+};
+export const ErrorDependencyOrderByRelevanceFieldEnum = {
+    dependencyId: 'dependencyId',
+    parentErrorId: 'parentErrorId',
+    childErrorId: 'childErrorId'
+};
+export const ErrorCodeContextOrderByRelevanceFieldEnum = {
+    contextId: 'contextId',
+    errorId: 'errorId',
+    filePath: 'filePath',
+    functionName: 'functionName',
+    codeSnippet: 'codeSnippet'
 };
 export const BattleAnalyticsOrderByRelevanceFieldEnum = {
     battleId: 'battleId',
