@@ -1307,37 +1307,19 @@ class ResourceMonitor {
             // Filesystem access failed, use placeholder
             cacheSize = 0;
         }
-        // Get ACTUAL disk stats from filesystem - this is the source of truth
-        // All other metrics derive from these actual values
-        let diskTotal = 1024 * 1024 * 1024; // 1 GB fallback (Render /Store size)
-        let diskFree = 1024 * 1024 * 1024 - cacheSize; // Fallback calculation
-        let diskUsed = cacheSize; // Fallback: use cacheSize as disk used
-        try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const fs = require('node:fs');
-            // Use statfsSync for actual filesystem stats (Node 18.15+)
-            if (typeof fs.statfsSync === 'function' && fs.existsSync(cacheDir)) {
-                const stats = fs.statfsSync(cacheDir);
-                diskTotal = stats.blocks * stats.bsize;
-                // bfree = total free blocks, bavail = free blocks available to unprivileged users
-                // Use bavail for more accurate "usable free space"
-                const availableBlocks = stats.bavail ?? stats.bfree;
-                diskFree = availableBlocks * stats.bsize;
-                // Calculate used = total - free (most accurate method)
-                diskUsed = diskTotal - diskFree;
-                // Sanity check: if diskUsed is 0 or negative but cacheSize > 0, use cacheSize
-                // This handles edge cases where statfsSync returns incorrect data
-                if (diskUsed <= 0 && cacheSize > 0) {
-                    diskUsed = cacheSize;
-                    diskFree = diskTotal - diskUsed;
-                }
-            }
-        }
-        catch {
-            // statfsSync not available or failed, use fallback (cacheSize-based calculation)
-            diskUsed = cacheSize;
-            diskFree = diskTotal - diskUsed;
-        }
+        // DISK USAGE FOR RENDER MOUNTED VOLUME
+        // =====================================
+        // On Render, /Store is a mounted persistent disk with a 1 GB quota.
+        // statfsSync() returns stats for the CONTAINER'S overlay filesystem, NOT the mounted volume.
+        // Therefore, the ONLY accurate way to measure /Store usage is via directory walk (cacheSize).
+        //
+        // The Render Dashboard shows actual volume usage (~200 MB) which matches getDirectorySize().
+        // statfsSync would show the entire container FS (many GB) which is NOT what we want.
+        //
+        // Solution: Use cacheSize (directory walk) as disk used, and 1 GB as total (Render quota).
+        const diskTotal = 1024 * 1024 * 1024; // 1 GB - Render /Store quota (hardcoded, not from statfsSync)
+        const diskUsed = cacheSize; // Directory walk result = actual bytes on /Store volume
+        const diskFree = diskTotal - diskUsed; // Remaining quota
         // Derive all other metrics from actual disk stats
         // workspaceLimit = actual disk total (not hardcoded 1 GB)
         // cacheBudgetMax = 10% of disk as soft budget for cache files
