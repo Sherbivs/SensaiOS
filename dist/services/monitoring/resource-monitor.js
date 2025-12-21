@@ -1311,18 +1311,32 @@ class ResourceMonitor {
         // All other metrics derive from these actual values
         let diskTotal = 1024 * 1024 * 1024; // 1 GB fallback (Render /Store size)
         let diskFree = 1024 * 1024 * 1024 - cacheSize; // Fallback calculation
+        let diskUsed = cacheSize; // Fallback: use cacheSize as disk used
         try {
             // eslint-disable-next-line @typescript-eslint/no-require-imports
             const fs = require('node:fs');
             // Use statfsSync for actual filesystem stats (Node 18.15+)
-            if (typeof fs.statfsSync === 'function') {
+            if (typeof fs.statfsSync === 'function' && fs.existsSync(cacheDir)) {
                 const stats = fs.statfsSync(cacheDir);
                 diskTotal = stats.blocks * stats.bsize;
-                diskFree = stats.bfree * stats.bsize;
+                // bfree = total free blocks, bavail = free blocks available to unprivileged users
+                // Use bavail for more accurate "usable free space"
+                const availableBlocks = stats.bavail ?? stats.bfree;
+                diskFree = availableBlocks * stats.bsize;
+                // Calculate used = total - free (most accurate method)
+                diskUsed = diskTotal - diskFree;
+                // Sanity check: if diskUsed is 0 or negative but cacheSize > 0, use cacheSize
+                // This handles edge cases where statfsSync returns incorrect data
+                if (diskUsed <= 0 && cacheSize > 0) {
+                    diskUsed = cacheSize;
+                    diskFree = diskTotal - diskUsed;
+                }
             }
         }
         catch {
-            // statfsSync not available or failed, use fallback
+            // statfsSync not available or failed, use fallback (cacheSize-based calculation)
+            diskUsed = cacheSize;
+            diskFree = diskTotal - diskUsed;
         }
         // Derive all other metrics from actual disk stats
         // workspaceLimit = actual disk total (not hardcoded 1 GB)
@@ -1349,6 +1363,7 @@ class ResourceMonitor {
             approxFree: diskFree, // Same as diskFree - actual free space
             diskTotal,
             diskFree,
+            diskUsed, // Explicit used calculation (diskTotal - diskFree)
         };
     }
     getHealthSummary() {

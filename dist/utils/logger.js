@@ -222,6 +222,7 @@ function collectCacheStats() {
         workspaceFree: formatBytes(resourceMetrics.approxFree),
         diskTotal: formatBytes(resourceMetrics.diskTotal),
         diskFree: formatBytes(resourceMetrics.diskFree),
+        diskUsed: formatBytes(resourceMetrics.diskUsed),
     };
 }
 async function collectDatabaseStats() {
@@ -644,11 +645,11 @@ function printInfinityConsole() {
             return value / 1024;
         return value;
     };
-    // Calculate ACTUAL disk usage from filesystem stats (not just /Store contents)
-    // diskTotal - diskFree = actual bytes used on the volume
+    // Use ACTUAL disk usage from resource monitor (calculated via statfsSync)
+    // diskUsed comes directly from the source - no recalculation needed
     const diskTotalMB = parseDiskMB(statsCache.cache.diskTotal) || 1024; // 1 GB default
     const diskFreeMB = parseDiskMB(statsCache.cache.diskFree) || 0;
-    const diskUsedMB = diskTotalMB - diskFreeMB; // ACTUAL filesystem usage
+    const diskUsedMB = parseDiskMB(statsCache.cache.diskUsed) || (diskTotalMB - diskFreeMB); // Use direct value or fallback
     const storeSizeMB = parseDiskMB(statsCache.cache.cacheSize); // Just /Store directory size
     // Parse uptime (comes as formatted string like "4h 23m 15s")
     const parseUptimeSeconds = (str) => {
