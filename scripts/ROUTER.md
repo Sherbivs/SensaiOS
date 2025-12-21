@@ -104,6 +104,13 @@ The following root-level scripts will be migrated to domain CLIs:
 - `archive_task_history.mjs` → `ops/cli.ts archive`
 - `ops/*.ps1` → Various ops/cli.ts commands
 
+## Archive Directory
+
+Legacy and one-time scripts are preserved in `scripts/archive/`:
+
+- `archive/render-api-deprecated/` — Deprecated Render API scripts (SSH-only policy)
+- `archive/one-time-migrations/` — Completed migration scripts
+
 ## Output Formatting
 
 All CLIs use the shared lib/output.ts module:
@@ -114,7 +121,8 @@ All CLIs use the shared lib/output.ts module:
 
 ## Changelog
 
-- **2025-12-21:** Scripts Overhaul Project complete — 11 domains with unified CLIs
+- **2025-12-21:** Legacy Cleanup — 14 orphan scripts deleted, package.json reorganized
+- **2025-12-21:** Scripts Overhaul Project complete — 8 domains with unified CLIs
 - **2025-12-18:** TypeScript Migration Phase 1 — 6 CommonJS scripts converted
 - **2025-11-09:** Console Output Standardization — 11 scripts using output-formatter
 - **2025-11-06:** Bootstrap local database scripts added
