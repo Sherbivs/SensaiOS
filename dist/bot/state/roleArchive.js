@@ -30,15 +30,59 @@ import { generateSecurityBaselines, loadSecurityBaselines, saveSecurityBaselines
 import { detectSecurityThreats, calculateCurrentActivity } from './threatDetector.js';
 import { ARCHIVE_DIR, ARCHIVE_FILE, BACKUP_FILE, MAX_ARCHIVE_SIZE, HMAC_ALGORITHM, getHmacSecret } from './config.js';
 // ─────────────────────────────────────────────────────────────────────────────
-// In-Memory Cache
+// Bounded Set (P2-M2: Memory Safety)
 // ─────────────────────────────────────────────────────────────────────────────
+const UNIQUE_MEMBERS_CAP = 10000; // Max unique members to track
+/**
+ * LRU-style bounded Set that evicts oldest entries when capacity reached.
+ * Prevents unbounded memory growth over months of operation.
+ */
+class BoundedSet {
+    maxSize;
+    items = [];
+    set = new Set();
+    constructor(maxSize = UNIQUE_MEMBERS_CAP) {
+        this.maxSize = maxSize;
+    }
+    add(item) {
+        if (this.set.has(item))
+            return;
+        // Evict oldest if at capacity
+        if (this.items.length >= this.maxSize) {
+            const oldest = this.items.shift();
+            this.set.delete(oldest);
+        }
+        this.items.push(item);
+        this.set.add(item);
+    }
+    has(item) {
+        return this.set.has(item);
+    }
+    get size() {
+        return this.set.size;
+    }
+    /** Convert to array for serialization */
+    toArray() {
+        return [...this.items];
+    }
+    /** Restore from array (after deserialization) */
+    static fromArray(items, maxSize) {
+        const bounded = new BoundedSet(maxSize);
+        // Only load the most recent items up to capacity
+        const start = Math.max(0, items.length - (maxSize ?? UNIQUE_MEMBERS_CAP));
+        for (let i = start; i < items.length; i++) {
+            bounded.add(items[i]);
+        }
+        return bounded;
+    }
+}
 let roleArchiveCache = {
     changes: [],
     statistics: {
         totalChanges: 0,
         additionCount: 0,
         removalCount: 0,
-        uniqueMembers: new Set(),
+        uniqueMembers: new BoundedSet(), // P2-M2: Bounded
         rolesModified: new Map(),
         lastUpdate: null
     },
@@ -99,7 +143,7 @@ async function persistArchive() {
             changes: roleArchiveCache.changes,
             statistics: {
                 ...roleArchiveCache.statistics,
-                uniqueMembers: Array.from(roleArchiveCache.statistics.uniqueMembers),
+                uniqueMembers: roleArchiveCache.statistics.uniqueMembers.toArray(), // P2-M2: BoundedSet serialization
                 rolesModified: Array.from(roleArchiveCache.statistics.rolesModified.entries())
             },
             metadata: {
@@ -195,7 +239,7 @@ export async function initializeRoleArchive() {
                                 if (backup.statistics) {
                                     roleArchiveCache.statistics = {
                                         ...backup.statistics,
-                                        uniqueMembers: new Set(backup.statistics.uniqueMembers || []),
+                                        uniqueMembers: BoundedSet.fromArray(backup.statistics.uniqueMembers || []), // P2-M2
                                         rolesModified: new Map(backup.statistics.rolesModified || [])
                                     };
                                 }
@@ -233,7 +277,7 @@ export async function initializeRoleArchive() {
                     if (archived.statistics) {
                         roleArchiveCache.statistics = {
                             ...archived.statistics,
-                            uniqueMembers: new Set(archived.statistics.uniqueMembers || []),
+                            uniqueMembers: BoundedSet.fromArray(archived.statistics.uniqueMembers || []), // P2-M2
                             rolesModified: new Map(archived.statistics.rolesModified || [])
                         };
                     }
@@ -252,7 +296,7 @@ export async function initializeRoleArchive() {
                 if (archived.statistics) {
                     roleArchiveCache.statistics = {
                         ...archived.statistics,
-                        uniqueMembers: new Set(archived.statistics.uniqueMembers || []),
+                        uniqueMembers: BoundedSet.fromArray(archived.statistics.uniqueMembers || []), // P2-M2
                         rolesModified: new Map(archived.statistics.rolesModified || [])
                     };
                 }

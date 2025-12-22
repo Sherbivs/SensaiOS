@@ -20,6 +20,8 @@ export interface StateMetadata {
   hostname: string;
   nodeVersion: string;
   botVersion: string;
+  /** SHA256 integrity checksum (P0 reliability feature) */
+  checksum?: string;
 }
 
 export interface CumulativeStats {
@@ -85,6 +87,10 @@ export interface GuildState {
   permissionChanges: number;
   monitoring: boolean;
   lastActivity: string;
+  /** Count of member fetch timeouts (rate limiting) */
+  memberFetchTimeouts?: number;
+  /** Timestamp of last member fetch timeout */
+  lastMemberFetchTimeout?: string;
 }
 
 export interface RuntimeState {
@@ -278,10 +284,19 @@ export interface CumulativeStatsUpdate {
 // Metric Event Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type MetricEventType = 
+/**
+ * Canonical metric event types for state tracking.
+ * Single source of truth - import this instead of defining locally.
+ */
+export type MetricsEventType = 
   | 'sweep'
   | 'alert'
   | 'permission_change'
   | 'permission_revert'
   | 'revert_failure'
+  | 'error'
+  | 'member_fetch_timeout'
   | 'restart';
+
+/** @deprecated Use MetricsEventType instead */
+export type MetricEventType = MetricsEventType;

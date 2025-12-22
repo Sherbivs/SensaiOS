@@ -84,15 +84,7 @@ export interface RoleStatistics {
   archiveCapacity: number;
 }
 
-interface ArchiveStatistics {
-  totalChanges: number;
-  additionCount: number;
-  removalCount: number;
-  uniqueMembers: Set<string>;
-  rolesModified: Map<string, number>;
-  lastUpdate: string | null;
-}
-
+// SerializedArchiveStatistics: What gets stored in JSON files
 interface SerializedArchiveStatistics {
   totalChanges: number;
   additionCount: number;
@@ -102,12 +94,8 @@ interface SerializedArchiveStatistics {
   lastUpdate: string | null;
 }
 
-interface RoleArchiveCache {
-  changes: RoleChangeRecord[];
-  statistics: ArchiveStatistics;
-  securityBaselines: FullSecurityBaselines | null;
-  initialized: boolean;
-}
+// Note: RoleArchiveCache and ArchiveStatistics removed in P2-M2 refactor.
+// Internal cache now uses RoleArchiveCacheInternal with BoundedSet.
 
 interface ArchivedData {
   changes?: RoleChangeRecord[];
@@ -126,16 +114,84 @@ export interface ExportedArchive {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Bounded Set (P2-M2: Memory Safety)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const UNIQUE_MEMBERS_CAP = 10000;  // Max unique members to track
+
+/**
+ * LRU-style bounded Set that evicts oldest entries when capacity reached.
+ * Prevents unbounded memory growth over months of operation.
+ */
+class BoundedSet<T> {
+  private items: T[] = [];
+  private set: Set<T> = new Set();
+  
+  constructor(private maxSize: number = UNIQUE_MEMBERS_CAP) {}
+  
+  add(item: T): void {
+    if (this.set.has(item)) return;
+    
+    // Evict oldest if at capacity
+    if (this.items.length >= this.maxSize) {
+      const oldest = this.items.shift()!;
+      this.set.delete(oldest);
+    }
+    
+    this.items.push(item);
+    this.set.add(item);
+  }
+  
+  has(item: T): boolean {
+    return this.set.has(item);
+  }
+  
+  get size(): number {
+    return this.set.size;
+  }
+  
+  /** Convert to array for serialization */
+  toArray(): T[] {
+    return [...this.items];
+  }
+  
+  /** Restore from array (after deserialization) */
+  static fromArray<T>(items: T[], maxSize?: number): BoundedSet<T> {
+    const bounded = new BoundedSet<T>(maxSize);
+    // Only load the most recent items up to capacity
+    const start = Math.max(0, items.length - (maxSize ?? UNIQUE_MEMBERS_CAP));
+    for (let i = start; i < items.length; i++) {
+      bounded.add(items[i]);
+    }
+    return bounded;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // In-Memory Cache
 // ─────────────────────────────────────────────────────────────────────────────
 
-let roleArchiveCache: RoleArchiveCache = {
+interface RoleArchiveCacheInternal {
+  changes: RoleChangeRecord[];
+  statistics: {
+    totalChanges: number;
+    additionCount: number;
+    removalCount: number;
+    uniqueMembers: BoundedSet<string>;  // P2-M2: Bounded set
+    rolesModified: Map<string, number>;
+    lastUpdate: string | null;
+  };
+  securityBaselines: FullSecurityBaselines | null;
+  initialized: boolean;
+}
+
+let roleArchiveCache: RoleArchiveCacheInternal = {
   changes: [],
   statistics: {
     totalChanges: 0,
     additionCount: 0,
     removalCount: 0,
-    uniqueMembers: new Set(),
+    uniqueMembers: new BoundedSet<string>(),  // P2-M2: Bounded
     rolesModified: new Map(),
     lastUpdate: null
   },
@@ -205,7 +261,7 @@ async function persistArchive(): Promise<void> {
       changes: roleArchiveCache.changes,
       statistics: {
         ...roleArchiveCache.statistics,
-        uniqueMembers: Array.from(roleArchiveCache.statistics.uniqueMembers),
+        uniqueMembers: roleArchiveCache.statistics.uniqueMembers.toArray(),  // P2-M2: BoundedSet serialization
         rolesModified: Array.from(roleArchiveCache.statistics.rolesModified.entries())
       },
       metadata: {
@@ -320,7 +376,7 @@ export async function initializeRoleArchive(): Promise<boolean> {
                 if (backup.statistics) {
                   roleArchiveCache.statistics = {
                     ...backup.statistics,
-                    uniqueMembers: new Set(backup.statistics.uniqueMembers || []),
+                    uniqueMembers: BoundedSet.fromArray(backup.statistics.uniqueMembers || []),  // P2-M2
                     rolesModified: new Map(backup.statistics.rolesModified || [])
                   };
                 }
@@ -356,7 +412,7 @@ export async function initializeRoleArchive(): Promise<boolean> {
           if (archived.statistics) {
             roleArchiveCache.statistics = {
               ...archived.statistics,
-              uniqueMembers: new Set(archived.statistics.uniqueMembers || []),
+              uniqueMembers: BoundedSet.fromArray(archived.statistics.uniqueMembers || []),  // P2-M2
               rolesModified: new Map(archived.statistics.rolesModified || [])
             };
           }
@@ -377,7 +433,7 @@ export async function initializeRoleArchive(): Promise<boolean> {
         if (archived.statistics) {
           roleArchiveCache.statistics = {
             ...archived.statistics,
-            uniqueMembers: new Set(archived.statistics.uniqueMembers || []),
+            uniqueMembers: BoundedSet.fromArray(archived.statistics.uniqueMembers || []),  // P2-M2
             rolesModified: new Map(archived.statistics.rolesModified || [])
           };
         }

@@ -18,6 +18,11 @@ import { log } from '../../shared/logging/index.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
 import { errorTracker } from '../../services/monitoring/index.js';
+import {
+  STATE_DIR,
+  MAX_TIMELINE_EVENTS,
+  SNAPSHOT_RETENTION_DAYS
+} from './config.js';
 import type { 
   SecurityBotState, 
   CumulativeStats, 
@@ -26,43 +31,72 @@ import type {
   GuildState, 
   RuntimeState, 
   TimelineEvent,
-  StateMetadata 
+  StateMetadata,
+  MetricsEventType
 } from './types.js';
 
+// Re-export MetricsEventType for backward compatibility
+export type { MetricsEventType } from './types.js';
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Configuration
+// Configuration (imports from config.ts + local path resolution)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const STATE_DIR = process.env.RENDER 
-  ? '/Store/security-bot-state'
-  : path.resolve(__dirname, '../../../Store/security-bot-state');
+// Derive paths from canonical STATE_DIR
 const CURRENT_STATE_PATH = path.join(STATE_DIR, 'current.json');
 const PREVIOUS_STATE_PATH = path.join(STATE_DIR, 'previous.json');
 const SNAPSHOTS_DIR = path.join(STATE_DIR, 'snapshots');
 
 const SCHEMA_VERSION = '1.1.0';
 const STATE_VERSION = 1;
-const MAX_TIMELINE_EVENTS = 100;
-const SNAPSHOT_RETENTION_DAYS = 7;
+
+/**
+ * Auto-save interval for state persistence.
+ * 
+ * **DESIGN DECISION (P5-F):** Using 30s interval in persistence module vs
+ * 5 minutes documented elsewhere. Rationale:
+ * 
+ * - **30 seconds (persistence.ts):** Aggressive interval ensures minimal data
+ *   loss on unexpected crashes. Security bot state changes frequently (sweeps,
+ *   permission changes, alerts) and losing 30s of data is acceptable vs 5min.
+ * 
+ * - **5 minutes (config references):** Original conservative estimate for
+ *   general-purpose background saves. May be referenced in documentation or
+ *   config files but persistence module uses its own optimized interval.
+ * 
+ * - **Tradeoff:** Slight increase in disk I/O (negligible on SSD) vs better
+ *   crash resilience. State files are <100KB so writes are fast.
+ * 
+ * - **Shutdown behavior:** Final save always occurs on SIGTERM/SIGINT,
+ *   so graceful shutdowns capture 100% of state regardless of interval.
+ */
 const AUTO_SAVE_INTERVAL_MS = 30 * 1000;
 const METRICS_HISTORY_DAYS = 7;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Types
+// Module State (P2-R2: Degraded Mode)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type MetricsEventType = 
-  | 'sweep' 
-  | 'alert' 
-  | 'permission_change' 
-  | 'permission_revert' 
-  | 'revert_failure' 
-  | 'error' 
-  | 'member_fetch_timeout' 
-  | 'restart';
+/**
+ * Degraded mode flag - true when state directory is unavailable.
+ * In degraded mode, state changes are memory-only and won't persist.
+ */
+let degradedMode = false;
+
+/**
+ * Check if state persistence is in degraded mode.
+ * Use for health checks and to warn operators.
+ */
+export function isStateDegraded(): boolean {
+  return degradedMode;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types (Local interfaces only - MetricsEventType imported from types.ts)
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface CumulativeStatsUpdates {
   [key: string]: number;
@@ -77,9 +111,10 @@ interface GuildStateUpdates extends Partial<GuildState> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Default empty state structure
+ * Create a default empty state structure.
+ * Exported for test fixtures and state initialization.
  */
-function createDefaultState(): SecurityBotState {
+export function createDefaultState(): SecurityBotState {
   const now = new Date().toISOString();
   return {
     version: STATE_VERSION,
@@ -126,9 +161,12 @@ function createDefaultState(): SecurityBotState {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Validate state structure
+ * Validate state structure.
+ * Checks that required top-level fields exist.
+ * @param state - Unknown value to validate
+ * @returns Type guard confirming state is SecurityBotState
  */
-function validateState(state: unknown): state is SecurityBotState {
+export function validateState(state: unknown): state is SecurityBotState {
   if (!state || typeof state !== 'object') return false;
   const s = state as Record<string, unknown>;
   if (!s.version || !s.schemaVersion) return false;
@@ -141,9 +179,12 @@ function validateState(state: unknown): state is SecurityBotState {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Compute SHA256 checksum of state (excluding the checksum field itself)
+ * Compute SHA256 checksum of state (excluding the checksum field itself).
+ * Used for integrity verification on load.
+ * @param state - State object to hash
+ * @returns 16-character hex checksum
  */
-function computeStateChecksum(state: SecurityBotState): string {
+export function computeStateChecksum(state: SecurityBotState): string {
   // Clone metadata without checksum to avoid circular dependency
   const stateForHash = {
     ...state,
@@ -156,10 +197,12 @@ function computeStateChecksum(state: SecurityBotState): string {
 }
 
 /**
- * Verify state checksum matches stored value
- * Returns true for legacy files without checksum (backward compatible)
+ * Verify state checksum matches stored value.
+ * Returns true for legacy files without checksum (backward compatible).
+ * @param state - State object with metadata.checksum field
+ * @returns True if checksum valid or missing (legacy), false if mismatch
  */
-function verifyStateChecksum(state: SecurityBotState): boolean {
+export function verifyStateChecksum(state: SecurityBotState): boolean {
   const storedChecksum = (state.metadata as unknown as Record<string, unknown>).checksum as string | undefined;
   if (!storedChecksum) {
     // Legacy file without checksum — allow but log
@@ -383,6 +426,43 @@ async function loadNewestSnapshot(): Promise<SecurityBotState | null> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Backup Rotation (P2-R1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BACKUP_COUNT = 3;
+
+/**
+ * Rotate backup files (keep last N backups)
+ * 
+ * Creates a chain: current -> backup-0 -> backup-1 -> backup-2
+ * This provides multiple recovery points if both current and previous corrupt.
+ */
+async function rotateBackups(): Promise<void> {
+  try {
+    // Rotate existing backups (backup-0 -> backup-1 -> backup-2)
+    for (let i = BACKUP_COUNT - 1; i > 0; i--) {
+      const src = path.join(STATE_DIR, `backup-${i - 1}.json`);
+      const dst = path.join(STATE_DIR, `backup-${i}.json`);
+      try {
+        await fs.rename(src, dst);
+      } catch {
+        // Ignore missing files during rotation
+      }
+    }
+    
+    // Copy current to backup-0
+    try {
+      await fs.copyFile(CURRENT_STATE_PATH, path.join(STATE_DIR, 'backup-0.json'));
+    } catch {
+      // Current might not exist yet
+    }
+  } catch (err) {
+    const error = ensureError(err);
+    log('warn', '[State] Backup rotation failed', { error: error.message });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Core State Operations
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -423,10 +503,14 @@ export async function loadState(): Promise<SecurityBotState> {
 }
 
 /**
- * Save current state
+ * Save current state with backup rotation
  */
 export async function saveState(state: SecurityBotState): Promise<boolean> {
   state.metadata.lastSaved = new Date().toISOString();
+  
+  // P2-R1: Rotate backups before saving (non-blocking)
+  await rotateBackups();
+  
   const success = await saveStateFile(CURRENT_STATE_PATH, state);
   
   if (success) {
@@ -437,9 +521,12 @@ export async function saveState(state: SecurityBotState): Promise<boolean> {
 }
 
 /**
- * Initialize state on startup
+ * Initialize state on startup with performance timing
  */
 export async function initializeState(): Promise<SecurityBotState> {
+  const startTime = performance.now();
+  let recoveryTier: 'current' | 'previous' | 'snapshot' | 'fresh' = 'current';
+  
   log('info', '[State] Initializing state persistence...');
   log('info', '[State] STATE_DIR', { path: STATE_DIR });
   log('info', '[State] Working directory', { cwd: process.cwd() });
@@ -451,8 +538,9 @@ export async function initializeState(): Promise<SecurityBotState> {
     log('info', '[State] State directory verified/created');
   } catch (err) {
     const error = err as NodeJS.ErrnoException;
+    degradedMode = true;  // P2-R2: Set degraded flag
     log('error', '[State] CRITICAL: Cannot create state directory', { error: error.message });
-    log('error', '[State] State persistence will be degraded (in-memory only)');
+    log('error', '[State] ENTERING DEGRADED MODE - state persistence disabled');
     
     await errorTracker.captureError(
       ensureError(error),
@@ -471,8 +559,16 @@ export async function initializeState(): Promise<SecurityBotState> {
   
   const previousState = await loadState();
   
+  // Track which recovery tier we used
   if (await loadStateFile(CURRENT_STATE_PATH)) {
+    recoveryTier = 'current';
     await fs.copyFile(CURRENT_STATE_PATH, PREVIOUS_STATE_PATH).catch(() => {});
+  } else if (await loadStateFile(PREVIOUS_STATE_PATH)) {
+    recoveryTier = 'previous';
+  } else if (previousState.cumulative.restartCount > 0) {
+    recoveryTier = 'snapshot';
+  } else {
+    recoveryTier = 'fresh';
   }
   
   const now = new Date().toISOString();
@@ -505,17 +601,16 @@ export async function initializeState(): Promise<SecurityBotState> {
     }
   };
   
-  state.timeline = [
-    {
-      timestamp: now,
-      type: 'restart',
-      details: {
-        reason: 'manual',
-        previousUptime: previousState.runtime?.currentUptime || 0
-      }
-    } as TimelineEvent,
-    ...previousState.timeline
-  ].slice(0, MAX_TIMELINE_EVENTS);
+  // Initialize timeline with restart event (P2-M1: avoid spread)
+  state.timeline = previousState.timeline.slice(0, MAX_TIMELINE_EVENTS - 1);
+  state.timeline.unshift({
+    timestamp: now,
+    type: 'restart',
+    details: {
+      reason: 'manual',
+      previousUptime: previousState.runtime?.currentUptime || 0
+    }
+  } as TimelineEvent);
   
   recordMetricsEvent(state, 'restart', 1);
   
@@ -530,7 +625,15 @@ export async function initializeState(): Promise<SecurityBotState> {
     });
   });
   
-  log('info', '[State] Initialized', { restartNumber: state.cumulative.restartCount });
+  // P2-T1: Log cold boot timing metrics
+  const initDurationMs = Math.round(performance.now() - startTime);
+  log('info', '[State] Initialization complete', { 
+    restartNumber: state.cumulative.restartCount,
+    initDurationMs,
+    recoveryTier,
+    degradedMode
+  });
+  
   return state;
 }
 
@@ -539,16 +642,22 @@ export async function initializeState(): Promise<SecurityBotState> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Add event to timeline
+ * Add event to timeline (P2-M1: Ring buffer pattern)
+ * 
+ * Uses unshift + length truncation instead of spread + slice
+ * to reduce GC pressure during high-activity periods (raids).
  */
 export function addTimelineEvent(state: SecurityBotState, event: Omit<TimelineEvent, 'timestamp'>): void {
-  state.timeline = [
-    {
-      timestamp: new Date().toISOString(),
-      ...event
-    } as TimelineEvent,
-    ...state.timeline
-  ].slice(0, MAX_TIMELINE_EVENTS);
+  // Unshift is O(n) but avoids creating new array
+  state.timeline.unshift({
+    timestamp: new Date().toISOString(),
+    ...event
+  } as TimelineEvent);
+  
+  // Truncate in-place if over limit (avoids slice creating new array)
+  if (state.timeline.length > MAX_TIMELINE_EVENTS) {
+    state.timeline.length = MAX_TIMELINE_EVENTS;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -613,6 +722,27 @@ export function updateRuntimeState(state: SecurityBotState, updates: Partial<Run
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Binary search insertion for sorted metrics array (P2-M3)
+ * Maintains descending timestamp order without full sort.
+ */
+function insertMetricsSorted(arr: HourlyMetrics[], item: HourlyMetrics): void {
+  const itemTime = new Date(item.timestamp).getTime();
+  let low = 0, high = arr.length;
+  
+  // Binary search for insertion point (descending order)
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if (new Date(arr[mid].timestamp).getTime() > itemTime) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+  
+  arr.splice(low, 0, item);
+}
+
+/**
  * Get or create current hour's metrics bucket
  */
 function getCurrentHourMetrics(state: SecurityBotState): HourlyMetrics {
@@ -648,11 +778,9 @@ function getCurrentHourMetrics(state: SecurityBotState): HourlyMetrics {
       memberFetchTimeouts: 0,
       restarts: 0
     };
-    state.metricsHistory.hourly.push(hourMetrics);
     
-    state.metricsHistory.hourly.sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
+    // P2-M3: Binary insertion instead of push + sort
+    insertMetricsSorted(state.metricsHistory.hourly, hourMetrics);
   }
   
   return hourMetrics;

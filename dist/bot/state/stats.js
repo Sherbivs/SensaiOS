@@ -3,7 +3,8 @@
  * Tracks and updates cumulative statistics across bot restarts
  * @module bot/state/stats
  */
-import { updateCumulativeStats, updateRuntimeState, recordMetricsEvent } from './persistence.js';
+import { updateCumulativeStats, updateRuntimeState, recordMetricsEvent, addTimelineEvent } from './persistence.js';
+import { initializeGuild } from './context.js';
 import { formatDuration } from '../../shared/utils/format-utils.js';
 import { observabilityHub } from '../../observability/index.js';
 // Re-export metrics functions
@@ -29,25 +30,13 @@ export function recordSweep(state, guildId, guildName, rolesChecked, changesDete
         changesDetected,
         sweepCount: state.cumulative.sweepCount,
     }, 'security-bot');
-    // Update guild-specific stats
-    if (!state.guilds[guildId]) {
-        state.guilds[guildId] = {
-            id: guildId,
-            name: guildName,
-            lastSweep: null,
-            sweepCount: 0,
-            alertCount: 0,
-            permissionChanges: 0,
-            monitoring: true,
-            lastActivity: new Date().toISOString()
-        };
-    }
+    // Update guild-specific stats (use shared helper for consistency)
+    initializeGuild(state, guildId, guildName);
     state.guilds[guildId].sweepCount = (state.guilds[guildId].sweepCount || 0) + 1;
     state.guilds[guildId].lastSweep = new Date().toISOString();
     state.guilds[guildId].lastActivity = new Date().toISOString();
-    // Add to timeline
-    const newEvent = {
-        timestamp: new Date().toISOString(),
+    // Add to timeline (P3: use ring buffer pattern)
+    addTimelineEvent(state, {
         type: 'sweep',
         guildId,
         guildName,
@@ -55,8 +44,7 @@ export function recordSweep(state, guildId, guildName, rolesChecked, changesDete
             rolesChecked,
             changesDetected
         }
-    };
-    state.timeline = [newEvent, ...state.timeline].slice(0, 100);
+    });
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Permission Change Recording
@@ -91,24 +79,12 @@ export function recordPermissionChange(state, guildId, guildName, userId, userNa
         totalChanges: state.cumulative.permissionChangesDetected,
         totalReverts: state.cumulative.permissionChangesReverted,
     }, 'security-bot');
-    // Update guild-specific stats
-    if (!state.guilds[guildId]) {
-        state.guilds[guildId] = {
-            id: guildId,
-            name: guildName,
-            lastSweep: null,
-            sweepCount: 0,
-            alertCount: 0,
-            permissionChanges: 0,
-            monitoring: true,
-            lastActivity: new Date().toISOString()
-        };
-    }
+    // Update guild-specific stats (use shared helper for consistency)
+    initializeGuild(state, guildId, guildName);
     state.guilds[guildId].permissionChanges = (state.guilds[guildId].permissionChanges || 0) + 1;
     state.guilds[guildId].lastActivity = new Date().toISOString();
-    // Add to timeline
-    const newEvent = {
-        timestamp: new Date().toISOString(),
+    // Add to timeline (P3: use ring buffer pattern)
+    addTimelineEvent(state, {
         type: 'permission_change',
         guildId,
         guildName,
@@ -119,8 +95,7 @@ export function recordPermissionChange(state, guildId, guildName, userId, userNa
             reverted,
             revertStatus: reverted ? revertStatus : 'not_attempted'
         }
-    };
-    state.timeline = [newEvent, ...state.timeline].slice(0, 100);
+    });
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Alert Recording
@@ -148,9 +123,8 @@ export function recordAlert(state, guildId, recipient, reason, delivered) {
         state.guilds[guildId].alertCount = (state.guilds[guildId].alertCount || 0) + 1;
         state.guilds[guildId].lastActivity = new Date().toISOString();
     }
-    // Add to timeline
-    const newEvent = {
-        timestamp: new Date().toISOString(),
+    // Add to timeline (P3: use ring buffer pattern)
+    addTimelineEvent(state, {
         type: 'alert',
         guildId,
         details: {
@@ -158,8 +132,7 @@ export function recordAlert(state, guildId, recipient, reason, delivered) {
             reason,
             delivered
         }
-    };
-    state.timeline = [newEvent, ...state.timeline].slice(0, 100);
+    });
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Error Recording
@@ -176,18 +149,21 @@ export function recordError(state, message, stack = null, context = {}) {
         stack: stack ? stack.substring(0, 500) : null,
         ...context,
     }, 'security-bot');
-    // Add to timeline
-    const newEvent = {
-        timestamp: new Date().toISOString(),
+    // Add to timeline (P3: use ring buffer pattern)
+    addTimelineEvent(state, {
         type: 'error',
         details: {
             message,
             stack: stack ? stack.substring(0, 500) : undefined,
             ...context
         }
-    };
-    state.timeline = [newEvent, ...state.timeline].slice(0, 100);
+    });
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Member Fetch Timeout Recording
+// ─────────────────────────────────────────────────────────────────────────────
+// Note: GuildState already includes memberFetchTimeouts and lastMemberFetchTimeout fields
+// No separate interface needed (P3 cleanup)
 /**
  * Record member fetch timeout (for monitoring chronic issues)
  */
@@ -200,9 +176,8 @@ export function recordMemberFetchTimeout(state, guildId, guildName, origin, atte
         guildState.memberFetchTimeouts = (guildState.memberFetchTimeouts || 0) + 1;
         guildState.lastMemberFetchTimeout = new Date().toISOString();
     }
-    // Add to timeline
-    const newEvent = {
-        timestamp: new Date().toISOString(),
+    // Add to timeline (P3: use ring buffer pattern)
+    addTimelineEvent(state, {
         type: 'member_fetch_timeout',
         guildId,
         guildName,
@@ -212,8 +187,7 @@ export function recordMemberFetchTimeout(state, guildId, guildName, origin, atte
             maxRetries,
             isFinal: attempt >= maxRetries
         }
-    };
-    state.timeline = [newEvent, ...state.timeline].slice(0, 100);
+    });
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Database Status

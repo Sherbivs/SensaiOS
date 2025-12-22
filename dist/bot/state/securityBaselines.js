@@ -23,15 +23,11 @@ import fs from 'fs/promises';
 import path from 'path';
 import { log } from '../../shared/logging/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
+import { STATE_DIR, HMAC_ALGORITHM, getHmacSecret } from './config.js';
 // ─────────────────────────────────────────────────────────────────────────────
-// Configuration
+// Configuration (imports from config.ts for consistency)
 // ─────────────────────────────────────────────────────────────────────────────
-const BASELINE_DIR = process.env.RENDER
-    ? '/Store/security-bot-state'
-    : './Store/security-bot-state';
-const BASELINE_FILE = path.join(BASELINE_DIR, 'baselines.json');
-const HMAC_ALGORITHM = 'sha256';
-const HMAC_SECRET = process.env.ARCHIVE_HMAC_SECRET || 'default-dev-secret-CHANGE-IN-PRODUCTION';
+const BASELINE_FILE = path.join(STATE_DIR, 'baselines.json');
 const MIN_DATA_POINTS = 200;
 const CONFIDENCE_THRESHOLD = 0.7;
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,9 +35,10 @@ const CONFIDENCE_THRESHOLD = 0.7;
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * Generate HMAC-SHA256 signature for baseline data
+ * Uses getHmacSecret() for production fail-fast safety
  */
 function generateSignature(data) {
-    return crypto.createHmac(HMAC_ALGORITHM, HMAC_SECRET)
+    return crypto.createHmac(HMAC_ALGORITHM, getHmacSecret())
         .update(data)
         .digest('hex');
 }
@@ -250,8 +247,8 @@ export async function loadSecurityBaselines() {
  */
 export async function saveSecurityBaselines(baselines) {
     try {
-        // Ensure directory exists
-        await fs.mkdir(BASELINE_DIR, { recursive: true });
+        // Ensure directory exists (use STATE_DIR from config.ts)
+        await fs.mkdir(STATE_DIR, { recursive: true });
         const data = {
             baselines,
             metadata: {

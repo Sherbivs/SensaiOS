@@ -4,13 +4,18 @@
  * @module bot/state/stats
  */
 
-import { updateCumulativeStats, updateRuntimeState, recordMetricsEvent } from './persistence.js';
+import { 
+  updateCumulativeStats, 
+  updateRuntimeState, 
+  recordMetricsEvent,
+  addTimelineEvent 
+} from './persistence.js';
+import { initializeGuild } from './context.js';
 import { formatDuration } from '../../shared/utils/format-utils.js';
 import { observabilityHub } from '../../observability/index.js';
 import type {
   SecurityBotState,
   GuildState,
-  MetricEventType,
   DatabaseStatus,
   TimelineEvent,
 } from './types.js';
@@ -49,27 +54,15 @@ export function recordSweep(
     sweepCount: state.cumulative.sweepCount,
   }, 'security-bot');
   
-  // Update guild-specific stats
-  if (!state.guilds[guildId]) {
-    state.guilds[guildId] = {
-      id: guildId,
-      name: guildName,
-      lastSweep: null,
-      sweepCount: 0,
-      alertCount: 0,
-      permissionChanges: 0,
-      monitoring: true,
-      lastActivity: new Date().toISOString()
-    };
-  }
+  // Update guild-specific stats (use shared helper for consistency)
+  initializeGuild(state, guildId, guildName);
   
   state.guilds[guildId].sweepCount = (state.guilds[guildId].sweepCount || 0) + 1;
   state.guilds[guildId].lastSweep = new Date().toISOString();
   state.guilds[guildId].lastActivity = new Date().toISOString();
   
-  // Add to timeline
-  const newEvent: TimelineEvent = {
-    timestamp: new Date().toISOString(),
+  // Add to timeline (P3: use ring buffer pattern)
+  addTimelineEvent(state, {
     type: 'sweep',
     guildId,
     guildName,
@@ -77,9 +70,7 @@ export function recordSweep(
       rolesChecked,
       changesDetected
     }
-  };
-  
-  state.timeline = [newEvent, ...state.timeline].slice(0, 100);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,26 +119,14 @@ export function recordPermissionChange(
     totalReverts: state.cumulative.permissionChangesReverted,
   }, 'security-bot');
   
-  // Update guild-specific stats
-  if (!state.guilds[guildId]) {
-    state.guilds[guildId] = {
-      id: guildId,
-      name: guildName,
-      lastSweep: null,
-      sweepCount: 0,
-      alertCount: 0,
-      permissionChanges: 0,
-      monitoring: true,
-      lastActivity: new Date().toISOString()
-    };
-  }
+  // Update guild-specific stats (use shared helper for consistency)
+  initializeGuild(state, guildId, guildName);
   
   state.guilds[guildId].permissionChanges = (state.guilds[guildId].permissionChanges || 0) + 1;
   state.guilds[guildId].lastActivity = new Date().toISOString();
   
-  // Add to timeline
-  const newEvent: TimelineEvent = {
-    timestamp: new Date().toISOString(),
+  // Add to timeline (P3: use ring buffer pattern)
+  addTimelineEvent(state, {
     type: 'permission_change',
     guildId,
     guildName,
@@ -158,9 +137,7 @@ export function recordPermissionChange(
       reverted,
       revertStatus: reverted ? revertStatus : 'not_attempted'
     }
-  };
-  
-  state.timeline = [newEvent, ...state.timeline].slice(0, 100);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -200,9 +177,8 @@ export function recordAlert(
     state.guilds[guildId].lastActivity = new Date().toISOString();
   }
   
-  // Add to timeline
-  const newEvent: TimelineEvent = {
-    timestamp: new Date().toISOString(),
+  // Add to timeline (P3: use ring buffer pattern)
+  addTimelineEvent(state, {
     type: 'alert',
     guildId,
     details: {
@@ -210,9 +186,7 @@ export function recordAlert(
       reason,
       delivered
     }
-  };
-  
-  state.timeline = [newEvent, ...state.timeline].slice(0, 100);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -229,7 +203,7 @@ export function recordError(
   context: Record<string, unknown> = {}
 ): void {
   // Record in hourly metrics history for trend analysis
-  recordMetricsEvent(state, 'error' as MetricEventType, 1);
+  recordMetricsEvent(state, 'error', 1);
   
   // Emit to Observability Hub for Loki ingestion (Security Bot direct path)
   observabilityHub.ingest('security.error.occurred', {
@@ -238,28 +212,23 @@ export function recordError(
     ...context,
   }, 'security-bot');
   
-  // Add to timeline
-  const newEvent: TimelineEvent = {
-    timestamp: new Date().toISOString(),
+  // Add to timeline (P3: use ring buffer pattern)
+  addTimelineEvent(state, {
     type: 'error',
     details: {
       message,
       stack: stack ? stack.substring(0, 500) : undefined,
       ...context
     }
-  };
-  
-  state.timeline = [newEvent, ...state.timeline].slice(0, 100);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Member Fetch Timeout Recording
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface GuildStateExtended extends GuildState {
-  memberFetchTimeouts?: number;
-  lastMemberFetchTimeout?: string;
-}
+// Note: GuildState already includes memberFetchTimeouts and lastMemberFetchTimeout fields
+// No separate interface needed (P3 cleanup)
 
 /**
  * Record member fetch timeout (for monitoring chronic issues)
@@ -273,18 +242,17 @@ export function recordMemberFetchTimeout(
   maxRetries: number
 ): void {
   // Record in hourly metrics history for trend analysis
-  recordMetricsEvent(state, 'member_fetch_timeout' as MetricEventType, 1);
+  recordMetricsEvent(state, 'member_fetch_timeout', 1);
   
   // Track in guild state if this is a recurring issue
-  const guildState = state.guilds[guildId] as GuildStateExtended | undefined;
+  const guildState = state.guilds[guildId];
   if (guildState) {
     guildState.memberFetchTimeouts = (guildState.memberFetchTimeouts || 0) + 1;
     guildState.lastMemberFetchTimeout = new Date().toISOString();
   }
   
-  // Add to timeline
-  const newEvent: TimelineEvent = {
-    timestamp: new Date().toISOString(),
+  // Add to timeline (P3: use ring buffer pattern)
+  addTimelineEvent(state, {
     type: 'member_fetch_timeout',
     guildId,
     guildName,
@@ -294,9 +262,7 @@ export function recordMemberFetchTimeout(
       maxRetries,
       isFinal: attempt >= maxRetries
     }
-  };
-  
-  state.timeline = [newEvent, ...state.timeline].slice(0, 100);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

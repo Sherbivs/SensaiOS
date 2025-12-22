@@ -17,23 +17,36 @@ import { log } from '../../shared/logging/index.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
 import { errorTracker } from '../../services/monitoring/index.js';
+import { STATE_DIR, MAX_TIMELINE_EVENTS, SNAPSHOT_RETENTION_DAYS } from './config.js';
 // ─────────────────────────────────────────────────────────────────────────────
-// Configuration
+// Configuration (imports from config.ts + local path resolution)
 // ─────────────────────────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const STATE_DIR = process.env.RENDER
-    ? '/Store/security-bot-state'
-    : path.resolve(__dirname, '../../../Store/security-bot-state');
+// Derive paths from canonical STATE_DIR
 const CURRENT_STATE_PATH = path.join(STATE_DIR, 'current.json');
 const PREVIOUS_STATE_PATH = path.join(STATE_DIR, 'previous.json');
 const SNAPSHOTS_DIR = path.join(STATE_DIR, 'snapshots');
 const SCHEMA_VERSION = '1.1.0';
 const STATE_VERSION = 1;
-const MAX_TIMELINE_EVENTS = 100;
-const SNAPSHOT_RETENTION_DAYS = 7;
+// Note: Using faster 30s auto-save locally vs 5min in config for persistence module
 const AUTO_SAVE_INTERVAL_MS = 30 * 1000;
 const METRICS_HISTORY_DAYS = 7;
+// ─────────────────────────────────────────────────────────────────────────────
+// Module State (P2-R2: Degraded Mode)
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Degraded mode flag - true when state directory is unavailable.
+ * In degraded mode, state changes are memory-only and won't persist.
+ */
+let degradedMode = false;
+/**
+ * Check if state persistence is in degraded mode.
+ * Use for health checks and to warn operators.
+ */
+export function isStateDegraded() {
+    return degradedMode;
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // Default State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -308,6 +321,42 @@ async function loadNewestSnapshot() {
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
+// Backup Rotation (P2-R1)
+// ─────────────────────────────────────────────────────────────────────────────
+const BACKUP_COUNT = 3;
+/**
+ * Rotate backup files (keep last N backups)
+ *
+ * Creates a chain: current -> backup-0 -> backup-1 -> backup-2
+ * This provides multiple recovery points if both current and previous corrupt.
+ */
+async function rotateBackups() {
+    try {
+        // Rotate existing backups (backup-0 -> backup-1 -> backup-2)
+        for (let i = BACKUP_COUNT - 1; i > 0; i--) {
+            const src = path.join(STATE_DIR, `backup-${i - 1}.json`);
+            const dst = path.join(STATE_DIR, `backup-${i}.json`);
+            try {
+                await fs.rename(src, dst);
+            }
+            catch {
+                // Ignore missing files during rotation
+            }
+        }
+        // Copy current to backup-0
+        try {
+            await fs.copyFile(CURRENT_STATE_PATH, path.join(STATE_DIR, 'backup-0.json'));
+        }
+        catch {
+            // Current might not exist yet
+        }
+    }
+    catch (err) {
+        const error = ensureError(err);
+        log('warn', '[State] Backup rotation failed', { error: error.message });
+    }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 // Core State Operations
 // ─────────────────────────────────────────────────────────────────────────────
 /**
@@ -342,10 +391,12 @@ export async function loadState() {
     return state;
 }
 /**
- * Save current state
+ * Save current state with backup rotation
  */
 export async function saveState(state) {
     state.metadata.lastSaved = new Date().toISOString();
+    // P2-R1: Rotate backups before saving (non-blocking)
+    await rotateBackups();
     const success = await saveStateFile(CURRENT_STATE_PATH, state);
     if (success) {
         log('info', '[State] State saved successfully');
@@ -353,9 +404,11 @@ export async function saveState(state) {
     return success;
 }
 /**
- * Initialize state on startup
+ * Initialize state on startup with performance timing
  */
 export async function initializeState() {
+    const startTime = performance.now();
+    let recoveryTier = 'current';
     log('info', '[State] Initializing state persistence...');
     log('info', '[State] STATE_DIR', { path: STATE_DIR });
     log('info', '[State] Working directory', { cwd: process.cwd() });
@@ -367,8 +420,9 @@ export async function initializeState() {
     }
     catch (err) {
         const error = err;
+        degradedMode = true; // P2-R2: Set degraded flag
         log('error', '[State] CRITICAL: Cannot create state directory', { error: error.message });
-        log('error', '[State] State persistence will be degraded (in-memory only)');
+        log('error', '[State] ENTERING DEGRADED MODE - state persistence disabled');
         await errorTracker.captureError(ensureError(error), {
             category: 'WORKER',
             severity: 'CRITICAL',
@@ -381,8 +435,19 @@ export async function initializeState() {
         });
     }
     const previousState = await loadState();
+    // Track which recovery tier we used
     if (await loadStateFile(CURRENT_STATE_PATH)) {
+        recoveryTier = 'current';
         await fs.copyFile(CURRENT_STATE_PATH, PREVIOUS_STATE_PATH).catch(() => { });
+    }
+    else if (await loadStateFile(PREVIOUS_STATE_PATH)) {
+        recoveryTier = 'previous';
+    }
+    else if (previousState.cumulative.restartCount > 0) {
+        recoveryTier = 'snapshot';
+    }
+    else {
+        recoveryTier = 'fresh';
     }
     const now = new Date().toISOString();
     const previousRestartTime = previousState.metadata?.lastRestart || now;
@@ -412,17 +477,16 @@ export async function initializeState() {
             activeSweepIntervals: []
         }
     };
-    state.timeline = [
-        {
-            timestamp: now,
-            type: 'restart',
-            details: {
-                reason: 'manual',
-                previousUptime: previousState.runtime?.currentUptime || 0
-            }
-        },
-        ...previousState.timeline
-    ].slice(0, MAX_TIMELINE_EVENTS);
+    // Initialize timeline with restart event (P2-M1: avoid spread)
+    state.timeline = previousState.timeline.slice(0, MAX_TIMELINE_EVENTS - 1);
+    state.timeline.unshift({
+        timestamp: now,
+        type: 'restart',
+        details: {
+            reason: 'manual',
+            previousUptime: previousState.runtime?.currentUptime || 0
+        }
+    });
     recordMetricsEvent(state, 'restart', 1);
     // Critical startup operations (blocking)
     await saveState(state);
@@ -433,23 +497,35 @@ export async function initializeState() {
             log('warn', '[State] Deferred pruning failed', { error: String(err) });
         });
     });
-    log('info', '[State] Initialized', { restartNumber: state.cumulative.restartCount });
+    // P2-T1: Log cold boot timing metrics
+    const initDurationMs = Math.round(performance.now() - startTime);
+    log('info', '[State] Initialization complete', {
+        restartNumber: state.cumulative.restartCount,
+        initDurationMs,
+        recoveryTier,
+        degradedMode
+    });
     return state;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Timeline Events
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * Add event to timeline
+ * Add event to timeline (P2-M1: Ring buffer pattern)
+ *
+ * Uses unshift + length truncation instead of spread + slice
+ * to reduce GC pressure during high-activity periods (raids).
  */
 export function addTimelineEvent(state, event) {
-    state.timeline = [
-        {
-            timestamp: new Date().toISOString(),
-            ...event
-        },
-        ...state.timeline
-    ].slice(0, MAX_TIMELINE_EVENTS);
+    // Unshift is O(n) but avoids creating new array
+    state.timeline.unshift({
+        timestamp: new Date().toISOString(),
+        ...event
+    });
+    // Truncate in-place if over limit (avoids slice creating new array)
+    if (state.timeline.length > MAX_TIMELINE_EVENTS) {
+        state.timeline.length = MAX_TIMELINE_EVENTS;
+    }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Cumulative Stats
@@ -505,6 +581,25 @@ export function updateRuntimeState(state, updates) {
 // Metrics History
 // ─────────────────────────────────────────────────────────────────────────────
 /**
+ * Binary search insertion for sorted metrics array (P2-M3)
+ * Maintains descending timestamp order without full sort.
+ */
+function insertMetricsSorted(arr, item) {
+    const itemTime = new Date(item.timestamp).getTime();
+    let low = 0, high = arr.length;
+    // Binary search for insertion point (descending order)
+    while (low < high) {
+        const mid = (low + high) >>> 1;
+        if (new Date(arr[mid].timestamp).getTime() > itemTime) {
+            low = mid + 1;
+        }
+        else {
+            high = mid;
+        }
+    }
+    arr.splice(low, 0, item);
+}
+/**
  * Get or create current hour's metrics bucket
  */
 function getCurrentHourMetrics(state) {
@@ -532,8 +627,8 @@ function getCurrentHourMetrics(state) {
             memberFetchTimeouts: 0,
             restarts: 0
         };
-        state.metricsHistory.hourly.push(hourMetrics);
-        state.metricsHistory.hourly.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        // P2-M3: Binary insertion instead of push + sort
+        insertMetricsSorted(state.metricsHistory.hourly, hourMetrics);
     }
     return hourMetrics;
 }
