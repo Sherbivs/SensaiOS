@@ -49,19 +49,19 @@ Total: ~4,792 lines
 |----|-------|----------|--------|
 | **S-001** | Hardcoded HMAC fallback secret in `roleArchive.ts` | 🔴 Critical | Tamper protection bypassed if env var not set |
 
-### Unused Exports (Query/Analysis functions never called)
-| Module | Unused Functions | Lines |
-|--------|------------------|-------|
-| `timeline.ts` | `getEventsByType`, `getEventsByGuild`, `getEventsByTimeRange` | ~60 |
-| `threatResponse.ts` | `respondToThreats`, `verifyGuildIntegrity`, `healMissingAssignments`, `escalateCriticalThreat` | ~400 (built but not wired) |
-| **Total** | **7 functions** | **~460 lines** |
+### Dead Code Removed ✅
+| Module | Removed | Lines | Status |
+|--------|---------|-------|--------|
+| `timeline.ts` | `getEventsByType`, `getEventsByGuild`, `getEventsByTimeRange` | ~45 | ✅ Deleted |
+| `threatResponse.ts` | Entire file (parallel system, superseded by `security/services/`) | 721 | ✅ Deleted |
+| **Total** | **4 functions + 1 file** | **~766 lines** | ✅ Complete |
 
-### Features Built But Not Wired
-These exist and work but aren't called from the main sweep workflow:
-- `respondToThreats()` — Automated threat response (recommended in securityMetrics.ts)
-- `verifyGuildIntegrity()` — Integrity checking
-- `healMissingAssignments()` — Self-healing capability
-- `escalateCriticalThreat()` — Critical escalation
+### Architecture Decision (2025-12-21)
+**Deleted `threatResponse.ts`** — Two parallel security systems existed:
+- **OLD:** `src/bot/state/threatResponse.ts` (721 lines, never wired)
+- **NEW:** `src/bot/security/services/integrity-sweep-scheduler.ts` (1,048 lines, active)
+
+The new security services have their own `AlertHandler` interface. Deleting the old dead code reduces maintenance burden and clarifies architecture.
 
 ### Documentation Issues
 - ROUTER.md references `.js` extensions but files are `.ts`

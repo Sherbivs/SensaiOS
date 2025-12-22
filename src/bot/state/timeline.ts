@@ -78,53 +78,6 @@ export function formatTimelineEvent(event: TimelineEvent): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Event Queries
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Get timeline events filtered by type
- */
-export function getEventsByType(
-  state: SecurityBotState, 
-  eventType: TimelineEventType, 
-  limit: number = 50
-): TimelineEvent[] {
-  return state.timeline
-    .filter(event => event.type === eventType)
-    .slice(0, limit);
-}
-
-/**
- * Get timeline events for specific guild
- */
-export function getEventsByGuild(
-  state: SecurityBotState, 
-  guildId: string, 
-  limit: number = 50
-): TimelineEvent[] {
-  return state.timeline
-    .filter(event => event.guildId === guildId)
-    .slice(0, limit);
-}
-
-/**
- * Get timeline events within time range
- */
-export function getEventsByTimeRange(
-  state: SecurityBotState, 
-  startTime: string | Date, 
-  endTime: string | Date = new Date()
-): TimelineEvent[] {
-  const start = new Date(startTime).getTime();
-  const end = new Date(endTime).getTime();
-  
-  return state.timeline.filter(event => {
-    const eventTime = new Date(event.timestamp).getTime();
-    return eventTime >= start && eventTime <= end;
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Timeline Summary
 // ─────────────────────────────────────────────────────────────────────────────
 

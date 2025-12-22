@@ -53,36 +53,6 @@ export function formatTimelineEvent(event) {
             return `[${timestamp}] ${event.type}: ${JSON.stringify(event.details)}`;
     }
 }
-// ─────────────────────────────────────────────────────────────────────────────
-// Event Queries
-// ─────────────────────────────────────────────────────────────────────────────
-/**
- * Get timeline events filtered by type
- */
-export function getEventsByType(state, eventType, limit = 50) {
-    return state.timeline
-        .filter(event => event.type === eventType)
-        .slice(0, limit);
-}
-/**
- * Get timeline events for specific guild
- */
-export function getEventsByGuild(state, guildId, limit = 50) {
-    return state.timeline
-        .filter(event => event.guildId === guildId)
-        .slice(0, limit);
-}
-/**
- * Get timeline events within time range
- */
-export function getEventsByTimeRange(state, startTime, endTime = new Date()) {
-    const start = new Date(startTime).getTime();
-    const end = new Date(endTime).getTime();
-    return state.timeline.filter(event => {
-        const eventTime = new Date(event.timestamp).getTime();
-        return eventTime >= start && eventTime <= end;
-    });
-}
 /**
  * Get timeline summary statistics
  */

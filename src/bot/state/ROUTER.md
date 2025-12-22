@@ -3,29 +3,32 @@
 **Title:** Security Bot State Management  
 **Purpose:** State persistence, context restoration, and security metrics for the security monitoring bot  
 **Owned Globs:** `src/bot/state/**`  
-**Last Updated (UTC):** 2025-12-02T00:00:00Z
+**Last Updated (UTC):** 2025-12-21T00:00:00Z
 
 ## Overview
 
-This module handles security bot state persistence, operational context restoration after restarts, and threat detection/response systems. The security bot maintains 7-day state history in `Store/security-bot-state/`.
+This module handles security bot state persistence, operational context restoration after restarts, and threat detection systems. The security bot maintains 7-day state history in `Store/security-bot-state/`.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `context.js` | Guild monitoring context restoration after restart |
-| `persistence.js` | State save/load with snapshot management (7-day retention) |
-| `roleArchive.js` | Historical role configuration tracking |
-| `securityBaselines.js` | Guild security baseline establishment and drift detection |
-| `securityMetrics.js` | Security metric aggregation and reporting |
-| `stats.js` | Runtime statistics collection |
-| `threatDetector.js` | Threat pattern detection and classification |
-| `threatResponse.js` | Automated threat response actions |
-| `timeline.js` | Security event timeline reconstruction |
+| `config.ts` | Centralized configuration with fail-fast HMAC validation |
+| `context.ts` | Guild monitoring context restoration after restart |
+| `persistence.ts` | State save/load with snapshot management (7-day retention) |
+| `roleArchive.ts` | Historical role configuration tracking (HMAC integrity) |
+| `securityBaselines.ts` | Guild security baseline establishment and drift detection |
+| `securityMetrics.ts` | Security metric aggregation and reporting |
+| `stats.ts` | Runtime statistics collection |
+| `threatDetector.ts` | Threat pattern detection and classification |
+| `timeline.ts` | Security event timeline reconstruction |
+| `types.ts` | TypeScript type definitions for state module |
+
+**Deleted (2025-12-21):** `threatResponse.ts` (721 lines) — Superseded by `src/bot/security/services/integrity-sweep-scheduler.ts`
 
 ## Integration Points
 
-- **Security Bot:** `security-bot.js` (root) — Main consumer
+- **Security Bot:** `security-bot.ts` (root) — Main consumer
 - **Workers:** `src/workers/security-worker.ts` — Background monitoring
 - **Store:** `Store/security-bot-state/` — Persistence directory
   - `current.json` — Active runtime state

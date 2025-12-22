@@ -23,26 +23,12 @@
  */
 import crypto from 'crypto';
 import fs from 'fs/promises';
-import path from 'path';
 import { log } from '../../shared/logging/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
 import { emitAlert } from '../eventbus-integration.js';
 import { generateSecurityBaselines, loadSecurityBaselines, saveSecurityBaselines, shouldRefreshBaselines } from './securityBaselines.js';
 import { detectSecurityThreats, calculateCurrentActivity } from './threatDetector.js';
-// ─────────────────────────────────────────────────────────────────────────────
-// Configuration
-// ─────────────────────────────────────────────────────────────────────────────
-const ARCHIVE_DIR = process.env.RENDER
-    ? '/Store/security-bot-state/role-archive'
-    : './Store/security-bot-state/role-archive';
-const ARCHIVE_FILE = path.join(ARCHIVE_DIR, 'role-changes.json');
-const BACKUP_FILE = path.join(ARCHIVE_DIR, 'role-changes.backup.json');
-const MAX_ARCHIVE_SIZE = 500;
-const HMAC_ALGORITHM = 'sha256';
-const HMAC_SECRET = process.env.ARCHIVE_HMAC_SECRET || 'default-dev-secret-CHANGE-IN-PRODUCTION';
-if (HMAC_SECRET === 'default-dev-secret-CHANGE-IN-PRODUCTION' && process.env.NODE_ENV === 'production') {
-    log('warn', '[RoleArchive] ⚠️ SECURITY WARNING: Using default HMAC secret in production! Set ARCHIVE_HMAC_SECRET environment variable.');
-}
+import { ARCHIVE_DIR, ARCHIVE_FILE, BACKUP_FILE, MAX_ARCHIVE_SIZE, HMAC_ALGORITHM, getHmacSecret } from './config.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // In-Memory Cache
 // ─────────────────────────────────────────────────────────────────────────────
@@ -64,9 +50,10 @@ let roleArchiveCache = {
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * Generate HMAC-SHA256 signature for data integrity
+ * @throws Error in production if ARCHIVE_HMAC_SECRET not configured
  */
 function generateSignature(data) {
-    return crypto.createHmac(HMAC_ALGORITHM, HMAC_SECRET)
+    return crypto.createHmac(HMAC_ALGORITHM, getHmacSecret())
         .update(data)
         .digest('hex');
 }
