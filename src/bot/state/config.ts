@@ -86,38 +86,14 @@ export const BACKUP_FILE = `${ARCHIVE_DIR}/role-changes.backup.json`;
 // State Persistence Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Auto-save interval in milliseconds (30 seconds for live memory) */
-export const AUTO_SAVE_INTERVAL_MS = 30 * 1000;
+/** Auto-save interval in milliseconds (5 minutes) */
+export const AUTO_SAVE_INTERVAL_MS = 5 * 60 * 1000;
 
 /** Snapshot retention period in days */
 export const SNAPSHOT_RETENTION_DAYS = 7;
 
 /** Maximum timeline events to keep */
 export const MAX_TIMELINE_EVENTS = 100;
-
-/** Use compact JSON in production (no pretty-printing) */
-export const USE_COMPACT_JSON = IS_PRODUCTION;
-
-/** Enable checksum validation on state files */
-export const ENABLE_STATE_CHECKSUMS = true;
-
-/** State file paths */
-export const STATE_FILE = `${STATE_DIR}/current.json`;
-export const PREVIOUS_STATE_FILE = `${STATE_DIR}/previous.json`;
-export const SNAPSHOTS_DIR = `${STATE_DIR}/snapshots`;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Operation Checkpointing Configuration
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Maximum in-flight operations to track */
-export const MAX_INFLIGHT_OPERATIONS = 50;
-
-/** Operation checkpoint file */
-export const CHECKPOINT_FILE = `${STATE_DIR}/checkpoint.json`;
-
-/** Checkpoint interval in milliseconds (10 seconds) */
-export const CHECKPOINT_INTERVAL_MS = 10 * 1000;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export Summary
@@ -136,14 +112,6 @@ export const stateConfig = {
   autoSaveIntervalMs: AUTO_SAVE_INTERVAL_MS,
   snapshotRetentionDays: SNAPSHOT_RETENTION_DAYS,
   maxTimelineEvents: MAX_TIMELINE_EVENTS,
-  useCompactJson: USE_COMPACT_JSON,
-  enableStateChecksums: ENABLE_STATE_CHECKSUMS,
-  stateFile: STATE_FILE,
-  previousStateFile: PREVIOUS_STATE_FILE,
-  snapshotsDir: SNAPSHOTS_DIR,
-  maxInflightOperations: MAX_INFLIGHT_OPERATIONS,
-  checkpointFile: CHECKPOINT_FILE,
-  checkpointIntervalMs: CHECKPOINT_INTERVAL_MS,
 } as const;
 
 export default stateConfig;

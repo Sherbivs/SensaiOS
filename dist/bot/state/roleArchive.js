@@ -46,6 +46,13 @@ let roleArchiveCache = {
     initialized: false
 };
 // ─────────────────────────────────────────────────────────────────────────────
+// Debounce State (P1: Reduce disk thrashing)
+// ─────────────────────────────────────────────────────────────────────────────
+const PERSIST_DEBOUNCE_MS = 5000; // Max 1 persist per 5 seconds
+let persistPending = false;
+let persistTimer = null;
+let lastPersistTime = 0;
+// ─────────────────────────────────────────────────────────────────────────────
 // HMAC Security
 // ─────────────────────────────────────────────────────────────────────────────
 /**
@@ -107,6 +114,7 @@ async function persistArchive() {
             signature
         };
         await fs.writeFile(ARCHIVE_FILE, JSON.stringify(signedData, null, 2), 'utf8');
+        lastPersistTime = Date.now();
         log('detail', '[RoleArchive] ✅ Persisted to disk with signature', {
             changeCount: roleArchiveCache.changes.length,
             signatureLength: signature.length,
@@ -117,6 +125,37 @@ async function persistArchive() {
         const error = ensureError(err);
         log('error', '[RoleArchive] Failed to persist', { error: error.message });
         throw err;
+    }
+}
+/**
+ * Debounced persist wrapper (P1: Reduce disk thrashing)
+ *
+ * Batches rapid role changes to max 1 disk write per 5 seconds.
+ * During high-activity periods (mass role changes, raids), this
+ * reduces I/O from potentially hundreds of writes to a handful.
+ */
+function debouncedPersist() {
+    const now = Date.now();
+    const timeSinceLastPersist = now - lastPersistTime;
+    if (timeSinceLastPersist >= PERSIST_DEBOUNCE_MS) {
+        // Enough time has passed, persist immediately
+        persistArchive().catch(err => {
+            log('warn', '[RoleArchive] Debounced persist failed', { error: String(err) });
+        });
+        return;
+    }
+    // Schedule a delayed persist if not already pending
+    if (!persistPending) {
+        persistPending = true;
+        const delay = PERSIST_DEBOUNCE_MS - timeSinceLastPersist;
+        persistTimer = setTimeout(() => {
+            persistPending = false;
+            persistTimer = null;
+            persistArchive().catch(err => {
+                log('warn', '[RoleArchive] Delayed persist failed', { error: String(err) });
+            });
+        }, delay);
+        log('debug', '[RoleArchive] Persist scheduled in', { delayMs: delay });
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -312,10 +351,8 @@ export async function recordRoleChange(event) {
     const currentCount = roleArchiveCache.statistics.rolesModified.get(roleKey) || 0;
     roleArchiveCache.statistics.rolesModified.set(roleKey, currentCount + 1);
     roleArchiveCache.statistics.lastUpdate = timestamp;
-    persistArchive().catch(err => {
-        const error = ensureError(err);
-        log('error', '[RoleArchive] Failed to persist change', { error: error.message });
-    });
+    // Use debounced persist to batch rapid changes (P1: reduce disk thrashing)
+    debouncedPersist();
     log('detail', '[RoleArchive] Recorded role change', {
         type: event.type,
         member: event.memberTag,
@@ -513,6 +550,13 @@ export function getSecurityBaselines() {
  */
 export async function shutdownRoleArchive() {
     if (roleArchiveCache.initialized) {
+        // Clear any pending debounced persist
+        if (persistTimer) {
+            clearTimeout(persistTimer);
+            persistTimer = null;
+            persistPending = false;
+        }
+        // Final sync persist (not debounced)
         await persistArchive();
         log('info', '[RoleArchive] Shutdown complete', {
             finalChangeCount: roleArchiveCache.changes.length

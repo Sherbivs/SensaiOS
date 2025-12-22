@@ -49,10 +49,6 @@ export function formatTimelineEvent(event) {
             const status = details.isFinal ? '⚠️ FINAL' : `retry ${details.attempt}/${details.maxRetries}`;
             return `[${timestamp}] Member Fetch Timeout: ${event.guildName} (${details.origin}) [${status}]`;
         }
-        case 'crash_recovery': {
-            const details = event.details;
-            return `[${timestamp}] Crash Recovery: Resumed ${details.resumedOperations} operation(s) (checkpoint age: ${Math.round(details.checkpointAge / 1000)}s)`;
-        }
         default:
             return `[${timestamp}] ${event.type}: ${JSON.stringify(event.details)}`;
     }
@@ -139,10 +135,6 @@ export function getRecentActivitySummary(state, limit = 5) {
             }
             case 'member_fetch_timeout':
                 return `• ${relativeTime}: Member fetch timeout in ${event.guildName}`;
-            case 'crash_recovery': {
-                const details = event.details;
-                return `• ${relativeTime}: Crash recovery - resumed ${details.resumedOperations} operation(s)`;
-            }
             default:
                 return `• ${relativeTime}: ${event.type}`;
         }
@@ -160,8 +152,7 @@ export function getEventIcon(eventType) {
         restart: '🔄',
         shutdown: '⏹️',
         error: '❌',
-        member_fetch_timeout: '⏱️',
-        crash_recovery: '🔧'
+        member_fetch_timeout: '⏱️'
     };
     return icons[eventType] || '📝';
 }

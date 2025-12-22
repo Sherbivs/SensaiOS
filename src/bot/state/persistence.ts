@@ -3,11 +3,11 @@
  * Manages security bot operational state across restarts
  * @module bot/state/persistence
  * 
- * ENHANCED (2025-12-21):
- * - Atomic writes (write-to-temp, then rename) prevent corruption
- * - SHA-256 checksums detect file tampering/corruption
- * - Compact JSON in production (30% smaller, 20% faster)
- * - Operation checkpointing for resume capability
+ * RELIABILITY FEATURES (2025-12-21):
+ * - Atomic writes: temp file + rename prevents corruption
+ * - Checksum verification: SHA256 detects tampering/corruption
+ * - Snapshot recovery: Falls back to recent snapshot before default
+ * - Deferred pruning: Startup not blocked by housekeeping
  */
 
 import crypto from 'crypto';
@@ -18,20 +18,6 @@ import { log } from '../../shared/logging/index.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
 import { errorTracker } from '../../services/monitoring/index.js';
-import {
-  IS_PRODUCTION,
-  STATE_DIR as CONFIG_STATE_DIR,
-  STATE_FILE,
-  PREVIOUS_STATE_FILE,
-  SNAPSHOTS_DIR as CONFIG_SNAPSHOTS_DIR,
-  USE_COMPACT_JSON,
-  ENABLE_STATE_CHECKSUMS,
-  SNAPSHOT_RETENTION_DAYS,
-  MAX_TIMELINE_EVENTS as CONFIG_MAX_TIMELINE_EVENTS,
-  CHECKPOINT_FILE,
-  CHECKPOINT_INTERVAL_MS,
-  MAX_INFLIGHT_OPERATIONS,
-} from './config.js';
 import type { 
   SecurityBotState, 
   CumulativeStats, 
@@ -40,10 +26,7 @@ import type {
   GuildState, 
   RuntimeState, 
   TimelineEvent,
-  StateMetadata,
-  OperationType,
-  InFlightOperation,
-  OperationCheckpoint
+  StateMetadata 
 } from './types.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -53,45 +36,19 @@ import type {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Use centralized config paths
-const STATE_DIR = CONFIG_STATE_DIR;
-const CURRENT_STATE_PATH = STATE_FILE;
-const PREVIOUS_STATE_PATH = PREVIOUS_STATE_FILE;
-const SNAPSHOTS_DIR = CONFIG_SNAPSHOTS_DIR;
+const STATE_DIR = process.env.RENDER 
+  ? '/Store/security-bot-state'
+  : path.resolve(__dirname, '../../../Store/security-bot-state');
+const CURRENT_STATE_PATH = path.join(STATE_DIR, 'current.json');
+const PREVIOUS_STATE_PATH = path.join(STATE_DIR, 'previous.json');
+const SNAPSHOTS_DIR = path.join(STATE_DIR, 'snapshots');
 
-const SCHEMA_VERSION = '1.2.0'; // Bumped for checksum support
-const STATE_VERSION = 2; // Bumped for new features
-const MAX_TIMELINE_EVENTS = CONFIG_MAX_TIMELINE_EVENTS;
-const AUTO_SAVE_INTERVAL_MS = 30 * 1000; // 30 seconds for live memory
+const SCHEMA_VERSION = '1.1.0';
+const STATE_VERSION = 1;
+const MAX_TIMELINE_EVENTS = 100;
+const SNAPSHOT_RETENTION_DAYS = 7;
+const AUTO_SAVE_INTERVAL_MS = 30 * 1000;
 const METRICS_HISTORY_DAYS = 7;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Checksum Wrapper Types
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface ChecksumWrapper {
-  checksum: string;
-  algorithm: 'sha256';
-  data: SecurityBotState;
-}
-
-/**
- * Generate SHA-256 checksum for state data
- */
-function generateChecksum(data: string): string {
-  return crypto.createHash('sha256').update(data).digest('hex');
-}
-
-/**
- * Verify checksum matches data
- */
-function verifyChecksum(data: string, expectedChecksum: string): boolean {
-  const actualChecksum = generateChecksum(data);
-  return crypto.timingSafeEqual(
-    Buffer.from(actualChecksum, 'hex'),
-    Buffer.from(expectedChecksum, 'hex')
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -179,6 +136,49 @@ function validateState(state: unknown): state is SecurityBotState {
   return true;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Checksum Verification (P0 Reliability)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Compute SHA256 checksum of state (excluding the checksum field itself)
+ */
+function computeStateChecksum(state: SecurityBotState): string {
+  // Clone metadata without checksum to avoid circular dependency
+  const stateForHash = {
+    ...state,
+    metadata: { ...state.metadata, checksum: undefined }
+  };
+  return crypto.createHash('sha256')
+    .update(JSON.stringify(stateForHash))
+    .digest('hex')
+    .substring(0, 16);  // 16 chars is sufficient for integrity check
+}
+
+/**
+ * Verify state checksum matches stored value
+ * Returns true for legacy files without checksum (backward compatible)
+ */
+function verifyStateChecksum(state: SecurityBotState): boolean {
+  const storedChecksum = (state.metadata as unknown as Record<string, unknown>).checksum as string | undefined;
+  if (!storedChecksum) {
+    // Legacy file without checksum — allow but log
+    log('debug', '[State] No checksum in state file (legacy)');
+    return true;
+  }
+  
+  const computed = computeStateChecksum(state);
+  if (storedChecksum !== computed) {
+    log('error', '[State] Checksum mismatch! Possible corruption', {
+      stored: storedChecksum,
+      computed
+    });
+    return false;
+  }
+  
+  return true;
+}
+
 /**
  * Migrate state from older schema versions
  */
@@ -196,42 +196,21 @@ function migrateState(state: SecurityBotState): SecurityBotState {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Load state from JSON file with checksum validation
+ * Load state from JSON file with checksum verification
  */
 async function loadStateFile(filePath: string): Promise<SecurityBotState | null> {
   try {
-    const rawData = await fs.readFile(filePath, 'utf8');
-    
-    // Try to parse as checksum wrapper first
-    let state: SecurityBotState;
-    try {
-      const parsed = JSON.parse(rawData);
-      
-      if (parsed.checksum && parsed.algorithm === 'sha256' && parsed.data) {
-        // Checksummed file format
-        const wrapper = parsed as ChecksumWrapper;
-        const dataJson = JSON.stringify(wrapper.data);
-        
-        if (ENABLE_STATE_CHECKSUMS && !verifyChecksum(dataJson, wrapper.checksum)) {
-          log('error', '[State] Checksum mismatch - file may be corrupted', { filePath });
-          return null;
-        }
-        
-        state = wrapper.data;
-      } else {
-        // Legacy format (no checksum)
-        state = parsed;
-        if (ENABLE_STATE_CHECKSUMS) {
-          log('warn', '[State] Loading legacy state file without checksum', { filePath });
-        }
-      }
-    } catch {
-      log('error', '[State] Failed to parse JSON', { filePath });
-      return null;
-    }
+    const data = await fs.readFile(filePath, 'utf8');
+    const state = JSON.parse(data);
     
     if (!validateState(state)) {
       log('error', '[State] Invalid state structure', { filePath });
+      return null;
+    }
+    
+    // Verify checksum integrity
+    if (!verifyStateChecksum(state)) {
+      log('error', '[State] Checksum verification failed, rejecting file', { filePath });
       return null;
     }
     
@@ -257,41 +236,34 @@ async function loadStateFile(filePath: string): Promise<SecurityBotState | null>
 }
 
 /**
- * Save state to JSON file with atomic write and checksum
+ * Save state to JSON file (ATOMIC)
  * 
- * Uses write-to-temp-then-rename pattern to prevent corruption on crash.
- * Includes SHA-256 checksum for integrity verification.
+ * Uses write-to-temp + rename pattern for crash safety:
+ * 1. Write to {filePath}.tmp
+ * 2. Atomically rename to final path
+ * 3. If crash during write, .tmp is incomplete but original is safe
  */
 async function saveStateFile(filePath: string, state: SecurityBotState): Promise<boolean> {
-  const tempPath = `${filePath}.tmp.${Date.now()}`;
+  const tempPath = `${filePath}.tmp`;
   
   try {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     
-    // Serialize state (compact in production)
-    const dataJson = USE_COMPACT_JSON 
-      ? JSON.stringify(state) 
-      : JSON.stringify(state, null, 2);
+    // Add checksum before saving
+    const stateWithChecksum = {
+      ...state,
+      metadata: {
+        ...state.metadata,
+        checksum: computeStateChecksum(state)
+      }
+    };
     
-    // Wrap with checksum
-    let fileContent: string;
-    if (ENABLE_STATE_CHECKSUMS) {
-      const wrapper: ChecksumWrapper = {
-        checksum: generateChecksum(dataJson),
-        algorithm: 'sha256',
-        data: state,
-      };
-      fileContent = USE_COMPACT_JSON 
-        ? JSON.stringify(wrapper) 
-        : JSON.stringify(wrapper, null, 2);
-    } else {
-      fileContent = dataJson;
-    }
+    const json = JSON.stringify(stateWithChecksum, null, 2);
     
-    // Atomic write: write to temp file first
-    await fs.writeFile(tempPath, fileContent, 'utf8');
+    // Step 1: Write to temp file
+    await fs.writeFile(tempPath, json, 'utf8');
     
-    // Then rename (atomic on most filesystems)
+    // Step 2: Atomic rename (same filesystem = atomic on POSIX)
     await fs.rename(tempPath, filePath);
     
     return true;
@@ -299,8 +271,12 @@ async function saveStateFile(filePath: string, state: SecurityBotState): Promise
     const error = err as NodeJS.ErrnoException;
     log('error', '[State] Error saving file', { filePath, error: error.message });
     
-    // Clean up temp file if it exists
-    await fs.unlink(tempPath).catch(() => {});
+    // Cleanup temp file if it exists
+    try {
+      await fs.unlink(tempPath);
+    } catch {
+      // Ignore cleanup errors
+    }
     
     await errorTracker.captureError(
       ensureError(error),
@@ -370,25 +346,74 @@ async function pruneSnapshots(): Promise<void> {
   }
 }
 
+/**
+ * Load the newest valid snapshot from snapshots directory
+ * Returns null if no valid snapshots exist
+ */
+async function loadNewestSnapshot(): Promise<SecurityBotState | null> {
+  try {
+    await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
+    
+    const files = await fs.readdir(SNAPSHOTS_DIR);
+    const jsonFiles = files
+      .filter(f => f.endsWith('.json'))
+      .sort()
+      .reverse();  // Newest first (timestamp-based naming)
+    
+    for (const file of jsonFiles) {
+      const filePath = path.join(SNAPSHOTS_DIR, file);
+      log('debug', '[State] Trying snapshot', { file });
+      
+      const state = await loadStateFile(filePath);
+      if (state) {
+        log('info', '[State] Recovered from snapshot', { 
+          file, 
+          lastSaved: state.metadata.lastSaved 
+        });
+        return state;
+      }
+    }
+    
+    return null;
+  } catch (err) {
+    const error = ensureError(err);
+    log('error', '[State] Error searching snapshots', { error: error.message });
+    return null;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Core State Operations
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Load current state with fallback chain
+ * Load current state with full fallback chain:
+ * 1. current.json — Primary state file
+ * 2. previous.json — Backup from last successful save
+ * 3. Newest valid snapshot — Hourly backups (7-day retention)
+ * 4. Fresh default state — Clean slate if all else fails
  */
 export async function loadState(): Promise<SecurityBotState> {
   log('info', '[State] Loading operational state...');
   
+  // Try 1: current.json
   let state = await loadStateFile(CURRENT_STATE_PATH);
   
+  // Try 2: previous.json
   if (!state) {
-    log('info', '[State] current.json not found, trying previous.json...');
+    log('info', '[State] current.json not found/corrupted, trying previous.json...');
     state = await loadStateFile(PREVIOUS_STATE_PATH);
   }
   
+  // Try 3: Newest snapshot (P0 recovery chain)
   if (!state) {
-    log('info', '[State] No previous state found, initializing fresh state');
+    log('warn', '[State] Primary files unavailable, searching snapshots...');
+    state = await loadNewestSnapshot();
+  }
+  
+  // Try 4: Fresh state
+  if (!state) {
+    log('info', '[State] No recoverable state found, initializing fresh state');
     state = createDefaultState();
   } else {
     log('info', '[State] Loaded state', { lastSaved: state.metadata.lastSaved });
@@ -494,31 +519,16 @@ export async function initializeState(): Promise<SecurityBotState> {
   
   recordMetricsEvent(state, 'restart', 1);
   
-  // Check for crash recovery checkpoint
-  const checkpoint = await loadCheckpoint();
-  if (checkpoint) {
-    const resumable = resumeFromCheckpoint(state, checkpoint);
-    if (resumable.length > 0) {
-      log('info', '[State] Crash recovery: found resumable operations', { 
-        count: resumable.length,
-        types: resumable.map(op => op.type)
-      });
-      
-      addTimelineEvent(state, {
-        type: 'crash_recovery',
-        details: {
-          checkpointAge: Date.now() - new Date(checkpoint.savedAt).getTime(),
-          resumedOperations: resumable.length
-        }
-      });
-    }
-    // Clear checkpoint after processing
-    await clearCheckpoint();
-  }
-  
+  // Critical startup operations (blocking)
   await saveState(state);
   await createSnapshot(state);
-  await pruneSnapshots();
+  
+  // Defer non-critical pruning (P1: don't block startup)
+  setImmediate(() => {
+    pruneSnapshots().catch(err => {
+      log('warn', '[State] Deferred pruning failed', { error: String(err) });
+    });
+  });
   
   log('info', '[State] Initialized', { restartNumber: state.cumulative.restartCount });
   return state;
@@ -803,275 +813,11 @@ export function stopAutoSave(interval: NodeJS.Timeout | null): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Operation Checkpointing (Live Memory)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Start tracking an in-flight operation
- * Operations are checkpointed so they can be resumed after crash/restart
- */
-export function startOperation(
-  state: SecurityBotState,
-  type: OperationType,
-  context: Record<string, unknown> = {},
-  guildId?: string,
-  timeoutMs: number = 30000
-): string {
-  const id = `op_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  
-  const operation: InFlightOperation = {
-    id,
-    type,
-    guildId,
-    startedAt: new Date().toISOString(),
-    timeout: timeoutMs,
-    context
-  };
-  
-  // Initialize if needed
-  if (!state.runtime.inflightOperations) {
-    state.runtime.inflightOperations = [];
-  }
-  
-  // Enforce max limit
-  if (state.runtime.inflightOperations.length >= MAX_INFLIGHT_OPERATIONS) {
-    // Remove oldest completed/timed-out operations first
-    const now = Date.now();
-    state.runtime.inflightOperations = state.runtime.inflightOperations.filter(op => {
-      const opTime = new Date(op.startedAt).getTime();
-      return (now - opTime) < op.timeout;
-    });
-  }
-  
-  state.runtime.inflightOperations.push(operation);
-  log('debug', '[State] Started operation', { id, type, guildId });
-  
-  return id;
-}
-
-/**
- * Mark an operation as complete and remove from tracking
- */
-export function completeOperation(state: SecurityBotState, operationId: string): boolean {
-  if (!state.runtime.inflightOperations) {
-    return false;
-  }
-  
-  const index = state.runtime.inflightOperations.findIndex(op => op.id === operationId);
-  if (index === -1) {
-    log('warn', '[State] Operation not found for completion', { operationId });
-    return false;
-  }
-  
-  const [operation] = state.runtime.inflightOperations.splice(index, 1);
-  const duration = Date.now() - new Date(operation.startedAt).getTime();
-  
-  log('debug', '[State] Completed operation', { 
-    id: operationId, 
-    type: operation.type, 
-    durationMs: duration 
-  });
-  
-  return true;
-}
-
-/**
- * Get all in-flight operations, optionally filtered by type
- */
-export function getInflightOperations(
-  state: SecurityBotState,
-  type?: OperationType
-): InFlightOperation[] {
-  if (!state.runtime.inflightOperations) {
-    return [];
-  }
-  
-  if (type) {
-    return state.runtime.inflightOperations.filter(op => op.type === type);
-  }
-  
-  return [...state.runtime.inflightOperations];
-}
-
-/**
- * Check for timed-out operations and clean them up
- */
-export function cleanupTimedOutOperations(state: SecurityBotState): InFlightOperation[] {
-  if (!state.runtime.inflightOperations) {
-    return [];
-  }
-  
-  const now = Date.now();
-  const timedOut: InFlightOperation[] = [];
-  
-  state.runtime.inflightOperations = state.runtime.inflightOperations.filter(op => {
-    const opTime = new Date(op.startedAt).getTime();
-    const isTimedOut = (now - opTime) >= op.timeout;
-    
-    if (isTimedOut) {
-      timedOut.push(op);
-      log('warn', '[State] Operation timed out', { 
-        id: op.id, 
-        type: op.type, 
-        age: now - opTime 
-      });
-    }
-    
-    return !isTimedOut;
-  });
-  
-  return timedOut;
-}
-
-/**
- * Save a checkpoint of current operations for crash recovery
- */
-export async function saveCheckpoint(state: SecurityBotState): Promise<boolean> {
-  if (!ENABLE_STATE_CHECKSUMS) {
-    return false;
-  }
-  
-  const checkpoint: OperationCheckpoint = {
-    version: STATE_VERSION,
-    savedAt: new Date().toISOString(),
-    operations: state.runtime.inflightOperations || [],
-    pendingAlerts: [], // Can be extended to track pending alert digests
-    pendingReverts: []  // Can be extended to track pending permission reverts
-  };
-  
-  try {
-    const data = JSON.stringify(checkpoint, null, USE_COMPACT_JSON ? 0 : 2);
-    const tempFile = `${CHECKPOINT_FILE}.tmp`;
-    
-    await fs.writeFile(tempFile, data, 'utf-8');
-    await fs.rename(tempFile, CHECKPOINT_FILE);
-    
-    state.runtime.lastCheckpoint = checkpoint.savedAt;
-    log('debug', '[State] Checkpoint saved', { 
-      operations: checkpoint.operations.length,
-      savedAt: checkpoint.savedAt 
-    });
-    
-    return true;
-  } catch (error) {
-    log('error', '[State] Failed to save checkpoint', { 
-      error: error instanceof Error ? error.message : String(error) 
-    });
-    return false;
-  }
-}
-
-/**
- * Load checkpoint from disk for crash recovery
- */
-export async function loadCheckpoint(): Promise<OperationCheckpoint | null> {
-  try {
-    await fs.access(CHECKPOINT_FILE);
-  } catch {
-    log('debug', '[State] No checkpoint file found');
-    return null;
-  }
-  
-  try {
-    const content = await fs.readFile(CHECKPOINT_FILE, 'utf-8');
-    const checkpoint = JSON.parse(content) as OperationCheckpoint;
-    
-    // Validate checkpoint version
-    if (checkpoint.version !== STATE_VERSION) {
-      log('warn', '[State] Checkpoint version mismatch, discarding', {
-        expected: STATE_VERSION,
-        found: checkpoint.version
-      });
-      return null;
-    }
-    
-    log('info', '[State] Loaded checkpoint', { 
-      operations: checkpoint.operations.length,
-      savedAt: checkpoint.savedAt 
-    });
-    
-    return checkpoint;
-  } catch (error) {
-    log('error', '[State] Failed to load checkpoint', { 
-      error: error instanceof Error ? error.message : String(error) 
-    });
-    return null;
-  }
-}
-
-/**
- * Resume operations from a checkpoint after restart
- * Returns operations that should be retried
- */
-export function resumeFromCheckpoint(
-  state: SecurityBotState,
-  checkpoint: OperationCheckpoint
-): InFlightOperation[] {
-  const now = Date.now();
-  const resumable: InFlightOperation[] = [];
-  
-  for (const op of checkpoint.operations) {
-    const opTime = new Date(op.startedAt).getTime();
-    const age = now - opTime;
-    
-    // Only resume if not timed out
-    if (age < op.timeout) {
-      resumable.push(op);
-      log('info', '[State] Resumable operation found', { 
-        id: op.id, 
-        type: op.type, 
-        ageMs: age 
-      });
-    } else {
-      log('warn', '[State] Skipping timed-out operation', { 
-        id: op.id, 
-        type: op.type, 
-        ageMs: age 
-      });
-    }
-  }
-  
-  // Restore to state
-  state.runtime.inflightOperations = resumable;
-  state.runtime.lastCheckpoint = checkpoint.savedAt;
-  
-  return resumable;
-}
-
-/**
- * Clear the checkpoint file after successful recovery
- */
-export async function clearCheckpoint(): Promise<void> {
-  try {
-    await fs.unlink(CHECKPOINT_FILE);
-    log('debug', '[State] Checkpoint cleared');
-  } catch {
-    // File may not exist, that's OK
-  }
-}
-
-/**
- * Start checkpoint auto-save interval
- */
-export function startCheckpointInterval(state: SecurityBotState): NodeJS.Timeout {
-  const interval = setInterval(async () => {
-    await saveCheckpoint(state);
-    cleanupTimedOutOperations(state);
-  }, CHECKPOINT_INTERVAL_MS);
-  
-  log('info', '[State] Checkpoint interval enabled', { 
-    intervalSeconds: CHECKPOINT_INTERVAL_MS / 1000 
-  });
-  
-  return interval;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Shutdown
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Graceful shutdown - save final state and checkpoint
+ * Graceful shutdown - save final state
  */
 export async function shutdownState(state: SecurityBotState, reason: string = 'manual'): Promise<void> {
   log('info', '[State] Shutting down', { reason });
@@ -1080,21 +826,14 @@ export async function shutdownState(state: SecurityBotState, reason: string = 'm
     type: 'shutdown',
     details: {
       reason,
-      uptime: state.runtime.currentUptime,
-      inflightOperations: state.runtime.inflightOperations?.length || 0
+      uptime: state.runtime.currentUptime
     }
   });
   
   updateRuntimeState(state, {});
   
-  // Save final checkpoint for crash recovery
-  await saveCheckpoint(state);
-  
   await saveState(state);
   await createSnapshot(state);
-  
-  // Clear checkpoint after clean shutdown
-  await clearCheckpoint();
   
   log('info', '[State] Shutdown complete');
 }
