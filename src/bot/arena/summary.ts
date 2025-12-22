@@ -12,6 +12,22 @@ function formatTurnCount(turnCount: number) {
   return `in ${turnCount} turns`;
 }
 
+/**
+ * Build a concise summary of a turn log for the arena thread.
+ * Compacts multiple log lines into a single summary string.
+ */
+export function buildArenaTurnSummary(log: string[]): string {
+  return log.join(" | ");
+}
+
+/**
+ * Build a detailed log message for DM delivery.
+ * Preserves full log detail with line breaks.
+ */
+export function buildDMDetailedLog(log: string[]): string {
+  return log.join("\n");
+}
+
 export function buildBattleResultThreadMessage(summary: BattleResultRecord) {
   const winnerMention = `<@${summary.winner.discordId}>`;
   const loserMention = `<@${summary.loser.discordId}>`;

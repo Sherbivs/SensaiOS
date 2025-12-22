@@ -11,6 +11,18 @@ vi.mock("../../src/services/homestead-manager.js", () => ({
 	})),
 }));
 
+// Mock pg-connection to prevent database connection requirement
+vi.mock("../../src/shared/pg-connection.js", () => ({
+  getProdDb: vi.fn().mockReturnValue({
+    query: vi.fn().mockResolvedValue({ rows: [] }),
+  }),
+  getConnection: vi.fn().mockReturnValue({
+    pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
+  }),
+  initializeConnection: vi.fn().mockResolvedValue(undefined),
+  closeConnection: vi.fn().mockResolvedValue(undefined),
+}));
+
 const prismaMock = vi.hoisted(() => ({
   prisma: {},
   ensurePrisma: vi.fn(),

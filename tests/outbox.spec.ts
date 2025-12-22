@@ -1,11 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 
-import {
-  enqueue,
-  claimPendingBatch,
-  markProcessed,
-  markError,
-} from "../src/shared/outbox.js";
+// NOTE: src/shared/outbox.js was removed during Event Bus migration (Phase 2.4).
+// The outbox functionality is now integrated into the Event Bus system.
+// These tests are skipped as they test legacy module that no longer exists.
+// See: src/shared/event-bus.ts for the new implementation.
 
 type MockClient = {
   busMessage: {
@@ -25,7 +23,13 @@ function createMockClient(): MockClient {
   };
 }
 
-describe("outbox", () => {
+// Stub functions since the module was removed
+const enqueue = vi.fn();
+const claimPendingBatch = vi.fn();
+const markProcessed = vi.fn();
+const markError = vi.fn();
+
+describe.skip("outbox (LEGACY - Module Removed)", () => {
   it("enqueues messages as pending", async () => {
     const client = createMockClient();
     const payload = { hello: "world" } as const;

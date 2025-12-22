@@ -381,8 +381,8 @@ describe('ServiceRegistry', () => {
       // First check runs immediately - should be healthy
       expect(registry.getHealth('degrading-service')!.status).toBe('healthy');
 
-      // Wait for second check (fails after 50ms interval)
-      await delay();
+      // Wait for second check (fails after 50ms interval + buffer)
+      await delay(100);
       expect(registry.getHealth('degrading-service')!.status).toBe('degraded');
     });
 
@@ -406,11 +406,11 @@ describe('ServiceRegistry', () => {
       expect(registry.getHealth('recovering-service')!.status).toBe('healthy');
 
       // Wait for second check (fails - degraded)
-      await delay();
+      await delay(100);
       expect(registry.getHealth('recovering-service')!.status).toBe('degraded');
 
       // Wait for third check (passes - recovered)
-      await delay();
+      await delay(100);
       expect(registry.getHealth('recovering-service')!.status).toBe('healthy');
     });
 

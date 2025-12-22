@@ -82,17 +82,19 @@ describe("loadConfig", () => {
     const { loadConfig, resetConfigCacheForTests } = await loadConfigModule();
     resetConfigCacheForTests();
     const config = loadConfig();
+    // PROD_DATABASE_URL takes priority in unified architecture
     expect(config.databaseUrl).toBe("postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db");
     expect(config.databaseUrlSource).toBe("env");
   });
 
-  it("falls back to DATABASE_URL when direct URLs are missing", async () => {
+  it("throws when no direct PostgreSQL URLs are available (unified architecture)", async () => {
+    // In unified architecture, DATABASE_URL alone is not enough - direct URLs are required
     process.env.DATABASE_URL = "postgresql://render-db.example/infinity_gauntlet";
-    const { loadConfig, resetConfigCacheForTests } = await loadConfigModule();
-    resetConfigCacheForTests();
-    const config = loadConfig();
-    expect(config.databaseUrl).toBe("postgresql://render-db.example/infinity_gauntlet");
-    expect(config.databaseCandidates.some((candidate) => candidate.source === "env")).toBe(true);
-    expect(["env"]).toContain(config.databaseUrlSource);
+    // All direct URLs should be cleared (done in beforeEach)
+    const configPromise = loadConfigModule().then(async ({ loadConfig, resetConfigCacheForTests }) => {
+      resetConfigCacheForTests();
+      return loadConfig();
+    });
+    await expect(configPromise).rejects.toThrow(/No database URL found/);
   });
 });

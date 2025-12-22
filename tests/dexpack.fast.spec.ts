@@ -28,7 +28,8 @@ describe('dexpack fast indexes', () => {
 
   it('provides typed-array backed base stats and matchups', () => {
     const fast = dexpackState.fast;
-    expect(fast?.statIndex).toBeInstanceOf(Int32Array);
+    // dexpack.ts uses Uint16Array for statIndex for v1/v2 compatibility
+    expect(fast?.statIndex).toBeInstanceOf(Uint16Array);
     expect(fast?.baseStats).toBeInstanceOf(Uint16Array);
 
     const stats = getSpeciesBaseStats(1);
@@ -44,6 +45,7 @@ describe('dexpack fast indexes', () => {
     const stats = getSpeciesBaseStats(1);
     expect(stats).toMatchObject({ hp: expect.any(Number) });
     const fast = dexpackState.fast;
-    expect(fast?.nameTable?.ids).toBeInstanceOf(Int32Array);
+    // nameTable.keys is Uint32Array (not .ids which is Int32Array in raw v2)
+    expect(fast?.nameTable?.keys).toBeInstanceOf(Uint32Array);
   });
 });

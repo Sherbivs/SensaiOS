@@ -1,15 +1,52 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { errorTracker } from '../src/services/monitoring/error-tracker.js';
-import { createMockErrorLog, mockPrismaWithErrorLog, mockLogger } from './shared/index.js';
 import type { ErrorLog } from '@prisma/client';
+
+// Use vi.hoisted to create mock factories that survive the vi.mock hoisting
+const { mockPrisma, mockLoggerObj } = vi.hoisted(() => {
+  const createMockModel = () => ({
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    createMany: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+    upsert: vi.fn(),
+    delete: vi.fn(),
+    deleteMany: vi.fn(),
+    count: vi.fn(),
+    aggregate: vi.fn(),
+    groupBy: vi.fn(),
+  });
+  
+  return {
+    mockPrisma: {
+      errorLog: createMockModel(),
+      errorResolution: createMockModel(),
+      errorCodeContext: createMockModel(),
+      errorTimePattern: createMockModel(),
+    },
+    mockLoggerObj: {
+      log: vi.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    }
+  };
+});
 
 // Mock Prisma
 vi.mock('../src/shared/prisma.js', () => ({
-  prisma: mockPrismaWithErrorLog(),
+  prisma: mockPrisma,
 }));
 
 // Mock logger
-vi.mock('../src/utils/logger.js', () => mockLogger());
+vi.mock('../src/utils/logger.js', () => mockLoggerObj);
+
+// Import after mocks are set up
+import { errorTracker } from '../src/services/monitoring/error-tracker.js';
+import { createMockErrorLog } from './shared/index.js';
 
 describe('ErrorTracker', () => {
   beforeEach(() => {

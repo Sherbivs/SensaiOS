@@ -174,3 +174,11 @@ export function queueSwitchAction(battleId: string, player: PlayerKey, targetId:
 
   return { status: "queued", turn: runtime.turn, action } satisfies QueueResult;
 }
+
+// Testing utilities - clears all battle runtimes between tests
+export const __testing = {
+  clear: (): void => {
+    runtimes.clear();
+  },
+  getRuntimeCount: (): number => runtimes.size,
+};

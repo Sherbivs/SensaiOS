@@ -29,7 +29,26 @@ const PREVIOUS_STATE_PATH = path.join(STATE_DIR, 'previous.json');
 const SNAPSHOTS_DIR = path.join(STATE_DIR, 'snapshots');
 const SCHEMA_VERSION = '1.1.0';
 const STATE_VERSION = 1;
-// Note: Using faster 30s auto-save locally vs 5min in config for persistence module
+/**
+ * Auto-save interval for state persistence.
+ *
+ * **DESIGN DECISION (P5-F):** Using 30s interval in persistence module vs
+ * 5 minutes documented elsewhere. Rationale:
+ *
+ * - **30 seconds (persistence.ts):** Aggressive interval ensures minimal data
+ *   loss on unexpected crashes. Security bot state changes frequently (sweeps,
+ *   permission changes, alerts) and losing 30s of data is acceptable vs 5min.
+ *
+ * - **5 minutes (config references):** Original conservative estimate for
+ *   general-purpose background saves. May be referenced in documentation or
+ *   config files but persistence module uses its own optimized interval.
+ *
+ * - **Tradeoff:** Slight increase in disk I/O (negligible on SSD) vs better
+ *   crash resilience. State files are <100KB so writes are fast.
+ *
+ * - **Shutdown behavior:** Final save always occurs on SIGTERM/SIGINT,
+ *   so graceful shutdowns capture 100% of state regardless of interval.
+ */
 const AUTO_SAVE_INTERVAL_MS = 30 * 1000;
 const METRICS_HISTORY_DAYS = 7;
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,9 +70,10 @@ export function isStateDegraded() {
 // Default State
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * Default empty state structure
+ * Create a default empty state structure.
+ * Exported for test fixtures and state initialization.
  */
-function createDefaultState() {
+export function createDefaultState() {
     const now = new Date().toISOString();
     return {
         version: STATE_VERSION,
@@ -98,9 +118,12 @@ function createDefaultState() {
 // Validation & Migration
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * Validate state structure
+ * Validate state structure.
+ * Checks that required top-level fields exist.
+ * @param state - Unknown value to validate
+ * @returns Type guard confirming state is SecurityBotState
  */
-function validateState(state) {
+export function validateState(state) {
     if (!state || typeof state !== 'object')
         return false;
     const s = state;
@@ -114,9 +137,12 @@ function validateState(state) {
 // Checksum Verification (P0 Reliability)
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * Compute SHA256 checksum of state (excluding the checksum field itself)
+ * Compute SHA256 checksum of state (excluding the checksum field itself).
+ * Used for integrity verification on load.
+ * @param state - State object to hash
+ * @returns 16-character hex checksum
  */
-function computeStateChecksum(state) {
+export function computeStateChecksum(state) {
     // Clone metadata without checksum to avoid circular dependency
     const stateForHash = {
         ...state,
@@ -128,10 +154,12 @@ function computeStateChecksum(state) {
         .substring(0, 16); // 16 chars is sufficient for integrity check
 }
 /**
- * Verify state checksum matches stored value
- * Returns true for legacy files without checksum (backward compatible)
+ * Verify state checksum matches stored value.
+ * Returns true for legacy files without checksum (backward compatible).
+ * @param state - State object with metadata.checksum field
+ * @returns True if checksum valid or missing (legacy), false if mismatch
  */
-function verifyStateChecksum(state) {
+export function verifyStateChecksum(state) {
     const storedChecksum = state.metadata.checksum;
     if (!storedChecksum) {
         // Legacy file without checksum — allow but log

@@ -473,3 +473,8 @@ export async function handleBattleActionButton(
     return;
   }
 }
+
+// Testing utilities - expose internal parse function for tests
+export const __testing = {
+  parse,
+};

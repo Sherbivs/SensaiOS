@@ -386,3 +386,7 @@ export async function handleBattleActionButton(interaction, opts = {}) {
         return;
     }
 }
+// Testing utilities - expose internal parse function for tests
+export const __testing = {
+    parse,
+};

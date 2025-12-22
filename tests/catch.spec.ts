@@ -1,7 +1,43 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeAll, afterAll, beforeEach } from "vitest";
+
+// Create mock party data that the test can control
+const mockPartyData = {
+  party: null as { id: string; ownerId: string } | null,
+  slots: [] as Array<{ slot: number; pokemonId: string }>,
+};
+
+// Mock pg-connection to prevent real database calls
+vi.mock("../src/shared/pg-connection.js", () => ({
+  initializeConnection: vi.fn().mockResolvedValue({}),
+  closeConnection: vi.fn().mockResolvedValue(undefined),
+  getConnection: vi.fn().mockReturnValue({
+    isConnected: vi.fn().mockReturnValue(true),
+    getPool: vi.fn().mockReturnValue({
+      query: vi.fn().mockResolvedValue({ rows: [] }),
+    }),
+  }),
+  getProdDb: vi.fn().mockReturnValue({
+    query: vi.fn().mockResolvedValue({ rows: [] }),
+  }),
+}));
+
+// Mock party-queries-pg to return test-controlled data
+vi.mock("../src/shared/models/party-queries-pg.js", () => ({
+  getPartyWithSlots: vi.fn().mockImplementation(async () => {
+    if (!mockPartyData.party) return null;
+    return {
+      ...mockPartyData.party,
+      slots: mockPartyData.slots,
+    };
+  }),
+  addPokemonToParty: vi.fn().mockResolvedValue({ slot: 1 }),
+}));
 
 import { catchChance, attemptCatch } from "../src/core/encounter/catch.js";
 import { UserRepo } from "../src/models/index.js";
+
+// Export mockPartyData for tests to control
+export { mockPartyData };
 
 function inRange(x: number, lo: number, hi: number) {
   return x >= lo && x <= hi;
@@ -112,6 +148,9 @@ describe('attemptCatch persistence', () => {
   afterEach(() => {
     UserRepo.upsertByDiscordId = originalUpsert;
     vi.restoreAllMocks();
+    // Reset mock party data
+    mockPartyData.party = null;
+    mockPartyData.slots = [];
   });
 
   it('persists captured Pokémon and updates encounter metadata', async () => {
@@ -132,6 +171,10 @@ describe('attemptCatch persistence', () => {
       expiresAt: new Date(Date.now() + 60_000),
       dataJson: {},
     });
+
+    // Set up mock party data to match test state
+    mockPartyData.party = { id: 'party_1', ownerId: 'user_1' };
+    mockPartyData.slots = [];
 
     UserRepo.upsertByDiscordId = async (discordId: string, clientOverride: any) => {
       const client = clientOverride ?? prisma;

@@ -469,6 +469,30 @@ export async function evict(descriptor: CacheDescriptor): Promise<void> {
   log.debug("cache.evict", buildLogMeta(descriptor, "evict"));
 }
 
+/**
+ * Peek at a cached value without triggering hydration.
+ * Returns the cached value if found and not expired, or null otherwise.
+ * Does NOT invoke the hydrator or update any access timestamps.
+ */
+export async function peek<T>(descriptor: CacheDescriptor): Promise<T | null> {
+  const composite = buildCompositeKey(descriptor);
+  const now = Date.now();
+
+  // Check memory first
+  const memoryRecord = memoryCache.get(composite) as CacheRecord<T> | undefined;
+  if (memoryRecord && !isExpired(memoryRecord, now)) {
+    return memoryRecord.value;
+  }
+
+  // Check disk
+  const diskRecord = await readFromDisk<T>(descriptor);
+  if (diskRecord && !isExpired(diskRecord, now)) {
+    return diskRecord.value;
+  }
+
+  return null;
+}
+
 export function cacheRoot(): string {
   return config.rootDir;
 }

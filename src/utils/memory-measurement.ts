@@ -111,29 +111,20 @@ export function measureEventBusMemory(busStats: BusStats): ComponentMemoryStats 
   try {
     const bus = EventBus.getInstance();
     
-    // Measure replay buffer (array of events)
-    const replayBuffer = (bus as unknown as { replayBuffer: unknown[] }).replayBuffer;
-    const replayBytes = safeJsonSize(replayBuffer);
+    // Measure replay buffer - use getReplayBuffer() to get the array
+    const replayBufferData = bus.getReplayBuffer();
+    const replayBytes = safeJsonSize(replayBufferData);
     
-    // Measure subscriptions (Map of pattern -> subscription)
-    // Convert to serializable format (exclude handler functions)
-    const subscriptions = (bus as unknown as { subscriptions: Map<string, unknown> }).subscriptions;
-    const subscriptionData = Array.from(subscriptions.values()).map(sub => ({
-      pattern: (sub as { pattern?: { toString(): string } }).pattern?.toString() || 'unknown',
-      stats: (sub as { getStats?: () => unknown }).getStats?.() || {}
-    }));
-    const subsBytes = safeJsonSize(subscriptionData);
+    // Measure subscriptions via subscriber info
+    const subscribers = bus.getSubscribers();
+    const subsBytes = safeJsonSize(subscribers);
     
-    // Measure pattern cache (LRU cache)
-    const patternCache = (bus as unknown as { patternCache: Map<string, { toString(): string }> }).patternCache;
-    const cacheEntries = Array.from(patternCache.entries()).map(([key, regex]) => ({
-      key,
-      regex: regex.toString()
-    }));
-    const cacheBytes = safeJsonSize(cacheEntries);
+    // Measure pattern cache via public API
+    const patternCacheStats = bus.getPatternCacheStats();
+    const cacheBytes = safeJsonSize(patternCacheStats.patterns);
     
     const totalBytes = replayBytes + subsBytes + cacheBytes;
-    const totalEntries = busStats.replayBufferSize + busStats.subscriptionsActive + (patternCache?.size ?? 0);
+    const totalEntries = busStats.replayBufferSize + busStats.subscriptionsActive + patternCacheStats.size;
     
     return {
       estimatedBytes: totalBytes,
@@ -145,7 +136,7 @@ export function measureEventBusMemory(busStats: BusStats): ComponentMemoryStats 
         replayBufferBytes: replayBytes,
         subscriptionsBytes: subsBytes,
         patternCacheBytes: cacheBytes,
-        patternCacheSize: patternCache?.size ?? 0
+        patternCacheSize: patternCacheStats.size
       }
     };
   } catch (err) {
@@ -342,4 +333,13 @@ export function getConfidenceEmoji(confidence: 'high' | 'medium' | 'low'): strin
     case 'medium': return '🟡';
     case 'low': return '⚠️';
   }
+}
+
+/**
+ * Format bytes as megabytes with 2 decimal places
+ * @param bytes - Number of bytes
+ * @returns Formatted string (e.g., "1.50" for 1.5 MB)
+ */
+export function formatMB(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(2);
 }

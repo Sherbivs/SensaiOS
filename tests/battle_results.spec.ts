@@ -4,14 +4,17 @@ import { announceBattleResult } from "../src/bot/battle/conclude.js";
 import { BattleRepo } from "../src/models/index.js";
 import type { BattleResultRecord } from "../src/models/index.js";
 
-// Mock HomesteadChannelManager
+// Mock HomesteadChannelManager as a class
 vi.mock("../src/services/homestead-manager.js", () => ({
-	HomesteadChannelManager: vi.fn().mockImplementation(() => ({
-		getOrCreateChannel: vi.fn().mockResolvedValue({
-			channel: { send: vi.fn() },
-			created: false,
-		}),
-	})),
+	HomesteadChannelManager: class MockHomesteadChannelManager {
+		constructor(public client: any, public guildId: string) {}
+		async getOrCreateChannel(user: any) {
+			return {
+				channel: { send: vi.fn() },
+				created: false,
+			};
+		}
+	},
 }));
 
 function buildBattle() {

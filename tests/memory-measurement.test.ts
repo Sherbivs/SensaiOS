@@ -66,8 +66,9 @@ describe('Memory Measurement Utilities', () => {
       bus = EventBus.getInstance();
       // Clear any existing subscriptions
       (bus as any).subscriptions.clear();
-      (bus as any).replayBuffer = [];
-      (bus as any).eventsEmitted = 0;
+      // Use the proper clear method on the replay buffer
+      (bus as any).replayBuffer.clear();
+      (bus as any).stats.eventsEmitted = 0;
     });
     
     it('should measure empty Event Bus correctly', () => {
