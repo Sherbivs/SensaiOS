@@ -49,7 +49,9 @@ import {
   pruneStaleHistory,
   getImpactPredictorStats,
 } from "./impact-predictor.js";
-import { log } from "../../shared/logging/index.js";
+import { getLogger } from "../../shared/logging/index.js";
+
+const logger = getLogger();
 
 // ==================== TYPES ====================
 
@@ -178,7 +180,7 @@ async function runCacheRefresh(): Promise<void> {
     await refreshFromDb();
   } catch (error) {
     isError = true;
-    log.error("[ErrorBrain] Cache refresh failed:", error);
+    logger.error('error-brain', 'cache-refresh', 'Cache refresh failed', { error: { name: 'CacheRefreshError', message: String(error) } });
   } finally {
     const durationMs = Date.now() - startMs;
     recordWorkerExecution(name, durationMs, isError);
@@ -234,7 +236,7 @@ async function runPatternUpdate(): Promise<void> {
     }
   } catch (error) {
     isError = true;
-    log.error("[ErrorBrain] Pattern update failed:", error);
+    logger.error('error-brain', 'pattern-update', 'Pattern update failed', { error: { name: 'PatternUpdateError', message: String(error) } });
   } finally {
     const durationMs = Date.now() - startMs;
     recordWorkerExecution(name, durationMs, isError);
@@ -298,7 +300,7 @@ async function runCorrelationHarvest(): Promise<void> {
     }
   } catch (error) {
     isError = true;
-    log.error("[ErrorBrain] Correlation harvest failed:", error);
+    logger.error('error-brain', 'correlation-harvest', 'Correlation harvest failed', { error: { name: 'CorrelationHarvestError', message: String(error) } });
   } finally {
     const durationMs = Date.now() - startMs;
     recordWorkerExecution(name, durationMs, isError);
@@ -325,7 +327,7 @@ async function runDiskSave(): Promise<void> {
     await saveToDisk();
   } catch (error) {
     isError = true;
-    log.error("[ErrorBrain] Disk save failed:", error);
+    logger.error('error-brain', 'disk-save', 'Disk save failed', { error: { name: 'DiskSaveError', message: String(error) } });
   } finally {
     const durationMs = Date.now() - startMs;
     recordWorkerExecution(name, durationMs, isError);
@@ -359,7 +361,7 @@ async function runCleanup(): Promise<void> {
     pruneStaleHistory();
   } catch (error) {
     isError = true;
-    log.error("[ErrorBrain] Cleanup failed:", error);
+    logger.error('error-brain', 'cleanup', 'Cleanup failed', { error: { name: 'CleanupError', message: String(error) } });
   } finally {
     const durationMs = Date.now() - startMs;
     recordWorkerExecution(name, durationMs, isError);
@@ -391,10 +393,10 @@ export async function syncWithPostgres(): Promise<void> {
 
   try {
     // TODO: Implement PostgreSQL sync when integrating with error-tracker
-    log.info("[ErrorBrain] PostgreSQL sync placeholder executed");
+    logger.debug('error-brain', 'postgres-sync', 'PostgreSQL sync placeholder executed');
   } catch (error) {
     isError = true;
-    log.error("[ErrorBrain] PostgreSQL sync failed:", error);
+    logger.error('error-brain', 'postgres-sync', 'PostgreSQL sync failed', { error: { name: 'PostgresSyncError', message: String(error) } });
   } finally {
     const durationMs = Date.now() - startMs;
     recordWorkerExecution(name, durationMs, isError);
@@ -451,11 +453,11 @@ export async function applyLearningUpdates(updates: LearningUpdate): Promise<voi
  */
 export async function startWorkers(): Promise<void> {
   if (isActive) {
-    log.info("[ErrorBrain] Workers already running");
+    logger.debug('error-brain', 'startup', 'Workers already running');
     return;
   }
 
-  log.info("[ErrorBrain] Starting workers...");
+  logger.info('error-brain', 'startup', 'Starting Error Brain workers');
   startTime = Date.now();
 
   // Initialize worker status tracking
@@ -491,7 +493,7 @@ export async function startWorkers(): Promise<void> {
   workerStatuses.get("PostgresSync")!.nextExecution = Date.now() + PG_SYNC_INTERVAL_MS;
 
   isActive = true;
-  log.info("[ErrorBrain] All workers started");
+  logger.info('error-brain', 'startup', 'All Error Brain workers started');
 }
 
 /**
@@ -499,11 +501,11 @@ export async function startWorkers(): Promise<void> {
  */
 export async function stopWorkers(): Promise<void> {
   if (!isActive) {
-    log.info("[ErrorBrain] Workers not running");
+    logger.debug('error-brain', 'shutdown', 'Workers not running');
     return;
   }
 
-  log.info("[ErrorBrain] Stopping workers...");
+  logger.info('error-brain', 'shutdown', 'Stopping Error Brain workers');
   isActive = false;
 
   // Clear all intervals
@@ -517,7 +519,7 @@ export async function stopWorkers(): Promise<void> {
   try {
     await saveToDisk();
   } catch (error) {
-    log.error("[ErrorBrain] Final disk save failed:", error);
+    logger.error('error-brain', 'shutdown', 'Final disk save failed', { error: { name: 'FinalSaveError', message: String(error) } });
   }
 
   // Shutdown subsystems
@@ -526,7 +528,7 @@ export async function stopWorkers(): Promise<void> {
   clearAllPatternState();
 
   startTime = null;
-  log.info("[ErrorBrain] All workers stopped");
+  logger.info('error-brain', 'shutdown', 'All Error Brain workers stopped');
 }
 
 /**
@@ -565,7 +567,7 @@ export async function runWorkerNow(
     case "DiskSave": await runDiskSave(); break;
     case "Cleanup": await runCleanup(); break;
     case "PostgresSync": await syncWithPostgres(); break;
-    default: log.warn(`[ErrorBrain] Unknown worker: ${workerName}`);
+    default: logger.warn('error-brain', 'run-worker', `Unknown worker: ${workerName}`);
   }
 }
 
