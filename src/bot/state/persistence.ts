@@ -14,8 +14,10 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { log } from '../../shared/logging/index.js';
+import { getLogger } from '../../shared/logging/index.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
+
+const logger = getLogger();
 import { ensureError } from '../../shared/utils/error-utils.js';
 import { errorTracker } from '../../services/monitoring/index.js';
 import {
@@ -206,15 +208,14 @@ export function verifyStateChecksum(state: SecurityBotState): boolean {
   const storedChecksum = (state.metadata as unknown as Record<string, unknown>).checksum as string | undefined;
   if (!storedChecksum) {
     // Legacy file without checksum — allow but log
-    log('debug', '[State] No checksum in state file (legacy)');
+    logger.debug('security-state', 'verify', '[State] No checksum in state file (legacy)');
     return true;
   }
   
   const computed = computeStateChecksum(state);
   if (storedChecksum !== computed) {
-    log('error', '[State] Checksum mismatch! Possible corruption', {
-      stored: storedChecksum,
-      computed
+    logger.error('security-state', 'verify', '[State] Checksum mismatch! Possible corruption', {
+      metadata: { stored: storedChecksum, computed }
     });
     return false;
   }
@@ -230,7 +231,7 @@ function migrateState(state: SecurityBotState): SecurityBotState {
     return state;
   }
 
-  log('warn', '[State] Unknown state version', { version: state.version });
+  logger.warn('security-state', 'warning', '[State] Unknown state version', { metadata: { version: state.version } });
   return state;
 }
 
@@ -247,13 +248,13 @@ async function loadStateFile(filePath: string): Promise<SecurityBotState | null>
     const state = JSON.parse(data);
     
     if (!validateState(state)) {
-      log('error', '[State] Invalid state structure', { filePath });
+      logger.error('security-state', 'load', '[State] Invalid state structure', { metadata: { filePath } });
       return null;
     }
     
     // Verify checksum integrity
     if (!verifyStateChecksum(state)) {
-      log('error', '[State] Checksum verification failed, rejecting file', { filePath });
+      logger.error('security-state', 'load', '[State] Checksum verification failed, rejecting file', { metadata: { filePath } });
       return null;
     }
     
@@ -263,7 +264,7 @@ async function loadStateFile(filePath: string): Promise<SecurityBotState | null>
     if (error.code === 'ENOENT') {
       return null;
     }
-    log('error', '[State] Error loading file', { filePath, error: error.message });
+    logger.error('security-state', 'load', '[State] Error loading file', { metadata: { filePath, errorMsg: error.message } });
     
     errorTracker.captureError(
       ensureError(error),
@@ -312,7 +313,7 @@ async function saveStateFile(filePath: string, state: SecurityBotState): Promise
     return true;
   } catch (err) {
     const error = err as NodeJS.ErrnoException;
-    log('error', '[State] Error saving file', { filePath, error: error.message });
+    logger.error('security-state', 'save', '[State] Error saving file', { metadata: { filePath, errorMsg: error.message } });
     
     // Cleanup temp file if it exists
     try {
@@ -350,7 +351,7 @@ async function createSnapshot(state: SecurityBotState): Promise<string | null> {
     return snapshotPath;
   } catch (err) {
     const error = ensureError(err);
-    log('error', '[State] Error creating snapshot', { error: error.message });
+    logger.error('security-state', 'save', '[State] Error creating snapshot', { metadata: { errorMsg: error.message } });
     return null;
   }
 }
@@ -381,11 +382,11 @@ async function pruneSnapshots(): Promise<void> {
     }
     
     if (pruned > 0) {
-      log('info', '[State] Pruned old snapshots', { count: pruned });
+      logger.info('security-state', 'prune', '[State] Pruned old snapshots', { metadata: { count: pruned } });
     }
   } catch (err) {
     const error = ensureError(err);
-    log('error', '[State] Error pruning snapshots', { error: error.message });
+    logger.error('security-state', 'prune', '[State] Error pruning snapshots', { metadata: { errorMsg: error.message } });
   }
 }
 
@@ -405,13 +406,12 @@ async function loadNewestSnapshot(): Promise<SecurityBotState | null> {
     
     for (const file of jsonFiles) {
       const filePath = path.join(SNAPSHOTS_DIR, file);
-      log('debug', '[State] Trying snapshot', { file });
+      logger.debug('security-state', 'load', '[State] Trying snapshot', { metadata: { file } });
       
       const state = await loadStateFile(filePath);
       if (state) {
-        log('info', '[State] Recovered from snapshot', { 
-          file, 
-          lastSaved: state.metadata.lastSaved 
+        logger.info('security-state', 'load', '[State] Recovered from snapshot', { 
+          metadata: { file, lastSaved: state.metadata.lastSaved }
         });
         return state;
       }
@@ -420,7 +420,7 @@ async function loadNewestSnapshot(): Promise<SecurityBotState | null> {
     return null;
   } catch (err) {
     const error = ensureError(err);
-    log('error', '[State] Error searching snapshots', { error: error.message });
+    logger.error('security-state', 'load', '[State] Error searching snapshots', { metadata: { errorMsg: error.message } });
     return null;
   }
 }
@@ -458,7 +458,7 @@ async function rotateBackups(): Promise<void> {
     }
   } catch (err) {
     const error = ensureError(err);
-    log('warn', '[State] Backup rotation failed', { error: error.message });
+    logger.warn('security-state', 'warning', '[State] Backup rotation failed', { metadata: { errorMsg: error.message } });
   }
 }
 
@@ -474,29 +474,29 @@ async function rotateBackups(): Promise<void> {
  * 4. Fresh default state — Clean slate if all else fails
  */
 export async function loadState(): Promise<SecurityBotState> {
-  log('info', '[State] Loading operational state...');
+  logger.info('security-state', 'load', '[State] Loading operational state...');
   
   // Try 1: current.json
   let state = await loadStateFile(CURRENT_STATE_PATH);
   
   // Try 2: previous.json
   if (!state) {
-    log('info', '[State] current.json not found/corrupted, trying previous.json...');
+    logger.info('security-state', 'load', '[State] current.json not found/corrupted, trying previous.json...');
     state = await loadStateFile(PREVIOUS_STATE_PATH);
   }
   
   // Try 3: Newest snapshot (P0 recovery chain)
   if (!state) {
-    log('warn', '[State] Primary files unavailable, searching snapshots...');
+    logger.warn('security-state', 'warning', '[State] Primary files unavailable, searching snapshots...');
     state = await loadNewestSnapshot();
   }
   
   // Try 4: Fresh state
   if (!state) {
-    log('info', '[State] No recoverable state found, initializing fresh state');
+    logger.info('security-state', 'init', '[State] No recoverable state found, initializing fresh state');
     state = createDefaultState();
   } else {
-    log('info', '[State] Loaded state', { lastSaved: state.metadata.lastSaved });
+    logger.info('security-state', 'load', '[State] Loaded state', { metadata: { lastSaved: state.metadata.lastSaved } });
   }
   
   return state;
@@ -514,7 +514,7 @@ export async function saveState(state: SecurityBotState): Promise<boolean> {
   const success = await saveStateFile(CURRENT_STATE_PATH, state);
   
   if (success) {
-    log('info', '[State] State saved successfully');
+    logger.info('security-state', 'save', '[State] State saved successfully');
   }
   
   return success;
@@ -527,20 +527,20 @@ export async function initializeState(): Promise<SecurityBotState> {
   const startTime = performance.now();
   let recoveryTier: 'current' | 'previous' | 'snapshot' | 'fresh' = 'current';
   
-  log('info', '[State] Initializing state persistence...');
-  log('info', '[State] STATE_DIR', { path: STATE_DIR });
-  log('info', '[State] Working directory', { cwd: process.cwd() });
-  log('info', '[State] Module location', { dirname: __dirname });
+  logger.info('security-state', 'init', '[State] Initializing state persistence...');
+  logger.info('security-state', 'init', '[State] STATE_DIR', { metadata: { path: STATE_DIR } });
+  logger.info('security-state', 'init', '[State] Working directory', { metadata: { cwd: process.cwd() } });
+  logger.info('security-state', 'init', '[State] Module location', { metadata: { dirname: __dirname } });
   
   try {
     await fs.mkdir(STATE_DIR, { recursive: true });
     await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
-    log('info', '[State] State directory verified/created');
+    logger.info('security-state', 'init', '[State] State directory verified/created');
   } catch (err) {
     const error = err as NodeJS.ErrnoException;
     degradedMode = true;  // P2-R2: Set degraded flag
-    log('error', '[State] CRITICAL: Cannot create state directory', { error: error.message });
-    log('error', '[State] ENTERING DEGRADED MODE - state persistence disabled');
+    logger.error('security-state', 'error', '[State] CRITICAL: Cannot create state directory', { metadata: { errorMsg: error.message } });
+    logger.error('security-state', 'error', '[State] ENTERING DEGRADED MODE - state persistence disabled');
     
     await errorTracker.captureError(
       ensureError(error),
@@ -621,17 +621,19 @@ export async function initializeState(): Promise<SecurityBotState> {
   // Defer non-critical pruning (P1: don't block startup)
   setImmediate(() => {
     pruneSnapshots().catch(err => {
-      log('warn', '[State] Deferred pruning failed', { error: String(err) });
+      logger.warn('security-state', 'warning', '[State] Deferred pruning failed', { metadata: { errorMsg: String(err) } });
     });
   });
   
   // P2-T1: Log cold boot timing metrics
   const initDurationMs = Math.round(performance.now() - startTime);
-  log('info', '[State] Initialization complete', { 
-    restartNumber: state.cumulative.restartCount,
-    initDurationMs,
-    recoveryTier,
-    degradedMode
+  logger.info('security-state', 'init', '[State] Initialization complete', { 
+    durationMs: initDurationMs,
+    metadata: {
+      restartNumber: state.cumulative.restartCount,
+      recoveryTier,
+      degradedMode
+    }
   });
   
   return state;
@@ -804,7 +806,7 @@ function pruneMetricsHistory(state: SecurityBotState): void {
   
   const pruned = originalCount - state.metricsHistory.hourly.length;
   if (pruned > 0) {
-    log('info', '[State] Pruned old metrics', { pruned, remaining: state.metricsHistory.hourly.length });
+    logger.info('security-state', 'prune', '[State] Pruned old metrics', { metadata: { pruned, remaining: state.metricsHistory.hourly.length } });
   }
   
   state.metricsHistory.lastPruned = new Date().toISOString();
@@ -922,11 +924,11 @@ export function getMetricsTrend(state: SecurityBotState, hoursBack: number = 168
  */
 export function startAutoSave(state: SecurityBotState): NodeJS.Timeout {
   const interval = setInterval(async () => {
-    log('info', '[State] Auto-saving state...');
+    logger.info('security-state', 'save', '[State] Auto-saving state...');
     await saveState(state);
   }, AUTO_SAVE_INTERVAL_MS);
   
-  log('info', '[State] Auto-save enabled', { intervalSeconds: AUTO_SAVE_INTERVAL_MS / 1000 });
+  logger.info('security-state', 'init', '[State] Auto-save enabled', { metadata: { intervalSeconds: AUTO_SAVE_INTERVAL_MS / 1000 } });
   return interval;
 }
 
@@ -936,7 +938,7 @@ export function startAutoSave(state: SecurityBotState): NodeJS.Timeout {
 export function stopAutoSave(interval: NodeJS.Timeout | null): void {
   if (interval) {
     clearInterval(interval);
-    log('info', '[State] Auto-save stopped');
+    logger.info('security-state', 'save', '[State] Auto-save stopped');
   }
 }
 
@@ -948,7 +950,7 @@ export function stopAutoSave(interval: NodeJS.Timeout | null): void {
  * Graceful shutdown - save final state
  */
 export async function shutdownState(state: SecurityBotState, reason: string = 'manual'): Promise<void> {
-  log('info', '[State] Shutting down', { reason });
+  logger.info('security-state', 'save', '[State] Shutting down', { metadata: { reason } });
   
   addTimelineEvent(state, {
     type: 'shutdown',
@@ -963,5 +965,5 @@ export async function shutdownState(state: SecurityBotState, reason: string = 'm
   await saveState(state);
   await createSnapshot(state);
   
-  log('info', '[State] Shutdown complete');
+  logger.info('security-state', 'save', '[State] Shutdown complete');
 }

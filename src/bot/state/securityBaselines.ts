@@ -22,8 +22,10 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
-import { log } from '../../shared/logging/index.js';
+import { getLogger } from '../../shared/logging/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
+
+const logger = getLogger();
 import { STATE_DIR, HMAC_ALGORITHM, getHmacSecret } from './config.js';
 import type { SecurityBaselines, RoleChange } from './threatDetector.js';
 
@@ -101,7 +103,7 @@ function verifySignature(data: string, signature: string): boolean {
     );
   } catch (err) {
     const error = ensureError(err);
-    log('warn', '[SecurityBaselines] Signature verification failed', { error: error.message });
+    logger.warn('security-state', 'verify', '[SecurityBaselines] Signature verification failed', { metadata: { errorMsg: error.message } });
     return false;
   }
 }
@@ -145,7 +147,7 @@ export function generateSecurityBaselines(roleArchive: RoleArchive): FullSecurit
   const startTime = Date.now();
   
   if (!roleArchive || !roleArchive.changes || roleArchive.changes.length === 0) {
-    log('warn', '[SecurityBaselines] No archive data available for baseline generation');
+    logger.warn('security-state', 'warning', '[SecurityBaselines] No archive data available for baseline generation');
     return createEmptyBaselines();
   }
   
@@ -275,12 +277,14 @@ export function generateSecurityBaselines(roleArchive: RoleArchive): FullSecurit
   // Record computation time
   baselines.computationTimeMs = Date.now() - startTime;
   
-  log('info', '[SecurityBaselines] Generated baselines', {
-    dataPoints: baselines.dataPointCount,
-    confidence: baselines.confidenceLevel.toFixed(2),
-    computationTimeMs: baselines.computationTimeMs,
-    peakHours: baselines.peakActivityHours,
-    avgChangesPerDay: baselines.averageChangesPerDay.toFixed(1)
+  logger.info('security-state', 'init', '[SecurityBaselines] Generated baselines', {
+    durationMs: baselines.computationTimeMs,
+    metadata: {
+      dataPoints: baselines.dataPointCount,
+      confidence: baselines.confidenceLevel.toFixed(2),
+      peakHours: baselines.peakActivityHours,
+      avgChangesPerDay: baselines.averageChangesPerDay.toFixed(1)
+    }
   });
   
   return baselines;
@@ -304,30 +308,32 @@ export async function loadSecurityBaselines(): Promise<FullSecurityBaselines | n
       const dataString = JSON.stringify(baselineData);
       
       if (!verifySignature(dataString, signature)) {
-        log('error', '[SecurityBaselines] 🚨 SECURITY ALERT: Baseline signature verification FAILED!', {
-          file: BASELINE_FILE
+        logger.error('security-state', 'security', '[SecurityBaselines] 🚨 SECURITY ALERT: Baseline signature verification FAILED!', {
+          metadata: { file: BASELINE_FILE }
         });
         return null;
       }
       
-      log('detail', '[SecurityBaselines] ✅ Loaded baselines with valid signature', {
-        computedAt: baselineData.baselines?.computedAt,
-        confidence: baselineData.baselines?.confidenceLevel
+      logger.debug('security-state', 'load', '[SecurityBaselines] ✅ Loaded baselines with valid signature', {
+        metadata: {
+          computedAt: baselineData.baselines?.computedAt,
+          confidence: baselineData.baselines?.confidenceLevel
+        }
       });
       
       return baselineData.baselines;
     } else {
-      log('warn', '[SecurityBaselines] Baseline file has no signature (legacy format)');
+      logger.warn('security-state', 'warning', '[SecurityBaselines] Baseline file has no signature (legacy format)');
       return data.baselines || null;
     }
   } catch (err) {
     const error = err as NodeJS.ErrnoException;
     if (error.code === 'ENOENT') {
-      log('detail', '[SecurityBaselines] No baseline file found (first run)');
+      logger.debug('security-state', 'load', '[SecurityBaselines] No baseline file found (first run)');
       return null;
     }
     
-    log('error', '[SecurityBaselines] Failed to load baselines', { error: error.message });
+    logger.error('security-state', 'load', '[SecurityBaselines] Failed to load baselines', { metadata: { errorMsg: error.message } });
     return null;
   }
 }
@@ -360,16 +366,18 @@ export async function saveSecurityBaselines(baselines: FullSecurityBaselines): P
     // Write to disk
     await fs.writeFile(BASELINE_FILE, JSON.stringify(signedData, null, 2), 'utf8');
     
-    log('info', '[SecurityBaselines] ✅ Saved baselines with signature', {
-      file: BASELINE_FILE,
-      confidence: baselines.confidenceLevel.toFixed(2),
-      dataPoints: baselines.dataPointCount
+    logger.info('security-state', 'save', '[SecurityBaselines] ✅ Saved baselines with signature', {
+      metadata: {
+        file: BASELINE_FILE,
+        confidence: baselines.confidenceLevel.toFixed(2),
+        dataPoints: baselines.dataPointCount
+      }
     });
     
     return true;
   } catch (err) {
     const error = ensureError(err);
-    log('error', '[SecurityBaselines] Failed to save baselines', { error: error.message });
+    logger.error('security-state', 'save', '[SecurityBaselines] Failed to save baselines', { metadata: { errorMsg: error.message } });
     return false;
   }
 }
@@ -385,13 +393,13 @@ export function shouldRefreshBaselines(baselines: FullSecurityBaselines | null):
   const maxAgeMs = 24 * 60 * 60 * 1000;
   
   if (ageMs > maxAgeMs) {
-    log('detail', '[SecurityBaselines] Baselines expired (>24h), refresh needed');
+    logger.debug('security-state', 'verify', '[SecurityBaselines] Baselines expired (>24h), refresh needed');
     return true;
   }
   
   // Refresh if confidence too low
   if (baselines.confidenceLevel < CONFIDENCE_THRESHOLD) {
-    log('detail', '[SecurityBaselines] Low confidence baseline, refresh needed');
+    logger.debug('security-state', 'verify', '[SecurityBaselines] Low confidence baseline, refresh needed');
     return true;
   }
   

@@ -4,7 +4,9 @@
  * @module bot/state/config
  */
 
-import { log } from '../../shared/logging/index.js';
+import { getLogger } from '../../shared/logging/index.js';
+
+const logger = getLogger();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Environment Detection
@@ -54,13 +56,13 @@ export function getHmacSecret(): string {
       '[RoleArchive] FATAL: ARCHIVE_HMAC_SECRET environment variable is required in production. ' +
       'Role archive integrity verification cannot proceed without a secure HMAC key.'
     );
-    log('error', error.message);
+    logger.error('security-state', 'init', error.message);
     throw error;
   }
   
   if (!IS_TEST) {
     // Warn in development (but allow)
-    log('warn', '[RoleArchive] ⚠️ Using development fallback HMAC secret. Set ARCHIVE_HMAC_SECRET for production.');
+    logger.warn('security-state', 'warning', '[RoleArchive] ⚠️ Using development fallback HMAC secret. Set ARCHIVE_HMAC_SECRET for production.');
   }
   
   return DEV_FALLBACK_SECRET;
