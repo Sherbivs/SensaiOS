@@ -87,11 +87,43 @@ export interface GuildState {
   lastActivity: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Operation Checkpointing Types (Live Memory)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type OperationType = 
+  | 'sweep'
+  | 'permission_revert'
+  | 'alert_digest'
+  | 'baseline_refresh'
+  | 'snapshot_create';
+
+export interface InFlightOperation {
+  id: string;
+  type: OperationType;
+  guildId?: string;
+  startedAt: string;
+  timeout: number; // ms until considered stale
+  context: Record<string, unknown>;
+}
+
+export interface OperationCheckpoint {
+  version: number;
+  savedAt: string;
+  operations: InFlightOperation[];
+  pendingAlerts: string[]; // Alert IDs queued for delivery
+  pendingReverts: string[]; // Role change IDs pending revert
+}
+
 export interface RuntimeState {
   currentUptime: number;
   currentRestartTime: string;
   databaseStatus: DatabaseStatus;
   activeSweepIntervals: string[];
+  /** In-flight operations for resume capability */
+  inflightOperations?: InFlightOperation[];
+  /** Last checkpoint timestamp */
+  lastCheckpoint?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,7 +137,8 @@ export type TimelineEventType =
   | 'restart'
   | 'shutdown'
   | 'error'
-  | 'member_fetch_timeout';
+  | 'member_fetch_timeout'
+  | 'crash_recovery';
 
 export interface SweepDetails {
   rolesChecked: number;
@@ -136,6 +169,7 @@ export interface RestartDetails {
 export interface ShutdownDetails {
   reason: string;
   uptime: number;
+  inflightOperations?: number;
 }
 
 export interface ErrorDetails {
@@ -151,6 +185,11 @@ export interface MemberFetchTimeoutDetails {
   isFinal: boolean;
 }
 
+export interface CrashRecoveryDetails {
+  checkpointAge: number;
+  resumedOperations: number;
+}
+
 export type TimelineEventDetails = 
   | SweepDetails
   | PermissionChangeDetails
@@ -158,7 +197,8 @@ export type TimelineEventDetails =
   | RestartDetails
   | ShutdownDetails
   | ErrorDetails
-  | MemberFetchTimeoutDetails;
+  | MemberFetchTimeoutDetails
+  | CrashRecoveryDetails;
 
 export interface TimelineEvent {
   timestamp: string;

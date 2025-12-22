@@ -17,6 +17,7 @@ import type {
   ShutdownDetails,
   ErrorDetails,
   MemberFetchTimeoutDetails,
+  CrashRecoveryDetails,
 } from './types.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -70,6 +71,11 @@ export function formatTimelineEvent(event: TimelineEvent): string {
       const details = event.details as MemberFetchTimeoutDetails;
       const status = details.isFinal ? '⚠️ FINAL' : `retry ${details.attempt}/${details.maxRetries}`;
       return `[${timestamp}] Member Fetch Timeout: ${event.guildName} (${details.origin}) [${status}]`;
+    }
+    
+    case 'crash_recovery': {
+      const details = event.details as CrashRecoveryDetails;
+      return `[${timestamp}] Crash Recovery: Resumed ${details.resumedOperations} operation(s) (checkpoint age: ${Math.round(details.checkpointAge / 1000)}s)`;
     }
     
     default:
@@ -182,6 +188,10 @@ export function getRecentActivitySummary(state: SecurityBotState, limit: number 
       }
       case 'member_fetch_timeout':
         return `• ${relativeTime}: Member fetch timeout in ${event.guildName}`;
+      case 'crash_recovery': {
+        const details = event.details as CrashRecoveryDetails;
+        return `• ${relativeTime}: Crash recovery - resumed ${details.resumedOperations} operation(s)`;
+      }
       default:
         return `• ${relativeTime}: ${event.type}`;
     }
@@ -201,7 +211,8 @@ export function getEventIcon(eventType: TimelineEventType): string {
     restart: '🔄',
     shutdown: '⏹️',
     error: '❌',
-    member_fetch_timeout: '⏱️'
+    member_fetch_timeout: '⏱️',
+    crash_recovery: '🔧'
   };
   
   return icons[eventType] || '📝';
