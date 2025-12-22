@@ -17,8 +17,10 @@
  */
 
 import { errorLearning } from '../services/monitoring/error-learning.js';
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
 import { getErrorMessage } from '../shared/utils/index.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Type Definitions
@@ -58,16 +60,18 @@ export class ErrorLearningWorker {
    */
   async start(): Promise<void> {
     if (this.interval) {
-      log('warn', 'Error learning worker already running');
+      logger.warn('ErrorLearningWorker', 'start', 'Error learning worker already running');
       return;
     }
     
     const intervalMs = 60 * 60 * 1000; // 1 hour
     const staggerDelayMs = 5 * 60 * 1000; // 5 minutes (different from engine workers)
     
-    log('info', 'error-learning-worker: Starting with 1-hour interval', {
-      staggerDelay: `${staggerDelayMs / 1000}s`,
-      interval: '60 minutes',
+    logger.info('ErrorLearningWorker', 'start', 'Starting with 1-hour interval', {
+      metadata: {
+        staggerDelay: `${staggerDelayMs / 1000}s`,
+        interval: '60 minutes',
+      },
     });
     
     // Schedule periodic execution
@@ -88,7 +92,7 @@ export class ErrorLearningWorker {
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
-      log('info', 'error-learning-worker: Stopped');
+      logger.info('ErrorLearningWorker', 'stop', 'Stopped');
     }
   }
   
@@ -98,7 +102,7 @@ export class ErrorLearningWorker {
    */
   private async execute(): Promise<void> {
     if (this.status.isRunning) {
-      log('warn', 'error-learning-worker: Previous execution still running, skipping');
+      logger.warn('ErrorLearningWorker', 'execute', 'Previous execution still running, skipping');
       return;
     }
     
@@ -106,7 +110,7 @@ export class ErrorLearningWorker {
     const startTime = performance.now();
     
     try {
-      log('info', 'error-learning-worker: Execution started');
+      logger.info('ErrorLearningWorker', 'execute', 'Execution started');
       
       // Run knowledge base update
       const analysisCount = await errorLearning.updateKnowledgeBase();
@@ -118,11 +122,13 @@ export class ErrorLearningWorker {
       this.status.analysisCount += analysisCount;
       this.status.lastError = null;
       
-      log('info', 'error-learning-worker: Execution complete', {
-        durationMs: durationMs.toFixed(2),
-        errorsAnalyzed: analysisCount,
-        totalAnalyzed: this.status.analysisCount,
-        successCount: this.status.successCount,
+      logger.info('ErrorLearningWorker', 'execute', 'Execution complete', {
+        durationMs,
+        metadata: {
+          errorsAnalyzed: analysisCount,
+          totalAnalyzed: this.status.analysisCount,
+          successCount: this.status.successCount,
+        },
       });
       
     } catch (error) {
@@ -132,10 +138,12 @@ export class ErrorLearningWorker {
       this.status.errorCount++;
       this.status.lastError = getErrorMessage(error);
       
-      log('error', 'error-learning-worker: Execution failed', {
-        error: this.status.lastError,
-        errorCount: this.status.errorCount,
-        durationMs: durationMs.toFixed(2),
+      logger.error('ErrorLearningWorker', 'execute', 'Execution failed', {
+        durationMs,
+        metadata: {
+          errorMsg: this.status.lastError,
+          errorCount: this.status.errorCount,
+        },
       });
       
       // Capture error for tracking
@@ -165,7 +173,7 @@ export class ErrorLearningWorker {
    * Trigger immediate execution (for testing/manual trigger).
    */
   async triggerNow(): Promise<void> {
-    log('info', 'error-learning-worker: Manual execution triggered');
+    logger.info('ErrorLearningWorker', 'triggerNow', 'Manual execution triggered');
     await this.execute();
   }
 }

@@ -346,7 +346,9 @@ export class ErrorTracker {
         });
     }
     /**
-     * Record recovery attempt and outcome (legacy method - use recordResolution for full tracking)
+     * Record recovery attempt and outcome.
+     * @deprecated Use recordResolution() for full tracking with ErrorResolution table.
+     * This method only updates ErrorLog counters without creating a learning record.
      */
     async recordRecoveryAttempt(errorId, strategy, success) {
         await prisma.errorLog.update({
@@ -577,11 +579,9 @@ export class ErrorTracker {
         return Array.from(features);
     }
     estimateUserImpact(_error, _context) {
-        // TODO: Implement user impact estimation based on:
-        // - Number of active users in affected guild
-        // - Severity of error
-        // - Scope of impacted features
-        // For now, return null (unknown)
+        // FUTURE: Implement user impact estimation when guild analytics are available.
+        // Would require: active user counts per guild, feature usage tracking.
+        // Currently returns null (unknown impact).
         return null;
     }
     /**

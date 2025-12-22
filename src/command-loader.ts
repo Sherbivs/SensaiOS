@@ -1,8 +1,10 @@
-import { log } from './shared/logging/index.js';
+import { getLogger } from './shared/logging/index.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+
+const logger = getLogger();
 import type { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 
 // ============================================================================
@@ -65,7 +67,7 @@ export async function loadCommands(): Promise<CommandMap> {
   const dir = fs.existsSync(devPath) ? devPath : prodPath;
 
   if (!fs.existsSync(dir)) {
-    log.warn(`[command-loader] Commands directory not found at ${dir}`);
+    logger.warn('command-loader', 'loadCommands', 'Commands directory not found', { metadata: { path: dir } });
     return new Map();
   }
 
@@ -92,12 +94,12 @@ export async function loadCommands(): Promise<CommandMap> {
         (typeof message === 'string' && message.includes('require is not defined in ES module scope'))
       ) {
         if (!esmWarningLogged) {
-          log.warn('[command-loader] Legacy CommonJS commands detected; skipping slash-command bootstrap.');
+          logger.warn('command-loader', 'loadCommands', 'Legacy CommonJS commands detected; skipping slash-command bootstrap');
           esmWarningLogged = true;
         }
         break;
       }
-      log.warn(`[command-loader] Failed to load ${f}:`, { error: message || String(err) });
+      logger.warn('command-loader', 'loadCommands', `Failed to load ${f}`, { error: { name: error?.name || 'Error', message: message || String(err) } });
     }
   }
 

@@ -62,8 +62,10 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       // Verify immediate delivery
       expect(mockUser.send).toHaveBeenCalledOnce();
       const sentMessage = mockUser.send.mock.calls[0]?.[0];
-      expect(sentMessage).toContain('🚨 Critical');
+      // Check for the actual output format used by DripAlertManager
+      expect(sentMessage).toContain('DripTVDD Alert');
       expect(sentMessage).toContain('Test Critical Alert');
+      expect(sentMessage).toContain('CRITICAL');
       
       manager.stop();
     });
@@ -87,8 +89,10 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       // Verify immediate delivery
       expect(mockUser.send).toHaveBeenCalledOnce();
       const sentMessage = mockUser.send.mock.calls[0]?.[0];
-      expect(sentMessage).toContain('🔒 Security');
+      // Check for the actual output format used by DripAlertManager
+      expect(sentMessage).toContain('DripTVDD Alert');
       expect(sentMessage).toContain('Unauthorized Access Detected');
+      expect(sentMessage).toContain('SECURITY');
       
       manager.stop();
     });
@@ -353,7 +357,8 @@ describe('DripAlertManager Event Bus Integration - Phase 2.3.4', () => {
       // Verify delivery with correlation ID in message
       expect(mockUser.send).toHaveBeenCalledOnce();
       const sentMessage = mockUser.send.mock.calls[0]?.[0];
-      expect(sentMessage).toMatch(/ID: [a-f0-9-]{36}/); // UUID v4 format
+      // The actual format uses "Correlation: [uuid]" not "ID: [uuid]"
+      expect(sentMessage).toMatch(/Correlation: [a-f0-9-]{36}/); // UUID v4 format
       
       manager.stop();
     });

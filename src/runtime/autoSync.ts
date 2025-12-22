@@ -1,8 +1,10 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
 
-import { log } from "../shared/log.js";
+import { getLogger } from "../shared/logging/index.js";
 import { getErrorMessage } from "../shared/utils/error-utils.js";
+
+const logger = getLogger();
 
 const RESTART_DELAY_MS = 30_000;
 
@@ -34,12 +36,14 @@ export function startAutoSyncSupervisor(): () => void {
     // Always run in --once mode; supervisor handles the restart interval
     args.push("--once");
     
-    log.info("Starting auto-sync loop", { 
-      scriptPath, 
-      args, 
-      env: process.env.NODE_ENV,
-      hasDevEnvPath: Boolean(devEnvPath),
-      hasProdEnvPath: Boolean(prodEnvPath),
+    logger.info('autoSync', 'spawnChild', 'Starting auto-sync loop', { 
+      metadata: {
+        scriptPath, 
+        args, 
+        env: process.env.NODE_ENV,
+        hasDevEnvPath: Boolean(devEnvPath),
+        hasProdEnvPath: Boolean(prodEnvPath),
+      }
     });
 
     child = spawn(process.execPath, args, {
@@ -55,14 +59,14 @@ export function startAutoSyncSupervisor(): () => void {
       if (stopping) {
         return;
       }
-      log.error("Auto-sync process error", error);
+      logger.error('autoSync', 'processError', 'Auto-sync process error', { error: { name: error?.name || 'Error', message: error?.message || String(error) } });
     });
 
     child.on("exit", (code, signal) => {
       if (stopping) {
         return;
       }
-      log.warn("Auto-sync process exited", { code, signal });
+      logger.warn('autoSync', 'processExit', 'Auto-sync process exited', { metadata: { code, signal } });
       restartTimer = setTimeout(spawnChild, RESTART_DELAY_MS);
     });
   };
@@ -80,8 +84,8 @@ export function startAutoSyncSupervisor(): () => void {
       try {
         child.kill("SIGTERM");
       } catch (error) {
-        log.warn("Failed to terminate auto-sync process", {
-          error: getErrorMessage(error),
+        logger.warn('autoSync', 'terminate', 'Failed to terminate auto-sync process', {
+          error: { name: 'Error', message: getErrorMessage(error) },
         });
       }
       child = null;

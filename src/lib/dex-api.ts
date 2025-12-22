@@ -1,4 +1,4 @@
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
 import {
   getDexpack,
   getSpecies as lookupSpecies,
@@ -7,6 +7,8 @@ import {
   getSpeciesBaseStats,
   getSpeciesMatchups,
 } from '../data/dexpack.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Type Definitions
@@ -297,7 +299,7 @@ function initialise(): void {
     };
   } catch (err) {
     disabled = true;
-    log.warn('⚠️  dex-api: Failed to load dexpack', { error: (err as Error)?.message ?? String(err) });
+    logger.warn('DexApi', 'initialise', 'Failed to load dexpack', { metadata: { error: (err as Error)?.message ?? String(err) } });
   }
 }
 

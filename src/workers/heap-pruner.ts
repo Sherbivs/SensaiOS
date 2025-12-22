@@ -34,8 +34,10 @@ import { readdirSync, statSync, unlinkSync, existsSync } from 'node:fs';
 import { join as pathJoin } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { EventBus } from '../shared/event-bus.js';
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Configuration
@@ -145,9 +147,8 @@ function discoverSnapshots(): SnapshotFile[] {
   
   try {
     if (!existsSync(CONFIG.storeDir)) {
-      log.warn('[HeapPruner] Store directory does not exist', {
-        category: 'SYSTEM',
-        data: { storeDir: CONFIG.storeDir },
+      logger.warn('HeapPruner', 'discoverSnapshots', 'Store directory does not exist', {
+        metadata: { storeDir: CONFIG.storeDir },
       });
       return snapshots;
     }
@@ -175,9 +176,8 @@ function discoverSnapshots(): SnapshotFile[] {
           });
         }
       } catch (error) {
-        log.warn('[HeapPruner] Failed to stat file', {
-          category: 'SYSTEM',
-          data: { file, error: getErrorMessage(error) },
+        logger.warn('HeapPruner', 'discoverSnapshots', 'Failed to stat file', {
+          metadata: { file, errorMsg: getErrorMessage(error) },
         });
       }
     }
@@ -186,9 +186,8 @@ function discoverSnapshots(): SnapshotFile[] {
     snapshots.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     
   } catch (error) {
-    log.error('[HeapPruner] Failed to discover snapshots', {
-      category: 'SYSTEM',
-      data: { storeDir: CONFIG.storeDir, error: getErrorMessage(error) },
+    logger.error('HeapPruner', 'discoverSnapshots', 'Failed to discover snapshots', {
+      metadata: { storeDir: CONFIG.storeDir, errorMsg: getErrorMessage(error) },
     });
   }
   
@@ -217,9 +216,8 @@ export async function pruneHeapSnapshots(): Promise<PruneResult> {
     const snapshots = discoverSnapshots();
     const maxAgeMs = CONFIG.maxAgeDays * 24 * 60 * 60 * 1000;
     
-    log.info('[HeapPruner] Starting prune operation', {
-      category: 'SYSTEM',
-      data: {
+    logger.info('HeapPruner', 'prune', 'Starting prune operation', {
+      metadata: {
         foundCount: snapshots.length,
         maxCount: CONFIG.maxCount,
         maxAgeDays: CONFIG.maxAgeDays,
@@ -249,9 +247,8 @@ export async function pruneHeapSnapshots(): Promise<PruneResult> {
         result.deletedCount++;
         result.deletedBytes += snapshot.sizeBytes;
         
-        log.info('[HeapPruner] Deleted snapshot', {
-          category: 'SYSTEM',
-          data: {
+        logger.info('HeapPruner', 'prune', 'Deleted snapshot', {
+          metadata: {
             name: snapshot.name,
             sizeMB: (snapshot.sizeBytes / 1024 / 1024).toFixed(2),
             ageDays: (snapshot.ageMs / 1000 / 60 / 60 / 24).toFixed(1),
@@ -262,11 +259,10 @@ export async function pruneHeapSnapshots(): Promise<PruneResult> {
         result.errors.push(`Failed to delete ${snapshot.name}: ${errorMsg}`);
         result.success = false;
         
-        log.error('[HeapPruner] Failed to delete snapshot', {
-          category: 'SYSTEM',
-          data: {
+        logger.error('HeapPruner', 'prune', 'Failed to delete snapshot', {
+          metadata: {
             name: snapshot.name,
-            error: errorMsg,
+            errorMsg,
           },
         });
       }
@@ -303,14 +299,13 @@ export async function pruneHeapSnapshots(): Promise<PruneResult> {
       },
     }, { emitter: 'heap-pruner' });
     
-    log.info('[HeapPruner] Prune operation complete', {
-      category: 'SYSTEM',
-      data: {
+    logger.info('HeapPruner', 'prune', 'Prune operation complete', {
+      durationMs: result.durationMs,
+      metadata: {
         success: result.success,
         deletedCount: result.deletedCount,
         deletedMB: (result.deletedBytes / 1024 / 1024).toFixed(2),
         keptCount: result.keptCount,
-        durationMs: result.durationMs.toFixed(2),
       },
     });
     
@@ -337,9 +332,8 @@ export async function pruneHeapSnapshots(): Promise<PruneResult> {
       },
     }, { emitter: 'heap-pruner' });
     
-    log.error('[HeapPruner] Prune operation failed', {
-      category: 'SYSTEM',
-      data: { error: getErrorMessage(error) },
+    logger.error('HeapPruner', 'prune', 'Prune operation failed', {
+      metadata: { errorMsg: getErrorMessage(error) },
     });
   }
   
@@ -353,20 +347,19 @@ export async function pruneHeapSnapshots(): Promise<PruneResult> {
  */
 export function startHeapPruner(): NodeJS.Timeout | null {
   if (!CONFIG.enabled) {
-    log.info('[HeapPruner] Disabled via HEAP_SNAPSHOT_ENABLED=false');
+    logger.info('HeapPruner', 'start', 'Disabled via HEAP_SNAPSHOT_ENABLED=false');
     return null;
   }
   
   if (prunerInterval) {
-    log.warn('[HeapPruner] Already running, skipping start');
+    logger.warn('HeapPruner', 'start', 'Already running, skipping start');
     return prunerInterval;
   }
   
   isRunning = true;
   
-  log.info('[HeapPruner] Starting worker', {
-    category: 'SYSTEM',
-    data: {
+  logger.info('HeapPruner', 'start', 'Starting worker', {
+    metadata: {
       maxCount: CONFIG.maxCount,
       maxAgeDays: CONFIG.maxAgeDays,
       pruneIntervalHours: CONFIG.pruneIntervalMs / 1000 / 60 / 60,
@@ -380,7 +373,7 @@ export function startHeapPruner(): NodeJS.Timeout | null {
   if (CONFIG.runOnStartup) {
     setTimeout(async () => {
       if (isRunning) {
-        log.info('[HeapPruner] Running startup prune');
+        logger.info('HeapPruner', 'start', 'Running startup prune');
         await pruneHeapSnapshots();
       }
     }, CONFIG.startupStaggerMs);
@@ -417,9 +410,8 @@ export function stopHeapPruner(): void {
     clearInterval(prunerInterval);
     prunerInterval = null;
     
-    log.info('[HeapPruner] Stopped', {
-      category: 'SYSTEM',
-      data: {
+    logger.info('HeapPruner', 'stop', 'Stopped', {
+      metadata: {
         totalRunCount: stats.totalRunCount,
         totalDeletedCount: stats.totalDeletedCount,
         totalDeletedMB: (stats.totalDeletedBytes / 1024 / 1024).toFixed(2),
@@ -469,7 +461,7 @@ export function getHeapPrunerStatus(): HeapPrunerStatus {
  * Force immediate prune (for /ops commands or testing)
  */
 export async function forcePrune(): Promise<PruneResult> {
-  log.info('[HeapPruner] Force prune requested');
+  logger.info('HeapPruner', 'forcePrune', 'Force prune requested');
   return pruneHeapSnapshots();
 }
 

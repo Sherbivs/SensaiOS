@@ -1,5 +1,7 @@
-import { log } from '../shared/log.js';
+import { getLogger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Type Definitions
@@ -74,12 +76,14 @@ export function recordDexLoad({
   manifestHash,
   path,
 }: RecordDexLoadOptions = {}): void {
-  log.info('dex.metrics.load', {
-    runtime,
-    source,
-    counts: serializeCounts(counts),
-    manifestHash,
-    path,
+  logger.info('dex-metrics', 'load', 'Dex loaded', {
+    metadata: {
+      runtime,
+      source,
+      counts: serializeCounts(counts),
+      manifestHash,
+      path,
+    }
   });
 }
 
@@ -92,11 +96,13 @@ export function recordDexFallback({
   error,
   counts,
 }: RecordDexFallbackOptions = {}): void {
-  log.warn('dex.metrics.fallback', {
-    runtime,
-    reason,
-    error: error ? getErrorMessage(error) : 'unknown',
-    counts: serializeCounts(counts),
+  logger.warn('dex-metrics', 'fallback', 'Dex fallback triggered', {
+    error: error ? { name: 'DexFallbackError', message: getErrorMessage(error) } : undefined,
+    metadata: {
+      runtime,
+      reason,
+      counts: serializeCounts(counts),
+    }
   });
 }
 
@@ -110,12 +116,14 @@ export function recordDexLookup({
   found,
   durationMs,
 }: RecordDexLookupOptions = {}): void {
-  log.debug('dex.metrics.lookup', {
-    runtime,
-    query,
-    resolution,
-    found: Boolean(found),
+  logger.debug('dex-metrics', 'lookup', 'Dex lookup performed', {
     durationMs: typeof durationMs === 'number' && Number.isFinite(durationMs) ? Math.max(0, durationMs) : undefined,
+    metadata: {
+      runtime,
+      query,
+      resolution,
+      found: Boolean(found),
+    }
   });
 }
 
@@ -127,9 +135,11 @@ export function recordDexLookupMiss({
   query,
   attemptedResolutions,
 }: RecordDexLookupMissOptions = {}): void {
-  log.debug('dex.metrics.lookup_miss', {
-    runtime,
-    query,
-    attemptedResolutions,
+  logger.debug('dex-metrics', 'lookupMiss', 'Dex lookup miss', {
+    metadata: {
+      runtime,
+      query,
+      attemptedResolutions,
+    }
   });
 }

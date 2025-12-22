@@ -1,4 +1,4 @@
-import { log } from "../../shared/logging/index.js";
+import { getLogger } from "../../shared/logging/index.js";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -9,6 +9,8 @@ import {
   MessageActionRowComponentBuilder,
   RepliableInteraction,
 } from "discord.js";
+
+const logger = getLogger();
 
 import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { navButton, primaryButton, paginationRow } from "../shared/button-utils.js";
@@ -259,7 +261,7 @@ async function acknowledge(interaction: InteractionWithUser, content: string) {
   if (!result.success) {
     // Swallow follow-up failures so homestead responses still resolve cleanly when the
     // acknowledgement cannot be delivered (e.g., interaction already concluded).
-    log('warn', "[homestead-home] Failed to send acknowledgement", { error: result.error });
+    logger.warn('HomesteadHome', 'acknowledge', 'Failed to send acknowledgement', { metadata: { error: result.error } });
   }
 }
 
@@ -294,7 +296,7 @@ async function respondWithView(
         await acknowledge(interaction, ackContent);
       }
     } catch (error) {
-      log('warn', "[homestead-home] Failed to deliver view to homestead channel; falling back to ephemeral reply", { error });
+      logger.warn('HomesteadHome', 'respondWithView', 'Failed to deliver view to homestead channel; falling back to ephemeral reply', { metadata: { error } });
       
       // Track homestead delivery failure
       await errorTracker.captureError(ensureError(error), {

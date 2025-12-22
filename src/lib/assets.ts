@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Type Definitions
@@ -36,7 +38,7 @@ try {
   }
 } catch (err) {
   // Keep a safe default; commands should handle undefined URLs gracefully
-  log.warn('[assets] Failed to read manifest', { error: (err as Error)?.message ?? String(err) });
+  logger.warn('Assets', 'init', 'Failed to read manifest', { metadata: { error: (err as Error)?.message ?? String(err) } });
 }
 
 // ============================================================================

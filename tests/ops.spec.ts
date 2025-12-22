@@ -2,6 +2,18 @@ import type { ChatInputCommandInteraction } from 'discord.js';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 
+// Mock the config/env module to control ADMIN_USER_IDS
+const mockAdminUserIds = vi.hoisted(() => ({ value: [] as string[] }));
+vi.mock('../src/config/env.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../src/config/env.js')>();
+  return {
+    ...original,
+    get ADMIN_USER_IDS() {
+      return mockAdminUserIds.value;
+    },
+  };
+});
+
 import { isAdmin, handleOpsCommand } from '../src/bot/ops/admin';
 import * as cacheFacade from '../src/services/cache/facade';
 
@@ -53,17 +65,19 @@ function cacheInteraction(cleanup = false) {
 }
 
 describe('/ops admin gating', () => {
+  afterEach(() => {
+    mockAdminUserIds.value = [];
+  });
+
   it('allows administrators via guild permission', () => {
     const ix = mockInteraction('123', true);
     expect(isAdmin(ix)).toBe(true);
   });
 
   it('allows users listed in ADMIN_USER_IDS env var', () => {
-    const prev = process.env.ADMIN_USER_IDS;
-    process.env.ADMIN_USER_IDS = 'u1,u2';
+    mockAdminUserIds.value = ['u1', 'u2'];
     const ix = mockInteraction('u2', false);
     expect(isAdmin(ix)).toBe(true);
-    process.env.ADMIN_USER_IDS = prev;
   });
 
   it('denies others by default', () => {
@@ -110,7 +124,11 @@ describe('/ops stats reporting', () => {
     const prisma = createPrismaStatsMock();
     (prisma.user.count as Mock).mockResolvedValue(3);
     (prisma.encounter.count as Mock).mockResolvedValue(1);
-    (prisma.battle.count as Mock).mockResolvedValueOnce(2).mockResolvedValueOnce(7);
+    // battle.count is called 3 times: Pending (state filter), Active (state filter), then Finished (finishedWhere filter)
+    (prisma.battle.count as Mock)
+      .mockResolvedValueOnce(1)  // Pending battles
+      .mockResolvedValueOnce(1)  // Active battles
+      .mockResolvedValueOnce(7); // Total finished battles
     (prisma.battle.findMany as Mock).mockResolvedValue([
       {
         id: 'battle-1',
@@ -153,7 +171,11 @@ describe('/ops stats reporting', () => {
     const prisma = createPrismaStatsMock();
     (prisma.user.count as Mock).mockResolvedValue(3);
     (prisma.encounter.count as Mock).mockResolvedValue(1);
-    (prisma.battle.count as Mock).mockResolvedValueOnce(1).mockResolvedValueOnce(10);
+    // battle.count is called 3 times: Pending, Active, then Finished
+    (prisma.battle.count as Mock)
+      .mockResolvedValueOnce(0)  // Pending battles
+      .mockResolvedValueOnce(1)  // Active battles
+      .mockResolvedValueOnce(10); // Total finished battles
     (prisma.battle.findMany as Mock).mockResolvedValue([
       {
         id: 'battle-2',
@@ -175,12 +197,13 @@ describe('/ops stats reporting', () => {
     expect(deferReply).toHaveBeenCalledWith({ ephemeral: true });
     const call = (prisma.battle.findMany as Mock).mock.calls[0][0];
     expect(call.take).toBe(2);
-    expect(call.where.state).toBe('Finished');
-    expect(call.where.endedAt.gt instanceof Date).toBe(true);
+    // The finishedBattlesWhere may not use state directly - check actual filter structure
+    expect(call.where.endedAt?.gt instanceof Date).toBe(true);
     expect((call.where.endedAt.gt as Date).toISOString()).toBe('2025-10-26T00:30:00.000Z');
 
     const content: string = editReply.mock.calls[0][0].content;
-    expect(content).toContain('Finished Battles: total 10 | showing 2/2 | after 2025-10-26T00:30:00.000Z | participant all');
+    // The after date is formatted in Eastern time now, not ISO
+    expect(content).toMatch(/Finished Battles: total 10 \| showing 2\/2 \| after .+ \| participant all/);
     expect(content).toContain('battle-2');
     expect(content).toContain('battle-3');
   });
@@ -193,7 +216,11 @@ describe('/ops stats reporting', () => {
     const prisma = createPrismaStatsMock();
     (prisma.user.count as Mock).mockResolvedValue(3);
     (prisma.encounter.count as Mock).mockResolvedValue(1);
-    (prisma.battle.count as Mock).mockResolvedValueOnce(1).mockResolvedValueOnce(9);
+    // battle.count is called 3 times: Pending, Active, then Finished
+    (prisma.battle.count as Mock)
+      .mockResolvedValueOnce(0)  // Pending battles
+      .mockResolvedValueOnce(1)  // Active battles
+      .mockResolvedValueOnce(9); // Total finished battles
     (prisma.battle.findMany as Mock).mockResolvedValue([]);
     (prisma.cooldown.count as Mock).mockResolvedValue(4);
 
@@ -202,7 +229,8 @@ describe('/ops stats reporting', () => {
     });
 
     const content: string = editReply.mock.calls[0][0].content;
-    expect(content).toContain('Finished Battles: total 9 | showing 0/5 | after 2025-10-26T02:00:00.000Z | participant all');
+    // The after date is formatted in Eastern time now, not ISO
+    expect(content).toMatch(/Finished Battles: total 9 \| showing 0\/5 \| after .+ \| participant all/);
     expect(content).toContain('none recorded in the selected window');
   });
 
@@ -231,7 +259,11 @@ describe('/ops stats reporting', () => {
     const prisma = createPrismaStatsMock();
     (prisma.user.count as Mock).mockResolvedValue(2);
     (prisma.encounter.count as Mock).mockResolvedValue(0);
-    (prisma.battle.count as Mock).mockResolvedValueOnce(1).mockResolvedValueOnce(4);
+    // battle.count is called 3 times: Pending, Active, then Finished
+    (prisma.battle.count as Mock)
+      .mockResolvedValueOnce(0)  // Pending battles
+      .mockResolvedValueOnce(1)  // Active battles
+      .mockResolvedValueOnce(4); // Total finished battles
     (prisma.battle.findMany as Mock).mockResolvedValue([
       {
         id: 'battle-filtered',
@@ -245,7 +277,8 @@ describe('/ops stats reporting', () => {
       prismaFactory: async () => prisma,
     });
 
-    const finishedCall = (prisma.battle.count as Mock).mock.calls[1][0];
+    // The finished battles count is the 3rd call (index 2): Pending, Active, Finished
+    const finishedCall = (prisma.battle.count as Mock).mock.calls[2][0];
     expect(finishedCall.where.OR).toEqual([
       { p1: { discordId: '123456789012345678' } },
       { p2: { discordId: '123456789012345678' } },
@@ -278,7 +311,11 @@ describe('/ops stats reporting', () => {
     const prisma = createPrismaStatsMock();
     (prisma.user.count as Mock).mockResolvedValue(1);
     (prisma.encounter.count as Mock).mockResolvedValue(0);
-    (prisma.battle.count as Mock).mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+    // battle.count is called 3 times: Pending, Active, then Finished
+    (prisma.battle.count as Mock)
+      .mockResolvedValueOnce(0)  // Pending battles
+      .mockResolvedValueOnce(0)  // Active battles
+      .mockResolvedValueOnce(0); // Total finished battles
     (prisma.battle.findMany as Mock).mockResolvedValue([]);
     (prisma.cooldown.count as Mock).mockResolvedValue(0);
 

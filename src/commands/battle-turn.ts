@@ -9,8 +9,10 @@
 
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from 'discord.js';
 import type { Command } from './types.js';
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
 import * as dexApi from '../lib/dex-api.js';
+
+const logger = getLogger();
 import { makeRNG } from '../engine/rng.js';
 import engine from '../engine/index.js';
 import { engineWriteBuffer } from '../services/cache/engine-write-buffer.js';
@@ -240,9 +242,9 @@ const command: Command = {
       } catch (error) {
         const err = error as Error;
         if (err.message && err.message.includes('Backpressure active')) {
-          log.warn('Engine Write Buffer backpressure active - skipping battle log');
+          logger.warn('BattleTurn', 'execute', 'Engine Write Buffer backpressure active - skipping battle log');
         } else {
-          log.error('Engine Write Buffer logging failed:', err);
+          logger.error('BattleTurn', 'execute', 'Engine Write Buffer logging failed', { metadata: { error: err } });
         }
       }
     }
@@ -285,7 +287,7 @@ const command: Command = {
         if (x.type === 'content') await interaction.followUp({ content: x.payload });
       }
     } catch (err) {
-      log.error('Battle log send failed:', err as Error);
+      logger.error('BattleTurn', 'execute', 'Battle log send failed', { metadata: { error: err as Error } });
       const text = `Battle Log\n${state.a.name} ${state.a.hp}/${state.a.maxHp} vs ${state.b.name} ${state.b.hp}/${state.b.maxHp}\n${description}`;
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp({ content: text });

@@ -23,10 +23,12 @@ import fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { log } from "../../shared/log.js";
+import { getLogger } from "../../shared/logging/index.js";
 import { ensureError } from "../../shared/utils/error-utils.js";
 import * as legacyCacheModule from "../cache.js";
 import { errorTracker } from "../monitoring/error-tracker.js";
+
+const logger = getLogger();
 
 const legacyCache = (legacyCacheModule as any).default || legacyCacheModule;
 const { MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS } = (legacyCache as {
@@ -386,7 +388,7 @@ export async function getOrHydrate<T>(options: CacheReadOptions, hydrator: Cache
   const memoryEntry = memoryCache.get(composite) as CacheRecord<T> | undefined;
   if (memoryEntry && !isExpired(memoryEntry, now)) {
     recordHit(namespace, "memory");
-    log.debug("cache.hit", buildLogMeta(options, "memory"));
+    logger.debug('cache-facade', 'getOrHydrate', 'Cache hit (memory)', { metadata: buildLogMeta(options, "memory") });
     return memoryEntry.value;
   }
   if (memoryEntry) {
@@ -396,7 +398,7 @@ export async function getOrHydrate<T>(options: CacheReadOptions, hydrator: Cache
   const diskEntry = await readFromDisk<T>(options);
   if (diskEntry && !isExpired(diskEntry, now)) {
     recordHit(namespace, "disk");
-    log.debug("cache.hit", buildLogMeta(options, "disk"));
+    logger.debug('cache-facade', 'getOrHydrate', 'Cache hit (disk)', { metadata: buildLogMeta(options, "disk") });
     memoryCache.set(composite, diskEntry);
     return diskEntry.value;
   }
@@ -408,7 +410,7 @@ export async function getOrHydrate<T>(options: CacheReadOptions, hydrator: Cache
   const inFlight = inFlightHydrations.get(composite) as Promise<T> | undefined;
   if (inFlight) {
     recordWait(namespace);
-    log.debug("cache.wait", buildLogMeta(options, "inflight"));
+    logger.debug('cache-facade', 'getOrHydrate', 'Cache wait (inflight)', { metadata: buildLogMeta(options, "inflight") });
     return inFlight;
   }
 
@@ -420,7 +422,7 @@ export async function getOrHydrate<T>(options: CacheReadOptions, hydrator: Cache
     const record = buildRecord(options, value, Date.now());
     await persistRecord(record);
     memoryCache.set(composite, record);
-    log.debug("cache.miss", buildLogMeta(options, "hydrate"));
+    logger.debug('cache-facade', 'getOrHydrate', 'Cache miss (hydrate)', { metadata: buildLogMeta(options, "hydrate") });
     return value;
   })()
     .finally(() => {
@@ -443,7 +445,7 @@ export async function touch(options: CacheReadOptions): Promise<boolean> {
     memoryCache.set(composite, touched);
     await persistRecord(touched);
     recordTouchMetric(namespace);
-    log.debug("cache.touch", buildLogMeta(options, "memory"));
+    logger.debug('cache-facade', 'touch', 'Cache touch (memory)', { metadata: buildLogMeta(options, "memory") });
     return true;
   }
 
@@ -453,7 +455,7 @@ export async function touch(options: CacheReadOptions): Promise<boolean> {
     memoryCache.set(composite, touched);
     await persistRecord(touched);
     recordTouchMetric(namespace);
-    log.debug("cache.touch", buildLogMeta(options, "disk"));
+    logger.debug('cache-facade', 'touch', 'Cache touch (disk)', { metadata: buildLogMeta(options, "disk") });
     return true;
   }
 
@@ -466,7 +468,7 @@ export async function evict(descriptor: CacheDescriptor): Promise<void> {
   memoryCache.delete(composite);
   recordEvict(descriptor.namespace);
   await safeUnlink(descriptor);
-  log.debug("cache.evict", buildLogMeta(descriptor, "evict"));
+  logger.debug('cache-facade', 'evict', 'Cache evict', { metadata: buildLogMeta(descriptor, "evict") });
 }
 
 /**
@@ -563,7 +565,8 @@ async function readFromDisk<T>(descriptor: CacheDescriptor): Promise<CacheRecord
     if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
       return null;
     }
-    log.warn("cache.read.error", buildLogMeta(descriptor, "disk", err));
+    const error = ensureError(err);
+    logger.warn('cache-facade', 'readFromDisk', 'Cache read error', { error: { name: error.name, message: error.message }, metadata: buildLogMeta(descriptor, "disk") });
     return null;
   }
 }
@@ -574,7 +577,8 @@ async function persistRecord<T>(record: CacheRecord<T>): Promise<void> {
     await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
     await fsPromises.writeFile(filePath, JSON.stringify(record), "utf8");
   } catch (err) {
-    log.error("cache.write.error", err, buildLogMeta(record, "disk"));
+    const error = ensureError(err);
+    logger.error('cache-facade', 'persistRecord', 'Cache write error', { error: { name: error.name, message: error.message }, metadata: buildLogMeta(record, "disk") });
   }
   recordWrite(record.namespace);
   scheduleMaintenance("write");
@@ -588,7 +592,8 @@ async function safeUnlink(descriptor: CacheDescriptor): Promise<void> {
     if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
       return;
     }
-    log.warn("cache.unlink.error", buildLogMeta(descriptor, "disk", err));
+    const error = ensureError(err);
+    logger.warn('cache-facade', 'safeUnlink', 'Cache unlink error', { error: { name: error.name, message: error.message }, metadata: buildLogMeta(descriptor, "disk") });
   }
 }
 
@@ -622,7 +627,8 @@ function ensureDirSync(dir: string): boolean {
       customData: { dir },
     }).catch(() => {}); // Prevent unhandled rejection
     
-    log.warn("cache.dir.failure", { dir, err });
+    const error = ensureError(err);
+    logger.warn('cache-facade', 'ensureDirSync', 'Cache dir failure', { error: { name: error.name, message: error.message }, metadata: { dir } });
     return false;
   }
 }
@@ -657,7 +663,7 @@ async function executeMaintenance(reason: MaintenanceReason): Promise<void> {
       customData: { reason },
     });
     
-    log.warn("cache.maintenance.error", { reason, err: error });
+    logger.warn('cache-facade', 'executeMaintenance', 'Cache maintenance error', { error: error ? { name: error.name || 'Error', message: error.message } : undefined, metadata: { reason } });
   } finally {
     const finished = Date.now();
     maintenanceStats.runs += 1;
@@ -673,13 +679,14 @@ async function executeMaintenance(reason: MaintenanceReason): Promise<void> {
     if (error) {
       meta.err = error;
     }
-    log.info("cache.maintenance", meta);
+    logger.info('cache-facade', 'executeMaintenance', 'Cache maintenance completed', { durationMs: maintenanceStats.lastDurationMs ?? undefined, metadata: { reason, runs: maintenanceStats.runs, hasError: Boolean(error) } });
   }
 
   try {
     await collectCacheMetrics({ log: true, maintenanceReason: reason });
   } catch (err) {
-    log.debug("cache.metrics.collect.error", { reason, err: serializeError(err) });
+    const e = serializeError(err);
+    logger.debug('cache-facade', 'executeMaintenance', 'Cache metrics collect error', { error: e ? { name: e.name || 'Error', message: e.message } : undefined, metadata: { reason } });
   }
 }
 
@@ -701,12 +708,13 @@ async function enforceDiskBudget(): Promise<void> {
       await fsPromises.unlink(entry.filePath);
       totalSize -= entry.size;
       recordDiskRemoval(namespaceFromPath(entry.filePath), "budget");
-      log.warn("cache.prune.disk", { file: path.basename(entry.filePath), size: entry.size });
+      logger.warn('cache-facade', 'enforceDiskBudget', 'Cache prune disk', { metadata: { file: path.basename(entry.filePath), size: entry.size } });
     } catch (err) {
       if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
         continue;
       }
-      log.warn("cache.prune.error", { file: entry.filePath, err });
+      const error = ensureError(err);
+      logger.warn('cache-facade', 'enforceDiskBudget', 'Cache prune error', { error: { name: error.name, message: error.message }, metadata: { file: entry.filePath } });
     }
   }
 }
@@ -719,12 +727,13 @@ async function cleanExpiredFiles(): Promise<void> {
     try {
       await fsPromises.unlink(entry.filePath);
       recordDiskRemoval(namespaceFromPath(entry.filePath), "expired");
-      log.info("cache.cleanup.disk", { file: path.basename(entry.filePath) });
+      logger.info('cache-facade', 'cleanExpiredFiles', 'Cache cleanup disk', { metadata: { file: path.basename(entry.filePath) } });
     } catch (err) {
       if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
         continue;
       }
-      log.warn("cache.cleanup.error", { file: entry.filePath, err });
+      const error = ensureError(err);
+      logger.warn('cache-facade', 'cleanExpiredFiles', 'Cache cleanup error', { error: { name: error.name, message: error.message }, metadata: { file: entry.filePath } });
     }
   }
 }
@@ -755,7 +764,8 @@ function getDiskStats(dir: string): { free: number; total: number } {
     const total = Number(stats.blocks) * Number(stats.bsize);
     return { free, total };
   } catch (err) {
-    log.warn("cache.disk.stats", { dir, err });
+    const error = ensureError(err);
+    logger.warn('cache-facade', 'getDiskStats', 'Cache disk stats error', { error: { name: error.name, message: error.message }, metadata: { dir } });
     return { free: 0, total: 0 };
   }
 }
@@ -787,7 +797,8 @@ async function listDiskEntries(): Promise<DiskEntry[]> {
       if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
         return;
       }
-      log.warn("cache.walk.error", { dir: current, err });
+      const error = ensureError(err);
+      logger.warn('cache-facade', 'listDiskEntries', 'Cache walk error', { error: { name: error.name, message: error.message }, metadata: { dir: current } });
       return;
     }
 
@@ -805,7 +816,8 @@ async function listDiskEntries(): Promise<DiskEntry[]> {
           const stats = await fsPromises.stat(fullPath);
           entries.push({ filePath: fullPath, size: stats.size, mtimeMs: stats.mtimeMs });
         } catch (err) {
-          log.warn("cache.stat.error", { file: fullPath, err });
+          const error = ensureError(err);
+          logger.warn('cache-facade', 'listDiskEntries', 'Cache stat error', { error: { name: error.name, message: error.message }, metadata: { file: fullPath } });
         }
       })
     );
@@ -974,7 +986,7 @@ export async function collectCacheMetrics(options: CollectOptions = {}): Promise
   };
 
   if (options.log) {
-    log.info("cache.metrics", snapshot);
+    logger.info('cache-facade', 'collectCacheMetrics', 'Cache metrics snapshot', { metadata: snapshot });
   }
 
   return snapshot;

@@ -19,8 +19,10 @@ import type {
 } from "../../services/cache/facade.js";
 import { cache } from "../../shared/cache/memory.js";
 import { config } from "../../shared/config.js";
-import { log } from "../../shared/log.js";
+import { getLogger } from "../../shared/logging/index.js";
 import { getLogBuffer } from "../../shared/logBuffer.js";
+
+const logger = getLogger();
 import { EventBus } from "../../shared/event-bus.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { 
@@ -75,7 +77,7 @@ async function getStateModules() {
     stateModules = { persistence, stats, timeline, context };
     return stateModules;
   } catch (err) {
-    log.debug("State persistence modules not available", { err });
+    logger.debug('OpsAdmin', 'getStateModules', 'State persistence modules not available', { metadata: { err } });
     return null;
   }
 }
@@ -186,7 +188,7 @@ async function resetCooldownsForDiscordId(discordId: string, deps: OpsCommandDep
     const count = await deleteUserCooldowns(user.id, pool);
     return count;
   } catch (err) {
-    log.warn("Cooldown reset failed", { err });
+    logger.warn('OpsAdmin', 'resetCooldowns', 'Cooldown reset failed', { metadata: { err } });
     return null;
   }
 }
@@ -1334,7 +1336,7 @@ export async function handleOpsCommand(
         commandName: '/ops stats',
         operation: dataSource === "pool" ? 'collectOpsStatsFromDb' : 'collectOpsStatsFromPrisma',
       });
-      log.warn("Stats query failed", { err, dataSource });
+      logger.warn('OpsAdmin', 'stats', 'Stats query failed', { metadata: { err, dataSource } });
       await interaction.editReply({ content: "Failed to load stats (check logs)." });
       return;
     } finally {
@@ -1342,7 +1344,7 @@ export async function handleOpsCommand(
         try {
           await prismaClient.$disconnect();
         } catch (disconnectErr) {
-          log.warn("Failed to disconnect ops Prisma client", { err: disconnectErr });
+          logger.warn('OpsAdmin', 'stats', 'Failed to disconnect ops Prisma client', { metadata: { err: disconnectErr } });
         }
       }
     }
@@ -1475,7 +1477,7 @@ export async function handleOpsCommand(
         commandName: '/ops state',
         operation: 'getSecurityBotState',
       });
-      log.warn("State command failed", { err });
+      logger.warn('OpsAdmin', 'state', 'State command failed', { metadata: { err } });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `State unavailable: ${message}` });
     }
@@ -1662,7 +1664,7 @@ export async function handleOpsCommand(
         await interaction.editReply({ content: message });
       }
     } catch (err) {
-      log.warn("Error dashboard command failed", { err });
+      logger.warn('OpsAdmin', 'errors', 'Error dashboard command failed', { metadata: { err } });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `Error dashboard unavailable: ${message}` });
     }
@@ -1878,7 +1880,7 @@ export async function handleOpsCommand(
         await interaction.editReply({ content: message });
       }
     } catch (err) {
-      log.warn("Memory profiling command failed", { err });
+      logger.warn('OpsAdmin', 'memory', 'Memory profiling command failed', { metadata: { err } });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `Memory profiling unavailable: ${message}` });
     }
@@ -1983,7 +1985,7 @@ export async function handleOpsCommand(
         await interaction.editReply({ content: message });
       }
     } catch (err) {
-      log.warn("Snapshot command failed", { err });
+      logger.warn('OpsAdmin', 'snapshot', 'Snapshot command failed', { metadata: { err } });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `Heap snapshot unavailable: ${message}` });
     }
@@ -2013,7 +2015,7 @@ export async function handleOpsCommand(
         await interaction.editReply({ content: message });
       }
     } catch (err) {
-      log.warn("Restart metrics command failed", { err });
+      logger.warn('OpsAdmin', 'restarts', 'Restart metrics command failed', { metadata: { err } });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `Restart metrics unavailable: ${message}` });
     }

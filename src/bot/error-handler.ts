@@ -8,8 +8,10 @@
 
 import { DiscordAPIError, CommandInteraction, Interaction, Message } from 'discord.js';
 import { errorTracker, type ErrorContext } from '../services/monitoring/index.js';
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
 import { safeReply } from './shared/response-helpers.js';
+
+const logger = getLogger();
 
 /// ---- Discord Error Types ----
 
@@ -305,11 +307,11 @@ export class BotErrorHandler {
       
       const result = await safeReply(interaction, errorMessage, { ephemeral: true });
       if (!result.success) {
-        log('error', '[BotErrorHandler] Failed to notify user of error: ' + String(result.error));
+        logger.error('BotErrorHandler', 'notifyUserOfError', 'Failed to notify user of error: ' + String(result.error));
       }
     } catch (notifyError) {
       // Failed to notify user - log but don't throw
-      log('error', '[BotErrorHandler] Failed to notify user of error: ' + String(notifyError));
+      logger.error('BotErrorHandler', 'notifyUserOfError', 'Failed to notify user of error: ' + String(notifyError));
     }
   }
 }

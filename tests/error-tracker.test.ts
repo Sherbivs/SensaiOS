@@ -135,7 +135,7 @@ describe('ErrorTracker', () => {
         updatedAt: new Date(),
       };
       
-      vi.mocked(prisma.errorLog.create).mockResolvedValue(mockErrorLog);
+      vi.mocked(prisma.errorLog.upsert).mockResolvedValue(mockErrorLog);
 
       const result1 = await errorTracker.captureError(error1, context);
       const result2 = await errorTracker.captureError(error2, context);
@@ -340,16 +340,19 @@ describe('ErrorTracker', () => {
     it('should return error statistics', async () => {
       const { prisma } = await import('../src/shared/prisma.js');
 
-      vi.mocked(prisma.errorLog.count).mockResolvedValueOnce(100); // total
-      vi.mocked(prisma.errorLog.count).mockResolvedValueOnce(10); // critical
-      vi.mocked(prisma.errorLog.count).mockResolvedValueOnce(30); // high
-      vi.mocked(prisma.errorLog.count).mockResolvedValueOnce(40); // medium
-      vi.mocked(prisma.errorLog.count).mockResolvedValueOnce(20); // low
+      // Mock findMany to return error data (implementation uses findMany, not count)
+      vi.mocked(prisma.errorLog.findMany).mockResolvedValue([
+        { errorId: '1', category: 'VALIDATION', severity: 'CRITICAL', occurrenceCount: 10 },
+        { errorId: '2', category: 'DATABASE', severity: 'HIGH', occurrenceCount: 30 },
+        { errorId: '3', category: 'NETWORK', severity: 'MEDIUM', occurrenceCount: 40 },
+        { errorId: '4', category: 'DISCORD', severity: 'LOW', occurrenceCount: 20 },
+      ] as any);
 
       const stats = await errorTracker.getErrorStats();
 
       expect(stats).toMatchObject({
-        totalUniqueErrors: 100,
+        totalUnique: 4, // 4 unique errors
+        totalOccurrences: 100, // 10+30+40+20
         bySeverity: {
           CRITICAL: 10,
           HIGH: 30,
@@ -527,8 +530,8 @@ describe('ErrorTracker', () => {
       });
 
       const { prisma } = await import('../src/shared/prisma.js');
-      vi.mocked(prisma.errorLog.findUnique).mockResolvedValue(existingError);
-      vi.mocked(prisma.errorLog.update).mockResolvedValue({
+      // Implementation uses upsert (not findUnique + update)
+      vi.mocked(prisma.errorLog.upsert).mockResolvedValue({
         ...existingError,
         occurrenceCount: 6,
         lastSeen: new Date(),
@@ -536,8 +539,8 @@ describe('ErrorTracker', () => {
 
       const result = await errorTracker.captureError(error, context);
 
-      // Verify update was called with existing metadata preserved
-      expect(prisma.errorLog.update).toHaveBeenCalled();
+      // Verify upsert was called (handles both new and existing errors)
+      expect(prisma.errorLog.upsert).toHaveBeenCalled();
       expect(typeof result).toBe('string'); // Returns errorId
     });
   });

@@ -425,7 +425,8 @@ describe("SecurityEventBus", () => {
       });
 
       const slowHandler: EventHandler = async () => {
-        await delay();
+        // Delay longer than the 50ms timeout
+        await delay(100);
       };
 
       timeoutBus.subscribe(SecurityChannel.AUTH, "login", slowHandler);

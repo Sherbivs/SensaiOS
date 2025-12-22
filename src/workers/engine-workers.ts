@@ -26,8 +26,10 @@ import { EngineDbConfig } from '../config/engine-db-config.js';
 import { engineCache } from '../services/cache/engine-cache.js';
 import { engineWriteBuffer } from '../services/cache/engine-write-buffer.js';
 import { workerErrorHandler } from './worker-error-handler.js';
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
 import { getErrorMessage, delay, ensureError } from '../shared/utils/index.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Type Definitions
@@ -86,13 +88,15 @@ class CacheRefreshWorker {
    */
   async start(): Promise<void> {
     if (this.interval) {
-      log('warn', 'engine-workers: CacheRefreshWorker already running');
+      logger.warn('EngineWorkers', 'CacheRefreshWorker.start', 'CacheRefreshWorker already running');
       return;
     }
 
-    log('info', 'engine-workers: Starting CacheRefreshWorker', {
-      intervalMs: EngineDbConfig.l1CacheRefreshIntervalMs,
-      staggerDelayMs: EngineDbConfig.workerStartupStaggerMs
+    logger.info('EngineWorkers', 'CacheRefreshWorker.start', 'Starting CacheRefreshWorker', {
+      metadata: {
+        intervalMs: EngineDbConfig.l1CacheRefreshIntervalMs,
+        staggerDelayMs: EngineDbConfig.workerStartupStaggerMs,
+      },
     });
 
     // Stagger startup (prevent thundering herd)
@@ -111,7 +115,7 @@ class CacheRefreshWorker {
    */
   private async execute(): Promise<void> {
     if (this.status.isRunning) {
-      log('warn', 'engine-workers: CacheRefreshWorker execution skipped (previous run still in progress)');
+      logger.warn('EngineWorkers', 'CacheRefreshWorker.execute', 'CacheRefreshWorker execution skipped (previous run still in progress)');
       return;
     }
 
@@ -119,7 +123,7 @@ class CacheRefreshWorker {
     const startTime = performance.now();
 
     try {
-      log('info', 'engine-workers: CacheRefreshWorker execution started');
+      logger.info('EngineWorkers', 'CacheRefreshWorker.execute', 'CacheRefreshWorker execution started');
 
       // Delegate to engineCache (handles double-buffering)
       await engineCache['refresh'](); // Access private method via bracket notation
@@ -130,9 +134,9 @@ class CacheRefreshWorker {
       this.status.successCount++;
       this.status.lastError = null;
 
-      log('info', 'engine-workers: CacheRefreshWorker execution complete', {
-        durationMs: durationMs.toFixed(2),
-        successCount: this.status.successCount
+      logger.info('EngineWorkers', 'CacheRefreshWorker.execute', 'CacheRefreshWorker execution complete', {
+        durationMs,
+        metadata: { successCount: this.status.successCount },
       });
 
     } catch (error) {
@@ -142,9 +146,11 @@ class CacheRefreshWorker {
       this.status.errorCount++;
       this.status.lastError = getErrorMessage(error);
 
-      log('error', 'engine-workers: CacheRefreshWorker execution failed', {
-        error: this.status.lastError,
-        errorCount: this.status.errorCount
+      logger.error('EngineWorkers', 'CacheRefreshWorker.execute', 'CacheRefreshWorker execution failed', {
+        metadata: {
+          errorMsg: this.status.lastError,
+          errorCount: this.status.errorCount,
+        },
       });
       
       // Capture error for tracking
@@ -168,10 +174,12 @@ class CacheRefreshWorker {
       this.interval = null;
       this.isRunning = false;
 
-      log('info', 'engine-workers: CacheRefreshWorker stopped', {
-        totalRuns: this.status.successCount + this.status.errorCount,
-        successCount: this.status.successCount,
-        errorCount: this.status.errorCount
+      logger.info('EngineWorkers', 'CacheRefreshWorker.stop', 'CacheRefreshWorker stopped', {
+        metadata: {
+          totalRuns: this.status.successCount + this.status.errorCount,
+          successCount: this.status.successCount,
+          errorCount: this.status.errorCount,
+        },
       });
     }
   }
@@ -219,13 +227,15 @@ class WriteBufferFlusher {
    */
   async start(): Promise<void> {
     if (this.interval) {
-      log('warn', 'engine-workers: WriteBufferFlusher already running');
+      logger.warn('EngineWorkers', 'WriteBufferFlusher.start', 'WriteBufferFlusher already running');
       return;
     }
 
-    log('info', 'engine-workers: Starting WriteBufferFlusher with adaptive polling', {
-      baseIntervalMs: this.currentFlushIntervalMs,
-      staggerDelayMs: EngineDbConfig.workerStartupStaggerMs * 2
+    logger.info('EngineWorkers', 'WriteBufferFlusher.start', 'Starting WriteBufferFlusher with adaptive polling', {
+      metadata: {
+        baseIntervalMs: this.currentFlushIntervalMs,
+        staggerDelayMs: EngineDbConfig.workerStartupStaggerMs * 2,
+      },
     });
 
     // Stagger startup (2x delay to avoid overlap with Worker 1)
@@ -245,7 +255,7 @@ class WriteBufferFlusher {
    */
   private async execute(): Promise<void> {
     if (this.status.isRunning) {
-      log('warn', 'engine-workers: WriteBufferFlusher execution skipped (previous run still in progress)');
+      logger.warn('EngineWorkers', 'WriteBufferFlusher.execute', 'WriteBufferFlusher execution skipped (previous run still in progress)');
       return;
     }
 
@@ -257,10 +267,12 @@ class WriteBufferFlusher {
       this.consecutiveEmptyFlushes++;
       this.totalFlushesSkipped++;
       
-      log('info', 'engine-workers: WriteBufferFlusher skipping empty flush (adaptive polling)', {
-        consecutiveEmpty: this.consecutiveEmptyFlushes,
-        currentInterval: `${this.currentFlushIntervalMs / 1000}s`,
-        totalSkipped: this.totalFlushesSkipped,
+      logger.info('EngineWorkers', 'WriteBufferFlusher.execute', 'WriteBufferFlusher skipping empty flush (adaptive polling)', {
+        metadata: {
+          consecutiveEmpty: this.consecutiveEmptyFlushes,
+          currentInterval: `${this.currentFlushIntervalMs / 1000}s`,
+          totalSkipped: this.totalFlushesSkipped,
+        },
       });
       
       // Adjust interval after 5 consecutive empty flushes
@@ -296,14 +308,16 @@ class WriteBufferFlusher {
       // Only log if flush actually wrote data (check buffer stats)
       const updatedStats = engineWriteBuffer.getStats();
       if (updatedStats.flushCount > 0) {
-        log('info', 'engine-workers: WriteBufferFlusher execution complete', {
-          durationMs: durationMs.toFixed(2),
-          flushCount: updatedStats.flushCount,
-          successCount: this.status.successCount,
-          adaptivePolling: {
-            consecutiveEmpty: this.consecutiveEmptyFlushes,
-            currentInterval: `${this.currentFlushIntervalMs / 1000}s`,
-            totalSkipped: this.totalFlushesSkipped,
+        logger.info('EngineWorkers', 'WriteBufferFlusher.execute', 'WriteBufferFlusher execution complete', {
+          durationMs,
+          metadata: {
+            flushCount: updatedStats.flushCount,
+            successCount: this.status.successCount,
+            adaptivePolling: {
+              consecutiveEmpty: this.consecutiveEmptyFlushes,
+              currentInterval: `${this.currentFlushIntervalMs / 1000}s`,
+              totalSkipped: this.totalFlushesSkipped,
+            },
           },
         });
       }
@@ -315,9 +329,11 @@ class WriteBufferFlusher {
       this.status.errorCount++;
       this.status.lastError = getErrorMessage(error);
 
-      log('error', 'engine-workers: WriteBufferFlusher execution failed', {
-        error: this.status.lastError,
-        errorCount: this.status.errorCount
+      logger.error('EngineWorkers', 'WriteBufferFlusher.execute', 'WriteBufferFlusher execution failed', {
+        metadata: {
+          errorMsg: this.status.lastError,
+          errorCount: this.status.errorCount,
+        },
       });
       
       // Capture error for tracking
@@ -352,11 +368,13 @@ class WriteBufferFlusher {
         this.currentFlushIntervalMs = newInterval;
         this.restartTimer();
         
-        log('info', 'engine-workers: WriteBufferFlusher increasing flush interval (low activity)', {
-          from: `${oldInterval / 1000}s`,
-          to: `${newInterval / 1000}s`,
-          consecutiveEmpty: this.consecutiveEmptyFlushes,
-          reason: 'No battles detected, reducing disk I/O',
+        logger.info('EngineWorkers', 'WriteBufferFlusher.adjustFlushInterval', 'WriteBufferFlusher increasing flush interval (low activity)', {
+          metadata: {
+            from: `${oldInterval / 1000}s`,
+            to: `${newInterval / 1000}s`,
+            consecutiveEmpty: this.consecutiveEmptyFlushes,
+            reason: 'No battles detected, reducing disk I/O',
+          },
         });
       }
     } else if (action === 'reset') {
@@ -365,10 +383,12 @@ class WriteBufferFlusher {
         this.currentFlushIntervalMs = baseInterval;
         this.restartTimer();
         
-        log('info', 'engine-workers: WriteBufferFlusher resetting flush interval (activity detected)', {
-          from: `${oldInterval / 1000}s`,
-          to: `${baseInterval / 1000}s`,
-          reason: 'Battles detected, resuming normal flush frequency',
+        logger.info('EngineWorkers', 'WriteBufferFlusher.adjustFlushInterval', 'WriteBufferFlusher resetting flush interval (activity detected)', {
+          metadata: {
+            from: `${oldInterval / 1000}s`,
+            to: `${baseInterval / 1000}s`,
+            reason: 'Battles detected, resuming normal flush frequency',
+          },
         });
       }
     }
@@ -396,13 +416,15 @@ class WriteBufferFlusher {
       this.interval = null;
       this.isRunning = false;
 
-      log('info', 'engine-workers: WriteBufferFlusher stopped', {
-        totalRuns: this.status.successCount + this.status.errorCount,
-        successCount: this.status.successCount,
-        errorCount: this.status.errorCount,
-        adaptivePolling: {
-          totalFlushesSkipped: this.totalFlushesSkipped,
-          finalInterval: `${this.currentFlushIntervalMs / 1000}s`,
+      logger.info('EngineWorkers', 'WriteBufferFlusher.stop', 'WriteBufferFlusher stopped', {
+        metadata: {
+          totalRuns: this.status.successCount + this.status.errorCount,
+          successCount: this.status.successCount,
+          errorCount: this.status.errorCount,
+          adaptivePolling: {
+            totalFlushesSkipped: this.totalFlushesSkipped,
+            finalInterval: `${this.currentFlushIntervalMs / 1000}s`,
+          },
         },
       });
     }
@@ -444,9 +466,11 @@ class ReadDbSyncWorker {
    * Placeholder start (actual work happens in Render cron job)
    */
   async start(): Promise<void> {
-    log('info', 'engine-workers: ReadDbSyncWorker (Render Cron Job)', {
-      schedule: EngineDbConfig.readDbSyncCron,
-      note: 'This worker runs as a separate Render Cron Job, not in-process'
+    logger.info('EngineWorkers', 'ReadDbSyncWorker.start', 'ReadDbSyncWorker (Render Cron Job)', {
+      metadata: {
+        schedule: EngineDbConfig.readDbSyncCron,
+        note: 'This worker runs as a separate Render Cron Job, not in-process',
+      },
     });
   }
 
@@ -454,7 +478,7 @@ class ReadDbSyncWorker {
    * Placeholder stop
    */
   stop(): void {
-    log('info', 'engine-workers: ReadDbSyncWorker (no in-process work to stop)');
+    logger.info('EngineWorkers', 'ReadDbSyncWorker.stop', 'ReadDbSyncWorker (no in-process work to stop)');
   }
 
   /**
@@ -510,14 +534,16 @@ class WriteDbValidatorWorker {
    */
   async start(): Promise<void> {
     if (this.interval) {
-      log('warn', 'engine-workers: WriteDbValidatorWorker already running');
+      logger.warn('EngineWorkers', 'WriteDbValidatorWorker.start', 'WriteDbValidatorWorker already running');
       return;
     }
 
-    log('info', 'engine-workers: Starting WriteDbValidatorWorker', {
-      intervalMs: EngineDbConfig.writeDbValidatorIntervalMs,
-      minQualityScore: EngineDbConfig.validationMinQualityScore,
-      staggerDelayMs: EngineDbConfig.workerStartupStaggerMs * 3
+    logger.info('EngineWorkers', 'WriteDbValidatorWorker.start', 'Starting WriteDbValidatorWorker', {
+      metadata: {
+        intervalMs: EngineDbConfig.writeDbValidatorIntervalMs,
+        minQualityScore: EngineDbConfig.validationMinQualityScore,
+        staggerDelayMs: EngineDbConfig.workerStartupStaggerMs * 3,
+      },
     });
 
     // Stagger startup (3x delay to avoid overlap with Workers 1 & 2)
@@ -536,7 +562,7 @@ class WriteDbValidatorWorker {
    */
   private async execute(): Promise<void> {
     if (this.status.isRunning) {
-      log('warn', 'engine-workers: WriteDbValidatorWorker execution skipped (previous run still in progress)');
+      logger.warn('EngineWorkers', 'WriteDbValidatorWorker.execute', 'WriteDbValidatorWorker execution skipped (previous run still in progress)');
       return;
     }
 
@@ -544,14 +570,14 @@ class WriteDbValidatorWorker {
     const startTime = performance.now();
 
     try {
-      log('info', 'engine-workers: WriteDbValidatorWorker execution started');
+      logger.info('EngineWorkers', 'WriteDbValidatorWorker.execute', 'WriteDbValidatorWorker execution started');
 
       // Import Write-DB service
       const writeDb = await import('../services/database/engine-write-db.js');
       
       // Ensure Write-DB initialized
       if (!writeDb.isReady()) {
-        log('warn', 'engine-workers: WriteDbValidatorWorker skipped - Write-DB not initialized');
+        logger.warn('EngineWorkers', 'WriteDbValidatorWorker.execute', 'WriteDbValidatorWorker skipped - Write-DB not initialized');
         this.status.lastRunTime = new Date();
         this.status.lastRunDurationMs = performance.now() - startTime;
         return;
@@ -560,11 +586,13 @@ class WriteDbValidatorWorker {
       // Step 1: Validate data
       const validationReport = await writeDb.validateData();
       
-      log('info', 'engine-workers: WriteDbValidatorWorker validation complete', {
-        qualityScore: validationReport.qualityScore.toFixed(3),
-        totalRows: validationReport.totalRows,
-        passedRows: validationReport.passedRows,
-        failedRows: validationReport.failedRows
+      logger.info('EngineWorkers', 'WriteDbValidatorWorker.execute', 'WriteDbValidatorWorker validation complete', {
+        metadata: {
+          qualityScore: validationReport.qualityScore.toFixed(3),
+          totalRows: validationReport.totalRows,
+          passedRows: validationReport.passedRows,
+          failedRows: validationReport.failedRows,
+        },
       });
       
       // Step 2: Upload if quality meets threshold
@@ -573,32 +601,36 @@ class WriteDbValidatorWorker {
       if (validationReport.qualityScore >= minQualityScore) {
         const uploadReport = await writeDb.uploadToProd();
         
-        log('info', 'engine-workers: WriteDbValidatorWorker upload complete', {
-          battleLogsUploaded: uploadReport.battleLogsUploaded,
-          moveUsageUploaded: uploadReport.moveUsageUploaded,
-          anomaliesUploaded: uploadReport.anomaliesUploaded,
-          durationMs: uploadReport.durationMs.toFixed(2)
+        logger.info('EngineWorkers', 'WriteDbValidatorWorker.execute', 'WriteDbValidatorWorker upload complete', {
+          durationMs: uploadReport.durationMs,
+          metadata: {
+            battleLogsUploaded: uploadReport.battleLogsUploaded,
+            moveUsageUploaded: uploadReport.moveUsageUploaded,
+            anomaliesUploaded: uploadReport.anomaliesUploaded,
+          },
         });
         
         // Step 3: Prune old entries after successful upload
         await writeDb.pruneOldEntries();
         
-        log('info', 'engine-workers: WriteDbValidatorWorker pruning complete');
+        logger.info('EngineWorkers', 'WriteDbValidatorWorker.execute', 'WriteDbValidatorWorker pruning complete');
         
         // Step 4: P6 - Prune old system metrics (7-day retention)
         const metricsPruneResult = await writeDb.pruneOldMetrics();
         if (metricsPruneResult.deletedCount > 0) {
-          log('info', 'engine-workers: WriteDbValidatorWorker metrics pruning complete', {
-            deletedCount: metricsPruneResult.deletedCount
+          logger.info('EngineWorkers', 'WriteDbValidatorWorker.execute', 'WriteDbValidatorWorker metrics pruning complete', {
+            metadata: { deletedCount: metricsPruneResult.deletedCount },
           });
         }
         
       } else {
         // Data quality too low - quarantine
-        log('warn', 'engine-workers: WriteDbValidatorWorker quality score below threshold - data quarantined', {
-          qualityScore: validationReport.qualityScore.toFixed(3),
-          minRequired: minQualityScore,
-          errors: validationReport.errors.slice(0, 10) // First 10 errors
+        logger.warn('EngineWorkers', 'WriteDbValidatorWorker.execute', 'WriteDbValidatorWorker quality score below threshold - data quarantined', {
+          metadata: {
+            qualityScore: validationReport.qualityScore.toFixed(3),
+            minRequired: minQualityScore,
+            errors: validationReport.errors.slice(0, 10),
+          },
         });
       }
 
@@ -608,9 +640,9 @@ class WriteDbValidatorWorker {
       this.status.successCount++;
       this.status.lastError = null;
 
-      log('info', 'engine-workers: WriteDbValidatorWorker execution complete', {
-        durationMs: durationMs.toFixed(2),
-        successCount: this.status.successCount
+      logger.info('EngineWorkers', 'WriteDbValidatorWorker.execute', 'WriteDbValidatorWorker execution complete', {
+        durationMs,
+        metadata: { successCount: this.status.successCount },
       });
 
     } catch (error) {
@@ -620,9 +652,11 @@ class WriteDbValidatorWorker {
       this.status.errorCount++;
       this.status.lastError = getErrorMessage(error);
 
-      log('error', 'engine-workers: WriteDbValidatorWorker execution failed', {
-        error: this.status.lastError,
-        errorCount: this.status.errorCount
+      logger.error('EngineWorkers', 'WriteDbValidatorWorker.execute', 'WriteDbValidatorWorker execution failed', {
+        metadata: {
+          errorMsg: this.status.lastError,
+          errorCount: this.status.errorCount,
+        },
       });
       
       // Capture error for tracking
@@ -647,10 +681,12 @@ class WriteDbValidatorWorker {
       this.interval = null;
       this.isRunning = false;
 
-      log('info', 'engine-workers: WriteDbValidatorWorker stopped', {
-        totalRuns: this.status.successCount + this.status.errorCount,
-        successCount: this.status.successCount,
-        errorCount: this.status.errorCount
+      logger.info('EngineWorkers', 'WriteDbValidatorWorker.stop', 'WriteDbValidatorWorker stopped', {
+        metadata: {
+          totalRuns: this.status.successCount + this.status.errorCount,
+          successCount: this.status.successCount,
+          errorCount: this.status.errorCount,
+        },
       });
     }
   }
@@ -692,13 +728,15 @@ class EngineMaintenanceWorker {
    */
   async start(): Promise<void> {
     if (this.interval) {
-      log('warn', 'engine-workers: EngineMaintenanceWorker already running');
+      logger.warn('EngineWorkers', 'EngineMaintenanceWorker.start', 'EngineMaintenanceWorker already running');
       return;
     }
 
-    log('info', 'engine-workers: Starting EngineMaintenanceWorker', {
-      intervalMs: EngineDbConfig.maintenanceWorkerIntervalMs,
-      staggerDelayMs: EngineDbConfig.workerStartupStaggerMs * 4,
+    logger.info('EngineWorkers', 'EngineMaintenanceWorker.start', 'Starting EngineMaintenanceWorker', {
+      metadata: {
+        intervalMs: EngineDbConfig.maintenanceWorkerIntervalMs,
+        staggerDelayMs: EngineDbConfig.workerStartupStaggerMs * 4,
+      },
     });
 
     // Stagger startup (ensure other workers settle first)
@@ -716,7 +754,7 @@ class EngineMaintenanceWorker {
    */
   private async execute(): Promise<void> {
     if (this.status.isRunning) {
-      log('warn', 'engine-workers: EngineMaintenanceWorker execution skipped (previous run still in progress)');
+      logger.warn('EngineWorkers', 'EngineMaintenanceWorker.execute', 'EngineMaintenanceWorker execution skipped (previous run still in progress)');
       return;
     }
 
@@ -724,7 +762,7 @@ class EngineMaintenanceWorker {
     const startTime = performance.now();
 
     try {
-      log('info', 'engine-workers: EngineMaintenanceWorker maintenance cycle started');
+      logger.info('EngineWorkers', 'EngineMaintenanceWorker.execute', 'EngineMaintenanceWorker maintenance cycle started');
 
       // Step 1: Force write buffer flush (best-effort)
       await engineWriteBuffer.flush();
@@ -750,10 +788,12 @@ class EngineMaintenanceWorker {
       this.status.successCount++;
       this.status.lastError = null;
 
-      log('info', 'engine-workers: EngineMaintenanceWorker maintenance cycle complete', {
-        durationMs: durationMs.toFixed(2),
-        bufferStats,
-        successCount: this.status.successCount,
+      logger.info('EngineWorkers', 'EngineMaintenanceWorker.execute', 'EngineMaintenanceWorker maintenance cycle complete', {
+        durationMs,
+        metadata: {
+          bufferStats,
+          successCount: this.status.successCount,
+        },
       });
 
     } catch (error) {
@@ -763,9 +803,11 @@ class EngineMaintenanceWorker {
       this.status.errorCount++;
       this.status.lastError = getErrorMessage(error);
 
-      log('error', 'engine-workers: EngineMaintenanceWorker maintenance cycle failed', {
-        error: this.status.lastError,
-        errorCount: this.status.errorCount,
+      logger.error('EngineWorkers', 'EngineMaintenanceWorker.execute', 'EngineMaintenanceWorker maintenance cycle failed', {
+        metadata: {
+          errorMsg: this.status.lastError,
+          errorCount: this.status.errorCount,
+        },
       });
 
       await workerErrorHandler.handleTaskError(ensureError(error), 'EngineMaintenanceWorker', 'maintenance-cycle', {
@@ -786,10 +828,12 @@ class EngineMaintenanceWorker {
       this.interval = null;
       this.isRunning = false;
 
-      log('info', 'engine-workers: EngineMaintenanceWorker stopped', {
-        totalRuns: this.status.successCount + this.status.errorCount,
-        successCount: this.status.successCount,
-        errorCount: this.status.errorCount,
+      logger.info('EngineWorkers', 'EngineMaintenanceWorker.stop', 'EngineMaintenanceWorker stopped', {
+        metadata: {
+          totalRuns: this.status.successCount + this.status.errorCount,
+          successCount: this.status.successCount,
+          errorCount: this.status.errorCount,
+        },
       });
     }
   }
@@ -826,21 +870,21 @@ const engineMaintenanceWorker = new EngineMaintenanceWorker();
  * @throws {Error} If required workers fail to start
  */
 export async function startEngineWorkers(): Promise<void> {
-  log('info', 'engine-workers: Starting all Engine workers...');
+  logger.info('EngineWorkers', 'startEngineWorkers', 'Starting all Engine workers...');
 
   try {
     // Worker 1: Cache Refresh (if L1 cache enabled)
     if (EngineDbConfig.featureL1CacheEnabled && EngineDbConfig.featureWorkersEnabled) {
       await cacheRefreshWorker.start();
     } else {
-      log('info', 'engine-workers: CacheRefreshWorker disabled (feature flag off)');
+      logger.info('EngineWorkers', 'startEngineWorkers', 'CacheRefreshWorker disabled (feature flag off)');
     }
 
     // Worker 2: Write Buffer Flush (if write buffer enabled)
     if (EngineDbConfig.featureWriteBufferEnabled && EngineDbConfig.featureWorkersEnabled) {
       await writeBufferFlusher.start();
     } else {
-      log('info', 'engine-workers: WriteBufferFlusher disabled (feature flag off)');
+      logger.info('EngineWorkers', 'startEngineWorkers', 'WriteBufferFlusher disabled (feature flag off)');
     }
 
     // Worker 3: Read-DB Sync (Render cron job - just log status)
@@ -850,20 +894,22 @@ export async function startEngineWorkers(): Promise<void> {
     if (EngineDbConfig.featureValidationEnabled && EngineDbConfig.featureWorkersEnabled) {
       await writeDbValidatorWorker.start();
     } else {
-      log('info', 'engine-workers: WriteDbValidatorWorker disabled (feature flag off)');
+      logger.info('EngineWorkers', 'startEngineWorkers', 'WriteDbValidatorWorker disabled (feature flag off)');
     }
 
     // Worker 5: Engine Maintenance (always enabled with workers)
     if (EngineDbConfig.featureWorkersEnabled) {
       await engineMaintenanceWorker.start();
     } else {
-      log('info', 'engine-workers: EngineMaintenanceWorker disabled (feature flag off)');
+      logger.info('EngineWorkers', 'startEngineWorkers', 'EngineMaintenanceWorker disabled (feature flag off)');
     }
 
-    log('info', 'engine-workers: All Engine workers started successfully');
+    logger.info('EngineWorkers', 'startEngineWorkers', 'All Engine workers started successfully');
 
   } catch (error) {
-    log('error', 'engine-workers: Failed to start Engine workers', error);
+    logger.error('EngineWorkers', 'startEngineWorkers', 'Failed to start Engine workers', {
+      error: { name: 'Error', message: getErrorMessage(error) },
+    });
     throw error; // Propagate to caller (likely startup sequence)
   }
 }
@@ -875,7 +921,7 @@ export async function startEngineWorkers(): Promise<void> {
  * Should be called during SIGTERM/SIGINT shutdown sequence.
  */
 export function stopEngineWorkers(): void {
-  log('info', 'engine-workers: Stopping all Engine workers...');
+  logger.info('EngineWorkers', 'stopEngineWorkers', 'Stopping all Engine workers...');
 
   cacheRefreshWorker.stop();
   writeBufferFlusher.stop();
@@ -883,7 +929,7 @@ export function stopEngineWorkers(): void {
   writeDbValidatorWorker.stop();
   engineMaintenanceWorker.stop();
 
-  log('info', 'engine-workers: All Engine workers stopped');
+  logger.info('EngineWorkers', 'stopEngineWorkers', 'All Engine workers stopped');
 }
 
 /**

@@ -3,8 +3,10 @@ import { once } from "node:events";
 import { Client, GatewayIntentBits, Partials, Interaction, Events, Options } from "discord.js";
 
 import { prisma } from "../models/index.js";
-import { log } from "../shared/log.js";
+import { getLogger } from "../shared/logging/index.js";
 import { loadCommands, type CommandMap } from "../command-loader.js";
+
+const logger = getLogger();;
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
 
@@ -38,7 +40,7 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 		process.env.BOT_TOKEN;
 
 	if (!token) {
-		log.warn("Discord bot token not provided; skipping bot startup");
+		logger.warn('BotInit', 'bootDiscord', 'Discord bot token not provided; skipping bot startup');
 		// Return a stub client to keep the app running without hard failure
 		// when the bot is intentionally disabled.
 		return new Client({ intents: [] });
@@ -84,7 +86,7 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 			const loadStart = process.hrtime.bigint();
 			commands = await loadCommands();
 			const loadDurationMs = Number(process.hrtime.bigint() - loadStart) / 1_000_000;
-			log.info("Commands loaded lazily", { count: commands.size, durationMs: loadDurationMs });
+			logger.info('BotInit', 'ensureCommandsLoaded', 'Commands loaded lazily', { durationMs: loadDurationMs, metadata: { count: commands.size } });
 		}
 		return commands;
 	}
@@ -92,9 +94,11 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
         const readyPromise = once(client, Events.ClientReady);
 
         client.once(Events.ClientReady, () => {
-                log.info("Discord bot is ready", {
-                        user: client.user?.tag,
-                        lazyCommands: true,  // Commands will load on first interaction
+                logger.info('BotInit', 'onReady', 'Discord bot is ready', {
+                        metadata: {
+                                user: client.user?.tag,
+                                lazyCommands: true,  // Commands will load on first interaction
+                        },
                 });
         });
 
@@ -210,7 +214,7 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 					return;
 				}
 		} catch (err: any) {
-			log.error("Interaction handler error", { err: err?.message || String(err) });
+			logger.error('BotInteraction', 'interactionCreate', 'Interaction handler error', { metadata: { errorMsg: err?.message || String(err) } });
 			if (interaction.isRepliable()) {
 				try {
 					await safeReply(interaction, "Something went wrong.");
@@ -240,14 +244,16 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                         
                         // Only log if caches are growing beyond expected limits
                         if (messageCount > 500 || memberCount > 500) {
-                                log.warn("Discord cache above threshold", { 
-                                        messages: messageCount, 
-                                        members: memberCount,
-                                        note: "Sweepers should be reducing this - check configuration"
+                                logger.warn('BotCache', 'cacheMonitor', 'Discord cache above threshold', { 
+                                        metadata: {
+                                                messages: messageCount, 
+                                                members: memberCount,
+                                                note: "Sweepers should be reducing this - check configuration",
+                                        },
                                 });
                         }
                 } catch (err: any) {
-                        log.warn("Cache monitor failed", { err: err?.message || String(err) });
+                        logger.warn('BotCache', 'cacheMonitor', 'Cache monitor failed', { metadata: { errorMsg: err?.message || String(err) } });
                 }
         }, 3600_000); // 1 hour
 

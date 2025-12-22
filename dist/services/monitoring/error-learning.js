@@ -34,8 +34,8 @@
  *
  * @module services/error-learning
  */
-import { prisma } from '../../models/index.js';
-import { log } from '../../shared/log.js';
+import { prisma } from '../../shared/prisma.js';
+import { log } from '../../shared/logging/index.js';
 import { daysAgo } from '../../shared/utils/date-utils.js';
 // ============================================================================
 // Error Learning Service

@@ -39,8 +39,10 @@ import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
-import { log } from "../../shared/logging/index.js";
+import { getLogger } from "../../shared/logging/index.js";
 import { getSpriteUrl } from "../../lib/assets.js";
+
+const logger = getLogger();
 
 // ============================================================================
 // TYPES
@@ -267,10 +269,12 @@ export async function runOpenStarterSelection(
         const menuButtons = buildMainMenuButtons();
         await channel.send({ embeds: [rulesEmbed], components: menuButtons });
         
-        log('info', "[open-starter] Starter selected successfully", {
+        logger.info('OpenStarterSelection', 'runOpenStarterSelection', 'Starter selected successfully', {
           userId: user.id,
-          speciesId: validation.speciesId,
-          speciesName: validation.name,
+          metadata: {
+            speciesId: validation.speciesId,
+            speciesName: validation.name,
+          },
         });
         
         resolve({
@@ -280,7 +284,7 @@ export async function runOpenStarterSelection(
           pokemonId: result.pokemonId,
         });
       } catch (error) {
-        log('error', "[open-starter] Failed to create starter", { error, userId: user.id });
+        logger.error('OpenStarterSelection', 'runOpenStarterSelection', 'Failed to create starter', { userId: user.id, metadata: { error } });
         resolve({ error: true, message: "Failed to create your starter. Please try again." });
       }
     });
@@ -316,7 +320,7 @@ export async function startOpenStarterFlow(
     // Run the selection flow
     return await runOpenStarterSelection(client, channel, user);
   } catch (error) {
-    log('error', "[open-starter] Failed to start selection flow", { error, userId: user.id });
+    logger.error('OpenStarterSelection', 'startOpenStarterFlow', 'Failed to start selection flow', { userId: user.id, metadata: { error } });
     return { error: true, message: "Failed to initialize starter selection." };
   }
 }

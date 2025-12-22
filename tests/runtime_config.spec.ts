@@ -19,6 +19,8 @@ beforeEach(() => {
   delete process.env.RENDER_DB_EXTERNAL_URL;
   delete process.env.DATABASE_ONPREMISE_DEV_PRIMARY;
   delete process.env.CACHE_TTL_MS;
+  // Disable preference file to prevent test pollution
+  process.env.DATABASE_CONNECTION_STATE_DIR = "Store/test/db-connection-state";
   process.env.NODE_ENV = "development";
 });
 
@@ -31,17 +33,16 @@ describe("loadConfig", () => {
     process.env.RENDER_DB_INTERNAL_URL = "postgres://render.internal/app";
     const { loadConfig, resetConfigCacheForTests } = await loadConfigModule();
     resetConfigCacheForTests();
-    process.env.DATABASE_URL = "";
     const config = loadConfig();
     expect(config.databaseUrl).toBe("postgres://render.internal/app");
     expect(process.env.DATABASE_URL).toBe("postgres://render.internal/app");
   });
 
-  it("throws in production when DATABASE_URL points to localhost (unless using PROD_DATABASE_URL)", async () => {
+  it("throws when no direct PostgreSQL URLs are available", async () => {
+    // In unified architecture, DATABASE_URL alone is not enough - direct URLs (PROD/RENDER/LOCAL) are required
     process.env.NODE_ENV = "production";
-    process.env.DATABASE_URL = "postgres://localhost/db";
-    // Should fail because DATABASE_URL is localhost but not PROD_DATABASE_URL
-    await expect(loadConfigModule()).rejects.toThrow(/cannot point to localhost/i);
+    // All direct URLs are deleted in beforeEach, so this should throw
+    await expect(loadConfigModule()).rejects.toThrow(/No database URL found/);
   });
 
   it("allows localhost in production when using PROD_DATABASE_URL", async () => {
@@ -53,8 +54,9 @@ describe("loadConfig", () => {
     expect(config.databaseUrl).toBe("postgresql://postgres@127.0.0.1:55433/infinity_gauntlet_db");
   });
 
-  it("keeps DATABASE_URL when provided and exposes defaults", async () => {
-    process.env.DATABASE_URL = "postgres://example.com/prod";
+  it("uses PROD_DATABASE_URL and exposes defaults", async () => {
+    // In unified architecture, use PROD_DATABASE_URL instead of deprecated DATABASE_URL
+    process.env.PROD_DATABASE_URL = "postgres://example.com/prod";
     delete process.env.CACHE_TTL_MS;
     const { loadConfig, resetConfigCacheForTests } = await loadConfigModule();
     resetConfigCacheForTests();
@@ -88,9 +90,8 @@ describe("loadConfig", () => {
   });
 
   it("throws when no direct PostgreSQL URLs are available (unified architecture)", async () => {
-    // In unified architecture, DATABASE_URL alone is not enough - direct URLs are required
-    process.env.DATABASE_URL = "postgresql://render-db.example/infinity_gauntlet";
-    // All direct URLs should be cleared (done in beforeEach)
+    // Clear all direct URLs (done in beforeEach)
+    // DATABASE_URL alone is not used in unified architecture
     const configPromise = loadConfigModule().then(async ({ loadConfig, resetConfigCacheForTests }) => {
       resetConfigCacheForTests();
       return loadConfig();

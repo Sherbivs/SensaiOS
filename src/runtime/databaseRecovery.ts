@@ -12,15 +12,17 @@
 
 import { spawn } from "node:child_process";
 import { config } from "../shared/config.js";
-import { log } from "../shared/log.js";
+import { getLogger } from "../shared/logging/index.js";
 import { getErrorMessage } from "../shared/utils/error-utils.js";
+
+const logger = getLogger();
 
 /**
  * Run Prisma migrations to ensure database schema is up-to-date
  */
 async function runPrismaMigrations(): Promise<void> {
   return new Promise((resolve, reject) => {
-    log.info("Running Prisma migrations...");
+    logger.info('databaseRecovery', 'runMigrations', 'Running Prisma migrations...');
     
     const proc = spawn("npx", ["prisma", "migrate", "deploy"], {
       stdio: ["ignore", "pipe", "pipe"],
@@ -40,20 +42,22 @@ async function runPrismaMigrations(): Promise<void> {
     
     proc.on("close", (code) => {
       if (code === 0) {
-        log.info("Prisma migrations completed successfully", { stdout: stdout.trim() });
+        logger.info('databaseRecovery', 'runMigrations', 'Prisma migrations completed successfully', { metadata: { stdout: stdout.trim() } });
         resolve();
       } else {
-        log.error("Prisma migrations failed", {
-          exitCode: code,
-          stdout: stdout.trim(),
-          stderr: stderr.trim(),
+        logger.error('databaseRecovery', 'runMigrations', 'Prisma migrations failed', {
+          metadata: {
+            exitCode: code,
+            stdout: stdout.trim(),
+            stderr: stderr.trim(),
+          }
         });
         reject(new Error(`Prisma migrate deploy failed with exit code ${code}`));
       }
     });
     
     proc.on("error", (error) => {
-      log.error("Failed to spawn prisma migrate process", error);
+      logger.error('databaseRecovery', 'runMigrations', 'Failed to spawn prisma migrate process', { error: { name: error?.name || 'Error', message: error?.message || String(error) } });
       reject(error);
     });
   });
@@ -73,18 +77,18 @@ async function runBootstrapScript(): Promise<void> {
   
   // Skip bootstrap for Render managed databases
   if (databaseUrl.includes("render.com") || databaseUrl.includes("render.co")) {
-    log.info("Skipping bootstrap script (using Render-managed PostgreSQL)");
+    logger.info('databaseRecovery', 'runBootstrap', 'Skipping bootstrap script (using Render-managed PostgreSQL)');
     return;
   }
   
   // Only run for local/on-premise production environments
   if (!isProd) {
-    log.info("Skipping bootstrap script (not production environment)");
+    logger.info('databaseRecovery', 'runBootstrap', 'Skipping bootstrap script (not production environment)');
     return;
   }
   
   return new Promise((resolve, _reject) => {
-    log.info("Running bootstrap script for on-premise production node...");
+    logger.info('databaseRecovery', 'runBootstrap', 'Running bootstrap script for on-premise production node...');
     
     const proc = spawn("bash", ["scripts/bootstrap_prod_node.sh"], {
       stdio: ["ignore", "pipe", "pipe"],
@@ -105,13 +109,15 @@ async function runBootstrapScript(): Promise<void> {
     
     proc.on("close", (code) => {
       if (code === 0) {
-        log.info("Bootstrap script completed successfully", { stdout: stdout.trim() });
+        logger.info('databaseRecovery', 'runBootstrap', 'Bootstrap script completed successfully', { metadata: { stdout: stdout.trim() } });
         resolve();
       } else {
-        log.warn("Bootstrap script failed (may be normal if already initialized)", {
-          exitCode: code,
-          stdout: stdout.trim(),
-          stderr: stderr.trim(),
+        logger.warn('databaseRecovery', 'runBootstrap', 'Bootstrap script failed (may be normal if already initialized)', {
+          metadata: {
+            exitCode: code,
+            stdout: stdout.trim(),
+            stderr: stderr.trim(),
+          }
         });
         // Don't reject - bootstrap failure might be acceptable if DB already exists
         resolve();
@@ -119,7 +125,7 @@ async function runBootstrapScript(): Promise<void> {
     });
     
     proc.on("error", (error) => {
-      log.warn("Failed to spawn bootstrap script", { error: error.message, stack: error.stack });
+      logger.warn('databaseRecovery', 'runBootstrap', 'Failed to spawn bootstrap script', { error: { name: error?.name || 'Error', message: error.message }, metadata: { stack: error.stack } });
       // Don't reject - script might not be needed
       resolve();
     });
@@ -131,17 +137,17 @@ async function runBootstrapScript(): Promise<void> {
  * Orchestrates recovery attempts in order of least to most invasive
  */
 export async function runDatabaseRecovery(): Promise<void> {
-  log.info("Starting database recovery sequence");
+  logger.info('databaseRecovery', 'recovery', 'Starting database recovery sequence');
   
   try {
     // Step 1: Try running migrations (most common fix)
     try {
       await runPrismaMigrations();
-      log.info("Database recovery: migrations completed");
+      logger.info('databaseRecovery', 'recovery', 'Database recovery: migrations completed');
     } catch (error) {
-      log.warn("Migration step failed during recovery", {
-        error: getErrorMessage(error),
-        stack: error instanceof Error ? error.stack : undefined,
+      logger.warn('databaseRecovery', 'recovery', 'Migration step failed during recovery', {
+        error: { name: 'Error', message: getErrorMessage(error) },
+        metadata: { stack: error instanceof Error ? error.stack : undefined },
       });
       // Continue to bootstrap step
     }
@@ -149,20 +155,20 @@ export async function runDatabaseRecovery(): Promise<void> {
     // Step 2: Try running bootstrap script (for new production nodes)
     try {
       await runBootstrapScript();
-      log.info("Database recovery: bootstrap completed");
+      logger.info('databaseRecovery', 'recovery', 'Database recovery: bootstrap completed');
     } catch (error) {
-      log.warn("Bootstrap step failed during recovery", {
-        error: getErrorMessage(error),
-        stack: error instanceof Error ? error.stack : undefined,
+      logger.warn('databaseRecovery', 'recovery', 'Bootstrap step failed during recovery', {
+        error: { name: 'Error', message: getErrorMessage(error) },
+        metadata: { stack: error instanceof Error ? error.stack : undefined },
       });
     }
     
     // Step 3: Wait a moment for database to stabilize
     await new Promise((resolve) => setTimeout(resolve, 2000));
     
-    log.info("Database recovery sequence completed");
+    logger.info('databaseRecovery', 'recovery', 'Database recovery sequence completed');
   } catch (error) {
-    log.error("Database recovery sequence failed", error);
+    logger.error('databaseRecovery', 'recovery', 'Database recovery sequence failed', { error: { name: 'Error', message: String(error) } });
     throw new Error(`Database recovery failed: ${getErrorMessage(error)}`);
   }
 }

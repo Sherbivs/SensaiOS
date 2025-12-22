@@ -7,8 +7,10 @@ import {
 } from 'discord.js';
 import { createRequire } from 'node:module';
 import { getSpriteUrl } from '../lib/assets.js';
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
 import { GAME_CONSTANTS } from '../shared/constants.js';
+
+const logger = getLogger();
 import { toDate, diffInUtcDays } from '../shared/utils/index.js';
 import { HomesteadChannelManager } from '../services/homestead-manager.js';
 import { homeMenuButtons } from '../bot/shared/button-utils.js';
@@ -420,7 +422,7 @@ async function getPrisma(): Promise<PrismaClient | null> {
     }
     return prismaSingleton;
   } catch (err) {
-    log.error('[home] Failed to initialise Prisma client:', { error: (err as Error)?.message || String(err) });
+    logger.error('HomeCommand', 'getPrisma', 'Failed to initialise Prisma client', { metadata: { error: (err as Error)?.message || String(err) } });
     return null;
   }
 }
@@ -506,7 +508,7 @@ async function loadRecentBattleHistory(
       })
       .filter((x): x is BattleHistoryEntry => x !== null);
   } catch (err) {
-    log.error(`[home] Failed to load battle history for ${trainer?.discordId ?? 'unknown'}:`, { error: (err as Error)?.message || String(err) });
+    logger.error('HomeCommand', 'loadRecentBattleHistory', `Failed to load battle history for ${trainer?.discordId ?? 'unknown'}`, { metadata: { error: (err as Error)?.message || String(err) } });
     return [];
   }
 }
@@ -647,7 +649,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
   try {
     const prisma = await getPrisma();
     if (!prisma) {
-      log.warn('[home] Prisma client unavailable — showing placeholder Home view.');
+      logger.warn('HomeCommand', 'execute', 'Prisma client unavailable — showing placeholder Home view');
     } else {
       const { trainer, createdUser, createdParty } = await loadTrainerWithBootstrap(prisma, interaction.user.id);
       const battleHistory = await loadRecentBattleHistory(prisma, trainer);
@@ -661,23 +663,23 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
           trainerForView = freshness?.trainer ?? trainer;
           questState = freshness?.state ?? null;
         } catch (err) {
-          log.warn('[home] Failed to refresh quest streak state:', { error: (err as Error)?.message || String(err) });
+          logger.warn('HomeCommand', 'execute', 'Failed to refresh quest streak state', { metadata: { error: (err as Error)?.message || String(err) } });
         }
       }
 
       view = mapTrainerToView(trainerForView, now, { battleHistory, questState });
       if (createdUser) {
-        log('info', `[home] Created trainer baseline for ${interaction.user.id} (coins=${DEFAULT_STARTER_COINS}).`);
+        logger.info('HomeCommand', 'execute', `Created trainer baseline for ${interaction.user.id} (coins=${DEFAULT_STARTER_COINS})`);
       }
       if (createdParty) {
-        log('info', `[home] Created starter party shell for ${interaction.user.id}.`);
+        logger.info('HomeCommand', 'execute', `Created starter party shell for ${interaction.user.id}`);
       }
       if (!view.party.some((member) => member.speciesId)) {
-        log.warn(`[home] Trainer ${interaction.user.id} has no Pokémon yet — prompt them to use /starter.`);
+        logger.warn('HomeCommand', 'execute', `Trainer ${interaction.user.id} has no Pokémon yet — prompt them to use /starter`);
       }
     }
   } catch (err) {
-    log.error('[home] Failed to load trainer data:', { error: (err as Error)?.message || String(err) });
+    logger.error('HomeCommand', 'execute', 'Failed to load trainer data', { metadata: { error: (err as Error)?.message || String(err) } });
   }
 
   try {
@@ -701,7 +703,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
       await interaction.reply({ content: 'Home opened above.', ephemeral: false });
     }
   } catch (err) {
-    log.error('[home] Failed to open homestead Home:', { error: (err as Error)?.message || String(err) });
+    logger.error('HomeCommand', 'execute', 'Failed to open homestead Home', { metadata: { error: (err as Error)?.message || String(err) } });
     try {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ content: 'Could not access your homestead channel. Please contact an administrator.', ephemeral: true });

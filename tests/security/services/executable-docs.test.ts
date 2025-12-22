@@ -530,8 +530,8 @@ describe('Executable Docs: Circuit Breaker', () => {
       
       expect(breaker.state).toBe('OPEN');
       
-      // Wait for reset timeout
-      await delay();
+      // Wait for reset timeout (10ms + small buffer)
+      await delay(20);
       
       // Next call should transition to HALF_OPEN
       try {
@@ -554,8 +554,8 @@ describe('Executable Docs: Circuit Breaker', () => {
         // Expected failure
       }
       
-      // Wait for reset timeout
-      await delay();
+      // Wait for reset timeout (10ms + small buffer)
+      await delay(20);
       
       // Success should close the circuit
       await breaker.execute(async () => 'success');

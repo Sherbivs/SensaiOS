@@ -9,8 +9,10 @@
 
 import { SlashCommandBuilder, type ChatInputCommandInteraction, type TextChannel } from 'discord.js';
 import type { Command } from './types.js';
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
 import { buildTrainerProfileEmbed } from '../bot/profile/embed.js';
+
+const logger = getLogger();
 import { loadTrainerProfile, invalidateTrainerProfile } from '../services/cache/recipes.js';
 import { updateTrainerProfile } from '../models/index.js';
 import { HomesteadChannelManager } from '../services/homestead-manager.js';
@@ -105,7 +107,7 @@ async function sendProfileEmbed(
     }
   } catch (error) {
     const err = error as Error;
-    log.warn('[profile] Failed to deliver homestead profile view; falling back to ephemeral reply', err);
+    logger.warn('ProfileCommand', 'sendProfileEmbed', 'Failed to deliver homestead profile view; falling back to ephemeral reply', { metadata: { error: err } });
     const payload = { embeds: [embed], ephemeral: true, content: ackMessage };
     if (interaction.deferred || interaction.replied) {
       await interaction.followUp(payload);
@@ -146,7 +148,7 @@ async function handleEdit(interaction: ChatInputCommandInteraction): Promise<voi
       });
       return;
     }
-    log.error('[profile] Failed to update trainer profile:', err?.message || err);
+    logger.error('ProfileCommand', 'handleEdit', 'Failed to update trainer profile', { metadata: { error: err?.message || err } });
     await interaction.reply({ content: 'Failed to update your profile. Please try again later.', ephemeral: true });
   }
 }
@@ -167,7 +169,7 @@ async function handleClear(interaction: ChatInputCommandInteraction): Promise<vo
     await sendProfileEmbed(interaction, { ackMessage: 'Cleared that field and sent your updated profile to DMs.' });
   } catch (error) {
     const err = error as Error;
-    log.error('[profile] Failed to clear field:', err?.message || err);
+    logger.error('ProfileCommand', 'handleClear', 'Failed to clear field', { metadata: { error: err?.message || err } });
     await interaction.reply({ content: 'Failed to clear that field. Please try again later.', ephemeral: true });
   }
 }

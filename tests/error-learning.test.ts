@@ -51,6 +51,16 @@ import { createMockErrorLog } from './shared/index.js';
 describe('ErrorLearning', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    // Set default mock return values for Prisma operations that return { count }
+    mockPrisma.errorKnowledge.deleteMany.mockResolvedValue({ count: 0 });
+    mockPrisma.errorTimePattern.deleteMany.mockResolvedValue({ count: 0 });
+    mockPrisma.errorLog.deleteMany.mockResolvedValue({ count: 0 });
+    mockPrisma.errorDependency.deleteMany.mockResolvedValue({ count: 0 });
+    
+    // Set default mock return values for findMany
+    mockPrisma.errorLog.findMany.mockResolvedValue([]);
+    mockPrisma.errorKnowledge.findMany.mockResolvedValue([]);
   });
 
   describe('Knowledge Base Updates', () => {
