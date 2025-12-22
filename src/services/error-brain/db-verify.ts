@@ -6,7 +6,9 @@ import {
   ENGINE_WAL_PATH,
 } from '../../config/engine-db-config.js';
 import { ALERT_PERSIST_DIR } from '../../config/env.js';
-import { log } from '../../shared/logging/index.js';
+import { getLogger } from '../../shared/logging/index.js';
+
+const logger = getLogger();
 
 /**
  * Normalize path for comparison (resolve + toLowerCase on Windows)
@@ -71,7 +73,7 @@ export function ensureDistinctOrThrow(): void {
   if (conflicts.length === 0) return;
 
   // Log conflicts and throw to fail-fast
-  conflicts.forEach((c) => log('error', 'error-brain: DB conflict detected: ' + c));
+  conflicts.forEach((c) => logger.error('error-brain', 'db-verify', 'DB conflict detected: ' + c));
   throw new Error(`Error Brain DB path conflicts detected: ${conflicts.join('; ')}`);
 }
 

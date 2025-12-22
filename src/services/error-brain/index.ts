@@ -92,7 +92,9 @@ import * as ErrorBrainCache from './error-brain-cache.js';
 import * as PatternDetector from './pattern-detector.js';
 import * as ImpactPredictor from './impact-predictor.js';
 import * as ErrorBrainWorker from './error-brain-worker.js';
-import { log } from '../../shared/logging/index.js';
+import { getLogger } from '../../shared/logging/index.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Facade API — Simplified Interface
@@ -103,21 +105,21 @@ import { log } from '../../shared/logging/index.js';
  * Use initializeWithWorkers() for full initialization with background learning
  */
 export async function initialize(): Promise<void> {
-  log('info', 'error-brain: Initializing Error Brain system...');
+  logger.info('error-brain', 'init', 'Initializing Error Brain system');
   
   // Verify DB separation before initializing to avoid accidental collisions
   try {
     const dbVerify = await import('./db-verify.js');
     dbVerify.ensureDistinctOrThrow();
   } catch (err) {
-    log('error', 'error-brain: DB verification failed during initialize', err);
+    logger.error('error-brain', 'init', 'DB verification failed during initialize', { error: { name: 'VerifyError', message: String(err) } });
     throw err;
   }
 
   // Database initializes first, then cache loads from it
   await ErrorBrainCache.initialize();
   
-  log('info', 'error-brain: Error Brain system initialized');
+  logger.info('error-brain', 'init', 'Error Brain system initialized');
 }
 
 /**
@@ -125,42 +127,42 @@ export async function initialize(): Promise<void> {
  * Full initialization with continuous learning
  */
 export async function initializeWithWorkers(): Promise<void> {
-  log('info', 'error-brain: Initializing Error Brain system with workers...');
+  logger.info('error-brain', 'init', 'Initializing Error Brain system with workers');
   
   // Verify DB separation before starting workers
   try {
     const dbVerify = await import('./db-verify.js');
     dbVerify.ensureDistinctOrThrow();
   } catch (err) {
-    log('error', 'error-brain: DB verification failed during initializeWithWorkers', err);
+    logger.error('error-brain', 'init', 'DB verification failed during initializeWithWorkers', { error: { name: 'VerifyError', message: String(err) } });
     throw err;
   }
 
   await ErrorBrainWorker.startWorkers();
   
-  log('info', 'error-brain: Error Brain system initialized with workers');
+  logger.info('error-brain', 'init', 'Error Brain system initialized with workers');
 }
 
 /**
  * Shutdown Error Brain gracefully (database + cache only)
  */
 export async function shutdown(): Promise<void> {
-  log('info', 'error-brain: Shutting down Error Brain system...');
+  logger.info('error-brain', 'shutdown', 'Shutting down Error Brain system');
   
   await ErrorBrainCache.shutdown();
   
-  log('info', 'error-brain: Error Brain system shutdown complete');
+  logger.info('error-brain', 'shutdown', 'Error Brain system shutdown complete');
 }
 
 /**
  * Shutdown Error Brain with workers gracefully
  */
 export async function shutdownWithWorkers(): Promise<void> {
-  log('info', 'error-brain: Shutting down Error Brain system with workers...');
+  logger.info('error-brain', 'shutdown', 'Shutting down Error Brain system with workers');
   
   await ErrorBrainWorker.stopWorkers();
   
-  log('info', 'error-brain: Error Brain system with workers shutdown complete');
+  logger.info('error-brain', 'shutdown', 'Error Brain system with workers shutdown complete');
 }
 
 /**
@@ -562,7 +564,7 @@ export function diagnoseDbSeparation(): string[] {
     const verify = require('./db-verify.js') as { verifyDistinctDatabases: () => string[] };
     return verify.verifyDistinctDatabases();
   } catch (err) {
-    log('error', 'error-brain: diagnoseDbSeparation failed', err);
+    logger.error('error-brain', 'diagnose', 'diagnoseDbSeparation failed', { error: { name: 'DiagnoseError', message: String(err) } });
     return [String(err)];
   }
 }

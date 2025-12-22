@@ -28,8 +28,10 @@
  */
 
 import { ErrorBrainConfig } from '../../config/error-brain-config.js';
-import { log } from '../../shared/logging/index.js';
+import { getLogger } from '../../shared/logging/index.js';
 import * as ErrorBrainDb from './error-brain-db.js';
+
+const logger = getLogger();
 import type {
   TimePatternEntry,
   CorrelationEntry,
@@ -177,7 +179,7 @@ export async function initialize(): Promise<void> {
   }
 
   try {
-    log('info', 'error-brain-cache: Initializing L1 cache...');
+    logger.info('error-brain', 'init', 'Initializing L1 cache');
 
     // Ensure SQLite is initialized first
     await ErrorBrainDb.initialize();
@@ -193,13 +195,15 @@ export async function initialize(): Promise<void> {
     isInitialized = true;
 
     const stats = getStats();
-    log('info', 'error-brain-cache: Initialization complete', {
-      totalEntries: stats.totalEntries,
-      estimatedSizeMB: (stats.estimatedSizeBytes / (1024 * 1024)).toFixed(2),
-      utilizationPercent: stats.utilizationPercent.toFixed(1),
+    logger.info('error-brain', 'init', 'Initialization complete', {
+      metadata: {
+        totalEntries: stats.totalEntries,
+        estimatedSizeMB: (stats.estimatedSizeBytes / (1024 * 1024)).toFixed(2),
+        utilizationPercent: stats.utilizationPercent.toFixed(1),
+      }
     });
   } catch (error) {
-    log('error', 'error-brain-cache: Initialization failed', { error });
+    logger.error('error-brain', 'init', 'Initialization failed', { error: { name: 'InitError', message: String(error) } });
     throw error;
   }
 }
@@ -310,21 +314,23 @@ export async function refreshFromDb(): Promise<void> {
 
     const duration = performance.now() - startTime;
     if (ErrorBrainConfig.verboseLogging) {
-      log('debug', 'error-brain-cache: Refresh complete', {
-        durationMs: duration.toFixed(2),
-        timePatterns: timePatterns.length,
-        correlations: correlations.length,
-        cascades: cascades.length,
-        recoveryWeights: recoveryWeights.length,
-        impactWeights: impactWeights.length,
-        baselines: baselineEntries.length,
+      logger.debug('error-brain', 'refresh', 'Refresh complete', {
+        durationMs: Math.round(duration),
+        metadata: {
+          timePatterns: timePatterns.length,
+          correlations: correlations.length,
+          cascades: cascades.length,
+          recoveryWeights: recoveryWeights.length,
+          impactWeights: impactWeights.length,
+          baselines: baselineEntries.length,
+        },
       });
     }
 
     // Check memory limit
     enforceMemoryLimit();
   } catch (error) {
-    log('error', 'error-brain-cache: Refresh failed', { error });
+    logger.error('error-brain', 'refresh', 'Refresh failed', { error: { name: 'RefreshError', message: String(error) } });
     throw error;
   }
 }
@@ -342,7 +348,7 @@ function startBackgroundRefresh(): void {
     try {
       await refreshFromDb();
     } catch (error) {
-      log('error', 'error-brain-cache: Background refresh failed', { error });
+      logger.error('error-brain', 'background-refresh', 'Background refresh failed', { error: { name: 'RefreshError', message: String(error) } });
     }
   }, ErrorBrainConfig.cacheRefreshIntervalMs);
 }
@@ -368,9 +374,11 @@ function enforceMemoryLimit(): void {
     return;
   }
 
-  log('info', 'error-brain-cache: Memory limit exceeded, starting LRU eviction', {
-    currentBytes: estimatedSizeBytes,
-    maxBytes,
+  logger.info('error-brain', 'memory', 'Memory limit exceeded, starting LRU eviction', {
+    metadata: {
+      currentBytes: estimatedSizeBytes,
+      maxBytes,
+    },
   });
 
   // Collect all entries with timestamps
@@ -404,9 +412,11 @@ function enforceMemoryLimit(): void {
     evicted++;
   }
 
-  log('info', 'error-brain-cache: LRU eviction complete', {
-    evicted,
-    newSizeBytes: estimatedSizeBytes,
+  logger.info('error-brain', 'memory', 'LRU eviction complete', {
+    metadata: {
+      evicted,
+      newSizeBytes: estimatedSizeBytes,
+    },
   });
 }
 
@@ -731,7 +741,7 @@ export function resetMetrics(): void {
 export async function shutdown(): Promise<void> {
   if (!isInitialized) return;
 
-  log('info', 'error-brain-cache: Shutting down...');
+  logger.info('error-brain', 'shutdown', 'Shutting down cache');
 
   stopBackgroundRefresh();
 
@@ -751,7 +761,7 @@ export async function shutdown(): Promise<void> {
   // Shutdown underlying database
   await ErrorBrainDb.shutdown();
 
-  log('info', 'error-brain-cache: Shutdown complete');
+  logger.info('error-brain', 'shutdown', 'Cache shutdown complete');
 }
 
 // ============================================================================

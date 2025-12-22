@@ -34,7 +34,9 @@ import initSqlJs, { type Database } from 'sql.js';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
 import { ErrorBrainConfig } from '../../config/error-brain-config.js';
-import { log } from '../../shared/logging/index.js';
+import { getLogger } from '../../shared/logging/index.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Type Definitions
@@ -169,8 +171,10 @@ export async function initialize(): Promise<void> {
   }
 
   try {
-    log('info', 'error-brain-db: Initializing Error Brain database...', {
-      path: ErrorBrainConfig.brainDbPath,
+    logger.info('error-brain', 'init', 'Initializing Error Brain database', {
+      metadata: {
+        path: ErrorBrainConfig.brainDbPath,
+      },
     });
 
     // Initialize sql.js
@@ -188,9 +192,9 @@ export async function initialize(): Promise<void> {
     try {
       const buffer = await fsPromises.readFile(ErrorBrainConfig.brainDbPath);
       dbData = new Uint8Array(buffer);
-      log('info', 'error-brain-db: Loaded existing database from disk');
+      logger.info('error-brain', 'init', 'Loaded existing database from disk');
     } catch {
-      log('info', 'error-brain-db: No existing database found, creating new');
+      logger.info('error-brain', 'init', 'No existing database found, creating new');
     }
 
     db = new SQL.Database(dbData);
@@ -211,14 +215,16 @@ export async function initialize(): Promise<void> {
     isInitialized = true;
 
     const stats = getStats();
-    log('info', 'error-brain-db: Initialization complete', {
-      timePatterns: stats.timePatternCount,
-      correlations: stats.correlationCount,
-      cascades: stats.cascadeCount,
-      schemaVersion: stats.schemaVersion,
+    logger.info('error-brain', 'init', 'Initialization complete', {
+      metadata: {
+        timePatterns: stats.timePatternCount,
+        correlations: stats.correlationCount,
+        cascades: stats.cascadeCount,
+        schemaVersion: stats.schemaVersion,
+      },
     });
   } catch (error) {
-    log('error', 'error-brain-db: Initialization failed', { error });
+    logger.error('error-brain', 'init', 'Initialization failed', { error: { name: 'InitError', message: String(error) } });
     throw error;
   }
 }
@@ -360,7 +366,7 @@ function startAutoSave(): void {
     try {
       await saveToDisk();
     } catch (error) {
-      log('error', 'error-brain-db: Auto-save failed', { error });
+      logger.error('error-brain', 'auto-save', 'Auto-save failed', { error: { name: 'SaveError', message: String(error) } });
     }
   }, ErrorBrainConfig.autoSaveIntervalMs);
 }
@@ -383,12 +389,14 @@ export async function saveToDisk(): Promise<void> {
     await fsPromises.writeFile(ErrorBrainConfig.brainDbPath, Buffer.from(data));
     
     if (ErrorBrainConfig.verboseLogging) {
-      log('debug', 'error-brain-db: Saved to disk', {
-        sizeBytes: data.length,
+      logger.debug('error-brain', 'save', 'Saved to disk', {
+        metadata: {
+          sizeBytes: data.length,
+        },
       });
     }
   } catch (error) {
-    log('error', 'error-brain-db: Failed to save to disk', { error });
+    logger.error('error-brain', 'save', 'Failed to save to disk', { error: { name: 'SaveError', message: String(error) } });
     throw error;
   }
 }
@@ -403,15 +411,15 @@ export async function saveToDisk(): Promise<void> {
 export async function shutdown(): Promise<void> {
   if (!isInitialized) return;
 
-  log('info', 'error-brain-db: Shutting down...');
+  logger.info('error-brain', 'shutdown', 'Shutting down database');
 
   stopAutoSave();
 
   try {
     await saveToDisk();
-    log('info', 'error-brain-db: Final save complete');
+    logger.info('error-brain', 'shutdown', 'Final save complete');
   } catch (error) {
-    log('error', 'error-brain-db: Final save failed', { error });
+    logger.error('error-brain', 'shutdown', 'Final save failed', { error: { name: 'SaveError', message: String(error) } });
   }
 
   if (db) {
@@ -422,7 +430,7 @@ export async function shutdown(): Promise<void> {
   SQL = null;
   isInitialized = false;
 
-  log('info', 'error-brain-db: Shutdown complete');
+  logger.info('error-brain', 'shutdown', 'Database shutdown complete');
 }
 
 // ============================================================================
@@ -970,7 +978,11 @@ export function pruneStalePatterns(): number {
   totalDeleted += db.getRowsModified();
 
   if (totalDeleted > 0) {
-    log('info', 'error-brain-db: Pruned stale patterns', { totalDeleted });
+    logger.info('error-brain', 'prune', 'Pruned stale patterns', {
+      metadata: {
+        totalDeleted,
+      },
+    });
     db.run('VACUUM');
   }
 
