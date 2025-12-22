@@ -52,6 +52,9 @@ import { getEngineWorkersStatus } from "../../workers/engine-workers.js";
 // Error Detection modules (Phase 9-12)
 import { errorTracker, resourceMonitor, type ErrorSeverity, type ErrorCategory } from '../../services/monitoring/index.js';
 
+// Error Brain modules — Local intelligence system
+import * as ErrorBrain from '../../services/error-brain/index.js';
+
 // Prometheus metrics (Phase 3, P5)
 import { getPrometheusStatus } from '../../services/prometheus-metrics.js';
 
@@ -835,6 +838,101 @@ function formatWorkerStatus(worker: { name: string; isRunning: boolean; lastRunT
   return `${statusIcon} ${worker.successCount} runs, ${worker.errorCount} errors${errorIcon}, last: ${formatTimestamp(worker.lastRunTime)}`;
 }
 
+// ============================================================================
+// ERROR BRAIN STATS — Local Error Intelligence System
+// ============================================================================
+
+/**
+ * Format Error Brain operational stats for /ops brain command.
+ */
+function formatErrorBrainStats(): string {
+  const lines: string[] = [];
+
+  lines.push("**🧠 ERROR BRAIN — Local Intelligence System**");
+  lines.push("");
+
+  // DB separation verification (safety check)
+  try {
+    const conflicts = ErrorBrain.diagnoseDbSeparation();
+    if (conflicts.length === 0) {
+      lines.push("**DB Separation:** ✅ Verified (distinct from engine/security DBs)");
+    } else {
+      lines.push("**DB Separation:** ⚠️ CONFLICTS DETECTED");
+      conflicts.forEach((c) => lines.push(`  └─ ${c}`));
+    }
+    lines.push("");
+  } catch (err) {
+    lines.push(`**DB Separation:** ❌ Check failed: ${getErrorMessage(err)}`);
+    lines.push("");
+  }
+
+  try {
+    const stats = ErrorBrain.getStats();
+
+    // Cache stats
+    lines.push("**L1 Cache**");
+    lines.push(`• Time Patterns: ${stats.cache.timePatternCount}`);
+    lines.push(`• Correlations: ${stats.cache.correlationCount}`);
+    lines.push(`• Cascades: ${stats.cache.cascadeCount}`);
+    lines.push(`• Recovery Weights: ${stats.cache.recoveryWeightCount}`);
+    lines.push(`• Impact Weights: ${stats.cache.impactWeightCount}`);
+    lines.push(`• Baselines: ${stats.cache.baselineCount}`);
+    lines.push(`• Memory: ~${(stats.cache.estimatedSizeBytes / 1024 / 1024).toFixed(2)} MB`);
+    lines.push(`• Initialized: ${stats.cache.isInitialized ? 'yes' : 'no'}`);
+    lines.push("");
+
+    // DB stats
+    lines.push("**SQLite DB**");
+    lines.push(`• Time Patterns: ${stats.db.timePatternCount}`);
+    lines.push(`• Correlations: ${stats.db.correlationCount}`);
+    lines.push(`• Cascades: ${stats.db.cascadeCount}`);
+    lines.push(`• Recovery Weights: ${stats.db.recoveryWeightCount}`);
+    lines.push(`• Impact Weights: ${stats.db.impactWeightCount}`);
+    lines.push(`• Baselines: ${stats.db.baselineCount}`);
+    lines.push(`• Size: ${formatBytes(stats.db.sizeBytes)}`);
+    lines.push(`• Last Sync: ${stats.db.lastSync ? formatTimestamp(new Date(stats.db.lastSync)) : 'never'}`);
+    lines.push(`• Initialized: ${stats.db.isInitialized ? 'yes' : 'no'}`);
+    lines.push("");
+
+    // Worker stats (if running)
+    if (ErrorBrain.isWorkersRunning()) {
+      const wStats = ErrorBrain.getWorkerStats();
+      lines.push("**Workers**");
+      lines.push(`• Running: ${wStats.isActive ? 'yes' : 'no'}`);
+      lines.push(`• Uptime: ${formatDurationCompact(wStats.uptimeMs)}`);
+      lines.push(`• Worker Count: ${wStats.workers.length}`);
+      for (const w of wStats.workers) {
+        const runIcon = w.isRunning ? '🔄' : '⏸️';
+        lines.push(`  └─ ${runIcon} ${w.name}: ${w.executionCount} runs, ${w.errorCount} errors`);
+      }
+    } else {
+      lines.push("**Workers:** ⏸️ Not running");
+    }
+    lines.push("");
+
+    // Pattern detector stats
+    const pdStats = ErrorBrain.getPatternDetectorStats();
+    lines.push("**Pattern Detector**");
+    lines.push(`• Recent Errors Buffer: ${pdStats.recentErrorsCount}`);
+    lines.push(`• Correlation Pairs: ${pdStats.correlationPairsTracked}`);
+    lines.push(`• Fingerprints Observed: ${pdStats.fingerprintsObserved}`);
+    lines.push(`• Active Cascades: ${pdStats.activeCascadesTracked}`);
+    lines.push("");
+
+    // Impact predictor stats
+    const ipStats = ErrorBrain.getImpactPredictorStats();
+    lines.push("**Impact Predictor**");
+    lines.push(`• Services Tracked: ${ipStats.servicesTracked}`);
+    lines.push(`• Fingerprints w/ History: ${ipStats.fingerprintsWithHistory}`);
+    lines.push(`• System Health Score: ${(ipStats.systemHealthScore).toFixed(0)}%`);
+
+  } catch (err) {
+    lines.push(`❌ Error collecting stats: ${getErrorMessage(err)}`);
+  }
+
+  return lines.join("\n");
+}
+
 /**
  * Format historical metrics report for /ops metrics-history command.
  * 
@@ -1014,6 +1112,71 @@ export async function handleOpsCommand(
       });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `Engine DB stats unavailable: ${message}` });
+    }
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Error Brain: /ops brain [subcommand] — Local error intelligence system
+  // Subcommands:
+  //   (none)        — Show full stats dashboard
+  //   diagnose-db   — Verify DB separation (no path collisions)
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (sub === "brain") {
+    await interaction.deferReply({ ephemeral: true });
+    const brainSubcommand = interaction.options?.getString?.("subcommand");
+
+    // Subcommand: diagnose-db — verify Error Brain DB is isolated
+    if (brainSubcommand === "diagnose-db") {
+      try {
+        const conflicts = ErrorBrain.diagnoseDbSeparation();
+        if (conflicts.length === 0) {
+          await interaction.editReply({
+            content:
+              `🧠 **Error Brain DB Isolation: VERIFIED**\n\n` +
+              `✅ No path collisions detected.\n` +
+              `Error Brain DB is properly isolated from:\n` +
+              `• Engine Read-DB\n` +
+              `• Engine Write-DB\n` +
+              `• Security/Alert storage`,
+          });
+        } else {
+          await interaction.editReply({
+            content:
+              `🧠 **Error Brain DB Isolation: CONFLICT DETECTED**\n\n` +
+              `⚠️ ${conflicts.length} collision(s) found:\n` +
+              conflicts.map((c) => `• ${c}`).join("\n") +
+              `\n\n**Action Required:** Update ErrorBrainConfig.brainDbPath in error-brain-config.ts`,
+          });
+        }
+      } catch (err) {
+        await errorTracker.captureError(ensureError(err), {
+          category: 'ENGINE',
+          userId: interaction.user.id,
+          guildId: interaction.guildId || undefined,
+          commandName: '/ops brain diagnose-db',
+          operation: 'diagnoseDbSeparation',
+        });
+        const message = getErrorMessage(err);
+        await interaction.editReply({ content: `DB diagnosis failed: ${message}` });
+      }
+      return;
+    }
+
+    // Default: Show full stats dashboard
+    try {
+      const report = formatErrorBrainStats();
+      await interaction.editReply({ content: report });
+    } catch (err) {
+      await errorTracker.captureError(ensureError(err), {
+        category: 'ENGINE',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops brain',
+        operation: 'formatErrorBrainStats',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Error Brain stats unavailable: ${message}` });
     }
     return;
   }

@@ -29,6 +29,8 @@ import {
   type ParsedStackTrace,
   type StackFrame,
 } from '../../utils/stack-trace-parser.js';
+// Error Brain — Local intelligence system for error pattern detection
+import * as ErrorBrain from '../error-brain/index.js';
 
 /// ---- Live Error Stream ----
 
@@ -391,6 +393,59 @@ export class ErrorTracker {
       
       log('error', `   ✅ Persisted: ${result.errorId} (fingerprint: ${fingerprint.substring(0, 8)}...)`);
       
+      // ============================================================
+      // ERROR BRAIN INTEGRATION — Local Intelligence System
+      // ============================================================
+      // Feed error to Error Brain for pattern learning (async, non-blocking)
+      // This enables: anomaly detection, cascade prediction, correlation analysis
+      try {
+        const severityLevel = severity === 'CRITICAL' ? 5 : severity === 'HIGH' ? 4 : severity === 'MEDIUM' ? 3 : 2;
+        
+        // Record error event for pattern learning
+        ErrorBrain.recordError({
+          fingerprint,
+          timestamp: Date.now(),
+          severity: severityLevel,
+          correlationId: context.customData?.correlationId as string | undefined,
+          userId: context.userId,
+          component: context.service,
+        });
+        
+        // Update impact weights for this error type
+        ErrorBrain.updateImpactWeight(
+          fingerprint,
+          category,
+          severity,
+          this.estimateUserImpact(error, context) ?? 1,
+          this.detectImpactedFeatures(error, context).length
+        );
+        
+        // Check for anomalies (synchronous, <1μs)
+        const anomaly = ErrorBrain.detectTimeAnomaly(fingerprint, result.occurrenceCount);
+        if (anomaly.isAnomalous) {
+          log('warn', `   🧠 [ErrorBrain] ANOMALY DETECTED: ${fingerprint.substring(0, 8)}... (Z-score: ${anomaly.zScore.toFixed(2)})`);
+        }
+        
+        // Check for cascade prediction (synchronous, <10μs)
+        const cascade = ErrorBrain.predictCascade(fingerprint);
+        if (cascade && cascade.probability > 0.5) {
+          log('warn', `   🧠 [ErrorBrain] CASCADE RISK: ${(cascade.probability * 100).toFixed(0)}% chance of ${cascade.predictedChildren.length} downstream errors`);
+        }
+        
+        // Log burst detection for high-frequency errors
+        const burst = ErrorBrain.detectBurst({
+          fingerprint,
+          timestamp: Date.now(),
+          severity: severityLevel,
+        });
+        if (burst.isBurst) {
+          log('warn', `   🧠 [ErrorBrain] BURST DETECTED: ${burst.eventsPerSecond.toFixed(1)} errors/sec (${burst.burstMultiplier.toFixed(1)}x baseline)`);
+        }
+      } catch (brainError) {
+        // Error Brain failures are non-critical — log and continue
+        log('warn', '[ErrorTracker] Error Brain integration failed: ' + String(brainError));
+      }
+      
       // Generate AI-optimized error report (async, fire-and-forget)
       // Write to Store/error-reports/ for SSH analysis
       this.generateAndStoreAIReport(error, parsedStack, enrichedContext, fingerprint).catch((err: Error) => {
@@ -529,7 +584,9 @@ export class ErrorTracker {
   }
   
   /**
-   * Record recovery attempt and outcome (legacy method - use recordResolution for full tracking)
+   * Record recovery attempt and outcome.
+   * @deprecated Use recordResolution() for full tracking with ErrorResolution table.
+   * This method only updates ErrorLog counters without creating a learning record.
    */
   async recordRecoveryAttempt(
     errorId: string,
@@ -606,6 +663,22 @@ export class ErrorTracker {
           lastRecoveryOutcome: success ? 'success' : 'failed',
         },
       });
+      
+      // ============================================================
+      // ERROR BRAIN INTEGRATION — Learn from resolution outcome
+      // ============================================================
+      try {
+        ErrorBrain.recordRecoveryOutcome(
+          error.fingerprint,
+          strategy,
+          success,
+          durationMs
+        );
+        log('info', `   🧠 [ErrorBrain] Recovery outcome recorded: ${strategy} (${outcome})`);
+      } catch (brainError) {
+        // Error Brain failures are non-critical
+        log('warn', '[ErrorTracker] Error Brain recovery learning failed: ' + String(brainError));
+      }
       
       log('info', `[ErrorTracker] Resolution recorded: ${strategy} (${outcome}) for ${errorId.substring(0, 8)}...`);
       
@@ -804,11 +877,9 @@ export class ErrorTracker {
   }
   
   private estimateUserImpact(_error: Error, _context: ErrorContext): number | null {
-    // TODO: Implement user impact estimation based on:
-    // - Number of active users in affected guild
-    // - Severity of error
-    // - Scope of impacted features
-    // For now, return null (unknown)
+    // FUTURE: Implement user impact estimation when guild analytics are available.
+    // Would require: active user counts per guild, feature usage tracking.
+    // Currently returns null (unknown impact).
     return null;
   }
   

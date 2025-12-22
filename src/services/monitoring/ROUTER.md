@@ -38,13 +38,13 @@ Last Updated (UTC): 2025-12-19T02:00:00Z
 - `resource-manager.ts` ← Foundation (no dependencies)
 - `resource-monitor.ts` ← Uses resource-manager
 - `error-tracker.ts` ← Uses resource-manager (optional)
-- `error-learning.ts` ← Reads from error-tracker's database
+- `error-learning.ts` ← Reads from error-tracker's database, uses shared/prisma.js and shared/logging
 - `monitoring-utils.ts` ← Shared by all (performance-optimized helpers)
 
 Notes:
 - **NEW: `monitoring-utils.ts` (350 lines)** — Performance-optimized shared utilities: ID generation with cache (10x faster), fingerprint generation with LRU cache (90% hit rate), memory/format utilities (delegates to `shared/utils/format-utils.ts` for formatBytes, formatTimestamp to eliminate duplication), statistical functions (percentile, average, stddev), threshold checking (fast-path optimization), deduplication/grouping, rate limiting. All hot paths optimized for <1ms overhead.
-- `error-tracker.ts` (640 lines) — Core error tracking service: creates/updates ErrorLog entries in PostgreSQL, generates fingerprints using monitoring-utils (cached SHA-256), tracks occurrence counts, recovery attempts, learning metadata. Integrates with Event Bus for correlation tracking. **Performance:** Uses cached fingerprinting for 10x faster duplicate detection.
-- `error-learning.ts` (450 lines) — Pattern learning from error history: analyzes recent errors, identifies frequent patterns, suggests recovery strategies, updates knowledge base. Consumed by error-recovery.ts for intelligent retry logic. Uses monitoring-utils for statistical analysis.
+- `error-tracker.ts` (1231 lines) — Core error tracking service: creates/updates ErrorLog entries in PostgreSQL, generates fingerprints using monitoring-utils (cached SHA-256), tracks occurrence counts, recovery attempts, learning metadata. Integrates with Event Bus for correlation tracking. **Phase 2D APIs:** getHotspots(), getErrorCallChain(), getErrorsByFile(), getFunctionErrorStats() for future `/ops` tooling. **Performance:** Uses cached fingerprinting for 10x faster duplicate detection.
+- `error-learning.ts` (1614 lines) — Pattern learning from error history: analyzes recent errors, identifies frequent patterns (time-of-day, correlations, cascades), suggests recovery strategies, updates knowledge base. **Phase 2A/2B/2C Integration:** Uses ErrorResolution, ErrorDependency, ErrorKnowledge tables for persistent learning. Consumed by error-learning-worker.ts for hourly analysis.
 - `resource-monitor.ts` (1700 lines) — **HIGH-LEVEL** resource monitoring + memory guardian + disk monitoring + EventBus metrics emission:
   - **Health Checks:** Runs periodic health checks (12h default)
   - **Memory Guardian:** 30s polling with pressure levels NORMAL/WARNING/CRITICAL/EMERGENCY, coordinated cache pruning, GC triggering
