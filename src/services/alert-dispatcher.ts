@@ -32,7 +32,7 @@ import { Client, type TextChannel, EmbedBuilder, type ColorResolvable } from 'di
 import { existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, statSync } from 'node:fs';
 import { join as pathJoin } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { log as logger } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import {
   ALERT_DISPATCHER_ENABLED,
@@ -45,6 +45,8 @@ import {
   STARTUP_GRACE_PERIOD_MS,
   DRIP_USER_ID,
 } from '../config/env.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Types
@@ -201,7 +203,7 @@ class AlertDispatcher {
    */
   public initialize(client: Client): void {
     if (!CONFIG.enabled) {
-      logger.info('[AlertDispatcher] Disabled via ALERT_DISPATCHER_ENABLED=false');
+      logger.info('alert-dispatcher', 'init', '[AlertDispatcher] Disabled via ALERT_DISPATCHER_ENABLED=false');
       return;
     }
     
@@ -216,9 +218,8 @@ class AlertDispatcher {
     
     this.isRunning = true;
     
-    logger.info('[AlertDispatcher] Initialized', {
-      category: 'SYSTEM',
-      data: {
+    logger.info('alert-dispatcher', 'init', '[AlertDispatcher] Initialized', {
+      metadata: {
         channelId: CONFIG.channelId,
         adminUserId: CONFIG.adminUserId,
         testMode: CONFIG.testMode,
@@ -253,9 +254,8 @@ class AlertDispatcher {
     
     this.isRunning = false;
     
-    logger.info('[AlertDispatcher] Stopped', {
-      category: 'SYSTEM',
-      data: {
+    logger.info('alert-dispatcher', 'stop', '[AlertDispatcher] Stopped', {
+      metadata: {
         totalReceived: this.stats.totalReceived,
         totalRouted: this.stats.totalRouted,
         totalSuppressed: this.stats.totalSuppressed,
@@ -284,9 +284,8 @@ class AlertDispatcher {
       this.subscriptionIds.push(subId);
     }
     
-    logger.info('[AlertDispatcher] Subscribed to EventBus patterns', {
-      category: 'SYSTEM',
-      data: { patterns: CONFIG.patterns, subscriptionCount: this.subscriptionIds.length },
+    logger.info('alert-dispatcher', 'subscribe', '[AlertDispatcher] Subscribed to EventBus patterns', {
+      metadata: { patterns: CONFIG.patterns, subscriptionCount: this.subscriptionIds.length },
     });
   }
   
@@ -303,9 +302,8 @@ class AlertDispatcher {
       // Check grace period
       if (this.isInGracePeriod()) {
         this.stats.totalSuppressed++;
-        logger.debug('[AlertDispatcher] Alert suppressed (grace period)', {
-          category: 'SYSTEM',
-          data: {
+        logger.debug('alert-dispatcher', 'suppress-grace', '[AlertDispatcher] Alert suppressed (grace period)', {
+          metadata: {
             type: payload.type,
             level: payload.level,
             gracePeriodRemainingMs: this.getGracePeriodRemainingMs(),
@@ -318,9 +316,8 @@ class AlertDispatcher {
       const cooldownKey = `${payload.level}:${payload.type}`;
       if (this.isCoolingDown(cooldownKey)) {
         this.stats.totalSuppressed++;
-        logger.debug('[AlertDispatcher] Alert suppressed (cooldown)', {
-          category: 'SYSTEM',
-          data: { type: payload.type, level: payload.level },
+        logger.debug('alert-dispatcher', 'suppress-cooldown', '[AlertDispatcher] Alert suppressed (cooldown)', {
+          metadata: { type: payload.type, level: payload.level },
         });
         return;
       }
@@ -338,11 +335,10 @@ class AlertDispatcher {
       
     } catch (error) {
       this.stats.errors++;
-      logger.error('[AlertDispatcher] Error handling event', {
-        category: 'SYSTEM',
-        data: {
+      logger.error('alert-dispatcher', 'handle-event', '[AlertDispatcher] Error handling event', {
+        metadata: {
           topic: event.topic,
-          error: getErrorMessage(error),
+          errorMsg: getErrorMessage(error),
         },
       });
     }
@@ -412,9 +408,8 @@ class AlertDispatcher {
     
     // INFO level: Log only
     if (record.level === 'INFO') {
-      logger.info('[AlertDispatcher] Info alert (no routing)', {
-        category: 'SYSTEM',
-        data: { type: record.type, message: record.message },
+      logger.info('alert-dispatcher', 'route-info', '[AlertDispatcher] Info alert (no routing)', {
+        metadata: { type: record.type, message: record.message },
       });
       return;
     }
@@ -441,14 +436,13 @@ class AlertDispatcher {
     
     const durationMs = performance.now() - startTime;
     
-    logger.info('[AlertDispatcher] Alert routed', {
-      category: 'SYSTEM',
-      data: {
+    logger.info('alert-dispatcher', 'route-complete', '[AlertDispatcher] Alert routed', {
+      durationMs: parseFloat(durationMs.toFixed(2)),
+      metadata: {
         id: record.id,
         type: record.type,
         level: record.level,
         routed: record.routed,
-        durationMs: durationMs.toFixed(2),
         errors: record.errors.length > 0 ? record.errors : undefined,
       },
     });
@@ -583,15 +577,13 @@ class AlertDispatcher {
     try {
       if (!existsSync(CONFIG.persistDir)) {
         mkdirSync(CONFIG.persistDir, { recursive: true });
-        logger.info('[AlertDispatcher] Created persist directory', {
-          category: 'SYSTEM',
-          data: { path: CONFIG.persistDir },
+        logger.info('alert-dispatcher', 'create-dir', '[AlertDispatcher] Created persist directory', {
+          metadata: { path: CONFIG.persistDir },
         });
       }
     } catch (error) {
-      logger.warn('[AlertDispatcher] Failed to create persist directory', {
-        category: 'SYSTEM',
-        data: { path: CONFIG.persistDir, error: getErrorMessage(error) },
+      logger.warn('alert-dispatcher', 'create-dir', '[AlertDispatcher] Failed to create persist directory', {
+        metadata: { path: CONFIG.persistDir, errorMsg: getErrorMessage(error) },
       });
     }
   }
@@ -650,16 +642,14 @@ class AlertDispatcher {
       }
       
       if (cleaned > 0) {
-        logger.info('[AlertDispatcher] Cleaned up old alerts', {
-          category: 'SYSTEM',
-          data: { count: cleaned, retentionDays: CONFIG.retentionDays },
+        logger.info('alert-dispatcher', 'cleanup', '[AlertDispatcher] Cleaned up old alerts', {
+          metadata: { count: cleaned, retentionDays: CONFIG.retentionDays },
         });
       }
       
     } catch (error) {
-      logger.warn('[AlertDispatcher] Cleanup failed', {
-        category: 'SYSTEM',
-        data: { error: getErrorMessage(error) },
+      logger.warn('alert-dispatcher', 'cleanup', '[AlertDispatcher] Cleanup failed', {
+        metadata: { errorMsg: getErrorMessage(error) },
       });
     }
   }
@@ -692,9 +682,8 @@ class AlertDispatcher {
     // Check for escalation
     const state = this.cooldowns.get(key)!;
     if (state.consecutiveCount >= CONFIG.escalationThreshold) {
-      logger.warn('[AlertDispatcher] Alert escalation threshold reached', {
-        category: 'SYSTEM',
-        data: {
+      logger.warn('alert-dispatcher', 'escalation', '[AlertDispatcher] Alert escalation threshold reached', {
+        metadata: {
           key,
           consecutiveCount: state.consecutiveCount,
           threshold: CONFIG.escalationThreshold,

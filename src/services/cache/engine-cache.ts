@@ -23,11 +23,13 @@
  */
 
 import { EngineDbConfig } from '../../config/engine-db-config.js';
-import { log } from "../../shared/logging/index.js";
+import { getLogger } from "../../shared/logging/index.js";
 import { errorTracker } from '../monitoring/error-tracker.js';
 import type { IPrunableCache } from '../monitoring/resource-monitor.js';
 import * as readDb from '../database/engine-read-db.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Type Definitions
@@ -170,7 +172,7 @@ export class EngineCache implements IPrunableCache {
   async initialize(): Promise<void> {
     const startTime = performance.now();
     
-    log('info', 'engine-cache: Starting L1 cache initialization (tiered loading)...');
+    logger.info('engine-cache', 'initialize', 'Starting L1 cache initialization (tiered loading)...');
     
     try {
       // Create timeout promise
@@ -202,14 +204,16 @@ export class EngineCache implements IPrunableCache {
       const coreDurationMs = performance.now() - startTime;
       const coreStats = this.getStats();
       
-      log('info', 'engine-cache: L1 cache core initialization complete (fast path)', {
-        durationMs: coreDurationMs.toFixed(2),
-        pokemonCount: coreStats.pokemonCount,
-        moveCount: coreStats.moveCount,
-        typeEffectivenessCount: coreStats.typeEffectivenessCount,
-        memorySizeMb: coreStats.memorySizeMb.toFixed(2),
-        checksum: this.dataChecksum?.substring(0, 8),
-        extendedLoading: 'background'
+      logger.info('engine-cache', 'initialize', 'L1 cache core initialization complete (fast path)', {
+        durationMs: coreDurationMs,
+        metadata: {
+          pokemonCount: coreStats.pokemonCount,
+          moveCount: coreStats.moveCount,
+          typeEffectivenessCount: coreStats.typeEffectivenessCount,
+          memorySizeMb: coreStats.memorySizeMb.toFixed(2),
+          checksum: this.dataChecksum?.substring(0, 8),
+          extendedLoading: 'background',
+        }
       });
       
       // Background path: Load extended data (Gen 3-9 Pokemon + rare moves)
@@ -218,23 +222,31 @@ export class EngineCache implements IPrunableCache {
       // Set ENGINE_FEATURE_L1_EXTENDED_LOADING=true to enable full dataset preload.
       if (EngineDbConfig.featureL1ExtendedLoadingEnabled) {
         this.loadExtendedDataAsync().catch(error => {
-          log('error', 'engine-cache: Extended data loading failed (non-critical)', error);
+          const err = ensureError(error);
+          logger.error('engine-cache', 'initialize', 'Extended data loading failed (non-critical)', {
+            error: { name: err.name, message: err.message, stack: err.stack }
+          });
           // Non-critical: Core data already loaded, battles can continue with Gen 1-2
         });
       } else {
-        log('info', 'engine-cache: Extended data loading disabled (LRU lazy-load mode)', {
-          mode: 'lazy-load',
-          coreGeneration: 'Gen 1-2 (IDs 1-251)',
-          extendedGeneration: 'Gen 3-9 (IDs 252+) on-demand',
-          maxPokemonEntries: this.maxPokemonEntries,
-          maxMoveEntries: this.maxMoveEntries
+        logger.info('engine-cache', 'initialize', 'Extended data loading disabled (LRU lazy-load mode)', {
+          metadata: {
+            mode: 'lazy-load',
+            coreGeneration: 'Gen 1-2 (IDs 1-251)',
+            extendedGeneration: 'Gen 3-9 (IDs 252+) on-demand',
+            maxPokemonEntries: this.maxPokemonEntries,
+            maxMoveEntries: this.maxMoveEntries,
+          }
         });
       }
       
       // Pre-warm Read-DB cache with most-used Pokemon (starters + meta)
       // OPTIMIZATION: Prime SQLite query cache to reduce first-query latency by 50%
       this.preWarmReadDb().catch(error => {
-        log('error', 'engine-cache: Read-DB pre-warming failed (non-critical)', error);
+        const err = ensureError(error);
+        logger.error('engine-cache', 'initialize', 'Read-DB pre-warming failed (non-critical)', {
+          error: { name: err.name, message: err.message, stack: err.stack }
+        });
         // Non-critical: Read-DB will still work, just slower on first queries
       });
       
@@ -247,13 +259,19 @@ export class EngineCache implements IPrunableCache {
       try {
         const { resourceMonitor } = await import('../monitoring/resource-monitor.js');
         resourceMonitor.registerCache(this);
-        log('info', 'engine-cache: Registered with ResourceMonitor for automatic memory management');
+        logger.info('engine-cache', 'initialize', 'Registered with ResourceMonitor for automatic memory management');
       } catch (error) {
-        log('warn', 'engine-cache: Failed to register with ResourceMonitor (non-critical)', error);
+        const err = ensureError(error);
+        logger.warn('engine-cache', 'initialize', 'Failed to register with ResourceMonitor (non-critical)', {
+          error: { name: err.name, message: err.message, stack: err.stack }
+        });
       }
       
     } catch (error) {
-      log('error', 'engine-cache: L1 cache initialization failed', error);
+      const err = ensureError(error);
+      logger.error('engine-cache', 'initialize', 'L1 cache initialization failed', {
+        error: { name: err.name, message: err.message, stack: err.stack }
+      });
       throw error; // Hard fail - cannot operate without core cache
     }
   }
@@ -301,12 +319,14 @@ export class EngineCache implements IPrunableCache {
         this.pokemonByName.set(entry.name.toLowerCase(), entry.id);
       }
       
-      log('info', 'engine-cache: Loaded Gen 1-2 Pokemon (core)', {
-        pokemonCount: corePokemon.length,
-        memoryMb: (corePokemon.length * 500 / 1024 / 1024).toFixed(2) // ~500 bytes per entry
+      logger.info('engine-cache', 'loadCoreData', 'Loaded Gen 1-2 Pokemon (core)', {
+        metadata: {
+          pokemonCount: corePokemon.length,
+          memoryMb: (corePokemon.length * 500 / 1024 / 1024).toFixed(2), // ~500 bytes per entry
+        }
       });
     } else {
-      log('warn', 'engine-cache: Read-DB empty (PROD sync pending), using placeholder data');
+      logger.warn('engine-cache', 'loadCoreData', 'Read-DB empty (PROD sync pending), using placeholder data');
       this.loadPlaceholderPokemon();
     }
     
@@ -348,8 +368,8 @@ export class EngineCache implements IPrunableCache {
         this.moves.set(entry.id, entry);
       }
       
-      log('info', 'engine-cache: Loaded common moves (core)', {
-        moveCount: commonMoves.length
+      logger.info('engine-cache', 'loadCoreData', 'Loaded common moves (core)', {
+        metadata: { moveCount: commonMoves.length }
       });
     }
     
@@ -360,11 +380,11 @@ export class EngineCache implements IPrunableCache {
       this.typeChart.set(key, record.multiplier); // Store just the multiplier
     }
     
-    log('info', 'engine-cache: Loaded type effectiveness chart (complete)', {
-      typeEffectivenessCount: typeEffectiveness.length
+logger.info('engine-cache', 'loadCoreData', 'Loaded type effectiveness chart (complete)', {
+      metadata: { typeEffectivenessCount: typeEffectiveness.length }
     });
   }
-  
+
   /**
    * Load extended data (Gen 3-9 Pokemon, rare moves) - BACKGROUND (~800ms)
    * 
@@ -374,7 +394,7 @@ export class EngineCache implements IPrunableCache {
   private async loadExtendedDataAsync(): Promise<void> {
     const startTime = performance.now();
     
-    log('info', 'engine-cache: Starting extended data load (background)...');
+    logger.info('engine-cache', 'loadExtendedData', 'Starting extended data load (background)...');
     
     const readDb = await import('../database/engine-read-db.js');
     
@@ -403,8 +423,8 @@ export class EngineCache implements IPrunableCache {
       this.pokemonByName.set(entry.name.toLowerCase(), entry.id);
     }
     
-    log('info', 'engine-cache: Loaded Gen 3-9 Pokemon (extended)', {
-      pokemonCount: extendedPokemon.length
+    logger.info('engine-cache', 'loadExtendedData', 'Loaded Gen 3-9 Pokemon (extended)', {
+      metadata: { pokemonCount: extendedPokemon.length }
     });
     
     // Load remaining moves (Gen 2+ moves, Z-moves, etc.)
@@ -430,8 +450,8 @@ export class EngineCache implements IPrunableCache {
       this.moves.set(entry.id, entry);
     }
     
-    log('info', 'engine-cache: Loaded extended moves (background)', {
-      moveCount: extendedMoves.length
+    logger.info('engine-cache', 'loadExtendedData', 'Loaded extended moves (background)', {
+      metadata: { moveCount: extendedMoves.length }
     });
     
     // Recalculate checksum after extended load
@@ -440,12 +460,14 @@ export class EngineCache implements IPrunableCache {
     const durationMs = performance.now() - startTime;
     const finalStats = this.getStats();
     
-    log('info', 'engine-cache: Extended data load complete (background)', {
-      durationMs: durationMs.toFixed(2),
-      totalPokemon: finalStats.pokemonCount,
-      totalMoves: finalStats.moveCount,
-      memorySizeMb: finalStats.memorySizeMb.toFixed(2),
-      checksum: this.dataChecksum?.substring(0, 8)
+    logger.info('engine-cache', 'loadExtendedData', 'Extended data load complete (background)', {
+      durationMs,
+      metadata: {
+        totalPokemon: finalStats.pokemonCount,
+        totalMoves: finalStats.moveCount,
+        memorySizeMb: finalStats.memorySizeMb.toFixed(2),
+        checksum: this.dataChecksum?.substring(0, 8),
+      }
     });
   }
   
@@ -465,7 +487,7 @@ export class EngineCache implements IPrunableCache {
   private async preWarmReadDb(): Promise<void> {
     const startTime = performance.now();
     
-    log('info', 'engine-cache: Pre-warming Read-DB cache (background)...');
+    logger.info('engine-cache', 'preWarmReadDb', 'Pre-warming Read-DB cache (background)...');
     
     try {
       const readDb = await import('../database/engine-read-db.js');
@@ -491,13 +513,16 @@ export class EngineCache implements IPrunableCache {
       
       const durationMs = performance.now() - startTime;
       
-      log('info', 'engine-cache: Read-DB pre-warming complete (background)', {
-        pokemonWarmed: hotPokemon.length,
-        durationMs: durationMs.toFixed(2)
+      logger.info('engine-cache', 'preWarmReadDb', 'Read-DB pre-warming complete (background)', {
+        durationMs,
+        metadata: { pokemonWarmed: hotPokemon.length }
       });
       
     } catch (error) {
-      log('error', 'engine-cache: Read-DB pre-warming failed', error);
+      const err = ensureError(error);
+      logger.error('engine-cache', 'preWarmReadDb', 'Read-DB pre-warming failed', {
+        error: { name: err.name, message: err.message, stack: err.stack }
+      });
       // Non-critical: Read-DB will still work, just slower on first queries
     }
   }
@@ -602,15 +627,20 @@ export class EngineCache implements IPrunableCache {
       
       const durationMs = performance.now() - startTime;
       
-      log('info', 'engine-cache: LRU eviction complete (Pokemon)', {
-        removedCount: toRemoveCount,
-        remainingCount: this.pokemon.size,
-        durationMs: durationMs.toFixed(2),
-        samplesEvicted: evictedNames + (toRemoveCount > 5 ? '...' : '')
+      logger.info('engine-cache', 'evictColdPokemon', 'LRU eviction complete (Pokemon)', {
+        durationMs,
+        metadata: {
+          removedCount: toRemoveCount,
+          remainingCount: this.pokemon.size,
+          samplesEvicted: evictedNames + (toRemoveCount > 5 ? '...' : ''),
+        }
       });
       
     } catch (error) {
-      log('error', 'engine-cache: LRU eviction failed (Pokemon)', error);
+      const err = ensureError(error);
+      logger.error('engine-cache', 'evictColdPokemon', 'LRU eviction failed (Pokemon)', {
+        error: { name: err.name, message: err.message, stack: err.stack }
+      });
     }
   }
   
@@ -655,15 +685,20 @@ export class EngineCache implements IPrunableCache {
       
       const durationMs = performance.now() - startTime;
       
-      log('info', 'engine-cache: LRU eviction complete (Moves)', {
-        removedCount: toRemoveCount,
-        remainingCount: this.moves.size,
-        durationMs: durationMs.toFixed(2),
-        samplesEvicted: evictedNames + (toRemoveCount > 5 ? '...' : '')
+      logger.info('engine-cache', 'evictColdMoves', 'LRU eviction complete (Moves)', {
+        durationMs,
+        metadata: {
+          removedCount: toRemoveCount,
+          remainingCount: this.moves.size,
+          samplesEvicted: evictedNames + (toRemoveCount > 5 ? '...' : ''),
+        }
       });
       
     } catch (error) {
-      log('error', 'engine-cache: LRU eviction failed (Moves)', error);
+      const err = ensureError(error);
+      logger.error('engine-cache', 'evictColdMoves', 'LRU eviction failed (Moves)', {
+        error: { name: err.name, message: err.message, stack: err.stack }
+      });
     }
   }
   
@@ -688,7 +723,9 @@ export class EngineCache implements IPrunableCache {
     
     // CRITICAL: Corruption check before read
     if (this.corruptionDetected) {
-      log('error', 'engine-cache: Cache corruption detected, refusing read', { pokemonId: id });
+      logger.error('engine-cache', 'getPokemon', 'Cache corruption detected, refusing read', {
+        metadata: { pokemonId: id }
+      });
       this.missCount++;
       return null;
     }
@@ -755,10 +792,12 @@ export class EngineCache implements IPrunableCache {
           // FIX: CRITICAL - Trigger LRU eviction after insertion
           this.evictColdPokemon();
           
-          log('info', 'engine-cache: Cache miss with Read-DB fallback (Pokemon)', {
-            pokemonId: id,
-            pokemonName: entry.name,
-            latencyMs: (performance.now() - start).toFixed(2)
+          logger.info('engine-cache', 'getPokemon', 'Cache miss with Read-DB fallback (Pokemon)', {
+            latencyMs: performance.now() - start,
+            metadata: {
+              pokemonId: id,
+              pokemonName: entry.name,
+            }
           });
           
           // MEMORY OPTIMIZATION: Return direct reference instead of defensive copy
@@ -766,7 +805,11 @@ export class EngineCache implements IPrunableCache {
           return entry;
         }
       } catch (error) {
-        log('error', 'engine-cache: Read-DB fallback failed (Pokemon)', { pokemonId: id, error });
+        const err = ensureError(error);
+        logger.error('engine-cache', 'getPokemon', 'Read-DB fallback failed (Pokemon)', {
+          error: { name: err.name, message: err.message, stack: err.stack },
+          metadata: { pokemonId: id }
+        });
       }
     }
     
@@ -789,7 +832,9 @@ export class EngineCache implements IPrunableCache {
     
     // CRITICAL: Corruption check before read
     if (this.corruptionDetected) {
-      log('error', 'engine-cache: Cache corruption detected, refusing read', { pokemonName: name });
+      logger.error('engine-cache', 'getPokemonByName', 'Cache corruption detected, refusing read', {
+        metadata: { pokemonName: name }
+      });
       this.missCount++;
       return null;
     }
@@ -824,7 +869,9 @@ export class EngineCache implements IPrunableCache {
     
     // CRITICAL: Corruption check before read
     if (this.corruptionDetected) {
-      log('error', 'engine-cache: Cache corruption detected, refusing read', { moveId: id });
+      logger.error('engine-cache', 'getMove', 'Cache corruption detected, refusing read', {
+        metadata: { moveId: id }
+      });
       this.missCount++;
       return null;
     }
@@ -882,10 +929,12 @@ export class EngineCache implements IPrunableCache {
           // FIX: CRITICAL - Trigger LRU eviction after insertion
           this.evictColdMoves();
           
-          log('info', 'engine-cache: Cache miss with Read-DB fallback (Move)', {
-            moveId: id,
-            moveName: entry.name,
-            latencyMs: (performance.now() - start).toFixed(2)
+          logger.info('engine-cache', 'getMove', 'Cache miss with Read-DB fallback (Move)', {
+            latencyMs: performance.now() - start,
+            metadata: {
+              moveId: id,
+              moveName: entry.name,
+            }
           });
           
           // MEMORY OPTIMIZATION: Return direct reference instead of defensive copy
@@ -893,7 +942,11 @@ export class EngineCache implements IPrunableCache {
           return entry;
         }
       } catch (error) {
-        log('error', 'engine-cache: Read-DB fallback failed (Move)', { moveId: id, error });
+        const err = ensureError(error);
+        logger.error('engine-cache', 'getMove', 'Read-DB fallback failed (Move)', {
+          error: { name: err.name, message: err.message, stack: err.stack },
+          metadata: { moveId: id }
+        });
       }
     }
     
@@ -916,7 +969,9 @@ export class EngineCache implements IPrunableCache {
     
     // CRITICAL: Corruption check before read
     if (this.corruptionDetected) {
-      log('error', 'engine-cache: Cache corruption detected, refusing read', { moveName: name });
+      logger.error('engine-cache', 'getMoveByName', 'Cache corruption detected, refusing read', {
+        metadata: { moveName: name }
+      });
       this.missCount++;
       return null;
     }
@@ -948,7 +1003,7 @@ export class EngineCache implements IPrunableCache {
     
     // CRITICAL: Corruption check before read
     if (this.corruptionDetected) {
-      log('error', 'engine-cache: Cache corruption detected, returning neutral effectiveness');
+      logger.error('engine-cache', 'getTypeEffectiveness', 'Cache corruption detected, returning neutral effectiveness');
       return 1.0; // Failsafe: return neutral to prevent crash
     }
     
@@ -996,15 +1051,15 @@ export class EngineCache implements IPrunableCache {
    * Also runs periodic integrity checks and GC hints.
    */
   private startRefreshWorker(): void {
-    log('info', 'engine-cache: Starting background refresh worker with adaptive polling', {
-      initialIntervalMs: this.currentRefreshIntervalMs
+    logger.info('engine-cache', 'startRefreshWorker', 'Starting background refresh worker with adaptive polling', {
+      metadata: { initialIntervalMs: this.currentRefreshIntervalMs }
     });
     
     this.refreshInterval = setInterval(async () => {
       // Verify integrity before refresh
       const isHealthy = this.verifyIntegrity();
       if (!isHealthy) {
-        log('error', 'engine-cache: Integrity check FAILED before refresh, skipping refresh cycle');
+        logger.error('engine-cache', 'refresh', 'Integrity check FAILED before refresh, skipping refresh cycle');
         return; // Don't refresh corrupted cache - wait for manual intervention
       }
       
@@ -1019,7 +1074,7 @@ export class EngineCache implements IPrunableCache {
       // FIX: Periodic GC hint to reclaim memory from evicted entries
       // NOTE: global.gc() only available if Node.js started with --expose-gc flag
       if (global.gc) {
-        log('info', 'engine-cache: Triggering garbage collection (post-refresh cleanup)');
+        logger.info('engine-cache', 'refresh', 'Triggering garbage collection (post-refresh cleanup)');
         global.gc();
       }
     }, this.currentRefreshIntervalMs);
@@ -1043,11 +1098,13 @@ export class EngineCache implements IPrunableCache {
       const newIntervalMs = Math.min(this.currentRefreshIntervalMs * 2, maxIntervalMs);
       
       if (newIntervalMs !== this.currentRefreshIntervalMs) {
-        log('info', 'engine-cache: Data stable, reducing refresh frequency (adaptive polling)', {
-          from: `${(this.currentRefreshIntervalMs / 1000 / 60).toFixed(0)}min`,
-          to: `${(newIntervalMs / 1000 / 60).toFixed(0)}min`,
-          consecutiveNoChanges: this.consecutiveNoChangeRefreshes,
-          reason: 'Static dataset - Pokemon data rarely changes',
+        logger.info('engine-cache', 'adjustRefreshInterval', 'Data stable, reducing refresh frequency (adaptive polling)', {
+          metadata: {
+            from: `${(this.currentRefreshIntervalMs / 1000 / 60).toFixed(0)}min`,
+            to: `${(newIntervalMs / 1000 / 60).toFixed(0)}min`,
+            consecutiveNoChanges: this.consecutiveNoChangeRefreshes,
+            reason: 'Static dataset - Pokemon data rarely changes',
+          }
         });
         
         this.currentRefreshIntervalMs = newIntervalMs;
@@ -1060,10 +1117,12 @@ export class EngineCache implements IPrunableCache {
       }
     } else if (this.currentRefreshIntervalMs !== baseIntervalMs) {
       // Data changed, reset to base interval
-      log('info', 'engine-cache: Data changed, resetting refresh frequency', {
-        from: `${(this.currentRefreshIntervalMs / 1000 / 60).toFixed(0)}min`,
-        to: `${(baseIntervalMs / 1000 / 60).toFixed(0)}min`,
-        reason: 'New data detected - resume normal polling',
+      logger.info('engine-cache', 'adjustRefreshInterval', 'Data changed, resetting refresh frequency', {
+        metadata: {
+          from: `${(this.currentRefreshIntervalMs / 1000 / 60).toFixed(0)}min`,
+          to: `${(baseIntervalMs / 1000 / 60).toFixed(0)}min`,
+          reason: 'New data detected - resume normal polling',
+        }
       });
       
       this.currentRefreshIntervalMs = baseIntervalMs;
@@ -1087,7 +1146,7 @@ export class EngineCache implements IPrunableCache {
    */
   private async refresh(): Promise<void> {
     if (this.isRefreshing) {
-      log('warn', 'engine-cache: Refresh already in progress, skipping');
+      logger.warn('engine-cache', 'refresh', 'Refresh already in progress, skipping');
       return;
     }
     
@@ -1095,7 +1154,7 @@ export class EngineCache implements IPrunableCache {
     const startTime = performance.now();
     
     try {
-      log('info', 'engine-cache: Starting background refresh...');
+      logger.info('engine-cache', 'refresh', 'Starting background refresh...');
       
       // Capture current checksum for change detection
       const previousChecksum = this.dataChecksum;
@@ -1144,38 +1203,47 @@ export class EngineCache implements IPrunableCache {
         this.totalDataChanges++;
         this.lastDataChangeTime = new Date();
         
-        log('info', 'engine-cache: Data CHANGED detected during refresh', {
-          previousChecksum: previousChecksum?.substring(0, 8),
-          newChecksum: tempChecksum?.substring(0, 8),
-          totalChanges: this.totalDataChanges,
+        logger.info('engine-cache', 'refresh', 'Data CHANGED detected during refresh', {
+          metadata: {
+            previousChecksum: previousChecksum?.substring(0, 8),
+            newChecksum: tempChecksum?.substring(0, 8),
+            totalChanges: this.totalDataChanges,
+          }
         });
       } else {
         this.consecutiveNoChangeRefreshes++;
         
-        log('info', 'engine-cache: NO DATA CHANGE detected during refresh', {
-          checksum: tempChecksum?.substring(0, 8),
-          consecutiveNoChanges: this.consecutiveNoChangeRefreshes,
-          totalRefreshes: this.totalRefreshes,
+        logger.info('engine-cache', 'refresh', 'NO DATA CHANGE detected during refresh', {
+          metadata: {
+            checksum: tempChecksum?.substring(0, 8),
+            consecutiveNoChanges: this.consecutiveNoChangeRefreshes,
+            totalRefreshes: this.totalRefreshes,
+          }
         });
       }
       
       const durationMs = performance.now() - startTime;
       const stats = this.getStats();
       
-      log('info', 'engine-cache: Background refresh complete', {
-        durationMs: durationMs.toFixed(2),
-        pokemonCount: stats.pokemonCount,
-        moveCount: stats.moveCount,
-        memorySizeMb: stats.memorySizeMb.toFixed(2),
-        dataChanged,
-        adaptivePolling: {
-          consecutiveNoChanges: this.consecutiveNoChangeRefreshes,
-          currentIntervalMin: (this.currentRefreshIntervalMs / 1000 / 60).toFixed(0),
-        },
+      logger.info('engine-cache', 'refresh', 'Background refresh complete', {
+        durationMs,
+        metadata: {
+          pokemonCount: stats.pokemonCount,
+          moveCount: stats.moveCount,
+          memorySizeMb: stats.memorySizeMb.toFixed(2),
+          dataChanged,
+          adaptivePolling: {
+            consecutiveNoChanges: this.consecutiveNoChangeRefreshes,
+            currentIntervalMin: (this.currentRefreshIntervalMs / 1000 / 60).toFixed(0),
+          },
+        }
       });
       
     } catch (error) {
-      log('error', 'engine-cache: Background refresh failed', error);
+      const err = ensureError(error);
+      logger.error('engine-cache', 'refresh', 'Background refresh failed', {
+        error: { name: err.name, message: err.message, stack: err.stack }
+      });
       // Don't throw - current cache still valid, retry next interval
     } finally {
       this.isRefreshing = false;
@@ -1201,23 +1269,27 @@ export class EngineCache implements IPrunableCache {
     if (totalOps >= 1000) { // Only warn after significant sample size
       // Warn if hit rate drops below 95%
       if (hitRate < 95.0) {
-        log('warn', 'engine-cache: LRU hit rate below threshold', {
-          hitRate: hitRate.toFixed(2) + '%',
-          hitCount: this.hitCount,
-          missCount: this.missCount,
-          evictionCount: this.evictionCount,
-          recommendation: 'Consider increasing maxPokemonEntries or maxMoveEntries'
+        logger.warn('engine-cache', 'getStats', 'LRU hit rate below threshold', {
+          metadata: {
+            hitRate: hitRate.toFixed(2) + '%',
+            hitCount: this.hitCount,
+            missCount: this.missCount,
+            evictionCount: this.evictionCount,
+            recommendation: 'Consider increasing maxPokemonEntries or maxMoveEntries',
+          }
         });
       }
       
       // Warn if eviction rate is too high (>10% of operations)
       const evictionRate = (this.evictionCount / totalOps) * 100;
       if (evictionRate > 10.0) {
-        log('warn', 'engine-cache: High LRU eviction rate detected', {
-          evictionRate: evictionRate.toFixed(2) + '%',
-          evictionCount: this.evictionCount,
-          totalOps,
-          recommendation: 'Consider increasing maxPokemonEntries or maxMoveEntries'
+        logger.warn('engine-cache', 'getStats', 'High LRU eviction rate detected', {
+          metadata: {
+            evictionRate: evictionRate.toFixed(2) + '%',
+            evictionCount: this.evictionCount,
+            totalOps,
+            recommendation: 'Consider increasing maxPokemonEntries or maxMoveEntries',
+          }
         });
       }
     }
@@ -1287,9 +1359,12 @@ export class EngineCache implements IPrunableCache {
     
     // Warn if latency exceeds expected threshold
     if (durationUs > EngineDbConfig.l1CacheExpectedLatencyUs) {
-      log('warn', 'engine-cache: Slow lookup detected', {
-        latencyUs: durationUs.toFixed(2),
-        expectedUs: EngineDbConfig.l1CacheExpectedLatencyUs
+      logger.warn('engine-cache', 'trackLatency', 'Slow lookup detected', {
+        latencyMs: durationMs,
+        metadata: {
+          latencyUs: durationUs.toFixed(2),
+          expectedUs: EngineDbConfig.l1CacheExpectedLatencyUs,
+        }
       });
     }
   }
@@ -1356,7 +1431,9 @@ export class EngineCache implements IPrunableCache {
         operation: 'engine-cache:calculateChecksum',
       }).catch(() => {});
       
-      log('error', 'engine-cache: Failed to calculate checksum', error);
+      logger.error('engine-cache', 'calculateChecksum', 'Failed to calculate checksum', {
+        error: { name: ensureError(error).name, message: ensureError(error).message, stack: ensureError(error).stack }
+      });
       return null;
     }
   }
@@ -1375,25 +1452,29 @@ export class EngineCache implements IPrunableCache {
     try {
       // Check 1: Maps should not be empty if initialized
       if (this.isInitialized && this.pokemon.size === 0) {
-        log('error', 'engine-cache: CORRUPTION DETECTED - Pokemon map is empty');
+        logger.error('engine-cache', 'verifyIntegrity', 'CORRUPTION DETECTED - Pokemon map is empty');
         this.corruptionDetected = true;
         return false;
       }
       
       // Check 2: Secondary indexes should match primary maps
       if (this.pokemonByName.size !== this.pokemon.size) {
-        log('error', 'engine-cache: CORRUPTION DETECTED - Pokemon name index out of sync', {
-          pokemonSize: this.pokemon.size,
-          indexSize: this.pokemonByName.size
+        logger.error('engine-cache', 'verifyIntegrity', 'CORRUPTION DETECTED - Pokemon name index out of sync', {
+          metadata: {
+            pokemonSize: this.pokemon.size,
+            indexSize: this.pokemonByName.size,
+          }
         });
         this.corruptionDetected = true;
         return false;
       }
       
       if (this.movesByName.size !== this.moves.size) {
-        log('error', 'engine-cache: CORRUPTION DETECTED - Move name index out of sync', {
-          movesSize: this.moves.size,
-          indexSize: this.movesByName.size
+        logger.error('engine-cache', 'verifyIntegrity', 'CORRUPTION DETECTED - Move name index out of sync', {
+          metadata: {
+            movesSize: this.moves.size,
+            indexSize: this.movesByName.size,
+          }
         });
         this.corruptionDetected = true;
         return false;
@@ -1402,9 +1483,11 @@ export class EngineCache implements IPrunableCache {
       // Check 3: Data structure sanity
       for (const [id, pokemon] of this.pokemon.entries()) {
         if (!pokemon || typeof pokemon.id !== 'number' || pokemon.id !== id) {
-          log('error', 'engine-cache: CORRUPTION DETECTED - Invalid Pokemon entry', {
-            expectedId: id,
-            actualId: pokemon?.id
+          logger.error('engine-cache', 'verifyIntegrity', 'CORRUPTION DETECTED - Invalid Pokemon entry', {
+            metadata: {
+              expectedId: id,
+              actualId: pokemon?.id,
+            }
           });
           this.corruptionDetected = true;
           return false;
@@ -1415,7 +1498,10 @@ export class EngineCache implements IPrunableCache {
       return true;
       
     } catch (error) {
-      log('error', 'engine-cache: Integrity check failed', error);
+      const err = ensureError(error);
+      logger.error('engine-cache', 'verifyIntegrity', 'Integrity check failed', {
+        error: { name: err.name, message: err.message, stack: err.stack }
+      });
       this.corruptionDetected = true;
       return false;
     }
@@ -1486,13 +1572,15 @@ export class EngineCache implements IPrunableCache {
     
     const durationMs = performance.now() - startTime;
     
-    log('info', 'engine-cache: Prune complete (MemoryGuardian)', {
-      targetSizePercent,
-      itemsRemoved,
-      bytesFreedMB: (bytesFreed / 1024 / 1024).toFixed(2),
-      durationMs: durationMs.toFixed(2),
-      remainingPokemon: this.pokemon.size,
-      remainingMoves: this.moves.size,
+    logger.info('engine-cache', 'prune', 'Prune complete (MemoryGuardian)', {
+      durationMs,
+      metadata: {
+        targetSizePercent,
+        itemsRemoved,
+        bytesFreedMB: (bytesFreed / 1024 / 1024).toFixed(2),
+        remainingPokemon: this.pokemon.size,
+        remainingMoves: this.moves.size,
+      }
     });
     
     return { itemsRemoved, bytesFreed };
@@ -1538,14 +1626,16 @@ export class EngineCache implements IPrunableCache {
     
     const durationMs = performance.now() - startTime;
     
-    log('error', 'engine-cache: EMERGENCY PRUNE executed (MemoryGuardian)', {
-      itemsRemoved,
-      bytesFreedMB: (bytesFreed / 1024 / 1024).toFixed(2),
-      durationMs: durationMs.toFixed(2),
-      remainingPokemon: this.pokemon.size,
-      remainingMoves: this.moves.size,
-      minimumsPokemon: EMERGENCY_MIN_POKEMON,
-      minimumsMove: EMERGENCY_MIN_MOVES,
+    logger.error('engine-cache', 'emergencyPrune', 'EMERGENCY PRUNE executed (MemoryGuardian)', {
+      durationMs,
+      metadata: {
+        itemsRemoved,
+        bytesFreedMB: (bytesFreed / 1024 / 1024).toFixed(2),
+        remainingPokemon: this.pokemon.size,
+        remainingMoves: this.moves.size,
+        minimumsPokemon: EMERGENCY_MIN_POKEMON,
+        minimumsMove: EMERGENCY_MIN_MOVES,
+      }
     });
     
     // Capture error for tracking
@@ -1618,7 +1708,7 @@ export class EngineCache implements IPrunableCache {
    * Graceful shutdown (cleanup timers, no data loss)
    */
   shutdown(): void {
-    log('info', 'engine-cache: Shutting down gracefully...');
+    logger.info('engine-cache', 'shutdown', 'Shutting down gracefully...');
     
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
@@ -1626,10 +1716,12 @@ export class EngineCache implements IPrunableCache {
     }
     
     const stats = this.getStats();
-    log('info', 'engine-cache: Shutdown complete', {
-      finalHitCount: stats.hitCount,
-      finalMissCount: stats.missCount,
-      finalAvgLatencyUs: stats.avgLatencyUs.toFixed(2)
+    logger.info('engine-cache', 'shutdown', 'Shutdown complete', {
+      metadata: {
+        finalHitCount: stats.hitCount,
+        finalMissCount: stats.missCount,
+        finalAvgLatencyUs: stats.avgLatencyUs.toFixed(2),
+      }
     });
   }
   

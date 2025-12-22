@@ -24,9 +24,11 @@
  */
 
 import { EngineDbConfig } from '../../config/engine-db-config.js';
-import { log } from "../../shared/logging/index.js";
+import { getLogger } from "../../shared/logging/index.js";
 import { errorTracker } from '../monitoring/error-tracker.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Type Definitions
@@ -123,9 +125,11 @@ export class EngineWriteBuffer {
    * Does NOT block startup - battle engine can start immediately.
    */
   start(): void {
-    log('info', 'engine-write-buffer: Starting periodic flush worker', {
-      flushIntervalMs: EngineDbConfig.writeBufferFlushIntervalMs,
-      maxQueueSize: EngineDbConfig.writeBufferMaxQueueSize
+    logger.info('engine-write-buffer', 'start', 'Starting periodic flush worker', {
+      metadata: {
+        flushIntervalMs: EngineDbConfig.writeBufferFlushIntervalMs,
+        maxQueueSize: EngineDbConfig.writeBufferMaxQueueSize
+      },
     });
     
     this.flushInterval = setInterval(async () => {
@@ -231,28 +235,34 @@ export class EngineWriteBuffer {
     if (maxQueueSize >= rejectThreshold && !this.isBackpressureActive) {
       this.isBackpressureActive = true;
       
-      log('error', 'engine-write-buffer: BACKPRESSURE ACTIVATED - Rejecting new battles', {
-        battleLogSize,
-        moveUsageSize,
-        anomalySize,
-        maxSize,
-        utilizationPercent: ((maxQueueSize / maxSize) * 100).toFixed(2)
+      logger.error('engine-write-buffer', 'backpressure', 'BACKPRESSURE ACTIVATED - Rejecting new battles', {
+        metadata: {
+          battleLogSize,
+          moveUsageSize,
+          anomalySize,
+          maxSize,
+          utilizationPercent: ((maxQueueSize / maxSize) * 100).toFixed(2)
+        },
       });
       
       // Emergency flush (don't wait for next interval)
       this.flush().catch(error => {
-        log('error', 'engine-write-buffer: Emergency flush failed', error);
+        logger.error('engine-write-buffer', 'emergency-flush', 'Emergency flush failed', {
+          error: { name: 'FlushError', message: String(error) },
+        });
       });
     }
     
     // Check warn threshold (75%)
     else if (maxQueueSize >= warnThreshold && !this.isBackpressureActive) {
-      log('warn', 'engine-write-buffer: High queue utilization detected', {
-        battleLogSize,
-        moveUsageSize,
-        anomalySize,
-        maxSize,
-        utilizationPercent: ((maxQueueSize / maxSize) * 100).toFixed(2)
+      logger.warn('engine-write-buffer', 'utilization', 'High queue utilization detected', {
+        metadata: {
+          battleLogSize,
+          moveUsageSize,
+          anomalySize,
+          maxSize,
+          utilizationPercent: ((maxQueueSize / maxSize) * 100).toFixed(2)
+        },
       });
     }
     
@@ -260,11 +270,13 @@ export class EngineWriteBuffer {
     if (this.isBackpressureActive && maxQueueSize < maxSize * 0.5) {
       this.isBackpressureActive = false;
       
-      log('info', 'engine-write-buffer: Backpressure deactivated - Queues drained', {
-        battleLogSize,
-        moveUsageSize,
-        anomalySize,
-        utilizationPercent: ((maxQueueSize / maxSize) * 100).toFixed(2)
+      logger.info('engine-write-buffer', 'backpressure', 'Backpressure deactivated - Queues drained', {
+        metadata: {
+          battleLogSize,
+          moveUsageSize,
+          anomalySize,
+          utilizationPercent: ((maxQueueSize / maxSize) * 100).toFixed(2)
+        },
       });
     }
   }
@@ -283,7 +295,7 @@ export class EngineWriteBuffer {
    */
   async flush(): Promise<void> {
     if (this.isFlushing) {
-      log('warn', 'engine-write-buffer: Flush already in progress, skipping');
+      logger.warn('engine-write-buffer', 'flush', 'Flush already in progress, skipping');
       return;
     }
     
@@ -329,11 +341,13 @@ export class EngineWriteBuffer {
       
       const durationMs = performance.now() - startTime;
       
-      log('info', 'engine-write-buffer: Flush complete', {
-        battleLogsWritten: battleLogs.length,
-        moveUsageWritten: moveUsage.length,
-        anomaliesWritten: anomalies.length,
-        durationMs: durationMs.toFixed(2)
+      logger.info('engine-write-buffer', 'flush', 'Flush complete', {
+        durationMs,
+        metadata: {
+          battleLogsWritten: battleLogs.length,
+          moveUsageWritten: moveUsage.length,
+          anomaliesWritten: anomalies.length,
+        }
       });
       
       // Check backpressure after flush
@@ -349,7 +363,13 @@ export class EngineWriteBuffer {
         },
       });
       
-      log('error', 'engine-write-buffer: Flush failed', error);
+      logger.error('engine-write-buffer', 'flush', 'Flush failed', {
+        error: {
+          name: ensureError(error).name,
+          message: ensureError(error).message,
+          stack: ensureError(error).stack,
+        }
+      });
       
       // TODO: Re-queue failed entries? Or let them be lost?
       // Current strategy: Let them be lost (WAL will recover if crash)
@@ -394,9 +414,12 @@ export class EngineWriteBuffer {
     
     // Warn if latency exceeds expected threshold
     if (durationUs > EngineDbConfig.writeBufferExpectedLatencyUs) {
-      log('warn', 'engine-write-buffer: Slow push detected', {
-        latencyUs: durationUs.toFixed(2),
-        expectedUs: EngineDbConfig.writeBufferExpectedLatencyUs
+      logger.warn('engine-write-buffer', 'push', 'Slow push detected', {
+        latencyMs: durationMs,
+        metadata: {
+          latencyUs: durationUs.toFixed(2),
+          expectedUs: EngineDbConfig.writeBufferExpectedLatencyUs,
+        }
       });
     }
   }
@@ -431,7 +454,7 @@ export class EngineWriteBuffer {
    * @param timeoutMs Max time to wait for final flush (default: 10 seconds)
    */
   async shutdown(timeoutMs: number = EngineDbConfig.writeBufferShutdownTimeoutMs): Promise<void> {
-    log('info', 'engine-write-buffer: Starting graceful shutdown...');
+    logger.info('engine-write-buffer', 'shutdown', 'Starting graceful shutdown...');
     
     // Stop accepting new entries (backpressure)
     this.isBackpressureActive = true;
@@ -456,21 +479,32 @@ export class EngineWriteBuffer {
       ]);
       
       const stats = this.getStats();
-      log('info', 'engine-write-buffer: Graceful shutdown complete', {
-        totalFlushes: stats.flushCount,
-        avgPushLatencyUs: this.getAvgPushLatency().toFixed(2),
-        finalQueueSize: stats.totalQueueSize
+      logger.info('engine-write-buffer', 'shutdown', 'Graceful shutdown complete', {
+        metadata: {
+          totalFlushes: stats.flushCount,
+          avgPushLatencyUs: this.getAvgPushLatency().toFixed(2),
+          finalQueueSize: stats.totalQueueSize,
+        }
       });
       
     } catch (error) {
-      log('error', 'engine-write-buffer: Shutdown flush failed or timed out', error);
+      const err = ensureError(error);
+      logger.error('engine-write-buffer', 'shutdown', 'Shutdown flush failed or timed out', {
+        error: {
+          name: err.name,
+          message: err.message,
+          stack: err.stack,
+        }
+      });
       
       const stats = this.getStats();
       if (stats.totalQueueSize > 0) {
-        log('warn', 'engine-write-buffer: DATA LOSS WARNING - Unflushed entries', {
-          battleLogsLost: stats.battleLogQueueSize,
-          moveUsageLost: stats.moveUsageQueueSize,
-          anomaliesLost: stats.anomalyQueueSize
+        logger.warn('engine-write-buffer', 'shutdown', 'DATA LOSS WARNING - Unflushed entries', {
+          metadata: {
+            battleLogsLost: stats.battleLogQueueSize,
+            moveUsageLost: stats.moveUsageQueueSize,
+            anomaliesLost: stats.anomalyQueueSize,
+          }
         });
       }
     }
@@ -483,7 +517,7 @@ export class EngineWriteBuffer {
    * May not complete if process killed (SIGKILL, OOM).
    */
   async emergencyShutdown(): Promise<void> {
-    log('error', 'engine-write-buffer: EMERGENCY SHUTDOWN - Attempting best-effort flush');
+    logger.error('engine-write-buffer', 'emergency-shutdown', 'EMERGENCY SHUTDOWN - Attempting best-effort flush');
     
     try {
       // Synchronous data collection (prepare for possible crash)
@@ -492,14 +526,23 @@ export class EngineWriteBuffer {
       // Attempt flush (may fail if system corrupted)
       await this.flush();
       
-      log('info', 'engine-write-buffer: Emergency flush succeeded', {
-        battleLogsFlushed: stats.battleLogQueueSize,
-        moveUsageFlushed: stats.moveUsageQueueSize,
-        anomaliesFlushed: stats.anomalyQueueSize
+      logger.info('engine-write-buffer', 'emergency-shutdown', 'Emergency flush succeeded', {
+        metadata: {
+          battleLogsFlushed: stats.battleLogQueueSize,
+          moveUsageFlushed: stats.moveUsageQueueSize,
+          anomaliesFlushed: stats.anomalyQueueSize,
+        }
       });
       
     } catch (error) {
-      log('error', 'engine-write-buffer: Emergency flush failed', error);
+      const err = ensureError(error);
+      logger.error('engine-write-buffer', 'emergency-shutdown', 'Emergency flush failed', {
+        error: {
+          name: err.name,
+          message: err.message,
+          stack: err.stack,
+        }
+      });
       // WAL will recover on next startup
     }
   }

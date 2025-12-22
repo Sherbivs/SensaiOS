@@ -18,7 +18,7 @@ import path from 'node:path';
 import { toEasternLogFormat } from '../../shared/datetime.js';
 import { EventBus } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
-import { log } from "../../shared/logging/index.js";
+import { getLogger } from "../../shared/logging/index.js";
 import { daysAgo } from '../../shared/utils/date-utils.js';
 import type { ErrorLog } from '../../generated/prisma/client.js';
 import {
@@ -31,6 +31,8 @@ import {
 } from '../../utils/stack-trace-parser.js';
 // Error Brain — Local intelligence system for error pattern detection
 import * as ErrorBrain from '../error-brain/index.js';
+
+const logger = getLogger();
 
 /// ---- Live Error Stream ----
 
@@ -296,15 +298,15 @@ export class ErrorTracker {
     const topFrame = parsedStack.topFrame;
     
     // Enhanced logging output with source location
-    log('error', `🚨 [ERROR CAPTURED] ${timestamp}`);
-    log('error', `   Type: ${error.name}`);
-    log('error', `   Message: ${error.message}`);
+    logger.error('error-tracker', 'capture', `🚨 [ERROR CAPTURED] ${timestamp}`);
+    logger.error('error-tracker', 'capture', `   Type: ${error.name}`);
+    logger.error('error-tracker', 'capture', `   Message: ${error.message}`);
     if (topFrame?.relativeFilePath) {
-      log('error', `   Location: ${topFrame.relativeFilePath}:${topFrame.lineNumber}:${topFrame.columnNumber}`);
-      log('error', `   Function: ${topFrame.functionName || '<anonymous>'}`);
+      logger.error('error-tracker', 'capture', `   Location: ${topFrame.relativeFilePath}:${topFrame.lineNumber}:${topFrame.columnNumber}`);
+      logger.error('error-tracker', 'capture', `   Function: ${topFrame.functionName || '<anonymous>'}`);
     }
-    log('error', `   Call Chain: ${parsedStack.callChain.slice(0, 3).join(' → ')}`);
-    log('error', `   Context: ${JSON.stringify({
+    logger.error('error-tracker', 'capture', `   Call Chain: ${parsedStack.callChain.slice(0, 3).join(' → ')}`);
+    logger.error('error-tracker', 'capture', `   Context: ${JSON.stringify({
       service: context.service,
       operation: context.operation,
       userId: context.userId,
@@ -323,7 +325,7 @@ export class ErrorTracker {
         parsedStack.frames = enriched;
       }).catch(err => {
         // Source enrichment failed - not critical, continue
-        log('warn', '[ErrorTracker] Source enrichment failed: ' + err.message);
+        logger.warn('error-tracker', 'enrich', '[ErrorTracker] Source enrichment failed: ' + err.message);
       });
       
       // Enrich context with automatic detection + stack trace metadata
@@ -391,7 +393,7 @@ export class ErrorTracker {
         callChain: parsedStack.callChain,
       });
       
-      log('error', `   ✅ Persisted: ${result.errorId} (fingerprint: ${fingerprint.substring(0, 8)}...)`);
+      logger.error('error-tracker', 'persist', `   ✅ Persisted: ${result.errorId} (fingerprint: ${fingerprint.substring(0, 8)}...)`);
       
       // ============================================================
       // ERROR BRAIN INTEGRATION — Local Intelligence System
@@ -423,13 +425,13 @@ export class ErrorTracker {
         // Check for anomalies (synchronous, <1μs)
         const anomaly = ErrorBrain.detectTimeAnomaly(fingerprint, result.occurrenceCount);
         if (anomaly.isAnomalous) {
-          log('warn', `   🧠 [ErrorBrain] ANOMALY DETECTED: ${fingerprint.substring(0, 8)}... (Z-score: ${anomaly.zScore.toFixed(2)})`);
+          logger.warn('error-tracker', 'anomaly', `   🧠 [ErrorBrain] ANOMALY DETECTED: ${fingerprint.substring(0, 8)}... (Z-score: ${anomaly.zScore.toFixed(2)})`);
         }
         
         // Check for cascade prediction (synchronous, <10μs)
         const cascade = ErrorBrain.predictCascade(fingerprint);
         if (cascade && cascade.probability > 0.5) {
-          log('warn', `   🧠 [ErrorBrain] CASCADE RISK: ${(cascade.probability * 100).toFixed(0)}% chance of ${cascade.predictedChildren.length} downstream errors`);
+          logger.warn('error-tracker', 'cascade', `   🧠 [ErrorBrain] CASCADE RISK: ${(cascade.probability * 100).toFixed(0)}% chance of ${cascade.predictedChildren.length} downstream errors`);
         }
         
         // Log burst detection for high-frequency errors
@@ -439,33 +441,33 @@ export class ErrorTracker {
           severity: severityLevel,
         });
         if (burst.isBurst) {
-          log('warn', `   🧠 [ErrorBrain] BURST DETECTED: ${burst.eventsPerSecond.toFixed(1)} errors/sec (${burst.burstMultiplier.toFixed(1)}x baseline)`);
+          logger.warn('error-tracker', 'burst', `   🧠 [ErrorBrain] BURST DETECTED: ${burst.eventsPerSecond.toFixed(1)} errors/sec (${burst.burstMultiplier.toFixed(1)}x baseline)`);
         }
       } catch (brainError) {
         // Error Brain failures are non-critical — log and continue
-        log('warn', '[ErrorTracker] Error Brain integration failed: ' + String(brainError));
+        logger.warn('error-tracker', 'brain-error', '[ErrorTracker] Error Brain integration failed: ' + String(brainError));
       }
       
       // Generate AI-optimized error report (async, fire-and-forget)
       // Write to Store/error-reports/ for SSH analysis
       this.generateAndStoreAIReport(error, parsedStack, enrichedContext, fingerprint).catch((err: Error) => {
-        log('warn', '[ErrorTracker] AI report generation failed: ' + err.message);
+        logger.warn('error-tracker', 'report', '[ErrorTracker] AI report generation failed: ' + err.message);
       });
       
       // PHASE 2D: Persist stack frames for debugging/hotspot detection (async, fire-and-forget)
       this.persistCodeContext(result.errorId, parsedStack.frames).catch((err: Error) => {
-        log('warn', '[ErrorTracker] Code context persistence failed: ' + err.message);
+        logger.warn('error-tracker', 'persist-context', '[ErrorTracker] Code context persistence failed: ' + err.message);
       });
       
       return result.errorId;
     } catch (captureError) {
       // CRITICAL: Even if database write fails, MUST log to console
       // This ensures ZERO false negatives - every error is visible somewhere
-      log('error', '\n❌ [ERROR TRACKER FAILURE] Database write failed!');
-      log('error', '   Capture Error: ' + String(captureError));
-      log('error', '   Original Error: ' + String(error));
-      log('error', '   Stack: ' + (error.stack || 'No stack trace'));
-      log('error', '   Context: ' + JSON.stringify(context, null, 2));
+      logger.error('error-tracker', 'failure', '\n❌ [ERROR TRACKER FAILURE] Database write failed!');
+      logger.error('error-tracker', 'failure', '   Capture Error: ' + String(captureError));
+      logger.error('error-tracker', 'failure', '   Original Error: ' + String(error));
+      logger.error('error-tracker', 'failure', '   Stack: ' + (error.stack || 'No stack trace'));
+      logger.error('error-tracker', 'failure', '   Context: ' + JSON.stringify(context, null, 2));
       
       // Fallback: Write to emergency error log file (backup persistence)
       this.writeToEmergencyLog(error, context, captureError, parsedStack);
@@ -674,18 +676,18 @@ export class ErrorTracker {
           success,
           durationMs
         );
-        log('info', `   🧠 [ErrorBrain] Recovery outcome recorded: ${strategy} (${outcome})`);
+        logger.info('error-tracker', 'recovery', `   🧠 [ErrorBrain] Recovery outcome recorded: ${strategy} (${outcome})`);
       } catch (brainError) {
         // Error Brain failures are non-critical
-        log('warn', '[ErrorTracker] Error Brain recovery learning failed: ' + String(brainError));
+        logger.warn('error-tracker', 'recovery', '[ErrorTracker] Error Brain recovery learning failed: ' + String(brainError));
       }
       
-      log('info', `[ErrorTracker] Resolution recorded: ${strategy} (${outcome}) for ${errorId.substring(0, 8)}...`);
+      logger.info('error-tracker', 'resolution', `[ErrorTracker] Resolution recorded: ${strategy} (${outcome}) for ${errorId.substring(0, 8)}...`);
       
       return resolution.resolutionId;
       
     } catch (error) {
-      log('error', `[ErrorTracker] Failed to record resolution: ${error}`);
+      logger.error('error-tracker', 'resolution', `[ErrorTracker] Failed to record resolution: ${error}`);
       throw error;
     }
   }
@@ -817,7 +819,7 @@ export class ErrorTracker {
       });
       
     } catch (error) {
-      log('error', `[ErrorTracker] Failed to get effective strategies: ${error}`);
+      logger.error('error-tracker', 'strategies', `[ErrorTracker] Failed to get effective strategies: ${error}`);
       throw error;
     }
   }
@@ -925,11 +927,11 @@ export class ErrorTracker {
       
       // Log correlation ID for debugging (minimal output to avoid noise)
       if (process.env.NODE_ENV === 'development') {
-        log('error', `   🔗 Correlation: ${correlationId.substring(0, 8)}... → ${topic}`);
+        logger.error('error-tracker', 'event-bus', `   🔗 Correlation: ${correlationId.substring(0, 8)}... → ${topic}`);
       }
     } catch (emitError) {
       // MUST NOT throw - Event Bus emission is optional enhancement
-      log('error', '[ErrorTracker] Failed to emit to Event Bus: ' + String(emitError));
+      logger.error('error-tracker', 'event-bus', '[ErrorTracker] Failed to emit to Event Bus: ' + String(emitError));
     }
   }
   
@@ -963,10 +965,10 @@ export class ErrorTracker {
       const filepath = path.join(reportsDir, filename);
       
       await fs.writeFile(filepath, report, 'utf-8');
-      log('error', `   📊 AI Report: ${filepath}`);
+      logger.error('error-tracker', 'ai-report', `   📊 AI Report: ${filepath}`);
     } catch (reportError) {
       // Report generation failed - not critical
-      log('warn', '[ErrorTracker] AI report generation failed: ' + String(reportError));
+      logger.warn('error-tracker', 'ai-report', '[ErrorTracker] AI report generation failed: ' + String(reportError));
     }
   }
   
@@ -1016,11 +1018,11 @@ export class ErrorTracker {
         skipDuplicates: true,
       });
       
-      log('info', `[ErrorTracker] Persisted ${contextRecords.length} stack frames for error ${errorId.substring(0, 8)}...`);
+      logger.info('error-tracker', 'persist-context', `[ErrorTracker] Persisted ${contextRecords.length} stack frames for error ${errorId.substring(0, 8)}...`);
       return contextRecords.length;
       
     } catch (error) {
-      log('warn', '[ErrorTracker] Failed to persist code context: ' + (error instanceof Error ? error.message : String(error)));
+      logger.warn('error-tracker', 'persist-context', '[ErrorTracker] Failed to persist code context: ' + (error instanceof Error ? error.message : String(error)));
       return 0;
     }
   }
@@ -1097,7 +1099,7 @@ export class ErrorTracker {
       return hotspots;
       
     } catch (error) {
-      log('error', '[ErrorTracker] Failed to get hotspots: ' + (error instanceof Error ? error.message : String(error)));
+      logger.error('error-tracker', 'hotspots', '[ErrorTracker] Failed to get hotspots: ' + (error instanceof Error ? error.message : String(error)));
       throw error;
     }
   }
@@ -1134,7 +1136,7 @@ export class ErrorTracker {
       return frames;
       
     } catch (error) {
-      log('error', '[ErrorTracker] Failed to get call chain: ' + (error instanceof Error ? error.message : String(error)));
+      logger.error('error-tracker', 'call-chain', '[ErrorTracker] Failed to get call chain: ' + (error instanceof Error ? error.message : String(error)));
       throw error;
     }
   }
@@ -1172,7 +1174,7 @@ export class ErrorTracker {
       return contexts;
       
     } catch (error) {
-      log('error', '[ErrorTracker] Failed to get errors by file: ' + (error instanceof Error ? error.message : String(error)));
+      logger.error('error-tracker', 'errors-by-file', '[ErrorTracker] Failed to get errors by file: ' + (error instanceof Error ? error.message : String(error)));
       throw error;
     }
   }
@@ -1232,7 +1234,7 @@ export class ErrorTracker {
         .slice(0, limit);
         
     } catch (error) {
-      log('error', '[ErrorTracker] Failed to get function error stats: ' + (error instanceof Error ? error.message : String(error)));
+      logger.error('error-tracker', 'function-stats', '[ErrorTracker] Failed to get function error stats: ' + (error instanceof Error ? error.message : String(error)));
       throw error;
     }
   }
@@ -1284,11 +1286,11 @@ export class ErrorTracker {
       };
       
       await fs.writeFile(filepath, JSON.stringify(emergencyEntry, null, 2));
-      log('error', `   📝 Emergency log written: ${filepath}`);
+      logger.error('error-tracker', 'emergency', `   📝 Emergency log written: ${filepath}`);
     } catch (fileError) {
       // Absolute last resort: just log to console
-      log('error', '[ErrorTracker] Emergency file write also failed: ' + String(fileError));
-      log('error', '[ErrorTracker] Error data: ' + JSON.stringify({
+      logger.error('error-tracker', 'emergency', '[ErrorTracker] Emergency file write also failed: ' + String(fileError));
+      logger.error('error-tracker', 'emergency', '[ErrorTracker] Error data: ' + JSON.stringify({
         error: { name: error.name, message: error.message },
         context,
       }, null, 2));

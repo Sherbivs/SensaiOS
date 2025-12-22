@@ -32,7 +32,7 @@ import crypto from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { EngineDbConfig } from '../../config/engine-db-config.js';
-import { log } from "../../shared/logging/index.js";
+import { getLogger } from "../../shared/logging/index.js";
 import { getTableCount, getCount } from './sql-utils.js';
 import type { 
   BattleLogEntry, 
@@ -41,6 +41,8 @@ import type {
 } from '../cache/engine-write-buffer.js';
 import { EventBus, type BusEvent } from '../../shared/event-bus.js';
 import type { MetricsSnapshotEvent } from '../monitoring/resource-monitor.js';
+
+const logger = getLogger();
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -205,8 +207,8 @@ export async function initialize(): Promise<void> {
   }
 
   try {
-    log('info', 'engine-write-db: Initializing Write-DB...', { 
-      path: EngineDbConfig.writeDbPath 
+    logger.info('engine-write-db', 'initialize', 'Initializing Write-DB...', { 
+      metadata: { path: EngineDbConfig.writeDbPath }
     });
 
     // Initialize sql.js - locate WASM file from project root
@@ -226,9 +228,9 @@ export async function initialize(): Promise<void> {
     try {
       const buffer = await fsPromises.readFile(EngineDbConfig.writeDbPath);
       dbData = new Uint8Array(buffer);
-      log('info', 'engine-write-db: Loaded existing Write-DB from disk');
+      logger.info('engine-write-db', 'initialize', 'Loaded existing Write-DB from disk');
     } catch {
-      log('info', 'engine-write-db: No existing Write-DB found, creating new');
+      logger.info('engine-write-db', 'initialize', 'No existing Write-DB found, creating new');
     }
 
     db = new SQL.Database(dbData);
@@ -251,16 +253,24 @@ export async function initialize(): Promise<void> {
     isInitialized = true;
 
     const stats = getStats();
-    log('info', 'engine-write-db: Initialization complete', {
-      battleLogCount: stats.battleLogCount,
-      moveUsageCount: stats.moveUsageCount,
-      anomalyCount: stats.anomalyCount,
-      walEntryCount: stats.walEntryCount,
-      systemMetricsCount: stats.systemMetricsCount
+    logger.info('engine-write-db', 'initialize', 'Initialization complete', {
+      metadata: {
+        battleLogCount: stats.battleLogCount,
+        moveUsageCount: stats.moveUsageCount,
+        anomalyCount: stats.anomalyCount,
+        walEntryCount: stats.walEntryCount,
+        systemMetricsCount: stats.systemMetricsCount,
+      }
     });
 
   } catch (error) {
-    log('error', 'engine-write-db: Initialization failed', error);
+    logger.error('engine-write-db', 'initialize', 'Initialization failed', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
     throw error;
   }
 }
@@ -375,7 +385,7 @@ async function createSchema(): Promise<void> {
   // P6: System metrics index for time-based queries
   db.run('CREATE INDEX IF NOT EXISTS idx_system_metrics_timestamp ON system_metrics(timestamp)');
 
-  log('info', 'engine-write-db: Schema created/verified');
+  logger.info('engine-write-db', 'createSchema', 'Schema created/verified');
 }
 
 // ============================================================================
@@ -421,12 +431,18 @@ export async function insertBattleLogs(entries: BattleLogEntry[]): Promise<void>
 
     stmt.free();
 
-    log('info', 'engine-write-db: Inserted battle logs', {
-      count: entries.length
+    logger.info('engine-write-db', 'insertBattleLogs', 'Inserted battle logs', {
+      metadata: { count: entries.length }
     });
 
   } catch (error) {
-    log('error', 'engine-write-db: insertBattleLogs failed', error);
+    logger.error('engine-write-db', 'insertBattleLogs', 'insertBattleLogs failed', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
     throw error;
   }
 }
@@ -472,12 +488,18 @@ export async function insertMoveUsage(entries: MoveUsageEntry[]): Promise<void> 
 
     stmt.free();
 
-    log('info', 'engine-write-db: Inserted move usage', {
-      count: entries.length
+    logger.info('engine-write-db', 'insertMoveUsage', 'Inserted move usage', {
+      metadata: { count: entries.length }
     });
 
   } catch (error) {
-    log('error', 'engine-write-db: insertMoveUsage failed', error);
+    logger.error('engine-write-db', 'insertMoveUsage', 'insertMoveUsage failed', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
     throw error;
   }
 }
@@ -520,12 +542,18 @@ export async function insertAnomalies(entries: AnomalyEntry[]): Promise<void> {
 
     stmt.free();
 
-    log('info', 'engine-write-db: Inserted anomalies', {
-      count: entries.length
+    logger.info('engine-write-db', 'insertAnomalies', 'Inserted anomalies', {
+      metadata: { count: entries.length }
     });
 
   } catch (error) {
-    log('error', 'engine-write-db: insertAnomalies failed', error);
+    logger.error('engine-write-db', 'insertAnomalies', 'insertAnomalies failed', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
     throw error;
   }
 }
@@ -576,15 +604,27 @@ function subscribeToMetricsSnapshot(): void {
         lastMetricsInsertTime = now;
         
       } catch (error) {
-        log('warn', 'engine-write-db: Failed to store metrics snapshot', error);
+        logger.warn('engine-write-db', 'subscribeToMetricsSnapshot', 'Failed to store metrics snapshot', {
+          error: {
+            name: (error as Error).name,
+            message: (error as Error).message,
+            stack: (error as Error).stack,
+          }
+        });
         // Non-fatal - metrics storage failures shouldn't crash the system
       }
     });
     
-    log('info', 'engine-write-db: Subscribed to metrics.snapshot for historical storage');
+    logger.info('engine-write-db', 'subscribeToMetricsSnapshot', 'Subscribed to metrics.snapshot for historical storage');
     
   } catch (error) {
-    log('warn', 'engine-write-db: Failed to subscribe to metrics.snapshot', error);
+    logger.warn('engine-write-db', 'subscribeToMetricsSnapshot', 'Failed to subscribe to metrics.snapshot', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
     // Non-fatal - historical metrics are optional
   }
 }
@@ -597,9 +637,15 @@ function unsubscribeFromMetricsSnapshot(): void {
     try {
       EventBus.getInstance().unsubscribe(metricsSubscriptionId);
       metricsSubscriptionId = null;
-      log('info', 'engine-write-db: Unsubscribed from metrics.snapshot');
+      logger.info('engine-write-db', 'unsubscribeFromMetricsSnapshot', 'Unsubscribed from metrics.snapshot');
     } catch (error) {
-      log('warn', 'engine-write-db: Failed to unsubscribe from metrics.snapshot', error);
+      logger.warn('engine-write-db', 'unsubscribeFromMetricsSnapshot', 'Failed to unsubscribe from metrics.snapshot', {
+        error: {
+          name: (error as Error).name,
+          message: (error as Error).message,
+          stack: (error as Error).stack,
+        }
+      });
     }
   }
 }
@@ -668,7 +714,13 @@ async function insertSystemMetrics(entry: SystemMetricsEntry): Promise<void> {
     stmt.free();
     
   } catch (error) {
-    log('error', 'engine-write-db: Failed to insert system metrics', error);
+    logger.error('engine-write-db', 'insertSystemMetrics', 'Failed to insert system metrics', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
     throw error;
   }
 }
@@ -742,7 +794,13 @@ export async function queryMetricsHistory(minutes: number = 60): Promise<Metrics
     return { entries, summary };
     
   } catch (error) {
-    log('error', 'engine-write-db: Failed to query metrics history', error);
+    logger.error('engine-write-db', 'getMetricsHistory', 'Failed to query metrics history', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
     return {
       entries: [],
       summary: {
@@ -844,17 +902,25 @@ export async function pruneOldMetrics(): Promise<{ deletedCount: number }> {
     if (deletedCount > 0) {
       db.exec(`DELETE FROM system_metrics WHERE timestamp < ${cutoffTime}`);
       
-      log('info', 'engine-write-db: Pruned old system metrics', {
-        deletedCount,
-        retentionDays: 7,
-        cutoffTime: new Date(cutoffTime * 1000).toISOString(),
+      logger.info('engine-write-db', 'pruneOldMetrics', 'Pruned old system metrics', {
+        metadata: {
+          deletedCount,
+          retentionDays: 7,
+          cutoffTime: new Date(cutoffTime * 1000).toISOString(),
+        }
       });
     }
     
     return { deletedCount };
     
   } catch (error) {
-    log('error', 'engine-write-db: Failed to prune old metrics', error);
+    logger.error('engine-write-db', 'pruneOldMetrics', 'Failed to prune old metrics', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
     return { deletedCount: 0 };
   }
 }
@@ -925,7 +991,13 @@ async function appendToWAL(
 
   } catch (error) {
     // WAL append failure is non-fatal (main table insert still succeeds)
-    log('warn', 'engine-write-db: WAL append failed', error);
+    logger.warn('engine-write-db', 'appendToWAL', 'WAL append failed', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
   }
 }
 
@@ -941,7 +1013,7 @@ export async function replayWAL(): Promise<void> {
   }
 
   try {
-    log('info', 'engine-write-db: Replaying Write-Ahead Log...');
+    logger.info('engine-write-db', 'replayWAL', 'Replaying Write-Ahead Log...');
 
     const result = db.exec(`
       SELECT id, operation, payload, checksum, created_at
@@ -950,7 +1022,7 @@ export async function replayWAL(): Promise<void> {
     `);
 
     if (!result || result.length === 0 || !result[0].values || result[0].values.length === 0) {
-      log('info', 'engine-write-db: WAL is empty (no recovery needed)');
+      logger.info('engine-write-db', 'replayWAL', 'WAL is empty (no recovery needed)');
       return;
     }
 
@@ -969,9 +1041,11 @@ export async function replayWAL(): Promise<void> {
       // Verify checksum
       const computedChecksum = crypto.createHash('sha256').update(walEntry.payload).digest('hex');
       if (computedChecksum !== walEntry.checksum) {
-        log('warn', 'engine-write-db: WAL entry corrupted (checksum mismatch)', {
-          walId: walEntry.id,
-          operation: walEntry.operation
+        logger.warn('engine-write-db', 'replayWAL', 'WAL entry corrupted (checksum mismatch)', {
+          metadata: {
+            walId: walEntry.id,
+            operation: walEntry.operation,
+          }
         });
         corruptedCount++;
         continue;
@@ -996,10 +1070,16 @@ export async function replayWAL(): Promise<void> {
         recoveredCount++;
 
       } catch (error) {
-        log('warn', 'engine-write-db: WAL replay failed for entry', {
-          walId: walEntry.id,
-          operation: walEntry.operation,
-          error
+        logger.warn('engine-write-db', 'replayWAL', 'WAL replay failed for entry', {
+          error: {
+            name: (error as Error).name,
+            message: (error as Error).message,
+            stack: (error as Error).stack,
+          },
+          metadata: {
+            walId: walEntry.id,
+            operation: walEntry.operation,
+          }
         });
         corruptedCount++;
       }
@@ -1008,13 +1088,18 @@ export async function replayWAL(): Promise<void> {
     // Clear WAL after successful replay
     db.run('DELETE FROM write_ahead_log');
 
-    log('info', 'engine-write-db: WAL replay complete', {
-      recoveredCount,
-      corruptedCount
+    logger.info('engine-write-db', 'replayWAL', 'WAL replay complete', {
+      metadata: { recoveredCount, corruptedCount }
     });
 
   } catch (error) {
-    log('error', 'engine-write-db: WAL replay failed', error);
+    logger.error('engine-write-db', 'replayWAL', 'WAL replay failed', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
     throw error;
   }
 }
@@ -1036,12 +1121,18 @@ export async function saveToFile(): Promise<void> {
     const buffer = Buffer.from(data);
     await fsPromises.writeFile(EngineDbConfig.writeDbPath, buffer);
 
-    log('info', 'engine-write-db: Saved to disk', {
-      sizeBytes: buffer.length
+    logger.info('engine-write-db', 'saveToFile', 'Saved to disk', {
+      metadata: { sizeBytes: buffer.length }
     });
 
   } catch (error) {
-    log('error', 'engine-write-db: Failed to save to disk', error);
+    logger.error('engine-write-db', 'saveToFile', 'Failed to save to disk', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
     throw error;
   }
 }
@@ -1058,12 +1149,18 @@ function startAutoSave(): void {
     try {
       await saveToFile();
     } catch (error) {
-      log('error', 'engine-write-db: Auto-save failed', error);
+      logger.error('engine-write-db', 'autoSave', 'Auto-save failed', {
+        error: {
+          name: (error as Error).name,
+          message: (error as Error).message,
+          stack: (error as Error).stack,
+        }
+      });
     }
   }, EngineDbConfig.writeBufferFlushIntervalMs); // Same as buffer flush (30s)
 
-  log('info', 'engine-write-db: Auto-save started', {
-    intervalMs: EngineDbConfig.writeBufferFlushIntervalMs
+  logger.info('engine-write-db', 'startAutoSave', 'Auto-save started', {
+    metadata: { intervalMs: EngineDbConfig.writeBufferFlushIntervalMs }
   });
 }
 
@@ -1074,7 +1171,7 @@ function stopAutoSave(): void {
   if (autoSaveInterval) {
     clearInterval(autoSaveInterval);
     autoSaveInterval = null;
-    log('info', 'engine-write-db: Auto-save stopped');
+    logger.info('engine-write-db', 'stopAutoSave', 'Auto-save stopped');
   }
 }
 
@@ -1101,7 +1198,7 @@ export async function validateData(): Promise<ValidationReport> {
   const errors: Array<{ row_id: number; error: string }> = [];
 
   try {
-    log('info', 'engine-write-db: Starting data validation...');
+    logger.info('engine-write-db', 'validateData', 'Starting data validation...');
 
     // Count total rows
     const battleCount = getCount(db, 'SELECT COUNT(*) FROM battle_logs WHERE uploaded_at IS NULL');
@@ -1192,17 +1289,25 @@ export async function validateData(): Promise<ValidationReport> {
       timestamp: new Date()
     };
 
-    log('info', 'engine-write-db: Validation complete', {
-      qualityScore: (qualityScore * 100).toFixed(2) + '%',
-      passedRows,
-      failedRows: report.failedRows,
-      durationMs: durationMs.toFixed(2)
+    logger.info('engine-write-db', 'validateData', 'Validation complete', {
+      durationMs,
+      metadata: {
+        qualityScore: (qualityScore * 100).toFixed(2) + '%',
+        passedRows,
+        failedRows: report.failedRows,
+      }
     });
 
     return report;
 
   } catch (error) {
-    log('error', 'engine-write-db: Validation failed', error);
+    logger.error('engine-write-db', 'validateData', 'Validation failed', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
     throw error;
   }
 }
@@ -1223,7 +1328,7 @@ export async function uploadToProd(): Promise<UploadReport> {
   const startTime = performance.now();
 
   try {
-    log('info', 'engine-write-db: Starting PROD upload...');
+    logger.info('engine-write-db', 'uploadToProd', 'Starting PROD upload...');
 
     // TODO: Implement actual PROD upload via Prisma
     // const prisma = (await import('../shared/prisma.js')).prisma;
@@ -1252,12 +1357,18 @@ export async function uploadToProd(): Promise<UploadReport> {
       timestamp: new Date()
     };
 
-    log('warn', 'engine-write-db: PROD upload using placeholder (Prisma integration pending)');
+    logger.warn('engine-write-db', 'uploadToProd', 'PROD upload using placeholder (Prisma integration pending)');
 
     return report;
 
   } catch (error) {
-    log('error', 'engine-write-db: PROD upload failed', error);
+    logger.error('engine-write-db', 'uploadToProd', 'PROD upload failed', {
+      error: {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      }
+    });
     throw error;
   }
 }
@@ -1281,9 +1392,11 @@ export async function pruneOldEntries(): Promise<void> {
     const retentionSeconds = EngineDbConfig.writeDbRetentionHours * 60 * 60;
     const cutoffTime = Math.floor(Date.now() / 1000) - retentionSeconds;
 
-    log('info', 'engine-write-db: Pruning old entries...', {
-      retentionHours: EngineDbConfig.writeDbRetentionHours,
-      cutoffTime: new Date(cutoffTime * 1000).toISOString()
+    logger.info('engine-write-db', 'prune-old-entries', 'Pruning old entries...', {
+      metadata: {
+        retentionHours: EngineDbConfig.writeDbRetentionHours,
+        cutoffTime: new Date(cutoffTime * 1000).toISOString()
+      }
     });
 
     // Delete uploaded entries older than retention period
@@ -1308,13 +1421,16 @@ export async function pruneOldEntries(): Promise<void> {
     // Run VACUUM to reclaim space
     db.run('VACUUM');
 
-    log('info', 'engine-write-db: Pruning complete');
+    logger.info('engine-write-db', 'prune-old-entries', 'Pruning complete');
 
     // Save after pruning
     await saveToFile();
 
   } catch (error) {
-    log('error', 'engine-write-db: Pruning failed', error);
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error('engine-write-db', 'prune-old-entries', 'Pruning failed', {
+      error: { name: err.name, message: err.message, stack: err.stack }
+    });
     throw error;
   }
 }
@@ -1394,7 +1510,10 @@ export function getStats(): WriteDbStats {
     };
 
   } catch (error) {
-    log('error', 'engine-write-db: getStats failed', error);
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error('engine-write-db', 'get-stats', 'getStats failed', {
+      error: { name: err.name, message: err.message, stack: err.stack }
+    });
     return {
       battleLogCount: 0,
       moveUsageCount: 0,
@@ -1435,7 +1554,7 @@ export async function close(): Promise<void> {
   SQL = null;
   isInitialized = false;
 
-  log('info', 'engine-write-db: Connection closed');
+  logger.info('engine-write-db', 'close', 'Connection closed');
 }
 
 /**

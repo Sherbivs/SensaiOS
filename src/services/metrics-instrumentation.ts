@@ -25,7 +25,9 @@ import {
 } from './prometheus-metrics.js';
 import { lokiTransport } from '../shared/logging/loki-transport.js';
 import { EventBus } from '../shared/event-bus.js';
-import { log } from '../shared/log.js';
+import { getLogger } from '../shared/logging/index.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Types
@@ -116,14 +118,14 @@ function startLokiStatsCollection(): void {
     }
   }, 30_000);
   
-  log.info('Loki stats collection started (30s interval)');
+  logger.info('instrumentation', 'loki-stats-start', 'Loki stats collection started (30s interval)');
 }
 
 function stopLokiStatsCollection(): void {
   if (lokiStatsInterval) {
     clearInterval(lokiStatsInterval);
     lokiStatsInterval = null;
-    log.info('Loki stats collection stopped');
+    logger.info('instrumentation', 'loki-stats-stop', 'Loki stats collection stopped');
   }
 }
 
@@ -198,7 +200,7 @@ export function initializeMetricsInstrumentation(): void {
   // ─────────────────────────────────────────────────────────────────────────
   startLokiStatsCollection();
   
-  log.info('Metrics instrumentation initialized (battle, encounter, command, db, loki)');
+  logger.info('instrumentation', 'init', 'Metrics instrumentation initialized (battle, encounter, command, db, loki)');
 }
 
 /**
@@ -230,7 +232,7 @@ export function shutdownMetricsInstrumentation(): void {
   
   stopLokiStatsCollection();
   
-  log.info('Metrics instrumentation shutdown complete');
+  logger.info('instrumentation', 'shutdown', 'Metrics instrumentation shutdown complete');
 }
 
 // ============================================================================

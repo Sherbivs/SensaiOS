@@ -12,8 +12,10 @@
 
 import { Client, Guild, TextChannel, ChannelType, PermissionFlagsBits, User } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
 import { getErrorMessage } from '../shared/utils/error-utils.js';
+
+const logger = getLogger();
 import { daysAgo } from '../shared/utils/date-utils.js';
 import { HOMESTEAD_CATEGORY_NAME, HOMESTEAD_CLEANUP_DAYS } from '../config/env.js';
 import { homesteadRepository } from './homestead-repository.js';
@@ -90,10 +92,10 @@ export class HomesteadChannelManager {
       
       if (!channel) {
         // Channel deleted in Discord but still in DB - recreate
-        log.warn('[HomesteadManager] Channel deleted in Discord, recreating', {
+        logger.warn('homestead', 'recreate', 'Channel deleted in Discord, recreating', {
           userId,
           guildId,
-          oldChannelId: homesteadRecord.channelId,
+          metadata: { oldChannelId: homesteadRecord.channelId },
         });
         
         channel = await this.createDiscordChannel(user);
@@ -128,11 +130,10 @@ export class HomesteadChannelManager {
         },
       });
 
-      log.info('[HomesteadManager] Created new homestead', {
+      logger.info('homestead', 'create', 'Created new homestead', {
         userId,
-        username: user.username,
         channelId: channel.id,
-        channelName: channel.name,
+        metadata: { username: user.username, channelName: channel.name },
       });
     }
 
@@ -156,9 +157,9 @@ export class HomesteadChannelManager {
       return null;
     } catch (error) {
       // Channel not found or permission error
-      log.warn('[HomesteadManager] Channel verification failed', {
+      logger.warn('homestead', 'verify', 'Channel verification failed', {
         channelId,
-        error: getErrorMessage(error),
+        metadata: { errorMsg: getErrorMessage(error) },
       });
       return null;
     }
@@ -195,11 +196,10 @@ export class HomesteadChannelManager {
       ],
     });
 
-    log.info('[HomesteadManager] Created Discord channel', {
+    logger.info('homestead', 'create-channel', 'Created Discord channel', {
       userId: user.id,
       channelId: channel.id,
-      channelName: channel.name,
-      categoryId: category.id,
+      metadata: { channelName: channel.name, categoryId: category.id },
     });
 
     return channel;
@@ -234,9 +234,9 @@ export class HomesteadChannelManager {
       ],
     });
 
-    log.info('[HomesteadManager] Created Homesteads category', {
-      categoryId: category.id,
+    logger.info('homestead', 'create-category', 'Created Homesteads category', {
       guildId: this.guild.id,
+      metadata: { categoryId: category.id },
     });
 
     return category;
@@ -286,24 +286,21 @@ export class HomesteadChannelManager {
 
         cleanedCount++;
 
-        log.info('[HomesteadManager] Cleaned up inactive channel', {
+        logger.info('homestead', 'cleanup-channel', 'Cleaned up inactive channel', {
           userId: homestead.userId,
           channelId: homestead.channelId,
-          lastAccessed: homestead.lastAccessedAt,
+          metadata: { lastAccessed: homestead.lastAccessedAt },
         });
       } catch (error) {
-        log.error('[HomesteadManager] Failed to clean up channel', {
-          homesteadId: homestead.id,
-          error: getErrorMessage(error),
+        logger.error('homestead', 'cleanup-channel', 'Failed to clean up channel', {
+          metadata: { homesteadId: homestead.id, errorMsg: getErrorMessage(error) },
         });
       }
     }
 
-    log.info('[HomesteadManager] Cleanup complete', {
+    logger.info('homestead', 'cleanup-complete', 'Cleanup complete', {
       guildId: this.guild.id,
-      inactiveDays: daysInactive,
-      cleanedCount,
-      totalInactive: inactiveHomesteads.length,
+      metadata: { inactiveDays: daysInactive, cleanedCount, totalInactive: inactiveHomesteads.length },
     });
 
     return cleanedCount;
@@ -347,7 +344,7 @@ export class HomesteadChannelManager {
         where: { id: homestead.id },
       });
 
-      log.info('[HomesteadManager] Deleted homestead', {
+      logger.info('homestead', 'delete', 'Deleted homestead', {
         userId,
         guildId,
         channelId: homestead.channelId,
@@ -355,10 +352,10 @@ export class HomesteadChannelManager {
 
       return true;
     } catch (error) {
-      log.error('[HomesteadManager] Failed to delete homestead', {
+      logger.error('homestead', 'delete', 'Failed to delete homestead', {
         userId,
         guildId,
-        error: getErrorMessage(error),
+        metadata: { errorMsg: getErrorMessage(error) },
       });
       return false;
     }
@@ -500,7 +497,11 @@ export class HomesteadChannelManager {
           }
 
           suspended++;
-          log.info('[HomesteadManager] Suspended homestead', { userId, guildId, reason });
+          logger.info('homestead', 'suspend', 'Suspended homestead', {
+            userId,
+            guildId,
+            metadata: { reason },
+          });
         }
       } catch (error) {
         errors.push(`Failed to suspend ${userId}: ${getErrorMessage(error)}`);
@@ -559,7 +560,7 @@ export class HomesteadChannelManager {
         await homesteadRepository.delete(homestead.id);
         repaired++;
         
-        log.warn('[HomesteadManager] Removed orphaned homestead record', {
+        logger.warn('homestead', 'health-check', 'Removed orphaned homestead record', {
           userId: homestead.userId,
           guildId,
           channelId: homestead.channelId,

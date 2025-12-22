@@ -17,8 +17,10 @@
 
 import RedisModule from 'ioredis';
 import type { Redis as RedisType } from 'ioredis';
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
+
+const logger = getLogger();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -106,8 +108,8 @@ function initializeRedis(): RedisType | null {
   const redisEnabled = process.env['REDIS_ENABLED'] !== 'false'; // Default: enabled
 
   if (!redisEnabled) {
-    log('warn', '[DistributedLock] Redis explicitly disabled - using in-memory fallback', {
-      mode: 'in-memory-only',
+    logger.warn('distributed-lock', 'init', 'Redis explicitly disabled - using in-memory fallback', {
+      metadata: { mode: 'in-memory-only' },
     });
     return null;
   }
@@ -132,8 +134,8 @@ function initializeRedis(): RedisType | null {
 
     redisClient.on('connect', () => {
       redisAvailable = true;
-      log('success', '[DistributedLock] Redis connected', {
-        url: redisUrl.replace(/:[^:@]+@/, ':***@'), // Hide password in logs
+      logger.info('distributed-lock', 'connect', 'Redis connected', {
+        metadata: { url: redisUrl.replace(/:[^:@]+@/, ':***@') },
       });
     });
 
@@ -143,15 +145,15 @@ function initializeRedis(): RedisType | null {
         message: err.message,
         timestamp: new Date().toISOString(),
       };
-      log('error', '[DistributedLock] Redis error - falling back to in-memory', {
-        error: err.message,
+      logger.error('distributed-lock', 'error', 'Redis error - falling back to in-memory', {
+        error: { name: err.name, message: err.message },
       });
     });
 
     redisClient.on('close', () => {
       redisAvailable = false;
-      log('warn', '[DistributedLock] Redis connection closed', {
-        mode: 'fallback-active',
+      logger.warn('distributed-lock', 'close', 'Redis connection closed', {
+        metadata: { mode: 'fallback-active' },
       });
     });
 
@@ -169,9 +171,8 @@ function initializeRedis(): RedisType | null {
         }
 
         if (cleaned > 0) {
-          log('detail', '[DistributedLock] Cleaned expired in-memory locks', {
-            cleaned,
-            remaining: inMemoryLocks.size,
+          logger.debug('distributed-lock', 'cleanup', 'Cleaned expired in-memory locks', {
+            metadata: { cleaned, remaining: inMemoryLocks.size },
           });
         }
       }, 10000);
@@ -183,9 +184,8 @@ function initializeRedis(): RedisType | null {
     return redisClient;
   } catch (err) {
     const message = getErrorMessage(err);
-    log('error', '[DistributedLock] Failed to initialize Redis', {
-      error: message,
-      fallback: 'in-memory',
+    logger.error('distributed-lock', 'init', 'Failed to initialize Redis', {
+      metadata: { fallback: 'in-memory', errorMsg: message },
     });
     lockStats.lastError = {
       message,
@@ -222,23 +222,20 @@ async function releaseLockInternal(
         lockStats.totalReleased++;
         lockStats.currentLocks = Math.max(0, lockStats.currentLocks - 1);
 
-        log('detail', '[DistributedLock] Lock released (Redis)', {
-          key: lockKey.replace('lock:', ''),
-          success: true,
+        logger.debug('distributed-lock', 'release', 'Lock released (Redis)', {
+          metadata: { key: lockKey.replace('lock:', ''), success: true },
         });
         return true;
       } else {
-        log('warn', '[DistributedLock] Lock release failed (Redis) - not owned or expired', {
-          key: lockKey.replace('lock:', ''),
-          reason: 'ownership_mismatch',
+        logger.warn('distributed-lock', 'release', 'Lock release failed (Redis) - not owned or expired', {
+          metadata: { key: lockKey.replace('lock:', ''), reason: 'ownership_mismatch' },
         });
         return false;
       }
     } catch (err) {
       const message = getErrorMessage(err);
-      log('error', '[DistributedLock] Failed to release Redis lock', {
-        key: lockKey.replace('lock:', ''),
-        error: message,
+      logger.error('distributed-lock', 'release', 'Failed to release Redis lock', {
+        metadata: { key: lockKey.replace('lock:', ''), errorMsg: message },
       });
       return false;
     }
@@ -251,16 +248,14 @@ async function releaseLockInternal(
     lockStats.totalReleased++;
     lockStats.currentLocks = Math.max(0, lockStats.currentLocks - 1);
 
-    log('detail', '[DistributedLock] Lock released (in-memory)', {
-      key: lockKey.replace('lock:', ''),
-      success: true,
+    logger.debug('distributed-lock', 'release', 'Lock released (in-memory)', {
+      metadata: { key: lockKey.replace('lock:', ''), success: true },
     });
     return true;
   }
 
-  log('warn', '[DistributedLock] Lock release failed (in-memory) - not owned or expired', {
-    key: lockKey.replace('lock:', ''),
-    reason: 'ownership_mismatch',
+  logger.warn('distributed-lock', 'release', 'Lock release failed (in-memory) - not owned or expired', {
+    metadata: { key: lockKey.replace('lock:', ''), reason: 'ownership_mismatch' },
   });
   return false;
 }
@@ -292,7 +287,7 @@ async function releaseLockInternal(
  */
 export async function acquireLock(key: string, ttlMs = 5000): Promise<Lock | null> {
   if (!key || typeof key !== 'string') {
-    log('error', '[DistributedLock] Invalid lock key', { key: String(key) });
+    logger.error('distributed-lock', 'acquire', 'Invalid lock key', { metadata: { key: String(key) } });
     return null;
   }
 
@@ -313,10 +308,8 @@ export async function acquireLock(key: string, ttlMs = 5000): Promise<Lock | nul
         lockStats.totalAcquired++;
         lockStats.currentLocks++;
 
-        log('detail', '[DistributedLock] Lock acquired (Redis)', {
-          key,
-          ttlMs,
-          lockValue: lockValue.substring(0, 16) + '...',
+        logger.debug('distributed-lock', 'acquire', 'Lock acquired (Redis)', {
+          metadata: { key, ttlMs, lockValue: lockValue.substring(0, 16) + '...' },
         });
 
         return {
@@ -329,16 +322,14 @@ export async function acquireLock(key: string, ttlMs = 5000): Promise<Lock | nul
 
       // Lock already held by another process
       lockStats.totalFailed++;
-      log('detail', '[DistributedLock] Lock acquisition failed (Redis) - already held', {
-        key,
-        reason: 'lock_exists',
+      logger.debug('distributed-lock', 'acquire', 'Lock acquisition failed (Redis) - already held', {
+        metadata: { key, reason: 'lock_exists' },
       });
       return null;
     } catch (err) {
       const message = getErrorMessage(err);
-      log('warn', '[DistributedLock] Redis lock failed - falling back to in-memory', {
-        key,
-        error: message,
+      logger.warn('distributed-lock', 'acquire', 'Redis lock failed - falling back to in-memory', {
+        metadata: { key, errorMsg: message },
       });
       // Fall through to in-memory fallback
     }
@@ -354,10 +345,8 @@ export async function acquireLock(key: string, ttlMs = 5000): Promise<Lock | nul
   const existing = inMemoryLocks.get(lockKey);
   if (existing && existing.expiresAt > now) {
     lockStats.totalFailed++;
-    log('detail', '[DistributedLock] Lock acquisition failed (in-memory) - already held', {
-      key,
-      reason: 'lock_exists',
-      expiresIn: existing.expiresAt - now,
+    logger.debug('distributed-lock', 'acquire', 'Lock acquisition failed (in-memory) - already held', {
+      metadata: { key, reason: 'lock_exists', expiresIn: existing.expiresAt - now },
     });
     return null;
   }
@@ -367,10 +356,8 @@ export async function acquireLock(key: string, ttlMs = 5000): Promise<Lock | nul
   lockStats.totalAcquired++;
   lockStats.currentLocks++;
 
-  log('detail', '[DistributedLock] Lock acquired (in-memory)', {
-    key,
-    ttlMs,
-    warning: 'Using fallback - not distributed across processes!',
+  logger.debug('distributed-lock', 'acquire', 'Lock acquired (in-memory)', {
+    metadata: { key, ttlMs, warning: 'Using fallback - not distributed across processes!' },
   });
 
   return {
@@ -404,13 +391,13 @@ export async function shutdownDistributedLock(): Promise<void> {
   if (redisClient) {
     try {
       await redisClient.quit();
-      log('info', '[DistributedLock] Redis connection closed gracefully', {
-        finalStats: getLockStatistics(),
+      logger.info('distributed-lock', 'shutdown', 'Redis connection closed gracefully', {
+        metadata: { finalStats: getLockStatistics() },
       });
     } catch (err) {
       const message = getErrorMessage(err);
-      log('warn', '[DistributedLock] Error closing Redis connection', {
-        error: message,
+      logger.warn('distributed-lock', 'shutdown', 'Error closing Redis connection', {
+        metadata: { errorMsg: message },
       });
     }
     redisClient = null;

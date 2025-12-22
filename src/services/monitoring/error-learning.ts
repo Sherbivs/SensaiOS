@@ -36,8 +36,10 @@
  */
 
 import { prisma } from '../../shared/prisma.js';
-import { log } from '../../shared/logging/index.js';
+import { getLogger } from '../../shared/logging/index.js';
 import { daysAgo } from '../../shared/utils/date-utils.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // Type Definitions
@@ -244,7 +246,7 @@ export class ErrorLearningService {
       return hourBuckets;
       
     } catch (error) {
-      log.error('Error detecting time patterns', error);
+      logger.error('error-learning', 'time-patterns', 'Error detecting time patterns', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -342,7 +344,7 @@ export class ErrorLearningService {
       return correlations.sort((a, b) => b.correlationStrength - a.correlationStrength);
       
     } catch (error) {
-      log.error('Error detecting correlations', error);
+      logger.error('error-learning', 'correlations', 'Error detecting correlations', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -365,7 +367,7 @@ export class ErrorLearningService {
       if (persistToDb && correlations.length > 0) {
         const persisted = await this.persistCascadesFromCorrelations(correlations);
         if (persisted > 0) {
-          log.info(`Auto-persisted ${persisted} cascade relationships to ErrorDependency table`);
+          logger.info('error-learning', 'cascades', `Auto-persisted ${persisted} cascade relationships to ErrorDependency table`);
         }
       }
       
@@ -430,7 +432,7 @@ export class ErrorLearningService {
       return cascades.sort((a, b) => b.totalImpact - a.totalImpact);
       
     } catch (error) {
-      log.error('Error detecting cascades', error);
+      logger.error('error-learning', 'cascades', 'Error detecting cascades', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -482,7 +484,7 @@ export class ErrorLearningService {
           },
         });
         
-        log.debug(`Updated cascade dependency: ${parentErrorId} → ${childErrorId} (count: ${newCount}, conf: ${newConfidence.toFixed(2)})`);
+        logger.debug('error-learning', 'persist-cascade', `Updated cascade dependency: ${parentErrorId} → ${childErrorId} (count: ${newCount}, conf: ${newConfidence.toFixed(2)})`);
         return existing.dependencyId;
       } else {
         // Create new dependency relationship
@@ -498,11 +500,11 @@ export class ErrorLearningService {
           },
         });
         
-        log.info(`Created cascade dependency: ${parentErrorId} → ${childErrorId}`);
+        logger.info('error-learning', 'persist-cascade', `Created cascade dependency: ${parentErrorId} → ${childErrorId}`);
         return newDependency.dependencyId;
       }
     } catch (error) {
-      log.error('Error persisting cascade dependency', error);
+      logger.error('error-learning', 'persist-cascade', 'Error persisting cascade dependency', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -588,7 +590,7 @@ export class ErrorLearningService {
         recommendation,
       };
     } catch (error) {
-      log.error('Error calculating cascade risk', error);
+      logger.error('error-learning', 'cascade-risk', 'Error calculating cascade risk', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -683,7 +685,7 @@ export class ErrorLearningService {
         confidence: overallConfidence,
       };
     } catch (error) {
-      log.error('Error finding root cause', error);
+      logger.error('error-learning', 'root-cause', 'Error finding root cause', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -724,8 +726,8 @@ export class ErrorLearningService {
         }
       } catch (err) {
         // Log but don't fail entire batch
-        log.warn(`Failed to persist cascade for correlation: ${corr.primaryFingerprint} → ${corr.secondaryFingerprint}`, { 
-          error: err instanceof Error ? err.message : String(err) 
+        logger.warn('error-learning', 'persist-cascade', `Failed to persist cascade for correlation: ${corr.primaryFingerprint} → ${corr.secondaryFingerprint}`, { 
+          metadata: { error: err instanceof Error ? err.message : String(err) } 
         });
       }
     }
@@ -782,7 +784,7 @@ export class ErrorLearningService {
           },
         });
         
-        log.debug(`Updated time pattern for hour ${pattern.hour} (obs: ${newObservedCount})`);
+        logger.debug('error-learning', 'time-pattern', `Updated time pattern for hour ${pattern.hour} (obs: ${newObservedCount})`);
         return existing.knowledgeId;
       } else {
         // Create new pattern
@@ -797,11 +799,11 @@ export class ErrorLearningService {
           },
         });
         
-        log.info(`Created time pattern for hour ${pattern.hour} (anomalous: ${pattern.isAnomalous})`);
+        logger.info('error-learning', 'time-pattern', `Created time pattern for hour ${pattern.hour} (anomalous: ${pattern.isAnomalous})`);
         return created.knowledgeId;
       }
     } catch (error) {
-      log.error('Error persisting time pattern', error);
+      logger.error('error-learning', 'time-pattern', 'Error persisting time pattern', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -844,7 +846,7 @@ export class ErrorLearningService {
           },
         });
         
-        log.debug(`Updated correlation pattern: ${correlation.primaryFingerprint} → ${correlation.secondaryFingerprint}`);
+        logger.debug('error-learning', 'correlation-pattern', `Updated correlation pattern: ${correlation.primaryFingerprint} → ${correlation.secondaryFingerprint}`);
         return existing.knowledgeId;
       } else {
         // Create new correlation pattern
@@ -859,11 +861,11 @@ export class ErrorLearningService {
           },
         });
         
-        log.info(`Created correlation pattern: ${correlation.primaryFingerprint} → ${correlation.secondaryFingerprint}`);
+        logger.info('error-learning', 'correlation-pattern', `Created correlation pattern: ${correlation.primaryFingerprint} → ${correlation.secondaryFingerprint}`);
         return created.knowledgeId;
       }
     } catch (error) {
-      log.error('Error persisting correlation pattern', error);
+      logger.error('error-learning', 'correlation-pattern', 'Error persisting correlation pattern', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -916,7 +918,7 @@ export class ErrorLearningService {
           },
         });
         
-        log.debug(`Updated cascade pattern from ${cascade.rootCauseFingerprint} (depth: ${cascade.cascadeDepth})`);
+        logger.debug('error-learning', 'cascade-pattern', `Updated cascade pattern from ${cascade.rootCauseFingerprint} (depth: ${cascade.cascadeDepth})`);
         return existing.knowledgeId;
       } else {
         // Create new cascade pattern
@@ -931,11 +933,11 @@ export class ErrorLearningService {
           },
         });
         
-        log.info(`Created cascade pattern from ${cascade.rootCauseFingerprint} (impact: ${cascade.totalImpact})`);
+        logger.info('error-learning', 'cascade-pattern', `Created cascade pattern from ${cascade.rootCauseFingerprint} (impact: ${cascade.totalImpact})`);
         return created.knowledgeId;
       }
     } catch (error) {
-      log.error('Error persisting cascade pattern', error);
+      logger.error('error-learning', 'cascade-pattern', 'Error persisting cascade pattern', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -986,7 +988,7 @@ export class ErrorLearningService {
         updatedAt: r.updatedAt,
       }));
     } catch (error) {
-      log.error('Error querying knowledge', error);
+      logger.error('error-learning', 'query-knowledge', 'Error querying knowledge', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -1040,12 +1042,12 @@ export class ErrorLearningService {
       });
       
       if (result.count > 0) {
-        log.info(`Cleaned up ${result.count} expired knowledge entries`);
+        logger.info('error-learning', 'cleanup', `Cleaned up ${result.count} expired knowledge entries`);
       }
       
       return result.count;
     } catch (error) {
-      log.error('Error cleaning up expired knowledge', error);
+      logger.error('error-learning', 'cleanup', 'Error cleaning up expired knowledge', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -1148,7 +1150,7 @@ export class ErrorLearningService {
       };
       
     } catch (error) {
-      log.error('Error predicting impact', error);
+      logger.error('error-learning', 'predict-impact', 'Error predicting impact', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -1173,7 +1175,7 @@ export class ErrorLearningService {
       const learnedStrategies = await this.getLearnedStrategiesFromResolutions(errorName, category);
       
       if (learnedStrategies.length > 0) {
-        log.info(`[ErrorLearning] Using ${learnedStrategies.length} learned strategies from ErrorResolution`);
+        logger.info('error-learning', 'mitigation', `[ErrorLearning] Using ${learnedStrategies.length} learned strategies from ErrorResolution`);
         return learnedStrategies;
       }
       
@@ -1264,7 +1266,7 @@ export class ErrorLearningService {
       });
       
     } catch (error) {
-      log.error('Error suggesting mitigation', error);
+      logger.error('error-learning', 'mitigation', 'Error suggesting mitigation', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     }
   }
@@ -1380,7 +1382,7 @@ export class ErrorLearningService {
       });
       
     } catch (error) {
-      log.error('[ErrorLearning] Failed to get learned strategies from resolutions', error);
+      logger.error('error-learning', 'learned-strategies', '[ErrorLearning] Failed to get learned strategies from resolutions', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       return []; // Return empty on error, will fall back to legacy path
     }
   }
@@ -1489,13 +1491,13 @@ export class ErrorLearningService {
    */
   async updateKnowledgeBase(forceUpdate: boolean = false): Promise<number> {
     if (this.analysisInProgress && !forceUpdate) {
-      log.info('Error learning analysis already in progress, skipping');
+      logger.info('error-learning', 'update-knowledge', 'Error learning analysis already in progress, skipping');
       return 0;
     }
     
     try {
       this.analysisInProgress = true;
-      log.info('Starting error learning knowledge base update');
+      logger.info('error-learning', 'update-knowledge', 'Starting error learning knowledge base update');
       
       // Detect patterns
       const timePatterns = await this.detectTimePatterns(null, 7);
@@ -1511,7 +1513,7 @@ export class ErrorLearningService {
           await this.persistTimePattern(tp);
           persistedPatterns++;
         } catch (err) {
-          log.warn('Failed to persist time pattern', { hour: tp.hour, error: err instanceof Error ? err.message : String(err) });
+          logger.warn('error-learning', 'update-knowledge', 'Failed to persist time pattern', { metadata: { hour: tp.hour, error: err instanceof Error ? err.message : String(err) } });
         }
       }
       
@@ -1521,7 +1523,7 @@ export class ErrorLearningService {
           await this.persistCorrelationPattern(corr);
           persistedPatterns++;
         } catch (err) {
-          log.warn('Failed to persist correlation pattern', { error: err instanceof Error ? err.message : String(err) });
+          logger.warn('error-learning', 'update-knowledge', 'Failed to persist correlation pattern', { metadata: { error: err instanceof Error ? err.message : String(err) } });
         }
       }
       
@@ -1531,12 +1533,12 @@ export class ErrorLearningService {
           await this.persistCascadePattern(cascade);
           persistedPatterns++;
         } catch (err) {
-          log.warn('Failed to persist cascade pattern', { error: err instanceof Error ? err.message : String(err) });
+          logger.warn('error-learning', 'update-knowledge', 'Failed to persist cascade pattern', { metadata: { error: err instanceof Error ? err.message : String(err) } });
         }
       }
       
       if (persistedPatterns > 0) {
-        log.info(`Persisted ${persistedPatterns} patterns to ErrorKnowledge table`);
+        logger.info('error-learning', 'update-knowledge', `Persisted ${persistedPatterns} patterns to ErrorKnowledge table`);
       }
       
       // Cleanup expired knowledge
@@ -1594,11 +1596,11 @@ export class ErrorLearningService {
         updateCount++;
       }
       
-      log.info(`Error learning knowledge base updated: ${updateCount} errors analyzed`);
+      logger.info('error-learning', 'update-knowledge', `Error learning knowledge base updated: ${updateCount} errors analyzed`);
       return updateCount;
       
     } catch (error) {
-      log.error('Error updating knowledge base', error);
+      logger.error('error-learning', 'update-knowledge', 'Error updating knowledge base', { error: error instanceof Error ? { name: error.name, message: error.message } : { name: 'UnknownError', message: String(error) } });
       throw error;
     } finally {
       this.analysisInProgress = false;
