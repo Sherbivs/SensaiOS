@@ -29,6 +29,8 @@ import * as resourceMonitor from '../services/monitoring/resource-monitor.js';
 import * as engineReadDb from '../services/database/engine-read-db.js';
 import * as engineWriteDb from '../services/database/engine-write-db.js';
 import * as cacheFacade from '../services/cache/facade.js';
+import { getLogger, errorContext } from './logging/index.js';
+const logger = getLogger();
 // ============================================================================
 // ResourceManager Factory
 // ============================================================================
@@ -86,7 +88,8 @@ export function resourceManagerHealthCheck(instance) {
         }
         return true;
     }
-    catch {
+    catch (err) {
+        logger.warn('service-factories', 'healthCheck', 'ResourceManager health check failed', errorContext(err));
         return false;
     }
 }
@@ -161,7 +164,8 @@ export function errorTrackerHealthCheck(instance) {
         }
         return true;
     }
-    catch {
+    catch (err) {
+        logger.warn('service-factories', 'healthCheck', 'ErrorTracker health check failed', errorContext(err));
         return false;
     }
 }
@@ -236,7 +240,8 @@ export function engineCacheHealthCheck(instance) {
         }
         return true;
     }
-    catch {
+    catch (err) {
+        logger.warn('service-factories', 'healthCheck', 'EngineCache health check failed', errorContext(err));
         return false;
     }
 }
@@ -317,7 +322,8 @@ export function engineWriteBufferHealthCheck(instance) {
         }
         return true;
     }
-    catch {
+    catch (err) {
+        logger.warn('service-factories', 'healthCheck', 'EngineWriteBuffer health check failed', errorContext(err));
         return false;
     }
 }

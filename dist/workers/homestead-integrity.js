@@ -34,7 +34,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { daysAgo } from '../shared/utils/date-utils.js';
-import { getLogger } from '../shared/logging/index.js';
+import { getLogger, errorContext } from '../shared/logging/index.js';
 const logger = getLogger();
 // ============================================================================
 // CONFIGURATION
@@ -67,13 +67,15 @@ function emitIntegrityAlert(report, reportPath) {
     // Log alert - will be forwarded to Loki
     logger.warn('HomesteadIntegrity', 'emitIntegrityAlert', `ALERT: ${severity} integrity issues in guild ${report.guildId}`, {
         guildId: report.guildId,
-        severity,
-        issueRate: payload.issueRate,
-        totalIssues,
-        totalHomesteads: report.totalHomesteads,
-        orphans: report.orphans,
-        ghosts: report.ghosts,
-        reportPath
+        metadata: {
+            severity,
+            issueRate: payload.issueRate,
+            totalIssues,
+            totalHomesteads: report.totalHomesteads,
+            orphans: report.orphans,
+            ghosts: report.ghosts,
+            reportPath
+        }
     });
     // TODO: Integrate with DripAlerts system when available
 }
@@ -114,7 +116,7 @@ async function cleanupOldReports() {
         }
     }
     catch (err) {
-        logger.error('HomesteadIntegrity', 'cleanupOldReports', `Cleanup error: ${getErrorMessage(err)}`, { error: err });
+        logger.error('HomesteadIntegrity', 'cleanupOldReports', `Cleanup error: ${getErrorMessage(err)}`, errorContext(err));
     }
 }
 // ============================================================================
@@ -161,17 +163,19 @@ export async function runHomesteadIntegrityCheck(client) {
                 // Log summary
                 logger.info('HomesteadIntegrity', 'guildCheck', `Guild ${guildId}: ${report.totalHomesteads} homesteads, ${report.orphans} orphans, ${report.ghosts} ghosts (${(issueRate * 100).toFixed(1)}%)`, {
                     guildId,
-                    totalHomesteads: report.totalHomesteads,
-                    orphans: report.orphans,
-                    ghosts: report.ghosts,
-                    issueRate: issueRate * 100
+                    metadata: {
+                        totalHomesteads: report.totalHomesteads,
+                        orphans: report.orphans,
+                        ghosts: report.ghosts,
+                        issueRate: issueRate * 100
+                    }
                 });
             }
             catch (guildErr) {
                 // Log guild-specific error but continue checking other guilds
                 logger.error('HomesteadIntegrity', 'guildCheck', `Error checking guild ${guildId}: ${getErrorMessage(guildErr)}`, {
                     guildId,
-                    error: guildErr
+                    ...errorContext(guildErr)
                 });
             }
         }
@@ -181,14 +185,16 @@ export async function runHomesteadIntegrityCheck(client) {
         const duration = Date.now() - startTime;
         logger.info('HomesteadIntegrity', 'runCheck', `Check complete in ${duration}ms`, {
             durationMs: duration,
-            guildsChecked: totalGuildsChecked,
-            totalGuilds: guilds.length,
-            totalIssues: totalIssuesFound,
-            alertsEmitted: totalAlertsEmitted
+            metadata: {
+                guildsChecked: totalGuildsChecked,
+                totalGuilds: guilds.length,
+                totalIssues: totalIssuesFound,
+                alertsEmitted: totalAlertsEmitted
+            }
         });
     }
     catch (err) {
-        logger.error('HomesteadIntegrity', 'runCheck', `Fatal error: ${getErrorMessage(err)}`, { error: err });
+        logger.error('HomesteadIntegrity', 'runCheck', `Fatal error: ${getErrorMessage(err)}`, errorContext(err));
         throw err;
     }
 }
@@ -224,7 +230,7 @@ async function main() {
         process.exit(0);
     }
     catch (err) {
-        logger.error('HomesteadIntegrity', 'main', `Worker failed: ${getErrorMessage(err)}`, { error: err });
+        logger.error('HomesteadIntegrity', 'main', `Worker failed: ${getErrorMessage(err)}`, errorContext(err));
         await client.destroy();
         process.exit(1);
     }
@@ -232,7 +238,7 @@ async function main() {
 // Run worker if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
     main().catch((err) => {
-        logger.error('HomesteadIntegrity', 'main', `Unhandled error: ${err}`, { error: err });
+        logger.error('HomesteadIntegrity', 'main', `Unhandled error: ${err}`, errorContext(err));
         process.exit(1);
     });
 }

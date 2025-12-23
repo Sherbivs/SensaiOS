@@ -21,7 +21,7 @@
  *
  * @module workers/worker-manager
  */
-import { getLogger } from '../shared/logging/index.js';
+import { getLogger, errorContext } from '../shared/logging/index.js';
 import { getProdPostgresWorker, getTimescaleDBWorker, getEngineReadWorker, getEngineWriteWorker, } from './database/index.js';
 const logger = getLogger();
 /**
@@ -64,10 +64,10 @@ export class WorkerManager {
             await this.engineWriteWorker.initialize();
             this.initialized = true;
             const duration = Date.now() - startTime;
-            logger.info('WorkerManager', 'initializeAll', `✅ All workers initialized in ${duration}ms`, { durationMs: duration });
+            logger.info('WorkerManager', 'initializeAll', `✅ All workers initialized in ${duration}ms`, { metadata: { durationMs: duration } });
         }
         catch (error) {
-            logger.error('WorkerManager', 'initializeAll', '❌ Initialization failed', { error });
+            logger.error('WorkerManager', 'initializeAll', '❌ Initialization failed', errorContext(error));
             throw error;
         }
     }
@@ -95,7 +95,7 @@ export class WorkerManager {
             logger.info('WorkerManager', 'startAll', '✅ All workers started');
         }
         catch (error) {
-            logger.error('WorkerManager', 'startAll', '❌ Start failed', { error });
+            logger.error('WorkerManager', 'startAll', '❌ Start failed', errorContext(error));
             throw error;
         }
     }
@@ -131,7 +131,7 @@ export class WorkerManager {
             logger.info('WorkerManager', 'stopAll', '✅ All workers stopped');
         }
         catch (error) {
-            logger.error('WorkerManager', 'stopAll', '❌ Stop failed', { error });
+            logger.error('WorkerManager', 'stopAll', '❌ Stop failed', errorContext(error));
             throw error;
         }
     }
