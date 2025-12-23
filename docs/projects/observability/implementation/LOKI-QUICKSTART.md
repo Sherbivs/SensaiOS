@@ -119,3 +119,4 @@ Full instructions: `docs/operations-bible/loki-setup.md`
 **Status:** ✅ Ready to deploy
 **Build:** ✅ Passing
 **Deployment:** Add `LOKI_ENDPOINT` env var to Render
+

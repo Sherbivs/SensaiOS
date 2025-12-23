@@ -18,7 +18,60 @@
  * - system.{action} — System-level events
  */
 
-import type { SerializedError, ErrorSeverity, ErrorDomain } from "../errors/base.js";
+// ============================================================================
+// Error Types (inline - previously from errors/base.ts)
+// ============================================================================
+
+/**
+ * Error domain categories.
+ */
+export type ErrorDomain =
+  | "APP"
+  | "DATABASE"
+  | "GAME"
+  | "DISCORD"
+  | "VALIDATION"
+  | "CONFIG"
+  | "WORKER"
+  | "EXTERNAL"
+  | "CACHE";
+
+/**
+ * Error severity levels.
+ */
+export type ErrorSeverity = "low" | "medium" | "high" | "critical";
+
+/**
+ * Whether the error is operational (expected) or programming (bug).
+ */
+export type ErrorType = "operational" | "programming";
+
+/**
+ * Base error context for all errors.
+ */
+export interface ErrorContext {
+  errorId?: string;
+  correlationId?: string;
+  userId?: string;
+  operation?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Serialized error format for transport/logging.
+ */
+export interface SerializedError {
+  name: string;
+  message: string;
+  code: string;
+  domain: ErrorDomain;
+  severity: ErrorSeverity;
+  type: ErrorType;
+  context: ErrorContext;
+  stack?: string;
+  cause?: SerializedError;
+  timestamp: string;
+}
 
 // ============================================================================
 // Base Event Payload

@@ -2,7 +2,7 @@
 Title: Project Documentation Staging Area
 Purpose: Work-in-progress documentation before Bible integration (100% accuracy controlled experiment)
 Owned Globs: docs/projects/**
-Last Updated (UTC): 2025-12-02T00:00:00Z
+Last Updated (UTC): 2025-12-23T12:30:00Z
 
 Notes:
 - **Bible-Centric System:** Projects/ is staging area, Bibles are TRUTH
@@ -13,13 +13,36 @@ Notes:
 - **Archive:** archive/ holds completed projects (post-Bible integration)
 - **Cleanup:** cleanup/ holds documentation cleanup and organization projects (temp/ for utility)
 - **Pending Validation:** pending-validation/ holds projects awaiting AI integrity check
+- **REORGANIZED 2025-12-23:** All loose root files moved to organized project folders
 
 Areas:
-- README.md — Complete staged workflow documentation, Bible system overview, integrity requirements
+- README.md — Complete staged workflow documentation, Bible system overview, project index
+- ROUTER.md — This navigation file
 - .templates/ — Project README template and scaffolding
-- {project-name}/ — Active project documentation (work in progress)
+
+Active Projects:
+- v2-architecture/ — 🚀 ACTIVE: Greenfield rebuild architecture (meetings, blueprints, design)
+- database-centric/ — Database-centric development plan (Sprint 1 complete)
+- infrastructure/ — TypeScript migration, Discord testing, state persistence
+- observability/ — Logging, metrics, alerting architecture and Bible proposals
+- phase-6-consolidation/ — Phase 6 dependency/reorganization analysis
+- scripts-overhaul/ — Scripts migration and modernization
+- specialist-review/ — Expert reviews and implementation planning
+- cleanup/ — Documentation cleanup (20+ timestamped reports)
+- architect-gui/ — Visual GUI editor (DEFERRED)
+
+Supporting Projects:
+- database/ — Database projects and audits
+- development/ — Development infrastructure projects
+- identity/ — Identity resolution and consolidation
+- operations/ — Operations projects
+- error-database/ — Error tracking database
+- homestead-security-integration/ — Homestead security integration
+- prisma-import-standardization/ — Prisma import standards
+- security-db-transformation/ — Security database transformation
+
+Archive & Pending:
 - archive/ — Completed projects (documentation merged to Bible)
-- cleanup/ — Documentation cleanup and organization projects (temp/ subfolder for utility)
 - pending-validation/ — Projects awaiting AI integrity validation
 
 Integration Points:

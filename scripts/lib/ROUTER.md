@@ -1,9 +1,9 @@
 # ROUTER
 
 **Title:** Scripts Shared Library  
-**Purpose:** Reusable TypeScript utilities for all scripts — output, errors, exec, env, fs, ssh, cli, progress  
+**Purpose:** Reusable TypeScript utilities for all scripts — output, errors, exec, env, fs, ssh, cli, progress, templates  
 **Owned Globs:** `scripts/lib/**`  
-**Last Updated (UTC):** 2025-12-21T00:00:00Z
+**Last Updated (UTC):** 2025-12-22T00:00:00Z
 
 ## Overview
 
@@ -16,12 +16,13 @@ This directory contains the foundation library for the Scripts Overhaul Project.
 3. **ESM + .js Extensions** — Compatible with tsx execution
 4. **Composable** — Modules can be used independently or together
 5. **Error Safe** — Consistent error handling with typed exceptions
+6. **Single Source of Truth** — Output utilities are canonical (not src/utils)
 
 ## Module Index
 
 | Module | Purpose | Key Exports |
 |--------|---------|-------------|
-| `output.ts` | ANSI colors, formatted printing | `c`, `printSection`, `printTable` |
+| `output.ts` | ANSI colors, formatted printing | `c`, `printSection`, `printTable`, `formatStatus` |
 | `errors.ts` | Error types, boundaries | `ScriptError`, `handleError`, `withErrorBoundary` |
 | `exec.ts` | Command execution | `exec`, `execQuiet`, `execStream` |
 | `env.ts` | Environment loading | `loadEnv`, `requireEnv`, `getEnv` |
@@ -29,12 +30,13 @@ This directory contains the foundation library for the Scripts Overhaul Project.
 | `ssh.ts` | SSH + WSL fallback | `runSSH`, `renderSSH`, `detectWSL` |
 | `cli.ts` | CLI framework | `createCLI`, `parseArgs` |
 | `progress.ts` | Spinners, progress bars | `createSpinner`, `createProgressBar` |
+| `generate-script.ts` | Script generator | Creates new scripts from template |
 | `index.ts` | Barrel export | All modules re-exported |
 
 ## Areas
 
 ### Core Utilities
-- **output.ts** — ANSI color helpers (`c.red`, `c.green`, etc.), section headers, key-value pairs, tables, lists. No external dependencies.
+- **output.ts** — ANSI color helpers (`c.red`, `c.green`, etc.), section headers, key-value pairs, tables, lists. **CANONICAL source** for format functions (replaces `src/utils/output-formatter.ts`). Exports both print functions (console) and format functions (string return).
 - **errors.ts** — `ScriptError` base class with `EnvError`, `SSHError`, `ExecError`, `FileError`, `ValidationError` subclasses. `handleError()` for graceful exits, `withErrorBoundary()` for async wrappers.
 - **exec.ts** — Promise-based `exec()` using `child_process.execFile`. Options for timeout, streaming, environment override. `commandExists()` for dependency checks.
 

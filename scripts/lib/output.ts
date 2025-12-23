@@ -236,12 +236,152 @@ export function printNumberedList(items: string[], opts: PrintOptions = {}): voi
 }
 
 // ============================================================================
+// Compatibility Functions (from src/utils/output-formatter.ts)
+// These provide string-returning variants for scripts that need them
+// ============================================================================
+
+/**
+ * Status type for formatStatus function
+ */
+export type StatusType = 'success' | 'warning' | 'error' | 'info';
+
+const STATUS_ICONS = {
+  success: '✅',
+  warning: '⚠️',
+  error: '❌',
+  info: 'ℹ️',
+} as const;
+
+const BORDER_CHARS = {
+  light: '─',
+  heavy: '═',
+  none: '',
+} as const;
+
+const DEFAULT_WIDTH = 75;
+const DEFAULT_KEY_WIDTH = 20;
+const DEFAULT_SEPARATOR = ' = ';
+const DEFAULT_BULLET = '•';
+const INDENT_SIZE = 2;
+
+/**
+ * Create a horizontal border line (string return variant).
+ */
+export function formatBorder(
+  width: number = DEFAULT_WIDTH,
+  style: keyof typeof BORDER_CHARS = 'light'
+): string {
+  const char = BORDER_CHARS[style];
+  return char.repeat(width);
+}
+
+/**
+ * Format a section header (string return variant).
+ */
+export function formatSectionHeader(title: string, indent: number = 0): string {
+  const indentation = ' '.repeat(indent * INDENT_SIZE);
+  return `${indentation}[${title}]`;
+}
+
+/**
+ * Format a single key-value pair (string return variant).
+ */
+export function formatKeyValueString(
+  key: string,
+  value: string | number | boolean | null | undefined,
+  options: KeyValueOptions = {}
+): string {
+  const {
+    keyWidth = DEFAULT_KEY_WIDTH,
+    indent = 1,
+  } = options;
+
+  const indentation = ' '.repeat(indent * INDENT_SIZE);
+  const paddedKey = key.padEnd(keyWidth);
+  const displayValue = value === null || value === undefined ? 'n/a' : String(value);
+
+  return `${indentation}${paddedKey}${DEFAULT_SEPARATOR}${displayValue}`;
+}
+
+/**
+ * Format multiple key-value pairs with aligned keys (string return variant).
+ */
+export function formatKeyValueList(
+  pairs: Array<[string, string | number | boolean | null | undefined]>,
+  options: KeyValueOptions = {}
+): string[] {
+  if (pairs.length === 0) {
+    return [];
+  }
+
+  const maxKeyWidth = Math.max(...pairs.map(([key]) => key.length));
+  const keyWidth = Math.max(maxKeyWidth, options.keyWidth ?? 0);
+
+  return pairs.map(([key, value]) =>
+    formatKeyValueString(key, value, { ...options, keyWidth })
+  );
+}
+
+/**
+ * Format a list (string return variant).
+ */
+export function formatList(
+  items: string[],
+  options: { bullet?: string; numbered?: boolean; indent?: number } = {}
+): string[] {
+  const {
+    bullet = DEFAULT_BULLET,
+    numbered = false,
+    indent = 1,
+  } = options;
+
+  const indentation = ' '.repeat(indent * INDENT_SIZE);
+
+  if (items.length === 0) {
+    return [];
+  }
+
+  return items.map((item, index) => {
+    const prefix = numbered ? `${index + 1}.` : bullet;
+    return `${indentation}${prefix} ${item}`;
+  });
+}
+
+/**
+ * Format a status message with icon (string return variant).
+ */
+export function formatStatus(
+  message: string,
+  type: StatusType,
+  indent: number = 1
+): string {
+  const indentation = ' '.repeat(indent * INDENT_SIZE);
+  const icon = STATUS_ICONS[type];
+  return `${indentation}${icon} ${message}`;
+}
+
+/**
+ * Format a progress indicator (string return variant).
+ */
+export function formatProgress(
+  label: string,
+  current: number,
+  total: number,
+  indent: number = 1
+): string {
+  const indentation = ' '.repeat(indent * INDENT_SIZE);
+  const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+  return `${indentation}${label} [${current}/${total}] (${percentage}%)`;
+}
+
+// ============================================================================
 // Export Default
 // ============================================================================
 
 export default {
   colors,
   c,
+  // Print functions (console output)
   printSection,
   printSubsection,
   printKeyValue,
@@ -255,4 +395,12 @@ export default {
   printTable,
   printList,
   printNumberedList,
+  // Format functions (string return)
+  formatBorder,
+  formatSectionHeader,
+  formatKeyValueString,
+  formatKeyValueList,
+  formatList,
+  formatStatus,
+  formatProgress,
 };

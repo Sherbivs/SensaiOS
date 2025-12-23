@@ -1,7 +1,7 @@
 # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-12-18T00:00:00Z
+updated_utc: 2025-12-23T00:00:00Z
 
 meta_files:
   - Patch.md
@@ -109,8 +109,7 @@ categories:
     - secrets/**
     - .db-state/**
     - secrets/prisma-accelerate.env.example (template; real Accelerate secrets now live at C:/Users/sherb/OneDrive/Documents/Key/Prod/.env)
-  sync_layer:
-    - sync-layer/**
+  # NOTE: sync_layer removed (2025-12-23) - directory never existed
   tooling_bins:
     - tools/**
   ci_workflows:
@@ -147,9 +146,7 @@ categories:
   - Store/ROUTER.md
   - Store/db/ROUTER.md
     - secrets/ROUTER.md
-    - sync-layer/ROUTER.md
-    - sync-layer/discord/hooks/ROUTER.md
-    - sync-layer/worker/schema/ROUTER.md
+    # NOTE: sync-layer/ routers removed (2025-12-23) - directory never existed
     - tools/ROUTER.md
     - tools/pgsql17/ROUTER.md
     - tools/pgsql17/pgsql/ROUTER.md
@@ -167,7 +164,7 @@ categories:
     - src/bot/middleware/ROUTER.md
     - src/bot/ops/ROUTER.md
     - src/bot/wilds/ROUTER.md
-    - src/cache/ROUTER.md
+    - src/cli/ROUTER.md
     - src/commands/ROUTER.md
     - src/config/ROUTER.md
     - src/core/ROUTER.md
@@ -178,21 +175,27 @@ categories:
     - src/core/pbsl/data/ROUTER.md
     - src/core/pbsl/encounter/ROUTER.md
     - src/dex/ROUTER.md
-  - src/data/ROUTER.md
+    - src/data/ROUTER.md
     - src/data_pipeline/ROUTER.md
     - src/data_pipeline/schema/ROUTER.md
     - src/engine/ROUTER.md
-    - src/env/ROUTER.md
     - src/lib/ROUTER.md
     - src/models/ROUTER.md
+    - src/observability/ROUTER.md
+    - src/runtime/ROUTER.md
     - src/services/ROUTER.md
+    - src/services/ai/ROUTER.md
     - src/services/cache/ROUTER.md
+    - src/services/database/ROUTER.md
+    - src/services/error-brain/ROUTER.md
+    - src/services/monitoring/ROUTER.md
     - src/shared/ROUTER.md
     - src/shared/cache/ROUTER.md
-    - src/shared/storage/ROUTER.md
+    - src/shared/logging/ROUTER.md
     - src/types/ROUTER.md
     - src/utils/ROUTER.md
-    - src/worker/ROUTER.md
+    - src/workers/ROUTER.md
+    # NOTE: src/cache/, src/env/, src/errors/ removed in Architecture Audit Meeting #6 (2025-12-23)
     # NOTE: discord-pokemon-bot/ removed in Dead Code Cleanup Meeting #4 (2025-12-20)
     - tests/ROUTER.md
   - tests/battle/ROUTER.md

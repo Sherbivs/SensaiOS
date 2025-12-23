@@ -22,7 +22,7 @@ export {
   c,
   colors,
   
-  // Print functions
+  // Print functions (console output)
   printSection,
   printSubsection,
   printKeyValue,
@@ -39,10 +39,20 @@ export {
   printInfo,
   printDebug,
   
+  // Format functions (string return - compatibility with src/utils/output-formatter.ts)
+  formatBorder,
+  formatSectionHeader,
+  formatKeyValueString,
+  formatKeyValueList,
+  formatList,
+  formatStatus,
+  formatProgress,
+  
   // Types
   type PrintOptions,
   type TableOptions,
   type KeyValueOptions,
+  type StatusType,
 } from './output.js';
 
 // ============================================================================

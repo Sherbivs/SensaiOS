@@ -1,0 +1,126 @@
+#!/usr/bin/env tsx
+/**
+ * {{SCRIPT_NAME}} - {{DESCRIPTION}}
+ *
+ * PURPOSE:
+ *   {{PURPOSE}}
+ *
+ * USAGE:
+ *   npx tsx scripts/{{DOMAIN}}/{{FILENAME}}.ts [options]
+ *
+ * EXIT CODES:
+ *   0 - Success
+ *   1 - Error
+ *
+ * @module scripts/{{DOMAIN}}/{{FILENAME}}
+ * @since {{DATE}}
+ */
+
+import {
+  c,
+  printSection,
+  printSubsection,
+  printSuccess,
+  printError,
+  printWarning,
+  printKeyValue,
+  handleError,
+  loadEnv,
+  ScriptError,
+} from '../lib/index.js';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+interface Options {
+  verbose?: boolean;
+  dryRun?: boolean;
+}
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+const DEFAULT_OPTIONS: Options = {
+  verbose: false,
+  dryRun: false,
+};
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+function parseArgs(): Options {
+  const args = process.argv.slice(2);
+  const options: Options = { ...DEFAULT_OPTIONS };
+
+  for (const arg of args) {
+    if (arg === '--verbose' || arg === '-v') {
+      options.verbose = true;
+    } else if (arg === '--dry-run' || arg === '-n') {
+      options.dryRun = true;
+    } else if (arg === '--help' || arg === '-h') {
+      printHelp();
+      process.exit(0);
+    }
+  }
+
+  return options;
+}
+
+function printHelp(): void {
+  console.log(`
+${c.bold('{{SCRIPT_NAME}}')} - {{DESCRIPTION}}
+
+${c.bold('USAGE:')}
+  npx tsx scripts/{{DOMAIN}}/{{FILENAME}}.ts [options]
+
+${c.bold('OPTIONS:')}
+  -v, --verbose    Enable verbose output
+  -n, --dry-run    Show what would be done without making changes
+  -h, --help       Show this help message
+
+${c.bold('EXAMPLES:')}
+  npx tsx scripts/{{DOMAIN}}/{{FILENAME}}.ts
+  npx tsx scripts/{{DOMAIN}}/{{FILENAME}}.ts --verbose
+  npx tsx scripts/{{DOMAIN}}/{{FILENAME}}.ts --dry-run
+`);
+}
+
+// ============================================================================
+// Main Logic
+// ============================================================================
+
+async function run(options: Options): Promise<void> {
+  printSection('{{SCRIPT_NAME}}');
+
+  if (options.dryRun) {
+    printWarning('DRY RUN MODE - No changes will be made');
+  }
+
+  // TODO: Implement your logic here
+  printSubsection('Processing');
+  
+  printKeyValue('Status', 'TODO: Implement');
+  
+  if (options.verbose) {
+    printKeyValue('Verbose', 'Enabled');
+  }
+
+  printSuccess('Completed successfully');
+}
+
+// ============================================================================
+// Entry Point
+// ============================================================================
+
+async function main(): Promise<void> {
+  // Load environment variables (optional)
+  loadEnv();
+
+  const options = parseArgs();
+  await run(options);
+}
+
+main().catch(handleError);

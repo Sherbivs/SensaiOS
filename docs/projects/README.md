@@ -118,65 +118,71 @@ Before ANY Bible integration, run this validation:
 
 ## 📂 Current Projects
 
+### 🚀 ACTIVE: v2 Architecture (Greenfield Rebuild)
+**Location:** [`v2-architecture/`](./v2-architecture/README.md)  
+**Status:** 🚧 In Progress  
+**Started:** 2025-12-21
+
+Architecture specialist panel documentation for the perfect Infinity Gauntlet v2 rebuild:
+- `architecture/` — Design blueprints (ideal-architecture-blueprint.md, ARCHITECTURE-PERFECTION-PLAN.md)
+- `meetings/` — 8 panel meeting transcripts and reports
+- `implementation/` — Build notes (pending)
+- `bible-integration/` — Pre-integration prep
+
 ### Active Projects
-- **cleanup/** — Documentation cleanup and organization projects
-  - `temp/` — Utility folder for temporary cleanup operations and staging
-  - **Completion Reports (Timestamped):**
-    * `2025-12-02-docs-root-cleanup.md` — Phase 1: Root organization (88% reduction)
-    * `2025-12-02-team-navigation-complete.md` — Phase 2: 100% navigation coverage
-    * `2025-12-02-bible-system-verification.md` — Phase 3: Projects folder organization
-  - **Naming Convention:** `YYYY-MM-DD-{descriptive-project-name}.md`
-  - **Purpose:** Chronological tracking of cleanup phases and results
 
-- **development/** — Development infrastructure and tooling projects
-  - **Completion Reports (Timestamped):**
-    * `2025-12-02-bible-system-complete.md` — Phase 1: Bible-centric documentation system
-  - **Purpose:** System improvements, workflow enhancements, infrastructure projects
-
-- **database/** — Database-related projects and audits
-  - **Completion Reports:**
-    * `2025-12-07-id-standardization-audit.md` — Database ID format audit ✅ RESOLVED
-  - **Purpose:** Database schema, migrations, ID standardization
-
-- **identity/** — Identity resolution and consolidation projects
-  - [README.md](./identity/README.md) — Project overview
-  - **Completion Reports:**
-    * `2025-12-08-identity-consolidation-complete.md` — Identity Consolidation System ✅ COMPLETE
-  - **Purpose:** Unified player identity resolution, Discord identity services
-  - **Key Deliverables:** discord-identity.ts (687 lines), player-resolver.ts (420 lines)
-
-- **database-centric/** — 🚀 **ACTIVE** Database-Centric Development Plan
+- **database-centric/** — Database-Centric Development Plan
   - [README.md](./database-centric/README.md) — Project hub with navigation
   - [SPRINT-TRACKER.md](./database-centric/SPRINT-TRACKER.md) — Current sprint checklist
-  - [DELIVERABLES.md](./database-centric/DELIVERABLES.md) — Files created/modified
-  - [MASTER-PLAN.md](./database-centric/MASTER-PLAN.md) — Full specification (13,032 lines)
-  - [COMMENCEMENT-PLAN.md](./database-centric/COMMENCEMENT-PLAN.md) — Execution roadmap (971 lines)
-  - `sprints/` — Sprint completion reports
-  - `architecture/` — Design notes
-  - `implementation/` — Gotchas and workarounds
+  - `architecture/` — Design notes (DATABASE-CENTRIC-DEVELOPMENT-PLAN.md, DATA-STORAGE-AUDIT.md)
+  - `implementation/` — Gotchas and workarounds (COMMENCEMENT-PLAN.md)
   - **Status:** Sprint 1 ✅ COMPLETE (7/7 P0 tasks)
-  - **Progress:** ~1,110 lines added, 4 new files, 4 modified files
 
-- **architect-gui/** — Infinity-G-Architect visual GUI editor (DEFERRED)
-  - `README.md` — Full planning document with architecture, tech stack, phases
-  - `TASKS.md` — 18 tasks across 5 phases (~142 hours estimated)
+- **infrastructure/** — Infrastructure Projects
+  - `architecture/` — TYPESCRIPT-MIGRATION-PLAN.md, DISCORD-TESTING-READINESS-AUDIT.md, state-persistence-overhaul.md
+  - **Purpose:** TypeScript migration, Discord testing, state persistence
+
+- **observability/** — Observability & Metrics
+  - `architecture/` — OBSERVABILITY-CONSOLIDATION-ANALYSIS.md
+  - `bible-integration/` — observability-bible.md, metrics-expansion-bible.md
+  - **Purpose:** Logging, metrics, alerting architecture
+
+- **phase-6-consolidation/** — Phase 6 Work
+  - `architecture/` — PHASE-6-DEPENDENCY-MAP.md, PHASE-6-DIRECTORY-REORGANIZATION.md, PHASE-6-MERGE-ANALYSIS.md
+  - **Purpose:** Code consolidation and dependency cleanup
+
+- **scripts-overhaul/** — Scripts Migration
+  - `architecture/` — scripts-overhaul-project.md
+  - `implementation/` — scripts-phase-3-migration-plan.md
+  - **Purpose:** Script organization and modernization
+
+- **specialist-review/** — Specialist Reviews
+  - `architecture/` — SPECIALIST-IMPLEMENTATION-PLAN-2025-12-21.md, SPECIALIST-REVIEW-2025-12-21.md
+  - `implementation/` — PHASE-1-QUICK-START.md
+  - **Purpose:** Expert review and implementation planning
+
+- **cleanup/** — Documentation Cleanup
+  - `temp/` — Utility folder for temporary cleanup operations
+  - **Completion Reports:** 20+ timestamped cleanup reports
+  - **Purpose:** Chronological tracking of cleanup phases
+
+- **architect-gui/** — Visual GUI Editor (DEFERRED)
   - **Status:** 📋 PLANNING (awaiting database-centric completion)
-  - **Target Start:** After Database-Centric project completes
-  - **Purpose:** Visual architecture editor with Git integration
 
-### Pending Bible Integration
-- **database-centric/** — After all sprints complete, integrate pool config, metrics, architecture patterns to Bible
+### Supporting Folders
 
-### Archived Projects
-- *(Completed projects, documentation merged to Bible)*
-- See `docs/projects/archive/` for historical project documentation
+- **database/** — Database projects and audits
+- **development/** — Development infrastructure projects
+- **identity/** — Identity resolution and consolidation
+- **operations/** — Operations projects
+- **error-database/** — Error tracking database
+- **homestead-security-integration/** — Homestead security integration
+- **prisma-import-standardization/** — Prisma import standards
+- **security-db-transformation/** — Security database transformation
 
-### Legacy Root Files (To Be Cleaned)
-The following files in `docs/projects/` root should be moved to appropriate project folders:
-- `DATABASE-CENTRIC-DEVELOPMENT-PLAN.md` → Copied to `database-centric/MASTER-PLAN.md` ✅
-- `COMMENCEMENT-PLAN.md` → Copied to `database-centric/COMMENCEMENT-PLAN.md` ✅
-- `DATA-STORAGE-AUDIT.md` → Move to `database/` or `archive/`
-- `DISCORD-TESTING-READINESS-AUDIT.md` → Move to appropriate project or `archive/`
+### Archived & Pending
+- **archive/** — Completed projects (documentation merged to Bible)
+- **pending-validation/** — Projects awaiting AI integrity check
 
 ---
 

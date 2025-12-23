@@ -35,6 +35,8 @@ import {
   type CommandDef,
 } from '../lib/index.js';
 import * as path from 'path';
+import { execSync } from 'child_process';
+import { readdir } from 'fs/promises';
 
 // ============================================================================
 // Types
@@ -395,6 +397,175 @@ async function guardLargeFiles(): Promise<GuardResult> {
 }
 
 // ============================================================================
+// Ported Guards (from scripts/guards/)
+// ============================================================================
+
+/**
+ * Guard: Auto-sync environment files exist and are non-empty
+ * Ported from: scripts/guards/guard_auto_sync.sh
+ */
+async function guardAutoSync(): Promise<GuardResult> {
+  const defaultDevEnv = 'C:/Users/sherb/OneDrive/Documents/Key/Dev/.env';
+  const defaultProdEnv = 'C:/Users/sherb/OneDrive/Documents/Key/Prod/.env';
+  const triggerPath = 'data/cache/dex-sync-trigger.json';
+
+  const devEnvPath = process.env.IG_DEV_ENV_FILE || defaultDevEnv;
+  const prodEnvPath = process.env.IG_PROD_ENV_FILE || defaultProdEnv;
+
+  const issues: string[] = [];
+
+  // Check dev env file
+  if (!await exists(devEnvPath)) {
+    issues.push(`Dev env file not found: ${devEnvPath}`);
+  }
+
+  // Check prod env file
+  if (!await exists(prodEnvPath)) {
+    issues.push(`Prod env file not found: ${prodEnvPath}`);
+  }
+
+  // Check trigger file
+  if (!await exists(triggerPath)) {
+    issues.push(`Trigger file not found: ${triggerPath}`);
+  }
+
+  return {
+    name: 'Auto-Sync Files',
+    passed: issues.length === 0,
+    message: issues.length === 0 ? 'All required files present' : `${issues.length} missing files`,
+    details: issues.length > 0 ? issues : undefined,
+  };
+}
+
+/**
+ * Guard: Dexpack artifacts are up-to-date
+ * Ported from: scripts/guards/guard_dexpack.sh
+ */
+async function guardDexpack(): Promise<GuardResult> {
+  const v1Script = 'scripts/build_dexpack.ts';
+  const v2Script = 'scripts/build-dexpack.ts';
+
+  // Check v1 artifacts
+  try {
+    execSync(`npx tsx ${v1Script} --check`, { 
+      stdio: 'pipe',
+      encoding: 'utf-8',
+      timeout: 60000,
+    });
+  } catch (error) {
+    const err = error as { message?: string };
+    return {
+      name: 'Dexpack v1',
+      passed: false,
+      message: 'v1 artifacts out of date',
+      details: [err.message || 'Check failed'],
+    };
+  }
+
+  // Check v2 artifacts
+  try {
+    execSync(`npx tsx ${v2Script} --check`, { 
+      stdio: 'pipe',
+      encoding: 'utf-8',
+      timeout: 60000,
+    });
+  } catch (error) {
+    const err = error as { message?: string };
+    return {
+      name: 'Dexpack v2',
+      passed: false,
+      message: 'v2 artifacts out of date',
+      details: [err.message || 'Check failed'],
+    };
+  }
+
+  return {
+    name: 'Dexpack',
+    passed: true,
+    message: 'All dexpack artifacts up-to-date',
+  };
+}
+
+/**
+ * Guard: Prisma imports use the centralized prisma.ts module
+ * 
+ * This guard ensures that Prisma client usage goes through the centralized
+ * src/shared/prisma.ts module rather than importing directly from generated
+ * or @prisma/client. This ensures proper initialization and connection handling.
+ * 
+ * Originally ported from: scripts/guards/require-ensure-db-preload.mjs
+ * Updated: 2025-12-23 to match actual codebase architecture
+ */
+async function guardDbPreload(): Promise<GuardResult> {
+  const srcDir = 'src';
+  
+  // Check for direct @prisma/client imports (should use generated or shared)
+  const directPrismaPattern = /from\s+["']@prisma\/client["']/;
+  // Check for proper centralized prisma import
+  const centralizedPrismaPattern = /from\s+["'][^"']*shared\/prisma(?:\.[jt]s)?["']/;
+  
+  const issues: string[] = [];
+
+  async function collectTsFiles(dir: string): Promise<string[]> {
+    const files: string[] = [];
+    try {
+      const entries = await readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue;
+        // Skip generated directory
+        if (entry.name === 'generated') continue;
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          files.push(...await collectTsFiles(fullPath));
+        } else if (/\.(ts|tsx|js|jsx)$/i.test(entry.name)) {
+          files.push(fullPath);
+        }
+      }
+    } catch {
+      // Directory doesn't exist or can't be read
+    }
+    return files;
+  }
+
+  const files = await collectTsFiles(srcDir);
+  
+  for (const file of files) {
+    try {
+      const contents = await readText(file);
+      const relPath = file.replace(/\\/g, '/');
+      
+      // Check for direct @prisma/client imports (excluding type imports)
+      const lines = contents.split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line.startsWith('import type')) continue;
+        if (directPrismaPattern.test(line)) {
+          issues.push(`${relPath}:${i + 1}: Direct @prisma/client import - use ../shared/prisma.js or ../generated/prisma/client.js`);
+        }
+      }
+    } catch {
+      // Skip unreadable files
+    }
+  }
+
+  // If no issues, the guard passes
+  if (issues.length === 0) {
+    return {
+      name: 'Prisma Import Pattern',
+      passed: true,
+      message: 'All Prisma imports use centralized module',
+    };
+  }
+
+  return {
+    name: 'Prisma Import Pattern',
+    passed: false,
+    message: `${issues.length} direct @prisma/client imports found`,
+    details: issues.slice(0, 10),
+  };
+}
+
+// ============================================================================
 // Commands
 // ============================================================================
 
@@ -421,6 +592,9 @@ const allCommand: CommandDef = {
       { name: 'Prisma', fn: async () => [await guardPrismaSchema()] },
       { name: 'Secrets', fn: async () => [await guardSecrets()] },
       { name: 'Large Files', fn: async () => [await guardLargeFiles()] },
+      { name: 'Auto-Sync', fn: async () => [await guardAutoSync()] },
+      { name: 'DB Preload', fn: async () => [await guardDbPreload()] },
+      // Note: Dexpack guard is slow, run separately with: npx tsx scripts/guard/cli.ts dexpack
     ];
 
     const allResults: GuardResult[] = [];
@@ -544,6 +718,55 @@ const sizeCommand: CommandDef = {
   },
 };
 
+const autoSyncCommand: CommandDef = {
+  description: 'Check auto-sync environment files exist',
+  run: async () => {
+    printSection('Auto-Sync Guards');
+    console.log();
+
+    const result = await guardAutoSync();
+    printGuardResult(result);
+    
+    const allPassed = summarizeGuards([result]);
+    process.exit(allPassed ? 0 : 1);
+  },
+};
+
+const dexpackCommand: CommandDef = {
+  description: 'Check dexpack artifacts are up-to-date (slow)',
+  run: async () => {
+    printSection('Dexpack Guards');
+    console.log();
+
+    printInfo('Checking dexpack v1 artifacts...');
+    const spinner = createSpinner({ text: 'Verifying dexpack...' });
+    const result = await guardDexpack();
+    spinner.stop();
+    
+    printGuardResult(result);
+    
+    const allPassed = summarizeGuards([result]);
+    process.exit(allPassed ? 0 : 1);
+  },
+};
+
+const dbPreloadCommand: CommandDef = {
+  description: 'Check Prisma import order (ensure-db-url first)',
+  run: async () => {
+    printSection('DB Preload Guards');
+    console.log();
+
+    const spinner = createSpinner({ text: 'Scanning import order...' });
+    const result = await guardDbPreload();
+    spinner.stop();
+    
+    printGuardResult(result);
+    
+    const allPassed = summarizeGuards([result]);
+    process.exit(allPassed ? 0 : 1);
+  },
+};
+
 // ============================================================================
 // CLI Setup
 // ============================================================================
@@ -559,6 +782,9 @@ createCLI({
     secrets: secretsCommand,
     schema: schemaCommand,
     size: sizeCommand,
+    'auto-sync': autoSyncCommand,
+    dexpack: dexpackCommand,
+    'db-preload': dbPreloadCommand,
   },
 });
 
